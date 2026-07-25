@@ -266,6 +266,13 @@ public:
    */
   using BlendFn = float (*)(int frame, int duration);
 
+  /** @brief Face-order relationship between departed and swept meshes. */
+  enum class FaceCorrespondence : uint8_t {
+    GEOMETRIC,
+    IDENTITY,
+    DUAL_CLOSING,
+  };
+
   /**
    * @brief Palette provenance of the departed node (spec sections 2.5/2.6).
    * @details prev_face_palette/prev_face_sides describe the node base mesh the
@@ -303,6 +310,8 @@ public:
                     swap's whole face list) — takes
                     to_palette[counter++ % PALETTES], in ascending key order.
                     Null keys newborns by wrap(class, PALETTES). */
+    FaceCorrespondence correspondence =
+        FaceCorrespondence::GEOMETRIC; /**< Palette provenance mapping. */
   };
 
   /**
@@ -833,7 +842,8 @@ public:
   HS_COLD_MEMBER
   OpLeg(const PolyMesh &from_mesh, const Vector *to_positions, ReconcileTag,
         Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
-        int sweep_frames, const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        int sweep_frames,
+        const BookendClasses &bookend = BookendClasses{nullptr, 0},
         BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
@@ -1096,9 +1106,8 @@ private:
                     life). */
     size_t seed_faces = 0; /**< Seed face count; set by every kind, including
                               the ones that keep no seed. */
-    LegKind kind =
-        LegKind::CONWAY_SWEEP;  /**< Swept-mesh production path. */
-    CompiledHankin hankin;      /**< Baked topology (HANKIN_SWEEP legs). */
+    LegKind kind = LegKind::CONWAY_SWEEP; /**< Swept-mesh production path. */
+    CompiledHankin hankin; /**< Baked topology (HANKIN_SWEEP legs). */
     ArenaVector<StarPoint>
         hk_final; /**< Arrival star points, snorm16-packed (HANKIN_SWEEP). */
     ConwayGraph::MorphOp op =
@@ -1134,10 +1143,38 @@ private:
     uint8_t ramp_from[MAX_BLEND_PAIRS] = {}; /**< Per-pair from palette. */
     uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
     int num_ramps = 0;                       /**< Distinct pair count. */
-    float w_lo = 0.0f, w_hi = 1.0f; /**< Chained-leg blend-weight range. */
+    float w_lo = 0.0f, w_hi = 1.0f;   /**< Chained-leg blend-weight range. */
     BlendFn blend_fn = classic_blend; /**< Swept crossfade curve. */
     Landing landing; /**< Arrival data exposed to the effect. */
   };
+
+  HS_COLD_MEMBER static const uint8_t *
+  dual_closing_palettes(const PolyMesh &dual, const PaletteHandoff &handoff,
+                        Arena &scratch) {
+    const size_t dual_faces = dual.face_counts.size();
+    const size_t primal_faces = dual.vertices.size();
+    HS_CHECK(handoff.immutable && !handoff.prev_face_centroid &&
+                 handoff.prev_faces == dual_faces + primal_faces,
+             "OpLeg: invalid structural dual handoff");
+
+    uint8_t *from = scratch.allocate_n<uint8_t>(handoff.prev_faces);
+    for (size_t f = 0; f < dual_faces; ++f)
+      from[f] = handoff.prev_face_palette[primal_faces + f];
+
+    bool *seen = scratch.allocate_n<bool>(primal_faces);
+    std::fill_n(seen, primal_faces, false);
+    size_t out = dual_faces;
+    for (uint16_t vertex : dual.faces) {
+      HS_CHECK(vertex < primal_faces, "OpLeg: dual face index out of range");
+      if (seen[vertex])
+        continue;
+      seen[vertex] = true;
+      from[out++] = handoff.prev_face_palette[vertex];
+    }
+    HS_CHECK(out == handoff.prev_faces,
+             "OpLeg: structural dual handoff is incomplete");
+    return from;
+  }
 
   /**
    * @brief Shared CONWAY_SWEEP construction tail: arrival classification
@@ -1159,6 +1196,9 @@ private:
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
     const PolyMesh &seed = *tr.seed_ref;
+    const uint8_t *forced_from = nullptr;
+    if (handoff.correspondence == FaceCorrespondence::DUAL_CLOSING)
+      forced_from = dual_closing_palettes(seed, handoff, scratch_arena_a);
 
     // Truncate corner-suffix birth refinement: the corner faces of a
     // near-ambo arrival collapse into one congruence class on
@@ -1255,8 +1295,7 @@ private:
     const size_t survivors =
         jitterbug ? tr.seed_faces + seed.vertices.size() : tr.seed_faces;
     build_palette_mapping(tr, *classified, handoff, bookend, arena,
-                          start_centroid, survivors, /*forced_from=*/nullptr,
-                          birth_sig);
+                          start_centroid, survivors, forced_from, birth_sig);
   }
 
   /**
@@ -1997,14 +2036,11 @@ private:
    * (the birth_counter keying, or wrap(class, PALETTES) without a counter),
    * so no pair ever blends.
    */
-  HS_COLD_MEMBER void
-  build_palette_mapping(Transients &tr, const PolyMesh &arrival,
-                        const PaletteHandoff &handoff,
-                        const BookendClasses &bookend, Arena &arena,
-                        const Vector *start_centroid, size_t survivors,
-                        const uint8_t *forced_from = nullptr,
-                        const uint16_t *birth_sig = nullptr,
-                        size_t birth_start = SIZE_MAX) {
+  HS_COLD_MEMBER void build_palette_mapping(
+      Transients &tr, const PolyMesh &arrival, const PaletteHandoff &handoff,
+      const BookendClasses &bookend, Arena &arena, const Vector *start_centroid,
+      size_t survivors, const uint8_t *forced_from = nullptr,
+      const uint16_t *birth_sig = nullptr, size_t birth_start = SIZE_MAX) {
     const size_t total = tr.topo.size();
     const size_t primary = tr.seed_faces;
     tr.landing.faces = total;
@@ -2138,6 +2174,10 @@ private:
         // mapping would apply (a dual swap's whole-list births).
       } else if (forced_from) {
         from = forced_from[f];
+      } else if (handoff.correspondence == FaceCorrespondence::IDENTITY) {
+        HS_CHECK(handoff.prev_faces == total,
+                 "OpLeg: identity handoff face count differs");
+        from = handoff.prev_face_palette[f];
       } else if (full_correspondence) {
         const size_t j = nearest_prev_face(start_centroid[f], handoff);
         const Vector d = start_centroid[f] - handoff.prev_face_centroid[j];

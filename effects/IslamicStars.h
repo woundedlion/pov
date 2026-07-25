@@ -157,8 +157,6 @@ private:
   /** Build-chain mesh face cap. Bounds the scratch handoff arrays only; the
    * persistent budget is what actually limits which recipes ship. */
   static constexpr size_t MAX_BUILD_FACES = 1152;
-  /** Largest authored endpoint among the current smooth kis/needle sites. */
-  static constexpr size_t MAX_RECONCILE_VERTICES = 362;
   static constexpr float RIPPLE_THICKNESS =
       0.7f; /**< Fixed ripple wavelet width (radians). */
   static constexpr float RIPPLE_AMP_MAX =
@@ -213,11 +211,6 @@ private:
   PolyMesh build_next_seed_;  /**< Clean endpoint seed_{k+1}: built eagerly at
                                  leg start, or from the leg's own topology at
                                  its end on a hankin step. */
-  inline static std::array<Vector, MAX_RECONCILE_VERTICES>
-      build_reconcile_target_{}; /**< Exact authored kis/needle positions
-                                    carried in the effect type's singleton
-                                    workspace, outside the arena bridge peak. */
-  size_t build_reconcile_vertices_ = 0;
   PolyMesh dual_bridge_ambo_; /**< ambo(P) held across a DUAL bridge: leg 1's
                                  arrival grouping and leg 2's departed mesh. */
   size_t dual_bridge_ambo_faces_ =
@@ -956,24 +949,29 @@ private:
   }
 
   /**
-   * @brief Palette handoff departing the current build seed: geometric
-   * provenance (per-face centroids) plus the seed's displayed palette (the
-   * carousel slot at leg 0, the previous leg's landing after).
+   * @brief Captures palette provenance for a leg departing the current seed.
    * @param scratch Arena the centroid and palette arrays live in; must outlive
    * the OpLeg constructor that reads them.
+   * @param correspondence Departed-to-swept face-order relationship.
    */
-  HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff seed_handoff(Arena &scratch) {
+  HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff
+  seed_handoff(Arena &scratch,
+               Animation::OpLeg::FaceCorrespondence correspondence =
+                   Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
     const size_t prev_faces = build_seed_.face_counts.size();
     HS_CHECK(prev_faces <= MAX_BUILD_FACES);
-    Vector *prev_centroid = scratch.allocate_n<Vector>(prev_faces);
-    size_t off = 0;
-    for (size_t f = 0; f < prev_faces; ++f) {
-      Vector c(0.0f, 0.0f, 0.0f);
-      const int n = build_seed_.face_counts[f];
-      for (int j = 0; j < n; ++j)
-        c = c + build_seed_.vertices[build_seed_.faces[off + j]];
-      prev_centroid[f] = c.normalized();
-      off += n;
+    Vector *prev_centroid = nullptr;
+    if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
+      prev_centroid = scratch.allocate_n<Vector>(prev_faces);
+      size_t off = 0;
+      for (size_t f = 0; f < prev_faces; ++f) {
+        Vector c(0.0f, 0.0f, 0.0f);
+        const int n = build_seed_.face_counts[f];
+        for (int j = 0; j < n; ++j)
+          c = c + build_seed_.vertices[build_seed_.faces[off + j]];
+        prev_centroid[f] = c.normalized();
+        off += n;
+      }
     }
     const uint8_t *prev_pal;
     if (!build_from_pal_) {
@@ -1000,32 +998,39 @@ private:
             prev_centroid,
             &build_palette_order_,
             true,
-            &build_birth_counter_};
+            &build_birth_counter_,
+            correspondence};
   }
 
   /**
-   * @brief Palette handoff departing a mesh the previous leg landed on: its
-   * per-face centroids plus the palette that leg drew each face with.
+   * @brief Captures palette provenance for a leg departing a prior landing.
    * @param departed Mesh the next leg departs from, in the previous leg's
    * landing face order (so its face f carries build_landing_ face f's palette).
    * @param scratch Arena the arrays live in.
+   * @param correspondence Departed-to-swept face-order relationship.
    */
   HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff
-  landing_handoff(const PolyMesh &departed, Arena &scratch) {
+  landing_handoff(const PolyMesh &departed, Arena &scratch,
+                  Animation::OpLeg::FaceCorrespondence correspondence =
+                      Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
     const size_t nf = departed.face_counts.size();
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
              build_landing_->faces >= nf);
-    Vector *cen = scratch.allocate_n<Vector>(nf);
+    Vector *cen = nullptr;
     uint8_t *pal = scratch.allocate_n<uint8_t>(nf);
+    if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC)
+      cen = scratch.allocate_n<Vector>(nf);
     size_t off = 0;
     for (size_t f = 0; f < nf; ++f) {
-      Vector c(0.0f, 0.0f, 0.0f);
-      const int n = departed.face_counts[f];
-      for (int j = 0; j < n; ++j)
-        c = c + departed.vertices[departed.faces[off + j]];
-      cen[f] = c.normalized();
+      if (cen) {
+        Vector c(0.0f, 0.0f, 0.0f);
+        const int n = departed.face_counts[f];
+        for (int j = 0; j < n; ++j)
+          c = c + departed.vertices[departed.faces[off + j]];
+        cen[f] = c.normalized();
+        off += n;
+      }
       pal[f] = build_landing_->from_palette[f];
-      off += n;
     }
     return {&palette_bank_.bank,
             pal,
@@ -1035,7 +1040,8 @@ private:
             cen,
             &build_palette_order_,
             true,
-            &build_birth_counter_};
+            &build_birth_counter_,
+            correspondence};
   }
 
   /**
@@ -1098,7 +1104,8 @@ private:
     // from the leg-1 landing) before compacting away that finished leg. The
     // arrays live in scratch_a, which the persistent reset below leaves intact.
     Animation::OpLeg::PaletteHandoff handoff =
-        landing_handoff(dual_bridge_ambo_, scratch_arena_a);
+        landing_handoff(dual_bridge_ambo_, scratch_arena_a,
+                        Animation::OpLeg::FaceCorrespondence::IDENTITY);
     build_landing_ = nullptr;
 
     // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
@@ -1134,30 +1141,11 @@ private:
    */
   HS_COLD_MEMBER void schedule_dual_untruncate() {
     ScratchScope a_guard(scratch_arena_a);
-    // Snapshot the two things leg 3 needs from the finished leg 2 -- centroids
-    // reduced from its packed arrival endpoint and its landed palettes -- into
-    // scratch_a, which the persistent reset below leaves intact.
     const size_t nf = dual_bridge_ambo_faces_;
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
-             build_landing_->faces >= nf && build_landing_->arrival_topology &&
-             build_landing_->arrival_point);
-    const PolyMesh &arrival = *build_landing_->arrival_topology;
-    HS_CHECK(arrival.face_counts.size() == nf);
-    Vector *cen = scratch_arena_a.allocate_n<Vector>(nf);
+             build_landing_->faces >= nf);
     uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(nf);
-    size_t off = 0;
-    for (size_t f = 0; f < nf; ++f) {
-      Vector c(0.0f, 0.0f, 0.0f);
-      const int n = arrival.face_counts[f];
-      for (int j = 0; j < n; ++j) {
-        const size_t v = arrival.faces[off + j];
-        HS_CHECK(v < build_landing_->arrival_points);
-        c = c + build_landing_->arrival_point[v].decode().normalized();
-      }
-      cen[f] = c.normalized();
-      pal[f] = build_landing_->from_palette[f];
-      off += n;
-    }
+    std::copy_n(build_landing_->from_palette, nf, pal);
     build_landing_ = nullptr;
 
     // Compact: keep the seed P (leg 3 builds dual(P) from it), drop leg 2 (the
@@ -1186,15 +1174,17 @@ private:
     }
     HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
 
-    Animation::OpLeg::PaletteHandoff handoff{&palette_bank_.bank,
-                                             pal,
-                                             nullptr,
-                                             nf,
-                                             false,
-                                             cen,
-                                             &build_palette_order_,
-                                             true,
-                                             &build_birth_counter_};
+    Animation::OpLeg::PaletteHandoff handoff{
+        &palette_bank_.bank,
+        pal,
+        nullptr,
+        nf,
+        false,
+        nullptr,
+        &build_palette_order_,
+        true,
+        &build_birth_counter_,
+        Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING};
     Animation::OpLeg::BookendClasses bookend{
         build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
     const int frames = dual_sub_frames(2);
@@ -1281,7 +1271,6 @@ private:
    * exact kis(dual(X)) mesh. Covers both the DUAL step and its trailing KIS.
    */
   HS_COLD_MEMBER void schedule_dt_macro() {
-    prepare_reconcile_target(/*needle=*/true);
     schedule_macro_truncate("dt truncate", [this] { dt_after_truncate(); });
   }
   HS_COLD_MEMBER void dt_after_truncate() {
@@ -1293,7 +1282,7 @@ private:
     carry_landing_to_seed(); // build_seed_ = dual(truncate(X, 1/3)) (identity)
     dual_bridge_done_ = [this] { finish_build_leg(); };
     ++build_step_; // advance onto the KIS index the reconcile finishes at
-    schedule_reconcile();
+    schedule_reconcile(build_step_ - 1, /*kis_of_dual=*/true);
   }
 
   /**
@@ -1302,7 +1291,6 @@ private:
    * reconcile onto the exact kis(X) mesh. Runs entirely on the KIS step.
    */
   HS_COLD_MEMBER void schedule_dtd_macro() {
-    prepare_reconcile_target(/*needle=*/false);
     dual_bridge_done_ = [this] { dtd_after_bridge1(); };
     schedule_dual_bridge();
   }
@@ -1318,25 +1306,7 @@ private:
   HS_COLD_MEMBER void dtd_after_bridge2() {
     carry_landing_to_seed(); // build_seed_ = dual(truncate(dual(X), 1/3))
     dual_bridge_done_ = [this] { finish_build_leg(); };
-    schedule_reconcile();
-  }
-
-  /**
-   * @brief Captures the exact authored endpoint while the macro's source X is
-   * still the current seed.
-   * @param needle True for needle(X), false for kis(X).
-   */
-  HS_COLD_MEMBER void prepare_reconcile_target(bool needle) {
-    ScratchScope a_guard(scratch_arena_a);
-    ScratchScope b_guard(scratch_arena_b);
-    PolyMesh authored =
-        needle ? MeshOps::needle(build_seed_, scratch_arena_a, scratch_arena_b)
-               : MeshOps::kis(build_seed_, scratch_arena_a, scratch_arena_b);
-    build_reconcile_vertices_ = authored.vertices.size();
-    HS_CHECK(build_reconcile_vertices_ <= build_reconcile_target_.size(),
-             "IslamicStars: reconcile endpoint exceeds the fixed target");
-    std::copy_n(authored.vertices.data(), build_reconcile_vertices_,
-                build_reconcile_target_.data());
+    schedule_reconcile(build_step_, /*kis_of_dual=*/false);
   }
 
   /**
@@ -1344,7 +1314,7 @@ private:
    * mesh's connectivity through the nearest-vertex bijection.
    * @param identity Identity mesh (dt/dtd result): its connectivity and vertex
    * order are kept; each vertex is matched to the authored vertex nearest it.
-   * @param authored Exact kis/needle positions (same V as identity).
+   * @param authored Exact kis/needle mesh (same V as identity).
    * @param out Receives identity's connectivity carrying the matched authored
    * positions, in identity's vertex order.
    * @param target Arena backing @p out.
@@ -1354,12 +1324,11 @@ private:
    * face.
    */
   HS_COLD_MEMBER void build_reconcile_endpoint(const PolyMesh &identity,
-                                               const Vector *authored,
-                                               size_t authored_vertices,
+                                               const PolyMesh &authored,
                                                PolyMesh &out, Arena &target,
                                                Arena &scratch) {
     const size_t V = identity.vertices.size();
-    HS_CHECK(authored_vertices == V,
+    HS_CHECK(authored.vertices.size() == V,
              "IslamicStars: reconcile endpoints differ in vertex count");
     ScratchScope guard(scratch);
     bool *used = scratch.allocate_n<bool>(V);
@@ -1369,7 +1338,7 @@ private:
       int best = -1;
       float best_dot = -2.0f;
       for (size_t j = 0; j < V; ++j) {
-        const float d = dot(identity.vertices[i], authored[j]);
+        const float d = dot(identity.vertices[i], authored.vertices[j]);
         if (d > best_dot) {
           best_dot = d;
           best = static_cast<int>(j);
@@ -1378,7 +1347,7 @@ private:
       HS_CHECK(best >= 0 && !used[best],
                "IslamicStars: reconcile nearest-vertex map is not a bijection");
       used[best] = true;
-      out.vertices.push_back(authored[best]);
+      out.vertices.push_back(authored.vertices[best]);
     }
     out.face_counts.bind(target, identity.face_counts.size());
     out.face_counts.append_bulk(identity.face_counts.data(),
@@ -1390,12 +1359,28 @@ private:
   /**
    * @brief Schedules the reconcile leg closing a smooth kis/needle macro: a
    * per-vertex great-circle slerp from the identity mesh (build_seed_) onto the
-  * exact authored kis/needle mesh, landing on the generator's mesh.
+   * exact authored kis/needle mesh, landing on the generator's mesh.
+   * @param x_prefix Lowered-step count replayed to rebuild X, the mesh the macro
+   * departed from (the generator's exact intermediate).
+   * @param kis_of_dual True for a dt macro (authored = kis(dual(X)) = needle(X)),
+   * false for a dtd macro (authored = kis(X)).
    */
-  HS_COLD_MEMBER void schedule_reconcile() {
-    build_reconcile_endpoint(build_seed_, build_reconcile_target_.data(),
-                             build_reconcile_vertices_, build_next_seed_,
-                             persistent_arena, scratch_arena_a);
+  HS_COLD_MEMBER void schedule_reconcile(size_t x_prefix, bool kis_of_dual) {
+    const uint8_t seed =
+        Solids::Collections::get_islamic_solids()[solid_idx].recipe->seed;
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      PolyMesh X = Solids::build_steps(seed, build_steps_, x_prefix,
+                                       scratch_arena_a, scratch_arena_b);
+      PolyMesh Xc;
+      MeshOps::clone(X, Xc, scratch_arena_a);
+      PolyMesh authored =
+          kis_of_dual ? MeshOps::needle(Xc, scratch_arena_a, scratch_arena_b)
+                      : MeshOps::kis(Xc, scratch_arena_a, scratch_arena_b);
+      build_reconcile_endpoint(build_seed_, authored, build_next_seed_,
+                               persistent_arena, scratch_arena_a);
+    }
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
@@ -1406,13 +1391,13 @@ private:
     Animation::OpLeg::BookendClasses bookend{
         build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
     ScratchScope handoff_guard(scratch_arena_a);
-    Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
+    Animation::OpLeg::PaletteHandoff handoff = seed_handoff(
+        scratch_arena_a, Animation::OpLeg::FaceCorrespondence::IDENTITY);
     const int frames = build_reconcile_frames_;
     hs::log("Build leg: reconcile (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, build_next_seed_.vertices.data(),
                          Animation::OpLeg::ReconcileTag{}, persistent_arena,
                          draw_build_fn_, handoff, frames, bookend);
-    build_reconcile_vertices_ = 0;
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }
@@ -1521,7 +1506,6 @@ private:
         ScratchScope seed_guard(scratch_arena_b);
         PolyMesh built;
         MeshOps::clone(build_seed_, built, scratch_arena_b);
-        build_reconcile_vertices_ = 0;
         build_next_seed_ = PolyMesh();
         build_seed_ = PolyMesh();
         carousel.compact_drop_all(
