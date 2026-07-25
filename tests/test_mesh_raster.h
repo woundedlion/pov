@@ -391,8 +391,7 @@ inline void test_face_shader_setup_matches_face_index() {
   {
     Canvas c(selected);
     Pipeline<W, H> pipe;
-    Scan::Mesh::draw_specialized<W, H>(pipe, c, mesh, shader, scratch,
-                                       /*debug_bb=*/false, nullptr,
+    Scan::Mesh::draw_specialized<W, H>(pipe, c, mesh, shader, scratch, nullptr,
                                        select_face);
   }
   selected.advance_display();
@@ -754,8 +753,7 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
   {
     Canvas c(lutted);
     Pipeline<W, H> pipe;
-    Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch,
-                           /*debug_bb=*/false, &bake);
+    Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch, &bake);
   }
   lutted.advance_display();
 

@@ -2590,7 +2590,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
         frag.color = sh.ramps[ramp].get(t);
         frag.color.alpha = 255;
       };
-      Scan::Mesh::draw<RW, RH>(filters, c, m, shader, scratch_arena_b, false);
+      Scan::Mesh::draw<RW, RH>(filters, c, m, shader, scratch_arena_b);
     };
     auto snap = [&](std::vector<Pixel> &out) {
       out.resize(static_cast<size_t>(RW) * RH);
