@@ -405,7 +405,7 @@ __attribute__((always_inline)) inline float diamond_angle(float y, float x) {
  * @details Bit-hack initial guess refined by two Newton steps; peak relative
  * error ~5e-6, one-sided low up to the rounding of the final multiply.
  */
-HS_O3_FN inline float fast_rsqrt(float x) {
+inline float fast_rsqrt(float x) {
   uint32_t i;
   std::memcpy(&i, &x, sizeof(i));
   i = 0x5f3759dfu - (i >> 1);
@@ -427,7 +427,7 @@ HS_O3_FN inline float fast_rsqrt(float x) {
  * by ONE Halley step. Peak relative error ~2.3e-5 against cbrtf for x >= 1e-6;
  * the seed degrades in the denormal/tiny-normal tail.
  */
-HS_O3_FN inline float fast_cbrt(float x) {
+inline float fast_cbrt(float x) {
   if (x <= 0.0f)
     return 0.0f;
   uint32_t i;
@@ -443,7 +443,7 @@ HS_O3_FN inline float fast_cbrt(float x) {
 // Halley numerator/denominator for one cube root. A non-positive input gets a
 // zero numerator and a unit denominator so it cannot poison the shared product
 // in fast_cbrt3.
-HS_O3_FN inline void cbrt_halley_terms(float x, float &num, float &den) {
+inline void cbrt_halley_terms(float x, float &num, float &den) {
   if (x <= 0.0f) {
     num = 0.0f;
     den = 1.0f;
@@ -472,8 +472,8 @@ HS_O3_FN inline void cbrt_halley_terms(float x, float &num, float &den) {
  * relative error ~2.3e-5 against cbrtf for x >= 1e-6). The shared denominator
  * product overflows once all three inputs exceed ~1e11.
  */
-HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
-                                float &o2, float &o3) {
+inline void fast_cbrt3(float x1, float x2, float x3, float &o1, float &o2,
+                       float &o3) {
   float n1, d1, n2, d2, n3, d3;
   cbrt_halley_terms(x1, n1, d1);
   cbrt_halley_terms(x2, n2, d2);
@@ -498,7 +498,7 @@ HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
  * ~4.2e5 and underflows below ~1.2e-7, the latter already inside fast_cbrt's
  * degraded tail. The feedback path feeds u16-magnitude channels (<= 65535).
  */
-HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
+inline void fast_cbrt6(const float x[6], float o[6]) {
   float n[6], d[6];
   for (int i = 0; i < 6; ++i)
     cbrt_halley_terms(x[i], n[i], d[i]);
