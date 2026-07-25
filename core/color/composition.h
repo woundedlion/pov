@@ -989,19 +989,18 @@ public:
    * @return The interpolated color.
    */
   Color4 get(float t) const {
-    assert(lut_ != nullptr && "BakedPalette::get before bake()");
-    // Clamp before the int cast: static_cast<int>(NaN) is UB. hs::clamp maps NaN
-    // to the hi bound (last entry) and guarantees idx >= 0.
-    float idx =
-        hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
-    int lo = static_cast<int>(idx);
-    if (lo >= LUT_SIZE - 1)
-      return lut_[LUT_SIZE - 1];
-    float frac = idx - lo;
-    const Color4 &a = lut_[lo];
-    const Color4 &b = lut_[lo + 1];
-    return Color4(a.color.lerp16(b.color, frac_to_q16(frac)),
-                  hs::clamp(a.alpha + (b.alpha - a.alpha) * frac, 0.0f, 1.0f));
+    Color4 out;
+    sample_into(t, out);
+    return out;
+  }
+
+  /**
+   * @brief Writes a lookup result directly into caller-owned storage.
+   * @param t Lookup coordinate; clamped to [0, 1].
+   * @param out Receives the interpolated color.
+   */
+  __attribute__((always_inline)) void get_into(float t, Color4 &out) const {
+    sample_into(t, out);
   }
 
   /**
@@ -1017,6 +1016,23 @@ public:
   }
 
 private:
+  __attribute__((always_inline)) void sample_into(float t, Color4 &out) const {
+    assert(lut_ != nullptr && "BakedPalette::get before bake()");
+    // Clamp before the int cast: static_cast<int>(NaN) is UB. hs::clamp maps NaN
+    // to the hi bound (last entry) and guarantees idx >= 0.
+    float idx =
+        hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
+    int lo = static_cast<int>(idx);
+    if (lo >= LUT_SIZE - 1) {
+      out = lut_[LUT_SIZE - 1];
+      return;
+    }
+    float frac = idx - lo;
+    const Color4 &a = lut_[lo];
+    const Color4 &b = lut_[lo + 1];
+    out = Color4(a.color.lerp16(b.color, frac_to_q16(frac)),
+                 hs::clamp(a.alpha + (b.alpha - a.alpha) * frac, 0.0f, 1.0f));
+  }
   Color4 *lut_ = nullptr;
 };
 
