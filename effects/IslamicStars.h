@@ -49,12 +49,12 @@ public:
    *        with the orientation walk and the first shape.
    */
   void init() override {
-    // Asymmetric scratch split (194 KB total): the leg-by-leg build chain
-    // peaks at ~118 KB in a and ~71 KB in b, and compact_keep_front evacuates
+    // Asymmetric scratch split (190 KB total): the leg-by-leg build chain
+    // peaks at ~114 KB in a and ~69 KB in b, and compact_keep_front evacuates
     // the front slot (up to 63.7 KB) through b. The remainder is persistent:
-    // carousel slots + BakedPaletteBank (~15 KB). Budgets enforced by the
+    // carousel slots + BakedPaletteBank (~21 KB). Budgets enforced by the
     // test_conway_morph.h build replay and test_solids.h's high-water sweeps.
-    configure_arenas(GLOBAL_ARENA_SIZE - (114 + 80) * 1024, 120 * 1024,
+    configure_arenas(GLOBAL_ARENA_SIZE - (116 + 74) * 1024, 116 * 1024,
                      74 * 1024);
 
     ripple_gen.init_storage(persistent_arena);
@@ -156,15 +156,16 @@ private:
    * truncate(seed) (~3x the seed's half-edges); rendering and classifying that
    * tripled mesh needs a scratch_a heavier than the default, while the bridge's
    * per-leg compaction keeps its persistent well under the default. So a bridge
-   * shape spawns on a scratch_a-heavy split and every other shape on the default
-   * (the roster's heaviest hankin solid needs the full default persistent). Each
-   * split's persistent is the device-arena remainder; the two scratch arenas are
-   * the same absolute sizes on host and device (hard-capped, so an over-budget
-   * leg traps). needle's measured peak (131,770 / 75,244 / 94,756) fits the
-   * bridge split, and every other bridge shape is smaller. */
-  static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 120 * 1024; // 122,880
-  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 130 * 1024;  // 133,120
-  static constexpr size_t SPLIT_SCRATCH_B = 74 * 1024;          // 75,776
+   * shape spawns on a scratch_a-heavy split; other recipe builds trade 2 KB of
+   * scratch_b for persistent; generated whole shapes retain the wider scratch_b.
+   * Each split's persistent is the device-arena remainder and both scratch
+   * arenas are hard-capped at their device sizes. Needle's measured peak is
+   * 131,770 / 70,228 / 96,600 bytes. */
+  static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 116 * 1024;      // 118,784
+  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 129 * 1024 + 512; // 132,608
+  static constexpr size_t SPLIT_SCRATCH_B_DEFAULT = 74 * 1024;       // 75,776
+  static constexpr size_t SPLIT_SCRATCH_B_BUILD = 72 * 1024;         // 73,728
+  static constexpr size_t SPLIT_SCRATCH_B_BRIDGE = 74 * 1024;        // 75,776
   static constexpr size_t MAX_BUILD_STEPS = 8; /**< Lowered-primitive cap. */
   /** Build-chain mesh face cap. Bounds the scratch handoff arrays only; the
    * persistent budget is what actually limits which recipes ship. */
@@ -245,9 +246,10 @@ private:
             itself is dropped at the medial leg (persistent-budget relief). */
   size_t device_persistent_budget_ =
       DEVICE_GLOBAL_ARENA_SIZE - SPLIT_SCRATCH_A_DEFAULT -
-      SPLIT_SCRATCH_B; /**< Device persistent budget of the current shape's split;
-                          the host arena is over-provisioned, so gates check the
-                          resident persistent high-water against this. */
+      SPLIT_SCRATCH_B_DEFAULT; /**< Device persistent budget of the current
+                                  shape's split; the host arena is
+                                  over-provisioned, so gates check the resident
+                                  persistent high-water against this. */
   std::array<uint8_t, Animation::OpLeg::PALETTES> build_palette_order_ =
       {}; /**< The shape's shuffled palette order (the spawn shuffle); birth
              cohorts consume it through build_birth_counter_. */
@@ -280,10 +282,10 @@ private:
    * @details Held as a member for stable FunctionRef lifetime.
    */
   Fn<void(Canvas &, MeshState &, const Animation::OpLeg::Shading &), 8>
-      draw_build_fn_{[this](Canvas &c, MeshState &m,
-                            const Animation::OpLeg::Shading &sh) {
-        draw_build_mesh(c, m, sh);
-      }};
+      draw_build_fn_{
+          [this](Canvas &c, MeshState &m, const Animation::OpLeg::Shading &sh) {
+            draw_build_mesh(c, m, sh);
+          }};
 
   /**
    * @brief Claims the two per-slot face-palette arrays from the arena.
@@ -478,8 +480,7 @@ private:
     auto select_face = [&](size_t fi, float size) {
       HS_CHECK(fi < sh.faces, "IslamicStars: build shading face mismatch");
       fragment_shader.palette = &sh.ramps[sh.face_ramp[fi]];
-      fragment_shader.scale =
-          size > math::TOLERANCE ? sh.gain / size : 0.0f;
+      fragment_shader.scale = size > math::TOLERANCE ? sh.gain / size : 0.0f;
     };
 
     {
@@ -489,9 +490,9 @@ private:
       // SDF::FaceScratchBuffer, while scratch_b is near-empty here (the Conway
       // op and compile temps have unwound). The sprite path scans from
       // scratch_a, where its transformed copy already lives.
-      Scan::Mesh::draw_specialized<W, H>(
-          filters, canvas, mesh, fragment_shader, scratch_arena_b,
-          params.debug_bb, nullptr, nullptr, select_face);
+      Scan::Mesh::draw_specialized<W, H>(filters, canvas, mesh, fragment_shader,
+                                         scratch_arena_b, params.debug_bb,
+                                         nullptr, nullptr, select_face);
     }
   }
 
@@ -653,16 +654,17 @@ private:
     // its ~baseline (carousel slots + palette bank, low addresses) and both
     // scratch arenas idle, so resplit_arenas moves only the boundaries -- the
     // long-lived content survives (it never resets the persistent offset). A
-    // smooth kis/needle bridge shape gets the scratch_a-heavy split; every other
-    // shape keeps the default (its heavier persistent). The scratch sizes are the
-    // absolute device sizes; persistent takes the (host-inflated) remainder.
+    // smooth kis/needle bridge shape gets the scratch_a-heavy split; other
+    // recipes trade unused scratch_b for persistent; whole-generated shapes
+    // keep the full generation scratch_b. Persistent takes the remainder.
     const bool bridge_split = recipe && build_uses_smooth_bridge();
     const size_t split_a =
         bridge_split ? SPLIT_SCRATCH_A_BRIDGE : SPLIT_SCRATCH_A_DEFAULT;
-    device_persistent_budget_ =
-        DEVICE_GLOBAL_ARENA_SIZE - split_a - SPLIT_SCRATCH_B;
-    resplit_arenas(GLOBAL_ARENA_SIZE - split_a - SPLIT_SCRATCH_B, split_a,
-                   SPLIT_SCRATCH_B);
+    const size_t split_b = bridge_split ? SPLIT_SCRATCH_B_BRIDGE
+                                        : (recipe ? SPLIT_SCRATCH_B_BUILD
+                                                  : SPLIT_SCRATCH_B_DEFAULT);
+    device_persistent_budget_ = DEVICE_GLOBAL_ARENA_SIZE - split_a - split_b;
+    resplit_arenas(GLOBAL_ARENA_SIZE - split_a - split_b, split_a, split_b);
 
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       if (recipe) {
@@ -1066,24 +1068,15 @@ private:
       dual_bridge_ambo_ =
           Solids::finalize_solid(MeshOps::ambo(build_seed_, a, b), target);
     });
-    {
-      ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(dual_bridge_ambo_, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
     HS_CHECK(dual_bridge_ambo_.face_counts.size() <= MAX_BUILD_FACES);
 
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
-    Animation::OpLeg::BookendClasses bookend{
-        dual_bridge_ambo_.topology.data(),
-        dual_bridge_ambo_.face_counts.size()};
     const int frames = dual_sub_frames(0);
     hs::log("Build leg: dual bridge 1/3 truncate->ambo (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
                          0.5f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
-                         handoff, frames, bookend,
+                         handoff, frames, Animation::OpLeg::BookendClasses{},
                          Animation::OpLeg::classic_blend,
                          /*bridge_provenance=*/true, /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
@@ -1104,9 +1097,9 @@ private:
         landing_handoff(dual_bridge_ambo_, scratch_arena_a,
                         Animation::OpLeg::FaceCorrespondence::IDENTITY);
     const size_t medial_faces = dual_bridge_ambo_.face_counts.size();
+    HS_CHECK(build_landing_ && build_landing_->faces == medial_faces);
     int *medial_topology = scratch_arena_a.allocate_n<int>(medial_faces);
-    std::copy_n(dual_bridge_ambo_.topology.data(), medial_faces,
-                medial_topology);
+    std::copy_n(build_landing_->topology, medial_faces, medial_topology);
     build_landing_ = nullptr;
 
     // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
