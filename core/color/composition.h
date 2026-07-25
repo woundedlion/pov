@@ -1126,7 +1126,7 @@ inline void step_wipe_rebake(bool &wipe_pending, int &wipe_frames_remaining,
  * @brief Bank of N baked palettes for bulk Persist/clone operations.
  */
 struct BakedPaletteBank {
-  static constexpr int N = 5;
+  static constexpr int N = 7;
   BakedPalette entries[N];
 
   /**

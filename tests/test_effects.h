@@ -3012,10 +3012,10 @@ struct IslamicBuildProbe {
   static constexpr size_t default_scratch_a() {
     return IS::SPLIT_SCRATCH_A_DEFAULT;
   }
-  static constexpr size_t split_scratch_b() { return IS::SPLIT_SCRATCH_B; }
-  static constexpr int sprite_fade_frames() {
-    return IS::SPRITE_FADE_FRAMES;
+  static constexpr size_t bridge_scratch_b() {
+    return IS::SPLIT_SCRATCH_B_BRIDGE;
   }
+  static constexpr int sprite_fade_frames() { return IS::SPRITE_FADE_FRAMES; }
 };
 
 /**
@@ -3134,14 +3134,14 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
 
-  // Per-shape arena split (IslamicStars::spawn_shape): a smooth kis/needle
-  // bridge shape spawns on a scratch_a-heavy split (130 KB / 74 KB / 96 KB),
-  // every other shape on the default (120 KB / 74 KB / 106 KB). On host the two
+  // Per-shape arena split (IslamicStars::spawn_shape): smooth kis/needle
+  // bridge shapes use 129.5 KB / 74 KB scratch; ordinary recipe builds use
+  // 116 KB / 72 KB; non-recipe generation retains 116 KB / 74 KB. On host the
   // scratch arenas are the exact device sizes and hard-capped, so an over-budget
   // leg traps -- completing the whole roster proves every shape's scratch fit
   // its own split. Persistent is host-inflated (soft), so it is checked per
   // frame against the effect's live per-shape device budget; host pointer
-  // inflation makes the host high-water an upper bound on the device figure.
+  // inflation makes the resident offset an upper bound on the device figure.
   auto solids = Solids::Collections::get_islamic_solids();
   const int entries = static_cast<int>(solids.size());
   int needle_idx = -1;
@@ -3182,7 +3182,7 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
                   distinct, MeshPaletteBank::N, nf);
     }
     was_building = building;
-    const size_t p = persistent_arena.get_high_water_mark();
+    const size_t p = persistent_arena.get_offset();
     const size_t a = scratch_arena_a.get_high_water_mark();
     const size_t b = scratch_arena_b.get_high_water_mark();
     const size_t p_budget = IslamicBuildProbe::persistent_budget(effect);
@@ -3221,9 +3221,9 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   std::printf("  [roster] needle smooth-path peaks: scratch_a=%zu/%zu "
               "scratch_b=%zu/%zu persistent=%zu/%zu; gated_swaps=%d\n",
               na_peak, IslamicBuildProbe::bridge_scratch_a(), nb_peak,
-              IslamicBuildProbe::split_scratch_b(), np_peak,
+              IslamicBuildProbe::bridge_scratch_b(), np_peak,
               DEVICE_GLOBAL_ARENA_SIZE - IslamicBuildProbe::bridge_scratch_a() -
-                  IslamicBuildProbe::split_scratch_b(),
+                  IslamicBuildProbe::bridge_scratch_b(),
               IslamicBuildProbe::gated_swaps(effect));
   HS_EXPECT_GT(shapes, entries - 1);
   HS_EXPECT_GT(builds, 0);
@@ -3267,7 +3267,7 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
     ++frames;
     a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
     b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
-    const size_t p = persistent_arena.get_high_water_mark();
+    const size_t p = persistent_arena.get_offset();
     persist_peak = std::max(persist_peak, p);
     HS_EXPECT_LE(p, IslamicBuildProbe::persistent_budget(effect));
   }

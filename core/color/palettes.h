@@ -96,11 +96,22 @@ inline constexpr ProceduralPalette PEACH_POP({1.000f, 0.144f, 0.175f},
                                              {0.543f, 0.543f, 0.543f},
                                              {0.507f, 0.409f, 0.507f},
                                              {0.001f, 0.002f, 0.620f});
+inline constexpr ProceduralPalette BLUE_LAGOON({0.555f, 0.171f, 0.555f},
+                                               {0.500f, 0.500f, 0.207f},
+                                               {0.05175f, 0.144407f, 0.03564f},
+                                               {0.506f, 0.179f, 0.548f});
+inline constexpr ProceduralPalette
+    ORANGE_CRUSH({0.407f, 0.000f, 0.296f}, {0.406f, 0.697f, 0.357f},
+                 {0.055937f, 0.10051f, 0.042778f}, {0.141f, 0.155f, 0.537f});
+inline constexpr ProceduralPalette
+    PLUM_SUNRISE({0.407f, 0.000f, 0.296f}, {0.332f, 0.592f, 0.029f},
+                 {0.358961f, 0.331145f, 0.274519f},
+                 {0.500342f, 0.505109f, 0.278634f});
 
 } // namespace Palettes
 
 /**
- * @brief Shared 5-palette "mesh effect" bank used by HankinSolids / IslamicStars
+ * @brief Shared mesh-effect palette bank used by HankinSolids / IslamicStars
  *        and any future mesh effect.
  * @details Bundles the standard source-palette set, the bake-all step, and the
  *          per-shape index shuffle these effects share. Zero-overhead: the
@@ -109,7 +120,7 @@ inline constexpr ProceduralPalette PEACH_POP({1.000f, 0.144f, 0.175f},
  *          BakedPalette::get() with no added indirection.
  */
 struct MeshPaletteBank {
-  static constexpr int N = BakedPaletteBank::N; // 5
+  static constexpr int N = BakedPaletteBank::N;
 
   /**
    * @brief Arena bytes bake_all() consumes, including worst-case per-palette
@@ -127,9 +138,10 @@ struct MeshPaletteBank {
    *         silently nullptr-padding or reading past the bank.
    */
   static constexpr auto sources() {
-    return std::array{&Palettes::EMBERS, &Palettes::RICH_SUNSET,
+    return std::array{&Palettes::EMBERS,         &Palettes::RICH_SUNSET,
                       &Palettes::BRIGHT_SUNRISE, &Palettes::BRUISED_MOSS,
-                      &Palettes::LAVENDER_LAKE};
+                      &Palettes::LAVENDER_LAKE,  &Palettes::ORANGE_CRUSH,
+                      &Palettes::PLUM_SUNRISE};
   }
 
   /**

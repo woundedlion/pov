@@ -2404,7 +2404,7 @@ inline void test_medial_dual_bridge_wellformed() {
 inline void test_opleg_medial_leg_smoke() {
   using Animation::OpLeg;
   reset_globals();
-  configure_arenas(GLOBAL_ARENA_SIZE - 120 * 1024 - 74 * 1024, 120 * 1024,
+  configure_arenas(GLOBAL_ARENA_SIZE - 116 * 1024 - 74 * 1024, 116 * 1024,
                    74 * 1024);
   hs::random().seed(2026u);
 
@@ -3107,7 +3107,7 @@ inline void test_opleg_step_leg_smoke() {
 inline void test_opleg_build_immutable_colours() {
   using Animation::OpLeg;
   reset_globals();
-  configure_arenas(GLOBAL_ARENA_SIZE - 120 * 1024 - 74 * 1024, 120 * 1024,
+  configure_arenas(GLOBAL_ARENA_SIZE - 116 * 1024 - 74 * 1024, 116 * 1024,
                    74 * 1024);
   hs::random().seed(2026u);
 
@@ -3459,9 +3459,9 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 // ---------------------------------------------------------------------------
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    120 * 1024; /**< IslamicStars scratch_a split. */
+    116 * 1024; /**< IslamicStars default scratch_a split. */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    74 * 1024; /**< IslamicStars scratch_b split. */
+    72 * 1024; /**< IslamicStars recipe-build scratch_b split. */
 /** Device persistent budget of IslamicStars' arena split. */
 constexpr size_t ISLAMIC_PERSISTENT_BUDGET = DEVICE_GLOBAL_ARENA_SIZE -
                                              ISLAMIC_SCRATCH_A_BUDGET -
@@ -3853,12 +3853,12 @@ inline ChainPeaks replay_build_chain(const char *name,
       // consumed by the final swap below, so it is left standing exactly as
       // the effect leaves it for the next shape's compaction.
       if (k + 1 < count) {
-        Persist<MeshPaletteBank> pb(bank, scratch_arena_b, persistent_arena);
-        Persist<PolyMesh> pn(next, scratch_arena_a, persistent_arena);
+        Persist<PolyMesh> pn(next, scratch_arena_b, persistent_arena);
         cur = PolyMesh();
         seed_slot = MeshState();
         prev_landing = nullptr;
         persistent_arena.reset();
+        bank.bake_all(persistent_arena);
       }
       cur = std::move(next);
     }
@@ -3881,11 +3881,9 @@ inline ChainPeaks replay_build_chain(const char *name,
         PolyMesh built;
         MeshOps::clone(cur, built, scratch_arena_b);
         cur = PolyMesh();
-        {
-          Persist<MeshPaletteBank> pb(bank, scratch_arena_b, persistent_arena);
-          seed_slot = MeshState();
-          persistent_arena.reset();
-        }
+        seed_slot = MeshState();
+        persistent_arena.reset();
+        bank.bake_all(persistent_arena);
         MeshOps::compile(built, final_slot, persistent_arena, scratch_arena_a);
       }
       ScratchScope b_guard(scratch_arena_b);

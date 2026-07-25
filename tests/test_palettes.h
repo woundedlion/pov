@@ -93,6 +93,10 @@ inline void test_named_procedural_palette_endpoints() {
   HS_EXPECT_EQ(pp0.color.r, 65535);
   HS_EXPECT_EQ(pp0.color.g, 28156);
   HS_EXPECT_EQ(pp0.color.b, 0);
+
+  constexpr auto mesh_sources = MeshPaletteBank::sources();
+  HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::ORANGE_CRUSH);
+  HS_EXPECT_TRUE(mesh_sources[6] == &Palettes::PLUM_SUNRISE);
 }
 
 /**
@@ -124,7 +128,7 @@ inline void test_named_palette_hue_short_arc() {
  * @brief Verifies MeshPaletteBank bakes its sources and indexes them distinctly.
  * @details Slot 0's baked endpoints must match the embers source (the first
  *          entry in sources()), proving the bank baked the right palette into
- *          the right slot; the five slots must produce distinct LUTs so a
+ *          the right slot; every slot must produce a distinct LUT so a
  *          slot-mapping bug can't collapse them.
  */
 inline void test_mesh_palette_bank_lookup() {
