@@ -285,7 +285,8 @@ private:
           span.count = s1 - s0 + 1;
         }
         // A forced segment can straddle a thickness-class edge; cover both.
-        span.thickness = std::max(th0, thickness_at(tvals[s1])) + dev;
+        span.thickness = std::max(th0, thickness_at(tvals[s1]));
+        span.guard = dev;
         span.head_cap = s1 == m - 1;
         Scan::RingSweep::draw<W, H>(filters, canvas, span, shader);
         s0 = s1 == s0 ? s0 + 1 : s1;

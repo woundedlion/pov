@@ -967,11 +967,14 @@ struct RingSweep {
    * @brief One monotone sweep span: endpoint normals plus shading parameters.
    */
   struct Span {
-    Vector n0, n1;   /**< Unit ring normals at the span ends. */
-    float t0, t1;    /**< Trail parameter at each end (palette input). */
-    float thickness; /**< Stroke half-width (radians), deviation-inflated. */
-    float steps;     /**< Control-point intervals merged into this span. */
-    bool head_cap;   /**< Final span: add the discrete head-ring sample so a
+    Vector n0, n1;      /**< Unit ring normals at the span ends. */
+    float t0, t1;       /**< Trail parameter at each end (palette input). */
+    float thickness;    /**< Stroke half-width (radians), profile-nominal. */
+    float guard = 0.0f; /**< Coverage inflation for interior-normal
+                           deviation; widens the cover only — a per-span
+                           profile width steps visibly at boundaries. */
+    float steps;        /**< Control-point intervals merged into this span. */
+    bool head_cap;      /**< Final span: add the discrete head-ring sample so a
                         fast-moving head keeps its crisp full ring. */
     const Vector *points = nullptr; /**< Control points [n0..n1] for the
                                        piecewise angle->t mapping; nullptr
@@ -1043,7 +1046,8 @@ struct RingSweep {
     nm = nm_len > 1e-5f ? nm * (1.0f / nm_len) : span.n0;
     Basis cover_basis = make_basis(Quaternion(), nm);
     SDF::Ring cover(cover_basis, 1.0f,
-                    (th + 0.5f * theta_total + 1e-3f) * (1.0f / 0.95f));
+                    (th + span.guard + 0.5f * theta_total + 1e-3f) *
+                        (1.0f / 0.95f));
 
     const auto &cr = canvas.clip();
     auto bounds = cover.template get_vertical_bounds<H>();
@@ -1080,10 +1084,15 @@ struct RingSweep {
             fast_acos(hs::clamp(dot(span.n0, span.points[j]), -1.0f, 1.0f));
       n_pts = span.count;
     }
-    auto t_at = [&](float theta) {
-      if (n_pts < 2)
+    // rho_out reports the LOCAL sample density (1 / segment width): the
+    // span-average density staircases the dwell at span boundaries when the
+    // walk accelerates, banding the smear.
+    auto t_at = [&](float theta, float &rho_out) {
+      if (n_pts < 2) {
+        rho_out = rho;
         return span.t0 +
                (span.t1 - span.t0) * hs::clamp(theta * inv_theta, 0.0f, 1.0f);
+      }
       int lo = 0, hi = n_pts - 1;
       while (hi - lo > 1) {
         int mid = (lo + hi) >> 1;
@@ -1093,6 +1102,7 @@ struct RingSweep {
           hi = mid;
       }
       float seg = phis[hi] - phis[lo];
+      rho_out = seg > 1e-6f ? 1.0f / seg : rho;
       float f =
           seg > 1e-6f ? hs::clamp((theta - phis[lo]) / seg, 0.0f, 1.0f) : 0.0f;
       return span.ts[lo] + (span.ts[hi] - span.ts[lo]) * f;
@@ -1160,7 +1170,9 @@ struct RingSweep {
           const float u_a = hs::clamp(th_star * m * inv_th, 0.0f, 1.0f);
           const float u_d =
               hs::clamp((theta_total - th_star) * m * inv_th, 0.0f, 1.0f);
-          float k_lin = rho * th *
+          float rho_loc;
+          const float t_mid = t_at(th_star, rho_loc);
+          float k_lin = rho_loc * th *
                         (1.0f - quintic_integral(1.0f - u_a) -
                          quintic_integral(1.0f - u_d)) /
                         (m + 1e-6f);
@@ -1169,8 +1181,10 @@ struct RingSweep {
           // exactly this window, which is what smooths its internal
           // stop boundaries.
           const float dth = th / (m + 1e-6f);
-          emit(x, y, p, t_at(th_star), t_at(std::max(0.0f, th_star - dth)),
-               t_at(std::min(theta_total, th_star + dth)), k_lin, 0.0f, 0.0f);
+          float rho_x;
+          const float t_lo = t_at(std::max(0.0f, th_star - dth), rho_x);
+          const float t_hi = t_at(std::min(theta_total, th_star + dth), rho_x);
+          emit(x, y, p, t_mid, t_lo, t_hi, k_lin, 0.0f, 0.0f);
           continue;
         }
         const float a0 = std::abs(d0);
@@ -1184,13 +1198,20 @@ struct RingSweep {
         // contributions. The final span's far end adds the discrete
         // head-ring sample legacy always draws.
         const float B = dot(p, b);
+        const float rho_near = n_pts >= 2 && phis[1] - phis[0] > 1e-6f
+                                   ? 1.0f / (phis[1] - phis[0])
+                                   : rho;
+        const float rho_far =
+            n_pts >= 2 && phis[n_pts - 1] - phis[n_pts - 2] > 1e-6f
+                ? 1.0f / (phis[n_pts - 1] - phis[n_pts - 2])
+                : rho;
         float k_lin = 0.0f;
         if (a0 < th) {
           const float deriv = std::abs(B);
           const float u_near = 1.0f - a0 * inv_th;
           const float u_avail =
               hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
-          k_lin += rho * th *
+          k_lin += rho_near * th *
                    (quintic_integral(u_near) -
                     quintic_integral(std::max(0.0f, u_near - u_avail))) /
                    (deriv + 1e-6f);
@@ -1201,7 +1222,7 @@ struct RingSweep {
           const float u_near = 1.0f - a1 * inv_th;
           const float u_avail =
               hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
-          k_lin += rho * th *
+          k_lin += rho_far * th *
                    (quintic_integral(u_near) -
                     quintic_integral(std::max(0.0f, u_near - u_avail))) /
                    (deriv + 1e-6f);
