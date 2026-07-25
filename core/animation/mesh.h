@@ -602,13 +602,9 @@ public:
       PolyMesh arrival;
       MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, theta_hi);
 
-      // Classify the full-precision arrival before the snorm16 pack: the
-      // quantization noise crosses the classifier's whole-degree angle
-      // rounding on near-boundary orbits and shatters them into fragments.
-      MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
-                                          scratch_arena_b, arena);
-      tr.topo = std::move(arrival.topology);
-      HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+      // Hoist classes before the snorm16 pack unless the exact bookend already
+      // supplies them; quantization can split classifier angle buckets.
+      hoist_arrival_topology(arrival, bookend, arena, tr.topo);
 
       // Only the star points are stored: the midpoint prefix is already in the
       // compiled topology, and each star point's collapsed position is its own
@@ -701,10 +697,7 @@ public:
       tr.relaxed.bind(arena, arrival.vertices.size());
       tr.relaxed.append_bulk(arrival.vertices.data(), arrival.vertices.size());
 
-      MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
-                                          scratch_arena_b, arena);
-      tr.topo = std::move(arrival.topology);
-      HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+      hoist_arrival_topology(arrival, bookend, arena, tr.topo);
 
       // The opening frame is the seed verbatim, so its face centroids are the
       // provenance source.
@@ -793,18 +786,12 @@ public:
       if (handoff.prev_face_centroid)
         start_centroid = face_centroids(med, scratch_arena_a);
 
-      // Classify the s=1 arrival (ambo(dual(P))) in place: overwrite med's s=0
-      // vertices with med_b rather than materializing a second full mesh copy,
-      // which would co-reside with med at the leg's scratch peak (the roster's
-      // over-budget medial spike). med is a construction throwaway -- step()
-      // reads only the packed endpoints -- so reusing its storage is safe.
+      // Prepare the s=1 arrival (ambo(dual(P))) in place. The exact bookend can
+      // supply its classes; otherwise the full-precision mesh is classified.
       for (size_t i = 0; i < medial_verts; ++i)
         med.vertices[i] = med_b[i];
 
-      MeshOps::classify_faces_by_topology(med, scratch_arena_a, scratch_arena_b,
-                                          arena);
-      tr.topo = std::move(med.topology);
-      HS_CHECK(tr.topo.size() == med.face_counts.size());
+      hoist_arrival_topology(med, bookend, arena, tr.topo);
       tr.landing.arrival_topology = &tr.seed;
       tr.landing.arrival_point = tr.medial_b.data();
       tr.landing.arrival_points = tr.medial_b.size();
@@ -884,10 +871,7 @@ public:
       copy_topology(arrival, scratch_arena_a, from_mesh.face_counts,
                     from_mesh.faces);
 
-      MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
-                                          scratch_arena_b, arena);
-      tr.topo = std::move(arrival.topology);
-      HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+      hoist_arrival_topology(arrival, bookend, arena, tr.topo);
 
       // The opening frame is the identity mesh verbatim (the packed a_e), so its
       // face centroids are the geometric provenance source.
@@ -1256,10 +1240,19 @@ private:
       HS_CHECK(tr.relaxed.size() == arrival.vertices.size(),
                "OpLeg: relax changed the vertex count");
     }
-    MeshOps::classify_faces_by_topology(*classified, scratch_arena_a,
-                                        scratch_arena_b, arena);
-    tr.topo = std::move(classified->topology);
-    HS_CHECK(tr.topo.size() == classified->face_counts.size());
+    const bool immutable_closing =
+        handoff.immutable &&
+        handoff.correspondence == FaceCorrespondence::DUAL_CLOSING;
+    if (immutable_closing && bookend.topology) {
+      const size_t faces = classified->face_counts.size();
+      HS_CHECK(bookend.faces <= faces);
+      tr.topo.bind(arena, faces);
+      tr.topo.append_bulk(bookend.topology, bookend.faces);
+      while (tr.topo.size() < faces)
+        tr.topo.push_back(0);
+    } else {
+      hoist_arrival_topology(*classified, bookend, arena, tr.topo);
+    }
     HS_CHECK(!birth_sig || tr.topo.size() == tr.seed_faces + birth_sigs,
              "OpLeg: corner suffix differs from the vertex-signature count");
 
@@ -1527,6 +1520,22 @@ private:
     default:
       return MeshOps::snub(seed, target, temp, t, twist);
     }
+  }
+
+  /** @brief Hoists arrival classes, reusing an exact bookend classification. */
+  HS_COLD_MEMBER static void
+  hoist_arrival_topology(PolyMesh &arrival, const BookendClasses &bookend,
+                         Arena &arena, ArenaVector<int> &topology) {
+    const size_t faces = arrival.face_counts.size();
+    if (bookend.topology && bookend.faces == faces) {
+      topology.bind(arena, faces);
+      topology.append_bulk(bookend.topology, faces);
+      return;
+    }
+    MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
+                                        scratch_arena_b, arena);
+    topology = std::move(arrival.topology);
+    HS_CHECK(topology.size() == faces);
   }
 
   /**

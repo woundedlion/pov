@@ -1106,6 +1106,10 @@ private:
     Animation::OpLeg::PaletteHandoff handoff =
         landing_handoff(dual_bridge_ambo_, scratch_arena_a,
                         Animation::OpLeg::FaceCorrespondence::IDENTITY);
+    const size_t medial_faces = dual_bridge_ambo_.face_counts.size();
+    int *medial_topology = scratch_arena_a.allocate_n<int>(medial_faces);
+    std::copy_n(dual_bridge_ambo_.topology.data(), medial_faces,
+                medial_topology);
     build_landing_ = nullptr;
 
     // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
@@ -1125,9 +1129,10 @@ private:
 
     const int frames = dual_sub_frames(1);
     hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
-    Animation::OpLeg leg(build_seed_, Animation::OpLeg::MedialTag{},
-                         persistent_arena, draw_build_fn_, handoff, frames,
-                         Animation::OpLeg::BookendClasses{nullptr, 0});
+    Animation::OpLeg leg(
+        build_seed_, Animation::OpLeg::MedialTag{}, persistent_arena,
+        draw_build_fn_, handoff, frames,
+        Animation::OpLeg::BookendClasses{medial_topology, medial_faces});
     build_landing_ = &leg.landing();
     timeline.add(0,
                  std::move(leg).then([this] { schedule_dual_untruncate(); }));
