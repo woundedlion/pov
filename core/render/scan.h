@@ -1241,7 +1241,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           continue;
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         shape.template distance_with_flags<true>(p, res, reject_dsq,
-                                                 probe_flags);
+                                                 probe_flags, reject_rad);
         float d = res.dist;
         if (!effective_debug && d >= pixel_width)
           continue;

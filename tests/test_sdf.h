@@ -1823,6 +1823,16 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
       SDF::DistanceResult cached_res;
       face.distance_with_flags(p, cached_res, FLT_MAX, probe_flags);
       HS_EXPECT_EQ(std::memcmp(&res, &cached_res, sizeof(res)), 0);
+      if (face.convex && face.linear_dist) {
+        constexpr float REJECT = 0.03f;
+        SDF::DistanceResult rejected_res;
+        face.distance_with_flags(p, rejected_res, REJECT * REJECT, probe_flags,
+                                 REJECT);
+        if (res.raw_dist < REJECT)
+          HS_EXPECT_EQ(std::memcmp(&res, &rejected_res, sizeof(res)), 0);
+        else
+          HS_EXPECT_GE(rejected_res.raw_dist, REJECT);
+      }
       if (hs::g_scan_metrics.exact_hits == 0)
         continue; // culled (outside max_dist / behind the center)
 
