@@ -101,8 +101,8 @@ inline constexpr ProceduralPalette BLUE_LAGOON({0.555f, 0.171f, 0.555f},
                                                {0.05175f, 0.144407f, 0.03564f},
                                                {0.506f, 0.179f, 0.548f});
 inline constexpr ProceduralPalette
-    ORANGE_CRUSH({0.407f, 0.000f, 0.296f}, {0.406f, 0.697f, 0.357f},
-                 {0.055937f, 0.10051f, 0.042778f}, {0.141f, 0.155f, 0.537f});
+    ORANGE_CRUSH({0.575f, 0.168f, 0.464f}, {0.406f, 0.697f, 0.357f},
+                 {0.000f, 0.10051f, 0.042778f}, {0.141f, 0.155f, 0.537f});
 inline constexpr ProceduralPalette
     PLUM_SUNRISE({0.407f, 0.000f, 0.296f}, {0.332f, 0.592f, 0.029f},
                  {0.358961f, 0.331145f, 0.274519f},
