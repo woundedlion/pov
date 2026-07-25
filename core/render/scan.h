@@ -1058,8 +1058,6 @@ struct RingSweep {
 
     const float inv_th = 1.0f / th;
     const float inv_theta = degenerate ? 0.0f : 1.0f / theta_total;
-    // Sub-ring samples per radian of sweep (the discrete stack's density).
-    const float rho = degenerate ? span.steps : span.steps * inv_theta;
     const float k_cap = span.steps + 1.0f;
 
     Fragment frag;
@@ -1084,15 +1082,15 @@ struct RingSweep {
             fast_acos(hs::clamp(dot(span.n0, span.points[j]), -1.0f, 1.0f));
       n_pts = span.count;
     }
-    // rho_out reports the LOCAL sample density (1 / segment width): the
-    // span-average density staircases the dwell at span boundaries when the
-    // walk accelerates, banding the smear.
-    auto t_at = [&](float theta, float &rho_out) {
-      if (n_pts < 2) {
-        rho_out = rho;
-        float f = hs::clamp(theta * inv_theta, -1.0f, 2.0f);
-        return hs::clamp(span.t0 + (span.t1 - span.t0) * f, 0.0f, 1.0f);
-      }
+    // Fractional control-point index at a sweep angle. Dwell density is a
+    // windowed ring count (a per-segment 1/width point-estimate amplifies
+    // control-point jitter into bright/dark stripes at segment pitch);
+    // extrapolation past the span ends is bounded, and dwell counts clamp to
+    // [0, n-1] so seam sums stay exact while palette taps run unclamped.
+    auto idx_at = [&](float theta) {
+      if (n_pts < 2)
+        return hs::clamp(theta * inv_theta, -1.0f, 2.0f) *
+               std::max(span.steps, 1.0f);
       int lo = 0, hi = n_pts - 1;
       while (hi - lo > 1) {
         int mid = (lo + hi) >> 1;
@@ -1102,14 +1100,24 @@ struct RingSweep {
           hi = mid;
       }
       float seg = phis[hi] - phis[lo];
-      rho_out = seg > 1e-6f ? 1.0f / seg : rho;
-      // Bounded extrapolation past the span ends: spans tile one polyline,
-      // so the boundary segment's slope continues into the neighbour. A
-      // window clamped at the span edge halves the palette convolution
-      // there, banding the hue at span pitch.
       float f =
           seg > 1e-6f ? hs::clamp((theta - phis[lo]) / seg, -1.5f, 2.5f) : 0.0f;
-      return hs::clamp(span.ts[lo] + (span.ts[hi] - span.ts[lo]) * f, 0.0f,
+      return static_cast<float>(lo) + f;
+    };
+    const float idx_max =
+        n_pts >= 2 ? static_cast<float>(n_pts - 1) : std::max(span.steps, 1.0f);
+    auto count_in = [&](float i_lo, float i_hi) {
+      return std::max(0.0f, hs::clamp(i_hi, 0.0f, idx_max) -
+                                hs::clamp(i_lo, 0.0f, idx_max));
+    };
+    auto t_of = [&](float fidx) {
+      if (n_pts < 2)
+        return hs::clamp(span.t0 + (span.t1 - span.t0) * fidx /
+                                       std::max(span.steps, 1.0f),
+                         0.0f, 1.0f);
+      int j = hs::clamp(static_cast<int>(fidx), 0, n_pts - 2);
+      float f = fidx - static_cast<float>(j);
+      return hs::clamp(span.ts[j] + (span.ts[j + 1] - span.ts[j]) * f, 0.0f,
                        1.0f);
     };
 
@@ -1172,24 +1180,23 @@ struct RingSweep {
           if (th_star < 0.0f)
             th_star += PI_F;
           const float m = std::sqrt(d0 * d0 + B * B);
+          // Smooth density = ring count over the in-span band window; the
+          // quintic truncation integral weights it, since band-edge rings
+          // contribute almost nothing.
+          const float dth = th / (m + 1e-6f);
+          const float lo_c = hs::clamp(th_star - dth, 0.0f, theta_total);
+          const float hi_c = hs::clamp(th_star + dth, 0.0f, theta_total);
+          const float win = std::max(hi_c - lo_c, 1e-6f);
+          const float rho_s = count_in(idx_at(lo_c), idx_at(hi_c)) / win;
           const float u_a = hs::clamp(th_star * m * inv_th, 0.0f, 1.0f);
           const float u_d =
               hs::clamp((theta_total - th_star) * m * inv_th, 0.0f, 1.0f);
-          float rho_loc;
-          const float t_mid = t_at(th_star, rho_loc);
-          float k_lin = rho_loc * th *
+          float k_lin = rho_s * th *
                         (1.0f - quintic_integral(1.0f - u_a) -
                          quintic_integral(1.0f - u_d)) /
                         (m + 1e-6f);
-          // Palette convolution window: the dwell spans +-th/|d'| of
-          // sweep angle; legacy's stacked rings blend the palette over
-          // exactly this window, which is what smooths its internal
-          // stop boundaries.
-          const float dth = th / (m + 1e-6f);
-          float rho_x;
-          const float t_lo = t_at(th_star - dth, rho_x);
-          const float t_hi = t_at(th_star + dth, rho_x);
-          emit(x, y, p, t_mid, t_lo, t_hi, k_lin, 0.0f, 0.0f);
+          emit(x, y, p, t_of(idx_at(th_star)), t_of(idx_at(th_star - dth)),
+               t_of(idx_at(th_star + dth)), k_lin, 0.0f, 0.0f);
           continue;
         }
         const float a0 = std::abs(d0);
@@ -1203,36 +1210,34 @@ struct RingSweep {
         // contributions. The final span's far end adds the discrete
         // head-ring sample legacy always draws.
         const float B = dot(p, b);
-        const float rho_near = n_pts >= 2 && phis[1] - phis[0] > 1e-6f
-                                   ? 1.0f / (phis[1] - phis[0])
-                                   : rho;
-        const float rho_far =
-            n_pts >= 2 && phis[n_pts - 1] - phis[n_pts - 2] > 1e-6f
-                ? 1.0f / (phis[n_pts - 1] - phis[n_pts - 2])
-                : rho;
         float k_lin = 0.0f;
         if (a0 < th) {
           const float deriv = std::abs(B);
-          const float u_near = 1.0f - a0 * inv_th;
+          const float u = 1.0f - a0 * inv_th;
           const float u_avail =
               hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
-          k_lin += rho_near * th *
-                   (quintic_integral(u_near) -
-                    quintic_integral(std::max(0.0f, u_near - u_avail))) /
+          const float L = std::min((th - a0) / (deriv + 1e-6f), theta_total);
+          const float rho_s = count_in(0.0f, idx_at(L)) / std::max(L, 1e-6f);
+          k_lin += rho_s * th *
+                   (quintic_integral(u) -
+                    quintic_integral(std::max(0.0f, u - u_avail))) /
                    (deriv + 1e-6f);
         }
         float q_cap = 0.0f;
         if (a1 < th) {
           const float deriv = std::abs(B * cos_full - d0 * sin_full);
-          const float u_near = 1.0f - a1 * inv_th;
+          const float u = 1.0f - a1 * inv_th;
           const float u_avail =
               hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
-          k_lin += rho_far * th *
-                   (quintic_integral(u_near) -
-                    quintic_integral(std::max(0.0f, u_near - u_avail))) /
+          const float L = std::min((th - a1) / (deriv + 1e-6f), theta_total);
+          const float rho_s =
+              count_in(idx_at(theta_total - L), idx_max) / std::max(L, 1e-6f);
+          k_lin += rho_s * th *
+                   (quintic_integral(u) -
+                    quintic_integral(std::max(0.0f, u - u_avail))) /
                    (deriv + 1e-6f);
           if (span.head_cap)
-            q_cap = quintic_kernel(1.0f - a1 * inv_th);
+            q_cap = quintic_kernel(u);
         }
         // Endpoint fringes convolve the palette too — a flat t_end next to a
         // convolved crossing region reads as a hue band at the boundary.
@@ -1242,9 +1247,8 @@ struct RingSweep {
         const float deriv_e =
             use_far ? std::abs(B * cos_full - d0 * sin_full) : std::abs(B);
         const float dth_e = th / (deriv_e + 1e-6f);
-        float rho_x;
-        const float t_lo = t_at(theta_e - dth_e, rho_x);
-        const float t_hi = t_at(theta_e + dth_e, rho_x);
+        const float t_lo = t_of(idx_at(theta_e - dth_e));
+        const float t_hi = t_of(idx_at(theta_e + dth_e));
         emit(x, y, p, t_end, t_lo, t_hi, k_lin, q_cap, 1.0f);
       }
     };
