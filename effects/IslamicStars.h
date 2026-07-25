@@ -504,7 +504,8 @@ private:
         frag.color = Color4();
         return;
       }
-      frag.color = seg.grade(face_palette->get(t), 1.0f);
+      face_palette->get_into(t, frag.color);
+      frag.color = seg.grade(frag.color, 1.0f);
       frag.color.alpha = cover * seg.opacity(1.0f);
     };
 
