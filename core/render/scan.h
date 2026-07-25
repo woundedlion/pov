@@ -1080,7 +1080,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   size_t num_runs = 0;
 
   {
-    HS_PROFILE(raster_setup);
+    HS_PROFILE_DEEP(raster_setup);
     auto bounds = shape.template get_vertical_bounds<H>();
     y_lo =
         bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
@@ -1231,7 +1231,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const float reject_rad = (pixel_width + shape.thickness) * 1.0002f;
   const float reject_dsq = effective_debug ? FLT_MAX : reject_rad * reject_rad;
 
-  HS_PROFILE(raster_scan);
+  HS_PROFILE_DEEP(raster_scan);
   for (int y = y_lo; y <= y_hi; ++y) {
     float sp = TrigLUT<W, H>::sin_phi[y];
     float cp = TrigLUT<W, H>::cos_phi[y];
