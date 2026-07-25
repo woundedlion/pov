@@ -995,19 +995,6 @@ public:
   }
 
   /**
-   * @brief Writes the nearest baked sample into caller-owned storage.
-   * @param t Lookup coordinate; clamped to [0, 1].
-   * @param out Receives the nearest of the 256 baked colors.
-   */
-  __attribute__((always_inline)) void get_nearest_into(float t,
-                                                       Color4 &out) const {
-    assert(lut_ != nullptr && "BakedPalette::get_nearest_into before bake()");
-    float idx = hs::clamp(t * (LUT_SIZE - 1) + 0.5f, 0.0f,
-                          static_cast<float>(LUT_SIZE - 1));
-    out = lut_[static_cast<int>(idx)];
-  }
-
-  /**
    * @brief Deep-copies the LUT from another BakedPalette into the given arena.
    * @param src Source palette to copy; must already be baked.
    * @param arena Arena to allocate the new LUT from.

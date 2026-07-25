@@ -1066,7 +1066,7 @@ HS_O3_BEGIN
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
-__attribute__((noinline)) inline void
+HS_NOINLINE_NOCLONE inline void
 rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                FragmentShaderT &fragment_shader, bool debug_bb,
                const PixelMask *mask = nullptr) {
@@ -1318,12 +1318,11 @@ struct Mesh {
    */
   template <int W, int H, typename PipelineT, typename FragmentShaderT,
             typename FaceShaderSetupT>
-  static void draw_impl(PipelineT &pipeline, Canvas &canvas,
-                        const MeshState &mesh,
-                        FragmentShaderT &fragment_shader, Arena &scratch_arena,
-                        bool debug_bb, const MeshOps::MeshClassBake *bake,
-                        const PixelMask *mask,
-                        FaceShaderSetupT &face_shader_setup) {
+  HS_NOINLINE_NOCLONE static void
+  draw_impl(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
+            FragmentShaderT &fragment_shader, Arena &scratch_arena,
+            bool debug_bb, const MeshOps::MeshClassBake *bake,
+            const PixelMask *mask, FaceShaderSetupT &face_shader_setup) {
     ScratchScope scope(scratch_arena);
     auto *scratch =
         static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
@@ -1420,8 +1419,9 @@ struct Mesh {
                                const MeshOps::MeshClassBake *bake,
                                const PixelMask *mask,
                                FaceShaderSetupT &face_shader_setup) {
+    FunctionRef<void(size_t, float)> erased_setup = face_shader_setup;
     draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
-                    debug_bb, bake, mask, face_shader_setup);
+                    debug_bb, bake, mask, erased_setup);
   }
 };
 HS_O3_END

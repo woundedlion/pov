@@ -189,6 +189,27 @@ private:
   int ripple_stagger_eff_ = RIPPLE_STAGGER_FRAMES;
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
+  struct FacePaletteShader {
+    const BakedPalette *palette = nullptr;
+    const SegueT *segue = nullptr;
+    float phase = 0.0f;
+    float scale = 0.0f;
+    bool divide_by_scale = false;
+
+    void operator()(const Vector &, Fragment &frag) const {
+      float edge = divide_by_scale
+                       ? (scale > math::TOLERANCE ? -frag.v1 / scale : 0.0f)
+                       : -frag.v1 * scale;
+      float t = hs::clamp(edge, 0.0f, 1.0f);
+      float cover = segue->fill(t, phase);
+      if (cover <= 0.0f) {
+        frag.color = Color4();
+        return;
+      }
+      frag.color = segue->grade(palette->get(t), phase);
+      frag.color.alpha = cover * segue->opacity(phase);
+    }
+  };
   MeshCarousel<SegueT> carousel;
   // Seed fade-in: the opening window materialises the base mesh through a
   // per-pixel dither instead of the terminator sweep; every stage after (build,
@@ -436,26 +457,33 @@ private:
       }
     }
 
-    auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      if constexpr (PER_FACE) {
-        int fi = static_cast<int>(frag.v2);
-        if (fi >= 0 && fi < static_cast<int>(face_phases.size())) {
-          frag.color = shade_mesh_topology(frag, *face_palettes[fi], 1.0f, seg,
-                                           face_phases[fi]);
-          return;
-        }
-      }
-      int fi = static_cast<int>(frag.v2);
-      const int pal = (fi >= 0 && fi < num_faces) ? face_palette[fi] : 0;
-      frag.color =
-          shade_mesh_topology(frag, palette_bank_[pal], 1.0f, seg, phase);
-    };
-
     {
       HS_PROFILE(is_mesh_scan);
-      Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
-                             fragment_shader, scratch_arena_a, params.debug_bb,
-                             nullptr, mask);
+      if constexpr (PER_FACE) {
+        FacePaletteShader fragment_shader;
+        fragment_shader.segue = &seg;
+        fragment_shader.divide_by_scale = true;
+        auto select_face = [&](size_t fi, float size) {
+          HS_CHECK(fi < face_phases.size(),
+                   "IslamicStars: sprite shading face mismatch");
+          fragment_shader.palette = face_palettes[fi];
+          fragment_shader.phase = face_phases[fi];
+          fragment_shader.scale = size;
+        };
+        Scan::Mesh::draw_specialized<W, H>(
+            filters, canvas, transformed_state, fragment_shader,
+            scratch_arena_a, params.debug_bb, nullptr, mask, select_face);
+      } else {
+        auto fragment_shader = [&](const Vector &, Fragment &frag) {
+          int fi = static_cast<int>(frag.v2);
+          const int pal = (fi >= 0 && fi < num_faces) ? face_palette[fi] : 0;
+          frag.color =
+              shade_mesh_topology(frag, palette_bank_[pal], 1.0f, seg, phase);
+        };
+        Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
+                               fragment_shader, scratch_arena_a,
+                               params.debug_bb, nullptr, mask);
+      }
     }
   }
 
@@ -488,25 +516,15 @@ private:
       MeshOps::transform_in_place(mesh, ripple_gen, camera);
     }
     const SegueT &seg = carousel.segue();
-    const BakedPalette *face_palette = nullptr;
-    float face_gain = 0.0f;
+    FacePaletteShader fragment_shader;
+    fragment_shader.segue = &seg;
+    fragment_shader.phase = 1.0f;
 
     auto select_face = [&](size_t fi, float size) {
       HS_CHECK(fi < sh.faces, "IslamicStars: build shading face mismatch");
-      face_palette = &sh.ramps[sh.face_ramp[fi]];
-      face_gain = size > math::TOLERANCE ? sh.gain / size : 0.0f;
-    };
-
-    auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      float t = hs::clamp(-frag.v1 * face_gain, 0.0f, 1.0f);
-      float cover = seg.fill(t, 1.0f);
-      if (cover <= 0.0f) {
-        frag.color = Color4();
-        return;
-      }
-      face_palette->get_nearest_into(t, frag.color);
-      frag.color = seg.grade(frag.color, 1.0f);
-      frag.color.alpha = cover * seg.opacity(1.0f);
+      fragment_shader.palette = &sh.ramps[sh.face_ramp[fi]];
+      fragment_shader.scale =
+          size > math::TOLERANCE ? sh.gain / size : 0.0f;
     };
 
     {
