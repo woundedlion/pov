@@ -391,8 +391,9 @@ inline void test_face_shader_setup_matches_face_index() {
   {
     Canvas c(selected);
     Pipeline<W, H> pipe;
-    Scan::Mesh::draw<W, H>(pipe, c, mesh, shader, scratch,
-                           /*debug_bb=*/false, nullptr, nullptr, select_face);
+    Scan::Mesh::draw_specialized<W, H>(
+        pipe, c, mesh, shader, scratch, /*debug_bb=*/false, nullptr, nullptr,
+        select_face);
   }
   selected.advance_display();
 

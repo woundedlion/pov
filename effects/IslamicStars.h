@@ -516,9 +516,9 @@ private:
       // SDF::FaceScratchBuffer, while scratch_b is near-empty here (the Conway
       // op and compile temps have unwound). The sprite path scans from
       // scratch_a, where its transformed copy already lives.
-      Scan::Mesh::draw<W, H>(filters, canvas, mesh, fragment_shader,
-                             scratch_arena_b, params.debug_bb, nullptr, nullptr,
-                             select_face);
+      Scan::Mesh::draw_specialized<W, H>(
+          filters, canvas, mesh, fragment_shader, scratch_arena_b,
+          params.debug_bb, nullptr, nullptr, select_face);
     }
   }
 
