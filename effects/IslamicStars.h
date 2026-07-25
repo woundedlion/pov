@@ -66,6 +66,9 @@ public:
     ripple_gen.template_params.amplitude = RIPPLE_AMP_MAX;
     ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
+#ifdef HS_PROFILE_TRANS_SPEED
+    params.trans_speed = static_cast<float>(HS_PROFILE_TRANS_SPEED);
+#endif
 
     register_param("Fade", &params.fade, 0.0f, 96.0f);
     // Per-face fade length range (frames): each face draws a random fade from
