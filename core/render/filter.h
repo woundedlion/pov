@@ -150,6 +150,10 @@ template <int W, int H> struct Pipeline<W, H> {
     if (!cv.clip().contains_x(xi))
       return;
     Pixel &dst = cv(xi, y);
+    if (alpha >= 1.0f) {
+      dst = c;
+      return;
+    }
     dst = blend_alpha(alpha)(dst, c);
   }
 
