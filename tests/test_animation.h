@@ -1461,6 +1461,25 @@ inline void test_crossfade_segue_clamps_fade_to_half_duration() {
 }
 
 /**
+ * @brief Verifies Segue::Crossfade's overlap parameter: zero overlap returns
+ * the full duration (sequential — consecutive sprites never coexist, so a
+ * single mesh renders per frame), an oversized overlap clamps to the fade
+ * window, and an in-range overlap is honored exactly.
+ */
+inline void test_crossfade_segue_overlap_is_configurable() {
+  Timeline tl;
+  const int dur = 10, window = 3;
+  MeshCarousel<Segue::Crossfade> carousel;
+  auto noop = [](Canvas &, float) {};
+  carousel.segue().overlap = 0;
+  HS_EXPECT_EQ(carousel.schedule_segue(tl, noop, dur, window), dur);
+  carousel.segue().overlap = 100;
+  HS_EXPECT_EQ(carousel.schedule_segue(tl, noop, dur, window), dur - window);
+  carousel.segue().overlap = 2;
+  HS_EXPECT_EQ(carousel.schedule_segue(tl, noop, dur, window), dur - 2);
+}
+
+/**
  * @brief Verifies the default (Base) scheduling is sequential: the returned
  * delay equals the full duration, so consecutive sprites never coexist and a
  * single mesh renders per frame.
@@ -2645,6 +2664,7 @@ inline int run_animation_tests() {
 
   test_crossfade_segue_schedules_overlapping_sprite();
   test_crossfade_segue_clamps_fade_to_half_duration();
+  test_crossfade_segue_overlap_is_configurable();
   test_sequential_segue_never_overlaps_sprites();
   test_dissolve_segue_masks_partition_the_canvas();
   test_dissolve_segue_reseeds_per_frame_and_transition();
