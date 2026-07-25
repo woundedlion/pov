@@ -983,24 +983,11 @@ struct RingSweep {
 
   /**
    * @brief Stacked-composite alpha 1-(1-a)^k for fractional k >= 0.
-   * @details Binary exponentiation on the integer part (k is bounded by the
-   * span's control-point count), fractional part linearly interpolated so the
-   * result stays smooth in k.
+   * @details Exact via exp2/log2 — a piecewise power puts derivative kinks at
+   * integer k that mach-band along smooth dwell ramps.
    */
   __attribute__((always_inline)) static float stack_alpha(float a, float k) {
-    float u = 1.0f - a;
-    int ki = static_cast<int>(k);
-    float frac = k - static_cast<float>(ki);
-    float pow_u = 1.0f;
-    float base = u;
-    while (ki > 0) {
-      if (ki & 1)
-        pow_u *= base;
-      base *= base;
-      ki >>= 1;
-    }
-    pow_u *= 1.0f - frac * a;
-    return 1.0f - pow_u;
+    return 1.0f - exp2f(k * log2f(std::max(1.0f - a, 1e-7f)));
   }
 
   /**
@@ -1118,16 +1105,27 @@ struct RingSweep {
           continue;
         }
         if ((d0 > 0.0f) != (d1 > 0.0f)) {
-          // Transversal crossing: k_lin = rho * th / |d'| with |d'| = M at
-          // the zero (both band sides, quintic-mean 1/2 folded in).
+          // Transversal crossing, truncated to the span's actual traversal:
+          // each band side contributes Qint(1) - Qint(1-u) with u its
+          // in-span fraction. The abutting span's endpoint fringe supplies
+          // exactly the truncated remainder, so boundary pairs sum to one
+          // full crossing — untruncated, a ~1 px band at every span seam
+          // double-counts into a bright line.
           const float B = dot(p, b);
           float th_star = fast_atan2(-d0, B);
           if (th_star < 0.0f)
             th_star += PI_F;
           float t_hit = hs::clamp(th_star * inv_theta, 0.0f, 1.0f);
           const float m = std::sqrt(d0 * d0 + B * B);
-          emit(x, y, p, span.t0 + (span.t1 - span.t0) * t_hit,
-               rho * th / (m + 1e-6f), 0.0f, 0.0f);
+          const float u_a = hs::clamp(th_star * m * inv_th, 0.0f, 1.0f);
+          const float u_d =
+              hs::clamp((theta_total - th_star) * m * inv_th, 0.0f, 1.0f);
+          float k_lin = rho * th *
+                        (1.0f - quintic_integral(1.0f - u_a) -
+                         quintic_integral(1.0f - u_d)) /
+                        (m + 1e-6f);
+          emit(x, y, p, span.t0 + (span.t1 - span.t0) * t_hit, k_lin, 0.0f,
+               0.0f);
           continue;
         }
         const float a0 = std::abs(d0);
@@ -1137,14 +1135,19 @@ struct RingSweep {
         if (dist >= th) {
           continue;
         }
-        // One-sided dwell: k_lin = rho * th * Qint(1 - dist/th) / |d'| at
-        // that end; the final span's far end adds the discrete head-ring
-        // sample legacy always draws at full alpha.
+        // One-sided dwell truncated to the span length (a short reversal
+        // span holds only part of the approach); the final span's far end
+        // adds the discrete head-ring sample legacy always draws.
         const float B = dot(p, b);
         const float deriv =
             far_end ? std::abs(B * cos_full - d0 * sin_full) : std::abs(B);
-        float k_lin =
-            rho * th * quintic_integral(1.0f - dist * inv_th) / (deriv + 1e-6f);
+        const float u_near = 1.0f - dist * inv_th;
+        const float u_avail =
+            hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
+        float k_lin = rho * th *
+                      (quintic_integral(u_near) -
+                       quintic_integral(std::max(0.0f, u_near - u_avail))) /
+                      (deriv + 1e-6f);
         float q_cap = 0.0f;
         if (far_end && span.head_cap)
           q_cap = quintic_kernel(1.0f - dist * inv_th);
