@@ -1255,7 +1255,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         HS_PROBE_SPAN(alpha, hs_ta);
         if (!effective_debug && alpha <= 0.001f)
           continue;
-        HS_PROFILE(raster_shade);
+        HS_PROFILE_DEEP(raster_shade);
         if constexpr (MinimalFragment) {
           frag.v1 = res.raw_dist;
         } else {
