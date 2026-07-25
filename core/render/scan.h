@@ -1064,10 +1064,11 @@ HS_O3_BEGIN
  * and the clip-arc intersection run once per face; the per-pixel body mirrors
  * process_pixel's solid path.
  */
-template <int W, int H, typename PipelineT, bool MinimalFragment = false>
+template <int W, int H, typename PipelineT, bool MinimalFragment = false,
+          typename FragmentShaderT>
 __attribute__((noinline)) inline void
 rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
-               FragmentShaderFn fragment_shader, bool debug_bb,
+               FragmentShaderT &fragment_shader, bool debug_bb,
                const PixelMask *mask = nullptr) {
   bool effective_debug = debug_bb || canvas.debug();
 
@@ -1315,14 +1316,14 @@ struct Mesh {
    *        size. When supplied, it runs once before rasterizing the face and
    *        the shader is invoked directly with only v1 initialized.
    */
-  template <int W, int H, typename PipelineT = PipelineRef,
-            typename FaceShaderSetupT = std::nullptr_t>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
-                   FragmentShaderFn fragment_shader, Arena &scratch_arena,
-                   bool debug_bb = false,
-                   const MeshOps::MeshClassBake *bake = nullptr,
-                   const PixelMask *mask = nullptr,
-                   FaceShaderSetupT face_shader_setup = nullptr) {
+  template <int W, int H, typename PipelineT, typename FragmentShaderT,
+            typename FaceShaderSetupT>
+  static void draw_impl(PipelineT &pipeline, Canvas &canvas,
+                        const MeshState &mesh,
+                        FragmentShaderT &fragment_shader, Arena &scratch_arena,
+                        bool debug_bb, const MeshOps::MeshClassBake *bake,
+                        const PixelMask *mask,
+                        FaceShaderSetupT &face_shader_setup) {
     ScratchScope scope(scratch_arena);
     auto *scratch =
         static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
@@ -1373,25 +1374,54 @@ struct Mesh {
         }
       }
 
-      auto wrapper = [&](const Vector &p, Fragment &f_in) {
-        // Exact for i < 2^24 (float mantissa); meshes never approach that face count.
-        f_in.v2 = static_cast<float>(i);
-        fragment_shader(p, f_in);
-      };
-      FragmentShaderFn raster_shader = fragment_shader;
       if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
-        raster_shader = wrapper;
+        auto wrapper = [&](const Vector &p, Fragment &f_in) {
+          // Exact for i < 2^24 (float mantissa); meshes never approach that face count.
+          f_in.v2 = static_cast<float>(i);
+          fragment_shader(p, f_in);
+        };
+        FragmentShaderFn raster_shader = wrapper;
+        {
+          HS_PROFILE(scan_mesh_raster);
+          rasterize_face<W, H, PipelineT, false>(
+              pipeline, canvas, shape, raster_shader, debug_bb, mask);
+        }
       } else {
         face_shader_setup(i, shape.size);
-      }
-
-      {
-        HS_PROFILE(scan_mesh_raster);
-        rasterize_face<W, H, PipelineT,
-                       !std::is_same_v<FaceShaderSetupT, std::nullptr_t>>(
-            pipeline, canvas, shape, raster_shader, debug_bb, mask);
+        {
+          HS_PROFILE(scan_mesh_raster);
+          rasterize_face<W, H, PipelineT, true>(
+              pipeline, canvas, shape, fragment_shader, debug_bb, mask);
+        }
       }
     }
+  }
+
+  /** @brief Rasterizes a mesh through the type-erased fragment shader path. */
+  template <int W, int H, typename PipelineT = PipelineRef,
+            typename FaceShaderSetupT = std::nullptr_t>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
+                   FragmentShaderFn fragment_shader, Arena &scratch_arena,
+                   bool debug_bb = false,
+                   const MeshOps::MeshClassBake *bake = nullptr,
+                   const PixelMask *mask = nullptr,
+                   FaceShaderSetupT face_shader_setup = nullptr) {
+    draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
+                    debug_bb, bake, mask, face_shader_setup);
+  }
+
+  /** @brief Rasterizes a mesh with an inlinable per-face fragment shader. */
+  template <int W, int H, typename PipelineT, typename FragmentShaderT,
+            typename FaceShaderSetupT>
+  static void draw_specialized(PipelineT &pipeline, Canvas &canvas,
+                               const MeshState &mesh,
+                               FragmentShaderT &fragment_shader,
+                               Arena &scratch_arena, bool debug_bb,
+                               const MeshOps::MeshClassBake *bake,
+                               const PixelMask *mask,
+                               FaceShaderSetupT &face_shader_setup) {
+    draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
+                    debug_bb, bake, mask, face_shader_setup);
   }
 };
 HS_O3_END
