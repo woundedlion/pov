@@ -2608,6 +2608,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     OpLeg leg2(P, OpLeg::MedialTag{}, leg, cb, handoff2, SWEEP);
     const OpLeg::Landing &landing2 = leg2.landing();
     HS_EXPECT_EQ(landing2.faces, nf);
+    HS_EXPECT_TRUE(landing2.arrival_topology != nullptr);
+    HS_EXPECT_TRUE(landing2.arrival_point != nullptr);
     rasterize_at = SWEEP;
     for (int f = 0; f < SWEEP; ++f) {
       {
@@ -2619,24 +2621,20 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     snap(snaps[0]);
 
     // Leg-3 handoff, exactly as schedule_dual_untruncate builds it: departed
-    // centroids from a rebuilt medial at s = 1, palettes from leg-2's landing.
+    // centroids and palettes cached by leg 2.
     std::vector<uint8_t> pal3(nf);
     std::vector<Vector> cen3(nf);
-    {
-      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-      PolyMesh med;
-      ArenaVector<Vector> med_b;
-      MeshOps::medial(P, med, med_b, aux, temp);
-      HS_EXPECT_EQ(med.face_counts.size(), nf);
-      size_t off = 0;
-      for (size_t f = 0; f < nf; ++f) {
-        Vector c(0.0f, 0.0f, 0.0f);
-        for (int j = 0; j < med.face_counts[f]; ++j)
-          c = c + med_b[med.faces[off + j]];
-        cen3[f] = c.normalized();
-        pal3[f] = landing2.from_palette[f];
-        off += med.face_counts[f];
+    const PolyMesh &arrival = *landing2.arrival_topology;
+    size_t off = 0;
+    for (size_t f = 0; f < nf; ++f) {
+      Vector c(0.0f, 0.0f, 0.0f);
+      for (int j = 0; j < arrival.face_counts[f]; ++j) {
+        const size_t v = arrival.faces[off + j];
+        c = c + landing2.arrival_point[v].decode().normalized();
       }
+      cen3[f] = c.normalized();
+      pal3[f] = landing2.from_palette[f];
+      off += arrival.face_counts[f];
     }
 
     PolyMesh D;

@@ -364,6 +364,11 @@ public:
                     chained leg's handoff carries these original ids forward.
                     On an immutable-handoff leg it is the face's displayed
                     palette outright (to = from). */
+    const PolyMesh *arrival_topology =
+        nullptr; /**< Fixed connectivity of a packed arrival endpoint. */
+    const StarPoint *arrival_point =
+        nullptr; /**< Packed arrival vertices for a later bridge handoff. */
+    size_t arrival_points = 0; /**< Length of arrival_point. */
     const CompiledHankin *hankin =
         nullptr; /**< Baked arrival topology (HANKIN_SWEEP legs only, null
                     otherwise); with star_point it rebuilds the arrival mesh
@@ -791,6 +796,9 @@ public:
                                           arena);
       tr.topo = std::move(med.topology);
       HS_CHECK(tr.topo.size() == med.face_counts.size());
+      tr.landing.arrival_topology = &tr.seed;
+      tr.landing.arrival_point = tr.medial_b.data();
+      tr.landing.arrival_points = tr.medial_b.size();
 
       // Full correspondence: every medial face lives the whole bridge, so the
       // survivor prefix is the whole face list.
