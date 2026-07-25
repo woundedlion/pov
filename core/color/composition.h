@@ -999,7 +999,7 @@ public:
    * @param t Lookup coordinate; clamped to [0, 1].
    * @return The same pixel as get(t).color without interpolating alpha.
    */
-  __attribute__((always_inline)) Pixel get_color(float t) const {
+  HS_NOINLINE_NOCLONE Pixel get_color(float t) const {
     assert(lut_ != nullptr && "BakedPalette::get_color before bake()");
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
