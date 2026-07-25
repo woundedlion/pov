@@ -1000,7 +1000,9 @@ struct RingSweep {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam PipelineT Plotting pipeline type.
-   * @tparam SweepShaderT Shader: shader(float t, const Vector &p, Fragment &f)
+   * @tparam SweepShaderT Shader: shader(float t, float t_lo, float t_hi,
+   *         const Vector &p, Fragment &f); [t_lo, t_hi] is the dwell
+   *         window in trail parameter for palette convolution
    *         with t the trail parameter at the pixel's dwell centre.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
@@ -1101,14 +1103,14 @@ struct RingSweep {
     // ln(1-a*quintic)/ln(1-a) over the band (quadratic fit, F(0) = 1/2).
     // Discrete cap samples (head ring, static trail) use the exact per-sample
     // log weight instead.
-    auto emit = [&](int x, int y, const Vector &p, float t_par, float k_lin,
-                    float q_cap, float cap_count) {
+    auto emit = [&](int x, int y, const Vector &p, float t_par, float t_lo,
+                    float t_hi, float k_lin, float q_cap, float cap_count) {
       frag.color = Color4(0, 0, 0, 0);
       frag.pos = p;
       frag.v2 = q_cap;
       frag.size = th;
       frag.age = 0;
-      shader(t_par, p, frag);
+      shader(t_par, t_lo, t_hi, p, frag);
       const float a = frag.color.alpha;
       if (a <= 0.001f)
         return;
@@ -1140,7 +1142,7 @@ struct RingSweep {
           if (dist >= th)
             continue;
           float aa = quintic_kernel(1.0f - dist * inv_th);
-          emit(x, y, p, span.t1, 0.0f, aa, span.steps + 1.0f);
+          emit(x, y, p, span.t1, span.t1, span.t1, 0.0f, aa, span.steps + 1.0f);
           continue;
         }
         if ((d0 > 0.0f) != (d1 > 0.0f)) {
@@ -1162,7 +1164,13 @@ struct RingSweep {
                         (1.0f - quintic_integral(1.0f - u_a) -
                          quintic_integral(1.0f - u_d)) /
                         (m + 1e-6f);
-          emit(x, y, p, t_at(th_star), k_lin, 0.0f, 0.0f);
+          // Palette convolution window: the dwell spans +-th/|d'| of
+          // sweep angle; legacy's stacked rings blend the palette over
+          // exactly this window, which is what smooths its internal
+          // stop boundaries.
+          const float dth = th / (m + 1e-6f);
+          emit(x, y, p, t_at(th_star), t_at(std::max(0.0f, th_star - dth)),
+               t_at(std::min(theta_total, th_star + dth)), k_lin, 0.0f, 0.0f);
           continue;
         }
         const float a0 = std::abs(d0);
@@ -1200,7 +1208,8 @@ struct RingSweep {
           if (span.head_cap)
             q_cap = quintic_kernel(1.0f - a1 * inv_th);
         }
-        emit(x, y, p, a1 < a0 ? span.t1 : span.t0, k_lin, q_cap, 1.0f);
+        const float t_end = a1 < a0 ? span.t1 : span.t0;
+        emit(x, y, p, t_end, t_end, t_end, k_lin, q_cap, 1.0f);
       }
     };
     auto run_clipped = [&](int x1, int x2, int y, float sp, float cp) {
