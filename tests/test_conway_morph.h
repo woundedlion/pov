@@ -1287,9 +1287,9 @@ inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
     Arena a(morph_target_buf, sizeof(morph_target_buf));
     Arena b(morph_temp_buf, sizeof(morph_temp_buf));
     for (int s = 0; s < SAMPLES; ++s) {
-      const float theta = THETA_EPS + (site.theta_star - THETA_EPS) *
-                                          (static_cast<float>(s) /
-                                           (SAMPLES - 1));
+      const float theta =
+          THETA_EPS + (site.theta_star - THETA_EPS) *
+                          (static_cast<float>(s) / (SAMPLES - 1));
       ScratchScope frame_a(a);
       ScratchScope frame_b(b);
       PolyMesh swept = MeshOps::hankin(seed, a, b, theta);
@@ -1317,9 +1317,8 @@ inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
       std::printf("    [hankin-sweep] %s failed (raw F=%zu, compiled F=%zu)\n",
                   site.name, f0, compiled0);
     else
-      std::printf(
-          "  [hankin-sweep] %s: F=%zu compiled=%zu across %d samples\n",
-          site.name, f0, compiled0, SAMPLES);
+      std::printf("  [hankin-sweep] %s: F=%zu compiled=%zu across %d samples\n",
+                  site.name, f0, compiled0, SAMPLES);
   }
 }
 
@@ -1383,8 +1382,8 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
 
     const Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
     const Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
-    Vector intersect = cross(rotate(cross1.normalized(), q1),
-                             rotate(cross2.normalized(), q2));
+    Vector intersect =
+        cross(rotate(cross1.normalized(), q1), rotate(cross2.normalized(), q2));
 
     bool degenerate = dot(intersect, intersect) < math::EPS_LEN_SQ;
     float far_ratio = 0;
@@ -1418,9 +1417,8 @@ inline void hankin_face_normals(const CompiledHankin &compiled,
                                 const std::vector<HankinSolve> &dyn,
                                 std::vector<Vector> &out) {
   auto vertex_at = [&](uint16_t idx) {
-    return idx < compiled.static_offset
-               ? compiled.static_vertices[idx]
-               : dyn[idx - compiled.static_offset].pos;
+    return idx < compiled.static_offset ? compiled.static_vertices[idx]
+                                        : dyn[idx - compiled.static_offset].pos;
   };
   out.assign(compiled.face_counts.size(), Vector());
   size_t base = 0;
@@ -1445,14 +1443,17 @@ inline constexpr float HANKIN_FLAT_FACE = 1e-4f;
 
 /** @brief Per-step stability metrics of one sweep sample. */
 struct HankinStepStats {
-  float theta = 0;      /**< Contact angle of this sample, radians. */
-  int fallback = 0;     /**< Dynamic vertices on the FALLBACK branch. */
-  int branch_flips = 0; /**< Vertices whose branch changed vs the previous step. */
-  float max_disp = 0;   /**< Largest single-vertex chord vs the previous step. */
-  float mean_disp = 0;  /**< Mean dynamic-vertex chord vs the previous step. */
-  int normal_flips = 0; /**< Non-degenerate faces whose Newell normal reversed. */
-  int flat_faces = 0;   /**< Faces below HANKIN_FLAT_FACE this step. */
-  float max_far_ratio = 0;    /**< Largest far_ratio this step (guard fires at 36). */
+  float theta = 0;  /**< Contact angle of this sample, radians. */
+  int fallback = 0; /**< Dynamic vertices on the FALLBACK branch. */
+  int branch_flips =
+      0; /**< Vertices whose branch changed vs the previous step. */
+  float max_disp = 0;  /**< Largest single-vertex chord vs the previous step. */
+  float mean_disp = 0; /**< Mean dynamic-vertex chord vs the previous step. */
+  int normal_flips =
+      0;              /**< Non-degenerate faces whose Newell normal reversed. */
+  int flat_faces = 0; /**< Faces below HANKIN_FLAT_FACE this step. */
+  float max_far_ratio =
+      0; /**< Largest far_ratio this step (guard fires at 36). */
   float max_corner_chord = 0; /**< Largest chord(star point, its corner). */
 };
 
@@ -1511,11 +1512,12 @@ struct HankinSweepSummary {
   int steps_with_normal_flips = 0;
   float worst_max_disp = 0;
   float worst_mean_disp = 0;
-  int worst_step = 0;    /**< Step index owning worst_max_disp. */
-  float spike_ratio = 0; /**< worst_max_disp / mean_disp at that step. */
-  int worst_flat_faces = 0;    /**< Most sub-HANKIN_FLAT_FACE faces in a step. */
-  float worst_far_ratio = 0;   /**< Largest far_ratio over the sweep. */
-  float worst_corner_chord = 0;/**< Largest chord(star point, corner) over the sweep. */
+  int worst_step = 0;        /**< Step index owning worst_max_disp. */
+  float spike_ratio = 0;     /**< worst_max_disp / mean_disp at that step. */
+  int worst_flat_faces = 0;  /**< Most sub-HANKIN_FLAT_FACE faces in a step. */
+  float worst_far_ratio = 0; /**< Largest far_ratio over the sweep. */
+  float worst_corner_chord =
+      0; /**< Largest chord(star point, corner) over the sweep. */
 };
 
 /**
@@ -1606,9 +1608,9 @@ inline void test_hankin_sweep_vertex_stability() {
       const HankinInstruction &instr = compiled.dynamic_instructions[i];
       const Vector cn = normalized_or(compiled.base_vertices[instr.v_corner],
                                       compiled.base_vertices[instr.v_corner]);
-      const float local_sq =
-          std::max(distance_squared(compiled.static_vertices[instr.idx_m1], cn),
-                   distance_squared(compiled.static_vertices[instr.idx_m2], cn));
+      const float local_sq = std::max(
+          distance_squared(compiled.static_vertices[instr.idx_m1], cn),
+          distance_squared(compiled.static_vertices[instr.idx_m2], cn));
       max_local_sq = std::max(max_local_sq, local_sq);
       if (MeshOps::STAR_FAR_RATIO_SQ * local_sq >= 4.0f)
         ++unreachable;
@@ -1707,7 +1709,8 @@ inline void test_hankin_sweep_vertex_stability() {
     std::vector<HankinSolve> at_eps;
     hankin_solve(compiled, THETA_EPS, at_eps);
     for (size_t i = 0; i < at_eps.size(); ++i)
-      eps_chord = std::max(eps_chord, (at_eps[i].pos - collapsed[i].pos).magnitude());
+      eps_chord =
+          std::max(eps_chord, (at_eps[i].pos - collapsed[i].pos).magnitude());
     std::printf("      theta_eps=%.3f opening chord max=%.6f radii "
                 "(%.3f px at r=64)\n",
                 THETA_EPS, eps_chord, eps_chord * 64.0f);
@@ -1763,8 +1766,8 @@ inline void test_opleg_hankin_sweep_smoke() {
     sides[f] = dodeca.face_counts[f];
   }
 
-  Animation::OpLeg::PaletteHandoff handoff{
-      &bank.bank, pal, sides, dodeca.face_counts.size(), false};
+  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
+                                           dodeca.face_counts.size(), false};
 
   // Per-frame motion bound: growing star points out from their corners keeps
   // every step small and unimodal. Re-solving the contact-plane intersection
@@ -2052,8 +2055,7 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
 
     Arena a(morph_target_buf, sizeof(morph_target_buf));
     Arena b(morph_temp_buf, sizeof(morph_temp_buf));
-    PolyMesh relaxed =
-        MeshOps::relax(seed, a, b, static_cast<int>(site.param));
+    PolyMesh relaxed = MeshOps::relax(seed, a, b, static_cast<int>(site.param));
 
     // The precondition of a standalone relax leg: same vertex count, same
     // topology bytes, and vertex i still nearest its own seed vertex, so the
@@ -2144,15 +2146,16 @@ inline PolyMesh probe_dodeca_hk72_ambo(Arena &a, Arena &b) {
 }
 inline PolyMesh probe_icosidodeca_trunc5_ambo(Arena &a, Arena &b) {
   using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Archimedean::icosidodecahedron(a, b), a, b)
+  return Solids::SolidBuilder(Solids::Archimedean::icosidodecahedron(a, b), a,
+                              b)
       .truncate(5.0f * D2R)
       .ambo()
       .build();
 }
 inline PolyMesh probe_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
   using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b), a,
-                              b)
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
       .ambo()
       .relax(100)
       .hankin(54.0f * D2R)
@@ -2313,6 +2316,11 @@ inline void test_medial_dual_bridge_wellformed() {
     HS_EXPECT_EQ(med_a.vertices.size(), ambo_p.vertices.size());
     HS_EXPECT_EQ(med_a.face_counts.size(), ambo_p.face_counts.size());
     HS_EXPECT_EQ(med_a.face_counts.size(), ambo_dual_p.face_counts.size());
+    HS_EXPECT_TRUE(std::equal(med_a.face_counts.begin(),
+                              med_a.face_counts.end(),
+                              ambo_p.face_counts.begin()));
+    HS_EXPECT_TRUE(std::equal(med_a.faces.begin(), med_a.faces.end(),
+                              ambo_p.faces.begin()));
     // Every medial vertex sits on an ambo(P) vertex at s=0 and an ambo(dual(P))
     // vertex at s=1 (set containment; a lossy dual makes s=1 many-to-one).
     const float end_a = medial_vertex_set_dist(med_a, ambo_p);
@@ -2323,8 +2331,8 @@ inline void test_medial_dual_bridge_wellformed() {
     // No antipodal/coincident slerp inputs.
     float min_dot = 2.0f;
     for (size_t v = 0; v < med_a.vertices.size(); ++v)
-      min_dot = std::min(min_dot,
-                         dot(med_a.vertices[v].normalized(), med_b[v].normalized()));
+      min_dot = std::min(
+          min_dot, dot(med_a.vertices[v].normalized(), med_b[v].normalized()));
     HS_EXPECT_GT(min_dot, MIN_ENDPOINT_DOT);
 
     // Slerp sweep: fixed connectivity, per-vertex slerp; well-formed throughout.
@@ -2356,14 +2364,13 @@ inline void test_medial_dual_bridge_wellformed() {
           expect_same_fingerprint(fp, first); // fixed emission order/count
       }
       total_inv += medial_inverted_faces(frame);
-      worst_4pi = std::max(worst_4pi,
-                           std::abs(medial_total_solid_angle(frame) -
-                                    4.0 * 3.14159265358979323846));
+      worst_4pi = std::max(worst_4pi, std::abs(medial_total_solid_angle(frame) -
+                                               4.0 * 3.14159265358979323846));
       min_area = std::min(min_area, medial_min_face_area(frame));
       if (s > 0)
         for (size_t v = 0; v < frame.vertices.size(); ++v)
-          max_step = std::max(max_step,
-                              distance_between(frame.vertices[v], prev[v]));
+          max_step =
+              std::max(max_step, distance_between(frame.vertices[v], prev[v]));
       prev.assign(frame.vertices.begin(), frame.vertices.end());
     }
 
@@ -2378,10 +2385,11 @@ inline void test_medial_dual_bridge_wellformed() {
                   site.name, (double)end_a, (double)end_b, (double)min_dot,
                   total_inv, worst_4pi, min_area, (double)max_step);
     else
-      std::printf("  [medial] %s: F=%zu endpoints<%.0e min a.b=%.4f 4pi-err=%.1e "
-                  "minA=%.2e step=%.4f\n",
-                  site.name, med_a.face_counts.size(), (double)ENDPOINT_TOL,
-                  (double)min_dot, worst_4pi, min_area, (double)max_step);
+      std::printf(
+          "  [medial] %s: F=%zu endpoints<%.0e min a.b=%.4f 4pi-err=%.1e "
+          "minA=%.2e step=%.4f\n",
+          site.name, med_a.face_counts.size(), (double)ENDPOINT_TOL,
+          (double)min_dot, worst_4pi, min_area, (double)max_step);
   }
 }
 
@@ -2546,7 +2554,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     }
     const size_t PF = P.face_counts.size();
 
-    // Departed mesh ambo(P): class-keyed palettes plus face centroids.
+    // Departed mesh ambo(P): class-keyed palettes in medial face order.
     PolyMesh ambo_p;
     {
       Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
@@ -2560,19 +2568,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     }
     const size_t nf = ambo_p.face_counts.size();
     std::vector<uint8_t> pal2(nf);
-    std::vector<Vector> cen2(nf);
-    {
-      size_t off = 0;
-      for (size_t f = 0; f < nf; ++f) {
-        pal2[f] =
-            static_cast<uint8_t>(wrap(ambo_p.topology[f], OpLeg::PALETTES));
-        Vector c(0.0f, 0.0f, 0.0f);
-        for (int j = 0; j < ambo_p.face_counts[f]; ++j)
-          c = c + ambo_p.vertices[ambo_p.faces[off + j]];
-        cen2[f] = c.normalized();
-        off += ambo_p.face_counts[f];
-      }
-    }
+    for (size_t f = 0; f < nf; ++f)
+      pal2[f] = static_cast<uint8_t>(wrap(ambo_p.topology[f], OpLeg::PALETTES));
     std::array<uint8_t, OpLeg::PALETTES> targets;
     for (int i = 0; i < OpLeg::PALETTES; ++i)
       targets[i] = static_cast<uint8_t>(i);
@@ -2603,13 +2600,19 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     };
 
     // Leg 2: the medial slerp, departed from ambo(P).
-    OpLeg::PaletteHandoff handoff2{&bank.bank, pal2.data(), nullptr,  nf,
-                                   false,      cen2.data(), &targets, true};
+    OpLeg::PaletteHandoff handoff2{
+        &bank.bank, pal2.data(),
+        nullptr,    nf,
+        false,      nullptr,
+        &targets,   true,
+        nullptr,    OpLeg::FaceCorrespondence::IDENTITY};
     OpLeg leg2(P, OpLeg::MedialTag{}, leg, cb, handoff2, SWEEP);
     const OpLeg::Landing &landing2 = leg2.landing();
     HS_EXPECT_EQ(landing2.faces, nf);
     HS_EXPECT_TRUE(landing2.arrival_topology != nullptr);
     HS_EXPECT_TRUE(landing2.arrival_point != nullptr);
+    for (size_t f = 0; f < nf; ++f)
+      HS_EXPECT_EQ(landing2.from_palette[f], pal2[f]);
     rasterize_at = SWEEP;
     for (int f = 0; f < SWEEP; ++f) {
       {
@@ -2653,8 +2656,12 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const size_t DF = D.face_counts.size();
     HS_EXPECT_EQ(DF, nf - PF);
 
-    OpLeg::PaletteHandoff handoff3{&bank.bank, pal3.data(), nullptr,  nf,
-                                   false,      cen3.data(), &targets, true};
+    OpLeg::PaletteHandoff handoff3{
+        &bank.bank, pal3.data(),
+        nullptr,    nf,
+        false,      nullptr,
+        &targets,   true,
+        nullptr,    OpLeg::FaceCorrespondence::DUAL_CLOSING};
     OpLeg::BookendClasses bookend3{D.topology.data(), DF};
     OpLeg leg3(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f, leg,
                cb, handoff3, SWEEP, bookend3, OpLeg::classic_blend,
@@ -2832,8 +2839,8 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
   Vector *prev_centroid = leg_arena.allocate_n<Vector>(prev_faces);
   size_t off = 0;
   for (size_t f = 0; f < prev_faces; ++f) {
-    prev_pal[f] = static_cast<uint8_t>(
-        slots[wrap(seed.topology[f], OpLeg::PALETTES)]);
+    prev_pal[f] =
+        static_cast<uint8_t>(slots[wrap(seed.topology[f], OpLeg::PALETTES)]);
     Vector c(0.0f, 0.0f, 0.0f);
     const int n = seed.face_counts[f];
     for (int j = 0; j < n; ++j)
@@ -2905,9 +2912,9 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
   }
 
   HS_EXPECT_LT(worst_step, max_step_chord);
-  const char *label = kind == StepLegKind::TRUNCATE  ? "truncate"
-                      : kind == StepLegKind::SNUB    ? "snub"
-                                                     : "relax";
+  const char *label = kind == StepLegKind::TRUNCATE ? "truncate"
+                      : kind == StepLegKind::SNUB   ? "snub"
+                                                    : "relax";
   std::printf("  [opleg %s] %s: %zu faces, worst per-frame vertex step %.4f "
               "chord (bound %.2f)%s\n",
               label, site.name, drawn_faces, (double)worst_step,
@@ -3345,7 +3352,7 @@ inline void test_opleg_build_immutable_colours() {
     // No newborn faces on the medial: the counter must come back unmoved.
     uint32_t counter = 7;
     OpLeg::PaletteHandoff handoff{
-        &bank.bank,        pal, nullptr, nf, false, nullptr, nullptr,
+        &bank.bank,         pal,     nullptr, nf, false, nullptr, nullptr,
         /*immutable=*/true, &counter};
     OpLeg leg(cube, OpLeg::MedialTag{}, leg_arena, cb, handoff, FRAMES);
     check_immutable("medial", std::move(leg), FRAMES, nf, pal, 7, counter);
@@ -3360,9 +3367,11 @@ inline void test_opleg_build_immutable_colours() {
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
     uint32_t counter = 2;
     OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal,     nullptr, cube.face_counts.size(),
-        false,      nullptr, nullptr, /*immutable=*/true,
-        &counter};
+        &bank.bank, pal,
+        nullptr,    cube.face_counts.size(),
+        false,      nullptr,
+        nullptr,    /*immutable=*/true,
+        &counter,   OpLeg::FaceCorrespondence::IDENTITY};
     OpLeg leg(cube, cube.vertices.data(), OpLeg::ReconcileTag{}, leg_arena, cb,
               handoff, FRAMES);
     check_immutable("reconcile", std::move(leg), FRAMES,
@@ -3455,9 +3464,9 @@ constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
     74 * 1024; /**< IslamicStars scratch_b split. */
 /** Device persistent budget of IslamicStars' arena split. */
-constexpr size_t ISLAMIC_PERSISTENT_BUDGET =
-    DEVICE_GLOBAL_ARENA_SIZE - ISLAMIC_SCRATCH_A_BUDGET -
-    ISLAMIC_SCRATCH_B_BUDGET;
+constexpr size_t ISLAMIC_PERSISTENT_BUDGET = DEVICE_GLOBAL_ARENA_SIZE -
+                                             ISLAMIC_SCRATCH_A_BUDGET -
+                                             ISLAMIC_SCRATCH_B_BUDGET;
 /** Scratch capacity the replay runs with, above every budget it gates. */
 constexpr size_t REPLAY_SCRATCH_CAPACITY = 512 * 1024;
 
@@ -3465,14 +3474,14 @@ constexpr size_t REPLAY_SCRATCH_CAPACITY = 512 * 1024;
  * @brief Arena high-waters and shape of one replayed chain.
  */
 struct ChainPeaks {
-  size_t persistent = 0; /**< persistent_arena high-water, bytes. */
-  size_t scratch_a = 0;  /**< scratch_arena_a high-water, bytes. */
-  size_t scratch_b = 0;  /**< scratch_arena_b high-water, bytes. */
-  size_t legs = 0;       /**< Lowered primitive step count. */
-  size_t faces = 0;      /**< Face count of the finished solid. */
+  size_t persistent = 0;  /**< persistent_arena high-water, bytes. */
+  size_t scratch_a = 0;   /**< scratch_arena_a high-water, bytes. */
+  size_t scratch_b = 0;   /**< scratch_arena_b high-water, bytes. */
+  size_t legs = 0;        /**< Lowered primitive step count. */
+  size_t faces = 0;       /**< Face count of the finished solid. */
   int palettes = 0;       /**< Distinct palettes on the finished shape. */
-  int final_classes = 0; /**< Distinct newborn classes on the final leg. */
-  int final_cohorts = 0; /**< Counter entries the final leg consumed. */
+  int final_classes = 0;  /**< Distinct newborn classes on the final leg. */
+  int final_cohorts = 0;  /**< Counter entries the final leg consumed. */
   bool supported = false; /**< Every lowered step has a leg kind. */
 };
 
@@ -3621,42 +3630,42 @@ inline ChainPeaks replay_build_chain(const char *name,
       const bool hankin_step = steps[k].op == Solids::Op::HANKIN;
       OpLeg::BookendClasses bookend;
       if (!hankin_step) {
-      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-        PolyMesh nx;
-        switch (steps[k].op) {
-        case Solids::Op::AMBO:
-          nx = MeshOps::ambo(cur, a, b);
-          break;
-        case Solids::Op::TRUNCATE:
-          nx = MeshOps::truncate(cur, a, b, steps[k].param);
-          break;
-        case Solids::Op::SNUB:
-          nx = MeshOps::snub(cur, a, b, steps[k].param, steps[k].twist);
-          break;
-        case Solids::Op::KIS:
-          nx = MeshOps::kis(cur, a, b);
-          break;
-        case Solids::Op::DUAL:
-          nx = MeshOps::dual(cur, a, b);
-          break;
-        case Solids::Op::CHAMFER:
-          nx = MeshOps::chamfer(cur, a, b, steps[k].param);
-          break;
-        default:
-          nx = MeshOps::relax(cur, a, b, static_cast<int>(steps[k].param));
-          break;
+        generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+          PolyMesh nx;
+          switch (steps[k].op) {
+          case Solids::Op::AMBO:
+            nx = MeshOps::ambo(cur, a, b);
+            break;
+          case Solids::Op::TRUNCATE:
+            nx = MeshOps::truncate(cur, a, b, steps[k].param);
+            break;
+          case Solids::Op::SNUB:
+            nx = MeshOps::snub(cur, a, b, steps[k].param, steps[k].twist);
+            break;
+          case Solids::Op::KIS:
+            nx = MeshOps::kis(cur, a, b);
+            break;
+          case Solids::Op::DUAL:
+            nx = MeshOps::dual(cur, a, b);
+            break;
+          case Solids::Op::CHAMFER:
+            nx = MeshOps::chamfer(cur, a, b, steps[k].param);
+            break;
+          default:
+            nx = MeshOps::relax(cur, a, b, static_cast<int>(steps[k].param));
+            break;
+          }
+          next = Solids::finalize_solid(nx, target);
+        });
+        {
+          ScratchScope a_guard(scratch_arena_a);
+          ScratchScope b_guard(scratch_arena_b);
+          MeshOps::classify_faces_by_topology(
+              next, scratch_arena_a, scratch_arena_b, persistent_arena);
         }
-        next = Solids::finalize_solid(nx, target);
-      });
-      {
-        ScratchScope a_guard(scratch_arena_a);
-        ScratchScope b_guard(scratch_arena_b);
-        MeshOps::classify_faces_by_topology(next, scratch_arena_a,
-                                            scratch_arena_b, persistent_arena);
-      }
-      const size_t bookend_faces = next.face_counts.size();
-      HS_EXPECT_LE(bookend_faces, MAX_FACES);
-      bookend = {next.topology.data(), bookend_faces};
+        const size_t bookend_faces = next.face_counts.size();
+        HS_EXPECT_LE(bookend_faces, MAX_FACES);
+        bookend = {next.topology.data(), bookend_faces};
       }
 
       OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,
@@ -3949,9 +3958,9 @@ inline constexpr uint8_t SEED_CUBE = 1;
 inline constexpr uint8_t SEED_ICOSAHEDRON = 4;
 static_assert(std::string_view(Solids::simple_registry[SEED_CUBE].name) ==
               "cube");
-static_assert(std::string_view(
-                  Solids::simple_registry[SEED_ICOSAHEDRON].name) ==
-              "icosahedron");
+static_assert(
+    std::string_view(Solids::simple_registry[SEED_ICOSAHEDRON].name) ==
+    "icosahedron");
 
 /** Partition chains: a lone kis, a gated leg departing a gated leg, and a
  * gated leg departing a swept one. No registry entry carries a partition
@@ -4038,8 +4047,7 @@ inline void test_reconcile_bijection_wellposed() {
     Arena keep(morph_persist_buf, sizeof(morph_persist_buf));
 
     Solids::OpStep lowered[8];
-    const size_t count =
-        Solids::expand_to_primitives(*site.recipe, lowered, 8);
+    const size_t count = Solids::expand_to_primitives(*site.recipe, lowered, 8);
     // Locate the kis and its preceding dual (dt pair) or its standalone form.
     size_t kis = count;
     for (size_t k = 0; k < count; ++k)
@@ -4050,7 +4058,8 @@ inline void test_reconcile_bijection_wellposed() {
     HS_EXPECT_LT(kis, count);
     const size_t x_prefix = site.dtd ? kis : kis - 1; // steps to reach X
 
-    PolyMesh X = Solids::build_steps(site.recipe->seed, lowered, x_prefix, a, b);
+    PolyMesh X =
+        Solids::build_steps(site.recipe->seed, lowered, x_prefix, a, b);
     PolyMesh Xc; // stable copy: identity/authored reuse a,b as ping-pong
     MeshOps::clone(X, Xc, aux);
 
@@ -4097,9 +4106,9 @@ inline void test_reconcile_bijection_wellposed() {
         used[best] = true;
       match[i] = best;
       if (best >= 0)
-        worst_chord = std::max(
-            worst_chord,
-            distance_between(identity.vertices[i], authored.vertices[best]));
+        worst_chord =
+            std::max(worst_chord, distance_between(identity.vertices[i],
+                                                   authored.vertices[best]));
     }
     HS_EXPECT_TRUE(injective);
     HS_EXPECT_LT(worst_chord, MAX_RESIDUAL_CHORD);
