@@ -2271,7 +2271,7 @@ struct Face {
     // Early vertical exit: a face whose latitude band (plus thickness margin)
     // maps to an empty row range can never be rasterized.
     const bool phi_culled = [&] {
-      HS_PROFILE(face_phi_extent);
+      HS_PROFILE_DEEP(face_phi_extent);
       return compute_phi_extent(vertices, indices, h_virt, height);
     }();
     if (phi_culled) {
@@ -2285,7 +2285,7 @@ struct Face {
              "Face: vertex count must be in (0, MAX_VERTS]");
 
     {
-      HS_PROFILE(face_project);
+      HS_PROFILE_DEEP(face_project);
       setup_frame_and_polygon(vertices, indices, scratch);
     }
 
@@ -2310,11 +2310,11 @@ struct Face {
     }
 
     {
-      HS_PROFILE(face_thetas);
+      HS_PROFILE_DEEP(face_thetas);
       compute_thetas(scratch);
     }
     {
-      HS_PROFILE(face_azimuth);
+      HS_PROFILE_DEEP(face_azimuth);
       compute_azimuth_intervals(scratch);
     }
 
@@ -2330,7 +2330,7 @@ struct Face {
 
     int planes_count;
     {
-      HS_PROFILE(face_bounds);
+      HS_PROFILE_DEEP(face_bounds);
       compute_inradius(scratch);
 
       // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
@@ -2348,7 +2348,7 @@ struct Face {
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
     {
-      HS_PROFILE(face_pole);
+      HS_PROFILE_DEEP(face_pole);
       apply_pole_containment(height);
     }
 
@@ -2362,12 +2362,12 @@ struct Face {
     }
 
     {
-      HS_PROFILE(face_edges);
+      HS_PROFILE_DEEP(face_edges);
       pack_edges(scratch);
       build_half_planes(scratch);
     }
     {
-      HS_PROFILE(face_sectors);
+      HS_PROFILE_DEEP(face_sectors);
       build_sectors(scratch);
     }
   }
