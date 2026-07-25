@@ -280,8 +280,8 @@ private:
    * @brief Draw callback for build-leg frames.
    * @details Held as a member for stable FunctionRef lifetime.
    */
-  Fn<void(Canvas &, const MeshState &, const Animation::OpLeg::Shading &), 8>
-      draw_build_fn_{[this](Canvas &c, const MeshState &m,
+  Fn<void(Canvas &, MeshState &, const Animation::OpLeg::Shading &), 8>
+      draw_build_fn_{[this](Canvas &c, MeshState &m,
                             const Animation::OpLeg::Shading &sh) {
         draw_build_mesh(c, m, sh);
       }};
@@ -487,22 +487,15 @@ private:
    * @param mesh Compiled swept mesh (scratch-backed, this frame only).
    * @param sh Per-face palette table from the OpLeg.
    */
-  HS_O3_FN void draw_build_mesh(Canvas &canvas, const MeshState &mesh_in,
+  HS_O3_FN void draw_build_mesh(Canvas &canvas, MeshState &mesh,
                                 const Animation::OpLeg::Shading &sh) {
-    if (mesh_in.vertices.is_empty())
+    if (mesh.vertices.is_empty())
       return;
     // Own scope labels: sharing the sprite's would parent two draw paths under
     // one counter, and a build-only window then prints an empty subtree while a
     // mixed window prints the child above its own parent's total.
     HS_PROFILE(is_build_draw);
-    // The build mesh is OpLeg::finish_frame's per-frame throwaway (a non-const
-    // MeshState local); transform its vertices in place rather than into a
-    // second scratch_a buffer. At the 1082-face entry the leg's swept mesh plus
-    // its compiled form already hold ~120.9 KB of scratch_a, so a transformed
-    // copy overflowed the 120 KB split. The sprite path keeps transform_shape:
-    // its source is a persistent mesh reused every frame. The draw callback is
-    // typed const, so cast away const at this one build call site.
-    MeshState &mesh = const_cast<MeshState &>(mesh_in);
+    // The frame-local mesh and its source fill scratch_a at the 1082-face peak.
     OrientTransformer camera(orientation);
     {
       HS_PROFILE(is_mesh_transform);

@@ -252,11 +252,11 @@ public:
   };
 
   /**
-   * @brief Non-owning draw callback: `void(Canvas&, const MeshState&,
+   * @brief Non-owning draw callback: `void(Canvas&, MeshState&,
    * const Shading&)`. StoredFunctionRef rejects rvalue temporaries.
    */
   using MorphDrawFn =
-      StoredFunctionRef<void(Canvas &, const MeshState &, const Shading &)>;
+      StoredFunctionRef<void(Canvas &, MeshState &, const Shading &)>;
 
   /**
    * @brief Crossfade-weight curve of a swept leg: resolved weight in [0, 1]
