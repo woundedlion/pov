@@ -1090,8 +1090,8 @@ struct RingSweep {
     auto t_at = [&](float theta, float &rho_out) {
       if (n_pts < 2) {
         rho_out = rho;
-        return span.t0 +
-               (span.t1 - span.t0) * hs::clamp(theta * inv_theta, 0.0f, 1.0f);
+        float f = hs::clamp(theta * inv_theta, -1.0f, 2.0f);
+        return hs::clamp(span.t0 + (span.t1 - span.t0) * f, 0.0f, 1.0f);
       }
       int lo = 0, hi = n_pts - 1;
       while (hi - lo > 1) {
@@ -1103,9 +1103,14 @@ struct RingSweep {
       }
       float seg = phis[hi] - phis[lo];
       rho_out = seg > 1e-6f ? 1.0f / seg : rho;
+      // Bounded extrapolation past the span ends: spans tile one polyline,
+      // so the boundary segment's slope continues into the neighbour. A
+      // window clamped at the span edge halves the palette convolution
+      // there, banding the hue at span pitch.
       float f =
-          seg > 1e-6f ? hs::clamp((theta - phis[lo]) / seg, 0.0f, 1.0f) : 0.0f;
-      return span.ts[lo] + (span.ts[hi] - span.ts[lo]) * f;
+          seg > 1e-6f ? hs::clamp((theta - phis[lo]) / seg, -1.5f, 2.5f) : 0.0f;
+      return hs::clamp(span.ts[lo] + (span.ts[hi] - span.ts[lo]) * f, 0.0f,
+                       1.0f);
     };
 
     // k = k_lin * 2F(a) corrects the linearized dwell count for finite alpha:
@@ -1182,8 +1187,8 @@ struct RingSweep {
           // stop boundaries.
           const float dth = th / (m + 1e-6f);
           float rho_x;
-          const float t_lo = t_at(std::max(0.0f, th_star - dth), rho_x);
-          const float t_hi = t_at(std::min(theta_total, th_star + dth), rho_x);
+          const float t_lo = t_at(th_star - dth, rho_x);
+          const float t_hi = t_at(th_star + dth, rho_x);
           emit(x, y, p, t_mid, t_lo, t_hi, k_lin, 0.0f, 0.0f);
           continue;
         }
@@ -1229,8 +1234,18 @@ struct RingSweep {
           if (span.head_cap)
             q_cap = quintic_kernel(1.0f - a1 * inv_th);
         }
-        const float t_end = a1 < a0 ? span.t1 : span.t0;
-        emit(x, y, p, t_end, t_end, t_end, k_lin, q_cap, 1.0f);
+        // Endpoint fringes convolve the palette too — a flat t_end next to a
+        // convolved crossing region reads as a hue band at the boundary.
+        const bool use_far = a1 < a0;
+        const float theta_e = use_far ? theta_total : 0.0f;
+        const float t_end = use_far ? span.t1 : span.t0;
+        const float deriv_e =
+            use_far ? std::abs(B * cos_full - d0 * sin_full) : std::abs(B);
+        const float dth_e = th / (deriv_e + 1e-6f);
+        float rho_x;
+        const float t_lo = t_at(theta_e - dth_e, rho_x);
+        const float t_hi = t_at(theta_e + dth_e, rho_x);
+        emit(x, y, p, t_end, t_lo, t_hi, k_lin, q_cap, 1.0f);
       }
     };
     auto run_clipped = [&](int x1, int x2, int y, float sp, float cp) {
