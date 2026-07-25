@@ -3090,15 +3090,12 @@ struct Face {
    * @param py Gnomonic y of the query point.
    * @return Signed distance in the tangent plane (negative inside).
    */
-  HS_O3_FN float plane_dist_convex(float px, float py,
-                                    float reject_dist = FLT_MAX) const {
+  HS_O3_FN float plane_dist_convex(float px, float py) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.convex_hits++);
     float d = -FLT_MAX;
     for (int i = 0; i < count; ++i) {
       const auto &hp = half_planes[i];
       float di = hp.nx * px + hp.ny * py + hp.off;
-      if (di >= reject_dist)
-        return reject_dist;
       d = __builtin_fmaxf(di, d);
     }
     return d;
@@ -3246,8 +3243,7 @@ struct Face {
   template <bool ComputeUVs = true>
   HS_O3_FN void distance_with_flags(const Vector &p, DistanceResult &res,
                                     float reject_dsq,
-                                    uint32_t probe_flags,
-                                    float reject_dist = FLT_MAX) const {
+                                    uint32_t probe_flags) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
     HS_PROBE_TICK();
     HS_PROBE_COUNT(n_probe);
@@ -3278,8 +3274,6 @@ struct Face {
     HS_PROBE_SPAN(project, hs_t);
 
     float plane_dist;
-    const float convex_reject =
-        (probe_flags & PROBE_LINEAR) ? reject_dist : FLT_MAX;
     if (probe_flags & PROBE_HAS_LUT) {
       // Affine map into the canonical LUT grid, then a 4-tap bilinear fetch.
       // Only sign-pure cells at least one cell diagonal from the boundary are
@@ -3311,7 +3305,7 @@ struct Face {
       } else {
         HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
         if (probe_flags & PROBE_CONVEX) {
-          plane_dist = plane_dist_convex(px, py, convex_reject);
+          plane_dist = plane_dist_convex(px, py);
           HS_PROBE_SPAN(edge_convex, hs_t);
           HS_PROBE_COUNT(n_convex);
         } else {
@@ -3323,7 +3317,7 @@ struct Face {
     } else {
       HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
       if (probe_flags & PROBE_CONVEX) {
-        plane_dist = plane_dist_convex(px, py, convex_reject);
+        plane_dist = plane_dist_convex(px, py);
         HS_PROBE_SPAN(edge_convex, hs_t);
         HS_PROBE_COUNT(n_convex);
       } else {
