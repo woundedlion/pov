@@ -191,9 +191,8 @@ private:
   using SegueT = Segue::TerminatorSweep;
   struct FacePaletteShader {
     const BakedPalette *palette = nullptr;
-    const SegueT *segue = nullptr;
-    float phase = 0.0f;
     float scale = 0.0f;
+    float alpha = 0.0f;
     bool divide_by_scale = false;
 
     void operator()(const Vector &, Fragment &frag) const {
@@ -201,14 +200,8 @@ private:
                        ? (scale > math::TOLERANCE ? -frag.v1 / scale : 0.0f)
                        : -frag.v1 * scale;
       float t = hs::clamp(edge, 0.0f, 1.0f);
-      float cover = segue->fill(t, phase);
-      if (cover <= 0.0f) {
-        frag.color = Color4();
-        return;
-      }
-      frag.color =
-          segue->grade(Color4(palette->get_color(t), 1.0f), phase);
-      frag.color.alpha = cover * segue->opacity(phase);
+      frag.color.color = palette->get_color(t);
+      frag.color.alpha = alpha;
     }
   };
   MeshCarousel<SegueT> carousel;
@@ -462,13 +455,12 @@ private:
       HS_PROFILE(is_mesh_scan);
       if constexpr (PER_FACE) {
         FacePaletteShader fragment_shader;
-        fragment_shader.segue = &seg;
         fragment_shader.divide_by_scale = true;
         auto select_face = [&](size_t fi, float size) {
           HS_CHECK(fi < face_phases.size(),
                    "IslamicStars: sprite shading face mismatch");
           fragment_shader.palette = face_palettes[fi];
-          fragment_shader.phase = face_phases[fi];
+          fragment_shader.alpha = seg.opacity(face_phases[fi]);
           fragment_shader.scale = size;
         };
         Scan::Mesh::draw_specialized<W, H>(
@@ -518,8 +510,7 @@ private:
     }
     const SegueT &seg = carousel.segue();
     FacePaletteShader fragment_shader;
-    fragment_shader.segue = &seg;
-    fragment_shader.phase = 1.0f;
+    fragment_shader.alpha = seg.opacity(1.0f);
 
     auto select_face = [&](size_t fi, float size) {
       HS_CHECK(fi < sh.faces, "IslamicStars: build shading face mismatch");
