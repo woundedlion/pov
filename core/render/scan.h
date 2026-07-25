@@ -844,38 +844,114 @@ struct RingGroup {
 
     Fragment frag;
     ScopedRenderTimer timer_guard(canvas);
-    scan_region<W, H>(
-        y_lo, y_hi,
-        [&](int y, auto &&out) {
-          if (cover.needs_full_row_scan(TrigLUT<W, H>::sin_phi[y]))
-            return false;
-          cover.template get_horizontal_intervals<W, H>(y, out);
-          return true;
-        },
-        [&](int x, int y, const Vector &p) {
-          for (int s = 0; s < n; ++s) {
-            // Band gate: bounds pad (0.95 * thickness) is narrower than the
-            // SDF's own band, so an out-of-band row can still eval alpha >
-            // 0.001; gating keeps each slot's domain identical to its solo
-            // rasterize.
-            if (y < sy_min[s] || y > sy_max[s])
-              continue;
-            const float alpha =
-                shapes[s].stroke_alpha(dot(p, shapes[s].normal));
-            if (alpha <= 0.001f)
-              continue;
-            frag.color = Color4(0, 0, 0, 0);
-            frag.pos = p;
-            frag.v2 = alpha;
-            frag.size = shapes[s].thickness;
-            frag.age = 0;
-            shader(s, p, frag);
-            if (frag.color.alpha > 0.001f)
-              pipeline.plot(canvas, x, y, frag.color.color, frag.age,
-                            frag.color.alpha * alpha);
-          }
-        },
-        cr.x_clip());
+
+    // Row-local walk instead of scan_region: the covering ring emits at most
+    // 2 arcs per row, so small stack buffers replace the arena-backed CSG
+    // interval machinery — and the walk compiles inside this O3 region, where
+    // scan_region (-Os) forces the O3 pixel body out of line and calls it per
+    // pixel. Wrap/coalesce mirrors scan_region so walked pixels are identical.
+    const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
+    const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+    const auto xc = cr.x_clip();
+    StaticCircularBuffer<std::pair<float, float>, 4> intervals;
+    StaticCircularBuffer<std::pair<float, float>, 8> norm;
+    int active[MAX_RINGS];
+    int n_active = 0;
+
+    auto pixel_run = [&](int x1, int x2, int y, float sp, float cp) {
+      for (int x = x1; x < x2; ++x) {
+        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        for (int i = 0; i < n_active; ++i) {
+          const int s = active[i];
+          const float alpha = shapes[s].stroke_alpha(dot(p, shapes[s].normal));
+          if (alpha <= 0.001f)
+            continue;
+          frag.color = Color4(0, 0, 0, 0);
+          frag.pos = p;
+          frag.v2 = alpha;
+          frag.size = shapes[s].thickness;
+          frag.age = 0;
+          shader(s, p, frag);
+          if (frag.color.alpha > 0.001f)
+            pipeline.plot(canvas, x, y, frag.color.color, frag.age,
+                          frag.color.alpha * alpha);
+        }
+      }
+    };
+    auto run_clipped = [&](int x1, int x2, int y, float sp, float cp) {
+      if (!xc.active) {
+        pixel_run(x1, x2, y, sp, cp);
+      } else if (xc.wrap) {
+        pixel_run(std::max(x1, xc.rs), x2, y, sp, cp);
+        pixel_run(x1, std::min(x2, xc.re), y, sp, cp);
+      } else {
+        pixel_run(std::max(x1, xc.rs), std::min(x2, xc.re), y, sp, cp);
+      }
+    };
+
+    for (int y = y_lo; y <= y_hi; ++y) {
+      // Band gate hoisted per row: bounds pad (0.95 * thickness) is narrower
+      // than the SDF's own band, so an out-of-band row can still eval alpha >
+      // 0.001; gating keeps each slot's domain identical to its solo
+      // rasterize. Ascending slot order preserves blend order.
+      n_active = 0;
+      for (int s = 0; s < n; ++s)
+        if (y >= sy_min[s] && y <= sy_max[s])
+          active[n_active++] = s;
+      if (n_active == 0)
+        continue;
+      float sp = TrigLUT<W, H>::sin_phi[y];
+      float cp = TrigLUT<W, H>::cos_phi[y];
+
+      if (cover.needs_full_row_scan(sp)) {
+        run_clipped(0, W, y, sp, cp);
+        continue;
+      }
+      intervals.clear();
+      cover.template get_horizontal_intervals<W, H>(y, [&](float t1, float t2) {
+        SDF::push_interval(intervals, t1, t2);
+      });
+      if (intervals.is_empty())
+        continue;
+
+      bool full_row = false;
+      for (const auto &iv : intervals)
+        if (iv.second - iv.first >= static_cast<float>(W)) {
+          full_row = true;
+          break;
+        }
+      if (full_row) {
+        run_clipped(0, W, y, sp, cp);
+        continue;
+      }
+
+      norm.clear();
+      SDF::normalize_intervals_to_range<W>(intervals, norm);
+      SDF::sort_intervals_by_start(norm);
+      float current_end = -FLT_MAX;
+      // Integer coalesce: last_x2 keeps two spans sharing a fractional column
+      // from double-plotting it; a zero-width interval still owns its column.
+      int last_x2 = 0;
+      for (const auto &iv : norm) {
+        if (iv.second <= current_end)
+          continue;
+        float start = std::max(iv.first, current_end);
+        float end = iv.second;
+        current_end = end;
+        int x1 = static_cast<int>(floorf(start));
+        int x2 = static_cast<int>(ceilf(end));
+        if (x1 == x2)
+          x2++;
+        if (x1 < 0)
+          x1 = 0;
+        if (x2 > W)
+          x2 = W;
+        if (x1 < last_x2)
+          x1 = last_x2;
+        last_x2 = x2;
+        run_clipped(x1, x2, y, sp, cp);
+      }
+    }
   }
 };
 HS_O3_END
