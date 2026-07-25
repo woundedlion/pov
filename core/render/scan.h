@@ -973,6 +973,11 @@ struct RingSweep {
     float steps;     /**< Control-point intervals merged into this span. */
     bool head_cap;   /**< Final span: add the discrete head-ring sample so a
                         fast-moving head keeps its crisp full ring. */
+    const Vector *points = nullptr; /**< Control points [n0..n1] for the
+                                       piecewise angle->t mapping; nullptr
+                                       falls back to a linear t lerp. */
+    const float *ts = nullptr;      /**< Trail parameter per control point. */
+    int count = 0;                  /**< Control-point count (steps + 1). */
   };
 
   /** @brief Integral of quintic_kernel from 0 to u; Qint(1) = 1/2. */
@@ -1060,6 +1065,37 @@ struct RingSweep {
     StaticCircularBuffer<std::pair<float, float>, 4> intervals;
     StaticCircularBuffer<std::pair<float, float>, 8> norm;
 
+    // Piecewise angle -> trail-parameter mapping: control points are not
+    // uniform in sweep angle (walk speed varies), so a linear t lerp kinks
+    // the hue slope at every span boundary and bands the gradient.
+    static constexpr int MAX_PTS = 80;
+    float phis[MAX_PTS];
+    int n_pts = 0;
+    if (span.points && span.count >= 2 && span.count <= MAX_PTS &&
+        !degenerate) {
+      for (int j = 0; j < span.count; ++j)
+        phis[j] =
+            fast_acos(hs::clamp(dot(span.n0, span.points[j]), -1.0f, 1.0f));
+      n_pts = span.count;
+    }
+    auto t_at = [&](float theta) {
+      if (n_pts < 2)
+        return span.t0 +
+               (span.t1 - span.t0) * hs::clamp(theta * inv_theta, 0.0f, 1.0f);
+      int lo = 0, hi = n_pts - 1;
+      while (hi - lo > 1) {
+        int mid = (lo + hi) >> 1;
+        if (phis[mid] <= theta)
+          lo = mid;
+        else
+          hi = mid;
+      }
+      float seg = phis[hi] - phis[lo];
+      float f =
+          seg > 1e-6f ? hs::clamp((theta - phis[lo]) / seg, 0.0f, 1.0f) : 0.0f;
+      return span.ts[lo] + (span.ts[hi] - span.ts[lo]) * f;
+    };
+
     // k = k_lin * 2F(a) corrects the linearized dwell count for finite alpha:
     // the true stack is prod(1 - a*q_j), and F(a) = integral of
     // ln(1-a*quintic)/ln(1-a) over the band (quadratic fit, F(0) = 1/2).
@@ -1084,7 +1120,10 @@ struct RingSweep {
                       : q_cap;
         k += cap_count * w;
       }
-      k = hs::clamp(k, 0.0f, k_cap);
+      // Smooth saturation toward the physical sample count: a hard min()
+      // draws a visible contour (tear) where the dwell hits the cap.
+      k = std::max(k, 0.0f);
+      k = k_cap * (1.0f - expf(-k / k_cap));
       if (k <= 0.001f)
         return;
       pipeline.plot(canvas, x, y, frag.color.color, frag.age,
@@ -1115,7 +1154,6 @@ struct RingSweep {
           float th_star = fast_atan2(-d0, B);
           if (th_star < 0.0f)
             th_star += PI_F;
-          float t_hit = hs::clamp(th_star * inv_theta, 0.0f, 1.0f);
           const float m = std::sqrt(d0 * d0 + B * B);
           const float u_a = hs::clamp(th_star * m * inv_th, 0.0f, 1.0f);
           const float u_d =
@@ -1124,8 +1162,7 @@ struct RingSweep {
                         (1.0f - quintic_integral(1.0f - u_a) -
                          quintic_integral(1.0f - u_d)) /
                         (m + 1e-6f);
-          emit(x, y, p, span.t0 + (span.t1 - span.t0) * t_hit, k_lin, 0.0f,
-               0.0f);
+          emit(x, y, p, t_at(th_star), k_lin, 0.0f, 0.0f);
           continue;
         }
         const float a0 = std::abs(d0);

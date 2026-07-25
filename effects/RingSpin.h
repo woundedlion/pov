@@ -262,6 +262,9 @@ private:
           span.t0 = tvals[s0];
           span.t1 = tvals[s1];
           span.steps = static_cast<float>(s1 - s0);
+          span.points = &normals[s0];
+          span.ts = &tvals[s0];
+          span.count = s1 - s0 + 1;
         }
         span.thickness = th0 + dev;
         span.head_cap = s1 == m - 1;
