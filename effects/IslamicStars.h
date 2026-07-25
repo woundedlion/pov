@@ -206,7 +206,8 @@ private:
         frag.color = Color4();
         return;
       }
-      frag.color = segue->grade(palette->get(t), phase);
+      frag.color =
+          segue->grade(Color4(palette->get_color(t), 1.0f), phase);
       frag.color.alpha = cover * segue->opacity(phase);
     }
   };
