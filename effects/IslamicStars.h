@@ -103,6 +103,7 @@ public:
       HS_PROFILE(is_buffer_wait);
       return Canvas(*this);
     }();
+    ++frame_counter_;
     {
       HS_PROFILE(is_ripple_prepare);
       ripple_gen.prepare_frame();
@@ -176,6 +177,18 @@ private:
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
   MeshCarousel<SegueT> carousel;
+  // Seed fade-in: the opening window materialises the base mesh through a
+  // per-pixel dither instead of the terminator sweep; every stage after (build,
+  // still, ripple, fade-out) keeps the sweep policy above.
+  // Intro dither, seeded per transition from the sweep's fade_seed (no extra RNG
+  // draw).
+  Segue::Dissolve seed_dissolve_;
+  // Monotonic frame count salting the dissolve mask (temporal dither, never wall
+  // time).
+  uint32_t frame_counter_ = 0;
+  // True during a shape's opening dissolve window; cleared at the phase-1
+  // plateau.
+  bool seed_intro_ = false;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
@@ -190,11 +203,11 @@ private:
   // touch any of it.
   bool build_active_ = false; /**< Legs draw; the sprite draw_fn is muted. */
   Solids::OpStep build_steps_[MAX_BUILD_STEPS]; /**< Lowered primitive chain. */
-  size_t build_step_count_ = 0; /**< Lowered step count. */
-  size_t build_step_ = 0;       /**< Current leg index. */
-  int build_leg_frames_[MAX_BUILD_STEPS] = {}; /**< Per-leg frame budget. */
-  int build_total_frames_ = 0;                 /**< Sum of leg frames. */
-  PolyMesh build_seed_;       /**< Leg-k seed (persistent). */
+  size_t build_step_count_ = 0;                 /**< Lowered step count. */
+  size_t build_step_ = 0;                       /**< Current leg index. */
+  int build_leg_frames_[MAX_BUILD_STEPS] = {};  /**< Per-leg frame budget. */
+  int build_total_frames_ = 0;                  /**< Sum of leg frames. */
+  PolyMesh build_seed_;                         /**< Leg-k seed (persistent). */
   PolyMesh build_next_seed_;  /**< Clean endpoint seed_{k+1}: built eagerly at
                                  leg start, or from the leg's own topology at
                                  its end on a hankin step. */
@@ -221,13 +234,15 @@ private:
       nullptr; /**< Per-face palette the previous leg landed on; survives the
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces_ = 0; /**< Length of build_from_pal_. */
-  int dual_bridges_built_ = 0; /**< DUAL bridges scheduled (test coverage). */
+  int dual_bridges_built_ = 0;  /**< DUAL bridges scheduled (test coverage). */
   int gated_swaps_scheduled_ =
       0; /**< Gated (snapping) kis legs scheduled; must stay 0 now that every
             dt/dtd chain takes the smooth path (test coverage). */
-  int build_macro_sweep_frames_ = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
+  int build_macro_sweep_frames_ =
+      SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
-  int build_reconcile_frames_ = RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
+  int build_reconcile_frames_ =
+      RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
   /** Continuation the smooth dual bridge chains after its closing leg: plain
    * finish_build_leg for a lone DUAL, or a macro's next stage. Set before every
    * schedule_dual_bridge call. */
@@ -301,6 +316,41 @@ private:
   }
 
   /**
+   * @brief Sprite draw callback: draws the held shape for one envelope frame.
+   * @param canvas Render target.
+   * @param phase Sprite envelope phase: rises over the incoming window, holds 1,
+   *        falls over the outgoing window.
+   * @param back Carousel slot the shape was spawned into.
+   * @details Cold (flash): runs once per frame, so its own body stays out of
+   * ITCM (phantasm sits at the granule edge); only draw_shape's per-pixel scan
+   * is hot. During the build window an OpLeg draws instead (one mesh per frame).
+   * The seed fade-in materialises the base mesh through a per-pixel dither
+   * instead of the terminator sweep: draw the fully-lit seed (phase 1) gated by a
+   * dissolve mask whose owned fraction is the real intro phase, so pixels light
+   * in dither order; at phase 1 the mask owns every pixel, landing exactly on the
+   * fully-lit seed the build leg departs from (no pop). frame_counter_ salts the
+   * mask (temporal dither, never wall time).
+   */
+  HS_COLD_MEMBER void draw_sprite(Canvas &canvas, float phase, int back) {
+    if (build_active_)
+      return;
+    const MeshState &mesh = carousel.slot(back);
+    PixelMask mask{};
+    const PixelMask *mask_ptr = nullptr;
+    if (seed_intro_) {
+      if (phase < 1.0f) {
+        mask = seed_dissolve_.mask(phase, frame_counter_, true);
+        mask_ptr = &mask;
+        phase = 1.0f;
+      } else {
+        seed_intro_ = false;
+      }
+    }
+    draw_shape(canvas, phase, mesh, mesh.topology, slot_face_palette[back],
+               mask_ptr);
+  }
+
+  /**
    * @brief Orients, ripple-distorts, and segue-shapes base_state, then
    *        rasterizes it with a per-face palette lookup.
    * @param canvas Render target receiving the rasterized mesh.
@@ -309,6 +359,10 @@ private:
    * @param base_state Undistorted source mesh to transform and draw.
    * @param face_indices Maps each face to its topology class (segue ordering).
    * @param face_palette Immutable per-face palette ids (covers every face).
+   * @param mask Optional per-pixel dissolve gate: unowned pixels are skipped in
+   *        the scan. The seed fade-in draws the fully-lit mesh (phase 1) through
+   *        a ramping mask so the base mesh materialises pixel by pixel; null on
+   *        every other stage (the sweep path).
    * @note Draws on the exact SDF path, not the congruence-class LUT
    * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
@@ -316,7 +370,8 @@ private:
   HS_O3_FN void draw_shape(Canvas &canvas, float phase,
                            const MeshState &base_state,
                            const ArenaVector<int> &face_indices,
-                           const uint8_t *face_palette) {
+                           const uint8_t *face_palette,
+                           const PixelMask *mask = nullptr) {
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
@@ -386,7 +441,8 @@ private:
     {
       HS_PROFILE(is_mesh_scan);
       Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
-                             fragment_shader, scratch_arena_a, params.debug_bb);
+                             fragment_shader, scratch_arena_a, params.debug_bb,
+                             nullptr, mask);
     }
   }
 
@@ -422,10 +478,10 @@ private:
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
       int fi = static_cast<int>(frag.v2);
-      int ramp = (fi >= 0 && fi < static_cast<int>(sh.faces))
-                     ? sh.face_ramp[fi]
-                     : 0;
-      frag.color = shade_mesh_topology(frag, sh.ramps[ramp], sh.gain, seg, 1.0f);
+      int ramp =
+          (fi >= 0 && fi < static_cast<int>(sh.faces)) ? sh.face_ramp[fi] : 0;
+      frag.color =
+          shade_mesh_topology(frag, sh.ramps[ramp], sh.gain, seg, 1.0f);
     };
 
     {
@@ -573,13 +629,7 @@ private:
     }
 
     auto draw_fn = [this, back](Canvas &canvas, float phase) {
-      // During the build window an OpLeg draws the mesh; exactly one mesh per
-      // frame.
-      if (build_active_)
-        return;
-      const MeshState &mesh = carousel.slot(back);
-      this->draw_shape(canvas, phase, mesh, mesh.topology,
-                       slot_face_palette[back]);
+      this->draw_sprite(canvas, phase, back);
     };
 
     // Compact the back slot, rebaking palettes into the fresh arena rather than
@@ -665,6 +715,12 @@ private:
     if constexpr (requires(SegueT &s, const Vector &v) { s.retarget(v); })
       carousel.segue().retarget(random_vector());
 
+    // Arm the seed fade-in dissolve for this shape's opening window. The dither
+    // reuses the sweep's freshly rolled fade_seed, so no new RNG is drawn and
+    // the stream position stays identical to the sweep-only build.
+    seed_intro_ = true;
+    seed_dissolve_.seed = carousel.segue().fade_seed;
+
     // Per-shape choreography: segue in, hold still one second, ripple, settle
     // one second, segue out. Duration is derived from the stage lengths so the
     // stages never overlap; the segue warps are identity on the phase-1
@@ -697,8 +753,8 @@ private:
           std::max(1, static_cast<int>(SWEEP_LEG_FRAMES / sp));
       build_reconcile_frames_ =
           std::max(1, static_cast<int>(RECONCILE_LEG_FRAMES / sp));
-      const int bridge_frames = std::max(
-          1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
+      const int bridge_frames =
+          std::max(1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
       // A smooth kis/needle macro spans more legs than its lowered step count:
       // a trailing dual,kis (dt) is truncate + dual bridge + reconcile; a
       // standalone kis (dtd) is dual bridge + truncate + dual bridge + reconcile.
@@ -707,7 +763,7 @@ private:
       for (size_t k = 0; k < build_step_count_; ++k) {
         const Solids::Op op = build_steps_[k].op;
         if (dt_pair_at(k)) {
-          build_leg_frames_[k] = bridge_frames;         // dual bridge (DUAL step)
+          build_leg_frames_[k] = bridge_frames; // dual bridge (DUAL step)
           build_leg_frames_[k + 1] = build_reconcile_frames_; // reconcile (KIS)
           build_total_frames_ += build_macro_sweep_frames_ + bridge_frames +
                                  build_reconcile_frames_;
@@ -847,9 +903,8 @@ private:
     // truncate swept to the short-circuit point.
     switch (step.op) {
     case Solids::Op::HANKIN:
-      schedule(Animation::OpLeg(build_seed_, 0.0f, step.param,
-                                persistent_arena, draw_build_fn_, handoff,
-                                frames, bookend));
+      schedule(Animation::OpLeg(build_seed_, 0.0f, step.param, persistent_arena,
+                                draw_build_fn_, handoff, frames, bookend));
       break;
     case Solids::Op::RELAX:
       schedule(Animation::OpLeg(build_seed_, static_cast<int>(step.param),
@@ -1060,7 +1115,8 @@ private:
                          persistent_arena, draw_build_fn_, handoff, frames,
                          Animation::OpLeg::BookendClasses{nullptr, 0});
     build_landing_ = &leg.landing();
-    timeline.add(0, std::move(leg).then([this] { schedule_dual_untruncate(); }));
+    timeline.add(0,
+                 std::move(leg).then([this] { schedule_dual_untruncate(); }));
   }
 
   /**
@@ -1136,8 +1192,7 @@ private:
                                              true,
                                              &build_birth_counter_};
     Animation::OpLeg::BookendClasses bookend{
-        build_next_seed_.topology.data(),
-        build_next_seed_.face_counts.size()};
+        build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
     const int frames = dual_sub_frames(2);
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
     Animation::OpLeg leg(build_next_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.5f,
@@ -1202,8 +1257,7 @@ private:
     }
     HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
     Animation::OpLeg::BookendClasses bookend{
-        build_next_seed_.topology.data(),
-        build_next_seed_.face_counts.size()};
+        build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = build_macro_sweep_frames_;
@@ -1344,8 +1398,7 @@ private:
     }
     HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
     Animation::OpLeg::BookendClasses bookend{
-        build_next_seed_.topology.data(),
-        build_next_seed_.face_counts.size()};
+        build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = build_reconcile_frames_;
