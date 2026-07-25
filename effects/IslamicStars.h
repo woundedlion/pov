@@ -70,7 +70,6 @@ public:
     params.trans_speed = static_cast<float>(HS_PROFILE_TRANS_SPEED);
 #endif
 
-    register_param("Fade", &params.fade, 0.0f, 96.0f);
     // Per-face fade length range (frames): each face draws a random fade from
     // [lo, hi] as the terminator reaches it, fraying the sweep front.
     register_param("Face Fade Lo", &carousel.segue().fade_frames_min, 0.0f,
@@ -116,7 +115,6 @@ public:
       HS_PROFILE(is_buffer_wait);
       return Canvas(*this);
     }();
-    ++frame_counter_;
     {
       HS_PROFILE(is_ripple_prepare);
       ripple_gen.prepare_frame();
@@ -137,6 +135,7 @@ private:
   static constexpr int RIPPLE_STAGGER_FRAMES = 16;
   static constexpr int RIPPLE_DURATION_MAX = 143;
   static constexpr int BURST_MAX = 4;
+  static constexpr int SPRITE_FADE_FRAMES = 16;
   static constexpr int STILL_FRAMES =
       16; /**< 1 s hold (16 fps) between fade and ripple stages. */
   // Recipe-build leg lengths (docs/opchain_morph_spec.md section 7); divided
@@ -217,18 +216,6 @@ private:
   };
 
   MeshCarousel<SegueT> carousel;
-  // Seed fade-in: the opening window materialises the base mesh through a
-  // per-pixel dither instead of the terminator sweep; every stage after (build,
-  // still, ripple, fade-out) keeps the sweep policy above.
-  // Intro dither, seeded per transition from the sweep's fade_seed (no extra RNG
-  // draw).
-  Segue::Dissolve seed_dissolve_;
-  // Monotonic frame count salting the dissolve mask (temporal dither, never wall
-  // time).
-  uint32_t frame_counter_ = 0;
-  // True during a shape's opening dissolve window; cleared at the phase-1
-  // plateau.
-  bool seed_intro_ = false;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
@@ -364,30 +351,13 @@ private:
    * @details Cold (flash): runs once per frame, so its own body stays out of
    * ITCM (phantasm sits at the granule edge); only draw_shape's per-pixel scan
    * is hot. During the build window an OpLeg draws instead (one mesh per frame).
-   * The seed fade-in materialises the base mesh through a per-pixel dither
-   * instead of the terminator sweep: draw the fully-lit seed (phase 1) gated by a
-   * dissolve mask whose owned fraction is the real intro phase, so pixels light
-   * in dither order; at phase 1 the mask owns every pixel, landing exactly on the
-   * fully-lit seed the build leg departs from (no pop). frame_counter_ salts the
-   * mask (temporal dither, never wall time).
    */
   HS_COLD_MEMBER void draw_sprite(Canvas &canvas, float phase, int back) {
     if (build_active_)
       return;
     const MeshState &mesh = carousel.slot(back);
-    PixelMask mask{};
-    const PixelMask *mask_ptr = nullptr;
-    if (seed_intro_) {
-      if (phase < 1.0f) {
-        mask = seed_dissolve_.mask(phase, frame_counter_, true);
-        mask_ptr = &mask;
-        phase = 1.0f;
-      } else {
-        seed_intro_ = false;
-      }
-    }
     const SpriteFaceShading shading(mesh, slot_face_palette[back]);
-    draw_shape(canvas, phase, mesh, shading, mask_ptr);
+    draw_shape(canvas, phase, mesh, shading);
   }
 
   /**
@@ -398,18 +368,13 @@ private:
    *        the incoming window, holds 1, falls over the outgoing window.
    * @param base_state Undistorted source mesh to transform and draw.
    * @param shading Per-face topology classes and immutable palette ids.
-   * @param mask Optional per-pixel dissolve gate: unowned pixels are skipped in
-   *        the scan. The seed fade-in draws the fully-lit mesh (phase 1) through
-   *        a ramping mask so the base mesh materialises pixel by pixel; null on
-   *        every other stage (the sweep path).
    * @note Draws on the exact SDF path, not the congruence-class LUT
    * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
    */
   HS_O3_FN HS_NOINLINE_NOCLONE void
   draw_shape(Canvas &canvas, float phase, const MeshState &base_state,
-             const SpriteFaceShading &shading,
-             const PixelMask *mask = nullptr) {
+             const SpriteFaceShading &shading) {
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
@@ -471,7 +436,7 @@ private:
         };
         Scan::Mesh::draw_specialized<W, H>(
             filters, canvas, transformed_state, fragment_shader,
-            scratch_arena_a, params.debug_bb, nullptr, mask, select_face);
+            scratch_arena_a, params.debug_bb, nullptr, nullptr, select_face);
       } else {
         auto fragment_shader = [&](const Vector &, Fragment &frag) {
           const size_t fi = static_cast<size_t>(frag.v2);
@@ -480,7 +445,7 @@ private:
         };
         Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
                                fragment_shader, scratch_arena_a,
-                               params.debug_bb, nullptr, mask);
+                               params.debug_bb);
       }
     }
   }
@@ -753,12 +718,6 @@ private:
     if constexpr (requires(SegueT &s, const Vector &v) { s.retarget(v); })
       carousel.segue().retarget(random_vector());
 
-    // Arm the seed fade-in dissolve for this shape's opening window. The dither
-    // reuses the sweep's freshly rolled fade_seed, so no new RNG is drawn and
-    // the stream position stays identical to the sweep-only build.
-    seed_intro_ = true;
-    seed_dissolve_.seed = carousel.segue().fade_seed;
-
     // Per-shape choreography: segue in, hold still one second, ripple, settle
     // one second, segue out. Duration is derived from the stage lengths so the
     // stages never overlap; the segue warps are identity on the phase-1
@@ -768,7 +727,7 @@ private:
     // a >=1-frame floor. The effective ripple duration/stagger are cached for the
     // deferred ripple() callback, which fires before the next shape spawns.
     const float sp = std::max(1.0f, params.trans_speed);
-    int fade = std::max(1, static_cast<int>(params.fade / sp));
+    int fade = std::max(1, static_cast<int>(SPRITE_FADE_FRAMES / sp));
     int still = std::max(1, static_cast<int>(STILL_FRAMES / sp));
     ripple_dur_eff_ = std::max(8, static_cast<int>(ripple_duration / sp));
     ripple_stagger_eff_ =
@@ -1587,8 +1546,6 @@ private:
    * @brief Slider-backed runtime parameters for the effect.
    */
   struct Params {
-    float fade =
-        72.0f; /**< Segue window length, in frames: a 64-frame (4 s) sweep crossing plus one per-face fade tail. */
     float burst_size =
         4.0f; /**< Ripples per burst; float-backed for register_param. */
     float trans_speed =
