@@ -206,10 +206,21 @@ private:
         return ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
                params.thickness;
       };
-      auto shader = [&](float t, const Vector &, Fragment &f) {
+      auto shader = [&](float t, float t_lo, float t_hi, const Vector &,
+                        Fragment &f) {
         // Length-fade comes entirely from the palette: 1-t walks a
         // transparent-vignette palette whose alpha tapers toward the tail.
         Color4 c = ring.palette->get(1.0f - t);
+        if (t_hi - t_lo > 1e-4f) {
+          // Convolve the palette over the dwell window (weights 1/2, 1/4,
+          // 1/4) as the stacked rings did — a point sample renders the
+          // palette's internal stop boundaries as visible bands.
+          Color4 lo = ring.palette->get(1.0f - t_lo);
+          Color4 hi = ring.palette->get(1.0f - t_hi);
+          Pixel side = lo.color.lerp16(hi.color, 32768);
+          c.color = c.color.lerp16(side, 32768);
+          c.alpha = 0.5f * c.alpha + 0.25f * (lo.alpha + hi.alpha);
+        }
         c.alpha = c.alpha * params.alpha;
         f.color = c;
       };
