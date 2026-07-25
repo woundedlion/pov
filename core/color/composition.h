@@ -1003,6 +1003,8 @@ public:
     assert(lut_ != nullptr && "BakedPalette::get_color before bake()");
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
+    if (idx <= 0.0f)
+      return lut_[0].color;
     int lo = static_cast<int>(idx);
     if (lo >= LUT_SIZE - 1)
       return lut_[LUT_SIZE - 1].color;
