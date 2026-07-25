@@ -3169,8 +3169,7 @@ inline void test_opleg_build_immutable_colours() {
   };
   // Newborn cohorts: the leg advanced the counter by its cohort count and
   // every newborn wears one of exactly those consumed palette-order entries.
-  // The cohort key itself (birth class, vertex-signature refinement,
-  // perceptual grouping) is the engine's; the octa block below pins its
+  // The cohort key itself is the engine's; the octa block below pins its
   // collapse exactly.
   auto check_newborn_cohorts = [&](size_t prev_faces, uint32_t start,
                                    uint32_t end) {

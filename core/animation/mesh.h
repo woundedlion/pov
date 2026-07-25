@@ -304,10 +304,9 @@ public:
     uint32_t *birth_counter =
         nullptr; /**< Wrapping cohort counter over the shape's build (immutable
                     handoffs): each distinct birth key among the leg's newborn
-                    faces — the birth class's perceptual colour group
-                    (perceptual_groups), refined by the vertex signature on a
-                    vertex-orbit block (a truncate corner suffix, or a dual
-                    swap's whole face list) — takes
+                    faces — an operator-derived vertex-orbit id where
+                    available, otherwise the birth class's perceptual colour
+                    group (perceptual_groups) — takes
                     to_palette[counter++ % PALETTES], in ascending key order.
                     Null keys newborns by wrap(class, PALETTES). */
     FaceCorrespondence correspondence =
@@ -606,6 +605,14 @@ public:
       // supplies them; quantization can split classifier angle buckets.
       hoist_arrival_topology(arrival, bookend, arena, tr.topo);
 
+      size_t birth_orbits = 0;
+      const uint16_t *birth_orbit = nullptr;
+      if (handoff.immutable && handoff.birth_counter)
+        birth_orbit = vertex_signature_keys(seed, seed.topology.data(),
+                                            /*min_valence=*/2, birth_orbits);
+      HS_CHECK(!birth_orbit || tr.topo.size() == tr.seed_faces + birth_orbits,
+               "OpLeg: hankin rosettes differ from source vertex orbits");
+
       // Only the star points are stored: the midpoint prefix is already in the
       // compiled topology, and each star point's collapsed position is its own
       // corner, reachable through the same instruction hankin_at walks.
@@ -632,7 +639,8 @@ public:
       // count is the emission-order prefix corresponding 1:1 to it.
       const size_t survivors = tr.seed_faces;
       build_palette_mapping(tr, arrival, handoff, bookend, arena,
-                            start_centroid, survivors);
+                            start_centroid, survivors,
+                            /*forced_from=*/nullptr, birth_orbit);
     }
   }
 
@@ -1184,16 +1192,13 @@ private:
     if (handoff.correspondence == FaceCorrespondence::DUAL_CLOSING)
       forced_from = dual_closing_palettes(seed, handoff, scratch_arena_a);
 
-    // Truncate corner-suffix birth refinement: the corner faces of a
-    // near-ambo arrival collapse into one congruence class on
-    // vertex-transitive-ish seeds (a dual bridge's whole final surface), so
-    // their birth cohorts also key on the underlying vertex's orbit
-    // signature.
-    const uint16_t *birth_sig = nullptr;
-    size_t birth_sigs = 0;
+    // Truncate corner faces are emitted in source-vertex order.
+    const uint16_t *birth_orbit = nullptr;
+    size_t birth_orbits = 0;
     if (tr.op == ConwayGraph::MorphOp::TRUNCATE && handoff.immutable &&
         handoff.birth_counter && handoff.prev_faces == tr.seed_faces)
-      birth_sig = vertex_signature_keys(seed, birth_sigs);
+      birth_orbit = vertex_signature_keys(seed, seed.topology.data(),
+                                          /*min_valence=*/3, birth_orbits);
 
     // A closing bridge leg departs the ambo point with its face blocks
     // transposed against the handoff order (medial [P-faces][P-vertices] vs
@@ -1253,7 +1258,7 @@ private:
     } else {
       hoist_arrival_topology(*classified, bookend, arena, tr.topo);
     }
-    HS_CHECK(!birth_sig || tr.topo.size() == tr.seed_faces + birth_sigs,
+    HS_CHECK(!birth_orbit || tr.topo.size() == tr.seed_faces + birth_orbits,
              "OpLeg: corner suffix differs from the vertex-signature count");
 
     // Geometric provenance needs the mesh the first frame draws: the
@@ -1288,7 +1293,7 @@ private:
     const size_t survivors =
         jitterbug ? tr.seed_faces + seed.vertices.size() : tr.seed_faces;
     build_palette_mapping(tr, *classified, handoff, bookend, arena,
-                          start_centroid, survivors, forced_from, birth_sig);
+                          start_centroid, survivors, forced_from, birth_orbit);
   }
 
   /**
@@ -1324,17 +1329,18 @@ private:
     // (kis) or nearest orbit face's (dual) palette — colour locality. Under
     // the immutable birth-cohort model the partition's children are births
     // instead: every carried face is discarded, so each child is born on its
-    // cohort — a dual face on its source vertex's signature (matching the
+    // cohort — a dual face on its source vertex's orbit (matching the
     // smooth bridge's corner births for the same shape), a kis child on its
     // colour group alone.
     const uint8_t *from = nullptr;
-    const uint16_t *birth_sig = nullptr;
+    const uint16_t *birth_orbit = nullptr;
     size_t birth_start = SIZE_MAX;
     if (handoff.immutable && handoff.birth_counter) {
       if (tr.swap_op == SwapOp::DUAL) {
-        size_t birth_sigs = 0;
-        birth_sig = vertex_signature_keys(tr.seed, birth_sigs);
-        HS_CHECK(birth_sigs == tr.topo.size(),
+        size_t birth_orbits = 0;
+        birth_orbit = vertex_signature_keys(tr.seed, tr.seed_topo.data(),
+                                            /*min_valence=*/3, birth_orbits);
+        HS_CHECK(birth_orbits == tr.topo.size(),
                  "OpLeg: dual faces differ from the vertex-signature count");
       }
       birth_start = 0;
@@ -1349,7 +1355,7 @@ private:
 
     build_palette_mapping(tr, arrival, handoff, bookend, arena,
                           /*start_centroid=*/nullptr,
-                          tr.seed.face_counts.size(), from, birth_sig,
+                          tr.seed.face_counts.size(), from, birth_orbit,
                           birth_start);
 
     // Seed-side table: the closing half draws at blend weight 0, so only each
@@ -1890,21 +1896,22 @@ private:
   }
 
   /**
-   * @brief Vertex-signature ids of a vertex-orbit face block (a truncate leg's
-   * corner suffix, or a dual swap's whole face list).
-   * @param seed Leg seed; a clone is classified in scratch here.
-   * @param num_keys Receives the emitted orbit-face count (valence >= 3
-   * vertices).
+   * @brief Vertex-signature ids of a vertex-orbit face block.
+   * @param seed Leg seed.
+   * @param face_groups Classified seed-face groups.
+   * @param min_valence Minimum emitted source-vertex valence.
+   * @param num_keys Receives the emitted orbit-face count.
    * @return One dense signature id per orbit face, scratch_arena_a-backed,
-   * in emit_vertex_orbit_faces' emission order (first flat-index appearance
-   * per vertex). Ids are dense in signature first-appearance order over the
+   * in source-vertex emission order (first flat-index appearance per vertex).
+   * Ids are dense in signature first-appearance order over the
    * vertex list; equal ids are exactly the seed's vertex-signature groups —
    * (valence, sorted incident seed-face colour groups), an orbit invariant.
    * Incident classes are coarsened through perceptual_groups so a chiral
    * seed's near-congruent class fragments do not shatter the signatures.
    */
   HS_COLD_MEMBER static const uint16_t *
-  vertex_signature_keys(const PolyMesh &seed, size_t &num_keys) {
+  vertex_signature_keys(const PolyMesh &seed, const int *face_groups,
+                        int min_valence, size_t &num_keys) {
     const size_t V = seed.vertices.size();
     const size_t I = seed.faces.size();
     HS_CHECK(V > 0 && V <= UINT16_MAX);
@@ -1913,12 +1920,15 @@ private:
 
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
-    PolyMesh cls;
-    MeshOps::clone(seed, cls, scratch_arena_a);
-    MeshOps::classify_faces_by_topology(cls, scratch_arena_a, scratch_arena_b,
-                                        scratch_arena_a);
-    const int *grp = perceptual_groups(cls, cls.topology.data(), 0,
-                                       cls.face_counts.size(), scratch_arena_b);
+    PolyMesh classified;
+    if (!face_groups) {
+      MeshOps::clone(seed, classified, scratch_arena_a);
+      MeshOps::classify_faces_by_topology(classified, scratch_arena_a,
+                                          scratch_arena_b, scratch_arena_a);
+      face_groups = classified.topology.data();
+    }
+    const int *group = perceptual_groups(
+        seed, face_groups, 0, seed.face_counts.size(), scratch_arena_b);
 
     int *valence = scratch_arena_b.allocate_n<int>(V);
     std::fill_n(valence, V, 0);
@@ -1935,12 +1945,12 @@ private:
       int *fill = scratch_arena_b.allocate_n<int>(V);
       std::fill_n(fill, V, 0);
       size_t p = 0;
-      for (size_t f = 0; f < cls.face_counts.size(); ++f) {
-        for (int k = 0; k < cls.face_counts[f]; ++k) {
-          const uint16_t v = cls.faces[p + k];
-          inc[off[v] + fill[v]++] = grp[f];
+      for (size_t f = 0; f < seed.face_counts.size(); ++f) {
+        for (int k = 0; k < seed.face_counts[f]; ++k) {
+          const uint16_t v = seed.faces[p + k];
+          inc[off[v] + fill[v]++] = group[f];
         }
-        p += cls.face_counts[f];
+        p += seed.face_counts[f];
       }
     }
     // Insertion sorts, not std::sort: its instantiations carry no cold/section
@@ -1979,8 +1989,7 @@ private:
       sig[v] = id;
     }
 
-    // Corner emission order: first flat-index appearance per vertex, valence
-    // >= 3 only (mirrors emit_vertex_orbit_faces).
+    // Source-vertex emission order: first flat-index appearance per vertex.
     bool *seen = scratch_arena_b.allocate_n<bool>(V);
     std::fill_n(seen, V, false);
     for (size_t i = 0; i < I; ++i) {
@@ -1988,7 +1997,7 @@ private:
       if (seen[v])
         continue;
       seen[v] = true;
-      if (valence[v] >= 3)
+      if (valence[v] >= min_valence)
         keys[num_keys++] = sig[v];
     }
     return keys;
@@ -2057,11 +2066,11 @@ private:
     return tr.target_topo.data();
   }
 
-  __attribute__((always_inline)) static BirthPalettes assign_birth_palettes(
-      Transients &tr, const PolyMesh &arrival,
-      const PaletteHandoff &handoff, const int *target_topo,
-      const uint8_t *forced_from, const uint16_t *birth_sig,
-      size_t birth_start) {
+  __attribute__((always_inline)) static BirthPalettes
+  assign_birth_palettes(Transients &tr, const PolyMesh &arrival,
+                        const PaletteHandoff &handoff, const int *target_topo,
+                        const uint8_t *forced_from, const uint16_t *birth_orbit,
+                        size_t birth_start) {
     const size_t total = tr.topo.size();
     const size_t first =
         birth_start == SIZE_MAX ? handoff.prev_faces : birth_start;
@@ -2071,30 +2080,29 @@ private:
 
     const size_t births = total - first;
     uint8_t *palette = scratch_arena_a.allocate_n<uint8_t>(births);
-    int *key = scratch_arena_a.allocate_n<int>(births);
-    const int *group = perceptual_groups(arrival, target_topo, first, total,
-                                         scratch_arena_a);
+    const int *group = birth_orbit
+                           ? nullptr
+                           : perceptual_groups(arrival, target_topo, first,
+                                               total, scratch_arena_a);
+    auto key_at = [&](size_t i) {
+      return birth_orbit ? static_cast<int>(birth_orbit[i]) : group[i];
+    };
+    int max_key = 0;
     for (size_t i = 0; i < births; ++i)
-      key[i] = birth_sig
-                   ? ((group[i] << 16) | static_cast<int>(birth_sig[i]))
-                   : group[i];
+      max_key = std::max(max_key, key_at(i));
 
-    int previous_key = -1;
-    for (;;) {
-      int next_key = -1;
-      for (size_t i = 0; i < births; ++i)
-        if (key[i] > previous_key &&
-            (next_key < 0 || key[i] < next_key))
-          next_key = key[i];
-      if (next_key < 0)
-        break;
-      const uint8_t assigned =
-          tr.landing.to_palette[(*handoff.birth_counter)++ % PALETTES];
-      for (size_t i = 0; i < births; ++i)
-        if (key[i] == next_key)
-          palette[i] = assigned;
-      previous_key = next_key;
-    }
+    constexpr uint8_t ABSENT = 0xFF;
+    uint8_t *palette_by_key =
+        scratch_arena_a.allocate_n<uint8_t>(static_cast<size_t>(max_key) + 1);
+    std::fill_n(palette_by_key, max_key + 1, ABSENT);
+    for (size_t i = 0; i < births; ++i)
+      palette_by_key[key_at(i)] = 0;
+    for (int key = 0; key <= max_key; ++key)
+      if (palette_by_key[key] != ABSENT)
+        palette_by_key[key] =
+            tr.landing.to_palette[(*handoff.birth_counter)++ % PALETTES];
+    for (size_t i = 0; i < births; ++i)
+      palette[i] = palette_by_key[key_at(i)];
     return {first, palette};
   }
 
@@ -2129,9 +2137,9 @@ private:
    * @param forced_from Per-arrival-face from-palette, or nullptr to derive one.
    * A partition op has neither a centroid nor an emission-order
    * correspondence, so its leg computes provenance itself and hands it in.
-   * @param birth_sig Per-newborn-face vertex-signature refinement of the
-   * birth-cohort key (vertex_signature_keys order), or nullptr to key cohorts
-   * on the birth colour group alone.
+   * @param birth_orbit Per-newborn-face vertex-orbit key in
+   * vertex_signature_keys order, or nullptr to derive cohorts from the birth
+   * colour group.
    * @param birth_start First newborn face, or SIZE_MAX for the default suffix
    * beginning at handoff.prev_faces. An immutable dual swap passes 0: the
    * partition discards every carried face, so its whole face list is births.
@@ -2154,7 +2162,7 @@ private:
       Transients &tr, const PolyMesh &arrival, const PaletteHandoff &handoff,
       const BookendClasses &bookend, Arena &arena, const Vector *start_centroid,
       size_t survivors, const uint8_t *forced_from = nullptr,
-      const uint16_t *birth_sig = nullptr, size_t birth_start = SIZE_MAX) {
+      const uint16_t *birth_orbit = nullptr, size_t birth_start = SIZE_MAX) {
     const size_t total = tr.topo.size();
     const size_t primary = tr.seed_faces;
     tr.landing.faces = total;
@@ -2166,8 +2174,8 @@ private:
     // it collapses onto — the mirror of the newborn from-palette rule below,
     // which is what makes the leg's crossfade symmetric: a sliver closes into
     // its host's color instead of freezing in an unrelated target color.
-    const int *target_topo = resolve_target_topology(
-        tr, arrival, handoff, bookend, arena, survivors);
+    const int *target_topo = resolve_target_topology(tr, arrival, handoff,
+                                                     bookend, arena, survivors);
     tr.landing.topology = target_topo;
 
     if (handoff.pinned_to) {
@@ -2211,11 +2219,11 @@ private:
     // range takes the next entry of the shuffled palette order through the
     // shape's wrapping counter, in ascending key order, so cohorts born on
     // different legs never collide on the order's first slots. The key is the
-    // birth class's perceptual colour group, refined by the underlying
-    // vertex's orbit signature on a vertex-orbit block (birth_sig).
+    // operator-derived vertex orbit when available, otherwise the birth
+    // class's perceptual colour group.
     const BirthPalettes births =
         assign_birth_palettes(tr, arrival, handoff, target_topo, forced_from,
-                              birth_sig, birth_start);
+                              birth_orbit, birth_start);
 
     uint8_t *from_palette = arena.allocate_n<uint8_t>(total);
     tr.landing.from_palette = from_palette;
