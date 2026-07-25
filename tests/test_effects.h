@@ -1043,7 +1043,7 @@ inline void test_bz_odd_substep_lands_in_state() {
 /**
  * @brief White-box accessor for DreamBalls' private preset-cycle bookkeeping
  *        (befriended in effects/DreamBalls.h).
- * @details spawn_sprite schedules its successor 288 frames out (a PeriodicTimer),
+ * @details spawn_sprite schedules its successor 320 frames out (a PeriodicTimer),
  *          but the smoke/determinism harness renders at most HS_SMOKE_FRAMES=120
  *          frames in CI — short of one period — so the re-spawn never fires under
  *          the generic passes: the preset advance, the active_bake_ ping-pong +
@@ -1124,12 +1124,12 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
 }
 
 /**
- * @brief End-to-end check that the 288-frame re-spawn timer actually fires and
+ * @brief End-to-end check that the 320-frame re-spawn timer actually fires and
  *        honors the pause gate, by rendering past one period.
  * @details Covers the part the white-box driver cannot: the PeriodicTimer wiring
  *          and the animations_paused()?idx:idx+1 hold-vs-advance decision in the
- *          scheduler lambda. Renders 300 frames (one period is 288; the next
- *          re-spawn is another 288 away, so exactly one fires). Unpaused, the
+ *          scheduler lambda. Renders 340 frames (one period is 320; the next
+ *          re-spawn is another 320 away, so exactly one fires). Unpaused, the
  *          preset advances 0 -> 1; paused, it re-spawns the same preset and holds.
  */
 inline void test_dreamballs_respawn_fires_and_honors_pause() {
@@ -1139,9 +1139,9 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
     WB::DB db;
     db.init();
     db.setAnimationsPaused(paused);
-    // The re-spawn timer is scheduled 288 frames out; render past it so exactly
-    // one re-spawn fires (the following one is another 288 frames away).
-    for (int f = 0; f < 300; ++f) {
+    // The re-spawn timer is scheduled 320 frames out; render past it so exactly
+    // one re-spawn fires (the following one is another 320 frames away).
+    for (int f = 0; f < 340; ++f) {
       db.draw_frame();
       db.advance_display();
     }
