@@ -2060,12 +2060,21 @@ private:
     const int *target_topo;
     if (bookend.topology) {
       const size_t landed = bookend.faces;
+      const bool immutable_closing =
+          handoff.immutable &&
+          handoff.correspondence == FaceCorrespondence::DUAL_CLOSING;
       const Vector *arrival_centroid =
-          landed < total ? face_centroids(arrival, scratch_arena_a) : nullptr;
+          landed < total && !immutable_closing
+              ? face_centroids(arrival, scratch_arena_a)
+              : nullptr;
       tr.target_topo.bind(arena, total);
       for (size_t f = 0; f < total; ++f) {
         if (f < landed) {
           tr.target_topo.push_back(bookend.topology[f]);
+          continue;
+        }
+        if (immutable_closing) {
+          tr.target_topo.push_back(tr.topo[f]);
           continue;
         }
         size_t host = 0;
