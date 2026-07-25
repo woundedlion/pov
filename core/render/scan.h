@@ -954,6 +954,268 @@ struct RingGroup {
     }
   }
 };
+
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+/**
+ * @brief Analytic swept-trail rasterizer (sim/test prototype): renders the
+ *        motion-blur integral of a great-circle ring whose normal follows a
+ *        constant-axis geodesic span, compositing Beer-Lambert dwell in place
+ *        of stacked discrete sub-rings.
+ */
+struct RingSweep {
+  /**
+   * @brief One monotone sweep span: endpoint normals plus shading parameters.
+   */
+  struct Span {
+    Vector n0, n1;   /**< Unit ring normals at the span ends. */
+    float t0, t1;    /**< Trail parameter at each end (palette input). */
+    float thickness; /**< Stroke half-width (radians), deviation-inflated. */
+    float steps;     /**< Control-point intervals merged into this span. */
+    bool head_cap;   /**< Final span: add the discrete head-ring sample so a
+                        fast-moving head keeps its crisp full ring. */
+  };
+
+  /** @brief Integral of quintic_kernel from 0 to u; Qint(1) = 1/2. */
+  __attribute__((always_inline)) static float quintic_integral(float u) {
+    float u2 = u * u;
+    return u2 * u2 * (u2 - 3.0f * u + 2.5f);
+  }
+
+  /**
+   * @brief Stacked-composite alpha 1-(1-a)^k for fractional k >= 0.
+   * @details Binary exponentiation on the integer part (k is bounded by the
+   * span's control-point count), fractional part linearly interpolated so the
+   * result stays smooth in k.
+   */
+  __attribute__((always_inline)) static float stack_alpha(float a, float k) {
+    float u = 1.0f - a;
+    int ki = static_cast<int>(k);
+    float frac = k - static_cast<float>(ki);
+    float pow_u = 1.0f;
+    float base = u;
+    while (ki > 0) {
+      if (ki & 1)
+        pow_u *= base;
+      base *= base;
+      ki >>= 1;
+    }
+    pow_u *= 1.0f - frac * a;
+    return 1.0f - pow_u;
+  }
+
+  /**
+   * @brief Rasterizes one span in a single scan over its covering band.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam SweepShaderT Shader: shader(float t, const Vector &p, Fragment &f)
+   *         with t the trail parameter at the pixel's dwell centre.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param span Swept-band span to rasterize; the caller's partition
+   *        guarantees theta is monotone over the span (reversals split spans)
+   *        and the sweep angle is under pi/2, so d(theta) has at most one zero
+   *        and a crossing is exactly sign(d0) != sign(d1).
+   * @param shader Per-pixel shader (see SweepShaderT).
+   * @details Per pixel, d(theta) = dot(p,n0)cos + dot(p,b)sin with b = a x n0
+   * (a the geodesic axis), so n(Theta) = n1 exactly. A crossing composites the
+   * dwell integral k = rho * th * 2*Qint(1) / |d'| as 1-(1-alpha)^k — the
+   * continuous limit of the discrete sub-ring stack; a non-crossing pixel
+   * within the band composites the one-sided integral from its endpoint
+   * distance. Interior span boundaries are measure-zero in the integral, so
+   * only the trail head carries a discrete cap sample.
+   */
+  template <int W, int H, typename PipelineT, typename SweepShaderT>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const Span &span,
+                   SweepShaderT &&shader) {
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+
+    const float cos_full = dot(span.n0, span.n1);
+    const float sin_full =
+        std::sqrt(std::max(0.0f, 1.0f - cos_full * cos_full));
+    const float theta_total = fast_acos(hs::clamp(cos_full, -1.0f, 1.0f));
+    const float th = span.thickness;
+
+    Vector axis = cross(span.n0, span.n1);
+    const float axis_len = std::sqrt(dot(axis, axis));
+    const bool degenerate = axis_len < 1e-5f || theta_total < 1e-4f;
+    Vector b = degenerate ? span.n0 : cross(axis * (1.0f / axis_len), span.n0);
+
+    // Covering ring; the 1/0.95 counters Ring's 0.95*thickness bounds shave
+    // (AA dust for a real stroke, core endpoint rows for a wide cover).
+    Vector nm = span.n0 + span.n1;
+    float nm_len = std::sqrt(dot(nm, nm));
+    nm = nm_len > 1e-5f ? nm * (1.0f / nm_len) : span.n0;
+    Basis cover_basis = make_basis(Quaternion(), nm);
+    SDF::Ring cover(cover_basis, 1.0f,
+                    (th + 0.5f * theta_total + 1e-3f) * (1.0f / 0.95f));
+
+    const auto &cr = canvas.clip();
+    auto bounds = cover.template get_vertical_bounds<H>();
+    int y_lo = std::max(bounds.y_min, cr.render_y_start());
+    int y_hi = std::min(bounds.y_max, cr.render_y_end() - 1);
+    if (y_lo > y_hi)
+      return;
+
+    const float inv_th = 1.0f / th;
+    const float inv_theta = degenerate ? 0.0f : 1.0f / theta_total;
+    // Sub-ring samples per radian of sweep (the discrete stack's density).
+    const float rho = degenerate ? span.steps : span.steps * inv_theta;
+    const float k_cap = span.steps + 1.0f;
+
+    Fragment frag;
+    ScopedRenderTimer timer_guard(canvas);
+
+    const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
+    const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+    const auto xc = cr.x_clip();
+    StaticCircularBuffer<std::pair<float, float>, 4> intervals;
+    StaticCircularBuffer<std::pair<float, float>, 8> norm;
+
+    // k = k_lin * 2F(a) corrects the linearized dwell count for finite alpha:
+    // the true stack is prod(1 - a*q_j), and F(a) = integral of
+    // ln(1-a*quintic)/ln(1-a) over the band (quadratic fit, F(0) = 1/2).
+    // Discrete cap samples (head ring, static trail) use the exact per-sample
+    // log weight instead.
+    auto emit = [&](int x, int y, const Vector &p, float t_par, float k_lin,
+                    float q_cap, float cap_count) {
+      frag.color = Color4(0, 0, 0, 0);
+      frag.pos = p;
+      frag.v2 = q_cap;
+      frag.size = th;
+      frag.age = 0;
+      shader(t_par, p, frag);
+      const float a = frag.color.alpha;
+      if (a <= 0.001f)
+        return;
+      float fa = 0.4900f + (0.0448f - 0.1891f * a) * a;
+      float k = k_lin * 2.0f * fa;
+      if (q_cap > 0.0f && cap_count > 0.0f) {
+        float w = (a > 1e-3f && q_cap < 0.999f)
+                      ? logf(1.0f - a * q_cap) / logf(1.0f - a)
+                      : q_cap;
+        k += cap_count * w;
+      }
+      k = hs::clamp(k, 0.0f, k_cap);
+      if (k <= 0.001f)
+        return;
+      pipeline.plot(canvas, x, y, frag.color.color, frag.age,
+                    stack_alpha(a, k));
+    };
+
+    auto pixel_run = [&](int x1, int x2, int y, float sp, float cp) {
+      for (int x = x1; x < x2; ++x) {
+        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        const float d0 = dot(p, span.n0);
+        const float d1 = dot(p, span.n1);
+        if (degenerate) {
+          float dist = std::abs(d0);
+          if (dist >= th)
+            continue;
+          float aa = quintic_kernel(1.0f - dist * inv_th);
+          emit(x, y, p, span.t1, 0.0f, aa, span.steps + 1.0f);
+          continue;
+        }
+        if ((d0 > 0.0f) != (d1 > 0.0f)) {
+          // Transversal crossing: k_lin = rho * th / |d'| with |d'| = M at
+          // the zero (both band sides, quintic-mean 1/2 folded in).
+          const float B = dot(p, b);
+          float th_star = fast_atan2(-d0, B);
+          if (th_star < 0.0f)
+            th_star += PI_F;
+          float t_hit = hs::clamp(th_star * inv_theta, 0.0f, 1.0f);
+          const float m = std::sqrt(d0 * d0 + B * B);
+          emit(x, y, p, span.t0 + (span.t1 - span.t0) * t_hit,
+               rho * th / (m + 1e-6f), 0.0f, 0.0f);
+          continue;
+        }
+        const float a0 = std::abs(d0);
+        const float a1 = std::abs(d1);
+        const bool far_end = a1 < a0;
+        float dist = far_end ? a1 : a0;
+        if (dist >= th) {
+          continue;
+        }
+        // One-sided dwell: k_lin = rho * th * Qint(1 - dist/th) / |d'| at
+        // that end; the final span's far end adds the discrete head-ring
+        // sample legacy always draws at full alpha.
+        const float B = dot(p, b);
+        const float deriv =
+            far_end ? std::abs(B * cos_full - d0 * sin_full) : std::abs(B);
+        float k_lin =
+            rho * th * quintic_integral(1.0f - dist * inv_th) / (deriv + 1e-6f);
+        float q_cap = 0.0f;
+        if (far_end && span.head_cap)
+          q_cap = quintic_kernel(1.0f - dist * inv_th);
+        emit(x, y, p, far_end ? span.t1 : span.t0, k_lin, q_cap, 1.0f);
+      }
+    };
+    auto run_clipped = [&](int x1, int x2, int y, float sp, float cp) {
+      if (!xc.active) {
+        pixel_run(x1, x2, y, sp, cp);
+      } else if (xc.wrap) {
+        pixel_run(std::max(x1, xc.rs), x2, y, sp, cp);
+        pixel_run(x1, std::min(x2, xc.re), y, sp, cp);
+      } else {
+        pixel_run(std::max(x1, xc.rs), std::min(x2, xc.re), y, sp, cp);
+      }
+    };
+
+    for (int y = y_lo; y <= y_hi; ++y) {
+      float sp = TrigLUT<W, H>::sin_phi[y];
+      float cp = TrigLUT<W, H>::cos_phi[y];
+
+      if (cover.needs_full_row_scan(sp)) {
+        run_clipped(0, W, y, sp, cp);
+        continue;
+      }
+      intervals.clear();
+      cover.template get_horizontal_intervals<W, H>(y, [&](float t1, float t2) {
+        SDF::push_interval(intervals, t1, t2);
+      });
+      if (intervals.is_empty())
+        continue;
+
+      bool full_row = false;
+      for (const auto &iv : intervals)
+        if (iv.second - iv.first >= static_cast<float>(W)) {
+          full_row = true;
+          break;
+        }
+      if (full_row) {
+        run_clipped(0, W, y, sp, cp);
+        continue;
+      }
+
+      norm.clear();
+      SDF::normalize_intervals_to_range<W>(intervals, norm);
+      SDF::sort_intervals_by_start(norm);
+      float current_end = -FLT_MAX;
+      int last_x2 = 0;
+      for (const auto &iv : norm) {
+        if (iv.second <= current_end)
+          continue;
+        float start = std::max(iv.first, current_end);
+        float end = iv.second;
+        current_end = end;
+        int x1 = static_cast<int>(floorf(start));
+        int x2 = static_cast<int>(ceilf(end));
+        if (x1 == x2)
+          x2++;
+        if (x1 < 0)
+          x1 = 0;
+        if (x2 > W)
+          x2 = W;
+        if (x1 < last_x2)
+          x1 = last_x2;
+        last_x2 = x2;
+        run_clipped(x1, x2, y, sp, cp);
+      }
+    }
+  }
+};
+#endif // __EMSCRIPTEN__ || HS_TEST_BUILD
 HS_O3_END
 
 /**
