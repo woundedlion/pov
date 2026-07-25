@@ -1025,37 +1025,7 @@ private:
       return lut_[LUT_SIZE - 1].color;
     float frac = idx - lo;
     uint16_t weight = static_cast<uint16_t>(frac * 65535.0f + 0.5f);
-    uint16_t inverse = 65535 - weight;
-    const Pixel &a = lut_[lo].color;
-    const Pixel &b = lut_[lo + 1].color;
-    return Pixel(lerp_channel(a.r, b.r, weight, inverse),
-                 lerp_channel(a.g, b.g, weight, inverse),
-                 lerp_channel(a.b, b.b, weight, inverse));
-  }
-
-  __attribute__((always_inline)) static uint16_t
-  lerp_channel(uint16_t a, uint16_t b, uint16_t weight, uint16_t inverse) {
-#if defined(__arm__) && defined(__GNUC__) && !defined(__clang__)
-    // Bound live integer state to one channel inside the M7 raster kernel.
-    uint32_t value = a;
-    uint32_t rounded;
-    asm volatile("mul %[value], %[inverse], %[value]\n\t"
-                 "mla %[value], %[other], %[weight], %[value]\n\t"
-                 "add.w %[rounded], %[value], #32768\n\t"
-                 "add.w %[rounded], %[rounded], %[value], lsr #16\n\t"
-                 "lsr %[value], %[rounded], #16"
-                 : [value] "+&r"(value), [rounded] "=&r"(rounded)
-                 : [inverse] "r"(static_cast<uint32_t>(inverse)),
-                   [other] "r"(static_cast<uint32_t>(b)),
-                   [weight] "r"(static_cast<uint32_t>(weight))
-                 : "cc");
-    return static_cast<uint16_t>(value);
-#else
-    uint32_t value =
-        static_cast<uint32_t>(a) * inverse + static_cast<uint32_t>(b) * weight;
-    return static_cast<uint16_t>(
-        (value + (value >> 16) + 32768u) >> 16);
-#endif
+    return lut_[lo].color.lerp16(lut_[lo + 1].color, weight);
   }
 
 public:
