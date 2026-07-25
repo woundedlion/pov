@@ -96,7 +96,18 @@ inline void test_named_procedural_palette_endpoints() {
 
   constexpr auto mesh_sources = MeshPaletteBank::sources();
   HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::ORANGE_CRUSH);
-  HS_EXPECT_TRUE(mesh_sources[6] == &Palettes::PLUM_SUNRISE);
+  HS_EXPECT_TRUE(mesh_sources[6] == &Palettes::MANGO_PEEL);
+
+  constexpr ProceduralPalette forward_orange(
+      {0.575f, 0.168f, 0.464f}, {0.406f, 0.697f, 0.357f},
+      {0.000f, 0.10051f, 0.042778f}, {0.141f, 0.155f, 0.537f});
+  for (float t : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+    Color4 reversed = Palettes::ORANGE_CRUSH.get(t);
+    Color4 forward = forward_orange.get(1.0f - t);
+    HS_EXPECT_NEAR(reversed.color.r, forward.color.r, 1);
+    HS_EXPECT_NEAR(reversed.color.g, forward.color.g, 1);
+    HS_EXPECT_NEAR(reversed.color.b, forward.color.b, 1);
+  }
 }
 
 /**
@@ -126,9 +137,9 @@ inline void test_named_palette_hue_short_arc() {
 
 /**
  * @brief Verifies MeshPaletteBank bakes its sources and indexes them distinctly.
- * @details Slot 0's baked endpoints must match the embers source (the first
- *          entry in sources()), proving the bank baked the right palette into
- *          the right slot; every slot must produce a distinct LUT so a
+ * @details Slot 0's baked endpoints must match the first source, proving the
+ *          bank baked the right palette into the right slot; every slot must
+ *          produce a distinct LUT so a
  *          slot-mapping bug can't collapse them.
  */
 inline void test_mesh_palette_bank_lookup() {
@@ -138,7 +149,7 @@ inline void test_mesh_palette_bank_lookup() {
   MeshPaletteBank bank;
   bank.bake_all(arena);
 
-  // Slot 0 == embers (sources()[0]) baked: pinned golden endpoints.
+  // Slot 0 == embers baked: pinned golden endpoints.
   Color4 s0 = bank[0].get(0.0f);
   Color4 s1 = bank[0].get(1.0f);
   HS_EXPECT_EQ(s0.color.r, 307);
