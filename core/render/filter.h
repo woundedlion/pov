@@ -141,7 +141,6 @@ template <int W, int H> struct Pipeline<W, H> {
    * @details The unnamed float parameter is the unused age channel.
    */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float, float alpha) {
-    HS_PROFILE(filter_blend);
     // Producer must keep x in [-W, 2W); fast_wrap corrects only a single ±W offset.
     assert(x >= -W && x < 2 * W);
     if (!cv.clip().contains_y(y))
@@ -149,7 +148,16 @@ template <int W, int H> struct Pipeline<W, H> {
     int xi = fast_wrap(x, W);
     if (!cv.clip().contains_x(xi))
       return;
-    Pixel &dst = cv(xi, y);
+    plot_in_bounds(cv, xi, y, c, 0.0f, alpha);
+  }
+
+  /** @brief Writes a sample whose integer coordinates are already clip-tested. */
+  void plot_in_bounds(Canvas &cv, int x, int y, const Pixel &c, float,
+                      float alpha) {
+    HS_PROFILE(filter_blend);
+    assert(x >= 0 && x < W && cv.clip().contains_x(x));
+    assert(cv.clip().contains_y(y));
+    Pixel &dst = cv(x, y);
     if (alpha >= 1.0f) {
       dst = c;
       return;

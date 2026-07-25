@@ -1277,8 +1277,17 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           alpha = 1.0f;
         }
         if (frag.color.alpha > 0.001f) {
-          pipeline.plot(canvas, x, y, frag.color.color, frag.age,
-                        frag.color.alpha * alpha);
+          if constexpr (requires {
+                          pipeline.plot_in_bounds(
+                              canvas, x, y, frag.color.color, frag.age,
+                              frag.color.alpha * alpha);
+                        }) {
+            pipeline.plot_in_bounds(canvas, x, y, frag.color.color, frag.age,
+                                    frag.color.alpha * alpha);
+          } else {
+            pipeline.plot(canvas, x, y, frag.color.color, frag.age,
+                          frag.color.alpha * alpha);
+          }
         }
       }
     }
