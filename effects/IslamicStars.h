@@ -204,6 +204,18 @@ private:
       frag.color.alpha = alpha;
     }
   };
+
+  struct SpriteFaceShading {
+    const int *classes;
+    const uint8_t *palette;
+
+    SpriteFaceShading(const MeshState &mesh, const uint8_t *face_palette)
+        : classes(mesh.topology.data()), palette(face_palette) {
+      HS_CHECK(mesh.topology.size() == mesh.num_faces(),
+               "IslamicStars: sprite shading face count mismatch");
+    }
+  };
+
   MeshCarousel<SegueT> carousel;
   // Seed fade-in: the opening window materialises the base mesh through a
   // per-pixel dither instead of the terminator sweep; every stage after (build,
@@ -374,8 +386,8 @@ private:
         seed_intro_ = false;
       }
     }
-    draw_shape(canvas, phase, mesh, mesh.topology, slot_face_palette[back],
-               mask_ptr);
+    const SpriteFaceShading shading(mesh, slot_face_palette[back]);
+    draw_shape(canvas, phase, mesh, shading, mask_ptr);
   }
 
   /**
@@ -385,8 +397,7 @@ private:
    * @param phase Segue phase in [0, 1] from the sprite envelope: rises over
    *        the incoming window, holds 1, falls over the outgoing window.
    * @param base_state Undistorted source mesh to transform and draw.
-   * @param face_indices Maps each face to its topology class (segue ordering).
-   * @param face_palette Immutable per-face palette ids (covers every face).
+   * @param shading Per-face topology classes and immutable palette ids.
    * @param mask Optional per-pixel dissolve gate: unowned pixels are skipped in
    *        the scan. The seed fade-in draws the fully-lit mesh (phase 1) through
    *        a ramping mask so the base mesh materialises pixel by pixel; null on
@@ -395,20 +406,19 @@ private:
    * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
    */
-  HS_O3_FN void draw_shape(Canvas &canvas, float phase,
-                           const MeshState &base_state,
-                           const ArenaVector<int> &face_indices,
-                           const uint8_t *face_palette,
-                           const PixelMask *mask = nullptr) {
+  HS_O3_FN HS_NOINLINE_NOCLONE void
+  draw_shape(Canvas &canvas, float phase, const MeshState &base_state,
+             const SpriteFaceShading &shading,
+             const PixelMask *mask = nullptr) {
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
+    const int *face_classes = shading.classes;
+    const uint8_t *face_palette = shading.palette;
+
     HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
     MeshState transformed_state = transform_shape(base_state);
-
-    const int *raw_indices = face_indices.data();
-    const int num_faces = static_cast<int>(face_indices.size());
 
     // Per-face segues order faces by their center, recomputed per frame: from
     // world space by default (the front stays fixed in the room while the
@@ -438,16 +448,12 @@ private:
         Vector c(0.0f, 0.0f, 0.0f);
         for (int k = 0; k < fcnt[f]; ++k)
           c = c + sweep_state.vertices[fidx[foff[f] + k]];
-        int cls = (f < static_cast<size_t>(num_faces))
-                      ? wrap(raw_indices[f], NUM_PALETTES)
-                      : 0;
+        const int cls = wrap(face_classes[f], NUM_PALETTES);
         float off =
             seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls);
         float fade = seg.face_fade_frac(static_cast<int>(f));
         face_phases.push_back(seg.face_phase(phase, off, fade));
-        const int pal =
-            (f < static_cast<size_t>(num_faces)) ? face_palette[f] : 0;
-        face_palettes.push_back(&palette_bank_[pal]);
+        face_palettes.push_back(&palette_bank_[face_palette[f]]);
       }
     }
 
@@ -468,10 +474,9 @@ private:
             scratch_arena_a, params.debug_bb, nullptr, mask, select_face);
       } else {
         auto fragment_shader = [&](const Vector &, Fragment &frag) {
-          int fi = static_cast<int>(frag.v2);
-          const int pal = (fi >= 0 && fi < num_faces) ? face_palette[fi] : 0;
-          frag.color =
-              shade_mesh_topology(frag, palette_bank_[pal], 1.0f, seg, phase);
+          const size_t fi = static_cast<size_t>(frag.v2);
+          frag.color = shade_mesh_topology(
+              frag, palette_bank_[face_palette[fi]], 1.0f, seg, phase);
         };
         Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
                                fragment_shader, scratch_arena_a,
