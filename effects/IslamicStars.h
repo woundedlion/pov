@@ -1489,6 +1489,17 @@ private:
     const size_t landed_faces = build_seed_.face_counts.size();
     HS_CHECK(landed_faces <= build_landing_->faces,
              "IslamicStars: finished solid larger than the leg landing");
+    HS_CHECK(build_landing_->topology,
+             "IslamicStars: finished leg has no topology");
+    ScratchScope topology_guard(scratch_arena_b);
+    uint16_t *landed_topology =
+        scratch_arena_b.allocate_n<uint16_t>(landed_faces);
+    for (size_t f = 0; f < landed_faces; ++f) {
+      const int cls = build_landing_->topology[f];
+      HS_CHECK(cls >= 0 && cls <= UINT16_MAX,
+               "IslamicStars: topology class exceeds snapshot range");
+      landed_topology[f] = static_cast<uint16_t>(cls);
+    }
     const int front = carousel.front_index();
     // Per-face sprite handoff: copied before the compaction below, whose
     // same-address re-claim keeps the array's bytes.
@@ -1517,9 +1528,9 @@ private:
             [this](Arena &arena) { reclaim_persistent(arena); });
         MeshOps::compile(built, slot, persistent_arena, scratch_arena_a);
       }
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(slot, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
+      slot.topology.bind(persistent_arena, landed_faces);
+      for (size_t f = 0; f < landed_faces; ++f)
+        slot.topology.push_back(static_cast<int>(landed_topology[f]));
     }
 
     // The per-face colours index the compiled slot by emission order, so the
