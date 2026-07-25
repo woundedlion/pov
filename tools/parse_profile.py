@@ -385,7 +385,7 @@ def cmd_presets(windows, scope, gate):
 
 
 def cmd_buckets(windows):
-    """Per-preset cadence buckets: how many presets lock / flap / slip a tier.
+    """Per-preset cadence buckets: how many presets hold 16 fps vs spill.
 
     A preset owns the FRAMES its marker was in force for, not whole windows: the
     window straddling an advance holds frames of both the outgoing and incoming
@@ -394,14 +394,8 @@ def cmd_buckets(windows):
     attribution needs the per-frame telemetry; without it this falls back to the
     window-level split, which carries that error.
 
-    Colour is judged per WINDOW-SIZED RUN of the preset's own frames, not over
-    its whole pass: no spill anywhere locks 16 fps; a run that spills
-    FLAP_FRACTION or more of its frames held a tier down for that stretch (~1-2
-    s - visible), so the preset is red; anything less is jitter grazing the
-    boundary, so yellow. Judging the pass fraction instead would call a solid
-    25-frame overrun in a 2,560-frame pass a 1% flap.
+    Colour is binary: no spill anywhere is green; any spilled frame is red.
     """
-    FLAP_FRACTION = 0.25
     idx_key = next((w.marker["key"] for w in windows
                     if w.marker and "idx" in w.marker), None)
 
@@ -428,12 +422,6 @@ def cmd_buckets(windows):
             peak = max(f[2] for f in items) / 1000.0
             spill = sum(1 for f in items if f[2] > DISPLAY_WINDOW_US)
             frames = len(items)
-            # Chunk the preset's own frames into window-sized runs for the flap
-            # rule, so a brief overrun cannot be diluted by a long clean pass.
-            worst_frac = max(
-                sum(1 for f in items[i:i + 16] if f[2] > DISPLAY_WINDOW_US)
-                / len(items[i:i + 16])
-                for i in range(0, len(items), 16))
         else:
             peaks = [p for p, _ in (w.peak_render_ms() for w in items)
                      if p is not None]
@@ -442,9 +430,7 @@ def cmd_buckets(windows):
             peak = max(peaks)
             spill = sum(spilled_frames(w) for w in items)
             frames = sum(w.frames for w in items)
-            worst_frac = max(spilled_frames(w) / w.frames for w in items)
-        colour = "green" if spill == 0 else (
-            "red" if worst_frac >= FLAP_FRACTION else "yellow")
+        colour = "green" if spill == 0 else "red"
         rows.append((key[1], colour, peak, spill, frames))
 
     mark = "" if exact_run else "~"
@@ -454,8 +440,8 @@ def cmd_buckets(windows):
         print(f"{name:>8}  {colour:>7}  {peak:11.2f}{mark}  {spill:5d}/{frames}")
     print("# buckets: " + " ".join(
         f"{c}={sum(1 for r in rows if r[1] == c)}"
-        for c in ("green", "yellow", "red")))
-    for c in ("green", "yellow", "red"):
+        for c in ("green", "red")))
+    for c in ("green", "red"):
         sel = [r for r in rows if r[1] == c]
         if not sel:
             continue
