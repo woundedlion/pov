@@ -384,7 +384,7 @@ inline void test_face_shader_setup_matches_face_index() {
 
   MeshFx selected(W, H);
   const Color4 *face_color = nullptr;
-  auto select_face = [&](size_t face) { face_color = &colors[face]; };
+  auto select_face = [&](size_t face, float) { face_color = &colors[face]; };
   auto shader = [&](const Vector &, Fragment &frag) {
     frag.color = *face_color;
   };

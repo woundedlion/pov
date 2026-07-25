@@ -1064,7 +1064,7 @@ HS_O3_BEGIN
  * and the clip-arc intersection run once per face; the per-pixel body mirrors
  * process_pixel's solid path.
  */
-template <int W, int H, typename PipelineT>
+template <int W, int H, typename PipelineT, bool MinimalFragment = false>
 __attribute__((noinline)) inline void
 rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                FragmentShaderFn fragment_shader, bool debug_bb,
@@ -1256,14 +1256,18 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         if (!effective_debug && alpha <= 0.001f)
           continue;
         HS_PROFILE(raster_shade);
-        frag.color = Color4(0, 0, 0, 0);
-        frag.pos = p;
-        frag.v0 = res.t;
-        frag.v1 = res.raw_dist;
-        frag.v2 = 0.0f;
-        frag.v3 = res.aux;
-        frag.size = res.size;
-        frag.age = 0;
+        if constexpr (MinimalFragment) {
+          frag.v1 = res.raw_dist;
+        } else {
+          frag.color = Color4(0, 0, 0, 0);
+          frag.pos = p;
+          frag.v0 = res.t;
+          frag.v1 = res.raw_dist;
+          frag.v2 = 0.0f;
+          frag.v3 = res.aux;
+          frag.size = res.size;
+          frag.age = 0;
+        }
         fragment_shader(p, frag);
         if (effective_debug) {
           frag.color.color =
@@ -1307,9 +1311,9 @@ struct Mesh {
    *        class distance LUT is bound for the probe loop.
    * @param mask Optional dissolve ownership mask (see PixelMask); unowned
    *        pixels are skipped before the per-pixel SDF eval.
-   * @param face_shader_setup Optional per-face shader setup. When supplied,
-   *        it runs once before rasterizing the face and the shader is invoked
-   *        directly without writing the face index to Fragment::v2.
+   * @param face_shader_setup Optional callback receiving the face index and
+   *        size. When supplied, it runs once before rasterizing the face and
+   *        the shader is invoked directly with only v1 initialized.
    */
   template <int W, int H, typename PipelineT = PipelineRef,
             typename FaceShaderSetupT = std::nullptr_t>
@@ -1378,13 +1382,14 @@ struct Mesh {
       if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
         raster_shader = wrapper;
       } else {
-        face_shader_setup(i);
+        face_shader_setup(i, shape.size);
       }
 
       {
         HS_PROFILE(scan_mesh_raster);
-        rasterize_face<W, H>(pipeline, canvas, shape, raster_shader, debug_bb,
-                             mask);
+        rasterize_face<W, H, PipelineT,
+                       !std::is_same_v<FaceShaderSetupT, std::nullptr_t>>(
+            pipeline, canvas, shape, raster_shader, debug_bb, mask);
       }
     }
   }
