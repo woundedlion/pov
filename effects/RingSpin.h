@@ -112,48 +112,106 @@ public:
     for (int i = 0; i < num_rings; ++i) {
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
-      // One fused scan per trail frame: the frame's <= CAP sub-rings differ by
-      // at most one walk step, so their bands nearly coincide and the group
-      // pass pays the row/interval overhead once (see RingGroup for the
-      // blend-order/AA-tail contract).
-      deep_tween_frames(ring.trail, [&](const Quaternion *qs, const float *ts,
-                                        int count) {
-        constexpr int SUB_CAP = decltype(ring.orientation)::CAPACITY;
-        Basis bases[SUB_CAP];
-        Color4 colors[SUB_CAP];
-        alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
-        auto *shapes = reinterpret_cast<SDF::Ring *>(shape_mem);
-        int slots = 0;
-        constexpr float pixel_w = 2.0f * PI_F / W;
-        for (int j = 0; j < count; ++j) {
-          float t = ts[j];
-          // The trail's length-fade comes entirely from the palette: sampling
-          // at 1-t walks a transparent-vignette palette whose alpha tapers to
-          // ~0 toward the tail, so there is deliberately no explicit t-fade
-          // here.
-          Color4 c = ring.palette->get(1.0f - t);
-          c.alpha = c.alpha * params.alpha;
-          if (c.alpha <= 0.001f)
-            continue;
 
-          // Adaptive thickness: head/tail of trail = 2px, intermediate = 1px
-          float th =
-              ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
-              params.thickness;
-          bases[slots] = make_basis(qs[j], ring.normal);
-          new (&shapes[slots]) SDF::Ring(bases[slots], 1.0f, th);
-          colors[slots] = c;
-          ++slots;
+      // Flatten the trail into one continuous polyline of ring normals
+      // (deep_tween frames tile: each shares its boundary sub-position with
+      // the previous frame).
+      constexpr int MAX_POS =
+          TRAIL_LENGTH * decltype(ring.orientation)::CAPACITY;
+      Vector normals[MAX_POS];
+      float tvals[MAX_POS];
+      int m = 0;
+      deep_tween_frames(
+          ring.trail, [&](const Quaternion *qs, const float *ts, int count) {
+            for (int j = 0; j < count && m < MAX_POS; ++j) {
+              normals[m] = rotate(ring.normal, qs[j]).normalized();
+              tvals[m] = ts[j];
+              ++m;
+            }
+          });
+      if (m == 0)
+        continue;
+
+      constexpr float pixel_w = 2.0f * PI_F / W;
+      auto thickness_at = [&](float t) {
+        return ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
+               params.thickness;
+      };
+      auto shader = [&](float t, const Vector &, Fragment &f) {
+        // The trail's length-fade comes entirely from the palette: sampling
+        // at 1-t walks a transparent-vignette palette whose alpha tapers to
+        // ~0 toward the tail.
+        Color4 c = ring.palette->get(1.0f - t);
+        c.alpha = c.alpha * params.alpha;
+        f.color = c;
+      };
+
+      if (params.show_bounding_box || canvas.debug()) {
+        for (int j = 0; j < m; ++j) {
+          Basis basis = make_basis(Quaternion(), normals[j]);
+          SDF::Ring shape(basis, 1.0f, thickness_at(tvals[j]));
+          float t = tvals[j];
+          Scan::rasterize<W, H, false>(
+              filters, canvas, shape,
+              [&](const Vector &p, Fragment &f) { shader(t, p, f); }, true);
         }
-        if (slots == 0)
-          return;
+        continue;
+      }
 
-        HS_PROFILE(rs_ring_scan);
-        Scan::RingGroup::draw<W, H>(
-            filters, canvas, shapes, slots,
-            [&](int s, const Vector &, Fragment &f) { f.color = colors[s]; },
-            params.show_bounding_box);
-      });
+      // Partition the polyline into constant-axis sweep spans: grow while
+      // every interior normal stays within DEV_TOL of the start-to-end
+      // geodesic plane (the span is then drawn deviation-inflated), the
+      // sweep angle stays under SWEEP_CAP (RingSweep's one-zero window), and
+      // the thickness class does not change.
+      HS_PROFILE(rs_ring_scan);
+      int s0 = 0;
+      while (s0 < m) {
+        const float th0 = thickness_at(tvals[s0]);
+        const float DEV_TOL = 0.15f * th0;
+        constexpr float SWEEP_CAP = 1.2f;
+        int s1 = s0;
+        float dev = 0.0f;
+        for (int k = s0 + 1; k < m; ++k) {
+          if (thickness_at(tvals[k]) != th0)
+            break;
+          float sweep =
+              fast_acos(hs::clamp(dot(normals[s0], normals[k]), -1.0f, 1.0f));
+          if (sweep >= SWEEP_CAP)
+            break;
+          Vector axis = cross(normals[s0], normals[k]);
+          float axis_len = std::sqrt(dot(axis, axis));
+          float worst = 0.0f;
+          if (axis_len > 1e-5f) {
+            Vector a = axis * (1.0f / axis_len);
+            for (int j = s0 + 1; j < k; ++j)
+              worst = std::max(worst, std::abs(dot(normals[j], a)));
+          }
+          if (worst > DEV_TOL)
+            break;
+          s1 = k;
+          dev = worst;
+        }
+
+        Scan::RingSweep::Span span;
+        if (s1 == s0) {
+          // Isolated position (thickness-class edge or sharp turn): a
+          // degenerate span renders it as a single ring.
+          span.n0 = span.n1 = normals[s0];
+          span.t0 = span.t1 = tvals[s0];
+          span.positions = 1.0f;
+          s1 = s0;
+        } else {
+          span.n0 = normals[s0];
+          span.n1 = normals[s1];
+          span.t0 = tvals[s0];
+          span.t1 = tvals[s1];
+          span.positions = static_cast<float>(s1 - s0 + 1);
+        }
+        span.thickness = th0 + dev;
+        span.draw_far_end = s1 == m - 1;
+        Scan::RingSweep::draw<W, H>(filters, canvas, span, shader);
+        s0 = s1 == s0 ? s0 + 1 : s1;
+      }
     }
   }
 
