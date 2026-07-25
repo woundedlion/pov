@@ -100,9 +100,10 @@ inline constexpr ProceduralPalette BLUE_LAGOON({0.555f, 0.171f, 0.555f},
                                                {0.500f, 0.500f, 0.207f},
                                                {0.05175f, 0.144407f, 0.03564f},
                                                {0.506f, 0.179f, 0.548f});
-inline constexpr ProceduralPalette
-    ORANGE_CRUSH({0.575f, 0.168f, 0.464f}, {0.406f, 0.697f, 0.357f},
-                 {0.000f, 0.10051f, 0.042778f}, {0.141f, 0.155f, 0.537f});
+inline constexpr ProceduralPalette ORANGE_CRUSH({0.575f, 0.168f, 0.464f},
+                                                {0.406f, 0.697f, 0.357f},
+                                                {0.000f, -0.10051f, -0.042778f},
+                                                {0.141f, 0.25551f, 0.579778f});
 inline constexpr ProceduralPalette
     PLUM_SUNRISE({0.407f, 0.000f, 0.296f}, {0.332f, 0.592f, 0.029f},
                  {0.358961f, 0.331145f, 0.274519f},
@@ -130,18 +131,12 @@ struct MeshPaletteBank {
     return N * BakedPalette::required_arena_bytes();
   }
 
-  /**
-   * @brief Standard source palettes, in slot order.
-   * @return Array of pointers to the constexpr source palettes. The size is
-   *         deduced from the list (CTAD) — not fixed to N — so a list that
-   *         drifts out of sync with N trips the static_assert below instead of
-   *         silently nullptr-padding or reading past the bank.
-   */
+  /** @brief Shared source palettes, in bank-slot order. */
   static constexpr auto sources() {
     return std::array{&Palettes::EMBERS,         &Palettes::RICH_SUNSET,
                       &Palettes::BRIGHT_SUNRISE, &Palettes::BRUISED_MOSS,
                       &Palettes::LAVENDER_LAKE,  &Palettes::ORANGE_CRUSH,
-                      &Palettes::PLUM_SUNRISE};
+                      &Palettes::MANGO_PEEL};
   }
 
   /**
@@ -149,9 +144,9 @@ struct MeshPaletteBank {
    * @param arena Destination arena receiving N x 256-entry Color4 LUTs.
    */
   HS_COLD_MEMBER void bake_all(Arena &arena) {
-    constexpr auto src = sources();
+    constexpr auto sources = MeshPaletteBank::sources();
     for (int i = 0; i < N; ++i)
-      bank.entries[i].bake(arena, *src[i]);
+      bank.entries[i].bake(arena, *sources[i]);
   }
 
   /**
@@ -199,7 +194,5 @@ struct MeshPaletteBank {
   BakedPaletteBank bank; /**< Underlying baked-palette bank holding N LUTs. */
 };
 
-// Ties the source-palette list length to N so editing one without the other
-// fails to compile.
 static_assert(MeshPaletteBank::sources().size() == MeshPaletteBank::N,
-              "MeshPaletteBank::sources() count must equal N");
+              "MeshPaletteBank source count must equal N");
