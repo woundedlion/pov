@@ -69,9 +69,6 @@ public:
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Thickness", &params.thickness, 0.01f, 10.0f);
     register_param("Show Bounding", &params.show_bounding_box);
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
-    register_param("Analytic Trail", &params.analytic_trail);
-#endif
 
     // Inset the source into the middle band, then fade alpha at the edges.
     // Wrap=false so the top edge resolves to the source's last stop
@@ -112,12 +109,6 @@ public:
     }
 
     HS_PROFILE(rs_draw_rings);
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
-    if (params.analytic_trail) {
-      draw_analytic(canvas);
-      return;
-    }
-#endif
     for (int i = 0; i < num_rings; ++i) {
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
@@ -170,131 +161,6 @@ private:
   // Test seam: reaches the live ring-count pool-bound invariant.
   friend struct ::hs_test::effects_tests::RingSpinWhiteBox;
 
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
-  /**
-   * @brief Prototype: renders each trail as the analytic sweep integral.
-   * @param canvas Destination canvas.
-   * @details Flattens the trail control points into a polyline of ring
-   * normals, partitions it into monotone constant-axis spans (breaking on
-   * plane deviation, sweep-angle cap, thickness class, and parameter
-   * reversal — a fold-back stays in the geodesic plane, so monotonicity
-   * needs its own check), and draws one Scan::RingSweep per span.
-   */
-  void draw_analytic(Canvas &canvas) {
-    for (int i = 0; i < num_rings; ++i) {
-      Ring &ring = rings[i];
-      ring.trail.record(ring.orientation);
-
-      constexpr int MAX_POS =
-          TRAIL_LENGTH * decltype(ring.orientation)::CAPACITY;
-      Vector normals[MAX_POS];
-      float tvals[MAX_POS];
-      int m = 0;
-      deep_tween_frames(
-          ring.trail, [&](const Quaternion *qs, const float *ts, int count) {
-            for (int j = 0; j < count && m < MAX_POS; ++j) {
-              normals[m] = rotate(ring.normal, qs[j]).normalized();
-              tvals[m] = ts[j];
-              ++m;
-            }
-          });
-      if (m == 0)
-        continue;
-
-      constexpr float pixel_w = 2.0f * PI_F / W;
-      auto thickness_at = [&](float t) {
-        return ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
-               params.thickness;
-      };
-      auto shader = [&](float t, float t_lo, float t_hi, const Vector &,
-                        Fragment &f) {
-        // Length-fade comes entirely from the palette: 1-t walks a
-        // transparent-vignette palette whose alpha tapers toward the tail.
-        Color4 c = ring.palette->get(1.0f - t);
-        if (t_hi - t_lo > 1e-4f) {
-          // Convolve the palette over the dwell window (weights 1/2, 1/4,
-          // 1/4) as the stacked rings did — a point sample renders the
-          // palette's internal stop boundaries as visible bands.
-          Color4 lo = ring.palette->get(1.0f - t_lo);
-          Color4 hi = ring.palette->get(1.0f - t_hi);
-          Pixel side = lo.color.lerp16(hi.color, 32768);
-          c.color = c.color.lerp16(side, 32768);
-          c.alpha = 0.5f * c.alpha + 0.25f * (lo.alpha + hi.alpha);
-        }
-        c.alpha = c.alpha * params.alpha;
-        f.color = c;
-      };
-
-      HS_PROFILE(rs_ring_scan);
-      int s0 = 0;
-      while (s0 < m) {
-        const float th0 = thickness_at(tvals[s0]);
-        const float DEV_TOL = 0.15f * th0;
-        constexpr float SWEEP_CAP = 1.2f;
-        int s1 = s0;
-        float dev = 0.0f;
-        for (int k = s0 + 1; k < m; ++k) {
-          if (thickness_at(tvals[k]) != th0)
-            break;
-          float sweep =
-              fast_acos(hs::clamp(dot(normals[s0], normals[k]), -1.0f, 1.0f));
-          if (sweep >= SWEEP_CAP)
-            break;
-          Vector axis = cross(normals[s0], normals[k]);
-          float axis_len = std::sqrt(dot(axis, axis));
-          float worst = 0.0f;
-          bool monotone = true;
-          if (axis_len > 1e-5f) {
-            Vector a = axis * (1.0f / axis_len);
-            for (int j = s0 + 1; j <= k && monotone; ++j) {
-              if (j < k)
-                worst = std::max(worst, std::abs(dot(normals[j], a)));
-              // Reversal check: a fold-back stays inside the geodesic plane,
-              // so deviation alone cannot see it; every step must rotate
-              // forward about the span axis.
-              if (dot(cross(normals[j - 1], normals[j]), a) <= 0.0f)
-                monotone = false;
-            }
-          }
-          if (!monotone || worst > DEV_TOL)
-            break;
-          s1 = k;
-          dev = worst;
-        }
-
-        Scan::RingSweep::Span span;
-        // Spans must tile the polyline: an unextendable start (thickness-class
-        // edge) becomes a forced single-segment span, never a skipped segment
-        // — a dropped segment is a visible hole in the smear.
-        if (s1 == s0 && s0 + 1 < m) {
-          s1 = s0 + 1;
-          dev = 0.0f;
-        }
-        if (s1 == s0) {
-          span.n0 = span.n1 = normals[s0];
-          span.t0 = span.t1 = tvals[s0];
-          span.steps = 0.0f;
-        } else {
-          span.n0 = normals[s0];
-          span.n1 = normals[s1];
-          span.t0 = tvals[s0];
-          span.t1 = tvals[s1];
-          span.steps = static_cast<float>(s1 - s0);
-          span.points = &normals[s0];
-          span.ts = &tvals[s0];
-          span.count = s1 - s0 + 1;
-        }
-        // A forced segment can straddle a thickness-class edge; cover both.
-        span.thickness = std::max(th0, thickness_at(tvals[s1]));
-        span.guard = dev;
-        span.head_cap = s1 == m - 1;
-        Scan::RingSweep::draw<W, H>(filters, canvas, span, shader);
-        s0 = s1 == s0 ? s0 + 1 : s1;
-      }
-    }
-  }
-#endif
-
   /**
    * @brief Constructs one more ring and starts its energetic random-walk.
    * @param palette Baked palette used to color the new ring's trail.
@@ -328,10 +194,6 @@ private:
     float thickness = 0.8f; /**< Ring line thickness multiplier (unitless). */
     bool show_bounding_box =
         false; /**< Whether to draw each ring's bounding box. */
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
-    bool analytic_trail = false; /**< Sim/test prototype: render the trail as
-                                    the analytic sweep integral. */
-#endif
   } params;
 };
 
