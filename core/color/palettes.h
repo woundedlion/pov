@@ -136,7 +136,7 @@ struct MeshPaletteBank {
     return std::array{&Palettes::EMBERS,         &Palettes::RICH_SUNSET,
                       &Palettes::BRIGHT_SUNRISE, &Palettes::BRUISED_MOSS,
                       &Palettes::LAVENDER_LAKE,  &Palettes::ORANGE_CRUSH,
-                      &Palettes::MANGO_PEEL};
+                      &Palettes::PEACH_POP};
   }
 
   /**
