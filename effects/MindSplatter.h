@@ -338,6 +338,7 @@ private:
   bool reference_color_seed_lookup = false;
   bool reference_vertex_pass = false;
   bool reference_hole_kernel = false;
+  bool reference_palette_alpha = false;
   bool full_buffer_clear = false;
 #endif
 
@@ -449,9 +450,16 @@ private:
 #else
       t_shifted = wrap_color_t(f.v0, f.v2);
 #endif
-      Color4 c = baked_palette_.get(t_shifted);
-      c.alpha = c.alpha * alpha * alpha * opacity;
-      f.color = c;
+#ifdef HS_TEST_BUILD
+      if (reference_palette_alpha) {
+        Color4 c = baked_palette_.get(t_shifted);
+        c.alpha = c.alpha * alpha * alpha * opacity;
+        f.color = c;
+        return;
+      }
+#endif
+      f.color = Color4(baked_palette_.get_color_unit(t_shifted),
+                       alpha * alpha * opacity);
     };
 
     auto fragment_interpolator = [](const Fragment &a, const Fragment &b,
