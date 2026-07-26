@@ -276,8 +276,8 @@ struct Style {
    * @return The Miasma preset Style.
    */
   static constexpr Style Miasma() {
-    return {0.80586f, 1.08411003f, 2.61f,       0.05059f,
-            0.725f,   26.297501f,  &noise_warp, &hue_fade};
+    return {0.80586f, 0.234f,     2.61f,       0.05059f,
+            0.725f,   26.297501f, &noise_warp, &hue_fade};
   }
 
   /**
@@ -286,8 +286,8 @@ struct Style {
    * @return The LooseWormhole preset Style.
    */
   static constexpr Style LooseWormhole() {
-    return {0.7257f, 0.70236106f, 11.25f,      0.01f,
-            0.0f,    10.1798f,    &noise_warp, &hue_fade};
+    return {0.7257f, 0.22519f, 11.25f,      0.01f,
+            0.0f,    10.1798f, &noise_warp, &hue_fade};
   }
 
   /**
@@ -296,8 +296,8 @@ struct Style {
    * @return The TightWormhole preset Style.
    */
   static constexpr Style TightWormhole() {
-    return {0.7257f, 0.70236106f, 6.42f,       0.01f,
-            0.0f,    7.8844f,     &noise_warp, &hue_fade};
+    return {0.7257f, 0.22519f, 6.42f,       0.01f,
+            0.0f,    7.8844f,  &noise_warp, &hue_fade};
   }
 
   /**
@@ -306,8 +306,8 @@ struct Style {
    * @return The WigglingWormhole preset Style.
    */
   static constexpr Style WigglingWormhole() {
-    return {0.7257f, 0.70236106f, 7.11f,       0.01f,
-            0.0f,    29.1917f,    &noise_warp, &hue_fade};
+    return {0.7257f, 0.22519f, 7.11f,       0.01f,
+            0.0f,    29.1917f, &noise_warp, &hue_fade};
   }
 
   /**
