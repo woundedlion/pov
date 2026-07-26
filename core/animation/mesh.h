@@ -185,7 +185,7 @@ public:
    * blended-LUT scratch (PAIRS x 3 KB in scratch_arena_b). Only the pairs a
    * leg actually uses are allocated, so the ceiling costs nothing until a leg
    * needs it. A reconcile leg converges the departed classification onto the
-   * arrival's, so its pairs cap at BakedPaletteBank::N^2 = 25 (measured 18 on
+   * arrival's, so its pairs cap at BakedPaletteBank::N^2 (measured 18 on
    * the gyro_kis reconcile); every other leg stays well under. */
   static constexpr int MAX_BLEND_PAIRS = 25;
 
@@ -1759,8 +1759,8 @@ private:
    * @param handoff Departed-node provenance (centroids non-null).
    * @return Index into the handoff arrays.
    */
-  HS_COLD_MEMBER static size_t nearest_prev_face(const Vector &c,
-                                                 const PaletteHandoff &handoff) {
+  HS_COLD_MEMBER static size_t
+  nearest_prev_face(const Vector &c, const PaletteHandoff &handoff) {
     size_t best = 0;
     float best_d = 1e9f;
     for (size_t j = 0; j < handoff.prev_faces; ++j) {
