@@ -1105,6 +1105,21 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
                          alphas[sequence % alphas.size()]});
     }
 
+  constexpr std::array<float, 5> interior_fractions{0.1f, 0.25f, 0.5f, 0.75f,
+                                                    0.9f};
+  for (int yi = 1; yi < H - 1; ++yi) {
+    for (int xi = 0; xi < W; ++xi) {
+      for (float fraction : interior_fractions) {
+        const uint16_t n = static_cast<uint16_t>(sequence++ * 4051u);
+        samples.push_back({static_cast<float>(xi) + fraction,
+                           static_cast<float>(yi) + (1.0f - fraction),
+                           Pixel(n, static_cast<uint16_t>(n * 3u),
+                                 static_cast<uint16_t>(65535u - n)),
+                           alphas[sequence % alphas.size()]});
+      }
+    }
+  }
+
   uint32_t state = 0x6d2b79f5u;
   auto random_u32 = [&]() {
     state = state * 1664525u + 1013904223u;

@@ -2019,6 +2019,12 @@ struct MindSplatterWhiteBox {
     ms.draw_particles(canvas);
   }
   template <int W, int H>
+  static void draw_particles_reference(MindSplatter<W, H> &ms) {
+    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> sink;
+    Canvas canvas(ms);
+    ms.draw_particles_with(sink, canvas);
+  }
+  template <int W, int H>
   static size_t particle_capacity(const MindSplatter<W, H> &ms) {
     return ms.particle_system.pool.capacity();
   }
@@ -2092,6 +2098,76 @@ inline void test_mindsplatter_replay_snapshot_exact() {
       ++lit_pixels;
   }
   HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
+}
+
+/**
+ * @brief The direct AA sink matches the generic pipeline for every quadrant of
+ * a frozen saturated MindSplatter particle pool.
+ */
+inline void test_mindsplatter_saturated_quadrant_sink_parity() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  constexpr int WARMUP_FRAMES = 160;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+  using Snapshot = WB::ReplaySnapshot<W, H>;
+
+  Snapshot source;
+  {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    MS source_effect;
+    source_effect.init();
+    for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
+      hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
+                        static_cast<unsigned long>(frame) * FRAME_US);
+      source_effect.draw_frame();
+      source_effect.advance_display();
+    }
+    source = WB::capture(source_effect);
+    HS_EXPECT_EQ(source.particles.size(), WB::particle_capacity(source_effect));
+  }
+
+  struct Quadrant {
+    int x0, x1, y0, y1;
+  };
+  constexpr Quadrant quadrants[] = {
+      {0, W / 2, 0, H / 2},
+      {W / 2, W, 0, H / 2},
+      {0, W / 2, H / 2, H},
+      {W / 2, W, H / 2, H},
+  };
+
+  for (const Quadrant &quadrant : quadrants) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    MS effect;
+    effect.init();
+    WB::restore(effect, source);
+    effect.set_clip(quadrant.y0, quadrant.y1, quadrant.x0, quadrant.x1);
+
+    WB::draw_particles_reference(effect);
+    effect.advance_display();
+    const std::vector<Pixel> reference(effect.display_buffer(),
+                                       effect.display_buffer() + W * H);
+
+    WB::draw_particles(effect);
+    effect.advance_display();
+    const Pixel *const direct = effect.display_buffer();
+
+    size_t lit_pixels = 0;
+    for (int y = quadrant.y0; y < quadrant.y1; ++y) {
+      for (int x = quadrant.x0; x < quadrant.x1; ++x) {
+        const size_t i = static_cast<size_t>(y) * W + x;
+        HS_EXPECT_EQ(direct[i], reference[i]);
+        if (reference[i].r | reference[i].g | reference[i].b)
+          ++lit_pixels;
+      }
+    }
+    HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
+  }
+  hs::clear_mock_time();
 }
 
 /** @brief Pins normalized color seeds and wrapped trail progress bit-exactly. */
@@ -3571,6 +3647,7 @@ inline int run_effects_tests() {
   HS_EXPECT_EQ(EffectRegistry::entries().size(),
                static_cast<size_t>(HS_EFFECT_COUNT));
   test_mindsplatter_replay_snapshot_exact();
+  test_mindsplatter_saturated_quadrant_sink_parity();
   test_mindsplatter_octahedral_hole_alpha_equivalence();
   test_mindsplatter_normalized_color_seed_boundaries();
   test_mindsplatter_rotation_matrix_equivalence();

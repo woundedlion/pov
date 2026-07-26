@@ -1129,29 +1129,18 @@ public:
     const bool y0_ok = y0_physical && cr.contains_y(y0);
     const bool y1_ok = y1_physical && cr.contains_y(y1);
     Pixel *const base = cv.data();
-    Pixel *const row0 = y0_ok ? base + y0 * W : nullptr;
-    Pixel *const row1 = y1_ok ? base + y1 * W : nullptr;
-    Pixel *const dst00 =
-        row0 && x0_ok && v00 > TAP_CUTOFF ? row0 + x0 : nullptr;
-    Pixel *const dst10 =
-        row0 && x1_ok && v10 > TAP_CUTOFF ? row0 + x1 : nullptr;
-    Pixel *const dst01 =
-        row1 && x0_ok && v01 > TAP_CUTOFF ? row1 + x0 : nullptr;
-    Pixel *const dst11 =
-        row1 && x1_ok && v11 > TAP_CUTOFF ? row1 + x1 : nullptr;
-    const uint16_t a00 = dst00 ? tap_alpha_q16(alpha, v00) : 0;
-    const uint16_t a10 = dst10 ? tap_alpha_q16(alpha, v10) : 0;
-    const uint16_t a01 = dst01 ? tap_alpha_q16(alpha, v01) : 0;
-    const uint16_t a11 = dst11 ? tap_alpha_q16(alpha, v11) : 0;
+    const uint8_t tap_mask =
+        static_cast<uint8_t>((y0_ok && x0_ok && v00 > TAP_CUTOFF) |
+                             ((y0_ok && x1_ok && v10 > TAP_CUTOFF) << 1) |
+                             ((y1_ok && x0_ok && v01 > TAP_CUTOFF) << 2) |
+                             ((y1_ok && x1_ok && v11 > TAP_CUTOFF) << 3));
 
-    if (dst00)
-      blend_tap(dst00, c, a00);
-    if (dst10)
-      blend_tap(dst10, c, a10);
-    if (dst01)
-      blend_tap(dst01, c, a01);
-    if (dst11)
-      blend_tap(dst11, c, a11);
+    if (tap_mask == 0x0f) {
+      blend_four(base + y0 * W, base + y1 * W, x0, x1, c, alpha, v00, v10, v01,
+                 v11);
+      return;
+    }
+    blend_masked(base, x0, x1, y0, y1, c, alpha, v00, v10, v01, v11, tap_mask);
   }
 
   /** @brief Integer-coordinate overload matching a filtered Pipeline. */
@@ -1179,9 +1168,38 @@ public:
   }
 
 private:
-  static uint16_t tap_alpha_q16(float alpha, float weight) {
+  static __attribute__((always_inline)) uint16_t tap_alpha_q16(float alpha,
+                                                               float weight) {
     return static_cast<uint16_t>(
         hs::clamp(alpha * weight * 65535.0f + 0.5f, 0.0f, 65535.0f));
+  }
+
+  static __attribute__((always_inline)) void
+  blend_four(Pixel *row0, Pixel *row1, int x0, int x1, const Pixel &src,
+             float alpha, float v00, float v10, float v01, float v11) {
+    const uint16_t a00 = tap_alpha_q16(alpha, v00);
+    const uint16_t a10 = tap_alpha_q16(alpha, v10);
+    const uint16_t a01 = tap_alpha_q16(alpha, v01);
+    const uint16_t a11 = tap_alpha_q16(alpha, v11);
+    blend_tap(row0 + x0, src, a00);
+    blend_tap(row0 + x1, src, a10);
+    blend_tap(row1 + x0, src, a01);
+    blend_tap(row1 + x1, src, a11);
+  }
+
+  HS_NOINLINE_NOCLONE static void blend_masked(Pixel *base, int x0, int x1,
+                                               int y0, int y1, const Pixel &src,
+                                               float alpha, float v00,
+                                               float v10, float v01, float v11,
+                                               uint8_t tap_mask) {
+    if (tap_mask & 0x01)
+      blend_tap(base + y0 * W + x0, src, tap_alpha_q16(alpha, v00));
+    if (tap_mask & 0x02)
+      blend_tap(base + y0 * W + x1, src, tap_alpha_q16(alpha, v10));
+    if (tap_mask & 0x04)
+      blend_tap(base + y1 * W + x0, src, tap_alpha_q16(alpha, v01));
+    if (tap_mask & 0x08)
+      blend_tap(base + y1 * W + x1, src, tap_alpha_q16(alpha, v11));
   }
 
   static __attribute__((always_inline)) void
