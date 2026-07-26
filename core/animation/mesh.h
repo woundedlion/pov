@@ -181,13 +181,11 @@ private:
 class OpLeg : public AnimationBase<OpLeg> {
 public:
   static constexpr int PALETTES = BakedPaletteBank::N;
-  /** Distinct (from, to) ramp pairs a leg may carry; bounds the per-frame
-   * blended-LUT scratch (PAIRS x 3 KB in scratch_arena_b). Only the pairs a
-   * leg actually uses are allocated, so the ceiling costs nothing until a leg
-   * needs it. A reconcile leg converges the departed classification onto the
-   * arrival's, so its pairs cap at BakedPaletteBank::N^2 (measured 18 on
-   * the gyro_kis reconcile); every other leg stays well under. */
-  static constexpr int MAX_BLEND_PAIRS = 25;
+  /** Distinct (from, to) ramp pairs a leg may carry — the full pair space, so
+   * no leg can overflow the table. Bounds the per-frame blended-LUT scratch
+   * (PAIRS x 3 KB in scratch_arena_b); only the pairs a leg actually uses are
+   * allocated, so the ceiling costs nothing until a leg needs it. */
+  static constexpr int MAX_BLEND_PAIRS = PALETTES * PALETTES;
 
   /** Leg kind, dispatched once at construction by the chosen constructor. */
   enum class LegKind : uint8_t {
@@ -368,10 +366,21 @@ public:
     std::array<uint8_t, PALETTES>
         to_palette{}; /**< Slot -> landed palette index. */
     const uint8_t *from_palette =
-        nullptr; /**< Per-swept-face FROM palette id (arena-backed); the next
-                    chained leg's handoff carries these original ids forward.
-                    On an immutable-handoff leg it is the face's displayed
-                    palette outright (to = from). */
+        nullptr; /**< Per-swept-face FROM palette id (arena-backed). On an
+                    immutable-handoff leg it is the face's displayed palette
+                    outright (to = from). */
+    int blend_pairs = 0; /**< Distinct (from, to) ramp pairs the leg carries. */
+
+    /**
+     * @brief Palette id face f displays once the leg arrives (w = 1).
+     * @param f Swept face index.
+     * @details Valid on a crossfading (non-immutable) leg, where every face —
+     * newborn or carried — lands on its target-class palette; an immutable
+     * leg's displayed palette is from_palette[f] instead.
+     */
+    uint8_t landed_palette(size_t f) const {
+      return to_palette[wrap(topology[f], PALETTES)];
+    }
     const PolyMesh *arrival_topology =
         nullptr; /**< Fixed connectivity of a packed arrival endpoint. */
     const StarPoint *arrival_point =
@@ -2282,6 +2291,7 @@ private:
 
       tr.face_ramp.push_back(intern_palette_ramp(tr, from, to));
     }
+    tr.landing.blend_pairs = tr.num_ramps;
   }
 
   Transients *buf_;    /**< Pointer to arena-allocated leg state. */
