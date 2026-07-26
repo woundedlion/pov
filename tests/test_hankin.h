@@ -5,7 +5,7 @@
  * Unit tests for core/mesh/hankin.h.
  *
  * Coverage:
- *   - compile_hankin builds base_vertices, static_vertices, dynamic_vertices,
+ *   - compile_hankin builds base_vertices, static_vertices, instructions,
  *     dynamic_instructions, and face arrays consistently.
  *   - update_hankin populates an output PolyMesh for both flat (angle=0)
  *     and twisted (angle≠0) configurations.
@@ -67,9 +67,7 @@ inline void test_compile_hankin_populates_arrays() {
   }
 
   // one dynamic vertex per half-edge (twice the edge count)
-  HS_EXPECT_EQ(compiled.dynamic_vertices.size(), (size_t)24);
-  HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
-               compiled.dynamic_vertices.size());
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)24);
 
   HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
 
@@ -79,7 +77,7 @@ inline void test_compile_hankin_populates_arrays() {
   HS_EXPECT_EQ(total, compiled.faces.size());
 
   size_t max_v =
-      compiled.static_vertices.size() + compiled.dynamic_vertices.size();
+      compiled.static_vertices.size() + compiled.dynamic_instructions.size();
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     HS_EXPECT_TRUE(compiled.faces[i] < max_v);
 }
@@ -158,7 +156,7 @@ inline void test_compile_hankin_static_vertices_are_edge_midpoints() {
  *        5-valent vertices) so the star-face and rosette-orbit arithmetic is
  *        covered on non-quad geometry, not just the cube's 4-valent faces.
  * @details Icosahedron: 12 vertices, 30 edges, 20 triangular faces, 60
- *          half-edges. static_vertices == edge count (30), dynamic_vertices ==
+ *          half-edges. static_vertices == edge count (30), star points ==
  *          half-edge count (60), and the same self-consistency invariants hold.
  */
 inline void test_compile_hankin_icosahedron_triangular_faces() {
@@ -179,9 +177,7 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
     HS_EXPECT_NEAR(compiled.static_vertices[i].length(), 1.0f, 1e-3f);
 
   // one dynamic vertex per half-edge (twice the edge count = 60)
-  HS_EXPECT_EQ(compiled.dynamic_vertices.size(), (size_t)60);
-  HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
-               compiled.dynamic_vertices.size());
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)60);
 
   HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
 
@@ -191,7 +187,7 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
   HS_EXPECT_EQ(total, compiled.faces.size());
 
   size_t max_v =
-      compiled.static_vertices.size() + compiled.dynamic_vertices.size();
+      compiled.static_vertices.size() + compiled.dynamic_instructions.size();
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     HS_EXPECT_TRUE(compiled.faces[i] < max_v);
 
@@ -309,9 +305,10 @@ inline void test_update_hankin_flat_collapses_to_corners() {
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const auto &ins = compiled.dynamic_instructions[i];
     Vector expected = compiled.base_vertices[ins.v_corner].normalized();
-    HS_EXPECT_NEAR(compiled.dynamic_vertices[i].x, expected.x, 1e-4f);
-    HS_EXPECT_NEAR(compiled.dynamic_vertices[i].y, expected.y, 1e-4f);
-    HS_EXPECT_NEAR(compiled.dynamic_vertices[i].z, expected.z, 1e-4f);
+    const Vector got = out.vertices[compiled.static_offset + i];
+    HS_EXPECT_NEAR(got.x, expected.x, 1e-4f);
+    HS_EXPECT_NEAR(got.y, expected.y, 1e-4f);
+    HS_EXPECT_NEAR(got.z, expected.z, 1e-4f);
   }
 }
 
@@ -350,7 +347,7 @@ inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.5f);
 
   const Vector corner = compiled.base_vertices[ins.v_corner].normalized();
-  const Vector got = compiled.dynamic_vertices[idx];
+  const Vector got = out.vertices[compiled.static_offset + idx];
   HS_EXPECT_NEAR(got.x, corner.x, 1e-4f);
   HS_EXPECT_NEAR(got.y, corner.y, 1e-4f);
   HS_EXPECT_NEAR(got.z, corner.z, 1e-4f);
@@ -380,7 +377,7 @@ inline void test_update_hankin_populates_output_mesh() {
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.4f);
 
   HS_EXPECT_EQ(out.vertices.size(), compiled.static_vertices.size() +
-                                        compiled.dynamic_vertices.size());
+                                        compiled.dynamic_instructions.size());
   HS_EXPECT_EQ(out.face_counts.size(), compiled.face_counts.size());
   HS_EXPECT_EQ(out.faces.size(), compiled.faces.size());
 
@@ -581,7 +578,8 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(prefix, compiled, compiled_arena, output_arena);
 
-  std::vector<Vector> previous(compiled.dynamic_vertices.size());
+  const size_t stars = compiled.dynamic_instructions.size();
+  std::vector<Vector> previous(stars);
   float max_step = 0.0f;
   float resonance_max_step = 0.0f;
   constexpr float STEP_DEGREES = 0.01f;
@@ -591,17 +589,17 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
     MeshOps::update_hankin(compiled, output, output_arena,
                            step * STEP_DEGREES *
                                Solids::IslamicStarPatterns::D2R);
+    const Vector *star = output.vertices.data() + compiled.static_offset;
     if (step > 1) {
-      for (size_t i = 0; i < compiled.dynamic_vertices.size(); ++i) {
-        const float movement = std::sqrt(
-            distance_squared(previous[i], compiled.dynamic_vertices[i]));
+      for (size_t i = 0; i < stars; ++i) {
+        const float movement =
+            std::sqrt(distance_squared(previous[i], star[i]));
         max_step = std::max(max_step, movement);
         if (step >= 4400 && step <= 5000)
           resonance_max_step = std::max(resonance_max_step, movement);
       }
     }
-    std::copy(compiled.dynamic_vertices.begin(),
-              compiled.dynamic_vertices.end(), previous.begin());
+    std::copy(star, star + stars, previous.begin());
   }
 
   HS_EXPECT_LE(max_step, 0.01f);
@@ -633,7 +631,6 @@ inline void test_compiled_hankin_clone_deep_copies() {
 
   HS_EXPECT_EQ(dst.base_vertices.size(), src.base_vertices.size());
   HS_EXPECT_EQ(dst.static_vertices.size(), src.static_vertices.size());
-  HS_EXPECT_EQ(dst.dynamic_vertices.size(), src.dynamic_vertices.size());
   HS_EXPECT_EQ(dst.dynamic_instructions.size(),
                src.dynamic_instructions.size());
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
@@ -670,7 +667,7 @@ inline void test_compiled_hankin_clear() {
   compiled.clear();
   HS_EXPECT_EQ(compiled.base_vertices.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.static_vertices.size(), (size_t)0);
-  HS_EXPECT_EQ(compiled.dynamic_vertices.size(), (size_t)0);
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.face_counts.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.faces.size(), (size_t)0);

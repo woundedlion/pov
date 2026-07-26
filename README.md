@@ -555,6 +555,10 @@ The Filter auto-syncs from the Style every frame — when the Style lerps betwee
 | `Style::WavyTrails()` | Fine, rapidly moving distortion with pronounced color trails. |
 | `Style::MeltingHi()` | Strong downward melt with slow drift and pronounced hue rotation. |
 | `Style::MeltingLo()` | Gentle downward melt with slow drift and pronounced hue rotation. |
+| `Style::Miasma()` | Drifting toxic haze — medium turbulence with slow drift and strong per-frame hue cycling. |
+| `Style::LooseWormhole()` | Static high-amplitude twist over a medium scale — a loose swirling tunnel, no drift. |
+| `Style::TightWormhole()` | Static high-amplitude twist over a tight scale — a tight swirling tunnel, no drift. |
+| `Style::WigglingWormhole()` | Static twist over a broad scale — a wide wormhole with wandering arms, no drift. |
 | `Style::Frozen()` | Static frozen distortion — no temporal movement. |
 | `Style::Shatter()` | Extreme static warping with fast decay. Shattering glass look. |
 | `Style::Drift()` | Flowing medium-strength distortion. Gentle liquid drift. |

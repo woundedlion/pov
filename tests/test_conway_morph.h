@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Operator-level tests for the ConwayMorph transition design
+ * Operator-level tests for the OpLeg transition design
  * (docs/conway_morph_spec.md §7.1–§7.5).
  *
  * Coverage:
@@ -33,9 +33,13 @@
 #include <cstring>
 #include <map>
 #include <vector>
+#include "core/color/palettes.h"
 #include "core/mesh/conway.h"
 #include "core/mesh/conway_graph.h"
+#include "core/mesh/hankin.h"
+#include "core/mesh/recipe.h"
 #include "core/mesh/solids.h"
+#include "core/render/canvas.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_conway.h" // check_euler_genus0, face_type_histogram
 #include "tests/test_fixture.h"
@@ -56,7 +60,7 @@ using ConwayGraph::T_EPS;
 // (cuboctahedron, icosidodecahedron), which are ambo of a platonic seed.
 // ---------------------------------------------------------------------------
 
-/** @brief Sweep seeds of the ConwayMorph edge table. */
+/** @brief Sweep seeds of the OpLeg edge table. */
 enum class MorphSeed {
   TETRAHEDRON,
   CUBE,
@@ -433,7 +437,7 @@ inline void test_jitterbug_octa_end_covers_octahedron() {
 }
 
 /**
- * @brief Verifies the jitterbug leg exactly as ConwayMorph runs it — t from
+ * @brief Verifies the jitterbug leg exactly as OpLeg runs it — t from
  *        the icosa point to the T_EPS_JITTERBUG clamp with the tabled twist
  *        endpoints — holds constant V12/F20/E30 closed genus-0 topology,
  *        >= 3-side faces, and unit vertices, with the collapsing edge never
@@ -591,6 +595,8 @@ inline PolyMesh run_edge_op(const ConwayGraph::EdgeSpec &e,
     return MeshOps::expand(seed, target, temp, t);
   case ConwayGraph::MorphOp::SNUB:
     return MeshOps::snub(seed, target, temp, t, twist);
+  case ConwayGraph::MorphOp::CHAMFER:
+    return MeshOps::chamfer(seed, target, temp, t);
   }
   return PolyMesh{};
 }
@@ -1209,11 +1215,1645 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
 }
 
 // ---------------------------------------------------------------------------
+// Hankin-sweep probe (docs/opchain_morph_spec.md section 5.1): the four
+// Phase-1 hankin legs re-run the one-shot MeshOps::hankin (the update-path
+// geometry) per sampled angle; V/F/I and the compiled face count must not
+// move from THETA_EPS to the recipe's arrival angle, and every sample must
+// stay a closed genus-0 manifold.
+// ---------------------------------------------------------------------------
+
+inline uint8_t morph_bank_buf[64 * 1024]; /**< Baked palette LUT arena. */
+
+/** @brief One Phase-1 hankin-sweep leg seed and its arrival angle. */
+struct HankinSweepSite {
+  const char *name;                     /**< Diagnostic label. */
+  PolyMesh (*seed)(Arena &a, Arena &b); /**< Chain prefix up to the hankin. */
+  float theta_star;                     /**< Arrival contact angle, radians. */
+};
+
+inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
+  return Solids::Platonic::dodecahedron(a, b);
+}
+inline PolyMesh probe_dodeca_hk62_ambo(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
+      .hankin(62.0f * D2R)
+      .ambo()
+      .build();
+}
+inline PolyMesh probe_octahedron(Arena &a, Arena &b) {
+  return Solids::Platonic::octahedron(a, b);
+}
+inline PolyMesh probe_octa_hk17_ambo(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Platonic::octahedron(a, b), a, b)
+      .hankin(17.0f * D2R)
+      .ambo()
+      .build();
+}
+
+inline constexpr HankinSweepSite HANKIN_SWEEP_SITES[] = {
+    {"dodecahedron", probe_dodecahedron,
+     62.0f * Solids::IslamicStarPatterns::D2R},
+    {"dodecahedron_hk62_ambo", probe_dodeca_hk62_ambo,
+     62.0f * Solids::IslamicStarPatterns::D2R},
+    {"octahedron", probe_octahedron, 17.0f * Solids::IslamicStarPatterns::D2R},
+    {"octahedron_hk17_ambo", probe_octa_hk17_ambo,
+     73.0f * Solids::IslamicStarPatterns::D2R},
+};
+
+/**
+ * @brief Steps a hankin sweep on every Phase-1 hankin-leg seed, asserting
+ *        constant raw and compiled face counts and a closed genus-0 manifold
+ *        at every sampled angle from THETA_EPS to the arrival angle.
+ */
+inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
+  constexpr int SAMPLES = 17;
+  constexpr float THETA_EPS = Animation::OpLeg::THETA_EPS;
+
+  for (const HankinSweepSite &site : HANKIN_SWEEP_SITES) {
+    const int failed_before = hs_test::stats().failed;
+
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed;
+    {
+      constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
+      Arena ga(morph_aux_buf, HALF);
+      Arena gb(morph_aux_buf + HALF, HALF);
+      seed = Solids::finalize_solid(site.seed(ga, gb), persist);
+    }
+
+    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float theta =
+          THETA_EPS + (site.theta_star - THETA_EPS) *
+                          (static_cast<float>(s) / (SAMPLES - 1));
+      ScratchScope frame_a(a);
+      ScratchScope frame_b(b);
+      PolyMesh swept = MeshOps::hankin(seed, a, b, theta);
+      MeshState compiled;
+      MeshOps::compile(swept, compiled, a, b);
+      if (s == 0) {
+        v0 = swept.vertices.size();
+        f0 = swept.face_counts.size();
+        i0 = swept.faces.size();
+        compiled0 = compiled.face_counts.size();
+        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+      } else {
+        HS_EXPECT_EQ(swept.vertices.size(), v0);
+        HS_EXPECT_EQ(swept.face_counts.size(), f0);
+        HS_EXPECT_EQ(swept.faces.size(), i0);
+        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+      }
+      check_face_counts_consistent(swept);
+      check_indices_in_range(swept);
+      check_all_unit_vertices(swept, 1e-3f);
+      conway_tests::check_euler_genus0(swept);
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [hankin-sweep] %s failed (raw F=%zu, compiled F=%zu)\n",
+                  site.name, f0, compiled0);
+    else
+      std::printf("  [hankin-sweep] %s: F=%zu compiled=%zu across %d samples\n",
+                  site.name, f0, compiled0, SAMPLES);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hankin-sweep stability probe: per-step branch, displacement and face-normal
+// diagnostics for the four Phase-1 hankin legs. Compares the shipping
+// parameterization (update_hankin re-solved per frame) against a
+// slerp-from-corner parameterization (solve once at theta_star, then slerp
+// each dynamic vertex out of its collapsed corner).
+// ---------------------------------------------------------------------------
+
+/** @brief Branch update_hankin took for one dynamic vertex. */
+enum class HankinBranch : uint8_t {
+  INTERSECT, /**< Contact-plane intersection accepted. */
+  COLLAPSED, /**< is_flat or zero-length edge: snapped to the corner. */
+  FALLBACK,  /**< Degenerate or far intersection: edge-midpoint mean. */
+};
+
+/** @brief One dynamic vertex's solved position and the branch that made it. */
+struct HankinSolve {
+  Vector pos;
+  HankinBranch branch;
+  /** dist^2(star, corner) / max(dist^2(m, corner)); the STAR_FAR_RATIO_SQ
+   * guard fires above 36. Zero on the non-intersect branches. */
+  float far_ratio = 0;
+};
+
+/**
+ * @brief Mirrors MeshOps::update_hankin's per-vertex solve, exposing the
+ *        branch each dynamic vertex takes.
+ * @param compiled Baked hankin topology.
+ * @param angle Contact angle in radians.
+ * @param out Filled with one entry per dynamic instruction.
+ */
+inline void hankin_solve(const CompiledHankin &compiled, float angle,
+                         std::vector<HankinSolve> &out) {
+  const bool is_flat = std::abs(angle) < math::TOLERANCE;
+  const float cos_ha = cosf(angle * 0.5f);
+  const float sin_ha = sinf(angle * 0.5f);
+
+  out.assign(compiled.dynamic_instructions.size(), HankinSolve{});
+  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+    const HankinInstruction &instr = compiled.dynamic_instructions[i];
+    const Vector p_corner = compiled.base_vertices[instr.v_corner];
+    const Vector cn = normalized_or(p_corner, p_corner);
+
+    if (is_flat) {
+      out[i] = {cn, HankinBranch::COLLAPSED};
+      continue;
+    }
+
+    const Vector m1 = compiled.static_vertices[instr.idx_m1];
+    const Vector m2 = compiled.static_vertices[instr.idx_m2];
+    const Vector cross1 = cross(compiled.base_vertices[instr.v_prev], p_corner);
+    const Vector cross2 = cross(p_corner, compiled.base_vertices[instr.v_next]);
+    if (dot(cross1, cross1) < math::EPS_CROSS_SQ ||
+        dot(cross2, cross2) < math::EPS_CROSS_SQ) {
+      out[i] = {cn, HankinBranch::COLLAPSED};
+      continue;
+    }
+
+    const Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
+    const Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
+    Vector intersect =
+        cross(rotate(cross1.normalized(), q1), rotate(cross2.normalized(), q2));
+
+    bool degenerate = dot(intersect, intersect) < math::EPS_LEN_SQ;
+    float far_ratio = 0;
+    if (!degenerate) {
+      if (dot(intersect, p_corner) < 0)
+        intersect = -intersect;
+      intersect = intersect.normalized();
+      const float local_sq =
+          std::max(distance_squared(m1, cn), distance_squared(m2, cn));
+      far_ratio = distance_squared(intersect, cn) / local_sq;
+      degenerate = far_ratio > MeshOps::STAR_FAR_RATIO_SQ;
+    }
+    if (degenerate) {
+      Vector fallback = normalized_or(m1 + m2, cn);
+      if (dot(fallback, p_corner) < 0)
+        fallback = -fallback;
+      out[i] = {fallback, HankinBranch::FALLBACK, far_ratio};
+      continue;
+    }
+    out[i] = {intersect, HankinBranch::INTERSECT, far_ratio};
+  }
+}
+
+/**
+ * @brief Newell normals of every compiled hankin face for a solved star set.
+ * @param compiled Baked hankin topology.
+ * @param dyn Solved dynamic vertices.
+ * @param out Filled with one unnormalized Newell normal per face.
+ */
+inline void hankin_face_normals(const CompiledHankin &compiled,
+                                const std::vector<HankinSolve> &dyn,
+                                std::vector<Vector> &out) {
+  auto vertex_at = [&](uint16_t idx) {
+    return idx < compiled.static_offset ? compiled.static_vertices[idx]
+                                        : dyn[idx - compiled.static_offset].pos;
+  };
+  out.assign(compiled.face_counts.size(), Vector());
+  size_t base = 0;
+  for (size_t f = 0; f < compiled.face_counts.size(); ++f) {
+    const size_t n = compiled.face_counts[f];
+    Vector normal;
+    for (size_t k = 0; k < n; ++k) {
+      const Vector a = vertex_at(compiled.faces[base + k]);
+      const Vector b = vertex_at(compiled.faces[base + (k + 1) % n]);
+      normal.x += (a.y - b.y) * (a.z + b.z);
+      normal.y += (a.z - b.z) * (a.x + b.x);
+      normal.z += (a.x - b.x) * (a.y + b.y);
+    }
+    out[f] = normal;
+    base += n;
+  }
+}
+
+/** Newell magnitude (twice the face area) below which a face's normal
+ * direction is numerical noise and its sign is not evidence of a fold. */
+inline constexpr float HANKIN_FLAT_FACE = 1e-4f;
+
+/** @brief Per-step stability metrics of one sweep sample. */
+struct HankinStepStats {
+  float theta = 0;  /**< Contact angle of this sample, radians. */
+  int fallback = 0; /**< Dynamic vertices on the FALLBACK branch. */
+  int branch_flips =
+      0; /**< Vertices whose branch changed vs the previous step. */
+  float max_disp = 0;  /**< Largest single-vertex chord vs the previous step. */
+  float mean_disp = 0; /**< Mean dynamic-vertex chord vs the previous step. */
+  int normal_flips =
+      0;              /**< Non-degenerate faces whose Newell normal reversed. */
+  int flat_faces = 0; /**< Faces below HANKIN_FLAT_FACE this step. */
+  float max_far_ratio =
+      0; /**< Largest far_ratio this step (guard fires at 36). */
+  float max_corner_chord = 0; /**< Largest chord(star point, its corner). */
+};
+
+/**
+ * @brief Fills @p stats from consecutive solved states.
+ * @param compiled Baked hankin topology.
+ * @param prev Previous step's solve (empty for the first step).
+ * @param prev_normals Previous step's face normals.
+ * @param curr Current step's solve.
+ * @param curr_normals Current step's face normals.
+ * @param stats Metrics to fill; theta must already be set.
+ */
+inline void hankin_step_stats(const CompiledHankin &compiled,
+                              const std::vector<HankinSolve> &prev,
+                              const std::vector<Vector> &prev_normals,
+                              const std::vector<HankinSolve> &curr,
+                              const std::vector<Vector> &curr_normals,
+                              HankinStepStats &stats) {
+  for (size_t i = 0; i < curr.size(); ++i) {
+    if (curr[i].branch == HankinBranch::FALLBACK)
+      ++stats.fallback;
+    stats.max_far_ratio = std::max(stats.max_far_ratio, curr[i].far_ratio);
+    const Vector cn = normalized_or(
+        compiled.base_vertices[compiled.dynamic_instructions[i].v_corner],
+        curr[i].pos);
+    stats.max_corner_chord =
+        std::max(stats.max_corner_chord, (curr[i].pos - cn).magnitude());
+  }
+  for (const Vector &n : curr_normals)
+    if (n.magnitude() < HANKIN_FLAT_FACE)
+      ++stats.flat_faces;
+  if (prev.empty())
+    return;
+  double sum = 0;
+  for (size_t i = 0; i < curr.size(); ++i) {
+    if (curr[i].branch != prev[i].branch)
+      ++stats.branch_flips;
+    const float d = (curr[i].pos - prev[i].pos).magnitude();
+    sum += d;
+    stats.max_disp = std::max(stats.max_disp, d);
+  }
+  stats.mean_disp = static_cast<float>(sum / curr.size());
+  for (size_t f = 0; f < curr_normals.size(); ++f) {
+    if (prev_normals[f].magnitude() < HANKIN_FLAT_FACE ||
+        curr_normals[f].magnitude() < HANKIN_FLAT_FACE)
+      continue;
+    if (dot(prev_normals[f], curr_normals[f]) < 0)
+      ++stats.normal_flips;
+  }
+}
+
+/** @brief Sweep-wide roll-up of the per-step metrics. */
+struct HankinSweepSummary {
+  int total_branch_flips = 0;
+  int total_normal_flips = 0;
+  int steps_with_normal_flips = 0;
+  float worst_max_disp = 0;
+  float worst_mean_disp = 0;
+  int worst_step = 0;        /**< Step index owning worst_max_disp. */
+  float spike_ratio = 0;     /**< worst_max_disp / mean_disp at that step. */
+  int worst_flat_faces = 0;  /**< Most sub-HANKIN_FLAT_FACE faces in a step. */
+  float worst_far_ratio = 0; /**< Largest far_ratio over the sweep. */
+  float worst_corner_chord =
+      0; /**< Largest chord(star point, corner) over the sweep. */
+};
+
+/**
+ * @brief Rolls the per-step table into a summary.
+ * @param table Per-step metrics, index 0 being the first (baseline) sample.
+ * @return The roll-up.
+ */
+inline HankinSweepSummary
+hankin_summarize(const std::vector<HankinStepStats> &table) {
+  HankinSweepSummary sum;
+  for (const HankinStepStats &r : table) {
+    sum.worst_flat_faces = std::max(sum.worst_flat_faces, r.flat_faces);
+    sum.worst_far_ratio = std::max(sum.worst_far_ratio, r.max_far_ratio);
+    sum.worst_corner_chord =
+        std::max(sum.worst_corner_chord, r.max_corner_chord);
+  }
+  for (size_t s = 1; s < table.size(); ++s) {
+    sum.total_branch_flips += table[s].branch_flips;
+    sum.total_normal_flips += table[s].normal_flips;
+    if (table[s].normal_flips > 0)
+      ++sum.steps_with_normal_flips;
+    sum.worst_mean_disp = std::max(sum.worst_mean_disp, table[s].mean_disp);
+    if (table[s].max_disp > sum.worst_max_disp) {
+      sum.worst_max_disp = table[s].max_disp;
+      sum.worst_step = static_cast<int>(s);
+      sum.spike_ratio = table[s].mean_disp > 0
+                            ? table[s].max_disp / table[s].mean_disp
+                            : 0.0f;
+    }
+  }
+  return sum;
+}
+
+/** @brief Prints one per-step table row set. */
+inline void hankin_print_table(const char *label,
+                               const std::vector<HankinStepStats> &table) {
+  std::printf("      %s: s theta_deg  fb flip  max_disp mean_disp nflip flat "
+              "far_ratio  corner\n",
+              label);
+  for (size_t s = 0; s < table.size(); ++s) {
+    const HankinStepStats &r = table[s];
+    std::printf("        %16s%2zu %9.3f %3d %4d %9.5f %9.5f %5d %4d %9.2f "
+                "%7.4f\n",
+                "", s, r.theta * 180.0f / PI_F, r.fallback, r.branch_flips,
+                r.max_disp, r.mean_disp, r.normal_flips, r.flat_faces,
+                r.max_far_ratio, r.max_corner_chord);
+  }
+}
+
+/**
+ * @brief Measures per-frame sweep stability of the four Phase-1 hankin legs
+ *        under the shipping re-solve (uniform and eased theta) and under a
+ *        slerp-from-corner parameterization.
+ * @details Reports fallback-branch population, branch flips, per-step vertex
+ * chords and face-normal reversals; asserts the slerp path is branch-flip and
+ * normal-flip free and that its endpoints reproduce the collapsed form and the
+ * theta_star solve.
+ */
+inline void test_hankin_sweep_vertex_stability() {
+  constexpr int SAMPLES = 32;
+  constexpr float THETA_EPS = Animation::OpLeg::THETA_EPS;
+
+  for (const HankinSweepSite &site : HANKIN_SWEEP_SITES) {
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed;
+    {
+      constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
+      Arena ga(morph_aux_buf, HALF);
+      Arena gb(morph_aux_buf + HALF, HALF);
+      seed = Solids::finalize_solid(site.seed(ga, gb), persist);
+    }
+
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    CompiledHankin compiled;
+    MeshOps::compile_hankin(seed, compiled, a, b);
+
+    std::vector<HankinSolve> collapsed, arrival;
+    hankin_solve(compiled, 0.0f, collapsed);
+    hankin_solve(compiled, site.theta_star, arrival);
+
+    // Guard headroom: the far-star guard is scaled by the corner's local edge
+    // scale, so on coarse seeds 36 * local_sq can exceed the 4.0 maximum
+    // squared chord, making the guard unreachable for that vertex.
+    int unreachable = 0;
+    float max_local_sq = 0;
+    for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+      const HankinInstruction &instr = compiled.dynamic_instructions[i];
+      const Vector cn = normalized_or(compiled.base_vertices[instr.v_corner],
+                                      compiled.base_vertices[instr.v_corner]);
+      const float local_sq = std::max(
+          distance_squared(compiled.static_vertices[instr.idx_m1], cn),
+          distance_squared(compiled.static_vertices[instr.idx_m2], cn));
+      max_local_sq = std::max(max_local_sq, local_sq);
+      if (MeshOps::STAR_FAR_RATIO_SQ * local_sq >= 4.0f)
+        ++unreachable;
+    }
+
+    std::printf("  [hankin-stability] %s: theta* = %.1f deg, base F=%zu, "
+                "dyn V=%zu, hankin F=%zu, guard-unreachable %d/%zu "
+                "(max local_sq %.4f)\n",
+                site.name, site.theta_star * 180.0f / PI_F,
+                seed.face_counts.size(), collapsed.size(),
+                compiled.face_counts.size(), unreachable, collapsed.size(),
+                max_local_sq);
+
+    // Three parameterizations over the same sample grid.
+    std::vector<HankinStepStats> tables[3];
+    std::vector<std::vector<Vector>> resolve_pos(SAMPLES);
+    float path_dev = 0;
+    const char *mode_name[3] = {"resolve-uniform", "resolve-eased",
+                                "slerp-eased    "};
+    for (int mode = 0; mode < 3; ++mode) {
+      std::vector<HankinSolve> prev, curr;
+      std::vector<Vector> prev_normals, curr_normals;
+      for (int s = 0; s < SAMPLES; ++s) {
+        const float u = static_cast<float>(s) / (SAMPLES - 1);
+        const float k = mode == 0 ? u : ease_in_out_sin(u);
+        HankinStepStats row;
+        if (mode == 2) {
+          row.theta = site.theta_star;
+          curr.assign(arrival.size(), HankinSolve{});
+          for (size_t i = 0; i < arrival.size(); ++i) {
+            curr[i] = {slerp(collapsed[i].pos, arrival[i].pos, k),
+                       arrival[i].branch, 0.0f};
+            path_dev = std::max(path_dev,
+                                (curr[i].pos - resolve_pos[s][i]).magnitude());
+          }
+        } else {
+          row.theta = THETA_EPS + (site.theta_star - THETA_EPS) * k;
+          hankin_solve(compiled, row.theta, curr);
+          if (mode == 1) {
+            resolve_pos[s].resize(curr.size());
+            for (size_t i = 0; i < curr.size(); ++i)
+              resolve_pos[s][i] = curr[i].pos;
+          }
+        }
+        hankin_face_normals(compiled, curr, curr_normals);
+        hankin_step_stats(compiled, prev, prev_normals, curr, curr_normals,
+                          row);
+        tables[mode].push_back(row);
+        prev = curr;
+        prev_normals = curr_normals;
+      }
+    }
+
+    hankin_print_table("resolve-eased", tables[1]);
+    for (int mode = 0; mode < 3; ++mode) {
+      const HankinSweepSummary sum = hankin_summarize(tables[mode]);
+      std::printf("      %s  branch_flips=%d normal_flips=%d (in %d steps) "
+                  "worst_max=%.5f @s%d spike=%.1fx worst_mean=%.5f "
+                  "flat<=%d far<=%.1f corner<=%.3f\n",
+                  mode_name[mode], sum.total_branch_flips,
+                  sum.total_normal_flips, sum.steps_with_normal_flips,
+                  sum.worst_max_disp, sum.worst_step, sum.spike_ratio,
+                  sum.worst_mean_disp, sum.worst_flat_faces,
+                  sum.worst_far_ratio, sum.worst_corner_chord);
+    }
+
+    std::printf("      path deviation slerp vs resolve at equal k: max=%.5f\n",
+                path_dev);
+
+    // Slerp endpoints must reproduce the collapsed form and the theta_star
+    // solve; the leg's closing bookend swap is only invisible if k=1 lands on
+    // the arrival geometry.
+    float end0 = 0, end1 = 0;
+    size_t exact0 = 0, exact1 = 0;
+    for (size_t i = 0; i < arrival.size(); ++i) {
+      const Vector s0 = slerp(collapsed[i].pos, arrival[i].pos, 0.0f);
+      const Vector s1 = slerp(collapsed[i].pos, arrival[i].pos, 1.0f);
+      end0 = std::max(end0, (s0 - collapsed[i].pos).magnitude());
+      end1 = std::max(end1, (s1 - arrival[i].pos).magnitude());
+      exact0 += std::memcmp(&s0, &collapsed[i].pos, sizeof(Vector)) == 0;
+      exact1 += std::memcmp(&s1, &arrival[i].pos, sizeof(Vector)) == 0;
+    }
+    std::printf("      endpoints: k=0 max_err=%.3e bitwise=%zu/%zu, "
+                "k=1 max_err=%.3e bitwise=%zu/%zu\n",
+                end0, exact0, arrival.size(), end1, exact1, arrival.size());
+    HS_EXPECT_TRUE(end0 < 1e-5f);
+    HS_EXPECT_TRUE(end1 < 1e-5f);
+
+    const HankinSweepSummary slerp_sum = hankin_summarize(tables[2]);
+    HS_EXPECT_EQ(slerp_sum.total_branch_flips, 0);
+    HS_EXPECT_EQ(slerp_sum.total_normal_flips, 0);
+
+    // Opening bookend: chord between the collapsed form and the leg's first
+    // drawn angle, in sphere radii (sub-pixel iff below ~1/display radius).
+    float eps_chord = 0;
+    std::vector<HankinSolve> at_eps;
+    hankin_solve(compiled, THETA_EPS, at_eps);
+    for (size_t i = 0; i < at_eps.size(); ++i)
+      eps_chord =
+          std::max(eps_chord, (at_eps[i].pos - collapsed[i].pos).magnitude());
+    std::printf("      theta_eps=%.3f opening chord max=%.6f radii "
+                "(%.3f px at r=64)\n",
+                THETA_EPS, eps_chord, eps_chord * 64.0f);
+
+    // The slerp path's k = 0 form is the exact collapse, where every rosette
+    // face has zero area; a K_EPS floor is its THETA_EPS analog. Report the
+    // smallest k that lifts every face above HANKIN_FLAT_FACE.
+    float k_eps = 1.0f;
+    std::vector<HankinSolve> probe(arrival.size());
+    std::vector<Vector> probe_normals;
+    for (int q = 1; q <= 200; ++q) {
+      const float k = static_cast<float>(q) / 200.0f;
+      for (size_t i = 0; i < arrival.size(); ++i)
+        probe[i] = {slerp(collapsed[i].pos, arrival[i].pos, k),
+                    arrival[i].branch, 0.0f};
+      hankin_face_normals(compiled, probe, probe_normals);
+      bool all_lit = true;
+      for (const Vector &n : probe_normals)
+        all_lit &= n.magnitude() >= HANKIN_FLAT_FACE;
+      if (all_lit) {
+        k_eps = k;
+        break;
+      }
+    }
+    std::printf("      slerp k_eps (first k with no sub-area face) = %.3f\n",
+                k_eps);
+  }
+}
+
+/**
+ * @brief Smoke-tests an OpLeg HANKIN_SWEEP end to end on the dodecahedron
+ *        seed: construction populates the landing (star faces first, in
+ *        base-face order), and every step hands the draw callback a compiled
+ *        mesh with the constant hankin face count and in-range ramp indices.
+ */
+inline void test_opleg_hankin_sweep_smoke() {
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
+                   32 * 1024);
+  hs::random().seed(2026u);
+
+  Arena leg(morph_target_buf, sizeof(morph_target_buf));
+  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  PolyMesh dodeca;
+  build_solid<Solids::Dodecahedron>(dodeca, leg);
+  uint8_t pal[16], sides[16];
+  for (size_t f = 0; f < dodeca.face_counts.size(); ++f) {
+    pal[f] = static_cast<uint8_t>(f % Animation::OpLeg::PALETTES);
+    sides[f] = dodeca.face_counts[f];
+  }
+
+  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
+                                           dodeca.face_counts.size(), false};
+
+  // Per-frame motion bound: growing star points out from their corners keeps
+  // every step small and unimodal. Re-solving the contact-plane intersection
+  // per frame instead sends star points on geodesic excursions (measured to
+  // 1.84 chord on ambo-of-hankin seeds), which draws as lines crossing the
+  // pattern; the bound is what stops that parameterization coming back.
+  constexpr float MAX_STEP_CHORD = 0.15f;
+  size_t drawn_frames = 0;
+  size_t drawn_faces = 0;
+  float worst_step = 0.0f;
+  std::vector<Vector> prev_v;
+  auto cb = [&](Canvas &, const MeshState &m,
+                const Animation::OpLeg::Shading &sh) {
+    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+    if (drawn_frames == 0)
+      drawn_faces = sh.faces;
+    else
+      HS_EXPECT_EQ(sh.faces, drawn_faces);
+    for (size_t f = 0; f < sh.faces; ++f)
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
+                   Animation::OpLeg::MAX_BLEND_PAIRS);
+    if (!prev_v.empty()) {
+      HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
+      for (size_t i = 0; i < m.vertices.size(); ++i)
+        worst_step =
+            std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
+    }
+    prev_v.assign(m.vertices.begin(), m.vertices.end());
+    ++drawn_frames;
+  };
+
+  using Solids::IslamicStarPatterns::D2R;
+  constexpr int SWEEP = 8;
+  Animation::OpLeg anim(dodeca, Animation::OpLeg::THETA_EPS, 62.0f * D2R, leg,
+                        cb, handoff, SWEEP);
+
+  // 12 star faces (the base-face-order prefix) + 20 rosette faces.
+  const Animation::OpLeg::Landing &landing = anim.landing();
+  HS_EXPECT_EQ(landing.primary_faces, dodeca.face_counts.size());
+  HS_EXPECT_EQ(landing.faces,
+               dodeca.face_counts.size() + dodeca.vertices.size());
+  HS_EXPECT_TRUE(landing.topology != nullptr);
+
+  struct SmokeFx : public Effect {
+    SmokeFx() : Effect(288, 144) {}
+    void draw_frame() override {}
+  };
+  SmokeFx fx;
+  for (int f = 0; f < SWEEP; ++f) {
+    {
+      Canvas c(fx);
+      anim.step(c);
+    }
+    fx.advance_display();
+  }
+  HS_EXPECT_EQ(drawn_frames, (size_t)SWEEP);
+  HS_EXPECT_EQ(drawn_faces, landing.faces);
+  HS_EXPECT_LT(worst_step, MAX_STEP_CHORD);
+  std::printf("  [opleg hankin] worst per-frame vertex step %.4f chord "
+              "(bound %.2f)\n",
+              (double)worst_step, (double)MAX_STEP_CHORD);
+}
+
+// ---------------------------------------------------------------------------
+// Recipe-step leg kinds (docs/opchain_morph_spec.md sections 2.1/2.2): the
+// truncate, snub and relax legs the pure-inflate recipes need. Topology
+// constancy is sampled on the chain prefixes the shipping recipes actually
+// reach; the smoke tests drive a whole leg through OpLeg on the same seeds.
+// ---------------------------------------------------------------------------
+
+/** @brief One recipe-step leg site: the chain prefix the step sweeps on. */
+struct StepLegSite {
+  const char *name;                     /**< Diagnostic label. */
+  PolyMesh (*seed)(Arena &a, Arena &b); /**< Chain prefix up to the step. */
+  float param; /**< Arrival t, or relax iteration count. */
+};
+
+inline PolyMesh probe_icosahedron(Arena &a, Arena &b) {
+  return Solids::Platonic::icosahedron(a, b);
+}
+inline PolyMesh probe_icosa_ambo(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Platonic::icosahedron(a, b), a, b)
+      .ambo()
+      .build();
+}
+inline PolyMesh probe_icosa_snub(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Platonic::icosahedron(a, b), a, b)
+      .snub()
+      .build();
+}
+inline PolyMesh probe_icosa_snub_relax(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Platonic::icosahedron(a, b), a, b)
+      .snub()
+      .relax()
+      .build();
+}
+inline PolyMesh probe_ticosa_ambo(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
+      .ambo()
+      .build();
+}
+inline PolyMesh probe_ticosa_ambo_relax217(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
+      .ambo()
+      .relax(217)
+      .build();
+}
+inline PolyMesh probe_dodeca_ambo_bevel33(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
+      .ambo()
+      .bevel(0.33f)
+      .build();
+}
+
+/** Truncate-leg sites: the three pure-inflate recipes truncating at 0.33. */
+inline constexpr StepLegSite TRUNCATE_LEG_SITES[] = {
+    {"icosahedron_ambo", probe_icosa_ambo, 0.33f},
+    {"truncatedIcosahedron_ambo_relax217", probe_ticosa_ambo_relax217, 0.33f},
+    {"icosahedron_snub_relax", probe_icosa_snub_relax, 0.33f},
+};
+
+/** Snub-leg sites: the one recipe snubbing, at the .snub() defaults. */
+inline constexpr StepLegSite SNUB_LEG_SITES[] = {
+    {"icosahedron", probe_icosahedron, 0.5f},
+};
+
+/** Standalone relax-leg sites, at the three shipping iteration counts. */
+inline constexpr StepLegSite RELAX_LEG_SITES[] = {
+    {"icosahedron_snub", probe_icosa_snub, 8.0f},
+    {"dodecahedron_ambo_bevel33", probe_dodeca_ambo_bevel33, 100.0f},
+    {"truncatedIcosahedron_ambo", probe_ticosa_ambo, 217.0f},
+};
+
+/** @brief Topology fingerprint of one sweep sample. */
+struct SweepFingerprint {
+  size_t v = 0;        /**< Raw vertex count. */
+  size_t f = 0;        /**< Raw face count. */
+  size_t i = 0;        /**< Raw face-index count. */
+  size_t compiled = 0; /**< Compiled face count. */
+};
+
+/**
+ * @brief Fingerprints a swept mesh and runs the structural checks.
+ * @param swept Sweep sample.
+ * @param a Arena receiving the compiled mesh.
+ * @param b Compile scratch arena.
+ * @return The sample's fingerprint.
+ */
+inline SweepFingerprint check_sweep_sample(const PolyMesh &swept, Arena &a,
+                                           Arena &b) {
+  MeshState compiled;
+  MeshOps::compile(swept, compiled, a, b);
+  check_face_counts_consistent(swept);
+  check_indices_in_range(swept);
+  check_all_unit_vertices(swept, 1e-3f);
+  conway_tests::check_euler_genus0(swept);
+  return {swept.vertices.size(), swept.face_counts.size(), swept.faces.size(),
+          compiled.face_counts.size()};
+}
+
+/**
+ * @brief Asserts a sweep sample fingerprint matches the opening one.
+ * @param s Sample fingerprint.
+ * @param first Opening-sample fingerprint.
+ */
+inline void expect_same_fingerprint(const SweepFingerprint &s,
+                                    const SweepFingerprint &first) {
+  HS_EXPECT_EQ(s.v, first.v);
+  HS_EXPECT_EQ(s.f, first.f);
+  HS_EXPECT_EQ(s.i, first.i);
+  HS_EXPECT_EQ(s.compiled, first.compiled);
+}
+
+/**
+ * @brief Builds a leg site's seed into a persistent arena.
+ * @param site Site whose chain prefix is built.
+ * @param persist Arena receiving the finalized seed.
+ * @return The seed mesh in @p persist.
+ */
+inline PolyMesh build_step_leg_seed(const StepLegSite &site, Arena &persist) {
+  constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
+  Arena ga(morph_aux_buf, HALF);
+  Arena gb(morph_aux_buf + HALF, HALF);
+  return Solids::finalize_solid(site.seed(ga, gb), persist);
+}
+
+/**
+ * @brief Steps a truncate sweep on every seed the recipes truncate, asserting
+ *        constant raw and compiled face counts and a closed genus-0 manifold
+ *        at every sampled parameter.
+ */
+inline void test_truncate_leg_on_recipe_seeds_holds_topology() {
+  constexpr int SAMPLES = 33;
+
+  for (const StepLegSite &site : TRUNCATE_LEG_SITES) {
+    const int failed_before = hs_test::stats().failed;
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed = build_step_leg_seed(site, persist);
+
+    SweepFingerprint first;
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float t = T_EPS + (site.param - T_EPS) *
+                                  (static_cast<float>(s) / (SAMPLES - 1));
+      ScratchScope frame_a(a);
+      ScratchScope frame_b(b);
+      const SweepFingerprint fp =
+          check_sweep_sample(MeshOps::truncate(seed, a, b, t), a, b);
+      if (s == 0) {
+        first = fp;
+        HS_EXPECT_TRUE(fp.v > 0 && fp.f > 0 && fp.i > 0);
+      } else {
+        expect_same_fingerprint(fp, first);
+      }
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [truncate-leg] %s failed (raw F=%zu, compiled F=%zu)\n",
+                  site.name, first.f, first.compiled);
+    else
+      std::printf("  [truncate-leg] %s: t*=%.2f F=%zu compiled=%zu across %d "
+                  "samples\n",
+                  site.name, (double)site.param, first.f, first.compiled,
+                  SAMPLES);
+  }
+}
+
+/**
+ * @brief Steps a snub sweep on every seed the recipes snub, asserting constant
+ *        raw and compiled face counts and a closed genus-0 manifold at every
+ *        sampled parameter.
+ */
+inline void test_snub_leg_on_recipe_seeds_holds_topology() {
+  constexpr int SAMPLES = 33;
+
+  for (const StepLegSite &site : SNUB_LEG_SITES) {
+    const int failed_before = hs_test::stats().failed;
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed = build_step_leg_seed(site, persist);
+
+    SweepFingerprint first;
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float t = T_EPS + (site.param - T_EPS) *
+                                  (static_cast<float>(s) / (SAMPLES - 1));
+      ScratchScope frame_a(a);
+      ScratchScope frame_b(b);
+      const SweepFingerprint fp =
+          check_sweep_sample(MeshOps::snub(seed, a, b, t, 0.0f), a, b);
+      if (s == 0) {
+        first = fp;
+        HS_EXPECT_TRUE(fp.v > 0 && fp.f > 0 && fp.i > 0);
+      } else {
+        expect_same_fingerprint(fp, first);
+      }
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [snub-leg] %s failed (raw F=%zu, compiled F=%zu)\n",
+                  site.name, first.f, first.compiled);
+    else
+      std::printf("  [snub-leg] %s: t*=%.2f F=%zu compiled=%zu across %d "
+                  "samples\n",
+                  site.name, (double)site.param, first.f, first.compiled,
+                  SAMPLES);
+  }
+}
+
+/**
+ * @brief Steps a relax slerp on every seed the recipes relax standalone,
+ *        asserting the vertex count/order identity the kind rests on plus
+ *        constant raw and compiled face counts across the slerp.
+ */
+inline void test_relax_leg_on_recipe_seeds_holds_topology() {
+  constexpr int SAMPLES = 33;
+
+  for (const StepLegSite &site : RELAX_LEG_SITES) {
+    const int failed_before = hs_test::stats().failed;
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed = build_step_leg_seed(site, persist);
+
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    PolyMesh relaxed = MeshOps::relax(seed, a, b, static_cast<int>(site.param));
+
+    // The precondition of a standalone relax leg: same vertex count, same
+    // topology bytes, and vertex i still nearest its own seed vertex, so the
+    // leg slerps per-vertex with no correspondence pass.
+    HS_EXPECT_EQ(relaxed.vertices.size(), seed.vertices.size());
+    HS_EXPECT_EQ(relaxed.face_counts.size(), seed.face_counts.size());
+    HS_EXPECT_EQ(relaxed.faces.size(), seed.faces.size());
+    HS_EXPECT_EQ(std::memcmp(relaxed.face_counts.data(),
+                             seed.face_counts.data(),
+                             seed.face_counts.size() * sizeof(uint8_t)),
+                 0);
+    HS_EXPECT_EQ(std::memcmp(relaxed.faces.data(), seed.faces.data(),
+                             seed.faces.size() * sizeof(uint16_t)),
+                 0);
+    for (size_t i = 0; i < relaxed.vertices.size(); ++i) {
+      size_t nearest = 0;
+      float best = 1e9f;
+      for (size_t j = 0; j < seed.vertices.size(); ++j) {
+        const float d = distance_between(relaxed.vertices[i], seed.vertices[j]);
+        if (d < best) {
+          best = d;
+          nearest = j;
+        }
+      }
+      HS_EXPECT_EQ(nearest, i);
+    }
+
+    SweepFingerprint first;
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float k = static_cast<float>(s) / (SAMPLES - 1);
+      ScratchScope frame_a(a);
+      ScratchScope frame_b(b);
+      PolyMesh swept;
+      MeshOps::clone(seed, swept, a);
+      for (size_t i = 0; i < swept.vertices.size(); ++i)
+        swept.vertices[i] = slerp(seed.vertices[i], relaxed.vertices[i], k);
+      const SweepFingerprint fp = check_sweep_sample(swept, a, b);
+      if (s == 0) {
+        first = fp;
+        HS_EXPECT_TRUE(fp.v > 0 && fp.f > 0 && fp.i > 0);
+      } else {
+        expect_same_fingerprint(fp, first);
+      }
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [relax-leg] %s failed (raw F=%zu, compiled F=%zu)\n",
+                  site.name, first.f, first.compiled);
+    else
+      std::printf("  [relax-leg] %s: iters=%d V=%zu F=%zu compiled=%zu across "
+                  "%d samples\n",
+                  site.name, (int)site.param, first.v, first.f, first.compiled,
+                  SAMPLES);
+  }
+}
+
+/** @brief Recipe-step leg kind driven by the smoke test. */
+enum class StepLegKind { TRUNCATE, SNUB, RELAX };
+
+/**
+ * @brief Drives one recipe-step leg to completion through OpLeg, gating
+ *        compiled-face-count constancy, ramp indices and per-frame motion.
+ * @param kind Leg kind under test.
+ * @param site Seed site and arrival parameter.
+ * @param frames Leg length in frames.
+ * @param max_step_chord Per-frame max-vertex-motion bound.
+ * @details Mirrors the hankin smoke test's shape: the departed palettes come
+ * from the seed's own classification and the bookend from the step's clean
+ * endpoint, exactly as IslamicStars derives them.
+ */
+inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
+                                 int frames, float max_step_chord) {
+  using Animation::OpLeg;
+  const int failed_before = hs_test::stats().failed;
+
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
+                   32 * 1024);
+  hs::random().seed(2026u);
+
+  Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  PolyMesh seed = build_step_leg_seed(site, leg_arena);
+  PolyMesh endpoint;
+  {
+    constexpr size_t HALF = sizeof(morph_temp_buf) / 2;
+    Arena ea(morph_temp_buf, HALF);
+    Arena eb(morph_temp_buf + HALF, HALF);
+    PolyMesh raw;
+    switch (kind) {
+    case StepLegKind::TRUNCATE:
+      raw = MeshOps::truncate(seed, ea, eb, site.param);
+      break;
+    case StepLegKind::SNUB:
+      raw = MeshOps::snub(seed, ea, eb, site.param, 0.0f);
+      break;
+    case StepLegKind::RELAX:
+      raw = MeshOps::relax(seed, ea, eb, static_cast<int>(site.param));
+      break;
+    }
+    endpoint = Solids::finalize_solid(raw, leg_arena);
+  }
+
+  ScratchScope a_guard(scratch_arena_a);
+  ScratchScope b_guard(scratch_arena_b);
+  MeshOps::classify_faces_by_topology(seed, scratch_arena_a, scratch_arena_b,
+                                      leg_arena);
+  MeshOps::classify_faces_by_topology(endpoint, scratch_arena_a,
+                                      scratch_arena_b, leg_arena);
+
+  std::array<int, OpLeg::PALETTES> slots;
+  MeshPaletteBank::shuffle_indices(slots);
+  std::array<uint8_t, OpLeg::PALETTES> targets;
+  for (int i = 0; i < OpLeg::PALETTES; ++i)
+    targets[i] = static_cast<uint8_t>(i);
+  hs::shuffle(targets.begin(), targets.end());
+
+  const size_t prev_faces = seed.face_counts.size();
+  uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
+  Vector *prev_centroid = leg_arena.allocate_n<Vector>(prev_faces);
+  size_t off = 0;
+  for (size_t f = 0; f < prev_faces; ++f) {
+    prev_pal[f] =
+        static_cast<uint8_t>(slots[wrap(seed.topology[f], OpLeg::PALETTES)]);
+    Vector c(0.0f, 0.0f, 0.0f);
+    const int n = seed.face_counts[f];
+    for (int j = 0; j < n; ++j)
+      c = c + seed.vertices[seed.faces[off + j]];
+    prev_centroid[f] = c.normalized();
+    off += n;
+  }
+
+  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal,      nullptr, prev_faces,
+                                false,      prev_centroid, &targets};
+  OpLeg::BookendClasses bookend{endpoint.topology.data(),
+                                endpoint.face_counts.size()};
+
+  size_t drawn_frames = 0, drawn_faces = 0;
+  float worst_step = 0.0f;
+  std::vector<Vector> prev_v;
+  auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
+    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+    if (drawn_frames == 0)
+      drawn_faces = sh.faces;
+    else
+      HS_EXPECT_EQ(sh.faces, drawn_faces);
+    for (size_t f = 0; f < sh.faces; ++f)
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
+    if (!prev_v.empty()) {
+      HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
+      for (size_t i = 0; i < m.vertices.size(); ++i)
+        worst_step =
+            std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
+    }
+    prev_v.assign(m.vertices.begin(), m.vertices.end());
+    ++drawn_frames;
+  };
+
+  struct SmokeFx : public Effect {
+    SmokeFx() : Effect(288, 144) {}
+    void draw_frame() override {}
+  };
+  SmokeFx fx;
+
+  auto run = [&](OpLeg &&leg) {
+    const OpLeg::Landing &landing = leg.landing();
+    HS_EXPECT_EQ(landing.primary_faces, seed.face_counts.size());
+    HS_EXPECT_TRUE(landing.topology != nullptr);
+    for (int f = 0; f < frames; ++f) {
+      {
+        Canvas c(fx);
+        leg.step(c);
+      }
+      fx.advance_display();
+    }
+    HS_EXPECT_EQ(drawn_frames, (size_t)frames);
+    HS_EXPECT_EQ(drawn_faces, landing.faces);
+  };
+
+  switch (kind) {
+  case StepLegKind::TRUNCATE:
+    run(OpLeg(seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f, site.param, 0.0f,
+              0.0f, leg_arena, cb, handoff, frames, bookend));
+    break;
+  case StepLegKind::SNUB:
+    run(OpLeg(seed, ConwayGraph::MorphOp::SNUB, 0.0f, site.param, 0.0f, 0.0f,
+              leg_arena, cb, handoff, frames, bookend));
+    break;
+  case StepLegKind::RELAX:
+    run(OpLeg(seed, static_cast<int>(site.param), leg_arena, cb, handoff,
+              frames, bookend));
+    break;
+  }
+
+  HS_EXPECT_LT(worst_step, max_step_chord);
+  const char *label = kind == StepLegKind::TRUNCATE ? "truncate"
+                      : kind == StepLegKind::SNUB   ? "snub"
+                                                    : "relax";
+  std::printf("  [opleg %s] %s: %zu faces, worst per-frame vertex step %.4f "
+              "chord (bound %.2f)%s\n",
+              label, site.name, drawn_faces, (double)worst_step,
+              (double)max_step_chord,
+              hs_test::stats().failed != failed_before ? " FAILED" : "");
+}
+
+/** Gated-swap sites: the seeds the partition recipes run kis and dual on. */
+inline constexpr StepLegSite GATE_LEG_SITES[] = {
+    {"icosahedron", probe_icosahedron, 0.0f},
+    {"icosahedron_snub", probe_icosa_snub, 0.0f},
+};
+
+/**
+ * @brief Drives one gated-swap leg to completion through OpLeg, gating the
+ *        per-side compiled-face-count constancy, the single swap, the ramp
+ *        indices and the gain envelope.
+ * @param op Partition operator the leg swaps to.
+ * @param site Seed site.
+ * @param gate Half-gate length in frames.
+ * @details Derives the handoff and bookend exactly as IslamicStars does: the
+ * departed palettes from the seed's own classification, the bookend from the
+ * op's clean endpoint.
+ */
+inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
+                                  const StepLegSite &site, int gate) {
+  using Animation::OpLeg;
+  const int failed_before = hs_test::stats().failed;
+  const bool is_kis = op == OpLeg::SwapOp::KIS;
+
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
+                   32 * 1024);
+  hs::random().seed(2026u);
+
+  Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  PolyMesh seed = build_step_leg_seed(site, leg_arena);
+  PolyMesh endpoint;
+  {
+    constexpr size_t HALF = sizeof(morph_temp_buf) / 2;
+    Arena ea(morph_temp_buf, HALF);
+    Arena eb(morph_temp_buf + HALF, HALF);
+    endpoint = Solids::finalize_solid(is_kis ? MeshOps::kis(seed, ea, eb)
+                                             : MeshOps::dual(seed, ea, eb),
+                                      leg_arena);
+  }
+
+  ScratchScope a_guard(scratch_arena_a);
+  ScratchScope b_guard(scratch_arena_b);
+  MeshOps::classify_faces_by_topology(seed, scratch_arena_a, scratch_arena_b,
+                                      leg_arena);
+  MeshOps::classify_faces_by_topology(endpoint, scratch_arena_a,
+                                      scratch_arena_b, leg_arena);
+
+  std::array<int, OpLeg::PALETTES> slots;
+  MeshPaletteBank::shuffle_indices(slots);
+  std::array<uint8_t, OpLeg::PALETTES> targets;
+  for (int i = 0; i < OpLeg::PALETTES; ++i)
+    targets[i] = static_cast<uint8_t>(i);
+  hs::shuffle(targets.begin(), targets.end());
+
+  const size_t prev_faces = seed.face_counts.size();
+  uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
+  for (size_t f = 0; f < prev_faces; ++f)
+    prev_pal[f] =
+        static_cast<uint8_t>(slots[wrap(seed.topology[f], OpLeg::PALETTES)]);
+
+  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr, prev_faces,
+                                false,      nullptr,  &targets};
+  OpLeg::BookendClasses bookend{endpoint.topology.data(),
+                                endpoint.face_counts.size()};
+
+  const int frames = 2 * gate + 1;
+  int drawn = 0, swaps = 0, swap_frame = -1;
+  size_t side_faces = 0;
+  float prev_gain = 0.0f, min_gain = 2.0f;
+  bool gain_monotone = true;
+  auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
+    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+    for (size_t f = 0; f < sh.faces; ++f)
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
+    if (drawn == 0) {
+      side_faces = sh.faces;
+      HS_EXPECT_EQ(sh.gain, 1.0f);
+    } else {
+      if (sh.faces != side_faces) {
+        ++swaps;
+        swap_frame = drawn;
+        side_faces = sh.faces;
+      }
+      const bool closing = drawn <= gate;
+      if (closing ? sh.gain > prev_gain : sh.gain < prev_gain)
+        gain_monotone = false;
+    }
+    HS_EXPECT_GT(sh.gain, 0.0f);
+    HS_EXPECT_GE(sh.gain, OpLeg::GATE_GAIN_MIN);
+    min_gain = std::min(min_gain, sh.gain);
+    prev_gain = sh.gain;
+    ++drawn;
+  };
+
+  struct GateFx : public Effect {
+    GateFx() : Effect(288, 144) {}
+    void draw_frame() override {}
+  };
+  GateFx fx;
+
+  OpLeg leg(seed, op, leg_arena, cb, handoff, gate, bookend);
+  const OpLeg::Landing &landing = leg.landing();
+  for (int f = 0; f < frames; ++f) {
+    {
+      Canvas c(fx);
+      leg.step(c);
+    }
+    fx.advance_display();
+  }
+
+  HS_EXPECT_EQ(drawn, frames);
+  // Topology changes exactly once, at the swap frame, and the leg lands on the
+  // arrival face count.
+  HS_EXPECT_EQ(swaps, 1);
+  HS_EXPECT_EQ(swap_frame, gate);
+  HS_EXPECT_EQ(side_faces, landing.faces);
+  HS_EXPECT_EQ(landing.faces, endpoint.face_counts.size());
+  HS_EXPECT_EQ(landing.primary_faces, prev_faces);
+  HS_EXPECT_TRUE(landing.from_palette != nullptr);
+  HS_EXPECT_TRUE(gain_monotone);
+  HS_EXPECT_NEAR(min_gain, OpLeg::GATE_GAIN_MIN, 1e-5f);
+  HS_EXPECT_NEAR(prev_gain, 1.0f, 1e-5f);
+
+  std::printf("  [opleg %s] %s: F %zu -> %zu, swap at frame %d of %d, gain "
+              "1 -> %.2f -> 1%s\n",
+              is_kis ? "kis" : "dual", site.name, prev_faces, landing.faces,
+              swap_frame, frames, (double)min_gain,
+              hs_test::stats().failed != failed_before ? " FAILED" : "");
+}
+
+/**
+ * @brief Smoke-tests a gated-swap leg for both partition ops on every gate
+ *        site, at IslamicStars' 6-frame half-gate.
+ */
+inline void test_opleg_gated_swap_smoke() {
+  using Animation::OpLeg;
+  for (const StepLegSite &site : GATE_LEG_SITES) {
+    check_gated_leg_smoke(OpLeg::SwapOp::KIS, site, 6);
+    check_gated_leg_smoke(OpLeg::SwapOp::DUAL, site, 6);
+  }
+}
+
+/**
+ * @brief Smoke-tests one leg of each new recipe-step kind end to end.
+ */
+inline void test_opleg_step_leg_smoke() {
+  // Leg lengths mirror IslamicStars' budget (spec section 7): 24 frames for an
+  // operator sweep, 16 for a standalone relax.
+  check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], 24, 0.15f);
+  check_step_leg_smoke(StepLegKind::SNUB, SNUB_LEG_SITES[0], 24, 0.15f);
+  for (const StepLegSite &site : RELAX_LEG_SITES)
+    check_step_leg_smoke(StepLegKind::RELAX, site, 16, 0.15f);
+}
+
+/**
+ * @brief Gates the recipe steps no leg kind covers and reports the clamp
+ *        consequence the gate exists to avoid.
+ */
+inline void test_unsweepable_recipe_steps_are_gated() {
+  using Solids::Op;
+  using Solids::IslamicStarPatterns::D2R;
+
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.33f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::SNUB, 0.5f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::RELAX, 8.0f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::HANKIN, 62.0f * D2R}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::AMBO}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 50.0f * D2R}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::KIS}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::DUAL}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.001f}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.9f}));
+
+  // What the gate avoids, on the seed both blocked truncate recipes reach
+  // (truncatedIcosahedron.ambo().relax()): a clamped leg lands this far from
+  // the mesh the recipe holds, as one silent full-mesh pop at the bookend.
+  // truncate keeps its 2E vertices in emission order on both sides of 0.5, so
+  // the chords are per-index.
+  Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+  PolyMesh seed =
+      build_step_leg_seed({"", probe_ticosa_ambo_relax217, 0.0f}, persist);
+  Arena a(morph_target_buf, sizeof(morph_target_buf));
+  Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+  Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+
+  auto max_chord = [](const PolyMesh &x, const PolyMesh &y) {
+    HS_EXPECT_EQ(x.vertices.size(), y.vertices.size());
+    float worst = 0.0f;
+    for (size_t i = 0; i < x.vertices.size(); ++i)
+      worst = std::max(worst, distance_between(x.vertices[i], y.vertices[i]));
+    return worst;
+  };
+
+  const PolyMesh clamped_lo = MeshOps::truncate(seed, a, b, T_EPS);
+  const PolyMesh target_lo = MeshOps::truncate(seed, aux, b, 0.01f);
+  std::printf("  [gate] truncate(0.01) below T_EPS: leg frozen at t=%.2f, "
+              "closing chord %.4f (%.2f px at r=64), F=%zu\n",
+              (double)T_EPS, (double)max_chord(clamped_lo, target_lo),
+              (double)(max_chord(clamped_lo, target_lo) * 64.0f),
+              clamped_lo.face_counts.size());
+
+  aux.reset();
+  const PolyMesh clamped_hi =
+      MeshOps::truncate(seed, a, b, 0.5f - ConwayGraph::T_EPS_AMBO);
+  const PolyMesh target_hi = MeshOps::truncate(seed, aux, b, 50.0f * D2R);
+  std::printf("  [gate] truncate(50 deg = %.4f) past the ambo point: leg ends "
+              "at t=%.3f, closing chord %.4f (%.1f px at r=64), F=%zu\n",
+              (double)(50.0f * D2R), (double)(0.5f - ConwayGraph::T_EPS_AMBO),
+              (double)max_chord(clamped_hi, target_hi),
+              (double)(max_chord(clamped_hi, target_hi) * 64.0f),
+              clamped_hi.face_counts.size());
+}
+
+// ---------------------------------------------------------------------------
+// Recipe chain build replay (docs/opchain_morph_spec.md sections 9.2/9.3):
+// every registry entry with a non-null recipe is lowered and replayed leg by
+// leg exactly as IslamicStars builds it — same handoff, bookend, pinned
+// targets, and blend-range dance — stepping every leg frame by frame with a
+// recording draw callback. Gates per-leg compiled-face-count constancy,
+// from-palette continuity across leg boundaries, the final clean-swap
+// classification, and the persistent/scratch high-water against IslamicStars'
+// configured split.
+// ---------------------------------------------------------------------------
+
+constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
+    114 * 1024; /**< IslamicStars scratch_a split. */
+constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
+    80 * 1024; /**< IslamicStars scratch_b split. */
+/** Device persistent budget of IslamicStars' arena split. */
+constexpr size_t ISLAMIC_PERSISTENT_BUDGET = DEVICE_GLOBAL_ARENA_SIZE -
+                                             ISLAMIC_SCRATCH_A_BUDGET -
+                                             ISLAMIC_SCRATCH_B_BUDGET;
+
+/**
+ * @brief Replays one recipe leg by leg as IslamicStars builds it and gates
+ *        continuity, classification, and the arena high-waters.
+ * @param name Diagnostic label.
+ * @param recipe Recipe replayed.
+ */
+inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
+  using Animation::OpLeg;
+  constexpr int HANKIN_LEG_FRAMES = 32, SWEEP_LEG_FRAMES = 24,
+                RELAX_LEG_FRAMES = 16, GATE_HALF_FRAMES = 6;
+  constexpr size_t MAX_FACES = 1152;
+  constexpr size_t MAX_STEPS = 8;
+
+  struct ChainFx : public Effect {
+    ChainFx() : Effect(288, 144) {}
+    void draw_frame() override {}
+  };
+
+  {
+    const int failed_before = hs_test::stats().failed;
+
+    reset_globals();
+    configure_arenas(GLOBAL_ARENA_SIZE - ISLAMIC_SCRATCH_A_BUDGET -
+                         ISLAMIC_SCRATCH_B_BUDGET,
+                     ISLAMIC_SCRATCH_A_BUDGET, ISLAMIC_SCRATCH_B_BUDGET);
+    hs::random().seed(2026u);
+
+    MeshPaletteBank bank;
+    bank.bake_all(persistent_arena);
+
+    // Seed solid: persistent PolyMesh plus the compiled/classified carousel
+    // slot, exactly as spawn_shape prepares them.
+    PolyMesh cur;
+    MeshState seed_slot;
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      cur = Solids::finalize_solid(
+          Solids::simple_registry[recipe.seed].generate(a, b), target);
+      MeshOps::compile(cur, seed_slot, target, a);
+    });
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(seed_slot, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+
+    std::array<int, OpLeg::PALETTES> slots;
+    MeshPaletteBank::shuffle_indices(slots);
+    std::array<uint8_t, OpLeg::PALETTES> targets;
+    for (int i = 0; i < OpLeg::PALETTES; ++i)
+      targets[i] = static_cast<uint8_t>(i);
+    hs::shuffle(targets.begin(), targets.end());
+
+    Solids::OpStep steps[MAX_STEPS];
+    const size_t count = Solids::expand_to_primitives(recipe, steps, MAX_STEPS);
+    HS_EXPECT_GT(count, (size_t)0);
+    bool supported = true;
+    int leg_frames[MAX_STEPS] = {};
+    bool gated[MAX_STEPS] = {};
+    for (size_t k = 0; k < count; ++k) {
+      if (!Solids::is_morphable_step(steps[k]))
+        supported = false;
+      gated[k] =
+          steps[k].op == Solids::Op::KIS || steps[k].op == Solids::Op::DUAL;
+      leg_frames[k] = gated[k] ? 2 * GATE_HALF_FRAMES + 1
+                      : steps[k].op == Solids::Op::HANKIN ? HANKIN_LEG_FRAMES
+                      : steps[k].op == Solids::Op::RELAX  ? RELAX_LEG_FRAMES
+                                                          : SWEEP_LEG_FRAMES;
+    }
+    HS_EXPECT_TRUE(supported);
+    if (!supported) {
+      std::printf("    [chain] %s: unsupported lowered op\n", name);
+      return;
+    }
+
+    ChainFx fx;
+    uint8_t prev_pal_buf[MAX_FACES];
+    Vector prev_centroid[MAX_FACES];
+    uint8_t carried_to[MAX_FACES] = {};
+    const OpLeg::Landing *prev_landing = nullptr;
+    PolyMesh next;
+
+    for (size_t k = 0; k < count; ++k) {
+      const size_t prev_faces = cur.face_counts.size();
+      HS_EXPECT_LE(prev_faces, MAX_FACES);
+      {
+        size_t off = 0;
+        for (size_t f = 0; f < prev_faces; ++f) {
+          Vector c(0.0f, 0.0f, 0.0f);
+          const int n = cur.face_counts[f];
+          for (int j = 0; j < n; ++j)
+            c = c + cur.vertices[cur.faces[off + j]];
+          prev_centroid[f] = c.normalized();
+          off += n;
+        }
+      }
+      const uint8_t *prev_pal;
+      if (k == 0) {
+        for (size_t f = 0; f < prev_faces; ++f)
+          prev_pal_buf[f] = static_cast<uint8_t>(
+              slots[wrap(seed_slot.topology[f], OpLeg::PALETTES)]);
+        prev_pal = prev_pal_buf;
+      } else {
+        for (size_t f = 0; f < prev_faces; ++f)
+          prev_pal_buf[f] = carried_to[f];
+        prev_pal = prev_pal_buf;
+      }
+
+      // Eager clean endpoint, exactly as start_build_leg derives it (for the
+      // ambo leg: the AMBO mesh, never the swept truncate form).
+      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+        PolyMesh nx;
+        switch (steps[k].op) {
+        case Solids::Op::HANKIN:
+          nx = MeshOps::hankin(cur, a, b, steps[k].param);
+          break;
+        case Solids::Op::AMBO:
+          nx = MeshOps::ambo(cur, a, b);
+          break;
+        case Solids::Op::TRUNCATE:
+          nx = MeshOps::truncate(cur, a, b, steps[k].param);
+          break;
+        case Solids::Op::SNUB:
+          nx = MeshOps::snub(cur, a, b, steps[k].param, steps[k].twist);
+          break;
+        case Solids::Op::KIS:
+          nx = MeshOps::kis(cur, a, b);
+          break;
+        case Solids::Op::DUAL:
+          nx = MeshOps::dual(cur, a, b);
+          break;
+        case Solids::Op::CHAMFER:
+          nx = MeshOps::chamfer(cur, a, b, steps[k].param);
+          break;
+        default:
+          nx = MeshOps::relax(cur, a, b, static_cast<int>(steps[k].param));
+          break;
+        }
+        next = Solids::finalize_solid(nx, target);
+      });
+      {
+        ScratchScope a_guard(scratch_arena_a);
+        ScratchScope b_guard(scratch_arena_b);
+        MeshOps::classify_faces_by_topology(next, scratch_arena_a,
+                                            scratch_arena_b, persistent_arena);
+      }
+      const size_t bookend_faces = next.face_counts.size();
+      HS_EXPECT_LE(bookend_faces, MAX_FACES);
+
+      OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,
+                                    prev_faces, false,    prev_centroid,
+                                    &targets};
+      OpLeg::BookendClasses bookend{next.topology.data(), bookend_faces};
+
+      size_t drawn = 0;
+      size_t leg_faces = 0;
+      // A gated leg's face count is constant per side and changes once, at the
+      // swap; every other kind holds one count for the whole leg.
+      auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
+        HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+        const bool side_start =
+            drawn == 0 ||
+            (gated[k] && drawn == static_cast<size_t>(GATE_HALF_FRAMES));
+        if (side_start)
+          leg_faces = sh.faces;
+        else
+          HS_EXPECT_EQ(sh.faces, leg_faces);
+        ++drawn;
+      };
+
+      auto make_leg = [&]() {
+        switch (steps[k].op) {
+        case Solids::Op::KIS:
+          return OpLeg(cur, OpLeg::SwapOp::KIS, persistent_arena, cb, handoff,
+                       GATE_HALF_FRAMES, bookend);
+        case Solids::Op::DUAL:
+          return OpLeg(cur, OpLeg::SwapOp::DUAL, persistent_arena, cb, handoff,
+                       GATE_HALF_FRAMES, bookend);
+        case Solids::Op::HANKIN:
+          return OpLeg(cur, 0.0f, steps[k].param, persistent_arena, cb, handoff,
+                       leg_frames[k], bookend);
+        case Solids::Op::AMBO:
+          return OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f,
+                       0.0f, persistent_arena, cb, handoff, leg_frames[k],
+                       bookend);
+        case Solids::Op::TRUNCATE:
+          return OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
+                       steps[k].param, 0.0f, 0.0f, persistent_arena, cb,
+                       handoff, leg_frames[k], bookend);
+        case Solids::Op::SNUB:
+          return OpLeg(cur, ConwayGraph::MorphOp::SNUB, 0.0f, steps[k].param,
+                       0.0f, steps[k].twist, persistent_arena, cb, handoff,
+                       leg_frames[k], bookend);
+        case Solids::Op::CHAMFER:
+          return OpLeg(cur, ConwayGraph::MorphOp::CHAMFER, 0.0f, steps[k].param,
+                       0.0f, 0.0f, persistent_arena, cb, handoff, leg_frames[k],
+                       bookend);
+        default:
+          return OpLeg(cur, static_cast<int>(steps[k].param), persistent_arena,
+                       cb, handoff, leg_frames[k], bookend);
+        }
+      };
+      OpLeg leg = make_leg();
+      const OpLeg::Landing &landing = leg.landing();
+
+      for (int f = 0; f < leg_frames[k]; ++f) {
+        {
+          Canvas c(fx);
+          leg.step(c);
+        }
+        fx.advance_display();
+      }
+      HS_EXPECT_EQ(drawn, (size_t)leg_frames[k]);
+      HS_EXPECT_EQ(landing.faces, leg_faces);
+      HS_EXPECT_TRUE(landing.from_palette != nullptr);
+
+      // Color continuity at the boundary: each leg blends all the way to its
+      // own arrival palette, so a surviving face must depart the next leg from
+      // exactly the palette this one landed on. Blending part-way instead, with
+      // the target moving between legs, is what jumped the color at every op.
+      HS_EXPECT_LE(landing.faces, MAX_FACES);
+      // A partition op keeps no emission-order correspondence to its seed, so
+      // its from-palettes are the provenance mapping's, not the prefix's; what
+      // must hold is that every one of them is a palette the previous leg
+      // actually landed on somewhere.
+      if (k > 0 && !gated[k]) {
+        for (size_t f = 0; f < prev_faces; ++f)
+          HS_EXPECT_EQ((int)landing.from_palette[f], (int)carried_to[f]);
+      } else if (k > 0) {
+        for (size_t f = 0; f < landing.faces; ++f) {
+          bool found = false;
+          for (size_t j = 0; j < prev_faces && !found; ++j)
+            found = landing.from_palette[f] == carried_to[j];
+          HS_EXPECT_TRUE(found);
+        }
+      }
+      for (size_t f = 0; f < landing.faces; ++f)
+        carried_to[f] =
+            landing.to_palette[wrap(landing.topology[f], OpLeg::PALETTES)];
+
+      // Landing lives in the leg's arena-backed Transients; outlives `leg`.
+      prev_landing = &landing;
+
+      // Mirror finish_build_leg's boundary compaction: the finished leg's
+      // transients are reclaimed and only the endpoint the next leg sweeps
+      // from crosses the reset. Without it the replay accumulates every leg
+      // and reports peaks the effect never reaches. The last leg's landing is
+      // consumed by the final swap below, so it is left standing exactly as
+      // the effect leaves it for the next shape's compaction.
+      if (k + 1 < count) {
+        Persist<MeshPaletteBank> pb(bank, scratch_arena_b, persistent_arena);
+        Persist<PolyMesh> pn(next, scratch_arena_a, persistent_arena);
+        cur = PolyMesh();
+        seed_slot = MeshState();
+        prev_landing = nullptr;
+        persistent_arena.reset();
+      }
+      cur = std::move(next);
+    }
+
+    // Final clean swap: the landing's bookend classification must match a
+    // fresh classification of the compiled endpoint, and the landed targets
+    // are the per-shape pinned set verbatim.
+    MeshState final_slot;
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
+      MeshOps::compile(cur, final_slot, target, a);
+    });
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(final_slot, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+    HS_EXPECT_EQ(prev_landing->faces, final_slot.topology.size());
+    for (size_t f = 0; f < prev_landing->faces; ++f)
+      HS_EXPECT_EQ(prev_landing->topology[f], final_slot.topology[f]);
+    for (int i = 0; i < OpLeg::PALETTES; ++i)
+      HS_EXPECT_EQ((int)prev_landing->to_palette[i], (int)targets[i]);
+
+    const size_t p_peak = persistent_arena.get_high_water_mark();
+    const size_t a_peak = scratch_arena_a.get_high_water_mark();
+    const size_t b_peak = scratch_arena_b.get_high_water_mark();
+    std::printf("  [chain] %s: %zu legs, persistent=%zu B / %zu B, "
+                "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
+                name, count, p_peak, (size_t)ISLAMIC_PERSISTENT_BUDGET, a_peak,
+                (size_t)ISLAMIC_SCRATCH_A_BUDGET, b_peak,
+                (size_t)ISLAMIC_SCRATCH_B_BUDGET);
+    HS_EXPECT_LE(p_peak, ISLAMIC_PERSISTENT_BUDGET);
+    HS_EXPECT_LE(a_peak, ISLAMIC_SCRATCH_A_BUDGET);
+    HS_EXPECT_LE(b_peak, ISLAMIC_SCRATCH_B_BUDGET);
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [chain] %s FAILED\n", name);
+  }
+}
+
+/** simple_registry seed indices the partition chains build from. */
+inline constexpr uint8_t SEED_CUBE = 1;
+inline constexpr uint8_t SEED_ICOSAHEDRON = 4;
+static_assert(std::string_view(Solids::simple_registry[SEED_CUBE].name) ==
+              "cube");
+static_assert(
+    std::string_view(Solids::simple_registry[SEED_ICOSAHEDRON].name) ==
+    "icosahedron");
+
+/** Partition chains: a lone kis, a gated leg departing a gated leg, and a
+ * gated leg departing a swept one. No registry entry carries a partition
+ * recipe yet, so these stand in for the recipe table. */
+inline constexpr Solids::OpStep CHAIN_KIS[] = {{Solids::Op::KIS}};
+inline constexpr Solids::OpStep CHAIN_KIS_DUAL[] = {{Solids::Op::KIS},
+                                                    {Solids::Op::DUAL}};
+inline constexpr Solids::OpStep CHAIN_AMBO_DUAL[] = {{Solids::Op::AMBO},
+                                                     {Solids::Op::DUAL}};
+inline constexpr Solids::OpStep CHAIN_HK62_DUAL[] = {
+    {Solids::Op::HANKIN, 62.0f * Solids::IslamicStarPatterns::D2R},
+    {Solids::Op::DUAL}};
+inline constexpr Solids::Recipe DODECAHEDRON_KIS_RECIPE = {
+    Solids::SEED_DODECAHEDRON, CHAIN_KIS, std::size(CHAIN_KIS)};
+inline constexpr Solids::Recipe CUBE_KIS_DUAL_RECIPE = {
+    SEED_CUBE, CHAIN_KIS_DUAL, std::size(CHAIN_KIS_DUAL)};
+inline constexpr Solids::Recipe ICOSAHEDRON_AMBO_DUAL_RECIPE = {
+    SEED_ICOSAHEDRON, CHAIN_AMBO_DUAL, std::size(CHAIN_AMBO_DUAL)};
+inline constexpr Solids::Recipe DODECAHEDRON_HK62_DUAL_RECIPE = {
+    Solids::SEED_DODECAHEDRON, CHAIN_HK62_DUAL, std::size(CHAIN_HK62_DUAL)};
+
+/**
+ * @brief Replays every registry recipe plus the partition chains leg by leg.
+ */
+inline void test_recipe_chain_build_replay() {
+  int chains = 0;
+  for (const Solids::Entry &entry : Solids::Collections::get_islamic_solids()) {
+    if (!entry.recipe)
+      continue;
+    ++chains;
+    replay_build_chain(entry.name, *entry.recipe);
+  }
+  // Guards against a vacuous pass if the recipe pointers are dropped.
+  HS_EXPECT_GE(chains, 2);
+
+  replay_build_chain("dodecahedron_kis", DODECAHEDRON_KIS_RECIPE);
+  replay_build_chain("cube_kis_dual", CUBE_KIS_DUAL_RECIPE);
+  replay_build_chain("icosahedron_ambo_dual", ICOSAHEDRON_AMBO_DUAL_RECIPE);
+  replay_build_chain("dodecahedron_hk62_dual", DODECAHEDRON_HK62_DUAL_RECIPE);
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Runs all ConwayMorph operator-level tests.
+ * @brief Runs all OpLeg operator-level tests.
  * @return The module's failure count.
  */
 inline int run_conway_morph_tests() {
@@ -1236,6 +2876,18 @@ inline int run_conway_morph_tests() {
   test_ops_at_t_eps_primary_faces_match_seed();
 
   test_ambo_leg_on_hankin_seed_holds_topology();
+  test_hankin_sweep_on_islamic_seeds_holds_topology();
+  test_hankin_sweep_vertex_stability();
+  test_opleg_hankin_sweep_smoke();
+
+  test_truncate_leg_on_recipe_seeds_holds_topology();
+  test_snub_leg_on_recipe_seeds_holds_topology();
+  test_relax_leg_on_recipe_seeds_holds_topology();
+  test_opleg_step_leg_smoke();
+  test_opleg_gated_swap_smoke();
+  test_unsweepable_recipe_steps_are_gated();
+
+  test_recipe_chain_build_replay();
 
   test_walk_policy_coverage_and_balance();
   test_ordered_tour_full_coverage_and_wrap();

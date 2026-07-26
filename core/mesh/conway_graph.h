@@ -14,7 +14,7 @@
  * simple-registry solids (docs/conway_morph_spec.md).
  * @details A node is a simple-registry solid; an edge is one animated operator
  * sweep between two parameter values on one seed. The table plus the pure walk
- * and seed-reconciliation helpers here are consumed by Animation::ConwayMorph
+ * and seed-reconciliation helpers here are consumed by Animation::OpLeg
  * and HankinSolids; everything is constexpr and unit-testable with no effect
  * or animation dependency.
  */
@@ -90,11 +90,11 @@ static_assert(
     "snubDodecahedron");
 
 /**
- * @brief Parameterized Conway operator a graph edge sweeps.
- * @details Chamfer is deliberately unused: no simple-registry endpoint is a
- * chamfered form.
+ * @brief Parameterized Conway operator a leg sweeps.
+ * @details CHAMFER is carried for recipe-step legs only; no graph edge uses it,
+ * since no simple-registry endpoint is a chamfered form.
  */
-enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB };
+enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB, CHAMFER };
 
 /**
  * @brief Reseed primitive tabled on an edge (spec section 2.1).

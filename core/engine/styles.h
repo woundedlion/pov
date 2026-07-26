@@ -271,6 +271,46 @@ struct Style {
   }
 
   /**
+   * @brief Drifting toxic haze: medium turbulence with slow drift and strong
+   * per-frame hue cycling.
+   * @return The Miasma preset Style.
+   */
+  static constexpr Style Miasma() {
+    return {0.80586f, 1.08411003f, 2.61f,       0.05059f,
+            0.725f,   26.297501f,  &noise_warp, &hue_fade};
+  }
+
+  /**
+   * @brief Static high-amplitude twist over a medium scale; a loose swirling
+   * tunnel with no temporal drift.
+   * @return The LooseWormhole preset Style.
+   */
+  static constexpr Style LooseWormhole() {
+    return {0.7257f, 0.70236106f, 11.25f,      0.01f,
+            0.0f,    10.1798f,    &noise_warp, &hue_fade};
+  }
+
+  /**
+   * @brief Static high-amplitude twist over a tight scale; a tight swirling
+   * tunnel with no temporal drift.
+   * @return The TightWormhole preset Style.
+   */
+  static constexpr Style TightWormhole() {
+    return {0.7257f, 0.70236106f, 6.42f,       0.01f,
+            0.0f,    7.8844f,     &noise_warp, &hue_fade};
+  }
+
+  /**
+   * @brief Static twist over a broad scale; a wide wormhole with wandering
+   * arms and no temporal drift.
+   * @return The WigglingWormhole preset Style.
+   */
+  static constexpr Style WigglingWormhole() {
+    return {0.7257f, 0.70236106f, 7.11f,       0.01f,
+            0.0f,    29.1917f,    &noise_warp, &hue_fade};
+  }
+
+  /**
    * @brief Static frozen distortion — no temporal movement.
    * @return The Frozen preset Style.
    */

@@ -2963,6 +2963,126 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
 }
 
 /**
+ * @brief White-box accessor for IslamicStars' private build-chain state
+ *        (befriended in effects/IslamicStars.h).
+ * @details The op-by-op recipe build only runs when the round-robin reaches a
+ * non-null recipe entry (index 1), ~340 frames into a default-speed run — past
+ * every generic smoke window. The probe pre-sets Trans Speed before init so
+ * the whole crossing fits in ~100 frames, and reads build_active_/solid_idx
+ * to pin that the build ran and completed. <96,20> keeps the raster cheap;
+ * the build bookkeeping is resolution-independent.
+ */
+struct IslamicBuildProbe {
+  using IS = IslamicStars<DEVICE_W, DEVICE_H>;
+  template <int W, int H>
+  static void set_trans_speed(IslamicStars<W, H> &e, float v) {
+    e.params.trans_speed = v;
+  }
+  template <int W, int H>
+  static bool build_active(const IslamicStars<W, H> &e) {
+    return e.build_active_;
+  }
+  template <int W, int H> static int solid_idx(const IslamicStars<W, H> &e) {
+    return e.solid_idx;
+  }
+};
+
+/**
+ * @brief Drives IslamicStars across the second registry entry's complete
+ *        op-by-op build at max trans speed: the build must activate and
+ *        finish without a trap, and the shape after it must start cleanly
+ *        and light pixels.
+ */
+inline void test_islamicstars_recipe_build_smoke() {
+  reset_effect_globals();
+  IslamicBuildProbe::IS effect;
+  IslamicBuildProbe::set_trans_speed(effect, 8.0f);
+  effect.init();
+
+  // Entry 1 (dodecahedron_hk62_ambo_hk62) is the second spawn; the third
+  // spawn requires its build to have completed.
+  constexpr int MAX_FRAMES = 400;
+  int frames = 0;
+  int build_frames = 0;
+  while (frames < MAX_FRAMES && IslamicBuildProbe::solid_idx(effect) < 2) {
+    effect.draw_frame();
+    effect.advance_display();
+    ++frames;
+    if (IslamicBuildProbe::build_active(effect))
+      ++build_frames;
+  }
+  HS_EXPECT_LT(frames, MAX_FRAMES);
+  HS_EXPECT_GT(build_frames, 0);
+  HS_EXPECT_TRUE(!IslamicBuildProbe::build_active(effect));
+
+  // The following (null-recipe) shape renders lit frames.
+  for (int f = 0; f < 12; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  uint64_t acc = 0;
+  for (int y = 0; y < DEVICE_H; ++y)
+    for (int x = 0; x < DEVICE_W; ++x) {
+      const Pixel &p = effect.get_pixel(x, y);
+      acc += static_cast<uint64_t>(p.r) + p.g + p.b;
+    }
+  HS_EXPECT_GT(acc, (uint64_t)0);
+}
+
+/**
+ * @brief Drives IslamicStars through every registry entry, pinning the
+ *        persistent arena against the effect's own budget.
+ * @details The per-chain gate measures a build in isolation, which misses what
+ *          the effect actually holds: a build follows whatever shape preceded
+ *          it, and the roster's heaviest entry is 1082 faces. Cycling the whole
+ *          roster is the only thing that exercises a build against that
+ *          predecessor. Rendered small — the peak is mesh-driven, not
+ *          canvas-driven — because the gate is about memory, not pixels. An
+ *          Arena overrun traps, so an OOM fails this test by killing the run.
+ */
+inline void test_islamicstars_roster_cycle_fits_budget() {
+  reset_effect_globals();
+  IslamicStars<96, 20> effect;
+  IslamicBuildProbe::set_trans_speed(effect, 8.0f);
+  effect.init();
+
+  const int entries =
+      static_cast<int>(Solids::Collections::get_islamic_solids().size());
+  constexpr int MAX_FRAMES = 20000;
+  size_t peak = 0;
+  int frames = 0;
+  int shapes = 0;
+  int builds = 0;
+  int last = IslamicBuildProbe::solid_idx(effect);
+  while (frames < MAX_FRAMES && shapes <= entries) {
+    effect.draw_frame();
+    effect.advance_display();
+    ++frames;
+    // reset() clears the arena's own mark, so sample every frame to keep the
+    // peak across compactions.
+    peak = std::max(peak, persistent_arena.get_high_water_mark());
+    if (IslamicBuildProbe::build_active(effect))
+      ++builds;
+    const int cur = IslamicBuildProbe::solid_idx(effect);
+    if (cur != last) {
+      last = cur;
+      ++shapes;
+    }
+  }
+
+  // The device split, not the host arena: on host GLOBAL_ARENA_SIZE dwarfs the
+  // real budget and the comparison would pass vacuously. Mirrors the
+  // configure_arenas call in IslamicStars::init.
+  const size_t budget = DEVICE_GLOBAL_ARENA_SIZE - (114 + 80) * 1024;
+  std::printf("  [roster] %d shapes over %d frames, %d build frames, "
+              "persistent peak=%zu B / %zu B\n",
+              shapes, frames, builds, peak, budget);
+  HS_EXPECT_GT(shapes, entries - 1);
+  HS_EXPECT_GT(builds, 0);
+  HS_EXPECT_LE(peak, budget);
+}
+
+/**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the SH-decode check, then both smoke and determinism passes over
@@ -3035,6 +3155,8 @@ inline int run_effects_tests() {
     test_shapeshifter_shape_cut_lifecycle();
     test_shapeshifter_max_radius_survives_cycle();
     test_hankinsolids_arena_budget_covers_every_solid();
+    test_islamicstars_recipe_build_smoke();
+    test_islamicstars_roster_cycle_fits_budget();
 
     // Full production-resolution roster passes (288x144): smoke, then cross-run
     // determinism under the injected clock.

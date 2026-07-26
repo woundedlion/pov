@@ -36,7 +36,10 @@ public:
   static constexpr float FREQ_MIN = 0.01f, FREQ_MAX = 1.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float SCALE_MIN = 0.1f, SCALE_MAX = 50.0f;
-  static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 0.5f;
+  // Widened past 0.5 to expose the Miasma/Wormhole presets, whose per-e-fold hue
+  // rotations (up to ~1.084) exceed a half turn; the range exposes the presets,
+  // it does not clamp them.
+  static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 1.1f;
 
   /** @brief True iff every preset-driven field of @p s lies within its
    *  registered slider range (see the range constants above). */
@@ -56,7 +59,11 @@ public:
           preset_in_ranges(Style::SlowDust()) &&
           preset_in_ranges(Style::WavyTrails()) &&
           preset_in_ranges(Style::MeltingHi()) &&
-          preset_in_ranges(Style::MeltingLo()),
+          preset_in_ranges(Style::MeltingLo()) &&
+          preset_in_ranges(Style::Miasma()) &&
+          preset_in_ranges(Style::LooseWormhole()) &&
+          preset_in_ranges(Style::TightWormhole()) &&
+          preset_in_ranges(Style::WigglingWormhole()),
       "a MeshFeedback preset drives a style field outside its "
       "registered slider range; widen the range to accommodate the "
       "preset (the range exposes the presets, it does not clamp them)");
@@ -190,15 +197,19 @@ private:
 
   Style style;
 
-  Presets<Style, 8> presets{
-      std::array<PresetEntry<Style>, 8>{{{Style::ArcingLightning()},
-                                         {Style::SlowFire()},
-                                         {Style::EnergeticFire()},
-                                         {Style::Smoke()},
-                                         {Style::SlowDust()},
-                                         {Style::WavyTrails()},
-                                         {Style::MeltingHi()},
-                                         {Style::MeltingLo()}}}};
+  Presets<Style, 12> presets{
+      std::array<PresetEntry<Style>, 12>{{{Style::ArcingLightning()},
+                                          {Style::SlowFire()},
+                                          {Style::EnergeticFire()},
+                                          {Style::Smoke()},
+                                          {Style::SlowDust()},
+                                          {Style::WavyTrails()},
+                                          {Style::MeltingHi()},
+                                          {Style::MeltingLo()},
+                                          {Style::Miasma()},
+                                          {Style::LooseWormhole()},
+                                          {Style::TightWormhole()},
+                                          {Style::WigglingWormhole()}}}};
   bool feedback_enabled = true;
   int transition_frames_ = 0;
   NoiseParams noise_params;

@@ -23,15 +23,20 @@
  *     vertex counts and positions.
  *   - Sliver-face invariant: every Islamic recipe keeps its longest geodesic
  *     edge within 6x the median edge.
+ *   - Recipe tables: every entry with a non-null recipe replays bitwise-equal
+ *     to its generator, lowered (expand_to_primitives) replay is bitwise-equal
+ *     to authored replay, and each composite op's decomposition is pinned.
  */
 #pragma once
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 #include "core/mesh/mesh.h"
 #include "core/color/palettes.h"
+#include "core/mesh/recipe.h"
 #include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
@@ -740,6 +745,188 @@ inline void test_hankin_solids_fit_hankinsolids_persistent_budget() {
 }
 
 // ---------------------------------------------------------------------------
+// Recipe tables: the declarative chains in solids.h must replay bitwise-equal
+// to the generator functions they mirror, and expand_to_primitives' composite
+// decompositions must replay bitwise-equal to the authored composites.
+// ---------------------------------------------------------------------------
+
+/** Lowered-step buffer capacity (deepest chain is 6 steps, meta emits 3). */
+constexpr size_t MAX_LOWERED_STEPS = 32;
+
+/**
+ * @brief Asserts two meshes are bitwise identical: same counts and same bytes
+ *        for vertices, face_counts, and faces.
+ * @param m1,m2 Meshes to compare.
+ */
+inline void check_bitwise_equal_meshes(const PolyMesh &m1, const PolyMesh &m2) {
+  HS_EXPECT_EQ(m1.vertices.size(), m2.vertices.size());
+  HS_EXPECT_EQ(m1.face_counts.size(), m2.face_counts.size());
+  HS_EXPECT_EQ(m1.faces.size(), m2.faces.size());
+  if (m1.vertices.size() != m2.vertices.size() ||
+      m1.face_counts.size() != m2.face_counts.size() ||
+      m1.faces.size() != m2.faces.size())
+    return;
+  HS_EXPECT_EQ(std::memcmp(m1.vertices.data(), m2.vertices.data(),
+                           m1.vertices.size() * sizeof(Vector)),
+               0);
+  HS_EXPECT_EQ(std::memcmp(m1.face_counts.data(), m2.face_counts.data(),
+                           m1.face_counts.size() * sizeof(uint8_t)),
+               0);
+  HS_EXPECT_EQ(std::memcmp(m1.faces.data(), m2.faces.data(),
+                           m1.faces.size() * sizeof(uint16_t)),
+               0);
+}
+
+/**
+ * @brief Verifies build_recipe replays every non-null recipe bitwise-identical
+ *        to its entry's generator, across all three registries.
+ * @details The anchor gate: it is what stops the recipe tables and the shipping
+ *          geometry from silently diverging.
+ */
+inline void test_recipes_match_generators_bitwise() {
+  size_t checked = 0;
+  for (std::span<const Solids::Entry> reg : Solids::all_registries()) {
+    for (const Solids::Entry &e : reg) {
+      if (!e.recipe)
+        continue;
+      Arena geom1(solids_geom_a, sizeof(solids_geom_a));
+      PolyMesh gen;
+      {
+        Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+        Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+        gen = Solids::finalize_solid(e.generate(a, b), geom1);
+      }
+      Arena geom2(solids_geom_b, sizeof(solids_geom_b));
+      PolyMesh rec;
+      {
+        Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+        Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+        rec = Solids::finalize_solid(Solids::build_recipe(*e.recipe, a, b),
+                                     geom2);
+      }
+      check_bitwise_equal_meshes(gen, rec);
+      ++checked;
+    }
+  }
+  // Guards against a vacuous pass if the recipe pointers are dropped.
+  HS_EXPECT_TRUE(checked >= 2);
+}
+
+/**
+ * @brief Verifies lowered replay (expand_to_primitives + build_steps) matches
+ *        authored replay (build_recipe) bitwise for every non-null recipe.
+ */
+inline void test_recipe_lowered_replay_matches_authored() {
+  for (std::span<const Solids::Entry> reg : Solids::all_registries()) {
+    for (const Solids::Entry &e : reg) {
+      if (!e.recipe)
+        continue;
+      Solids::OpStep lowered[MAX_LOWERED_STEPS];
+      size_t n =
+          Solids::expand_to_primitives(*e.recipe, lowered, MAX_LOWERED_STEPS);
+      Arena geom1(solids_geom_a, sizeof(solids_geom_a));
+      PolyMesh authored;
+      {
+        Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+        Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+        authored = Solids::finalize_solid(Solids::build_recipe(*e.recipe, a, b),
+                                          geom1);
+      }
+      Arena geom2(solids_geom_b, sizeof(solids_geom_b));
+      PolyMesh low;
+      {
+        Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+        Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+        low = Solids::finalize_solid(
+            Solids::build_steps(e.recipe->seed, lowered, n, a, b), geom2);
+      }
+      check_bitwise_equal_meshes(authored, low);
+    }
+  }
+}
+
+/**
+ * @brief Verifies expand_to_primitives is a pass-through on the two shipping
+ *        recipes (hankin/ambo chains contain no composites).
+ */
+inline void test_shipping_recipe_lowering_is_identity() {
+  const Solids::Entry *entries[] = {
+      Solids::find_entry("dodecahedron_hk62_ambo_hk62"),
+      Solids::find_entry("octahedron_hk17_ambo_hk73")};
+  for (const Solids::Entry *e : entries) {
+    HS_EXPECT_TRUE(e != nullptr && e->recipe != nullptr);
+    if (!e || !e->recipe)
+      continue;
+    Solids::OpStep lowered[MAX_LOWERED_STEPS];
+    size_t n =
+        Solids::expand_to_primitives(*e->recipe, lowered, MAX_LOWERED_STEPS);
+    HS_EXPECT_EQ(n, (size_t)e->recipe->count);
+    if (n != e->recipe->count)
+      continue;
+    for (size_t i = 0; i < n; ++i) {
+      HS_EXPECT_TRUE(lowered[i].op == e->recipe->steps[i].op);
+      HS_EXPECT_EQ(lowered[i].param, e->recipe->steps[i].param);
+      HS_EXPECT_EQ(lowered[i].twist, e->recipe->steps[i].twist);
+    }
+  }
+}
+
+/**
+ * @brief Builds a one-step recipe on the tetrahedron seed and asserts lowered
+ *        replay equals authored replay bitwise.
+ * @param step The (composite) op step to pin.
+ */
+inline void check_composite_lowering(const Solids::OpStep &step) {
+  const Solids::Recipe recipe = {0 /* tetrahedron */, &step, 1};
+  Solids::OpStep lowered[MAX_LOWERED_STEPS];
+  size_t n = Solids::expand_to_primitives(recipe, lowered, MAX_LOWERED_STEPS);
+  Arena geom1(solids_geom_a, sizeof(solids_geom_a));
+  PolyMesh authored;
+  {
+    Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+    Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+    authored =
+        Solids::finalize_solid(Solids::build_recipe(recipe, a, b), geom1);
+  }
+  Arena geom2(solids_geom_b, sizeof(solids_geom_b));
+  PolyMesh low;
+  {
+    Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+    Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+    low = Solids::finalize_solid(
+        Solids::build_steps(recipe.seed, lowered, n, a, b), geom2);
+  }
+  check_bitwise_equal_meshes(authored, low);
+}
+
+/**
+ * @brief Pins every composite decomposition (gyro/meta/needle/zip/bevel),
+ *        including bevel(0.5) lowering its truncate half to ambo.
+ * @details A transposed decomposition (e.g. needle = kd written as dk) fails
+ *          here rather than producing a subtly wrong solid at runtime.
+ */
+inline void test_composite_lowering_matches_composites() {
+  check_composite_lowering({Solids::Op::GYRO});
+  check_composite_lowering({Solids::Op::META});
+  check_composite_lowering({Solids::Op::NEEDLE});
+  check_composite_lowering({Solids::Op::ZIP});
+  check_composite_lowering({Solids::Op::BEVEL, 0.2f});
+  check_composite_lowering({Solids::Op::BEVEL, 0.5f});
+
+  // bevel(0.5)'s lowered form is exactly ambo, ambo (truncate's ambo
+  // short-circuit is not a legal leg target).
+  const Solids::OpStep bevel_half = {Solids::Op::BEVEL, 0.5f};
+  const Solids::Recipe recipe = {0, &bevel_half, 1};
+  Solids::OpStep lowered[MAX_LOWERED_STEPS];
+  size_t n = Solids::expand_to_primitives(recipe, lowered, MAX_LOWERED_STEPS);
+  HS_EXPECT_EQ(n, (size_t)2);
+  if (n == 2) {
+    HS_EXPECT_TRUE(lowered[0].op == Solids::Op::AMBO);
+    HS_EXPECT_TRUE(lowered[1].op == Solids::Op::AMBO);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -768,6 +955,11 @@ inline int run_solids_tests() {
   test_determinism_hardcoded_platonic();
   test_determinism_archimedean_with_conway_ops();
   test_determinism_complex_islamic();
+
+  test_recipes_match_generators_bitwise();
+  test_recipe_lowered_replay_matches_authored();
+  test_shipping_recipe_lowering_is_identity();
+  test_composite_lowering_matches_composites();
 
   test_islamic_recipes_fit_islamicstars_budget();
   test_islamic_solids_fit_islamicstars_persistent_budget();

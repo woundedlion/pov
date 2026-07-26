@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Native soak for the ConwayMorph graph walk (docs/conway_morph_spec.md §7.8):
+ * Native soak for the OpLeg graph walk (docs/conway_morph_spec.md §7.8):
  * runs the real HankinSolids frame loop across enough legs to visit every
  * graph node, under native asserts. Surviving is most of the assertion — any
  * trap (seed reconciliation, per-frame hankin count guard, scratch overflow)
@@ -52,7 +52,7 @@ struct HankinWalkProbe {
    * @brief In-flight leg's arrival data, or nullptr between legs.
    */
   template <int W, int H>
-  static const Animation::ConwayMorph::Landing *
+  static const Animation::OpLeg::Landing *
   pending_landing(const HankinSolids<W, H> &fx) {
     return fx.pending_landing_;
   }
@@ -295,7 +295,7 @@ inline void test_full_graph_walk_soak() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Runs the ConwayMorph graph-walk soak.
+ * @brief Runs the OpLeg graph-walk soak.
  * @return The module's failure count.
  */
 inline int run_conway_soak_tests() {
