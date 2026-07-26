@@ -1315,6 +1315,32 @@ inline void test_baked_palette_in_range() {
   }
 }
 
+inline void test_baked_palette_color_sampler_matches_get() {
+  struct Source {
+    Color4 get(float t) const {
+      return Color4(Pixel(static_cast<uint16_t>(123.0f + 59877.0f * t),
+                          static_cast<uint16_t>(4567.0f + 17655.0f * t),
+                          static_cast<uint16_t>(65535.0f - 65518.0f * t)),
+                    0.1f + 0.8f * t);
+    }
+  } source;
+
+  alignas(std::max_align_t) uint8_t
+      buf[BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+  BakedPalette baked;
+  baked.bake(arena, source);
+
+  for (int i = -128; i <= 65663; ++i) {
+    float t = static_cast<float>(i) / 65535.0f;
+    HS_EXPECT_EQ(baked.get_color(t), baked.get(t).color);
+    if (i >= 0 && i <= 65535)
+      HS_EXPECT_EQ(baked.get_color_unit(t), baked.get(t).color);
+  }
+  const float nan = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_EQ(baked.get_color(nan), baked.get(nan).color);
+}
+
 /**
  * @brief Verifies clone_from deep-copies the LUT so both palettes sample equal.
  * @details clone_from (raw memcpy into a fresh arena allocation) is reached only
@@ -2075,7 +2101,6 @@ inline void test_palette_wrappers() {
  */
 inline int run_color_tests() {
   hs_test::ModuleFixture fixture("color");
-
   test_lerp16_endpoints();
   test_lerp16_midpoint();
   test_lerp16_rounds_to_nearest();
@@ -2126,6 +2151,7 @@ inline int run_color_tests() {
 
   test_baked_palette_matches_source_endpoints();
   test_baked_palette_in_range();
+  test_baked_palette_color_sampler_matches_get();
   test_baked_palette_clone_from_matches_source();
   test_step_wipe_rebake_skips_arming_then_decrements();
 

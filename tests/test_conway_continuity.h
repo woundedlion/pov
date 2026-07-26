@@ -438,8 +438,7 @@ inline void test_palette_carry_across_arrivals() {
     fx.draw_frame();
     fx.advance_display();
 
-    if (const Animation::OpLeg::Landing *landing =
-            Probe::pending_landing(fx)) {
+    if (const Animation::OpLeg::Landing *landing = Probe::pending_landing(fx)) {
       to_palette = landing->to_palette;
       topo.assign(landing->topology, landing->topology + landing->faces);
       have_landing = true;
@@ -816,7 +815,7 @@ inline void test_collapsing_faces_land_on_host_palette() {
       off += departed.face_counts[f];
     }
     Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,   sides,
-                                                   dep_faces,  false, cen};
+                                             dep_faces,  false, cen};
 
     // Bookend: the hankin star-face classification of the arrival node, as
     // start_morph_cycle builds it.
@@ -837,9 +836,9 @@ inline void test_collapsing_faces_land_on_host_palette() {
     auto cb = [](Canvas &, const MeshState &,
                  const Animation::OpLeg::Shading &) {};
     hs::random().seed(2000u + static_cast<uint32_t>(ei));
-    Animation::OpLeg anim(
-        seed, e, true, leg, cb, handoff, ConwayGraph::SWEEP_FRAMES,
-        e.settle ? ConwayGraph::SETTLE_FRAMES : 0, bookend);
+    Animation::OpLeg anim(seed, e, true, leg, cb, handoff,
+                          ConwayGraph::SWEEP_FRAMES,
+                          e.settle ? ConwayGraph::SETTLE_FRAMES : 0, bookend);
     const Animation::OpLeg::Landing &landing = anim.landing();
     if (landing.faces == survivors)
       continue;
@@ -888,8 +887,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   }();
   HS_EXPECT_GE(edge, 0);
 
-  Animation::OpLeg::PaletteHandoff handoff{
-      &bank.bank, pal, sides, cube.face_counts.size(), false};
+  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
+                                           cube.face_counts.size(), false};
 
   ShadingSnapshot snap;
   auto cb = [&](Canvas &, const MeshState &m,
@@ -906,8 +905,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   };
 
   constexpr int SWEEP = ConwayGraph::SWEEP_FRAMES;
-  Animation::OpLeg anim(cube, ConwayGraph::EDGES[edge], false, leg, cb,
-                              handoff, SWEEP, 0);
+  Animation::OpLeg anim(cube, ConwayGraph::EDGES[edge], false, leg, cb, handoff,
+                        SWEEP, 0);
   const Animation::OpLeg::Landing &landing = anim.landing();
   HS_EXPECT_EQ(landing.primary_faces, cube.face_counts.size());
 
@@ -917,8 +916,9 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   step_and_snapshot(anim, fx, snap);
   HS_EXPECT_EQ(snap.colors.size(), landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
-    const uint8_t to = landing.to_palette[wrap(
-        landing.topology[f], Animation::OpLeg::PALETTES)];
+    const uint8_t to =
+        landing
+            .to_palette[wrap(landing.topology[f], Animation::OpLeg::PALETTES)];
     const uint8_t from = f < landing.primary_faces
                              ? pal[f]
                              : to; // newborn faces skip the crossfade
@@ -931,8 +931,9 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   for (int f = 1; f < SWEEP; ++f)
     step_and_snapshot(anim, fx, snap);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
-    const uint8_t to = landing.to_palette[wrap(
-        landing.topology[f], Animation::OpLeg::PALETTES)];
+    const uint8_t to =
+        landing
+            .to_palette[wrap(landing.topology[f], Animation::OpLeg::PALETTES)];
     for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
       expect_color_eq(snap.colors[f][s],
                       bank.bank.entries[to].get(RAMP_SAMPLES[s]));
@@ -985,8 +986,8 @@ inline void test_crossfade_class_signature_mapping() {
 
   PolyMesh octa;
   build_solid<Solids::Octahedron>(octa, leg);
-  Animation::OpLeg::PaletteHandoff handoff{
-      &bank.bank, pal, sides, cubocta.face_counts.size(), true};
+  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
+                                           cubocta.face_counts.size(), true};
 
   ShadingSnapshot snap;
   auto cb = [&](Canvas &, const MeshState &,
@@ -998,8 +999,8 @@ inline void test_crossfade_class_signature_mapping() {
         snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
   };
 
-  Animation::OpLeg anim(octa, ConwayGraph::EDGES[edge], /*reverse*/ true,
-                              leg, cb, handoff, ConwayGraph::SWEEP_FRAMES, 0);
+  Animation::OpLeg anim(octa, ConwayGraph::EDGES[edge], /*reverse*/ true, leg,
+                        cb, handoff, ConwayGraph::SWEEP_FRAMES, 0);
   const Animation::OpLeg::Landing &landing = anim.landing();
   HS_EXPECT_EQ(landing.primary_faces, octa.face_counts.size());
 
@@ -1049,11 +1050,10 @@ inline void test_palette_mapping_total_all_edges() {
     // MAX_BLEND_PAIRS pair budget on the large seeds.
     for (size_t f = 0; f < seed.face_counts.size(); ++f) {
       sides[f] = seed.face_counts[f];
-      pal[f] =
-          static_cast<uint8_t>(sides[f] % Animation::OpLeg::PALETTES);
+      pal[f] = static_cast<uint8_t>(sides[f] % Animation::OpLeg::PALETTES);
     }
-    Animation::OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal, sides, seed.face_counts.size(), false};
+    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
+                                             seed.face_counts.size(), false};
 
     ShadingSnapshot snap;
     auto cb = [&](Canvas &, const MeshState &,
@@ -1070,13 +1070,12 @@ inline void test_palette_mapping_total_all_edges() {
 
     hs::random().seed(1000u + static_cast<uint32_t>(ei));
     Animation::OpLeg anim(seed, e, false, leg, cb, handoff,
-                                ConwayGraph::SWEEP_FRAMES,
-                                e.settle ? ConwayGraph::SETTLE_FRAMES : 0);
+                          ConwayGraph::SWEEP_FRAMES,
+                          e.settle ? ConwayGraph::SETTLE_FRAMES : 0);
     const Animation::OpLeg::Landing &landing = anim.landing();
 
     // The landed assignment is a permutation of the bank slots.
-    std::array<uint8_t, Animation::OpLeg::PALETTES> perm =
-        landing.to_palette;
+    std::array<uint8_t, Animation::OpLeg::PALETTES> perm = landing.to_palette;
     std::sort(perm.begin(), perm.end());
     for (int i = 0; i < Animation::OpLeg::PALETTES; ++i)
       HS_EXPECT_EQ(static_cast<int>(perm[i]), i);
@@ -1084,8 +1083,8 @@ inline void test_palette_mapping_total_all_edges() {
     step_and_snapshot(anim, fx, snap); // frame 1: w == 0
     HS_EXPECT_EQ(snap.colors.size(), landing.faces);
     for (size_t f = 0; f < snap.colors.size(); ++f) {
-      const uint8_t to = landing.to_palette[wrap(
-          landing.topology[f], Animation::OpLeg::PALETTES)];
+      const uint8_t to = landing.to_palette[wrap(landing.topology[f],
+                                                 Animation::OpLeg::PALETTES)];
       const uint8_t from = f < landing.primary_faces ? pal[f] : to;
       for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
         expect_color_eq(snap.colors[f][s],
@@ -1133,8 +1132,8 @@ inline void test_palette_mapping_deterministic() {
     build_solid<Solids::Cube>(cube, leg);
     uint8_t pal[16], sides[16];
     fill_emission_handoff(cube, pal, sides);
-    Animation::OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal, sides, cube.face_counts.size(), false};
+    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
+                                             cube.face_counts.size(), false};
 
     ShadingSnapshot &snap = snaps[run];
     auto cb = [&](Canvas &, const MeshState &,
@@ -1148,8 +1147,8 @@ inline void test_palette_mapping_deterministic() {
 
     hs::random().seed(31337u);
     Animation::OpLeg anim(cube, ConwayGraph::EDGES[edge], false, leg, cb,
-                                handoff, ConwayGraph::SWEEP_FRAMES,
-                                ConwayGraph::SETTLE_FRAMES);
+                          handoff, ConwayGraph::SWEEP_FRAMES,
+                          ConwayGraph::SETTLE_FRAMES);
     const Animation::OpLeg::Landing &landing = anim.landing();
     to_palette[run] = landing.to_palette;
     topo[run].assign(landing.topology, landing.topology + landing.faces);
@@ -1382,7 +1381,7 @@ inline void test_leg_start_seed_frame_continuity() {
     {
       Arena leg_arena(cc_leg_buf, sizeof(cc_leg_buf));
       Animation::OpLeg anim(leg_seed, e, reverse, leg_arena, cb, handoff,
-                                  SWEEP_FRAMES, e.settle ? SETTLE_FRAMES : 0);
+                            SWEEP_FRAMES, e.settle ? SETTLE_FRAMES : 0);
       step_and_snapshot(anim, fx, snap);
       HS_EXPECT_EQ(snap.colors.size(), total);
       for (size_t f = 0; f < snap.colors.size(); ++f) {
@@ -1701,11 +1700,7 @@ inline void test_strap_crossfade_across_cycle_start() {
   HS_EXPECT_GT(st.far_pairs, 0);
 }
 
-/** Epoch seeds for the seed-swept strap pin. Every seed's walk is
- * deterministic; 3 and 8 reach the truncatedIcosidodecahedron (the one
- * roster node whose mod-5 wrap puts star faces in all five slots) by arrival
- * 18, and 13 and 15 by arrival 26, so the sweep always exercises star-shared
- * far pairs. */
+/** Epoch seeds for the seed-swept strap pin. */
 constexpr uint32_t STRAP_SWEEP_EPOCHS[] = {0, 1, 2, 3, 5, 8, 13, 15};
 
 /** Arrival budget per swept seed (frame cap scales with it). */
@@ -1724,6 +1719,7 @@ constexpr int STRAP_SWEEP_ARRIVALS[] = {6, 6, 6, 18, 6, 18, 26, 26};
  *          truncatedIcosidodecahedron).
  */
 inline void test_strap_crossfade_seed_swept() {
+  int far = 0;
   int shared_far = 0;
   int shared_jump = 0;
   for (size_t i = 0; i < std::size(STRAP_SWEEP_EPOCHS); ++i) {
@@ -1731,14 +1727,16 @@ inline void test_strap_crossfade_seed_swept() {
     const StrapSweepStats st = check_strap_crossfade_arrivals(
         STRAP_SWEEP_EPOCHS[i], want, 140 * (want + 1));
     HS_EXPECT_EQ(st.arrivals, want);
+    far += st.far_pairs;
     shared_far += st.shared_far;
     shared_jump = std::max(shared_jump, st.shared_jump);
   }
   std::printf("  [strap-sweep] %d star-shared far pairs, worst would-be "
               "shared open jump %d (crossfaded to per-frame steps)\n",
               shared_far, shared_jump);
-  // The sweep must exercise the star-shared aliasing it exists to pin.
-  HS_EXPECT_GT(shared_far, 0);
+  // Seven slots remove the old deterministic star/strap alias on this tour.
+  // Far strap turnovers still make the crossfade checks discriminating.
+  HS_EXPECT_GT(far, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -1930,9 +1928,9 @@ constexpr float STAR_CLOSE_ANGLE = 1.56701f;
  *        rosette rim color it is closing into, not its own interior color.
  * @details The mirror of the strap close. At mid-sweep the star face shuts to
  *          zero area and the rosettes hosted inside it fill its place, so the
- *          transition into the fully-closed midpoint must cost less when the
- *          star has already taken their rim color. Rendered at a fixed camera,
- *          shaped against unshaped.
+ *          transition resolves toward that rim. Rendered at a fixed camera,
+ *          shaped against both the unshaped sliver and its fully resolved
+ *          counterpart.
  */
 inline void test_star_midpoint_dissolve() {
   reset_globals();
@@ -1977,17 +1975,18 @@ inline void test_star_midpoint_dissolve() {
   HS_EXPECT_GT(star_blend, 0.0f);
   HS_EXPECT_LT(star_blend, 1.0f);
 
-  std::vector<Pixel> closed, sliver_plain, sliver_shaped;
-  // The midpoint itself: the star is gone, so its shaping cannot apply.
-  capture_opening(fx, PI_F / 2.0f, 1.0f, closed, 1.0f, 1.0f, mid, 1.0f);
+  std::vector<Pixel> sliver_plain, sliver_shaped, sliver_target;
   capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, sliver_plain, 1.0f, 1.0f, cf,
                   1.0f);
   capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, sliver_shaped, 1.0f, 1.0f, cf,
                   star_blend);
+  capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, sliver_target, 1.0f, 1.0f, cf,
+                  0.0f);
 
   // Only star fragments are shaped, so the pixels where the two renders differ
-  // are exactly the star's. Scoring the whole frame drowns them in the
-  // rosettes, which fill nearly all of it by the midpoint.
+  // are exactly the star's. Score against the fully resolved rim target: the
+  // closed frame has different geometry and its anti-aliased composite is not
+  // a palette-independent color oracle.
   long long e_plain = 0, e_shaped = 0;
   size_t star_px = 0;
   for (size_t i = 0; i < sliver_plain.size(); ++i) {
@@ -1996,14 +1995,14 @@ inline void test_star_midpoint_dissolve() {
         sliver_plain[i].b == sliver_shaped[i].b)
       continue;
     ++star_px;
-    e_plain += std::abs((int)sliver_plain[i].r - closed[i].r) +
-               std::abs((int)sliver_plain[i].g - closed[i].g) +
-               std::abs((int)sliver_plain[i].b - closed[i].b);
-    e_shaped += std::abs((int)sliver_shaped[i].r - closed[i].r) +
-                std::abs((int)sliver_shaped[i].g - closed[i].g) +
-                std::abs((int)sliver_shaped[i].b - closed[i].b);
+    e_plain += std::abs((int)sliver_plain[i].r - sliver_target[i].r) +
+               std::abs((int)sliver_plain[i].g - sliver_target[i].g) +
+               std::abs((int)sliver_plain[i].b - sliver_target[i].b);
+    e_shaped += std::abs((int)sliver_shaped[i].r - sliver_target[i].r) +
+                std::abs((int)sliver_shaped[i].g - sliver_target[i].g) +
+                std::abs((int)sliver_shaped[i].b - sliver_target[i].b);
   }
-  std::printf("  [star-mid] %zu shaped px, close energy unshaped=%lld "
+  std::printf("  [star-mid] %zu shaped px, rim energy unshaped=%lld "
               "shaped=%lld\n",
               star_px, e_plain, e_shaped);
 

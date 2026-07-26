@@ -3222,13 +3222,6 @@ struct IslamicBuildProbe {
   template <int W, int H> static int front_slot(IslamicStars<W, H> &e) {
     return e.carousel.front_index();
   }
-  template <int W, int H> static bool seed_intro(const IslamicStars<W, H> &e) {
-    return e.seed_intro_;
-  }
-  template <int W, int H>
-  static const Segue::Dissolve &seed_dissolve(const IslamicStars<W, H> &e) {
-    return e.seed_dissolve_;
-  }
   template <int W, int H>
   static const uint8_t *slot_palette(const IslamicStars<W, H> &e, int slot) {
     return e.slot_face_palette[slot];
@@ -3243,76 +3236,32 @@ struct IslamicBuildProbe {
   static constexpr size_t default_scratch_a() {
     return IS::SPLIT_SCRATCH_A_DEFAULT;
   }
-  static constexpr size_t split_scratch_b() { return IS::SPLIT_SCRATCH_B; }
+  static constexpr size_t bridge_scratch_b() {
+    return IS::SPLIT_SCRATCH_B_BRIDGE;
+  }
+  static constexpr int sprite_fade_frames() { return IS::SPRITE_FADE_FRAMES; }
 };
 
 /**
- * @brief Pins the seed fade-in dissolve: the first shape's base mesh
- *        materialises through a per-pixel dither over its opening window, the lit
- *        pixel count ramps up without ever overshooting the full seed, and the
- *        window lands exactly on the fully-lit seed the build leg departs from
- *        (no pop). The mask endpoints prove fade-from-black to fully-lit: phase 0
- *        owns no pixel, phase 1 owns every pixel (so a dissolve draw at the
- *        plateau rasterizes the identical pixel set as the unchanged sweep path).
+ * @brief Verifies the first recipe seed uses the Sprite envelope's 16-frame
+ *        fade-in and starts its build at the full-opacity boundary.
  */
-inline void test_islamicstars_seed_dissolve_intro() {
+inline void test_islamicstars_seed_sprite_fade_in() {
   reset_effect_globals();
-  IslamicStars<DEFAULT_W, DEFAULT_H> effect;
-  IslamicBuildProbe::set_trans_speed(effect,
-                                     4.0f); // fade 72 -> 18-frame window
-  effect.init(); // spawns the first shape; seed_intro_ armed.
+  IslamicBuildProbe::IS effect;
+  effect.init();
 
-  // Mask endpoints (fade-from-black to fully-lit), read off this spawn's armed
-  // dither: phase 0 owns nothing, phase 1 owns every sampled pixel. Owns-all at
-  // phase 1 is what makes the plateau frame identical to the sweep path.
-  const Segue::Dissolve &dis = IslamicBuildProbe::seed_dissolve(effect);
-  int owned_at_zero = 0, owned_at_one = 0, sampled = 0;
-  for (int y = 0; y < DEFAULT_H; y += 7)
-    for (int x = 0; x < DEFAULT_W; x += 7) {
-      owned_at_zero += dis.mask(0.0f, 3u, true).owns(x, y) ? 1 : 0;
-      owned_at_one += dis.mask(1.0f, 3u, true).owns(x, y) ? 1 : 0;
-      ++sampled;
-    }
-  HS_EXPECT_EQ(owned_at_zero, 0);
-  HS_EXPECT_EQ(owned_at_one, sampled);
-
-  auto lit_pixels = [&]() {
-    uint64_t n = 0;
-    for (int y = 0; y < DEFAULT_H; ++y)
-      for (int x = 0; x < DEFAULT_W; ++x) {
-        const Pixel &p = effect.get_pixel(x, y);
-        if (p.r || p.g || p.b)
-          ++n;
-      }
-    return n;
-  };
-
-  // Drive the opening window: every frame that still drew through the dissolve
-  // (seed_intro_ true after the frame) records its lit count; the frame the flag
-  // clears on is the fully-lit plateau handoff.
-  std::vector<uint64_t> intro_counts;
-  uint64_t handoff_count = 0;
-  constexpr int MAX_FRAMES = 60;
-  for (int f = 0; f < MAX_FRAMES; ++f) {
+  constexpr int FADE_FRAMES = IslamicBuildProbe::sprite_fade_frames();
+  HS_EXPECT_EQ(FADE_FRAMES, 16);
+  for (int frame = 1; frame < FADE_FRAMES; ++frame) {
     effect.draw_frame();
     effect.advance_display();
-    if (IslamicBuildProbe::seed_intro(effect)) {
-      intro_counts.push_back(lit_pixels());
-    } else {
-      handoff_count = lit_pixels(); // plateau: sweep path, phase 1, fully lit
-      break;
-    }
+    HS_EXPECT_FALSE(IslamicBuildProbe::build_active(effect));
   }
 
-  HS_EXPECT_GT(intro_counts.size(), (size_t)4); // a real ramp, not one frame
-  HS_EXPECT_GT(handoff_count, (uint64_t)0);
-  // Ramp: starts dark (well under a quarter of full), ends most of the way lit.
-  HS_EXPECT_LT(intro_counts.front() * 4, handoff_count);
-  HS_EXPECT_GT(intro_counts.back() * 10, handoff_count * 6);
-  // No pop: the dissolve never lights more than the full seed, so the handoff is
-  // a monotone arrival, not a jump past and back.
-  for (uint64_t c : intro_counts)
-    HS_EXPECT_LE(c, handoff_count);
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_TRUE(IslamicBuildProbe::build_active(effect));
 }
 
 /**
@@ -3409,14 +3358,14 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
 
-  // Per-shape arena split (IslamicStars::spawn_shape): a smooth kis/needle
-  // bridge shape spawns on a scratch_a-heavy split (130 KB / 74 KB / 96 KB),
-  // every other shape on the default (120 KB / 74 KB / 106 KB). On host the two
+  // Per-shape arena split (IslamicStars::spawn_shape): smooth kis/needle
+  // bridge shapes use 129.5 KB / 74 KB scratch; ordinary recipe builds use
+  // 116 KB / 72 KB; non-recipe generation retains 116 KB / 74 KB. On host the
   // scratch arenas are the exact device sizes and hard-capped, so an over-budget
   // leg traps -- completing the whole roster proves every shape's scratch fit
   // its own split. Persistent is host-inflated (soft), so it is checked per
   // frame against the effect's live per-shape device budget; host pointer
-  // inflation makes the host high-water an upper bound on the device figure.
+  // inflation makes the resident offset an upper bound on the device figure.
   auto solids = Solids::Collections::get_islamic_solids();
   const int entries = static_cast<int>(solids.size());
   int needle_idx = -1;
@@ -3457,7 +3406,7 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
                   distinct, MeshPaletteBank::N, nf);
     }
     was_building = building;
-    const size_t p = persistent_arena.get_high_water_mark();
+    const size_t p = persistent_arena.get_offset();
     const size_t a = scratch_arena_a.get_high_water_mark();
     const size_t b = scratch_arena_b.get_high_water_mark();
     const size_t p_budget = IslamicBuildProbe::persistent_budget(effect);
@@ -3496,9 +3445,9 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   std::printf("  [roster] needle smooth-path peaks: scratch_a=%zu/%zu "
               "scratch_b=%zu/%zu persistent=%zu/%zu; gated_swaps=%d\n",
               na_peak, IslamicBuildProbe::bridge_scratch_a(), nb_peak,
-              IslamicBuildProbe::split_scratch_b(), np_peak,
+              IslamicBuildProbe::bridge_scratch_b(), np_peak,
               DEVICE_GLOBAL_ARENA_SIZE - IslamicBuildProbe::bridge_scratch_a() -
-                  IslamicBuildProbe::split_scratch_b(),
+                  IslamicBuildProbe::bridge_scratch_b(),
               IslamicBuildProbe::gated_swaps(effect));
   HS_EXPECT_GT(shapes, entries - 1);
   HS_EXPECT_GT(builds, 0);
@@ -3542,7 +3491,7 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
     ++frames;
     a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
     b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
-    const size_t p = persistent_arena.get_high_water_mark();
+    const size_t p = persistent_arena.get_offset();
     persist_peak = std::max(persist_peak, p);
     HS_EXPECT_LE(p, IslamicBuildProbe::persistent_budget(effect));
   }
@@ -3630,7 +3579,7 @@ inline int run_effects_tests() {
     test_shapeshifter_shape_cut_lifecycle();
     test_shapeshifter_max_radius_survives_cycle();
     test_hankinsolids_arena_budget_covers_every_solid();
-    test_islamicstars_seed_dissolve_intro();
+    test_islamicstars_seed_sprite_fade_in();
     test_islamicstars_recipe_build_smoke();
     test_islamicstars_roster_cycle_fits_budget();
     test_islamicstars_dual_bridge_fits_budget();

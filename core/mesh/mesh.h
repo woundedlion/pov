@@ -545,19 +545,11 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       max_count = c;
   }
 
-  ArenaVector<Vector> verts;
-  verts.bind(scratch_a, max_count);
-  ArenaVector<int> angles;
-  angles.bind(scratch_a, max_count);
+  int *angles = max_count > 0 ? scratch_a.allocate_n<int>(max_count) : nullptr;
 
   size_t offset = 0;
   for (size_t i = 0; i < F; ++i) {
     int count = face_counts[i];
-
-    verts.clear();
-    for (int k = 0; k < count; ++k) {
-      verts.push_back(mesh.vertices[faces[offset + k]]);
-    }
 
     // The 32-bit hash (count + sorted whole-degree interior angles) is used
     // directly as the topology id, so a hash collision merges two distinct face
@@ -565,23 +557,32 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     uint32_t h = 0x12345678;
     hash_combine(h, static_cast<uint32_t>(count));
 
-    // A degenerate face (1 or 2 vertices) leaves `angles` empty, so the angle
-    // hash-combine must stay guarded; degenerate faces hash on count alone.
+    // Degenerate faces have no interior-angle vector and hash on count alone.
     if (count >= 3) {
-      angles.clear();
       for (int k = 0; k < count; ++k) {
-        const Vector &prev = verts[(k - 1 + count) % count];
-        const Vector &curr = verts[k];
-        const Vector &next = verts[(k + 1) % count];
-        Vector e1 = prev - curr;
-        Vector e2 = next - curr;
-        float ang =
-            (dot(e1, e1) > math::EPS_LEN_SQ && dot(e2, e2) > math::EPS_LEN_SQ)
-                ? angle_between(e1, e2)
-                : 0.0f;
-        angles.push_back((int)std::round(ang * 180.0f / PI_F));
+        const int prev_k = k == 0 ? count - 1 : k - 1;
+        const int next_k = k + 1 == count ? 0 : k + 1;
+        const Vector &prev = mesh.vertices[faces[offset + prev_k]];
+        const Vector &curr = mesh.vertices[faces[offset + k]];
+        const Vector &next = mesh.vertices[faces[offset + next_k]];
+        const Vector e1 = prev - curr;
+        const Vector e2 = next - curr;
+        const float m1 = dot(e1, e1);
+        const float m2 = dot(e2, e2);
+        float ang = 0.0f;
+        if (m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ) {
+          const float d = hs::clamp(dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
+          ang = fast_acos(d);
+        }
+        angles[k] = static_cast<int>(std::round(ang * 180.0f / PI_F));
       }
-      std::sort(angles.data(), angles.data() + count);
+      for (int k = 1; k < count; ++k) {
+        const int x = angles[k];
+        int j = k;
+        for (; j > 0 && x < angles[j - 1]; --j)
+          angles[j] = angles[j - 1];
+        angles[j] = x;
+      }
       for (int k = 0; k < count; ++k) {
         hash_combine(h, static_cast<uint32_t>(angles[k]));
       }
@@ -627,7 +628,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         }
         for (int k = 0; k < count; ++k) {
           uint16_t u = faces[face_offset + k];
-          uint16_t v = faces[face_offset + (k + 1) % count];
+          uint16_t v = faces[face_offset + (k + 1 == count ? 0 : k + 1)];
           fill_edge_record(records[he_idx], u, v,
                            static_cast<uint16_t>(he_idx));
           he_to_face[he_idx] = static_cast<uint16_t>(fi);

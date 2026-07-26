@@ -96,11 +96,27 @@ inline constexpr ProceduralPalette PEACH_POP({1.000f, 0.144f, 0.175f},
                                              {0.543f, 0.543f, 0.543f},
                                              {0.507f, 0.409f, 0.507f},
                                              {0.001f, 0.002f, 0.620f});
+inline constexpr ProceduralPalette POPPED_PEACH({1.000f, 0.144f, 0.175f},
+                                                {0.543f, 0.543f, 0.543f},
+                                                {-0.507f, -0.409f, -0.507f},
+                                                {0.508f, 0.411f, 1.127f});
+inline constexpr ProceduralPalette
+    BLUE_LAGOON({0.253f, 0.500f, 1.000f}, {0.500f, 0.844f, 1.000f},
+                {0.232086f, 0.232086f, 0.232086f},
+                {0.279882f, 0.609882f, 0.949882f});
+inline constexpr ProceduralPalette ORANGE_CRUSH({0.575f, 0.168f, 0.464f},
+                                                {0.406f, 0.697f, 0.357f},
+                                                {0.000f, -0.10051f, -0.042778f},
+                                                {0.141f, 0.25551f, 0.579778f});
+inline constexpr ProceduralPalette
+    PLUM_SUNRISE({0.407f, 0.000f, 0.296f}, {0.332f, 0.592f, 0.029f},
+                 {0.358961f, 0.331145f, 0.274519f},
+                 {0.500342f, 0.505109f, 0.278634f});
 
 } // namespace Palettes
 
 /**
- * @brief Shared 5-palette "mesh effect" bank used by HankinSolids / IslamicStars
+ * @brief Shared mesh-effect palette bank used by HankinSolids / IslamicStars
  *        and any future mesh effect.
  * @details Bundles the standard source-palette set, the bake-all step, and the
  *          per-shape index shuffle these effects share. Zero-overhead: the
@@ -109,7 +125,7 @@ inline constexpr ProceduralPalette PEACH_POP({1.000f, 0.144f, 0.175f},
  *          BakedPalette::get() with no added indirection.
  */
 struct MeshPaletteBank {
-  static constexpr int N = BakedPaletteBank::N; // 5
+  static constexpr int N = BakedPaletteBank::N;
 
   /**
    * @brief Arena bytes bake_all() consumes, including worst-case per-palette
@@ -119,17 +135,12 @@ struct MeshPaletteBank {
     return N * BakedPalette::required_arena_bytes();
   }
 
-  /**
-   * @brief Standard source palettes, in slot order.
-   * @return Array of pointers to the constexpr source palettes. The size is
-   *         deduced from the list (CTAD) — not fixed to N — so a list that
-   *         drifts out of sync with N trips the static_assert below instead of
-   *         silently nullptr-padding or reading past the bank.
-   */
+  /** @brief Shared source palettes, in bank-slot order. */
   static constexpr auto sources() {
-    return std::array{&Palettes::EMBERS, &Palettes::RICH_SUNSET,
+    return std::array{&Palettes::EMBERS,         &Palettes::RICH_SUNSET,
                       &Palettes::BRIGHT_SUNRISE, &Palettes::BRUISED_MOSS,
-                      &Palettes::LAVENDER_LAKE};
+                      &Palettes::LAVENDER_LAKE,  &Palettes::BLOOD_STREAM,
+                      &Palettes::POPPED_PEACH};
   }
 
   /**
@@ -137,9 +148,9 @@ struct MeshPaletteBank {
    * @param arena Destination arena receiving N x 256-entry Color4 LUTs.
    */
   HS_COLD_MEMBER void bake_all(Arena &arena) {
-    constexpr auto src = sources();
+    constexpr auto sources = MeshPaletteBank::sources();
     for (int i = 0; i < N; ++i)
-      bank.entries[i].bake(arena, *src[i]);
+      bank.entries[i].bake(arena, *sources[i]);
   }
 
   /**
@@ -187,7 +198,5 @@ struct MeshPaletteBank {
   BakedPaletteBank bank; /**< Underlying baked-palette bank holding N LUTs. */
 };
 
-// Ties the source-palette list length to N so editing one without the other
-// fails to compile.
 static_assert(MeshPaletteBank::sources().size() == MeshPaletteBank::N,
-              "MeshPaletteBank::sources() count must equal N");
+              "MeshPaletteBank source count must equal N");
