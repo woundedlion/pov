@@ -2043,11 +2043,37 @@ private:
     }
 
     const size_t landed = bookend.faces;
-    const bool immutable_closing =
-        handoff.immutable &&
+    const bool structural_closing =
         handoff.correspondence == FaceCorrespondence::DUAL_CLOSING;
+    // A closing leg's corner births are structural: corner face k is born on
+    // the k-th first-seen vertex of the dual seed's face walk (the order
+    // dual_closing_palettes maps from-palettes by), so the face whose walk
+    // first reaches that vertex is the corner's host — no centroid search.
+    int *corner_host = nullptr;
+    if (structural_closing && landed < total) {
+      const PolyMesh &dual = *tr.seed_ref;
+      const size_t corners = total - landed;
+      HS_CHECK(landed == dual.face_counts.size() &&
+                   corners == dual.vertices.size(),
+               "OpLeg: closing-leg blocks differ from the dual seed");
+      corner_host = scratch_arena_a.allocate_n<int>(corners);
+      bool *seen = scratch_arena_a.allocate_n<bool>(corners);
+      std::fill_n(seen, corners, false);
+      size_t out = 0, off = 0;
+      for (size_t fi = 0; fi < landed; ++fi) {
+        for (int j = 0; j < dual.face_counts[fi]; ++j) {
+          const uint16_t v = dual.faces[off + j];
+          if (!seen[v]) {
+            seen[v] = true;
+            corner_host[out++] = static_cast<int>(fi);
+          }
+        }
+        off += dual.face_counts[fi];
+      }
+      HS_CHECK(out == corners, "OpLeg: dual corner hosts incomplete");
+    }
     const Vector *arrival_centroid =
-        landed < total && !immutable_closing
+        landed < total && !structural_closing
             ? face_centroids(arrival, scratch_arena_a)
             : nullptr;
     tr.target_topo.bind(arena, total);
@@ -2056,8 +2082,8 @@ private:
         tr.target_topo.push_back(bookend.topology[f]);
         continue;
       }
-      if (immutable_closing) {
-        tr.target_topo.push_back(tr.topo[f]);
+      if (structural_closing) {
+        tr.target_topo.push_back(bookend.topology[corner_host[f - landed]]);
         continue;
       }
       size_t host = 0;
