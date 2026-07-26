@@ -326,6 +326,7 @@ private:
 #ifdef HS_TEST_BUILD
   bool reference_orientation = false;
   bool reference_color_seed_lookup = false;
+  bool reference_vertex_pass = false;
   bool full_buffer_clear = false;
 #endif
 
@@ -436,9 +437,17 @@ private:
              "MindSplatter particle index space exceeds pool capacity");
     {
       HS_PROFILE(msp_particle_scan);
-      Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
-                                       fragment_shader, vertex_shader,
-                                       hole_shader, particle_v2);
+#ifdef HS_TEST_BUILD
+      if (reference_vertex_pass) {
+        Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
+                                         fragment_shader, vertex_shader,
+                                         hole_shader, particle_v2);
+        return;
+      }
+#endif
+      Plot::ParticleSystem::draw_fused_vertex<W, H>(
+          filters, canvas, particle_system, fragment_shader, vertex_shader,
+          hole_shader, particle_v2);
     }
   }
 
