@@ -96,10 +96,10 @@ inline constexpr ProceduralPalette PEACH_POP({1.000f, 0.144f, 0.175f},
                                              {0.543f, 0.543f, 0.543f},
                                              {0.507f, 0.409f, 0.507f},
                                              {0.001f, 0.002f, 0.620f});
-inline constexpr ProceduralPalette BLUE_LAGOON({0.555f, 0.171f, 0.555f},
-                                               {0.500f, 0.500f, 0.207f},
-                                               {0.05175f, 0.144407f, 0.03564f},
-                                               {0.506f, 0.179f, 0.548f});
+inline constexpr ProceduralPalette
+    BLUE_LAGOON({0.253f, 0.500f, 1.000f}, {0.500f, 0.844f, 1.000f},
+                {0.232086f, 0.232086f, 0.232086f},
+                {0.279882f, 0.609882f, 0.949882f});
 inline constexpr ProceduralPalette ORANGE_CRUSH({0.575f, 0.168f, 0.464f},
                                                 {0.406f, 0.697f, 0.357f},
                                                 {0.000f, -0.10051f, -0.042778f},
@@ -135,7 +135,7 @@ struct MeshPaletteBank {
   static constexpr auto sources() {
     return std::array{&Palettes::EMBERS,         &Palettes::RICH_SUNSET,
                       &Palettes::BRIGHT_SUNRISE, &Palettes::BRUISED_MOSS,
-                      &Palettes::LAVENDER_LAKE,  &Palettes::ORANGE_CRUSH,
+                      &Palettes::LAVENDER_LAKE,  &Palettes::BLUE_LAGOON,
                       &Palettes::PEACH_POP};
   }
 
