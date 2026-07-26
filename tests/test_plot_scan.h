@@ -32,6 +32,7 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <bit>
 #include <vector>
 
 namespace hs_test {
@@ -56,6 +57,35 @@ inline uint8_t plot_scan_arena_buf[256 * 1024];
 inline Arena &plot_arena() {
   static Arena a(plot_scan_arena_buf, sizeof(plot_scan_arena_buf));
   return a;
+}
+
+/**
+ * @brief The [0, π] paired trig path is bit-exact with the general functions.
+ */
+inline void test_geodesic_sincos_bit_parity() {
+  auto check = [](float ang) {
+    float s, c;
+    fast_sincosf_0_pi(ang, s, c);
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(s),
+                 std::bit_cast<uint32_t>(fast_sinf(ang)));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(c),
+                 std::bit_cast<uint32_t>(fast_cosf(ang)));
+  };
+
+  const uint32_t PI_BITS = std::bit_cast<uint32_t>(PI_F);
+  const uint32_t HALF_PI_BITS = std::bit_cast<uint32_t>(PI_F * 0.5f);
+  constexpr uint32_t BOUNDARY_ULPS = 65536;
+  for (uint32_t bits = 0; bits <= BOUNDARY_ULPS; ++bits)
+    check(std::bit_cast<float>(bits));
+  for (uint32_t center : {HALF_PI_BITS, PI_BITS}) {
+    for (uint32_t bits = center - BOUNDARY_ULPS;
+         bits <= center + BOUNDARY_ULPS && bits <= PI_BITS; ++bits)
+      check(std::bit_cast<float>(bits));
+  }
+  constexpr uint32_t STRIDE = 4093;
+  for (uint64_t bits = 0; bits <= PI_BITS; bits += STRIDE)
+    check(std::bit_cast<float>(static_cast<uint32_t>(bits)));
+  check(PI_F);
 }
 
 // ---------------------------------------------------------------------------
@@ -3673,6 +3703,7 @@ inline int run_plot_scan_tests() {
 
   hs::random().seed(1337);
 
+  test_geodesic_sincos_bit_parity();
   test_line_sample_endpoints_and_unit_length();
   test_line_sample_interior_between_endpoints();
   test_line_sample_degenerate_segment();
