@@ -2002,6 +2002,10 @@ struct MindSplatterWhiteBox {
     ms.reference_vertex_pass = enabled;
   }
   template <int W, int H>
+  static void use_reference_hole_kernel(MindSplatter<W, H> &ms, bool enabled) {
+    ms.reference_hole_kernel = enabled;
+  }
+  template <int W, int H>
   static void use_reference_signed_axis_physics(MindSplatter<W, H> &ms,
                                                 bool enabled) {
     ms.particle_system.reference_signed_axis_physics = enabled;
@@ -2493,6 +2497,47 @@ inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
               reference.size(), lit_pixels, different_pixels);
   HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
   HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
+}
+
+/** @brief The multiply-only hole kernel matches the generic kernel exactly. */
+inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  constexpr int FRAMES = 160;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+  auto render = [&](bool reference) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    std::vector<Pixel> frames;
+    frames.reserve(static_cast<size_t>(W) * H * FRAMES);
+    MS effect;
+    effect.init();
+    WB::use_reference_hole_kernel(effect, reference);
+    for (int f = 0; f < FRAMES; ++f) {
+      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                        static_cast<unsigned long>(f) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          frames.push_back(effect.get_pixel(x, y));
+    }
+    return frames;
+  };
+
+  const std::vector<Pixel> reference = render(true);
+  const std::vector<Pixel> multiply_only = render(false);
+  hs::clear_mock_time();
+  HS_EXPECT_EQ(reference.size(), multiply_only.size());
+  size_t lit_pixels = 0;
+  for (size_t i = 0; i < reference.size(); ++i) {
+    HS_EXPECT_EQ(reference[i], multiply_only[i]);
+    if (reference[i].r | reference[i].g | reference[i].b)
+      ++lit_pixels;
+  }
+  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
 }
 
 /** @brief Clip clearing preserves every pixel displayed by the POV driver. */
@@ -3654,6 +3699,7 @@ inline int run_effects_tests() {
   test_mindsplatter_rotation_matrix_framebuffer_error();
   test_mindsplatter_color_seed_framebuffer_parity();
   test_mindsplatter_fused_vertex_framebuffer_parity();
+  test_mindsplatter_hole_kernel_framebuffer_parity();
   test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
 
