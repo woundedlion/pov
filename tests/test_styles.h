@@ -67,6 +67,14 @@ inline void test_named_presets() {
                         4.38f, 0.06346f, 0.2f, 22.3554f);
   expect_melt_hue_style(Feedback::Style::MeltingLo(), 0.59004f, 0.18955015f,
                         1.95f, 0.06346f, 0.2f, 22.3554f);
+  expect_noise_hue_style(Feedback::Style::Miasma(), 0.80586f, 1.08411003f,
+                         2.61f, 0.05059f, 0.725f, 26.297501f);
+  expect_noise_hue_style(Feedback::Style::LooseWormhole(), 0.7257f, 0.70236106f,
+                         11.25f, 0.01f, 0.0f, 10.1798f);
+  expect_noise_hue_style(Feedback::Style::TightWormhole(), 0.7257f, 0.70236106f,
+                         6.42f, 0.01f, 0.0f, 7.8844f);
+  expect_noise_hue_style(Feedback::Style::WigglingWormhole(), 0.7257f,
+                         0.70236106f, 7.11f, 0.01f, 0.0f, 29.1917f);
 
   Feedback::Style smoke = Feedback::Style::Smoke();
   HS_EXPECT_NEAR(smoke.fade, 0.9f, 1e-6f);
@@ -104,6 +112,10 @@ inline void test_named_presets_preserve_frame_hue() {
       {Feedback::Style::Drift(), 0.03f},
       {Feedback::Style::Melting(), 0.0766f},
       {Feedback::Style::Swirling(), 0.0f},
+      {Feedback::Style::Miasma(), 0.234f},
+      {Feedback::Style::LooseWormhole(), 0.22519f},
+      {Feedback::Style::TightWormhole(), 0.22519f},
+      {Feedback::Style::WigglingWormhole(), 0.22519f},
   };
   for (const Case &c : cases)
     HS_EXPECT_NEAR(c.style.hue_shift * -logf(c.style.fade), c.frame_shift,

@@ -105,7 +105,7 @@ enable_testing()
 # target subsets without re-running everything.
 set(_hs_test_modules
     3dmath concepts memory spatial scb sdf conway conway_morph conway_continuity
-    conway_soak hankin geometry spherical_field
+    conway_soak opchain_probe hankin geometry spherical_field
     mesh solids
     reaction_graph color palettes easing_waves platform filter plot_scan canvas
     scan mesh_raster transformers noise generators animation effects dma_core hd107s
