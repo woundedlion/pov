@@ -2006,6 +2006,39 @@ struct MindSplatterWhiteBox {
     ms.reference_hole_kernel = enabled;
   }
   template <int W, int H>
+  static void use_reference_palette_alpha(MindSplatter<W, H> &ms,
+                                          bool enabled) {
+    ms.reference_palette_alpha = enabled;
+  }
+  template <int W, int H>
+  static bool palette_is_opaque(const MindSplatter<W, H> &ms) {
+    for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+      const float t = static_cast<float>(i) /
+                      static_cast<float>(BakedPalette::LUT_SIZE - 1);
+      if (ms.baked_palette_.get(t).alpha != 1.0f)
+        return false;
+    }
+    return true;
+  }
+  template <int W, int H>
+  static std::array<Pixel, BakedPalette::LUT_SIZE>
+  palette_colors(const MindSplatter<W, H> &ms) {
+    std::array<Pixel, BakedPalette::LUT_SIZE> colors;
+    for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+      const float t = static_cast<float>(i) /
+                      static_cast<float>(BakedPalette::LUT_SIZE - 1);
+      colors[i] = ms.baked_palette_.get(t).color;
+    }
+    return colors;
+  }
+  template <int W, int H> static void next_preset(MindSplatter<W, H> &ms) {
+    ms.presets.next();
+  }
+  template <int W, int H>
+  static size_t preset_index(const MindSplatter<W, H> &ms) {
+    return ms.presets.current_index();
+  }
+  template <int W, int H>
   static void use_reference_signed_axis_physics(MindSplatter<W, H> &ms,
                                                 bool enabled) {
     ms.particle_system.reference_signed_axis_physics = enabled;
@@ -2018,9 +2051,10 @@ struct MindSplatterWhiteBox {
   static uint16_t active_particles(const MindSplatter<W, H> &ms) {
     return ms.particle_system.active();
   }
-  template <int W, int H> static void draw_particles(MindSplatter<W, H> &ms) {
+  template <int W, int H>
+  static void draw_particles(MindSplatter<W, H> &ms, float opacity = 1.0f) {
     Canvas canvas(ms);
-    ms.draw_particles(canvas);
+    ms.draw_particles(canvas, opacity);
   }
   template <int W, int H>
   static void draw_particles_reference(MindSplatter<W, H> &ms) {
@@ -2033,6 +2067,34 @@ struct MindSplatterWhiteBox {
     return ms.particle_system.pool.capacity();
   }
 };
+
+/** @brief Every MindSplatter palette rebuild stays exactly opaque. */
+inline void test_mindsplatter_opaque_palette_invariant() {
+  using MS = MindSplatter<DEVICE_W, DEVICE_H>;
+  using WB = MindSplatterWhiteBox;
+  std::array<Pixel, BakedPalette::LUT_SIZE> previous_colors{};
+  bool saw_distinct_palette = false;
+  bool have_previous = false;
+  for (uint8_t seed : {0u, 1u, 63u, 127u, 191u, 255u}) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(seed);
+    MS effect;
+    effect.init();
+    const auto rebuilt_colors = WB::palette_colors(effect);
+    if (have_previous && rebuilt_colors != previous_colors)
+      saw_distinct_palette = true;
+    previous_colors = rebuilt_colors;
+    have_previous = true;
+    for (int preset = 0; preset < 4; ++preset) {
+      HS_EXPECT_EQ(WB::preset_index(effect), static_cast<size_t>(preset));
+      HS_EXPECT_TRUE(WB::palette_is_opaque(effect));
+      HS_EXPECT_EQ(WB::palette_colors(effect), rebuilt_colors);
+      WB::next_preset(effect);
+    }
+    HS_EXPECT_EQ(WB::preset_index(effect), static_cast<size_t>(0));
+  }
+  HS_EXPECT_TRUE(saw_distinct_palette);
+}
 
 /**
  * @brief Replays one frozen saturated state with exact particle and frame output.
@@ -2172,6 +2234,65 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
     HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
   }
   hs::clear_mock_time();
+}
+
+/** @brief Opaque-LUT shading matches the generic path in a saturated quadrant. */
+inline void test_mindsplatter_opaque_palette_framebuffer_parity() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  constexpr int WARMUP_FRAMES = 160;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+  using Snapshot = WB::ReplaySnapshot<W, H>;
+
+  Snapshot source;
+  {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    MS effect;
+    effect.init();
+    for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
+      hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
+                        static_cast<unsigned long>(frame) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    source = WB::capture(effect);
+    HS_EXPECT_EQ(source.particles.size(), WB::particle_capacity(effect));
+    HS_EXPECT_TRUE(WB::palette_is_opaque(effect));
+  }
+
+  auto render = [&](bool reference) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(WARMUP_FRAMES * FRAME_MS, WARMUP_FRAMES * FRAME_US);
+    MS effect;
+    effect.init();
+    WB::restore(effect, source);
+    effect.set_clip(0, H / 2, 0, W / 2);
+    WB::use_reference_palette_alpha(effect, reference);
+    WB::draw_particles(effect, 0.37f);
+    effect.advance_display();
+    std::vector<Pixel> quadrant;
+    quadrant.reserve(static_cast<size_t>(W / 2) * (H / 2));
+    for (int y = 0; y < H / 2; ++y)
+      for (int x = 0; x < W / 2; ++x)
+        quadrant.push_back(effect.get_pixel(x, y));
+    return quadrant;
+  };
+
+  const std::vector<Pixel> reference = render(true);
+  const std::vector<Pixel> opaque = render(false);
+  hs::clear_mock_time();
+  HS_EXPECT_EQ(reference.size(), opaque.size());
+  size_t lit_pixels = 0;
+  for (size_t i = 0; i < reference.size(); ++i) {
+    HS_EXPECT_EQ(reference[i], opaque[i]);
+    if (reference[i].r | reference[i].g | reference[i].b)
+      ++lit_pixels;
+  }
+  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
 }
 
 /** @brief Pins normalized color seeds and wrapped trail progress bit-exactly. */
@@ -3691,8 +3812,10 @@ inline int run_effects_tests() {
   // defines HS_TEST_BUILD (see core/engine/effect_registry.h).
   HS_EXPECT_EQ(EffectRegistry::entries().size(),
                static_cast<size_t>(HS_EFFECT_COUNT));
+  test_mindsplatter_opaque_palette_invariant();
   test_mindsplatter_replay_snapshot_exact();
   test_mindsplatter_saturated_quadrant_sink_parity();
+  test_mindsplatter_opaque_palette_framebuffer_parity();
   test_mindsplatter_octahedral_hole_alpha_equivalence();
   test_mindsplatter_normalized_color_seed_boundaries();
   test_mindsplatter_rotation_matrix_equivalence();
