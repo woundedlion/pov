@@ -118,6 +118,33 @@ void configure_arenas_default() {
                    DEFAULT_SCRATCH_B_SIZE);
 }
 
+FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
+                             size_t scratch_b) {
+  HS_CHECK(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE &&
+           scratch_b <= GLOBAL_ARENA_SIZE);
+  constexpr size_t A = alignof(std::max_align_t);
+  auto align_up = [](size_t n) { return (n + (A - 1)) & ~(A - 1); };
+  size_t a_base = align_up(persistent);
+  size_t b_base = align_up(a_base + scratch_a);
+  size_t total = b_base + scratch_b;
+  if (total > GLOBAL_ARENA_SIZE) {
+    hs::log("[OOM] resplit_arenas: requested %zu > available %zu", total,
+            GLOBAL_ARENA_SIZE);
+    HS_CHECK(false);
+  }
+  // Persistent keeps its base/offset/content/generation -- only the boundary
+  // moves. set_capacity traps if the new budget is below the live offset, so
+  // the carousel + palette bank are never stranded. Its high-water is rebased to
+  // the live offset (the per-shape baseline) so each shape's persistent peak is
+  // measured against its own split, not a predecessor's residue.
+  persistent_arena.set_capacity(persistent);
+  persistent_arena.reset_high_water_mark();
+  // The scratch arenas are empty at the call point; rebind them onto their new
+  // bases (a fresh generation is harmless -- nothing is bound across the split).
+  scratch_arena_a.rebind(global_arena_block + a_base, scratch_a);
+  scratch_arena_b.rebind(global_arena_block + b_base, scratch_b);
+}
+
 // The large static buffers below are defined here, not next to their
 // declarations: memory.cpp is the one TU compiled into every target, so
 // co-locating them with the arena block keeps every DMAMEM/large-static placement

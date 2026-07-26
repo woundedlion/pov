@@ -68,6 +68,8 @@ inline void test_compile_hankin_populates_arrays() {
 
   // one dynamic vertex per half-edge (twice the edge count)
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)24);
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
+               compiled.dynamic_instructions.size());
 
   HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
 
@@ -178,6 +180,8 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
 
   // one dynamic vertex per half-edge (twice the edge count = 60)
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)60);
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
+               compiled.dynamic_instructions.size());
 
   HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
 
@@ -578,8 +582,8 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(prefix, compiled, compiled_arena, output_arena);
 
-  const size_t stars = compiled.dynamic_instructions.size();
-  std::vector<Vector> previous(stars);
+  const size_t n_stars = compiled.dynamic_instructions.size();
+  std::vector<Vector> previous(n_stars);
   float max_step = 0.0f;
   float resonance_max_step = 0.0f;
   constexpr float STEP_DEGREES = 0.01f;
@@ -589,17 +593,19 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
     MeshOps::update_hankin(compiled, output, output_arena,
                            step * STEP_DEGREES *
                                Solids::IslamicStarPatterns::D2R);
-    const Vector *star = output.vertices.data() + compiled.static_offset;
+    // Star points are written straight into the output after the static
+    // midpoints, so they live at [static_offset, static_offset + n_stars).
+    const Vector *stars = output.vertices.data() + compiled.static_offset;
     if (step > 1) {
-      for (size_t i = 0; i < stars; ++i) {
+      for (size_t i = 0; i < n_stars; ++i) {
         const float movement =
-            std::sqrt(distance_squared(previous[i], star[i]));
+            std::sqrt(distance_squared(previous[i], stars[i]));
         max_step = std::max(max_step, movement);
         if (step >= 4400 && step <= 5000)
           resonance_max_step = std::max(resonance_max_step, movement);
       }
     }
-    std::copy(star, star + stars, previous.begin());
+    std::copy(stars, stars + n_stars, previous.begin());
   }
 
   HS_EXPECT_LE(max_step, 0.01f);

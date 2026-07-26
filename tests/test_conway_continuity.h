@@ -438,7 +438,8 @@ inline void test_palette_carry_across_arrivals() {
     fx.draw_frame();
     fx.advance_display();
 
-    if (const Animation::OpLeg::Landing *landing = Probe::pending_landing(fx)) {
+    if (const Animation::OpLeg::Landing *landing =
+            Probe::pending_landing(fx)) {
       to_palette = landing->to_palette;
       topo.assign(landing->topology, landing->topology + landing->faces);
       have_landing = true;
@@ -815,7 +816,7 @@ inline void test_collapsing_faces_land_on_host_palette() {
       off += departed.face_counts[f];
     }
     Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,   sides,
-                                             dep_faces,  false, cen};
+                                                   dep_faces,  false, cen};
 
     // Bookend: the hankin star-face classification of the arrival node, as
     // start_morph_cycle builds it.
@@ -836,9 +837,9 @@ inline void test_collapsing_faces_land_on_host_palette() {
     auto cb = [](Canvas &, const MeshState &,
                  const Animation::OpLeg::Shading &) {};
     hs::random().seed(2000u + static_cast<uint32_t>(ei));
-    Animation::OpLeg anim(seed, e, true, leg, cb, handoff,
-                          ConwayGraph::SWEEP_FRAMES,
-                          e.settle ? ConwayGraph::SETTLE_FRAMES : 0, bookend);
+    Animation::OpLeg anim(
+        seed, e, true, leg, cb, handoff, ConwayGraph::SWEEP_FRAMES,
+        e.settle ? ConwayGraph::SETTLE_FRAMES : 0, bookend);
     const Animation::OpLeg::Landing &landing = anim.landing();
     if (landing.faces == survivors)
       continue;
@@ -887,8 +888,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   }();
   HS_EXPECT_GE(edge, 0);
 
-  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                           cube.face_counts.size(), false};
+  Animation::OpLeg::PaletteHandoff handoff{
+      &bank.bank, pal, sides, cube.face_counts.size(), false};
 
   ShadingSnapshot snap;
   auto cb = [&](Canvas &, const MeshState &m,
@@ -905,8 +906,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   };
 
   constexpr int SWEEP = ConwayGraph::SWEEP_FRAMES;
-  Animation::OpLeg anim(cube, ConwayGraph::EDGES[edge], false, leg, cb, handoff,
-                        SWEEP, 0);
+  Animation::OpLeg anim(cube, ConwayGraph::EDGES[edge], false, leg, cb,
+                              handoff, SWEEP, 0);
   const Animation::OpLeg::Landing &landing = anim.landing();
   HS_EXPECT_EQ(landing.primary_faces, cube.face_counts.size());
 
@@ -916,9 +917,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   step_and_snapshot(anim, fx, snap);
   HS_EXPECT_EQ(snap.colors.size(), landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
-    const uint8_t to =
-        landing
-            .to_palette[wrap(landing.topology[f], Animation::OpLeg::PALETTES)];
+    const uint8_t to = landing.to_palette[wrap(
+        landing.topology[f], Animation::OpLeg::PALETTES)];
     const uint8_t from = f < landing.primary_faces
                              ? pal[f]
                              : to; // newborn faces skip the crossfade
@@ -931,9 +931,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   for (int f = 1; f < SWEEP; ++f)
     step_and_snapshot(anim, fx, snap);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
-    const uint8_t to =
-        landing
-            .to_palette[wrap(landing.topology[f], Animation::OpLeg::PALETTES)];
+    const uint8_t to = landing.to_palette[wrap(
+        landing.topology[f], Animation::OpLeg::PALETTES)];
     for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
       expect_color_eq(snap.colors[f][s],
                       bank.bank.entries[to].get(RAMP_SAMPLES[s]));
@@ -986,8 +985,8 @@ inline void test_crossfade_class_signature_mapping() {
 
   PolyMesh octa;
   build_solid<Solids::Octahedron>(octa, leg);
-  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                           cubocta.face_counts.size(), true};
+  Animation::OpLeg::PaletteHandoff handoff{
+      &bank.bank, pal, sides, cubocta.face_counts.size(), true};
 
   ShadingSnapshot snap;
   auto cb = [&](Canvas &, const MeshState &,
@@ -999,8 +998,8 @@ inline void test_crossfade_class_signature_mapping() {
         snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
   };
 
-  Animation::OpLeg anim(octa, ConwayGraph::EDGES[edge], /*reverse*/ true, leg,
-                        cb, handoff, ConwayGraph::SWEEP_FRAMES, 0);
+  Animation::OpLeg anim(octa, ConwayGraph::EDGES[edge], /*reverse*/ true,
+                              leg, cb, handoff, ConwayGraph::SWEEP_FRAMES, 0);
   const Animation::OpLeg::Landing &landing = anim.landing();
   HS_EXPECT_EQ(landing.primary_faces, octa.face_counts.size());
 
@@ -1050,10 +1049,11 @@ inline void test_palette_mapping_total_all_edges() {
     // MAX_BLEND_PAIRS pair budget on the large seeds.
     for (size_t f = 0; f < seed.face_counts.size(); ++f) {
       sides[f] = seed.face_counts[f];
-      pal[f] = static_cast<uint8_t>(sides[f] % Animation::OpLeg::PALETTES);
+      pal[f] =
+          static_cast<uint8_t>(sides[f] % Animation::OpLeg::PALETTES);
     }
-    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                             seed.face_counts.size(), false};
+    Animation::OpLeg::PaletteHandoff handoff{
+        &bank.bank, pal, sides, seed.face_counts.size(), false};
 
     ShadingSnapshot snap;
     auto cb = [&](Canvas &, const MeshState &,
@@ -1070,12 +1070,13 @@ inline void test_palette_mapping_total_all_edges() {
 
     hs::random().seed(1000u + static_cast<uint32_t>(ei));
     Animation::OpLeg anim(seed, e, false, leg, cb, handoff,
-                          ConwayGraph::SWEEP_FRAMES,
-                          e.settle ? ConwayGraph::SETTLE_FRAMES : 0);
+                                ConwayGraph::SWEEP_FRAMES,
+                                e.settle ? ConwayGraph::SETTLE_FRAMES : 0);
     const Animation::OpLeg::Landing &landing = anim.landing();
 
     // The landed assignment is a permutation of the bank slots.
-    std::array<uint8_t, Animation::OpLeg::PALETTES> perm = landing.to_palette;
+    std::array<uint8_t, Animation::OpLeg::PALETTES> perm =
+        landing.to_palette;
     std::sort(perm.begin(), perm.end());
     for (int i = 0; i < Animation::OpLeg::PALETTES; ++i)
       HS_EXPECT_EQ(static_cast<int>(perm[i]), i);
@@ -1083,8 +1084,8 @@ inline void test_palette_mapping_total_all_edges() {
     step_and_snapshot(anim, fx, snap); // frame 1: w == 0
     HS_EXPECT_EQ(snap.colors.size(), landing.faces);
     for (size_t f = 0; f < snap.colors.size(); ++f) {
-      const uint8_t to = landing.to_palette[wrap(landing.topology[f],
-                                                 Animation::OpLeg::PALETTES)];
+      const uint8_t to = landing.to_palette[wrap(
+          landing.topology[f], Animation::OpLeg::PALETTES)];
       const uint8_t from = f < landing.primary_faces ? pal[f] : to;
       for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
         expect_color_eq(snap.colors[f][s],
@@ -1132,8 +1133,8 @@ inline void test_palette_mapping_deterministic() {
     build_solid<Solids::Cube>(cube, leg);
     uint8_t pal[16], sides[16];
     fill_emission_handoff(cube, pal, sides);
-    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                             cube.face_counts.size(), false};
+    Animation::OpLeg::PaletteHandoff handoff{
+        &bank.bank, pal, sides, cube.face_counts.size(), false};
 
     ShadingSnapshot &snap = snaps[run];
     auto cb = [&](Canvas &, const MeshState &,
@@ -1147,8 +1148,8 @@ inline void test_palette_mapping_deterministic() {
 
     hs::random().seed(31337u);
     Animation::OpLeg anim(cube, ConwayGraph::EDGES[edge], false, leg, cb,
-                          handoff, ConwayGraph::SWEEP_FRAMES,
-                          ConwayGraph::SETTLE_FRAMES);
+                                handoff, ConwayGraph::SWEEP_FRAMES,
+                                ConwayGraph::SETTLE_FRAMES);
     const Animation::OpLeg::Landing &landing = anim.landing();
     to_palette[run] = landing.to_palette;
     topo[run].assign(landing.topology, landing.topology + landing.faces);
@@ -1381,7 +1382,7 @@ inline void test_leg_start_seed_frame_continuity() {
     {
       Arena leg_arena(cc_leg_buf, sizeof(cc_leg_buf));
       Animation::OpLeg anim(leg_seed, e, reverse, leg_arena, cb, handoff,
-                            SWEEP_FRAMES, e.settle ? SETTLE_FRAMES : 0);
+                                  SWEEP_FRAMES, e.settle ? SETTLE_FRAMES : 0);
       step_and_snapshot(anim, fx, snap);
       HS_EXPECT_EQ(snap.colors.size(), total);
       for (size_t f = 0; f < snap.colors.size(); ++f) {

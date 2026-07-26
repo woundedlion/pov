@@ -186,6 +186,23 @@ public:
   }
 
   /**
+   * @brief Moves only the capacity boundary, preserving base, offset, content,
+   * and generation.
+   * @param new_capacity New capacity in bytes; must be >= the live offset.
+   * @details A repartition that keeps everything already allocated valid --
+   * unlike rebind(), it neither resets the offset nor bumps the generation, so
+   * ArenaVectors bound below the offset stay live. Used to shrink/grow the
+   * persistent boundary mid-run while its long-lived content survives; the
+   * caller must ensure the buffer region beyond the new capacity is not
+   * simultaneously claimed by another arena.
+   */
+  void set_capacity(size_t new_capacity) {
+    HS_CHECK(offset <= new_capacity,
+             "Arena::set_capacity below the live offset would strand content");
+    capacity = new_capacity;
+  }
+
+  /**
    * @brief Reset peak-usage tracking to the current offset.
    * @details E.g. to measure a single frame's allocation peak in isolation.
    */
@@ -840,6 +857,21 @@ void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b);
  * @brief Restores the default arena partition.
  */
 void configure_arenas_default();
+
+/**
+ * @brief Re-partitions the arenas mid-run WITHOUT disturbing persistent content.
+ * @param persistent New persistent capacity; must be >= its current live offset.
+ * @param scratch_a New scratch-A capacity.
+ * @param scratch_b New scratch-B capacity.
+ * @details Unlike configure_arenas(), the persistent arena keeps its base
+ * (block start), offset, live content, and generation -- only its capacity
+ * boundary moves -- so the long-lived carousel slots + palette bank below its
+ * offset survive. The scratch arenas hold nothing across the call point
+ * (transient, reset every frame), so they rebind to fresh bases. Callers MUST
+ * invoke this only when both scratch arenas are empty; a per-shape split at
+ * spawn (persistent at its ~baseline, scratch idle) satisfies this.
+ */
+void resplit_arenas(size_t persistent, size_t scratch_a, size_t scratch_b);
 
 // ============================================================================
 // 5. ScratchScope — RAII Arena Offset Guard
