@@ -19,10 +19,13 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace hs_test {
@@ -1807,6 +1810,149 @@ inline void test_displacement_field_clip_tiles_full() {
  */
 struct MindSplatterWhiteBox {
   using MS = MindSplatter<DEFAULT_W, DEFAULT_H>;
+
+  template <typename T>
+  using ObjectBytes = std::array<unsigned char, sizeof(T)>;
+
+  template <int W, int H> struct ReplaySnapshot {
+    using EffectType = MindSplatter<W, H>;
+    using Particle = Animation::Particle<EffectType::TRAIL_LEN>;
+    using Attractor = typename EffectType::ParticleSystem::Attractor;
+    using Params = typename EffectType::Params;
+    using PresetState = decltype(std::declval<EffectType>().presets);
+
+    std::vector<ObjectBytes<Particle>> particles;
+    std::vector<ObjectBytes<Attractor>> attractors;
+    ObjectBytes<Params> params{};
+    ObjectBytes<PresetState> presets{};
+    ObjectBytes<Orientation<>> orientation{};
+    ObjectBytes<MobiusParams> mobius{};
+    std::array<Color4, BakedPalette::LUT_SIZE> palette{};
+    std::array<float, EffectType::EmitSolid::NUM_VERTS> emitter_hues{};
+    std::array<float, EffectType::EmitSolid::NUM_VERTS> emit_phases{};
+    ClipRegion clip{};
+    float friction = 0.0f;
+    float gravity = 0.0f;
+    uint16_t max_life = 0;
+  };
+
+  template <typename T> static ObjectBytes<T> object_bytes(const T &source) {
+    static_assert(std::is_trivially_copyable_v<T>);
+    ObjectBytes<T> bytes;
+    std::memcpy(bytes.data(), &source, sizeof(T));
+    return bytes;
+  }
+
+  template <typename T>
+  static void restore_object(T &target, const ObjectBytes<T> &bytes) {
+    static_assert(std::is_trivially_copyable_v<T>);
+    std::memcpy(&target, bytes.data(), sizeof(T));
+  }
+
+  template <int W, int H>
+  static ReplaySnapshot<W, H> capture(const MindSplatter<W, H> &ms) {
+    using Snapshot = ReplaySnapshot<W, H>;
+    using Particle = typename Snapshot::Particle;
+    Snapshot snapshot;
+    snapshot.particles.reserve(ms.particle_system.active());
+    for (size_t i = 0; i < ms.particle_system.active(); ++i)
+      snapshot.particles.push_back(object_bytes(ms.particle_system.pool[i]));
+    snapshot.attractors.reserve(ms.particle_system.attractors.size());
+    for (size_t i = 0; i < ms.particle_system.attractors.size(); ++i)
+      snapshot.attractors.push_back(
+          object_bytes(ms.particle_system.attractors[i]));
+    snapshot.params = object_bytes(ms.params);
+    snapshot.presets = object_bytes(ms.presets);
+    snapshot.orientation = object_bytes(ms.orientation);
+    snapshot.mobius = object_bytes(ms.mobius);
+    for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+      const float t = static_cast<float>(i) /
+                      static_cast<float>(BakedPalette::LUT_SIZE - 1);
+      snapshot.palette[i] = ms.baked_palette_.get(t);
+    }
+    snapshot.emitter_hues = ms.emitter_hues;
+    snapshot.emit_phases = ms.emit_phases;
+    snapshot.clip = ms.clip();
+    snapshot.friction = ms.particle_system.friction;
+    snapshot.gravity = ms.particle_system.gravity;
+    snapshot.max_life = ms.particle_system.max_life;
+    static_assert(std::is_trivially_copyable_v<Particle>);
+    return snapshot;
+  }
+
+  template <int W, int H>
+  static void restore(MindSplatter<W, H> &ms,
+                      const ReplaySnapshot<W, H> &snapshot) {
+    using Snapshot = ReplaySnapshot<W, H>;
+    using Particle = typename Snapshot::Particle;
+    HS_CHECK(ms.particle_system.active() == 0);
+    HS_CHECK(snapshot.particles.size() <= ms.particle_system.pool.capacity());
+    HS_CHECK(snapshot.attractors.size() ==
+             ms.particle_system.attractors.size());
+
+    restore_object(ms.params, snapshot.params);
+    restore_object(ms.presets, snapshot.presets);
+    restore_object(ms.orientation, snapshot.orientation);
+    restore_object(ms.mobius, snapshot.mobius);
+    ms.emitter_hues = snapshot.emitter_hues;
+    ms.emit_phases = snapshot.emit_phases;
+    ms.set_clip(snapshot.clip.y_start, snapshot.clip.y_end,
+                snapshot.clip.x_start, snapshot.clip.x_end);
+    ms.set_margin(snapshot.clip.margin);
+    ms.particle_system.friction = snapshot.friction;
+    ms.particle_system.gravity = snapshot.gravity;
+    ms.particle_system.max_life = snapshot.max_life;
+
+    for (size_t i = 0; i < snapshot.attractors.size(); ++i)
+      restore_object(ms.particle_system.attractors[i], snapshot.attractors[i]);
+    for (const ObjectBytes<Particle> &bytes : snapshot.particles) {
+      const size_t i = ms.particle_system.active();
+      ms.particle_system.spawn(Vector(), Vector(), 0);
+      restore_object(ms.particle_system.pool[i], bytes);
+    }
+
+    struct PaletteSource {
+      const std::array<Color4, BakedPalette::LUT_SIZE> &entries;
+      Color4 get(float t) const {
+        const float scaled = t * static_cast<float>(BakedPalette::LUT_SIZE - 1);
+        const int i = static_cast<int>(scaled + 0.5f);
+        return entries[hs::clamp(i, 0, BakedPalette::LUT_SIZE - 1)];
+      }
+    };
+    ms.baked_palette_.rebake(PaletteSource{snapshot.palette});
+  }
+
+  template <int W, int H> static void step_physics(MindSplatter<W, H> &ms) {
+    Canvas canvas(ms);
+    ms.particle_system.step(canvas);
+    ms.params.active_count = static_cast<float>(ms.particle_system.active());
+  }
+
+  template <int W, int H>
+  static bool same_snapshot(const ReplaySnapshot<W, H> &a,
+                            const ReplaySnapshot<W, H> &b) {
+    if (a.particles != b.particles || a.attractors != b.attractors ||
+        a.params != b.params || a.presets != b.presets ||
+        a.orientation != b.orientation || a.mobius != b.mobius)
+      return false;
+    if (std::memcmp(a.emitter_hues.data(), b.emitter_hues.data(),
+                    sizeof(a.emitter_hues)) != 0 ||
+        std::memcmp(a.emit_phases.data(), b.emit_phases.data(),
+                    sizeof(a.emit_phases)) != 0 ||
+        std::memcmp(&a.clip, &b.clip, sizeof(a.clip)) != 0 ||
+        std::memcmp(&a.friction, &b.friction, sizeof(a.friction)) != 0 ||
+        std::memcmp(&a.gravity, &b.gravity, sizeof(a.gravity)) != 0 ||
+        a.max_life != b.max_life)
+      return false;
+    for (size_t i = 0; i < a.palette.size(); ++i) {
+      if (a.palette[i].color != b.palette[i].color ||
+          std::memcmp(&a.palette[i].alpha, &b.palette[i].alpha,
+                      sizeof(a.palette[i].alpha)) != 0)
+        return false;
+    }
+    return true;
+  }
+
   static size_t num_emitters() { return MS::EmitSolid::NUM_VERTS; }
   static float emit_phase(const MS &ms, size_t i) { return ms.emit_phases[i]; }
   static float hue(const MS &ms, size_t i) { return ms.emitter_hues[i]; }
@@ -1882,7 +2028,81 @@ struct MindSplatterWhiteBox {
     Canvas canvas(ms);
     ms.draw_particles(canvas);
   }
+  template <int W, int H>
+  static size_t particle_capacity(const MindSplatter<W, H> &ms) {
+    return ms.particle_system.pool.capacity();
+  }
 };
+
+/**
+ * @brief Replays one frozen saturated state with exact particle and frame output.
+ */
+inline void test_mindsplatter_replay_snapshot_exact() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  constexpr int WARMUP_FRAMES = 160;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+  using Snapshot = WB::ReplaySnapshot<W, H>;
+
+  Snapshot source;
+  {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    MS effect;
+    effect.init();
+    for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
+      hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
+                        static_cast<unsigned long>(frame) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    source = WB::capture(effect);
+    HS_EXPECT_EQ(source.particles.size(), WB::particle_capacity(effect));
+  }
+
+  struct Replay {
+    std::vector<Pixel> framebuffer;
+    Snapshot post_step;
+    bool restored_exactly = false;
+  };
+  auto replay = [&]() {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(WARMUP_FRAMES * FRAME_MS, WARMUP_FRAMES * FRAME_US);
+    Replay result;
+    MS effect;
+    effect.init();
+    WB::restore(effect, source);
+    result.restored_exactly = WB::same_snapshot(source, WB::capture(effect));
+
+    WB::step_physics(effect);
+    effect.advance_display();
+    result.post_step = WB::capture(effect);
+    WB::draw_particles(effect);
+    effect.advance_display();
+    result.framebuffer.assign(effect.display_buffer(),
+                              effect.display_buffer() + W * H);
+    return result;
+  };
+
+  const Replay first = replay();
+  const Replay second = replay();
+  hs::clear_mock_time();
+  HS_EXPECT_TRUE(first.restored_exactly);
+  HS_EXPECT_TRUE(second.restored_exactly);
+  HS_EXPECT_TRUE(WB::same_snapshot(first.post_step, second.post_step));
+  HS_EXPECT_EQ(first.framebuffer.size(), second.framebuffer.size());
+  size_t lit_pixels = 0;
+  for (size_t i = 0; i < first.framebuffer.size(); ++i) {
+    HS_EXPECT_EQ(first.framebuffer[i], second.framebuffer[i]);
+    if (first.framebuffer[i].r | first.framebuffer[i].g |
+        first.framebuffer[i].b)
+      ++lit_pixels;
+  }
+  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
+}
 
 /** @brief Pins normalized color seeds and wrapped trail progress bit-exactly. */
 inline void test_mindsplatter_normalized_color_seed_boundaries() {
@@ -2166,8 +2386,8 @@ inline void test_mindsplatter_color_seed_framebuffer_parity() {
 
 /** @brief The fixed-resolution streaming renderer matches the generic path. */
 inline void test_mindsplatter_streaming_renderer_framebuffer_parity() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = DEFAULT_W;
+  constexpr int H = DEFAULT_H;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
 
@@ -3200,6 +3420,7 @@ inline int run_effects_tests() {
   // defines HS_TEST_BUILD (see core/engine/effect_registry.h).
   HS_EXPECT_EQ(EffectRegistry::entries().size(),
                static_cast<size_t>(HS_EFFECT_COUNT));
+  test_mindsplatter_replay_snapshot_exact();
   test_mindsplatter_octahedral_hole_alpha_equivalence();
   test_mindsplatter_normalized_color_seed_boundaries();
   test_mindsplatter_rotation_matrix_equivalence();
