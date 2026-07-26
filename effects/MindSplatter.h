@@ -206,6 +206,16 @@ private:
   static_assert(attractors_are_signed_axes(),
                 "MindSplatter hole shader requires the six signed axes");
 
+  static inline float hole_quintic_kernel(float t) {
+    t = hs::clamp(t, 0.0f, 1.0f);
+    float t2 = t * t;
+#if defined(CORE_TEENSY) && defined(__GNUC__)
+    // Keep GCC -Os from replacing the cube with __powisf2.
+    __asm__("" : "+t"(t2));
+#endif
+    return (t * t2) * (t * (t * 6.0f - 15.0f) + 10.0f);
+  }
+
   static inline float octahedral_hole_alpha(const Vector &p,
                                             float cos_event_horizon) {
     const float m =
@@ -213,7 +223,7 @@ private:
     if (m < cos_event_horizon)
       return 1.0f;
     const float d = fast_acos(hs::clamp(m, -1.0f, 1.0f));
-    return quintic_kernel(d / EVENT_HORIZON);
+    return hole_quintic_kernel(d / EVENT_HORIZON);
   }
 
   /** @brief Precomputed current-orientation rotation matrix. */
@@ -327,6 +337,7 @@ private:
   bool reference_orientation = false;
   bool reference_color_seed_lookup = false;
   bool reference_vertex_pass = false;
+  bool reference_hole_kernel = false;
   bool full_buffer_clear = false;
 #endif
 
@@ -403,6 +414,18 @@ private:
 
     // Signed-axis event-horizon falloff from the pre-warp position.
     auto hole_shader = [&](Fragment &f, const Vector &original_pos) {
+#ifdef HS_TEST_BUILD
+      if (reference_hole_kernel) {
+        const float m = std::max(
+            std::abs(original_pos.x),
+            std::max(std::abs(original_pos.y), std::abs(original_pos.z)));
+        if (m >= cos_event_horizon) {
+          const float d = fast_acos(hs::clamp(m, -1.0f, 1.0f));
+          f.v3 *= quintic_kernel(d / EVENT_HORIZON);
+        }
+        return;
+      }
+#endif
       f.v3 *= octahedral_hole_alpha(original_pos, cos_event_horizon);
     };
 
