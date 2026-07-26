@@ -1092,9 +1092,13 @@ public:
   void prepare(Canvas &cv) {
     base_ = cv.data();
     const ClipRegion &cr = cv.clip();
-    x_clip_ = cr.x_clip();
-    y_start_ = cr.render_y_start();
-    y_end_ = cr.render_y_end();
+    const ClipRegion::XClip xc = cr.x_clip();
+    for (int x = 0; x < W; ++x)
+      x_visible_[x] = !xc.clipped(x);
+    const int y_start = cr.render_y_start();
+    const int y_end = cr.render_y_end();
+    for (int y = 0; y < H; ++y)
+      y_visible_[y] = y >= y_start && y < y_end;
   }
 
   /** @brief Splats one screen-space sample directly into the Canvas. */
@@ -1133,10 +1137,10 @@ public:
     const float v11 = xs * wy1;
     constexpr float TAP_CUTOFF = 1e-8f;
 
-    const bool x0_ok = !x_clip_.clipped(x0);
-    const bool x1_ok = !x_clip_.clipped(x1);
-    const bool y0_ok = y0_physical && y0 >= y_start_ && y0 < y_end_;
-    const bool y1_ok = y1_physical && y1 >= y_start_ && y1 < y_end_;
+    const bool x0_ok = x_visible_[x0];
+    const bool x1_ok = x_visible_[x1];
+    const bool y0_ok = y0_physical && y_visible_[y0];
+    const bool y1_ok = y1_physical && y_visible_[y1];
     const uint8_t tap_mask =
         static_cast<uint8_t>((y0_ok && x0_ok && v00 > TAP_CUTOFF) |
                              ((y0_ok && x1_ok && v10 > TAP_CUTOFF) << 1) |
@@ -1177,9 +1181,8 @@ public:
 
 private:
   Pixel *base_ = nullptr;
-  ClipRegion::XClip x_clip_;
-  int y_start_ = 0;
-  int y_end_ = H;
+  std::array<uint8_t, W> x_visible_;
+  std::array<uint8_t, H> y_visible_;
 
   static __attribute__((always_inline)) uint16_t tap_alpha_q16(float alpha,
                                                                float weight) {
