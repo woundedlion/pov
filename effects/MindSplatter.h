@@ -381,6 +381,11 @@ private:
    */
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
     HS_PROFILE(msp_draw_particles);
+    draw_particles_with(filters, canvas, opacity);
+  }
+
+  template <typename Sink>
+  void draw_particles_with(Sink &sink, Canvas &canvas, float opacity = 1.0f) {
     const float cos_event_horizon = fast_cosf(EVENT_HORIZON);
     const RotationMatrix rotation(orientation.get());
 
@@ -439,14 +444,14 @@ private:
       HS_PROFILE(msp_particle_scan);
 #ifdef HS_TEST_BUILD
       if (reference_vertex_pass) {
-        Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
+        Plot::ParticleSystem::draw<W, H>(sink, canvas, particle_system,
                                          fragment_shader, vertex_shader,
                                          hole_shader, particle_v2);
         return;
       }
 #endif
       Plot::ParticleSystem::draw_fused_vertex<W, H>(
-          filters, canvas, particle_system, fragment_shader, vertex_shader,
+          sink, canvas, particle_system, fragment_shader, vertex_shader,
           hole_shader, particle_v2);
     }
   }
