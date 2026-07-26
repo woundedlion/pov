@@ -152,6 +152,38 @@ template <int TRAIL_LEN = 8> struct Particle {
   size_t history_length() const { return history.length(); }
 };
 
+static constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
+
+[[maybe_unused]] HS_COLD static bool apply_signed_axis_attractor(
+    uint16_t &life, Vector &velocity, const Vector &pos, float pos_sq,
+    float max_delta, const Vector &attractor_position, float strength,
+    float kill_radius, float event_horizon, float gravity, float dot_pa,
+    float cross_sq, float dist_sq) {
+  if (dist_sq < kill_radius * kill_radius) {
+    life = 0;
+    return false;
+  }
+
+  if (dist_sq <= ATTRACTOR_MIN_DISTANCE_SQ)
+    return true;
+
+  if (dist_sq < event_horizon * event_horizon) {
+    const Vector torque = (attractor_position - pos).normalized();
+    const float speed = std::max(velocity.magnitude(), max_delta);
+    velocity = torque * speed;
+    return true;
+  }
+
+  const float force = (gravity * strength) / dist_sq;
+  if (cross_sq < math::EPS_NORMALIZE_SQ) {
+    velocity += cross(Vector(force, 0, 0), pos);
+  } else {
+    const Vector tangent = attractor_position * pos_sq - pos * dot_pa;
+    velocity += tangent * (force / sqrtf(cross_sq));
+  }
+  return true;
+}
+
 /**
  * @brief A physics-based particle system with emitters and attractors.
  * @tparam W Width of the display (for Orientation).
@@ -159,7 +191,8 @@ template <int TRAIL_LEN = 8> struct Particle {
  * @tparam TRAIL_LEN Trail length per particle.
  * @tparam EMITTER_CAP Maximum number of emitters.
  * @tparam ATTRACTOR_CAP Maximum number of attractors.
- * @tparam SIGNED_AXIS_ATTRACTORS Enable unit signed-axis attractor algebra.
+ * @tparam SIGNED_AXIS_ATTRACTORS Enable paired unit signed-axis attractor
+ *        algebra.
  */
 template <int W, int CAPACITY, int TRAIL_LEN = 8, int EMITTER_CAP = 8,
           int ATTRACTOR_CAP = 8, bool SIGNED_AXIS_ATTRACTORS = false>
@@ -170,6 +203,8 @@ class ParticleSystem
 public:
   static_assert(CAPACITY <= 65535,
                 "active_count is uint16_t; CAPACITY must fit in it");
+  static_assert(!SIGNED_AXIS_ATTRACTORS || ATTRACTOR_CAP == 6,
+                "paired signed-axis physics requires six attractors");
 
   ArenaVector<Particle<TRAIL_LEN>> pool; /**< Backing pool of particles. */
 
@@ -259,14 +294,13 @@ public:
    */
   void add_attractor(const Vector &pos, float str, float kill, float horizon) {
     if constexpr (SIGNED_AXIS_ATTRACTORS) {
-      const bool x_axis =
-          std::abs(pos.x) == 1.0f && pos.y == 0.0f && pos.z == 0.0f;
-      const bool y_axis =
-          std::abs(pos.y) == 1.0f && pos.x == 0.0f && pos.z == 0.0f;
-      const bool z_axis =
-          std::abs(pos.z) == 1.0f && pos.x == 0.0f && pos.y == 0.0f;
-      HS_CHECK(x_axis || y_axis || z_axis,
-               "ParticleSystem signed-axis attractor is not a unit axis");
+      static constexpr std::array<Vector, 6> AXES = {X_AXIS,  -X_AXIS, Y_AXIS,
+                                                     -Y_AXIS, Z_AXIS,  -Z_AXIS};
+      const size_t index = attractors.size();
+      HS_CHECK(index < AXES.size() && pos.x == AXES[index].x &&
+                   pos.y == AXES[index].y && pos.z == AXES[index].z,
+               "ParticleSystem signed-axis attractors must be registered "
+               "+X,-X,+Y,-Y,+Z,-Z");
     }
     attractors.push_back({pos, str, kill, horizon});
   }
@@ -323,6 +357,8 @@ public:
   }
 
 private:
+  static constexpr float MOTION_MIN_SPEED = 0.000001f;
+
   uint16_t active_count =
       0; /**< Number of live particles in the pool prefix. */
 
@@ -364,46 +400,73 @@ private:
 #ifdef HS_TEST_BUILD
         if (!reference_signed_axis_physics) {
 #endif
+          assert(attractors.size() == 6);
           const float pos_sq = dot(pos, pos);
-          for (size_t k = 0; k < attractors.size(); ++k) {
-            const auto &attr = attractors[k];
-            float dot_pa;
+          const float coordinates[] = {pos.x, pos.y, pos.z};
+          for (size_t pair = 0; pair < 3; ++pair) {
+            const auto &plus = attractors[pair * 2];
+            const auto &minus = attractors[pair * 2 + 1];
+            const float q = coordinates[pair];
             float cross_sq;
-            if (attr.position.x != 0.0f) {
-              dot_pa = pos.x * attr.position.x;
+            if (pair == 0)
               cross_sq = pos.y * pos.y + pos.z * pos.z;
-            } else if (attr.position.y != 0.0f) {
-              dot_pa = pos.y * attr.position.y;
+            else if (pair == 1)
               cross_sq = pos.x * pos.x + pos.z * pos.z;
-            } else {
-              dot_pa = pos.z * attr.position.z;
+            else
               cross_sq = pos.x * pos.x + pos.y * pos.y;
-            }
-            const float axial_delta = dot_pa - 1.0f;
-            const float dist_sq = axial_delta * axial_delta + cross_sq;
-            const float horizon_sq = attr.event_horizon * attr.event_horizon;
+            const float plus_delta = q - 1.0f;
+            const float minus_delta = q + 1.0f;
+            const float dist_plus_sq = plus_delta * plus_delta + cross_sq;
+            const float dist_minus_sq = minus_delta * minus_delta + cross_sq;
+            const float plus_kill_sq = plus.kill_radius * plus.kill_radius;
+            const float minus_kill_sq = minus.kill_radius * minus.kill_radius;
+            const float plus_horizon_sq =
+                plus.event_horizon * plus.event_horizon;
+            const float minus_horizon_sq =
+                minus.event_horizon * minus.event_horizon;
+            const bool common_far = dist_plus_sq > ATTRACTOR_MIN_DISTANCE_SQ &&
+                                    dist_minus_sq > ATTRACTOR_MIN_DISTANCE_SQ &&
+                                    dist_plus_sq >= plus_horizon_sq &&
+                                    dist_minus_sq >= minus_horizon_sq &&
+                                    dist_plus_sq >= plus_kill_sq &&
+                                    dist_minus_sq >= minus_kill_sq;
 
-            if (dist_sq < attr.kill_radius * attr.kill_radius) {
-              p.life = 0;
-              active = false;
-              break;
-            }
-
-            if (dist_sq > 0.0000001f) {
-              if (dist_sq < horizon_sq) {
-                Vector torque = (attr.position - pos).normalized();
-                float speed = std::max(p.velocity.magnitude(), max_delta);
-                p.velocity = torque * speed;
-              } else {
-                const float force = (gravity * attr.strength) / dist_sq;
-                if (cross_sq < math::EPS_NORMALIZE_SQ) {
-                  p.velocity += cross(Vector(force, 0, 0), pos);
-                } else {
-                  // Generalized for position norm drift.
-                  const Vector tangent = attr.position * pos_sq - pos * dot_pa;
-                  p.velocity += tangent * (force / sqrtf(cross_sq));
-                }
+            if (!common_far) {
+              if (!apply_signed_axis_attractor(
+                      p.life, p.velocity, pos, pos_sq, max_delta, plus.position,
+                      plus.strength, plus.kill_radius, plus.event_horizon,
+                      gravity, q, cross_sq, dist_plus_sq) ||
+                  !apply_signed_axis_attractor(
+                      p.life, p.velocity, pos, pos_sq, max_delta,
+                      minus.position, minus.strength, minus.kill_radius,
+                      minus.event_horizon, gravity, -q, cross_sq,
+                      dist_minus_sq)) {
+                active = false;
+                break;
               }
+              continue;
+            }
+
+            const float inv_pair = 1.0f / (dist_plus_sq * dist_minus_sq);
+            const float inv_plus = dist_minus_sq * inv_pair;
+            const float inv_minus = dist_plus_sq * inv_pair;
+            if (cross_sq < math::EPS_NORMALIZE_SQ) {
+              const float force = gravity * (plus.strength * inv_plus +
+                                             minus.strength * inv_minus);
+              p.velocity += cross(Vector(force, 0, 0), pos);
+            } else {
+              Vector tangent(-pos.x * q, -pos.y * q, -pos.z * q);
+              if (pair == 0)
+                tangent.x += pos_sq;
+              else if (pair == 1)
+                tangent.y += pos_sq;
+              else
+                tangent.z += pos_sq;
+              const float inv_cross = 1.0f / sqrtf(cross_sq);
+              const float scale =
+                  gravity * inv_cross *
+                  (plus.strength * inv_plus - minus.strength * inv_minus);
+              p.velocity += tangent * scale;
             }
           }
 #ifdef HS_TEST_BUILD
@@ -418,7 +481,7 @@ private:
               break;
             }
 
-            if (dist_sq > 0.0000001f) {
+            if (dist_sq > ATTRACTOR_MIN_DISTANCE_SQ) {
               if (dist_sq < attr.event_horizon * attr.event_horizon) {
                 Vector torque = (attr.position - pos).normalized();
                 float speed = std::max(p.velocity.magnitude(), max_delta);
@@ -446,7 +509,7 @@ private:
             break; // Killed
           }
 
-          if (dist_sq > 0.0000001f) {
+          if (dist_sq > ATTRACTOR_MIN_DISTANCE_SQ) {
             if (dist_sq < attr.event_horizon * attr.event_horizon) {
               // Steer into center. Floor the speed so a friction-drained particle
               // still advances inward to kill_radius instead of stalling.
@@ -467,18 +530,32 @@ private:
       }
 
       if (active) {
-        // The surface-rotation axis cross(pos, velocity) vanishes for a purely
-        // radial velocity (no motion along the sphere), so skip rather than
-        // normalize a zero-length axis.
-        float speed = p.velocity.magnitude();
-        Vector axis = cross(pos, p.velocity);
-        if (speed > 0.000001f && axis.magnitude() > 0.000001f) {
-          // Cap the per-frame surface advance at one column to avoid aliasing;
-          // velocity keeps its full magnitude.
-          speed = std::min(speed, max_delta);
-          Quaternion dq = make_rotation(axis.normalized(), speed);
-          p.position = rotate(p.position, dq);
-          p.velocity = rotate(p.velocity, dq);
+        if constexpr (SIGNED_AXIS_ATTRACTORS) {
+          const float speed_sq = dot(p.velocity, p.velocity);
+          Vector axis = cross(pos, p.velocity);
+          const float axis_sq = dot(axis, axis);
+          constexpr float MOTION_MIN_SQ = MOTION_MIN_SPEED * MOTION_MIN_SPEED;
+          if (speed_sq > MOTION_MIN_SQ && axis_sq > MOTION_MIN_SQ) {
+            const float speed = std::min(sqrtf(speed_sq), max_delta);
+            axis *= 1.0f / sqrtf(axis_sq);
+            const Quaternion dq = make_rotation(axis, speed);
+            p.position = rotate(p.position, dq);
+            p.velocity = rotate(p.velocity, dq);
+          }
+        } else {
+          // The surface-rotation axis cross(pos, velocity) vanishes for a purely
+          // radial velocity (no motion along the sphere), so skip rather than
+          // normalize a zero-length axis.
+          float speed = p.velocity.magnitude();
+          Vector axis = cross(pos, p.velocity);
+          if (speed > MOTION_MIN_SPEED && axis.magnitude() > MOTION_MIN_SPEED) {
+            // Cap the per-frame surface advance at one column to avoid aliasing;
+            // velocity keeps its full magnitude.
+            speed = std::min(speed, max_delta);
+            Quaternion dq = make_rotation(axis.normalized(), speed);
+            p.position = rotate(p.position, dq);
+            p.velocity = rotate(p.velocity, dq);
+          }
         }
       }
     }
