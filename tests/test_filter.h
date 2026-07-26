@@ -1056,6 +1056,8 @@ render_aa_sink_case(int w, int h, int y0, int y1, int x0, int x1, int margin,
     Sink sink;
     {
       Canvas cv(fx);
+      if constexpr (requires { sink.prepare(cv); })
+        sink.prepare(cv);
       for (int y = 0; y < h; ++y)
         for (int x = 0; x < w; ++x) {
           const uint32_t n = static_cast<uint32_t>(y * w + x);

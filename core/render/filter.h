@@ -1088,11 +1088,22 @@ public:
   static constexpr bool has_world_cull = false;
   static constexpr bool direct_raster_path = true;
 
+  /** @brief Caches the current frame's framebuffer and clip bounds. */
+  void prepare(Canvas &cv) {
+    base_ = cv.data();
+    const ClipRegion &cr = cv.clip();
+    x_clip_ = cr.x_clip();
+    y_start_ = cr.render_y_start();
+    y_end_ = cr.render_y_end();
+  }
+
   /** @brief Splats one screen-space sample directly into the Canvas. */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
             float alpha) {
     assert(age >= 0.0f && alpha >= 0.0f);
+    assert(base_ == cv.data());
     (void)age;
+    (void)cv;
 
     const float y_floor = floorf(y);
     const float x_floor = floorf(x);
@@ -1122,13 +1133,10 @@ public:
     const float v11 = xs * wy1;
     constexpr float TAP_CUTOFF = 1e-8f;
 
-    const ClipRegion &cr = cv.clip();
-    const ClipRegion::XClip xc = cr.x_clip();
-    const bool x0_ok = !xc.clipped(x0);
-    const bool x1_ok = !xc.clipped(x1);
-    const bool y0_ok = y0_physical && cr.contains_y(y0);
-    const bool y1_ok = y1_physical && cr.contains_y(y1);
-    Pixel *const base = cv.data();
+    const bool x0_ok = !x_clip_.clipped(x0);
+    const bool x1_ok = !x_clip_.clipped(x1);
+    const bool y0_ok = y0_physical && y0 >= y_start_ && y0 < y_end_;
+    const bool y1_ok = y1_physical && y1 >= y_start_ && y1 < y_end_;
     const uint8_t tap_mask =
         static_cast<uint8_t>((y0_ok && x0_ok && v00 > TAP_CUTOFF) |
                              ((y0_ok && x1_ok && v10 > TAP_CUTOFF) << 1) |
@@ -1136,11 +1144,11 @@ public:
                              ((y1_ok && x1_ok && v11 > TAP_CUTOFF) << 3));
 
     if (tap_mask == 0x0f) {
-      blend_four(base + y0 * W, base + y1 * W, x0, x1, c, alpha, v00, v10, v01,
-                 v11);
+      blend_four(base_ + y0 * W, base_ + y1 * W, x0, x1, c, alpha, v00, v10,
+                 v01, v11);
       return;
     }
-    blend_masked(base, x0, x1, y0, y1, c, alpha, v00, v10, v01, v11, tap_mask);
+    blend_masked(base_, x0, x1, y0, y1, c, alpha, v00, v10, v01, v11, tap_mask);
   }
 
   /** @brief Integer-coordinate overload matching a filtered Pipeline. */
@@ -1168,6 +1176,11 @@ public:
   }
 
 private:
+  Pixel *base_ = nullptr;
+  ClipRegion::XClip x_clip_;
+  int y_start_ = 0;
+  int y_end_ = H;
+
   static __attribute__((always_inline)) uint16_t tap_alpha_q16(float alpha,
                                                                float weight) {
     return static_cast<uint16_t>(
