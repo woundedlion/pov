@@ -1521,7 +1521,9 @@ struct Line {
         // fast trig's 0.17% error breaks c^2+s^2==1, so renormalize: callers
         // (vector_to_pixel's acos) require a unit position.
         float ang = angle * t;
-        Vector p = (f1.pos * fast_cosf(ang)) + (perp * fast_sinf(ang));
+        float s, c;
+        fast_sincosf_0_pi(ang, s, c);
+        Vector p = (f1.pos * c) + (perp * s);
         f.pos = p * fast_rsqrt(dot(p, p));
       }
 
