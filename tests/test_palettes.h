@@ -96,17 +96,23 @@ inline void test_named_procedural_palette_endpoints() {
 
   constexpr auto mesh_sources = MeshPaletteBank::sources();
   HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::BLUE_LAGOON);
-  HS_EXPECT_TRUE(mesh_sources[6] == &Palettes::PEACH_POP);
+  HS_EXPECT_TRUE(mesh_sources[6] == &Palettes::POPPED_PEACH);
 
-  constexpr ProceduralPalette forward_orange(
+  constexpr ProceduralPalette FORWARD_ORANGE(
       {0.575f, 0.168f, 0.464f}, {0.406f, 0.697f, 0.357f},
       {0.000f, 0.10051f, 0.042778f}, {0.141f, 0.155f, 0.537f});
   for (float t : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
     Color4 reversed = Palettes::ORANGE_CRUSH.get(t);
-    Color4 forward = forward_orange.get(1.0f - t);
+    Color4 forward = FORWARD_ORANGE.get(1.0f - t);
     HS_EXPECT_NEAR(reversed.color.r, forward.color.r, 1);
     HS_EXPECT_NEAR(reversed.color.g, forward.color.g, 1);
     HS_EXPECT_NEAR(reversed.color.b, forward.color.b, 1);
+
+    Color4 popped = Palettes::POPPED_PEACH.get(t);
+    Color4 peach = Palettes::PEACH_POP.get(1.0f - t);
+    HS_EXPECT_NEAR(popped.color.r, peach.color.r, 1);
+    HS_EXPECT_NEAR(popped.color.g, peach.color.g, 1);
+    HS_EXPECT_NEAR(popped.color.b, peach.color.b, 1);
   }
 }
 
