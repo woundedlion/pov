@@ -95,7 +95,7 @@ inline void test_named_procedural_palette_endpoints() {
   HS_EXPECT_EQ(pp0.color.b, 0);
 
   constexpr auto mesh_sources = MeshPaletteBank::sources();
-  HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::BLUE_LAGOON);
+  HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::BLOOD_STREAM);
   HS_EXPECT_TRUE(mesh_sources[6] == &Palettes::POPPED_PEACH);
 
   constexpr ProceduralPalette FORWARD_ORANGE(

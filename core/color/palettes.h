@@ -139,7 +139,7 @@ struct MeshPaletteBank {
   static constexpr auto sources() {
     return std::array{&Palettes::EMBERS,         &Palettes::RICH_SUNSET,
                       &Palettes::BRIGHT_SUNRISE, &Palettes::BRUISED_MOSS,
-                      &Palettes::LAVENDER_LAKE,  &Palettes::BLUE_LAGOON,
+                      &Palettes::LAVENDER_LAKE,  &Palettes::BLOOD_STREAM,
                       &Palettes::POPPED_PEACH};
   }
 
