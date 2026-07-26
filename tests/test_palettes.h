@@ -96,7 +96,7 @@ inline void test_named_procedural_palette_endpoints() {
 
   constexpr auto mesh_sources = MeshPaletteBank::sources();
   HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::ORANGE_CRUSH);
-  HS_EXPECT_TRUE(mesh_sources[6] == &Palettes::MANGO_PEEL);
+  HS_EXPECT_TRUE(mesh_sources[6] == &Palettes::PEACH_POP);
 
   constexpr ProceduralPalette forward_orange(
       {0.575f, 0.168f, 0.464f}, {0.406f, 0.697f, 0.357f},
