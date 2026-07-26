@@ -52,7 +52,7 @@ public:
     // Asymmetric scratch split (190 KB total): the leg-by-leg build chain
     // peaks at ~114 KB in a and ~69 KB in b, and compact_keep_front evacuates
     // the front slot (up to 63.7 KB) through b. The remainder is persistent:
-    // carousel slots + BakedPaletteBank (~21 KB). Budgets enforced by the
+    // carousel slots + BakedPaletteBank (~18 KB). Budgets enforced by the
     // test_conway_morph.h build replay and test_solids.h's high-water sweeps.
     configure_arenas(GLOBAL_ARENA_SIZE - (116 + 74) * 1024, 116 * 1024,
                      74 * 1024);
