@@ -219,10 +219,10 @@ private:
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
-  /** Per-slot per-face immutable palette ids (persistent-arena backed,
-   * MAX_BUILD_FACES each). Written at spawn (class-keyed birth colours) and at
-   * finish_build (the last leg's per-face colours); every compaction re-claims
-   * the same addresses, so the contents survive the reset. */
+  /** Per-slot per-face palette ids (persistent-arena backed, MAX_BUILD_FACES
+   * each). Written at spawn (class-keyed colours) and at finish_build (the
+   * last leg's landed colours); every compaction re-claims the same addresses,
+   * so the contents survive the reset. */
   uint8_t *slot_face_palette[2] = {};
 
   // Build-chain state (entries with a non-null recipe): the shape is built op
@@ -249,13 +249,6 @@ private:
                                   shape's split; the host arena is
                                   over-provisioned, so gates check the resident
                                   persistent high-water against this. */
-  std::array<uint8_t, Animation::OpLeg::PALETTES> build_palette_order_ =
-      {}; /**< The shape's shuffled palette order (the spawn shuffle); birth
-             cohorts consume it through build_birth_counter_. */
-  uint32_t build_birth_counter_ =
-      0; /**< Wrapping cohort ordinal into build_palette_order_: the seed's
-            classes consume the first entries at spawn, each leg's distinct
-            newborn birth classes the next; never reset mid-build. */
   const Animation::OpLeg::Landing *build_landing_ =
       nullptr; /**< Latest leg's arrival data (leg-arena backed). */
   const uint8_t *build_from_pal_ =
@@ -368,7 +361,7 @@ private:
    * @param phase Segue phase in [0, 1] from the sprite envelope: rises over
    *        the incoming window, holds 1, falls over the outgoing window.
    * @param base_state Undistorted source mesh to transform and draw.
-   * @param shading Per-face topology classes and immutable palette ids.
+   * @param shading Per-face topology classes and palette ids.
    * @note Draws on the exact SDF path, not the congruence-class LUT
    * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
@@ -605,9 +598,7 @@ private:
     solid_idx = (solid_idx + 1) % solids.size();
 #endif
     int back = 1 - carousel.front_index();
-    // The shape's shuffled palette order: birth cohorts consume it through
-    // build_birth_counter_ (the spawned mesh below, newborn build faces
-    // through build_palette_order_) and keep their palette for good.
+    // The spawned mesh's shuffled palette order, consumed by class ordinal.
     std::array<int, NUM_PALETTES> palette_slots;
     MeshPaletteBank::shuffle_indices(palette_slots);
 
@@ -689,20 +680,15 @@ private:
                                           scratch_arena_b, persistent_arena);
     }
 
-    // Birth colours of the spawned mesh (a build's seed, or the whole solid):
-    // the shuffled palette order consumed by class ordinal — class ids are
-    // dense, so class c is the c-th cohort — then immutable for the shape's
-    // whole life. The counter continues from the seed's class count across
-    // the build's legs.
+    // Colours of the spawned mesh (a build's seed, or the whole solid): the
+    // shuffled palette order consumed by class ordinal — class ids are dense,
+    // so class c is the c-th cohort.
     {
       const MeshState &spawned_mesh = carousel.slot(back);
       const size_t spawned_faces = spawned_mesh.topology.size();
       HS_CHECK(spawned_faces <= MAX_BUILD_FACES);
-      build_birth_counter_ = 0;
       for (size_t f = 0; f < spawned_faces; ++f) {
         const int cls = spawned_mesh.topology[f];
-        build_birth_counter_ =
-            std::max(build_birth_counter_, static_cast<uint32_t>(cls) + 1);
         slot_face_palette[back][f] =
             static_cast<uint8_t>(palette_slots[wrap(cls, NUM_PALETTES)]);
       }
@@ -777,11 +763,6 @@ private:
         build_total_frames_ += frames;
       }
       build_span = build_total_frames_;
-      // One pinned palette order per shape (the spawn shuffle): each leg's
-      // distinct newborn birth classes consume its next entries through
-      // build_birth_counter_, continuing where the seed's classes left off.
-      for (int i = 0; i < NUM_PALETTES; ++i)
-        build_palette_order_[i] = static_cast<uint8_t>(palette_slots[i]);
     }
 
     int duration = fade + build_span + still + burst_span + still + fade;
@@ -860,10 +841,9 @@ private:
     // the mesh its baked topology already carries, and its bookend grouping is
     // that arrival's own classification, which the leg computes itself.
     //
-    // Colours are immutable from birth: every carried face keeps the palette
-    // it was born with (routed leg to leg through the from-palette carry), and
-    // each distinct birth class among this leg's newborn faces takes the next
-    // entry of the shape's palette order. No leg ever blends a colour.
+    // Colours re-key per leg: the arrival's own classification maps to a
+    // freshly shuffled palette set, and every face crossfades from the palette
+    // the previous leg landed on to its new class target over the leg.
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
@@ -972,7 +952,7 @@ private:
     const uint8_t *prev_pal;
     if (!build_from_pal_) {
       // The build's first leg departs the carousel seed slot: its per-face
-      // birth colours are the chain's FROM state. Keyed on build_from_pal_
+      // spawn colours are the chain's FROM state. Keyed on build_from_pal_
       // (reset to null per build) rather than build_step_ == 0, so a smooth
       // kis/needle macro whose later sub-legs still sit on step 0
       // (icosahedron_kis_gyro's leading kis) departs from the carried palette,
@@ -980,22 +960,13 @@ private:
       HS_CHECK(prev_faces <= carousel.current().topology.size());
       prev_pal = slot_face_palette[carousel.front_index()];
     } else {
-      // Depart from the palette the previous leg drew: the faces' immutable
-      // birth colours, carried verbatim across every boundary.
+      // Depart from the palette the previous leg landed on.
       HS_CHECK(build_from_pal_ && build_from_faces_ == prev_faces,
                "IslamicStars: carried palette does not cover the leg seed");
       prev_pal = build_from_pal_;
     }
-    return {&palette_bank_.bank,
-            prev_pal,
-            nullptr,
-            prev_faces,
-            false,
-            prev_centroid,
-            &build_palette_order_,
-            true,
-            &build_birth_counter_,
-            correspondence};
+    return {&palette_bank_.bank, prev_pal, nullptr, prev_faces, false,
+            prev_centroid,       nullptr,  false,   nullptr,    correspondence};
   }
 
   /**
@@ -1026,7 +997,7 @@ private:
         cen[f] = c.normalized();
         off += n;
       }
-      pal[f] = build_landing_->from_palette[f];
+      pal[f] = build_landing_->landed_palette(f);
     }
     return {&palette_bank_.bank,
             pal,
@@ -1034,9 +1005,9 @@ private:
             nf,
             false,
             cen,
-            &build_palette_order_,
-            true,
-            &build_birth_counter_,
+            nullptr,
+            false,
+            nullptr,
             correspondence};
   }
 
@@ -1137,7 +1108,8 @@ private:
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
              build_landing_->faces >= nf);
     uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(nf);
-    std::copy_n(build_landing_->from_palette, nf, pal);
+    for (size_t f = 0; f < nf; ++f)
+      pal[f] = build_landing_->landed_palette(f);
     build_landing_ = nullptr;
 
     // Compact: keep the seed P (leg 3 builds dual(P) from it), drop leg 2 (the
@@ -1173,9 +1145,9 @@ private:
         nf,
         false,
         nullptr,
-        &build_palette_order_,
-        true,
-        &build_birth_counter_,
+        nullptr,
+        false,
+        nullptr,
         Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING};
     Animation::OpLeg::BookendClasses bookend{
         build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
@@ -1208,7 +1180,8 @@ private:
     // shape was dropped at the recipe spawn, and the array's same-address
     // re-claim keeps the bytes across every boundary compaction.
     uint8_t *carry = slot_face_palette[1 - carousel.front_index()];
-    std::memcpy(carry, build_landing_->from_palette, landed_faces);
+    for (size_t f = 0; f < landed_faces; ++f)
+      carry[f] = build_landing_->landed_palette(f);
     build_landing_ = nullptr;
 
     {
@@ -1490,8 +1463,8 @@ private:
     const int front = carousel.front_index();
     // Per-face sprite handoff: copied before the compaction below, whose
     // same-address re-claim keeps the array's bytes.
-    std::memcpy(slot_face_palette[front], build_landing_->from_palette,
-                landed_faces);
+    for (size_t f = 0; f < landed_faces; ++f)
+      slot_face_palette[front][f] = build_landing_->landed_palette(f);
     build_landing_ = nullptr;
     build_from_pal_ = nullptr;
     build_from_faces_ = 0;
