@@ -323,8 +323,8 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
 
     auto sample_geodesic = [=](float t) -> SamplePT {
       float ang = total_dist * t;
-      float s = fast_sinf(ang);
-      float c = fast_cosf(ang);
+      float s, c;
+      fast_sincosf_0_pi(ang, s, c);
       // pos on the great circle; tan = d(pos)/d(ang) is a unit vector (v1,
       // v_perp orthonormal), so the screen-velocity sampler's tangent comes free
       // from the same sin/cos — no extra trig.

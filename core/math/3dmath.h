@@ -1389,6 +1389,26 @@ __attribute__((always_inline)) inline float fast_cosf(float x) {
 }
 
 /**
+ * @brief Fast sine and cosine for an angle in [0, π].
+ * @param x Angle in radians.
+ * @param s Output matching fast_sinf(x).
+ * @param c Output matching fast_cosf(x).
+ */
+__attribute__((always_inline)) inline void fast_sincosf_0_pi(float x, float &s,
+                                                             float &c) {
+  float xpi = x * (PI_F - x);
+  s = (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
+  float cx = x + PI_F * 0.5f;
+  float sign = 1.0f;
+  if (cx > PI_F) {
+    cx -= PI_F;
+    sign = -1.0f;
+  }
+  float cxpi = cx * (PI_F - cx);
+  c = sign * (16.0f * cxpi) / (5.0f * PI_F * PI_F - 4.0f * cxpi);
+}
+
+/**
  * @brief Spherical Linear Interpolation (SLERP) between two Vectors.
  * @param v1 Starting vector.
  * @param v2 Ending vector.
