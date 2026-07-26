@@ -48,9 +48,9 @@ if [ -n "$HS_PROFILE_DEEP" ] && [ "$HS_PROFILE_DEEP" != "0" ]; then
   DEEP="-D HS_PROFILE_DEEP_ENABLE"
   DEEP_SUFFIX="_deep"
 fi
-OUT=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}.log
+OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}.log}
 cd "${HS_PROFILE_TREE:-/c/work/Holosphere}"
-mkdir -p build/prof
+mkdir -p "$(dirname "$OUT")"
 export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $EXTRA"
 
 # Cyclers emit a per-advance marker; a capture of one must contain it.

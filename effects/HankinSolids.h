@@ -55,7 +55,6 @@ public:
                      32 * 1024);
     register_param("Intensity", &params.intensity, 0.0f, 5.0f);
     register_animated_param("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
-    register_param("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, Y_AXIS, noise,
@@ -491,10 +490,10 @@ private:
       HS_PROFILE(hk_mesh_scan);
       if (split)
         Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, split_shader,
-                               scratch_arena_a, params.debug_bb);
+                               scratch_arena_a);
       else
         Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, star_shader,
-                               scratch_arena_a, params.debug_bb);
+                               scratch_arena_a);
     }
   }
 
@@ -533,7 +532,7 @@ private:
     {
       HS_PROFILE(hk_mesh_scan);
       Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
-                             scratch_arena_a, params.debug_bb);
+                             scratch_arena_a);
     }
   }
 
@@ -758,8 +757,8 @@ private:
             Solids::simple_registry[edge_other_end(cur_edge_, node_)].name);
 
     Animation::OpLeg anim(leg_seed, e, reverse_, persistent_arena,
-                                draw_conway_fn_, handoff, SWEEP_FRAMES,
-                                e.settle ? SETTLE_FRAMES : 0, bookend);
+                          draw_conway_fn_, handoff, SWEEP_FRAMES,
+                          e.settle ? SETTLE_FRAMES : 0, bookend);
     pending_landing_ = &anim.landing();
     timeline.add(
         0, std::move(anim).then([this]() { this->finish_morph_cycle(); }));
@@ -919,8 +918,7 @@ private:
    * @brief Draw callback for morph frames.
    * @details Held as a member for stable FunctionRef lifetime.
    */
-  Fn<void(Canvas &, const MeshState &, const Animation::OpLeg::Shading &),
-     8>
+  Fn<void(Canvas &, const MeshState &, const Animation::OpLeg::Shading &), 8>
       draw_conway_fn_{[this](Canvas &c, const MeshState &m,
                              const Animation::OpLeg::Shading &sh) {
         draw_conway_mesh(c, m, sh);
@@ -937,7 +935,6 @@ private:
   struct Params {
     float intensity = 1.2f;           /**< Edge-distance shading gain. */
     float hankin_angle = PI_F / 4.0f; /**< Interlace angle in radians. */
-    bool debug_bb = false; /**< Draw face bounding boxes when true. */
   } params;
 };
 

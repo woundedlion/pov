@@ -30,6 +30,14 @@ struct IslamicBuildProbe;
 template <int W, int H> class IslamicStars : public Effect {
 
 public:
+#ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
+  static_assert(
+      HS_ISLAMICSTARS_PROFILE_SHAPE >= 0 &&
+          HS_ISLAMICSTARS_PROFILE_SHAPE <
+              static_cast<int>(std::size(Solids::islamic_registry)),
+      "HS_ISLAMICSTARS_PROFILE_SHAPE is outside the Islamic solid registry");
+#endif
+
   /**
    * @brief Constructs the effect, binding the ripple generator to the timeline.
    */
@@ -41,12 +49,12 @@ public:
    *        with the orientation walk and the first shape.
    */
   void init() override {
-    // Asymmetric scratch split (194 KB total): the leg-by-leg build chain
-    // peaks at ~118 KB in a and ~71 KB in b, and compact_keep_front evacuates
+    // Asymmetric scratch split (190 KB total): the leg-by-leg build chain
+    // peaks at ~114 KB in a and ~69 KB in b, and compact_keep_front evacuates
     // the front slot (up to 63.7 KB) through b. The remainder is persistent:
-    // carousel slots + BakedPaletteBank (~15 KB). Budgets enforced by the
+    // carousel slots + BakedPaletteBank (~21 KB). Budgets enforced by the
     // test_conway_morph.h build replay and test_solids.h's high-water sweeps.
-    configure_arenas(GLOBAL_ARENA_SIZE - (114 + 80) * 1024, 120 * 1024,
+    configure_arenas(GLOBAL_ARENA_SIZE - (116 + 74) * 1024, 116 * 1024,
                      74 * 1024);
 
     ripple_gen.init_storage(persistent_arena);
@@ -58,8 +66,10 @@ public:
     ripple_gen.template_params.amplitude = RIPPLE_AMP_MAX;
     ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
+#ifdef HS_PROFILE_TRANS_SPEED
+    params.trans_speed = static_cast<float>(HS_PROFILE_TRANS_SPEED);
+#endif
 
-    register_param("Fade", &params.fade, 0.0f, 96.0f);
     // Per-face fade length range (frames): each face draws a random fade from
     // [lo, hi] as the terminator reaches it, fraying the sweep front.
     register_param("Face Fade Lo", &carousel.segue().fade_frames_min, 0.0f,
@@ -77,10 +87,10 @@ public:
     register_param("Ripp Dur", &ripple_duration, 30.0f,
                    (float)RIPPLE_DURATION_MAX);
     register_param("Trans Speed", &params.trans_speed, 1.0f, 8.0f);
-    register_param("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
 
+#ifndef HS_ISLAMICSTARS_PROFILE_SHAPE
     // Open on a recipe entry so the op-by-op build is the first thing drawn;
     // spawn_shape pre-increments, so seed the index one before it.
     auto solids = Solids::Collections::get_islamic_solids();
@@ -90,6 +100,7 @@ public:
         break;
       }
     }
+#endif
 
     spawn_shape();
   }
@@ -103,7 +114,6 @@ public:
       HS_PROFILE(is_buffer_wait);
       return Canvas(*this);
     }();
-    ++frame_counter_;
     {
       HS_PROFILE(is_ripple_prepare);
       ripple_gen.prepare_frame();
@@ -124,6 +134,7 @@ private:
   static constexpr int RIPPLE_STAGGER_FRAMES = 16;
   static constexpr int RIPPLE_DURATION_MAX = 143;
   static constexpr int BURST_MAX = 4;
+  static constexpr int SPRITE_FADE_FRAMES = 16;
   static constexpr int STILL_FRAMES =
       16; /**< 1 s hold (16 fps) between fade and ripple stages. */
   // Recipe-build leg lengths (docs/opchain_morph_spec.md section 7); divided
@@ -144,15 +155,16 @@ private:
    * truncate(seed) (~3x the seed's half-edges); rendering and classifying that
    * tripled mesh needs a scratch_a heavier than the default, while the bridge's
    * per-leg compaction keeps its persistent well under the default. So a bridge
-   * shape spawns on a scratch_a-heavy split and every other shape on the default
-   * (the roster's heaviest hankin solid needs the full default persistent). Each
-   * split's persistent is the device-arena remainder; the two scratch arenas are
-   * the same absolute sizes on host and device (hard-capped, so an over-budget
-   * leg traps). needle's measured peak (131,770 / 75,244 / 94,756) fits the
-   * bridge split, and every other bridge shape is smaller. */
-  static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 120 * 1024; // 122,880
-  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 130 * 1024;  // 133,120
-  static constexpr size_t SPLIT_SCRATCH_B = 74 * 1024;          // 75,776
+   * shape spawns on a scratch_a-heavy split; other recipe builds trade 2 KB of
+   * scratch_b for persistent; generated whole shapes retain the wider scratch_b.
+   * Each split's persistent is the device-arena remainder and both scratch
+   * arenas are hard-capped at their device sizes. Needle's measured peak is
+   * 131,770 / 70,228 / 96,600 bytes. */
+  static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 116 * 1024;      // 118,784
+  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 129 * 1024 + 512; // 132,608
+  static constexpr size_t SPLIT_SCRATCH_B_DEFAULT = 74 * 1024;       // 75,776
+  static constexpr size_t SPLIT_SCRATCH_B_BUILD = 72 * 1024;         // 73,728
+  static constexpr size_t SPLIT_SCRATCH_B_BRIDGE = 74 * 1024;        // 75,776
   static constexpr size_t MAX_BUILD_STEPS = 8; /**< Lowered-primitive cap. */
   /** Build-chain mesh face cap. Bounds the scratch handoff arrays only; the
    * persistent budget is what actually limits which recipes ship. */
@@ -176,19 +188,34 @@ private:
   int ripple_stagger_eff_ = RIPPLE_STAGGER_FRAMES;
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
+  struct FacePaletteShader {
+    const BakedPalette *palette = nullptr;
+    float scale = 0.0f;
+    float alpha = 0.0f;
+    bool divide_by_scale = false;
+
+    void operator()(const Vector &, Fragment &frag) const {
+      float edge = divide_by_scale
+                       ? (scale > math::TOLERANCE ? -frag.v1 / scale : 0.0f)
+                       : -frag.v1 * scale;
+      float t = hs::clamp(edge, 0.0f, 1.0f);
+      frag.color.color = palette->get_color_unit(t);
+      frag.color.alpha = alpha;
+    }
+  };
+
+  struct SpriteFaceShading {
+    const int *classes;
+    const uint8_t *palette;
+
+    SpriteFaceShading(const MeshState &mesh, const uint8_t *face_palette)
+        : classes(mesh.topology.data()), palette(face_palette) {
+      HS_CHECK(mesh.topology.size() == mesh.num_faces(),
+               "IslamicStars: sprite shading face count mismatch");
+    }
+  };
+
   MeshCarousel<SegueT> carousel;
-  // Seed fade-in: the opening window materialises the base mesh through a
-  // per-pixel dither instead of the terminator sweep; every stage after (build,
-  // still, ripple, fade-out) keeps the sweep policy above.
-  // Intro dither, seeded per transition from the sweep's fade_seed (no extra RNG
-  // draw).
-  Segue::Dissolve seed_dissolve_;
-  // Monotonic frame count salting the dissolve mask (temporal dither, never wall
-  // time).
-  uint32_t frame_counter_ = 0;
-  // True during a shape's opening dissolve window; cleared at the phase-1
-  // plateau.
-  bool seed_intro_ = false;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
@@ -218,9 +245,10 @@ private:
             itself is dropped at the medial leg (persistent-budget relief). */
   size_t device_persistent_budget_ =
       DEVICE_GLOBAL_ARENA_SIZE - SPLIT_SCRATCH_A_DEFAULT -
-      SPLIT_SCRATCH_B; /**< Device persistent budget of the current shape's split;
-                          the host arena is over-provisioned, so gates check the
-                          resident persistent high-water against this. */
+      SPLIT_SCRATCH_B_DEFAULT; /**< Device persistent budget of the current
+                                  shape's split; the host arena is
+                                  over-provisioned, so gates check the resident
+                                  persistent high-water against this. */
   std::array<uint8_t, Animation::OpLeg::PALETTES> build_palette_order_ =
       {}; /**< The shape's shuffled palette order (the spawn shuffle); birth
              cohorts consume it through build_birth_counter_. */
@@ -252,11 +280,11 @@ private:
    * @brief Draw callback for build-leg frames.
    * @details Held as a member for stable FunctionRef lifetime.
    */
-  Fn<void(Canvas &, const MeshState &, const Animation::OpLeg::Shading &), 8>
-      draw_build_fn_{[this](Canvas &c, const MeshState &m,
-                            const Animation::OpLeg::Shading &sh) {
-        draw_build_mesh(c, m, sh);
-      }};
+  Fn<void(Canvas &, MeshState &, const Animation::OpLeg::Shading &), 8>
+      draw_build_fn_{
+          [this](Canvas &c, MeshState &m, const Animation::OpLeg::Shading &sh) {
+            draw_build_mesh(c, m, sh);
+          }};
 
   /**
    * @brief Claims the two per-slot face-palette arrays from the arena.
@@ -324,30 +352,13 @@ private:
    * @details Cold (flash): runs once per frame, so its own body stays out of
    * ITCM (phantasm sits at the granule edge); only draw_shape's per-pixel scan
    * is hot. During the build window an OpLeg draws instead (one mesh per frame).
-   * The seed fade-in materialises the base mesh through a per-pixel dither
-   * instead of the terminator sweep: draw the fully-lit seed (phase 1) gated by a
-   * dissolve mask whose owned fraction is the real intro phase, so pixels light
-   * in dither order; at phase 1 the mask owns every pixel, landing exactly on the
-   * fully-lit seed the build leg departs from (no pop). frame_counter_ salts the
-   * mask (temporal dither, never wall time).
    */
   HS_COLD_MEMBER void draw_sprite(Canvas &canvas, float phase, int back) {
     if (build_active_)
       return;
     const MeshState &mesh = carousel.slot(back);
-    PixelMask mask{};
-    const PixelMask *mask_ptr = nullptr;
-    if (seed_intro_) {
-      if (phase < 1.0f) {
-        mask = seed_dissolve_.mask(phase, frame_counter_, true);
-        mask_ptr = &mask;
-        phase = 1.0f;
-      } else {
-        seed_intro_ = false;
-      }
-    }
-    draw_shape(canvas, phase, mesh, mesh.topology, slot_face_palette[back],
-               mask_ptr);
+    const SpriteFaceShading shading(mesh, slot_face_palette[back]);
+    draw_shape(canvas, phase, mesh, shading);
   }
 
   /**
@@ -357,30 +368,23 @@ private:
    * @param phase Segue phase in [0, 1] from the sprite envelope: rises over
    *        the incoming window, holds 1, falls over the outgoing window.
    * @param base_state Undistorted source mesh to transform and draw.
-   * @param face_indices Maps each face to its topology class (segue ordering).
-   * @param face_palette Immutable per-face palette ids (covers every face).
-   * @param mask Optional per-pixel dissolve gate: unowned pixels are skipped in
-   *        the scan. The seed fade-in draws the fully-lit mesh (phase 1) through
-   *        a ramping mask so the base mesh materialises pixel by pixel; null on
-   *        every other stage (the sweep path).
+   * @param shading Per-face topology classes and immutable palette ids.
    * @note Draws on the exact SDF path, not the congruence-class LUT
    * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
    */
-  HS_O3_FN void draw_shape(Canvas &canvas, float phase,
-                           const MeshState &base_state,
-                           const ArenaVector<int> &face_indices,
-                           const uint8_t *face_palette,
-                           const PixelMask *mask = nullptr) {
+  HS_O3_FN HS_NOINLINE_NOCLONE void
+  draw_shape(Canvas &canvas, float phase, const MeshState &base_state,
+             const SpriteFaceShading &shading) {
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
+    const int *face_classes = shading.classes;
+    const uint8_t *face_palette = shading.palette;
+
     HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
     MeshState transformed_state = transform_shape(base_state);
-
-    const int *raw_indices = face_indices.data();
-    const int num_faces = static_cast<int>(face_indices.size());
 
     // Per-face segues order faces by their center, recomputed per frame: from
     // world space by default (the front stays fixed in the room while the
@@ -410,39 +414,39 @@ private:
         Vector c(0.0f, 0.0f, 0.0f);
         for (int k = 0; k < fcnt[f]; ++k)
           c = c + sweep_state.vertices[fidx[foff[f] + k]];
-        int cls = (f < static_cast<size_t>(num_faces))
-                      ? wrap(raw_indices[f], NUM_PALETTES)
-                      : 0;
+        const int cls = wrap(face_classes[f], NUM_PALETTES);
         float off =
             seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls);
         float fade = seg.face_fade_frac(static_cast<int>(f));
         face_phases.push_back(seg.face_phase(phase, off, fade));
-        const int pal =
-            (f < static_cast<size_t>(num_faces)) ? face_palette[f] : 0;
-        face_palettes.push_back(&palette_bank_[pal]);
+        face_palettes.push_back(&palette_bank_[face_palette[f]]);
       }
     }
 
-    auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      if constexpr (PER_FACE) {
-        int fi = static_cast<int>(frag.v2);
-        if (fi >= 0 && fi < static_cast<int>(face_phases.size())) {
-          frag.color = shade_mesh_topology(frag, *face_palettes[fi], 1.0f, seg,
-                                           face_phases[fi]);
-          return;
-        }
-      }
-      int fi = static_cast<int>(frag.v2);
-      const int pal = (fi >= 0 && fi < num_faces) ? face_palette[fi] : 0;
-      frag.color =
-          shade_mesh_topology(frag, palette_bank_[pal], 1.0f, seg, phase);
-    };
-
     {
       HS_PROFILE(is_mesh_scan);
-      Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
-                             fragment_shader, scratch_arena_a, params.debug_bb,
-                             nullptr, mask);
+      if constexpr (PER_FACE) {
+        FacePaletteShader fragment_shader;
+        fragment_shader.divide_by_scale = true;
+        auto select_face = [&](size_t fi, float size) {
+          HS_CHECK(fi < face_phases.size(),
+                   "IslamicStars: sprite shading face mismatch");
+          fragment_shader.palette = face_palettes[fi];
+          fragment_shader.alpha = seg.opacity(face_phases[fi]);
+          fragment_shader.scale = size;
+        };
+        Scan::Mesh::draw_specialized<W, H>(filters, canvas, transformed_state,
+                                           fragment_shader, scratch_arena_a,
+                                           nullptr, select_face);
+      } else {
+        auto fragment_shader = [&](const Vector &, Fragment &frag) {
+          const size_t fi = static_cast<size_t>(frag.v2);
+          frag.color = shade_mesh_topology(
+              frag, palette_bank_[face_palette[fi]], 1.0f, seg, phase);
+        };
+        Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
+                               fragment_shader, scratch_arena_a);
+      }
     }
   }
 
@@ -453,35 +457,28 @@ private:
    * @param mesh Compiled swept mesh (scratch-backed, this frame only).
    * @param sh Per-face palette table from the OpLeg.
    */
-  HS_O3_FN void draw_build_mesh(Canvas &canvas, const MeshState &mesh_in,
+  HS_O3_FN void draw_build_mesh(Canvas &canvas, MeshState &mesh,
                                 const Animation::OpLeg::Shading &sh) {
-    if (mesh_in.vertices.is_empty())
+    if (mesh.vertices.is_empty())
       return;
     // Own scope labels: sharing the sprite's would parent two draw paths under
     // one counter, and a build-only window then prints an empty subtree while a
     // mixed window prints the child above its own parent's total.
     HS_PROFILE(is_build_draw);
-    // The build mesh is OpLeg::finish_frame's per-frame throwaway (a non-const
-    // MeshState local); transform its vertices in place rather than into a
-    // second scratch_a buffer. At the 1082-face entry the leg's swept mesh plus
-    // its compiled form already hold ~120.9 KB of scratch_a, so a transformed
-    // copy overflowed the 120 KB split. The sprite path keeps transform_shape:
-    // its source is a persistent mesh reused every frame. The draw callback is
-    // typed const, so cast away const at this one build call site.
-    MeshState &mesh = const_cast<MeshState &>(mesh_in);
+    // The frame-local mesh and its source fill scratch_a at the 1082-face peak.
     OrientTransformer camera(orientation);
     {
       HS_PROFILE(is_mesh_transform);
       MeshOps::transform_in_place(mesh, ripple_gen, camera);
     }
     const SegueT &seg = carousel.segue();
+    FacePaletteShader fragment_shader;
+    fragment_shader.alpha = seg.opacity(1.0f);
 
-    auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      int fi = static_cast<int>(frag.v2);
-      int ramp =
-          (fi >= 0 && fi < static_cast<int>(sh.faces)) ? sh.face_ramp[fi] : 0;
-      frag.color =
-          shade_mesh_topology(frag, sh.ramps[ramp], sh.gain, seg, 1.0f);
+    auto select_face = [&](size_t fi, float size) {
+      HS_CHECK(fi < sh.faces, "IslamicStars: build shading face mismatch");
+      fragment_shader.palette = &sh.ramps[sh.face_ramp[fi]];
+      fragment_shader.scale = size > math::TOLERANCE ? sh.gain / size : 0.0f;
     };
 
     {
@@ -491,8 +488,8 @@ private:
       // SDF::FaceScratchBuffer, while scratch_b is near-empty here (the Conway
       // op and compile temps have unwound). The sprite path scans from
       // scratch_a, where its transformed copy already lives.
-      Scan::Mesh::draw<W, H>(filters, canvas, mesh, fragment_shader,
-                             scratch_arena_b, params.debug_bb);
+      Scan::Mesh::draw_specialized<W, H>(filters, canvas, mesh, fragment_shader,
+                                         scratch_arena_b, nullptr, select_face);
     }
   }
 
@@ -602,7 +599,11 @@ private:
    */
   HS_COLD_MEMBER void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
+#ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
+    solid_idx = HS_ISLAMICSTARS_PROFILE_SHAPE;
+#else
     solid_idx = (solid_idx + 1) % solids.size();
+#endif
     int back = 1 - carousel.front_index();
     // The shape's shuffled palette order: birth cohorts consume it through
     // build_birth_counter_ (the spawned mesh below, newborn build faces
@@ -650,16 +651,17 @@ private:
     // its ~baseline (carousel slots + palette bank, low addresses) and both
     // scratch arenas idle, so resplit_arenas moves only the boundaries -- the
     // long-lived content survives (it never resets the persistent offset). A
-    // smooth kis/needle bridge shape gets the scratch_a-heavy split; every other
-    // shape keeps the default (its heavier persistent). The scratch sizes are the
-    // absolute device sizes; persistent takes the (host-inflated) remainder.
+    // smooth kis/needle bridge shape gets the scratch_a-heavy split; other
+    // recipes trade unused scratch_b for persistent; whole-generated shapes
+    // keep the full generation scratch_b. Persistent takes the remainder.
     const bool bridge_split = recipe && build_uses_smooth_bridge();
     const size_t split_a =
         bridge_split ? SPLIT_SCRATCH_A_BRIDGE : SPLIT_SCRATCH_A_DEFAULT;
-    device_persistent_budget_ =
-        DEVICE_GLOBAL_ARENA_SIZE - split_a - SPLIT_SCRATCH_B;
-    resplit_arenas(GLOBAL_ARENA_SIZE - split_a - SPLIT_SCRATCH_B, split_a,
-                   SPLIT_SCRATCH_B);
+    const size_t split_b = bridge_split ? SPLIT_SCRATCH_B_BRIDGE
+                                        : (recipe ? SPLIT_SCRATCH_B_BUILD
+                                                  : SPLIT_SCRATCH_B_DEFAULT);
+    device_persistent_budget_ = DEVICE_GLOBAL_ARENA_SIZE - split_a - split_b;
+    resplit_arenas(GLOBAL_ARENA_SIZE - split_a - split_b, split_a, split_b);
 
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       if (recipe) {
@@ -715,12 +717,6 @@ private:
     if constexpr (requires(SegueT &s, const Vector &v) { s.retarget(v); })
       carousel.segue().retarget(random_vector());
 
-    // Arm the seed fade-in dissolve for this shape's opening window. The dither
-    // reuses the sweep's freshly rolled fade_seed, so no new RNG is drawn and
-    // the stream position stays identical to the sweep-only build.
-    seed_intro_ = true;
-    seed_dissolve_.seed = carousel.segue().fade_seed;
-
     // Per-shape choreography: segue in, hold still one second, ripple, settle
     // one second, segue out. Duration is derived from the stage lengths so the
     // stages never overlap; the segue warps are identity on the phase-1
@@ -730,7 +726,7 @@ private:
     // a >=1-frame floor. The effective ripple duration/stagger are cached for the
     // deferred ripple() callback, which fires before the next shape spawns.
     const float sp = std::max(1.0f, params.trans_speed);
-    int fade = std::max(1, static_cast<int>(params.fade / sp));
+    int fade = std::max(1, static_cast<int>(SPRITE_FADE_FRAMES / sp));
     int still = std::max(1, static_cast<int>(STILL_FRAMES / sp));
     ripple_dur_eff_ = std::max(8, static_cast<int>(ripple_duration / sp));
     ripple_stagger_eff_ =
@@ -949,24 +945,29 @@ private:
   }
 
   /**
-   * @brief Palette handoff departing the current build seed: geometric
-   * provenance (per-face centroids) plus the seed's displayed palette (the
-   * carousel slot at leg 0, the previous leg's landing after).
+   * @brief Captures palette provenance for a leg departing the current seed.
    * @param scratch Arena the centroid and palette arrays live in; must outlive
    * the OpLeg constructor that reads them.
+   * @param correspondence Departed-to-swept face-order relationship.
    */
-  HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff seed_handoff(Arena &scratch) {
+  HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff
+  seed_handoff(Arena &scratch,
+               Animation::OpLeg::FaceCorrespondence correspondence =
+                   Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
     const size_t prev_faces = build_seed_.face_counts.size();
     HS_CHECK(prev_faces <= MAX_BUILD_FACES);
-    Vector *prev_centroid = scratch.allocate_n<Vector>(prev_faces);
-    size_t off = 0;
-    for (size_t f = 0; f < prev_faces; ++f) {
-      Vector c(0.0f, 0.0f, 0.0f);
-      const int n = build_seed_.face_counts[f];
-      for (int j = 0; j < n; ++j)
-        c = c + build_seed_.vertices[build_seed_.faces[off + j]];
-      prev_centroid[f] = c.normalized();
-      off += n;
+    Vector *prev_centroid = nullptr;
+    if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
+      prev_centroid = scratch.allocate_n<Vector>(prev_faces);
+      size_t off = 0;
+      for (size_t f = 0; f < prev_faces; ++f) {
+        Vector c(0.0f, 0.0f, 0.0f);
+        const int n = build_seed_.face_counts[f];
+        for (int j = 0; j < n; ++j)
+          c = c + build_seed_.vertices[build_seed_.faces[off + j]];
+        prev_centroid[f] = c.normalized();
+        off += n;
+      }
     }
     const uint8_t *prev_pal;
     if (!build_from_pal_) {
@@ -993,32 +994,39 @@ private:
             prev_centroid,
             &build_palette_order_,
             true,
-            &build_birth_counter_};
+            &build_birth_counter_,
+            correspondence};
   }
 
   /**
-   * @brief Palette handoff departing a mesh the previous leg landed on: its
-   * per-face centroids plus the palette that leg drew each face with.
+   * @brief Captures palette provenance for a leg departing a prior landing.
    * @param departed Mesh the next leg departs from, in the previous leg's
    * landing face order (so its face f carries build_landing_ face f's palette).
    * @param scratch Arena the arrays live in.
+   * @param correspondence Departed-to-swept face-order relationship.
    */
   HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff
-  landing_handoff(const PolyMesh &departed, Arena &scratch) {
+  landing_handoff(const PolyMesh &departed, Arena &scratch,
+                  Animation::OpLeg::FaceCorrespondence correspondence =
+                      Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
     const size_t nf = departed.face_counts.size();
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
              build_landing_->faces >= nf);
-    Vector *cen = scratch.allocate_n<Vector>(nf);
+    Vector *cen = nullptr;
     uint8_t *pal = scratch.allocate_n<uint8_t>(nf);
+    if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC)
+      cen = scratch.allocate_n<Vector>(nf);
     size_t off = 0;
     for (size_t f = 0; f < nf; ++f) {
-      Vector c(0.0f, 0.0f, 0.0f);
-      const int n = departed.face_counts[f];
-      for (int j = 0; j < n; ++j)
-        c = c + departed.vertices[departed.faces[off + j]];
-      cen[f] = c.normalized();
+      if (cen) {
+        Vector c(0.0f, 0.0f, 0.0f);
+        const int n = departed.face_counts[f];
+        for (int j = 0; j < n; ++j)
+          c = c + departed.vertices[departed.faces[off + j]];
+        cen[f] = c.normalized();
+        off += n;
+      }
       pal[f] = build_landing_->from_palette[f];
-      off += n;
     }
     return {&palette_bank_.bank,
             pal,
@@ -1028,7 +1036,8 @@ private:
             cen,
             &build_palette_order_,
             true,
-            &build_birth_counter_};
+            &build_birth_counter_,
+            correspondence};
   }
 
   /**
@@ -1056,24 +1065,15 @@ private:
       dual_bridge_ambo_ =
           Solids::finalize_solid(MeshOps::ambo(build_seed_, a, b), target);
     });
-    {
-      ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(dual_bridge_ambo_, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
     HS_CHECK(dual_bridge_ambo_.face_counts.size() <= MAX_BUILD_FACES);
 
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
-    Animation::OpLeg::BookendClasses bookend{
-        dual_bridge_ambo_.topology.data(),
-        dual_bridge_ambo_.face_counts.size()};
     const int frames = dual_sub_frames(0);
     hs::log("Build leg: dual bridge 1/3 truncate->ambo (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
                          0.5f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
-                         handoff, frames, bookend,
+                         handoff, frames, Animation::OpLeg::BookendClasses{},
                          Animation::OpLeg::classic_blend,
                          /*bridge_provenance=*/true, /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
@@ -1091,7 +1091,12 @@ private:
     // from the leg-1 landing) before compacting away that finished leg. The
     // arrays live in scratch_a, which the persistent reset below leaves intact.
     Animation::OpLeg::PaletteHandoff handoff =
-        landing_handoff(dual_bridge_ambo_, scratch_arena_a);
+        landing_handoff(dual_bridge_ambo_, scratch_arena_a,
+                        Animation::OpLeg::FaceCorrespondence::IDENTITY);
+    const size_t medial_faces = dual_bridge_ambo_.face_counts.size();
+    HS_CHECK(build_landing_ && build_landing_->faces == medial_faces);
+    int *medial_topology = scratch_arena_a.allocate_n<int>(medial_faces);
+    std::copy_n(build_landing_->topology, medial_faces, medial_topology);
     build_landing_ = nullptr;
 
     // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
@@ -1111,9 +1116,10 @@ private:
 
     const int frames = dual_sub_frames(1);
     hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
-    Animation::OpLeg leg(build_seed_, Animation::OpLeg::MedialTag{},
-                         persistent_arena, draw_build_fn_, handoff, frames,
-                         Animation::OpLeg::BookendClasses{nullptr, 0});
+    Animation::OpLeg leg(
+        build_seed_, Animation::OpLeg::MedialTag{}, persistent_arena,
+        draw_build_fn_, handoff, frames,
+        Animation::OpLeg::BookendClasses{medial_topology, medial_faces});
     build_landing_ = &leg.landing();
     timeline.add(0,
                  std::move(leg).then([this] { schedule_dual_untruncate(); }));
@@ -1122,38 +1128,16 @@ private:
   /**
    * @brief Schedules the dual bridge's closing leg: truncate dual(P) from the
    * ambo point down to dual(P), landing on the macro's clean endpoint. The
-   * departed centroids come from a rebuilt medial arrival, whose face order
-   * matches leg 2's landing palettes.
+   * departed centroids come from the medial leg's cached arrival, whose face
+   * order matches leg 2's landing palettes.
    */
   HS_COLD_MEMBER void schedule_dual_untruncate() {
     ScratchScope a_guard(scratch_arena_a);
-    // Snapshot the two things leg 3 needs from the finished leg 2 and the ambo
-    // endpoint -- the departed centroids (a rebuilt medial's dual-point per
-    // face) and leg 2's landed palette -- into scratch_a, which the persistent
-    // reset below leaves intact.
     const size_t nf = dual_bridge_ambo_faces_;
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
              build_landing_->faces >= nf);
-    Vector *cen = scratch_arena_a.allocate_n<Vector>(nf);
     uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(nf);
-    {
-      ScratchScope b_guard(scratch_arena_b);
-      PolyMesh med_a;
-      ArenaVector<Vector> med_b;
-      MeshOps::medial(build_seed_, med_a, med_b, scratch_arena_b,
-                      scratch_arena_a);
-      HS_CHECK(med_a.face_counts.size() == nf);
-      size_t off = 0;
-      for (size_t f = 0; f < nf; ++f) {
-        Vector c(0.0f, 0.0f, 0.0f);
-        const int n = med_a.face_counts[f];
-        for (int j = 0; j < n; ++j)
-          c = c + med_b[med_a.faces[off + j]];
-        cen[f] = c.normalized();
-        pal[f] = build_landing_->from_palette[f];
-        off += n;
-      }
-    }
+    std::copy_n(build_landing_->from_palette, nf, pal);
     build_landing_ = nullptr;
 
     // Compact: keep the seed P (leg 3 builds dual(P) from it), drop leg 2 (the
@@ -1182,15 +1166,17 @@ private:
     }
     HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
 
-    Animation::OpLeg::PaletteHandoff handoff{&palette_bank_.bank,
-                                             pal,
-                                             nullptr,
-                                             nf,
-                                             false,
-                                             cen,
-                                             &build_palette_order_,
-                                             true,
-                                             &build_birth_counter_};
+    Animation::OpLeg::PaletteHandoff handoff{
+        &palette_bank_.bank,
+        pal,
+        nullptr,
+        nf,
+        false,
+        nullptr,
+        &build_palette_order_,
+        true,
+        &build_birth_counter_,
+        Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING};
     Animation::OpLeg::BookendClasses bookend{
         build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
     const int frames = dual_sub_frames(2);
@@ -1320,7 +1306,7 @@ private:
    * mesh's connectivity through the nearest-vertex bijection.
    * @param identity Identity mesh (dt/dtd result): its connectivity and vertex
    * order are kept; each vertex is matched to the authored vertex nearest it.
-   * @param authored Exact kis/needle mesh (same V/E/F as identity).
+   * @param authored Exact kis/needle mesh (same V as identity).
    * @param out Receives identity's connectivity carrying the matched authored
    * positions, in identity's vertex order.
    * @param target Arena backing @p out.
@@ -1374,9 +1360,6 @@ private:
   HS_COLD_MEMBER void schedule_reconcile(size_t x_prefix, bool kis_of_dual) {
     const uint8_t seed =
         Solids::Collections::get_islamic_solids()[solid_idx].recipe->seed;
-    // Rebuild the exact authored mesh from the generator (the source of truth)
-    // and relocate its vertices onto the identity connectivity in a tight scope,
-    // so the authored/X temporaries free before the leg's own transients.
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
@@ -1400,7 +1383,8 @@ private:
     Animation::OpLeg::BookendClasses bookend{
         build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
     ScratchScope handoff_guard(scratch_arena_a);
-    Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
+    Animation::OpLeg::PaletteHandoff handoff = seed_handoff(
+        scratch_arena_a, Animation::OpLeg::FaceCorrespondence::IDENTITY);
     const int frames = build_reconcile_frames_;
     hs::log("Build leg: reconcile (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, build_next_seed_.vertices.data(),
@@ -1492,6 +1476,17 @@ private:
     const size_t landed_faces = build_seed_.face_counts.size();
     HS_CHECK(landed_faces <= build_landing_->faces,
              "IslamicStars: finished solid larger than the leg landing");
+    HS_CHECK(build_landing_->topology,
+             "IslamicStars: finished leg has no topology");
+    ScratchScope topology_guard(scratch_arena_b);
+    uint16_t *landed_topology =
+        scratch_arena_b.allocate_n<uint16_t>(landed_faces);
+    for (size_t f = 0; f < landed_faces; ++f) {
+      const int cls = build_landing_->topology[f];
+      HS_CHECK(cls >= 0 && cls <= UINT16_MAX,
+               "IslamicStars: topology class exceeds snapshot range");
+      landed_topology[f] = static_cast<uint16_t>(cls);
+    }
     const int front = carousel.front_index();
     // Per-face sprite handoff: copied before the compaction below, whose
     // same-address re-claim keeps the array's bytes.
@@ -1520,9 +1515,9 @@ private:
             [this](Arena &arena) { reclaim_persistent(arena); });
         MeshOps::compile(built, slot, persistent_arena, scratch_arena_a);
       }
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(slot, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
+      slot.topology.bind(persistent_arena, landed_faces);
+      for (size_t f = 0; f < landed_faces; ++f)
+        slot.topology.push_back(static_cast<int>(landed_topology[f]));
     }
 
     // The per-face colours index the compiled slot by emission order, so the
@@ -1541,13 +1536,10 @@ private:
    * @brief Slider-backed runtime parameters for the effect.
    */
   struct Params {
-    float fade =
-        72.0f; /**< Segue window length, in frames: a 64-frame (4 s) sweep crossing plus one per-face fade tail. */
     float burst_size =
         4.0f; /**< Ripples per burst; float-backed for register_param. */
     float trans_speed =
         1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span): 1 = shipping cadence, higher cycles shapes faster. */
-    bool debug_bb = false; /**< Whether to draw mesh bounding boxes. */
   } params;
 };
 

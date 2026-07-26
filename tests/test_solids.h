@@ -461,7 +461,7 @@ inline void test_determinism_complex_islamic() {
 // ---------------------------------------------------------------------------
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    120 * 1024; /**< IslamicStars' scratch_a split (mirrors init()). */
+    116 * 1024; /**< IslamicStars' default scratch_a split (mirrors init()). */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
     74 * 1024; /**< IslamicStars' scratch_b split (mirrors init()). */
 
@@ -885,8 +885,8 @@ inline void check_composite_lowering(const Solids::OpStep &step) {
   {
     Arena a(solids_scratch_a, sizeof(solids_scratch_a));
     Arena b(solids_scratch_b, sizeof(solids_scratch_b));
-    authored = Solids::finalize_solid(Solids::build_recipe(recipe, a, b),
-                                      geom1);
+    authored =
+        Solids::finalize_solid(Solids::build_recipe(recipe, a, b), geom1);
   }
   Arena geom2(solids_geom_b, sizeof(solids_geom_b));
   PolyMesh low;

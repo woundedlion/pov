@@ -341,6 +341,67 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   HS_EXPECT_EQ(fill_lit, total);
 }
 
+/**
+ * @brief Per-face shader setup produces the same pixels as Fragment::v2 face
+ *        indexing.
+ */
+inline void test_face_shader_setup_matches_face_index() {
+  constexpr int W = 72, H = 36;
+  configure_arenas_default();
+
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+  Arena scratch(mr_scratch, sizeof(mr_scratch));
+
+  PolyMesh poly = Solids::Platonic::octahedron(seed_a, seed_b);
+  MeshState mesh;
+  MeshOps::compile(poly, mesh, geom, scratch_arena_a);
+
+  Color4 colors[8];
+  for (size_t i = 0; i < 8; ++i)
+    colors[i] = Color4(Pixel(static_cast<uint16_t>(3000 + i * 5000),
+                             static_cast<uint16_t>(60000 - i * 4000),
+                             static_cast<uint16_t>(7000 + i * 3000)),
+                       1.0f);
+
+  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  {
+    MeshFx indexed(W, H);
+    auto shader = [&](const Vector &, Fragment &frag) {
+      frag.color = colors[static_cast<size_t>(frag.v2)];
+    };
+    {
+      Canvas c(indexed);
+      Pipeline<W, H> pipe;
+      Scan::Mesh::draw<W, H>(pipe, c, mesh, shader, scratch);
+    }
+    indexed.advance_display();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        ref[static_cast<size_t>(y) * W + x] = indexed.get_pixel(x, y);
+  }
+
+  MeshFx selected(W, H);
+  const Color4 *face_color = nullptr;
+  auto select_face = [&](size_t face, float) { face_color = &colors[face]; };
+  auto shader = [&](const Vector &, Fragment &frag) {
+    frag.color = *face_color;
+  };
+  {
+    Canvas c(selected);
+    Pipeline<W, H> pipe;
+    Scan::Mesh::draw_specialized<W, H>(pipe, c, mesh, shader, scratch, nullptr,
+                                       select_face);
+  }
+  selected.advance_display();
+
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      HS_EXPECT_EQ(selected.get_pixel(x, y),
+                   ref[static_cast<size_t>(y) * W + x]);
+}
+
 // ============================================================================
 // Generic oracles over an arbitrary closed convex solid — exercise the
 // wireframe edge-arc and solid-fill tiling paths beyond the octahedron, on
@@ -692,8 +753,7 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
   {
     Canvas c(lutted);
     Pipeline<W, H> pipe;
-    Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch,
-                           /*debug_bb=*/false, &bake);
+    Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch, &bake);
   }
   lutted.advance_display();
 
@@ -897,6 +957,7 @@ inline int run_mesh_raster_tests() {
   test_wireframe_draws_every_edge();
   test_wireframe_pixels_lie_on_edges();
   test_solid_fill_covers_faces_and_tiles_sphere();
+  test_face_shader_setup_matches_face_index();
   test_cube_wireframe_and_fill();
   test_dodecahedron_wireframe_and_fill();
   test_truncated_icosahedron_wireframe_and_fill();
