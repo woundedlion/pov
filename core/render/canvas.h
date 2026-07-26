@@ -508,8 +508,8 @@ protected:
    * @param min Minimum value.
    * @param max Maximum value.
    */
-  void register_param(const char *name, float *ptr, float min = 0.0f,
-                      float max = 1.0f) {
+  HS_COLD_MEMBER void register_param(const char *name, float *ptr,
+                                     float min = 0.0f, float max = 1.0f) {
     // Overflowing the fixed ParamList is an authoring bug (also upholds the WASM
     // no-realloc memory-view invariant).
     HS_CHECK(parameters.count < parameters.elements.size(),
@@ -552,7 +552,7 @@ protected:
    *   default. Registration never mutates the target — symmetric with the float
    *   overload, which likewise captures `*ptr` and leaves it untouched.
    */
-  void register_param(const char *name, bool *ptr) {
+  HS_COLD_MEMBER void register_param(const char *name, bool *ptr) {
     HS_CHECK(parameters.count < parameters.elements.size(),
              "register_param: exceeded ParamList capacity");
     // Duplicate name guard, see the float overload.
@@ -568,8 +568,9 @@ protected:
    * literal is written once. Flags the just-registered element directly, skipping
    * the name lookup mark_animated would redo.
    */
-  void register_animated_param(const char *name, float *ptr, float min = 0.0f,
-                               float max = 1.0f) {
+  HS_COLD_MEMBER void register_animated_param(const char *name, float *ptr,
+                                              float min = 0.0f,
+                                              float max = 1.0f) {
     register_param(name, ptr, min, max);
     parameters.elements[parameters.count - 1].animated = true;
   }

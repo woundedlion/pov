@@ -702,7 +702,8 @@ inline GamutLut g_gamut_lut;
  * gamut_lut_bytes(angle_steps, l_steps); resolution only sets how wide the
  * bracket starts, and the per-pixel bisection sets how far it is narrowed.
  */
-inline void init_gamut_lut(Arena &arena, int angle_steps, int l_steps) {
+HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
+                                          int l_steps) {
   HS_CHECK(angle_steps > 0 && l_steps > 0 &&
                GAMUT_LUT_ANGLE_STEPS % angle_steps == 0 &&
                GAMUT_LUT_L_STEPS % l_steps == 0,
