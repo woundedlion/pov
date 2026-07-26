@@ -1852,6 +1852,11 @@ struct MindSplatterWhiteBox {
     ms.reference_color_seed_lookup = enabled;
   }
   template <int W, int H>
+  static void use_reference_particle_renderer(MindSplatter<W, H> &ms,
+                                              bool enabled) {
+    ms.reference_particle_renderer = enabled;
+  }
+  template <int W, int H>
   static void use_reference_signed_axis_physics(MindSplatter<W, H> &ms,
                                                 bool enabled) {
     ms.particle_system.reference_signed_axis_physics = enabled;
@@ -1863,6 +1868,19 @@ struct MindSplatterWhiteBox {
   template <int W, int H>
   static uint16_t active_particles(const MindSplatter<W, H> &ms) {
     return ms.particle_system.active();
+  }
+  template <int W, int H, size_t N>
+  static void seed_particle(MindSplatter<W, H> &ms,
+                            const std::array<Vector, N> &positions,
+                            uint16_t color_seed) {
+    ms.particle_system.spawn(positions.back(), Vector(), color_seed);
+    auto &particle = ms.particle_system.pool[ms.particle_system.active() - 1];
+    for (const Vector &position : positions)
+      particle.history.record(position);
+  }
+  template <int W, int H> static void draw_particles(MindSplatter<W, H> &ms) {
+    Canvas canvas(ms);
+    ms.draw_particles(canvas);
   }
 };
 
@@ -2144,6 +2162,90 @@ inline void test_mindsplatter_color_seed_framebuffer_parity() {
               reference.size(), lit_pixels, different_pixels);
   HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
   HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
+}
+
+/** @brief The fixed-resolution streaming renderer matches the generic path. */
+inline void test_mindsplatter_streaming_renderer_framebuffer_parity() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+
+  const std::array<std::array<int, 4>, 5> clips{{
+      {{0, H, 0, W}},
+      {{0, H / 2, 0, W / 2}},
+      {{0, H / 2, W / 2, W}},
+      {{H / 2, H, 0, W / 2}},
+      {{H / 2, H, W / 2, W}},
+  }};
+  const std::array<Vector, 6> seam{{
+      Vector(Spherical(2.0f * PI_F - 0.035f, PI_F * 0.48f)),
+      Vector(Spherical(2.0f * PI_F - 0.012f, PI_F * 0.49f)),
+      Vector(Spherical(0.004f, PI_F * 0.50f)),
+      Vector(Spherical(0.020f, PI_F * 0.51f)),
+      Vector(Spherical(0.045f, PI_F * 0.52f)),
+      Vector(Spherical(0.080f, PI_F * 0.53f)),
+  }};
+  const std::array<Vector, 6> north{{
+      Vector(Spherical(0.0f, 0.002f)),
+      Vector(Spherical(0.8f, 0.006f)),
+      Vector(Spherical(1.6f, 0.012f)),
+      Vector(Spherical(2.4f, 0.020f)),
+      Vector(Spherical(3.2f, 0.032f)),
+      Vector(Spherical(4.0f, 0.050f)),
+  }};
+  const std::array<Vector, 6> south{{
+      Vector(Spherical(5.8f, PI_F - 0.050f)),
+      Vector(Spherical(4.9f, PI_F - 0.032f)),
+      Vector(Spherical(4.0f, PI_F - 0.020f)),
+      Vector(Spherical(3.1f, PI_F - 0.012f)),
+      Vector(Spherical(2.2f, PI_F - 0.006f)),
+      Vector(Spherical(1.3f, PI_F - 0.002f)),
+  }};
+  const std::array<Vector, 7> mixed{{
+      Vector(Spherical(0.2f, 0.3f)),
+      Vector(Spherical(0.7f, 0.6f)),
+      Vector(Spherical(1.3f, 0.9f)),
+      Vector(Spherical(2.2f, 1.3f)),
+      Vector(Spherical(3.4f, 1.7f)),
+      Vector(Spherical(4.8f, 2.2f)),
+      Vector(Spherical(5.9f, 2.7f)),
+  }};
+
+  auto render = [&](bool reference, const std::array<int, 4> &clip) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    MS effect;
+    effect.init();
+    effect.set_clip(clip[0], clip[1], clip[2], clip[3]);
+    WB::use_reference_particle_renderer(effect, reference);
+    WB::seed_particle(effect, seam, 0);
+    WB::seed_particle(effect, north, 16384);
+    WB::seed_particle(effect, south, 32768);
+    WB::seed_particle(effect, mixed, 65535);
+    WB::draw_particles(effect);
+    effect.advance_display();
+    std::vector<Pixel> frame;
+    frame.reserve(static_cast<size_t>(W) * H);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        frame.push_back(effect.get_pixel(x, y));
+    return frame;
+  };
+
+  size_t lit_pixels = 0;
+  for (const auto &clip : clips) {
+    const std::vector<Pixel> reference = render(true, clip);
+    const std::vector<Pixel> streaming = render(false, clip);
+    for (size_t i = 0; i < reference.size(); ++i) {
+      if (reference[i].r | reference[i].g | reference[i].b)
+        ++lit_pixels;
+      HS_EXPECT_EQ(streaming[i], reference[i]);
+    }
+  }
+  hs::clear_mock_time();
+  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
 }
 
 /** @brief Clip clearing preserves every pixel displayed by the POV driver. */
@@ -3103,6 +3205,7 @@ inline int run_effects_tests() {
   test_mindsplatter_rotation_matrix_equivalence();
   test_mindsplatter_rotation_matrix_framebuffer_error();
   test_mindsplatter_color_seed_framebuffer_parity();
+  test_mindsplatter_streaming_renderer_framebuffer_parity();
   test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
 

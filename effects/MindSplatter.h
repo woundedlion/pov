@@ -326,6 +326,7 @@ private:
 #ifdef HS_TEST_BUILD
   bool reference_orientation = false;
   bool reference_color_seed_lookup = false;
+  bool reference_particle_renderer = false;
   bool full_buffer_clear = false;
 #endif
 
@@ -383,6 +384,22 @@ private:
     const float cos_event_horizon = fast_cosf(EVENT_HORIZON);
     const RotationMatrix rotation(orientation.get());
 
+#ifdef HS_TEST_BUILD
+    const bool use_streaming_renderer = !reference_orientation &&
+                                        !reference_color_seed_lookup &&
+                                        !reference_particle_renderer;
+#endif
+    if constexpr (W == 288 && H == 144) {
+#ifdef HS_TEST_BUILD
+      if (use_streaming_renderer) {
+#endif
+        draw_particles_streaming(canvas, rotation, cos_event_horizon, opacity);
+        return;
+#ifdef HS_TEST_BUILD
+      }
+#endif
+    }
+
     // Position pass: Mobius warp + orientation (decides cullability).
     auto vertex_shader = [&](Fragment &f) {
       f.pos = mobius_transform(f.pos, mobius);
@@ -439,6 +456,204 @@ private:
       Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
                                        fragment_shader, vertex_shader,
                                        hole_shader, particle_v2);
+    }
+  }
+
+  struct StreamPoint {
+    Vector pos;
+    float row;
+    float col;
+  };
+
+  struct StreamFrame {
+    Pixel *base;
+    const ClipRegion &clip;
+    ClipRegion::XClip x_clip;
+  };
+
+  __attribute__((always_inline)) Color4 shade_stream_point(
+      float progress, float hole_alpha, float color_seed, float opacity) const {
+    const float alpha = std::min(progress, hole_alpha);
+    Color4 color = baked_palette_.get(wrap_color_t(progress, color_seed));
+    color.alpha = color.alpha * alpha * alpha * opacity;
+    return color;
+  }
+
+  __attribute__((always_inline)) static uint16_t
+  stream_tap_alpha(float alpha, float weight) {
+    return static_cast<uint16_t>(
+        hs::clamp(alpha * weight * 65535.0f + 0.5f, 0.0f, 65535.0f));
+  }
+
+  __attribute__((always_inline)) static void
+  splat_stream_point(const StreamFrame &frame, float x, float y,
+                     const Color4 &color) {
+    const float y_floor = floorf(y);
+    const float x_floor = floorf(x);
+    const float xs = quintic_kernel(x - x_floor);
+    const float ys = quintic_kernel(y - y_floor);
+
+    const int y0 = static_cast<int>(y_floor);
+    const int y1 = y0 + 1;
+    const int x0 = fast_wrap(static_cast<int>(x_floor), W);
+    const int x1 = fast_wrap(x0 + 1, W);
+
+    const bool y0_physical = y0 >= 0 && y0 < H;
+    const bool y1_physical = y1 >= 0 && y1 < H;
+    float wy0 = 1.0f - ys;
+    float wy1 = ys;
+    if (y0_physical && !y1_physical) {
+      wy0 = 1.0f;
+      wy1 = 0.0f;
+    } else if (!y0_physical && y1_physical) {
+      wy0 = 0.0f;
+      wy1 = 1.0f;
+    }
+
+    const float v00 = (1.0f - xs) * wy0;
+    const float v10 = xs * wy0;
+    const float v01 = (1.0f - xs) * wy1;
+    const float v11 = xs * wy1;
+    constexpr float TAP_CUTOFF = 1e-8f;
+
+    const bool x0_ok = !frame.x_clip.clipped(x0);
+    const bool x1_ok = !frame.x_clip.clipped(x1);
+    const bool y0_ok = y0_physical && frame.clip.contains_y(y0);
+    const bool y1_ok = y1_physical && frame.clip.contains_y(y1);
+    Pixel *const row0 = y0_ok ? frame.base + y0 * W : nullptr;
+    Pixel *const row1 = y1_ok ? frame.base + y1 * W : nullptr;
+    Pixel *const dst00 =
+        row0 && x0_ok && v00 > TAP_CUTOFF ? row0 + x0 : nullptr;
+    Pixel *const dst10 =
+        row0 && x1_ok && v10 > TAP_CUTOFF ? row0 + x1 : nullptr;
+    Pixel *const dst01 =
+        row1 && x0_ok && v01 > TAP_CUTOFF ? row1 + x0 : nullptr;
+    Pixel *const dst11 =
+        row1 && x1_ok && v11 > TAP_CUTOFF ? row1 + x1 : nullptr;
+
+    if (dst00)
+      *dst00 = dst00->lerp16(color.color, stream_tap_alpha(color.alpha, v00));
+    if (dst10)
+      *dst10 = dst10->lerp16(color.color, stream_tap_alpha(color.alpha, v10));
+    if (dst01)
+      *dst01 = dst01->lerp16(color.color, stream_tap_alpha(color.alpha, v01));
+    if (dst11)
+      *dst11 = dst11->lerp16(color.color, stream_tap_alpha(color.alpha, v11));
+  }
+
+  template <typename PipelineT>
+  __attribute__((noinline)) void draw_stream_long_edge(
+      PipelineT &pipeline, Canvas &canvas, const StreamPoint &a,
+      const StreamPoint &b, const Vector &original_a, const Vector &original_b,
+      float progress_a, float progress_b, float color_seed, float particle_life,
+      float cos_event_horizon, float opacity, bool omit_end) {
+    ScratchScope edge_guard(scratch_arena_a);
+    Fragments edge;
+    edge.bind(scratch_arena_a, 2);
+    edge.emplace_back(Fragment{
+        a.pos, progress_a, 0.0f, color_seed,
+        particle_life * octahedral_hole_alpha(original_a, cos_event_horizon),
+        1.0f, 0.0f, Color4(0, 0, 0, 0)});
+    edge.emplace_back(Fragment{
+        b.pos, progress_b, 0.0f, color_seed,
+        particle_life * octahedral_hole_alpha(original_b, cos_event_horizon),
+        1.0f, 0.0f, Color4(0, 0, 0, 0)});
+    auto fragment_shader = [&](const Vector &, Fragment &f) {
+      f.color = shade_stream_point(f.v0, f.v3, f.v2, opacity);
+    };
+    Plot::rasterize<W, H>(pipeline, canvas, edge, fragment_shader, false,
+                          nullptr, omit_end);
+  }
+
+  void draw_particles_streaming(Canvas &canvas, const RotationMatrix &rotation,
+                                float cos_event_horizon, float opacity) {
+    const int count = particle_system.active();
+    if (count == 0)
+      return;
+
+    const float max_life = static_cast<float>(particle_system.max_life);
+    HS_CHECK(std::isfinite(max_life) && max_life >= 1.0f &&
+                 max_life <= 65535.0f,
+             "MindSplatter render max_life must be finite and in [1, 65535]");
+    const float inv_max_life = 1.0f / max_life;
+    const ClipRegion &clip = canvas.clip();
+    const bool clip_active = !clip.is_full();
+    const ClipRegion::XClip x_clip = clip.x_clip();
+    const int band_len =
+        x_clip.wrap ? x_clip.re - x_clip.rs + W : x_clip.re - x_clip.rs;
+    StreamFrame frame{canvas.data(), clip, x_clip};
+    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> fallback;
+
+    for (int i = 0; i < count; ++i) {
+      const auto &particle = particle_system.pool[i];
+      const size_t trail_len = particle.history.length();
+      if (particle.life == 0 || trail_len < 2)
+        continue;
+
+      ScratchScope trail_guard(scratch_arena_a);
+      auto *points = static_cast<StreamPoint *>(scratch_arena_a.allocate(
+          trail_len * sizeof(StreamPoint), alignof(StreamPoint)));
+      for (size_t k = 0; k < trail_len; ++k) {
+        Vector pos =
+            rotation.apply(mobius_transform(particle.history.get(k), mobius));
+        points[k] = {pos, Plot::y_to_screen_row<H>(pos.y),
+                     vector_to_theta<W>(pos)};
+      }
+
+      const float denominator = static_cast<float>(trail_len - 1);
+      const float color_seed = normalize_color_seed(particle.color_seed);
+      const float particle_life =
+          static_cast<float>(particle.life) * inv_max_life;
+      const size_t edges = trail_len - 1;
+      for (size_t edge = 0; edge < edges; ++edge) {
+        const StreamPoint &a = points[edge];
+        const StreamPoint &b = points[edge + 1];
+        const bool one_dot = Plot::edge_fits_one_dot<W, H>(a.pos, b.pos);
+        Plot::count_particle_edge_class(one_dot);
+
+        bool visible = true;
+        if (clip_active) {
+          if (one_dot) {
+            visible = Plot::antialiased_dot_visible_in_clip<W, H>(clip, x_clip,
+                                                                  a.row, a.col);
+            if (edge + 1 == edges)
+              visible = visible || Plot::antialiased_dot_visible_in_clip<W, H>(
+                                       clip, x_clip, b.row, b.col);
+          } else {
+            visible = Plot::edge_visible_in_clip<W, H>(
+                fallback, clip, x_clip, band_len, a.pos, b.pos, nullptr);
+          }
+        }
+        if (!visible)
+          continue;
+
+        const float progress_a = static_cast<float>(edge) / denominator;
+        const float progress_b = static_cast<float>(edge + 1) / denominator;
+        if (one_dot) {
+          const Vector original_a = particle.history.get(edge);
+          const float hole_alpha =
+              particle_life *
+              octahedral_hole_alpha(original_a, cos_event_horizon);
+          splat_stream_point(
+              frame, a.col, a.row,
+              shade_stream_point(progress_a, hole_alpha, color_seed, opacity));
+          if (edge + 1 == edges) {
+            const Vector original_b = particle.history.get(edge + 1);
+            const float end_hole_alpha =
+                particle_life *
+                octahedral_hole_alpha(original_b, cos_event_horizon);
+            splat_stream_point(frame, b.col, b.row,
+                               shade_stream_point(progress_b, end_hole_alpha,
+                                                  color_seed, opacity));
+          }
+          continue;
+        }
+
+        draw_stream_long_edge(
+            fallback, canvas, a, b, particle.history.get(edge),
+            particle.history.get(edge + 1), progress_a, progress_b, color_seed,
+            particle_life, cos_event_horizon, opacity, edge + 1 != edges);
+      }
     }
   }
 
