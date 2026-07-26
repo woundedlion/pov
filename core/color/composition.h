@@ -984,6 +984,28 @@ public:
   }
 
   /**
+   * @brief Bakes this LUT as the w-blend of two baked palettes.
+   * @param arena Arena the blended LUT is allocated from.
+   * @param from The w = 0 endpoint; must be baked.
+   * @param to The w = 1 endpoint; must be baked.
+   * @param w Blend weight in (0, 1).
+   * @details Walks the two source LUTs entry-wise with the fixed-point channel
+   * lerp — no per-entry float resampling.
+   */
+  HS_COLD_MEMBER void bake_blend(Arena &arena, const BakedPalette &from,
+                                 const BakedPalette &to, float w) {
+    HS_CHECK(from.lut_ && to.lut_, "BakedPalette::bake_blend before bake()");
+    lut_ = arena.allocate_n<Color4>(LUT_SIZE);
+    const uint16_t weight = static_cast<uint16_t>(w * 65535.0f + 0.5f);
+    for (int i = 0; i < LUT_SIZE; ++i) {
+      const Color4 &a = from.lut_[i];
+      const Color4 &b = to.lut_[i];
+      lut_[i] = Color4(a.color.lerp16(b.color, weight),
+                       a.alpha + (b.alpha - a.alpha) * w);
+    }
+  }
+
+  /**
    * @brief Fast lookup with linear interpolation between adjacent entries.
    * @param t Lookup coordinate; clamped to [0, 1] (NaN folds to the last entry).
    * @return The interpolated color.
@@ -1063,22 +1085,6 @@ private:
 };
 
 /**
- * @brief Blend source for a palette crossfade: two baked LUTs lerped at a
- * fixed weight.
- */
-struct RampBlend {
-  const BakedPalette &from; /**< The w = 0 endpoint. */
-  const BakedPalette &to;   /**< The w = 1 endpoint. */
-  float w;                  /**< Blend weight in [0, 1]. */
-  /**
-   * @brief Samples both LUTs and lerps.
-   * @param t Lookup coordinate.
-   * @return The blended color at t.
-   */
-  Color4 get(float t) const { return from.get(t).lerp(to.get(t), w); }
-};
-
-/**
  * @brief Resolves a (from, to) baked-LUT pair at one crossfade weight.
  * @param dst Receives the resolved palette (a default-constructed unbaked
  * instance is fine).
@@ -1098,7 +1104,7 @@ inline void bake_palette_blend(BakedPalette &dst, Arena &arena,
   else if (w >= 1.0f)
     dst = to;
   else
-    dst.bake(arena, RampBlend{from, to, w});
+    dst.bake_blend(arena, from, to, w);
 }
 
 /**
