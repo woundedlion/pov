@@ -2758,12 +2758,10 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
     return CartesianTrailGateResult::EXACT_FALLBACK;
 
   float latitude_max = -1.0f;
-  float meridian_max = -1.0f;
   float max_chord2 = 0.0f;
   for (size_t k = 0; k < trail.size(); ++k) {
     const Vector &p = trail[k].pos;
     latitude_max = std::max(latitude_max, clip.latitude_sign * p.y);
-    meridian_max = std::max(meridian_max, clip.meridian_sign * p.z);
     if (k > 0) {
       const Vector d = p - trail[k - 1].pos;
       max_chord2 = std::max(max_chord2, dot(d, d));
@@ -2775,6 +2773,10 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
   const float slack = (PI_F * 0.25f) * sqrtf(max_chord2);
   if (latitude_max + slack < clip.latitude_threshold - math::EPS_GEOMETRIC)
     return CartesianTrailGateResult::LATITUDE_REJECT;
+
+  float meridian_max = -1.0f;
+  for (const Fragment &f : trail)
+    meridian_max = std::max(meridian_max, clip.meridian_sign * f.pos.z);
   if (meridian_max + slack < clip.meridian_threshold - math::EPS_GEOMETRIC)
     return CartesianTrailGateResult::MERIDIAN_REJECT;
   return CartesianTrailGateResult::EXACT_FALLBACK;
