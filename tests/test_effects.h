@@ -1998,6 +1998,10 @@ struct MindSplatterWhiteBox {
     ms.reference_color_seed_lookup = enabled;
   }
   template <int W, int H>
+  static void use_reference_vertex_pass(MindSplatter<W, H> &ms, bool enabled) {
+    ms.reference_vertex_pass = enabled;
+  }
+  template <int W, int H>
   static void use_reference_signed_axis_physics(MindSplatter<W, H> &ms,
                                                 bool enabled) {
     ms.particle_system.reference_signed_axis_physics = enabled;
@@ -2365,6 +2369,51 @@ inline void test_mindsplatter_color_seed_framebuffer_parity() {
       ++different_pixels;
   }
   std::printf("color seed framebuffer samples=%zu lit=%zu different=%zu\n",
+              reference.size(), lit_pixels, different_pixels);
+  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
+  HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
+}
+
+/** @brief Fusing the vertex pass into trail materialization is pixel exact. */
+inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  constexpr int FRAMES = 16;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+  auto render = [&](bool reference) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    std::vector<Pixel> frames;
+    frames.reserve(static_cast<size_t>(W) * H * FRAMES);
+    MS effect;
+    effect.init();
+    WB::use_reference_vertex_pass(effect, reference);
+    for (int f = 0; f < FRAMES; ++f) {
+      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                        static_cast<unsigned long>(f) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          frames.push_back(effect.get_pixel(x, y));
+    }
+    return frames;
+  };
+
+  const std::vector<Pixel> reference = render(true);
+  const std::vector<Pixel> fused = render(false);
+  hs::clear_mock_time();
+  size_t lit_pixels = 0;
+  size_t different_pixels = 0;
+  for (size_t i = 0; i < reference.size(); ++i) {
+    if (reference[i].r | reference[i].g | reference[i].b)
+      ++lit_pixels;
+    if (reference[i] != fused[i])
+      ++different_pixels;
+  }
+  std::printf("fused vertex framebuffer samples=%zu lit=%zu different=%zu\n",
               reference.size(), lit_pixels, different_pixels);
   HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
   HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
@@ -3527,6 +3576,7 @@ inline int run_effects_tests() {
   test_mindsplatter_rotation_matrix_equivalence();
   test_mindsplatter_rotation_matrix_framebuffer_error();
   test_mindsplatter_color_seed_framebuffer_parity();
+  test_mindsplatter_fused_vertex_framebuffer_parity();
   test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
 

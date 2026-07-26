@@ -3242,6 +3242,8 @@ struct ParticleSystem {
    * @tparam W,H Rasterization resolution.
    * @tparam HoistableCull True when raw point projections are valid for clip
    *         gating because the source pipeline has no world cull stage.
+   * @tparam FuseVertex Apply the typed vertex shader as each point is emitted.
+   * @tparam VertexShaderFn Vertex shader type.
    * @tparam SystemT Particle-system type.
    * @tparam ParticleV2Fn Per-particle v2 mapper type.
    * @param pipeline Render pipeline.
@@ -3258,11 +3260,12 @@ struct ParticleSystem {
    *        Called once per materialized particle; the default stores the pool
    *        index.
    */
-  template <int W, int H, bool HoistableCull, typename PipelineT,
-            typename SystemT, typename ParticleV2Fn>
+  template <int W, int H, bool HoistableCull, bool FuseVertex,
+            typename PipelineT, typename SystemT, typename VertexShaderFn,
+            typename ParticleV2Fn>
   static void
   draw_impl(PipelineT &pipeline, Canvas &canvas, const SystemT &system,
-            FragmentShaderFn fragment_shader, VertexShaderRef vertex_shader,
+            FragmentShaderFn fragment_shader, VertexShaderFn vertex_shader,
             DeferredShaderRef deferred_shader, ParticleV2Fn particle_v2) {
     int count = system.active();
     if (count == 0)
@@ -3307,6 +3310,8 @@ struct ParticleSystem {
         p.history.tween([&](const Vector &v, float t) {
           trail.emplace_back(Fragment{v, t, 0.0f, v2, particle_life, 1.0f, 0.0f,
                                       Color4(0, 0, 0, 0)});
+          if constexpr (FuseVertex)
+            vertex_shader(trail.back());
           if (deferred_shader)
             orig.push_back(v);
         });
@@ -3314,7 +3319,7 @@ struct ParticleSystem {
 
       if (trail.is_empty())
         continue;
-      {
+      if constexpr (!FuseVertex) {
         HS_PROFILE(plot_ps_vertex);
         apply_vertex_shader(vertex_shader, trail);
       }
@@ -3512,12 +3517,44 @@ struct ParticleSystem {
                    DeferredShaderRef deferred_shader = {},
                    ParticleV2Fn particle_v2 = nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
-      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>()>(
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false>(
           pipeline, canvas, system, fragment_shader, vertex_shader,
           deferred_shader, particle_v2);
     } else {
       PipelineRef erased(pipeline);
-      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>()>(
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false>(
+          erased, canvas, system, fragment_shader, vertex_shader,
+          deferred_shader, particle_v2);
+    }
+  }
+
+  /**
+   * @brief Draws particle trails while applying a typed vertex shader during
+   *        trail materialization.
+   * @details Fuses point materialization and transformation into one traversal.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param system Particle system supplying the active pool and trail history.
+   * @param fragment_shader Shader function.
+   * @param vertex_shader Typed vertex shader.
+   * @param deferred_shader Optional deferred vertex shader.
+   * @param particle_v2 Optional particle-to-v2 mapper.
+   */
+  template <int W, int H, typename PipelineT, typename VertexShaderFn,
+            typename ParticleV2Fn = std::nullptr_t>
+  static void draw_fused_vertex(PipelineT &pipeline, Canvas &canvas,
+                                const auto &system,
+                                FragmentShaderFn fragment_shader,
+                                VertexShaderFn vertex_shader,
+                                DeferredShaderRef deferred_shader = {},
+                                ParticleV2Fn particle_v2 = nullptr) {
+    if constexpr (pipeline_direct_raster_path<PipelineT>()) {
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true>(
+          pipeline, canvas, system, fragment_shader, vertex_shader,
+          deferred_shader, particle_v2);
+    } else {
+      PipelineRef erased(pipeline);
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true>(
           erased, canvas, system, fragment_shader, vertex_shader,
           deferred_shader, particle_v2);
     }
