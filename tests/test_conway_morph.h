@@ -2570,10 +2570,11 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     std::vector<uint8_t> pal2(nf);
     for (size_t f = 0; f < nf; ++f)
       pal2[f] = static_cast<uint8_t>(wrap(ambo_p.topology[f], OpLeg::PALETTES));
+    // Identity targets keep the seam's class-keyed contrast structure, so the
+    // pixel gate's calibration stays wide of the mis-key flip signature.
     std::array<uint8_t, OpLeg::PALETTES> targets;
     for (int i = 0; i < OpLeg::PALETTES; ++i)
       targets[i] = static_cast<uint8_t>(i);
-    hs::shuffle(targets.begin(), targets.end());
 
     SeamFx fx;
     std::vector<Pixel> snaps[3]; // leg-2 last, leg-3 first, leg-3 second
@@ -2599,12 +2600,14 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
           out[static_cast<size_t>(y) * RW + x] = fx.get_pixel(x, y);
     };
 
-    // Leg 2: the medial slerp, departed from ambo(P).
+    // Leg 2: the medial slerp, departed from ambo(P). Crossfading handoffs
+    // with a pinned target set, as IslamicStars drives the bridge (the effect
+    // shuffles per leg; the pin keeps the seam colours deterministic here).
     OpLeg::PaletteHandoff handoff2{
         &bank.bank, pal2.data(),
         nullptr,    nf,
         false,      nullptr,
-        &targets,   true,
+        &targets,   false,
         nullptr,    OpLeg::FaceCorrespondence::IDENTITY};
     OpLeg leg2(P, OpLeg::MedialTag{}, leg, cb, handoff2, SWEEP);
     const OpLeg::Landing &landing2 = leg2.landing();
@@ -2636,7 +2639,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
         c = c + landing2.arrival_point[v].decode().normalized();
       }
       cen3[f] = c.normalized();
-      pal3[f] = landing2.from_palette[f];
+      pal3[f] = landing2.landed_palette(f);
       off += arrival.face_counts[f];
     }
 
@@ -2660,7 +2663,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
         &bank.bank, pal3.data(),
         nullptr,    nf,
         false,      nullptr,
-        &targets,   true,
+        &targets,   false,
         nullptr,    OpLeg::FaceCorrespondence::DUAL_CLOSING};
     OpLeg::BookendClasses bookend3{D.topology.data(), DF};
     OpLeg leg3(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f, leg,

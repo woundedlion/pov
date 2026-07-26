@@ -1154,7 +1154,7 @@ private:
                         Arena &scratch) {
     const size_t dual_faces = dual.face_counts.size();
     const size_t primal_faces = dual.vertices.size();
-    HS_CHECK(handoff.immutable && !handoff.prev_face_centroid &&
+    HS_CHECK(!handoff.prev_face_centroid &&
                  handoff.prev_faces == dual_faces + primal_faces,
              "OpLeg: invalid structural dual handoff");
 
