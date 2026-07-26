@@ -1169,6 +1169,11 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
   specialized.init(specialized_arena, 0.85f, 0.001f, 160.0f);
   add_signed_axis_attractors(reference, 2.55f);
   add_signed_axis_attractors(specialized, 2.55f);
+  constexpr float STRENGTHS[] = {0.35f, 1.1f, 2.55f, 0.8f, 3.2f, 1.7f};
+  for (size_t i = 0; i < 6; ++i) {
+    reference.attractors[i].strength = STRENGTHS[i];
+    specialized.attractors[i].strength = STRENGTHS[i];
+  }
 
   hs::random().seed(0x61786973);
   for (int i = 0; i < COUNT; ++i) {
@@ -1226,8 +1231,8 @@ inline void test_particle_system_signed_axis_boundaries() {
     AxisParticleSystem<1, true> specialized;
     reference.init(reference_arena, 0.85f, 0.001f, 160.0f);
     specialized.init(specialized_arena, 0.85f, 0.001f, 160.0f);
-    reference.add_attractor(X_AXIS, 1.0f, kill_radius, event_horizon);
-    specialized.add_attractor(X_AXIS, 1.0f, kill_radius, event_horizon);
+    add_signed_axis_attractors(reference, 1.0f, kill_radius, event_horizon);
+    add_signed_axis_attractors(specialized, 1.0f, kill_radius, event_horizon);
     reference.spawn(position, velocity, 1);
     specialized.spawn(position, velocity, 1);
     reference.step(fake_canvas());
@@ -1250,12 +1255,21 @@ inline void test_particle_system_signed_axis_boundaries() {
 
   constexpr float KILL = 0.003f;
   constexpr float HORIZON = 0.2f;
-  for (float distance :
-       {std::nextafter(KILL, 0.0f), KILL,
-        std::nextafter(KILL, std::numeric_limits<float>::infinity()),
-        std::nextafter(HORIZON, 0.0f), HORIZON,
-        std::nextafter(HORIZON, std::numeric_limits<float>::infinity())})
-    compare(at_chord_distance(distance), Vector(), KILL, HORIZON);
+  for (const Vector &axis :
+       {X_AXIS, -X_AXIS, Y_AXIS, -Y_AXIS, Z_AXIS, -Z_AXIS}) {
+    Vector tangent = cross(axis, X_AXIS);
+    if (dot(tangent, tangent) < 0.5f)
+      tangent = cross(axis, Y_AXIS);
+    tangent.normalize();
+    for (float distance :
+         {std::nextafter(KILL, 0.0f), KILL,
+          std::nextafter(KILL, std::numeric_limits<float>::infinity()),
+          std::nextafter(HORIZON, 0.0f), HORIZON,
+          std::nextafter(HORIZON, std::numeric_limits<float>::infinity())}) {
+      const Vector local = at_chord_distance(distance);
+      compare(axis * local.x + tangent * local.y, Vector(), KILL, HORIZON);
+    }
+  }
 
   for (const Vector &position : {
            X_AXIS,
