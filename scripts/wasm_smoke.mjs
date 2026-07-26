@@ -385,7 +385,9 @@ async function main() {
         if (MeshOps.getRecipe('definitely_not_a_solid') !== null) {
           fail('getRecipe(unknown) should return null');
         }
-        for (const bare of ['cube', 'icosahedron_kis_gyro']) {
+        // Every islamic entry now carries a recipe mirror, so the recipe-less
+        // cases live in the simple registry only.
+        for (const bare of ['cube', 'octahedron']) {
           if (MeshOps.getRecipe(bare) !== null) {
             fail(`getRecipe("${bare}") should return null (no recipe)`);
           }
