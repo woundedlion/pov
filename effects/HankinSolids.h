@@ -758,8 +758,8 @@ private:
             Solids::simple_registry[edge_other_end(cur_edge_, node_)].name);
 
     Animation::OpLeg anim(leg_seed, e, reverse_, persistent_arena,
-                          draw_conway_fn_, handoff, SWEEP_FRAMES,
-                          e.settle ? SETTLE_FRAMES : 0, bookend);
+                                draw_conway_fn_, handoff, SWEEP_FRAMES,
+                                e.settle ? SETTLE_FRAMES : 0, bookend);
     pending_landing_ = &anim.landing();
     timeline.add(
         0, std::move(anim).then([this]() { this->finish_morph_cycle(); }));
@@ -919,7 +919,8 @@ private:
    * @brief Draw callback for morph frames.
    * @details Held as a member for stable FunctionRef lifetime.
    */
-  Fn<void(Canvas &, const MeshState &, const Animation::OpLeg::Shading &), 8>
+  Fn<void(Canvas &, const MeshState &, const Animation::OpLeg::Shading &),
+     8>
       draw_conway_fn_{[this](Canvas &c, const MeshState &m,
                              const Animation::OpLeg::Shading &sh) {
         draw_conway_mesh(c, m, sh);

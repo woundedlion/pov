@@ -12,6 +12,10 @@
  *     manifold, unit vertices, outward face normals, per-step displacement.
  *   - Chamfer birth epsilon: smallest t at which no newborn hexagon is culled
  *     by SDF::Face's collapsed-area reject, per seed.
+ *   - Needle gated-swap chain: the DUAL then KIS partition ops the needle
+ *     recipe lowers to, each landing a well-formed closed manifold on the
+ *     hankin(54 deg) seed, with the {DUAL, KIS} lowering matching
+ * MeshOps::needle.
  *   - Build-chain provenance: face-centroid spacing per intermediate mesh
  *     against PROVENANCE_TOL_SQ, nearest/second-nearest ambiguity of the
  *     lookups build_palette_mapping actually performs, and the mapping path
@@ -41,9 +45,9 @@
 namespace hs_test {
 namespace opchain_probe_tests {
 
-inline uint8_t probe_a_buf[768 * 1024];           /**< Op output arena. */
-inline uint8_t probe_b_buf[768 * 1024];           /**< Op scratch arena. */
-inline uint8_t probe_seed_buf[512 * 1024];        /**< Held seed arena. */
+inline uint8_t probe_a_buf[768 * 1024];       /**< Op output arena. */
+inline uint8_t probe_b_buf[768 * 1024];       /**< Op scratch arena. */
+inline uint8_t probe_seed_buf[512 * 1024];    /**< Held seed arena. */
 inline SDF::FaceScratchBuffer probe_face_scratch; /**< Face setup scratch. */
 
 /** Canvas rows the shipping mesh raster uses; SDF::Face's cull decision is
@@ -95,10 +99,10 @@ inline Vector newell(const PolyMesh &m, size_t off, int n) {
 inline bool face_is_culled(const PolyMesh &m, size_t off, int n) {
   if (static_cast<size_t>(n) > SDF::FaceScratchBuffer::MAX_VERTS)
     return false;
-  SDF::Face face(
-      std::span<const Vector>(m.vertices.data(), m.vertices.size()),
-      std::span<const uint16_t>(m.faces.data() + off, static_cast<size_t>(n)),
-      /*thickness=*/0.0f, probe_face_scratch, PROBE_HV, PROBE_H);
+  SDF::Face face(std::span<const Vector>(m.vertices.data(), m.vertices.size()),
+                 std::span<const uint16_t>(m.faces.data() + off,
+                                           static_cast<size_t>(n)),
+                 /*thickness=*/0.0f, probe_face_scratch, PROBE_HV, PROBE_H);
   return face.y_min > face.y_max;
 }
 
@@ -261,9 +265,9 @@ inline void test_chamfer_sweep_holds_topology() {
     float min_outward = 1e9f;
     float min_normal_dot = 1e9f;
     for (int s = 0; s < SAMPLES; ++s) {
-      const float t =
-          ConwayGraph::T_EPS + (CHAMFER_T_STAR - ConwayGraph::T_EPS) *
-                                   (static_cast<float>(s) / (SAMPLES - 1));
+      const float t = ConwayGraph::T_EPS +
+                      (CHAMFER_T_STAR - ConwayGraph::T_EPS) *
+                          (static_cast<float>(s) / (SAMPLES - 1));
       ScratchScope fa(a);
       ScratchScope fb(b);
       PolyMesh swept = MeshOps::chamfer(seed, a, b, t);
@@ -294,8 +298,8 @@ inline void test_chamfer_sweep_holds_topology() {
         const int n = swept.face_counts[f];
         for (int k = 0; k < n; ++k)
           c = c + swept.vertices[swept.faces[off[f] + k]];
-        const float len =
-            std::sqrt(dot(normal[f], normal[f])) * std::sqrt(dot(c, c));
+        const float len = std::sqrt(dot(normal[f], normal[f])) *
+                          std::sqrt(dot(c, c));
         if (len > 0.0f)
           min_outward = std::min(min_outward, dot(normal[f], c) / len);
       }
@@ -308,8 +312,9 @@ inline void test_chamfer_sweep_holds_topology() {
           const float la = std::sqrt(dot(prev_normal[f], prev_normal[f]));
           const float lb = std::sqrt(dot(normal[f], normal[f]));
           if (la > 0.0f && lb > 0.0f)
-            min_normal_dot = std::min(
-                min_normal_dot, dot(prev_normal[f], normal[f]) / (la * lb));
+            min_normal_dot =
+                std::min(min_normal_dot, dot(prev_normal[f], normal[f]) /
+                                             (la * lb));
         }
       }
       prev_vertices.assign(swept.vertices.data(),
@@ -330,6 +335,288 @@ inline void test_chamfer_sweep_holds_topology() {
                   static_cast<double>(max_step),
                   static_cast<double>(min_outward),
                   static_cast<double>(min_normal_dot));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Truncate sub-T_EPS birth (opchain_morph_spec section 5.1): the two
+// truncatedIcosahedron_ambo_relax_truncate001_hankin{59,73} recipes truncate at
+// 0.01, below the flat T_EPS birth floor. Both share the same truncate seed
+// (truncatedIcosahedron.ambo().relax()) and truncate param, so the leg is
+// identical; the hankin angle that differs is a later leg. The leg births at
+// min(T_EPS, 0.01 * T_EPS_TRUNCATE_FRAC) = 0.002 and sweeps to 0.01. This must
+// be a real, well-formed animation, not a still image or an inverted birth.
+// ---------------------------------------------------------------------------
+
+/** @brief One truncate-leg seed. */
+struct TruncateSite {
+  const char *name;                     /**< Recipe the leg belongs to. */
+  PolyMesh (*seed)(Arena &a, Arena &b); /**< Chain prefix up to the truncate. */
+};
+
+inline PolyMesh probe_ticosa_ambo_relax(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
+      .ambo()
+      .relax()
+      .build();
+}
+
+inline constexpr TruncateSite TRUNCATE_SITES[] = {
+    {"truncatedIcosahedron_ambo_relax_truncate001_hankin59",
+     probe_ticosa_ambo_relax},
+    {"truncatedIcosahedron_ambo_relax_truncate001_hankin73",
+     probe_ticosa_ambo_relax},
+};
+
+/** Arrival parameter of the two truncate001 recipes. */
+inline constexpr float TRUNCATE001_T_STAR = 0.01f;
+
+/**
+ * @brief Steps the truncate001 leg from its derived birth floor to 0.01 on each
+ *        truncate001 seed, asserting a real sweep (birth < arrival), constant
+ *        raw and compiled face counts, a closed genus-0 manifold, unit
+ * vertices, every face positive-area, and no face inverting across the sweep.
+ * @details The silent on-screen failure these recipes carry (spec section 5.1)
+ * is a truncate whose sub-T_EPS arrival clamps both endpoints to T_EPS -- a
+ * still image ending on a mesh built at the wrong parameter. The birth floor
+ * mirrors the OpLeg recipe-step clamp exactly.
+ */
+inline void test_truncate001_birth_sweep_holds_topology() {
+  constexpr int SAMPLES = 32;
+  const float birth =
+      std::min(ConwayGraph::T_EPS,
+               TRUNCATE001_T_STAR * ConwayGraph::T_EPS_TRUNCATE_FRAC);
+  // A real animation, not a still image.
+  HS_EXPECT_TRUE(birth < TRUNCATE001_T_STAR);
+  HS_EXPECT_TRUE(TRUNCATE001_T_STAR >= ConwayGraph::T_EPS_TRUNCATE_MIN);
+
+  for (const TruncateSite &site : TRUNCATE_SITES) {
+    const int failed_before = hs_test::stats().failed;
+
+    Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
+    Arena a(probe_a_buf, sizeof(probe_a_buf));
+    Arena b(probe_b_buf, sizeof(probe_b_buf));
+    PolyMesh seed;
+    {
+      ScratchScope ga(a);
+      ScratchScope gb(b);
+      seed = Solids::finalize_solid(site.seed(a, b), persist);
+    }
+
+    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    std::vector<Vector> prev_normal;
+    std::vector<size_t> off;
+    float min_area = 1e9f;
+    float min_outward = 1e9f;
+    float min_normal_dot = 1e9f;
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float t = birth + (TRUNCATE001_T_STAR - birth) *
+                                  (static_cast<float>(s) / (SAMPLES - 1));
+      ScratchScope fa(a);
+      ScratchScope fb(b);
+      PolyMesh swept = MeshOps::truncate(seed, a, b, t);
+      MeshState compiled;
+      MeshOps::compile(swept, compiled, a, b);
+      if (s == 0) {
+        v0 = swept.vertices.size();
+        f0 = swept.face_counts.size();
+        i0 = swept.faces.size();
+        compiled0 = compiled.face_counts.size();
+        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+      } else {
+        HS_EXPECT_EQ(swept.vertices.size(), v0);
+        HS_EXPECT_EQ(swept.face_counts.size(), f0);
+        HS_EXPECT_EQ(swept.faces.size(), i0);
+        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+      }
+      check_face_counts_consistent(swept);
+      check_indices_in_range(swept);
+      check_all_unit_vertices(swept, 1e-3f);
+      conway_tests::check_euler_genus0(swept);
+
+      face_offsets(swept, off);
+      std::vector<Vector> normal(swept.face_counts.size());
+      for (size_t f = 0; f < swept.face_counts.size(); ++f) {
+        normal[f] = newell(swept, off[f], swept.face_counts[f]);
+        // Planar area: no face collapses or inverts anywhere in the sweep.
+        min_area = std::min(min_area, std::sqrt(dot(normal[f], normal[f])));
+        Vector c(0, 0, 0);
+        const int n = swept.face_counts[f];
+        for (int k = 0; k < n; ++k)
+          c = c + swept.vertices[swept.faces[off[f] + k]];
+        const float len =
+            std::sqrt(dot(normal[f], normal[f])) * std::sqrt(dot(c, c));
+        if (len > 0.0f)
+          min_outward = std::min(min_outward, dot(normal[f], c) / len);
+      }
+      if (s > 0) {
+        for (size_t f = 0; f < normal.size(); ++f) {
+          const float la = std::sqrt(dot(prev_normal[f], prev_normal[f]));
+          const float lb = std::sqrt(dot(normal[f], normal[f]));
+          if (la > 0.0f && lb > 0.0f)
+            min_normal_dot = std::min(
+                min_normal_dot, dot(prev_normal[f], normal[f]) / (la * lb));
+        }
+      }
+      prev_normal = normal;
+    }
+
+    // Every face keeps positive area and outward orientation across the sweep.
+    HS_EXPECT_TRUE(min_area > 0.0f);
+    HS_EXPECT_TRUE(min_outward > 0.0f);
+    HS_EXPECT_TRUE(min_normal_dot > 0.0f);
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [truncate001] %s failed (raw F=%zu compiled=%zu)\n",
+                  site.name, f0, compiled0);
+    else
+      std::printf("  [truncate001] %s: birth=%.4f->%.2f V=%zu F=%zu I=%zu "
+                  "compiled=%zu min_area=%.3e min_outward=%.4f "
+                  "min_normal_dot=%.4f\n",
+                  site.name, static_cast<double>(birth),
+                  static_cast<double>(TRUNCATE001_T_STAR), v0, f0, i0,
+                  compiled0, static_cast<double>(min_area),
+                  static_cast<double>(min_outward),
+                  static_cast<double>(min_normal_dot));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Far-side truncate sweep (opchain_morph_spec section 5.1): the two
+// truncatedIcos{ahedron,idodecahedron}_truncate50d_ambo_dual recipes truncate
+// at 50 deg = 0.873, PAST the ambo pinch (t = 0.5). truncate emits a constant
+// topology (2E vertices, F+V faces, 3I indices) for every t != 0.5; only the
+// exact-0.5 short-circuit differs (returns ambo, V vertices). A far-side leg
+// births on the near side (small t), sweeps through 0.5 with the pinch guard
+// nudging that one sample off the short-circuit, and arrives at 0.873 on the
+// intentionally self-intersecting truncate branch.
+//
+// Past 0.5 the cut faces self-intersect BY DESIGN, so signed area, winding, and
+// closed-manifold checks fail legitimately (MEMORY: structural checks only for
+// crossed-face ops). This test asserts only what stays true across the pinch:
+// constant raw and compiled face count, constant V/F/I, finite unit vertices,
+// and no exact-0.5 evaluation. Positive area is asserted only on the near side.
+// ---------------------------------------------------------------------------
+
+inline PolyMesh probe_ticosidodeca(Arena &a, Arena &b) {
+  return Solids::Archimedean::truncatedIcosidodecahedron(a, b);
+}
+
+inline constexpr TruncateSite FAR_TRUNCATE_SITES[] = {
+    {"truncatedIcosahedron_truncate50d_ambo_dual", probe_ticosa},
+    {"truncatedIcosidodecahedron_truncate50d_ambo_dual", probe_ticosidodeca},
+};
+
+/** Arrival parameter of the two truncate50d recipes: 50 deg past the pinch. */
+inline constexpr float TRUNCATE50D_T_STAR =
+    50.0f * Solids::IslamicStarPatterns::D2R;
+/** Below this t, the truncate cut faces do not yet self-intersect, so positive
+ * area still holds and can be asserted. Above the pinch (0.5) it cannot. */
+inline constexpr float FAR_SIDE_NEAR_LIMIT = 0.49f;
+
+/**
+ * @brief Steps the far-side truncate leg from its near-side birth floor through
+ *        the ambo pinch to 0.873 on both truncate50d seeds, asserting the leg
+ *        does not trap and does not change topology across the pinch.
+ * @details Mirrors the OpLeg recipe-step clamp: the leg births at min(T_EPS,
+ * arrival * T_EPS_TRUNCATE_FRAC) and the far-side arrival passes through
+ * unclamped (below T_EPS_TRUNCATE_FAR_MAX). Every per-frame sample is routed
+ * through ConwayGraph::truncate_off_pinch, so a sample landing exactly on 0.5
+ * is nudged off the ambo short-circuit and the frame keeps the truncate
+ * topology. STRUCTURAL checks only past 0.5 (self-intersecting by design): no
+ * signed-area or manifold assertion there.
+ */
+inline void test_truncate50d_far_side_sweep_holds_topology() {
+  constexpr int SAMPLES = 48;
+  const float birth =
+      std::min(ConwayGraph::T_EPS,
+               TRUNCATE50D_T_STAR * ConwayGraph::T_EPS_TRUNCATE_FRAC);
+  // A real animation across the pinch: birth on the near side, arrival past it,
+  // arrival unclamped (below the far-side cap).
+  HS_EXPECT_TRUE(birth < 0.5f);
+  HS_EXPECT_TRUE(TRUNCATE50D_T_STAR > 0.5f);
+  HS_EXPECT_TRUE(TRUNCATE50D_T_STAR <= ConwayGraph::T_EPS_TRUNCATE_FAR_MAX);
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, TRUNCATE50D_T_STAR}));
+  // The guard moves an exact-0.5 sample onto the truncate branch.
+  HS_EXPECT_TRUE(ConwayGraph::truncate_off_pinch(0.5f) != 0.5f);
+
+  for (const TruncateSite &site : FAR_TRUNCATE_SITES) {
+    const int failed_before = hs_test::stats().failed;
+
+    Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
+    Arena a(probe_a_buf, sizeof(probe_a_buf));
+    Arena b(probe_b_buf, sizeof(probe_b_buf));
+    PolyMesh seed;
+    {
+      ScratchScope ga(a);
+      ScratchScope gb(b);
+      seed = Solids::finalize_solid(site.seed(a, b), persist);
+    }
+
+    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    std::vector<size_t> off;
+    float min_area_near = 1e9f;
+    bool pinch_guarded = false;
+    for (int s = 0; s < SAMPLES; ++s) {
+      // Linear birth -> arrival, plus one sample forced onto the exact pinch so
+      // the guard is exercised deterministically.
+      float raw = (s == SAMPLES / 2)
+                      ? 0.5f
+                      : birth + (TRUNCATE50D_T_STAR - birth) *
+                                    (static_cast<float>(s) / (SAMPLES - 1));
+      const float t = ConwayGraph::truncate_off_pinch(raw);
+      // No frame ever evaluates truncate at the exact ambo short-circuit.
+      HS_EXPECT_TRUE(t != 0.5f);
+      if (raw == 0.5f)
+        pinch_guarded = true;
+
+      ScratchScope fa(a);
+      ScratchScope fb(b);
+      PolyMesh swept = MeshOps::truncate(seed, a, b, t);
+      MeshState compiled;
+      MeshOps::compile(swept, compiled, a, b);
+      if (s == 0) {
+        v0 = swept.vertices.size();
+        f0 = swept.face_counts.size();
+        i0 = swept.faces.size();
+        compiled0 = compiled.face_counts.size();
+        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+      } else {
+        // Topology is t-independent off the pinch: no pop across 0.5.
+        HS_EXPECT_EQ(swept.vertices.size(), v0);
+        HS_EXPECT_EQ(swept.face_counts.size(), f0);
+        HS_EXPECT_EQ(swept.faces.size(), i0);
+        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+      }
+      check_face_counts_consistent(swept);
+      check_indices_in_range(swept);
+      check_all_unit_vertices(swept, 1e-3f);
+      for (size_t i = 0; i < swept.vertices.size(); ++i)
+        HS_EXPECT_TRUE(std::isfinite(swept.vertices[i].length()));
+
+      // Positive area is a near-side-only invariant: past the pinch the cut
+      // faces self-intersect by design and signed area legitimately flips.
+      if (t <= FAR_SIDE_NEAR_LIMIT) {
+        face_offsets(swept, off);
+        for (size_t f = 0; f < swept.face_counts.size(); ++f) {
+          const Vector n = newell(swept, off[f], swept.face_counts[f]);
+          min_area_near = std::min(min_area_near, std::sqrt(dot(n, n)));
+        }
+      }
+    }
+
+    HS_EXPECT_TRUE(pinch_guarded);
+    HS_EXPECT_TRUE(min_area_near > 0.0f);
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [truncate50d] %s failed (raw F=%zu compiled=%zu)\n",
+                  site.name, f0, compiled0);
+    else
+      std::printf(
+          "  [truncate50d] %s: birth=%.4f -> %.4f through pinch V=%zu "
+          "F=%zu I=%zu compiled=%zu min_area_near=%.3e guard_fired=%d\n",
+          site.name, static_cast<double>(birth),
+          static_cast<double>(TRUNCATE50D_T_STAR), v0, f0, i0, compiled0,
+          static_cast<double>(min_area_near), pinch_guarded ? 1 : 0);
   }
 }
 
@@ -398,8 +685,8 @@ inline void test_chamfer_birth_epsilon() {
     std::printf("  [chamfer-eps] %s: births clear the SDF cull at t>=%.2e "
                 "(T_EPS=%.3f culls %zu of %zu; compile keeps %zu of %zu)\n",
                 site.name, static_cast<double>(hi),
-                static_cast<double>(ConwayGraph::T_EPS), at_eps, raw_faces - F,
-                cf_eps, raw_faces);
+                static_cast<double>(ConwayGraph::T_EPS), at_eps,
+                raw_faces - F, cf_eps, raw_faces);
   }
 }
 
@@ -412,10 +699,10 @@ inline void test_chamfer_birth_epsilon() {
 
 /** @brief One pure-inflate build chain, lowered to primitive steps. */
 struct ChainSite {
-  const char *name;    /**< Registry entry the chain mirrors. */
-  uint8_t seed;        /**< simple_registry index. */
-  const OpStep *steps; /**< Lowered primitive chain. */
-  size_t count;        /**< Number of steps. */
+  const char *name;      /**< Registry entry the chain mirrors. */
+  uint8_t seed;          /**< simple_registry index. */
+  const OpStep *steps;   /**< Lowered primitive chain. */
+  size_t count;          /**< Number of steps. */
 };
 
 using Solids::IslamicStarPatterns::D2R;
@@ -433,19 +720,18 @@ static_assert(std::string_view(Solids::simple_registry[SEED_CUBE].name) ==
 static_assert(
     std::string_view(Solids::simple_registry[SEED_RHOMBICUBOCTAHEDRON].name) ==
     "rhombicuboctahedron");
-static_assert(std::string_view(
-                  Solids::simple_registry[SEED_TRUNCATED_ICOSAHEDRON].name) ==
-              "truncatedIcosahedron");
 static_assert(
-    std::string_view(Solids::simple_registry[SEED_TRUNCATED_ICOSIDODECAHEDRON]
-                         .name) == "truncatedIcosidodecahedron");
+    std::string_view(Solids::simple_registry[SEED_TRUNCATED_ICOSAHEDRON].name) ==
+    "truncatedIcosahedron");
+static_assert(std::string_view(
+                  Solids::simple_registry[SEED_TRUNCATED_ICOSIDODECAHEDRON]
+                      .name) == "truncatedIcosidodecahedron");
 
 inline constexpr OpStep CHAIN_DODECA_HK62_AMBO_HK62[] = {
     {Op::HANKIN, 62.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 62.0f * D2R}};
 inline constexpr OpStep CHAIN_DODECA_HK35_AMBO_HK62_AMBO_RELAX_HK42[] = {
-    {Op::HANKIN, 35.0f * D2R}, {Op::AMBO},
-    {Op::HANKIN, 62.0f * D2R}, {Op::AMBO},
-    {Op::RELAX, 100.0f},       {Op::HANKIN, 42.0f * D2R}};
+    {Op::HANKIN, 35.0f * D2R}, {Op::AMBO},   {Op::HANKIN, 62.0f * D2R},
+    {Op::AMBO},                {Op::RELAX, 100.0f}, {Op::HANKIN, 42.0f * D2R}};
 inline constexpr OpStep CHAIN_DODECA_HK54_AMBO_HK72[] = {
     {Op::HANKIN, 54.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 72.0f * D2R}};
 inline constexpr OpStep CHAIN_OCTA_HK17_AMBO_HK73[] = {
@@ -589,8 +875,8 @@ inline void test_build_chain_centroid_spacing() {
 
 /**
  * @brief Reports, per real build leg, the mapping path build_palette_mapping
- *        takes, its prev_faces against the prev_used[] bound, and the
- *        ambiguity of every nearest-centroid lookup the leg performs.
+ *        takes, its departed face count, and the ambiguity of every
+ *        nearest-centroid lookup the leg performs.
  * @details Legs open at the sweep's start parameter, which is what
  * build_palette_mapping's start_centroid array holds.
  */
@@ -698,18 +984,148 @@ inline void test_build_chain_provenance_ambiguity() {
     }
   }
   std::printf("  [prov] %zu prefix legs, %zu full-correspondence legs, %zu "
-              "misidentified prefix faces; max prev_faces=%zu on %s "
-              "(prev_used bound 128); worst newborn d1/d2=%.3f; worst prefix "
+              "misidentified prefix faces; max prev_faces=%zu on %s; "
+              "worst newborn d1/d2=%.3f; worst prefix "
               "offset=%.4f (tol 0.15)\n",
               prefix_legs, full_legs, misidentified, max_prev_faces,
               max_prev_name, static_cast<double>(worst_newborn_ratio),
               static_cast<double>(worst_prefix_offset));
-  // No build leg takes the tolerance-checked full-correspondence path, so
-  // PROVENANCE_TOL_SQ and the prev_used[128] bijection mark never apply to a
-  // chain leg -- which the chains need, since they depart from meshes far
-  // past 128 faces.
+  // None of the swept ops scanned here takes the tolerance-checked
+  // full-correspondence path, so PROVENANCE_TOL_SQ never applies to them.
   HS_EXPECT_EQ(full_legs, static_cast<size_t>(0));
   HS_EXPECT_TRUE(max_prev_faces > 128);
+}
+
+// ---------------------------------------------------------------------------
+// Needle gated-swap chain (opchain_morph_spec section 3.3): the
+// truncatedIcosahedron_ambo_relax100_hk54_needle recipe ends in needle, which
+// expand_to_primitives lowers to a DUAL then a KIS gated swap
+// (core/mesh/recipe.h). No shipping recipe runs dual or kis on a hankin mesh,
+// so this pins that both partition ops land a well-formed closed manifold on
+// the hankin(54 deg) arrival. A gated swap carries no parameter sweep, so each
+// leg's arrival is a single mesh: dual(seed), then kis(dual(seed)) == needle.
+// ---------------------------------------------------------------------------
+
+inline PolyMesh probe_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
+      .ambo()
+      .relax(100)
+      .hankin(54.0f * D2R)
+      .build();
+}
+
+/**
+ * @brief Asserts a mesh is a closed genus-0 manifold of positive-area faces on
+ *        the unit sphere; returns its compiled face count.
+ */
+inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
+  check_face_counts_consistent(m);
+  check_indices_in_range(m);
+  check_all_unit_vertices(m, 1e-3f);
+  conway_tests::check_euler_genus0(m);
+  std::vector<size_t> off;
+  face_offsets(m, off);
+  float min_area = 1e9f;
+  for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    const Vector n = newell(m, off[f], m.face_counts[f]);
+    min_area = std::min(min_area, std::sqrt(dot(n, n)));
+  }
+  for (size_t v = 0; v < m.vertices.size(); ++v)
+    HS_EXPECT_TRUE(std::isfinite(m.vertices[v].length()));
+  HS_EXPECT_TRUE(min_area > 0.0f);
+  MeshState compiled;
+  MeshOps::compile(m, compiled, a, b);
+  return compiled.face_counts.size();
+}
+
+/**
+ * @brief Builds the needle chain's DUAL then KIS gated-swap landings on the
+ *        hankin(54 deg) seed, asserting each lands a well-formed closed
+ *        manifold and that the {DUAL, KIS} lowering reproduces the composite
+ *        needle exactly.
+ * @details needle lowers to two gated swaps with no sweep, so the guard is that
+ * each partition op builds without trapping on a hankin mesh -- the one context
+ * no shipping recipe exercises -- and that expand_to_primitives' {DUAL, KIS}
+ * pair matches MeshOps::needle bit for bit.
+ */
+inline void test_needle_gated_swap_builds_on_hankin() {
+  const int failed_before = hs_test::stats().failed;
+
+  Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
+  Arena a(probe_a_buf, sizeof(probe_a_buf));
+  Arena b(probe_b_buf, sizeof(probe_b_buf));
+
+  PolyMesh seed;
+  {
+    ScratchScope ga(a);
+    ScratchScope gb(b);
+    seed =
+        Solids::finalize_solid(probe_ticosa_ambo_relax100_hk54(a, b), persist);
+  }
+  size_t seed_compiled = 0;
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    MeshState c;
+    MeshOps::compile(seed, c, a, b);
+    seed_compiled = c.face_counts.size();
+  }
+
+  // DUAL leg landing: departs the hankin seed, opens on its dual.
+  PolyMesh dual_mesh;
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    dual_mesh = Solids::finalize_solid(MeshOps::dual(seed, a, b), persist);
+  }
+  size_t dual_compiled = 0;
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    dual_compiled = check_manifold_landing(dual_mesh, a, b);
+  }
+  // A gated swap draws one static mesh per side, so compile keeps every face:
+  // the leg's per-side face count is constant.
+  HS_EXPECT_EQ(dual_compiled, dual_mesh.face_counts.size());
+
+  // KIS leg landing: departs the dual, opens on kis(dual) == the needle
+  // arrival.
+  size_t kis_v = 0, kis_f = 0, kis_i = 0, kis_compiled = 0;
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    PolyMesh kis_mesh = MeshOps::kis(dual_mesh, a, b);
+    kis_v = kis_mesh.vertices.size();
+    kis_f = kis_mesh.face_counts.size();
+    kis_i = kis_mesh.faces.size();
+    kis_compiled = check_manifold_landing(kis_mesh, a, b);
+  }
+  HS_EXPECT_EQ(kis_compiled, kis_f);
+  // kis raises one triangle per parent face-side, so its face count is the
+  // dual's total face-index count.
+  HS_EXPECT_EQ(kis_f, dual_mesh.faces.size());
+
+  // The lowering matches the composite: needle n = kd = kis of dual.
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    PolyMesh needle_mesh = MeshOps::needle(seed, a, b);
+    HS_EXPECT_EQ(needle_mesh.vertices.size(), kis_v);
+    HS_EXPECT_EQ(needle_mesh.face_counts.size(), kis_f);
+    HS_EXPECT_EQ(needle_mesh.faces.size(), kis_i);
+  }
+
+  if (hs_test::stats().failed != failed_before)
+    std::printf(
+        "    [needle] truncatedIcosahedron_ambo_relax100_hk54 failed\n");
+  else
+    std::printf(
+        "  [needle] hk54 seed F=%zu(compiled %zu) -> dual F=%zu(%zu) -> "
+        "kis F=%zu(%zu) == needle; closed manifold at each landing\n",
+        seed.face_counts.size(), seed_compiled, dual_mesh.face_counts.size(),
+        dual_compiled, kis_f, kis_compiled);
 }
 
 /**
@@ -722,6 +1138,11 @@ inline int run_opchain_probe_tests() {
   test_chamfer_zero_area_birth_limit();
   test_chamfer_sweep_holds_topology();
   test_chamfer_birth_epsilon();
+
+  test_truncate001_birth_sweep_holds_topology();
+  test_truncate50d_far_side_sweep_holds_topology();
+
+  test_needle_gated_swap_builds_on_hankin();
 
   test_build_chain_centroid_spacing();
   test_build_chain_provenance_ambiguity();

@@ -184,28 +184,32 @@ public:
   /** Distinct (from, to) ramp pairs a leg may carry; bounds the per-frame
    * blended-LUT scratch (PAIRS x 3 KB in scratch_arena_b). Only the pairs a
    * leg actually uses are allocated, so the ceiling costs nothing until a leg
-   * needs it; a partition swap over a few hundred faces reaches 16. */
-  static constexpr int MAX_BLEND_PAIRS = 16;
+   * needs it. A reconcile leg converges the departed classification onto the
+   * arrival's, so its pairs cap at BakedPaletteBank::N^2 = 25 (measured 18 on
+   * the gyro_kis reconcile); every other leg stays well under. */
+  static constexpr int MAX_BLEND_PAIRS = 25;
 
   /** Leg kind, dispatched once at construction by the chosen constructor. */
   enum class LegKind : uint8_t {
     CONWAY_SWEEP,
     HANKIN_SWEEP,
     RELAX_SLERP,
+    MEDIAL_SLERP,
     GATED_SWAP
   };
 
   /** Partition operator a GATED_SWAP leg swaps to. */
   enum class SwapOp : uint8_t { KIS, DUAL };
 
-  /** Shading gain a GATED_SWAP leg closes to across its swap frame
-   * (docs/opchain_morph_spec.md, section 3.3). Shallowest gain in the seam
-   * sweep (tests/test_partition_seam.h) whose whole-frame absolute delta energy
-   * across the swap stays inside the 2 % envelope on every calibrated seed:
-   * kis <= 1.03 %, dual <= 1.32 %, against a 2.18 % dual reading at 0.1 and a
-   * coverage-only floor of 0.56-0.83 %. Never 0: at 0 every fragment resolves
-   * to palette.get(0) and the mesh collapses to five flat patches. */
-  static constexpr float GATE_GAIN_MIN = 0.05f;
+  /** Disambiguating tag for the medial-slerp constructor (the Conway-dual
+   * bridge's middle leg), whose signature otherwise collides with the sweep
+   * constructors. */
+  struct MedialTag {};
+
+  /** Disambiguating tag for the reconcile-slerp constructor (the closing leg of
+   * a smooth kis/needle path), whose signature otherwise collides with the
+   * medial constructor. */
+  struct ReconcileTag {};
 
   /** Hankin-angle floor (the T_EPS analog): at angle -> 0 every star point
    * collapses onto its corner via the p_corner fallback, so the clamp keeps
@@ -218,6 +222,21 @@ public:
    * count mid-leg). Measured sufficient for every Phase-1 leg. */
   static constexpr float K_EPS = 0.005f;
 
+  /** Frames over which a late-fading leg's colour diverges from the held
+   * source palette to its target (late_blend_weight). Colour holds at `from`
+   * until this many frames remain, then ramps to `to` at the arrival. Keyed
+   * off frames-from-the-end so the window is the same few frames on any leg
+   * length: the leg's whole colour movement lands at its very end instead of
+   * drifting mid-morph. */
+  static constexpr int LATE_FADE_FRAMES = 4;
+
+  /** Perceptual-congruence tolerance for colour-cohort keys, degrees:
+   * same-degree birth classes whose sorted interior-angle vectors sit within
+   * this L-infinity gap share a colour group (perceptual_groups). Above the
+   * measured in-class spread (< 0.01 deg) and below the smallest genuine
+   * inter-orbit angle gap on the roster (~0.63 deg). */
+  static constexpr float COHORT_ANGLE_EPS = 0.3f;
+
   /**
    * @brief Per-frame shading handed to the draw callback.
    * @details The fragment path stays a single BakedPalette::get(t):
@@ -229,7 +248,7 @@ public:
     const uint8_t *face_ramp;  /**< Face index -> ramp index. */
     size_t faces;              /**< Face count (bounds face_ramp). */
     float gain = 1.0f; /**< Multiplier the shader applies to the edge-distance
-                          gradient; 1 on every swept kind. */
+                          gradient; OpLeg holds it at 1 on every kind. */
   };
 
   /**
@@ -238,6 +257,14 @@ public:
    */
   using MorphDrawFn =
       StoredFunctionRef<void(Canvas &, const MeshState &, const Shading &)>;
+
+  /**
+   * @brief Crossfade-weight curve of a swept leg: resolved weight in [0, 1]
+   * for a 1-based leg frame over the whole leg duration (sweep plus settle).
+   * Supplied at construction (classic_blend default, late_blend_weight for the
+   * build legs), mirroring easing_fn.
+   */
+  using BlendFn = float (*)(int frame, int duration);
 
   /**
    * @brief Palette provenance of the departed node (spec sections 2.5/2.6).
@@ -263,6 +290,19 @@ public:
         nullptr; /**< Caller-pinned slot -> target palettes; skips the
                     constructor's shuffle so chained legs share one target
                     set. Null keeps the per-leg shuffle. */
+    bool immutable = false; /**< Birth-colour model (the build chains): every
+                               carried face keeps its from palette (to = from,
+                               so the leg never crossfades) and a newborn face
+                               is born on its birth-cohort palette. */
+    uint32_t *birth_counter =
+        nullptr; /**< Wrapping cohort counter over the shape's build (immutable
+                    handoffs): each distinct birth key among the leg's newborn
+                    faces — the birth class's perceptual colour group
+                    (perceptual_groups), refined by the vertex signature on a
+                    vertex-orbit block (a truncate corner suffix, or a dual
+                    swap's whole face list) — takes
+                    to_palette[counter++ % PALETTES], in ascending key order.
+                    Null keys newborns by wrap(class, PALETTES). */
   };
 
   /**
@@ -281,6 +321,34 @@ public:
   };
 
   /**
+   * @brief A hankin arrival star point, snorm16-quantized on the unit sphere.
+   * @details The leg holds one per dynamic vertex for its whole life, so the
+   * 6-byte packed form halves the 12-byte Vector's resident cost.
+   * Reconstruction error is bounded by the 1/32767 quantum (max chord ~2.4e-5,
+   * far below a pixel); slerp() renormalizes the decoded target, so the
+   * near-unit result is exact enough for both the swept blend and the rebuilt
+   * arrival mesh.
+   */
+  struct StarPoint {
+    int16_t x, y, z;
+
+    static constexpr float SCALE = 32767.0f;
+    static constexpr float INV_SCALE = 1.0f / SCALE;
+
+    static StarPoint encode(const Vector &v) {
+      return {quant(v.x), quant(v.y), quant(v.z)};
+    }
+    Vector decode() const {
+      return Vector(x * INV_SCALE, y * INV_SCALE, z * INV_SCALE);
+    }
+
+  private:
+    static int16_t quant(float c) {
+      return static_cast<int16_t>(roundf(hs::clamp(c, -1.0f, 1.0f) * SCALE));
+    }
+  };
+
+  /**
    * @brief Leg-static arrival data the effect's completion consumes.
    * @details Arena-backed; valid until the leg arena is compacted.
    */
@@ -293,7 +361,16 @@ public:
         to_palette{}; /**< Slot -> landed palette index. */
     const uint8_t *from_palette =
         nullptr; /**< Per-swept-face FROM palette id (arena-backed); the next
-                    chained leg's handoff carries these original ids forward. */
+                    chained leg's handoff carries these original ids forward.
+                    On an immutable-handoff leg it is the face's displayed
+                    palette outright (to = from). */
+    const CompiledHankin *hankin =
+        nullptr; /**< Baked arrival topology (HANKIN_SWEEP legs only, null
+                    otherwise); with star_point it rebuilds the arrival mesh
+                    through arrival_mesh(). */
+    const StarPoint *star_point =
+        nullptr;            /**< Arrival star points (snorm16-packed). */
+    size_t star_points = 0; /**< Star-point count. */
   };
 
   /**
@@ -310,6 +387,7 @@ public:
    * @param settle_frames Relax-slerp frames (S); 0 unless the edge settles.
    * @param bookend Bookend grouping of the arrival node (target keying);
    * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
@@ -317,7 +395,7 @@ public:
         Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
         int sweep_frames, int settle_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        EasingFn easing_fn = ease_in_out_sin)
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames + settle_frames, false),
         easing_fn(easing_fn), draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -330,12 +408,14 @@ public:
     Transients &tr = *buf_;
 
     MeshOps::clone(seed, tr.seed, arena);
+    tr.seed_ref = &tr.seed;
     tr.seed_faces = seed.face_counts.size();
     tr.op = edge.op;
     tr.reverse = reverse;
     tr.sweep_frames = sweep_frames;
     tr.settle_frames = settle_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
 
     // Clamp both endpoints inside the topology-constant open interval; the
     // truncate upper clamp dodges the ambo short-circuit at exactly 0.5, and
@@ -355,7 +435,8 @@ public:
     tr.twist_end = reverse ? edge.twist_from : edge.twist_to;
 
     init_conway(handoff, bookend, arena, edge.settle,
-                ConwayGraph::is_jitterbug_edge(edge));
+                ConwayGraph::is_jitterbug_edge(edge),
+                /*bridge_provenance=*/false);
   }
 
   /**
@@ -375,6 +456,7 @@ public:
    * @param sweep_frames Operator-sweep frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
@@ -382,7 +464,8 @@ public:
         float t_end, float twist_start, float twist_end, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        EasingFn easing_fn = ease_in_out_sin)
+        BlendFn blend_fn = classic_blend, bool bridge_provenance = false,
+        bool borrow_seed = false, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -392,16 +475,41 @@ public:
         Transients();
     Transients &tr = *buf_;
 
-    MeshOps::clone(seed, tr.seed, arena);
+    // Borrowed seed: the swept op reads the caller's live mesh each frame
+    // instead of a leg-local clone, dropping one full copy of the (tripled)
+    // dual-bridge seed from the persistent arena. Only legal where the source
+    // outlives the leg unmoved (the dt-bridge seed is persistent-resident and
+    // untouched until the leg completes); every other caller clones.
+    if (borrow_seed) {
+      tr.seed_ref = &seed;
+    } else {
+      MeshOps::clone(seed, tr.seed, arena);
+      tr.seed_ref = &tr.seed;
+    }
     tr.seed_faces = seed.face_counts.size();
     tr.op = op;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
 
+    // Truncate births below T_EPS when the arrival is itself below T_EPS, so a
+    // 0.01 target sweeps from a smaller positive birth instead of clamping both
+    // endpoints to T_EPS (a still image). Every arrival >= 0.1 keeps the T_EPS
+    // birth unchanged.
+    const bool truncate = op == ConwayGraph::MorphOp::TRUNCATE;
+    // A far-side truncate leg arrives past the ambo pinch (arrival > 0.5) and
+    // sweeps through it on the constant-topology truncate branch; the
+    // ambo-equivalent leg (arrival <= 0.5, exactly 0.5 included) keeps its
+    // 0.495 cap and clean-swaps to ambo, so its clamp stays bit-identical.
+    const bool far_side = truncate && t_end > 0.5f;
+    const float trunc_floor =
+        std::min(ConwayGraph::T_EPS,
+                 std::max(t_start, t_end) * ConwayGraph::T_EPS_TRUNCATE_FRAC);
     auto clamp_param = [&](float t) {
-      t = std::max(t, ConwayGraph::T_EPS);
-      if (op == ConwayGraph::MorphOp::TRUNCATE)
-        t = std::min(t, 0.5f - ConwayGraph::T_EPS_AMBO);
+      t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
+      if (truncate)
+        t = std::min(t, far_side ? ConwayGraph::T_EPS_TRUNCATE_FAR_MAX
+                                 : 0.5f - ConwayGraph::T_EPS_AMBO);
       return t;
     };
     tr.t_start = clamp_param(t_start);
@@ -410,7 +518,7 @@ public:
     tr.twist_end = twist_end;
 
     init_conway(handoff, bookend, arena, /*settle=*/false,
-                /*jitterbug=*/false);
+                /*jitterbug=*/false, bridge_provenance);
   }
 
   /**
@@ -430,13 +538,14 @@ public:
    * @param sweep_frames Angle-sweep frames (N).
    * @param bookend Bookend grouping of the arrival node (target keying);
    * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep angle.
    */
   HS_COLD_MEMBER
   OpLeg(const PolyMesh &seed, float theta_start, float theta_end, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        EasingFn easing_fn = ease_in_out_sin)
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -456,6 +565,7 @@ public:
     tr.kind = LegKind::HANKIN_SWEEP;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
 
     // Hankin legs sweep the slerp fraction, not the contact angle: re-solving
     // the contact-plane intersection per frame sends star points on geodesic
@@ -472,10 +582,15 @@ public:
       ScratchScope sa(scratch_arena_a);
       ScratchScope sb(scratch_arena_b);
 
-      MeshOps::compile_hankin(seed, tr.hankin, arena, scratch_arena_a);
+      MeshOps::compile_hankin(seed, tr.hankin, arena, scratch_arena_a,
+                              /*borrow_base_vertices=*/true);
 
       PolyMesh arrival;
       MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, theta_hi);
+
+      // Classify the full-precision arrival before the snorm16 pack: the
+      // quantization noise crosses the classifier's whole-degree angle
+      // rounding on near-boundary orbits and shatters them into fragments.
       MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                           scratch_arena_b, arena);
       tr.topo = std::move(arrival.topology);
@@ -486,17 +601,21 @@ public:
       // corner, reachable through the same instruction hankin_at walks.
       const size_t statics = tr.hankin.static_vertices.size();
       HS_CHECK(arrival.vertices.size() >= statics);
-      tr.hk_final.bind(arena, arrival.vertices.size() - statics);
-      tr.hk_final.append_bulk(arrival.vertices.data() + statics,
-                              arrival.vertices.size() - statics);
+      const size_t dyn = arrival.vertices.size() - statics;
+      tr.hk_final.bind(arena, dyn);
+      for (size_t i = 0; i < dyn; ++i)
+        tr.hk_final.push_back(StarPoint::encode(arrival.vertices[statics + i]));
+      tr.landing.hankin = &tr.hankin;
+      tr.landing.star_point = tr.hk_final.data();
+      tr.landing.star_points = tr.hk_final.size();
 
       const Vector *start_centroid = nullptr;
       PolyMesh start_mesh;
       if (handoff.prev_face_centroid) {
-        hankin_at(tr, start_mesh, scratch_arena_a, tr.t_start);
+        hankin_at(tr, start_mesh, scratch_arena_b, tr.t_start);
         HS_CHECK(start_mesh.face_counts.size() == tr.topo.size(),
                  "OpLeg: start face count differs from arrival");
-        start_centroid = face_centroids(start_mesh, scratch_arena_a);
+        start_centroid = face_centroids(start_mesh, scratch_arena_b);
       }
 
       // Star faces are emitted first, in base-face order, so the seed's face
@@ -520,6 +639,7 @@ public:
    * @param sweep_frames Slerp frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the slerp fraction.
    * @note relax preserves vertex count and vertex order, so the leg needs no
    * correspondence pass and its topology is constant by construction.
@@ -528,11 +648,12 @@ public:
   OpLeg(const PolyMesh &seed, int iterations, Arena &arena, MorphDrawFn draw,
         const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        EasingFn easing_fn = ease_in_out_sin)
+        const MeshOps::RelaxBake *bake = nullptr,
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(iterations >= 1,
+    HS_CHECK(bake || iterations >= 1,
              "OpLeg: relax leg needs a positive iteration count");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
@@ -547,6 +668,7 @@ public:
     tr.kind = LegKind::RELAX_SLERP;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
     tr.t_end = 1.0f;
 
@@ -554,8 +676,12 @@ public:
       ScratchScope sa(scratch_arena_a);
       ScratchScope sb(scratch_arena_b);
 
+      // With a bake the leg lands on the shipped converged mesh (the generator
+      // used relax_baked too); otherwise it runs `iterations` live steps.
       PolyMesh arrival =
-          MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b, iterations);
+          bake ? MeshOps::relax_baked(tr.seed, scratch_arena_a, *bake)
+               : MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b,
+                                iterations);
       HS_CHECK(arrival.vertices.size() == tr.seed.vertices.size(),
                "OpLeg: relax changed the vertex count");
       tr.relaxed.bind(arena, arrival.vertices.size());
@@ -578,9 +704,189 @@ public:
   }
 
   /**
+   * @brief Constructs the Conway-dual bridge's medial leg: builds the shared
+   * rectified connectivity of P and slerps every vertex from ambo(P) to
+   * ambo(dual(P)) at a fixed emission order (docs conway dual morph, leg 2).
+   * @param seed Mesh whose dual bridge this leg spans; its medial is built here.
+   * @param arena Leg arena backing the medial connectivity and both
+   * snorm16-packed vertex sets.
+   * @param draw Draw callback invoked once per frame.
+   * @param handoff Palette provenance of the departed mesh (ambo(P), one face
+   * per primal face + one per primal vertex).
+   * @param sweep_frames Slerp frames (N).
+   * @param bookend Bookend grouping of the arrival mesh (target keying);
+   * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
+   * @param easing_fn Easing applied to the slerp fraction.
+   * @note The connectivity is ambo(P) exactly, so the leg holds one fixed
+   * emission order and every medial face keeps its identity across the slerp;
+   * only the vertex positions move. A degree-2 seed vertex makes the s=1
+   * positions many-to-one (a lossy dual), which leaves the faces well-formed.
+   */
+  HS_COLD_MEMBER
+  OpLeg(const PolyMesh &seed, MedialTag, Arena &arena, MorphDrawFn draw,
+        const PaletteHandoff &handoff, int sweep_frames,
+        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+        draw_fn(draw) {
+    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+             handoff.prev_faces > 0);
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    Transients &tr = *buf_;
+
+    tr.kind = LegKind::MEDIAL_SLERP;
+    tr.sweep_frames = sweep_frames;
+    tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
+    tr.t_start = 0.0f;
+    tr.t_end = 1.0f;
+
+    {
+      ScratchScope sa(scratch_arena_a);
+      ScratchScope sb(scratch_arena_b);
+
+      // The medial is built in scratch; only its connectivity (tr.seed) and the
+      // two snorm16-packed endpoint sets cross into persistent. a_e (ambo(P))
+      // and b_e (ambo(dual(P))) are unit-sphere directions, so the 6-byte pack
+      // halves their 12-byte resident cost (mirrors hk_final). Classification
+      // and centroids run on the full-precision scratch copies: unlike hk_final
+      // no arrival rebuild reads the packed points back, and the topology
+      // classifier splits symmetry orbits under the quantum, so perturbing its
+      // input would inflate the leg's distinct palette-pair count.
+      PolyMesh med;
+      ArenaVector<Vector> med_b;
+      MeshOps::medial(seed, med, med_b, scratch_arena_a, scratch_arena_b);
+      tr.seed_faces = med.face_counts.size();
+      HS_CHECK(med_b.size() == med.vertices.size(),
+               "OpLeg: medial vertex sets differ in size");
+
+      const size_t medial_verts = med.vertices.size();
+      copy_topology(tr.seed, arena, med.face_counts, med.faces);
+      tr.medial_a.bind(arena, medial_verts);
+      tr.medial_b.bind(arena, medial_verts);
+      for (size_t i = 0; i < medial_verts; ++i) {
+        tr.medial_a.push_back(StarPoint::encode(med.vertices[i]));
+        tr.medial_b.push_back(StarPoint::encode(med_b[i]));
+      }
+
+      // The opening frame is ambo(P) verbatim (the packed a_e), so med's s=0
+      // vertices are the geometric provenance source; snapshot their centroids
+      // before the in-place overwrite below.
+      const Vector *start_centroid = nullptr;
+      if (handoff.prev_face_centroid)
+        start_centroid = face_centroids(med, scratch_arena_a);
+
+      // Classify the s=1 arrival (ambo(dual(P))) in place: overwrite med's s=0
+      // vertices with med_b rather than materializing a second full mesh copy,
+      // which would co-reside with med at the leg's scratch peak (the roster's
+      // over-budget medial spike). med is a construction throwaway -- step()
+      // reads only the packed endpoints -- so reusing its storage is safe.
+      for (size_t i = 0; i < medial_verts; ++i)
+        med.vertices[i] = med_b[i];
+
+      MeshOps::classify_faces_by_topology(med, scratch_arena_a, scratch_arena_b,
+                                          arena);
+      tr.topo = std::move(med.topology);
+      HS_CHECK(tr.topo.size() == med.face_counts.size());
+
+      // Full correspondence: every medial face lives the whole bridge, so the
+      // survivor prefix is the whole face list.
+      build_palette_mapping(tr, med, handoff, bookend, arena, start_centroid,
+                            tr.seed_faces);
+    }
+  }
+
+  /**
+   * @brief Constructs the reconcile leg closing a smooth kis/needle path: slerps
+   * every vertex of the topology-exact identity mesh (dt/dtd) onto its
+   * counterpart in the authored kis/needle mesh, along the caller's
+   * nearest-vertex bijection (docs/opchain_morph_spec.md, smooth kis/needle).
+   * @param from_mesh Identity mesh (dual(truncate(...))): its connectivity and
+   * vertex order are the leg's fixed emission order. Cloned, not borrowed.
+   * @param to_positions Authored vertex positions, one per @p from_mesh vertex
+   * (index-corresponded through the caller's bijection); slerp endpoints.
+   * @param arena Leg arena backing the connectivity and both snorm16-packed
+   * vertex sets.
+   * @param draw Draw callback invoked once per frame.
+   * @param handoff Palette provenance of the departed mesh (the identity mesh;
+   * one face per identity face).
+   * @param sweep_frames Slerp frames (N).
+   * @param bookend Bookend grouping of the arrival mesh (target keying).
+   * @param blend_fn Crossfade-weight curve.
+   * @param easing_fn Easing applied to the slerp fraction.
+   * @note Identical connectivity is held fixed and only the positions move, so
+   * the leg reuses the MEDIAL_SLERP step path verbatim; the caller owns the
+   * nearest-vertex correspondence (a checked bijection between two near-identical
+   * meshes) so the leg needs no per-frame matching.
+   */
+  HS_COLD_MEMBER
+  OpLeg(const PolyMesh &from_mesh, const Vector *to_positions, ReconcileTag,
+        Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
+        int sweep_frames, const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+        draw_fn(draw) {
+    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+             handoff.prev_faces > 0);
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    Transients &tr = *buf_;
+
+    tr.kind = LegKind::MEDIAL_SLERP;
+    tr.sweep_frames = sweep_frames;
+    tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
+    tr.t_start = 0.0f;
+    tr.t_end = 1.0f;
+
+    {
+      ScratchScope sa(scratch_arena_a);
+      ScratchScope sb(scratch_arena_b);
+
+      const size_t n = from_mesh.vertices.size();
+      tr.seed_faces = from_mesh.face_counts.size();
+      copy_topology(tr.seed, arena, from_mesh.face_counts, from_mesh.faces);
+      // Both endpoint sets are unit-sphere directions, snorm16-packed to halve
+      // their resident cost (mirrors the medial leg).
+      tr.medial_a.bind(arena, n);
+      tr.medial_b.bind(arena, n);
+      for (size_t i = 0; i < n; ++i) {
+        tr.medial_a.push_back(StarPoint::encode(from_mesh.vertices[i]));
+        tr.medial_b.push_back(StarPoint::encode(to_positions[i]));
+      }
+
+      // Arrival: the identity connectivity carrying the authored positions.
+      PolyMesh arrival;
+      arrival.vertices.bind(scratch_arena_a, n);
+      arrival.vertices.append_bulk(to_positions, n);
+      copy_topology(arrival, scratch_arena_a, from_mesh.face_counts,
+                    from_mesh.faces);
+
+      MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
+                                          scratch_arena_b, arena);
+      tr.topo = std::move(arrival.topology);
+      HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+
+      // The opening frame is the identity mesh verbatim (the packed a_e), so its
+      // face centroids are the geometric provenance source.
+      const Vector *start_centroid = nullptr;
+      if (handoff.prev_face_centroid)
+        start_centroid = face_centroids(from_mesh, scratch_arena_a);
+
+      build_palette_mapping(tr, arrival, handoff, bookend, arena,
+                            start_centroid, tr.seed_faces);
+    }
+  }
+
+  /**
    * @brief Constructs a gated-swap leg: a partition op with no sweep, drawn as
-   * a shading-gain gate closing on the seed and reopening on op(seed)
-   * (docs/opchain_morph_spec.md, section 3.3).
+   * the seed then op(seed) at constant gain, the swap masked by holding the
+   * inherited source colour until the late fade (docs/opchain_morph_spec.md,
+   * section 3.3).
    * @param seed Mesh the partition op runs on (cloned, not borrowed).
    * @param op Partition operator applied at the swap frame.
    * @param arena Leg arena backing the cloned seed and hoisted state.
@@ -590,7 +896,8 @@ public:
    * 2 * gate_frames + 1 frames.
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
-   * @param easing_fn Easing applied to the gate fraction.
+   * @param easing_fn Unused by the gate (no sweep); kept for the shared
+   * constructor signature.
    * @note Radial and apex motion are invisible to SDF::Face (spec 3.2), so
    * there is no sweep segment; the leg's compiled face count is constant on
    * each side of the swap and changes exactly once, at it.
@@ -676,9 +983,11 @@ public:
         hankin_at(tr, swept, scratch_arena_a, tp);
       } else if (tr.kind == LegKind::RELAX_SLERP) {
         relax_at(tr, swept, scratch_arena_a, tp);
+      } else if (tr.kind == LegKind::MEDIAL_SLERP) {
+        medial_at(tr, swept, scratch_arena_a, tp);
       } else {
-        swept =
-            run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b, tp, tw);
+        swept = run_op(tr.op, *tr.seed_ref, scratch_arena_a, scratch_arena_b,
+                       tp, tw);
         if (settle_alpha > 0.0f) {
           HS_CHECK(swept.vertices.size() == tr.relaxed.size());
           for (size_t i = 0; i < swept.vertices.size(); ++i)
@@ -688,8 +997,7 @@ public:
       }
     }
 
-    finish_frame(canvas, swept,
-                 static_cast<float>(frame) / static_cast<float>(duration));
+    finish_frame(canvas, swept, tr.blend_fn(frame, duration));
   }
 
   /**
@@ -697,6 +1005,27 @@ public:
    * @return Arena-backed Landing; stable until the leg arena is compacted.
    */
   const Landing &landing() const { return buf_->landing; }
+
+  /**
+   * @brief Rebuilds a hankin leg's arrival mesh from its baked topology.
+   * @param landing Landing of a HANKIN_SWEEP leg.
+   * @param out Output mesh, allocated from @p arena.
+   * @param arena Arena backing the output vectors.
+   * @details Bitwise the mesh MeshOps::hankin builds at the leg's arrival
+   * angle, so a chain reads its clean endpoint from the finished leg instead
+   * of carrying a second copy of it through the sweep.
+   */
+  HS_COLD_MEMBER static void arrival_mesh(const Landing &landing, PolyMesh &out,
+                                          Arena &arena) {
+    HS_CHECK(landing.hankin, "OpLeg: leg carries no baked arrival");
+    const CompiledHankin &hk = *landing.hankin;
+    const size_t statics = hk.static_vertices.size();
+    out.vertices.bind(arena, statics + landing.star_points);
+    out.vertices.append_bulk(hk.static_vertices.data(), statics);
+    for (size_t i = 0; i < landing.star_points; ++i)
+      out.vertices.push_back(landing.star_point[i].decode().normalized());
+    copy_topology(out, arena, hk.face_counts, hk.faces);
+  }
 
   /**
    * @brief Sets the crossfade-weight range for chained legs
@@ -713,17 +1042,57 @@ public:
     buf_->w_hi = hi;
   }
 
+  /**
+   * @brief Mid-leg crossfade weight (spec 2.6), the swept ctors' default:
+   * exactly 0 through the first 20% of the leg, smoothstep to exactly 1 by
+   * 80%.
+   * @param frame 1-based leg frame (1..duration).
+   * @param duration Whole leg length in frames (sweep plus settle).
+   */
+  static float classic_blend(int frame, int duration) {
+    return blend_weight(static_cast<float>(frame) /
+                        static_cast<float>(duration));
+  }
+
+  /**
+   * @brief Late-fade crossfade weight (the build legs and the gate): exactly 0
+   * until the final LATE_FADE_FRAMES of the leg, then smoothstep to exactly 1
+   * at the arrival frame.
+   * @param frame 1-based leg frame (1..duration).
+   * @param duration Whole leg length in frames (sweep plus settle).
+   * @details Holds the inherited source palette through most of the leg, then
+   * diverges to the target only over the last few frames. Reaching exactly 1 on
+   * the final frame lands the leg on its target colour before the next leg
+   * departs.
+   */
+  static float late_blend_weight(int frame, int duration) {
+    const int from_end = duration - frame;
+    if (from_end >= LATE_FADE_FRAMES)
+      return 0.0f;
+    const float u =
+        static_cast<float>(LATE_FADE_FRAMES - from_end) / LATE_FADE_FRAMES;
+    return u * u * (3.0f - 2.0f * u);
+  }
+
 private:
   /**
    * @brief Arena-allocated leg state — keeps OpLeg inline size small.
    */
   struct Transients {
-    PolyMesh seed;         /**< Cloned leg seed; empty on HANKIN_SWEEP legs. */
+    PolyMesh seed; /**< Cloned leg seed; empty on HANKIN_SWEEP legs and on a
+                      borrowed CONWAY_SWEEP seed. */
+    const PolyMesh *seed_ref =
+        nullptr; /**< CONWAY_SWEEP swept-op source: &seed for a cloned seed, the
+                    caller's live mesh for a borrowed one (dual-bridge legs whose
+                    seed is already persistent-resident for the leg's whole
+                    life). */
     size_t seed_faces = 0; /**< Seed face count; set by every kind, including
                               the ones that keep no seed. */
-    LegKind kind = LegKind::CONWAY_SWEEP; /**< Swept-mesh production path. */
-    CompiledHankin hankin;        /**< Baked topology (HANKIN_SWEEP legs). */
-    ArenaVector<Vector> hk_final; /**< Arrival star points (HANKIN_SWEEP). */
+    LegKind kind =
+        LegKind::CONWAY_SWEEP;  /**< Swept-mesh production path. */
+    CompiledHankin hankin;      /**< Baked topology (HANKIN_SWEEP legs). */
+    ArenaVector<StarPoint>
+        hk_final; /**< Arrival star points, snorm16-packed (HANKIN_SWEEP). */
     ConwayGraph::MorphOp op =
         ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator (CONWAY_SWEEP). */
     SwapOp swap_op = SwapOp::KIS;       /**< Partition op (GATED_SWAP). */
@@ -734,6 +1103,12 @@ private:
     float twist_start = 0, twist_end = 0; /**< Snub twist endpoints. */
     ArenaVector<Vector>
         relaxed; /**< Relaxed endpoint vertices (settling and relax legs). */
+    ArenaVector<StarPoint>
+        medial_a; /**< Medial a_e (ambo(P)) endpoint, snorm16-packed
+                     (MEDIAL_SLERP). */
+    ArenaVector<StarPoint>
+        medial_b; /**< Medial b_e (ambo(dual(P))) endpoint, snorm16-packed
+                     (MEDIAL_SLERP). */
     ArenaVector<int>
         topo; /**< Hoisted arrival classification (drawn grouping). */
     ArenaVector<int>
@@ -752,7 +1127,8 @@ private:
     uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
     int num_ramps = 0;                       /**< Distinct pair count. */
     float w_lo = 0.0f, w_hi = 1.0f; /**< Chained-leg blend-weight range. */
-    Landing landing;                /**< Arrival data exposed to the effect. */
+    BlendFn blend_fn = classic_blend; /**< Swept crossfade curve. */
+    Landing landing; /**< Arrival data exposed to the effect. */
   };
 
   /**
@@ -769,12 +1145,46 @@ private:
    */
   HS_COLD_MEMBER void init_conway(const PaletteHandoff &handoff,
                                   const BookendClasses &bookend, Arena &arena,
-                                  bool settle, bool jitterbug) {
+                                  bool settle, bool jitterbug,
+                                  bool bridge_provenance) {
     Transients &tr = *buf_;
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
+    const PolyMesh &seed = *tr.seed_ref;
 
-    PolyMesh arrival = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b,
+    // Truncate corner-suffix birth refinement: the corner faces of a
+    // near-ambo arrival collapse into one congruence class on
+    // vertex-transitive-ish seeds (a dual bridge's whole final surface), so
+    // their birth cohorts also key on the underlying vertex's orbit
+    // signature.
+    const uint16_t *birth_sig = nullptr;
+    size_t birth_sigs = 0;
+    if (tr.op == ConwayGraph::MorphOp::TRUNCATE && handoff.immutable &&
+        handoff.birth_counter && handoff.prev_faces == tr.seed_faces)
+      birth_sig = vertex_signature_keys(seed, birth_sigs);
+
+    // A closing bridge leg departs the ambo point with its face blocks
+    // transposed against the handoff order (medial [P-faces][P-vertices] vs
+    // truncate(dual) [D-faces][D-vertices]), so the departed centroids cannot
+    // stand in for the start centroids: provenance needs the start mesh's own,
+    // built here, before the arrival, so the two never co-reside in scratch.
+    const Vector *start_centroid = nullptr;
+    if (bridge_provenance && handoff.prev_face_centroid &&
+        tr.t_start > tr.t_end) {
+      Vector *cen = scratch_arena_a.allocate_n<Vector>(handoff.prev_faces);
+      {
+        ScratchScope ta(scratch_arena_a);
+        ScratchScope tb(scratch_arena_b);
+        PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
+                                tr.t_start, tr.twist_start);
+        HS_CHECK(start.face_counts.size() == handoff.prev_faces,
+                 "OpLeg: closing bridge start faces differ from the handoff");
+        face_centroids_into(start, cen);
+      }
+      start_centroid = cen;
+    }
+
+    PolyMesh arrival = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
                               tr.t_end, tr.twist_end);
     // Classification is hoisted per leg, taken at arrival geometry; a
     // settling forward leg lands on the relaxed form, so classify that.
@@ -787,8 +1197,8 @@ private:
         classified = &relaxed_mesh;
       } else {
         // Reverse legs un-settle at the start parameter.
-        PolyMesh start = run_op(tr.op, tr.seed, scratch_arena_a,
-                                scratch_arena_b, tr.t_start, tr.twist_start);
+        PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
+                                tr.t_start, tr.twist_start);
         relaxed_mesh =
             MeshOps::relax(start, scratch_arena_b, scratch_arena_a, 50);
       }
@@ -802,22 +1212,32 @@ private:
                                         scratch_arena_b, arena);
     tr.topo = std::move(classified->topology);
     HS_CHECK(tr.topo.size() == classified->face_counts.size());
+    HS_CHECK(!birth_sig || tr.topo.size() == tr.seed_faces + birth_sigs,
+             "OpLeg: corner suffix differs from the vertex-signature count");
 
     // Geometric provenance needs the mesh the first frame draws: the
     // relaxed start on a reverse settling leg (settle_alpha == 1 there),
     // the plain op at t_start otherwise.
-    const Vector *start_centroid = nullptr;
     PolyMesh start_mesh;
     if (handoff.prev_face_centroid) {
-      const PolyMesh *start = &relaxed_mesh;
-      if (!(settle && tr.reverse)) {
-        start_mesh = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b,
-                            tr.t_start, tr.twist_start);
-        start = &start_mesh;
+      if (bridge_provenance) {
+        // Opening bridge leg: centroids are read only for its newborn faces,
+        // where the arrival's own centroids stand in for the birth mesh
+        // (rebuilding it would co-reside with the arrival at the scratch
+        // peak). Closing legs took theirs from the pre-arrival start build.
+        if (!start_centroid)
+          start_centroid = face_centroids(*classified, scratch_arena_a);
+      } else {
+        const PolyMesh *start = &relaxed_mesh;
+        if (!(settle && tr.reverse)) {
+          start_mesh = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
+                              tr.t_start, tr.twist_start);
+          start = &start_mesh;
+        }
+        HS_CHECK(start->face_counts.size() == tr.topo.size(),
+                 "OpLeg: start face count differs from arrival");
+        start_centroid = face_centroids(*start, scratch_arena_a);
       }
-      HS_CHECK(start->face_counts.size() == tr.topo.size(),
-               "OpLeg: start face count differs from arrival");
-      start_centroid = face_centroids(*start, scratch_arena_a);
     }
 
     // Emission-order prefix corresponding 1:1 to a node base mesh at the
@@ -825,10 +1245,10 @@ private:
     // the jitterbug bridge (they survive into the octahedron-end node mesh;
     // only the 12 edge-orbit faces collapse).
     const size_t survivors =
-        jitterbug ? tr.seed.face_counts.size() + tr.seed.vertices.size()
-                  : tr.seed.face_counts.size();
+        jitterbug ? tr.seed_faces + seed.vertices.size() : tr.seed_faces;
     build_palette_mapping(tr, *classified, handoff, bookend, arena,
-                          start_centroid, survivors);
+                          start_centroid, survivors, /*forced_from=*/nullptr,
+                          birth_sig);
   }
 
   /**
@@ -860,15 +1280,37 @@ private:
     tr.topo = std::move(arrival.topology);
     HS_CHECK(tr.topo.size() == arrival.face_counts.size());
 
-    uint8_t *from = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
-    if (tr.swap_op == SwapOp::KIS)
-      kis_provenance(tr, arrival, handoff, from);
-    else
-      dual_provenance(tr, arrival, handoff, from);
+    // Provenance across the swap: the children inherit their parent face's
+    // (kis) or nearest orbit face's (dual) palette — colour locality. Under
+    // the immutable birth-cohort model the partition's children are births
+    // instead: every carried face is discarded, so each child is born on its
+    // cohort — a dual face on its source vertex's signature (matching the
+    // smooth bridge's corner births for the same shape), a kis child on its
+    // colour group alone.
+    const uint8_t *from = nullptr;
+    const uint16_t *birth_sig = nullptr;
+    size_t birth_start = SIZE_MAX;
+    if (handoff.immutable && handoff.birth_counter) {
+      if (tr.swap_op == SwapOp::DUAL) {
+        size_t birth_sigs = 0;
+        birth_sig = vertex_signature_keys(tr.seed, birth_sigs);
+        HS_CHECK(birth_sigs == tr.topo.size(),
+                 "OpLeg: dual faces differ from the vertex-signature count");
+      }
+      birth_start = 0;
+    } else {
+      uint8_t *prov = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
+      if (tr.swap_op == SwapOp::KIS)
+        kis_provenance(tr, arrival, handoff, prov);
+      else
+        dual_provenance(tr, arrival, handoff, prov);
+      from = prov;
+    }
 
     build_palette_mapping(tr, arrival, handoff, bookend, arena,
                           /*start_centroid=*/nullptr,
-                          tr.seed.face_counts.size(), from);
+                          tr.seed.face_counts.size(), from, birth_sig,
+                          birth_start);
 
     // Seed-side table: the closing half draws at blend weight 0, so only each
     // pair's from palette is ever sampled and an identity pair suffices.
@@ -893,20 +1335,16 @@ private:
   }
 
   /**
-   * @brief Steps a gated-swap leg: gate fraction -> shading gain, the seed or
-   * the partitioned mesh, then the shared frame tail.
+   * @brief Steps a gated-swap leg: the seed or the partitioned mesh, then the
+   * shared frame tail at gain 1.
    * @param canvas The canvas passed through to the draw callback.
-   * @param frame Clamped frame index; frame 1 opens the gate at gain 1.
+   * @param frame Clamped frame index; the seed side draws frames [1, gate], the
+   * swap and opening side [gate + 1, 2 * gate + 1].
    */
   HS_COLD_MEMBER void step_gated(Canvas &canvas, int frame) {
     Transients &tr = *buf_;
     const float gate = static_cast<float>(tr.sweep_frames);
-    const float g = static_cast<float>(frame - 1);
-    const bool seed_side = g < gate;
-    const float gain = g <= gate
-                           ? 1.0f + (GATE_GAIN_MIN - 1.0f) * easing_fn(g / gate)
-                           : GATE_GAIN_MIN + (1.0f - GATE_GAIN_MIN) *
-                                                 easing_fn((g - gate) / gate);
+    const bool seed_side = static_cast<float>(frame - 1) < gate;
 
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
@@ -920,10 +1358,12 @@ private:
         mesh = swap_at(tr, scratch_arena_a, scratch_arena_b);
     }
 
-    // Colour holds at the departed palettes through the closing half, so the
-    // swap frame opens the children in the colour already painted where they
-    // land, and converges to the arrival targets over the opening half.
-    finish_frame(canvas, mesh, seed_side ? 0.0f : (g - gate) / gate, gain,
+    // Gain holds at 1 across the whole gate: the swap changes topology, not
+    // brightness (no dip, no flash). Colour holds at the departed palettes
+    // across the swap and most of the gate, so the children open in the colour
+    // already painted where they land, and converges to the arrival targets
+    // only over the final frames.
+    finish_frame(canvas, mesh, late_blend_weight(frame, duration), 1.0f,
                  seed_side);
   }
 
@@ -1028,7 +1468,11 @@ private:
                                         Arena &temp, float t, float twist) {
     switch (op) {
     case ConwayGraph::MorphOp::TRUNCATE:
-      return MeshOps::truncate(seed, target, temp, t);
+      // A far-side leg sweeps through t = 0.5; nudge that one sample off the
+      // ambo short-circuit so the frame keeps the truncate topology (2E
+      // vertices) instead of popping to ambo (V vertices).
+      return MeshOps::truncate(seed, target, temp,
+                               ConwayGraph::truncate_off_pinch(t));
     case ConwayGraph::MorphOp::EXPAND:
       return MeshOps::expand(seed, target, temp, t);
     case ConwayGraph::MorphOp::CHAMFER:
@@ -1040,16 +1484,19 @@ private:
 
   /**
    * @brief Kind-agnostic frame tail: compile the swept mesh, attach the
-   * hoisted classification, pre-blend the palette ramps at w(p), draw.
+   * hoisted classification, pre-blend the palette ramps at the crossfade weight,
+   * draw.
    * @param canvas The canvas passed through to the draw callback.
    * @param swept This frame's swept mesh (scratch-backed).
-   * @param p Leg progress in [0, 1] the crossfade weight keys on.
+   * @param w Crossfade weight in [0, 1] the caller already resolved (the leg's
+   * blend_fn for the swept kinds, late_blend_weight for the gate); rebased
+   * through the leg's [w_lo, w_hi] share here.
    * @param gain Shading gain handed to the draw callback.
    * @param seed_side Draw the gate's seed-side tables (GATED_SWAP only): the
-   * seed classification and its identity ramp table, which p == 0 leaves at the
+   * seed classification and its identity ramp table, which w == 0 leaves at the
    * departed palettes.
    */
-  HS_COLD_MEMBER void finish_frame(Canvas &canvas, PolyMesh &swept, float p,
+  HS_COLD_MEMBER void finish_frame(Canvas &canvas, PolyMesh &swept, float w,
                                    float gain = 1.0f, bool seed_side = false) {
     Transients &tr = *buf_;
     const ArenaVector<int> &topo = seed_side ? tr.seed_topo : tr.topo;
@@ -1063,10 +1510,7 @@ private:
     }
     HS_CHECK(compiled.face_counts.size() == topo.size(),
              "OpLeg: sweep changed the compiled face count");
-    compiled.topology.bind(scratch_arena_a, topo.size());
-    compiled.topology.append_bulk(topo.data(), topo.size());
 
-    float w = blend_weight(p);
     // Chained-leg rebasing (spec 5.3): the plateau weights land on the leg's
     // [w_lo, w_hi] share of the whole-chain convergence.
     w = tr.w_lo + w * (tr.w_hi - tr.w_lo);
@@ -1160,13 +1604,13 @@ private:
     out.vertices.bind(arena, statics + dyn);
     out.vertices.append_bulk(hk.static_vertices.data(), statics);
     if (k >= 1.0f) {
-      out.vertices.append_bulk(tr.hk_final.data(), dyn);
+      for (size_t i = 0; i < dyn; ++i)
+        out.vertices.push_back(tr.hk_final[i].decode().normalized());
     } else {
       for (size_t i = 0; i < dyn; ++i) {
-        const Vector corner =
-            hk.base_vertices[hk.dynamic_instructions[i].v_corner];
+        const Vector corner = hk.corner(hk.dynamic_instructions[i].v_corner);
         out.vertices.push_back(
-            slerp(normalized_or(corner, corner), tr.hk_final[i], k));
+            slerp(normalized_or(corner, corner), tr.hk_final[i].decode(), k));
       }
     }
     copy_topology(out, arena, hk.face_counts, hk.faces);
@@ -1186,6 +1630,30 @@ private:
     copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
   }
 
+  /**
+   * @brief Builds a medial leg's swept mesh at one slerp fraction, decoding the
+   * snorm16-packed endpoints per vertex.
+   * @param tr Leg transients holding the packed a_e/b_e sets and connectivity.
+   * @param out Output mesh, allocated from @p arena.
+   * @param arena Arena backing the output vectors.
+   * @param k Slerp fraction in [0, 1]; slerp() renormalizes the near-unit
+   * decoded inputs, so the quantization is absorbed into the direction blend.
+   */
+  HS_COLD_MEMBER static void medial_at(const Transients &tr, PolyMesh &out,
+                                       Arena &arena, float k) {
+    const size_t n = tr.medial_a.size();
+    out.vertices.bind(arena, n);
+    if (k >= 1.0f) {
+      for (size_t i = 0; i < n; ++i)
+        out.vertices.push_back(tr.medial_b[i].decode().normalized());
+    } else {
+      for (size_t i = 0; i < n; ++i)
+        out.vertices.push_back(
+            slerp(tr.medial_a[i].decode(), tr.medial_b[i].decode(), k));
+    }
+    copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
+  }
+
   /** Max distance from a start-parameter face centroid to its departed
    * counterpart: bounds the T_EPS-scale swap displacement while staying under
    * half the face-centroid spacing of the largest node (~0.37 chord at 92
@@ -1201,6 +1669,17 @@ private:
   HS_COLD_MEMBER static const Vector *face_centroids(const PolyMesh &m,
                                                      Arena &arena) {
     Vector *out = arena.allocate_n<Vector>(m.face_counts.size());
+    face_centroids_into(m, out);
+    return out;
+  }
+
+  /**
+   * @brief Fills a caller-allocated array with every face's unit centroid.
+   * @param m Mesh whose faces are reduced.
+   * @param out Receives one unit vector per face, in emission order.
+   */
+  HS_COLD_MEMBER static void face_centroids_into(const PolyMesh &m,
+                                                 Vector *out) {
     size_t off = 0;
     for (size_t f = 0; f < m.face_counts.size(); ++f) {
       Vector c(0.0f, 0.0f, 0.0f);
@@ -1210,7 +1689,6 @@ private:
       out[f] = c.normalized();
       off += n;
     }
-    return out;
   }
 
   /**
@@ -1235,8 +1713,233 @@ private:
   }
 
   /**
-   * @brief Crossfade weight (spec 2.6): exactly 0 through the first 20% of the
-   * leg, smoothstep to exactly 1 by 80%.
+   * @brief Perceptual colour-groups of a classified face range: one group id
+   * per face, merging classes whose faces are congruent within
+   * COHORT_ANGLE_EPS (same degree, sorted interior-angle vectors compared
+   * L-infinity). Colour-cohort keying only; never a tr.topo consumer.
+   * @param mesh Full-precision mesh the class geometry is measured on.
+   * @param cls Per-face class ids, parallel to @p mesh's faces.
+   * @param begin First face of the grouped range.
+   * @param end One past the last face of the range.
+   * @return Per-face group ids for [begin, end) (index f - begin),
+   * scratch-backed on @p scratch. A group is keyed by its minimum member class
+   * id, so ids stay ascending and deterministic. Sorted angle multisets are
+   * reflection-invariant, so the grouping is mirror-agnostic; classes only
+   * merge, never split, keeping every group an orbit union.
+   */
+  HS_COLD_MEMBER static const int *perceptual_groups(const PolyMesh &mesh,
+                                                     const int *cls,
+                                                     size_t begin, size_t end,
+                                                     Arena &scratch) {
+    const size_t n = end - begin;
+    HS_CHECK(n > 0 && end <= mesh.face_counts.size());
+    int *group = scratch.allocate_n<int>(n);
+    ScratchScope guard(scratch);
+
+    // Representative face (first occurrence) per distinct class in the range.
+    int max_cls = 0;
+    for (size_t f = begin; f < end; ++f)
+      max_cls = std::max(max_cls, cls[f]);
+    int *slot = scratch.allocate_n<int>(max_cls + 1); // class id -> rep slot
+    std::fill_n(slot, max_cls + 1, -1);
+    int *rep_cls = scratch.allocate_n<int>(n);
+    int *rep_face = scratch.allocate_n<int>(n);
+    int C = 0;
+    for (size_t f = begin; f < end; ++f) {
+      if (slot[cls[f]] >= 0)
+        continue;
+      slot[cls[f]] = C;
+      rep_cls[C] = cls[f];
+      rep_face[C] = static_cast<int>(f);
+      ++C;
+    }
+
+    // Sorted interior-angle vector of each representative, degrees.
+    int max_deg = 0;
+    for (int c = 0; c < C; ++c)
+      max_deg =
+          std::max(max_deg, static_cast<int>(mesh.face_counts[rep_face[c]]));
+    size_t *face_off = scratch.allocate_n<size_t>(mesh.face_counts.size());
+    {
+      size_t off = 0;
+      for (size_t f = 0; f < mesh.face_counts.size(); ++f) {
+        face_off[f] = off;
+        off += mesh.face_counts[f];
+      }
+    }
+    float *ang = scratch.allocate_n<float>(static_cast<size_t>(C) * max_deg);
+    for (int c = 0; c < C; ++c) {
+      const size_t off = face_off[rep_face[c]];
+      const int deg = mesh.face_counts[rep_face[c]];
+      float *a = ang + static_cast<size_t>(c) * max_deg;
+      for (int k = 0; k < deg; ++k) {
+        const Vector &prev =
+            mesh.vertices[mesh.faces[off + (k - 1 + deg) % deg]];
+        const Vector &curr = mesh.vertices[mesh.faces[off + k]];
+        const Vector &next = mesh.vertices[mesh.faces[off + (k + 1) % deg]];
+        const Vector e1 = prev - curr, e2 = next - curr;
+        a[k] =
+            (dot(e1, e1) > math::EPS_LEN_SQ && dot(e2, e2) > math::EPS_LEN_SQ)
+                ? angle_between(e1, e2) * (180.0f / PI_F)
+                : 0.0f;
+      }
+      // Insertion sort, not std::sort: its instantiation carries no
+      // cold/section attribute and would land in ITCM.
+      for (int i = 1; i < deg; ++i) {
+        const float x = a[i];
+        int j = i;
+        for (; j > 0 && x < a[j - 1]; --j)
+          a[j] = a[j - 1];
+        a[j] = x;
+      }
+    }
+
+    // Union-find over class representatives; union onto the smaller slot so a
+    // root's rep_cls stays the minimum member class id (slots are discovered
+    // in ascending face order, not ascending class id, so compare class ids).
+    int *parent = scratch.allocate_n<int>(C);
+    for (int c = 0; c < C; ++c)
+      parent[c] = c;
+    auto find = [&](int c) {
+      while (parent[c] != c) {
+        parent[c] = parent[parent[c]];
+        c = parent[c];
+      }
+      return c;
+    };
+    for (int i = 0; i < C; ++i)
+      for (int j = i + 1; j < C; ++j) {
+        const int deg = mesh.face_counts[rep_face[i]];
+        if (deg != mesh.face_counts[rep_face[j]])
+          continue;
+        float gap = 0.0f;
+        for (int k = 0; k < deg; ++k)
+          gap = std::max(gap,
+                         std::fabs(ang[static_cast<size_t>(i) * max_deg + k] -
+                                   ang[static_cast<size_t>(j) * max_deg + k]));
+        if (gap > COHORT_ANGLE_EPS)
+          continue;
+        const int ri = find(i), rj = find(j);
+        if (ri == rj)
+          continue;
+        if (rep_cls[ri] <= rep_cls[rj])
+          parent[rj] = ri;
+        else
+          parent[ri] = rj;
+      }
+
+    for (size_t f = begin; f < end; ++f)
+      group[f - begin] = rep_cls[find(slot[cls[f]])];
+    return group;
+  }
+
+  /**
+   * @brief Vertex-signature ids of a vertex-orbit face block (a truncate leg's
+   * corner suffix, or a dual swap's whole face list).
+   * @param seed Leg seed; a clone is classified in scratch here.
+   * @param num_keys Receives the emitted orbit-face count (valence >= 3
+   * vertices).
+   * @return One dense signature id per orbit face, scratch_arena_a-backed,
+   * in emit_vertex_orbit_faces' emission order (first flat-index appearance
+   * per vertex). Ids are dense in signature first-appearance order over the
+   * vertex list; equal ids are exactly the seed's vertex-signature groups —
+   * (valence, sorted incident seed-face colour groups), an orbit invariant.
+   * Incident classes are coarsened through perceptual_groups so a chiral
+   * seed's near-congruent class fragments do not shatter the signatures.
+   */
+  HS_COLD_MEMBER static const uint16_t *
+  vertex_signature_keys(const PolyMesh &seed, size_t &num_keys) {
+    const size_t V = seed.vertices.size();
+    const size_t I = seed.faces.size();
+    HS_CHECK(V > 0 && V <= UINT16_MAX);
+    uint16_t *keys = scratch_arena_a.allocate_n<uint16_t>(V);
+    num_keys = 0;
+
+    ScratchScope sa(scratch_arena_a);
+    ScratchScope sb(scratch_arena_b);
+    PolyMesh cls;
+    MeshOps::clone(seed, cls, scratch_arena_a);
+    MeshOps::classify_faces_by_topology(cls, scratch_arena_a, scratch_arena_b,
+                                        scratch_arena_a);
+    const int *grp = perceptual_groups(cls, cls.topology.data(), 0,
+                                       cls.face_counts.size(), scratch_arena_b);
+
+    int *valence = scratch_arena_b.allocate_n<int>(V);
+    std::fill_n(valence, V, 0);
+    for (size_t i = 0; i < I; ++i)
+      ++valence[seed.faces[i]];
+    int *off = scratch_arena_b.allocate_n<int>(V + 1);
+    off[0] = 0;
+    for (size_t v = 0; v < V; ++v)
+      off[v + 1] = off[v] + valence[v];
+
+    // Sorted incident-face colour groups per vertex.
+    int *inc = scratch_arena_b.allocate_n<int>(I);
+    {
+      int *fill = scratch_arena_b.allocate_n<int>(V);
+      std::fill_n(fill, V, 0);
+      size_t p = 0;
+      for (size_t f = 0; f < cls.face_counts.size(); ++f) {
+        for (int k = 0; k < cls.face_counts[f]; ++k) {
+          const uint16_t v = cls.faces[p + k];
+          inc[off[v] + fill[v]++] = grp[f];
+        }
+        p += cls.face_counts[f];
+      }
+    }
+    // Insertion sorts, not std::sort: its instantiations carry no cold/section
+    // attribute and would land in ITCM (the phantasm granule cliff).
+    for (size_t v = 0; v < V; ++v)
+      for (int i = off[v] + 1; i < off[v + 1]; ++i) {
+        const int x = inc[i];
+        int j = i;
+        for (; j > off[v] && x < inc[j - 1]; --j)
+          inc[j] = inc[j - 1];
+        inc[j] = x;
+      }
+
+    // Dense signature ids in first-appearance order over the vertex list:
+    // each vertex linear-scans the representatives found so far (their count
+    // is the orbit-type count, far below V).
+    uint16_t *sig = scratch_arena_b.allocate_n<uint16_t>(V);
+    uint16_t *rep = scratch_arena_b.allocate_n<uint16_t>(V);
+    uint16_t reps = 0;
+    for (size_t v = 0; v < V; ++v) {
+      uint16_t id = reps;
+      for (uint16_t r = 0; r < reps; ++r) {
+        const uint16_t u = rep[r];
+        if (valence[u] != valence[v])
+          continue;
+        bool equal = true;
+        for (int k = 0; k < valence[v] && equal; ++k)
+          equal = inc[off[u] + k] == inc[off[v] + k];
+        if (equal) {
+          id = r;
+          break;
+        }
+      }
+      if (id == reps)
+        rep[reps++] = static_cast<uint16_t>(v);
+      sig[v] = id;
+    }
+
+    // Corner emission order: first flat-index appearance per vertex, valence
+    // >= 3 only (mirrors emit_vertex_orbit_faces).
+    bool *seen = scratch_arena_b.allocate_n<bool>(V);
+    std::fill_n(seen, V, false);
+    for (size_t i = 0; i < I; ++i) {
+      const uint16_t v = seed.faces[i];
+      if (seen[v])
+        continue;
+      seen[v] = true;
+      if (valence[v] >= 3)
+        keys[num_keys++] = sig[v];
+    }
+    return keys;
+  }
+
+  /**
+   * @brief Crossfade weight at fraction p of the leg (classic_blend's curve).
    */
   static float blend_weight(float p) {
     constexpr float IN = 0.2f, OUT = 0.8f;
@@ -1265,6 +1968,12 @@ private:
    * @param forced_from Per-arrival-face from-palette, or nullptr to derive one.
    * A partition op has neither a centroid nor an emission-order
    * correspondence, so its leg computes provenance itself and hands it in.
+   * @param birth_sig Per-newborn-face vertex-signature refinement of the
+   * birth-cohort key (vertex_signature_keys order), or nullptr to key cohorts
+   * on the birth colour group alone.
+   * @param birth_start First newborn face, or SIZE_MAX for the default suffix
+   * beginning at handoff.prev_faces. An immutable dual swap passes 0: the
+   * partition discards every carried face, so its whole face list is births.
    * @details With centroids, provenance is geometric: a face inherits the
    * palette of the departed face it overlies at the start parameter. On a
    * full-correspondence departure (prev_faces == total: 0.5-end swaps, dual
@@ -1274,12 +1983,20 @@ private:
    * a node-prefix departure (prev_faces == survivors) the prefix keeps the
    * exact emission identity, and each newborn class inherits its first face's
    * nearest departed palette, so T_EPS-wide births open in the underlying
-   * face's colors instead of popping in as target-colored slivers.
+   * face's colors instead of popping in as target-colored slivers. An
+   * immutable handoff overrides the pair: every carried face keeps its from
+   * palette (to = from) and every newborn is born on its birth-cohort palette
+   * (the birth_counter keying, or wrap(class, PALETTES) without a counter),
+   * so no pair ever blends.
    */
-  HS_COLD_MEMBER void build_palette_mapping(
-      Transients &tr, const PolyMesh &arrival, const PaletteHandoff &handoff,
-      const BookendClasses &bookend, Arena &arena, const Vector *start_centroid,
-      size_t survivors, const uint8_t *forced_from = nullptr) {
+  HS_COLD_MEMBER void
+  build_palette_mapping(Transients &tr, const PolyMesh &arrival,
+                        const PaletteHandoff &handoff,
+                        const BookendClasses &bookend, Arena &arena,
+                        const Vector *start_centroid, size_t survivors,
+                        const uint8_t *forced_from = nullptr,
+                        const uint16_t *birth_sig = nullptr,
+                        size_t birth_start = SIZE_MAX) {
     const size_t total = tr.topo.size();
     const size_t primary = tr.seed_faces;
     tr.landing.faces = total;
@@ -1294,29 +2011,37 @@ private:
     HS_CHECK(!bookend.topology || bookend.faces == total ||
                  bookend.faces == survivors,
              "OpLeg: bookend face count matches neither mapping");
-    const size_t landed = bookend.topology ? bookend.faces : total;
-    const Vector *arrival_centroid =
-        landed < total ? face_centroids(arrival, scratch_arena_a) : nullptr;
-    tr.target_topo.bind(arena, total);
-    for (size_t f = 0; f < total; ++f) {
-      if (f < landed) {
-        tr.target_topo.push_back(bookend.topology ? bookend.topology[f]
-                                                  : tr.topo[f]);
-        continue;
-      }
-      size_t host = 0;
-      float best_d = 1e9f;
-      for (size_t j = 0; j < landed; ++j) {
-        const Vector d = arrival_centroid[f] - arrival_centroid[j];
-        const float dsq = dot(d, d);
-        if (dsq < best_d) {
-          best_d = dsq;
-          host = j;
+    // Without a bookend grouping the target class is the swept class verbatim,
+    // so target_topo would only duplicate topo; alias it instead of allocating.
+    const int *target_topo;
+    if (bookend.topology) {
+      const size_t landed = bookend.faces;
+      const Vector *arrival_centroid =
+          landed < total ? face_centroids(arrival, scratch_arena_a) : nullptr;
+      tr.target_topo.bind(arena, total);
+      for (size_t f = 0; f < total; ++f) {
+        if (f < landed) {
+          tr.target_topo.push_back(bookend.topology[f]);
+          continue;
         }
+        size_t host = 0;
+        float best_d = 1e9f;
+        for (size_t j = 0; j < landed; ++j) {
+          const Vector d = arrival_centroid[f] - arrival_centroid[j];
+          const float dsq = dot(d, d);
+          if (dsq < best_d) {
+            best_d = dsq;
+            host = j;
+          }
+        }
+        tr.target_topo.push_back(bookend.topology[host]);
       }
-      tr.target_topo.push_back(bookend.topology[host]);
+      target_topo = tr.target_topo.data();
+    } else {
+      tr.target_topo.clear();
+      target_topo = tr.topo.data();
     }
-    tr.landing.topology = tr.target_topo.data();
+    tr.landing.topology = target_topo;
 
     if (handoff.pinned_to) {
       tr.landing.to_palette = *handoff.pinned_to;
@@ -1341,27 +2066,69 @@ private:
 
     // Full-correspondence geometric mapping: nearest departed centroid,
     // pinned as a bijection within tolerance. The bijection mark is scoped to
-    // that mapping: the prefix mapping a chain leg takes never reads it, and
-    // its departed meshes run to several hundred faces.
+    // that mapping: the prefix mapping a chain leg takes never reads it.
     const bool full_correspondence =
         start_centroid && handoff.prev_faces == total;
-    bool prev_used[128] = {};
-    HS_CHECK(!full_correspondence ||
-             handoff.prev_faces <= std::size(prev_used));
+    bool *prev_used = nullptr;
+    if (full_correspondence) {
+      prev_used = scratch_arena_a.allocate_n<bool>(handoff.prev_faces);
+      std::fill_n(prev_used, handoff.prev_faces, false);
+    }
     // Newborn classes inherit one representative from-palette (first face of
     // the class), keeping the distinct-pair count at the legacy bound.
     int newborn_from[PALETTES];
     for (int i = 0; i < PALETTES; ++i)
       newborn_from[i] = -1;
 
+    // Immutable birth cohorts: each distinct birth key among the newborn
+    // range takes the next entry of the shuffled palette order through the
+    // shape's wrapping counter, in ascending key order, so cohorts born on
+    // different legs never collide on the order's first slots. The key is the
+    // birth class's perceptual colour group, refined by the underlying
+    // vertex's orbit signature on a vertex-orbit block (birth_sig).
+    const size_t births_from =
+        birth_start == SIZE_MAX ? handoff.prev_faces : birth_start;
+    uint8_t *birth_pal = nullptr; // one palette per newborn face
+    if (handoff.immutable && handoff.birth_counter && !forced_from &&
+        births_from < total) {
+      const size_t births = total - births_from;
+      birth_pal = scratch_arena_a.allocate_n<uint8_t>(births);
+      int *key = scratch_arena_a.allocate_n<int>(births);
+      const int *grp = perceptual_groups(arrival, target_topo, births_from,
+                                         total, scratch_arena_a);
+      for (size_t i = 0; i < births; ++i)
+        key[i] = birth_sig ? ((grp[i] << 16) | static_cast<int>(birth_sig[i]))
+                           : grp[i];
+      int prev_key = -1;
+      for (;;) {
+        int next = -1;
+        for (size_t i = 0; i < births; ++i)
+          if (key[i] > prev_key && (next < 0 || key[i] < next))
+            next = key[i];
+        if (next < 0)
+          break;
+        const uint8_t pal =
+            tr.landing.to_palette[(*handoff.birth_counter)++ % PALETTES];
+        for (size_t i = 0; i < births; ++i)
+          if (key[i] == next)
+            birth_pal[i] = pal;
+        prev_key = next;
+      }
+    }
+
     uint8_t *from_palette = arena.allocate_n<uint8_t>(total);
     tr.landing.from_palette = from_palette;
 
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
-      uint8_t to = tr.landing.to_palette[wrap(tr.target_topo[f], PALETTES)];
+      uint8_t to = tr.landing.to_palette[wrap(target_topo[f], PALETTES)];
+      if (birth_pal && f >= births_from)
+        to = birth_pal[f - births_from];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
-      if (forced_from) {
+      if (birth_pal && f >= births_from) {
+        // Births stay on their cohort palette even where an inheritance
+        // mapping would apply (a dual swap's whole-list births).
+      } else if (forced_from) {
         from = forced_from[f];
       } else if (full_correspondence) {
         const size_t j = nearest_prev_face(start_centroid[f], handoff);
@@ -1373,8 +2140,8 @@ private:
       } else if (start_centroid) { // prev_faces == survivors
         if (f < handoff.prev_faces) {
           from = handoff.prev_face_palette[f];
-        } else {
-          const int slot = wrap(tr.target_topo[f], PALETTES);
+        } else if (!handoff.immutable) { // immutable newborns stay on `to`
+          const int slot = wrap(target_topo[f], PALETTES);
           if (newborn_from[slot] < 0)
             newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
                 start_centroid[f], handoff)];
@@ -1393,6 +2160,10 @@ private:
       } else if (f < handoff.prev_faces) {
         from = handoff.prev_face_palette[f];
       }
+      // Immutable colours: the face draws `from` for the leg's whole life
+      // (newborns already sit on their class-keyed target via the fallback).
+      if (handoff.immutable)
+        to = from;
       HS_CHECK(from < PALETTES && to < PALETTES);
       from_palette[f] = from;
 

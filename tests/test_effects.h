@@ -3307,13 +3307,118 @@ struct IslamicBuildProbe {
   template <int W, int H> static int solid_idx(const IslamicStars<W, H> &e) {
     return e.solid_idx;
   }
+  template <int W, int H> static int dual_bridges(const IslamicStars<W, H> &e) {
+    return e.dual_bridges_built_;
+  }
+  template <int W, int H> static int gated_swaps(const IslamicStars<W, H> &e) {
+    return e.gated_swaps_scheduled_;
+  }
+  template <int W, int H>
+  static size_t persistent_budget(const IslamicStars<W, H> &e) {
+    return e.device_persistent_budget_;
+  }
+  template <int W, int H> static int front_slot(IslamicStars<W, H> &e) {
+    return e.carousel.front_index();
+  }
+  template <int W, int H> static bool seed_intro(const IslamicStars<W, H> &e) {
+    return e.seed_intro_;
+  }
+  template <int W, int H>
+  static const Segue::Dissolve &seed_dissolve(const IslamicStars<W, H> &e) {
+    return e.seed_dissolve_;
+  }
+  template <int W, int H>
+  static const uint8_t *slot_palette(const IslamicStars<W, H> &e, int slot) {
+    return e.slot_face_palette[slot];
+  }
+  template <int W, int H>
+  static size_t slot_faces(IslamicStars<W, H> &e, int slot) {
+    return e.carousel.slot(slot).topology.size();
+  }
+  static constexpr size_t bridge_scratch_a() {
+    return IS::SPLIT_SCRATCH_A_BRIDGE;
+  }
+  static constexpr size_t default_scratch_a() {
+    return IS::SPLIT_SCRATCH_A_DEFAULT;
+  }
+  static constexpr size_t split_scratch_b() { return IS::SPLIT_SCRATCH_B; }
 };
+
+/**
+ * @brief Pins the seed fade-in dissolve: the first shape's base mesh
+ *        materialises through a per-pixel dither over its opening window, the lit
+ *        pixel count ramps up without ever overshooting the full seed, and the
+ *        window lands exactly on the fully-lit seed the build leg departs from
+ *        (no pop). The mask endpoints prove fade-from-black to fully-lit: phase 0
+ *        owns no pixel, phase 1 owns every pixel (so a dissolve draw at the
+ *        plateau rasterizes the identical pixel set as the unchanged sweep path).
+ */
+inline void test_islamicstars_seed_dissolve_intro() {
+  reset_effect_globals();
+  IslamicStars<DEFAULT_W, DEFAULT_H> effect;
+  IslamicBuildProbe::set_trans_speed(effect,
+                                     4.0f); // fade 72 -> 18-frame window
+  effect.init(); // spawns the first shape; seed_intro_ armed.
+
+  // Mask endpoints (fade-from-black to fully-lit), read off this spawn's armed
+  // dither: phase 0 owns nothing, phase 1 owns every sampled pixel. Owns-all at
+  // phase 1 is what makes the plateau frame identical to the sweep path.
+  const Segue::Dissolve &dis = IslamicBuildProbe::seed_dissolve(effect);
+  int owned_at_zero = 0, owned_at_one = 0, sampled = 0;
+  for (int y = 0; y < DEFAULT_H; y += 7)
+    for (int x = 0; x < DEFAULT_W; x += 7) {
+      owned_at_zero += dis.mask(0.0f, 3u, true).owns(x, y) ? 1 : 0;
+      owned_at_one += dis.mask(1.0f, 3u, true).owns(x, y) ? 1 : 0;
+      ++sampled;
+    }
+  HS_EXPECT_EQ(owned_at_zero, 0);
+  HS_EXPECT_EQ(owned_at_one, sampled);
+
+  auto lit_pixels = [&]() {
+    uint64_t n = 0;
+    for (int y = 0; y < DEFAULT_H; ++y)
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        const Pixel &p = effect.get_pixel(x, y);
+        if (p.r || p.g || p.b)
+          ++n;
+      }
+    return n;
+  };
+
+  // Drive the opening window: every frame that still drew through the dissolve
+  // (seed_intro_ true after the frame) records its lit count; the frame the flag
+  // clears on is the fully-lit plateau handoff.
+  std::vector<uint64_t> intro_counts;
+  uint64_t handoff_count = 0;
+  constexpr int MAX_FRAMES = 60;
+  for (int f = 0; f < MAX_FRAMES; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+    if (IslamicBuildProbe::seed_intro(effect)) {
+      intro_counts.push_back(lit_pixels());
+    } else {
+      handoff_count = lit_pixels(); // plateau: sweep path, phase 1, fully lit
+      break;
+    }
+  }
+
+  HS_EXPECT_GT(intro_counts.size(), (size_t)4); // a real ramp, not one frame
+  HS_EXPECT_GT(handoff_count, (uint64_t)0);
+  // Ramp: starts dark (well under a quarter of full), ends most of the way lit.
+  HS_EXPECT_LT(intro_counts.front() * 4, handoff_count);
+  HS_EXPECT_GT(intro_counts.back() * 10, handoff_count * 6);
+  // No pop: the dissolve never lights more than the full seed, so the handoff is
+  // a monotone arrival, not a jump past and back.
+  for (uint64_t c : intro_counts)
+    HS_EXPECT_LE(c, handoff_count);
+}
 
 /**
  * @brief Drives IslamicStars across the second registry entry's complete
  *        op-by-op build at max trans speed: the build must activate and
- *        finish without a trap, and the shape after it must start cleanly
- *        and light pixels.
+ *        finish without a trap, the built shape's per-face colours must never
+ *        change from finish_build through its still/ripple/fade display, and
+ *        the shape after it must start cleanly and light pixels.
  */
 inline void test_islamicstars_recipe_build_smoke() {
   reset_effect_globals();
@@ -3326,18 +3431,47 @@ inline void test_islamicstars_recipe_build_smoke() {
   constexpr int MAX_FRAMES = 400;
   int frames = 0;
   int build_frames = 0;
+  bool was_building = false;
+  int built_slot = -1;
+  int snap_solid = -1;
+  int changed_after_build = 0;
+  int constant_frames = 0;
+  std::vector<uint8_t> built_pal;
   while (frames < MAX_FRAMES && IslamicBuildProbe::solid_idx(effect) < 2) {
     effect.draw_frame();
     effect.advance_display();
     ++frames;
-    if (IslamicBuildProbe::build_active(effect))
+    const bool building = IslamicBuildProbe::build_active(effect);
+    if (building)
       ++build_frames;
+    // Snapshot the built shape's per-face colours the moment its build
+    // completes; they must stay byte-identical through its still, ripple, and
+    // fade phases (the next spawn retires the shape and may reuse its array).
+    if (was_building && !building && built_slot < 0) {
+      built_slot = IslamicBuildProbe::front_slot(effect);
+      snap_solid = IslamicBuildProbe::solid_idx(effect);
+      const uint8_t *pal = IslamicBuildProbe::slot_palette(effect, built_slot);
+      built_pal.assign(pal,
+                       pal + IslamicBuildProbe::slot_faces(effect, built_slot));
+    } else if (built_slot >= 0 &&
+               IslamicBuildProbe::solid_idx(effect) == snap_solid) {
+      const uint8_t *pal = IslamicBuildProbe::slot_palette(effect, built_slot);
+      for (size_t f = 0; f < built_pal.size(); ++f)
+        if (pal[f] != built_pal[f])
+          ++changed_after_build;
+      ++constant_frames;
+    }
+    was_building = building;
   }
   HS_EXPECT_LT(frames, MAX_FRAMES);
   HS_EXPECT_GT(build_frames, 0);
   HS_EXPECT_TRUE(!IslamicBuildProbe::build_active(effect));
+  HS_EXPECT_GE(built_slot, 0);
+  HS_EXPECT_GT(built_pal.size(), (size_t)0);
+  HS_EXPECT_GT(constant_frames, 0);
+  HS_EXPECT_EQ(changed_after_build, 0);
 
-  // The following (null-recipe) shape renders lit frames.
+  // The following shape renders lit frames.
   for (int f = 0; f < 12; ++f) {
     effect.draw_frame();
     effect.advance_display();
@@ -3364,44 +3498,160 @@ inline void test_islamicstars_recipe_build_smoke() {
  */
 inline void test_islamicstars_roster_cycle_fits_budget() {
   reset_effect_globals();
-  IslamicStars<96, 20> effect;
+  // Production resolution, not device: the swept+compiled+draw scratch peak a
+  // build leg reaches is mesh-driven and resolution-independent, but the effect
+  // ships at 288x144, so the gate holds the real geometry. Trans Speed 8
+  // compresses each stage so the whole roster cycles in ~1200 frames without
+  // dropping any leg (never lower the resolution: that would shrink the peak).
+  IslamicStars<288, 144> effect;
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
 
-  const int entries =
-      static_cast<int>(Solids::Collections::get_islamic_solids().size());
+  // Per-shape arena split (IslamicStars::spawn_shape): a smooth kis/needle
+  // bridge shape spawns on a scratch_a-heavy split (130 KB / 74 KB / 96 KB),
+  // every other shape on the default (120 KB / 74 KB / 106 KB). On host the two
+  // scratch arenas are the exact device sizes and hard-capped, so an over-budget
+  // leg traps -- completing the whole roster proves every shape's scratch fit
+  // its own split. Persistent is host-inflated (soft), so it is checked per
+  // frame against the effect's live per-shape device budget; host pointer
+  // inflation makes the host high-water an upper bound on the device figure.
+  auto solids = Solids::Collections::get_islamic_solids();
+  const int entries = static_cast<int>(solids.size());
+  int needle_idx = -1;
+  for (int i = 0; i < entries; ++i)
+    if (std::strstr(solids[i].name, "needle"))
+      needle_idx = i;
+  HS_EXPECT_GE(needle_idx, 0);
+
   constexpr int MAX_FRAMES = 20000;
-  size_t peak = 0;
-  int frames = 0;
-  int shapes = 0;
-  int builds = 0;
+  size_t a_peak = 0, b_peak = 0, persist_peak = 0;
+  size_t na_peak = 0, nb_peak = 0, np_peak = 0; // needle-only peaks
+  size_t worst_p = 0, worst_p_budget = 0;
+  int worst_p_idx = -1; // shape at the worst persistent/budget ratio
+  int frames = 0, shapes = 0, builds = 0;
+  bool was_building = false;
   int last = IslamicBuildProbe::solid_idx(effect);
   while (frames < MAX_FRAMES && shapes <= entries) {
     effect.draw_frame();
     effect.advance_display();
     ++frames;
-    // reset() clears the arena's own mark, so sample every frame to keep the
-    // peak across compactions.
-    peak = std::max(peak, persistent_arena.get_high_water_mark());
-    if (IslamicBuildProbe::build_active(effect))
-      ++builds;
     const int cur = IslamicBuildProbe::solid_idx(effect);
+    // Birth-cohort variety of each finished build: distinct immutable
+    // palettes on the shape the real leg chain just landed.
+    const bool building = IslamicBuildProbe::build_active(effect);
+    if (was_building && !building) {
+      const int front = IslamicBuildProbe::front_slot(effect);
+      const uint8_t *pal = IslamicBuildProbe::slot_palette(effect, front);
+      const size_t nf = IslamicBuildProbe::slot_faces(effect, front);
+      bool seen[MeshPaletteBank::N] = {};
+      int distinct = 0;
+      for (size_t f = 0; f < nf; ++f)
+        if (pal[f] < MeshPaletteBank::N && !seen[pal[f]]) {
+          seen[pal[f]] = true;
+          ++distinct;
+        }
+      std::printf("  [built] %s: %d/%d palettes on %zu faces\n",
+                  (cur >= 0 && cur < entries) ? solids[cur].name : "?",
+                  distinct, MeshPaletteBank::N, nf);
+    }
+    was_building = building;
+    const size_t p = persistent_arena.get_high_water_mark();
+    const size_t a = scratch_arena_a.get_high_water_mark();
+    const size_t b = scratch_arena_b.get_high_water_mark();
+    const size_t p_budget = IslamicBuildProbe::persistent_budget(effect);
+    a_peak = std::max(a_peak, a);
+    b_peak = std::max(b_peak, b);
+    persist_peak = std::max(persist_peak, p);
+    if (p > worst_p) { // report the tightest persistent fit, not the raw max
+      worst_p = p;
+      worst_p_budget = p_budget;
+      worst_p_idx = cur;
+    }
+    if (cur == needle_idx) {
+      na_peak = std::max(na_peak, a);
+      nb_peak = std::max(nb_peak, b);
+      np_peak = std::max(np_peak, p);
+    }
+    // Per-shape persistent budget (device figure); scratch is trap-enforced.
+    HS_EXPECT_LE(p, p_budget);
+    if (building)
+      ++builds;
     if (cur != last) {
       last = cur;
       ++shapes;
     }
   }
 
-  // The device split, not the host arena: on host GLOBAL_ARENA_SIZE dwarfs the
-  // real budget and the comparison would pass vacuously. Mirrors the
-  // configure_arenas call in IslamicStars::init.
-  const size_t budget = DEVICE_GLOBAL_ARENA_SIZE - (114 + 80) * 1024;
-  std::printf("  [roster] %d shapes over %d frames, %d build frames, "
-              "persistent peak=%zu B / %zu B\n",
-              shapes, frames, builds, peak, budget);
+  const char *worst_name = (worst_p_idx >= 0 && worst_p_idx < entries)
+                               ? solids[worst_p_idx].name
+                               : "?";
+  std::printf(
+      "  [roster] %d shapes over %d frames, %d build frames: scratch_a "
+      "peak=%zu B, scratch_b peak=%zu B, persistent peak=%zu B; tightest "
+      "persistent %zu/%zu at %s\n",
+      shapes, frames, builds, a_peak, b_peak, persist_peak, worst_p,
+      worst_p_budget, worst_name);
+  std::printf("  [roster] needle smooth-path peaks: scratch_a=%zu/%zu "
+              "scratch_b=%zu/%zu persistent=%zu/%zu; gated_swaps=%d\n",
+              na_peak, IslamicBuildProbe::bridge_scratch_a(), nb_peak,
+              IslamicBuildProbe::split_scratch_b(), np_peak,
+              DEVICE_GLOBAL_ARENA_SIZE - IslamicBuildProbe::bridge_scratch_a() -
+                  IslamicBuildProbe::split_scratch_b(),
+              IslamicBuildProbe::gated_swaps(effect));
   HS_EXPECT_GT(shapes, entries - 1);
   HS_EXPECT_GT(builds, 0);
-  HS_EXPECT_LE(peak, budget);
+  // Every dt/dtd chain takes the smooth path -- no gated (snapping) kis.
+  HS_EXPECT_EQ(IslamicBuildProbe::gated_swaps(effect), 0);
+  // needle actually reached its scratch_a-heavy split (proves the smooth path
+  // ran, not a silently-dropped build).
+  HS_EXPECT_GT(na_peak, 120u * 1024u);
+}
+
+/**
+ * @brief Drives IslamicStars until every DUAL-bearing recipe has built its
+ *        smooth three-leg dual bridge, pinning the scratch peaks against the
+ *        effect's budget.
+ * @details The roster gate at Trans Speed 8 compresses each build so far that a
+ *          heavy shape's closing dual leg can be dropped before it runs; this
+ *          drives at a modest speed so every bridge leg runs in full. Five
+ *          registry recipes carry a DUAL (a needle, two gyros, a kis-gyro, and
+ *          a truncate50d_ambo_dual). The bridge's leg 3 rebuilds the medial for
+ *          its handoff centroids, whose scratch must not co-reside with the
+ *          leg's own arrival mesh -- an over-budget leg traps in the host arena.
+ */
+inline void test_islamicstars_dual_bridge_fits_budget() {
+  reset_effect_globals();
+  IslamicStars<288, 144> effect;
+  IslamicBuildProbe::set_trans_speed(effect, 2.0f);
+  effect.init();
+
+  constexpr int TARGET_BRIDGES = 5;
+  constexpr int MAX_FRAMES = 40000;
+  size_t a_peak = 0, b_peak = 0, persist_peak = 0;
+  int frames = 0;
+  // Scratch is hard-capped per-shape (spawn_shape's resplit), so a leg over its
+  // split traps here; completing without a trap proves every full bridge fit.
+  // Persistent is host-inflated, so it is checked per frame against the effect's
+  // live per-shape device budget.
+  while (frames < MAX_FRAMES &&
+         IslamicBuildProbe::dual_bridges(effect) < TARGET_BRIDGES) {
+    effect.draw_frame();
+    effect.advance_display();
+    ++frames;
+    a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
+    b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
+    const size_t p = persistent_arena.get_high_water_mark();
+    persist_peak = std::max(persist_peak, p);
+    HS_EXPECT_LE(p, IslamicBuildProbe::persistent_budget(effect));
+  }
+  std::printf(
+      "  [dual-bridge] %d bridges over %d frames: scratch_a peak=%zu B, "
+      "scratch_b peak=%zu B, persistent peak=%zu B; gated_swaps=%d\n",
+      IslamicBuildProbe::dual_bridges(effect), frames, a_peak, b_peak,
+      persist_peak, IslamicBuildProbe::gated_swaps(effect));
+  HS_EXPECT_GE(IslamicBuildProbe::dual_bridges(effect), TARGET_BRIDGES);
+  // Every full bridge runs the smooth path -- no gated (snapping) kis.
+  HS_EXPECT_EQ(IslamicBuildProbe::gated_swaps(effect), 0);
 }
 
 /**
@@ -3479,8 +3729,10 @@ inline int run_effects_tests() {
     test_shapeshifter_shape_cut_lifecycle();
     test_shapeshifter_max_radius_survives_cycle();
     test_hankinsolids_arena_budget_covers_every_solid();
+    test_islamicstars_seed_dissolve_intro();
     test_islamicstars_recipe_build_smoke();
     test_islamicstars_roster_cycle_fits_budget();
+    test_islamicstars_dual_bridge_fits_budget();
 
     // Full production-resolution roster passes (288x144): smoke, then cross-run
     // determinism under the injected clock.

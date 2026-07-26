@@ -461,9 +461,9 @@ inline void test_determinism_complex_islamic() {
 // ---------------------------------------------------------------------------
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    114 * 1024; /**< IslamicStars' scratch_a split (mirrors init()). */
+    120 * 1024; /**< IslamicStars' scratch_a split (mirrors init()). */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    80 * 1024; /**< IslamicStars' scratch_b split (mirrors init()). */
+    74 * 1024; /**< IslamicStars' scratch_b split (mirrors init()). */
 
 /**
  * @brief Runs one Islamic recipe through a real-budget arena pair and asserts
@@ -885,8 +885,8 @@ inline void check_composite_lowering(const Solids::OpStep &step) {
   {
     Arena a(solids_scratch_a, sizeof(solids_scratch_a));
     Arena b(solids_scratch_b, sizeof(solids_scratch_b));
-    authored =
-        Solids::finalize_solid(Solids::build_recipe(recipe, a, b), geom1);
+    authored = Solids::finalize_solid(Solids::build_recipe(recipe, a, b),
+                                      geom1);
   }
   Arena geom2(solids_geom_b, sizeof(solids_geom_b));
   PolyMesh low;
@@ -927,6 +927,48 @@ inline void test_composite_lowering_matches_composites() {
 }
 
 // ---------------------------------------------------------------------------
+// Morph feasibility: every Islamic-pattern entry must ship a recipe whose every
+// lowered primitive step a morph leg can cover, so an infeasible shape reds CI
+// up front instead of silently cutting to a whole-generate fallback at runtime.
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Verifies every islamic_registry entry is morph-feasible: it carries a
+ *        non-null recipe whose every lowered primitive step satisfies
+ *        is_morphable_step.
+ * @details Fail-hard gate for the morphing carousel's roster. A future recipe
+ *          that lowers to a step no leg can sweep (EXPAND, or a truncate/chamfer
+ *          param outside the characterized range) reds here and names the
+ *          offending entry and lowered step, rather than cutting to a
+ *          whole-generate fallback unannounced. expand_to_primitives mirrors the
+ *          lowering the morph path runs, so this checks the same steps it will.
+ */
+inline void test_islamic_recipes_are_morph_feasible() {
+  size_t checked = 0;
+  for (const Solids::Entry &e : Solids::islamic_registry) {
+    if (e.recipe == nullptr) {
+      std::printf("  [morph feasibility] %s: no recipe\n", e.name);
+      HS_EXPECT_TRUE(e.recipe != nullptr);
+      continue;
+    }
+    Solids::OpStep lowered[MAX_LOWERED_STEPS];
+    size_t n =
+        Solids::expand_to_primitives(*e.recipe, lowered, MAX_LOWERED_STEPS);
+    for (size_t i = 0; i < n; ++i) {
+      if (!Solids::is_morphable_step(lowered[i]))
+        std::printf("  [morph feasibility] %s: lowered step %zu "
+                    "(op=%d param=%g) is not morphable\n",
+                    e.name, i, static_cast<int>(lowered[i].op),
+                    static_cast<double>(lowered[i].param));
+      HS_EXPECT_TRUE(Solids::is_morphable_step(lowered[i]));
+    }
+    ++checked;
+  }
+  // Guards against a vacuous pass: every Islamic entry must have been checked.
+  HS_EXPECT_EQ(checked, Solids::Collections::get_islamic_solids().size());
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -960,6 +1002,7 @@ inline int run_solids_tests() {
   test_recipe_lowered_replay_matches_authored();
   test_shipping_recipe_lowering_is_identity();
   test_composite_lowering_matches_composites();
+  test_islamic_recipes_are_morph_feasible();
 
   test_islamic_recipes_fit_islamicstars_budget();
   test_islamic_solids_fit_islamicstars_persistent_budget();

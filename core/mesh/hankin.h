@@ -37,7 +37,7 @@ struct HankinInstruction {
  * static_offset refers to star point (index - static_offset).
  */
 struct CompiledHankin {
-  ArenaVector<Vector> base_vertices; /**< Input mesh corner vertices. */
+  ArenaVector<Vector> base_vertices; /**< Owned corner vertices (copy mode). */
   ArenaVector<Vector>
       static_vertices; /**< Edge midpoints; angle-independent. */
   ArenaVector<HankinInstruction>
@@ -46,6 +46,12 @@ struct CompiledHankin {
   ArenaVector<uint16_t> faces;      /**< Flat vertex indices for all faces. */
   int static_offset =
       0; /**< static_vertices.size(); base for dynamic indices in faces. */
+  /** Resolved corner source: base_vertices in copy mode, the borrowed input
+   * vertices in borrow mode. HankinInstruction indices read through corner(). */
+  const Vector *corner_src = nullptr;
+
+  /** Returns the corner vertex a HankinInstruction index refers to. */
+  const Vector &corner(size_t i) const { return corner_src[i]; }
 
   /**
    * @brief Resets all owned vectors to empty, releasing their contents.
@@ -56,6 +62,7 @@ struct CompiledHankin {
     dynamic_instructions.clear();
     face_counts.clear();
     faces.clear();
+    corner_src = nullptr;
   }
 
   /**
@@ -78,6 +85,8 @@ struct CompiledHankin {
                 arena);
     copy_vector(dst.faces, src.faces.data(), src.faces.size(), arena);
     dst.static_offset = src.static_offset;
+    // A clone always owns its corners, even when the source borrowed them.
+    dst.corner_src = dst.base_vertices.data();
   }
 };
 
@@ -91,21 +100,32 @@ HS_O3_BEGIN
  * @param compiled Output topology, allocated from @p target_arena.
  * @param target_arena Arena that backs the persistent compiled vectors.
  * @param temp_arena Arena holding the transient half-edge structures.
+ * @param borrow_base_vertices When true, corner reads alias @p mesh's vertices
+ * instead of copying them; the caller must keep @p mesh alive for every
+ * update_hankin/hankin_at call that reads the compiled topology. Defaults to
+ * false (owned copy), which every persisted or re-updated CompiledHankin needs.
  * @details Builds a half-edge mesh, emits one shared midpoint per edge into
  * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
  * records the star and rosette faces.
  */
 HS_COLD static void compile_hankin(const PolyMesh &mesh,
                                    CompiledHankin &compiled,
-                                   Arena &target_arena, Arena &temp_arena) {
+                                   Arena &target_arena, Arena &temp_arena,
+                                   bool borrow_base_vertices = false) {
   // Topology via accessors (borrowed-mode safe); vertices is always owned.
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
 
-  compiled.base_vertices.bind(target_arena, V);
-  for (size_t i = 0; i < V; ++i) {
-    compiled.base_vertices.push_back(mesh.vertices[i]);
+  if (borrow_base_vertices) {
+    compiled.base_vertices.clear();
+    compiled.corner_src = mesh.vertices.data();
+  } else {
+    compiled.base_vertices.bind(target_arena, V);
+    for (size_t i = 0; i < V; ++i) {
+      compiled.base_vertices.push_back(mesh.vertices[i]);
+    }
+    compiled.corner_src = compiled.base_vertices.data();
   }
   // Static pool is I/2 midpoints; largest emitted index is (I/2)+(I-1). Guard
   // adds 1 to both sides to dodge the unsigned underflow of I-1 at I == 0.
@@ -303,9 +323,8 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
 
   // Star points are computed straight into the output: nothing reads them back
   // across calls, so the compiled topology holds no vertex scratch of its own.
-  out_mesh.vertices.bind(target_arena,
-                         compiled.static_vertices.size() +
-                             compiled.dynamic_instructions.size());
+  out_mesh.vertices.bind(target_arena, compiled.static_vertices.size() +
+                                           compiled.dynamic_instructions.size());
   out_mesh.vertices.append_bulk(compiled.static_vertices.data(),
                                 compiled.static_vertices.size());
 
@@ -318,7 +337,7 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
   };
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const auto &instr = compiled.dynamic_instructions[i];
-    Vector p_corner = compiled.base_vertices[instr.v_corner];
+    Vector p_corner = compiled.corner(instr.v_corner);
 
     if (is_flat) {
       out_mesh.vertices.push_back(normalized_or(p_corner, p_corner));
@@ -327,8 +346,8 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
 
     Vector m1 = compiled.static_vertices[instr.idx_m1];
     Vector m2 = compiled.static_vertices[instr.idx_m2];
-    Vector p_prev = compiled.base_vertices[instr.v_prev];
-    Vector p_next = compiled.base_vertices[instr.v_next];
+    Vector p_prev = compiled.corner(instr.v_prev);
+    Vector p_next = compiled.corner(instr.v_next);
 
     Vector cross1 = cross(p_prev, p_corner);
     Vector cross2 = cross(p_corner, p_next);

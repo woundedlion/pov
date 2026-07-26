@@ -71,6 +71,19 @@ SECTIONS
 		*(.text._ZN14CompiledHankin*)
 		*(.text._ZN8Timeline7add_getI*)
 		*(.text._ZZN8Timeline7add_getI*)
+		/* OpLeg spawn-time scheduling and mesh build: timeline node
+		 * construction, the morph builder's mesh move-assign and star-point
+		 * vectors -- all run once per shape spawn, never per frame. */
+		*(.text._ZN8Timeline3addIN9Animation*)
+		*(.text._ZNO9Animation13AnimationBaseINS_5OpLeg*)
+		*(.text._ZN9MeshStateaSEOS_*)
+		*(.text._ZN11ArenaVectorIN9Animation5OpLeg9StarPoint*)
+		*(.text._ZN11ArenaVectorIiEaSEOS0_*)
+		/* Half-edge topology construction: the edge-record sort family and
+		 * mesh normalize run when a shape spawns or a morph leg builds, never
+		 * on the per-frame render path (which walks the built MeshState). */
+		*(.text.*HalfEdgePairRecord*)
+		*(.text._ZN7MeshOpsL9normalizeI*)
 		/* inplace_function invokers for frame-level stored callbacks
 		 * (init/spawn/timer/emitter/morph). A Canvas& or ParticleSystem&
 		 * argument is whole-frame by construction, so these fire at most once
