@@ -51,7 +51,7 @@ g3_ship)
   ;;
 g4_ship)
   run Comets profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
-  run MeshFeedback profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
+  run MeshFeedback profile 420 16 "-D HS_PROFILE_EPOCH_REVS=3400"
   run Flyby profile 310 16 "-D HS_PROFILE_EPOCH_REVS=2560"
   run IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"
   run DreamBalls profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
