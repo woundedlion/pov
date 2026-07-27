@@ -2862,37 +2862,34 @@ static inline void count_particle_exact_gate_fallback() {
 }
 
 /**
- * @brief Gates one geodesic trail's edges against the clip in one hoisted pass.
+ * @brief Hoisted per-point screen coordinates and whole-trail cull verdict.
+ */
+struct TrailGatePrologue {
+  const float *rows; /**< Per-point screen rows, one per trail point. */
+  const float *cols; /**< Per-point screen columns, null when x-clip inactive. */
+  bool rejected;     /**< The whole trail is provably outside the clip. */
+};
+
+/**
+ * @brief Computes one geodesic trail's per-point rows/columns and applies the
+ *        conservative whole-trail row and column culls.
  * @tparam W,H Rasterization resolution (pixel grid).
- * @tparam PipelineT Pipeline type; must have no world cull stage
- *         (pipeline_hoistable_cull), so the predicate sees the raw points.
  * @param cr Active clip region.
  * @param xc Precomputed x-clip predicate for @p cr.
  * @param band_len Clip band length in columns (seam-unwrapped).
  * @param trail Geodesic fragment polyline (>= 2 unit-position points).
- * @param bits Output, one byte per edge (trail.size() - 1): 0 = culled, else
- *        1; valid as rasterize()'s edge_visible input.
- * @return False when no edge is visible; bits are then all zero.
- * @details Per-edge verdicts are exactly edge_visible_in_clip's (rasterize
- * consumes them as its cull), with per-point rows/columns hoisted across
- * adjacent edges and a conservative whole-trail bound rejecting fully-
- * invisible trails first — the same scheme as ParticleSystem::draw's gate.
+ * @return The hoisted arrays plus whether the trail is culled whole.
+ * @details rows and cols are bump-allocated from scratch_arena_a and the helper
+ * opens no ScratchScope of its own: they stay valid until the CALLER's scope
+ * unwinds, so a caller may keep them alive past the gate.
  */
-HS_O3_BEGIN
-template <int W, int H, typename PipelineT>
-static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
-                             const ClipRegion::XClip &xc, int band_len,
-                             const Fragments &trail, uint8_t *bits) {
-  static_assert(pipeline_hoistable_cull<PipelineT>(),
-                "gate_trail_edges requires a pipeline with no world cull "
-                "stage; route others through edge_visible_in_clip");
+template <int W, int H>
+static __attribute__((always_inline)) inline TrailGatePrologue
+trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
+                    int band_len, const Fragments &trail) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
   constexpr float MIN_SIN_PHI = 0.05f;
   const size_t n = trail.size();
-  HS_CHECK(n >= 2);
-  const size_t edges = n - 1;
-
-  ScratchScope span_guard(scratch_arena_a);
   auto *rows = static_cast<float *>(
       scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
   float row_lo_t = 1e9f, row_hi_t = -1e9f;
@@ -2915,10 +2912,8 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
   const float max_arc = (PI_F * 0.5f) * sqrtf(max_chord2);
   const float row_margin =
       (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / PI_F);
-  if (!cr.could_intersect_y(row_lo_t - row_margin, row_hi_t + row_margin)) {
-    std::fill_n(bits, edges, uint8_t{0});
-    return false;
-  }
+  if (!cr.could_intersect_y(row_lo_t - row_margin, row_hi_t + row_margin))
+    return {rows, nullptr, true};
 
   float *cols = nullptr;
   if (xc.active) {
@@ -2959,12 +2954,52 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
     if (walk_safe && sqrtf(std::max(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
       int col_s, col_len;
       finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s, col_len);
-      if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W)) {
-        std::fill_n(bits, edges, uint8_t{0});
-        return false;
-      }
+      if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W))
+        return {rows, cols, true};
     }
   }
+  return {rows, cols, false};
+}
+
+/**
+ * @brief Gates one geodesic trail's edges against the clip in one hoisted pass.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam PipelineT Pipeline type; must have no world cull stage
+ *         (pipeline_hoistable_cull), so the predicate sees the raw points.
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param band_len Clip band length in columns (seam-unwrapped).
+ * @param trail Geodesic fragment polyline (>= 2 unit-position points).
+ * @param bits Output, one byte per edge (trail.size() - 1): 0 = culled, else
+ *        1; valid as rasterize()'s edge_visible input.
+ * @return False when no edge is visible; bits are then all zero.
+ * @details Per-edge verdicts are exactly edge_visible_in_clip's (rasterize
+ * consumes them as its cull). The hoisted per-point coordinates and the
+ * whole-trail culls come from trail_gate_prologue, shared with
+ * ParticleSystem::draw's gate.
+ */
+HS_O3_BEGIN
+template <int W, int H, typename PipelineT>
+static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
+                             const ClipRegion::XClip &xc, int band_len,
+                             const Fragments &trail, uint8_t *bits) {
+  static_assert(pipeline_hoistable_cull<PipelineT>(),
+                "gate_trail_edges requires a pipeline with no world cull "
+                "stage; route others through edge_visible_in_clip");
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  const size_t n = trail.size();
+  HS_CHECK(n >= 2);
+  const size_t edges = n - 1;
+
+  ScratchScope span_guard(scratch_arena_a);
+  const TrailGatePrologue pro =
+      trail_gate_prologue<W, H>(cr, xc, band_len, trail);
+  if (pro.rejected) {
+    std::fill_n(bits, edges, uint8_t{0});
+    return false;
+  }
+  const float *rows = pro.rows;
+  const float *cols = pro.cols;
 
   bool any = false;
   for (size_t e = 0; e < edges; ++e) {
@@ -3413,73 +3448,14 @@ struct ParticleSystem {
           // trails before any per-edge work. The per-edge pass must produce
           // exactly the bits edge_visible_in_clip would (rasterize consumes
           // them as its cull).
-          constexpr int H_VIRT = H + hs::H_OFFSET;
-          constexpr float MIN_SIN_PHI = 0.05f;
-          const size_t n = trail.size();
-          auto *rows = static_cast<float *>(
-              scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
-          dot_rows = rows;
-          float row_lo_t = 1e9f, row_hi_t = -1e9f;
-          float min_sp2 = 1.0f;
-          float max_chord2 = 0.0f;
-          for (size_t k = 0; k < n; ++k) {
-            const Vector &pt = trail[k].pos;
-            rows[k] = y_to_screen_row<H>(pt.y);
-            row_lo_t = std::min(row_lo_t, rows[k]);
-            row_hi_t = std::max(row_hi_t, rows[k]);
-            min_sp2 = std::min(min_sp2, 1.0f - pt.y * pt.y);
-            if (k > 0) {
-              const Vector d = pt - trail[k - 1].pos;
-              max_chord2 = std::max(max_chord2, dot(d, d));
-            }
-          }
-          // arc <= (pi/2)*chord on [0, pi]; an edge's interior latitude
-          // extremum lies within arc/2 of an endpoint and phi is 1-Lipschitz
-          // in arc length, so this margin covers every per-edge bulge peak.
-          const float max_arc = (PI_F * 0.5f) * sqrtf(max_chord2);
-          const float row_margin =
-              (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / PI_F);
-          if (!cr.could_intersect_y(row_lo_t - row_margin,
-                                    row_hi_t + row_margin))
+          const TrailGatePrologue pro =
+              trail_gate_prologue<W, H>(cr, xc, band_len, trail);
+          if (pro.rejected)
             continue;
-
-          float *cols = nullptr;
-          if (xc.active) {
-            cols = static_cast<float *>(
-                scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
-            dot_cols = cols;
-            float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
-            bool walk_safe = true;
-            cols[0] = vector_to_theta<W>(trail[0].pos);
-            for (size_t k = 1; k < n; ++k) {
-              cols[k] = vector_to_theta<W>(trail[k].pos);
-              // A geodesic edge's column sweep never exceeds W/2 (antipodal
-              // symmetry, see geodesic_col_span_cols), so the short-way delta
-              // covers it regardless of direction — except at ~exactly W/2,
-              // where the delta's sign (which semicircle) is float noise.
-              float d = cols[k] - cols[k - 1];
-              if (d > W * 0.5f)
-                d -= W;
-              else if (d < -W * 0.5f)
-                d += W;
-              if (std::abs(d) >= W * 0.5f - 3.0f)
-                walk_safe = false;
-              cum += d;
-              cum_lo = std::min(cum_lo, cum);
-              cum_hi = std::max(cum_hi, cum);
-            }
-            // Near a pole the plotted column is float noise (same caution as
-            // the per-edge spans), so only cull by the column arc when the
-            // whole trail provably stays clear.
-            if (walk_safe &&
-                sqrtf(std::max(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
-              int col_s, col_len;
-              finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s,
-                                 col_len);
-              if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W))
-                continue;
-            }
-          }
+          const float *rows = pro.rows;
+          const float *cols = pro.cols;
+          dot_rows = rows;
+          dot_cols = cols;
 
           for (size_t e = 0; e < edges; ++e) {
             const Vector &ea = trail[e].pos;
