@@ -491,7 +491,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 183. ✅ **A capacity trap names a knob that does not exist** — `core/mesh/hankin.h:132-134` — "MAX_INDICES" has exactly one occurrence in the tree: this string.
 
-184. **`hankin()`'s legal `temp`-aliases-input arrangement is undocumented** — `core/mesh/solids.h:416-420` — safe only because of `ScratchScope` mark ordering; someone "fixing" the apparent aliasing would break the ping-pong.
+184. ✅ **`hankin()`'s legal `temp`-aliases-input arrangement is undocumented** — `core/mesh/solids.h:416-420` — safe only because of `ScratchScope` mark ordering; someone "fixing" the apparent aliasing would break the ping-pong.
 
 185. **Uncovered mesh traps in the death harness** — `core/mesh/mesh.h:165,275,346,361` — the non-manifold-edge trap, the zero-side-face trap, `narrow_face_count` and `require_closed_manifold`; the zero-side case is trivially reachable.
 
