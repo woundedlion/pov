@@ -299,7 +299,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 88. ✅ **`relax` drops roughly half of a boundary mesh's edges from its target-length average** — `core/mesh/conway.h:1043-1052` — the `u < v` half-edge filter is correct for interior edges but arbitrary for unpaired boundary ones, biasing the spring target for the whole mesh. Latent (production relaxes only closed manifolds) and the open-mesh test only asserts finiteness.
 
-89. **`update_hankin`'s Doxygen block is orphaned onto a constant** — `core/mesh/hankin.h:277-311` — six constant declarations intervene between the block and the function, so the one API here with a non-obvious contract ships undocumented.
+89. ✅ **`update_hankin`'s Doxygen block is orphaned onto a constant** — `core/mesh/hankin.h:277-311` — six constant declarations intervene between the block and the function, so the one API here with a non-obvious contract ships undocumented.
 
 90. **`resolve_host_faces`' doc states the opposite of its implementation** — `effects/HankinSolids.h:552-558` — claims the host is found by shared vertices "and is therefore angle independent"; the body rebuilds at π/2 and matches by centroid, with an inline comment explaining why shared vertices *don't* discriminate. A reader trusting the doxygen will "fix" the code back to the broken approach.
 
