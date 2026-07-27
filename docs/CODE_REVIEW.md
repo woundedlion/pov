@@ -179,7 +179,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 29. ✅ **The WASM target compiles with no warning flags at all** — `CMakeLists.txt:79,86` — native tests use `-Wall -Wextra -Werror` and Teensy uses `-Wall -Wextra` plus a ratchet; the Emscripten branch sets only optimization flags, and `wasm.cpp` is compiled by no other target. It is the one first-party TU with zero warning coverage. Fix: add `-Wall -Wextra` (no `-Werror`) to the shared `if(EMSCRIPTEN)` block.
 
-30. **`docs/opchain_morph_spec.md` is labelled "DESIGN, not implemented"** — `docs/opchain_morph_spec.md:3` — it landed in three merges and `effects/IslamicStars.h` cites its sections as the implemented design. A reader trusts the status line first. Fix: mark LANDED with the merge SHAs.
+30. ✅ **`docs/opchain_morph_spec.md` is labelled "DESIGN, not implemented"** — `docs/opchain_morph_spec.md:3` — it landed in three merges and `effects/IslamicStars.h` cites its sections as the implemented design. A reader trusts the status line first. Fix: mark LANDED with the merge SHAs. Status line corrected to LANDED (810db7c6, 1138ff8e, 661f1a78) in the working tree; the spec itself is untracked (finding 65), so the correction is not carried by this commit.
 
 31. **KiCad board generation is not reproducible — every run rewrites every UUID** — `hardware/phantasm/gen/kicad_common.py:16` — `uuid.uuid4()` per footprint/wire/label/junction/pin. Measured on the live working tree: 8,655 changed lines in the generated board, 1,374 of them UUIDs, making the substantive change (a corrected Teensy pad map) unreviewable and letting a regression ride in invisibly. Fix: `uuid.uuid5(FIXED_NAMESPACE, stable_key)`.
 
