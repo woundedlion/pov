@@ -221,7 +221,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 49. ✅ **README names the wrong low-resolution-only effect pair** — `README.md:1546` — says "RingShower, Dynamo"; `effects.h:78-112` excludes **Thrusters**, not RingShower, and the drift `static_assert` says so literally. *Diagnosis did not hold: the sentence names which simulator preset each screenshot was captured at, not the Phantasm firmware playlist. RingShower.png and Dynamo.png are the 20-row captures, so the named pair is correct. Fixed the real defect on the line instead — the capture-resolution rationale, which claimed effects are registered at only one resolution.*
 
-50. **README mis-describes MindSplatter** — `README.md:1742-1746` — "random-walk particle system" describes the view orientation, not the particles, which are emitted from cube vertices toward octahedral attractors and punched out by signed-axis holes.
+50. ✅ **README mis-describes MindSplatter** — `README.md:1742-1746` — "random-walk particle system" describes the view orientation, not the particles, which are emitted from cube vertices toward octahedral attractors and punched out by signed-axis holes.
 
 51. **README's Feedback filter row says "Stateless — no internal frame storage"** — `README.md:529` vs `core/render/filter.h:1968-1972` — it now carries a persistent warp cache with `STORAGE_BYTES` and `init_storage(Arena&)`. An effect author trusting "stateless" gets a correct image that silently rebuilds the entire control field every frame, with no assert, log or test failure. Only `MeshFeedback.h:121` calls it.
 

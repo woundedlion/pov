@@ -1778,7 +1778,7 @@ Stereographic-projection shader (extends `Effect` directly) that samples world-s
 
 #### MindSplatter
 
-Random-walk particle system with Möbius warp bursts.
+Particles spray from emitters at the eight cube vertices — each sweeping its own tangent-plane emission angle — and fall toward attractor wells at the six octahedron vertices, where an event-horizon kernel around each signed axis punches them out as holes. A random walk tumbles the view, periodic Möbius warp bursts distort the whole field, and a preset timer lerps friction, well strength and speeds between four presets.
 
 **Parameters**: Friction, Well Str, Init Spd, Ang Spd, Particles
 
