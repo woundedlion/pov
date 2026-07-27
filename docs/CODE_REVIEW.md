@@ -401,7 +401,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 139. ❌ **The immutable birth-cohort subsystem is production-dead** — `core/animation/mesh.h:148-159,1636-1863,1954-1992` — ~270 lines of orbit-signature and union-find code gated on a flag no effect sets, reachable only from tests; a test comment additionally misdescribes which model the shipped shape uses. — rejected: production-dead confirmed (no effect sets `immutable`), but removal is out of scope for a review fix — `docs/islamicstars_palette_crossfade_plan.md` deliberately retained the engine-side machinery, and `immutable = true` is load-bearing in four general-purpose OpLeg smoke tests (medial, gated kis/dual, reconcile) whose palette expectations would need redesigning, not deleting. The misdescribing comments are corrected.
 
-140. **The CONWAY_SWEEP settle path's arrival frame is not bitwise the classified endpoint** — `core/animation/mesh.h:860-865` — the three sibling paths shortcut at `k >= 1` explicitly so the closing bookend is bitwise; the settle blend does not, violating the file's own stated invariant on the one leg kind that settles.
+140. ✅ **The CONWAY_SWEEP settle path's arrival frame is not bitwise the classified endpoint** — `core/animation/mesh.h:860-865` — the three sibling paths shortcut at `k >= 1` explicitly so the closing bookend is bitwise; the settle blend does not, violating the file's own stated invariant on the one leg kind that settles.
 
 141. **`MeshCarousel::compact_drop_all` is untested** — `core/animation/mesh.h:2691-2705` — the riskiest of the three compaction primitives (it evacuates nothing) with five live call sites, while both siblings have tests.
 
