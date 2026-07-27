@@ -12,8 +12,21 @@ import uuid as _uuid
 import sexp
 
 
+UID_NAMESPACE = _uuid.UUID("73e63115-f1ba-4688-a7e5-5a689c53d6fd")
+_uid_seq = {}
+
+
 def uid():
-    return str(_uuid.uuid4())
+    """UUID for a generated element, derived from the call site and occurrence.
+
+    Regenerating unchanged inputs yields a byte-identical file. The source file
+    is part of the key, so the schematic and board generators draw from
+    disjoint id spaces.
+    """
+    code = sys._getframe(1).f_code
+    site = f"{os.path.basename(code.co_filename)}:{code.co_name}"
+    n = _uid_seq[site] = _uid_seq.get(site, 0) + 1
+    return str(_uuid.uuid5(UID_NAMESPACE, f"{site}#{n}"))
 
 
 def fmt(v):
