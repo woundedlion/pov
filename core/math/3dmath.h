@@ -890,7 +890,9 @@ struct MobiusParams {
  * @brief Stereographic Projection: Sphere -> Complex Plane.
  * @param v Point on the unit sphere.
  * @return The projected complex-plane coordinate.
- * @details North pole (v.y ≈ 1) maps to the point at infinity on the real axis.
+ * @details Inside the north-pole cap (v.y ≈ 1) the result is the infinity
+ * sentinel magnitude carrying the (x,z) azimuth; only the exact pole, where the
+ * azimuth is undefined, lands on the real axis.
  */
 inline Complex stereo(const Vector &v) {
   float denom = 1.0f - v.y;
