@@ -279,7 +279,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 78. ✅ **`SDF::Intersection` can emit spans and still return false** — `core/render/sdf.h:1720-1724` — combined with finding 73 this would double-shade the next row. Unreachable today only because every leaf returns false before emitting — an invariant nothing states or tests.
 
-79. **Antipodal `SDF::Line` endpoints: rendered geometry and vertical bounds disagree** — `core/render/sdf.h:3962-4004` — the degenerate-normal fallback renders the entire great circle `x = 0` while the phi bounds stay pinned to a band around the endpoints' latitude, clipping the circle to a sliver.
+79. ✅ **Antipodal `SDF::Line` endpoints: rendered geometry and vertical bounds disagree** — `core/render/sdf.h:3962-4004` — the degenerate-normal fallback renders the entire great circle `x = 0` while the phi bounds stay pinned to a band around the endpoints' latitude, clipping the circle to a sliver.
 
 80. **`SDF::Flower` is the only solid shape missing from the cull-conservativeness grid** — `tests/test_sdf.h:1526-1552` — which is why finding 13 survived.
 

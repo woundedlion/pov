@@ -1645,6 +1645,22 @@ inline void test_line_arc_bulge_cull_covers_interior() {
 }
 
 /**
+ * @brief Verifies the cull covers a Line whose antipodal endpoints select no arc.
+ * @details With antipodal endpoints the arc plane is undefined and distance()
+ *   measures the whole great circle, not a segment. Endpoint-derived phi bounds
+ *   and a half-circle bounding cap both describe a segment, so they clip that
+ *   circle to a sliver; the bounds must cover the circle the shape actually
+ *   renders.
+ */
+inline void test_line_antipodal_cull_covers_interior() {
+  constexpr int W = 96, H = 48;
+  Vector a = Vector(0.4f, 0.6f, 0.69f).normalized();
+  SDF::Line ln(a, -a, /*thickness=*/0.15f);
+  int interior = expect_cull_covers_interior<W, H>(ln);
+  HS_EXPECT_GT(interior, 0);
+}
+
+/**
  * @brief Verifies the Ring interval cull covers interior pixels for thin rings
  *        whose band wraps a pole while the centerline still takes the fast path.
  * @details Regression for the centerline fast path emitting two *unmerged* arcs
@@ -2238,6 +2254,7 @@ inline int run_sdf_tests() {
   test_cull_covers_interior_over_orientation_grid();
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_line_arc_bulge_cull_covers_interior();
+  test_line_antipodal_cull_covers_interior();
   test_ring_pole_wrap_cull_covers_interior();
   test_distorted_ring_cull_covers_interior_high_freq();
   test_face_cull_covers_aa_fringe();
