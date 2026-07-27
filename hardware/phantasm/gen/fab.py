@@ -102,9 +102,9 @@ def find_kicad_cli():
 KCLI = find_kicad_cli()
 
 
-def run(args, **kw):
+def run(args, check=True, **kw):
     print("  $", os.path.basename(args[0]), " ".join(args[1:]))
-    return subprocess.run(args, check=True, capture_output=True, text=True, **kw)
+    return subprocess.run(args, check=check, capture_output=True, text=True, **kw)
 
 
 def require_clean_drc(report_path):
@@ -135,8 +135,9 @@ def run_drc(report_path):
     """Generate and require a clean error-severity DRC report."""
     if os.path.exists(report_path):
         os.remove(report_path)
+    # --exit-code-violations exits nonzero on a dirty board; the report is the diagnostic
     run([KCLI, "pcb", "drc", "--severity-error", "--exit-code-violations",
-         "-o", report_path, PCB])
+         "-o", report_path, PCB], check=False)
     return require_clean_drc(report_path)
 
 
