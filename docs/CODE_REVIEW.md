@@ -347,7 +347,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 112. ✅ **Locked Quilter placements are never validated against the generated outline** — `hardware/phantasm/gen/pcb.py:228-247` — absolute coordinates against a computed board length; a footprint swap that shortens the board puts the locked connectors outside it with no diagnostic.
 
-113. **`fab.parse_components` is a third independent hand-rolled S-expression reader** — `hardware/phantasm/gen/fab.py:143-174` — a depth counter over raw text plus regex, while `sexp.parse` and `export_netlist` already exist and `check.py` uses them on the same file. A `)` inside a quoted property mis-terminates the block.
+113. ✅ **`fab.parse_components` is a third independent hand-rolled S-expression reader** — `hardware/phantasm/gen/fab.py:143-174` — a depth counter over raw text plus regex, while `sexp.parse` and `export_netlist` already exist and `check.py` uses them on the same file. A `)` inside a quoted property mis-terminates the block.
 
 114. **`shorts.py`'s colinearity tolerance is not normalized by segment length** — `hardware/phantasm/gen/shorts.py:62-67` — the effective perpendicular tolerance is `0.02/len`, so a 100 mm wire admits 0.2 µm. Orthogonal wires are exact, so any diagonal wire silently loses mid-span detection.
 

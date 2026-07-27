@@ -20,6 +20,9 @@ import subprocess
 import sys
 import zipfile
 
+import sexp
+from kicad_common import F
+
 GEN = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(GEN)                       # hardware/phantasm
 PCB = os.path.join(PROJ, "phantasm.kicad_pcb")
@@ -143,35 +146,27 @@ def run_drc(report_path):
 
 def parse_components(net_path):
     """ref -> {value, footprint, dnp, lcsc} from a kicadsexpr netlist."""
-    src = open(net_path, encoding="utf-8").read()
+    root = sexp.parse(open(net_path, encoding="utf-8").read())[0]
     comps = {}
-    for m in re.finditer(r'\(comp\s', src):
-        i = m.start()
-        d = 0
-        j = i
-        while j < len(src):
-            c = src[j]
-            if c == '(':
-                d += 1
-            elif c == ')':
-                d -= 1
-                if d == 0:
-                    break
-            j += 1
-        blk = src[i:j + 1]
-        ref = re.search(r'\(ref "([^"]+)"\)', blk)
-        if not ref:
-            continue
-        ref = ref.group(1)
-        val = re.search(r'\(value "([^"]*)"\)', blk)
-        fp = re.search(r'\(footprint "([^"]*)"\)', blk)
-        lcsc = re.search(r'\(property\s*\(name "LCSC"\)\s*\(value "([^"]*)"\)', blk)
-        comps[ref] = {
-            "value": val.group(1) if val else "",
-            "footprint": fp.group(1) if fp else "",
-            "dnp": '(name "dnp")' in blk or '(name "DNP")' in blk,
-            "lcsc": lcsc.group(1) if lcsc else "",
-        }
+    for block in F(root, "components"):
+        for comp in F(block, "comp"):
+            ref = sexp._val(comp, "ref")
+            if not ref:
+                continue
+            props = {}
+            for p in F(comp, "property"):
+                name = sexp._val(p, "name")
+                if name:
+                    value = sexp._val(p, "value")
+                    props[name[0]] = value[0] if value else ""
+            val = sexp._val(comp, "value")
+            fp = sexp._val(comp, "footprint")
+            comps[ref[0]] = {
+                "value": val[0] if val else "",
+                "footprint": fp[0] if fp else "",
+                "dnp": "dnp" in props or "DNP" in props,
+                "lcsc": props.get("LCSC", ""),
+            }
     return comps
 
 
