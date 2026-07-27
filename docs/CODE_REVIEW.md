@@ -457,7 +457,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 166. ✅ **`engine.h` says `effects.h` pulls in 27 effect headers; it pulls in 24** — `core/engine/engine.h:10`.
 
-167. **Dead includes in `util.h`** — `core/engine/util.h:17-18` — `<memory>` and `<utility>` are unused.
+167. ✅ **Dead includes in `util.h`** — `core/engine/util.h:17-18` — `<memory>` and `<utility>` are unused.
 
 168. **`pop_front_internal()`'s doc names callers that do not exist** — `core/engine/static_circular_buffer.h:364-371` — `pop()` has no such function and `clear()` never calls it; the sibling `pop_back_internal` doc is correct.
 

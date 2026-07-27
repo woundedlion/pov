@@ -14,8 +14,6 @@
 #include <limits>
 #include <type_traits>
 #include "math/3dmath.h"
-#include <memory>
-#include <utility>
 
 /**
  * @brief Wraps a floating-point value around a modulo base (m).
