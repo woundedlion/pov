@@ -152,7 +152,8 @@ def teensy_footprint(model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
 
 def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           dnp=False, hide_reference=False,
-          teensy_model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
+          teensy_model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl",
+          consumed=None):
     node = teensy_footprint(teensy_model_path) if libid in ("", "phantasm:Teensy4.0") else \
         sexp.parse(sexp.dumps(load_mod(libid)))[0]  # deep copy via round-trip
     fid = libid if libid else "phantasm:Teensy4.0"
@@ -189,12 +190,14 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
                     c.insert(-1, [sexp.Sym("hide"), sexp.Sym("yes")])
             elif c[1] == "Value":
                 c[2] = value
-    # assign pad nets by name
+    # assign pad nets by name; `consumed` collects the (ref, pad) keys that matched
     for c in node:
         if isinstance(c, list) and c and c[0] == "pad":
             padname = c[1]
             nn = pad_net.get((ref, padname))
             if nn is not None:
+                if consumed is not None:
+                    consumed.add((ref, padname))
                 # remove any existing net, then add
                 c[:] = [d for d in c if not (isinstance(d, list) and d and d[0] == "net")]
                 c.append([sexp.Sym("net"), netid[nn], nn])
@@ -435,17 +438,26 @@ def main(unplaced=False):
     teensy_model_path = "${KIPRJMOD}/../phantasm.pretty/Teensy4.0.wrl" if unplaced else \
         "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
     foot_nodes = []
+    consumed = set()
     for ref, (x, y, rot) in PLACE.items():
         _, fp, val, dnp = comps[ref]
         lock = unplaced and ref in QUILTER_FIXED
         foot_nodes.append(embed(fp, ref, val, x, y, rot, pad_net, netid,
                                 path=paths.get(ref), locked=lock, dnp=dnp,
                                 hide_reference=lock,
-                                teensy_model_path=teensy_model_path))
+                                teensy_model_path=teensy_model_path,
+                                consumed=consumed))
     for ref, (x, y) in MOUNTING_HOLES.items():
         foot_nodes.append(embed(MOUNTING_HOLE_FOOTPRINT, ref, "M2.5",
                                 x, y, 0, pad_net, netid, locked=unplaced,
-                                hide_reference=unplaced))
+                                hide_reference=unplaced, consumed=consumed))
+    # A netlist pin with no pad of that name would drop its connection silently;
+    # refs that were never embedded drop their nets by design.
+    embedded = set(PLACE) | set(MOUNTING_HOLES)
+    orphan = sorted(k for k in pad_net if k[0] in embedded and k not in consumed)
+    if orphan:
+        sys.exit("ERROR unmatched netlist pins (no footprint pad of that name): "
+                 + ", ".join(f"{r}.{p}" for r, p in orphan))
 
     lines = []
     lines.append("(kicad_pcb")
