@@ -487,7 +487,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 181. ✅ **Dead scaffolding in `conway.h`** — `:485` (a `ScratchScope` over an arena never allocated from), `:137-167` (`vertex_orbit`'s discarded return), `:670` (a guard made unreachable-false by the preceding `HS_CHECK`).
 
-182. **Baked RELAX steps carry three different dead `param` values for one bake** — `core/mesh/solids.h:1365,1392,1445,1464` — unread whenever a bake is set, but they read as authored intent; dropping the bake silently picks 8 vs 217 iterations for identical geometry.
+182. ✅ **Baked RELAX steps carry three different dead `param` values for one bake** — `core/mesh/solids.h:1365,1392,1445,1464` — unread whenever a bake is set, but they read as authored intent; dropping the bake silently picks 8 vs 217 iterations for identical geometry.
 
 183. **A capacity trap names a knob that does not exist** — `core/mesh/hankin.h:132-134` — "MAX_INDICES" has exactly one occurrence in the tree: this string.
 

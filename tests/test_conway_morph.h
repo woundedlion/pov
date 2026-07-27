@@ -1896,7 +1896,7 @@ inline constexpr StepLegSite SNUB_LEG_SITES[] = {
     {"icosahedron", probe_icosahedron, 0.5f},
 };
 
-/** Standalone relax-leg sites, at the three shipping iteration counts. */
+/** Standalone relax-leg sites, spanning short to long iteration counts. */
 inline constexpr StepLegSite RELAX_LEG_SITES[] = {
     {"icosahedron_snub", probe_icosa_snub, 8.0f},
     {"dodecahedron_ambo_bevel33", probe_dodeca_ambo_bevel33, 100.0f},
@@ -3645,7 +3645,10 @@ inline ChainPeaks replay_build_chain(const char *name,
             nx = MeshOps::chamfer(cur, a, b, steps[k].param);
             break;
           default:
-            nx = MeshOps::relax(cur, a, b, static_cast<int>(steps[k].param));
+            nx = steps[k].bake
+                     ? MeshOps::relax_baked(cur, a, *steps[k].bake)
+                     : MeshOps::relax(cur, a, b,
+                                      static_cast<int>(steps[k].param));
             break;
           }
           next = Solids::finalize_solid(nx, target);
@@ -3752,7 +3755,7 @@ inline ChainPeaks replay_build_chain(const char *name,
                        bookend);
         default:
           return OpLeg(cur, static_cast<int>(steps[k].param), persistent_arena,
-                       cb, handoff, leg_frames[k], bookend);
+                       cb, handoff, leg_frames[k], bookend, steps[k].bake);
         }
       };
       OpLeg leg = make_leg();
