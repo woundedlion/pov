@@ -453,7 +453,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 164. ✅ **Three dead type aliases in the live alias block** — `core/engine/concepts.h:217-219` — `TransformFn`, `SpaceTransformRef` (identical types) and `ColorTransformRef` have zero references repo-wide.
 
-165. **`hs::clamp(float,…)` is `constexpr` on Cortex-M7/WASM but not on x86** — `core/engine/platform.h:1436,1460` — one interface, two contracts.
+165. ✅ **`hs::clamp(float,…)` is `constexpr` on Cortex-M7/WASM but not on x86** — `core/engine/platform.h:1436,1460` — one interface, two contracts.
 
 166. **`engine.h` says `effects.h` pulls in 27 effect headers; it pulls in 24** — `core/engine/engine.h:10`.
 

@@ -1437,7 +1437,12 @@ namespace hs {
  *          is REORDER-SENSITIVE: swapping to min(hi, v) would yield NaN and break
  *          the contract. Do not reorder the min operands.
  */
-inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
+inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
+                                                            float hi) {
+  // The SSE intrinsics are not constant-evaluable; the NaN-suppressing builtins
+  // yield the same NaN -> hi result.
+  if (__builtin_is_constant_evaluated())
+    return __builtin_fmaxf(lo, __builtin_fminf(v, hi));
   __m128 mv = _mm_set_ss(v);
   __m128 mlo = _mm_set_ss(lo);
   __m128 mhi = _mm_set_ss(hi);
