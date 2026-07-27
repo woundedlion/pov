@@ -10,7 +10,7 @@
 #include "engine/platform.h"
 #include "engine/constants.h"
 #include "math/3dmath.h"
-#include "engine/util.h" // for wrap()
+#include "engine/util.h" // for fast_wrap()
 
 /**
  * @brief Unit vector along the Cartesian X-axis.
@@ -286,13 +286,13 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  * @brief Projects a unit vector to its pixel column (azimuth only).
  * @tparam W The width.
  * @param v Unit vector on the sphere; only its x/z azimuth is read.
- * @return The `x` pixel coordinate in `[0, W)` (wrap() strictly excludes W).
+ * @return The `x` pixel coordinate in `[0, W)` (strictly excludes W).
  */
 template <int W>
 __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
-  // fast_atan2 is bounded by |pi|, so t lands in [-W/2, W/2] and fmod(t, W) is
-  // the identity: wrap() reduces to one conditional add. The upper guard keeps
-  // the half-open range when a tiny negative t rounds up to exactly W.
+  // fast_atan2 is bounded by |pi|, so t lands in [-W/2, W/2] and one conditional
+  // add wraps it. The upper guard keeps the half-open range when a tiny negative
+  // t rounds up to exactly W.
   float t = (fast_atan2(v.z, v.x) * W) / (2 * PI_F);
   if (t < 0.0f)
     t += W;
@@ -310,9 +310,9 @@ __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
  *   is the true latitude only when |v| == 1, so a non-unit `v` returns a
  *   silently-wrong row. Unguarded per-pixel path; callers normalize first.
  * @return The 2D PixelCoords. The `y` field is a float in `[0, H_VIRT-1]` but at
- *   the south pole can land a hair *above* `H_VIRT-1` (float round-trip), while `x`
- *   from `wrap()` is in `[0, W)` (strictly excludes W); a caller indexing a
- *   row/column buffer must floor (not round) first.
+ *   the south pole can land a hair *above* `H_VIRT-1` (float round-trip), while
+ *   `x` is in `[0, W)` (strictly excludes W); a caller indexing a row/column
+ *   buffer must floor (not round) first.
  */
 template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
   // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
