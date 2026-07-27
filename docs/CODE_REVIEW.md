@@ -323,7 +323,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 100. **GS never uses the base's substep driver that the base documents as shared** — `effects/ReactionDiffusionBase.h:216-241` vs `effects/GSReactionDiffusion.h:455-459` — GS hand-rolls the identical ping-pong; with an even step count the shared path is bit-identical.
 
-101. **GS's `draw_frame` override duplicates the base body with a stale stated reason** — `effects/GSReactionDiffusion.h:175-186` — the comment claims the base doesn't bracket the phases (it does); the real reason is the `grd_*` scope names the shipping profile report is written against. As written, a step added to the base silently skips GS.
+101. ✅ **GS's `draw_frame` override duplicates the base body with a stale stated reason** — `effects/GSReactionDiffusion.h:175-186` — the comment claims the base doesn't bracket the phases (it does); the real reason is the `grd_*` scope names the shipping profile report is written against. As written, a step added to the base silently skips GS.
 
 102. **The RD device-scratch `static_assert`s cannot fire in the native test build** — `effects/GSReactionDiffusion.h:136`, `effects/BZReactionDiffusion.h:100` — they score against the 8 MiB test arena; GS is the binding tenant with 4,096 B of real headroom. Fix: assert against `DEVICE_GLOBAL_ARENA_SIZE`.
 
