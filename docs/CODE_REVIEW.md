@@ -237,7 +237,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 57. **daydream's JS test suite is invisible in the README** — `README.md:2120-2126` — §11 says "three layers run the same suite" and lists only C++ paths, while daydream ships 35 test files and a `js-tests.yml` workflow. A contributor editing `driver.js` has no documented way to know tests exist.
 
-58. **README's palette roster is stale** — `README.md:1006` — says twenty-one; `palettes.h` defines 25 (`POPPED_PEACH`, `BLUE_LAGOON`, `ORANGE_CRUSH`, `PLUM_SUNRISE` undocumented). `POPPED_PEACH` is not incidental — it is a live `MeshPaletteBank` slot.
+58. ✅ **README's palette roster is stale** — `README.md:1006` — says twenty-one; `palettes.h` defines 25 (`POPPED_PEACH`, `BLUE_LAGOON`, `ORANGE_CRUSH`, `PLUM_SUNRISE` undocumented). `POPPED_PEACH` is not incidental — it is a live `MeshPaletteBank` slot.
 
 59. **README's rasterizer and transformer tables omit shipped primitives** — `README.md:742-756,908-916` — missing `Scan::DistortedRingStack` and `Scan::RingGroup`, and the entire displacement-field stack (`FieldTransformer`, `BallDropTransformer`, `NoiseProductTransformer`, plus the `spawn`/`spawn_pinned`/`init_storage`/`prepare_frame` ordering contract a new effect author will get wrong).
 
