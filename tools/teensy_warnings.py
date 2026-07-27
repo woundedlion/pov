@@ -39,6 +39,10 @@ THIRD_PARTY = ("lib/", ".platformio/", "packages/")
 # gcc: "<path>:<line>[:<col>]: warning: <message> [-Wflag]"
 _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
 
+# PlatformIO's own step line, or the compiler invocation `pio run -v` echoes.
+_COMPILE_RE = re.compile(
+    r"^\s*Compiling\s+(\S+)|\s-c\s+(\S+\.(?:cpp|cc|cxx|c|S))(?:\s|$)")
+
 
 _FIRST_PARTY_DIRS = frozenset(fp.rstrip("/") for fp in FIRST_PARTY)
 _THIRD_PARTY_DIRS = frozenset(tp.rstrip("/") for tp in THIRD_PARTY)
@@ -81,6 +85,21 @@ def extract_warnings(build_log: str) -> set[str]:
     return out
 
 
+def count_first_party_compiles(build_log: str) -> int:
+    """Compiler invocations on first-party sources visible in the log.
+
+    The ratchet's green and a broken capture both yield an empty warning set, so
+    the comparison is only meaningful once the log is known to hold a build that
+    could have emitted first-party warnings at all.
+    """
+    n = 0
+    for line in build_log.splitlines():
+        m = _COMPILE_RE.search(line)
+        if m and _relativize(m.group(1) or m.group(2)) is not None:
+            n += 1
+    return n
+
+
 def load_baseline(path: str | Path) -> set[str]:
     """Read the committed baseline set (ignoring blank and #-comment lines)."""
     text = Path(path).read_text(encoding="utf-8") if Path(path).exists() else ""
@@ -109,7 +128,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
     args = p.parse_args(argv)
 
-    current = extract_warnings(Path(args.build_log).read_text(encoding="utf-8"))
+    build_log = Path(args.build_log).read_text(encoding="utf-8")
+    compiles = count_first_party_compiles(build_log)
+    if compiles == 0:
+        prefix = "::error::" if args.github else ""
+        print(f"{prefix}[teensy-warnings] FAIL - no first-party compiler "
+              f"invocation in {args.build_log}: the capture broke (or the build "
+              f"was fully cached), so its empty warning set proves nothing. "
+              f"Drive this from a cache-disabled `pio run -v 2>&1 | tee` log.")
+        return 1
+    current = extract_warnings(build_log)
 
     if args.update_baseline:
         Path(args.baseline).write_text(render_baseline(current), encoding="utf-8")
@@ -120,7 +148,8 @@ def main(argv: list[str] | None = None) -> int:
     new = sorted(current - baseline)
     if not new:
         print(f"[teensy-warnings] PASS - {len(current)} warning(s), none new "
-              f"(baseline has {len(baseline)}).")
+              f"(baseline has {len(baseline)}; {compiles} first-party "
+              f"compile(s) in the log).")
         return 0
 
     prefix = "::error::" if args.github else "  - "

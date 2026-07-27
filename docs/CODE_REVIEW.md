@@ -125,7 +125,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 3. ✅ **The stack-budget CI gate passes when its measurement fails** — `tests/stack_measure.cpp:83-95` — `peak` is initialized to 0 and assigned only inside the density loop; if no painted window is detected the row prints `peak = 0 B`, `worst > BUDGET_BYTES` is false, and the only automated guard on the device's MPU-protected stack reports PASS. Fix: fail explicitly when `peak == 0`.
 
-4. **The Teensy warning ratchet passes on an empty or unparsed build log** — `tools/teensy_warnings.py:112-124` — `extract_warnings("")` yields an empty set, so a total capture break is indistinguishable from today's healthy green (the baseline file is currently empty). Fix: require evidence of real compiler invocations in the log before comparing.
+4. ✅ **The Teensy warning ratchet passes on an empty or unparsed build log** — `tools/teensy_warnings.py:112-124` — `extract_warnings("")` yields an empty set, so a total capture break is indistinguishable from today's healthy green (the baseline file is currently empty). Fix: require evidence of real compiler invocations in the log before comparing.
 
 5. **`parse_profile.py validate` certifies a capture containing no data** — `tools/parse_profile.py:572-638` — every check is skip-on-absent, so a log of three bare header lines prints four PASS lines and `VALID`, exit 0. The docs make this the mandatory pre-trust step for every device measurement. Fix: make the ppm-exactness check unconditional on a root counter plus wall being present.
 
