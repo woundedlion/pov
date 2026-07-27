@@ -243,7 +243,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 60. ✅ **README's §7.9 credits `Presets` with interpolation it does not implement** — `README.md:1205` — `presets.h` has no interpolation; callers drive the crossfade via `Animation::Lerp`, and the class doc says so correctly.
 
-61. **README's coordinate section omits the `H_OFFSET` clipping** — `README.md:132` — the stated `y ∈ [0,H) → phi ∈ [0,π]` mapping holds only for the host build; on Holosphere hardware `H_OFFSET == 3` clips the image short of π, which a dedicated test pins as intended. `H_OFFSET` appears nowhere in the README.
+61. ✅ **README's coordinate section omits the `H_OFFSET` clipping** — `README.md:132` — the stated `y ∈ [0,H) → phi ∈ [0,π]` mapping holds only for the host build; on Holosphere hardware `H_OFFSET == 3` clips the image short of π, which a dedicated test pins as intended. `H_OFFSET` appears nowhere in the README.
 
 62. **README says five geometry tools; §10.11 and the repo say four** — `README.md:1847` vs `:2027` — and only `solids.html` reuses `MeshOps`, not all of them.
 
