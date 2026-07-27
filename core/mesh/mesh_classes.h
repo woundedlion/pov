@@ -173,8 +173,11 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
+  const size_t fi_size = mesh.get_faces_size();
   HS_CHECK(mesh.topology.size() == F,
            "build_mesh_class_bake requires classify_faces_by_topology first");
+  HS_CHECK(mesh.get_face_offsets_size() == F,
+           "build_mesh_class_bake requires one face offset per face");
 
   out.classes.bind(persistent, MAX_CONGRUENCE_CLASSES);
   out.face_recs.bind(persistent, F);
@@ -205,6 +208,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     // Face::setup_frame_and_polygon builds per frame, so the canonical shape
     // and the per-frame polygon differ only by an in-plane rotation
     // (+ reflection), which the alignment correlation absorbs.
+    HS_CHECK(static_cast<size_t>(fo[f]) + count <= fi_size,
+             "mesh face span exceeds face index array");
     const uint16_t *idx = fi + fo[f];
     Vector center(0, 0, 0);
     for (int k = 0; k < count; ++k)

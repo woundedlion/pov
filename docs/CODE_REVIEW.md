@@ -285,7 +285,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 81. ❌ **The CSG layer has no production caller** — `core/render/sdf.h:1162-1931` — ~770 lines instantiated only by tests, yet it sets the `INTERVAL_SPAN_CAP = 32` sizing that costs `scan_region` ~1.6 KB of scratch per call (leaves emit ≤ 2 spans each). Worth an explicit keep/drop decision. REJECTED (needs user sign-off): test-only status confirmed (no Union/SmoothUnion/Subtract/Intersection instantiated outside tests/), but deleting a tested ~770-line subsystem is a product decision, and the INTERVAL_SPAN_CAP retune it would enable is separable — scan_region cannot size its scratch per-shape without threading a span-bound template parameter through every call site.
 
-82. **`build_mesh_class_bake` guards `topology` but not `face_offsets`** — `core/mesh/mesh_classes.h:174-177,208` — dereferences `fo[f]` with no check that offsets are bound or that the span fits, while `scan.h:1415` guards exactly this per face.
+82. ✅ **`build_mesh_class_bake` guards `topology` but not `face_offsets`** — `core/mesh/mesh_classes.h:174-177,208` — dereferences `fo[f]` with no check that offsets are bound or that the span fits, while `scan.h:1415` guards exactly this per face.
 
 83. **`MeshState`'s owned/borrowed mode is discriminated per array, not per mesh** — `core/mesh/spatial.h:362-405,444-467` — a mesh with only some arrays bound would silently serve owned counts against borrowed indices with no trap. The invariant holds today by convention alone.
 
