@@ -464,6 +464,48 @@ class TestWarningRatchet(unittest.TestCase):
         })
 
 
+class TestWarningRatchetCaptureEvidence(unittest.TestCase):
+    """A broken capture must not read as today's healthy green (§7.2)."""
+
+    PIO_LINE = "Compiling .pio/build/phantasm/targets/Phantasm/Phantasm.ino.cpp.o"
+    VERBOSE_LINE = ("arm-none-eabi-g++ -o .pio/build/phantasm/core/engine/memory.cpp.o "
+                    "-c core/engine/memory.cpp")
+
+    def _run(self, log_text):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "build.log"
+            log.write_text(log_text, encoding="utf-8")
+            base = Path(d) / "baseline.txt"
+            base.write_text("", encoding="utf-8")
+            return tw.main(["--build-log", str(log), "--baseline", str(base)])
+
+    def test_pio_step_line_counts_as_first_party(self):
+        self.assertEqual(tw.count_first_party_compiles(self.PIO_LINE), 1)
+
+    def test_verbose_invocation_counts_as_first_party(self):
+        self.assertEqual(tw.count_first_party_compiles(self.VERBOSE_LINE), 1)
+
+    def test_third_party_compiles_are_not_evidence(self):
+        log = "\n".join([
+            "Compiling .pio/build/phantasm/FrameworkArduino/usb.c.o",
+            "arm-none-eabi-gcc -o x.o -c /root/.platformio/packages/f/cores/t4/usb.c",
+        ])
+        self.assertEqual(tw.count_first_party_compiles(log), 0)
+
+    def test_empty_log_fails(self):
+        self.assertEqual(self._run(""), 1)
+
+    def test_log_with_no_compiles_fails_even_with_zero_warnings(self):
+        self.assertEqual(self._run("Environment    Status    Duration\nphantasm  SUCCESS\n"), 1)
+
+    def test_log_with_first_party_compiles_and_no_new_warnings_passes(self):
+        self.assertEqual(self._run(self.PIO_LINE + "\n"), 0)
+
+    def test_capture_evidence_does_not_mask_a_new_warning(self):
+        log = self.PIO_LINE + "\ncore/render/sdf.h:9:1: warning: novel [-Wnovel]\n"
+        self.assertEqual(self._run(log), 1)
+
+
 class TestRealCapture(unittest.TestCase):
     """Parse REAL arm-gcc 11.3.1 output from a fitting Holosphere build (§9.1).
 
