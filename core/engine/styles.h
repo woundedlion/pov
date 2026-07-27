@@ -165,7 +165,9 @@ struct Style {
   /**
    * @brief Push this Style's scalar params into the bound NoiseParams.
    * @details No-op if no NoiseParams is bound. Copies amplitude, frequency,
-   * speed, and scale, then calls NoiseParams::sync().
+   * speed, and scale, then calls NoiseParams::sync(). The feedback filter traps
+   * on flush when a bound NoiseParams has drifted from these scalars, so any
+   * write to them (slider, preset switch, lerp) must be followed by a call.
    */
   void sync_noise() const {
     if (!noise)

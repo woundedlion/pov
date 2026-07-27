@@ -377,7 +377,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 127. ✅ **`composition.h` is not self-contained yet is directly included by two files, with no guard** — `core/color/composition.h:5-9` — it declares itself non-standalone and uses eight types it never declares; it compiles only because both includers happen to pull `color.h` first. `animation/mesh.h` already demonstrates the `#ifndef …_INTERNAL / #error` idiom.
 
-128. **`Style` has two sync entry points with split ownership** — `core/engine/styles.h:152,170` — `sync_hue()` is called by the filter every flush; `sync_noise()` is the effect's job and nothing verifies it ran, so a missed call silently leaves the previous preset's amplitude driving the warp.
+128. ✅ **`Style` has two sync entry points with split ownership** — `core/engine/styles.h:152,170` — `sync_hue()` is called by the filter every flush; `sync_noise()` is the effect's job and nothing verifies it ran, so a missed call silently leaves the previous preset's amplitude driving the warp.
 
 129. **`Style::downsample`'s documented scratch requirement understates the real one ~2×** — `core/engine/styles.h:106-112` — the formula omits the `WarpControl` array (~8.1 KB at 288×144, DS=4), so an effect sizing its scratch arena from this comment traps mid-flush.
 
