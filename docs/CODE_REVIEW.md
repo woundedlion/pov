@@ -471,7 +471,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 173. ✅ **Dead quaternion API with an ambiguous contract** — `core/math/3dmath.h:658,1195` — `unit_inverse()` and `angle_between(Quaternion,Quaternion)`; the latter returns the 4-D half-angle and gives different results for `q` and `−q`.
 
-174. **Six of eleven easings and two of three waves are dead** — `core/math/easing.h:25,56,63,91,101,111`, `core/math/waves.h:39,61` — flagged for a deliberate keep-or-cut decision, since these read as an intentional curve library.
+174. ❌ **Six of eleven easings and two of three waves are dead** — `core/math/easing.h:25,56,63,91,101,111`, `core/math/waves.h:39,61` — flagged for a deliberate keep-or-cut decision, since these read as an intentional curve library. — rejected: keep — easing.h/waves.h are an intentional curve library; unused entries are inventory, not dead code.
 
 175. **Stale `wrap()` references** — `core/math/geometry.h:15,320,325,345` — the header now uses `fast_wrap` or inlines the conditional.
 
