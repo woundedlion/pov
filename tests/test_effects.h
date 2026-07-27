@@ -3227,16 +3227,39 @@ inline void test_needs_full_frame_gate() {
 }
 
 /**
+ * @brief White-box accessor for Voronoi's seeded sites and coarse-grid tuning
+ *        constants. The constants do not depend on W/H, so one instantiation
+ *        supplies them for every resolution under test.
+ */
+struct VoronoiWhiteBox {
+  using VO = Voronoi<DEFAULT_W, DEFAULT_H>;
+  static constexpr int MAX_SITES = VO::MAX_SITES;
+  static constexpr int COHERENCE_BLOCK = VO::COHERENCE_BLOCK;
+  static constexpr int COHERENCE_BLOCK_MIN = VO::COHERENCE_BLOCK_MIN;
+
+  /** @brief Number of currently seeded sites. */
+  template <int W, int H> static size_t site_count(const Voronoi<W, H> &v) {
+    return v.sites_buffer.size();
+  }
+  /** @brief Spin axis of seeded site @p i. */
+  template <int W, int H>
+  static Vector site_axis(const Voronoi<W, H> &v, size_t i) {
+    return v.sites_buffer[i].axis;
+  }
+};
+
+/**
  * @brief Verifies Voronoi seeds every spin axis through random_vector().
  */
 inline void test_voronoi_axes_use_uniform_sampler() {
+  using WB = VoronoiWhiteBox;
   reset_effect_globals();
   Voronoi<DEVICE_W, DEVICE_H> effect;
   effect.init();
 
   hs::random().seed(1337u);
-  for (size_t i = 0; i < effect.sites_buffer.size(); ++i)
-    HS_EXPECT_VEC(effect.sites_buffer[i].axis, random_vector(), 0.0f);
+  for (size_t i = 0; i < WB::site_count(effect); ++i)
+    HS_EXPECT_VEC(WB::site_axis(effect, i), random_vector(), 0.0f);
 }
 
 /**
@@ -3274,9 +3297,9 @@ inline double voronoi_union_nearest_match(std::span<const Vector> sites,
   // Mirror of Voronoi::draw_frame's block-edge derivation (effects/Voronoi.h).
   const float cell_px =
       (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites.size()));
-  const int B =
-      std::clamp(static_cast<int>(cell_px), Voronoi<W, H>::COHERENCE_BLOCK_MIN,
-                 Voronoi<W, H>::COHERENCE_BLOCK);
+  const int B = std::clamp(static_cast<int>(cell_px),
+                           VoronoiWhiteBox::COHERENCE_BLOCK_MIN,
+                           VoronoiWhiteBox::COHERENCE_BLOCK);
 
   const int nbx = (W - 1) / B + 2;
   const int nby = (H - 1) / B + 2;
@@ -3358,7 +3381,7 @@ inline void test_voronoi_union_candidates_cover_nearest() {
   // Dense regime: seed MAX_SITES on a Fibonacci sphere exactly as
   // Voronoi::seed_sites places them, so the adaptive block floors at
   // COHERENCE_BLOCK_MIN.
-  constexpr int N = Voronoi<W, H>::MAX_SITES;
+  constexpr int N = VoronoiWhiteBox::MAX_SITES;
   static Vector fib[N];
   const float golden_angle = PI_F * (3.0f - sqrtf(5.0f));
   for (int i = 0; i < N; ++i) {
