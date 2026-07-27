@@ -651,24 +651,7 @@ public:
    * @param effect The effect instance owning the buffer.
    */
   Canvas(Effect &effect) : effect_(effect) {
-    // Not a TOCTOU race: single-core, strict index ownership — the main loop
-    // writes cur_/next_, the ISR only sets prev_ = next_, so the gate can't be
-    // falsified between check and flip.
-    //
-    // Watchdog: buffer_free() is re-satisfied only when the display ISR advances
-    // at a frame boundary; an unbounded wait means that ISR stalled, so trap
-    // rather than hang. The outer buffer_free() guard skips the micros() reads on
-    // the no-wait path.
-    if (!effect_.buffer_free()) {
-      const unsigned long wait_start = micros();
-      while (!effect_.buffer_free()) {
-        HS_CHECK(micros() - wait_start < BUFFER_FREE_WATCHDOG_US,
-                 "buffer_free watchdog timeout — display ISR stalled");
-#ifdef HS_TEST_BUILD
-        s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
-#endif
-      }
-    }
+    wait_for_free_buffer();
     effect_.notify_buffer_ready();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
@@ -682,16 +665,7 @@ public:
    *          and full-frame effects use the generic constructor.
    */
   Canvas(Effect &effect, ClearDisplayClipTag) : effect_(effect) {
-    if (!effect_.buffer_free()) {
-      const unsigned long wait_start = micros();
-      while (!effect_.buffer_free()) {
-        HS_CHECK(micros() - wait_start < BUFFER_FREE_WATCHDOG_US,
-                 "buffer_free watchdog timeout — display ISR stalled");
-#ifdef HS_TEST_BUILD
-        s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
-#endif
-      }
-    }
+    wait_for_free_buffer();
     effect_.notify_buffer_ready();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
@@ -840,6 +814,28 @@ public:
 #endif
 
 private:
+  /**
+   * @brief Spins until the effect has a free back buffer.
+   * @details Not a TOCTOU race: single-core, strict index ownership — the main
+   * loop writes cur_/next_, the ISR only sets prev_ = next_, so the gate can't be
+   * falsified between check and flip. buffer_free() is re-satisfied only when the
+   * display ISR advances at a frame boundary, so an unbounded wait means that ISR
+   * stalled and the watchdog traps rather than hanging. The outer buffer_free()
+   * guard skips the micros() reads on the no-wait path.
+   */
+  void wait_for_free_buffer() {
+    if (effect_.buffer_free())
+      return;
+    const unsigned long wait_start = micros();
+    while (!effect_.buffer_free()) {
+      HS_CHECK(micros() - wait_start < BUFFER_FREE_WATCHDOG_US,
+               "buffer_free watchdog timeout — display ISR stalled");
+#ifdef HS_TEST_BUILD
+      s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
+#endif
+    }
+  }
+
   /**
    * @brief Clears the current display clip, excluding its render margin.
    * @details Device builds keep this helper out of line and outside ITCM.
