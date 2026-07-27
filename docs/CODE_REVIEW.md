@@ -281,7 +281,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 79. ✅ **Antipodal `SDF::Line` endpoints: rendered geometry and vertical bounds disagree** — `core/render/sdf.h:3962-4004` — the degenerate-normal fallback renders the entire great circle `x = 0` while the phi bounds stay pinned to a band around the endpoints' latitude, clipping the circle to a sliver.
 
-80. **`SDF::Flower` is the only solid shape missing from the cull-conservativeness grid** — `tests/test_sdf.h:1526-1552` — which is why finding 13 survived.
+80. ✅ **`SDF::Flower` is the only solid shape missing from the cull-conservativeness grid** — `tests/test_sdf.h:1526-1552` — which is why finding 13 survived.
 
 81. **The CSG layer has no production caller** — `core/render/sdf.h:1162-1931` — ~770 lines instantiated only by tests, yet it sets the `INTERVAL_SPAN_CAP = 32` sizing that costs `scan_region` ~1.6 KB of scratch per call (leaves emit ≤ 2 spans each). Worth an explicit keep/drop decision.
 
