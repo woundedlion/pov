@@ -261,6 +261,35 @@ inline void test_load_full_count() {
 }
 
 /**
+ * @brief Verifies a partial load() blanks every pixel slot past count, so a
+ * shorter frame cannot leave a lit tail behind from earlier writes.
+ * @details Lights the whole strip via packPixel() first, so the blanked slots
+ * are distinguishable from a fresh frame's zeros. The 0xFF brightness byte is
+ * primed at construction and must survive the blanking.
+ */
+inline void test_load_blanks_tail() {
+  reset_correction();
+  Frame f;
+
+  const Pixel16 white(CRGB(255, 255, 255));
+  for (int i = 0; i < N; ++i)
+    f.packPixel(i, white);
+  HS_EXPECT_EQ(pixel(f, N - 1)[3], 255);
+
+  const CRGB src[2] = {CRGB(255, 0, 0), CRGB(0, 255, 0)};
+  f.load(src, 2);
+
+  HS_EXPECT_EQ(pixel(f, 0)[3], 255); // R
+  HS_EXPECT_EQ(pixel(f, 1)[2], 255); // G
+  for (int i = 2; i < N; ++i) {
+    HS_EXPECT_EQ(pixel(f, i)[0], 0xFF);
+    HS_EXPECT_EQ(pixel(f, i)[1], 0);
+    HS_EXPECT_EQ(pixel(f, i)[2], 0);
+    HS_EXPECT_EQ(pixel(f, i)[3], 0);
+  }
+}
+
+/**
  * @brief Runs the full hd107s_frame test suite.
  * @return The module's failure count from end_module().
  */
@@ -273,6 +302,7 @@ inline int run_hd107s_tests() {
   test_packpixel_wire_order();
   test_load_matches_packpixel();
   test_load_full_count();
+  test_load_blanks_tail();
   reset_correction(); // leave shared static state clean for any later module
   return fixture.result();
 }
