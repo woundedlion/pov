@@ -1176,6 +1176,8 @@ private:
     const size_t landed_faces = build_next_seed_.face_counts.size();
     HS_CHECK(landed_faces <= build_landing_->faces,
              "IslamicStars: next seed larger than the leg landing");
+    HS_CHECK(landed_faces <= MAX_BUILD_FACES,
+             "IslamicStars: next seed exceeds the slot palette capacity");
     // The carry lives in the idle slot's face-palette array: the outgoing
     // shape was dropped at the recipe spawn, and the array's same-address
     // re-claim keeps the bytes across every boundary compaction.
@@ -1449,6 +1451,8 @@ private:
     const size_t landed_faces = build_seed_.face_counts.size();
     HS_CHECK(landed_faces <= build_landing_->faces,
              "IslamicStars: finished solid larger than the leg landing");
+    HS_CHECK(landed_faces <= MAX_BUILD_FACES,
+             "IslamicStars: finished solid exceeds the slot palette capacity");
     HS_CHECK(build_landing_->topology,
              "IslamicStars: finished leg has no topology");
     ScratchScope topology_guard(scratch_arena_b);
