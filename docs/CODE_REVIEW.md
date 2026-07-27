@@ -321,7 +321,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 99. ✅ **`Voronoi` exposes internals publicly instead of using the house white-box seam** — `effects/Voronoi.h:22` — GS, BZ, Liquid2D and Flyby all solve the same test-access problem with a `friend struct …WhiteBox`.
 
-100. **GS never uses the base's substep driver that the base documents as shared** — `effects/ReactionDiffusionBase.h:216-241` vs `effects/GSReactionDiffusion.h:455-459` — GS hand-rolls the identical ping-pong; with an even step count the shared path is bit-identical.
+100. ✅ **GS never uses the base's substep driver that the base documents as shared** — `effects/ReactionDiffusionBase.h:216-241` vs `effects/GSReactionDiffusion.h:455-459` — GS hand-rolls the identical ping-pong; with an even step count the shared path is bit-identical.
 
 101. ✅ **GS's `draw_frame` override duplicates the base body with a stale stated reason** — `effects/GSReactionDiffusion.h:175-186` — the comment claims the base doesn't bracket the phases (it does); the real reason is the `grd_*` scope names the shipping profile report is written against. As written, a step added to the base silently skips GS.
 

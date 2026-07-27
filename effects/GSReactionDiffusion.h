@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <utility>
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
@@ -89,6 +88,7 @@ class GSReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
+  using Base::advance_substeps;
   using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::init_lattice;
@@ -433,11 +433,11 @@ private:
         cur_a[i] = from_q16(state.A[i]);
         cur_b[i] = from_q16(state.B[i]);
       }
-      for (int k = 0; k < STEPS_PER_FRAME; k++) {
-        step_physics(cur_a, cur_b, nxt_a, nxt_b);
-        std::swap(cur_a, nxt_a);
-        std::swap(cur_b, nxt_b);
-      }
+      advance_substeps(STEPS_PER_FRAME, std::array<float *, 2>{cur_a, cur_b},
+                       std::array<float *, 2>{nxt_a, nxt_b},
+                       [&](auto &cur, auto &nxt) {
+                         step_physics(cur[0], cur[1], nxt[0], nxt[1]);
+                       });
       float db_sum = 0.0f;
       for (int i = 0; i < RD_N; i++) {
         state.A[i] = to_q16(cur_a[i]);
