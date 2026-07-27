@@ -39,9 +39,9 @@ jobs:
         # running in zero Linux/sanitizer jobs. Adjust groupings here only.
         include: &shard_matrix
           - shard: 1
-            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|hankin|geometry|module_roster|module_includes)$"
+            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|hankin|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes)$"
           - shard: 2
-            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp|conway_soak)$"
+            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|relax_bake_verify)$"
           - shard: 3
             test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|generators|animation|effects|h_offset_renorm|stack_budget|arena_budget)$"
           - shard: 4
