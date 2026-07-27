@@ -405,7 +405,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 141. ✅ **`MeshCarousel::compact_drop_all` is untested** — `core/animation/mesh.h:2691-2705` — the riskiest of the three compaction primitives (it evacuates nothing) with five live call sites, while both siblings have tests.
 
-142. **`worst_a` is computed and printed but never asserted** — `tests/test_opchain_arena_survey.h:197,210` — the scratch-B budget is gated and scratch-A is not, while the shipping chains do get a per-chain gate elsewhere — a clearly unintentional asymmetry.
+142. ✅ **`worst_a` is computed and printed but never asserted** — `tests/test_opchain_arena_survey.h:197,210` — the scratch-B budget is gated and scratch-A is not, while the shipping chains do get a per-chain gate elsewhere — a clearly unintentional asymmetry.
 
 143. **`aa_audit_main.cpp` and `aa_search_main.cpp` are in no build target** — 338 lines referenced by no CMake file, calling APIs that have since moved. The project made the opposite call for their siblings, keeping `perf_bench` in the build explicitly as a bit-rot guard.
 
