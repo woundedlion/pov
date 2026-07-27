@@ -119,13 +119,22 @@ namespace Animation {
  * `max_angle` over a total sweep of `angle` radians.
  * @param angle Total sweep angle in radians.
  * @param max_angle Per-column smoothness threshold in radians.
- * @return Sub-step count, always >= 1 (tight ceil, no extra subdivision).
+ * @return Sub-step count, clamped to [1, MAX_SUBSTEPS] (tight ceil in range, no
+ * extra subdivision).
  * @details The caller upsamples the orientation trail to (result + 1) frames,
  * so the loop's (len-1) sub-intervals each stay <= max_angle. Shared by Motion
  * and Rotation so both size the trail identically for the same angle.
+ * @note The upper clamp keeps the float->int conversion defined for an
+ * arbitrarily large sweep; the result saturates instead, mirroring
+ * Orientation::upsample's soft degrade past capacity (the caller clamps again to
+ * its own trail capacity). A NaN or non-positive quotient yields 1.
  */
 inline int rotation_substeps(float angle, float max_angle) {
-  return static_cast<int>(std::ceil(std::max(1.0f, angle / max_angle)));
+  constexpr float MAX_SUBSTEPS = 4096.0f;
+  const float steps = std::ceil(angle / max_angle);
+  if (!(steps > 1.0f)) // false for NaN
+    return 1;
+  return static_cast<int>(std::min(steps, MAX_SUBSTEPS));
 }
 
 /**
