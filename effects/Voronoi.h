@@ -11,6 +11,13 @@
 #include <cmath>
 #include <span>
 
+// Unit-test accessor for the seeded sites and the coarse-grid tuning constants.
+namespace hs_test {
+namespace effects_tests {
+struct VoronoiWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Spherical Voronoi effect: scatters sites on the unit sphere, animates
  *        them, and shades each pixel by its nearest site with edge-sharpening
@@ -20,16 +27,6 @@
  */
 template <int W, int H> class Voronoi : public Effect {
 public:
-  /**
-   * @brief One Voronoi seed: position on the unit sphere, the rotation axis it
-   *        spins about, and the cell fill color.
-   */
-  struct Site {
-    Vector pos;   /**< Position on the unit sphere. */
-    Vector axis;  /**< Unit rotation axis the site spins about. */
-    Color4 color; /**< Cell fill color (16-bit linear channels). */
-  };
-
   /**
    * @brief Constructs the effect with the templated framebuffer dimensions.
    */
@@ -261,6 +258,20 @@ public:
     }
   }
 
+private:
+  // Test seam: reaches the seeded sites and the coarse-grid tuning constants.
+  friend struct ::hs_test::effects_tests::VoronoiWhiteBox;
+
+  /**
+   * @brief One Voronoi seed: position on the unit sphere, the rotation axis it
+   *        spins about, and the cell fill color.
+   */
+  struct Site {
+    Vector pos;   /**< Position on the unit sphere. */
+    Vector axis;  /**< Unit rotation axis the site spins about. */
+    Color4 color; /**< Cell fill color (16-bit linear channels). */
+  };
+
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
                                              is allocated once at this size. */
   static constexpr int COHERENCE_BLOCK = 8; /**< Coarse-coherence block edge in
@@ -368,7 +379,6 @@ public:
     current_num_sites = n;
   }
 
-private:
   /**
    * @brief Live-tunable GUI parameters for the Voronoi effect.
    */

@@ -319,7 +319,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 98. ✅ **`Voronoi::CellId::has_second` is write-only and costs ~5.4 KB of scratch** — `effects/Voronoi.h:285` — never read (the shading path derives its own), and it pushes `sizeof(CellId)` from 4 to 6 across the whole corner grid.
 
-99. **`Voronoi` exposes internals publicly instead of using the house white-box seam** — `effects/Voronoi.h:22` — GS, BZ, Liquid2D and Flyby all solve the same test-access problem with a `friend struct …WhiteBox`.
+99. ✅ **`Voronoi` exposes internals publicly instead of using the house white-box seam** — `effects/Voronoi.h:22` — GS, BZ, Liquid2D and Flyby all solve the same test-access problem with a `friend struct …WhiteBox`.
 
 100. **GS never uses the base's substep driver that the base documents as shared** — `effects/ReactionDiffusionBase.h:216-241` vs `effects/GSReactionDiffusion.h:455-459` — GS hand-rolls the identical ping-pong; with an even step count the shared path is bit-identical.
 
