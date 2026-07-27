@@ -551,6 +551,7 @@ struct DistortedRingStack {
   static void draw(PipelineT &pipeline, Canvas &canvas, int n_rings,
                    const SDF::DistortedRing *shapes, const int8_t *slot_by_ring,
                    int n_slots, RingShaderT &&shader) {
+    HS_CHECK(n_slots >= 1);
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
@@ -587,6 +588,7 @@ struct DistortedRingStack {
 
     SDF::DistanceResult res;
     Fragment frag;
+    ScopedRenderTimer timer_guard(canvas);
     for (int y = y_lo; y <= y_hi; ++y) {
       const float sp = TrigLUT<W, H>::sin_phi[y];
       const float cp = TrigLUT<W, H>::cos_phi[y];
