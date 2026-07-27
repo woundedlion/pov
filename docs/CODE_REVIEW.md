@@ -225,7 +225,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 51. ✅ **README's Feedback filter row says "Stateless — no internal frame storage"** — `README.md:529` vs `core/render/filter.h:1968-1972` — it now carries a persistent warp cache with `STORAGE_BYTES` and `init_storage(Arena&)`. An effect author trusting "stateless" gets a correct image that silently rebuilds the entire control field every frame, with no assert, log or test failure. Only `MeshFeedback.h:121` calls it.
 
-52. **README describes a coarse warp grid the code no longer builds, and omits `DirectAntiAliasSink`** — `README.md:521-523,529` vs `core/render/filter.h:1085,1565-1578` — the field is a spherical latitude-ring control lattice, not `W/DS × H/DS`; and `DirectAntiAliasSink` is a shipped, device-used terminal sink with a non-obvious per-frame `prepare()` contract, absent from the docs.
+52. ✅ **README describes a coarse warp grid the code no longer builds, and omits `DirectAntiAliasSink`** — `README.md:521-523,529` vs `core/render/filter.h:1085,1565-1578` — the field is a spherical latitude-ring control lattice, not `W/DS × H/DS`; and `DirectAntiAliasSink` is a shipped, device-used terminal sink with a non-obvious per-frame `prepare()` contract, absent from the docs.
 
 53. ✅ **README's `meta` operator description is wrong on two counts** — `README.md:1126,1139` — `meta` is `kis ∘ dual ∘ ambo` (three steps), not "kis ∘ ambo", and being odd-length it returns in **`target`**, not `temp` as the load-bearing polarity paragraph claims. A dedicated test exists precisely to pin `meta ≠ kis(ambo)`. (Reported by three audits.)
 
