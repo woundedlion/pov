@@ -56,12 +56,14 @@ public:
         palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
 
   // Scratch A holds the per-frame vertices buffer and, during the draw call, the
-  // Multiline fragment buffer it binds (capacity vertices.size()+2) at the same
-  // time, so the worst case is both buffers live at once.
+  // Multiline fragment buffer it binds (capacity vertices.size()+2) plus
+  // rasterize's own sub-step cache, so the worst case is all three live at once.
   static constexpr size_t SCRATCH_A_BYTES = 200 * 1024;
-  static_assert(SCRATCH_A_BYTES >= (2 * MAX_FRAGMENTS + 2) * sizeof(Fragment),
-                "scratch arena A must fit the vertices buffer and the "
-                "Multiline-draw fragment buffer at once");
+  static_assert(SCRATCH_A_BYTES >= (2 * MAX_FRAGMENTS + 2) * sizeof(Fragment) +
+                                       Plot::rasterize_scratch_a_bytes<W>(),
+                "scratch arena A must fit the vertices buffer, the "
+                "Multiline-draw fragment buffer and rasterize's sub-step cache "
+                "at once");
 
   // init() allocates the single Node (Orientation + OrientationTrail) from the
   // persistent partition; static_palette binds in place with no arena storage.
