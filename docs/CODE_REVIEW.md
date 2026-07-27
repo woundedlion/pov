@@ -555,7 +555,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 215. ✅ **Flyby marks animated params by a name-lookup loop** — `effects/Flyby.h:64-66` — six repeated string literals with runtime-only typo detection, where `register_animated_param` makes the pairing unmissable.
 
-216. **`setEffect()`'s contract omits the clip reset that `setResolution()` documents** — `targets/wasm/wasm.cpp:335-345` — real and load-bearing (a daydream worker depends on it) but documented only on the consumer side.
+216. ✅ **`setEffect()`'s contract omits the clip reset that `setResolution()` documents** — `targets/wasm/wasm.cpp:335-345` — real and load-bearing (a daydream worker depends on it) but documented only on the consumer side.
 
 217. **README omits the `options` field from the parameter-definition schema** — `README.md:1885` — the enum path is live in both the bridge and the GUI.
 
