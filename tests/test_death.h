@@ -1113,10 +1113,7 @@ inline void case_feedback_downsample_indivisible() {
   ::Feedback::Style style = ::Feedback::Style::Smoke();
   style.downsample = opaque(5); // 32 % 5 != 0 -> HS_CHECK
   Filter::Pixel::Feedback<W, H> fb(style);
-  fb.flush(c, ScreenTrailFn([](float, float, float) {
-             return Color4(Pixel(0, 0, 0), 0.0f);
-           }),
-           1.0f, [](float, float, const ::Pixel &, float, float) {});
+  fb.flush(c, 1.0f);
 }
 
 /**
