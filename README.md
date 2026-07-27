@@ -508,6 +508,11 @@ void MyEffect::draw_frame() override {
 }                           // ~Canvas() — queue_frame()
 ```
 
+The clear covers only the current display clip unless the effect declares
+`needs_full_frame`, since a band-clippable effect neither draws nor reads
+outside its clip. Nothing to opt into: the constructor reads both flags off the
+effect.
+
 `canvas(x, y)` is a direct array subscript into the write buffer (`bufs_[cur_][y * width + x]`). No bounds checking, no virtual dispatch.
 
 ### The Filter Pipeline

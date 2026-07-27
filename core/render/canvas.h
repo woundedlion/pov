@@ -46,13 +46,17 @@ public:
   using BufferReadyHook = void (*)(Effect &);
 
   bool debug_visuals = false; /**< Flag to enable visual debugging overlays. */
+#ifdef HS_TEST_BUILD
+  /** @brief Forces the whole-buffer clear, for clip-clear parity tests. */
+  bool force_full_buffer_clear = false;
+#endif
 
   /**
    * @brief Constructs an Effect instance.
    * @param W The width (resolution) of the effect, in [1, MAX_W].
    * @param H The height (resolution) of the effect, in [1, MAX_H].
    * @param cfg Construction-time behavior flags; see EffectConfig. Defaults to
-   *        a plain band-clippable effect with full-buffer clearing.
+   *        a plain band-clippable effect.
    */
   HS_COLD_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
@@ -642,12 +646,9 @@ private:
  */
 class Canvas {
 public:
-  /** @brief Opt-in tag for clearing only the current display clip. */
-  struct ClearDisplayClipTag {};
-
   /**
-   * @brief Constructs the Canvas, advancing the effect buffer and optionally
-   * clearing it.
+   * @brief Constructs the Canvas, advancing the effect buffer and clearing
+   * whatever of it can still hold stale pixels.
    * @param effect The effect instance owning the buffer.
    */
   Canvas(Effect &effect) : effect_(effect) {
@@ -655,22 +656,8 @@ public:
     effect_.notify_buffer_ready();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
-      clear_buffer();
-    }
-  }
-
-  /**
-   * @brief Constructs a drawing context that clears only the display clip.
-   * @details Use only for a non-persistent, segment-clippable effect. Persistent
-   *          and full-frame effects use the generic constructor.
-   */
-  Canvas(Effect &effect, ClearDisplayClipTag) : effect_(effect) {
-    wait_for_free_buffer();
-    effect_.notify_buffer_ready();
-    effect_.advance_buffer();
-    if (!effect_.persist_pixels) {
       HS_PROFILE(canvas_clear);
-      clear_display_clip_buffer();
+      clear_stale_pixels();
     }
   }
 
@@ -837,6 +824,29 @@ private:
       s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
 #endif
     }
+  }
+
+  /**
+   * @brief Clears whatever of the freshly acquired buffer can still show stale
+   *        pixels from the frame that last wrote it.
+   * @details A band-clippable effect neither draws nor reads outside its clip,
+   *          so the leftovers there are invisible and only the display band has
+   *          to be cleared. A full-frame effect does read across the band edge
+   *          (some filter in its pipeline crosses segments), so it needs the
+   *          whole buffer. Unsegmented targets clip to the full canvas, where
+   *          the two are the same fill.
+   */
+  void clear_stale_pixels() {
+#ifdef HS_TEST_BUILD
+    if (effect_.force_full_buffer_clear) {
+      clear_buffer();
+      return;
+    }
+#endif
+    if (effect_.full_frame)
+      clear_buffer();
+    else
+      clear_display_clip_buffer();
   }
 
   /**

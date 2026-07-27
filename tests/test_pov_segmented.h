@@ -431,7 +431,7 @@ public:
 
   void draw_frame() override {
     if (clipped_clear) {
-      Canvas canvas(*this, Canvas::ClearDisplayClipTag{});
+      Canvas canvas(*this);
       paint(canvas);
     } else {
       Canvas canvas(*this);

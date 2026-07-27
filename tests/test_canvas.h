@@ -209,7 +209,7 @@ inline void test_clip_clear_exact_rectangle() {
   fx.set_clip(1, 3, 2, 6);
   fx.set_margin(2);
   {
-    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    Canvas c(fx);
     for (int y = 0; y < 4; ++y) {
       for (int x = 0; x < 8; ++x) {
         const bool inside = y >= 1 && y < 3 && x >= 2 && x < 6;
@@ -242,7 +242,7 @@ inline void test_clip_clear_alternates_clips_and_buffers() {
 
   fx.set_clip(0, 4, 0, 4);
   {
-    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    Canvas c(fx);
     for (int y = 0; y < 4; ++y)
       for (int x = 0; x < 8; ++x)
         HS_EXPECT_TRUE(x < 4 ? pix_eq(c(x, y), 0, 0, 0)
@@ -255,7 +255,7 @@ inline void test_clip_clear_alternates_clips_and_buffers() {
 
   fx.set_clip(0, 4, 4, 8);
   {
-    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    Canvas c(fx);
     for (int y = 0; y < 4; ++y)
       for (int x = 0; x < 8; ++x)
         HS_EXPECT_TRUE(x >= 4 ? pix_eq(c(x, y), 0, 0, 0)
@@ -265,7 +265,7 @@ inline void test_clip_clear_alternates_clips_and_buffers() {
 
   fx.set_clip(0, 4, 0, 4);
   {
-    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    Canvas c(fx);
     for (int y = 0; y < 4; ++y)
       for (int x = 0; x < 8; ++x)
         HS_EXPECT_TRUE(x < 4 ? pix_eq(c(x, y), 0, 0, 0)
@@ -289,7 +289,7 @@ inline void test_clip_clear_full_clip_matches_full_clear() {
   }
   fx.advance_display();
 
-  Canvas c(fx, Canvas::ClearDisplayClipTag{});
+  Canvas c(fx);
   for (int i = 0; i < 32; ++i)
     HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
 }
@@ -311,7 +311,7 @@ inline void test_clip_clear_full_width_band() {
   fx.advance_display();
 
   fx.set_clip(1, 3, 0, 8);
-  Canvas c(fx, Canvas::ClearDisplayClipTag{});
+  Canvas c(fx);
   for (int y = 0; y < 4; ++y)
     for (int x = 0; x < 8; ++x)
       HS_EXPECT_TRUE(y >= 1 && y < 3 ? pix_eq(c(x, y), 0, 0, 0)
@@ -339,20 +339,20 @@ inline void test_clip_clear_constructor_zeroes_both_buffers() {
   TestEffect fx(8, 4);
   fx.set_clip(1, 3, 2, 6);
   {
-    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    Canvas c(fx);
     for (int i = 0; i < 32; ++i)
       HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
   }
   fx.advance_display();
   fx.set_clip(0, 1, 0, 1);
   {
-    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    Canvas c(fx);
     for (int i = 0; i < 32; ++i)
       HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
   }
 }
 
-/** @brief Adding the tagged path leaves persistent-frame copying unchanged. */
+/** @brief Clip clearing leaves persistent-frame copying unchanged. */
 inline void test_clip_clear_does_not_change_persistence() {
   TestEffect fx(8, 4, {.persist = true});
   {
@@ -368,7 +368,7 @@ inline void test_clip_clear_does_not_change_persistence() {
     HS_EXPECT_TRUE(pix_eq(c(i), 7, 8, 9));
 }
 
-/** @brief Adding the tagged path leaves generic full-frame clearing unchanged. */
+/** @brief A full-frame effect clears the whole buffer, clip notwithstanding. */
 inline void test_clip_clear_does_not_change_full_frame_clear() {
   TestEffect fx(8, 4, {.full_frame = true});
   {
