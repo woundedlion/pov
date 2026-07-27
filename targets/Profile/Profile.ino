@@ -344,9 +344,9 @@ Effect *construct_profiled() {
   // Eager-fill the scanline LUTs before the first frame so the flywheel ISR
   // never observes a half-filled table.
   GeometryResolution<E>::init();
+  configure_arenas_default(); // Reset before init so effects can override
   E *e = new (std::nothrow) E();
   HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
-  configure_arenas_default(); // Reset before init so effects can override
   e->init();
 #ifdef HS_PROFILE_TRANS_SPEED
   // Per-run knob (e.g. IslamicStars carousel speed-up so a single epoch walks the

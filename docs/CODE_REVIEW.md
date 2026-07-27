@@ -359,7 +359,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 118. ✅ **`platformio.ini`'s toolchain rationale contradicts its own pin** — `platformio.ini:15-20,37-45,113-119` — the file asserts three times that the pin is `teensy@5.0.0` / TD 1.59 / gcc 11.3.1 and justifies the FastLED pin from that; the pin is now `teensy@5.2.0` (TD 1.62 / gcc 15.2.1). These comments are the load-bearing justification for both the FastLED pin and the bench-parity claim.
 
-119. **Teensy targets construct the effect before `configure_arenas_default()`; WASM does the reverse** — `targets/Phantasm/Phantasm.ino:73-77`, `targets/Profile/Profile.ino:347-350` vs `targets/wasm/wasm.cpp:373-381` — both `.ino` files document the hazard ("an arena allocation in a ctor would corrupt on Teensy yet pass on WASM") — a defect class neither the native suite nor the WASM smoke can catch, because both run the safe ordering.
+119. ✅ **Teensy targets construct the effect before `configure_arenas_default()`; WASM does the reverse** — `targets/Phantasm/Phantasm.ino:73-77`, `targets/Profile/Profile.ino:347-350` vs `targets/wasm/wasm.cpp:373-381` — both `.ino` files document the hazard ("an arena allocation in a ctor would corrupt on Teensy yet pass on WASM") — a defect class neither the native suite nor the WASM smoke can catch, because both run the safe ordering.
 
 120. **`CANVAS_W`/`MAX_W` are two unlinked sources of truth** — `core/engine/platform.h:7-14` vs `core/engine/constants.h:15-20` — both are 288/144 with no assertion tying them, and the header openly invites overriding one; an override above `MAX_W` fails at runtime rather than at compile time.
 
