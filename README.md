@@ -215,7 +215,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   │   ├── timers.h                RandomTimer / PeriodicTimer callback timers
 │   │   ├── params.h                Parameter-writing animations (Transition, Mutation, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise)
 │   │   ├── motion.h                Path/ProceduralPath + the Orientation drivers (Motion, Rotation, RandomWalk)
-│   │   ├── trails.h                OrientationTrail/VectorTrail history + tween/deep_tween traversal
+│   │   ├── trails.h                OrientationTrail/VectorTrail/QuantizedVectorTrail history + tween/deep_tween traversal
 │   │   ├── sprites.h               Sprite draw envelope, Particle/ParticleSystem
 │   │   ├── timeline.h              TimelineEvent inline storage + the Timeline scheduler
 │   │   └── mesh.h                  Mesh-to-mesh transitions: OpLeg, Segue policies, MeshCarousel
@@ -817,7 +817,7 @@ All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<F
 | `Plot::Star` | N-pointed star shape (alternating inner/outer radii) |
 | `Plot::Flower` | N-petal flower shape |
 | `Plot::Mesh` | Wireframe mesh rendering with edge deduplication |
-| `Plot::ParticleSystem` | Particle trail rendering from `VectorTrail` history |
+| `Plot::ParticleSystem` | Particle trail rendering from `QuantizedVectorTrail` history |
 
 ### 7.3 The Animation System (`animation.h`)
 
@@ -830,7 +830,7 @@ The `Timeline` class manages a list of running `IAnimation` objects. Each frame,
 | `timers.h` | Callbacks on a clock | `RandomTimer`, `PeriodicTimer` |
 | `params.h` | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise` |
 | `motion.h` | An `Orientation` driven through space | `Path`/`ProceduralPath`, `Motion`, `Rotation`, `RandomWalk` |
-| `trails.h` | Recorded history | `OrientationTrail`, `VectorTrail`, the `tween`/`deep_tween` traversals |
+| `trails.h` | Recorded history | `OrientationTrail`, `VectorTrail`, `QuantizedVectorTrail`, the `tween`/`deep_tween` traversals |
 | `sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
 | `timeline.h` | Scheduling | `TimelineEvent`, `Timeline` |
 | `mesh.h` | Mesh-to-mesh transitions | `OpLeg`, the `Segue` policies, `MeshCarousel` |
@@ -852,7 +852,7 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 | `Driver` | Continuously increments a float variable each frame (wraps at 0..1) |
 | `Lerp` | Type-erased interpolation between any `T` that implements `lerp(start, target, t)`. The caller owns start, subject, and target data; Lerp holds pointers and a type-erased lerp function. |
 | `ColorWipe` | Smoothly interpolates a `GenerativePalette` toward a target palette |
-| `ParticleSystem<W>` | Physics simulation with emitters, attractors, friction, gravity. Particles have `VectorTrail` history for trail rendering. |
+| `ParticleSystem<W>` | Physics simulation with emitters, attractors, friction, gravity. Particles have `QuantizedVectorTrail` history for trail rendering. |
 | `Ripple` | Animates a `RippleParams` to expand a Ricker wavelet across the sphere |
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
 | `MobiusWarpCircular` | Animates `MobiusParams` for a circular warp that stays warped throughout, suitable for repeating effects |
@@ -878,9 +878,11 @@ timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600, ease_
 
 `OrientationTrail<OrientationType, CAPACITY>` maintains a circular buffer of past `Orientation` snapshots, allowing effects to recall where an object was over previous frames. Each snapshot is a full `Orientation` (with its own sub-frame history).
 
-#### VectorTrail
+#### VectorTrail and QuantizedVectorTrail
 
-`VectorTrail<CAPACITY>` maintains a circular buffer of past world-space `Vector` positions. Used by `ParticleSystem` to record per-particle trajectories for trail rendering.
+`VectorTrail<CAPACITY>` maintains a circular buffer of past world-space `Vector` positions — 12 B per sample, stored exactly. Used by HopfFibration for its per-fiber trails.
+
+`QuantizedVectorTrail<CAPACITY>` is the unit-sphere variant: each sample is three snorm16 components (6 B, half of `Vector`), clamped to [-1, 1] on record and decoded by value on `get()`, so the round-trip error is at most 1/65534 per component. Used by `ParticleSystem` to record per-particle trajectories for trail rendering.
 
 #### `tween` and `deep_tween`
 
@@ -904,7 +906,7 @@ Animations do not render directly — they mutate external state that the render
 | `Lerp` | `T*` (type-erased) | Interpolates any type with a `lerp()` function — `MeshState`, params structs, etc. The caller owns start, subject, and target; Lerp holds pointers |
 | `ColorWipe` | `GenerativePalette*` | Interpolates palette keys toward a target palette in OKLCH along coherent hue arcs |
 | `Ripple`, `MobiusWarp`, `Noise` | `TransformerParams` | Animate transformer parameters (expansion radius, warp strength, noise scale) which the transformer pool reads during `MeshOps::transform()` |
-| `ParticleSystem` | `Vector[]` positions | Physics simulation updates particle positions; `VectorTrail` records history for trail rendering |
+| `ParticleSystem` | `Vector[]` positions | Physics simulation updates particle positions; `QuantizedVectorTrail` records history for trail rendering |
 
 This separation means effects declare *what state exists* (orientations, floats, palettes) and *what animations drive that state* (rotations, transitions, drivers), but never manually interpolate or update values per-frame. The `Timeline` handles all timing, easing, sequencing, and cleanup:
 
