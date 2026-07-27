@@ -7,7 +7,7 @@
 // Engine API umbrella: pulls in the full public API (geometry, color,
 // animation, plotting, palettes, presets, ...) that every effect in effects/
 // includes via this one file. Distinct from core/engine/effects.h, which is the effect
-// *roster* (it pulls in all 27 effect headers); include this from an effect,
+// *roster* (it pulls in every effect header); include this from an effect,
 // never that.
 
 // platform.h first: on device it defines NDEBUG, which must be set before
