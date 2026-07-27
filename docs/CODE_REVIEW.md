@@ -419,7 +419,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 148. ✅ **A misplaced `unittest.main()` hides 4 of 5 test classes** — `tools/profile_tests/test_parse_profile.py:74-75` — direct invocation runs 8 tests and prints OK; discovery runs ~30.
 
-149. **`docs_check.py` passes when it finds zero Markdown files** — `tools/docs_check.py:294` — the docs workflow step goes green having validated nothing.
+149. ✅ **`docs_check.py` passes when it finds zero Markdown files** — `tools/docs_check.py:294` — the docs workflow step goes green having validated nothing.
 
 150. **`profile_one.sh` hardcodes one machine's checkout path** — `tools/profile_one.sh:52` — the intent (always build the main tree, never the invoking worktree) is sound; the encoding is not.
 
