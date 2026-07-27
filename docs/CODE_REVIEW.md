@@ -521,7 +521,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 198. ✅ **Degenerate `sides` values are admitted by four fan-shape guards** — `core/render/sdf.h:3389,3522,3681,3826` — `sides == 2` publishes `size == 0`, so a normalized shader divides by zero. Not reachable from production; hardening only.
 
-199. **`Dynamo::dir()`'s `@note` is falsified by its own caller** — `effects/Dynamo.h:371-373` — the fractional-step accumulator routinely calls it below the claimed threshold; the conclusion still holds, the stated reason does not.
+199. ✅ **`Dynamo::dir()`'s `@note` is falsified by its own caller** — `effects/Dynamo.h:371-373` — the fractional-step accumulator routinely calls it below the claimed threshold; the conclusion still holds, the stated reason does not.
 
 200. **The canvas-acquire IIFE is duplicated verbatim in all 24 effects** — five identical lines plus an identical comment, differing only in the profile tag. Worth an engine-side helper.
 
