@@ -129,15 +129,15 @@ inline void test_correct_pipeline() {
 }
 
 /**
- * @brief Exercises the multi-factor compounding that actually ships and locks in
- * the dead saturation clamp.
+ * @brief Exercises the multi-factor compounding that actually ships, then the
+ * no-overflow invariant at maximum gain.
  * @details test_correct_pipeline only varies brightness with every other factor
  * at unity, so the non-unity correction + temperature gains the production config
  * sets (pov_single.h: correction 255,176,240; temperature 255,147,41) are never
  * asserted together. This case applies those shipped gains and checks both that
  * the two factors compound (temperature attenuates on top of correction, not
- * instead of it) and the exact per-channel result, then documents that the
- * clamp branch in correct() is unreachable for any public factor combination.
+ * instead of it) and the exact per-channel result, then that the largest public
+ * factor combination leaves a full-scale input unchanged.
  */
 inline void test_correct_multifactor() {
   Frame f;
@@ -164,9 +164,9 @@ inline void test_correct_multifactor() {
   HS_EXPECT_EQ(b, 10121u);
   HS_EXPECT_LT(b, g);
 
-  // Dead-clamp invariant: factor 255 maps to multiplier 256 (exact unity), so
-  // every stage's (v*256)>>8 never exceeds the input — max gains reach but never
-  // breach 65535, so the clamp never fires.
+  // No-overflow invariant: factor 255 maps to multiplier 256 (exact unity), so
+  // every stage's (v*256)>>8 returns the input untouched — max gains reach but
+  // never breach 65535, keeping every stage a valid linear_to_srgb_lut index.
   Frame::setCorrection(255, 255, 255);
   Frame::setTemperature(255, 255, 255);
   Frame::setBrightness(255);
