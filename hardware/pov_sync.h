@@ -725,16 +725,6 @@ public:
    */
   Boundary current_boundary() const { return boundary_; }
   /**
-   * @brief Current epoch timestamp.
-   * @return epoch_cycles_, in cycles.
-   */
-  uint32_t epoch_cycles() const { return epoch_cycles_; }
-  /**
-   * @brief Current half-rev period.
-   * @return period_, in cycles.
-   */
-  uint32_t cycles_per_half_rev() const { return period_; }
-  /**
    * @brief §4.3 frequency trim hook (snap-only ships; tests exercise extremes).
    * @param c New half-rev period, in cycles.
    */
