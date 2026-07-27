@@ -245,7 +245,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 61. ✅ **README's coordinate section omits the `H_OFFSET` clipping** — `README.md:132` — the stated `y ∈ [0,H) → phi ∈ [0,π]` mapping holds only for the host build; on Holosphere hardware `H_OFFSET == 3` clips the image short of π, which a dedicated test pins as intended. `H_OFFSET` appears nowhere in the README.
 
-62. **README says five geometry tools; §10.11 and the repo say four** — `README.md:1847` vs `:2027` — and only `solids.html` reuses `MeshOps`, not all of them.
+62. ✅ **README says five geometry tools; §10.11 and the repo say four** — `README.md:1847` vs `:2027` — and only `solids.html` reuses `MeshOps`, not all of them.
 
 63. **`docs/conway_morph_spec.md` names three symbols the tree contradicts** — `docs/conway_morph_spec.md:3-11` — documents an `Animation::ConwayMorph` (renamed `OpLeg`), says `MeshMorph` "remains for MeshFeedback" (deleted), and says `Segue::Dissolve` "is deleted" (it exists). Fix: mark SUPERSEDED rather than editing the body.
 

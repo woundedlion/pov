@@ -1910,7 +1910,7 @@ The [`daydream`](https://github.com/woundedlion/daydream) repo is a static web a
 1. Drive the WASM engine one frame at a time at a fixed cadence.
 2. Map each `(x, y, color)` pixel to a position on a 3D sphere and render it as an instanced dot mesh.
 3. Provide a UI for switching effects, tuning parameters, sweeping resolutions, recording video, and exercising the segmented-POV multi-board mode.
-4. Host five standalone geometry tools that reuse the engine's `MeshOps` for interactive design work.
+4. Host four standalone geometry tools for interactive design work, one of which (`solids.html`) drives the engine's own `MeshOps` through WASM.
 
 ### 10.1 Process and Threading Model
 
