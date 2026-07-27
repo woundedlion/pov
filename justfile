@@ -96,7 +96,7 @@ install:
 # The wrapper streams the pio output, then appends a combined per-env
 # FLASH/RAM1/RAM2 table from the teensy_size lines.
 teensy-size:
-    python tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8
+    python tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8 profile profile_o3
 
 # Host self-tests for the size/layout gate parser + layout invariants + warning
 # ratchet — pure Python, no ARM toolchain (spec §9.1). Mirrors the CI job.

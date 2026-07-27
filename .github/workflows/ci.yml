@@ -607,7 +607,12 @@ jobs:
         # USE_DMA_LEDS path, which no shipping image builds (see platformio.ini).
         # phantasm8 likewise compiles the optional eight-board firmware profile;
         # the mechanically qualified N=4 image remains the budgeted target.
-        run: pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8
+        # profile/profile_o3 are ungated too: they build targets/Profile/Profile.ino
+        # against the HS_PROFILE instrumentation API at both optimization levels,
+        # which no shipping image compiles.
+        run: >-
+          pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8
+          -e profile -e profile_o3
       - name: Upload firmware artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

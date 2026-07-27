@@ -353,7 +353,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 115. ✅ **A missing footprint yields a *perfect* ergonomics score** — `hardware/phantasm/gen/analyze_candidates.py:184-192` — `max(0, nan-5)` evaluates to 0 in Python, so every missing part removes its own penalty and a candidate that dropped decoupling caps outranks one that merely placed them badly.
 
-116. **The `profile` and `profile_o3` environments are compiled by no gate** — `.github/workflows/ci.yml:590,632`, `justfile:99` — `targets/Profile/Profile.ino` (404 lines) consumes a wide, fragile instrumentation API and is compiled only when a developer runs `just profile`, despite being the harness the entire on-device profiling workflow depends on.
+116. ✅ **The `profile` and `profile_o3` environments are compiled by no gate** — `.github/workflows/ci.yml:590,632`, `justfile:99` — `targets/Profile/Profile.ino` (404 lines) consumes a wide, fragile instrumentation API and is compiled only when a developer runs `just profile`, despite being the harness the entire on-device profiling workflow depends on.
 
 117. **`HS_WASM_DEV_BINDINGS` is compiled by nothing** — `CMakeLists.txt:95`, `targets/wasm/wasm.cpp:1167-1227` — 60 lines touching `Solids`/`PolyMesh` APIs that can break silently until someone flips the option. Fix: add the flag to the existing WASM debug compile-check step.
 
