@@ -47,9 +47,11 @@ def parse_dump(text: str) -> list[dict]:
                 "output_hash": int(out, 16),
             }
             words = []
-        elif parts[0] == "RELAX_BAKE_DATA" and meta is not None:
+        elif parts[0] in ("RELAX_BAKE_DATA", "RELAX_BAKE_END") and meta is None:
+            raise ValueError(f"{parts[0]} outside a block: dump starts mid-bake")
+        elif parts[0] == "RELAX_BAKE_DATA":
             words.extend(int(w, 16) for w in parts[1:4])
-        elif parts[0] == "RELAX_BAKE_END" and meta is not None:
+        elif parts[0] == "RELAX_BAKE_END":
             if len(words) != 3 * meta["vertices"]:
                 raise ValueError(
                     f"{meta['name']}: {len(words)} words for "
@@ -65,6 +67,13 @@ def parse_dump(text: str) -> list[dict]:
             elif existing["bits"] != meta["bits"]:
                 raise ValueError(f"{meta['name']}: nondeterministic duplicate")
             meta = None
+    # A harness that died mid-block leaves an unterminated bake; dropping it
+    # would emit a short asset under a success report.
+    if meta is not None:
+        raise ValueError(
+            f"{meta['name']}: unterminated block ({len(words)} of "
+            f"{3 * meta['vertices']} words, no RELAX_BAKE_END)"
+        )
     if not order:
         raise ValueError("no RELAX_BAKE blocks found in dump")
     return [bakes[name] for name in order]

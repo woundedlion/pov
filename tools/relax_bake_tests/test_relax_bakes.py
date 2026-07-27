@@ -71,6 +71,25 @@ class ParseDump(unittest.TestCase):
         with self.assertRaises(ValueError):
             relax_bakes.parse_dump("no blocks here\n")
 
+    def test_rejects_unterminated_block(self):
+        # Harness died mid-block: the partial bake must not be dropped.
+        dump, _ = make_dump("foo", 8, [(1, 1, 1), (2, 2, 2)], 0x1)
+        truncated = dump.split("RELAX_BAKE_DATA 00000002")[0].rstrip()
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump(truncated)
+
+    def test_rejects_unterminated_block_after_a_complete_one(self):
+        good, _ = make_dump("a", 8, [(1, 1, 1)], 0x1)
+        bad, _ = make_dump("b", 8, [(2, 2, 2)], 0x2)
+        head = bad.split("RELAX_BAKE_END")[0].rstrip()
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump(good + "\n" + head)
+
+    def test_rejects_dump_starting_mid_block(self):
+        dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump(dump.split("\n", 1)[1])
+
 
 class EmitHeader(unittest.TestCase):
     def test_emits_named_struct_and_bits(self):
