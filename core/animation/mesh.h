@@ -2204,6 +2204,11 @@ private:
  * A policy defining face_offset must define face_phase; face_fade_frac is
  * Base's (1 = fade over the whole window) unless the policy shadows it.
  *
+ * The per-face hooks and the fragment hooks are mutually exclusive: a per-face
+ * draw path resolves phase and opacity once per face and shades through a
+ * palette pointer, so it never calls fill or grade. MeshCarousel
+ * static_asserts the combination away rather than dropping the hooks silently.
+ *
  * A per-face policy may also declare `static constexpr bool LOCAL_SWEEP =
  * true` to order faces by the untransformed mesh instead of world-space
  * centers: the front then rides the mesh's rotation rather than staying
@@ -2284,6 +2289,22 @@ struct Base {
    */
   float face_fade_frac(int) const { return 1.0f; }
 };
+
+/** @brief Whether a policy defines the per-face hook set. */
+template <typename S>
+concept PerFace = requires(const S &s, const Vector &c) {
+  s.face_offset(c, 0, 0);
+};
+
+/**
+ * @brief Whether a policy shadows Base's fragment hooks (fill/grade).
+ * @details Pointer-to-member type identity: an inherited hook keeps Base as
+ * its class type, a shadowing one takes the policy's.
+ */
+template <typename S>
+inline constexpr bool SHADOWS_FRAGMENT_HOOKS =
+    !std::is_same_v<decltype(&S::fill), decltype(&Base::fill)> ||
+    !std::is_same_v<decltype(&S::grade), decltype(&Base::grade)>;
 
 /**
  * @brief Opacity cross-fade between consecutive meshes.
@@ -2586,6 +2607,10 @@ struct Dissolve : Base {
  *   // IslamicStars::spawn_shape for the pattern).
  */
 template <typename SegueT = Segue::Crossfade> class MeshCarousel {
+  static_assert(!Segue::PerFace<SegueT> ||
+                    !Segue::SHADOWS_FRAGMENT_HOOKS<SegueT>,
+                "a per-face segue's draw path never calls fill/grade");
+
 public:
   /**
    * @brief Constructs an empty carousel with front slot index 0.
