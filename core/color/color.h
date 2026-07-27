@@ -1273,13 +1273,12 @@ public:
    * @param points Sorted-ascending (position in [0,1], color) stops.
    * @details Stop positions index entries[256] via static_cast<int>(pos * 255 + 0.5f);
    * a pos outside [0,1] is an out-of-bounds write, and segments fill only when
-   * end > start, so an unsorted pair degenerates silently. Bounds and ordering
-   * are trapped always-on (construction is cold).
+   * end > start, so an unsorted pair degenerates silently. An empty stop list
+   * leaves the LUT all-black. Emptiness, bounds and ordering are trapped
+   * always-on (construction is cold).
    */
   Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
-
-    if (points.size() == 0)
-      return;
+    HS_CHECK(points.size() > 0, "Gradient requires at least one stop");
 
     float prevCheck = -1.0f;
     for (const auto &stop : points) {

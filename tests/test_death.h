@@ -1053,6 +1053,18 @@ inline void case_alpha_falloff_null() {
 }
 
 /**
+ * @brief Death case: a Gradient built from an empty stop list must trap.
+ * @details Color surface — with no stops the 256-entry LUT keeps its
+ *          value-initialized state, so every lookup returns black. The
+ *          constructor requires at least one stop rather than yielding a
+ *          silently all-black palette.
+ */
+inline void case_gradient_no_stops() {
+  Gradient grad({}); // empty stop list -> HS_CHECK
+  (void)grad;
+}
+
+/**
  * @brief Death case: a Gradient stop position outside [0,1] must trap.
  * @details Color surface — a stop position indexes entries[256] via
  *          static_cast<int>(pos * 255); pos > 1 (or < 0) is an out-of-bounds
@@ -1253,6 +1265,7 @@ inline const Case *all_cases(int &n) {
       {"plot_extract_edges_vertex_over_capacity",
        case_plot_extract_edges_vertex_over_capacity},
       {"feedback_downsample_indivisible", case_feedback_downsample_indivisible},
+      {"gradient_no_stops", case_gradient_no_stops},
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
       {"random_timer_inverted_range", case_random_timer_inverted_range},
