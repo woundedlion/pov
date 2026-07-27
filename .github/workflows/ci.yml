@@ -41,7 +41,7 @@ jobs:
           - shard: 1
             test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|hankin|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes)$"
           - shard: 2
-            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|relax_bake_verify)$"
+            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|gamut_lut|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|relax_bake_verify)$"
           - shard: 3
             test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|generators|animation|effects|h_offset_renorm|stack_budget|arena_budget)$"
           - shard: 4
@@ -424,6 +424,26 @@ jobs:
             exit 1
           fi
           echo "Reaction-graph numeric tokens match the generator."
+
+  gamut-lut-provenance:
+    name: Generated gamut LUT matches committed file
+    runs-on: ubuntu-24.04
+    # The generator solves ~8.4M first-exit rays and runs ~1-2 min; bound the job
+    # so a resolution change can't hang a runner indefinitely.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
+        with:
+          python-version: '3.12'
+
+      - name: Install numpy
+        run: pip install 'numpy==2.4.3'   # the generator's only dependency; pinned like platformio
+
+      - name: Check gamut LUT provenance and color.h mirrors
+        # ctest unit_gamut_lut runs the same --check but skips without numpy, which
+        # the unit-test jobs do not install; this job is where the gate actually runs.
+        run: python3 tools/gen_gamut_lut.py --check
 
   screenshot-gallery:
     name: Screenshot gallery is valid and covers every effect
