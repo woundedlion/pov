@@ -7,9 +7,12 @@
  *
  * The always-on HS_CHECK traps are driven (in forked child processes) by the
  * death harness in tests/test_death.h — case_arena_oom (allocate past
- * capacity), case_arena_set_offset_overflow (rewind past capacity),
- * case_arena_vector_overflow / append_bulk_overflow (fixed-capacity push), and
- * case_arena_oversubscribed.
+ * capacity), case_arena_zero_size_alloc, case_arena_bad_alignment,
+ * case_arena_set_offset_overflow (rewind past capacity),
+ * case_arena_set_capacity_below_offset, case_arena_vector_overflow /
+ * _emplace_overflow / _append_bulk_overflow (fixed-capacity push),
+ * case_persist_same_arena, case_arena_oversubscribed, and
+ * case_resplit_scratch_not_empty.
  *
  * The ArenaVector lifetime guards (unbound access, use-after-free) are debug
  * asserts, not HS_CHECK traps — they compile out under NDEBUG so the per-access
@@ -304,6 +307,96 @@ inline void test_configure_arenas_repartition() {
   HS_EXPECT_TRUE(bbase + B <= pbase + GLOBAL_ARENA_SIZE);
 
   // Leave the canonical split in place for subsequent tests.
+  configure_arenas_default();
+  HS_EXPECT_EQ(persistent_arena.get_capacity(), DEFAULT_PERSISTENT_SIZE);
+  HS_EXPECT_EQ(scratch_arena_a.get_capacity(), DEFAULT_SCRATCH_A_SIZE);
+  HS_EXPECT_EQ(scratch_arena_b.get_capacity(), DEFAULT_SCRATCH_B_SIZE);
+}
+
+/**
+ * @brief Verifies set_capacity() moves only the capacity boundary — base,
+ *        offset, content, high-water mark, and generation all survive.
+ * @details Unlike rebind(), a shrink to exactly the live offset must leave every
+ *          allocation below it usable, and a subsequent grow must hand the
+ *          reclaimed headroom back to the same bump pointer.
+ */
+inline void test_arena_set_capacity_moves_only_boundary() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  auto *block = static_cast<uint8_t *>(a.allocate(256, 1));
+  memset(block, 0x5A, 256);
+  a.allocate(128, 1);
+  a.set_offset(256); // high-water 384 now sits above the live offset
+  const size_t high_water = a.get_high_water_mark();
+  HS_EXPECT_EQ(high_water, (size_t)384);
+#ifndef NDEBUG
+  const uint32_t generation = a.get_generation();
+#endif
+
+  a.set_capacity(256);
+  HS_EXPECT_EQ(a.get_capacity(), (size_t)256);
+  HS_EXPECT_EQ(a.get_offset(), (size_t)256);
+  HS_EXPECT_EQ(a.get_high_water_mark(), high_water);
+  HS_EXPECT_EQ((int)block[0], 0x5A);
+  HS_EXPECT_EQ((int)block[255], 0x5A);
+#ifndef NDEBUG
+  HS_EXPECT_EQ(a.get_generation(), generation);
+#endif
+
+  a.set_capacity(320);
+  auto *grown = static_cast<uint8_t *>(a.allocate(64, 1));
+  HS_EXPECT_EQ(grown, block + 256);
+  HS_EXPECT_EQ(a.get_offset(), (size_t)320);
+}
+
+/**
+ * @brief Verifies resplit_arenas() rebases the scratch arenas while the
+ *        persistent arena keeps its base, offset, and live content.
+ * @details The mid-run repartition an effect uses to claim a bigger scratch
+ *          split: persistent survives untouched apart from its capacity
+ *          boundary and a high-water rebased to the live offset, and both
+ *          scratch arenas land on the new (empty) boundaries. Sizes are
+ *          max_align_t multiples so the inter-arena align_up()s are no-ops and
+ *          the new bases can be checked by exact arithmetic. Restores the
+ *          default split on exit.
+ */
+inline void test_resplit_arenas_preserves_persistent() {
+  constexpr size_t P0 = 48 * 1024, A0 = 8 * 1024, B0 = 8 * 1024;
+  constexpr size_t P1 = 32 * 1024, A1 = 16 * 1024, B1 = 12 * 1024;
+  static_assert(P1 % alignof(std::max_align_t) == 0 &&
+                    A1 % alignof(std::max_align_t) == 0 &&
+                    B1 % alignof(std::max_align_t) == 0,
+                "resplit sizes must be max_align multiples for the base check");
+  static_assert(P0 + A0 + B0 <= GLOBAL_ARENA_SIZE &&
+                    P1 + A1 + B1 <= GLOBAL_ARENA_SIZE,
+                "both splits must fit the block");
+
+  configure_arenas(P0, A0, B0);
+  auto *live = static_cast<uint8_t *>(persistent_arena.allocate(1024, 1));
+  memset(live, 0x3C, 1024);
+  persistent_arena.allocate(1024, 1);
+  persistent_arena.set_offset(1024); // high-water 2048 above the live offset
+  HS_EXPECT_EQ(persistent_arena.get_high_water_mark(), (size_t)2048);
+
+  resplit_arenas(P1, A1, B1);
+
+  HS_EXPECT_EQ(persistent_arena.get_capacity(), P1);
+  HS_EXPECT_EQ(persistent_arena.get_offset(), (size_t)1024);
+  HS_EXPECT_EQ(persistent_arena.get_high_water_mark(), (size_t)1024);
+  HS_EXPECT_EQ((int)live[0], 0x3C);
+  HS_EXPECT_EQ((int)live[1023], 0x3C);
+  HS_EXPECT_EQ(scratch_arena_a.get_capacity(), A1);
+  HS_EXPECT_EQ(scratch_arena_b.get_capacity(), B1);
+  HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
+  HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
+
+  // 1-byte align-1 allocations return base+offset (zero padding).
+  auto *next = static_cast<uint8_t *>(persistent_arena.allocate(1, 1));
+  auto *abase = static_cast<uint8_t *>(scratch_arena_a.allocate(1, 1));
+  auto *bbase = static_cast<uint8_t *>(scratch_arena_b.allocate(1, 1));
+  HS_EXPECT_EQ(next, live + 1024);
+  HS_EXPECT_EQ(abase, live + P1);
+  HS_EXPECT_EQ(bbase, abase + A1);
+
   configure_arenas_default();
   HS_EXPECT_EQ(persistent_arena.get_capacity(), DEFAULT_PERSISTENT_SIZE);
   HS_EXPECT_EQ(scratch_arena_a.get_capacity(), DEFAULT_SCRATCH_A_SIZE);
@@ -913,6 +1006,8 @@ inline int run_memory_tests() {
   test_arena_generation_bumps();
   test_arena_covers();
   test_configure_arenas_repartition();
+  test_arena_set_capacity_moves_only_boundary();
+  test_resplit_arenas_preserves_persistent();
 
   test_tribitset_sizes();
   test_tribitset_clear_and_test();

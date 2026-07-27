@@ -367,7 +367,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 122. ✅ **`effects.h` understates the native anti-drift guard** — `core/engine/effects.h:44-49` — claims a forgotten roster row "silently drops that effect from native coverage"; `tests/test_effects.h:3811` runs the same registry-count oracle unconditionally, above the FULL-tier gate.
 
-123. **`resplit_arenas()` and `Arena::set_capacity()` have zero test coverage** — the hardest arena paths and the only repartition an effect uses mid-run; a regression resetting the persistent offset would be caught only by an on-device visual. Six always-on traps in `memory.h`/`generators.h` are likewise unexercised by the death harness.
+123. ✅ **`resplit_arenas()` and `Arena::set_capacity()` have zero test coverage** — the hardest arena paths and the only repartition an effect uses mid-run; a regression resetting the persistent offset would be caught only by an on-device visual. Six always-on traps in `memory.h`/`generators.h` are likewise unexercised by the death harness.
 
 124. **`StaticCircularBuffer::for_each()` and `is_linear()` are untested** — `core/engine/static_circular_buffer.h:283,326-333` — `for_each` is the only traversal that walks raw slots rather than through `operator[]`'s fold, and it is the hot traversal in `core/animation/trails.h:120`; `is_linear()` backs two always-on traps in `sdf.h`.
 
