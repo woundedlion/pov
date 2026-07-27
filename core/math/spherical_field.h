@@ -68,16 +68,20 @@ public:
     if (spacing <= 0)
       return 0;
     int count = 0;
-    for (int ring_index = 0; ring_index < ring_count(); ++ring_index)
-      count += samples_on_ring(ring_y(ring_index));
-    return count;
+    for (int y = 0;; y = next_ring_y(y)) {
+      count += samples_on_ring(y);
+      if (y >= H - 1)
+        return count;
+    }
   }
 
   constexpr Ring ring(int ring_index) const {
     int offset = 0;
-    for (int i = 0; i < ring_index; ++i)
-      offset += samples_on_ring(ring_y(i));
-    const int y = ring_y(ring_index);
+    int y = 0;
+    for (int i = 0; i < ring_index; ++i) {
+      offset += samples_on_ring(y);
+      y = next_ring_y(y);
+    }
     return {y, samples_on_ring(y), offset};
   }
 
@@ -258,8 +262,11 @@ public:
   constexpr int ring_index_at_or_before(float y) const {
     const float bounded_y = std::clamp(y, 0.0f, static_cast<float>(H - 1));
     int index = 0;
-    while (index + 1 < ring_count() && ring_y(index + 1) <= bounded_y)
+    int current_y = 0;
+    while (current_y < H - 1 && next_ring_y(current_y) <= bounded_y) {
+      current_y = next_ring_y(current_y);
       ++index;
+    }
     return index;
   }
 
@@ -306,13 +313,6 @@ public:
 
 private:
   static_assert(W > 0 && H > 1 && H + HOffset > 1);
-
-  constexpr int ring_y(int ring_index) const {
-    int y = 0;
-    for (int i = 0; i < ring_index; ++i)
-      y = next_ring_y(y);
-    return y;
-  }
 
   constexpr int maximum_longitude_samples() const {
     return equator_samples > 0

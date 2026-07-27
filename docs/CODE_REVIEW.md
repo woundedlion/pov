@@ -463,7 +463,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 169. ✅ **`plain_fade` and `identity_warp` ship in no roster** — `core/engine/styles.h:60,77` — seven presets appear only in tests, yet both transforms carry live fast-path support in `filter.h`. Note the `static_assert` anchor at `styles.h:362` pins one of them and must be repointed first.
 
-170. **`SphericalFieldLayout`'s accessors recompute from scratch** — `core/math/spherical_field.h:57-81,263-269` — `ring()` is O(k²) and `ring_index_at_or_before` calls `ring_count()` in its loop condition, both on per-frame paths. Fixing is perf-positive with no semantic change (all values are `static_assert`-pinned).
+170. ✅ **`SphericalFieldLayout`'s accessors recompute from scratch** — `core/math/spherical_field.h:57-81,263-269` — `ring()` is O(k²) and `ring_index_at_or_before` calls `ring_count()` in its loop condition, both on per-frame paths. Fixing is perf-positive with no semantic change (all values are `static_assert`-pinned).
 
 171. ✅ **`spherical_field.h` uses `assert()` without including `<cassert>`** — `core/math/spherical_field.h:292`.
 
