@@ -1,3 +1,10 @@
+Scope: These terms cover the core infrastructure — the rendering engine, math,
+scan/raster, hardware drivers, and test harness — everything outside
+`effects/`. The visual effects in `effects/`, including their compiled form in
+any distributed build artifact, are Copyright 2025 Gabriel Levy. All rights
+reserved. They are not covered by the license below — no rights to use, copy,
+modify, or distribute them are granted.
+
 # PolyForm Noncommercial License 1.0.0
 
 <https://polyformproject.org/licenses/noncommercial/1.0.0>
