@@ -516,8 +516,8 @@ static inline void hash_combine(uint32_t &seed, uint32_t v) {
  * @param persistent Arena backing the mesh topology array when it must grow.
  * @details Hashes each face by side count and interior angles, folds in
  * neighbor hashes via the half-edge pairing, then sorts and assigns a dense
- * topology id per distinct hash. Traps if the half-edge or face count exceeds
- * the 16-bit index range.
+ * topology id per distinct hash. Traps if the flat face lengths disagree or the
+ * half-edge or face count exceeds the 16-bit index range.
  */
 template <typename MeshT>
 __attribute__((always_inline)) inline void
@@ -541,6 +541,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   size_t I = mesh.get_faces_size();
   const uint8_t *face_counts = mesh.get_face_counts_data();
   const uint16_t *faces = mesh.get_faces_data();
+  require_flat_face_length(face_counts, F, I);
 
   ArenaVector<uint32_t> face_hashes;
   face_hashes.bind(scratch_a, F);
