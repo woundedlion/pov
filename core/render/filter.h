@@ -917,7 +917,8 @@ public:
    * @param v World-space point on the unit sphere.
    * @param color Source color, forwarded unchanged this frame.
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
-   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param alpha Blend alpha in [0, 1], forwarded unchanged and NOT gated: a
+   * transparent sample still consumes a ring slot, unlike Screen::Trails::plot.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
@@ -1309,7 +1310,8 @@ public:
    * @param color Source color, forwarded unchanged this frame.
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
    * @param alpha Blend alpha in [0, 1]; samples with alpha <= 0.001 seed no
-   * trail point but are still forwarded downstream.
+   * trail point but are still forwarded downstream. World::Trails::plot has no
+   * such gate and seeds regardless of alpha.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
