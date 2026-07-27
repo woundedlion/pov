@@ -1418,9 +1418,23 @@ inline void test_leg_start_seed_frame_continuity() {
         seedframe_node_mesh_at(e, arrived_at_to, seed_base, work, temp);
     node_arena.reset();
     node_mesh = Solids::finalize_solid(base, node_arena);
-    if (e.reseed == Reseed::ADOPT && is_platonic(arrived) && arrived_at_to) {
-      seed_arena.reset();
-      seed_base = Solids::finalize_solid(node_mesh, seed_arena);
+    if (conway_morph_tests::leg_adopts_seed(e, arrived, arrived_at_to)) {
+      if (arrived_at_to) {
+        seed_arena.reset();
+        seed_base = Solids::finalize_solid(node_mesh, seed_arena);
+      } else {
+        // Reverse jitterbug arrival: production holds the icosahedron's
+        // canonical relax form, built before the arena the source lives in
+        // is rewound.
+        PolyMesh s;
+        MeshOps::clone(seed_base, s, work);
+        PolyMesh canonical = Solids::SolidBuilder(std::move(s), work, temp)
+                                 .snub(0.5f, SNUB_BRIDGE_TWIST)
+                                 .relax(50)
+                                 .build();
+        seed_arena.reset();
+        seed_base = Solids::finalize_solid(canonical, seed_arena);
+      }
       seed_identity = arrived;
     }
     node = arrived;
