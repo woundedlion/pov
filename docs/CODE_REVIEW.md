@@ -443,7 +443,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 160. ✅ **daydream: the generative-palette harmony and profile constants are an unpinned C++ mirror** — `tools/palette_math.js:226-265,295-323` — all values currently match `color.h` exactly, but the test only asserts they are integers in `[0,255]`, so `85 → 58` would pass.
 
-161. **daydream: `mobius.html` has no export path and uses a different projection pole than the engine** — `tools/mobius.html:359-366` vs `core/math/3dmath.h:893-905` — the tool projects from `1 - p.z` with `(x,y)`; the engine uses `1 - v.y` with `(x,z)`. It designs exactly `MobiusParams` and is the only tool with no copy button, so transcription is manual *and* frame-rotated.
+161. ✅ **daydream: `mobius.html` has no export path and uses a different projection pole than the engine** — `tools/mobius.html:359-366` vs `core/math/3dmath.h:893-905` — the tool projects from `1 - p.z` with `(x,y)`; the engine uses `1 - v.y` with `(x,z)`. It designs exactly `MobiusParams` and is the only tool with no copy button, so transcription is manual *and* frame-rotated.
 
 162. **daydream's LICENSE lacks the effects carve-out** — `daydream/LICENSE:1-3` — PolyForm-Noncommercial only, but the repo ships a `.wasm` linking `effects/` code that the README and the effect headers declare all-rights-reserved.
 
