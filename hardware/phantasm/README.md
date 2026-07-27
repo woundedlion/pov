@@ -69,8 +69,8 @@ the netlist is what's verified.
 |---|---|---|---|
 | `U_MCU` | `phantasm:Teensy4.0` | `phantasm:Teensy4.0` (2×14 0.1″ THT) | pad map = top view (component side up), USB end at −X: top row VIN,GND,3V3,23…13 / bottom row GND,0…12 |
 | `U1` (A–E) | `74xx:74AHCT125` | `Package_SO:SOIC-14_3.9x8.7mm_P1.27mm` | 4 buffers + power unit |
-| `Q_REV` | `Device:D_Schottky` (B5819W) | `Diode_SMD:D_SOD-123` | series reverse-protect; pin2=anode (in), pin1=cathode (out) |
-| `F1` | `Device:Fuse` (0.75 A) | `Fuse:Fuse_1206_3216Metric` | logic-feed overcurrent (~0.15 A draw) |
+| `Q_REV` | `Transistor_FET:Q_PMOS_GSD` (AO3401A) | `Package_TO_SOT_SMD:SOT-23` | reverse-polarity protection; pin 3 drain=input, pin 2 source=output, pin 1 gate=GND |
+| `F1` | `Device:Fuse` (0.5 A hold) | `Fuse:Fuse_1206_3216Metric` | TLC-NSMD050 resettable fuse; 1 A trip, 0.75 Ω post-trip maximum |
 | `C_IN` | `Device:C_Polarized` (100µF) | `Capacitor_THT:CP_Radial_D8.0mm_P3.50mm` | only on-card electrolytic, on +5V_LOGIC; RTV-bond |
 | `FB` | `Device:FerriteBead` | `Inductor_SMD:L_1206_3216Metric` | ~600 Ω @100 MHz |
 | `R_LF` / `C_LF` | `Device:R` / `Device:C` | 0805 / `C_1206` | bead-LC damper, 22 µF |
@@ -87,16 +87,19 @@ the netlist is what's verified.
 | `J2` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | strip **signal only**: DI / CI / SIG_GND (no power) |
 | `J3A/J3B` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | Belden 8451 daisy |
 | `J4` | `Connector_Generic:Conn_01x04` | `PinHeader_1x04_P2.54mm` | debug/serial |
+| `H1`–`H4` | — | `MountingHole:MountingHole_2.7mm_M2.5` | four NPTH rotor mounting holes |
 | `JP_SHLD/JP_ID0/JP_ID1/JP_ID2` | `Jumper:SolderJumper_2_Open` | `SolderJumper-2_P1.3mm_Open_...` | shield (master only) / ID straps (JP_ID2 read at N=8) |
 
 ## Notes / deviations from the spec
 
-- **Reverse protection is a series Schottky** (`Q_REV`, SOD-123). §R-PWR-7 permits
-  "a small series Schottky **or** P-FET" because segment LED current is off the card;
-  at ~0.15 A the ideal-diode P-FET (and its gate resistor / SOT pinout ambiguity) is
-  unnecessary, so the simpler Schottky is used. Ref kept as `Q_REV` per spec §9/§10.
-  The ~0.3 V forward drop at 0.15 A leaves U1 Vcc ≈ 4.7 V, inside the AHCT 4.5–5.5 V
-  window; swap to a small SOT-23 P-FET if you want the extra headroom.
+- **Reverse protection uses one AO3401A P-channel MOSFET** (`Q_REV`, SOT-23), with
+  its gate tied directly to GND. It replaces the series Schottky without adding a
+  gate resistor or increasing the component count. At a 4.75 V J1 input and 0.15 A,
+  a conservative hot calculation uses the fuse's 0.75 Ω post-trip maximum, the
+  bead's 0.20 Ω maximum DCR, and twice the MOSFET's 60 mΩ maximum at −4.5 V:
+  `VLOGIC = 4.75 − 0.15 × (0.75 + 0.20 + 0.12) = 4.5895 V`. This leaves about
+  90 mV above the AHCT125's 4.5 V minimum; verify that J1 itself remains at or above
+  4.75 V on the hot, operating rotor because external harness drop is not included.
 - **DNP parts** (`R_ID0`, `D_BUS`) carry the KiCad DNP flag — footprints present,
   not populated, per §R-ASM-4. `JP_SHLD` is populated **on the master board only**;
   `JP_ID2` is unread at N = 4 and carries the high segment-ID bit at N = 8.
@@ -116,6 +119,14 @@ the netlist is what's verified.
   which matches the generated `phantasm:Teensy4.0` footprint pad names. The footprint
   pad map is the **top view (component side up) with the USB end at −X** — the Teensy
   mounts component-side-up.
+- **Mechanical and service access.** The Quilter board retains the existing
+  **58.28 × 32 mm** outline and adds four 2.7 mm NPTH M2.5 clearance holes at
+  `(3.5, 3.5)`, `(3.5, 28.5)`, `(54.78, 3.5)`, and `(54.78, 28.5)` mm. Each hole
+  has a 2.7 mm-radius all-copper routing/zone keepout. The Teensy footprint includes
+  a board-envelope 3D model and an 11.5 × 10 mm mating-USB placement keepout; J1 and
+  J4 sit below that approach corridor.
+- **Identification.** Bottom silkscreen contains the N=4 ID0/ID1 truth table,
+  `MASTER = ALL ID OPEN`, the shield instruction, and a large writable board-ID field.
 
 ## PCB (`phantasm.kicad_pcb`)
 
@@ -206,7 +217,7 @@ python shorts.py         # union-find short check on the schematic
 ```
 
 The separate unplaced board for Quilter is configured as **4-layer SIG / GND / GND /
-SIG**, 1.6 mm, with 1 oz copper and ENIG. Those generator inputs do not describe the
+SIG**, 1.6 mm, with 1 oz outer copper, 0.5 oz inner copper, and ENIG. Those generator inputs do not describe the
 committed routed board; use the generated facts block above for its construction. The
 unplaced stackup is encoded in its file, so Quilter reads it on upload — no need to
 hand-enter dielectric/mil values in its UI. Net class is 0.3 mm track / 0.2 mm clearance /

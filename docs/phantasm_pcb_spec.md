@@ -339,7 +339,8 @@ card (§2.3), the on-board ground is quiet by construction (R-SI-2); the remaini
 nets, the sync line, and the load-end signal-ground tie.
 
 - **R-SI-1 — Reference plane.** Minimum **2-layer with a continuous bottom GND pour** under all
-  signals; **4-layer (SIG / GND / PWR / SIG) preferred**. Never route a fast net over a plane split.
+  signals; **4-layer (SIG / GND / GND / SIG) preferred** for this logic-only card. Never route a
+  fast net over a plane split.
 - **R-SI-2 — LED return is off-board (the #1 item, now solved by construction).** Because the 4.3 A
   strip 5 V/GND never touch the card (§2.3), the pulsed LED di/dt is **inherently off** the
   Teensy/'125/sync ground reference — the on-board ground is quiet by design, no on-board star-pour
@@ -379,8 +380,11 @@ strain relief, swept envelope, and dynamic-balance acceptance test.
 - **R-MECH-1 — Mass-based package split (§11).** Heavy parts (electrolytics, connectors, Teensy) are
   **through-hole** for joint strength + RTV bonding under centrifugal load; low-mass parts (U1 SOIC,
   all passives) are **SMD** — their pad-only joints carry negligible load at 480 RPM.
-- **R-MECH-2** Mounting holes sized to the rotor hardware; place heavy parts (electrolytics,
-  connectors, Teensy) **symmetrically and as near the hub as routing allows** for balance.
+- **R-MECH-2** Use **four 2.7 mm NPTH M2.5 clearance holes**, centered 3.5 mm from each
+  corner of the 58.28 × 32 mm board: `(3.5, 3.5)`, `(3.5, 28.5)`, `(54.78, 3.5)`,
+  and `(54.78, 28.5)` mm. Keep copper, tracks, vias, and pours at least 2.7 mm from
+  each center. Place heavy parts (electrolytics, connectors, Teensy) **symmetrically
+  and as near the hub as routing allows** for balance.
 - **R-MECH-3** Provide pad area / clearance to **bond C_IN and any tall part** with RTV (the 1000 µF
   bulk is off-board now, §2.3).
 - **R-MECH-4** Keep board outline and component height within the arm's swept envelope; chamfer/relieve
@@ -392,7 +396,7 @@ strain relief, swept envelope, and dynamic-balance acceptance test.
   Teensy and the board stays short), and length is the free dimension to be minimised. The floor part is
   the **Teensy 4.0 (17.8 mm wide)**; at 35 mm there is ~17 mm of width left alongside it for the SMD
   parts (the D16 mm bulk that used to set the width is off-board, §2.3). 2-D-pack the parts to the
-  shortest length within the width cap (generated board ≈ **54 × 35 mm**); keep heavy parts (C_IN,
+  shortest length within the width cap (current Quilter board = **58.28 × 32 mm**); keep heavy parts (C_IN,
   connectors, Teensy) toward the **hub end** for balance (R-MECH-2).
 
 ---
@@ -419,7 +423,7 @@ hand-soldered by you.
 | R_ID0 (opt) | ID0 pull-up | 10 kΩ → 3V3 | 0603 | **SMD** DNP |
 | R_MEN | MASTER_EN boot pull-up | 10 kΩ → 3V3 | 0603 | **SMD** |
 | FB | Ferrite bead | ≈600 Ω @ 100 MHz, logic branch (~0.15 A) | 1206 | **SMD** |
-| Q_REV | Reverse protect (logic) | small Schottky or P-FET, ~1 A | SOD-123 / SOT | **SMD** |
+| Q_REV | Reverse protect (logic) | AO3401A P-FET | SOT-23 | **SMD** |
 | D_BUS (opt) | Bus transient clamp | TVS / clamp diode | 0603 | **SMD** DNP |
 | F1 | Fuse / PTC (logic) | ~0.5–1 A | 1206 / TH | **SMD** |
 | J1 | Logic power in | 2-pin ~1 A (0.1″ / JST) | TH | TH |
@@ -427,6 +431,7 @@ hand-soldered by you.
 | J3A, J3B | SYNC daisy in / out | 2× 3-pin 0.1″ | TH (one Belden 8451 each) | TH |
 | JP_SHLD | Shield ground jumper | 0 Ω / solder jumper | 0603 or SJ pad | hand, **master only** |
 | J4 (opt) | Debug | 3–4-pin 0.1″ | TH | TH |
+| H1–H4 | Rotor mounting | 2.7 mm NPTH for M2.5 hardware | four corner holes | — |
 | — | ID strap links | wire / 0 Ω | — | hand, per §5 |
 | — | Inter-board cable | Belden 8451 (STP 2×22 AWG + drain) | per arm/hub run | hand |
 | — | **LED power harness** (off-board) | heavy 5 V/GND, **4.3 A/strip** (§2.3) | busbar / wire | hand |

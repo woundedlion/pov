@@ -46,7 +46,7 @@ ASSEMBLY_SIDE = "top"
 LCSC_BY_REF = {
     "C_DEC1": "C14663", "C_DEC2": "C14663",
     "C_LF": "C12891", "C_SYNC": "C1603",
-    "F1": "C261952", "FB": "C73732", "Q_REV": "C7420330",
+    "F1": "C261952", "FB": "C73732", "Q_REV": "C15127",
     "R1": "C25804", "R_MEN": "C25804", "R_PD": "C25804",
     "R2": "C22809", "R_D1": "C17634", "R_D2": "C17634",
     "R_LF": "C48928179", "R_S": "C17408", "U1": "C155176",
@@ -57,7 +57,6 @@ LCSC_BY_REF = {
 # lands pin 1 on the silk mark. Verify each against the assembly preview.
 ROT_CORRECTION = {
     "U1": 270,    # SOIC-14: KiCad 180 -> 90, pin 1 on silk mark
-    "Q_REV": 180, # SOD-123: cathode (band/"-") must land on +5V_PROT, not RAW
 }
 # JLCPCB catalog description keyed by LCSC #, for the BOM Description column.
 DESC_BY_LCSC = {
@@ -66,7 +65,7 @@ DESC_BY_LCSC = {
     "C1603": "220pF 50V X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC ROHS",
     "C261952": "13.2V 500mA hold 1A trip 750mΩ 1206 Resettable Fuse PPTC ROHS",
     "C73732": "600Ω@100MHz ±25% 2A 200mΩ 1206 Ferrite Bead ROHS",
-    "C7420330": "40V 1A 600mV@1A SOD-123 Schottky Diode ROHS",
+    "C15127": "AO3401A -30V P-channel MOSFET 60mohm@-4.5V SOT-23 ROHS",
     "C25804": "10kΩ ±1% 100mW 0603 Thick Film Resistor ROHS",
     "C22809": "15kΩ ±1% 100mW 0603 Thick Film Resistor ROHS",
     "C17634": "33Ω ±1% 125mW 0805 Thick Film Resistor ROHS",

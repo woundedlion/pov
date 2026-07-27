@@ -18,6 +18,15 @@ FP_DIR = os.environ.get("KICAD_FOOTPRINT_DIR",
                         r"C:\Program Files\KiCad\10.0\share\kicad\footprints")
 KCLI = fab.find_kicad_cli()
 PCB_W = 32.0  # board width (mm); within the R-MECH-6 cap (<=35), trimmed to part extent
+QUILTER_LENGTH = 58.28
+MOUNTING_HOLE_FOOTPRINT = "MountingHole:MountingHole_2.7mm_M2.5"
+MOUNTING_KEEPOUT_RADIUS = 2.7
+MOUNTING_HOLES = {
+    "H1": (3.5, 3.5),
+    "H2": (3.5, 28.5),
+    "H3": (QUILTER_LENGTH - 3.5, 3.5),
+    "H4": (QUILTER_LENGTH - 3.5, 28.5),
+}
 
 
 def build_nets(nlroot):
@@ -88,7 +97,7 @@ def load_mod(libid):
     return _MOD_CACHE[libid]
 
 
-def teensy_footprint():
+def teensy_footprint(model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
     """2x14 THT module, pads named by Teensy pin label; long axis along X.
     Pad map is the top view (component side up) with the USB end at -X:
     top row (-Y) VIN,GND,3V3,23..13 / bottom row (+Y) GND,0..12."""
@@ -105,7 +114,30 @@ def teensy_footprint():
     body = ('\t(fp_rect (start -18.5 -9.5) (end 18.5 9.5) (stroke (width 0.12) (type solid))'
             ' (fill none) (layer "F.SilkS"))\n'
             '\t(fp_rect (start -18.5 -9.5) (end 18.5 9.5) (stroke (width 0.05) (type solid))'
-            ' (fill none) (layer "F.CrtYd"))')
+            ' (fill none) (layer "F.CrtYd"))\n'
+            '\t(fp_rect (start -30 -5) (end -18.5 5) (stroke (width 0.25) (type dash))'
+            ' (fill none) (layer "Dwgs.User"))')
+    keepout = (
+        '\t(zone\n'
+        '\t\t(layer "F.Cu")\n'
+        f'\t\t(uuid "{uid()}")\n'
+        '\t\t(name "USB mating plug")\n'
+        '\t\t(hatch full 0.5)\n'
+        '\t\t(connect_pads (clearance 0))\n'
+        '\t\t(min_thickness 0.25)\n'
+        '\t\t(keepout (tracks allowed) (vias allowed) (pads allowed)'
+        ' (copperpour allowed) (footprints not_allowed))\n'
+        '\t\t(placement (enabled no) (sheetname ""))\n'
+        '\t\t(fill (thermal_gap 0.3) (thermal_bridge_width 0.3))\n'
+        '\t\t(polygon (pts (xy -30 -5) (xy -18.5 -5)'
+        ' (xy -18.5 5) (xy -30 5)))\n'
+        '\t)\n')
+    model = (
+        f'\t(model "{model_path}"\n'
+        '\t\t(offset (xyz 0 0 0))\n'
+        '\t\t(scale (xyz 1 1 1))\n'
+        '\t\t(rotate (xyz 0 0 0))\n'
+        '\t)\n')
     text = ('(footprint "phantasm:Teensy4.0"\n'
             '\t(layer "F.Cu")\n'
             '\t(descr "Teensy 4.0 module, 2x14 0.1in headers")\n'
@@ -114,13 +146,14 @@ def teensy_footprint():
             '\t(property "Value" "Teensy4.0" (at 0 11 0) (layer "F.Fab")\n'
             '\t\t(effects (font (size 1 1) (thickness 0.15))))\n'
             '\t(attr through_hole)\n'
-            + body + "\n" + "\n".join(pads) + "\n)\n")
+            + body + "\n" + keepout + "\n".join(pads) + "\n" + model + ")\n")
     return sexp.parse(text)[0]
 
 
 def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
-          dnp=False):
-    node = teensy_footprint() if libid in ("", "phantasm:Teensy4.0") else \
+          dnp=False, hide_reference=False,
+          teensy_model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
+    node = teensy_footprint(teensy_model_path) if libid in ("", "phantasm:Teensy4.0") else \
         sexp.parse(sexp.dumps(load_mod(libid)))[0]  # deep copy via round-trip
     fid = libid if libid else "phantasm:Teensy4.0"
     node[1] = fid
@@ -151,6 +184,9 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
         if isinstance(c, list) and c and c[0] == "property":
             if c[1] == "Reference":
                 c[2] = ref
+                if hide_reference and not any(
+                        isinstance(d, list) and d and d[0] == "hide" for d in c):
+                    c.insert(-1, [sexp.Sym("hide"), sexp.Sym("yes")])
             elif c[1] == "Value":
                 c[2] = value
     # assign pad nets by name
@@ -226,24 +262,24 @@ HUB_CONNS = ("J1", "J4")            # logic power in, debug — hub end (left)
 FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
 
 QUILTER_FIXED = {
-    "J1": (2.77, 2.77, 0),
-    "J4": (2.77, 10.06, 0),
-    "J2": (55.51, 2.77, 0),
-    "J3A": (55.51, 12.59, 0),
-    "J3B": (55.51, 22.41, 0),
-    "U_MCU": (24.24, 11.5, 0),
-    "C_IN": (3.66, 25.28, 0),
-    "C_DEC1": (9.0, 1.1, 0),
-    "U1": (34.0, 26.0, 180),
-    "C_DEC2": (28.7, 29.8, 180),
-    "R_D1": (39.6, 27.27, 180),
-    "R_D2": (39.6, 23.46, 180),
-    "R_S": (28.0, 22.19, 0),
-    "R1": (21.6, 22.7, -90),
-    "R2": (19.0, 22.7, 90),
-    "C_SYNC": (17.0, 22.7, 90),
-    "D_BUS": (48.8, 20.0, 90),
-    "R_PD": (51.2, 20.0, 90),
+    "J1": (8.5, 18.8, 0),
+    "J4": (8.5, 28.5, 90),
+    "J2": (49.8, 2.77, 0),
+    "J3A": (49.8, 11.7, 0),
+    "J3B": (49.8, 20.6, 0),
+    "U_MCU": (29.0, 11.7, 0),
+    "C_IN": (20.5, 27.0, 0),
+    "C_DEC1": (12.5, 1.35, 0),
+    "U1": (36.6, 26.5, 180),
+    "C_DEC2": (31.3, 30.0, 180),
+    "R_D1": (42.2, 27.77, 180),
+    "R_D2": (42.2, 23.96, 180),
+    "R_S": (31.7, 24.0, 90),
+    "R1": (29.7, 26.2, 90),
+    "R2": (29.7, 22.8, 90),
+    "C_SYNC": (27.8, 22.8, 90),
+    "D_BUS": (46.0, 26.5, 90),
+    "R_PD": (46.0, 23.0, 90),
 }
 
 
@@ -385,6 +421,7 @@ def main(unplaced=False):
         bxs[ref] = fp_bbox(node)
     PLACE, L = pack(bxs, PCB_W)
     if unplaced:
+        L = QUILTER_LENGTH
         staged = unplaced_layout(bxs, L, PCB_W)
         PLACE = {r: QUILTER_FIXED.get(r, staged[r]) for r in bxs}
         OUTFILE = os.path.join("unplaced", "phantasm_unplaced.kicad_pcb")
@@ -395,12 +432,20 @@ def main(unplaced=False):
         NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm (width <=35mm, R-MECH-6); '
                 'shelf-packed draft, route in Pcbnew')
 
+    teensy_model_path = "${KIPRJMOD}/../phantasm.pretty/Teensy4.0.wrl" if unplaced else \
+        "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
     foot_nodes = []
     for ref, (x, y, rot) in PLACE.items():
         _, fp, val, dnp = comps[ref]
         lock = unplaced and ref in QUILTER_FIXED
         foot_nodes.append(embed(fp, ref, val, x, y, rot, pad_net, netid,
-                                path=paths.get(ref), locked=lock, dnp=dnp))
+                                path=paths.get(ref), locked=lock, dnp=dnp,
+                                hide_reference=lock,
+                                teensy_model_path=teensy_model_path))
+    for ref, (x, y) in MOUNTING_HOLES.items():
+        foot_nodes.append(embed(MOUNTING_HOLE_FOOTPRINT, ref, "M2.5",
+                                x, y, 0, pad_net, netid, locked=unplaced,
+                                hide_reference=unplaced))
 
     lines = []
     lines.append("(kicad_pcb")
@@ -431,10 +476,46 @@ def main(unplaced=False):
     lines.append(f'\t(gr_rect (start 0 0) (end {fmt(L)} {fmt(PCB_W)}) '
                  '(stroke (width 0.15) (type solid)) (fill none) (layer "Edge.Cuts") '
                  f'(uuid "{uid()}"))')
+    for ref, (x, y) in MOUNTING_HOLES.items():
+        r = MOUNTING_KEEPOUT_RADIUS
+        lines.append('\t(zone')
+        lines.append('\t\t(net 0)')
+        lines.append('\t\t(net_name "")')
+        lines.append('\t\t(layers "F.Cu" "In1.Cu" "In2.Cu" "B.Cu")')
+        lines.append(f'\t\t(uuid "{uid()}")')
+        lines.append(f'\t\t(name "{ref} screw head")')
+        lines.append('\t\t(hatch full 0.5)')
+        lines.append('\t\t(connect_pads (clearance 0))')
+        lines.append('\t\t(min_thickness 0.25)')
+        lines.append('\t\t(keepout (tracks not_allowed) (vias not_allowed) (pads allowed)'
+                     ' (copperpour not_allowed) (footprints allowed))')
+        lines.append('\t\t(placement (enabled no) (sheetname ""))')
+        lines.append('\t\t(fill (thermal_gap 0.3) (thermal_bridge_width 0.3))')
+        lines.append('\t\t(polygon (pts '
+                     f'(xy {fmt(x-r)} {fmt(y-r)}) (xy {fmt(x+r)} {fmt(y-r)}) '
+                     f'(xy {fmt(x+r)} {fmt(y+r)}) (xy {fmt(x-r)} {fmt(y+r)})))')
+        lines.append('\t)')
     esc_note = NOTE.replace("\\", "\\\\").replace('"', '\\"')
     lines.append(f'\t(gr_text "{esc_note}"'
                  f' (at 4 -4 0) (layer "Cmts.User") (uuid "{uid()}") '
                  '(effects (font (size 2 2) (thickness 0.3)) (justify left bottom)))')
+    lines.append(f'\t(gr_text "USB PLUG KEEP-OUT" (at 5.3 11.5 90)'
+                 f' (layer "Dwgs.User") (uuid "{uid()}") '
+                 '(effects (font (size 0.8 0.8) (thickness 0.15))))')
+    back_silk = [
+        ("ID  ID0   ID1   ROLE", 7.0, 0.9),
+        ("0   OPEN  OPEN  MASTER", 9.0, 0.9),
+        ("1   GND   OPEN  A-SOUTH", 11.0, 0.9),
+        ("2   OPEN  GND   B-NORTH", 13.0, 0.9),
+        ("3   GND   GND   B-SOUTH", 15.0, 0.9),
+        ("MASTER = ALL ID OPEN   SHLD = MASTER ONLY", 17.0, 0.8),
+        ("BOARD ID: ____", 23.5, 2.0),
+    ]
+    for text, y, size in back_silk:
+        lines.append(f'\t(gr_text "{text}" (at {fmt(L/2)} {fmt(y)} 0)'
+                     f' (layer "B.SilkS") (uuid "{uid()}") '
+                     f'(effects (font (size {fmt(size)} {fmt(size)})'
+                     f' (thickness {fmt(max(0.15, size*0.15))})) (justify mirror)))')
     for fn in foot_nodes:
         lines.append(sexp.dumps(fn, indent=1))
     lines.append(")")
