@@ -537,7 +537,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 206. ✅ **MeshFeedback re-evaluates a constant palette every frame** — `effects/MeshFeedback.h:157` — `palette.get(0.0f)` is a virtual call costing three `fast_cosf` plus three LUT lookups for a value that never changes.
 
-207. **MindSplatter's pool-footprint comment is stale by 64 particles** — `effects/MindSplatter.h:126-133` — says 1024 × 180 B; the cap is 1088 (~191 KiB).
+207. ✅ **MindSplatter's pool-footprint comment is stale by 64 particles** — `effects/MindSplatter.h:126-133` — says 1024 × 180 B; the cap is 1088 (~191 KiB).
 
 208. **`MindSplatter::start_warp()` is pure indirection** — `effects/MindSplatter.h:506` — a one-line forwarder called once.
 
