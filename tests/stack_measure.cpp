@@ -33,6 +33,7 @@ constexpr size_t BUDGET_BYTES = 12288;
 
 volatile uint8_t *g_lo;
 int g_measured = 0;
+int g_unmeasured = 0;
 
 // Paint value for a byte, keyed to its address so an incidental workload byte
 // matches only ~1/256 of the time.
@@ -91,6 +92,8 @@ template <typename Effect> size_t measure(const char *name) {
       break;
     }
   }
+  if (peak == 0)
+    ++g_unmeasured;
   std::printf("  %-22s peak = %6zu B\n", name, peak);
   return peak;
 }
@@ -118,6 +121,12 @@ int main() {
         "measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
         "measure() calls dropped\n",
         g_measured, HS_EFFECT_COUNT);
+    return 1;
+  }
+  if (g_unmeasured != 0) {
+    std::printf("%d effect(s) reported peak = 0 B — the paint-density probe "
+                "found no written window, so the budget below scores nothing\n",
+                g_unmeasured);
     return 1;
   }
   const bool over = worst > BUDGET_BYTES;
