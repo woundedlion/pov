@@ -105,9 +105,11 @@ struct Style {
   // --- Filter tuning (snap during lerp) ---
   /**
    * Coarse-grid downsample factor for the warp field. Higher = cheaper
-   * (~DS^2 fewer space_fn / atan2 / acos calls), lower = more detail. Scratch
-   * arena must hold (W/DS) * (H/DS) * 4 bytes — at 288x144, DS=4 ≈ 10KB,
-   * DS=2 ≈ 41KB.
+   * (~DS^2 fewer space_fn / atan2 / acos calls), lower = more detail. One
+   * flush holds the coarse x/y offset grid, the spherical control samples it
+   * expands from, and one W-pixel row in the scratch arena at once; pole infill
+   * puts the ring and sample counts above a flat (W/DS) x (H/DS) grid. At
+   * 288x144, DS=4 ≈ 21KB, DS=2 ≈ 71KB.
    */
   int downsample = 4;
 
