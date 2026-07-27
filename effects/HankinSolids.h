@@ -532,11 +532,10 @@ private:
    * @brief Resolves, per hankin-added face, the palette of the base face it
    * lives inside — the rim it opens from and collapses back onto.
    * @details A rosette is born on a base face's interior walls and opens inward
-   * from them, so it belongs wholly to one base face; the host is found by
-   * shared vertices, which is a topological fact and therefore angle
-   * independent. A centroid test would misfile it at the closed end, where the
-   * rosette has collapsed outward onto the rim and its centroid sits on the
-   * boundary. Runs once per cycle; record_node_palettes must precede it.
+   * from them, so it belongs wholly to one base face. The host is found by
+   * rebuilding the mesh at the sweep peak (angle PI_F / 2) and matching each
+   * rosette's unit centroid against the base face centroids. Runs once per
+   * cycle; record_node_palettes must precede it.
    */
   HS_COLD_MEMBER void resolve_host_faces() {
     const size_t faces = compiled_hankin.face_counts.size();

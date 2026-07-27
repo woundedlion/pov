@@ -301,7 +301,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 89. ✅ **`update_hankin`'s Doxygen block is orphaned onto a constant** — `core/mesh/hankin.h:277-311` — six constant declarations intervene between the block and the function, so the one API here with a non-obvious contract ships undocumented.
 
-90. **`resolve_host_faces`' doc states the opposite of its implementation** — `effects/HankinSolids.h:552-558` — claims the host is found by shared vertices "and is therefore angle independent"; the body rebuilds at π/2 and matches by centroid, with an inline comment explaining why shared vertices *don't* discriminate. A reader trusting the doxygen will "fix" the code back to the broken approach.
+90. ✅ **`resolve_host_faces`' doc states the opposite of its implementation** — `effects/HankinSolids.h:552-558` — claims the host is found by shared vertices "and is therefore angle independent"; the body rebuilds at π/2 and matches by centroid, with an inline comment explaining why shared vertices *don't* discriminate. A reader trusting the doxygen will "fix" the code back to the broken approach.
 
 91. **`MeshFeedback` syncs noise before the preset switch** — `effects/MeshFeedback.h:141-153` — `apply_params()` runs before `advance_transition()`, so on each switch frame the warp reads the previous preset's noise scalars while fade/hue are already the new preset's. Fix: swap the two calls.
 
