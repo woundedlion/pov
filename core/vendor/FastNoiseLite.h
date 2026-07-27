@@ -975,7 +975,7 @@ private:
   }
 
   template <typename FNfloat>
-  float SingleOpenSimplex2(int seed, FNfloat x, FNfloat y, FNfloat z) const {
+  HS_O3_FN float SingleOpenSimplex2(int seed, FNfloat x, FNfloat y, FNfloat z) const {
     // 3D OpenSimplex2 case uses two offset rotated cube grids.
 
     /*

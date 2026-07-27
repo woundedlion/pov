@@ -406,7 +406,8 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
  * @details Single source for the built-in hue-fade color math so hue_fade() and
  *          the flush() fast path that bypasses it cannot drift.
  */
-inline Pixel hue_fade_apply(const float k[9], float r, float g, float b) {
+HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g,
+                                     float b) {
   LMS lms = linear_rgb_to_lms(r, g, b);
   float cl, cm, cs;
   fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
@@ -433,9 +434,9 @@ inline Pixel hue_fade_apply(const float k[9], float r, float g, float b) {
  * scalar hue_fade_apply path by ~4e-7 relative — ~50x below the cube root's own
  * ~2.3e-5 error, and 0.002% of u16 channels by one LSB.
  */
-inline void hue_fade_apply2(const float k[9], float r0, float g0, float b0,
-                            float r1, float g1, float b1, Pixel &p0,
-                            Pixel &p1) {
+HS_O3_FN inline void hue_fade_apply2(const float k[9], float r0, float g0,
+                                     float b0, float r1, float g1, float b1,
+                                     Pixel &p0, Pixel &p1) {
   LMS lms0 = linear_rgb_to_lms(r0, g0, b0);
   LMS lms1 = linear_rgb_to_lms(r1, g1, b1);
   const float lms6[6] = {lms0.l, lms0.m, lms0.s, lms1.l, lms1.m, lms1.s};
