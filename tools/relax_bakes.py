@@ -105,10 +105,13 @@ def emit_header(bakes: list[dict]) -> str:
         lines.extend([
             "};",
             f"inline constexpr MeshOps::RelaxBake {name} = {{",
-            f'    "{name}", {name}_bits, {bake["vertices"]}, {bake["faces"]}, '
-            f'{bake["indices"]}, {bake["iterations"]},',
-            f'    0x{bake["topology_hash"]:08x}u,',
-            f'    0x{bake["output_hash"]:08x}u}};',
+            f'    .name = "{name}", .vertex_bits = {name}_bits,',
+            f'    .vertex_count = {bake["vertices"]}, '
+            f'.face_count = {bake["faces"]}, '
+            f'.index_count = {bake["indices"]}, '
+            f'.iterations = {bake["iterations"]},',
+            f'    .topology_hash = 0x{bake["topology_hash"]:08x}u,',
+            f'    .output_hash = 0x{bake["output_hash"]:08x}u}};',
             "",
         ])
     lines.extend(["} // namespace RelaxBakes", "// clang-format on", ""])
