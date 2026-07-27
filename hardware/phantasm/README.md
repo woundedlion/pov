@@ -230,6 +230,10 @@ every upload** (see next point). Quilter prep:
   Quilter (costs board area).
 - **Every footprint carries its schematic `(path)`** so Quilter matches board↔schematic
   (groups related parts during placement).
+- **Critical local placement is locked:** `C_DEC1` is beside the Teensy VIN/GND
+  pins; `U1`/`C_DEC2` and the DATA/CLK source resistors form one cluster; and
+  `R1`/`R2`/`C_SYNC`, `R_S`, `R_PD`, and `D_BUS` constrain the SYNC source and
+  receive loops. Quilter remains free to place the other SMD parts.
 - Quilter regenerates its own copper pours, so the inner `GND` zones here are just intent.
 
 > `python pcb.py` (no flag) regenerates the placed board and **discards routing** — only
