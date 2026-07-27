@@ -229,7 +229,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 53. ✅ **README's `meta` operator description is wrong on two counts** — `README.md:1126,1139` — `meta` is `kis ∘ dual ∘ ambo` (three steps), not "kis ∘ ambo", and being odd-length it returns in **`target`**, not `temp` as the load-bearing polarity paragraph claims. A dedicated test exists precisely to pin `meta ≠ kis(ambo)`. (Reported by three audits.)
 
-54. **README's SDF register table says `v1` is unsigned** — `README.md:661` — for `SDF::Face`, `raw_dist` is the **signed** edge distance, and `fragment_edge_dist` depends on that sign. A shader author writing `fabsf(f.v1)` per the table loses the inside/outside distinction and shades every face as if at its edge.
+54. ✅ **README's SDF register table says `v1` is unsigned** — `README.md:661` — for `SDF::Face`, `raw_dist` is the **signed** edge distance, and `fragment_edge_dist` depends on that sign. A shader author writing `fabsf(f.v1)` per the table loses the inside/outside distinction and shades every face as if at its edge.
 
 55. ✅ **README's repository map omits ~16 files** — `README.md:160-282` — missing `spherical_field.h`, four `core/color/` headers, three `core/mesh/` headers, four `hardware/` headers, `targets/Profile/`, `wasm_predicates.h`, and 7 of 10 scripts; the daydream side omits six modules and `tests/`.
 
