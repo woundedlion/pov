@@ -427,6 +427,71 @@ inline void determinism_one(const char *name) {
             "effect must render identically across runs under a fixed clock");
 }
 
+/** @brief Frames per segment in the clip-clear parity sweep. */
+constexpr int PARITY_FRAMES = 16;
+/** @brief Arm segments walked by the clip-clear parity sweep. */
+constexpr int PARITY_SEGMENTS = 4;
+
+/**
+ * @brief Drives one effect under a moving segment clip with each clear scope and
+ *        requires the displayed pixels to agree.
+ * @tparam E Effect class template, instantiated as E<W, H>.
+ * @tparam W Render width in pixels.
+ * @tparam H Render height in pixels.
+ * @param name Effect name used in the diagnostic output.
+ * @details The clip clear leaves the region outside the display band holding
+ *          pixels from the frame that last wrote this buffer. Anything an effect
+ *          reads back or carries forward from there shows up here as a mismatch
+ *          against the whole-buffer clear.
+ */
+template <template <int, int> class E, int W = DEVICE_W, int H = DEVICE_H>
+inline void clip_clear_parity_one(const char *name) {
+  constexpr int S = H * 2;
+
+  auto render = [&](int segment_id, bool full_clear) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    std::vector<Pixel> displayed;
+    E<W, H> effect;
+    effect.init();
+    effect.force_full_buffer_clear = full_clear;
+    const pov::SegmentMap map =
+        pov::segment_map(segment_id, S, PARITY_SEGMENTS);
+    for (int f = 0; f < PARITY_FRAMES; ++f) {
+      const pov::SegmentClip clip =
+          pov::segment_clip(map, (f & 1) == 0, S, PARITY_SEGMENTS, W);
+      effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
+      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                        static_cast<unsigned long>(f) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+      for (int y = clip.y0; y < clip.y1; ++y)
+        for (int x = clip.x0; x < clip.x1; ++x)
+          displayed.push_back(effect.get_pixel(x, y));
+    }
+    return displayed;
+  };
+
+  for (int segment_id = 0; segment_id < PARITY_SEGMENTS; ++segment_id) {
+    const std::vector<Pixel> full = render(segment_id, true);
+    const std::vector<Pixel> clipped = render(segment_id, false);
+    HS_EXPECT_EQ(full.size(), clipped.size());
+
+    size_t different = 0;
+    for (size_t i = 0; i < full.size() && i < clipped.size(); ++i)
+      if (full[i] != clipped[i])
+        ++different;
+    if (different)
+      std::printf("  CLIP-CLEAR DRIFT %-20s segment %d: %zu of %zu displayed "
+                  "pixels differ from the full-buffer clear\n",
+                  name, segment_id, different, full.size());
+    HS_EXPECT(different == 0,
+              "clip clearing must not change any displayed pixel");
+  }
+  hs::clear_mock_time();
+}
+
 /**
  * @brief Verifies SHMath::decode_lm yields a valid spherical-harmonic order for every flat index.
  * @details Requires l = floor(sqrt(idx)) and m in [-l, l], with idx == l*l + l +
@@ -2045,7 +2110,7 @@ struct MindSplatterWhiteBox {
   }
   template <int W, int H>
   static void use_clip_clear(MindSplatter<W, H> &ms, bool enabled) {
-    ms.full_buffer_clear = !enabled;
+    ms.force_full_buffer_clear = !enabled;
   }
   template <int W, int H>
   static uint16_t active_particles(const MindSplatter<W, H> &ms) {
@@ -3915,6 +3980,14 @@ inline int run_effects_tests() {
 #define HS_DET_ONE_DEV(name) determinism_one<name, DEVICE_W, DEVICE_H>(#name);
   HS_EFFECT_LIST(HS_DET_ONE_DEV)
 #undef HS_DET_ONE_DEV
+
+  // Every effect clip-clears unless it declares needs_full_frame, so the roster
+  // is swept rather than the one effect the optimization started on.
+  std::printf("  -- clip-clear display parity --\n");
+#define HS_CLIP_PARITY_ONE(name)                                               \
+  clip_clear_parity_one<name, DEVICE_W, DEVICE_H>(#name);
+  HS_EFFECT_LIST(HS_CLIP_PARITY_ONE)
+#undef HS_CLIP_PARITY_ONE
 
   return fixture.result();
 }

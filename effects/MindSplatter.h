@@ -85,31 +85,7 @@ public:
    *        advances it, then renders the particles.
    */
   void draw_frame() override {
-#ifdef HS_TEST_BUILD
-    if (full_buffer_clear) {
-      Canvas canvas(*this);
-      render(canvas);
-      return;
-    }
-#endif
-    if constexpr (decltype(filters)::any_crosses_segments) {
-      Canvas canvas(*this);
-      render(canvas);
-    } else {
-      Canvas canvas(*this, Canvas::ClearDisplayClipTag{});
-      render(canvas);
-    }
-  }
-
-private:
-  // Test seam for emitter and fixed-attractor invariants.
-  friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
-
-  /**
-   * @brief Renders one frame into an already-acquired canvas.
-   * @param canvas Render target for this frame.
-   */
-  void render(Canvas &canvas) {
+    Canvas canvas(*this);
     {
       HS_PROFILE(msp_timeline_step);
       timeline.step(canvas);
@@ -128,6 +104,10 @@ private:
 
     draw_particles(canvas);
   }
+
+private:
+  // Test seam for emitter and fixed-attractor invariants.
+  friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
 
   /** @brief Per-particle trail length (feeds the pool footprint below). */
   static constexpr int TRAIL_LEN = 23;
@@ -348,7 +328,6 @@ private:
   bool reference_vertex_pass = false;
   bool reference_hole_kernel = false;
   bool reference_palette_alpha = false;
-  bool full_buffer_clear = false;
 #endif
 
   /**
