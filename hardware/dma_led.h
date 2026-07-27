@@ -148,10 +148,13 @@ public:
 
 private:
   /**
-   * @brief Watchdog bound for checkStaleTransfer(), in µs. Far above any real
-   *        full-frame DMA (single-digit ms), so only a wedged channel trips it.
+   * @brief Watchdog bound for checkStaleTransfer(), in µs. Over 20× the longest
+   *        real full-frame DMA (~0.22 ms: a 334-byte composite buffer at the
+   *        12 MHz default clock), so only a wedged channel trips it, while
+   *        staying within ~11 column periods (~434 µs each) so a wedge does not
+   *        blank the strip for hundreds of columns before trapping.
    */
-  static constexpr unsigned long TRANSFER_WATCHDOG_US = 100000UL;
+  static constexpr unsigned long TRANSFER_WATCHDOG_US = 5000UL;
 
   /**
    * @brief DMA completion ISR: clears the interrupt and marks the transfer done.
