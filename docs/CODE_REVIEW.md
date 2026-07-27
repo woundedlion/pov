@@ -381,7 +381,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 129. ✅ **`Style::downsample`'s documented scratch requirement understates the real one ~2×** — `core/engine/styles.h:106-112` — the formula omits the `WarpControl` array (~8.1 KB at 288×144, DS=4), so an effect sizing its scratch arena from this comment traps mid-flush.
 
-130. **`generate_reaction_graph.py` duplicates three runtime constants with no cross-check** — `scripts/generate_reaction_graph.py:41-45` vs `core/engine/reaction_graph.h:15-16,54` — the header claims both are guarded; raising `RD_N` in the header alone leaves the CI provenance diff green and produces a zero-padded table.
+130. ✅ **`generate_reaction_graph.py` duplicates three runtime constants with no cross-check** — `scripts/generate_reaction_graph.py:41-45` vs `core/engine/reaction_graph.h:15-16,54` — the header claims both are guarded; raising `RD_N` in the header alone leaves the CI provenance diff green and produces a zero-padded table.
 
 131. **`fast_sincosf_0_pi` states a domain it does not enforce** — `core/math/3dmath.h:1397-1409` — beyond π the sine branch silently returns the wrong sign, while the sibling `fast_expf` asserts its domain.
 

@@ -14,8 +14,9 @@ committed table reproduces bit-for-bit ONLY in double: computing y / radius in
 float32 (as a naive runtime port would) flips the sort order of a handful of rows
 at near-tie distances. core/engine/reaction_graph.h::node() therefore folds y, radius,
 and theta in double and narrows once into the float Vector, symmetric with this
-generator. Keep the two in lockstep: any edit to golden_angle / RD_N / the node()
-formula must be made in BOTH places and the table regenerated.
+generator. RD_N, RD_K and golden_angle are parsed out of that header rather than
+restated here, so only the node() formula itself is mirrored by hand; any edit to
+it requires regenerating the table.
 
 Lattice (mirrors core/engine/reaction_graph.h::node):
 
@@ -36,13 +37,45 @@ in either the script or the table fails loudly.
 """
 
 import math
+import re
 import sys
+from pathlib import Path
 
-RD_N = 7680
-RD_K = 6
+HEADER = (Path(__file__).resolve().parent.parent / "core" / "engine" /
+          "reaction_graph.h")
 
-GOLDEN_ANGLE = 2.399963229728653
 TWO_PI = 6.283185307179586
+
+
+def _header_constant(text, pattern, name):
+    match = re.search(pattern, text)
+    if not match:
+        raise RuntimeError(
+            f"{name} not found in {HEADER}; this generator reads the runtime "
+            "header as the single source of truth for the lattice constants")
+    return match.group(1)
+
+
+def _load_header_constants():
+    """RD_N, RD_K and golden_angle read out of core/engine/reaction_graph.h.
+
+    Restating them here would let a header-only edit produce a table the CI
+    provenance diff still accepts (the C++ array bound comes from the header, so
+    a raised RD_N zero-pads the missing rows instead of failing to compile).
+    """
+    text = HEADER.read_text(encoding="utf-8")
+    return (
+        int(_header_constant(text, r"constexpr\s+int\s+RD_N\s*=\s*(\d+)\s*;",
+                             "RD_N")),
+        int(_header_constant(text, r"constexpr\s+int\s+RD_K\s*=\s*(\d+)\s*;",
+                             "RD_K")),
+        float(_header_constant(
+            text, r"constexpr\s+double\s+golden_angle\s*=\s*([0-9.eE+-]+)\s*;",
+            "golden_angle")),
+    )
+
+
+RD_N, RD_K, GOLDEN_ANGLE = _load_header_constants()
 
 
 def node(i):
