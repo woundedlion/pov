@@ -188,9 +188,8 @@ inline void test_blend_add_packed_lane_layout() {
 
 /**
  * @brief Verifies Color4::operator*= scales both pixel and alpha.
- * @details The SSAA averaging algebra (scale each sample by 1/N, then sum)
- *          relies on *= touching alpha alongside color; scaling color but not
- *          alpha would silently corrupt the running average's weight.
+ * @details Pins the plain-4-vector semantics: scaling color but not alpha would
+ *          silently reweight any average built from these operators.
  */
 inline void test_color4_scale_affects_color_and_alpha() {
   Color4 c(Pixel16(1000, 2000, 4000), 0.8f);
@@ -204,9 +203,7 @@ inline void test_color4_scale_affects_color_and_alpha() {
 /**
  * @brief Verifies Color4::operator+= sums color and clamps alpha at 1.0.
  * @details Alpha must saturate at 1.0 so the sum stays a valid blend weight; a
- *          missing clamp would let summed coverage ride past 1. Also exercises
- *          the SSAA pattern: N samples each pre-scaled by 1/N sum back to the
- *          average with alpha <= 1.
+ *          missing clamp would let summed coverage ride past 1.
  */
 inline void test_color4_add_clamps_alpha_and_sums_color() {
   // Two near-opaque samples sum past 1.0 -> clamped.
@@ -216,7 +213,7 @@ inline void test_color4_add_clamps_alpha_and_sums_color() {
   HS_EXPECT_EQ(a.color.g, 100);
   HS_EXPECT_NEAR(a.alpha, 1.0f, 1e-6f); // 1.3 clamped
 
-  // SSAA averaging: sum of (sample * 1/N) reproduces the average, alpha <= 1.
+  // Sum of (sample * 1/N) reproduces the average, alpha <= 1.
   const int N = 4;
   Color4 samples[N] = {
       Color4(Pixel16(40000, 0, 0), 1.0f),

@@ -223,19 +223,20 @@ __attribute__((always_inline)) inline uint16_t frac_to_q16(float frac) {
 
 /**
  * @brief Represents a color with a STRAIGHT (non-premultiplied) alpha channel.
- * @details `color` holds the un-premultiplied color, `alpha` its coverage. The
- * arithmetic operators (`operator*=`, `operator+=`) are NOT alpha compositing:
- * they treat (color, alpha) as a plain 4-vector for SSAA averaging (scale by
- * 1/N, then sum), so `*=` scales alpha alongside color. Premultiplication
- * happens once, at the final canvas write (`color * alpha`).
+ * @details `color` holds the un-premultiplied color, `alpha` its coverage;
+ * premultiplication happens once, at the final canvas write (`color * alpha`).
+ * The arithmetic operators (`operator*=`, `operator+=`) are NOT alpha
+ * compositing and no render path uses them: they treat (color, alpha) as a
+ * plain 4-vector, so `*=` scales alpha alongside color. Both SSAA paths in
+ * `Scan::Shader` accumulate premultiplied into a `Pixel` instead.
  */
 struct Color4 {
   Pixel color;
   float alpha;
 
   /**
-   * @brief Constructs a transparent black color (alpha 0.0), the additive/SSAA
-   * accumulator identity for `operator+=`.
+   * @brief Constructs a transparent black color (alpha 0.0), the identity for
+   * `operator+=`.
    */
   Color4() : color(Pixel(0, 0, 0)), alpha(0.0f) {}
   /**
