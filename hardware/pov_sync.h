@@ -1130,8 +1130,13 @@ struct TickActions {
    * (spec §6.1).
    */
   bool dark = false;
-  bool flip = false;          /**< Call advance_display() on the live effect. */
-  bool zero_crossing = false; /**< A ZERO boundary flip happened this tick. */
+  bool flip = false; /**< Call advance_display() on the live effect. */
+  /**
+   * @brief The last flip this tick crossed ZERO.
+   * @details A tick that folds several boundaries reports only the final one,
+   * which is the boundary that opened the display window now in effect.
+   */
+  bool zero_crossing = false;
   /**
    * @brief ZERO crossing on the join grid.
    * @details A board with no live effect takes its pending one here
@@ -1400,10 +1405,10 @@ private:
     if (!gate_.try_flip(b))
       return;
     a.flip = true;
+    a.zero_crossing = b == Boundary::ZERO;
     ++telemetry_.flips;
-    if (b != Boundary::ZERO)
+    if (!a.zero_crossing)
       return;
-    a.zero_crossing = true;
     beacon_done_this_rev_ = false;
     if (content_.identity_known) {
       if (content_.on_zero_crossing(cfg_))
