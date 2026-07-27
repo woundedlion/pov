@@ -2117,11 +2117,13 @@ inline void build_octahedron(PolyMesh &mesh, Arena &arena) {
 }
 
 // ============================================================================
-// MeshCarousel arena compaction (compact / compact_keep_front)
+// MeshCarousel arena compaction
 // ----------------------------------------------------------------------------
-// Both evacuate slots to a scratch arena, reset the persistent arena, and
-// restore on scope exit. compact() keeps both slots; compact_keep_front() drops
-// the back slot and runs after_reset before the front restore.
+// compact() and compact_keep_front() evacuate slots to a scratch arena, reset
+// the persistent arena, and restore on scope exit; compact() keeps both slots,
+// compact_keep_front() drops the back slot and runs after_reset before the
+// front restore. compact_drop_all() evacuates nothing: both slots are freed
+// and after_reset sees the empty arena.
 // ============================================================================
 
 /**
@@ -2184,6 +2186,45 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
   HS_EXPECT_FALSE(carousel.slot(1).is_bound());
   HS_EXPECT_GT(reinterpret_cast<uintptr_t>(&carousel.current().vertices[0]),
                reinterpret_cast<uintptr_t>(bake_ptr));
+}
+
+/**
+ * @brief Verifies compact_drop_all() frees both slots and evacuates nothing:
+ * after_reset sees an empty persistent arena and its bake is the only thing
+ * left in it.
+ */
+inline void test_meshcarousel_compact_drop_all_frees_both_slots() {
+  persistent_arena.reset();
+  static uint8_t polybuf[1 << 14];
+  Arena polyarena(polybuf, sizeof(polybuf));
+  PolyMesh poly;
+  build_octahedron(poly, polyarena);
+
+  MeshCarousel<Segue::Crossfade> carousel;
+  MeshOps::compile(poly, carousel.slot(0), persistent_arena, scratch_arena_a);
+  MeshOps::compile(poly, carousel.slot(1), persistent_arena, scratch_arena_a);
+  HS_EXPECT_TRUE(carousel.slot(0).is_bound());
+  HS_EXPECT_TRUE(carousel.slot(1).is_bound());
+  HS_EXPECT_GT(persistent_arena.get_offset(), (size_t)0);
+
+  bool after_reset_ran = false;
+  size_t offset_at_reset = SIZE_MAX;
+  const void *bake_ptr = nullptr;
+  carousel.compact_drop_all([&](Arena &a) {
+    after_reset_ran = true;
+    offset_at_reset = a.get_offset();
+    bake_ptr = a.allocate(64);
+  });
+
+  HS_EXPECT_TRUE(after_reset_ran);
+  // Nothing is evacuated, so the callback runs on a fully reclaimed arena.
+  HS_EXPECT_EQ(offset_at_reset, (size_t)0);
+  HS_EXPECT_TRUE(bake_ptr != nullptr);
+  HS_EXPECT_FALSE(carousel.slot(0).is_bound());
+  HS_EXPECT_FALSE(carousel.slot(1).is_bound());
+  // Only the bake is resident: neither slot was restored on top of it.
+  HS_EXPECT_LE(persistent_arena.get_offset(),
+               (size_t)64 + alignof(std::max_align_t));
 }
 
 // ============================================================================
@@ -2686,6 +2727,7 @@ inline int run_animation_tests() {
 
   test_meshcarousel_compact_retains_both_slots();
   test_meshcarousel_compact_keep_front_drops_back();
+  test_meshcarousel_compact_drop_all_frees_both_slots();
 
   test_colorwipe_reaches_target_keys();
   test_colorwipe_snapshots_on_first_step();
