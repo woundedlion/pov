@@ -132,11 +132,10 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
  * @param he_mesh Half-edge connectivity to walk.
  * @param start_idx Half-edge index at which the orbit begins.
  * @param visitor Invoked once per visited half-edge with its index.
- * @return Number of half-edges visited in the orbit.
  */
 template <char OrbitMode, typename VisitorFn>
-inline int vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
-                        VisitorFn &&visitor) {
+inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
+                         VisitorFn &&visitor) {
   uint16_t curr_idx = start_idx;
   int count = 0;
   // Anti-hang guard: a corrupt/non-manifold half-edge graph would otherwise
@@ -163,7 +162,6 @@ inline int vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
       curr_idx = he_mesh.half_edges[curr_he.pair].next;
     }
   } while (curr_idx != HE_NONE && curr_idx != start_idx);
-  return count;
 }
 
 /**
@@ -468,10 +466,11 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
  *   centroid).
  * @param mesh Source mesh.
  * @param target Arena receiving the output mesh.
- * @param temp Arena holding the transient scratch.
+ * @param temp Unused; kept for the shared operator signature.
  * @return Fresh kis PolyMesh allocated in `target`.
  */
-HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target,
+                            [[maybe_unused]] Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -483,36 +482,32 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target, Arena &temp) {
   out_mesh.face_counts.bind(target, I);
   out_mesh.faces.bind(target, 3 * I);
 
-  {
-    ScratchScope temp_guard(temp);
+  for (size_t i = 0; i < V; ++i)
+    out_mesh.vertices.push_back(mesh.vertices[i]);
 
-    for (size_t i = 0; i < V; ++i)
-      out_mesh.vertices.push_back(mesh.vertices[i]);
-
-    size_t offset = 0;
-    for (size_t fi = 0; fi < F; ++fi) {
-      int count = face_counts[fi];
-      HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)");
-      Vector centroid(0, 0, 0);
-      for (int k = 0; k < count; ++k) {
-        centroid = centroid + mesh.vertices[faces[offset + k]];
-      }
-      centroid = centroid / static_cast<float>(count);
-
-      out_mesh.vertices.push_back(
-          normalized_or(centroid, mesh.vertices[faces[offset]]));
-      int center_idx = narrow_index(out_mesh.vertices.size() - 1);
-
-      for (int k = 0; k < count; ++k) {
-        uint16_t vi = faces[offset + k];
-        uint16_t vj = faces[offset + (k + 1) % count];
-        out_mesh.face_counts.push_back(3);
-        out_mesh.faces.push_back(vi);
-        out_mesh.faces.push_back(vj);
-        out_mesh.faces.push_back(static_cast<uint16_t>(center_idx));
-      }
-      offset += count;
+  size_t offset = 0;
+  for (size_t fi = 0; fi < F; ++fi) {
+    int count = face_counts[fi];
+    HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)");
+    Vector centroid(0, 0, 0);
+    for (int k = 0; k < count; ++k) {
+      centroid = centroid + mesh.vertices[faces[offset + k]];
     }
+    centroid = centroid / static_cast<float>(count);
+
+    out_mesh.vertices.push_back(
+        normalized_or(centroid, mesh.vertices[faces[offset]]));
+    int center_idx = narrow_index(out_mesh.vertices.size() - 1);
+
+    for (int k = 0; k < count; ++k) {
+      uint16_t vi = faces[offset + k];
+      uint16_t vj = faces[offset + (k + 1) % count];
+      out_mesh.face_counts.push_back(3);
+      out_mesh.faces.push_back(vi);
+      out_mesh.faces.push_back(vj);
+      out_mesh.faces.push_back(static_cast<uint16_t>(center_idx));
+    }
+    offset += count;
   }
   normalize(out_mesh);
   return out_mesh;
@@ -669,8 +664,7 @@ HS_COLD static void medial(const PolyMesh &mesh, PolyMesh &out_a,
 
         uint16_t new_idx = narrow_index(out_a.vertices.size() - 1);
         edge_to_vert[i] = new_idx;
-        if (he.pair != HE_NONE)
-          edge_to_vert[he.pair] = new_idx;
+        edge_to_vert[he.pair] = new_idx;
       }
     }
 
