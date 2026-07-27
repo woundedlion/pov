@@ -214,7 +214,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    26 effects (27 headers incl. the shared ReactionDiffusionBase.h):
+├── effects/                    24 effects (25 headers incl. the shared ReactionDiffusionBase.h):
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
 │                                Raymarch.h, … — see §9 Effects Reference
 │
@@ -299,7 +299,7 @@ Three build targets share a common engine:
 │  │ Holosphere/  │   │  Effects → Canvas → Filter Pipeline          │    │
 │  │  .ino        │   │      → SDF/Plot → Pixel Buffer               │    │
 │  │              │   │                                              │    │
-│  │ Phantasm/    │   │  effects/  (26 visual algorithms)            │    │
+│  │ Phantasm/    │   │  effects/  (24 visual algorithms)            │    │
 │  │  .ino        │   │                                              │    │
 │  │              │   ├──────────────────────────────────────────────┤    │
 │  │ wasm/        │   │          hardware/  (Drivers)                │    │
