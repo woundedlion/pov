@@ -210,7 +210,8 @@ private:
   HS_O3_FN void draw_rings(Canvas &canvas, float opacity) {
     HS_PROFILE(df_draw_rings);
     int n_rings = static_cast<int>(params.num_rings);
-    assert(n_rings <= RING_SLOTS);
+    HS_CHECK(n_rings <= RING_SLOTS,
+             "DisplacementField: Rings slider exceeds the baked-ring pool");
     Basis basis = make_basis(orientation.get(), normal);
     const bool try_cull = !clip().is_full();
     // World-angle pad absorbing the AA splat past the clip's margin.

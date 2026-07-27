@@ -305,7 +305,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 91. ✅ **`MeshFeedback` syncs noise before the preset switch** — `effects/MeshFeedback.h:141-153` — `apply_params()` runs before `advance_transition()`, so on each switch frame the warp reads the previous preset's noise scalars while fade/hue are already the new preset's. Fix: swap the two calls.
 
-92. **A bare `assert` sits in the DisplacementField render path** — `effects/DisplacementField.h:213` — the only bare assert in `effects/`; it compiles out on device, so the guard exists only in the host build.
+92. ✅ **A bare `assert` sits in the DisplacementField render path** — `effects/DisplacementField.h:213` — the only bare assert in `effects/`; it compiles out on device, so the guard exists only in the host build.
 
 93. **`PetalFlow::MAX_RINGS` equals its worst case with zero margin** — `effects/PetalFlow.h:90-91` — 64 required, 64 provided, by coincidence rather than construction; widening the Density slider or nudging `SPACING` starts dropping rings every frame. Fix: a `static_assert` deriving the bound from the four constants and the slider max.
 
