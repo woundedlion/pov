@@ -1503,8 +1503,12 @@ Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial f
 
  ACQUIRE : accept any *valid* symbol unconditionally (hard snap), but only
            on a burst preceded by ≥ t_QB (16 col) of wire silence — so a
-           beacon digit train can't capture a just-rebooted board. Renders
-           black until it has BOTH phase (a snap) AND identity (epoch/beacon).
+           beacon digit train can't capture a just-rebooted board mid-frame.
+           The train's FIRST digit is preceded by silence exactly as a
+           boundary symbol is, so it can still be mistaken once; the
+           R-rejection fallback bounds the recovery (§9.1 mis-snap row).
+           Renders black until it has BOTH phase (a snap) AND identity
+           (epoch/beacon).
  LOCKED  : accept a valid symbol only if implied correction ≤ G (4 col) AND
            boundary identity matches the prediction. Else reject (telemetry,
            no snap, no flip). After R rejections the board concludes its OWN
