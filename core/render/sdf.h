@@ -514,8 +514,8 @@ struct Ring {
   float ny;            /**< y-component of the ring axis. */
   float target_angle,
       center_phi; /**< Centerline polar angle and axis colatitude. */
-  float cos_max, cos_min, cos_target, inv_sin_target,
-      sin_target; /**< Precomputed band trig. */
+  float cos_max, cos_min, cos_target,
+      inv_sin_target; /**< Precomputed band trig. */
 
   float r_val; /**< Horizontal projection length of the axis (for full-row
                         check). */
@@ -546,10 +546,9 @@ struct Ring {
     cos_min = cosf(ang_max);
     cos_target = cosf(target_angle);
 
-    sin_target = sinf(target_angle);
     bool safe_approx = (target_angle > POLE_SAFE_MARGIN &&
                         target_angle < PI_F - POLE_SAFE_MARGIN);
-    inv_sin_target = safe_approx ? (1.0f / sin_target) : 0.0f;
+    inv_sin_target = safe_approx ? (1.0f / sinf(target_angle)) : 0.0f;
 
     r_val = ap.R_val;
     alpha_angle = ap.alpha_angle;
@@ -592,47 +591,6 @@ struct Ring {
       return false;
 
     float denom = r_val * sin_phi;
-    float ny_cos_phi = ny * cos_phi;
-    float C_target = (cos_target - ny_cos_phi) / denom;
-    float scale = W / (2.0f * PI_F);
-
-    // Pole-wrap: when a band edge arc collapses within one column of a pole,
-    // emit_annular_band merges its two arcs but the centerline fast path below
-    // emits them unmerged, leaving a seam gap. cos decreases with angle, so the
-    // near edge cos_max gives the smaller angle.
-    float C_band_near = (cos_max - ny_cos_phi) / denom;
-    float C_band_far = (cos_min - ny_cos_phi) / denom;
-    float cos_pole = cosf(2.0f * PI_F / W);
-    bool pole_wrap = C_band_near >= cos_pole || C_band_far <= -cos_pole;
-
-    // Centerline fast path, valid only while the band edges stay inside [-1,1];
-    // past the clamp boundary the first-order width formula spikes, so fall
-    // back to the exact annular arcs.
-    float clamp_bound = 1.0f - sin_target * thickness / denom;
-    if (!pole_wrap && clamp_bound < 1.0f && C_target > -clamp_bound &&
-        C_target < clamp_bound && sin_target > 1e-3f) {
-      // Floor the radicand: 1-C^2 nears 0 and can go slightly negative under
-      // -ffast-math (sqrtf(NaN)); the floor also caps half_width on grazing
-      // rows.
-      float sin_cross = sqrtf(std::max(1.0f - C_target * C_target, 1e-6f));
-      float acos_C = fast_acos(C_target);
-      // Full thickness: the scan interval must span the stroke-AA footprint
-      // process_pixel derives from full `size`, else the outermost AA column
-      // clips on grazing rows.
-      float half_width = thickness * sin_target / (denom * sin_cross);
-
-      float hw_px = half_width * scale;
-      float t1 = (alpha_angle - acos_C) * scale;
-      float t2 = (alpha_angle + acos_C) * scale;
-
-      // Both padded twin arcs can straddle θ=0; the seam merge is left to
-      // scan_region's [0,W) wrap/coalesce pass.
-      out(floorf(t1 - hw_px), ceilf(t1 + hw_px));
-      out(floorf(t2 - hw_px), ceilf(t2 + hw_px));
-      return true;
-    }
-
-    // Annular band: exact intervals for near-tangent / out-of-range rows
     emit_annular_band<W>(cos_min, cos_max, ny, cos_phi, denom, alpha_angle,
                          out);
     return true;
@@ -2709,9 +2667,8 @@ struct Face {
    * while edges stay exact. Rotational-symmetry ambiguity is harmless (the LUT
    * is invariant under the shape's symmetry group).
    */
-  HS_COLD_MEMBER bool bind_class_lut(const ClassLut *lut,
-                                     const float *canon_xy, int vert_offset,
-                                     bool reflected) {
+  HS_COLD_MEMBER bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
+                                     int vert_offset, bool reflected) {
     float mx = 0.0f, my = 0.0f;
     for (int i = 0; i < count; ++i) {
       mx += poly_2d[i].x;
