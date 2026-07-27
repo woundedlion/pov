@@ -275,7 +275,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 76. ✅ **A caller-supplied `fragment_interpolator` is silently replaced by `Fragment::lerp` on the type-erased path** — `core/render/plot.h:1116-1127,3593-3599` — the interpolation policy survives only for pipelines declaring `direct_raster_path`. Today's only caller supplies a strict subset of `lerp`, so the drop is a pure perf regression — but any nonlinear interpolator would render differently depending on pipeline type, with no diagnostic.
 
-77. **`ParticleSystem::draw_impl` re-implements `gate_trail_edges`, and the two have already drifted** — `core/render/plot.h:3397-3463` vs `:2870-2947` — a near-verbatim copy missing the near-horizontal-arc-pole rejection whose comment explains exactly why it is needed. No wrong cull could be constructed, but two bodies documented as producing identical verdicts differ by one guard in the place a divergence is hardest to notice.
+77. ✅ **`ParticleSystem::draw_impl` re-implements `gate_trail_edges`, and the two have already drifted** — `core/render/plot.h:3397-3463` vs `:2870-2947` — a near-verbatim copy missing the near-horizontal-arc-pole rejection whose comment explains exactly why it is needed. No wrong cull could be constructed, but two bodies documented as producing identical verdicts differ by one guard in the place a divergence is hardest to notice.
 
 78. **`SDF::Intersection` can emit spans and still return false** — `core/render/sdf.h:1720-1724` — combined with finding 73 this would double-shade the next row. Unreachable today only because every leaf returns false before emitting — an invariant nothing states or tests.
 
