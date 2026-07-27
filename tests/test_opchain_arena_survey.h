@@ -212,6 +212,7 @@ inline void test_islamic_registry_arena_survey() {
   // Every recipe now fits the persistent budget; gating at zero keeps a
   // build-path regression from silently pushing any shape past it.
   HS_EXPECT_LE(over, (size_t)0);
+  HS_EXPECT_LE(worst_a, ISLAMIC_SCRATCH_A_BUDGET);
   HS_EXPECT_LE(worst_b, ISLAMIC_SCRATCH_B_BUDGET);
 }
 
