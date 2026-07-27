@@ -328,3 +328,52 @@ class ProbeBreakdownLines(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()) as err:
             self.assertEqual(pp.cmd_probe(self._parse(cyc=None, cnt=None)), 2)
         self.assertIn("HS_PROBE_BREAKDOWN", err.getvalue())
+
+
+class ValidateRequiresData(unittest.TestCase):
+    """`validate` is the mandatory pre-trust step: it must not certify nothing."""
+
+    HEADERS = "\n".join(
+        f"=== profile Fx [288x144] frames {1 + 10 * i}-{10 + 10 * i} "
+        f"window=62500 us ===" for i in range(3))
+
+    @staticmethod
+    def _measurable(cyc, wall_sum):
+        return "\n".join([
+            "=== profile Fx [288x144] frames 1-10 window=62500 us ===",
+            f"frame wall us: min=100 avg=100 max=100 sum={wall_sum} (10 frames)",
+            f"frame                 {wall_sum} us (100%)   10 calls   {cyc} cyc",
+            "=== profile Fx [288x144] frames 11-20 window=62500 us ===",
+            f"frame wall us: min=100 avg=100 max=100 sum={wall_sum} (10 frames)",
+            f"frame                 {wall_sum} us (100%)   10 calls   {cyc} cyc",
+            "=== profile Fx [288x144] frames 21-30 window=62500 us ===",
+            f"frame wall us: min=100 avg=100 max=100 sum={wall_sum} (10 frames)",
+            f"frame                 {wall_sum} us (100%)   10 calls   {cyc} cyc",
+        ])
+
+    def _validate(self, text):
+        import contextlib
+        import io
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "prof.log"
+            log.write_text(text, encoding="utf-8")
+            windows, effect = pp.parse(str(log))
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            ok = pp.cmd_validate(windows, effect, "frame")
+        return ok, out.getvalue()
+
+    def test_bare_headers_are_not_valid(self):
+        ok, out = self._validate(self.HEADERS)
+        self.assertFalse(ok)
+        self.assertIn("INVALID", out)
+
+    def test_measurable_capture_is_valid(self):
+        # 600_000 cyc / 600 == 1000 us, matching the wall sum exactly.
+        ok, out = self._validate(self._measurable(600_000, 1000))
+        self.assertTrue(ok)
+        self.assertIn("VALID", out)
+
+    def test_ppm_drift_is_still_caught(self):
+        ok, _ = self._validate(self._measurable(700_000, 1000))
+        self.assertFalse(ok)
