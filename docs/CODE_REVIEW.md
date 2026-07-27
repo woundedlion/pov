@@ -219,7 +219,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 48. ✅ **README's GS entry omits its parameters and the reaction lifecycle** — `README.md:1566-1568` — registers Feed/Kill/dA/dB/Speed, and its most visible behaviour (auto-dissolve and reseed when the field stalls) is undocumented.
 
-49. **README names the wrong low-resolution-only effect pair** — `README.md:1546` — says "RingShower, Dynamo"; `effects.h:78-112` excludes **Thrusters**, not RingShower, and the drift `static_assert` says so literally.
+49. ✅ **README names the wrong low-resolution-only effect pair** — `README.md:1546` — says "RingShower, Dynamo"; `effects.h:78-112` excludes **Thrusters**, not RingShower, and the drift `static_assert` says so literally. *Diagnosis did not hold: the sentence names which simulator preset each screenshot was captured at, not the Phantasm firmware playlist. RingShower.png and Dynamo.png are the 20-row captures, so the named pair is correct. Fixed the real defect on the line instead — the capture-resolution rationale, which claimed effects are registered at only one resolution.*
 
 50. **README mis-describes MindSplatter** — `README.md:1742-1746` — "random-walk particle system" describes the view orientation, not the particles, which are emitted from cube vertices toward octahedral attractors and punched out by signed-axis holes.
 

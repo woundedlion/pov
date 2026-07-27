@@ -1574,7 +1574,7 @@ An effect passes construction-time flags to its base as `Effect(W, H, {.strobe =
 
 ## 9. Effects Reference
 
-All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) at each effect's highest available resolution — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for effects only registered there (RingShower, Dynamo).
+All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for RingShower and Dynamo.
 
 ### Core Effects (Modern Engine)
 
