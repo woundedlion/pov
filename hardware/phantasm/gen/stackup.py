@@ -32,7 +32,7 @@ for L in (pcbnew.In1_Cu, pcbnew.In2_Cu):
     except Exception:
         pass
 
-# Physical dielectric stackup uses KiCad's default 1.6 mm 4-layer (1 oz copper,
+# Physical dielectric stackup uses JLC04161H-7628 with 1 oz outer and 0.5 oz inner copper,
 # thin outer prepreg, thick core) — applied when the board is opened/saved in KiCad.
 
 # --- inner ground planes: GND zones on In1.Cu and In2.Cu over the board outline ---
@@ -55,16 +55,16 @@ for layer in (pcbnew.In1_Cu, pcbnew.In2_Cu):
 b.Save(F)
 
 # --- inject an explicit physical stackup (standard 1.6 mm 4-layer, JLC ...7628):
-#     1 oz copper, ~0.21 mm outer prepreg (tight F.Cu->In1 GND coupling), 1.065 mm core.
+#     1 oz outer and 0.5 oz inner copper, ~0.21 mm outer prepreg, 1.065 mm core.
 STACKUP = """\t\t(stackup
 \t\t\t(layer "F.SilkS" (type "Top Silk Screen"))
 \t\t\t(layer "F.Paste" (type "Top Solder Paste"))
 \t\t\t(layer "F.Mask" (type "Top Solder Mask") (thickness 0.01))
 \t\t\t(layer "F.Cu" (type "copper") (thickness 0.035))
 \t\t\t(layer "dielectric 1" (type "prepreg") (thickness 0.2104) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
-\t\t\t(layer "In1.Cu" (type "copper") (thickness 0.035))
+\t\t\t(layer "In1.Cu" (type "copper") (thickness 0.0152))
 \t\t\t(layer "dielectric 2" (type "core") (thickness 1.065) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
-\t\t\t(layer "In2.Cu" (type "copper") (thickness 0.035))
+\t\t\t(layer "In2.Cu" (type "copper") (thickness 0.0152))
 \t\t\t(layer "dielectric 3" (type "prepreg") (thickness 0.2104) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
 \t\t\t(layer "B.Cu" (type "copper") (thickness 0.035))
 \t\t\t(layer "B.Mask" (type "Bottom Solder Mask") (thickness 0.01))

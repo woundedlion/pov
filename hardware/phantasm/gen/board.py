@@ -85,7 +85,7 @@ TEENSY, TPN = make_teensy()
 for lib, name in [("power", "GND"), ("power", "+3V3"), ("power", "PWR_FLAG"),
                   ("Device", "R"), ("Device", "C"), ("Device", "C_Polarized"),
                   ("Device", "FerriteBead"), ("Device", "Fuse"), ("Device", "D_TVS"),
-                  ("Device", "D_Schottky"),
+                  ("Transistor_FET", "Q_PMOS_GSD"),
                   ("Connector_Generic", "Conn_01x02"),
                   ("Connector_Generic", "Conn_01x03"),
                   ("Connector_Generic", "Conn_01x04"),
@@ -162,17 +162,16 @@ b.text((25, 25), "POWER ENTRY / PROTECTION / RAIL FILTER  (logic ~0.15 A; LED 4.
 Y_LOG, Y_GND = 60.96, 96.52
 
 # --- light logic feed only; LED 4.3 A power is delivered off-board (spec 2.3) ---
-# Series chain on the rail line: J1 -> F1 -> D1 (reverse block) -> FB -> +5V_LOGIC.
+# Series chain on the rail line: J1 -> F1 -> Q_REV -> FB -> +5V_LOGIC.
 J1 = place("Connector_Generic:Conn_01x02", "J1", "+5V IN ~1A", 25.4, 60.96, rot=180,
            fp="Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
 # Small logic-only fuse/PTC (R-PWR-8) — the 4.3 A strip current never flows here.
-F1 = place("Device:Fuse", "F1", "0.75A", 40.64, 60.96, rot=90,
+F1 = place("Device:Fuse", "F1", "0.5A hold", 40.64, 60.96, rot=90,
            fp="Fuse:Fuse_1206_3216Metric")
-# Series Schottky reverse-protect (R-PWR-7): at ~0.15 A the ideal-diode P-FET is
-# unnecessary, so a small SOD-123 Schottky replaces the TO-220 FET + gate resistor.
-# Ref kept as Q_REV per spec 9/10; pin2 = anode (source side), pin1 = cathode (load).
-D1 = place("Device:D_Schottky", "Q_REV", "B5819W", 53.34, 60.96, rot=180,
-           fp="Diode_SMD:D_SOD-123")
+# AO3401A pinout: 1=G, 2=S, 3=D. Drain faces the input so its body diode
+# initially raises the source; the grounded gate then enhances the channel.
+QREV = place("Transistor_FET:Q_PMOS_GSD", "Q_REV", "AO3401A", 53.34, 63.5,
+             rot=90, fp="Package_TO_SOT_SMD:SOT-23")
 FB = place("Device:FerriteBead", "FB", "600R@100MHz", 68.58, 60.96, rot=90,
            fp="Inductor_SMD:L_1206_3216Metric")
 
@@ -180,12 +179,13 @@ FB = place("Device:FerriteBead", "FB", "600R@100MHz", 68.58, 60.96, rot=90,
 b.wire(J1.pin("1"), F1.pin("1"))
 b.label(F1.pin("1"), "+5V_IN")
 to_power(J1, "2", GND)
-# F1.2 -> D1 anode (pin2) ; label the protected-input node +5V_RAW
-b.wire(F1.pin("2"), D1.pin("2"))
+# F1.2 -> Q_REV drain ; label the protected-input node +5V_RAW
+b.wire(F1.pin("2"), QREV.pin("3"))
 b.label(F1.pin("2"), "+5V_RAW")
-# D1 cathode (pin1) -> FB.1 (reverse-blocked) ; name the post-diode node +5V_PROT
-b.wire(D1.pin("1"), FB.pin("1"))
-b.label(D1.pin("1"), "+5V_PROT")
+# Q_REV source -> FB.1 ; name the reverse-protected node +5V_PROT
+b.wire(QREV.pin("2"), FB.pin("1"))
+b.label(QREV.pin("2"), "+5V_PROT")
+to_power(QREV, "1", GND)
 
 # --- +5V_LOGIC rail (post-bead) and its drops: C_IN, R_LF/C_LF damper, C_DEC1/2 ---
 LOG_L, LOG_R = 76.2, 219.71

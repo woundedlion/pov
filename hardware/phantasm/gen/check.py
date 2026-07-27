@@ -30,7 +30,7 @@ EXPECT = {
     "SERIAL1_TX": {"U_MCU", "J4"},
     "GND":        {"C_IN", "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "D_BUS",
                    "J1", "J2", "J3A", "J3B", "J4", "JP_ID0", "JP_ID1", "JP_ID2",
-                   "JP_SHLD", "R2", "R_PD", "U1", "U_MCU"},
+                   "JP_SHLD", "Q_REV", "R2", "R_PD", "U1", "U_MCU"},
 }
 
 root = export_netlist(KCLI, SCH)

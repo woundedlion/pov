@@ -45,6 +45,49 @@
 		(fill none)
 		(layer "F.CrtYd")
 	)
+	(fp_rect
+		(start -30 -5)
+		(end -18.5 5)
+		(stroke
+			(width 0.25)
+			(type dash)
+		)
+		(fill none)
+		(layer "Dwgs.User")
+	)
+	(zone
+		(layer "F.Cu")
+		(uuid "5a5312bc-4fc3-4181-9815-96d4d501b21a")
+		(name "USB mating plug")
+		(hatch full 0.5)
+		(connect_pads
+			(clearance 0)
+		)
+		(min_thickness 0.25)
+		(keepout
+			(tracks allowed)
+			(vias allowed)
+			(pads allowed)
+			(copperpour allowed)
+			(footprints not_allowed)
+		)
+		(placement
+			(enabled no)
+			(sheetname "")
+		)
+		(fill
+			(thermal_gap 0.3)
+			(thermal_bridge_width 0.3)
+		)
+		(polygon
+			(pts
+				(xy -30 -5)
+				(xy -18.5 -5)
+				(xy -18.5 5)
+				(xy -30 5)
+			)
+		)
+	)
 	(pad "VIN" thru_hole oval
 		(at -16.51 -7.62)
 		(size 1.7 1.7)
@@ -212,5 +255,16 @@
 		(size 1.7 1.7)
 		(drill 1.0)
 		(layers "*.Cu" "*.Mask")
+	)
+	(model "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
 	)
 )
