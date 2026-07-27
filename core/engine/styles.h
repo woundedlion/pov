@@ -53,13 +53,6 @@ inline Vector noise_warp(const Vector &v, const Style &s);
 inline Vector melt_warp(const Vector &v, const Style &s);
 
 /**
- * @brief Identity space transform: no spatial distortion.
- * @param v Sample direction on the unit sphere.
- * @return The unchanged sample direction.
- */
-inline Vector identity_warp(const Vector &v, const Style &) { return v; }
-
-/**
  * @brief Hue-rotating fade (default color transform).
  * @param p Source pixel color.
  * @param fade Per-frame scalar fade multiplier in [0, 1].
@@ -68,23 +61,13 @@ inline Vector identity_warp(const Vector &v, const Style &) { return v; }
  */
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s);
 
-/**
- * @brief Plain scalar fade color transform: no hue shift.
- * @param p Source pixel color.
- * @param fade Per-frame scalar fade multiplier in [0, 1].
- * @return Pixel scaled by fade.
- */
-inline Pixel plain_fade(const Pixel &p, float fade, const Style &) {
-  return p * fade;
-}
-
 // --- Style struct -------------------------------------------------------------
 
 /**
  * @brief Named feedback preset: spatial/color transforms plus scalar params.
  * @details POD-copyable for Presets<> and lerp. Non-preset state (bound noise
  * pointer, per-frame hue cache) survives lerp() but a full-struct copy or
- * assignment (Presets::apply, `style = Style::Churn()`) resets noise to nullptr
+ * assignment (Presets::apply, `style = Style::Smoke()`) resets noise to nullptr
  * (noise_warp degrades to identity) and the hue cache to identity. Re-bind noise
  * and call sync_hue() after any such copy.
  */
@@ -212,24 +195,6 @@ struct Style {
   }
 
   /**
-   * @brief Static fine-grained turbulence: high amplitude over a tight scale with
-   * no temporal drift, giving a frozen, twisted distortion.
-   * @return The SlowTwist preset Style.
-   */
-  static constexpr Style SlowTwist() {
-    return {0.8158f, 0.20138906f, 6.36f,       0.21f,
-            0.0f,    2.1459f,     &noise_warp, &hue_fade};
-  }
-
-  /**
-   * @brief Dense fine-grain turbulence with strong hue shift; tight scale, slow drift.
-   * @return The Churn preset Style.
-   */
-  static constexpr Style Churn() {
-    return {0.82f, 0.176366f, 3.15f, 1.0f, 0.02f, 1.0f, &noise_warp, &hue_fade};
-  }
-
-  /**
    * @brief Gentle drifting haze with slow noise; classic smoke look.
    * @return The Smoke preset Style.
    */
@@ -313,64 +278,19 @@ struct Style {
     return {0.7257f, 0.22519f, 7.11f,       0.01f,
             0.0f,    29.1917f, &noise_warp, &hue_fade};
   }
-
-  /**
-   * @brief Static frozen distortion — no temporal movement.
-   * @return The Frozen preset Style.
-   */
-  static constexpr Style Frozen() {
-    return {0.58f, 0.05507344f, 2.73f,       0.07f,
-            0.0f,  26.0f,       &noise_warp, &hue_fade};
-  }
-
-  /**
-   * @brief Extreme static warping with fast decay; shattering glass look.
-   * @return The Shatter preset Style.
-   */
-  static constexpr Style Shatter() {
-    return {0.58f, 0.05507344f, 8.21f,       0.01f,
-            0.0f,  46.0f,       &noise_warp, &hue_fade};
-  }
-
-  /**
-   * @brief Flowing medium-strength distortion; gentle liquid drift.
-   * @return The Drift preset Style.
-   */
-  static constexpr Style Drift() {
-    return {0.68f, 0.07778823f, 4.98f,       0.07f,
-            0.2f,  5.0f,        &noise_warp, &hue_fade};
-  }
-
-  /**
-   * @brief Image melts and drips downward off the sphere.
-   * @return The Melting preset Style.
-   */
-  static constexpr Style Melting() {
-    return {0.8158f, 0.3762537f, 6.36f,      0.014f,
-            1.005f,  42.365f,    &melt_warp, &hue_fade};
-  }
-
-  /**
-   * @brief Fast downward swirl with strong distortion, no hue shift.
-   * @return The Swirling preset Style.
-   */
-  static constexpr Style Swirling() {
-    return {0.8158f, 0.0f,    6.36f,      0.014f,
-            1.465f,  42.365f, &melt_warp, &plain_fade};
-  }
 };
 
-// Compile-time anchor pinning SlowTwist's resolved fields by name: a reorder of
+// Compile-time anchor pinning Miasma's resolved fields by name: a reorder of
 // Style's same-typed scalar members would silently reassign the positional
 // preset literals, which this catches at compile time.
-static_assert(Style::SlowTwist().fade == 0.8158f &&
-                  Style::SlowTwist().hue_shift == 0.20138906f &&
-                  Style::SlowTwist().amplitude == 6.36f &&
-                  Style::SlowTwist().frequency == 0.21f &&
-                  Style::SlowTwist().speed == 0.0f &&
-                  Style::SlowTwist().scale == 2.1459f &&
-                  Style::SlowTwist().space_fn == &noise_warp &&
-                  Style::SlowTwist().color_fn == &hue_fade,
+static_assert(Style::Miasma().fade == 0.80586f &&
+                  Style::Miasma().hue_shift == 0.234f &&
+                  Style::Miasma().amplitude == 2.61f &&
+                  Style::Miasma().frequency == 0.05059f &&
+                  Style::Miasma().speed == 0.725f &&
+                  Style::Miasma().scale == 26.297501f &&
+                  Style::Miasma().space_fn == &noise_warp &&
+                  Style::Miasma().color_fn == &hue_fade,
               "Style preset field order drifted from the positional brace-init "
               "in the *() presets; update the initializers or this anchor.");
 

@@ -581,8 +581,6 @@ The Filter auto-syncs from the Style every frame — when the Style lerps betwee
 | `Style::ArcingLightning()` | Branching, fast-moving distortion with pronounced hue rotation. |
 | `Style::SlowFire()` | Broad, slowly evolving turbulence with gentle color drift. |
 | `Style::EnergeticFire()` | Broad, quickly evolving turbulence with gentle color drift. |
-| `Style::SlowTwist()` | Static fine-grain turbulence — high amplitude over a tight scale, no temporal drift. Frozen, twisted distortion. |
-| `Style::Churn()` | Dense fine-grain turbulence with strong hue shift. Tight scale, slow drift. |
 | `Style::Smoke()` | Gentle drifting haze with slow noise. Classic smoke look. |
 | `Style::SlowDust()` | Fine, slowly drifting turbulence with gentle color rotation. |
 | `Style::WavyTrails()` | Fine, rapidly moving distortion with pronounced color trails. |
@@ -592,11 +590,6 @@ The Filter auto-syncs from the Style every frame — when the Style lerps betwee
 | `Style::LooseWormhole()` | Static high-amplitude twist over a medium scale — a loose swirling tunnel, no drift. |
 | `Style::TightWormhole()` | Static high-amplitude twist over a tight scale — a tight swirling tunnel, no drift. |
 | `Style::WigglingWormhole()` | Static twist over a broad scale — a wide wormhole with wandering arms, no drift. |
-| `Style::Frozen()` | Static frozen distortion — no temporal movement. |
-| `Style::Shatter()` | Extreme static warping with fast decay. Shattering glass look. |
-| `Style::Drift()` | Flowing medium-strength distortion. Gentle liquid drift. |
-| `Style::Melting()` | Image melts and drips downward off the sphere. |
-| `Style::Swirling()` | Fast downward swirl with strong distortion, no hue shift. |
 
 Available transform functions:
 
@@ -604,12 +597,10 @@ Available transform functions:
 |---|---|
 | `Feedback::noise_warp` (default) | 3D simplex noise distortion via `noise_transform()` |
 | `Feedback::melt_warp` | Downward melt — slerps samples toward the north pole (image drips south) plus noise wobble |
-| `Feedback::identity_warp` | No spatial distortion (pass-through) |
 
 | Color Transform | Description |
 |---|---|
 | `Feedback::hue_fade` (default) | Multiplies by fade, then rotates hue by `style.hue_shift * -log(style.fade)` per frame. `hue_shift` is the rotation per e-fold decrease in feedback brightness, so equal brightness levels have equal hues at any fade. |
-| `Feedback::plain_fade` | Multiplies by fade only — no color shift |
 
 Custom presets can use any function matching the `Feedback::SpaceFn` / `Feedback::ColorFn` signatures.
 

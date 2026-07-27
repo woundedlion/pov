@@ -130,8 +130,8 @@ struct Run {
 };
 
 const Feedback::Style presets[] = {Feedback::Style::Smoke(),
-                                   Feedback::Style::Frozen()};
-const char *preset_names[] = {"Smoke", "Frozen"};
+                                   Feedback::Style::LooseWormhole()};
+const char *preset_names[] = {"Smoke", "LooseWormhole"};
 constexpr int NPRESET = 2;
 
 /** @brief Writes every frame of every preset to `path`. */
