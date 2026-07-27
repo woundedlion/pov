@@ -23,9 +23,8 @@ namespace styles_tests {
 /**
  * @brief Verifies the constexpr preset factories carry their documented scalar
  *        values and wire up the expected space/color transforms.
- * @details Spot-checks Smoke's fade/frequency and noise/hue transforms,
- * verifies the MeshFeedback melt presets exactly, and confirms Swirling drops
- *          the hue shift.
+ * @details Spot-checks Smoke's fade/frequency and noise/hue transforms and
+ *          verifies the MeshFeedback melt presets exactly.
  */
 inline void test_named_presets() {
   const auto expect_noise_hue_style =
@@ -83,9 +82,7 @@ inline void test_named_presets() {
   HS_EXPECT_TRUE(smoke.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(smoke.color_fn == &Feedback::hue_fade);
 
-  HS_EXPECT_TRUE(Feedback::Style::Melting().space_fn == &Feedback::melt_warp);
-  HS_EXPECT_TRUE(Feedback::Style::Swirling().space_fn == &Feedback::melt_warp);
-  HS_EXPECT_TRUE(Feedback::Style::Swirling().color_fn == &Feedback::plain_fade);
+  HS_EXPECT_TRUE(Feedback::Style::MeltingHi().space_fn == &Feedback::melt_warp);
 }
 
 /**
@@ -100,18 +97,11 @@ inline void test_named_presets_preserve_frame_hue() {
       {Feedback::Style::ArcingLightning(), 0.1f},
       {Feedback::Style::SlowFire(), 0.0167f},
       {Feedback::Style::EnergeticFire(), 0.0167f},
-      {Feedback::Style::SlowTwist(), 0.041f},
-      {Feedback::Style::Churn(), 0.035f},
       {Feedback::Style::Smoke(), 0.01f},
       {Feedback::Style::SlowDust(), 0.0167f},
       {Feedback::Style::WavyTrails(), 0.0722f},
       {Feedback::Style::MeltingHi(), 0.1f},
       {Feedback::Style::MeltingLo(), 0.1f},
-      {Feedback::Style::Frozen(), 0.03f},
-      {Feedback::Style::Shatter(), 0.03f},
-      {Feedback::Style::Drift(), 0.03f},
-      {Feedback::Style::Melting(), 0.0766f},
-      {Feedback::Style::Swirling(), 0.0f},
       {Feedback::Style::Miasma(), 0.05050779f},
       {Feedback::Style::LooseWormhole(), 0.07220009f},
       {Feedback::Style::TightWormhole(), 0.07220009f},
@@ -123,6 +113,17 @@ inline void test_named_presets_preserve_frame_hue() {
 }
 
 // --- lerp -------------------------------------------------------------------
+
+/**
+ * @brief Second ColorFn used only to observe lerp's function-pointer snapping.
+ * @param p Source pixel color.
+ * @param fade Per-frame scalar fade multiplier in [0, 1].
+ * @return Pixel scaled by fade.
+ */
+inline Pixel lerp_probe_fade(const Pixel &p, float fade,
+                             const Feedback::Style &) {
+  return p * fade;
+}
 
 /**
  * @brief Verifies Style::lerp interpolates scalar fields linearly, snaps
@@ -141,8 +142,8 @@ inline void test_lerp_scalars_and_snapping() {
   a.frequency = 0.0f;
   a.speed = 0.0f;
   a.scale = 0.0f;
-  a.space_fn = &Feedback::identity_warp;
-  a.color_fn = &Feedback::plain_fade;
+  a.space_fn = &Feedback::melt_warp;
+  a.color_fn = &lerp_probe_fade;
   a.downsample = 2;
   a.noise = &na;
 
@@ -172,24 +173,12 @@ inline void test_lerp_scalars_and_snapping() {
 
   Feedback::Style lo{};
   lo.lerp(a, b, 0.4f);
-  HS_EXPECT_TRUE(lo.space_fn == &Feedback::identity_warp);
-  HS_EXPECT_TRUE(lo.color_fn == &Feedback::plain_fade);
+  HS_EXPECT_TRUE(lo.space_fn == &Feedback::melt_warp);
+  HS_EXPECT_TRUE(lo.color_fn == &lerp_probe_fade);
   HS_EXPECT_EQ(lo.downsample, 2);
 }
 
 // --- Transform functions ----------------------------------------------------
-
-/**
- * @brief Verifies identity_warp returns its input direction unchanged.
- */
-inline void test_identity_warp() {
-  Feedback::Style s{};
-  Vector v(0.3f, -0.4f, 0.866f);
-  Vector out = Feedback::identity_warp(v, s);
-  HS_EXPECT_NEAR(out.x, v.x, 1e-6f);
-  HS_EXPECT_NEAR(out.y, v.y, 1e-6f);
-  HS_EXPECT_NEAR(out.z, v.z, 1e-6f);
-}
 
 /**
  * @brief Verifies noise_warp passes the direction through unchanged when no
@@ -294,19 +283,6 @@ inline void test_melt_warp_bound_noise_perturbs() {
 }
 
 /**
- * @brief Verifies plain_fade scales each channel by the fade factor with no
- *        hue change.
- */
-inline void test_plain_fade_scales_linearly() {
-  Pixel p(10000, 20000, 30000);
-  Feedback::Style s{};
-  Pixel out = Feedback::plain_fade(p, 0.5f, s);
-  HS_EXPECT_EQ(out.r, 5000);
-  HS_EXPECT_EQ(out.g, 10000);
-  HS_EXPECT_EQ(out.b, 15000);
-}
-
-/**
  * @brief Verifies hue_fade with a zero hue shift dims a gray pixel while
  *        keeping it gray.
  * @details Gray has no chroma to rotate, so this avoids depending on OKLCH
@@ -384,7 +360,7 @@ inline void test_hue_fade_nonzero_shift_rotates_saturated() {
   const float fade = 0.8f;
   Pixel rotated = Feedback::hue_fade(red, fade, s);
 
-  Pixel plain = Feedback::plain_fade(red, fade, s);
+  Pixel plain = red * fade;
   const int delta = std::abs((int)rotated.r - (int)plain.r) +
                     std::abs((int)rotated.g - (int)plain.g) +
                     std::abs((int)rotated.b - (int)plain.b);
@@ -564,12 +540,10 @@ inline int run_styles_tests() {
   test_named_presets();
   test_named_presets_preserve_frame_hue();
   test_lerp_scalars_and_snapping();
-  test_identity_warp();
   test_noise_warp_null_is_identity();
   test_noise_warp_bound_distorts();
   test_melt_warp_drifts_toward_north();
   test_melt_warp_bound_noise_perturbs();
-  test_plain_fade_scales_linearly();
   test_hue_fade_zero_shift_preserves_gray();
   test_sync_hue_matches_hue_at_equal_brightness();
   test_hue_fade_nonzero_shift_rotates_saturated();

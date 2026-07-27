@@ -1686,8 +1686,7 @@ private:
       Arena &scratch, const CoarseGrid &grid, const RenderBand &band) {
     const bool stock_transform =
         feedback_style->space_fn == &::Feedback::noise_warp ||
-        feedback_style->space_fn == &::Feedback::melt_warp ||
-        feedback_style->space_fn == &::Feedback::identity_warp;
+        feedback_style->space_fn == &::Feedback::melt_warp;
     const bool cacheable = cached_warp_x && !band.x_clip.active &&
                            grid.downsample == CACHE_DOWNSAMPLE &&
                            stock_transform;
@@ -1803,8 +1802,7 @@ private:
     HS_CHECK(std::isfinite(fade), "feedback fade is non-finite");
     feedback_style->sync_hue();
     const bool black_skips_color =
-        feedback_style->color_fn == &::Feedback::hue_fade ||
-        feedback_style->color_fn == &::Feedback::plain_fade;
+        feedback_style->color_fn == &::Feedback::hue_fade;
     // Round-to-nearest fade otherwise makes sub-50 channels immortal at
     // FADE_MAX.
     constexpr float NEAR_BLACK = 64.0f;
@@ -2003,8 +2001,7 @@ private:
             ::Feedback::hue_fade_apply2(k, r0, g0, b0, r1, g1, b1, p0, p1);
           },
           std::true_type{});
-    } else if (feedback_style->color_fn == &::Feedback::plain_fade ||
-               feedback_style->color_fn == &::Feedback::hue_fade) {
+    } else if (feedback_style->color_fn == &::Feedback::hue_fade) {
       auto plain = [&](float r, float g, float b) {
         return ::Pixel(quantize16(r * fade), quantize16(g * fade),
                        quantize16(b * fade));

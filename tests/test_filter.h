@@ -1271,8 +1271,7 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
   PipeFx fx(W, H);
 
   ::Feedback::Style style{};
-  style.space_fn = &::Feedback::identity_warp;
-  style.color_fn = &::Feedback::plain_fade;
+  style.noise = nullptr; // unbound noise_warp is the identity
   style.fade = 1.0f;
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
@@ -1304,8 +1303,7 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   PipeFx fx(W, H);
 
   ::Feedback::Style style{};
-  style.space_fn = &::Feedback::identity_warp;
-  style.color_fn = &::Feedback::plain_fade;
+  style.noise = nullptr; // unbound noise_warp is the identity
   style.fade = 1.0f;
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
@@ -1415,13 +1413,12 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
   PipeFx fx(W, H);
 
-  // melt_warp + plain_fade isolates the SPATIAL warp under test from any hue
+  // The default zero hue_shift isolates the SPATIAL warp under test from any hue
   // rotation; noise stays nullptr so melt_warp is fully deterministic (the noise
   // wobble branch is gated on a bound NoiseParams). speed=6 -> drip=0.24 gives a
   // clearly multi-pixel southward shift.
   ::Feedback::Style style{};
   style.space_fn = &::Feedback::melt_warp;
-  style.color_fn = &::Feedback::plain_fade;
   style.noise = nullptr;
   style.speed = 6.0f;
   style.fade = 0.9f;
@@ -1561,7 +1558,6 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
 
   ::Feedback::Style style{};
   style.space_fn = &north_cap_rotation_warp;
-  style.color_fn = &::Feedback::plain_fade;
   style.fade = 1.0f;
   style.downsample = DOWNSAMPLE;
 
@@ -1602,7 +1598,6 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
 
   ::Feedback::Style style{};
   style.space_fn = &animated_cap_rotation_warp;
-  style.color_fn = &::Feedback::plain_fade;
   style.fade = 1.0f;
   style.downsample = DOWNSAMPLE;
 
@@ -1645,7 +1640,6 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
   PipeFx fx(W, H);
   ::Feedback::Style style{};
   style.space_fn = &north_cap_rotation_warp;
-  style.color_fn = &::Feedback::plain_fade;
   style.fade = 1.0f;
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
@@ -1689,7 +1683,6 @@ inline void test_feedback_spherical_ring_control_rows() {
 
   ::Feedback::Style style{};
   style.space_fn = &metric_row_test_warp;
-  style.color_fn = &::Feedback::plain_fade;
   style.fade = 1.0f;
   style.downsample = DOWNSAMPLE;
 
@@ -1902,7 +1895,6 @@ inline void test_feedback_seam_warp_keeps_its_latitude_row() {
 
   ::Feedback::Style style{};
   style.space_fn = &opposed_seam_warp;
-  style.color_fn = &::Feedback::plain_fade;
   style.fade = 1.0f;
   style.downsample = DOWNSAMPLE;
 
@@ -1945,7 +1937,6 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
 
   ::Feedback::Style style{};
   style.space_fn = &::Feedback::noise_warp;
-  style.color_fn = &::Feedback::plain_fade;
   style.noise = &noise;
   style.amplitude = 10.0f;
   style.frequency = 0.2f;
@@ -2116,7 +2107,6 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
 
   ::Feedback::Style style{};
   style.space_fn = &antipodal_ripple_warp;
-  style.color_fn = &::Feedback::plain_fade; // colors must round-trip unchanged
   style.fade = 1.0f;
   style.noise = nullptr;
   style.downsample = 4;
@@ -2588,11 +2578,10 @@ inline void test_feedback_banded_diverges_from_full() {
   constexpr int MID = H / 2;
 
   auto run = [&](int cy0, int cy1, Pixel out[H][W]) {
-    // melt_warp + plain_fade, noise disabled => fully deterministic southward
+    // melt_warp, noise disabled => fully deterministic southward
     // drip; speed 6 -> drip 0.24 gives a multi-row cross-band displacement.
     ::Feedback::Style style{};
     style.space_fn = &::Feedback::melt_warp;
-    style.color_fn = &::Feedback::plain_fade;
     style.noise = nullptr;
     style.speed = 6.0f;
     style.fade = 0.9f;
