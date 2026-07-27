@@ -567,7 +567,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 221. ✅ **`HD107SFrame::load()` has no production caller** — `hardware/hd107s_frame.h:147-176` — honestly labelled a parity guard, but the path it guards is reachable only from itself.
 
-222. **`embed()` raises `StopIteration` on a footprint with no `(attr …)`** — `hardware/phantasm/gen/pcb.py:140-142` — an opaque traceback for a plausible input.
+222. ✅ **`embed()` raises `StopIteration` on a footprint with no `(attr …)`** — `hardware/phantasm/gen/pcb.py:140-142` — an opaque traceback for a plausible input.
 
 223. ✅ **`pcb.py`'s module docstring contradicts the spec constraint it cites** — `hardware/phantasm/gen/pcb.py:5` — says ≤30 mm; the spec and README say ≤35 mm.
 

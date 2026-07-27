@@ -172,7 +172,13 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
     if locked:
         node.insert(2, [sexp.Sym("locked"), sexp.Sym("yes")])
     if dnp:
-        attr = next(c for c in node if isinstance(c, list) and c and c[0] == "attr")
+        # `(attr ...)` is optional in the footprint format, so a stock library
+        # part may carry none; an empty one is the same "no flags" default.
+        attr = next((c for c in node if isinstance(c, list) and c and c[0] == "attr"),
+                    None)
+        if attr is None:
+            attr = [sexp.Sym("attr")]
+            node.insert(2, attr)
         attr.append(sexp.Sym("dnp"))
     # insert at + uuid after layer
     node.insert(3, [sexp.Sym("at"), sexp.Sym(fmt(x)), sexp.Sym(fmt(y)), sexp.Sym(fmt(rot))])
