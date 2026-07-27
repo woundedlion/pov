@@ -70,14 +70,14 @@ public:
    * @tparam E The Effect class to run.
    * @param duration The time in seconds to run the effect.
    * @details Eagerly fills the scanline LUTs for E's resolution before the
-   * first frame so the ISR never observes a half-filled table, then constructs,
-   * configures, runs, and deletes the effect.
+   * first frame so the ISR never observes a half-filled table, then configures
+   * the arenas, constructs, runs, and deletes the effect.
    */
   template <typename E> void show(unsigned long duration) {
     GeometryResolution<E>::init();
+    configure_arenas_default(); // Reset before init so effects can override
     E *e = new (std::nothrow) E();
     HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
-    configure_arenas_default(); // Reset before init so effects can override
     e->init();
     run(e, duration);
     delete e;

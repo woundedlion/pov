@@ -371,9 +371,7 @@ public:
     hs::random().seed(hs::epoch_seed(effectLoads++));
 
     currentEffect.reset();
-    // Configured before construction; effect constructors must not allocate from
-    // the engine arenas (Teensy configures after construction — see Phantasm.ino).
-    configure_arenas_default();
+    configure_arenas_default(); // Reset before init so effects can override
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
 
