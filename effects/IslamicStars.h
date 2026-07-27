@@ -54,8 +54,9 @@ public:
     // the front slot (up to 63.7 KB) through b. The remainder is persistent:
     // carousel slots + BakedPaletteBank (~18 KB). Budgets enforced by the
     // test_conway_morph.h build replay and test_solids.h's high-water sweeps.
-    configure_arenas(GLOBAL_ARENA_SIZE - (116 + 74) * 1024, 116 * 1024,
-                     74 * 1024);
+    configure_arenas(GLOBAL_ARENA_SIZE - SPLIT_SCRATCH_A_DEFAULT -
+                         SPLIT_SCRATCH_B_DEFAULT,
+                     SPLIT_SCRATCH_A_DEFAULT, SPLIT_SCRATCH_B_DEFAULT);
 
     ripple_gen.init_storage(persistent_arena);
     claim_face_palettes(persistent_arena);

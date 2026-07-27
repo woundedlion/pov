@@ -527,7 +527,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 201. ✅ **`ChaoticStrings` drops the `spawn_pinned` result its sibling checks** — `effects/ChaoticStrings.h:107` vs `effects/MobiusGrid.h:65-66` — a silent null makes the transform an identity with no diagnostic.
 
-202. **IslamicStars arena-split literals duplicate their named constants** — `effects/IslamicStars.h:57` vs `:163-167` — they agree today; a retune of either silently desyncs the pre-first-spawn split from the steady state.
+202. ✅ **IslamicStars arena-split literals duplicate their named constants** — `effects/IslamicStars.h:57` vs `:163-167` — they agree today; a retune of either silently desyncs the pre-first-spawn split from the steady state.
 
 203. **Dead build-chain symbols in IslamicStars** — `effects/IslamicStars.h:146,550,749` — a self-documented unused constant, a function with zero references, and a write that is never read.
 
