@@ -373,7 +373,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 125. **`Gradient` silently yields an all-black palette for an empty stop list** — `core/color/color.h:1280-1281` — the constructor traps out-of-range and unsorted stops at the same cold seam but returns early on zero stops, which is precisely the silent failure the fail-fast philosophy exists to prevent.
 
-126. **`Color4`'s arithmetic operators document a renderer path that no longer exists** — `core/color/color.h:224-231,289-336` — both SSAA paths now accumulate premultiplied into a `Pixel`; the four operators have zero engine call sites. An author following the doc gets the classic double-darkened AA fringe.
+126. ✅ **`Color4`'s arithmetic operators document a renderer path that no longer exists** — `core/color/color.h:224-231,289-336` — both SSAA paths now accumulate premultiplied into a `Pixel`; the four operators have zero engine call sites. An author following the doc gets the classic double-darkened AA fringe.
 
 127. ✅ **`composition.h` is not self-contained yet is directly included by two files, with no guard** — `core/color/composition.h:5-9` — it declares itself non-standalone and uses eight types it never declares; it compiles only because both includers happen to pull `color.h` first. `animation/mesh.h` already demonstrates the `#ifndef …_INTERNAL / #error` idiom.
 
