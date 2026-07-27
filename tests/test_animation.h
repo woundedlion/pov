@@ -1734,12 +1734,22 @@ concept PerFaceSegueDrawable = requires(const SegueT &s, const Vector &c) {
  * carrying face_offset alone trips this static_assert instead of only breaking
  * whichever effect first selects it.
  * @details Also pins the fade_frac argument as inert for the two policies with
- * no per-face fade, and Base's default as the whole window.
+ * no per-face fade, and Base's default as the whole window. The fragment-hook
+ * assertions pin the exclusivity MeshCarousel enforces: a per-face draw path
+ * shades through a palette pointer and never calls fill/grade, so shadowing
+ * either alongside face_offset would drop it silently.
  */
 inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(PerFaceSegueDrawable<Segue::TerminatorSweep>);
   static_assert(PerFaceSegueDrawable<Segue::Shockwave>);
   static_assert(PerFaceSegueDrawable<Segue::Breakdown>);
+  static_assert(!Segue::SHADOWS_FRAGMENT_HOOKS<Segue::TerminatorSweep>);
+  static_assert(!Segue::SHADOWS_FRAGMENT_HOOKS<Segue::Shockwave>);
+  static_assert(!Segue::SHADOWS_FRAGMENT_HOOKS<Segue::Breakdown>);
+  static_assert(Segue::SHADOWS_FRAGMENT_HOOKS<Segue::IrisBloom>);
+  static_assert(Segue::SHADOWS_FRAGMENT_HOOKS<Segue::GoldConvergence>);
+  static_assert(!Segue::PerFace<Segue::IrisBloom>);
+  static_assert(!Segue::PerFace<Segue::GoldConvergence>);
 
   Segue::Shockwave wave;
   HS_EXPECT_NEAR(wave.face_phase(0.5f, 0.3f, 0.9f), wave.face_phase(0.5f, 0.3f),

@@ -397,7 +397,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 137. ✅ **README says `ParticleSystem` uses `VectorTrail`; it uses `QuantizedVectorTrail`** — `README.md:785,820,848,872` — misstating the memory and precision contract (6 B/sample snorm16, not 12 B exact).
 
-138. **`fill`/`grade` are silently dropped on the per-face segue draw path** — `core/animation/mesh.h:2186-2209` — the protocol presents them as one composable set with the per-face hooks; in practice the two sets are mutually exclusive, so a future policy combining `face_offset` with `fill` loses its coverage mask with no signal.
+138. ✅ **`fill`/`grade` are silently dropped on the per-face segue draw path** — `core/animation/mesh.h:2186-2209` — the protocol presents them as one composable set with the per-face hooks; in practice the two sets are mutually exclusive, so a future policy combining `face_offset` with `fill` loses its coverage mask with no signal.
 
 139. **The immutable birth-cohort subsystem is production-dead** — `core/animation/mesh.h:148-159,1636-1863,1954-1992` — ~270 lines of orbit-signature and union-find code gated on a flag no effect sets, reachable only from tests; a test comment additionally misdescribes which model the shipped shape uses.
 
