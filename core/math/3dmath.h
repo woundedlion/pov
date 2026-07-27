@@ -652,15 +652,6 @@ struct Quaternion {
   }
 
   /**
-   * @brief Fast inverse for unit quaternions (avoids division).
-   * @return The inverse quaternion, equivalent to conjugate() when |q| == 1.
-   */
-  [[nodiscard]] Quaternion unit_inverse() const {
-    HS_CHECK(std::abs(squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ);
-    return conjugate();
-  }
-
-  /**
    * @brief Calculates the conjugate of the quaternion.
    * @return The conjugate quaternion (r, -v).
    */
@@ -1188,16 +1179,6 @@ constexpr Quaternion operator/(const Quaternion &q, float s) {
 constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
   return (q1.r * q2.r) + (q1.v.x * q2.v.x) + (q1.v.y * q2.v.y) +
          (q1.v.z * q2.v.z);
-}
-
-/**
- * @brief Calculates the angle between two unit quaternions.
- * @param q1 First unit quaternion.
- * @param q2 Second unit quaternion.
- * @return The angle in radians.
- */
-inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
-  return fast_acos(hs::clamp(dot(q1, q2), -1.0f, 1.0f));
 }
 
 /**

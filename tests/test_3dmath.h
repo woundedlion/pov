@@ -570,8 +570,8 @@ inline void test_quaternion_magnitude() {
 }
 
 /**
- * @brief Verifies conjugate(), inverse(), and unit_inverse().
- * @details For a unit q all three coincide; q*q^-1 = identity holds for unit
+ * @brief Verifies conjugate() and inverse().
+ * @details For a unit q the two coincide; q*q^-1 = identity holds for unit
  *          and non-unit quaternions alike.
  */
 inline void test_quaternion_conjugate_inverse() {
@@ -579,9 +579,7 @@ inline void test_quaternion_conjugate_inverse() {
   Quaternion conj = q.conjugate();
   HS_EXPECT_QUAT(conj, Quaternion(0.5f, -0.5f, -0.5f, -0.5f), 1e-6f);
 
-  // For unit q, inverse and unit_inverse both equal conjugate.
   HS_EXPECT_QUAT(q.inverse(), conj, 1e-6f);
-  HS_EXPECT_QUAT(q.unit_inverse(), conj, 1e-6f);
 
   HS_EXPECT_QUAT(q * q.inverse(), Quaternion(1, 0, 0, 0), 1e-6f);
 
@@ -656,17 +654,6 @@ inline void test_dot_quaternion() {
   Quaternion a(1, 2, 3, 4), b(2, 3, 4, 5);
   HS_EXPECT_NEAR(dot(a, b), 1 * 2 + 2 * 3 + 3 * 4 + 4 * 5, 1e-5f);
   HS_EXPECT_NEAR(dot(a, a), a.squared_magnitude(), 1e-5f);
-}
-
-/**
- * @brief Verifies angle_between for quaternions (the 4D angle between unit
- *        quaternions).
- */
-inline void test_angle_between_quaternions() {
-  Quaternion id(1, 0, 0, 0);
-  HS_EXPECT_NEAR(angle_between(id, id), 0.0f, 1e-4f);
-  Quaternion qx(0, 1, 0, 0); // unit pure quaternion
-  HS_EXPECT_NEAR(angle_between(id, qx), PI_F * 0.5f, 1e-4f);
 }
 
 // ============================================================================
@@ -1166,7 +1153,6 @@ inline int run_3dmath_tests() {
   test_quaternion_multiplication();
   test_quaternion_equality();
   test_dot_quaternion();
-  test_angle_between_quaternions();
 
   test_make_rotation_axis_angle();
   test_make_rotation_from_to();
