@@ -1051,7 +1051,9 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         const HalfEdge &he = he_mesh.half_edges[i];
         int u = he_mesh.half_edges[he.prev].vertex;
         int v = he.vertex;
-        if (u < v) {
+        // One sample per undirected edge: the u < v half of an interior pair,
+        // plus a boundary edge's lone half-edge whichever way it points.
+        if (u < v || (v < u && he.pair == HE_NONE)) {
           total_len +=
               distance_between(out_mesh.vertices[u], out_mesh.vertices[v]);
           edge_count++;
