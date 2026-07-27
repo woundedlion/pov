@@ -589,7 +589,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 232. ✅ **daydream: stale C++ header paths in tool JSDoc** — `tools/palette_math.js:24,50,328,403`, `tools/lissajous_math.js:28,112`, `tools/color.js:7`, plus two tests — `core/color.h`, `core/geometry.h`, `core/3dmath.h` no longer exist, and `BakedPalette::get` is attributed to the wrong header. These comments are the only pointer to the C++ that must be kept in sync.
 
-233. **daydream: `palettes.html` comment and import hygiene** — `:441-443,491-494,533-535` claim OKLab math lives in `tools/color.js` (it is entirely engine-side); `:453` and `:459` import two unused symbols; `:180-211` places a `<style>` block inside `<body>`.
+233. ✅ **daydream: `palettes.html` comment and import hygiene** — `:441-443,491-494,533-535` claim OKLab math lives in `tools/color.js` (it is entirely engine-side); `:453` and `:459` import two unused symbols; `:180-211` places a `<style>` block inside `<body>`.
 
 234. **daydream: a stray build probe at the repo root** — `sect.cpp`, a two-line `__attribute__((section(".flashmem")))` compiler probe in a static web app; `prompts/` and `.claude/` are also untracked and, unlike Holosphere, not ignored.
 
