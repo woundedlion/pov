@@ -207,7 +207,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 ### P2 — Medium: latent defects, contract gaps, and documentation that misleads
 
-43. **README documents `MeshMorph`, which no longer exists** — `README.md:212,801,827,828` — removed in `0ce7e6ac`; the tree listing, fragment table and animation-types table all still name it, while `OpLeg` — ~900 lines of public API driving the entire Conway/opchain morph engine — appears nowhere. `:828` additionally claims HankinSolids "reuses the buffered pair" (it drives `OpLeg` directly) and omits DreamBalls' standalone `Segue::Crossfade` use.
+43. ✅ **README documents `MeshMorph`, which no longer exists** — `README.md:212,801,827,828` — removed in `0ce7e6ac`; the tree listing, fragment table and animation-types table all still name it, while `OpLeg` — ~900 lines of public API driving the entire Conway/opchain morph engine — appears nowhere. `:828` additionally claims HankinSolids "reuses the buffered pair" (it drives `OpLeg` directly) and omits DreamBalls' standalone `Segue::Crossfade` use.
 
 44. **README's effect count is wrong in two places** — `README.md:217,303` — both say 26 effects (217 adds "27 headers"); `effects.h` defines 24 rows and `effects/` holds 25 headers. §9 itself documents exactly 24.
 
