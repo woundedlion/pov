@@ -859,9 +859,15 @@ public:
                        tp, tw);
         if (settle_alpha > 0.0f) {
           HS_CHECK(swept.vertices.size() == tr.relaxed.size());
-          for (size_t i = 0; i < swept.vertices.size(); ++i)
-            swept.vertices[i] =
-                slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
+          // Alpha 1 copies the relaxed endpoint verbatim, so the settled
+          // bookend is bitwise it (mirrors slerp_vertices' k >= 1 shortcut).
+          if (settle_alpha >= 1.0f)
+            for (size_t i = 0; i < swept.vertices.size(); ++i)
+              swept.vertices[i] = tr.relaxed[i];
+          else
+            for (size_t i = 0; i < swept.vertices.size(); ++i)
+              swept.vertices[i] =
+                  slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
         }
       }
     }
