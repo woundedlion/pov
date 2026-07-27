@@ -1534,6 +1534,14 @@ public:
     if (!enabled)
       return;
 
+    const NoiseParams *bound = feedback_style->noise;
+    HS_CHECK(!bound || (bound->amplitude == feedback_style->amplitude &&
+                        bound->frequency == feedback_style->frequency &&
+                        bound->speed == feedback_style->speed &&
+                        bound->scale == feedback_style->scale),
+             "feedback style scalars never reached the bound NoiseParams; call "
+             "Style::sync_noise() after changing them");
+
     const CoarseGrid grid = make_coarse_grid(cv);
 
     {
