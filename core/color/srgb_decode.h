@@ -1,9 +1,19 @@
 #pragma once
 #include "color/srgb_decode_lut.h"
 #include <cstdint>
+#include <iterator>
 
 inline constexpr int SRGB_DECODE_LOW_N = SRGB_DECODE_VSPLIT >> 4;
 inline constexpr int SRGB_DECODE_HIGH_N = (65536 - SRGB_DECODE_VSPLIT) >> 7;
+
+// The 16-wide/128-wide bucket geometry is re-derived here from the shifts in
+// scripts/generate_srgb_decode.cpp; a regenerated table with different shifts
+// would otherwise be copied out of bounds below, before main() runs.
+static_assert(std::size(srgb_decode_low_src) == SRGB_DECODE_LOW_N,
+              "srgb_decode_low_src length disagrees with the low-region shift");
+static_assert(
+    std::size(srgb_decode_high_src) == SRGB_DECODE_HIGH_N,
+    "srgb_decode_high_src length disagrees with the high-region shift");
 
 // DTCM copies (zero-wait, bypass the L1 D-cache) of the two-region decode
 // tables, filled once at static init from the flash sources. Residing in DTCM
