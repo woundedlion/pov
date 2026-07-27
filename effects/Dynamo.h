@@ -370,8 +370,8 @@ private:
    * @brief Computes the unit travel direction for a signed speed.
    * @param speed Signed speed value.
    * @return -1 for negative speed, otherwise +1.
-   * @note `speed == 0` maps to +1, but this is unobservable: the sole caller
-   *       pull() only invokes dir() when |effective_speed| >= 1.
+   * @note `speed == 0` maps to +1, but this is unobservable: a zero speed never
+   *       advances the step accumulator, so pull() never runs.
    */
   int dir(float speed) const { return speed < 0 ? -1 : 1; }
 
