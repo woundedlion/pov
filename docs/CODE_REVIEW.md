@@ -577,7 +577,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 226. ✅ **Twenty near-identical `Effect` stub fixtures** — including two distinct `DeathEffect` definitions in one file, one shadowing the other.
 
-227. **daydream: `warmModules()` never drains the fetched bodies** — `segment_controller.js:84-87` — `fetch` resolves at headers, so the 1.86 MB `.wasm` is typically neither downloaded nor cached; the "prime the module cache" half of the stated purpose does not happen.
+227. ✅ **daydream: `warmModules()` never drains the fetched bodies** — `segment_controller.js:84-87` — `fetch` resolves at headers, so the 1.86 MB `.wasm` is typically neither downloaded nor cached; the "prime the module cache" half of the stated purpose does not happen.
 
 228. **daydream: `applyResolution` reports success for an unknown preset** — `daydream.js:431` — returns `undefined`, which the transaction helper treats as applied, contradicting its own documented contract.
 
