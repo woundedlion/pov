@@ -346,8 +346,9 @@ struct MeshState {
   }
 
   /**
-   * @brief Checks whether any member vector is bound (has been allocated).
-   * @return True if the mesh owns allocated storage.
+   * @brief Checks whether the vertex buffer is bound (has been allocated).
+   * @return True if the mesh owns vertex storage; says nothing about the
+   *   topology arrays, which are unbound in borrowed mode.
    */
   bool is_bound() const { return vertices.is_bound(); }
 

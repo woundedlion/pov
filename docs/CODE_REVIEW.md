@@ -481,7 +481,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 178. ✅ **`degraded_classes` counts LUTs that were later discarded** — `core/mesh/mesh_classes.h:357,399-403` — contradicting the field's own doc.
 
-179. **`MeshState::is_bound()`'s doc overstates what it inspects** — `core/mesh/spatial.h:349-352` — it reads `vertices` only, which contradicts `set_view`'s own comment.
+179. ✅ **`MeshState::is_bound()`'s doc overstates what it inspects** — `core/mesh/spatial.h:349-352` — it reads `vertices` only, which contradicts `set_view`'s own comment.
 
 180. **`relax`'s `converged_out`/`iterations_out` are dead across the whole tree** — `core/mesh/conway.h:989-995,1054-1058,1093-1098` — six branches of live bookkeeping feeding nothing, inside an `HS_O3` region.
 
