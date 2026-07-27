@@ -161,6 +161,9 @@ def main():
     if check(fwd, rev):
         sys.stderr.write("generate_luts: self-test failed; refusing to emit\n")
         sys.exit(1)
+    # LF on every host: the provenance gate diffs numeric tokens only, so a
+    # Windows CRLF flip of the whole header would ride green.
+    sys.stdout.reconfigure(newline="\n")
     buf = StringIO()
     render(buf, fwd, rev)
     text = buf.getvalue()

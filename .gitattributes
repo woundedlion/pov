@@ -1,1 +1,6 @@
 .githooks/** text eol=lf
+
+# Generated tables. Their provenance gates diff numeric tokens only, so pin the
+# checked-in bytes to LF regardless of core.autocrlf.
+core/color/color_luts.h text eol=lf
+core/engine/reaction_graph.cpp text eol=lf
