@@ -2,7 +2,7 @@
 
 Embeds each component's footprint (from KiCad stock libs, or a generated Teensy
 footprint), assigns pad nets by name from the exported netlist, places everything
-linearly inside a <=30 mm-wide board outline (R-MECH-6), and declares the nets.
+linearly inside a <=35 mm-wide board outline (R-MECH-6), and declares the nets.
 Placement is a rough starting arrangement; route/refine interactively in Pcbnew.
 """
 import os

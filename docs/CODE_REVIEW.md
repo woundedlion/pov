@@ -569,7 +569,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 222. **`embed()` raises `StopIteration` on a footprint with no `(attr …)`** — `hardware/phantasm/gen/pcb.py:140-142` — an opaque traceback for a plausible input.
 
-223. **`pcb.py`'s module docstring contradicts the spec constraint it cites** — `hardware/phantasm/gen/pcb.py:5` — says ≤30 mm; the spec and README say ≤35 mm.
+223. ✅ **`pcb.py`'s module docstring contradicts the spec constraint it cites** — `hardware/phantasm/gen/pcb.py:5` — says ≤30 mm; the spec and README say ≤35 mm.
 
 224. **Unchecked file I/O in the sRGB decode generator** — `scripts/generate_srgb_decode.cpp:72,96` — `fopen` never NULL-checked and `fclose`'s return ignored, so a short write still prints "wrote…" and returns 0.
 
