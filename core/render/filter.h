@@ -2009,7 +2009,7 @@ private:
   /**
    * @brief Chooses one color for the longitude-aliased north-pole row.
    */
-  static ::Pixel select_north_pole_sample(const ::Pixel *prev) {
+  HS_O3_FN static ::Pixel select_north_pole_sample(const ::Pixel *prev) {
     ::Pixel selected = prev[0];
     uint32_t selected_energy =
         static_cast<uint32_t>(selected.r) + selected.g + selected.b;
@@ -2036,6 +2036,7 @@ private:
    * @param g Out: interpolated green.
    * @param b Out: interpolated blue.
    */
+  HS_O3_FN
   void sample_bilinear_prev(const SphereField &field, const ::Pixel *prev,
                             const ::Pixel &north_pole, float bx, float by,
                             float &r, float &g, float &b) const {
