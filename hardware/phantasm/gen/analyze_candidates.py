@@ -217,6 +217,14 @@ def analyze(path):
     )
 
 
+def ergo_penalty(value, limit, weight):
+    """Ergonomics deduction for a spacing past `limit`; a missing part (nan)
+    forfeits the whole score."""
+    if math.isnan(value):
+        return 10.0
+    return max(0.0, value - limit) * weight
+
+
 def score(r):
     """Cheap composite scores (0-10) for a quick ranking. Lower fast-net length,
     fewer fast-net vias, and tighter functional grouping all score higher."""
@@ -228,9 +236,9 @@ def score(r):
     #  same GND net, so a signal-via plane hop is benign vs a split-plane crossing.)
     e = r["ergo"]
     erg = 10.0
-    erg -= max(0, e["decap_u1"] - 5) * 0.3
-    erg -= max(0, e["divider"] - 4) * 0.25
-    erg -= max(0, e["term_j2"] - 12) * 0.08
+    erg -= ergo_penalty(e["decap_u1"], 5, 0.3)
+    erg -= ergo_penalty(e["divider"], 4, 0.25)
+    erg -= ergo_penalty(e["term_j2"], 12, 0.08)
     return max(0.0, min(10.0, si)), max(0.0, min(10.0, erg))
 
 

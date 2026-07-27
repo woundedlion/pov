@@ -351,7 +351,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 114. ✅ **`shorts.py`'s colinearity tolerance is not normalized by segment length** — `hardware/phantasm/gen/shorts.py:62-67` — the effective perpendicular tolerance is `0.02/len`, so a 100 mm wire admits 0.2 µm. Orthogonal wires are exact, so any diagonal wire silently loses mid-span detection.
 
-115. **A missing footprint yields a *perfect* ergonomics score** — `hardware/phantasm/gen/analyze_candidates.py:184-192` — `max(0, nan-5)` evaluates to 0 in Python, so every missing part removes its own penalty and a candidate that dropped decoupling caps outranks one that merely placed them badly.
+115. ✅ **A missing footprint yields a *perfect* ergonomics score** — `hardware/phantasm/gen/analyze_candidates.py:184-192` — `max(0, nan-5)` evaluates to 0 in Python, so every missing part removes its own penalty and a candidate that dropped decoupling caps outranks one that merely placed them badly.
 
 116. **The `profile` and `profile_o3` environments are compiled by no gate** — `.github/workflows/ci.yml:590,632`, `justfile:99` — `targets/Profile/Profile.ino` (404 lines) consumes a wide, fragile instrumentation API and is compiled only when a developer runs `just profile`, despite being the harness the entire on-device profiling workflow depends on.
 
