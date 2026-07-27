@@ -705,7 +705,7 @@ struct DistanceResult {
 |---|---|
 | `v0` | Path progress (0.0 → 1.0 along the full curve) |
 | `v1` | Cumulative arc length in radians |
-| `v2` | Vertex index (integer cast to float) |
+| `v2` | Vertex index (integer cast to float); `Plot::Line` has no interior vertices and writes 0 on every sample, and `Plot::Mesh` writes the edge index instead |
 | `v3` | Inherited from control-point Fragment (user-defined) |
 
 Plot primitives interpolate registers between control-point Fragments via `Fragment::lerp()`. The vertex shader, if provided, runs once per control point before rasterization. For the always-planar primitives (`Plot::PlanarPolygon`, `Plot::Star`, `Plot::Flower`) the rasterizer re-derives `v0`/`v1` from the rendered azimuthal-equidistant arc — which bows longer than the great-circle chord between vertices — so both stay consistent with the drawn position.
