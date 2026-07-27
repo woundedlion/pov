@@ -539,7 +539,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 207. ✅ **MindSplatter's pool-footprint comment is stale by 64 particles** — `effects/MindSplatter.h:126-133` — says 1024 × 180 B; the cap is 1088 (~191 KiB).
 
-208. **`MindSplatter::start_warp()` is pure indirection** — `effects/MindSplatter.h:506` — a one-line forwarder called once.
+208. ✅ **`MindSplatter::start_warp()` is pure indirection** — `effects/MindSplatter.h:506` — a one-line forwarder called once.
 
 209. **`PetalFlow::spawner` is dead state after `init()`** — `effects/PetalFlow.h:144-146,171` — `Timeline::add` takes its animation by value, so the member is never touched again.
 
