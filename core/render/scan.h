@@ -205,6 +205,9 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
     float sp = TrigLUT<W, H>::sin_phi[y];
     float cp = TrigLUT<W, H>::cos_phi[y];
 
+    // Clear before the producer runs: a producer that emits and then returns
+    // false must not leak spans into the next row.
+    intervals.clear();
     bool handled = get_intervals(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
@@ -263,7 +266,6 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
           walk_clipped(x1, x2, y, sp, cp);
         }
       }
-      intervals.clear();
     } else if (!handled) {
       walk_clipped(0, W, y, sp, cp);
     }
