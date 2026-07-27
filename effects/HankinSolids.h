@@ -96,11 +96,7 @@ public:
    * @brief Advances the timeline by one frame and renders into the canvas.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(hk_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     {
       HS_PROFILE(hk_timeline_step);
       timeline.step(canvas);

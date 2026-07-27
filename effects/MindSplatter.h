@@ -85,18 +85,31 @@ public:
    *        advances it, then renders the particles.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(msp_buffer_wait);
 #ifdef HS_TEST_BUILD
-      if (full_buffer_clear)
-        return Canvas(*this);
+    if (full_buffer_clear) {
+      Canvas canvas(*this);
+      render(canvas);
+      return;
+    }
 #endif
-      if constexpr (decltype(filters)::any_crosses_segments)
-        return Canvas(*this);
-      else
-        return Canvas(*this, Canvas::ClearDisplayClipTag{});
-    }();
+    if constexpr (decltype(filters)::any_crosses_segments) {
+      Canvas canvas(*this);
+      render(canvas);
+    } else {
+      Canvas canvas(*this, Canvas::ClearDisplayClipTag{});
+      render(canvas);
+    }
+  }
+
+private:
+  // Test seam for emitter and fixed-attractor invariants.
+  friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
+
+  /**
+   * @brief Renders one frame into an already-acquired canvas.
+   * @param canvas Render target for this frame.
+   */
+  void render(Canvas &canvas) {
     {
       HS_PROFILE(msp_timeline_step);
       timeline.step(canvas);
@@ -115,10 +128,6 @@ public:
 
     draw_particles(canvas);
   }
-
-private:
-  // Test seam for emitter and fixed-attractor invariants.
-  friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
 
   /** @brief Per-particle trail length (feeds the pool footprint below). */
   static constexpr int TRAIL_LEN = 23;

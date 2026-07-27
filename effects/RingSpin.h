@@ -98,11 +98,7 @@ public:
    * fading color and alpha along the trail.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(rs_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     {
       HS_PROFILE(rs_timeline_step);
       timeline.step(canvas);

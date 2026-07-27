@@ -523,7 +523,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 199. ✅ **`Dynamo::dir()`'s `@note` is falsified by its own caller** — `effects/Dynamo.h:371-373` — the fractional-step accumulator routinely calls it below the claimed threshold; the conclusion still holds, the stated reason does not.
 
-200. **The canvas-acquire IIFE is duplicated verbatim in all 24 effects** — five identical lines plus an identical comment, differing only in the profile tag. Worth an engine-side helper.
+200. ✅ **The canvas-acquire IIFE is duplicated verbatim in all 24 effects** — five identical lines plus an identical comment, differing only in the profile tag. Worth an engine-side helper.
 
 201. ✅ **`ChaoticStrings` drops the `spawn_pinned` result its sibling checks** — `effects/ChaoticStrings.h:107` vs `effects/MobiusGrid.h:65-66` — a silent null makes the transform an identity with no diagnostic.
 

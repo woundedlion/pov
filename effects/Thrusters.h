@@ -69,11 +69,7 @@ public:
    *          then advances and draws each live thruster.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(th_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
 
     // Wrap at 32, ring_fn's modulation period.
     t_global = (t_global + 1) % 32;

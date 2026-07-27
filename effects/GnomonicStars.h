@@ -65,11 +65,7 @@ public:
    *          and whose basis carries the current orientation and warp.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(gn_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
 
     // Mirror the slider into the warp before the timeline advances it.
     warp_->set_speed(params.warp_speed);

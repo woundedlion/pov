@@ -137,11 +137,7 @@ public:
    * come from the same preset.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(mf_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     advance_transition();
 
     {

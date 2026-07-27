@@ -99,11 +99,7 @@ public:
    * palette.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(lq_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     {
       HS_PROFILE(lq_timeline_step);
       timeline.step(canvas);

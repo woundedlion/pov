@@ -821,9 +821,12 @@ private:
    * falsified between check and flip. buffer_free() is re-satisfied only when the
    * display ISR advances at a frame boundary, so an unbounded wait means that ISR
    * stalled and the watchdog traps rather than hanging. The outer buffer_free()
-   * guard skips the micros() reads on the no-wait path.
+   * guard skips the micros() reads on the no-wait path. The counter name is
+   * load-bearing: Profile.ino derives each frame's render as wall minus the
+   * counter whose name ends in _buffer_wait.
    */
   void wait_for_free_buffer() {
+    HS_PROFILE(canvas_buffer_wait);
     if (effect_.buffer_free())
       return;
     const unsigned long wait_start = micros();
