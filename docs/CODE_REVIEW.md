@@ -295,7 +295,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 86. ✅ **The load-bearing scratch-arena contract block omits `medial` and misstates `relax`** — `core/mesh/conway.h:381-398` — `medial` allocates in both arenas and requires a closed manifold, and is absent from both lists; `relax` allocates `orbit_start` and `movements` in `temp` despite the block saying it needs no extra buffers.
 
-87. **`relax_baked`'s doc promises a check on source "raw data" that it does not perform** — `core/mesh/conway.h:1107-1116` — only dimensions and a connectivity hash are checked; source vertex positions are deliberately unchecked, which is what lets two direct call sites replay a swept recipe onto the shipped converged mesh.
+87. ✅ **`relax_baked`'s doc promises a check on source "raw data" that it does not perform** — `core/mesh/conway.h:1107-1116` — only dimensions and a connectivity hash are checked; source vertex positions are deliberately unchecked, which is what lets two direct call sites replay a swept recipe onto the shipped converged mesh.
 
 88. **`relax` drops roughly half of a boundary mesh's edges from its target-length average** — `core/mesh/conway.h:1043-1052` — the `u < v` half-edge filter is correct for interior edges but arbitrary for unpaired boundary ones, biasing the spring target for the whole mesh. Latent (production relaxes only closed manifolds) and the open-mesh test only asserts finiteness.
 
