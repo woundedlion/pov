@@ -185,7 +185,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 32. **Netlist connections vanish silently when no pad name matches** — `hardware/phantasm/gen/pcb.py:157-164` — `pad_net.get((ref,padname))` is a one-way lookup, and the Teensy footprint keys pads by pin *label*, so a single label typo drops that net from the board with no output — precisely the class of change currently in flight in the working tree. Fix: track consumed keys and fail on leftovers.
 
-33. **A failed DRC run is displayed as "clean" and stays eligible to win** — `hardware/phantasm/gen/analyze_candidates.py:124,259-266,328-342` — `run_drc` returns `None` for both "tool unavailable" and "this candidate failed", so a failed candidate renders as `DRCerr 0 unconn 0 clean` and can be selected as best-by-composite. Fix: distinguish the two cases and exclude un-gated candidates.
+33. ✅ **A failed DRC run is displayed as "clean" and stays eligible to win** — `hardware/phantasm/gen/analyze_candidates.py:124,259-266,328-342` — `run_drc` returns `None` for both "tool unavailable" and "this candidate failed", so a failed candidate renders as `DRCerr 0 unconn 0 clean` and can be selected as best-by-composite. Fix: distinguish the two cases and exclude un-gated candidates.
 
 34. **`tools/gen_gamut_lut.py` has no provenance gate** — the only generated artifact with no `--check`, no ctest and no CI job, while it hand-duplicates the OKLab matrices and gamut epsilon from `core/color/color.h`. Drift there silently invalidates the brackets the runtime bisects within. Fix: add a `--check` mode wired like `reaction-graph-provenance`.
 
