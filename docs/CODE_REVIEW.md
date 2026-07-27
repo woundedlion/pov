@@ -339,7 +339,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 108. ✅ **The LPSPI RX path is neither masked nor drained, and `NOSTALL` is undocumented** — `hardware/dma_led.h:85-88` — every transmitted byte lands in an undrained RX FIFO; for a TX-only stream `RXMSK = 1` with `NOSTALL` cleared is the safer configuration (a stall is harmless for a clocked APA102 protocol; an underrun corrupts the frame).
 
-109. **`HD107SFrame::load()`'s tail-blanking loop is never asserted** — `hardware/hd107s_frame.h:170-173` vs `tests/test_hd107s_frame.h:222-245` — deleting the blanking (leaving a stale tail on a partial load) passes the whole suite.
+109. ✅ **`HD107SFrame::load()`'s tail-blanking loop is never asserted** — `hardware/hd107s_frame.h:170-173` vs `tests/test_hd107s_frame.h:222-245` — deleting the blanking (leaving a stale tail on a partial load) passes the whole suite.
 
 110. **`stackup.py` is not idempotent and fails open in three places** — `hardware/phantasm/gen/stackup.py:39,43-53,78-80` — unconditional zone appends, a netcode lookup that returns 0 for a missing net, and a literal whitespace-sensitive `str.replace` that silently writes no stackup while still printing success.
 
