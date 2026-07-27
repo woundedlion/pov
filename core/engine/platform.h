@@ -1377,6 +1377,10 @@ inline ProbeBreakdown g_probe_breakdown;
 // a pointer-capturing callsite picks a fixed byte Cap with headroom for the wider
 // host closure (e.g. SpriteFn's 16 B holds two host pointers) rather than
 // inflating every Fn here. See SpriteFn in concepts.h.
+//
+// Invoking an unbound Fn diverges: hs::inplace_function traps via check_fail,
+// while the vendored teensy:: one returns a zero-initialized R. Row 9 of
+// docs/device_host_divergence_ledger.md.
 // ---------------------------------------------------------------------------
 #ifdef ARDUINO
 #include <inplace_function.h>
