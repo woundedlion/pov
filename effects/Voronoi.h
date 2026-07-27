@@ -152,9 +152,8 @@ public:
     auto classify = [&](const Vector &p) -> CellId {
       auto knn = tree.nearest(p, 2);
       uint16_t a = knn[0].original_index;
-      bool has_second = knn.size() > 1;
-      uint16_t b = has_second ? knn[1].original_index : a;
-      return {std::min(a, b), std::max(a, b), has_second};
+      uint16_t b = knn.size() > 1 ? knn[1].original_index : a;
+      return {std::min(a, b), std::max(a, b)};
     };
 
     // Coarse-grid coherence: classify the nearest pair once per coarse-grid
@@ -280,9 +279,8 @@ public:
    *  render path). At class scope so the scratch-budget static_assert below can
    *  size the corner grid against sizeof(CellId). */
   struct CellId {
-    uint16_t lo;     /**< min(nearest, second) site index. */
-    uint16_t hi;     /**< max(nearest, second) site index. */
-    bool has_second; /**< Whether a second neighbor exists (>= 2 sites). */
+    uint16_t lo; /**< min(nearest, second) site index. */
+    uint16_t hi; /**< max(nearest, second) site index. */
   };
 
   /** @brief Shading candidates for one block: the deduped union of its four
