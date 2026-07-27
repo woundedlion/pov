@@ -311,12 +311,13 @@ private:
     const int period =
         crossfade.schedule(timeline, draw_fn, SPRITE_LIFE, FADE_WINDOW);
 
-    // Bind the warp magnitude to this spawn's scale so dragging "Warp" takes
-    // effect this frame. The single-slot transformer shares one warp across a
-    // hand-off; the outgoing warp has relaxed to identity by the next spawn.
-    if (auto *warp = mobius_gen.spawn(0, param_slots_[bake_slot].warp_scale,
-                                      period, false))
-      warp->bind_scale(param_slots_[bake_slot].warp_scale);
+    // Single-slot pool: free here only because the previous warp runs exactly
+    // `period` frames and so completes earlier in the same step() that fires the
+    // re-spawn timer below (events step in insertion order). The magnitude binds
+    // to the live params rather than this spawn's frozen slot, so a dropped
+    // spawn leaves the running warp tracking "Warp" instead of going inert.
+    if (auto *warp = mobius_gen.spawn(0, params.warp_scale, period, false))
+      warp->bind_scale(params.warp_scale);
 
     timeline.add(period, Animation::PeriodicTimer(
                              0,
