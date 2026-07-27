@@ -784,11 +784,11 @@ inline uint16_t beat88(uint16_t bpm88, uint32_t timebase = 0) {
  * @param bpm Tempo in beats per minute.
  * @param timebase Millisecond offset for the zero of time.
  * @return The current phase in [0, 65535].
- * @pre bpm <= 255. bpm << 8 truncates to 16 bits, so bpm >= 256 wraps
- *      (e.g. beat16(300) == beat16(44)), matching FastLED's own beat16.
+ * @details Matches FastLED: a value below 256 is promoted to 8.8 fixed point,
+ *          256 and above is taken as already 8.8.
  */
 inline uint16_t beat16(uint16_t bpm, uint32_t timebase = 0) {
-  return beat88(static_cast<uint16_t>(bpm << 8), timebase);
+  return beat88(bpm < 256 ? static_cast<uint16_t>(bpm << 8) : bpm, timebase);
 }
 /**
  * @brief Free-running 8-bit sawtooth phase at the given whole BPM.
