@@ -573,7 +573,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 224. ✅ **Unchecked file I/O in the sRGB decode generator** — `scripts/generate_srgb_decode.cpp:72,96` — `fopen` never NULL-checked and `fclose`'s return ignored, so a short write still prints "wrote…" and returns 0.
 
-225. **Test isolation is module-granular, worked around per test** — `tests/test_fixture.h:39` — eleven tests in one file hand-call `hs::random().seed(1337)`, which is evidence the per-test reset is needed and is being open-coded.
+225. ✅ **Test isolation is module-granular, worked around per test** — `tests/test_fixture.h:39` — eleven tests in one file hand-call `hs::random().seed(1337)`, which is evidence the per-test reset is needed and is being open-coded.
 
 226. **Twenty near-identical `Effect` stub fixtures** — including two distinct `DeathEffect` definitions in one file, one shadowing the other.
 

@@ -389,7 +389,6 @@ inline void test_lerp_midpoint() {
  * first recorded, the last index the newest.
  */
 inline void test_orientation_trail_index_zero_is_oldest() {
-  hs::random().seed(1337);
   Animation::OrientationTrail<Orientation<4>, 8> trail;
 
   Orientation<4> a, b, c;
@@ -412,7 +411,6 @@ inline void test_orientation_trail_index_zero_is_oldest() {
  * index 0.
  */
 inline void test_orientation_trail_expire_drops_oldest() {
-  hs::random().seed(1337);
   Animation::OrientationTrail<Orientation<4>, 8> trail;
   Orientation<4> a, b;
   a.set(make_rotation(Vector(0, 1, 0), 0.1f));
@@ -428,7 +426,6 @@ inline void test_orientation_trail_expire_drops_oldest() {
  * @brief Verifies clear() empties the trail.
  */
 inline void test_orientation_trail_clear() {
-  hs::random().seed(1337);
   Animation::OrientationTrail<Orientation<4>, 8> trail;
   Orientation<4> a;
   trail.record(a);
@@ -964,7 +961,6 @@ inline void test_motion_codriven_survives_repeat_seam() {
  * spawns once the fixed pool is at capacity.
  */
 inline void test_particle_system_spawn_and_capacity_guard() {
-  hs::random().seed(1337);
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps; // CAPACITY = 4
@@ -1006,7 +1002,6 @@ inline void test_particle_system_lifetime_boundaries() {
  * recorded trail drains to empty.
  */
 inline void test_particle_system_expires_after_life_and_trail_drain() {
-  hs::random().seed(1337);
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps;
@@ -1034,7 +1029,6 @@ inline void test_particle_system_expires_after_life_and_trail_drain() {
  * the kill check rather than by life expiry.
  */
 inline void test_particle_system_attractor_kills_within_radius() {
-  hs::random().seed(1337);
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps;
@@ -1062,7 +1056,6 @@ inline void test_particle_system_attractor_kills_within_radius() {
  *          one, and record its first trail point.
  */
 inline void test_particle_system_spawn_initializes_and_steps() {
-  hs::random().seed(1337);
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps;
@@ -1103,7 +1096,6 @@ inline void test_particle_system_spawn_initializes_and_steps() {
  *          step suffices and the distance is the spawn distance.
  */
 inline void test_particle_system_attractor_kill_radius_boundary() {
-  hs::random().seed(1337);
   static uint8_t buf[256 * 1024];
   constexpr float kr = 0.5f;
 
@@ -2584,7 +2576,6 @@ inline void test_mobiusflow_step_preserves_unit_product() {
  * can spawn into the pool.
  */
 inline void test_particle_system_emitter_dispatch() {
-  hs::random().seed(1337);
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps;
