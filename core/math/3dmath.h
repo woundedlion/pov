@@ -744,10 +744,10 @@ static constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
 static constexpr float STEREO_POLE_EPS = 1e-4f;
 
 /**
- * @brief Squared numerator magnitude below which Complex::operator/ treats a
- * near-zero-divided-by-near-zero quotient as the indeterminate 0/0 form and
- * returns zero. Tighter than math::EPS_LEN_SQ so only a numerator essentially
- * exactly zero loses its direction.
+ * @brief Squared magnitude below which mobius_transform treats a homogeneous
+ * pair (p : s) as the degenerate exact-pole form and substitutes the point at
+ * infinity. Tighter than math::EPS_LEN_SQ so only a pair essentially exactly
+ * zero loses its direction.
  */
 static constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
 
@@ -828,7 +828,9 @@ struct Complex {
  * @param den Divisor.
  * @return num/den, except a quotient whose magnitude would reach STEREO_INF
  * collapses to the infinity sentinel scaled along the numerator's direction (so
- * a near-singular divisor still yields a finite point), and 0/0 returns (0,0).
+ * a near-singular divisor still yields a finite point). Only an exactly zero
+ * numerator is the indeterminate 0/0 form, which returns (0,0); a nonzero
+ * numerator keeps its direction however small it is.
  * @details NOT general complex division (see Complex::operator/): the STEREO_INF
  * clamp and the 0/0 -> 0 case are the point-at-infinity conventions the sphere
  * projections depend on.
@@ -837,7 +839,7 @@ inline Complex project_div(const Complex &num, const Complex &den) {
   float denom = den.re * den.re + den.im * den.im;
   float num_mag = num.re * num.re + num.im * num.im;
   if (num_mag >= denom * (STEREO_INF * STEREO_INF)) {
-    if (num_mag < STEREO_DIV_NUM_EPS_SQ)
+    if (num_mag == 0.0f)
       return Complex(0, 0);
     float scale = STEREO_INF / sqrtf(num_mag);
     return Complex(num.re * scale, num.im * scale);
