@@ -830,7 +830,7 @@ inline void test_class_lut_render_matches_exact_rippled() {
   rp.thickness = 0.7f;
   rp.decay = 0.1f;
   rp.phase = 0.9f; // mid-expansion: wavefront crossing plenty of faces
-  rp.prepare_thresholds();
+  rp.sync();
   for (size_t i = 0; i < mesh.vertices.size(); ++i)
     mesh.vertices[i] = ripple_transform(mesh.vertices[i], rp);
   check_class_lut_render_matches_exact(mesh, bake, 1000, "class lut rippled");

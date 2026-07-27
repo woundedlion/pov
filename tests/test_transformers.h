@@ -350,14 +350,14 @@ inline void test_ripple_active_rotates_on_sphere() {
 }
 
 /**
- * @brief Exercises the prepare_thresholds() fast-reject band the production
+ * @brief Exercises the sync() fast-reject band the production
  *        renderer relies on (prepare_frame() calls it per active entity).
  * @details test_ripple_active_rotates_on_sphere deliberately leaves the default
  *          degenerate bounds (min=1, max=-1) in place, so the reject `if` is
  *          never taken there. Here real bounds are computed: a point at the
  *          wavelet peak (inside the band) is rotated, while points on either
  *          side — closer to the center than d_min, and farther than d_max —
- *          take the two reject legs and return unchanged. A prepare_thresholds()
+ *          take the two reject legs and return unchanged. A sync()
  *          that swapped or mis-derived its bounds would either reject the peak
  *          (no move) or pass the off-band points (they move), failing here.
  */
@@ -368,7 +368,7 @@ inline void test_ripple_threshold_reject_path() {
   p.phase = PI_F * 0.5f; // wavelet peak at d == 90°
   p.decay = 0.0f;
   p.thickness = 0.4f; // band ≈ [phase - 0.4, phase + 0.4] rad
-  p.prepare_thresholds();
+  p.sync();
 
   HS_EXPECT_LT(p.cos_threshold_min, 1.0f);
   HS_EXPECT_GT(p.cos_threshold_max, -1.0f);
@@ -438,7 +438,7 @@ inline void test_ripple_decay_attenuates() {
 }
 
 /**
- * @brief Pins the prepare_thresholds() reject band at its edges, not just well
+ * @brief Pins the sync() reject band at its edges, not just well
  *        outside them.
  * @details test_ripple_threshold_reject_path samples points 0.3 rad beyond each
  *          edge, so a band misplaced by up to ~0.3 rad would still pass. Here a
@@ -454,7 +454,7 @@ inline void test_ripple_threshold_boundary() {
   p.phase = PI_F * 0.5f;
   p.decay = 0.0f;
   p.thickness = 0.4f; // band edges at phase ± thickness
-  p.prepare_thresholds();
+  p.sync();
 
   const float d_min = p.phase - p.thickness;
   const float d_max = p.phase + p.thickness;
@@ -946,7 +946,7 @@ inline void test_bump_field_threshold_sync() {
   HS_EXPECT_NEAR(p.cos_radius, std::cos(0.2f), 1e-6f);
 
   p.envelope = 0.75f;
-  p.prepare_threshold();
+  p.sync();
   HS_EXPECT_NEAR(p.cos_radius, std::cos(0.6f), 1e-6f);
 }
 
@@ -968,7 +968,7 @@ inline void test_bump_field_drapes_over_ball() {
   p.radius = 0.5f;
   p.amplitude = 1.0f;
   p.envelope = 1.0f;
-  p.prepare_threshold();
+  p.sync();
 
   // Sample the meridian at colatitude offset d from the center.
   auto at = [&](float d) {
@@ -1005,7 +1005,7 @@ inline void test_bump_field_round_bulge_along_ring() {
   p.axis = Vector(0, 1, 0);
   p.radius = 0.5f;
   p.envelope = 1.0f;
-  p.prepare_threshold();
+  p.sync();
 
   // Ring half a footprint below the center (drape weight sin(pi/2) = 1),
   // sampled at azimuth offset 0.3 rad about the axis. There x ~ 0.3 * sin of
@@ -1054,7 +1054,7 @@ inline void test_bump_field_envelope_gates() {
   p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
   p.axis = Vector(0, 1, 0);
   p.radius = 0.5f;
-  p.prepare_threshold();
+  p.sync();
 
   // Half the shrunken footprint below the center on the axis meridian.
   const float d = c_lat + 0.125f;
