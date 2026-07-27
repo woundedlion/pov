@@ -395,7 +395,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 136. ✅ **`deep_tween` is documented as accepting a bare `Orientation`, which cannot compile** — `README.md:857`, `core/engine/concepts.h:394-396` — the `Tweenable` concept admits it, so the failure surfaces as a deep template error rather than a clean rejection; `trails.h:282-286` states the restriction correctly.
 
-137. **README says `ParticleSystem` uses `VectorTrail`; it uses `QuantizedVectorTrail`** — `README.md:785,820,848,872` — misstating the memory and precision contract (6 B/sample snorm16, not 12 B exact).
+137. ✅ **README says `ParticleSystem` uses `VectorTrail`; it uses `QuantizedVectorTrail`** — `README.md:785,820,848,872` — misstating the memory and precision contract (6 B/sample snorm16, not 12 B exact).
 
 138. **`fill`/`grade` are silently dropped on the per-face segue draw path** — `core/animation/mesh.h:2186-2209` — the protocol presents them as one composable set with the per-face hooks; in practice the two sets are mutually exclusive, so a future policy combining `face_offset` with `fill` loses its coverage mask with no signal.
 
