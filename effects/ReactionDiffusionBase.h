@@ -189,6 +189,7 @@ protected:
     frag.v0 = static_cast<float>(cube_lut.lookup(rv));
   }
 
+private:
   /**
    * @brief Lands the latest ping-pong generation back into persistent state.
    * @tparam T Fixed-point species sample type.
@@ -210,6 +211,7 @@ protected:
       std::memcpy(persistent[i], latest[i], count * sizeof(T));
   }
 
+protected:
   /**
    * @brief Runs `steps` ping-ponged physics substeps and lands the final
    *        generation back in persistent state.
@@ -240,6 +242,7 @@ protected:
     land_back(persistent, cur, RD_N);
   }
 
+private:
   /**
    * @brief Installs a Languid random-walk animation of the view orientation.
    * @details Shared by both systems; seeds OpenSimplex2 noise and adds the
@@ -261,6 +264,7 @@ protected:
       nodes[i] = ReactionGraph::node(i);
   }
 
+protected:
   /**
    * @brief Reserves and fills the shared lattice, then arms the view animation.
    * @details Bundles the three steps every derived `init()` must perform
@@ -301,6 +305,7 @@ protected:
       fn(ReactionGraph::neighbors[node][k]);
   }
 
+private:
   /**
    * @brief Wendland C2 kernel walk over `center` and its neighbors.
    * @tparam OnWeight Callable accepting (node_index, weight).
@@ -324,6 +329,7 @@ protected:
     for_each_neighbor(center, visit);
   }
 
+protected:
   Orientation<> orientation; /**< Current view orientation on the sphere. */
   FastNoiseLite noise;       /**< Noise source driving the orientation walk. */
   ReactionGraph::CubemapLUT
