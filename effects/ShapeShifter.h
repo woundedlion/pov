@@ -89,6 +89,7 @@ public:
     }
   }
 
+private:
   /**
    * @brief Builds a fixed five-slot timeline independent of the Count param.
    * @details The slots are the camera tumble, the twist Mutation, two shared
@@ -186,7 +187,6 @@ public:
     }
   }
 
-private:
   /**
    * @brief Plot-rasterizes the current shape type.
    * @tparam F Fragment-shader callable type.

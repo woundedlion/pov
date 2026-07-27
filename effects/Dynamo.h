@@ -99,6 +99,7 @@ public:
                     48, 160, [this](Canvas &) { rotate(); }, true));
   }
 
+private:
   /**
    * @brief Flips travel direction via a private sign.
    * @details Toggles speed_direction_ so animation never overwrites the "Speed"
@@ -222,6 +223,7 @@ public:
     return baked_palettes_[0].get(t);
   }
 
+public:
   /**
    * @brief Renders one frame.
    * @details Syncs the live trail length, steps the timeline, advances the
