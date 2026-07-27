@@ -223,7 +223,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 50. ✅ **README mis-describes MindSplatter** — `README.md:1742-1746` — "random-walk particle system" describes the view orientation, not the particles, which are emitted from cube vertices toward octahedral attractors and punched out by signed-axis holes.
 
-51. **README's Feedback filter row says "Stateless — no internal frame storage"** — `README.md:529` vs `core/render/filter.h:1968-1972` — it now carries a persistent warp cache with `STORAGE_BYTES` and `init_storage(Arena&)`. An effect author trusting "stateless" gets a correct image that silently rebuilds the entire control field every frame, with no assert, log or test failure. Only `MeshFeedback.h:121` calls it.
+51. ✅ **README's Feedback filter row says "Stateless — no internal frame storage"** — `README.md:529` vs `core/render/filter.h:1968-1972` — it now carries a persistent warp cache with `STORAGE_BYTES` and `init_storage(Arena&)`. An effect author trusting "stateless" gets a correct image that silently rebuilds the entire control field every frame, with no assert, log or test failure. Only `MeshFeedback.h:121` calls it.
 
 52. **README describes a coarse warp grid the code no longer builds, and omits `DirectAntiAliasSink`** — `README.md:521-523,529` vs `core/render/filter.h:1085,1565-1578` — the field is a spherical latitude-ring control lattice, not `W/DS × H/DS`; and `DirectAntiAliasSink` is a shipped, device-used terminal sink with a non-obvious per-frame `prepare()` contract, absent from the docs.
 
