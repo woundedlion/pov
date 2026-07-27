@@ -571,7 +571,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 223. ✅ **`pcb.py`'s module docstring contradicts the spec constraint it cites** — `hardware/phantasm/gen/pcb.py:5` — says ≤30 mm; the spec and README say ≤35 mm.
 
-224. **Unchecked file I/O in the sRGB decode generator** — `scripts/generate_srgb_decode.cpp:72,96` — `fopen` never NULL-checked and `fclose`'s return ignored, so a short write still prints "wrote…" and returns 0.
+224. ✅ **Unchecked file I/O in the sRGB decode generator** — `scripts/generate_srgb_decode.cpp:72,96` — `fopen` never NULL-checked and `fclose`'s return ignored, so a short write still prints "wrote…" and returns 0.
 
 225. **Test isolation is module-granular, worked around per test** — `tests/test_fixture.h:39` — eleven tests in one file hand-call `hs::random().seed(1337)`, which is evidence the per-test reset is needed and is being open-coded.
 
