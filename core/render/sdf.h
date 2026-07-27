@@ -3902,6 +3902,9 @@ struct Flower {
  * @details DistanceResult fields: dist = signed distance to the segment minus
  * thickness (negative inside); raw_dist = unsigned angular distance to the
  * segment.
+ *
+ * Antipodal endpoints select no arc; the shape degrades to the full great
+ * circle through them, bounded and culled as such.
  */
 struct Line {
   Vector a, b;     /**< Arc endpoints (unit vectors). */
@@ -3917,8 +3920,10 @@ struct Line {
   float mid_ny = 0.0f, mid_r = 0.0f,
         mid_alpha = 0.0f; /**< Midpoint y, XZ projection length, azimuth. */
   float cap_D_min = 0.0f; /**< Cosine of the bounding-cap radius. */
-  bool cap_horiz_valid = false; /**< False when the cap axis is ~vertical (no
-                                   horizontal projection). */
+  bool cap_horiz_valid =
+      false; /**< False when the cap yields no horizontal cull: a ~vertical cap
+                axis, or antipodal endpoints (whose rendered great circle no cap
+                bounds). */
   static constexpr bool is_solid = false; /**< Line renders as a stroke. */
 
   /**
@@ -3930,12 +3935,22 @@ struct Line {
   Line(const Vector &start, const Vector &end, float th)
       : a(start), b(end), thickness(th) {
     len = angle_between(a, b);
+    bool antipodal = false;
     if (len < 1e-6f) {
       n = Vector(0, 0, 0);
     } else {
-      // Antipodal endpoints (len ~ π) make cross() degenerate; guard the
-      // normalize.
-      n = normalized_or(cross(a, b), Vector(1, 0, 0));
+      Vector cr = cross(a, b);
+      if (cr.x * cr.x + cr.y * cr.y + cr.z * cr.z < math::EPS_NORMALIZE_SQ) {
+        // Antipodal endpoints (len ~ π) leave the arc plane undefined: any great
+        // circle through them serves, and distance() then measures the whole
+        // circle rather than an arc (every projected point sits at
+        // ang_a + ang_b == len). Pick a plane the endpoints actually lie in.
+        antipodal = true;
+        Vector ref = (fabsf(a.y) < 0.9f) ? Vector(0, 1, 0) : Vector(1, 0, 0);
+        n = cross(a, ref).normalized();
+      } else {
+        n = cr.normalized();
+      }
     }
 
     // A great-circle arc bulges toward a pole between its endpoints, so its
@@ -3969,6 +3984,16 @@ struct Line {
     float cap_radius = len * 0.5f + thickness;
     cap_D_min = cosf(cap_radius);
     cap_horiz_valid = mid_r >= MIN_HORIZONTAL_PROJ;
+
+    if (antipodal) {
+      // The rendered geometry is the full great circle of `n`, which spans the
+      // latitudes between its two extrema and every azimuth: no half-circle cap
+      // bounds it, so drop the horizontal cull.
+      float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
+      phi_min = std::max(0.0f, acosf(peak) - margin);
+      phi_max = std::min(PI_F, acosf(-peak) + margin);
+      cap_horiz_valid = false;
+    }
   }
 
   /**
