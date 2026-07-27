@@ -313,7 +313,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 95. ✅ **`DreamBalls` silently swallows a full warp pool** — `effects/DreamBalls.h:317-319` — a failed spawn leaves the "Warp" slider inert for a full 320-frame sprite with no signal; correct today only via an undocumented event-ordering chain.
 
-96. **`ShapeShifter`'s constructor is the only non-cold effect constructor in the repo** — `effects/ShapeShifter.h:38` — every other effect ctor is `HS_COLD_MEMBER` so one-shot setup lands in flash rather than ITCM, against the documented granule cliff.
+96. ✅ **`ShapeShifter`'s constructor is the only non-cold effect constructor in the repo** — `effects/ShapeShifter.h:38` — every other effect ctor is `HS_COLD_MEMBER` so one-shot setup lands in flash rather than ITCM, against the documented granule cliff.
 
 97. **Implementation methods are public in two effects** — `effects/ShapeShifter.h:100,133,166` and `effects/Dynamo.h:107-177` — the other five expose only ctor + `init()` + `draw_frame()`; Dynamo already has a white-box friend, so nothing needs the wider surface. `color_wipe()`'s palette/boundary invariant is delicate enough that `draw_frame` guards it with `HS_CHECK`.
 
