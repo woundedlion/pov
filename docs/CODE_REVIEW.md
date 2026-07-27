@@ -549,7 +549,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 212. ✅ **Half of `ReactionDiffusionBase`'s protected surface is single-client** — `effects/ReactionDiffusionBase.h:120,152,248,259,316` — overstating what is actually shared. Two helpers should be private.
 
-213. **A stale doc reference to a nonexistent `refine_nearest_node`** — `effects/ReactionDiffusionBase.h:185`, `core/engine/reaction_graph.h:132` — a reader following the contract lands nowhere.
+213. ✅ **A stale doc reference to a nonexistent `refine_nearest_node`** — `effects/ReactionDiffusionBase.h:185`, `core/engine/reaction_graph.h:132` — a reader following the contract lands nowhere.
 
 214. **Voronoi's pixel loop does not mirror `Scan::Shader::draw` as its comment claims** — `effects/Voronoi.h:228-231` — it iterates the bare display band, not the margin-expanded clip band. Harmless today; the comment invites adding a filter and getting a seam.
 

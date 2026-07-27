@@ -182,7 +182,7 @@ protected:
    * @param frag Fragment whose pos seeds frag.v0 with the nearest-node id.
    * @details Shared by both systems' render() vertex shaders; the fragment
    * shader refines this face-quantized seed to the true nearest node per
-   * sub-sample (see refine_nearest_node).
+   * sub-sample (see refine_center and refine_and_accumulate).
    */
   void seed_face_lut(Fragment &frag) {
     Vector rv = orientation.unorient(frag.pos);
