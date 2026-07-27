@@ -65,6 +65,10 @@ try {
   await new Promise((resolve) => process.stderr.write('', resolve));
   process.exit();
 }
+// Thrown when the page yields no resolution list, to abort the capture run from
+// inside the browser block without leaking a raw stack past the summaries.
+class UnresolvedResolutions extends Error {}
+
 // Declared out here, not inside the try below: the summary/gating section after
 // the finally reads them, so block-scoping them to the try would leave every run
 // throwing a ReferenceError past browser.close().
@@ -107,8 +111,8 @@ try {
   // and Dynamo are only registered at the low-res Holosphere preset). Requesting
   // an effect at a resolution that doesn't offer it makes the app silently fall
   // back to its default effect, which would save that default under the wrong
-  // filename. On any failure, return [] so each effect is captured with no
-  // resolution param (the app picks its own default).
+  // filename. On any failure, return [] — the caller aborts the run rather than
+  // capturing unpinned.
   async function resolveResolutions() {
     try {
       await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
@@ -124,21 +128,23 @@ try {
         return [...seen.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
       });
       if (labels.length) return labels;
-      console.warn('capture_screenshots: found no resolution options on the page; ' +
-        'using the app default resolution');
+      console.warn('capture_screenshots: found no resolution options on the page');
     } catch (e) {
-      console.warn(`capture_screenshots: could not read resolutions from the page ` +
-        `(${e.message}); using the app default resolution`);
+      console.warn('capture_screenshots: could not read resolutions from the page ' +
+        `(${e.message})`);
     }
     return [];
   }
 
-  // Resolutions to try per effect, largest first; [null] means "no param, app
-  // default". When the app exposes its presets we try each from highest to lowest
-  // detail and keep the first that honors the requested effect.
+  // Resolutions to try per effect, largest first: each is tried from highest to
+  // lowest detail, keeping the first that honors the requested effect.
   RESOLUTIONS = await resolveResolutions();
-  const RES_TRY = RESOLUTIONS.length ? RESOLUTIONS : [null];
-  console.log(`Capture resolutions (high→low): ${RESOLUTIONS.join(', ') || '(app default)'}`);
+  // Without a resolution list every URL would omit the resolution param, and a
+  // request with no param cannot be confirmed against the app's rewritten effect
+  // param — the app's fallback effect would be saved under the requested effect's
+  // filename. Abort here, before any PNG is written.
+  if (RESOLUTIONS.length === 0) throw new UnresolvedResolutions();
+  console.log(`Capture resolutions (high→low): ${RESOLUTIONS.join(', ')}`);
 
   targets = process.argv.slice(2).length ? process.argv.slice(2) : EFFECTS;
 
@@ -178,16 +184,15 @@ try {
     try {
       // Try resolutions high→low; keep the first that actually offers this effect.
       let usedRes = null, honored = false;
-      for (const res of RES_TRY) {
-        const params = new URLSearchParams({ effect });
-        if (res) params.set('resolution', res);
+      for (const res of RESOLUTIONS) {
+        const params = new URLSearchParams({ effect, resolution: res });
         await page.goto(`${BASE_URL}?${params.toString()}`,
           { waitUntil: 'load', timeout: 60000 });
         await page.waitForSelector('#canvas', { timeout: 30000 });
         // The fallback rewrite happens during hydration, before the settle wait.
         await page.waitForTimeout(500);
         usedRes = res;
-        if (res === null || (await selectedEffect()) === effect) { honored = true; break; }
+        if ((await selectedEffect()) === effect) { honored = true; break; }
       }
       // Offered at no resolution: the canvas shows the app's fallback effect.
       // Saving it would overwrite a (possibly correct) existing PNG with a
@@ -215,7 +220,7 @@ try {
       const buf = Buffer.from(b64, 'base64');
       const out = join(OUT_DIR, `${effect}.png`);
       await writeFile(out, buf);
-      console.log(`saved ${out} @ ${usedRes || 'default'} after ${offsetMs}ms ` +
+      console.log(`saved ${out} @ ${usedRes} after ${offsetMs}ms ` +
         `(${pct}% lit)`);
     } catch (e) {
       failures++;
@@ -223,23 +228,23 @@ try {
     }
   }
 
+} catch (e) {
+  if (!(e instanceof UnresolvedResolutions)) throw e;
 } finally {
   if (browser) await browser.close();
 }
 
-// resolveResolutions() returned [], so the per-capture URLs omitted the
-// resolution param and the WHOLE gallery was captured at whatever the app
-// defaulted to — not a pinned resolution. resolveResolutions deliberately
-// degrades rather than aborting the run, but its per-failure console.warn fires
-// up front and scrolls away in a long capture, so restate it loudly in the
-// summary the caller actually reads: a gallery shipped at the wrong resolution
-// must not look like a clean success.
+// resolveResolutions() returned [], so the run aborted before capturing: with no
+// resolution param the app's silent fallback cannot be detected, and every PNG
+// would risk carrying the fallback effect under another effect's filename. Its
+// per-failure console.warn fires up front and scrolls away, so restate it in the
+// summary the caller actually reads.
 if (RESOLUTIONS.length === 0) {
   console.warn('========================================================');
-  console.warn('capture_screenshots: WARNING — resolutions were NOT resolved;');
-  console.warn('the entire gallery was captured at the APP DEFAULT resolution');
-  console.warn('(unverified). Re-run once the page resolution selector is');
-  console.warn('reachable to capture at a pinned resolution.');
+  console.warn('capture_screenshots: ERROR — resolutions were NOT resolved;');
+  console.warn('ABORTED before capturing. No screenshot was written; the existing');
+  console.warn('gallery is untouched. Re-run once the page resolution selector is');
+  console.warn('reachable.');
   console.warn('========================================================');
   process.exitCode = 1;
 }

@@ -411,7 +411,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 144. ✅ **631 lines of seam gates run under a borrowed module label** — `tests/test_conway_continuity.h:59` — `test_partition_seam.h` is invoked from inside another module's runner, so it has no CTest, `--check-modules` cannot see it, and its failures are misattributed.
 
-145. **`capture_screenshots.mjs` writes wrong-effect PNGs when resolution probing degrades** — `scripts/capture_screenshots.mjs:190` — a short-circuit skips the effect-identity confirmation when the resolution list is empty, so the app's fallback effect is saved under another effect's filename — the outcome the code's own comment calls "worse than leaving the stale one". The nonzero exit fires only after the files are on disk.
+145. ✅ **`capture_screenshots.mjs` writes wrong-effect PNGs when resolution probing degrades** — `scripts/capture_screenshots.mjs:190` — a short-circuit skips the effect-identity confirmation when the resolution list is empty, so the app's fallback effect is saved under another effect's filename — the outcome the code's own comment calls "worse than leaving the stale one". The nonzero exit fires only after the files are on disk.
 
 146. **A truncated relax-bake dump is silently dropped** — `tools/relax_bakes.py:34-70` — a harness crash mid-block discards the partial bake and `emit` reports success with a short asset.
 
