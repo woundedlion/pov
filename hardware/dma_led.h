@@ -82,10 +82,14 @@ public:
     SPI.begin();
     SPI.beginTransaction(spiSettings_);
 
-    LPSPI4_CFGR1 |= LPSPI_CFGR1_NOSTALL;
     LPSPI4_DER |= LPSPI_DER_TDDE; // TX DMA request
-    LPSPI4_TCR = (LPSPI4_TCR & ~LPSPI_TCR_FRAMESZ(31)) |
-                 LPSPI_TCR_FRAMESZ(7); // 8-bit frames
+    // RXMSK discards received frames: nothing drains the RX FIFO, so without it
+    // the FIFO fills after 16 bytes. With RX masked, NOSTALL stays clear so a TX
+    // underrun pauses the clock rather than shifting out a stale byte — a pause
+    // is invisible to the self-clocked HD107S protocol, a stale byte is not.
+    LPSPI4_TCR = (LPSPI4_TCR & ~LPSPI_TCR_FRAMESZ(31)) | LPSPI_TCR_FRAMESZ(7) |
+                 LPSPI_TCR_RXMSK; // 8-bit frames, TX-only
+    LPSPI4_CFGR1 &= ~LPSPI_CFGR1_NOSTALL;
 
     dma_.begin(true);
     // The uint8_t cast is load-bearing: the 32-bit destination() overload sets

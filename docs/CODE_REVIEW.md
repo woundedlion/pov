@@ -337,7 +337,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 107. ✅ **The DMA stale-transfer watchdog is sized and documented two orders of magnitude off** — `hardware/dma_led.h:151-154` — the comment says "single-digit ms"; the real transfer is ~99 µs. At 100 ms a wedged channel freezes the strip for ~230 consecutive column drops before trapping.
 
-108. **The LPSPI RX path is neither masked nor drained, and `NOSTALL` is undocumented** — `hardware/dma_led.h:85-88` — every transmitted byte lands in an undrained RX FIFO; for a TX-only stream `RXMSK = 1` with `NOSTALL` cleared is the safer configuration (a stall is harmless for a clocked APA102 protocol; an underrun corrupts the frame).
+108. ✅ **The LPSPI RX path is neither masked nor drained, and `NOSTALL` is undocumented** — `hardware/dma_led.h:85-88` — every transmitted byte lands in an undrained RX FIFO; for a TX-only stream `RXMSK = 1` with `NOSTALL` cleared is the safer configuration (a stall is harmless for a clocked APA102 protocol; an underrun corrupts the frame).
 
 109. **`HD107SFrame::load()`'s tail-blanking loop is never asserted** — `hardware/hd107s_frame.h:170-173` vs `tests/test_hd107s_frame.h:222-245` — deleting the blanking (leaving a stale tail on a partial load) passes the whole suite.
 
