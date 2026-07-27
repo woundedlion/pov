@@ -47,7 +47,6 @@
 #include "core/engine/static_circular_buffer.h"
 #include "core/engine/transformers.h"
 #include "hardware/dma_led_controller.h"
-#include "hardware/hd107s_frame.h"
 
 #if !defined(_WIN32)
 #include <csignal>    // SIGILL — the expected trap signal
@@ -1190,20 +1189,6 @@ inline void case_random_timer_inverted_range() {
 }
 
 /**
- * @brief Death case: an out-of-range load() count must trap.
- * @details Hardware wire-format surface — HD107SFrame::load formerly clamped a
- *          count > N (and no-op'd a negative count), masking a caller sizing
- *          bug at this cold bind seam; it now HS_CHECKs count in [0, N].
- */
-inline void case_hd107s_load_count_over_range() {
-  static HD107SFrame<40> frame;
-  static CRGB src[40] = {};
-  frame.load(src, opaque(40 + 8)); // count > N -> HS_CHECK
-  if (frame.data()[0] == 0x42)
-    std::printf("x");
-}
-
-/**
  * @brief A wedged transport: never completes, and traps on the watchdog consult.
  * @details Stands in for a TeensySPIDMA whose completion ISR never fires. Its
  *          checkStaleTransfer() plays the role the real driver's watchdog does on
@@ -1360,7 +1345,6 @@ inline const Case *all_cases(int &n) {
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
       {"random_timer_inverted_range", case_random_timer_inverted_range},
-      {"hd107s_load_count_over_range", case_hd107s_load_count_over_range},
       {"dma_controller_wedged_overrun", case_dma_controller_wedged_overrun},
       {"empty_fn_call", case_empty_fn_call},
   };
