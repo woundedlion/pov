@@ -225,11 +225,15 @@ semantically different image.
    many effects — and also how one region multiplies its size cost (§5 flags
    which regions instantiate per-effect).
 5. **Region hygiene.** Between `HS_O3_BEGIN` and `HS_O3_END`: complete function
-   /struct definitions only. No `#include`. No functions marked `HS_COLD` /
-   `HS_COLD_MEMBER` (contradictory placement/optimization intent). Every
-   `HS_O3_BEGIN` must have a matching `HS_O3_END` in the same file; an unmatched
-   push corrupts option state for the rest of the TU (which, here, is the whole
-   image).
+   /struct definitions only. No `#include`. Every `HS_O3_BEGIN` must have a
+   matching `HS_O3_END` in the same file; an unmatched push corrupts option
+   state for the rest of the TU (which, here, is the whole image).
+   `HS_COLD` / `HS_COLD_MEMBER` bodies inside a region are legitimate only when
+   the region's target is one-shot **construction** latency (R8): placement
+   sends the spend to FLASH, so the region is ITCM-neutral and the usual budget
+   argument does not apply. In a per-frame region the two markers are
+   contradictory intent — that body belongs in ITCM, so drop the `HS_COLD`,
+   not the region.
 6. **Verify application empirically.** GCC has historically had holes in pragma
    application (lambdas, templates in some versions). The per-region procedure
    (§7) treats "ITCM code delta ≈ 0 **and** no profile delta" as "the pragma did
@@ -384,6 +388,23 @@ Voronoi bypasses the pipeline entirely (writes `canvas(x,y)` directly,
 - `KDTree::nearest` (`core/mesh/spatial.h:108`) — must join the region (or get
   `HS_O3_FN`) or the per-pixel `tree.nearest(p,2)` call at `Voronoi.h:235`
   becomes a non-inlined -Os call and the region buys little.
+
+### R8 — mesh construction chain (`core/mesh/`)
+
+A shape spawn builds its mesh through the half-edge builder, the Conway
+operator orbits and the Hankin compile. The rasterizer that consumes the result
+is already -O3, so construction was the last -Os stage on the spawn path — and
+a spawn is a visible transition, not a boot-time cost.
+
+- The half-edge builder and the `MeshOps` compile/classify block
+  (`mesh.h:104–720`), the orbit helpers and the Conway operators
+  (`conway.h:18–311,313–371,373–1332`), the Hankin compile/update/hankin block
+  (`hankin.h:99–482`), and the `Solids` generators (`solids.h:29–1800`).
+- `MeshOps::transform` is deliberately **out**: a per-frame loop, not
+  construction.
+- Every body here is `HS_COLD`/`FLASHMEM`, so the spend lands in FLASH and the
+  region returns ITCM. This is the property-5 exception, and it is why the
+  region's size is not scored against the ITCM budget.
 
 ### Explicitly out (do not add without new profile evidence)
 
@@ -544,6 +565,7 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | R5 feedback flush (`Feedback::flush` HS_O3 region + `HS_O3_FN` on `sample_bilinear_prev` and the OKLab hue chain `hue_fade_apply`/`linear_rgb_to_lms`/`lms_cbrt_to_linear_rgb`/`lms_cbrt_transform_rgb`/`lms_to_oklab`/`oklab_to_lms_cbrt`/`oklab_to_linear_rgb`/`gamut_clip_preserve_chroma`/`float_to_pixel16`/`fast_cbrt`) | +3,008 (into the 6th bank the always_inline landing opened; padding 13,192) | 13,192 | `feedback_composite` avg 88.6 → 45.3 ms = at global-O3 ceiling (45.2); 16 fps cycle coverage ~0% → **54%** (ceiling 57%). NOT a full lock: even global -O3 tops out at 57% — heavy high-fade presets are intrinsically > 62.5 ms (like MindSplatter, the lever is coverage, not the compiler). `HS_O3_FN` on `flush` did not reach its composite lambda; the walls were out-of-line `-Os` callees. `sample_bilinear_prev` O3 was the biggest step (35→54%) and *shrank* code −1,040 B | ✅ `405197d9` 2026-07-17 (rides a warp-bilerp hoist, `b46de7bd`, −7 ms/frame) |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
 | R7 Raymarch march path (`Scan::Volume` + `TransformedVolume` region; `SDF::Torus`/`Warp::Twist`/`WarpedVolume` regions) | **−208** (the per-step out-of-line -Os `TransformedVolume::distance` call is eliminated; inlined bodies cost less than the copies they replace) | 11,032 | march lambda `bl` calls 14 → 2, `vsqrt` 0 → 12; device cadence not re-profiled — no tier to cross | ✅ `38b76187` 2026-07-17 |
+| R8 mesh construction chain (`MeshOps` half-edge build + compile/classify, Conway orbits + operators, Hankin compile/update, `Solids` generators) | **−320** — the bodies are `HS_COLD`/`FLASHMEM`, so the spend is FLASH code 284,668 → 303,828 (+19,160), not ITCM | not scored (region returns ITCM) | the spawn-path construction chain no longer runs at -Os under an -O3 consumer; construction is off the per-frame path, so no sentinel applies | ✅ `f1debacb` 2026-07-20 |
 
 **MindSplatter's ship→ceiling ratio (1.15–1.49× per preset) is not
 recoverable by selective -O3 — do not re-attempt.** With the R3 rasterize
