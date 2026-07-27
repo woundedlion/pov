@@ -1897,7 +1897,8 @@ struct Ring {
                    float radius, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(
-        pipeline, canvas, vertex_shader, fragment_shader, {.capacity = W + 2},
+        pipeline, canvas, vertex_shader, fragment_shader,
+        {.capacity = W + 2, .omit_end = true},
         [&](Fragments &points) { sample<W, H>(points, basis, radius, phase); });
   }
 
