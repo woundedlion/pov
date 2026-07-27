@@ -41,12 +41,10 @@
  *     * WASM:   the self-registering EffectRegistry size is checked against
  *               HS_EFFECT_COUNT at engine startup (targets/wasm/wasm.cpp), so a
  *               registered-but-unlisted (or listed-but-unregistered) effect traps.
- *               This is the load-bearing anti-drift check.
  *     * Native: the effect smoke suite iterates this X-macro list, so its coverage
- *               is derived from the list rather than hand-maintained
- *               (tests/test_effects.h). Because the suite is driven BY the list, a
- *               forgotten X() row silently drops that effect from native coverage
- *               rather than failing the build.
+ *               is derived from the list rather than hand-maintained, and it runs
+ *               the same registry-count oracle unconditionally
+ *               (tests/test_effects.h), so the same drift fails the suite.
  *   Adding an effect therefore means: add the `#include` above, the
  *   REGISTER_EFFECT in its header, and one X() row here.
  */

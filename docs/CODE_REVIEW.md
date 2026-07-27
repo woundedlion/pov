@@ -365,7 +365,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 121. ✅ **`beat16`'s host mock is not FastLED-faithful for `bpm >= 256`, and its `@pre` claims the opposite** — `core/engine/platform.h:786-792` — FastLED treats `>= 256` as already-Q8.8; the mock shifts unconditionally. These mocks exist precisely to be bit-faithful.
 
-122. **`effects.h` understates the native anti-drift guard** — `core/engine/effects.h:44-49` — claims a forgotten roster row "silently drops that effect from native coverage"; `tests/test_effects.h:3811` runs the same registry-count oracle unconditionally, above the FULL-tier gate.
+122. ✅ **`effects.h` understates the native anti-drift guard** — `core/engine/effects.h:44-49` — claims a forgotten roster row "silently drops that effect from native coverage"; `tests/test_effects.h:3811` runs the same registry-count oracle unconditionally, above the FULL-tier gate.
 
 123. **`resplit_arenas()` and `Arena::set_capacity()` have zero test coverage** — the hardest arena paths and the only repartition an effect uses mid-run; a regression resetting the persistent offset would be caught only by an on-device visual. Six always-on traps in `memory.h`/`generators.h` are likewise unexercised by the death harness.
 
