@@ -189,7 +189,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 34. ✅ **`tools/gen_gamut_lut.py` has no provenance gate** — the only generated artifact with no `--check`, no ctest and no CI job, while it hand-duplicates the OKLab matrices and gamut epsilon from `core/color/color.h`. Drift there silently invalidates the brackets the runtime bisects within. Fix: add a `--check` mode wired like `reaction-graph-provenance`.
 
-35. **`device_lock.sh` stale-lock break is a rm-then-mkdir race** — `tools/device_lock.sh:168-170` — two peers can both judge a claim stale, and the second `rm -rf`s the first's fresh lock — two sessions flashing one board, the exact failure `mkdir` atomicity was chosen to prevent. Fix: break by atomic rename.
+35. ✅ **`device_lock.sh` stale-lock break is a rm-then-mkdir race** — `tools/device_lock.sh:168-170` — two peers can both judge a claim stale, and the second `rm -rf`s the first's fresh lock — two sessions flashing one board, the exact failure `mkdir` atomicity was chosen to prevent. Fix: break by atomic rename.
 
 36. **daydream: a deferred segment-pool spawn survives page teardown** — `daydream.js:713-733,:837-857` — the toggle handler awaits `warmModules()` (three fetches) before `segments.create()`; `disposeApp()` calls `destroy()` but neither clears `active` nor bumps the epoch, so the continuation resumes after teardown and spawns N workers each loading ~1.9 MB of WASM into a discarded page. Fix: bump the epoch and clear `active` in `disposeApp()`.
 
