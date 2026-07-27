@@ -1692,11 +1692,26 @@ inline std::span<const Entry> get_islamic_solids() {
  * @details Single source of truth for the registry enumeration order; the
  * index- and name-based lookups below all derive from it.
  */
-inline std::array<std::span<const Entry>, 3> all_registries() {
+inline constexpr std::array<std::span<const Entry>, 3> all_registries() {
   return {std::span<const Entry>(simple_registry),
           std::span<const Entry>(catalan_registry),
           std::span<const Entry>(islamic_registry)};
 }
+
+/**
+ * @brief Tests whether every registered recipe's seed indexes simple_registry.
+ * @return True when no entry carries an out-of-range Recipe::seed.
+ */
+inline constexpr bool all_recipe_seeds_in_range() {
+  for (std::span<const Entry> reg : all_registries())
+    for (const Entry &entry : reg)
+      if (entry.recipe && entry.recipe->seed >= std::size(simple_registry))
+        return false;
+  return true;
+}
+static_assert(all_recipe_seeds_in_range(),
+              "Recipe::seed must index simple_registry; the replay sites index "
+              "it without a runtime bound");
 
 /**
  * @brief Finds a registry entry by name across all registries.
