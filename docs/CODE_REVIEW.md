@@ -561,7 +561,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 218. ✅ **Dead accessors in `pov_sync.h` / `pov_handoff.h`** — `pov_sync.h:733,738,864`, `pov_handoff.h:196` — zero callers anywhere. *Removed `Flywheel::epoch_cycles()`, `Flywheel::cycles_per_half_rev()` and `EffectHandoff::consumed_gen()`; `BeaconParser::active()` was kept — it is asserted on by the burst-count test.*
 
-219. **A boundary-burst drop is counted as a beacon drop** — `hardware/pov_sync.h:1578-1579` — and the associated overlap `HS_CHECK` is unreachable from its only production caller.
+219. ✅ **A boundary-burst drop is counted as a beacon drop** — `hardware/pov_sync.h:1578-1579` — and the associated overlap `HS_CHECK` is unreachable from its only production caller. *The drop now reports which kind of burst it discarded and an undrained boundary symbol lands in its own `boundary_bursts_dropped` counter. The overlap `HS_CHECK` was kept: it is a `SymbolEmitter` class invariant that the emitter's own tests reach directly, not just a production-path guard.*
 
 220. **Stale "saturation clamp" language in the frame tests** — `tests/test_hd107s_frame.h:139-141,167-169` — the assertions are correct; the stated purpose describes a branch that does not exist.
 

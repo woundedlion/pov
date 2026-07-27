@@ -699,19 +699,40 @@ inline void test_emitter() {
     HS_EXPECT_TRUE(e.idle());
   }
 
-  // A beacon still in flight when a boundary crossing arrives is a stale overrun
-  // (a masked-ISR coast past HALF); drop_overrun_beacon clears it so the on-time
-  // boundary symbol schedules without tripping the overlap trap.
+  // A burst still in flight when a boundary crossing arrives is stale (a
+  // masked-ISR coast past HALF); drop_pending_emission clears it so the on-time
+  // boundary symbol schedules without tripping the overlap trap, and reports
+  // which kind it dropped.
+  using Dropped = SymbolEmitter::DroppedBurst;
   {
     SymbolEmitter e;
-    HS_EXPECT_FALSE(e.drop_overrun_beacon()); // idle: nothing to drop
+    HS_EXPECT_TRUE(e.drop_pending_emission() == Dropped::NONE); // idle
     uint8_t d[5];
     encode_beacon_digits(3, 9, d);
     e.schedule_beacon(d, 2000000u, cfg);
     HS_EXPECT_FALSE(e.idle());
-    HS_EXPECT_TRUE(e.drop_overrun_beacon()); // stale beacon dropped
+    HS_EXPECT_TRUE(e.drop_pending_emission() == Dropped::BEACON);
     HS_EXPECT_TRUE(e.idle());
     HS_EXPECT_TRUE(e.schedule_boundary(Symbol::HALF, 2000000u, 2000000u, cfg));
+
+    // An undrained boundary symbol is not a beacon drop.
+    HS_EXPECT_TRUE(e.drop_pending_emission() == Dropped::BOUNDARY);
+    HS_EXPECT_TRUE(e.idle());
+  }
+
+  // A drained-but-not-yet-retired beacon frame must not make the boundary symbol
+  // that follows it look like a beacon drop.
+  {
+    SymbolEmitter e;
+    uint8_t d[5];
+    encode_beacon_digits(3, 9, d);
+    e.schedule_beacon(d, 2000000u, cfg);
+    bool aborted = false;
+    for (uint32_t t = 0; t < 4000u && !e.idle(); ++t)
+      e.tick(2000000u + t * (COL / 4), cfg, &aborted);
+    HS_EXPECT_TRUE(e.idle());
+    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::HALF, 3000000u, 3000000u, cfg));
+    HS_EXPECT_TRUE(e.drop_pending_emission() == Dropped::BOUNDARY);
   }
 
   // Beacon: emitter → mailbox → parser closes the loop; inter-burst gaps
@@ -1406,8 +1427,9 @@ inline void test_sim_masked_windows() {
   sim2.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
   sim2.run_revs(6.0);
   const Telemetry &tm0 = sim2.boards[0].board.telemetry();
-  HS_EXPECT_GT(
-      tm0.emit_censored + tm0.emit_aborted + tm0.beacons_overrun_dropped, 0u);
+  HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted +
+                   tm0.beacons_overrun_dropped + tm0.boundary_bursts_dropped,
+               0u);
   HS_EXPECT_LE(sim2.max_phase_err(), 2);
   HS_EXPECT_EQ(sim2.boards[1].board.telemetry().symbols_rejected_gate, 0u);
 }
@@ -1674,8 +1696,9 @@ inline void test_sim_epoch_repeat_lockstep() {
     sim.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
     HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
     const Telemetry &tm0 = sim.boards[0].board.telemetry();
-    HS_EXPECT_GT(
-        tm0.emit_censored + tm0.emit_aborted + tm0.beacons_overrun_dropped, 0u);
+    HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted +
+                     tm0.beacons_overrun_dropped + tm0.boundary_bursts_dropped,
+                 0u);
     expect_lockstep(sim);
   }
 }
