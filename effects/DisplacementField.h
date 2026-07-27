@@ -702,6 +702,22 @@ private:
     float ball_speed_max =
         0.85f; /**< Fastest fall (pole-to-pole traversals per second). */
   } params;
+
+  // init() allocates the per-slot bake pools, the body prefilter scratch, the
+  // hue table, the ring shapes, and both transformer pools from the persistent
+  // arena. Effect keeps the default arena split, so the total must fit the
+  // device persistent partition.
+  static constexpr size_t FOOTPRINT_BYTES =
+      RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
+      RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +
+                    sizeof(SDF::DistortedRing)) +
+      SOLID_MAX * (4 * sizeof(float) + sizeof(int)) +
+      (HUE_TABLE_SIZE + 1) * sizeof(Pixel) +
+      MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
+      (sizeof(typename decltype(noise_field)::Entity) + sizeof(int));
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+                "DisplacementField persistent footprint exceeds the default "
+                "partition; retune RING_SLOTS/MAX_BALLS or carve arenas");
 };
 
 #include "core/engine/effect_registry.h"

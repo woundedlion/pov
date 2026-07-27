@@ -195,6 +195,17 @@ private:
     bool show_bounding_box =
         false; /**< Whether to draw each ring's bounding box. */
   } params;
+
+  // init() allocates the ring pool (each ring carries its TRAIL_LENGTH trail)
+  // and bakes one vignette palette LUT per palette from the persistent arena.
+  // Effect keeps the default arena split, so the total must fit the device
+  // persistent partition.
+  static constexpr size_t FOOTPRINT_BYTES =
+      NUM_RINGS * sizeof(Ring) +
+      NUM_PALETTES * BakedPalette::required_arena_bytes();
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+                "RingSpin persistent footprint exceeds the default partition; "
+                "retune TRAIL_LENGTH/NUM_RINGS or carve arenas");
 };
 
 #include "core/engine/effect_registry.h"
