@@ -954,7 +954,8 @@ public:
  *          (logging when it changed) so a direct/API caller passing a finite
  *          out-of-range value stays within the operator's documented domain —
  *          and, for operators whose fraction reaches an always-on HS_CHECK
- *          (truncate/bevel), cannot trip that trap and abort the whole module.
+ *          (truncate/bevel/chamfer), cannot trip that trap and abort the whole
+ *          module.
  */
 #define MESHOP_1U(name)                                                        \
   std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
@@ -978,10 +979,11 @@ public:
  *          .function() bindings (in EMSCRIPTEN_BINDINGS), so an operator cannot
  *          be added to one site and silently left unreachable from the other.
  *          truncate, bevel, and chamfer use _OP1U: each has a documented [0,1]
- *          domain (truncate/bevel additionally reach an always-on engine trap).
+ *          domain backed by an always-on engine trap.
  *          expand takes an unbounded factor, so it stays _OP1F. relax, hankin,
  *          and snub have bespoke signatures/validation (snub takes two float
- *          controls), so their wrapper methods are hand-written; their names
+ *          controls, and clamps its inset to [0,1] for the same trap), so their
+ *          wrapper methods are hand-written; their names
  *          live in MESHOP_IRREGULAR_LIST below and their bindings expand from
  *          it, so a new irregular op is bound the moment it joins the list.
  */
