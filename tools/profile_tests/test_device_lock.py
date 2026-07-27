@@ -31,6 +31,13 @@ def is_stale(lock_dir):
     return r.returncode == 0
 
 
+def break_lock(lock_dir, prelude=""):
+    """Run _hs_break_lock against lock_dir; True = we won the right to evict."""
+    script = f'. "{LOCK_SH}"; {prelude} _hs_break_lock "{lock_dir}"'
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+    return r.returncode == 0
+
+
 def _live_bash():
     """A running bash and its own $$, as the lock stores it.
 
@@ -106,6 +113,51 @@ class LockStaleness(unittest.TestCase):
         p.kill()
         p.wait()
         return pid
+
+
+class LockBreak(unittest.TestCase):
+    """Evicting a stale claim. Two peers can judge one claim stale at the same
+    moment, so the eviction itself has to pick a single winner -- otherwise the
+    loser deletes the winner's fresh lock and both flash the same board."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.d = self.root / "lock.d"
+
+    def _claim(self, token):
+        self.d.mkdir(parents=True, exist_ok=True)
+        (self.d / "info").write_text(f"token={token}\n")
+
+    def test_breaks_the_claim_it_judged_stale(self):
+        self._claim("stale")
+        self.assertTrue(break_lock(self.d))
+        self.assertFalse(self.d.exists())
+
+    def test_loser_of_the_race_breaks_nothing(self):
+        # A peer already evicted this claim. Falling through to delete whatever
+        # sits at the path would take out the winner's own fresh lock.
+        self.assertFalse(break_lock(self.d))
+        self.assertFalse(self.d.exists())
+
+    def test_claim_retaken_since_the_judgement_survives(self):
+        # The holder released and a peer re-claimed between our staleness
+        # judgement and the break; that claim is live and must be put back.
+        self._claim("fresh")
+        mark = self.root / "seen"
+        prelude = (
+            'MARK="%s"; _hs_lock_field() { '
+            'if [ "$2" = token ] && [ ! -e "$MARK" ]; then : > "$MARK"; '
+            'echo stale; return; fi; '
+            'sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1; };' % mark)
+        self.assertFalse(break_lock(self.d, prelude))
+        self.assertTrue(self.d.is_dir())
+        self.assertIn("token=fresh", (self.d / "info").read_text())
+
+    def test_break_leaves_no_scratch_directory_behind(self):
+        self._claim("stale")
+        self.assertTrue(break_lock(self.d))
+        self.assertEqual(list(self.root.iterdir()), [])
 
 
 def run_lock(script, lock_base, ports=("COM3", "COM4"), env=None):
@@ -187,6 +239,24 @@ class BoardSelection(unittest.TestCase):
                      self.base)
         self.assertIn("PORT=COM3", r.stdout)
         self.assertIn("stale", r.stderr)
+
+    def test_a_claim_retaken_mid_break_is_not_evicted(self):
+        # Two peers judge one claim stale at once: the first evicts it and takes
+        # the board, and the second must not then delete that fresh lock. The
+        # stub replays the interleaving by re-claiming during our own read.
+        self.hold("COM3", deadline_in=-(GRACE + 60), pid=self._dead_pid())
+        self.hold("COM4")
+        script = (
+            'MARK="%s"; _hs_lock_field() { '
+            'if [ "$2" = token ] && [ ! -e "$MARK" ]; then : > "$MARK"; '
+            'sed -n "s/^token=//p" "$1/info" | head -1; '
+            'echo "token=peerB" > "$1/info"; return; fi; '
+            'sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1; }; '
+            'hs_device_acquire E profile 60' % (self.base.parent / "seen"))
+        r = run_lock(script, self.base)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("token=peerB",
+                      (self.lock_dir("COM3") / "info").read_text())
 
     def test_pinned_port_does_not_wander_to_another_board(self):
         # HS_TEENSY_PORT names the board under test; falling back to a free

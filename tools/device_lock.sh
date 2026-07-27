@@ -28,6 +28,7 @@
 #
 # Held state lives in one directory created by mkdir (atomic on Windows and
 # POSIX alike; a plain -f test would race). `info` inside it names the holder.
+# Evicting a stale claim goes through rename, atomic for the same reason.
 #
 # Env knobs:
 #   HS_DEVICE_LOCK   override the lock path base (per-board suffix still added)
@@ -110,6 +111,26 @@ _hs_lock_is_stale() {  # <dir>
   return 1
 }
 
+# _hs_break_lock <dir> — takes the right to evict a claim. rc 0 = ours to break.
+# rename is the arbiter, not rm: two peers that both judged the same claim stale
+# both attempt it and exactly one succeeds, so the loser can never delete the
+# winner's fresh lock and hand two sessions one board. The token re-read rejects
+# a claim released and re-taken between the judgement and the rename; that one is
+# put back rather than consumed.
+_hs_break_lock() {
+  local d=$1 token broken
+  token=$(_hs_lock_field "$d" token)
+  broken="$d.breaking.$$-$RANDOM"
+  mv "$d" "$broken" 2>/dev/null || return 1
+  if [ "$(_hs_lock_field "$broken" token)" != "$token" ]; then
+    [ -e "$d" ] || mv "$broken" "$d" 2>/dev/null
+    rm -rf "$broken"
+    return 1
+  fi
+  rm -rf "$broken"
+  return 0
+}
+
 # _hs_try_claim <dir> <port> <effect> <env> <eta> — mkdir-or-fail, then record
 # the claim. Success also pins this shell's HS_TEENSY_PORT to the board won, so
 # the flash and the capture can never drift onto a peer's device.
@@ -163,11 +184,14 @@ hs_device_acquire() {
       port=$([ "$p" = "-" ] && echo "" || echo "$p")
       d=$(_hs_lock_dir "$port")
       if _hs_lock_is_stale "$d"; then
-        echo "device lock is stale (holder gone or past its ETA) — breaking it" >&2
-        _hs_holder_desc "$d" >&2
-        rm -rf "$d"
-        _hs_try_claim "$d" "$port" "$effect" "$env" "$eta" && {
-          echo "device: using ${port:-auto-search} (lock $d)" >&2; return 0; }
+        # Read while the claim still exists; the break destroys its info.
+        local desc; desc=$(_hs_holder_desc "$d")
+        if _hs_break_lock "$d"; then
+          echo "device lock is stale (holder gone or past its ETA) — breaking it" >&2
+          echo "$desc" >&2
+          _hs_try_claim "$d" "$port" "$effect" "$env" "$eta" && {
+            echo "device: using ${port:-auto-search} (lock $d)" >&2; return 0; }
+        fi
       fi
     done
     if [ "${HS_DEVICE_FORCE:-0}" = "1" ]; then
@@ -175,8 +199,9 @@ hs_device_acquire() {
       d=$(_hs_lock_dir "$port")
       echo "HS_DEVICE_FORCE=1 — breaking a LIVE device lock" >&2
       _hs_holder_desc "$d" >&2
-      rm -rf "$d"
-      continue
+      # Losing the rename means a peer holds it now; report busy instead of
+      # spinning the retry loop.
+      _hs_break_lock "$d" && continue
     fi
     if [ "$wait_for" -gt 0 ] && [ "$waited" -lt "$wait_for" ]; then
       [ "$waited" = 0 ] && { echo "ALL DEVICES BUSY — waiting up to ${wait_for}s" >&2
