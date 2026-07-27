@@ -38,7 +38,7 @@
 #include "core/animation/animation.h"
 #include "core/render/canvas.h"
 #include "core/math/easing.h"
-#include "core/mesh/mesh.h" // PolyMesh, MeshOps::compile (MeshMorph fixtures)
+#include "core/mesh/mesh.h" // PolyMesh, MeshOps::compile (mesh test fixtures)
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -440,15 +440,13 @@ inline void test_orientation_trail_clear() {
 // ============================================================================
 // Borrow-contract guards (compile-time)
 // ----------------------------------------------------------------------------
-// Motion/MeshMorph/Lerp/MobiusFlow store non-owning borrows of effect-owned
+// Motion/Lerp/MobiusFlow store non-owning borrows of effect-owned
 // state. These static_asserts lock the contract: an effect-owned lvalue is
 // accepted, a temporary (which would dangle) is rejected.
 // ============================================================================
 namespace borrow_guard {
 /** @brief Orientation alias used by the borrow-contract static_asserts. */
 using Ori = Orientation<16>;
-/** @brief Mesh draw-callable alias used by the MeshMorph borrow asserts. */
-using DrawFn = Fn<void(Canvas &, const MeshState &, float), 8>;
 
 static_assert(std::is_constructible_v<Animation::Motion<288, 16>, Ori &,
                                       ProceduralPath &, int>,
@@ -456,19 +454,6 @@ static_assert(std::is_constructible_v<Animation::Motion<288, 16>, Ori &,
 static_assert(!std::is_constructible_v<Animation::Motion<288, 16>, Ori &,
                                        ProceduralPath &&, int>,
               "Motion must REJECT a temporary path (would dangle)");
-
-static_assert(std::is_constructible_v<Animation::MeshMorph, const MeshState &,
-                                      const MeshState &, Arena &, DrawFn &,
-                                      DrawFn &, int>,
-              "MeshMorph must accept lvalue (effect-owned) callables");
-static_assert(!std::is_constructible_v<Animation::MeshMorph, const MeshState &,
-                                       const MeshState &, Arena &, DrawFn &&,
-                                       DrawFn &&, int>,
-              "MeshMorph must REJECT temporary callables (would dangle)");
-static_assert(!std::is_constructible_v<Animation::MeshMorph, const MeshState &,
-                                       const MeshState &, Arena &, DrawFn &,
-                                       DrawFn &&, int>,
-              "MeshMorph must REJECT a temporary in either callable slot");
 
 /**
  * @brief Minimal lerp subject used to probe Lerp's deleted rvalue overloads.
@@ -2048,15 +2033,6 @@ inline void test_quantized_vector_trail_roundtrip_and_ring() {
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
 }
 
-// ============================================================================
-// MeshMorph (nearest-vertex SLERP + crossfade invariant)
-// ----------------------------------------------------------------------------
-// MeshMorph maps each destination vertex to its nearest source vertex, SLERPs
-// between them by an eased alpha, and crossfades the two shaded meshes with
-// op_A = 1 - alpha. Morphing an octahedron onto itself makes the nearest-vertex
-// map the identity, so the SLERP output equals the destination at every alpha.
-// ============================================================================
-
 /**
  * @brief Builds a hand-rolled octahedron (6 axis vertices, 8 triangular faces).
  * @param mesh Output mesh to populate with the octahedron geometry.
@@ -2081,59 +2057,6 @@ inline void build_octahedron(PolyMesh &mesh, Arena &arena) {
     mesh.faces.push_back(t[1]);
     mesh.faces.push_back(t[2]);
   }
-}
-
-/**
- * @brief Verifies morphing an octahedron onto itself keeps SLERP output equal
- * to the destination and partitions the two render opacities to unity.
- * @details The nearest-vertex map is the identity, so the SLERP output equals
- * the destination at every alpha, and op_A + alpha == 1 across the crossfade.
- */
-inline void test_meshmorph_identity_self_map_and_crossfade() {
-  static uint8_t buf[1 << 20];
-  Arena arena(buf, sizeof(buf));
-  PolyMesh poly;
-  build_octahedron(poly, arena);
-  MeshState src, dst;
-  MeshOps::compile(poly, src, arena, scratch_arena_a);
-  MeshOps::compile(poly, dst, arena, scratch_arena_a);
-
-  const int duration = 8;
-  float opA = -1.0f, alpha = -1.0f;
-  bool mesh_b_tracks_dest = true;
-
-  // Effect-owned lvalue callables (MeshMorph stores non-owning FunctionRefs).
-  auto draw_out = [&](Canvas &, const MeshState &, float op) { opA = op; };
-  auto draw_in = [&](Canvas &, const MeshState &mb, float a) {
-    alpha = a;
-    if (mb.vertices.size() != dst.vertices.size()) {
-      mesh_b_tracks_dest = false;
-      return;
-    }
-    for (size_t i = 0; i < mb.vertices.size(); ++i) {
-      if ((mb.vertices[i] - dst.vertices[i]).magnitude() > 1e-3f)
-        mesh_b_tracks_dest = false;
-    }
-  };
-
-  Animation::MeshMorph morph(src, dst, arena, draw_out, draw_in, duration);
-
-  bool saw_both_layers = false;
-  for (int i = 0; i < duration; ++i) {
-    opA = -1.0f;
-    alpha = -1.0f;
-    morph.step(fake_canvas());
-    // On any frame where both layers render, their opacities partition unity.
-    if (opA >= 0.0f && alpha >= 0.0f) {
-      saw_both_layers = true;
-      HS_EXPECT_NEAR(opA + alpha, 1.0f, 1e-4f);
-    }
-  }
-
-  HS_EXPECT_TRUE(saw_both_layers);
-  HS_EXPECT_TRUE(mesh_b_tracks_dest);
-  HS_EXPECT_NEAR(alpha, 1.0f, 1e-3f); // fully faded to the incoming mesh
-  HS_EXPECT_TRUE(morph.done());
 }
 
 // ============================================================================
@@ -2702,7 +2625,6 @@ inline int run_animation_tests() {
   test_tween_vectortrail_single_sample_reaches_one();
   test_quantized_vector_trail_roundtrip_and_ring();
 
-  test_meshmorph_identity_self_map_and_crossfade();
   test_meshcarousel_compact_retains_both_slots();
   test_meshcarousel_compact_keep_front_drops_back();
 

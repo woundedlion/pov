@@ -372,7 +372,7 @@ inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * (LIFO-restored before return).
  * @details Removes degenerate faces (faces with < 3 vertices), then compacts
  * the vertex array to the set the surviving faces reference, so the compiled
- * vertex count matches what vertex-count consumers (e.g. MeshMorph) see rather
+ * vertex count matches what vertex-count consumers (e.g. OpLeg) see rather
  * than carrying orphans left by the stripped faces. Traps if the flat face
  * lengths disagree or the cumulative face offset exceeds the 16-bit range.
  */

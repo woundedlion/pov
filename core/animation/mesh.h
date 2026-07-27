@@ -16,156 +16,6 @@
 namespace Animation {
 
 /**
- * @brief Animates a vertex-interpolated crossfade between two meshes.
- * @details Owns transient state (cloned meshes + SLERP buffers) via a pointer
- * to arena-allocated storage to keep inline size small for TimelineEvent. No
- * destructor reclaims the arena, so the transient bytes persist until the
- * caller compacts or resets it.
- *
- * Crossfade contract: only the incoming mesh (mesh_B, dest topology) morphs —
- * its vertices SLERP from their nearest source vertex toward their dest each
- * frame. The outgoing mesh_A (source clone) holds geometry and fades via
- * opacity (op_A = 1 - alpha); the opacities sum to 1 for constant brightness.
- * source is cloned, not borrowed, so the animation survives the caller
- * recycling it. draw_outgoing/draw_incoming shade the two halves independently.
- */
-class MeshMorph : public AnimationBase<MeshMorph> {
-public:
-  /**
-   * @brief Non-owning per-half draw callback: `void(Canvas&, const MeshState&,
-   * float opacity)`. A StoredFunctionRef (held as a member, invoked across many
-   * frames) rejects rvalue temporaries, so a dangling inline lambda is a
-   * compile error rather than a silent use-after-free.
-   */
-  using MorphDrawFn =
-      StoredFunctionRef<void(Canvas &, const MeshState &, float)>;
-
-  /**
-   * @brief Constructs a MeshMorph with separate shading for the two halves.
-   * @param source The outgoing mesh (cloned, not borrowed).
-   * @param dest The incoming mesh whose topology the morph targets.
-   * @param arena Arena providing backing storage for cloned meshes and buffers.
-   * @param draw_outgoing Draw callback for the fading-out source clone.
-   * @param draw_incoming Draw callback for the fading-in morphing mesh.
-   * @param duration The crossfade duration in frames.
-   * @param easing_fn The easing function applied to crossfade progress.
-   * @note The cloned meshes and position buffers are arena-allocated with no
-   *   per-instance reclamation; the caller must compact the arena between
-   *   successive morphs or it grows unbounded (see HankinSolids/MeshFeedback).
-   */
-  MeshMorph(const MeshState &source, const MeshState &dest, Arena &arena,
-            MorphDrawFn draw_outgoing, MorphDrawFn draw_incoming, int duration,
-            EasingFn easing_fn = ease_in_out_sin)
-      : AnimationBase(duration, false), easing_fn(easing_fn),
-        draw_outgoing(draw_outgoing), draw_incoming(draw_incoming) {
-    HS_CHECK(duration >= 1,
-             "MeshMorph duration must be a positive frame count");
-    HS_CHECK(!source.vertices.is_empty());
-    HS_CHECK(!dest.vertices.is_empty());
-    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
-        Transients();
-
-    MeshOps::clone(source, buf_->mesh_A, arena);
-    MeshOps::clone(dest, buf_->mesh_B, arena);
-
-    // step() indexes mesh_B.vertices by dest's vertex count, so trap here if
-    // clone() ever welds/dedups rather than writing OOB per-frame.
-    HS_CHECK(buf_->mesh_B.vertices.size() == dest.vertices.size());
-
-    buf_->start_pos.bind(arena, dest.vertices.size());
-    buf_->end_pos.bind(arena, dest.vertices.size());
-
-    // Symmetry-breaking twist to avoid degenerate nearest-vertex mapping
-    Vector twist_axis = Vector(0.0f, 0.0f, 1.0f);
-    auto has_pole = [](const MeshState &m) {
-      for (const auto &v : m.vertices)
-        if (std::abs(v.z) > 0.99f && std::abs(v.x) < 0.01f &&
-            std::abs(v.y) < 0.01f)
-          return true;
-      return false;
-    };
-    bool has_poles = has_pole(source) || has_pole(dest);
-    if (has_poles) {
-      twist_axis = Vector(1.0f, 1.0f, 1.0f).normalized();
-    }
-    Quaternion twist = make_rotation(twist_axis, 0.05f);
-
-    // Nearest-vertex matching (greatest dot) and per-frame slerp both require
-    // unit-length inputs; all mesh sources sit on the unit sphere.
-    for (const auto &v : source.vertices)
-      HS_CHECK(std::abs(dot(v, v) - 1.0f) < 1e-3f,
-               "MeshMorph source vertex not unit-length");
-    for (const auto &v : dest.vertices)
-      HS_CHECK(std::abs(dot(v, v) - 1.0f) < 1e-3f,
-               "MeshMorph dest vertex not unit-length");
-
-    // Build nearest-vertex correspondence: an O(V_dest * V_source) brute force,
-    // run once at construction. Matched by greatest dot product against the
-    // twist-biased dest vertex (the twist breaks ties on symmetric meshes).
-    for (size_t i = 0; i < dest.vertices.size(); ++i) {
-      Vector v_biased = rotate(dest.vertices[i], twist);
-      int best_idx = 0;
-      float max_dot = -9999.0f;
-      for (size_t j = 0; j < source.vertices.size(); ++j) {
-        float d = dot(v_biased, source.vertices[j]);
-        if (d > max_dot) {
-          max_dot = d;
-          best_idx = static_cast<int>(j);
-        }
-      }
-      buf_->start_pos.push_back(source.vertices[best_idx]);
-      buf_->end_pos.push_back(dest.vertices[i]);
-    }
-  }
-
-  // Borrow contract: the draw callbacks are non-owning StoredFunctionRefs read
-  // every frame, so they must outlive the timeline; StoredFunctionRef rejects a
-  // temporary at the MorphDrawFn parameter, so no `= delete` overload is
-  // needed.
-
-  /**
-   * @brief Steps the crossfade: interpolates vertices and renders both halves.
-   * @param canvas The canvas buffer passed to the draw callbacks.
-   */
-  void step(Canvas &canvas) override {
-    // Increment-first so the final frame lands exactly on the destination mesh
-    // (alpha == 1); the skipped progress==0 frame is immaterial.
-    AnimationBase::step(canvas);
-
-    float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
-    float alpha = easing_fn(progress);
-
-    for (size_t i = 0; i < buf_->end_pos.size(); ++i) {
-      buf_->mesh_B.vertices[i] =
-          slerp(buf_->start_pos[i], buf_->end_pos[i], alpha);
-    }
-
-    float op_A = 1.0f - alpha;
-    if (op_A > 0.01f)
-      draw_outgoing(canvas, buf_->mesh_A, op_A);
-    if (alpha > 0.01f)
-      draw_incoming(canvas, buf_->mesh_B, alpha);
-  }
-
-private:
-  /**
-   * @brief Arena-allocated transient data — keeps MeshMorph inline size small.
-   */
-  struct Transients {
-    MeshState mesh_A; /**< Outgoing mesh clone. */
-    MeshState mesh_B; /**< Incoming morphing mesh clone. */
-    ArenaVector<Vector>
-        start_pos;               /**< Per-vertex nearest-source start points. */
-    ArenaVector<Vector> end_pos; /**< Per-vertex dest end points. */
-  };
-
-  Transients *buf_;          /**< Pointer to arena-allocated transient state. */
-  EasingFn easing_fn;        /**< Easing curve applied to crossfade progress. */
-  MorphDrawFn draw_outgoing; /**< Draw callback for the outgoing half. */
-  MorphDrawFn draw_incoming; /**< Draw callback for the incoming half. */
-};
-
-/**
  * @brief Animates one operator-sweep leg: a Conway-operator parameter sweep
  * along a graph edge (docs/conway_morph_spec.md, section 4.1) or a recipe
  * step, or a hankin contact-angle sweep on a fixed seed
@@ -175,8 +25,8 @@ private:
  * window, or update_hankin at theta(frame)) in scratch, compile, attach the
  * leg's hoisted classification, pre-blend the (from, to) palette ramps at
  * w(frame), and hand the mesh to the draw callback. Exactly one mesh is
- * drawn per frame. Bulk state lives in an arena-allocated Transients (same
- * survival contract as MeshMorph); the caller compacts the arena between legs.
+ * drawn per frame. Bulk state lives in an arena-allocated Transients that no
+ * destructor reclaims; the caller compacts the arena between legs.
  */
 class OpLeg : public AnimationBase<OpLeg> {
 public:
@@ -2709,7 +2559,7 @@ struct Dissolve : Base {
  *        arena-compaction primitives effects need to swap between them, and a
  *        pluggable compile-time segue.
  * @tparam SegueT Segue policy (see namespace Segue) behind schedule_segue().
- * Clients that run their own transition animations (e.g. a `MeshMorph`) keep
+ * Clients that run their own transition animations (e.g. an `OpLeg`) keep
  * the default and simply never call it.
  * @details Holds two MeshState slots in `persistent_arena` and a front/back
  * index. Effects own generation and drawing (generate into a slot, flip the
