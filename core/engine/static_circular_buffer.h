@@ -364,7 +364,7 @@ private:
   /**
    * @brief Removes the front element without an emptiness check.
    * @details Caller-guaranteed contract: the buffer must be non-empty. Every caller
-   * gates first (pop()/clear() on is_empty(), the push_back/emplace_back eviction
+   * gates first (pop_front() on is_empty(), the push_back/emplace_back eviction
    * paths on is_full()); on an empty buffer this would decrement count past 0,
    * wrapping it to a huge value (uint32_t) and corrupting size(), so the caller
    * gating is load-bearing.
