@@ -241,7 +241,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 59. **README's rasterizer and transformer tables omit shipped primitives** — `README.md:742-756,908-916` — missing `Scan::DistortedRingStack` and `Scan::RingGroup`, and the entire displacement-field stack (`FieldTransformer`, `BallDropTransformer`, `NoiseProductTransformer`, plus the `spawn`/`spawn_pinned`/`init_storage`/`prepare_frame` ordering contract a new effect author will get wrong).
 
-60. **README's §7.9 credits `Presets` with interpolation it does not implement** — `README.md:1205` — `presets.h` has no interpolation; callers drive the crossfade via `Animation::Lerp`, and the class doc says so correctly.
+60. ✅ **README's §7.9 credits `Presets` with interpolation it does not implement** — `README.md:1205` — `presets.h` has no interpolation; callers drive the crossfade via `Animation::Lerp`, and the class doc says so correctly.
 
 61. **README's coordinate section omits the `H_OFFSET` clipping** — `README.md:132` — the stated `y ∈ [0,H) → phi ∈ [0,π]` mapping holds only for the host build; on Holosphere hardware `H_OFFSET == 3` clips the image short of π, which a dedicated test pins as intended. `H_OFFSET` appears nowhere in the README.
 
