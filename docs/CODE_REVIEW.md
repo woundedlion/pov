@@ -565,7 +565,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 220. ✅ **Stale "saturation clamp" language in the frame tests** — `tests/test_hd107s_frame.h:139-141,167-169` — the assertions are correct; the stated purpose describes a branch that does not exist.
 
-221. **`HD107SFrame::load()` has no production caller** — `hardware/hd107s_frame.h:147-176` — honestly labelled a parity guard, but the path it guards is reachable only from itself.
+221. ✅ **`HD107SFrame::load()` has no production caller** — `hardware/hd107s_frame.h:147-176` — honestly labelled a parity guard, but the path it guards is reachable only from itself.
 
 222. **`embed()` raises `StopIteration` on a footprint with no `(attr …)`** — `hardware/phantasm/gen/pcb.py:140-142` — an opaque traceback for a plausible input.
 

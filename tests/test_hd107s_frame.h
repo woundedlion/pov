@@ -6,7 +6,7 @@
  * (hardware/hd107s_frame.h), split out of dma_led.h precisely so this
  * wire-format and arithmetic is testable without a Teensy. Covers the bytes
  * that actually go on the SPI wire: frame layout, [0xFF][B][G][R] channel
- * order, the linear-space correction pipeline, and load()/packPixel() parity.
+ * order, and the linear-space correction pipeline.
  * The DMA/SPI driver itself (register access, eDMA, ISR) is hardware-only and
  * out of host-test scope.
  */
@@ -214,82 +214,6 @@ inline void test_packpixel_wire_order() {
 }
 
 /**
- * @brief Verifies load() and packPixel() yield identical wire bytes for
- * equivalent inputs and that load() preserves CRGB channel identity.
- * @details Both paths share the same correct() core, so equivalent inputs
- * cannot drift; pure red must light only the R wire slot.
- */
-inline void test_load_matches_packpixel() {
-  reset_correction();
-
-  const CRGB src[3] = {CRGB(200, 100, 50), CRGB(0, 0, 0), CRGB(255, 255, 255)};
-
-  Frame fl;
-  fl.load(src, 3);
-
-  Frame fp;
-  for (int i = 0; i < 3; ++i)
-    fp.packPixel(i, Pixel16(src[i]));
-
-  for (int i = 0; i < 3; ++i)
-    for (int k = 0; k < 4; ++k)
-      HS_EXPECT_EQ(pixel(fl, i)[k], pixel(fp, i)[k]);
-
-  // load() honors CRGB channel identity: pure red → only the R wire slot.
-  Frame fr;
-  const CRGB red_only[1] = {CRGB(255, 0, 0)};
-  fr.load(red_only, 1);
-  HS_EXPECT_GT(pixel(fr, 0)[3], 0); // R
-  HS_EXPECT_EQ(pixel(fr, 0)[2], 0); // G
-  HS_EXPECT_EQ(pixel(fr, 0)[1], 0); // B
-}
-
-/**
- * @brief Verifies a full count==N load fills every pixel and leaves the end
- * frame zero (the upper in-range bound; an over-N count now traps — see the
- * load_count_over_range death case).
- */
-inline void test_load_full_count() {
-  reset_correction();
-  Frame f;
-  CRGB full[N];
-  for (int i = 0; i < N; ++i)
-    full[i] = CRGB(255, 255, 255);
-  f.load(full, N);
-  for (int i = 0; i < Frame::END_FRAME_BYTES; ++i)
-    HS_EXPECT_EQ(f.data()[4 + N * 4 + i], 0);
-}
-
-/**
- * @brief Verifies a partial load() blanks every pixel slot past count, so a
- * shorter frame cannot leave a lit tail behind from earlier writes.
- * @details Lights the whole strip via packPixel() first, so the blanked slots
- * are distinguishable from a fresh frame's zeros. The 0xFF brightness byte is
- * primed at construction and must survive the blanking.
- */
-inline void test_load_blanks_tail() {
-  reset_correction();
-  Frame f;
-
-  const Pixel16 white(CRGB(255, 255, 255));
-  for (int i = 0; i < N; ++i)
-    f.packPixel(i, white);
-  HS_EXPECT_EQ(pixel(f, N - 1)[3], 255);
-
-  const CRGB src[2] = {CRGB(255, 0, 0), CRGB(0, 255, 0)};
-  f.load(src, 2);
-
-  HS_EXPECT_EQ(pixel(f, 0)[3], 255); // R
-  HS_EXPECT_EQ(pixel(f, 1)[2], 255); // G
-  for (int i = 2; i < N; ++i) {
-    HS_EXPECT_EQ(pixel(f, i)[0], 0xFF);
-    HS_EXPECT_EQ(pixel(f, i)[1], 0);
-    HS_EXPECT_EQ(pixel(f, i)[2], 0);
-    HS_EXPECT_EQ(pixel(f, i)[3], 0);
-  }
-}
-
-/**
  * @brief Runs the full hd107s_frame test suite.
  * @return The module's failure count from end_module().
  */
@@ -300,9 +224,6 @@ inline int run_hd107s_tests() {
   test_correct_pipeline();
   test_correct_multifactor();
   test_packpixel_wire_order();
-  test_load_matches_packpixel();
-  test_load_full_count();
-  test_load_blanks_tail();
   reset_correction(); // leave shared static state clean for any later module
   return fixture.result();
 }
