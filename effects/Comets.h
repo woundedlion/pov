@@ -104,11 +104,7 @@ public:
    *          body along the trail.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(cm_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     {
       HS_PROFILE(cm_timeline_step);
       timeline.step(canvas);

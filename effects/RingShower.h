@@ -58,11 +58,7 @@ public:
    *          a stale animation would draw whatever ring later lands in it.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(rsh_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     {
       HS_PROFILE(rsh_timeline_step);
       timeline.step(canvas); // drives the spawn timer only

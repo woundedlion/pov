@@ -128,11 +128,7 @@ public:
    *          multiline.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(cs_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     ScratchScope scratch_a_guard(scratch_arena_a);
     ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
     {

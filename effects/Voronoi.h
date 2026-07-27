@@ -57,11 +57,7 @@ public:
    *        borders).
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(vo_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
 
     // Re-seed when the GUI changes the site count (integer change only, so
     // dragging within a bucket doesn't thrash).

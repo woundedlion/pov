@@ -90,11 +90,7 @@ public:
    * @brief Advances the timeline, which drives all spawning and rendering.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(db_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     // Mirror live slider edits into the active sprite's snapshot so the incoming
     // shape tracks the sliders while a still-fading outgoing sprite keeps the
     // frozen snapshot it was spawned with.

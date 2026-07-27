@@ -150,12 +150,7 @@ public:
       break;
     }
 
-    // IIFE so the HS_PROFILE scope measures the buffer_free() spin-wait inside
-    // the Canvas constructor without also covering the timeline step.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(df_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     {
       HS_PROFILE(df_timeline_step);
       timeline.step(canvas);

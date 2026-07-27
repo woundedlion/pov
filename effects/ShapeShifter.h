@@ -67,11 +67,7 @@ public:
    *        rather than jumping on unpause.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(ss_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
 
     if (!anims_paused_) {
       // Wrap at the 48-frame cycle period to keep the counter bounded.

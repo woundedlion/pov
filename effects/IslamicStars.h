@@ -110,11 +110,7 @@ public:
    * @brief Advances ripple state once and runs the timeline for this frame.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(is_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     {
       HS_PROFILE(is_ripple_prepare);
       ripple_gen.prepare_frame();

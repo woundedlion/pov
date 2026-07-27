@@ -92,11 +92,7 @@ public:
    *          diametrically opposed under the Möbius warp before drawing.
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(mg_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
     {
       HS_PROFILE(mg_timeline_step);
       timeline.step(canvas);

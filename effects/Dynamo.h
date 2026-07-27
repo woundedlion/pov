@@ -231,11 +231,7 @@ public:
    *          filter pipeline through color().
    */
   void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(dy_buffer_wait);
-      return Canvas(*this);
-    }();
+    Canvas canvas(*this);
 
     // Push the live "Trail Len" slider into the Trails filter, clamped to its
     // [1,255] domain.
