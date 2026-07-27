@@ -507,7 +507,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 191. ✅ **Branches made unreachable by always-on `HS_CHECK`** — `core/render/plot.h:1729,1813,2024-2031` — two dominated guards plus a redundant `v2` store that rewrites a bit-identical value.
 
-192. **`rasterize()`'s eleven-parameter positional wall** — `core/render/plot.h:1108-1115` — call sites pass three consecutive `nullptr`s; the file already has the right idiom one level up in `FragmentDrawParams`.
+192. ❌ **`rasterize()`'s eleven-parameter positional wall** — `core/render/plot.h:1108-1115` — call sites pass three consecutive `nullptr`s; the file already has the right idiom one level up in `FragmentDrawParams`. — rejected: bundling the eleven args into a struct is not codegen-neutral on the rasterizer hot path — the flag/pointer params are read inside the per-segment and per-point loops, where the opaque indirect `pipeline.plot` call forces a reload of every struct field each iteration (by-value does not help: ~28 B goes in memory under AAPCS on the M7); `FragmentDrawParams` is already deliberately exploded back into positional args at `plot.h:1484`.
 
 193. **README's Curve-Plot table over-claims `v2` for `Plot::Line`** — `README.md:678-686` — `Line::sample` writes 0 for every sample; `Plot::Mesh` overwrites it with the edge index.
 
