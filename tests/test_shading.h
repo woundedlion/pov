@@ -240,32 +240,27 @@ struct StubSegue {
 };
 
 /**
- * @brief Verifies the segue shade_mesh_topology overload routes cover/grade/
- *        opacity: a non-positive cover culls to transparent, otherwise the
- *        resolved palette slot is graded and alpha becomes cover * opacity.
+ * @brief Verifies the face-hoisted segue shade_mesh_topology overload (the
+ *        IslamicStars production path) routes cover/grade/opacity: a
+ *        non-positive cover culls to transparent, otherwise the face's palette
+ *        color is graded and alpha becomes cover * opacity.
  */
 inline void test_shade_mesh_topology_segue() {
-  const int topology[] = {2};                    // face 0 -> topology class 2
-  std::array<int, 4> palette_idx = {0, 0, 3, 0}; // class 2 -> bank slot 3
-  StubSegueBank bank;
-  for (int i = 0; i < 4; ++i)
-    bank.pals[i].id = i;
+  StubSeguePalette palette;
+  palette.id = 3;
 
   Fragment f;
   f.v1 = -0.5f;
   f.size = 1.0f; // fragment_edge_dist = 0.5
-  f.v2 = 0.0f;   // face index 0
 
   StubSegue culler{0.0f, 1.0f};
-  Color4 culled = shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f,
-                                      culler, 0.0f);
+  Color4 culled = shade_mesh_topology(f, palette, 1.0f, culler, 0.0f);
   HS_EXPECT_NEAR(culled.alpha, 0.0f, 1e-6f);
   HS_EXPECT_EQ(culled.color.r, 0);
 
   StubSegue pass{0.5f, 0.8f};
-  Color4 out =
-      shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f, pass, 0.0f);
-  HS_EXPECT_EQ(out.color.r, 3);           // slot 3 palette -> id 3
+  Color4 out = shade_mesh_topology(f, palette, 1.0f, pass, 0.0f);
+  HS_EXPECT_EQ(out.color.r, 3);           // palette id 3
   HS_EXPECT_EQ(out.color.g, 777);         // grade() stamped
   HS_EXPECT_NEAR(out.alpha, 0.4f, 1e-6f); // cover 0.5 * opacity 0.8
 }
@@ -273,10 +268,10 @@ inline void test_shade_mesh_topology_segue() {
 // --- shade_mesh_topology (direct non-segue overload) ------------------------
 
 /**
- * @brief Verifies the direct shade_mesh_topology overload (production path for
- *        IslamicStars gain 1.0 and HankinSolids): the resolved palette slot's
- *        color is returned with alpha overwritten by the opacity argument,
- *        regardless of the palette color's own alpha.
+ * @brief Verifies the direct shade_mesh_topology overload (the HankinSolids
+ *        production path): the resolved palette slot's color is returned with
+ *        alpha overwritten by the opacity argument, regardless of the palette
+ *        color's own alpha.
  */
 inline void test_shade_mesh_topology_direct() {
   const int topology[] = {2};                    // face 0 -> topology class 2
@@ -290,7 +285,6 @@ inline void test_shade_mesh_topology_direct() {
   f.size = 1.0f; // fragment_edge_dist = 0.5
   f.v2 = 0.0f;   // face index 0
 
-  // gain 1.0 (IslamicStars production configuration), opacity 0.6.
   Color4 out =
       shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f, 0.6f);
   HS_EXPECT_EQ(out.color.r, 3);           // slot 3 palette -> id 3
