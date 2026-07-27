@@ -1130,16 +1130,17 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           const float *point_rows = nullptr,
           const float *point_cols = nullptr,
           FragmentInterpolatorT fragment_interpolator = nullptr) {
+  // Erasure collapses pipeline and shader only; the typed interpolator is
+  // forwarded, and the erased call matches neither clause so recursion ends.
   if constexpr (!pipeline_direct_raster_path<PipelineT>() &&
                 (!std::same_as<std::decay_t<PipelineT>, PipelineRef> ||
                  !std::same_as<std::decay_t<FragmentShaderT>,
-                               FragmentShaderFn> ||
-                 !std::same_as<std::decay_t<FragmentInterpolatorT>,
-                               std::nullptr_t>)) {
+                               FragmentShaderFn>)) {
     PipelineRef erased(source_pipeline);
     FragmentShaderFn erased_shader(fragment_shader);
     rasterize<W, H>(erased, canvas, points, erased_shader, close_loop,
-                    planar_basis, omit_end, edge_visible, point_rows, point_cols);
+                    planar_basis, omit_end, edge_visible, point_rows,
+                    point_cols, fragment_interpolator);
     return;
   }
   auto &pipeline = source_pipeline;
@@ -3613,7 +3614,7 @@ struct ParticleSystem {
       FragmentShaderFn erased_shader(fragment_shader);
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true>(
           erased, canvas, system, erased_shader, vertex_shader,
-          deferred_shader, particle_v2, nullptr);
+          deferred_shader, particle_v2, fragment_interpolator);
     }
   }
 
