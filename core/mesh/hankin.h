@@ -278,19 +278,6 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
   }
 }
 
-/**
- * @brief Positions the angle-dependent vertices and writes the final mesh.
- * @tparam MeshT Output mesh type; may optionally provide face_offsets.
- * @param compiled Baked angle-independent topology.
- * @param out_mesh Output mesh, allocated from @p target_arena.
- * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
- * @param angle Contact angle in radians. At ~0 the star points collapse onto
- *   their corners (flat tiling); larger angles push the rays out so the rays
- *   from adjacent edges intersect to form sharper star points.
- * @details A corner whose contact planes are near-parallel has no nearby
- *   intersection; its star point falls back to the edge-midpoint mean instead
- *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
- */
 /** Squared endpoints of the far-intersection blend. Healthy registry
  *
  * intersections stay below 2.16; unstable intersections exceed 4.0. */
@@ -312,6 +299,19 @@ inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ = 9.0f;
 inline constexpr float HANKIN_PARALLEL_GATE_LO_SQ = 0.05f;
 inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
 
+/**
+ * @brief Positions the angle-dependent vertices and writes the final mesh.
+ * @tparam MeshT Output mesh type; may optionally provide face_offsets.
+ * @param compiled Baked angle-independent topology.
+ * @param out_mesh Output mesh, allocated from @p target_arena.
+ * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
+ * @param angle Contact angle in radians. At ~0 the star points collapse onto
+ *   their corners (flat tiling); larger angles push the rays out so the rays
+ *   from adjacent edges intersect to form sharper star points.
+ * @details A corner whose contact planes are near-parallel has no nearby
+ *   intersection; its star point falls back to the edge-midpoint mean instead
+ *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
+ */
 template <typename MeshT>
 HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
                                          MeshT &out_mesh, Arena &target_arena,
