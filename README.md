@@ -1630,7 +1630,9 @@ Procedurally generates Islamic geometric patterns using Hankin's method (pentago
 
 #### HankinSolids
 
-Similar to IslamicStars but sequences through the Platonic and Archimedean solids with animated palette transitions.
+Hankin interlace patterns over the Platonic and Archimedean solids. The interlace angle sweeps continuously over the held solid, then a random walk along the Conway edge graph picks the next one: each leg sweeps the destination solid's own operator parameter, so faces visibly truncate, expand, and twist into it. Exactly one mesh is on screen at all times; faces are colored by topology class from shuffled mesh palettes that crossfade per leg.
+
+**Parameters**: Intensity, Angle
 
 </td></tr></table>
 
