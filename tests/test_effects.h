@@ -3701,8 +3701,8 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     effect.advance_display();
     ++frames;
     const int cur = IslamicBuildProbe::solid_idx(effect);
-    // Birth-cohort variety of each finished build: distinct immutable
-    // palettes on the shape the real leg chain just landed.
+    // Palette variety of each finished build: distinct landed palettes on the
+    // shape the real leg chain just landed.
     const bool building = IslamicBuildProbe::build_active(effect);
     if (was_building && !building) {
       const int front = IslamicBuildProbe::front_slot(effect);
