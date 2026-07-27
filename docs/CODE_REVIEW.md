@@ -529,7 +529,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 202. ✅ **IslamicStars arena-split literals duplicate their named constants** — `effects/IslamicStars.h:57` vs `:163-167` — they agree today; a retune of either silently desyncs the pre-first-spawn split from the steady state.
 
-203. **Dead build-chain symbols in IslamicStars** — `effects/IslamicStars.h:146,550,749` — a self-documented unused constant, a function with zero references, and a write that is never read.
+203. ✅ **Dead build-chain symbols in IslamicStars** — `effects/IslamicStars.h:146,550,749` — a self-documented unused constant, a function with zero references, and a write that is never read.
 
 204. **`strap_blend_mask_` has no width backstop** — `effects/HankinSolids.h:878` — a `uint8_t` bitmask over `NUM_PALETTES`; raising the bank past 8 truncates silently.
 
