@@ -303,7 +303,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 90. ✅ **`resolve_host_faces`' doc states the opposite of its implementation** — `effects/HankinSolids.h:552-558` — claims the host is found by shared vertices "and is therefore angle independent"; the body rebuilds at π/2 and matches by centroid, with an inline comment explaining why shared vertices *don't* discriminate. A reader trusting the doxygen will "fix" the code back to the broken approach.
 
-91. **`MeshFeedback` syncs noise before the preset switch** — `effects/MeshFeedback.h:141-153` — `apply_params()` runs before `advance_transition()`, so on each switch frame the warp reads the previous preset's noise scalars while fade/hue are already the new preset's. Fix: swap the two calls.
+91. ✅ **`MeshFeedback` syncs noise before the preset switch** — `effects/MeshFeedback.h:141-153` — `apply_params()` runs before `advance_transition()`, so on each switch frame the warp reads the previous preset's noise scalars while fade/hue are already the new preset's. Fix: swap the two calls.
 
 92. **A bare `assert` sits in the DisplacementField render path** — `effects/DisplacementField.h:213` — the only bare assert in `effects/`; it compiles out on device, so the guard exists only in the host build.
 

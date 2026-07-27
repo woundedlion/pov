@@ -129,8 +129,10 @@ public:
 
   /**
    * @brief Renders one frame.
-   * @details Applies params, advances the preset selection, runs the feedback
-   * decay flush, draws the mesh, then advances the timeline.
+   * @details Advances the preset selection, applies params, runs the feedback
+   * decay flush, draws the mesh, then advances the timeline. The preset switch
+   * leads apply_params() so the noise scalars and the fade/hue the flush reads
+   * come from the same preset.
    */
   void draw_frame() override {
     // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
@@ -138,12 +140,12 @@ public:
       HS_PROFILE(mf_buffer_wait);
       return Canvas(*this);
     }();
+    advance_transition();
+
     {
       HS_PROFILE(mf_apply_params);
       apply_params();
     }
-
-    advance_transition();
 
     {
       // Feedback-buffer warp/tap + decay flush.
