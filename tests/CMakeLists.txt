@@ -276,6 +276,21 @@ foreach(_opt Os O3)
   target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)
 endforeach()
 
+# Drivers for the HS_AA_AUDIT mesh-scan coverage instrumentation, whose hooks
+# are compiled into core/render/scan.h and core/render/sdf.h and whose recipes
+# are documented in docs/islamicstars_next_levers.md and
+# docs/probe_path_open_items.md. Not CTests — aa_audit prints a report with no
+# pass/fail and aa_search is a brute-force parameter sweep. They stay in the
+# default build as compile guards against bit-rot, like perf_bench.
+foreach(_aa audit search)
+  add_executable(aa_${_aa}
+    ${CMAKE_CURRENT_SOURCE_DIR}/aa_${_aa}_main.cpp
+    ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  target_compile_definitions(aa_${_aa} PRIVATE HS_TEST_BUILD HS_AA_AUDIT)
+  target_include_directories(aa_${_aa} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+  target_compile_options(aa_${_aa} PRIVATE -O2 -ffast-math -fno-finite-math-only)
+endforeach()
+
 # Divergence trace for perturbations of the feedback colour path
 # (feedback_divergence.cpp). Not a CTest — comparing two code paths needs two
 # builds, so it dumps frames in one build and compares dumps in another. Stays
