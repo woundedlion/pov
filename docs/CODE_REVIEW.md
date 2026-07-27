@@ -389,7 +389,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 133. ✅ **`stereo()`'s doc contradicts its code and its own test** — `core/math/3dmath.h:891` — the pole cap deliberately preserves the (x,z) azimuth; only the exact pole falls back to the real axis.
 
-134. **`rotation_substeps` casts an unbounded `ceil` to `int`** — `core/animation/motion.h:127-129` — `Rotation`'s ctor checks only finiteness, so a large sweep is UB rather than the graceful degradation `Orientation::upsample` already provides.
+134. ✅ **`rotation_substeps` casts an unbounded `ceil` to `int`** — `core/animation/motion.h:127-129` — `Rotation`'s ctor checks only finiteness, so a large sweep is UB rather than the graceful degradation `Orientation::upsample` already provides.
 
 135. **`max_life == 1` spawns particles that are removed before they ever render** — `core/animation/sprites.h:263-265,385-390` — `spawn()` reports success and `active()` never reflects it, so a "Life" slider bottoming out at 1 emits nothing at all. Note `tests/test_animation.h:988` design-pins 1 as valid, so classify before landing.
 
