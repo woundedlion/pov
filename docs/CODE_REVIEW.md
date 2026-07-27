@@ -455,7 +455,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 165. ✅ **`hs::clamp(float,…)` is `constexpr` on Cortex-M7/WASM but not on x86** — `core/engine/platform.h:1436,1460` — one interface, two contracts.
 
-166. **`engine.h` says `effects.h` pulls in 27 effect headers; it pulls in 24** — `core/engine/engine.h:10`.
+166. ✅ **`engine.h` says `effects.h` pulls in 27 effect headers; it pulls in 24** — `core/engine/engine.h:10`.
 
 167. **Dead includes in `util.h`** — `core/engine/util.h:17-18` — `<memory>` and `<utility>` are unused.
 
