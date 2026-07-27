@@ -46,24 +46,22 @@ public:
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    register_param("Warp Scale", &params.warp_scale, WARP_SCALE_MIN,
-                   WARP_SCALE_MAX);
-    register_param("Warp Strength", &params.warp_strength, WARP_STRENGTH_MIN,
-                   WARP_STRENGTH_MAX);
-    register_param("Pattern Freq", &params.pattern_freq, PATTERN_FREQ_MIN,
-                   PATTERN_FREQ_MAX);
-    register_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
-    register_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN,
-                   POLE_FADE_MAX);
+    // Every preset-driven param is flagged animated so "Pause Animation" lets
+    // the user take a slider over.
+    register_animated_param("Warp Scale", &params.warp_scale, WARP_SCALE_MIN,
+                            WARP_SCALE_MAX);
+    register_animated_param("Warp Strength", &params.warp_strength,
+                            WARP_STRENGTH_MIN, WARP_STRENGTH_MAX);
+    register_animated_param("Pattern Freq", &params.pattern_freq,
+                            PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+    register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
+    register_animated_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN,
+                            POLE_FADE_MAX);
+    // Drift is a standalone live control, not preset-driven, so it stays
+    // unflagged and edits apply during normal playback.
     register_param("Drift", &drift, 0.0f, 2.0f);
-    register_param("Hue Shift", &params.hue_shift, HUE_SHIFT_MIN,
-                   HUE_SHIFT_MAX);
-    // Flag every preset-driven param so "Pause Animation" lets the user take a
-    // slider over. Drift is a standalone live control, not preset-driven, so it
-    // is omitted and edits apply during normal playback.
-    for (const char *n : {"Warp Scale", "Warp Strength", "Pattern Freq",
-                          "Speed", "Pole Fade", "Hue Shift"})
-      mark_animated(n);
+    register_animated_param("Hue Shift", &params.hue_shift, HUE_SHIFT_MIN,
+                            HUE_SHIFT_MAX);
 
     orientation.set(make_rotation(Vector(0, 0, -1), Vector(0, -1, 0)));
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
