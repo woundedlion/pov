@@ -3878,8 +3878,9 @@ struct Flower {
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
-    float ang_max = thickness;
-    float cos_limit = cosf(ang_max);
+    // Pad the cap by one pixel so the outer AA fringe is scanned.
+    float pixel_width = 2.0f * PI_F / W;
+    float cos_limit = cosf(thickness + pixel_width);
 
     emit_annular_band<W>(cos_limit, 1.0f, scan_ny, cos_phi, denom, scan_alpha,
                          out);
