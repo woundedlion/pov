@@ -329,7 +329,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 103. ✅ **`TickActions::zero_crossing` is sticky across a multi-boundary tick** — `hardware/pov_sync.h:1404-1406` — set on a ZERO flip and never cleared on a HALF flip, so a folded tick publishes the wrong half-window and clips one frame to the wrong hemisphere. Requires ≥62.5 ms of ISR coast, so latent, but wrong by construction.
 
-104. **ACQUIRE hard-snaps on a beacon frame's first digit; the README overstates the guarantee** — `hardware/pov_sync.h:1461-1470`, `README.md:1449-1452` — the quiet-before guard catches digits 2–5 but not digit 0, which is preceded by silence. A board falling back to ACQUIRE mid-show can lock with a 72-column phase error and render half-rotated for ~250 ms.
+104. ✅ **ACQUIRE hard-snaps on a beacon frame's first digit; the README overstates the guarantee** — `hardware/pov_sync.h:1461-1470`, `README.md:1449-1452` — the quiet-before guard catches digits 2–5 but not digit 0, which is preceded by silence. A board falling back to ACQUIRE mid-show can lock with a 72-column phase error and render half-rotated for ~250 ms. README corrected; the code behaviour is the spec's explicitly accepted first-digit case (`docs/phantasm_frame_sync_spec.md` §5.3, bounded by the §9.1 mis-snap row), so it is unchanged.
 
 105. **The beacon stale-frame timeout lacks the signed-wrap re-check its siblings have** — `hardware/pov_sync.h:828-831` — after >7.16 s of silence holding a partial frame, the modular difference can read small and a stale digit survives. Bounded (one corrupted frame, rejected by checksum), but asymmetric with the two analogous comparisons in `tick()`.
 
