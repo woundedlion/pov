@@ -64,6 +64,21 @@ SECTIONS
 		*(.text._ZN9Animation*C2E*)
 		*(.text._ZN8PolyMeshC1E*)
 		*(.text._ZN8PolyMeshC2E*)
+		/* Destructors mirror the cold constructors: Animation graph nodes, the
+		 * <288,144> effects, Persist/ReactionDiffusionBase, and PolyMesh tear
+		 * down at spawn/teardown or timeline boundaries, never per frame. */
+		*(.text._ZN9Animation*D0Ev*)
+		*(.text._ZN9Animation*D1Ev*)
+		*(.text._ZN9Animation*D2Ev*)
+		*(.text._ZN8PolyMeshD0Ev*)
+		*(.text._ZN8PolyMeshD1Ev*)
+		*(.text._ZN8PolyMeshD2Ev*)
+		*(.text._ZN7PersistI*D0Ev*)
+		*(.text._ZN7PersistI*D1Ev*)
+		*(.text._ZN7PersistI*D2Ev*)
+		*(.text._ZN*ILi288ELi144EED0Ev*)
+		*(.text._ZN*ILi288ELi144EED1Ev*)
+		*(.text._ZN*ILi288ELi144EED2Ev*)
 		*(.text.*classify_faces_impl*)
 		*(.text.*KDTree5build*)
 		*(.text._ZZN*13setup_presetsEv*)
