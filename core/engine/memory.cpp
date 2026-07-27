@@ -120,6 +120,11 @@ void configure_arenas_default() {
 
 FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
                              size_t scratch_b) {
+  // A ScratchScope saved at offset 0 restores to 0 either way, so live scratch
+  // content would be silently rebased onto the new split, undetected.
+  HS_CHECK(scratch_arena_a.get_offset() == 0 &&
+               scratch_arena_b.get_offset() == 0,
+           "resplit_arenas: both scratch arenas must be empty");
   HS_CHECK(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE &&
            scratch_b <= GLOBAL_ARENA_SIZE);
   constexpr size_t A = alignof(std::max_align_t);
