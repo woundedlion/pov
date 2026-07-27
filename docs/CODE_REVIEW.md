@@ -217,7 +217,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 47. ✅ **README's SphericalHarmonics entry omits its parameter list** — `README.md:1612-1616` — the only in-scope §9 entry with no Parameters line; it registers "Amplitude" and "Debug BB".
 
-48. **README's GS entry omits its parameters and the reaction lifecycle** — `README.md:1566-1568` — registers Feed/Kill/dA/dB/Speed, and its most visible behaviour (auto-dissolve and reseed when the field stalls) is undocumented.
+48. ✅ **README's GS entry omits its parameters and the reaction lifecycle** — `README.md:1566-1568` — registers Feed/Kill/dA/dB/Speed, and its most visible behaviour (auto-dissolve and reseed when the field stalls) is undocumented.
 
 49. **README names the wrong low-resolution-only effect pair** — `README.md:1546` — says "RingShower, Dynamo"; `effects.h:78-112` excludes **Thrusters**, not RingShower, and the drift `static_assert` says so literally.
 
