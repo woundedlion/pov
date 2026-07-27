@@ -84,6 +84,7 @@ public:
     });
     classify_mesh_topology(mesh_);
     record_node_palettes();
+    resolve_host_faces();
     // First cycle has no predecessor to crossfade from: every slot opens on
     // its shuffled palette directly (strap_blend_mask_ stays 0).
     strap_from_ = palette_idx_;
@@ -278,9 +279,11 @@ private:
    * @param prev_idx Slot -> palette assignment the previous cycle displayed.
    * @param prev_used Slots the previous cycle put on screen at all.
    * @details A strap-bearing slot opens at its previous cycle's displayed
-   * color — or, with no on-screen predecessor, at the palette of the nearest
-   * star face by unit centroid (births inherit the underlying face's colors,
-   * matching the leg-swap newborn rule) — and glides to its fresh target.
+   * color — or, with no on-screen predecessor, at its host star face's palette
+   * (births inherit the underlying face's colors, matching the leg-swap newborn
+   * rule) — and glides to its fresh target. resolve_host_faces must precede it:
+   * the host is resolved at the sweep peak, where a centroid match is
+   * unambiguous, and mesh_ here sits at the closed bookend.
    * Slots a star class shares (the mod-NUM_PALETTES wrap can alias a rosette
    * class onto a star class's slot) arm like any other: the blend feeds only
    * the strap-face LUT, so the star faces stay on the exact bank entry.
@@ -295,28 +298,7 @@ private:
       const int slot = wrap(mesh_.topology[f], NUM_PALETTES);
       if (strap_blend_mask_ & (1u << slot))
         continue;
-      int from;
-      if (prev_used[slot]) {
-        from = prev_idx[slot];
-      } else {
-        Vector c(0.0f, 0.0f, 0.0f);
-        const size_t off = mesh_.face_offsets[f];
-        const int n = mesh_.face_counts[f];
-        for (int k = 0; k < n; ++k)
-          c = c + mesh_.vertices[mesh_.faces[off + k]];
-        c = c.normalized();
-        size_t best = 0;
-        float best_d = 1e9f;
-        for (size_t j = 0; j < node_faces_; ++j) {
-          const Vector d = c - node_face_centroid_[j];
-          const float dsq = dot(d, d);
-          if (dsq < best_d) {
-            best_d = dsq;
-            best = j;
-          }
-        }
-        from = node_face_palette_[best];
-      }
+      const int from = prev_used[slot] ? prev_idx[slot] : host_face_palette_[f];
       if (from != palette_idx_[slot]) {
         strap_from_[slot] = from;
         strap_blend_mask_ |= static_cast<uint8_t>(1u << slot);
@@ -605,10 +587,10 @@ private:
         star_rim_palette_[j] = node_face_palette_[j];
   }
 
+  /** @note resolve_host_faces must have run for this cycle's mesh. */
   HS_COLD_MEMBER void start_hankin_cycle() {
     constexpr int DURATION = 64;
     hankin_cycle_frame_ = 0;
-    resolve_host_faces();
     timeline.add(2, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
                                         DURATION, ease_linear, false,
@@ -843,6 +825,7 @@ private:
       }
     }
     record_node_palettes();
+    resolve_host_faces();
     prepare_strap_crossfade(prev_idx, prev_used);
     pending_landing_ = nullptr;
 
