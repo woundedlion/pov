@@ -166,25 +166,6 @@ public:
     reaction_edited(); // latch the defaults; frame 1 is not an edit
   }
 
-  /**
-   * @brief Advances one frame: display-flip wait, view timeline, then render().
-   * @details Overrides the shared base draw_frame() (same three steps) only to
-   * bracket the buffer wait, timeline step, and render() phases with profile
-   * scopes; a no-op behavioral change when HS_PROFILE_ENABLE is off.
-   */
-  void draw_frame() override {
-    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
-    Canvas canvas = [this]() -> Canvas {
-      HS_PROFILE(grd_buffer_wait);
-      return Canvas(*this);
-    }();
-    {
-      HS_PROFILE(grd_timeline_step);
-      this->timeline.step(canvas);
-    }
-    render(canvas);
-  }
-
 private:
   // Test seam: lets unit tests reach the Q16 helpers, step_physics, and params
   // without exposing them to production callers.
