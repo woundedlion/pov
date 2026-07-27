@@ -1606,6 +1606,9 @@ inline void test_cull_covers_interior_over_orientation_grid() {
       // PlanarPolygon's `thickness` is its angular circumradius.
       SDF::PlanarPolygon ppoly(basis, /*thickness=*/radius, /*sides=*/6, 0.0f);
       expect_cull_covers_interior<W, H>(ppoly);
+
+      SDF::Flower flower(basis, radius, /*sides=*/5, 0.0f);
+      expect_cull_covers_interior<W, H>(flower);
     }
   }
 }
