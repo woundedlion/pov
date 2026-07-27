@@ -14,8 +14,10 @@
  * @param to The output value at the peak.
  * @param freq The frequency (cycles per unit time).
  * @param phase The starting phase offset, in cycles (phase = 1 is a full cycle),
- *        matching tri_wave/square_wave so the three are interchangeable.
+ *        in the same units as tri_wave/square_wave.
  * @return A lambda mapping time t to the wave value.
+ * @details At phase 0 this starts at the trough, matching tri_wave but a half
+ *          cycle behind square_wave, which starts high.
  */
 inline auto sin_wave(float from, float to, float freq, float phase) {
   // Hoist only 2π·phase: reassociating freq·t·2π could shift the last bit,
