@@ -1904,4 +1904,6 @@ public:
   constexpr ~MutatingPalette() {}
 };
 
+#define HS_COLOR_INTERNAL
 #include "color/composition.h"
+#undef HS_COLOR_INTERNAL
