@@ -1560,9 +1560,14 @@ Effects register themselves into a global registry using the `REGISTER_EFFECT(Cl
 Effects expose live-adjustable parameters via `register_param()`. These are reflected into the WASM bridge and auto-generate GUI controls in the simulator:
 
 ```cpp
-register_param("Twist",   &params.twist, -5.0f, 5.0f);   // float slider (min, max)
-register_param("Enabled", &params.enabled);              // boolean toggle (bool* overload takes no range)
+register_param("Twist",   &params.twist, -5.0f, 5.0f);        // float slider (min, max)
+register_param("Enabled", &params.enabled);                   // boolean toggle (bool* overload takes no range)
+register_param("Shape",   &params.shape, SHAPE_NAMES, 4);     // dropdown; float* index over [0, count-1]
+register_animated_param("Speed", &params.speed, 0.0f, 2.0f);  // animation-driven slider
+register_readonly_param("Particles", &params.active_count, 0.0f, 1024.0f);  // engine-written telemetry
 ```
+
+The enum overload takes an array of option labels that must outlive the effect (string literals). `register_animated_param` marks the param as written by the animation system, so the GUI renders it as an auto-pausing slider that engages "Pause Animation" when touched; `register_readonly_param` marks it engine-written, so the GUI shows the live value but disables editing. Both flags can also be applied to an already-registered param via `mark_animated(name)` and `markReadonly(name)`.
 
 The parameter list (`ParamList` — a fixed `std::array<ParamDef, 32>`) is accessible via `getParameters()`, and `updateParameter(name, float)` sets values at runtime. Parameters support both `float*` and `bool*` targets via `std::variant`, with automatic bool threshold at 0.5. The animation system can also write to these parameters, allowing effects to animate their own exposed controls.
 
