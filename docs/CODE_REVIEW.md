@@ -387,7 +387,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 132. ✅ **`project_div` returns the antipodal pole for a tiny-numerator quotient** — `core/math/3dmath.h:836-847` — the 0/0 test is an absolute epsilon applied after the singular branch is taken, so a legitimate point at infinity maps to the south pole. Fix: make the test exact, as the comment already claims.
 
-133. **`stereo()`'s doc contradicts its code and its own test** — `core/math/3dmath.h:891` — the pole cap deliberately preserves the (x,z) azimuth; only the exact pole falls back to the real axis.
+133. ✅ **`stereo()`'s doc contradicts its code and its own test** — `core/math/3dmath.h:891` — the pole cap deliberately preserves the (x,z) azimuth; only the exact pole falls back to the real axis.
 
 134. **`rotation_substeps` casts an unbounded `ceil` to `int`** — `core/animation/motion.h:127-129` — `Rotation`'s ctor checks only finiteness, so a large sweep is UB rather than the graceful degradation `Orientation::upsample` already provides.
 
