@@ -265,7 +265,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 71. ✅ **`Scan::DistortedRingStack` omits its `ScopedRenderTimer` and its documented `n_slots` check** — `core/render/scan.h:550-645` — every other draw entry point opens a timer, so DisplacementField's normal render contributes 0 µs to the profiler while its debug fallback reports the real cost — the same frame timed differently by a debug toggle.
 
-72. **`Scan::DistortedRingStack` has no test** — its doc makes the strongest claim in the file ("bit-identical to rasterizing the rings one by one") and nothing tests it, while its sibling `RingGroup` has exactly that test.
+72. ✅ **`Scan::DistortedRingStack` has no test** — its doc makes the strongest claim in the file ("bit-identical to rasterizing the rings one by one") and nothing tests it, while its sibling `RingGroup` has exactly that test.
 
 73. ✅ **`scan_region` clears its interval buffer only on the handled branch** — `core/render/scan.h:266-269` — a producer that emits and then returns false would leak spans into the next row and eventually trip an overflow trap far from the cause. No current producer does this, and the contract forbids it, but it is unasserted.
 
