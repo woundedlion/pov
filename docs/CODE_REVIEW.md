@@ -541,7 +541,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 208. ✅ **`MindSplatter::start_warp()` is pure indirection** — `effects/MindSplatter.h:506` — a one-line forwarder called once.
 
-209. **`PetalFlow::spawner` is dead state after `init()`** — `effects/PetalFlow.h:144-146,171` — `Timeline::add` takes its animation by value, so the member is never touched again.
+209. ✅ **`PetalFlow::spawner` is dead state after `init()`** — `effects/PetalFlow.h:144-146,171` — `Timeline::add` takes its animation by value, so the member is never touched again.
 
 210. **`DisplacementField::step_palette_wipe()` re-implements the engine's wipe counter** — `effects/DisplacementField.h:559-565` — byte-for-byte the arming-skip + decrement half of `step_wipe_rebake`, which two other effects call.
 

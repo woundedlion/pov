@@ -28,10 +28,7 @@ struct PetalFlowWhiteBox;
 template <int W, int H> class PetalFlow : public Effect {
 public:
   /**
-   * @brief Constructs the effect, wiring up palette, orientation filters, and
-   * the per-frame ring spawner.
-   * @details The spawner fires every frame to emit new rings as the flow
-   * accumulates gap.
+   * @brief Constructs the effect, wiring up palette and orientation filters.
    */
   HS_COLD_MEMBER PetalFlow()
       : Effect(W, H,
@@ -40,8 +37,7 @@ public:
         palette({0.029f, 0.029f, 0.029f}, {0.500f, 0.500f, 0.500f},
                 {0.461f, 0.461f, 0.461f}, {0.539f, 0.701f, 0.809f}),
         orientation(), filters(Filter::World::Orient<W>(orientation),
-                               Filter::Screen::AntiAlias<W, H>()),
-        spawner(1, [this](Canvas &) { this->check_spawn(); }, true) {}
+                               Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
    * @brief Registers sliders, clears all rings, and seeds the timeline.
@@ -154,8 +150,6 @@ private:
       filters;
 
   Timeline timeline; /**< Schedules the orientation rotation and the spawner. */
-  Animation::PeriodicTimer
-      spawner; /**< Per-frame timer that triggers check_spawn(). */
 
   /**
    * @brief Precomputes the geometry-static exp(petal wobble) per sample.
@@ -181,7 +175,8 @@ private:
     timeline.add(0, Animation::Rotation<W>(orientation, UP, PI_F / 4.0f, 160,
                                            ease_linear, true));
     gap_accumulator = 0.0f;
-    timeline.add(0, spawner);
+    timeline.add(0, Animation::PeriodicTimer(
+                        1, [this](Canvas &) { this->check_spawn(); }, true));
 
     // Pre-fill the path with evenly spaced rings so frame zero looks like a
     // running flow. Start one epsilon inside END_RHO so the oldest ring sits just
