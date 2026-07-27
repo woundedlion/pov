@@ -525,7 +525,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 200. **The canvas-acquire IIFE is duplicated verbatim in all 24 effects** — five identical lines plus an identical comment, differing only in the profile tag. Worth an engine-side helper.
 
-201. **`ChaoticStrings` drops the `spawn_pinned` result its sibling checks** — `effects/ChaoticStrings.h:107` vs `effects/MobiusGrid.h:65-66` — a silent null makes the transform an identity with no diagnostic.
+201. ✅ **`ChaoticStrings` drops the `spawn_pinned` result its sibling checks** — `effects/ChaoticStrings.h:107` vs `effects/MobiusGrid.h:65-66` — a silent null makes the transform an identity with no diagnostic.
 
 202. **IslamicStars arena-split literals duplicate their named constants** — `effects/IslamicStars.h:57` vs `:163-167` — they agree today; a retune of either silently desyncs the pre-first-spawn split from the steady state.
 
