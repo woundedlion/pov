@@ -263,6 +263,26 @@ inline void test_pixel_to_vector_float_branch_matches_phi_lut() {
 }
 
 /**
+ * @brief Pins pixel_to_vector's float overload to the analytic branch for
+ *        coordinates outside the LUT domain.
+ * @details A near-integer x == W would index sin_theta[W + W/4], one past the
+ *          W + W/4 entry table, if it snapped to the integer path. The analytic
+ *          branch is exact there: theta = 2*pi*x/W is periodic, so column W is
+ *          column 0.
+ */
+inline void test_pixel_to_vector_float_out_of_lut_domain() {
+  constexpr int W = 32, H = 32;
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  for (int y : {0, 7, H_VIRT - 1}) {
+    const Vector wrapped =
+        pixel_to_vector<W, H>(static_cast<float>(W), static_cast<float>(y));
+    const Vector origin = pixel_to_vector<W, H>(0, y);
+    HS_EXPECT_VEC(wrapped, origin, 1e-4f);
+    HS_EXPECT_NEAR(wrapped.length(), 1.0f, 1e-4f);
+  }
+}
+
+/**
  * @brief Verifies vector_to_pixel inverts pixel_to_vector to within half a pixel
  *        for non-degenerate samples.
  * @details Poles are excluded, where azimuth wrap is undefined.
@@ -959,6 +979,7 @@ inline int run_geometry_tests() {
   test_pixel_to_vector_unit_length();
   test_pixel_to_vector_known_samples();
   test_pixel_to_vector_float_branch_matches_phi_lut();
+  test_pixel_to_vector_float_out_of_lut_domain();
   test_vector_to_pixel_roundtrip_via_pixel_to_vector();
 
   test_tangent_frame_orthonormal();
