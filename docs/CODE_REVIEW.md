@@ -511,7 +511,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 193. ✅ **README's Curve-Plot table over-claims `v2` for `Plot::Line`** — `README.md:678-686` — `Line::sample` writes 0 for every sample; `Plot::Mesh` overwrites it with the edge index.
 
-194. **README's mesh size-floor bound is not the actual bound** — `README.md:664` — the overstatement on a sliver is unbounded, not 4×.
+194. ✅ **README's mesh size-floor bound is not the actual bound** — `README.md:664` — the overstatement on a sliver is unbounded, not 4×.
 
 195. **README names the wrong rasterizer for RingSpin** — `README.md:1684` — it uses `Scan::RingGroup`, the fused group rasterizer that is the whole point of its shipped design, not `Scan::Ring`.
 
