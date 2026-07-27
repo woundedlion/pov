@@ -227,7 +227,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 52. **README describes a coarse warp grid the code no longer builds, and omits `DirectAntiAliasSink`** — `README.md:521-523,529` vs `core/render/filter.h:1085,1565-1578` — the field is a spherical latitude-ring control lattice, not `W/DS × H/DS`; and `DirectAntiAliasSink` is a shipped, device-used terminal sink with a non-obvious per-frame `prepare()` contract, absent from the docs.
 
-53. **README's `meta` operator description is wrong on two counts** — `README.md:1126,1139` — `meta` is `kis ∘ dual ∘ ambo` (three steps), not "kis ∘ ambo", and being odd-length it returns in **`target`**, not `temp` as the load-bearing polarity paragraph claims. A dedicated test exists precisely to pin `meta ≠ kis(ambo)`. (Reported by three audits.)
+53. ✅ **README's `meta` operator description is wrong on two counts** — `README.md:1126,1139` — `meta` is `kis ∘ dual ∘ ambo` (three steps), not "kis ∘ ambo", and being odd-length it returns in **`target`**, not `temp` as the load-bearing polarity paragraph claims. A dedicated test exists precisely to pin `meta ≠ kis(ambo)`. (Reported by three audits.)
 
 54. **README's SDF register table says `v1` is unsigned** — `README.md:661` — for `SDF::Face`, `raw_dist` is the **signed** edge distance, and `fragment_edge_dist` depends on that sign. A shader author writing `fabsf(f.v1)` per the table loses the inside/outside distinction and shades every face as if at its edge.
 
