@@ -499,7 +499,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 187. ✅ **Generated bake aggregates use positional initialization** — `tools/relax_bakes.py:98-102` — four same-typed `uint16_t` fields in a row; a struct reorder still compiles and silently mis-binds.
 
-188. **`World::Trails::plot` lacks the zero-alpha seed gate its `Screen::Trails` sibling has** — `core/render/filter.h:872-882` vs `:1264-1283` — transparent samples consume ring slots and evict live points, visibly shortening the tail. Prefer documenting over gating (some effects may rely on it).
+188. ✅ **`World::Trails::plot` lacks the zero-alpha seed gate its `Screen::Trails` sibling has** — `core/render/filter.h:872-882` vs `:1264-1283` — transparent samples consume ring slots and evict live points, visibly shortening the tail. Prefer documenting over gating (some effects may rely on it).
 
 189. **`Canvas`'s two constructors duplicate the watchdog spin verbatim** — `core/render/canvas.h:649-658,671-680` — ten identical lines including the test-build counter.
 
