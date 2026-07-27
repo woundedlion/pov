@@ -543,7 +543,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 209. ✅ **`PetalFlow::spawner` is dead state after `init()`** — `effects/PetalFlow.h:144-146,171` — `Timeline::add` takes its animation by value, so the member is never touched again.
 
-210. **`DisplacementField::step_palette_wipe()` re-implements the engine's wipe counter** — `effects/DisplacementField.h:559-565` — byte-for-byte the arming-skip + decrement half of `step_wipe_rebake`, which two other effects call.
+210. ❌ **`DisplacementField::step_palette_wipe()` re-implements the engine's wipe counter** — `effects/DisplacementField.h:559-565` — byte-for-byte the arming-skip + decrement half of `step_wipe_rebake`, which two other effects call. Rejected: `step_wipe_rebake` takes a `BakedPalette &` and exists to rebake it; DisplacementField has no baked LUT and samples its `GenerativePalette` directly, so calling the helper would mean adding LUT storage and a per-frame rebake this effect does not want.
 
 211. ❌ **The aged-slot pattern is duplicated across RingShower and Thrusters** — `effects/RingShower.h:127-136`, `effects/Thrusters.h:150-159` — identical `radius_at()`/`expired()` with the same documented `age+1` convention, each pinned by its own test. Rejected: there is not much to save by factoring this out — the two differ in how they get their divisor and life bound, so a shared helper would trade four lines for a parameterization.
 
