@@ -583,7 +583,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 229. ✅ **daydream: the WASM load-failure overlay offers no recovery affordance** — `daydream.js:639-651` — a module-eval failure and a WebGL context loss both get a Reload button; the most likely real failure does not. The safe `showBootstrapFailure` helper already exists.
 
-230. **daydream: dead CSS and one unreachable branch comment** — `styles/index.css:48-51,251`, `sidebar.js:282-283` — `.tab.active` never applies and the effect list can never receive focus, so the matching keyboard fallback is unreachable.
+230. ✅ **daydream: dead CSS and one unreachable branch comment** — `styles/index.css:48-51,251`, `sidebar.js:282-283` — `.tab.active` never applies and the effect list can never receive focus, so the matching keyboard fallback is unreachable.
 
 231. **daydream: `palettes.html` re-implements `tools/slider.js`** — `tools/palettes.html:569-699` — 130 `innerHTML`-built lines reproducing the same id/class contract without the shared module's validation; only the locked-group drag logic is genuinely page-specific.
 
