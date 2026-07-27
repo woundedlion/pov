@@ -632,7 +632,7 @@ struct RippleParams {
    * current phase and thickness, so the renderer can skip points outside the
    * ring.
    */
-  void prepare_thresholds() {
+  void sync() {
     float hw = half_width();
     // Clamp into [0,π]: the active ring lies within the sphere's angular range,
     // so cos(clamped) keeps the fast-reject band engaged past phase=π instead of
@@ -697,7 +697,7 @@ public:
 
       // Re-prepare the reject thresholds against the phase just advanced, so the
       // render never tests the new phase against thresholds cached at the old one.
-      params.get().prepare_thresholds();
+      params.get().sync();
     }
 
     params.get().amplitude = peak_amplitude * envelope;
@@ -795,9 +795,6 @@ struct BumpParams {
    */
   void sync() { cos_radius = cosf(std::min(radius * envelope, PI_F)); }
 
-  /** @brief Refreshes the cached field threshold. */
-  void prepare_threshold() { sync(); }
-
   /**
    * @brief Refreshes live-tunable config from a template snapshot.
    * @param t Template params carrying the current slider values.
@@ -839,7 +836,7 @@ public:
     HS_CHECK(duration >= 2, "BallDrop duration must be >= 2");
     HS_CHECK(params.radius > 0.0f, "BallDrop needs a positive bump radius");
     params.envelope = 0.0f;
-    params.prepare_threshold();
+    params.sync();
   }
 
   /**
