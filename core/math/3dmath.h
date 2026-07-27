@@ -1393,9 +1393,12 @@ __attribute__((always_inline)) inline float fast_cosf(float x) {
  * @param x Angle in radians.
  * @param s Output matching fast_sinf(x).
  * @param c Output matching fast_cosf(x).
+ * @warning The sine branch has no range reduction and no sign tracking; for
+ * x outside [0, π] it returns the wrong value, so callers must bound x.
  */
 __attribute__((always_inline)) inline void fast_sincosf_0_pi(float x, float &s,
                                                              float &c) {
+  assert(x >= 0.0f && x <= PI_F);
   float xpi = x * (PI_F - x);
   s = (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
   float cx = x + PI_F * 0.5f;

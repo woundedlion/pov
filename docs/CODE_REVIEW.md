@@ -383,7 +383,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 130. ✅ **`generate_reaction_graph.py` duplicates three runtime constants with no cross-check** — `scripts/generate_reaction_graph.py:41-45` vs `core/engine/reaction_graph.h:15-16,54` — the header claims both are guarded; raising `RD_N` in the header alone leaves the CI provenance diff green and produces a zero-padded table.
 
-131. **`fast_sincosf_0_pi` states a domain it does not enforce** — `core/math/3dmath.h:1397-1409` — beyond π the sine branch silently returns the wrong sign, while the sibling `fast_expf` asserts its domain.
+131. ✅ **`fast_sincosf_0_pi` states a domain it does not enforce** — `core/math/3dmath.h:1397-1409` — beyond π the sine branch silently returns the wrong sign, while the sibling `fast_expf` asserts its domain.
 
 132. **`project_div` returns the antipodal pole for a tiny-numerator quotient** — `core/math/3dmath.h:836-847` — the 0/0 test is an absolute epsilon applied after the singular branch is taken, so a legitimate point at infinity maps to the south pole. Fix: make the test exact, as the comment already claims.
 
