@@ -467,7 +467,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 171. ✅ **`spherical_field.h` uses `assert()` without including `<cassert>`** — `core/math/spherical_field.h:292`.
 
-172. **Dead public types `Dot`/`Dots`/`Points`** — `core/math/geometry.h:46-75` — zero users; they are the sole reason this header includes `color/color.h` and `static_circular_buffer.h`.
+172. ✅ **Dead public types `Dot`/`Dots`/`Points`** — `core/math/geometry.h:46-75` — zero users; they are the sole reason this header includes `color/color.h` and `static_circular_buffer.h`.
 
 173. **Dead quaternion API with an ambiguous contract** — `core/math/3dmath.h:658,1195` — `unit_inverse()` and `angle_between(Quaternion,Quaternion)`; the latter returns the 4-D half-angle and gives different results for `q` and `−q`.
 

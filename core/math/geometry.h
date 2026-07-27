@@ -10,9 +10,7 @@
 #include "engine/platform.h"
 #include "engine/constants.h"
 #include "math/3dmath.h"
-#include "color/color.h"
-#include "engine/static_circular_buffer.h" // for StaticCircularBuffer (Dots/Points)
-#include "engine/util.h"                   // for wrap()
+#include "engine/util.h" // for wrap()
 
 /**
  * @brief Unit vector along the Cartesian X-axis.
@@ -38,41 +36,6 @@ struct PixelCoords {
   float x; /**< Horizontal coordinate. */
   float y; /**< Vertical coordinate. */
 };
-
-/**
- * @brief Structure representing a single rendered point (dot) in the scene.
- * @details Stores the 3D position and the color to be plotted.
- */
-struct Dot {
-  /**
-   * @brief Constructs a Dot.
-   * @param v The 3D position vector.
-   * @param color The pixel color with alpha.
-   */
-  Dot(const Vector &v, const Color4 &color) : position(v), color(color) {}
-
-  /**
-   * @brief Copy constructor — defaulted to keep Dot trivially copyable so the
-   * 1024-deep StaticCircularBuffer can memcpy/vectorize copies.
-   */
-  Dot(const Dot &d) = default;
-
-  Vector position; /**< The 3D position (unit vector). */
-  Color4 color;    /**< The color of the dot. */
-};
-
-/**
- * @brief Type alias for a circular buffer used to store active dots/fragments.
- * @details Capacity is set to 1024.
- */
-using Dots = StaticCircularBuffer<Dot, 1024>;
-
-/**
- * @brief Type alias for a circular buffer used to store geometry points
- * (Vectors).
- * @details Capacity is set to 1024.
- */
-using Points = StaticCircularBuffer<Vector, 1024>;
 
 /**
  * @brief Converts a pixel y-coordinate to a spherical phi angle.
