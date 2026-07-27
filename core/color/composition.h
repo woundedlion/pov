@@ -996,12 +996,15 @@ public:
                                  const BakedPalette &to, float w) {
     HS_CHECK(from.lut_ && to.lut_, "BakedPalette::bake_blend before bake()");
     lut_ = arena.allocate_n<Color4>(LUT_SIZE);
-    const uint16_t weight = static_cast<uint16_t>(w * 65535.0f + 0.5f);
+    // Clamp before the cast: w < 0 or NaN is float->int UB, and a NaN weight
+    // would otherwise reach every entry's alpha.
+    const float wc = hs::clamp(w, 0.0f, 1.0f);
+    const uint16_t weight = frac_to_q16(wc);
     for (int i = 0; i < LUT_SIZE; ++i) {
       const Color4 &a = from.lut_[i];
       const Color4 &b = to.lut_[i];
       lut_[i] = Color4(a.color.lerp16(b.color, weight),
-                       a.alpha + (b.alpha - a.alpha) * w);
+                       a.alpha + (b.alpha - a.alpha) * wc);
     }
   }
 
