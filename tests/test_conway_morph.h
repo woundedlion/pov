@@ -3098,9 +3098,9 @@ inline void test_opleg_step_leg_smoke() {
 
 /**
  * @brief Pins the immutable build-colour model on legs constructed with an
- *        immutable handoff, as the IslamicStars build scheduler does: every
- *        frame — the arrival frame included — draws every face in exactly its
- *        from palette (carried faces the handed-off colour, newborn cohorts
+ *        immutable handoff (an engine-side model no shipped effect selects):
+ *        every frame — the arrival frame included — draws every face in exactly
+ *        its from palette (carried faces the handed-off colour, newborn cohorts
  *        the next wrapping-counter entries of the palette order at birth),
  *        for a hankin leg, a bridge truncate leg, the medial, and the
  *        reconcile. A ConwayGraph edge leg keeps the classic_blend default:
