@@ -2198,9 +2198,11 @@ private:
  *   void   retarget(v)               — re-randomize per-transition state
  *   Vector warp(v, phase)            — pre-ripple unit-sphere vertex warp
  *   float  face_offset(center, i, cls) — per-face sweep ordering in [0, 1]
- *   float  face_fade_frac(i)          — per-face fade length as a window
- * fraction float  face_phase(phase, offset[, fade_frac]) — face-local phase
- * from the front
+ *   float  face_phase(phase, offset, fade_frac) — face-local phase from the
+ *                                                 front
+ *
+ * A policy defining face_offset must define face_phase; face_fade_frac is
+ * Base's (1 = fade over the whole window) unless the policy shadows it.
  *
  * A per-face policy may also declare `static constexpr bool LOCAL_SWEEP =
  * true` to order faces by the untransformed mesh instead of world-space
@@ -2275,6 +2277,12 @@ struct Base {
   }
   /** @brief Color regrade applied after the palette lookup. */
   Color4 grade(Color4 c, float) const { return c; }
+  /**
+   * @brief Per-face fade length as a fraction of the transition window.
+   * @return 1 — the face fades over the whole window, so face_phase reduces to
+   * the global phase for a policy with no per-face fade of its own.
+   */
+  float face_fade_frac(int) const { return 1.0f; }
 };
 
 /**
@@ -2417,7 +2425,7 @@ struct Shockwave : Base {
     float angle = fast_acos(hs::clamp(dot(center, origin), -1.0f, 1.0f));
     return 1.0f - angle * (1.0f / PI_F);
   }
-  float face_phase(float phase, float offset) const {
+  float face_phase(float phase, float offset, float = 0.0f) const {
     return sweep_phase(phase, offset, BAND);
   }
   float opacity(float phase) const { return phase; }
@@ -2469,7 +2477,7 @@ struct Breakdown : Base {
     return static_cast<float>(num_classes - 1 - r) /
            static_cast<float>(num_classes - 1);
   }
-  float face_phase(float phase, float offset) const {
+  float face_phase(float phase, float offset, float = 0.0f) const {
     // Class windows tile [BLACK_DWELL, 1]; phase 1 stays the identity plateau.
     float band = (1.0f - BLACK_DWELL) / static_cast<float>(num_classes);
     return hs::clamp(
