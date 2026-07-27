@@ -291,6 +291,12 @@ def main(argv: list[str] | None = None) -> int:
             print(issue)
         print(f"[docs-check] FAIL - {len(issues)} issue(s)", file=sys.stderr)
         return 1
+    # No tracked Markdown means the checker was pointed somewhere it cannot see
+    # the repository (wrong --root, no git); passing would certify nothing.
+    if not markdown:
+        print(f"[docs-check] tooling error: no tracked Markdown under "
+              f"{args.root.resolve()}", file=sys.stderr)
+        return 2
     print(f"[docs-check] PASS - {len(markdown)} tracked Markdown file(s)")
     return 0
 

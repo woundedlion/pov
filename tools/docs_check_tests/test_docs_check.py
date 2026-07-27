@@ -61,6 +61,15 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(markdown, [PurePosixPath("README.md")])
         self.assertEqual(issues, [])
 
+    def test_repository_without_markdown_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / "target.txt").write_text("ok\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "target.txt"],
+                           check=True)
+            self.assertEqual(dc.main(["--root", str(root)]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
