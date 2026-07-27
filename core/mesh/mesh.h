@@ -523,10 +523,21 @@ template <typename MeshT>
 __attribute__((always_inline)) inline void
 classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
                     Arena &persistent) {
-  ScratchScope scratch_a_guard(scratch_a);
-
   // Topology via accessors (borrowed-mode safe); vertices/topology are direct.
   size_t F = mesh.get_face_counts_size();
+
+  // Bound above the scratch guard: persistent may alias scratch_a, whose rewind
+  // would free the topology block on return. Binding unconditionally reuses the
+  // block in place when persistent already backs it with room, and trips
+  // bind()'s stale-binding contract if a different arena is passed while
+  // capacity happens to suffice.
+  mesh.topology.bind(persistent, F);
+  for (size_t i = 0; i < F; ++i) {
+    mesh.topology.push_back(0);
+  }
+
+  ScratchScope scratch_a_guard(scratch_a);
+
   size_t I = mesh.get_faces_size();
   const uint8_t *face_counts = mesh.get_face_counts_data();
   const uint16_t *faces = mesh.get_faces_data();
@@ -679,14 +690,6 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     return a.hash > b.hash;
   };
   std::sort(nodes, nodes + F, hash_greater);
-
-  // Bind unconditionally: reuses the block in place when persistent already
-  // backs it with room, and trips bind()'s stale-binding contract if a
-  // different arena is passed while capacity happens to suffice.
-  mesh.topology.bind(persistent, F);
-  for (size_t i = 0; i < F; ++i) {
-    mesh.topology.push_back(0);
-  }
 
   if (F > 0) {
     int current_id = 0;
