@@ -7,6 +7,7 @@ Re-run after `python pcb.py --unplaced` regenerates the board.
 """
 import json
 import os
+import sys
 import pcbnew
 
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "unplaced")
@@ -37,9 +38,14 @@ for L in (pcbnew.In1_Cu, pcbnew.In2_Cu):
 
 # --- inner ground planes: GND zones on In1.Cu and In2.Cu over the board outline ---
 gnd = b.GetNetcodeFromNetname("GND")
+if not gnd:
+    sys.exit(f"no GND net in {F}")
 bb = b.GetBoardEdgesBoundingBox()
 x0, y0, x1, y1 = bb.GetLeft(), bb.GetTop(), bb.GetRight(), bb.GetBottom()
 corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+for z in list(b.Zones()):
+    if z.GetNetCode() == gnd and z.GetLayer() in (pcbnew.In1_Cu, pcbnew.In2_Cu):
+        b.Remove(z)
 for layer in (pcbnew.In1_Cu, pcbnew.In2_Cu):
     z = pcbnew.ZONE(b)
     z.SetLayer(layer)
@@ -74,9 +80,12 @@ STACKUP = """\t\t(stackup
 \t\t\t(dielectric_constraints no)
 \t\t)
 """
+SETUP = "\t(setup\n"
 txt = open(F, encoding="utf-8").read()
 if "(stackup" not in txt:
-    txt = txt.replace("\t(setup\n", "\t(setup\n" + STACKUP, 1)
+    if SETUP not in txt:
+        sys.exit(f"no '(setup' block to hold the stackup in {F}")
+    txt = txt.replace(SETUP, SETUP + STACKUP, 1)
     open(F, "w", encoding="utf-8").write(txt)
 
 # --- ensure the project DRC keeps min_clearance > 0 (KiCad resets it to 0 on every
