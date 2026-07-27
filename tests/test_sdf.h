@@ -941,6 +941,31 @@ struct MockFullWidthShape {
     return false;
   }
 };
+
+/**
+ * @brief Mock that violates the interval protocol by emitting before falling back.
+ * @details The protocol requires a false return to emit nothing. Nothing in the
+ *   shape library does this; the mock exists so a CSG parent's fallback path can
+ *   be checked for propagating the violation upward.
+ */
+struct MockEmitThenFullWidthShape {
+  float thickness = 0.1f; /**< Stroke half-width the parent reads. */
+  static constexpr bool is_solid =
+      true; /**< Marks the mock as a solid fill shape. */
+  /**
+   * @brief Emits one span and then requests a full-row distance scan anyway.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam Out Interval-sink callable type taking (start, end).
+   * @param out Sink invoked once before the fallback.
+   * @return Always false.
+   */
+  template <int W, int H, typename Out>
+  bool get_horizontal_intervals(int, Out out) const {
+    out(10.0f, 30.0f);
+    return false;
+  }
+};
 } // namespace sdf_subtract_detail
 
 /**
@@ -1175,6 +1200,40 @@ inline void test_intersection_full_width_child_replays_other() {
   // Both fall back -> full-scan fallback (return false).
   {
     SDF::Intersection<MockF, MockF> s(full, full);
+    std::vector<P> out;
+    bool ok = s.get_horizontal_intervals<256, 128>(
+        0, [&](float st, float en) { out.push_back({st, en}); });
+    HS_EXPECT_FALSE(ok);
+    HS_EXPECT_EQ(out.size(), static_cast<size_t>(0));
+  }
+}
+
+/**
+ * @brief Verifies Intersection emits nothing whenever it requests a full-row scan.
+ * @details The interval protocol pairs a false return with an empty emission: the
+ *   caller walks every column and never reads the buffer, so a span emitted first
+ *   is dropped or shaded twice. Intersection replays a buffered child, which makes
+ *   it the one combinator that could pair both. Driven by a child that itself
+ *   violates the protocol, so the check does not rest on leaf behaviour.
+ */
+inline void test_intersection_full_scan_emits_no_spans() {
+  using P = std::pair<float, float>;
+  using MockE = sdf_subtract_detail::MockEmitThenFullWidthShape;
+  using MockF = sdf_subtract_detail::MockFullWidthShape;
+  MockE emitting;
+  MockF full;
+
+  {
+    SDF::Intersection<MockF, MockE> s(full, emitting);
+    std::vector<P> out;
+    bool ok = s.get_horizontal_intervals<256, 128>(
+        0, [&](float st, float en) { out.push_back({st, en}); });
+    HS_EXPECT_FALSE(ok);
+    HS_EXPECT_EQ(out.size(), static_cast<size_t>(0));
+  }
+
+  {
+    SDF::Intersection<MockE, MockF> s(emitting, full);
     std::vector<P> out;
     bool ok = s.get_horizontal_intervals<256, 128>(
         0, [&](float st, float en) { out.push_back({st, en}); });
@@ -2158,6 +2217,7 @@ inline int run_sdf_tests() {
   test_intersection_thickness_is_min();
   test_intersection_unsorted_child_yields_sorted_result();
   test_intersection_full_width_child_replays_other();
+  test_intersection_full_scan_emits_no_spans();
   test_intersection_seam_straddle_overlaps_across_wrap_frames();
 
   test_smooth_union_matches_union_far_from_boundary();
