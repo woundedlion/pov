@@ -29,8 +29,9 @@ using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
 
 /**
  * @brief Trait indicating a filter operates in 2D screen space.
- * @details `is_terminal`: writes the Canvas directly in flush() and ignores its
- * `pass` callback (must be the last stage). `terminal_replaces`: a terminal that
+ * @details `is_terminal`: writes the Canvas directly, so it must be the last
+ * stage and its flush takes neither a trail nor a `pass` callback
+ * (`flush(Canvas&, float)`). `terminal_replaces`: a terminal that
  * overwrites the whole frame (Feedback's opaque store), so no history-bearing
  * stage may precede it — its flush emissions would be clobbered — and the
  * effect must flush BEFORE the frame's plot() calls, not after as a
@@ -114,6 +115,7 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_2d_history = false;
   static constexpr bool any_3d_history = false;
+  static constexpr bool any_2d_trail_history = false;
   /** @brief No stage re-emits clip-cull edges (see the recursive case). */
   static constexpr bool has_world_cull = false;
 
@@ -218,10 +220,17 @@ template <int W, int H> struct Pipeline<W, H> {
    * @details Unused Canvas, WorldTrailFn and alpha parameters.
    */
   void flush(Canvas &, const WorldTrailFn &, float) {}
+  /**
+   * @brief Terminal-stage flush no-op (sink has no history).
+   * @details Unused Canvas and alpha parameters.
+   */
+  void flush(Canvas &, float) {}
   /** @brief Terminates the recursive screen-trail flush walk. */
   void flush_stages(Canvas &, const ScreenTrailFn &, float) {}
   /** @brief Terminates the recursive world-trail flush walk. */
   void flush_stages(Canvas &, const WorldTrailFn &, float) {}
+  /** @brief Terminates the recursive terminal-stage flush walk. */
+  void flush_stages(Canvas &, float) {}
 
   /**
    * @brief Clip-cull terminal: the edge has cleared every world stage, so run
@@ -260,6 +269,11 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       (Head::has_history && Head::is_2d) || Next::any_2d_history;
   static constexpr bool any_3d_history =
       (Head::has_history && !Head::is_2d) || Next::any_3d_history;
+  // A terminal stage composites into the Canvas itself, so its flush takes no
+  // trail callback; only these stages need one.
+  static constexpr bool any_2d_trail_history =
+      (Head::has_history && Head::is_2d && !Head::is_terminal) ||
+      Next::any_2d_trail_history;
 
   /**
    * @brief True when any stage overrides cull_edge (re-emits clip-cull edges
@@ -419,12 +433,16 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       "3D history filter must define "
       "flush(const WorldTrailFn&, float, PassFn3D)");
   static_assert(
-      !Head::has_history || !Head::is_2d ||
+      !Head::has_history || !Head::is_2d || Head::is_terminal ||
           requires(Head h, Canvas &cv, const ScreenTrailFn &s, PassFn2D p) {
             h.flush(cv, s, 1.0f, p);
           },
       "2D history filter must define "
       "flush(Canvas&, const ScreenTrailFn&, float, PassFn2D)");
+  static_assert(
+      !Head::has_history || !Head::is_terminal || requires(Head h, Canvas &cv) {
+        h.flush(cv, 1.0f);
+      }, "terminal history filter must define flush(Canvas&, float)");
 
   static_assert(
       !Head::is_terminal || sizeof...(Tail) == 0,
@@ -484,6 +502,26 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   }
 
   /**
+   * @brief Flushes every terminal history stage in the pipeline.
+   * @param cv Target canvas.
+   * @param alpha Global blend alpha in [0, 1].
+   * @details For pipelines whose only history is terminal (Pixel::Feedback):
+   * a terminal composites into the Canvas itself and needs no trail callback.
+   */
+  void flush(Canvas &cv, float alpha) {
+    static_assert(
+        any_2d_history,
+        "Wrong flush() domain: this Pipeline has no terminal history stage, so "
+        "this overload emits nothing. Pass a ScreenTrailFn or WorldTrailFn.");
+    static_assert(
+        !any_2d_trail_history,
+        "This Pipeline carries a trail-bearing 2D history stage that this "
+        "overload would leave unflushed (and therefore undecayed). Pass a "
+        "ScreenTrailFn instead — it flushes the terminal stage too.");
+    flush_stages(cv, alpha);
+  }
+
+  /**
    * @brief Flushes 2D history for this stage, then recurses into the Tail.
    * @param cv Target canvas.
    * @param trailFn Callback producing trail color/alpha per screen point.
@@ -495,11 +533,28 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   void flush_stages(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {
       if constexpr (Head::is_2d) {
-        Head::flush(cv, trailFn, alpha,
-                    [&](auto... args) { next.plot(cv, args...); });
+        if constexpr (Head::is_terminal) {
+          Head::flush(cv, alpha);
+        } else {
+          Head::flush(cv, trailFn, alpha,
+                      [&](auto... args) { next.plot(cv, args...); });
+        }
       }
     }
     next.flush_stages(cv, trailFn, alpha);
+  }
+
+  /**
+   * @brief Flushes a terminal history stage, then recurses into the Tail.
+   * @param cv Target canvas.
+   * @param alpha Global blend alpha in [0, 1].
+   * @details Recursion target of flush(), below the domain asserts.
+   */
+  void flush_stages(Canvas &cv, float alpha) {
+    if constexpr (Head::has_history && Head::is_terminal) {
+      Head::flush(cv, alpha);
+    }
+    next.flush_stages(cv, alpha);
   }
 
   /**
@@ -1480,14 +1535,14 @@ namespace Pixel {
  * @details The Style's spatial warp is computed on a spherical latitude-ring
  * field, then interpolated within and between rings.
  * flush() iterates the full pixel grid within the active clip band. TERMINAL:
- * flush() composites directly into the Canvas and ignores its `pass` callback,
+ * flush() composites directly into the Canvas rather than re-emitting downstream,
  * so it must be the last Pipeline stage. The effect must call flush() BEFORE
  * the frame's plot() calls (see `terminal_replaces`); flushing last, as a
  * non-replacing terminal permits, blanks the frame at alpha >= 1.
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
 public:
-  /** @brief Marks this as terminal: flush() writes the Canvas and ignores `pass`. */
+  /** @brief Marks this as terminal: flush() writes the Canvas directly. */
   static constexpr bool is_terminal = true;
   /** @brief Opaque store owns the frame: no history stage may precede it. */
   static constexpr bool terminal_replaces = true;
@@ -1532,7 +1587,7 @@ public:
    * segment's cylindrical clip. No-op when disabled.
    */
   HS_O3_BEGIN
-  void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
+  void flush(Canvas &cv, float alpha) {
     if (!enabled)
       return;
 

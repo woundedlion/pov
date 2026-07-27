@@ -150,8 +150,7 @@ public:
     {
       // Feedback-buffer warp/tap + decay flush.
       HS_PROFILE(mf_feedback_flush);
-      filters.flush(
-          canvas, [](float, float, float) { return Color4(0, 0, 0, 0); }, 1.0f);
+      filters.flush(canvas, 1.0f);
     }
 
     {

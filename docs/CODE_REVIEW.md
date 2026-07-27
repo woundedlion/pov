@@ -503,7 +503,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 189. ✅ **`Canvas`'s two constructors duplicate the watchdog spin verbatim** — `core/render/canvas.h:649-658,671-680` — ten identical lines including the test-build counter.
 
-190. **`Feedback::flush` takes two callbacks it ignores** — `core/render/filter.h:1478` — forcing `MeshFeedback` to pass a lambda that is never invoked, when the trait system already knows the stage is terminal.
+190. ✅ **`Feedback::flush` takes two callbacks it ignores** — `core/render/filter.h:1478` — forcing `MeshFeedback` to pass a lambda that is never invoked, when the trait system already knows the stage is terminal.
 
 191. **Branches made unreachable by always-on `HS_CHECK`** — `core/render/plot.h:1729,1813,2024-2031` — two dominated guards plus a redundant `v2` store that rewrites a bit-identical value.
 
