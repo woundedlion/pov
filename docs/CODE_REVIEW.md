@@ -545,7 +545,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 210. **`DisplacementField::step_palette_wipe()` re-implements the engine's wipe counter** — `effects/DisplacementField.h:559-565` — byte-for-byte the arming-skip + decrement half of `step_wipe_rebake`, which two other effects call.
 
-211. **The aged-slot pattern is duplicated across RingShower and Thrusters** — `effects/RingShower.h:127-136`, `effects/Thrusters.h:150-159` — identical `radius_at()`/`expired()` with the same documented `age+1` convention, each pinned by its own test.
+211. ❌ **The aged-slot pattern is duplicated across RingShower and Thrusters** — `effects/RingShower.h:127-136`, `effects/Thrusters.h:150-159` — identical `radius_at()`/`expired()` with the same documented `age+1` convention, each pinned by its own test. Rejected: there is not much to save by factoring this out — the two differ in how they get their divisor and life bound, so a shared helper would trade four lines for a parameterization.
 
 212. **Half of `ReactionDiffusionBase`'s protected surface is single-client** — `effects/ReactionDiffusionBase.h:120,152,248,259,316` — overstating what is actually shared. Two helpers should be private.
 
