@@ -903,22 +903,6 @@ inline void test_world_mobius_identity_and_transform() {
 // ============================================================================
 
 /**
- * @brief Minimal concrete Effect for binding a live Canvas.
- */
-struct PipeFx : public Effect {
-  /**
-   * @brief Constructs the effect at the given framebuffer dimensions.
-   * @param W Framebuffer width in pixels.
-   * @param H Framebuffer height in pixels.
-   */
-  PipeFx(int W, int H) : Effect(W, H) {}
-  /**
-   * @brief Draws one frame (no-op; the tests populate the Canvas directly).
-   */
-  void draw_frame() override {}
-};
-
-/**
  * @brief Tests whether a pixel is exactly black (all channels zero).
  * @param p Pixel to test.
  * @return True when r, g, and b are all zero.
@@ -944,7 +928,7 @@ inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
  * @param fx Effect whose framebuffer is scanned.
  * @return Number of lit (non-black) pixels.
  */
-inline size_t count_lit(const PipeFx &fx) {
+inline size_t count_lit(const hs_test::StubEffect &fx) {
   size_t n = 0;
   for (int y = 0; y < fx.height(); ++y)
     for (int x = 0; x < fx.width(); ++x)
@@ -963,7 +947,7 @@ inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
   // fx and fx2 alias the same static double buffer (Effect's single-live guard),
   // so scope the first effect closed before constructing the second.
   {
-    PipeFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     {
       Canvas c(fx);
       // Integer overload, full alpha over a black buffer -> exact source colour.
@@ -980,7 +964,7 @@ inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
   }
 
   // A second frame: a plot outside the clip band is dropped.
-  PipeFx fx2(W, H);
+  hs_test::StubEffect fx2(W, H);
   fx2.set_clip(2, 5, 0, W); // rows [2,5)
   fx2.set_margin(0);
   {
@@ -999,7 +983,7 @@ inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
  */
 inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
   constexpr int W = 32, H = 16;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
   Vector v = Vector(0.6f, 0.4f, 0.69f).normalized();
   {
@@ -1023,7 +1007,7 @@ inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
  */
 inline void test_pipeline_world_replicate_fans_out() {
   constexpr int W = 32, H = 16;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   // Replicate(2): original + one copy rotated 180 deg about Y (same latitude,
   // longitude + W/2) -> two distinct columns -> two lit pixels.
   Pipeline<W, H, Filter::World::Replicate<W>> pipe(
@@ -1045,7 +1029,7 @@ inline void test_pipeline_world_replicate_fans_out() {
  */
 inline void test_pipeline_2d_into_3d_head_roundtrips() {
   constexpr int W = 32, H = 16;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   // Replicate(1) clamps to a single emission -> identity pass-through.
   Pipeline<W, H, Filter::World::Replicate<W>> pipe(
       Filter::World::Replicate<W>(1));
@@ -1074,7 +1058,7 @@ inline void test_pipeline_2d_into_3d_head_roundtrips() {
  */
 inline void test_pipeline_screen_antialias_routes_to_sink() {
   constexpr int W = 32, H = 16;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipe;
   {
     Canvas c(fx);
@@ -1098,7 +1082,7 @@ render_aa_sink_case(int w, int h, int y0, int y1, int x0, int x1, int margin,
                     const std::vector<AASinkSample> &samples) {
   std::vector<Pixel> frame;
   {
-    PipeFx fx(w, h);
+    hs_test::StubEffect fx(w, h);
     fx.set_clip(y0, y1, x0, x1);
     fx.set_margin(margin);
     Sink sink;
@@ -1220,7 +1204,7 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
  */
 inline void test_feedback_flush_blends_prev_frame() {
   constexpr int W = 32, H = 16; // both divisible by Smoke's downsample (4)
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   ::Feedback::Style style = ::Feedback::Style::Smoke(); // noise stays nullptr
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
@@ -1268,7 +1252,7 @@ inline void test_feedback_flush_blends_prev_frame() {
 inline void test_feedback_north_pole_uses_single_physical_sample() {
   constexpr int W = 32, H = 16;
   constexpr Pixel POLE(12000, 30000, 50000);
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
   style.noise = nullptr; // unbound noise_warp is the identity
@@ -1300,7 +1284,7 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
  */
 inline void test_feedback_polar_rows_use_spherical_footprint() {
   constexpr int W = 64, H = 34;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
   style.noise = nullptr; // unbound noise_warp is the identity
@@ -1350,7 +1334,7 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
  */
 inline void test_feedback_flush_respects_clip() {
   constexpr int W = 32, H = 16; // both divisible by Smoke's downsample (4)
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   ::Feedback::Style style = ::Feedback::Style::Smoke(); // identity warp
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
@@ -1411,7 +1395,7 @@ inline void test_feedback_flush_respects_clip() {
  */
 inline void test_feedback_flush_melt_warp_displaces_south() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
 
   // The default zero hue_shift isolates the SPATIAL warp under test from any hue
   // rotation; noise stays nullptr so melt_warp is fully deterministic (the noise
@@ -1554,7 +1538,7 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
   constexpr int W = 64, H = 64;
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
   style.space_fn = &north_cap_rotation_warp;
@@ -1594,7 +1578,7 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
   constexpr int W = 64, H = 34;
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
   style.space_fn = &animated_cap_rotation_warp;
@@ -1637,7 +1621,7 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
  */
 inline void test_feedback_poles_resolve_one_source_longitude() {
   constexpr int W = 64, H = 64;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   ::Feedback::Style style{};
   style.space_fn = &north_cap_rotation_warp;
   style.fade = 1.0f;
@@ -1679,7 +1663,7 @@ inline void test_feedback_spherical_ring_control_rows() {
   constexpr int W = 64, H = 64;
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
   style.space_fn = &metric_row_test_warp;
@@ -1891,7 +1875,7 @@ inline void test_feedback_seam_warp_keeps_its_latitude_row() {
   constexpr int W = 288, H = 32;
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
   style.space_fn = &opposed_seam_warp;
@@ -1932,7 +1916,7 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   constexpr int W = 64, H = 64;
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   NoiseParams noise;
 
   ::Feedback::Style style{};
@@ -2008,7 +1992,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
   // two pipelines run sequentially over recorded frames.
   auto run = [&](bool cached) {
     std::vector<std::vector<Pixel>> frames;
-    PipeFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     NoiseParams np;
     ::Feedback::Style s{};
     s.noise = &np;
@@ -2103,7 +2087,7 @@ inline Vector antipodal_ripple_warp(const Vector &v,
 inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   constexpr int W = 32, H = 16; // both divisible by the downsample (4)
   constexpr float TWO_PI = 2.0f * PI_F;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
   style.space_fn = &antipodal_ripple_warp;
@@ -2386,7 +2370,7 @@ inline void test_screen_trails_store_emit_decay() {
   Filter::Screen::Trails<W, MAXP> trails(/*lifetime=*/3);
   trails.init_storage(arena);
 
-  PipeFx fx(W, 8); // flush takes a Canvas& (unused by Screen::Trails)
+  hs_test::StubEffect fx(W, 8); // flush takes a Canvas& (unused by Screen::Trails)
   Canvas c(fx);
 
   // age=1 (0<age<lifetime): forwarded this frame AND stored. The forward
@@ -2431,7 +2415,7 @@ inline void test_screen_trails_forwards_aged_emission() {
   Filter::Screen::Trails<W, MAXP> trails(/*lifetime=*/5);
   trails.init_storage(arena);
 
-  PipeFx fx(W, 8);
+  hs_test::StubEffect fx(W, 8);
   Canvas c(fx);
   auto trail = [](float, float, float) { return Color4(Pixel(9, 9, 9), 1.0f); };
 
@@ -2466,7 +2450,7 @@ inline void test_screen_trails_forwards_aged_emission() {
  */
 inline void test_effect_needs_full_frame_default_false() {
   constexpr int W = 8, H = 8;
-  PipeFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   HS_EXPECT_FALSE(fx.needs_full_frame());
 }
 
@@ -2512,7 +2496,7 @@ inline void test_screen_trails_banded_matches_full() {
   };
 
   // One run = a fresh trail buffer + effect driven K frames under the given clip.
-  // PipeFx instances alias the same static double buffer (single-live guard), so
+  // Effect instances alias the same static double buffer (single-live guard), so
   // each run is scoped closed before the next; the arena is reset per run.
   auto run = [&](int cy0, int cy1, Pixel out[H][W]) {
     static uint8_t buf[MAXP * 32];
@@ -2520,7 +2504,7 @@ inline void test_screen_trails_banded_matches_full() {
     Pipeline<W, H, Trails> pipe{Trails(lifetime)};
     pipe.get<Trails>().init_storage(arena);
 
-    PipeFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     fx.set_clip(cy0, cy1, 0, W);
     for (int f = 0; f < K; ++f) {
       {
@@ -2588,7 +2572,7 @@ inline void test_feedback_banded_diverges_from_full() {
     style.downsample = 4;
     Pipeline<W, H, FB> pipe{FB(style)};
 
-    PipeFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     fx.set_clip(cy0, cy1, 0, W);
     auto trail = [](float, float, float) {
       return Color4(Pixel(0, 0, 0), 0.0f);

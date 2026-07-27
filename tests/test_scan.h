@@ -26,24 +26,6 @@ namespace hs_test {
 namespace scan_tests {
 
 /**
- * @brief Minimal Effect backing a Canvas for these tests.
- * @details Performs no per-frame drawing and shows no background, so the canvas
- * starts black and displays only what the test explicitly plots.
- */
-struct ScanFx : public Effect {
-  /**
-   * @brief Constructs the test effect at the given canvas resolution.
-   * @param W Canvas width in pixels.
-   * @param H Canvas height in pixels.
-   */
-  ScanFx(int W, int H) : Effect(W, H) {}
-  /**
-   * @brief Per-frame draw hook; intentionally does nothing for these tests.
-   */
-  void draw_frame() override {}
-};
-
-/**
  * @brief Tests whether a pixel is fully unwritten (cleared-frame black).
  * @param p Pixel to inspect.
  * @return True when all RGB channels are zero.
@@ -61,7 +43,7 @@ inline bool is_black(const Pixel &p) {
  */
 inline void test_shader_constant_fills_canvas() {
   constexpr int W = 32, H = 16;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
     Scan::Shader::draw<W, H, 1>(c, [](const Vector &) {
@@ -93,7 +75,7 @@ inline void test_shader_constant_fills_canvas() {
  */
 inline void test_shader_ssaa_premultiplies_partial_coverage() {
   constexpr int W = 16, H = 8;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
     // Opacity keys on the sub-sample's position, not call order: the 2x2 grid's
@@ -130,7 +112,7 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
  */
 inline void test_shader_positional_maps_latitude() {
   constexpr int W = 32, H = 32;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
     // Green encodes latitude: north pole (v.y≈+1) bright, south (v.y≈-1) dark.
@@ -153,7 +135,7 @@ inline void test_shader_positional_maps_latitude() {
  */
 inline void test_shader_respects_clip_band() {
   constexpr int W = 32, H = 16;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   fx.set_clip(5, 10, 0, W); // rows [5,10)
   fx.set_margin(0);         // no render-margin expansion
 
@@ -181,7 +163,7 @@ inline void test_shader_respects_clip_band() {
  */
 inline void test_ring_rasterize_produces_bounded_output() {
   constexpr int W = 64, H = 48;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe; // bare 2D sink (no filters)
 
   size_t plotted = 0;
@@ -220,7 +202,7 @@ inline void test_ring_rasterize_produces_bounded_output() {
 inline void test_ring_rasterize_lit_pixels_on_band() {
   constexpr int W = 96, H = 64;
   constexpr float radius = 0.5f, thickness = 0.2f;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
@@ -255,7 +237,7 @@ inline void test_ring_rasterize_lit_pixels_on_band() {
  */
 inline void test_ring_rasterize_empty_clip_draws_nothing() {
   constexpr int W = 64, H = 48;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
 
   // Degenerate clip (y_start > y_end) → rasterize must early-out, plot nothing.
@@ -295,7 +277,7 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
     };
     std::vector<Pixel> expected(W * H);
     {
-      ScanFx legacy(W, H);
+      hs_test::StubEffect legacy(W, H);
       if (partial_clip) {
         legacy.set_clip(9, 53, 17, 81);
         legacy.set_margin(0);
@@ -312,7 +294,7 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
           expected[y * W + x] = legacy.get_pixel(x, y);
     }
 
-    ScanFx flat(W, H);
+    hs_test::StubEffect flat(W, H);
     if (partial_clip) {
       flat.set_clip(9, 53, 17, 81);
       flat.set_margin(0);
@@ -374,7 +356,7 @@ inline void test_ring_group_matches_sequential() {
 
     std::vector<Pixel> expected(W * H);
     {
-      ScanFx seq(W, H);
+      hs_test::StubEffect seq(W, H);
       if (partial_clip) {
         seq.set_clip(9, 53, 17, 81);
         seq.set_margin(0);
@@ -395,7 +377,7 @@ inline void test_ring_group_matches_sequential() {
           expected[y * W + x] = seq.get_pixel(x, y);
     }
 
-    ScanFx fused(W, H);
+    hs_test::StubEffect fused(W, H);
     if (partial_clip) {
       fused.set_clip(9, 53, 17, 81);
       fused.set_margin(0);
@@ -498,7 +480,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
 
     std::vector<Pixel> expected(W * H);
     {
-      ScanFx seq(W, H);
+      hs_test::StubEffect seq(W, H);
       if (partial_clip) {
         seq.set_clip(9, 53, 17, 81);
         seq.set_margin(0);
@@ -523,7 +505,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
           expected[y * W + x] = seq.get_pixel(x, y);
     }
 
-    ScanFx fused(W, H);
+    hs_test::StubEffect fused(W, H);
     if (partial_clip) {
       fused.set_clip(9, 53, 17, 81);
       fused.set_margin(0);
@@ -701,7 +683,7 @@ inline void test_scan_region_clip_arc_matches_predicate() {
  */
 inline void test_plot_line_over_pole_reaches_row0() {
   constexpr int W = 288, H = 144;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe; // bare sink (no AA) so we see raw sample placement
 
   // Geodesic from 0.4 rad down the +Z side of the N pole to 0.4 rad down the
@@ -778,7 +760,7 @@ inline float scan_alpha_at(const auto &shape, const Vector &p, Canvas &c,
  */
 inline void test_scan_shader_v2_contract() {
   constexpr int W = 288, H = 144;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Canvas canvas(fx);
   Basis basis = make_basis(Quaternion(), Y_AXIS);
   constexpr float RADIUS = 0.5f;
@@ -838,7 +820,7 @@ inline void test_scan_shader_v2_contract() {
  */
 inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   constexpr int W = 288, H = 144;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Canvas c(fx);
 
   const float thin = 0.05f, thick = 0.30f;
@@ -886,7 +868,7 @@ inline void test_ring_rasterize_lights_expected_row() {
   constexpr int W = 96, H = 48;
 
   auto centroid_and_band = [](float radius) {
-    ScanFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipe;
     {
       Canvas c(fx);
@@ -948,7 +930,7 @@ inline void test_ring_rasterize_lights_expected_row() {
  */
 inline void test_stroke_aa_is_monotone_ramp() {
   constexpr int W = 288, H = 144;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Canvas c(fx);
 
   const float radius = 0.5f;     // centerline at polar PI/4
@@ -1000,7 +982,7 @@ inline void test_stroke_aa_is_monotone_ramp() {
  * @param y Row to scan.
  * @return True if a non-black pixel is found in row y.
  */
-template <int W> inline bool row_has_lit(const ScanFx &fx, int y) {
+template <int W> inline bool row_has_lit(const hs_test::StubEffect &fx, int y) {
   for (int x = 0; x < W; ++x)
     if (!is_black(fx.get_pixel(x, y)))
       return true;
@@ -1023,7 +1005,7 @@ template <int W> inline bool row_has_lit(const ScanFx &fx, int y) {
  *          not.
  */
 template <int W, int H>
-inline void expect_filled_cap(const ScanFx &fx, bool cap_north) {
+inline void expect_filled_cap(const hs_test::StubEffect &fx, bool cap_north) {
   const int near_row = cap_north ? 0 : H - 1;
   const int far_row = cap_north ? H - 1 : 0;
   HS_EXPECT_TRUE((row_has_lit<W>(fx, near_row)));
@@ -1033,7 +1015,7 @@ inline void expect_filled_cap(const ScanFx &fx, bool cap_north) {
 /** @brief Verifies a filled Star caps the basis.v (+Y) pole and not the other. */
 inline void test_star_pixel_placement() {
   constexpr int W = 96, H = 64;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
@@ -1051,7 +1033,7 @@ inline void test_star_pixel_placement() {
 /** @brief Verifies a filled PlanarPolygon caps the basis.v (+Y) pole, not the other. */
 inline void test_planar_polygon_pixel_placement() {
   constexpr int W = 96, H = 64;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
@@ -1074,7 +1056,7 @@ inline void test_planar_polygon_pixel_placement() {
  */
 inline void test_flower_pixel_placement() {
   constexpr int W = 96, H = 64;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
@@ -1103,7 +1085,7 @@ inline void test_flower_pixel_placement() {
  */
 inline void test_overlapping_strokes_composite_blend() {
   constexpr int W = 96, H = 64;
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
 
   constexpr uint16_t red = 60000, green = 50000;
@@ -1260,7 +1242,7 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   SphereSDF sphere{sphere_r};
   Scan::TransformedVolume vol(sphere, center, Quaternion());
 
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   VolumeSink sink;
 
   int hits = 0;
@@ -1327,7 +1309,7 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
                      Vector(0.0f, 0.0f, -0.20f), 0.30f};
   Scan::TransformedVolume vol(shape, center, Quaternion());
 
-  ScanFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   VolumeSink sink;
   {
     Canvas c(fx);

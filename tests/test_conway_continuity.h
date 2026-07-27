@@ -81,20 +81,6 @@ constexpr int FB_W = 288;
 constexpr int FB_H = 144;
 
 /**
- * @brief Minimal Effect that owns a Canvas to draw into.
- */
-struct ContFx : public Effect {
-  /**
-   * @brief Constructs the effect with a FB_W x FB_H canvas.
-   */
-  ContFx() : Effect(FB_W, FB_H) {}
-  /**
-   * @brief Per-frame draw hook; unused, drawing happens via a local Canvas.
-   */
-  void draw_frame() override {}
-};
-
-/**
  * @brief Well-separated flat face color for an emission index.
  * @param i Face emission index (or any small id).
  * @return Fully opaque color, unique per index for the face counts under test.
@@ -116,7 +102,7 @@ inline Color4 face_color(int i) {
 template <typename ColorFn>
 inline void render_faces(std::vector<Pixel> &out, const MeshState &mesh,
                          ColorFn &&color_of) {
-  ContFx fx;
+  hs_test::StubEffect fx(FB_W, FB_H);
   {
     Canvas c(fx);
     Pipeline<FB_W, FB_H> pipe;
@@ -731,7 +717,7 @@ inline void expect_color_eq(const Color4 &a, const Color4 &b) {
  * @param fx Canvas provider.
  * @param snap Receives the frame's face_ramp and sampled ramp colors.
  */
-inline void step_and_snapshot(Animation::OpLeg &anim, ContFx &fx,
+inline void step_and_snapshot(Animation::OpLeg &anim, hs_test::StubEffect &fx,
                               ShadingSnapshot &snap) {
   snap.face_ramp.clear();
   snap.colors.clear();
@@ -909,7 +895,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   const Animation::OpLeg::Landing &landing = anim.landing();
   HS_EXPECT_EQ(landing.primary_faces, cube.face_counts.size());
 
-  ContFx fx;
+  hs_test::StubEffect fx(FB_W, FB_H);
 
   // Frame 1: p = 1/SWEEP < 20%, so w == 0 — the mapped from-state, exactly.
   step_and_snapshot(anim, fx, snap);
@@ -1003,7 +989,7 @@ inline void test_crossfade_class_signature_mapping() {
   const Animation::OpLeg::Landing &landing = anim.landing();
   HS_EXPECT_EQ(landing.primary_faces, octa.face_counts.size());
 
-  ContFx fx;
+  hs_test::StubEffect fx(FB_W, FB_H);
   step_and_snapshot(anim, fx, snap); // frame 1: w == 0
   HS_EXPECT_EQ(snap.colors.size(), landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
@@ -1031,7 +1017,7 @@ inline void test_palette_mapping_total_all_edges() {
   MeshPaletteBank bank;
   bank.bake_all(bank_arena);
 
-  ContFx fx;
+  hs_test::StubEffect fx(FB_W, FB_H);
   for (int ei = 0; ei < ConwayGraph::NUM_EDGES; ++ei) {
     const ConwayGraph::EdgeSpec &e = ConwayGraph::EDGES[ei];
     const int failed_before = hs_test::stats().failed;
@@ -1120,7 +1106,7 @@ inline void test_palette_mapping_deterministic() {
   }();
   HS_EXPECT_GE(edge, 0);
 
-  ContFx fx;
+  hs_test::StubEffect fx(FB_W, FB_H);
   std::array<uint8_t, Animation::OpLeg::PALETTES> to_palette[2];
   std::vector<int> topo[2];
   ShadingSnapshot snaps[2];
@@ -1278,7 +1264,7 @@ inline void test_leg_start_seed_frame_continuity() {
   Arena node_arena(cc_scan_buf, sizeof(cc_scan_buf));
   PolyMesh node_mesh = Solids::finalize_solid(seed_base, node_arena);
 
-  ContFx fx;
+  hs_test::StubEffect fx(FB_W, FB_H);
   for (size_t leg = 0; leg < std::size(SEEDFRAME_SCRIPT); ++leg) {
     const int ei = SEEDFRAME_SCRIPT[leg];
     const EdgeSpec &e = EDGES[ei];

@@ -3398,20 +3398,6 @@ inline void test_voronoi_union_candidates_cover_nearest() {
 }
 
 /**
- * @brief Minimal Effect owning a Canvas, so a mesh can be rasterized in a test.
- */
-struct BudgetCanvasFx : public Effect {
-  /**
-   * @brief Constructs the fixture with a canvas of the given size.
-   * @param w Canvas width in pixels.
-   * @param h Canvas height in pixels.
-   */
-  BudgetCanvasFx(int w, int h) : Effect(w, h) {}
-  /** @brief No-op per-frame hook; the mesh draw under test lights the canvas. */
-  void draw_frame() override {}
-};
-
-/**
  * @brief Gates HankinSolids' hand-tuned scratch budgets against the real
  *        generate+classify+render+compaction peak of every simple solid at the
  *        device height (H=144).
@@ -3467,7 +3453,7 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
       OrientTransformer camera(orientation);
       MeshState rotated;
       MeshOps::transform(mesh, rotated, scratch_arena_a, camera);
-      BudgetCanvasFx fx(W, H);
+      hs_test::StubEffect fx(W, H);
       Canvas canvas(fx);
       Pipeline<W, H> filters;
       auto frag = [](const Vector &, Fragment &f) {

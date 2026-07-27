@@ -50,25 +50,9 @@ namespace animation_tests {
 // ----------------------------------------------------------------------------
 // One genuine Canvas over a tiny Effect, shared across tests. The animations
 // under test take a Canvas& but never dereference it. No test may construct a
-// second Canvas on this shared FakeEffect: that would queue_frame() and spin the
+// second Canvas on this shared effect: that would queue_frame() and spin the
 // next ctor on a display ISR the host never runs.
 // ============================================================================
-
-/**
- * @brief Tiny 8x8 effect that draws nothing; backs the shared fake_canvas().
- * @details A fresh effect's buffer_free() is true, so a Canvas built over it
- * does not spin in its constructor.
- */
-struct FakeEffect : public Effect {
-  /**
-   * @brief Constructs the stand-in effect at a fixed 8x8 resolution.
-   */
-  FakeEffect() : Effect(8, 8) {}
-  /**
-   * @brief Draws nothing; the animations under test never render.
-   */
-  void draw_frame() override {}
-};
 
 /**
  * @brief Storage for the module-scoped fake-canvas pointer.
@@ -2630,7 +2614,7 @@ inline int run_animation_tests() {
   hs_test::ModuleFixture fixture("animation");
 
   // Module-scoped fake-canvas fixture (see "Stand-in Canvas reference" above).
-  FakeEffect fake_fx;
+  hs_test::StubEffect fake_fx(8, 8);
   Canvas fake_cv(fake_fx);
   fake_canvas_ptr() = &fake_cv;
 

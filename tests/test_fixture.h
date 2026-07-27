@@ -13,9 +13,29 @@
 #include "core/animation/animation.h"
 #include "core/engine/memory.h"
 #include "core/engine/platform.h"
+#include "core/render/canvas.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
+
+/**
+ * @brief Concrete Effect that draws nothing, for tests that only need a Canvas.
+ * @details A fresh effect's buffer_free() is true, so a Canvas built over it
+ * does not spin in its constructor. Shows no background, so the canvas starts
+ * black and holds only what the test explicitly plots.
+ */
+struct StubEffect : public Effect {
+  /**
+   * @brief Constructs the stub at the given canvas resolution.
+   * @param w Canvas width in pixels.
+   * @param h Canvas height in pixels.
+   */
+  StubEffect(int w, int h) : Effect(w, h) {}
+  /**
+   * @brief Per-frame draw hook; a no-op for every user of this fixture.
+   */
+  void draw_frame() override {}
+};
 
 /**
  * @brief Resets the canonical process-global state to a known baseline.

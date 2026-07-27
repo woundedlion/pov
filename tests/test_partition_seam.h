@@ -56,14 +56,6 @@ constexpr int DEEP_THRESH = FILL / 5;
 constexpr int VERT_RADIUS = 3;
 
 /**
- * @brief Minimal Effect owning a PS_W x PS_H canvas.
- */
-struct SeamFx : public Effect {
-  SeamFx() : Effect(PS_W, PS_H) {}
-  void draw_frame() override {}
-};
-
-/**
  * @brief Renders one compiled mesh through a fragment shader and captures the
  *        frame.
  * @param out Receives the PS_W x PS_H frame, row-major.
@@ -73,7 +65,7 @@ struct SeamFx : public Effect {
 template <typename ShaderFn>
 inline void render(std::vector<Pixel> &out, const MeshState &mesh,
                    ShaderFn &&shader) {
-  SeamFx fx;
+  hs_test::StubEffect fx(PS_W, PS_H);
   {
     Canvas c(fx);
     Pipeline<PS_W, PS_H> pipe;

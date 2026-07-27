@@ -35,7 +35,7 @@ constexpr int CHANS = W * H * 3;
 
 /** @brief One preset's flush driver: fixed seed, deterministic emission. */
 struct Run {
-  hs_test::filter_tests::PipeFx fx{W, H};
+  hs_test::StubEffect fx{W, H};
   Feedback::Style style;
   NoiseParams noise;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{

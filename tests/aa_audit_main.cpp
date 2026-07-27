@@ -33,11 +33,6 @@ alignas(32) uint8_t g_seed_b[3 * 1024 * 1024];
 alignas(32) uint8_t g_geom[3 * 1024 * 1024];
 alignas(32) uint8_t g_scratch[3 * 1024 * 1024];
 
-struct MeshFx : public Effect {
-  MeshFx() : Effect(W, H) {}
-  void draw_frame() override {}
-};
-
 bool g_face_color = false;
 bool g_no_ref = false;
 
@@ -67,7 +62,7 @@ Vector rotate(const Vector &v, float yaw, float pitch) {
 }
 
 void render(MeshState &mesh, Arena &scratch, std::vector<uint16_t> &out) {
-  MeshFx fx;
+  hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
     Pipeline<W, H> pipe;
