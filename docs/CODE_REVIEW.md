@@ -239,7 +239,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 58. ✅ **README's palette roster is stale** — `README.md:1006` — says twenty-one; `palettes.h` defines 25 (`POPPED_PEACH`, `BLUE_LAGOON`, `ORANGE_CRUSH`, `PLUM_SUNRISE` undocumented). `POPPED_PEACH` is not incidental — it is a live `MeshPaletteBank` slot.
 
-59. **README's rasterizer and transformer tables omit shipped primitives** — `README.md:742-756,908-916` — missing `Scan::DistortedRingStack` and `Scan::RingGroup`, and the entire displacement-field stack (`FieldTransformer`, `BallDropTransformer`, `NoiseProductTransformer`, plus the `spawn`/`spawn_pinned`/`init_storage`/`prepare_frame` ordering contract a new effect author will get wrong).
+59. ✅ **README's rasterizer and transformer tables omit shipped primitives** — `README.md:742-756,908-916` — missing `Scan::DistortedRingStack` and `Scan::RingGroup`, and the entire displacement-field stack (`FieldTransformer`, `BallDropTransformer`, `NoiseProductTransformer`, plus the `spawn`/`spawn_pinned`/`init_storage`/`prepare_frame` ordering contract a new effect author will get wrong).
 
 60. ✅ **README's §7.9 credits `Presets` with interpolation it does not implement** — `README.md:1205` — `presets.h` has no interpolation; callers drive the crossfade via `Animation::Lerp`, and the class doc says so correctly.
 

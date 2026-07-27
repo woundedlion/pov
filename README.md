@@ -774,12 +774,14 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | Primitive | Description |
 |---|---|
 | `Scan::Ring` | Rasterizes a ring (from `SDF::Ring`) |
+| `Scan::RingGroup` | Fused single-pass rasterizer for a small group of rings — one scan over the union band paints every member in slot order, so the per-row interval math runs once instead of per ring. Fragments carry position, stroke coverage and size only (no UVs, no raw distance) |
 | `Scan::Circle` | Filled circle (ring with radius-wide thickness) |
 | `Scan::Point` | Thick dot at a sphere-surface position |
 | `Scan::Line` | Geodesic line segment between two points |
 | `Scan::Star` | N-pointed star shape |
 | `Scan::Flower` | N-petal flower shape |
 | `Scan::DistortedRing` | Ring with per-azimuth radius perturbation |
+| `Scan::DistortedRingStack` | Fused single-pass rasterizer for an evenly spaced same-axis stack of distorted rings — the per-pixel frame every ring shares is computed once and the candidate rings fall out of its polar angle by arithmetic; the shader takes a ring slot alongside the fragment |
 | `Scan::PlanarPolygon` | Regular N-gon in the tangent plane |
 | `Scan::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `Scan::Mesh` | Rasterizes all faces of a `MeshState` or `PolyMesh` |
@@ -947,6 +949,24 @@ Available transformers:
 | `OrientTransformer` | Applies an `Orientation` quaternion rotation to all vertices |
 
 Transformers integrate with the `MeshOps::transform()` pipeline and can be chained: `MeshOps::transform(input, output, arena, ripple_transformer, orient_transformer)`.
+
+#### Displacement Fields
+
+`FieldTransformer<ParamsT, AnimT, FieldFunc, CAPACITY>` is the scalar counterpart: entities superpose by summation instead of composing as warps, so an effect can feed the summed field into a displacement path (e.g. a `DistortedRing` shift LUT). `field(p)` sums the active entities; `field_dominant(p)` blends them magnitude-weighted (`sum(s³)/sum(s²)`) so overlapping bodies dominate instead of stacking; `field_bound()` returns a per-frame upper bound on `|field()|` for sizing conservative culls.
+
+| Field | Effect |
+|---|---|
+| `BallDropTransformer` | Spherical-cap bumps that fall pole-to-pole through a frame, bowing the surface away from each cap |
+| `NoiseProductTransformer` | Two-octave product noise where octave 1 envelopes octave 2, so perturbations bunch where the envelope runs strong |
+
+#### Pool Lifecycle
+
+Both classes derive from `TransformerPool`, which fixes the call order:
+
+1. `init_storage(Arena&)` — from the effect's `init()`, after any `configure_arenas()` and before the first spawn.
+2. `spawn(in_frames, args...)` — the returned pointer is transient; use it at the call site, not across frames.
+3. `spawn_pinned(in_frames, args...)` — same, but the pointer may be retained (e.g. registered as a live GUI param). Valid only for an animation that never completes on its own and is added before any finite timeline event, so compaction cannot shift it.
+4. `prepare_frame()` — each frame before `transform()` / `field()`, whenever active params changed through animation or live config. The composition reads that prepared state but cannot verify it is current.
 
 #### Standalone Utilities
 
