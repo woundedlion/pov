@@ -1113,8 +1113,13 @@ enum class Op : uint8_t {
  * @brief One authored step in a recipe's op chain.
  */
 struct OpStep {
-  Op op;              /**< Operator applied at this step. */
-  float param = 0.0f; /**< t / contact angle (radians) / RELAX iterations. */
+  Op op; /**< Operator applied at this step. */
+  /**
+   * @brief t / contact angle (radians) / RELAX iterations.
+   * @details Unread on a RELAX step carrying a `bake`; such steps leave it at
+   * zero rather than naming a count the replay never runs.
+   */
+  float param = 0.0f;
   float twist = 0.0f; /**< SNUB face rotation, radians. */
   /**
    * @brief RELAX bake this step lands on, mirroring the generator's
@@ -1350,7 +1355,7 @@ inline constexpr Recipe SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE = {
 inline constexpr OpStep DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS[] = {
     {Op::AMBO},
     {Op::BEVEL, 0.33f},
-    {Op::RELAX, 100.0f, 0.0f, &RelaxBakes::dodecahedron_ambo_bevel33_converged},
+    {.op = Op::RELAX, .bake = &RelaxBakes::dodecahedron_ambo_bevel33_converged},
     {Op::HANKIN, 66.0f * IslamicStarPatterns::D2R}};
 /** Recipe mirror of IslamicStarPatterns::dodecahedron_ambo_bevel33_relax_hk66. */
 inline constexpr Recipe DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE = {
@@ -1362,8 +1367,8 @@ inline constexpr Recipe DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE = {
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_STEPS[] = {
         {Op::AMBO},
-        {Op::RELAX, 100.0f, 0.0f,
-         &RelaxBakes::truncated_icosahedron_ambo_converged},
+        {.op = Op::RELAX,
+         .bake = &RelaxBakes::truncated_icosahedron_ambo_converged},
         {Op::HANKIN, 54.0f * IslamicStarPatterns::D2R},
         {Op::NEEDLE}};
 /**
@@ -1389,8 +1394,8 @@ inline constexpr Recipe TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_RECIPE = {
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_STEPS[] = {
         {Op::AMBO},
-        {Op::RELAX, 217.0f, 0.0f,
-         &RelaxBakes::truncated_icosahedron_ambo_converged},
+        {.op = Op::RELAX,
+         .bake = &RelaxBakes::truncated_icosahedron_ambo_converged},
         {Op::TRUNCATE, 0.33f},
         {Op::HANKIN, 64.0f * IslamicStarPatterns::D2R}};
 /**
@@ -1407,7 +1412,7 @@ inline constexpr Recipe
 /** Step table for dodecahedron_bevel2_relax_gyro. */
 inline constexpr OpStep DODECAHEDRON_BEVEL2_RELAX_GYRO_STEPS[] = {
     {Op::BEVEL, 0.2f},
-    {Op::RELAX, 100.0f, 0.0f, &RelaxBakes::dodecahedron_bevel20_converged},
+    {.op = Op::RELAX, .bake = &RelaxBakes::dodecahedron_bevel20_converged},
     {Op::GYRO}};
 /** Recipe mirror of IslamicStarPatterns::dodecahedron_bevel2_relax_gyro. */
 inline constexpr Recipe DODECAHEDRON_BEVEL2_RELAX_GYRO_RECIPE = {
@@ -1417,8 +1422,8 @@ inline constexpr Recipe DODECAHEDRON_BEVEL2_RELAX_GYRO_RECIPE = {
 /** Step table for truncatedIcosidodecahedron_bevel5_relax_hk77. */
 inline constexpr OpStep TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_STEPS[] =
     {{Op::BEVEL, 0.5f},
-     {Op::RELAX, 100.0f, 0.0f,
-      &RelaxBakes::truncated_icosidodecahedron_bevel50_relax100},
+     {.op = Op::RELAX,
+      .bake = &RelaxBakes::truncated_icosidodecahedron_bevel50_relax100},
      {Op::HANKIN, 77.0f * IslamicStarPatterns::D2R}};
 /**
  * Recipe mirror of
@@ -1442,8 +1447,8 @@ inline constexpr Recipe TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE = {
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS[] = {
         {Op::AMBO},
-        {Op::RELAX, 8.0f, 0.0f,
-         &RelaxBakes::truncated_icosahedron_ambo_converged},
+        {.op = Op::RELAX,
+         .bake = &RelaxBakes::truncated_icosahedron_ambo_converged},
         {Op::TRUNCATE, 0.01f},
         {Op::HANKIN, 59.0f * IslamicStarPatterns::D2R}};
 /**
@@ -1461,8 +1466,8 @@ inline constexpr Recipe
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_STEPS[] = {
         {Op::AMBO},
-        {Op::RELAX, 8.0f, 0.0f,
-         &RelaxBakes::truncated_icosahedron_ambo_converged},
+        {.op = Op::RELAX,
+         .bake = &RelaxBakes::truncated_icosahedron_ambo_converged},
         {Op::TRUNCATE, 0.01f},
         {Op::HANKIN, 73.0f * IslamicStarPatterns::D2R}};
 /**
@@ -1482,8 +1487,8 @@ inline constexpr OpStep DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_STEPS[] = {
     {Op::AMBO},
     {Op::HANKIN, 62.0f * IslamicStarPatterns::D2R},
     {Op::AMBO},
-    {Op::RELAX, 100.0f, 0.0f,
-     &RelaxBakes::dodecahedron_hankin_ambo_hankin_ambo_converged},
+    {.op = Op::RELAX,
+     .bake = &RelaxBakes::dodecahedron_hankin_ambo_hankin_ambo_converged},
     {Op::HANKIN, 42.0f * IslamicStarPatterns::D2R}};
 /**
  * Recipe mirror of
@@ -1538,7 +1543,7 @@ inline constexpr Recipe TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE = {
 /** Step table for icosahedron_snub_relax_truncate033_hankin62. */
 inline constexpr OpStep ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_STEPS[] = {
     {Op::SNUB, 0.5f, 0.0f},
-    {Op::RELAX, 8.0f, 0.0f, &RelaxBakes::icosahedron_snub_converged},
+    {.op = Op::RELAX, .bake = &RelaxBakes::icosahedron_snub_converged},
     {Op::TRUNCATE, 0.33f},
     {Op::HANKIN, 62.0f * IslamicStarPatterns::D2R}};
 /**
