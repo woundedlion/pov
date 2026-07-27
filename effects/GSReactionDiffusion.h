@@ -133,7 +133,7 @@ public:
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
-    static_assert(SCRATCH_BYTES <= GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
+    static_assert(SCRATCH_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
                   "GS scratch arena too small for render()'s phase peak");
     configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
 
