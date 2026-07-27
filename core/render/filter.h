@@ -252,6 +252,10 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
 
+  // Shadows the trait `public Head` leaks onto the Pipeline type: unqualified
+  // `crosses_segments` would otherwise answer for the head stage alone.
+  static constexpr bool crosses_segments = any_crosses_segments;
+
   static constexpr bool any_2d_history =
       (Head::has_history && Head::is_2d) || Next::any_2d_history;
   static constexpr bool any_3d_history =
