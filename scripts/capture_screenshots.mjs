@@ -33,6 +33,9 @@ const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined
   ? null
   : numEnv('WAIT_MS', null);
 const BLANK_FLOOR = numEnv('BLANK_FLOOR', 0.0005);
+// Stored width. The README embeds the hero shot at 640 and the gallery at 280,
+// and docs/screenshots/ is installed into daydream, so both repos carry it.
+const OUT_WIDTH = 640;
 
 // The effect roster (and the docs/screenshots freshness gate that mirrors it)
 // is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
@@ -155,7 +158,7 @@ try {
   // floor. Daydream's driver suppresses the PiP under navigator.webdriver, so no
   // post-crop is needed.
   async function grabFrame() {
-    return await page.evaluate(() => {
+    return await page.evaluate((outWidth) => {
       const canvas = document.querySelector('#canvas');
       const SW = 96, SH = 72;
       const off = document.createElement('canvas');
@@ -167,8 +170,12 @@ try {
       for (let i = 0; i < data.length; i += 4) {
         if (data[i] > 12 || data[i + 1] > 12 || data[i + 2] > 12) lit++;
       }
-      return { dataUrl: canvas.toDataURL('image/png'), lit: lit / (SW * SH) };
-    });
+      const thumb = document.createElement('canvas');
+      thumb.width = outWidth;
+      thumb.height = Math.round(canvas.height * outWidth / canvas.width);
+      thumb.getContext('2d').drawImage(canvas, 0, 0, thumb.width, thumb.height);
+      return { dataUrl: thumb.toDataURL('image/png'), lit: lit / (SW * SH) };
+    }, OUT_WIDTH);
   }
 
   // The app rewrites the URL's effect param to whatever it actually selected, so
