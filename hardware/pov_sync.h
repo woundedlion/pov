@@ -628,16 +628,14 @@ public:
    */
   int32_t position(uint32_t at) const {
     const uint32_t elapsed = at - epoch_cycles_; // modular
-    // Fold-before-position invariant: tick() folds every crossed boundary before
-    // calling position(now), so a legitimate elapsed is a small forward coast or a
-    // slight look into the past, both well inside the coast window the constructor
-    // sized the int32 cast for. Check the unsigned magnitude before narrowing: a
-    // forward elapsed past the window wraps to a spurious small-negative int32 that
-    // would slip under a signed bound.
-    const uint32_t bound = static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period_;
-    HS_CHECK(
-        elapsed < bound || elapsed >= 0u - bound,
-        "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
+    // Fold-before-position: tick() folds every crossed boundary before calling
+    // position(), keeping elapsed inside the coast window the constructor sized
+    // the int32 cast for. Test the unsigned magnitude — a forward elapsed past
+    // the window wraps to a small-negative int32 that slips under a signed bound.
+    assert(
+        (elapsed < static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period_ ||
+         elapsed >= 0u - static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period_) &&
+        "Flywheel::position: unfolded coast");
     const int64_t delta = static_cast<int32_t>(elapsed);
     const int64_t cols = floor_div(delta * (w_ / 2), period_);
     return floor_mod(boundary_column(boundary_, w_) + cols, w_);

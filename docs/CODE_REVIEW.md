@@ -333,7 +333,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 105. ❌ **The beacon stale-frame timeout lacks the signed-wrap re-check its siblings have** — `hardware/pov_sync.h:828-831` — after >7.16 s of silence holding a partial frame, the modular difference can read small and a stale digit survives. Bounded (one corrupted frame, rejected by checksum), but asymmetric with the two analogous comparisons in `tick()`. The re-check would be a regression, not a fix: `feed()` is event-driven (its siblings are polled every wake, so their difference never reaches 2^31) and its two burst timestamps are always ordered forward, so adding `(int32_t)diff > 0` would *keep* a stale partial frame across a 3.58–7.16 s silence that today is correctly dropped, while the ≥2^32 case cited stays unreachable to any 32-bit comparison.
 
-106. **`HS_CHECK` sits on the per-wake hot path** — `hardware/pov_sync.h:637-640` — `Flywheel::position()` runs at ~18.4 kHz; project policy is `HS_CHECK` on cold paths only, and the invariant is already trapped in the constructor.
+106. ✅ **`HS_CHECK` sits on the per-wake hot path** — `hardware/pov_sync.h:637-640` — `Flywheel::position()` runs at ~18.4 kHz; project policy is `HS_CHECK` on cold paths only, and the invariant is already trapped in the constructor.
 
 107. **The DMA stale-transfer watchdog is sized and documented two orders of magnitude off** — `hardware/dma_led.h:151-154` — the comment says "single-digit ms"; the real transfer is ~99 µs. At 100 ms a wedged channel freezes the strip for ~230 consecutive column drops before trapping.
 
