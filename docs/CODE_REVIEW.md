@@ -407,7 +407,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 142. ✅ **`worst_a` is computed and printed but never asserted** — `tests/test_opchain_arena_survey.h:197,210` — the scratch-B budget is gated and scratch-A is not, while the shipping chains do get a per-chain gate elsewhere — a clearly unintentional asymmetry.
 
-143. **`aa_audit_main.cpp` and `aa_search_main.cpp` are in no build target** — 338 lines referenced by no CMake file, calling APIs that have since moved. The project made the opposite call for their siblings, keeping `perf_bench` in the build explicitly as a bit-rot guard.
+143. ✅ **`aa_audit_main.cpp` and `aa_search_main.cpp` are in no build target** — 338 lines referenced by no CMake file, calling APIs that have since moved. The project made the opposite call for their siblings, keeping `perf_bench` in the build explicitly as a bit-rot guard.
 
 144. **631 lines of seam gates run under a borrowed module label** — `tests/test_conway_continuity.h:59` — `test_partition_seam.h` is invoked from inside another module's runner, so it has no CTest, `--check-modules` cannot see it, and its failures are misattributed.
 
