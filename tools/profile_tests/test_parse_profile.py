@@ -71,10 +71,6 @@ class SpilledFrames(unittest.TestCase):
         self.assertEqual(pp.spilled_frames(_window(frames=4)), 0)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class RenderIsWall(unittest.TestCase):
     """An effect with no *_buffer_wait scope: Profile.ino's wall-minus-wait
     degenerates to wall, so nothing derived from it may be called render."""
@@ -409,3 +405,7 @@ class FramesMode(unittest.TestCase):
         rows = [l for l in out.getvalue().splitlines() if not l.startswith("#")]
         self.assertEqual(len(rows), 3)
         self.assertEqual(rows[2].split(), ["3", "200000", "190000", "3"])
+
+
+if __name__ == "__main__":
+    unittest.main()

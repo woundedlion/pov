@@ -417,7 +417,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 147. ✅ **Two generators emit through text-mode stdout** — `scripts/generate_luts.py:175`, `scripts/generate_reaction_graph.py:106` — CRLF on Windows, LF in CI, with no `* text=auto` in `.gitattributes`; both provenance gates compare numeric tokens only, so a whole-file line-ending flip rides green.
 
-148. **A misplaced `unittest.main()` hides 4 of 5 test classes** — `tools/profile_tests/test_parse_profile.py:74-75` — direct invocation runs 8 tests and prints OK; discovery runs ~30.
+148. ✅ **A misplaced `unittest.main()` hides 4 of 5 test classes** — `tools/profile_tests/test_parse_profile.py:74-75` — direct invocation runs 8 tests and prints OK; discovery runs ~30.
 
 149. **`docs_check.py` passes when it finds zero Markdown files** — `tools/docs_check.py:294` — the docs workflow step goes green having validated nothing.
 
