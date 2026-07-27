@@ -247,7 +247,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 62. ✅ **README says five geometry tools; §10.11 and the repo say four** — `README.md:1847` vs `:2027` — and only `solids.html` reuses `MeshOps`, not all of them.
 
-63. **`docs/conway_morph_spec.md` names three symbols the tree contradicts** — `docs/conway_morph_spec.md:3-11` — documents an `Animation::ConwayMorph` (renamed `OpLeg`), says `MeshMorph` "remains for MeshFeedback" (deleted), and says `Segue::Dissolve` "is deleted" (it exists). Fix: mark SUPERSEDED rather than editing the body.
+63. ✅ **`docs/conway_morph_spec.md` names three symbols the tree contradicts** — `docs/conway_morph_spec.md:3-11` — documents an `Animation::ConwayMorph` (renamed `OpLeg`), says `MeshMorph` "remains for MeshFeedback" (deleted), and says `Segue::Dissolve` "is deleted" (it exists). Fix: mark SUPERSEDED rather than editing the body.
 
 64. **Two specs still document the far-star guard at its old value** — `docs/conway_morph_spec.md:548`, `docs/opchain_morph_spec.md:1205` vs `core/mesh/hankin.h:294` — both state `STAR_FAR_RATIO_SQ = 36`; the constant is 4.0 with the blend starting at 2.25, and the calibration reasoning in `core/animation/mesh.h:442-448` no longer follows.
 
