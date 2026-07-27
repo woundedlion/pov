@@ -625,9 +625,14 @@ def cmd_validate(windows, effect, scope):
              else ")"))
 
     # Exactness: root cyc/600 vs wall sum for the richest window.
+    # Every check above is skip-on-absent, so this one carries the whole
+    # certification: without it a capture holding no counters at all is VALID.
     w = max(windows, key=lambda w: (w.root_us() or 0))
     root = w.counters.get("frame")
-    if root and w.wall:
+    have = bool(root) and bool(w.wall) and w.wall[3] > 0
+    check(have, "richest window carries a root 'frame' counter and a wall sum"
+                + ("" if have else " — nothing in this capture is measurable"))
+    if have:
         model_us = root["cyc"] / 600.0
         ppm = abs(model_us - w.wall[3]) / w.wall[3] * 1e6
         check(ppm < 100,

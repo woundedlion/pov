@@ -127,7 +127,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 4. ✅ **The Teensy warning ratchet passes on an empty or unparsed build log** — `tools/teensy_warnings.py:112-124` — `extract_warnings("")` yields an empty set, so a total capture break is indistinguishable from today's healthy green (the baseline file is currently empty). Fix: require evidence of real compiler invocations in the log before comparing.
 
-5. **`parse_profile.py validate` certifies a capture containing no data** — `tools/parse_profile.py:572-638` — every check is skip-on-absent, so a log of three bare header lines prints four PASS lines and `VALID`, exit 0. The docs make this the mandatory pre-trust step for every device measurement. Fix: make the ppm-exactness check unconditional on a root counter plus wall being present.
+5. ✅ **`parse_profile.py validate` certifies a capture containing no data** — `tools/parse_profile.py:572-638` — every check is skip-on-absent, so a log of three bare header lines prints four PASS lines and `VALID`, exit 0. The docs make this the mandatory pre-trust step for every device measurement. Fix: make the ppm-exactness check unconditional on a root counter plus wall being present.
 
 6. **`parse_profile.py frames` mode crashes on every real capture** — `tools/parse_profile.py:664` — `frame_rows` entries became 4-tuples at line 188 when per-frame preset attribution landed; the `frames` branch still unpacks three, raising `ValueError`. Fix: `for n, wall, render, _owner in w.frame_rows:`. (Confirmed by direct inspection.)
 
