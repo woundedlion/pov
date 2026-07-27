@@ -67,7 +67,8 @@ struct CompiledHankin {
 
   /**
    * @brief Deep-copies all owned data into a target arena.
-   * @param src Source instance to copy from.
+   * @param src Source instance to copy from; must own its corners, since a
+   * borrow-mode source keeps no corner storage the clone could copy.
    * @param dst Destination instance whose vectors are bound and filled.
    * @param arena Arena backing the destination's freshly bound vectors.
    * @details Required by Cloneable; each vector is rebound from @p arena and
@@ -75,6 +76,10 @@ struct CompiledHankin {
    */
   HS_COLD_MEMBER static void clone(const CompiledHankin &src,
                                    CompiledHankin &dst, Arena &arena) {
+    HS_CHECK(src.dynamic_instructions.size() == 0 ||
+                 src.corner_src == src.base_vertices.data(),
+             "CompiledHankin::clone needs an owned-corner source "
+             "(compile_hankin borrow mode has no corners to copy)");
     copy_vector(dst.base_vertices, src.base_vertices.data(),
                 src.base_vertices.size(), arena);
     copy_vector(dst.static_vertices, src.static_vertices.data(),
@@ -85,7 +90,6 @@ struct CompiledHankin {
                 arena);
     copy_vector(dst.faces, src.faces.data(), src.faces.size(), arena);
     dst.static_offset = src.static_offset;
-    // A clone always owns its corners, even when the source borrowed them.
     dst.corner_src = dst.base_vertices.data();
   }
 };
