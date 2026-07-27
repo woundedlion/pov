@@ -403,7 +403,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 140. ✅ **The CONWAY_SWEEP settle path's arrival frame is not bitwise the classified endpoint** — `core/animation/mesh.h:860-865` — the three sibling paths shortcut at `k >= 1` explicitly so the closing bookend is bitwise; the settle blend does not, violating the file's own stated invariant on the one leg kind that settles.
 
-141. **`MeshCarousel::compact_drop_all` is untested** — `core/animation/mesh.h:2691-2705` — the riskiest of the three compaction primitives (it evacuates nothing) with five live call sites, while both siblings have tests.
+141. ✅ **`MeshCarousel::compact_drop_all` is untested** — `core/animation/mesh.h:2691-2705` — the riskiest of the three compaction primitives (it evacuates nothing) with five live call sites, while both siblings have tests.
 
 142. **`worst_a` is computed and printed but never asserted** — `tests/test_opchain_arena_survey.h:197,210` — the scratch-B budget is gated and scratch-A is not, while the shipping chains do get a per-chain gate elsewhere — a clearly unintentional asymmetry.
 
