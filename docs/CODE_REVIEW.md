@@ -293,7 +293,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 85. ✅ **`expand`/`chamfer`/`snub` document a `[0,1]` parameter and never enforce it, while `truncate` traps** — `core/mesh/conway.h:842,913,1170` vs `:742` — these are the operators whose parameter is *animated* at runtime; a clamp regression feeding `t < 0` inverts the mesh with no trap, on hardware with no console.
 
-86. **The load-bearing scratch-arena contract block omits `medial` and misstates `relax`** — `core/mesh/conway.h:381-398` — `medial` allocates in both arenas and requires a closed manifold, and is absent from both lists; `relax` allocates `orbit_start` and `movements` in `temp` despite the block saying it needs no extra buffers.
+86. ✅ **The load-bearing scratch-arena contract block omits `medial` and misstates `relax`** — `core/mesh/conway.h:381-398` — `medial` allocates in both arenas and requires a closed manifold, and is absent from both lists; `relax` allocates `orbit_start` and `movements` in `temp` despite the block saying it needs no extra buffers.
 
 87. **`relax_baked`'s doc promises a check on source "raw data" that it does not perform** — `core/mesh/conway.h:1107-1116` — only dimensions and a connectivity hash are checked; source vertex positions are deliberately unchecked, which is what lets two direct call sites replay a swept recipe onto the shipped converged mesh.
 
