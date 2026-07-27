@@ -283,8 +283,11 @@ jobs:
         # runtime consumer, so without this it can bit-rot — an assertion or a
         # debug-only branch that stops compiling would ride a green release build.
         # Compile-only (no run); reuses the emsdk + ccache provisioned above.
+        # HS_WASM_DEV_BINDINGS=ON rides this build so the dev-only bindings
+        # (MeshOps::getMaxBounds) compile somewhere; no other preset enables them.
         run: |
-          cmake --preset wasm-debug -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
+          cmake --preset wasm-debug -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install" \
+            -DHS_WASM_DEV_BINDINGS=ON
           cmake --build --preset wasm-debug
 
       - name: Runtime-smoke WASM debug

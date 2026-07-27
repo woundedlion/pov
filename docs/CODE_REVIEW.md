@@ -355,7 +355,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 116. ✅ **The `profile` and `profile_o3` environments are compiled by no gate** — `.github/workflows/ci.yml:590,632`, `justfile:99` — `targets/Profile/Profile.ino` (404 lines) consumes a wide, fragile instrumentation API and is compiled only when a developer runs `just profile`, despite being the harness the entire on-device profiling workflow depends on.
 
-117. **`HS_WASM_DEV_BINDINGS` is compiled by nothing** — `CMakeLists.txt:95`, `targets/wasm/wasm.cpp:1167-1227` — 60 lines touching `Solids`/`PolyMesh` APIs that can break silently until someone flips the option. Fix: add the flag to the existing WASM debug compile-check step.
+117. ✅ **`HS_WASM_DEV_BINDINGS` is compiled by nothing** — `CMakeLists.txt:95`, `targets/wasm/wasm.cpp:1167-1227` — 60 lines touching `Solids`/`PolyMesh` APIs that can break silently until someone flips the option. Fix: add the flag to the existing WASM debug compile-check step.
 
 118. **`platformio.ini`'s toolchain rationale contradicts its own pin** — `platformio.ini:15-20,37-45,113-119` — the file asserts three times that the pin is `teensy@5.0.0` / TD 1.59 / gcc 11.3.1 and justifies the FastLED pin from that; the pin is now `teensy@5.2.0` (TD 1.62 / gcc 15.2.1). These comments are the load-bearing justification for both the FastLED pin and the bench-parity claim.
 
