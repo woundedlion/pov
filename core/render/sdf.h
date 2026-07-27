@@ -3345,7 +3345,7 @@ struct PlanarPolygon {
    * phase.
    * @param b Orientation frame (v = polygon axis).
    * @param th Polygon radius / apothem scale (radians).
-   * @param s Number of polygon sides (must be > 0).
+   * @param s Number of polygon sides (must be >= 3).
    * @param ph Azimuth phase offset (radians).
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
@@ -3353,7 +3353,7 @@ struct PlanarPolygon {
   PlanarPolygon(const Basis &b, float th, int s, float ph, bool invert = false)
       : basis(b), thickness(th), sides(s), phase(ph),
         sign(invert ? -1.0f : 1.0f) {
-    HS_CHECK(sides > 0);
+    HS_CHECK(sides >= 3);
     apothem = thickness * cosf(PI_F / sides);
     AxisProjection ap = project_axis(basis.v);
     ny = ap.ny;
@@ -3478,7 +3478,7 @@ struct SphericalPolygon {
    * phase.
    * @param b Orientation frame (v = polygon axis).
    * @param radius Polygon radius as a fraction of the hemisphere.
-   * @param s Number of polygon sides (must be > 0).
+   * @param s Number of polygon sides (must be >= 3).
    * @param ph Azimuth phase offset (radians).
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
@@ -3486,7 +3486,7 @@ struct SphericalPolygon {
   SphericalPolygon(const Basis &b, float radius, int s, float ph,
                    bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
-    HS_CHECK(sides > 0);
+    HS_CHECK(sides >= 3);
     circumradius = radius * (PI_F / 2.0f);
 
     // Build canonical edge: between vertices at azimuth ±π/n from
@@ -3638,14 +3638,14 @@ struct Star {
    * @brief Builds a star from its basis, radius, point count, and phase.
    * @param b Orientation frame (v = star axis).
    * @param radius Outer radius as a fraction of the hemisphere.
-   * @param s Number of star points (must be > 0).
+   * @param s Number of star points (must be >= 3).
    * @param ph Azimuth phase offset (radians).
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
   Star(const Basis &b, float radius, int s, float ph, bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
-    HS_CHECK(sides > 0);
+    HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // zero radius -> zero-length edge normal (NaN)
     float outer_radius = radius * (PI_F / 2.0f);
     float inner_radius = outer_radius * STAR_INNER_RATIO;
@@ -3783,14 +3783,14 @@ struct Flower {
    * @brief Builds a flower from its basis, radius, petal count, and phase.
    * @param b Orientation frame (v = flower axis).
    * @param radius Outer radius as a fraction of the hemisphere.
-   * @param s Number of petals (must be > 0).
+   * @param s Number of petals (must be >= 3).
    * @param ph Azimuth phase offset (radians).
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
   Flower(const Basis &b, float radius, int s, float ph, bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
-    HS_CHECK(sides > 0);
+    HS_CHECK(sides >= 3);
     float outer = radius * (PI_F / 2.0f);
     apothem = PI_F - outer;
     thickness = outer;

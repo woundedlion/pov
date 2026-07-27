@@ -519,7 +519,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 197. ✅ **The segue+bank `shade_mesh_topology` overload is test-only** — `core/render/shading.h:129-143` — its "single home so the two cannot drift" rationale does not apply to a variant no effect calls.
 
-198. **Degenerate `sides` values are admitted by four fan-shape guards** — `core/render/sdf.h:3389,3522,3681,3826` — `sides == 2` publishes `size == 0`, so a normalized shader divides by zero. Not reachable from production; hardening only.
+198. ✅ **Degenerate `sides` values are admitted by four fan-shape guards** — `core/render/sdf.h:3389,3522,3681,3826` — `sides == 2` publishes `size == 0`, so a normalized shader divides by zero. Not reachable from production; hardening only.
 
 199. **`Dynamo::dir()`'s `@note` is falsified by its own caller** — `effects/Dynamo.h:371-373` — the fractional-step accumulator routinely calls it below the claimed threshold; the conclusion still holds, the stated reason does not.
 
