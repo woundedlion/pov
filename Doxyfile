@@ -22,7 +22,9 @@ EXTRACT_PRIV_VIRTUAL   = YES
 
 # Teensy section/placement macros expand to nothing off-device. Doxygen does not
 # take the platform preprocessor branch, so define them away here to keep the
-# parser seeing plain declarations.
+# parser seeing plain declarations. __EMSCRIPTEN__ gates the entire WASM bridge
+# (targets/wasm/wasm.cpp) plus the effect registry it drives, so without it the
+# JS-facing API publishes as an empty File Reference.
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 PREDEFINED             = FLASHMEM= \
@@ -30,6 +32,7 @@ PREDEFINED             = FLASHMEM= \
                          PROGMEM= \
                          DMAMEM= \
                          "__attribute__(x)=" \
+                         __EMSCRIPTEN__=1 \
                          DOXYGEN=1
 
 GENERATE_HTML          = YES

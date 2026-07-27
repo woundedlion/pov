@@ -230,6 +230,9 @@ HS_WASM_RESOLUTIONS(X)
 /**
  * @brief Invokes f.operator()<W,H>() for the single HS_WASM_RESOLUTIONS row
  *        matching the runtime (w,h).
+ * @tparam F Type of the templated callable.
+ * @param w Runtime canvas width in pixels to match against the row list.
+ * @param h Runtime canvas height in pixels to match against the row list.
  * @param f A C++20 templated callable (e.g. `[]<int W, int H>(){...}`) run with
  *          the matching row's dimensions as compile-time template arguments.
  * @return true iff a row matched and f was invoked; false otherwise.
@@ -1319,6 +1322,8 @@ public:
 
 /**
  * @brief Packs a Vector into a JS {x,y,z} object for the free-function exports.
+ * @param r Vector to pack.
+ * @return JS object with the x, y and z components as numbers.
  */
 static val vector_to_xyz(const Vector &r) {
   val v = val::object();
@@ -1330,6 +1335,8 @@ static val vector_to_xyz(const Vector &r) {
 
 /**
  * @brief True iff every argument is finite (no NaN/Inf).
+ * @param args Floats to test, as a brace-init list at the call site.
+ * @return true if every argument is finite; false if any is NaN or Inf.
  * @details The exported free functions below take raw JS floats straight into
  *          engine math, unlike the class methods (which gate via finite_arg). A
  *          non-finite value can trip an HS_CHECK deep inside the engine and
