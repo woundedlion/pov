@@ -327,7 +327,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 102. ✅ **The RD device-scratch `static_assert`s cannot fire in the native test build** — `effects/GSReactionDiffusion.h:136`, `effects/BZReactionDiffusion.h:100` — they score against the 8 MiB test arena; GS is the binding tenant with 4,096 B of real headroom. Fix: assert against `DEVICE_GLOBAL_ARENA_SIZE`.
 
-103. **`TickActions::zero_crossing` is sticky across a multi-boundary tick** — `hardware/pov_sync.h:1404-1406` — set on a ZERO flip and never cleared on a HALF flip, so a folded tick publishes the wrong half-window and clips one frame to the wrong hemisphere. Requires ≥62.5 ms of ISR coast, so latent, but wrong by construction.
+103. ✅ **`TickActions::zero_crossing` is sticky across a multi-boundary tick** — `hardware/pov_sync.h:1404-1406` — set on a ZERO flip and never cleared on a HALF flip, so a folded tick publishes the wrong half-window and clips one frame to the wrong hemisphere. Requires ≥62.5 ms of ISR coast, so latent, but wrong by construction.
 
 104. **ACQUIRE hard-snaps on a beacon frame's first digit; the README overstates the guarantee** — `hardware/pov_sync.h:1461-1470`, `README.md:1449-1452` — the quiet-before guard catches digits 2–5 but not digit 0, which is preceded by silence. A board falling back to ACQUIRE mid-show can lock with a 72-column phase error and render half-rotated for ~250 ms.
 

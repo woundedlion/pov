@@ -287,6 +287,32 @@ inline void test_build_request_reset() {
 }
 
 /**
+ * @brief Verifies a tick folding several boundaries reports the FINAL one:
+ *        TickActions::zero_crossing names the boundary that opened the display
+ *        window now in effect, which the driver publishes as the window half.
+ */
+inline void test_multi_boundary_tick_window() {
+  const Config cfg = test_config();
+  SyncBoard board(cfg);
+  board.seed(1000u, /*is_master=*/false);
+  board.flywheel_mut().force_lock();
+
+  // Coast past three boundaries in one wake: HALF, ZERO, HALF.
+  const TickActions a =
+      board.tick(1000u + 3u * cfg.cycles_per_half_rev + 10u, nullptr);
+  HS_EXPECT_TRUE(a.flip);
+  HS_EXPECT_FALSE(a.zero_crossing);
+  HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::HALF);
+
+  // The next boundary is a ZERO, and it is reported.
+  const TickActions z =
+      board.tick(1000u + 4u * cfg.cycles_per_half_rev + 10u, nullptr);
+  HS_EXPECT_TRUE(z.flip);
+  HS_EXPECT_TRUE(z.zero_crossing);
+  HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::ZERO);
+}
+
+/**
  * @brief Verifies §6.4 beacon codec: frames round-trip, and corrupted frames
  *        are dropped whole, never partially applied.
  */
@@ -2179,6 +2205,7 @@ inline int run_pov_sync_tests() {
   test_mailbox_prior_staleness();
   test_seed_clears_mailbox();
   test_build_request_reset();
+  test_multi_boundary_tick_window();
   test_beacon_codec();
   test_rev_resync_fold();
   test_flywheel_position();
