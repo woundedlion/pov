@@ -213,7 +213,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 45. ✅ **README's IslamicStars parameter list does not match `register_param`** — `README.md:1592` — documents "Fade" and "Debug BB" (neither exists) and omits "Trans Speed". The prose also omits the effect's headline behaviour, the op-by-op recipe build chain.
 
-46. **README's HankinSolids entry has no Parameters line and mis-describes the effect** — `README.md:1600-1603` — it registers "Intensity" and "Angle"; the one-liner describes neither the Conway edge-graph random walk, the on-screen morph legs, nor the interlace-angle sweep.
+46. ✅ **README's HankinSolids entry has no Parameters line and mis-describes the effect** — `README.md:1600-1603` — it registers "Intensity" and "Angle"; the one-liner describes neither the Conway edge-graph random walk, the on-screen morph legs, nor the interlace-angle sweep.
 
 47. **README's SphericalHarmonics entry omits its parameter list** — `README.md:1612-1616` — the only in-scope §9 entry with no Parameters line; it registers "Amplitude" and "Debug BB".
 
