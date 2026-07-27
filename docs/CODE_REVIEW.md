@@ -585,7 +585,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 230. ✅ **daydream: dead CSS and one unreachable branch comment** — `styles/index.css:48-51,251`, `sidebar.js:282-283` — `.tab.active` never applies and the effect list can never receive focus, so the matching keyboard fallback is unreachable.
 
-231. **daydream: `palettes.html` re-implements `tools/slider.js`** — `tools/palettes.html:569-699` — 130 `innerHTML`-built lines reproducing the same id/class contract without the shared module's validation; only the locked-group drag logic is genuinely page-specific.
+231. ✅ **daydream: `palettes.html` re-implements `tools/slider.js`** — `tools/palettes.html:569-699` — 130 `innerHTML`-built lines reproducing the same id/class contract without the shared module's validation; only the locked-group drag logic is genuinely page-specific.
 
 232. **daydream: stale C++ header paths in tool JSDoc** — `tools/palette_math.js:24,50,328,403`, `tools/lissajous_math.js:28,112`, `tools/color.js:7`, plus two tests — `core/color.h`, `core/geometry.h`, `core/3dmath.h` no longer exist, and `BakedPalette::get` is attributed to the wrong header. These comments are the only pointer to the C++ that must be kept in sync.
 
