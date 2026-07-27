@@ -495,7 +495,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 185. ✅ **Uncovered mesh traps in the death harness** — `core/mesh/mesh.h:165,275,346,361` — the non-manifold-edge trap, the zero-side-face trap, `narrow_face_count` and `require_closed_manifold`; the zero-side case is trivially reachable.
 
-186. **The 10k-leg walk test never exercises `seed_fix_at_start`** — `tests/test_conway_morph.h:967-1017` — and the continuity test's ADOPT gate has already drifted from production by one condition.
+186. ✅ **The 10k-leg walk test never exercises `seed_fix_at_start`** — `tests/test_conway_morph.h:967-1017` — and the continuity test's ADOPT gate has already drifted from production by one condition.
 
 187. **Generated bake aggregates use positional initialization** — `tools/relax_bakes.py:98-102` — four same-typed `uint16_t` fields in a row; a struct reorder still compiles and silently mis-binds.
 
