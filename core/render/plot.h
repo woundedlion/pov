@@ -1059,6 +1059,23 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
 }
 
 /**
+ * @brief scratch_arena_a bytes rasterize binds for its own adaptive sub-step
+ * cache, on top of the caller's Fragments buffer, which stays live across the
+ * call.
+ * @tparam W Rasterization width.
+ * @return The cache size in bytes.
+ * @details Effects sizing a custom scratch-A split must budget this alongside
+ * their own buffers. A planar-basis draw binds count * (sizeof(float) + 1) more
+ * for its per-segment arc/seam caches, where count is the segment count.
+ */
+template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
+  constexpr size_t STEPS = 2 * static_cast<size_t>(W) > 64
+                               ? 2 * static_cast<size_t>(W)
+                               : 64;
+  return STEPS * sizeof(float);
+}
+
+/**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
@@ -1150,7 +1167,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   // step·≥MIN_POLE_SCALE lower clamp caps the per-segment count at the poles).
   // Size off W with 2× headroom; the simulation loop breaks at capacity as a
   // backstop.
-  size_t max_cache = std::max((size_t)64, (size_t)(2 * W));
+  size_t max_cache = rasterize_scratch_a_bytes<W>() / sizeof(float);
   steps_cache.bind(scratch_arena_a, max_cache);
 
   // PLANAR ARC REGISTERS (v0/v1): under a planar basis the rendered edge bows

@@ -46,6 +46,14 @@ public:
                 Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
+  // Scratch A holds one curve's fragment buffer (W/4 + 2 samples) and, during
+  // the rasterize call it stays live across, rasterize's own sub-step cache.
+  static constexpr size_t SCRATCH_A_BYTES = 8 * 1024;
+  static_assert(SCRATCH_A_BYTES >= (W / 4 + 2) * sizeof(Fragment) +
+                                       Plot::rasterize_scratch_a_bytes<W>(),
+                "scratch arena A must fit a curve's fragment buffer and "
+                "rasterize's sub-step cache at once");
+
   /**
    * @brief Sizes the arenas, exposes the user params, and arms the timeline
    *        animations.
@@ -53,7 +61,7 @@ public:
    *          out-of-phase sine mutations driving the ring/line counts.
    */
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - 8 * 1024, 8 * 1024, 0);
+    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     mobius_gen.init_storage(persistent_arena);
     baked_palette.bake(persistent_arena, palette);
