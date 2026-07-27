@@ -431,17 +431,17 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 154. ❌ **daydream: picture-in-picture renders a duplicate of the main view, not the documented back view** — `driver.js:610-612` vs `README.md:1931` — both position and quaternion are copied every frame, and the backface cull keys off the main camera too. The documented rear view never existed; the full 41,472-instance mesh is drawn a second time per frame for it. The standard headless screenshot harness cannot see this (the PiP is suppressed under `navigator.webdriver`). **Rejected:** the picture-in-picture is intended to duplicate the main image; the README's rear-view claim was the error and has been corrected.
 
-155. **daydream: the AppState subscriber is never unsubscribed** — `daydream.js:512,837-857` — `disposeApp()`'s JSDoc claims it releases the listeners this module owns; any post-dispose `set` re-enters `applyEffect()` against a disposed renderer.
+155. ✅ **daydream: the AppState subscriber is never unsubscribed** — `daydream.js:512,837-857` — `disposeApp()`'s JSDoc claims it releases the listeners this module owns; any post-dispose `set` re-enters `applyEffect()` against a disposed renderer.
 
-156. **daydream: resolution presets are hard-coded while the engine publishes `getSupportedResolutions()`** — `daydream.js:74-77` vs `targets/wasm/wasm.cpp:1366` — the exported binding has zero references; an engine-side change leaves the dropdown offering a preset that cannot load.
+156. ✅ **daydream: resolution presets are hard-coded while the engine publishes `getSupportedResolutions()`** — `daydream.js:74-77` vs `targets/wasm/wasm.cpp:1366` — the exported binding has zero references; an engine-side change leaves the dropdown offering a preset that cannot load.
 
-157. **daydream: sort controls are unlabelled and expose no sort state** — `sidebar.js:210-230` — the direction glyph is folded into the accessible name and there is no `aria-pressed`, so a screen-reader user cannot determine the list's ordering.
+157. ✅ **daydream: sort controls are unlabelled and expose no sort state** — `sidebar.js:210-230` — the direction glyph is folded into the accessible name and there is no `aria-pressed`, so a screen-reader user cannot determine the list's ordering.
 
-158. **daydream: the tool-facing WASM surface has no contract pin** — `tests/engine_contract_wasm.test.js:22-31` — `HolosphereEngine`'s methods are pinned but `MeshOps` and `PaletteOps` — the two classes the tools actually run on — are not, and `KNOWN_OPS` is a hand-maintained mirror of the C++ op list.
+158. ✅ **daydream: the tool-facing WASM surface has no contract pin** — `tests/engine_contract_wasm.test.js:22-31` — `HolosphereEngine`'s methods are pinned but `MeshOps` and `PaletteOps` — the two classes the tools actually run on — are not, and `KNOWN_OPS` is a hand-maintained mirror of the C++ op list.
 
-159. **daydream: `NAMED_PROCEDURAL_PALETTES` mirrors 21 of the engine's 25 palettes** — `tools/palette_math.js:109-131` — already drifted; two of the four missing entries carry negative coefficients the gallery has never had to display.
+159. ✅ **daydream: `NAMED_PROCEDURAL_PALETTES` mirrors 21 of the engine's 25 palettes** — `tools/palette_math.js:109-131` — already drifted; two of the four missing entries carry negative coefficients the gallery has never had to display.
 
-160. **daydream: the generative-palette harmony and profile constants are an unpinned C++ mirror** — `tools/palette_math.js:226-265,295-323` — all values currently match `color.h` exactly, but the test only asserts they are integers in `[0,255]`, so `85 → 58` would pass.
+160. ✅ **daydream: the generative-palette harmony and profile constants are an unpinned C++ mirror** — `tools/palette_math.js:226-265,295-323` — all values currently match `color.h` exactly, but the test only asserts they are integers in `[0,255]`, so `85 → 58` would pass.
 
 161. **daydream: `mobius.html` has no export path and uses a different projection pole than the engine** — `tools/mobius.html:359-366` vs `core/math/3dmath.h:893-905` — the tool projects from `1 - p.z` with `(x,y)`; the engine uses `1 - v.y` with `(x,z)`. It designs exactly `MobiusParams` and is the only tool with no copy button, so transcription is manual *and* frame-rotated.
 
