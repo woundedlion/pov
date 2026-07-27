@@ -593,7 +593,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 234. ✅ **daydream: a stray build probe at the repo root** — `sect.cpp`, a two-line `__attribute__((section(".flashmem")))` compiler probe in a static web app; `prompts/` and `.claude/` are also untracked and, unlike Holosphere, not ignored.
 
-235. **Screenshots are ~50× larger than their display size** — `docs/screenshots/*.png` — 24 PNGs at 1360×1146 (up to 1.42 MB each, ~28 MB total) embedded at `width="280"`, and installed into daydream so both repos carry the payload.
+235. ✅ **Screenshots are ~50× larger than their display size** — `docs/screenshots/*.png` — 24 PNGs at 1360×1146 (up to 1.42 MB each, ~28 MB total) embedded at `width="280"`, and installed into daydream so both repos carry the payload.
 
 ---
 
