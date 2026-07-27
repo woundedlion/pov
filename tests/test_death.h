@@ -36,6 +36,7 @@
 #include "core/color/color.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
+#include "core/engine/generators.h"
 #include "core/render/led.h"
 #include "core/engine/memory.h"
 #include "core/mesh/mesh.h"
@@ -115,6 +116,61 @@ inline void case_arena_oom() {
 }
 
 /**
+ * @brief Death case: a zero-size arena allocation must trap.
+ * @details Memory surface — a zero-size request returns a bump pointer that
+ *          reserves nothing and aliases the next allocation's address, so it is
+ *          rejected as misuse rather than handed back as ownable storage.
+ */
+inline void case_arena_zero_size_alloc() {
+  static uint8_t buf[64];
+  Arena a(buf, sizeof(buf));
+  void *p = a.allocate(opaque<size_t>(0)); // size == 0 -> HS_CHECK
+  if (p == reinterpret_cast<void *>(0x1))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a non-power-of-two allocation alignment must trap.
+ * @details Memory surface — allocate()'s padding math is a modulo against the
+ *          requested alignment, which only yields an aligned address for a
+ *          power of two.
+ */
+inline void case_arena_bad_alignment() {
+  static uint8_t buf[64];
+  Arena a(buf, sizeof(buf));
+  void *p = a.allocate(opaque<size_t>(8), opaque<size_t>(3)); // -> HS_CHECK
+  if (p == reinterpret_cast<void *>(0x1))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: shrinking capacity below the live offset must trap.
+ * @details Memory surface — set_capacity moves only the boundary, so a new
+ *          capacity under the live offset would strand already-allocated
+ *          content outside the arena instead of freeing it.
+ */
+inline void case_arena_set_capacity_below_offset() {
+  static uint8_t buf[64];
+  Arena a(buf, sizeof(buf));
+  a.allocate(opaque<size_t>(32), 1);
+  a.set_capacity(opaque<size_t>(16)); // < offset 32 -> HS_CHECK
+}
+
+/**
+ * @brief Death case: a mid-run resplit with live scratch content must trap.
+ * @details Config surface — resplit_arenas rebases both scratch arenas, and a
+ *          ScratchScope saved at offset 0 restores to 0 either way, so live
+ *          scratch content would be silently rebased onto the new split.
+ */
+inline void case_resplit_scratch_not_empty() {
+  configure_arenas_default();
+  scratch_arena_a.allocate(opaque<size_t>(16));
+  resplit_arenas(opaque(DEFAULT_PERSISTENT_SIZE),
+                 opaque(DEFAULT_SCRATCH_A_SIZE),
+                 opaque(DEFAULT_SCRATCH_B_SIZE)); // scratch live -> HS_CHECK
+}
+
+/**
  * @brief Death case: rewinding the arena past its capacity must trap.
  * @details Memory surface — set_offset is the one seam that can break the
  *          offset <= capacity invariant the no-wrap bounds math in allocate()
@@ -161,6 +217,35 @@ inline void case_arena_vector_overflow() {
   v.push_back(1);
   v.push_back(2);
   v.push_back(opaque(3)); // exceeds capacity -> HS_CHECK
+}
+
+/**
+ * @brief Death case: ArenaVector fixed-capacity emplace_back overflow must trap.
+ * @details Arena-container surface — the in-place construction path carries its
+ *          own capacity guard, distinct from push_back's copy path.
+ */
+inline void case_arena_vector_emplace_overflow() {
+  static uint8_t buf[256];
+  Arena a(buf, sizeof(buf));
+  ArenaVector<int> v(a, 2);
+  v.emplace_back(1);
+  v.emplace_back(2);
+  v.emplace_back(opaque(3)); // exceeds capacity -> HS_CHECK
+}
+
+/**
+ * @brief Death case: generate() with a scratch arena as its target must trap.
+ * @details Generator surface — the depth-0 reset and the ScratchScope rewind
+ *          would destroy output written into either engine scratch arena, so an
+ *          aliasing target is rejected before the callback runs.
+ */
+inline void case_generate_target_is_scratch() {
+  configure_arenas_default();
+  int r = generate(scratch_arena_a, [](Arena &, Arena &, Arena &) {
+    return 0;
+  }); // target aliases scratch_arena_a -> HS_CHECK
+  if (r == 42)
+    std::printf("x");
 }
 
 /**
@@ -322,6 +407,42 @@ inline void case_persist_forgot_reset() {
     // restore append past the watermark.
   } // ~Persist restore -> offset past watermark -> HS_CHECK
   if (target.storage == reinterpret_cast<uint8_t *>(0x1))
+    std::printf("x");
+}
+
+/**
+ * @brief Cloneable payload that allocates nothing, so only the distinct-arena
+ *        guard can trap a same-arena Persist.
+ */
+struct FlatProbe {
+  int value = 0; /**< Whole payload; clone() copies it without an arena. */
+  /**
+   * @brief Clones by plain copy, leaving the arena offset untouched.
+   * @param src Source probe.
+   * @param dst Destination probe.
+   * @param arena Unused; the payload needs no storage.
+   */
+  static void clone(const FlatProbe &src, FlatProbe &dst, Arena &arena) {
+    (void)arena;
+    dst.value = src.value;
+  }
+};
+
+/**
+ * @brief Death case: a Persist naming one arena for both roles must trap.
+ * @details Memory surface — ~Persist's watermark restore assumes the backup
+ *          outlives the rewind of the arena it restores into, which a single
+ *          arena cannot provide. The payload allocates nothing, so the
+ *          post-restore watermark check cannot fire and the distinct-arena
+ *          guard is the only reachable trap.
+ */
+inline void case_persist_same_arena() {
+  static uint8_t pbuf[256];
+  Arena persistent(pbuf, sizeof(pbuf));
+  FlatProbe target;
+  target.value = opaque(7);
+  Persist<FlatProbe> p(target, persistent, persistent); // -> HS_CHECK
+  if (target.value == 42)
     std::printf("x");
 }
 
@@ -1070,9 +1191,15 @@ struct Case {
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
       {"arena_oom", case_arena_oom},
+      {"arena_zero_size_alloc", case_arena_zero_size_alloc},
+      {"arena_bad_alignment", case_arena_bad_alignment},
+      {"arena_set_capacity_below_offset", case_arena_set_capacity_below_offset},
+      {"resplit_scratch_not_empty", case_resplit_scratch_not_empty},
       {"arena_set_offset_overflow", case_arena_set_offset_overflow},
       {"scratch_scope_non_lifo", case_scratch_scope_non_lifo},
       {"arena_vector_overflow", case_arena_vector_overflow},
+      {"arena_vector_emplace_overflow", case_arena_vector_emplace_overflow},
+      {"generate_target_is_scratch", case_generate_target_is_scratch},
       {"normalize_zero", case_normalize_zero},
       {"normalize_nan", case_normalize_nan},
       {"solids_index_oob", case_solids_index_oob},
@@ -1084,6 +1211,7 @@ inline const Case *all_cases(int &n) {
       {"spatial_knn_over_max", case_spatial_knn_over_max},
       {"arena_oversubscribed", case_arena_oversubscribed},
       {"persist_forgot_reset", case_persist_forgot_reset},
+      {"persist_same_arena", case_persist_same_arena},
       {"triangular_bitset_unordered_pair",
        case_triangular_bitset_unordered_pair},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
