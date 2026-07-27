@@ -257,7 +257,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 67. ✅ **Calling the wrong-domain `flush()` overload is a silent no-op** — `core/render/filter.h:443-468` — a pipeline whose only history stage is `World::Trails` compiles and does nothing; because aging lives inside `flush`, the ring buffer then fills to capacity and never decays, with no diagnostic. Fix: add `any_2d_history`/`any_3d_history` folds and `static_assert` in each overload.
 
-68. **`Pipeline` publicly inherits `Head`, leaking the head stage's traits onto the pipeline type** — `core/render/filter.h:239` — `Pipeline<…>::crosses_segments` reports the *first* stage's value, not the fold. Every effect correctly uses `any_crosses_segments`, but the wrong spelling compiles and silently yields `full_frame = false` → cross-segment corruption on the segmented driver. Fix: shadow the folded value in the recursive case.
+68. ✅ **`Pipeline` publicly inherits `Head`, leaking the head stage's traits onto the pipeline type** — `core/render/filter.h:239` — `Pipeline<…>::crosses_segments` reports the *first* stage's value, not the fold. Every effect correctly uses `any_crosses_segments`, but the wrong spelling compiles and silently yields `full_frame = false` → cross-segment corruption on the segmented driver. Fix: shadow the folded value in the recursive case.
 
 69. **`Feedback::flush`'s all-black early return assumes the destination is already black** — `core/render/filter.h:1484-1488` — true only because the `Canvas` ctor zeroes it; paired with a `persist = true` effect the band holds the previous frame and feedback silently freezes the image instead of fading it.
 

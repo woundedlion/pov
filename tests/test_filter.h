@@ -166,9 +166,17 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE(
       (Pipeline<W, H, Filter::Screen::Trails<W>>::any_crosses_segments));
 
+  // `public Head` leaks the head stage's traits onto the Pipeline type, so the
+  // unqualified spelling must be shadowed by the fold. MeshStack's head
+  // (World::Orient) is false while the fold is true.
+  HS_EXPECT_TRUE(MeshStack::crosses_segments);
+  HS_EXPECT_FALSE(PlainStack::crosses_segments);
+
   // Compile-time form.
   static_assert(MeshStack::any_crosses_segments,
                 "MeshFeedback pipeline must render full-frame per worker");
+  static_assert(MeshStack::crosses_segments == MeshStack::any_crosses_segments,
+                "Pipeline::crosses_segments must answer the fold, not the head");
   static_assert(!PlainStack::any_crosses_segments,
                 "non-stateful pipeline must keep the segment clipping win");
 }
