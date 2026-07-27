@@ -1372,6 +1372,35 @@ inline void test_baked_palette_clone_from_matches_source() {
 }
 
 /**
+ * @brief Verifies a non-finite blend weight bakes a finite LUT.
+ * @details bake_palette_blend's endpoint gates (w <= 0, w >= 1) are both false
+ *          for NaN, so a degenerate weight reaches bake_blend. Every entry must
+ *          still be a finite color at full alpha rather than a NaN alpha or an
+ *          out-of-range quantized weight.
+ */
+inline void test_bake_palette_blend_nan_weight_stays_finite() {
+  SolidColorPalette black(Color4(Pixel(0, 0, 0), 1.0f));
+  SolidColorPalette white(Color4(Pixel(65535, 65535, 65535), 1.0f));
+
+  alignas(std::max_align_t) static uint8_t
+      buf[3 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+  BakedPalette from, to;
+  from.bake(arena, black);
+  to.bake(arena, white);
+
+  BakedPalette dst;
+  bake_palette_blend(dst, arena, from, to,
+                     std::numeric_limits<float>::quiet_NaN());
+
+  for (int i = 0; i <= 64; ++i) {
+    Color4 c = dst.get(i / 64.0f);
+    HS_EXPECT_TRUE(std::isfinite(c.alpha));
+    HS_EXPECT_NEAR(c.alpha, 1.0f, 1e-6f);
+  }
+}
+
+/**
  * @brief Verifies step_wipe_rebake skips the arming frame, then decrements.
  * @details A ColorWipe is armed mid-step and first steps next frame, so the
  *          arming frame must be consumed without touching the frame counter;
@@ -2153,6 +2182,7 @@ inline int run_color_tests() {
   test_baked_palette_in_range();
   test_baked_palette_color_sampler_matches_get();
   test_baked_palette_clone_from_matches_source();
+  test_bake_palette_blend_nan_weight_stays_finite();
   test_step_wipe_rebake_skips_arming_then_decrements();
 
   test_procedural_palette_cosine();
