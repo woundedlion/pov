@@ -50,6 +50,11 @@ static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
  *  identical under fast-math. */
 static constexpr float COLLAPSED_AREA_RATIO = 1e-5f;
 
+// Scanline interval protocol. get_horizontal_intervals returns true when the
+// spans it emitted describe the row, and false to request a full-row scan. A
+// false return MUST emit nothing: the caller walks every column instead, so a
+// span emitted before the fallback is either dropped or shaded twice.
+
 /** Maximum disjoint scanline spans a single shape (leaf) emits per row.
  *  scan_region's `intervals` buffer holds the widest top-level CSG emission
  *  (Subtract/Intersection: 2x this + 2), and its seam-split `norm` buffer is
@@ -1673,17 +1678,22 @@ template <typename A, typename B> struct Intersection {
           push_interval(intervals_b, start, end);
         });
 
+    // Both children fell back: the row is a full scan, and the protocol forbids
+    // emitting anything alongside it.
+    if (!has_a && !has_b)
+      return false;
+
     // A full-width child intersected with the other child is just the other
     // child's intervals, already collected above; replay the buffer.
     if (!has_a) {
       for (size_t i = 0; i < intervals_b.size(); ++i)
         out(intervals_b[i].first, intervals_b[i].second);
-      return has_b; // both fell back (has_b == false) -> full scan
+      return true;
     }
     if (!has_b) {
       for (size_t i = 0; i < intervals_a.size(); ++i)
         out(intervals_a[i].first, intervals_a[i].second);
-      return true; // has_a is true here
+      return true;
     }
 
     if (intervals_a.is_empty() || intervals_b.is_empty())
