@@ -493,7 +493,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 184. ✅ **`hankin()`'s legal `temp`-aliases-input arrangement is undocumented** — `core/mesh/solids.h:416-420` — safe only because of `ScratchScope` mark ordering; someone "fixing" the apparent aliasing would break the ping-pong.
 
-185. **Uncovered mesh traps in the death harness** — `core/mesh/mesh.h:165,275,346,361` — the non-manifold-edge trap, the zero-side-face trap, `narrow_face_count` and `require_closed_manifold`; the zero-side case is trivially reachable.
+185. ✅ **Uncovered mesh traps in the death harness** — `core/mesh/mesh.h:165,275,346,361` — the non-manifold-edge trap, the zero-side-face trap, `narrow_face_count` and `require_closed_manifold`; the zero-side case is trivially reachable.
 
 186. **The 10k-leg walk test never exercises `seed_fix_at_start`** — `tests/test_conway_morph.h:967-1017` — and the continuity test's ADOPT gate has already drifted from production by one condition.
 

@@ -634,6 +634,96 @@ inline void case_mesh_compile_face_counts_long() {
 }
 
 /**
+ * @brief Builds a PolyMesh from an explicit face-count and flat index list.
+ * @param mesh Mesh to populate.
+ * @param arena Arena backing the mesh arrays.
+ * @param num_verts Vertex count; positions are all zero (never read).
+ * @param counts Per-face side counts.
+ * @param num_faces Number of entries in @p counts.
+ * @param indices Flat per-face vertex index list.
+ * @param num_indices Number of entries in @p indices.
+ */
+inline void build_polymesh(PolyMesh &mesh, Arena &arena, size_t num_verts,
+                           const uint8_t *counts, size_t num_faces,
+                           const uint16_t *indices, size_t num_indices) {
+  mesh.vertices.bind(arena, num_verts);
+  for (size_t i = 0; i < num_verts; ++i)
+    mesh.vertices.push_back(Vector{});
+  mesh.face_counts.bind(arena, num_faces);
+  for (size_t i = 0; i < num_faces; ++i)
+    mesh.face_counts.push_back(opaque(counts[i]));
+  mesh.faces.bind(arena, num_indices);
+  for (size_t i = 0; i < num_indices; ++i)
+    mesh.faces.push_back(opaque(indices[i]));
+}
+
+/**
+ * @brief Death case: a zero-side face must trap while building half-edges.
+ * @details Mesh-topology surface — a zero-count face emits no half-edges yet
+ *          still claims a face slot, whose half_edge entry would then point at
+ *          the next face's loop. The trailing triangle keeps the flat index
+ *          list non-empty so the pairing scratch is a real allocation.
+ */
+inline void case_half_edge_zero_side_face() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {0, 3};
+  const uint16_t indices[] = {0, 1, 2};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 3, counts, 2, indices, 3);
+  HalfEdgeMesh half_edges(arena, mesh); // face 0 has zero sides -> HS_CHECK
+  if (half_edges.faces.size() == opaque<size_t>(99))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: >2 half-edges on one undirected edge must trap.
+ * @details Mesh-topology surface — three faces share edge (0,1), so the pairing
+ *          pass sees a run of three where a 2-manifold allows at most two.
+ *          Pairing the first two would leave the third silently unpaired.
+ */
+inline void case_half_edge_non_manifold_edge() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3, 3, 3};
+  const uint16_t indices[] = {0, 1, 2, 0, 1, 3, 0, 1, 4};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 5, counts, 3, indices, 9);
+  HalfEdgeMesh half_edges(arena, mesh); // 3 half-edges on (0,1) -> HS_CHECK
+  if (half_edges.faces.size() == opaque<size_t>(99))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a face side count past uint8_t must trap.
+ * @details Mesh-topology surface — every operator narrows its output valence
+ *          through this shared guard, so a high-valence orbit traps instead of
+ *          wrapping the uint8_t face_counts entry.
+ */
+inline void case_mesh_narrow_face_count() {
+  uint8_t c = MeshOps::narrow_face_count(opaque(UINT8_MAX + 1)); // -> HS_CHECK
+  if (c == 0xEE)
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: an open mesh must trap the closed-manifold requirement.
+ * @details Mesh-topology surface — operators size their output pools from
+ *          E = I/2, so a lone triangle's three unpaired half-edges are rejected
+ *          up front instead of overrunning a pool far from the cause.
+ */
+inline void case_mesh_require_closed_manifold() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3};
+  const uint16_t indices[] = {0, 1, 2};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 3, counts, 1, indices, 3);
+  HalfEdgeMesh half_edges(arena, mesh);
+  MeshOps::require_closed_manifold(half_edges, "death"); // unpaired -> HS_CHECK
+}
+
+/**
  * @brief Death case: a NaN endpoint fed to slerp must trap.
  * @details Math-core surface — the NaN poisons interpolation through both
  *          branches into the final strict normalized(), which traps rather than
@@ -1248,6 +1338,10 @@ inline const Case *all_cases(int &n) {
       {"half_edge_face_counts_long", case_half_edge_face_counts_long},
       {"mesh_compile_face_counts_short", case_mesh_compile_face_counts_short},
       {"mesh_compile_face_counts_long", case_mesh_compile_face_counts_long},
+      {"half_edge_zero_side_face", case_half_edge_zero_side_face},
+      {"half_edge_non_manifold_edge", case_half_edge_non_manifold_edge},
+      {"mesh_narrow_face_count", case_mesh_narrow_face_count},
+      {"mesh_require_closed_manifold", case_mesh_require_closed_manifold},
       {"slerp_nan", case_slerp_nan},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},
       {"make_rotation_angle_nan", case_make_rotation_angle_nan},
@@ -1532,7 +1626,7 @@ inline int run_death_tests() {
 
   // Floor against a silently dropped case: the roster must not shrink below its
   // known size. Bump when adding cases.
-  constexpr int MIN_DEATH_CASES = 52;
+  constexpr int MIN_DEATH_CASES = 70;
   HS_EXPECT_GE(n, MIN_DEATH_CASES);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
