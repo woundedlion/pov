@@ -341,7 +341,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 109. ✅ **`HD107SFrame::load()`'s tail-blanking loop is never asserted** — `hardware/hd107s_frame.h:170-173` vs `tests/test_hd107s_frame.h:222-245` — deleting the blanking (leaving a stale tail on a partial load) passes the whole suite.
 
-110. **`stackup.py` is not idempotent and fails open in three places** — `hardware/phantasm/gen/stackup.py:39,43-53,78-80` — unconditional zone appends, a netcode lookup that returns 0 for a missing net, and a literal whitespace-sensitive `str.replace` that silently writes no stackup while still printing success.
+110. ✅ **`stackup.py` is not idempotent and fails open in three places** — `hardware/phantasm/gen/stackup.py:39,43-53,78-80` — unconditional zone appends, a netcode lookup that returns 0 for a missing net, and a literal whitespace-sensitive `str.replace` that silently writes no stackup while still printing success.
 
 111. **`fab.py`'s parsed-DRC diagnostic is unreachable** — `hardware/phantasm/gen/fab.py:105-140` — `run()` uses `check=True` while DRC passes `--exit-code-violations`, so the carefully worded violation message can only fire on a board that is already clean.
 
