@@ -1744,14 +1744,12 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
   }
 
   // Manual close (overlap): duplicate vertex 0 with continued arc length.
-  if (points.size() > start_idx) {
-    Fragment last = points[start_idx];
-    cumulative_len += angle_between(points.back().pos, last.pos);
-    last.v0 = 1.0f;
-    last.v1 = cumulative_len;
-    last.v2 = static_cast<float>(num_verts);
-    points.push_back(last);
-  }
+  Fragment last = points[start_idx];
+  cumulative_len += angle_between(points.back().pos, last.pos);
+  last.v0 = 1.0f;
+  last.v1 = cumulative_len;
+  last.v2 = static_cast<float>(num_verts);
+  points.push_back(last);
 }
 
 /**
@@ -1828,15 +1826,13 @@ struct Ring {
     // Manual Close (Overlap): the close vertex at theta == 2π has the same
     // position as the i == 0 vertex; reusing it also avoids the float error a
     // literal 2π+φ argument introduces.
-    if (num_samples > 0) {
-      Fragment f;
-      f.pos = first_pos;
-      f.v0 = 1.0f;
-      f.v1 = 2.0f * PI_F * r_val;
-      f.v2 = static_cast<float>(num_samples);
-      f.age = 0;
-      points.push_back(f);
-    }
+    Fragment f;
+    f.pos = first_pos;
+    f.v0 = 1.0f;
+    f.v1 = 2.0f * PI_F * r_val;
+    f.v2 = static_cast<float>(num_samples);
+    f.age = 0;
+    points.push_back(f);
   }
 
   /**
@@ -2038,11 +2034,9 @@ struct SphericalPolygon {
     size_t start_idx = points.size();
     Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
 
-    // v1 = true geodesic chord length.
+    // v1 = true geodesic chord length; Ring::sample already wrote v0/v2.
     float cumulative_length = 0.0f;
     for (size_t i = start_idx; i < points.size(); ++i) {
-      points[i].v2 = static_cast<float>(i - start_idx);
-
       if (i > start_idx) {
         cumulative_length += angle_between(points[i - 1].pos, points[i].pos);
       }

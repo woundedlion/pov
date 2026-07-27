@@ -505,7 +505,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 190. ✅ **`Feedback::flush` takes two callbacks it ignores** — `core/render/filter.h:1478` — forcing `MeshFeedback` to pass a lambda that is never invoked, when the trait system already knows the stage is terminal.
 
-191. **Branches made unreachable by always-on `HS_CHECK`** — `core/render/plot.h:1729,1813,2024-2031` — two dominated guards plus a redundant `v2` store that rewrites a bit-identical value.
+191. ✅ **Branches made unreachable by always-on `HS_CHECK`** — `core/render/plot.h:1729,1813,2024-2031` — two dominated guards plus a redundant `v2` store that rewrites a bit-identical value.
 
 192. **`rasterize()`'s eleven-parameter positional wall** — `core/render/plot.h:1108-1115` — call sites pass three consecutive `nullptr`s; the file already has the right idiom one level up in `FragmentDrawParams`.
 
