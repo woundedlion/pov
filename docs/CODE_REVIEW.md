@@ -287,7 +287,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 82. ✅ **`build_mesh_class_bake` guards `topology` but not `face_offsets`** — `core/mesh/mesh_classes.h:174-177,208` — dereferences `fo[f]` with no check that offsets are bound or that the span fits, while `scan.h:1415` guards exactly this per face.
 
-83. **`MeshState`'s owned/borrowed mode is discriminated per array, not per mesh** — `core/mesh/spatial.h:362-405,444-467` — a mesh with only some arrays bound would silently serve owned counts against borrowed indices with no trap. The invariant holds today by convention alone.
+83. ❌ **`MeshState`'s owned/borrowed mode is discriminated per array, not per mesh** — `core/mesh/spatial.h:362-405,444-467` — a mesh with only some arrays bound would silently serve owned counts against borrowed indices with no trap. The invariant holds today by convention alone. REJECTED (design-pinned): face_offsets is deliberately optional — DreamBalls binds an edge-only MeshState without it and feeds it through MeshOps::transform, so a per-mesh discriminator or an all-arrays bind-time trap would fire on legitimate meshes; the guard belongs at the consumers that dereference it (finding 82).
 
 84. **`Recipe::seed` indexes `simple_registry` unchecked at three sites** — `core/mesh/solids.h:1138`, `core/mesh/recipe.h:120,186`, `targets/wasm/wasm.cpp:1153` — while the parallel `get_entry` path `HS_CHECK`s. Safe only because every current recipe uses a static-asserted constant. Fix: a constexpr fold over the registry, or one `HS_CHECK`.
 
