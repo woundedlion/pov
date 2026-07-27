@@ -297,7 +297,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 87. ✅ **`relax_baked`'s doc promises a check on source "raw data" that it does not perform** — `core/mesh/conway.h:1107-1116` — only dimensions and a connectivity hash are checked; source vertex positions are deliberately unchecked, which is what lets two direct call sites replay a swept recipe onto the shipped converged mesh.
 
-88. **`relax` drops roughly half of a boundary mesh's edges from its target-length average** — `core/mesh/conway.h:1043-1052` — the `u < v` half-edge filter is correct for interior edges but arbitrary for unpaired boundary ones, biasing the spring target for the whole mesh. Latent (production relaxes only closed manifolds) and the open-mesh test only asserts finiteness.
+88. ✅ **`relax` drops roughly half of a boundary mesh's edges from its target-length average** — `core/mesh/conway.h:1043-1052` — the `u < v` half-edge filter is correct for interior edges but arbitrary for unpaired boundary ones, biasing the spring target for the whole mesh. Latent (production relaxes only closed manifolds) and the open-mesh test only asserts finiteness.
 
 89. **`update_hankin`'s Doxygen block is orphaned onto a constant** — `core/mesh/hankin.h:277-311` — six constant declarations intervene between the block and the function, so the one API here with a non-obvious contract ships undocumented.
 
