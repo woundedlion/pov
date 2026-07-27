@@ -228,29 +228,54 @@ inline void test_fn_copy_move_empty() {
 }
 
 /**
- * @brief A minimal model of Tweenable: a length()/get() container.
- * @details length() returns a size_t count and get(index) yields an element —
- *          the shape Lerp/Transition require of their subject.
+ * @brief A minimal model of Tweenable: a container of frames, each with its own
+ *        sub-frame quaternion history.
+ * @details Mirrors OrientationTrail's shape — the two levels deep_tween walks.
  */
 struct TweenableModel {
+  /** @brief A frame: a fixed-capacity quaternion sub-history. */
+  struct Frame {
+    static constexpr int CAPACITY = 4; /**< Max sub-frames. */
+    /** @brief Sub-frame count, consumed as a size_t. */
+    size_t length() const { return 0; }
+    /** @brief Sub-frame accessor. */
+    const Quaternion &get(int) const { return q; }
+    Quaternion q; /**< Storage backing get(). */
+  };
+  /** @brief Frame count, consumed as a size_t. */
+  size_t length() const { return 0; }
+  /** @brief Frame accessor. */
+  const Frame &get(size_t) const { return frame; }
+  Frame frame; /**< Storage backing get(). */
+};
+
+/**
+ * @brief A flat length()/get() container whose element is a scalar.
+ * @details Stands in for a bare Orientation, whose get() yields a Quaternion:
+ *          one level of history, nothing for deep_tween to flatten.
+ */
+struct FlatTweenableModel {
   /** @brief Element count, consumed as a size_t. */
   size_t length() const { return 0; }
-  /** @brief Element accessor; the concept leaves the return type deduced. */
+  /** @brief Element accessor yielding a scalar. */
   int get(size_t) const { return 0; }
 };
 
 /**
- * @brief Pins the Tweenable concept: a length()/get() container satisfies it, a
- *        scalar does not.
+ * @brief Pins the Tweenable concept: only a two-level frame container satisfies
+ *        it — a flat container and a scalar do not.
  * @details The static_asserts are the compile-time tripwire; the runtime checks
  *          mirror them so a regression is also reported by the harness.
  */
 inline void test_tweenable_concept() {
   static_assert(Tweenable<TweenableModel>,
-                "a length()/get() container must satisfy Tweenable");
+                "a container of frames must satisfy Tweenable");
+  static_assert(!Tweenable<FlatTweenableModel>,
+                "a flat length()/get() container must not satisfy Tweenable");
   static_assert(!Tweenable<int>, "a scalar must not satisfy Tweenable");
 
   HS_EXPECT_TRUE(Tweenable<TweenableModel>);
+  HS_EXPECT_FALSE(Tweenable<FlatTweenableModel>);
   HS_EXPECT_FALSE(Tweenable<int>);
 }
 

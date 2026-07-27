@@ -5,9 +5,10 @@
 
 #pragma once
 #include <concepts>
-#include <cstddef> // std::nullptr_t
-#include <memory>  // std::addressof
-#include <utility> // std::forward
+#include <cstddef>     // std::nullptr_t
+#include <memory>      // std::addressof
+#include <type_traits> // std::remove_cvref_t
+#include <utility>     // std::forward
 #include "math/3dmath.h"
 #include "render/canvas.h"
 #include "color/color.h"     // Pixel
@@ -388,17 +389,23 @@ using ScalarFn = Fn<float(float), 32>;
 using EasingFn = float (*)(float);
 
 /**
- * @brief Concept for any object that maintains a history or sequence accessible
- * by index.
- * @tparam T Candidate type; must expose length() and get(index).
- * @details Matches Orientation (get -> Quaternion) and OrientationTrail (get ->
- * Orientation). get()'s return type is deduced but must be a slerp/lerp-able
- * orientation (Quaternion or Orientation). length() is consumed as a count, so it
- * must be an unsigned integral — a signed type could wrap negative into a huge
- * loop bound.
+ * @brief Concept for a two-level orientation history: a sequence of frames,
+ * each carrying its own sub-frame quaternion history.
+ * @tparam T Candidate type; must expose length() and get(index) yielding a
+ * frame.
+ * @details Matches OrientationTrail (get -> Orientation). The element must
+ * itself be frame-structured — a static CAPACITY plus its own length()/get() —
+ * because deep_tween flattens both levels. A bare Orientation, whose get()
+ * yields a Quaternion, is rejected here rather than deep in instantiation; use
+ * tween() for that. length() is consumed as a count, so it must be an unsigned
+ * integral — a signed type could wrap negative into a huge loop bound.
  */
 template <typename T>
 concept Tweenable = requires(const T &t, size_t i) {
   { t.length() } -> std::unsigned_integral;
-  { t.get(i) }; // Return type is deduced (Quaternion or Orientation)
+  { t.get(i).length() } -> std::unsigned_integral;
+  { t.get(i).get(0) } -> std::convertible_to<Quaternion>;
+  {
+    std::remove_cvref_t<decltype(t.get(i))>::CAPACITY
+  } -> std::convertible_to<size_t>;
 };
