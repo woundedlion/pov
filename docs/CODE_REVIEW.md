@@ -413,7 +413,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 145. ✅ **`capture_screenshots.mjs` writes wrong-effect PNGs when resolution probing degrades** — `scripts/capture_screenshots.mjs:190` — a short-circuit skips the effect-identity confirmation when the resolution list is empty, so the app's fallback effect is saved under another effect's filename — the outcome the code's own comment calls "worse than leaving the stale one". The nonzero exit fires only after the files are on disk.
 
-146. **A truncated relax-bake dump is silently dropped** — `tools/relax_bakes.py:34-70` — a harness crash mid-block discards the partial bake and `emit` reports success with a short asset.
+146. ✅ **A truncated relax-bake dump is silently dropped** — `tools/relax_bakes.py:34-70` — a harness crash mid-block discards the partial bake and `emit` reports success with a short asset.
 
 147. ✅ **Two generators emit through text-mode stdout** — `scripts/generate_luts.py:175`, `scripts/generate_reaction_graph.py:106` — CRLF on Windows, LF in CI, with no `* text=auto` in `.gitattributes`; both provenance gates compare numeric tokens only, so a whole-file line-ending flip rides green.
 
