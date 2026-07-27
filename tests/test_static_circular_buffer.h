@@ -508,6 +508,109 @@ inline void test_index_assignment() {
 }
 
 // ============================================================================
+// for_each / is_linear
+// ============================================================================
+
+/**
+ * @brief Verifies for_each visits every live element front-to-back with
+ *        ascending logical indices.
+ */
+inline void test_for_each_visits_front_to_back() {
+  StaticCircularBuffer<int, 4> buf{10, 20, 30};
+  int values[4] = {};
+  uint32_t indices[4] = {};
+  int n = 0;
+  buf.for_each([&](const int &v, uint32_t i) {
+    values[n] = v;
+    indices[n] = i;
+    ++n;
+  });
+  HS_EXPECT_EQ(n, 3);
+  HS_EXPECT_EQ(values[0], 10);
+  HS_EXPECT_EQ(values[1], 20);
+  HS_EXPECT_EQ(values[2], 30);
+  HS_EXPECT_EQ(indices[0], (uint32_t)0);
+  HS_EXPECT_EQ(indices[1], (uint32_t)1);
+  HS_EXPECT_EQ(indices[2], (uint32_t)2);
+}
+
+/**
+ * @brief Verifies for_each on a wrapped buffer agrees with operator[].
+ * @details for_each walks the backing slots directly and folds the index
+ *          itself instead of routing through operator[]'s modulo, so a wrapped
+ *          buffer (head != 0, live run split across the array end) is the case
+ *          where the two traversals could diverge.
+ */
+inline void test_for_each_after_wrap_matches_indexing() {
+  StaticCircularBuffer<int, 3> buf;
+  for (int i = 1; i <= 5; ++i)
+    buf.push_back(i); // ends as [3, 4, 5] logical, head == 2
+  HS_EXPECT_FALSE(buf.is_linear());
+
+  int values[3] = {};
+  int n = 0;
+  buf.for_each([&](const int &v, uint32_t i) {
+    values[n] = v;
+    HS_EXPECT_EQ(v, buf[i]);
+    ++n;
+  });
+  HS_EXPECT_EQ(n, 3);
+  HS_EXPECT_EQ(values[0], 3);
+  HS_EXPECT_EQ(values[1], 4);
+  HS_EXPECT_EQ(values[2], 5);
+}
+
+/**
+ * @brief Verifies for_each is a no-op on an empty buffer and traverses a
+ *        const buffer.
+ */
+inline void test_for_each_empty_and_const() {
+  StaticCircularBuffer<int, 4> empty;
+  int calls = 0;
+  empty.for_each([&](const int &, uint32_t) { ++calls; });
+  HS_EXPECT_EQ(calls, 0);
+
+  const StaticCircularBuffer<int, 4> filled{7, 8};
+  int sum = 0;
+  filled.for_each([&](const int &v, uint32_t) { sum += v; });
+  HS_EXPECT_EQ(sum, 15);
+}
+
+/**
+ * @brief Verifies is_linear tracks head, the precondition for reading the
+ *        backing slots in array order.
+ * @details Only an eviction or a pop_front advances head; a push_front wraps it
+ *          to the array end. clear() re-bases head to 0.
+ */
+inline void test_is_linear_tracks_head() {
+  StaticCircularBuffer<int, 3> buf;
+  HS_EXPECT_TRUE(buf.is_linear());
+
+  for (int i = 1; i <= 3; ++i)
+    buf.push_back(i); // fills to capacity without evicting
+  HS_EXPECT_TRUE(buf.is_full());
+  HS_EXPECT_TRUE(buf.is_linear());
+
+  buf.push_back(4); // evicts the front, head -> 1
+  HS_EXPECT_FALSE(buf.is_linear());
+
+  buf.clear();
+  HS_EXPECT_TRUE(buf.is_linear());
+
+  buf.push_front(9); // head -> N - 1
+  HS_EXPECT_FALSE(buf.is_linear());
+
+  buf.clear();
+  buf.push_back(1);
+  buf.push_back(2);
+  buf.pop_front(); // head -> 1
+  HS_EXPECT_FALSE(buf.is_linear());
+  buf.pop_back(); // empty, but head stays where it was
+  HS_EXPECT_TRUE(buf.is_empty());
+  HS_EXPECT_FALSE(buf.is_linear());
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -551,6 +654,11 @@ inline int run_static_circular_buffer_tests() {
   test_iterator_arrow_operator();
 
   test_index_assignment();
+
+  test_for_each_visits_front_to_back();
+  test_for_each_after_wrap_matches_indexing();
+  test_for_each_empty_and_const();
+  test_is_linear_tracks_head();
 
   return fixture.result();
 }
