@@ -221,10 +221,11 @@ public:
       }
     };
 
-    // SAMPLES=1: one sample at pixel center. Mirrors Scan::Shader::draw<W, H,
-    // 1>'s clip iteration and telemetry (open-coded only because the coarse
-    // grid needs the integer pixel coordinates the generic shader callback
-    // does not expose).
+    // SAMPLES=1: one sample at pixel center, open-coded because the coarse grid
+    // needs the integer pixel coordinates the generic shader callback does not
+    // expose. Rows cover the margin-expanded render band like
+    // Scan::Shader::draw<W, H, 1>, but columns cover the bare display band, so a
+    // filter with an x margin would read unwritten margin columns.
     int last_ky = -1;
     for (int y = y0; y < y1; ++y) {
       const int ky = (y - y0) / B;

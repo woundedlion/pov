@@ -551,7 +551,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 213. ✅ **A stale doc reference to a nonexistent `refine_nearest_node`** — `effects/ReactionDiffusionBase.h:185`, `core/engine/reaction_graph.h:132` — a reader following the contract lands nowhere.
 
-214. **Voronoi's pixel loop does not mirror `Scan::Shader::draw` as its comment claims** — `effects/Voronoi.h:228-231` — it iterates the bare display band, not the margin-expanded clip band. Harmless today; the comment invites adding a filter and getting a seam.
+214. ✅ **Voronoi's pixel loop does not mirror `Scan::Shader::draw` as its comment claims** — `effects/Voronoi.h:228-231` — it iterates the bare display band, not the margin-expanded clip band. Harmless today; the comment invites adding a filter and getting a seam.
 
 215. **Flyby marks animated params by a name-lookup loop** — `effects/Flyby.h:64-66` — six repeated string literals with runtime-only typo detection, where `register_animated_param` makes the pairing unmissable.
 
