@@ -11,8 +11,9 @@ qualified. The card is **logic-only (~0.15 A)** — each strip draws about 4.3 A
 at N=4 or 2.2 A at N=8, injected **off-board** (spec §2.3), so nothing here
 carries high current.
 
-Contains the **schematic** (electrical design), a **fully-routed PCB**, and an **unplaced
-PCB** variant for autoplacement (Quilter) — see [Files](#files) and [Status](#status).
+Contains the **schematic** (electrical design), a routed PCB (**stale** — pending a
+Quilter re-route, see [Status](#status)), and an **unplaced PCB** variant for
+autoplacement (Quilter) — see [Files](#files).
 
 ## Files
 
@@ -20,7 +21,7 @@ PCB** variant for autoplacement (Quilter) — see [Files](#files) and [Status](#
 |---|---|
 | `phantasm.kicad_pro` | Project file |
 | `phantasm.kicad_sch` | Schematic — all parts, values, footprints, full §10 connectivity |
-| `phantasm.kicad_pcb` | PCB — footprints placed + **fully routed**; extracted construction facts are in [PCB](#pcb-phantasmkicad_pcb) |
+| `phantasm.kicad_pcb` | PCB — footprints placed + routed, but **STALE**: routed against the old mirrored Teensy pad map (see [PCB](#pcb-phantasmkicad_pcb)); re-route from `unplaced/` via Quilter |
 | `unplaced/phantasm_unplaced.kicad_pcb` | **4-layer** (SIG/GND/GND/SIG) outline + net-assigned footprints **staged below the board, unrouted** — for an autoplacer (Quilter). Stackup encoded in-file. Regenerate: `python gen/pcb.py --unplaced` then `<kicad-python> gen/stackup.py` (both write into `unplaced/`) |
 | `phantasm.kicad_sym` | Project symbol library: custom `Teensy4.0` + `+5V_RAW/+5V_LOGIC` power symbols |
 | `phantasm.pretty/` | Project footprint library: generated `Teensy4.0` footprint (2×14 0.1″ THT) |
@@ -66,7 +67,7 @@ the netlist is what's verified.
 
 | Ref(s) | Symbol | Footprint | Notes |
 |---|---|---|---|
-| `U_MCU` | `phantasm:Teensy4.0` | `phantasm:Teensy4.0` (2×14 0.1″ THT) | generated footprint; verify pad map vs your Teensy |
+| `U_MCU` | `phantasm:Teensy4.0` | `phantasm:Teensy4.0` (2×14 0.1″ THT) | pad map = top view (component side up), USB end at −X: top row VIN,GND,3V3,23…13 / bottom row GND,0…12 |
 | `U1` (A–E) | `74xx:74AHCT125` | `Package_SO:SOIC-14_3.9x8.7mm_P1.27mm` | 4 buffers + power unit |
 | `Q_REV` | `Device:D_Schottky` (B5819W) | `Diode_SMD:D_SOD-123` | series reverse-protect; pin2=anode (in), pin1=cathode (out) |
 | `F1` | `Device:Fuse` (0.75 A) | `Fuse:Fuse_1206_3216Metric` | logic-feed overcurrent (~0.15 A draw) |
@@ -112,10 +113,18 @@ the netlist is what's verified.
 - **Teensy symbol** shows only the **pins this board uses** (VIN, 3V3, GND, D1, D3,
   D5, D11, D13, D21, D22, **D23**); the other ~16 pads are unconnected on this design
   and omitted for readability. Pin **number = the Teensy pad label** (e.g. `11`, `VIN`),
-  which matches the generated `phantasm:Teensy4.0` footprint pad names. Verify against
-  your actual Teensy footprint before fabricating.
+  which matches the generated `phantasm:Teensy4.0` footprint pad names. The footprint
+  pad map is the **top view (component side up) with the USB end at −X** — the Teensy
+  mounts component-side-up.
 
 ## PCB (`phantasm.kicad_pcb`)
+
+> **STALE — do not fab.** This routed board was produced against the earlier
+> **mirrored** Teensy footprint (pin rows swapped across the long axis), so for a
+> component-side-up Teensy every Teensy net lands on the wrong pad. The generator and
+> `unplaced/phantasm_unplaced.kicad_pcb` now carry the corrected pad map — re-route
+> from the unplaced board via Quilter and replace this file, then refresh the facts
+> block below.
 
 The committed routed PCB is the source of truth for these facts. Refresh this block with
 `python gen/board_metadata.py --write-readme` after an intentional board change.
@@ -168,7 +177,8 @@ auto-placement remain — nudge the reference designators in Pcbnew).
 ## Status
 
 - [x] Schematic — complete, ERC-clean, netlist verified against spec §10
-- [x] PCB — placed, net-assigned, **fully routed** (4-layer SIG/GND/GND/SIG, DRC-clean: 0 errors, 0 unconnected)
+- [x] Teensy footprint pad map corrected for component-side-up mount (unplaced board regenerated)
+- [ ] PCB — committed routed board is **stale** (old mirrored Teensy pad map); re-route `unplaced/phantasm_unplaced.kicad_pcb` in Quilter, commit the result, refresh the facts block
 - [ ] Optional polish — silk-label nudge (above)
 
 ### Layout constraint (R-MECH-6)
