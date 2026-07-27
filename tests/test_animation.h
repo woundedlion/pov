@@ -1720,6 +1720,36 @@ inline void test_shockwave_orders_by_distance_from_origin() {
                  0.5f, 2e-2f);
 }
 
+/** @brief The per-face hook set the mesh draw calls once face_offset resolves.
+ */
+template <typename SegueT>
+concept PerFaceSegueDrawable = requires(const SegueT &s, const Vector &c) {
+  s.face_offset(c, 0, 0);
+  s.face_fade_frac(0);
+  s.face_phase(0.5f, 0.5f, 0.1f);
+};
+
+/**
+ * @brief Pins every per-face segue against that call pattern, so a policy
+ * carrying face_offset alone trips this static_assert instead of only breaking
+ * whichever effect first selects it.
+ * @details Also pins the fade_frac argument as inert for the two policies with
+ * no per-face fade, and Base's default as the whole window.
+ */
+inline void test_per_face_segues_satisfy_draw_contract() {
+  static_assert(PerFaceSegueDrawable<Segue::TerminatorSweep>);
+  static_assert(PerFaceSegueDrawable<Segue::Shockwave>);
+  static_assert(PerFaceSegueDrawable<Segue::Breakdown>);
+
+  Segue::Shockwave wave;
+  HS_EXPECT_NEAR(wave.face_phase(0.5f, 0.3f, 0.9f), wave.face_phase(0.5f, 0.3f),
+                 1e-6f);
+  Segue::Breakdown bd;
+  HS_EXPECT_NEAR(bd.face_phase(0.5f, 0.3f, 0.9f), bd.face_phase(0.5f, 0.3f),
+                 1e-6f);
+  HS_EXPECT_NEAR(Segue::Base().face_fade_frac(3), 1.0f, 1e-6f);
+}
+
 /**
  * @brief Verifies Breakdown fades classes sequentially: reorder() yields a
  * permutation of the class ranks, offsets follow the ranks, and each class's
@@ -2613,6 +2643,7 @@ inline int run_animation_tests() {
   test_terminator_sweep_fades_faces_over_fixed_frames();
   test_terminator_sweep_per_face_fade_random_in_range();
   test_shockwave_orders_by_distance_from_origin();
+  test_per_face_segues_satisfy_draw_contract();
   test_breakdown_fades_classes_sequentially();
   test_spin_flip_warp_is_rigid();
   test_gold_convergence_grades_to_gold();
