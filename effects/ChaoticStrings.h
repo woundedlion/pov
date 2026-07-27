@@ -106,7 +106,8 @@ public:
     noise_xform.template_params.sync();
 
     update_path();
-    noise_xform.spawn_pinned(0, -1);
+    auto *warp = noise_xform.spawn_pinned(0, -1);
+    HS_CHECK(warp, "ChaoticStrings: pinned noise spawn must succeed");
 
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
