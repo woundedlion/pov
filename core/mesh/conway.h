@@ -994,12 +994,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
  * a closed-manifold trap.
  */
 HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
-                              int iterations = 8, bool *converged_out = nullptr,
-                              int *iterations_out = nullptr) {
-  if (converged_out)
-    *converged_out = false;
-  if (iterations_out)
-    *iterations_out = 0;
+                              int iterations = 8) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -1060,11 +1055,8 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         }
       }
 
-      if (edge_count == 0) {
-        if (converged_out)
-          *converged_out = true;
+      if (edge_count == 0)
         break;
-      }
       float target_len = total_len / edge_count;
 
       for (size_t i = 0; i < V; ++i) {
@@ -1098,12 +1090,7 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
       // Stop early once the largest per-vertex spring step settles below ~3e-4
       // rad on the unit sphere.
       constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
-      const bool converged = max_move_sq < RELAX_CONVERGE_EPS_SQ;
-      if (iterations_out)
-        ++*iterations_out;
-      if (converged_out)
-        *converged_out = converged;
-      if (converged)
+      if (max_move_sq < RELAX_CONVERGE_EPS_SQ)
         break;
     }
   }
