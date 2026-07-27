@@ -215,9 +215,6 @@ public:
 // tween members in animation.h for the canonical storing site).
 using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
 using WorldTrailFn = FunctionRef<Color4(const Vector &, float)>;
-using TransformFn = FunctionRef<Vector(const Vector &)>;
-using SpaceTransformRef = FunctionRef<Vector(const Vector &)>;
-using ColorTransformRef = FunctionRef<Pixel(const Pixel &, float)>;
 using FragmentShaderFn = FunctionRef<void(const Vector &, Fragment &)>;
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
 // Deferred per-control-point shader: receives the (position-shaded) fragment
