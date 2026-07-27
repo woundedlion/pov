@@ -465,7 +465,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 170. **`SphericalFieldLayout`'s accessors recompute from scratch** — `core/math/spherical_field.h:57-81,263-269` — `ring()` is O(k²) and `ring_index_at_or_before` calls `ring_count()` in its loop condition, both on per-frame paths. Fixing is perf-positive with no semantic change (all values are `static_assert`-pinned).
 
-171. **`spherical_field.h` uses `assert()` without including `<cassert>`** — `core/math/spherical_field.h:292`.
+171. ✅ **`spherical_field.h` uses `assert()` without including `<cassert>`** — `core/math/spherical_field.h:292`.
 
 172. **Dead public types `Dot`/`Dots`/`Points`** — `core/math/geometry.h:46-75` — zero users; they are the sole reason this header includes `color/color.h` and `static_circular_buffer.h`.
 
