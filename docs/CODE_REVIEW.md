@@ -469,7 +469,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 172. ✅ **Dead public types `Dot`/`Dots`/`Points`** — `core/math/geometry.h:46-75` — zero users; they are the sole reason this header includes `color/color.h` and `static_circular_buffer.h`.
 
-173. **Dead quaternion API with an ambiguous contract** — `core/math/3dmath.h:658,1195` — `unit_inverse()` and `angle_between(Quaternion,Quaternion)`; the latter returns the 4-D half-angle and gives different results for `q` and `−q`.
+173. ✅ **Dead quaternion API with an ambiguous contract** — `core/math/3dmath.h:658,1195` — `unit_inverse()` and `angle_between(Quaternion,Quaternion)`; the latter returns the 4-D half-angle and gives different results for `q` and `−q`.
 
 174. **Six of eleven easings and two of three waves are dead** — `core/math/easing.h:25,56,63,91,101,111`, `core/math/waves.h:39,61` — flagged for a deliberate keep-or-cut decision, since these read as an intentional curve library.
 
