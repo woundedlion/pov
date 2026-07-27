@@ -180,6 +180,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
 │   │   ├── rotate.h                Quaternion projection helpers
 │   │   ├── geometry.h              Dots/Points, PhiLUT/TrigLUT, coord conversions
+│   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
 │   ├── mesh/                   Polyhedral meshes and their operators
@@ -187,11 +188,18 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   │   ├── mesh_classes.h          Congruence-class clustering + canonical distance-LUT bake
 │   │   ├── spatial.h               KDTree, k-nearest-neighbor, MeshState (+ speculative AABB)
 │   │   ├── conway.h                Conway operators (dual, kis, ambo, truncate, etc.)
+│   │   ├── conway_graph.h          Constexpr solid-to-solid operator edge graph + walk helpers
+│   │   ├── recipe.h                Recipe lowering to primitive Conway steps + replay
 │   │   ├── hankin.h                Hankin pattern compilation and update system
-│   │   └── solids.h                Platonic + Archimedean + Catalan + Islamic solid registry
+│   │   ├── solids.h                Platonic + Archimedean + Catalan + Islamic solid registry
+│   │   └── relax_bakes_generated.h Baked relaxed-mesh vertices (from tools/relax_bakes.py)
 │   ├── color/                  Color math and palettes
 │   │   ├── color.h                 Pixel16 (16-bit linear), Color4, blend helpers, palettes
+│   │   ├── composition.h           Palette modifiers + StaticPalette composition (via color.h)
 │   │   ├── color_luts.h            Precomputed sRGB ↔ linear LUTs
+│   │   ├── srgb_decode.h           Branchless linear16 → sRGB8 encode from DTCM split tables
+│   │   ├── srgb_decode_lut.h       Generated split-decode tables behind srgb_decode.h
+│   │   ├── gamut_lut.h             Generated sRGB gamut-boundary chroma table for OKLab clipping
 │   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
 │   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
@@ -220,10 +228,14 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
+│   ├── dma_led_controller.h    Double-buffered controller templated on its transport (host-testable)
+│   ├── dma_led_core.h          Pure double-buffer / transfer-length / stale-transfer math (host-testable)
 │   ├── hd107s_frame.h          HD107S protocol buffer + inline color correction (host-testable)
 │   ├── pov_segment_map.h       Pure segment index math (host-testable)
 │   ├── pov_single.h            Single-Teensy POV driver (Holosphere)
+│   ├── pov_single_map.h        Pure single-board strip index math (host-testable)
 │   ├── pov_sync.h              Phantasm sync protocol core: flywheel timebase, symbol codec, epoch/beacon (host-testable)
+│   ├── pov_handoff.h           Pure effect-handoff state machine for POVSegmented (host-testable)
 │   └── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
 │
 ├── targets/                    Per-target entry points
@@ -231,16 +243,26 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   │   └── Holosphere.ino      Holosphere entry — NUM_PIXELS=40, RPM=480
 │   ├── Phantasm/
 │   │   └── Phantasm.ino        Phantasm entry — 4×Teensy, TOTAL_PIXELS=288, RPM=480
+│   ├── Profile/
+│   │   └── Profile.ino         Single-effect HS_PROFILE harness on segment 0 of the segmented rig
 │   └── wasm/
 │       ├── wasm.cpp            Emscripten bindings — HolosphereEngine JS class
-│       └── param_marshal.h     Pure parameter definition/value marshaling, single ordering source (host-testable)
+│       ├── param_marshal.h     Pure parameter definition/value marshaling, single ordering source (host-testable)
+│       └── wasm_predicates.h   Pure embind boundary validation/clamping predicates (host-testable)
 │
 ├── CMakeLists.txt              Emscripten build (outputs holosphere_wasm.js + .wasm)
 ├── tests/                      Unit tests (CMake subdirectory)
 ├── scripts/                    Build + CI tooling
 │   ├── generate_luts.py        sRGB ↔ linear LUT generator of record (emits core/color/color_luts.h)
+│   ├── generate_reaction_graph.py K-NN lattice generator of record (emits core/engine/reaction_graph.cpp)
+│   ├── generate_srgb_decode.cpp Split-decode generator of record (emits core/color/srgb_decode_lut.h)
+│   ├── effect_roster.mjs       Shared HS_EFFECT_LIST / REGISTER_EFFECT parser for the roster tools
+│   ├── check_effect_roster.mjs Cross-checks HS_EFFECT_LIST against the REGISTER_EFFECT calls (CI)
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
-│   └── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
+│   ├── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
+│   ├── screenshot_capture_config.mjs Per-effect capture offsets shared by capture and the CI gate
+│   ├── screenshot_capture_config.test.mjs Node unit test for the capture-offset table
+│   └── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster (CI)
 └── justfile                    Task runner: `just build` / `build-debug` / `test` / `install`
 ```
 
@@ -254,13 +276,20 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 ├── README.md                   Installed from Holosphere (this file)
 ├── docs/screenshots/           Installed from Holosphere
 │
+├── bootstrap.js                Dynamic-import boot of daydream.js + failure overlay
 ├── daydream.js                 App entry: WASM loader, state wiring, GUI/sidebar
+├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
+├── effect_sequencing.js        DOM-free effect/resolution apply-order and skew-guard rules
+├── param_sync.js               DOM-free "should this slider adopt the engine value?" rule
+├── pixel_view.js               DOM-free zero-copy pixel-view detach/re-fetch contract
 ├── driver.js                   Three.js scene: sphere mesh, dots, OrbitControls,
 │                                  axes overlay, picture-in-picture camera, resize
+├── label_format.js             DOM-free label number formatting with symbolic snapping
 ├── geometry.js                 Sphere-pixel position math (pixelToSpherical, etc.)
 ├── state.js                    AppState (pub/sub) + URLSync (query-string mirror)
 ├── gui.js                      lil-gui wrapper used by the main page and tools
 ├── sidebar.js                  Effect list + sort + keyboard navigation
+├── sidebar_logic.js            DOM-free sidebar sort, keyboard-index and scroll-arrow math
 ├── recorder.js                 MediaRecorder pipeline (mp4 / webm), sim-synced
 ├── segment_controller.js       Orchestrates the segmented-POV worker pool:
 │                                  dispatch, generation fence, and compositing
@@ -275,6 +304,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── mobius.html             Möbius transformation visualizer
 │   ├── palettes.html           Procedural palette tuner
 │   └── solids.html             Conway operator playground (uses MeshOps bridge)
+│
+├── tests/                      Node unit tests (`npm test`)
 │
 ├── three.js/                   Optional vendored Three.js checkout
 ├── node_modules/lil-gui/       Optional local lil-gui (npm install)

@@ -231,7 +231,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 54. **README's SDF register table says `v1` is unsigned** — `README.md:661` — for `SDF::Face`, `raw_dist` is the **signed** edge distance, and `fragment_edge_dist` depends on that sign. A shader author writing `fabsf(f.v1)` per the table loses the inside/outside distinction and shades every face as if at its edge.
 
-55. **README's repository map omits ~16 files** — `README.md:160-282` — missing `spherical_field.h`, four `core/color/` headers, three `core/mesh/` headers, four `hardware/` headers, `targets/Profile/`, `wasm_predicates.h`, and 7 of 10 scripts; the daydream side omits six modules and `tests/`.
+55. ✅ **README's repository map omits ~16 files** — `README.md:160-282` — missing `spherical_field.h`, four `core/color/` headers, three `core/mesh/` headers, four `hardware/` headers, `targets/Profile/`, `wasm_predicates.h`, and 7 of 10 scripts; the daydream side omits six modules and `tests/`.
 
 56. **README's parameter-registration API is under-documented** — `README.md:1527-1536` — `canvas.h` exposes five registration forms; §8 documents two, and §10.2's definition schema omits the `options` field that `param_marshal.h` actually marshals. MeshFeedback's and MindSplatter's documented params use APIs the README never introduces.
 
