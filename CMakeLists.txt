@@ -41,6 +41,13 @@ if(EMSCRIPTEN)
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core)
 
+  # Warning hygiene, matching the device firmware's baseline ratchet
+  # (platformio.ini). targets/wasm/ is built by no other target, so without this
+  # the JS bridge is the one first-party TU with zero warning coverage. Not
+  # -Werror: unlike the native suite, third-party emscripten system headers ride
+  # this compile line.
+  target_compile_options(${TARGET_NAME} PRIVATE "-Wall" "-Wextra")
+
   target_link_options(${TARGET_NAME} PRIVATE
     "-lembind"
     "-sALLOW_MEMORY_GROWTH=1"
