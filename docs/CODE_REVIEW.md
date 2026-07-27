@@ -591,7 +591,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 233. ✅ **daydream: `palettes.html` comment and import hygiene** — `:441-443,491-494,533-535` claim OKLab math lives in `tools/color.js` (it is entirely engine-side); `:453` and `:459` import two unused symbols; `:180-211` places a `<style>` block inside `<body>`.
 
-234. **daydream: a stray build probe at the repo root** — `sect.cpp`, a two-line `__attribute__((section(".flashmem")))` compiler probe in a static web app; `prompts/` and `.claude/` are also untracked and, unlike Holosphere, not ignored.
+234. ✅ **daydream: a stray build probe at the repo root** — `sect.cpp`, a two-line `__attribute__((section(".flashmem")))` compiler probe in a static web app; `prompts/` and `.claude/` are also untracked and, unlike Holosphere, not ignored.
 
 235. **Screenshots are ~50× larger than their display size** — `docs/screenshots/*.png` — 24 PNGs at 1360×1146 (up to 1.42 MB each, ~28 MB total) embedded at `width="280"`, and installed into daydream so both repos carry the payload.
 
