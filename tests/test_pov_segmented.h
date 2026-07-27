@@ -12,11 +12,14 @@
  */
 #pragma once
 
+#include "core/render/canvas.h"
 #include "hardware/pov_handoff.h"
 #include "hardware/pov_segment_map.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <atomic>
+#include <thread>
 #include <vector>
 
 namespace hs_test {
@@ -421,6 +424,136 @@ inline void test_window_alternation() {
   HS_EXPECT_EQ(h.window_left(), 1u);
 }
 
+class PhaseEffect : public Effect {
+public:
+  explicit PhaseEffect(bool clipped_clear)
+      : Effect(8, 4), clipped_clear(clipped_clear) {}
+
+  void draw_frame() override {
+    if (clipped_clear) {
+      Canvas canvas(*this, Canvas::ClearDisplayClipTag{});
+      paint(canvas);
+    } else {
+      Canvas canvas(*this);
+      paint(canvas);
+    }
+  }
+
+  [[nodiscard]] uint16_t last_stamp() const { return stamp; }
+
+private:
+  void paint(Canvas &canvas) {
+    ++stamp;
+    const ClipRegion bounds = clip();
+    for (int y = bounds.y_start; y < bounds.y_end; ++y)
+      for (int x = bounds.x_start; x < bounds.x_end; ++x)
+        canvas(x, y) = Pixel(stamp, 0, 0);
+  }
+
+  bool clipped_clear;
+  uint16_t stamp = 0;
+};
+
+inline EffectHandoff<Effect> *phase_handoff = nullptr;
+
+inline void set_phase_clip(Effect &effect, bool arm_a_left) {
+  const SegmentClip clip =
+      segment_clip(segment_map(0, 8, 4), arm_a_left, 8, 4, 8);
+  effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
+}
+
+inline void prepare_phase_clip(Effect &effect) {
+  set_phase_clip(effect, phase_handoff->window_left() == 0);
+}
+
+inline bool phase_frame_matches(const PhaseEffect &effect, uint16_t stamp,
+                                bool arm_a_left) {
+  const SegmentClip clip =
+      segment_clip(segment_map(0, 8, 4), arm_a_left, 8, 4, 8);
+  const int opposite_x = (clip.x0 + 4) % 8;
+  return effect.get_pixel(clip.x0, clip.y0).r == stamp &&
+         effect.get_pixel(opposite_x, clip.y0).r != stamp;
+}
+
+struct PhaseRun {
+  int mismatches = 0;
+  int blocked_draws = 0;
+};
+
+inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
+  PhaseRun result;
+  EffectHandoff<Effect> handoff;
+  PhaseEffect effect(clipped_clear);
+  phase_handoff = &handoff;
+
+  set_phase_clip(effect, true);
+  effect.draw_frame();
+  if (post_wait)
+    effect.set_buffer_ready_hook(prepare_phase_clip);
+  handoff.adopt(&effect, 1);
+
+  handoff.set_window_left(true);
+  effect.advance_display();
+  if (!phase_frame_matches(effect, effect.last_stamp(), true))
+    ++result.mismatches;
+
+  if (!post_wait)
+    set_phase_clip(effect, handoff.window_left() == 0);
+  effect.draw_frame();
+
+  for (int flip = 1; flip < 16; ++flip) {
+    const uint16_t queued_stamp = effect.last_stamp();
+    if (!post_wait)
+      set_phase_clip(effect, handoff.window_left() == 0);
+
+    std::atomic<bool> draw_returned{false};
+    const unsigned long spins_before = Canvas::buffer_free_spin_count();
+    std::thread foreground([&] {
+      effect.draw_frame();
+      draw_returned.store(true, std::memory_order_release);
+    });
+
+    while (Canvas::buffer_free_spin_count() == spins_before &&
+           !draw_returned.load(std::memory_order_acquire))
+      std::this_thread::yield();
+    if (!draw_returned.load(std::memory_order_acquire))
+      ++result.blocked_draws;
+
+    const bool zero_crossing = (flip % 2) == 0;
+    handoff.set_window_left(zero_crossing);
+    effect.advance_display();
+    foreground.join();
+
+    if (!phase_frame_matches(effect, queued_stamp, zero_crossing))
+      ++result.mismatches;
+  }
+
+  effect.set_buffer_ready_hook(nullptr);
+  phase_handoff = nullptr;
+  return result;
+}
+
+/**
+ * @brief Verifies segment clipping is selected after buffer acquisition.
+ * @details Composes Effect's double buffer, both Canvas constructors, and
+ * EffectHandoff's window publisher under a zero-spill scheduler. Sampling
+ * before a blocked draw produces the alternating-window phase error; the
+ * buffer-ready callback selects every displayed frame's live half.
+ */
+inline void test_clip_phase_after_buffer_release() {
+  const PhaseRun pre_wait = run_phase_scheduler(false, false);
+  HS_EXPECT_EQ(pre_wait.blocked_draws, 15);
+  HS_EXPECT_EQ(pre_wait.mismatches, 14);
+
+  const PhaseRun generic = run_phase_scheduler(true, false);
+  HS_EXPECT_EQ(generic.blocked_draws, 15);
+  HS_EXPECT_EQ(generic.mismatches, 0);
+
+  const PhaseRun clipped_clear = run_phase_scheduler(true, true);
+  HS_EXPECT_EQ(clipped_clear.blocked_draws, 15);
+  HS_EXPECT_EQ(clipped_clear.mismatches, 0);
+}
+
 /**
  * @brief Module entry point: run the segmented-POV cases.
  * @return Number of failures recorded by the module.
@@ -441,6 +574,7 @@ inline int run_pov_segmented_tests() {
   test_join_adopt_and_gen_gating();
   test_full_handoff_cycle();
   test_window_alternation();
+  test_clip_phase_after_buffer_release();
 
   // Full-canvas tiling across representative rotation columns, including the
   // x=0 and x=w/2 frame boundaries and the wrap seam.
