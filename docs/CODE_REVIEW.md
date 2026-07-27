@@ -485,7 +485,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 180. ✅ **`relax`'s `converged_out`/`iterations_out` are dead across the whole tree** — `core/mesh/conway.h:989-995,1054-1058,1093-1098` — six branches of live bookkeeping feeding nothing, inside an `HS_O3` region.
 
-181. **Dead scaffolding in `conway.h`** — `:485` (a `ScratchScope` over an arena never allocated from), `:137-167` (`vertex_orbit`'s discarded return), `:670` (a guard made unreachable-false by the preceding `HS_CHECK`).
+181. ✅ **Dead scaffolding in `conway.h`** — `:485` (a `ScratchScope` over an arena never allocated from), `:137-167` (`vertex_orbit`'s discarded return), `:670` (a guard made unreachable-false by the preceding `HS_CHECK`).
 
 182. **Baked RELAX steps carry three different dead `param` values for one bake** — `core/mesh/solids.h:1365,1392,1445,1464` — unread whenever a bake is set, but they read as authored intent; dropping the bake silently picks 8 vs 217 iterations for identical geometry.
 
