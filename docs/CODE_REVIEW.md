@@ -307,7 +307,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 92. ✅ **A bare `assert` sits in the DisplacementField render path** — `effects/DisplacementField.h:213` — the only bare assert in `effects/`; it compiles out on device, so the guard exists only in the host build.
 
-93. **`PetalFlow::MAX_RINGS` equals its worst case with zero margin** — `effects/PetalFlow.h:90-91` — 64 required, 64 provided, by coincidence rather than construction; widening the Density slider or nudging `SPACING` starts dropping rings every frame. Fix: a `static_assert` deriving the bound from the four constants and the slider max.
+93. ✅ **`PetalFlow::MAX_RINGS` equals its worst case with zero margin** — `effects/PetalFlow.h:90-91` — 64 required, 64 provided, by coincidence rather than construction; widening the Density slider or nudging `SPACING` starts dropping rings every frame. Fix: a `static_assert` deriving the bound from the four constants and the slider max.
 
 94. **Three effects lack the persistent-footprint `static_assert` their siblings carry** — `effects/RingShower.h:43-51` (~48 KB), `effects/DisplacementField.h` (~208 KB at W=288), `effects/RingSpin.h:67,87` — runtime coverage exists via `unit_arena_budget`, but a capacity retune has no compile-time guard.
 

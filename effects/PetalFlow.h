@@ -52,7 +52,7 @@ public:
     register_param("Twist", &params.twist_factor, 0.0f, 5.0f);
     register_param("Speed", &params.speed, 0.0f, 20.0f);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Density", &params.density, 0.5f, 2.5f);
+    register_param("Density", &params.density, 0.5f, DENSITY_MAX);
 
     for (int i = 0; i < MAX_RINGS; ++i) {
       rings[i].active = false;
@@ -95,6 +95,19 @@ private:
       3.75f; /**< Rho past which rings are retired (path end). */
   static constexpr float SPACING =
       0.3f; /**< Base inter-ring spacing in rho units, before the Density scaling. */
+  static constexpr float DENSITY_MAX =
+      2.5f; /**< Density slider maximum; sets the tightest live spacing, SPACING / DENSITY_MAX. */
+  /**
+   * @brief Rings the path carries at the tightest spacing.
+   * @details One per whole gap across the path, plus the ring sitting on the
+   * path start, plus the one spawned before the oldest crosses END_RHO.
+   */
+  static constexpr int RINGS_ON_PATH =
+      static_cast<int>((END_RHO - START_RHO) * DENSITY_MAX / SPACING) + 2;
+  static_assert(MAX_RINGS >= RINGS_ON_PATH,
+                "PetalFlow ring pool is smaller than the path carries at "
+                "maximum Density; raise MAX_RINGS or retune SPACING/END_RHO/"
+                "START_RHO/DENSITY_MAX");
   /**
    * @brief Rho advanced per frame per unit of the Speed slider.
    * @details Converts the unitless Speed control to per-frame motion along the
