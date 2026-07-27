@@ -253,7 +253,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 65. ✅ **Eight engineering docs are untracked** — including the 71 KB `opchain_morph_spec.md` that shipped code cites. They are unbacked, unshared, and invisible to `tools/docs_check.py`, which walks tracked entries only — so their fences and links are never validated.
 
-66. **The flush-before-plot contract for a frame-replacing terminal filter is undocumented** — `core/render/filter.h:34-36,1478,1853` — a `terminal_replaces` stage's `flush()` overwrites the destination at `alpha >= 1`, so it must run *before* the frame's `plot()` calls. `MeshFeedback` does this by convention only; an author mirroring `Dynamo`'s correct flush-last pattern would silently erase the entire frame.
+66. ✅ **The flush-before-plot contract for a frame-replacing terminal filter is undocumented** — `core/render/filter.h:34-36,1478,1853` — a `terminal_replaces` stage's `flush()` overwrites the destination at `alpha >= 1`, so it must run *before* the frame's `plot()` calls. `MeshFeedback` does this by convention only; an author mirroring `Dynamo`'s correct flush-last pattern would silently erase the entire frame.
 
 67. **Calling the wrong-domain `flush()` overload is a silent no-op** — `core/render/filter.h:443-468` — a pipeline whose only history stage is `World::Trails` compiles and does nothing; because aging lives inside `flush`, the ring buffer then fills to capacity and never decays, with no diagnostic. Fix: add `any_2d_history`/`any_3d_history` folds and `static_assert` in each overload.
 
