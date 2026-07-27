@@ -117,6 +117,8 @@ inline size_t expand_to_primitives(const Recipe &recipe, OpStep *out,
  */
 FLASHMEM static PolyMesh build_recipe(const Recipe &recipe, Arena &a,
                                       Arena &b) {
+  HS_CHECK(recipe.seed < std::size(simple_registry),
+           "build_recipe: seed outside simple_registry");
   SolidBuilder builder(simple_registry[recipe.seed].generate(a, b), a, b);
   for (size_t i = 0; i < recipe.count; ++i) {
     const OpStep &step = recipe.steps[i];
@@ -183,6 +185,8 @@ FLASHMEM static PolyMesh build_recipe(const Recipe &recipe, Arena &a,
  */
 FLASHMEM static PolyMesh build_steps(uint8_t seed, const OpStep *steps,
                                      size_t count, Arena &a, Arena &b) {
+  HS_CHECK(seed < std::size(simple_registry),
+           "build_steps: seed outside simple_registry");
   SolidBuilder builder(simple_registry[seed].generate(a, b), a, b);
   for (size_t i = 0; i < count; ++i) {
     const OpStep &step = steps[i];
