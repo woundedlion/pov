@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include "engine/platform.h" // CANVAS_W/CANVAS_H
+
 /**
  * @brief Inner/outer radius ratio for star shapes (1/φ² ≈ 0.382).
  */
@@ -18,6 +20,9 @@ static constexpr int MAX_W = 288;
  * @brief Maximum vertical resolution (height) for effects.
  */
 static constexpr int MAX_H = 144;
+
+static_assert(CANVAS_W <= MAX_W && CANVAS_H <= MAX_H,
+              "CANVAS_W/CANVAS_H must fit within MAX_W/MAX_H");
 
 /**
  * @brief Clip region for segment-based rendering.
