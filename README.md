@@ -1154,7 +1154,7 @@ The mesh system is split across several files:
 
 #### Conway Operators (`conway.h`)
 
-All Conway *geometry* operators (`dual` through `bevel` below) take `(const PolyMesh& mesh, Arena& target, Arena& temp)`; `transform`, `relax`, and `normalize` are listed in the same table but are mesh utilities with their own signatures. **Primitive** operators produce their `PolyMesh` into `target` and use `temp` for intermediate computation. **Composed** operators (`gyro`, `meta`, `needle`, `zip`, `bevel`) reuse the same internal ping-pong as their two constituent ops, so they return their output in `temp` — the *opposite* arena from a primitive (see the load-bearing COMPOSITION POLARITY note in `conway.h`). Plan arena lifetimes accordingly when invoking a composed operator directly rather than through `SolidBuilder`:
+All Conway *geometry* operators (`dual` through `bevel` below) take `(const PolyMesh& mesh, Arena& target, Arena& temp)`; `transform`, `relax`, and `normalize` are listed in the same table but are mesh utilities with their own signatures. **Primitive** operators produce their `PolyMesh` into `target` and use `temp` for intermediate computation. **Composed** operators (`gyro`, `meta`, `needle`, `zip`, `bevel`) reuse the same internal ping-pong as their constituent ops, so their output lands in the arena that backed the last step's `target`: `temp` for an even-length composition (`gyro`, `needle`, `zip`, `bevel`) — the *opposite* arena from a primitive — and back in `target` for the odd-length `meta` (three steps), like a primitive (see the load-bearing COMPOSITION POLARITY note in `conway.h`). Plan arena lifetimes accordingly when invoking a composed operator directly rather than through `SolidBuilder`:
 
 | Operation | Description |
 |---|---|
@@ -1167,7 +1167,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 | `MeshOps::chamfer` | Bevel edges (hexagonal expansion) |
 | `MeshOps::snub` | Chiral semi-regular polyhedron with twist (Newell-method face normals) |
 | `MeshOps::gyro` | Gyro operator (= dual ∘ snub) |
-| `MeshOps::meta` | Meta operator = kis ∘ ambo |
+| `MeshOps::meta` | Meta operator = kis ∘ dual ∘ ambo |
 | `MeshOps::needle` | Needle operator = kis ∘ dual |
 | `MeshOps::zip` | Zip operator = dual ∘ kis |
 | `MeshOps::bevel` | Bevel operator = truncate ∘ ambo |
