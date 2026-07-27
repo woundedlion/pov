@@ -173,6 +173,46 @@ inline void test_crosses_segments_trait_and_fold() {
                 "non-stateful pipeline must keep the segment clipping win");
 }
 
+/**
+ * @brief Verifies the `any_2d_history` / `any_3d_history` folds that gate the
+ *        two flush() overloads against a wrong-domain (silently empty) call.
+ * @details The rejection itself is a static_assert inside the overload body, so
+ *          it is not SFINAE-detectable; what a test can pin is the fold each
+ *          assert reads.
+ */
+inline void test_history_domain_folds() {
+  constexpr int W = 32, H = 16;
+
+  HS_EXPECT_FALSE((Pipeline<W, H>::any_2d_history));
+  HS_EXPECT_FALSE((Pipeline<W, H>::any_3d_history));
+
+  using ScreenStack = Pipeline<W, H, Filter::World::Orient<W>,
+                               Filter::Screen::Trails<W>>;
+  HS_EXPECT_TRUE(ScreenStack::any_2d_history);
+  HS_EXPECT_FALSE(ScreenStack::any_3d_history);
+
+  using WorldStack = Pipeline<W, H, Filter::World::Trails<W, 16>,
+                              Filter::Screen::AntiAlias<W, H>>;
+  HS_EXPECT_FALSE(WorldStack::any_2d_history);
+  HS_EXPECT_TRUE(WorldStack::any_3d_history);
+
+  using MixedStack =
+      Pipeline<W, H, Filter::World::Trails<W, 16>, Filter::Screen::Trails<W>>;
+  HS_EXPECT_TRUE(MixedStack::any_2d_history);
+  HS_EXPECT_TRUE(MixedStack::any_3d_history);
+
+  // A history-free stack answers neither, so either overload is a hard error.
+  using PlainStack =
+      Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>;
+  HS_EXPECT_FALSE(PlainStack::any_2d_history);
+  HS_EXPECT_FALSE(PlainStack::any_3d_history);
+
+  // Feedback is the 2D-history terminal MeshFeedback flushes.
+  HS_EXPECT_TRUE((Pipeline<W, H, Filter::World::Orient<W>,
+                           Filter::Screen::AntiAlias<W, H>,
+                           Filter::Pixel::Feedback<W, H>>::any_2d_history));
+}
+
 // ============================================================================
 // Pipeline sink + get<T>()
 // ============================================================================
@@ -2557,6 +2597,7 @@ inline int run_filter_tests() {
   test_trait_member_values();
   test_filter_trait_inheritance();
   test_crosses_segments_trait_and_fold();
+  test_history_domain_folds();
 
   test_pipeline_sink_is_2d();
   test_pipeline_get_returns_correct_filter();

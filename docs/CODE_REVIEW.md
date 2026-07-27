@@ -255,7 +255,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 66. ✅ **The flush-before-plot contract for a frame-replacing terminal filter is undocumented** — `core/render/filter.h:34-36,1478,1853` — a `terminal_replaces` stage's `flush()` overwrites the destination at `alpha >= 1`, so it must run *before* the frame's `plot()` calls. `MeshFeedback` does this by convention only; an author mirroring `Dynamo`'s correct flush-last pattern would silently erase the entire frame.
 
-67. **Calling the wrong-domain `flush()` overload is a silent no-op** — `core/render/filter.h:443-468` — a pipeline whose only history stage is `World::Trails` compiles and does nothing; because aging lives inside `flush`, the ring buffer then fills to capacity and never decays, with no diagnostic. Fix: add `any_2d_history`/`any_3d_history` folds and `static_assert` in each overload.
+67. ✅ **Calling the wrong-domain `flush()` overload is a silent no-op** — `core/render/filter.h:443-468` — a pipeline whose only history stage is `World::Trails` compiles and does nothing; because aging lives inside `flush`, the ring buffer then fills to capacity and never decays, with no diagnostic. Fix: add `any_2d_history`/`any_3d_history` folds and `static_assert` in each overload.
 
 68. **`Pipeline` publicly inherits `Head`, leaking the head stage's traits onto the pipeline type** — `core/render/filter.h:239` — `Pipeline<…>::crosses_segments` reports the *first* stage's value, not the fold. Every effect correctly uses `any_crosses_segments`, but the wrong spelling compiles and silently yields `full_frame = false` → cross-segment corruption on the segmented driver. Fix: shadow the folded value in the recursive case.
 
