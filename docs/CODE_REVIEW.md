@@ -271,7 +271,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 74. ✅ **`rasterize_face`'s `MinimalFragment` path never resets `frag.color`** — `core/render/scan.h:1326-1328` — the fragment is per-face and only `v1` is written per pixel, so a shader that early-returns on a cull condition smears the previous pixel's colour across the run. Safe today only because the sole shader writes unconditionally. Fix: state the contract on the setup parameter.
 
-75. **`Scan::Shader` overwrites the canvas and bypasses the filter pipeline, undocumented** — `core/render/scan.h:1498,1607,1683,1765` — all three overloads assign rather than plot, so an effect returning `alpha < 1` gets a darkened opaque pixel and no `Filter::World::*` applies.
+75. ✅ **`Scan::Shader` overwrites the canvas and bypasses the filter pipeline, undocumented** — `core/render/scan.h:1498,1607,1683,1765` — all three overloads assign rather than plot, so an effect returning `alpha < 1` gets a darkened opaque pixel and no `Filter::World::*` applies.
 
 76. **A caller-supplied `fragment_interpolator` is silently replaced by `Fragment::lerp` on the type-erased path** — `core/render/plot.h:1116-1127,3593-3599` — the interpolation policy survives only for pipelines declaring `direct_raster_path`. Today's only caller supplies a strict subset of `lerp`, so the drop is a pure perf regression — but any nonlinear interpolator would render differently depending on pipeline type, with no diagnostic.
 
