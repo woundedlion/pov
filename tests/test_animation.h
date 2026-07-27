@@ -1837,6 +1837,23 @@ inline void test_gold_convergence_grades_to_gold() {
 // ============================================================================
 
 /**
+ * @brief Pins deep_tween's admissible input: an OrientationTrail, not a bare
+ * Orientation.
+ * @details A bare Orientation's get() yields a Quaternion, which has no
+ * sub-frame history to flatten. Tweenable rejects it at the concept boundary
+ * instead of failing deep inside deep_tween_frames' instantiation.
+ */
+inline void test_tweenable_rejects_bare_orientation() {
+  static_assert(Tweenable<Animation::OrientationTrail<Orientation<8>, 8>>,
+                "OrientationTrail must satisfy Tweenable");
+  static_assert(!Tweenable<Orientation<8>>,
+                "a bare Orientation must not satisfy Tweenable");
+
+  HS_EXPECT_TRUE((Tweenable<Animation::OrientationTrail<Orientation<8>, 8>>));
+  HS_EXPECT_FALSE((Tweenable<Orientation<8>>));
+}
+
+/**
  * @brief Verifies deep_tween emits a global t spanning [0,1] across the whole
  * trail, with the expected sample count and non-decreasing t.
  * @details The emitted count is M + (N-1)*(M-1) for N frames of M sub-frames,
@@ -2648,6 +2665,7 @@ inline int run_animation_tests() {
   test_spin_flip_warp_is_rigid();
   test_gold_convergence_grades_to_gold();
 
+  test_tweenable_rejects_bare_orientation();
   test_deep_tween_global_t_spans_unit_interval();
   test_deep_tween_collapsed_newest_frame_reaches_one();
   test_deep_tween_all_collapsed_reaches_one();
