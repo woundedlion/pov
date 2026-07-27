@@ -506,13 +506,7 @@ inline void case_timeline_start_overflow() {
  *          naturally rather than canceling.)
  */
 inline void case_timeline_handled_completion() {
-  // A do-nothing 8x8 effect whose fresh buffer_free() is true, so the Canvas
-  // ctor does not spin. The animation never renders through it.
-  struct DeathEffect : public Effect {
-    DeathEffect() : Effect(8, 8) {}
-    void draw_frame() override {}
-  };
-  static DeathEffect fx;
+  static hs_test::StubEffect fx(8, 8);
   static Canvas canvas(fx);
   Timeline tl;
   float v = 0.0f;

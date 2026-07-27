@@ -45,24 +45,6 @@ inline uint8_t mr_geom[256 * 1024];
 inline uint8_t mr_scratch[256 * 1024];
 
 /**
- * @brief Minimal Effect that owns a Canvas to draw into.
- * @details No background and no per-frame work, so the lit pixels come solely
- *          from the mesh draw under test.
- */
-struct MeshFx : public Effect {
-  /**
-   * @brief Constructs the effect with a canvas of the given size.
-   * @param W Canvas width in pixels.
-   * @param H Canvas height in pixels.
-   */
-  MeshFx(int W, int H) : Effect(W, H) {}
-  /**
-   * @brief Per-frame draw hook; intentionally a no-op for this test fixture.
-   */
-  void draw_frame() override {}
-};
-
-/**
  * @brief Tests whether a pixel is fully black.
  * @param p Pixel to inspect.
  * @return True when all of the pixel's RGB channels are zero.
@@ -95,7 +77,7 @@ inline void white(const Vector &, Fragment &f) {
  *          rounding.
  */
 template <int W, int H>
-inline bool lit_near(const MeshFx &fx, float px, float py, int r) {
+inline bool lit_near(const hs_test::StubEffect &fx, float px, float py, int r) {
   const int cx = static_cast<int>(std::lround(px));
   const int cy = static_cast<int>(std::lround(py));
   for (int dy = -r; dy <= r; ++dy) {
@@ -118,7 +100,7 @@ inline bool lit_near(const MeshFx &fx, float px, float py, int r) {
  * @param fx Effect whose canvas is scanned.
  * @return Number of lit (non-black) pixels.
  */
-template <int W, int H> inline size_t count_lit(const MeshFx &fx) {
+template <int W, int H> inline size_t count_lit(const hs_test::StubEffect &fx) {
   size_t lit = 0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
@@ -188,7 +170,7 @@ inline void test_wireframe_draws_every_edge() {
   Plot::Mesh::extract_edges(mesh, edges);
   HS_EXPECT_EQ(edges.size(), (size_t)12); // octahedron has 12 edges
 
-  MeshFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
     Pipeline<W, H> pipe; // bare sink, no AA
@@ -233,7 +215,7 @@ inline void test_wireframe_pixels_lie_on_edges() {
   edges.bind(geom, 64);
   Plot::Mesh::extract_edges(mesh, edges);
 
-  MeshFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
     Pipeline<W, H> pipe; // bare sink, no AA spread
@@ -292,7 +274,7 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   // captured) before `fx` is built — only one Effect may be live at once.
   size_t wire_lit;
   {
-    MeshFx wire(W, H);
+    hs_test::StubEffect wire(W, H);
     {
       Canvas c(wire);
       Pipeline<W, H> pipe;
@@ -306,7 +288,7 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
 
-  MeshFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
     Pipeline<W, H> pipe;
@@ -367,7 +349,7 @@ inline void test_face_shader_setup_matches_face_index() {
 
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
-    MeshFx indexed(W, H);
+    hs_test::StubEffect indexed(W, H);
     auto shader = [&](const Vector &, Fragment &frag) {
       frag.color = colors[static_cast<size_t>(frag.v2)];
     };
@@ -382,7 +364,7 @@ inline void test_face_shader_setup_matches_face_index() {
         ref[static_cast<size_t>(y) * W + x] = indexed.get_pixel(x, y);
   }
 
-  MeshFx selected(W, H);
+  hs_test::StubEffect selected(W, H);
   const Color4 *face_color = nullptr;
   auto select_face = [&](size_t face, float) { face_color = &colors[face]; };
   auto shader = [&](const Vector &, Fragment &frag) {
@@ -429,7 +411,7 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
   edges.bind(geom, edge_cap);
   Plot::Mesh::extract_edges(mesh, edges);
 
-  MeshFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
     Pipeline<W, H> pipe;
@@ -475,7 +457,7 @@ inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
 
-  MeshFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
     Pipeline<W, H> pipe;
@@ -579,7 +561,7 @@ inline void test_clip_band_matches_full() {
 
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
-    MeshFx full(W, H);
+    hs_test::StubEffect full(W, H);
     {
       Canvas c(full);
       Pipeline<W, H> pipe;
@@ -601,7 +583,8 @@ inline void test_clip_band_matches_full() {
       {0, 72, 0, 288},     // top band, full width (pole, no x cull)
   };
   for (const Band &b : bands) {
-    MeshFx fx(W, H); // one live Effect at a time; ref captured above
+    // one live Effect at a time; ref captured above
+    hs_test::StubEffect fx(W, H);
     fx.set_clip(b.y0, b.y1, b.x0, b.x1);
     {
       Canvas c(fx);
@@ -736,7 +719,7 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
 
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
-    MeshFx exact(W, H);
+    hs_test::StubEffect exact(W, H);
     {
       Canvas c(exact);
       Pipeline<W, H> pipe;
@@ -749,7 +732,7 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
   }
 
   hs::g_scan_metrics.reset();
-  MeshFx lutted(W, H);
+  hs_test::StubEffect lutted(W, H);
   {
     Canvas c(lutted);
     Pipeline<W, H> pipe;

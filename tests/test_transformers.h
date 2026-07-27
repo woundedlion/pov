@@ -635,16 +635,6 @@ inline void test_transformer_spawn_applies_and_composes() {
 // ============================================================================
 
 /**
- * @brief Minimal 8x8 effect backing a stand-in Canvas for stepping a Timeline.
- * @details A fresh effect reports buffer_free() true, so the Canvas ctor does
- * not spin on a display ISR the host never runs.
- */
-struct RecycleFakeEffect : public Effect {
-  RecycleFakeEffect() : Effect(8, 8) {}
-  void draw_frame() override {}
-};
-
-/**
  * @brief Verifies a non-pinned spawned transform's pool slot is reclaimed after
  *        the timeline relocates its event during compaction.
  * @details spawn() (unlike spawn_pinned) registers a finite, non-repeating event
@@ -659,7 +649,7 @@ struct RecycleFakeEffect : public Effect {
 inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
   Timeline tl;
   global_timeline_t = 0;
-  RecycleFakeEffect fx;
+  hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
 
   RippleTransformer<1> rt(tl);
@@ -725,7 +715,7 @@ struct TagAnim : public Animation::AnimationBase<TagAnim> {
 inline void test_transformer_recycled_slot_composes_in_spawn_order() {
   Timeline tl;
   global_timeline_t = 0;
-  RecycleFakeEffect fx;
+  hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
 
   Transformer<OrderParams, TagAnim, order_transform, 2> tr(tl);
@@ -894,7 +884,7 @@ inline void test_field_transformer_field_dominant_subset() {
 inline void test_field_transformer_slot_reclaimed() {
   Timeline tl;
   global_timeline_t = 0;
-  RecycleFakeEffect fx;
+  hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
   TestFieldTransformer ft(tl);
   ft.init_storage(persistent_arena);
@@ -1115,7 +1105,7 @@ inline void test_noise_product_field_parity() {
 inline void test_ball_drop_traverses_and_reclaims() {
   Timeline tl;
   global_timeline_t = 0;
-  RecycleFakeEffect fx;
+  hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
 
   Orientation<> ori;
@@ -1161,7 +1151,7 @@ inline void test_ball_drop_traverses_and_reclaims() {
  * @brief Verifies NoiseProduct advances params.time by speed each step.
  */
 inline void test_noise_product_integrates_time() {
-  RecycleFakeEffect fx;
+  hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
   NoiseProductParams p;
   p.speed = 0.03f;

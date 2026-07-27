@@ -109,12 +109,6 @@ struct CapturePipeline {
   void plot(Canvas &, float, float, const Pixel &, float, float) {}
 };
 
-/** @brief Minimal Effect backing a Canvas (no per-frame draw, no background). */
-struct RasterFx : public Effect {
-  RasterFx(int W, int H) : Effect(W, H) {}
-  void draw_frame() override {}
-};
-
 /** @brief Identity fragment shader (leaves the fragment untouched). */
 inline void noop_shader(const Vector &, Fragment &) {}
 
@@ -934,7 +928,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
     for (size_t i = 0; i < mesh.vertices.size(); ++i)
       posed.vertices[i] = rotate(mesh.vertices[i], q);
 
-    auto render = [&](RasterFx &fx) {
+    auto render = [&](hs_test::StubEffect &fx) {
       Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
           Filter::Screen::AntiAlias<W, H>()};
       Canvas c(fx);
@@ -943,7 +937,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
 
     std::vector<Pixel> ref(static_cast<size_t>(W) * H);
     {
-      RasterFx fx(W, H);
+      hs_test::StubEffect fx(W, H);
       render(fx);
       fx.advance_display();
       for (int y = 0; y < H; ++y)
@@ -952,7 +946,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
     }
 
     for (auto &cl : clips) {
-      RasterFx fx(W, H);
+      hs_test::StubEffect fx(W, H);
       fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
       render(fx);
       fx.advance_display();
@@ -1019,7 +1013,7 @@ inline void test_mesh_dissolve_masks_partition_edges() {
       seen[static_cast<size_t>(ei)] = true;
       f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
     };
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
         Filter::Screen::AntiAlias<W, H>()};
     Canvas c(fx);
@@ -1111,7 +1105,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
       }
     }
 
-    auto render = [&](RasterFx &fx) {
+    auto render = [&](hs_test::StubEffect &fx) {
       Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
           Filter::Screen::AntiAlias<W, H>()};
       ScratchScope sc(plot_arena());
@@ -1129,7 +1123,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
 
     std::vector<Pixel> ref(static_cast<size_t>(W) * H);
     {
-      RasterFx fx(W, H);
+      hs_test::StubEffect fx(W, H);
       render(fx);
       fx.advance_display();
       for (int y = 0; y < H; ++y)
@@ -1138,7 +1132,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
     }
 
     for (auto &cl : clips) {
-      RasterFx fx(W, H);
+      hs_test::StubEffect fx(W, H);
       fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
       render(fx);
       fx.advance_display();
@@ -1621,7 +1615,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
     }
 
     for (auto &cl : clips) {
-      auto render = [&](RasterFx &fx, bool use_bits) {
+      auto render = [&](hs_test::StubEffect &fx, bool use_bits) {
         Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
             Filter::Screen::AntiAlias<W, H>()};
         ScratchScope sc(plot_arena());
@@ -1653,7 +1647,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
 
       std::vector<Pixel> ref(static_cast<size_t>(W) * H);
       {
-        RasterFx fx(W, H);
+        hs_test::StubEffect fx(W, H);
         fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
         render(fx, false);
         fx.advance_display();
@@ -1666,7 +1660,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
           }
       }
       {
-        RasterFx fx(W, H);
+        hs_test::StubEffect fx(W, H);
         fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
         render(fx, true);
         fx.advance_display();
@@ -2082,7 +2076,7 @@ inline void test_distorted_ring_draw_culled_matches_closed() {
     // Reference: full clip routes through the closed-draw path.
     std::vector<Pixel> ref(static_cast<size_t>(W) * H);
     {
-      RasterFx fx(W, H);
+      hs_test::StubEffect fx(W, H);
       reset_lut();
       Pipeline<W, H> filters;
       {
@@ -2099,7 +2093,7 @@ inline void test_distorted_ring_draw_culled_matches_closed() {
     // A row band and a column wedge: interior pixels must match exactly.
     const int clips[2][4] = {{H / 4, H / 2, 0, W}, {0, H, 10, 34}};
     for (auto &cl : clips) {
-      RasterFx fx(W, H);
+      hs_test::StubEffect fx(W, H);
       fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
       reset_lut();
       bake_calls = 0;
@@ -2128,7 +2122,7 @@ inline void test_distorted_ring_draw_culled_matches_closed() {
 
   // A ring whose widened cap cannot reach the clip is skipped whole: no bake.
   {
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     fx.set_clip(H - H / 8, H, 0, W);
     reset_lut();
     bake_calls = 0;
@@ -2189,7 +2183,7 @@ inline void test_distorted_ring_draw_culled_runs_phase_chunks() {
   // Reference: full clip, same phase.
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     reset_lut();
     Pipeline<W, H> filters;
     {
@@ -2207,7 +2201,7 @@ inline void test_distorted_ring_draw_culled_runs_phase_chunks() {
   const int cx0 = 40, cx1 = 56;
   for (int chunks_case = 0; chunks_case < 2; ++chunks_case) {
     const int V = chunks_case == 0 ? W / 24 : W / 8;
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     fx.set_clip(0, H, cx0, cx1);
     reset_lut();
     runs.clear();
@@ -2439,7 +2433,7 @@ inline void test_flower_sample_unit_length_closed() {
  */
 inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
   constexpr int W = 128, H = 64;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 4);
@@ -2474,7 +2468,7 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
 inline void test_rasterize_open_segment_gap_free() {
   constexpr int W = 128, H = 64;
   constexpr float base_step = (2.0f * PI_F) / W;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 4);
@@ -2510,7 +2504,7 @@ inline void test_rasterize_open_segment_gap_free() {
 inline void test_rasterize_closed_loop_gap_free_no_dup() {
   constexpr int W = 128, H = 64;
   constexpr float base_step = (2.0f * PI_F) / W;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 4);
@@ -2547,7 +2541,7 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
  */
 inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   constexpr int W = 128, H = 64;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 4);
@@ -2599,7 +2593,7 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
 inline void test_rasterize_planar_segment_gap_free_arclength() {
   constexpr int W = 128, H = 64;
   constexpr float base_step = (2.0f * PI_F) / W;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 4);
@@ -2648,7 +2642,7 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
  */
 inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   constexpr int W = 128, H = 64;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 4);
@@ -2765,7 +2759,7 @@ struct ParticleDrawCapture {
 /** @brief Draws one particle through every trail shader stage. */
 inline ParticleDrawCapture capture_particle_draw(const StubParticle &particle) {
   constexpr int W = 96, H = 48;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   StubSystem sys;
   sys.max_life = 100;
   sys.active_count = 1;
@@ -2794,7 +2788,7 @@ inline ParticleDrawCapture capture_particle_draw(const StubParticle &particle) {
 inline std::vector<Fragment>
 capture_particle_vertices(const StubParticle &particle) {
   constexpr int W = 96, H = 48;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   StubSystem sys;
   sys.max_life = 100;
   sys.active_count = 1;
@@ -2830,7 +2824,7 @@ inline std::vector<Pixel>
 render_particle_materialization(const StubParticle &particle,
                                 bool callback_reference) {
   constexpr int W = 96, H = 48;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   Pipeline<W, H> filters;
   auto shade = [](const Vector &, Fragment &f) {
     f.color = Color4(Pixel(50000, 30000, 10000),
@@ -2885,7 +2879,7 @@ render_particle_materialization(const StubParticle &particle,
  */
 inline void test_particle_system_draws_active_trails_with_registers() {
   constexpr int W = 288, H = 144;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
 
   StubSystem sys;
   sys.max_life = 100;
@@ -2938,7 +2932,7 @@ inline void test_particle_system_draws_active_trails_with_registers() {
  */
 inline void test_particle_system_empty_zero_lifetime_is_noop() {
   constexpr int W = 288, H = 144;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   StubSystem sys;
   CapturePipeline pipe;
   {
@@ -3011,7 +3005,7 @@ inline void test_particle_system_direct_trail_materialization_registers() {
 /** @brief A custom v2 mapper runs once per materialized particle. */
 inline void test_particle_system_custom_v2_mapper() {
   constexpr int W = 96, H = 48;
-  RasterFx fx(W, H);
+  hs_test::StubEffect fx(W, H);
   StubSystem sys;
   sys.max_life = 100;
 
@@ -3135,7 +3129,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   // Reference: full canvas, combined shader.
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     Pipeline<W, H> filters;
     {
       Canvas c(fx);
@@ -3149,7 +3143,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
 
   // Clipped, split shaders: in-band pixels identical; trail 1 never shaded.
   {
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     fx.set_clip(0, H, band_x0, band_x1);
     Pipeline<W, H> filters;
     {
@@ -3178,7 +3172,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   // Full canvas, split shaders: identical everywhere, both trails shaded.
   {
     deferred_calls[0] = deferred_calls[1] = 0;
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     Pipeline<W, H> filters;
     {
       Canvas c(fx);
@@ -3254,7 +3248,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
   // Reference: full canvas, combined shader.
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     Pipeline<W, H> filters;
     {
       Canvas c(fx);
@@ -3273,7 +3267,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
       {30, 48, 0, 96},  // y-only clip (XClip inactive)
   };
   for (const auto &bd : bands) {
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
     Pipeline<W, H> filters;
     {
@@ -3341,7 +3335,7 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
 
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     Pipeline<W, H> filters;
     {
       Canvas c(fx);
@@ -3360,7 +3354,7 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
       {30, 48, 0, 96},
   };
   for (const auto &bd : bands) {
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
     Pipeline<W, H> filters;
     {
@@ -3406,7 +3400,7 @@ inline void test_rasterize_cull_follows_filter_orientation() {
   };
 
   auto band_lit = [&](int cy0, int cy1) -> int {
-    RasterFx fx(W, H);
+    hs_test::StubEffect fx(W, H);
     fx.set_clip(cy0, cy1, 0, W);
     Pipeline<W, H, Filter::World::Orient<W>> filters{
         Filter::World::Orient<W>(orientation)};

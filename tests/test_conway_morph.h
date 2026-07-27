@@ -1841,11 +1841,7 @@ inline void test_opleg_hankin_sweep_smoke() {
                dodeca.face_counts.size() + dodeca.vertices.size());
   HS_EXPECT_TRUE(landing.topology != nullptr);
 
-  struct SmokeFx : public Effect {
-    SmokeFx() : Effect(288, 144) {}
-    void draw_frame() override {}
-  };
-  SmokeFx fx;
+  hs_test::StubEffect fx(288, 144);
   for (int f = 0; f < SWEEP; ++f) {
     {
       Canvas c(fx);
@@ -2507,11 +2503,7 @@ inline void test_opleg_medial_leg_smoke() {
     HS_EXPECT_EQ(landing.faces, prev_faces);
     HS_EXPECT_EQ(landing.primary_faces, prev_faces);
 
-    struct MedialFx : public Effect {
-      MedialFx() : Effect(288, 144) {}
-      void draw_frame() override {}
-    };
-    MedialFx fx;
+    hs_test::StubEffect fx(288, 144);
     for (int f = 0; f < SWEEP; ++f) {
       {
         Canvas c(fx);
@@ -2553,10 +2545,6 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   constexpr int RW = 288, RH = 144;
   constexpr float SEAM_MATCH_TOL = 0.02f;
 
-  struct SeamFx : public Effect {
-    SeamFx() : Effect(RW, RH) {}
-    void draw_frame() override {}
-  };
   static Pipeline<RW, RH> filters;
 
   for (const StepLegSite &site : DUAL_LEG_SITES) {
@@ -2606,7 +2594,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     for (int i = 0; i < OpLeg::PALETTES; ++i)
       targets[i] = static_cast<uint8_t>(i);
 
-    SeamFx fx;
+    hs_test::StubEffect fx(RW, RH);
     std::vector<Pixel> snaps[3]; // leg-2 last, leg-3 first, leg-3 second
     int drawn = 0, rasterize_at = -1;
     auto cb = [&](Canvas &c, const MeshState &m, const OpLeg::Shading &sh) {
@@ -2908,11 +2896,7 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
     ++drawn_frames;
   };
 
-  struct SmokeFx : public Effect {
-    SmokeFx() : Effect(288, 144) {}
-    void draw_frame() override {}
-  };
-  SmokeFx fx;
+  hs_test::StubEffect fx(288, 144);
 
   auto run = [&](OpLeg &&leg) {
     const OpLeg::Landing &landing = leg.landing();
@@ -3066,11 +3050,7 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
     ++drawn;
   };
 
-  struct GateFx : public Effect {
-    GateFx() : Effect(288, 144) {}
-    void draw_frame() override {}
-  };
-  GateFx fx;
+  hs_test::StubEffect fx(288, 144);
 
   OpLeg leg(seed, op, leg_arena, cb, handoff, gate, bookend);
   const OpLeg::Landing &landing = leg.landing();
@@ -3148,11 +3128,7 @@ inline void test_opleg_build_immutable_colours() {
   MeshPaletteBank bank;
   bank.bake_all(bank_arena);
 
-  struct FadeFx : public Effect {
-    FadeFx() : Effect(288, 144) {}
-    void draw_frame() override {}
-  };
-  FadeFx fx;
+  hs_test::StubEffect fx(288, 144);
 
   // LUT grid-aligned sample coordinates for exact ramp-color comparisons.
   constexpr float SAMPLES[] = {0.0f, 0.5f, 1.0f};
@@ -3535,11 +3511,6 @@ inline ChainPeaks replay_build_chain(const char *name,
   constexpr size_t MAX_FACES = 1152;
   constexpr size_t MAX_STEPS = 8;
 
-  struct ChainFx : public Effect {
-    ChainFx() : Effect(288, 144) {}
-    void draw_frame() override {}
-  };
-
   {
     const int failed_before = hs_test::stats().failed;
 
@@ -3603,7 +3574,7 @@ inline ChainPeaks replay_build_chain(const char *name,
       }
     }
 
-    ChainFx fx;
+    hs_test::StubEffect fx(288, 144);
     uint8_t prev_pal_buf[MAX_FACES];
     Vector prev_centroid[MAX_FACES];
     uint8_t carried_to[MAX_FACES] = {};
