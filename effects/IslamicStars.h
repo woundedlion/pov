@@ -144,8 +144,6 @@ private:
   static constexpr int SWEEP_LEG_FRAMES =
       24; /**< ambo / truncate / snub / chamfer. */
   static constexpr int RELAX_LEG_FRAMES = 16;
-  static constexpr int GATE_LEG_FRAMES =
-      13; /**< dual gate (unused: the smooth bridge replaced it). */
   static constexpr int RECONCILE_LEG_FRAMES =
       24; /**< identity-mesh -> authored kis/needle slerp. */
   /** Identity-mesh truncate depth of the smooth kis/needle path: the "uniform"
@@ -544,13 +542,6 @@ private:
   }
 
   /**
-   * @brief Whether a lowered primitive step runs as a gated swap: the kis of a
-   *        macro-ineligible (too large) seed.
-   * @param op Lowered primitive op.
-   */
-  static bool is_gated_step(Solids::Op op) { return op == Solids::Op::KIS; }
-
-  /**
    * @brief Half-gate length of a gated leg's frame budget.
    * @param frames Budgeted leg frames after the Trans Speed divisor.
    * @return F_gate, at least 1; the leg then runs 2 * F_gate + 1 frames.
@@ -747,7 +738,6 @@ private:
         const Solids::Op op = build_steps_[k].op;
         if (dt_pair_at(k)) {
           build_leg_frames_[k] = bridge_frames; // dual bridge (DUAL step)
-          build_leg_frames_[k + 1] = build_reconcile_frames_; // reconcile (KIS)
           build_total_frames_ += build_macro_sweep_frames_ + bridge_frames +
                                  build_reconcile_frames_;
           ++k; // the trailing kis is consumed by the dt macro
