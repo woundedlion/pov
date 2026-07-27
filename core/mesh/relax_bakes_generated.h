@@ -52,9 +52,10 @@ inline const uint32_t truncated_icosidodecahedron_converged_bits[] PROGMEM = {
     0xbf66bc2fu, 0xbe862dc1u, 0xbeb0c0b2u, 0xbf23407du, 0xbf304789u, 0xbeda6153u, 0xbf44ede0u, 0xbef393abu,
 };
 inline constexpr MeshOps::RelaxBake truncated_icosidodecahedron_converged = {
-    "truncated_icosidodecahedron_converged", truncated_icosidodecahedron_converged_bits, 120, 62, 360, 4096,
-    0x3b53f3c9u,
-    0x3ec6896fu};
+    .name = "truncated_icosidodecahedron_converged", .vertex_bits = truncated_icosidodecahedron_converged_bits,
+    .vertex_count = 120, .face_count = 62, .index_count = 360, .iterations = 4096,
+    .topology_hash = 0x3b53f3c9u,
+    .output_hash = 0x3ec6896fu};
 
 inline const uint32_t snub_dodecahedron_converged_bits[] PROGMEM = {
     0x3e984619u, 0x3f6af6c0u, 0x3e86a0b5u, 0xbe1dfc2cu, 0x3f78f598u, 0x3e32acc5u, 0xbec91807u, 0x3f4377b5u,
@@ -82,9 +83,10 @@ inline const uint32_t snub_dodecahedron_converged_bits[] PROGMEM = {
     0xbe32acc6u, 0xbec91807u, 0xbf4377b4u, 0xbf03385eu,
 };
 inline constexpr MeshOps::RelaxBake snub_dodecahedron_converged = {
-    "snub_dodecahedron_converged", snub_dodecahedron_converged_bits, 60, 92, 300, 4096,
-    0x004bc741u,
-    0xc8fba28bu};
+    .name = "snub_dodecahedron_converged", .vertex_bits = snub_dodecahedron_converged_bits,
+    .vertex_count = 60, .face_count = 92, .index_count = 300, .iterations = 4096,
+    .topology_hash = 0x004bc741u,
+    .output_hash = 0xc8fba28bu};
 
 inline const uint32_t truncated_icosahedron_ambo_converged_bits[] PROGMEM = {
     0x00000000u, 0x00000000u, 0x3f800000u, 0x3e98a13cu, 0x3e326a92u, 0x3f70414eu, 0x3e9e3779u, 0x3f000001u,
@@ -123,9 +125,10 @@ inline const uint32_t truncated_icosahedron_ambo_converged_bits[] PROGMEM = {
     0xbf147c5eu, 0xbe905782u, 0xbf43a6abu, 0xbe905782u, 0xbf43a6abu, 0xbf147c5eu,
 };
 inline constexpr MeshOps::RelaxBake truncated_icosahedron_ambo_converged = {
-    "truncated_icosahedron_ambo_converged", truncated_icosahedron_ambo_converged_bits, 90, 92, 360, 4096,
-    0x0a20bce1u,
-    0x18af899fu};
+    .name = "truncated_icosahedron_ambo_converged", .vertex_bits = truncated_icosahedron_ambo_converged_bits,
+    .vertex_count = 90, .face_count = 92, .index_count = 360, .iterations = 4096,
+    .topology_hash = 0x0a20bce1u,
+    .output_hash = 0x18af899fu};
 
 inline const uint32_t dodecahedron_ambo_bevel33_converged_bits[] PROGMEM = {
     0x3dc4838bu, 0x3f76c3eau, 0x3e7e3a67u, 0xbdc4838bu, 0x3f76c3eau, 0x3e7e3a67u, 0xbe80bf0du, 0x3f678f44u,
@@ -220,9 +223,10 @@ inline const uint32_t dodecahedron_ambo_bevel33_converged_bits[] PROGMEM = {
     0xbf37b12eu, 0xbf02833au, 0xbf29062fu, 0xbed58ef8u, 0xbf1fe406u, 0xbf37b12eu, 0xbf028339u, 0xbef2fa93u,
 };
 inline constexpr MeshOps::RelaxBake dodecahedron_ambo_bevel33_converged = {
-    "dodecahedron_ambo_bevel33_converged", dodecahedron_ambo_bevel33_converged_bits, 240, 122, 720, 4096,
-    0x0e6068e9u,
-    0x9bf3bc8bu};
+    .name = "dodecahedron_ambo_bevel33_converged", .vertex_bits = dodecahedron_ambo_bevel33_converged_bits,
+    .vertex_count = 240, .face_count = 122, .index_count = 720, .iterations = 4096,
+    .topology_hash = 0x0e6068e9u,
+    .output_hash = 0x9bf3bc8bu};
 
 inline const uint32_t dodecahedron_bevel20_converged_bits[] PROGMEM = {
     0x3eb09d4eu, 0x3f66bbdcu, 0x3e8628fcu, 0x3e073cfeu, 0x3f7b8cd3u, 0x3e05983du, 0xbe073cfeu, 0x3f7b8cd3u,
@@ -272,9 +276,10 @@ inline const uint32_t dodecahedron_bevel20_converged_bits[] PROGMEM = {
     0xbf66bbdcu, 0xbe8628fcu, 0xbeb0c5d9u, 0xbf233e2bu, 0xbf304864u, 0xbeda67c5u, 0xbf44ec9du, 0xbef391f8u,
 };
 inline constexpr MeshOps::RelaxBake dodecahedron_bevel20_converged = {
-    "dodecahedron_bevel20_converged", dodecahedron_bevel20_converged_bits, 120, 62, 360, 4096,
-    0x3b53f3c9u,
-    0x74207089u};
+    .name = "dodecahedron_bevel20_converged", .vertex_bits = dodecahedron_bevel20_converged_bits,
+    .vertex_count = 120, .face_count = 62, .index_count = 360, .iterations = 4096,
+    .topology_hash = 0x3b53f3c9u,
+    .output_hash = 0x74207089u};
 
 inline const uint32_t truncated_icosidodecahedron_bevel50_relax100_bits[] PROGMEM = {
     0x3dce1a56u, 0x3f770184u, 0x3e7886f3u, 0xbdce1a63u, 0x3f770183u, 0x3e7886f7u, 0xbe828d64u, 0x3f67e9c6u,
@@ -414,9 +419,10 @@ inline const uint32_t truncated_icosidodecahedron_bevel50_relax100_bits[] PROGME
     0xbf4b0177u, 0xbed076bcu, 0xbed0f492u, 0xbf5dae18u, 0xbe940839u, 0xbf0a6f5fu, 0xbf50b59fu, 0xbe541dffu,
 };
 inline constexpr MeshOps::RelaxBake truncated_icosidodecahedron_bevel50_relax100 = {
-    "truncated_icosidodecahedron_bevel50_relax100", truncated_icosidodecahedron_bevel50_relax100_bits, 360, 362, 1440, 100,
-    0x1f875855u,
-    0x07c1b935u};
+    .name = "truncated_icosidodecahedron_bevel50_relax100", .vertex_bits = truncated_icosidodecahedron_bevel50_relax100_bits,
+    .vertex_count = 360, .face_count = 362, .index_count = 1440, .iterations = 100,
+    .topology_hash = 0x1f875855u,
+    .output_hash = 0x07c1b935u};
 
 inline const uint32_t dodecahedron_hankin_ambo_hankin_ambo_converged_bits[] PROGMEM = {
     0x3e7521e5u, 0x3f2d221du, 0x3f32571du, 0x3ea09cfcu, 0x3f3686f0u, 0x3f208857u, 0x3eb1a9dfu, 0x3f445231u,
@@ -691,9 +697,10 @@ inline const uint32_t dodecahedron_hankin_ambo_hankin_ambo_converged_bits[] PROG
     0xbf508844u, 0xbece589bu, 0xbec681fbu, 0xbf5cbcb4u, 0xbea6d9d0u, 0xbed86095u, 0xbf5fd0f1u, 0xbe748aaeu,
 };
 inline constexpr MeshOps::RelaxBake dodecahedron_hankin_ambo_hankin_ambo_converged = {
-    "dodecahedron_hankin_ambo_hankin_ambo_converged", dodecahedron_hankin_ambo_hankin_ambo_converged_bits, 720, 362, 2160, 4096,
-    0x236de54du,
-    0x10477c35u};
+    .name = "dodecahedron_hankin_ambo_hankin_ambo_converged", .vertex_bits = dodecahedron_hankin_ambo_hankin_ambo_converged_bits,
+    .vertex_count = 720, .face_count = 362, .index_count = 2160, .iterations = 4096,
+    .topology_hash = 0x236de54du,
+    .output_hash = 0x10477c35u};
 
 inline const uint32_t icosahedron_snub_converged_bits[] PROGMEM = {
     0x3e32ab71u, 0x3e1df8f3u, 0x3f78f5c7u, 0x3db53048u, 0x3f1469a7u, 0x3f4f5b43u, 0xbe86a1ccu, 0x3e984752u,
@@ -721,9 +728,10 @@ inline const uint32_t icosahedron_snub_converged_bits[] PROGMEM = {
     0xbf2cd21fu, 0xbead197du, 0xbf2cd220u, 0xbf27dd06u,
 };
 inline constexpr MeshOps::RelaxBake icosahedron_snub_converged = {
-    "icosahedron_snub_converged", icosahedron_snub_converged_bits, 60, 92, 300, 4096,
-    0x75b29ecdu,
-    0x4d995cf9u};
+    .name = "icosahedron_snub_converged", .vertex_bits = icosahedron_snub_converged_bits,
+    .vertex_count = 60, .face_count = 92, .index_count = 300, .iterations = 4096,
+    .topology_hash = 0x75b29ecdu,
+    .output_hash = 0x4d995cf9u};
 
 } // namespace RelaxBakes
 // clang-format on

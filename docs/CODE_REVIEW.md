@@ -497,7 +497,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 186. ✅ **The 10k-leg walk test never exercises `seed_fix_at_start`** — `tests/test_conway_morph.h:967-1017` — and the continuity test's ADOPT gate has already drifted from production by one condition.
 
-187. **Generated bake aggregates use positional initialization** — `tools/relax_bakes.py:98-102` — four same-typed `uint16_t` fields in a row; a struct reorder still compiles and silently mis-binds.
+187. ✅ **Generated bake aggregates use positional initialization** — `tools/relax_bakes.py:98-102` — four same-typed `uint16_t` fields in a row; a struct reorder still compiles and silently mis-binds.
 
 188. **`World::Trails::plot` lacks the zero-alpha seed gate its `Screen::Trails` sibling has** — `core/render/filter.h:872-882` vs `:1264-1283` — transparent samples consume ring slots and evict live points, visibly shortening the tail. Prefer documenting over gating (some effects may rely on it).
 
