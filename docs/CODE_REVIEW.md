@@ -273,7 +273,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 75. ✅ **`Scan::Shader` overwrites the canvas and bypasses the filter pipeline, undocumented** — `core/render/scan.h:1498,1607,1683,1765` — all three overloads assign rather than plot, so an effect returning `alpha < 1` gets a darkened opaque pixel and no `Filter::World::*` applies.
 
-76. **A caller-supplied `fragment_interpolator` is silently replaced by `Fragment::lerp` on the type-erased path** — `core/render/plot.h:1116-1127,3593-3599` — the interpolation policy survives only for pipelines declaring `direct_raster_path`. Today's only caller supplies a strict subset of `lerp`, so the drop is a pure perf regression — but any nonlinear interpolator would render differently depending on pipeline type, with no diagnostic.
+76. ✅ **A caller-supplied `fragment_interpolator` is silently replaced by `Fragment::lerp` on the type-erased path** — `core/render/plot.h:1116-1127,3593-3599` — the interpolation policy survives only for pipelines declaring `direct_raster_path`. Today's only caller supplies a strict subset of `lerp`, so the drop is a pure perf regression — but any nonlinear interpolator would render differently depending on pipeline type, with no diagnostic.
 
 77. **`ParticleSystem::draw_impl` re-implements `gate_trail_edges`, and the two have already drifted** — `core/render/plot.h:3397-3463` vs `:2870-2947` — a near-verbatim copy missing the near-horizontal-arc-pole rejection whose comment explains exactly why it is needed. No wrong cull could be constructed, but two bodies documented as producing identical verdicts differ by one guard in the place a divergence is hardest to notice.
 
