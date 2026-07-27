@@ -433,6 +433,140 @@ inline void test_ring_group_matches_sequential() {
 }
 
 /**
+ * @brief Verifies DistortedRingStack::draw is bit-identical to rasterizing the
+ *        stack's rings one by one.
+ * @details Five evenly spaced same-axis knot rings with distinct thicknesses,
+ * colors, and alphas, drawn sequentially through Scan::DistortedRing::draw with
+ * suppress_pole_fill (the per-ring path the stack's doc claims to mirror) vs as
+ * one fused stack scan. The shader keys its green channel on the azimuth v0 and
+ * its alpha on the coverage v2, so a divergence in either register shows up in
+ * the pixels; every channel must match exactly. Covered: full frame, a partial
+ * clip with an x band, a culled middle ring (slot_by_ring -1), and a near-pole
+ * axis that forces the full-row-scan fallback on both paths.
+ */
+inline void test_distorted_ring_stack_matches_sequential() {
+  constexpr int W = 96, H = 64;
+  constexpr int N_RINGS = 5, LUT_N = 32;
+  constexpr float AMPLITUDE = 0.1f;
+
+  const float ths[N_RINGS] = {0.07f, 0.05f, 0.09f, 0.05f, 0.07f};
+  const Color4 colors[N_RINGS] = {Color4(Pixel(60000, 0, 5000), 0.9f),
+                                  Color4(Pixel(5000, 0, 10000), 0.6f),
+                                  Color4(Pixel(10000, 0, 60000), 0.4f),
+                                  Color4(Pixel(30000, 0, 30000), 0.7f),
+                                  Color4(Pixel(45000, 0, 20000), 1.0f)};
+
+  auto run_case = [&](const Vector &normal, bool partial_clip, int culled) {
+    Basis basis = make_basis(
+        make_rotation(Vector(0.2f, 0.5f, 0.8f).normalized(), 0.3f), normal);
+
+    float knots[N_RINGS][LUT_N + 1];
+    for (int i = 0; i < N_RINGS; ++i) {
+      for (int k = 0; k < LUT_N; ++k) {
+        float t = 2.0f * PI_F * k / LUT_N;
+        knots[i][k] = 0.06f * sinf((i + 2) * t) + 0.03f * cosf(3.0f * t + i);
+      }
+      knots[i][LUT_N] = knots[i][0];
+    }
+    // Ring i's centerline colatitude must be PI * (i + 1) / (N_RINGS + 1);
+    // target_angle is radius * PI/2.
+    auto ring_radius = [](int i) { return 2.0f * (i + 1) / (N_RINGS + 1); };
+
+    alignas(SDF::DistortedRing) unsigned char
+        mem[N_RINGS * sizeof(SDF::DistortedRing)];
+    auto *shapes = reinterpret_cast<SDF::DistortedRing *>(mem);
+    int8_t slot_by_ring[N_RINGS];
+    Color4 slot_color[N_RINGS];
+    int n_slots = 0;
+    for (int i = 0; i < N_RINGS; ++i) {
+      if (i == culled) {
+        slot_by_ring[i] = -1;
+        continue;
+      }
+      new (&shapes[n_slots]) SDF::DistortedRing(
+          basis, ring_radius(i), ths[i], knots[i], LUT_N, AMPLITUDE, 0.0f);
+      slot_color[n_slots] = colors[i];
+      slot_by_ring[i] = static_cast<int8_t>(n_slots);
+      ++n_slots;
+    }
+
+    auto shade = [&](int s, Fragment &f) {
+      const uint16_t g = static_cast<uint16_t>(wrap_t(f.v0) * 60000.0f);
+      f.color = Color4(Pixel(slot_color[s].color.r, g, slot_color[s].color.b),
+                       slot_color[s].alpha * f.v2);
+    };
+
+    std::vector<Pixel> expected(W * H);
+    {
+      ScanFx seq(W, H);
+      if (partial_clip) {
+        seq.set_clip(9, 53, 17, 81);
+        seq.set_margin(0);
+      }
+      Pipeline<W, H> pipeline;
+      {
+        Canvas canvas(seq);
+        for (int i = 0; i < N_RINGS; ++i) {
+          const int s = slot_by_ring[i];
+          if (s < 0)
+            continue;
+          auto shader = [&](const Vector &, Fragment &f) { shade(s, f); };
+          Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis,
+                                          ring_radius(i), ths[i], knots[i],
+                                          LUT_N, AMPLITUDE, shader, 0.0f, false,
+                                          /*suppress_pole_fill=*/true);
+        }
+      }
+      seq.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          expected[y * W + x] = seq.get_pixel(x, y);
+    }
+
+    ScanFx fused(W, H);
+    if (partial_clip) {
+      fused.set_clip(9, 53, 17, 81);
+      fused.set_margin(0);
+    }
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fused);
+      Scan::DistortedRingStack::draw<W, H>(
+          pipeline, canvas, N_RINGS, shapes, slot_by_ring, n_slots,
+          [&](int s, const Vector &, Fragment &f) { shade(s, f); });
+    }
+    fused.advance_display();
+
+    // ScalarFn's inplace_function member is not trivially destructible.
+    for (int s = 0; s < n_slots; ++s)
+      shapes[s].~DistortedRing();
+
+    size_t lit = 0;
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        const Pixel &a = expected[y * W + x];
+        const Pixel &b = fused.get_pixel(x, y);
+        if (!is_black(a))
+          ++lit;
+        HS_EXPECT_EQ(static_cast<int>(a.r), static_cast<int>(b.r));
+        HS_EXPECT_EQ(static_cast<int>(a.g), static_cast<int>(b.g));
+        HS_EXPECT_EQ(static_cast<int>(a.b), static_cast<int>(b.b));
+      }
+    }
+    // Guard against both paths drawing nothing.
+    HS_EXPECT_GT(lit, (size_t)200);
+  };
+
+  const Vector axis = Vector(0.3f, 0.8f, -0.5f).normalized();
+  run_case(axis, false, -1);
+  run_case(axis, true, -1);
+  run_case(axis, false, 2);
+  // Near-pole axis: r_val under the horizontal-projection floor forces the
+  // full-row-scan fallback on both paths.
+  run_case(Vector(0.005f, 1.0f, 0.0f).normalized(), false, -1);
+}
+
+/**
  * @brief Verifies the scan_region seam coalescer avoids double-plotting.
  * @details A span crossing x=0 must not double-plot the wrapped overlap shared
  * with another span. Drives scan_region with a sorted two-span row (a low span
@@ -1369,6 +1503,7 @@ inline int run_scan_tests() {
   test_ring_rasterize_empty_clip_draws_nothing();
   test_distorted_ring_flat_matches_zero_knot_raster();
   test_ring_group_matches_sequential();
+  test_distorted_ring_stack_matches_sequential();
   test_scan_shader_v2_contract();
   test_scan_region_seam_no_double_plot();
   test_scan_region_fractional_boundary_no_double_plot();
