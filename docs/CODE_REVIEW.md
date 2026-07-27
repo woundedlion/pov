@@ -177,7 +177,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 28. ✅ **Doxygen publishes nothing for the entire WASM bridge** — `Doxyfile:28` — `PREDEFINED` omits `__EMSCRIPTEN__` and all of `wasm.cpp` is inside `#ifdef __EMSCRIPTEN__`, so `HolosphereEngine`, `MeshOpsWrapper`, `PaletteOps` and every exported function publish as an empty File Reference (verified against the checked-in generated HTML). The README's "API documentation" link therefore omits the whole JS-facing surface. Fix: define the macro; two entities need `@param` first, since `WARN_AS_ERROR` is on.
 
-29. **The WASM target compiles with no warning flags at all** — `CMakeLists.txt:79,86` — native tests use `-Wall -Wextra -Werror` and Teensy uses `-Wall -Wextra` plus a ratchet; the Emscripten branch sets only optimization flags, and `wasm.cpp` is compiled by no other target. It is the one first-party TU with zero warning coverage. Fix: add `-Wall -Wextra` (no `-Werror`) to the shared `if(EMSCRIPTEN)` block.
+29. ✅ **The WASM target compiles with no warning flags at all** — `CMakeLists.txt:79,86` — native tests use `-Wall -Wextra -Werror` and Teensy uses `-Wall -Wextra` plus a ratchet; the Emscripten branch sets only optimization flags, and `wasm.cpp` is compiled by no other target. It is the one first-party TU with zero warning coverage. Fix: add `-Wall -Wextra` (no `-Werror`) to the shared `if(EMSCRIPTEN)` block.
 
 30. **`docs/opchain_morph_spec.md` is labelled "DESIGN, not implemented"** — `docs/opchain_morph_spec.md:3` — it landed in three merges and `effects/IslamicStars.h` cites its sections as the implemented design. A reader trusts the status line first. Fix: mark LANDED with the merge SHAs.
 
