@@ -251,7 +251,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 64. ✅ **Two specs still document the far-star guard at its old value** — `docs/conway_morph_spec.md:548`, `docs/opchain_morph_spec.md:1205` vs `core/mesh/hankin.h:294` — both state `STAR_FAR_RATIO_SQ = 36`; the constant is 4.0 with the blend starting at 2.25, and the calibration reasoning in `core/animation/mesh.h:442-448` no longer follows.
 
-65. **Eight engineering docs are untracked** — including the 71 KB `opchain_morph_spec.md` that shipped code cites. They are unbacked, unshared, and invisible to `tools/docs_check.py`, which walks tracked entries only — so their fences and links are never validated.
+65. ✅ **Eight engineering docs are untracked** — including the 71 KB `opchain_morph_spec.md` that shipped code cites. They are unbacked, unshared, and invisible to `tools/docs_check.py`, which walks tracked entries only — so their fences and links are never validated.
 
 66. **The flush-before-plot contract for a frame-replacing terminal filter is undocumented** — `core/render/filter.h:34-36,1478,1853` — a `terminal_replaces` stage's `flush()` overwrites the destination at `alpha >= 1`, so it must run *before* the frame's `plot()` calls. `MeshFeedback` does this by convention only; an author mirroring `Dynamo`'s correct flush-last pattern would silently erase the entire frame.
 
