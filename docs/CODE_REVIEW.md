@@ -385,7 +385,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 131. ✅ **`fast_sincosf_0_pi` states a domain it does not enforce** — `core/math/3dmath.h:1397-1409` — beyond π the sine branch silently returns the wrong sign, while the sibling `fast_expf` asserts its domain.
 
-132. **`project_div` returns the antipodal pole for a tiny-numerator quotient** — `core/math/3dmath.h:836-847` — the 0/0 test is an absolute epsilon applied after the singular branch is taken, so a legitimate point at infinity maps to the south pole. Fix: make the test exact, as the comment already claims.
+132. ✅ **`project_div` returns the antipodal pole for a tiny-numerator quotient** — `core/math/3dmath.h:836-847` — the 0/0 test is an absolute epsilon applied after the singular branch is taken, so a legitimate point at infinity maps to the south pole. Fix: make the test exact, as the comment already claims.
 
 133. **`stereo()`'s doc contradicts its code and its own test** — `core/math/3dmath.h:891` — the pole cap deliberately preserves the (x,z) azimuth; only the exact pole falls back to the real axis.
 
