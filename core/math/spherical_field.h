@@ -173,10 +173,7 @@ public:
     const float fx = x - floor_x;
     const float fy = y - floor_y;
 
-    if (x0 < 0)
-      x0 += W;
-    else if (x0 >= W)
-      x0 -= W;
+    x0 = ::fast_wrap(x0, W);
     const int x1 = x0 + 1 < W ? x0 + 1 : 0;
 
     auto tap = [&](int sample_x, int sample_y) {
@@ -215,10 +212,7 @@ public:
     const float fx = x - floor_x;
     const float fy = y - floor_y;
 
-    if (x0 < 0)
-      x0 += W;
-    else if (x0 >= W)
-      x0 -= W;
+    x0 = ::fast_wrap(x0, W);
     const int x1 = x0 + 1 < W ? x0 + 1 : 0;
 
     Pixel p00, p10, p01, p11;
