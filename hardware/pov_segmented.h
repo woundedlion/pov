@@ -308,6 +308,7 @@ public:
         // The first frame commits on a ZERO boundary, an arm-A-left window.
         clip_to_segment(cur, /*arm_a_left=*/true);
         cur->draw_frame();
+        cur->set_buffer_ready_hook(prepare_segment_clip);
         hs::disable_interrupts();
         // Publish under IRQ-off so the (effect, gen) pair reaches the ISR
         // atomically; publish()'s release store orders every constructor/
@@ -318,9 +319,6 @@ public:
       }
 
       if (cur && handoff_.consumed(built_gen)) {
-        // Render the quadrant the next display window paints: the live window's
-        // opposite half (windows alternate ZERO/HALF).
-        clip_to_segment(cur, handoff_.window_left() == 0);
         const unsigned long f0 = micros();
         cur->draw_frame();
         if (hs::debug) {
@@ -460,12 +458,16 @@ private:
    *          frame state (needs_full_frame / persists_pixels), so trails and
    *          feedback stay correct under the per-frame arm-half alternation.
    */
-  void clip_to_segment(Effect *e, bool arm_a_left) {
+  static void clip_to_segment(Effect *e, bool arm_a_left) {
     if (e->needs_full_frame() || e->persists_pixels())
       return;
     const pov::SegmentMap m{arm_b_, y_base_, y_step_};
     const pov::SegmentClip c = pov::segment_clip(m, arm_a_left, S, N, CANVAS_W);
     e->set_clip(c.y0, c.y1, c.x0, c.x1);
+  }
+
+  static void prepare_segment_clip(Effect &e) {
+    clip_to_segment(&e, handoff_.window_left() == 0);
   }
 
   // ── ISRs ────────────────────────────────────────────────────────────

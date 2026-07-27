@@ -43,6 +43,8 @@ class Effect {
   friend class Canvas;
 
 public:
+  using BufferReadyHook = void (*)(Effect &);
+
   bool debug_visuals = false; /**< Flag to enable visual debugging overlays. */
 
   /**
@@ -242,6 +244,11 @@ public:
     return prev_.load(std::memory_order_relaxed) ==
            next_.load(std::memory_order_relaxed);
   }
+  /**
+   * @brief Installs a callback run after Canvas acquires a free buffer.
+   * @param hook Callback to install, or null to disable it.
+   */
+  void set_buffer_ready_hook(BufferReadyHook hook) { buffer_ready_hook = hook; }
   /**
    * @brief Advances the display buffer pointer to the next queued frame.
    */
@@ -601,6 +608,11 @@ private:
     std::fill_n(bufs_[1], MAX_W * MAX_H, Pixel(0, 0, 0));
   }
 
+  inline void notify_buffer_ready() {
+    if (buffer_ready_hook)
+      buffer_ready_hook(*this);
+  }
+
   std::atomic<int> prev_{0}; /**< Buffer the ISR is currently reading. */
   std::atomic<int> cur_{0};  /**< Buffer the main loop is currently writing. */
   std::atomic<int> next_{0}; /**< Last completed frame, queued for display. */
@@ -619,6 +631,7 @@ private:
   // single-live-Effect precondition on the shared buffer_a/buffer_b: the ctor
   // traps if already set, the dtor clears it.
   static bool s_alive;
+  BufferReadyHook buffer_ready_hook = nullptr;
 };
 
 /**
@@ -656,6 +669,7 @@ public:
 #endif
       }
     }
+    effect_.notify_buffer_ready();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
       clear_buffer();
@@ -678,6 +692,7 @@ public:
 #endif
       }
     }
+    effect_.notify_buffer_ready();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
       HS_PROFILE(canvas_clear);
