@@ -344,7 +344,12 @@ public:
    *         frontend can detect a no-op instead of believing the switch took.
    * @details Validates the name against the factory for the current resolution
    *          BEFORE tearing anything down, so a typo'd/stale UI string keeps the
-   *          prior valid state alive rather than blanking the engine.
+   *          prior valid state alive rather than blanking the engine. A
+   *          successful switch instantiates a fresh effect at the full-canvas
+   *          clip and with default parameter values, so callers that use a
+   *          sub-canvas clip (segmented rendering) or tuned parameters must
+   *          re-apply setClip() and setParameter() after every successful
+   *          setEffect().
    */
   bool setEffect(std::string name) {
     // Pass name as the %s argument, never as the format string itself: a '%' in
