@@ -29,9 +29,15 @@ connected component containing C = 0, is continuous, and agrees with the
 bisection everywhere the set is connected.
 
 Usage: python tools/gen_gamut_lut.py [output_path]
+       python tools/gen_gamut_lut.py --check
+
+--check regenerates the table in memory and diffs its numeric tokens against
+the committed header, and pins the constants mirrored below against
+core/color/color.h. Wired as ctest unit_gamut_lut and CI gamut-lut-provenance.
 """
 
 import os
+import re
 import sys
 
 import numpy as np
@@ -56,16 +62,27 @@ BISECT_ITERS = 28
 # it. A ray that fails re-solves with the full coarse scan.
 CONNECT_CHECKS = 24
 
-# Matches core/color/color.h linear_rgb_in_gamut().
-GAMUT_LO = -1e-4
-GAMUT_HI = 1.0 + 1e-4
+# Matches core/color/color.h linear_rgb_in_gamut(). --check pins these against
+# that header.
+GAMUT_EPS = 1e-4
+GAMUT_LO = -GAMUT_EPS
+GAMUT_HI = 1.0 + GAMUT_EPS
+
+# Mirrors color.h oklab_to_lms_cbrt(): (a, b) coefficients per cone row.
+OKLAB_TO_LMS = ((0.3963377774, 0.2158037573),
+                (-0.1055613458, -0.0638541728),
+                (-0.0894841775, -1.2914855480))
+# Mirrors color.h lms_cbrt_to_linear_rgb(): (l, m, s) coefficients per channel.
+LMS_TO_RGB = ((+4.0767416621, -3.3077115913, +0.2309699292),
+              (-1.2684380046, +2.6097574011, -0.3413193965),
+              (-0.0041960863, -0.7034186147, +1.7076147010))
 
 
 def oklab_to_lms_cbrt(L, a, b):
     """Inverse OKLab matrix; mirrors color.h oklab_to_lms_cbrt()."""
-    l_ = L + 0.3963377774 * a + 0.2158037573 * b
-    m_ = L - 0.1055613458 * a - 0.0638541728 * b
-    s_ = L - 0.0894841775 * a - 1.2914855480 * b
+    l_ = L + OKLAB_TO_LMS[0][0] * a + OKLAB_TO_LMS[0][1] * b
+    m_ = L + OKLAB_TO_LMS[1][0] * a + OKLAB_TO_LMS[1][1] * b
+    s_ = L + OKLAB_TO_LMS[2][0] * a + OKLAB_TO_LMS[2][1] * b
     return l_, m_, s_
 
 
@@ -74,9 +91,9 @@ def lms_cbrt_to_linear_rgb(l_, m_, s_):
     l = l_ * l_ * l_
     m = m_ * m_ * m_
     s = s_ * s_ * s_
-    r = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s
-    g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s
-    b = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+    r = LMS_TO_RGB[0][0] * l + LMS_TO_RGB[0][1] * m + LMS_TO_RGB[0][2] * s
+    g = LMS_TO_RGB[1][0] * l + LMS_TO_RGB[1][1] * m + LMS_TO_RGB[1][2] * s
+    b = LMS_TO_RGB[2][0] * l + LMS_TO_RGB[2][1] * m + LMS_TO_RGB[2][2] * s
     return r, g, b
 
 
@@ -198,8 +215,8 @@ def build_table():
     return table, worst_width
 
 
-def emit(table, out_path):
-    """Writes the generated header."""
+def render(table):
+    """Returns the generated header text."""
     flat = table.ravel()
     lines = []
     # 11 five-digit values plus indent stays inside the 80-column convention.
@@ -263,19 +280,85 @@ inline const uint16_t GAMUT_LUT[GAMUT_LUT_ENTRIES] PROGMEM = {{
 {body}
 }};
 """
-    with open(out_path, "w", newline="\n") as f:
-        f.write(header)
+    return header
+
+
+def _function_body(text, signature):
+    """Source between the opening brace of `signature` and its column-0 close."""
+    start = text.index(signature)
+    open_brace = text.index("{", start)
+    return text[open_brace:text.index("\n}", open_brace)]
+
+
+NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+
+
+def check_mirrors(color_h_path):
+    """Diffs the mirrored OKLab matrices and gamut epsilon against color.h."""
+    with open(color_h_path, "r") as f:
+        text = f.read()
+
+    ok = True
+    pairs = (("inline void oklab_to_lms_cbrt(", OKLAB_TO_LMS),
+             ("inline void lms_cbrt_to_linear_rgb(", LMS_TO_RGB))
+    for signature, expected in pairs:
+        body = _function_body(text, signature)
+        found = [float(s + v)
+                 for s, v in re.findall(r"([-+])\s*(\d+\.\d+)f", body)]
+        want = [c for row in expected for c in row]
+        if found != want:
+            sys.stderr.write("mirror drift in %s\n  color.h: %s\n  here:    %s\n"
+                             % (signature, found, want))
+            ok = False
+
+    gamut = _function_body(text, "inline bool linear_rgb_in_gamut(")
+    m = re.search(r"lo\s*=\s*(%s)f\s*,\s*hi\s*=\s*(%s)f\s*\+\s*(%s)f"
+                  % (NUM, NUM, NUM), gamut)
+    if not m:
+        sys.stderr.write("could not parse linear_rgb_in_gamut() slack\n")
+        return False
+    lo, one, eps = (float(m.group(i)) for i in (1, 2, 3))
+    if (lo, one + eps) != (GAMUT_LO, GAMUT_HI):
+        sys.stderr.write("gamut slack drift\n  color.h: %r %r\n  here:    %r %r\n"
+                         % (lo, one + eps, GAMUT_LO, GAMUT_HI))
+        ok = False
+    return ok
+
+
+def check_provenance(committed_path):
+    """Diffs a fresh table's numeric tokens against the committed header."""
+    if not os.path.exists(committed_path):
+        sys.stderr.write("missing %s\n" % committed_path)
+        return False
+    with open(committed_path, "r") as f:
+        committed = f.read()
+
+    table, _ = build_table()
+    generated = re.findall(r"[0-9]+", render(table))
+    if generated == re.findall(r"[0-9]+", committed):
+        return True
+    sys.stderr.write(
+        "%s is out of sync with tools/gen_gamut_lut.py\n"
+        "Regenerate with: python tools/gen_gamut_lut.py"
+        " && clang-format -i core/color/gamut_lut.h\n" % committed_path)
+    return False
 
 
 def main():
-    if len(sys.argv) > 1:
-        out_path = sys.argv[1]
-    else:
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        out_path = os.path.join(root, "core", "color", "gamut_lut.h")
+    argv = sys.argv[1:]
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    positional = [a for a in argv if not a.startswith("--")]
+    out_path = (positional[0] if positional
+                else os.path.join(root, "core", "color", "gamut_lut.h"))
+
+    if "--check" in argv:
+        ok = check_mirrors(os.path.join(root, "core", "color", "color.h"))
+        ok = check_provenance(out_path) and ok
+        sys.exit(0 if ok else 1)
 
     table, worst_width = build_table()
-    emit(table, out_path)
+    with open(out_path, "w", newline="\n") as f:
+        f.write(render(table))
     sys.stderr.write(
         "wrote %s (%d x %d cells, %d entries)\n"
         "worst bracket width at full resolution: %.6f\n"

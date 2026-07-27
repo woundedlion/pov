@@ -150,6 +150,17 @@ add_test(NAME unit_color_luts_check COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts_selfcheck.cmake)
 set_tests_properties(unit_color_luts_check PROPERTIES SKIP_RETURN_CODE 77)
 
+# Pin core/color/gamut_lut.h against its generator, and the generator's copies of
+# the OKLab matrices and the gamut slack against core/color/color.h — drift there
+# invalidates the brackets the per-pixel bisection is confined to. A full
+# regeneration is ~1 min of numpy; skips (exit 77) without Python or numpy.
+add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
+    -DPYTHON_EXE=${HS_PYTHON}
+    -DGENERATOR=${HS_ROOT}/tools/gen_gamut_lut.py
+    -DSKIP_CODE=77
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_gamut_lut.cmake)
+set_tests_properties(unit_gamut_lut PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+
 # The run_tests build sets NO math flags, so its NaN-clamp
 # assertions run under default IEEE semantics where the hs::clamp NaN->hi
 # contract holds trivially — the at-risk codegen the WASM release build actually

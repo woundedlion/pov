@@ -187,7 +187,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 33. ✅ **A failed DRC run is displayed as "clean" and stays eligible to win** — `hardware/phantasm/gen/analyze_candidates.py:124,259-266,328-342` — `run_drc` returns `None` for both "tool unavailable" and "this candidate failed", so a failed candidate renders as `DRCerr 0 unconn 0 clean` and can be selected as best-by-composite. Fix: distinguish the two cases and exclude un-gated candidates.
 
-34. **`tools/gen_gamut_lut.py` has no provenance gate** — the only generated artifact with no `--check`, no ctest and no CI job, while it hand-duplicates the OKLab matrices and gamut epsilon from `core/color/color.h`. Drift there silently invalidates the brackets the runtime bisects within. Fix: add a `--check` mode wired like `reaction-graph-provenance`.
+34. ✅ **`tools/gen_gamut_lut.py` has no provenance gate** — the only generated artifact with no `--check`, no ctest and no CI job, while it hand-duplicates the OKLab matrices and gamut epsilon from `core/color/color.h`. Drift there silently invalidates the brackets the runtime bisects within. Fix: add a `--check` mode wired like `reaction-graph-provenance`.
 
 35. **`device_lock.sh` stale-lock break is a rm-then-mkdir race** — `tools/device_lock.sh:168-170` — two peers can both judge a claim stale, and the second `rm -rf`s the first's fresh lock — two sessions flashing one board, the exact failure `mkdir` atomicity was chosen to prevent. Fix: break by atomic rename.
 
