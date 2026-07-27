@@ -421,7 +421,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 149. ✅ **`docs_check.py` passes when it finds zero Markdown files** — `tools/docs_check.py:294` — the docs workflow step goes green having validated nothing.
 
-150. **`profile_one.sh` hardcodes one machine's checkout path** — `tools/profile_one.sh:52` — the intent (always build the main tree, never the invoking worktree) is sound; the encoding is not.
+150. ✅ **`profile_one.sh` hardcodes one machine's checkout path** — `tools/profile_one.sh:52` — the intent (always build the main tree, never the invoking worktree) is sound; the encoding is not.
 
 151. **daydream: the controller silently drops unknown worker messages** — `segment_controller.js:295-353` — asymmetric with the worker, which throws on protocol drift and has a test pinning that. A renamed message leaves `ready` unset until a 20 s watchdog reports a misleading diagnosis.
 

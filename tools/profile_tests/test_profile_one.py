@@ -46,6 +46,41 @@ def capture_log(config):
     )
 
 
+class MainTreeResolution(unittest.TestCase):
+    """The build tree must be the main checkout from anywhere, worktrees too."""
+
+    def _main_tree_from(self, script_dir):
+        script = f"{shell_function('main_tree')}\nmain_tree\n"
+        result = subprocess.run(
+            ["bash", "-c", script, str(Path(script_dir) / "profile_one.sh")],
+            capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return Path(result.stdout.strip())
+
+    def test_resolves_this_checkout(self):
+        self.assertEqual(self._main_tree_from(REPO / "tools").resolve(),
+                         Path(subprocess.run(
+                             ["git", "-C", str(REPO), "rev-parse",
+                              "--path-format=absolute", "--git-common-dir"],
+                             capture_output=True, text=True, check=True
+                         ).stdout.strip()).parent.resolve())
+
+    def test_worktree_resolves_to_its_main_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "main"
+            tree = Path(directory) / "wt"
+            subprocess.run(["git", "init", "-q", "-b", "main", str(root)],
+                           check=True)
+            (root / "seed.txt").write_text("seed\n", encoding="utf-8")
+            for args in (["add", "seed.txt"],
+                         ["-c", "user.name=t", "-c", "user.email=t@t",
+                          "commit", "-qm", "seed"],
+                         ["worktree", "add", "-q", str(tree), "-b", "branch"]):
+                subprocess.run(["git", "-C", str(root)] + args, check=True)
+            self.assertEqual(self._main_tree_from(tree).resolve(),
+                             root.resolve())
+
+
 class ProfileConfigVerification(unittest.TestCase):
     def test_matching_config_passes(self):
         self.assertEqual(verify_log(capture_log("o3")).returncode, 0)

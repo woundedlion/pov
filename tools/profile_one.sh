@@ -28,10 +28,10 @@
 # HS_PROFILE_TREE=<path> builds that checkout instead of the main one, so a
 # branch can be profiled before it lands. Everything this script writes is
 # relative to the tree (build/prof, .pio), so a worktree keeps its own logs and
-# object dir and cannot mix results with the main tree's. Without it the default
-# below is built no matter which directory the script is invoked from — running
-# it inside a worktree would otherwise profile master's code under the branch's
-# name, and nothing in the capture would say so.
+# object dir and cannot mix results with the main tree's. Without it the main
+# checkout is built no matter which directory the script is invoked from —
+# profiling a worktree's code under master's name (or the reverse) would leave
+# nothing in the capture to say so.
 set -eo pipefail
 . "$(dirname "$0")/device_lock.sh"
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
@@ -49,7 +49,18 @@ if [ -n "$HS_PROFILE_DEEP" ] && [ "$HS_PROFILE_DEEP" != "0" ]; then
   DEEP_SUFFIX="_deep"
 fi
 OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}.log}
-cd "${HS_PROFILE_TREE:-/c/work/Holosphere}"
+
+# The main checkout: git's common dir is the main repo's .git from every
+# worktree, so its parent is that checkout wherever this script is invoked from.
+main_tree() {
+  local common
+  common=$(git -C "$(dirname "$0")" rev-parse --path-format=absolute \
+             --git-common-dir) || return 1
+  dirname "$common"
+}
+TREE=${HS_PROFILE_TREE:-$(main_tree)} ||
+  { echo "cannot resolve the main checkout from $(dirname "$0")" >&2; exit 1; }
+cd "$TREE" || { echo "no such tree: $TREE" >&2; exit 1; }
 mkdir -p "$(dirname "$OUT")"
 export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $EXTRA"
 
