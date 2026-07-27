@@ -1505,6 +1505,13 @@ HS_O3_END
  * Accepts a single callable ShaderFn(const Vector &v) -> Color4
  * that maps a world-space unit vector to a final color.
  * The utility calls it SAMPLES× per pixel at sub-pixel offsets and averages.
+ *
+ * @details Every overload assigns the finished premultiplied color to the
+ * canvas rather than plotting it, so the destination is overwritten: alpha < 1
+ * darkens the pixel instead of blending with what is under it, and no
+ * plot-time filter stage (Filter::World / Filter::Pixel) sees it. These entry
+ * points take no pipeline; an effect needing the filter chain must plot
+ * through it itself.
  */
 struct Shader {
   // --- Shared SSAA helpers (used by both draw() overloads) -------------------
