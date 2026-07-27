@@ -624,8 +624,13 @@ inline void test_partition_seam_calibration() {
 
 /**
  * @brief Runs the partition-seam calibration.
+ * @return The module's failure count.
  */
-inline void run_partition_seam_tests() { test_partition_seam_calibration(); }
+inline int run_partition_seam_tests() {
+  hs_test::ModuleFixture fixture("partition_seam");
+  test_partition_seam_calibration();
+  return fixture.result();
+}
 
 } // namespace partition_seam_tests
 } // namespace hs_test

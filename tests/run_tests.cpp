@@ -17,6 +17,7 @@
 #include "tests/test_conway.h"
 #include "tests/test_conway_morph.h"
 #include "tests/test_conway_continuity.h"
+#include "tests/test_partition_seam.h"
 #include "tests/test_conway_soak.h"
 #include "tests/test_opchain_probe.h"
 #include "tests/test_opchain_arena_survey.h"
@@ -84,6 +85,8 @@ struct TestModule {
   X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests)       \
   X("conway_continuity",                                                       \
     hs_test::conway_continuity_tests::run_conway_continuity_tests)             \
+  X("partition_seam",                                                          \
+    hs_test::partition_seam_tests::run_partition_seam_tests)                   \
   X("conway_soak", hs_test::conway_soak_tests::run_conway_soak_tests)          \
   X("opchain_probe", hs_test::opchain_probe_tests::run_opchain_probe_tests)    \
   X("opchain_arena_survey",                                                    \

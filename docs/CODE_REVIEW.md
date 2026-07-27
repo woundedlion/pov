@@ -409,7 +409,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 143. ✅ **`aa_audit_main.cpp` and `aa_search_main.cpp` are in no build target** — 338 lines referenced by no CMake file, calling APIs that have since moved. The project made the opposite call for their siblings, keeping `perf_bench` in the build explicitly as a bit-rot guard.
 
-144. **631 lines of seam gates run under a borrowed module label** — `tests/test_conway_continuity.h:59` — `test_partition_seam.h` is invoked from inside another module's runner, so it has no CTest, `--check-modules` cannot see it, and its failures are misattributed.
+144. ✅ **631 lines of seam gates run under a borrowed module label** — `tests/test_conway_continuity.h:59` — `test_partition_seam.h` is invoked from inside another module's runner, so it has no CTest, `--check-modules` cannot see it, and its failures are misattributed.
 
 145. **`capture_screenshots.mjs` writes wrong-effect PNGs when resolution probing degrades** — `scripts/capture_screenshots.mjs:190` — a short-circuit skips the effect-identity confirmation when the resolution list is empty, so the app's fallback effect is saved under another effect's filename — the outcome the code's own comment calls "worse than leaving the stale one". The nonzero exit fires only after the files are on disk.
 
