@@ -349,7 +349,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 113. ✅ **`fab.parse_components` is a third independent hand-rolled S-expression reader** — `hardware/phantasm/gen/fab.py:143-174` — a depth counter over raw text plus regex, while `sexp.parse` and `export_netlist` already exist and `check.py` uses them on the same file. A `)` inside a quoted property mis-terminates the block.
 
-114. **`shorts.py`'s colinearity tolerance is not normalized by segment length** — `hardware/phantasm/gen/shorts.py:62-67` — the effective perpendicular tolerance is `0.02/len`, so a 100 mm wire admits 0.2 µm. Orthogonal wires are exact, so any diagonal wire silently loses mid-span detection.
+114. ✅ **`shorts.py`'s colinearity tolerance is not normalized by segment length** — `hardware/phantasm/gen/shorts.py:62-67` — the effective perpendicular tolerance is `0.02/len`, so a 100 mm wire admits 0.2 µm. Orthogonal wires are exact, so any diagonal wire silently loses mid-span detection.
 
 115. **A missing footprint yields a *perfect* ergonomics score** — `hardware/phantasm/gen/analyze_candidates.py:184-192` — `max(0, nan-5)` evaluates to 0 in Python, so every missing part removes its own penalty and a candidate that dropped decoupling caps outranks one that merely placed them badly.
 

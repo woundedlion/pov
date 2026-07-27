@@ -1,5 +1,6 @@
 """Union-find connectivity check over raw schematic geometry.
 Reports edges that merge two DIFFERENT named nets (labels / power)."""
+import math
 import os
 import sys
 import sexp
@@ -59,12 +60,17 @@ for c in F(root, "wire"):
     wires.append((pts[0], pts[1]))
 
 
+TOL = 0.02   # mm, perpendicular distance from the wire
+
+
 def on_seg(p, a, b):
     (x, y), (x1, y1), (x2, y2) = p, a, b
-    if not (min(x1, x2) - 0.02 <= x <= max(x1, x2) + 0.02 and
-            min(y1, y2) - 0.02 <= y <= max(y1, y2) + 0.02):
+    if not (min(x1, x2) - TOL <= x <= max(x1, x2) + TOL and
+            min(y1, y2) - TOL <= y <= max(y1, y2) + TOL):
         return False
-    return abs((x2 - x1) * (y - y1) - (y2 - y1) * (x - x1)) < 0.02
+    cross = abs((x2 - x1) * (y - y1) - (y2 - y1) * (x - x1))
+    length = math.hypot(x2 - x1, y2 - y1)
+    return cross < TOL * length if length else True
 
 
 # junction dots explicitly connect crossing/T wires that only touch mid-span.
