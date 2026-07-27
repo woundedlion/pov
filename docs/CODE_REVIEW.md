@@ -579,7 +579,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 227. ✅ **daydream: `warmModules()` never drains the fetched bodies** — `segment_controller.js:84-87` — `fetch` resolves at headers, so the 1.86 MB `.wasm` is typically neither downloaded nor cached; the "prime the module cache" half of the stated purpose does not happen.
 
-228. **daydream: `applyResolution` reports success for an unknown preset** — `daydream.js:431` — returns `undefined`, which the transaction helper treats as applied, contradicting its own documented contract.
+228. ✅ **daydream: `applyResolution` reports success for an unknown preset** — `daydream.js:431` — returns `undefined`, which the transaction helper treats as applied, contradicting its own documented contract.
 
 229. **daydream: the WASM load-failure overlay offers no recovery affordance** — `daydream.js:639-651` — a module-eval failure and a WebGL context loss both get a Reload button; the most likely real failure does not. The safe `showBootstrapFailure` helper already exists.
 
