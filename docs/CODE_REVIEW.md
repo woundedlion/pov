@@ -291,7 +291,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 84. ✅ **`Recipe::seed` indexes `simple_registry` unchecked at three sites** — `core/mesh/solids.h:1138`, `core/mesh/recipe.h:120,186`, `targets/wasm/wasm.cpp:1153` — while the parallel `get_entry` path `HS_CHECK`s. Safe only because every current recipe uses a static-asserted constant. Fix: a constexpr fold over the registry, or one `HS_CHECK`.
 
-85. **`expand`/`chamfer`/`snub` document a `[0,1]` parameter and never enforce it, while `truncate` traps** — `core/mesh/conway.h:842,913,1170` vs `:742` — these are the operators whose parameter is *animated* at runtime; a clamp regression feeding `t < 0` inverts the mesh with no trap, on hardware with no console.
+85. ✅ **`expand`/`chamfer`/`snub` document a `[0,1]` parameter and never enforce it, while `truncate` traps** — `core/mesh/conway.h:842,913,1170` vs `:742` — these are the operators whose parameter is *animated* at runtime; a clamp regression feeding `t < 0` inverts the mesh with no trap, on hardware with no console.
 
 86. **The load-bearing scratch-arena contract block omits `medial` and misstates `relax`** — `core/mesh/conway.h:381-398` — `medial` allocates in both arenas and requires a closed manifold, and is absent from both lists; `relax` allocates `orbit_start` and `movements` in `temp` despite the block saying it needs no extra buffers.
 

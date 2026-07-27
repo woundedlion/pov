@@ -836,7 +836,9 @@ static constexpr float EXPAND_DEFAULT_T = 2.0f - 1.414213562373095f;
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh.
- * @param t Expansion factor. Default EXPAND_DEFAULT_T.
+ * @param t Expansion factor: the fraction each face corner moves toward the
+ *   face centroid. Unbounded, unlike chamfer's and snub's inset — above 1 the
+ *   new corners cross the centroid. Default EXPAND_DEFAULT_T.
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
@@ -907,11 +909,14 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
- * @param t Thickness factor for the new hexagons [0..1].
+ * @param t Thickness factor for the new hexagons, the fraction each face corner
+ *   moves toward the face centroid, in [0..1]; outside that domain the new
+ *   vertices leave the face, so it traps per the fail-fast doctrine.
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
                                 Arena &temp, float t = 0.5f) {
+  HS_CHECK(t >= 0.0f && t <= 1.0f, "chamfer: t out of [0,1]");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -1160,15 +1165,18 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
- * @param t Inset factor of each face toward its centroid [0..1].
+ * @param t Inset factor of each face toward its centroid, in [0..1]; outside
+ *   that domain the inset vertices leave the face, so it traps per the
+ *   fail-fast doctrine.
  * @param twist Per-face rotation about the face normal, in radians; 0 disables
- *   the twist pass.
+ *   the twist pass. Unbounded (angles wrap).
  * @return Fresh snub PolyMesh allocated in `target`.
  * @details Uses Newell's method for face normals, robust to non-planar faces on
  *   the unit sphere and to collinear vertex triplets.
  */
 HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
                              float t = 0.5f, float twist = 0.0f) {
+  HS_CHECK(t >= 0.0f && t <= 1.0f, "snub: t out of [0,1]");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
