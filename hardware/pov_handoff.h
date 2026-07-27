@@ -189,14 +189,6 @@ public:
     return window_left_.load(std::memory_order_relaxed);
   }
 
-  /**
-   * @brief The generation the ISR most recently took live.
-   * @return consumed_gen_.
-   */
-  uint32_t consumed_gen() const {
-    return consumed_gen_.load(std::memory_order_relaxed);
-  }
-
 private:
   T *live_ = nullptr; /**< Effect the ISR renders; ISR-owned. */
   std::atomic<T *> pending_effect_{

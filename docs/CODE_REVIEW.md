@@ -559,7 +559,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 217. ✅ **README omits the `options` field from the parameter-definition schema** — `README.md:1885` — the enum path is live in both the bridge and the GUI.
 
-218. **Dead accessors in `pov_sync.h` / `pov_handoff.h`** — `pov_sync.h:733,738,864`, `pov_handoff.h:196` — zero callers anywhere.
+218. ✅ **Dead accessors in `pov_sync.h` / `pov_handoff.h`** — `pov_sync.h:733,738,864`, `pov_handoff.h:196` — zero callers anywhere. *Removed `Flywheel::epoch_cycles()`, `Flywheel::cycles_per_half_rev()` and `EffectHandoff::consumed_gen()`; `BeaconParser::active()` was kept — it is asserted on by the burst-count test.*
 
 219. **A boundary-burst drop is counted as a beacon drop** — `hardware/pov_sync.h:1578-1579` — and the associated overlap `HS_CHECK` is unreachable from its only production caller.
 
