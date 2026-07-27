@@ -249,7 +249,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 63. ✅ **`docs/conway_morph_spec.md` names three symbols the tree contradicts** — `docs/conway_morph_spec.md:3-11` — documents an `Animation::ConwayMorph` (renamed `OpLeg`), says `MeshMorph` "remains for MeshFeedback" (deleted), and says `Segue::Dissolve` "is deleted" (it exists). Fix: mark SUPERSEDED rather than editing the body.
 
-64. **Two specs still document the far-star guard at its old value** — `docs/conway_morph_spec.md:548`, `docs/opchain_morph_spec.md:1205` vs `core/mesh/hankin.h:294` — both state `STAR_FAR_RATIO_SQ = 36`; the constant is 4.0 with the blend starting at 2.25, and the calibration reasoning in `core/animation/mesh.h:442-448` no longer follows.
+64. ✅ **Two specs still document the far-star guard at its old value** — `docs/conway_morph_spec.md:548`, `docs/opchain_morph_spec.md:1205` vs `core/mesh/hankin.h:294` — both state `STAR_FAR_RATIO_SQ = 36`; the constant is 4.0 with the blend starting at 2.25, and the calibration reasoning in `core/animation/mesh.h:442-448` no longer follows.
 
 65. **Eight engineering docs are untracked** — including the 71 KB `opchain_morph_spec.md` that shipped code cites. They are unbacked, unshared, and invisible to `tools/docs_check.py`, which walks tracked entries only — so their fences and links are never validated.
 
