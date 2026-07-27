@@ -513,7 +513,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 194. ✅ **README's mesh size-floor bound is not the actual bound** — `README.md:664` — the overstatement on a sliver is unbounded, not 4×.
 
-195. **README names the wrong rasterizer for RingSpin** — `README.md:1684` — it uses `Scan::RingGroup`, the fused group rasterizer that is the whole point of its shipped design, not `Scan::Ring`.
+195. ✅ **README names the wrong rasterizer for RingSpin** — `README.md:1684` — it uses `Scan::RingGroup`, the fused group rasterizer that is the whole point of its shipped design, not `Scan::Ring`.
 
 196. **README says BZ spiral waves are "seeded periodically"** — `README.md:1556` — seeded once at init and sustained by per-substep stochastic perturbation.
 
