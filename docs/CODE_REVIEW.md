@@ -235,7 +235,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 56. ✅ **README's parameter-registration API is under-documented** — `README.md:1527-1536` — `canvas.h` exposes five registration forms; §8 documents two, and §10.2's definition schema omits the `options` field that `param_marshal.h` actually marshals. MeshFeedback's and MindSplatter's documented params use APIs the README never introduces.
 
-57. **daydream's JS test suite is invisible in the README** — `README.md:2120-2126` — §11 says "three layers run the same suite" and lists only C++ paths, while daydream ships 35 test files and a `js-tests.yml` workflow. A contributor editing `driver.js` has no documented way to know tests exist.
+57. ✅ **daydream's JS test suite is invisible in the README** — `README.md:2120-2126` — §11 says "three layers run the same suite" and lists only C++ paths, while daydream ships 35 test files and a `js-tests.yml` workflow. A contributor editing `driver.js` has no documented way to know tests exist.
 
 58. ✅ **README's palette roster is stale** — `README.md:1006` — says twenty-one; `palettes.h` defines 25 (`POPPED_PEACH`, `BLUE_LAGOON`, `ORANGE_CRUSH`, `PLUM_SUNRISE` undocumented). `POPPED_PEACH` is not incidental — it is a live `MeshPaletteBank` slot.
 
