@@ -77,7 +77,7 @@ public:
 
     rebuild();
     baked_palette_.bake(persistent_arena, base_palette);
-    start_warp();
+    schedule_warp();
   }
 
   /**
@@ -499,11 +499,6 @@ private:
           hole_shader, particle_v2, fragment_interpolator);
     }
   }
-
-  /**
-   * @brief Begins the self-rescheduling warp cycle.
-   */
-  void start_warp() { schedule_warp(); }
 
   /**
    * @brief Arms a one-shot timer (180-300 steps) that triggers the next warp.
