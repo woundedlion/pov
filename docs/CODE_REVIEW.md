@@ -557,7 +557,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 216. ✅ **`setEffect()`'s contract omits the clip reset that `setResolution()` documents** — `targets/wasm/wasm.cpp:335-345` — real and load-bearing (a daydream worker depends on it) but documented only on the consumer side.
 
-217. **README omits the `options` field from the parameter-definition schema** — `README.md:1885` — the enum path is live in both the bridge and the GUI.
+217. ✅ **README omits the `options` field from the parameter-definition schema** — `README.md:1885` — the enum path is live in both the bridge and the GUI.
 
 218. **Dead accessors in `pov_sync.h` / `pov_handoff.h`** — `pov_sync.h:733,738,864`, `pov_handoff.h:196` — zero callers anywhere.
 
