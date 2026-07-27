@@ -345,7 +345,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 111. ✅ **`fab.py`'s parsed-DRC diagnostic is unreachable** — `hardware/phantasm/gen/fab.py:105-140` — `run()` uses `check=True` while DRC passes `--exit-code-violations`, so the carefully worded violation message can only fire on a board that is already clean.
 
-112. **Locked Quilter placements are never validated against the generated outline** — `hardware/phantasm/gen/pcb.py:228-247` — absolute coordinates against a computed board length; a footprint swap that shortens the board puts the locked connectors outside it with no diagnostic.
+112. ✅ **Locked Quilter placements are never validated against the generated outline** — `hardware/phantasm/gen/pcb.py:228-247` — absolute coordinates against a computed board length; a footprint swap that shortens the board puts the locked connectors outside it with no diagnostic.
 
 113. **`fab.parse_components` is a third independent hand-rolled S-expression reader** — `hardware/phantasm/gen/fab.py:143-174` — a depth counter over raw text plus regex, while `sexp.parse` and `export_netlist` already exist and `check.py` uses them on the same file. A `)` inside a quoted property mis-terminates the block.
 
