@@ -32,7 +32,10 @@ using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
  * @details `is_terminal`: writes the Canvas directly in flush() and ignores its
  * `pass` callback (must be the last stage). `terminal_replaces`: a terminal that
  * overwrites the whole frame (Feedback's opaque store), so no history-bearing
- * stage may precede it — its flush emissions would be clobbered.
+ * stage may precede it — its flush emissions would be clobbered — and the
+ * effect must flush BEFORE the frame's plot() calls, not after as a
+ * non-replacing terminal allows: at alpha >= 1 the flush writes every
+ * destination pixel, erasing anything already plotted.
  * `emits_nonunit_world` /
  * `requires_unit_world_input`: a non-unit-emitting world stage must not precede
  * a unit-assuming one. `crosses_segments`: per-frame state reads pixels outside
@@ -1426,7 +1429,9 @@ namespace Pixel {
  * field, then interpolated within and between rings.
  * flush() iterates the full pixel grid within the active clip band. TERMINAL:
  * flush() composites directly into the Canvas and ignores its `pass` callback,
- * so it must be the last Pipeline stage.
+ * so it must be the last Pipeline stage. The effect must call flush() BEFORE
+ * the frame's plot() calls (see `terminal_replaces`); flushing last, as a
+ * non-replacing terminal permits, blanks the frame at alpha >= 1.
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
 public:
