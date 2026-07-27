@@ -587,7 +587,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 231. ✅ **daydream: `palettes.html` re-implements `tools/slider.js`** — `tools/palettes.html:569-699` — 130 `innerHTML`-built lines reproducing the same id/class contract without the shared module's validation; only the locked-group drag logic is genuinely page-specific.
 
-232. **daydream: stale C++ header paths in tool JSDoc** — `tools/palette_math.js:24,50,328,403`, `tools/lissajous_math.js:28,112`, `tools/color.js:7`, plus two tests — `core/color.h`, `core/geometry.h`, `core/3dmath.h` no longer exist, and `BakedPalette::get` is attributed to the wrong header. These comments are the only pointer to the C++ that must be kept in sync.
+232. ✅ **daydream: stale C++ header paths in tool JSDoc** — `tools/palette_math.js:24,50,328,403`, `tools/lissajous_math.js:28,112`, `tools/color.js:7`, plus two tests — `core/color.h`, `core/geometry.h`, `core/3dmath.h` no longer exist, and `BakedPalette::get` is attributed to the wrong header. These comments are the only pointer to the C++ that must be kept in sync.
 
 233. **daydream: `palettes.html` comment and import hygiene** — `:441-443,491-494,533-535` claim OKLab math lives in `tools/color.js` (it is entirely engine-side); `:453` and `:459` import two unused symbols; `:180-211` places a `<style>` block inside `<body>`.
 
