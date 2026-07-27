@@ -423,11 +423,11 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 150. ✅ **`profile_one.sh` hardcodes one machine's checkout path** — `tools/profile_one.sh:52` — the intent (always build the main tree, never the invoking worktree) is sound; the encoding is not.
 
-151. **daydream: the controller silently drops unknown worker messages** — `segment_controller.js:295-353` — asymmetric with the worker, which throws on protocol drift and has a test pinning that. A renamed message leaves `ready` unset until a 20 s watchdog reports a misleading diagnosis.
+151. ✅ **daydream: the controller silently drops unknown worker messages** — `segment_controller.js:295-353` — asymmetric with the worker, which throws on protocol drift and has a test pinning that. A renamed message leaves `ready` unset until a 20 s watchdog reports a misleading diagnosis.
 
-152. **daydream: `count` is host-mutable ahead of the pool it describes** — `segment_controller.js:750`, `daydream.js:727` — during the module-warm await the live pool is still the old size while `count` is new; going 8→4 blits only arm A, so the right half of the sphere goes black for the length of the fetch.
+152. ✅ **daydream: `count` is host-mutable ahead of the pool it describes** — `segment_controller.js:750`, `daydream.js:727` — during the module-warm await the live pool is still the old size while `count` is new; going 8→4 blits only arm A, so the right half of the sphere goes black for the length of the fetch.
 
-153. **daydream: `MediaRecorder` errors are never surfaced** — `recorder.js:209-218` — no `onerror`, so an encoder fault silently finalizes a truncated file, the button still reads "■ Stop", and the next click starts a second session instead of stopping.
+153. ✅ **daydream: `MediaRecorder` errors are never surfaced** — `recorder.js:209-218` — no `onerror`, so an encoder fault silently finalizes a truncated file, the button still reads "■ Stop", and the next click starts a second session instead of stopping.
 
 154. **daydream: picture-in-picture renders a duplicate of the main view, not the documented back view** — `driver.js:610-612` vs `README.md:1931` — both position and quaternion are copied every frame, and the backface cull keys off the main camera too. The documented rear view never existed; the full 41,472-instance mesh is drawn a second time per frame for it. The standard headless screenshot harness cannot see this (the PiP is suppressed under `navigator.webdriver`).
 
