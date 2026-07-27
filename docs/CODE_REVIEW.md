@@ -317,7 +317,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 97. ✅ **Implementation methods are public in two effects** — `effects/ShapeShifter.h:100,133,166` and `effects/Dynamo.h:107-177` — the other five expose only ctor + `init()` + `draw_frame()`; Dynamo already has a white-box friend, so nothing needs the wider surface. `color_wipe()`'s palette/boundary invariant is delicate enough that `draw_frame` guards it with `HS_CHECK`.
 
-98. **`Voronoi::CellId::has_second` is write-only and costs ~5.4 KB of scratch** — `effects/Voronoi.h:285` — never read (the shading path derives its own), and it pushes `sizeof(CellId)` from 4 to 6 across the whole corner grid.
+98. ✅ **`Voronoi::CellId::has_second` is write-only and costs ~5.4 KB of scratch** — `effects/Voronoi.h:285` — never read (the shading path derives its own), and it pushes `sizeof(CellId)` from 4 to 6 across the whole corner grid.
 
 99. **`Voronoi` exposes internals publicly instead of using the house white-box seam** — `effects/Voronoi.h:22` — GS, BZ, Liquid2D and Flyby all solve the same test-access problem with a `friend struct …WhiteBox`.
 
