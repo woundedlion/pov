@@ -414,6 +414,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &hankin(float angle) {
+    // *b_ may hold mesh_ itself; hankin's ScratchScope marks above the input,
+    // so compiling the topology into it leaves the input intact.
     mesh_ = MeshOps::hankin(mesh_, *a_, *b_, angle);
     std::swap(a_, b_);
     return *this;
