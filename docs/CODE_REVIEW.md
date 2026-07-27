@@ -477,7 +477,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 176. ✅ **`sin_wave`'s doc overclaims interchangeability with `square_wave`** — `core/math/waves.h:18` — they are a half-cycle apart at phase 0.
 
-177. **`sphere_log` re-declares a local epsilon** — `core/math/geometry.h:412` — duplicates `math::EPS_NORMALIZE_SQ` verbatim.
+177. ✅ **`sphere_log` re-declares a local epsilon** — `core/math/geometry.h:412` — duplicates `math::EPS_NORMALIZE_SQ` verbatim.
 
 178. **`degraded_classes` counts LUTs that were later discarded** — `core/mesh/mesh_classes.h:357,399-403` — contradicting the field's own doc.
 

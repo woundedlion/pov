@@ -378,11 +378,10 @@ template <int W, int H> TangentFrame tangent_frame(int x, int y) {
  */
 HS_O3_FN inline TangentOffset sphere_log(const Vector &v, const Vector &w,
                                          const TangentFrame &frame) {
-  constexpr float EPS = 1e-12f;
   const float c = hs::clamp(dot(v, w), -1.0f, 1.0f);
   const Vector u = w - v * c;
   const float len_sq = dot(u, u);
-  if (len_sq < EPS)
+  if (len_sq < math::EPS_NORMALIZE_SQ)
     return {0.0f, 0.0f};
   const Vector delta = u * (fast_acos(c) * fast_rsqrt(len_sq));
   return {dot(delta, frame.east), dot(delta, frame.down)};
