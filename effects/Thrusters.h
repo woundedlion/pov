@@ -181,21 +181,21 @@ private:
 
   /**
    * @brief Handles a fire event.
-   * @details Picks a random warp phase, computes an opposed pair of thrust
-   *          points on the ring, restarts the warp decay, spins the orientation
+   * @details Computes an opposed pair of thrust points on the ring, picks a
+   *          random warp phase, restarts the warp decay, spins the orientation
    *          about the axis derived from the thrust point, and spawns both
    *          thrusters.
    */
   HS_COLD_MEMBER void on_fire_thruster() {
-    warp_phase = hs::rand_f() * 2 * PI_F;
-
-    // Snapshot the warp state into the closure so the thrust-point geometry
-    // can't depend on member-mutation order. amp is the residual amplitude
-    // before warp_anim restarts below, so the thrust points sit on the ring as
-    // it is currently displayed, not on this fire's about-to-start 0.7 warp.
+    // The whole warp state is read before the fire mutates any of it, so the
+    // thrust points sit on the ring as it is currently displayed rather than on
+    // this fire's about-to-start 0.7 warp.
     const float phase = warp_phase;
     const float amp = amplitude;
     const int frame = t_global;
+
+    warp_phase = hs::rand_f() * 2 * PI_F;
+
     auto r_fn = [phase, amp, frame](float t) {
       return ring_fn(t, phase, amp, frame);
     };
