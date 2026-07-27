@@ -379,14 +379,16 @@ HS_O3_BEGIN
 // ScratchScope; only the output mesh persists.
 //
 // SCRATCH ARENA CONTRACT (load-bearing): the HalfEdgeMesh always builds in
-// `temp`; the per-orbit index/flag buffers are split to balance the asymmetric
-// arena pair:
-//   - dual / ambo / truncate / expand  -> index buffers in `target`
-//   - chamfer / snub                   -> index buffers in `temp`
-//   - kis / relax                      -> no extra index buffers
+// `temp` (kis builds none); the per-orbit index/flag buffers are split to
+// balance the asymmetric arena pair:
+//   - dual / ambo / truncate / expand / medial -> index buffers in `target`
+//   - chamfer / snub                           -> index buffers in `temp`
+//   - kis                                      -> no extra buffers
+//   - relax -> movements and orbit_start, both per-vertex, in `temp`
+// medial additionally holds a per-face dual-position buffer in `temp`.
 //
-// MANIFOLD PRECONDITION: dual/ambo/truncate/expand/chamfer/snub require a
-// closed manifold (require_closed_manifold traps otherwise); kis is per-face;
+// MANIFOLD PRECONDITION: dual/ambo/truncate/expand/chamfer/snub/medial require
+// a closed manifold (require_closed_manifold traps otherwise); kis is per-face;
 // relax tolerates a boundary mesh (partial relaxation).
 //
 // COMPOSITION POLARITY (load-bearing): a composition alternates the ping-pong
