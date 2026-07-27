@@ -515,7 +515,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 195. ✅ **README names the wrong rasterizer for RingSpin** — `README.md:1684` — it uses `Scan::RingGroup`, the fused group rasterizer that is the whole point of its shipped design, not `Scan::Ring`.
 
-196. **README says BZ spiral waves are "seeded periodically"** — `README.md:1556` — seeded once at init and sustained by per-substep stochastic perturbation.
+196. ✅ **README says BZ spiral waves are "seeded periodically"** — `README.md:1556` — seeded once at init and sustained by per-substep stochastic perturbation.
 
 197. ✅ **The segue+bank `shade_mesh_topology` overload is test-only** — `core/render/shading.h:129-143` — its "single home so the two cannot drift" rationale does not apply to a variant no effect calls.
 
