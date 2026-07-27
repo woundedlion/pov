@@ -459,7 +459,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 167. ✅ **Dead includes in `util.h`** — `core/engine/util.h:17-18` — `<memory>` and `<utility>` are unused.
 
-168. **`pop_front_internal()`'s doc names callers that do not exist** — `core/engine/static_circular_buffer.h:364-371` — `pop()` has no such function and `clear()` never calls it; the sibling `pop_back_internal` doc is correct.
+168. ✅ **`pop_front_internal()`'s doc names callers that do not exist** — `core/engine/static_circular_buffer.h:364-371` — `pop()` has no such function and `clear()` never calls it; the sibling `pop_back_internal` doc is correct.
 
 169. **`plain_fade` and `identity_warp` ship in no roster** — `core/engine/styles.h:60,77` — seven presets appear only in tests, yet both transforms carry live fast-path support in `filter.h`. Note the `static_assert` anchor at `styles.h:362` pins one of them and must be repointed first.
 
