@@ -473,7 +473,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 174. ❌ **Six of eleven easings and two of three waves are dead** — `core/math/easing.h:25,56,63,91,101,111`, `core/math/waves.h:39,61` — flagged for a deliberate keep-or-cut decision, since these read as an intentional curve library. — rejected: keep — easing.h/waves.h are an intentional curve library; unused entries are inventory, not dead code.
 
-175. **Stale `wrap()` references** — `core/math/geometry.h:15,320,325,345` — the header now uses `fast_wrap` or inlines the conditional.
+175. ✅ **Stale `wrap()` references** — `core/math/geometry.h:15,320,325,345` — the header now uses `fast_wrap` or inlines the conditional.
 
 176. **`sin_wave`'s doc overclaims interchangeability with `square_wave`** — `core/math/waves.h:18` — they are a half-cycle apart at phase 0.
 
