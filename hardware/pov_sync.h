@@ -546,6 +546,8 @@ struct Telemetry {
   uint32_t emit_aborted = 0;  /**< Master truncated a burst mid-emission. */
   uint32_t beacons_overrun_dropped =
       0; /**< Stale overrun beacon dropped at a boundary. */
+  uint32_t boundary_bursts_dropped =
+      0; /**< Undrained boundary symbol dropped at the next boundary. */
   uint32_t max_coast_halves =
       0; /**< Longest run of half-revs without a snap. */
 };
@@ -973,6 +975,9 @@ struct ContentTracker {
  */
 class SymbolEmitter {
 public:
+  /** @brief What drop_pending_emission() discarded. */
+  enum class DroppedBurst : uint8_t { NONE, BOUNDARY, BEACON };
+
   /**
    * @brief Schedules a boundary symbol for emission.
    * @param symbol Symbol to emit (INVALID is rejected).
@@ -992,6 +997,9 @@ public:
       return false; // late at the boundary: skip the whole symbol
     HS_CHECK(pulses_left_ == 0 && queue_pos_ >= queue_len_,
              "SymbolEmitter::schedule_boundary: wire busy — overlapping burst");
+    // Retire a fully drained beacon frame here as well as in tick(), so a live
+    // queue_len_ always means the in-flight pulses belong to a beacon.
+    queue_len_ = queue_pos_ = 0;
     pulses_left_ = symbol_pulse_count(symbol);
     next_due_ = at_cycles;
     pitch_ = cfg.pulse_pitch_cycles();
@@ -1067,19 +1075,21 @@ public:
 
   /**
    * @brief Drops any in-flight or queued burst so a boundary symbol can schedule.
-   * @return True if a burst was dropped (an overrun beacon; caller telemetry).
-   * @details At a boundary crossing the only emission that can still be in flight
-   * is a beacon that overran its pre-HALF window under a masked-ISR coast —
-   * boundary symbols are half a revolution apart, far longer than any burst. The
-   * overrun beacon is stale; dropping it keeps the on-time boundary symbol from
-   * tripping schedule_boundary's overlap trap (degrade to missed, never to wrong).
+   * @return What was discarded, for caller telemetry.
+   * @details Usually a beacon that overran its pre-HALF window under a masked-ISR
+   * coast, but a boundary symbol masked for most of a half-rev can also still
+   * have undrained pulses. Either way the burst is stale; dropping it keeps the
+   * on-time boundary symbol from tripping schedule_boundary's overlap trap
+   * (degrade to missed, never to wrong).
    */
-  bool drop_overrun_beacon() {
+  DroppedBurst drop_pending_emission() {
     if (pulses_left_ == 0 && queue_pos_ >= queue_len_)
-      return false;
+      return DroppedBurst::NONE;
+    const DroppedBurst kind =
+        queue_len_ != 0 ? DroppedBurst::BEACON : DroppedBurst::BOUNDARY;
     pulses_left_ = 0;
     queue_len_ = queue_pos_ = 0;
-    return true;
+    return kind;
   }
 
 private:
@@ -1565,11 +1575,19 @@ private:
         sym = Symbol::ZERO;
       }
     }
-    // A wire still busy at a boundary is a beacon that overran its pre-HALF
-    // window under a masked-ISR coast; drop it so the on-time boundary symbol is
-    // not blocked by the emitter's overlap trap.
-    if (emitter_.drop_overrun_beacon())
+    // A wire still busy at a boundary carries a stale burst left over from a
+    // masked-ISR coast; drop it so the on-time boundary symbol is not blocked by
+    // the emitter's overlap trap.
+    switch (emitter_.drop_pending_emission()) {
+    case SymbolEmitter::DroppedBurst::BEACON:
       ++telemetry_.beacons_overrun_dropped;
+      break;
+    case SymbolEmitter::DroppedBurst::BOUNDARY:
+      ++telemetry_.boundary_bursts_dropped;
+      break;
+    case SymbolEmitter::DroppedBurst::NONE:
+      break;
+    }
     // Spend a redundancy repeat only on a symbol that actually reaches the wire;
     // a censored ZERO_EPOCH never propagated.
     if (!emitter_.schedule_boundary(sym, c.at_cycles, now, cfg_))
