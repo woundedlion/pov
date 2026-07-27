@@ -211,7 +211,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 44. ✅ **README's effect count is wrong in two places** — `README.md:217,303` — both say 26 effects (217 adds "27 headers"); `effects.h` defines 24 rows and `effects/` holds 25 headers. §9 itself documents exactly 24.
 
-45. **README's IslamicStars parameter list does not match `register_param`** — `README.md:1592` — documents "Fade" and "Debug BB" (neither exists) and omits "Trans Speed". The prose also omits the effect's headline behaviour, the op-by-op recipe build chain.
+45. ✅ **README's IslamicStars parameter list does not match `register_param`** — `README.md:1592` — documents "Fade" and "Debug BB" (neither exists) and omits "Trans Speed". The prose also omits the effect's headline behaviour, the op-by-op recipe build chain.
 
 46. **README's HankinSolids entry has no Parameters line and mis-describes the effect** — `README.md:1600-1603` — it registers "Intensity" and "Angle"; the one-liner describes neither the Conway edge-graph random walk, the on-screen morph legs, nor the interlace-angle sweep.
 
