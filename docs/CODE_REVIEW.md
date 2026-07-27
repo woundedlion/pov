@@ -129,7 +129,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 5. ✅ **`parse_profile.py validate` certifies a capture containing no data** — `tools/parse_profile.py:572-638` — every check is skip-on-absent, so a log of three bare header lines prints four PASS lines and `VALID`, exit 0. The docs make this the mandatory pre-trust step for every device measurement. Fix: make the ppm-exactness check unconditional on a root counter plus wall being present.
 
-6. **`parse_profile.py frames` mode crashes on every real capture** — `tools/parse_profile.py:664` — `frame_rows` entries became 4-tuples at line 188 when per-frame preset attribution landed; the `frames` branch still unpacks three, raising `ValueError`. Fix: `for n, wall, render, _owner in w.frame_rows:`. (Confirmed by direct inspection.)
+6. ✅ **`parse_profile.py frames` mode crashes on every real capture** — `tools/parse_profile.py:664` — `frame_rows` entries became 4-tuples at line 188 when per-frame preset attribution landed; the `frames` branch still unpacks three, raising `ValueError`. Fix: `for n, wall, render, _owner in w.frame_rows:`. (Confirmed by direct inspection.)
 
 ### P1 — High: correctness defects with a real failure mode
 
