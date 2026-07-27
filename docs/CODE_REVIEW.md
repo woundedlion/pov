@@ -531,7 +531,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 203. ✅ **Dead build-chain symbols in IslamicStars** — `effects/IslamicStars.h:146,550,749` — a self-documented unused constant, a function with zero references, and a write that is never read.
 
-204. **`strap_blend_mask_` has no width backstop** — `effects/HankinSolids.h:878` — a `uint8_t` bitmask over `NUM_PALETTES`; raising the bank past 8 truncates silently.
+204. ✅ **`strap_blend_mask_` has no width backstop** — `effects/HankinSolids.h:878` — a `uint8_t` bitmask over `NUM_PALETTES`; raising the bank past 8 truncates silently.
 
 205. **An orphaned Doxygen block in HankinSolids** — `effects/HankinSolids.h:539-548` — attached to nothing, leaving `start_hankin_cycle` undocumented.
 

@@ -859,7 +859,10 @@ private:
              opening window (equals palette_idx_ on unarmed slots). */
   uint8_t strap_blend_mask_ = 0; /**< Bit s: slot s's strap faces crossfade
                                     this cycle. */
-  int hankin_cycle_frame_ = 0;   /**< Sprite draws since the opening bookend
+  static_assert(NUM_PALETTES <= 8,
+                "strap_blend_mask_ holds one bit per palette slot; widen it "
+                "before growing the palette bank past 8");
+  int hankin_cycle_frame_ = 0; /**< Sprite draws since the opening bookend
                                     of the active hankin cycle. */
 
   uint8_t node_face_palette_[MAX_NODE_FACES] =
