@@ -361,7 +361,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 119. ✅ **Teensy targets construct the effect before `configure_arenas_default()`; WASM does the reverse** — `targets/Phantasm/Phantasm.ino:73-77`, `targets/Profile/Profile.ino:347-350` vs `targets/wasm/wasm.cpp:373-381` — both `.ino` files document the hazard ("an arena allocation in a ctor would corrupt on Teensy yet pass on WASM") — a defect class neither the native suite nor the WASM smoke can catch, because both run the safe ordering.
 
-120. **`CANVAS_W`/`MAX_W` are two unlinked sources of truth** — `core/engine/platform.h:7-14` vs `core/engine/constants.h:15-20` — both are 288/144 with no assertion tying them, and the header openly invites overriding one; an override above `MAX_W` fails at runtime rather than at compile time.
+120. ✅ **`CANVAS_W`/`MAX_W` are two unlinked sources of truth** — `core/engine/platform.h:7-14` vs `core/engine/constants.h:15-20` — both are 288/144 with no assertion tying them, and the header openly invites overriding one; an override above `MAX_W` fails at runtime rather than at compile time.
 
 121. **`beat16`'s host mock is not FastLED-faithful for `bpm >= 256`, and its `@pre` claims the opposite** — `core/engine/platform.h:786-792` — FastLED treats `>= 256` as already-Q8.8; the mock shifts unconditionally. These mocks exist precisely to be bit-faithful.
 
