@@ -429,7 +429,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 153. ✅ **daydream: `MediaRecorder` errors are never surfaced** — `recorder.js:209-218` — no `onerror`, so an encoder fault silently finalizes a truncated file, the button still reads "■ Stop", and the next click starts a second session instead of stopping.
 
-154. **daydream: picture-in-picture renders a duplicate of the main view, not the documented back view** — `driver.js:610-612` vs `README.md:1931` — both position and quaternion are copied every frame, and the backface cull keys off the main camera too. The documented rear view never existed; the full 41,472-instance mesh is drawn a second time per frame for it. The standard headless screenshot harness cannot see this (the PiP is suppressed under `navigator.webdriver`).
+154. ❌ **daydream: picture-in-picture renders a duplicate of the main view, not the documented back view** — `driver.js:610-612` vs `README.md:1931` — both position and quaternion are copied every frame, and the backface cull keys off the main camera too. The documented rear view never existed; the full 41,472-instance mesh is drawn a second time per frame for it. The standard headless screenshot harness cannot see this (the PiP is suppressed under `navigator.webdriver`). **Rejected:** the picture-in-picture is intended to duplicate the main image; the README's rear-view claim was the error and has been corrected.
 
 155. **daydream: the AppState subscriber is never unsubscribed** — `daydream.js:512,837-857` — `disposeApp()`'s JSDoc claims it releases the listeners this module owns; any post-dispose `set` re-enters `applyEffect()` against a disposed renderer.
 
