@@ -135,7 +135,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
   // adds 1 to both sides to dodge the unsigned underflow of I-1 at I == 0.
   HS_CHECK((I / 2) + I <= static_cast<size_t>(INT16_MAX) + 1,
            "Hankin output vertex count exceeds int16_t index range "
-           "(MAX_INDICES raised too high?)");
+           "(oversized source mesh?)");
   compiled.static_vertices.bind(target_arena, I / 2);
   compiled.dynamic_instructions.bind(target_arena, I);
   compiled.face_counts.bind(target_arena, F + V);
