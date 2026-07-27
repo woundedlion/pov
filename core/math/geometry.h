@@ -301,13 +301,19 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
  *   extrapolates phi past [0, pi] by analytic continuity; callers must keep `y`
  *   in range (this is a per-pixel path, so no clamp).
  * @return Unit vector on the sphere.
- * @details Snaps to the integer LUT path when both coordinates are
- * near-integer; otherwise builds the vector analytically from spherical angles.
+ * @details Snaps to the integer LUT path when both coordinates are near-integer
+ * AND in LUT range; otherwise builds the vector analytically from spherical
+ * angles. An out-of-range `x` (e.g. an unwrapped `W`) is exact on the analytic
+ * branch, since theta = 2*pi*x/W is periodic.
  */
 template <int W, int H> Vector pixel_to_vector(float x, float y) {
   if (std::abs(x - std::floor(x)) < TOLERANCE &&
       std::abs(y - std::floor(y)) < TOLERANCE) {
-    return pixel_to_vector<W, H>(static_cast<int>(x), static_cast<int>(y));
+    const int ix = static_cast<int>(x);
+    const int iy = static_cast<int>(y);
+    if (ix >= 0 && ix < W && iy >= 0 && iy < TrigLUT<W, H>::H_VIRT) {
+      return pixel_to_vector<W, H>(ix, iy);
+    }
   }
   // y_to_phi<H> already accounts for H_OFFSET internally; pass H, not H_VIRT.
   return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi<H>(y)));
