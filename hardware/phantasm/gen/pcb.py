@@ -209,9 +209,10 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
 # stacking parts across the width in shelves (first-fit-decreasing). The Teensy
 # (~37x19) sets the floor; small SMD parts pack into the leftover width beside it.
 # Draft placement — refine orientation / push connectors to the edges in Pcbnew.
-def fp_bbox(node):
+def fp_bbox(node, pads_only=False):
     """Footprint bounding box (minx,miny,maxx,maxy) in its local (origin) frame,
-    over pads + graphic outlines. Pad rotation is folded into a max-dim radius."""
+    over pads plus (unless `pads_only`) graphic outlines. Pad rotation is folded
+    into a max-dim radius."""
     xs = []; ys = []
     for c in node:
         if not (isinstance(c, list) and c):
@@ -221,7 +222,7 @@ def fp_bbox(node):
             x = float(at[0]); y = float(at[1])
             r = max(float(sz[0]), float(sz[1])) / 2 if sz else 0.5
             xs += [x - r, x + r]; ys += [y - r, y + r]
-        elif c[0] in ("fp_rect", "fp_line", "fp_poly", "fp_circle"):
+        elif not pads_only and c[0] in ("fp_rect", "fp_line", "fp_poly", "fp_circle"):
             for k in ("start", "end", "center"):
                 v = sexp._val(c, k)
                 if v:
@@ -240,6 +241,10 @@ def _rot_bb(bb, rot):
     mnx, mny, mxx, mxy = bb
     pts = [(mnx, mny), (mxx, mny), (mxx, mxy), (mnx, mxy)]
     if rot == 90:
+        pts = [(y, -x) for x, y in pts]
+    elif rot == 180:
+        pts = [(-x, -y) for x, y in pts]
+    elif rot == 270:
         pts = [(-y, x) for x, y in pts]
     xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
     return (min(xs), min(ys), max(xs), max(ys))
@@ -419,14 +424,26 @@ def main(unplaced=False):
     comps = {r: (r, fp, v, dnp) for r, fp, v, dnp in schematic_components()}
     # footprint bounding boxes -> 2-D shelf-pack to minimise length
     bxs = {}
+    pad_bxs = {}
     for ref, (_, fp, _, _) in comps.items():
         node = teensy_footprint() if fp in ("", "phantasm:Teensy4.0") else load_mod(fp)
         bxs[ref] = fp_bbox(node)
+        pad_bxs[ref] = fp_bbox(node, pads_only=True)
     PLACE, L = pack(bxs, PCB_W)
     if unplaced:
         L = QUILTER_LENGTH
         staged = unplaced_layout(bxs, L, PCB_W)
         PLACE = {r: QUILTER_FIXED.get(r, staged[r]) for r in bxs}
+        outside = []
+        for ref in sorted(r for r in bxs if r in QUILTER_FIXED):
+            x, y, rot = QUILTER_FIXED[ref]
+            mnx, mny, mxx, mxy = _rot_bb(pad_bxs[ref], rot)
+            if x + mnx < 0 or y + mny < 0 or x + mxx > L or y + mxy > PCB_W:
+                outside.append(f"{ref} [{x+mnx:.2f},{y+mny:.2f}]-"
+                               f"[{x+mxx:.2f},{y+mxy:.2f}]")
+        if outside:
+            sys.exit(f"ERROR locked placements outside the {fmt(L)}x{fmt(PCB_W)}mm "
+                     "outline: " + ", ".join(outside))
         OUTFILE = os.path.join("unplaced", "phantasm_unplaced.kicad_pcb")
         NOTE = (f'PHANTASM segment board UNPLACED  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
                 '(width <=35mm); mechanical and signal-integrity placements locked')
