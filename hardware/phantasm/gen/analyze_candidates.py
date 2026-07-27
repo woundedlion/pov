@@ -14,7 +14,9 @@ A DRC gate runs kicad-cli on each candidate (override path with env KICAD_CLI; t
 gate is skipped if it is missing) so a geometry-clean but DRC-broken board can't win
 the ranking. Errors are split: 'refill-fixable' clearance/hole errors (Quilter exports
 pours without via antipads -- they clear on a KiCad zone refill) vs 'REAL FAULTS'
-(shorts/crossings/opens), which disqualify a candidate from the recommended pick.
+(shorts/crossings/opens), which disqualify a candidate from the recommended pick. A
+candidate whose DRC did not produce a result reports as NOT GATED, never as clean,
+and is likewise ineligible.
 
 What matters here, and why:
 - The board is 4-layer SIG/GND/GND/SIG with BOTH inner layers poured GND, so any
@@ -45,6 +47,10 @@ KCLI = os.environ.get("KICAD_CLI", r"C:\Program Files\KiCad\10.0\bin\kicad-cli.e
 # zone clearance/hole errors usually clear on a KiCad zone refill (Quilter exports
 # pours without antipads around signal vias) -- flagged separately from real faults.
 REFILL_FIXABLE = {"clearance", "hole_clearance"}
+# run_drc outcomes; counts are meaningful only for DRC_OK
+DRC_OK = "ok"
+DRC_MISSING = "tool-missing"
+DRC_FAILED = "failed"
 
 # Fast / critical nets for the 24 MHz SPI + sync (post-relabel source-side names
 # DATA_SRC/CLK_SRC/SYNC_SRC are pre-terminator stubs -- included as fast too).
@@ -108,12 +114,20 @@ def real_faults(by_type):
     return sum(v for t, v in by_type.items() if t not in REFILL_FIXABLE)
 
 
+def no_drc(status):
+    return dict(status=status, errors=0, unconnected=0, by_type=Counter())
+
+
 def run_drc(pcb_path):
-    """Run kicad-cli DRC; return dict(errors, unconnected, by_type Counter) or None
-    if kicad-cli is unavailable. Errors are bucketed by rule so refill-fixable zone
-    artifacts are distinguishable from real shorts/crossings."""
+    """Run kicad-cli DRC; return dict(status, errors, unconnected, by_type Counter).
+
+    status is DRC_OK (counts are real), DRC_MISSING (no kicad-cli) or DRC_FAILED
+    (the run errored out); the counts are zero for anything but DRC_OK, so callers
+    must branch on status rather than read them as a clean result. Errors are
+    bucketed by rule so refill-fixable zone artifacts are distinguishable from real
+    shorts/crossings."""
     if not KCLI or not os.path.exists(KCLI):
-        return None
+        return no_drc(DRC_MISSING)
     # Unique report per call + returncode check: a shared fixed path lets a
     # kicad-cli early-exit leave a stale neighbor's report to be misattributed.
     fd, rpt = tempfile.mkstemp(suffix=".rpt", prefix="cand_drc_")
@@ -122,10 +136,10 @@ def run_drc(pcb_path):
         r = subprocess.run([KCLI, "pcb", "drc", "--severity-error", pcb_path, "-o", rpt],
                            capture_output=True, timeout=120, check=False)
         if r.returncode != 0:
-            return None
+            return no_drc(DRC_FAILED)
         txt = open(rpt, encoding="utf-8").read()
     except (subprocess.SubprocessError, OSError):
-        return None
+        return no_drc(DRC_FAILED)
     finally:
         try:
             os.remove(rpt)
@@ -134,7 +148,8 @@ def run_drc(pcb_path):
     by_type = Counter(re.findall(r"^\[(\w+)\]", txt, re.M))
     m = re.search(r"Found (\d+) unconnected", txt)
     unconnected = int(m.group(1)) if m else 0
-    return dict(errors=sum(by_type.values()), unconnected=unconnected, by_type=by_type)
+    return dict(status=DRC_OK, errors=sum(by_type.values()),
+                unconnected=unconnected, by_type=by_type)
 
 
 def analyze(path):
@@ -243,7 +258,7 @@ def main(argv):
         R[name] = analyze(f)
         R[name]["drc"] = run_drc(f)
 
-    drc_ran = any(R[k]["drc"] is not None for k in R)
+    drc_ran = any(R[k]["drc"]["status"] != DRC_MISSING for k in R)
     print("=" * 76)
     print("OVERALL ROUTING" + ("  +  DRC GATE" if drc_ran else "  (DRC skipped: no kicad-cli)"))
     print("=" * 76)
@@ -255,20 +270,26 @@ def main(argv):
         r = R[k]
         line = f"{k:>6} {r['nseg']:>7} {r['nvia']:>5} {r['total_len']:>11.1f} {r['gnd_vias']:>8}"
         if drc_ran:
-            dc = r["drc"] or {}
-            err, unc = dc.get("errors", 0), dc.get("unconnected", 0)
-            real = real_faults(dc.get("by_type", {}))
-            if err == 0 and unc == 0:
-                flag = "clean"
-            elif real == 0 and unc == 0:
-                flag = "refill-fixable (zone)"   # only clearance/hole vs zones
+            dc = r["drc"]
+            if dc["status"] != DRC_OK:
+                flag = ("NOT GATED (no kicad-cli)" if dc["status"] == DRC_MISSING
+                        else "NOT GATED (DRC run failed)")
+                line += f" {'?':>7} {'?':>6}  {flag}"
             else:
-                flag = "REAL FAULTS"             # shorts/crossings/unconnected
-            line += f" {err:>7} {unc:>6}  {flag}"
+                err, unc = dc["errors"], dc["unconnected"]
+                real = real_faults(dc["by_type"])
+                if err == 0 and unc == 0:
+                    flag = "clean"
+                elif real == 0 and unc == 0:
+                    flag = "refill-fixable (zone)"   # only clearance/hole vs zones
+                else:
+                    flag = "REAL FAULTS"             # shorts/crossings/unconnected
+                line += f" {err:>7} {unc:>6}  {flag}"
         print(line)
     if drc_ran:
         print("  note: 'refill-fixable' = clearance/hole errors that clear on a KiCad zone"
-              " refill (Quilter omits via antipads); 'REAL FAULTS' = shorts/crossings/opens.")
+              " refill (Quilter omits via antipads); 'REAL FAULTS' = shorts/crossings/opens;"
+              " 'NOT GATED' = no DRC result, candidate can't be recommended.")
 
     print("\n" + "=" * 76)
     print("CRITICAL NETS  -  length(mm) / vias / layers")
@@ -326,9 +347,11 @@ def main(argv):
         ranked.append((overall, k, si, erg))
 
     def drc_tag(k):
-        dc = R[k].get("drc")
-        if dc is None:
+        dc = R[k]["drc"]
+        if dc["status"] == DRC_MISSING:
             return "?"
+        if dc["status"] == DRC_FAILED:
+            return "FAILED"
         real = real_faults(dc["by_type"])
         if dc["errors"] == 0 and dc["unconnected"] == 0:
             return "ok"
@@ -337,11 +360,16 @@ def main(argv):
     for overall, k, si, erg in sorted(ranked, reverse=True):
         print(f"{k:>6} {si:>12.1f} {erg:>11.1f} {overall:>8.1f}  {drc_tag(k)}")
     if ranked:
-        # a candidate with REAL faults (not refill-fixable) is disqualified from the pick
-        eligible = [t for t in ranked if drc_tag(t[1]) != "REAL"]
-        best = max(eligible or ranked)[1]
-        note = "" if (eligible and max(eligible) == max(ranked)) else \
-            "  (top geometric scorer had REAL DRC faults -- skipped)"
+        # only a DRC-gated candidate free of REAL faults can be recommended; an
+        # un-gated one ('?'/'FAILED') is unproven, not clean
+        eligible = [t for t in ranked if drc_tag(t[1]) in ("ok", "refill")]
+        if eligible:
+            best = max(eligible)[1]
+            note = "" if max(eligible) == max(ranked) else \
+                "  (top geometric scorer failed the DRC gate -- skipped)"
+        else:
+            best = max(ranked)[1]
+            note = "  (UNGATED: no candidate has a passing DRC result -- verify by hand)"
         print(f"\n>> best by composite: Candidate {best}{note}")
         print("   verify by eye -- these are auto-routed; refill zones + DRC, then"
               " hand-polish the winner. 'refill'-tagged DRC clears on a KiCad zone refill.")
