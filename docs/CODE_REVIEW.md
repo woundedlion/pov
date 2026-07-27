@@ -547,7 +547,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 211. ❌ **The aged-slot pattern is duplicated across RingShower and Thrusters** — `effects/RingShower.h:127-136`, `effects/Thrusters.h:150-159` — identical `radius_at()`/`expired()` with the same documented `age+1` convention, each pinned by its own test. Rejected: there is not much to save by factoring this out — the two differ in how they get their divisor and life bound, so a shared helper would trade four lines for a parameterization.
 
-212. **Half of `ReactionDiffusionBase`'s protected surface is single-client** — `effects/ReactionDiffusionBase.h:120,152,248,259,316` — overstating what is actually shared. Two helpers should be private.
+212. ✅ **Half of `ReactionDiffusionBase`'s protected surface is single-client** — `effects/ReactionDiffusionBase.h:120,152,248,259,316` — overstating what is actually shared. Two helpers should be private.
 
 213. **A stale doc reference to a nonexistent `refine_nearest_node`** — `effects/ReactionDiffusionBase.h:185`, `core/engine/reaction_graph.h:132` — a reader following the contract lands nowhere.
 
