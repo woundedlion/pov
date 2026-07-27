@@ -315,7 +315,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 96. ✅ **`ShapeShifter`'s constructor is the only non-cold effect constructor in the repo** — `effects/ShapeShifter.h:38` — every other effect ctor is `HS_COLD_MEMBER` so one-shot setup lands in flash rather than ITCM, against the documented granule cliff.
 
-97. **Implementation methods are public in two effects** — `effects/ShapeShifter.h:100,133,166` and `effects/Dynamo.h:107-177` — the other five expose only ctor + `init()` + `draw_frame()`; Dynamo already has a white-box friend, so nothing needs the wider surface. `color_wipe()`'s palette/boundary invariant is delicate enough that `draw_frame` guards it with `HS_CHECK`.
+97. ✅ **Implementation methods are public in two effects** — `effects/ShapeShifter.h:100,133,166` and `effects/Dynamo.h:107-177` — the other five expose only ctor + `init()` + `draw_frame()`; Dynamo already has a white-box friend, so nothing needs the wider surface. `color_wipe()`'s palette/boundary invariant is delicate enough that `draw_frame` guards it with `HS_CHECK`.
 
 98. **`Voronoi::CellId::has_second` is write-only and costs ~5.4 KB of scratch** — `effects/Voronoi.h:285` — never read (the shading path derives its own), and it pushes `sizeof(CellId)` from 4 to 6 across the whole corner grid.
 
