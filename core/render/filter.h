@@ -112,6 +112,8 @@ HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
   static constexpr bool any_crosses_segments = false;
+  static constexpr bool any_2d_history = false;
+  static constexpr bool any_3d_history = false;
   /** @brief No stage re-emits clip-cull edges (see the recursive case). */
   static constexpr bool has_world_cull = false;
 
@@ -216,6 +218,10 @@ template <int W, int H> struct Pipeline<W, H> {
    * @details Unused Canvas, WorldTrailFn and alpha parameters.
    */
   void flush(Canvas &, const WorldTrailFn &, float) {}
+  /** @brief Terminates the recursive screen-trail flush walk. */
+  void flush_stages(Canvas &, const ScreenTrailFn &, float) {}
+  /** @brief Terminates the recursive world-trail flush walk. */
+  void flush_stages(Canvas &, const WorldTrailFn &, float) {}
 
   /**
    * @brief Clip-cull terminal: the edge has cleared every world stage, so run
@@ -245,6 +251,11 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
 
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
+
+  static constexpr bool any_2d_history =
+      (Head::has_history && Head::is_2d) || Next::any_2d_history;
+  static constexpr bool any_3d_history =
+      (Head::has_history && !Head::is_2d) || Next::any_3d_history;
 
   /**
    * @brief True when any stage overrides cull_edge (re-emits clip-cull edges
@@ -437,20 +448,54 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       "runs first, or renormalize the trail re-emission.");
 
   /**
+   * @brief Flushes every 2D history stage in the pipeline.
+   * @param cv Target canvas.
+   * @param trailFn Callback producing trail color/alpha per screen point.
+   * @param alpha Global blend alpha in [0, 1].
+   */
+  void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
+    static_assert(
+        any_2d_history,
+        "Wrong flush() domain: this Pipeline has no 2D history stage, so the "
+        "ScreenTrailFn overload emits nothing. Aging happens inside flush() — "
+        "a 3D history stage (World::Trails) left unflushed fills its ring "
+        "buffer to capacity and never decays. Pass a WorldTrailFn instead.");
+    flush_stages(cv, trailFn, alpha);
+  }
+
+  /**
+   * @brief Flushes every 3D history stage in the pipeline.
+   * @param cv Target canvas.
+   * @param trailFn Callback producing trail color/alpha per world point.
+   * @param alpha Global blend alpha in [0, 1].
+   */
+  void flush(Canvas &cv, const WorldTrailFn &trailFn, float alpha) {
+    static_assert(
+        any_3d_history,
+        "Wrong flush() domain: this Pipeline has no 3D history stage, so the "
+        "WorldTrailFn overload emits nothing. Aging happens inside flush() — "
+        "a 2D history stage (Screen::Trails, Pixel::Feedback) left unflushed "
+        "never decays. Pass a ScreenTrailFn instead.");
+    flush_stages(cv, trailFn, alpha);
+  }
+
+  /**
    * @brief Flushes 2D history for this stage, then recurses into the Tail.
    * @param cv Target canvas.
    * @param trailFn Callback producing trail color/alpha per screen point.
    * @param alpha Global blend alpha in [0, 1].
    * @details Only a 2D history-bearing Head emits; other Heads pass through.
+   * Recursion target of flush(), below the domain assert — a Tail is free to
+   * carry no history of its own.
    */
-  void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
+  void flush_stages(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {
       if constexpr (Head::is_2d) {
         Head::flush(cv, trailFn, alpha,
                     [&](auto... args) { next.plot(cv, args...); });
       }
     }
-    next.flush(cv, trailFn, alpha);
+    next.flush_stages(cv, trailFn, alpha);
   }
 
   /**
@@ -459,15 +504,16 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
    * @param trailFn Callback producing trail color/alpha per world point.
    * @param alpha Global blend alpha in [0, 1].
    * @details Only a 3D history-bearing Head emits; other Heads pass through.
+   * Recursion target of flush(), below the domain assert.
    */
-  void flush(Canvas &cv, const WorldTrailFn &trailFn, float alpha) {
+  void flush_stages(Canvas &cv, const WorldTrailFn &trailFn, float alpha) {
     if constexpr (Head::has_history) {
       if constexpr (!Head::is_2d) {
         Head::flush(trailFn, alpha,
                     [&](auto... args) { next.plot(cv, args...); });
       }
     }
-    next.flush(cv, trailFn, alpha);
+    next.flush_stages(cv, trailFn, alpha);
   }
 };
 
