@@ -519,16 +519,6 @@ private:
   }
 
   /**
-   * @brief Schedules one interlace-angle sweep plus the sprite that
-   * re-evaluates and draws the mesh each frame.
-   * @details The sweep starts one frame after the sprite and the sprite runs
-   * one frame longer, so the first drawn frame renders the exact angle-0
-   * bookend the leg completion pinned, and the sweep's completion pins the
-   * closing bookend before the sprite's final draw. Both are gated on the
-   * same pause flag so grabbing the slider holds the frame instead of
-   * blanking it.
-   */
-  /**
    * @brief Resolves, per hankin-added face, the palette of the base face it
    * lives inside — the rim it opens from and collapses back onto.
    * @details A rosette is born on a base face's interior walls and opens inward
@@ -586,7 +576,17 @@ private:
         star_rim_palette_[j] = node_face_palette_[j];
   }
 
-  /** @note resolve_host_faces must have run for this cycle's mesh. */
+  /**
+   * @brief Schedules one interlace-angle sweep plus the sprite that
+   * re-evaluates and draws the mesh each frame.
+   * @details The sweep starts one frame after the sprite and the sprite runs
+   * one frame longer, so the first drawn frame renders the exact angle-0
+   * bookend the leg completion pinned, and the sweep's completion pins the
+   * closing bookend before the sprite's final draw. Both are gated on the
+   * same pause flag so grabbing the slider holds the frame instead of
+   * blanking it.
+   * @note resolve_host_faces must have run for this cycle's mesh.
+   */
   HS_COLD_MEMBER void start_hankin_cycle() {
     constexpr int DURATION = 64;
     hankin_cycle_frame_ = 0;

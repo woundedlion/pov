@@ -533,7 +533,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 204. ✅ **`strap_blend_mask_` has no width backstop** — `effects/HankinSolids.h:878` — a `uint8_t` bitmask over `NUM_PALETTES`; raising the bank past 8 truncates silently.
 
-205. **An orphaned Doxygen block in HankinSolids** — `effects/HankinSolids.h:539-548` — attached to nothing, leaving `start_hankin_cycle` undocumented.
+205. ✅ **An orphaned Doxygen block in HankinSolids** — `effects/HankinSolids.h:539-548` — attached to nothing, leaving `start_hankin_cycle` undocumented.
 
 206. **MeshFeedback re-evaluates a constant palette every frame** — `effects/MeshFeedback.h:157` — `palette.get(0.0f)` is a virtual call costing three `fast_cosf` plus three LUT lookups for a value that never changes.
 
