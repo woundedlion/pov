@@ -1874,6 +1874,65 @@ inline void test_feedback_spherical_field_angular_error() {
   HS_EXPECT_LT(polar_error, metric_polar_error * 1.5);
 }
 
+/** @brief Displaces longitude alone, alternating a near-half-turn against a
+ * small opposing step so adjacent controls straddle the seam correction. */
+/** @brief Displaces longitude alone, alternating a near-half-turn against a
+ * small opposing step so adjacent controls straddle the seam correction. */
+inline Vector opposed_seam_warp(const Vector &v, const ::Feedback::Style &) {
+  const Spherical s(v);
+  const int band =
+      static_cast<int>(std::floor(s.theta * (256.0f / (2.0f * PI_F))));
+  const float shift = (band & 1) ? (0.999f * PI_F) : (-0.1f * PI_F);
+  return Vector(Spherical(s.theta + shift, s.phi));
+}
+
+/**
+ * @brief Verifies a longitude-only warp samples its own latitude row.
+ * @details populate_warp_field's seam correction can lift an interpolated
+ * offset past the [-W, 2W) domain sample_bilinear contracts for; the resulting
+ * out-of-range column index walks the flat framebuffer into a neighbouring row.
+ * The band count and opposing step are tuned to place a control pair at that
+ * extreme -- the excursion needs a near-half-turn against a small reverse step.
+ */
+inline void test_feedback_seam_warp_keeps_its_latitude_row() {
+  constexpr int W = 288, H = 32;
+  constexpr int DOWNSAMPLE = 4;
+  constexpr float ROW_SCALE = 1000.0f;
+  PipeFx fx(W, H);
+
+  ::Feedback::Style style{};
+  style.space_fn = &opposed_seam_warp;
+  style.color_fn = &::Feedback::plain_fade;
+  style.fade = 1.0f;
+  style.downsample = DOWNSAMPLE;
+
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  {
+    Canvas c(fx);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
+  }
+  fx.advance_display();
+
+  fx.set_margin(0);
+  fx.set_clip(0, H, 0, W);
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  for (int y = 1; y < H - 1; ++y)
+    for (int x = 0; x < W; ++x) {
+      const float sampled_row = fx.get_pixel(x, y).r / ROW_SCALE;
+      HS_EXPECT_NEAR(sampled_row, static_cast<float>(y), 0.25f);
+    }
+}
+
 /**
  * @brief Verifies cached top-band clips share fully populated cap controls.
  */
@@ -2650,6 +2709,7 @@ inline int run_filter_tests() {
   test_feedback_poles_resolve_one_source_longitude();
   test_feedback_spherical_ring_control_rows();
   test_feedback_spherical_field_angular_error();
+  test_feedback_seam_warp_keeps_its_latitude_row();
   test_feedback_cached_north_cap_clips_share_control_rows();
   test_feedback_warp_cache_matches_uncached();
   test_feedback_flush_straddled_taps_stay_on_branch();

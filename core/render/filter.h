@@ -1762,8 +1762,16 @@ private:
                     ? -WRAP_PERIOD
                     : (bx - a.x < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
           const int index = field_y * grid.columns + coarse_x;
+          // Keep the stored offset canonical: the seam correction can lift the
+          // interpolant a full period out, past both the int16_t range and the
+          // single-step wrap sample_bilinear contracts for.
+          const float offset_x =
+              hs::lerp(static_cast<float>(a.x), bx, longitude.mix);
           warp.x_offsets[index] = static_cast<int16_t>(
-              hs::lerp(static_cast<float>(a.x), bx, longitude.mix));
+              offset_x > HALF_WRAP_PERIOD
+                  ? offset_x - WRAP_PERIOD
+                  : (offset_x < -HALF_WRAP_PERIOD ? offset_x + WRAP_PERIOD
+                                                  : offset_x));
           warp.y_offsets[index] = static_cast<int16_t>(hs::lerp(
               static_cast<float>(a.y), static_cast<float>(b.y), longitude.mix));
         }
