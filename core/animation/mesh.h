@@ -8,7 +8,7 @@
 #error internal fragment of animation.h; include "animation.h" instead
 #endif
 
-#include "color/composition.h"
+#include "color/color.h"
 #include "mesh/conway.h"
 #include "mesh/conway_graph.h"
 #include "mesh/hankin.h"

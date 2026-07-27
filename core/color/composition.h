@@ -4,9 +4,13 @@
  */
 #pragma once
 
+#ifndef HS_COLOR_INTERNAL
+#error internal fragment of color.h; include "color/color.h" instead
+#endif
+
 // Palette-composition layer for color.h: the coordinate/color modifiers, the
 // StaticPalette composition template, and baked-palette storage. Included by
-// color.h after the palette core; not a standalone header.
+// color.h after the palette core.
 
 ///////////////////////////////////////////////////////////////////////////////
 // Palette Modifiers

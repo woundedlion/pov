@@ -34,7 +34,6 @@
 #include "core/animation/animation.h"
 #include "core/render/canvas.h"
 #include "core/color/color.h"
-#include "core/color/composition.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
 #include "core/render/led.h"
