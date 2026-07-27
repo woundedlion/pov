@@ -232,6 +232,16 @@ private:
 
   static constexpr size_t MAX_RINGS = 16; /**< Fixed pool of ring slots. */
   Ring rings[MAX_RINGS];                  /**< The recyclable ring slots. */
+
+  // init() bakes one palette LUT per ring slot into the persistent arena.
+  // Effect keeps the default arena split, so the total must fit the device
+  // persistent partition.
+  static constexpr size_t FOOTPRINT_BYTES =
+      MAX_RINGS * BakedPalette::required_arena_bytes();
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+                "RingShower persistent footprint exceeds the default "
+                "partition; retune MAX_RINGS or carve arenas");
+
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
       filters;       /**< Screen-space anti-alias pipeline. */
   Timeline timeline; /**< Drives the spawn timer. */

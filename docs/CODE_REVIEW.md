@@ -309,7 +309,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 93. ✅ **`PetalFlow::MAX_RINGS` equals its worst case with zero margin** — `effects/PetalFlow.h:90-91` — 64 required, 64 provided, by coincidence rather than construction; widening the Density slider or nudging `SPACING` starts dropping rings every frame. Fix: a `static_assert` deriving the bound from the four constants and the slider max.
 
-94. **Three effects lack the persistent-footprint `static_assert` their siblings carry** — `effects/RingShower.h:43-51` (~48 KB), `effects/DisplacementField.h` (~208 KB at W=288), `effects/RingSpin.h:67,87` — runtime coverage exists via `unit_arena_budget`, but a capacity retune has no compile-time guard.
+94. ✅ **Three effects lack the persistent-footprint `static_assert` their siblings carry** — `effects/RingShower.h:43-51` (~48 KB), `effects/DisplacementField.h` (~208 KB at W=288), `effects/RingSpin.h:67,87` — runtime coverage exists via `unit_arena_budget`, but a capacity retune has no compile-time guard.
 
 95. **`DreamBalls` silently swallows a full warp pool** — `effects/DreamBalls.h:317-319` — a failed spawn leaves the "Warp" slider inert for a full 320-frame sprite with no signal; correct today only via an undocumented event-ordering chain.
 
