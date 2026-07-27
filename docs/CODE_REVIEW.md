@@ -581,7 +581,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 228. ✅ **daydream: `applyResolution` reports success for an unknown preset** — `daydream.js:431` — returns `undefined`, which the transaction helper treats as applied, contradicting its own documented contract.
 
-229. **daydream: the WASM load-failure overlay offers no recovery affordance** — `daydream.js:639-651` — a module-eval failure and a WebGL context loss both get a Reload button; the most likely real failure does not. The safe `showBootstrapFailure` helper already exists.
+229. ✅ **daydream: the WASM load-failure overlay offers no recovery affordance** — `daydream.js:639-651` — a module-eval failure and a WebGL context loss both get a Reload button; the most likely real failure does not. The safe `showBootstrapFailure` helper already exists.
 
 230. **daydream: dead CSS and one unreachable branch comment** — `styles/index.css:48-51,251`, `sidebar.js:282-283` — `.tab.active` never applies and the effect list can never receive focus, so the matching keyboard fallback is unreachable.
 
