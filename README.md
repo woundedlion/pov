@@ -1744,7 +1744,7 @@ A single head traces spherical Lissajous curves, cycling through a dozen configu
 
 #### RingSpin
 
-Four great-circle rings tumble continuously under energetic random-walk rotation, each leaving a fading motion-blur trail of its recent orientations (drawn with `Scan::Ring`, head and tail of the trail thickened). Each ring is colored by a baked vignette palette.
+Four great-circle rings tumble continuously under energetic random-walk rotation, each leaving a fading motion-blur trail of its recent orientations (drawn with `Scan::RingGroup`, which fuses a frame's near-coincident sub-rings into one scan pass; head and tail of the trail thickened). Each ring is colored by a baked vignette palette.
 
 **Parameters**: Alpha, Thickness, Show Bounding
 
