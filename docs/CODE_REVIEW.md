@@ -269,7 +269,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 73. ✅ **`scan_region` clears its interval buffer only on the handled branch** — `core/render/scan.h:266-269` — a producer that emits and then returns false would leak spans into the next row and eventually trip an overflow trap far from the cause. No current producer does this, and the contract forbids it, but it is unasserted.
 
-74. **`rasterize_face`'s `MinimalFragment` path never resets `frag.color`** — `core/render/scan.h:1326-1328` — the fragment is per-face and only `v1` is written per pixel, so a shader that early-returns on a cull condition smears the previous pixel's colour across the run. Safe today only because the sole shader writes unconditionally. Fix: state the contract on the setup parameter.
+74. ✅ **`rasterize_face`'s `MinimalFragment` path never resets `frag.color`** — `core/render/scan.h:1326-1328` — the fragment is per-face and only `v1` is written per pixel, so a shader that early-returns on a cull condition smears the previous pixel's colour across the run. Safe today only because the sole shader writes unconditionally. Fix: state the contract on the setup parameter.
 
 75. **`Scan::Shader` overwrites the canvas and bypasses the filter pipeline, undocumented** — `core/render/scan.h:1498,1607,1683,1765` — all three overloads assign rather than plot, so an effect returning `alpha < 1` gets a darkened opaque pixel and no `Filter::World::*` applies.
 
