@@ -517,7 +517,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 196. **README says BZ spiral waves are "seeded periodically"** — `README.md:1556` — seeded once at init and sustained by per-substep stochastic perturbation.
 
-197. **The segue+bank `shade_mesh_topology` overload is test-only** — `core/render/shading.h:129-143` — its "single home so the two cannot drift" rationale does not apply to a variant no effect calls.
+197. ✅ **The segue+bank `shade_mesh_topology` overload is test-only** — `core/render/shading.h:129-143` — its "single home so the two cannot drift" rationale does not apply to a variant no effect calls.
 
 198. **Degenerate `sides` values are admitted by four fan-shape guards** — `core/render/sdf.h:3389,3522,3681,3826` — `sides == 2` publishes `size == 0`, so a normalized shader divides by zero. Not reachable from production; hardening only.
 

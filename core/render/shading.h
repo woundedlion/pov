@@ -93,9 +93,7 @@ inline int mesh_topology_slot(const Fragment &f, const int *topology,
  * @param gain Multiplier on the edge-distance gradient before clamping to [0,1].
  * @param opacity Output alpha.
  * @return The face's palette color shaded by edge distance, at `opacity`.
- * @details Single home for the face-color/edge-shade policy shared by
- * IslamicStars (gain 1.0) and HankinSolids (gain = intensity), so the two
- * cannot drift. The class index wraps modulo NumPalettes.
+ * @details The class index wraps modulo NumPalettes.
  */
 template <typename PaletteBank, size_t NumPalettes>
 inline Color4
@@ -111,43 +109,12 @@ shade_mesh_topology(const Fragment &f, const int *topology, int num_faces,
 }
 
 /**
- * @brief Segue-aware variant of shade_mesh_topology: routes the edge distance
- * and resulting color through a segue policy's shading hooks.
- * @tparam SegueT Segue policy type (see namespace Segue in
- * animation/mesh.h); duck-typed, so this header needs no dependency on it.
- * @param f Rasterized fragment; v2 carries the integer face index.
- * @param topology Per-face topology-class indices.
- * @param num_faces Length of `topology`.
- * @param palette_bank Bank of per-class palettes.
- * @param palette_idx Maps a topology class to a palette slot in the bank.
- * @param gain Multiplier on the edge-distance gradient before clamping to [0,1].
- * @param segue Policy whose fill/grade/opacity hooks shape the fragment.
- * @param phase Segue phase for this fragment (face-local for per-face segues).
- * @return The shaded color; fully transparent when the segue's fill culls the
- * fragment.
- */
-template <typename PaletteBank, size_t NumPalettes, typename SegueT>
-inline Color4
-shade_mesh_topology(const Fragment &f, const int *topology, int num_faces,
-                    PaletteBank &palette_bank,
-                    const std::array<int, NumPalettes> &palette_idx, float gain,
-                    const SegueT &segue, float phase) {
-  float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
-  float cover = segue.fill(t, phase);
-  if (cover <= 0.0f)
-    return Color4();
-  int slot = mesh_topology_slot<NumPalettes>(f, topology, num_faces);
-  Color4 c = segue.grade(palette_bank[palette_idx[slot]].get(t), phase);
-  c.alpha = cover * segue.opacity(phase);
-  return c;
-}
-
-/**
  * @brief Face-hoisted segue shade: the caller resolves the fragment's palette
  * once per face and passes it directly, so the per-fragment path skips the
  * topology-slot lookup and palette-bank indirection.
  * @tparam Palette Baked palette type exposing `Color4 get(float) const`.
- * @tparam SegueT Segue policy (see shade_mesh_topology's segue overload).
+ * @tparam SegueT Segue policy type (see namespace Segue in animation/mesh.h);
+ * duck-typed, so this header needs no dependency on it.
  * @param f Rasterized fragment.
  * @param palette The face's already-resolved palette.
  * @param gain Multiplier on the edge-distance gradient before clamping to [0,1].
