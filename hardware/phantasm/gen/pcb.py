@@ -25,7 +25,7 @@ def build_nets(nlroot):
     names = []
     for nb in F(nlroot, "nets"):
         for net in F(nb, "net"):
-            name = sexp._val(net, "name")[0].lstrip("/")
+            name = sexp._val(net, "name")[0]
             names.append(name)
             for nd in F(net, "node"):
                 pad_net[(sexp._val(nd, "ref")[0], sexp._val(nd, "pin")[0])] = name
@@ -51,7 +51,7 @@ def build_paths(nlroot):
 
 # ---------------------------------------------------------------- components
 def schematic_components():
-    """Return ordered unique [(ref, footprint_libid, value)] (skip power/flag)."""
+    """Return ordered unique component records, skipping power and flag symbols."""
     root = sexp.parse(open(SCH, encoding="utf-8").read())[0]
     seen = {}
     order = []
@@ -70,7 +70,8 @@ def schematic_components():
         if not ref or ref.startswith("#"):
             continue
         if ref not in seen:
-            seen[ref] = (ref, fp or "", val or "")
+            dnp = sexp._val(c, "dnp", [sexp.Sym("no")])[0] == "yes"
+            seen[ref] = (ref, fp or "", val or "", dnp)
             order.append(ref)
     return [seen[r] for r in order]
 
@@ -117,7 +118,8 @@ def teensy_footprint():
     return sexp.parse(text)[0]
 
 
-def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False):
+def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
+          dnp=False):
     node = teensy_footprint() if libid in ("", "phantasm:Teensy4.0") else \
         sexp.parse(sexp.dumps(load_mod(libid)))[0]  # deep copy via round-trip
     fid = libid if libid else "phantasm:Teensy4.0"
@@ -135,6 +137,9 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False)
     setkv("layer", ["F.Cu"])
     if locked:
         node.insert(2, [sexp.Sym("locked"), sexp.Sym("yes")])
+    if dnp:
+        attr = next(c for c in node if isinstance(c, list) and c and c[0] == "attr")
+        attr.append(sexp.Sym("dnp"))
     # insert at + uuid after layer
     node.insert(3, [sexp.Sym("at"), sexp.Sym(fmt(x)), sexp.Sym(fmt(y)), sexp.Sym(fmt(rot))])
     node.insert(4, [sexp.Sym("uuid"), uid()])
@@ -219,6 +224,27 @@ def _rotatable(ref, bb):
 # variant crowds the narrow edge and lengthens the fast nets.)
 HUB_CONNS = ("J1", "J4")            # logic power in, debug — hub end (left)
 FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
+
+QUILTER_FIXED = {
+    "J1": (2.77, 2.77, 0),
+    "J4": (2.77, 10.06, 0),
+    "J2": (55.51, 2.77, 0),
+    "J3A": (55.51, 12.59, 0),
+    "J3B": (55.51, 22.41, 0),
+    "U_MCU": (24.24, 11.5, 0),
+    "C_IN": (3.66, 25.28, 0),
+    "C_DEC1": (9.0, 1.1, 0),
+    "U1": (34.0, 26.0, 180),
+    "C_DEC2": (28.7, 29.8, 180),
+    "R_D1": (39.6, 27.27, 180),
+    "R_D2": (39.6, 23.46, 180),
+    "R_S": (28.0, 22.19, 0),
+    "R1": (21.6, 22.7, -90),
+    "R2": (19.0, 22.7, 90),
+    "C_SYNC": (17.0, 22.7, 90),
+    "D_BUS": (48.8, 20.0, 90),
+    "R_PD": (51.2, 20.0, 90),
+}
 
 
 def _stack(refs, bxs, x0, edge, gap, place):
@@ -351,26 +377,19 @@ def main(unplaced=False):
     nlroot = export_netlist(KCLI, SCH)
     pad_net, netid = build_nets(nlroot)
     paths = build_paths(nlroot)                   # ref -> schematic-symbol path
-    comps = {r: (r, fp, v) for r, fp, v in schematic_components()}
+    comps = {r: (r, fp, v, dnp) for r, fp, v, dnp in schematic_components()}
     # footprint bounding boxes -> 2-D shelf-pack to minimise length
     bxs = {}
-    for ref, (_, fp, _) in comps.items():
+    for ref, (_, fp, _, _) in comps.items():
         node = teensy_footprint() if fp in ("", "phantasm:Teensy4.0") else load_mod(fp)
         bxs[ref] = fp_bbox(node)
     PLACE, L = pack(bxs, PCB_W)
-    conns = set(HUB_CONNS) | set(FAR_CONNS)
-    # Ring-mount clearance (R-MECH): all through-hole parts (Teensy, the 0.1" headers)
-    # and the tall electrolytic C_IN must stay on the TOP side so the board's back is
-    # clear of bodies/the big cap. They're pre-placed + locked on F.Cu so Quilter can't
-    # flip them to the bottom; only the low-profile SMD is staged below for Quilter.
-    TOP_LOCKED = conns | {"U_MCU", "C_IN"}
     if unplaced:
-        # top-locked parts pre-placed (locked) on F.Cu; low SMD staged below for Quilter
         staged = unplaced_layout(bxs, L, PCB_W)
-        PLACE = {r: (PLACE[r] if r in TOP_LOCKED else staged[r]) for r in bxs}
+        PLACE = {r: QUILTER_FIXED.get(r, staged[r]) for r in bxs}
         OUTFILE = os.path.join("unplaced", "phantasm_unplaced.kicad_pcb")
         NOTE = (f'PHANTASM segment board UNPLACED  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
-                '(width <=35mm); THT + tall C_IN locked on TOP, SMD staged below for Quilter')
+                '(width <=35mm); mechanical and signal-integrity placements locked')
     else:
         OUTFILE = "phantasm.kicad_pcb"
         NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm (width <=35mm, R-MECH-6); '
@@ -378,10 +397,10 @@ def main(unplaced=False):
 
     foot_nodes = []
     for ref, (x, y, rot) in PLACE.items():
-        _, fp, val = comps[ref]
-        lock = unplaced and ref in TOP_LOCKED
+        _, fp, val, dnp = comps[ref]
+        lock = unplaced and ref in QUILTER_FIXED
         foot_nodes.append(embed(fp, ref, val, x, y, rot, pad_net, netid,
-                                path=paths.get(ref), locked=lock))
+                                path=paths.get(ref), locked=lock, dnp=dnp))
 
     lines = []
     lines.append("(kicad_pcb")
@@ -438,6 +457,11 @@ def main(unplaced=False):
         open(fplt, "w", encoding="utf-8").write(
             '(fp_lib_table\n\t(version 7)\n'
             '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.pretty")'
+            '(options "")(descr "PHANTASM custom footprints"))\n)\n')
+    if unplaced:
+        open(os.path.join(OUT, "unplaced", "fp-lib-table"), "w", encoding="utf-8").write(
+            '(fp_lib_table\n\t(version 7)\n'
+            '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/../phantasm.pretty")'
             '(options "")(descr "PHANTASM custom footprints"))\n)\n')
     print(f"wrote {OUTFILE}  footprints:{len(foot_nodes)} nets:{len(netid)} length:{L:.0f}mm")
 

@@ -13,6 +13,7 @@ OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 F = os.path.join(OUT, "phantasm_unplaced.kicad_pcb")
 PRO = os.path.join(OUT, "phantasm_unplaced.kicad_pro")
 MIN_CLEARANCE = 0.2   # Quilter rejects the KiCad default of 0 ("min clearance must be > 0")
+TRACK_WIDTH = 0.3
 
 b = pcbnew.LoadBoard(F)
 
@@ -85,8 +86,12 @@ if os.path.exists(PRO):
     rules = pro.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})
     if not rules.get("min_clearance"):
         rules["min_clearance"] = MIN_CLEARANCE
-        json.dump(pro, open(PRO, "w", encoding="utf-8"), indent=2)
         print(f"patched {os.path.basename(PRO)}: min_clearance -> {MIN_CLEARANCE} mm (Quilter)")
+    classes = pro.setdefault("net_settings", {}).setdefault("classes", [])
+    default = next((c for c in classes if c.get("name") == "Default"), None)
+    if default is not None:
+        default["track_width"] = TRACK_WIDTH
+    json.dump(pro, open(PRO, "w", encoding="utf-8"), indent=2)
 
 print("4-layer SIG/GND/GND/SIG; copper layers =", b.GetCopperLayerCount(),
       "; inner GND planes + explicit 1.6 mm stackup encoded")
