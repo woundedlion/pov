@@ -186,6 +186,22 @@ inline void test_random_degenerate_range() {
 }
 
 /**
+ * @brief Verifies beat16 promotes only sub-256 BPM to 8.8 fixed point.
+ * @details FastLED treats 256 and above as an already-8.8 accum88, so a second
+ *          shift there would truncate to 16 bits and alias onto an unrelated
+ *          tempo. Pins both sides of the 256 boundary against beat88.
+ */
+inline void test_beat16_accum88_promotion() {
+  hs::set_mock_time(250, 250000);
+  HS_EXPECT_EQ(beat16(60), beat88(60 << 8));
+  HS_EXPECT_EQ(beat16(60 << 8), beat16(60));
+  HS_EXPECT_EQ(beat16(255), beat88(255 << 8));
+  HS_EXPECT_EQ(beat16(256), beat88(256));
+  HS_EXPECT_EQ(beat16(300), beat88(300));
+  hs::clear_mock_time();
+}
+
+/**
  * @brief Verifies beatsin8 oscillates within [lowest, highest], is
  *        deterministic, applies phase_offset, and matches FastLED's LUT phase.
  * @details Confirms the scale8 range fit, determinism under the injected clock,
@@ -408,6 +424,7 @@ inline int run_platform_tests() {
   test_rand_f_half_open();
   test_epoch_seed();
   test_crgb_colorcode_constructor();
+  test_beat16_accum88_promotion();
   test_beatsin8_faithful();
   test_beatsin16_golden();
   test_serial_printf_formats_varargs();

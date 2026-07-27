@@ -363,7 +363,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 120. ✅ **`CANVAS_W`/`MAX_W` are two unlinked sources of truth** — `core/engine/platform.h:7-14` vs `core/engine/constants.h:15-20` — both are 288/144 with no assertion tying them, and the header openly invites overriding one; an override above `MAX_W` fails at runtime rather than at compile time.
 
-121. **`beat16`'s host mock is not FastLED-faithful for `bpm >= 256`, and its `@pre` claims the opposite** — `core/engine/platform.h:786-792` — FastLED treats `>= 256` as already-Q8.8; the mock shifts unconditionally. These mocks exist precisely to be bit-faithful.
+121. ✅ **`beat16`'s host mock is not FastLED-faithful for `bpm >= 256`, and its `@pre` claims the opposite** — `core/engine/platform.h:786-792` — FastLED treats `>= 256` as already-Q8.8; the mock shifts unconditionally. These mocks exist precisely to be bit-faithful.
 
 122. **`effects.h` understates the native anti-drift guard** — `core/engine/effects.h:44-49` — claims a forgotten roster row "silently drops that effect from native coverage"; `tests/test_effects.h:3811` runs the same registry-count oracle unconditionally, above the FULL-tier gate.
 
