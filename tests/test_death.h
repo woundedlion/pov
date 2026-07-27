@@ -1040,7 +1040,9 @@ inline void case_dma_controller_wedged_overrun() {
  *          never-taken opaque(false) assignment keeps the optimizer from proving
  *          the function empty and folding the trap at compile time. The non-trap
  *          value semantics (copy/move/empty operator bool) are covered in-process
- *          by tests/test_concepts.h.
+ *          by tests/test_concepts.h. Host/WASM only: the device Fn backend
+ *          returns a zero-initialized R instead of trapping (row 9 of
+ *          docs/device_host_divergence_ledger.md).
  */
 inline void case_empty_fn_call() {
   Fn<int(int), 16> f;

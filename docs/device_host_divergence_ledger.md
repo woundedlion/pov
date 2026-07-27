@@ -35,19 +35,23 @@ exists; a red row is a real device-only path that no automated test currently re
 | 6 | **`HS_OS_CYCLES()`** (`core/platform.h:130-133`) | `ARM_DWT_CYCCNT` (device) / `0` (host). | **No** — a profiling timestamp; never affects render output. | ⚪ **N/A.** | Non-behavioral. |
 | 7 | **`StaticCircularBuffer` host-only narrowing** (`core/static_circular_buffer.h:311`) | A host-only narrowing cast with identical codegen and behavior on hardware. | **No.** | ⚪ **N/A.** | Non-behavioral. |
 | 8 | **Packed `uqadd16` saturating blend-add** (`core/color.h:17-39`, `pixel16_blend_add_packed`) | Device runs the ARM `uqadd16` DSP instruction (`__ARM_FEATURE_DSP` inline asm); the host runs a portable per-lane software model. Both are specified as two independent 16-bit unsigned saturating adds (g\|b packed in one word, r in another). `lerp16` is **not** a fork — it is portable C on both platforms (signed-multiply asm was deliberately avoided, see `color.h:160-164`), so it stays bit-identical. | **Yes** — the packed result feeds `Pixel16::operator+=` / `blend_add`. | ✅/⚪ **Model yes, instruction no.** `tests/test_color.h`'s `blend_add` cases compile the software `uqadd16` plus the exact device lane-packing and pin them against an independent per-channel saturating reference, so the layout the asm relies on is covered. The literal `uqadd16` instruction never executes in CI (no device build), but it implements the same fixed ISA semantics as the model, so a divergence would require an asm typo / ISA misread — structurally untestable on host, like row 4's register I/O. | This row. |
+| 9 | **Empty `Fn` invoke** (`core/engine/platform.h:1381-1403`) | Host/WASM `Fn` is `hs::inplace_function`, whose empty-state invoke fail-fast traps through `check_fail`. The device `Fn` is the vendored `teensy::inplace_function`, whose Teensy-core header defines `SG14_INPLACE_FUNCTION_THROW(x)` as `return static_cast<R>(0)` before its own `#ifndef` guard, so the app layer cannot override it: an unbound call returns a zero-initialized `R` and execution continues. | **Yes**, on the bug path only — an unbound `Fn` is a programmer error either way, but the host aborts loudly while the one target with no console silently yields zero. Bound calls are identical. | ❌ **No.** `tests/test_death.h`'s `empty_fn_call` case proves the trap for `hs::inplace_function`; the death harness is host-only, so nothing exercises the device backend. Closing it means routing the device through `hs::inplace_function` too, which changes device codegen and ITCM footprint (`docs/itcm_ledger.md`) for a bug-path-only gain. | This row. |
 
 Legend: ✅ reached by a device-value test · ❌ real device-only path with no device-value test
 · ⚪ no behavioral fork / divergent by design (nothing to cover).
 
 ## Standing risk
 
-**No red rows.** The one previously-tracked breach, row 1 (`beat88`, finding 446), was validated
-and found to be a false positive: the `uint16_t` result extracts bits [16,31] of the phase
-product, which the device's mod-2³² wrap cannot change, so the 64-bit native build and the
-32-bit device/wasm builds produce bit-identical phases (see finding 446's resolution in
-`CODE_REVIEW.md`). Every behavioral fork now either has device-value coverage (rows 2–4),
-host model-level coverage with only a device-only ISA-instruction tail (row 8), or is divergent
-by design / non-behavioral (rows 5–7).
+**One red row: row 9 (empty `Fn` invoke)** — an accepted risk. It fires only when a caller invokes
+an unbound callable, i.e. on a path that is already a bug; the cost of closing it is device
+codegen and ITCM footprint on every `Fn` instantiation.
+
+Row 1 (`beat88`, finding 446), the one previously-tracked breach, was validated and found to be a
+false positive: the `uint16_t` result extracts bits [16,31] of the phase product, which the
+device's mod-2³² wrap cannot change, so the 64-bit native build and the 32-bit device/wasm builds
+produce bit-identical phases (see finding 446's resolution in `CODE_REVIEW.md`). Every other
+behavioral fork either has device-value coverage (rows 2–4), host model-level coverage with only a
+device-only ISA-instruction tail (row 8), or is divergent by design / non-behavioral (rows 5–7).
 
 ## Maintenance rule
 
