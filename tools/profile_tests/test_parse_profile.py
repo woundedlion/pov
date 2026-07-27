@@ -330,6 +330,7 @@ class ProbeBreakdownLines(unittest.TestCase):
         self.assertIn("HS_PROBE_BREAKDOWN", err.getvalue())
 
 
+
 class ValidateRequiresData(unittest.TestCase):
     """`validate` is the mandatory pre-trust step: it must not certify nothing."""
 
@@ -377,3 +378,34 @@ class ValidateRequiresData(unittest.TestCase):
     def test_ppm_drift_is_still_caught(self):
         ok, _ = self._validate(self._measurable(700_000, 1000))
         self.assertFalse(ok)
+
+
+class FramesMode(unittest.TestCase):
+    """frame_rows carry a fourth preset-owner field; `frames` must unpack it."""
+
+    LOG = "\n".join([
+        "f 1 w=70000 r=64000",
+        "f 2 w=60000 r=55000",
+        "f 3 w=200000 r=190000",
+        "=== profile Fx [288x144] frames 1-3 window=62500 us ===",
+        "frame wall us: min=60000 avg=110000 max=200000 sum=330000 (3 frames)",
+        "frame                 330000 us (100%)   3 calls   198000000 cyc",
+    ])
+
+    def test_frames_mode_prints_a_row_per_frame(self):
+        import contextlib
+        import io
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "prof.log"
+            log.write_text(self.LOG, encoding="utf-8")
+            argv = sys.argv
+            sys.argv = ["parse_profile.py", str(log), "frames"]
+            try:
+                with contextlib.redirect_stdout(io.StringIO()) as out:
+                    self.assertEqual(pp.main(), 0)
+            finally:
+                sys.argv = argv
+        rows = [l for l in out.getvalue().splitlines() if not l.startswith("#")]
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(rows[2].split(), ["3", "200000", "190000", "3"])

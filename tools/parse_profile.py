@@ -666,7 +666,7 @@ def main():
     elif args.mode == "frames":
         print("# frame  wall_us  render_us  spill")
         for w in windows:
-            for n, wall, render in w.frame_rows:
+            for n, wall, render, _owner in w.frame_rows:
                 print(f"{n:7d} {wall:8d} {render:9d} {render // DISPLAY_WINDOW_US:5d}")
     elif args.mode == "presets":
         cmd_presets(windows, scope, args.gate)
