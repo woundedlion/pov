@@ -102,7 +102,7 @@ struct MeshClassBake {
   uint16_t lut_faces = 0;     /**< Faces whose class received a LUT. */
   uint16_t luts_built = 0;    /**< Classes that received a LUT. */
   uint16_t degraded_classes =
-      0; /**< Eligible classes whose grid was shrunk to fit the budget, then built. */
+      0; /**< Eligible classes whose grid was shrunk to fit the budget (some are then discarded by the hit-share gate). */
   uint16_t dropped_classes =
       0; /**< Eligible classes denied a LUT once the budget could not fit even the min grid. */
   uint16_t dropped_faces =

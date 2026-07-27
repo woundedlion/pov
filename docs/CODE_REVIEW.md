@@ -479,7 +479,7 @@ document. Findings in the `daydream` repo are prefixed **daydream:**.
 
 177. ✅ **`sphere_log` re-declares a local epsilon** — `core/math/geometry.h:412` — duplicates `math::EPS_NORMALIZE_SQ` verbatim.
 
-178. **`degraded_classes` counts LUTs that were later discarded** — `core/mesh/mesh_classes.h:357,399-403` — contradicting the field's own doc.
+178. ✅ **`degraded_classes` counts LUTs that were later discarded** — `core/mesh/mesh_classes.h:357,399-403` — contradicting the field's own doc.
 
 179. **`MeshState::is_bound()`'s doc overstates what it inspects** — `core/mesh/spatial.h:349-352` — it reads `vertices` only, which contradicts `set_view`'s own comment.
 
