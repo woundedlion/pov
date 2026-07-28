@@ -91,6 +91,12 @@ public:
             static_cast<float>(ring.y)};
   }
 
+  /**
+   * @brief Reconstructs the unit vector for one sample on a ring.
+   * @param ring Target latitude ring.
+   * @param sample_index Sample position in [0, ring.samples).
+   * @return Unit vector for sample_coordinates(), whose x lies in [0, W).
+   */
   Vector sample_vector(const Ring &ring, int sample_index) const {
     const Coordinates point = sample_coordinates(ring, sample_index);
     const float theta = point.x * (2.0f * PI_F) / W;
@@ -98,6 +104,13 @@ public:
     return Vector(Spherical(theta, phi));
   }
 
+  /**
+   * @brief Maps a unit vector back to fractional field coordinates.
+   * @param value Unit vector on the sphere.
+   * @return Coordinates with x in [-W/2, W/2] and y in [0, H + HOffset - 1].
+   *   x is signed because Spherical::theta is atan2's [-pi, pi], unlike
+   *   sample_coordinates()' [0, W); longitude() accepts either convention.
+   */
   Coordinates project(const Vector &value) const {
     const Spherical spherical(value);
     return {(spherical.theta * W) / (2.0f * PI_F),
@@ -275,6 +288,13 @@ public:
     return ring(lower).y < y ? std::min(lower + 1, ring_count() - 1) : lower;
   }
 
+  /**
+   * @brief Locates the samples bracketing a fractional longitude.
+   * @param ring Target latitude ring.
+   * @param x Longitude in any range; wrapped into [0, W), so both project()'s
+   *   signed x and sample_coordinates()' [0, W) are accepted.
+   * @return Absolute sample indices (ring.offset applied) and their mix.
+   */
   constexpr Longitude longitude(const Ring &ring, float x) const {
     float wrapped_x = std::fmod(x, static_cast<float>(W));
     if (wrapped_x < 0.0f)
