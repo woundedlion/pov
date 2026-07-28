@@ -1410,9 +1410,15 @@ __attribute__((always_inline)) inline void fast_sincosf_0_pi(float x, float &s,
  * @param v1 Starting vector.
  * @param v2 Ending vector.
  * @param t Interpolation factor (0.0 to 1.0).
+ * @pre Both endpoints are unit length. The dot clamp folds a non-unit pair into
+ * a plausible-looking angle instead of failing, so the violation is silent.
  * @return The interpolated unit vector.
  */
 inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
+  // Negated compare: a NaN endpoint passes and traps in normalized() below with
+  // its own diagnostic instead of aborting on a unit-length report.
+  assert(!(std::fabs(dot(v1, v1) - 1.0f) > math::EPS_UNIT_VEC_SQ));
+  assert(!(std::fabs(dot(v2, v2) - 1.0f) > math::EPS_UNIT_VEC_SQ));
   float d = hs::clamp(dot(v1, v2), -1.0f, 1.0f);
   // Near-parallel: lerp to avoid NaN. Branch thresholds are TOLERANCE-scale.
   if (d > 1.0f - math::TOLERANCE) {
@@ -1440,10 +1446,14 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
  * @param q2 Ending quaternion.
  * @param t Interpolation factor (0.0 to 1.0).
  * @param long_way If true, takes the longest path between quaternions.
+ * @pre Both endpoints are unit length; a non-unit pair skews `d` and lands the
+ * blend on the wrong arc.
  * @return The interpolated unit quaternion.
  */
 inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
                         bool long_way = false) {
+  assert(!(std::fabs(dot(q1, q1) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+  assert(!(std::fabs(dot(q2, q2) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
   float d = dot(q1, q2);
   Quaternion p(q1);
   Quaternion q(q2);
