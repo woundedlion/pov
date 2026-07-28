@@ -49,6 +49,7 @@ jobs:
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
@@ -152,6 +153,7 @@ jobs:
     # is wired in tests/CMakeLists.txt: ASan + UBSan with -fno-sanitize-recover,
     # so the first error is a hard failure. ccache absorbs the recompile cost.
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
@@ -204,6 +206,7 @@ jobs:
     # preset from a plain shell (no Visual Studio Developer Prompt), which is the
     # "no VS prompt required" promise the README makes.
     runs-on: windows-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
@@ -238,6 +241,7 @@ jobs:
   wasm:
     name: WASM build (Emscripten)
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
@@ -374,6 +378,7 @@ jobs:
   lut-provenance:
     name: Generated LUTs match committed header
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
@@ -462,6 +467,7 @@ jobs:
     # screenshot was never captured. It cannot detect a visually-stale PNG; that
     # still relies on a manual `npm run screenshots` re-capture.
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
@@ -491,6 +497,7 @@ jobs:
     # the registered tests and assert each matches exactly one shard regex — the
     # SAME anchored scalars the matrices use, so this check cannot drift from them.
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     env:
       SHARD1: *shard1_re
       SHARD2: *shard2_re
@@ -655,6 +662,7 @@ jobs:
     # PlatformIO — fast, and independent of the heavy build job below, so it runs
     # on every push regardless of whether the firmware build is enabled yet.
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -683,6 +691,7 @@ jobs:
     # TEENSY_GATE_ENABLED repo-variable guard is removed now that it goes green;
     # promoting this to a REQUIRED check in branch protection is the follow-up.
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
@@ -747,6 +756,7 @@ jobs:
     # object cache outright, so every first-party TU recompiles and emits its
     # warnings.
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
