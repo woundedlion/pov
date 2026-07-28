@@ -416,7 +416,7 @@ private:
       NUM_NODES * sizeof(Node) +
       TRAIL_CAPACITY *
           sizeof(typename Filter::World::Trails<TRAIL_CAPACITY>::Item) +
-      MAX_PALETTES * BakedPalette::LUT_SIZE * sizeof(Color4);
+      MAX_PALETTES * BakedPalette::required_arena_bytes();
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a TRAIL_CAPACITY/MAX_PALETTES retune.
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,

@@ -118,7 +118,7 @@ public:
     constexpr size_t STATE_BYTES = 2u * RD_N * sizeof(uint16_t); // A + B, Q16
     constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);         // build_nodes
     constexpr size_t PALETTE_BYTES =
-        BakedPalette::LUT_SIZE * sizeof(Color4); // palette.bake
+        BakedPalette::required_arena_bytes(); // palette.bake
     constexpr size_t PERSISTENT_BYTES = 174 * 1024;
     static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES + PALETTE_BYTES <=
                       PERSISTENT_BYTES,

@@ -127,7 +127,7 @@ private:
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a MAX_POINTS bump.
   static constexpr size_t FOOTPRINT_BYTES =
-      MAX_POINTS * sizeof(Vector) + BakedPalette::LUT_SIZE * sizeof(Color4);
+      MAX_POINTS * sizeof(Vector) + BakedPalette::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "GnomonicStars persistent footprint exceeds the default "
                 "partition; retune MAX_POINTS or carve arenas");

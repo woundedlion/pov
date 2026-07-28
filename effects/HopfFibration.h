@@ -119,8 +119,7 @@ private:
 
   // Persistent allocations: palette LUT + one Spherical and one trail per fiber.
   static constexpr size_t FOOTPRINT_BYTES =
-      BakedPalette::LUT_SIZE * sizeof(Color4) +
-      ACTUAL_FIBERS * sizeof(Spherical) +
+      BakedPalette::required_arena_bytes() + ACTUAL_FIBERS * sizeof(Spherical) +
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a RINGS/PER_RING/TRAIL_LEN retune.

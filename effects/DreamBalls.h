@@ -186,7 +186,7 @@ private:
   // baked vertices, faces, face counts, tangent frames, and unique edge list.
   // All four presets are baked at init and live for the effect's whole life.
   static constexpr size_t FOOTPRINT_BYTES =
-      2 * BakedPalette::LUT_SIZE * sizeof(Color4) +
+      2 * BakedPalette::required_arena_bytes() +
       PRESET_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
       PRESET_FACE_SLOTS * sizeof(uint16_t) + PRESET_FACES * sizeof(uint8_t) +
       (PRESET_FACE_SLOTS / 2) * sizeof(Plot::Mesh::Edge);

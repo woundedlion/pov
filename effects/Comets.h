@@ -219,7 +219,7 @@ private:
   // init() allocates the comet Node (holds the OrientationTrail) and one baked
   // palette LUT from the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
-      BakedPalette::LUT_SIZE * sizeof(Color4) + sizeof(Node);
+      BakedPalette::required_arena_bytes() + sizeof(Node);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a TRAIL_LENGTH retune.
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
