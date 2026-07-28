@@ -437,21 +437,17 @@ struct HueSpinShade {
     (void)t;
     if (!primed || *amount != cached_amount) {
       cached_amount = *amount;
-      float angle = cached_amount * (2.0f * PI_F);
-      float ca = fast_cosf(angle);
-      float sa = fast_sinf(angle);
-      // renormalize fast trig so the rotation preserves chroma
-      float inv = 1.0f / sqrtf(ca * ca + sa * sa);
-      hue_rotate_lms_matrix(ca * inv, sa * inv, matrix);
+      float ca, sa;
+      turn_to_unit_cos_sin(cached_amount, ca, sa);
+      hue_rotate_lms_matrix(ca, sa, matrix);
       primed = true;
     }
-    constexpr float INV16 = 1.0f / 65535.0f;
-    float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
-    LMS lms = linear_rgb_to_lms(r, g, b);
+    LinRGB rgb = pixel_to_linrgb(c.color);
+    LMS lms = linear_rgb_to_lms(rgb.r, rgb.g, rgb.b);
     lms_cbrt_transform_rgb(matrix, fast_cbrt(lms.l), fast_cbrt(lms.m),
-                           fast_cbrt(lms.s), r, g, b);
-    c.color =
-        Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
+                           fast_cbrt(lms.s), rgb.r, rgb.g, rgb.b);
+    c.color = Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
+                    float_to_pixel16(rgb.b));
     return c;
   }
 };
@@ -576,16 +572,13 @@ struct ChromaPulseShade {
       cached_scale = 1.0f + depth * fast_sinf(cached_phase);
       primed = true;
     }
-    constexpr float INV16 = 1.0f / 65535.0f;
-    float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
-    LMS lms = linear_rgb_to_lms(r, g, b);
-    OKLab lab =
-        lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
+    LinRGB rgb = pixel_to_linrgb(c.color);
+    OKLab lab = linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
     lab.a *= cached_scale;
     lab.b *= cached_scale;
-    oklab_to_linear_rgb_gamut(lab, r, g, b);
-    c.color =
-        Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
+    oklab_to_linear_rgb_gamut(lab, rgb.r, rgb.g, rgb.b);
+    c.color = Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
+                    float_to_pixel16(rgb.b));
     return c;
   }
 };

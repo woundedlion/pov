@@ -618,6 +618,19 @@ inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
 }
 
 /**
+ * @brief Converts linear RGB [0,1] to OKLab through fast_cbrt.
+ * @param r Linear red in [0, 1].
+ * @param g Linear green in [0, 1].
+ * @param b Linear blue in [0, 1].
+ * @return The color in OKLab space, accurate to fast_cbrt.
+ */
+__attribute__((always_inline)) inline OKLab
+linear_rgb_to_oklab_fast(float r, float g, float b) {
+  LMS lms = linear_rgb_to_lms(r, g, b);
+  return lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
+}
+
+/**
  * @brief Converts OKLab to cube-rooted LMS (the inverse OKLab matrix).
  * @param lab Source color in OKLab space.
  * @param l_cbrt Out: cube-rooted l cone response.
@@ -1080,6 +1093,16 @@ HS_O3_FN inline uint16_t float_to_pixel16(float v) {
 }
 
 /**
+ * @brief Normalizes a 16-bit linear Pixel to a linear-RGB [0,1] triple.
+ * @param p Source color in 16-bit linear space.
+ * @return The three channels scaled by 1/65535.
+ */
+__attribute__((always_inline)) inline LinRGB pixel_to_linrgb(const Pixel &p) {
+  constexpr float INV16 = 1.0f / 65535.0f;
+  return {p.r * INV16, p.g * INV16, p.b * INV16};
+}
+
+/**
  * @brief Quantizes a [0,1] linear channel to an 8-bit sRGB component.
  * @param l Linear channel value; clamped to [0, 1].
  * @return The channel as an 8-bit sRGB value in [0, 255].
@@ -1103,9 +1126,7 @@ inline uint8_t linear_float_to_srgb8(float l) {
  */
 HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca,
                                     float sa) {
-  LMS lms = linear_rgb_to_lms(r, g, b);
-  OKLab lab =
-      lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
+  OKLab lab = linear_rgb_to_oklab_fast(r, g, b);
 
   float a2 = lab.a * ca - lab.b * sa;
   float b2 = lab.a * sa + lab.b * ca;
@@ -1114,26 +1135,40 @@ HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca,
 }
 
 inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
-  constexpr float INV16 = 1.0f / 65535.0f;
-  float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
+  LinRGB rgb = pixel_to_linrgb(c.color);
 
-  hue_rotate_rgb(r, g, b, ca, sa);
+  hue_rotate_rgb(rgb.r, rgb.g, rgb.b, ca, sa);
 
   Color4 result = c;
-  result.color.r = float_to_pixel16(r);
-  result.color.g = float_to_pixel16(g);
-  result.color.b = float_to_pixel16(b);
+  result.color.r = float_to_pixel16(rgb.r);
+  result.color.g = float_to_pixel16(rgb.g);
+  result.color.b = float_to_pixel16(rgb.b);
   return result;
 }
 
-inline Color4 hue_rotate(const Color4 &c, float amount) {
-  float angle = amount * (2.0f * PI_F);
-  float ca = fast_cosf(angle);
-  float sa = fast_sinf(angle);
-  // renormalize fast trig so the rotation preserves chroma (else the scaling
-  // compounds per frame under feedback).
+/**
+ * @brief Cosine/sine of a turn angle from fast trig, renormalized to unit
+ * length.
+ * @param turns Angle in turns (0..1 = full turn).
+ * @param ca Out: cosine of the angle.
+ * @param sa Out: sine of the angle.
+ * @details fast trig is non-orthonormal; renormalizing keeps a chroma rotation
+ * length-preserving (else the scaling compounds per frame under feedback).
+ */
+__attribute__((always_inline)) inline void
+turn_to_unit_cos_sin(float turns, float &ca, float &sa) {
+  float angle = turns * (2.0f * PI_F);
+  ca = fast_cosf(angle);
+  sa = fast_sinf(angle);
   float inv = 1.0f / sqrtf(ca * ca + sa * sa);
-  return hue_rotate(c, ca * inv, sa * inv);
+  ca *= inv;
+  sa *= inv;
+}
+
+inline Color4 hue_rotate(const Color4 &c, float amount) {
+  float ca, sa;
+  turn_to_unit_cos_sin(amount, ca, sa);
+  return hue_rotate(c, ca, sa);
 }
 
 /**
@@ -1154,11 +1189,9 @@ struct HueRotateBase {
  * @return The precomputed base for hue_rotate(base, amount).
  */
 inline HueRotateBase make_hue_rotate_base(const Color4 &c) {
-  constexpr float INV16 = 1.0f / 65535.0f;
-  float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
-  LMS lms = linear_rgb_to_lms(r, g, b);
-  return {lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s)),
-          c};
+  LinRGB rgb = pixel_to_linrgb(c.color);
+  OKLab lab = linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
+  return {lab, c};
 }
 
 /**
@@ -1168,14 +1201,8 @@ inline HueRotateBase make_hue_rotate_base(const Color4 &c) {
  * @return The hue-rotated color.
  */
 inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
-  float angle = amount * (2.0f * PI_F);
-  float ca = fast_cosf(angle);
-  float sa = fast_sinf(angle);
-  // renormalize fast trig so the rotation preserves chroma (else the scaling
-  // compounds per frame under feedback).
-  float inv = 1.0f / sqrtf(ca * ca + sa * sa);
-  ca *= inv;
-  sa *= inv;
+  float ca, sa;
+  turn_to_unit_cos_sin(amount, ca, sa);
 
   float a2 = hb.lab.a * ca - hb.lab.b * sa;
   float b2 = hb.lab.a * sa + hb.lab.b * ca;
@@ -1230,9 +1257,8 @@ inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
  * @return The color in OKLCH space.
  */
 inline OKLCH pixel_to_oklch(const Pixel &p) {
-  constexpr float INV16 = 1.0f / 65535.0f;
-  return oklab_to_oklch(
-      linear_rgb_to_oklab(p.r * INV16, p.g * INV16, p.b * INV16));
+  LinRGB rgb = pixel_to_linrgb(p);
+  return oklab_to_oklch(linear_rgb_to_oklab(rgb.r, rgb.g, rgb.b));
 }
 
 /**
