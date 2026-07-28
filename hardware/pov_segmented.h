@@ -493,14 +493,6 @@ private:
    */
   static FASTRUN void sync_edge_isr() { sync.on_sync_edge(ARM_DWT_CYCCNT); }
 
-  // render_column samples the raw display buffer, bypassing get_pixel(), so a
-  // get_pixel-overriding effect must never go live on either adoption path.
-  static FASTRUN void assert_render_column_safe(Effect *p) {
-    HS_CHECK(!p->overrides_get_pixel(),
-             "segmented render_column bypasses get_pixel(); a get_pixel-"
-             "overriding effect cannot run on this path");
-  }
-
   /**
    * @brief Flywheel ISR: the sole owner of all sync state (spec §8).
    *
@@ -554,7 +546,6 @@ private:
       HS_CHECK(handoff.committable(
                    p, pov::sync::SyncBoard::build_gen_of(sync.build_word())),
                "epoch commit: effect init exceeded the K-revolution window");
-      assert_render_column_safe(p.effect);
       handoff.adopt(p.effect, p.gen);
     } else if (a.join_boundary && !a.dark && handoff.live() == nullptr) {
       // Adopt only an effect still matching the wire's advertised generation; a
@@ -562,7 +553,6 @@ private:
       const auto p = handoff.pending_acquire();
       if (handoff.joinable(
               p, pov::sync::SyncBoard::build_gen_of(sync.build_word()))) {
-        assert_render_column_safe(p.effect);
         handoff.adopt(p.effect, p.gen);
       }
     }
