@@ -53,7 +53,6 @@ public:
     hue_table = persistent_arena.allocate_n<Pixel>(HUE_TABLE_SIZE + 1);
     solid_colat = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_reach = persistent_arena.allocate_n<float>(SOLID_MAX);
-    solid_shift = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_scale = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_local = persistent_arena.allocate_n<int>(SOLID_MAX);
     shift_pool = persistent_arena.allocate_n<float>(RING_SLOTS * (W + 1));
@@ -219,7 +218,6 @@ private:
       solid_colat[b] =
           fast_acos(hs::clamp(dot(basis.v, sp.center), -1.0f, 1.0f));
       solid_reach[b] = sp.field_bound();
-      solid_shift[b] = sp.field_bound();
       solid_scale[b] = 2.0f / sp.radius;
     }
 
@@ -243,7 +241,7 @@ private:
         if (std::fabs(theta - solid_colat[b]) <
             solid_reach[b] + BALL_TOUCH_EPS) {
           solid_local[n_local++] = b;
-          band = std::max(band, solid_shift[b]);
+          band = std::max(band, solid_reach[b]);
           solid_feature = std::max(solid_feature, solid_scale[b]);
         }
       }
@@ -652,9 +650,7 @@ private:
   float *solid_colat =
       nullptr; /**< SOLID_MAX active-body center colatitudes about the stack axis (radians), rebuilt per frame. */
   float *solid_reach =
-      nullptr; /**< SOLID_MAX active-body support extents (radians): the reach prefilter bound. */
-  float *solid_shift =
-      nullptr; /**< SOLID_MAX active-body shift bounds (radians): the per-ring band bound. */
+      nullptr; /**< SOLID_MAX active-body support extents (radians): both the reach prefilter bound and the per-ring band bound. */
   float *solid_scale =
       nullptr; /**< SOLID_MAX active-body LUT feature scales (2/radius). */
   int *solid_local =
@@ -706,7 +702,7 @@ private:
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
       RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +
                     sizeof(SDF::DistortedRing)) +
-      SOLID_MAX * (4 * sizeof(float) + sizeof(int)) +
+      SOLID_MAX * (3 * sizeof(float) + sizeof(int)) +
       (HUE_TABLE_SIZE + 1) * sizeof(Pixel) +
       MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
       (sizeof(typename decltype(noise_field)::Entity) + sizeof(int));
