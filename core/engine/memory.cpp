@@ -75,23 +75,29 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
                           DEFAULT_SCRATCH_A_SIZE,
                       DEFAULT_SCRATCH_B_SIZE);
 
+namespace {
+/** @brief Offsets of the two scratch arena bases within global_arena_block. */
+struct ScratchBases {
+  size_t a; /**< Base offset of scratch arena A. */
+  size_t b; /**< Base offset of scratch arena B. */
+};
+
 /**
- * @brief Re-partitions the single global block into persistent plus two scratch
- * arenas of the requested byte sizes.
- * @details Called once at init() so an effect can tune the split to the device
- * budget. Each inter-arena boundary is aligned up to max_align_t (the real callers
- * pass 1 KiB multiples, so these rounds are no-ops); the budget check uses the
- * aligned end so rounding cannot silently overrun. An over-subscribed partition is
- * a sizing/config bug, not recoverable, so it traps at init() rather than silently
- * scaling down; the log preserves the numbers before the trap.
- *
- * Also disarms the gamut boundary grid: it is an arena-resident copy, and this
- * is the one place the storage under it is handed out again. Owners re-arm from
- * init(), which every swap path runs after this.
+ * @brief Resolves a requested split into aligned scratch base offsets.
+ * @param who Caller name for the out-of-budget log line.
+ * @param persistent Bytes requested for the persistent arena.
+ * @param scratch_a Bytes requested for scratch arena A.
+ * @param scratch_b Bytes requested for scratch arena B.
+ * @return Base offsets of the two scratch arenas.
+ * @details Each input is bounded first so the align_up()/sum arithmetic cannot
+ * wrap size_t. Each inter-arena boundary is aligned up to max_align_t (the real
+ * callers pass 1 KiB multiples, so these rounds are no-ops); the budget check
+ * uses the aligned end so rounding cannot silently overrun. An over-subscribed
+ * partition is a sizing/config bug, not recoverable, so it traps rather than
+ * silently scaling down; the log preserves the numbers before the trap.
  */
-void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
-  release_gamut_lut();
-  // Bound each input so the align_up()/sum arithmetic below cannot wrap size_t.
+HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
+                                 size_t scratch_a, size_t scratch_b) {
   HS_CHECK(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE &&
            scratch_b <= GLOBAL_ARENA_SIZE);
   constexpr size_t A = alignof(std::max_align_t);
@@ -100,13 +106,31 @@ void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
   size_t b_base = align_up(a_base + scratch_a);
   size_t total = b_base + scratch_b;
   if (total > GLOBAL_ARENA_SIZE) {
-    hs::log("[OOM] configure_arenas: requested %zu > available %zu", total,
+    hs::log("[OOM] %s: requested %zu > available %zu", who, total,
             GLOBAL_ARENA_SIZE);
     HS_CHECK(false);
   }
+  return {a_base, b_base};
+}
+} // namespace
+
+/**
+ * @brief Re-partitions the single global block into persistent plus two scratch
+ * arenas of the requested byte sizes.
+ * @details Called once at init() so an effect can tune the split to the device
+ * budget; split_bases() aligns the boundaries and enforces the budget.
+ *
+ * Also disarms the gamut boundary grid: it is an arena-resident copy, and this
+ * is the one place the storage under it is handed out again. Owners re-arm from
+ * init(), which every swap path runs after this.
+ */
+void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
+  release_gamut_lut();
+  const ScratchBases bases =
+      split_bases("configure_arenas", persistent, scratch_a, scratch_b);
   persistent_arena.rebind(global_arena_block, persistent);
-  scratch_arena_a.rebind(global_arena_block + a_base, scratch_a);
-  scratch_arena_b.rebind(global_arena_block + b_base, scratch_b);
+  scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);
+  scratch_arena_b.rebind(global_arena_block + bases.b, scratch_b);
 }
 
 /**
@@ -125,18 +149,8 @@ FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
   HS_CHECK(scratch_arena_a.get_offset() == 0 &&
                scratch_arena_b.get_offset() == 0,
            "resplit_arenas: both scratch arenas must be empty");
-  HS_CHECK(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE &&
-           scratch_b <= GLOBAL_ARENA_SIZE);
-  constexpr size_t A = alignof(std::max_align_t);
-  auto align_up = [](size_t n) { return (n + (A - 1)) & ~(A - 1); };
-  size_t a_base = align_up(persistent);
-  size_t b_base = align_up(a_base + scratch_a);
-  size_t total = b_base + scratch_b;
-  if (total > GLOBAL_ARENA_SIZE) {
-    hs::log("[OOM] resplit_arenas: requested %zu > available %zu", total,
-            GLOBAL_ARENA_SIZE);
-    HS_CHECK(false);
-  }
+  const ScratchBases bases =
+      split_bases("resplit_arenas", persistent, scratch_a, scratch_b);
   // Persistent keeps its base/offset/content/generation -- only the boundary
   // moves. set_capacity traps if the new budget is below the live offset, so
   // the carousel + palette bank are never stranded. Its high-water is rebased to
@@ -146,8 +160,8 @@ FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
   persistent_arena.reset_high_water_mark();
   // The scratch arenas are empty at the call point; rebind them onto their new
   // bases (a fresh generation is harmless -- nothing is bound across the split).
-  scratch_arena_a.rebind(global_arena_block + a_base, scratch_a);
-  scratch_arena_b.rebind(global_arena_block + b_base, scratch_b);
+  scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);
+  scratch_arena_b.rebind(global_arena_block + bases.b, scratch_b);
 }
 
 // The large static buffers below are defined here, not next to their
