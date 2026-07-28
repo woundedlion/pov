@@ -951,6 +951,8 @@ public:
    * @return The stored color, regardless of coordinate.
    */
   Color4 get(float) const override { return color; }
+
+private:
   Color4 color;
 };
 
