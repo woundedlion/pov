@@ -453,11 +453,10 @@ public:
 
     // Hankin legs sweep the slerp fraction, not the contact angle: re-solving
     // the contact-plane intersection per frame sends star points on geodesic
-    // excursions far outside their own rosette mid-sweep (measured to 1.84
-    // chord on ambo-of-hankin seeds, with the STAR_FAR_RATIO_SQ guard never
-    // firing), which draws as lines crossing the pattern. Growing each star
-    // point out from its collapsed corner is monotone and lands on the same
-    // arrival geometry.
+    // excursions far outside their own rosette mid-sweep on ambo-of-hankin
+    // seeds, tripping the far-star fallback and flipping branches, which draws
+    // as lines crossing the pattern. Growing each star point out from its
+    // collapsed corner is monotone and lands on the same arrival geometry.
     HS_CHECK(theta_start <= theta_end,
              "OpLeg: hankin leg sweeps back to a smaller contact angle");
     const float theta_hi = std::max(theta_end, THETA_EPS);
