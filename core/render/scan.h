@@ -79,7 +79,7 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       } else {
         // SLOW PATH: Pixel is on the boundary. Calculate AA
         float t_aa = 0.5f - d / (2.0f * pixel_width);
-        alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+        alpha = quintic_kernel(t_aa);
       }
     } else {
       // Stroke falloff over the winning leaf's own half-width: result.size, not
@@ -1305,7 +1305,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         float alpha = 1.0f;
         if (d > -pixel_width) {
           float t_aa = 0.5f - d / (2.0f * pixel_width);
-          alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+          alpha = quintic_kernel(t_aa);
         }
         if (alpha <= MIN_ALPHA)
           continue;
@@ -1369,7 +1369,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         float alpha = 1.0f;
         if (d > -pixel_width) {
           float t_aa = 0.5f - d / (2.0f * pixel_width);
-          alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+          alpha = quintic_kernel(t_aa);
         }
         HS_PROBE_SPAN(alpha, hs_ta);
         if (alpha <= MIN_ALPHA)
