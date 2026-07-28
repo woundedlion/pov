@@ -94,7 +94,7 @@ namespace {
 template <int W, int H> class ProfiledEffect : public HS_PROFILE_TARGET<W, H> {
 public:
   void draw_frame() override {
-    const uint64_t bw0 = buffer_wait_ ? buffer_wait_->cycles : 0;
+    const uint64_t bw0 = buffer_wait ? buffer_wait->cycles : 0;
     const unsigned long t0 = micros();
     {
       HS_PROFILE(frame);
@@ -104,28 +104,28 @@ public:
     // Per-frame render = wall minus this frame's display-sync wait, read as
     // the effect's *_buffer_wait counter delta. The counter self-registers on
     // the first draw_frame, so the lookup retries until it appears.
-    if (!buffer_wait_)
-      buffer_wait_ = hs::CycleCounter::find_suffix("_buffer_wait");
-    const uint64_t bw1 = buffer_wait_ ? buffer_wait_->cycles : 0;
+    if (!buffer_wait)
+      buffer_wait = hs::CycleCounter::find_suffix("_buffer_wait");
+    const uint64_t bw1 = buffer_wait ? buffer_wait->cycles : 0;
     const unsigned long wait_us = (unsigned long)(
         (bw1 - bw0) / hs::CycleCounter::CYCLES_PER_US);
     const unsigned long render = dt > wait_us ? dt - wait_us : 0;
     // One compact line per frame (the full counter tree still dumps per
     // window — per-frame log_all would perturb the frames it measures).
-    hs::log("f %lu w=%lu r=%lu", total_frames_ + 1, dt, render);
+    hs::log("f %lu w=%lu r=%lu", total_frames + 1, dt, render);
 #ifdef HS_SCAN_METRICS
     drain_scan_metrics();
 #endif
 #ifdef HS_PROBE_BREAKDOWN
     drain_probe_breakdown();
 #endif
-    render_sum_ += render;
-    if (render > render_max_) render_max_ = render;
-    wall_sum_ += dt;
-    if (dt < wall_min_) wall_min_ = dt;
-    if (dt > wall_max_) wall_max_ = dt;
-    ++total_frames_;
-    if (++window_frames_ == WINDOW_FRAMES) dump();
+    render_sum += render;
+    if (render > render_max) render_max = render;
+    wall_sum += dt;
+    if (dt < wall_min) wall_min = dt;
+    if (dt > wall_max) wall_max = dt;
+    ++total_frames;
+    if (++window_frames == WINDOW_FRAMES) dump();
   }
 
 private:
@@ -135,14 +135,14 @@ private:
     const unsigned long now = micros();
     hs::log("=== profile %s [%dx%d] frames %lu-%lu window=%lu us ===",
             HS_PROFILE_STR(HS_PROFILE_TARGET), W, H,
-            total_frames_ - window_frames_ + 1, total_frames_,
-            now - window_start_);
+            total_frames - window_frames + 1, total_frames,
+            now - window_start);
     hs::log("frame wall us: min=%lu avg=%lu max=%lu sum=%lu (%d frames)",
-            wall_min_, wall_sum_ / WINDOW_FRAMES, wall_max_, wall_sum_,
+            wall_min, wall_sum / WINDOW_FRAMES, wall_max, wall_sum,
             WINDOW_FRAMES);
     hs::log("frame render us: avg=%lu max=%lu",
-            render_sum_ / WINDOW_FRAMES, render_max_);
-    dump_isr_stats(now - window_start_);
+            render_sum / WINDOW_FRAMES, render_max);
+    dump_isr_stats(now - window_start);
     hs::CycleCounter::log_all();
 #ifdef HS_SCAN_METRICS
     dump_scan_totals();
@@ -151,13 +151,13 @@ private:
     dump_probe_breakdown();
 #endif
     hs::CycleCounter::reset_all();
-    window_frames_ = 0;
-    wall_sum_ = 0;
-    wall_min_ = ~0ul;
-    wall_max_ = 0;
-    render_sum_ = 0;
-    render_max_ = 0;
-    window_start_ = micros();
+    window_frames = 0;
+    wall_sum = 0;
+    wall_min = ~0ul;
+    wall_max = 0;
+    render_sum = 0;
+    render_max = 0;
+    window_start = micros();
   }
 
   /**
@@ -239,14 +239,14 @@ private:
    */
   void drain_scan_metrics() {
     const hs::ScanMetrics &m = hs::g_scan_metrics;
-    scan_totals_.tested += m.pixels_tested;
-    scan_totals_.culled += m.pixels_culled;
-    scan_totals_.exact += m.exact_hits;
-    scan_totals_.convex += m.convex_hits;
-    scan_totals_.sector += m.sector_hits;
-    scan_totals_.lut += m.lut_hits;
-    scan_totals_.cand += m.shade_candidates;
-    scan_totals_.backstop += m.plot_backstop_hits;
+    scan_totals.tested += m.pixels_tested;
+    scan_totals.culled += m.pixels_culled;
+    scan_totals.exact += m.exact_hits;
+    scan_totals.convex += m.convex_hits;
+    scan_totals.sector += m.sector_hits;
+    scan_totals.lut += m.lut_hits;
+    scan_totals.cand += m.shade_candidates;
+    scan_totals.backstop += m.plot_backstop_hits;
     hs::g_scan_metrics.reset();
   }
 
@@ -258,7 +258,7 @@ private:
    *          scope's call count, already in the tree above.
    */
   void dump_scan_totals() {
-    const ScanTotals &t = scan_totals_;
+    const ScanTotals &t = scan_totals;
     const uint64_t walk = t.exact - t.convex - t.sector;
     char b0[21], b1[21], b2[21], b3[21], b4[21], b5[21], b6[21], b7[21];
     hs::log("scan totals: tested=%s culled=%s lut=%s convex=%s sector=%s "
@@ -267,10 +267,10 @@ private:
             hs::u64_dec(t.lut, b2), hs::u64_dec(t.convex, b3),
             hs::u64_dec(t.sector, b4), hs::u64_dec(walk, b5),
             hs::u64_dec(t.cand, b6), hs::u64_dec(t.backstop, b7));
-    scan_totals_.reset();
+    scan_totals.reset();
   }
 
-  ScanTotals scan_totals_; /**< This window's drained scan counters. */
+  ScanTotals scan_totals; /**< This window's drained scan counters. */
 #endif
 
 #ifdef HS_PROBE_BREAKDOWN
@@ -294,23 +294,23 @@ private:
    */
   void drain_probe_breakdown() {
     const hs::ProbeBreakdown &b = hs::g_probe_breakdown;
-    probe_totals_.point += b.point;
-    probe_totals_.project += b.project;
-    probe_totals_.lut += b.edge_lut;
-    probe_totals_.convex += b.edge_convex;
-    probe_totals_.sector += b.edge_sector;
-    probe_totals_.exact += b.edge_exact;
-    probe_totals_.pack += b.pack;
-    probe_totals_.alpha += b.alpha;
-    probe_totals_.tick += b.tick;
-    probe_totals_.n_probe += b.n_probe;
-    probe_totals_.n_cull_cos += b.n_cull_cos;
-    probe_totals_.n_cull_r += b.n_cull_r;
-    probe_totals_.n_lut += b.n_lut;
-    probe_totals_.n_convex += b.n_convex;
-    probe_totals_.n_sector += b.n_sector;
-    probe_totals_.n_exact += b.n_exact;
-    probe_totals_.n_alpha += b.n_alpha;
+    probe_totals.point += b.point;
+    probe_totals.project += b.project;
+    probe_totals.lut += b.edge_lut;
+    probe_totals.convex += b.edge_convex;
+    probe_totals.sector += b.edge_sector;
+    probe_totals.exact += b.edge_exact;
+    probe_totals.pack += b.pack;
+    probe_totals.alpha += b.alpha;
+    probe_totals.tick += b.tick;
+    probe_totals.n_probe += b.n_probe;
+    probe_totals.n_cull_cos += b.n_cull_cos;
+    probe_totals.n_cull_r += b.n_cull_r;
+    probe_totals.n_lut += b.n_lut;
+    probe_totals.n_convex += b.n_convex;
+    probe_totals.n_sector += b.n_sector;
+    probe_totals.n_exact += b.n_exact;
+    probe_totals.n_alpha += b.n_alpha;
     hs::g_probe_breakdown.reset();
   }
 
@@ -322,7 +322,7 @@ private:
    *          the per-read inflation to subtract from each bucket's mean.
    */
   void dump_probe_breakdown() {
-    const ProbeTotals &t = probe_totals_;
+    const ProbeTotals &t = probe_totals;
     char b0[21], b1[21], b2[21], b3[21], b4[21], b5[21], b6[21], b7[21], b8[21];
     hs::log("probe cycles: point=%s project=%s lut=%s convex=%s sector=%s "
             "exact=%s pack=%s alpha=%s tick=%s",
@@ -337,21 +337,21 @@ private:
             hs::u64_dec(t.n_cull_r, b2), hs::u64_dec(t.n_lut, b3),
             hs::u64_dec(t.n_convex, b4), hs::u64_dec(t.n_sector, b5),
             hs::u64_dec(t.n_exact, b6), hs::u64_dec(t.n_alpha, b7));
-    probe_totals_.reset();
+    probe_totals.reset();
   }
 
-  ProbeTotals probe_totals_; /**< This window's drained probe buckets. */
+  ProbeTotals probe_totals; /**< This window's drained probe buckets. */
 #endif
 
-  unsigned long total_frames_ = 0;  /**< Frames since this effect instance began. */
-  unsigned long window_frames_ = 0; /**< Frames in the current readout window. */
-  unsigned long wall_sum_ = 0;      /**< Summed draw_frame wall time this window (µs). */
-  unsigned long wall_min_ = ~0ul;   /**< Fastest draw_frame this window (µs). */
-  unsigned long wall_max_ = 0;      /**< Slowest draw_frame this window (µs). */
-  unsigned long render_sum_ = 0;    /**< Summed render (wall − sync wait) this window (µs). */
-  unsigned long render_max_ = 0;    /**< Slowest render this window (µs). */
-  hs::CycleCounter* buffer_wait_ = nullptr; /**< The effect's *_buffer_wait counter. */
-  unsigned long window_start_ = micros(); /**< Window wall-clock start (µs). */
+  unsigned long total_frames = 0;  /**< Frames since this effect instance began. */
+  unsigned long window_frames = 0; /**< Frames in the current readout window. */
+  unsigned long wall_sum = 0;      /**< Summed draw_frame wall time this window (µs). */
+  unsigned long wall_min = ~0ul;   /**< Fastest draw_frame this window (µs). */
+  unsigned long wall_max = 0;      /**< Slowest draw_frame this window (µs). */
+  unsigned long render_sum = 0;    /**< Summed render (wall − sync wait) this window (µs). */
+  unsigned long render_max = 0;    /**< Slowest render this window (µs). */
+  hs::CycleCounter* buffer_wait = nullptr; /**< The effect's *_buffer_wait counter. */
+  unsigned long window_start = micros(); /**< Window wall-clock start (µs). */
 };
 
 POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
