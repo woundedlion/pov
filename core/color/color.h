@@ -16,6 +16,7 @@
 #include "engine/memory.h"
 
 #include "color/gamut_lut.h"
+#include "color/srgb_decode.h"
 
 #if defined(__ARM_FEATURE_DSP)
 // Inline assembly avoids a CMSIS header dependency for the saturating add.
@@ -419,12 +420,11 @@ inline uint16_t srgb_to_linear_interp(float s_srgb) {
 }
 
 /**
- * @brief Lossy 16-bit-linear -> 8-bit-sRGB downcast via the LUT.
+ * @brief Lossy 16-bit-linear -> 8-bit-sRGB downcast.
  * @return The color quantized to an 8-bit sRGB CRGB.
  */
 inline Pixel16::operator CRGB() const {
-  return CRGB(linear_to_srgb_lut[r], linear_to_srgb_lut[g],
-              linear_to_srgb_lut[b]);
+  return CRGB(linear_to_srgb8(r), linear_to_srgb8(g), linear_to_srgb8(b));
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
