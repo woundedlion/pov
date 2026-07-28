@@ -474,8 +474,10 @@ HS_O3_FN inline void cbrt_halley_terms(float x, float &num, float &den) {
  * @param o3 Cube root of `x3`.
  * @details Same bit-hack seed and Halley step as fast_cbrt, evaluated through
  * one reciprocal instead of three divides. Accuracy matches fast_cbrt (peak
- * relative error ~2.3e-5 against cbrtf for x >= 1e-6). The shared denominator
- * product overflows once all three inputs exceed ~1e11.
+ * relative error ~2.3e-5 against cbrtf for x >= 1e-6). Each numerator carries
+ * the two foreign denominators, a ~27x^(10/3) product, so a result overflows
+ * once all three inputs exceed ~1.3e11; the shared reciprocal loses the
+ * denominators below ~3e-13 and goes infinite (result NaN) below ~5e-14.
  */
 HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
                                 float &o2, float &o3) {
