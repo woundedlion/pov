@@ -76,7 +76,6 @@ public:
    * is scoped to a ScratchScope so its arena offset rewinds once build() returns.
    */
   HS_COLD_MEMBER KDTree(Arena &arena, std::span<const Vector> points) {
-    clear();
     if (points.empty())
       return;
 
@@ -95,11 +94,6 @@ public:
 
     root_index = build(points, indices, count, 0);
   }
-
-  /**
-   * @brief Resets the tree to empty by dropping the root reference.
-   */
-  void clear() { root_index = -1; }
 
   /**
    * @brief Finds the k nearest neighbors of target, sorted closest-first.
