@@ -124,8 +124,51 @@ constexpr int HS_PHANTASM_EFFECT_COUNT =
     0 HS_PHANTASM_EFFECT_LIST(HS_EFFECT_COUNT_ADD);
 #undef HS_EFFECT_COUNT_ADD
 
+/**
+ * @brief Compile-time equality of two NUL-terminated names.
+ * @param a First name.
+ * @param b Second name.
+ * @return True when both spell the same string.
+ */
+constexpr bool hs_effect_name_eq(const char *a, const char *b) {
+  while (*a && *a == *b) {
+    ++a;
+    ++b;
+  }
+  return *a == *b;
+}
+
+/**
+ * @brief True when `name` is one of the HS_EFFECT_LIST class names.
+ * @param name Effect class name to look up.
+ */
+constexpr bool hs_in_effect_list(const char *name) {
+#define HS_EFFECT_NAME_MATCH(cls) || hs_effect_name_eq(name, #cls)
+  return false HS_EFFECT_LIST(HS_EFFECT_NAME_MATCH);
+#undef HS_EFFECT_NAME_MATCH
+}
+
+/**
+ * @brief True when `name` is one of the HS_PHANTASM_EFFECT_LIST class names.
+ * @param name Effect class name to look up.
+ */
+constexpr bool hs_in_phantasm_effect_list(const char *name) {
+#define HS_PHANTASM_NAME_MATCH(cls) || hs_effect_name_eq(name, #cls)
+  return false HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_MATCH);
+#undef HS_PHANTASM_NAME_MATCH
+}
+
 // Drift guard: an effect added to (or removed from) HS_EFFECT_LIST must also be
-// deliberately added to or excluded from the Phantasm playlist above.
+// deliberately added to or excluded from the Phantasm playlist above. The count
+// pins the cardinality; the name scans pin *which* two are missing, so swapping
+// one exclusion for another cannot ride green.
 static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 2,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
               "(full roster minus Dynamo and Thrusters)");
+static_assert(hs_in_effect_list("Dynamo") && hs_in_effect_list("Thrusters"),
+              "Phantasm exclusion names a non-roster effect — a rename left "
+              "the exclusion guard below vacuous");
+static_assert(!hs_in_phantasm_effect_list("Dynamo") &&
+                  !hs_in_phantasm_effect_list("Thrusters"),
+              "HS_PHANTASM_EFFECT_LIST must exclude Dynamo and Thrusters "
+              "(Holosphere 96x20 only)");
