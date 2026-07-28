@@ -151,7 +151,7 @@ No Critical findings. Numbering runs sequentially across all priority sections.
 
 35. ✅ **daydream `deploy.yml` grants `pages: write` + `id-token: write` to every job** — `daydream/.github/workflows/deploy.yml:35-38`. The block is workflow-level, so the `gate` job — which checks out a *different* repository at a SHA read from a tracked file and executes its CMake/CTest — runs holding the Pages OIDC token. Holosphere's own `docs.yml` gets this right per-job. Fix: default to `contents: read`; grant per-job.
 
-36. **daydream `deploy.yml` uses mutable action tags while Holosphere pins every action to a SHA** — `deploy.yml:51,94,119,121,142,145,162,168`. A retagged `deploy-pages@v4` executes inside a job holding `id-token: write`. Fix: pin all five to commit SHAs.
+36. ✅ **daydream `deploy.yml` uses mutable action tags while Holosphere pins every action to a SHA** — `deploy.yml:51,94,119,121,142,145,162,168`. A retagged `deploy-pages@v4` executes inside a job holding `id-token: write`. Fix: pin all five to commit SHAs.
 
 37. **The deploy gate runs a weaker test tier than presubmit CI** — `deploy.yml:112`. `ctest` runs with neither `HS_SMOKE_FRAMES: 120` nor `HS_EFFECTS_FULL: 1`, so it executes the QUICK tier: 8-frame smoke at device resolution only. That skips the 288×144 production-resolution roster passes and never reaches the effect-lifecycle transitions — the exact defect class the deploy is shipping. Fix: add the two env vars, matching `ci.yml:133`.
 
