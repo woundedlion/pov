@@ -229,8 +229,8 @@ that — see the board note below). They differ in output path and design resolu
 > `DMAMEM DMALEDController` eDMA TX frame buffers ([pov_segmented.h](../hardware/pov_segmented.h)),
 > where Holosphere's FastLED path uses a non-`DMAMEM` `CRGB leds_[]`. So the targets diverge in
 > **flash** (different effects + USB/driver code) **and** in **RAM2/OCRAM** (Phantasm's DMA TX
-> buffers). The current budgets use the hardware wall as both numeric RAM2 caps and add a Phantasm
-> DMA-controller placement invariant. The targets share the DTCM arena allocation, not total RAM1:
+> buffers). The current budgets use the hardware wall as both numeric RAM2 caps, add a 4 KiB heap
+> floor to each, and add a Phantasm DMA-controller placement invariant. The targets share the DTCM arena allocation, not total RAM1:
 > their ITCM code differs.
 
 ```
@@ -529,8 +529,9 @@ Phantasm's `USE_DMA_LEDS` path adds the `DMAMEM DMALEDController` eDMA TX buffer
 (§5).
 
 The active budgets cap both RAM2 images at the 524,288 B hardware wall and enforce named-symbol
-placement. Phantasm additionally checks its DMA TX controller in OCRAM and its reaction graph in
-flash. Phantasm's 12 KiB DTCM-free floor is derived from the measured 9,055 B worst-effect host
+placement. Because that cap is the wall, the binding RAM2 constraint for both targets is a 4 KiB
+`free_min_bytes` heap floor. Phantasm additionally checks its DMA TX controller in OCRAM and its
+reaction graph in flash. Phantasm's 12 KiB DTCM-free floor is derived from the measured 9,055 B worst-effect host
 stack peak; the current device image leaves 14,976 B.
 
 Two current calibration constraints:
