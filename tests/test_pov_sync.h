@@ -242,6 +242,33 @@ inline void test_mailbox_prior_staleness() {
 }
 
 /**
+ * @brief Verifies the consumer's gap tests reject a clock sampled before an
+ *        edge the publisher went on to accept.
+ * @details The flywheel samples `now` some cycles before its IRQ-off bracket
+ *          opens; a sync edge landing in that window leaves the mailbox
+ *          timestamps ahead of `now`, and the unsigned difference underflows to
+ *          ~2³². Claiming there would take a burst still in flight and
+ *          misclassify the symbol; retiring the prior there would drop the
+ *          glitch reference the very edge just set.
+ */
+inline void test_mailbox_rejects_backward_clock() {
+  const uint32_t GLITCH = 60000u;
+  const uint32_t now = 100000u;
+  const uint32_t skew = 40u; // edge accepted after `now` was sampled
+
+  EdgeMailbox m;
+  BurstSnapshot out{};
+  m.on_edge(now + skew, GLITCH);
+  HS_EXPECT_FALSE(m.try_claim(now, 4 * COL, &out));
+
+  m.age_prior(now, GLITCH);
+  // The reference survived, so a spike inside the window is still suppressed.
+  m.on_edge(now + skew + GLITCH / 2, GLITCH);
+  HS_EXPECT_TRUE(burst_complete(m, now + skew + 100 * GLITCH, 1));
+  HS_EXPECT_EQ(claim(m).count, 1u);
+}
+
+/**
  * @brief Verifies reboot seeding clears the wire mailbox so a re-seeded board
  *        cannot consume a stale pre-reboot burst.
  * @details The stale burst would otherwise feed ACQUIRE's unconditional
@@ -2226,6 +2253,7 @@ inline int run_pov_sync_tests() {
   test_flip_gate();
   test_mailbox();
   test_mailbox_prior_staleness();
+  test_mailbox_rejects_backward_clock();
   test_seed_clears_mailbox();
   test_build_request_reset();
   test_multi_boundary_tick_window();
