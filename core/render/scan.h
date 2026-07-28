@@ -1534,6 +1534,11 @@ struct Mesh {
                    const MeshOps::MeshClassBake *bake,
                    FaceShaderSetupT &face_shader_setup) {
     FunctionRef<void(size_t, float)> erased_setup = face_shader_setup;
+    // Cold (once per draw): the erasure hides a null setup from draw_impl's
+    // nullptr_t branch, which would then call a null thunk per face.
+    HS_CHECK(erased_setup,
+             "Scan::Mesh::draw_specialized requires a non-null "
+             "face_shader_setup");
     draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
                     bake, erased_setup);
   }
