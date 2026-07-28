@@ -51,9 +51,9 @@ public:
       ReactionGraph::RD_K; /**< K-NN neighbors per node. */
 
   /**
-   * @brief Constructs the base, disabling pixel persistence.
-   * @details Each frame is fully repainted from lattice state, so the
-   * framebuffer need not persist between frames.
+   * @brief Constructs the base with POV column strobing.
+   * @details Leaves the framebuffer non-persistent: each frame is fully
+   * repainted from lattice state.
    */
   ReactionDiffusionBase() : Effect(W, H, {.strobe = true}) {}
 
