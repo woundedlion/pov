@@ -31,7 +31,9 @@
  *                               fast reject); the lifecycle envelope scales the
  *                               footprint.
  *   - noise_product_field     : matches the hand-computed two-octave product;
- *                               ~0 amplitude short-circuits to exactly 0.
+ *                               ~0 amplitude short-circuits to exactly 0; a
+ *                               parameter sweep keeps |field| within
+ *                               field_bound() (both octaves stay in [-1, 1]).
  *   - Animation::BallDrop     : center traverses pole to pole along its azimuth
  *                               meridian; envelope 0 at the poles, 1 mid-fall;
  *                               the pool slot frees at completion.
@@ -1058,7 +1060,8 @@ inline void test_bump_field_envelope_gates() {
 }
 
 // ============================================================================
-// noise_product_field — two-octave product parity; amplitude short-circuit
+// noise_product_field — two-octave product parity; amplitude short-circuit;
+// field_bound stays conservative across the parameter space
 // ============================================================================
 
 /**
@@ -1091,6 +1094,64 @@ inline void test_noise_product_field_parity() {
   p.amplitude = 0.0f;
   HS_EXPECT_NEAR(noise_product_field(samples[0], p), 0.0f, 1e-7f);
   HS_EXPECT_NEAR(p.field_bound(), 0.0f, 1e-7f);
+}
+
+/**
+ * @brief Sweeps seeds, octave scales, field time, amplitude, and sample points
+ *        to verify |noise_product_field| never exceeds field_bound().
+ * @details field_bound() = |amplitude| holds only if the generator's own output
+ * stays within [-1, 1] on both octaves, so the sweep measures that claim
+ * directly rather than trusting it. The bound sizes displacement culls; a point
+ * outside it would be culled while still displaced.
+ */
+inline void test_noise_product_field_bound_is_conservative() {
+  float worst_ratio = 0.0f;
+  float worst_octave = 0.0f;
+  for (int trial = 0; trial < 96; ++trial) {
+    const float amplitude = hs::rand_f(-2.0f, 2.0f);
+    const float scale1 = hs::rand_f(0.25f, 12.0f);
+    const float scale2 = hs::rand_f(0.25f, 12.0f);
+    const float time = hs::rand_f(-200.0f, 200.0f);
+    const int seed = hs::rand_int(0, 100000);
+
+    NoiseProductParams p;
+    p.amplitude = amplitude;
+    p.scale1 = scale1;
+    p.scale2 = scale2;
+    p.time = time;
+    p.noise.SetSeed(seed);
+    const float bound = p.field_bound();
+
+    for (int i = 0; i < 512; ++i) {
+      const float rx = hs::rand_f(-1.0f, 1.0f);
+      const float ry = hs::rand_f(-1.0f, 1.0f);
+      const float rz = hs::rand_f(-1.0f, 1.0f);
+      const Vector r(rx, ry, rz);
+      if (r.length() < 0.1f)
+        continue;
+      const Vector v = r.normalized();
+
+      const float f = noise_product_field(v, p);
+      HS_EXPECT_TRUE(std::isfinite(f));
+      HS_EXPECT_LE(std::fabs(f), bound);
+
+      const float n1 = p.noise.GetNoise(v.x * p.scale1, v.y * p.scale1,
+                                        v.z * p.scale1 + p.time);
+      const float n2 =
+          p.noise.GetNoise(v.x * p.scale2 + NoiseProductParams::OCTAVE2_OFFSET,
+                           v.y * p.scale2, v.z * p.scale2 + p.time);
+      HS_EXPECT_LE(std::fabs(n1), 1.0f);
+      HS_EXPECT_LE(std::fabs(n2), 1.0f);
+      worst_octave = std::max(worst_octave, std::fabs(n1));
+      worst_octave = std::max(worst_octave, std::fabs(n2));
+      if (bound > 0.001f)
+        worst_ratio = std::max(worst_ratio, std::fabs(f) / bound);
+    }
+  }
+  // The sweep must reach a substantial fraction of the bound, otherwise it
+  // would pass on a field that never leaves zero.
+  HS_EXPECT_GT(worst_octave, 0.5f);
+  HS_EXPECT_GT(worst_ratio, 0.1f);
 }
 
 // ============================================================================
@@ -1206,6 +1267,7 @@ inline int run_transformers_tests() {
   test_bump_field_precomputed_y_parity();
   test_bump_field_envelope_gates();
   test_noise_product_field_parity();
+  test_noise_product_field_bound_is_conservative();
   test_ball_drop_traverses_and_reclaims();
   test_noise_product_integrates_time();
 
