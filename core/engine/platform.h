@@ -184,7 +184,7 @@ inline bool debug = false;
  *          Callers pass H (not H + H_OFFSET) to y_to_phi<H>(), which adds the
  *          offset internally.
  */
-static constexpr int H_OFFSET = 3;
+inline constexpr int H_OFFSET = 3;
 } // namespace hs
 
 #else
@@ -1016,9 +1016,9 @@ inline bool debug = false;
  *          have different static-array sizes and would clash under ODR.
  */
 #if defined(HS_TEST_H_OFFSET)
-static constexpr int H_OFFSET = HS_TEST_H_OFFSET;
+inline constexpr int H_OFFSET = HS_TEST_H_OFFSET;
 #else
-static constexpr int H_OFFSET = 0;
+inline constexpr int H_OFFSET = 0;
 #endif
 } // namespace hs
 
