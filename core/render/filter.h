@@ -1329,8 +1329,10 @@ public:
 
 private:
   Pixel *base_ = nullptr;
-  std::array<uint8_t, W> x_visible_;
-  std::array<uint8_t, H> y_visible_;
+  // Zero-init: a plot() before prepare() is a masked no-op, not a read of
+  // indeterminate bytes through a null base.
+  std::array<uint8_t, W> x_visible_{};
+  std::array<uint8_t, H> y_visible_{};
 
   static __attribute__((always_inline)) uint16_t tap_alpha_q16(float alpha,
                                                                float weight) {
