@@ -15,7 +15,7 @@
 // USE_DMA_LEDS selects the DMA-based HD107S controller instead of the FastLED
 // WS2801 path. Requires Teensy 4.x and is left undefined for WASM/sim and
 // single-board builds. Targets that need it define it themselves before
-// including the driver (e.g. targets/Phantasm/Phantasm.ino); this engine-wide
+// including the driver (e.g. targets/common/phantasm_target.h); this engine-wide
 // header never defines it.
 
 /**
