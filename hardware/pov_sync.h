@@ -1583,6 +1583,10 @@ private:
       }
       if (epoch_emits_left_ > 0) {
         sym = Symbol::ZERO_EPOCH;
+        // Spent by the boundary, not by reaching the wire: receivers invert j
+        // from their own revolution count, so the train must occupy exactly
+        // boundaries B..B+R (spec §6.3.1).
+        --epoch_emits_left_;
       } else {
         sym = Symbol::ZERO;
       }
@@ -1600,12 +1604,8 @@ private:
     case SymbolEmitter::DroppedBurst::NONE:
       break;
     }
-    // Spend a redundancy repeat only on a symbol that actually reaches the wire;
-    // a censored ZERO_EPOCH never propagated.
     if (!emitter_.schedule_boundary(sym, c.at_cycles, now, cfg_))
       ++telemetry_.emit_censored;
-    else if (sym == Symbol::ZERO_EPOCH)
-      --epoch_emits_left_;
   }
 
   /**
@@ -1676,7 +1676,8 @@ private:
   uint32_t prev_burst_end_ = 0;
   bool suspect_pending_ = false; /**< Lone far burst awaiting train/timeout. */
   uint32_t suspect_last_cycles_ = 0;
-  uint32_t epoch_emits_left_ = 0;
+  uint32_t epoch_emits_left_ =
+      0; /**< ZERO boundaries left in the EPOCH train. */
   bool beacon_done_this_rev_ = false;
   uint32_t build_gen_ = 0;
   static_assert(std::atomic<uint32_t>::is_always_lock_free);
