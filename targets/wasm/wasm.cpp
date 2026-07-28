@@ -1257,7 +1257,7 @@ private:
   // 256 sRGB entries (R,G,B) backing the typed_memory_view bakeLut returns.
   // Sized once at construction so the view's ArrayBuffer never reallocates
   // between calls (same contract as HolosphereEngine::getPixels): JS must read
-  // the result before the next bakeLut call.
+  // the result before the next bakeLut call and before delete() frees it.
   std::vector<uint8_t> lut;
 
 public:
@@ -1279,7 +1279,11 @@ public:
    * @return JS Uint8Array view over 256*3 sRGB bytes; entry i is the palette
    *         sampled at t = i/255. Aliases the shared `lut` buffer (same
    *         memory-view contract as getPixels): read it before the next bakeLut
-   *         call, which overwrites the buffer in place.
+   *         call, which overwrites the buffer in place, AND before this
+   *         PaletteOps' delete(), which frees the buffer outright. delete() is
+   *         the sharper hazard: a freed buffer leaves the view non-empty and
+   *         readable over reusable heap, so the usual byteLength === 0
+   *         detachment guard does not catch it.
    */
   val bakeLut(int gradientShape, int h1, int s1, int v1, int h2, int s2, int v2,
               int h3, int s3, int v3) {
