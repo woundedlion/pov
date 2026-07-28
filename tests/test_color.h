@@ -2060,6 +2060,12 @@ inline void test_static_palette_composition() {
   sp.bind(&grad, &scale);
   HS_EXPECT_EQ(sp.get(0.25f).color.r, grad.get(0.5f).color.r);
 
+  // Out-of-range coord modifiers are flagged; bounded ones are not.
+  static_assert(coord_requires_wrap<ScaleModifier>());
+  static_assert(coord_requires_wrap<CycleModifier>());
+  static_assert(!coord_requires_wrap<InsetModifier>());
+  static_assert(!coord_requires_wrap<MirrorModifier>());
+
   // Two modifiers apply in tuple order (scale THEN cycle): 0.2 -> 0.4 -> 0.5.
   float off = 0.1f;
   CycleModifier cycle(&off);

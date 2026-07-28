@@ -23,6 +23,9 @@
  * t through), not an error.
  */
 struct CycleModifier {
+  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  static constexpr bool requires_wrap = true;
+
   const float *offset;
 
   /**
@@ -38,9 +41,8 @@ struct CycleModifier {
    * @note The result intentionally leaves [0,1] (t + a monotonically growing
    *       offset), relying on the consuming palette's `Wrap=true` (the
    *       `StaticPalette` default) to fold it back into range and produce the
-   *       cycling. Composing this modifier with a `Wrap=false` palette samples
-   *       the source out of range — keep `Wrap=true` whenever a CycleModifier
-   *       drives the coordinate.
+   *       cycling. `requires_wrap` makes a `Wrap=false` composition a compile
+   *       error.
    */
   float modify(float t) const { return offset ? t + *offset : t; }
 };
@@ -317,6 +319,9 @@ struct QuantizeModifier {
  * so the palette repeats multiple times across the domain.
  */
 struct ScaleModifier {
+  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  static constexpr bool requires_wrap = true;
+
   const float *dynamic_scale;
   float base_scale;
 
@@ -335,9 +340,7 @@ struct ScaleModifier {
    * @note For scale > 1 the result intentionally leaves [0,1], relying on the
    *       consuming palette's `Wrap=true` (the `StaticPalette` default) to fold
    *       it back into range — that fold IS the multiple-repeats effect.
-   *       Composing this modifier with a `Wrap=false` palette samples the source
-   *       out of range — keep `Wrap=true` whenever a ScaleModifier with scale > 1
-   *       drives the coordinate.
+   *       `requires_wrap` makes a `Wrap=false` composition a compile error.
    */
   float modify(float t) const {
     return t * (dynamic_scale ? *dynamic_scale : base_scale);
@@ -786,6 +789,18 @@ concept ColorMod = requires(const T m, Color4 c, float t) {
 };
 
 /**
+ * @brief Whether a coordinate modifier's output may leave [0,1].
+ * @tparam M Coordinate modifier type.
+ * @return M::requires_wrap when declared, false otherwise.
+ */
+template <typename M> constexpr bool coord_requires_wrap() {
+  if constexpr (requires { M::requires_wrap; })
+    return M::requires_wrap;
+  else
+    return false;
+}
+
+/**
  * @brief Type-list tag for the coordinate-modifier axis of a StaticPalette.
  * @tparam M Coordinate modifier types.
  */
@@ -808,7 +823,8 @@ template <typename... M> struct Colors {};
  * samples the source (wrapping the coordinate unless Wrap is false), then
  * applies the color mods with the *original* coordinate. Wrap=false suits
  * inset/falloff pipelines that must reach the source's exact endpoints
- * (wrap_t(1)==0 would otherwise fold the top edge).
+ * (wrap_t(1)==0 would otherwise fold the top edge), and is rejected at compile
+ * time when a coord modifier declares `requires_wrap`.
  */
 template <typename Source, typename CoordList = Coords<>,
           typename ColorList = Colors<>, bool Wrap = true>
@@ -825,6 +841,11 @@ template <typename Source, typename... CMods, typename... XMods, bool Wrap>
 class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap> {
   static_assert((CoordMod<CMods> && ...), "Coords<> entries must be CoordMods");
   static_assert((ColorMod<XMods> && ...), "Colors<> entries must be ColorMods");
+  static_assert(Wrap || !(coord_requires_wrap<CMods>() || ...),
+                "Wrap=false composed with a coordinate modifier that leaves "
+                "[0,1] (requires_wrap, e.g. CycleModifier/ScaleModifier): the "
+                "source would be sampled out of range and the palette would "
+                "freeze at its endpoint. Use Wrap=true.");
 
 public:
   /**
