@@ -268,8 +268,7 @@ template <typename T>
 inline void copy_vector(ArenaVector<T> &dst, const T *src, size_t n,
                         Arena &arena) {
   dst.bind(arena, n);
-  for (size_t i = 0; i < n; ++i)
-    dst.push_back(src[i]);
+  dst.append_bulk(src, n);
 }
 
 /**
