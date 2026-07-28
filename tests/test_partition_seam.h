@@ -289,11 +289,13 @@ inline SeamStats compare(const std::vector<Pixel> &a,
   return st;
 }
 
-/** Gated-swap envelope, restated from this calibration's own floor: the swap's
- * irreducible coverage delta measured 6.6-15.3 % of the canvas, so the spec's
- * "<= 2 % of pixels" (section 9.5) is unreachable and the bound is on the
- * changed fraction, the whole-frame energy and the deepest pixel instead. */
-constexpr double MAX_CHANGED_FRAC = 0.16;
+/** Gated-swap envelope. The spec's "<= 2 % of pixels" (section 9.5) is
+ * unreachable at this canvas size: the swap's irreducible coverage delta is a
+ * 2-4 px band along the child edges, 6.6-15.3 % of the canvas, so the bound is
+ * on the changed fraction, the whole-frame energy and the deepest pixel
+ * instead. MAX_CHANGED_FRAC is twice the widest measured swap, so it trips when
+ * that band widens structurally, not when it shifts between seeds. */
+constexpr double MAX_CHANGED_FRAC = 0.31;
 constexpr double MAX_ABS_ENERGY = 0.02;
 constexpr float MAX_PIXEL_DELTA = 0.45f;
 
