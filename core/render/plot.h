@@ -1416,10 +1416,11 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // planar basis), so plot it without building the sampler. A predicate
     // false negative falls through and re-evaluates exactly.
     const bool one_dot =
-        edge_visible != nullptr && (edge_visible[i] & EDGE_CLASSIFIED) != 0
-            ? (edge_visible[i] & EDGE_ONE_DOT) != 0
-            : edge_fits_one_dot<W, H>(curr.pos, next.pos);
-    if (!override_uv && one_dot) {
+        !override_uv &&
+        (edge_visible != nullptr && (edge_visible[i] & EDGE_CLASSIFIED) != 0
+             ? (edge_visible[i] & EDGE_ONE_DOT) != 0
+             : edge_fits_one_dot<W, H>(curr.pos, next.pos));
+    if (one_dot) {
       plot_dot(curr, i);
       if (!close_loop && isLastSegment && !omit_end)
         plot_dot(next, i + 1);

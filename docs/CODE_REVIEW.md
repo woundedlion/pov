@@ -190,7 +190,7 @@ No Critical findings. Numbering runs sequentially across all priority sections.
 ### LOW
 
 54. A pipeline carrying both 2-D and 3-D history silently leaves one domain unflushed — `core/render/filter.h:478-502`. Latent; no shipped effect mixes them. Fix: `static_assert(!(any_2d_history && any_3d_history))`.
-55. `edge_fits_one_dot` is computed then discarded on every planar segment — `core/render/plot.h:1418-1422`. Dead by construction whenever a planar basis is in force.
+55. ✅ **`edge_fits_one_dot`** is computed then discarded on every planar segment — `core/render/plot.h:1418-1422`. Dead by construction whenever a planar basis is in force.
 56. `aux` / `Fragment::v3` is a dead register on the entire SDF path — all 17 `DistanceResult` constructions pass literal `0.0f`, yet it is copied per shaded pixel at `core/render/scan.h:105,639,1342`.
 57. ✅ CSG per-row scratch is on the stack, contradicting `scan_region`'s own stack-pressure rationale one frame up — `core/render/sdf.h:1460-1461,1531-1532,1713-1716`.
 58. `Scan::Circle` and `Scan::Point` render quintic radial gradients, not the "filled"/"solid" shapes the README and their doc comments describe — `core/render/scan.h:984-988,1031-1034`.
