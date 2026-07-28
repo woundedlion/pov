@@ -149,7 +149,7 @@ No Critical findings. Numbering runs sequentially across all priority sections.
 
 34. **`scripts/generate_srgb_decode.cpp` is compiled by no build and gated by no CI job** — a repo-wide grep returns zero references. It is the generator of record for `srgb_decode_lut.h`; an API drift in `color.h` silently breaks the regeneration path, surfacing only when someone next retunes the table. (The *table* is safe — `tests/test_color.h:989` sweeps all 65536 inputs.) Fix: add as an `EXCLUDE_FROM_ALL` target built on shard 1.
 
-35. **daydream `deploy.yml` grants `pages: write` + `id-token: write` to every job** — `daydream/.github/workflows/deploy.yml:35-38`. The block is workflow-level, so the `gate` job — which checks out a *different* repository at a SHA read from a tracked file and executes its CMake/CTest — runs holding the Pages OIDC token. Holosphere's own `docs.yml` gets this right per-job. Fix: default to `contents: read`; grant per-job.
+35. ✅ **daydream `deploy.yml` grants `pages: write` + `id-token: write` to every job** — `daydream/.github/workflows/deploy.yml:35-38`. The block is workflow-level, so the `gate` job — which checks out a *different* repository at a SHA read from a tracked file and executes its CMake/CTest — runs holding the Pages OIDC token. Holosphere's own `docs.yml` gets this right per-job. Fix: default to `contents: read`; grant per-job.
 
 36. **daydream `deploy.yml` uses mutable action tags while Holosphere pins every action to a SHA** — `deploy.yml:51,94,119,121,142,145,162,168`. A retagged `deploy-pages@v4` executes inside a job holding `id-token: write`. Fix: pin all five to commit SHAs.
 
