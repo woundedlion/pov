@@ -279,9 +279,9 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
   }
 }
 
-/** Squared endpoints of the far-intersection blend. Healthy registry
- *
- * intersections stay below 2.16; unstable intersections exceed 4.0. */
+/** Squared endpoints of the far-intersection blend: the edge-midpoint fallback
+ * ramps in at 2.25 and fully replaces the intersection at 4.0. Measured healthy
+ * registry intersections peak at 2.16. */
 inline constexpr float STAR_FAR_BLEND_START_RATIO_SQ = 2.25f;
 inline constexpr float STAR_FAR_RATIO_SQ = 4.0f;
 inline constexpr float HANKIN_PARALLEL_REGULARIZATION_SQ = 3.0e-4f;
