@@ -92,8 +92,11 @@ public:
     // "Points" changes.
     if (points != cached_points_) {
       HS_PROFILE(gn_spiral_build);
+      // eps 0.5 centers the sample band: both endpoints sit half a step off
+      // their pole, so neither cap is bare and no star pins to the projection
+      // pole.
       for (int i = 0; i < points; i++) {
-        spiral_cache_[i] = fib_spiral(points, /*eps=*/0.0f, i);
+        spiral_cache_[i] = fib_spiral(points, /*eps=*/0.5f, i);
       }
       cached_points_ = points;
     }
