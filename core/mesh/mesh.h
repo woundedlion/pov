@@ -424,11 +424,14 @@ HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * @details Removes degenerate faces (faces with < 3 vertices), then compacts
  * the vertex array to the set the surviving faces reference, so the compiled
  * vertex count matches what vertex-count consumers (e.g. OpLeg) see rather
- * than carrying orphans left by the stripped faces. Traps if the flat face
- * lengths disagree or the cumulative face offset exceeds the 16-bit range.
+ * than carrying orphans left by the stripped faces. Traps if geom_arena aliases
+ * scratch, the flat face lengths disagree, or the cumulative face offset
+ * exceeds the 16-bit range.
  */
 HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
                                    Arena &geom_arena, Arena &scratch) {
+  HS_CHECK(&geom_arena != &scratch,
+           "MeshOps::compile geom_arena must not alias scratch");
   require_flat_face_length(src.get_face_counts_data(),
                            src.get_face_counts_size(), src.get_faces_size());
   dst.clear();
