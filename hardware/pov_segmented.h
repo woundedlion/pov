@@ -196,10 +196,10 @@ public:
     read_id();
     configure_segment();
 
-    ledController_.begin();
-    ledController_.setCorrection(255, 176, 240); // TypicalLEDStrip
-    ledController_.setTemperature(255, 147, 41); // Candle
-    ledController_.setBrightness(255);
+    ledController.begin();
+    ledController.setCorrection(255, 176, 240); // TypicalLEDStrip
+    ledController.setTemperature(255, 147, 41); // Candle
+    ledController.setBrightness(255);
 
     // Enable the DWT cycle counter the flywheel timebase reads: TRCENA gates the
     // DWT block on, then CYCCNTENA starts the counter.
@@ -207,14 +207,14 @@ public:
     ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;
 
     Serial.print("[Phantasm] Segment ");
-    Serial.print(segment_id_);
-    Serial.print(arm_b_ ? " arm-B" : " arm-A");
-    Serial.print(y_step_ < 0 ? " (-y, reversed)" : " (+y)");
-    Serial.print(segment_id_ == 0 ? " MASTER" : "");
+    Serial.print(segment_id);
+    Serial.print(arm_b ? " arm-B" : " arm-A");
+    Serial.print(y_step < 0 ? " (-y, reversed)" : " (+y)");
+    Serial.print(segment_id == 0 ? " MASTER" : "");
     Serial.print(" | y_base=");
-    Serial.print(y_base_);
+    Serial.print(y_base);
     Serial.print(" y_step=");
-    Serial.print(y_step_);
+    Serial.print(y_step);
     Serial.print(" pixels=");
     Serial.println(PPS);
   }
@@ -235,7 +235,7 @@ public:
    * @param effect_count  Roster length.
    */
   [[noreturn]] void run_show(const EffectFactory *factories, int effect_count) {
-    factories_ = factories;
+    effect_factories = factories;
 
     pov::sync::Config cfg =
         pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, effect_count);
@@ -245,9 +245,9 @@ public:
     cfg.revs_per_effect = HS_PROFILE_EPOCH_REVS;
 #endif
     HS_CHECK(cfg.valid(), "pov::sync::Config invariants");
-    sync_.reconstruct(cfg);
+    sync.reconstruct(cfg);
 
-    const bool master = (segment_id_ == 0);
+    const bool master = (segment_id == 0);
     pinMode(PIN_MASTER_EN, OUTPUT);
     digitalWriteFast(PIN_MASTER_EN, master ? LOW : HIGH);
     if (master) {
@@ -262,7 +262,7 @@ public:
       *(portControlRegister(PIN_FRAME_SYNC)) |= IOMUXC_PAD_HYS;
     }
 
-    sync_.seed(ARM_DWT_CYCCNT, master);
+    sync.seed(ARM_DWT_CYCCNT, master);
 
     if (!master) {
       attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC), sync_edge_isr,
@@ -271,31 +271,31 @@ public:
       // the flywheel's; raise it so the edge stamp is taken at the edge.
       NVIC_SET_PRIORITY(IRQ_GPIO6789, SYNC_EDGE_IRQ_PRIORITY);
     }
-    HS_CHECK(timer_.begin(flywheel_isr, COLUMN_US / float(OVERSAMPLE)),
+    HS_CHECK(timer.begin(flywheel_isr, COLUMN_US / float(OVERSAMPLE)),
              "flywheel IntervalTimer failed to start (no PIT channel)");
 
     // ── Foreground: construct effects on request, render, report ────────
     Effect *cur = nullptr;
     uint32_t built_gen = 0;
 #if defined(USE_DMA_LEDS)
-    uint32_t last_overrun = ledController_.getOverrunCount();
+    uint32_t last_overrun = ledController.getOverrunCount();
 #endif
     pov::sync::Telemetry last_tm{};
     unsigned long last_report = millis();
 
     for (;;) {
-      const uint32_t bw = sync_.build_word();
+      const uint32_t bw = sync.build_word();
       const uint32_t gen = pov::sync::SyncBoard::build_gen_of(bw);
       if (gen != built_gen) {
         // The ISR owns the live-effect pointer; ask it to let go before the
         // old instance is destroyed (it acknowledges within one wake-up).
-        handoff_.request_release();
+        handoff.request_release();
         const unsigned long t0 = micros();
-        while (!handoff_.release_complete()) {
+        while (!handoff.release_complete()) {
           HS_CHECK(micros() - t0 < 100000UL,
                    "flywheel ISR failed to release the live effect");
         }
-        handoff_.clear_pending();
+        handoff.clear_pending();
         delete cur;
         // Restart the shared RNG stream per effect, seeded from the beacon-
         // synchronized effect index (spec §2): every board derives the same
@@ -303,7 +303,7 @@ public:
         // wrong about the index is already building the wrong effect.
         const int32_t effect_index = pov::sync::SyncBoard::build_index_of(bw);
         hs::random().seed(hs::epoch_seed(static_cast<uint32_t>(effect_index)));
-        cur = factories_[effect_index]();
+        cur = effect_factories[effect_index]();
         HS_CHECK(cur->height() == ROWS,
                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
         HS_CHECK(cur->width() == CANVAS_W,
@@ -319,12 +319,12 @@ public:
         // Publish under IRQ-off so the (effect, gen) pair reaches the ISR
         // atomically; publish()'s release store orders every constructor/
         // draw_frame() write before the ISR's acquire load.
-        handoff_.publish(cur, gen);
+        handoff.publish(cur, gen);
         hs::enable_interrupts();
         built_gen = gen;
       }
 
-      if (cur && handoff_.consumed(built_gen)) {
+      if (cur && handoff.consumed(built_gen)) {
         const unsigned long f0 = micros();
         cur->draw_frame();
         if (hs::debug) {
@@ -339,7 +339,7 @@ public:
       if (hs::debug && millis() - last_report >= 1000UL) {
         last_report = millis();
         hs::disable_interrupts();
-        const pov::sync::Telemetry tm = sync_.telemetry();
+        const pov::sync::Telemetry tm = sync.telemetry();
         hs::enable_interrupts();
         if (memcmp(&tm, &last_tm, sizeof tm) != 0) {
           // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
@@ -363,7 +363,7 @@ public:
           last_tm = tm;
         }
 #if defined(USE_DMA_LEDS)
-        const uint32_t overruns = ledController_.getOverrunCount();
+        const uint32_t overruns = ledController.getOverrunCount();
         if (overruns != last_overrun) {
           Serial.print("overrun ");
           Serial.println(overruns);
@@ -381,7 +381,7 @@ private:
    * @brief Samples the raw ID straps (ID_STRAPS bits, LSB = ID0).
    * @return Raw reading; floating (HIGH) bits set, grounded bits clear.
    */
-  int sample_strap_() const {
+  int sample_strap() const {
     int raw = digitalReadFast(PIN_ID0);
     if constexpr (ID_STRAPS >= 2)
       raw |= digitalReadFast(PIN_ID1) << 1;
@@ -430,16 +430,16 @@ private:
 
     // Debounce: three samples ~5 ms apart must agree; an unstable strap reads as
     // a second master and drives the push-pull sync wire into bus contention.
-    const int raw0 = sample_strap_();
+    const int raw0 = sample_strap();
     for (int i = 0; i < 2; ++i) {
       delay(5);
-      HS_CHECK(sample_strap_() == raw0,
+      HS_CHECK(sample_strap() == raw0,
                "unstable segment-ID strap (field/manufacturing fault)");
     }
 
     // Invert the reading (all-floating pull-ups => ID 0), then mask to log2(N)
     // bits; the mask is load-bearing.
-    segment_id_ = pov::decode_segment_id(raw0, N);
+    segment_id = pov::decode_segment_id(raw0, N);
   }
 
   // ── Segment mapping ─────────────────────────────────────────────────
@@ -450,10 +450,10 @@ private:
    * northern bands advance in +y; its southern bands advance in -y.
    */
   void configure_segment() {
-    const pov::SegmentMap m = pov::segment_map(segment_id_, S, N);
-    arm_b_ = m.arm_b;
-    y_base_ = m.y_base;
-    y_step_ = m.y_step;
+    const pov::SegmentMap m = pov::segment_map(segment_id, S, N);
+    arm_b = m.arm_b;
+    y_base = m.y_base;
+    y_step = m.y_step;
   }
 
   /**
@@ -468,13 +468,13 @@ private:
   static void clip_to_segment(Effect *e, bool arm_a_left) {
     if (e->needs_full_frame() || e->persists_pixels())
       return;
-    const pov::SegmentMap m{arm_b_, y_base_, y_step_};
+    const pov::SegmentMap m{arm_b, y_base, y_step};
     const pov::SegmentClip c = pov::segment_clip(m, arm_a_left, S, N, CANVAS_W);
     e->set_clip(c.y0, c.y1, c.x0, c.x1);
   }
 
   static void prepare_segment_clip(Effect &e) {
-    clip_to_segment(&e, handoff_.window_left() == 0);
+    clip_to_segment(&e, handoff.window_left() == 0);
   }
 
   // ── ISRs ────────────────────────────────────────────────────────────
@@ -489,7 +489,7 @@ private:
    * makes the consumer's __disable_irq() bracket around the mailbox claim
    * load-bearing.
    */
-  static FASTRUN void sync_edge_isr() { sync_.on_sync_edge(ARM_DWT_CYCCNT); }
+  static FASTRUN void sync_edge_isr() { sync.on_sync_edge(ARM_DWT_CYCCNT); }
 
   // render_column samples the raw display buffer, bypassing get_pixel(), so a
   // get_pixel-overriding effect must never go live on either adoption path.
@@ -515,25 +515,25 @@ private:
     // Complete a deferred sync pulse from the previous wake: a wake that
     // submitted no frame has a body too short to width a same-wake pulse to
     // spec §5.2's "tens of µs," so it holds the pin HIGH and drops it here.
-    if (sync_low_pending_) {
+    if (sync_low_pending) {
       digitalWriteFast(PIN_FRAME_SYNC, LOW);
-      sync_low_pending_ = false;
+      sync_low_pending = false;
     }
 
     // Mailbox handoff (spec §8.2): a brief IRQ-off copy in the consumer.
     pov::sync::BurstSnapshot burst;
     const pov::sync::BurstSnapshot *bp = nullptr;
-    if (segment_id_ != 0) {
+    if (segment_id != 0) {
       __disable_irq();
-      if (sync_.mailbox().try_claim(now, sync_.gap_timeout_cycles(), &burst))
+      if (sync.mailbox().try_claim(now, sync.gap_timeout_cycles(), &burst))
         bp = &burst;
       // Retire a stale glitch-filter reference so the cycle counter cannot wrap
       // out from under it during a long wire silence (spec §8).
-      sync_.mailbox().age_prior(now, sync_.glitch_filter_cycles());
+      sync.mailbox().age_prior(now, sync.glitch_filter_cycles());
       __enable_irq();
     }
 
-    const pov::sync::TickActions a = sync_.tick(now, bp);
+    const pov::sync::TickActions a = sync.tick(now, bp);
 
     // Pin write first, LED work after (spec §5.2).
     if (a.pulse)
@@ -541,27 +541,27 @@ private:
 
     // Release handshake: the foreground wants the live pointer dropped so it
     // can destroy the instance (epoch teardown / beacon rebuild).
-    handoff_.service_release();
+    handoff.service_release();
 
     // Swap in the foreground-constructed pending effect, only ever at a ZERO
     // boundary. Two paths: commit (the B+K epoch deadline, spec §6.1) and join
     // (first display: boot / beacon join / index correction, taken at the next
     // join-grid boundary so all boards go live at the same crossing).
     if (a.commit) {
-      const auto p = handoff_.pending_acquire();
-      HS_CHECK(handoff_.committable(
-                   p, pov::sync::SyncBoard::build_gen_of(sync_.build_word())),
+      const auto p = handoff.pending_acquire();
+      HS_CHECK(handoff.committable(
+                   p, pov::sync::SyncBoard::build_gen_of(sync.build_word())),
                "epoch commit: effect init exceeded the K-revolution window");
       assert_render_column_safe(p.effect);
-      handoff_.adopt(p.effect, p.gen);
-    } else if (a.join_boundary && !a.dark && handoff_.live() == nullptr) {
+      handoff.adopt(p.effect, p.gen);
+    } else if (a.join_boundary && !a.dark && handoff.live() == nullptr) {
       // Adopt only an effect still matching the wire's advertised generation; a
       // visibility lag that fails the match simply joins one grid step later.
-      const auto p = handoff_.pending_acquire();
-      if (handoff_.joinable(
-              p, pov::sync::SyncBoard::build_gen_of(sync_.build_word()))) {
+      const auto p = handoff.pending_acquire();
+      if (handoff.joinable(
+              p, pov::sync::SyncBoard::build_gen_of(sync.build_word()))) {
         assert_render_column_safe(p.effect);
-        handoff_.adopt(p.effect, p.gen);
+        handoff.adopt(p.effect, p.gen);
       }
     }
 
@@ -569,11 +569,11 @@ private:
     // clips the next frame to the quadrant this segment will paint: a ZERO flip
     // opens the arm-A-left [0,W/2) half-rev, a HALF flip opens [W/2,W).
     if (a.flip)
-      handoff_.set_window_left(a.zero_crossing);
+      handoff.set_window_left(a.zero_crossing);
 
     // Flip whenever the effect is live, even during the dark commit window:
     // advance_display() is what releases a foreground blocked in buffer_free().
-    Effect *e = handoff_.live();
+    Effect *e = handoff.live();
     if (a.flip && e)
       e->advance_display();
 
@@ -581,7 +581,7 @@ private:
     // a DMA-overrun drop is retried on the next wake (spec §5.3/§6.3 fail-dark
     // for BLACK, the dropped image column for COLUMN/RESUBMIT).
     const pov::SubmitAction action =
-        submit_gate_.choose(a.dark || e == nullptr, a.render_column);
+        submit_gate.choose(a.dark || e == nullptr, a.render_column);
     bool accepted = false;
     switch (action) {
     case pov::SubmitAction::BLACK:
@@ -596,14 +596,14 @@ private:
     case pov::SubmitAction::NONE:
       break;
     }
-    const bool did_render = submit_gate_.settle(action, accepted);
+    const bool did_render = submit_gate.settle(action, accepted);
 
     if (a.pulse) {
       if (did_render) {
         digitalWriteFast(PIN_FRAME_SYNC, LOW);
       } else {
         // Body too short to width the pulse: hold HIGH, drop at the next wake.
-        sync_low_pending_ = true;
+        sync_low_pending = true;
       }
     }
   }
@@ -623,22 +623,22 @@ private:
    */
   [[nodiscard]] HS_O3_FN static FASTRUN bool render_column(Effect *e, int x) {
     const int w = e->width();
-    const int x_col = pov::segment_x_col(arm_b_, x, w);
+    const int x_col = pov::segment_x_col(arm_b, x, w);
 
     // ISR fast path: index the display buffer directly, dropping PPS per-pixel
     // virtual get_pixel() dispatches. No effect on this path overrides get_pixel.
     const Pixel *buf = e->display_buffer();
 
-    auto &frame = ledController_.backFrame();
+    auto &frame = ledController.backFrame();
     {
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
-      int y = y_base_;
-      for (int i = 0; i < PPS; ++i, y += y_step_) {
+      int y = y_base;
+      for (int i = 0; i < PPS; ++i, y += y_step) {
         frame.packPixel(i, buf[y * w + x_col]);
       }
     }
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
-    return ledController_.submitFrame(e->strobe_columns());
+    return ledController.submitFrame(e->strobe_columns());
   }
 
   /**
@@ -650,7 +650,7 @@ private:
    */
   [[nodiscard]] static FASTRUN bool resubmit_frame(bool strobe) {
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
-    return ledController_.submitFrame(strobe);
+    return ledController.submitFrame(strobe);
   }
 
   /**
@@ -659,11 +659,11 @@ private:
    *         if it was dropped on a DMA overrun (caller must retry, not latch).
    */
   static FASTRUN bool render_black() {
-    auto &frame = ledController_.backFrame();
+    auto &frame = ledController.backFrame();
     for (int i = 0; i < PPS; ++i) {
       frame.packPixel(i, Pixel(0, 0, 0));
     }
-    return ledController_.submitFrame(false);
+    return ledController.submitFrame(false);
   }
 
   // ── Static state ────────────────────────────────────────────────────
@@ -674,10 +674,10 @@ private:
    *          (mailbox publisher) per the spec §8 single-writer model. Foreground
    *          reads are single aligned words (build_word) or debug telemetry.
    */
-  static pov::sync::SyncBoard sync_;
-  static IntervalTimer timer_; /**< Flywheel wake-up timer (PIT channel).   */
-  static const EffectFactory
-      *factories_; /**< Roster of effect constructors (HS_EFFECT_LIST order). */
+  static pov::sync::SyncBoard sync;
+  static IntervalTimer timer; /**< Flywheel wake-up timer (PIT channel).   */
+  /** @brief Roster of effect constructors (HS_EFFECT_LIST order). */
+  static const EffectFactory *effect_factories;
 
   /**
    * @brief Effect handoff state machine between the foreground and the ISR.
@@ -687,58 +687,58 @@ private:
    *          foreground constructs and deletes; the ISR only ever dereferences
    *          the instance it has been handed via live().
    */
-  static pov::EffectHandoff<Effect> handoff_;
+  static pov::EffectHandoff<Effect> handoff;
   /**
    * @brief Per-wake LED-submit decision and its overrun-retry latches.
    * @details The accept/drop bookkeeping lives in pov_submit_gate.h
    *          (host-tested); the ISR only performs the action it names.
    */
-  static pov::SubmitGate submit_gate_;
+  static pov::SubmitGate submit_gate;
   static bool
-      sync_low_pending_; /**< ISR-owned: sync-pulse drop deferred to next wake. */
+      sync_low_pending; /**< ISR-owned: sync-pulse drop deferred to next wake. */
 
   static int
-      segment_id_; /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
-  static bool arm_b_; /**< True if this segment lives on arm B (x + W/2). */
-  static int y_base_; /**< Canvas row of this segment's LED 0.      */
+      segment_id; /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
+  static bool arm_b; /**< True if this segment lives on arm B (x + W/2). */
+  static int y_base; /**< Canvas row of this segment's LED 0.      */
   static int
-      y_step_; /**< Row stride per LED: +1 north band or -1 reversed south band. */
+      y_step; /**< Row stride per LED: +1 north band or -1 reversed south band. */
 #if defined(USE_DMA_LEDS)
   static DMALEDController<PPS>
-      ledController_; /**< DMA SPI LED controller for the segment strip. */
+      ledController; /**< DMA SPI LED controller for the segment strip. */
 #endif
 };
 
 // ── Static member definitions ───────────────────────────────────────────
 
 template <int S, int N, int RPM>
-pov::sync::SyncBoard POVSegmented<S, N, RPM>::sync_{pov::sync::Config{}};
+pov::sync::SyncBoard POVSegmented<S, N, RPM>::sync{pov::sync::Config{}};
 
-template <int S, int N, int RPM> IntervalTimer POVSegmented<S, N, RPM>::timer_;
+template <int S, int N, int RPM> IntervalTimer POVSegmented<S, N, RPM>::timer;
 
 template <int S, int N, int RPM>
 const typename POVSegmented<S, N, RPM>::EffectFactory
-    *POVSegmented<S, N, RPM>::factories_ = nullptr;
+    *POVSegmented<S, N, RPM>::effect_factories = nullptr;
 
 template <int S, int N, int RPM>
-pov::EffectHandoff<Effect> POVSegmented<S, N, RPM>::handoff_;
+pov::EffectHandoff<Effect> POVSegmented<S, N, RPM>::handoff;
 
 template <int S, int N, int RPM>
-pov::SubmitGate POVSegmented<S, N, RPM>::submit_gate_;
+pov::SubmitGate POVSegmented<S, N, RPM>::submit_gate;
 
 template <int S, int N, int RPM>
-bool POVSegmented<S, N, RPM>::sync_low_pending_ = false;
+bool POVSegmented<S, N, RPM>::sync_low_pending = false;
 
-template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::segment_id_ = 0;
+template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::segment_id = 0;
 
-template <int S, int N, int RPM> bool POVSegmented<S, N, RPM>::arm_b_ = false;
+template <int S, int N, int RPM> bool POVSegmented<S, N, RPM>::arm_b = false;
 
-template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_base_ = 0;
+template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_base = 0;
 
-template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_step_ = 1;
+template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_step = 1;
 
 #if defined(USE_DMA_LEDS)
-// ledController_ is intentionally NOT defined out-of-line here. Its HD107SFrame
+// ledController is intentionally NOT defined out-of-line here. Its HD107SFrame
 // buffers are the eDMA TX source and belong in cached, DMA-reachable OCRAM (where
 // HD107SFrame's arm_dcache_flush() write-back is meaningful — in DTCM it is a
 // dead no-op). DMAMEM (a section attribute) is silently dropped by GCC on a
@@ -749,7 +749,7 @@ template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_step_ = 1;
 // DMAMEM section attribute — see Phantasm.ino.
 #define HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)                      \
   template <>                                                                  \
-  DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController_ { \
+  DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController {  \
     POVSegmented<S, N, RPM>::SPI_CLOCK_HZ                                      \
   }
 #endif

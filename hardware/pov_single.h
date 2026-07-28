@@ -52,12 +52,12 @@ public:
     randomSeed(
         1337); // FastLED LCG only; modern effects use hs::random() (platform.h)
 #ifdef USE_DMA_LEDS
-    ledController_.begin();
-    ledController_.setCorrection(255, 176, 240); // TypicalLEDStrip
-    ledController_.setTemperature(255, 147, 41); // Candle
-    ledController_.setBrightness(255);
+    ledController.begin();
+    ledController.setCorrection(255, 176, 240); // TypicalLEDStrip
+    ledController.setTemperature(255, 147, 41); // Candle
+    ledController.setBrightness(255);
 #else
-    FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds_,
+    FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds,
                                                                         S);
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
@@ -90,7 +90,7 @@ private:
    * @param e Effect to run; borrowed, not owned. The caller (show) retains
    * ownership and deletes it.
    * @param duration The time in seconds to run the effect.
-   * @details Publishes e to the ISR-visible effect_ only while the timer ISR is
+   * @details Publishes e to the ISR-visible effect only while the timer ISR is
    * attached, then unpublishes it; does not delete e. Traps a driver/effect
    * resolution mismatch and a failed timer start before either becomes a dark
    * strip or an unguarded OOB read in the column ISR.
@@ -106,22 +106,22 @@ private:
         duration <= ~0UL / 1000UL,
         "show duration too long (duration*1000 ms overflows unsigned long)");
     const unsigned long duration_ms = duration * 1000;
-    effect_ = e;
+    effect = e;
     // show_col() indexes buf[y * width + x] for y in [0, S/2), in-bounds only
     // when the effect's canvas height equals the strip's half-height.
-    HS_CHECK(effect_->height() == S / 2,
+    HS_CHECK(effect->height() == S / 2,
              "POVDisplay: effect canvas height must equal S/2");
     // strip_opposite_col's (x + w/2) % w antipode and the x == w/2 swap cadence
     // both truncate w/2 on odd width, misregistering the bottom hemisphere.
-    HS_CHECK(effect_->width() % 2 == 0,
+    HS_CHECK(effect->width() % 2 == 0,
              "POVDisplay: effect canvas width must be even");
-    x_ = 0;
+    x = 0;
     IntervalTimer timer;
     // One column sweep period (µs), rounded to nearest; a pathological RPM/width
     // could round it to 0 µs, an undefined IntervalTimer period.
     static_assert(RPM > 0, "POVDisplay: RPM must be positive");
     const unsigned long cols_per_min =
-        static_cast<unsigned long>(RPM) * effect_->width();
+        static_cast<unsigned long>(RPM) * effect->width();
     HS_CHECK(cols_per_min > 0, "column sweep rate is zero (width is 0)");
     const unsigned long interval_us =
         (60000000UL + cols_per_min / 2) / cols_per_min;
@@ -131,7 +131,7 @@ private:
              "column IntervalTimer failed to start (no PIT channel)");
     while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
-      effect_->draw_frame();
+      effect->draw_frame();
       unsigned long dt = micros() - t0;
       if (hs::debug) {
         Serial.print("ft ");
@@ -139,7 +139,7 @@ private:
       }
     }
     timer.end();
-    effect_ = nullptr;
+    effect = nullptr;
   }
 
 private:
@@ -148,75 +148,74 @@ private:
    * the frame.
    */
   static FASTRUN void show_col() {
-    // Top half reads column x_; bottom half reads the opposite column (x_+W/2).
-    const int w = effect_->width();
-    const int x_top = x_;
-    const int x_bot = pov::strip_opposite_col(x_, w);
+    // Top half reads column x; bottom half reads the opposite column (x+W/2).
+    const int w = effect->width();
+    const int x_top = x;
+    const int x_bot = pov::strip_opposite_col(x, w);
 
     // ISR fast path: index the display buffer directly, dropping the per-column
     // virtual get_pixel() dispatches. The one effect that overrides get_pixel
     // (RingTwist) routes to the slow path via this probe.
-    const bool slow = effect_->overrides_get_pixel();
-    const Pixel *buf = slow ? nullptr : effect_->display_buffer();
+    const bool slow = effect->overrides_get_pixel();
+    const Pixel *buf = slow ? nullptr : effect->display_buffer();
 
 #if defined(USE_DMA_LEDS)
-    auto &frame = ledController_.backFrame();
+    auto &frame = ledController.backFrame();
     for (int y = 0; y < S / 2; ++y) {
       // Top half is wired reversed, bottom half straight.
       frame.packPixel(pov::strip_top_led(y, S),
-                      slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top]);
+                      slow ? effect->get_pixel(x_top, y) : buf[y * w + x_top]);
       frame.packPixel(pov::strip_bottom_led(y, S),
-                      slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
+                      slow ? effect->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
     // Overrun result discarded: at the ~1.3 ms single-board column period a DMA
     // overrun cannot occur, so no overrun watchdog here.
-    (void)ledController_.submitFrame(effect_->strobe_columns());
+    (void)ledController.submitFrame(effect->strobe_columns());
 #else
     for (int y = 0; y < S / 2; ++y) {
-      leds_[pov::strip_top_led(y, S)] = static_cast<CRGB>(
-          slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top]);
-      leds_[pov::strip_bottom_led(y, S)] = static_cast<CRGB>(
-          slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
+      leds[pov::strip_top_led(y, S)] = static_cast<CRGB>(
+          slow ? effect->get_pixel(x_top, y) : buf[y * w + x_top]);
+      leds[pov::strip_bottom_led(y, S)] = static_cast<CRGB>(
+          slow ? effect->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
     FastLED.show();
-    if (effect_->strobe_columns()) {
+    if (effect->strobe_columns()) {
       FastLED.showColor(CRGB(0, 0, 0));
     }
 #endif
 
-    x_ = (x_ + 1) % w;
+    x = (x + 1) % w;
     // Advance the display buffer at each half-revolution boundary.
-    if (x_ == 0 || x_ == w / 2) {
-      effect_->advance_display();
+    if (x == 0 || x == w / 2) {
+      effect->advance_display();
     }
   }
 
 #ifndef USE_DMA_LEDS
   static CRGB
-      leds_[S]; /**< Array holding the CRGB data for the physical LED strip. */
+      leds[S]; /**< Array holding the CRGB data for the physical LED strip. */
 #endif
-  static Effect *
-      effect_; /**< Currently running effect; the ISR only reads it. Written by
-                     run() solely while the column timer is detached (before
-                     begin(), after end()), never mid-show. */
-  static int
-      x_; /**< Current column index being displayed (virtual position). */
+  static Effect *effect; /**< Currently running effect; the ISR only reads it.
+                              Written by run() solely while the column timer is
+                              detached (before begin(), after end()), never
+                              mid-show. */
+  static int x; /**< Current column index being displayed (virtual position). */
 #if defined(USE_DMA_LEDS)
   static DMALEDController<S>
-      ledController_; /**< HD107S DMA controller driving the physical strip. */
+      ledController; /**< HD107S DMA controller driving the physical strip. */
 #endif
 };
 
-template <int S, int RPM> int POVDisplay<S, RPM>::x_ = 0;
+template <int S, int RPM> int POVDisplay<S, RPM>::x = 0;
 
-template <int S, int RPM> Effect *POVDisplay<S, RPM>::effect_ = nullptr;
+template <int S, int RPM> Effect *POVDisplay<S, RPM>::effect = nullptr;
 
 #ifndef USE_DMA_LEDS
-template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
+template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds[S];
 #endif
 
 #if defined(USE_DMA_LEDS)
-// ledController_ is intentionally NOT defined out-of-line here. Its HD107SFrame
+// ledController is intentionally NOT defined out-of-line here. Its HD107SFrame
 // buffers are the eDMA TX source and belong in cached, DMA-reachable OCRAM (where
 // HD107SFrame's arm_dcache_flush() write-back is meaningful — in DTCM it is a
 // dead no-op). DMAMEM (a section attribute) is silently dropped by GCC on a
@@ -227,7 +226,7 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
 // DMAMEM section attribute.
 // POVSegmented carries the same contract (see targets/Phantasm/Phantasm.ino).
 #define HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM)                            \
-  template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController_ {}
+  template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController {}
 #endif
 
 #endif // ARDUINO

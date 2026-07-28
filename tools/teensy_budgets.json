@@ -84,7 +84,7 @@
       // must stay in cached, DMA-reachable OCRAM (where arm_dcache_flush() is real;
       // §5/§8). Defined as an explicit specialization in Phantasm.ino because GCC
       // drops DMAMEM on the vague-linkage template static member.
-      "dma_tx_buffer":  { "name": "_ZN12POVSegmentedILi288ELi4ELi480EE14ledController_E", "region": "OCRAM" }
+      "dma_tx_buffer":  { "name": "_ZN12POVSegmentedILi288ELi4ELi480EE13ledControllerE", "region": "OCRAM" }
     }
   }
 }
