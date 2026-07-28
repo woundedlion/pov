@@ -188,7 +188,13 @@ public:
    * @brief Accesses the associated Orientation.
    * @return Reference to the bound Orientation.
    */
-  Orientation<CAP> &get_orientation() const { return orientation.get(); }
+  Orientation<CAP> &get_orientation() { return orientation.get(); }
+
+  /**
+   * @brief Reads the associated Orientation.
+   * @return Const reference to the bound Orientation.
+   */
+  const Orientation<CAP> &get_orientation() const { return orientation.get(); }
 
   /**
    * @brief Collapses the bound Orientation's motion-blur history.
@@ -373,7 +379,13 @@ public:
    * @brief Accesses the associated Orientation.
    * @return Reference to the bound Orientation.
    */
-  Orientation<CAP> &get_orientation() const { return *orientation; }
+  Orientation<CAP> &get_orientation() { return *orientation; }
+
+  /**
+   * @brief Reads the associated Orientation.
+   * @return Const reference to the bound Orientation.
+   */
+  const Orientation<CAP> &get_orientation() const { return *orientation; }
 
   /**
    * @brief Collapses the bound Orientation's motion-blur history.
@@ -543,7 +555,13 @@ public:
    * @brief Accesses the associated Orientation.
    * @return Reference to the bound Orientation.
    */
-  Orientation<CAP> &get_orientation() const { return orientation.get(); }
+  Orientation<CAP> &get_orientation() { return orientation.get(); }
+
+  /**
+   * @brief Reads the associated Orientation.
+   * @return Const reference to the bound Orientation.
+   */
+  const Orientation<CAP> &get_orientation() const { return orientation.get(); }
 
   /**
    * @brief Collapses the bound Orientation's motion-blur history.
