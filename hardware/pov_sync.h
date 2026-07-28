@@ -1290,8 +1290,15 @@ public:
     // rejects a wrapped modular difference.
     if (have_prev_burst &&
         (now - prev_burst_end) > protocol_config.acquire_quiet_cycles() &&
-        static_cast<int32_t>(now - prev_burst_end) > 0)
+        static_cast<int32_t>(now - prev_burst_end) > 0) {
       have_prev_burst = false;
+      // The same silence ends any partial beacon frame: feed()'s staleness test
+      // is itself a modular difference, so a partial frame left standing can
+      // outlive a counter wrap and concatenate with a fresh train. A burst
+      // claimed this tick was folded in above, so a live digit train is never
+      // cut here.
+      beacon_parser.reset();
+    }
 
     // Fold every locally-crossed boundary (usually 0 or 1; several after a
     // long masked coast).

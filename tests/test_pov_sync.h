@@ -456,6 +456,44 @@ inline void test_beacon_codec() {
 }
 
 /**
+ * @brief Verifies wire silence past the ACQUIRE quiet window discards a partial
+ *        beacon frame, so the next train assembles from its own digits alone.
+ * @details The parser's own staleness test is a modular difference, so a partial
+ *          frame left standing outlives a cycle-counter wrap and reads a fresh
+ *          train's first digit as in-window; the tick-driven reset fires within
+ *          columns of the truncated train, long before a wrap can accumulate.
+ */
+inline void test_beacon_partial_frame_ages_out() {
+  const Config cfg = test_config();
+  const uint32_t col = cfg.cycles_per_column();
+  SyncBoard board(cfg);
+  board.seed(1000u, /*is_master=*/false);
+  board.flywheel_mut().force_lock();
+
+  // A truncated train: one data burst at column 40 (far from both boundaries,
+  // so the demarcation routes it to the parser), then silence.
+  const uint32_t head = 1000u + 40u * col;
+  const BurstSnapshot partial{4, head, head + 3 * col};
+  board.tick(head + 7 * col, &partial);
+  board.tick(head + 25 * col, nullptr); // quiet past the ACQUIRE guard
+
+  // A complete frame from column 70 on, spaced exactly as schedule_beacon does.
+  uint8_t d[5];
+  encode_beacon_digits(2, 3, d);
+  uint32_t f = 1000u + 70u * col;
+  for (int i = 0; i < 5; ++i) {
+    const uint32_t span = static_cast<uint32_t>(d[i]) * col;
+    const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
+    board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+               &s);
+    f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
+  }
+  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
+  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 0u);
+  HS_EXPECT_EQ(board.content().effect_index, 2);
+}
+
+/**
  * @brief Verifies the §6.4 rev cross-check fold (beacon_rev_resync_delta)
  *        resolves the 63↔0 mod-64 seam.
  * @details Production effects span 960 revs and the sim configs span 40, so
@@ -2320,6 +2358,7 @@ inline int run_pov_sync_tests() {
   test_build_request_reset();
   test_multi_boundary_tick_window();
   test_beacon_codec();
+  test_beacon_partial_frame_ages_out();
   test_rev_resync_fold();
   test_flywheel_position();
   test_snap_gate();
