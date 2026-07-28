@@ -70,6 +70,7 @@ public:
    * aren't ready yet), after any configure_arenas() and before the first spawn.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
+    HS_CHECK(!entities, "TransformerPool: init_storage() called twice");
     entities = arena.allocate_n<Entity>(CAPACITY);
     for (int i = 0; i < CAPACITY; ++i)
       new (&entities[i]) Entity();
