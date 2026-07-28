@@ -2536,6 +2536,30 @@ inline void test_random_timer_fires_within_range() {
 }
 
 /**
+ * @brief Verifies a one-shot timer ends by completion, not cancellation.
+ * @details Timeline's pin-completion guard exempts is_canceled(), so a one-shot
+ * timer that ended via cancel() would be destroyed under a retained add_get()
+ * pointer with no diagnostic. Ending through duration keeps is_canceled() false
+ * and routes a pinned one-shot into the guard.
+ */
+inline void test_one_shot_timer_ends_by_completion_not_cancel() {
+  Animation::PeriodicTimer periodic(2, [](Canvas &) {}, /*repeat=*/false);
+  periodic.step(fake_canvas());
+  HS_EXPECT_FALSE(periodic.done());
+  periodic.step(fake_canvas()); // t=2: fires and ends itself
+  HS_EXPECT_TRUE(periodic.done());
+  HS_EXPECT_FALSE(periodic.is_canceled());
+  HS_EXPECT_FALSE(periodic.repeats());
+
+  Animation::RandomTimer random(2, 2, [](Canvas &) {}, /*repeat=*/false);
+  random.step(fake_canvas());
+  HS_EXPECT_FALSE(random.done());
+  random.step(fake_canvas());
+  HS_EXPECT_TRUE(random.done());
+  HS_EXPECT_FALSE(random.is_canceled());
+}
+
+/**
  * @brief Verifies PeriodicTimer::set_period reschedules the next trigger from
  * now (t + new_period), not from the original schedule.
  * @details Starts at period 5 (next trigger t=5); after one frame the period is
@@ -2747,6 +2771,7 @@ inline int run_animation_tests() {
   test_random_walk_stable_rotation_matches_default();
 
   test_random_timer_fires_within_range();
+  test_one_shot_timer_ends_by_completion_not_cancel();
   test_periodic_timer_set_period_reschedules_from_now();
   test_mobiusflow_step_preserves_unit_product();
   test_particle_system_emitter_dispatch();

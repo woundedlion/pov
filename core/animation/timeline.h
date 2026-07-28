@@ -192,6 +192,10 @@ public:
       return nullptr;
     }
     if (pin) {
+      // The pinned animation itself must never complete: it would be destroyed
+      // under the caller's retained pointer.
+      HS_CHECK(!animation.is_finite() || animation.repeats(),
+               "pinned animation must be infinite or repeating");
       // A finite, non-repeating predecessor is removed on completion and would
       // relocate this pinned event, so reject it up front. A repeating/infinite
       // predecessor can still be removed if cancel()ed later; the move_into

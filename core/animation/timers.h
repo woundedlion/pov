@@ -54,7 +54,10 @@ public:
         // directly to honor the contract.
         this->post_callback();
       } else {
-        cancel();
+        // finish(), not cancel(): Timeline's pin guard exempts cancellation, so
+        // a canceled one-shot would be destroyed under a retained pointer with
+        // no diagnostic.
+        this->finish();
       }
     }
   }
@@ -115,7 +118,7 @@ public:
         reset();
         this->post_callback(); // see RandomTimer::step
       } else {
-        cancel();
+        this->finish(); // see RandomTimer::step
       }
     }
   }

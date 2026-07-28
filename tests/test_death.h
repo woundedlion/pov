@@ -510,10 +510,45 @@ inline void case_timeline_handled_completion() {
   static Canvas canvas(fx);
   Timeline tl;
   float v = 0.0f;
-  // pin=true marks the event handled; a 1-frame Transition is finite and the
-  // sole event, so step() routes it through the completion/destroy branch.
-  tl.add_get(0, Animation::Transition(v, 1.0f, 1, ease_linear), /*pin=*/true);
+  // add_get(pin=true) rejects a finite non-repeating animation up front (see
+  // case_timeline_pinned_finite_animation), so the event is marked handled
+  // directly to reach step()'s completion branch. A 1-frame Transition is finite
+  // and the sole event, so step() routes it through completion/destroy.
+  tl.add(0, Animation::Transition(v, 1.0f, 1, ease_linear));
+  global_timeline_events[0].handled = opaque(true);
   tl.step(canvas); // t=1: done() && !repeats() && !canceled, keep=false -> trap
+}
+
+/**
+ * @brief Death case: pinning a finite, non-repeating animation must trap.
+ * @details Animation surface — add_get(pin=true) promises the caller a pointer
+ *          valid across frames, which only holds for an animation that never
+ *          completes on its own. The up-front check rejects the misuse at the
+ *          add site instead of leaving it to step()'s completion guard, which
+ *          fires only once the animation actually finishes.
+ */
+inline void case_timeline_pinned_finite_animation() {
+  Timeline tl;
+  float v = 0.0f;
+  tl.add_get(0, Animation::Transition(v, 1.0f, opaque(1), ease_linear),
+             /*pin=*/true);
+}
+
+/**
+ * @brief Death case: a pinned one-shot timer must trap when it fires.
+ * @details Animation surface — a one-shot RandomTimer/PeriodicTimer ends itself
+ *          on its single trigger. Ending via finish() (not cancel()) keeps
+ *          is_canceled() false, so the destroy of a pinned timer hits step()'s
+ *          completion guard instead of slipping through its cancellation
+ *          exemption and dangling the retained pointer silently.
+ */
+inline void case_timeline_pinned_one_shot_timer() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  Timeline tl;
+  tl.add(0, Animation::PeriodicTimer(1, [](Canvas &) {}, /*repeat=*/false));
+  global_timeline_events[0].handled = opaque(true);
+  tl.step(canvas); // t=1: fires, finish() -> done() && !canceled -> trap
 }
 
 /**
@@ -1316,6 +1351,9 @@ inline const Case *all_cases(int &n) {
       {"timeline_negative_delay", case_timeline_negative_delay},
       {"timeline_start_overflow", case_timeline_start_overflow},
       {"timeline_handled_completion", case_timeline_handled_completion},
+      {"timeline_pinned_finite_animation",
+       case_timeline_pinned_finite_animation},
+      {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer},
       {"timeline_double_construct", case_timeline_double_construct},
       {"effect_double_construct", case_effect_double_construct},
       {"effect_width_zero", case_effect_width_zero},
