@@ -237,7 +237,13 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── pov_single_map.h        Pure single-board strip index math (host-testable)
 │   ├── pov_sync.h              Phantasm sync protocol core: flywheel timebase, symbol codec, epoch/beacon (host-testable)
 │   ├── pov_handoff.h           Pure effect-handoff state machine for POVSegmented (host-testable)
-│   └── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
+│   ├── pov_submit_gate.h       Pure LED-submit accept/drop decision for the POVSegmented ISR (host-testable)
+│   ├── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
+│   └── phantasm/               KiCad 10 project for the per-segment carrier board
+│       ├── phantasm.kicad_sch      Schematic — parts, values, footprints, full connectivity
+│       ├── phantasm.kicad_pcb      Routed PCB (fabrication source of truth)
+│       ├── unplaced/               Net-assigned, unrouted board staged for an autoplacer
+│       └── gen/                    Python schematic/PCB/fabrication generators (`just pcb`)
 │
 ├── targets/                    Per-target entry points
 │   ├── Holosphere/
