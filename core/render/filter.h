@@ -1746,6 +1746,9 @@ private:
     HS_CHECK(cv.width() == W,
              "feedback canvas width %d must equal template W %d", cv.width(),
              W);
+    HS_CHECK(cv.height() == H,
+             "feedback canvas height %d must equal template H %d", cv.height(),
+             H);
     const int columns = W / downsample;
     const int south_infill = std::max(downsample - hs::H_OFFSET, 0);
     const SphereField field(downsample, downsample, south_infill, columns);
