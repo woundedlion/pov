@@ -58,6 +58,16 @@ static constexpr float COLLAPSED_AREA_RATIO = 1e-5f;
  *  faces miss Face::build_half_planes' convex fast path. */
 static constexpr float TURN_EPS_SQ = 1e-12f;
 
+/** AA fringe pad in radians applied to a face's azimuth intervals: one pixel
+ *  of falloff reach (in the plane units distance() reports, slightly wider
+ *  than angular) plus the fast_atan2 slop in the vertex thetas the intervals
+ *  derive from.
+ *  @param w Canvas width in columns.
+ *  @return Half-width pad added to each end of an azimuth interval. */
+constexpr float face_azimuth_pad(int w) {
+  return 1.25f * (2.0f * PI_F / static_cast<float>(w));
+}
+
 // Scanline interval protocol. get_horizontal_intervals returns true when the
 // spans it emitted describe the row, and false to request a full-row scan. A
 // false return MUST emit nothing: the caller walks every column instead, so a
@@ -2500,11 +2510,11 @@ struct Face {
     if (!xc.active)
       return false;
     const int Wd = cr.w;
-    const float pw = 1.25f * (2.0f * PI_F / static_cast<float>(Wd));
+    const float pw = face_azimuth_pad(Wd);
     const int band_len = ((xc.re - xc.rs) % Wd + Wd) % Wd;
     for (const auto &iv : intervals) {
-      // Same radians->column mapping and AA pad get_horizontal_intervals scans
-      // with, so the cull matches the emitted columns exactly.
+      // Mirrors get_horizontal_intervals' radians->column mapping, so the cull
+      // matches the emitted columns exactly.
       int a = static_cast<int>(floorf((iv.first - pw) * Wd / (2.0f * PI_F)));
       int b = static_cast<int>(ceilf((iv.second + pw) * Wd / (2.0f * PI_F)));
       int len = b - a;
@@ -3169,10 +3179,7 @@ struct Face {
     if (hs_aa::g_audit.full_scan)
       return false;
 #endif
-    // Pad by the AA fringe reach (one pixel, in the plane units distance()
-    // reports, slightly wider than angular) plus the fast_atan2 slop in the
-    // vertex thetas the intervals derive from.
-    float pad = 1.25f * (2.0f * PI_F / W);
+    float pad = face_azimuth_pad(W);
     for (const auto &iv : intervals) {
       float f_x1 = (iv.first - pad) * W / (2 * PI_F);
       float f_x2 = (iv.second + pad) * W / (2 * PI_F);
