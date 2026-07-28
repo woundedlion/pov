@@ -705,6 +705,33 @@ inline void test_snap_gate() {
   }
 }
 
+/**
+ * @brief Verifies the suspect-burst timeout counts a gate rejection only while
+ *        LOCKED, so symbols_rejected_gate never runs ahead of the §5.3 fallback
+ *        it feeds.
+ */
+inline void test_suspect_timeout_acquire_uncounted() {
+  const Config cfg = test_config();
+  const uint32_t col = cfg.cycles_per_column();
+  SyncBoard board(cfg);
+  board.seed(1000u, /*is_master=*/false);
+  board.flywheel_mut().force_lock();
+
+  // An isolated valid-count burst at column 40 — far from both boundaries — is
+  // held as a suspect awaiting a beacon train.
+  const uint32_t head = 1000u + 40u * col;
+  const BurstSnapshot suspect{1, head, head};
+  board.tick(head + 5 * col, &suspect);
+  const uint32_t rejected = board.telemetry().symbols_rejected_gate;
+
+  // Fall back to ACQUIRE before the suspect times out.
+  for (int i = 0; i < cfg.reject_fallback; ++i)
+    board.flywheel_mut().note_rejection();
+  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
+  board.tick(head + 40 * col, nullptr); // past the interdigit window
+  HS_EXPECT_EQ(board.telemetry().symbols_rejected_gate, rejected);
+}
+
 // ── Master emission self-censor (§5.2) ──────────────────────────────────────
 
 /**
@@ -2362,6 +2389,7 @@ inline int run_pov_sync_tests() {
   test_rev_resync_fold();
   test_flywheel_position();
   test_snap_gate();
+  test_suspect_timeout_acquire_uncounted();
   test_emitter();
   test_beacon_late_coast();
   test_master_epoch_train_bounded();
