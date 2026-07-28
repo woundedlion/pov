@@ -42,11 +42,18 @@ def _load_gate_extra():
     cannot be plain-imported; inject no-op SCons hooks and a stub env, then exec.
     """
     class _Env:
+        def __init__(self):
+            self.post_actions = []
+            self.dependencies = []
+
         def subst(self, s):
             return str(TOOLS.parent) if s == "$PROJECT_DIR" else s
 
-        def AddPostAction(self, *a, **k):
-            pass
+        def AddPostAction(self, target, action):
+            self.post_actions.append((target, action))
+
+        def Depends(self, target, dependency):
+            self.dependencies.append((target, dependency))
 
     src = (TOOLS / "teensy_gate_extra.py").read_text(encoding="utf-8")
     mod = types.ModuleType("teensy_gate_extra")
@@ -646,6 +653,25 @@ class TestGateExtra(unittest.TestCase):
 
     def setUp(self):
         self.ge = _load_gate_extra()
+
+    def test_gate_runs_after_the_elf_links(self):
+        self.assertEqual([t for t, _ in self.ge.env.post_actions],
+                         ["$BUILD_DIR/${PROGNAME}.elf"])
+        self.assertIs(self.ge.env.post_actions[0][1], self.ge.run_gate)
+
+    def test_elf_depends_on_budgets_and_gate_logic(self):
+        # Without these edges a warm build dir links nothing when only the
+        # budgets or the gate logic change, and the post-action never runs.
+        elf = self.ge.env.post_actions[0][0]
+        deps = [d for target, group in self.ge.env.dependencies
+                if target == elf for d in group]
+        for name in ("teensy_budgets.json", "teensy_gate.py",
+                     "teensy_gate_extra.py"):
+            self.assertIn(str(TOOLS / name), deps)
+
+    def test_declared_gate_sources_exist(self):
+        for path in self.ge.GATE_SOURCES:
+            self.assertTrue(Path(path).is_file(), f"missing {path}")
 
     def test_tool_derives_sibling_arm_tools(self):
         self.assertEqual(self.ge._tool("/opt/arm/bin/arm-none-eabi-gcc", "size"),
