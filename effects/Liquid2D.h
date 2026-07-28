@@ -60,7 +60,8 @@ public:
                             CYCLE_SPEED_MAX);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
-    timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
+    timeline.add(
+        0, Animation::RandomWalk<W>(global_orientation, UP, global_walk_noise));
     timeline.add(0, Animation::Driver(accumulated_time, &params.time_speed,
                                       1.0f, false));
     // wrap=false: cycle_phase is wrapped by hand to 2pi in draw_frame; the
@@ -215,7 +216,12 @@ private:
       timeline; /**< Drives orientations, time/cycle drivers, and presets. */
   Orientation<> orientation;        /**< Inner per-pixel sphere orientation. */
   Orientation<> global_orientation; /**< Outer whole-sphere orientation. */
-  FastNoiseLite noise; /**< OpenSimplex2 source for warp and walks. */
+  FastNoiseLite noise; /**< OpenSimplex2 source for the warp and the
+                            `orientation` walk. */
+  /** @brief OpenSimplex2 source for the `global_orientation` walk; a generator
+   *  shared with the `orientation` walk would drive both along the same
+   *  trajectory, since RandomWalk seeds it from the same starting state. */
+  FastNoiseLite global_walk_noise;
 
   BakedPalette palette; /**< 16-bit LUT baked from the generative palette. */
   BreatheModifier breathe_mod{&cycle_phase,
