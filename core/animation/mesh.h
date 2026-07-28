@@ -2143,48 +2143,50 @@ private:
 
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
+      const bool is_birth = births.face_palette && f >= births.first_face;
       uint8_t to = tr.landing.to_palette[wrap(target_topo[f], PALETTES)];
-      if (births.face_palette && f >= births.first_face)
+      if (is_birth)
         to = births.face_palette[f - births.first_face];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
-      if (births.face_palette && f >= births.first_face) {
-        // Births stay on their cohort palette even where an inheritance
-        // mapping would apply (a dual swap's whole-list births).
-      } else if (forced_from) {
-        from = forced_from[f];
-      } else if (handoff.correspondence == FaceCorrespondence::IDENTITY) {
-        HS_CHECK(handoff.prev_faces == total,
-                 "OpLeg: identity handoff face count differs");
-        from = handoff.prev_face_palette[f];
-      } else if (full_correspondence) {
-        const size_t j = nearest_prev_face(start_centroid[f], handoff);
-        const Vector d = start_centroid[f] - handoff.prev_face_centroid[j];
-        HS_CHECK(!prev_used[j] && dot(d, d) < PROVENANCE_TOL_SQ,
-                 "OpLeg: start face has no unique departed counterpart");
-        prev_used[j] = true;
-        from = handoff.prev_face_palette[j];
-      } else if (start_centroid) { // prev_faces == survivors
-        if (f < handoff.prev_faces) {
+      // Births stay on their cohort palette even where an inheritance mapping
+      // would apply (a dual swap's whole-list births).
+      if (!is_birth) {
+        if (forced_from) {
+          from = forced_from[f];
+        } else if (handoff.correspondence == FaceCorrespondence::IDENTITY) {
+          HS_CHECK(handoff.prev_faces == total,
+                   "OpLeg: identity handoff face count differs");
           from = handoff.prev_face_palette[f];
-        } else if (!handoff.immutable) { // immutable newborns stay on `to`
-          const int slot = wrap(target_topo[f], PALETTES);
-          if (newborn_from[slot] < 0)
-            newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
-                start_centroid[f], handoff)];
-          from = static_cast<uint8_t>(newborn_from[slot]);
-        }
-      } else if (handoff.by_class_signature) {
-        // DUAL_SWAP: side count at the shared ambo point is unambiguous.
-        int sides =
-            f < primary ? tr.seed.face_counts[f] : arrival.face_counts[f];
-        for (size_t j = 0; j < handoff.prev_faces; ++j) {
-          if (handoff.prev_face_sides[j] == sides) {
-            from = handoff.prev_face_palette[j];
-            break;
+        } else if (full_correspondence) {
+          const size_t j = nearest_prev_face(start_centroid[f], handoff);
+          const Vector d = start_centroid[f] - handoff.prev_face_centroid[j];
+          HS_CHECK(!prev_used[j] && dot(d, d) < PROVENANCE_TOL_SQ,
+                   "OpLeg: start face has no unique departed counterpart");
+          prev_used[j] = true;
+          from = handoff.prev_face_palette[j];
+        } else if (start_centroid) { // prev_faces == survivors
+          if (f < handoff.prev_faces) {
+            from = handoff.prev_face_palette[f];
+          } else if (!handoff.immutable) { // immutable newborns stay on `to`
+            const int slot = wrap(target_topo[f], PALETTES);
+            if (newborn_from[slot] < 0)
+              newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
+                  start_centroid[f], handoff)];
+            from = static_cast<uint8_t>(newborn_from[slot]);
           }
+        } else if (handoff.by_class_signature) {
+          // DUAL_SWAP: side count at the shared ambo point is unambiguous.
+          int sides =
+              f < primary ? tr.seed.face_counts[f] : arrival.face_counts[f];
+          for (size_t j = 0; j < handoff.prev_faces; ++j) {
+            if (handoff.prev_face_sides[j] == sides) {
+              from = handoff.prev_face_palette[j];
+              break;
+            }
+          }
+        } else if (f < handoff.prev_faces) {
+          from = handoff.prev_face_palette[f];
         }
-      } else if (f < handoff.prev_faces) {
-        from = handoff.prev_face_palette[f];
       }
       // Immutable colours: the face draws `from` for the leg's whole life
       // (newborns already sit on their class-keyed target via the fallback).
