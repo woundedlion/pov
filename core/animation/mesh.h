@@ -2290,6 +2290,26 @@ inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
 }
 
 /**
+ * @brief Schedules one fade-in/fade-out sprite whose successor starts before it
+ * ends, so consecutive sprites coexist and both meshes render during the
+ * overlap.
+ * @param timeline Timeline receiving the sprite.
+ * @param draw_fn Draws the mesh at the envelope phase.
+ * @param duration Total frames the mesh is on screen.
+ * @param window Requested transition window in frames; clamped to duration/2
+ * so the in/out windows never collide.
+ * @param overlap Frames consecutive sprites coexist, clamped to the fade
+ * window; negative selects the full window. At 0 the schedule is sequential.
+ * @return duration minus the effective overlap.
+ */
+inline int schedule_overlapped(Timeline &timeline, SpriteFn draw_fn,
+                               int duration, int window, int overlap) {
+  int fade =
+      schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
+  return duration - (overlap < 0 ? fade : std::min(overlap, fade));
+}
+
+/**
  * @brief Soft sweep front used by Shockwave.
  * @param phase Global segue phase in [0, 1].
  * @param offset Face's sweep ordering in [0, 1]; larger extinguishes earlier.
@@ -2394,9 +2414,8 @@ struct Crossfade : Base {
    * minus the effective overlap.
    */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
-    int fade =
-        schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
-    return duration - (overlap < 0 ? fade : std::min(overlap, fade));
+    return schedule_overlapped(timeline, std::move(draw_fn), duration, window,
+                               overlap);
   }
   float opacity(float phase) const { return phase; }
 };
@@ -2654,12 +2673,13 @@ struct Dissolve : Base {
     const uint32_t salt = frame * 0x9E3779B9u ^ seed;
     return {PixelMask{thr, salt, false}, PixelMask{thr, salt, true}};
   }
-  /** @brief Crossfade-style overlapping schedule: both meshes are on the
-   * timeline during the fade window (the masks keep the cost at one mesh). */
+  /** @brief Overlapping schedule, fixed at the full fade window: the two masks
+   * partition the pixels only while both meshes are on the timeline, so a
+   * shorter overlap would leave the complement unlit (the masks keep the cost
+   * at one mesh). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
-    int fade =
-        schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
-    return duration - fade;
+    return schedule_overlapped(timeline, std::move(draw_fn), duration, window,
+                               -1);
   }
 };
 
