@@ -272,9 +272,9 @@ public:
     // Pre-size the view-backed readback buffers ONCE: under ALLOW_MEMORY_GROWTH
     // a reallocation detaches the ArrayBuffer behind a typed_memory_view, so the
     // buffers returned as views (getPixels/getParamValues) must never move.
-    pixelBuffer.assign(MAX_W * MAX_H * CHANNELS, 0);
-    paramValues.reserve(MAX_PARAMS);
-    paramViews.reserve(
+    pixel_buffer.assign(MAX_W * MAX_H * CHANNELS, 0);
+    param_values.reserve(MAX_PARAMS);
+    param_views.reserve(
         MAX_PARAMS); // not view-backed; reserve is amortization only
 
     // Bootstrap default; daydream overrides it almost immediately.
@@ -311,8 +311,8 @@ public:
     pixel_width = w;
     pixel_height = h;
 
-    if (currentEffect) {
-      currentEffect = nullptr;
+    if (current_effect) {
+      current_effect = nullptr;
       stack_paint_canary(); // repaint to reset stack HWM after teardown
     }
     return true;
@@ -363,9 +363,9 @@ public:
     // each later load derives a fresh seed. Replica-safe with no protocol
     // change — workers process identical message streams, so their counters
     // agree by construction.
-    hs::random().seed(hs::epoch_seed(effectLoads++));
+    hs::random().seed(hs::epoch_seed(effect_loads++));
 
-    currentEffect.reset();
+    current_effect.reset();
     configure_arenas_default(); // Reset before init so effects can override
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
@@ -373,8 +373,8 @@ public:
     dispatch_resolution(pixel_width, pixel_height, []<int W, int H>() {
       init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
     });
-    currentEffect = entry->creator();
-    currentEffect->init();
+    current_effect = entry->creator();
+    current_effect->init();
     hs::log("WASM: init stack HWM = %u bytes",
             (unsigned)stack_high_water_mark());
     stack_paint_canary();
@@ -400,7 +400,7 @@ public:
    *          narrowing to the band — see docs/segmented_stateful_effects_spec.md.
    */
   bool setClip(int x0, int x1, int y0, int y1) {
-    if (!currentEffect)
+    if (!current_effect)
       return false;
     // Reject malformed bounds from the untyped JS boundary (negatives would feed
     // ClipRegion's modulo arithmetic); reject-and-return, never trap.
@@ -414,52 +414,52 @@ public:
     // Cross-segment stateful effects must render the FULL canvas in every worker
     // (a band-clipped worker has stale cv.prev outside its band, so trails seam);
     // keep the full clip. See docs/segmented_stateful_effects_spec.md.
-    if (currentEffect->needs_full_frame())
+    if (current_effect->needs_full_frame())
       return true;
-    currentEffect->set_clip(y0, y1, x0, x1);
+    current_effect->set_clip(y0, y1, x0, x1);
     return true;
   }
 
   /**
    * @brief Renders one frame of the current effect into the JS-facing buffer.
-   * @details Copies the effect's full canvas into pixelBuffer as 16-bit linear
+   * @details Copies the effect's full canvas into pixel_buffer as 16-bit linear
    *          RGB triples; no-op if no effect is set. The readback copies the
    *          FULL canvas regardless of any active clip region — a clip restricts
    *          rendering, not this readback.
    */
   void drawFrame() {
-    if (!currentEffect) {
+    if (!current_effect) {
       // No active effect: clear the active prefix so getPixels() hands JS a
       // blank frame at the current resolution, not stale content.
       const int count = pixel_width * pixel_height * CHANNELS;
-      std::fill_n(pixelBuffer.data(), count, uint16_t{0});
+      std::fill_n(pixel_buffer.data(), count, uint16_t{0});
       return;
     }
 
-    currentEffect->render_us = 0.0;
-    currentEffect->draw_frame();
-    currentEffect->advance_display();
+    current_effect->render_us = 0.0;
+    current_effect->draw_frame();
+    current_effect->advance_display();
 
     // Readback copies the FULL canvas regardless of any clip; segment_worker.js
     // extracts its quadrant JS-side (README §10.7).
     static_assert(static_cast<long long>(MAX_W) * MAX_H * CHANNELS <= INT_MAX,
                   "drawFrame pixel-index accumulators are int");
     const int count = pixel_width * pixel_height;
-    if (!currentEffect->overrides_get_pixel()) {
+    if (!current_effect->overrides_get_pixel()) {
       // Fast path: display_buffer()[i] == get_pixel(x, y), so copy directly.
-      const Pixel *buf = currentEffect->display_buffer();
+      const Pixel *buf = current_effect->display_buffer();
       static_assert(sizeof(Pixel) == 3 * sizeof(uint16_t),
                     "fast-path memcpy assumes packed RGB16 Pixel layout");
-      std::memcpy(pixelBuffer.data(), buf,
+      std::memcpy(pixel_buffer.data(), buf,
                   static_cast<size_t>(count) * sizeof(Pixel));
     } else {
       int idx = 0;
       for (int y = 0; y < pixel_height; y++) {
         for (int x = 0; x < pixel_width; x++) {
-          const Pixel &p = currentEffect->get_pixel(x, y);
-          pixelBuffer[idx++] = p.r;
-          pixelBuffer[idx++] = p.g;
-          pixelBuffer[idx++] = p.b;
+          const Pixel &p = current_effect->get_pixel(x, y);
+          pixel_buffer[idx++] = p.r;
+          pixel_buffer[idx++] = p.g;
+          pixel_buffer[idx++] = p.b;
         }
       }
     }
@@ -477,7 +477,7 @@ public:
    *       metric for those effects.
    */
   double getRenderUs() const {
-    return currentEffect ? currentEffect->render_us : 0.0;
+    return current_effect ? current_effect->render_us : 0.0;
   }
 
   /**
@@ -492,7 +492,7 @@ public:
    *          dark (true). See docs/strobe_columns_audit.md.
    */
   bool strobeColumns() const {
-    return currentEffect ? currentEffect->strobe_columns() : false;
+    return current_effect ? current_effect->strobe_columns() : false;
   }
 
   /**
@@ -511,7 +511,7 @@ public:
    */
   val getPixels() {
     return val(typed_memory_view(pixel_width * pixel_height * CHANNELS,
-                                 pixelBuffer.data()));
+                                 pixel_buffer.data()));
   }
 
   /**
@@ -539,11 +539,11 @@ public:
    *          read it back via getParamValues() rather than trust this flag.
    */
   bool setParameter(std::string name, float value) {
-    if (!currentEffect)
+    if (!current_effect)
       return false;
     // Finiteness is single-sourced in Canvas::updateParameter, not re-checked
     // here.
-    return currentEffect->updateParameter(name.c_str(), value);
+    return current_effect->updateParameter(name.c_str(), value);
   }
 
   /**
@@ -552,8 +552,8 @@ public:
    *        is set.
    */
   void setAnimationsPaused(bool paused) {
-    if (currentEffect) {
-      currentEffect->setAnimationsPaused(paused);
+    if (current_effect) {
+      current_effect->setAnimationsPaused(paused);
     }
   }
 
@@ -564,16 +564,16 @@ public:
    *         array when no effect is set.
    */
   val getParameterDefinitions() {
-    if (!currentEffect)
+    if (!current_effect)
       return val::array();
 
     val result = val::array();
     // Single source of order shared with getParamValues() (param_marshal.h), so
     // the value stream cannot index-drift from these definitions.
-    hs_wasm::collect_param_views(*currentEffect, paramViews);
+    hs_wasm::collect_param_views(*current_effect, param_views);
 
     int i = 0;
-    for (const auto &v : paramViews) {
+    for (const auto &v : param_views) {
       val entry = val::object();
       entry.set("name", val(v.name));
 
@@ -606,24 +606,24 @@ public:
    *         same order as getParameterDefinitions(); empty array if no effect is
    *         set.
    * @details Same memory-view contract as getPixels(): the view aliases WASM
-   *          memory and must be consumed before the next allocation. paramValues
+   *          memory and must be consumed before the next allocation. param_values
    *          never reallocates here (size <= MAX_PARAMS), so emitting it triggers
    *          no heap growth that could detach other outstanding views.
    */
   val getParamValues() {
-    if (!currentEffect) {
+    if (!current_effect) {
       // Empty Float32Array (not a JS Array) so callers get a consistent typed
       // view whether or not an effect is set. The zero-length view still needs a
       // valid backing pointer, which holds only because the ctor reserved
       // MAX_PARAMS and clear() retains that capacity.
-      HS_CHECK(paramValues.capacity() >= MAX_PARAMS);
-      paramValues.clear();
-      return val(typed_memory_view(paramValues.size(), paramValues.data()));
+      HS_CHECK(param_values.capacity() >= MAX_PARAMS);
+      param_values.clear();
+      return val(typed_memory_view(param_values.size(), param_values.data()));
     }
 
     // Same order as getParameterDefinitions(); clear retains MAX_PARAMS capacity.
-    hs_wasm::fill_param_values(*currentEffect, paramValues);
-    return val(typed_memory_view(paramValues.size(), paramValues.data()));
+    hs_wasm::fill_param_values(*current_effect, param_values);
+    return val(typed_memory_view(param_values.size(), param_values.data()));
   }
 
   /**
@@ -638,7 +638,7 @@ public:
    *          value read; a change means the snapshot is stale and the
    *          definitions must be rebuilt before the values are applied.
    */
-  uint32_t getParamGeneration() const { return effectLoads; }
+  uint32_t getParamGeneration() const { return effect_loads; }
 
   /**
    * @brief Reports engine arena and stack metrics for the JS memory HUD.
@@ -718,14 +718,14 @@ private:
   static constexpr int CHANNELS = 3;
 
   std::unique_ptr<Effect>
-      currentEffect;                 /**< Currently active effect, or null. */
-  std::vector<uint16_t> pixelBuffer; /**< 16-bit linear RGB readback buffer. */
-  std::vector<float> paramValues;    /**< Backing store for getParamValues. */
+      current_effect;                 /**< Currently active effect, or null. */
+  std::vector<uint16_t> pixel_buffer; /**< 16-bit linear RGB readback buffer. */
+  std::vector<float> param_values;    /**< Backing store for getParamValues. */
   std::vector<hs_wasm::ParamView>
-      paramViews;           /**< Scratch for getParameterDefinitions. */
-  int pixel_width = 0;      /**< Active canvas width in pixels. */
-  int pixel_height = 0;     /**< Active canvas height in pixels. */
-  uint32_t effectLoads = 0; /**< Effect loads so far; epoch for the per-load
+      param_views;           /**< Scratch for getParameterDefinitions. */
+  int pixel_width = 0;       /**< Active canvas width in pixels. */
+  int pixel_height = 0;      /**< Active canvas height in pixels. */
+  uint32_t effect_loads = 0; /**< Effect loads so far; epoch for the per-load
                                  RNG seed (0 = the constructor's bootstrap). */
 };
 
