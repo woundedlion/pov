@@ -86,7 +86,7 @@ public:
     register_param("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
                    RIPPLE_AMP_MAX);
     register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
-    register_param("Ripp Dur", &ripple_duration, 30.0f,
+    register_param("Ripp Dur", &params.ripple_duration, 30.0f,
                    (float)RIPPLE_DURATION_MAX);
     register_param("Trans Speed", &params.trans_speed, 1.0f, 8.0f);
 
@@ -177,7 +177,6 @@ private:
   Pipeline<W, H> filters;
   RippleTransformer<RIPPLE_POOL_SIZE> ripple_gen;
   FastNoiseLite noise;
-  float ripple_duration = 80.0f;
   // Effective per-shape stage lengths after the Trans Speed divisor, written by
   // spawn_shape and read by the deferred ripple() callback.
   int ripple_dur_eff = 80;
@@ -280,8 +279,8 @@ private:
 
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
-   *        staggered RIPPLE_STAGGER_FRAMES apart, each expanding over ripple_duration
-   *        frames.
+   *        staggered RIPPLE_STAGGER_FRAMES apart, each expanding over
+   *        params.ripple_duration frames.
    * @param canvas Unused render target for the timer callback signature.
    */
   void ripple(Canvas &) {
@@ -671,7 +670,7 @@ private:
     const float sp = std::max(1.0f, params.trans_speed);
     int fade = std::max(1, static_cast<int>(SPRITE_FADE_FRAMES / sp));
     int still = std::max(1, static_cast<int>(STILL_FRAMES / sp));
-    ripple_dur_eff = std::max(8, static_cast<int>(ripple_duration / sp));
+    ripple_dur_eff = std::max(8, static_cast<int>(params.ripple_duration / sp));
     ripple_stagger_eff =
         std::max(1, static_cast<int>(RIPPLE_STAGGER_FRAMES / sp));
     int burst_span =
@@ -1462,6 +1461,8 @@ private:
   struct Params {
     float burst_size =
         4.0f; /**< Ripples per burst; float-backed for register_param. */
+    float ripple_duration =
+        80.0f; /**< Frames each ripple takes to expand across the sphere. */
     float trans_speed =
         1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span): 1 = shipping cadence, higher cycles shapes faster. */
   } params;
