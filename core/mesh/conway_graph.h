@@ -318,6 +318,24 @@ constexpr int node_degree(int node) {
 }
 
 /**
+ * @brief Largest degree over every node in the table.
+ * @return The maximum of node_degree() across all NUM_NODES nodes.
+ */
+constexpr int max_node_degree() {
+  int m = 0;
+  for (int node = 0; node < NUM_NODES; ++node) {
+    const int d = node_degree(node);
+    if (d > m)
+      m = d;
+  }
+  return m;
+}
+
+// Bounds every edges_from() write against its MAX_DEGREE-sized destinations.
+static_assert(max_node_degree() <= MAX_DEGREE,
+              "an EDGES row pushed a node past MAX_DEGREE");
+
+/**
  * @brief Collects the edges incident to a node, in table order.
  * @param node Simple-registry node id.
  * @param out Receives edge indices; must hold at least MAX_DEGREE entries.
