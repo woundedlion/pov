@@ -552,6 +552,24 @@ inline void case_timeline_pinned_one_shot_timer() {
 }
 
 /**
+ * @brief Death case: clear()ing a pinned (handled) event must trap.
+ * @details Animation surface — the third teardown path, alongside
+ *          case_timeline_handled_relocation (move_into) and
+ *          case_timeline_handled_completion (step's destroy branch). The public
+ *          clear() would otherwise free an event whose animation pointer the
+ *          caller still holds. ~Timeline reaches the same events through the
+ *          unguarded reset_storage(), which is safe because no retained handle
+ *          spans the instance boundary.
+ */
+inline void case_timeline_clear_pinned() {
+  Timeline tl;
+  float v = 0.0f;
+  tl.add(0, Animation::Transition(v, 1.0f, 1, ease_linear));
+  global_timeline_events[0].handled = opaque(true);
+  tl.clear(); // HS_CHECK(!handled) -> trap
+}
+
+/**
  * @brief Death case: a second simultaneously-live Timeline must trap.
  * @details Animation surface — every Timeline shares the single global event
  *          array, so a second live instance would silently stomp the first's
@@ -1354,6 +1372,7 @@ inline const Case *all_cases(int &n) {
       {"timeline_pinned_finite_animation",
        case_timeline_pinned_finite_animation},
       {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer},
+      {"timeline_clear_pinned", case_timeline_clear_pinned},
       {"timeline_double_construct", case_timeline_double_construct},
       {"effect_double_construct", case_effect_double_construct},
       {"effect_width_zero", case_effect_width_zero},

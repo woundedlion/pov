@@ -118,14 +118,14 @@ public:
   Timeline() {
     HS_CHECK(!global_timeline_live);
     global_timeline_live = true;
-    clear();
+    reset_storage();
   }
 
   /**
    * @brief Cleans up remaining animations, invoked on effect destruction.
    */
   ~Timeline() {
-    clear();
+    reset_storage();
     global_timeline_live = false;
   }
 
@@ -136,14 +136,20 @@ public:
   Timeline &operator=(Timeline &&) = delete;
 
   /**
-   * @brief Destroys all events and resets the global frame counter.
+   * @brief Destroys all events, leaving the timeline empty and reusable.
+   * @details Traps on a pinned event (add_get(pin=true)): destroying one dangles
+   * the caller's retained animation pointer, the same contract move_into() and
+   * step()'s destroy branch enforce. The global frame cursor is deliberately NOT
+   * rewound — it is process-global and effects derive a phase from frame(), so a
+   * mid-run rewind desynchronises them. Only construction/destruction, which no
+   * retained handle spans, resets the cursor.
    */
   void clear() {
     for (int i = 0; i < global_timeline_num_events; ++i) {
-      global_timeline_events[i].destroy();
+      HS_CHECK(!global_timeline_events[i].handled,
+               "clear() would destroy a pinned animation");
     }
-    global_timeline_num_events = 0;
-    global_timeline_t = 0;
+    destroy_events();
   }
 
   /**
@@ -333,7 +339,8 @@ public:
   }
 
   /**
-   * @brief Current global frame count (number of step() calls since clear()).
+   * @brief Current global frame count (number of step() calls since the
+   * Timeline was constructed).
    * @return The shared timeline frame counter, advanced once per step().
    * @details Lets an effect derive a phase from the timeline's own clock rather
    *          than a parallel per-effect counter that can silently desync if it
@@ -343,4 +350,27 @@ public:
 
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
+
+private:
+  /**
+   * @brief Destroys every stored animation and empties the slot table.
+   */
+  void destroy_events() {
+    for (int i = 0; i < global_timeline_num_events; ++i) {
+      global_timeline_events[i].destroy();
+    }
+    global_timeline_num_events = 0;
+  }
+
+  /**
+   * @brief Unguarded teardown for construction/destruction: destroys every event
+   * and rewinds the global frame cursor.
+   * @details The instance boundary is the one point no add_get() handle can span
+   * (the live-guard permits a single instance), so this skips clear()'s pin
+   * check and owns the cursor rewind that starts each effect at frame 0.
+   */
+  void reset_storage() {
+    destroy_events();
+    global_timeline_t = 0;
+  }
 };
