@@ -962,11 +962,14 @@ struct RingGroup {
 HS_O3_END
 
 /**
- * @brief Draws a solid circle (filled ring).
+ * @brief Draws a disc as a zero-radius ring whose stroke spans it.
+ * @details Stroke coverage falls off quintically from 1 at the center to 0 at
+ * the rim; it modulates the plotted alpha and reaches the shader as the
+ * fragment's register 2, so the shader picks the radial style on top of it.
  */
 struct Circle {
   /**
-   * @brief Draws a solid circle from an orientation basis.
+   * @brief Draws a disc from an orientation basis.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
@@ -988,7 +991,7 @@ struct Circle {
   }
 
   /**
-   * @brief Draws a solid circle from a plane-normal vector.
+   * @brief Draws a disc from a plane-normal vector.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
@@ -1010,11 +1013,14 @@ struct Circle {
 };
 
 /**
- * @brief Draws a solid point (thick circle).
+ * @brief Draws a dot as a zero-radius ring of the given thickness.
+ * @details Stroke coverage falls off quintically from 1 at the center to 0 at
+ * the rim, giving the soft glow effects shade through the fragment's
+ * register 2.
  */
 struct Point {
   /**
-   * @brief Draws a solid point centered on a unit vector.
+   * @brief Draws a dot centered on a unit vector.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @param pipeline Plotting pipeline receiving the final colors.
