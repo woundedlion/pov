@@ -27,11 +27,11 @@ Usage:
 
 The generator self-formats: it pipes its output through clang-format (using the
 repo .clang-format) so the result is already in committed style — no separate
-manual format step to forget. If clang-format is not on PATH (set CLANG_FORMAT
-to override), it emits UNFORMATTED output and prints a loud warning to stderr,
-so the missing step can never pass silently. The numeric LUT data is identical
-either way (clang-format only reflows whitespace), which is all the CI token
-diff checks.
+manual format step to forget. clang-format is required, not optional: the CI
+provenance gate diffs the full formatted text against the committed header. If
+clang-format is not on PATH (set CLANG_FORMAT to override), the generator emits
+UNFORMATTED output and prints a loud warning to stderr, so the missing step can
+never pass silently.
 """
 
 import os
@@ -161,8 +161,8 @@ def main():
     if check(fwd, rev):
         sys.stderr.write("generate_luts: self-test failed; refusing to emit\n")
         sys.exit(1)
-    # LF on every host: the provenance gate diffs numeric tokens only, so a
-    # Windows CRLF flip of the whole header would ride green.
+    # LF on every host: the committed header is LF-pinned (.gitattributes), and a
+    # Windows CRLF flip of the whole header fails the provenance gate.
     sys.stdout.reconfigure(newline="\n")
     buf = StringIO()
     render(buf, fwd, rev)
