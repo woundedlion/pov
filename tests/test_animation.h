@@ -1770,7 +1770,10 @@ concept PerFaceSegueDrawable = requires(const SegueT &s, const Vector &c) {
  * no per-face fade, and Base's default as the whole window. The fragment-hook
  * assertions pin the exclusivity MeshCarousel enforces: a per-face draw path
  * shades through a palette pointer and never calls fill/grade, so shadowing
- * either alongside face_offset would drop it silently.
+ * either alongside face_offset would drop it silently. The NeedsClasses and
+ * Masked assertions pin the two contracts an effect must honour: losing
+ * Breakdown's reorder degrades it to a uniform fade, losing Dissolve's
+ * mask_pair doubles the frame's rasterizer work.
  */
 inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(PerFaceSegueDrawable<Segue::TerminatorSweep>);
@@ -1783,6 +1786,10 @@ inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(Segue::SHADOWS_FRAGMENT_HOOKS<Segue::GoldConvergence>);
   static_assert(!Segue::PerFace<Segue::IrisBloom>);
   static_assert(!Segue::PerFace<Segue::GoldConvergence>);
+  static_assert(Segue::NeedsClasses<Segue::Breakdown>);
+  static_assert(!Segue::NeedsClasses<Segue::TerminatorSweep>);
+  static_assert(Segue::Masked<Segue::Dissolve>);
+  static_assert(!Segue::Masked<Segue::Crossfade>);
 
   Segue::Shockwave wave;
   HS_EXPECT_NEAR(wave.face_phase(0.5f, 0.3f, 0.9f), wave.face_phase(0.5f, 0.3f),
