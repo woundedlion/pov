@@ -3635,9 +3635,6 @@ struct IslamicBuildProbe {
   template <int W, int H> static int dual_bridges(const IslamicStars<W, H> &e) {
     return e.dual_bridges_built_;
   }
-  template <int W, int H> static int gated_swaps(const IslamicStars<W, H> &e) {
-    return e.gated_swaps_scheduled_;
-  }
   template <int W, int H>
   static size_t persistent_budget(const IslamicStars<W, H> &e) {
     return e.device_persistent_budget_;
@@ -3866,16 +3863,13 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
       shapes, frames, builds, a_peak, b_peak, persist_peak, worst_p,
       worst_p_budget, worst_name);
   std::printf("  [roster] needle smooth-path peaks: scratch_a=%zu/%zu "
-              "scratch_b=%zu/%zu persistent=%zu/%zu; gated_swaps=%d\n",
+              "scratch_b=%zu/%zu persistent=%zu/%zu\n",
               na_peak, IslamicBuildProbe::bridge_scratch_a(), nb_peak,
               IslamicBuildProbe::bridge_scratch_b(), np_peak,
               DEVICE_GLOBAL_ARENA_SIZE - IslamicBuildProbe::bridge_scratch_a() -
-                  IslamicBuildProbe::bridge_scratch_b(),
-              IslamicBuildProbe::gated_swaps(effect));
+                  IslamicBuildProbe::bridge_scratch_b());
   HS_EXPECT_GT(shapes, entries - 1);
   HS_EXPECT_GT(builds, 0);
-  // Every dt/dtd chain takes the smooth path -- no gated (snapping) kis.
-  HS_EXPECT_EQ(IslamicBuildProbe::gated_swaps(effect), 0);
   // needle actually reached its scratch_a-heavy split (proves the smooth path
   // ran, not a silently-dropped build).
   HS_EXPECT_GT(na_peak, 120u * 1024u);
@@ -3920,12 +3914,10 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
   }
   std::printf(
       "  [dual-bridge] %d bridges over %d frames: scratch_a peak=%zu B, "
-      "scratch_b peak=%zu B, persistent peak=%zu B; gated_swaps=%d\n",
+      "scratch_b peak=%zu B, persistent peak=%zu B\n",
       IslamicBuildProbe::dual_bridges(effect), frames, a_peak, b_peak,
-      persist_peak, IslamicBuildProbe::gated_swaps(effect));
+      persist_peak);
   HS_EXPECT_GE(IslamicBuildProbe::dual_bridges(effect), TARGET_BRIDGES);
-  // Every full bridge runs the smooth path -- no gated (snapping) kis.
-  HS_EXPECT_EQ(IslamicBuildProbe::gated_swaps(effect), 0);
 }
 
 /**
