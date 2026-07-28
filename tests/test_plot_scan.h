@@ -453,7 +453,10 @@ inline void test_edge_row_span_covers_arc_bulge() {
     if (planar) {
       // A planar-polygon edge: two points on a disk of angular radius `radius`
       // about a random center, joined by an azimuthal-equidistant straight line.
-      Vector center(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float cx = hs::rand_f(-1, 1);
+      const float cy = hs::rand_f(-1, 1);
+      const float cz = hs::rand_f(-1, 1);
+      Vector center(cx, cy, cz);
       if (center.length() < 0.1f)
         continue;
       basis = basis_from_normal(center.normalized());
@@ -471,8 +474,14 @@ inline void test_edge_row_span_covers_arc_bulge() {
           dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
         continue;
     } else {
-      Vector ra(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
-      Vector rb(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float rax = hs::rand_f(-1, 1);
+      const float ray = hs::rand_f(-1, 1);
+      const float raz = hs::rand_f(-1, 1);
+      const float rbx = hs::rand_f(-1, 1);
+      const float rby = hs::rand_f(-1, 1);
+      const float rbz = hs::rand_f(-1, 1);
+      Vector ra(rax, ray, raz);
+      Vector rb(rbx, rby, rbz);
       if (ra.length() < 0.1f || rb.length() < 0.1f)
         continue;
       a = ra.normalized();
@@ -526,7 +535,10 @@ inline void test_edge_row_span_covers_arc_bulge() {
   // slerps the semicircle about stable_perpendicular_axis. Ground truth is
   // built about that same axis; an endpoint-only span would cull the arc.
   for (int trial = 0; trial < 500; ++trial) {
-    Vector ra(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+    const float rax = hs::rand_f(-1, 1);
+    const float ray = hs::rand_f(-1, 1);
+    const float raz = hs::rand_f(-1, 1);
+    Vector ra(rax, ray, raz);
     if (ra.length() < 0.1f)
       continue;
     Vector a = ra.normalized();
@@ -607,7 +619,10 @@ inline void test_edge_col_span_covers_arc() {
   };
   auto rand_unit = [] {
     for (;;) {
-      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float rx = hs::rand_f(-1, 1);
+      const float ry = hs::rand_f(-1, 1);
+      const float rz = hs::rand_f(-1, 1);
+      Vector r(rx, ry, rz);
       if (r.length() > 0.1f)
         return r.normalized();
     }
@@ -623,8 +638,10 @@ inline void test_edge_col_span_covers_arc() {
     if (trial % 3 == 2) {
       // Near-meridian circle: an axis close to the equator plane produces
       // pole-grazing arcs whose longitude sweeps far past the endpoints.
-      Vector ad(hs::rand_f(-1, 1), hs::rand_f(-0.05f, 0.05f),
-                hs::rand_f(-1, 1));
+      const float adx = hs::rand_f(-1, 1);
+      const float ady = hs::rand_f(-0.05f, 0.05f);
+      const float adz = hs::rand_f(-1, 1);
+      Vector ad(adx, ady, adz);
       if (ad.length() < 0.1f)
         continue;
       Basis cb = basis_from_normal(ad.normalized());
@@ -758,7 +775,10 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
   Pipeline<TW, TH> sink;
   auto rand_unit = [] {
     for (;;) {
-      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float rx = hs::rand_f(-1, 1);
+      const float ry = hs::rand_f(-1, 1);
+      const float rz = hs::rand_f(-1, 1);
+      Vector r(rx, ry, rz);
       if (r.length() > 0.1f)
         return r.normalized();
     }
@@ -795,8 +815,10 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
         b = (a + Vector(1e-4f, 0.0f, 0.0f)).normalized();
         break;
       case 2: { // near-meridian arc (pole-grazing, axis.y ~ 0)
-        Vector ad(hs::rand_f(-1, 1), hs::rand_f(-0.05f, 0.05f),
-                  hs::rand_f(-1, 1));
+        const float adx = hs::rand_f(-1, 1);
+        const float ady = hs::rand_f(-0.05f, 0.05f);
+        const float adz = hs::rand_f(-1, 1);
+        Vector ad(adx, ady, adz);
         if (ad.length() < 0.1f) {
           b = rand_unit();
           break;
@@ -920,8 +942,10 @@ inline void test_mesh_edge_gate_pixel_parity() {
 
   for (int trial = 0; trial < 12; ++trial) {
     // Re-orient the shell so edges sweep the poles and the wrap seam.
-    Vector axis =
-        Vector(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+    const float axis_x = hs::rand_f(-1, 1);
+    const float axis_y = hs::rand_f(-1, 1);
+    const float axis_z = hs::rand_f(-1, 1);
+    Vector axis = Vector(axis_x, axis_y, axis_z);
     if (axis.length() < 0.1f)
       axis = Y_AXIS;
     Quaternion q = make_rotation(axis.normalized(), hs::rand_f(0, 2 * PI_F));
@@ -1063,7 +1087,10 @@ inline void test_rasterize_column_cull_pixel_parity() {
   };
   auto rand_unit = [] {
     for (;;) {
-      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float rx = hs::rand_f(-1, 1);
+      const float ry = hs::rand_f(-1, 1);
+      const float rz = hs::rand_f(-1, 1);
+      Vector r(rx, ry, rz);
       if (r.length() > 0.1f)
         return r.normalized();
     }
@@ -1267,14 +1294,18 @@ inline void test_raw_geodesic_edge_gate_parity() {
     for (int trial = 0; trial < 5000; ++trial) {
       Vector p;
       do {
-        p = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                   hs::rand_f(-1.0f, 1.0f));
+        const float px = hs::rand_f(-1.0f, 1.0f);
+        const float py = hs::rand_f(-1.0f, 1.0f);
+        const float pz = hs::rand_f(-1.0f, 1.0f);
+        p = Vector(px, py, pz);
       } while (p.length() < 0.1f);
       p = p.normalized();
       Vector tangent;
       do {
-        Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                 hs::rand_f(-1.0f, 1.0f));
+        const float rx = hs::rand_f(-1.0f, 1.0f);
+        const float ry = hs::rand_f(-1.0f, 1.0f);
+        const float rz = hs::rand_f(-1.0f, 1.0f);
+        Vector r(rx, ry, rz);
         tangent = r - p * dot(r, p);
       } while (tangent.length() < 0.05f);
       tangent = tangent.normalized();
@@ -1424,7 +1455,10 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
   hs::random().seed(0xCA47);
   auto rand_unit = [] {
     for (;;) {
-      Vector p(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float px = hs::rand_f(-1, 1);
+      const float py = hs::rand_f(-1, 1);
+      const float pz = hs::rand_f(-1, 1);
+      Vector p(px, py, pz);
       if (p.length() > 0.1f)
         return p.normalized();
     }
@@ -1508,7 +1542,10 @@ inline void test_gate_trail_edges_matches_edge_visible() {
       Filter::Screen::AntiAlias<TW, TH>()};
   auto rand_unit = [] {
     for (;;) {
-      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float rx = hs::rand_f(-1, 1);
+      const float ry = hs::rand_f(-1, 1);
+      const float rz = hs::rand_f(-1, 1);
+      Vector r(rx, ry, rz);
       if (r.length() > 0.1f)
         return r.normalized();
     }
@@ -1588,7 +1625,10 @@ inline void test_rasterize_gate_bits_pixel_parity() {
   };
   auto rand_unit = [] {
     for (;;) {
-      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float rx = hs::rand_f(-1, 1);
+      const float ry = hs::rand_f(-1, 1);
+      const float rz = hs::rand_f(-1, 1);
+      Vector r(rx, ry, rz);
       if (r.length() > 0.1f)
         return r.normalized();
     }
@@ -1780,14 +1820,20 @@ inline void test_edge_fits_one_dot_is_conservative() {
                  s * std::sin(az));
     } else {
       for (;;) {
-        Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+        const float rx = hs::rand_f(-1, 1);
+        const float ry = hs::rand_f(-1, 1);
+        const float rz = hs::rand_f(-1, 1);
+        Vector r(rx, ry, rz);
         if (r.length() > 0.1f) {
           a = r.normalized();
           break;
         }
       }
     }
-    Vector raw(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+    const float raw_x = hs::rand_f(-1, 1);
+    const float raw_y = hs::rand_f(-1, 1);
+    const float raw_z = hs::rand_f(-1, 1);
+    Vector raw(raw_x, raw_y, raw_z);
     Vector t = raw - a * dot(raw, a);
     if (t.length() < 1e-3f)
       continue;
@@ -3322,7 +3368,10 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
   hs::random().seed(20260717);
   auto rand_unit = [] {
     for (;;) {
-      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float rx = hs::rand_f(-1, 1);
+      const float ry = hs::rand_f(-1, 1);
+      const float rz = hs::rand_f(-1, 1);
+      Vector r(rx, ry, rz);
       if (r.length() > 0.1f)
         return r.normalized();
     }
@@ -3337,7 +3386,10 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
     Vector v = (t % 5 == 0) ? Vector(0, t % 10 == 0 ? 1 : -1, 0) : rand_unit();
     for (int k = 0; k < 12; ++k) {
       p.history.record(v);
-      Vector step(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float step_x = hs::rand_f(-1, 1);
+      const float step_y = hs::rand_f(-1, 1);
+      const float step_z = hs::rand_f(-1, 1);
+      Vector step(step_x, step_y, step_z);
       // Occasional huge step: a near-antipodal edge must trip the coarse
       // walk's half-sweep guard, not get mis-culled.
       float scale = (k == 7 && t % 9 == 0) ? 4.0f : 0.12f;
@@ -3428,7 +3480,10 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
              std::cos(lat) * std::sin(az));
     for (int k = 0; k < 12; ++k) {
       p.history.record(v);
-      Vector step(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float step_x = hs::rand_f(-1, 1);
+      const float step_y = hs::rand_f(-1, 1);
+      const float step_z = hs::rand_f(-1, 1);
+      Vector step(step_x, step_y, step_z);
       v = (v + step * (base_step * 0.2f)).normalized();
     }
     sys.pool.push_back(p);
@@ -3561,7 +3616,10 @@ inline void test_rasterize_cull_follows_filter_orientation() {
 /** @brief Random unit vector, rejecting near-zero draws. */
 inline Vector az_rand_unit() {
   for (;;) {
-    Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+    const float rx = hs::rand_f(-1, 1);
+    const float ry = hs::rand_f(-1, 1);
+    const float rz = hs::rand_f(-1, 1);
+    Vector r(rx, ry, rz);
     if (r.length() > 0.1f)
       return r.normalized();
   }
