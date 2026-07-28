@@ -59,10 +59,28 @@ if(WIN32)
   # CMake still enables the RC language for Windows-Clang and test-compiles a
   # stub .rc, so a resource compiler must exist even though we compile no .rc.
   if(NOT CMAKE_RC_COMPILER)
-    file(GLOB _hs_rc_candidates
-         "$ENV{WindowsSdkVerBinPath}x64/rc.exe"
-         "C:/Program Files (x86)/Windows Kits/10/bin/*/x64/rc.exe"
-         "C:/Program Files/Windows Kits/10/bin/*/x64/rc.exe")
+    # Windows Kits installs under a Program Files root, so take those roots from
+    # the environment; the literal C: paths are the last resort for a stripped
+    # environment.
+    set(_hs_sdk_roots "")
+    foreach(_hs_pf "$ENV{ProgramFiles\(x86\)}" "$ENV{ProgramFiles}")
+      if(NOT _hs_pf STREQUAL "")
+        file(TO_CMAKE_PATH "${_hs_pf}" _hs_pf_slashed)
+        list(APPEND _hs_sdk_roots "${_hs_pf_slashed}")
+      endif()
+    endforeach()
+    if(NOT "$ENV{SystemDrive}" STREQUAL "")
+      list(APPEND _hs_sdk_roots "$ENV{SystemDrive}/Program Files (x86)"
+                                "$ENV{SystemDrive}/Program Files")
+    endif()
+    list(APPEND _hs_sdk_roots "C:/Program Files (x86)" "C:/Program Files")
+    list(REMOVE_DUPLICATES _hs_sdk_roots)
+
+    set(_hs_rc_globs "$ENV{WindowsSdkVerBinPath}x64/rc.exe")
+    foreach(_hs_sdk_root IN LISTS _hs_sdk_roots)
+      list(APPEND _hs_rc_globs "${_hs_sdk_root}/Windows Kits/10/bin/*/x64/rc.exe")
+    endforeach()
+    file(GLOB _hs_rc_candidates ${_hs_rc_globs})
     if(_hs_rc_candidates)
       # NATURAL so version components sort numerically (10.0.22621 > 10.0.9...);
       # a plain lexical sort would rank 10.0.9xxxx above 10.0.22xxx and pick an
