@@ -858,7 +858,8 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
         break;
       x = y;
     }
-    // The whole bracket held, so the input's own chroma was already in gamut.
+    // The whole bracket held: the crossing is at or above hi, and hi is capped
+    // at the cell maximum, which bounds it from above.
     if (i == GAMUT_SCAN_STEPS)
       return hi;
   } else {
