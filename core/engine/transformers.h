@@ -7,6 +7,7 @@
 #include "math/3dmath.h"
 #include "engine/concepts.h"
 #include <new>
+#include <type_traits>
 #include "vendor/FastNoiseLite.h"
 #include "animation/animation.h"
 
@@ -36,6 +37,11 @@ public:
     bool active =
         false; /**< Whether this slot currently holds a live animation. */
   };
+
+  static_assert(std::is_trivially_destructible_v<ParamsT>,
+                "TransformerPool placement-news CAPACITY entities into the "
+                "arena and never destroys them, so ParamsT must own no state "
+                "outside its slot.");
 
   ParamsT
       template_params; /**< Template params copied into each new entity on spawn. */
