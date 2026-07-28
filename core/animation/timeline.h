@@ -276,7 +276,7 @@ public:
    * count is the only lasting evidence.
    * @return Total number of dropped add()/add_get() calls.
    */
-  uint32_t dropped_events() const { return global_timeline_dropped; }
+  static uint32_t dropped_events() { return global_timeline_dropped; }
 
   /**
    * @brief Event slots still free before add()/add_get() starts dropping.
@@ -406,7 +406,7 @@ public:
    *          than a parallel per-effect counter that can silently desync if it
    *          isn't advanced in exact lockstep with step().
    */
-  uint32_t frame() const { return global_timeline_t; }
+  static uint32_t frame() { return global_timeline_t; }
 
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
