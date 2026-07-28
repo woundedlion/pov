@@ -1652,13 +1652,20 @@ inline constexpr int NUM_ENTRIES =
     sizeof(catalan_registry) / sizeof(catalan_registry[0]) +
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 
-// simple_registry is [Platonic | Archimedean]; the static_assert checks the two
-// counts exactly tile it so a boundary move can't silently mis-slice.
+// simple_registry is [Platonic | Archimedean]; the static_asserts check the two
+// counts exactly tile it and name the entries either side of the slice
+// boundary, so a boundary move can't silently mis-slice.
 inline constexpr size_t PLATONIC_COUNT = 5;
 inline constexpr size_t ARCHIMEDEAN_COUNT = 13;
 static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT == std::size(simple_registry),
               "PLATONIC_COUNT + ARCHIMEDEAN_COUNT must equal simple_registry "
               "size; update the counts if the registry layout changes");
+static_assert(std::string_view(simple_registry[PLATONIC_COUNT - 1].name) ==
+                  "icosahedron",
+              "PLATONIC_COUNT must end the Platonic run");
+static_assert(std::string_view(simple_registry[PLATONIC_COUNT].name) ==
+                  "truncatedTetrahedron",
+              "PLATONIC_COUNT must start the Archimedean run");
 
 inline constexpr size_t CATALAN_COUNT = 13;
 inline constexpr size_t ISLAMIC_COUNT = 24;
