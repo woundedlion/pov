@@ -3737,6 +3737,11 @@ struct Star {
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false requests a full scan (also when
    *         the cap would span the whole width).
+   * @details Covers the star body, not the AA fringe at the point tips.
+   *   distance() folds each sector onto one edge half-plane, whose radial
+   *   gradient at a tip is |nx| (0.309 at 5 points, 0.220 at 8), so the ramp
+   *   there spans pixel_width/|nx| radians of cap radius while the interval
+   *   below pads one pixel_width.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
