@@ -416,8 +416,8 @@ inline void test_persist_pixels_copies_previous_frame() {
 /**
  * @brief Verifies the relaxed-atomic double-buffer hand-off via its
  * single-threaded state machine.
- * @details The writer (main loop, cur_) must never claim the buffer the display
- * side (ISR, prev_) is reading, and a queued-but-not-displayed frame must not
+ * @details The writer (main loop, cur) must never claim the buffer the display
+ * side (ISR, prev) is reading, and a queued-but-not-displayed frame must not
  * disturb the live frame. True ISR concurrency isn't deterministically
  * unit-testable, but the single-threaded state machine that the relaxed atomics
  * implement is — drive many cycles and assert the non-aliasing / no-torn-read
@@ -571,8 +571,8 @@ inline void test_double_buffer_handoff_concurrent() {
  * ctor. On real hardware the display ISR consumes frames asynchronously; here a
  * helper thread plays that ISR. With a frame queued-but-not-displayed the
  * buffer is busy, so the ctor MUST block. The release is deterministic, not
- * timing-based: the ctor can only return once prev_ == next_, and the sole
- * writer of prev_ is advance_display() — which only the helper runs. So the
+ * timing-based: the ctor can only return once prev == next, and the sole
+ * writer of prev is advance_display() — which only the helper runs. So the
  * helper's "ctor has not returned yet" assertion holds by construction (it
  * checks before advancing), and an inverted gate (spin while buffer_free())
  * would let the ctor return early and fail it. The ctor's 2 s watchdog bounds

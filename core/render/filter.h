@@ -1237,16 +1237,16 @@ public:
 
   /** @brief Caches the current frame's framebuffer and clip bounds. */
   void prepare(Canvas &cv) {
-    base_ = cv.data();
+    base = cv.data();
     const ClipRegion &cr = cv.clip();
     clip_stamp = cr;
     const ClipRegion::XClip xc = cr.x_clip();
     for (int x = 0; x < W; ++x)
-      x_visible_[x] = !xc.clipped(x);
+      x_visible[x] = !xc.clipped(x);
     const int y_start = cr.render_y_start();
     const int y_end = cr.render_y_end();
     for (int y = 0; y < H; ++y)
-      y_visible_[y] = y >= y_start && y < y_end;
+      y_visible[y] = y >= y_start && y < y_end;
   }
 
   /**
@@ -1256,14 +1256,14 @@ public:
    * double-buffers, so the clip bounds are stamped alongside it.
    */
   bool prepared_for(Canvas &cv) const {
-    return base_ == cv.data() && clip_stamp == cv.clip();
+    return base == cv.data() && clip_stamp == cv.clip();
   }
 
   /** @brief Splats one screen-space sample directly into the Canvas. */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
             float alpha) {
     assert(age >= 0.0f && alpha >= 0.0f);
-    assert(base_ == cv.data());
+    assert(base == cv.data());
     (void)age;
     (void)cv;
 
@@ -1295,10 +1295,10 @@ public:
     const float v11 = xs * wy1;
     constexpr float TAP_CUTOFF = 1e-8f;
 
-    const bool x0_ok = x_visible_[x0];
-    const bool x1_ok = x_visible_[x1];
-    const bool y0_ok = y0_physical && y_visible_[y0];
-    const bool y1_ok = y1_physical && y_visible_[y1];
+    const bool x0_ok = x_visible[x0];
+    const bool x1_ok = x_visible[x1];
+    const bool y0_ok = y0_physical && y_visible[y0];
+    const bool y1_ok = y1_physical && y_visible[y1];
     const uint8_t tap_mask =
         static_cast<uint8_t>((y0_ok && x0_ok && v00 > TAP_CUTOFF) |
                              ((y0_ok && x1_ok && v10 > TAP_CUTOFF) << 1) |
@@ -1306,11 +1306,11 @@ public:
                              ((y1_ok && x1_ok && v11 > TAP_CUTOFF) << 3));
 
     if (tap_mask == 0x0f) {
-      blend_four(base_ + y0 * W, base_ + y1 * W, x0, x1, c, alpha, v00, v10,
-                 v01, v11);
+      blend_four(base + y0 * W, base + y1 * W, x0, x1, c, alpha, v00, v10, v01,
+                 v11);
       return;
     }
-    blend_masked(base_, x0, x1, y0, y1, c, alpha, v00, v10, v01, v11, tap_mask);
+    blend_masked(base, x0, x1, y0, y1, c, alpha, v00, v10, v01, v11, tap_mask);
   }
 
   /** @brief Integer-coordinate overload matching a filtered Pipeline. */
@@ -1338,12 +1338,12 @@ public:
   }
 
 private:
-  Pixel *base_ = nullptr;
+  Pixel *base = nullptr;
   ClipRegion clip_stamp{};
   // Zero-init: a plot() before prepare() is a masked no-op, not a read of
   // indeterminate bytes through a null base.
-  std::array<uint8_t, W> x_visible_{};
-  std::array<uint8_t, H> y_visible_{};
+  std::array<uint8_t, W> x_visible{};
+  std::array<uint8_t, H> y_visible{};
 
   static __attribute__((always_inline)) uint16_t tap_alpha_q16(float alpha,
                                                                float weight) {
@@ -1406,7 +1406,7 @@ public:
    * @param arena Persistent arena supplying MAX_PIXELS DecayPixel slots.
    */
   void init_storage(Arena &arena) {
-    points_ = arena.allocate_n<DecayPixel>(MAX_PIXELS);
+    points = arena.allocate_n<DecayPixel>(MAX_PIXELS);
     num_pixels = 0;
   }
 
@@ -1432,15 +1432,15 @@ public:
       return;
 
     float ttl = static_cast<float>(lifetime) - age;
-    if (ttl > 0.0f && points_) {
+    if (ttl > 0.0f && points) {
       if (num_pixels == MAX_PIXELS) {
         // At capacity: O(1) drop of slot 0. Saturation eviction order differs
         // by domain (World::Trails drops the FIFO-oldest, Screen drops slot 0);
         // per-point ttl fade absorbs the transient either way.
         num_pixels--;
-        points_[0] = points_[num_pixels];
+        points[0] = points[num_pixels];
       }
-      points_[num_pixels++] = {x, y, ttl};
+      points[num_pixels++] = {x, y, ttl};
     }
   }
 
@@ -1457,15 +1457,15 @@ public:
   template <typename PassFnT>
   void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
              PassFnT &&pass) {
-    HS_CHECK(points_, "Screen::Trails needs init_storage() from effect init()");
+    HS_CHECK(points, "Screen::Trails needs init_storage() from effect init()");
     for (int i = 0; i < num_pixels; ++i) {
-      float t = hs::clamp(1.0f - (points_[i].ttl / lifetime), 0.0f, 1.0f);
-      Color4 color = trailFn(points_[i].x, points_[i].y, t);
+      float t = hs::clamp(1.0f - (points[i].ttl / lifetime), 0.0f, 1.0f);
+      Color4 color = trailFn(points[i].x, points[i].y, t);
       if (color.alpha > 0.001f) {
-        float age = lifetime - points_[i].ttl;
+        float age = lifetime - points[i].ttl;
         if (age < 0.0f)
           age = 0.0f;
-        pass(points_[i].x, points_[i].y, color.color, age, alpha * color.alpha);
+        pass(points[i].x, points[i].y, color.color, age, alpha * color.alpha);
       }
     }
     decay();
@@ -1479,8 +1479,8 @@ public:
    */
   void decay() {
     for (int i = 0; i < num_pixels; ++i) {
-      if (--points_[i].ttl <= 0.0f) {
-        points_[i] = points_[--num_pixels];
+      if (--points[i].ttl <= 0.0f) {
+        points[i] = points[--num_pixels];
         i--;
       }
     }
@@ -1492,8 +1492,8 @@ private:
     float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
   };
   int lifetime;                  /**< Per-frame fade divisor in frames. */
-  DecayPixel *points_ = nullptr; /**< Arena-owned array of live trail points. */
-  int num_pixels = 0;            /**< Number of live points in points_. */
+  DecayPixel *points = nullptr;  /**< Arena-owned array of live trail points. */
+  int num_pixels = 0;            /**< Number of live points in points. */
 };
 
 /**

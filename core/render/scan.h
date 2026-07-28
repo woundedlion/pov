@@ -369,11 +369,11 @@ template <int W, int H> struct BoundingSphere {
  */
 struct ScopedRenderTimer {
 #ifdef __EMSCRIPTEN__
-  Canvas &canvas_;
-  double t0_;
-  explicit ScopedRenderTimer(Canvas &canvas)
-      : canvas_(canvas), t0_(emscripten_get_now()) {}
-  ~ScopedRenderTimer() { canvas_.add_render_us(emscripten_get_now() - t0_); }
+  Canvas &canvas;
+  double t0;
+  explicit ScopedRenderTimer(Canvas &target)
+      : canvas(target), t0(emscripten_get_now()) {}
+  ~ScopedRenderTimer() { canvas.add_render_us(emscripten_get_now() - t0); }
 #else
   explicit ScopedRenderTimer(Canvas &) {}
 #endif
