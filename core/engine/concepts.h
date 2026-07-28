@@ -33,7 +33,6 @@ struct Basis; // core/math/geometry.h; used only as const Basis* below
 // ---------------------------------------------------------------------------
 
 struct Fragment;
-struct Color4;
 template <typename Signature> class FunctionRef;
 
 /**
