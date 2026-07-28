@@ -616,7 +616,7 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 | Filter | Effect |
 |---|---|
 | `Pixel::Feedback<W, H>` | Style-driven full-screen feedback loop. During `flush()` iterates the full canvas, samples the previous frame from the Canvas front buffer with bilinear interpolation, applies the bound `Feedback::Style`'s spatial transform and color transform with fade, then blends into the back buffer. Frames come from Canvas double-buffering, so the filter holds no frame storage of its own, but it does keep a persistent warp cache: call `init_storage(Arena&)` from the effect's `init()` to reserve `STORAGE_BYTES` from the persistent arena — without it every `flush()` rebuilds the whole control field. The spatial transform is evaluated on a spherical control lattice — latitude rings spaced `DS = style.downsample` rows apart, each carrying a `sin(φ)`-scaled sample count (`W/DS` at the equator) — then expanded by longitude interpolation into a `W/DS`-column offset field, one row per ring, and bilinearly upsampled while compositing. See `Feedback::Style` below for preset selection. |
-| `Pixel::ChromaticShift<W>` | Splits a pixel into R, G, B channels and offsets them by 1–3 pixels horizontally to simulate chromatic aberration. |
+| `Pixel::ChromaticShift<W>` | Emits four taps to simulate chromatic aberration: the unmodified source pixel at its sub-pixel `x`, plus single-channel R, G and B copies offset by 1, 2 and 3 columns. Roughly doubles emitted energy — the source tap is kept, not replaced. The three fringe taps are snapped to the rounded integer column while the source tap keeps its sub-pixel `x`. Requires `W >= 4`. |
 
 #### Feedback Styles (`styles.h`)
 
