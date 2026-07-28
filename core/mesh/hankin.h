@@ -62,6 +62,7 @@ struct CompiledHankin {
     dynamic_instructions.clear();
     face_counts.clear();
     faces.clear();
+    static_offset = 0;
     corner_src = nullptr;
   }
 
