@@ -340,6 +340,10 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
         std::max(0.0f, std::min(1.0f, (value - start) / (end - start)));
     return quintic_kernel(t);
   };
+  HS_CHECK(compiled.dynamic_instructions.size() == 0 ||
+               compiled.corner_src != nullptr,
+           "update_hankin needs a compiled topology (corner_src is null after "
+           "CompiledHankin::clear)");
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const auto &instr = compiled.dynamic_instructions[i];
     Vector p_corner = compiled.corner(instr.v_corner);
