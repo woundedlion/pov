@@ -116,6 +116,7 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool any_2d_history = false;
   static constexpr bool any_3d_history = false;
   static constexpr bool any_2d_trail_history = false;
+  static constexpr bool any_terminal_history = false;
   /** @brief No stage re-emits clip-cull edges (see the recursive case). */
   static constexpr bool has_world_cull = false;
 
@@ -274,6 +275,8 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   static constexpr bool any_2d_trail_history =
       (Head::has_history && Head::is_2d && !Head::is_terminal) ||
       Next::any_2d_trail_history;
+  static constexpr bool any_terminal_history =
+      (Head::has_history && Head::is_terminal) || Next::any_terminal_history;
 
   /**
    * @brief True when any stage overrides cull_edge (re-emits clip-cull edges
@@ -542,7 +545,7 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
    */
   void flush(Canvas &cv, float alpha) {
     static_assert(
-        any_2d_history,
+        any_terminal_history,
         "Wrong flush() domain: this Pipeline has no terminal history stage, so "
         "this overload emits nothing. Pass a ScreenTrailFn or WorldTrailFn.");
     static_assert(
