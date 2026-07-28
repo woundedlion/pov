@@ -82,6 +82,24 @@ inline void reset_globals() {
 }
 
 /**
+ * @brief Draws one uniform float in [lo, hi) from a locally seeded generator.
+ * @param rng Generator private to the test, so the draw stream is reproducible
+ * without disturbing the process-wide hs::random().
+ * @param lo Lower bound (inclusive).
+ * @param hi Upper bound (exclusive).
+ * @return A float in [lo, hi), bit-identical on every platform.
+ * @details std::uniform_real_distribution's mapping from generator draws to
+ * floats is implementation-defined, so the same seed yields a different sample
+ * set per standard library and a failure seen on one CI runner cannot be
+ * reproduced on another. The integer draw is mapped here explicitly instead.
+ * Draw one component at a time: argument evaluation order is unspecified, so a
+ * multi-argument constructor call would reorder the stream per compiler.
+ */
+inline float rand_uniform(hs::Pcg32 &rng, float lo, float hi) {
+  return lo + hs::random_to_unit(rng(), hs::Pcg32::max()) * (hi - lo);
+}
+
+/**
  * @brief Module scope that resets canonical global state on entry.
  * @details Constructed at the top of a module's run_*_tests(); resets the shared
  * singletons before any test runs and forwards begin_module/end_module so the

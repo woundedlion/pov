@@ -13,7 +13,6 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdint>
-#include <random>
 #include "core/mesh/spatial.h"
 #include "tests/test_3dmath.h" // re-uses approx_vec / HS_EXPECT_VEC
 #include "tests/test_fixture.h"
@@ -261,7 +260,8 @@ inline void test_kdtree_duplicates_and_max_k() {
  * @brief Verifies k>1 nearest matches brute force on 100 random distinct points.
  * @details The k>1 brute-force checks elsewhere use coincident/collinear points
  *          where bbox pruning can't err. This builds a tree over 100 randomly
- *          placed distinct points (fixed mt19937 seed for reproducibility) and,
+ *          placed distinct points (locally seeded generator, and an explicit
+ *          draw-to-float mapping so every platform gets the same set) and,
  *          for several queries, compares the tree's k-nearest set against a
  *          brute-force k-smallest scan. Distances are well separated, so the
  *          comparison is per-rank on sorted squared distance plus a point/index
@@ -272,10 +272,13 @@ inline void test_kdtree_k_nearest_brute_force_random() {
   constexpr int N = 100;
   Vector pts[N];
 
-  std::mt19937 rng(20240611u);
-  std::uniform_real_distribution<float> uni(-10.0f, 10.0f);
-  for (int i = 0; i < N; ++i)
-    pts[i] = Vector(uni(rng), uni(rng), uni(rng));
+  hs::Pcg32 rng(20240611u);
+  for (int i = 0; i < N; ++i) {
+    const float x = rand_uniform(rng, -10.0f, 10.0f);
+    const float y = rand_uniform(rng, -10.0f, 10.0f);
+    const float z = rand_uniform(rng, -10.0f, 10.0f);
+    pts[i] = Vector(x, y, z);
+  }
 
   std::span<Vector> sp(pts, N);
   KDTree tree(arena, sp);
