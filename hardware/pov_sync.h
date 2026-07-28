@@ -1279,9 +1279,12 @@ public:
             protocol_config.interdigit_timeout_cycles() &&
         static_cast<int32_t>(now - suspect_last_cycles) > 0) {
       suspect_pending = false;
-      ++telemetry_counters.symbols_rejected_gate;
-      if (fly.note_rejection())
-        ++telemetry_counters.lock_transitions;
+      // The gate exists only in LOCKED; note_rejection() no-ops in ACQUIRE.
+      if (fly.lock() == LockState::LOCKED) {
+        ++telemetry_counters.symbols_rejected_gate;
+        if (fly.note_rejection())
+          ++telemetry_counters.lock_transitions;
+      }
     }
 
     // Age out a stale previous-burst timestamp once the wire has been quiet past
