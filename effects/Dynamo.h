@@ -371,6 +371,12 @@ private:
    */
   int dir(float speed) const { return speed < 0 ? -1 : 1; }
 
+  /**
+   * @brief Current sphere orientation.
+   * @details Declared before `timeline` so it outlives the Rotations that point
+   * here, which ~Timeline clears on teardown.
+   */
+  Orientation<> orientation;
   Timeline timeline; /**< Drives reverse/wipe/rotate animations and timers. */
 
   static constexpr size_t MAX_PALETTES = 16; /**< Max live palettes. */
@@ -446,8 +452,6 @@ private:
     float trail_length = 8.0f;   /**< Active trail length. */
     float wipe_duration = 20.0f; /**< Color-wipe transition duration. */
   } params;
-
-  Orientation<> orientation; /**< Current sphere orientation. */
 
   /**
    * @brief Filter pipeline applied to plotted points before color resolution.

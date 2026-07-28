@@ -334,11 +334,15 @@ private:
   int wipe_frames_remaining =
       0; /**< Frames left to rebake `palette` for an in-flight wipe. */
   bool wipe_pending =
-      false;         /**< Wipe armed this frame; it first steps next frame. */
+      false; /**< Wipe armed this frame; it first steps next frame. */
+  /**
+   * @brief Spinning render orientation.
+   * @details Declared before `timeline` so it outlives the Rotation that points
+   * here, which ~Timeline clears on teardown.
+   */
+  Orientation<> orientation;
   Timeline timeline; /**< Drives spin, palette wipe, and mutations. */
   MobiusWarpCircularTransformer<1> mobius_gen; /**< Möbius warp generator. */
-
-  Orientation<> orientation; /**< Spinning render orientation. */
 
   Vector hole_n; /**< North hole origin, tracking the rotated geometry. */
   Vector hole_s; /**< South hole origin, tracking the rotated geometry. */

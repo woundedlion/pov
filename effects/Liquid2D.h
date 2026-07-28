@@ -214,10 +214,20 @@ private:
                   y2 * v.z * (3.0f - 4.0f * z2 * inv_R2));
   }
 
+  /**
+   * @brief Inner per-pixel sphere orientation.
+   * @details Declared before `timeline` so it outlives the RandomWalk that
+   * points here, which ~Timeline clears on teardown.
+   */
+  Orientation<> orientation;
+  /**
+   * @brief Outer whole-sphere orientation.
+   * @details Declared before `timeline` so it outlives the RandomWalk that
+   * points here, which ~Timeline clears on teardown.
+   */
+  Orientation<> global_orientation;
   Timeline
       timeline; /**< Drives orientations, time/cycle drivers, and presets. */
-  Orientation<> orientation;        /**< Inner per-pixel sphere orientation. */
-  Orientation<> global_orientation; /**< Outer whole-sphere orientation. */
   FastNoiseLite noise; /**< OpenSimplex2 source for the warp and the
                             `orientation` walk. */
   /** @brief OpenSimplex2 source for the `global_orientation` walk; a generator
