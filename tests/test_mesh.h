@@ -16,6 +16,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include "core/mesh/mesh.h"
 #include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
@@ -25,8 +26,9 @@
 namespace hs_test {
 namespace mesh_tests {
 
-inline uint8_t mesh_arena_a[256 * 1024];
-inline uint8_t mesh_arena_b[256 * 1024];
+inline uint8_t mesh_arena_a[1024 * 1024];
+inline uint8_t mesh_arena_b[1024 * 1024];
+inline uint8_t mesh_arena_c[1024 * 1024];
 
 // ---------------------------------------------------------------------------
 // PolyMesh API
@@ -540,13 +542,16 @@ inline void test_classify_faces_truncated_cube_distinct_topology() {
   HS_EXPECT_EQ(max_id, 1);
 }
 
+/** Largest face side count the topology sweep's per-face buffers hold. */
+inline constexpr int MAX_TOPO_SIDES = 64;
+
 /**
  * @brief A face topology key plus the base hash the classifier derives from it.
  */
 struct FaceTopoRecord {
-  int count;      /**< Side count. */
-  int angles[24]; /**< Sorted whole-degree interior angles. */
-  uint32_t hash;  /**< MeshOps base topology hash for this key. */
+  int count;                  /**< Side count. */
+  int angles[MAX_TOPO_SIDES]; /**< Sorted whole-degree interior angles. */
+  uint32_t hash;              /**< MeshOps base topology hash for this key. */
 };
 
 /**
@@ -557,10 +562,10 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
                                        const uint16_t *idx, int count) {
   FaceTopoRecord rec;
   rec.count = count;
-  for (int k = 0; k < 24; ++k)
+  for (int k = 0; k < MAX_TOPO_SIDES; ++k)
     rec.angles[k] = 0;
-  HS_CHECK(count <= 24,
-           "face_topo_record: face with >24 sides overruns angles[]");
+  HS_CHECK(count <= MAX_TOPO_SIDES,
+           "face_topo_record: face sides overrun angles[]");
   uint32_t h = 0x12345678;
   MeshOps::hash_combine(h, static_cast<uint32_t>(count));
   if (count >= 3) {
@@ -581,67 +586,142 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
 }
 
 /**
- * @brief True when two records share the same canonical key (count + angles).
+ * @brief 64-bit FNV-1a over a byte span.
+ * @param data Bytes to hash.
+ * @param n Byte count.
+ * @param h Seed, letting a key be built from several spans.
+ * @return The accumulated hash.
  */
-inline bool same_topo_key(const FaceTopoRecord &a, const FaceTopoRecord &b) {
-  if (a.count != b.count)
-    return false;
-  for (int k = 0; k < a.count; ++k)
-    if (a.angles[k] != b.angles[k])
-      return false;
-  return true;
+inline uint64_t fnv1a64(const void *data, size_t n,
+                        uint64_t h = 0xcbf29ce484222325ull) {
+  const uint8_t *p = static_cast<const uint8_t *>(data);
+  for (size_t i = 0; i < n; ++i) {
+    h ^= p[i];
+    h *= 0x100000001b3ull;
+  }
+  return h;
 }
 
 /**
- * @brief Verifies the per-face topology hash is collision-free across the
- *        Platonic/Archimedean/Catalan roster.
- * @details A fmix32 collision between two distinct face topologies would merge
- *          them into one palette class. Builds every roster solid, collects the
- *          distinct (count, sorted-angle) keys, and asserts each maps to a
- *          unique hash.
+ * @brief Reference identity of a face's canonical key (count + sorted angles).
+ */
+inline uint64_t topo_key_id(const FaceTopoRecord &rec) {
+  const uint64_t h = fnv1a64(&rec.count, sizeof(rec.count));
+  return fnv1a64(rec.angles, sizeof(rec.angles[0]) * rec.count, h);
+}
+
+/** Slots in the collision sweep's hash table; a power of two. */
+inline constexpr int TOPO_HASH_SLOTS = 8192;
+/** Faces the collision sweep holds per mesh. */
+inline constexpr size_t MAX_SWEEP_FACES = 8192;
+
+/**
+ * @brief Open-addressed classifier-hash -> reference-key table.
+ * @details Every insert expects an earlier entry under the same 32-bit
+ *          classifier hash to carry the same reference key; a mismatch is a
+ *          collision that merges two distinct topologies into one class.
+ */
+struct TopoHashTable {
+  uint32_t hashes[TOPO_HASH_SLOTS] = {};
+  uint64_t keys[TOPO_HASH_SLOTS] = {};
+  bool used[TOPO_HASH_SLOTS] = {};
+  int n = 0; /**< Occupied slots. */
+
+  /** @brief Records one (classifier hash, reference key) pair. */
+  void insert(uint32_t hash, uint64_t key) {
+    HS_EXPECT_TRUE(n < TOPO_HASH_SLOTS);
+    if (n >= TOPO_HASH_SLOTS)
+      return;
+    for (int i = static_cast<int>(hash % TOPO_HASH_SLOTS);;
+         i = (i + 1) % TOPO_HASH_SLOTS) {
+      if (!used[i]) {
+        used[i] = true;
+        hashes[i] = hash;
+        keys[i] = key;
+        ++n;
+        return;
+      }
+      if (hashes[i] == hash) {
+        HS_EXPECT_EQ(keys[i], key);
+        return;
+      }
+    }
+  }
+};
+
+/**
+ * @brief Verifies both classifier hash stages are collision-free across all
+ *        three solid registries.
+ * @details A fmix32 collision merges two distinct face topologies into one
+ *          class. Builds every roster solid and sweeps the pre-fold hash
+ *          (count + sorted angles) and the neighbour-folded hash the topology
+ *          ids are actually derived from, asserting each maps to one key.
  */
 inline void test_classify_faces_roster_hash_collision_free() {
-  static FaceTopoRecord keys[256];
-  int n = 0;
+  static TopoHashTable pre_fold;
+  static TopoHashTable folded;
+  static uint32_t face_hashes[MAX_SWEEP_FACES];
+  static uint64_t face_keys[MAX_SWEEP_FACES];
+  int swept_meshes = 0;
 
-  auto collect = [&](const Solids::Entry *reg, size_t reg_n) {
-    for (size_t r = 0; r < reg_n; ++r) {
+  for (std::span<const Solids::Entry> reg : Solids::all_registries()) {
+    for (const Solids::Entry &entry : reg) {
       Arena a(mesh_arena_a, sizeof(mesh_arena_a));
       Arena b(mesh_arena_b, sizeof(mesh_arena_b));
-      PolyMesh mesh = reg[r].generate(a, b);
+      Arena c(mesh_arena_c, sizeof(mesh_arena_c));
+      PolyMesh mesh = entry.generate(a, b);
 
       const uint8_t *fc = mesh.get_face_counts_data();
       const uint16_t *faces = mesh.get_faces_data();
-      size_t F = mesh.get_face_counts_size();
+      const size_t F = mesh.get_face_counts_size();
+      HS_EXPECT_TRUE(F <= MAX_SWEEP_FACES);
+      if (F > MAX_SWEEP_FACES)
+        continue;
+
       size_t off = 0;
       for (size_t f = 0; f < F; ++f) {
-        int count = fc[f];
-        FaceTopoRecord rec = face_topo_record(mesh, faces + off, count);
+        const int count = fc[f];
+        const FaceTopoRecord rec = face_topo_record(mesh, faces + off, count);
         off += count;
-
-        bool seen = false;
-        for (int i = 0; i < n; ++i) {
-          if (same_topo_key(keys[i], rec)) {
-            seen = true;
-            break;
-          }
-          // Distinct keys must not share a hash.
-          HS_EXPECT_TRUE(keys[i].hash != rec.hash);
-        }
-        if (!seen) {
-          HS_EXPECT_TRUE(n < (int)(sizeof(keys) / sizeof(keys[0])));
-          keys[n++] = rec;
-        }
+        face_hashes[f] = rec.hash;
+        face_keys[f] = topo_key_id(rec);
+        pre_fold.insert(rec.hash, face_keys[f]);
       }
+
+      // Neighbour fold: own hash mixed with the sum of the paired faces' mixed
+      // hashes, matching classify_faces_impl's second stage.
+      HalfEdgeMesh he(c, mesh);
+      size_t he_off = 0;
+      for (size_t f = 0; f < F; ++f) {
+        const int count = fc[f];
+        uint64_t neighbor_keys[MAX_TOPO_SIDES];
+        int n_neighbors = 0;
+        uint32_t neighbor_acc = 0;
+        for (int k = 0; k < count; ++k) {
+          const uint16_t pair = he.half_edges[he_off + k].pair;
+          if (pair == HE_NONE)
+            continue;
+          const uint16_t neighbor = he.half_edges[pair].face;
+          uint32_t neigh_h = face_hashes[neighbor];
+          MeshOps::hash_combine(neigh_h, 0);
+          neighbor_acc += MeshOps::fmix32(neigh_h);
+          neighbor_keys[n_neighbors++] = face_keys[neighbor];
+        }
+        std::sort(neighbor_keys, neighbor_keys + n_neighbors);
+        uint32_t final_h = face_hashes[f];
+        MeshOps::hash_combine(final_h, neighbor_acc);
+        folded.insert(MeshOps::fmix32(final_h),
+                      fnv1a64(neighbor_keys,
+                              sizeof(neighbor_keys[0]) * n_neighbors,
+                              face_keys[f]));
+        he_off += count;
+      }
+      ++swept_meshes;
     }
-  };
+  }
 
-  collect(Solids::simple_registry,
-          sizeof(Solids::simple_registry) / sizeof(Solids::simple_registry[0]));
-  collect(Solids::catalan_registry, sizeof(Solids::catalan_registry) /
-                                        sizeof(Solids::catalan_registry[0]));
-
-  HS_EXPECT_TRUE(n > 0);
+  HS_EXPECT_EQ(swept_meshes, Solids::NUM_ENTRIES);
+  HS_EXPECT_TRUE(pre_fold.n > 0 && folded.n > 0);
 }
 
 // ---------------------------------------------------------------------------
