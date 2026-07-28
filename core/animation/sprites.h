@@ -182,7 +182,13 @@ static constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
 
 /**
  * @brief A physics-based particle system with emitters and attractors.
- * @tparam W Width of the display (for Orientation).
+ *
+ * PERPETUAL (duration -1, no repeat): never reaches done(), so a `.then()`
+ * callback NEVER fires. Drive follow-on behavior from a finite animation or
+ * cancel() it explicitly.
+ *
+ * @tparam W Denominator of the per-frame surface-advance cap 2*PI/W radians,
+ *        i.e. the display width in columns.
  * @tparam CAPACITY Maximum number of particles in the pool.
  * @tparam TRAIL_LEN Trail length per particle.
  * @tparam EMITTER_CAP Maximum number of emitters.
