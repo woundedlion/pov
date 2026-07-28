@@ -222,6 +222,13 @@ __attribute__((always_inline)) inline uint16_t frac_to_q16(float frac) {
 }
 
 /**
+ * @brief The interpolatable pixel of a lookup-table entry.
+ */
+__attribute__((always_inline)) inline Pixel lut_entry_pixel(const Pixel &e) {
+  return e;
+}
+
+/**
  * @brief Represents a color with a STRAIGHT (non-premultiplied) alpha channel.
  * @details `color` holds the un-premultiplied color, `alpha` its coverage;
  * premultiplication happens once, at the final canvas write (`color * alpha`).
@@ -335,6 +342,35 @@ inline Color4 operator*(Color4 lhs, float s) { return lhs *= s; }
  * @return The scaled color.
  */
 inline Color4 operator*(float s, const Color4 &rhs) { return rhs * s; }
+
+/**
+ * @brief The interpolatable pixel of a lookup-table entry.
+ */
+__attribute__((always_inline)) inline Pixel lut_entry_pixel(const Color4 &e) {
+  return e.color;
+}
+
+/**
+ * @brief Samples a color lookup table at a fractional index, interpolating
+ * between adjacent entries.
+ * @tparam Entry Table element type accepted by lut_entry_pixel.
+ * @param table Table of at least @p size entries.
+ * @param size Entry count.
+ * @param idx Fractional index; must be non-negative and non-NaN, and is pinned
+ * to the last entry from above.
+ * @return The interpolated pixel.
+ */
+template <typename Entry>
+__attribute__((always_inline)) inline Pixel
+lut_sample_pixel(const Entry *table, int size, float idx) {
+  const int lo = static_cast<int>(idx);
+  if (lo >= size - 1)
+    return lut_entry_pixel(table[size - 1]);
+  const float frac = idx - lo;
+  return lut_entry_pixel(table[lo]).lerp16(
+      lut_entry_pixel(table[lo + 1]),
+      static_cast<uint16_t>(frac * 65535.0f + 0.5f));
+}
 
 /**
  * @brief Perceptual (OKLab) hue rotation with a precomputed rotation.
@@ -1358,14 +1394,11 @@ public:
    * @details Interpolated, not nearest-index, to avoid visible banding.
    */
   Color4 get(float t) const override {
-    // Clamp before the int cast: t < 0 is float->int UB, t > 1 indexes past the
-    // table; lo+1 only overruns at the t==1 endpoint, handled below.
-    float idx = hs::clamp(t, 0.0f, 1.0f) * 255.0f;
-    int lo = static_cast<int>(idx);
-    if (lo >= 255)
-      return Color4(entries[255], 1.0f);
-    float frac = idx - lo;
-    return Color4(entries[lo].lerp16(entries[lo + 1], frac_to_q16(frac)), 1.0f);
+    // Clamp before the int cast: t < 0 is float->int UB and NaN maps to the last
+    // entry, both of which lut_sample_pixel requires the caller to have excluded.
+    return Color4(
+        lut_sample_pixel(entries, 256, hs::clamp(t, 0.0f, 1.0f) * 255.0f),
+        1.0f);
   }
 
   /**

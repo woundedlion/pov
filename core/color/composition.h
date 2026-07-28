@@ -1049,12 +1049,7 @@ private:
   __attribute__((always_inline)) Pixel sample_color_index(float idx) const {
     if (idx <= 0.0f)
       return lut_[0].color;
-    int lo = static_cast<int>(idx);
-    if (lo >= LUT_SIZE - 1)
-      return lut_[LUT_SIZE - 1].color;
-    float frac = idx - lo;
-    uint16_t weight = static_cast<uint16_t>(frac * 65535.0f + 0.5f);
-    return lut_[lo].color.lerp16(lut_[lo + 1].color, weight);
+    return lut_sample_pixel(lut_, LUT_SIZE, idx);
   }
 
 public:
