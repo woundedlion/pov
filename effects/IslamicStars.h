@@ -183,22 +183,6 @@ private:
   int ripple_stagger_eff_ = RIPPLE_STAGGER_FRAMES;
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
-  struct FacePaletteShader {
-    const BakedPalette *palette = nullptr;
-    float scale = 0.0f;
-    float alpha = 0.0f;
-    bool divide_by_scale = false;
-
-    void operator()(const Vector &, Fragment &frag) const {
-      float edge = divide_by_scale
-                       ? (scale > math::TOLERANCE ? -frag.v1 / scale : 0.0f)
-                       : -frag.v1 * scale;
-      float t = hs::clamp(edge, 0.0f, 1.0f);
-      frag.color.color = palette->get_color_unit(t);
-      frag.color.alpha = alpha;
-    }
-  };
-
   struct SpriteFaceShading {
     const int *classes;
     const uint8_t *palette;
@@ -465,7 +449,7 @@ private:
 
     auto select_face = [&](size_t fi, float size) {
       HS_CHECK(fi < sh.faces, "IslamicStars: build shading face mismatch");
-      fragment_shader.palette = &sh.ramps[sh.face_ramp[fi]];
+      fragment_shader.palette = &sh.ramp_for(fi);
       fragment_shader.scale = size > math::TOLERANCE ? sh.gain / size : 0.0f;
     };
 

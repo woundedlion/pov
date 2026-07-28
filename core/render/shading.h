@@ -136,6 +136,31 @@ inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
 }
 
 /**
+ * @brief Face-hoisted palette shader for the mesh scan path.
+ * @details The caller resolves the face's palette and gradient scale once per
+ * face (Scan::Mesh's face-setup hook), leaving a clamp and one LUT fetch per
+ * fragment. `scale` multiplies the inward edge depth `-v1`; set
+ * `divide_by_scale` when the caller supplies the face size itself rather than a
+ * pre-divided gain. Writes frag.color unconditionally, as the minimal-fragment
+ * scan path requires.
+ */
+struct FacePaletteShader {
+  const BakedPalette *palette = nullptr;
+  float scale = 0.0f;
+  float alpha = 0.0f;
+  bool divide_by_scale = false;
+
+  void operator()(const Vector &, Fragment &frag) const {
+    float edge = divide_by_scale
+                     ? (scale > math::TOLERANCE ? -frag.v1 / scale : 0.0f)
+                     : -frag.v1 * scale;
+    float t = hs::clamp(edge, 0.0f, 1.0f);
+    frag.color.color = palette->get_color_unit(t);
+    frag.color.alpha = alpha;
+  }
+};
+
+/**
  * @brief Unit half-vector for the metallic Blinn-Phong specular lobe, with the
  *        light tilted off-axis along the surface tangent.
  * @param light_dir Direction toward the light in world space (unit length).
