@@ -200,20 +200,13 @@ void tween(const Animation::VectorTrail<CAPACITY> &trail,
  * @tparam CAPACITY Trail capacity.
  * @param trail The trail to iterate.
  * @param callback The function to call for each frame: `void(const Vector&,
- * float t)`.
+ * float t)`. Forwards to the member tween, which walks the ring directly
+ * instead of re-deriving each index.
  */
 template <int CAPACITY>
 void tween(const Animation::QuantizedVectorTrail<CAPACITY> &trail,
            VectorTweenFn callback) {
-  size_t len = trail.length();
-  if (len == 0)
-    return;
-
-  for (size_t i = 0; i < len; ++i) {
-    // A lone sample is the newest (head) position → t = 1 (age-neutral).
-    float t = (len > 1) ? static_cast<float>(i) / (len - 1) : 1.0f;
-    callback(trail.get(i), t);
-  }
+  trail.tween(callback);
 }
 
 /**
