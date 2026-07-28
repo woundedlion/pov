@@ -618,13 +618,15 @@ HS_COLD static void medial(const PolyMesh &mesh, PolyMesh &out_a,
     require_closed_manifold(he_mesh, temp, "medial");
 
     // Dual vertex per source face: its normalized centroid (see MeshOps::dual).
+    // The degenerate-centroid fallback is normalized too, so every dual_pos —
+    // and so every out_b entry — is unit even for a non-normalized source mesh.
     Vector *dual_pos = temp.allocate_n<Vector>(F);
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       int count;
       Vector c = face_centroid(he_mesh, mesh, i, count);
       Vector first_v =
           mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
-      dual_pos[i] = normalized_or(c, first_v);
+      dual_pos[i] = normalized_or(c, normalized_or(first_v, X_AXIS));
     }
 
     uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
