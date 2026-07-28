@@ -134,7 +134,8 @@ public:
     int l1, m1;
     int l2, m2;
     float blend;
-    Quaternion orientation;
+    Quaternion orientation_conj; /**< World->local rotation (conjugate of the
+                                    shape orientation). */
     float N1, N2; /**< Normalization factors, precomputed once per shape. */
     static constexpr bool is_solid = true;
 
@@ -148,9 +149,9 @@ public:
      * @param q Orientation quaternion of the shape.
      */
     HarmonicField(int l1, int m1, int l2, int m2, float blend, Quaternion q)
-        : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend), orientation(q),
-          N1(SHMath::normalization(l1, m1)), N2(SHMath::normalization(l2, m2)) {
-    }
+        : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend),
+          orientation_conj(q.conjugate()), N1(SHMath::normalization(l1, m1)),
+          N2(SHMath::normalization(l2, m2)) {}
 
     /**
      * @brief Vertical scan bounds for the field.
@@ -195,7 +196,7 @@ public:
      */
     template <bool ComputeUVs = true>
     void distance(const Vector &p, SDF::DistanceResult &res) const {
-      Vector local = rotate(p, orientation.conjugate());
+      Vector local = rotate(p, orientation_conj);
 
       // The shape spins about an arbitrary axis, so the local frame varies
       // across a screen row even though the WORLD latitude is row-constant.
