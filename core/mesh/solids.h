@@ -1808,8 +1808,8 @@ inline const Entry &get_entry(size_t index) {
  * @return The finalized solid mesh owned by geom.
  * @details For trusted (firmware) callers; an unknown name fails fast.
  */
-FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
-                                     std::string_view name) {
+[[maybe_unused]] FLASHMEM static PolyMesh
+get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
   const Entry *entry = find_entry(name);
   HS_CHECK(entry, "Solids::get_by_name: unknown solid name");
   return finalize_solid(entry->generate(a, b), geom);
@@ -1848,7 +1848,11 @@ inline bool has_name(std::string_view name) {
 build_vertex_directions(Arena &geom, Arena &scratch, std::string_view name,
                         int max_points, Vector *points, Quaternion *quats,
                         float *nn_angle) {
-  PolyMesh mesh = get_by_name(geom, geom, scratch, name);
+  const Entry *entry = find_entry(name);
+  HS_CHECK(entry, "build_vertex_directions: unknown solid name");
+  // Read straight out of the generator's arena pair; nothing outlives the call,
+  // so finalize_solid's copy into geom would buy nothing.
+  PolyMesh mesh = entry->generate(geom, scratch);
   int count = static_cast<int>(mesh.vertices.size());
   HS_CHECK(count <= max_points,
            "build_vertex_directions: vertex count exceeds capacity");
