@@ -386,7 +386,7 @@ private:
         Vector c(0.0f, 0.0f, 0.0f);
         for (int k = 0; k < fcnt[f]; ++k)
           c = c + sweep_state.vertices[fidx[foff[f] + k]];
-        const int cls = wrap(face_classes[f], NUM_PALETTES);
+        const int cls = MeshPaletteBank::slot_of(face_classes[f]);
         float off =
             seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls);
         float fade = seg.face_fade_frac(static_cast<int>(f));
@@ -659,11 +659,9 @@ private:
       const MeshState &spawned_mesh = carousel.slot(back);
       const size_t spawned_faces = spawned_mesh.topology.size();
       HS_CHECK(spawned_faces <= MAX_BUILD_FACES);
-      for (size_t f = 0; f < spawned_faces; ++f) {
-        const int cls = spawned_mesh.topology[f];
-        slot_face_palette[back][f] =
-            static_cast<uint8_t>(palette_slots[wrap(cls, NUM_PALETTES)]);
-      }
+      MeshPaletteBank::assign_by_class(spawned_mesh.topology.data(),
+                                       spawned_faces, palette_slots,
+                                       slot_face_palette[back]);
     }
 
     // Flip front eagerly for the overlapping sprite.

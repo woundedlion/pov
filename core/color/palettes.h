@@ -132,6 +132,28 @@ struct MeshPaletteBank {
   }
 
   /**
+   * @brief Folds a mesh topology class onto a bank slot.
+   * @param cls Face topology class; class ids are dense but unbounded, so the
+   *        fold aliases every N-th class onto the same slot.
+   * @return Slot index in [0, N).
+   */
+  static int slot_of(int cls) { return wrap(cls, N); }
+
+  /**
+   * @brief Assigns every face the palette its topology class maps to.
+   * @param topology Per-face topology-class indices.
+   * @param faces Number of faces to assign.
+   * @param slots Class slot -> palette index (see shuffle_indices).
+   * @param out Receives one palette index per face.
+   */
+  static HS_COLD_MEMBER void assign_by_class(const int *topology, size_t faces,
+                                             const std::array<int, N> &slots,
+                                             uint8_t *out) {
+    for (size_t f = 0; f < faces; ++f)
+      out[f] = static_cast<uint8_t>(slots[slot_of(topology[f])]);
+  }
+
+  /**
    * @brief Returns the baked LUT for a slot index.
    * @param i Slot index in [0, N).
    * @return Const reference to the baked palette; hot-path lookup is
