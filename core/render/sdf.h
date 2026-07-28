@@ -4289,7 +4289,9 @@ struct Twist {
 
   /**
    * @brief Constructs a twist warp around a torus of major radius R.
-   * @param twist_ Number of oscillations around the ring.
+   * @param twist_ Number of oscillations around the ring; must be >= 0. The
+   *        harmonic recurrence counts up from 1, so a negative count yields the
+   *        first harmonic while the Lipschitz bound describes the requested one.
    * @param amplitude_ Vertical displacement magnitude.
    * @param R_ Major radius; must be > 0. The Lipschitz bound scales by 2/R, so
    *        R == 0 yields a non-finite bound on the XZ axis. Guarded at the cold
@@ -4300,6 +4302,7 @@ struct Twist {
         twist_amp(static_cast<float>(twist_) * amplitude_),
         twist_amp_abs(fabsf(twist_amp)), two_over_r(2.0f / R_) {
     HS_CHECK(R > 0.0f);
+    HS_CHECK(twist >= 0);
   }
 
   /** @brief Precomputed context: s = sqrtf(x² + z²), shared across
