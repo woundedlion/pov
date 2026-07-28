@@ -363,6 +363,34 @@ inline AxisProjection project_axis(const Vector &axis) {
 }
 
 /**
+ * @brief Scan-plane projection of a cap axis plus the latitude band the cap
+ * spans.
+ */
+struct CapBounds {
+  float ny, R_val,
+      alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+};
+
+/**
+ * @brief Projects a cap axis and derives its margin-widened latitude band.
+ * Shared by the leaf shapes bounded by a cap around a single axis.
+ * @param axis The cap axis (normalized).
+ * @param radius Angular radius of the cap (radians).
+ * @param invert When true the shape fills the complement, which touches every
+ *        row, so the band opens to the whole sphere.
+ * @return Axis projection and the bounding band, widened by BOUNDS_MARGIN_WIDE.
+ */
+inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
+  AxisProjection ap = project_axis(axis);
+  float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ap.ny)));
+  float margin = radius + BOUNDS_MARGIN_WIDE;
+  return {ap.ny, ap.R_val, ap.alpha_angle,
+          invert ? 0.0f : std::max(0.0f, center_phi - margin),
+          invert ? PI_F : std::min(PI_F, center_phi + margin)};
+}
+
+/**
  * @brief Emit the single horizontal interval where a row crosses a great-circle
  * "cap" of half-angle `acos(cos_cap)` centred on an axis whose projection onto
  * the scan plane is (ny, R_val, alpha_angle). Shared by PlanarPolygon /
@@ -3389,19 +3417,13 @@ struct PlanarPolygon {
         sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     apothem = thickness * cosf(PI_F / sides);
-    AxisProjection ap = project_axis(basis.v);
-    ny = ap.ny;
-    R_val = ap.R_val;
-    alpha_angle = ap.alpha_angle;
 
-    float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
-    float margin = thickness + BOUNDS_MARGIN_WIDE;
-    phi_min = std::max(0.0f, center_phi - margin);
-    phi_max = std::min(PI_F, center_phi + margin);
-    if (invert) {
-      phi_min = 0.0f;
-      phi_max = PI_F;
-    }
+    CapBounds cb = cap_bounds(basis.v, thickness, invert);
+    ny = cb.ny;
+    R_val = cb.R_val;
+    alpha_angle = cb.alpha_angle;
+    phi_min = cb.phi_min;
+    phi_max = cb.phi_max;
   }
 
   /**
@@ -3552,20 +3574,12 @@ struct SphericalPolygon {
     edge_nv = dot(en, basis.v);
     edge_nu = dot(en, basis.u);
 
-    // Vertical/horizontal bounds (same as SDF::PlanarPolygon)
-    AxisProjection ap = project_axis(basis.v);
-    ny = ap.ny;
-    R_val = ap.R_val;
-    alpha_angle = ap.alpha_angle;
-
-    float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
-    float margin = circumradius + BOUNDS_MARGIN_WIDE;
-    phi_min = std::max(0.0f, center_phi - margin);
-    phi_max = std::min(PI_F, center_phi + margin);
-    if (invert) {
-      phi_min = 0.0f;
-      phi_max = PI_F;
-    }
+    CapBounds cb = cap_bounds(basis.v, circumradius, invert);
+    ny = cb.ny;
+    R_val = cb.R_val;
+    alpha_angle = cb.alpha_angle;
+    phi_min = cb.phi_min;
+    phi_max = cb.phi_max;
   }
 
   /**
@@ -3697,19 +3711,12 @@ struct Star {
     plane_d = -(nx * v_t);
     thickness = outer_radius;
 
-    AxisProjection ap = project_axis(basis.v);
-    scan_ny = ap.ny;
-    scan_r = ap.R_val;
-    scan_alpha = ap.alpha_angle;
-
-    float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.y)));
-    float margin = outer_radius + BOUNDS_MARGIN_WIDE;
-    phi_min = std::max(0.0f, center_phi - margin);
-    phi_max = std::min(PI_F, center_phi + margin);
-    if (invert) {
-      phi_min = 0.0f;
-      phi_max = PI_F;
-    }
+    CapBounds cb = cap_bounds(basis.v, outer_radius, invert);
+    scan_ny = cb.ny;
+    scan_r = cb.R_val;
+    scan_alpha = cb.alpha_angle;
+    phi_min = cb.phi_min;
+    phi_max = cb.phi_max;
   }
 
   /**
@@ -3830,19 +3837,12 @@ struct Flower {
     thickness = outer;
     antipode = -basis.v;
 
-    AxisProjection ap = project_axis(antipode);
-    scan_ny = ap.ny;
-    scan_R = ap.R_val;
-    scan_alpha = ap.alpha_angle;
-
-    float center_phi = acosf(std::max(-1.0f, std::min(1.0f, antipode.y)));
-    float margin = thickness + BOUNDS_MARGIN_WIDE;
-    phi_min = std::max(0.0f, center_phi - margin);
-    phi_max = std::min(PI_F, center_phi + margin);
-    if (invert) {
-      phi_min = 0.0f;
-      phi_max = PI_F;
-    }
+    CapBounds cb = cap_bounds(antipode, thickness, invert);
+    scan_ny = cb.ny;
+    scan_R = cb.R_val;
+    scan_alpha = cb.alpha_angle;
+    phi_min = cb.phi_min;
+    phi_max = cb.phi_max;
   }
 
   /**
