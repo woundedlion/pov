@@ -89,6 +89,10 @@ public:
     // its shuffled palette directly (strap_blend_mask stays 0).
     strap_from = palette_idx;
 
+    // Opening bookend: the first drawn sample is exactly angle 0, matching
+    // every later cycle start.
+    params.hankin_angle = 0.0f;
+
     start_hankin_cycle();
   }
 
