@@ -209,6 +209,68 @@ jobs:
           HS_EFFECTS_FULL: 1
         run: ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
 
+  code-coverage:
+    name: Native unit tests (Clang) / llvm-cov summary
+    # ADVISORY. Publishes a Clang source-based coverage summary for the native
+    # suite so the untested surface is a number in the run summary instead of
+    # guesswork. There is deliberately NO threshold gate: this job fails only on
+    # a broken build or a failing suite, never on a coverage percentage.
+    # -DHS_COVERAGE=ON (tests/CMakeLists.txt) instruments run_tests only, and the
+    # gating jobs above stay uninstrumented.
+    runs-on: ubuntu-24.04
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install Clang + LLVM + Ninja + ccache
+        run: |
+          sudo apt-get update
+          # llvm-18 supplies llvm-profdata-18 / llvm-cov-18; the profile format is
+          # version-locked to the compiler, so both must be the same major.
+          sudo apt-get install -y clang-18 llvm-18 ninja-build ccache
+
+      # Separate cache prefix: the coverage flags change the compile command, so
+      # this object cache must not collide with the other jobs'.
+      - name: Cache ccache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-coverage-${{ github.run_id }}
+          restore-keys: ccache-coverage-
+
+      - name: Configure
+        run: >
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_COVERAGE=ON
+          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+
+      - name: Build
+        run: cmake --build --preset tests --target run_tests
+
+      - name: Run the instrumented suite
+        # No argv = every module in one process, so a single profile covers the
+        # whole roster. Deep smoke window + full effects tier, matching the
+        # gating jobs, so the measured coverage is the coverage CI actually has.
+        # %p keeps the death harness's re-spawned children off the parent's file.
+        env:
+          HS_SMOKE_FRAMES: 120
+          HS_EFFECTS_FULL: 1
+          LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
+        run: build/tests/tests/run_tests
+
+      - name: Publish coverage summary
+        run: |
+          llvm-profdata-18 merge -sparse -o cov/run_tests.profdata cov/*.profraw
+          {
+            echo '## Native suite coverage (advisory — no gate)'
+            echo
+            echo '```'
+            llvm-cov-18 report build/tests/tests/run_tests \
+              -instr-profile=cov/run_tests.profdata \
+              -ignore-filename-regex='(^/usr/|/tests/)'
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   windows-tests:
     name: Native unit tests (Windows / Clang)
     # The native toolchain file's most intricate logic — the lld-link multicall
