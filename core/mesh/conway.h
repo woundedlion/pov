@@ -290,6 +290,75 @@ inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
 }
 
 /**
+ * @brief Emit one output vertex per undirected edge at its normalized midpoint,
+ *   mapping both half-edges to it.
+ * @tparam EdgeFn Callable (const HalfEdge &) invoked once per emitted vertex.
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param mesh Source mesh supplying the endpoint positions.
+ * @param out_mesh Destination mesh receiving the midpoint vertices.
+ * @param edge_to_vert Caller-allocated uint16_t[I] map, pre-filled with HE_NONE
+ *   and filled here for both halves of each edge.
+ * @param edge_fn Per-edge hook for a caller carrying a parallel payload; runs
+ *   after the midpoint vertex is pushed.
+ * @details The degenerate (antipodal) midpoint falls back to an endpoint. Shared
+ *   by ambo and medial, whose vertex lists must stay bit-identical.
+ */
+template <typename EdgeFn>
+inline void emit_edge_midpoints(const HalfEdgeMesh &he_mesh,
+                                const PolyMesh &mesh, PolyMesh &out_mesh,
+                                uint16_t *edge_to_vert, EdgeFn &&edge_fn) {
+  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+    if (edge_to_vert[i] != HE_NONE)
+      continue;
+    const HalfEdge &he = he_mesh.half_edges[i];
+    uint16_t v1 = he.vertex;
+    uint16_t v2 = he_mesh.half_edges[he.prev].vertex;
+
+    Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
+    out_mesh.vertices.push_back(normalized_or(mid, mesh.vertices[v1]));
+    edge_fn(he);
+
+    uint16_t new_idx = narrow_index(out_mesh.vertices.size() - 1);
+    edge_to_vert[i] = new_idx;
+    edge_to_vert[he.pair] = new_idx;
+  }
+}
+
+/**
+ * @brief Rebuild one shrunk primary face per source face from an existing
+ *   per-half-edge vertex map.
+ * @tparam EmitFn Callable (uint16_t he_idx) pushing that half-edge's output
+ *   vertex indices onto out_mesh.faces.
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param out_mesh Destination mesh receiving one face per well-formed source
+ *   face.
+ * @param verts_per_side Indices emit_fn pushes per half-edge; scales the emitted
+ *   face's side count.
+ * @param emit_fn Pushes a half-edge's output vertex indices.
+ * @details Faces with fewer than 3 sides are skipped entirely. Unlike
+ *   emit_shrunk_face, the output vertices already exist; this pass only walks the
+ *   loop. Shared by ambo, medial and truncate.
+ */
+template <typename EmitFn>
+inline void emit_primary_faces(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
+                               int verts_per_side, EmitFn &&emit_fn) {
+  for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
+    uint16_t start = he_mesh.faces[fi].half_edge;
+    int count = face_side_count(he_mesh, start);
+    if (count < 3)
+      continue;
+    out_mesh.face_counts.push_back(narrow_face_count(count * verts_per_side));
+    uint16_t he_idx = start;
+    int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
+    do {
+      HS_CHECK(emitted++ < count, "face re-walk overran side count");
+      emit_fn(he_idx);
+      he_idx = he_mesh.half_edges[he_idx].next;
+    } while (he_idx != HE_NONE && he_idx != start);
+  }
+}
+
+/**
  * @brief Walk every undirected interior edge once, invoking visitor(he_idx, he)
  *   for each edge that has a pair.
  * @tparam VisitorFn Callable accepting (uint16_t he_idx, const HalfEdge &he).
@@ -553,36 +622,13 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
     // Populate Vertices
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      if (edge_to_vert[i] == HE_NONE) {
-        const HalfEdge &he = he_mesh.half_edges[i];
-        uint16_t v1 = he.vertex;
-        uint16_t v2 = he_mesh.half_edges[he.prev].vertex;
-
-        Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
-        out_mesh.vertices.push_back(normalized_or(mid, mesh.vertices[v1]));
-        uint16_t new_idx = narrow_index(out_mesh.vertices.size() - 1);
-
-        edge_to_vert[i] = new_idx;
-        edge_to_vert[he.pair] = new_idx;
-      }
-    }
+    emit_edge_midpoints(he_mesh, mesh, out_mesh, edge_to_vert,
+                        [](const HalfEdge &) {});
 
     // Reconstruct Original Faces (Shrunk)
-    for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
-      uint16_t start = he_mesh.faces[fi].half_edge;
-      int count = face_side_count(he_mesh, start);
-      if (count >= 3) {
-        out_mesh.face_counts.push_back(narrow_face_count(count));
-        uint16_t he_idx = start;
-        int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
-        do {
-          HS_CHECK(emitted++ < count, "face re-walk overran side count");
-          out_mesh.faces.push_back(edge_to_vert[he_idx]);
-          he_idx = he_mesh.half_edges[he_idx].next;
-        } while (he_idx != HE_NONE && he_idx != start);
-      }
-    }
+    emit_primary_faces(he_mesh, out_mesh, 1, [&](uint16_t he_idx) {
+      out_mesh.faces.push_back(edge_to_vert[he_idx]);
+    });
 
     // Build Vertex Orbits (New Faces)
     emit_vertex_orbit_faces<'P'>(
@@ -652,45 +698,23 @@ HS_COLD static void medial(const PolyMesh &mesh, PolyMesh &out_a,
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
     // Vertices: one per edge, a_e at the midpoint (ambo) and b_e at the two
-    // flanking dual vertices' midpoint (ambo of the dual). Emitted in the same
-    // half-edge order ambo uses, so out_a is bit-identical to ambo(mesh).
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      if (edge_to_vert[i] == HE_NONE) {
-        const HalfEdge &he = he_mesh.half_edges[i];
-        uint16_t v1 = he.vertex;
-        uint16_t v2 = he_mesh.half_edges[he.prev].vertex;
-
-        Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
-        out_a.vertices.push_back(normalized_or(mid, mesh.vertices[v1]));
-
-        HS_CHECK(he.face != HE_NONE && he.pair != HE_NONE &&
-                     he_mesh.half_edges[he.pair].face != HE_NONE,
-                 "medial: open edge on a closed manifold");
-        Vector db =
-            dual_pos[he.face] + dual_pos[he_mesh.half_edges[he.pair].face];
-        out_b.push_back(normalized_or(db, dual_pos[he.face]));
-
-        uint16_t new_idx = narrow_index(out_a.vertices.size() - 1);
-        edge_to_vert[i] = new_idx;
-        edge_to_vert[he.pair] = new_idx;
-      }
-    }
+    // flanking dual vertices' midpoint (ambo of the dual). The shared midpoint
+    // pass emits in the same half-edge order ambo uses, so out_a is
+    // bit-identical to ambo(mesh); the per-edge hook fills out_b in step.
+    emit_edge_midpoints(
+        he_mesh, mesh, out_a, edge_to_vert, [&](const HalfEdge &he) {
+          HS_CHECK(he.face != HE_NONE && he.pair != HE_NONE &&
+                       he_mesh.half_edges[he.pair].face != HE_NONE,
+                   "medial: open edge on a closed manifold");
+          Vector db =
+              dual_pos[he.face] + dual_pos[he_mesh.half_edges[he.pair].face];
+          out_b.push_back(normalized_or(db, dual_pos[he.face]));
+        });
 
     // Reconstruct Original Faces (Shrunk) — the ambo primary-face layout.
-    for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
-      uint16_t start = he_mesh.faces[fi].half_edge;
-      int count = face_side_count(he_mesh, start);
-      if (count >= 3) {
-        out_a.face_counts.push_back(narrow_face_count(count));
-        uint16_t he_idx = start;
-        int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
-        do {
-          HS_CHECK(emitted++ < count, "face re-walk overran side count");
-          out_a.faces.push_back(edge_to_vert[he_idx]);
-          he_idx = he_mesh.half_edges[he_idx].next;
-        } while (he_idx != HE_NONE && he_idx != start);
-      }
-    }
+    emit_primary_faces(he_mesh, out_a, 1, [&](uint16_t he_idx) {
+      out_a.faces.push_back(edge_to_vert[he_idx]);
+    });
 
     // Build Vertex Orbits (New Faces).
     emit_vertex_orbit_faces<'P'>(
@@ -799,24 +823,12 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
       }
     }
 
-    for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
-      uint16_t start = he_mesh.faces[fi].half_edge;
-      int count = face_side_count(he_mesh, start);
-      if (count >= 3) {
-        out_mesh.face_counts.push_back(narrow_face_count(count * 2));
-        uint16_t he_idx = start;
-        int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
-        do {
-          HS_CHECK(emitted++ < count, "face re-walk overran side count");
-          auto [tail_cut, head_cut] =
-              truncate_oriented_cut(he_mesh, edge_to_vert, he_idx);
-          out_mesh.faces.push_back(tail_cut);
-          out_mesh.faces.push_back(head_cut);
-
-          he_idx = he_mesh.half_edges[he_idx].next;
-        } while (he_idx != HE_NONE && he_idx != start);
-      }
-    }
+    emit_primary_faces(he_mesh, out_mesh, 2, [&](uint16_t he_idx) {
+      auto [tail_cut, head_cut] =
+          truncate_oriented_cut(he_mesh, edge_to_vert, he_idx);
+      out_mesh.faces.push_back(tail_cut);
+      out_mesh.faces.push_back(head_cut);
+    });
 
     emit_vertex_orbit_faces<'P'>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
