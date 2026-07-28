@@ -304,6 +304,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── vendor-importmap.js         Local-first / CDN-fallback importmap helper
 ├── holosphere_wasm.js          Installed from Holosphere's WASM build
 ├── holosphere_wasm.wasm        Installed from Holosphere's WASM build
+├── holosphere_wasm.sha         Engine commit + tree state the module was built from
+├── holosphere_wasm.wasm.sha256 Digest of the installed module — the trio the deploy gate verifies
 ├── README.md                   Installed from Holosphere (this file)
 ├── docs/screenshots/           Installed from Holosphere
 │
@@ -334,11 +336,29 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── lissajous.html          Spherical Lissajous curve designer
 │   ├── mobius.html             Möbius transformation visualizer
 │   ├── palettes.html           Procedural palette tuner
-│   └── solids.html             Conway operator playground (uses MeshOps bridge)
+│   ├── solids.html             Conway operator playground (uses MeshOps bridge)
+│   ├── shared.js               Three.js scene boilerplate for the 3D tool pages
+│   ├── banner.js               Dependency-free page + fatal-error banners (no Three.js)
+│   ├── clipboard.js            Dependency-free copy-to-clipboard helpers
+│   ├── slider.js               Labelled range-slider factory with a live readout
+│   ├── color.js                sRGB ↔ linear math mirroring the engine's transfer function
+│   ├── cpp_format.js           C++ float-literal formatter shared by the code generators
+│   ├── export_params.js        Formatter behind the GUI's Export action
+│   ├── lissajous_math.js       Pure Lissajous curve math from lissajous.html
+│   ├── mobius_transforms.js    Pure Möbius coefficient presets from mobius.html
+│   ├── palette_math.js         ProceduralPalette / GenerativePalette mirror + the PaletteOps bridge
+│   ├── solid_codegen.js        Op dispatch, codegen, and op-chain sequencing for solids.html
+│   └── tools.css               Shared design tokens and control styling for the tool pages
+│
+├── scripts/
+│   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
+│   └── require-tests.mjs       `pretest` guard: fails when the test glob matches nothing
 │
 ├── tests/                      Node unit tests (`npm test`)
+├── tsconfig.json               checkJs settings for the worker-protocol module set
 │
 ├── three.js/                   Optional vendored Three.js checkout
+├── vendor/                     Optional vendored Tailwind build + self-hosted fonts (CDN fallback)
 ├── node_modules/lil-gui/       Optional local lil-gui (npm install)
 └── package.json
 ```
