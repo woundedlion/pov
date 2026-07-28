@@ -224,13 +224,16 @@ private:
            Filter::Pixel::Feedback<W, H>>
       filters;
 
-  // init() allocates the Feedback warp-field cache and the gamut boundary
-  // bracket table from the persistent arena.
+  // Covers the two compile-time-sized persistent tenants: the Feedback
+  // warp-field cache and the gamut boundary bracket table. init() also buys the
+  // icosahedron PolyMesh and its compiled MeshState from the persistent arena,
+  // but those are sized at runtime and ride in the headroom left here.
   static_assert(Filter::Pixel::Feedback<W, H>::STORAGE_BYTES +
                         gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) <=
                     DEVICE_PERSISTENT_BUDGET,
-                "MeshFeedback warp cache exceeds the default persistent "
-                "partition; retune the feedback downsample or carve arenas");
+                "MeshFeedback warp cache plus gamut bracket table exceed the "
+                "default persistent partition; retune the feedback downsample, "
+                "coarsen the gamut grid, or carve arenas");
 };
 
 #include "core/engine/effect_registry.h"
