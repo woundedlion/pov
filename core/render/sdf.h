@@ -1624,6 +1624,9 @@ template <typename A, typename B> struct Intersection {
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Intersection children must be SDF shapes "
                 "(is_solid/thickness)");
+  static_assert(A::is_solid == B::is_solid,
+                "CSG Intersection children must share solidity; a solid+stroke "
+                "mix renders the solid winner through the stroke AA branch");
   // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP)
   // before the merge-sweep, so a child that could emit more spans must be
   // rejected at compile time rather than trapping in push_interval at runtime.
