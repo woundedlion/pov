@@ -514,8 +514,6 @@ template <typename Solid> inline void measure_kis(const char *name) {
   dump_png(png, diff_image(a, b));
 
   // The fan partitions the parent's spherical patches, so total coverage is
-  // unchanged and the delta is a darkening confined to the new spokes.
-  // The fan partitions the parent's spherical patches, so total coverage is
   // unchanged; the delta is dominated by darkening on the new spokes, with a
   // smaller brightening where the children's own gnomonic frames narrow the
   // parent's existing edge bands.
