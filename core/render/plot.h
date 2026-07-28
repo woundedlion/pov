@@ -3332,7 +3332,7 @@ struct Mesh {
 /**
  * @brief Particle System trails.
  * Registers:
- *  v0: Trail Progress (0.0=Head -> 1.0=Tail)
+ *  v0: Trail Progress (0.0=Tail -> 1.0=Head)
  *  v1: Reserved (always 0)
  *  v2: Particle ID, or the particle_v2 mapper's value
  *  v3: Normalized TTL
