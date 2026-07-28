@@ -395,7 +395,12 @@ __attribute__((always_inline)) inline float diamond_angle(float y, float x) {
   float r = y / d;
   if (y >= 0.0f)
     return (x >= 0.0f) ? r : (2.0f - r);
-  return (x < 0.0f) ? (2.0f - r) : (4.0f + r);
+  if (x < 0.0f)
+    return 2.0f - r;
+  // A tiny negative r rounds 4 + r back up to exactly 4; fold to the
+  // topologically identical 0 so the range stays half-open.
+  const float a = 4.0f + r;
+  return a >= 4.0f ? 0.0f : a;
 }
 
 /**
