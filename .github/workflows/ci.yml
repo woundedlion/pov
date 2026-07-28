@@ -207,10 +207,19 @@ jobs:
         # the same effect-lifecycle transitions and exercises arena lifetimes.
         # HS_EFFECTS_FULL=1: run the effects module's full-resolution tier under
         # the sanitizers too (see the tests job note).
+        #
+        # -E drops the three generated-artifact gates: they shell out to a Python
+        # generator and instrument no sanitized code, and this job provisions
+        # neither python3 nor numpy, so they can only skip. The plain tests job
+        # runs them with -DHS_REQUIRE_GENERATORS=ON and the provenance jobs re-run
+        # them standalone. Shard membership is untouched, so the shard-coverage
+        # job still asserts every registered test is claimed by exactly one shard.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
-        run: ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
+        run: >
+          ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
+          -E "^unit_(color_luts|color_luts_check|gamut_lut)$"
 
   optimized-tests:
     name: Native unit tests (Clang, -O2) / shard ${{ matrix.shard }}
