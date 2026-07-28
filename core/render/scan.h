@@ -1189,7 +1189,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const auto xc = cr.x_clip();
 
   int y_lo, y_hi;
-  std::pair<int, int> runs[8];
+  static constexpr size_t MAX_RUNS = 8;
+  std::pair<int, int> runs[MAX_RUNS];
   size_t num_runs = 0;
 
   {
@@ -1216,7 +1217,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       auto push = [&](int a, int b) {
         if (a >= b)
           return;
-        HS_CHECK(num_runs < 8, "rasterize_face: run buffer overflow");
+        HS_CHECK(num_runs < MAX_RUNS, "rasterize_face: run buffer overflow");
         runs[num_runs++] = {a, b};
       };
       if (!xc.active) {
