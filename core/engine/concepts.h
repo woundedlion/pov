@@ -391,13 +391,14 @@ using EasingFn = float (*)(float);
  * itself be frame-structured — a static CAPACITY plus its own length()/get() —
  * because deep_tween flattens both levels. A bare Orientation, whose get()
  * yields a Quaternion, is rejected here rather than deep in instantiation; use
- * tween() for that. length() is consumed as a count, so it must be an unsigned
- * integral — a signed type could wrap negative into a huge loop bound.
+ * tween() for that. The trail's own length() is consumed as an unsigned count —
+ * a signed type could wrap negative into a huge loop bound; the frame's is
+ * signed, matching Orientation's int index APIs.
  */
 template <typename T>
 concept Tweenable = requires(const T &t, size_t i) {
   { t.length() } -> std::unsigned_integral;
-  { t.get(i).length() } -> std::unsigned_integral;
+  { t.get(i).length() } -> std::signed_integral;
   { t.get(i).get(0) } -> std::convertible_to<Quaternion>;
   {
     std::remove_cvref_t<decltype(t.get(i))>::CAPACITY
