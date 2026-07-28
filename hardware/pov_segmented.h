@@ -89,9 +89,8 @@ template <int S, int N, int RPM> class POVSegmented {
 
   // ── Compile-time geometry ───────────────────────────────────────────
 
-  static constexpr int PPS = S / N;          /**< Pixels per segment.       */
-  static constexpr int ROWS = S / 2;         /**< Canvas rows (height).     */
-  static constexpr int SEGS_PER_ARM = N / 2; /**< Segments on each arm.     */
+  static constexpr int PPS = S / N;  /**< Pixels per segment. */
+  static constexpr int ROWS = S / 2; /**< Canvas rows (height). */
 
   static_assert(RPM > 0, "RPM must be positive (COLUMN_US divides by RPM)");
   static_assert(S % N == 0,
