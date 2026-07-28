@@ -530,6 +530,7 @@ struct DistortedRingStack {
    * @param shapes Ring shapes indexed by slot.
    * @param slot_by_ring n_rings entries mapping ring index -> slot, -1 if
    *        culled.
+   * @param n_slots Number of shapes; every occupied entry must index below it.
    * @details A spacing deviation within WINDOW_PAD still lands inside the
    * shared candidate window, so geometry survives; beyond it the ring is
    * windowed out and silently disappears. The fused scan derives one
@@ -539,12 +540,14 @@ struct DistortedRingStack {
   HS_COLD_MEMBER
   static void check_stack_preconditions(int n_rings,
                                         const SDF::DistortedRing *shapes,
-                                        const int8_t *slot_by_ring) {
+                                        const int8_t *slot_by_ring,
+                                        int n_slots) {
     const float delta = PI_F / (n_rings + 1);
     for (int i = 0; i < n_rings; ++i) {
       const int s = slot_by_ring[i];
       if (s < 0)
         continue;
+      HS_CHECK(s < n_slots, "ring stack slot index out of range");
       HS_CHECK(std::abs(shapes[s].target_angle - delta * (i + 1)) <=
                WINDOW_PAD);
       HS_CHECK(shapes[s].phase == 0.0f);
@@ -585,7 +588,7 @@ struct DistortedRingStack {
                    const SDF::DistortedRing *shapes, const int8_t *slot_by_ring,
                    int n_slots, RingShaderT &&shader) {
     HS_CHECK(n_slots >= 1);
-    check_stack_preconditions(n_rings, shapes, slot_by_ring);
+    check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
