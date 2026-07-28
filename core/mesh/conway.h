@@ -306,10 +306,6 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
   }
 }
 
-HS_O3_END
-
-HS_O3_BEGIN
-
 /**
  * @brief Copies a mesh's topology (as views) and vertices into a target mesh,
  *   applying each transformer to every vertex in order.
@@ -365,10 +361,6 @@ inline void transform_in_place(MeshState &mesh,
     mesh.vertices[i] = v;
   }
 }
-
-HS_O3_END
-
-HS_O3_BEGIN
 
 // ---------------------------------------------------------------------------
 // Conway operators
