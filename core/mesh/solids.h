@@ -201,6 +201,11 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
  * (gyro/needle/zip/bevel) return in `temp` (see COMPOSITION POLARITY in
  * conway.h), shifting the swap parity for one step; odd-length ones (meta)
  * behave like a primitive.
+ *
+ * Callers build the seed into `a`, so the first operator reads its input from
+ * the arena it writes its output into. That costs peak arena, not correctness:
+ * every operator binds its output before opening a ScratchScope, and a bump
+ * arena never rewinds below a live allocation.
  */
 class SolidBuilder {
   PolyMesh mesh_; /**< Mesh being built; updated in place by each operator. */
@@ -1651,6 +1656,19 @@ inline constexpr size_t ARCHIMEDEAN_COUNT = 13;
 static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT == std::size(simple_registry),
               "PLATONIC_COUNT + ARCHIMEDEAN_COUNT must equal simple_registry "
               "size; update the counts if the registry layout changes");
+
+inline constexpr size_t CATALAN_COUNT = 13;
+inline constexpr size_t ISLAMIC_COUNT = 24;
+static_assert(CATALAN_COUNT == std::size(catalan_registry),
+              "catalan_registry size changed; update CATALAN_COUNT and the "
+              "README registry table");
+static_assert(ISLAMIC_COUNT == std::size(islamic_registry),
+              "islamic_registry size changed; update ISLAMIC_COUNT and the "
+              "README registry table");
+static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT + CATALAN_COUNT +
+                      ISLAMIC_COUNT ==
+                  static_cast<size_t>(NUM_ENTRIES),
+              "NUM_ENTRIES must equal the sum of the per-registry counts");
 
 namespace Collections {
 /**
