@@ -215,7 +215,10 @@ public:
    * @brief Construct the visualizer with the display dimensions.
    */
   HS_COLD_MEMBER SphericalHarmonics()
-      : Effect(W, H, {.strobe = true}), filters() {}
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
+        filters() {}
 
   /**
    * @brief One-time setup of params, palette, shape, spin, and first morph.
