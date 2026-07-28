@@ -326,7 +326,7 @@ inline void case_circular_buffer_front_empty() {
 /**
  * @brief Death case: ArenaVector::append_bulk past its fixed capacity must trap.
  * @details Memory surface — a distinct seam from element-at-a-time push_back;
- *          the bulk memcpy path has its own size_+count guard.
+ *          the bulk memcpy path has its own remaining-capacity guard.
  */
 inline void case_arena_vector_append_bulk_overflow() {
   static uint8_t buf[256];
@@ -1222,7 +1222,7 @@ inline void case_plot_extract_edges_vertex_over_capacity() {
  * @brief Death case: a feedback downsample that doesn't divide the resolution must trap.
  * @details Filter surface — Pixel::Feedback::flush traps rather than silently
  *          turning the whole feedback effect into a no-op; a cold
- *          authoring/config error the project routes to HS_CHECK (enabled_
+ *          authoring/config error the project routes to HS_CHECK (enabled
  *          remains the supported way to switch feedback off). The trap fires
  *          before any_pixel_lit / scratch allocation, so no buffers needed.
  */

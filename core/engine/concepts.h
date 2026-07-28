@@ -43,8 +43,8 @@ template <typename Signature> class FunctionRef;
  * heap allocation. The referenced callable must outlive the FunctionRef.
  */
 template <typename Ret, typename... Args> class FunctionRef<Ret(Args...)> {
-  void *ctx_ = nullptr;
-  Ret (*thunk_)(void *, Args...) = nullptr;
+  void *ctx = nullptr;
+  Ret (*thunk)(void *, Args...) = nullptr;
 
 public:
   /**
@@ -87,24 +87,24 @@ public:
 
   /**
    * @brief Wraps a plain function pointer.
-   * @param func Function pointer with signature Ret(Args...); stored in ctx_.
+   * @param func Function pointer with signature Ret(Args...); stored in ctx.
    * @details The function-pointer <-> void* round-trip is only
    * *conditionally-supported* by the standard ([expr.reinterpret.cast]) but holds
    * on every target this engine builds for (ARM Cortex-M7, x86-64, wasm32 all
    * share pointer width); the static_assert turns any future target where that
    * stops being true into a compile error. A null `func` produces an *empty* ref
-   * (thunk_ stays null), matching a default-constructed FunctionRef, so a null
+   * (thunk stays null), matching a default-constructed FunctionRef, so a null
    * func cannot install a thunk that dereferences null on the first call.
    */
   FunctionRef(Ret (*func)(Args...)) noexcept
-      : ctx_(reinterpret_cast<void *>(func)) {
+      : ctx(reinterpret_cast<void *>(func)) {
     static_assert(
         sizeof(func) == sizeof(void *),
         "FunctionRef requires function and object pointers to share a "
         "width (true on all supported targets)");
     if (func == nullptr)
       return;
-    thunk_ = [](void *ptr, Args... args) -> Ret {
+    thunk = [](void *ptr, Args... args) -> Ret {
       return (reinterpret_cast<Ret (*)(Args...)>(ptr))(
           std::forward<Args>(args)...);
     };
@@ -119,8 +119,8 @@ public:
   template <typename Callable>
     requires std::is_invocable_r_v<Ret, Callable &, Args...> &&
              (!std::is_base_of_v<FunctionRef, std::decay_t<Callable>>)
-  FunctionRef(Callable &callable) noexcept : ctx_(std::addressof(callable)) {
-    thunk_ = [](void *ptr, Args... args) -> Ret {
+  FunctionRef(Callable &callable) noexcept : ctx(std::addressof(callable)) {
+    thunk = [](void *ptr, Args... args) -> Ret {
       if constexpr (std::is_void_v<Ret>) {
         (*static_cast<Callable *>(ptr))(std::forward<Args>(args)...);
       } else {
@@ -136,7 +136,7 @@ public:
    * is rejected here rather than failing inside the thunk) and not itself a
    * FunctionRef.
    * @param callable Const callable whose address is stored; must outlive this
-   * ref. The const is cast away into ctx_ and restored in the thunk.
+   * ref. The const is cast away into ctx and restored in the thunk.
    * @details This overload also binds rvalues (temporary lambdas), so the
    * immediate-use borrow `take_callback([](...){ ... })` keeps working — the whole
    * purpose of a function_ref-style type. StoredFunctionRef refuses temporaries
@@ -146,9 +146,9 @@ public:
     requires std::is_invocable_r_v<Ret, const Callable &, Args...> &&
              (!std::is_base_of_v<FunctionRef, std::decay_t<Callable>>)
   FunctionRef(const Callable &callable) noexcept
-      : ctx_(const_cast<void *>(
+      : ctx(const_cast<void *>(
             static_cast<const void *>(std::addressof(callable)))) {
-    thunk_ = [](void *ptr, Args... args) -> Ret {
+    thunk = [](void *ptr, Args... args) -> Ret {
       if constexpr (std::is_void_v<Ret>) {
         (*static_cast<const Callable *>(ptr))(std::forward<Args>(args)...);
       } else {
@@ -167,16 +167,16 @@ public:
    * branch on-device.
    */
   inline Ret operator()(Args... args) const {
-    assert(thunk_ != nullptr &&
+    assert(thunk != nullptr &&
            "FunctionRef called on null/default-constructed ref");
-    return thunk_(ctx_, std::forward<Args>(args)...);
+    return thunk(ctx, std::forward<Args>(args)...);
   }
 
   /**
    * @brief Tests whether this FunctionRef refers to a callable.
    * @return True if a callable is bound, false if empty.
    */
-  [[nodiscard]] explicit operator bool() const { return thunk_ != nullptr; }
+  [[nodiscard]] explicit operator bool() const { return thunk != nullptr; }
 };
 
 /**
@@ -263,13 +263,12 @@ struct PixelMask {
  * wasm size across the effects' distinct shader closures and filter-stack types.
  */
 class PipelineRef {
-  void *ctx_;
-  void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float);
-  void (*plot2d_int_)(void *, Canvas &, int, int, const Pixel &, float, float);
-  void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float,
-                  float);
-  bool (*cull_)(void *, const Vector &, const Vector &, const Basis *,
-                CullEdgePredRef);
+  void *ctx;
+  void (*plot2d)(void *, Canvas &, float, float, const Pixel &, float, float);
+  void (*plot2d_int)(void *, Canvas &, int, int, const Pixel &, float, float);
+  void (*plot3d)(void *, Canvas &, const Vector &, const Pixel &, float, float);
+  bool (*cull)(void *, const Vector &, const Vector &, const Basis *,
+               CullEdgePredRef);
 
 public:
   /**
@@ -279,32 +278,32 @@ public:
    * @details Excludes PipelineRef itself (mirroring FunctionRef): without this,
    * copying from a non-const lvalue binds this template (exact T& match) instead
    * of the implicit copy ctor, wrapping a ref-to-a-ref — an extra plot()
-   * indirection per pixel and a dangling ctx_ if the source dies first.
+   * indirection per pixel and a dangling ctx if the source dies first.
    */
   template <typename T>
     requires(!std::same_as<std::decay_t<T>, PipelineRef>)
-  PipelineRef(T &t) : ctx_(std::addressof(t)) {
-    plot2d_ = [](void *ctx, Canvas &cv, float x, float y, const Pixel &c,
-                 float age, float alpha) {
-      static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha);
+  PipelineRef(T &t) : ctx(std::addressof(t)) {
+    plot2d = [](void *pipeline, Canvas &cv, float x, float y, const Pixel &c,
+                float age, float alpha) {
+      static_cast<T *>(pipeline)->plot(cv, x, y, c, age, alpha);
     };
-    plot2d_int_ = [](void *ctx, Canvas &cv, int x, int y, const Pixel &c,
-                     float age, float alpha) {
-      static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha);
+    plot2d_int = [](void *pipeline, Canvas &cv, int x, int y, const Pixel &c,
+                    float age, float alpha) {
+      static_cast<T *>(pipeline)->plot(cv, x, y, c, age, alpha);
     };
-    plot3d_ = [](void *ctx, Canvas &cv, const Vector &v, const Pixel &c,
-                 float age, float alpha) {
-      static_cast<T *>(ctx)->plot(cv, v, c, age, alpha);
+    plot3d = [](void *pipeline, Canvas &cv, const Vector &v, const Pixel &c,
+                float age, float alpha) {
+      static_cast<T *>(pipeline)->plot(cv, v, c, age, alpha);
     };
-    cull_ = [](void *ctx, const Vector &a, const Vector &b, const Basis *pb,
-               CullEdgePredRef pred) -> bool {
+    cull = [](void *pipeline, const Vector &a, const Vector &b, const Basis *pb,
+              CullEdgePredRef pred) -> bool {
       // Real pipelines route the edge through their world stages; a bare
       // plot-provider (test stub) has no world transform, so test it directly.
       if constexpr (requires {
-                      static_cast<T *>(ctx)->could_intersect_clip(a, b, pb,
-                                                                  pred);
+                      static_cast<T *>(pipeline)->could_intersect_clip(a, b, pb,
+                                                                       pred);
                     })
-        return static_cast<T *>(ctx)->could_intersect_clip(a, b, pb, pred);
+        return static_cast<T *>(pipeline)->could_intersect_clip(a, b, pb, pred);
       else {
         // A filter pipeline (has any_crosses_segments) must answer the clip
         // query; only a bare plot stub legitimately falls through to pred. Catch
@@ -330,7 +329,7 @@ public:
    */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
             float alpha) const {
-    plot2d_(ctx_, cv, x, y, c, age, alpha);
+    plot2d(ctx, cv, x, y, c, age, alpha);
   }
   /**
    * @brief Plots a pixel at integer screen coordinates.
@@ -345,7 +344,7 @@ public:
    */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age,
             float alpha) const {
-    plot2d_int_(ctx_, cv, x, y, c, age, alpha);
+    plot2d_int(ctx, cv, x, y, c, age, alpha);
   }
   /**
    * @brief Plots a pixel at a 3D world-space position.
@@ -357,7 +356,7 @@ public:
    */
   void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
             float alpha) const {
-    plot3d_(ctx_, cv, v, c, age, alpha);
+    plot3d(ctx, cv, v, c, age, alpha);
   }
 
   /**
@@ -371,7 +370,7 @@ public:
    */
   bool could_intersect_clip(const Vector &a, const Vector &b, const Basis *pb,
                             CullEdgePredRef pred) const {
-    return cull_(ctx_, a, b, pb, pred);
+    return cull(ctx, a, b, pb, pred);
   }
 };
 

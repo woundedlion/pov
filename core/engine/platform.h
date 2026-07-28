@@ -59,24 +59,24 @@ public:
    * @param s Seed value (mirrors std::mt19937::seed).
    */
   void seed(uint64_t s) {
-    state_ = 0u;
-    inc_ = (STREAM_SEQ << 1u) | 1u; // stream id must be odd
+    state = 0u;
+    inc = (STREAM_SEQ << 1u) | 1u; // stream id must be odd
     (*this)();
-    state_ += s;
+    state += s;
     (*this)();
   }
 
   result_type operator()() {
-    uint64_t old = state_;
-    state_ = old * 6364136223846793005ULL + inc_;
+    uint64_t old = state;
+    state = old * 6364136223846793005ULL + inc;
     uint32_t xorshifted = static_cast<uint32_t>(((old >> 18u) ^ old) >> 27u);
     uint32_t rot = static_cast<uint32_t>(old >> 59u);
     return (xorshifted >> rot) | (xorshifted << ((0u - rot) & 31u));
   }
 
 private:
-  uint64_t state_ = 0u;
-  uint64_t inc_ = 0u;
+  uint64_t state = 0u;
+  uint64_t inc = 0u;
   static constexpr uint64_t STREAM_SEQ = 0x14057b7ef767814fULL;
 };
 
@@ -871,13 +871,13 @@ inline uint8_t triwave8(uint8_t in) {
  * @param a Left token.
  * @param b Right token.
  */
-#define HS_CONCAT_(a, b) a##b
+#define HS_CONCAT_INNER(a, b) a##b
 /**
  * @brief Pastes two tokens, expanding macros such as __LINE__ first.
  * @param a Left token.
  * @param b Right token.
  */
-#define HS_CONCAT(a, b) HS_CONCAT_(a, b)
+#define HS_CONCAT(a, b) HS_CONCAT_INNER(a, b)
 
 /**
  * @brief Executes the guarded block at most once every N milliseconds.
@@ -927,21 +927,21 @@ inline unsigned long millis() {
 /**
  * @brief Host throttle backing EVERY_N_MILLIS, mirroring FastLED's CEveryNMillis.
  * @details Class-based like the device's FastLED macro so EVERY_N_MILLIS expands
- * to a single guarded statement. `last_` is seeded to `millis()` at construction
+ * to a single guarded statement. `last` is seeded to `millis()` at construction
  * so the first evaluation waits a full period, matching the device; the stamp is
  * never reset across effect switches (function-local `static`).
  */
 class EveryNMillis {
 public:
-  explicit EveryNMillis(unsigned long period)
-      : last_(millis()), period_(static_cast<uint32_t>(period)) {}
+  explicit EveryNMillis(unsigned long interval_ms)
+      : last(millis()), period(static_cast<uint32_t>(interval_ms)) {}
 
-  /** @brief True at most once per `period_` ms; stamps the trigger when it fires. */
+  /** @brief True at most once per `period` ms; stamps the trigger when it fires. */
   bool ready() {
     unsigned long now = millis();
     // 32-bit modular elapsed: matches the device's uint32 millis() wrap on LP64 hosts.
-    if (static_cast<uint32_t>(now - last_) >= period_) {
-      last_ = now;
+    if (static_cast<uint32_t>(now - last) >= period) {
+      last = now;
       return true;
     }
     return false;
@@ -951,9 +951,9 @@ public:
   explicit operator bool() { return ready(); }
 
 private:
-  unsigned long last_;
+  unsigned long last;
   uint32_t
-      period_; // 32-bit: matches the device wrap; caps the interval at ~49.7 days.
+      period; // 32-bit: matches the device wrap; caps the interval at ~49.7 days.
 };
 /**
  * @brief Returns microseconds since an arbitrary epoch (host micros()).
@@ -1322,9 +1322,9 @@ inline ProbeBreakdown g_probe_breakdown;
 #define HS_PROBE_MARK(var) uint32_t var = HS_OS_CYCLES()
 #define HS_PROBE_SPAN(field, var)                                              \
   do {                                                                         \
-    uint32_t hs_now_ = HS_OS_CYCLES();                                         \
-    hs::g_probe_breakdown.field += hs_now_ - (var);                            \
-    (var) = hs_now_;                                                           \
+    uint32_t hs_now = HS_OS_CYCLES();                                          \
+    hs::g_probe_breakdown.field += hs_now - (var);                             \
+    (var) = hs_now;                                                            \
   } while (0)
 #define HS_PROBE_COUNT(field)                                                  \
   do {                                                                         \
@@ -1332,9 +1332,9 @@ inline ProbeBreakdown g_probe_breakdown;
   } while (0)
 #define HS_PROBE_TICK()                                                        \
   do {                                                                         \
-    uint32_t hs_a_ = HS_OS_CYCLES();                                           \
-    uint32_t hs_b_ = HS_OS_CYCLES();                                           \
-    hs::g_probe_breakdown.tick += hs_b_ - hs_a_;                               \
+    uint32_t hs_a = HS_OS_CYCLES();                                            \
+    uint32_t hs_b = HS_OS_CYCLES();                                            \
+    hs::g_probe_breakdown.tick += hs_b - hs_a;                                 \
   } while (0)
 #else
 #define HS_PROBE_MARK(var)
@@ -1511,7 +1511,7 @@ inline const char *u64_dec(uint64_t v, char *buf) {
  *        walk every counter without a central registry. Counters nest: a
  *        CycleScope sets `parent` to whichever counter was active when this one
  *        started, giving log_all() a call tree with per-parent percentages.
- * @warning REENTRANCY: the registry head and the `active_` nesting pointer are
+ * @warning REENTRANCY: the registry head and the `active` nesting pointer are
  *        non-atomic statics (like hs::random()'s generator), so construction and
  *        CycleScope enter/exit are main-loop-only — driving a CycleScope from an
  *        ISR would race the list/active pointer and corrupt the call tree.
@@ -1534,7 +1534,7 @@ struct CycleCounter {
    * @brief Constructs a named counter and self-registers it for bulk logging.
    * @param n Counter label (must outlive the counter; typically a literal).
    */
-  explicit CycleCounter(const char *n) : name(n), next(head_) { head_ = this; }
+  explicit CycleCounter(const char *n) : name(n), next(head) { head = this; }
 
   /** @brief Zeroes this counter's accumulated cycles and call count. */
   void reset() {
@@ -1545,14 +1545,14 @@ struct CycleCounter {
   /** @brief Logs every root counter (no parent) and its subtree as a tree. */
   static void log_all() {
     hs::log("--- Cycle Counters ---");
-    for (auto *c = head_; c; c = c->next)
+    for (auto *c = head; c; c = c->next)
       if (!c->parent && c->count)
         log_node(c, 0);
   }
 
   /** @brief Zeroes every registered counter (between profiling runs). */
   static void reset_all() {
-    for (auto *c = head_; c; c = c->next)
+    for (auto *c = head; c; c = c->next)
       c->reset();
   }
 
@@ -1564,7 +1564,7 @@ struct CycleCounter {
    */
   static CycleCounter *find_suffix(const char *suffix) {
     const size_t sl = strlen(suffix);
-    for (auto *c = head_; c; c = c->next) {
+    for (auto *c = head; c; c = c->next) {
       const size_t nl = strlen(c->name);
       if (nl >= sl && memcmp(c->name + nl - sl, suffix, sl) == 0)
         return c;
@@ -1573,9 +1573,9 @@ struct CycleCounter {
   }
 
 private:
-  static inline CycleCounter *head_ =
+  static inline CycleCounter *head =
       nullptr; /**< Head of the intrusive registry list. */
-  static inline CycleCounter *active_ =
+  static inline CycleCounter *active =
       nullptr; /**< Currently active counter (for nesting). */
   friend struct CycleScope;
 
@@ -1602,7 +1602,7 @@ private:
     hs::log("%*s%-*s %s us (%lu%%)  %lu calls  %s cyc", indent, "", name_w,
             node->name, us, (unsigned long)pct, (unsigned long)node->count,
             cyc);
-    for (auto *c = head_; c; c = c->next)
+    for (auto *c = head; c; c = c->next)
       if (c->parent == node)
         log_node(c, depth + 1);
   }
@@ -1630,10 +1630,10 @@ struct CycleScope {
    *          counter.
    */
   explicit CycleScope(CycleCounter &c) : counter(c), start(HS_OS_CYCLES()) {
-    prev_active = CycleCounter::active_;
+    prev_active = CycleCounter::active;
     if (!counter.parent && prev_active)
       counter.parent = prev_active;
-    CycleCounter::active_ = &counter;
+    CycleCounter::active = &counter;
   }
   /**
    * @brief Adds the elapsed cycles to the counter and restores the previous one.
@@ -1646,7 +1646,7 @@ struct CycleScope {
   ~CycleScope() {
     counter.cycles += (uint32_t)(HS_OS_CYCLES() - start);
     counter.count++;
-    CycleCounter::active_ = prev_active;
+    CycleCounter::active = prev_active;
   }
 
   /**
