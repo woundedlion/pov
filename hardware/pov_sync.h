@@ -630,14 +630,17 @@ public:
    */
   int32_t position(uint32_t at) const {
     const uint32_t elapsed = at - epoch_cycles_; // modular
-    // Fold-before-position: tick() folds every crossed boundary before calling
-    // position(), keeping elapsed inside the coast window the constructor sized
-    // the int32 cast for. Test the unsigned magnitude — a forward elapsed past
-    // the window wraps to a small-negative int32 that slips under a signed bound.
+    // Signed-safe window: `at` must lie within MIN_SAFE_HALF_REVS half-revs
+    // either side of the epoch, the coast the constructor sized the int32 cast
+    // for. Either sign is reachable — demarcation and the snap gate evaluate a
+    // past first-edge timestamp, and both run before tick()'s fold loop, so
+    // elapsed spans the whole coast since the last fold. Test the unsigned
+    // magnitude: a forward elapsed past the window wraps to a small-negative
+    // int32 that slips under a signed bound.
     assert(
         (elapsed < static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period_ ||
          elapsed >= 0u - static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period_) &&
-        "Flywheel::position: unfolded coast");
+        "Flywheel::position: timestamp outside the signed-safe coast window");
     const int64_t delta = static_cast<int32_t>(elapsed);
     const int64_t cols = floor_div(delta * (w_ / 2), period_);
     return floor_mod(boundary_column(boundary_, w_) + cols, w_);
