@@ -697,6 +697,10 @@ HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
 // worst residual over a dense sweep of L, hue and chroma is comfortably inside.
 inline constexpr float GAMUT_CLIP_MARGIN = 2e-5f;
 
+// Chroma below which an OKLCH color has no usable hue angle and is handled as
+// gray. Every path that classifies a color as achromatic tests against this.
+inline constexpr float OKLCH_ACHROMATIC_C = 1e-4f;
+
 /**
  * @brief Gamut boundary bracket grid and the scales indexing it.
  * @details Defaults to the full-resolution flash master, so the clip path is
@@ -1270,11 +1274,11 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
   // chromatic endpoint's hue for the whole segment. If both ends are gray,
   // pin it to 0.
   float h;
-  if (a.C < 1e-4f && b.C < 1e-4f) {
+  if (a.C < OKLCH_ACHROMATIC_C && b.C < OKLCH_ACHROMATIC_C) {
     h = 0.0f;
-  } else if (a.C < 1e-4f) {
+  } else if (a.C < OKLCH_ACHROMATIC_C) {
     h = b.h;
-  } else if (b.C < 1e-4f) {
+  } else if (b.C < OKLCH_ACHROMATIC_C) {
     h = a.h;
   } else {
     h = a.h + wrap_angle_pi(b.h - a.h) * t;
@@ -1660,11 +1664,11 @@ public:
       colors_oklch[i] = pixel_to_oklch(colors[i]);
       // Recover the stop's chroma ceiling cmax = C / sin(pi*L) so get() can
       // re-apply the envelope at the interpolated L (fast_sinf matches get()).
-      // env -> 0 at L near 0/1 forces cmax = 0. A near-gray stop (C below
-      // lerp_oklch's gray threshold) carries no meaningful hue; zero its cmax so
-      // get()'s envelope + hue torsion can't bloom a tint into midtone grays.
+      // env -> 0 at L near 0/1 forces cmax = 0. A near-gray stop carries no
+      // meaningful hue; zero its cmax so get()'s envelope + hue torsion can't
+      // bloom a tint into midtone grays.
       float env = fast_sinf(PI_F * colors_oklch[i].L);
-      colors_cmax[i] = (colors_oklch[i].C >= 1e-4f && env > 1e-3f)
+      colors_cmax[i] = (colors_oklch[i].C >= OKLCH_ACHROMATIC_C && env > 1e-3f)
                            ? colors_oklch[i].C / env
                            : 0.0f;
     }
@@ -1719,7 +1723,8 @@ public:
     Pixel *keys[3] = {&a, &b, &c};
     bool chromatic = true;
     for (int i = 0; i < 3; ++i)
-      chromatic = chromatic && fk[i].C >= 1e-4f && tk[i].C >= 1e-4f;
+      chromatic = chromatic && fk[i].C >= OKLCH_ACHROMATIC_C &&
+                  tk[i].C >= OKLCH_ACHROMATIC_C;
     if (chromatic) {
       float d0 = wrap_angle_pi(tk[0].h - fk[0].h);
       for (int i = 0; i < 3; ++i) {
