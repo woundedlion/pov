@@ -2682,13 +2682,13 @@ struct Flower {
     float apothem = PI_F - desired_outer_radius;
     float safe_apothem = std::min(apothem, PI_F - 1e-4f);
     float angle_step = PI_F / num_sides;
+    const float sin_r = sinf(safe_apothem);
+    const float cos_r = cosf(safe_apothem);
 
     // Constant polar radius per vertex; everything else is the shared closed-
     // ring skeleton.
     sample_closed_ring(points, num_sides * 2, [&](int i) {
       float theta = phase + i * angle_step;
-      float sin_r = sinf(safe_apothem);
-      float cos_r = cosf(safe_apothem);
       float cos_t = cosf(theta);
       float sin_t = sinf(theta);
       Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
