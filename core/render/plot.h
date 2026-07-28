@@ -1719,11 +1719,12 @@ struct Multiline {
  * @details Each vertex carries the standard ring registers — v0: perimeter
  * progress (i / num_verts), v1: accumulated great-circle arc length from vertex
  * 0, v2: vertex index, age: 0. The trailing close vertex duplicates vertex 0's
- * position with v0 = 1 and the arc length continued across the wrap edge, so a
- * `close_loop` rasterize draws the final edge without a UV seam. Shared skeleton
- * for the accumulated-arc closed rings (Star, Flower, DistortedRing); Ring keeps
- * its own analytic-arc loop. For the PLANAR callers the rasterizer overrides
- * v0/v1, so these geodesic values seed only the optional vertex shader.
+ * position with v0 = 1 and the arc length continued across the wrap edge, so an
+ * `omit_end` rasterize draws the wrap edge without a UV seam and without
+ * replotting vertex 0. Shared skeleton for the accumulated-arc closed rings
+ * (Star, Flower, DistortedRing); Ring keeps its own analytic-arc loop. For the
+ * PLANAR callers the rasterizer overrides v0/v1, so these geodesic values seed
+ * only the optional vertex shader.
  */
 template <typename PosFn>
 inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
@@ -2010,7 +2011,7 @@ struct PlanarPolygon {
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides + 2),
-                          .close_loop = true,
+                          .omit_end = true,
                           .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
@@ -2087,7 +2088,7 @@ struct SphericalPolygon {
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(
         pipeline, canvas, vertex_shader, fragment_shader,
-        {.capacity = static_cast<size_t>(num_sides + 2), .close_loop = true},
+        {.capacity = static_cast<size_t>(num_sides + 2), .omit_end = true},
         [&](Fragments &points) {
           sample(points, basis, radius, num_sides, phase);
         });
@@ -2260,7 +2261,7 @@ struct DistortedRing {
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
-                         {.capacity = W + 2, .close_loop = true},
+                         {.capacity = W + 2, .omit_end = true},
                          [&](Fragments &points) {
                            sample<W, H>(points, basis, radius, shift_fn, phase);
                          });
@@ -2621,7 +2622,7 @@ struct Star {
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
-                          .close_loop = true,
+                          .omit_end = true,
                           .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
@@ -2722,7 +2723,7 @@ struct Flower {
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
-                          .close_loop = true,
+                          .omit_end = true,
                           .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
