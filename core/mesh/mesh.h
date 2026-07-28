@@ -355,17 +355,56 @@ inline uint8_t narrow_face_count(int count) {
 }
 
 /**
- * @brief Trap if the mesh has a boundary (any unpaired half-edge).
+ * @brief Trap if the mesh has a boundary (any unpaired half-edge) or a vertex
+ * whose incident half-edges split into more than one fan.
  * @param he_mesh Half-edge connectivity to validate.
+ * @param scratch Arena for the per-vertex fan sizes (LIFO-restored on return).
  * @param op Operator name, interpolated into the trap message on failure.
  * @details Operators size output pools assuming a closed manifold (E = I/2); an
  * unpaired half-edge would otherwise overrun them and trap far from the cause.
+ * Edge-manifoldness is not enough for the orbit scaffolding, which emits one
+ * output face per source vertex from a single prev->pair walk: at a bowtie
+ * vertex that walk closes over one fan and the rest are silently dropped, so
+ * the walk length is checked against the vertex's incident half-edge count.
  */
-inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
-                                    const char *op) {
-  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
+                                                   Arena &scratch,
+                                                   const char *op) {
+  const size_t num_half_edges = he_mesh.half_edges.size();
+  for (size_t i = 0; i < num_half_edges; ++i) {
     HS_CHECK(he_mesh.half_edges[i].pair != HE_NONE,
              "MeshOps::%s requires a closed manifold (unpaired half-edge)", op);
+  }
+
+  size_t num_verts = 0;
+  for (size_t i = 0; i < num_half_edges; ++i) {
+    const size_t v = he_mesh.half_edges[i].vertex;
+    num_verts = std::max(num_verts, v + 1);
+  }
+
+  ScratchScope scratch_guard(scratch);
+  uint16_t *fan_size = scratch.allocate_n<uint16_t>(num_verts);
+  std::fill_n(fan_size, num_verts, static_cast<uint16_t>(0));
+  auto origin_of = [&](size_t he_idx) {
+    return he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
+  };
+  for (size_t i = 0; i < num_half_edges; ++i)
+    fan_size[origin_of(i)]++;
+
+  for (size_t i = 0; i < num_half_edges; ++i) {
+    const uint16_t origin = origin_of(i);
+    // A zeroed entry marks a vertex whose fan has already been walked.
+    if (fan_size[origin] == 0)
+      continue;
+    size_t walked = 0;
+    uint16_t curr = static_cast<uint16_t>(i);
+    do {
+      walked++;
+      curr = he_mesh.half_edges[he_mesh.half_edges[curr].prev].pair;
+    } while (curr != i && walked <= num_half_edges);
+    HS_CHECK(walked == fan_size[origin],
+             "MeshOps::%s requires a vertex manifold (split vertex fan)", op);
+    fan_size[origin] = 0;
   }
 }
 

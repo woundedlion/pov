@@ -146,7 +146,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
 
     HalfEdgeMesh he_mesh(temp_arena, mesh);
 
-    require_closed_manifold(he_mesh, "compile_hankin");
+    require_closed_manifold(he_mesh, temp_arena, "compile_hankin");
 
     uint16_t *he_to_midpoint_idx = temp_arena.allocate_n<uint16_t>(I);
     std::fill_n(he_to_midpoint_idx, I, HE_NONE);
