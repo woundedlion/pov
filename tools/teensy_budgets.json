@@ -27,7 +27,10 @@
       // RAM1 headroom. RAM2 remains close to the hardware wall.
       "flash": { "max_bytes": 1900000 },
       "ram1":  { "max_bytes": 490000, "free_min_bytes": 32768 },
-      "ram2":  { "max_bytes": 524288 }                          // OCRAM is structurally full (~6 KB free); cap at the wall
+      // OCRAM is structurally full: 518,272 B used, 6,016 B free. max_bytes is
+      // the hardware wall, so free_min_bytes is the binding constraint — 4 KiB
+      // for the allocator and boot overhead, leaving 1,920 B of growth room.
+      "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },
     "symbols": {
       "arena":         { "name": "_ZL18global_arena_block", "region": "DTCM", "min_bytes": 294912, "max_bytes": 327680 }, // 305,152 B (298 KiB)
