@@ -255,10 +255,14 @@ public:
   void set_buffer_ready_hook(BufferReadyHook hook) { buffer_ready_hook = hook; }
   /**
    * @brief Advances the display buffer pointer to the next queued frame.
+   * @details The acquire fence pairs with `queue_frame()`'s release fence, so
+   * the queued frame's pixel writes are visible before any read through
+   * `prev_`; the per-pixel loads themselves stay relaxed.
    */
   inline void advance_display() {
-    prev_.store(next_.load(std::memory_order_relaxed),
-                std::memory_order_relaxed);
+    int n = next_.load(std::memory_order_relaxed);
+    std::atomic_thread_fence(std::memory_order_acquire);
+    prev_.store(n, std::memory_order_relaxed);
   }
   /**
    * @brief Advances the drawing buffer pointer to the next available buffer.
@@ -284,12 +288,14 @@ public:
 
   /**
    * @brief Queues the newly drawn frame to be displayed.
-   * @details Publishes `cur_` as the new `next_`. Correctness relies on
-   * `hs::disable_interrupts()` being a compiler barrier (single-core target), not
-   * on the relaxed atomics.
+   * @details Publishes `cur_` as the new `next_`. The release fence orders the
+   * frame's pixel writes before the publish, pairing with the acquire fence in
+   * `advance_display()`; the IRQ-off bracket keeps the publish atomic against
+   * the on-device display ISR.
    */
   inline void queue_frame() {
     hs::disable_interrupts();
+    std::atomic_thread_fence(std::memory_order_release);
     next_.store(cur_.load(std::memory_order_relaxed),
                 std::memory_order_relaxed);
     hs::enable_interrupts();
