@@ -532,9 +532,7 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
               src.get_face_counts_size(), arena);
   copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
 
-  if constexpr (requires { dst.topology; }) {
-    copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
-  }
+  copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
 }
 
 /**
