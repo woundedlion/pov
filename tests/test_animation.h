@@ -1168,12 +1168,16 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
   for (int i = 0; i < COUNT; ++i) {
     Vector pos;
     do {
-      pos = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                   hs::rand_f(-1.0f, 1.0f));
+      const float pos_x = hs::rand_f(-1.0f, 1.0f);
+      const float pos_y = hs::rand_f(-1.0f, 1.0f);
+      const float pos_z = hs::rand_f(-1.0f, 1.0f);
+      pos = Vector(pos_x, pos_y, pos_z);
     } while (pos.length() < 0.1f);
     pos.normalize();
-    Vector velocity(hs::rand_f(-0.1f, 0.1f), hs::rand_f(-0.1f, 0.1f),
-                    hs::rand_f(-0.1f, 0.1f));
+    const float vel_x = hs::rand_f(-0.1f, 0.1f);
+    const float vel_y = hs::rand_f(-0.1f, 0.1f);
+    const float vel_z = hs::rand_f(-0.1f, 0.1f);
+    Vector velocity(vel_x, vel_y, vel_z);
     reference.spawn(pos, velocity, static_cast<uint16_t>(i));
     specialized.spawn(pos, velocity, static_cast<uint16_t>(i));
   }

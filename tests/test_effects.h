@@ -2548,8 +2548,10 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
       for (int i = 0; i < 20000; ++i) {
         Vector v;
         do {
-          v = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                     hs::rand_f(-1.0f, 1.0f));
+          const float vx = hs::rand_f(-1.0f, 1.0f);
+          const float vy = hs::rand_f(-1.0f, 1.0f);
+          const float vz = hs::rand_f(-1.0f, 1.0f);
+          v = Vector(vx, vy, vz);
         } while (v.length() < 0.1f);
         v.normalize();
         check(v, transform, orientation);
@@ -2959,8 +2961,10 @@ inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
   for (int i = 0; i < 100000; ++i) {
     Vector p;
     do {
-      p = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                 hs::rand_f(-1.0f, 1.0f));
+      const float px = hs::rand_f(-1.0f, 1.0f);
+      const float py = hs::rand_f(-1.0f, 1.0f);
+      const float pz = hs::rand_f(-1.0f, 1.0f);
+      p = Vector(px, py, pz);
     } while (p.length() < 0.1f);
     p = p.normalized();
     p = Vector(roundf(p.x * 32767.0f) * INV_SNORM16,

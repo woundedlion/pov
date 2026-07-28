@@ -203,15 +203,24 @@ inline void test_mobius_matches_double_precision_oracle() {
   for (int n = 0; n < 4000; ++n) {
     Vector v;
     for (;;) {
-      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      const float rx = hs::rand_f(-1, 1);
+      const float ry = hs::rand_f(-1, 1);
+      const float rz = hs::rand_f(-1, 1);
+      Vector r(rx, ry, rz);
       if (r.length() > 0.1f) {
         v = r.normalized();
         break;
       }
     }
-    MobiusParams p(hs::rand_f(-2, 2), hs::rand_f(-2, 2), hs::rand_f(-2, 2),
-                   hs::rand_f(-2, 2), hs::rand_f(-2, 2), hs::rand_f(-2, 2),
-                   hs::rand_f(-2, 2), hs::rand_f(-2, 2));
+    const float ar = hs::rand_f(-2, 2);
+    const float ai = hs::rand_f(-2, 2);
+    const float br = hs::rand_f(-2, 2);
+    const float bi = hs::rand_f(-2, 2);
+    const float cr = hs::rand_f(-2, 2);
+    const float ci = hs::rand_f(-2, 2);
+    const float dr = hs::rand_f(-2, 2);
+    const float di = hs::rand_f(-2, 2);
+    MobiusParams p(ar, ai, br, bi, cr, ci, dr, di);
     // Skip a near-singular draw: ad - bc ~ 0 collapses the map and both forms
     // are then dominated by cancellation, not by the formulation.
     float det_re =
