@@ -152,8 +152,8 @@ public:
       HS_CHECK(!global_timeline_events[i].handled,
                "clear() would destroy a pinned animation");
     }
-    for (int i = 0; i < clear_hook_count_; ++i)
-      clear_hooks_[i].fn(clear_hooks_[i].ctx);
+    for (int i = 0; i < clear_hook_count; ++i)
+      clear_hooks[i].fn(clear_hooks[i].ctx);
     destroy_events();
   }
 
@@ -166,9 +166,9 @@ public:
    * table is the case. Cold path: registration happens at effect init.
    */
   HS_COLD_MEMBER void add_clear_hook(void *ctx, void (*fn)(void *)) {
-    HS_CHECK(clear_hook_count_ < MAX_CLEAR_HOOKS,
+    HS_CHECK(clear_hook_count < MAX_CLEAR_HOOKS,
              "Timeline clear-hook table full");
-    clear_hooks_[clear_hook_count_++] = ClearHook{ctx, fn};
+    clear_hooks[clear_hook_count++] = ClearHook{ctx, fn};
   }
 
   /**
@@ -178,9 +178,9 @@ public:
    * the hooks are independent.
    */
   HS_COLD_MEMBER void remove_clear_hook(void *ctx) {
-    for (int i = 0; i < clear_hook_count_; ++i) {
-      if (clear_hooks_[i].ctx == ctx) {
-        clear_hooks_[i] = clear_hooks_[--clear_hook_count_];
+    for (int i = 0; i < clear_hook_count; ++i) {
+      if (clear_hooks[i].ctx == ctx) {
+        clear_hooks[i] = clear_hooks[--clear_hook_count];
         return;
       }
     }
@@ -411,7 +411,7 @@ public:
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 
-  static constexpr int MAX_CLEAR_HOOKS = 4; /**< clear_hooks_ capacity. */
+  static constexpr int MAX_CLEAR_HOOKS = 4; /**< clear_hooks capacity. */
 
 private:
   /**
@@ -422,8 +422,8 @@ private:
     void (*fn)(void *) = nullptr;
   };
 
-  ClearHook clear_hooks_[MAX_CLEAR_HOOKS] = {};
-  int clear_hook_count_ = 0;
+  ClearHook clear_hooks[MAX_CLEAR_HOOKS] = {};
+  int clear_hook_count = 0;
 
   /**
    * @brief Destroys every stored animation and empties the slot table.
