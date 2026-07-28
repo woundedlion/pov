@@ -220,6 +220,15 @@ protected:
   AnimationBase() : duration(-1), repeat(false), canceled(false) {}
 
   /**
+   * @brief Ends the animation now through its duration rather than cancel().
+   * @details duration 0 makes done() true at any t while is_canceled() stays
+   * false, so the end reads as a natural completion. Timeline's pin-completion
+   * guard exempts cancellation, so a self-terminating animation must end this
+   * way to stay diagnosable when pinned.
+   */
+  void finish() { duration = 0; }
+
+  /**
    * @brief Evaluates a wired pause flag.
    * @param flag Optional pointer to an effect's pause bool (may be null).
    * @return True when a non-null flag points to a set bool.
