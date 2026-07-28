@@ -321,3 +321,12 @@ add_executable(feedback_divergence
 target_compile_definitions(feedback_divergence PRIVATE HS_TEST_BUILD)
 target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(feedback_divergence PRIVATE -Wall -Wextra -O2 -ffast-math -fno-finite-math-only)
+
+# Generator of record for core/color/srgb_decode_lut.h. EXCLUDE_FROM_ALL: running
+# it rewrites a committed header, so it is built (not run) on CI shard 1 as a
+# compile guard — unit_srgb_decode already pins the table itself.
+add_executable(srgb_decode_gen EXCLUDE_FROM_ALL
+  ${HS_ROOT}/scripts/generate_srgb_decode.cpp)
+target_compile_definitions(srgb_decode_gen PRIVATE HS_TEST_BUILD)
+target_include_directories(srgb_decode_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_compile_options(srgb_decode_gen PRIVATE -Wall -Wextra)
