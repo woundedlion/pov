@@ -279,7 +279,7 @@ private:
         [&](int i, float opacity, Fragment &f_val) {
           if (i != cached_i) {
             cached_i = i;
-            cached_c = palette.get(static_cast<float>(i) / num);
+            cached_c = baked_palette.get(static_cast<float>(i) / num);
             cached_c.alpha *= opacity * params.alpha;
           }
           f_val.color = cached_c;
