@@ -9,8 +9,10 @@ ledger and the implementation-outcome notes in §7. Measured results:
 
 ## 1. Goal
 
-The shipping Phantasm image is `-Os` because the full 26-effect roster overflows
-FlexRAM at `-O3` (`platformio.ini` §4.1 size relief valve). The 2026-07-14
+The shipping Phantasm image is `-Os` because its playlist —
+`HS_PHANTASM_EFFECT_COUNT` effects, i.e. `HS_EFFECT_LIST` minus the low-res-only
+`Dynamo` and `Thrusters` (`core/engine/effects.h`) — overflows FlexRAM at `-O3`
+(`platformio.ini` §4.1 size relief valve). The 2026-07-14
 on-device profile sweep (`docs/profiles/README.md`) measured what that costs:
 renders run **1.14×–2.04× faster at -O3**, and the win concentrates almost
 entirely in a handful of per-pixel inner loops (the `filter_blend` leaf alone
