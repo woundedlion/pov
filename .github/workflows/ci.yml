@@ -160,7 +160,7 @@ jobs:
       fail-fast: false
       matrix:
         # Same shard partition as the tests job — referenced by anchor, not
-        # re-typed, so the two jobs cannot drift (finding 404).
+        # re-typed, so the jobs cannot drift (finding 404).
         include: *shard_matrix
     # The native suite is the only build where the arena guards compile in
     # (device/WASM strip them), so ASan+UBSan here is the sole automated cover
@@ -207,6 +207,65 @@ jobs:
         # the same effect-lifecycle transitions and exercises arena lifetimes.
         # HS_EFFECTS_FULL=1: run the effects module's full-resolution tier under
         # the sanitizers too (see the tests job note).
+        env:
+          HS_SMOKE_FRAMES: 120
+          HS_EFFECTS_FULL: 1
+        run: ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
+
+  optimized-tests:
+    name: Native unit tests (Clang, -O2) / shard ${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Same shard partition as the tests job — referenced by anchor, not
+        # re-typed, so the job matrices cannot drift.
+        include: *shard_matrix
+    # The `tests` preset pins Debug, and the jobs above all reuse it, so every
+    # assertion in the suite runs at -O0: UB the optimizer acts on, and FP
+    # results that move under -O2 contraction, are structurally invisible there.
+    # This job runs the SAME shards at -O2. CMAKE_CXX_FLAGS_RELWITHDEBINFO is
+    # overridden to a plain "-O2 -g" so NDEBUG stays undefined — assert() and
+    # the memory.h arena guards remain live, leaving the optimization level as
+    # the only variable against the Debug jobs.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install Clang + Ninja + ccache
+        run: |
+          sudo apt-get update
+          # Same pinned clang-18 as the plain tests job (see its note).
+          sudo apt-get install -y clang-18 ninja-build ccache
+
+      # Separate cache prefix from the Debug jobs: the opt flags change the
+      # compile command, so the object caches must not collide. Per-shard slot
+      # for the same reason as the tests job above.
+      - name: Cache ccache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-optimized-${{ github.run_id }}-${{ matrix.shard }}
+          restore-keys: ccache-optimized-
+
+      - name: Configure
+        run: >
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g"
+          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+
+      - name: Build
+        run: cmake --build --preset tests
+
+      - name: ccache stats
+        if: always()
+        run: ccache -sv
+
+      - name: Test
+        # Same deep window and full effects tier as the Debug jobs, so the
+        # optimized run covers the same code paths they do.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
