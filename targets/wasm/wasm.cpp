@@ -171,41 +171,23 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
 }
 
 /**
- * @brief Reports whether the (W,H) factory contains an effect with the given
- *        name.
+ * @brief Looks up an effect by name in the (W,H) factory.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @param name Effect name to look up.
- * @return true if an effect with this name is registered for (W,H).
+ * @return Pointer to the matching entry, or null if the name is unknown (a
+ *         typo'd/stale UI string). The entry belongs to the static per-(W,H)
+ *         table and stays valid for the module's lifetime.
  * @details Cheap linear scan used by setEffect() to validate a stale/typo'd UI
  *          string BEFORE it tears down the running effect, so an unknown name is
- *          a transactional no-op rather than a blanked engine.
- */
-template <int W, int H> bool factory_has_effect(std::string_view name) {
-  for (const auto &entry : get_factory<W, H>())
-    if (name == entry.name)
-      return true;
-  return false;
-}
-
-/**
- * @brief Instantiates the named effect from the (W,H) factory.
- * @tparam W Canvas width in pixels.
- * @tparam H Canvas height in pixels.
- * @param name Effect name to instantiate.
- * @return Owning pointer to the new effect, or null if the name is unknown (a
- *         typo'd/stale UI string).
+ *          a transactional no-op rather than a blanked engine; the returned
+ *          entry then creates the effect without a second lookup.
  */
 template <int W, int H>
-std::unique_ptr<Effect> create_effect(std::string_view name) {
-  const auto &factory = get_factory<W, H>();
-  for (const auto &entry : factory) {
+const FactoryEntry *find_factory_entry(std::string_view name) {
+  for (const auto &entry : get_factory<W, H>())
     if (name == entry.name)
-      return entry.creator();
-  }
-  // Unknown name: return null (setEffect's guard makes it a safe no-op) rather
-  // than silently substituting a different effect.
-  hs::log("WASM: create_effect: unknown effect name (no effect created)");
+      return &entry;
   return nullptr;
 }
 
@@ -359,10 +341,10 @@ public:
 
     // Validate against the current resolution's factory BEFORE tearing anything
     // down, so a typo'd name keeps the prior valid state alive.
-    bool name_valid = false;
+    const FactoryEntry *entry = nullptr;
     const bool dispatched =
         dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-          name_valid = factory_has_effect<W, H>(name);
+          entry = find_factory_entry<W, H>(name);
         });
     if (!dispatched) {
       hs::log("WASM: setEffect at unsupported resolution %dx%d — keeping "
@@ -370,7 +352,7 @@ public:
               pixel_width, pixel_height);
       return false;
     }
-    if (!name_valid) {
+    if (!entry) {
       hs::log("WASM: setEffect unknown effect '%s' — keeping current effect",
               name.c_str());
       return false;
@@ -388,13 +370,10 @@ public:
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
 
-    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+    dispatch_resolution(pixel_width, pixel_height, []<int W, int H>() {
       init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
-      currentEffect = create_effect<W, H>(name);
     });
-    if (!currentEffect) {
-      return false; // unreachable: name was validated above
-    }
+    currentEffect = entry->creator();
     currentEffect->init();
     hs::log("WASM: init stack HWM = %u bytes",
             (unsigned)stack_high_water_mark());
