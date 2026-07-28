@@ -477,6 +477,11 @@ class TestWarningRatchetCaptureEvidence(unittest.TestCase):
     PIO_LINE = "Compiling .pio/build/phantasm/targets/Phantasm/Phantasm.ino.cpp.o"
     VERBOSE_LINE = ("arm-none-eabi-g++ -o .pio/build/phantasm/core/engine/memory.cpp.o "
                     "-c core/engine/memory.cpp")
+    # `pio run -v`: `-c` is a bare flag, the source is the LAST argument.
+    VERBOSE_SOURCE_LAST = (
+        "arm-none-eabi-g++ -o .pio/build/phantasm/src/core/engine/memory.cpp.o "
+        "-c -std=gnu++20 -fno-exceptions -O3 -DPLATFORMIO=60119 "
+        "-I. -Icore -Ieffects -Ihardware core/engine/memory.cpp")
 
     def _run(self, log_text):
         with tempfile.TemporaryDirectory() as d:
@@ -511,6 +516,64 @@ class TestWarningRatchetCaptureEvidence(unittest.TestCase):
     def test_capture_evidence_does_not_mask_a_new_warning(self):
         log = self.PIO_LINE + "\ncore/render/sdf.h:9:1: warning: novel [-Wnovel]\n"
         self.assertEqual(self._run(log), 1)
+
+    def test_source_last_invocation_counts_as_first_party(self):
+        self.assertEqual(tw.count_first_party_compiles(self.VERBOSE_SOURCE_LAST), 1)
+        self.assertEqual(self._run(self.VERBOSE_SOURCE_LAST + "\n"), 0)
+
+    def test_include_flags_alone_are_not_evidence(self):
+        # -Icore/-Ieffects/-Ihardware ride on every invocation, third-party ones
+        # included; only the positional source may vote.
+        line = ("arm-none-eabi-g++ -o .pio/build/phantasm/lib999/FastLED/noise.cpp.o "
+                "-c -std=gnu++20 -I. -Icore -Ieffects -Ihardware "
+                ".pio/libdeps/phantasm/FastLED/src/noise.cpp")
+        self.assertEqual(tw.count_first_party_compiles(line), 0)
+
+    def test_link_line_naming_first_party_objects_is_not_evidence(self):
+        # No -c: linking cannot emit a compile warning.
+        line = ("arm-none-eabi-g++ -o .pio/build/phantasm/firmware.elf -T imxrt1062.ld "
+                ".pio/build/phantasm/src/core/engine/memory.cpp.o")
+        self.assertEqual(tw.count_first_party_compiles(line), 0)
+
+    def test_preprocess_only_invocation_is_not_evidence(self):
+        # PlatformIO's .ino -> .cpp preprocess pass runs -E, not -c.
+        line = ('arm-none-eabi-g++ -o "/w/pov/targets/Phantasm/Phantasm.ino.cpp" '
+                '-x c++ -fpreprocessed -dD -E "/tmp/tmpm5mgtz1h"')
+        self.assertEqual(tw.count_first_party_compiles(line), 0)
+
+
+class TestRealVerboseCapture(unittest.TestCase):
+    """Capture evidence against REAL `pio run -v` lines, both CI and Windows.
+
+    fixtures/real/verbose_build_log.txt holds verbatim invocations in a fixed
+    order: three first-party then two third-party from a Windows build
+    (backslash paths), then one of each from the Linux CI runner (forward
+    slashes). Only a real capture pins the argument order `-v` emits — `-c` is a
+    bare flag and the source trails the whole flag list.
+    """
+
+    LINES = (REAL_DIR / "verbose_build_log.txt").read_text(
+        encoding="utf-8").splitlines()
+    FIRST_PARTY = LINES[:3] + LINES[5:6]
+    THIRD_PARTY = LINES[3:5] + LINES[6:]
+
+    def test_every_line_yields_exactly_one_source(self):
+        for line in self.LINES:
+            self.assertEqual(len(tw.compiled_paths(line)), 1, line[-60:])
+
+    def test_real_first_party_invocations_are_evidence(self):
+        for line in self.FIRST_PARTY:
+            self.assertEqual(tw.count_first_party_compiles(line), 1, line[-60:])
+
+    def test_real_third_party_invocations_are_not_evidence(self):
+        for line in self.THIRD_PARTY:
+            self.assertEqual(tw.count_first_party_compiles(line), 0, line[-60:])
+        self.assertEqual(
+            tw.count_first_party_compiles("\n".join(self.THIRD_PARTY)), 0)
+
+    def test_whole_real_log_counts_first_party_only(self):
+        self.assertEqual(
+            tw.count_first_party_compiles("\n".join(self.LINES)), 4)
 
 
 class TestRealCapture(unittest.TestCase):

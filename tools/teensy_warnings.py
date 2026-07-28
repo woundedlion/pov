@@ -39,9 +39,17 @@ THIRD_PARTY = ("lib/", ".platformio/", "packages/")
 # gcc: "<path>:<line>[:<col>]: warning: <message> [-Wflag]"
 _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
 
-# PlatformIO's own step line, or the compiler invocation `pio run -v` echoes.
-_COMPILE_RE = re.compile(
-    r"^\s*Compiling\s+(\S+)|\s-c\s+(\S+\.(?:cpp|cc|cxx|c|S))(?:\s|$)")
+# PlatformIO's non-verbose step line: "Compiling <object>". `pio run -v` prints
+# the raw compiler command instead, and never these.
+_PIO_STEP_RE = re.compile(r"^\s*Compiling\s+(\S+)")
+
+# `-c` as a standalone flag on a compiler command line. In the `-v` echo it is
+# NOT adjacent to the source: the flags follow it and the source comes last.
+_DASH_C_RE = re.compile(r"(?:^|\s)-c(?:\s|$)")
+
+# A positional source argument anywhere on that command line. Tokens starting
+# with `-` are flags (`-Icore`, `-x c++`), never the translation unit.
+_SOURCE_RE = re.compile(r"(?:^|\s)(?!-)(\S+\.(?:cpp|cc|cxx|c|S))(?=\s|$)")
 
 
 _FIRST_PARTY_DIRS = frozenset(fp.rstrip("/") for fp in FIRST_PARTY)
@@ -85,17 +93,32 @@ def extract_warnings(build_log: str) -> set[str]:
     return out
 
 
+def compiled_paths(line: str) -> list[str]:
+    """The path(s) one build-log line shows being compiled, or an empty list.
+
+    Two log shapes: PlatformIO's non-verbose step line names the OBJECT, while
+    the `pio run -v` echo of the raw compiler command names the SOURCE.
+    """
+    m = _PIO_STEP_RE.match(line)
+    if m:
+        return [m.group(1)]
+    if not _DASH_C_RE.search(line):
+        return []
+    return _SOURCE_RE.findall(line)
+
+
 def count_first_party_compiles(build_log: str) -> int:
     """Compiler invocations on first-party sources visible in the log.
 
     The ratchet's green and a broken capture both yield an empty warning set, so
     the comparison is only meaningful once the log is known to hold a build that
-    could have emitted first-party warnings at all.
+    could have emitted first-party warnings at all. A third-party-only build
+    (FastLED, the Teensy core) is NOT evidence: those TUs cannot emit a warning
+    the ratchet would ever look at.
     """
     n = 0
     for line in build_log.splitlines():
-        m = _COMPILE_RE.search(line)
-        if m and _relativize(m.group(1) or m.group(2)) is not None:
+        if any(_relativize(p) is not None for p in compiled_paths(line)):
             n += 1
     return n
 
