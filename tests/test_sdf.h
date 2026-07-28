@@ -89,7 +89,7 @@ inline void test_ring_on_centerline() {
   Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
 
-  auto r = ring.distance(Vector(1, 0, 0));
+  auto r = SDF::distance_of(ring, Vector(1, 0, 0));
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-3f);
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-3f);
 }
@@ -101,7 +101,7 @@ inline void test_ring_inside_band() {
 
   float off = 0.05f;
   Vector p(std::cos(off), std::sin(off), 0.0f);
-  auto r = ring.distance(p);
+  auto r = SDF::distance_of(ring, p);
   HS_EXPECT_TRUE(r.dist < 0.0f);
   HS_EXPECT_TRUE(r.raw_dist <= 0.1f + 1e-3f);
 }
@@ -111,7 +111,7 @@ inline void test_ring_outside_band_returns_sentinel() {
   Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
 
-  auto r = ring.distance(Vector(0, 1, 0));
+  auto r = SDF::distance_of(ring, Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist > 50.0f);
 }
 
@@ -123,7 +123,7 @@ inline void test_ring_just_outside_band() {
   // off (0.07) > thickness (0.05): point is 0.02 past the band edge.
   float off = 0.07f;
   Vector p(std::cos(off), std::sin(off), 0.0f);
-  auto r = ring.distance(p);
+  auto r = SDF::distance_of(ring, p);
   HS_EXPECT_TRUE(r.dist > 50.0f);
 }
 
@@ -148,7 +148,7 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
   SDF::DistortedRing shifted(
       b, 1.0f, thickness, [shift](float) { return shift; },
       /*max_distortion=*/shift, /*phase=*/0.0f);
-  auto rs = shifted.distance(p);
+  auto rs = SDF::distance_of(shifted, p);
   HS_EXPECT_TRUE(rs.dist < 50.0f);
   HS_EXPECT_NEAR(rs.raw_dist, 0.0f, 1e-2f);
   HS_EXPECT_NEAR(rs.dist, -thickness, 1e-2f);
@@ -159,7 +159,7 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
   SDF::DistortedRing plain(
       b, 1.0f, thickness, [](float) { return 0.0f; },
       /*max_distortion=*/shift, /*phase=*/0.0f);
-  auto rp = plain.distance(p);
+  auto rp = SDF::distance_of(plain, p);
   HS_EXPECT_NEAR(rp.raw_dist, shift, 1e-2f);
 }
 
@@ -177,12 +177,12 @@ inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
   // Azimuth π/2 (along +Z) → t = 0.25 → shift = amp; centerline polar angle is
   // π/2 + amp.
   Vector on(0.0f, std::cos(PI_F / 2 + amp), std::sin(PI_F / 2 + amp));
-  auto r_on = ring.distance(on);
+  auto r_on = SDF::distance_of(ring, on);
   HS_EXPECT_NEAR(r_on.t, 0.25f, 1e-2f);
   HS_EXPECT_NEAR(r_on.raw_dist, 0.0f, 1e-2f);
 
   // Same azimuth on the unshifted equator (+Z): centerline moved by amp here.
-  auto r_off = ring.distance(Vector(0, 0, 1));
+  auto r_off = SDF::distance_of(ring, Vector(0, 0, 1));
   HS_EXPECT_NEAR(r_off.t, 0.25f, 1e-2f);
   HS_EXPECT_NEAR(r_off.raw_dist, amp, 1e-2f);
 }
@@ -209,8 +209,8 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
         Vector p =
             basis.v * cosf(polar) +
             (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) * sinf(polar);
-        auto actual = flat.distance(p);
-        auto expected = polyline.distance(p);
+        auto actual = SDF::distance_of(flat, p);
+        auto expected = SDF::distance_of(polyline, p);
         HS_EXPECT_NEAR(actual.dist, expected.dist, 1e-5f);
         HS_EXPECT_NEAR(actual.raw_dist, expected.raw_dist, 1e-5f);
         HS_EXPECT_NEAR(actual.t, expected.t, 1e-5f);
@@ -276,7 +276,7 @@ template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
                              {0.375f, -0.05f}, {0.6f, 0.03f}};
   for (const auto &pr : probes) {
     Vector p = on_sphere(pr[0], pr[1]);
-    auto r = ring.distance(p);
+    auto r = SDF::distance_of(ring, p);
     float expected = brute(p);
     HS_EXPECT_TRUE(expected < thickness);
     HS_EXPECT_NEAR(r.raw_dist, expected, 3e-3f);
@@ -312,15 +312,17 @@ inline void test_distorted_ring_knot_extrema_tighten_band() {
     float polar = TARGET + knots[k];
     Vector p(cosf(azimuth) * sinf(polar), cosf(polar),
              sinf(azimuth) * sinf(polar));
-    HS_EXPECT_NEAR(ring.distance(p).raw_dist, 0.0f, 2e-4f);
+    HS_EXPECT_NEAR(SDF::distance_of(ring, p).raw_dist, 0.0f, 2e-4f);
   }
 
   float below = TARGET - 0.03f - THICKNESS - 1e-3f;
   float above = TARGET + 0.18f + THICKNESS + 1e-3f;
-  HS_EXPECT_GT(ring.distance(Vector(sinf(below), cosf(below), 0.0f)).dist,
-               50.0f);
-  HS_EXPECT_GT(ring.distance(Vector(sinf(above), cosf(above), 0.0f)).dist,
-               50.0f);
+  HS_EXPECT_GT(
+      SDF::distance_of(ring, Vector(sinf(below), cosf(below), 0.0f)).dist,
+      50.0f);
+  HS_EXPECT_GT(
+      SDF::distance_of(ring, Vector(sinf(above), cosf(above), 0.0f)).dist,
+      50.0f);
 }
 
 // ============================================================================
@@ -332,7 +334,7 @@ inline void test_polygon_at_center_inside() {
   Basis b = equator_basis();
   SDF::PlanarPolygon poly(b, /*thickness*/ 0.5f, /*sides*/ 6, /*phase*/ 0.0f);
 
-  auto r = poly.distance(Vector(0, 1, 0));
+  auto r = SDF::distance_of(poly, Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f);
   float apothem = 0.5f * std::cos(PI_F / 6.0f);
   HS_EXPECT_NEAR(r.dist, -apothem, 1e-3f);
@@ -343,7 +345,7 @@ inline void test_polygon_far_point_outside() {
   Basis b = equator_basis();
   SDF::PlanarPolygon poly(b, 0.3f, 6, 0.0f);
 
-  auto r = poly.distance(Vector(0, -1, 0));
+  auto r = SDF::distance_of(poly, Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
@@ -355,7 +357,7 @@ inline void test_polygon_far_point_outside() {
 inline void test_spherical_polygon_center_inside() {
   Basis b = equator_basis();
   SDF::SphericalPolygon sp(b, /*radius*/ 0.5f, /*sides*/ 5, /*phase*/ 0.0f);
-  auto r = sp.distance(Vector(0, 1, 0));
+  auto r = SDF::distance_of(sp, Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
@@ -363,7 +365,7 @@ inline void test_spherical_polygon_center_inside() {
 inline void test_spherical_polygon_far_outside() {
   Basis b = equator_basis();
   SDF::SphericalPolygon sp(b, 0.3f, 6, 0.0f);
-  auto r = sp.distance(Vector(0, -1, 0));
+  auto r = SDF::distance_of(sp, Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
@@ -384,13 +386,13 @@ inline void test_spherical_polygon_center_and_edge_magnitude() {
   const float R = radius * (PI_F / 2.0f);
   const float inradius = std::atan(std::tan(R) * std::cos(PI_F / sides));
 
-  auto center = sp.distance(Vector(0, 1, 0));
+  auto center = SDF::distance_of(sp, Vector(0, 1, 0));
   HS_EXPECT_NEAR(center.dist, -inradius, 1e-2f);
   HS_EXPECT_NEAR(center.raw_dist, 0.0f, 1e-3f);
 
   // Edge midpoint: polar angle = inradius along +u (the sector bisector).
   Vector edge_mid(std::sin(inradius), std::cos(inradius), 0.0f);
-  auto em = sp.distance(edge_mid);
+  auto em = SDF::distance_of(sp, edge_mid);
   HS_EXPECT_NEAR(em.dist, 0.0f, 1e-2f);
   HS_EXPECT_NEAR(em.raw_dist, inradius, 1e-2f);
 }
@@ -403,7 +405,7 @@ inline void test_spherical_polygon_center_and_edge_magnitude() {
 inline void test_star_center_inside() {
   Basis b = equator_basis();
   SDF::Star star(b, /*radius*/ 0.6f, /*sides*/ 5, /*phase*/ 0.0f);
-  auto r = star.distance(Vector(0, 1, 0));
+  auto r = SDF::distance_of(star, Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
@@ -411,7 +413,7 @@ inline void test_star_center_inside() {
 inline void test_star_far_outside() {
   Basis b = equator_basis();
   SDF::Star star(b, 0.4f, 5, 0.0f);
-  auto r = star.distance(Vector(0, -1, 0));
+  auto r = SDF::distance_of(star, Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
@@ -429,7 +431,7 @@ inline void test_star_tip_on_boundary() {
 
   const float outer = radius * (PI_F / 2.0f);
   Vector tip(std::sin(outer), std::cos(outer), 0.0f);
-  auto r = star.distance(tip);
+  auto r = SDF::distance_of(star, tip);
   HS_EXPECT_NEAR(r.dist, 0.0f, 1e-2f);
   HS_EXPECT_NEAR(r.raw_dist, outer, 1e-2f);
 }
@@ -455,7 +457,7 @@ inline void test_flower_interior_along_petal() {
   const float s = 0.1f;
   // From the antipode (-Y), step s toward +u (+X): interior of a petal.
   Vector p(std::sin(s), -std::cos(s), 0.0f);
-  auto r = flower.distance(p);
+  auto r = SDF::distance_of(flower, p);
   HS_EXPECT_NEAR(r.dist, s - outer, 1e-2f);
   HS_EXPECT_NEAR(r.raw_dist, s, 1e-3f);
 }
@@ -475,7 +477,7 @@ inline void test_flower_petal_tip_on_boundary() {
   const float outer = radius * (PI_F / 2.0f);
   // From the antipode (-Y), step `outer` toward +u (+X).
   Vector tip(std::sin(outer), -std::cos(outer), 0.0f);
-  auto r = flower.distance(tip);
+  auto r = SDF::distance_of(flower, tip);
   HS_EXPECT_NEAR(r.dist, 0.0f, 1e-2f);
   HS_EXPECT_NEAR(r.raw_dist, outer, 1e-2f);
 }
@@ -504,24 +506,24 @@ inline void test_inverted_fill_stays_centered() {
   const Vector far_side(0, -1, 0);
 
   SDF::SphericalPolygon sp(fb, fr, 5, 0.0f, /*invert=*/true);
-  HS_EXPECT_TRUE(sp.distance(center).dist < 0.0f);
-  HS_EXPECT_TRUE(sp.distance(far_side).dist > 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(sp, center).dist < 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(sp, far_side).dist > 0.0f);
 
   SDF::Star star(fb, fr, 5, 0.0f, /*invert=*/true);
-  HS_EXPECT_TRUE(star.distance(center).dist < 0.0f);
-  HS_EXPECT_TRUE(star.distance(far_side).dist > 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(star, center).dist < 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(star, far_side).dist > 0.0f);
 
   SDF::PlanarPolygon pp(fb, fr * (PI_F / 2.0f), 6, 0.0f, /*invert=*/true);
-  HS_EXPECT_TRUE(pp.distance(center).dist < 0.0f);
-  HS_EXPECT_TRUE(pp.distance(far_side).dist > 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(pp, center).dist < 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(pp, far_side).dist > 0.0f);
 
   // Flower fills around the antipode of its axis, so the sides swap; sample
   // off the exact poles (azimuth is degenerate there).
   SDF::Flower fl(fb, fr, 6, 0.0f, /*invert=*/true);
   Vector near_far(std::sin(0.1f), -std::cos(0.1f), 0.0f);
   Vector near_center(std::sin(0.1f), std::cos(0.1f), 0.0f);
-  HS_EXPECT_TRUE(fl.distance(near_far).dist < 0.0f);
-  HS_EXPECT_TRUE(fl.distance(near_center).dist > 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(fl, near_far).dist < 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(fl, near_center).dist > 0.0f);
 }
 
 /**
@@ -551,7 +553,7 @@ inline void test_line_on_arc_is_inside() {
   SDF::Line ln(a, bv, /*thickness*/ 0.1f);
 
   Vector mid = ((a + bv) * 0.5f).normalized();
-  auto r = ln.distance(mid);
+  auto r = SDF::distance_of(ln, mid);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-2f);
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-2f);
 }
@@ -561,7 +563,7 @@ inline void test_line_endpoint_is_on_line() {
   Vector a(1, 0, 0);
   Vector b(0, 0, 1);
   SDF::Line ln(a, b, 0.1f);
-  auto r = ln.distance(a);
+  auto r = SDF::distance_of(ln, a);
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-3f);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-3f);
 }
@@ -574,7 +576,7 @@ inline void test_line_perpendicular_off() {
 
   // Off the arc in +Y (perpendicular to the great-circle plane of a and b).
   Vector p = Vector(0.5f, 0.7f, 0.5f).normalized();
-  auto r = ln.distance(p);
+  auto r = SDF::distance_of(ln, p);
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
@@ -586,11 +588,11 @@ inline void test_line_perpendicular_off() {
 inline void test_line_degenerate_zero_length() {
   Vector a(1, 0, 0);
   SDF::Line ln(a, a, 0.1f);
-  auto r = ln.distance(a);
+  auto r = SDF::distance_of(ln, a);
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-3f);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-3f);
 
-  auto r2 = ln.distance(Vector(0, 1, 0));
+  auto r2 = SDF::distance_of(ln, Vector(0, 1, 0));
   HS_EXPECT_NEAR(r2.raw_dist, PI_F * 0.5f, 1e-2f);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
 }
@@ -849,11 +851,11 @@ inline void test_union_picks_closest_shape() {
   SDF::Union<SDF::Line, SDF::Line> u(la, lb);
 
   Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
-  auto r = u.distance(mid_a);
+  auto r = SDF::distance_of(u, mid_a);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-2f);
 
   Vector mid_b = ((Vector(-1, 0, 0) + Vector(0, 0, -1)) * 0.5f).normalized();
-  auto r2 = u.distance(mid_b);
+  auto r2 = SDF::distance_of(u, mid_b);
   HS_EXPECT_NEAR(r2.dist, -0.1f, 1e-2f);
 }
 
@@ -876,7 +878,7 @@ inline void test_subtract_inside_a_outside_b_remains_inside() {
   SDF::Subtract<SDF::Line, SDF::Line> s(la, lb);
 
   Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
-  auto r = s.distance(mid_a);
+  auto r = SDF::distance_of(s, mid_a);
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
@@ -886,7 +888,7 @@ inline void test_subtract_inside_both_becomes_outside() {
   SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
   SDF::Subtract<SDF::Line, SDF::Line> s(la, la);
   Vector mid = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
-  auto r = s.distance(mid);
+  auto r = SDF::distance_of(s, mid);
   // max(dist(A), -dist(B)) = max(-0.1, 0.1) = 0.1 → outside.
   HS_EXPECT_NEAR(r.dist, 0.1f, 1e-3f);
 }
@@ -897,7 +899,7 @@ inline void test_subtract_keeps_minuend_size_when_b_wins() {
   SDF::Line la(p, q, 0.1f);
   SDF::Line lb(p, q, 0.4f);
   SDF::Subtract<SDF::Line, SDF::Line> s(la, lb);
-  auto r = s.distance(((p + q) * 0.5f).normalized());
+  auto r = SDF::distance_of(s, ((p + q) * 0.5f).normalized());
   HS_EXPECT_NEAR(r.dist, 0.4f, 1e-3f);
   HS_EXPECT_NEAR(r.size, 0.1f, 1e-6f);
 }
@@ -1128,11 +1130,11 @@ inline void test_intersection_requires_both_inside() {
 
   // Endpoint a is on both arcs.
   Vector a(1, 0, 0);
-  auto r = inter.distance(a);
+  auto r = SDF::distance_of(inter, a);
   HS_EXPECT_TRUE(r.dist < 0.0f);
 
   Vector far_pt(-1, 0, 0);
-  auto r2 = inter.distance(far_pt);
+  auto r2 = SDF::distance_of(inter, far_pt);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
 }
 
@@ -1288,8 +1290,8 @@ inline void test_smooth_union_matches_union_far_from_boundary() {
   SDF::SmoothUnion<SDF::Line, SDF::Line> su(la, lb, /*k*/ 0.05f);
 
   Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
-  auto r_hard = u.distance(mid_a);
-  auto r_soft = su.distance(mid_a);
+  auto r_hard = SDF::distance_of(u, mid_a);
+  auto r_soft = SDF::distance_of(su, mid_a);
   HS_EXPECT_NEAR(r_hard.dist, r_soft.dist, 1e-3f);
 }
 
@@ -1310,23 +1312,23 @@ inline void test_smooth_union_blends_inside_band() {
   // Both arcs lie in the y=0 plane, so the north pole is equidistant from both
   // (|dA - dB| ≈ 0), maximizing the cubic blend (h == 1, m == k/6).
   Vector p(0, 1, 0);
-  float dA = la.distance(p).dist;
-  float dB = lb.distance(p).dist;
+  float dA = SDF::distance_of(la, p).dist;
+  float dB = SDF::distance_of(lb, p).dist;
   HS_EXPECT_TRUE(std::abs(dA - dB) < k);
 
   float h = std::max(k - std::abs(dA - dB), 0.0f) / k;
   float m = h * h * h * k * (1.0f / 6.0f);
-  float soft = su.distance(p).dist;
+  float soft = SDF::distance_of(su, p).dist;
   HS_EXPECT_NEAR(soft, std::min(dA, dB) - m, 1e-4f);
   HS_EXPECT_LT(soft, std::min(dA, dB) - 1e-4f);
   HS_EXPECT_NEAR(std::min(dA, dB) - soft, m, 1e-4f);
 
   // Outside the band the blend vanishes and collapses to the hard min.
   Vector q = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
-  float qA = la.distance(q).dist;
-  float qB = lb.distance(q).dist;
+  float qA = SDF::distance_of(la, q).dist;
+  float qB = SDF::distance_of(lb, q).dist;
   HS_EXPECT_TRUE(std::abs(qA - qB) >= k);
-  HS_EXPECT_NEAR(su.distance(q).dist, std::min(qA, qB), 1e-5f);
+  HS_EXPECT_NEAR(SDF::distance_of(su, q).dist, std::min(qA, qB), 1e-5f);
 }
 
 /**
@@ -1508,8 +1510,8 @@ inline void test_angular_repeat_matches_base_at_zero_angle() {
 
   Vector mid =
       ((Vector(1, 0, 0) + Vector(0.7071f, 0, 0.7071f)) * 0.5f).normalized();
-  auto r_base = ln.distance(mid);
-  auto r_rep = rep.distance(mid);
+  auto r_base = SDF::distance_of(ln, mid);
+  auto r_rep = SDF::distance_of(rep, mid);
   HS_EXPECT_TRUE(r_rep.dist < 0.0f);
   HS_EXPECT_NEAR(r_rep.dist, r_base.dist, 1e-3f);
 }
@@ -1525,7 +1527,7 @@ inline void test_angular_repeat_creates_copies() {
   Quaternion q90 = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
   Vector mid_rot = rotate(mid, q90);
 
-  auto r = rep.distance(mid_rot);
+  auto r = SDF::distance_of(rep, mid_rot);
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
@@ -1552,15 +1554,15 @@ inline void test_angular_repeat_t_is_sector_local() {
 
   // The un-repeated ring sees two global azimuths one sector apart (sign is
   // handedness-dependent, so compare the wrapped gap).
-  float t_global_1 = ring.distance(p).t;
-  float t_global_2 = ring.distance(p2).t;
+  float t_global_1 = SDF::distance_of(ring, p).t;
+  float t_global_2 = SDF::distance_of(ring, p2).t;
   float dg = t_global_2 - t_global_1;
   dg -= floorf(dg);
   HS_EXPECT_NEAR(std::min(dg, 1.0f - dg), 1.0f / reps, 1e-3f);
 
   // The repeated shape folds both into the same sector → identical sector-local t.
-  float t_rep_1 = rep.distance(p).t;
-  float t_rep_2 = rep.distance(p2).t;
+  float t_rep_1 = SDF::distance_of(rep, p).t;
+  float t_rep_2 = SDF::distance_of(rep, p2).t;
   HS_EXPECT_NEAR(t_rep_1, t_rep_2, 1e-3f);
   HS_EXPECT_NEAR(t_rep_1, t_global_1, 1e-3f);
 }
@@ -1632,7 +1634,7 @@ inline int expect_cull_covers_interior(const Shape &shape) {
     float cp = TrigLUT<W, H>::cos_phi[y];
     for (int x = 0; x < W; ++x) {
       Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
-      if (shape.distance(p).dist < -pixel_width) {
+      if (SDF::distance_of(shape, p).dist < -pixel_width) {
         ++interior;
         HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
       }
@@ -1882,7 +1884,7 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
     float cp = TrigLUT<W, H>::cos_phi[y];
     for (int x = 0; x < W; ++x) {
       Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
-      if (face.distance(p).dist < pixel_width) {
+      if (SDF::distance_of(face, p).dist < pixel_width) {
         ++paintable;
         HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
       }
@@ -1972,7 +1974,7 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
           (face.basis_v + face.basis_u * px + face.basis_w * py).normalized();
 
       hs::g_scan_metrics.exact_hits = 0;
-      SDF::DistanceResult res = face.distance(p);
+      SDF::DistanceResult res = SDF::distance_of(face, p);
       SDF::DistanceResult cached_res;
       face.distance_with_flags(p, cached_res, FLT_MAX, probe_flags);
       HS_EXPECT_EQ(std::memcmp(&res, &cached_res, sizeof(res)), 0);
@@ -2164,7 +2166,7 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
 
       hs::g_scan_metrics.lut_hits = 0;
       hs::g_scan_metrics.exact_hits = 0;
-      SDF::DistanceResult res = face.distance(p);
+      SDF::DistanceResult res = SDF::distance_of(face, p);
       SDF::DistanceResult cached_res;
       face.distance_with_flags(p, cached_res, FLT_MAX, probe_flags);
       HS_EXPECT_EQ(std::memcmp(&res, &cached_res, sizeof(res)), 0);
