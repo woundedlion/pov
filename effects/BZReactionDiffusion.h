@@ -58,6 +58,7 @@ class BZReactionDiffusion
   using Base::for_each_neighbor;
   using Base::init_lattice;
   using Base::nodes;
+  using Base::orient_nodes;
   using Base::orientation;
   using Base::RD_K;
   using Base::RD_N;

@@ -12,23 +12,6 @@
 #include <utility>
 
 /**
- * @brief Rotates the lattice nodes into world space by one quaternion.
- * @param nodes Lattice-space node positions, count entries.
- * @param world Output world-space positions, count entries.
- * @param count Node count.
- * @param q Lattice-to-world rotation (the current view orientation).
- * @details Rotating the lattice once per frame lets the per-sub-sample kernel
- * walks compare world-space queries directly instead of un-orienting every
- * query. Non-template so HS_COLD reliably keeps the loop off ITCM.
- */
-[[maybe_unused]] HS_COLD static void orient_nodes(const Vector *nodes,
-                                                  Vector *world, int count,
-                                                  const Quaternion &q) {
-  for (int i = 0; i < count; ++i)
-    world[i] = rotate(nodes[i], q);
-}
-
-/**
  * @brief CRTP base for the spherical reaction-diffusion effects (BZ, Gray-Scott).
  * @tparam Derived Concrete effect supplying the system-specific render().
  * @tparam W Framebuffer width in pixels.
@@ -275,6 +258,22 @@ private:
   }
 
 protected:
+  /**
+   * @brief Rotates the lattice nodes into world space by one quaternion.
+   * @param nodes Lattice-space node positions, count entries.
+   * @param world Output world-space positions, count entries.
+   * @param count Node count.
+   * @param q Lattice-to-world rotation (the current view orientation).
+   * @details Rotating the lattice once per frame lets the per-sub-sample kernel
+   * walks compare world-space queries directly instead of un-orienting every
+   * query.
+   */
+  HS_COLD_MEMBER static void orient_nodes(const Vector *nodes, Vector *world,
+                                          int count, const Quaternion &q) {
+    for (int i = 0; i < count; ++i)
+      world[i] = rotate(nodes[i], q);
+  }
+
   /**
    * @brief Reserves and fills the shared lattice, then arms the view animation.
    * @details Bundles the three steps every derived `init()` must perform

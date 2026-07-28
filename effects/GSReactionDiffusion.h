@@ -21,39 +21,6 @@ struct GSWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Builds per-node two-ring "renderable" flags for the B field.
- * @param b Per-node B concentrations, Q16.
- * @param hot1 Scratch: per-node flag, set when any of {node, neighbors}
- *        reaches the threshold.
- * @param hot2 Output: per-node flag, set when any node within two hops
- *        reaches the threshold.
- * @param count Node count.
- * @param threshold Q16 render floor.
- * @details A kernel sample is a convex average over the refined stencil and
- * the refined center is at most one hop from the seed, so a seed whose
- * two-ring sits entirely below the floor cannot produce a renderable sample —
- * culling on !hot2[seed] is exact, not approximate. Non-template so HS_COLD
- * reliably keeps the once-per-frame pass off ITCM.
- */
-[[maybe_unused]] HS_COLD static void fill_hot_flags(const uint16_t *b,
-                                                    uint8_t *hot1,
-                                                    uint8_t *hot2, int count,
-                                                    uint16_t threshold) {
-  for (int i = 0; i < count; ++i) {
-    bool hot = b[i] >= threshold;
-    for (int k = 0; k < ReactionGraph::RD_K && !hot; ++k)
-      hot = b[ReactionGraph::neighbors[i][k]] >= threshold;
-    hot1[i] = hot;
-  }
-  for (int i = 0; i < count; ++i) {
-    bool hot = hot1[i];
-    for (int k = 0; k < ReactionGraph::RD_K && !hot; ++k)
-      hot = hot1[ReactionGraph::neighbors[i][k]];
-    hot2[i] = hot;
-  }
-}
-
-/**
  * @brief Gray-Scott reaction-diffusion on a Fibonacci lattice sphere.
  *
  * @tparam W Canvas width in pixels.
@@ -93,6 +60,7 @@ class GSReactionDiffusion
   using Base::for_each_neighbor;
   using Base::init_lattice;
   using Base::nodes;
+  using Base::orient_nodes;
   using Base::orientation;
   using Base::RD_K;
   using Base::RD_N;
@@ -411,6 +379,37 @@ private:
     if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
       return 0.0f;
     return wb / tw;
+  }
+
+  /**
+   * @brief Builds per-node two-ring "renderable" flags for the B field.
+   * @param b Per-node B concentrations, Q16.
+   * @param hot1 Scratch: per-node flag, set when any of {node, neighbors}
+   *        reaches the threshold.
+   * @param hot2 Output: per-node flag, set when any node within two hops
+   *        reaches the threshold.
+   * @param count Node count.
+   * @param threshold Q16 render floor.
+   * @details A kernel sample is a convex average over the refined stencil and
+   * the refined center is at most one hop from the seed, so a seed whose
+   * two-ring sits entirely below the floor cannot produce a renderable sample —
+   * culling on !hot2[seed] is exact, not approximate.
+   */
+  HS_COLD_MEMBER static void fill_hot_flags(const uint16_t *b, uint8_t *hot1,
+                                            uint8_t *hot2, int count,
+                                            uint16_t threshold) {
+    for (int i = 0; i < count; ++i) {
+      bool hot = b[i] >= threshold;
+      for (int k = 0; k < RD_K && !hot; ++k)
+        hot = b[ReactionGraph::neighbors[i][k]] >= threshold;
+      hot1[i] = hot;
+    }
+    for (int i = 0; i < count; ++i) {
+      bool hot = hot1[i];
+      for (int k = 0; k < RD_K && !hot; ++k)
+        hot = hot1[ReactionGraph::neighbors[i][k]];
+      hot2[i] = hot;
+    }
   }
 
   /**
