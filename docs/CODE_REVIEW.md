@@ -175,7 +175,7 @@ No Critical findings. Numbering runs sequentially across all priority sections.
 
 47. ✅ **A listener unsubscribed mid-dispatch still receives the in-flight event, contradicting its own comment** — `daydream/state.js:101-103`. The `slice()` snapshot makes *addition* safe, not removal. Verified by execution: a torn-down consumer gets one more callback after unhooking — the exact hazard `dispose()` exists to prevent. Fix: re-check membership per call; correct the comment.
 
-48. **Clearing a tracked key leaves its stale value in the URL, which re-seeds state on reload** — `daydream/state.js:293-298,250-253`. `flush()` skips tracked keys whose value is nullish but never *deletes* the param. The ad-hoc writer `setParam(k, null)` correctly deletes — the two writers disagree on what "no value" means. Verified by execution. Fix: `params.delete(key)` on the tracked path.
+48. ✅ **Clearing a tracked key leaves its stale value in the URL, which re-seeds state on reload** — `daydream/state.js:293-298,250-253`. `flush()` skips tracked keys whose value is nullish but never *deletes* the param. The ad-hoc writer `setParam(k, null)` correctly deletes — the two writers disagree on what "no value" means. Verified by execution. Fix: `params.delete(key)` on the tracked path.
 
 49. **`scrollArrowState`'s deadzone goes negative for sub-1px overflow** — `daydream/sidebar_logic.js:89`. `Math.min(4, (maxScroll-1)/2)` is negative when `maxScroll < 1`, so the left arrow appears while the list is pinned to the start. Fractional `scrollWidth` is routine under browser zoom and fractional DPI; every existing test uses `maxScroll ≥ 4`. Verified by execution. Fix: `Math.max(0, ...)`.
 
