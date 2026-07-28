@@ -38,6 +38,12 @@
  *         checkStaleTransfer(), and transmitAsync(const uint8_t*, size_t).
  * @note One instance per firmware image: it drives the singleton TeensySPIDMA
  *       backing the shared DMA-completion ISR, so a second begin() traps.
+ * @note A static instance belongs in DMAMEM: the HD107SFrame buffers are the
+ *       eDMA TX source, and only in cached OCRAM is their arm_dcache_flush()
+ *       write-back meaningful (in DTCM it is a no-op). GCC silently drops the
+ *       DMAMEM section attribute on a vague-linkage template static member, so
+ *       such an instance must be defined as an explicit specialization, whose
+ *       ordinary strong linkage keeps the attribute.
  *
  * Typical ISR usage (per column):
  *   auto& f = controller.backFrame();  // back buffer (not being DMA'd)
