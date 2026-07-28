@@ -174,20 +174,6 @@ private:
     }
   }
 
-  /**
-   * @brief Tunable shader and animation parameters exposed via register_param.
-   */
-  struct Params {
-    float pulse_speed = 5.0f;
-    float fill = 0.75f;
-    float max_steps = 18.0f;
-    float diffuse = 0.4f;
-    float specular = 1.2f;
-    float fresnel = 0.2f;
-    float twist = 2.0f;
-    float aa_mult = 0.5f;
-  } params;
-
   FastNoiseLite noise;
   Vector normal = Y_AXIS;
   Orientation<> camera;
@@ -204,6 +190,20 @@ private:
                             BrightnessProfile::BELL, SaturationProfile::VIBRANT,
                             219};
   BakedPalette baked_palette;
+
+  /**
+   * @brief Tunable shader and animation parameters exposed via register_param.
+   */
+  struct Params {
+    float pulse_speed = 5.0f;
+    float fill = 0.75f;
+    float max_steps = 18.0f;
+    float diffuse = 0.4f;
+    float specular = 1.2f;
+    float fresnel = 0.2f;
+    float twist = 2.0f;
+    float aa_mult = 0.5f;
+  } params;
 };
 
 #include "core/engine/effect_registry.h"

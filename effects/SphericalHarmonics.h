@@ -334,14 +334,6 @@ private:
                         }));
   }
 
-  /**
-   * @brief User-tunable parameters for the visualizer.
-   */
-  struct Params {
-    float amplitude = 3.2f; /**< Field-value gain applied before coloring. */
-    bool debug_bb = false;  /**< Whether to draw bounding-box debug overlay. */
-  } params;
-
   Orientation<> orientation;  /**< Current sphere orientation. */
   Timeline timeline;          /**< Drives spin and morph animations. */
   Pipeline<W, H> filters;     /**< Post-process filter pipeline. */
@@ -370,6 +362,14 @@ private:
   int next_idx = 0;    /**< Flat index of the mode being morphed toward. */
   float morph_alpha =
       0.0f; /**< Morph progress in [0, 1] from current to next. */
+
+  /**
+   * @brief User-tunable parameters for the visualizer.
+   */
+  struct Params {
+    float amplitude = 3.2f; /**< Field-value gain applied before coloring. */
+    bool debug_bb = false;  /**< Whether to draw bounding-box debug overlay. */
+  } params;
 };
 
 #include "core/engine/effect_registry.h"

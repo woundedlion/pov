@@ -229,7 +229,6 @@ private:
       hue_shift = hs::lerp(a.hue_shift, b.hue_shift, t);
     }
   };
-  Params params;
 
   static constexpr float WARP_SCALE_MIN = 0.1f, WARP_SCALE_MAX = 100.0f;
   static constexpr float WARP_STRENGTH_MIN = 0.0f, WARP_STRENGTH_MAX = 30.0f;
@@ -268,6 +267,8 @@ private:
                 "exposes the presets, it does not clamp them)");
 
   Presets<Params, 5> presets{PRESETS};
+
+  Params params;
 
   static_assert(gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) <=
                     DEVICE_PERSISTENT_BUDGET,
