@@ -2002,7 +2002,7 @@ index.html → vendor-importmap.js           segment_worker.js × N
               └─ VideoRecorder (MediaRecorder)
 ```
 
-A normal page load creates one WASM instance on the main thread. The dot mesh has one instance per LED pixel; the per-frame work is `instanceColor.needsUpdate = true` after the WASM buffer view is refreshed. When the user enables Segmented POV (§10.5), `daydream.js` spawns N Web Workers, each holding its own WASM module so the four-Teensy Phantasm layout can be exercised in software.
+A normal page load creates one WASM instance on the main thread. The dot mesh has one instance per LED pixel; the per-frame work is `instanceColor.needsUpdate = true` after the WASM buffer view is refreshed. When the user enables Segmented POV (§10.7), `daydream.js` spawns N Web Workers, each holding its own WASM module so the four-Teensy Phantasm layout can be exercised in software.
 
 ### 10.2 The WASM Bridge
 
