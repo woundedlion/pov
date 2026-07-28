@@ -23,6 +23,9 @@
  *     vertex counts and positions.
  *   - Sliver-face invariant: every Islamic recipe keeps its longest geodesic
  *     edge within 6x the median edge.
+ *   - Topology-hash rounding margin: no registered solid has an interior angle
+ *     within TOPOLOGY_ANGLE_MARGIN_DEG of the X.5 boundary the classifier's
+ *     whole-degree quantisation rounds on.
  *   - Recipe tables: every entry with a non-null recipe replays bitwise-equal
  *     to its generator, lowered (expand_to_primitives) replay is bitwise-equal
  *     to authored replay, and each composite op's decomposition is pinned.
@@ -200,6 +203,149 @@ inline void test_islamic_solids_have_no_sliver_edges() {
     float max = edges.back();
     HS_EXPECT_TRUE(max <= 6.0f * median);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Topology-hash rounding margin. classify_faces_impl quantises every interior
+// angle to whole degrees and hashes the sorted result into the topology id that
+// drives palette assignment. The region compiles -O3 -ffast-math on the device
+// image and unmodified on host, so an angle sitting on an X.5 boundary rounds
+// one way on host and can round the other on a board: a different palette class
+// for the same shape, on a rig that requires every board to agree.
+// ---------------------------------------------------------------------------
+
+// Minimum tolerated distance from an X.5 rounding boundary, in degrees. Derived
+// from two measured quantities, and asserted against both below: the roster's
+// tightest angle clears a boundary by 1.05e-3 deg
+// (truncatedOctahedron_gyro_kis_hk17, 98.501053 deg), and the worst float
+// rounding uncertainty of the angle expression itself is 2.47e-4 deg
+// (dodecahedron_hk35_ambo_hk62_ambo_relax_hk42). The floor sits ~2x above the
+// uncertainty and ~2x below the tightest angle.
+inline constexpr float TOPOLOGY_ANGLE_MARGIN_DEG = 5e-4f;
+
+/**
+ * @brief Interior angle at corner `k` of a face, in degrees, before rounding.
+ * @param m Mesh owning the vertices.
+ * @param idx Start of the face's index run.
+ * @param count Sides in the face.
+ * @param k Corner to measure.
+ * @return The value classify_faces_impl rounds to a whole degree.
+ * @details Mirrors classify_faces_impl (core/mesh/mesh.h) term for term:
+ *          unnormalized edges, the same degenerate-edge cutoff, fast_acos.
+ */
+inline float classifier_angle_deg(const PolyMesh &m, const uint16_t *idx,
+                                  int count, int k) {
+  const int prev_k = k == 0 ? count - 1 : k - 1;
+  const int next_k = k + 1 == count ? 0 : k + 1;
+  const Vector e1 = m.vertices[idx[prev_k]] - m.vertices[idx[k]];
+  const Vector e2 = m.vertices[idx[next_k]] - m.vertices[idx[k]];
+  const float m1 = dot(e1, e1);
+  const float m2 = dot(e2, e2);
+  if (!(m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ))
+    return 0.0f;
+  const float d = hs::clamp(dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
+  return fast_acos(d) * 180.0f / PI_F;
+}
+
+/**
+ * @brief classifier_angle_deg evaluated in double from the same float vertices.
+ * @param m Mesh owning the vertices.
+ * @param idx Start of the face's index run.
+ * @param count Sides in the face.
+ * @param k Corner to measure.
+ * @return The same expression, including fast_acos's polynomial, in double.
+ * @details Rounding-uncertainty oracle for the margin floor. fast_acos's
+ *          approximation error is a property of the polynomial and cancels in
+ *          the difference, so what is left is how far float intermediate
+ *          rounding alone can move the angle — the same lever -ffast-math pulls
+ *          on device via reassociation, FMA contraction, and reciprocal
+ *          division.
+ */
+inline double classifier_angle_deg_ref(const PolyMesh &m, const uint16_t *idx,
+                                       int count, int k) {
+  constexpr double PI_D = 3.14159265358979323846;
+  const int prev_k = k == 0 ? count - 1 : k - 1;
+  const int next_k = k + 1 == count ? 0 : k + 1;
+  const Vector &prev = m.vertices[idx[prev_k]];
+  const Vector &curr = m.vertices[idx[k]];
+  const Vector &next = m.vertices[idx[next_k]];
+  const double e1x = (double)prev.x - curr.x;
+  const double e1y = (double)prev.y - curr.y;
+  const double e1z = (double)prev.z - curr.z;
+  const double e2x = (double)next.x - curr.x;
+  const double e2y = (double)next.y - curr.y;
+  const double e2z = (double)next.z - curr.z;
+  const double m1 = e1x * e1x + e1y * e1y + e1z * e1z;
+  const double m2 = e2x * e2x + e2y * e2y + e2z * e2z;
+  if (!(m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ))
+    return 0.0;
+  double d = (e1x * e2x + e1y * e2y + e1z * e2z) / std::sqrt(m1 * m2);
+  d = d < -1.0 ? -1.0 : (d > 1.0 ? 1.0 : d);
+  const double ax = d < 0.0 ? -d : d;
+  const double r =
+      std::sqrt(1.0 - ax) *
+      (1.5707963 + ax * (-0.2121144 + ax * (0.0742610 + ax * -0.0187293)));
+  return (d < 0.0 ? PI_D - r : r) * 180.0 / PI_D;
+}
+
+/**
+ * @brief Verifies no registered solid has an interior angle within
+ *        TOPOLOGY_ANGLE_MARGIN_DEG of a whole-degree rounding boundary, and
+ *        that the floor still exceeds the expression's rounding uncertainty.
+ * @details An angle at X.5 rounds on a coin flip between the host build and the
+ *          device's -ffast-math classifier region, and the rounded angles are
+ *          the topology hash, so the two builds would hand the same solid
+ *          different palette classes. Sweeps every entry in all three
+ *          registries, naming the offending entry, face, and corner. The second
+ *          assertion keeps the floor honest: a generator retune that made the
+ *          angle expression less well conditioned than the margin would leave a
+ *          passing sweep meaningless.
+ */
+inline void test_registry_angles_clear_rounding_boundary() {
+  size_t measured = 0;
+  double worst_uncertainty = 0.0;
+  for (size_t i = 0; i < Solids::NUM_ENTRIES; ++i) {
+    Arena geom(solids_geom_a, sizeof(solids_geom_a));
+    PolyMesh m = build_index(i, geom);
+    const uint8_t *fc = m.get_face_counts_data();
+    const uint16_t *faces = m.get_faces_data();
+    const size_t F = m.get_face_counts_size();
+    size_t off = 0;
+    for (size_t f = 0; f < F; ++f) {
+      const int count = fc[f];
+      if (count < 3) {
+        off += count;
+        continue;
+      }
+      for (int k = 0; k < count; ++k) {
+        const float deg = classifier_angle_deg(m, faces + off, count, k);
+        const float margin = std::fabs(deg - std::floor(deg) - 0.5f);
+        if (margin < TOPOLOGY_ANGLE_MARGIN_DEG)
+          std::printf("  [angle margin] %s: face %zu corner %d angle %.6f deg "
+                      "sits %.6f deg from an X.5 rounding boundary\n",
+                      Solids::get_entry(i).name, f, k, static_cast<double>(deg),
+                      static_cast<double>(margin));
+        HS_EXPECT_TRUE(margin >= TOPOLOGY_ANGLE_MARGIN_DEG);
+
+        const double uncertainty =
+            std::fabs(static_cast<double>(deg) -
+                      classifier_angle_deg_ref(m, faces + off, count, k));
+        if (uncertainty > worst_uncertainty)
+          worst_uncertainty = uncertainty;
+        ++measured;
+      }
+      off += count;
+    }
+  }
+  if (worst_uncertainty >= TOPOLOGY_ANGLE_MARGIN_DEG)
+    std::printf("  [angle margin] rounding uncertainty %.6g deg has reached "
+                "the %.6g deg margin floor; the sweep no longer proves "
+                "anything\n",
+                worst_uncertainty,
+                static_cast<double>(TOPOLOGY_ANGLE_MARGIN_DEG));
+  HS_EXPECT_TRUE(worst_uncertainty < TOPOLOGY_ANGLE_MARGIN_DEG);
+  // Guards against a vacuous pass on an empty or all-degenerate sweep.
+  HS_EXPECT_TRUE(measured > 0);
 }
 
 /**
@@ -985,6 +1131,7 @@ inline int run_solids_tests() {
   test_catalan_registry_solids_are_spherical_and_valid();
   test_islamic_registry_solids_are_valid();
   test_islamic_solids_have_no_sliver_edges();
+  test_registry_angles_clear_rounding_boundary();
 
   test_euler_platonic_solids();
   test_euler_archimedean_catalan_solids();
