@@ -81,23 +81,40 @@ target_compile_options(run_tests PRIVATE -Wall -Wextra -Werror)
 #     runtime-free UBSan in trap mode — a UB hit becomes an immediate trap,
 #     consistent with the engine's always-on fail-fast doctrine.
 option(HS_SANITIZE "Build the unit tests with sanitizers (ASan+UBSan, or UBSan-trap on Windows)" OFF)
-if(HS_SANITIZE)
+
+# Applies the sanitizer flavour to one target; a no-op when HS_SANITIZE is OFF.
+# Every CTest-registered executable the sanitizers job runs must call this, or it
+# rides that job unsanitized. The stack_measure/arena_measure budget gates are
+# the deliberate exception: ASan redzones and instrumentation inflate the frame
+# sizes and codegen they measure against the device build.
+function(_hs_sanitize target)
+  if(NOT HS_SANITIZE)
+    return()
+  endif()
   # Suppress only signed-integer-overflow inside vendored FastNoiseLite (its
   # hashing wraps signed ints by design); first-party code keeps full coverage.
-  set(_hs_ubsan_ignore "-fsanitize-ignorelist=${CMAKE_CURRENT_SOURCE_DIR}/ubsan-ignorelist.txt")
+  set(_ignore "-fsanitize-ignorelist=${CMAKE_CURRENT_SOURCE_DIR}/ubsan-ignorelist.txt")
   if(WIN32)
-    target_compile_options(run_tests PRIVATE
-      -fsanitize=undefined -fsanitize-trap=undefined ${_hs_ubsan_ignore}
+    target_compile_options(${target} PRIVATE
+      -fsanitize=undefined -fsanitize-trap=undefined ${_ignore}
       -fno-omit-frame-pointer -g)
+  else()
+    target_compile_options(${target} PRIVATE
+      -fsanitize=address,undefined -fno-sanitize-recover=all ${_ignore}
+      -fno-omit-frame-pointer -g)
+    target_link_options(${target} PRIVATE -fsanitize=address,undefined)
+  endif()
+endfunction()
+
+if(HS_SANITIZE)
+  if(WIN32)
     message(STATUS "Unit tests: UBSan (trap mode) enabled — no ASan runtime on emsdk clang")
   else()
-    target_compile_options(run_tests PRIVATE
-      -fsanitize=address,undefined -fno-sanitize-recover=all ${_hs_ubsan_ignore}
-      -fno-omit-frame-pointer -g)
-    target_link_options(run_tests PRIVATE -fsanitize=address,undefined)
     message(STATUS "Unit tests: ASan + UBSan enabled (HS_SANITIZE=ON)")
   endif()
 endif()
+
+_hs_sanitize(run_tests)
 
 enable_testing()
 
@@ -183,6 +200,7 @@ target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/co
 # the regression signal we want.
 target_compile_options(fastmath_clamp_check PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
+_hs_sanitize(fastmath_clamp_check)
 add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 
 # Relax-bake re-derivation gate. The committed payloads in
@@ -198,6 +216,7 @@ add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(relax_bake_verify PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_VERIFY)
 target_include_directories(relax_bake_verify PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+_hs_sanitize(relax_bake_verify)
 add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
 
 # The generator half of the same harness (HS_RELAX_BAKE_EXTRACT dumps the
@@ -229,6 +248,7 @@ target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/c
 # the full engine barrel but uses only the AntiAlias/TrigLUT slice, so the barrel's
 # many static helpers would trip -Wunused-function. Engine-header hygiene is
 # enforced by the main run_tests target, which compiles the same headers -Werror.
+_hs_sanitize(h_offset_renorm_check)
 add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 
 # Host stack high-water-mark gate across every effect. Built -Os + the device
