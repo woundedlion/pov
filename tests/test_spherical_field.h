@@ -183,6 +183,33 @@ inline void test_longitude_filter_and_sampler_wrap_poles() {
   HS_EXPECT_EQ(b, 102 + 7 + W / 2);
 }
 
+inline void test_sampler_wraps_south_pole_with_virtual_rows() {
+  constexpr int W = 64;
+  constexpr int H = 34;
+  constexpr hs::SphericalFieldLayout<W, H, 3> layout(4, 4, 1, W / 4);
+  // South pole sits at virtual row H + HOffset - 1 = 36, not H - 1.
+  int col = 7;
+  int row = 40;
+  HS_EXPECT_TRUE(layout.wrap_sample(col, row));
+  HS_EXPECT_EQ(row, 32);
+  HS_EXPECT_EQ(col, 7 + W / 2);
+
+  col = 7;
+  row = 37;
+  HS_EXPECT_FALSE(layout.wrap_sample(col, row));
+
+  const int sample = layout.sample_bilinear(
+      7.0f, 40.0f, -1, 0, [](int x, int y) { return y * 100 + x; },
+      [](int p00, int p10, int p01, int p11, float fx, float fy) {
+        const float lower =
+            hs::lerp(static_cast<float>(p00), static_cast<float>(p10), fx);
+        const float upper =
+            hs::lerp(static_cast<float>(p01), static_cast<float>(p11), fx);
+        return static_cast<int>(hs::lerp(lower, upper, fy));
+      });
+  HS_EXPECT_EQ(sample, 3200 + 7 + W / 2);
+}
+
 inline int run_spherical_field_tests() {
   hs_test::ModuleFixture fixture("spherical_field");
   test_constexpr_layout_counts();
@@ -194,6 +221,7 @@ inline int run_spherical_field_tests() {
   test_populate_band_preserves_other_samples();
   test_longitude_filter_tracks_spherical_width();
   test_longitude_filter_and_sampler_wrap_poles();
+  test_sampler_wraps_south_pole_with_virtual_rows();
   return fixture.result();
 }
 
