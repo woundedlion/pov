@@ -20,7 +20,6 @@
 #include <algorithm> // for std::min
 #include <cmath>     // for std::sqrt
 #include <cstdio>    // for std::printf
-#include <random>    // for std::mt19937, std::uniform_real_distribution
 
 #include "core/engine/reaction_graph.h"
 #include "tests/test_3dmath.h" // for HS_EXPECT_VEC
@@ -352,7 +351,8 @@ inline void test_cubemap_lut_roundtrip() {
  *          the true nearest node by an exhaustive O(RD_N) scan, and requires
  *          lookup() to return that node or one of its direct neighbors for the
  *          overwhelming majority — the same one-cell tolerance the round-trip
- *          test allows. The mt19937 is locally seeded so the sample set is fixed.
+ *          test allows. The generator is local and the draw-to-float mapping
+ *          explicit, so every platform samples the same point set.
  */
 inline void test_cubemap_lut_offlattice() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
@@ -362,8 +362,7 @@ inline void test_cubemap_lut_offlattice() {
   ReactionGraph::CubemapLUT lut;
   lut.build(arena);
 
-  std::mt19937 rng(20240607u);
-  std::uniform_real_distribution<float> uni(-1.0f, 1.0f);
+  hs::Pcg32 rng(20240607u);
   const int SAMPLES = 400;
   int exact = 0, near = 0, miss = 0;
   for (int s = 0; s < SAMPLES; ++s) {
@@ -371,7 +370,10 @@ inline void test_cubemap_lut_offlattice() {
     Vector q;
     float len2;
     do {
-      q = Vector(uni(rng), uni(rng), uni(rng));
+      const float x = rand_uniform(rng, -1.0f, 1.0f);
+      const float y = rand_uniform(rng, -1.0f, 1.0f);
+      const float z = rand_uniform(rng, -1.0f, 1.0f);
+      q = Vector(x, y, z);
       len2 = q.x * q.x + q.y * q.y + q.z * q.z;
     } while (len2 < 0.01f);
     q = q.normalized();
