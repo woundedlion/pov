@@ -70,13 +70,13 @@ public:
    * count mid-leg). Measured sufficient for every Phase-1 leg. */
   static constexpr float K_EPS = 0.005f;
 
-  /** Frames over which a late-fading leg's colour diverges from the held
-   * source palette to its target (late_blend_weight). Colour holds at `from`
-   * until this many frames remain, then ramps to `to` at the arrival. Keyed
-   * off frames-from-the-end so the window is the same few frames on any leg
-   * length: the leg's whole colour movement lands at its very end instead of
-   * drifting mid-morph. */
-  static constexpr int LATE_FADE_FRAMES = 4;
+  /** Default trailing blend window: frames over which a trailing-blend leg's
+   * colour diverges from the held source palette to its target
+   * (trailing_blend). Colour holds at `from` until this many frames remain,
+   * then ramps to `to` at the arrival. Keyed off frames-from-the-end so the
+   * window is the same few frames on any leg length: the leg's whole colour
+   * movement lands at its very end instead of drifting mid-morph. */
+  static constexpr int TRAILING_BLEND_FRAMES = 4;
 
   /** Perceptual-congruence tolerance for colour-cohort keys, degrees:
    * same-degree birth classes whose sorted interior-angle vectors sit within
@@ -119,7 +119,7 @@ public:
   /**
    * @brief Crossfade-weight curve of a swept leg: resolved weight in [0, 1]
    * for a 1-based leg frame over the whole leg duration (sweep plus settle).
-   * Supplied at construction (classic_blend default, late_blend_weight for the
+   * Supplied at construction (classic_blend default, trailing_blend for the
    * build legs), mirroring easing_fn.
    */
   using BlendWeightFn = float (*)(int frame, int duration);
@@ -946,9 +946,27 @@ public:
   }
 
   /**
-   * @brief Late-fade crossfade weight (the build legs and the gate): exactly 0
-   * until the final LATE_FADE_FRAMES of the leg, then smoothstep to exactly 1
-   * at the arrival frame.
+   * @brief Trailing-window crossfade weight: exactly 0 until the final @p
+   * window frames of the leg, then smoothstep to exactly 1 at the arrival
+   * frame.
+   * @param frame 1-based leg frame (1..duration).
+   * @param duration Whole leg length in frames (sweep plus settle).
+   * @param window Trailing window in frames, clamped to duration - 1 so a leg
+   * shorter than the window still opens on the zero plateau.
+   */
+  static float trailing_blend(int frame, int duration, int window) {
+    const int win = std::max(1, std::min(window, duration - 1));
+    const int from_end = duration - frame;
+    if (from_end >= win)
+      return 0.0f;
+    const float u =
+        static_cast<float>(win - from_end) / static_cast<float>(win);
+    return u * u * (3.0f - 2.0f * u);
+  }
+
+  /**
+   * @brief Trailing blend over the default TRAILING_BLEND_FRAMES window (the
+   * build legs and the gate); the BlendWeightFn form.
    * @param frame 1-based leg frame (1..duration).
    * @param duration Whole leg length in frames (sweep plus settle).
    * @details Holds the inherited source palette through most of the leg, then
@@ -956,13 +974,8 @@ public:
    * the final frame lands the leg on its target colour before the next leg
    * departs.
    */
-  static float late_blend_weight(int frame, int duration) {
-    const int from_end = duration - frame;
-    if (from_end >= LATE_FADE_FRAMES)
-      return 0.0f;
-    const float u =
-        static_cast<float>(LATE_FADE_FRAMES - from_end) / LATE_FADE_FRAMES;
-    return u * u * (3.0f - 2.0f * u);
+  static float trailing_blend(int frame, int duration) {
+    return trailing_blend(frame, duration, TRAILING_BLEND_FRAMES);
   }
 
 private:
@@ -1290,7 +1303,7 @@ private:
     // across the swap and most of the gate, so the children open in the colour
     // already painted where they land, and converges to the arrival targets
     // only over the final frames.
-    finish_frame(canvas, mesh, late_blend_weight(frame, duration), 1.0f,
+    finish_frame(canvas, mesh, trailing_blend(frame, duration), 1.0f,
                  seed_side);
   }
 
@@ -1432,7 +1445,7 @@ private:
    * @param canvas The canvas passed through to the draw callback.
    * @param swept This frame's swept mesh (scratch-backed).
    * @param w Crossfade weight in [0, 1] the caller already resolved (the leg's
-   * blend_fn for the swept kinds, late_blend_weight for the gate); rebased
+   * blend_fn for the swept kinds, trailing_blend for the gate); rebased
    * through the leg's [w_lo, w_hi] share here.
    * @param gain Shading gain handed to the draw callback.
    * @param seed_side Draw the gate's seed-side tables (GATED_SWAP only): the
