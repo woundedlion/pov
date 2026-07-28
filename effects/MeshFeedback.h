@@ -87,7 +87,7 @@ public:
                {.strobe = true,
                 .full_frame = decltype(filters)::any_crosses_segments}),
         noise_params(), orientation(), timeline(), palette(Palettes::PEACH_POP),
-        filters(Filter::World::Orient<W>(orientation),
+        filters(Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>(),
                 Filter::Pixel::Feedback<W, H>(style)) {}
 
@@ -219,7 +219,7 @@ private:
   // The single, fixed solid; built once in init() and never recompiled.
   MeshState mesh_;
 
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
+  Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
            Filter::Pixel::Feedback<W, H>>
       filters;
 

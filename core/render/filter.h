@@ -621,7 +621,7 @@ namespace World {
  * by the fractional `(1 - t)`, producing temporal motion blur. The only filter
  * that adjusts age.
  */
-template <int W> class Orient : public Is3D {
+class Orient : public Is3D {
 public:
   /**
    * @brief Binds the filter to a live orientation source.
@@ -686,7 +686,7 @@ private:
  * @brief Selects an orientation from a list based on the point's projection
  * onto an axis. Useful for slicing objects with different rotations.
  */
-template <int W> class OrientSlice : public Is3D {
+class OrientSlice : public Is3D {
 public:
   static constexpr bool requires_unit_world_input = true;
   /**
@@ -793,11 +793,10 @@ private:
 
 /**
  * @brief Creates a spherical hole by masking points within a radius.
- * @tparam W Canvas width in pixels.
  * @tparam OriginT Storage type for the hole center: by value (Vector) or by
  * reference (std::reference_wrapper).
  */
-template <int W, typename OriginT = Vector> class Hole : public Is3D {
+template <typename OriginT = Vector> class Hole : public Is3D {
 public:
   static constexpr bool requires_unit_world_input = true;
   /**
@@ -837,9 +836,8 @@ private:
 
 /**
  * @brief Alias for Hole with reference (std::reference_wrapper) center storage.
- * @tparam W Canvas width in pixels.
  */
-template <int W> using HoleRef = Hole<W, std::reference_wrapper<const Vector>>;
+using HoleRef = Hole<std::reference_wrapper<const Vector>>;
 
 /**
  * @brief Replicates geometry by rotating it around the Y-axis.
@@ -891,7 +889,7 @@ private:
  * @details Precomputes rotation quaternions from vertex[0] to each other vertex.
  * Every copy carries the source age unchanged (replication is spatial).
  */
-template <int W, int N> class VertexReplicate : public Is3D {
+template <int N> class VertexReplicate : public Is3D {
 public:
   /**
    * @brief Builds from a vertex array, precomputing rotations vertices[0] → each.
@@ -929,7 +927,7 @@ private:
 /**
  * @brief Applies a Mobius transformation to 3D points.
  */
-template <int W> class Mobius : public Is3D {
+class Mobius : public Is3D {
 public:
   static constexpr bool requires_unit_world_input = true;
   /**
@@ -960,7 +958,7 @@ private:
 /**
  * @brief Manages 3D world-space trails.
  */
-template <int W, int Capacity> class Trails : public Is3DWithHistory {
+template <int Capacity> class Trails : public Is3DWithHistory {
 public:
   static constexpr bool emits_nonunit_world = true;
 
@@ -1391,7 +1389,7 @@ HS_O3_END
 /**
  * @brief Manages 2D screen-space trails.
  */
-template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
+template <int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
   // Trail points are seeded from and re-emitted into the same band, so they
   // never sample a neighbor segment.

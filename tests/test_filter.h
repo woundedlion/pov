@@ -108,14 +108,14 @@ inline void test_filter_trait_inheritance() {
   // 3D world-space, stateless.
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::is_2d));
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::has_history));
-  HS_EXPECT_FALSE((Filter::World::Hole<W>::is_2d));
-  HS_EXPECT_FALSE((Filter::World::Hole<W>::has_history));
+  HS_EXPECT_FALSE((Filter::World::Hole<>::is_2d));
+  HS_EXPECT_FALSE((Filter::World::Hole<>::has_history));
 
   // History-bearing trail filters.
-  HS_EXPECT_FALSE((Filter::World::Trails<W, 16>::is_2d));
-  HS_EXPECT_TRUE((Filter::World::Trails<W, 16>::has_history));
-  HS_EXPECT_TRUE((Filter::Screen::Trails<W>::is_2d));
-  HS_EXPECT_TRUE((Filter::Screen::Trails<W>::has_history));
+  HS_EXPECT_FALSE((Filter::World::Trails<16>::is_2d));
+  HS_EXPECT_TRUE((Filter::World::Trails<16>::has_history));
+  HS_EXPECT_TRUE((Filter::Screen::Trails<>::is_2d));
+  HS_EXPECT_TRUE((Filter::Screen::Trails<>::has_history));
 
   // Static-assert form (compile-time).
   static_assert(Filter::Screen::AntiAlias<W, H>::is_2d, "AntiAlias is 2D");
@@ -140,31 +140,31 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::crosses_segments));
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::crosses_segments));
   HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::crosses_segments));
-  HS_EXPECT_TRUE((Filter::World::Trails<W, 16>::crosses_segments));
+  HS_EXPECT_TRUE((Filter::World::Trails<16>::crosses_segments));
   // The sole non-fail-safe override: reach-0 in-place decay stays band-clippable.
-  HS_EXPECT_FALSE((Filter::Screen::Trails<W>::crosses_segments));
+  HS_EXPECT_FALSE((Filter::Screen::Trails<>::crosses_segments));
 
   // crosses_segments tracks reach, not has_history: Screen::Trails has history
   // yet does not cross segments.
-  HS_EXPECT_TRUE((Filter::Screen::Trails<W>::has_history));
-  HS_EXPECT_FALSE((Filter::Screen::Trails<W>::crosses_segments));
+  HS_EXPECT_TRUE((Filter::Screen::Trails<>::has_history));
+  HS_EXPECT_FALSE((Filter::Screen::Trails<>::crosses_segments));
 
   // Pipeline OR-fold.
   HS_EXPECT_FALSE((Pipeline<W, H>::any_crosses_segments));
 
   using MeshStack =
-      Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
                Filter::Pixel::Feedback<W, H>>;
   HS_EXPECT_TRUE(MeshStack::any_crosses_segments);
 
   // A non-stateful stack does not.
   using PlainStack =
-      Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>;
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>;
   HS_EXPECT_FALSE(PlainStack::any_crosses_segments);
 
   // A Screen::Trails-only stack does not trip the fold despite has_history.
   HS_EXPECT_FALSE(
-      (Pipeline<W, H, Filter::Screen::Trails<W>>::any_crosses_segments));
+      (Pipeline<W, H, Filter::Screen::Trails<>>::any_crosses_segments));
 
   // `public Head` leaks the head stage's traits onto the Pipeline type, so the
   // unqualified spelling must be shadowed by the fold. MeshStack's head
@@ -194,31 +194,31 @@ inline void test_history_domain_folds() {
   HS_EXPECT_FALSE((Pipeline<W, H>::any_2d_history));
   HS_EXPECT_FALSE((Pipeline<W, H>::any_3d_history));
 
-  using ScreenStack = Pipeline<W, H, Filter::World::Orient<W>,
-                               Filter::Screen::Trails<W>>;
+  using ScreenStack =
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::Trails<>>;
   HS_EXPECT_TRUE(ScreenStack::any_2d_history);
   HS_EXPECT_FALSE(ScreenStack::any_3d_history);
 
-  using WorldStack = Pipeline<W, H, Filter::World::Trails<W, 16>,
+  using WorldStack = Pipeline<W, H, Filter::World::Trails<16>,
                               Filter::Screen::AntiAlias<W, H>>;
   HS_EXPECT_FALSE(WorldStack::any_2d_history);
   HS_EXPECT_TRUE(WorldStack::any_3d_history);
 
   using MixedStack =
-      Pipeline<W, H, Filter::World::Trails<W, 16>, Filter::Screen::Trails<W>>;
+      Pipeline<W, H, Filter::World::Trails<16>, Filter::Screen::Trails<>>;
   HS_EXPECT_TRUE(MixedStack::any_2d_history);
   HS_EXPECT_TRUE(MixedStack::any_3d_history);
 
   // A history-free stack answers neither, so either overload is a hard error.
   using PlainStack =
-      Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>;
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>;
   HS_EXPECT_FALSE(PlainStack::any_2d_history);
   HS_EXPECT_FALSE(PlainStack::any_3d_history);
 
   // Feedback is the 2D-history terminal MeshFeedback flushes.
-  HS_EXPECT_TRUE((Pipeline<W, H, Filter::World::Orient<W>,
-                           Filter::Screen::AntiAlias<W, H>,
-                           Filter::Pixel::Feedback<W, H>>::any_2d_history));
+  HS_EXPECT_TRUE(
+      (Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
+                Filter::Pixel::Feedback<W, H>>::any_2d_history));
 }
 
 // ============================================================================
@@ -668,9 +668,8 @@ struct Tap3D {
  *        quintic_kernel(d/r) so the very center is fully extinguished.
  */
 inline void test_world_hole_masks_cap() {
-  constexpr int W = 32;
-  Filter::World::Hole<W> hole(Vector(0, 1, 0),
-                              0.5f); // cap at +Y, radius 0.5 rad
+  Filter::World::Hole<> hole(Vector(0, 1, 0),
+                             0.5f); // cap at +Y, radius 0.5 rad
 
   // Far point (south pole) is well outside -> verbatim passthrough.
   int n = 0;
@@ -707,9 +706,8 @@ inline void test_world_hole_masks_cap() {
  *        at the current center, then following the center after it moves.
  */
 inline void test_world_hole_ref_follows_origin() {
-  constexpr int W = 32;
   Vector center(0, 1, 0); // start at +Y
-  Filter::World::HoleRef<W> hole(std::cref(center), 0.5f);
+  Filter::World::HoleRef hole(std::cref(center), 0.5f);
 
   // At the initial center the point is fully masked (quintic_kernel(0) = 0).
   Tap3D got{};
@@ -740,10 +738,9 @@ inline void test_world_hole_ref_follows_origin() {
  *          channel frame over frame.
  */
 inline void test_world_orient_rotates_and_offsets_age() {
-  constexpr int W = 32;
   Quaternion q = make_rotation(Y_AXIS, PI_F / 2); // 90 deg about +Y
   Orientation<> ori(q);
-  Filter::World::Orient<W> orient(ori);
+  Filter::World::Orient orient(ori);
 
   int n = 0;
   Tap3D got{};
@@ -766,11 +763,10 @@ inline void test_world_orient_rotates_and_offsets_age() {
  * @details Age offsets are (1 - t) for t in {0.5, 1.0}.
  */
 inline void test_world_orient_motion_blur_sweep_ages() {
-  constexpr int W = 32;
   Orientation<> ori; // identity, 1 frame
   ori.push(make_rotation(Y_AXIS, PI_F / 4));
   ori.push(make_rotation(Y_AXIS, PI_F / 2)); // now 3 frames
-  Filter::World::Orient<W> orient(ori);
+  Filter::World::Orient orient(ori);
 
   int n = 0;
   float ages[4] = {0};
@@ -793,12 +789,11 @@ inline void test_world_orient_motion_blur_sweep_ages() {
  *          near -axis selects the first; disabled is a passthrough.
  */
 inline void test_world_orient_slice_selects_by_projection() {
-  constexpr int W = 32;
   Orientation<> oris[2];
   oris[0].set(make_rotation(X_AXIS, PI_F / 2)); // index 0
   oris[1].set(make_rotation(Z_AXIS, PI_F / 2)); // index 1
   std::span<const Orientation<>> span(oris, 2);
-  Filter::World::OrientSlice<W> slice(span, Y_AXIS);
+  Filter::World::OrientSlice slice(span, Y_AXIS);
 
   auto first_tap = [&](const Vector &probe) {
     Vector out{};
@@ -837,9 +832,9 @@ inline void test_world_orient_slice_selects_by_projection() {
  *          copy i back to vertices[i] exactly.
  */
 inline void test_world_vertex_replicate_fanout_and_age() {
-  constexpr int W = 32, N = 3;
+  constexpr int N = 3;
   std::array<Vector, N> verts = {X_AXIS, Y_AXIS, Z_AXIS};
-  Filter::World::VertexReplicate<W, N> vr(verts);
+  Filter::World::VertexReplicate<N> vr(verts);
 
   Tap3D taps[N];
   int n = 0;
@@ -868,9 +863,8 @@ inline void test_world_vertex_replicate_fanout_and_age() {
  *          actually moves it.
  */
 inline void test_world_mobius_identity_and_transform() {
-  constexpr int W = 32;
   MobiusParams identity; // a=1,b=0,c=0,d=1
-  Filter::World::Mobius<W> mob(identity);
+  Filter::World::Mobius mob(identity);
 
   const Vector v = Vector(0.4f, 0.3f, 0.86f).normalized();
   Vector out{};
@@ -887,7 +881,7 @@ inline void test_world_mobius_identity_and_transform() {
 
   // A translation map f(z) = z + 1 moves the point and keeps it on the sphere.
   MobiusParams shift(1, 0, 1, 0, 0, 0, 1, 0); // a=1, b=1, c=0, d=1
-  Filter::World::Mobius<W> mob2(shift);
+  Filter::World::Mobius mob2(shift);
   Vector out2{};
   mob2.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,
             [&](const Vector &o, const Pixel &, float, float) { out2 = o; });
@@ -2152,10 +2146,10 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
  *        quantization error bound (< 1/32767).
  */
 inline void test_world_trails_int16_quantization_roundtrip() {
-  constexpr int W = 32, Cap = 8;
+  constexpr int Cap = 8;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<W, Cap> trails(/*lifetime=*/10);
+  Filter::World::Trails<Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
   const Vector v0 = Vector(0.3f, -0.6f, 0.74f).normalized();
@@ -2192,10 +2186,10 @@ inline void test_world_trails_int16_quantization_roundtrip() {
  * @details encode() clamps to [-1, 1] before quantizing.
  */
 inline void test_world_trails_clamps_out_of_range() {
-  constexpr int W = 32, Cap = 4;
+  constexpr int Cap = 4;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<W, Cap> trails(/*lifetime=*/10);
+  Filter::World::Trails<Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
   // x = 1.8 > 1: 1.8*32767 = 58980 would overflow int16 and wrap to ~-0.2 on
@@ -2221,10 +2215,10 @@ inline void test_world_trails_clamps_out_of_range() {
  *        oldest entries so size() saturates at Cap.
  */
 inline void test_world_trails_ring_evicts_oldest() {
-  constexpr int W = 32, Cap = 4;
+  constexpr int Cap = 4;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<W, Cap> trails(/*lifetime=*/100);
+  Filter::World::Trails<Cap> trails(/*lifetime=*/100);
   trails.init_storage(arena);
 
   auto noop = [](const Vector &, const Pixel &, float, float) {};
@@ -2240,10 +2234,10 @@ inline void test_world_trails_ring_evicts_oldest() {
  *        once ttl reaches 0.
  */
 inline void test_world_trails_ttl_expiry() {
-  constexpr int W = 32, Cap = 4;
+  constexpr int Cap = 4;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<W, Cap> trails(/*lifetime=*/2);
+  Filter::World::Trails<Cap> trails(/*lifetime=*/2);
   trails.init_storage(arena);
 
   auto noop = [](const Vector &, const Pixel &, float, float) {};
@@ -2270,10 +2264,10 @@ inline void test_world_trails_ttl_expiry() {
  *          clamp on the same race. Without the clamp t here is ~ -4.
  */
 inline void test_world_trails_set_lifetime_shrink_clamps_t() {
-  constexpr int W = 32, Cap = 8;
+  constexpr int Cap = 8;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<W, Cap> trails(/*lifetime=*/10);
+  Filter::World::Trails<Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
   const Vector v0 = Vector(0.3f, -0.6f, 0.74f).normalized();
@@ -2304,10 +2298,10 @@ inline void test_world_trails_set_lifetime_shrink_clamps_t() {
  *          rather than evicting an older live point.
  */
 inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
-  constexpr int W = 32, Cap = 4;
+  constexpr int Cap = 4;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
-  Filter::World::Trails<W, Cap> trails(/*lifetime=*/100);
+  Filter::World::Trails<Cap> trails(/*lifetime=*/100);
   trails.init_storage(arena);
 
   // Orthogonal/antipodal unit vectors so int16-quantized decodes stay trivially
@@ -2367,7 +2361,7 @@ inline void test_screen_trails_store_emit_decay() {
   constexpr int W = 32, MAXP = 16;
   static uint8_t buf[MAXP * 32];
   Arena arena(buf, sizeof(buf));
-  Filter::Screen::Trails<W, MAXP> trails(/*lifetime=*/3);
+  Filter::Screen::Trails<MAXP> trails(/*lifetime=*/3);
   trails.init_storage(arena);
 
   hs_test::StubEffect fx(W, 8); // flush takes a Canvas& (unused by Screen::Trails)
@@ -2412,7 +2406,7 @@ inline void test_screen_trails_forwards_aged_emission() {
   constexpr int W = 32, MAXP = 16;
   static uint8_t buf[MAXP * 32];
   Arena arena(buf, sizeof(buf));
-  Filter::Screen::Trails<W, MAXP> trails(/*lifetime=*/5);
+  Filter::Screen::Trails<MAXP> trails(/*lifetime=*/5);
   trails.init_storage(arena);
 
   hs_test::StubEffect fx(W, 8);
@@ -2450,8 +2444,8 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
   constexpr int W = 32, H = 16, CAP = 8, MAXP = 64, LIFETIME = 3;
   static uint8_t buf[CAP * 16 + MAXP * 32];
   Arena arena(buf, sizeof(buf));
-  using WorldTrails = Filter::World::Trails<W, CAP>;
-  using ScreenTrails = Filter::Screen::Trails<W, MAXP>;
+  using WorldTrails = Filter::World::Trails<CAP>;
+  using ScreenTrails = Filter::Screen::Trails<MAXP>;
 
   Pipeline<W, H, WorldTrails, ScreenTrails> pipe{WorldTrails(LIFETIME),
                                                  ScreenTrails(LIFETIME)};
@@ -2520,7 +2514,7 @@ inline void test_effect_needs_full_frame_default_false() {
  */
 inline void test_screen_trails_banded_matches_full() {
   constexpr int W = 32, H = 16, MAXP = 512;
-  using Trails = Filter::Screen::Trails<W, MAXP>;
+  using Trails = Filter::Screen::Trails<MAXP>;
   constexpr int K = 4;        // frames driven
   constexpr int lifetime = 4; // trail fade length (frames)
   constexpr int MID = H / 2;

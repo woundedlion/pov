@@ -36,7 +36,7 @@ public:
                 .full_frame = decltype(filters)::any_crosses_segments}),
         palette({0.029f, 0.029f, 0.029f}, {0.500f, 0.500f, 0.500f},
                 {0.461f, 0.461f, 0.461f}, {0.539f, 0.701f, 0.809f}),
-        orientation(), filters(Filter::World::Orient<W>(orientation),
+        orientation(), filters(Filter::World::Orient(orientation),
                                Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
@@ -142,7 +142,7 @@ private:
       orientation; /**< Shared orientation driven by the timeline rotation. */
 
   /** @brief Render pipeline: world-space orientation then screen-space anti-aliasing. */
-  Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+  Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
       filters;
 
   Timeline timeline; /**< Schedules the orientation rotation and the spawner. */
