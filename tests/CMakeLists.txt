@@ -153,9 +153,12 @@ add_test(NAME unit_module_roster
     COMMAND run_tests --check-modules ${_hs_test_modules})
 
 # Pin run_tests.cpp's per-module include block against the roster, catching an
-# include left behind after a module is removed (which compiles silently).
+# include left behind after a module is removed (which compiles silently), and
+# every tests/test_*.h on disk against that include block, catching a test file
+# nothing ever compiles.
 add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
+    -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
 
 # The three generated-artifact gates below re-run a Python generator and diff it
