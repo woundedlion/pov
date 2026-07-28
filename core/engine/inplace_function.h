@@ -107,14 +107,14 @@ class inplace_function<R(Args...), Capacity, Alignment> {
     return &detail::ipf_empty_ops<R, Args...>::value;
   }
 
-  const vtable_t *vtable_ = empty_vtable();
-  alignas(Alignment) mutable unsigned char storage_[Capacity];
+  const vtable_t *vtable = empty_vtable();
+  alignas(Alignment) mutable unsigned char storage[Capacity];
 
   template <typename C>
   using is_self = std::is_same<std::decay_t<C>, inplace_function>;
 
 public:
-  // No ctor initializes storage_: the empty vtable's copy/move/destroy are
+  // No ctor initializes storage: the empty vtable's copy/move/destroy are
   // no-ops and its invoke traps, so no operation ever reads an empty function's
   // buffer; the value-carrying ctor placement-news over it.
 
@@ -150,42 +150,41 @@ public:
         "inplace_function's move ctor/assign are noexcept and forward "
         "to the stored type's move — a throwing move would "
         "std::terminate. Store only nothrow-movable callables.");
-    static_assert(
-        std::is_nothrow_copy_constructible_v<D>,
-        "inplace_function's copy assignment destroys the old object "
-        "before copy-constructing the new one, so a throwing copy "
-        "would leave the buffer empty while vtable_ points at the new "
-        "type — UB on the next destroy. Store only nothrow-copyable "
-        "callables — any qualifying type is accepted (in practice "
-        "lambdas capturing PODs/pointers, which are trivially so).");
-    ::new (storage_) D(std::forward<C>(c));
-    vtable_ = &detail::ipf_ops<D, R, Args...>::value;
+    static_assert(std::is_nothrow_copy_constructible_v<D>,
+                  "inplace_function's copy assignment destroys the old object "
+                  "before copy-constructing the new one, so a throwing copy "
+                  "would leave the buffer empty while vtable points at the new "
+                  "type — UB on the next destroy. Store only nothrow-copyable "
+                  "callables — any qualifying type is accepted (in practice "
+                  "lambdas capturing PODs/pointers, which are trivially so).");
+    ::new (storage) D(std::forward<C>(c));
+    vtable = &detail::ipf_ops<D, R, Args...>::value;
   }
 
-  inplace_function(const inplace_function &o) noexcept : vtable_(o.vtable_) {
-    vtable_->copy(storage_, o.storage_);
+  inplace_function(const inplace_function &o) noexcept : vtable(o.vtable) {
+    vtable->copy(storage, o.storage);
   }
-  inplace_function(inplace_function &&o) noexcept : vtable_(o.vtable_) {
-    vtable_->move(storage_, o.storage_);
-    o.vtable_ = empty_vtable();
+  inplace_function(inplace_function &&o) noexcept : vtable(o.vtable) {
+    vtable->move(storage, o.storage);
+    o.vtable = empty_vtable();
   }
 
   inplace_function &operator=(const inplace_function &o) noexcept {
     if (this != &o) {
       // Destroy-then-copy is safe only because the converting ctor's
       // is_nothrow_copy_constructible_v static_assert guarantees copy() cannot throw.
-      vtable_->destroy(storage_);
-      vtable_ = o.vtable_;
-      vtable_->copy(storage_, o.storage_);
+      vtable->destroy(storage);
+      vtable = o.vtable;
+      vtable->copy(storage, o.storage);
     }
     return *this;
   }
   inplace_function &operator=(inplace_function &&o) noexcept {
     if (this != &o) {
-      vtable_->destroy(storage_);
-      vtable_ = o.vtable_;
-      vtable_->move(storage_, o.storage_);
-      o.vtable_ = empty_vtable();
+      vtable->destroy(storage);
+      vtable = o.vtable;
+      vtable->move(storage, o.storage);
+      o.vtable = empty_vtable();
     }
     return *this;
   }
@@ -200,20 +199,20 @@ public:
     return *this;
   }
   inplace_function &operator=(std::nullptr_t) noexcept {
-    vtable_->destroy(storage_);
-    vtable_ = empty_vtable();
+    vtable->destroy(storage);
+    vtable = empty_vtable();
     return *this;
   }
 
-  ~inplace_function() { vtable_->destroy(storage_); }
+  ~inplace_function() { vtable->destroy(storage); }
 
   /** @brief Invokes the stored callable; traps if empty. */
   R operator()(Args... args) const {
-    return vtable_->invoke(storage_, std::forward<Args>(args)...);
+    return vtable->invoke(storage, std::forward<Args>(args)...);
   }
 
   /** @brief True iff a callable is stored. */
-  explicit operator bool() const noexcept { return vtable_ != empty_vtable(); }
+  explicit operator bool() const noexcept { return vtable != empty_vtable(); }
 };
 
 } // namespace hs
