@@ -721,6 +721,28 @@ inline float bump_field_profile(const BumpParams &params, float r_eff, float d,
 }
 
 /**
+ * @brief Tests a sample against the bump's effective cap.
+ * @param v Sample point (unit vector).
+ * @param params Bump field geometry and gain.
+ * @param r_eff Receives the envelope-scaled footprint radius.
+ * @param d Receives the angular distance from the cap center; written only on a
+ * hit.
+ * @return Whether @p v lies inside the cap and the gain is non-negligible.
+ */
+__attribute__((always_inline)) inline bool
+bump_cap_hit(const Vector &v, const BumpParams &params, float &r_eff,
+             float &d) {
+  r_eff = params.radius * params.envelope;
+  if (r_eff <= 1e-3f || params.amplitude <= 0.001f)
+    return false;
+  float cos_d = dot(v, params.center);
+  if (cos_d <= params.cos_radius)
+    return false;
+  d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+  return d < r_eff;
+}
+
+/**
  * @brief Evaluates a bump using a caller-provided signed ring offset.
  * @param v Sample point (unit vector).
  * @param params Bump field geometry and gain.
@@ -729,14 +751,8 @@ inline float bump_field_profile(const BumpParams &params, float r_eff, float d,
  */
 inline float bump_field_with_y(const Vector &v, const BumpParams &params,
                                float y) {
-  float r_eff = params.radius * params.envelope;
-  if (r_eff <= 1e-3f || params.amplitude <= 0.001f)
-    return 0.0f;
-  float cos_d = dot(v, params.center);
-  if (cos_d <= params.cos_radius)
-    return 0.0f;
-  float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-  if (d >= r_eff)
+  float r_eff, d;
+  if (!bump_cap_hit(v, params, r_eff, d))
     return 0.0f;
 
   return bump_field_profile(params, r_eff, d, y);
@@ -758,14 +774,8 @@ inline float bump_field_with_y(const Vector &v, const BumpParams &params,
  * untouched.
  */
 inline float bump_field(const Vector &v, const BumpParams &params) {
-  float r_eff = params.radius * params.envelope;
-  if (r_eff <= 1e-3f || params.amplitude <= 0.001f)
-    return 0.0f;
-  float cos_d = dot(v, params.center);
-  if (cos_d <= params.cos_radius)
-    return 0.0f;
-  float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-  if (d >= r_eff)
+  float r_eff, d;
+  if (!bump_cap_hit(v, params, r_eff, d))
     return 0.0f;
 
   // Local cap coords: signed polar offset y from the center (positive toward
