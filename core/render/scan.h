@@ -1879,6 +1879,14 @@ template <typename SDF> struct TransformedVolume {
 struct Volume {
   /** Sphere-trace step overrelaxation; 1 is the conservative march. */
   static constexpr float OVERRELAX_OMEGA = 1.3f;
+  /** Occluder-probe march steps. */
+  static constexpr int PROBE_STEPS = 24;
+  /** Probe steps taken at the near step floor before the far one applies. */
+  static constexpr int PROBE_NEAR_STEPS = 6;
+  /** Near probe step floor, as a fraction of the bounding radius. */
+  static constexpr float PROBE_FLOOR_NEAR = 0.04f;
+  /** Far probe step floor, as a fraction of the bounding radius. */
+  static constexpr float PROBE_FLOOR_FAR = 0.12f;
 
   /**
    * @brief Sphere-traces a ray in local space, recording the closest approach
@@ -2018,7 +2026,7 @@ struct Volume {
     float bef_s = 0.0f, bef_pd = FLT_MAX;
     float aft_s = 0.0f, aft_pd = FLT_MAX;
     bool need_aft = false;
-    for (int i = 0; i < 24; ++i) {
+    for (int i = 0; i < PROBE_STEPS; ++i) {
       // Stop at the back of the bounding sphere: nothing left to occlude this halo.
       if (probe.x * local_vd.x + probe.y * local_vd.y + probe.z * local_vd.z >
           bounds_radius)
@@ -2044,7 +2052,8 @@ struct Volume {
       }
       prev = pd;
       prev_s = s;
-      float floor = bounds_radius * (i < 6 ? 0.04f : 0.12f);
+      float floor = bounds_radius *
+                    (i < PROBE_NEAR_STEPS ? PROBE_FLOOR_NEAR : PROBE_FLOOR_FAR);
       float step = std::max(pd * 0.9f, floor);
       probe = Vector(probe.x + local_vd.x * step, probe.y + local_vd.y * step,
                      probe.z + local_vd.z * step);
