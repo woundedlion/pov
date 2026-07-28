@@ -152,6 +152,19 @@ template <int S, int N, int RPM> class POVSegmented {
       "Flywheel wake period must be >= 1 us for IntervalTimer::begin");
 
   /**
+   * @brief NVIC priority for the sync-wire edge IRQ (Teensy 4 pin interrupts
+   *        all share IRQ_GPIO6789).
+   *
+   * The edge ISR timestamps the edge with ARM_DWT_CYCCNT, and snap() re-bases
+   * the flywheel epoch onto that stamp — so it must preempt the flywheel ISR or
+   * the stamp becomes a service time up to one full column-ISR body late. The
+   * Cortex-M7 NVIC implements 4 priority bits (levels in steps of 16, lower =
+   * higher priority) and Teensy defaults every IRQ, IntervalTimer included, to
+   * 128; 16 puts the edge above all of them while leaving 0 free.
+   */
+  static constexpr uint8_t SYNC_EDGE_IRQ_PRIORITY = 16;
+
+  /**
    * @brief HD107S SPI clock for the Phantasm DMA path, in Hz.
    *
    * 24 MHz (vs the 12 MHz default) halves the per-column transfer time. The
@@ -264,6 +277,9 @@ public:
     if (!master) {
       attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC), sync_edge_isr,
                       RISING);
+      // attachInterrupt leaves the IRQ at the Teensy default (128), equal to
+      // the flywheel's; raise it so the edge stamp is taken at the edge.
+      NVIC_SET_PRIORITY(IRQ_GPIO6789, SYNC_EDGE_IRQ_PRIORITY);
     }
     HS_CHECK(timer_.begin(flywheel_isr, COLUMN_US / float(OVERSAMPLE)),
              "flywheel IntervalTimer failed to start (no PIT channel)");
@@ -477,9 +493,11 @@ private:
    * @brief Sync-wire edge ISR (downstream boards only): a pure publisher.
    *
    * Applies the glitch filter and records the edge into the mailbox; touches
-   * no flywheel, flip, or epoch state (spec §8.2 single-writer model). NVIC
-   * priority relative to the flywheel ISR is therefore free — preemption has
-   * no correctness consequence.
+   * no flywheel, flip, or epoch state (spec §8.2 single-writer model). It runs
+   * above the flywheel ISR (SYNC_EDGE_IRQ_PRIORITY) so the captured cycle count
+   * is the edge time rather than a service time; that preemption is also what
+   * makes the consumer's __disable_irq() bracket around the mailbox claim
+   * load-bearing.
    */
   static FASTRUN void sync_edge_isr() { sync_.on_sync_edge(ARM_DWT_CYCCNT); }
 
