@@ -610,6 +610,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 
   int *angles = max_count > 0 ? scratch_a.allocate_n<int>(max_count) : nullptr;
 
+  const size_t vertex_count = mesh.vertices.size();
   size_t offset = 0;
   for (size_t i = 0; i < F; ++i) {
     int count = face_counts[i];
@@ -622,6 +623,10 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
 
     // Degenerate faces have no interior-angle vector and hash on count alone.
     if (count >= 3) {
+      for (int k = 0; k < count; ++k) {
+        HS_CHECK(faces[offset + k] < vertex_count,
+                 "mesh face index out of range");
+      }
       for (int k = 0; k < count; ++k) {
         const int prev_k = k == 0 ? count - 1 : k - 1;
         const int next_k = k + 1 == count ? 0 : k + 1;
