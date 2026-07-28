@@ -652,6 +652,13 @@ struct GSWhiteBox {
       nB[i] = GS::to_q16(gB[i]);
     }
   }
+
+  // Float-domain substep: the Q16 edges of step() clamp on their own, so a test
+  // that means to observe the substep's own bound has to read it undigested.
+  static void step_float(GS &gs, const float *cA, const float *cB, float *nA,
+                         float *nB) {
+    gs.step_physics(cA, cB, nA, nB);
+  }
 };
 
 /**
@@ -842,6 +849,40 @@ inline void test_gs_evolution_stays_bounded() {
     if (cB[i] == 65535)
       ++saturated;
   HS_EXPECT_LT(saturated, GSWhiteBox::N / 20);
+}
+
+/**
+ * @brief Verifies the substep stays finite and inside [0, 1] at the joint
+ *        feed/k corner of the slider box, past the Euler stability bound.
+ * @details The dA/dB cap covers only the diffusion term; the reaction Jacobian's
+ *          rows exceed 2 at feed = k = 0.1 with Speed at top, so the scheme is
+ *          genuinely unstable there and the per-substep clamp is the only thing
+ *          holding the field. Assert what that buys: after 256 substeps from
+ *          seeded nuclei every node is still finite and on [0, 1], so the
+ *          overshoot saturates rather than escaping into NaN/Inf and poisoning
+ *          the palette lookup downstream. Read in float — step()'s Q16 edges
+ *          would clamp the evidence away.
+ */
+inline void test_gs_reaction_corner_stays_bounded() {
+  std::vector<float> a(GSWhiteBox::N, 1.0f), b(GSWhiteBox::N, 0.0f),
+      sa(GSWhiteBox::N), sb(GSWhiteBox::N);
+  for (int s : {500, 2500, 4500, 6500})
+    b[s] = 1.0f;
+  GSWhiteBox::GS gs;
+  GSWhiteBox::set_params(gs, 0.1f, 0.1f, 0.05f, 0.05f,
+                         3.0f); // joint slider-box corner
+  float *cA = a.data(), *cB = b.data(), *nA = sa.data(), *nB = sb.data();
+  for (int s = 0; s < 256; ++s) {
+    GSWhiteBox::step_float(gs, cA, cB, nA, nB);
+    std::swap(cA, nA);
+    std::swap(cB, nB);
+  }
+  int escaped = 0;
+  for (int i = 0; i < GSWhiteBox::N; ++i)
+    if (!std::isfinite(cA[i]) || !std::isfinite(cB[i]) || cA[i] < 0.0f ||
+        cA[i] > 1.0f || cB[i] < 0.0f || cB[i] > 1.0f)
+      ++escaped;
+  HS_EXPECT_EQ(escaped, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -3919,6 +3960,7 @@ inline int run_effects_tests() {
     test_gs_rest_state_is_fixed_point();
     test_gs_substep_signs_and_clamp();
     test_gs_evolution_stays_bounded();
+    test_gs_reaction_corner_stays_bounded();
     test_gs_dissolve_clears_and_reseeds();
     test_gs_reaction_edit_starts_dissolve();
     test_bz_q8_roundtrip();
