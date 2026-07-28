@@ -202,7 +202,8 @@ class HalfEdgeMesh;
  * @param total_indices Length of @p faces_arr.
  * @details Emits one half-edge per face index, links each face's next/prev loop,
  * then pairs opposite half-edges by undirected vertex key. Traps on mismatched
- * flat face lengths, a 16-bit index overflow or a zero-side face.
+ * flat face lengths, a 16-bit index overflow, a zero-side face or a pair of
+ * faces wound the same way around a shared edge.
  */
 [[maybe_unused]] HS_COLD static void
 build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
@@ -306,6 +307,11 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
     }
 
     pair_half_edges(records, total_indices, [&](uint16_t a, uint16_t b) {
+      // Opposite half-edges of a shared edge end at different vertices; equal
+      // heads mean both faces wind the same way around it, which would leave
+      // every vertex_orbit walk through the pair broken.
+      HS_CHECK(out.half_edges[a].vertex != out.half_edges[b].vertex,
+               "half-edge mesh faces are inconsistently wound");
       out.half_edges[a].pair = b;
       out.half_edges[b].pair = a;
     });

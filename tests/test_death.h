@@ -688,6 +688,26 @@ inline void case_half_edge_non_manifold_edge() {
 }
 
 /**
+ * @brief Death case: two faces wound the same way around a shared edge must
+ *        trap.
+ * @details Mesh-topology surface — both triangles traverse edge (0,1) in the
+ *          same direction, so the undirected pairing key matches and they would
+ *          otherwise pair into a mesh that passes require_closed_manifold while
+ *          every vertex_orbit walk through the pair runs backwards.
+ */
+inline void case_half_edge_inconsistent_winding() {
+  static uint8_t buf[2048];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3, 3};
+  const uint16_t indices[] = {0, 1, 2, 0, 1, 3};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 4, counts, 2, indices, 6);
+  HalfEdgeMesh half_edges(arena, mesh); // both edges run 0->1 -> HS_CHECK
+  if (half_edges.faces.size() == opaque<size_t>(99))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a face side count past uint8_t must trap.
  * @details Mesh-topology surface — every operator narrows its output valence
  *          through this shared guard, so a high-valence orbit traps instead of
@@ -1316,6 +1336,7 @@ inline const Case *all_cases(int &n) {
       {"mesh_compile_face_counts_long", case_mesh_compile_face_counts_long},
       {"half_edge_zero_side_face", case_half_edge_zero_side_face},
       {"half_edge_non_manifold_edge", case_half_edge_non_manifold_edge},
+      {"half_edge_inconsistent_winding", case_half_edge_inconsistent_winding},
       {"mesh_narrow_face_count", case_mesh_narrow_face_count},
       {"mesh_require_closed_manifold", case_mesh_require_closed_manifold},
       {"slerp_nan", case_slerp_nan},
