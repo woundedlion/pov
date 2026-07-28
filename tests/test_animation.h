@@ -801,9 +801,11 @@ inline void test_timeline_full_guard_rejects_overflow() {
 
   // The overflow event has its own target so a silent enqueue would show up.
   float rejected = 0.0f;
+  const uint32_t dropped_before = tl.dropped_events();
   tl.add(0,
          Animation::Transition(rejected, 42.0f, 10, ease_linear)); // past full
   HS_EXPECT_EQ(global_timeline_num_events, Timeline::MAX_EVENTS);
+  HS_EXPECT_EQ(tl.dropped_events(), dropped_before + 1);
 
   tl.step(fake_canvas());
   HS_EXPECT_NEAR(rejected, 0.0f, 1e-6f); // never ran
