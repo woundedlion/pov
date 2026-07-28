@@ -674,7 +674,10 @@ struct Ring {
   template <int H> Bounds get_vertical_bounds() const {
     PhiBand band = clamp_phi_band(center_phi, target_angle);
 
-    float eff_th = 0.95f * thickness; // quintic_kernel(0.05) ≈ 0.001
+    // Deliberately tighter than the true band: the trimmed fringe carries
+    // coverage up to quintic_kernel(0.05) = 1.2e-3, a hair over the
+    // rasterizer's 1e-3 alpha cut.
+    float eff_th = 0.95f * thickness;
     float f_phi_min = std::max(0.0f, band.phi_min - eff_th);
     float f_phi_max = std::min(PI_F, band.phi_max + eff_th);
 
