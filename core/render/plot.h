@@ -1769,6 +1769,27 @@ static inline Vector ring_tangent(int i, const Vector &u, const Vector &w,
 }
 
 /**
+ * @brief LUT index stride that samples a ring at ~one control point per screen
+ *        pixel of its circumference.
+ * @tparam W Rasterization width; the LUT grid and the equatorial column count.
+ * @param r_val sin of the ring's colatitude — its circumference is 2π·r_val.
+ * @details An azimuth step of stride·2π/W spans stride·r_val·2π/W radians of
+ * arc, so stride <= 1/r_val holds consecutive control points within the
+ * rasterizer's base_step (2π/W) — the density a great circle already gets at
+ * stride 1. The rasterizer sub-steps every segment to SCREEN_STEP_PX, so a
+ * coarser grid moves control points without thinning rendered coverage.
+ * r_val is floored at 1/MAX_STRIDE, keeping a sub-pixel ring at
+ * MIN_RING_SAMPLES vertices and the reciprocal finite.
+ */
+template <int W> static inline int ring_lut_stride(float r_val) {
+  constexpr int MIN_RING_SAMPLES = 8;
+  constexpr int MAX_STRIDE = std::max(1, W / MIN_RING_SAMPLES);
+  const float inv =
+      1.0f / std::max(r_val, 1.0f / static_cast<float>(MAX_STRIDE));
+  return std::max(1, static_cast<int>(inv));
+}
+
+/**
  * @brief Ring primitives.
  * Registers:
  *  v0: Angular progress (0.0 -> 1.0)
@@ -1836,17 +1857,20 @@ struct Ring {
   }
 
   /**
-   * @brief Full-resolution closed ring (W samples) — LUT-optimized.
-   * @tparam W,H Rasterization resolution; W is the sample count and LUT grid.
-   * @param points Output fragment list; W+1 fragments are appended.
+   * @brief Closed ring on the LUT angle grid — LUT-optimized.
+   * @tparam W,H Rasterization resolution; W is the LUT grid.
+   * @param points Output fragment list; ceil(W/stride)+1 fragments are appended,
+   *               at most W+1.
    * @param basis Orientation basis.
    * @param radius Ring radius (radians).
    * @param phase Rotation phase (radians).
-   * @details For num_samples == W the angle grid (i*2π/W) is exactly
-   * TrigLUT<W,H>::cos_theta/sin_theta, so per-sample cosf(θ+φ)/sinf(θ+φ) becomes
+   * @details The angle grid (i*2π/W) is exactly TrigLUT<W,H>::cos_theta and
+   * sin_theta, so per-sample cosf(θ+φ)/sinf(θ+φ) becomes
    * the precomputed θ-grid plus one angle-addition against cos/sin(φ), saving
-   * ~2*(W+1) libm trig calls per ring per frame. Keeps Ring's analytic arc length
-   * and overlap close. The runtime int-num_samples overload stays for the polygon
+   * ~2*(W+1) libm trig calls per ring per frame. ring_lut_stride skips grid
+   * indices a ring narrower than the equator cannot resolve; v0/v1/v2 stay keyed
+   * to the grid index, so the analytic arc length and overlap close are
+   * unchanged. The runtime int-num_samples overload stays for the polygon
    * samplers, whose vertex counts do not match the LUT grid.
    */
   template <int W, int H>
@@ -1865,13 +1889,14 @@ struct Ring {
     const float d_val = cosf(theta_eq);
 
     const float step = 2.0f * PI_F / W;
+    const int stride = ring_lut_stride<W>(r_val);
 
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     const float cos_phase = cosf(phase);
     const float sin_phase = sinf(phase);
 
-    for (int i = 0; i < W; i++) {
+    for (int i = 0; i < W; i += stride) {
       Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
 
       Fragment f;
