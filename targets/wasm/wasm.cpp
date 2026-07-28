@@ -360,9 +360,16 @@ public:
     // Validate against the current resolution's factory BEFORE tearing anything
     // down, so a typo'd name keeps the prior valid state alive.
     bool name_valid = false;
-    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-      name_valid = factory_has_effect<W, H>(name);
-    });
+    const bool dispatched =
+        dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+          name_valid = factory_has_effect<W, H>(name);
+        });
+    if (!dispatched) {
+      hs::log("WASM: setEffect at unsupported resolution %dx%d — keeping "
+              "current effect",
+              pixel_width, pixel_height);
+      return false;
+    }
     if (!name_valid) {
       hs::log("WASM: setEffect unknown effect '%s' — keeping current effect",
               name.c_str());
@@ -381,15 +388,10 @@ public:
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
 
-    bool created =
-        dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-          init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
-          currentEffect = create_effect<W, H>(name);
-        });
-    if (!created) {
-      hs::log("WASM: Unsupported resolution for factory!"); // unreachable guard
-      return false;
-    }
+    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
+      init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
+      currentEffect = create_effect<W, H>(name);
+    });
     if (!currentEffect) {
       return false; // unreachable: name was validated above
     }
