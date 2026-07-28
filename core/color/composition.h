@@ -1063,14 +1063,6 @@ public:
     return sample_color_index(t * (LUT_SIZE - 1));
   }
 
-private:
-  __attribute__((always_inline)) Pixel sample_color_index(float idx) const {
-    if (idx <= 0.0f)
-      return lut[0].color;
-    return lut_sample_pixel(lut, LUT_SIZE, idx);
-  }
-
-public:
   /**
    * @brief Deep-copies the LUT from another BakedPalette into the given arena.
    * @param src Source palette to copy; must already be baked.
@@ -1084,6 +1076,12 @@ public:
   }
 
 private:
+  __attribute__((always_inline)) Pixel sample_color_index(float idx) const {
+    if (idx <= 0.0f)
+      return lut[0].color;
+    return lut_sample_pixel(lut, LUT_SIZE, idx);
+  }
+
   __attribute__((always_inline)) void sample_into(float t, Color4 &out) const {
     assert(lut != nullptr && "BakedPalette::get before bake()");
     // Clamp before the int cast: static_cast<int>(NaN) is UB. hs::clamp maps NaN
