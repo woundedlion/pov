@@ -1409,7 +1409,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .constructor<>()
       .function("bakeLut", &PaletteOps::bakeLut);
 
-  // ── Color / palette / lissajous exports ────────────────────────────────────
+  // ── Color / palette / geometry exports ─────────────────────────────────────
   // The real engine math, exported so the JS tool ports can cross-check it.
 
   // sRGB transfer function (color.js srgbToLinearFloat / linearToSrgbFloat).
@@ -1561,6 +1561,23 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
              }
              return vector_to_xyz(lissajous(m1, m2, a, t));
            }));
+
+  // Mobius sphere map (mobius_transforms.js coefficients), via transformers.h.
+  // The eight coefficient floats are taken in the order mobiusCodeString emits
+  // them, so the tool's MobiusParams initializer ordering is pinned too.
+  function(
+      "mobius_transform",
+      optional_override([](float x, float y, float z, float ar, float ai,
+                           float br, float bi, float cr, float ci, float dr,
+                           float di) -> val {
+        if (!all_finite({x, y, z, ar, ai, br, bi, cr, ci, dr, di})) {
+          hs::log("WASM: mobius_transform got a non-finite argument — "
+                  "returning zero");
+          return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
+        }
+        return vector_to_xyz(mobius_transform(
+            Vector(x, y, z), MobiusParams(ar, ai, br, bi, cr, ci, dr, di)));
+      }));
 }
 
 #endif

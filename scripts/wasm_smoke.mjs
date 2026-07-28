@@ -490,11 +490,11 @@ async function main() {
     }
   }
 
-  // ── Color / palette / lissajous exports ─────────────────────────────────────
+  // ── Color / palette / geometry exports ──────────────────────────────────────
   // These free functions and PaletteOps.bakeLut back the JS tool ports but are
   // never touched by the engine loop above; pin numeric behavior so a
   // transposed-arg or wrong-target binding fails here instead of shipping green.
-  console.log('\nColor / palette / lissajous:');
+  console.log('\nColor / palette / geometry:');
 
   const approx = (a, b, eps = 1e-3) => Number.isFinite(a) && Math.abs(a - b) <= eps;
   const isVec = (v) => v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
@@ -569,6 +569,20 @@ async function main() {
     }
   }
 
+  // Mobius: identity fixes every point; f(z) = 1/z is a 180° turn about x.
+  {
+    const v = { x: 0.48, y: 0.6, z: 0.64 };
+    const id = Module.mobius_transform(v.x, v.y, v.z, 1, 0, 0, 0, 0, 0, 1, 0);
+    if (!approxVec(id, v.x, v.y, v.z, 1e-3)) {
+      fail(`mobius_transform identity = ${JSON.stringify(id)}, expected ${JSON.stringify(v)}`);
+    }
+    // a=0, b=1, c=1, d=0 in the eight-float order; a transposed binding breaks this.
+    const inv = Module.mobius_transform(v.x, v.y, v.z, 0, 0, 1, 0, 1, 0, 0, 0);
+    if (!approxVec(inv, v.x, -v.y, -v.z, 1e-3)) {
+      fail(`mobius_transform 1/z = ${JSON.stringify(inv)}, expected (${v.x}, ${-v.y}, ${-v.z})`);
+    }
+  }
+
   // PaletteOps.bakeLut: 256*3 sRGB bytes; a two-key gradient must vary end to end.
   {
     const po = new Module.PaletteOps();
@@ -583,7 +597,7 @@ async function main() {
       po.delete();
     }
   }
-  console.log('  color/palette/lissajous: transfer, interp, OKLab, HSV, procedural, lissajous, bakeLut OK');
+  console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, bakeLut OK');
 
   if (failures > 0) {
     console.error(`\nwasm_smoke: ${failures} failure(s)`);
