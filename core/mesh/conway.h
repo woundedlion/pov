@@ -126,8 +126,7 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
 /**
  * @brief Walk all half-edges orbiting a vertex, invoking visitor(curr_idx) for
  *   each.
- * @tparam OrbitMode Traversal direction: 'P' = prev->pair (dual, ambo,
- *   truncate); 'N' = pair->next (expand, snub).
+ * @tparam OrbitMode Traversal direction: 'P' = prev->pair; 'N' = pair->next.
  * @tparam VisitorFn Callable accepting the current half-edge index (uint16_t).
  * @param he_mesh Half-edge connectivity to walk.
  * @param start_idx Half-edge index at which the orbit begins.
@@ -375,6 +374,7 @@ inline void transform_in_place(MeshState &mesh,
 //   - chamfer / snub                           -> index buffers in `temp`
 //   - kis                                      -> no extra buffers
 //   - relax -> movements and orbit_start, both per-vertex, in `temp`
+//   - relax_baked -> takes no `temp` arena at all
 // medial additionally holds a per-face dual-position buffer in `temp`.
 //
 // MANIFOLD PRECONDITION: dual/ambo/truncate/expand/chamfer/snub/medial require
