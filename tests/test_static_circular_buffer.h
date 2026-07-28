@@ -12,13 +12,71 @@
  */
 #pragma once
 
+#include <concepts>
 #include <iterator>
+#include <ranges>
+#include <type_traits>
+#include <utility>
 #include "core/engine/static_circular_buffer.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
 namespace scb {
+
+// ============================================================================
+// Compile-time conformance
+// ============================================================================
+
+namespace conformance {
+
+using Buf = StaticCircularBuffer<int, 4>;
+
+// Container member types.
+static_assert(std::is_same_v<Buf::value_type, int>);
+static_assert(std::is_same_v<Buf::reference, int &>);
+static_assert(std::is_same_v<Buf::const_reference, const int &>);
+static_assert(std::is_same_v<Buf::pointer, int *>);
+static_assert(std::is_same_v<Buf::const_pointer, const int *>);
+static_assert(std::is_signed_v<Buf::difference_type>);
+static_assert(std::is_unsigned_v<Buf::size_type>);
+static_assert(
+    std::is_same_v<Buf::difference_type,
+                   std::iterator_traits<Buf::iterator>::difference_type>);
+static_assert(
+    std::is_same_v<Buf::value_type,
+                   std::iterator_traits<Buf::const_iterator>::value_type>);
+
+// Container: default/copy construction, equality, swap, and a forward range whose
+// iterator converts to const_iterator.
+static_assert(std::default_initializable<Buf>);
+static_assert(std::copyable<Buf>);
+static_assert(std::equality_comparable<Buf>);
+static_assert(std::swappable<Buf>);
+static_assert(std::convertible_to<Buf::iterator, Buf::const_iterator>);
+static_assert(std::random_access_iterator<Buf::iterator>);
+static_assert(std::random_access_iterator<Buf::const_iterator>);
+static_assert(std::ranges::random_access_range<Buf>);
+static_assert(std::ranges::random_access_range<const Buf>);
+static_assert(std::ranges::sized_range<Buf>);
+
+// ReversibleContainer: the reverse iterators are themselves bidirectional.
+static_assert(std::is_same_v<Buf::reverse_iterator,
+                             std::reverse_iterator<Buf::iterator>>);
+static_assert(std::is_same_v<Buf::const_reverse_iterator,
+                             std::reverse_iterator<Buf::const_iterator>>);
+static_assert(std::random_access_iterator<Buf::reverse_iterator>);
+static_assert(std::random_access_iterator<Buf::const_reverse_iterator>);
+
+// Container observers, callable on a const buffer with the required return types.
+static_assert(
+    std::is_same_v<decltype(std::declval<const Buf &>().empty()), bool>);
+static_assert(std::is_same_v<decltype(std::declval<const Buf &>().size()),
+                             Buf::size_type>);
+static_assert(std::is_same_v<decltype(std::declval<const Buf &>().max_size()),
+                             Buf::size_type>);
+
+} // namespace conformance
 
 // ============================================================================
 // Construction
@@ -491,6 +549,180 @@ inline void test_iterator_arrow_operator() {
   HS_EXPECT_EQ(it->y, 11);
 }
 
+/**
+ * @brief Verifies cbegin()/cend() traverse a non-const buffer as const_iterators
+ *        and agree with the const begin()/end() overloads.
+ */
+inline void test_cbegin_cend() {
+  StaticCircularBuffer<int, 4> buf{1, 2, 3};
+  StaticCircularBuffer<int, 4>::const_iterator it = buf.cbegin();
+  HS_EXPECT_EQ(buf.cend() - buf.cbegin(), (std::ptrdiff_t)3);
+  int sum = 0;
+  for (; it != buf.cend(); ++it)
+    sum += *it;
+  HS_EXPECT_EQ(sum, 6);
+
+  const auto &cref = buf;
+  HS_EXPECT_TRUE(buf.cbegin() == cref.begin());
+  HS_EXPECT_TRUE(buf.cend() == cref.end());
+}
+
+/**
+ * @brief Verifies rbegin()/rend() walk the elements back-to-front, on both a
+ *        mutable and a const buffer, and that crbegin()/crend() match.
+ */
+inline void test_reverse_iteration() {
+  StaticCircularBuffer<int, 4> buf{10, 20, 30};
+  int values[3] = {};
+  int n = 0;
+  for (auto it = buf.rbegin(); it != buf.rend(); ++it)
+    values[n++] = *it;
+  HS_EXPECT_EQ(n, 3);
+  HS_EXPECT_EQ(values[0], 30);
+  HS_EXPECT_EQ(values[1], 20);
+  HS_EXPECT_EQ(values[2], 10);
+
+  HS_EXPECT_EQ(buf.rend() - buf.rbegin(), (std::ptrdiff_t)3);
+  *buf.rbegin() = 99;
+  HS_EXPECT_EQ(buf.back(), 99);
+
+  const auto &cref = buf;
+  int csum = 0;
+  for (auto it = cref.rbegin(); it != cref.rend(); ++it)
+    csum += *it;
+  HS_EXPECT_EQ(csum, 129);
+  HS_EXPECT_EQ(*buf.crbegin(), 99);
+  HS_EXPECT_EQ(buf.crend() - buf.crbegin(), (std::ptrdiff_t)3);
+}
+
+/**
+ * @brief Verifies reverse iteration still visits logical order when head has
+ *        wrapped into the middle of the backing array.
+ */
+inline void test_reverse_iteration_after_wrap() {
+  StaticCircularBuffer<int, 3> buf;
+  for (int i = 1; i <= 5; ++i)
+    buf.push_back(i); // ends as [3, 4, 5] logical, head == 2
+  HS_EXPECT_FALSE(buf.is_linear());
+  int values[3] = {};
+  int n = 0;
+  for (auto it = buf.crbegin(); it != buf.crend(); ++it)
+    values[n++] = *it;
+  HS_EXPECT_EQ(n, 3);
+  HS_EXPECT_EQ(values[0], 5);
+  HS_EXPECT_EQ(values[1], 4);
+  HS_EXPECT_EQ(values[2], 3);
+}
+
+// ============================================================================
+// Container surface: empty / max_size / swap / equality
+// ============================================================================
+
+/**
+ * @brief Verifies empty() tracks is_empty() across fill and drain.
+ */
+inline void test_empty_matches_is_empty() {
+  StaticCircularBuffer<int, 4> buf;
+  HS_EXPECT_TRUE(buf.empty());
+  HS_EXPECT_EQ(buf.empty(), buf.is_empty());
+  HS_EXPECT_TRUE(buf.begin() == buf.end());
+
+  buf.push_back(1);
+  HS_EXPECT_FALSE(buf.empty());
+  HS_EXPECT_EQ(buf.empty(), buf.is_empty());
+
+  buf.pop_front();
+  HS_EXPECT_TRUE(buf.empty());
+}
+
+/**
+ * @brief Verifies max_size() reports the fixed capacity and does not move as the
+ *        buffer fills.
+ */
+inline void test_max_size_is_capacity() {
+  StaticCircularBuffer<int, 5> buf;
+  HS_EXPECT_EQ(buf.max_size(), (size_t)5);
+  HS_EXPECT_EQ(buf.max_size(), buf.capacity());
+  for (int i = 0; i < 7; ++i)
+    buf.push_back(i);
+  HS_EXPECT_EQ(buf.max_size(), (size_t)5);
+  HS_EXPECT_EQ(buf.size(), (size_t)5);
+}
+
+/**
+ * @brief Verifies member swap and the ADL-findable free swap exchange contents,
+ *        including between buffers of different sizes.
+ */
+inline void test_swap_exchanges_contents() {
+  StaticCircularBuffer<int, 4> a{1, 2, 3};
+  StaticCircularBuffer<int, 4> b{7, 8};
+
+  a.swap(b);
+  HS_EXPECT_EQ(a.size(), (size_t)2);
+  HS_EXPECT_EQ(a[0], 7);
+  HS_EXPECT_EQ(a[1], 8);
+  HS_EXPECT_EQ(b.size(), (size_t)3);
+  HS_EXPECT_EQ(b[0], 1);
+  HS_EXPECT_EQ(b[2], 3);
+
+  using std::swap;
+  swap(a, b); // ADL picks the hidden friend
+  HS_EXPECT_EQ(a.size(), (size_t)3);
+  HS_EXPECT_EQ(a[0], 1);
+  HS_EXPECT_EQ(b.size(), (size_t)2);
+  HS_EXPECT_EQ(b[0], 7);
+}
+
+/**
+ * @brief Verifies swap survives a wrapped head, so the exchanged buffers keep
+ *        logical order rather than backing-slot order.
+ */
+inline void test_swap_after_wrap() {
+  StaticCircularBuffer<int, 3> wrapped;
+  for (int i = 1; i <= 5; ++i)
+    wrapped.push_back(i); // [3, 4, 5], head == 2
+  StaticCircularBuffer<int, 3> linear{9};
+
+  wrapped.swap(linear);
+  HS_EXPECT_EQ(wrapped.size(), (size_t)1);
+  HS_EXPECT_EQ(wrapped[0], 9);
+  HS_EXPECT_EQ(linear.size(), (size_t)3);
+  HS_EXPECT_EQ(linear[0], 3);
+  HS_EXPECT_EQ(linear[1], 4);
+  HS_EXPECT_EQ(linear[2], 5);
+}
+
+/**
+ * @brief Verifies operator==/!= compare the live run elementwise and ignore both
+ *        the head offset and the dead slots outside it.
+ */
+inline void test_equality_compares_live_run() {
+  StaticCircularBuffer<int, 4> a{1, 2, 3};
+  StaticCircularBuffer<int, 4> b{1, 2, 3};
+  HS_EXPECT_TRUE(a == b);
+  HS_EXPECT_FALSE(a != b);
+
+  b[1] = 99;
+  HS_EXPECT_FALSE(a == b);
+  HS_EXPECT_TRUE(a != b);
+
+  StaticCircularBuffer<int, 4> shorter{1, 2};
+  HS_EXPECT_TRUE(a != shorter);
+
+  StaticCircularBuffer<int, 4> empty_a;
+  StaticCircularBuffer<int, 4> empty_b{5, 6};
+  empty_b.clear();
+  HS_EXPECT_TRUE(empty_a == empty_b);
+
+  // Same logical contents reached through a wrap: head differs, equality does not.
+  StaticCircularBuffer<int, 3> rolled;
+  for (int i = 1; i <= 5; ++i)
+    rolled.push_back(i); // [3, 4, 5], head == 2
+  StaticCircularBuffer<int, 3> fresh{3, 4, 5};
+  HS_EXPECT_FALSE(rolled.is_linear());
+  HS_EXPECT_TRUE(rolled == fresh);
+}
+
 // ============================================================================
 // operator[] mutation
 // ============================================================================
@@ -652,6 +884,15 @@ inline int run_static_circular_buffer_tests() {
   test_iterator_after_wrap();
   test_const_iterator();
   test_iterator_arrow_operator();
+  test_cbegin_cend();
+  test_reverse_iteration();
+  test_reverse_iteration_after_wrap();
+
+  test_empty_matches_is_empty();
+  test_max_size_is_capacity();
+  test_swap_exchanges_contents();
+  test_swap_after_wrap();
+  test_equality_compares_live_run();
 
   test_index_assignment();
 
