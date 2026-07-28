@@ -386,27 +386,6 @@ struct CRGB {
     b = (b + rhs.b > 255) ? 255 : b + rhs.b;
     return *this;
   }
-
-  /**
-   * @brief Linearly interpolates toward another color (FastLED lerp16).
-   * @param other Target color at frac == 65535.
-   * @param frac Interpolation fraction in [0, 65535], where 0 yields *this.
-   * @return The interpolated color.
-   */
-  CRGB lerp16(const CRGB &other, uint16_t frac) const {
-    CRGB ret;
-    // Truncating (no round bias) to match FastLED's integer lerp16by16/scale16.
-    ret.r = static_cast<uint8_t>((static_cast<uint32_t>(r) * (65535 - frac) +
-                                  static_cast<uint32_t>(other.r) * frac) >>
-                                 16);
-    ret.g = static_cast<uint8_t>((static_cast<uint32_t>(g) * (65535 - frac) +
-                                  static_cast<uint32_t>(other.g) * frac) >>
-                                 16);
-    ret.b = static_cast<uint8_t>((static_cast<uint32_t>(b) * (65535 - frac) +
-                                  static_cast<uint32_t>(other.b) * frac) >>
-                                 16);
-    return ret;
-  }
 };
 
 // --- Mock FastLED Functions ---
