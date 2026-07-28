@@ -85,7 +85,8 @@ fi
 # sources: core/vendor/ and the generated color_luts.h / gamut_lut.h /
 # reaction_graph.cpp are excluded. Checks the working-tree file (same partial-staging caveat as the
 # suite above). Skipped if clang-format is absent (a contributor without it still
-# commits — no CI counterpart yet) or via HS_SKIP_FORMAT=1.
+# commits — CI's clang-format job gates the whole tracked tree) or via
+# HS_SKIP_FORMAT=1.
 if [ -z "$HS_SKIP_FORMAT" ]; then
   FORMAT="$(printf '%s\n' "$CHANGED" \
     | grep -E '\.(h|hpp|cpp|cc|inl)$' \
@@ -131,8 +132,12 @@ fi
 # Build both images and let the post-build extra_script
 # (tools/teensy_gate_extra.py) enforce the per-region budgets in
 # tools/teensy_budgets.json — a non-zero exit aborts the commit. Phantasm is the
-# binding RAM1 image, but Holosphere has its own budget/layout, so both are
-# gated here to match CI's teensy-size job exactly. Skipped if PlatformIO is
+# binding RAM1 image, but Holosphere has its own budget/layout, so both are gated
+# here; holosphere_dma rides along as a compile+link drift check for
+# pov_single.h's USE_DMA_LEDS path, which no shipping image builds. CI's
+# teensy-size job builds three further ungated environments (phantasm8, profile,
+# profile_o3); they are omitted here to keep the per-commit hook fast, so CI is
+# the authoritative gate for those compile paths. Skipped if PlatformIO is
 # absent (a contributor without the ARM toolchain still commits — CI catches it)
 # or via HS_SKIP_TEENSY=1.
 if [ -n "$TEENSY" ] && [ -z "$HS_SKIP_TEENSY" ]; then
