@@ -1671,6 +1671,8 @@ An effect passes construction-time flags to its base as `Effect(W, H, {.strobe =
 
 All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for RingShower and Dynamo.
 
+The simulator, the effect registry, and the tests carry the full roster. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) is a 22-effect subset of it, excluding the two Holosphere-96×20-only effects, Dynamo and Thrusters.
+
 ### Core Effects (Modern Engine)
 
 <table border="0"><tr>
