@@ -1234,6 +1234,7 @@ public:
   void prepare(Canvas &cv) {
     base_ = cv.data();
     const ClipRegion &cr = cv.clip();
+    clip_stamp = cr;
     const ClipRegion::XClip xc = cr.x_clip();
     for (int x = 0; x < W; ++x)
       x_visible_[x] = !xc.clipped(x);
@@ -1244,10 +1245,14 @@ public:
   }
 
   /**
-   * @brief True when the cached framebuffer base still matches @p cv.
+   * @brief True when the cached framebuffer base and clip state still match @p cv.
    * @param cv Canvas the caller is about to draw into.
+   * @details The base pointer alone repeats every other frame when the canvas
+   * double-buffers, so the clip bounds are stamped alongside it.
    */
-  bool prepared_for(Canvas &cv) const { return base_ == cv.data(); }
+  bool prepared_for(Canvas &cv) const {
+    return base_ == cv.data() && clip_stamp == cv.clip();
+  }
 
   /** @brief Splats one screen-space sample directly into the Canvas. */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
@@ -1329,6 +1334,7 @@ public:
 
 private:
   Pixel *base_ = nullptr;
+  ClipRegion clip_stamp{};
   // Zero-init: a plot() before prepare() is a masked no-op, not a read of
   // indeterminate bytes through a null base.
   std::array<uint8_t, W> x_visible_{};
