@@ -94,8 +94,9 @@ static constexpr int TIMELINE_MAX_EVENTS = 64;
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 // True while a Timeline instance is alive (guards the single-singleton invariant).
 extern bool global_timeline_live;
-extern uint32_t global_timeline_t;     // current global frame count
-extern int global_timeline_num_events; // current number of active events
+extern uint32_t global_timeline_t;       // current global frame count
+extern int global_timeline_num_events;   // current number of active events
+extern uint32_t global_timeline_dropped; // monotonic full-timeline drop count
 
 /**
  * @brief Manages all active animations and their execution over time.
@@ -194,7 +195,9 @@ public:
     HS_CHECK(delay <= UINT32_MAX - global_timeline_t,
              "Timeline start frame overflow");
     if (global_timeline_num_events >= MAX_EVENTS) {
-      hs::log("Timeline full, failed to add animation!");
+      ++global_timeline_dropped;
+      hs::log("Timeline full, failed to add animation! (%lu dropped)",
+              (unsigned long)global_timeline_dropped);
       return nullptr;
     }
     if (pin) {
@@ -228,6 +231,16 @@ public:
     };
     return ptr;
   }
+
+  /**
+   * @brief Animations rejected so far because the timeline was full.
+   * @details Monotonic and process-wide: never reset, not even by clear() or a
+   * new Timeline. A drop is silent apart from its log line and permanently
+   * ends any chain that re-arms itself from a .then() callback, so a nonzero
+   * count is the only lasting evidence.
+   * @return Total number of dropped add()/add_get() calls.
+   */
+  uint32_t dropped_events() const { return global_timeline_dropped; }
 
   /**
    * @brief Advances the timeline by one frame, stepping all active or starting

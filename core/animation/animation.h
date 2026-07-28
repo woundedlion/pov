@@ -167,6 +167,10 @@ public:
    * Single post slot: then() traps (HS_CHECK) rather than overwrite an existing
    * callback.
    *
+   * A callback that re-arms the chain by adding the next animation ends it for
+   * good if that add is dropped on a full timeline: nothing retries, and
+   * Timeline::dropped_events() is the only record.
+   *
    * @param callback The function to execute at each completion.
    * @return LValue Reference to the derived animation object.
    */

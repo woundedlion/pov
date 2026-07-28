@@ -176,6 +176,11 @@ uint32_t global_timeline_t = 0;
  * (see animation.h).
  */
 int global_timeline_num_events = 0;
+/**
+ * @brief Monotonic count of animations rejected because the timeline was full.
+ * @details Never reset, including across Timeline instances (see animation.h).
+ */
+uint32_t global_timeline_dropped = 0;
 /** @brief Front pixel buffer for the double-buffered effect framebuffer. */
 DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];
 /** @brief Back pixel buffer for the double-buffered effect framebuffer. */
