@@ -458,6 +458,8 @@ public:
     // firing), which draws as lines crossing the pattern. Growing each star
     // point out from its collapsed corner is monotone and lands on the same
     // arrival geometry.
+    HS_CHECK(theta_start <= theta_end,
+             "OpLeg: hankin leg sweeps back to a smaller contact angle");
     const float theta_hi = std::max(theta_end, THETA_EPS);
     tr.t_start = std::max(std::max(theta_start, 0.0f) / theta_hi, K_EPS);
     tr.t_end = 1.0f;
