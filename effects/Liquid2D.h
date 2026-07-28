@@ -62,6 +62,8 @@ public:
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
     timeline.add(
         0, Animation::RandomWalk<W>(global_orientation, UP, global_walk_noise));
+    // Must follow the walk: RandomWalk's ctor sets the generator's frequency.
+    noise.SetFrequency(WARP_NOISE_FREQUENCY);
     timeline.add(0, Animation::Driver(accumulated_time, &params.time_speed,
                                       1.0f, false));
     // wrap=false: cycle_phase is wrapped by hand to 2pi in draw_frame; the
@@ -292,6 +294,10 @@ private:
   float cycle_phase = 0.0f; /**< Wrapped to [0, 2pi) each frame for breathe. */
   float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's +t term. */
   float cos_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's 0.8*t term. */
+
+  /** @brief Base spatial frequency of the warp generator; the `Warp Scale`
+   *  slider multiplies it. */
+  static constexpr float WARP_NOISE_FREQUENCY = 0.02f;
 
   static constexpr float WARP_SCALE_MIN = 0.1f, WARP_SCALE_MAX = 10.0f;
   static constexpr float WARP_STRENGTH_MIN = 0.0f, WARP_STRENGTH_MAX = 3.0f;
