@@ -535,6 +535,23 @@ inline void case_timeline_pinned_finite_animation() {
 }
 
 /**
+ * @brief Death case: dropping a pinned add on a full timeline must trap.
+ * @details Animation surface — the capacity guard returns nullptr, but an
+ *          add_get(pin=true) caller retains that pointer across frames and no
+ *          call site null-checks it. The guard traps on the pinned case so a
+ *          full timeline fails at the add instead of at the first use of the
+ *          stored handle.
+ */
+inline void case_timeline_pinned_add_on_full_timeline() {
+  Timeline tl;
+  float sink = 0.0f;
+  for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
+    tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
+  tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, /*repeat=*/true),
+             /*pin=*/opaque(true));
+}
+
+/**
  * @brief Death case: a pinned one-shot timer must trap when it fires.
  * @details Animation surface — a one-shot RandomTimer/PeriodicTimer ends itself
  *          on its single trigger. Ending via finish() (not cancel()) keeps
@@ -1392,6 +1409,8 @@ inline const Case *all_cases(int &n) {
       {"timeline_handled_completion", case_timeline_handled_completion},
       {"timeline_pinned_finite_animation",
        case_timeline_pinned_finite_animation},
+      {"timeline_pinned_add_on_full_timeline",
+       case_timeline_pinned_add_on_full_timeline},
       {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer},
       {"timeline_clear_pinned", case_timeline_clear_pinned},
       {"timeline_double_construct", case_timeline_double_construct},

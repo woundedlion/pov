@@ -794,10 +794,12 @@ inline void test_timeline_instance_boundary_reclaims_pinned_event() {
 inline void test_timeline_full_guard_rejects_overflow() {
   Timeline tl;
   float sink = 0.0f;
+  HS_EXPECT_EQ(tl.remaining(), Timeline::MAX_EVENTS);
   // Fill to capacity (these events share one float).
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
   HS_EXPECT_EQ(global_timeline_num_events, Timeline::MAX_EVENTS);
+  HS_EXPECT_EQ(tl.remaining(), 0);
 
   // The overflow event has its own target so a silent enqueue would show up.
   float rejected = 0.0f;
