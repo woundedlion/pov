@@ -549,8 +549,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
         uint16_t new_idx = narrow_index(out_mesh.vertices.size() - 1);
 
         edge_to_vert[i] = new_idx;
-        if (he.pair != HE_NONE)
-          edge_to_vert[he.pair] = new_idx;
+        edge_to_vert[he.pair] = new_idx;
       }
     }
 
@@ -779,8 +778,7 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
         uint16_t idx_v = narrow_index(out_mesh.vertices.size() - 1);
 
         edge_to_vert[i] = {idx_u, idx_v};
-        if (he.pair != HE_NONE)
-          edge_to_vert[he.pair] = {idx_u, idx_v};
+        edge_to_vert[he.pair] = {idx_u, idx_v};
       }
     }
 
