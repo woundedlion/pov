@@ -189,7 +189,7 @@ No Critical findings. Numbering runs sequentially across all priority sections.
 
 ### LOW
 
-54. A pipeline carrying both 2-D and 3-D history silently leaves one domain unflushed — `core/render/filter.h:478-502`. Latent; no shipped effect mixes them. Fix: `static_assert(!(any_2d_history && any_3d_history))`.
+54. ✅ A pipeline carrying both 2-D and 3-D history silently leaves one domain unflushed — `core/render/filter.h:478-502`. Latent; no shipped effect mixes them. Fix: `static_assert(!(any_2d_history && any_3d_history))`. — supported instead of banned: a two-callback `flush(cv, worldFn, screenFn, alpha)` drains both domains (3-D first, so its re-emissions reach the 2-D stage before that stage ages), and each single-callback overload now rejects a pipeline whose other domain it would leave unflushed.
 55. ✅ **`edge_fits_one_dot`** is computed then discarded on every planar segment — `core/render/plot.h:1418-1422`. Dead by construction whenever a planar basis is in force.
 56. ❌ **`aux`** / `Fragment::v3` is a dead register on the entire SDF path — all 17 `DistanceResult` constructions pass literal `0.0f`, yet it is copied per shaded pixel at `core/render/scan.h:105,639,1342`. — rejected: the Fragment is reused scratch, so `v3` must be written on every shaded pixel regardless; dropping `aux` only turns that copy into the literal-zero store the compiler already folds it to. `Fragment::v3` is live (ChaoticStrings, MindSplatter, and the raymarch normal path), and `aux` is kept as the SDF leaf channel into it.
 57. ✅ CSG per-row scratch is on the stack, contradicting `scan_region`'s own stack-pressure rationale one frame up — `core/render/sdf.h:1460-1461,1531-1532,1713-1716`.

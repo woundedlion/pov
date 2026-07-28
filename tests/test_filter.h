@@ -183,7 +183,7 @@ inline void test_crosses_segments_trait_and_fold() {
 
 /**
  * @brief Verifies the `any_2d_history` / `any_3d_history` folds that gate the
- *        two flush() overloads against a wrong-domain (silently empty) call.
+ *        flush() overloads against a wrong-domain (silently empty) call.
  * @details The rejection itself is a static_assert inside the overload body, so
  *          it is not SFINAE-detectable; what a test can pin is the fold each
  *          assert reads.
@@ -2438,6 +2438,58 @@ inline void test_screen_trails_forwards_aged_emission() {
   HS_EXPECT_EQ(emitted, 1);
 }
 
+/**
+ * @brief Verifies the two-callback flush() drains a pipeline that carries
+ *        history in both domains.
+ * @details Aging happens inside flush(), so a single-domain flush would leave
+ *          the world ring pinned at its seeded size forever. The 3D pass runs
+ *          first, so its re-emissions reach Screen::Trails in the same frame
+ *          they are drawn.
+ */
+inline void test_mixed_domain_flush_drains_both_buffers() {
+  constexpr int W = 32, H = 16, CAP = 8, MAXP = 64, LIFETIME = 3;
+  static uint8_t buf[CAP * 16 + MAXP * 32];
+  Arena arena(buf, sizeof(buf));
+  using WorldTrails = Filter::World::Trails<W, CAP>;
+  using ScreenTrails = Filter::Screen::Trails<W, MAXP>;
+
+  Pipeline<W, H, WorldTrails, ScreenTrails> pipe{WorldTrails(LIFETIME),
+                                                 ScreenTrails(LIFETIME)};
+  pipe.get<WorldTrails>().init_storage(arena);
+  pipe.get<ScreenTrails>().init_storage(arena);
+
+  hs_test::StubEffect fx(W, H);
+  Canvas c(fx);
+
+  pipe.plot(c, Vector(0.3f, -0.6f, 0.74f).normalized(), Pixel(1, 2, 3), 0.0f,
+            1.0f);
+  HS_EXPECT_EQ(pipe.get<WorldTrails>().size(), (size_t)1);
+
+  int world_emits = 0, screen_emits = 0;
+  auto world_trail = [&](const Vector &, float) {
+    ++world_emits;
+    return Color4(Pixel(9, 9, 9), 1.0f);
+  };
+  auto screen_trail = [&](float, float, float) {
+    ++screen_emits;
+    return Color4(Pixel(9, 9, 9), 1.0f);
+  };
+
+  for (int frame = 0; frame < LIFETIME; ++frame) {
+    world_emits = screen_emits = 0;
+    pipe.flush(c, WorldTrailFn(world_trail), ScreenTrailFn(screen_trail), 1.0f);
+    HS_EXPECT_EQ(world_emits, 1);
+    HS_EXPECT_TRUE(screen_emits > 0);
+  }
+
+  // ttl reached 0 on the last pass: the world ring aged out instead of pinning.
+  HS_EXPECT_EQ(pipe.get<WorldTrails>().size(), (size_t)0);
+
+  world_emits = screen_emits = 0;
+  pipe.flush(c, WorldTrailFn(world_trail), ScreenTrailFn(screen_trail), 1.0f);
+  HS_EXPECT_EQ(world_emits, 0);
+}
+
 // ============================================================================
 // Segmented-mode rendering bound (docs/segmented_stateful_effects_spec.md)
 // ============================================================================
@@ -2695,6 +2747,7 @@ inline int run_filter_tests() {
   test_world_trails_midbuffer_expiry_reclaims_slot();
   test_screen_trails_store_emit_decay();
   test_screen_trails_forwards_aged_emission();
+  test_mixed_domain_flush_drains_both_buffers();
 
   test_effect_needs_full_frame_default_false();
   test_screen_trails_banded_matches_full();
