@@ -116,9 +116,9 @@ public:
             return Solids::finalize_solid(Solids::Platonic::icosahedron(a, b),
                                           target);
           });
-      MeshOps::compile(poly, mesh_, persistent_arena, scratch_arena_a);
+      MeshOps::compile(poly, mesh, persistent_arena, scratch_arena_a);
     }
-    mesh_shade_ = palette.get(0.0f);
+    mesh_shade = palette.get(0.0f);
 
     register_animated_param("Fade", &style.fade, FADE_MIN, FADE_MAX);
     register_animated_param("Distort Amp", &style.amplitude, AMP_MIN, AMP_MAX);
@@ -164,9 +164,9 @@ public:
 
     {
       HS_PROFILE(mf_mesh_draw);
-      const Color4 shade = mesh_shade_;
+      const Color4 shade = mesh_shade;
       Plot::Mesh::draw<W, H>(
-          filters, canvas, mesh_,
+          filters, canvas, mesh,
           [&](const Vector &, Fragment &f) { f.color = shade; });
     }
 
@@ -195,9 +195,9 @@ private:
   void advance_transition() {
     if (animations_paused())
       return;
-    if (++transition_frames_ < PRESET_FRAMES)
+    if (++transition_frames < PRESET_FRAMES)
       return;
-    transition_frames_ = 0;
+    transition_frames = 0;
     presets.next();
     presets.apply(style);
   }
@@ -206,7 +206,7 @@ private:
 
   Presets<Style, 12> presets{PRESETS};
   bool feedback_enabled = true;
-  int transition_frames_ = 0;
+  int transition_frames = 0;
   NoiseParams noise_params;
 
   Orientation<> orientation;
@@ -214,10 +214,10 @@ private:
   ProceduralPalette palette;
 
   // The mesh draws one fixed color, so the palette is sampled once in init().
-  Color4 mesh_shade_;
+  Color4 mesh_shade;
 
   // The single, fixed solid; built once in init() and never recompiled.
-  MeshState mesh_;
+  MeshState mesh;
 
   Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
            Filter::Pixel::Feedback<W, H>>
