@@ -97,6 +97,16 @@ public:
     size_t faces;              /**< Face count (bounds face_ramp). */
     float gain = 1.0f; /**< Multiplier the shader applies to the edge-distance
                           gradient; OpLeg holds it at 1 on every kind. */
+
+    /**
+     * @brief The face's pre-blended ramp.
+     * @param face Face index.
+     * @return The blended LUT to sample; an out-of-range face falls back to
+     * ramp 0 rather than reading past the table.
+     */
+    const BakedPalette &ramp_for(size_t face) const {
+      return ramps[face < faces ? face_ramp[face] : 0];
+    }
   };
 
   /**

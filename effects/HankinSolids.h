@@ -498,11 +498,8 @@ private:
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       float t = hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
-      int face = static_cast<int>(f.v2);
-      int ramp = (face >= 0 && face < static_cast<int>(shading.faces))
-                     ? shading.face_ramp[face]
-                     : 0;
-      Color4 c = shading.ramps[ramp].get(t);
+      Color4 c =
+          shading.ramp_for(static_cast<size_t>(static_cast<int>(f.v2))).get(t);
       c.alpha = 1.0f;
       f.color = c;
     };
