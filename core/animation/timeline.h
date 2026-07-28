@@ -150,7 +150,38 @@ public:
       HS_CHECK(!global_timeline_events[i].handled,
                "clear() would destroy a pinned animation");
     }
+    for (int i = 0; i < clear_hook_count_; ++i)
+      clear_hooks_[i].fn(clear_hooks_[i].ctx);
     destroy_events();
+  }
+
+  /**
+   * @brief Registers a callback clear() runs before it destroys the events.
+   * @param ctx Opaque pointer handed back to @p fn; also the removal key.
+   * @param fn Callback; must not add or remove timeline events.
+   * @details For state an owner reclaims from a completion callback, which
+   * clear() never runs (it destroys events outright) — TransformerPool's slot
+   * table is the case. Cold path: registration happens at effect init.
+   */
+  HS_COLD_MEMBER void add_clear_hook(void *ctx, void (*fn)(void *)) {
+    HS_CHECK(clear_hook_count_ < MAX_CLEAR_HOOKS,
+             "Timeline clear-hook table full");
+    clear_hooks_[clear_hook_count_++] = ClearHook{ctx, fn};
+  }
+
+  /**
+   * @brief Unregisters the hook added under @p ctx; a no-op if absent.
+   * @param ctx The registration key passed to add_clear_hook().
+   * @details Hook order is not preserved (the last entry backfills the hole):
+   * the hooks are independent.
+   */
+  HS_COLD_MEMBER void remove_clear_hook(void *ctx) {
+    for (int i = 0; i < clear_hook_count_; ++i) {
+      if (clear_hooks_[i].ctx == ctx) {
+        clear_hooks_[i] = clear_hooks_[--clear_hook_count_];
+        return;
+      }
+    }
   }
 
   /**
@@ -364,7 +395,20 @@ public:
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 
+  static constexpr int MAX_CLEAR_HOOKS = 4; /**< clear_hooks_ capacity. */
+
 private:
+  /**
+   * @brief One registered clear() observer.
+   */
+  struct ClearHook {
+    void *ctx = nullptr;
+    void (*fn)(void *) = nullptr;
+  };
+
+  ClearHook clear_hooks_[MAX_CLEAR_HOOKS] = {};
+  int clear_hook_count_ = 0;
+
   /**
    * @brief Destroys every stored animation and empties the slot table.
    */

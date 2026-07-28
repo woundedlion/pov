@@ -684,6 +684,37 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
 }
 
 // ============================================================================
+// Transformer<> slots are reclaimed by Timeline::clear()
+// ============================================================================
+
+/**
+ * @brief Verifies Timeline::clear() frees the pool slots of the animations it
+ *        destroys.
+ * @details clear() destroys events outright, so their then() callbacks — the
+ *          only other reclaim path — never run. Without the pool's clear hook
+ *          the slots stay active forever and the effect silently stops warping
+ *          after CAPACITY spawns.
+ */
+inline void test_transformer_slots_released_by_timeline_clear() {
+  Timeline tl;
+  global_timeline_t = 0;
+
+  RippleTransformer<2> rt(tl);
+  rt.init_storage(persistent_arena);
+
+  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 1, 0), 0.2f, 60) != nullptr);
+  HS_EXPECT_TRUE(rt.spawn(0, Vector(1, 0, 0), 0.2f, 60) != nullptr);
+  HS_EXPECT_EQ(rt.active_count(), 2);
+  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 0, 1), 0.2f, 60) == nullptr);
+
+  tl.clear();
+  HS_EXPECT_EQ(rt.active_count(), 0);
+  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 0, 1), 0.2f, 60) != nullptr);
+  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 1, 0), 0.2f, 60) != nullptr);
+  HS_EXPECT_EQ(rt.active_count(), 2);
+}
+
+// ============================================================================
 // Transformer<> composition order follows spawn order across slot recycling
 // ============================================================================
 
@@ -1262,6 +1293,7 @@ inline int run_transformers_tests() {
   test_transformer_no_entities_is_identity();
   test_transformer_spawn_applies_and_composes();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
+  test_transformer_slots_released_by_timeline_clear();
   test_transformer_recycled_slot_composes_in_spawn_order();
   test_field_transformer_no_entities_is_zero();
   test_field_transformer_sums_and_bounds();
