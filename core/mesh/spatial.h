@@ -453,11 +453,25 @@ struct MeshState {
    *   views at the given spans.
    * @param face_counts_span Borrowed per-face vertex counts.
    * @param faces_span Borrowed flattened face vertex indices.
-   * @param face_offsets_span Borrowed per-face start offsets into faces.
+   * @param face_offsets_span Borrowed per-face start offsets into faces. Empty
+   *   when the source mesh carries no offsets (only the solid scan path needs
+   *   them); otherwise one entry per face.
+   * @details Traps on inconsistent spans: a present offsets array must be one
+   *   entry per face, and its last offset plus that face's count must cover the
+   *   whole flat faces list.
    */
   void set_view(ArenaSpan<uint8_t> face_counts_span,
                 ArenaSpan<uint16_t> faces_span,
                 ArenaSpan<uint16_t> face_offsets_span) {
+    if (!face_offsets_span.is_empty()) {
+      HS_CHECK(face_offsets_span.size() == face_counts_span.size(),
+               "MeshState::set_view: one face offset per face count required");
+      const size_t last = face_counts_span.size() - 1;
+      HS_CHECK(static_cast<size_t>(face_offsets_span[last]) +
+                       face_counts_span[last] ==
+                   faces_span.size(),
+               "MeshState::set_view: face offsets do not span faces");
+    }
     face_counts = {};
     faces = {};
     face_offsets = {};
