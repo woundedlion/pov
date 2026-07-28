@@ -122,9 +122,9 @@ template <int H> inline float y_to_phi(int y) {
  * @param y Fractional pixel row.
  * @return The spherical phi angle in radians.
  * @details Snaps to the LUT for near-integer y; otherwise computes the angle
- * analytically. Unlike the integer overload, does NOT clamp or trap an
- * out-of-range y — the analytic branch extrapolates linearly, and keeping y in
- * range is the caller's responsibility.
+ * analytically. The range is debug-asserted, so only NDEBUG builds extrapolate
+ * linearly past [0, H_VIRT-1]; keeping y in range is the caller's
+ * responsibility.
  */
 template <int H> inline float y_to_phi(float y) {
   if (std::abs(y - std::floor(y)) < TOLERANCE) {
@@ -135,7 +135,6 @@ template <int H> inline float y_to_phi(float y) {
   }
   constexpr int H_VIRT = H + hs::H_OFFSET;
   static_assert(H_VIRT > 1, "phi<->y mapping degenerates when H_VIRT <= 1");
-  // Debug parity with the integer overload's range trap; compiles out under NDEBUG.
   assert(y >= 0.0f && y <= H_VIRT - 1);
   return (y * PI_F) / (H_VIRT - 1);
 }
@@ -260,9 +259,10 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
  * @tparam H Height.
  * @param x Fractional X coordinate (column).
  * @param y Fractional Y coordinate (row); the analytic branch passes it straight
- *   to `y_to_phi<H>` with NO clamp. A sub-pixel `y` outside [0, H_VIRT-1]
- *   extrapolates phi past [0, pi] by analytic continuity; callers must keep `y`
- *   in range (this is a per-pixel path, so no clamp).
+ *   to `y_to_phi<H>`, which debug-asserts the range. Under NDEBUG a sub-pixel
+ *   `y` outside [0, H_VIRT-1] extrapolates phi past [0, pi] by analytic
+ *   continuity; callers must keep `y` in range (this is a per-pixel path, so no
+ *   clamp).
  * @return Unit vector on the sphere.
  * @details Snaps to the integer LUT path when both coordinates are near-integer
  * AND in LUT range; otherwise builds the vector analytically from spherical
