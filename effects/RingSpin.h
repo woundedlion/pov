@@ -71,7 +71,7 @@ public:
 
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Thickness", &params.thickness, 0.01f, 10.0f);
-    register_param("Show Bounding", &params.show_bounding_box);
+    register_param("Debug BB", &params.debug_bb);
 
     // Inset the source into the middle band, then fade alpha at the edges.
     // Wrap=false so the top edge resolves to the source's last stop
@@ -151,7 +151,7 @@ public:
         Scan::RingGroup::draw<W, H>(
             filters, canvas, shapes, slots,
             [&](int s, const Vector &, Fragment &f) { f.color = colors[s]; },
-            params.show_bounding_box);
+            params.debug_bb);
       });
     }
   }
@@ -191,8 +191,7 @@ private:
   struct Params {
     float alpha = 0.5f;     /**< Global trail opacity multiplier in [0, 1]. */
     float thickness = 0.8f; /**< Ring line thickness multiplier (unitless). */
-    bool show_bounding_box =
-        false; /**< Whether to draw each ring's bounding box. */
+    bool debug_bb = false; /**< Whether to draw each ring's bounding box. */
   } params;
 
   // init() allocates the ring pool (each ring carries its TRAIL_LENGTH trail)
