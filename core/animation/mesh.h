@@ -2772,19 +2772,6 @@ public:
   const SegueT &segue() const { return segue_policy; }
 
   /**
-   * @brief Compacts the persistent arena, reclaiming fragmented space.
-   * @details Evacuates tracked MeshStates and resets the arena. Call before
-   * allocating new persistent data.
-   */
-  void compact() {
-    // Both evacuations share scratch_arena_a, which must hold both populated
-    // slots.
-    Persist<MeshState> p0(slots[0], scratch_arena_a, persistent_arena);
-    Persist<MeshState> p1(slots[1], scratch_arena_a, persistent_arena);
-    persistent_arena.reset();
-  }
-
-  /**
    * @brief Frees the back slot and compacts, preserving only the front slot.
    * @tparam AfterReset Callable type invoked as `void(Arena&)`.
    * @param after_reset Callback run immediately after the reset, while the
