@@ -1595,7 +1595,7 @@ template <typename A, typename B> struct Subtract {
    * @tparam ComputeUVs Forwarded to each child's distance().
    * @param p Point on sphere (normalized).
    * @param res Output result; max(A, -B) with B's distance negated when it
-   * wins.
+   * wins, keeping A's size metric.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -1603,8 +1603,12 @@ template <typename A, typename B> struct Subtract {
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
     if (-res_b.dist > res.dist) {
+      // is_solid tracks the minuend, so the AA branch normalizes over A's
+      // metric; the carve edge must not widen to B's.
+      const float size_a = res.size;
       res_b.dist = -res_b.dist;
       res = res_b;
+      res.size = size_a;
     }
   }
 };

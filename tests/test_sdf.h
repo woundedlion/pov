@@ -891,6 +891,17 @@ inline void test_subtract_inside_both_becomes_outside() {
   HS_EXPECT_NEAR(r.dist, 0.1f, 1e-3f);
 }
 
+/** @brief Verifies the AA size metric stays the minuend's when the subtrahend wins. */
+inline void test_subtract_keeps_minuend_size_when_b_wins() {
+  Vector p(1, 0, 0), q(0, 0, 1);
+  SDF::Line la(p, q, 0.1f);
+  SDF::Line lb(p, q, 0.4f);
+  SDF::Subtract<SDF::Line, SDF::Line> s(la, lb);
+  auto r = s.distance(((p + q) * 0.5f).normalized());
+  HS_EXPECT_NEAR(r.dist, 0.4f, 1e-3f);
+  HS_EXPECT_NEAR(r.size, 0.1f, 1e-6f);
+}
+
 namespace sdf_subtract_detail {
 /**
  * @brief Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list.
@@ -2226,6 +2237,7 @@ inline int run_sdf_tests() {
 
   test_subtract_inside_a_outside_b_remains_inside();
   test_subtract_inside_both_becomes_outside();
+  test_subtract_keeps_minuend_size_when_b_wins();
   test_subtract_unsorted_b_yields_sorted_set_difference();
   test_subtract_unsorted_a_passthrough_is_sorted();
   test_subtract_full_width_b_requests_full_row_scan();
