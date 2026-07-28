@@ -146,7 +146,8 @@ struct MeshPaletteBank {
    * @param slots Class slot -> palette index (see shuffle_indices).
    * @param out Receives one palette index per face.
    */
-  static HS_COLD_MEMBER void assign_by_class(const int *topology, size_t faces,
+  static HS_COLD_MEMBER void assign_by_class(const uint16_t *topology,
+                                             size_t faces,
                                              const std::array<int, N> &slots,
                                              uint8_t *out) {
     for (size_t f = 0; f < faces; ++f)

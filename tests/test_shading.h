@@ -125,7 +125,7 @@ inline void test_fragment_edge_dist_degenerate_face() {
  *        modulo the palette count.
  */
 inline void test_mesh_topology_slot_in_range_wraps() {
-  const int topology[] = {0, 5, 2};
+  const uint16_t topology[] = {0, 5, 2};
   Fragment f;
   f.v2 = 1.0f; // face index 1 -> class 5
   HS_EXPECT_EQ((mesh_topology_slot<4>(f, topology, 3)), 1); // wrap(5, 4) == 1
@@ -136,7 +136,7 @@ inline void test_mesh_topology_slot_in_range_wraps() {
  *        rather than reading out of bounds.
  */
 inline void test_mesh_topology_slot_out_of_range_falls_back() {
-  const int topology[] = {3, 3, 3}; // class 3 everywhere
+  const uint16_t topology[] = {3, 3, 3}; // class 3 everywhere
   Fragment over;
   over.v2 = 9.0f; // >= num_faces -> class 0
   HS_EXPECT_EQ((mesh_topology_slot<4>(over, topology, 3)), 0);
@@ -274,7 +274,7 @@ inline void test_shade_mesh_topology_segue() {
  *        color's own alpha.
  */
 inline void test_shade_mesh_topology_direct() {
-  const int topology[] = {2};                    // face 0 -> topology class 2
+  const uint16_t topology[] = {2};               // face 0 -> topology class 2
   std::array<int, 4> palette_idx = {0, 0, 3, 0}; // class 2 -> bank slot 3
   StubSegueBank bank;
   for (int i = 0; i < 4; ++i)

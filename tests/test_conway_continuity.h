@@ -1574,7 +1574,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
     const size_t nf = Probe::node_faces(fx);
     bool star[PALETTES] = {}, strap[PALETTES] = {};
     for (size_t f = 0; f < mesh.topology.size(); ++f) {
-      const int slot = wrap(mesh.topology[f], PALETTES);
+      const int slot = wrap(static_cast<int>(mesh.topology[f]), PALETTES);
       (f < nf ? star[slot] : strap[slot]) = true;
     }
     const uint8_t mask = Probe::strap_blend_mask(fx);
