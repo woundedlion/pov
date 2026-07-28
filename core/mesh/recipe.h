@@ -108,6 +108,71 @@ inline size_t expand_to_primitives(const Recipe &recipe, OpStep *out,
 }
 
 /**
+ * @brief Applies one step to a builder.
+ * @param builder Builder the step runs on.
+ * @param step Step to apply.
+ * @param allow_composite Whether composite steps (bevel, gyro, meta, needle,
+ *   zip) are legal; a composite step traps when false.
+ * @details Single dispatch shared by both replay paths, so an authored replay
+ * and a lowered primitive replay cannot diverge on a step.
+ */
+FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
+                                bool allow_composite) {
+  switch (step.op) {
+  case Op::TRUNCATE:
+    builder.truncate(step.param);
+    break;
+  case Op::EXPAND:
+    builder.expand(step.param);
+    break;
+  case Op::SNUB:
+    builder.snub(step.param, step.twist);
+    break;
+  case Op::CHAMFER:
+    builder.chamfer(step.param);
+    break;
+  case Op::HANKIN:
+    builder.hankin(step.param);
+    break;
+  case Op::RELAX:
+    if (step.bake)
+      builder.relax_baked(*step.bake);
+    else
+      builder.relax(static_cast<int>(step.param));
+    break;
+  case Op::KIS:
+    builder.kis();
+    break;
+  case Op::DUAL:
+    builder.dual();
+    break;
+  case Op::AMBO:
+    builder.ambo();
+    break;
+  case Op::BEVEL:
+    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    builder.bevel(step.param);
+    break;
+  case Op::GYRO:
+    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    builder.gyro();
+    break;
+  case Op::META:
+    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    builder.meta();
+    break;
+  case Op::NEEDLE:
+    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    builder.needle();
+    break;
+  case Op::ZIP:
+    HS_CHECK(allow_composite, "apply_step: non-primitive op");
+    builder.zip();
+    break;
+  }
+}
+
+/**
  * @brief Replays a recipe's authored chain from its simple_registry seed.
  * @param recipe Recipe to replay; composites run through the SolidBuilder
  *   composite methods, so the replay matches the generator functions exactly.
@@ -120,56 +185,8 @@ FLASHMEM static PolyMesh build_recipe(const Recipe &recipe, Arena &a,
   HS_CHECK(recipe.seed < std::size(simple_registry),
            "build_recipe: seed outside simple_registry");
   SolidBuilder builder(simple_registry[recipe.seed].generate(a, b), a, b);
-  for (size_t i = 0; i < recipe.count; ++i) {
-    const OpStep &step = recipe.steps[i];
-    switch (step.op) {
-    case Op::TRUNCATE:
-      builder.truncate(step.param);
-      break;
-    case Op::EXPAND:
-      builder.expand(step.param);
-      break;
-    case Op::SNUB:
-      builder.snub(step.param, step.twist);
-      break;
-    case Op::CHAMFER:
-      builder.chamfer(step.param);
-      break;
-    case Op::HANKIN:
-      builder.hankin(step.param);
-      break;
-    case Op::RELAX:
-      if (step.bake)
-        builder.relax_baked(*step.bake);
-      else
-        builder.relax(static_cast<int>(step.param));
-      break;
-    case Op::KIS:
-      builder.kis();
-      break;
-    case Op::DUAL:
-      builder.dual();
-      break;
-    case Op::AMBO:
-      builder.ambo();
-      break;
-    case Op::BEVEL:
-      builder.bevel(step.param);
-      break;
-    case Op::GYRO:
-      builder.gyro();
-      break;
-    case Op::META:
-      builder.meta();
-      break;
-    case Op::NEEDLE:
-      builder.needle();
-      break;
-    case Op::ZIP:
-      builder.zip();
-      break;
-    }
-  }
+  for (size_t i = 0; i < recipe.count; ++i)
+    apply_step(builder, recipe.steps[i], true);
   return builder.build();
 }
 
@@ -188,44 +205,8 @@ FLASHMEM static PolyMesh build_steps(uint8_t seed, const OpStep *steps,
   HS_CHECK(seed < std::size(simple_registry),
            "build_steps: seed outside simple_registry");
   SolidBuilder builder(simple_registry[seed].generate(a, b), a, b);
-  for (size_t i = 0; i < count; ++i) {
-    const OpStep &step = steps[i];
-    switch (step.op) {
-    case Op::TRUNCATE:
-      builder.truncate(step.param);
-      break;
-    case Op::EXPAND:
-      builder.expand(step.param);
-      break;
-    case Op::SNUB:
-      builder.snub(step.param, step.twist);
-      break;
-    case Op::CHAMFER:
-      builder.chamfer(step.param);
-      break;
-    case Op::HANKIN:
-      builder.hankin(step.param);
-      break;
-    case Op::RELAX:
-      if (step.bake)
-        builder.relax_baked(*step.bake);
-      else
-        builder.relax(static_cast<int>(step.param));
-      break;
-    case Op::KIS:
-      builder.kis();
-      break;
-    case Op::DUAL:
-      builder.dual();
-      break;
-    case Op::AMBO:
-      builder.ambo();
-      break;
-    default:
-      HS_CHECK(false, "build_steps: non-primitive op");
-      break;
-    }
-  }
+  for (size_t i = 0; i < count; ++i)
+    apply_step(builder, steps[i], false);
   return builder.build();
 }
 
