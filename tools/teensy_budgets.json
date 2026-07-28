@@ -21,7 +21,6 @@
   // ==========================================================================
 
   "holosphere": {
-    "board": "teensy40",
     "regions": {
       // Holosphere runs RingSpin at 96x20; these ceilings retain wide FLASH and
       // RAM1 headroom. RAM2 remains close to the hardware wall.
@@ -43,7 +42,6 @@
   },
 
   "phantasm": {
-    "board": "teensy40",
     "regions": {
       // -Os + nano + flash routing (custom ld script), with the ITCM bank
       // reclaimed (FLASHMEM repatriation), the RNG/cos_theta DTCM trims, and the
