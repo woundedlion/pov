@@ -57,11 +57,11 @@ const std::terminate_handler s_fail_fast_terminate = std::set_terminate([] {
  * @brief Single contiguous memory block that all arenas partition.
  * @details alignas keeps the block's base maximally aligned, so each arena's
  * first allocation needs no leading padding; configure_arenas() likewise aligns
- * the inter-arena boundaries. Carries NO DMAMEM: the arena is CPU-only hot render
- * memory and never a DMA target, so on the device it lands in .bss/DTCM, the
- * Cortex-M7's fastest zero-wait RAM. The DMA-reachable buffers below (buffer_a/
- * buffer_b, the timeline events) carry DMAMEM instead because the DMA engine
- * cannot access DTCM.
+ * the inter-arena boundaries. Carries NO DMAMEM: the arena is hot render memory,
+ * so on the device it lands in .bss/DTCM, the Cortex-M7's fastest zero-wait RAM.
+ * The statics below (buffer_a/buffer_b, ~243 KiB each, and the timeline events)
+ * carry DMAMEM to place them in OCRAM instead — neither is a DMA source or
+ * target; DTCM simply has no room for them.
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
