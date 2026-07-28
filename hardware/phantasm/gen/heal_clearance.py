@@ -1,4 +1,4 @@
-"""Restore design_settings.rules.min_clearance > 0 in every phantasm project file.
+"""Restore Quilter and standard-cost via constraints in phantasm project files.
 
 Quilter rejects an upload whose project has min_clearance == 0 ("min clearance must
 be greater than zero"). KiCad re-zeroes that field every time the project is opened
@@ -13,25 +13,57 @@ import json
 import os
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MIN_CLEARANCE = 0.2
+MIN_CLEARANCE = 0.1016
+MIN_THROUGH_HOLE_DIAMETER = 0.2
+MIN_VIA_ANNULAR_WIDTH = 0.125
+MIN_VIA_DIAMETER = 0.45
+MIN_DEFAULT_VIA_DRILL = 0.2
 
 # the project's own uploadable pros: top-level + the Quilter-prep subdirs (unplaced/,
 # divider_rework/, ...). Quilter-result candidate dirs (v1/, v2/, ...) are not touched.
 pros = glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
     + glob.glob(os.path.join(OUT, "unplaced", "phantasm*.kicad_pro")) \
+    + glob.glob(os.path.join(OUT, "quilter_incremental", "phantasm*.kicad_pro")) \
     + glob.glob(os.path.join(OUT, "divider_rework", "phantasm*.kicad_pro"))
 
 healed = 0
 for p in pros:
     d = json.load(open(p, encoding="utf-8"))
     rules = d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})
-    cur = rules.get("min_clearance")
-    if not cur or cur <= 0:
-        rules["min_clearance"] = MIN_CLEARANCE
+    changes = {}
+    floors = {
+        "min_clearance": MIN_CLEARANCE,
+        "min_through_hole_diameter": MIN_THROUGH_HOLE_DIAMETER,
+        "min_via_annular_width": MIN_VIA_ANNULAR_WIDTH,
+        "min_via_diameter": MIN_VIA_DIAMETER,
+    }
+    for field, minimum in floors.items():
+        current = rules.get(field, 0) or 0
+        if current < minimum:
+            rules[field] = minimum
+            changes[field] = (current, minimum)
+
+    classes = d.setdefault("net_settings", {}).setdefault("classes", [])
+    default = next((item for item in classes if item.get("name") == "Default"), None)
+    if default is not None:
+        diameter = default.get("via_diameter", 0) or 0
+        drill = default.get("via_drill", 0) or 0
+        if diameter < MIN_VIA_DIAMETER:
+            default["via_diameter"] = MIN_VIA_DIAMETER
+            changes["Default.via_diameter"] = (diameter, MIN_VIA_DIAMETER)
+        if drill < MIN_DEFAULT_VIA_DRILL:
+            default["via_drill"] = MIN_DEFAULT_VIA_DRILL
+            changes["Default.via_drill"] = (drill, MIN_DEFAULT_VIA_DRILL)
+
+    if changes:
         json.dump(d, open(p, "w", encoding="utf-8"), indent=2)
-        print(f"healed {os.path.relpath(p, OUT)}: min_clearance {cur} -> {MIN_CLEARANCE}")
+        summary = ", ".join(
+            f"{field} {old} -> {new}"
+            for field, (old, new) in changes.items()
+        )
+        print(f"healed {os.path.relpath(p, OUT)}: {summary}")
         healed += 1
     else:
-        print(f"ok     {os.path.relpath(p, OUT)}: min_clearance = {cur}")
+        print(f"ok     {os.path.relpath(p, OUT)}")
 
 print(f"\n{healed} file(s) healed. Upload-ready for Quilter.")

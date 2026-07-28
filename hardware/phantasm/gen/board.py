@@ -66,7 +66,7 @@ def make_teensy():
         '\t\t(effects (font (size 1.27 1.27)) (justify left)))\n'
         f'\t(property "Value" "Teensy4.0" (at {-bodyx} {-half - 2.54} 0)\n'
         '\t\t(effects (font (size 1.27 1.27)) (justify left)))\n'
-        '\t(property "Footprint" "" (at 0 0 0)\n'
+        '\t(property "Footprint" "phantasm:Teensy4.0" (at 0 0 0)\n'
         '\t\t(effects (font (size 1.27 1.27)) (hide yes)))\n'
         '\t(property "Datasheet" "" (at 0 0 0)\n'
         '\t\t(effects (font (size 1.27 1.27)) (hide yes)))\n'
@@ -254,8 +254,11 @@ to_label(U1A, "2", "DATA_IN"); to_power(U1A, "1", GND); series_wire(U1A, "3", RD
 to_label(U1B, "5", "CLK_IN"); to_power(U1B, "4", GND); series_wire(U1B, "6", RD2, "CLK", "CLK_SRC")
 # ch C (SYNC)
 to_label(U1C, "9", "FRAME_SYNC"); to_label(U1C, "10", "MASTER_EN"); series_wire(U1C, "8", RS, "SYNC_BUS", "SYNC_SRC")
-# ch D (unused)
-to_power(U1D, "12", GND); to_power(U1D, "13", "+5V_LOGIC"); b.nc(U1D.pin("11"))
+# ch D switches the single bus idle pull-down on only when this board is master.
+# MASTER_EN is LOW on the master and HIGH on slaves, matching the active-low OE.
+to_power(U1D, "12", GND)
+to_label(U1D, "13", "MASTER_EN")
+to_label(U1D, "11", "SYNC_PULLDOWN")
 # power unit
 to_power(U1E, "14", "+5V_LOGIC"); to_power(U1E, "7", GND)
 
@@ -279,9 +282,10 @@ b.label(nd, "FRAME_SYNC")
 b.wire(R2.pin("1"), CSY.pin("1"))   # C_SYNC onto node
 b.junction(R2.pin("1"))
 to_power(R2, "2", GND); to_power(CSY, "2", GND)
-# bus idle pulldown + optional TVS
+# Master-only bus idle pulldown + optional TVS. U1 ch D drives
+# SYNC_PULLDOWN low on the master and is high-impedance on every slave.
 RPD = place("Device:R", "R_PD", "10k", 292.1, 205.74, fp=SMD06)
-to_label(RPD, "1", "SYNC_BUS"); to_power(RPD, "2", GND)
+to_label(RPD, "1", "SYNC_BUS"); to_label(RPD, "2", "SYNC_PULLDOWN")
 DBUS = place("Device:D_TVS", "D_BUS", "TVS", 292.1, 231.14, dnp=True,
              fp="Diode_SMD:D_SOD-323")
 to_label(DBUS, "1", "SYNC_BUS"); to_power(DBUS, "2", GND)
@@ -352,7 +356,9 @@ open(os.path.join(OUT, "phantasm.kicad_pro"), "w", encoding="utf-8").write(
     # design_settings.rules.min_clearance > 0 so Quilter accepts the project on upload
     # (it rejects 0). KiCad re-zeroes it whenever the project is opened in the GUI, so
     # run gen/heal_clearance.py before any Quilter upload to restore it.
-    '{\n  "board": { "design_settings": { "rules": { "min_clearance": 0.2 } } },\n'
+    '{\n  "board": { "design_settings": { "rules": { "min_clearance": 0.2,\n'
+    '    "min_through_hole_diameter": 0.2, "min_via_annular_width": 0.125,\n'
+    '    "min_via_diameter": 0.45 } } },\n'
     '  "boards": [],\n  "cvpcb": { "equivalence_files": [] },\n'
     '  "libraries": { "pinned_footprint_libs": [], "pinned_symbol_libs": [] },\n'
     '  "meta": { "filename": "phantasm.kicad_pro", "version": 3 },\n'

@@ -15,6 +15,11 @@ F = os.path.join(OUT, "phantasm_unplaced.kicad_pcb")
 PRO = os.path.join(OUT, "phantasm_unplaced.kicad_pro")
 MIN_CLEARANCE = 0.2   # Quilter rejects the KiCad default of 0 ("min clearance must be > 0")
 TRACK_WIDTH = 0.3
+MIN_THROUGH_HOLE_DIAMETER = 0.2
+MIN_VIA_ANNULAR_WIDTH = 0.125
+MIN_VIA_DIAMETER = 0.45
+VIA_DIAMETER = 0.6
+VIA_DRILL = 0.3
 
 b = pcbnew.LoadBoard(F)
 
@@ -96,10 +101,27 @@ if os.path.exists(PRO):
     if not rules.get("min_clearance"):
         rules["min_clearance"] = MIN_CLEARANCE
         print(f"patched {os.path.basename(PRO)}: min_clearance -> {MIN_CLEARANCE} mm (Quilter)")
+    rules["min_through_hole_diameter"] = max(
+        rules.get("min_through_hole_diameter", 0),
+        MIN_THROUGH_HOLE_DIAMETER,
+    )
+    rules["min_via_annular_width"] = max(
+        rules.get("min_via_annular_width", 0),
+        MIN_VIA_ANNULAR_WIDTH,
+    )
+    rules["min_via_diameter"] = max(
+        rules.get("min_via_diameter", 0),
+        MIN_VIA_DIAMETER,
+    )
     classes = pro.setdefault("net_settings", {}).setdefault("classes", [])
     default = next((c for c in classes if c.get("name") == "Default"), None)
     if default is not None:
         default["track_width"] = TRACK_WIDTH
+        default["via_diameter"] = max(
+            default.get("via_diameter", 0),
+            VIA_DIAMETER,
+        )
+        default["via_drill"] = max(default.get("via_drill", 0), VIA_DRILL)
     json.dump(pro, open(PRO, "w", encoding="utf-8"), indent=2)
 
 print("4-layer SIG/GND/GND/SIG; copper layers =", b.GetCopperLayerCount(),

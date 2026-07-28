@@ -156,6 +156,11 @@ def parse_board(text):
             zone_layers = [str(value) for value in layer_nodes[0][1:]]
         else:
             zone_layers = [str(value) for value in layers_nodes[0][1:]]
+        zone_layers = list(dict.fromkeys(
+            copper_layer
+            for layer in zone_layers
+            for copper_layer in (copper_layers if layer == "*.Cu" else (layer,))
+        ))
         if not zone_layers or any(layer not in copper_layers for layer in zone_layers):
             raise MetadataError("zone has an invalid copper layer")
         zone_counts.update(zone_layers)

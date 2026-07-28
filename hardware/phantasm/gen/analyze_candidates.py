@@ -16,7 +16,8 @@ the ranking. Errors are split: 'refill-fixable' clearance/hole errors (Quilter e
 pours without via antipads -- they clear on a KiCad zone refill) vs 'REAL FAULTS'
 (shorts/crossings/opens), which disqualify a candidate from the recommended pick. A
 candidate whose DRC did not produce a result reports as NOT GATED, never as clean,
-and is likewise ineligible.
+and is likewise ineligible. Via geometry is checked independently because Quilter
+may replace uploaded defaults; candidates below 0.45/0.20 mm are ineligible.
 
 What matters here, and why:
 - The board is 4-layer SIG/GND/GND/SIG with BOTH inner layers poured GND, so any
@@ -51,6 +52,8 @@ REFILL_FIXABLE = {"clearance", "hole_clearance"}
 DRC_OK = "ok"
 DRC_MISSING = "tool-missing"
 DRC_FAILED = "failed"
+MIN_STANDARD_VIA_DIAMETER_MM = 0.45
+MIN_STANDARD_VIA_DRILL_MM = 0.20
 
 # Fast / critical nets for the 24 MHz SPI + sync (post-relabel source-side names
 # DATA_SRC/CLK_SRC/SYNC_SRC are pre-terminator stubs -- included as fast too).
@@ -91,7 +94,7 @@ def blocks(text, kind):
 
 def net_of(b):
     m = re.search(r'\(net\s+"([^"]*)"\)', b)
-    return m.group(1) if m else None
+    return m.group(1).rsplit("/", 1)[-1] if m else None
 
 
 def field(b, name):
@@ -175,10 +178,20 @@ def analyze(path):
         total_len += dl
 
     netvias, gnd_pts, crit_via_pts = {}, [], []
+    small_vias = []
     for b in vias:
         n = net_of(b)
         p = xy(b, "at")
         netvias[n] = netvias.get(n, 0) + 1
+        try:
+            diameter = float(field(b, "size"))
+            drill = float(field(b, "drill"))
+        except (TypeError, ValueError):
+            small_vias.append(p)
+        else:
+            if (diameter < MIN_STANDARD_VIA_DIAMETER_MM or
+                    drill < MIN_STANDARD_VIA_DRILL_MM):
+                small_vias.append(p)
         if n == "GND" and p:
             gnd_pts.append(p)
         if n in CRIT and p:
@@ -213,7 +226,7 @@ def analyze(path):
         sync_vias=sum(netvias.get(n, 0) for n in SYNC),
         crit_len=sum(netlen.get(n, 0) for n in CRIT),
         crit_vias=len(crit_via_pts), crit_vias_stitched=near,
-        gnd_vias=len(gnd_pts), pos=pos, ergo=ergo,
+        gnd_vias=len(gnd_pts), small_vias=len(small_vias), pos=pos, ergo=ergo,
     )
 
 
@@ -270,13 +283,19 @@ def main(argv):
     print("=" * 76)
     print("OVERALL ROUTING" + ("  +  DRC GATE" if drc_ran else "  (DRC skipped: no kicad-cli)"))
     print("=" * 76)
-    hdr = f"{'Cand':>6} {'tracks':>7} {'vias':>5} {'totLen(mm)':>11} {'GNDvias':>8}"
+    hdr = (
+        f"{'Cand':>6} {'tracks':>7} {'vias':>5} {'small':>5} "
+        f"{'totLen(mm)':>11} {'GNDvias':>8}"
+    )
     if drc_ran:
         hdr += f" {'DRCerr':>7} {'unconn':>6}  flag"
     print(hdr)
     for k in sorted(R):
         r = R[k]
-        line = f"{k:>6} {r['nseg']:>7} {r['nvia']:>5} {r['total_len']:>11.1f} {r['gnd_vias']:>8}"
+        line = (
+            f"{k:>6} {r['nseg']:>7} {r['nvia']:>5} {r['small_vias']:>5} "
+            f"{r['total_len']:>11.1f} {r['gnd_vias']:>8}"
+        )
         if drc_ran:
             dc = r["drc"]
             if dc["status"] != DRC_OK:
@@ -286,7 +305,9 @@ def main(argv):
             else:
                 err, unc = dc["errors"], dc["unconnected"]
                 real = real_faults(dc["by_type"])
-                if err == 0 and unc == 0:
+                if r["small_vias"]:
+                    flag = "SMALL VIAS"
+                elif err == 0 and unc == 0:
                     flag = "clean"
                 elif real == 0 and unc == 0:
                     flag = "refill-fixable (zone)"   # only clearance/hole vs zones
@@ -297,7 +318,8 @@ def main(argv):
     if drc_ran:
         print("  note: 'refill-fixable' = clearance/hole errors that clear on a KiCad zone"
               " refill (Quilter omits via antipads); 'REAL FAULTS' = shorts/crossings/opens;"
-              " 'NOT GATED' = no DRC result, candidate can't be recommended.")
+              " 'SMALL VIAS' = below 0.45/0.20 mm; 'NOT GATED' = no DRC result,"
+              " candidate can't be recommended.")
 
     print("\n" + "=" * 76)
     print("CRITICAL NETS  -  length(mm) / vias / layers")
@@ -355,6 +377,8 @@ def main(argv):
         ranked.append((overall, k, si, erg))
 
     def drc_tag(k):
+        if R[k]["small_vias"]:
+            return "VIA"
         dc = R[k]["drc"]
         if dc["status"] == DRC_MISSING:
             return "?"
@@ -368,8 +392,7 @@ def main(argv):
     for overall, k, si, erg in sorted(ranked, reverse=True):
         print(f"{k:>6} {si:>12.1f} {erg:>11.1f} {overall:>8.1f}  {drc_tag(k)}")
     if ranked:
-        # only a DRC-gated candidate free of REAL faults can be recommended; an
-        # un-gated one ('?'/'FAILED') is unproven, not clean
+        # A candidate must pass both the via and DRC gates.
         eligible = [t for t in ranked if drc_tag(t[1]) in ("ok", "refill")]
         if eligible:
             best = max(eligible)[1]

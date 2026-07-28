@@ -38,7 +38,7 @@
 					)
 				)
 			)
-			(property "Footprint" "phantasm:Teensy4.0"
+			(property "Footprint" ""
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -4265,7 +4265,7 @@
 			(at 33.02 63.5 0)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Footprint" "phantasm:Teensy4.0"
+		(property "Footprint" ""
 			(at 33.02 66.04 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)

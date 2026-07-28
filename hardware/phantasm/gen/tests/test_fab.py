@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -6,6 +7,32 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import fab  # noqa: E402
+
+
+class ViaGeometryTests(unittest.TestCase):
+    def validate(self, size, drill):
+        source = (
+            "(kicad_pcb "
+            f"(via (at 1 2) (size {size}) (drill {drill}) "
+            '(layers "F.Cu" "B.Cu")))'
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            pcb = Path(directory) / "test.kicad_pcb"
+            pcb.write_text(source, encoding="utf-8")
+            return fab.validate_via_geometry(pcb)
+
+    def test_accepts_standard_cost_via(self):
+        self.assertEqual(self.validate("0.45", "0.20"), 1)
+
+    def test_rejects_small_via_diameter(self):
+        with self.assertRaisesRegex(
+                fab.ViaGeometryError, "0.25 mm diameter is below 0.45 mm"):
+            self.validate("0.25", "0.20")
+
+    def test_rejects_small_via_drill(self):
+        with self.assertRaisesRegex(
+                fab.ViaGeometryError, "0.15 mm drill is below 0.2 mm"):
+            self.validate("0.45", "0.15")
 
 
 class AssemblyMetadataTests(unittest.TestCase):
@@ -120,6 +147,22 @@ class AssemblyMetadataTests(unittest.TestCase):
                 f"{self.ref}: centroid row is missing",
             ),
         )
+
+
+class PartCatalogTests(unittest.TestCase):
+    def test_accepts_every_assigned_part(self):
+        metadata = {
+            ref: {"lcsc": lcsc}
+            for ref, lcsc in fab.LCSC_BY_REF.items()
+        }
+
+        fab.validate_part_catalog(metadata)
+
+    def test_rejects_unmapped_supplier_part(self):
+        with self.assertRaisesRegex(
+                fab.PartCatalogError,
+                "X1: LCSC C999999999 has no catalog entry"):
+            fab.validate_part_catalog({"X1": {"lcsc": "C999999999"}})
 
 
 if __name__ == "__main__":
