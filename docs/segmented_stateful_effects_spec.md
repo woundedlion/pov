@@ -179,9 +179,10 @@ full frame; only the slice differs — matching the device exactly.
 **Precondition (existing invariant this rests on).** "Bit-identical full
 frame across workers" holds only because per-worker frame inputs are already
 deterministic: animations are *frame-stepped*, not wall-clock-stepped
-(`AnimationBase::step` counts frames; `drawFrame()` advances exactly one,
-wasm.cpp:501 — the `elapsed`/`renderUs` timings are telemetry and never feed
-animation), the RNG is fixed-seed (`std::mt19937(1337)`), and params are
+(`AnimationBase::step` counts frames, `core/animation/animation.h:152`;
+`drawFrame()` advances exactly one, `targets/wasm/wasm.cpp:449` — the
+`elapsed`/`renderUs` timings are telemetry and never feed
+animation), the RNG is fixed-seed (`hs::Pcg32(1337)`), and params are
 broadcast to every worker. The same invariant non-stateful segmented effects
 already depend on; the design adds nothing new to it but is wholly dependent
 on it.
