@@ -474,6 +474,8 @@ private:
   }
 
   static void prepare_segment_clip(Effect &e) {
+    // One window ahead: the frame being drawn displays in the window after the
+    // open one, which sweeps the opposite half.
     clip_to_segment(&e, handoff.window_left() == 0);
   }
 
