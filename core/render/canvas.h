@@ -465,18 +465,18 @@ public:
 
   /**
    * @brief Pause/resume the effect's parameter-driving animations.
-   * @details Wired to the `Mutation`/`Driver` gate via `anims_paused_`. Paused,
+   * @details Wired to the `Mutation`/`Driver` gate via `anims_paused`. Paused,
    * those animations freeze and the bound GUI slider is the sole writer, so a
    * user edit holds; resuming hands the member back. Ambient motion
    * (rotation/camera/palette) is not gated.
    * @param paused True to freeze parameter-driving animations, false to resume.
    */
-  void setAnimationsPaused(bool paused) { anims_paused_ = paused; }
+  void setAnimationsPaused(bool paused) { anims_paused = paused; }
   /**
    * @brief Reports whether parameter-driving animations are paused.
    * @return True if those animations are currently frozen.
    */
-  bool animations_paused() const { return anims_paused_; }
+  bool animations_paused() const { return anims_paused; }
 
 protected:
   /**
@@ -494,8 +494,8 @@ protected:
    */
   bool strobe;
   ParamList parameters;       /**< List of parameters. */
-  bool anims_paused_ = false; /**< Pause gate for parameter-driving animations;
-                                 pass `&anims_paused_` to Mutation/Driver. */
+  bool anims_paused = false; /**< Pause gate for parameter-driving animations;
+                                 pass `&anims_paused` to Mutation/Driver. */
 
   /**
    * @brief Flag a registered param as animation-driven.

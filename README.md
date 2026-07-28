@@ -437,16 +437,16 @@ POVDisplay<S,RPM>::show<Effect>()
   IntervalTimer::begin(show_col, interval)
 
   effect->draw_frame():
-    Canvas canvas(*effect)               ISR reads from bufs_[prev_]
+    Canvas canvas(*effect)               ISR reads from bufs[prev]
       ↓ advance_buffer()                 for y in 0..S/2:
       ↓ (copies prev if persist_pixels)    leds[S/2 - y - 1] = get_pixel(x, y)
       ↓                                    leds[S/2 + y]     = get_pixel(x±W/2, y)
-    [effect renders to bufs_[cur_]]
+    [effect renders to bufs[cur]]
       ↓                                  FastLED.show()
     ~Canvas():                           if strobe_columns(): FastLED.showColor(black)
       queue_frame()                      x = (x+1) % width
-      ↓ next_ = cur_ (interrupt-safe)    if x==0 || x==width/2:
-                                           advance_display()  (prev_ = next_)
+      ↓ next = cur (interrupt-safe)      if x==0 || x==width/2:
+                                           advance_display()  (prev = next)
                                            [new frame begins displaying]
 ```
 
@@ -454,13 +454,13 @@ Three `std::atomic<int>` indices manage the double buffer:
 
 | Index | Role |
 |---|---|
-| `cur_` | Which buffer the main loop is currently writing |
-| `next_` | The last completed frame (queued by `queue_frame()`) |
-| `prev_` | The frame the ISR is currently reading |
+| `cur` | Which buffer the main loop is currently writing |
+| `next` | The last completed frame (queued by `queue_frame()`) |
+| `prev` | The frame the ISR is currently reading |
 
-The ISR never touches `cur_`. The main loop atomically updates `next_` inside `queue_frame()` with interrupts disabled. `advance_display()` is called by the ISR at every half-revolution to flip `prev_` to `next_`.
+The ISR never touches `cur`. The main loop atomically updates `next` inside `queue_frame()` with interrupts disabled. `advance_display()` is called by the ISR at every half-revolution to flip `prev` to `next`.
 
-The two framebuffers are placed in Teensy DMAMEM (OCRAM) for capacity — at `MAX_W * MAX_H` 16-bit pixels they are far too large for the tightly-coupled DTCM that holds the stack and hot data. They are software render targets, read by the ISR and packed into the LED controller's protocol frame; they are never DMA'd themselves (the eDMA TX buffer is `HD107SFrame::buffer_`, in the controller, which is the buffer that actually clocks out over SPI):
+The two framebuffers are placed in Teensy DMAMEM (OCRAM) for capacity — at `MAX_W * MAX_H` 16-bit pixels they are far too large for the tightly-coupled DTCM that holds the stack and hot data. They are software render targets, read by the ISR and packed into the LED controller's protocol frame; they are never DMA'd themselves (the eDMA TX buffer is `HD107SFrame::buffer`, in the controller, which is the buffer that actually clocks out over SPI):
 
 ```cpp
 static DMAMEM Pixel buffer_a[MAX_W * MAX_H];
@@ -564,7 +564,7 @@ display clip. It does draw into the margin-expanded render bounds, but that band
 is write-only scratch: nothing samples or displays it. Nothing to opt into: the
 constructor reads both flags off the effect.
 
-`canvas(x, y)` is a direct array subscript into the write buffer (`bufs_[cur_][y * width + x]`). No bounds checking, no virtual dispatch.
+`canvas(x, y)` is a direct array subscript into the write buffer (`bufs[cur][y * width + x]`). No bounds checking, no virtual dispatch.
 
 ### The Filter Pipeline
 
@@ -1349,11 +1349,11 @@ The 16-bit linear pipeline reaches from the canvas all the way to the SPI wire w
 
 ```cpp
 // ISR path (per column): fetch the display buffer once, index it directly
-const Pixel* buf = effect_->display_buffer();              // 16-bit linear pixels
+const Pixel* buf = effect->display_buffer();               // 16-bit linear pixels
 // Physical LED index comes from the single-source-of-truth map (pov_single_map.h),
 // which applies the top-arm reversal / bottom-arm offset — never the raw row index.
 frame.packPixel(pov::strip_top_led(y, S), buf[y * width + x]); // Pixel16 → HD107S frame
-ledController_.submitFrame();                               // non-blocking DMA, drops on overrun
+ledController.submitFrame();                                // non-blocking DMA, drops on overrun
 ```
 
 #### Single-Teensy POV Driver (`pov_single.h`)
@@ -1365,7 +1365,7 @@ Main Loop                              ISR (IntervalTimer)
 ──────────                             ───────────────────
 effect->draw_frame()                   show_col() fires every N µs
   Canvas canvas(*this)                   for y in 0..S/2:
-    render to bufs_[cur_]                  packPixel(strip_top_led(y,S),    get_pixel(x, y))                      // top arm
+    render to bufs[cur]                    packPixel(strip_top_led(y,S),    get_pixel(x, y))                      // top arm
   ~Canvas → queue_frame()                  packPixel(strip_bottom_led(y,S), get_pixel(strip_opposite_col(x,W), y)) // bottom arm
                                          submitFrame() → async DMA
                                          x = (x+1) % width
@@ -1412,16 +1412,16 @@ swept-envelope design before operation.
 
 | Value | Description |
 |---|---|
-| `y_base_` | Starting Y index for this segment's row band |
-| `y_step_` | +1 for northern bands, -1 for reversed southern bands |
-| `arm_b_` | Whether this segment is on arm B (x offset by W/2) |
+| `y_base` | Starting Y index for this segment's row band |
+| `y_step` | +1 for northern bands, -1 for reversed southern bands |
+| `arm_b` | Whether this segment is on arm B (x offset by W/2) |
 
 The ISR loop has no branches:
 
 ```cpp
-const Pixel* buf = effect_->display_buffer();   // fast path: no per-pixel virtual dispatch
-int y = y_base_;
-for (int i = 0; i < PPS; ++i, y += y_step_) {
+const Pixel* buf = effect->display_buffer();    // fast path: no per-pixel virtual dispatch
+int y = y_base;
+for (int i = 0; i < PPS; ++i, y += y_step) {
     frame.packPixel(i, buf[y * width + x_col]);
 }
 ```

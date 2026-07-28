@@ -92,7 +92,7 @@ public:
     presets.next();
     timeline.add(0,
                  Animation::Lerp(params, presets.prev_get(), presets.get(),
-                                 LERP_FRAMES, ease_in_out_sin, &anims_paused_)
+                                 LERP_FRAMES, ease_in_out_sin, &anims_paused)
                      .then([this]() { next_preset(); }));
   }
 

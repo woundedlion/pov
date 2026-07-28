@@ -227,7 +227,7 @@ that — see the board note below). They differ in output path and design resolu
 > allocate the same two 243 KiB buffers in OCRAM and the same 298 KiB arena in DTCM. But Phantasm's
 > `USE_DMA_LEDS` path adds an OCRAM consumer Holosphere lacks: the double-buffered
 > `DMAMEM DMALEDController` eDMA TX frame buffers ([pov_segmented.h](../hardware/pov_segmented.h)),
-> where Holosphere's FastLED path uses a non-`DMAMEM` `CRGB leds_[]`. So the targets diverge in
+> where Holosphere's FastLED path uses a non-`DMAMEM` `CRGB leds[]`. So the targets diverge in
 > **flash** (different effects + USB/driver code) **and** in **RAM2/OCRAM** (Phantasm's DMA TX
 > buffers). The current budgets use the hardware wall as both numeric RAM2 caps, add a 4 KiB heap
 > floor to each, and add a Phantasm DMA-controller placement invariant. The targets share the DTCM arena allocation, not total RAM1:

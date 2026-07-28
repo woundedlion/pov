@@ -80,10 +80,10 @@ public:
                     WIPE_PERIOD, [this](Canvas &) { wipe_palette(); }, true))
         .add(0, Animation::Mutation(params.num_rings,
                                     sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320,
-                                    ease_linear, true, &anims_paused_))
+                                    ease_linear, true, &anims_paused))
         .add(160, Animation::Mutation(params.num_lines,
                                       sin_wave(12.0f, 1.0f, 1.0f, 0.5f), 320,
-                                      ease_linear, true, &anims_paused_));
+                                      ease_linear, true, &anims_paused));
   }
 
   /**

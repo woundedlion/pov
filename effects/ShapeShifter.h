@@ -67,10 +67,10 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    if (!anims_paused_) {
+    if (!anims_paused) {
       // Wrap at the 48-frame cycle period to keep the counter bounded.
-      frame_count_ = (frame_count_ + 1) % 48;
-      if (frame_count_ == 0) {
+      frame_count = (frame_count + 1) % 48;
+      if (frame_count == 0) {
         int next = (static_cast<int>(current_shape) + 1) % 4;
         current_shape = static_cast<ShapeType>(next);
         hs::log("Shape: %d/%d", next, 4);
@@ -101,7 +101,7 @@ private:
     timeline.add(0, Animation::Mutation(
                         params.twist,
                         [](float t) { return (PI_F / 4.0f) * sinf(t * PI_F); },
-                        480, ease_linear, true, &anims_paused_));
+                        480, ease_linear, true, &anims_paused));
 
     // Shared tumbles: every Plot ring rides plot_orient (+X), every Scan ring
     // rides scan_orient (-X).
@@ -275,7 +275,7 @@ private:
   BakedPalette baked_sunset;   /**< LUT-baked RICH_SUNSET sampled per layer. */
 
   ShapeType current_shape; /**< Shape currently being rendered. */
-  int frame_count_ =
+  int frame_count =
       0; /**< Frame phase in [0, 48) — gates shape cycling; never overflows. */
 
   /**

@@ -10,7 +10,7 @@
 #include "core/mesh/recipe.h"
 
 // Unit-test accessor reaching the private build-chain state (pre-init trans
-// speed, build_active_, solid_idx) for the effects-module build smoke.
+// speed, build_active, solid_idx) for the effects-module build smoke.
 namespace hs_test {
 namespace effects_tests {
 struct IslamicBuildProbe;
@@ -210,7 +210,7 @@ private:
   // Build-chain state (entries with a non-null recipe): the shape is built op
   // by op between the fade-in and the still hold. Null-recipe entries never
   // touch any of it.
-  bool build_active_ = false; /**< Legs draw; the sprite draw_fn is muted. */
+  bool build_active = false; /**< Legs draw; the sprite draw_fn is muted. */
   Solids::OpStep build_steps[MAX_BUILD_STEPS]; /**< Lowered primitive chain. */
   size_t build_step_count = 0;                 /**< Lowered step count. */
   size_t build_step = 0;                       /**< Current leg index. */
@@ -228,14 +228,14 @@ private:
   /** Device persistent budget of the current shape's split, set by spawn_shape
    * before any read; the host arena is over-provisioned, so gates check the
    * resident persistent high-water against this. */
-  size_t device_persistent_budget_ = 0;
+  size_t device_persistent_budget = 0;
   const Animation::OpLeg::Landing *build_landing =
       nullptr; /**< Latest leg's arrival data (leg-arena backed). */
   const uint8_t *build_from_pal =
       nullptr; /**< Per-face palette the previous leg landed on; survives the
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces = 0; /**< Length of build_from_pal. */
-  int dual_bridges_built_ = 0; /**< DUAL bridges scheduled (test coverage). */
+  int dual_bridges_built = 0; /**< DUAL bridges scheduled (test coverage). */
   int build_macro_sweep_frames =
       SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
@@ -324,7 +324,7 @@ private:
    * is hot. During the build window an OpLeg draws instead (one mesh per frame).
    */
   HS_COLD_MEMBER void draw_sprite(Canvas &canvas, float phase, int back) {
-    if (build_active_)
+    if (build_active)
       return;
     const MeshState &mesh = carousel.slot(back);
     const SpriteFaceShading shading(mesh, slot_face_palette[back]);
@@ -612,7 +612,7 @@ private:
     const size_t split_b = bridge_split ? SPLIT_SCRATCH_B_BRIDGE
                                         : (recipe ? SPLIT_SCRATCH_B_BUILD
                                                   : SPLIT_SCRATCH_B_DEFAULT);
-    device_persistent_budget_ = DEVICE_GLOBAL_ARENA_SIZE - split_a - split_b;
+    device_persistent_budget = DEVICE_GLOBAL_ARENA_SIZE - split_a - split_b;
     resplit_arenas(GLOBAL_ARENA_SIZE - split_a - split_b, split_a, split_b);
 
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
@@ -734,7 +734,7 @@ private:
       timeline.add(fade, Animation::PeriodicTimer(
                              0,
                              [this](Canvas &) {
-                               build_active_ = true;
+                               build_active = true;
                                start_build_leg();
                              },
                              false));
@@ -980,7 +980,7 @@ private:
    * ambo_dual seeds run the whole bridge co-resident ~21 KB over budget.
    */
   HS_COLD_MEMBER void schedule_dual_bridge() {
-    ++dual_bridges_built_;
+    ++dual_bridges_built;
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       dual_bridge_ambo =
           Solids::finalize_solid(MeshOps::ambo(build_seed, a, b), target);
@@ -1450,7 +1450,7 @@ private:
     // counts must agree exactly.
     HS_CHECK(landed_faces == slot.topology.size(),
              "IslamicStars: built mesh face count differs from the last leg");
-    build_active_ = false;
+    build_active = false;
 
     hs::log("Built Shape: %s (V=%d, E=%d, F=%d, I=%d)",
             Solids::Collections::get_islamic_solids()[solid_idx].name,

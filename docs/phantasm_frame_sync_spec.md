@@ -154,7 +154,7 @@ different real moments; §6 replaces it with epoch-counted sequencing.
    └───────────────┬───────────────┬───────────────┬───────────────┘
         derives     │      derives  │       advances │
                     ▼               ▼                ▼
-   LAYER 1: column x_     LAYER 2: boundary     LAYER 3: content t
+   LAYER 1: column x      LAYER 2: boundary     LAYER 3: content t
    (which column)         → advance_display     (which frame / effect)
                     ▲               ▲                ▲
                     │ snapped       │ flipped        │ epoch-reset
@@ -205,7 +205,7 @@ x_target = ((now_cycles - epoch_cycles) / cycles_per_column) mod W
 ```
 
 Why this matters: `FastLED.show()` / the WS2801 bit-bang path masks interrupts
-for windows **longer than T0** (`FastLED.show()` masks IRQs, §10). If `x_` were
+for windows **longer than T0** (`FastLED.show()` masks IRQs, §10). If `x` were
 incremented once per ISR fire, a masked window would coalesce several pending
 timer interrupts into one fire and **lose** columns — exactly the dropped-column
 bug we are eliminating. With position derived from time, the ISR that finally
@@ -272,7 +272,7 @@ and divide per column ISR at 2304 Hz — negligible on the M7.
 
 Each boundary symbol (2/rev) names an absolute column (`x==0` or `x==W/2`,
 §5.2). On decode — and acceptance through the §5.3 gate — the board re-bases
-the flywheel so `x_` equals that boundary,
+the flywheel so `x` equals that boundary,
 compensated for columns elapsed during the decode window (§5.2). Between snaps
 the flywheel free-runs at *its own* nominal `T0` (its own crystal). The phase
 error this accumulates over one half-revolution is the crystal's relative offset
@@ -383,7 +383,7 @@ optional trim) nulls.
 
 ## 5. Layer 2 — Frame / flip: exactly-once, self-describing boundaries (A + C)
 
-The boundary (`x==0`, `x==W/2`) is derived from the disciplined `x_`. The flip
+The boundary (`x==0`, `x==W/2`) is derived from the disciplined `x`. The flip
 must fire **exactly twice per revolution on every board** regardless of column
 drift, and a single sync glitch must not latch.
 
@@ -395,14 +395,14 @@ flywheel-crossing path and the sync-symbol path:
 
 ```
 enum Boundary { NONE, ZERO, HALF };
-static Boundary last_flipped_;            // shared, see §8
+static Boundary last_flipped;             // shared, see §8
 
 inline void try_flip(Boundary b) {
-  if (b != last_flipped_) { effect_->advance_display(); last_flipped_ = b; }
+  if (b != last_flipped) { effect->advance_display(); last_flipped = b; }
 }
 ```
 
-`advance_display` is idempotent at `prev_==next_` (`canvas.h`), so a
+`advance_display` is idempotent at `prev==next` (`canvas.h`), so a
 redundant call is harmless; `try_flip` makes the common case exact.
 
 Flip paths per board:
@@ -499,7 +499,7 @@ flip, or epoch state. The flywheel ISR — which wakes ~8× per column anyway �
 is the sole *consumer*: when it observes the line quiet past the gap timeout
 (compared on its own clock; no extra timer needed), it claims the burst under
 a brief IRQ-off copy, classifies the count, applies the §5.3 acceptance gate,
-and on acceptance snaps `x_` so the first-edge timestamp corresponds to the
+and on acceptance snaps `x` so the first-edge timestamp corresponds to the
 named boundary — the elapsed-column compensation falls out for free, because
 position is always derived as "time since epoch" — then `try_flip`s. This
 same snap is the Layer-1 phase discipline (§4.2); one decode serves both
@@ -807,8 +807,8 @@ Invariants:
    busy-waiting anywhere in the protocol — emission alignment comes from the
    oversampled wake grid (§4.1), not from spinning to hit boundary instants.
 2. **Single-writer ownership (replaces the equal-priority invariant).** Every
-   piece of sync state — `x_`, `epoch_cycles`, `cycles_per_half_rev`,
-   `last_flipped_`, lock state, epoch schedule, telemetry counters — has exactly
+   piece of sync state — `x`, `epoch_cycles`, `cycles_per_half_rev`,
+   `last_flipped`, lock state, epoch schedule, telemetry counters — has exactly
    **one writer: the flywheel ISR**. The sync-wire ISR writes only the mailbox
    (`edge_count`, `first_edge_cycles`, `last_edge_cycles`); the foreground only
    reads published flags. The mailbox handoff is a brief
@@ -846,7 +846,7 @@ Invariants:
    (a single aligned `volatile` word, `generation << 8 | index` — `volatile`
    so the foreground re-loads each poll and observes the ISR's publish, not
    merely so the aligned word reads without tearing); on a generation change
-   it bumps `release_req_`, the ISR drops its live pointer and acks within
+   it bumps `release_req`, the ISR drops its live pointer and acks within
    one wake-up, the foreground deletes the old instance, reseeds the RNG,
    constructs the new effect, draws its frame 0 (fresh buffers never block),
    and publishes it to the pending slot under a brief interrupts-off bracket.
@@ -856,7 +856,7 @@ Invariants:
    the live effect** until released — the foreground may be blocked in the
    Canvas `buffer_free()` gate on its final frame of the outgoing effect, and
    `advance_display()` is what releases it to go tear the effect down. Boot
-   seeding: ACQUIRE state (§5.3), display black, `last_flipped_=NONE` (the
+   seeding: ACQUIRE state (§5.3), display black, `last_flipped=NONE` (the
    first accepted boundary flips, `HALF≠NONE`), `epoch_cycles=now`, period
    nominal; master is born LOCKED with identity (effect 0, rev 0) — it *is*
    the reference.

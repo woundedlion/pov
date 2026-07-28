@@ -86,7 +86,7 @@ public:
 
     // Allocate the LUT pool once: bake() allocates, rebake() refills in place,
     // so push/pop churn never grows the arena.
-    for (auto &bp : baked_palettes_)
+    for (auto &bp : baked_palettes)
       bp.bake(persistent_arena, palettes[0]);
     rebake_active_palettes();
 
@@ -162,7 +162,7 @@ private:
    */
   void rebake_active_palettes() {
     for (size_t i = 0; i < palettes.size(); ++i)
-      baked_palettes_[i].rebake(palettes[i]);
+      baked_palettes[i].rebake(palettes[i]);
   }
 
   /**
@@ -177,7 +177,7 @@ private:
    */
   Color4 color(const Vector &v, float t) {
     if (palette_boundaries.size() == 0)
-      return baked_palettes_[0].get(t);
+      return baked_palettes[0].get(t);
 
     // Cross-fade half-width per boundary side, in radians.
     constexpr float blend_width = PI_F / 4;
@@ -195,15 +195,15 @@ private:
       auto upper_edge = boundary + blend_width;
 
       if (a < lower_edge) {
-        return baked_palettes_[i].get(t);
+        return baked_palettes[i].get(t);
       }
 
       if (a >= lower_edge && a <= upper_edge) {
         auto blend_factor = (a - lower_edge) / (2 * blend_width);
         auto clamped_blend_factor = hs::clamp(blend_factor, 0.0f, 1.0f);
 
-        Color4 c1 = baked_palettes_[i].get(t);
-        Color4 c2 = baked_palettes_[i + 1].get(t);
+        Color4 c1 = baked_palettes[i].get(t);
+        Color4 c2 = baked_palettes[i + 1].get(t);
 
         uint16_t fract = float_to_pixel16(clamped_blend_factor);
         return Color4(c1.color.lerp16(c2.color, fract),
@@ -216,11 +216,11 @@ private:
                : NO_NEXT_BOUNDARY);
 
       if (a > upper_edge && a < next_boundary_lower_edge) {
-        return baked_palettes_[i + 1].get(t);
+        return baked_palettes[i + 1].get(t);
       }
     }
 
-    return baked_palettes_[0].get(t);
+    return baked_palettes[0].get(t);
   }
 
 public:
@@ -246,7 +246,7 @@ public:
     // Collapse finished wipes (FIFO) before their boundaries are read below.
     reap_completed_wipes();
 
-    // color() walks palette_boundaries and reads baked_palettes_[i] and [i+1];
+    // color() walks palette_boundaries and reads baked_palettes[i] and [i+1];
     // paired push (color_wipe) and pop (reap) keep palettes one ahead of the
     // boundaries. Guard that pairing once here before the per-pixel band walk.
     HS_CHECK(palettes.size() == palette_boundaries.size() + 1);
@@ -408,7 +408,7 @@ private:
    *          kept in sync by rebake_active_palettes() on every wipe push/pop, one
    *          slot per possible live palette so churn never reallocates.
    */
-  std::array<BakedPalette, MAX_PALETTES> baked_palettes_;
+  std::array<BakedPalette, MAX_PALETTES> baked_palettes;
 
   // init() allocates the nodes, Trails ring buffer, and baked palette LUTs from
   // the persistent arena.

@@ -64,8 +64,8 @@ public:
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
 
     params = preset_manager.get();
-    baked_palettes_[0].bake(persistent_arena, *params.palette);
-    baked_palettes_[1].bake(persistent_arena, *params.palette);
+    baked_palettes[0].bake(persistent_arena, *params.palette);
+    baked_palettes[1].bake(persistent_arena, *params.palette);
 
     register_animated_param("Copies", &params.num_copies, 1.0f, 20.0f);
     register_animated_param("Radius", &params.offset_radius, 0.0f, 1.0f);
@@ -94,7 +94,7 @@ public:
     // Mirror live slider edits into the active sprite's snapshot so the incoming
     // shape tracks the sliders while a still-fading outgoing sprite keeps the
     // frozen snapshot it was spawned with.
-    param_slots[active_bake_] = params;
+    param_slots[active_bake] = params;
     {
       HS_PROFILE(db_timeline_step);
       timeline.step(canvas);
@@ -106,7 +106,7 @@ private:
 
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
-  int last_preset_idx_ =
+  int last_preset_idx =
       -1; /**< Last preset whose values were copied into params. */
 
   /** Per-vertex phase increment (radians) for the orbit stagger, so the surface
@@ -181,7 +181,7 @@ private:
   static_assert(SPRITE_LIFE < 2 * (SPRITE_LIFE - CROSSFADE_OVERLAP),
                 "DreamBalls ping-pong needs at most two overlapping sprites");
 
-  BakedPalette baked_palettes_[2];
+  BakedPalette baked_palettes[2];
   // Persistent allocations: two ping-ponged palette LUTs plus every preset's
   // baked vertices, faces, face counts, tangent frames, and unique edge list.
   // All four presets are baked at init and live for the effect's whole life.
@@ -193,10 +193,10 @@ private:
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "DreamBalls persistent footprint exceeds the default partition");
-  int active_bake_ = 0; /**< Slot of the current (most-recently baked) sprite;
+  int active_bake = 0; /**< Slot of the current (most-recently baked) sprite;
                              the next spawn flips this before baking. */
   /**
-   * @brief Per-sprite render-param snapshots, ping-ponged with baked_palettes_.
+   * @brief Per-sprite render-param snapshots, ping-ponged with baked_palettes.
    * @details Each sprite renders from its spawn-time slot; draw_frame() mirrors
    *          live sliders into the active slot, so the incoming sprite stays
    *          editable while the outgoing slot is frozen.
@@ -311,15 +311,15 @@ private:
 
     // Reseed the slider-bound params only when the preset actually changes, so a
     // paused re-spawn of the same preset keeps the user's live edits.
-    if (safe_idx != last_preset_idx_) {
+    if (safe_idx != last_preset_idx) {
       params = entries[safe_idx].params;
-      last_preset_idx_ = safe_idx;
+      last_preset_idx = safe_idx;
     }
     // Ping-pong to the inactive slot so the still-fading previous sprite keeps
     // its palette and params. draw_frame() keeps the active slot tracking sliders.
-    active_bake_ ^= 1;
-    baked_palettes_[active_bake_].rebake(*params.palette);
-    const int bake_slot = active_bake_;
+    active_bake ^= 1;
+    baked_palettes[active_bake].rebake(*params.palette);
+    const int bake_slot = active_bake;
     param_slots[bake_slot] = params;
 
     auto draw_fn = [this, safe_idx, bake_slot](Canvas &canvas, float opacity) {
@@ -339,7 +339,7 @@ private:
       this->draw_scene(canvas, param_slots[bake_slot],
                        crossfade.opacity(opacity), preset.mesh_state,
                        target_mesh, preset.tangents, preset.edges,
-                       baked_palettes_[bake_slot]);
+                       baked_palettes[bake_slot]);
     };
 
     const int period =
