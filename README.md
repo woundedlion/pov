@@ -1897,7 +1897,7 @@ A vertical strand of points — one per latitude row — drifts horizontally aro
 
 #### Thrusters
 
-A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic random "fires" kick it onto a new axis and bloom a pair of opposed thrust rings (`Plot::Ring`) that expand from zero and fade out.
+A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic random "fires" kick it onto a new axis and bloom a pair of opposed thrust rings (`Plot::Ring`) that expand from a sub-pixel seed and fade out.
 
 **Parameters**: Radius, Alpha
 
