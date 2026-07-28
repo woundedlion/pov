@@ -258,6 +258,10 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │       └── wasm_predicates.h   Pure embind boundary validation/clamping predicates (host-testable)
 │
 ├── CMakeLists.txt              Emscripten build (outputs holosphere_wasm.js + .wasm)
+├── CMakePresets.json           Canonical presets: wasm-release, wasm-debug, tests
+├── cmake/
+│   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
+├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
 ├── tests/                      Unit tests (CMake subdirectory)
 ├── scripts/                    Build + CI tooling
 │   ├── generate_luts.py        sRGB ↔ linear LUT generator of record (emits core/color/color_luts.h)
@@ -270,6 +274,26 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── screenshot_capture_config.mjs Per-effect capture offsets shared by capture and the CI gate
 │   ├── screenshot_capture_config.test.mjs Node unit test for the capture-offset table
 │   └── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster (CI)
+├── tools/                      Firmware gates, device profiling, and asset bakes
+│   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
+│   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate on every link
+│   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
+│   ├── teensy_size_table.py    `just teensy-size` wrapper: builds every env + prints the region table
+│   ├── teensy_warnings.py      Warning-hygiene ratchet against teensy_warning_baseline.txt
+│   ├── teensy_pre.py / teensy_isystem.py / teensy_map.py / teensy_nano.py  PlatformIO build hooks
+│   ├── phantasm.ld             Phantasm linker script (memory-region layout)
+│   ├── profile_one.sh / profile_sweep.sh  On-device HS_PROFILE flash + capture runs
+│   ├── profile_capture.py      Serial capture of the profiling image's readout
+│   ├── parse_profile.py        Capture-log parser behind the per-window/per-preset reports
+│   ├── device_lock.sh          Host-global per-board lock every device path takes
+│   ├── relax_bakes.py / relax_bake_harness.cpp  Relaxed-mesh bake generator of record
+│   ├── gen_gamut_lut.py        sRGB gamut-boundary generator of record (emits core/color/gamut_lut.h)
+│   ├── docs_check.py           Markdown fence/link/anchor/path validator (CI)
+│   └── *_tests/                Host unit tests for the gate, hooks, profile parser, bakes, docs check
+├── docs/                       Design specs, perf ledgers, and the docs/screenshots/ gallery
+├── Doxyfile                    Doxygen config for the published API reference
+├── package.json                npm entry points for the scripts/*.mjs tools
+├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages)
 └── justfile                    Task runner: `just build` / `build-debug` / `test` / `install`
 ```
 
