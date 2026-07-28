@@ -2102,7 +2102,8 @@ struct Volume {
    * @tparam Shape Volume shape satisfying the concept below.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
-   * @param bounds_center Bounding sphere center in physical LED space.
+   * @param bounds_center Bounding sphere center in physical LED space; must lie
+   *        on or inside the unit canvas sphere.
    * @param bounds_radius Bounding sphere radius in world units.
    * @param view_dir Normalized ray direction (camera → scene) in LED space.
    * @param shape Volume shape providing ray_to_local() and distance().
@@ -2151,6 +2152,12 @@ struct Volume {
     HS_CHECK(local_bc.x * local_bc.x + local_bc.y * local_bc.y +
                  local_bc.z * local_bc.z <
              TOLERANCE);
+    // The ray start offset above assumes bounds_center is on or inside the unit
+    // canvas sphere; farther out, a ray can start in front of the shape.
+    HS_CHECK(bounds_center.x * bounds_center.x +
+                 bounds_center.y * bounds_center.y +
+                 bounds_center.z * bounds_center.z <=
+             1.0f + TOLERANCE);
     // aa_width > 0 is the contract: the slow-path AA divides by (aa_width -
     // hit_threshold) == 0.9*aa_width, so a zero band-width gives 0/0 -> NaN.
     HS_CHECK(aa_width > 0.0f);
