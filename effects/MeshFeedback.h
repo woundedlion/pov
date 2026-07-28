@@ -48,19 +48,30 @@ public:
            s.scale <= SCALE_MAX && s.hue_shift >= HUE_SHIFT_MIN &&
            s.hue_shift <= HUE_SHIFT_MAX;
   }
+  static constexpr std::array<PresetEntry<Style>, 12> PRESETS = {{
+      {Style::ArcingLightning()},
+      {Style::SlowFire()},
+      {Style::EnergeticFire()},
+      {Style::Smoke()},
+      {Style::SlowDust()},
+      {Style::WavyTrails()},
+      {Style::MeltingHi()},
+      {Style::MeltingLo()},
+      {Style::Miasma()},
+      {Style::LooseWormhole()},
+      {Style::TightWormhole()},
+      {Style::WigglingWormhole()},
+  }};
+
+  /** @brief True iff every entry of PRESETS satisfies preset_in_ranges(). */
+  static constexpr bool all_presets_in_ranges() {
+    for (const auto &e : PRESETS)
+      if (!preset_in_ranges(e.params))
+        return false;
+    return true;
+  }
   static_assert(
-      preset_in_ranges(Style::ArcingLightning()) &&
-          preset_in_ranges(Style::SlowFire()) &&
-          preset_in_ranges(Style::EnergeticFire()) &&
-          preset_in_ranges(Style::Smoke()) &&
-          preset_in_ranges(Style::SlowDust()) &&
-          preset_in_ranges(Style::WavyTrails()) &&
-          preset_in_ranges(Style::MeltingHi()) &&
-          preset_in_ranges(Style::MeltingLo()) &&
-          preset_in_ranges(Style::Miasma()) &&
-          preset_in_ranges(Style::LooseWormhole()) &&
-          preset_in_ranges(Style::TightWormhole()) &&
-          preset_in_ranges(Style::WigglingWormhole()),
+      all_presets_in_ranges(),
       "a MeshFeedback preset drives a style field outside its "
       "registered slider range; widen the range to accommodate the "
       "preset (the range exposes the presets, it does not clamp them)");
@@ -193,19 +204,7 @@ private:
 
   Style style;
 
-  Presets<Style, 12> presets{
-      std::array<PresetEntry<Style>, 12>{{{Style::ArcingLightning()},
-                                          {Style::SlowFire()},
-                                          {Style::EnergeticFire()},
-                                          {Style::Smoke()},
-                                          {Style::SlowDust()},
-                                          {Style::WavyTrails()},
-                                          {Style::MeltingHi()},
-                                          {Style::MeltingLo()},
-                                          {Style::Miasma()},
-                                          {Style::LooseWormhole()},
-                                          {Style::TightWormhole()},
-                                          {Style::WigglingWormhole()}}}};
+  Presets<Style, 12> presets{PRESETS};
   bool feedback_enabled = true;
   int transition_frames_ = 0;
   NoiseParams noise_params;
