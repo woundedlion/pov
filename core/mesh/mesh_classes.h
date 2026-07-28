@@ -167,6 +167,8 @@ inline bool polygon_is_concave(const float *xy, int count) {
 build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
                       float pixel_width, MeshClassBake &out,
                       size_t budget_bytes = CLASS_LUT_BUDGET) {
+  HS_CHECK(&persistent != &scratch,
+           "build_mesh_class_bake persistent must not alias scratch");
   ScratchScope scratch_guard(scratch);
 
   const size_t F = mesh.get_face_counts_size();
