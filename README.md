@@ -1437,7 +1437,8 @@ for (int i = 0; i < PPS; ++i, y += y_step) {
 | Frame rate | 16 FPS (2 frames/rev — one per side; each side draws W/2 = 144 cols per 62.5 ms frame) |
 | Column frequency | 2304 Hz |
 | Column interval | ~434 µs (= 125 ms / 288 = 62.5 ms / 144) |
-| ISR duration (N=4 72px pack + DMA trigger) | ~96 µs worst case |
+| Flywheel wake period | ~54.25 µs (= column interval / `OVERSAMPLE` = 8) |
+| ISR duration (N=4 72px pack + DMA trigger) | Read per build from the `HS_ISR_PROFILE` accumulators (`g_flywheel_wake_cycles`, `g_column_pack_cycles`, `g_dma_submit_cycles`) that the `Profile` target dumps. A column-boundary ISR outrunning the wake period coalesces the wakes it overruns; the column index is derived from the cycle counter, so the next wake resumes at the time-correct column |
 
 #### Frame Sync Protocol: 1-Wire Signal Datasheet
 
