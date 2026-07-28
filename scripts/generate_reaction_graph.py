@@ -131,10 +131,11 @@ def build_neighbors():
 
 
 def main():
-    if RD_N - 1 > 32767:
+    if RD_N > 32767:
         raise RuntimeError(
-            f"RD_N-1 ({RD_N - 1}) exceeds int16_t max (32767); widen the "
-            "neighbors element type in engine/reaction_graph.h before raising RD_N")
+            f"RD_N ({RD_N}) exceeds INT16_MAX (32767): node index must fit "
+            "int16_t; widen the neighbors element type in "
+            "engine/reaction_graph.h before raising RD_N")
     table = build_neighbors()
     # LF on every host: the provenance gate diffs numeric tokens only, so a
     # Windows CRLF flip of the whole table would ride green.
