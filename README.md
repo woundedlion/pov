@@ -1225,7 +1225,7 @@ Color modifiers (`shade(Color4, float) -> Color4`):
 | `HueWobbleShade` | Rotates hue by an amount that varies along the domain (iridescent drift); per-sample cost suits bake-time sampling |
 | `SparkleShade` | Ignites sparse traveling glints where an evolving noise field exceeds a threshold |
 | `ChromaPulseShade` | Breathes OKLab chroma between pastel and vivid on a per-frame memoized pulse |
-| `LightnessGrainShade` | Grains brightness with evolving noise; uniform linear-RGB gain, so hue is preserved exactly |
+| `LightnessGrainShade` | Grains brightness with evolving noise; uniform linear-RGB gain, so hue is exact below the saturation point (a gain above 1 clips bright channels) |
 | `IridescentShade` | Adds a thin-film cosine sheen with per-channel phase offsets, saturating at white |
 
 The noise-driven modifiers sample the deterministic `value_noise_1d`/`value_noise_2d`
