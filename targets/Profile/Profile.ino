@@ -78,11 +78,9 @@ using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 void setup();
 void loop();
 
-#if defined(USE_DMA_LEDS)
 // Out-of-line definition for this target's controller, emitted as the required
 // DMAMEM explicit specialization (see pov_segmented.h).
 HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
-#endif
 
 namespace {
 

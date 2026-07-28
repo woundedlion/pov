@@ -47,12 +47,10 @@ static constexpr unsigned int RPM = 480;
 
 using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 
-#if defined(USE_DMA_LEDS)
 // Out-of-line definition for this target's controller, emitted as the required
 // DMAMEM explicit specialization (see pov_segmented.h for why a generic template
 // definition would silently land in DTCM and break DMA cache coherency).
 HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
-#endif
 
 namespace {
 POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
