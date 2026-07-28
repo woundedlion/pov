@@ -66,7 +66,8 @@ The fix that shipped: a **bit-exact split-decode** that shrinks the table 64 KB 
 took the worst IslamicStars shape's *steady* render red → green, freed 64 KB
 flash, cost +1.5 KB DTCM / +240 B ITCM. See `core/color/srgb_decode.h`,
 `core/color/srgb_decode_lut.h`, `scripts/generate_srgb_decode.cpp`, and the
-`unit_srgb_decode` test in `tests/test_color.h`.
+`test_linear_to_srgb8_decode_matches_lut` test in `tests/test_color.h` (the
+`unit_color` CTest).
 
 **The technique (reuse it):**
 1. **Split-decode.** A monotone `input → output` map compresses to a table of

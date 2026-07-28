@@ -38,7 +38,7 @@ inline const bool srgb_decode_dtcm_init = []() {
  * ~1.5 KB of DTCM tables. A fine 16-wide low region and a coarse 128-wide high
  * region each hold at most one output step, so each side is a single branchless
  * compare: base + (frac >= step). Equivalence over all 65536 inputs is checked
- * by unit_srgb_decode.
+ * by unit_color's test_linear_to_srgb8_decode_matches_lut.
  */
 inline __attribute__((always_inline)) uint8_t linear_to_srgb8(uint16_t v) {
   if (v < SRGB_DECODE_VSPLIT) {

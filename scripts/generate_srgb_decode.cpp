@@ -5,7 +5,8 @@
 // compare per region. Asserts the <=1-step property and self-verifies
 // bit-exactness over all 65536 inputs. Total ~1.5 KB (fits the DTCM slack).
 // Build: clang++ -std=c++20 -I. -Icore scripts/generate_srgb_decode.cpp
-// (unit_srgb_decode re-checks the equivalence in CI).
+// (unit_color's test_linear_to_srgb8_decode_matches_lut re-checks the
+// equivalence in CI).
 #include "core/color/color_luts.h"
 #include <cstdint>
 #include <cstdio>
