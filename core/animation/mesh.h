@@ -1278,7 +1278,7 @@ private:
 
   /**
    * @brief Steps a gated-swap leg: the seed or the partitioned mesh, then the
-   * shared frame tail at gain 1.
+   * shared frame tail.
    * @param canvas The canvas passed through to the draw callback.
    * @param frame Clamped frame index; the seed side draws frames [1, gate], the
    * swap and opening side [gate + 1, 2 * gate + 1].
@@ -1299,13 +1299,10 @@ private:
     }
     const PolyMesh &mesh = seed_side ? tr.seed : swapped;
 
-    // Gain holds at 1 across the whole gate: the swap changes topology, not
-    // brightness (no dip, no flash). Colour holds at the departed palettes
-    // across the swap and most of the gate, so the children open in the colour
-    // already painted where they land, and converges to the arrival targets
-    // only over the final frames.
-    finish_frame(canvas, mesh, trailing_blend(frame, duration), 1.0f,
-                 seed_side);
+    // Colour holds at the departed palettes across the swap and most of the
+    // gate, so the children open in the colour already painted where they land,
+    // and converges to the arrival targets only over the final frames.
+    finish_frame(canvas, mesh, trailing_blend(frame, duration), seed_side);
   }
 
   /**
@@ -1448,14 +1445,12 @@ private:
    * @param w Crossfade weight in [0, 1] the caller already resolved (the leg's
    * blend_fn for the swept kinds, trailing_blend for the gate); rebased
    * through the leg's [w_lo, w_hi] share here.
-   * @param gain Shading gain handed to the draw callback.
    * @param seed_side Draw the gate's seed-side tables (GATED_SWAP only): the
    * seed classification and its identity ramp table, which w == 0 leaves at the
    * departed palettes.
    */
   HS_COLD_MEMBER void finish_frame(Canvas &canvas, const PolyMesh &swept,
-                                   float w, float gain = 1.0f,
-                                   bool seed_side = false) {
+                                   float w, bool seed_side = false) {
     Transients &tr = *buf;
     const ArenaVector<int> &topo = seed_side ? tr.seed_topo : tr.topo;
     const ArenaVector<uint8_t> &face_ramp =
@@ -1488,7 +1483,7 @@ private:
         bake_palette_blend(ramps[r], scratch_arena_b, from, to, w);
     }
 
-    Shading sh{ramps, face_ramp.data(), face_ramp.size(), gain};
+    Shading sh{ramps, face_ramp.data(), face_ramp.size()};
     draw_fn(canvas, compiled, sh);
   }
 
