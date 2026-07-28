@@ -139,9 +139,12 @@ public:
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
-    // dA/dB cap at 0.05: explicit Euler is stable only while dt·D·λmax ≤ 2. The
-    // graph Laplacian on a degree-RD_K lattice has |λ|max ≤ 2·RD_K (= 12 at
-    // RD_K=6), giving 3·0.05·12 = 1.8 ≤ 2 at Speed top.
+    // dA/dB cap at 0.05 keeps the diffusion term inside explicit Euler's
+    // dt·D·|λ|max ≤ 2: the graph Laplacian on a degree-RD_K lattice has
+    // |λ|max ≤ 2·RD_K (= 12 at RD_K=6), giving 3·0.05·12 = 1.8 at Speed top.
+    // That bound does not cover the reaction Jacobian, whose rows run past 2 at
+    // the joint feed/k corner of the slider box; there it is step_physics'
+    // per-substep [0,1] clamp, not the step size, that bounds the excursion.
     register_param("dA", &params.d_a, 0.0f, 0.05f);
     register_param("dB", &params.d_b, 0.0f, 0.05f);
     register_param("Speed", &params.dt, 0.1f, 3.0f);
