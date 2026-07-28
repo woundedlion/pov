@@ -1053,6 +1053,11 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         orbit_start[he.vertex] = he.pair;
     }
 
+    constexpr float RELAX_SPRING_GAIN = 0.1f;
+    // Stop early once the largest per-vertex spring step settles below ~3e-4
+    // rad on the unit sphere.
+    constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
+
     for (int iter = 0; iter < iterations; ++iter) {
       float total_len = 0;
       int edge_count = 0;
@@ -1088,7 +1093,7 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
             if (len_sq > math::EPS_LEN_SQ) {
               float dist = sqrtf(len_sq);
               float diff = dist - target_len;
-              force = force + (vec * (1.0f / dist)) * (diff * 0.1f);
+              force = force + (vec * (1.0f / dist)) * (diff * RELAX_SPRING_GAIN);
             }
           });
         }
@@ -1102,9 +1107,6 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
             (out_mesh.vertices[i] + movements[i]).normalized();
       }
 
-      // Stop early once the largest per-vertex spring step settles below ~3e-4
-      // rad on the unit sphere.
-      constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
       if (max_move_sq < RELAX_CONVERGE_EPS_SQ)
         break;
     }
