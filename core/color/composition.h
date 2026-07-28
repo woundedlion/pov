@@ -166,13 +166,14 @@ struct DriftModifier {
   float amplitude;
   uint32_t seed;
   /**
-   * @brief Per-instance memo of the frame's walk offset.
+   * @brief Per-instance memo of the frame's centered walk sample.
    * @details *time is frame-constant, so the noise walk is sampled once per
    * frame, not per pixel. mutable so const modify() can update the memo.
+   * Keyed on *time alone, so speed and seed must not change between frames.
    */
   mutable float cached_time = 0.0f;
-  mutable float cached_offset = 0.0f; /**< Memoized offset at cached_time. */
-  mutable bool primed = false; /**< Whether the memo has been populated. */
+  mutable float cached_walk = 0.0f; /**< Memoized walk in [-1, 1]. */
+  mutable bool primed = false;      /**< Whether the memo has been populated. */
 
   /**
    * @brief Constructs with a mandatory time driver, walk speed, and amplitude.
@@ -195,11 +196,10 @@ struct DriftModifier {
   float modify(float t) const {
     if (!primed || *time != cached_time) {
       cached_time = *time;
-      cached_offset =
-          (value_noise_1d(cached_time * speed, seed) - 0.5f) * 2.0f * amplitude;
+      cached_walk = (value_noise_1d(cached_time * speed, seed) - 0.5f) * 2.0f;
       primed = true;
     }
-    return t + cached_offset;
+    return t + cached_walk * amplitude;
   }
 };
 
