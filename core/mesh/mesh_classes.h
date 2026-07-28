@@ -327,7 +327,9 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   // arena only if their predicted hit share clears the quality bar, so a
   // low-value LUT never spends persistent budget.
   int16_t *staging =
-      scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N);
+      n_elig > 0
+          ? scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N)
+          : nullptr;
   for (int e = 0; e < n_elig; ++e) {
     CongruenceClass &cls = out.classes[order[e]];
     out.concave_faces += cls.members;
