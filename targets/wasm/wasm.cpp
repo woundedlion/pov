@@ -646,6 +646,20 @@ public:
   }
 
   /**
+   * @brief Identity token joining a getParameterDefinitions() snapshot to a
+   *        later getParamValues() read.
+   * @return Effect loads so far; a fresh value on every effect load.
+   * @details Neither stream carries a per-effect identity, so nothing but this
+   *          counter distinguishes a value read that describes the snapshotted
+   *          effect from one taken after a switch. Parameter counts repeat
+   *          across the roster, so a length comparison is not a substitute. Pin
+   *          this at snapshot time and compare it against a re-read beside each
+   *          value read; a change means the snapshot is stale and the
+   *          definitions must be rebuilt before the values are applied.
+   */
+  uint32_t getParamGeneration() const { return effectLoads; }
+
+  /**
    * @brief Reports engine arena and stack metrics for the JS memory HUD.
    * @return JS object of arena metrics ({usage, high_water_mark, capacity})
    *         plus a "stack" entry ({high_water_mark, capacity}), all in bytes.
@@ -1374,6 +1388,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getParameterDefinitions",
                 &HolosphereEngine::getParameterDefinitions)
       .function("getParamValues", &HolosphereEngine::getParamValues)
+      .function("getParamGeneration", &HolosphereEngine::getParamGeneration)
       .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics)
       .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
       .class_function("getSupportedResolutions",
