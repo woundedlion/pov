@@ -31,7 +31,7 @@
 #include "math/geometry.h"
 #include "render/shading.h" // Fragment + mesh-topology shading
 #include "engine/reaction_graph.h"
-#include "engine/concepts.h" // Concepts needs fragment
+#include "engine/concepts.h"
 #include "color/color.h"
 #include "animation/animation.h"
 #include "engine/transformers.h"
