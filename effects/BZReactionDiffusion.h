@@ -10,7 +10,7 @@
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
-// Unit-test accessor (tests/test_effects.h) reaching the private Q8
+// Unit-test accessor (tests/test_effects.h) reaching the private Q16
 // conversions, advance_species, perturb_state, and one physics substep, which
 // the smoke/determinism harness cannot pin.
 namespace hs_test {
@@ -29,20 +29,22 @@ struct BZWhiteBox;
  * Three competing chemical species (A, B, C) evolve via Lotka-Volterra dynamics
  * on a 7680-node Fibonacci lattice with K=6 nearest neighbors. The cyclic
  * competition (A→B→C→A) creates self-sustaining spiral waves that persist
- * indefinitely. State is stored as Q8 (uint8_t). Per-pixel rendering uses
- * Wendland C2 kernel interpolation for smooth cell boundaries between lattice
- * nodes.
+ * indefinitely. State is stored as Q16 (uint16_t): at the low end of the Diff
+ * slider the diffusion term moves a node by only ~3e-4 of full scale per
+ * substep, and a store coarser than that rounds the spatial coupling away
+ * entirely, leaving uncoupled per-node ODEs. Per-pixel rendering uses Wendland
+ * C2 kernel interpolation for smooth cell boundaries between lattice nodes.
  *
  * Shared lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
  *
  * Memory budget (persistent arena):
  *   - Cubemap LUT:                 ~49,152 B
- *   - State:  3 arrays × 7680 × 1B = 23,040 B
+ *   - State:  3 arrays × 7680 × 2B = 46,080 B
  *   - Node XYZ: 7680 × 12B         = 92,160 B  (fixed lattice, built once)
  *
  * Scratch arena (per frame, disjoint phases):
- *   - Physics: ping-pong 3 × 7680 × 1B + float pre-convert 3 × 7680 × 4B = 115,200 B
- *   - Raster:  oriented lattice 7680 × 12B                               =  92,160 B
+ *   - Physics: float generation mirror 3 × 7680 × 4B = 92,160 B
+ *   - Raster:  oriented lattice 7680 × 12B           = 92,160 B
  */
 template <int W, int H>
 class BZReactionDiffusion
@@ -51,7 +53,6 @@ class BZReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
-  using Base::advance_substeps;
   using Base::cube_lut;
   using Base::dist2;
   using Base::for_each_neighbor;
@@ -80,19 +81,18 @@ public:
                                       ReactionGraph::CubemapLUT::RES *
                                       sizeof(uint16_t); // cube_lut.build
     constexpr size_t STATE_BYTES =
-        3u * RD_N * sizeof(uint8_t); // allocate_state
+        3u * RD_N * sizeof(uint16_t); // allocate_state
     // NODE_BYTES bounds both the resident node array and the equal-size transient
     // lattice cube_lut.build() carves and rewinds before init_lattice() allocates
     // the resident one; the build() peak (state + LUT + transient) is the max.
     constexpr size_t NODE_BYTES = RD_N * sizeof(Vector); // build_nodes
-    constexpr size_t PERSISTENT_BYTES = 165 * 1024;
+    constexpr size_t PERSISTENT_BYTES = 184 * 1024;
     static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES <= PERSISTENT_BYTES,
                   "BZ persistent arena too small for LUT + state + build peak");
-    // render()'s scratch peaks at the larger of the physics phase (3 uint8 +
-    // 3 float species buffers) and the raster phase (the oriented lattice);
-    // the two run under disjoint scopes.
-    constexpr size_t PHYSICS_SCRATCH_BYTES =
-        3u * RD_N * sizeof(uint8_t) + 3u * RD_N * sizeof(float);
+    // render()'s scratch peaks at the larger of the physics phase (the 3 float
+    // generation mirrors) and the raster phase (the oriented lattice); the two
+    // run under disjoint scopes.
+    constexpr size_t PHYSICS_SCRATCH_BYTES = 3u * RD_N * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES = RD_N * sizeof(Vector);
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
@@ -101,7 +101,7 @@ public:
                   "BZ scratch arena too small for render()'s phase peak");
     configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
 
-    // Lotka-Volterra predation coefficient; bounded only by to_q8's [0,1] clamp
+    // Lotka-Volterra predation coefficient; bounded only by to_q16's [0,1] clamp
     // (not the diffusion stability bound below), so a high value saturates.
     register_param("Compete", &params.alpha, 0.0f, 4.0f);
     // Explicit Euler is stable only while dt·D·λmax ≤ 2. The graph Laplacian on a
@@ -122,20 +122,20 @@ public:
   }
 
 private:
-  // Test seam: lets the unit tests reach the private Q8 helpers, physics, and
+  // Test seam: lets the unit tests reach the private Q16 helpers, physics, and
   // params without exposing them to production callers.
   friend struct ::hs_test::effects_tests::BZWhiteBox;
 
   // ---------------------------------------------------------------------------
-  // Q8 fixed-point helpers
+  // Q16 fixed-point helpers
   // ---------------------------------------------------------------------------
 
   /**
-   * @brief Q8 full-scale factor: maps the [0, 255] byte state to [0.0, 1.0].
+   * @brief Q16 full-scale factor: maps the [0, 65535] state to [0.0, 1.0].
    */
-  static constexpr float Q8_SCALE = 255.0f;
-  static constexpr float Q8_INV =
-      1.0f / Q8_SCALE; /**< Reciprocal of Q8_SCALE. */
+  static constexpr float Q16_SCALE = 65535.0f;
+  static constexpr float Q16_INV =
+      1.0f / Q16_SCALE; /**< Reciprocal of Q16_SCALE. */
 
   /**
    * @brief Concentration-sum floor below which a location is treated as empty.
@@ -146,21 +146,21 @@ private:
   static constexpr float SPECIES_EMPTY_EPS = 1e-6f;
 
   /**
-   * @brief Converts a Q8 fixed-point byte to a normalized float.
-   * @param v Q8 value in [0, 255].
+   * @brief Converts a Q16 fixed-point sample to a normalized float.
+   * @param v Q16 value in [0, 65535].
    * @return Concentration in [0.0, 1.0].
    */
-  static inline float from_q8(uint8_t v) { return v * Q8_INV; }
+  static inline float from_q16(uint16_t v) { return v * Q16_INV; }
   /**
-   * @brief Converts a normalized concentration to a Q8 fixed-point byte.
+   * @brief Converts a normalized concentration to a Q16 fixed-point sample.
    * @param v Concentration; clamped to [0.0, 1.0] before scaling.
-   * @return Q8 value in [0, 255], rounded to nearest.
+   * @return Q16 value in [0, 65535], rounded to nearest.
    * @details Rounds to nearest (+0.5f); truncating would bias the dynamics down
    *          by dropping sub-LSB positive updates. clamp bounds the input so
-   *          255.5 -> 255 with no overflow.
+   *          65535.5 -> 65535 with no overflow.
    */
-  static inline uint8_t to_q8(float v) {
-    return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * Q8_SCALE + 0.5f);
+  static inline uint16_t to_q16(float v) {
+    return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
   }
 
   // Simulation tuning.
@@ -168,22 +168,26 @@ private:
       3;                                      // seed blobs per species at init
   static constexpr int STEPS_PER_FRAME = 2;   // physics substeps per render
   static constexpr int NUM_PERTURBATIONS = 8; // random nudges per physics step
-  static constexpr int PERTURB_AMOUNT = 3;    // Q8 magnitude of each nudge
+  static constexpr int PERTURB_AMOUNT = 771;  // Q16 nudge, 1.18% of full scale
 
   // ---------------------------------------------------------------------------
   // Initialization helpers
   // ---------------------------------------------------------------------------
 
   /**
-   * @brief Allocates the three persistent Q8 species arrays and zeroes them.
+   * @brief Allocates the three persistent Q16 species arrays and zeroes them.
    */
   void allocate_state() {
-    state.A = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
-    state.B = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
-    state.C = static_cast<uint8_t *>(persistent_arena.allocate(RD_N, 1));
-    memset(state.A, 0, RD_N);
-    memset(state.B, 0, RD_N);
-    memset(state.C, 0, RD_N);
+    constexpr size_t BYTES = RD_N * sizeof(uint16_t);
+    state.A = static_cast<uint16_t *>(
+        persistent_arena.allocate(BYTES, alignof(uint16_t)));
+    state.B = static_cast<uint16_t *>(
+        persistent_arena.allocate(BYTES, alignof(uint16_t)));
+    state.C = static_cast<uint16_t *>(
+        persistent_arena.allocate(BYTES, alignof(uint16_t)));
+    memset(state.A, 0, BYTES);
+    memset(state.B, 0, BYTES);
+    memset(state.C, 0, BYTES);
   }
 
   // ---------------------------------------------------------------------------
@@ -192,17 +196,17 @@ private:
 
   /**
    * @brief Seeds CLUSTERS_PER_SPECIES clusters per species at random nodes.
-   * @details Saturates each cluster center and its neighbors to Q8 255,
+   * @details Saturates each cluster center and its neighbors to Q16 65535,
    *          ensuring all three species are present so the cyclic competition
    *          can sustain spiral waves.
    */
   HS_COLD_MEMBER void seed_spiral_nuclei() {
-    uint8_t *species[] = {state.A, state.B, state.C};
+    uint16_t *species[] = {state.A, state.B, state.C};
     for (int s = 0; s < 3; s++) {
       for (int k = 0; k < CLUSTERS_PER_SPECIES; k++) {
         int center = hs::rand_int(0, RD_N);
-        species[s][center] = 255;
-        for_each_neighbor(center, [&](int nb) { species[s][nb] = 255; });
+        species[s][center] = 65535;
+        for_each_neighbor(center, [&](int nb) { species[s][nb] = 65535; });
       }
     }
   }
@@ -217,61 +221,60 @@ private:
    * @param predator Concentration of the species that preys on this one,
    *                 in [0.0, 1.0].
    * @param laplacian Graph-Laplacian of this species over its neighbors.
-   * @return Updated concentration as a Q8 byte in [0, 255].
+   * @return Updated concentration as a Q16 sample in [0, 65535].
    * @details Combines Fickian diffusion (D * laplacian) with Lotka-Volterra
    *          competition (conc * (1 - conc - alpha * predator)), scaled by the
    *          timestep dt.
    */
-  HS_O3_FN uint8_t advance_species(float conc, float predator,
-                                   float laplacian) const {
-    return to_q8(conc + (params.D * laplacian +
-                         conc * (1 - conc - params.alpha * predator)) *
-                            params.dt);
+  HS_O3_FN uint16_t advance_species(float conc, float predator,
+                                    float laplacian) const {
+    return to_q16(conc + (params.D * laplacian +
+                          conc * (1 - conc - params.alpha * predator)) *
+                             params.dt);
   }
 
   /**
    * @brief Applies stochastic perturbations to prevent convergence.
-   * @param n_a Species A buffer to nudge (Q8, modified in place).
-   * @param n_b Species B buffer to nudge (Q8, modified in place).
-   * @param n_c Species C buffer to nudge (Q8, modified in place).
-   * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q8),
-   *          saturating at 255, to keep the dynamics from settling on the
+   * @param n_a Species A buffer to nudge (Q16, modified in place).
+   * @param n_b Species B buffer to nudge (Q16, modified in place).
+   * @param n_c Species C buffer to nudge (Q16, modified in place).
+   * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q16),
+   *          saturating at 65535, to keep the dynamics from settling on the
    *          closed manifold.
    * @note Draws from the global deterministic RNG (2*NUM_PERTURBATIONS draws per
    *       call), so retuning the draw count is a global-determinism change.
    */
-  static void perturb_state(uint8_t *n_a, uint8_t *n_b, uint8_t *n_c) {
+  static void perturb_state(uint16_t *n_a, uint16_t *n_b, uint16_t *n_c) {
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
       int idx = hs::rand_int(0, RD_N);
       int s = hs::rand_int(0, 3);
-      uint8_t *t = (s == 0) ? n_a : (s == 1) ? n_b : n_c;
-      t[idx] = static_cast<uint8_t>(
-          std::min(static_cast<int>(t[idx]) + PERTURB_AMOUNT, 255));
+      uint16_t *t = (s == 0) ? n_a : (s == 1) ? n_b : n_c;
+      t[idx] = static_cast<uint16_t>(
+          std::min(static_cast<int>(t[idx]) + PERTURB_AMOUNT, 65535));
     }
   }
 
   /**
    * @brief Runs one full physics step: reaction-diffusion plus perturbation.
-   * @param c_a Current species A buffer (Q8, read-only).
-   * @param c_b Current species B buffer (Q8, read-only).
-   * @param c_c Current species C buffer (Q8, read-only).
-   * @param n_a Next species A buffer (Q8, written).
-   * @param n_b Next species B buffer (Q8, written).
-   * @param n_c Next species C buffer (Q8, written).
-   * @param f_a Float scratch (RD_N) for the current A generation.
-   * @param f_b Float scratch (RD_N) for the current B generation.
-   * @param f_c Float scratch (RD_N) for the current C generation.
-   * @details Double-buffered Jacobi: reads current buffers, writes next; the
-   *          caller owns the ping-pong (see render()). Pre-converts the current
-   *          generation into f_a/f_b/f_c once so the neighbor loop reads floats.
+   * @param s_a Species A state (Q16, advanced in place).
+   * @param s_b Species B state (Q16, advanced in place).
+   * @param s_c Species C state (Q16, advanced in place).
+   * @param f_a Float mirror (RD_N) of the current A generation.
+   * @param f_b Float mirror (RD_N) of the current B generation.
+   * @param f_c Float mirror (RD_N) of the current C generation.
+   * @details Jacobi: the whole current generation is mirrored into
+   *          f_a/f_b/f_c first, and the update loop reads only that mirror, so
+   *          writing the new generation over the state in place cannot feed a
+   *          half-updated neighbor back into the Laplacian. The mirror also
+   *          converts each node's Q16 sample once instead of once per neighbor
+   *          visit.
    */
-  HS_O3_FN void step_physics(const uint8_t *c_a, const uint8_t *c_b,
-                             const uint8_t *c_c, uint8_t *n_a, uint8_t *n_b,
-                             uint8_t *n_c, float *f_a, float *f_b, float *f_c) {
+  HS_O3_FN void step_physics(uint16_t *s_a, uint16_t *s_b, uint16_t *s_c,
+                             float *f_a, float *f_b, float *f_c) {
     for (int i = 0; i < RD_N; i++) {
-      f_a[i] = from_q8(c_a[i]);
-      f_b[i] = from_q8(c_b[i]);
-      f_c[i] = from_q8(c_c[i]);
+      f_a[i] = from_q16(s_a[i]);
+      f_b[i] = from_q16(s_b[i]);
+      f_c[i] = from_q16(s_c[i]);
     }
     for (int i = 0; i < RD_N; i++) {
       float a = f_a[i];
@@ -288,12 +291,12 @@ private:
       float l_b = sum_b - RD_K * b;
       float l_c = sum_c - RD_K * c;
 
-      n_a[i] = advance_species(a, c, l_a);
-      n_b[i] = advance_species(b, a, l_b);
-      n_c[i] = advance_species(c, b, l_c);
+      s_a[i] = advance_species(a, c, l_a);
+      s_b[i] = advance_species(b, a, l_b);
+      s_c[i] = advance_species(c, b, l_c);
     }
 
-    perturb_state(n_a, n_b, n_c);
+    perturb_state(s_a, s_b, s_c);
   }
 
   // ---------------------------------------------------------------------------
@@ -332,9 +335,9 @@ private:
   /**
    * @brief Turns accumulated kernel weights into a blended pixel color.
    * @param tw Total Wendland weight over the stencil.
-   * @param wa Weighted sum of species A (Q8) over the stencil.
-   * @param wb Weighted sum of species B (Q8) over the stencil.
-   * @param wc Weighted sum of species C (Q8) over the stencil.
+   * @param wa Weighted sum of species A (Q16) over the stencil.
+   * @param wb Weighted sum of species B (Q16) over the stencil.
+   * @param wc Weighted sum of species C (Q16) over the stencil.
    * @param ca Palette color for species A.
    * @param cb Palette color for species B.
    * @param cc Palette color for species C.
@@ -349,7 +352,7 @@ private:
     if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
       return Color4(Pixel(0, 0, 0), 0.0f);
 
-    float inv = Q8_INV / tw;
+    float inv = Q16_INV / tw;
     float a = wa * inv, b = wb * inv, c = wc * inv;
     float total = a + b + c;
     if (total < SPECIES_EMPTY_EPS)
@@ -385,7 +388,7 @@ private:
                              const Color4 &cc) const {
     int center = refine_center(center_rv, world_nodes, seed);
     Vector spos[RD_K + 1];
-    uint8_t sa[RD_K + 1], sb[RD_K + 1], sc[RD_K + 1];
+    uint16_t sa[RD_K + 1], sb[RD_K + 1], sc[RD_K + 1];
     spos[0] = world_nodes[center];
     sa[0] = state.A[center];
     sb[0] = state.B[center];
@@ -423,10 +426,10 @@ private:
   /**
    * @brief Allocates scratch, advances the simulation, then rasterizes a frame.
    * @param canvas Destination canvas to draw into.
-   * @details Runs STEPS_PER_FRAME ping-ponged physics substeps between the
-   *          persistent state and scratch buffers, lands the final generation
-   *          back in the persistent buffers, then rasterizes with 4x SSAA using
-   *          a cubemap-LUT vertex shader and a kernel-sampling fragment shader.
+   * @details Advances the persistent state STEPS_PER_FRAME substeps in place
+   *          over one set of float generation mirrors, then rasterizes with 4x
+   *          SSAA using a cubemap-LUT vertex shader and a kernel-sampling
+   *          fragment shader.
    */
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);
@@ -434,9 +437,6 @@ private:
     {
       ScratchScope physics_guard(scratch_arena_a);
       HS_PROFILE(bz_physics);
-      uint8_t *s_a = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-      uint8_t *s_b = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-      uint8_t *s_c = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
       float *f_a = static_cast<float *>(
           scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
       float *f_b = static_cast<float *>(
@@ -444,12 +444,8 @@ private:
       float *f_c = static_cast<float *>(
           scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
 
-      advance_substeps(
-          STEPS_PER_FRAME, std::array<uint8_t *, 3>{state.A, state.B, state.C},
-          std::array<uint8_t *, 3>{s_a, s_b, s_c}, [&](auto &cur, auto &nxt) {
-            step_physics(cur[0], cur[1], cur[2], nxt[0], nxt[1], nxt[2], f_a,
-                         f_b, f_c);
-          });
+      for (int k = 0; k < STEPS_PER_FRAME; ++k)
+        step_physics(state.A, state.B, state.C, f_a, f_b, f_c);
     }
 
     // Physics scratch is popped; the raster phase reuses the arena for the
@@ -483,11 +479,11 @@ private:
   // ---------------------------------------------------------------------------
 
   /**
-   * @brief Persistent Q8 concentration buffers for the three species.
-   * @details A, B, and C each point to RD_N bytes; values are Q8 in [0, 255].
+   * @brief Persistent Q16 concentration buffers for the three species.
+   * @details A, B, and C each point to RD_N samples in [0, 65535].
    */
   struct {
-    uint8_t *A = nullptr, *B = nullptr, *C = nullptr;
+    uint16_t *A = nullptr, *B = nullptr, *C = nullptr;
   } state;
 
   /** @brief Triadic generative palette mapping species concentration to color. */
