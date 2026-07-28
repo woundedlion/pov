@@ -197,9 +197,8 @@ private:
    */
   HS_COLD_MEMBER void record_node_palettes() {
     HS_CHECK(node_faces_ <= mesh_.topology.size());
-    for (size_t f = 0; f < node_faces_; ++f)
-      node_face_palette_[f] = static_cast<uint8_t>(
-          palette_idx_[wrap(mesh_.topology[f], NUM_PALETTES)]);
+    MeshPaletteBank::assign_by_class(mesh_.topology.data(), node_faces_,
+                                     palette_idx_, node_face_palette_);
   }
 
   /**
@@ -291,7 +290,7 @@ private:
     for (int s = 0; s < NUM_PALETTES; ++s)
       strap_from_[s] = palette_idx_[s];
     for (size_t f = node_faces_; f < mesh_.topology.size(); ++f) {
-      const int slot = wrap(mesh_.topology[f], NUM_PALETTES);
+      const int slot = MeshPaletteBank::slot_of(mesh_.topology[f]);
       if (strap_blend_mask_ & (1u << slot))
         continue;
       const int from = prev_used[slot] ? prev_idx[slot] : host_face_palette_[f];
@@ -560,7 +559,7 @@ private:
       // so share a class; the first one found represents them.
       if (star_rim_palette_[best] == NO_RIM)
         star_rim_palette_[best] = static_cast<uint8_t>(
-            palette_idx_[wrap(mesh_.topology[f], NUM_PALETTES)]);
+            palette_idx_[MeshPaletteBank::slot_of(mesh_.topology[f])]);
     }
     // A star face with no rosette inside it keeps its own color at the
     // midpoint (it has nothing to dissolve into).
@@ -762,7 +761,7 @@ private:
     const std::array<int, NUM_PALETTES> prev_idx = palette_idx_;
     bool prev_used[NUM_PALETTES] = {};
     for (size_t f = 0; f < mesh_.topology.size(); ++f)
-      prev_used[wrap(mesh_.topology[f], NUM_PALETTES)] = true;
+      prev_used[MeshPaletteBank::slot_of(mesh_.topology[f])] = true;
 
     // Build the arrived base mesh from the held seed and compile the hankin
     // pattern from that mesh — never a registry regenerate, so bridge
@@ -809,11 +808,11 @@ private:
       // start from the same arrival mesh); drift here would pop the bookend.
       HS_CHECK(landing.topology[f] == mesh_.topology[f],
                "HankinSolids: arrival classification drifted across the leg");
-      int slot = wrap(mesh_.topology[f], NUM_PALETTES);
+      int slot = MeshPaletteBank::slot_of(mesh_.topology[f]);
       if (!slot_mapped[slot]) {
         slot_mapped[slot] = true;
         palette_idx_[slot] =
-            landing.to_palette[wrap(landing.topology[f], NUM_PALETTES)];
+            landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
       }
     }
     record_node_palettes();
