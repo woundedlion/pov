@@ -116,6 +116,17 @@ endif()
 
 _hs_sanitize(run_tests)
 
+# Opt-in Clang source-based coverage for the main suite binary. Default OFF: the
+# instrumentation changes codegen and slows the run, so no gating job may carry
+# it. The "code-coverage" CI job turns it on and publishes an llvm-cov summary —
+# advisory only, there is no threshold gate. Needs clang_rt.profile, which the
+# Windows emsdk clang does not ship, so this is a Linux-toolchain option.
+option(HS_COVERAGE "Instrument run_tests for llvm-cov source-based coverage" OFF)
+if(HS_COVERAGE)
+  target_compile_options(run_tests PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+  target_link_options(run_tests PRIVATE -fprofile-instr-generate)
+endif()
+
 enable_testing()
 
 # One CTest test per module so CI shards (and local `ctest -R <name>`) can
