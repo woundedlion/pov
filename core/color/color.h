@@ -1355,8 +1355,6 @@ public:
  */
 class Gradient : public Palette {
 public:
-  Pixel entries[256];
-
   /**
    * @brief Builds the 256-entry LUT by interpolating between color stops.
    * @param points Sorted-ascending (position in [0,1], color) stops.
@@ -1438,6 +1436,9 @@ public:
    * @brief Destroys the gradient (LUT is an inline member; nothing to free).
    */
   ~Gradient() {}
+
+private:
+  Pixel entries[256];
 };
 
 /**
