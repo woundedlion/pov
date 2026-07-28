@@ -46,19 +46,22 @@ public:
     // fades proportionally to fit the visible duration, so the envelope still
     // peaks at full opacity and stays a continuous triangle (definite sprites
     // only; indefinite ones skip fade-out).
+    // The base promotes duration 0 to 1, so read the member rather than the
+    // parameter.
     int fade_total = this->fade_in_duration + this->fade_out_duration;
-    if (duration >= 0 && fade_total > duration) {
+    if (this->duration >= 0 && fade_total > this->duration) {
       const int requested_fade_in = this->fade_in_duration;
-      this->fade_in_duration = static_cast<long long>(duration) *
+      this->fade_in_duration = static_cast<long long>(this->duration) *
                                this->fade_in_duration / fade_total;
       // Keep a requested fade-in visible when the integer scale floors it to 0.
-      if (this->fade_in_duration == 0 && requested_fade_in > 0 && duration >= 2)
+      if (this->fade_in_duration == 0 && requested_fade_in > 0 &&
+          this->duration >= 2)
         this->fade_in_duration = 1;
-      this->fade_out_duration = duration - this->fade_in_duration;
+      this->fade_out_duration = this->duration - this->fade_in_duration;
     }
     // A duration-1 sprite's sole frame is t==duration, where the fade-out ramp
     // reaches 0; drop fade-out so that frame isn't drawn fully transparent.
-    if (duration == 1)
+    if (this->duration == 1)
       this->fade_out_duration = 0;
   }
 
