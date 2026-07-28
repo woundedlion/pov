@@ -190,7 +190,7 @@ planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
  * @param curr Start fragment of the edge.
  * @param next End fragment of the edge.
  * @param planar_basis Azimuthal-equidistant projection basis.
- * @param isLastSegment True if this is the final edge of the polyline.
+ * @param is_last_segment True if this is the final edge of the polyline.
  * @param process_segment Receives the arc-length sampler (position + a
  *                        finite-difference unit tangent), endpoints, on-sphere
  *                        length (radians), and the last-segment flag.
@@ -202,7 +202,7 @@ planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
 template <typename ProcessSegmentFn>
 static void
 rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
-                          const Basis &planar_basis, bool isLastSegment,
+                          const Basis &planar_basis, bool is_last_segment,
                           ProcessSegmentFn &&process_segment) {
   auto proj1 = azimuthal_project(curr.pos, planar_basis);
   auto proj2 = azimuthal_project(next.pos, planar_basis);
@@ -253,7 +253,7 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
     return {p, normalized_or(d, Vector())};
   };
 
-  process_segment(sample_planar, curr, next, dist, isLastSegment);
+  process_segment(sample_planar, curr, next, dist, is_last_segment);
 }
 
 /**
@@ -306,7 +306,7 @@ static inline Basis planar_chart_basis(const Vector &center) {
  * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
  * @param curr Start fragment of the edge.
  * @param next End fragment of the edge.
- * @param isLastSegment True if this is the final edge of the polyline.
+ * @param is_last_segment True if this is the final edge of the polyline.
  * @param process_segment Receives the arc-length sampler (position + unit
  *                        tangent), endpoints, on-sphere length (radians), and
  *                        the last-segment flag.
@@ -318,7 +318,7 @@ HS_O3_BEGIN
 template <typename ProcessSegmentFn>
 static void rasterize_geodesic_strategy(const Fragment &curr,
                                         const Fragment &next,
-                                        bool isLastSegment,
+                                        bool is_last_segment,
                                         ProcessSegmentFn &&process_segment) {
   Vector v1 = curr.pos;
   Vector v2 = next.pos;
@@ -326,7 +326,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
 
   if (total_dist < EPS_GEODESIC_SEGMENT) {
     auto sample_degenerate = [=](float) -> SamplePT { return {v1, Vector()}; };
-    process_segment(sample_degenerate, curr, next, total_dist, isLastSegment);
+    process_segment(sample_degenerate, curr, next, total_dist, is_last_segment);
   } else {
     Vector axis;
     if (std::abs(PI_F - total_dist) < TOLERANCE) {
@@ -346,7 +346,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
       // from the same sin/cos — no extra trig.
       return {(v1 * c) + (v_perp * s), (v_perp * c) - (v1 * s)};
     };
-    process_segment(sample_geodesic, curr, next, total_dist, isLastSegment);
+    process_segment(sample_geodesic, curr, next, total_dist, is_last_segment);
   }
 }
 HS_O3_END
@@ -1172,7 +1172,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   // omitted on interior / closed segments so a shared vertex isn't plotted twice.
   auto process_segment = [&](auto &&sample, const Fragment &curr,
                              const Fragment &next, float total_dist,
-                             bool isLastSegment) {
+                             bool is_last_segment) {
     // Rewrite the arc registers from the rendered arc when a planar basis is in
     // force (see the pre-pass above): `d` is the arc drawn so far within this
     // segment, `seg_base` the arc at its start. No-op for geodesic polylines.
@@ -1190,8 +1190,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // fragment positions.
     // Degenerate (coincident endpoints): plot at most a single dot.
     if (total_dist < math::EPS_GEOMETRIC) {
-      bool shouldOmit = close_loop || !isLastSegment || omit_end;
-      if (!shouldOmit) {
+      bool should_omit = close_loop || !is_last_segment || omit_end;
+      if (!should_omit) {
         Fragment f_copy = curr;
         f_copy.color = Color4(0, 0, 0, 0);
         set_arc_uv(f_copy, 0.0f);
@@ -1218,7 +1218,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       set_arc_uv(f, 0.0f);
       fragment_shader(curr.pos, f);
       pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
-      if (!close_loop && isLastSegment && !omit_end) {
+      if (!close_loop && is_last_segment && !omit_end) {
         Fragment fl = next;
         fl.color = Color4(0, 0, 0, 0);
         set_arc_uv(fl, total_dist);
@@ -1264,7 +1264,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // replay stretches over the remaining segment instead.
     HS_CHECK(sim_dist > 0.0f);
     float scale = total_dist / sim_dist;
-    bool omitLast = close_loop || !isLastSegment || omit_end;
+    bool omit_last = close_loop || !is_last_segment || omit_end;
 
     // DRAWING PHASE
     //
@@ -1287,7 +1287,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha);
     }
 
-    size_t loop_limit = omitLast ? steps_cache.size() - 1 : steps_cache.size();
+    size_t loop_limit = omit_last ? steps_cache.size() - 1 : steps_cache.size();
     float current_dist = 0.0f;
 
     for (size_t j = 0; j < loop_limit; j++) {
@@ -1343,7 +1343,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   for (size_t i = 0; i < count; i++) {
     const Fragment &curr = points[i];
     const Fragment &next = points[(i + 1) % len];
-    bool isLastSegment = (i == count - 1);
+    bool is_last_segment = (i == count - 1);
 
     // --- Interpolation Strategy Selection ---
     // Branch-cut guard: the planar projection is singular at the basis antipode,
@@ -1388,16 +1388,16 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
              : edge_fits_one_dot<W, H>(curr.pos, next.pos));
     if (one_dot) {
       plot_dot(curr, i);
-      if (!close_loop && isLastSegment && !omit_end)
+      if (!close_loop && is_last_segment && !omit_end)
         plot_dot(next, i + 1);
       continue;
     }
 
     if (use_planar) {
-      rasterize_planar_strategy(curr, next, *planar_basis, isLastSegment,
+      rasterize_planar_strategy(curr, next, *planar_basis, is_last_segment,
                                 process_segment);
     } else {
-      rasterize_geodesic_strategy(curr, next, isLastSegment, process_segment);
+      rasterize_geodesic_strategy(curr, next, is_last_segment, process_segment);
     }
   }
 #ifdef __EMSCRIPTEN__
