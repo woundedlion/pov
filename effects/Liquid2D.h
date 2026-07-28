@@ -281,7 +281,6 @@ private:
     }
   };
   static constexpr float TIME_PERIOD = 65536.0f;
-  Params params; /**< Live per-frame parameters, lerped between presets. */
   float accumulated_time =
       0.0f; /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
   float cycle_phase = 0.0f; /**< Wrapped to [0, 2pi) each frame for breathe. */
@@ -327,6 +326,8 @@ private:
       "exposes the presets, it does not clamp them)");
 
   Presets<Params, 2> presets{PRESETS};
+
+  Params params; /**< Live per-frame parameters, lerped between presets. */
 };
 
 #include "core/engine/effect_registry.h"

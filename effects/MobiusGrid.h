@@ -338,6 +338,16 @@ private:
   Timeline timeline; /**< Drives spin, palette wipe, and mutations. */
   MobiusWarpCircularTransformer<1> mobius_gen; /**< Möbius warp generator. */
 
+  Orientation<> orientation; /**< Spinning render orientation. */
+
+  Vector hole_n; /**< North hole origin, tracking the rotated geometry. */
+  Vector hole_s; /**< South hole origin, tracking the rotated geometry. */
+
+  /** @brief Render filter pipeline: two hole fades, orientation, anti-alias. */
+  Pipeline<W, H, Filter::World::HoleRef<W>, Filter::World::HoleRef<W>,
+           Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+      filters;
+
   /**
    * @brief User-tunable parameters.
    * @details num_rings/num_lines are animated counts driven by the Mutation
@@ -348,16 +358,6 @@ private:
     float num_lines = 0.0f; /**< Animated longitude-line count. */
     float alpha = 0.2f;     /**< Overall opacity multiplier in [0, 1]. */
   } params;
-
-  Orientation<> orientation; /**< Spinning render orientation. */
-
-  Vector hole_n; /**< North hole origin, tracking the rotated geometry. */
-  Vector hole_s; /**< South hole origin, tracking the rotated geometry. */
-
-  /** @brief Render filter pipeline: two hole fades, orientation, anti-alias. */
-  Pipeline<W, H, Filter::World::HoleRef<W>, Filter::World::HoleRef<W>,
-           Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
-      filters;
 };
 
 #include "core/engine/effect_registry.h"
