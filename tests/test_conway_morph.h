@@ -1365,6 +1365,7 @@ enum class HankinBranch : uint8_t {
   INTERSECT, /**< Contact-plane intersection accepted. */
   COLLAPSED, /**< is_flat or zero-length edge: snapped to the corner. */
   FALLBACK,  /**< Degenerate or far intersection: edge-midpoint mean. */
+  BLENDED,   /**< Partial fallback: 0 < fallback_blend < 1. */
 };
 
 /** @brief One dynamic vertex's solved position and the branch that made it. */
@@ -1376,12 +1377,21 @@ struct HankinSolve {
   float far_ratio = 0;
 };
 
+/** @brief Mirror of update_hankin's local blend_above (core/mesh/hankin.h). */
+inline float hankin_blend_above(float value, float start, float end) {
+  const float t =
+      std::max(0.0f, std::min(1.0f, (value - start) / (end - start)));
+  return quintic_kernel(t);
+}
+
 /**
  * @brief Mirrors MeshOps::update_hankin's per-vertex solve, exposing the
  *        branch each dynamic vertex takes.
  * @param compiled Baked hankin topology.
  * @param angle Contact angle in radians.
  * @param out Filled with one entry per dynamic instruction.
+ * @details Reproduces the regularization anchor, the plane_cross_sq parallel
+ *   gate and the fallback blend; positions must track update_hankin exactly.
  */
 inline void hankin_solve(const CompiledHankin &compiled, float angle,
                          std::vector<HankinSolve> &out) {
@@ -1392,7 +1402,7 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
   out.assign(compiled.dynamic_instructions.size(), HankinSolve{});
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const HankinInstruction &instr = compiled.dynamic_instructions[i];
-    const Vector p_corner = compiled.base_vertices[instr.v_corner];
+    const Vector p_corner = compiled.corner(instr.v_corner);
     const Vector cn = normalized_or(p_corner, p_corner);
 
     if (is_flat) {
@@ -1402,8 +1412,8 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
 
     const Vector m1 = compiled.static_vertices[instr.idx_m1];
     const Vector m2 = compiled.static_vertices[instr.idx_m2];
-    const Vector cross1 = cross(compiled.base_vertices[instr.v_prev], p_corner);
-    const Vector cross2 = cross(p_corner, compiled.base_vertices[instr.v_next]);
+    const Vector cross1 = cross(compiled.corner(instr.v_prev), p_corner);
+    const Vector cross2 = cross(p_corner, compiled.corner(instr.v_next));
     if (dot(cross1, cross1) < math::EPS_CROSS_SQ ||
         dot(cross2, cross2) < math::EPS_CROSS_SQ) {
       out[i] = {cn, HankinBranch::COLLAPSED};
@@ -1414,23 +1424,48 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
     const Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
     Vector intersect =
         cross(rotate(cross1.normalized(), q1), rotate(cross2.normalized(), q2));
+    const float plane_cross_sq = dot(intersect, intersect);
 
-    bool degenerate = dot(intersect, intersect) < math::EPS_LEN_SQ;
-    float far_ratio = 0;
-    if (!degenerate) {
-      if (dot(intersect, p_corner) < 0)
-        intersect = -intersect;
-      intersect = intersect.normalized();
-      const float local_sq =
-          std::max(distance_squared(m1, cn), distance_squared(m2, cn));
-      far_ratio = distance_squared(intersect, cn) / local_sq;
-      degenerate = far_ratio > MeshOps::STAR_FAR_RATIO_SQ;
+    Vector fallback = normalized_or(m1 + m2, cn);
+    if (dot(fallback, p_corner) < 0.0f)
+      fallback = -fallback;
+    const Vector oriented_intersect = intersect * dot(intersect, p_corner);
+    const Vector raw_star = normalized_or(oriented_intersect, fallback);
+    const float local_sq =
+        std::max(distance_squared(m1, cn), distance_squared(m2, cn));
+    if (!(local_sq > math::EPS_LEN_SQ)) {
+      out[i] = {fallback, HankinBranch::FALLBACK, 0.0f};
+      continue;
     }
-    if (degenerate) {
-      Vector fallback = normalized_or(m1 + m2, cn);
-      if (dot(fallback, p_corner) < 0)
-        fallback = -fallback;
+
+    const float raw_ratio_sq = distance_squared(raw_star, cn) / local_sq;
+    const float conditioned =
+        hankin_blend_above(raw_ratio_sq, MeshOps::HANKIN_CONDITIONED_NEAR_RATIO_SQ,
+                           MeshOps::HANKIN_CONDITIONED_FAR_RATIO_SQ);
+    const float anchor =
+        std::max(0.0f,
+                 MeshOps::HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
+        conditioned *
+            std::max(0.0f, MeshOps::HANKIN_CONDITIONED_CLEAR_SQ - plane_cross_sq);
+    intersect = normalized_or(oriented_intersect + fallback * anchor, fallback);
+
+    const float far_ratio = distance_squared(intersect, cn) / local_sq;
+    const float parallel_gate =
+        hankin_blend_above(-plane_cross_sq, -MeshOps::HANKIN_PARALLEL_GATE_HI_SQ,
+                           -MeshOps::HANKIN_PARALLEL_GATE_LO_SQ);
+    const float fallback_blend =
+        hankin_blend_above(far_ratio, MeshOps::STAR_FAR_BLEND_START_RATIO_SQ,
+                           MeshOps::STAR_FAR_RATIO_SQ) *
+        parallel_gate;
+    if (fallback_blend >= 1.0f) {
       out[i] = {fallback, HankinBranch::FALLBACK, far_ratio};
+      continue;
+    }
+    if (fallback_blend > 0.0f) {
+      out[i] = {normalized_or(intersect * (1.0f - fallback_blend) +
+                                  fallback * fallback_blend,
+                              fallback),
+                HankinBranch::BLENDED, far_ratio};
       continue;
     }
     out[i] = {intersect, HankinBranch::INTERSECT, far_ratio};
@@ -1630,8 +1665,8 @@ inline void test_hankin_sweep_vertex_stability() {
     hankin_solve(compiled, site.theta_star, arrival);
 
     // Guard headroom: the far-star guard is scaled by the corner's local edge
-    // scale, so on coarse seeds 36 * local_sq can exceed the 4.0 maximum
-    // squared chord, making the guard unreachable for that vertex.
+    // scale, so on coarse seeds STAR_FAR_RATIO_SQ * local_sq can exceed the
+    // 4.0 maximum squared chord, making the guard unreachable for that vertex.
     int unreachable = 0;
     float max_local_sq = 0;
     for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
