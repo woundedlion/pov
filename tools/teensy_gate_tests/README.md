@@ -23,6 +23,8 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `broken_over_cap_teensy_size.txt` | FLASH + RAM2 over cap, DTCM headroom under floor → every region check fails. |
 | `broken_negative_free_teensy_size.txt` | Negative RAM1 stack headroom remains parseable and fails the configured floor. |
 | `real/verbose_build_log.txt` | Verbatim `pio run -v` compiler invocations — first-party then third-party, Windows then Linux-CI — for the warning ratchet's capture-evidence guard. The Windows home directory is rewritten to `C:\Users\dev`; nothing else is edited. |
+| `real/cold_env_section.txt` | Verbatim `holosphere` section of a `pio run -v` with `.pio/build_cache` deleted: PlatformIO's banner (the `build_src_filter` the expectation is derived from) plus all three first-party compiles. |
+| `real/warm_env_section.txt` | The same section from the next run, reusing that cache: two `Retrieved … from cache` lines in place of the core compiles. The ratchet must fail on it. |
 
 ## ⚠ These are synthetic-but-realistic, not hardware-captured (yet)
 
