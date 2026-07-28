@@ -1832,7 +1832,7 @@ private:
    * @param hue Hue value to wrap; may be negative.
    * @return The hue reduced to [0, 255].
    */
-  uint8_t wrap_hue(int hue) const { return (hue % 256 + 256) % 256; }
+  static uint8_t wrap_hue(int hue) { return (hue % 256 + 256) % 256; }
 
   /**
    * @brief Derives the two companion hues from base hue h1 per a harmony.
@@ -1842,8 +1842,8 @@ private:
    * @param harmony_type Harmony rule selecting the offsets.
    * @details Some harmonies add randomized jitter, so output is not pure.
    */
-  void calc_hues(uint8_t h1, uint8_t &h2, uint8_t &h3,
-                 HarmonyType harmony_type) const {
+  static void calc_hues(uint8_t h1, uint8_t &h2, uint8_t &h3,
+                        HarmonyType harmony_type) {
     const int h1_int = h1;
     switch (harmony_type) {
     case HarmonyType::TRIADIC:
