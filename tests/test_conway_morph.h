@@ -2319,14 +2319,6 @@ inline void test_medial_dual_bridge_wellformed() {
     ArenaVector<Vector> med_b;
     MeshOps::medial(P, med_a, med_b, a, b);
 
-    // The MEDIAL_SLERP leg stores both endpoint sets snorm16-packed, so gate the
-    // quantized-then-decoded positions the leg actually slerps, not the
-    // full-precision medial output.
-    for (auto &v : med_a.vertices)
-      v = Animation::OpLeg::StarPoint::encode(v).decode().normalized();
-    for (auto &v : med_b)
-      v = Animation::OpLeg::StarPoint::encode(v).decode().normalized();
-
     // Correspondence proof: s = 0 is ambo(P), s = 1 (b_e positions) is
     // ambo(dual(P)). Both are the same rectified polyhedron (one face per
     // primal face + one per primal vertex), so the FACE count is identical
@@ -2347,6 +2339,36 @@ inline void test_medial_dual_bridge_wellformed() {
                               ambo_p.face_counts.begin()));
     HS_EXPECT_TRUE(std::equal(med_a.faces.begin(), med_a.faces.end(),
                               ambo_p.faces.begin()));
+
+    // MeshOps::medial documents out_a as bit-identical to ambo(P), and the
+    // bridge's ambo(P)->medial seam depends on it. Pin exact float equality
+    // index-for-index, before the snorm16 packing below can absorb a drift.
+    const size_t pair_n =
+        std::min(med_a.vertices.size(), ambo_p.vertices.size());
+    size_t bit_diff = 0;
+    float worst_bit = 0.0f;
+    for (size_t v = 0; v < pair_n; ++v) {
+      const Vector &mv = med_a.vertices[v];
+      const Vector &av = ambo_p.vertices[v];
+      if (mv.x != av.x || mv.y != av.y || mv.z != av.z) {
+        ++bit_diff;
+        worst_bit = std::max(worst_bit, distance_between(mv, av));
+      }
+    }
+    HS_EXPECT_EQ(bit_diff, size_t(0));
+    if (bit_diff != 0)
+      std::printf("    [medial] %s out_a != ambo(P) exactly: %zu/%zu vertices, "
+                  "worst |d|=%.3e\n",
+                  site.name, bit_diff, pair_n, (double)worst_bit);
+
+    // The MEDIAL_SLERP leg stores both endpoint sets snorm16-packed, so gate the
+    // quantized-then-decoded positions the leg actually slerps, not the
+    // full-precision medial output.
+    for (auto &v : med_a.vertices)
+      v = Animation::OpLeg::StarPoint::encode(v).decode().normalized();
+    for (auto &v : med_b)
+      v = Animation::OpLeg::StarPoint::encode(v).decode().normalized();
+
     // Every medial vertex sits on an ambo(P) vertex at s=0 and an ambo(dual(P))
     // vertex at s=1 (set containment; a lossy dual makes s=1 many-to-one).
     const float end_a = medial_vertex_set_dist(med_a, ambo_p);
