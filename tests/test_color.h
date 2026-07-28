@@ -942,6 +942,46 @@ inline void test_hue_rotate_full_turn_identity() {
 }
 
 /**
+ * @brief Verifies a full turn taken in N steps holds hue, chroma and lightness.
+ * @details Feedback re-rotates its own output every frame, so each step's
+ *          16-bit requantization, fast-trig angle and fast_cbrt round trip
+ *          compound instead of cancelling. Applying a 1/32-turn rotation 32
+ *          times must land back on the input. Hue drift is bounded at 0.09 rad
+ *          (~1.7x the 0.054 rad measured worst case across these bases) and
+ *          lightness at 1e-3 (measured 3e-4). Chroma may only shrink: a color on
+ *          the gamut boundary passes hues where the clip pulls it in and never
+ *          gets that chroma back, but nothing may amplify chroma, which is what
+ *          would run away under feedback. A base well inside the cusp at its
+ *          lightness stays in gamut for every hue and so holds its chroma to
+ *          2e-4 (measured 4e-5).
+ */
+inline void test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma() {
+  const int STEPS = 32;
+  // Second entry is the interior base; the rest ride the gamut boundary.
+  const Color4 cases[] = {Color4(200, 60, 30, 1.0f), Color4(90, 150, 200, 1.0f),
+                          Color4(240, 250, 60, 1.0f), Color4(255, 0, 0, 1.0f)};
+  for (int ci = 0; ci < 4; ++ci) {
+    Color4 out = cases[ci];
+    for (int i = 0; i < STEPS; ++i)
+      out = hue_rotate(out, 1.0f / STEPS);
+
+    const OKLCH before = pixel_to_oklch(cases[ci].color);
+    const OKLCH after = pixel_to_oklch(out.color);
+    float dh = after.h - before.h;
+    if (dh > PI_F)
+      dh -= 2.0f * PI_F;
+    else if (dh < -PI_F)
+      dh += 2.0f * PI_F;
+
+    HS_EXPECT_NEAR(dh, 0.0f, 0.09f);
+    HS_EXPECT_NEAR(after.L, before.L, 1e-3f);
+    HS_EXPECT_LE(after.C, before.C + 1e-4f);
+    if (ci == 1)
+      HS_EXPECT_NEAR(after.C, before.C, 2e-4f);
+  }
+}
+
+/**
  * @brief Verifies the precomputed-base hue rotation matches hue_rotate exactly.
  * @details Both paths run the same op sequence (forward transform hoisted vs
  *          inline), so the 16-bit channels must match bit-exactly across
@@ -2157,6 +2197,7 @@ inline int run_color_tests() {
   test_fast_cbrt_accuracy();
   test_hue_rotate_preserves_gray();
   test_hue_rotate_full_turn_identity();
+  test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma();
   test_hue_rotate_base_matches_direct();
 
   test_srgb_to_linear_endpoints();
