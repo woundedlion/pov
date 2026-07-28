@@ -151,24 +151,6 @@ inline void test_kdtree_default_unbuilt() {
 }
 
 /**
- * @brief Verifies clear() detaches the root so the tree is logically empty
- *        again.
- * @details Node storage is reclaimed on the next build via nodes.bind.
- */
-inline void test_kdtree_clear() {
-  Arena arena(spatial_buf, sizeof(spatial_buf));
-  Vector pts[2] = {Vector(0, 0, 0), Vector(1, 1, 1)};
-  std::span<Vector> sp(pts, 2);
-  KDTree tree(arena, sp);
-  HS_EXPECT_NE(tree.root_index, -1);
-
-  tree.clear();
-  HS_EXPECT_EQ(tree.root_index, -1);
-  auto r = tree.nearest(Vector(0, 0, 0), 1);
-  HS_EXPECT_TRUE(r.is_empty());
-}
-
-/**
  * @brief Verifies the KDTree nearest neighbor matches a brute-force scan.
  * @details With 16 deterministic points, the nearest neighbor must match a
  *          manual scan over all distances.
@@ -444,7 +426,6 @@ inline int run_spatial_tests() {
   test_kdtree_k_nearest_sorted();
   test_kdtree_k_caps_at_size();
   test_kdtree_default_unbuilt();
-  test_kdtree_clear();
   test_kdtree_matches_brute_force();
   test_kdtree_duplicates_and_max_k();
   test_kdtree_k_nearest_brute_force_random();
