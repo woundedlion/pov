@@ -1008,7 +1008,7 @@ public:
    * Persists over one `reset()`, so the check bounds the aggregate, not each
    * individual restore — a backstop, not a proof.
    */
-  ~Persist() {
+  HS_COLD_MEMBER ~Persist() {
     target_ = T();
     T::clone(backup_, target_, persistent_);
     HS_CHECK(persistent_.get_offset() <= persistent_offset_at_ctor_,
