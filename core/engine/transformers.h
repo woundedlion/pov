@@ -440,16 +440,17 @@ public:
 
 /**
  * @brief A transformer adapter for an Orientation object.
+ * @tparam CAP History capacity of the wrapped Orientation.
  */
-struct OrientTransformer {
-  const Orientation<> &
+template <int CAP = 4> struct OrientTransformer {
+  const Orientation<CAP> &
       orientation; /**< Orientation applied by each transform; retained by reference. */
 
   /**
    * @brief Constructs an adapter wrapping an orientation.
    * @param ori Orientation to apply; retained by reference.
    */
-  explicit OrientTransformer(const Orientation<> &ori) : orientation(ori) {}
+  explicit OrientTransformer(const Orientation<CAP> &ori) : orientation(ori) {}
 
   /**
    * @brief Orients a vector through the wrapped orientation.
@@ -467,6 +468,9 @@ struct OrientTransformer {
    */
   HS_O3_FN Vector operator()(const Vector &v) const { return transform(v); }
 };
+
+template <int CAP>
+OrientTransformer(const Orientation<CAP> &) -> OrientTransformer<CAP>;
 
 /**
  * @brief Applies a Mobius transformation to a vector.
