@@ -149,7 +149,7 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
-    advance_transition();
+    advance_preset();
 
     {
       HS_PROFILE(mf_apply_params);
@@ -192,12 +192,12 @@ private:
    * @brief Advances to the next preset every PRESET_FRAMES.
    * @details Frozen while animations are paused.
    */
-  void advance_transition() {
+  void advance_preset() {
     if (animations_paused())
       return;
-    if (++transition_frames < PRESET_FRAMES)
+    if (++preset_frames < PRESET_FRAMES)
       return;
-    transition_frames = 0;
+    preset_frames = 0;
     presets.next();
     presets.apply(style);
   }
@@ -206,7 +206,7 @@ private:
 
   Presets<Style, 12> presets{PRESETS};
   bool feedback_enabled = true;
-  int transition_frames = 0;
+  int preset_frames = 0;
   NoiseParams noise_params;
 
   Orientation<> orientation;
