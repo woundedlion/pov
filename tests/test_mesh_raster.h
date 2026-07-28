@@ -22,6 +22,7 @@
 #include "core/render/canvas.h"
 #include "core/math/geometry.h"
 #include "core/mesh/mesh.h"
+#include "core/mesh/mesh_classes.h"
 #include "core/engine/memory.h"
 #include "core/render/plot.h"
 #include "core/render/scan.h"
@@ -931,6 +932,89 @@ inline void test_class_bake_budget_accounting() {
 }
 
 /**
+ * @brief Rotates a polygon's vertex list by one position.
+ * @param xy Source x/y pairs.
+ * @return The same cycle starting at the second vertex.
+ * @details The predicate's i1/i2 successors wrap modulo the count, so a cyclic
+ *          rotation must not change the verdict.
+ */
+inline std::vector<float> rotate_polygon(const std::vector<float> &xy) {
+  std::vector<float> out(xy.begin() + 2, xy.end());
+  out.push_back(xy[0]);
+  out.push_back(xy[1]);
+  return out;
+}
+
+/**
+ * @brief Reverses a polygon's winding.
+ * @param xy Source x/y pairs.
+ * @return The same vertices in the opposite order.
+ */
+inline std::vector<float> reverse_polygon(const std::vector<float> &xy) {
+  std::vector<float> out;
+  for (size_t i = xy.size(); i >= 2; i -= 2) {
+    out.push_back(xy[i - 2]);
+    out.push_back(xy[i - 1]);
+  }
+  return out;
+}
+
+/**
+ * @brief Asserts a verdict for a polygon and for its rotations and reversal.
+ * @param xy Polygon vertices, x/y pairs.
+ * @param expect Expected polygon_is_concave result.
+ * @details Concavity is a property of the shape, not of where the vertex list
+ *          starts or which way it winds.
+ */
+inline void expect_concavity(const std::vector<float> &xy, bool expect) {
+  const int count = int(xy.size() / 2);
+  HS_EXPECT_EQ(MeshOps::polygon_is_concave(xy.data(), count), expect);
+  HS_EXPECT_EQ(MeshOps::polygon_is_concave(reverse_polygon(xy).data(), count),
+               expect);
+  std::vector<float> rot = xy;
+  for (int i = 1; i < count; ++i) {
+    rot = rotate_polygon(rot);
+    HS_EXPECT_EQ(MeshOps::polygon_is_concave(rot.data(), count), expect);
+  }
+}
+
+/**
+ * @brief Pins MeshOps::polygon_is_concave, the gate deciding which congruence
+ *        classes are LUT-eligible.
+ * @details Convex polygons (every relative turn one sign) must report false so
+ *          they keep the convex fast path; a mixed-sign turn sequence must
+ *          report true. Exactly-collinear turns produce cr == 0, which the
+ *          TURN_EPS_SQ comparison discards, so an inserted edge-midpoint vertex
+ *          or a fully degenerate strip never flips a convex verdict.
+ */
+inline void test_polygon_is_concave() {
+  // Convex: unit square, an equilateral-ish triangle, and a regular hexagon.
+  expect_concavity({0.f, 0.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f}, false);
+  expect_concavity({0.f, 0.f, 1.f, 0.f, 0.5f, 0.9f}, false);
+  std::vector<float> hex;
+  for (int i = 0; i < 6; ++i) {
+    const float a = float(i) * 2.f * 3.14159265f / 6.f;
+    hex.push_back(std::cos(a));
+    hex.push_back(std::sin(a));
+  }
+  expect_concavity(hex, false);
+
+  // Concave: a dart (one vertex pushed inside the hull) and an L.
+  expect_concavity({0.f, 0.f, 2.f, 0.f, 1.f, 1.f, 2.f, 2.f, 0.f, 2.f}, true);
+  expect_concavity({0.f, 0.f, 2.f, 0.f, 2.f, 1.f, 1.f, 1.f, 1.f, 2.f, 0.f, 2.f},
+                   true);
+
+  // Collinear: a square carrying an extra vertex at an edge midpoint is still
+  // convex, and a fully degenerate strip has no signed turn at all.
+  expect_concavity({0.f, 0.f, 0.5f, 0.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f}, false);
+  expect_concavity({0.f, 0.f, 1.f, 0.f, 2.f, 0.f, 3.f, 0.f}, false);
+
+  // Self-touching: the crossed quad's turn signs are mixed, so it is denied the
+  // convex fast path.
+  expect_concavity({0.f, 0.f, 1.f, 1.f, 1.f, 0.f, 0.f, 1.f}, true);
+}
+
+/**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
  */
@@ -949,6 +1033,7 @@ inline int run_mesh_raster_tests() {
   test_class_bake_budget_accounting();
   test_class_lut_render_matches_exact();
   test_class_lut_render_matches_exact_rippled();
+  test_polygon_is_concave();
 
   return fixture.result();
 }
