@@ -98,10 +98,17 @@ install:
 teensy-size:
     python tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8 profile profile_o3
 
-# Host self-tests for the size/layout gate parser + layout invariants + warning
-# ratchet — pure Python, no ARM toolchain (spec §9.1). Mirrors the CI job.
+# Host self-tests behind the Teensy toolchain: size/layout gate parser + layout
+# invariants + warning ratchet (spec §9.1), the PlatformIO build hook, the
+# profile log parser, the relax-bake generator, and the routed PCB metadata —
+# pure Python, no ARM toolchain. Mirrors the ci.yml teensy-gate-tests job.
 teensy-gate-test:
-    python -m unittest discover -s tools/teensy_gate_tests
+    python -m unittest discover -s tools/teensy_gate_tests -v
+    python -m unittest discover -s tools/teensy_hook_tests -v
+    python -m unittest discover -s tools/profile_tests -v
+    python -m unittest discover -s tools/relax_bake_tests -v
+    python -m unittest discover -s hardware/phantasm/gen/tests -v
+    python hardware/phantasm/gen/board_metadata.py --check
 
 # Profile one effect on an attached Teensy: build the single-effect profiling
 # image (Phantasm shipping flags + HS_PROFILE cycle counters, board = segment 0
