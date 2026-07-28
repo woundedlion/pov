@@ -71,6 +71,13 @@ static constexpr unsigned int RPM = 480;
 
 using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 
+// The .ino -> .cpp converter injects prototypes for every function it detects
+// immediately before the first one, which here sits inside the anonymous
+// namespace below — giving the injected setup/loop internal linkage they never
+// get a definition for. Declaring them at global scope suppresses the injection.
+void setup();
+void loop();
+
 #if defined(USE_DMA_LEDS)
 // Out-of-line definition for this target's controller, emitted as the required
 // DMAMEM explicit specialization (see pov_segmented.h).
