@@ -66,7 +66,7 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
  * @brief Verifies each easing curve anchors its endpoints.
  * @details "in" curves satisfy f(0)=0, "out" curves f(1)=1, "in-out" curves
  *          both; ease_linear is the linear identity. Expo/elastic endpoints are
- *          special-cased to avoid powf domain issues at the boundary.
+ *          special-cased: the formulas only approach 1 asymptotically.
  */
 inline void test_easing_endpoints() {
   HS_EXPECT_NEAR(ease_in_out_cubic(0.0f), 0.0f, 1e-5f);

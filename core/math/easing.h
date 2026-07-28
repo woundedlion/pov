@@ -80,7 +80,7 @@ inline float ease_linear(float t) { return t; }
 inline float ease_out_expo(float t) {
   // Endpoint guards: the upper pins exactly 1.0f (the formula only reaches
   // 1 - 2^-10), the lower floors at 0 (2^(-10t) explodes for t < 0).
-  return t <= 0.0f ? 0.0f : t == 1.0f ? 1.0f : 1.0f - powf(2.0f, -10.0f * t);
+  return t <= 0.0f ? 0.0f : t == 1.0f ? 1.0f : 1.0f - exp2f(-10.0f * t);
 }
 
 /**
@@ -114,5 +114,5 @@ inline float ease_out_elastic(float x) {
   return x <= 0.0f ? 0.0f
          : x == 1.0f
              ? 1.0f
-             : powf(2.0f, -10.0f * x) * sinf((x * 10.0f - 0.75f) * c4) + 1.0f;
+             : exp2f(-10.0f * x) * sinf((x * 10.0f - 0.75f) * c4) + 1.0f;
 }
