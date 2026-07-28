@@ -1173,6 +1173,17 @@ inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 /**
+ * @brief Converts a 16-bit linear Pixel to OKLCH.
+ * @param p Source color in 16-bit linear space.
+ * @return The color in OKLCH space.
+ */
+inline OKLCH pixel_to_oklch(const Pixel &p) {
+  constexpr float INV16 = 1.0f / 65535.0f;
+  return oklab_to_oklch(
+      linear_rgb_to_oklab(p.r * INV16, p.g * INV16, p.b * INV16));
+}
+
+/**
  * @brief Converts OKLCH to a 16-bit linear Pixel (gamut-clamped).
  * @param lch Source color in OKLCH space.
  * @return The color as a linear-space Pixel.
@@ -1379,6 +1390,20 @@ public:
   HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape,
                                    const CPixel &ka, const CPixel &kb,
                                    const CPixel &kc)
+      : GenerativePalette(gradient_shape, Pixel(ka), Pixel(kb), Pixel(kc)) {}
+
+  /**
+   * @brief Builds a palette from three pre-authored 16-bit linear key colors.
+   * @param gradient_shape Shape/distribution of colors across the domain.
+   * @param ka First key color (stop a).
+   * @param kb Second key color (stop b).
+   * @param kc Third key color (stop c).
+   * @details RNG-free: the keys are supplied directly rather than sampled from
+   *          profiles.
+   */
+  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape,
+                                   const Pixel &ka, const Pixel &kb,
+                                   const Pixel &kc)
       : gradient_shape(gradient_shape) {
     a = ka;
     b = kb;
@@ -1540,16 +1565,16 @@ public:
   }
 
   /**
-   * @brief Authors one key: OKLCH placement baked to a gamut-mapped 8-bit sRGB
-   *        CPixel.
+   * @brief Authors one key: OKLCH placement baked to a gamut-mapped 16-bit
+   *        linear Pixel.
    * @param hue Key hue in [0,255].
    * @param sat Key saturation in [0,255].
    * @param val Key value in [0,255].
-   * @return The authored key as an 8-bit sRGB CPixel.
+   * @return The authored key as a 16-bit linear Pixel.
    */
-  HS_COLD_MEMBER static CPixel author_key(uint8_t hue, uint8_t sat,
-                                          uint8_t val) {
-    return oklch_to_cpixel(key_oklch(hue, sat, val));
+  HS_COLD_MEMBER static Pixel author_key(uint8_t hue, uint8_t sat,
+                                         uint8_t val) {
+    return oklch_to_pixel(key_oklch(hue, sat, val));
   }
 
   /**
@@ -1558,8 +1583,8 @@ public:
    * OKLCH forms for get(). Call after any change to a/b/c or gradient_shape.
    */
   HS_COLD_MEMBER void update_stops() {
-    const CPixel vignette_color(0, 0, 0);
-    std::array<CPixel, MAX_STOPS> colors;
+    const Pixel vignette_color(0, 0, 0);
+    std::array<Pixel, MAX_STOPS> colors;
     switch (gradient_shape) {
     case GradientShape::VIGNETTE:
       shape = {0, 0.1f, 0.5f, 0.9f, 1.0f};
@@ -1587,7 +1612,7 @@ public:
     HS_CHECK(size <= MAX_STOPS,
              "GenerativePalette: stop count exceeds parallel-array capacity");
     for (int i = 0; i < size; ++i) {
-      colors_oklch[i] = srgb_to_oklch(colors[i].r, colors[i].g, colors[i].b);
+      colors_oklch[i] = pixel_to_oklch(colors[i]);
       // Recover the stop's chroma ceiling cmax = C / sin(pi*L) so get() can
       // re-apply the envelope at the interpolated L (fast_sinf matches get()).
       // env -> 0 at L near 0/1 forces cmax = 0. A near-gray stop (C below
@@ -1601,10 +1626,10 @@ public:
   }
 
   /**
-   * @brief Lightweight snapshot of just the 3 color keys (9 bytes).
+   * @brief Lightweight snapshot of just the 3 color keys (18 bytes).
    */
   struct Snapshot {
-    CPixel a, b, c;
+    Pixel a, b, c;
   };
 
   /**
@@ -1642,13 +1667,11 @@ public:
     // Clamp: an extrapolated amount overshoots into an invalid OKLCH (L > 1
     // or C past gamut).
     amount = hs::clamp(amount, 0.0f, 1.0f);
-    const OKLCH fk[3] = {srgb_to_oklch(from.a.r, from.a.g, from.a.b),
-                         srgb_to_oklch(from.b.r, from.b.g, from.b.b),
-                         srgb_to_oklch(from.c.r, from.c.g, from.c.b)};
-    const OKLCH tk[3] = {srgb_to_oklch(to.a.r, to.a.g, to.a.b),
-                         srgb_to_oklch(to.b.r, to.b.g, to.b.b),
-                         srgb_to_oklch(to.c.r, to.c.g, to.c.b)};
-    CPixel *keys[3] = {&a, &b, &c};
+    const OKLCH fk[3] = {pixel_to_oklch(from.a), pixel_to_oklch(from.b),
+                         pixel_to_oklch(from.c)};
+    const OKLCH tk[3] = {pixel_to_oklch(to.a), pixel_to_oklch(to.b),
+                         pixel_to_oklch(to.c)};
+    Pixel *keys[3] = {&a, &b, &c};
     bool chromatic = true;
     for (int i = 0; i < 3; ++i)
       chromatic = chromatic && fk[i].C >= 1e-4f && tk[i].C >= 1e-4f;
@@ -1663,11 +1686,11 @@ public:
             hs::clamp(fk[i].L + (tk[i].L - fk[i].L) * amount, 0.0f, 1.0f),
             std::max(0.0f, fk[i].C + (tk[i].C - fk[i].C) * amount),
             fk[i].h + d * amount};
-        *keys[i] = oklch_to_cpixel(k);
+        *keys[i] = oklch_to_pixel(k);
       }
     } else {
       for (int i = 0; i < 3; ++i)
-        *keys[i] = oklch_to_cpixel(lerp_oklch(fk[i], tk[i], amount));
+        *keys[i] = oklch_to_pixel(lerp_oklch(fk[i], tk[i], amount));
     }
     update_stops();
   }
@@ -1696,7 +1719,7 @@ public:
 
     float dist = end - start;
     // Zero-width segment: pin to the left stop (p=0) and render it through the
-    // OKLCH path below, avoiding both a divide by ~0 and the 8-bit sRGB key.
+    // OKLCH path below, avoiding both a divide by ~0 and the raw stored key.
     float p = dist < 0.0001f ? 0.0f : hs::clamp((t - start) / dist, 0.0f, 1.0f);
 
     // Interpolate in OKLCH; stops are pre-converted in update_stops().
@@ -1777,7 +1800,7 @@ private:
   }
 
   GradientShape gradient_shape;
-  CPixel a, b, c;
+  Pixel a, b, c;
 
   // Static cursor shared across instances: each auto-seeded construction
   // (manual_seed < 0) reads and advances it for a distinct base hue. Non-atomic;
@@ -1790,8 +1813,8 @@ private:
   std::array<float, MAX_STOPS> shape;
   /**
    * @brief OKLCH forms of `colors`, cached by update_stops().
-   * @details Lets the per-sample get() hot path skip the sRGB->OKLCH conversion
-   * (6 powf + 6 cbrtf + 2 atan2f per stop).
+   * @details Lets the per-sample get() hot path skip the linear->OKLCH
+   * conversion (6 cbrtf + 2 atan2f per stop).
    */
   std::array<OKLCH, MAX_STOPS> colors_oklch;
   /**

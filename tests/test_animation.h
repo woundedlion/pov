@@ -2272,7 +2272,34 @@ inline void test_colorwipe_snapshots_on_first_step() {
                       CPixel(200, 200, 200));
 
   wipe.step(fake_canvas()); // t=1: amount 0.25, snapshot captured here
-  HS_EXPECT_GT(static_cast<int>(from.snapshot().a.r), 200);
+  HS_EXPECT_GT(static_cast<int>(from.snapshot().a.r),
+               static_cast<int>(srgb_to_linear(200)));
+}
+
+/**
+ * @brief Verifies a slow wipe resolves a new key level on essentially every
+ *        frame.
+ * @details 16-bit linear keys carry far more levels than the 240 an 8-bit sRGB
+ *          channel spans over this range, so a 600-frame fade never plateaus.
+ */
+inline void test_colorwipe_slow_fade_resolves_every_frame() {
+  GenerativePalette from =
+      make_palette(CPixel(10, 10, 10), CPixel(10, 10, 10), CPixel(10, 10, 10));
+  GenerativePalette to = make_palette(
+      CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
+  const int duration = 600;
+  Animation::ColorWipe wipe(from, to, duration, ease_linear);
+
+  int advanced = 0;
+  int prev = -1;
+  for (int i = 0; i < duration; ++i) {
+    wipe.step(fake_canvas());
+    int cur = static_cast<int>(from.snapshot().a.r);
+    if (i > 0 && cur != prev)
+      ++advanced;
+    prev = cur;
+  }
+  HS_EXPECT_GT(advanced, 400);
 }
 
 // ============================================================================
@@ -2706,6 +2733,7 @@ inline int run_animation_tests() {
 
   test_colorwipe_reaches_target_keys();
   test_colorwipe_snapshots_on_first_step();
+  test_colorwipe_slow_fade_resolves_every_frame();
 
   test_mobiuswarp_closes_at_completion();
   test_mobiuswarp_bind_scale_reads_live();
