@@ -1519,13 +1519,19 @@ struct Mesh {
 HS_O3_END
 
 /**
- * @brief Full-screen per-pixel shader with SAMPLES× SSAA.
+ * @brief Full-screen per-pixel shaders with SAMPLES× SSAA.
  *
- * Accepts a single callable ShaderFn(const Vector &v) -> Color4
- * that maps a world-space unit vector to a final color.
- * The utility calls it SAMPLES× per pixel at sub-pixel offsets and averages.
+ * Three entry points, in increasing order of caller control:
+ * - draw(canvas, shader): one callable ShaderFn(const Vector &v) -> Color4,
+ *   invoked SAMPLES× per pixel at sub-pixel offsets and averaged.
+ * - draw(canvas, fragment_shader, vertex_shader): splits per-pixel setup
+ *   (vertex_shader, once at the pixel center) from per-sub-sample evaluation.
+ *   Both callables are required; a null one traps.
+ * - draw_grid(canvas, vertex_shader, pixel_shader): hands the seeded fragment
+ *   and the row's SsaaGrid to pixel_shader, which owns the sampling and returns
+ *   the finished pixel.
  *
- * @details Every overload assigns the finished premultiplied color to the
+ * @details Every entry point assigns the finished premultiplied color to the
  * canvas rather than plotting it, so the destination is overwritten: alpha < 1
  * darkens the pixel instead of blending with what is under it, and no
  * plot-time filter stage (Filter::World / Filter::Pixel) sees it. These entry
@@ -1533,7 +1539,7 @@ HS_O3_END
  * through it itself.
  */
 struct Shader {
-  // --- Shared SSAA helpers (used by both draw() overloads) -------------------
+  // --- Shared SSAA helpers (used by every entry point) -----------------------
   /**
    * @brief Per-draw sub-pixel trig for the 2×2 SSAA sample grid, derived from
    *        the resident engine trig LUT.
@@ -1599,7 +1605,7 @@ struct Shader {
   };
 
   /**
-   * @brief Validates the LUT-domain invariant shared by both draw overloads.
+   * @brief Validates the LUT-domain invariant shared by every entry point.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @param cr Clip region whose bounds are checked against the LUT extents.
