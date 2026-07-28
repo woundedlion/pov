@@ -114,14 +114,14 @@ class inplace_function<R(Args...), Capacity, Alignment> {
   using is_self = std::is_same<std::decay_t<C>, inplace_function>;
 
 public:
+  // No ctor initializes storage_: the empty vtable's copy/move/destroy are
+  // no-ops and its invoke traps, so no operation ever reads an empty function's
+  // buffer; the value-carrying ctor placement-news over it.
+
   /** @brief Constructs an empty function; calling it traps. */
-  // storage_ is value-initialized to zero only on the empty-state ctors so their
-  // empty buffer holds defined bytes. The value-carrying ctors below omit storage_
-  // from their init list (they placement-new / copy into it, so zeroing first would
-  // be wasted work). No op ever reads an empty function's buffer.
-  inplace_function() noexcept : storage_{} {}
+  inplace_function() noexcept {}
   /** @brief Constructs an empty function (nullptr overload). */
-  inplace_function(std::nullptr_t) noexcept : storage_{} {}
+  inplace_function(std::nullptr_t) noexcept {}
 
   /**
    * @brief Constructs from any compatible callable, stored inline.
