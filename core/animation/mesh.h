@@ -2429,19 +2429,13 @@ struct TerminatorSweep : Base {
   float fade_frames_min =
       4.0f; /**< Shortest per-face fade length, in frames. */
   float fade_frames_max =
-      12.0f;                   /**< Longest per-face fade length, in frames. */
-  float fade_frac_min = 0.06f; /**< fade_frames_min over the scheduled window;
-                                  set by schedule(). */
-  float fade_frac_max = 0.17f; /**< fade_frames_max over the scheduled window;
-                                  set by schedule(). */
+      12.0f; /**< Longest per-face fade length, in frames. */
   uint32_t fade_seed = 0x9e3779b9u; /**< Per-transition seed for the per-face
                                        fade hash; rolled by retarget(). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     int fade =
         schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
-    float inv = 1.0f / static_cast<float>(std::max(fade, 1));
-    fade_frac_min = std::min(1.0f, fade_frames_min * inv);
-    fade_frac_max = std::min(1.0f, fade_frames_max * inv);
+    inv_window_ = 1.0f / static_cast<float>(std::max(fade, 1));
     return duration;
   }
   void retarget(const Vector &v) {
@@ -2452,11 +2446,15 @@ struct TerminatorSweep : Base {
     return 0.5f * (1.0f + dot(center, axis));
   }
   /** @brief Per-face fade length as a window fraction: a stable hash of the
-   * face index into [fade_frac_min, fade_frac_max]. Computed once per face (not
-   * per fragment), so it must stay a pure function of the index and seed. */
+   * face index into the frame range, divided by the scheduled window. Computed
+   * once per face (not per fragment), so it must stay a pure function of the
+   * index, the seed and the sliders — the frame bounds are read live so a
+   * mid-transition slider move takes effect on the next frame. */
   float face_fade_frac(int i) const {
     float t = hash01(static_cast<uint32_t>(i), fade_seed);
-    return fade_frac_min + (fade_frac_max - fade_frac_min) * t;
+    float lo = std::min(1.0f, fade_frames_min * inv_window_);
+    float hi = std::min(1.0f, fade_frames_max * inv_window_);
+    return lo + (hi - lo) * t;
   }
   float face_phase(float phase, float offset, float fade_frac) const {
     float ff = std::max(fade_frac, 1e-4f);
@@ -2466,6 +2464,12 @@ struct TerminatorSweep : Base {
    * reads mostly-bright almost immediately; the square spreads the perceived
    * fade across the face's fade window. */
   float opacity(float phase) const { return phase * phase; }
+
+private:
+  /** @brief Reciprocal of the scheduled fade window in frames; set by
+   * schedule(). The initializer only covers a query before the first
+   * schedule(). */
+  float inv_window_ = 1.0f / 64.0f;
 };
 
 /**
