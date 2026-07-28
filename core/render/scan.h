@@ -297,9 +297,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
  */
 template <int W, int H> struct BoundingSphere {
   int y_min, y_max;
-  float center_theta; /**< Longitude of center in pixel units. */
-  float angular_radius;
-  float cos_rho;        /**< cos(angular_radius). */
+  float center_theta;   /**< Longitude of center in pixel units. */
+  float cos_rho;        /**< cos of the cap's angular radius. */
   float cos_center_phi; /**< cos of the cap center's colatitude. */
   float sin_center_phi; /**< sin of the cap center's colatitude. */
 
@@ -308,8 +307,8 @@ template <int W, int H> struct BoundingSphere {
    * @param center World-space unit vector at the sphere center.
    * @param bounds_radius Bounding radius in world units (sin of angular extent).
    */
-  BoundingSphere(const Vector &center, float bounds_radius)
-      : angular_radius(asinf(std::min(bounds_radius, 1.0f))) {
+  BoundingSphere(const Vector &center, float bounds_radius) {
+    float angular_radius = asinf(std::min(bounds_radius, 1.0f));
     center_theta = vector_to_theta<W>(center);
     float center_phi = acosf(hs::clamp(center.y, -1.0f, 1.0f));
     cos_rho = cosf(angular_radius);
