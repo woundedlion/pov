@@ -288,6 +288,9 @@ public:
    * @param h Requested canvas height in pixels.
    * @return true if the resolution is now active; false if the request was
    *         rejected (unsupported size) and the previous valid state was kept.
+   *         A request matching the active resolution also returns true but is a
+   *         pure no-op — nothing is torn down — so true alone does not imply the
+   *         teardown described below happened.
    * @details A successful resolution change tears down the current effect (a new
    *          one cannot be carried across pixel dimensions), so the caller must
    *          call setEffect() again before the next drawFrame() or it renders a
