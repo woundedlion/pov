@@ -74,6 +74,17 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues[0].line, 2)
         self.assertIn("core/platform.h", issues[0].message)
 
+    def test_absolute_self_repo_blob_links_are_validated(self):
+        text = ("[ok](https://github.com/woundedlion/pov/blob/master/docs/real.md)\n"
+                "[bad](https://github.com/woundedlion/pov/blob/master/docs/ghost.md)\n"
+                "[other](https://github.com/woundedlion/daydream/blob/master/docs/ghost.md)\n"
+                "[home](https://github.com/woundedlion/pov)\n")
+        entries = {PurePosixPath("docs"), PurePosixPath("docs/real.md")}
+        issues = dc.check_text(PurePosixPath("README.md"), text, entries)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].line, 2)
+        self.assertIn("docs/ghost.md", issues[0].message)
+
     def test_only_git_tracked_markdown_is_checked(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
