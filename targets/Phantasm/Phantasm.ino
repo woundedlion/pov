@@ -20,57 +20,9 @@
  * arm A; IDs [N/2, N) map arm B. ID 0 has all straps open and is the master.
  */
 
-// Select the DMA HD107S output path. Must precede any include that pulls in
-// led.h (via pov_segmented.h). Guarded because platformio.ini's phantasm env
-// also passes -D USE_DMA_LEDS: an Arduino-IDE/VMicro build sees only this
-// #define, a PlatformIO build sees only the flag, and the #ifndef keeps the two
-// from colliding into a redefinition warning (the flag's value 1 vs this empty
-// define).
-#ifndef USE_DMA_LEDS
-#define USE_DMA_LEDS
-#endif
-
-#ifndef PHANTASM_NUM_SEGMENTS
-#define PHANTASM_NUM_SEGMENTS 4
-#endif
-
-#include <FastLED.h>
-#include <SPI.h>
-#include <new> // std::nothrow — fail-fast OOM check on the POV allocation below
-
 #include "../common/phantasm_target.h"
-#include "pov_segmented.h"
-#include "engine/effects.h"
-
-static constexpr int TOTAL_PIXELS = 288;
-static constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS;
-static constexpr unsigned int RPM = 480;
-
-using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
-
-// Out-of-line definition for this target's controller, emitted as the required
-// DMAMEM explicit specialization (see pov_segmented.h for why a generic template
-// definition would silently land in DTCM and break DMA cache coherency).
-HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 
 namespace {
-POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
-
-// Foreground effect constructor for one roster entry: LUTs, arenas, init.
-// Called from the driver's show loop during the epoch construction window.
-template <typename E> Effect *construct_effect() {
-  static_assert(sizeof(E) <= HS_PHANTASM_EFFECT_HEAP_BYTES,
-                "Phantasm effect exceeds the heap-object budget");
-  // Eager-fill the scanline LUTs before the first frame so the flywheel ISR
-  // never observes a half-filled table.
-  GeometryResolution<E>::init();
-  configure_arenas_default(); // Reset before init so effects can override
-  E *e = new (std::nothrow) E();
-  HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
-  e->init();
-  return e;
-}
-
 // Generated from the Phantasm playlist roster (HS_PHANTASM_EFFECT_LIST — the
 // full HS_EFFECT_LIST minus the low-res-only effects); the table order IS the
 // playlist order, identical on every board (spec §6.1).

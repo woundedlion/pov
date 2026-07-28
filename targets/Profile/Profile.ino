@@ -15,16 +15,6 @@
  * drive it via `just profile <EffectClass>`.
  */
 
-// Select the DMA HD107S output path (same guard dance as Phantasm.ino: the
-// profile env also passes -D USE_DMA_LEDS).
-#ifndef USE_DMA_LEDS
-#define USE_DMA_LEDS
-#endif
-
-#ifndef PHANTASM_NUM_SEGMENTS
-#define PHANTASM_NUM_SEGMENTS 4
-#endif
-
 // Effect class to profile; overridden per-run by `just profile <EffectClass>`.
 #ifndef HS_PROFILE_TARGET
 #define HS_PROFILE_TARGET DisplacementField
@@ -58,19 +48,7 @@
 #define HS_PROFILE_STR2(x) #x
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
 
-#include <FastLED.h>
-#include <SPI.h>
-#include <new> // std::nothrow — fail-fast OOM check on the POV allocation below
-
 #include "../common/phantasm_target.h"
-#include "pov_segmented.h"
-#include "engine/effects.h"
-
-static constexpr int TOTAL_PIXELS = 288;
-static constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS;
-static constexpr unsigned int RPM = 480;
-
-using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 
 // The .ino -> .cpp converter injects prototypes for every function it detects
 // immediately before the first one, which here sits inside the anonymous
@@ -78,10 +56,6 @@ using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 // get a definition for. Declaring them at global scope suppresses the injection.
 FLASHMEM void setup();
 void loop();
-
-// Out-of-line definition for this target's controller, emitted as the required
-// DMAMEM explicit specialization (see pov_segmented.h).
-HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 
 namespace {
 
@@ -353,24 +327,14 @@ private:
   unsigned long window_start = micros(); /**< Window wall-clock start (µs). */
 };
 
-POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
-
 // Slightly above Phantasm's shipping per-effect budget: the wrapper adds its
 // profiling bookkeeping on top of the wrapped effect.
 static constexpr size_t MAX_EFFECT_HEAP_BYTES =
     HS_PHANTASM_EFFECT_HEAP_BYTES + 64;
 
 Effect *construct_profiled() {
-  using E = ProfiledEffect<288, 144>;
-  static_assert(sizeof(E) <= MAX_EFFECT_HEAP_BYTES,
-                "profiled effect exceeds the heap-object budget");
-  // Eager-fill the scanline LUTs before the first frame so the flywheel ISR
-  // never observes a half-filled table.
-  GeometryResolution<E>::init();
-  configure_arenas_default(); // Reset before init so effects can override
-  E *e = new (std::nothrow) E();
-  HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
-  e->init();
+  Effect *e =
+      construct_effect<ProfiledEffect<288, 144>, MAX_EFFECT_HEAP_BYTES>();
 #ifdef HS_PROFILE_TRANS_SPEED
   // Per-run knob (e.g. IslamicStars carousel speed-up so a single epoch walks the
   // whole shape roster). No-op for effects that don't register "Trans Speed".
