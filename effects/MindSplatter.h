@@ -169,6 +169,9 @@ private:
   static constexpr float INITIAL_SPEED_MIN = 0.0f, INITIAL_SPEED_MAX = 0.1f;
   static constexpr float ANGULAR_SPEED_MIN = 0.0f, ANGULAR_SPEED_MAX = 1.0f;
   static constexpr float EVENT_HORIZON = 0.2f;
+  static constexpr float GRAVITY = 0.001f;
+  static constexpr float PARTICLE_LIFETIME_FRAMES = 160.0f;
+  static constexpr float ATTRACTOR_KILL_RADIUS = 0.003f;
   static_assert(EVENT_HORIZON < PI_F * 0.25f,
                 "MindSplatter event-horizon caps must not overlap");
 
@@ -340,11 +343,12 @@ private:
    *          ParticleSystem::init traps on a second call.
    */
   HS_COLD_MEMBER void build_particle_system() {
-    particle_system.init(persistent_arena, params.friction, 0.001f, 160.0f);
+    particle_system.init(persistent_arena, params.friction, GRAVITY,
+                         PARTICLE_LIFETIME_FRAMES);
 
     for (const auto &v : AttractSolid::vertices) {
-      particle_system.add_attractor(v, params.well_strength, 0.003f,
-                                    EVENT_HORIZON);
+      particle_system.add_attractor(v, params.well_strength,
+                                    ATTRACTOR_KILL_RADIUS, EVENT_HORIZON);
     }
 
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
