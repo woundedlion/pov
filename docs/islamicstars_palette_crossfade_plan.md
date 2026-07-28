@@ -21,7 +21,7 @@ The requested behaviour is `OpLeg`'s *default* colour model; IslamicStars opts
 out of it via `PaletteHandoff::immutable = true`:
 
 - `immutable = false` makes every carried face crossfade `from -> to` under the
-  leg's `BlendFn` (`core/animation/mesh.h:300`). IslamicStars already passes
+  leg's `BlendWeightFn` (`core/animation/mesh.h:300`). IslamicStars already passes
   `classic_blend` at all three leg-construction sites
   (`effects/IslamicStars.h:1077,1187,1254`), so the whole-leg smooth lerp comes
   for free the moment `immutable` flips.
