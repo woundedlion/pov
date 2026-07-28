@@ -24,6 +24,9 @@ sys.path.insert(0, _TOOLS_DIR)
 import teensy_gate  # noqa: E402
 
 BUDGETS = os.path.join(_TOOLS_DIR, "teensy_budgets.json")
+GATE_SOURCES = [BUDGETS,
+                os.path.join(_TOOLS_DIR, "teensy_gate.py"),
+                os.path.join(_TOOLS_DIR, "teensy_gate_extra.py")]
 
 
 def _tool(cc_path, suffix):
@@ -116,5 +119,8 @@ def run_gate(source, target, env):
         sys.exit(1)
 
 
-# Run after the .elf is linked.
-env.AddPostAction("$BUILD_DIR/${PROGNAME}.elf", run_gate)
+ELF = "$BUILD_DIR/${PROGNAME}.elf"
+
+# A post-action runs only when its target relinks.
+env.Depends(ELF, GATE_SOURCES)
+env.AddPostAction(ELF, run_gate)
