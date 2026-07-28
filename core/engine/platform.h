@@ -30,7 +30,6 @@
       ::hs::check_fail(__FILE__, __LINE__, #cond __VA_OPT__(, ) __VA_ARGS__);  \
   } while (0)
 
-#include <random>
 #include <type_traits>
 #include <cstdint>
 
