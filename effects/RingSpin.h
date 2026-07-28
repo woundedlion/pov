@@ -135,7 +135,9 @@ public:
           if (c.alpha <= 0.001f)
             continue;
 
-          // Adaptive thickness: head/tail of trail = 2px, intermediate = 1px
+          // Adaptive thickness: SDF::Ring takes a half-width, so the drawn
+          // band is 4px at the trail head/tail and 2px between, before
+          // params.thickness scales it.
           float th =
               ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
               params.thickness;
