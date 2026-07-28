@@ -185,7 +185,7 @@ No Critical findings. Numbering runs sequentially across all priority sections.
 
 52. ✅ **Zero test coverage of the four tool pages' inline app code** — `daydream/tools/*.html` (~3470 lines). No test imports any HTML page. Substantial pure logic is stranded inline: the validator/queue machinery, `uniqueEdges`, the geodesic tessellation budget, `zoomPalette`'s frequency/phase algebra. Fix: extract the pure functions into the existing `solid_codegen.js` / `palette_math.js` modules; leave the DOM/WASM wiring inline.
 
-53. **`daydream.js` — the app orchestrator — has no test file** — 35 KB owning the WASM lifecycle, GUI build-out, and the resolution-preset reset path. Every other root module has one. Its collaborators are all tested individually, so the gap is specifically the wiring. Fix: a test covering GUI-rebuild-on-`setEffect` and the preset-switch reset against the existing `FakeEngine`.
+53. ❌ **`daydream.js` — the app orchestrator — has no test file** — 35 KB owning the WASM lifecycle, GUI build-out, and the resolution-preset reset path. Every other root module has one. Its collaborators are all tested individually, so the gap is specifically the wiring. Fix: a test covering GUI-rebuild-on-`setEffect` and the preset-switch reset against the existing `FakeEngine`. — rejected: daydream.js has no exports and builds the DOM/WebGL/GUI stack at import time, so a headless test would need a full fake-DOM harness; the orchestrated logic is covered by its collaborators' tests.
 
 ### LOW
 
