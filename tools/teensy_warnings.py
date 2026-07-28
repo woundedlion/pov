@@ -18,9 +18,12 @@ FastLED and the Teensy core) are dropped — the independent backstop to the
 `-isystem` plan, so the ratchet is robust even if the -isystem demotion proves
 awkward under PlatformIO (§7.2).
 
-This ratchet must run on a CACHE-DISABLED build: a cached TU emits no warnings,
-so a warm build hides header-introduced warnings (§7.2, §15). Drive it from the
-build log of a clean build, not the cached size build.
+This ratchet must run on a COLD build: a cached TU emits no warnings, so a warm
+build hides header-introduced warnings (§7.2, §15). `PLATFORMIO_BUILD_CACHE_DIR=`
+does not achieve that — PlatformIO ignores an empty sysenvvar and falls back to
+platformio.ini's `build_cache_dir` — so the capture must DELETE `.pio/build_cache`
+and `.pio/build` first. The capture audit below enforces coldness from the log
+itself rather than trusting the caller to have done so.
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 FIRST_PARTY = ("core/", "effects/", "hardware/", "targets/")
@@ -50,6 +54,25 @@ _DASH_C_RE = re.compile(r"(?:^|\s)-c(?:\s|$)")
 # A positional source argument anywhere on that command line. Tokens starting
 # with `-` are flags (`-Icore`, `-x c++`), never the translation unit.
 _SOURCE_RE = re.compile(r"(?:^|\s)(?!-)(\S+\.(?:cpp|cc|cxx|c|S))(?=\s|$)")
+
+# PlatformIO's per-environment banner. It opens every env's section AND prints
+# that env's resolved options, `build_src_filter` among them — which is what
+# makes the expected translation-unit set derivable from the log alone:
+#   Processing phantasm (board: teensy40; build_src_filter: -<*>, +<core/...>; ...)
+_ENV_HEADER_RE = re.compile(r"^Processing\s+(\S+)\s+\((.*)\)\s*$")
+
+# `key: value` pairs in that banner are `; `-separated, but a value may itself
+# contain `, ` and spaces, so the value runs to the next `; <key>: `.
+_SRC_FILTER_RE = re.compile(
+    r"(?:^|;\s*)build_src_filter:\s*(.*?)(?=;\s*[\w.]+:\s|$)")
+
+# One src-filter term: `+<path>` includes, `-<path>` excludes.
+_SRC_FILTER_TERM_RE = re.compile(r"([+-])<([^>]*)>")
+
+# SCons object-cache hit:  Retrieved `.pio/build/x/src/core/engine/memory.cpp.o' from cache
+_CACHE_HIT_RE = re.compile(r"^\s*Retrieved\s+[`'\"](.+?)['\"]\s+from cache\s*$")
+
+_GLOB_CHARS = "*?["
 
 
 _FIRST_PARTY_DIRS = frozenset(fp.rstrip("/") for fp in FIRST_PARTY)
@@ -123,6 +146,171 @@ def count_first_party_compiles(build_log: str) -> int:
     return n
 
 
+class CaptureError(Exception):
+    """The log cannot be audited for coldness, so its warning set proves nothing."""
+
+
+@dataclass(frozen=True)
+class EnvSection:
+    """One `Processing <env> (...)` banner and the build lines that follow it."""
+
+    name: str
+    header: str
+    lines: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EnvAudit:
+    """Expected vs actual first-party translation units for one environment."""
+
+    name: str
+    declared: frozenset[str]
+    compiled: frozenset[str]
+    from_cache: frozenset[str]
+
+    @property
+    def missing(self) -> frozenset[str]:
+        return self.declared - self.compiled
+
+
+@dataclass(frozen=True)
+class CaptureAudit:
+    """Whole-log coldness evidence."""
+
+    envs: tuple[EnvAudit, ...]
+    compiles: int
+    cache_hits: int
+
+    @property
+    def declared(self) -> int:
+        return sum(len(e.declared) for e in self.envs)
+
+    @property
+    def missing(self) -> tuple[EnvAudit, ...]:
+        return tuple(e for e in self.envs if e.missing)
+
+    @property
+    def missing_count(self) -> int:
+        return sum(len(e.missing) for e in self.envs)
+
+    @property
+    def first_party_cache_hits(self) -> int:
+        return sum(len(e.from_cache) for e in self.envs)
+
+
+def parse_env_sections(build_log: str) -> list[EnvSection]:
+    """Split a `pio run` log into its per-environment sections.
+
+    PlatformIO builds environments sequentially, so a banner closes the previous
+    section. Lines before the first banner belong to no environment.
+    """
+    sections: list[EnvSection] = []
+    name: str | None = None
+    header = ""
+    body: list[str] = []
+    for line in build_log.splitlines():
+        m = _ENV_HEADER_RE.match(line)
+        if m:
+            if name is not None:
+                sections.append(EnvSection(name, header, tuple(body)))
+            name, header, body = m.group(1), m.group(2), []
+        elif name is not None:
+            body.append(line)
+    if name is not None:
+        sections.append(EnvSection(name, header, tuple(body)))
+    return sections
+
+
+def declared_first_party_sources(section: EnvSection) -> set[str]:
+    """The first-party translation units this env's `build_src_filter` selects.
+
+    Derived from PlatformIO's own banner, so adding a TU or an environment moves
+    the expectation with no second place to edit. A glob that could select a
+    first-party source is not countable from the log and raises rather than
+    silently lowering the bar.
+    """
+    m = _SRC_FILTER_RE.search(section.header)
+    if m is None:
+        raise CaptureError(
+            f"environment '{section.name}' banner has no build_src_filter, so its "
+            f"expected first-party translation units cannot be derived")
+    sources: set[str] = set()
+    for sign, pattern in _SRC_FILTER_TERM_RE.findall(m.group(1)):
+        rel = _relativize(pattern)
+        if any(ch in pattern for ch in _GLOB_CHARS):
+            if rel is not None:
+                raise CaptureError(
+                    f"environment '{section.name}' build_src_filter term "
+                    f"'{sign}<{pattern}>' is a first-party glob; the expected "
+                    f"translation-unit set cannot be counted from the log")
+            continue
+        if rel is None:
+            continue
+        if sign == "+":
+            sources.add(rel)
+        else:
+            sources.discard(rel)
+    return sources
+
+
+def _source_key(path: str) -> str | None:
+    """A first-party path as a translation-unit key, or None.
+
+    Both log shapes and the cache-hit line reduce to the same key: the object
+    suffix is dropped so `<tu>.cpp.o` and `<tu>.cpp` compare equal against the
+    sources build_src_filter declares.
+    """
+    rel = _relativize(path)
+    if rel is None:
+        return None
+    return rel[:-2] if rel.endswith(".o") else rel
+
+
+def compiled_first_party_sources(lines: tuple[str, ...] | list[str]) -> set[str]:
+    """First-party translation units a compiler was actually invoked on."""
+    out: set[str] = set()
+    for line in lines:
+        for path in compiled_paths(line):
+            key = _source_key(path)
+            if key is not None:
+                out.add(key)
+    return out
+
+
+def cached_first_party_sources(lines: tuple[str, ...] | list[str]) -> set[str]:
+    """First-party translation units whose object SCons served from the cache."""
+    out: set[str] = set()
+    for line in lines:
+        m = _CACHE_HIT_RE.match(line)
+        if m:
+            key = _source_key(m.group(1))
+            if key is not None:
+                out.add(key)
+    return out
+
+
+def count_cache_hits(build_log: str) -> int:
+    """Every SCons cache retrieval in the log, first-party or not."""
+    return sum(1 for line in build_log.splitlines() if _CACHE_HIT_RE.match(line))
+
+
+def audit_capture(build_log: str) -> CaptureAudit:
+    """Compare each environment's declared first-party TUs against the compiles."""
+    envs = []
+    for section in parse_env_sections(build_log):
+        envs.append(EnvAudit(
+            name=section.name,
+            declared=frozenset(declared_first_party_sources(section)),
+            compiled=frozenset(compiled_first_party_sources(section.lines)),
+            from_cache=frozenset(cached_first_party_sources(section.lines)),
+        ))
+    return CaptureAudit(
+        envs=tuple(envs),
+        compiles=count_first_party_compiles(build_log),
+        cache_hits=count_cache_hits(build_log),
+    )
+
+
 def load_baseline(path: str | Path) -> set[str]:
     """Read the committed baseline set (ignoring blank and #-comment lines)."""
     text = Path(path).read_text(encoding="utf-8") if Path(path).exists() else ""
@@ -144,7 +332,7 @@ def render_baseline(warnings: set[str]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Teensy warning-baseline ratchet.")
-    p.add_argument("--build-log", required=True, help="compiler output of a CLEAN build")
+    p.add_argument("--build-log", required=True, help="compiler output of a COLD build")
     p.add_argument("--baseline", default="tools/teensy_warning_baseline.txt")
     p.add_argument("--update-baseline", action="store_true",
                    help="rewrite the baseline from this build's warning set")
@@ -152,13 +340,45 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     build_log = Path(args.build_log).read_text(encoding="utf-8")
+    prefix = "::error::" if args.github else ""
     compiles = count_first_party_compiles(build_log)
     if compiles == 0:
-        prefix = "::error::" if args.github else ""
         print(f"{prefix}[teensy-warnings] FAIL - no first-party compiler "
               f"invocation in {args.build_log}: the capture broke (or the build "
               f"was fully cached), so its empty warning set proves nothing. "
-              f"Drive this from a cache-disabled `pio run -v 2>&1 | tee` log.")
+              f"Drive this from a cold `pio run -v 2>&1 | tee` log.")
+        return 1
+
+    try:
+        audit = audit_capture(build_log)
+    except CaptureError as exc:
+        print(f"{prefix}[teensy-warnings] FAIL - {exc} ({args.build_log}).")
+        return 1
+    if not audit.envs:
+        print(f"{prefix}[teensy-warnings] FAIL - no `Processing <env> (...)` banner "
+              f"in {args.build_log}: this is not a `pio run` capture, so the "
+              f"expected first-party translation-unit set cannot be derived and a "
+              f"partially cached build would read as green.")
+        return 1
+    if audit.missing:
+        print(f"{prefix}[teensy-warnings] FAIL - the capture is not cold: "
+              f"{audit.missing_count} of {audit.declared} first-party "
+              f"translation unit(s) across {len(audit.envs)} environment(s) never "
+              f"reached the compiler, so any warning they emit is absent from "
+              f"{args.build_log}.")
+        for env in audit.missing:
+            print(f"  - {env.name}: {len(env.missing)} of {len(env.declared)} not "
+                  f"compiled: {', '.join(sorted(env.missing))}")
+        if audit.cache_hits:
+            print(f"Cause: PlatformIO's object cache served {audit.cache_hits} "
+                  f"object(s) ({audit.first_party_cache_hits} first-party) from "
+                  f"platformio.ini's build_cache_dir.")
+        else:
+            print("Cause: an incremental build - the objects were already up to "
+                  "date in .pio/build.")
+        print("Delete .pio/build_cache and .pio/build before the capture. Note "
+              "PLATFORMIO_BUILD_CACHE_DIR= does NOT disable the cache: PlatformIO "
+              "ignores an empty sysenvvar, so build_cache_dir still wins.")
         return 1
     current = extract_warnings(build_log)
 
@@ -171,15 +391,16 @@ def main(argv: list[str] | None = None) -> int:
     new = sorted(current - baseline)
     if not new:
         print(f"[teensy-warnings] PASS - {len(current)} warning(s), none new "
-              f"(baseline has {len(baseline)}; {compiles} first-party "
-              f"compile(s) in the log).")
+              f"(baseline has {len(baseline)}; cold capture: all {audit.declared} "
+              f"first-party translation unit(s) across {len(audit.envs)} "
+              f"environment(s) compiled, {compiles} invocation(s)).")
         return 0
 
-    prefix = "::error::" if args.github else "  - "
+    item_prefix = "::error::" if args.github else "  - "
     print(f"[teensy-warnings] FAIL - {len(new)} new first-party warning(s) not in "
           f"the baseline:")
     for w in new:
-        print(f"{prefix}{w}")
+        print(f"{item_prefix}{w}")
     print("If intentional, regenerate the baseline in this PR: "
           "python tools/teensy_warnings.py --build-log <log> --update-baseline")
     return 1
