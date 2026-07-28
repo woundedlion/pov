@@ -71,7 +71,6 @@ int missed_for(int sides, float rho, float phi, float spin) {
 int main() {
   hs_test::reset_globals();
   hs_aa::g_audit.legacy_pad = true;
-  int best = 0;
   for (int sides = 3; sides <= 6; ++sides)
     for (int ri = 1; ri <= 20; ++ri)
       for (int pi = 1; pi <= 30; ++pi)
@@ -80,11 +79,9 @@ int main() {
           if (rho >= phi * 0.95f)
             continue;
           int m = missed_for(sides, rho, phi, 0.37f * si);
-          if (m > 0) {
-            best = m;
+          if (m > 0)
             std::printf("sides %d rho %.2f phi %.2f spin %.2f -> missed %d\n",
                         sides, rho, phi, 0.37f * si, m);
-          }
         }
   return 0;
 }
