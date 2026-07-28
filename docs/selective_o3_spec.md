@@ -109,32 +109,41 @@ pools — ignore it except for the existing gate ceiling.
 
 ### 4.1 Definition
 
-Add to `core/engine/platform.h`, directly below the `HS_COLD` block
-(currently ends near line 1019), with a comment in the same style:
+`core/engine/platform.h` defines these before the `HS_COLD` block so
+`HS_COLD_MEMBER` can reuse the function attribute:
 
 ```c
 // ---------------------------------------------------------------------------
 // HS_O3_BEGIN / HS_O3_END: compile the enclosed function definitions at -O3 on
-// the -Os device image (selective hot-loop optimization; docs/selective_o3_spec.md).
+// the -Os device image (selective optimization; docs/selective_o3_spec.md).
 // Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
 // -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
 // The fast-math flags are restated because GCC 11's optimize pragma rebuilds
 // optimization flags from defaults, dropping command-line -ffast-math /
 // -fno-finite-math-only for the region (fixed in GCC 12; harmless to restate).
-// HS_O3_FN is the single-function fallback for definitions a region cannot wrap.
+// HS_O3_FN is the shared single-function attribute and backs HS_COLD_MEMBER.
 // ---------------------------------------------------------------------------
 #if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) && \
     defined(__OPTIMIZE_SIZE__)
-#define HS_O3_BEGIN                                                     \
-  _Pragma("GCC push_options")                                           \
-  _Pragma("GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\")")
+#define HS_O3_BEGIN                                                            \
+  _Pragma("GCC push_options") _Pragma(                                         \
+      "GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\", \"no-unswitch-loops\")")
 #define HS_O3_END _Pragma("GCC pop_options")
-#define HS_O3_FN __attribute__((optimize("O3", "fast-math", "no-finite-math-only")))
+#define HS_O3_FN                                                               \
+  __attribute__((optimize("O3", "fast-math", "no-finite-math-only",            \
+                          "no-unswitch-loops")))
 #else
 #define HS_O3_BEGIN
 #define HS_O3_END
 #define HS_O3_FN
 #endif
+```
+
+The device-only attribute is also part of `HS_COLD_MEMBER`, keeping
+flash-routed inline/template member functions speed-optimized:
+
+```c
+#define HS_COLD_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
 ```
 
 Activation matrix (must hold; §8 verifies):
