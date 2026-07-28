@@ -922,11 +922,10 @@ jobs:
     name: Teensy 4 firmware (first-party warning ratchet)
     # The warning ratchet (tools/teensy_warnings.py, spec §7.2) fails on any
     # first-party warning not in tools/teensy_warning_baseline.txt. It needs a
-    # CACHE-DISABLED build: a cached/incremental TU emits no warnings, so the
-    # object-cached teensy-size job above cannot feed it. This job is a separate,
-    # clean build that does NOT restore the build-objects cache and disables the
-    # object cache outright, so every first-party TU recompiles and emits its
-    # warnings.
+    # COLD build: a cached/incremental TU emits no warnings, so the object-cached
+    # teensy-size job above cannot feed it. This job is a separate build that does
+    # not restore the build-objects cache and deletes any object cache before
+    # building, so every first-party TU recompiles and emits its warnings.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -945,9 +944,15 @@ jobs:
           restore-keys: pio-teensy-
       - name: Install pinned PlatformIO
         run: pip install 'platformio==6.1.19'   # same pin as teensy-size
-      - name: Cache-disabled build + warning ratchet (all targets)
-        # PLATFORMIO_BUILD_CACHE_DIR= overrides platformio.ini's build_cache_dir
-        # with an empty value, disabling the object cache so no TU is skipped.
+      - name: Cold build + warning ratchet (all targets)
+        # Deleting .pio/build_cache is what makes the build cold. PlatformIO keeps
+        # both the object cache and the SCons signature database under
+        # platformio.ini's build_cache_dir, and there is no env var that disables
+        # it: PLATFORMIO_BUILD_CACHE_DIR is read through a truthiness test, so an
+        # EMPTY value is ignored and build_cache_dir still wins. .pio/build goes
+        # too, so no object is up to date either. Both are absent on a fresh
+        # runner; the removal is what keeps the job cold if a build-objects cache
+        # restore is ever added here.
         # -v echoes the compiler invocations; warnings go to stderr, so 2>&1 folds
         # them into the captured log. pipefail (GitHub's default bash) makes a
         # build failure fail the step rather than masking it behind tee.
@@ -955,7 +960,10 @@ jobs:
         # builds that compile targets/Profile/Profile.ino and the HS_PROFILE
         # paths in shared render code, so omitting them left that surface with
         # no warning coverage at either optimization level.
+        # The ratchet re-checks coldness from the log, so a cache reaching this
+        # build fails the job instead of silently shrinking the warning surface.
         run: |
-          PLATFORMIO_BUILD_CACHE_DIR= pio run -e holosphere -e holosphere_dma -e phantasm -e phantasm8 -e profile -e profile_o3 -v 2>&1 \
+          rm -rf .pio/build_cache .pio/build
+          pio run -e holosphere -e holosphere_dma -e phantasm -e phantasm8 -e profile -e profile_o3 -v 2>&1 \
             | tee teensy_build.log
           python tools/teensy_warnings.py --build-log teensy_build.log --github

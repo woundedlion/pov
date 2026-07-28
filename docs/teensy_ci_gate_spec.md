@@ -3,7 +3,7 @@
 **Status (2026-07-12): active and green.** The `teensy-size` CI job builds `holosphere`,
 `phantasm`, and the `holosphere_dma` compile-drift target on pushes to master and pull requests. The
 post-build gate enforces the checked-in region budgets and ELF layout invariants; the separate
-cache-disabled `teensy-warnings` job enforces a currently empty first-party warning baseline.
+cold `teensy-warnings` job enforces a currently empty first-party warning baseline.
 `just teensy-size` runs the two shipping-image gates locally.
 
 The pinned toolchain is `platform = teensy@5.0.0` (Teensyduino 1.59.0 and arm-none-eabi-gcc
@@ -52,7 +52,7 @@ The original automation gap had three consequences:
   change that pushes a region over budget, relocates a large buffer, or squeezes the DTCM stack now
   fails the gate.
 - **There was no warning hygiene baseline.** arm-none-eabi-gcc with `-Wall -Wextra` surfaces
-  warnings the Clang/Emscripten builds do not. The cache-disabled warning job now ratchets that set.
+  warnings the Clang/Emscripten builds do not. The cold warning job now ratchets that set.
 
 This spec records the design of the **compile + link + measure** gate (no on-device execution)
 that closed the blind spot and remains reproducible locally.
@@ -424,17 +424,27 @@ warnings.
   an assumed capability. The first-party path filter (keep only `core/`, `effects/`, `hardware/`,
   `targets/` warnings) is an independent backstop, so the design is robust even if the `-isystem`
   demotion proves awkward.
-- **The warning gate must run on a *clean* (cache-disabled) build — it cannot share the cached size
-  build.** The object cache (§10, `build_cache_dir`) suppresses compiler invocation on a hit, so a
+- **The warning gate must run on a *cold* build — it cannot share the cached size build.** The
+  object cache (§10, `build_cache_dir`) suppresses compiler invocation on a hit, so a
   cached TU emits **no** warnings: a warm build produces a *smaller* warning set than a cold one,
   and a new warning introduced in a **header** is invisible whenever the dependent TU is served from
   cache. Set-based comparison fixes emission *order*, not this. Resolution: the **size** build stays
-  cached (objects don't change between warm runs), but the **warning** capture runs a separate
-  build with the cache disabled (e.g. a dedicated env or `PLATFORMIO_BUILD_CACHE_DIR=` empty / a
-  forced clean) so every first-party TU re-emits its warnings every run. Decouple the two; don't let
-  the cache that makes the size job fast silently blind the warning ratchet. (If a full clean build
-  is too slow, the documented fallback is scoping the ratchet to changed TUs — but then the
-  header-introduced-warning blind spot must be stated, not hidden.)
+  cached (objects don't change between warm runs), but the **warning** capture runs a separate build
+  that first deletes `.pio/build_cache` and `.pio/build`, so every first-party TU re-emits its
+  warnings every run. There is **no env-var switch** for this: PlatformIO reads
+  `PLATFORMIO_BUILD_CACHE_DIR` through a truthiness test, so an empty value is *ignored* and
+  `build_cache_dir` from `platformio.ini` still applies. Deleting the directory is the mechanism;
+  `.pio/build_cache` also holds the SCons signature database, so removing it clears both the object
+  cache and the up-to-date bookkeeping. Decouple the two; don't let the cache that makes the size
+  job fast silently blind the warning ratchet. (If a full cold build is too slow, the documented
+  fallback is scoping the ratchet to changed TUs — but then the header-introduced-warning blind spot
+  must be stated, not hidden.)
+- **Coldness is verified, not assumed.** `tools/teensy_warnings.py` derives each environment's
+  expected first-party translation units from `build_src_filter` in PlatformIO's own
+  `Processing <env> (...)` banner in the captured log, and fails unless every one of them appears as
+  a compiler invocation in that same environment's section. A partially cached build therefore fails
+  loudly instead of passing on a shrunken warning set, and the expectation follows a new TU or a new
+  environment automatically — there is no count to keep in sync.
 - **`effects_legacy.h` warnings will be in the baseline.** It is review-excluded but in *build*
   scope (`Holosphere.ino` includes it, §5), so whatever it warns under arm-gcc lands in the
   committed first-party baseline. That's correct (the firmware does compile it); just don't be
@@ -442,7 +452,7 @@ warnings.
 - **Updating the baseline is a reviewed act.** A `--update-baseline` script regenerates the file;
   it lands in the same PR as the change that legitimately alters the warning set, so the diff is
   visible in review (same discipline as the LUT/reaction-graph provenance gates).
-- **Current enforcement:** the cache-disabled `teensy-warnings` CI job fails on any warning not
+- **Current enforcement:** the cold `teensy-warnings` CI job fails on any warning not
   present in `tools/teensy_warning_baseline.txt`; the current baseline contains no warnings.
 
 ### 7.3 Image size
@@ -654,7 +664,7 @@ CI test job or a tiny dedicated step — independent of the slow PlatformIO buil
 
 The active implementation is in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml):
 `teensy-size` runs the cached size/layout build, while `teensy-warnings` performs a separate
-cache-disabled build. The original single-job sketch follows for design context.
+cold build. The original single-job sketch follows for design context.
 
 A **single job builds all four environments** (no matrix) — they share one Teensy toolchain, so a
 matrix would download it repeatedly for marginal isolation. `pio run` builds them sequentially;
@@ -861,7 +871,7 @@ All five prior open questions have been decided; the spec body reflects them.
   reopens the tool choice (§3). Everything else is downstream of this.
 - **Object cache can blind the warning ratchet.** A cached TU emits no warnings, so a warm build's
   warning set shrinks and header-introduced warnings hide. Mitigate by running the warning capture on
-  a cache-disabled build, decoupled from the cached size build (§7.2).
+  a cold build, decoupled from the cached size build (§7.2).
 - **Source-filter mechanic may leak unintended TUs (highest *build-config* risk).** With `src_dir = .`,
   `build_src_filter` must default-exclude and re-add only the wanted TUs or it sweeps in
   `targets/wasm/`, the CMake `build*/` trees, `.pio/`, etc. Mitigate with the Phase-0 spike (§6)
