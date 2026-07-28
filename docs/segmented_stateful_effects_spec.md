@@ -124,34 +124,47 @@ node, **plus a `false` base case in the terminal `Pipeline<W,H>`**
 
 ### 4.2 Expose it as one runtime query on `Effect`
 
-```
-virtual bool needs_full_frame() const { return false; }
-```
-
-There is no shared base hook — each effect that wants the gate adds the
-override itself:
+`Effect` carries the answer as a construction-time flag, not a virtual. The
+`EffectConfig` aggregate the base constructor takes holds it
+(`core/render/canvas.h:29`):
 
 ```
-bool needs_full_frame() const override {
-  return decltype(filters)::any_crosses_segments;
-}
+bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
 ```
 
-The override's *value* is fully trait-derived (no per-effect judgment): it reads
-the pipeline's compile-time `any_crosses_segments` fold, so adding or removing a
+The constructor copies it into the `full_frame` member
+(`core/render/canvas.h:488`) and a non-virtual accessor publishes it
+(`core/render/canvas.h:120`):
+
+```
+[[nodiscard]] bool needs_full_frame() const { return full_frame; }
+```
+
+Each filtered effect supplies the value in its base initializer, e.g.
+`effects/MeshFeedback.h:77`:
+
+```
+Effect(W, H, {.strobe = true,
+              .full_frame = decltype(filters)::any_crosses_segments})
+```
+
+The value is fully trait-derived (no per-effect judgment): it reads the
+pipeline's compile-time `any_crosses_segments` fold, so adding or removing a
 filter updates the answer automatically. Only the one-line bridge is manual,
-because `Effect` is type-erased — the driver holds an `Effect*` and the compile-
-time fold lives only in the derived effect's `filters` member, so a base virtual
-cannot read it without the derived type surfacing it. Going fully implicit would
-mean reparenting every filtered effect onto a CRTP base that reads
-`Derived::filters`, which also has to reach each effect's (private) `filters` —
-strictly more intrusive than the one-liner, so it is not done.
+because `Effect` is type-erased — the driver holds an `Effect*` and the fold
+lives in the derived effect's `filters` member, so the base cannot read it
+without the derived type passing it up. `ShapeShifter` runs two pipelines and
+ORs both folds; `HopfFibration` names its pipeline `trail_pipeline` and
+`Raymarch` names its `pipeline`. Effects with no filter pipeline omit the field
+and take the `false` default.
 
-Every effect whose pipeline crosses segments carries the identical override:
-`MeshFeedback` (`Pixel::Feedback`) and the `World::Trails` effect `Dynamo`
-(→ `true`). Everything else stays `false` by default. The
-roster test (§8) pins exactly this set so a new cross-segment effect that forgets
-the override is caught.
+Because the flag is fixed at construction, an effect cannot change its answer
+mid-run — the drivers may read it once per frame without a re-clip hazard.
+
+Of the shipped roster the fold evaluates `true` for exactly `MeshFeedback`
+(`Pixel::Feedback`) and the `World::Trails` effect `Dynamo`; everything else is
+`false`. The roster test (§8) pins that set so a new cross-segment effect that
+forgets the field is caught.
 
 ### 4.3 Honor it at the driver boundary (the only behavioral change)
 
@@ -213,7 +226,8 @@ instead of full-frame. `MeshFeedback` is unbounded and skips this tier.
 | Layer | Change |
 |---|---|
 | `core/render/filter.h` traits | add `crosses_segments = has_history` to the trait bases; `false` on `Screen::Trails`; add a **new** recursive `any_crosses_segments` OR-fold to `Pipeline` + a `false` base case in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
-| `core/render/canvas.h` `Effect` | add `needs_full_frame()` virtual (default `false`) |
+| `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor |
+| each filtered effect's constructor | pass `.full_frame = decltype(filters)::any_crosses_segments` in the `Effect` base initializer |
 | `targets/wasm/wasm.cpp` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
 | flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
 | `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |
@@ -256,7 +270,7 @@ Implemented in `tests/test_filter.h` and `tests/test_effects.h`:
   representative non-stateful effects. This is the end-to-end equivalent of a
   `setClip` test — the WASM driver reads exactly this query, and `setClip` itself
   lives in the Emscripten-only TU, which the native suite cannot link. A new
-  cross-segment effect that forgets the override is caught here.
+  cross-segment effect that forgets the `full_frame` field is caught here.
 - **`Screen::Trails` banded-vs-full bit-identity**
   (`test_screen_trails_banded_matches_full`, test_filter.h): the load-bearing
   proof of the one non-fail-safe override. The same multi-frame seed sequence is
@@ -269,5 +283,5 @@ Implemented in `tests/test_filter.h` and `tests/test_effects.h`:
   so a band-clipped `Pixel::Feedback` worker's bottom band differs from the
   full-frame render. Demonstrates *why* full-frame is required: band clipping
   here is not equivalent, so the gate is load-bearing, not cosmetic.
-- `test_effect_needs_full_frame_default_false` (test_filter.h) pins the base
-  `Effect::needs_full_frame()` default.
+- `test_effect_needs_full_frame_default_false` (`tests/test_filter.h:2503`) pins
+  the `EffectConfig::full_frame` default an effect gets when it omits the field.
