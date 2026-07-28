@@ -1275,14 +1275,13 @@ private:
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
 
-    PolyMesh mesh;
+    PolyMesh swapped;
     {
       HS_PROFILE(hk_conway_op);
-      if (seed_side)
-        MeshOps::clone(tr.seed, mesh, scratch_arena_a);
-      else
-        mesh = swap_at(tr, scratch_arena_a, scratch_arena_b);
+      if (!seed_side)
+        swapped = swap_at(tr, scratch_arena_a, scratch_arena_b);
     }
+    const PolyMesh &mesh = seed_side ? tr.seed : swapped;
 
     // Gain holds at 1 across the whole gate: the swap changes topology, not
     // brightness (no dip, no flash). Colour holds at the departed palettes
@@ -1438,8 +1437,9 @@ private:
    * seed classification and its identity ramp table, which w == 0 leaves at the
    * departed palettes.
    */
-  HS_COLD_MEMBER void finish_frame(Canvas &canvas, PolyMesh &swept, float w,
-                                   float gain = 1.0f, bool seed_side = false) {
+  HS_COLD_MEMBER void finish_frame(Canvas &canvas, const PolyMesh &swept,
+                                   float w, float gain = 1.0f,
+                                   bool seed_side = false) {
     Transients &tr = *buf_;
     const ArenaVector<int> &topo = seed_side ? tr.seed_topo : tr.topo;
     const ArenaVector<uint8_t> &face_ramp =
