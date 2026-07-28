@@ -195,6 +195,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   // stack high-water is budget-gated (tests/stack_measure.cpp).
   float *zx = scratch.allocate_n<float>(MAX_VERTS);
   float *zy = scratch.allocate_n<float>(MAX_VERTS);
+  int *order = scratch.allocate_n<int>(MAX_CONGRUENCE_CLASSES);
   float worst_res_px = 0.0f;
 
   for (size_t f = 0; f < F; ++f) {
@@ -304,7 +305,6 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
 
   // LUT build: concave shared classes only (convex faces already have the
   // ~lookup-cheap half-plane path), largest first until the budget is spent.
-  int order[MAX_CONGRUENCE_CLASSES];
   int n_elig = 0;
   for (size_t c = 0; c < out.classes.size(); ++c) {
     const CongruenceClass &cls = out.classes[c];
