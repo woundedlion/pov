@@ -428,7 +428,7 @@ static inline PlanarEdgeSpan make_planar_edge_span(const Vector &a,
  */
 template <int H> static inline float y_to_screen_row(float y) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  return phi_to_y(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
+  return phi_to_y_virtual(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
 }
 
 /**
@@ -508,7 +508,7 @@ static inline void planar_row_span(const Vector &a, const Vector &b,
                                    float &row_hi) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
   auto y_to_row = [](float y) {
-    return phi_to_y(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
+    return phi_to_y_virtual(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
   };
   float ra = y_to_row(a.y);
   float rb = y_to_row(b.y);

@@ -7,7 +7,7 @@
  * Coverage:
  *   - Axis constants (X/Y/Z_AXIS, UP)
  *   - Fragment::lerp
- *   - y_to_phi / phi_to_y conversions (free + templated)
+ *   - y_to_phi_virtual / phi_to_y_virtual conversions (free + templated)
  *   - PhiLUT / TrigLUT initialisation and lookup values
  *   - pixel_to_vector / vector_to_pixel roundtrip
  *   - tangent_frame / sphere_log / equirect_x_scale / pole_wrap
@@ -97,27 +97,27 @@ inline void test_fragment_lerp_midpoint() {
 }
 
 // ============================================================================
-// y_to_phi / phi_to_y
+// y_to_phi_virtual / phi_to_y_virtual
 // ============================================================================
 
 /**
- * @brief Verifies y_to_phi maps row 0→0, top row→PI, midpoint→PI/2.
+ * @brief Verifies y_to_phi_virtual maps row 0→0, top row→PI, midpoint→PI/2.
  * @details The mapping is phi = y*PI/(h_virt-1).
  */
-inline void test_y_to_phi_free_function() {
-  HS_EXPECT_NEAR(y_to_phi(0.0f, 145), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(y_to_phi(144.0f, 145), PI_F, 1e-5f);
-  HS_EXPECT_NEAR(y_to_phi(72.0f, 145), PI_F * 0.5f, 1e-5f);
+inline void test_y_to_phi_virtual() {
+  HS_EXPECT_NEAR(y_to_phi_virtual(0.0f, 145), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(y_to_phi_virtual(144.0f, 145), PI_F, 1e-5f);
+  HS_EXPECT_NEAR(y_to_phi_virtual(72.0f, 145), PI_F * 0.5f, 1e-5f);
 }
 
 /**
- * @brief Verifies phi_to_y is the inverse of y_to_phi: 0→0, PI→top row,
- *        PI/2→midpoint.
+ * @brief Verifies phi_to_y_virtual inverts y_to_phi_virtual: 0→0, PI→top
+ *        row, PI/2→midpoint.
  */
-inline void test_phi_to_y_free_function() {
-  HS_EXPECT_NEAR(phi_to_y(0.0f, 145), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(phi_to_y(PI_F, 145), 144.0f, 1e-5f);
-  HS_EXPECT_NEAR(phi_to_y(PI_F * 0.5f, 145), 72.0f, 1e-5f);
+inline void test_phi_to_y_virtual() {
+  HS_EXPECT_NEAR(phi_to_y_virtual(0.0f, 145), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(phi_to_y_virtual(PI_F, 145), 144.0f, 1e-5f);
+  HS_EXPECT_NEAR(phi_to_y_virtual(PI_F * 0.5f, 145), 72.0f, 1e-5f);
 }
 
 /**
@@ -132,7 +132,7 @@ inline void test_phi_to_y_free_function() {
  */
 inline void test_phi_to_y_south_pole_row_in_bounds() {
   for (int h_virt : {16, 64, 145, 23}) {
-    int row = static_cast<int>(phi_to_y(PI_F, h_virt));
+    int row = static_cast<int>(phi_to_y_virtual(PI_F, h_virt));
     HS_EXPECT_GE(row, 0);
     HS_EXPECT_LE(row, h_virt - 1);
   }
@@ -150,14 +150,14 @@ inline void test_phi_to_y_south_pole_row_in_bounds() {
 }
 
 /**
- * @brief Verifies phi_to_y(y_to_phi(i)) recovers i for every row across several
- *        heights.
+ * @brief Verifies phi_to_y_virtual(y_to_phi_virtual(i)) recovers i for every
+ *        row across several heights.
  */
 inline void test_y_phi_roundtrip() {
   for (int h_virt : {16, 64, 145}) {
     for (int i = 0; i < h_virt; ++i) {
-      float phi = y_to_phi(static_cast<float>(i), h_virt);
-      float y = phi_to_y(phi, h_virt);
+      float phi = y_to_phi_virtual(static_cast<float>(i), h_virt);
+      float y = phi_to_y_virtual(phi, h_virt);
       HS_EXPECT_NEAR(y, static_cast<float>(i), 1e-4f);
     }
   }
@@ -171,7 +171,7 @@ inline void test_y_to_phi_templated_LUT() {
   constexpr int H = 32;
   for (int y = 0; y < H; ++y) {
     float lut = y_to_phi<H>(y);
-    float direct = y_to_phi(static_cast<float>(y), H + hs::H_OFFSET);
+    float direct = y_to_phi_virtual(static_cast<float>(y), H + hs::H_OFFSET);
     HS_EXPECT_NEAR(lut, direct, 1e-5f);
   }
 
@@ -200,7 +200,7 @@ inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
   constexpr int H_VIRT = H + OFF; // 23
   const float bottom_phys = static_cast<float>(H - 1); // y = 19
 
-  float correct = y_to_phi(bottom_phys, H_VIRT); // 19*PI/22
+  float correct = y_to_phi_virtual(bottom_phys, H_VIRT); // 19*PI/22
   HS_EXPECT_NEAR(correct, bottom_phys * PI_F / (H_VIRT - 1), 1e-5f);
   HS_EXPECT_TRUE(correct < PI_F);
 
@@ -208,7 +208,8 @@ inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
   float double_applied = bottom_phys * PI_F / (H + 2 * OFF - 1); // 19*PI/24
   HS_EXPECT_TRUE(std::abs(correct - double_applied) > 1e-2f);
 
-  HS_EXPECT_NEAR(y_to_phi(static_cast<float>(H_VIRT - 1), H_VIRT), PI_F, 1e-5f);
+  HS_EXPECT_NEAR(y_to_phi_virtual(static_cast<float>(H_VIRT - 1), H_VIRT), PI_F,
+                 1e-5f);
 }
 
 // ============================================================================
@@ -969,8 +970,8 @@ inline int run_geometry_tests() {
   test_fragment_lerp_endpoints();
   test_fragment_lerp_midpoint();
 
-  test_y_to_phi_free_function();
-  test_phi_to_y_free_function();
+  test_y_to_phi_virtual();
+  test_phi_to_y_virtual();
   test_phi_to_y_south_pole_row_in_bounds();
   test_y_phi_roundtrip();
   test_y_to_phi_templated_LUT();
