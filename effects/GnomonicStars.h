@@ -42,7 +42,8 @@ public:
         MAX_POINTS * sizeof(Vector), alignof(Vector)));
 
     register_param("Points", &params.points, 100.0f, 2000.0f);
-    register_param("Radius", &params.star_radius, 0.01f, 0.1f);
+    register_param("Radius", &params.star_radius, 0.7f * RADIUS_PX,
+                   7.0f * RADIUS_PX);
     register_param("Sides", &params.star_sides, 3.0f, 8.0f);
     register_param("Debug BB", &params.debug_bb);
 
@@ -123,6 +124,14 @@ private:
   /** @brief Spiral-cache capacity; equals the "Points" slider's upper bound. */
   static constexpr int MAX_POINTS = 2000;
 
+  /**
+   * @brief One pixel of azimuth expressed in Scan::Star radius units.
+   * @details A star radius of 1 spans a hemisphere (pi/2 rad), so one pixel
+   *          (2*pi/W rad) is 4/W units. Star sizes are authored as multiples of
+   *          this so they hold their pixel size at every build resolution.
+   */
+  static constexpr float RADIUS_PX = 4.0f / W;
+
   // Persistent allocations: the MAX_POINTS spiral lattice plus the palette LUT.
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a MAX_POINTS bump.
@@ -156,7 +165,7 @@ private:
   struct Params {
     float points = 600.0f; /**< Number of stars scattered on the spiral. */
     float star_radius =
-        0.02f;               /**< Per-star radius in normalized sphere units. */
+        1.4f * RADIUS_PX;    /**< Per-star circumradius, ~1.4 px at any W. */
     float star_sides = 4.0f; /**< Polygon side count per star. */
     float warp_speed =
         0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
