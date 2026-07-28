@@ -49,6 +49,15 @@ public:
   T &get(size_t i) { return snapshots[i]; }
 
   /**
+   * @brief Visits every snapshot oldest-to-newest.
+   * @param fn Invoked as `void(const T &, uint32_t i)`, i being the same index
+   *        get() takes. Walks the ring directly, without re-deriving i.
+   */
+  template <typename Fn> void for_each(Fn &&fn) const {
+    snapshots.for_each(std::forward<Fn>(fn));
+  }
+
+  /**
    * @brief Clears the history.
    */
   void clear() { snapshots.clear(); }
@@ -72,9 +81,9 @@ template <int CAP> using VectorTrail = Trail<Vector, CAP>;
 /**
  * @brief Fixed-capacity history of unit-sphere positions, quantized to snorm16.
  * @tparam CAP The maximum number of snapshots to keep.
- * @details Stores 3x int16 per snapshot (6 bytes vs Vector's 12). Components
- * are clamped to [-1, 1] on record and round-trip with error <= 1/65534 per
- * component, so get() decodes and returns by value.
+ * @details A Trail of snorm16 triples: 3x int16 per snapshot (6 bytes vs
+ * Vector's 12). Components are clamped to [-1, 1] on record and round-trip
+ * with error <= 1/65534 per component, so get() decodes and returns by value.
  */
 template <int CAP> class QuantizedVectorTrail {
 public:
@@ -86,7 +95,7 @@ public:
    *        [-1, 1] are clamped.
    */
   void record(const Vector &source) {
-    snapshots.push_back(
+    snapshots.record(
         {quantize(source.x), quantize(source.y), quantize(source.z)});
   }
 
@@ -94,7 +103,7 @@ public:
    * @brief Gets the number of recorded snapshots.
    * @return Count of live snapshots in the trail.
    */
-  size_t length() const { return snapshots.size(); }
+  size_t length() const { return snapshots.length(); }
 
   /**
    * @brief Decodes a specific snapshot.
@@ -102,18 +111,18 @@ public:
    *          newest (same ordering as Trail).
    * @return The decoded position, by value.
    */
-  Vector get(size_t i) const { return decode(snapshots[i]); }
+  Vector get(size_t i) const { return decode(snapshots.get(i)); }
 
   /**
    * @brief Visits decoded snapshots with normalized oldest-to-newest progress.
    * @param callback Invoked as `void(const Vector &, float t)`.
    */
   void __attribute__((noinline)) tween(VectorTweenFn callback) const {
-    const size_t len = snapshots.size();
+    const size_t len = snapshots.length();
     if (len == 0)
       return;
     if (len == 1) {
-      callback(decode(snapshots.front()), 1.0f);
+      callback(decode(snapshots.get(0)), 1.0f);
       return;
     }
     const float denominator = static_cast<float>(len - 1);
@@ -130,7 +139,7 @@ public:
   /**
    * @brief Removes the oldest snapshot.
    */
-  void expire() { snapshots.pop_front(); }
+  void expire() { snapshots.expire(); }
 
 private:
   struct Snorm3 {
@@ -148,7 +157,7 @@ private:
     return Vector(s.x * INV_SCALE, s.y * INV_SCALE, s.z * INV_SCALE);
   }
 
-  StaticCircularBuffer<Snorm3, CAP> snapshots;
+  Trail<Snorm3, CAP> snapshots;
 };
 
 } // namespace Animation
