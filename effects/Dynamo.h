@@ -339,6 +339,10 @@ private:
    * @details If moving one step would leave the gap too wide, the follower
    *          adopts the leader's velocity and closes the slack until within
    *          `gap`; otherwise it just steps once.
+   * @note The slack loop terminates only while `leader.v != 0` — move() is a
+   *       no-op at zero velocity. It holds by construction: a node still at
+   *       v == 0 has never moved, so it shares its leader's column and the gap
+   *       test is false.
    */
   void drag(Node &leader, Node &follower) {
     int dest = wrap(follower.x + follower.v, W);
