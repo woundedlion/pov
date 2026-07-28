@@ -1930,6 +1930,118 @@ inline void test_ring_sample_lut_matches_direct() {
   HS_EXPECT_NEAR(points.back().v1, 2.0f * PI_F * r_val, 2e-3f);
 }
 
+/**
+ * @brief Verifies a ring drawn on the strided LUT grid stays an unbroken curve
+ *        tracking the full-W control grid, for radii where the stride thins.
+ * @details Ring::draw emits ceil(W/stride)+1 control points and the rasterizer
+ *          sub-steps each segment to SCREEN_STEP_PX, so a coarser grid must not
+ *          bead the ring: the lit set stays one 8-connected component (columns
+ *          wrap) and every pixel the full-W runtime sampler lights has a lit
+ *          neighbour within one pixel. Coverage is not compared pixel-for-pixel
+ *          — the full-W grid oversamples a small ring several times per pixel,
+ *          and the accumulated splat tails widen its stroke by a pixel.
+ */
+inline void test_ring_draw_stride_tracks_full_grid() {
+  constexpr int W = 96, H = 48;
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
+  };
+
+  const Vector centers[] = {Vector(0, 1, 0), Vector(0.3f, 0.8f, 0.5f),
+                            Vector(1, 0, 0)};
+  for (const Vector &center : centers) {
+    Basis b = make_basis(Quaternion(1, 0, 0, 0), center);
+    for (float radius : {0.06f, 0.15f, 0.3f}) {
+      HS_EXPECT_GT((Plot::ring_lut_stride<W>(sinf(radius * PI_F / 2.0f))), 1);
+
+      auto render = [&](auto &&draw_one) {
+        std::vector<uint8_t> mask(static_cast<size_t>(W) * H, 0);
+        hs_test::StubEffect fx(W, H);
+        Pipeline<W, H> filters;
+        {
+          Canvas c(fx);
+          draw_one(filters, c);
+        }
+        fx.advance_display();
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x) {
+            Pixel p = fx.get_pixel(x, y);
+            mask[static_cast<size_t>(y) * W + x] = (p.r | p.g | p.b) ? 1 : 0;
+          }
+        return mask;
+      };
+
+      std::vector<uint8_t> ref =
+          render([&](Pipeline<W, H> &filters, Canvas &c) {
+            Plot::draw_fragments<W, H>(
+                filters, c, {}, shade, {.capacity = W + 2, .omit_end = true},
+                [&](Fragments &pts) {
+                  Plot::Ring::sample(pts, b, radius, W, 0.0f);
+                });
+          });
+      std::vector<uint8_t> cur =
+          render([&](Pipeline<W, H> &filters, Canvas &c) {
+            Plot::Ring::draw<W, H>(filters, c, b, radius, shade);
+          });
+
+      int lit = 0, seed = -1;
+      for (int i = 0; i < W * H; ++i)
+        if (cur[static_cast<size_t>(i)]) {
+          ++lit;
+          if (seed < 0)
+            seed = i;
+        }
+      HS_EXPECT_GT(lit, 0);
+
+      // One 8-connected component: a beaded ring splits into many.
+      std::vector<uint8_t> seen(static_cast<size_t>(W) * H, 0);
+      std::vector<int> stack{seed};
+      seen[static_cast<size_t>(seed)] = 1;
+      int reached = 0;
+      while (!stack.empty()) {
+        int i = stack.back();
+        stack.pop_back();
+        ++reached;
+        int y = i / W, x = i % W;
+        for (int dy = -1; dy <= 1; ++dy)
+          for (int dx = -1; dx <= 1; ++dx) {
+            int ny = y + dy;
+            if (ny < 0 || ny >= H)
+              continue;
+            int nx = ((x + dx) % W + W) % W;
+            size_t j = static_cast<size_t>(ny) * W + nx;
+            if (cur[j] && !seen[j]) {
+              seen[j] = 1;
+              stack.push_back(static_cast<int>(j));
+            }
+          }
+      }
+      HS_EXPECT_EQ(reached, lit);
+
+      // The drawn curve stays on the reference ring, to within one pixel.
+      int drifted = 0;
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          if (!ref[static_cast<size_t>(y) * W + x])
+            continue;
+          bool near = false;
+          for (int dy = -1; dy <= 1 && !near; ++dy) {
+            int ny = y + dy;
+            if (ny < 0 || ny >= H)
+              continue;
+            for (int dx = -1; dx <= 1 && !near; ++dx) {
+              int nx = ((x + dx) % W + W) % W;
+              near = cur[static_cast<size_t>(ny) * W + nx] != 0;
+            }
+          }
+          if (!near)
+            ++drifted;
+        }
+      HS_EXPECT_EQ(drifted, 0);
+    }
+  }
+}
+
 // ============================================================================
 // Plot::DistortedRing::sample  — angle-addition identity (LUT) vs direct
 // ============================================================================
@@ -3725,6 +3837,7 @@ inline int run_plot_scan_tests() {
 
   test_ring_sample_unit_length_and_progress();
   test_ring_sample_lut_matches_direct();
+  test_ring_draw_stride_tracks_full_grid();
 
   test_distorted_ring_sample_angle_addition_identity();
   test_distorted_ring_arc_matches_closed();
