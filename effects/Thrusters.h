@@ -277,6 +277,9 @@ private:
    */
   void draw_ring(Canvas &c, float opacity) {
     HS_PROFILE(th_ring_draw);
+    // radius 2 is a point at the antipode (get_antipode folds it to radius 0)
+    if (params.radius >= 2.0f)
+      return;
     Basis basis = make_basis(orientation.get(), ring_vec);
 
     auto fragment_shader = [this, opacity](const Vector &v, Fragment &f) {
