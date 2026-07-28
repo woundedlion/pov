@@ -1552,7 +1552,7 @@ private:
       content_tracker.rev_in_effect = f.rev_count;
       publish_build(idx);
     } else if (content_tracker.commit_pending) {
-      // Do NOT publish_build mid-window: pending_gen_ must stay stable from
+      // Do NOT publish_build mid-window: pending_gen must stay stable from
       // construction-open to commit, the precondition the commit-time HS_CHECK
       // relies on. The next post-commit beacon re-verifies the index.
     } else if (idx != content_tracker.effect_index) {

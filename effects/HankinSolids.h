@@ -585,7 +585,7 @@ private:
     timeline.add(2, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
                                         DURATION, ease_linear, false,
-                                        &anims_paused_)
+                                        &anims_paused)
                         .then([this]() {
                           // Bookend-in: the sweep's final sample lands ~0.002
                           // rad off the flat p_corner branch; force exact 0 so
@@ -617,7 +617,7 @@ private:
                        "HankinSolids: per-frame mesh counts changed; the "
                        "persistent re-bind would grow the arena");
               const int cycle_frame = hankin_cycle_frame;
-              if (!anims_paused_)
+              if (!anims_paused)
                 ++hankin_cycle_frame;
               // Blended strap LUTs live in scratch_b for this frame only;
               // the draw path below uses scratch_a exclusively.
@@ -643,7 +643,7 @@ private:
                                   0.0f, 1.0f),
                         shape_weight(from_mid < 0 ? -from_mid : from_mid));
             },
-            DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused_));
+            DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused));
   }
 
   /**

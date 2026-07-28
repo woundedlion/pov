@@ -1859,7 +1859,7 @@ inline void test_sim_rev_resync() {
  *        correctly — as rev_in_effect rolls through its 6-bit (mod-64) residue
  *        within a single effect.
  * @details The beacon carries rev mod 64; the cross-check compares
- *          f.rev_count against `content_.rev_in_effect & 63`, and the
+ *          f.rev_count against `content_tracker.rev_in_effect & 63`, and the
  *          beacon_period_revs < 32 rule (Config::valid) exists precisely so the
  *          resulting signed-mod-64 resync is unambiguous as the residue wraps.
  *          The 40-rev sim configs (and the 5-rev slip in test_sim_rev_resync)

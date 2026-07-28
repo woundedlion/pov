@@ -18,7 +18,7 @@
  * asserts, not HS_CHECK traps — they compile out under NDEBUG so the per-access
  * check stays free in the device/WASM build. The death harness therefore can't
  * cover them; instead the bookkeeping they key on is exercised in-process here:
- * the bound_ flag through the construct/bind/move lifecycle
+ * the bound flag through the construct/bind/move lifecycle
  * (test_arenavec_default_unbound / _bind / _move_construct / _move_assign), and
  * the use-after-free generation snapshot via test_arenavec_stale_binding_after_reset
  * (an arena reset marks a live binding stale; rebinding it is then a debug

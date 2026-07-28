@@ -87,7 +87,7 @@ public:
                           timeline.add(0, Animation::Lerp(
                                               params, presets.prev_get(),
                                               presets.get(), 60,
-                                              ease_in_out_sin, &anims_paused_));
+                                              ease_in_out_sin, &anims_paused));
                         },
                         true));
 

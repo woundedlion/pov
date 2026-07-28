@@ -1147,7 +1147,7 @@ inline void test_bz_substep_diffuses() {
  * @details spawn_sprite schedules its successor 320 frames out (a PeriodicTimer),
  *          but the smoke/determinism harness renders at most HS_SMOKE_FRAMES=120
  *          frames in CI — short of one period — so the re-spawn never fires under
- *          the generic passes: the preset advance, the active_bake_ ping-pong +
+ *          the generic passes: the preset advance, the active_bake ping-pong +
  *          rebake, and the reseed-on-change guard all stay dead. This seam drives
  *          spawn_sprite directly and reads the bake slot / preset index so those
  *          paths are pinned. <96,20> is used arbitrarily — the bookkeeping is
@@ -1157,8 +1157,8 @@ struct DreamBallsWhiteBox {
   using DB = DreamBalls<DEVICE_W, DEVICE_H>;
   static constexpr int PRESETS = 4;
 
-  static int active_bake(const DB &db) { return db.active_bake_; }
-  static int last_preset_idx(const DB &db) { return db.last_preset_idx_; }
+  static int active_bake(const DB &db) { return db.active_bake; }
+  static int last_preset_idx(const DB &db) { return db.last_preset_idx; }
   // Not-paused step: advance the selector, then re-spawn (the scheduler's path).
   static void advance(DB &db) {
     db.preset_manager.next();
@@ -1192,7 +1192,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   WB::DB db;
   db.init(); // runs spawn_sprite() at preset 0
 
-  // init() spawned preset 0: it reseeded params (last_preset_idx_ -1 -> 0) and
+  // init() spawned preset 0: it reseeded params (last_preset_idx -1 -> 0) and
   // flipped the bake slot once (0 -> 1).
   HS_EXPECT_EQ(WB::last_preset_idx(db), 0);
   HS_EXPECT_EQ(WB::active_bake(db), 1);
@@ -1212,8 +1212,8 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   }
 
   // Paused-hold path: re-spawn the SAME preset (no advance), so the reseed guard
-  // (safe_idx == last_preset_idx_) holds and a live slider edit must survive the
-  // re-spawn — while the bake slot still flips. last_preset_idx_ is now 0.
+  // (safe_idx == last_preset_idx) holds and a live slider edit must survive the
+  // re-spawn — while the bake slot still flips. last_preset_idx is now 0.
   const float sentinel = WB::num_copies(db) + 5.0f;
   WB::num_copies(db) = sentinel;
   const int held_idx = WB::last_preset_idx(db);
@@ -1343,7 +1343,7 @@ struct RingShowerWhiteBox {
  *          acknowledged cosmetic gap the author asserts stays memory-safe and
  *          in-range. This pins that safety claim: it stages exactly that
  *          non-monotonic boundary order and sweeps the full angular span,
- *          asserting every color() call stays in bounds (every baked_palettes_
+ *          asserting every color() call stays in bounds (every baked_palettes
  *          access is HS_CHECK-guarded, so an OOB aborts here) and returns a finite
  *          alpha in [0, 1]. The smoke pass never reaches the inverted state.
  */
@@ -1369,7 +1369,7 @@ struct DynamoWhiteBox {
     // Force the documented worst case: the newer band (index 0) has overtaken
     // the older (index 1) -> non-monotonic order. The chosen magnitudes also push
     // the scan past the first iteration into the second boundary and the
-    // baked_palettes_[i+1] access for part of the sweep, exercising the bounds
+    // baked_palettes[i+1] access for part of the sweep, exercising the bounds
     // path the safety claim rests on.
     effect.palette_boundaries[0] = 1.5f; // newer, overtaken ahead of the older
     effect.palette_boundaries[1] = 0.5f; // older, left behind
@@ -1966,7 +1966,7 @@ struct MindSplatterWhiteBox {
     for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
       const float t = static_cast<float>(i) /
                       static_cast<float>(BakedPalette::LUT_SIZE - 1);
-      snapshot.palette[i] = ms.baked_palette_.get(t);
+      snapshot.palette[i] = ms.baked_palette.get(t);
     }
     snapshot.emitter_hues = ms.emitter_hues;
     snapshot.emit_phases = ms.emit_phases;
@@ -2017,7 +2017,7 @@ struct MindSplatterWhiteBox {
         return entries[hs::clamp(i, 0, BakedPalette::LUT_SIZE - 1)];
       }
     };
-    ms.baked_palette_.rebake(PaletteSource{snapshot.palette});
+    ms.baked_palette.rebake(PaletteSource{snapshot.palette});
   }
 
   template <int W, int H> static void step_physics(MindSplatter<W, H> &ms) {
@@ -2113,7 +2113,7 @@ struct MindSplatterWhiteBox {
     for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
       const float t = static_cast<float>(i) /
                       static_cast<float>(BakedPalette::LUT_SIZE - 1);
-      if (ms.baked_palette_.get(t).alpha != 1.0f)
+      if (ms.baked_palette.get(t).alpha != 1.0f)
         return false;
     }
     return true;
@@ -2125,7 +2125,7 @@ struct MindSplatterWhiteBox {
     for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
       const float t = static_cast<float>(i) /
                       static_cast<float>(BakedPalette::LUT_SIZE - 1);
-      colors[i] = ms.baked_palette_.get(t).color;
+      colors[i] = ms.baked_palette.get(t).color;
     }
     return colors;
   }
@@ -3228,7 +3228,7 @@ inline void test_ringspin_pool_clamped() {
 /**
  * @brief Drives ShapeShifter through its 48-frame shape cut to cover the cycle
  *        wrap the default 8-frame smoke window never reaches.
- * @details draw_frame advances frame_count_ mod 48 and rotates current_shape on
+ * @details draw_frame advances frame_count mod 48 and rotates current_shape on
  *          the wrap, so the cut path (and the post-cut shape's renderer) only
  *          executes past frame 48. Run two full periods under a fixed clock and
  *          require non-black output on every frame: the cut must neither blank
@@ -3615,7 +3615,7 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
  * @details The op-by-op recipe build only runs when the round-robin reaches a
  * non-null recipe entry (index 1), ~340 frames into a default-speed run — past
  * every generic smoke window. The probe pre-sets Trans Speed before init so
- * the whole crossing fits in ~100 frames, and reads build_active_/solid_idx
+ * the whole crossing fits in ~100 frames, and reads build_active/solid_idx
  * to pin that the build ran and completed. <96,20> keeps the raster cheap;
  * the build bookkeeping is resolution-independent.
  */
@@ -3627,17 +3627,17 @@ struct IslamicBuildProbe {
   }
   template <int W, int H>
   static bool build_active(const IslamicStars<W, H> &e) {
-    return e.build_active_;
+    return e.build_active;
   }
   template <int W, int H> static int solid_idx(const IslamicStars<W, H> &e) {
     return e.solid_idx;
   }
   template <int W, int H> static int dual_bridges(const IslamicStars<W, H> &e) {
-    return e.dual_bridges_built_;
+    return e.dual_bridges_built;
   }
   template <int W, int H>
   static size_t persistent_budget(const IslamicStars<W, H> &e) {
-    return e.device_persistent_budget_;
+    return e.device_persistent_budget;
   }
   template <int W, int H> static int front_slot(IslamicStars<W, H> &e) {
     return e.carousel.front_index();

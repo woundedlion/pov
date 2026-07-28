@@ -398,7 +398,7 @@ inline void test_bookend_swaps_per_family() {
  *        its corresponding swept face landed with — carried verbatim.
  * @details Drives HankinSolids through several legs; the in-flight leg's
  *          Landing is snapshotted each frame, and on each arrival the
- *          displayed per-face palettes (node_face_palette_) are compared with
+ *          displayed per-face palettes (node_face_palette) are compared with
  *          the landed ones over the base-face emission prefix, as per-palette
  *          multisets — invariant under any correct provenance mapping, but
  *          broken by a class merge collapsing distinct landed palettes into
@@ -1442,7 +1442,7 @@ inline void test_leg_start_seed_frame_continuity() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Pins palette_idx_ constant from each arrival to the next, including
+ * @brief Pins palette_idx constant from each arrival to the next, including
  * across the leg-construction frame.
  */
 inline void test_palette_slots_stable_within_cycle() {

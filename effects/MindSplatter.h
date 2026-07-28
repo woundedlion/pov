@@ -70,13 +70,13 @@ public:
           presets.next();
           timeline.add(0, Animation::Lerp(params, presets.prev_get(),
                                           presets.get(), 48, ease_linear,
-                                          &anims_paused_));
+                                          &anims_paused));
         },
         true);
     timeline.add(0, preset_timer);
 
     rebuild();
-    baked_palette_.bake(persistent_arena, base_palette);
+    baked_palette.bake(persistent_arena, base_palette);
     schedule_warp();
   }
 
@@ -302,7 +302,7 @@ private:
   GenerativePalette base_palette{
       GradientShape::CIRCULAR, HarmonyType::COMPLEMENTARY,
       BrightnessProfile::FLAT, SaturationProfile::MID};
-  BakedPalette baked_palette_;
+  BakedPalette baked_palette;
   std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
   /**
    * @brief Per-emitter accumulated emission angle (radians, wrapped to
@@ -442,13 +442,13 @@ private:
 #endif
 #ifdef HS_TEST_BUILD
       if (reference_palette_alpha) {
-        Color4 c = baked_palette_.get(t_shifted);
+        Color4 c = baked_palette.get(t_shifted);
         c.alpha = c.alpha * alpha * alpha * opacity;
         f.color = c;
         return;
       }
 #endif
-      f.color = Color4(baked_palette_.get_color_unit(t_shifted),
+      f.color = Color4(baked_palette.get_color_unit(t_shifted),
                        alpha * alpha * opacity);
     };
 
