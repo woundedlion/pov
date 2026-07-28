@@ -591,17 +591,18 @@ HS_O3_FN inline LMS linear_rgb_to_lms(float r, float g, float b) {
 
 /**
  * @brief Cube-rooted LMS -> OKLab (the second OKLab matrix).
- * @param l_ Cube-rooted l cone response.
- * @param m_ Cube-rooted m cone response.
- * @param s_ Cube-rooted s cone response.
+ * @param l_cbrt Cube-rooted l cone response.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
  * @return The color in OKLab space.
  * @details Takes the already-cube-rooted triple so the caller picks the
  * cube-root flavour.
  */
-HS_O3_FN inline OKLab lms_to_oklab(float l_, float m_, float s_) {
-  return {0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_,
-          1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_,
-          0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_};
+HS_O3_FN inline OKLab lms_to_oklab(float l_cbrt, float m_cbrt, float s_cbrt) {
+  return {
+      0.2104542553f * l_cbrt + 0.7936177850f * m_cbrt - 0.0040720468f * s_cbrt,
+      1.9779984951f * l_cbrt - 2.4285922050f * m_cbrt + 0.4505937099f * s_cbrt,
+      0.0259040371f * l_cbrt + 0.7827717662f * m_cbrt - 0.8086757660f * s_cbrt};
 }
 
 /**
@@ -619,30 +620,31 @@ inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
 /**
  * @brief Converts OKLab to cube-rooted LMS (the inverse OKLab matrix).
  * @param lab Source color in OKLab space.
- * @param l_ Out: cube-rooted l cone response.
- * @param m_ Out: cube-rooted m cone response.
- * @param s_ Out: cube-rooted s cone response.
+ * @param l_cbrt Out: cube-rooted l cone response.
+ * @param m_cbrt Out: cube-rooted m cone response.
+ * @param s_cbrt Out: cube-rooted s cone response.
  */
-HS_O3_FN inline void oklab_to_lms_cbrt(OKLab lab, float &l_, float &m_,
-                                       float &s_) {
-  l_ = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
-  m_ = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
-  s_ = lab.L - 0.0894841775f * lab.a - 1.2914855480f * lab.b;
+HS_O3_FN inline void oklab_to_lms_cbrt(OKLab lab, float &l_cbrt, float &m_cbrt,
+                                       float &s_cbrt) {
+  l_cbrt = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
+  m_cbrt = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
+  s_cbrt = lab.L - 0.0894841775f * lab.a - 1.2914855480f * lab.b;
 }
 
 /**
  * @brief Converts cube-rooted LMS to linear RGB [0,1] (cube + RGB matrix).
- * @param l_ Cube-rooted l cone response.
- * @param m_ Cube-rooted m cone response.
- * @param s_ Cube-rooted s cone response.
+ * @param l_cbrt Cube-rooted l cone response.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
  * @param r Out: linear red (may exit gamut before clamping).
  * @param g Out: linear green.
  * @param b Out: linear blue.
  */
 HS_O3_FN
-inline void lms_cbrt_to_linear_rgb(float l_, float m_, float s_, float &r,
-                                   float &g, float &b) {
-  float l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+inline void lms_cbrt_to_linear_rgb(float l_cbrt, float m_cbrt, float s_cbrt,
+                                   float &r, float &g, float &b) {
+  float l = l_cbrt * l_cbrt * l_cbrt, m = m_cbrt * m_cbrt * m_cbrt,
+        s = s_cbrt * s_cbrt * s_cbrt;
 
   r = +4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s;
   g = -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s;
@@ -658,9 +660,9 @@ inline void lms_cbrt_to_linear_rgb(float l_, float m_, float s_, float &r,
  */
 HS_O3_FN inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g,
                                          float &b) {
-  float l_, m_, s_;
-  oklab_to_lms_cbrt(lab, l_, m_, s_);
-  lms_cbrt_to_linear_rgb(l_, m_, s_, r, g, b);
+  float l_cbrt, m_cbrt, s_cbrt;
+  oklab_to_lms_cbrt(lab, l_cbrt, m_cbrt, s_cbrt);
+  lms_cbrt_to_linear_rgb(l_cbrt, m_cbrt, s_cbrt, r, g, b);
 }
 
 /**
@@ -800,7 +802,7 @@ inline constexpr int GAMUT_BRACKET_STEPS = 3;
  * @param lo Scale known to be at or below the boundary.
  * @param hi Scale at or above it, already capped at the input's own scale.
  * @return The refined scale, in gamut by construction.
- * @details With l_ = L + A*u and (L + X*u)^3 expanded in u, every linear-RGB
+ * @details With l_cbrt = L + A*u and (L + X*u)^3 expanded in u, every linear-RGB
  * channel is a cubic in u whose four coefficients depend only on L and the hue
  * direction and are built once here. A refinement step is then three Horner
  * evaluations and the six bound tests, not an OKLab round trip. The bound tests
@@ -978,11 +980,11 @@ inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
                              i == 2 ? 1.0f : 0.0f);
     float a2 = lab.a * ca - lab.b * sa;
     float b2 = lab.a * sa + lab.b * ca;
-    float l_, m_, s_;
-    oklab_to_lms_cbrt({lab.L, a2, b2}, l_, m_, s_);
-    k[i] = l_;
-    k[3 + i] = m_;
-    k[6 + i] = s_;
+    float l_cbrt, m_cbrt, s_cbrt;
+    oklab_to_lms_cbrt({lab.L, a2, b2}, l_cbrt, m_cbrt, s_cbrt);
+    k[i] = l_cbrt;
+    k[3 + i] = m_cbrt;
+    k[6 + i] = s_cbrt;
   }
 }
 
@@ -990,9 +992,9 @@ inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
  * @brief Applies a cbrt-LMS 3x3 (from hue_rotate_lms_matrix, optionally
  * uniformly scaled) and converts to linear RGB with gamut mapping.
  * @param k Row-major 3x3 acting on cube-rooted LMS.
- * @param l_ Cube-rooted l cone response.
- * @param m_ Cube-rooted m cone response.
- * @param s_ Cube-rooted s cone response.
+ * @param l_cbrt Cube-rooted l cone response.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
  * @param r Out: gamut-mapped linear red (may sit a hair past the bound;
  * callers still clamp).
  * @param g Out: linear green.
@@ -1001,11 +1003,11 @@ inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
  * only on the chroma-clip slow path.
  */
 HS_O3_FN
-inline void lms_cbrt_transform_rgb(const float k[9], float l_, float m_,
-                                   float s_, float &r, float &g, float &b) {
-  float ul = k[0] * l_ + k[1] * m_ + k[2] * s_;
-  float um = k[3] * l_ + k[4] * m_ + k[5] * s_;
-  float us = k[6] * l_ + k[7] * m_ + k[8] * s_;
+inline void lms_cbrt_transform_rgb(const float k[9], float l_cbrt, float m_cbrt,
+                                   float s_cbrt, float &r, float &g, float &b) {
+  float ul = k[0] * l_cbrt + k[1] * m_cbrt + k[2] * s_cbrt;
+  float um = k[3] * l_cbrt + k[4] * m_cbrt + k[5] * s_cbrt;
+  float us = k[6] * l_cbrt + k[7] * m_cbrt + k[8] * s_cbrt;
   lms_cbrt_to_linear_rgb(ul, um, us, r, g, b);
   if (!linear_rgb_in_gamut(r, g, b)) {
     HS_PROFILE_DEEP(gamut_clip);

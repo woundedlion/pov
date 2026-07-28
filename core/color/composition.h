@@ -56,9 +56,9 @@ struct BreatheModifier {
    * @details *phase is frame-constant, so the sine is recomputed once per frame,
    * not per pixel. mutable so const modify() can update the memo.
    */
-  mutable float cached_phase_ = 0.0f;
-  mutable float cached_sin_ = 0.0f; /**< Memoized sine of cached_phase_. */
-  mutable bool primed_ = false;     /**< Whether the memo has been populated. */
+  mutable float cached_phase = 0.0f;
+  mutable float cached_sin = 0.0f; /**< Memoized sine of cached_phase. */
+  mutable bool primed = false;     /**< Whether the memo has been populated. */
 
   /**
    * @brief Constructs with a mandatory phase driver and amplitude.
@@ -78,12 +78,12 @@ struct BreatheModifier {
    * @return t plus the memoized oscillation term.
    */
   float modify(float t) const {
-    if (!primed_ || *phase != cached_phase_) {
-      cached_phase_ = *phase;
-      cached_sin_ = fast_sinf(*phase);
-      primed_ = true;
+    if (!primed || *phase != cached_phase) {
+      cached_phase = *phase;
+      cached_sin = fast_sinf(*phase);
+      primed = true;
     }
-    return t + cached_sin_ * amplitude;
+    return t + cached_sin * amplitude;
   }
 };
 
@@ -837,7 +837,7 @@ public:
    * @param src Source palette; must not be null.
    * @param cms Coordinate-modifier pointers, one per CMods entry; none null.
    * @param xms Color-modifier pointers, one per XMods entry; none null.
-   * @details get()'s source_ assert is stripped on-device and a null read does
+   * @details get()'s source assert is stripped on-device and a null read does
    * not fault on Teensy 4.x, so null binds are trapped here (always-on HS_CHECK,
    * empty packs fold to true) at the cold init seam.
    */
@@ -847,9 +847,9 @@ public:
              "StaticPalette bound to null coord modifier");
     HS_CHECK(((xms != nullptr) && ...),
              "StaticPalette bound to null color modifier");
-    source_ = src;
-    coords_ = std::make_tuple(cms...);
-    colors_ = std::make_tuple(xms...);
+    source = src;
+    coords = std::make_tuple(cms...);
+    colors = std::make_tuple(xms...);
   }
 
   /**
@@ -861,24 +861,24 @@ public:
    * sample with the *original* coordinate.
    */
   Color4 get(float t) const {
-    assert(source_ != nullptr && "StaticPalette used before bind()!");
+    assert(source != nullptr && "StaticPalette used before bind()!");
 
     float ft = t;
-    std::apply([&](const auto *...m) { ((ft = m->modify(ft)), ...); }, coords_);
+    std::apply([&](const auto *...m) { ((ft = m->modify(ft)), ...); }, coords);
 
     float u = ft;
     if constexpr (Wrap)
       u = wrap_t(ft);
-    Color4 c = source_->get(u);
+    Color4 c = source->get(u);
 
-    std::apply([&](const auto *...m) { ((c = m->shade(c, t)), ...); }, colors_);
+    std::apply([&](const auto *...m) { ((c = m->shade(c, t)), ...); }, colors);
     return c;
   }
 
 private:
-  const Source *source_ = nullptr;
-  std::tuple<const CMods *...> coords_{};
-  std::tuple<const XMods *...> colors_{};
+  const Source *source = nullptr;
+  std::tuple<const CMods *...> coords{};
+  std::tuple<const XMods *...> colors{};
 };
 
 /**
@@ -898,14 +898,14 @@ public:
    * @brief Constructs a facade bound to a composition.
    * @param sp Composition to forward get() to.
    */
-  explicit PaletteFacade(const SP *sp) : sp_(sp) {}
+  explicit PaletteFacade(const SP *sp) : composition(sp) {}
   /**
    * @brief Binds the facade to a composition.
    * @param sp Composition to forward get() to; must not be null.
    */
   void bind(const SP *sp) {
     HS_CHECK(sp != nullptr, "PaletteFacade bound to null composition");
-    sp_ = sp;
+    composition = sp;
   }
   /**
    * @brief Forwards the lookup to the bound composition.
@@ -913,12 +913,12 @@ public:
    * @return The composition's color at t.
    */
   Color4 get(float t) const override {
-    assert(sp_ != nullptr && "PaletteFacade used before bind()!");
-    return sp_->get(t);
+    assert(composition != nullptr && "PaletteFacade used before bind()!");
+    return composition->get(t);
   }
 
 private:
-  const SP *sp_ = nullptr;
+  const SP *composition = nullptr;
 };
 
 /**
@@ -970,7 +970,7 @@ public:
    */
   template <typename Source>
   HS_COLD_MEMBER void bake(Arena &arena, const Source &source) {
-    lut_ = arena.allocate_n<Color4>(LUT_SIZE);
+    lut = arena.allocate_n<Color4>(LUT_SIZE);
     rebake(source);
   }
 
@@ -980,10 +980,10 @@ public:
    * @param source Source palette or composition to sample.
    */
   template <typename Source> HS_COLD_MEMBER void rebake(const Source &source) {
-    HS_CHECK(lut_ != nullptr, "BakedPalette::rebake before bake()");
+    HS_CHECK(lut != nullptr, "BakedPalette::rebake before bake()");
     for (int i = 0; i < LUT_SIZE; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
-      lut_[i] = source.get(t);
+      lut[i] = source.get(t);
     }
   }
 
@@ -998,17 +998,17 @@ public:
    */
   HS_COLD_MEMBER void bake_blend(Arena &arena, const BakedPalette &from,
                                  const BakedPalette &to, float w) {
-    HS_CHECK(from.lut_ && to.lut_, "BakedPalette::bake_blend before bake()");
-    lut_ = arena.allocate_n<Color4>(LUT_SIZE);
+    HS_CHECK(from.lut && to.lut, "BakedPalette::bake_blend before bake()");
+    lut = arena.allocate_n<Color4>(LUT_SIZE);
     // Clamp before the cast: w < 0 or NaN is float->int UB, and a NaN weight
     // would otherwise reach every entry's alpha.
     const float wc = hs::clamp(w, 0.0f, 1.0f);
     const uint16_t weight = frac_to_q16(wc);
     for (int i = 0; i < LUT_SIZE; ++i) {
-      const Color4 &a = from.lut_[i];
-      const Color4 &b = to.lut_[i];
-      lut_[i] = Color4(a.color.lerp16(b.color, weight),
-                       a.alpha + (b.alpha - a.alpha) * wc);
+      const Color4 &a = from.lut[i];
+      const Color4 &b = to.lut[i];
+      lut[i] = Color4(a.color.lerp16(b.color, weight),
+                      a.alpha + (b.alpha - a.alpha) * wc);
     }
   }
 
@@ -1029,7 +1029,7 @@ public:
    * @return The same pixel as get(t).color without interpolating alpha.
    */
   __attribute__((always_inline)) Pixel get_color(float t) const {
-    assert(lut_ != nullptr && "BakedPalette::get_color before bake()");
+    assert(lut != nullptr && "BakedPalette::get_color before bake()");
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
     return sample_color_index(idx);
@@ -1041,15 +1041,15 @@ public:
    * @return The same pixel as get(t).color.
    */
   __attribute__((always_inline)) Pixel get_color_unit(float t) const {
-    assert(lut_ != nullptr && "BakedPalette::get_color_unit before bake()");
+    assert(lut != nullptr && "BakedPalette::get_color_unit before bake()");
     return sample_color_index(t * (LUT_SIZE - 1));
   }
 
 private:
   __attribute__((always_inline)) Pixel sample_color_index(float idx) const {
     if (idx <= 0.0f)
-      return lut_[0].color;
-    return lut_sample_pixel(lut_, LUT_SIZE, idx);
+      return lut[0].color;
+    return lut_sample_pixel(lut, LUT_SIZE, idx);
   }
 
 public:
@@ -1060,30 +1060,30 @@ public:
    * @details Used by Persist for arena compaction.
    */
   void clone_from(const BakedPalette &src, Arena &arena) {
-    HS_CHECK(src.lut_ != nullptr, "BakedPalette::clone_from before src bake()");
-    lut_ = arena.allocate_n<Color4>(LUT_SIZE);
-    memcpy(lut_, src.lut_, LUT_SIZE * sizeof(Color4));
+    HS_CHECK(src.lut != nullptr, "BakedPalette::clone_from before src bake()");
+    lut = arena.allocate_n<Color4>(LUT_SIZE);
+    memcpy(lut, src.lut, LUT_SIZE * sizeof(Color4));
   }
 
 private:
   __attribute__((always_inline)) void sample_into(float t, Color4 &out) const {
-    assert(lut_ != nullptr && "BakedPalette::get before bake()");
+    assert(lut != nullptr && "BakedPalette::get before bake()");
     // Clamp before the int cast: static_cast<int>(NaN) is UB. hs::clamp maps NaN
     // to the hi bound (last entry) and guarantees idx >= 0.
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
     int lo = static_cast<int>(idx);
     if (lo >= LUT_SIZE - 1) {
-      out = lut_[LUT_SIZE - 1];
+      out = lut[LUT_SIZE - 1];
       return;
     }
     float frac = idx - lo;
-    const Color4 &a = lut_[lo];
-    const Color4 &b = lut_[lo + 1];
+    const Color4 &a = lut[lo];
+    const Color4 &b = lut[lo + 1];
     out = Color4(a.color.lerp16(b.color, frac_to_q16(frac)),
                  hs::clamp(a.alpha + (b.alpha - a.alpha) * frac, 0.0f, 1.0f));
   }
-  Color4 *lut_ = nullptr;
+  Color4 *lut = nullptr;
 };
 
 /**
