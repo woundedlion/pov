@@ -26,7 +26,13 @@ struct PolyMesh {
   ArenaVector<Vector> vertices;     /**< Vertex positions. */
   ArenaVector<uint8_t> face_counts; /**< Number of sides for each face. */
   ArenaVector<uint16_t> faces;      /**< Flat per-face vertex index list. */
-  ArenaVector<int> topology;        /**< Per-face topology class id. */
+  /**
+   * @brief Per-face topology class id, as filled by
+   * classify_faces_by_topology.
+   * @details Carried only by clone(); no Conway operator propagates it, so an
+   * operator's output arrives with this array empty and the caller reclassifies.
+   */
+  ArenaVector<int> topology;
 
   /**
    * @brief Constructs an empty mesh with no allocated storage.

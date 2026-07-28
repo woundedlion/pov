@@ -1098,10 +1098,10 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
  * @brief Replaces a deterministic relax pass with its exact flash-baked
  * result.
  * @param mesh Source mesh; its dimensions and connectivity must match the bake,
- * and its topology is copied through to the output. Source vertex positions are
+ * and its face list is copied through to the output. Source vertex positions are
  * not checked, so a bake replays onto any mesh carrying the baked connectivity —
  * including one already at the baked positions.
- * @param target Arena receiving the baked vertices and copied topology.
+ * @param target Arena receiving the baked vertices and the copied face list.
  * @param bake Expected source dimensions and topology hash, plus the raw output
  * vertex bits, which are re-hashed on load against bake.output_hash.
  * @return Fresh baked PolyMesh allocated in `target`.
