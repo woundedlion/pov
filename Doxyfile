@@ -8,10 +8,13 @@ PROJECT_BRIEF          = "Persistence-of-vision LED sphere engine and WebAssembl
 OUTPUT_DIRECTORY       = build/docs
 USE_MDFILE_AS_MAINPAGE = README.md
 
-# Document the engine, effects, hardware drivers, and the WASM target. Tests are
-# omitted from the API reference on purpose.
+# Document the engine, effects, hardware drivers, and both target flavors — the
+# WASM bridge and the Arduino .ino firmware entry points. Tests are omitted from
+# the API reference on purpose.
 INPUT                  = README.md core effects hardware targets
-FILE_PATTERNS          = *.h *.cpp
+FILE_PATTERNS          = *.h *.cpp *.ino
+# .ino is Arduino C++; Doxygen has no built-in mapping for the extension.
+EXTENSION_MAPPING      = ino=C++
 RECURSIVE              = YES
 # Vendored (FastNoiseLite) and generated (LUT/bake tables) — never document these.
 EXCLUDE                = core/vendor/FastNoiseLite.h \
