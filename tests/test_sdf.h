@@ -1389,6 +1389,56 @@ inline void test_union_seam_straddle_merges_overlapping_intervals() {
 }
 
 /**
+ * @brief Verifies three- and four-way nested Unions of real leaves compile and
+ *        emit every child arc.
+ * @details The nesting depth a combinator admits is gated by sdf_max_spans; a
+ *   leaf pinned to its true emission (2 for the annular-band rings) keeps a
+ *   four-deep union at 8 spans, far under the 2*INTERVAL_SPAN_CAP accumulator.
+ *   Sizing the types alone would prove the static_asserts pass, so the test also
+ *   runs the scanline path and counts the merged arcs: four coaxial rings at
+ *   disjoint radii cross an equatorial row in 8 disjoint spans, which is also
+ *   the bound the trait reports.
+ */
+inline void test_nested_union_emits_every_child_arc() {
+  using P = std::pair<float, float>;
+  constexpr int W = 256, H = 128;
+  // Ring axis along +X so the row math has a non-degenerate horizontal
+  // projection (a +Y axis full-row scans instead).
+  const Basis b{Vector(0, 1, 0), Vector(1, 0, 0), Vector(0, 0, 1)};
+  SDF::Ring r1(b, 0.4f, 0.05f), r2(b, 0.6f, 0.05f);
+  SDF::Ring r3(b, 0.8f, 0.05f), r4(b, 1.0f, 0.05f);
+
+  using U2 = SDF::Union<SDF::Ring, SDF::Ring>;
+  using U3 = SDF::Union<U2, SDF::Ring>;
+  using U4 = SDF::Union<U2, U2>;
+  static_assert(SDF::sdf_max_spans<SDF::Ring>::value == 2);
+  static_assert(SDF::sdf_max_spans<U3>::value == 6);
+  static_assert(SDF::sdf_max_spans<U4>::value == 8);
+  // Nesting under the frame-sensitive combinators too: each child must fit one
+  // IntervalBuffer, which a 32-span leaf bound could never satisfy.
+  static_assert(sizeof(SDF::Subtract<U2, SDF::Ring>) > 0);
+  static_assert(sizeof(SDF::Intersection<U2, U2>) > 0);
+
+  U2 u_lo(r1, r2), u_hi(r3, r4);
+  U3 u3(u_lo, r3);
+  U4 u4(u_lo, u_hi);
+
+  std::vector<P> out3, out4;
+  bool ok3 = u3.get_horizontal_intervals<W, H>(
+      H / 2, [&](float st, float en) { out3.push_back({st, en}); });
+  bool ok4 = u4.get_horizontal_intervals<W, H>(
+      H / 2, [&](float st, float en) { out4.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok3);
+  HS_EXPECT_TRUE(ok4);
+
+  HS_EXPECT_EQ(out3.size(), static_cast<size_t>(6));
+  HS_EXPECT_EQ(out4.size(), static_cast<size_t>(8));
+  HS_EXPECT_TRUE(out4.size() <= SDF::sdf_max_spans<U4>::value);
+  for (size_t i = 1; i < out4.size(); ++i)
+    HS_EXPECT_TRUE(out4[i - 1].second < out4[i].first);
+}
+
+/**
  * @brief Verifies SmoothUnion's k-padded union welds overlapping seam-straddling spans.
  * @details Each child interval is inflated by pad_px = k·W/(2π·sinφ) before the
  *   merge, so a tiny k keeps the bounds near the raw spans while still routing
@@ -2257,6 +2307,7 @@ inline int run_sdf_tests() {
 
   test_union_merges_overlapping_intervals();
   test_union_seam_straddle_merges_overlapping_intervals();
+  test_nested_union_emits_every_child_arc();
   test_smooth_union_seam_straddle_merges_padded_intervals();
   test_smooth_union_pad_widens_toward_pole();
 

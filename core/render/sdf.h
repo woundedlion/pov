@@ -91,19 +91,75 @@ template <typename Buf> inline Buf &scratch_spans(ScratchScope &scratch) {
 }
 
 // Forward-declared so the span-count trait below can pattern-match the binary
-// CSG ops (defined later in this header) before their full definitions.
+// CSG ops and the leaves (all defined later in this header) before their full
+// definitions.
 template <typename A, typename B> struct Union;
 template <typename A, typename B> struct SmoothUnion;
 template <typename A, typename B> struct Subtract;
 template <typename A, typename B> struct Intersection;
+struct Ring;
+struct DistortedRing;
+struct FlatDistortedRing;
+struct Face;
+struct PlanarPolygon;
+struct SphericalPolygon;
+struct Star;
+struct Flower;
+struct Line;
+template <typename Shape> struct AngularRepeat;
 
 /** Compile-time upper bound on the scanline spans a shape may emit to its
- * parent in one row. A leaf is capped at INTERVAL_SPAN_CAP; Union/SmoothUnion
- * merge both children into one MergedIntervalBuffer, so their bound is the SUM
- * of the children's, static_asserted against the buffer capacity to reject an
+ * parent in one row. An unrecognized shape falls back to INTERVAL_SPAN_CAP, the
+ * runtime buffer capacity; the leaves below are pinned to what their
+ * get_horizontal_intervals can actually emit. Union/SmoothUnion merge both
+ * children into one MergedIntervalBuffer, so their bound is the SUM of the
+ * children's, static_asserted against the buffer capacity to reject an
  *  overflowing nesting at compile time. */
 template <typename T> struct sdf_max_spans {
   static constexpr size_t value = INTERVAL_SPAN_CAP;
+};
+
+// Per-leaf emissions: the number of out() calls one row can make. These bound
+// only how deeply the CSG combinators may nest -- every runtime buffer stays at
+// INTERVAL_SPAN_CAP (or its 2x / 2x+2 derivatives), so a leaf is free to be
+// re-sized here without touching storage.
+//
+// emit_annular_band: two arcs on a general row, collapsing to one when the band
+// touches the near or far pole.
+template <> struct sdf_max_spans<Ring> {
+  static constexpr size_t value = 2;
+};
+template <> struct sdf_max_spans<DistortedRing> {
+  static constexpr size_t value = 2;
+};
+template <> struct sdf_max_spans<FlatDistortedRing> {
+  static constexpr size_t value = 2;
+};
+template <> struct sdf_max_spans<Flower> {
+  static constexpr size_t value = 2;
+};
+// emit_cap_interval: a single bounding-cap arc, or a full-scan request.
+template <> struct sdf_max_spans<PlanarPolygon> {
+  static constexpr size_t value = 1;
+};
+template <> struct sdf_max_spans<SphericalPolygon> {
+  static constexpr size_t value = 1;
+};
+template <> struct sdf_max_spans<Star> {
+  static constexpr size_t value = 1;
+};
+template <> struct sdf_max_spans<Line> {
+  static constexpr size_t value = 1;
+};
+// Face replays its azimuth-coverage span, which always views
+// FaceScratchBuffer::intervals; tied to that array's size where it is defined.
+template <> struct sdf_max_spans<Face> {
+  static constexpr size_t value = 4;
+};
+// AngularRepeat's copies cover the full azimuth, so it always requests a full
+// scan and emits nothing.
+template <typename Shape> struct sdf_max_spans<AngularRepeat<Shape>> {
+  static constexpr size_t value = 0;
 };
 template <typename A, typename B> struct sdf_max_spans<Union<A, B>> {
   static constexpr size_t value =
@@ -2128,13 +2184,15 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
  */
 struct FaceScratchBuffer {
   static constexpr int MAX_VERTS = 64; /**< Maximum vertices per face. */
+  static constexpr size_t MAX_INTERVALS =
+      4; /**< Capacity of the azimuth coverage array. */
   std::array<Vector, MAX_VERTS + 1>
       poly_2d; /**< Projected 2D polygon (+1 entry to avoid modulo). */
   std::array<Vector, MAX_VERTS> edge_vectors; /**< Per-edge 2D vectors. */
   std::array<float, MAX_VERTS>
       edge_lengths_sq;                  /**< Per-edge squared lengths. */
   std::array<Vector, MAX_VERTS> planes; /**< Per-edge great-circle normals. */
-  std::array<std::pair<float, float>, 4>
+  std::array<std::pair<float, float>, MAX_INTERVALS>
       intervals;                       /**< Azimuth coverage intervals. */
   std::array<float, MAX_VERTS> thetas; /**< Per-vertex azimuth angles. */
   std::array<float, MAX_VERTS>
@@ -2169,6 +2227,10 @@ struct FaceScratchBuffer {
   std::array<uint32_t, MAX_VERTS + 1>
       sector_keys; /**< pseudo_angles as order-preserving integer keys. */
 };
+
+static_assert(sdf_max_spans<Face>::value >= FaceScratchBuffer::MAX_INTERVALS,
+              "Face's span bound must cover the scratch interval array it "
+              "replays");
 
 /**
  * @brief Order-preserving unsigned key for a non-NaN float: key(a) <= key(b)
