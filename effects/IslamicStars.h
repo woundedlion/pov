@@ -397,13 +397,12 @@ private:
       HS_PROFILE(is_mesh_scan);
       if constexpr (PER_FACE) {
         FacePaletteShader fragment_shader;
-        fragment_shader.divide_by_scale = true;
         auto select_face = [&](size_t fi, float size) {
           HS_CHECK(fi < face_phases.size(),
                    "IslamicStars: sprite shading face mismatch");
           fragment_shader.palette = face_palettes[fi];
           fragment_shader.alpha = seg.opacity(face_phases[fi]);
-          fragment_shader.scale = size;
+          fragment_shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
         };
         Scan::Mesh::draw_specialized<W, H>(filters, canvas, transformed_state,
                                            fragment_shader, scratch_arena_a,
