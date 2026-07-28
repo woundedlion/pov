@@ -220,17 +220,6 @@ public:
   }
 
   /**
-   * @brief Total DMA frames dropped on overrun since boot.
-   *
-   * The flywheel ISR drops a frame (rather than blocking) when a prior DMA
-   * transfer is still in flight, so a nonzero — and
-   * especially a rising — value means the per-column ISR/transfer budget is
-   * being exceeded.
-   * @return Cumulative count of DMA frames dropped on overrun since boot.
-   */
-  uint32_t overrun_count() const { return ledController_.getOverrunCount(); }
-
-  /**
    * @brief Runs the synchronized show forever (spec §6).
    *
    * The playlist is epoch-counted, not millis()-gated: the master counts
