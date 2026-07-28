@@ -180,8 +180,8 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
  * @param b Scratch arena for odd pipeline stages.
  * @return The rebuilt PolyMesh.
  */
-FLASHMEM static PolyMesh build_recipe(const Recipe &recipe, Arena &a,
-                                      Arena &b) {
+[[maybe_unused]] FLASHMEM static PolyMesh build_recipe(const Recipe &recipe,
+                                                       Arena &a, Arena &b) {
   HS_CHECK(recipe.seed < std::size(simple_registry),
            "build_recipe: seed outside simple_registry");
   SolidBuilder builder(simple_registry[recipe.seed].generate(a, b), a, b);
