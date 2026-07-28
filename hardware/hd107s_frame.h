@@ -85,14 +85,14 @@ public:
    *          start/end frames stay zero.
    */
   HD107SFrame() {
-    memset(buffer_, 0, COMPOSITE_SIZE);
+    memset(buffer, 0, COMPOSITE_SIZE);
     // Prime the 0xFF brightness byte of every pixel slot in the image frame
     // (base 4) and the trailing black frame (base BUFFER_SIZE+4). packPixel()
     // never rewrites it, so this is its sole writer.
     const int bases[2] = {4, BUFFER_SIZE + 4};
     for (int base : bases) {
       for (int i = 0; i < N; ++i) {
-        buffer_[base + i * 4] = 0xFF;
+        buffer[base + i * 4] = 0xFF;
       }
     }
   }
@@ -109,17 +109,17 @@ public:
    *          16-bit input domain.
    */
   HS_O3_FN inline void correct(uint32_t &r, uint32_t &g, uint32_t &b) const {
-    r = (r * corrR_) >> 8;
-    g = (g * corrG_) >> 8;
-    b = (b * corrB_) >> 8;
+    r = (r * corrR) >> 8;
+    g = (g * corrG) >> 8;
+    b = (b * corrB) >> 8;
 
-    r = (r * tempR_) >> 8;
-    g = (g * tempG_) >> 8;
-    b = (b * tempB_) >> 8;
+    r = (r * tempR) >> 8;
+    g = (g * tempG) >> 8;
+    b = (b * tempB) >> 8;
 
-    r = (r * brightness_) >> 8;
-    g = (g * brightness_) >> 8;
-    b = (b * brightness_) >> 8;
+    r = (r * brightness_gain) >> 8;
+    g = (g * brightness_gain) >> 8;
+    b = (b * brightness_gain) >> 8;
   }
 
   /**
@@ -139,7 +139,7 @@ public:
    */
   HS_O3_FN inline void packPixel(int index, const Pixel16 &p) {
     assert(index >= 0 && index < N);
-    uint8_t *dest = buffer_ + 4 + index * 4;
+    uint8_t *dest = buffer + 4 + index * 4;
 
     uint32_t r = p.r;
     uint32_t g = p.g;
@@ -159,13 +159,13 @@ public:
    *          arm_dcache_flush (clean, no invalidate): the buffer is TX-only, so
    *          the lines need write-back, not eviction.
    */
-  void flush() { arm_dcache_flush(buffer_, COMPOSITE_SIZE); }
+  void flush() { arm_dcache_flush(buffer, COMPOSITE_SIZE); }
 
   /**
    * @brief Returns a pointer to the start of the composite DMA buffer.
    * @return Read-only pointer to the first byte of the composite buffer.
    */
-  const uint8_t *data() const { return buffer_; }
+  const uint8_t *data() const { return buffer; }
   /**
    * @brief Returns the size of a single image frame in bytes.
    * @return Image-frame size in bytes (excludes the trailing black frame).
@@ -186,9 +186,9 @@ public:
    * @param b Blue temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
    */
   static void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
-    tempR_ = factor(r);
-    tempG_ = factor(g);
-    tempB_ = factor(b);
+    tempR = factor(r);
+    tempG = factor(g);
+    tempB = factor(b);
   }
 
   /**
@@ -198,9 +198,9 @@ public:
    * @param b Blue correction factor, 8-bit scale (255 = ×1.0, 0 = off).
    */
   static void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
-    corrR_ = factor(r);
-    corrG_ = factor(g);
-    corrB_ = factor(b);
+    corrR = factor(r);
+    corrG = factor(g);
+    corrB = factor(b);
   }
 
   /**
@@ -208,11 +208,11 @@ public:
    * @param brightness Brightness factor, 8-bit scale (255 = full, 0 = off).
    */
   static void setBrightness(uint8_t brightness) {
-    brightness_ = factor(brightness);
+    brightness_gain = factor(brightness);
   }
 
 private:
-  uint8_t buffer_[COMPOSITE_SIZE] __attribute__((aligned(32)));
+  uint8_t buffer[COMPOSITE_SIZE] __attribute__((aligned(32)));
 
   /**
    * @brief Converts a public 8-bit scale factor into the internal multiplier
@@ -232,16 +232,16 @@ private:
       "cannot grow v past 16 bits and overflow linear_to_srgb8's input");
 
   // Shared correction state — internal multipliers (256 = ×1.0, 0 = off).
-  static uint16_t tempR_, tempG_, tempB_;
-  static uint16_t corrR_, corrG_, corrB_;
-  static uint16_t brightness_;
+  static uint16_t tempR, tempG, tempB;
+  static uint16_t corrR, corrG, corrB;
+  static uint16_t brightness_gain;
 };
 
 // Static member definitions (256 = unity; see factor()).
-template <int N> uint16_t HD107SFrame<N>::tempR_ = 256;
-template <int N> uint16_t HD107SFrame<N>::tempG_ = 256;
-template <int N> uint16_t HD107SFrame<N>::tempB_ = 256;
-template <int N> uint16_t HD107SFrame<N>::corrR_ = 256;
-template <int N> uint16_t HD107SFrame<N>::corrG_ = 256;
-template <int N> uint16_t HD107SFrame<N>::corrB_ = 256;
-template <int N> uint16_t HD107SFrame<N>::brightness_ = 256;
+template <int N> uint16_t HD107SFrame<N>::tempR = 256;
+template <int N> uint16_t HD107SFrame<N>::tempG = 256;
+template <int N> uint16_t HD107SFrame<N>::tempB = 256;
+template <int N> uint16_t HD107SFrame<N>::corrR = 256;
+template <int N> uint16_t HD107SFrame<N>::corrG = 256;
+template <int N> uint16_t HD107SFrame<N>::corrB = 256;
+template <int N> uint16_t HD107SFrame<N>::brightness_gain = 256;
