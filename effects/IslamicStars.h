@@ -42,7 +42,10 @@ public:
    * @brief Constructs the effect, binding the ripple generator to the timeline.
    */
   HS_COLD_MEMBER IslamicStars()
-      : Effect(W, H, {.strobe = true}), filters(), ripple_gen(timeline) {}
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
+        filters(), ripple_gen(timeline) {}
 
   /**
    * @brief Bakes palettes, registers the UI sliders, and seeds the timeline
