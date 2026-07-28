@@ -1048,8 +1048,9 @@ inline void test_mesh_dissolve_masks_partition_edges() {
   const float phases[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
   for (uint32_t frame = 0; frame < 3; ++frame) {
     for (float p : phases) {
-      auto in_set = drawn_set(dissolve.mask(p, frame, true));
-      auto out_set = drawn_set(dissolve.mask(p, frame, false));
+      const auto masks = dissolve.mask_pair(p, frame);
+      auto in_set = drawn_set(masks.incoming);
+      auto out_set = drawn_set(masks.outgoing);
       size_t in_count = 0;
       for (size_t e = 0; e < num_edges; ++e) {
         HS_EXPECT_TRUE(in_set[e] != out_set[e]);

@@ -1523,12 +1523,11 @@ inline void test_dissolve_segue_masks_partition_the_canvas() {
   constexpr int W = 64, H = 32;
   Segue::Dissolve dissolve;
   for (float phase : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
-    PixelMask in = dissolve.mask(phase, 7u, true);
-    PixelMask out = dissolve.mask(phase, 7u, false);
+    auto masks = dissolve.mask_pair(phase, 7u);
     int owned_in = 0;
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
-        bool a = in.owns(x, y), b = out.owns(x, y);
+        bool a = masks.incoming.owns(x, y), b = masks.outgoing.owns(x, y);
         HS_EXPECT_TRUE(a != b);
         owned_in += a ? 1 : 0;
       }
@@ -1545,14 +1544,18 @@ inline void test_dissolve_segue_masks_partition_the_canvas() {
  */
 inline void test_dissolve_segue_reseeds_per_frame_and_transition() {
   Segue::Dissolve dissolve;
-  PixelMask f0 = dissolve.mask(0.5f, 0u, true);
-  PixelMask f1 = dissolve.mask(0.5f, 1u, true);
-  HS_EXPECT_NE(f0.salt, f1.salt);
-  HS_EXPECT_EQ(f0.threshold, f1.threshold);
+  auto f0 = dissolve.mask_pair(0.5f, 0u);
+  auto f1 = dissolve.mask_pair(0.5f, 1u);
+  HS_EXPECT_NE(f0.incoming.salt, f1.incoming.salt);
+  HS_EXPECT_EQ(f0.incoming.threshold, f1.incoming.threshold);
+  // Both halves of a pair share the salt and threshold that make them partition.
+  HS_EXPECT_EQ(f0.incoming.salt, f0.outgoing.salt);
+  HS_EXPECT_EQ(f0.incoming.threshold, f0.outgoing.threshold);
+  HS_EXPECT_TRUE(f0.incoming.invert != f0.outgoing.invert);
 
-  uint32_t before = dissolve.mask(0.5f, 0u, true).salt;
+  uint32_t before = dissolve.mask_pair(0.5f, 0u).incoming.salt;
   dissolve.retarget(Vector(0, 1, 0));
-  HS_EXPECT_NE(dissolve.mask(0.5f, 0u, true).salt, before);
+  HS_EXPECT_NE(dissolve.mask_pair(0.5f, 0u).incoming.salt, before);
 }
 
 /**
