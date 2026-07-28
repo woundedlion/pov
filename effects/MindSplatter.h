@@ -75,7 +75,7 @@ public:
         true);
     timeline.add(0, preset_timer);
 
-    rebuild();
+    build_particle_system();
     baked_palette.bake(persistent_arena, base_palette);
     schedule_warp();
   }
@@ -333,12 +333,13 @@ private:
   Params params;
 
   /**
-   * @brief (Re)builds the particle system from scratch.
+   * @brief Builds the particle system.
    * @details Inits the pool, places attractors on the octahedron vertices,
    *          seeds emitter hues/phases, and installs an emitter at each cube
-   *          vertex.
+   *          vertex. Single-shot: the arena has no per-allocation free, so
+   *          ParticleSystem::init traps on a second call.
    */
-  HS_COLD_MEMBER void rebuild() {
+  HS_COLD_MEMBER void build_particle_system() {
     particle_system.init(persistent_arena, params.friction, 0.001f, 160.0f);
 
     for (const auto &v : AttractSolid::vertices) {
