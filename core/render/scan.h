@@ -31,6 +31,9 @@
  */
 namespace Scan {
 
+/** @brief Coverage/alpha at or below which a fragment is dropped unplotted. */
+static constexpr float MIN_ALPHA = 0.001f;
+
 /**
  * @brief Processes a single pixel for rasterization: evaluates the shape SDF,
  *        computes anti-aliased coverage, runs the fragment shader, and plots.
@@ -91,7 +94,7 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       }
     }
 
-    if (!debug_bb && alpha <= 0.001f)
+    if (!debug_bb && alpha <= MIN_ALPHA)
       return;
 
     // Scratch Fragment is reused across pixels; reset color each call so a
@@ -115,7 +118,7 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       alpha = 1.0f;
     }
 
-    if (frag_scratch.color.alpha > 0.001f) {
+    if (frag_scratch.color.alpha > MIN_ALPHA) {
       pipeline.plot(canvas, x, y, frag_scratch.color.color, frag_scratch.age,
                     frag_scratch.color.alpha * alpha);
     }
@@ -664,7 +667,7 @@ struct DistortedRingStack {
           // process_pixel's stroke epilogue with a slot-aware shader.
           const float aa = res.size;
           const float alpha = aa > 0.0f ? quintic_kernel(-dd / aa) : 0.0f;
-          if (alpha <= 0.001f)
+          if (alpha <= MIN_ALPHA)
             continue;
           frag.color = Color4(0, 0, 0, 0);
           frag.pos = p;
@@ -675,7 +678,7 @@ struct DistortedRingStack {
           frag.size = res.size;
           frag.age = 0;
           shader(s, p, frag);
-          if (frag.color.alpha > 0.001f)
+          if (frag.color.alpha > MIN_ALPHA)
             pipeline.plot(canvas, x, y, frag.color.color, frag.age,
                           frag.color.alpha * alpha);
         }
@@ -904,7 +907,7 @@ struct RingGroup {
         for (int i = 0; i < n_active; ++i) {
           const int s = active[i];
           const float alpha = shapes[s].stroke_alpha(dot(p, shapes[s].normal));
-          if (alpha <= 0.001f)
+          if (alpha <= MIN_ALPHA)
             continue;
           frag.color = Color4(0, 0, 0, 0);
           frag.pos = p;
@@ -912,7 +915,7 @@ struct RingGroup {
           frag.size = shapes[s].thickness;
           frag.age = 0;
           shader(s, p, frag);
-          if (frag.color.alpha > 0.001f)
+          if (frag.color.alpha > MIN_ALPHA)
             pipeline.plot(canvas, x, y, frag.color.color, frag.age,
                           frag.color.alpha * alpha);
         }
@@ -1304,7 +1307,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           float t_aa = 0.5f - d / (2.0f * pixel_width);
           alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
         }
-        if (alpha <= 0.001f)
+        if (alpha <= MIN_ALPHA)
           continue;
         int gap = W;
         bool in_run = false;
@@ -1369,7 +1372,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
         }
         HS_PROBE_SPAN(alpha, hs_ta);
-        if (alpha <= 0.001f)
+        if (alpha <= MIN_ALPHA)
           continue;
         HS_PROFILE_DEEP(raster_shade);
         if constexpr (MinimalFragment) {
@@ -1385,7 +1388,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           frag.age = 0;
         }
         fragment_shader(p, frag);
-        if (frag.color.alpha > 0.001f) {
+        if (frag.color.alpha > MIN_ALPHA) {
           if constexpr (requires {
                           pipeline.plot_in_bounds(canvas, x, y,
                                                   frag.color.color, frag.age,
@@ -2265,7 +2268,7 @@ struct Volume {
                 pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
                               bg.color.alpha);
               }
-              if (frag.color.alpha > 0.001f) {
+              if (frag.color.alpha > MIN_ALPHA) {
                 HS_PROFILE_DEEP(vol_plot);
                 pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
                               frag.color.alpha * edge_alpha);
@@ -2275,7 +2278,7 @@ struct Volume {
             // No solid behind; a grazed background edge fills the corner,
             // shaded at its own point so the fill carries the background's
             // color, then the foreground blends over it.
-            if (occ.soft > 0.001f) {
+            if (occ.soft > MIN_ALPHA) {
               Fragment bg;
               bg.pos = occ.behind;
               bg.size = 0.0f;
@@ -2289,7 +2292,7 @@ struct Volume {
             }
           }
 
-          if (frag.color.alpha * edge_alpha > 0.001f) {
+          if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
             HS_PROFILE_DEEP(vol_plot);
             pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
                           frag.color.alpha * edge_alpha);
