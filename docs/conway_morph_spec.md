@@ -546,14 +546,16 @@ claim is gated, not assumed:
     dodecahedron: the (±1,±1,±1) vertex subset, 5 valid choices); the landed
     jitterbug bridge (§3) already provides a direct crossing without either.
 - **Hankin on Catalan solids is per-solid, not a blanket no** (measured
-  2026-07-16, all 13 × 33 angles: zero traps, zero far-star-guard fallbacks,
-  all vertices unit). Star-point chord ratio (cube control 1.52, dodecahedron
-  1.77): **rhombicDodecahedron 1.65 and rhombicTriacontahedron 1.80 are
-  clean** and render as coherent interlaces across the full sweep. The kis
-  family (1.5–3.2, non-monotonic) and the deltoidal/disdyakis/pentagonal
-  snub-duals (peak **5.08**, within 1.2× of the `STAR_FAR_RATIO_SQ = 36`
-  cliff) near-resonate mid-sweep *under* the guard — they render as sliver
-  hairlines and star-face overlap. Mixed vertex degree is harmless; kis/
-  snub-dual corner geometry is the discriminator.
+  2026-07-16, all 13 × 33 angles: zero traps, all vertices unit; the
+  zero-fallback count was taken against a hard far-star cliff and has not been
+  re-measured against the current blended, `plane_cross_sq`-gated fallback).
+  Star-point chord ratio (cube control 1.52, dodecahedron 1.77):
+  **rhombicDodecahedron 1.65 and rhombicTriacontahedron 1.80 are clean** and
+  render as coherent interlaces across the full sweep. The kis family
+  (1.5–3.2, non-monotonic) and the deltoidal/disdyakis/pentagonal snub-duals
+  (peak **5.08**, well past the `STAR_FAR_RATIO_SQ` chord of 2.0 at which the
+  fallback fully replaces the intersection) near-resonate mid-sweep — they
+  render as sliver hairlines and star-face overlap. Mixed vertex degree is
+  harmless; kis/snub-dual corner geometry is the discriminator.
 - **Islamic registry**: chains end in hankin/multi-op stacks and would need
   per-frame hankin recompiles — explicitly rejected here.

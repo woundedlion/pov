@@ -1371,8 +1371,8 @@ enum class HankinBranch : uint8_t {
 struct HankinSolve {
   Vector pos;
   HankinBranch branch;
-  /** dist^2(star, corner) / max(dist^2(m, corner)); the STAR_FAR_RATIO_SQ
-   * guard fires above 36. Zero on the non-intersect branches. */
+  /** dist^2(star, corner) / max(dist^2(m, corner)); this mirror takes the
+   * fallback above STAR_FAR_RATIO_SQ. Zero on the non-intersect branches. */
   float far_ratio = 0;
 };
 
@@ -1483,7 +1483,7 @@ struct HankinStepStats {
       0;              /**< Non-degenerate faces whose Newell normal reversed. */
   int flat_faces = 0; /**< Faces below HANKIN_FLAT_FACE this step. */
   float max_far_ratio =
-      0; /**< Largest far_ratio this step (guard fires at 36). */
+      0; /**< Largest far_ratio this step. */
   float max_corner_chord = 0; /**< Largest chord(star point, its corner). */
 };
 
