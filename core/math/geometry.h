@@ -415,19 +415,21 @@ template <int W, int H> float equirect_x_scale(int y) {
  * @brief Reflects a sample tap that ran past a pole back onto the sphere.
  * @tparam W Width (column count).
  * @tparam H Logical height (rows the buffer actually holds).
+ * @tparam HOffset Virtual rows below the rendered domain.
  * @param col In/out column, in [0, W) on entry; shifted half a turn when the
  *   tap crosses a pole.
  * @param row In/out row; mirrored about the crossed pole.
  * @return False when nothing lies behind the tap: past the north pole by more
- *   than the buffer, or inside the virtual sub-pole gap when hs::H_OFFSET > 0.
+ *   than the buffer, or inside the virtual sub-pole gap when HOffset > 0.
  *   `col` and `row` are then unspecified.
  * @details The north pole sits exactly at row 0, the south pole at virtual row
- * H + hs::H_OFFSET - 1.
+ * H + HOffset - 1.
  */
-template <int W, int H> HS_O3_FN bool pole_wrap(int &col, int &row) {
+template <int W, int H, int HOffset = hs::H_OFFSET>
+HS_O3_FN bool pole_wrap(int &col, int &row) {
   if (row >= 0 && row < H)
     return true;
-  constexpr int SOUTH = H + hs::H_OFFSET - 1;
+  constexpr int SOUTH = H + HOffset - 1;
   row = (row < 0) ? -row : 2 * SOUTH - row;
   if (row < 0 || row >= H)
     return false;

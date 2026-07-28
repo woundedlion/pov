@@ -167,7 +167,9 @@ public:
   }
 
   /** @brief Reflects one lattice coordinate across spherical seams and poles. */
-  static bool wrap_sample(int &x, int &y) { return ::pole_wrap<W, H>(x, y); }
+  static bool wrap_sample(int &x, int &y) {
+    return ::pole_wrap<W, H, HOffset>(x, y);
+  }
 
   /**
    * @brief Bilinearly samples a dense equirectangular field across seams and
@@ -398,7 +400,7 @@ public:
   void populate(int ring_begin, int ring_end, Populate &&populate_sample) {
     for (int ring_index = ring_begin; ring_index <= ring_end; ++ring_index) {
       const Ring ring = layout.ring(ring_index);
-      const Vector meridian = pixel_to_vector<W, H>(0, ring.y);
+      const Vector meridian = layout.sample_vector(ring, 0);
       const float theta_step = 2.0f * PI_F / ring.samples;
       const float step_cos = cosf(theta_step);
       const float step_sin = sinf(theta_step);
