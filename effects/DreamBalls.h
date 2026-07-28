@@ -136,6 +136,28 @@ private:
 
   std::array<PresetData, 4> loaded_presets;
 
+  /**
+   * @brief One preset's baked geometry element counts.
+   */
+  struct GeometryCounts {
+    size_t vertices;   /**< Vertex count. */
+    size_t face_slots; /**< Flattened face-index slots, i.e. 2*E. */
+    size_t faces;      /**< Face count. */
+  };
+  /** Counts of the four Archimedean solids named in the preset table, in that
+      table's order; setup_presets() re-checks every bake against them. */
+  static constexpr std::array<GeometryCounts, 4> PRESET_GEOMETRY = {
+      {{24, 96, 26}, {60, 240, 62}, {48, 144, 26}, {30, 120, 32}}};
+  static constexpr size_t PRESET_VERTICES =
+      PRESET_GEOMETRY[0].vertices + PRESET_GEOMETRY[1].vertices +
+      PRESET_GEOMETRY[2].vertices + PRESET_GEOMETRY[3].vertices;
+  static constexpr size_t PRESET_FACE_SLOTS =
+      PRESET_GEOMETRY[0].face_slots + PRESET_GEOMETRY[1].face_slots +
+      PRESET_GEOMETRY[2].face_slots + PRESET_GEOMETRY[3].face_slots;
+  static constexpr size_t PRESET_FACES =
+      PRESET_GEOMETRY[0].faces + PRESET_GEOMETRY[1].faces +
+      PRESET_GEOMETRY[2].faces + PRESET_GEOMETRY[3].faces;
+
   FastNoiseLite noise;
   Timeline timeline;
 
@@ -160,10 +182,14 @@ private:
                 "DreamBalls ping-pong needs at most two overlapping sprites");
 
   BakedPalette baked_palettes_[2];
-  // Two ping-ponged palette LUTs live in the persistent arena; the preset mesh
-  // geometry is runtime-bounded and not counted here.
+  // Persistent allocations: two ping-ponged palette LUTs plus every preset's
+  // baked vertices, faces, face counts, tangent frames, and unique edge list.
+  // All four presets are baked at init and live for the effect's whole life.
   static constexpr size_t FOOTPRINT_BYTES =
-      2 * BakedPalette::LUT_SIZE * sizeof(Color4);
+      2 * BakedPalette::LUT_SIZE * sizeof(Color4) +
+      PRESET_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
+      PRESET_FACE_SLOTS * sizeof(uint16_t) + PRESET_FACES * sizeof(uint8_t) +
+      (PRESET_FACE_SLOTS / 2) * sizeof(Plot::Mesh::Edge);
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "DreamBalls persistent footprint exceeds the default partition");
@@ -256,6 +282,18 @@ private:
         HS_CHECK(data.edges.size() == edge_count,
                  "DreamBalls edge extraction over/under-filled the edge bind");
       });
+
+      // Pins the footprint table to what the generators actually produced.
+      const GeometryCounts &counts = PRESET_GEOMETRY[preset_idx];
+      HS_CHECK(data.mesh_state.vertices.size() == counts.vertices &&
+                   data.mesh_state.faces.size() == counts.face_slots &&
+                   data.mesh_state.face_counts.size() == counts.faces,
+               "DreamBalls preset %d baked %d/%d/%d verts/face-slots/faces, "
+               "footprint table says %d/%d/%d",
+               preset_idx, (int)data.mesh_state.vertices.size(),
+               (int)data.mesh_state.faces.size(),
+               (int)data.mesh_state.face_counts.size(), (int)counts.vertices,
+               (int)counts.face_slots, (int)counts.faces);
 
       preset_idx++;
     }
