@@ -123,7 +123,7 @@ public:
       Complex z = project(v);
       float r_sq = z.re * z.re + z.im * z.im;
       auto [w, displacement] = warp(z, r_sq, noise_time);
-      float pattern = sample(w, sin_phase, drift_phase);
+      float pattern = sample(w);
       float value = pole_normalize_pattern(pattern, r_sq, params.pole_fade);
       Color4 c = palette.get(value);
       c.alpha *= (1.0f - value);
@@ -167,11 +167,9 @@ private:
   /**
    * @brief Samples the Cartesian grid pattern from warped coordinates.
    * @param w Warped stereographic coordinate.
-   * @param sin_phase Wrapped +t term in [0, 2pi) (see draw_frame).
-   * @param drift_phase Wrapped drift*t term in [0, 2pi) (see draw_frame).
    * @return Product of two sinusoids in [-1, 1] forming the grid pattern.
    */
-  float sample(const Complex &w, float sin_phase, float drift_phase) const {
+  float sample(const Complex &w) const {
     // Near the pole |w| -> STEREO_INF, so w*pattern_freq can reach ~2e5 where
     // fast_sinf range reduction bands; clamp the (pole-attenuated) argument.
     float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
