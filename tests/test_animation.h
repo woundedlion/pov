@@ -2159,41 +2159,11 @@ inline void build_octahedron(PolyMesh &mesh, Arena &arena) {
 // ============================================================================
 // MeshCarousel arena compaction
 // ----------------------------------------------------------------------------
-// compact() and compact_keep_front() evacuate slots to a scratch arena, reset
-// the persistent arena, and restore on scope exit; compact() keeps both slots,
-// compact_keep_front() drops the back slot and runs after_reset before the
-// front restore. compact_drop_all() evacuates nothing: both slots are freed
-// and after_reset sees the empty arena.
+// compact_keep_front() evacuates the front slot to a scratch arena, resets the
+// persistent arena, and restores on scope exit; it drops the back slot and runs
+// after_reset before the front restore. compact_drop_all() evacuates nothing:
+// both slots are freed and after_reset sees the empty arena.
 // ============================================================================
-
-/**
- * @brief Verifies compact() evacuates and restores BOTH slots across the
- * persistent-arena reset, preserving each slot's geometry.
- */
-inline void test_meshcarousel_compact_retains_both_slots() {
-  persistent_arena.reset();
-  static uint8_t polybuf[1 << 14];
-  Arena polyarena(polybuf, sizeof(polybuf));
-  PolyMesh poly;
-  build_octahedron(poly, polyarena);
-
-  MeshCarousel<Segue::Crossfade> carousel;
-  MeshOps::compile(poly, carousel.slot(0), persistent_arena, scratch_arena_a);
-  MeshOps::compile(poly, carousel.slot(1), persistent_arena, scratch_arena_a);
-  const size_t v0 = carousel.slot(0).vertices.size();
-  const size_t v1 = carousel.slot(1).vertices.size();
-  HS_EXPECT_EQ(v0, static_cast<size_t>(6));
-  HS_EXPECT_EQ(v1, static_cast<size_t>(6));
-
-  carousel.compact();
-
-  HS_EXPECT_TRUE(carousel.slot(0).is_bound());
-  HS_EXPECT_TRUE(carousel.slot(1).is_bound());
-  HS_EXPECT_EQ(carousel.slot(0).vertices.size(), v0);
-  HS_EXPECT_EQ(carousel.slot(1).vertices.size(), v1);
-  HS_EXPECT_VEC(carousel.slot(0).vertices[0], Vector(1, 0, 0), 1e-5f);
-  HS_EXPECT_VEC(carousel.slot(1).vertices[0], Vector(1, 0, 0), 1e-5f);
-}
 
 /**
  * @brief Verifies compact_keep_front() drops the back slot, restores the front,
@@ -2817,7 +2787,6 @@ inline int run_animation_tests() {
   test_tween_vectortrail_single_sample_reaches_one();
   test_quantized_vector_trail_roundtrip_and_ring();
 
-  test_meshcarousel_compact_retains_both_slots();
   test_meshcarousel_compact_keep_front_drops_back();
   test_meshcarousel_compact_drop_all_frees_both_slots();
 
