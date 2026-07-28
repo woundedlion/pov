@@ -265,7 +265,7 @@ struct PixelMask {
 class PipelineRef {
   void *ctx_;
   void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float);
-  void (*plot2d_int)(void *, Canvas &, int, int, const Pixel &, float, float);
+  void (*plot2d_int_)(void *, Canvas &, int, int, const Pixel &, float, float);
   void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float,
                   float);
   bool (*cull_)(void *, const Vector &, const Vector &, const Basis *,
@@ -288,8 +288,8 @@ public:
                  float age, float alpha) {
       static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha);
     };
-    plot2d_int = [](void *ctx, Canvas &cv, int x, int y, const Pixel &c,
-                    float age, float alpha) {
+    plot2d_int_ = [](void *ctx, Canvas &cv, int x, int y, const Pixel &c,
+                     float age, float alpha) {
       static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha);
     };
     plot3d_ = [](void *ctx, Canvas &cv, const Vector &v, const Pixel &c,
@@ -345,7 +345,7 @@ public:
    */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age,
             float alpha) const {
-    plot2d_int(ctx_, cv, x, y, c, age, alpha);
+    plot2d_int_(ctx_, cv, x, y, c, age, alpha);
   }
   /**
    * @brief Plots a pixel at a 3D world-space position.
