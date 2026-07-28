@@ -1117,10 +1117,12 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   ScratchScope sc_guard(scratch_arena_a);
   ArenaVector<float> steps_cache;
   // The cache holds ONE segment's adaptive sub-steps (cleared per segment). Each
-  // step advances ≈ one screen pixel, so a single segment needs ≲ W steps (the
-  // step·≥MIN_POLE_SCALE lower clamp caps the per-segment count at the poles).
-  // Size off W with 2× headroom; the simulation loop breaks at capacity as a
-  // backstop.
+  // step advances either base_step = 2π/W of arc or ≈SCREEN_STEP_PX on screen,
+  // so both canvas axes bound the count: a geodesic segment sweeps ≤ W/2 columns
+  // and ≤ H_VIRT rows, giving ≤ W/2 + (W/2 + H_VIRT)/SCREEN_STEP_PX steps. The
+  // 2·W sizing covers that while H_VIRT ≤ W·(1.5·SCREEN_STEP_PX − 0.5) ≈ 0.85·W;
+  // this canvas runs H ≈ W/2. A planar chart line can bow past a half turn, so
+  // the simulation loop breaks at capacity as a backstop.
   size_t max_cache = rasterize_scratch_a_bytes<W>() / sizeof(float);
   steps_cache.bind(scratch_arena_a, max_cache);
 
