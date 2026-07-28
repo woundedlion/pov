@@ -32,6 +32,9 @@ static constexpr float INV_PHI = 1 / PHI;
  *   TOLERANCE      — generic float compare (1e-4f)
  *   EPS_GEOMETRIC  — geometric near-equality (positions, angles) (1e-5f)
  *   EPS_LEN_SQ     — degenerate squared edge length (1e-6f)
+ *   EPS_POLE_SIN   — sin(phi) below which a row is a pole; the compare is
+ *                    signed, so it swallows sinf(PI_F)'s ~ -8.7e-8 residue
+ *                    (1e-6f)
  *   EPS_CROSS_SQ   — degenerate cross-product magnitude (squared) (1e-8f)
  *   EPS_NORMAL_SQ  — degenerate face normal (squared) (1e-9f)
  *   EPS_NORMALIZE_SQ — squared length below which normalize() has no reliable
@@ -43,6 +46,7 @@ namespace math {
 static constexpr float TOLERANCE = 1e-4f;
 static constexpr float EPS_GEOMETRIC = 1e-5f;
 static constexpr float EPS_LEN_SQ = 1e-6f;
+static constexpr float EPS_POLE_SIN = 1e-6f;
 static constexpr float EPS_CROSS_SQ = 1e-8f;
 static constexpr float EPS_NORMAL_SQ = 1e-9f;
 static constexpr float EPS_NORMALIZE_SQ = 1e-12f;

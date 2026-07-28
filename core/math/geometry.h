@@ -407,9 +407,8 @@ template <int W, int H> float equirect_x_scale(int y) {
   constexpr int H_VIRT = TrigLUT<W, H>::H_VIRT;
   static_assert(H_VIRT > 2, "equirect_x_scale needs a non-pole row to borrow");
   assert(y >= 0 && y < H_VIRT);
-  constexpr float POLE_SIN = 1e-6f;
   float sp = TrigLUT<W, H>::sin_phi[y];
-  if (sp < POLE_SIN)
+  if (sp < math::EPS_POLE_SIN)
     sp = TrigLUT<W, H>::sin_phi[(y == 0) ? 1 : H_VIRT - 2];
   return (W / (2.0f * PI_F)) / sp;
 }
