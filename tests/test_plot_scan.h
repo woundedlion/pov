@@ -407,7 +407,7 @@ inline void test_clip_x_band_topologies() {
 }
 
 // ============================================================================
-// Plot::edge_row_span — arc-aware clip cull
+// Plot::geodesic_row_span / Plot::planar_row_span — arc-aware clip cull
 // ============================================================================
 
 /**
@@ -428,14 +428,14 @@ inline Basis basis_from_normal(const Vector &n) {
 }
 
 /**
- * @brief Verifies Plot::edge_row_span conservatively covers the rendered arc's
+ * @brief Verifies the row-span helpers conservatively cover the rendered arc's
  *        screen-row extent, including the interior latitude bulge where the arc
  *        reaches rows beyond both endpoints.
  * @details Densely samples the true arc for both the geodesic and planar
  *          strategies, asserts the span contains it, and confirms the randomized
  *          sweep produces many genuine bulge cases so the check is not vacuous.
  */
-inline void test_edge_row_span_covers_arc_bulge() {
+inline void test_row_span_covers_arc_bulge() {
   constexpr int TW = 288, TH = 144;
   auto row_of = [](const Vector &v) {
     return vector_to_pixel<TW, TH>(v.normalized()).y;
@@ -515,7 +515,12 @@ inline void test_edge_row_span_covers_arc_bulge() {
     }
 
     float n_lo, n_hi;
-    Plot::edge_row_span<TW, TH>(a, b, pb, n_lo, n_hi);
+    if (pb != nullptr)
+      Plot::planar_row_span<TW, TH>(
+          a, b, Plot::make_planar_edge_span(a, b, *pb), n_lo, n_hi);
+    else
+      Plot::geodesic_row_span<TW, TH>(a, b, Plot::make_geodesic_edge_span(a, b),
+                                      n_lo, n_hi);
 
     // Span must conservatively contain the arc (sub-pixel tolerance for fast-math).
     HS_EXPECT_LE(n_lo, t_lo + 0.25f);
@@ -557,14 +562,15 @@ inline void test_edge_row_span_covers_arc_bulge() {
     }
 
     float n_lo, n_hi;
-    Plot::edge_row_span<TW, TH>(a, b, nullptr, n_lo, n_hi);
+    Plot::geodesic_row_span<TW, TH>(a, b, Plot::make_geodesic_edge_span(a, b),
+                                    n_lo, n_hi);
     HS_EXPECT_LE(n_lo, t_lo + 0.25f);
     HS_EXPECT_GE(n_hi, t_hi - 0.25f);
   }
 }
 
 // ============================================================================
-// ClipRegion::arcs_overlap + Plot::edge_col_span — column-arc clip cull
+// ClipRegion::arcs_overlap + the col-span helpers — column-arc clip cull
 // ============================================================================
 
 /**
@@ -595,8 +601,8 @@ inline void test_clip_arcs_overlap() {
 }
 
 /**
- * @brief Verifies Plot::edge_col_span conservatively covers the rendered arc's
- *        screen-column sweep and stays within the half-width sweep bound.
+ * @brief Verifies the col-span helpers conservatively cover the rendered arc's
+ *        screen-column sweep and stay within the half-width sweep bound.
  * @details Densely samples the renderer's own circle (same axis selection as
  *          rasterize_geodesic_strategy) and asserts modular containment of
  *          every sample column, plus the antipodal-symmetry bound: a geodesic
@@ -607,7 +613,7 @@ inline void test_clip_arcs_overlap() {
  *          Non-vacuity counters require many genuinely cullable spans and many
  *          near-half sweeps.
  */
-inline void test_edge_col_span_covers_arc() {
+inline void test_col_span_covers_arc() {
   constexpr int TW = 288;
   auto col_of = [](const Vector &v) {
     return vector_to_theta<TW>(v.normalized());
@@ -658,7 +664,8 @@ inline void test_edge_col_span_covers_arc() {
       continue;
 
     int s, len;
-    if (!Plot::edge_col_span<TW>(a, b, nullptr, s, len)) {
+    if (!Plot::geodesic_col_span<TW>(a, b, Plot::make_geodesic_edge_span(a, b),
+                                     s, len)) {
       fallbacks++; // meridian fallback skips the cull; nothing to verify
       continue;
     }
@@ -693,7 +700,8 @@ inline void test_edge_col_span_covers_arc() {
     Vector a = rand_unit();
     Vector b = a * -1.0f;
     int s, len;
-    if (!Plot::edge_col_span<TW>(a, b, nullptr, s, len))
+    if (!Plot::geodesic_col_span<TW>(a, b, Plot::make_geodesic_edge_span(a, b),
+                                     s, len))
       continue;
     Vector axis = Plot::stable_perpendicular_axis(a);
     Vector vperp = cross(axis, a);
@@ -726,7 +734,8 @@ inline void test_edge_col_span_covers_arc() {
       continue;
 
     int s, len;
-    if (!Plot::edge_col_span<TW>(a, b, &basis, s, len)) {
+    if (!Plot::planar_col_span<TW>(
+            a, basis, Plot::make_planar_edge_span(a, b, basis), s, len)) {
       planar_fallbacks++;
       continue;
     }
@@ -750,9 +759,9 @@ inline void test_edge_col_span_covers_arc() {
 }
 
 /**
- * @brief Pins edge_visible_in_clip's decision to the composed
- *        edge_row_span / edge_col_span cull: y-reject first, then the column
- *        arc, with either span's no-bound fallback reading as visible.
+ * @brief Pins edge_visible_in_clip's decision to the composed row-span /
+ *        col-span cull: y-reject first, then the column arc, with either span's
+ *        no-bound fallback reading as visible.
  * @details Clip bands cover the device quadrant shapes: seam-wrapping
  *          (margin pushes rs past the seam), interior non-wrapping, full-width
  *          x (XClip inactive), and the full canvas. The geodesic corpus
@@ -835,8 +844,9 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
 
       const bool got = Plot::edge_visible_in_clip<TW, TH>(
           sink, cr, xc, band_len, a, b, nullptr);
+      const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
       float row_lo, row_hi;
-      Plot::edge_row_span<TW, TH>(a, b, nullptr, row_lo, row_hi);
+      Plot::geodesic_row_span<TW, TH>(a, b, es, row_lo, row_hi);
       bool want;
       if (!cr.could_intersect_y(row_lo, row_hi)) {
         want = false;
@@ -844,7 +854,7 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
         want = true;
       } else {
         int col_s, col_len;
-        want = !Plot::edge_col_span<TW>(a, b, nullptr, col_s, col_len) ||
+        want = !Plot::geodesic_col_span<TW>(a, b, es, col_s, col_len) ||
                ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, TW);
       }
       HS_EXPECT_TRUE(got == want);
@@ -869,8 +879,9 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
 
       const bool got = Plot::edge_visible_in_clip<TW, TH>(
           sink, cr, xc, band_len, a, b, &basis);
+      const Plot::PlanarEdgeSpan ps = Plot::make_planar_edge_span(a, b, basis);
       float row_lo, row_hi;
-      Plot::edge_row_span<TW, TH>(a, b, &basis, row_lo, row_hi);
+      Plot::planar_row_span<TW, TH>(a, b, ps, row_lo, row_hi);
       bool want;
       if (!cr.could_intersect_y(row_lo, row_hi)) {
         want = false;
@@ -878,7 +889,7 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
         want = true;
       } else {
         int col_s, col_len;
-        want = !Plot::edge_col_span<TW>(a, b, &basis, col_s, col_len) ||
+        want = !Plot::planar_col_span<TW>(a, basis, ps, col_s, col_len) ||
                ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, TW);
       }
       HS_EXPECT_TRUE(got == want);
@@ -3908,9 +3919,9 @@ inline int run_plot_scan_tests() {
 
   test_clip_could_intersect_y();
   test_clip_x_band_topologies();
-  test_edge_row_span_covers_arc_bulge();
+  test_row_span_covers_arc_bulge();
   test_clip_arcs_overlap();
-  test_edge_col_span_covers_arc();
+  test_col_span_covers_arc();
   test_edge_visible_in_clip_matches_span_composition();
   test_rasterize_column_cull_pixel_parity();
   test_mesh_edge_gate_pixel_parity();
