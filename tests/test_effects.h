@@ -61,36 +61,14 @@ constexpr int DEVICE_W = 96;
 constexpr int DEVICE_H = 20;
 
 /**
- * @brief Default per-effect smoke frame count.
- * @details Kept small so the effects smoke pass itself stays quick. Frame count
- * is a minor lever here: the module's cost is dominated by full-resolution
- * software raster (~71 ms/frame at 288x144 x 27 effects), which the QUICK tier
- * skips entirely (see effects_full_suite()). Set
- * HS_SMOKE_FRAMES=<n> to drive long, cyclic code paths (effect morph cycles,
- * particle/trail wraps, arena compaction, and the effect-lifecycle transitions
- * — RingShower slot reuse, Thrusters fire/FIFO expiry, ShapeShifter's 48-frame
- * cut) that only surface over many frames. 8 frames never reaches those
- * windows, so CI sets HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to
- * exercise them on every push/PR while local commits keep the fast 8-frame
- * path.
+ * @brief Per-effect smoke frame count, resolved from HS_SMOKE_FRAMES.
+ * @details Shared with the arena/stack budget gates (tests/test_fixture.h), so
+ * they measure over the window this roster sweep renders. Frame count is a
+ * minor cost lever here: the module is dominated by full-resolution software
+ * raster (~71 ms/frame at 288x144 x 27 effects), which the QUICK tier skips
+ * entirely (see effects_full_suite()).
  */
-constexpr int DEFAULT_FRAMES = 8;
-
-/**
- * @brief Resolves the per-effect frame count from the environment.
- * @return HS_SMOKE_FRAMES if set to a positive int, else DEFAULT_FRAMES.
- */
-inline int smoke_frames() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  if (const char *e = std::getenv("HS_SMOKE_FRAMES")) {
-#pragma clang diagnostic pop
-    int n = std::atoi(e);
-    if (n > 0)
-      return n;
-  }
-  return DEFAULT_FRAMES;
-}
+using hs_test::smoke_frames;
 
 /**
  * @brief Selects the effects test depth tier from the environment.
