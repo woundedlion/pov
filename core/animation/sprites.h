@@ -63,12 +63,6 @@ public:
   }
 
   /**
-   * @brief Updates the drawing function used by the sprite.
-   * @param new_draw_fn The new per-frame drawing functor.
-   */
-  void rebind_draw(SpriteFn new_draw_fn) { draw_fn = std::move(new_draw_fn); }
-
-  /**
    * @brief Steps the animation, computes the current opacity inline, and calls
    * the draw function.
    * @param canvas The canvas buffer passed to the draw function.
