@@ -3,4 +3,7 @@
 # Generated tables. Their generators emit LF on every host, so pin the checked-in
 # bytes to LF regardless of core.autocrlf.
 core/color/color_luts.h text eol=lf
+core/color/gamut_lut.h text eol=lf
+core/color/srgb_decode_lut.h text eol=lf
 core/engine/reaction_graph.cpp text eol=lf
+core/mesh/relax_bakes_generated.h text eol=lf
