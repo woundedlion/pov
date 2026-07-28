@@ -456,10 +456,14 @@ public:
    * it. The edge ISR still must not run between the test and the reset; the
    * device brackets this call in IRQ-off exactly as it did the split pair, but
    * the window can no longer be opened by an undisciplined caller.
+   * `now` is sampled before the bracket opens, so an edge landing in between
+   * leaves `last_cycles_` ahead of it; the signed re-check rejects that wrapped
+   * modular difference instead of claiming a burst still in flight.
    */
   bool try_claim(uint32_t now, uint32_t gap_timeout_cycles,
                  BurstSnapshot *out) {
-    if (count_ == 0 || (now - last_cycles_) < gap_timeout_cycles)
+    if (count_ == 0 || (now - last_cycles_) < gap_timeout_cycles ||
+        static_cast<int32_t>(now - last_cycles_) <= 0)
       return false;
     *out = BurstSnapshot{count_, first_cycles_, last_cycles_};
     count_ = 0;
@@ -483,10 +487,13 @@ public:
    * counter can wrap. Must run under the same single-writer discipline as
    * claim() (it writes have_prior_, which the edge ISR also writes); that
    * concurrency is enforced by the device's IRQ-off discipline and is not
-   * exercised by the host tests (no concurrent ISR there).
+   * exercised by the host tests (no concurrent ISR there). `now` is sampled
+   * before the bracket opens, so the signed re-check rejects the wrapped
+   * modular difference an edge accepted in between would produce.
    */
   void age_prior(uint32_t now, uint32_t glitch_filter_cycles) {
-    if (have_prior_ && (now - prior_cycles_) >= glitch_filter_cycles)
+    if (have_prior_ && (now - prior_cycles_) >= glitch_filter_cycles &&
+        static_cast<int32_t>(now - prior_cycles_) > 0)
       have_prior_ = false;
   }
 
