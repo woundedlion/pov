@@ -197,28 +197,29 @@ public:
    * @brief Constructs the oscillator starting at min, moving toward max.
    * @param min Lower bound of the bounce range (inclusive).
    * @param max Upper bound of the bounce range (inclusive).
-   * @param end_delay Number of extra polls to dwell at each endpoint before
+   * @param dwell_polls Number of extra polls to dwell at each endpoint before
    * reversing.
    */
-  Oscillator(int min, int max, int end_delay = 0)
-      : t_(min), min_(min), max_(max), end_delay_(end_delay), end_count_(0),
-        dir_(1) {}
+  Oscillator(int min, int max, int dwell_polls = 0)
+      : t(min), lower_bound(min), upper_bound(max), end_delay(dwell_polls),
+        end_count(0), direction(1) {}
 
   /**
    * @brief Returns the current value, then advances one step.
    * @return The value before this step (honoring endpoint delay).
    */
   int get() {
-    int r = t_;
-    if ((t_ == max_ && dir_ == 1) || (t_ == min_ && dir_ == -1)) {
-      if (end_count_++ >= end_delay_) {
-        dir_ = dir_ * -1;
-        end_count_ = 0;
+    int r = t;
+    if ((t == upper_bound && direction == 1) ||
+        (t == lower_bound && direction == -1)) {
+      if (end_count++ >= end_delay) {
+        direction = direction * -1;
+        end_count = 0;
       } else {
         return r;
       }
     }
-    t_ += dir_;
+    t += direction;
     return r;
   }
 
@@ -226,21 +227,21 @@ public:
    * @brief Returns the current travel direction.
    * @return +1 when moving toward max, -1 when moving toward min.
    */
-  int dir() const { return dir_; }
+  int dir() const { return direction; }
 
   /**
    * @brief Sets the endpoint dwell count.
    * @param d Number of extra polls to dwell at each endpoint before reversing.
    */
-  void set_delay(int d) { end_delay_ = d; }
+  void set_delay(int d) { end_delay = d; }
 
 private:
-  int t_;         /**< Current counter value. */
-  int min_;       /**< Lower bound of the bounce range (inclusive). */
-  int max_;       /**< Upper bound of the bounce range (inclusive). */
-  int end_delay_; /**< Polls to dwell at each endpoint before reversing. */
-  int end_count_; /**< Polls already dwelled at the current endpoint. */
-  int dir_;       /**< Current travel direction, +1 or -1. */
+  int t;           /**< Current counter value. */
+  int lower_bound; /**< Lower bound of the bounce range (inclusive). */
+  int upper_bound; /**< Upper bound of the bounce range (inclusive). */
+  int end_delay;   /**< Polls to dwell at each endpoint before reversing. */
+  int end_count;   /**< Polls already dwelled at the current endpoint. */
+  int direction;   /**< Current travel direction, +1 or -1. */
 };
 
 /**
@@ -432,22 +433,22 @@ private:
  * @brief Seed spokes that each row twists around the ring at its own offset.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details COUNT_ seed spokes are drawn; a leader row drives the twist and
+ * @details COUNT seed spokes are drawn; a leader row drives the twist and
  * drags the rest, with recursive trails filling the swept arcs. The effect
  * periodically halts, then re-randomizes direction and leader.
  */
 template <int W, int H> class RingTwist : public Effect {
 public:
   /**
-   * @brief Constructs the effect and paints COUNT_ seed spokes.
+   * @brief Constructs the effect and paints COUNT seed spokes.
    */
   FLASHMEM RingTwist()
-      : Effect(W, H, {.persist = true}), seed_(CHSV(104, 0, 255)) {
+      : Effect(W, H, {.persist = true}), seed(CHSV(104, 0, 255)) {
     randomSeed(analogRead(PIN_RANDOM));
     Canvas c(*this);
-    for (int x = 0; x < W; x += W / COUNT_) {
+    for (int x = 0; x < W; x += W / COUNT) {
       for (int y = 0; y < H; ++y) {
-        c(x, y) = seed_;
+        c(x, y) = seed;
       }
     }
   }
@@ -456,10 +457,10 @@ public:
    * @brief Samples a pixel with each row scrolled by its own offset.
    * @param x Logical column index.
    * @param y Row index.
-   * @return The stored pixel from column wrap(x - pos_[y], W) on row y.
+   * @return The stored pixel from column wrap(x - pos[y], W) on row y.
    */
   const Pixel &get_pixel(int x, int y) const override {
-    return Effect::get_pixel(wrap(x - pos_[y], W), y);
+    return Effect::get_pixel(wrap(x - pos[y], W), y);
   }
 
   /**
@@ -476,19 +477,19 @@ public:
    */
   void draw_frame() {
     Canvas c(*this);
-    canvas_ = &c;
+    canvas = &c;
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
-        if (c(x, y) != seed_) {
+        if (c(x, y) != seed) {
           decay(c(x, y));
         }
       }
     }
 
-    pull(leader_);
-    EVERY_N_MILLISECONDS(STOP_TIMER_) {
-      if (stop_ < 0) {
-        stop_ = pos_[leader_];
+    pull(leader);
+    EVERY_N_MILLISECONDS(STOP_TIMER) {
+      if (stop < 0) {
+        stop = pos[leader];
       }
     }
   }
@@ -501,11 +502,11 @@ private:
    * already-decaying one rides the rainbow trail.
    */
   void decay(Pixel &p) {
-    if (p == seed_) {
+    if (p == seed) {
       auto c = rgb2hsv_approximate(static_cast<CRGB>(p));
-      c.h = seed_.h - 8;
+      c.h = seed.h - 8;
       c.s = 255;
-      c.v = qsub8(seed_.v, 24);
+      c.v = qsub8(seed.v, 24);
       p = c;
     } else {
       trail_rainbow(p, 8, 24);
@@ -516,23 +517,23 @@ private:
    * @brief Advances the leader row and drags the rest of the rows behind it.
    * @param y Leader row index.
    * @details Advances leader row y one step, then pulls each other row toward
-   * its neighbor, never letting the lag exceed lead_length_. Hands off to
+   * its neighbor, never letting the lag exceed lead_length. Hands off to
    * block() once the leader reaches a latched stop position.
    */
   void pull(int y) {
-    if (stop_ != -1 && pos_[y] == stop_) {
+    if (stop != -1 && pos[y] == stop) {
       block(y);
       return;
     }
-    move(y, pos_[y], wrap(pos_[y] + dir_, W), dir_);
+    move(y, pos[y], wrap(pos[y] + dir, W), dir);
     for (int i = y - 1; i >= 0; --i) {
-      if (distance(pos_[i], pos_[i + 1], dir_) > lead_length_) {
-        move(i, pos_[i], wrap(pos_[i + 1] - lead_length_ * dir_, W), dir_);
+      if (distance(pos[i], pos[i + 1], dir) > lead_length) {
+        move(i, pos[i], wrap(pos[i + 1] - lead_length * dir, W), dir);
       }
     }
     for (int i = y + 1; i < H; ++i) {
-      if (distance(pos_[i], pos_[i - 1], dir_) > lead_length_) {
-        move(i, pos_[i], wrap(pos_[i - 1] - lead_length_ * dir_, W), dir_);
+      if (distance(pos[i], pos[i - 1], dir) > lead_length) {
+        move(i, pos[i], wrap(pos[i - 1] - lead_length * dir, W), dir);
       }
     }
   }
@@ -547,17 +548,16 @@ private:
   void block(int y) {
     bool all_stop = true;
     for (int i = 0; i < H; ++i) {
-      if (distance(pos_[i], pos_[y], dir_) != 0) {
-        move(i, pos_[i], wrap(pos_[i] + dir_, W), dir_);
+      if (distance(pos[i], pos[y], dir) != 0) {
+        move(i, pos[i], wrap(pos[i] + dir, W), dir);
         all_stop = false;
       }
     }
     if (all_stop) {
-      stop_ = -1;
-      dir_ = random(2) < 1 ? 1 : -1;
-      leader_ = random(0, H);
-      lead_length_ =
-          lead_lengths_[random(1, sizeof(lead_lengths_) / sizeof(int))];
+      stop = -1;
+      dir = random(2) < 1 ? 1 : -1;
+      leader = random(0, H);
+      lead_length = lead_lengths[random(1, sizeof(lead_lengths) / sizeof(int))];
     }
   }
 
@@ -565,11 +565,12 @@ private:
    * @brief Unsigned ring distance from a to b measured in a given direction.
    * @param a Start column.
    * @param b End column.
-   * @param dir Travel direction; positive measures forward, otherwise backward.
-   * @return Number of columns from a to b along the ring in direction dir.
+   * @param direction Travel direction; positive measures forward, otherwise
+   * backward.
+   * @return Number of columns from a to b along the ring in that direction.
    */
-  int distance(int a, int b, int dir) {
-    return dir > 0 ? wrap(b - a, W) : wrap(a - b, W);
+  int distance(int a, int b, int direction) {
+    return direction > 0 ? wrap(b - a, W) : wrap(a - b, W);
   }
 
   /**
@@ -577,15 +578,15 @@ private:
    * @param y Row index to move.
    * @param x0 Starting offset of the row.
    * @param x1 New offset of the row.
-   * @param dir Travel direction (+1 forward, -1 backward).
+   * @param direction Travel direction (+1 forward, -1 backward).
    * @details Paints a fresh trail behind each spoke for every step swept from
    * x0 to x1.
    */
-  void move(int y, int x0, int x1, int dir) {
-    pos_[y] = x1;
-    for (int x = 0; x < W; x += W / COUNT_) {
-      for (int d = 0; d < distance(x0, x1, dir); ++d) {
-        add_trail(*canvas_, y, wrap(x - dir, W), dir);
+  void move(int y, int x0, int x1, int direction) {
+    pos[y] = x1;
+    for (int x = 0; x < W; x += W / COUNT) {
+      for (int d = 0; d < distance(x0, x1, direction); ++d) {
+        add_trail(*canvas, y, wrap(x - direction, W), direction);
       }
     }
   }
@@ -595,32 +596,31 @@ private:
    * @param c Canvas to draw into.
    * @param y Row index.
    * @param x Column at which to write the copied pixel.
-   * @param dir Travel direction (+1 forward, -1 backward).
-   * @details Recursively copies the pixel ahead (in dir) backward into x and
-   * decays it, extending the trail until it hits a black pixel or the seed.
+   * @param direction Travel direction (+1 forward, -1 backward).
+   * @details Recursively copies the pixel ahead (in direction) backward into x
+   * and decays it, extending the trail until it hits a black pixel or the seed.
    */
-  void add_trail(Canvas &c, int y, int x, int dir) {
-    if (c(wrap(x + dir, W), y) == CRGB(0, 0, 0) || c(x, y) == seed_) {
+  void add_trail(Canvas &c, int y, int x, int direction) {
+    if (c(wrap(x + direction, W), y) == CRGB(0, 0, 0) || c(x, y) == seed) {
       return;
     }
-    add_trail(c, y, wrap(x - dir, W), dir);
-    c(x, y) = c(wrap(x + dir, W), y);
+    add_trail(c, y, wrap(x - direction, W), direction);
+    c(x, y) = c(wrap(x + direction, W), y);
     decay(c(x, y));
   }
 
-  NoTempCorrection _;   /**< Disables temperature correction for this effect. */
-  const CHSV seed_;     /**< Color of the seed spokes. */
-  const int COUNT_ = 2; /**< Number of seed spokes around the ring. */
-  const int STOP_TIMER_ = 15000; /**< Interval (ms) between stop latches. */
-  int pos_[H] = {0};             /**< Per-row scroll offset. */
-  int leader_ = 0; /**< Index of the row currently driving the twist. */
-  int dir_ = 1;    /**< Current twist direction (+1 or -1). */
-  int stop_ = -1;  /**< Latched stop offset, or -1 when running. */
-  int lead_length_ =
+  NoTempCorrection _;  /**< Disables temperature correction for this effect. */
+  const CHSV seed;     /**< Color of the seed spokes. */
+  const int COUNT = 2; /**< Number of seed spokes around the ring. */
+  const int STOP_TIMER = 15000; /**< Interval (ms) between stop latches. */
+  int pos[H] = {0};             /**< Per-row scroll offset. */
+  int leader = 0; /**< Index of the row currently driving the twist. */
+  int dir = 1;    /**< Current twist direction (+1 or -1). */
+  int stop = -1;  /**< Latched stop offset, or -1 when running. */
+  int lead_length =
       1; /**< Maximum lag (columns) a row may trail its neighbor. */
-  int lead_lengths_[7] = {1, 2,  3, 4,
-                          6, 12, 16}; /**< Candidate lead lengths. */
-  Canvas *canvas_ = NULL;             /**< Canvas for the frame in progress. */
+  int lead_lengths[7] = {1, 2, 3, 4, 6, 12, 16}; /**< Candidate lead lengths. */
+  Canvas *canvas = NULL; /**< Canvas for the frame in progress. */
 };
 
 /**
@@ -638,7 +638,7 @@ public:
    */
   FLASHMEM TheMatrix() : Effect(W, H, {.strobe = true}) {
     random16_add_entropy(random());
-    memset(pixels_, 0, sizeof(pixels_));
+    memset(pixels, 0, sizeof(pixels));
   }
 
   /**
@@ -655,7 +655,7 @@ public:
         for (int y = 0; y < H; ++y) {
           c(x, y) =
               blend(CHSV(HUE + (3 * y), 255, 40),
-                    CHSV(HUE + (3 * (H - 1 - y)), 255, 255), pixels_[x][y]);
+                    CHSV(HUE + (3 * (H - 1 - y)), 255, 255), pixels[x][y]);
         }
       }
     }
@@ -667,8 +667,8 @@ private:
    * @param x Column index to scroll.
    */
   void fall(int x) {
-    memmove8(&pixels_[x][1], &pixels_[x][0], H - 1);
-    pixels_[x][0] = 0;
+    memmove8(&pixels[x][1], &pixels[x][0], H - 1);
+    pixels[x][0] = 0;
   }
 
   /**
@@ -678,14 +678,14 @@ private:
    */
   void generate(int x) {
     if (random8() < 15) {
-      pixels_[x][2] = 255;
-      pixels_[x][1] = 100;
-      pixels_[x][0] = 30;
+      pixels[x][2] = 255;
+      pixels[x][1] = 100;
+      pixels[x][0] = 30;
     }
   }
 
-  uint8_t pixels_[W][H]; /**< Per-cell rain intensity. */
-  NoColorCorrection _;   /**< Disables color correction for this effect. */
+  uint8_t pixels[W][H]; /**< Per-cell rain intensity. */
+  NoColorCorrection _;  /**< Disables color correction for this effect. */
 };
 
 /**
@@ -701,7 +701,7 @@ public:
    * @brief Constructs the effect and builds the warm gradient palette.
    */
   FLASHMEM Curves() : Effect(W, H, {.persist = true}) {
-    fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV),
+    fill_gradient<CHSV>(palette, sizeof(palette) / sizeof(CHSV),
                         rgb2hsv_approximate(CRGB(6, 4, 47)),
                         rgb2hsv_approximate(CRGB(162, 84, 84)),
                         rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
@@ -718,20 +718,20 @@ public:
       for (int y = 0; y < H; ++y) {
         trail_rainbow_lin(c(x, y), 0, 32);
         CHSV h = rgb2hsv_approximate(static_cast<CRGB>(c(x, y)));
-        h.h = palette_[h.v].h;
+        h.h = palette[h.v].h;
         c(x, y) = h;
       }
     }
 
     for (int i = 0; i < COUNT; ++i) {
-      CHSV color = palette_[map8(triwave8(color_offset_), 100, 140)];
-      plot(c, num_, 255, (i * W / COUNT + offset_) % W, color);
-      plot(c, -num_, 255, (i * W / COUNT + W - 1 - offset_) % W, color);
+      CHSV color = palette[map8(triwave8(color_offset), 100, 140)];
+      plot(c, num, 255, (i * W / COUNT + offset) % W, color);
+      plot(c, -num, 255, (i * W / COUNT + W - 1 - offset) % W, color);
     }
 
-    num_ = wrap(num_ - 1, 1024);
-    color_offset_++;
-    offset_ = (offset_ + 1) % W;
+    num = wrap(num - 1, 1024);
+    color_offset++;
+    offset = (offset + 1) % W;
   }
 
 private:
@@ -750,12 +750,12 @@ private:
     }
   }
 
-  int COUNT = 4;             /**< Number of mirrored stroke pairs. */
-  int offset_ = 0;           /**< Current ring offset of the strokes. */
-  uint8_t color_offset_ = 0; /**< Phase into the palette color cycle. */
-  uint16_t num_ = 1024;      /**< Current stroke slope numerator. */
-  uint8_t falloff_ = 48;     /**< Trail fade rate. */
-  CHSVPalette256 palette_;   /**< Warm gradient palette. */
+  int COUNT = 4;            /**< Number of mirrored stroke pairs. */
+  int offset = 0;           /**< Current ring offset of the strokes. */
+  uint8_t color_offset = 0; /**< Phase into the palette color cycle. */
+  uint16_t num = 1024;      /**< Current stroke slope numerator. */
+  uint8_t falloff = 48;     /**< Trail fade rate. */
+  CHSVPalette256 palette;   /**< Warm gradient palette. */
   NoTempCorrection _; /**< Disables temperature correction for this effect. */
 };
 
@@ -768,14 +768,14 @@ private:
  */
 template <int W, int H> class StarsFade : public Effect {
 private:
-  uint8_t hue_; /**< Hue used to spawn the next star; drifts per frame. */
+  uint8_t hue; /**< Hue used to spawn the next star; drifts per frame. */
 
 public:
   /**
    * @brief Constructs the effect with persistent pixels.
    */
   FLASHMEM StarsFade()
-      : Effect(W, H, {.strobe = true, .persist = true}), hue_(0) {}
+      : Effect(W, H, {.strobe = true, .persist = true}), hue(0) {}
 
   /**
    * @brief Renders one frame of fading stars.
@@ -788,11 +788,11 @@ public:
         if (c(x, y) != CRGB(0, 0, 0)) {
           trail_rainbow(c(x, y), 16, 32);
         } else if (random8() < 3) {
-          c(x, y) = CRGB(CHSV(hue_, 255, 255));
+          c(x, y) = CRGB(CHSV(hue, 255, 255));
         }
       }
     }
-    hue_++;
+    hue++;
   }
 };
 
@@ -806,7 +806,7 @@ public:
  */
 template <int W, int H, int SPREAD> class Spiral : public Effect {
 private:
-  CHSVPalette16 palette_; /**< Rainbow palette indexed by diagonal position. */
+  CHSVPalette16 palette; /**< Rainbow palette indexed by diagonal position. */
   NoTempCorrection _; /**< Disables temperature correction for this effect. */
 
 public:
@@ -814,7 +814,7 @@ public:
    * @brief Constructs the effect, fills the palette, and paints the pattern.
    */
   FLASHMEM Spiral() : Effect(W, H, {.strobe = true}) {
-    fill_rainbow(palette_.entries, 16, 0, 256 / 16);
+    fill_rainbow(palette.entries, 16, 0, 256 / 16);
     draw_frame();
   }
 
@@ -827,7 +827,7 @@ public:
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
         if ((x + y) % (SPREAD + 1) == 0) {
-          c(x, y) = palette_[(x + y) % 16];
+          c(x, y) = palette[(x + y) % 16];
         } else {
           c(x, y) = CHSV(0, 0, 0);
         }
@@ -949,7 +949,7 @@ public:
    * @brief Constructs the effect and fills the rainbow palette.
    */
   FLASHMEM Kaleidoscope() : Effect(W, H, {.persist = true}) {
-    fill_rainbow(palette_.entries, 16, 0, 256 / 16);
+    fill_rainbow(palette.entries, 16, 0, 256 / 16);
   }
 
   /**
@@ -966,39 +966,38 @@ public:
       }
     }
 
-    for (uint8_t i = 0; i < counts_[count_]; ++i) {
-      uint8_t x = addmod8(i * offset_, tx_, W);
-      uint8_t y = ty_;
+    for (uint8_t i = 0; i < counts[count]; ++i) {
+      uint8_t x = addmod8(i * offset, tx, W);
+      uint8_t y = ty;
       uint8_t x2 = W - 1 - x;
       uint8_t y2 = H - 1 - y;
-      c(x, y) =
-          palette_[addmod8(palette_offset_, i * (16 / counts_[count_]), 16)];
-      c(x2, y2) = palette_[addmod8(palette_offset_,
-                                   16 - (i * (16 / counts_[count_])), 16)];
+      c(x, y) = palette[addmod8(palette_offset, i * (16 / counts[count]), 16)];
+      c(x2, y2) =
+          palette[addmod8(palette_offset, 16 - (i * (16 / counts[count])), 16)];
     }
 
-    tx_ = addmod8(tx_, 2, W);
-    ty_ = addmod8(ty_, inc_y_, H);
-    if (ty_ == H - 1 || ty_ == 0) {
-      inc_y_ = 0 - inc_y_;
-      tx_ = addmod8(tx_, 2, W);
+    tx = addmod8(tx, 2, W);
+    ty = addmod8(ty, inc_y, H);
+    if (ty == H - 1 || ty == 0) {
+      inc_y = 0 - inc_y;
+      tx = addmod8(tx, 2, W);
       EVERY_N_MILLISECONDS(3000) {
-        count_ = addmod8(count_, 1, sizeof(counts_));
-        offset_ = W / counts_[count_];
+        count = addmod8(count, 1, sizeof(counts));
+        offset = W / counts[count];
       }
     }
-    palette_offset_ = addmod8(palette_offset_, 1, 16);
+    palette_offset = addmod8(palette_offset, 1, 16);
   }
 
 private:
-  uint8_t counts_[9] = {1, 2, 3, 4, 6, 8, 12, 16, 20}; /**< Arm-count cycle. */
-  uint8_t count_ = 0;                    /**< Index into counts_. */
-  uint8_t offset_ = W / counts_[count_]; /**< Angular spacing between arms. */
-  uint8_t tx_ = 0;                       /**< Horizontal scan position. */
-  uint8_t ty_ = 0;                       /**< Vertical scan position. */
-  int inc_y_ = 1;              /**< Vertical scan direction (+1 or -1). */
-  CHSVPalette16 palette_;      /**< Rainbow palette. */
-  uint8_t palette_offset_ = 0; /**< Phase into the palette color cycle. */
+  uint8_t counts[9] = {1, 2, 3, 4, 6, 8, 12, 16, 20}; /**< Arm-count cycle. */
+  uint8_t count = 0;                                  /**< Index into counts. */
+  uint8_t offset = W / counts[count]; /**< Angular spacing between arms. */
+  uint8_t tx = 0;                     /**< Horizontal scan position. */
+  uint8_t ty = 0;                     /**< Vertical scan position. */
+  int inc_y = 1;              /**< Vertical scan direction (+1 or -1). */
+  CHSVPalette16 palette;      /**< Rainbow palette. */
+  uint8_t palette_offset = 0; /**< Phase into the palette color cycle. */
   NoTempCorrection _; /**< Disables temperature correction for this effect. */
 };
 
@@ -1098,12 +1097,11 @@ public:
   /**
    * @brief Constructs the effect and shuffles the pixel ignition order.
    */
-  FLASHMEM Burnout()
-      : Effect(W, H, {.strobe = true}), timer_(30), burn_idx_(0) {
+  FLASHMEM Burnout() : Effect(W, H, {.strobe = true}), timer(30), burn_idx(0) {
     random16_add_entropy(random());
-    memset8(pixels_, INIT, sizeof(pixels_));
-    fill_seq(burn_, W * H);
-    shuffle(burn_, W * H);
+    memset8(pixels, INIT, sizeof(pixels));
+    fill_seq(burn, W * H);
+    shuffle(burn, W * H);
   }
 
   /**
@@ -1116,9 +1114,9 @@ public:
     Canvas c(*this);
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
-        if (pixels_[x][y] & BURN) {
+        if (pixels[x][y] & BURN) {
           c(x, y) = CHSV(HUE + (3 * y), 255, 255);
-        } else if (pixels_[x][y] == INIT) {
+        } else if (pixels[x][y] == INIT) {
           c(x, y) = CHSV(HUE + (3 * y), 255, 40);
         } else {
           c(x, y) = CHSV(0, 0, 0);
@@ -1126,7 +1124,7 @@ public:
       }
       fall(x);
     }
-    if (timer_) {
+    if (timer) {
       burnout();
     }
   }
@@ -1147,8 +1145,8 @@ private:
    * @brief Ignites the next pixel in the shuffled burn order.
    */
   void burnout() {
-    if (burn_idx_ < W * H) {
-      *((uint8_t *)pixels_ + burn_[burn_idx_++]) = BURN;
+    if (burn_idx < W * H) {
+      *((uint8_t *)pixels + burn[burn_idx++]) = BURN;
     }
   }
 
@@ -1159,10 +1157,10 @@ private:
    */
   void fall(int x) {
     for (int y = 0; y < H; ++y) {
-      if (pixels_[x][y] & BURN) {
-        pixels_[x][y] ^= BURN;
+      if (pixels[x][y] & BURN) {
+        pixels[x][y] ^= BURN;
         if (y < (H - 1)) {
-          pixels_[x][y + 1] |= BURN;
+          pixels[x][y + 1] |= BURN;
           ++y;
         }
       }
@@ -1194,11 +1192,11 @@ private:
     }
   }
 
-  CEveryNMillis timer_; /**< Gates how often a new pixel ignites. */
+  CEveryNMillis timer; /**< Gates how often a new pixel ignites. */
 
-  uint8_t pixels_[W][H]; /**< Per-pixel State. */
-  short burn_[W * H];    /**< Shuffled flat pixel indices, burn order. */
-  int burn_idx_;         /**< Index of the next pixel to ignite. */
+  uint8_t pixels[W][H]; /**< Per-pixel State. */
+  short burn[W * H];    /**< Shuffled flat pixel indices, burn order. */
+  int burn_idx;         /**< Index of the next pixel to ignite. */
 };
 
 /**
@@ -1232,7 +1230,7 @@ public:
         rise(x);
         spark(x);
         for (int y = 0; y < H; ++y) {
-          c(x, y) = rgb2hsv_approximate(HeatColor(heat_[x][y]));
+          c(x, y) = rgb2hsv_approximate(HeatColor(heat[x][y]));
         }
       }
     }
@@ -1245,7 +1243,7 @@ private:
    */
   inline void cool(uint8_t x) {
     for (uint8_t y = 0; y < H; ++y) {
-      heat_[x][y] = qsub8(heat_[x][y], random(0, ((COOL * 10) / H) + 2));
+      heat[x][y] = qsub8(heat[x][y], random(0, ((COOL * 10) / H) + 2));
     }
   }
 
@@ -1255,9 +1253,9 @@ private:
    */
   inline void rise(uint8_t x) {
     for (uint8_t y = H - 1; y >= 2; --y) {
-      heat_[x][H - 1 - y] = (heat_[x][H - 1 - y + 1] + heat_[x][H - 1 - y + 2] +
-                             heat_[x][H - 1 - y + 2]) /
-                            3;
+      heat[x][H - 1 - y] = (heat[x][H - 1 - y + 1] + heat[x][H - 1 - y + 2] +
+                            heat[x][H - 1 - y + 2]) /
+                           3;
     }
   }
 
@@ -1269,11 +1267,11 @@ private:
   inline void spark(uint8_t x) {
     if (random8() < SPARK) {
       uint8_t y = random8(3);
-      heat_[x][H - 1 - y] = qadd8(heat_[x][H - 1 - y], random8(160, 255));
+      heat[x][H - 1 - y] = qadd8(heat[x][H - 1 - y], random8(160, 255));
     }
   }
 
-  uint8_t heat_[W][H]; /**< Per-cell heat map. */
+  uint8_t heat[W][H]; /**< Per-cell heat map. */
 };
 
 /**
@@ -1387,13 +1385,13 @@ public:
   /**
    * @brief Constructs the effect and seeds the two two-color palettes.
    */
-  FLASHMEM Spinner() : Effect(W, H), spin_timer_(62), pos_(0) {
-    memset(palette1_, 0, sizeof(palette1_));
-    memset(palette2_, 0, sizeof(palette1_));
-    palette1_[0] = palette1_[8] = CHSV(HUE_RED, 255, 255);
-    palette1_[1] = palette1_[9] = CHSV(HUE_YELLOW, 255, 255);
-    palette2_[0] = palette2_[8] = CHSV(HUE_AQUA, 255, 255);
-    palette2_[1] = palette2_[9] = CHSV(HUE_BLUE, 255, 255);
+  FLASHMEM Spinner() : Effect(W, H), spin_timer(62), pos(0) {
+    memset(palette1, 0, sizeof(palette1));
+    memset(palette2, 0, sizeof(palette1));
+    palette1[0] = palette1[8] = CHSV(HUE_RED, 255, 255);
+    palette1[1] = palette1[9] = CHSV(HUE_YELLOW, 255, 255);
+    palette2[0] = palette2[8] = CHSV(HUE_AQUA, 255, 255);
+    palette2[1] = palette2[9] = CHSV(HUE_BLUE, 255, 255);
   }
 
   /**
@@ -1408,20 +1406,20 @@ public:
       for (int y = 0; y < H; ++y) {
         if (!swap) {
           if (y % (p[i] * 2) < p[i]) {
-            c(x, y) = palette1_[addmod8(x, pos_, 16)];
+            c(x, y) = palette1[addmod8(x, pos, 16)];
           } else {
-            c(x, y) = palette2_[(uint8_t)(pos_ - x) % 16];
+            c(x, y) = palette2[(uint8_t)(pos - x) % 16];
           }
         } else {
           if (y % (p[i] * 2) < p[i]) {
-            c(x, y) = palette2_[(uint8_t)(pos_ - x) % 16];
+            c(x, y) = palette2[(uint8_t)(pos - x) % 16];
           } else {
-            c(x, y) = palette1_[addmod8(x, pos_, 16)];
+            c(x, y) = palette1[addmod8(x, pos, 16)];
           }
         }
       }
-      if (spin_timer_) {
-        pos_ = addmod8(pos_, 1, W);
+      if (spin_timer) {
+        pos = addmod8(pos, 1, W);
       }
     }
     EVERY_N_SECONDS(5) {
@@ -1434,11 +1432,11 @@ public:
   }
 
 private:
-  CHSVPalette16 palette1_;   /**< Red/yellow band palette. */
-  CHSVPalette16 palette2_;   /**< Aqua/blue band palette. */
-  CEveryNMillis spin_timer_; /**< Gates the scroll advance. */
-  uint8_t pos_;              /**< Current scroll offset. */
-  bool swap = false;         /**< When true, the two palettes swap rows. */
+  CHSVPalette16 palette1;   /**< Red/yellow band palette. */
+  CHSVPalette16 palette2;   /**< Aqua/blue band palette. */
+  CEveryNMillis spin_timer; /**< Gates the scroll advance. */
+  uint8_t pos;              /**< Current scroll offset. */
+  bool swap = false;        /**< When true, the two palettes swap rows. */
   uint8_t p[5] = {20, 10, 4, 2, 1}; /**< Band-thickness cycle. */
   uint8_t i = 0;                    /**< Index into p[]. */
   NoColorCorrection _; /**< Disables color correction for this effect. */
