@@ -199,7 +199,7 @@ target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/co
 # edit drops it, core/engine/platform.h's #error makes this TU fail to compile — exactly
 # the regression signal we want.
 target_compile_options(fastmath_clamp_check PRIVATE
-  -O3 -ffast-math -fno-finite-math-only)
+  -Wall -Wextra -O3 -ffast-math -fno-finite-math-only)
 _hs_sanitize(fastmath_clamp_check)
 add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 
@@ -216,6 +216,7 @@ add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(relax_bake_verify PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_VERIFY)
 target_include_directories(relax_bake_verify PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_compile_options(relax_bake_verify PRIVATE -Wall -Wextra)
 _hs_sanitize(relax_bake_verify)
 add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
 
@@ -227,6 +228,7 @@ add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(relax_bake_gen PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_EXTRACT)
 target_include_directories(relax_bake_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_compile_options(relax_bake_gen PRIVATE -Wall -Wextra)
 
 # The south-pole Y-clip renormalization in the rasterizer (Screen::AntiAlias's
 # bilinear-tap fold, and the H_VIRT handling threaded through geometry/scan/plot/
@@ -244,10 +246,7 @@ add_executable(h_offset_renorm_check
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_BUILD HS_TEST_H_OFFSET=3)
 target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-# No -Werror here (matching fastmath_clamp_check): this single-purpose TU pulls in
-# the full engine barrel but uses only the AntiAlias/TrigLUT slice, so the barrel's
-# many static helpers would trip -Wunused-function. Engine-header hygiene is
-# enforced by the main run_tests target, which compiles the same headers -Werror.
+target_compile_options(h_offset_renorm_check PRIVATE -Wall -Wextra)
 _hs_sanitize(h_offset_renorm_check)
 add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 
@@ -263,7 +262,7 @@ add_executable(stack_measure
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(stack_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
+target_compile_options(stack_measure PRIVATE -Wall -Wextra -Os -ffast-math -fno-finite-math-only)
 add_test(NAME unit_stack_budget COMMAND stack_measure)
 
 # Arena high-water gate across every effect. Reports per-effect global-arena
@@ -277,7 +276,7 @@ add_executable(arena_measure
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(arena_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(arena_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
+target_compile_options(arena_measure PRIVATE -Wall -Wextra -Os -ffast-math -fno-finite-math-only)
 add_test(NAME unit_arena_budget COMMAND arena_measure)
 
 # Render micro-benchmark, built at two opt levels to bracket the size config's
@@ -294,7 +293,7 @@ foreach(_opt Os O3)
     ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
   target_compile_definitions(perf_bench_${_opt} PRIVATE HS_TEST_BUILD)
   target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-  target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)
+  target_compile_options(perf_bench_${_opt} PRIVATE -Wall -Wextra -${_opt} -ffast-math -fno-finite-math-only)
 endforeach()
 
 # Drivers for the HS_AA_AUDIT mesh-scan coverage instrumentation, whose hooks
@@ -309,7 +308,7 @@ foreach(_aa audit search)
     ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
   target_compile_definitions(aa_${_aa} PRIVATE HS_TEST_BUILD HS_AA_AUDIT)
   target_include_directories(aa_${_aa} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-  target_compile_options(aa_${_aa} PRIVATE -O2 -ffast-math -fno-finite-math-only)
+  target_compile_options(aa_${_aa} PRIVATE -Wall -Wextra -O2 -ffast-math -fno-finite-math-only)
 endforeach()
 
 # Divergence trace for perturbations of the feedback colour path
@@ -321,4 +320,4 @@ add_executable(feedback_divergence
   ${HS_ROOT}/core/engine/memory.cpp)
 target_compile_definitions(feedback_divergence PRIVATE HS_TEST_BUILD)
 target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(feedback_divergence PRIVATE -O2 -ffast-math -fno-finite-math-only)
+target_compile_options(feedback_divergence PRIVATE -Wall -Wextra -O2 -ffast-math -fno-finite-math-only)
