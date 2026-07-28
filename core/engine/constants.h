@@ -43,6 +43,9 @@ struct ClipRegion {
   int w = MAX_W; /**< Canvas width, in pixels. */
   int h = MAX_H; /**< Canvas height, in pixels. */
 
+  /** @brief Field-wise equality, for cached clip-state stamps. */
+  bool operator==(const ClipRegion &) const = default;
+
   /**
    * @brief Render-region top edge: display top expanded up by `margin`, floored at 0.
    * @return First render row (inclusive), in pixels.
