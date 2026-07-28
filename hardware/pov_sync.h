@@ -41,11 +41,13 @@
 
 #include "core/engine/platform.h" // HS_CHECK used in Flywheel's constructor guard
 
-// Forward declaration of the unit-test accessor that reaches EdgeMailbox's
-// private split consumer path (burst_complete()/claim()); see EdgeMailbox.
+// Forward declarations of the unit-test accessors that reach private state:
+// EdgeMailbox's split consumer path (burst_complete()/claim()) and SyncBoard's
+// mutable views of ISR-owned members.
 namespace hs_test {
 namespace pov_sync_tests {
 struct EdgeMailboxTestAccess;
+struct SyncBoardTestAccess;
 } // namespace pov_sync_tests
 } // namespace hs_test
 
@@ -1400,30 +1402,31 @@ public:
    */
   const Flywheel &flywheel() const { return fly; }
   /**
-   * @brief Mutable flywheel access (tests only).
-   * @return Mutable reference to the flywheel.
-   * @warning Host tests only. The flywheel is ISR-owned under the spec §8
-   * single-writer model, so this must NEVER be called from device or foreground
-   * code, and only before the ISRs are attached — mutating it once the ISRs are
-   * live races the single writer and breaks the invariant the design rests on.
-   */
-  Flywheel &flywheel_mut() { return fly; }
-  /**
-   * @brief Mutable content-tracker access (tests only).
-   * @return Mutable reference to the content tracker.
-   * @warning Host tests only. The content tracker is ISR-owned under the spec §8
-   * single-writer model, so this must NEVER be called from device or foreground
-   * code, and only before the ISRs are attached — mutating it once the ISRs are
-   * live races the single writer and breaks the invariant the design rests on.
-   */
-  ContentTracker &content_mut() { return content_tracker; }
-  /**
    * @brief Protocol configuration.
    * @return Const reference to the config.
    */
   const Config &config() const { return protocol_config; }
 
 private:
+  // Mutable views of ISR-owned state, kept private behind a test friend so
+  // production code cannot race the single writer.
+  friend struct ::hs_test::pov_sync_tests::SyncBoardTestAccess;
+
+  /**
+   * @brief Mutable flywheel access (test-only).
+   * @return Mutable reference to the flywheel.
+   * @warning Valid only before the ISRs are attached: the flywheel is ISR-owned
+   * under the spec §8 single-writer model.
+   */
+  Flywheel &flywheel_mut() { return fly; }
+  /**
+   * @brief Mutable content-tracker access (test-only).
+   * @return Mutable reference to the content tracker.
+   * @warning Valid only before the ISRs are attached: the content tracker is
+   * ISR-owned under the spec §8 single-writer model.
+   */
+  ContentTracker &content_mut() { return content_tracker; }
+
   // ── Flip + content events (both paths funnel here) ───────────────────────
 
   /**

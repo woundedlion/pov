@@ -47,6 +47,18 @@ inline BurstSnapshot claim(EdgeMailbox &m) {
   return EdgeMailboxTestAccess::claim(m);
 }
 
+struct SyncBoardTestAccess {
+  static Flywheel &flywheel(SyncBoard &b) { return b.flywheel_mut(); }
+  static ContentTracker &content(SyncBoard &b) { return b.content_mut(); }
+};
+
+inline Flywheel &flywheel_mut(SyncBoard &b) {
+  return SyncBoardTestAccess::flywheel(b);
+}
+inline ContentTracker &content_mut(SyncBoard &b) {
+  return SyncBoardTestAccess::content(b);
+}
+
 /**
  * @brief Builds full-rate Phantasm timing (600 MHz, 480 RPM, W=288) with a
  *        shortened content cadence so epoch/beacon scenarios run in
@@ -331,7 +343,7 @@ inline void test_multi_boundary_tick_window() {
   const Config cfg = test_config();
   SyncBoard board(cfg);
   board.seed(1000u, /*is_master=*/false);
-  board.flywheel_mut().force_lock();
+  flywheel_mut(board).force_lock();
 
   // Coast past three boundaries in one wake: HALF, ZERO, HALF.
   const TickActions a =
@@ -468,7 +480,7 @@ inline void test_beacon_partial_frame_ages_out() {
   const uint32_t col = cfg.cycles_per_column();
   SyncBoard board(cfg);
   board.seed(1000u, /*is_master=*/false);
-  board.flywheel_mut().force_lock();
+  flywheel_mut(board).force_lock();
 
   // A truncated train: one data burst at column 40 (far from both boundaries,
   // so the demarcation routes it to the parser), then silence.
@@ -715,7 +727,7 @@ inline void test_suspect_timeout_acquire_uncounted() {
   const uint32_t col = cfg.cycles_per_column();
   SyncBoard board(cfg);
   board.seed(1000u, /*is_master=*/false);
-  board.flywheel_mut().force_lock();
+  flywheel_mut(board).force_lock();
 
   // An isolated valid-count burst at column 40 — far from both boundaries — is
   // held as a suspect awaiting a beacon train.
@@ -726,7 +738,7 @@ inline void test_suspect_timeout_acquire_uncounted() {
 
   // Fall back to ACQUIRE before the suspect times out.
   for (int i = 0; i < cfg.reject_fallback; ++i)
-    board.flywheel_mut().note_rejection();
+    flywheel_mut(board).note_rejection();
   HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
   board.tick(head + 40 * col, nullptr); // past the interdigit window
   HS_EXPECT_EQ(board.telemetry().symbols_rejected_gate, rejected);
@@ -1883,7 +1895,7 @@ inline void test_sim_rev_resync() {
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return s.boards[0].board.content().rev_in_effect == 5; },
       12.0));
-  sim.boards[3].board.content_mut().rev_in_effect += 2;
+  content_mut(sim.boards[3].board).rev_in_effect += 2;
 
   // Detected and corrected at the next beacon (rev 9), within one period.
   // (Pre-resync the counters differ by 2 — a crossing straddle changes the
@@ -2220,9 +2232,9 @@ inline void test_budget_corrupted_timebase() {
   // Corrupt board 2's flywheel phase by W/4 — far beyond the gate.
   SimBoard &b2 = sim.boards[2];
   const int32_t bogus = floor_mod(sim.board_pos(2) + 72, cfg.W);
-  b2.board.flywheel_mut().seed(Sim::local_now(b2, sim.g) -
-                               static_cast<uint32_t>(bogus) * COL);
-  b2.board.flywheel_mut().force_lock();
+  flywheel_mut(b2.board).seed(Sim::local_now(b2, sim.g) -
+                              static_cast<uint32_t>(bogus) * COL);
+  flywheel_mut(b2.board).force_lock();
   HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
 
   const uint32_t rej_before = b2.board.telemetry().symbols_rejected_gate;
