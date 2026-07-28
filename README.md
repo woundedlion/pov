@@ -1026,6 +1026,7 @@ Both classes derive from `TransformerPool`, which fixes the call order:
 2. `spawn(in_frames, args...)` — the returned pointer is transient; use it at the call site, not across frames.
 3. `spawn_pinned(in_frames, args...)` — same, but the pointer may be retained (e.g. registered as a live GUI param). Valid only for an animation that never completes on its own and is added before any finite timeline event, so compaction cannot shift it.
 4. `prepare_frame()` — each frame before `transform()` / `field()`, whenever active params changed through animation or live config. The composition reads that prepared state but cannot verify it is current.
+5. `reclaim_storage(Arena&)` — from the after-reset callback of an arena that is compacted mid-effect (e.g. a mesh carousel). Spawned animations hold `Params` references into the slots, so the caller must replay the same allocation order after the reset as after `init_storage()`; the re-claimed blocks must land at their original addresses (asserted). A reset only rewinds the offset, so the untouched bytes carry live entities through.
 
 #### Standalone Utilities
 
