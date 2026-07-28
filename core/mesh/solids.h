@@ -331,11 +331,14 @@ public:
     HS_CHECK(MeshOps::relax_topology_hash(mesh_) == bake.topology_hash,
              "relax bake: source topology differs");
     mesh_ = MeshOps::relax(mesh_, *a_, *b_, bake.iterations);
-    uint32_t output_hash = 2166136261u;
+    uint32_t output_hash = MeshOps::FNV1A_BASIS;
     for (const Vector &v : mesh_.vertices) {
-      output_hash = (output_hash ^ std::bit_cast<uint32_t>(v.x)) * 16777619u;
-      output_hash = (output_hash ^ std::bit_cast<uint32_t>(v.y)) * 16777619u;
-      output_hash = (output_hash ^ std::bit_cast<uint32_t>(v.z)) * 16777619u;
+      output_hash =
+          MeshOps::fnv1a_step(output_hash, std::bit_cast<uint32_t>(v.x));
+      output_hash =
+          MeshOps::fnv1a_step(output_hash, std::bit_cast<uint32_t>(v.y));
+      output_hash =
+          MeshOps::fnv1a_step(output_hash, std::bit_cast<uint32_t>(v.z));
     }
 #if defined(HS_RELAX_BAKE_VERIFY)
     HS_CHECK(mesh_.vertices.size() == bake.vertex_count &&

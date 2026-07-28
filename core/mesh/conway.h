@@ -37,10 +37,25 @@ struct RelaxBake {
   uint32_t output_hash;
 };
 
+/** @brief FNV-1a 32-bit offset basis, seeding every relax hash. */
+static constexpr uint32_t FNV1A_BASIS = 2166136261u;
+
+/**
+ * @brief One FNV-1a 32-bit round.
+ * @param hash Accumulator, seeded from FNV1A_BASIS.
+ * @param word Word mixed into the accumulator.
+ * @return The updated accumulator.
+ * @details Shared by the relax topology hash, the baked-payload load check and
+ *   the bake extract/verify tooling, which must agree bit-for-bit.
+ */
+inline uint32_t fnv1a_step(uint32_t hash, uint32_t word) {
+  return (hash ^ word) * 16777619u;
+}
+
 /** @brief Hashes platform-independent relax topology and dimensions. */
 inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
-  uint32_t hash = 2166136261u;
-  auto mix = [&](uint32_t word) { hash = (hash ^ word) * 16777619u; };
+  uint32_t hash = FNV1A_BASIS;
+  auto mix = [&](uint32_t word) { hash = fnv1a_step(hash, word); };
   mix(static_cast<uint32_t>(mesh.vertices.size()));
   mix(static_cast<uint32_t>(mesh.get_face_counts_size()));
   mix(static_cast<uint32_t>(mesh.get_faces_size()));
@@ -1116,14 +1131,14 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
   out_mesh.face_counts.bind(target, F);
   out_mesh.faces.bind(target, I);
 
-  uint32_t output_hash = 2166136261u;
+  uint32_t output_hash = FNV1A_BASIS;
   for (size_t i = 0; i < V; ++i) {
     const uint32_t x = bake.vertex_bits[3 * i];
     const uint32_t y = bake.vertex_bits[3 * i + 1];
     const uint32_t z = bake.vertex_bits[3 * i + 2];
-    output_hash = (output_hash ^ x) * 16777619u;
-    output_hash = (output_hash ^ y) * 16777619u;
-    output_hash = (output_hash ^ z) * 16777619u;
+    output_hash = fnv1a_step(output_hash, x);
+    output_hash = fnv1a_step(output_hash, y);
+    output_hash = fnv1a_step(output_hash, z);
     out_mesh.vertices.push_back(Vector(std::bit_cast<float>(x),
                                        std::bit_cast<float>(y),
                                        std::bit_cast<float>(z)));
