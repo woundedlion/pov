@@ -137,8 +137,8 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
  * @details Defines an anonymous-namespace registrar whose static initializer
  *          appends fill functions for every supported resolution. The
  *          used+retain attributes keep the dynamic initializer from being
- *          discarded under LTO / --gc-sections. On non-WASM targets this macro
- *          expands to nothing.
+ *          discarded under LTO / --gc-sections. Active on the WASM and native
+ *          test builds; on the firmware target this macro expands to nothing.
  * @note `effects.h` must be included by exactly one TU per binary; a second
  *       includer registers every effect twice and trips the startup count check.
  */
