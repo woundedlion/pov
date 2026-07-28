@@ -175,17 +175,6 @@ public:
     }
 
     /**
-     * @brief Convenience wrapper returning a fresh DistanceResult.
-     * @param p World-space sample point.
-     * @return The sampled DistanceResult for p.
-     */
-    SDF::DistanceResult distance(const Vector &p) const {
-      SDF::DistanceResult res;
-      distance<true>(p, res);
-      return res;
-    }
-
-    /**
      * @brief Sample the (possibly blended) harmonic at world point p.
      * @tparam ComputeUVs Whether to compute UV coordinates (unused here).
      * @param p World-space sample point.

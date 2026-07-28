@@ -403,6 +403,21 @@ struct DistanceResult {
 };
 
 /**
+ * @brief Evaluates a shape's two-argument distance() into a fresh result.
+ * @tparam S Shape type exposing distance<ComputeUVs>(const Vector&,
+ *         DistanceResult&).
+ * @param shape Shape to sample.
+ * @param p Point on sphere (normalized).
+ * @return The shape's DistanceResult at p, with UVs computed.
+ */
+template <typename S>
+inline DistanceResult distance_of(const S &shape, const Vector &p) {
+  DistanceResult res;
+  shape.template distance<true>(p, res);
+  return res;
+}
+
+/**
  * @brief Structural fingerprint shared by every SDF leaf and CSG combinator:
  * a static is_solid flag and an AA-falloff thickness.
  * @tparam T Candidate shape type.
@@ -757,17 +772,6 @@ struct Ring {
   }
 
   /**
-   * @brief Computes signed distance to the ring.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult with dist, t, and raw_dist populated.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
-  }
-
-  /**
    * @brief Computes signed distance to the ring, writing into res.
    * @tparam ComputeUVs When true, also computes the azimuthal t parameter.
    * @param p Point on sphere (normalized).
@@ -972,17 +976,6 @@ struct DistortedRing {
     emit_annular_band<W>(cos_min_limit, cos_max_limit, ny, cos_phi, denom,
                          alpha_angle, out);
     return true;
-  }
-
-  /**
-   * @brief Computes signed distance to the distorted ring.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult with dist, t, and raw_dist populated.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
   }
 
   /**
@@ -1203,17 +1196,6 @@ struct FlatDistortedRing : private DistortedRing {
       : DistortedRing(b, r, th, ScalarFn{}, 0.0f, ph) {}
 
   /**
-   * @brief Computes signed distance to the undisplaced ring.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult with dist, t, and raw_dist populated.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
-  }
-
-  /**
    * @brief Computes signed distance to the undisplaced ring, writing into res.
    * @tparam ComputeUVs When true, also computes the azimuthal t parameter.
    * @param p Point on sphere (normalized).
@@ -1334,17 +1316,6 @@ template <typename A, typename B> struct Union {
     // span comparison is frame-sensitive).
     merge_intervals(merged, out);
     return true;
-  }
-
-  /**
-   * @brief Signed distance to the union (minimum of the two children).
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult of the nearer child.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
   }
 
   /**
@@ -1480,17 +1451,6 @@ template <typename A, typename B> struct SmoothUnion {
     // span comparison is frame-sensitive).
     merge_intervals(merged, out);
     return true;
-  }
-
-  /**
-   * @brief Signed distance to the smooth union.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult of the nearer child with the smin blend applied.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
   }
 
   /**
@@ -1706,17 +1666,6 @@ template <typename A, typename B> struct Subtract {
   }
 
   /**
-   * @brief Signed distance to the subtraction (A - B).
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult of max(A, -B).
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
-  }
-
-  /**
    * @brief Signed distance to the subtraction, writing into res.
    * @tparam ComputeUVs Forwarded to each child's distance().
    * @param p Point on sphere (normalized).
@@ -1882,17 +1831,6 @@ template <typename A, typename B> struct Intersection {
   }
 
   /**
-   * @brief Signed distance to the intersection (maximum of the two children).
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult of the farther child.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
-  }
-
-  /**
    * @brief Signed distance to the intersection, writing the farther child.
    * @tparam ComputeUVs Forwarded to each child's distance().
    * @param p Point on sphere (normalized).
@@ -1985,17 +1923,6 @@ template <typename Shape> struct AngularRepeat {
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int, OutputIt) const {
     return false;
-  }
-
-  /**
-   * @brief Signed distance to the nearest repeated copy.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult of the child evaluated in the folded sector.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
   }
 
   /**
@@ -3298,17 +3225,6 @@ struct Face {
   }
 
   /**
-   * @brief Computes signed distance to the face.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult with the signed angular distance and size metric.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
-  }
-
-  /**
    * @brief Computes signed distance to the face, writing into res.
    * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
    * @param p Point on sphere (normalized).
@@ -3520,21 +3436,6 @@ struct PlanarPolygon {
   }
 
   /**
-   * @brief Signed distance to the planar polygon edge.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult with dist, t, and raw_dist populated.
-   * @details Treats the polar angle as a flat radius (tangent-plane
-   * approximation), so it is accurate for small caps and diverges from the true
-   * geodesic distance as the radius grows. Use SphericalPolygon for geodesic
-   * great-circle edges.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
-  }
-
-  /**
    * @brief Signed distance to the planar polygon edge, writing into res.
    * @tparam ComputeUVs When true, also computes the normalized radial t.
    * @param p Point on sphere (normalized).
@@ -3677,17 +3578,6 @@ struct SphericalPolygon {
   }
 
   /**
-   * @brief Signed distance to the spherical polygon.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult with dist, t, and raw_dist populated.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
-  }
-
-  /**
    * @brief Signed distance to the spherical polygon, writing into res.
    * @tparam ComputeUVs When true, also computes the normalized radial t.
    * @param p Point on sphere (normalized).
@@ -3820,17 +3710,6 @@ struct Star {
   }
 
   /**
-   * @brief Signed distance to the star.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult with dist, t, and raw_dist populated.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
-  }
-
-  /**
    * @brief Signed distance to the star, writing into res.
    * @tparam ComputeUVs When true, also stores the normalized azimuth t. The
    *        azimuth itself is always computed (the petal-sector geometry needs
@@ -3955,17 +3834,6 @@ struct Flower {
     emit_annular_band<W>(cos_limit, 1.0f, scan_ny, cos_phi, denom, scan_alpha,
                          out);
     return true;
-  }
-
-  /**
-   * @brief Signed distance to the flower.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult with dist, t, and raw_dist populated.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
   }
 
   /**
@@ -4108,17 +3976,6 @@ struct Line {
    */
   template <int H> Bounds get_vertical_bounds() const {
     return phi_bounds_to_rows<H>(phi_min, phi_max);
-  }
-
-  /**
-   * @brief Signed distance to the arc segment.
-   * @param p Point on sphere (normalized).
-   * @return DistanceResult with dist and raw_dist populated.
-   */
-  DistanceResult distance(const Vector &p) const {
-    DistanceResult res;
-    distance<true>(p, res);
-    return res;
   }
 
   /**

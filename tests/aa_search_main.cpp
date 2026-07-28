@@ -61,7 +61,8 @@ int missed_for(int sides, float rho, float phi, float spin) {
     for (int x = 0; x < W; ++x) {
       Vector p(TrigLUT<W, H>::sin_phi[y] * ct[x], TrigLUT<W, H>::cos_phi[y],
                TrigLUT<W, H>::sin_phi[y] * st[x]);
-      if (face.distance(p).dist < pw && !vis[static_cast<size_t>(y) * W + x])
+      if (SDF::distance_of(face, p).dist < pw &&
+          !vis[static_cast<size_t>(y) * W + x])
         ++missed;
     }
   return missed;
