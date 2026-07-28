@@ -266,9 +266,9 @@ private:
            p.angular_speed <= ANGULAR_SPEED_MAX;
   }
 
-  // well_strength is pre-scaled by friction (0.85) because the integrator
-  // applies v <- friction*v + impulse, dragging velocity before the attractor
-  // impulse.
+  // well_strength is pre-scaled by the preset's own friction because the
+  // integrator applies v <- friction*v + impulse, dragging velocity before the
+  // attractor impulse.
   static constexpr std::array<PresetEntry<Params>, 4> PRESETS{{
       {{.friction = 0.85f,
         .well_strength = 0.85f,
