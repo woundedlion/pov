@@ -23,6 +23,7 @@ EXPECT = {
     "DATA":       {"R_D1", "J2"},
     "CLK":        {"R_D2", "J2"},
     "SYNC_BUS":   {"R_S", "R1", "R_PD", "D_BUS", "J3A", "J3B"},
+    "SYNC_PULLDOWN": {"R_PD", "U1"},
     "ID0":        {"U_MCU", "R_ID0", "JP_ID0"},
     "ID1":        {"U_MCU", "JP_ID1"},
     "ID2":        {"U_MCU", "JP_ID2"},
@@ -30,7 +31,7 @@ EXPECT = {
     "SERIAL1_TX": {"U_MCU", "J4"},
     "GND":        {"C_IN", "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "D_BUS",
                    "J1", "J2", "J3A", "J3B", "J4", "JP_ID0", "JP_ID1", "JP_ID2",
-                   "JP_SHLD", "Q_REV", "R2", "R_PD", "U1", "U_MCU"},
+                   "JP_SHLD", "Q_REV", "R2", "U1", "U_MCU"},
 }
 
 root = export_netlist(KCLI, SCH)

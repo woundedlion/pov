@@ -137,14 +137,17 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
 | A | Teensy 11 DATA | DI | tied LOW (always on) | **33 Ω** | strip DI (J2) |
 | B | Teensy 13 CLK | CI | tied LOW (always on) | **33 Ω** | strip CI (J2) |
 | C | Teensy 3 SYNC-OUT | SYNC bus | **Teensy 5 (MASTER_EN)** | **100 Ω** | SYNC bus (J3) |
-| D | **tie input → GND** | NC | **tie /OE → Vcc** | — | unused (disabled) |
+| D | **tie input → GND** | `SYNC_PULLDOWN` | **Teensy 5 (MASTER_EN)** | **10 kΩ (R_PD)** | master-only bus idle pull-down |
 
 - **R-LS-1** Series terminations sit **at the '125 output pin** (source termination): 33 Ω on
   DATA/CLK, 100 Ω on SYNC-OUT.
 - **R-LS-2** Channel C `/OE` is driven by Teensy **pin 5**. Only the master (pin 5 = LOW) enables
   SYNC-OUT; DATA/CLK channels have `/OE` tied LOW so they are always active on every board.
-- **R-LS-3** Tie the **unused channel D input to GND** *and* its **`/OE` to Vcc** (output disabled).
-  Never float a CMOS input or control pin — `/OE` is itself a logic input.
+- **R-LS-3** Channel D automatically switches the single bus idle pull-down. Tie its input to
+  **GND**, connect its `/OE` to **MASTER_EN**, and connect its output to the ground-side of
+  **R_PD = 10 kΩ**. The master drives MASTER_EN LOW, enabling a LOW output through R_PD; every
+  slave drives MASTER_EN HIGH, making channel D high-impedance. This guarantees one populated
+  pull-down without board variants or hand-soldering SMD components.
 - **R-LS-4** **U1 is SMD (SOIC-14), reflow-placed by the PCBA house** (§11). SOIC is strictly better
   than DIP here — lower profile, low mass, no socket/shunt to sling off at 480 RPM, so no RTV needed.
   Part = **SN74AHCT125** (e.g. SN74AHCT125DR). The 5 V-tolerance caveat below is about signal
@@ -191,8 +194,10 @@ buffer** — see §4.3.
   5.25 × 18/28 ≈ **3.38 V**, over the 3.3 V max and rescued only by V_OH droop — don't ship it on a
   not-5V-tolerant pin.)
 - **R-SYNC-1** R2 doubles as pin 3's defined-state pull-down. **Do not add any other pull-down.**
-- **R-SYNC-2** One **10 kΩ idle pull-down** on the bus itself (keeps the bus defined when no
-  master is driving / during boot).
+- **R-SYNC-2** One **10 kΩ idle pull-down** on the bus itself. Populate R_PD on every board but
+  switch its ground-side with U1 channel D as specified by R-LS-3, so only the firmware-selected
+  master connects it. During reset R_MEN disables channels C and D; the receive-divider branches
+  still pull an otherwise-undriven bus LOW.
 - **R-SYNC-3 — Node RC filter (populate by default).** Fit **C_SYNC ≈ 220 pF** at the pin-3 divider
   node. With R_th = R1‖R2 ≈ 6.0 kΩ this gives **RC ≈ 1.3 µs** — negligible against the 434 µs column
   and 868 µs pulse pitch, but it attenuates sub-µs BLDC/LED spikes *before* they cross the GPIO
@@ -419,7 +424,7 @@ hand-soldered by you.
 | R_S | Sync source | 100 Ω | 0603/0805 | **SMD** |
 | R1 | Divider top | 10 kΩ | 0603 | **SMD** |
 | R2 | Divider btm | **15 kΩ** (legacy 18 kΩ — see §4.2) | 0603 | **SMD** |
-| R_PD | Bus idle pull-down | 10 kΩ | 0603 | **SMD** |
+| R_PD | Master-only bus idle pull-down, switched by U1 ch D | 10 kΩ | 0603 | **SMD** |
 | R_ID0 (opt) | ID0 pull-up | 10 kΩ → 3V3 | 0603 | **SMD** DNP |
 | R_MEN | MASTER_EN boot pull-up | 10 kΩ → 3V3 | 0603 | **SMD** |
 | FB | Ferrite bead | ≈600 Ω @ 100 MHz, logic branch (~0.15 A) | 1206 | **SMD** |
@@ -446,7 +451,7 @@ hand-soldered by you.
 | **+5V_RAW** | J1 → F1 → Q_REV (logic reverse-protect) → FB in |
 | **+5V_LOGIC** (post-bead) | FB out, R_LF, C_LF, C_IN+, Teensy VIN, U1 Vcc, C_DEC1/2 |
 | **3V3** | Teensy 3V3 pin → R_ID0 top (opt), R_MEN top, J4 |
-| **GND** | single quiet logic plane: J1 GND, Teensy GND, U1 GND, C_IN/C_LF/C_DEC −, J3A/J3B GND, R2/R_PD bottoms, strap GND, JP_SHLD (master), SIG_GND → J2 |
+| **GND** | single quiet logic plane: J1 GND, Teensy GND, U1 GND and ch-D input, C_IN/C_LF/C_DEC −, J3A/J3B GND, R2 bottom, strap GND, JP_SHLD (master), SIG_GND → J2 |
 | **DATA** | Teensy 11 → U1 chA in; U1 chA out → R_D1(33 Ω) → J2 DI |
 | **CLK** | Teensy 13 → U1 chB in; U1 chB out → R_D2(33 Ω) → J2 CI |
 | **SIG_GND** | logic GND → J2 pin 3 → strip GND pin (**load-end star**, R-CON-1) |
@@ -454,7 +459,8 @@ hand-soldered by you.
 | **SYNC bus** | J3A/J3B SYNC (bridged), R1 top, R_PD top, D_BUS (opt), U1 chC out (via R_S) |
 | **SYNC_RX** | SYNC bus → R1 → node (≈3.0 V; R2 to GND, C_SYNC) → Teensy 3 |
 | **SHIELD** | J3A SHLD, J3B SHLD (bridged drain) → JP_SHLD → GND (**master only**) |
-| **MASTER_EN** | Teensy 5 → U1 chC `/OE`; R_MEN (10 kΩ) pull-up → 3V3 |
+| **MASTER_EN** | Teensy 5 → U1 chC and chD `/OE`; R_MEN (10 kΩ) pull-up → 3V3 |
+| **SYNC_PULLDOWN** | U1 chD output → R_PD bottom; LOW only on the master, high-impedance on slaves |
 | **ID0** | Teensy 21 → strap pad (→GND per role); opt R_ID0 to 3V3 |
 | **ID1** | Teensy 22 → strap pad (→GND per role) |
 

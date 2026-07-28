@@ -11,9 +11,9 @@ qualified. The card is **logic-only (~0.15 A)** — each strip draws about 4.3 A
 at N=4 or 2.2 A at N=8, injected **off-board** (spec §2.3), so nothing here
 carries high current.
 
-Contains the **schematic** (electrical design), a routed PCB (**stale** — pending a
-Quilter re-route, see [Status](#status)), and an **unplaced PCB** variant for
-autoplacement (Quilter) — see [Files](#files).
+Contains the **schematic**, the corrected C1 placement/routing, and the completed
+Quilter routing. The main PCB is the fabrication source of truth and has no
+unconnected pads.
 
 ## Files
 
@@ -21,7 +21,8 @@ autoplacement (Quilter) — see [Files](#files).
 |---|---|
 | `phantasm.kicad_pro` | Project file |
 | `phantasm.kicad_sch` | Schematic — all parts, values, footprints, full §10 connectivity |
-| `phantasm.kicad_pcb` | PCB — footprints placed + routed, but **STALE**: routed against the old mirrored Teensy pad map (see [PCB](#pcb-phantasmkicad_pcb)); re-route from `unplaced/` via Quilter |
+| `phantasm.kicad_pcb` | Completed routed PCB with validated placement, control routing, planes, mounting, and service clearances |
+| `quilter_incremental/` | Historical protected input snapshot used for the completed control-net routing |
 | `unplaced/phantasm_unplaced.kicad_pcb` | **4-layer** (SIG/GND/GND/SIG) outline + net-assigned footprints **staged below the board, unrouted** — for an autoplacer (Quilter). Stackup encoded in-file. Regenerate: `python gen/pcb.py --unplaced` then `<kicad-python> gen/stackup.py` (both write into `unplaced/`) |
 | `phantasm.kicad_sym` | Project symbol library: custom `Teensy4.0` + `+5V_RAW/+5V_LOGIC` power symbols |
 | `phantasm.pretty/` | Project footprint library: generated `Teensy4.0` footprint (2×14 0.1″ THT) |
@@ -38,13 +39,18 @@ Both checks run via `kicad-cli` (KiCad 10.0):
 
 - **N=8 firmware:** `pio run -e phantasm8` compiles and links the optional
   eight-board profile; this is firmware validation, not rotor qualification.
-- **ERC: 0 violations** (`kicad-cli sch erc --severity-error --severity-warning`).
+- **ERC: 0 errors.** A warning-inclusive KiCad 10 run reports nine
+  `lib_symbol_mismatch` notices for embedded copies of stock/custom symbols;
+  the exported connectivity is verified separately below.
 - **Netlist matches spec §10** — exported with `kicad-cli sch export netlist` and
   diffed against the net table in the spec (see `gen/check.py`). Every net in §10 is
   realized with the correct members (logic feed `J1 → F1 → Q_REV → FB → +5V_LOGIC`;
   series terminations `U1 out → R → J2`/bus; the pin-3 divider node ties Teensy D3,
   `U1` ch-C input, `R1`/`R2`/`C_SYNC`; ID0/ID1/ID2 straps; `MASTER_EN`; shield).
-- **PCB DRC: clean** (`kicad-cli pcb drc`) — 0 errors and 0 unconnected items.
+- **PCB geometry DRC: clean** (`kicad-cli pcb drc`): zero error-severity
+  violations and zero unconnected pads.
+- **Standard-cost via gate:** `gen/fab.py` rejects a routed board containing a
+  via smaller than 0.45 mm with a drill smaller than 0.20 mm.
 
 ## How connectivity is drawn
 
@@ -79,7 +85,7 @@ the netlist is what's verified.
 | `R_S` | `Device:R` (100Ω) | `R_0805` | SYNC source term |
 | `R1/R2` | `Device:R` (10k/15k) | `R_0603` | sync divider |
 | `C_SYNC` | `Device:C` (220pF) | `C_0603` | populated (noise filter) |
-| `R_PD` | `Device:R` (10k) | `R_0603` | bus idle pull-down |
+| `R_PD` | `Device:R` (10k) | `R_0603` | master-only bus idle pull-down; ground-side switched automatically by U1 channel D |
 | `R_MEN` | `Device:R` (10k) | `R_0603` | MASTER_EN boot pull-up → 3V3 |
 | `R_ID0` | `Device:R` (10k) | `R_0603` | **DNP** — ID0 pull-up |
 | `D_BUS` | `Device:D_TVS` | `Diode_SMD:D_SOD-323` | **DNP** — bus clamp |
@@ -130,12 +136,9 @@ the netlist is what's verified.
 
 ## PCB (`phantasm.kicad_pcb`)
 
-> **STALE — do not fab.** This routed board was produced against the earlier
-> **mirrored** Teensy footprint (pin rows swapped across the long axis), so for a
-> component-side-up Teensy every Teensy net lands on the wrong pad. The generator and
-> `unplaced/phantasm_unplaced.kicad_pcb` now carry the corrected pad map — re-route
-> from the unplaced board via Quilter and replace this file, then refresh the facts
-> block below.
+The PCB uses the corrected component-side-up Teensy footprint verified against
+PJRC's top-view pinout. The earlier mirrored-footprint warning was obsolete and
+has been removed. The completed control-net routing is included in this file.
 
 The committed routed PCB is the source of truth for these facts. Refresh this block with
 `python gen/board_metadata.py --write-readme` after an intentional board change.
@@ -146,51 +149,43 @@ The committed routed PCB is the source of truth for these facts. Refresh this bl
 |---|---|
 | Board dimensions | 58.28 × 32 mm |
 | Board thickness | 1.6 mm |
-| Footprints by side | 29 (F.Cu: 29, B.Cu: 0) |
-| Track segments | 384 |
-| Vias | 83 |
-| Copper zones | 2 (In1.Cu: 1, In2.Cu: 1) |
+| Footprints by side | 33 (F.Cu: 33, B.Cu: 0) |
+| Track segments | 351 |
+| Vias | 97 |
+| Copper zones | 6 (F.Cu: 4, In1.Cu: 5, In2.Cu: 5, B.Cu: 4) |
 | Copper layers | 4 (F.Cu, In1.Cu, In2.Cu, B.Cu) |
 | Copper thicknesses | F.Cu: 0.035001 mm; In1.Cu: 0.015189 mm; In2.Cu: 0.015189 mm; B.Cu: 0.035001 mm |
 | Copper finish | Lead-Free |
 <!-- END ROUTED PCB FACTS -->
 
 Connectors are at the **ends** (power/debug `J1`/`J4` at the hub end,
-strip/sync `J2`/`J3A`/`J3B` at the far end, R-CON-4). `kicad-cli pcb drc` reports
-**0 errors, 0 unconnected** (cosmetic silk-overlap warnings from the tight
-auto-placement remain — nudge the reference designators in Pcbnew).
+strip/sync `J2`/`J3A`/`J3B` at the far end, R-CON-4). `MASTER_EN` and
+`SYNC_PULLDOWN` are fully routed.
 
 ### How it was placed & routed
 
-- **Autoplaced + autorouted with Quilter** from `unplaced/phantasm_unplaced.kicad_pcb` (4-layer
-  stackup + inner GND planes encoded in-file; connectors pre-locked at the ends). Quilter
-  returns several candidates; the chosen one was picked by a fast-net signal-integrity
-  comparison (`gen/analyze_candidates.py` — fewest SPI/SYNC vias, shortest fast nets).
+- **Autoplaced + autorouted with Quilter.** Candidate 1 was subsequently corrected
+  for mounting, USB access, identifiers, power protection, BOM metadata, and
+  signal-integrity placement. That corrected board—not the old unplaced generator
+  output—is now the layout source of truth.
 - **Ground:** both inner layers have solid `GND` zones, providing an adjacent reference
   plane for traces on both outer layers (R-SI-1).
-- **Fast nets:** `DATA`, `CLK`, `CLK_IN`, `SYNC_BUS`, `FRAME_SYNC` route **via-free**; the
-  buffered strip `DATA` output is ~5.4 mm on `F.Cu`. Only `DATA_IN` (Teensy→buffer input)
-  takes 2 vias, to cross `MASTER_EN` on `B.Cu` — negligible on the input side.
-- Net class `Default` = **0.3 mm track / 0.2 mm clearance / 0.6 mm via**; min clearance
-  0.2 mm.
-
-### Remaining polish (optional, in Pcbnew)
-
-- **Silk labels:** the auto-placement leaves ~14 reference-designator silk overlaps
-  (`silk_overlap` / `silk_over_copper` / clipped-by-edge) — nudge the refdes for a clean
-  legend. Cosmetic only; no electrical effect.
-- Optional: drop `DATA_IN` to 1 via by rerouting `MASTER_EN` (interactive push-and-shove).
+- **Fast nets:** DATA, CLK, and SYNC routing from the validated input was retained;
+  the completed Quilter pass added only the low-rate control routing.
+- Existing critical routing uses the JLCPCB **4 mil / 4 mil** process limits.
 
 > Routing lives only in `phantasm.kicad_pcb`. **Re-running `gen/pcb.py` overwrites the
 > board and discards routing** — don't regenerate the PCB after this point (or route a copy).
-> For a fresh Quilter run, upload `unplaced/phantasm_unplaced.kicad_pcb` instead.
+> Treat `quilter_incremental/` as a historical input snapshot, not as the
+> fabrication board.
 
 ## Status
 
-- [x] Schematic — complete, ERC-clean, netlist verified against spec §10
-- [x] Teensy footprint pad map corrected for component-side-up mount (unplaced board regenerated)
-- [ ] PCB — committed routed board is **stale** (old mirrored Teensy pad map); re-route `unplaced/phantasm_unplaced.kicad_pcb` in Quilter, commit the result, refresh the facts block
-- [ ] Optional polish — silk-label nudge (above)
+- [x] Schematic — complete, zero-error ERC, netlist verified against spec §10
+- [x] Teensy footprint pad map verified for component-side-up mounting
+- [x] Corrected Candidate 1 placement and validated routing preserved
+- [x] Automatic master-only R_PD circuit added to the schematic and PCB netlist
+- [x] Quilter control-net routing imported and verified with a clean DRC
 
 ### Layout constraint (R-MECH-6)
 **Board width ≤ 35 mm** — mounts along the rotor arm. `PCB_W` is set to **32 mm**
@@ -223,29 +218,26 @@ unplaced stackup is encoded in its file, so Quilter reads it on upload — no ne
 hand-enter dielectric/mil values in its UI. Net class is 0.3 mm track / 0.2 mm clearance /
 0.6 mm via (well above the 3.5 mil fab minimum).
 
-**Uploading to Quilter** — upload the whole project (`phantasm.kicad_pcb` *placed/routed*
-or `unplaced/phantasm_unplaced.kicad_pcb` *for autoplace*, **plus `phantasm.kicad_sch` and
-the matching `.kicad_pro`**). **Run `python gen/heal_clearance.py` as the LAST step before
-every upload** (see next point). Quilter prep:
+**Running a future unplaced board through Quilter** — regenerate and upload the
+three `unplaced/phantasm_unplaced.kicad_*` files together. Run
+`python gen/heal_clearance.py` as the final preparation step. Quilter prep:
 - **`min_clearance` must be > 0** in the uploaded `.kicad_pro` — Quilter rejects the KiCad
   default of 0 ("min clearance must be > 0"). KiCad **re-zeroes it whenever the project is
   opened in the GUI**, so it must be restored right before upload. `gen/heal_clearance.py`
-  sets it to 0.2 mm in **both** project files (`phantasm.kicad_pro` and the unplaced one);
-  `stackup.py` also heals the unplaced pro on every regen. The placed-board upload uses the
-  **top-level** `phantasm.kicad_pro` — heal that one too (the common gotcha).
-- **Through-hole parts + the tall cap are pre-placed and `locked` on the TOP side**
-  (`U_MCU`, `C_IN`, and connectors `J1`–`J4`) so Quilter can't flip them to the bottom —
-  keeps the board's back clear of bodies/the 10 mm electrolytic for the ring mount
-  (R-MECH). Quilter places only the low-profile SMD (either side). Relock/move in Pcbnew
-  to change fixed positions; for a fully bare back, also enable single-sided placement in
-  Quilter (costs board area).
+  restores at least 0.1016 mm in routed projects and preserves the unplaced
+  project's 0.2 mm setting; `stackup.py` also heals the unplaced project on
+  every regeneration.
+- The unplaced project intentionally allows Quilter to place unlocked components;
+  only explicit mechanical and signal-integrity placements remain locked.
 - **Every footprint carries its schematic `(path)`** so Quilter matches board↔schematic
   (groups related parts during placement).
-- **Critical local placement is locked:** `C_DEC1` is beside the Teensy VIN/GND
-  pins; `U1`/`C_DEC2` and the DATA/CLK source resistors form one cluster; and
-  `R1`/`R2`/`C_SYNC`, `R_S`, `R_PD`, and `D_BUS` constrain the SYNC source and
-  receive loops. Quilter remains free to place the other SMD parts.
-- Quilter regenerates its own copper pours, so the inner `GND` zones here are just intent.
+- Select **Preserve copper on internal layers** and preserve the uploaded
+  four-layer stackup. The unplaced project starts with 0.60/0.30 mm vias and
+  enforces a 0.45/0.20 mm minimum.
+- After downloading candidates, run `python gen/analyze_candidates.py <paths>`.
+  Candidates with vias below 0.45/0.20 mm are ineligible even if Quilter's DRC
+  accepts them. After promoting the chosen board to `phantasm.kicad_pcb`, run
+  `python gen/fab.py`; fabrication output repeats the same via gate.
 
 > `python pcb.py` (no flag) regenerates the placed board and **discards routing** — only
 > rerun it before routing. `--unplaced` writes a *separate* file and never touches

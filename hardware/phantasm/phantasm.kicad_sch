@@ -38,7 +38,7 @@
 					)
 				)
 			)
-			(property "Footprint" ""
+			(property "Footprint" "phantasm:Teensy4.0"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -3452,8 +3452,9 @@
 		(color 0 0 0 0)
 		(uuid "9ead463c-a7cf-43dc-ac9f-ddd179982947")
 	)
-	(no_connect
-		(at 160.02 228.6)
+	(label "SYNC_PULLDOWN"
+		(at 160.02 228.6 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "3abda202-c8c2-4190-882b-57bf920a04b0")
 	)
 	(wire
@@ -3981,6 +3982,11 @@
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "5b0bd3a2-1b22-4c93-811d-e92576d7bef2")
 	)
+	(label "MASTER_EN"
+		(at 152.4 237.49 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "15ba352a-1abd-4816-a212-9296095a5d57")
+	)
 	(label "DATA"
 		(at 273.05 162.56 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
@@ -4005,6 +4011,11 @@
 		(at 292.1 198.12 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "1218c12b-f932-4fb7-9521-b4e3d7f82cf4")
+	)
+	(label "SYNC_PULLDOWN"
+		(at 292.1 212.09 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "df719a14-5582-450b-8c66-e41b452cedc1")
 	)
 	(label "SYNC_BUS"
 		(at 284.48 231.14 0)
@@ -4254,7 +4265,7 @@
 			(at 33.02 63.5 0)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Footprint" ""
+		(property "Footprint" "phantasm:Teensy4.0"
 			(at 33.02 66.04 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
@@ -5082,40 +5093,6 @@
 	)
 	(symbol
 		(lib_id "phantasm:+5V_LOGIC")
-		(at 152.4 237.49 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "15ba352a-1abd-4816-a212-9296095a5d57")
-		(property "Reference" "#PWR"
-			(at 152.4 232.41 0)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Value" "+5V_LOGIC"
-			(at 152.4 242.57 0)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Footprint" ""
-			(at 152.4 245.11 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-		(property "Datasheet" ""
-			(at 152.4 237.49 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-		(pin "1" (uuid "ad19b052-6e53-40d5-b3e9-189c30e33781"))
-		(instances
-			(project "phantasm"
-				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "phantasm:+5V_LOGIC")
 		(at 215.9 121.92 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -5456,40 +5433,6 @@
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
 					(reference "R_PD") (unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 292.1 212.09 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "df719a14-5582-450b-8c66-e41b452cedc1")
-		(property "Reference" "#PWR"
-			(at 292.1 207.01 0)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Value" "GND"
-			(at 292.1 217.17 0)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Footprint" ""
-			(at 292.1 219.71 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-		(property "Datasheet" ""
-			(at 292.1 212.09 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-		(pin "1" (uuid "dd9cfc7b-ddcc-4d87-9b04-ab43c374f7af"))
-		(instances
-			(project "phantasm"
-				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
 				)
 			)
 		)

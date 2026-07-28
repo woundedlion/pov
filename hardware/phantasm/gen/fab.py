@@ -42,6 +42,8 @@ ZIP_EXT = {".gtl", ".g1", ".g2", ".gbl", ".gto", ".gbo", ".gts", ".gbs",
 EXCLUDE_FP_SUBSTR = ("PinHeader", "SolderJumper", "CP_Radial")
 EXCLUDE_VAL_SUBSTR = ("Teensy",)
 ASSEMBLY_SIDE = "top"
+MIN_STANDARD_VIA_DIAMETER_MM = 0.45
+MIN_STANDARD_VIA_DRILL_MM = 0.20
 
 # JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
 # the schematic so the JLC assembly output owns the supplier mapping. R_D1/R_D2
@@ -61,20 +63,70 @@ LCSC_BY_REF = {
 ROT_CORRECTION = {
     "U1": 270,    # SOIC-14: KiCad 180 -> 90, pin 1 on silk mark
 }
-# JLCPCB catalog description keyed by LCSC #, for the BOM Description column.
-DESC_BY_LCSC = {
-    "C14663": "100nF 50V X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC ROHS",
-    "C12891": "22uF 25V X5R ±10% 1206 Multilayer Ceramic Capacitors MLCC ROHS",
-    "C1603": "220pF 50V X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC ROHS",
-    "C261952": "13.2V 500mA hold 1A trip 750mΩ 1206 Resettable Fuse PPTC ROHS",
-    "C73732": "600Ω@100MHz ±25% 2A 200mΩ 1206 Ferrite Bead ROHS",
-    "C15127": "AO3401A -30V P-channel MOSFET 60mohm@-4.5V SOT-23 ROHS",
-    "C25804": "10kΩ ±1% 100mW 0603 Thick Film Resistor ROHS",
-    "C22809": "15kΩ ±1% 100mW 0603 Thick Film Resistor ROHS",
-    "C17634": "33Ω ±1% 125mW 0805 Thick Film Resistor ROHS",
-    "C48928179": "1.5Ω ±5% 125mW 0805 Thick Film Resistor ROHS",
-    "C17408": "100Ω ±1% 125mW 0805 Thick Film Resistor ROHS",
-    "C155176": "74AHCT125 4.5~5.5V quad bus buffer 3-state SOIC-14 ROHS",
+# Exact JLCPCB catalog identity keyed by LCSC #. The LCSC number drives
+# automatic matching; manufacturer and MPN make every match independently
+# auditable in the uploaded BOM.
+PART_BY_LCSC = {
+    "C14663": {
+        "manufacturer": "YAGEO",
+        "mpn": "CC0603KRX7R9BB104",
+        "description": "100nF 50V X7R +/-10% 0603 MLCC",
+    },
+    "C12891": {
+        "manufacturer": "Samsung Electro-Mechanics",
+        "mpn": "CL31A226KAHNNNE",
+        "description": "22uF 25V X5R +/-10% 1206 MLCC",
+    },
+    "C1603": {
+        "manufacturer": "Samsung Electro-Mechanics",
+        "mpn": "CL10B221KB8NNNC",
+        "description": "220pF 50V X7R +/-10% 0603 MLCC",
+    },
+    "C261952": {
+        "manufacturer": "TLC",
+        "mpn": "TLC-NSMD050",
+        "description": "13.2V 500mA hold 1A trip 1206 resettable PPTC fuse",
+    },
+    "C73732": {
+        "manufacturer": "FH (Guangdong Fenghua Advanced Tech)",
+        "mpn": "CBW321609U601T",
+        "description": "600ohm @ 100MHz +/-25% 2A 1206 ferrite bead",
+    },
+    "C15127": {
+        "manufacturer": "Alpha & Omega Semiconductor",
+        "mpn": "AO3401A",
+        "description": "-30V P-channel MOSFET 60mohm @ -4.5V SOT-23",
+    },
+    "C25804": {
+        "manufacturer": "UNI-ROYAL",
+        "mpn": "0603WAF1002T5E",
+        "description": "10kohm +/-1% 100mW 0603 thick-film resistor",
+    },
+    "C22809": {
+        "manufacturer": "UNI-ROYAL",
+        "mpn": "0603WAF1502T5E",
+        "description": "15kohm +/-1% 100mW 0603 thick-film resistor",
+    },
+    "C17634": {
+        "manufacturer": "UNI-ROYAL",
+        "mpn": "0805W8F330JT5E",
+        "description": "33ohm +/-1% 125mW 0805 thick-film resistor",
+    },
+    "C48928179": {
+        "manufacturer": "HKR (Hong Kong Resistors)",
+        "mpn": "RCA051R5JLF",
+        "description": "1.5ohm +/-5% 125mW 0805 thick-film resistor",
+    },
+    "C17408": {
+        "manufacturer": "UNI-ROYAL",
+        "mpn": "0805W8F1000T5E",
+        "description": "100ohm +/-1% 125mW 0805 thick-film resistor",
+    },
+    "C155176": {
+        "manufacturer": "Texas Instruments",
+        "mpn": "SN74AHCT125DR",
+        "description": "4.5V to 5.5V quad 3-state buffer SOIC-14",
+    },
 }
 
 
@@ -188,6 +240,68 @@ class AssemblyMetadataError(ValueError):
         super().__init__(message)
 
 
+class PartCatalogError(ValueError):
+    pass
+
+
+class ViaGeometryError(ValueError):
+    pass
+
+
+def validate_via_geometry(pcb_path):
+    try:
+        with open(pcb_path, encoding="utf-8") as fh:
+            root = sexp.parse(fh.read())[0]
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ViaGeometryError(f"cannot read PCB vias: {pcb_path}") from exc
+
+    diagnostics = []
+    vias = F(root, "via")
+    for index, via in enumerate(vias, 1):
+        at = sexp._val(via, "at", [])
+        size = sexp._val(via, "size", [])
+        drill = sexp._val(via, "drill", [])
+        location = ",".join(str(value) for value in at[:2]) or f"index {index}"
+        try:
+            diameter_mm = float(size[0])
+            drill_mm = float(drill[0])
+        except (IndexError, TypeError, ValueError):
+            diagnostics.append(f"via at {location}: size or drill is invalid")
+            continue
+        if diameter_mm < MIN_STANDARD_VIA_DIAMETER_MM:
+            diagnostics.append(
+                f"via at {location}: {diameter_mm:g} mm diameter is below "
+                f"{MIN_STANDARD_VIA_DIAMETER_MM:g} mm")
+        if drill_mm < MIN_STANDARD_VIA_DRILL_MM:
+            diagnostics.append(
+                f"via at {location}: {drill_mm:g} mm drill is below "
+                f"{MIN_STANDARD_VIA_DRILL_MM:g} mm")
+
+    if diagnostics:
+        raise ViaGeometryError(
+            "via geometry validation failed:\n  " + "\n  ".join(diagnostics))
+    return len(vias)
+
+
+def validate_part_catalog(assembly_metadata):
+    diagnostics = []
+    required = ("manufacturer", "mpn", "description")
+    for ref, metadata in assembly_metadata.items():
+        lcsc = metadata["lcsc"]
+        part = PART_BY_LCSC.get(lcsc)
+        if part is None:
+            diagnostics.append(f"{ref}: LCSC {lcsc} has no catalog entry")
+            continue
+        for field in required:
+            if not str(part.get(field, "")).strip():
+                diagnostics.append(
+                    f"{ref}: LCSC {lcsc} catalog {field} is blank")
+    if diagnostics:
+        raise PartCatalogError(
+            "supplier catalog validation failed:\n  " +
+            "\n  ".join(diagnostics))
+
+
 def validate_assembly_metadata(comps, posrows, assembled):
     diagnostics = []
     metadata = {}
@@ -262,6 +376,14 @@ def main():
     print(f"kicad-cli: {KCLI}")
     if not os.path.exists(PCB):
         sys.exit(f"board not found: {PCB}")
+    try:
+        num_vias = validate_via_geometry(PCB)
+    except ViaGeometryError as exc:
+        sys.exit(str(exc))
+    print(
+        f"via geometry: {num_vias} vias meet "
+        f"{MIN_STANDARD_VIA_DIAMETER_MM:g}/"
+        f"{MIN_STANDARD_VIA_DRILL_MM:g} mm minimum")
     # clean fab dir, keep the rest of out/
     if os.path.isdir(JLC):
         for f in os.listdir(JLC):
@@ -299,6 +421,10 @@ def main():
         assembly_metadata = validate_assembly_metadata(comps, posrows, assembled)
     except AssemblyMetadataError as exc:
         sys.exit(str(exc))
+    try:
+        validate_part_catalog(assembly_metadata)
+    except PartCatalogError as exc:
+        sys.exit(str(exc))
 
     print("[5/6] BOM + CPL")
     # BOM grouped by (value, footprint)
@@ -311,10 +437,18 @@ def main():
               encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #",
-                    "Description"])
+                    "Manufacturer", "Manufacturer Part Number", "Description"])
         for (v, f, lcsc), refs in sorted(groups.items()):
-            w.writerow([v, ",".join(sorted(refs)), f, lcsc,
-                        DESC_BY_LCSC.get(lcsc, "")])
+            part = PART_BY_LCSC[lcsc]
+            w.writerow([
+                v,
+                ",".join(sorted(refs)),
+                f,
+                lcsc,
+                part["manufacturer"],
+                part["mpn"],
+                part["description"],
+            ])
     with open(os.path.join(JLC, "phantasm-CPL.csv"), "w", newline='',
               encoding="utf-8") as fh:
         w = csv.writer(fh)

@@ -21,11 +21,14 @@ class BoardMetadataTests(unittest.TestCase):
             (metadata.width_mm, metadata.height_mm),
             (Decimal("58.28"), Decimal("32")),
         )
-        self.assertEqual(metadata.footprint_sides, (("F.Cu", 29), ("B.Cu", 0)))
-        self.assertEqual(metadata.track_segments, 384)
-        self.assertEqual(metadata.vias, 83)
-        self.assertEqual(metadata.zones, 2)
-        self.assertEqual(metadata.zone_layers, (("In1.Cu", 1), ("In2.Cu", 1)))
+        self.assertEqual(metadata.footprint_sides, (("F.Cu", 33), ("B.Cu", 0)))
+        self.assertEqual(metadata.track_segments, 351)
+        self.assertEqual(metadata.vias, 97)
+        self.assertEqual(metadata.zones, 6)
+        self.assertEqual(
+            metadata.zone_layers,
+            (("F.Cu", 4), ("In1.Cu", 5), ("In2.Cu", 5), ("B.Cu", 4)),
+        )
         self.assertEqual(metadata.copper_layers, ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu"))
         self.assertEqual(
             metadata.copper_stackup,
@@ -48,7 +51,12 @@ class BoardMetadataTests(unittest.TestCase):
         )
         facts = board_metadata.render_facts(metadata)
         readme = (REPO_ROOT / "hardware" / "phantasm" / "README.md").read_text(encoding="utf-8")
-        stale = readme.replace("| Track segments | 384 |", "| Track segments | 385 |", 1)
+        current = f"| Track segments | {metadata.track_segments} |"
+        stale = readme.replace(
+            current,
+            f"| Track segments | {metadata.track_segments + 1} |",
+            1,
+        )
 
         with self.assertRaisesRegex(board_metadata.MetadataError, "facts are stale"):
             board_metadata.check_facts(stale, facts)
