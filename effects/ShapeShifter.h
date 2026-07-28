@@ -276,6 +276,10 @@ private:
   Pipeline<W, H> scan_filters; /**< Filter pipeline for Scan mode. */
   BakedPalette baked_sunset;   /**< LUT-baked RICH_SUNSET sampled per layer. */
 
+  ShapeType current_shape; /**< Shape currently being rendered. */
+  int frame_count_ =
+      0; /**< Frame phase in [0, 48) — gates shape cycling; never overflows. */
+
   /**
    * @brief Tunable rendering parameters exposed to the GUI.
    */
@@ -287,10 +291,6 @@ private:
     float twist = 0.0f;      /**< Per-layer twist phase in radians. */
     bool debug_bb = false;   /**< Draw Scan bounding boxes when true. */
   } params;
-
-  ShapeType current_shape; /**< Shape currently being rendered. */
-  int frame_count_ =
-      0; /**< Frame phase in [0, 48) — gates shape cycling; never overflows. */
 };
 
 #include "core/engine/effect_registry.h"

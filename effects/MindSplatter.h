@@ -162,7 +162,7 @@ private:
       angular_speed = start.angular_speed +
                       (target.angular_speed - start.angular_speed) * t;
     }
-  } params;
+  };
 
   static constexpr float FRICTION_MIN = 0.5f, FRICTION_MAX = 1.0f;
   static constexpr float WELL_STRENGTH_MIN = 0.0f, WELL_STRENGTH_MAX = 20.0f;
@@ -329,6 +329,8 @@ private:
   bool reference_hole_kernel = false;
   bool reference_palette_alpha = false;
 #endif
+
+  Params params;
 
   /**
    * @brief (Re)builds the particle system from scratch.
