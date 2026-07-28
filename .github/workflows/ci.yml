@@ -635,6 +635,27 @@ jobs:
       - name: Effect roster matches REGISTER_EFFECT registrations
         run: node scripts/check_effect_roster.mjs
 
+  docs-markdown:
+    name: Tracked Markdown is valid
+    # Lives here rather than in docs.yml because that workflow is path-filtered
+    # to the Doxygen inputs (**.h, **.cpp, *.md, Doxyfile, justfile, the theme
+    # files). A rename or deletion under scripts/, tools/, .github/ or
+    # platformio.ini breaks a documented link and matches none of those filters,
+    # so the checker never ran on the commit that broke it. ci.yml has no path
+    # filter, so every push and PR is gated.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate tracked Markdown
+        run: |
+          python -m unittest discover -s tools/docs_check_tests
+          python tools/docs_check.py
+
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
     # Guards finding 404: the tests/sanitizers jobs run subsets of the suite via

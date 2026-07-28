@@ -44,7 +44,7 @@ test:
     cmake --build --preset tests
     ctest --preset tests
 
-# Validate tracked Markdown using the same commands as docs CI.
+# Validate tracked Markdown using the same commands as the ci.yml docs-markdown job.
 docs-check:
     python -m unittest discover -s tools/docs_check_tests
     python tools/docs_check.py
