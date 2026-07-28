@@ -2155,13 +2155,13 @@ Switching presets does a full WASM reset: `setResolution(w, h)` updates the acti
 
 ### 10.11 Geometry Tools (`daydream/tools/`)
 
-Four standalone HTML pages. Three render with their own Three.js scene; `palettes.html` renders with 2D canvas contexts. `solids.html` is backed by the engine's WASM build so its geometry stays identical to the C++ engine — via the `MeshOps` class; the other three implement their geometry math directly in JavaScript:
+Four standalone HTML pages. Three render with their own Three.js scene; `palettes.html` renders with 2D canvas contexts. Two are backed by the engine's WASM build so their math stays identical to the C++ engine — `solids.html` via the `MeshOps` class and `palettes.html` via `PaletteOps` — and both hard-require it: a failed module load raises a fatal banner instead of falling back. `lissajous.html` and `mobius.html` implement their geometry math directly in JavaScript:
 
 | Tool | What it does |
 |---|---|
 | `lissajous.html` | Designs spherical Lissajous curves with live frequency / phase sliders; outputs a C++ `LissajousParams` initializer for the engine's Lissajous effects (`ChaoticStrings`, `Comets`). |
 | `mobius.html` | Visualizes Möbius transformations on the sphere via the engine's stereographic projection; lets you sweep the four complex coefficients, see the warp on a latitude-longitude grid, and copy a C++ `MobiusParams` initializer. |
-| `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and `GenerativePalette` harmony rules and exports the C++ initializer; renders its swatches and graphs on 2D canvas contexts rather than a Three.js scene. |
+| `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and `GenerativePalette` harmony rules and exports the C++ initializer; renders its swatches and graphs on 2D canvas contexts rather than a Three.js scene. `GenerativePalette` LUTs are baked through the WASM `PaletteOps.bakeLut` bridge, so its harmony colors are the engine's own. |
 | `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas (16 MB, separate from the engine's 298 KiB arena). |
 
 All four reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`.
