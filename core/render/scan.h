@@ -602,8 +602,8 @@ struct DistortedRingStack {
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         const float d = dot(p, axis_v);
         const float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
-        int ilo = static_cast<int>(ceilf((polar - b_win) * inv_delta)) - 2;
-        int ihi = static_cast<int>(floorf((polar + b_win) * inv_delta));
+        int ilo = static_cast<int>(ceilf((polar - b_win) * inv_delta)) - 1;
+        int ihi = static_cast<int>(floorf((polar + b_win) * inv_delta)) - 1;
         if (ilo < 0)
           ilo = 0;
         if (ihi > n_rings - 1)
