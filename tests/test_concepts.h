@@ -236,8 +236,8 @@ struct TweenableModel {
   /** @brief A frame: a fixed-capacity quaternion sub-history. */
   struct Frame {
     static constexpr int CAPACITY = 4; /**< Max sub-frames. */
-    /** @brief Sub-frame count, consumed as a size_t. */
-    size_t length() const { return 0; }
+    /** @brief Sub-frame count, signed as Orientation's is. */
+    int length() const { return 0; }
     /** @brief Sub-frame accessor. */
     const Quaternion &get(int) const { return q; }
     Quaternion q; /**< Storage backing get(). */

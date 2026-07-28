@@ -259,20 +259,20 @@ void deep_tween_frames(const Tweenable auto &trail, FrameFn &&callback) {
   size_t active_idx = 0;
   for (size_t i = 0; i <= last; ++i) {
     const auto &frame = trail.get(i);
-    size_t frame_size = frame.length();
+    int frame_size = frame.length();
     if (i != 0 && frame_size <= 1)
       continue;
-    size_t start_j = (i == 0) ? 0 : 1;
+    int start_j = (i == 0) ? 0 : 1;
 
     int count = 0;
-    for (size_t j = start_j; j < frame_size; ++j) {
+    for (int j = start_j; j < frame_size; ++j) {
       float sub_t =
           (frame_size > 1) ? static_cast<float>(j) / (frame_size - 1) : 0.0f;
       ts[count++] = (static_cast<float>(active_idx) + sub_t) / span;
     }
     // Sub-positions are contiguous in the frame's storage, so one pointer
     // spans [start_j, frame_size).
-    callback(&frame.get(static_cast<int>(start_j)), ts, count);
+    callback(&frame.get(start_j), ts, count);
     ++active_idx;
   }
 }
