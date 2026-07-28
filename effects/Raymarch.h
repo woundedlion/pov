@@ -27,8 +27,8 @@ public:
 
   /**
    * @brief Registers tunable params, builds the disdyakis-dodecahedron vertex
-   *        set, bakes the palette LUT, and installs the camera walk and per-frame
-   *        draw on the timeline.
+   *        set, bakes the palette LUT, and installs the camera walk and phase
+   *        drivers on the timeline.
    */
   void init() override {
     register_param("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
@@ -56,17 +56,11 @@ public:
                                       1.5f / (60.0f * TWO_PI_F), true));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
                                       0.05f / 60.0f, true));
-
-    timeline.add(0, Animation::Sprite(
-                        [this](Canvas &canvas, float opacity) {
-                          this->draw_fn(canvas, opacity);
-                        },
-                        -1));
   }
 
   /**
-   * @brief Steps the timeline against a fresh canvas, driving the per-frame ray
-   *        march.
+   * @brief Steps the timeline against a fresh canvas, then ray-marches the
+   *        frame.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -74,6 +68,7 @@ public:
       HS_PROFILE(rm_timeline_step);
       timeline.step(canvas);
     }
+    draw_fn(canvas);
   }
 
 private:
@@ -99,11 +94,8 @@ private:
    * @brief Ray-marches and shades the twisted torus at every vertex for the
    *        current frame.
    * @param canvas Render target for this frame's fragments.
-   * @param opacity Sprite fade alpha in [0, 1], written into each fragment's
-   *                color.
    */
-  void draw_fn(Canvas &canvas, float opacity) {
-    // Per-pixel ray-march over every torus; parents under rm_timeline_step.
+  void draw_fn(Canvas &canvas) {
     HS_PROFILE(rm_shader_draw);
     constexpr float TWO_PI_F = 2.0f * PI_F;
 
@@ -165,7 +157,7 @@ private:
         // non-negative and this fract equals fmodf(coord, 1).
         float palette_t = coord - floorf(coord);
         Color4 c = baked_palette.get(palette_t);
-        frag.color = Color4(c.color * shade, opacity);
+        frag.color = Color4(c.color * shade, 1.0f);
       };
 
       Scan::TransformedVolume vol(torus, center, world_q);
