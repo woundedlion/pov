@@ -193,7 +193,7 @@ template <int W, int H> struct Pipeline<W, H> {
     xi = fast_wrap(xi, W);
     if (!cv.clip().contains_x(xi))
       return;
-    cv(xi, yi) = blend_alpha(alpha)(cv(xi, yi), c);
+    plot_in_bounds(cv, xi, yi, c, 0.0f, alpha);
   }
 
   /**
