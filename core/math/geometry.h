@@ -40,25 +40,28 @@ struct PixelCoords {
 /**
  * @brief Converts a pixel y-coordinate to a spherical phi angle.
  * @param y The pixel y-coordinate [0, h_virt - 1].
- * @param h_virt The virtual height.
+ * @param h_virt The VIRTUAL height, already including hs::H_OFFSET. The
+ *   `y_to_phi<H>` template takes the LOGICAL height instead and adds the offset
+ *   itself; the `_virtual` suffix keeps the two conventions apart at a call.
  * @return The spherical phi angle in radians.
  */
-inline float y_to_phi(float y, int h_virt) {
-  HS_CHECK(h_virt > 1, "y_to_phi: h_virt must be > 1");
+inline float y_to_phi_virtual(float y, int h_virt) {
+  HS_CHECK(h_virt > 1, "y_to_phi_virtual: h_virt must be > 1");
   return (y * PI_F) / (h_virt - 1);
 }
 
 /**
  * @brief Converts a spherical phi angle to a pixel y-coordinate.
  * @param phi The spherical phi angle in radians.
- * @param h_virt The virtual height.
+ * @param h_virt The VIRTUAL height, already including hs::H_OFFSET (see
+ *   y_to_phi_virtual).
  * @return The pixel y-coordinate in [0, h_virt - 1] for phi in [0, pi], EXCEPT at
  *   the south pole (phi == PI_F) the float round-trip can land a hair *above*
  *   `h_virt - 1`; a caller indexing a row buffer with `(int)y` must clamp or
  *   floor first.
  */
-inline float phi_to_y(float phi, int h_virt) {
-  HS_CHECK(h_virt > 1, "phi_to_y: h_virt must be > 1");
+inline float phi_to_y_virtual(float phi, int h_virt) {
+  HS_CHECK(h_virt > 1, "phi_to_y_virtual: h_virt must be > 1");
   return (phi * (h_virt - 1)) / PI_F;
 }
 
@@ -91,7 +94,7 @@ template <int H> struct PhiLUT {
    */
   static void init() {
     for (int y = 0; y < H_VIRT; y++) {
-      data[y] = y_to_phi(static_cast<float>(y), H_VIRT);
+      data[y] = y_to_phi_virtual(static_cast<float>(y), H_VIRT);
     }
     initialized = true;
   }
