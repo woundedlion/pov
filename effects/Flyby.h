@@ -39,12 +39,16 @@ public:
 
   /**
    * @brief Initializes animated params, orientation, palette, and preset loop.
-   * @details Registers animated params, seeds orientation and rotation, bakes
-   * the palette LUT, and kicks off the looping preset blend.
+   * @details Loads the first preset, registers animated params, seeds
+   * orientation and rotation, bakes the palette LUT, and kicks off the looping
+   * preset blend.
    */
   void init() override {
-
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+
+    // register_param range-checks *ptr and captures it as the GUI default, so
+    // params has to hold the first preset before any registration below.
+    params = presets.get();
 
     // Every preset-driven param is flagged animated so "Pause Animation" lets
     // the user take a slider over.
@@ -200,12 +204,12 @@ private:
    * @brief Tunable warp/pattern/color state, one snapshot per preset.
    */
   struct Params {
-    float warp_scale = 1.5f;
-    float warp_strength = 0.5f;
-    float pattern_freq = 8.0f;
-    float speed = 0.30f;
-    float pole_fade = 2.0f;
-    float hue_shift = 0.15f;
+    float warp_scale;
+    float warp_strength;
+    float pattern_freq;
+    float speed;
+    float pole_fade;
+    float hue_shift;
 
     /**
      * @brief Interpolates every field in parallel from a to b.
