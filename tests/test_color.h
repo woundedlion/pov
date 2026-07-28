@@ -1799,6 +1799,11 @@ inline void test_drift_modifier() {
   // Same frame: every coordinate shifts by the identical offset.
   HS_EXPECT_NEAR(drift.modify(0.7f) - 0.7f, drift.modify(0.1f) - 0.1f, 1e-6f);
 
+  // Amplitude applies outside the memo: it takes effect without time moving.
+  drift.amplitude = 0.4f;
+  HS_EXPECT_NEAR(drift.modify(0.0f), expected * 2.0f, 1e-6f);
+  drift.amplitude = 0.2f;
+
   // New frame: the memo refreshes to the new walk position.
   time = 9.8f;
   float refreshed = (value_noise_1d(time * 0.5f, 11u) - 0.5f) * 2.0f * 0.2f;
