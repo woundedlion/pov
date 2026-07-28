@@ -1109,6 +1109,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   }
   auto &pipeline = source_pipeline;
   size_t len = points.size();
+  // A degenerate path is not drawn — callers wanting a dot duplicate the vertex,
+  // as Line::sample does.
   if (len < 2)
     return;
   // Trap a null shader once per polyline so the per-pixel fragment_shader()
