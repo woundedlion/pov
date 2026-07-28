@@ -21,7 +21,7 @@
 // effect's full render path; the device footprint is unchanged. The native
 // harness is a 64-bit build, so per-effect footprints measured there can be
 // LARGER than on the 32-bit device wherever a pooled struct embeds a POINTER
-// (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut_); do not treat
+// (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut); do not treat
 // the host high-water mark as an exact device figure. Effects tune their own
 // split via configure_arenas() to fit the device budget.
 // The real device FlexRAM (RAM1) arena, sized from the measured worst-effect
@@ -64,7 +64,7 @@ class Arena {
   size_t offset;
   size_t high_water_mark;
 #ifndef NDEBUG
-  uint32_t generation_ = 0;
+  uint32_t generation = 0;
 #endif
 
 public:
@@ -166,7 +166,7 @@ public:
   void reset() {
     offset = 0;
 #ifndef NDEBUG
-    generation_++;
+    generation++;
 #endif
   }
 
@@ -183,7 +183,7 @@ public:
     offset = 0;
     high_water_mark = 0;
 #ifndef NDEBUG
-    generation_++;
+    generation++;
 #endif
   }
 
@@ -215,7 +215,7 @@ public:
    * @brief Returns the current debug generation stamp.
    * @return Generation counter, bumped on each reset/rebind.
    */
-  uint32_t get_generation() const { return generation_; }
+  uint32_t get_generation() const { return generation; }
 
   /**
    * @brief Tests whether a byte region still lies within the live extent.
@@ -343,28 +343,28 @@ template <typename T> class ArenaVector {
   template <typename U> friend class ArenaSpan;
 
 private:
-  T *data_;            /**< Pointer to the arena-allocated backing block. */
-  size_t size_;        /**< Number of constructed elements. */
-  size_t capacity_;    /**< Maximum element count the block can hold. */
-  bool bound_ = false; /**< Whether the vector has been bound to an arena. */
+  T *elements;             /**< Pointer to the arena-allocated backing block. */
+  size_t element_count;    /**< Number of constructed elements. */
+  size_t element_capacity; /**< Maximum element count the block can hold. */
+  bool bound = false; /**< Whether the vector has been bound to an arena. */
 #ifndef NDEBUG
-  Arena *source_arena_ = nullptr; /**< Arena the block was allocated from. */
-  uint32_t birth_generation_ = 0; /**< Arena generation at bind time. */
+  Arena *source_arena = nullptr; /**< Arena the block was allocated from. */
+  uint32_t birth_generation = 0; /**< Arena generation at bind time. */
   /**
    * @brief Per-vector counter bumped on every fresh allocation in bind() (the
    * grow / re-bind path).
-   * @details A grow swaps data_ for a new block WITHOUT touching the arena
+   * @details A grow swaps elements for a new block WITHOUT touching the arena
    * generation, so this is the only signal an ArenaSpan can use to detect that
    * its snapshotted pointer was abandoned by a re-grow of the source vector.
    */
-  uint32_t rebind_generation_ = 0;
+  uint32_t rebind_generation = 0;
 
   /**
    * @brief Debug-only use-after-free check against the arena generation.
    * @details Asserts if the source arena was reset out from under this vector.
    */
   void check_alive() const {
-    if (source_arena_ && source_arena_->get_generation() != birth_generation_) {
+    if (source_arena && source_arena->get_generation() != birth_generation) {
       assert(false && "ArenaVector use-after-free!");
     }
   }
@@ -379,7 +379,7 @@ private:
    * @brief Asserts that the vector has been bound to an arena.
    */
   void check_bound() const {
-    assert(bound_ && "Attempted to access unbound ArenaVector!");
+    assert(bound && "Attempted to access unbound ArenaVector!");
   }
 
   /**
@@ -387,23 +387,23 @@ private:
    *        leaving @p other in a pristine unbound state.
    */
   void steal_from(ArenaVector &other) noexcept {
-    data_ = other.data_;
-    size_ = other.size_;
-    capacity_ = other.capacity_;
-    bound_ = other.bound_;
+    elements = other.elements;
+    element_count = other.element_count;
+    element_capacity = other.element_capacity;
+    bound = other.bound;
 #ifndef NDEBUG
-    source_arena_ = other.source_arena_;
-    birth_generation_ = other.birth_generation_;
-    rebind_generation_ = other.rebind_generation_;
+    source_arena = other.source_arena;
+    birth_generation = other.birth_generation;
+    rebind_generation = other.rebind_generation;
 #endif
-    other.data_ = nullptr;
-    other.size_ = 0;
-    other.capacity_ = 0;
-    other.bound_ = false;
+    other.elements = nullptr;
+    other.element_count = 0;
+    other.element_capacity = 0;
+    other.bound = false;
 #ifndef NDEBUG
-    other.source_arena_ = nullptr;
-    other.birth_generation_ = 0;
-    other.rebind_generation_ = 0;
+    other.source_arena = nullptr;
+    other.birth_generation = 0;
+    other.rebind_generation = 0;
 #endif
   }
 
@@ -412,7 +412,7 @@ public:
    * @brief Default-constructs an unbound vector.
    * @details Must call bind() before use.
    */
-  ArenaVector() : data_(nullptr), size_(0), capacity_(0) {}
+  ArenaVector() : elements(nullptr), element_count(0), element_capacity(0) {}
 
   /**
    * @brief Deleted copy constructor.
@@ -449,7 +449,7 @@ public:
    * @param exact_capacity Element count to allocate; no dynamic growth.
    */
   ArenaVector(Arena &arena, size_t exact_capacity)
-      : data_(nullptr), size_(0), capacity_(0) {
+      : elements(nullptr), element_count(0), element_capacity(0) {
     bind(arena, exact_capacity);
   }
 
@@ -474,45 +474,45 @@ public:
     // Rebinding a still-bound vector after its source arena was reset, or to a
     // different arena, is a contract violation (the old block is already dead). A
     // same-arena/same-generation grow is not stale and reallocates below.
-    assert((!bound_ || (source_arena_ == &arena &&
-                        birth_generation_ == arena.get_generation())) &&
+    assert((!bound || (source_arena == &arena &&
+                       birth_generation == arena.get_generation())) &&
            "ArenaVector::bind() on a stale binding: clear the handle before "
            "resetting or changing its arena");
 #endif
     // Same arena, still live, and big enough → reuse the block in place.
-    if (bound_ && capacity_ >= exact_capacity) {
-      size_ = 0;
+    if (bound && element_capacity >= exact_capacity) {
+      element_count = 0;
 #ifndef NDEBUG
       // Reuse dangles any span snapshotted before this point; bump so its
       // check_alive() trips (the arena generation alone won't).
-      rebind_generation_++;
+      rebind_generation++;
 #endif
       return;
     }
     // Otherwise (unbound, or a grow that abandons the old block) → allocate
     // fresh. A grow leaks the old block until the next arena reset/compaction.
 #ifndef NDEBUG
-    if (bound_)
+    if (bound)
       hs::log("ArenaVector grow abandons %zu bytes (cap %zu -> %zu)",
-              capacity_ * sizeof(T), capacity_, exact_capacity);
+              element_capacity * sizeof(T), element_capacity, exact_capacity);
 #endif
     if (exact_capacity > 0) {
       // Trap an exact_capacity * sizeof(T) overflow that would wrap to a small
       // byte count and slip past Arena::allocate's bounds check.
       HS_CHECK(exact_capacity <= SIZE_MAX / sizeof(T),
                "ArenaVector capacity * sizeof(T) overflows size_t!");
-      data_ = static_cast<T *>(
+      elements = static_cast<T *>(
           arena.allocate(exact_capacity * sizeof(T), alignof(T)));
     } else {
-      data_ = nullptr;
+      elements = nullptr;
     }
-    size_ = 0;
-    capacity_ = exact_capacity;
-    bound_ = true;
+    element_count = 0;
+    element_capacity = exact_capacity;
+    bound = true;
 #ifndef NDEBUG
-    source_arena_ = &arena;
-    birth_generation_ = arena.get_generation();
-    rebind_generation_++;
+    source_arena = &arena;
+    birth_generation = arena.get_generation();
+    rebind_generation++;
 #endif
   }
 
@@ -520,7 +520,7 @@ public:
    * @brief Reports whether the vector is bound to an arena.
    * @return True iff bind() has been called.
    */
-  bool is_bound() const { return bound_; }
+  bool is_bound() const { return bound; }
 
   /**
    * @brief Appends a copy of an element.
@@ -529,9 +529,10 @@ public:
   void push_back(const T &value) {
     check_alive();
     check_bound();
-    HS_CHECK(size_ < capacity_, "ArenaVector exact capacity exceeded!");
-    new (&data_[size_]) T(value);
-    size_++;
+    HS_CHECK(element_count < element_capacity,
+             "ArenaVector exact capacity exceeded!");
+    new (&elements[element_count]) T(value);
+    element_count++;
   }
 
   /**
@@ -547,14 +548,16 @@ public:
         "append_bulk memcpy's the source; T must be trivially copyable");
     check_alive();
     check_bound();
-    // Subtractive, wrap-proof form: `size_ + count` could wrap for a colossal count.
-    HS_CHECK(count <= capacity_ - size_,
+    // Subtractive, wrap-proof form: `element_count + count` could wrap for a
+    // colossal count.
+    HS_CHECK(count <= element_capacity - element_count,
              "ArenaVector bulk append exceeds capacity!");
     // Skip memcpy on an empty append: a null src with count 0 is formal UB.
     if (count == 0)
       return;
-    memcpy(static_cast<void *>(data_ + size_), src, count * sizeof(T));
-    size_ += count;
+    memcpy(static_cast<void *>(elements + element_count), src,
+           count * sizeof(T));
+    element_count += count;
   }
 
   /**
@@ -566,9 +569,10 @@ public:
   template <typename... Args> T &emplace_back(Args &&...args) {
     check_alive();
     check_bound();
-    HS_CHECK(size_ < capacity_, "ArenaVector exact capacity exceeded!");
-    T *ptr = new (&data_[size_]) T(std::forward<Args>(args)...);
-    size_++;
+    HS_CHECK(element_count < element_capacity,
+             "ArenaVector exact capacity exceeded!");
+    T *ptr = new (&elements[element_count]) T(std::forward<Args>(args)...);
+    element_count++;
     return *ptr;
   }
 
@@ -580,8 +584,8 @@ public:
   T &operator[](size_t i) {
     check_alive();
     check_bound();
-    assert(i < size_);
-    return data_[i];
+    assert(i < element_count);
+    return elements[i];
   }
   /**
    * @brief Element access by index (const).
@@ -591,25 +595,25 @@ public:
   const T &operator[](size_t i) const {
     check_alive();
     check_bound();
-    assert(i < size_);
-    return data_[i];
+    assert(i < element_count);
+    return elements[i];
   }
 
   /**
    * @brief Returns the number of stored elements.
    * @return Current element count.
    */
-  size_t size() const { return size_; }
+  size_t size() const { return element_count; }
   /**
    * @brief Returns the maximum element count.
    * @return Capacity in elements.
    */
-  size_t capacity() const { return capacity_; }
+  size_t capacity() const { return element_capacity; }
   /**
    * @brief Reports whether the vector is empty.
    * @return True iff size() == 0.
    */
-  bool is_empty() const { return size_ == 0; }
+  bool is_empty() const { return element_count == 0; }
 
   /**
    * @brief Accesses the last element.
@@ -618,8 +622,8 @@ public:
   T &back() {
     check_alive();
     check_bound();
-    assert(size_ > 0);
-    return data_[size_ - 1];
+    assert(element_count > 0);
+    return elements[element_count - 1];
   }
   /**
    * @brief Accesses the last element (const).
@@ -628,20 +632,20 @@ public:
   const T &back() const {
     check_alive();
     check_bound();
-    assert(size_ > 0);
-    return data_[size_ - 1];
+    assert(element_count > 0);
+    return elements[element_count - 1];
   }
 
   /**
    * @brief Resets the vector to empty without destroying elements.
-   * @details No check_bound() here on purpose: clear() only resets size_ (it
-   * neither frees nor touches data_), so it is a defined no-op on an unbound
-   * vector. MeshState::clear() relies on this to reset members that may never
-   * have been bound.
+   * @details No check_bound() here on purpose: clear() only resets
+   * element_count (it neither frees nor touches elements), so it is a defined
+   * no-op on an unbound vector. MeshState::clear() relies on this to reset
+   * members that may never have been bound.
    */
   void clear() {
     check_alive();
-    size_ = 0;
+    element_count = 0;
   }
 
   /**
@@ -649,14 +653,14 @@ public:
    * @return Mutable pointer to the first element, or nullptr if unbound or
    * moved-from.
    * @details No check_bound() on data()/begin()/end() on purpose: an unbound (or
-   * moved-from) vector is data_==nullptr with size_==0, a well-defined EMPTY range
-   * that callers rely on (std::span(vertices.data(), size()), std::sort(data(),
-   * data()+count) on a size-0 vector). The use-after-free guard (check_alive)
-   * still applies.
+   * moved-from) vector is elements==nullptr with element_count==0, a
+   * well-defined EMPTY range that callers rely on (std::span(vertices.data(),
+   * size()), std::sort(data(), data()+count) on a size-0 vector). The
+   * use-after-free guard (check_alive) still applies.
    */
   T *data() {
     check_alive();
-    return data_;
+    return elements;
   }
   /**
    * @brief Returns a pointer to the backing storage (const).
@@ -665,7 +669,7 @@ public:
    */
   const T *data() const {
     check_alive();
-    return data_;
+    return elements;
   }
 
   /**
@@ -674,7 +678,7 @@ public:
    */
   T *begin() {
     check_alive();
-    return data_;
+    return elements;
   }
   /**
    * @brief Returns an iterator past the last element.
@@ -683,7 +687,7 @@ public:
   T *end() {
     check_alive();
     // Guard nullptr + 0 (formal UB) on an unbound/empty vector.
-    return data_ ? data_ + size_ : nullptr;
+    return elements ? elements + element_count : nullptr;
   }
   /**
    * @brief Returns a const iterator to the first element.
@@ -691,7 +695,7 @@ public:
    */
   const T *begin() const {
     check_alive();
-    return data_;
+    return elements;
   }
   /**
    * @brief Returns a const iterator past the last element.
@@ -700,7 +704,7 @@ public:
   const T *end() const {
     check_alive();
     // Guard nullptr + 0 (formal UB) on an unbound/empty vector.
-    return data_ ? data_ + size_ : nullptr;
+    return elements ? elements + element_count : nullptr;
   }
 };
 
@@ -713,23 +717,24 @@ public:
  * @tparam T Element type viewed by the span.
  * @details Makes owned (ArenaVector) vs borrowed data visible at the type level.
  *
- * LIFETIME CONTRACT: a span snapshots its source vector's data_ pointer at
+ * LIFETIME CONTRACT: a span snapshots its source vector's elements pointer at
  * construction. In debug builds two independent stamps fault on a stale span: the
  * arena generation catches an arena RESET, and the source vector's per-vector
- * rebind counter catches a bind()-driven RE-GROW (a grow rebinds data_ WITHOUT
- * bumping the arena generation). A MOVE of the source vector is not tracked: the
- * span keeps its snapshotted data_ (runtime-safe) but its debug stamps reference
- * the moved-from husk, so re-take the span after growing or moving its source.
+ * rebind counter catches a bind()-driven RE-GROW (a grow rebinds elements
+ * WITHOUT bumping the arena generation). A MOVE of the source vector is not
+ * tracked: the span keeps its snapshotted elements (runtime-safe) but its debug
+ * stamps reference the moved-from husk, so re-take the span after growing or
+ * moving its source.
  */
 template <typename T> class ArenaSpan {
-  const T *data_; /**< Snapshotted pointer to the borrowed data. */
-  size_t size_;   /**< Number of viewed elements. */
+  const T *elements;    /**< Snapshotted pointer to the borrowed data. */
+  size_t element_count; /**< Number of viewed elements. */
 #ifndef NDEBUG
-  Arena *source_arena_ = nullptr; /**< Source arena for the stamp. */
-  uint32_t birth_generation_ = 0; /**< Arena generation at construction. */
-  const ArenaVector<T> *source_vec_ =
+  Arena *source_arena = nullptr; /**< Source arena for the stamp. */
+  uint32_t birth_generation = 0; /**< Arena generation at construction. */
+  const ArenaVector<T> *source_vec =
       nullptr; /**< Source vector for re-grow check. */
-  uint32_t source_rebind_generation_ =
+  uint32_t source_rebind_generation =
       0; /**< Vector rebind counter at construction. */
 
   /**
@@ -737,15 +742,15 @@ template <typename T> class ArenaSpan {
    * @details Asserts on an arena reset or a source-vector re-grow.
    */
   void check_alive() const {
-    if (source_arena_ && source_arena_->get_generation() != birth_generation_) {
+    if (source_arena && source_arena->get_generation() != birth_generation) {
       assert(false && "ArenaSpan use-after-free!");
     }
-    if (source_vec_ &&
-        source_vec_->rebind_generation_ != source_rebind_generation_) {
+    if (source_vec &&
+        source_vec->rebind_generation != source_rebind_generation) {
       assert(false && "ArenaSpan source vector re-grown out from under span!");
     }
-    if (source_arena_ && size_ > 0 &&
-        !source_arena_->covers(data_, size_ * sizeof(T))) {
+    if (source_arena && element_count > 0 &&
+        !source_arena->covers(elements, element_count * sizeof(T))) {
       assert(false && "ArenaSpan use-after-free (arena rewound below span)!");
     }
   }
@@ -760,7 +765,7 @@ public:
   /**
    * @brief Default-constructs an empty span.
    */
-  ArenaSpan() : data_(nullptr), size_(0) {}
+  ArenaSpan() : elements(nullptr), element_count(0) {}
 
   /**
    * @brief Constructs a span borrowing from an ArenaVector (explicit borrow).
@@ -770,12 +775,12 @@ public:
    * use-after-free check the vector itself has.
    */
   explicit ArenaSpan(const ArenaVector<T> &source)
-      : data_(source.data()), size_(source.size())
+      : elements(source.data()), element_count(source.size())
 #ifndef NDEBUG
         ,
-        source_arena_(source.source_arena_),
-        birth_generation_(source.birth_generation_), source_vec_(&source),
-        source_rebind_generation_(source.rebind_generation_)
+        source_arena(source.source_arena),
+        birth_generation(source.birth_generation), source_vec(&source),
+        source_rebind_generation(source.rebind_generation)
 #endif
   {
   }
@@ -783,7 +788,7 @@ public:
   /**
    * @brief Deleted constructor from a temporary ArenaVector.
    * @details Borrowing from a temporary would leave the data pointer and (in
-   * debug) source_vec_ dangling the moment the temporary dies. Forbid it.
+   * debug) source_vec dangling the moment the temporary dies. Forbid it.
    */
   explicit ArenaSpan(const ArenaVector<T> &&) = delete;
 
@@ -803,26 +808,26 @@ public:
    */
   const T &operator[](size_t i) const {
     check_alive();
-    assert(i < size_);
-    return data_[i];
+    assert(i < element_count);
+    return elements[i];
   }
   /**
    * @brief Returns the number of viewed elements.
    * @return Element count.
    */
-  size_t size() const { return size_; }
+  size_t size() const { return element_count; }
   /**
    * @brief Reports whether the span is empty.
    * @return True iff size() == 0.
    */
-  bool is_empty() const { return size_ == 0; }
+  bool is_empty() const { return element_count == 0; }
   /**
    * @brief Returns a pointer to the borrowed storage.
    * @return Const pointer to the first element.
    */
   const T *data() const {
     check_alive();
-    return data_;
+    return elements;
   }
   /**
    * @brief Returns a const iterator to the first element.
@@ -830,7 +835,7 @@ public:
    */
   const T *begin() const {
     check_alive();
-    return data_;
+    return elements;
   }
   /**
    * @brief Returns a const iterator past the last element.
@@ -839,7 +844,7 @@ public:
   const T *end() const {
     check_alive();
     // Guard nullptr + 0 (formal UB) on a default-constructed/empty span.
-    return data_ ? data_ + size_ : nullptr;
+    return elements ? elements + element_count : nullptr;
   }
 };
 
@@ -936,7 +941,7 @@ struct ScratchScope {
  * @tparam T Type that must provide static void clone(const T&, T&, Arena&).
  * @note Cloneable only constrains the clone hook. `Persist<T>` needs more (T
  *       default-initializable and assignable, because ~Persist does
- *       `target_ = T()` before restoring) and enforces those extra requirements
+ *       `target = T()` before restoring) and enforces those extra requirements
  *       with its own static_asserts rather than widening this concept.
  */
 template <typename T>
@@ -957,61 +962,62 @@ concept Cloneable = requires(const T &src, T &dst, Arena &arena) {
  *   }  // ~Persist clones backup back into persistent
  */
 template <Cloneable T> class Persist {
-  T &target_;         /**< Object being evacuated and restored. */
-  Arena &persistent_; /**< Arena the object is restored into. */
-  size_t
-      persistent_offset_at_ctor_; /**< persistent_ offset at construction; the
+  T &target;                        /**< Object being evacuated and restored. */
+  Arena &persistent;                /**< Arena the object is restored into. */
+  size_t persistent_offset_at_ctor; /**< persistent offset at construction; the
                                           dtor traps unless the caller rewound
                                           below this watermark. */
 
-  // Declaration order matters! scratch_ must be declared BEFORE backup_
-  // so that backup_ is destroyed before the scratch arena is rolled back.
-  ScratchScope scratch_; /**< Scratch scope holding the backup's storage. */
-  T backup_;             /**< Cloned backup of the target in scratch memory. */
+  // Declaration order matters! scratch must be declared BEFORE backup
+  // so that backup is destroyed before the scratch arena is rolled back.
+  ScratchScope scratch; /**< Scratch scope holding the backup's storage. */
+  T backup;             /**< Cloned backup of the target in scratch memory. */
 
-  // ~Persist does `target_ = T()` before re-cloning the backup, so T needs more
+  // ~Persist does `target = T()` before re-cloning the backup, so T needs more
   // than Cloneable. Assert the extra requirements here so a Cloneable-but-not-
   // default-constructible/assignable T fails with a clear message at instantiation.
   static_assert(
       std::default_initializable<T>,
-      "Persist<T>: ~Persist resets target_ = T() before restoring, so "
+      "Persist<T>: ~Persist resets target = T() before restoring, so "
       "T must be default-initializable (Cloneable does not imply this).");
   static_assert(std::assignable_from<T &, T>,
-                "Persist<T>: ~Persist assigns target_ = T(), so T must be "
+                "Persist<T>: ~Persist assigns target = T(), so T must be "
                 "assignable from a T rvalue (Cloneable does not imply this).");
 
 public:
   /**
    * @brief Evacuates the target into the scratch arena.
-   * @param target Object to back up and later restore.
-   * @param scratch Scratch arena to hold the backup.
-   * @param persistent Persistent arena the target is restored into.
+   * @param subject Object to back up and later restore.
+   * @param scratch_arena Scratch arena to hold the backup.
+   * @param restore_arena Persistent arena the target is restored into.
    */
-  HS_COLD_MEMBER Persist(T &target, Arena &scratch, Arena &persistent)
-      : target_(target), persistent_(persistent),
-        persistent_offset_at_ctor_(persistent.get_offset()), scratch_(scratch) {
-    HS_CHECK(&scratch != &persistent,
+  HS_COLD_MEMBER Persist(T &subject, Arena &scratch_arena, Arena &restore_arena)
+      : target(subject), persistent(restore_arena),
+        persistent_offset_at_ctor(restore_arena.get_offset()),
+        scratch(scratch_arena) {
+    HS_CHECK(&scratch_arena != &restore_arena,
              "Persist: scratch and persistent must be distinct arenas — the "
              "dtor's watermark restore assumes the backup lives in a different "
              "arena than the one it restores into");
-    T::clone(target_, backup_, scratch_.get_arena());
+    T::clone(target, backup, scratch.get_arena());
   }
 
   /**
    * @brief Restores the target by cloning the backup into the persistent arena.
-   * @details The restore clones into `persistent_` at its *current* offset, so it
-   * only reconstructs the object usefully if the caller rewound the persistent
-   * arena during the scope (the canonical `persistent_arena.reset()`). Without
-   * that reset the clone appends a second copy and grows the arena. The
-   * post-restore `<=` check traps a forgot-to-reset restore, which pushes the
-   * offset past the construction watermark. Callers may legitimately STACK several
-   * Persists over one `reset()`, so the check bounds the aggregate, not each
-   * individual restore — a backstop, not a proof.
+   * @details The restore clones into `persistent` at its *current* offset, so
+   * it only reconstructs the object usefully if the caller rewound the
+   * persistent arena during the scope (the canonical
+   * `persistent_arena.reset()`). Without that reset the clone appends a second
+   * copy and grows the arena. The post-restore `<=` check traps a
+   * forgot-to-reset restore, which pushes the offset past the construction
+   * watermark. Callers may legitimately STACK several Persists over one
+   * `reset()`, so the check bounds the aggregate, not each individual restore —
+   * a backstop, not a proof.
    */
   HS_COLD_MEMBER ~Persist() {
-    target_ = T();
-    T::clone(backup_, target_, persistent_);
-    HS_CHECK(persistent_.get_offset() <= persistent_offset_at_ctor_,
+    target = T();
+    T::clone(backup, target, persistent);
+    HS_CHECK(persistent.get_offset() <= persistent_offset_at_ctor,
              "Persist: restore grew the persistent arena past its construction "
              "watermark — the caller did not rewind/reset it during the scope, "
              "so the restore appended a duplicate instead of reconstructing");
