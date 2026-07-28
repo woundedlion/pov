@@ -482,6 +482,12 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
         "ScreenTrailFn overload emits nothing. Aging happens inside flush() — "
         "a 3D history stage (World::Trails) left unflushed fills its ring "
         "buffer to capacity and never decays. Pass a WorldTrailFn instead.");
+    static_assert(
+        !any_3d_history,
+        "Incomplete flush(): this Pipeline also carries a 3D history stage "
+        "(World::Trails) that this overload leaves unflushed, so its ring "
+        "buffer fills to capacity and never decays. Pass both callbacks: "
+        "flush(cv, worldTrailFn, screenTrailFn, alpha).");
     flush_stages(cv, trailFn, alpha);
   }
 
@@ -498,7 +504,33 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
         "WorldTrailFn overload emits nothing. Aging happens inside flush() — "
         "a 2D history stage (Screen::Trails, Pixel::Feedback) left unflushed "
         "never decays. Pass a ScreenTrailFn instead.");
+    static_assert(
+        !any_2d_history,
+        "Incomplete flush(): this Pipeline also carries a 2D history stage "
+        "(Screen::Trails, Pixel::Feedback) that this overload leaves "
+        "unflushed, so it never decays. Pass both callbacks: "
+        "flush(cv, worldTrailFn, screenTrailFn, alpha).");
     flush_stages(cv, trailFn, alpha);
+  }
+
+  /**
+   * @brief Flushes both history domains of a pipeline that carries each.
+   * @param cv Target canvas.
+   * @param worldFn Callback producing trail color/alpha per world point.
+   * @param screenFn Callback producing trail color/alpha per screen point.
+   * @param alpha Global blend alpha in [0, 1].
+   * @details The 3D pass runs first: World stages precede Screen stages, so its
+   * re-emissions reach the 2D history stage before that stage emits and ages.
+   */
+  void flush(Canvas &cv, const WorldTrailFn &worldFn,
+             const ScreenTrailFn &screenFn, float alpha) {
+    static_assert(
+        any_3d_history && any_2d_history,
+        "Wrong flush() domain: this Pipeline carries history in only one "
+        "domain, so one of these callbacks emits nothing. Pass the single "
+        "callback that domain needs.");
+    flush_stages(cv, worldFn, alpha);
+    flush_stages(cv, screenFn, alpha);
   }
 
   /**
