@@ -57,7 +57,10 @@ public:
    * @details Initializes the base Effect with the W x H dimensions and selects
    *          the first path/palette function table entry.
    */
-  HS_COLD_MEMBER Comets() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER Comets()
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}) {}
 
   /**
    * @brief Allocates state and wires up the animation timeline.

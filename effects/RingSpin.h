@@ -55,7 +55,10 @@ public:
   /**
    * @brief Constructs the effect at the W x H canvas resolution.
    */
-  HS_COLD_MEMBER RingSpin() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER RingSpin()
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}) {}
 
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.

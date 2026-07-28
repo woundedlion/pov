@@ -20,7 +20,10 @@ public:
   /**
    * @brief Constructs the effect at the templated render dimensions.
    */
-  HS_COLD_MEMBER Raymarch() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER Raymarch()
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(pipeline)::any_crosses_segments}) {}
 
   /**
    * @brief Registers tunable params, builds the disdyakis-dodecahedron vertex
