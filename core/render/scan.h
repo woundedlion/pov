@@ -524,18 +524,22 @@ struct DistortedRingStack {
   static constexpr float WINDOW_PAD = 1e-3f;
 
   /**
-   * @brief Traps unless every occupied ring sits on its even-spacing slot.
+   * @brief Traps unless every occupied ring sits on its even-spacing slot with
+   *        zero phase.
    * @param n_rings Stack size.
    * @param shapes Ring shapes indexed by slot.
    * @param slot_by_ring n_rings entries mapping ring index -> slot, -1 if
    *        culled.
-   * @details A deviation within WINDOW_PAD still lands inside the shared
-   * candidate window, so geometry survives; beyond it the ring is windowed out
-   * and silently disappears.
+   * @details A spacing deviation within WINDOW_PAD still lands inside the
+   * shared candidate window, so geometry survives; beyond it the ring is
+   * windowed out and silently disappears. The fused scan derives one
+   * phase-free azimuth per pixel for the whole stack, so a non-zero ring phase
+   * would index the wrong knot cell and mislabel v0.
    */
   HS_COLD_MEMBER
-  static void check_even_spacing(int n_rings, const SDF::DistortedRing *shapes,
-                                 const int8_t *slot_by_ring) {
+  static void check_stack_preconditions(int n_rings,
+                                        const SDF::DistortedRing *shapes,
+                                        const int8_t *slot_by_ring) {
     const float delta = PI_F / (n_rings + 1);
     for (int i = 0; i < n_rings; ++i) {
       const int s = slot_by_ring[i];
@@ -543,6 +547,7 @@ struct DistortedRingStack {
         continue;
       HS_CHECK(std::abs(shapes[s].target_angle - delta * (i + 1)) <=
                WINDOW_PAD);
+      HS_CHECK(shapes[s].phase == 0.0f);
     }
   }
 
@@ -559,8 +564,8 @@ struct DistortedRingStack {
    * @param canvas Destination canvas.
    * @param n_rings Stack size: ring i's centerline colatitude about the shared
    *        axis must be PI * (i + 1) / (n_rings + 1).
-   * @param shapes n_slots knot-mode rings sharing one Basis, in ascending ring
-   *        order; culled rings are simply absent.
+   * @param shapes n_slots knot-mode rings sharing one Basis and zero phase, in
+   *        ascending ring order; culled rings are simply absent.
    * @param slot_by_ring n_rings entries mapping ring index -> slot in shapes,
    *        -1 for culled rings.
    * @param n_slots Number of shapes; at least 1.
@@ -580,7 +585,7 @@ struct DistortedRingStack {
                    const SDF::DistortedRing *shapes, const int8_t *slot_by_ring,
                    int n_slots, RingShaderT &&shader) {
     HS_CHECK(n_slots >= 1);
-    check_even_spacing(n_rings, shapes, slot_by_ring);
+    check_stack_preconditions(n_rings, shapes, slot_by_ring);
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
