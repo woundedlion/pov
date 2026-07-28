@@ -2604,18 +2604,19 @@ struct GoldConvergence : Base {
 };
 
 /**
- * @brief Stochastic pixel-ownership dissolve: each pixel shows exactly one of
- * the two meshes, with the owned fraction tracking the phase.
+ * @brief Stochastic ownership dissolve: each wireframe edge shows exactly one
+ * of the two meshes, with the owned fraction tracking the phase.
  * @details The two draws receive complementary PixelMasks (same threshold and
- * salt, opposite invert), so together they rasterize each pixel once — a
- * two-mesh transition costs one mesh's scan per frame instead of two, which is
- * what keeps heavy-pair crossfades inside one display window. Owned pixels
- * draw at full opacity; the dissolve percept is the spatial mix ratio, blurred
- * by POV persistence. The salt folds a frame counter into the per-transition
- * seed so the pattern re-rolls every frame (temporal dither). Unlike the other
- * policies this one partitions rasterizer work (see PixelMask) rather than
- * fragments in the shader; effects pass the masks to Scan::Mesh::draw (per
- * pixel) or Plot::Mesh::draw (per wireframe edge) themselves.
+ * salt, opposite invert), so together they rasterize each edge once — a
+ * two-mesh transition costs one wireframe's draw per frame instead of two,
+ * which is what keeps heavy-pair crossfades inside one display window. Owned
+ * edges draw at full opacity; the dissolve percept is the spatial mix ratio,
+ * blurred by POV persistence. The salt folds a frame counter into the
+ * per-transition seed so the pattern re-rolls every frame (temporal dither).
+ * Unlike the other policies this one partitions rasterizer work (see
+ * PixelMask) rather than fragments in the shader; effects pass the masks to
+ * Plot::Mesh::draw's edge-list overload themselves. Only that path takes a
+ * mask, so a solid-mesh pair cannot dissolve.
  */
 struct Dissolve : Base {
   uint32_t seed =
