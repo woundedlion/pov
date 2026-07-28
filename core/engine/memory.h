@@ -4,6 +4,9 @@
  */
 #pragma once
 
+// platform.h defines NDEBUG on device; include before <cassert> so assert
+// stripping does not depend on include order.
+#include "engine/platform.h"
 #include <cstdint>
 #include <cstddef>
 #include <climits>
@@ -12,7 +15,6 @@
 #include <cassert>
 #include <utility>
 #include <concepts>
-#include "engine/platform.h"
 
 // Device/simulator arena budget is 298 KiB. The native unit-test build
 // (HS_TEST_BUILD) widens it so the effect smoke harness can exercise every
