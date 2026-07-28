@@ -817,6 +817,11 @@ public:
     params.sync();
   }
 
+  // Borrow contract: the orientation is read every frame, so it must outlive
+  // the Timeline; this deleted overload rejects a temporary.
+  BallDrop(BumpParams &params, const Orientation<> &&orientation,
+           const Vector &normal, float azimuth, int duration) = delete;
+
   /**
    * @brief Steps the fall: advances the bump's colatitude down the world
    * frame, re-derives the displacement axis from the stack's current
