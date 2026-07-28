@@ -559,9 +559,10 @@ void MyEffect::draw_frame() override {
 ```
 
 The clear covers only the current display clip unless the effect declares
-`needs_full_frame`, since a band-clippable effect neither draws nor reads
-outside its clip. Nothing to opt into: the constructor reads both flags off the
-effect.
+`needs_full_frame`, since a band-clippable effect never reads outside its
+display clip. It does draw into the margin-expanded render bounds, but that band
+is write-only scratch: nothing samples or displays it. Nothing to opt into: the
+constructor reads both flags off the effect.
 
 `canvas(x, y)` is a direct array subscript into the write buffer (`bufs_[cur_][y * width + x]`). No bounds checking, no virtual dispatch.
 

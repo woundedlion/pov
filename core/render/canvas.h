@@ -835,9 +835,11 @@ private:
   /**
    * @brief Clears whatever of the freshly acquired buffer can still show stale
    *        pixels from the frame that last wrote it.
-   * @details A band-clippable effect neither draws nor reads outside its clip,
-   *          so the leftovers there are invisible and only the display band has
-   *          to be cleared. A full-frame effect does read across the band edge
+   * @details A band-clippable effect never reads outside its display clip, so
+   *          the leftovers there are invisible and only the display band has to
+   *          be cleared. It does draw into the margin-expanded render bounds,
+   *          but that band is write-only scratch: nothing samples or displays
+   *          it. A full-frame effect does read across the band edge
    *          (some filter in its pipeline crosses segments), so it needs the
    *          whole buffer. Unsegmented targets clip to the full canvas, where
    *          the two are the same fill.
