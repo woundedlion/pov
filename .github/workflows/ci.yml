@@ -543,13 +543,19 @@ jobs:
         # first, so the runner's clang-format version can only reflow both sides
         # identically and never turns layout into a false failure. clang-format
         # must exist: without it the generator emits an unformatted fallback.
+        # Pinned to clang-format-18, matching the clang-format job (see its note):
+        # the unversioned package re-flows the whole file the day the runner image
+        # moves its default LLVM, which would rewrite the committed header.
+        # CLANG_FORMAT is the generator's own override (scripts/generate_luts.py).
+        env:
+          CLANG_FORMAT: clang-format-18
         run: |
-          command -v clang-format >/dev/null || {
-            sudo apt-get update -qq && sudo apt-get install -y -qq clang-format
+          command -v "$CLANG_FORMAT" >/dev/null || {
+            sudo apt-get update -qq && sudo apt-get install -y -qq clang-format-18
           }
-          clang-format --version
+          "$CLANG_FORMAT" --version
           python3 scripts/generate_luts.py > /tmp/color_luts.generated.h
-          clang-format --assume-filename=core/color/color_luts.h \
+          "$CLANG_FORMAT" --assume-filename=core/color/color_luts.h \
             < core/color/color_luts.h > /tmp/color_luts.committed.h
           if ! diff -u /tmp/color_luts.committed.h /tmp/color_luts.generated.h \
                     > /tmp/color_luts.diff; then
