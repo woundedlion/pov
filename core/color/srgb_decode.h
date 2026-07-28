@@ -19,6 +19,8 @@ static_assert(
 // tables, filled once at static init from the flash sources. Residing in DTCM
 // is what stops the concurrent render from evicting them, unlike a cacheable
 // table.
+// Dynamic init: linear_to_srgb8 reads zeros if called from another TU's static
+// initializer.
 inline uint16_t srgb_decode_low[SRGB_DECODE_LOW_N];
 inline uint16_t srgb_decode_high[SRGB_DECODE_HIGH_N];
 inline const bool srgb_decode_dtcm_init = []() {
