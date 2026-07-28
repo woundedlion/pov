@@ -2075,7 +2075,10 @@ Daydream uses a tiny pub/sub state container plus a URL-syncing wrapper:
 
 ```js
 const appState = new AppState({ effect: 'IslamicStars', resolution: 'Phantasm (288x144)' });
-new URLSync(appState, ['effect', 'resolution']);  // mirrors keys to query string
+const urlSync = new URLSync(appState, ['effect', 'resolution'], {
+  effect: (v) => knownEffects.has(v),                 // per-key validators gate
+  resolution: (v) => Boolean(resolutionPresets[v]),   // the initial URL read
+});
 
 appState.subscribe((key, value, old) => {
   if (key === 'effect') applyEffect();
@@ -2083,8 +2086,9 @@ appState.subscribe((key, value, old) => {
 });
 ```
 
-- **`AppState`** — flat key→value store with a `subscribe(callback)` API. Setting a key fires the callback only if the value actually changed. The sidebar and lil-gui both write through `appState.set(...)`, so they stay in sync without explicit coupling.
-- **`URLSync`** — reads tracked keys from `window.location.search` on construction (URL beats default), then debounces writes back to the query string via `history.replaceState`. Shareable links like `?effect=Raymarch&resolution=Phantasm%20(288x144)` work out of the box.
+- **`AppState`** — flat key→value store with a `subscribe(callback)` API. Setting a key fires the callback only if the value actually changed. The sidebar and lil-gui both write through `appState.set(...)`, so they stay in sync without explicit coupling. `update(patch)` batches: every key in the patch is written first and only then are subscribers notified, one event per changed key, so a callback that reads a sibling batched key sees its post-batch value instead of a half-applied state.
+- **`URLSync`** — reads tracked keys from `window.location.search` on construction (URL beats default), coercing each raw string to the seeded default's type. The third constructor argument is a per-key validator map applied to that raw string; a key whose predicate rejects keeps the validated default, so a hand-edited link cannot poison state and no consumer has to re-validate afterwards. Writes back to the query string are debounced 200 ms through `history.replaceState`. Shareable links like `?effect=Raymarch&resolution=Phantasm%20(288x144)` work out of the box.
+- **URL write ownership** — `URLSync` is the app-wide single owner of URL writes, reachable as `getActiveURLSync()`; constructing a new one disposes the previous. `gui.js` routes each parameter change through `setParam(key, value)`, which buffers an ad-hoc entry (numbers rounded to 4 decimals, `null` marking a deletion) rather than writing directly. The debounced flush is a read-modify-write at fire time: it re-reads the live query string, overlays the tracked state keys, then overlays the ad-hoc buffer — so concurrent state and GUI updates merge into one `replaceState` instead of clobbering each other. `reset(excludedKeys)` drops every param outside the exclusion set and writes immediately, re-asserting tracked state and surviving ad-hoc entries so a change still inside the debounce window is not lost.
 
 ### 10.5 The Effect Sidebar (`sidebar.js`)
 
