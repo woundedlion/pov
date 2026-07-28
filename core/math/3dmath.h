@@ -1325,7 +1325,9 @@ __attribute__((always_inline)) inline float fast_acos(float x) {
  * @details exp(x) = 2^(x*log2e), split into an integer power from the float
  * exponent bits and a fractional 2^f via a quartic minimax on [0,1]. Peak rel
  * error ~7.4e-4 over [-30, 0]; large-magnitude x saturates to 0.
- * @warning For x > 0 the exponent assembly overflows; callers must keep x <= 0.
+ * @warning The domain is guarded only by a debug assert. A positive x stays
+ * accurate to x ~ 88.7, saturates to +Inf up to x ~ 89.4, then wraps the packed
+ * exponent past the sign bit and returns garbage of either sign.
  */
 inline float fast_expf(float x) {
   assert(x <= 0.0f);
