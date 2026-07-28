@@ -318,7 +318,7 @@ private:
    *          callback is stored in a 32-byte EmitterFn, too small to also
    *          capture a 36-byte Basis, so the array is indexed by the captured i.
    */
-  std::array<Basis, EmitSolid::NUM_VERTS> emitter_basis_;
+  std::array<Basis, EmitSolid::NUM_VERTS> emitter_basis;
 
   MobiusParams mobius;     /**< Current Mobius warp parameters. */
   float warp_scale = 0.6f; /**< Magnitude of each warp animation. */
@@ -353,14 +353,14 @@ private:
     emit_phases.fill(0.0f);
 
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
-      emitter_basis_[i] = make_basis(Quaternion(), EmitSolid::vertices[i]);
+      emitter_basis[i] = make_basis(Quaternion(), EmitSolid::vertices[i]);
 
       particle_system.add_emitter([this, i](ParticleSystem &) {
         float angle = emit_phases[i];
         emit_phases[i] =
             fmodf(emit_phases[i] + params.angular_speed, 2.0f * PI_F);
 
-        const Basis &basis = emitter_basis_[i];
+        const Basis &basis = emitter_basis[i];
         Vector vel = (basis.u * fast_cosf(angle) + basis.w * fast_sinf(angle)) *
                      params.initial_speed;
 

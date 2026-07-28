@@ -100,7 +100,7 @@ public:
 
     {
       HS_PROFILE(mg_wipe_rebake);
-      step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette,
+      step_wipe_rebake(wipe_pending, wipe_frames_remaining, baked_palette,
                        palette);
     }
 
@@ -179,8 +179,8 @@ private:
                                      BrightnessProfile::FLAT);
     timeline.add(0, Animation::ColorWipe(palette, next_palette, WIPE_FRAMES,
                                          ease_linear));
-    wipe_frames_remaining_ = WIPE_FRAMES;
-    wipe_pending_ = true;
+    wipe_frames_remaining = WIPE_FRAMES;
+    wipe_pending = true;
   }
 
   /**
@@ -331,9 +331,9 @@ private:
   GenerativePalette next_palette; /**< Palette being cross-faded toward. */
   BakedPalette
       baked_palette; /**< LUT-baked copy of `palette` the shaders sample. */
-  int wipe_frames_remaining_ =
+  int wipe_frames_remaining =
       0; /**< Frames left to rebake `palette` for an in-flight wipe. */
-  bool wipe_pending_ =
+  bool wipe_pending =
       false;         /**< Wipe armed this frame; it first steps next frame. */
   Timeline timeline; /**< Drives spin, palette wipe, and mutations. */
   MobiusWarpCircularTransformer<1> mobius_gen; /**< Möbius warp generator. */
