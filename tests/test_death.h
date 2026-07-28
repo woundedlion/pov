@@ -786,7 +786,28 @@ inline void case_mesh_require_closed_manifold() {
   PolyMesh mesh;
   build_polymesh(mesh, arena, 3, counts, 1, indices, 3);
   HalfEdgeMesh half_edges(arena, mesh);
-  MeshOps::require_closed_manifold(half_edges, "death"); // unpaired -> HS_CHECK
+  // unpaired -> HS_CHECK
+  MeshOps::require_closed_manifold(half_edges, arena, "death");
+}
+
+/**
+ * @brief Death case: a bowtie vertex must trap the closed-manifold requirement.
+ * @details Mesh-topology surface — two tetrahedra joined at vertex 0 are closed
+ *          and edge-manifold, so only the fan pass catches them; the orbit
+ *          scaffolding would otherwise emit one face from the first fan and
+ *          silently drop the second.
+ */
+inline void case_mesh_require_vertex_manifold() {
+  static uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  const uint8_t counts[] = {3, 3, 3, 3, 3, 3, 3, 3};
+  const uint16_t indices[] = {0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2,
+                              0, 4, 5, 0, 5, 6, 0, 6, 4, 4, 6, 5};
+  PolyMesh mesh;
+  build_polymesh(mesh, arena, 7, counts, 8, indices, 24);
+  HalfEdgeMesh half_edges(arena, mesh);
+  // split fan at vertex 0 -> HS_CHECK
+  MeshOps::require_closed_manifold(half_edges, arena, "death");
 }
 
 /**
@@ -1396,6 +1417,7 @@ inline const Case *all_cases(int &n) {
       {"half_edge_inconsistent_winding", case_half_edge_inconsistent_winding},
       {"mesh_narrow_face_count", case_mesh_narrow_face_count},
       {"mesh_require_closed_manifold", case_mesh_require_closed_manifold},
+      {"mesh_require_vertex_manifold", case_mesh_require_vertex_manifold},
       {"slerp_nan", case_slerp_nan},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},
       {"make_rotation_angle_nan", case_make_rotation_angle_nan},

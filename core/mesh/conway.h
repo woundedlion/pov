@@ -434,7 +434,7 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
     ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
-    require_closed_manifold(he_mesh, "dual");
+    require_closed_manifold(he_mesh, temp, "dual");
 
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       int count;
@@ -536,7 +536,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
     ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
-    require_closed_manifold(he_mesh, "ambo");
+    require_closed_manifold(he_mesh, temp, "ambo");
 
     uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
     std::fill_n(edge_to_vert, I, HE_NONE);
@@ -624,7 +624,7 @@ HS_COLD static void medial(const PolyMesh &mesh, PolyMesh &out_a,
     ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
-    require_closed_manifold(he_mesh, "medial");
+    require_closed_manifold(he_mesh, temp, "medial");
 
     // Dual vertex per source face: its normalized centroid (see MeshOps::dual).
     Vector *dual_pos = temp.allocate_n<Vector>(F);
@@ -755,7 +755,7 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
     ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
-    require_closed_manifold(he_mesh, "truncate");
+    require_closed_manifold(he_mesh, temp, "truncate");
 
     // Per-edge cut-vertex pair; unset = {HE_NONE, HE_NONE}.
     std::pair<uint16_t, uint16_t> *edge_to_vert =
@@ -854,7 +854,7 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
     ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
-    require_closed_manifold(he_mesh, "expand");
+    require_closed_manifold(he_mesh, temp, "expand");
     // he->new-vertex map; unset = HE_NONE.
     uint16_t *he_to_vert_idx = target.allocate_n<uint16_t>(I);
     std::fill_n(he_to_vert_idx, I, HE_NONE);
@@ -926,7 +926,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
   {
     ScratchScope temp_guard(temp);
     HalfEdgeMesh he_mesh(temp, mesh);
-    require_closed_manifold(he_mesh, "chamfer");
+    require_closed_manifold(he_mesh, temp, "chamfer");
 
     uint16_t *he_to_new_v = temp.allocate_n<uint16_t>(I);
     std::fill_n(he_to_new_v, I, HE_NONE);
@@ -1177,7 +1177,7 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
     ScratchScope temp_guard(temp);
 
     HalfEdgeMesh he_mesh(temp, mesh);
-    require_closed_manifold(he_mesh, "snub");
+    require_closed_manifold(he_mesh, temp, "snub");
     uint16_t *he_to_vert_idx = temp.allocate_n<uint16_t>(I);
     std::fill_n(he_to_vert_idx, I, HE_NONE);
 
