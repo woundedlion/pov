@@ -1353,6 +1353,38 @@ inline void test_baked_palette_in_range() {
   }
 }
 
+/**
+ * @brief Verifies rebake samples the closed [0, 1] with divisor LUT_SIZE - 1.
+ * @details The divisor fixes every entry's sampled coordinate, so a change to it
+ *          shifts the whole LUT; the t = 1 endpoint pins it. A Wrap=true
+ *          composition folds that endpoint to 0, collapsing the last entry onto
+ *          the first, which is why baked sources are composed with Wrap=false.
+ */
+inline void test_baked_palette_rebake_samples_closed_interval() {
+  struct Ramp {
+    Color4 get(float t) const {
+      return Color4(Pixel(static_cast<uint16_t>(t * 65535.0f + 0.5f), 0, 0),
+                    1.0f);
+    }
+  } ramp;
+
+  alignas(std::max_align_t) static uint8_t
+      buf[2 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+
+  BakedPalette baked;
+  baked.bake(arena, ramp);
+  HS_EXPECT_EQ(baked.get(0.0f).color.r, 0);
+  HS_EXPECT_EQ(baked.get(1.0f).color.r, 65535);
+
+  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+  StaticPalette<Gradient> wrapped;
+  wrapped.bind(&grad);
+  BakedPalette baked_wrapped;
+  baked_wrapped.bake(arena, wrapped);
+  HS_EXPECT_EQ(baked_wrapped.get(1.0f).color.r, baked_wrapped.get(0.0f).color.r);
+}
+
 inline void test_baked_palette_color_sampler_matches_get() {
   struct Source {
     Color4 get(float t) const {
@@ -2230,6 +2262,7 @@ inline int run_color_tests() {
 
   test_baked_palette_matches_source_endpoints();
   test_baked_palette_in_range();
+  test_baked_palette_rebake_samples_closed_interval();
   test_baked_palette_color_sampler_matches_get();
   test_baked_palette_clone_from_matches_source();
   test_bake_palette_blend_nan_weight_stays_finite();
