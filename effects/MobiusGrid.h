@@ -77,7 +77,7 @@ public:
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400,
                                        ease_linear, true))
         .add(0, Animation::PeriodicTimer(
-                    120, [this](Canvas &) { wipe_palette(); }, true))
+                    WIPE_PERIOD, [this](Canvas &) { wipe_palette(); }, true))
         .add(0, Animation::Mutation(params.num_rings,
                                     sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320,
                                     ease_linear, true, &anims_paused_))
@@ -321,6 +321,11 @@ private:
 
   static constexpr int WIPE_FRAMES =
       60; /**< Palette cross-fade duration, in frames. */
+  static constexpr int WIPE_PERIOD =
+      120; /**< Frames between palette rollovers. */
+  static_assert(WIPE_PERIOD > WIPE_FRAMES,
+                "MobiusGrid: a rollover firing mid-wipe would clobber the "
+                "next_palette the live ColorWipe still references");
 
   GenerativePalette palette;      /**< Currently displayed palette. */
   GenerativePalette next_palette; /**< Palette being cross-faded toward. */
