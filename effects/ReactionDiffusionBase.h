@@ -37,9 +37,8 @@
  * share a Languid random-walk view orientation, build the cached node positions
  * once at init (the lattice is static), and interpolate with the same Wendland
  * C2 kernel. This base captures exactly that shared scaffolding. The physics
- * (Lotka-Volterra 3-species Q8 vs Gray-Scott 2-species Q16), state
- * representation, seeding, params, palette, and rendering are fundamentally
- * different and stay in the derived classes.
+ * (Lotka-Volterra 3-species vs Gray-Scott 2-species), seeding, params, palette,
+ * and rendering are fundamentally different and stay in the derived classes.
  *
  * Dispatch is static (CRTP): draw_frame() forwards to Derived::render(); derived
  * classes befriend this base so render() can stay private.
@@ -211,7 +210,7 @@ private:
    * @details An even substep count already leaves the latest generation in the
    * persistent buffers; an odd count leaves it in scratch, so copy each species
    * buffer back before the caller's ScratchScope pops. Agnostic to species
-   * count and fixed-point width, so both systems share one land-back.
+   * count and sample type.
    */
   template <typename T, size_t N>
   static void land_back(const std::array<T *, N> &persistent,
@@ -237,7 +236,7 @@ protected:
    * @details Ping-pongs between the persistent state and the scratch buffers. An
    * odd `steps` count leaves the final generation in scratch, so land_back
    * copies it back before the caller's ScratchScope pops. Agnostic to species
-   * count and fixed-point width, so both systems share one substep driver.
+   * count and sample type.
    */
   template <typename T, size_t N, typename StepFn>
   static void advance_substeps(int steps, const std::array<T *, N> &persistent,
