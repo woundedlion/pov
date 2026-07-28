@@ -164,7 +164,8 @@ private:
    * @brief Prints and resets the column-ISR accumulators for this window.
    * @param window_us Window wall-clock span, for the CPU-share figure.
    * @details Copy + reset under a brief IRQ-off window (the ISR is the sole
-   * writer). Per-call figures are exact cycles; ns = cycles * 5 / 3 at 600 MHz.
+   * writer). Per-call figures are exact cycles; us/ns derive from
+   * CycleCounter::CYCLES_PER_US.
    */
   static void dump_isr_stats(unsigned long window_us) {
     hs::IsrCycleStats wake, pack, submit;
@@ -181,6 +182,19 @@ private:
     log_isr("isr_dma_submit", submit, window_us);
   }
 
+  static_assert((uint64_t)hs::CycleCounter::CYCLES_PER_US * 1000000u ==
+                    (uint64_t)F_CPU,
+                "CycleCounter::CYCLES_PER_US disagrees with F_CPU");
+
+  /**
+   * @brief Converts a cycle count to nanoseconds at the core clock.
+   * @details The 64-bit intermediate keeps cycles * 1000 from wrapping 32 bits.
+   */
+  static constexpr uint32_t cycles_to_ns(uint32_t cycles) {
+    return (uint32_t)((uint64_t)cycles * 1000u /
+                      hs::CycleCounter::CYCLES_PER_US);
+  }
+
   static void log_isr(const char *name, const hs::IsrCycleStats &s,
                       unsigned long window_us) {
     if (!s.count) {
@@ -188,7 +202,8 @@ private:
       return;
     }
     const uint32_t avg = (uint32_t)(s.cycles / s.count);
-    const uint32_t total_us = (uint32_t)(s.cycles / 600u);
+    const uint32_t total_us =
+        (uint32_t)(s.cycles / hs::CycleCounter::CYCLES_PER_US);
     // CPU share in hundredths of a percent; window_us is far below the
     // 32-bit ceiling of total_us * 10000.
     const uint32_t share_c =
@@ -197,8 +212,9 @@ private:
             "ns min/avg/max=%lu/%lu/%lu total=%lu us cpu=%lu.%02lu%%",
             name, (unsigned long)s.count, (unsigned long)s.min,
             (unsigned long)avg, (unsigned long)s.max,
-            (unsigned long)(s.min * 5u / 3u), (unsigned long)(avg * 5u / 3u),
-            (unsigned long)(s.max * 5u / 3u), (unsigned long)total_us,
+            (unsigned long)cycles_to_ns(s.min),
+            (unsigned long)cycles_to_ns(avg),
+            (unsigned long)cycles_to_ns(s.max), (unsigned long)total_us,
             (unsigned long)(share_c / 100u), (unsigned long)(share_c % 100u));
   }
 
