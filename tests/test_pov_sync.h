@@ -111,6 +111,15 @@ inline void test_helpers() {
   HS_EXPECT_TRUE(rb.valid());
   rb.beacon_period_revs = 17;
   HS_EXPECT_FALSE(rb.valid());
+
+  // Demarcation: a wire timeout below the beacon's worst-case per-digit advance
+  // splits a real digit train into isolated boundary symbols.
+  Config aq = test_config();
+  aq.acquire_quiet_cols = aq.beacon_span_cols() / 4 - 1;
+  HS_EXPECT_FALSE(aq.valid());
+  Config id = test_config();
+  id.beacon_interdigit_timeout_cols = id.beacon_span_cols() / 4 - 1;
+  HS_EXPECT_FALSE(id.valid());
 }
 
 /**

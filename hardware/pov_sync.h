@@ -242,9 +242,14 @@ struct Config {
            gap_timeout_cols > beacon_pitch_cols &&
            // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case
            // beacon span must clear W/4 or no beacon is ever scheduled.
-           beacon_span_cols() < W / 4 && acquire_quiet_cols > 0 &&
-           beacon_interdigit_timeout_cols > 0 && effect_count > 0 &&
-           effect_count <= 64 && commit_revs > 0 &&
+           beacon_span_cols() < W / 4 &&
+           // Demarcation: both wire timeouts must clear the beacon's worst-case
+           // per-digit advance, which beacon_span_cols() / 4 bounds (the span is
+           // four such advances plus a final burst). Below it a real digit train
+           // reads as isolated boundary symbols.
+           acquire_quiet_cols >= beacon_span_cols() / 4 &&
+           beacon_interdigit_timeout_cols >= beacon_span_cols() / 4 &&
+           effect_count > 0 && effect_count <= 64 && commit_revs > 0 &&
            // Gate epoch_repeats >= 0 first: a negative value casts to a huge
            // uint32_t and wraps the refractory bound below.
            epoch_repeats >= 0 &&
