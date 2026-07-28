@@ -83,7 +83,7 @@ is deleted outright.
 
 ## 2. System model
 
-Hardware constants (`targets/Phantasm/Phantasm.ino`, `core/platform.h`):
+Hardware constants (`targets/Phantasm/Phantasm.ino`, `core/engine/platform.h`):
 
 | Quantity            | Value    | Derivation                         |
 |---------------------|----------|------------------------------------|

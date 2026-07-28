@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate fenced blocks and repository links in tracked Markdown files."""
+"""Validate fences, links, anchors, and backticked paths in tracked Markdown."""
 
 from __future__ import annotations
 
@@ -27,6 +27,39 @@ _FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 _REFERENCE_DEFINITION_RE = re.compile(r"^ {0,3}\[([^]]+)\]:[ \t]*(.*)$")
 _MARKDOWN_ESCAPE_RE = re.compile(r"\\([!\"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])")
 
+_ATX_HEADING_RE = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+(.*?))?[ \t]*$")
+_HTML_ANCHOR_RE = re.compile(
+    r"<a\b[^>]*?\b(?:id|name)[ \t]*=[ \t]*[\"']([^\"']+)[\"']", re.IGNORECASE)
+_EXPLICIT_HEADING_ID_RE = re.compile(r"[ \t]*\{#([^}\s]+)\}[ \t]*$")
+_HTML_TAG_RE = re.compile(r"<[^>]*>")
+_INLINE_LINK_TEXT_RE = re.compile(r"!?\[([^\]]*)\]\([^)]*\)|!?\[([^\]]*)\]\[[^\]]*\]")
+_SLUG_DROP_RE = re.compile(r"[^\w\- ]", re.UNICODE)
+# GitHub renders #L12 / #L12-L20 as a line range on a blob, not a document anchor.
+_LINE_FRAGMENT_RE = re.compile(r"^L\d+(?:-L?\d+)?$", re.IGNORECASE)
+
+# A backticked token is linted as a repo path only when it carries one of these
+# suffixes; anything else in backticks is prose, an identifier, or a command.
+_SOURCE_SUFFIXES = frozenset({
+    ".c", ".cmake", ".cpp", ".css", ".h", ".hpp", ".html", ".ini", ".js",
+    ".json", ".markdown", ".md", ".mjs", ".py", ".sh", ".svg", ".toml", ".ts",
+    ".txt", ".wasm", ".yaml", ".yml",
+})
+# Optional trailing :line or :line-line, as the ledgers cite source spans.
+_PATH_SPAN_RE = re.compile(r"^([A-Za-z0-9_.][\w.\-/]*)(?::\d+(?:-\d+)?)?$")
+
+# Path prefixes the docs cite that this repository will never track: locally
+# generated profile reports (gitignored) and the files that live in the sibling
+# daydream repository, where the same paths are real.
+_UNTRACKED_ALLOWED = (
+    ".github/workflows/deploy.yml",
+    ".github/workflows/js-tests.yml",
+    "docs/profiles/",
+    "scripts/require-tests.mjs",
+    "tests/solid_codegen.test.js",
+    "tools/solid_codegen.js",
+    "tools/solids.html",
+)
+
 
 def _normalize_label(label: str) -> str:
     return " ".join(label.split()).casefold()
@@ -41,8 +74,10 @@ def _is_escaped(text: str, index: int) -> bool:
     return backslashes % 2 == 1
 
 
-def _mask_code_spans(line: str) -> str:
+def _scan_code_spans(line: str) -> tuple[str, list[str]]:
+    """Blanks every code span and returns the masked line plus the span bodies."""
     masked = list(line)
+    spans = []
     index = 0
     while index < len(line):
         if line[index] != "`" or _is_escaped(line, index):
@@ -56,10 +91,11 @@ def _mask_code_spans(line: str) -> str:
         if close == -1:
             index = end_run
             continue
+        spans.append(line[end_run:close].strip())
         for offset in range(index, close + len(marker)):
             masked[offset] = " "
         index = close + len(marker)
-    return "".join(masked)
+    return "".join(masked), spans
 
 
 def _is_fence_close(line: str, marker: str) -> bool:
@@ -70,7 +106,15 @@ def _is_fence_close(line: str, marker: str) -> bool:
     return run >= len(marker) and not stripped[run:].strip()
 
 
-def _visible_lines(path: PurePosixPath, text: str) -> tuple[list[tuple[int, str]], list[Issue]]:
+@dataclass(frozen=True)
+class VisibleLine:
+    number: int
+    raw: str
+    masked: str
+    spans: tuple[str, ...]
+
+
+def _visible_lines(path: PurePosixPath, text: str) -> tuple[list[VisibleLine], list[Issue]]:
     visible = []
     issues = []
     fence: tuple[str, int] | None = None
@@ -83,10 +127,45 @@ def _visible_lines(path: PurePosixPath, text: str) -> tuple[list[tuple[int, str]
         if match and not (match.group(1)[0] == "`" and "`" in match.group(2)):
             fence = (match.group(1), line_number)
             continue
-        visible.append((line_number, _mask_code_spans(line)))
+        masked, spans = _scan_code_spans(line)
+        visible.append(VisibleLine(line_number, line, masked, tuple(spans)))
     if fence:
         issues.append(Issue(path.as_posix(), fence[1], "unclosed fenced code block"))
     return visible, issues
+
+
+def _slug(heading: str) -> str:
+    """Slugifies heading text the way GitHub derives its anchor ids."""
+    text = _INLINE_LINK_TEXT_RE.sub(lambda m: m.group(1) or m.group(2) or "", heading)
+    text = _HTML_TAG_RE.sub("", text).replace("`", "")
+    text = _MARKDOWN_ESCAPE_RE.sub(r"\1", text)
+    text = re.sub(r"[*_~]", "", text).strip().casefold()
+    return _SLUG_DROP_RE.sub("", text).replace(" ", "-")
+
+
+def _anchors(visible: list[VisibleLine]) -> set[str]:
+    """Collects every fragment a link may target: heading slugs and HTML ids."""
+    found: set[str] = set()
+    seen: dict[str, int] = {}
+    for line in visible:
+        found.update(name.casefold() for name in _HTML_ANCHOR_RE.findall(line.raw))
+        match = _ATX_HEADING_RE.match(line.raw)
+        if not match:
+            continue
+        heading = match.group(1) or ""
+        explicit = _EXPLICIT_HEADING_ID_RE.search(heading)
+        if explicit:
+            found.add(explicit.group(1).casefold())
+            heading = heading[:explicit.start()]
+        heading = heading.rstrip("#").rstrip()
+        slug = _slug(heading)
+        if not slug:
+            continue
+        # Repeated headings get GitHub's -1, -2, ... disambiguating suffix.
+        count = seen.get(slug, 0)
+        seen[slug] = count + 1
+        found.add(slug if count == 0 else f"{slug}-{count}")
+    return found
 
 
 def _find_closing_bracket(text: str, start: int) -> int:
@@ -198,10 +277,36 @@ def _resolved_target(source: PurePosixPath, target: str) -> PurePosixPath | None
     return PurePosixPath(resolved)
 
 
+def _fragment(target: str) -> str:
+    parsed = urlsplit(_MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip()))
+    return unquote(parsed.fragment)
+
+
+def _anchor_issue(source: PurePosixPath, line: int, target: str,
+                  document: PurePosixPath,
+                  anchors: dict[PurePosixPath, set[str]]) -> Issue | None:
+    fragment = _fragment(target)
+    # Only tracked Markdown has resolvable anchors; a blob line range is not one.
+    if not fragment or document not in anchors:
+        return None
+    if _LINE_FRAGMENT_RE.match(fragment):
+        return None
+    known = anchors[document]
+    if fragment.casefold() in known or _slug(fragment) in known:
+        return None
+    where = "this document" if document == source else document.as_posix()
+    return Issue(source.as_posix(), line,
+                 f"missing anchor {'#' + fragment!r} in {where}")
+
+
 def _link_issue(source: PurePosixPath, line: int, target: str,
-                entries: set[PurePosixPath]) -> Issue | None:
+                entries: set[PurePosixPath],
+                anchors: dict[PurePosixPath, set[str]]) -> Issue | None:
     resolved = _resolved_target(source, target)
     if resolved is None:
+        cleaned = _MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip())
+        if cleaned.startswith("#"):
+            return _anchor_issue(source, line, target, source, anchors)
         return None
     if resolved == PurePosixPath("..") or resolved.as_posix().startswith("../"):
         return None
@@ -209,33 +314,66 @@ def _link_issue(source: PurePosixPath, line: int, target: str,
         return Issue(source.as_posix(), line,
                      f"missing repo-relative link target {target!r} "
                      f"(resolved to {resolved.as_posix()!r})")
-    return None
+    return _anchor_issue(source, line, target, resolved, anchors)
+
+
+def _path_span_issue(source: PurePosixPath, line: int, span: str,
+                     entries: set[PurePosixPath]) -> Issue | None:
+    """Reports a backticked repo path that no tracked file matches."""
+    match = _PATH_SPAN_RE.match(span)
+    if not match:
+        return None
+    candidate = match.group(1)
+    if "/" not in candidate or PurePosixPath(candidate).suffix not in _SOURCE_SUFFIXES:
+        return None
+    if candidate.startswith(_UNTRACKED_ALLOWED):
+        return None
+    # Scope to paths rooted at a real tracked directory, so references to build
+    # output, external checkouts, and illustrative paths stay out of the gate.
+    root = PurePosixPath(posixpath.normpath(candidate)).parts[0]
+    if PurePosixPath(root) not in entries:
+        return None
+    for base in (PurePosixPath(""), source.parent):
+        resolved = posixpath.normpath(posixpath.join(base.as_posix(), candidate))
+        if PurePosixPath(resolved) in entries:
+            return None
+    return Issue(source.as_posix(), line, f"backticked path {candidate!r} does not exist")
 
 
 def check_text(source: PurePosixPath, text: str,
-               entries: set[PurePosixPath]) -> list[Issue]:
+               entries: set[PurePosixPath],
+               anchors: dict[PurePosixPath, set[str]] | None = None) -> list[Issue]:
     visible, issues = _visible_lines(source, text)
+    # The source's own anchors always resolve; cross-document ones need the
+    # repository-wide map check_repository builds.
+    anchors = dict(anchors or {})
+    anchors[source] = _anchors(visible)
+
     definitions: dict[str, tuple[str, int]] = {}
     body_lines = []
-    for line_number, line in visible:
-        match = _REFERENCE_DEFINITION_RE.match(line)
+    for line in visible:
+        for span in line.spans:
+            issue = _path_span_issue(source, line.number, span, entries)
+            if issue:
+                issues.append(issue)
+        match = _REFERENCE_DEFINITION_RE.match(line.masked)
         if not match:
-            body_lines.append((line_number, line))
+            body_lines.append((line.number, line.masked))
             continue
         target = _destination(match.group(2))
         if target is not None:
             definitions.setdefault(
-                _normalize_label(match.group(1)), (target, line_number))
+                _normalize_label(match.group(1)), (target, line.number))
 
     for target, line_number in definitions.values():
-        issue = _link_issue(source, line_number, target, entries)
+        issue = _link_issue(source, line_number, target, entries, anchors)
         if issue:
             issues.append(issue)
 
     for line_number, line in body_lines:
         destinations, references = _inline_links(line)
         for target in destinations:
-            issue = _link_issue(source, line_number, target, entries)
+            issue = _link_issue(source, line_number, target, entries, anchors)
             if issue:
                 issues.append(issue)
         for reference in references:
@@ -263,15 +401,20 @@ def _tracked_entries(root: Path) -> tuple[list[PurePosixPath], set[PurePosixPath
 def check_repository(root: Path) -> tuple[list[PurePosixPath], list[Issue]]:
     markdown, entries = _tracked_entries(root)
     issues = []
+    sources: dict[PurePosixPath, str] = {}
     for relative in markdown:
         path = root.joinpath(*relative.parts)
         try:
-            text = path.read_text(encoding="utf-8")
+            sources[relative] = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as error:
             issues.append(Issue(relative.as_posix(), 1,
                                 f"cannot read tracked Markdown as UTF-8: {error}"))
-            continue
-        issues.extend(check_text(relative, text, entries))
+
+    # Anchors first: a link may point at a heading in any other tracked document.
+    anchors = {relative: _anchors(_visible_lines(relative, text)[0])
+               for relative, text in sources.items()}
+    for relative, text in sources.items():
+        issues.extend(check_text(relative, text, entries, anchors))
     return markdown, sorted(issues)
 
 
