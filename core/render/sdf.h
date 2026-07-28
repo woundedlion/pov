@@ -3140,10 +3140,12 @@ struct Face {
   }
 
   /**
-   * @brief Signed planar distance via the exact per-edge walk.
+   * @brief Squared planar distance via the exact per-edge walk.
    * @param px Gnomonic x of the query point.
    * @param py Gnomonic y of the query point.
-   * @return Signed distance in the tangent plane (negative inside).
+   * @param inside_out Set true when the query lies inside the polygon; carries
+   * the sign the squared return cannot.
+   * @return Squared distance to the nearest edge, in the tangent plane.
    */
   HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const {
     float d = FLT_MAX;
@@ -3168,10 +3170,12 @@ struct Face {
   }
 
   /**
-   * @brief Signed planar distance via the concave sector walk.
+   * @brief Squared planar distance via the concave sector walk.
    * @param px Gnomonic x of the query point.
    * @param py Gnomonic y of the query point.
-   * @return Signed distance in the tangent plane (negative inside).
+   * @param inside_out Set true when the query lies inside the polygon; carries
+   * the sign the squared return cannot.
+   * @return Squared distance to the nearest edge, in the tangent plane.
    * @details Bins the query into its fan sector by pseudo-angle (a binary
    * search over the monotonic vertex angle_keys), then takes the exact min
    * segment distance over only that sector's edge and its sector_kmax neighbors

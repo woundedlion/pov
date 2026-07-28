@@ -333,7 +333,7 @@ public:
    * @brief Constructs a recipe-step Conway sweep leg: one primitive op swept
    * t_start -> t_end on a fixed seed, no graph edge
    * (docs/opchain_morph_spec.md, section 5.1).
-   * @param seed Seed mesh the op sweeps on (cloned, not borrowed).
+   * @param seed Seed mesh the op sweeps on (cloned unless borrow_seed).
    * @param op Swept operator.
    * @param t_start Sweep parameter at frame 0; clamped to the topology-constant
    * open interval (T_EPS floor; TRUNCATE capped below the ambo point).
@@ -347,6 +347,11 @@ public:
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
    * @param blend_fn Crossfade-weight curve.
+   * @param bridge_provenance Dual-bridge leg: geometric provenance takes its
+   * start centroids from the leg's own start (closing) or arrival (opening)
+   * mesh, since the departed face blocks are transposed against the handoff.
+   * @param borrow_seed Sweep the caller's live mesh each frame instead of a
+   * leg-local clone; legal only where the seed outlives the leg unmoved.
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
@@ -536,6 +541,8 @@ public:
    * @param sweep_frames Slerp frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
+   * @param bake Shipped converged relaxation to land on; null instead runs
+   * `iterations` live steps, and one of the two is required.
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the slerp fraction.
    * @note relax preserves vertex count and vertex order, so the leg needs no

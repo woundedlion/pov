@@ -1101,7 +1101,7 @@ template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
  * @tparam W,H Rasterization resolution (pixel grid).
  * @tparam PipelineT Pipeline type.
  * @tparam FragmentShaderT Fragment shader type for direct raster pipelines.
- * @param pipeline Render pipeline that plots fragments.
+ * @param source_pipeline Render pipeline that plots fragments.
  * @param canvas Target canvas (supplies the active clip band).
  * @param points Fragment polyline to rasterize.
  * @param fragment_shader Per-fragment shader applied before plotting; must be
