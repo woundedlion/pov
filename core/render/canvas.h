@@ -60,7 +60,7 @@ public:
    */
   HS_COLD_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
-        strobe(cfg.strobe), width_(W), height_(H) {
+        strobe(cfg.strobe), frame_width(W), frame_height(H) {
     HS_CHECK(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H,
              "Effect dimensions %d x %d are outside 1..%d x 1..%d", W, H, MAX_W,
              MAX_H);
@@ -71,12 +71,12 @@ public:
         "Effect: a second Effect was constructed while one is still alive; "
         "buffer_a/buffer_b are shared static storage (one live Effect only)");
     s_alive = true;
-    // Point bufs_ at the shared static storage and clear both buffers.
+    // Point bufs at the shared static storage and clear both buffers.
     clear_buffers();
-    clip_.w = W;
-    clip_.h = H;
-    clip_.y_end = H;
-    clip_.x_end = W;
+    clip_region.w = W;
+    clip_region.h = H;
+    clip_region.y_end = H;
+    clip_region.x_end = W;
   }
 
   /**
@@ -133,7 +133,7 @@ public:
    * @return Const reference to the clip region; mutate only through set_clip(),
    *         set_clip_x(), and set_margin(), which enforce its invariants.
    */
-  [[nodiscard]] const ClipRegion &clip() const { return clip_; }
+  [[nodiscard]] const ClipRegion &clip() const { return clip_region; }
 
   /** @brief Accumulated rasterization time for the current frame (µs).
    *  WASM-only telemetry: only emscripten builds stamp and read it (the
@@ -151,13 +151,13 @@ public:
    * @param x1 Exclusive end column of the owned segment.
    */
   void set_clip(int y0, int y1, int x0, int x1) {
-    HS_CHECK(y0 >= 0 && y0 <= y1 && y1 <= clip_.h && x0 >= 0 && x0 <= x1 &&
-                 x1 <= clip_.w,
+    HS_CHECK(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 &&
+                 x0 <= x1 && x1 <= clip_region.w,
              "set_clip band must be non-inverted and within canvas bounds");
-    clip_.y_start = y0;
-    clip_.y_end = y1;
-    clip_.x_start = x0;
-    clip_.x_end = x1;
+    clip_region.y_start = y0;
+    clip_region.y_end = y1;
+    clip_region.x_start = x0;
+    clip_region.x_end = x1;
   }
   /**
    * @brief Update only the horizontal clip band, leaving the y bounds intact.
@@ -168,10 +168,10 @@ public:
    * @param x1 Exclusive end column of the horizontal clip band.
    */
   void set_clip_x(int x0, int x1) {
-    HS_CHECK(x0 >= 0 && x0 <= x1 && x1 <= clip_.w,
+    HS_CHECK(x0 >= 0 && x0 <= x1 && x1 <= clip_region.w,
              "set_clip_x band must be non-inverted and within canvas width");
-    clip_.x_start = x0;
-    clip_.x_end = x1;
+    clip_region.x_start = x0;
+    clip_region.x_end = x1;
   }
   /**
    * @brief Effect sets render margin for stateful filters.
@@ -182,9 +182,9 @@ public:
    *          the per-fragment clip predicates.
    */
   void set_margin(int m) {
-    HS_CHECK(m >= 0 && m < clip_.w,
+    HS_CHECK(m >= 0 && m < clip_region.w,
              "render margin must be in [0, canvas width)");
-    clip_.margin = m;
+    clip_region.margin = m;
   }
 
   /**
@@ -200,8 +200,8 @@ public:
   virtual const Pixel &get_pixel(int x, int y) const {
     // Debug-only bounds guard, matching the write-path accessors (stripped on
     // device, catches an out-of-range display read in test/sim).
-    assert(x >= 0 && x < width_ && y >= 0 && y < height_);
-    return bufs_[prev_.load(std::memory_order_relaxed)][y * width_ + x];
+    assert(x >= 0 && x < frame_width && y >= 0 && y < frame_height);
+    return bufs[prev.load(std::memory_order_relaxed)][y * frame_width + x];
   }
 
   /**
@@ -215,7 +215,7 @@ public:
    * `overrides_get_pixel()` first.
    */
   [[nodiscard]] const Pixel *display_buffer() const {
-    return bufs_[prev_.load(std::memory_order_relaxed)];
+    return bufs[prev.load(std::memory_order_relaxed)];
   }
 
   /**
@@ -233,20 +233,20 @@ public:
    * @brief Gets the width of the effect.
    * @return The width.
    */
-  [[nodiscard]] inline int width() const { return width_; }
+  [[nodiscard]] inline int width() const { return frame_width; }
   /**
    * @brief Gets the height of the effect.
    * @return The height.
    */
-  [[nodiscard]] inline int height() const { return height_; }
+  [[nodiscard]] inline int height() const { return frame_height; }
   /**
    * @brief Checks whether the queued frame has been picked up for display.
-   * @return True when `prev_ == next_` (no frame still waiting to be shown), so
+   * @return True when `prev == next` (no frame still waiting to be shown), so
    *         the writer is free to claim the other buffer.
    */
   [[nodiscard]] inline bool buffer_free() const {
-    return prev_.load(std::memory_order_relaxed) ==
-           next_.load(std::memory_order_relaxed);
+    return prev.load(std::memory_order_relaxed) ==
+           next.load(std::memory_order_relaxed);
   }
   /**
    * @brief Installs a callback run once per frame from the Canvas constructor.
@@ -262,12 +262,12 @@ public:
    * @brief Advances the display buffer pointer to the next queued frame.
    * @details The acquire fence pairs with `queue_frame()`'s release fence, so
    * the queued frame's pixel writes are visible before any read through
-   * `prev_`; the per-pixel loads themselves stay relaxed.
+   * `prev`; the per-pixel loads themselves stay relaxed.
    */
   inline void advance_display() {
-    int n = next_.load(std::memory_order_relaxed);
+    int n = next.load(std::memory_order_relaxed);
     std::atomic_thread_fence(std::memory_order_acquire);
-    prev_.store(n, std::memory_order_relaxed);
+    prev.store(n, std::memory_order_relaxed);
   }
   /**
    * @brief Advances the drawing buffer pointer to the next available buffer.
@@ -275,25 +275,25 @@ public:
    * to the new buffer.
    */
   inline void advance_buffer() {
-    int c = cur_.load(std::memory_order_relaxed) ? 0 : 1;
-    // The new write buffer must not be the one the ISR is scanning out (prev_);
+    int c = cur.load(std::memory_order_relaxed) ? 0 : 1;
+    // The new write buffer must not be the one the ISR is scanning out (prev);
     // with two buffers this holds only if buffer_free() gated the advance. Trap
     // it here (once per frame, cold) instead of tearing.
-    HS_CHECK(c != prev_.load(std::memory_order_relaxed));
-    cur_.store(c, std::memory_order_relaxed);
+    HS_CHECK(c != prev.load(std::memory_order_relaxed));
+    cur.store(c, std::memory_order_relaxed);
     if (persist_pixels) {
-      // The trail base is the last COMPLETED frame (next_). The buffer_free()
-      // gate forces prev_ == next_, so copy from next_ and assert the equality
+      // The trail base is the last COMPLETED frame (next). The buffer_free()
+      // gate forces prev == next, so copy from next and assert the equality
       // rather than depend on the gate silently across methods.
-      int last = next_.load(std::memory_order_relaxed);
-      HS_CHECK(last == prev_.load(std::memory_order_relaxed));
-      memcpy(bufs_[c], bufs_[last], sizeof(Pixel) * width_ * height_);
+      int last = next.load(std::memory_order_relaxed);
+      HS_CHECK(last == prev.load(std::memory_order_relaxed));
+      memcpy(bufs[c], bufs[last], sizeof(Pixel) * frame_width * frame_height);
     }
   }
 
   /**
    * @brief Queues the newly drawn frame to be displayed.
-   * @details Publishes `cur_` as the new `next_`. The release fence orders the
+   * @details Publishes `cur` as the new `next`. The release fence orders the
    * frame's pixel writes before the publish, pairing with the acquire fence in
    * `advance_display()`; the IRQ-off bracket keeps the publish atomic against
    * the on-device display ISR.
@@ -301,8 +301,7 @@ public:
   inline void queue_frame() {
     hs::disable_interrupts();
     std::atomic_thread_fence(std::memory_order_release);
-    next_.store(cur_.load(std::memory_order_relaxed),
-                std::memory_order_relaxed);
+    next.store(cur.load(std::memory_order_relaxed), std::memory_order_relaxed);
     hs::enable_interrupts();
   }
 
@@ -607,16 +606,16 @@ protected:
 
 private:
   /**
-   * @brief Points bufs_ at the shared static storage and zeroes both buffers.
+   * @brief Points bufs at the shared static storage and zeroes both buffers.
    * @details noinline so the two full-frame fills are emitted once, not inlined
    * into both GCC constructor variants (C1/C2). Invoked from the ctor (not init())
    * because derived init() overrides do not chain to Effect::init().
    */
   void __attribute__((noinline)) clear_buffers() {
-    bufs_[0] = buffer_a;
-    std::fill_n(bufs_[0], MAX_W * MAX_H, Pixel(0, 0, 0));
-    bufs_[1] = buffer_b;
-    std::fill_n(bufs_[1], MAX_W * MAX_H, Pixel(0, 0, 0));
+    bufs[0] = buffer_a;
+    std::fill_n(bufs[0], MAX_W * MAX_H, Pixel(0, 0, 0));
+    bufs[1] = buffer_b;
+    std::fill_n(bufs[1], MAX_W * MAX_H, Pixel(0, 0, 0));
   }
 
   inline void notify_buffer_ready() {
@@ -624,20 +623,20 @@ private:
       buffer_ready_hook(*this);
   }
 
-  std::atomic<int> prev_{0}; /**< Buffer the ISR is currently reading. */
-  std::atomic<int> cur_{0};  /**< Buffer the main loop is currently writing. */
-  std::atomic<int> next_{0}; /**< Last completed frame, queued for display. */
-  int width_;                /**< The width of the effect. */
-  int height_;               /**< The height of the effect. */
-  ClipRegion clip_; /**< Segment clip region (display + render margin). */
+  std::atomic<int> prev{0}; /**< Buffer the ISR is currently reading. */
+  std::atomic<int> cur{0};  /**< Buffer the main loop is currently writing. */
+  std::atomic<int> next{0}; /**< Last completed frame, queued for display. */
+  int frame_width;          /**< The width of the effect. */
+  int frame_height;         /**< The height of the effect. */
+  ClipRegion clip_region; /**< Segment clip region (display + render margin). */
   // Shared static storage for the double buffer. PRECONDITION: at most one Effect
   // live at a time (s_alive guard); a second would alias these arrays and the
-  // prev_/cur_/next_ indices.
+  // prev/cur/next indices.
   static DMAMEM Pixel
       buffer_a[MAX_W * MAX_H]; /**< Static storage for buffer A (shared). */
   static DMAMEM Pixel
       buffer_b[MAX_W * MAX_H]; /**< Static storage for buffer B (shared). */
-  Pixel *bufs_[2]; /**< Pointers to the two buffer storage locations. */
+  Pixel *bufs[2]; /**< Pointers to the two buffer storage locations. */
   // True while an Effect is constructed-but-not-destroyed. Guards the
   // single-live-Effect precondition on the shared buffer_a/buffer_b: the ctor
   // traps if already set, the dtor clears it.
@@ -656,15 +655,15 @@ public:
   /**
    * @brief Constructs the Canvas, advancing the effect buffer and clearing
    * whatever of it can still hold stale pixels.
-   * @param effect The effect instance owning the buffer.
+   * @param owner The effect instance owning the buffer.
    */
-  Canvas(Effect &effect) : effect_(effect) {
+  Canvas(Effect &owner) : effect(owner) {
     wait_for_free_buffer();
     // Ordering is load-bearing: the hook runs post-wait but pre-clear, so the
     // clip it sets is the one clear_stale_pixels() honours.
-    effect_.notify_buffer_ready();
-    effect_.advance_buffer();
-    if (!effect_.persist_pixels) {
+    effect.notify_buffer_ready();
+    effect.advance_buffer();
+    if (!effect.persist_pixels) {
       HS_PROFILE(canvas_clear);
       clear_stale_pixels();
     }
@@ -673,7 +672,7 @@ public:
   /**
    * @brief Destructor. Queues the finished frame to be displayed.
    */
-  ~Canvas() { effect_.queue_frame(); }
+  ~Canvas() { effect.queue_frame(); }
 
   Canvas(const Canvas &) = delete;
   Canvas(Canvas &&) = delete;
@@ -690,9 +689,10 @@ public:
     // assert, NOT HS_CHECK — the one hot-loop exception: a debug-only bounds
     // guard (stripped on device), since an always-on branch on every pixel access
     // is the single place HS_CHECK's contract forbids it.
-    assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
-    return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)]
-                        [y * effect_.width_ + x];
+    assert(x >= 0 && x < effect.frame_width && y >= 0 &&
+           y < effect.frame_height);
+    return effect.bufs[effect.cur.load(std::memory_order_relaxed)]
+                      [y * effect.frame_width + x];
   }
 
   /**
@@ -706,9 +706,10 @@ public:
    *          is free.
    */
   inline Pixel prev(int x, int y) const {
-    assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
-    return effect_.bufs_[effect_.prev_.load(std::memory_order_relaxed)]
-                        [y * effect_.width_ + x];
+    assert(x >= 0 && x < effect.frame_width && y >= 0 &&
+           y < effect.frame_height);
+    return effect.bufs[effect.prev.load(std::memory_order_relaxed)]
+                      [y * effect.frame_width + x];
   }
 
   /**
@@ -721,7 +722,7 @@ public:
    *          recycled; the const pointer preserves that guarantee.
    */
   [[nodiscard]] inline const Pixel *prev_data() const {
-    return effect_.bufs_[effect_.prev_.load(std::memory_order_relaxed)];
+    return effect.bufs[effect.prev.load(std::memory_order_relaxed)];
   }
 
   /**
@@ -731,7 +732,7 @@ public:
    * @return Mutable base pointer, valid until this Canvas is destroyed.
    */
   [[nodiscard]] inline Pixel *data() {
-    return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)];
+    return effect.bufs[effect.cur.load(std::memory_order_relaxed)];
   }
 
   /**
@@ -740,16 +741,16 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel &operator()(int xy) {
-    assert(xy >= 0 && xy < effect_.width_ * effect_.height_);
-    return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)][xy];
+    assert(xy >= 0 && xy < effect.frame_width * effect.frame_height);
+    return effect.bufs[effect.cur.load(std::memory_order_relaxed)][xy];
   }
 
   /**
    * @brief Clears the entire current drawing buffer to black.
    */
   void clear_buffer() {
-    int c = effect_.cur_.load(std::memory_order_relaxed);
-    std::fill_n(effect_.bufs_[c], effect_.width_ * effect_.height_,
+    int c = effect.cur.load(std::memory_order_relaxed);
+    std::fill_n(effect.bufs[c], effect.frame_width * effect.frame_height,
                 Pixel(0, 0, 0));
   }
 
@@ -757,17 +758,19 @@ public:
    * @brief Gets the width of the underlying effect.
    * @return The width in pixels.
    */
-  [[nodiscard]] inline int width() const { return effect_.width(); }
+  [[nodiscard]] inline int width() const { return effect.width(); }
   /**
    * @brief Gets the height of the underlying effect.
    * @return The height in pixels.
    */
-  [[nodiscard]] inline int height() const { return effect_.height(); }
+  [[nodiscard]] inline int height() const { return effect.height(); }
   /**
    * @brief Gets the effect's current clip region.
    * @return Const reference to the clip region (display + render margin).
    */
-  [[nodiscard]] inline const ClipRegion &clip() const { return effect_.clip_; }
+  [[nodiscard]] inline const ClipRegion &clip() const {
+    return effect.clip_region;
+  }
 
 #ifdef __EMSCRIPTEN__
   // WASM-only render-time telemetry (see Effect::render_us). Compiled out on the
@@ -775,25 +778,23 @@ public:
   /**
    * @brief Resets the accumulated rasterization time for the current frame.
    */
-  inline void reset_render_us() { effect_.render_us = 0.0; }
+  inline void reset_render_us() { effect.render_us = 0.0; }
   /**
    * @brief Adds to the accumulated rasterization time for the current frame.
    * @param us Elapsed time to add, in microseconds.
    */
-  inline void add_render_us(double us) { effect_.render_us += us; }
+  inline void add_render_us(double us) { effect.render_us += us; }
   /**
    * @brief Gets the accumulated rasterization time for the current frame.
    * @return The accumulated render time, in microseconds.
    */
-  [[nodiscard]] inline double get_render_us() const {
-    return effect_.render_us;
-  }
+  [[nodiscard]] inline double get_render_us() const { return effect.render_us; }
 #endif
   /**
    * @brief Checks if debug visuals are enabled.
    * @return True if debugging is active.
    */
-  inline bool debug() const { return effect_.debug_visuals; }
+  inline bool debug() const { return effect.debug_visuals; }
 
 #ifdef HS_TEST_BUILD
   /**
@@ -813,7 +814,7 @@ private:
   /**
    * @brief Spins until the effect has a free back buffer.
    * @details Not a TOCTOU race: single-core, strict index ownership — the main
-   * loop writes cur_/next_, the ISR only sets prev_ = next_, so the gate can't be
+   * loop writes cur/next, the ISR only sets prev = next, so the gate can't be
    * falsified between check and flip. buffer_free() is re-satisfied only when the
    * display ISR advances at a frame boundary, so an unbounded wait means that ISR
    * stalled and the watchdog traps rather than hanging. The outer buffer_free()
@@ -823,10 +824,10 @@ private:
    */
   void wait_for_free_buffer() {
     HS_PROFILE(canvas_buffer_wait);
-    if (effect_.buffer_free())
+    if (effect.buffer_free())
       return;
     const unsigned long wait_start = micros();
-    while (!effect_.buffer_free()) {
+    while (!effect.buffer_free()) {
       HS_CHECK(micros() - wait_start < BUFFER_FREE_WATCHDOG_US,
                "buffer_free watchdog timeout — display ISR stalled");
 #ifdef HS_TEST_BUILD
@@ -849,12 +850,12 @@ private:
    */
   void clear_stale_pixels() {
 #ifdef HS_TEST_BUILD
-    if (effect_.force_full_buffer_clear) {
+    if (effect.force_full_buffer_clear) {
       clear_buffer();
       return;
     }
 #endif
-    if (effect_.full_frame)
+    if (effect.full_frame)
       clear_buffer();
     else
       clear_display_clip_buffer();
@@ -865,19 +866,19 @@ private:
    * @details Device builds keep this helper out of line and outside ITCM.
    */
   HS_COLD_MEMBER void clear_display_clip_buffer() {
-    const int c = effect_.cur_.load(std::memory_order_relaxed);
-    const ClipRegion &clip = effect_.clip_;
+    const int c = effect.cur.load(std::memory_order_relaxed);
+    const ClipRegion &clip = effect.clip_region;
     const int span = clip.x_end - clip.x_start;
-    Pixel *const buffer = effect_.bufs_[c];
+    Pixel *const buffer = effect.bufs[c];
 
-    if (span == effect_.width_) {
-      std::fill_n(buffer + clip.y_start * effect_.width_,
+    if (span == effect.frame_width) {
+      std::fill_n(buffer + clip.y_start * effect.frame_width,
                   span * (clip.y_end - clip.y_start), Pixel(0, 0, 0));
       return;
     }
 
     for (int y = clip.y_start; y < clip.y_end; ++y) {
-      std::fill_n(buffer + y * effect_.width_ + clip.x_start, span,
+      std::fill_n(buffer + y * effect.frame_width + clip.x_start, span,
                   Pixel(0, 0, 0));
     }
   }
@@ -886,7 +887,7 @@ private:
    *  revolution is tens-to-hundreds of ms even at low RPM; 2 s is well above
    *  that, so only a genuinely stalled display ISR trips it. */
   static constexpr unsigned long BUFFER_FREE_WATCHDOG_US = 2000000UL;
-  Effect &effect_; /**< Reference to the owning Effect instance. */
+  Effect &effect; /**< Reference to the owning Effect instance. */
 #ifdef HS_TEST_BUILD
   inline static std::atomic<unsigned long> s_buffer_free_spins{0};
 #endif
