@@ -158,10 +158,14 @@ private:
  * @tparam CAP Orientation sub-frame capacity.
  * @param o The orientation to iterate.
  * @param callback The function to call for each frame: `void(const Quaternion&,
- * float t)`.
+ * float t)`, with t in (0, 1] — index 0 is skipped, so a multi-step history
+ * never emits t = 0.
  */
 template <int CAP> void tween(const Orientation<CAP> &o, TweenFn callback) {
   int len = o.length();
+  // Index 0 is the pose collapse() carried over from the previous frame's end,
+  // so emitting it would redraw that shared boundary. A lone snapshot has no
+  // prior frame to share and must still be drawn.
   int start = (len > 1) ? 1 : 0;
   for (int i = start; i < len; ++i) {
     // A lone snapshot is the newest sub-position → t = 1 (age-neutral).
