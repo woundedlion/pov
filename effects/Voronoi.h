@@ -167,8 +167,8 @@ public:
     // Voronoi cell pixel size falls as ~1/sqrt(num_sites) (smallest near the
     // poles, where rows crowd), so a fixed block eventually straddles more than
     // one cell and misses small cells. Shrink the block toward the cell's
-    // vertical pixel extent (rows map uniformly over [0,π]); the floor keeps the
-    // corner grid inside the scratch budget the static_assert below pins.
+    // vertical pixel extent (rows map uniformly over [0,π]), floored at the
+    // extent MAX_SITES would give at this H.
     const float cell_px =
         (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites_buffer.size()));
     const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
@@ -276,11 +276,21 @@ private:
       corners' nearest pairs. Smaller is safer (fewer missed sub-block cells)
       but classifies more corners; the render path shrinks the block toward
       COHERENCE_BLOCK_MIN as the site count rises. */
-  static constexpr int COHERENCE_BLOCK_MIN =
-      4; /**< Smallest adaptive block edge.
-      Floors the per-frame block so the corner grid stays within the scratch
-      budget (pinned by the static_assert below); ~matches the cell pixel size at
-      MAX_SITES. */
+  /** @brief Smallest integer r with r*r >= v. */
+  static constexpr int ceil_sqrt(int v) {
+    int r = 0;
+    while (r * r < v)
+      ++r;
+    return r;
+  }
+
+  static constexpr int COHERENCE_BLOCK_MIN = std::max(
+      1, static_cast<int>((2.0 * H / static_cast<double>(PI_F)) /
+                          ceil_sqrt(MAX_SITES))); /**< Smallest adaptive block
+      edge: the cell pixel extent at MAX_SITES, so the densest site count a
+      resolution can reach still gets a block no wider than one cell. A fixed
+      floor would straddle whole cells at short H (H=20 puts every cell inside a
+      pixel row). */
 
   /** @brief Canonical (order-independent) nearest-pair identity at a sample
    *  point; the coarse-grid corner classifier stores one per corner (see the

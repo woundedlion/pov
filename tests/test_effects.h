@@ -3335,14 +3335,19 @@ inline void test_needs_full_frame_gate() {
 
 /**
  * @brief White-box accessor for Voronoi's seeded sites and coarse-grid tuning
- *        constants. The constants do not depend on W/H, so one instantiation
- *        supplies them for every resolution under test.
+ *        constants. MAX_SITES and COHERENCE_BLOCK do not depend on W/H, so one
+ *        instantiation supplies them; the block floor does, and is reached
+ *        through coherence_block_min<W, H>().
  */
 struct VoronoiWhiteBox {
   using VO = Voronoi<DEFAULT_W, DEFAULT_H>;
   static constexpr int MAX_SITES = VO::MAX_SITES;
   static constexpr int COHERENCE_BLOCK = VO::COHERENCE_BLOCK;
-  static constexpr int COHERENCE_BLOCK_MIN = VO::COHERENCE_BLOCK_MIN;
+
+  /** @brief Adaptive block floor at render resolution W x H. */
+  template <int W, int H> static constexpr int coherence_block_min() {
+    return Voronoi<W, H>::COHERENCE_BLOCK_MIN;
+  }
 
   /** @brief Number of currently seeded sites. */
   template <int W, int H> static size_t site_count(const Voronoi<W, H> &v) {
@@ -3405,7 +3410,7 @@ inline double voronoi_union_nearest_match(std::span<const Vector> sites,
   const float cell_px =
       (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites.size()));
   const int B = std::clamp(static_cast<int>(cell_px),
-                           VoronoiWhiteBox::COHERENCE_BLOCK_MIN,
+                           VoronoiWhiteBox::coherence_block_min<W, H>(),
                            VoronoiWhiteBox::COHERENCE_BLOCK);
 
   const int nbx = (W - 1) / B + 2;
@@ -3463,27 +3468,32 @@ inline double voronoi_union_nearest_match(std::span<const Vector> sites,
 
 /**
  * @brief Pins Voronoi's block-candidate-union coverage across the adaptive
- *        block regime: the union of a block's four corner pairs contains the
- *        true nearest site at every pixel in the low-density octahedral case,
- *        and at >= 99.9% of pixels (with a sub-visibility dot deficit on the
- *        rest) at the MAX_SITES Fibonacci spread.
- * @details The dense case floors the adaptive block at COHERENCE_BLOCK_MIN; a
- *          regression that let a block straddle whole cells would collapse the
- *          match fraction there.
+ *        block regime at both render resolutions: the union of a block's four
+ *        corner pairs contains the true nearest site at every pixel in the
+ *        low-density octahedral case, and at >= 99.9% of pixels (with a
+ *        sub-visibility dot deficit on the rest) at the MAX_SITES Fibonacci
+ *        spread.
+ * @details The dense cases floor the adaptive block at COHERENCE_BLOCK_MIN. A
+ *          block edge that outruns the cell pixel extent straddles whole cells
+ *          and collapses the match fraction, so the short-canvas resolution —
+ *          where MAX_SITES cells are sub-pixel and the floor drops to 1 — is
+ *          checked for exact coverage.
  */
 inline void test_voronoi_union_candidates_cover_nearest() {
-  constexpr int W = DEFAULT_W, H = DEFAULT_H;
   float deficit = 0.0f;
 
   const Vector octahedral[] = {
       Vector(1, 0, 0),  Vector(-1, 0, 0), Vector(0, 1, 0),
       Vector(0, -1, 0), Vector(0, 0, 1),  Vector(0, 0, -1),
   };
-  const double octa_match = voronoi_union_nearest_match<W, H>(
-      std::span<const Vector>(octahedral,
-                              sizeof(octahedral) / sizeof(octahedral[0])),
-      deficit);
+  const size_t octa_count = sizeof(octahedral) / sizeof(octahedral[0]);
+  const std::span<const Vector> sparse(octahedral, octa_count);
+  const double octa_match =
+      voronoi_union_nearest_match<DEFAULT_W, DEFAULT_H>(sparse, deficit);
   HS_EXPECT_EQ(octa_match, 1.0);
+  const double octa_match_dev =
+      voronoi_union_nearest_match<DEVICE_W, DEVICE_H>(sparse, deficit);
+  HS_EXPECT_EQ(octa_match_dev, 1.0);
 
   // Dense regime: seed MAX_SITES on a Fibonacci sphere exactly as
   // Voronoi::seed_sites places them, so the adaptive block floors at
@@ -3498,10 +3508,16 @@ inline void test_voronoi_union_candidates_cover_nearest() {
     const float theta = golden_angle * i;
     fib[i] = Vector(cosf(theta) * radius, y, sinf(theta) * radius);
   }
-  const double fib_match = voronoi_union_nearest_match<W, H>(
-      std::span<const Vector>(fib, N), deficit);
+  const std::span<const Vector> dense(fib, N);
+  const double fib_match =
+      voronoi_union_nearest_match<DEFAULT_W, DEFAULT_H>(dense, deficit);
   HS_EXPECT_GE(fib_match, 0.999);
   HS_EXPECT_LE(deficit, 0.005f);
+
+  const double fib_match_dev =
+      voronoi_union_nearest_match<DEVICE_W, DEVICE_H>(dense, deficit);
+  HS_EXPECT_EQ(fib_match_dev, 1.0);
+  HS_EXPECT_EQ(deficit, 0.0f);
 }
 
 /**
