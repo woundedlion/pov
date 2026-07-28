@@ -49,9 +49,9 @@ if(WIN32)
   # the alias sitting next to clang or on PATH. (The MSVC-target driver ignores
   # --ld-path for lld-link, so -B is the mechanism that actually applies.)
   if(_hs_clang_dir AND EXISTS "${_hs_clang_dir}/lld.exe")
-    if(NOT EXISTS "${CMAKE_BINARY_DIR}/lld-link.exe")
-      file(COPY_FILE "${_hs_clang_dir}/lld.exe" "${CMAKE_BINARY_DIR}/lld-link.exe")
-    endif()
+    # Unconditional copy: an existing build dir must not keep a stale alias from
+    # a previous emsdk when the clang it links through has been upgraded.
+    file(COPY_FILE "${_hs_clang_dir}/lld.exe" "${CMAKE_BINARY_DIR}/lld-link.exe")
     string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT " -B\"${CMAKE_BINARY_DIR}\"")
   endif()
   set(CMAKE_LINKER_TYPE LLD)
