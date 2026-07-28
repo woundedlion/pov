@@ -106,6 +106,17 @@ private:
    * path.
    */
   static constexpr float RHO_PER_SPEED = 0.009375f;
+  static constexpr float FADE_START_RHO =
+      2.5f; /**< |rho| at which the pole fade begins. */
+  /**
+   * @brief Rho span over which a ring fades from full opacity to zero.
+   * @details The fade completes short of END_RHO, so rings travel the remaining
+   * |rho| fully transparent and are never drawn there.
+   */
+  static constexpr float FADE_WIDTH = 1.0f;
+  static_assert(FADE_START_RHO + FADE_WIDTH <= END_RHO &&
+                    -(FADE_START_RHO + FADE_WIDTH) >= START_RHO,
+                "PetalFlow pole fade must complete inside the ring path");
   static constexpr float PETAL_LOBES =
       3.0f; /**< Petal lobe count per revolution for the radial wobble. */
   static constexpr float PETAL_DEPTH =
@@ -261,12 +272,10 @@ private:
    * onto the sphere. Skipped entirely when its opacity is negligible.
    */
   void draw_ring(Canvas &canvas, const Ring &ring) {
-
-    // Fade rings out past |rho|=2.5 over a window of 1.0 rho unit (near the poles).
     float dist = std::abs(ring.rho);
     float opacity = 1.0f;
-    if (dist > 2.5f) {
-      opacity = std::max(0.0f, 1.0f - (dist - 2.5f) / 1.0f);
+    if (dist > FADE_START_RHO) {
+      opacity = std::max(0.0f, 1.0f - (dist - FADE_START_RHO) / FADE_WIDTH);
     }
 
     if (opacity <= 0.01f)
