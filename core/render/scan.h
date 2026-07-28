@@ -837,7 +837,9 @@ struct RingGroup {
    * @param n Number of shapes; at least 1.
    * @param shader Per-ring fragment shader (see RingShaderT).
    * @param debug_bb When true, falls back to per-ring rasterizes so the
-   *        bounding-box tint keeps per-shape scan bounds.
+   *        bounding-box tint keeps per-shape scan bounds. That fallback also
+   *        fills v0/v1/v3, which the fused path leaves at 0, so a shader
+   *        reading them renders differently under debug.
    * @details Row intervals come from one covering ring — member 0 inflated by
    * the group's maximum plane/radius deviation plus thickness — which contains
    * every member's band, so the per-row interval math runs once, not per
