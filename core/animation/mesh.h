@@ -1559,7 +1559,7 @@ private:
       for (size_t i = 0; i < dyn; ++i) {
         const Vector corner = hk.corner(hk.dynamic_instructions[i].v_corner);
         out.vertices.push_back(
-            slerp(normalized_or(corner, corner), tr.hk_final[i].decode(), k));
+            slerp(corner.normalized(), tr.hk_final[i].decode(), k));
       }
     }
     copy_topology(out, arena, hk.face_counts, hk.faces);
