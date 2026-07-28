@@ -736,12 +736,13 @@ inline void test_repeating_timer_fires_then_each_cycle() {
 }
 
 /**
- * @brief Verifies clear() destroys all events and resets the frame cursor,
- * leaving the timeline reusable from t=0.
+ * @brief Verifies clear() destroys all events and leaves the timeline reusable,
+ * without rewinding the global frame cursor.
  * @details This is the in-place reset the singleton offers in lieu of
- * reassignment.
+ * reassignment. The cursor is shared with every consumer deriving a phase from
+ * frame(), so a runtime clear() must leave it running.
  */
-inline void test_timeline_clear_resets_state() {
+inline void test_timeline_clear_destroys_events_keeping_frame() {
   Timeline tl;
   float a = 0.0f;
   tl.add(0, Animation::Transition(a, 10.0f, 5, ease_linear));
@@ -751,7 +752,7 @@ inline void test_timeline_clear_resets_state() {
 
   tl.clear();
   HS_EXPECT_EQ(global_timeline_num_events, 0);
-  HS_EXPECT_EQ(global_timeline_t, 0u); // cursor rewound
+  HS_EXPECT_EQ(global_timeline_t, 1u); // cursor keeps running
 
   // Reusable after clear().
   float b = 0.0f;
@@ -759,6 +760,31 @@ inline void test_timeline_clear_resets_state() {
   tl.step(fake_canvas());
   HS_EXPECT_NEAR(b, 5.0f, 1e-3f);
   HS_EXPECT_EQ(global_timeline_num_events, 0);
+}
+
+/**
+ * @brief Verifies construction/destruction tears down a pinned event and
+ * rewinds the frame cursor, where the public clear() would trap.
+ * @details The pin guard covers the runtime API only; the instance boundary is
+ * unguarded because no retained add_get() handle can outlive it. The trapping
+ * half is death case "timeline_clear_pinned".
+ */
+inline void test_timeline_instance_boundary_reclaims_pinned_event() {
+  {
+    Timeline tl;
+    tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, /*repeat=*/true),
+               /*pin=*/true);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(global_timeline_num_events, 1);
+    HS_EXPECT_EQ(global_timeline_t, 1u);
+  }
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+  HS_EXPECT_EQ(global_timeline_t, 0u); // cursor rewound at the boundary
+
+  // A fresh instance starts from a clean, unpinned table.
+  Timeline tl;
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+  tl.clear(); // no pinned event survived, so the guard passes
 }
 
 /**
@@ -2703,7 +2729,8 @@ inline int run_animation_tests() {
   test_timeline_compaction_preserves_later_events();
   test_timeline_then_chains_follow_up_event();
   test_repeating_timer_fires_then_each_cycle();
-  test_timeline_clear_resets_state();
+  test_timeline_clear_destroys_events_keeping_frame();
+  test_timeline_instance_boundary_reclaims_pinned_event();
   test_timeline_full_guard_rejects_overflow();
   test_orientation_upsample_then_collapse();
   test_motion_repeating_does_not_drift();
