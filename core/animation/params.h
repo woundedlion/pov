@@ -54,16 +54,6 @@ public:
     mutant.get() = n;
   }
 
-  /**
-   * @brief Rebinds the reference to the float variable being mutated.
-   * @param new_mutant The new float variable to modify.
-   * @details Retains the `from` snapshot and `captured` flag: safe to relocate
-   * the binding to a same-value variable, but not to retarget mid-flight (the
-   * tween still runs from the original `from`). Retargeting needs a fresh
-   * Transition.
-   */
-  void rebind_mutant(float &new_mutant) { mutant = new_mutant; }
-
 private:
   std::reference_wrapper<float>
       mutant;            /**< Reference to the float variable being animated. */
@@ -111,12 +101,6 @@ public:
     auto t_norm = hs::clamp(static_cast<float>(this->t) / duration, 0.0f, 1.0f);
     mutant.get() = f(easing_fn(t_norm));
   }
-
-  /**
-   * @brief Rebinds the reference to the float variable being mutated.
-   * @param new_mutant The new float variable to modify.
-   */
-  void rebind_mutant(float &new_mutant) { mutant = new_mutant; }
 
 private:
   std::reference_wrapper<float>
@@ -196,12 +180,6 @@ public:
       mutant.get() = wrap_t(mutant.get());
     }
   }
-
-  /**
-   * @brief Rebinds the reference to the float variable being mutated.
-   * @param new_mutant The new float variable to modify.
-   */
-  void rebind_mutant(float &new_mutant) { mutant = new_mutant; }
 
   /**
    * @brief Gets the current speed.
