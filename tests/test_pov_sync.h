@@ -843,6 +843,58 @@ inline void test_beacon_late_coast() {
   HS_EXPECT_EQ(run(cfg.W / 4 + 20), 0);
 }
 
+// ── Master EPOCH train window (§6.3.1) ──────────────────────────────────────
+
+/**
+ * @brief Verifies the master's EPOCH train occupies exactly the R+1 ZERO
+ *        boundaries B..B+R even when a copy self-censors, so every copy stays
+ *        inside the receiver's invertible j window.
+ * @details Drives a lone master to its train-start boundary B and resumes a
+ *          full column late there, censoring the primary copy (§5.2). A train
+ *          that spent repeats only on symbols reaching the wire would slide a
+ *          copy to B+R+1, where a receiver's j = rev_in_effect − revs_per_effect
+ *          lands outside the window, falls back to j = 0, and commits R
+ *          revolutions late; a fully censored train would emit past the commit
+ *          into the new effect. Counts pulses in each boundary's burst window:
+ *          5 = ZERO_EPOCH, 3 = plain ZERO.
+ */
+inline void test_master_epoch_train_bounded() {
+  const Config cfg = test_config();
+  const uint32_t rev_cycles = 2u * cfg.cycles_per_half_rev;
+  const uint32_t step = COL / 8;
+  const int32_t probed_revs = 9;
+
+  SyncBoard m(cfg);
+  const uint32_t t0 = 1000000u;
+  m.seed(t0, /*is_master=*/true);
+  // Seeded at boundary ZERO with rev_in_effect 0, so the crossing that starts
+  // the train (rev_in_effect == revs_per_effect) is exactly this instant.
+  const uint32_t b = t0 + cfg.revs_per_effect * rev_cycles;
+  for (uint32_t t = t0 + step; t + COL < b; t += step)
+    m.tick(t, nullptr);
+
+  // Pulses per ZERO burst window; the beacon point (W/4) and HALF are outside.
+  int pulses[probed_revs] = {};
+  for (uint32_t t = b + COL;
+       t < b + static_cast<uint32_t>(probed_revs) * rev_cycles; t += step) {
+    if (!m.tick(t, nullptr).pulse)
+      continue;
+    for (int32_t k = 0; k < probed_revs; ++k) {
+      const uint32_t off = t - (b + static_cast<uint32_t>(k) * rev_cycles);
+      if (off < 12u * COL) {
+        ++pulses[k];
+        break;
+      }
+    }
+  }
+
+  HS_EXPECT_EQ(pulses[0], 0); // primary censored by the late resume
+  for (int32_t k = 1; k <= cfg.epoch_repeats; ++k)
+    HS_EXPECT_EQ(pulses[k], 5);
+  for (int32_t k = cfg.epoch_repeats + 1; k < probed_revs; ++k)
+    HS_EXPECT_EQ(pulses[k], 3);
+}
+
 // ── Multi-board simulator ───────────────────────────────────────────────────
 
 /**
@@ -1970,7 +2022,8 @@ inline void test_epoch_same_tick_burst_fold() {
 //                                       t recovery it relies on is pinned by
 //                                       test_sim_epoch_commit
 //   missed epoch (all copies)         → test_sim_drops_and_missed_epoch
-//   epoch repeat lockstep (§6.3.1)    → test_sim_epoch_repeat_lockstep
+//   epoch repeat lockstep (§6.3.1)    → test_sim_epoch_repeat_lockstep,
+//                                       test_master_epoch_train_bounded
 //   corrupted beacon frame            → test_budget_beacon_corruption
 //   board reboot mid-show             → test_sim_reboot
 //   commit deadline (HS_CHECK trap)   → test_sim_commit_deadline_trap
@@ -2263,6 +2316,7 @@ inline int run_pov_sync_tests() {
   test_snap_gate();
   test_emitter();
   test_beacon_late_coast();
+  test_master_epoch_train_bounded();
 
   test_sim_boot_and_phase();
   test_sim_eight_board_boot_and_phase();
