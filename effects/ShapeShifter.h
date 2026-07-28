@@ -21,6 +21,10 @@ public:
    */
   enum class ShapeType { PlanarPolygon, SphericalPolygon, Flower, Star };
   /**
+   * @brief Number of shape primitives; Star is the last ShapeType enumerator.
+   */
+  static constexpr int NUM_SHAPES = static_cast<int>(ShapeType::Star) + 1;
+  /**
    * @brief Rasterization paths a ring can be drawn through.
    */
   enum class RenderMode { Plot, Scan };
@@ -71,9 +75,9 @@ public:
       // Wrap at the 48-frame cycle period to keep the counter bounded.
       frame_count = (frame_count + 1) % 48;
       if (frame_count == 0) {
-        int next = (static_cast<int>(current_shape) + 1) % 4;
+        int next = (static_cast<int>(current_shape) + 1) % NUM_SHAPES;
         current_shape = static_cast<ShapeType>(next);
-        hs::log("Shape: %d/%d", next, 4);
+        hs::log("Shape: %d/%d", next, NUM_SHAPES);
       }
     }
 
