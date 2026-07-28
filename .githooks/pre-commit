@@ -22,10 +22,12 @@
 # is the authoritative gate for that case; this hook is a fast local pre-filter.
 #
 # COVERAGE GAP (frame-cyclic paths): this hook runs the suite with the default
-# HS_SMOKE_FRAMES (8 — see DEFAULT_FRAMES in tests/test_effects.h), which never
+# HS_SMOKE_FRAMES (8 — see DEFAULT_SMOKE_FRAMES in tests/test_fixture.h), which never
 # reaches the long cyclic windows: effect morph cycles, particle/trail wraps,
 # FIFO/slot expiry (Thrusters, RingShower), ShapeShifter's 48-frame cut, and
-# arena compaction. CI sets HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to
+# arena compaction. The unit_arena_budget / unit_stack_budget gates resolve the
+# same window, so their high-water marks are short here too.
+# CI sets HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to
 # exercise them on every push/PR, so a green pre-commit is NOT authoritative for
 # those paths — a regression there fails only in CI, by design (the hook stays
 # fast).

@@ -12,6 +12,10 @@
  * value from reading as unpainted. Built -Os + the device math flags so codegen
  * tracks the size build.
  *
+ * The per-effect window is HS_SMOKE_FRAMES (default 8); CI drives the 120-frame
+ * window the effects sweep uses, so the deepest call chains an effect only
+ * reaches late in its lifecycle are inside the measured region.
+ *
  * CI gate: fails (non-zero exit) if the worst effect exceeds BUDGET_BYTES.
  */
 #include <cstdint>
@@ -25,7 +29,7 @@ namespace {
 
 constexpr int W = 288; // Phantasm device canvas
 constexpr int H = 144;
-constexpr int FRAMES = 8;
+const int FRAMES = hs_test::smoke_frames();
 constexpr int CHUNK = 2048;
 
 // Below the 16 KB device stack reservation minus the ISR allowance.
@@ -101,9 +105,9 @@ template <typename Effect> size_t measure(const char *name) {
 } // namespace
 
 int main() {
-  std::printf(
-      "=== host stack high-water mark per effect (-Os, x86-64, %dx%d) ===\n", W,
-      H);
+  std::printf("=== host stack high-water mark per effect (-Os, x86-64, %dx%d, "
+              "%d frames) ===\n",
+              W, H, FRAMES);
   size_t worst = 0;
   const char *worst_name = "";
 #define HS_MEASURE_ONE(name)                                                   \

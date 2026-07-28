@@ -5,9 +5,12 @@
  * Host arena high-water-mark probe across every effect.
  *
  * Reads Arena::get_high_water_mark() for the three global arenas after running
- * each effect's init + a few frames, to size the device GLOBAL_ARENA_SIZE
- * against what effects actually touch. The host build uses an 8 MB global arena
- * (memory.h, HS_TEST_BUILD) so nothing OOMs mid-measure.
+ * each effect's init + hs_test::smoke_frames() frames, to size the device
+ * GLOBAL_ARENA_SIZE against what effects actually touch. The host build uses an
+ * 8 MB global arena (memory.h, HS_TEST_BUILD) so nothing OOMs mid-measure. The
+ * window is HS_SMOKE_FRAMES (default 8); CI drives the 120-frame window the
+ * effects sweep uses, which is where late-lifecycle allocation (slot reuse,
+ * FIFO expiry, arena compaction) reaches its high-water mark.
  *
  * CI gate: fails (non-zero exit) if the worst single-effect total (persistent +
  * both scratch arenas, the three partitions of the one device pool) exceeds
@@ -24,7 +27,7 @@
 
 namespace {
 constexpr int W = 288, H = 144;
-constexpr int FRAMES = 8;
+const int FRAMES = hs_test::smoke_frames();
 
 size_t g_max_p = 0, g_max_a = 0, g_max_b = 0, g_worst_total = 0;
 const char *g_worst_name = "";
@@ -67,7 +70,9 @@ template <typename Effect> void measure(const char *name) {
 } // namespace
 
 int main() {
-  std::printf("=== arena high-water per effect (host -Os, %dx%d) ===\n", W, H);
+  std::printf("=== arena high-water per effect (host -Os, %dx%d, %d frames) "
+              "===\n",
+              W, H, FRAMES);
 #define HS_ARENA_ONE(name) measure<name<W, H>>(#name);
   HS_EFFECT_LIST(HS_ARENA_ONE)
 #undef HS_ARENA_ONE

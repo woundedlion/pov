@@ -140,6 +140,9 @@ jobs:
         # transitions: RingShower slot reuse, Thrusters fire/FIFO expiry,
         # ShapeShifter's 48-frame cut). CI runs long enough to cover them so a
         # regression in the slot-recycling defect class fails here, not on-device.
+        # The unit_arena_budget / unit_stack_budget gates resolve the same window
+        # (tests/test_fixture.h smoke_frames()), so they score the high-water mark
+        # over the frames the correctness sweep covers, not an 8-frame prefix.
         #
         # HS_EFFECTS_FULL=1 opts the effects module into its FULL tier: the
         # white-box correctness block and the 288x144 production-resolution roster
