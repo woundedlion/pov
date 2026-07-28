@@ -757,12 +757,17 @@ The `process_pixel` function applies anti-aliasing based on shape type:
 Shapes can be combined using Constructive Solid Geometry:
 
 ```cpp
-SDF::Union<Ring, PlanarPolygon>        // min(d_A, d_B)
-SDF::SmoothUnion<Ring, PlanarPolygon>  // smooth minimum with blending radius
-SDF::Subtract<Ring, PlanarPolygon>     // max(d_A, -d_B)
-SDF::Intersection<Ring, PlanarPolygon> // max(d_A, d_B) with interval intersection
+SDF::Union<Ring, Line>           // min(d_A, d_B)
+SDF::SmoothUnion<Ring, Line>     // smooth minimum with blending radius
+SDF::Subtract<Ring, PlanarPolygon> // max(d_A, -d_B)
+SDF::Intersection<Ring, Line>    // max(d_A, d_B) with interval intersection
 SDF::AngularRepeat<Shape>        // N-fold angular repetition around an axis
 ```
+
+`Union`, `SmoothUnion` and `Intersection` require both children to share
+`is_solid`; a solid+stroke mix routes one winner through the wrong AA branch and
+is rejected at compile time. `Subtract` tracks the minuend's solidity, so a
+solid carved by a stroke (or the reverse) is legal.
 
 #### Scan Rasterization Primitives (`scan.h`)
 
