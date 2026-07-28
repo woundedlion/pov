@@ -9,6 +9,7 @@
 #include <emscripten/stack.h>
 #include "engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
 #include "core/engine/effect_registry.h"
+#include "core/color/palettes.h" // HS_PROCEDURAL_PALETTE_LIST — named-palette export
 #include "engine/platform.h"
 #include "targets/wasm/param_marshal.h"   // pure, host-tested param marshaling
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
@@ -1519,6 +1520,36 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
         o.set("b", static_cast<int>(col.color.b));
         return o;
       }));
+
+  // The named procedural palettes (palette_math.js NAMED_PROCEDURAL_PALETTES),
+  // in core/color/palettes.h declaration order. Enumerated from the same X-macro
+  // the Palettes:: instances are declared from, so the browser tool's mirror is
+  // compared against the literals the engine compiles, not a second hand-copy.
+  function("named_procedural_palettes", optional_override([]() -> val {
+             val out = val::array();
+             int index = 0;
+             auto push = [&](const char *name, std::array<float, 3> a,
+                             std::array<float, 3> b, std::array<float, 3> c,
+                             std::array<float, 3> d) {
+               val entry = val::object();
+               entry.set("name", std::string(name));
+               const std::array<float, 3> *coeff[] = {&a, &b, &c, &d};
+               const char *keys[] = {"a", "b", "c", "d"};
+               for (int k = 0; k < 4; ++k) {
+                 val vec = val::array();
+                 for (int ch = 0; ch < 3; ++ch)
+                   vec.set(ch, (*coeff[k])[ch]);
+                 entry.set(keys[k], vec);
+               }
+               out.set(index++, entry);
+             };
+#define HS_EXPORT_PALETTE(name, A, B, C, D)                                    \
+  push(#name, {HS_PALETTE_VEC3 A}, {HS_PALETTE_VEC3 B}, {HS_PALETTE_VEC3 C},   \
+       {HS_PALETTE_VEC3 D});
+             HS_PROCEDURAL_PALETTE_LIST(HS_EXPORT_PALETTE)
+#undef HS_EXPORT_PALETTE
+             return out;
+           }));
 
   // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
   function("lissajous",
