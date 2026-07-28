@@ -547,10 +547,12 @@ public:
 
   /**
    * @brief Sets the orientation, clearing all history.
-   * @param q The new orientation quaternion.
+   * @param q The new orientation quaternion; MUST be unit length
+   *   (HS_CHECK-trapped — a non-unit quaternion scales every rotated vector).
    * @return Reference to the Orientation object.
    */
   Orientation &set(const Quaternion &q) {
+    HS_CHECK(std::abs(q.squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ);
     orientations[0] = q;
     num_frames = 1;
     return *this;
@@ -558,10 +560,12 @@ public:
 
   /**
    * @brief Pushes a new quaternion onto the history, tracking a motion step.
-   * @param q The new rotation quaternion.
+   * @param q The new rotation quaternion; MUST be unit length
+   *   (HS_CHECK-trapped — a non-unit quaternion scales every rotated vector).
    * @return Reference to the Orientation object.
    */
   Orientation &push(const Quaternion &q) {
+    HS_CHECK(std::abs(q.squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ);
     HS_CHECK(num_frames < CAPACITY);
     orientations[num_frames++] = q;
     return *this;
