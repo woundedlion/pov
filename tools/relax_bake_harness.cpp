@@ -23,12 +23,10 @@ int main() {
     e.generate(a, b);
   };
 
-  // Every registry that hosts a relax_baked() call site. Duplicate payloads
-  // (the ambo prefix is shared by several stars) re-emit identically and are
-  // de-duplicated by name downstream.
-  for (const auto &e : Solids::simple_registry)
-    run(e);
-  for (const auto &e : Solids::islamic_registry)
-    run(e);
+  // Duplicate payloads (the ambo prefix is shared by several stars) re-emit
+  // identically and are de-duplicated by name downstream.
+  for (auto reg : Solids::all_registries())
+    for (const auto &e : reg)
+      run(e);
   return 0;
 }
