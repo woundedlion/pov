@@ -2597,16 +2597,29 @@ struct Dissolve : Base {
     seed = static_cast<uint32_t>(hs::random()());
   }
   /**
-   * @brief Builds one half's ownership mask.
+   * @brief The two halves of one frame's ownership split.
+   */
+  struct MaskPair {
+    PixelMask incoming; /**< Mask the incoming mesh's draw takes. */
+    PixelMask outgoing; /**< Its complement, for the outgoing mesh's draw. */
+  };
+
+  /**
+   * @brief Builds both halves of one frame's ownership split.
    * @param phase Transition phase in [0, 1]; the incoming mesh owns this
    *        fraction of the pixels, the outgoing mesh the complement.
    * @param frame Monotonic frame counter (temporal dither; never wall time).
-   * @param incoming True for the incoming mesh's mask.
+   * @return The complementary pair.
+   * @details The masks partition only when they share a threshold, and
+   * schedule() puts the two draws on independent sprites carrying independent
+   * phases — so the pair is derived from one phase here and split by the
+   * caller, rather than each half deriving its own.
    */
-  PixelMask mask(float phase, uint32_t frame, bool incoming) const {
-    uint32_t thr =
+  MaskPair mask_pair(float phase, uint32_t frame) const {
+    const uint32_t thr =
         static_cast<uint32_t>(hs::clamp(phase, 0.0f, 1.0f) * 65536.0f);
-    return {thr, frame * 0x9E3779B9u ^ seed, !incoming};
+    const uint32_t salt = frame * 0x9E3779B9u ^ seed;
+    return {PixelMask{thr, salt, false}, PixelMask{thr, salt, true}};
   }
   /** @brief Crossfade-style overlapping schedule: both meshes are on the
    * timeline during the fade window (the masks keep the cost at one mesh). */
