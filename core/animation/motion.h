@@ -206,25 +206,25 @@ public:
    * @param frames New duration in frames; any value below 1 is clamped to 1.
    * @details Clamps to 1 to avoid a divide-by-zero (0) or backward walk
    * (negative). A changed duration reanchors the baseline (see reanchor()): the
-   * carried prev_frame_ was sampled under the old parameterization, so the next
+   * carried prev_frame was sampled under the old parameterization, so the next
    * delta would otherwise teleport the Orientation.
    */
   void set_duration(int frames) {
     int clamped = (frames < 1 ? 1 : frames);
     if (clamped != this->duration)
-      have_prev_frame_ = false;
+      have_prev_frame = false;
     this->duration = clamped;
   }
 
   /**
    * @brief Discards the carried baseline frame so the next step re-seeds it from
    * the current path.
-   * @details step() integrates the path as RELATIVE deltas off `prev_frame_`.
-   * After the borrowed path is swapped, prev_frame_ still holds the old
+   * @details step() integrates the path as RELATIVE deltas off `prev_frame`.
+   * After the borrowed path is swapped, prev_frame still holds the old
    * function's frame, so call this to re-seed the baseline and keep the first
    * delta incremental.
    */
-  void reanchor() { have_prev_frame_ = false; }
+  void reanchor() { have_prev_frame = false; }
 
   /**
    * @brief Steps the animation, calculates intermediate rotation steps along
@@ -252,12 +252,12 @@ public:
     // repeat seam the carried baseline makes the first delta a relative jump-back
     // a co-driver rides along. The i==0 delta is identity, so the loop starts at
     // i==1.
-    if (!have_prev_frame_) {
-      prev_frame_ = path_frame(t_prev / this->duration);
-      have_prev_frame_ = true;
+    if (!have_prev_frame) {
+      prev_frame = path_frame(t_prev / this->duration);
+      have_prev_frame = true;
     }
-    Quaternion base_inv = prev_frame_.conjugate();
-    Quaternion frame = prev_frame_;
+    Quaternion base_inv = prev_frame.conjugate();
+    Quaternion frame = prev_frame;
 
     for (int i = 1; i < len; ++i) {
       // i maps the sub-interval [t-1, t]: i=0 is t-1, i=len-1 is t.
@@ -275,7 +275,7 @@ public:
       current_q.normalize();
     }
     // Carry the final substep's frame as the next frame's baseline.
-    prev_frame_ = frame;
+    prev_frame = frame;
   }
 
   /**
@@ -319,9 +319,9 @@ private:
       orientation;               /**< Reference to the Orientation state. */
   Fn<Vector(float), 16> path_fn; /**< Function to retrieve path points. */
   Space space;                   /**< The coordinate space for rotation. */
-  Quaternion prev_frame_;        /**< Path frame Motion last drove to; the
+  Quaternion prev_frame;         /**< Path frame Motion last drove to; the
                                       baseline carried across the repeat seam. */
-  bool have_prev_frame_ = false; /**< Whether prev_frame_ has been seeded. */
+  bool have_prev_frame = false;  /**< Whether prev_frame has been seeded. */
 };
 
 /**

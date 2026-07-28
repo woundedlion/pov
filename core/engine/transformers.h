@@ -60,7 +60,7 @@ public:
    * destroyed first and the reference is still live here.
    */
   HS_COLD_MEMBER ~TransformerPool() {
-    if (clear_hook_registered_)
+    if (clear_hook_registered)
       timeline.remove_clear_hook(this);
   }
 
@@ -80,13 +80,13 @@ public:
     entities = arena.allocate_n<Entity>(CAPACITY);
     for (int i = 0; i < CAPACITY; ++i)
       new (&entities[i]) Entity();
-    active_slots_ = arena.allocate_n<int>(CAPACITY);
-    active_count_ = 0;
-    if (!clear_hook_registered_) {
+    active_slots = arena.allocate_n<int>(CAPACITY);
+    active_slot_count = 0;
+    if (!clear_hook_registered) {
       timeline.add_clear_hook(this, [](void *self) {
         static_cast<TransformerPool *>(self)->release_all();
       });
-      clear_hook_registered_ = true;
+      clear_hook_registered = true;
     }
   }
 
@@ -100,7 +100,7 @@ public:
   HS_COLD_MEMBER void release_all() {
     for (int i = 0; i < CAPACITY; ++i)
       entities[i].active = false;
-    active_count_ = 0;
+    active_slot_count = 0;
   }
 
   /**
@@ -117,7 +117,7 @@ public:
   HS_COLD_MEMBER void reclaim_storage(Arena &arena) {
     Entity *e = arena.allocate_n<Entity>(CAPACITY);
     int *s = arena.allocate_n<int>(CAPACITY);
-    HS_CHECK(e == entities && s == active_slots_,
+    HS_CHECK(e == entities && s == active_slots,
              "TransformerPool: reclaimed storage moved");
   }
 
@@ -125,7 +125,7 @@ public:
    * @brief Number of currently active entities.
    * @return Count of live pool slots.
    */
-  int active_count() const { return active_count_; }
+  int active_count() const { return active_slot_count; }
 
   /**
    * @brief Params of the k-th active entity, in spawn order.
@@ -133,7 +133,7 @@ public:
    * @return The entity's live params.
    */
   const ParamsT &active_params(int k) const {
-    return entities[active_slots_[k]].params;
+    return entities[active_slots[k]].params;
   }
 
   /**
@@ -181,37 +181,37 @@ protected:
    * composition order follows spawn order; the warps are not all commutative, so the
    * order is load-bearing and must not depend on which freed slot was recycled.
    */
-  int *active_slots_ = nullptr;
-  int active_count_ =
-      0; /**< Number of valid entries at the front of active_slots_. */
+  int *active_slots = nullptr;
+  int active_slot_count =
+      0; /**< Number of valid entries at the front of active_slots. */
 
   Entity *entities =
       nullptr; /**< CAPACITY-slot pool, allocated by init_storage(). */
 
 private:
-  bool clear_hook_registered_ =
+  bool clear_hook_registered =
       false; /**< Whether init_storage() registered the timeline clear hook. */
 
   /**
-   * @brief Appends a slot index to active_slots_ in spawn order.
+   * @brief Appends a slot index to active_slots in spawn order.
    * @param idx Slot index to insert; appended at the end so composition order
    * follows spawn order regardless of which freed slot was recycled.
    */
-  void add_active(int idx) { active_slots_[active_count_++] = idx; }
+  void add_active(int idx) { active_slots[active_slot_count++] = idx; }
 
   /**
-   * @brief Removes a slot index from active_slots_, preserving order.
+   * @brief Removes a slot index from active_slots, preserving order.
    * @param idx Slot index to drop; a no-op if it is not present.
    */
   void remove_active(int idx) {
     int pos = 0;
-    while (pos < active_count_ && active_slots_[pos] != idx)
+    while (pos < active_slot_count && active_slots[pos] != idx)
       ++pos;
-    if (pos == active_count_)
+    if (pos == active_slot_count)
       return; // already gone
-    for (int k = pos; k + 1 < active_count_; ++k)
-      active_slots_[k] = active_slots_[k + 1];
-    --active_count_;
+    for (int k = pos; k + 1 < active_slot_count; ++k)
+      active_slots[k] = active_slots[k + 1];
+    --active_slot_count;
   }
 
   /**
@@ -294,8 +294,8 @@ public:
    * NOT required when there are no active entities or when params are unchanged.
    */
   void prepare_frame() {
-    for (int k = 0; k < active_count_; ++k) {
-      Entity &e = entities[active_slots_[k]];
+    for (int k = 0; k < active_slot_count; ++k) {
+      Entity &e = entities[active_slots[k]];
       // Pull live-tunable config from template_params into the spawned entity.
       if constexpr (requires { e.params.refresh_from(template_params); }) {
         e.params.refresh_from(template_params);
@@ -330,8 +330,8 @@ public:
    * ordering contract. Per-pixel hot path — no guard here by design.
    */
   HS_O3_FN Vector transform(Vector v) const {
-    for (int k = 0; k < this->active_count_; ++k) {
-      v = TransformFunc(v, this->entities[this->active_slots_[k]].params);
+    for (int k = 0; k < this->active_slot_count; ++k) {
+      v = TransformFunc(v, this->entities[this->active_slots[k]].params);
     }
     return v;
   }
@@ -374,8 +374,8 @@ public:
    */
   float field(const Vector &p) const {
     float s = 0.0f;
-    for (int k = 0; k < this->active_count_; ++k) {
-      s += FieldFunc(p, this->entities[this->active_slots_[k]].params);
+    for (int k = 0; k < this->active_slot_count; ++k) {
+      s += FieldFunc(p, this->entities[this->active_slots[k]].params);
     }
     return s;
   }
@@ -402,8 +402,8 @@ public:
   float field_dominant(const Vector &p) const {
     float num = 0.0f;
     float den = 0.0f;
-    for (int k = 0; k < this->active_count_; ++k) {
-      float f = FieldFunc(p, this->entities[this->active_slots_[k]].params);
+    for (int k = 0; k < this->active_slot_count; ++k) {
+      float f = FieldFunc(p, this->entities[this->active_slots[k]].params);
       num += f * f * f;
       den += f * f;
     }
@@ -438,8 +438,8 @@ public:
    */
   float field_bound() const {
     float b = 0.0f;
-    for (int k = 0; k < this->active_count_; ++k) {
-      b += this->entities[this->active_slots_[k]].params.field_bound();
+    for (int k = 0; k < this->active_slot_count; ++k) {
+      b += this->entities[this->active_slots[k]].params.field_bound();
     }
     return b;
   }
