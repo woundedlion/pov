@@ -63,7 +63,7 @@ public:
 
     ripple_gen.init_storage(persistent_arena);
     claim_face_palettes(persistent_arena);
-    palette_bank_.bake_all(persistent_arena);
+    palette_bank.bake_all(persistent_arena);
 
     // Set BEFORE registering: register_param snaps *ptr as the slider default.
     // Amplitude starts at the fold-free ceiling (see RIPPLE_AMP_MAX).
@@ -182,8 +182,8 @@ private:
   float ripple_duration = 80.0f;
   // Effective per-shape stage lengths after the Trans Speed divisor, written by
   // spawn_shape and read by the deferred ripple() callback.
-  int ripple_dur_eff_ = 80;
-  int ripple_stagger_eff_ = RIPPLE_STAGGER_FRAMES;
+  int ripple_dur_eff = 80;
+  int ripple_stagger_eff = RIPPLE_STAGGER_FRAMES;
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
   struct SpriteFaceShading {
@@ -200,7 +200,7 @@ private:
   MeshCarousel<SegueT> carousel;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
-  MeshPaletteBank palette_bank_;
+  MeshPaletteBank palette_bank;
   /** Per-slot per-face palette ids (persistent-arena backed, MAX_BUILD_FACES
    * each). Written at spawn (class-keyed colours) and at finish_build (the
    * last leg's landed colours); every compaction re-claims the same addresses,
@@ -211,47 +211,47 @@ private:
   // by op between the fade-in and the still hold. Null-recipe entries never
   // touch any of it.
   bool build_active_ = false; /**< Legs draw; the sprite draw_fn is muted. */
-  Solids::OpStep build_steps_[MAX_BUILD_STEPS]; /**< Lowered primitive chain. */
-  size_t build_step_count_ = 0;                 /**< Lowered step count. */
-  size_t build_step_ = 0;                       /**< Current leg index. */
-  int build_leg_frames_[MAX_BUILD_STEPS] = {};  /**< Per-leg frame budget. */
-  int build_total_frames_ = 0;                  /**< Sum of leg frames. */
-  PolyMesh build_seed_;                         /**< Leg-k seed (persistent). */
-  PolyMesh build_next_seed_;  /**< Clean endpoint seed_{k+1}: built eagerly at
+  Solids::OpStep build_steps[MAX_BUILD_STEPS]; /**< Lowered primitive chain. */
+  size_t build_step_count = 0;                 /**< Lowered step count. */
+  size_t build_step = 0;                       /**< Current leg index. */
+  int build_leg_frames[MAX_BUILD_STEPS] = {};  /**< Per-leg frame budget. */
+  int build_total_frames = 0;                  /**< Sum of leg frames. */
+  PolyMesh build_seed;                         /**< Leg-k seed (persistent). */
+  PolyMesh build_next_seed;  /**< Clean endpoint seed_{k+1}: built eagerly at
                                  leg start, or from the leg's own topology at
                                  its end on a hankin step. */
-  PolyMesh dual_bridge_ambo_; /**< ambo(P) held across a DUAL bridge: leg 1's
+  PolyMesh dual_bridge_ambo; /**< ambo(P) held across a DUAL bridge: leg 1's
                                  arrival grouping and leg 2's departed mesh. */
-  size_t dual_bridge_ambo_faces_ =
+  size_t dual_bridge_ambo_faces =
       0; /**< ambo(P) face count, kept for leg 3's handoff length after the mesh
             itself is dropped at the medial leg (persistent-budget relief). */
   /** Device persistent budget of the current shape's split, set by spawn_shape
    * before any read; the host arena is over-provisioned, so gates check the
    * resident persistent high-water against this. */
   size_t device_persistent_budget_ = 0;
-  const Animation::OpLeg::Landing *build_landing_ =
+  const Animation::OpLeg::Landing *build_landing =
       nullptr; /**< Latest leg's arrival data (leg-arena backed). */
-  const uint8_t *build_from_pal_ =
+  const uint8_t *build_from_pal =
       nullptr; /**< Per-face palette the previous leg landed on; survives the
                   leg-boundary compaction that drops its landing. */
-  size_t build_from_faces_ = 0; /**< Length of build_from_pal_. */
-  int dual_bridges_built_ = 0;  /**< DUAL bridges scheduled (test coverage). */
-  int build_macro_sweep_frames_ =
+  size_t build_from_faces = 0; /**< Length of build_from_pal. */
+  int dual_bridges_built_ = 0; /**< DUAL bridges scheduled (test coverage). */
+  int build_macro_sweep_frames =
       SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
-  int build_reconcile_frames_ =
+  int build_reconcile_frames =
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
   /** Continuation the smooth dual bridge chains after its closing leg: plain
    * finish_build_leg for a lone DUAL, or a macro's next stage. Set before every
    * schedule_dual_bridge call. */
-  Fn<void(), 16> dual_bridge_done_{[this] { finish_build_leg(); }};
+  Fn<void(), 16> dual_bridge_done{[this] { finish_build_leg(); }};
 
   /**
    * @brief Draw callback for build-leg frames.
    * @details Held as a member for stable FunctionRef lifetime.
    */
   Fn<void(Canvas &, MeshState &, const Animation::OpLeg::Shading &), 8>
-      draw_build_fn_{
+      draw_build_fn{
           [this](Canvas &c, MeshState &m, const Animation::OpLeg::Shading &sh) {
             draw_build_mesh(c, m, sh);
           }};
@@ -277,7 +277,7 @@ private:
   HS_COLD_MEMBER void reclaim_persistent(Arena &arena) {
     ripple_gen.reclaim_storage(arena);
     claim_face_palettes(arena);
-    palette_bank_.bake_all(arena);
+    palette_bank.bake_all(arena);
   }
 
   /**
@@ -289,8 +289,8 @@ private:
   void ripple(Canvas &) {
     Vector origin = random_vector();
     for (int i = 0; i < (int)params.burst_size; i++) {
-      if (!ripple_gen.spawn(i * ripple_stagger_eff_, origin,
-                            PI_F / ripple_dur_eff_, ripple_dur_eff_))
+      if (!ripple_gen.spawn(i * ripple_stagger_eff, origin,
+                            PI_F / ripple_dur_eff, ripple_dur_eff))
         hs::log("IslamicStars: ripple pool full, dropping spawn");
     }
   }
@@ -389,7 +389,7 @@ private:
             seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls);
         float fade = seg.face_fade_frac(static_cast<int>(f));
         face_phases.push_back(seg.face_phase(phase, off, fade));
-        face_palettes.push_back(&palette_bank_[face_palette[f]]);
+        face_palettes.push_back(&palette_bank[face_palette[f]]);
       }
     }
 
@@ -411,8 +411,8 @@ private:
       } else {
         auto fragment_shader = [&](const Vector &, Fragment &frag) {
           const size_t fi = static_cast<size_t>(frag.v2);
-          frag.color = shade_mesh_topology(
-              frag, palette_bank_[face_palette[fi]], 1.0f, seg, phase);
+          frag.color = shade_mesh_topology(frag, palette_bank[face_palette[fi]],
+                                           1.0f, seg, phase);
         };
         Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
                                fragment_shader, scratch_arena_a);
@@ -490,9 +490,8 @@ private:
    * @param k Lowered step index.
    */
   bool dt_pair_at(size_t k) const {
-    return k + 1 < build_step_count_ &&
-           build_steps_[k].op == Solids::Op::DUAL &&
-           build_steps_[k + 1].op == Solids::Op::KIS;
+    return k + 1 < build_step_count && build_steps[k].op == Solids::Op::DUAL &&
+           build_steps[k + 1].op == Solids::Op::KIS;
   }
 
   /**
@@ -501,8 +500,8 @@ private:
    * @param k Lowered step index.
    */
   bool standalone_kis_at(size_t k) const {
-    return build_steps_[k].op == Solids::Op::KIS &&
-           !(k > 0 && build_steps_[k - 1].op == Solids::Op::DUAL);
+    return build_steps[k].op == Solids::Op::KIS &&
+           !(k > 0 && build_steps[k - 1].op == Solids::Op::DUAL);
   }
 
   /**
@@ -513,7 +512,7 @@ private:
    * largest).
    */
   bool build_uses_smooth_bridge() const {
-    for (size_t k = 0; k < build_step_count_; ++k)
+    for (size_t k = 0; k < build_step_count; ++k)
       if (dt_pair_at(k) || standalone_kis_at(k))
         return true;
     return false;
@@ -570,14 +569,14 @@ private:
     // back to today's whole-generate path, seed solid and all.
     const Solids::Recipe *recipe = solids[idx].recipe;
     if (recipe) {
-      build_step_count_ =
-          Solids::expand_to_primitives(*recipe, build_steps_, MAX_BUILD_STEPS);
-      for (size_t k = 0; k < build_step_count_; ++k) {
-        if (!Solids::is_morphable_step(build_steps_[k])) {
+      build_step_count =
+          Solids::expand_to_primitives(*recipe, build_steps, MAX_BUILD_STEPS);
+      for (size_t k = 0; k < build_step_count; ++k) {
+        if (!Solids::is_morphable_step(build_steps[k])) {
           hs::log("IslamicStars: %s has an unsweepable step, generating whole",
                   solids[idx].name);
           recipe = nullptr;
-          build_step_count_ = 0;
+          build_step_count = 0;
           break;
         }
       }
@@ -622,10 +621,10 @@ private:
         // The build starts from the recipe's seed solid; the chain is swept
         // on screen leg by leg. The seed is also held as the first leg's
         // persistent PolyMesh.
-        build_seed_ = Solids::finalize_solid(
+        build_seed = Solids::finalize_solid(
             Solids::simple_registry[recipe->seed].generate(a, b), target);
         carousel.slot(back).clear();
-        MeshOps::compile(build_seed_, carousel.slot(back), target,
+        MeshOps::compile(build_seed, carousel.slot(back), target,
                          scratch_arena_a);
       } else {
         PolyMesh mesh = solids[idx].generate(a, b);
@@ -675,12 +674,12 @@ private:
     const float sp = std::max(1.0f, params.trans_speed);
     int fade = std::max(1, static_cast<int>(SPRITE_FADE_FRAMES / sp));
     int still = std::max(1, static_cast<int>(STILL_FRAMES / sp));
-    ripple_dur_eff_ = std::max(8, static_cast<int>(ripple_duration / sp));
-    ripple_stagger_eff_ =
+    ripple_dur_eff = std::max(8, static_cast<int>(ripple_duration / sp));
+    ripple_stagger_eff =
         std::max(1, static_cast<int>(RIPPLE_STAGGER_FRAMES / sp));
     int burst_span =
-        (static_cast<int>(params.burst_size) - 1) * ripple_stagger_eff_ +
-        ripple_dur_eff_;
+        (static_cast<int>(params.burst_size) - 1) * ripple_stagger_eff +
+        ripple_dur_eff;
 
     // Recipe entries insert a build phase on the segue's phase-1 plateau:
     // duration is lengthened by the build span rather than the carousel
@@ -688,41 +687,41 @@ private:
     // section 6.1).
     int build_span = 0;
     if (recipe) {
-      build_step_ = 0;
-      build_from_pal_ = nullptr; // first leg departs the carousel seed slot
-      build_from_faces_ = 0;
-      build_total_frames_ = 0;
-      build_macro_sweep_frames_ =
+      build_step = 0;
+      build_from_pal = nullptr; // first leg departs the carousel seed slot
+      build_from_faces = 0;
+      build_total_frames = 0;
+      build_macro_sweep_frames =
           std::max(1, static_cast<int>(SWEEP_LEG_FRAMES / sp));
-      build_reconcile_frames_ =
+      build_reconcile_frames =
           std::max(1, static_cast<int>(RECONCILE_LEG_FRAMES / sp));
       const int bridge_frames =
           std::max(1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
       // A smooth kis/needle macro spans more legs than its lowered step count:
       // a trailing dual,kis (dt) is truncate + dual bridge + reconcile; a
       // standalone kis (dtd) is dual bridge + truncate + dual bridge + reconcile.
-      // build_leg_frames_[k] carries the dual-bridge budget the bridge splits by
+      // build_leg_frames[k] carries the dual-bridge budget the bridge splits by
       // three; the truncate and reconcile legs draw fixed member budgets.
-      for (size_t k = 0; k < build_step_count_; ++k) {
-        const Solids::Op op = build_steps_[k].op;
+      for (size_t k = 0; k < build_step_count; ++k) {
+        const Solids::Op op = build_steps[k].op;
         if (dt_pair_at(k)) {
-          build_leg_frames_[k] = bridge_frames; // dual bridge (DUAL step)
-          build_total_frames_ += build_macro_sweep_frames_ + bridge_frames +
-                                 build_reconcile_frames_;
+          build_leg_frames[k] = bridge_frames; // dual bridge (DUAL step)
+          build_total_frames +=
+              build_macro_sweep_frames + bridge_frames + build_reconcile_frames;
           ++k; // the trailing kis is consumed by the dt macro
           continue;
         }
         if (standalone_kis_at(k)) {
-          build_leg_frames_[k] = bridge_frames; // both dtd bridges split this
-          build_total_frames_ += bridge_frames + build_macro_sweep_frames_ +
-                                 bridge_frames + build_reconcile_frames_;
+          build_leg_frames[k] = bridge_frames; // both dtd bridges split this
+          build_total_frames += bridge_frames + build_macro_sweep_frames +
+                                bridge_frames + build_reconcile_frames;
           continue;
         }
         const int frames = std::max(1, static_cast<int>(leg_frames(op) / sp));
-        build_leg_frames_[k] = frames;
-        build_total_frames_ += frames;
+        build_leg_frames[k] = frames;
+        build_total_frames += frames;
       }
-      build_span = build_total_frames_;
+      build_span = build_total_frames;
     }
 
     int duration = fade + build_span + still + burst_span + still + fade;
@@ -763,13 +762,13 @@ private:
   }
 
   /**
-   * @brief Constructs and schedules build leg build_step_: eagerly builds the
+   * @brief Constructs and schedules build leg build_step: eagerly builds the
    *        clean endpoint seed and its bookend classification, derives the
    *        palette handoff, and chains completion into finish_build_leg.
    */
   HS_COLD_MEMBER void start_build_leg() {
-    const size_t k = build_step_;
-    const Solids::OpStep &step = build_steps_[k];
+    const size_t k = build_step;
+    const Solids::OpStep &step = build_steps[k];
 
     // Smooth kis/needle macros (docs/opchain_morph_spec.md, smooth kis/needle):
     // a trailing dual,kis is the dt macro (spanning both steps), a standalone
@@ -790,7 +789,7 @@ private:
     // three-leg bridge; it builds its own endpoints and chains its legs, then
     // rejoins at finish_build_leg.
     if (step.op == Solids::Op::DUAL) {
-      dual_bridge_done_ = [this] { finish_build_leg(); };
+      dual_bridge_done = [this] { finish_build_leg(); };
       schedule_dual_bridge();
       return;
     }
@@ -807,18 +806,18 @@ private:
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-        build_next_seed_ =
+        build_next_seed =
             Solids::finalize_solid(clean_endpoint(step, a, b), target);
       });
       {
         ScratchScope a_guard(scratch_arena_a);
         ScratchScope b_guard(scratch_arena_b);
-        MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+        MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
                                             scratch_arena_b, persistent_arena);
       }
-      const size_t bookend_faces = build_next_seed_.face_counts.size();
+      const size_t bookend_faces = build_next_seed.face_counts.size();
       HS_CHECK(bookend_faces <= MAX_BUILD_FACES);
-      bookend = {build_next_seed_.topology.data(), bookend_faces};
+      bookend = {build_next_seed.topology.data(), bookend_faces};
     }
 
     // Handoff arrays are ctor-scoped: scratch-backed under this scope, alive
@@ -826,11 +825,11 @@ private:
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
 
-    const int frames = build_leg_frames_[k];
+    const int frames = build_leg_frames[k];
     hs::log("Build leg: %s (%d frames)", leg_name(step.op), frames);
 
     auto schedule = [this](Animation::OpLeg &&leg) {
-      build_landing_ = &leg.landing();
+      build_landing = &leg.landing();
       timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
     };
 
@@ -839,33 +838,33 @@ private:
     // truncate swept to the short-circuit point.
     switch (step.op) {
     case Solids::Op::HANKIN:
-      schedule(Animation::OpLeg(build_seed_, 0.0f, step.param, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend));
+      schedule(Animation::OpLeg(build_seed, 0.0f, step.param, persistent_arena,
+                                draw_build_fn, handoff, frames, bookend));
       break;
     case Solids::Op::RELAX:
-      schedule(Animation::OpLeg(build_seed_, static_cast<int>(step.param),
-                                persistent_arena, draw_build_fn_, handoff,
+      schedule(Animation::OpLeg(build_seed, static_cast<int>(step.param),
+                                persistent_arena, draw_build_fn, handoff,
                                 frames, bookend, step.bake));
       break;
     case Solids::Op::AMBO:
-      schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::TRUNCATE,
+      schedule(Animation::OpLeg(build_seed, ConwayGraph::MorphOp::TRUNCATE,
                                 0.0f, 0.5f, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend));
+                                draw_build_fn, handoff, frames, bookend));
       break;
     case Solids::Op::TRUNCATE:
-      schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::TRUNCATE,
+      schedule(Animation::OpLeg(build_seed, ConwayGraph::MorphOp::TRUNCATE,
                                 0.0f, step.param, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend));
+                                draw_build_fn, handoff, frames, bookend));
       break;
     case Solids::Op::SNUB:
-      schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::SNUB, 0.0f,
+      schedule(Animation::OpLeg(build_seed, ConwayGraph::MorphOp::SNUB, 0.0f,
                                 step.param, 0.0f, step.twist, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend));
+                                draw_build_fn, handoff, frames, bookend));
       break;
     case Solids::Op::CHAMFER:
-      schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::CHAMFER,
-                                0.0f, step.param, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend));
+      schedule(Animation::OpLeg(build_seed, ConwayGraph::MorphOp::CHAMFER, 0.0f,
+                                step.param, 0.0f, 0.0f, persistent_arena,
+                                draw_build_fn, handoff, frames, bookend));
       break;
     default:
       // Neither DUAL nor KIS reaches here: both route through the smooth
@@ -885,7 +884,7 @@ private:
   seed_handoff(Arena &scratch,
                Animation::OpLeg::FaceCorrespondence correspondence =
                    Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
-    const size_t prev_faces = build_seed_.face_counts.size();
+    const size_t prev_faces = build_seed.face_counts.size();
     HS_CHECK(prev_faces <= MAX_BUILD_FACES);
     Vector *prev_centroid = nullptr;
     if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
@@ -893,18 +892,18 @@ private:
       size_t off = 0;
       for (size_t f = 0; f < prev_faces; ++f) {
         Vector c(0.0f, 0.0f, 0.0f);
-        const int n = build_seed_.face_counts[f];
+        const int n = build_seed.face_counts[f];
         for (int j = 0; j < n; ++j)
-          c = c + build_seed_.vertices[build_seed_.faces[off + j]];
+          c = c + build_seed.vertices[build_seed.faces[off + j]];
         prev_centroid[f] = c.normalized();
         off += n;
       }
     }
     const uint8_t *prev_pal;
-    if (!build_from_pal_) {
+    if (!build_from_pal) {
       // The build's first leg departs the carousel seed slot: its per-face
-      // spawn colours are the chain's FROM state. Keyed on build_from_pal_
-      // (reset to null per build) rather than build_step_ == 0, so a smooth
+      // spawn colours are the chain's FROM state. Keyed on build_from_pal
+      // (reset to null per build) rather than build_step == 0, so a smooth
       // kis/needle macro whose later sub-legs still sit on step 0
       // (icosahedron_kis_gyro's leading kis) departs from the carried palette,
       // not the seed slot's.
@@ -912,18 +911,18 @@ private:
       prev_pal = slot_face_palette[carousel.front_index()];
     } else {
       // Depart from the palette the previous leg landed on.
-      HS_CHECK(build_from_pal_ && build_from_faces_ == prev_faces,
+      HS_CHECK(build_from_pal && build_from_faces == prev_faces,
                "IslamicStars: carried palette does not cover the leg seed");
-      prev_pal = build_from_pal_;
+      prev_pal = build_from_pal;
     }
-    return {&palette_bank_.bank, prev_pal, nullptr, prev_faces, false,
-            prev_centroid,       nullptr,  false,   nullptr,    correspondence};
+    return {&palette_bank.bank, prev_pal, nullptr, prev_faces, false,
+            prev_centroid,      nullptr,  false,   nullptr,    correspondence};
   }
 
   /**
    * @brief Captures palette provenance for a leg departing a prior landing.
    * @param departed Mesh the next leg departs from, in the previous leg's
-   * landing face order (so its face f carries build_landing_ face f's palette).
+   * landing face order (so its face f carries build_landing face f's palette).
    * @param scratch Arena the arrays live in.
    * @param correspondence Departed-to-swept face-order relationship.
    */
@@ -932,8 +931,8 @@ private:
                   Animation::OpLeg::FaceCorrespondence correspondence =
                       Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
     const size_t nf = departed.face_counts.size();
-    HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
-             build_landing_->faces >= nf);
+    HS_CHECK(nf <= MAX_BUILD_FACES && build_landing &&
+             build_landing->faces >= nf);
     Vector *cen = nullptr;
     uint8_t *pal = scratch.allocate_n<uint8_t>(nf);
     if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC)
@@ -948,9 +947,9 @@ private:
         cen[f] = c.normalized();
         off += n;
       }
-      pal[f] = build_landing_->landed_palette(f);
+      pal[f] = build_landing->landed_palette(f);
     }
-    return {&palette_bank_.bank,
+    return {&palette_bank.bank,
             pal,
             nullptr,
             nf,
@@ -967,7 +966,7 @@ private:
    * step's budget.
    */
   int dual_sub_frames(int sub) const {
-    const int total = build_leg_frames_[build_step_];
+    const int total = build_leg_frames[build_step];
     const int third = std::max(1, total / 3);
     return sub < 2 ? third : std::max(1, total - 2 * third);
   }
@@ -984,21 +983,21 @@ private:
   HS_COLD_MEMBER void schedule_dual_bridge() {
     ++dual_bridges_built_;
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      dual_bridge_ambo_ =
-          Solids::finalize_solid(MeshOps::ambo(build_seed_, a, b), target);
+      dual_bridge_ambo =
+          Solids::finalize_solid(MeshOps::ambo(build_seed, a, b), target);
     });
-    HS_CHECK(dual_bridge_ambo_.face_counts.size() <= MAX_BUILD_FACES);
+    HS_CHECK(dual_bridge_ambo.face_counts.size() <= MAX_BUILD_FACES);
 
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = dual_sub_frames(0);
     hs::log("Build leg: dual bridge 1/3 truncate->ambo (%d frames)", frames);
-    Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
-                         0.5f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
-                         handoff, frames, Animation::OpLeg::BookendClasses{},
+    Animation::OpLeg leg(build_seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f,
+                         0.0f, 0.0f, persistent_arena, draw_build_fn, handoff,
+                         frames, Animation::OpLeg::BookendClasses{},
                          Animation::OpLeg::classic_blend,
                          /*bridge_provenance=*/true, /*borrow_seed=*/true);
-    build_landing_ = &leg.landing();
+    build_landing = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { schedule_dual_medial(); }));
   }
 
@@ -1013,25 +1012,25 @@ private:
     // from the leg-1 landing) before compacting away that finished leg. The
     // arrays live in scratch_a, which the persistent reset below leaves intact.
     Animation::OpLeg::PaletteHandoff handoff =
-        landing_handoff(dual_bridge_ambo_, scratch_arena_a,
+        landing_handoff(dual_bridge_ambo, scratch_arena_a,
                         Animation::OpLeg::FaceCorrespondence::IDENTITY);
-    const size_t medial_faces = dual_bridge_ambo_.face_counts.size();
-    HS_CHECK(build_landing_ && build_landing_->faces == medial_faces);
+    const size_t medial_faces = dual_bridge_ambo.face_counts.size();
+    HS_CHECK(build_landing && build_landing->faces == medial_faces);
     int *medial_topology = scratch_arena_a.allocate_n<int>(medial_faces);
-    std::copy_n(build_landing_->topology, medial_faces, medial_topology);
-    build_landing_ = nullptr;
+    std::copy_n(build_landing->topology, medial_faces, medial_topology);
+    build_landing = nullptr;
 
     // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
     // is dead once the handoff centroids above are snapshotted, so drop it here
     // rather than carrying a full ambo copy through the medial leg's whole render
     // life -- the persistent spike that kept the needle over budget.
-    dual_bridge_ambo_faces_ = dual_bridge_ambo_.face_counts.size();
-    dual_bridge_ambo_ = PolyMesh();
+    dual_bridge_ambo_faces = dual_bridge_ambo.face_counts.size();
+    dual_bridge_ambo = PolyMesh();
 
     // Compact: keep only the seed P (leg 2 rebuilds its medial from it, leg 3 its
     // dual), drop leg 1 and the ambo endpoint.
     {
-      Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
+      Persist<PolyMesh> ps(build_seed, scratch_arena_b, persistent_arena);
       carousel.compact_drop_all(
           [this](Arena &arena) { reclaim_persistent(arena); });
     }
@@ -1039,10 +1038,10 @@ private:
     const int frames = dual_sub_frames(1);
     hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
     Animation::OpLeg leg(
-        build_seed_, Animation::OpLeg::MedialTag{}, persistent_arena,
-        draw_build_fn_, handoff, frames,
+        build_seed, Animation::OpLeg::MedialTag{}, persistent_arena,
+        draw_build_fn, handoff, frames,
         Animation::OpLeg::BookendClasses{medial_topology, medial_faces});
-    build_landing_ = &leg.landing();
+    build_landing = &leg.landing();
     timeline.add(0,
                  std::move(leg).then([this] { schedule_dual_untruncate(); }));
   }
@@ -1055,18 +1054,18 @@ private:
    */
   HS_COLD_MEMBER void schedule_dual_untruncate() {
     ScratchScope a_guard(scratch_arena_a);
-    const size_t nf = dual_bridge_ambo_faces_;
-    HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
-             build_landing_->faces >= nf);
+    const size_t nf = dual_bridge_ambo_faces;
+    HS_CHECK(nf <= MAX_BUILD_FACES && build_landing &&
+             build_landing->faces >= nf);
     uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(nf);
     for (size_t f = 0; f < nf; ++f)
-      pal[f] = build_landing_->landed_palette(f);
-    build_landing_ = nullptr;
+      pal[f] = build_landing->landed_palette(f);
+    build_landing = nullptr;
 
     // Compact: keep the seed P (leg 3 builds dual(P) from it), drop leg 2 (the
     // ambo(P) endpoint was already dropped at the medial leg).
     {
-      Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
+      Persist<PolyMesh> ps(build_seed, scratch_arena_b, persistent_arena);
       carousel.compact_drop_all(
           [this](Arena &arena) { reclaim_persistent(arena); });
     }
@@ -1077,20 +1076,20 @@ private:
     {
       ScratchScope da(scratch_arena_a);
       ScratchScope db(scratch_arena_b);
-      build_next_seed_ = Solids::finalize_solid(
-          MeshOps::dual(build_seed_, scratch_arena_a, scratch_arena_b),
+      build_next_seed = Solids::finalize_solid(
+          MeshOps::dual(build_seed, scratch_arena_a, scratch_arena_b),
           persistent_arena);
     }
     {
       ScratchScope ca(scratch_arena_a);
       ScratchScope cb(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+      MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
-    HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
+    HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
 
     Animation::OpLeg::PaletteHandoff handoff{
-        &palette_bank_.bank,
+        &palette_bank.bank,
         pal,
         nullptr,
         nf,
@@ -1101,31 +1100,31 @@ private:
         nullptr,
         Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING};
     Animation::OpLeg::BookendClasses bookend{
-        build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
+        build_next_seed.topology.data(), build_next_seed.face_counts.size()};
     const int frames = dual_sub_frames(2);
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
-    Animation::OpLeg leg(build_next_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.5f,
-                         0.0f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
+    Animation::OpLeg leg(build_next_seed, ConwayGraph::MorphOp::TRUNCATE, 0.5f,
+                         0.0f, 0.0f, 0.0f, persistent_arena, draw_build_fn,
                          handoff, frames, bookend,
                          Animation::OpLeg::classic_blend,
                          /*bridge_provenance=*/true, /*borrow_seed=*/true);
-    build_landing_ = &leg.landing();
+    build_landing = &leg.landing();
     // Rejoin the caller's continuation: finish_build_leg for a lone DUAL, or the
     // next stage of a smooth kis/needle macro.
-    timeline.add(0, std::move(leg).then([this] { dual_bridge_done_(); }));
+    timeline.add(0, std::move(leg).then([this] { dual_bridge_done(); }));
   }
 
   /**
-   * @brief Adopts the eagerly built endpoint (build_next_seed_) as the next
+   * @brief Adopts the eagerly built endpoint (build_next_seed) as the next
    * leg's seed, snapshots the palette the finished leg landed on so its
    * successor departs continuously, and compacts the finished leg's storage.
    * @details The shared middle of finish_build_leg's non-last path, reused by
    * the smooth kis/needle macro stages, which chain their own next leg rather
-   * than advancing build_step_.
+   * than advancing build_step.
    */
   HS_COLD_MEMBER void carry_landing_to_seed() {
-    const size_t landed_faces = build_next_seed_.face_counts.size();
-    HS_CHECK(landed_faces <= build_landing_->faces,
+    const size_t landed_faces = build_next_seed.face_counts.size();
+    HS_CHECK(landed_faces <= build_landing->faces,
              "IslamicStars: next seed larger than the leg landing");
     HS_CHECK(landed_faces <= MAX_BUILD_FACES,
              "IslamicStars: next seed exceeds the slot palette capacity");
@@ -1134,52 +1133,52 @@ private:
     // re-claim keeps the bytes across every boundary compaction.
     uint8_t *carry = slot_face_palette[1 - carousel.front_index()];
     for (size_t f = 0; f < landed_faces; ++f)
-      carry[f] = build_landing_->landed_palette(f);
-    build_landing_ = nullptr;
+      carry[f] = build_landing->landed_palette(f);
+    build_landing = nullptr;
 
     {
-      Persist<PolyMesh> pn(build_next_seed_, scratch_arena_b, persistent_arena);
-      build_seed_ = PolyMesh();
+      Persist<PolyMesh> pn(build_next_seed, scratch_arena_b, persistent_arena);
+      build_seed = PolyMesh();
       carousel.compact_drop_all(
           [this](Arena &arena) { reclaim_persistent(arena); });
     }
-    build_seed_ = std::move(build_next_seed_);
+    build_seed = std::move(build_next_seed);
 
-    build_from_pal_ = carry;
-    build_from_faces_ = landed_faces;
+    build_from_pal = carry;
+    build_from_faces = landed_faces;
   }
 
   /**
    * @brief Schedules a plain truncate sweep of the current build seed to
-   * MACRO_TRUNCATE_T, landing on build_next_seed_ = truncate(seed, 1/3).
+   * MACRO_TRUNCATE_T, landing on build_next_seed = truncate(seed, 1/3).
    * @param log Log label ("dt truncate" / "dtd truncate").
    * @param then Completion chained after the leg.
    */
   template <typename Then>
   HS_COLD_MEMBER void schedule_macro_truncate(const char *log, Then &&then) {
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      build_next_seed_ = Solids::finalize_solid(
-          MeshOps::truncate(build_seed_, a, b, MACRO_TRUNCATE_T), target);
+      build_next_seed = Solids::finalize_solid(
+          MeshOps::truncate(build_seed, a, b, MACRO_TRUNCATE_T), target);
     });
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+      MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
-    HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
+    HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
     Animation::OpLeg::BookendClasses bookend{
-        build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
+        build_next_seed.topology.data(), build_next_seed.face_counts.size()};
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
-    const int frames = build_macro_sweep_frames_;
+    const int frames = build_macro_sweep_frames;
     hs::log("Build leg: %s (%d frames)", log, frames);
-    Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
+    Animation::OpLeg leg(build_seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
                          MACRO_TRUNCATE_T, 0.0f, 0.0f, persistent_arena,
-                         draw_build_fn_, handoff, frames, bookend,
+                         draw_build_fn, handoff, frames, bookend,
                          Animation::OpLeg::classic_blend,
                          /*bridge_provenance=*/true, /*borrow_seed=*/true);
-    build_landing_ = &leg.landing();
+    build_landing = &leg.landing();
     timeline.add(0, std::move(leg).then(std::forward<Then>(then)));
   }
 
@@ -1192,15 +1191,15 @@ private:
     schedule_macro_truncate("dt truncate", [this] { dt_after_truncate(); });
   }
   HS_COLD_MEMBER void dt_after_truncate() {
-    carry_landing_to_seed(); // build_seed_ = truncate(X, 1/3)
-    dual_bridge_done_ = [this] { dt_after_bridge(); };
+    carry_landing_to_seed(); // build_seed = truncate(X, 1/3)
+    dual_bridge_done = [this] { dt_after_bridge(); };
     schedule_dual_bridge();
   }
   HS_COLD_MEMBER void dt_after_bridge() {
-    carry_landing_to_seed(); // build_seed_ = dual(truncate(X, 1/3)) (identity)
-    dual_bridge_done_ = [this] { finish_build_leg(); };
-    ++build_step_; // advance onto the KIS index the reconcile finishes at
-    schedule_reconcile(build_step_ - 1, /*kis_of_dual=*/true);
+    carry_landing_to_seed(); // build_seed = dual(truncate(X, 1/3)) (identity)
+    dual_bridge_done = [this] { finish_build_leg(); };
+    ++build_step; // advance onto the KIS index the reconcile finishes at
+    schedule_reconcile(build_step - 1, /*kis_of_dual=*/true);
   }
 
   /**
@@ -1209,22 +1208,22 @@ private:
    * reconcile onto the exact kis(X) mesh. Runs entirely on the KIS step.
    */
   HS_COLD_MEMBER void schedule_dtd_macro() {
-    dual_bridge_done_ = [this] { dtd_after_bridge1(); };
+    dual_bridge_done = [this] { dtd_after_bridge1(); };
     schedule_dual_bridge();
   }
   HS_COLD_MEMBER void dtd_after_bridge1() {
-    carry_landing_to_seed(); // build_seed_ = dual(X)
+    carry_landing_to_seed(); // build_seed = dual(X)
     schedule_macro_truncate("dtd truncate", [this] { dtd_after_truncate(); });
   }
   HS_COLD_MEMBER void dtd_after_truncate() {
-    carry_landing_to_seed(); // build_seed_ = truncate(dual(X), 1/3)
-    dual_bridge_done_ = [this] { dtd_after_bridge2(); };
+    carry_landing_to_seed(); // build_seed = truncate(dual(X), 1/3)
+    dual_bridge_done = [this] { dtd_after_bridge2(); };
     schedule_dual_bridge();
   }
   HS_COLD_MEMBER void dtd_after_bridge2() {
-    carry_landing_to_seed(); // build_seed_ = dual(truncate(dual(X), 1/3))
-    dual_bridge_done_ = [this] { finish_build_leg(); };
-    schedule_reconcile(build_step_, /*kis_of_dual=*/false);
+    carry_landing_to_seed(); // build_seed = dual(truncate(dual(X), 1/3))
+    dual_bridge_done = [this] { finish_build_leg(); };
+    schedule_reconcile(build_step, /*kis_of_dual=*/false);
   }
 
   /**
@@ -1276,7 +1275,7 @@ private:
 
   /**
    * @brief Schedules the reconcile leg closing a smooth kis/needle macro: a
-   * per-vertex great-circle slerp from the identity mesh (build_seed_) onto the
+   * per-vertex great-circle slerp from the identity mesh (build_seed) onto the
    * exact authored kis/needle mesh, landing on the generator's mesh.
    * @param x_prefix Lowered-step count replayed to rebuild X, the mesh the macro
    * departed from (the generator's exact intermediate).
@@ -1289,34 +1288,34 @@ private:
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
-      PolyMesh X = Solids::build_steps(seed, build_steps_, x_prefix,
+      PolyMesh X = Solids::build_steps(seed, build_steps, x_prefix,
                                        scratch_arena_a, scratch_arena_b);
       PolyMesh Xc;
       MeshOps::clone(X, Xc, scratch_arena_a);
       PolyMesh authored =
           kis_of_dual ? MeshOps::needle(Xc, scratch_arena_a, scratch_arena_b)
                       : MeshOps::kis(Xc, scratch_arena_a, scratch_arena_b);
-      build_reconcile_endpoint(build_seed_, authored, build_next_seed_,
+      build_reconcile_endpoint(build_seed, authored, build_next_seed,
                                persistent_arena, scratch_arena_a);
     }
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+      MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
-    HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
+    HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
     Animation::OpLeg::BookendClasses bookend{
-        build_next_seed_.topology.data(), build_next_seed_.face_counts.size()};
+        build_next_seed.topology.data(), build_next_seed.face_counts.size()};
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(
         scratch_arena_a, Animation::OpLeg::FaceCorrespondence::IDENTITY);
-    const int frames = build_reconcile_frames_;
+    const int frames = build_reconcile_frames;
     hs::log("Build leg: reconcile (%d frames)", frames);
-    Animation::OpLeg leg(build_seed_, build_next_seed_.vertices.data(),
+    Animation::OpLeg leg(build_seed, build_next_seed.vertices.data(),
                          Animation::OpLeg::ReconcileTag{}, persistent_arena,
-                         draw_build_fn_, handoff, frames, bookend);
-    build_landing_ = &leg.landing();
+                         draw_build_fn, handoff, frames, bookend);
+    build_landing = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }
 
@@ -1332,19 +1331,19 @@ private:
                                          Arena &b) {
     switch (step.op) {
     case Solids::Op::AMBO:
-      return MeshOps::ambo(build_seed_, a, b);
+      return MeshOps::ambo(build_seed, a, b);
     case Solids::Op::TRUNCATE:
-      return MeshOps::truncate(build_seed_, a, b, step.param);
+      return MeshOps::truncate(build_seed, a, b, step.param);
     case Solids::Op::SNUB:
-      return MeshOps::snub(build_seed_, a, b, step.param, step.twist);
+      return MeshOps::snub(build_seed, a, b, step.param, step.twist);
     case Solids::Op::CHAMFER:
-      return MeshOps::chamfer(build_seed_, a, b, step.param);
+      return MeshOps::chamfer(build_seed, a, b, step.param);
     case Solids::Op::RELAX:
       if (step.bake)
-        return MeshOps::relax_baked(build_seed_, a, *step.bake);
-      return MeshOps::relax(build_seed_, a, b, static_cast<int>(step.param));
+        return MeshOps::relax_baked(build_seed, a, *step.bake);
+      return MeshOps::relax(build_seed, a, b, static_cast<int>(step.param));
     case Solids::Op::KIS:
-      return MeshOps::kis(build_seed_, a, b);
+      return MeshOps::kis(build_seed, a, b);
     default:
       HS_CHECK(false, "IslamicStars: step builds no eager endpoint");
       return PolyMesh{};
@@ -1364,17 +1363,17 @@ private:
     // landed on is snapshotted too: the next leg departs from it and the
     // landing does not survive.
     ScratchScope a_guard(scratch_arena_a);
-    if (build_steps_[build_step_].op == Solids::Op::HANKIN) {
-      build_next_seed_ = PolyMesh();
-      Animation::OpLeg::arrival_mesh(*build_landing_, build_next_seed_,
+    if (build_steps[build_step].op == Solids::Op::HANKIN) {
+      build_next_seed = PolyMesh();
+      Animation::OpLeg::arrival_mesh(*build_landing, build_next_seed,
                                      scratch_arena_a);
     }
 
-    if (build_step_ + 1 >= build_step_count_) {
+    if (build_step + 1 >= build_step_count) {
       // finish_build consumes the last leg's landing, so that one is reclaimed
       // by the closing compaction instead.
-      build_seed_ = std::move(build_next_seed_);
-      ++build_step_;
+      build_seed = std::move(build_next_seed);
+      ++build_step;
       finish_build();
       return;
     }
@@ -1385,7 +1384,7 @@ private:
     // closing truncate lands V+F faces but hands off the V dual faces), then
     // advance to the next lowered step.
     carry_landing_to_seed();
-    ++build_step_;
+    ++build_step;
     start_build_leg();
   }
 
@@ -1395,22 +1394,22 @@ private:
    *        next frame is pixel-equal to the leg's last one.
    */
   HS_COLD_MEMBER void finish_build() {
-    // The finished solid is build_seed_ (the last leg's clean endpoint): its
+    // The finished solid is build_seed (the last leg's clean endpoint): its
     // face count is the emission-order prefix of the landing (the whole landing
     // for a normal leg, the surviving dual faces for the DUAL bridge's closing
     // truncate, whose zero-area corner births drop at the compile below).
-    const size_t landed_faces = build_seed_.face_counts.size();
-    HS_CHECK(landed_faces <= build_landing_->faces,
+    const size_t landed_faces = build_seed.face_counts.size();
+    HS_CHECK(landed_faces <= build_landing->faces,
              "IslamicStars: finished solid larger than the leg landing");
     HS_CHECK(landed_faces <= MAX_BUILD_FACES,
              "IslamicStars: finished solid exceeds the slot palette capacity");
-    HS_CHECK(build_landing_->topology,
+    HS_CHECK(build_landing->topology,
              "IslamicStars: finished leg has no topology");
     ScratchScope topology_guard(scratch_arena_b);
     uint16_t *landed_topology =
         scratch_arena_b.allocate_n<uint16_t>(landed_faces);
     for (size_t f = 0; f < landed_faces; ++f) {
-      const int cls = build_landing_->topology[f];
+      const int cls = build_landing->topology[f];
       HS_CHECK(cls >= 0 && cls <= UINT16_MAX,
                "IslamicStars: topology class exceeds snapshot range");
       landed_topology[f] = static_cast<uint16_t>(cls);
@@ -1419,10 +1418,10 @@ private:
     // Per-face sprite handoff: copied before the compaction below, whose
     // same-address re-claim keeps the array's bytes.
     for (size_t f = 0; f < landed_faces; ++f)
-      slot_face_palette[front][f] = build_landing_->landed_palette(f);
-    build_landing_ = nullptr;
-    build_from_pal_ = nullptr;
-    build_from_faces_ = 0;
+      slot_face_palette[front][f] = build_landing->landed_palette(f);
+    build_landing = nullptr;
+    build_from_pal = nullptr;
+    build_from_faces = 0;
 
     MeshState &slot = carousel.slot(front);
     {
@@ -1436,9 +1435,9 @@ private:
       {
         ScratchScope seed_guard(scratch_arena_b);
         PolyMesh built;
-        MeshOps::clone(build_seed_, built, scratch_arena_b);
-        build_next_seed_ = PolyMesh();
-        build_seed_ = PolyMesh();
+        MeshOps::clone(build_seed, built, scratch_arena_b);
+        build_next_seed = PolyMesh();
+        build_seed = PolyMesh();
         carousel.compact_drop_all(
             [this](Arena &arena) { reclaim_persistent(arena); });
         MeshOps::compile(built, slot, persistent_arena, scratch_arena_a);

@@ -38,7 +38,7 @@ public:
   void init() override {
     transformer.init_storage(persistent_arena);
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
-    spiral_cache_ = static_cast<Vector *>(persistent_arena.allocate(
+    spiral_cache = static_cast<Vector *>(persistent_arena.allocate(
         MAX_POINTS * sizeof(Vector), alignof(Vector)));
 
     register_param("Points", &params.points, 100.0f, 2000.0f);
@@ -48,8 +48,8 @@ public:
 
     // Args are (scale, speed): fixed 0.5 magnitude; speed is a don't-care here
     // since draw_frame mirrors params.warp_speed into the warp every frame.
-    warp_ = transformer.spawn_pinned(0, 0.5f, 0.0f);
-    HS_CHECK(warp_, "GnomonicStars: pinned warp spawn must succeed");
+    warp = transformer.spawn_pinned(0, 0.5f, 0.0f);
+    HS_CHECK(warp, "GnomonicStars: pinned warp spawn must succeed");
     register_param("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
 
     baked_palette.bake(persistent_arena, Palettes::MANGO_PEEL);
@@ -68,7 +68,7 @@ public:
     Canvas canvas(*this);
 
     // Mirror the slider into the warp before the timeline advances it.
-    warp_->set_speed(params.warp_speed);
+    warp->set_speed(params.warp_speed);
 
     {
       HS_PROFILE(gn_timeline_step);
@@ -90,21 +90,21 @@ public:
     // The base spiral depends only on (points, i) — the warp and orientation
     // animate downstream — so rebuild the trig-heavy fib_spiral only when
     // "Points" changes.
-    if (points != cached_points_) {
+    if (points != cached_points) {
       HS_PROFILE(gn_spiral_build);
       // eps 0.5 centers the sample band: both endpoints sit half a step off
       // their pole, so neither cap is bare and no star pins to the projection
       // pole.
       for (int i = 0; i < points; i++) {
-        spiral_cache_[i] = fib_spiral(points, /*eps=*/0.5f, i);
+        spiral_cache[i] = fib_spiral(points, /*eps=*/0.5f, i);
       }
-      cached_points_ = points;
+      cached_points = points;
     }
 
     {
       HS_PROFILE(gn_draw_stars);
       for (int i = 0; i < points; i++) {
-        Vector v = transformer.transform(spiral_cache_[i]);
+        Vector v = transformer.transform(spiral_cache[i]);
 
         // make_basis() rotates its normal by the orientation; pass the raw warp
         // output so the orientation is applied exactly once, not twice.
@@ -137,15 +137,15 @@ private:
   Timeline timeline;         /**< Animation timeline for warp and walk. */
   Pipeline<W, H> filters;    /**< Render filter pipeline for star scan. */
 
-  Vector *spiral_cache_ =
-      nullptr;            /**< Persistent base lattice, MAX_POINTS slots. */
-  int cached_points_ = 0; /**< Point count the cache holds (0 = unbuilt). */
+  Vector *spiral_cache =
+      nullptr;           /**< Persistent base lattice, MAX_POINTS slots. */
+  int cached_points = 0; /**< Point count the cache holds (0 = unbuilt). */
   BakedPalette
       baked_palette; /**< LUT-baked MANGO_PEEL sampled by the shader. */
 
   MobiusWarpGnomonicTransformer<1>
       transformer; /**< Evolving Möbius warp applied per point. */
-  Animation::MobiusWarpEvolving *warp_ =
+  Animation::MobiusWarpEvolving *warp =
       nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */
 
   /**
