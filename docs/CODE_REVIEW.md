@@ -173,7 +173,7 @@ No Critical findings. Numbering runs sequentially across all priority sections.
 
 46. ✅ **One unsubscribe removes every registration of the same callback** — `daydream/state.js:88-90`. `filter(l => l !== callback)` removes all matching entries, so two modules sharing a module-level handler both get unhooked when either disposes. Verified by execution. Fix: `indexOf`/`splice` with a double-invoke guard.
 
-47. **A listener unsubscribed mid-dispatch still receives the in-flight event, contradicting its own comment** — `daydream/state.js:101-103`. The `slice()` snapshot makes *addition* safe, not removal. Verified by execution: a torn-down consumer gets one more callback after unhooking — the exact hazard `dispose()` exists to prevent. Fix: re-check membership per call; correct the comment.
+47. ✅ **A listener unsubscribed mid-dispatch still receives the in-flight event, contradicting its own comment** — `daydream/state.js:101-103`. The `slice()` snapshot makes *addition* safe, not removal. Verified by execution: a torn-down consumer gets one more callback after unhooking — the exact hazard `dispose()` exists to prevent. Fix: re-check membership per call; correct the comment.
 
 48. **Clearing a tracked key leaves its stale value in the URL, which re-seeds state on reload** — `daydream/state.js:293-298,250-253`. `flush()` skips tracked keys whose value is nullish but never *deletes* the param. The ad-hoc writer `setParam(k, null)` correctly deletes — the two writers disagree on what "no value" means. Verified by execution. Fix: `params.delete(key)` on the tracked path.
 
