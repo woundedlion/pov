@@ -1849,8 +1849,14 @@ private:
           HS_PROFILE_DEEP(fb_pop_project);
           // Both ends go through project() so its fast-trig error cancels; a
           // pole row's single backing vector has no azimuth to round-trip.
-          constexpr float SOUTH_POLE_ROW = H + hs::H_OFFSET - 1;
-          const bool pole_row = point.y == 0.0f || point.y == SOUTH_POLE_ROW;
+          // Rings stop at y = H - 1, which is the south pole only when
+          // H_OFFSET == 0; the device's sub-pole rows carry no field samples.
+          // h_offset_renorm_check compiles this file with the device H_OFFSET.
+          bool pole_row = point.y == 0.0f;
+          if constexpr (hs::H_OFFSET == 0) {
+            constexpr float SOUTH_POLE_ROW = H + hs::H_OFFSET - 1;
+            pole_row = pole_row || point.y == SOUTH_POLE_ROW;
+          }
           const auto projected = grid.field.project(distorted);
           const auto origin = pole_row ? point : grid.field.project(position);
           float x_offset = projected.x - origin.x;
