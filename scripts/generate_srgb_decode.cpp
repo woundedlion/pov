@@ -69,7 +69,9 @@ int main() {
   if (mism)
     return 1;
 
-  FILE *f = std::fopen("core/color/srgb_decode_lut.h", "w");
+  // Binary mode: the committed header is LF on every host (.gitattributes),
+  // and text mode would emit CRLF on Windows.
+  FILE *f = std::fopen("core/color/srgb_decode_lut.h", "wb");
   if (!f) {
     std::perror("FAIL: open core/color/srgb_decode_lut.h");
     return 1;
