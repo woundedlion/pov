@@ -3480,6 +3480,7 @@ struct PlanarPolygon {
       : basis(b), thickness(th), sides(s), phase(ph),
         sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
+    HS_CHECK(thickness > 0.0f); // t = polar / thickness
     apothem = thickness * cosf(PI_F / sides);
 
     CapBounds cb = cap_bounds(basis.v, thickness, invert);
@@ -3607,6 +3608,7 @@ struct SphericalPolygon {
                    bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
+    HS_CHECK(radius > 0.0f); // t = polar / circumradius
     circumradius = radius * (PI_F / 2.0f);
 
     // Build canonical edge: between vertices at azimuth ±π/n from
@@ -3901,6 +3903,7 @@ struct Flower {
   Flower(const Basis &b, float radius, int s, float ph, bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
+    HS_CHECK(radius > 0.0f); // t = scan_dist / thickness
     float outer = radius * (PI_F / 2.0f);
     apothem = PI_F - outer;
     thickness = outer;
