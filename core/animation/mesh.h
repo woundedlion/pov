@@ -266,7 +266,8 @@ public:
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed node.
    * @param sweep_frames Operator-sweep frames (N).
-   * @param settle_frames Relax-slerp frames (S); 0 unless the edge settles.
+   * @param settle_frames Relax-slerp frames (S); positive on a settling edge, 0
+   * otherwise.
    * @param bookend Bookend grouping of the arrival node (target keying);
    * defaults to the swept-classification fallback.
    * @param blend_fn Crossfade-weight curve.
@@ -282,8 +283,8 @@ public:
       : AnimationBase(sweep_frames + settle_frames, false),
         easing_fn(easing_fn), draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(settle_frames >= 0 && (edge.settle || settle_frames == 0),
-             "OpLeg: settle frames on a non-settling edge");
+    HS_CHECK(settle_frames >= 0 && edge.settle == (settle_frames > 0),
+             "OpLeg: settle frames disagree with the edge");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
     buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
