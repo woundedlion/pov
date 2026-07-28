@@ -838,11 +838,11 @@ public:
     // the leg still starts and ends at zero slope against the static
     // bookends. Forward legs settle at the end; reverse legs un-settle over
     // the opening window, symmetrically.
-    float k;
+    const float progress =
+        easing_fn(static_cast<float>(frame) / static_cast<float>(duration));
+    float k = progress;
     float settle_alpha = 0.0f;
     if (tr.settle_frames > 0) {
-      float progress =
-          easing_fn(static_cast<float>(frame) / static_cast<float>(duration));
       float split = (tr.reverse ? tr.settle_frames : tr.sweep_frames) /
                     static_cast<float>(duration);
       if (!tr.reverse) {
@@ -852,9 +852,6 @@ public:
         settle_alpha = 1.0f - std::min(progress / split, 1.0f);
         k = std::max(0.0f, (progress - split) / (1.0f - split));
       }
-    } else {
-      k = easing_fn(static_cast<float>(frame) /
-                    static_cast<float>(tr.sweep_frames));
     }
     float tp = tr.t_start + (tr.t_end - tr.t_start) * k;
     float tw = tr.twist_start + (tr.twist_end - tr.twist_start) * k;
