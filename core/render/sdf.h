@@ -2209,7 +2209,8 @@ struct FaceScratchBuffer {
     float vx, vy, ex, ey, inv_len_sq,
         inv_ej; /**< Edge origin, vector, reciprocals. */
     uint32_t key_vy,
-        key_next_vy; /**< angle_key of this and the next vertex's y. */
+        key_next_vy; /**< angle_key of this and the next vertex's y; equal when
+                        the edge is degenerate in y. */
   };
   std::array<EdgePacked, MAX_VERTS> packed_edges; /**< Packed per-edge data. */
 
@@ -2650,7 +2651,10 @@ struct Face {
       ep.inv_len_sq = inv_edge_lengths_sq[i];
       ep.inv_ej = inv_edge_j[i];
       ep.key_vy = angle_key(poly_2d[i].y);
-      ep.key_next_vy = angle_key(poly_2d[i + 1].y);
+      // A y-degenerate edge (inv_ej == 0) has no usable crossing x; equal keys
+      // drop it from distance()'s parity test.
+      ep.key_next_vy = (inv_edge_j[i] != 0.0f) ? angle_key(poly_2d[i + 1].y)
+                                               : ep.key_vy;
     }
     packed_edges = std::span<EdgePacked>(scratch.packed_edges.data(), count);
   }
