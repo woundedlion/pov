@@ -8,8 +8,8 @@
  * coverage discontinuity from the shading gradient.
  *
  * Doubles as the gated swap's seam regression: every swap is asserted against
- * the envelope this calibration fixed. Set HS_SEAM_DUMP=<dir> to also write the
- * captures as PNG.
+ * the envelope this calibration fixed. Set HS_SEAM_DUMP=<dir> to write the
+ * captures as PNG and to run the non-asserting gradient sweep.
  */
 #pragma once
 
@@ -369,13 +369,20 @@ inline void png_chunk(std::vector<uint8_t> &out, const char type[5],
 }
 
 /**
+ * @brief Dump directory named by HS_SEAM_DUMP, or nullptr when unset.
+ */
+inline const char *seam_dump_dir() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  return std::getenv("HS_SEAM_DUMP");
+#pragma clang diagnostic pop
+}
+
+/**
  * @brief Writes a capture to <HS_SEAM_DUMP>/<name>.png; no-op when unset.
  */
 inline void dump_png(const char *name, const std::vector<Pixel> &px) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *dir = std::getenv("HS_SEAM_DUMP");
-#pragma clang diagnostic pop
+  const char *dir = seam_dump_dir();
   if (!dir)
     return;
 
@@ -556,6 +563,7 @@ template <typename Solid> inline void measure_dual(const char *name) {
 /**
  * @brief Measures the gradient's contribution on top of the coverage seam, at
  *        the gains the §3.3 gate would open and close between.
+ * @details Reporting only, no assertions; run under HS_SEAM_DUMP.
  * @tparam Solid Seed solid descriptor.
  */
 template <typename Solid> inline void measure_gradient(const char *name) {
@@ -611,7 +619,8 @@ inline void test_partition_seam_calibration() {
   measure_dual<Solids::Cube>("cube");
   measure_dual<Solids::Dodecahedron>("dodeca");
 
-  measure_gradient<Solids::Dodecahedron>("dodeca");
+  if (seam_dump_dir())
+    measure_gradient<Solids::Dodecahedron>("dodeca");
 }
 
 /**
