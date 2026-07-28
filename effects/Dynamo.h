@@ -265,7 +265,7 @@ public:
         draw_nodes(canvas, 0.0f);
       } else {
         for (int i = steps - 1; i >= 0; --i) {
-          pull(0, effective_speed);
+          pull(effective_speed);
           draw_nodes(canvas, static_cast<float>(i) / steps);
         }
       }
@@ -319,19 +319,15 @@ private:
 
   /**
    * @brief Advances the strand one whole step.
-   * @param leader Index of the leader node to move first.
-   * @param effective_speed Signed speed whose direction the leader moves in.
-   * @details Moves the leader node in the signed direction of effective_speed,
-   *          then drags every other node toward it from both sides so the chain
-   *          follows, keeping each link within `gap`.
+   * @param effective_speed Signed speed whose direction the head node moves in.
+   * @details Moves node 0 in the signed direction of effective_speed, then drags
+   *          each following node toward its predecessor so the chain follows,
+   *          keeping every link within `gap`.
    */
-  void pull(int leader, float effective_speed) {
-    nodes[leader].v = dir(effective_speed);
-    move(nodes[leader]);
-    for (int i = leader - 1; i >= 0; --i) {
-      drag(nodes[i + 1], nodes[i]);
-    }
-    for (size_t i = leader + 1; i < NUM_NODES; ++i) {
+  void pull(float effective_speed) {
+    nodes[0].v = dir(effective_speed);
+    move(nodes[0]);
+    for (size_t i = 1; i < NUM_NODES; ++i) {
       drag(nodes[i - 1], nodes[i]);
     }
   }
