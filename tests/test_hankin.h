@@ -657,7 +657,8 @@ inline void test_compiled_hankin_clone_deep_copies() {
 }
 
 /**
- * @brief Verifies clear() resets every CompiledHankin array back to empty.
+ * @brief Verifies clear() empties every CompiledHankin array and resets
+ * static_offset.
  */
 inline void test_compiled_hankin_clear() {
   Arena arena(hankin_target_buf, sizeof(hankin_target_buf));
@@ -669,12 +670,13 @@ inline void test_compiled_hankin_clear() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(cube, compiled, arena, temp);
   HS_EXPECT_TRUE(compiled.base_vertices.size() > 0);
+  HS_EXPECT_TRUE(compiled.static_offset > 0);
 
   compiled.clear();
   HS_EXPECT_EQ(compiled.base_vertices.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.static_vertices.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)0);
-  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)0);
+  HS_EXPECT_EQ(compiled.static_offset, 0);
   HS_EXPECT_EQ(compiled.face_counts.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.faces.size(), (size_t)0);
 }
