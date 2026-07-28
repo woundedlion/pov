@@ -131,7 +131,7 @@ private:
    * exp(shift) is identical for every ring and frame; caching it leaves a single
    * exp(rho) per ring instead of one exp per sample.
    */
-  float exp_shift_[NUM_SAMPLES];
+  float exp_shift[NUM_SAMPLES];
   float gap_accumulator =
       0.0f; /**< Accumulated path travel awaiting the next spawn, in rho units. */
   float next_hue =
@@ -157,7 +157,7 @@ private:
       float t_norm = static_cast<float>(i) / NUM_SAMPLES;
       float shift =
           PETAL_DEPTH * std::abs(fast_sinf(PETAL_LOBES * PI_F * t_norm));
-      exp_shift_[i] = expf(shift);
+      exp_shift[i] = expf(shift);
     }
   }
 
@@ -296,8 +296,8 @@ private:
         // Inverse stereographic projection of the planar point at
         // (radius R=exp(rho + wobble), angle final_theta) onto the unit sphere.
         // exp(rho + wobble) factors into the per-ring exp(rho) and the cached,
-        // geometry-static exp(wobble) in exp_shift_.
-        float R = exp_rho * exp_shift_[i];
+        // geometry-static exp(wobble) in exp_shift.
+        float R = exp_rho * exp_shift[i];
 
         float r2 = R * R;
         float denom = 1.0f + r2;

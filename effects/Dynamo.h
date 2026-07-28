@@ -102,10 +102,10 @@ public:
 private:
   /**
    * @brief Flips travel direction via a private sign.
-   * @details Toggles speed_direction_ so animation never overwrites the "Speed"
-   *          slider; effective speed is params.speed * speed_direction_.
+   * @details Toggles speed_direction so animation never overwrites the "Speed"
+   *          slider; effective speed is params.speed * speed_direction.
    */
-  void reverse() { speed_direction_ *= -1; }
+  void reverse() { speed_direction *= -1; }
 
   /**
    * @brief Schedules a half-turn rotation about a random axis, eased in/out.
@@ -253,10 +253,10 @@ public:
 
     // Carry the fractional part of |speed| across frames so |speed| < 1 still
     // advances the strand instead of truncating to zero.
-    const float effective_speed = params.speed * speed_direction_;
-    speed_accumulator_ += std::abs(effective_speed);
-    const int steps = static_cast<int>(speed_accumulator_);
-    speed_accumulator_ -= static_cast<float>(steps);
+    const float effective_speed = params.speed * speed_direction;
+    speed_accumulator += std::abs(effective_speed);
+    const int steps = static_cast<int>(speed_accumulator);
+    speed_accumulator -= static_cast<float>(steps);
     {
       HS_PROFILE(dy_draw_nodes);
       if (steps == 0) {
@@ -430,12 +430,12 @@ private:
    * @brief Travel direction toggled by reverse(); kept separate from the "Speed"
    *        slider so animation never clobbers the user's value.
    */
-  int speed_direction_ = 1;
+  int speed_direction = 1;
   /**
    * @brief Fractional-step carry so |speed| < 1 still advances the strand over
    *        multiple frames instead of truncating to zero.
    */
-  float speed_accumulator_ = 0.0f;
+  float speed_accumulator = 0.0f;
 
   /**
    * @brief Live slider-backed parameters for the effect.

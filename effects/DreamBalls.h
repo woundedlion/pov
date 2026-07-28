@@ -94,7 +94,7 @@ public:
     // Mirror live slider edits into the active sprite's snapshot so the incoming
     // shape tracks the sliders while a still-fading outgoing sprite keeps the
     // frozen snapshot it was spawned with.
-    param_slots_[active_bake_] = params;
+    param_slots[active_bake_] = params;
     {
       HS_PROFILE(db_timeline_step);
       timeline.step(canvas);
@@ -201,7 +201,7 @@ private:
    *          live sliders into the active slot, so the incoming sprite stays
    *          editable while the outgoing slot is frozen.
    */
-  Params param_slots_[2];
+  Params param_slots[2];
   /** @brief Sprite hand-off crossfade; overlap is CROSSFADE_OVERLAP, set at
    *         init(). */
   Segue::Crossfade crossfade;
@@ -320,7 +320,7 @@ private:
     active_bake_ ^= 1;
     baked_palettes_[active_bake_].rebake(*params.palette);
     const int bake_slot = active_bake_;
-    param_slots_[bake_slot] = params;
+    param_slots[bake_slot] = params;
 
     auto draw_fn = [this, safe_idx, bake_slot](Canvas &canvas, float opacity) {
       HS_PROFILE(db_draw);
@@ -336,7 +336,7 @@ private:
 
       // This sprite's own param + palette snapshot keeps geometry and color
       // continuous across a preset change.
-      this->draw_scene(canvas, param_slots_[bake_slot],
+      this->draw_scene(canvas, param_slots[bake_slot],
                        crossfade.opacity(opacity), preset.mesh_state,
                        target_mesh, preset.tangents, preset.edges,
                        baked_palettes_[bake_slot]);
