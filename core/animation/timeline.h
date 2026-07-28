@@ -226,6 +226,9 @@ public:
     HS_CHECK(delay <= UINT32_MAX - global_timeline_t,
              "Timeline start frame overflow");
     if (global_timeline_num_events >= MAX_EVENTS) {
+      // A pinned caller retains the return value; dropping hands back a nullptr
+      // no call site null-checks.
+      HS_CHECK(!pin, "Timeline full, dropped a pinned animation");
       ++global_timeline_dropped;
       hs::log("Timeline full, failed to add animation! (%lu dropped)",
               (unsigned long)global_timeline_dropped);
@@ -272,6 +275,17 @@ public:
    * @return Total number of dropped add()/add_get() calls.
    */
   uint32_t dropped_events() const { return global_timeline_dropped; }
+
+  /**
+   * @brief Event slots still free before add()/add_get() starts dropping.
+   * @return MAX_EVENTS minus the current event count.
+   * @details step() runs a completing event's post_callback() before it destroys
+   * that event and recomputes the count, so a .then() re-arm issued from the
+   * callback is appended while the completing event still holds its slot. A
+   * chain that re-arms itself must budget against this count, not against the
+   * post-compaction one.
+   */
+  int remaining() const { return MAX_EVENTS - global_timeline_num_events; }
 
   /**
    * @brief Advances the timeline by one frame, stepping all active or starting
