@@ -211,8 +211,8 @@ instead of full-frame. `MeshFeedback` is unbounded and skips this tier.
 
 | Layer | Change |
 |---|---|
-| `core/filter.h` traits | add `crosses_segments = has_history` to the trait bases; `false` on `Screen::Trails`; add a **new** recursive `any_crosses_segments` OR-fold to `Pipeline` + a `false` base case in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
-| `core/canvas.h` `Effect` | add `needs_full_frame()` virtual (default `false`) |
+| `core/render/filter.h` traits | add `crosses_segments = has_history` to the trait bases; `false` on `Screen::Trails`; add a **new** recursive `any_crosses_segments` OR-fold to `Pipeline` + a `false` base case in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
+| `core/render/canvas.h` `Effect` | add `needs_full_frame()` virtual (default `false`) |
 | `targets/wasm/wasm.cpp` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
 | flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
 | `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |

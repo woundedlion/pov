@@ -227,14 +227,14 @@ out of scope).
 
 ## 9. Implementation plan
 
-1. `core/sdf.h`: resurrect `build_distance_lut` (from `6241a24b^`) as a
+1. `core/render/sdf.h`: resurrect `build_distance_lut` (from `6241a24b^`) as a
    free function over a centered canonical polygon at fixed n; add the
    hybrid branch + members (`const ClassLut *`, `rot`, `mean`, `reflected`)
    to `Face`; `lut_hits` metric back into `platform.h`.
-2. `core/mesh.h` (or a new `core/mesh_classes.h`): the Procrustes clustering
+2. `core/mesh/mesh.h` (or a new `core/mesh/mesh_classes.h`): the Procrustes clustering
    (port of the census code, arena-based, no std::vector), `MeshClassBake`
    build, per-face record table.
-3. `core/scan.h`: `Scan::Mesh::draw` takes an optional
+3. `core/render/scan.h`: `Scan::Mesh::draw` takes an optional
    `const MeshClassBake *` (default null = today's behavior); when present,
    computes the per-face alignment after the `Face` ctor and binds the LUT.
 4. `effects/IslamicStars.h`: bake per slot in `spawn_shape` (after
@@ -266,7 +266,7 @@ out of scope).
 
 ## 11. Implementation results (2026-07-01)
 
-Landed as `core/mesh_classes.h` (clustering + bake) with the hybrid branch in
+Landed as `core/mesh/mesh_classes.h` (clustering + bake) with the hybrid branch in
 `SDF::Face::distance`, the per-frame alignment bound by `Scan::Mesh::draw`,
 and per-slot bakes in IslamicStars (rebaked unconditionally after every
 `compact_keep_front`). Deviations from the design above, all forced by

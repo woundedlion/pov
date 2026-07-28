@@ -186,7 +186,7 @@ is breached), but explains why that floor can move in 32 KiB increments rather t
      dropping the bench to `-Os` is the obvious shrink — but that's an owner build-config change,
      mirrored in `platformio.ini`, not something the gate decides. For now the gate targets `-O3`.
 2. **The repo root must be on the include path; `effects/` is kept for VMicro parity.** Correction
-   to earlier drafts: the effect headers are *not* included by bare name — `core/effects.h` pulls
+   to earlier drafts: the effect headers are *not* included by bare name — `core/engine/effects.h` pulls
    them PATH-PREFIXED (`#include "effects/BZReactionDiffusion.h"`), and those headers in turn include
    `core/...` and `effects/...` siblings the same way. Those path-prefixed includes resolve from the
    **repo root**, which PlatformIO puts on the include path automatically via `src_dir = .` — *that*
@@ -940,7 +940,7 @@ cannot see.** Each was fixed; the device build is the first thing to compile thi
   **Fixed:** sketch var → `g_pov` in both `.ino`s.
 - **`color.h` include collision** — FastLED ships its own `src/color.h`; the device `-I` order made
   `hardware/{dma_led,hd107s_frame}.h`'s bare `"color.h"` resolve to FastLED's (no `Pixel16`/LUTs),
-  while host builds got the engine's. **Fixed:** those two now `#include "core/color.h"`.
+  while host builds got the engine's. **Fixed:** those two now `#include "core/color/color.h"`.
 
 **Result — Holosphere builds GREEN and the gate PASSES end-to-end on the real ELF.** Real calibrated
 budgets (FLASH 154,620 / RAM1 459,072 free 65,216 / RAM2 518,272 free 6,016) and the **real** mangled

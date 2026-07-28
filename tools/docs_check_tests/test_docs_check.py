@@ -48,6 +48,32 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("docs/missing.svg", issues[0].message)
         self.assertIn("docs/missing.md", issues[1].message)
 
+    def test_missing_anchors_are_reported(self):
+        text = (FIXTURES / "anchors.txt").read_text(encoding="utf-8")
+        entries = {PurePosixPath("docs"), PurePosixPath("docs/other.md")}
+        anchors = {PurePosixPath("docs/other.md"): {"real-heading"}}
+        issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries,
+                               anchors)
+        self.assertEqual(len(issues), 2)
+        self.assertIn("#missing-anchor", issues[0].message)
+        self.assertIn("this document", issues[0].message)
+        self.assertIn("#ghost", issues[1].message)
+        self.assertIn("docs/other.md", issues[1].message)
+
+    def test_backticked_repo_paths_are_linted(self):
+        text = (FIXTURES / "backticked_paths.txt").read_text(encoding="utf-8")
+        entries = {
+            PurePosixPath("core"),
+            PurePosixPath("core/engine"),
+            PurePosixPath("core/engine/platform.h"),
+            PurePosixPath("tools"),
+            PurePosixPath("tools/docs_check.py"),
+        }
+        issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].line, 2)
+        self.assertIn("core/platform.h", issues[0].message)
+
     def test_only_git_tracked_markdown_is_checked(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
