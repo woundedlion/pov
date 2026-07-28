@@ -1003,6 +1003,7 @@ public:
    */
   template <typename PassFnT>
   void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
+    HS_CHECK(items, "World::Trails needs init_storage() from effect init()");
     for (size_t i = 0; i < count; ++i) {
       const auto &item = at(i);
       Vector v = decode(item);
@@ -1405,6 +1406,7 @@ public:
   template <typename PassFnT>
   void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
              PassFnT &&pass) {
+    HS_CHECK(points_, "Screen::Trails needs init_storage() from effect init()");
     for (int i = 0; i < num_pixels; ++i) {
       float t = hs::clamp(1.0f - (points_[i].ttl / lifetime), 0.0f, 1.0f);
       Color4 color = trailFn(points_[i].x, points_[i].y, t);
