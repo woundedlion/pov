@@ -177,7 +177,7 @@ No Critical findings. Numbering runs sequentially across all priority sections.
 
 48. ✅ **Clearing a tracked key leaves its stale value in the URL, which re-seeds state on reload** — `daydream/state.js:293-298,250-253`. `flush()` skips tracked keys whose value is nullish but never *deletes* the param. The ad-hoc writer `setParam(k, null)` correctly deletes — the two writers disagree on what "no value" means. Verified by execution. Fix: `params.delete(key)` on the tracked path.
 
-49. **`scrollArrowState`'s deadzone goes negative for sub-1px overflow** — `daydream/sidebar_logic.js:89`. `Math.min(4, (maxScroll-1)/2)` is negative when `maxScroll < 1`, so the left arrow appears while the list is pinned to the start. Fractional `scrollWidth` is routine under browser zoom and fractional DPI; every existing test uses `maxScroll ≥ 4`. Verified by execution. Fix: `Math.max(0, ...)`.
+49. ✅ **`scrollArrowState`'s deadzone goes negative for sub-1px overflow** — `daydream/sidebar_logic.js:89`. `Math.min(4, (maxScroll-1)/2)` is negative when `maxScroll < 1`, so the left arrow appears while the list is pinned to the start. Fractional `scrollWidth` is routine under browser zoom and fractional DPI; every existing test uses `maxScroll ≥ 4`. Verified by execution. Fix: `Math.max(0, ...)`.
 
 50. **`mobius_transforms.js` has no parity pin to the C++ engine at all** — `daydream/tools/mobius_transforms.js:221-227`. The WASM parity surface pins sRGB, OKLab, HSV, procedural palette and lissajous; there is no mobius export. Both the 8-float `MobiusParams` ordering and the stereographic convention are unpinned. They currently agree (verified by hand). Fix: export `mobius_transform(...)` and add a parity test.
 
