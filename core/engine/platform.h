@@ -1037,36 +1037,14 @@ inline unsigned long micros() { return hs::micros(); }
 #endif
 
 // ---------------------------------------------------------------------------
-// HS_COLD: keep a setup-only function off the fast ITCM banks. FLASHMEM routes it
-// to FLASH; noinline collapses per-call-site inline copies and noclone blocks the
-// .constprop/.isra IPA clones (which drop the section attribute and land in ITCM
-// regardless). Apply ONLY to internal-linkage (`static`) free functions on cold
-// paths (mesh/solid construction): a section attribute on a COMDAT (inline/template
-// member) function is a section-type conflict. Off-device it degrades to a no-op.
-// HS_COLD_MEMBER is the COMDAT-safe variant for inline/template member functions:
-// `cold` prefixes the per-function section (.text.unlikely.*) instead of naming a
-// shared one, and tools/phantasm.ld routes .text.unlikely* to FLASH. Elsewhere it
-// only marks the function cold (holosphere ITCM has slack; host ignores it).
-// ---------------------------------------------------------------------------
-#if defined(__GNUC__) && !defined(__clang__)
-#define HS_COLD FLASHMEM __attribute__((noinline, noclone))
-#define HS_COLD_MEMBER __attribute__((cold, noinline, noclone))
-#define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
-#else
-#define HS_COLD FLASHMEM
-#define HS_COLD_MEMBER
-#define HS_NOINLINE_NOCLONE __attribute__((noinline))
-#endif
-
-// ---------------------------------------------------------------------------
 // HS_O3_BEGIN / HS_O3_END: compile the enclosed function definitions at -O3 on
-// the -Os device image (selective hot-loop optimization; docs/selective_o3_spec.md).
+// the -Os device image (selective optimization; docs/selective_o3_spec.md).
 // Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
 // -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
 // The fast-math flags are restated because GCC 11's optimize pragma rebuilds
 // optimization flags from defaults, dropping command-line -ffast-math /
 // -fno-finite-math-only for the region (fixed in GCC 12; harmless to restate).
-// HS_O3_FN is the single-function fallback for definitions a region cannot wrap.
+// HS_O3_FN is the shared single-function attribute and backs HS_COLD_MEMBER.
 //
 // no-unroll-loops is NOT the lever here; -funswitch-loops is. GCC 15 unswitches
 // the region's per-pixel loops on their invariant branches (e.g. the feedback
@@ -1089,6 +1067,28 @@ inline unsigned long micros() { return hs::micros(); }
 #define HS_O3_BEGIN
 #define HS_O3_END
 #define HS_O3_FN
+#endif
+
+// ---------------------------------------------------------------------------
+// HS_COLD: keep a setup-only function off the fast ITCM banks. FLASHMEM routes it
+// to FLASH; noinline collapses per-call-site inline copies and noclone blocks the
+// .constprop/.isra IPA clones (which drop the section attribute and land in ITCM
+// regardless). Apply ONLY to internal-linkage (`static`) free functions on cold
+// paths (mesh/solid construction): a section attribute on a COMDAT (inline/template
+// member) function is a section-type conflict. Off-device it degrades to a no-op.
+// HS_COLD_MEMBER is the COMDAT-safe variant for inline/template member functions:
+// `cold` prefixes the per-function section (.text.unlikely.*) instead of naming a
+// shared one, and tools/phantasm.ld routes .text.unlikely* to FLASH. On the -Os
+// device image it also uses HS_O3_FN; elsewhere HS_O3_FN is empty.
+// ---------------------------------------------------------------------------
+#if defined(__GNUC__) && !defined(__clang__)
+#define HS_COLD FLASHMEM __attribute__((noinline, noclone))
+#define HS_COLD_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
+#define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
+#else
+#define HS_COLD FLASHMEM
+#define HS_COLD_MEMBER
+#define HS_NOINLINE_NOCLONE __attribute__((noinline))
 #endif
 
 // ---------------------------------------------------------------------------
