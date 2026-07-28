@@ -147,35 +147,44 @@ add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
 
-# Pin core/color/color_luts.h against its generator; skips (exit 77) without Python.
+# The three generated-artifact gates below re-run a Python generator and diff it
+# against the committed header. Default OFF keeps a bare local checkout green:
+# a missing python3/numpy exits 77 and CTest reports the gate as skipped. That
+# skip is invisible in a green run, so the CI job that provisions the
+# interpreter passes -DHS_REQUIRE_GENERATORS=ON, which turns the same missing
+# python3/numpy into a hard failure — a broken provisioning step can no longer
+# silently retire all three gates.
+option(HS_REQUIRE_GENERATORS
+    "Fail (rather than skip) the generated-artifact gates when python3/numpy is missing" OFF)
+
+# Pin core/color/color_luts.h against its generator.
 find_program(HS_PYTHON NAMES python3 python)
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DGENERATOR=${HS_ROOT}/scripts/generate_luts.py
     -DCOMMITTED=${HS_ROOT}/core/color/color_luts.h
     -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/color_luts.generated.h
-    -DSKIP_CODE=77
+    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts.cmake)
 set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
 
 # Run the generator's own --check self-validation (monotonicity + sRGB
-# round-trip), which CI ran only as a shell step. Registered unconditionally;
-# skips (exit 77) without Python, mirroring unit_color_luts.
+# round-trip), which CI ran only as a shell step.
 add_test(NAME unit_color_luts_check COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DGENERATOR=${HS_ROOT}/scripts/generate_luts.py
-    -DSKIP_CODE=77
+    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts_selfcheck.cmake)
 set_tests_properties(unit_color_luts_check PROPERTIES SKIP_RETURN_CODE 77)
 
 # Pin core/color/gamut_lut.h against its generator, and the generator's copies of
 # the OKLab matrices and the gamut slack against core/color/color.h — drift there
 # invalidates the brackets the per-pixel bisection is confined to. A full
-# regeneration is ~1 min of numpy; skips (exit 77) without Python or numpy.
+# regeneration is ~1 min of numpy.
 add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DGENERATOR=${HS_ROOT}/tools/gen_gamut_lut.py
-    -DSKIP_CODE=77
+    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_gamut_lut.cmake)
 set_tests_properties(unit_gamut_lut PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
 
