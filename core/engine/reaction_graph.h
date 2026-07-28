@@ -67,8 +67,7 @@ HS_COLD_MEMBER inline Vector node(int i) {
  * @brief Precomputed K-nearest-neighbor indices for every lattice node.
  * @details neighbors[i][k] is the node index of the k-th nearest neighbor of node
  *          i, always a valid index in [0, RD_N): the RD_N=7680 lattice yields a
- *          full RD_K-neighbor ring, so the `ni < 0` guard in find_nearest_node is
- *          defensive, not a live table state. Total size 92160 bytes
+ *          full RD_K-neighbor ring. Total size 92160 bytes
  *          (RD_N × RD_K × 2B). PROGMEM is a no-op on the supported flat-address
  *          targets, where direct `neighbors[i][k]` subscripting works.
  */
@@ -254,8 +253,6 @@ private:
       bool improved = false;
       for (int k = 0; k < RD_K; ++k) {
         int ni = neighbors[cur][k];
-        if (ni < 0)
-          continue;
         float d = dist2(p, lattice[ni]);
         if (d < best_d) {
           best_d = d;

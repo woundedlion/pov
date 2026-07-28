@@ -138,9 +138,10 @@ inline void test_table_shape_matches_constants() {
 
 /**
  * @brief Verifies every table entry is the -1 sentinel or a valid node index.
- * @details An out-of-range index would index past the lattice in consumers. The
- *          shipped table contains no sentinels, but the format permits them and
- *          consumers guard `ni < 0`, so both are accepted here.
+ * @details ReactionDiffusionBase::init_lattice HS_CHECKs every slot lands in
+ *          [0, RD_N) at startup, since consumers subscript neighbors[]
+ *          unguarded; the shipped table holds no sentinels, so a -1 traps
+ *          there rather than here.
  */
 inline void test_indices_in_range() {
   int bad = 0;
