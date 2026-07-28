@@ -344,6 +344,10 @@ public:
   HS_O3_FN Vector operator()(const Vector &v) const { return transform(v); }
 };
 
+/** @brief Denominator floor below which field_dominant() reports 0 instead of
+ * dividing. */
+constexpr float FIELD_DOMINANT_DEN_EPS = 1e-9f;
+
 /**
  * @brief A generic manager for animation-driven scalar displacement fields.
  * @tparam ParamsT The configuration struct (e.g., BumpParams).
@@ -403,7 +407,7 @@ public:
       num += f * f * f;
       den += f * f;
     }
-    return den > 1e-9f ? num / den : 0.0f;
+    return den > FIELD_DOMINANT_DEN_EPS ? num / den : 0.0f;
   }
 
   /**
@@ -423,7 +427,7 @@ public:
       num += f * f * f;
       den += f * f;
     }
-    return den > 1e-9f ? num / den : 0.0f;
+    return den > FIELD_DOMINANT_DEN_EPS ? num / den : 0.0f;
   }
 
   /**
