@@ -170,7 +170,7 @@ template <> struct sdf_max_spans<Line> {
 // Face replays its azimuth-coverage span, which always views
 // FaceScratchBuffer::intervals; tied to that array's size where it is defined.
 template <> struct sdf_max_spans<Face> {
-  static constexpr size_t value = 4;
+  static constexpr size_t value = 2;
 };
 // AngularRepeat's copies cover the full azimuth, so it always requests a full
 // scan and emits nothing.
@@ -2204,7 +2204,8 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
 struct FaceScratchBuffer {
   static constexpr int MAX_VERTS = 64; /**< Maximum vertices per face. */
   static constexpr size_t MAX_INTERVALS =
-      4; /**< Capacity of the azimuth coverage array. */
+      2; /**< Capacity of the azimuth coverage array: one span, or two when the
+              covered arc straddles theta=0. */
   std::array<Vector, MAX_VERTS + 1>
       poly_2d; /**< Projected 2D polygon (+1 entry to avoid modulo). */
   std::array<Vector, MAX_VERTS> edge_vectors; /**< Per-edge 2D vectors. */
