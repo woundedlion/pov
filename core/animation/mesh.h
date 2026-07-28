@@ -1908,6 +1908,8 @@ private:
     const uint8_t *face_palette;
   };
 
+  // always_inline, not a plain helper: an out-of-line copy inherits no cold
+  // attribute from its HS_COLD_MEMBER caller and would land in ITCM.
   __attribute__((always_inline)) static const int *resolve_target_topology(
       Transients &tr, const PolyMesh &arrival, const PaletteHandoff &handoff,
       const BookendClasses &bookend, Arena &arena, size_t survivors) {
@@ -1979,6 +1981,8 @@ private:
     return tr.target_topo.data();
   }
 
+  // always_inline, not a plain helper: an out-of-line copy inherits no cold
+  // attribute from its HS_COLD_MEMBER caller and would land in ITCM.
   __attribute__((always_inline)) static BirthPalettes
   assign_birth_palettes(Transients &tr, const PolyMesh &arrival,
                         const PaletteHandoff &handoff, const int *target_topo,
@@ -2019,6 +2023,8 @@ private:
     return {first, palette};
   }
 
+  // always_inline, not a plain helper: an out-of-line copy inherits no cold
+  // attribute from its HS_COLD_MEMBER caller and would land in ITCM.
   __attribute__((always_inline)) static uint8_t
   intern_palette_ramp(Transients &tr, uint8_t from, uint8_t to) {
     for (int r = 0; r < tr.num_ramps; ++r)
