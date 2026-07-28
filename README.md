@@ -777,8 +777,8 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 |---|---|
 | `Scan::Ring` | Rasterizes a ring (from `SDF::Ring`) |
 | `Scan::RingGroup` | Fused single-pass rasterizer for a small group of rings — one scan over the union band paints every member in slot order, so the per-row interval math runs once instead of per ring. Fragments carry position, stroke coverage and size only (no UVs, no raw distance) |
-| `Scan::Circle` | Filled circle (ring with radius-wide thickness) |
-| `Scan::Point` | Thick dot at a sphere-surface position |
+| `Scan::Circle` | Disc (ring with radius-wide thickness) — stroke coverage ramps quintically from center to rim, and the shader styles it from register 2 |
+| `Scan::Point` | Dot at a sphere-surface position, with the same center-to-rim coverage ramp |
 | `Scan::Line` | Geodesic line segment between two points |
 | `Scan::Star` | N-pointed star shape |
 | `Scan::Flower` | N-petal flower shape |
