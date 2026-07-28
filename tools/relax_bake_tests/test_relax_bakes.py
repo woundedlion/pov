@@ -98,9 +98,14 @@ class EmitHeader(unittest.TestCase):
         header = relax_bakes.emit_header(bakes)
         self.assertIn("namespace RelaxBakes {", header)
         self.assertIn("inline const uint32_t foo_bar_bits[] PROGMEM = {", header)
-        # New struct layout: leading name string, no source hash.
-        self.assertIn('"foo_bar", foo_bar_bits, 1, 2, 6, 100,', header)
-        self.assertIn(f"0x{out:08x}u}};", header)
+        self.assertIn('.name = "foo_bar", .vertex_bits = foo_bar_bits,', header)
+        self.assertIn(
+            ".vertex_count = 1, .face_count = 2, .index_count = 6, "
+            ".iterations = 100,",
+            header,
+        )
+        self.assertIn(f".topology_hash = 0x{0xC0FFEE:08x}u,", header)
+        self.assertIn(f".output_hash = 0x{out:08x}u}};", header)
 
 
 if __name__ == "__main__":
