@@ -1002,7 +1002,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient movement buffer and HalfEdgeMesh.
  * @param iterations Maximum spring-relaxation passes; stops early on
- *   convergence.
+ *   convergence. Must be non-negative; 0 is a normalize-only pass-through.
  * @return Fresh relaxed PolyMesh allocated in `target`.
  * @note Unlike its sibling operators, relax tolerates a boundary mesh: a vertex
  *   with no outgoing twin is skipped, yielding a partial relaxation instead of
@@ -1010,6 +1010,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
  */
 HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
                               int iterations = 8) {
+  HS_CHECK(iterations >= 0, "relax: negative iteration count");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
