@@ -572,8 +572,8 @@ The **filter pipeline** is a variadic template that chains filter stages:
 
 ```cpp
 Pipeline<W, H,
-    Filter::World::Trails<W, MAX_ITEMS>,   // 3D world-space trail decay
-    Filter::World::Orient<W>,              // quaternion rotation + motion blur
+    Filter::World::Trails<MAX_ITEMS>,   // 3D world-space trail decay
+    Filter::World::Orient,              // quaternion rotation + motion blur
     Filter::Screen::AntiAlias<W, H>        // quintic-eased 2×2 splat AA
 > filters;
 ```
@@ -594,13 +594,13 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 
 | Filter | Effect |
 |---|---|
-| `World::Orient<W>` | Rotates every incoming 3D point by the current `Orientation` quaternion. Uses the orientation history to distribute motion-blur age values across a SLERP-interpolated sweep. |
-| `World::Trails<W, Capacity>` | Stores world-space points in an arena-allocated ring buffer with a TTL countdown. On `flush()`, re-draws aged points through a `TrailFn` color function. Trail items are quantized to 8 bytes each (int16 xyz + uint8 TTL). |
+| `World::Orient` | Rotates every incoming 3D point by the current `Orientation` quaternion. Uses the orientation history to distribute motion-blur age values across a SLERP-interpolated sweep. |
+| `World::Trails<Capacity>` | Stores world-space points in an arena-allocated ring buffer with a TTL countdown. On `flush()`, re-draws aged points through a `TrailFn` color function. Trail items are quantized to 8 bytes each (int16 xyz + uint8 TTL). |
 | `World::Replicate<W>` | Clones geometry N times around the Y-axis by re-plotting each point rotated by `2π/N`. |
-| `World::VertexReplicate<W, N>` | Replicates geometry onto the N vertices of a solid by precomputing rotation quaternions from vertex[0] to each other vertex. |
-| `World::Mobius<W>` | Applies a Möbius transformation via stereographic projection: sphere → complex plane → Möbius(z) → back to sphere. |
-| `World::Hole<W>` | Masks out a spherical cap by attenuating points within a radius via quintic falloff. Supports both by-value and by-reference origin (`HoleRef<W>`). |
-| `World::OrientSlice<W>` | Selects from a list of orientations based on each point's projection along an axis — enables per-hemisphere rotation effects. |
+| `World::VertexReplicate<N>` | Replicates geometry onto the N vertices of a solid by precomputing rotation quaternions from vertex[0] to each other vertex. |
+| `World::Mobius` | Applies a Möbius transformation via stereographic projection: sphere → complex plane → Möbius(z) → back to sphere. |
+| `World::Hole<OriginT>` | Masks out a spherical cap by attenuating points within a radius via quintic falloff. Supports both by-value and by-reference origin (`HoleRef`). |
+| `World::OrientSlice` | Selects from a list of orientations based on each point's projection along an axis — enables per-hemisphere rotation effects. |
 
 #### Screen-Space Filters
 
@@ -608,7 +608,7 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 |---|---|
 | `Screen::AntiAlias<W,H>` | Distributes a sub-pixel coordinate to its 4 nearest integer pixels as a `quintic_kernel`-eased 2×2 splat, applied uniformly on both axes in framebuffer space — no `sin(φ)` density compensation, because anti-aliasing is a property of the pixel grid, not of where the columns map on the sphere. |
 | `Screen::Blur<W, H>` | Applies a parameterized 3×3 Gaussian convolution kernel at plot time. |
-| `Screen::Trails<W, MAX_PIXELS>` | Screen-space variant of trail decay; stores 2D coordinates with TTL and redraws via a trail color function. Uses arena-allocated storage (`MAX_PIXELS` capacity, default 1024). |
+| `Screen::Trails<MAX_PIXELS>` | Screen-space variant of trail decay; stores 2D coordinates with TTL and redraws via a trail color function. Uses arena-allocated storage (`MAX_PIXELS` capacity, default 1024). |
 | `Screen::DirectAntiAliasSink<W, H>` | Terminal stand-in for `Pipeline<W, H, AntiAlias<W, H>>` when no downstream filter is needed: the same four-tap splat and q16 source-over blend, written straight into the framebuffer with row, column and clip resolution hoisted out of the per-sample path. Call `prepare(canvas)` once per frame before the first plot — it caches the framebuffer base and the clip's visible row/column masks. |
 
 #### Pixel-Space Filters
@@ -625,7 +625,7 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 ```cpp
 // Declare a style member and use it in the pipeline:
 Feedback::Style style = Feedback::Style::Smoke();
-Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
+Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
          Filter::Pixel::Feedback<W, H>> filters(
     ..., Filter::Pixel::Feedback<W, H>(style));
 ```
@@ -666,17 +666,17 @@ Filters compose freely. The order matters — world-space filters must precede s
 
 ```cpp
 // Rotating geometry with anti-aliasing
-Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
 
 // Particle trails in world space with orientation
 Pipeline<W, H,
-    Filter::World::Trails<W, 50000>,
-    Filter::World::Orient<W>,
+    Filter::World::Trails<50000>,
+    Filter::World::Orient,
     Filter::Screen::AntiAlias<W, H>>
 
 // Orientation + anti-aliasing + feedback with Smoke style
 Pipeline<W, H,
-    Filter::World::Orient<W>,
+    Filter::World::Orient,
     Filter::Screen::AntiAlias<W, H>,
     Filter::Pixel::Feedback<W, H>>
 ```

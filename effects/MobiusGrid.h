@@ -41,9 +41,9 @@ public:
         next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                      BrightnessProfile::FLAT),
         mobius_gen(timeline), hole_n(Y_AXIS), hole_s(-Y_AXIS),
-        filters(Filter::World::HoleRef<W>(hole_n, 1.2f),
-                Filter::World::HoleRef<W>(hole_s, 1.2f),
-                Filter::World::Orient<W>(orientation),
+        filters(Filter::World::HoleRef(hole_n, 1.2f),
+                Filter::World::HoleRef(hole_s, 1.2f),
+                Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
   // Scratch A holds one curve's fragment buffer (W/4 + 2 samples) and, during
@@ -344,8 +344,8 @@ private:
   Vector hole_s; /**< South hole origin, tracking the rotated geometry. */
 
   /** @brief Render filter pipeline: two hole fades, orientation, anti-alias. */
-  Pipeline<W, H, Filter::World::HoleRef<W>, Filter::World::HoleRef<W>,
-           Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+  Pipeline<W, H, Filter::World::HoleRef, Filter::World::HoleRef,
+           Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
       filters;
 
   /**

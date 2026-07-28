@@ -57,10 +57,10 @@ public:
                {.strobe = true,
                 .full_frame = decltype(filters)::any_crosses_segments}),
         palettes{make_palette()}, palette_normal(Z_AXIS),
-        filters(Filter::World::Trails<W, TRAIL_CAPACITY>(
+        filters(Filter::World::Trails<TRAIL_CAPACITY>(
                     (uint32_t)params.trail_length),
                 Filter::World::Replicate<W>(3),
-                Filter::World::Orient<W>(orientation),
+                Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
@@ -68,8 +68,8 @@ public:
    *        pool, and schedules the random reverse/wipe/rotate timers.
    */
   void init() override {
-    filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
-        .init_storage(persistent_arena);
+    filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().init_storage(
+        persistent_arena);
 
     nodes = persistent_arena.allocate_n<Node>(NUM_NODES);
     for (size_t i = 0; i < NUM_NODES; ++i)
@@ -235,8 +235,8 @@ public:
 
     // Push the live "Trail Len" slider into the Trails filter, clamped to its
     // [1,255] domain.
-    filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
-        .set_lifetime(hs::clamp((int)params.trail_length, 1, 255));
+    filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().set_lifetime(
+        hs::clamp((int)params.trail_length, 1, 255));
 
     {
       HS_PROFILE(dy_timeline_step);
@@ -415,7 +415,7 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       NUM_NODES * sizeof(Node) +
       TRAIL_CAPACITY *
-          sizeof(typename Filter::World::Trails<W, TRAIL_CAPACITY>::Item) +
+          sizeof(typename Filter::World::Trails<TRAIL_CAPACITY>::Item) +
       MAX_PALETTES * BakedPalette::LUT_SIZE * sizeof(Color4);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a TRAIL_CAPACITY/MAX_PALETTES retune.
@@ -452,8 +452,8 @@ private:
   /**
    * @brief Filter pipeline applied to plotted points before color resolution.
    */
-  Pipeline<W, H, Filter::World::Trails<W, TRAIL_CAPACITY>,
-           Filter::World::Replicate<W>, Filter::World::Orient<W>,
+  Pipeline<W, H, Filter::World::Trails<TRAIL_CAPACITY>,
+           Filter::World::Replicate<W>, Filter::World::Orient,
            Filter::Screen::AntiAlias<W, H>>
       filters;
 };

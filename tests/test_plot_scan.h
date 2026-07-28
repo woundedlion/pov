@@ -766,8 +766,8 @@ inline void test_edge_col_span_covers_arc() {
 static_assert(!Pipeline<96, 48>::has_world_cull);
 static_assert(
     !Pipeline<96, 48, Filter::Screen::AntiAlias<96, 48>>::has_world_cull);
-static_assert(Pipeline<96, 48, Filter::World::Orient<96>>::has_world_cull);
-static_assert(Pipeline<96, 48, Filter::World::Orient<96>,
+static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_cull);
+static_assert(Pipeline<96, 48, Filter::World::Orient,
                        Filter::Screen::AntiAlias<96, 48>>::has_world_cull);
 
 inline void test_edge_visible_in_clip_matches_span_composition() {
@@ -3602,8 +3602,8 @@ inline void test_rasterize_cull_follows_filter_orientation() {
   auto band_lit = [&](int cy0, int cy1) -> int {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(cy0, cy1, 0, W);
-    Pipeline<W, H, Filter::World::Orient<W>> filters{
-        Filter::World::Orient<W>(orientation)};
+    Pipeline<W, H, Filter::World::Orient> filters{
+        Filter::World::Orient(orientation)};
     {
       ScratchScope sc(plot_arena());
       Fragments pts;
