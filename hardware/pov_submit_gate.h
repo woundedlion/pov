@@ -54,13 +54,13 @@ public:
     if (dark) {
       // A dropped image column is stale once the wake goes dark, and the black
       // frame overwrites the back buffer it was packed into.
-      resubmit_pending_ = false;
-      return dark_latched_ ? SubmitAction::NONE : SubmitAction::BLACK;
+      resubmit_needed = false;
+      return black_frame_accepted ? SubmitAction::NONE : SubmitAction::BLACK;
     }
-    dark_latched_ = false;
+    black_frame_accepted = false;
     if (render_column >= 0)
       return SubmitAction::COLUMN;
-    return resubmit_pending_ ? SubmitAction::RESUBMIT : SubmitAction::NONE;
+    return resubmit_needed ? SubmitAction::RESUBMIT : SubmitAction::NONE;
   }
 
   /**
@@ -73,11 +73,11 @@ public:
   bool settle(SubmitAction action, bool accepted) {
     switch (action) {
     case SubmitAction::BLACK:
-      dark_latched_ = accepted;
+      black_frame_accepted = accepted;
       return accepted;
     case SubmitAction::COLUMN:
     case SubmitAction::RESUBMIT:
-      resubmit_pending_ = !accepted;
+      resubmit_needed = !accepted;
       return accepted;
     case SubmitAction::NONE:
       break;
@@ -86,13 +86,14 @@ public:
   }
 
   /** @brief Whether the fail-dark black frame has been accepted. */
-  bool dark_latched() const { return dark_latched_; }
+  bool dark_latched() const { return black_frame_accepted; }
   /** @brief Whether a dropped frame is still awaiting re-submission. */
-  bool resubmit_pending() const { return resubmit_pending_; }
+  bool resubmit_pending() const { return resubmit_needed; }
 
 private:
-  bool dark_latched_ = false; /**< Black frame accepted; no repeat needed. */
-  bool resubmit_pending_ =
+  bool black_frame_accepted =
+      false; /**< Black frame accepted; no repeat needed. */
+  bool resubmit_needed =
       false; /**< Back frame dropped on overrun; retry next wake. */
 };
 
