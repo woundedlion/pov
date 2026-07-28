@@ -185,49 +185,37 @@ planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
 }
 
 /**
- * @brief Planar interpolation strategy: builds an arc-uniform sampler for one edge.
- * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
- * @param curr Start fragment of the edge.
- * @param next End fragment of the edge.
- * @param planar_basis Azimuthal-equidistant projection basis.
- * @param is_last_segment True if this is the final edge of the polyline.
- * @param process_segment Receives the arc-length sampler (position + a
- *                        finite-difference unit tangent), endpoints, on-sphere
- *                        length (radians), and the last-segment flag.
- * @details The path is a straight line in the azimuthal-equidistant projection.
- * Projection-uniform stepping is NOT arc-uniform under the anisotropic metric,
- * so a short cumulative-arc table is inverted to turn an arc-length fraction into
- * a projection parameter, making planar sampling arc-uniform with no new trig.
+ * @brief Arc-uniform sampler for one azimuthal-equidistant straight edge.
+ * @details Every edge sampler exposes both entry points the rasterizer needs:
+ * `pos(t)` for the drawing phase, which wants the position alone, and
+ * `operator()(t)` for the simulation phase, which also needs the tangent.
  */
-template <typename ProcessSegmentFn>
-static void
-rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
-                          const Basis &planar_basis, bool is_last_segment,
-                          ProcessSegmentFn &&process_segment) {
-  auto proj1 = azimuthal_project(curr.pos, planar_basis);
-  auto proj2 = azimuthal_project(next.pos, planar_basis);
-  float dx = proj2.first - proj1.first;
-  float dy = proj2.second - proj1.second;
-
-  // The path is a straight line in the azimuthal-equidistant projection,
-  // parameterized here by the PROJECTION fraction p in [0,1] (not arc length).
-  auto unproject = [=, &planar_basis](float p) -> Vector {
-    return azimuthal_unproject(proj1.first + dx * p, proj1.second + dy * p,
-                               planar_basis);
-  };
-
-  // Cumulative on-sphere arc length at evenly-spaced PROJECTION samples: the
-  // path's true length, which drives the step count and lets map() invert an
-  // arc-length fraction back to a projection parameter (projection-uniform
-  // stepping is not arc-uniform under the anisotropic metric).
+struct PlanarEdgeSampler {
+  std::pair<float, float> proj1; /**< Projection of the edge start. */
+  float dx;                      /**< Projected chord x-component. */
+  float dy;                      /**< Projected chord y-component. */
+  const Basis *basis;            /**< Azimuthal-equidistant projection basis. */
+  /** Cumulative on-sphere arc at evenly-spaced PROJECTION samples. */
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
-  planar_arc_cumul(proj1, dx, dy, planar_basis, arc_cumul);
-  const float dist = arc_cumul[PLANAR_LEN_SAMPLES];
+  float dist; /**< The edge's on-sphere length (radians). */
 
-  // Arc-length parameterization: s is the arc fraction in [0,1]. Invert the
-  // piecewise-linear cumulative-arc table to a projection parameter, then
-  // unproject. A short scan over PLANAR_LEN_SAMPLES floats — no trig.
-  auto map_planar = [=](float s) -> Vector {
+  /**
+   * @brief Unprojects the chart line at PROJECTION fraction p in [0,1].
+   * @details Projection-uniform, so not arc-uniform under the anisotropic
+   * metric; pos() maps an arc fraction onto it.
+   */
+  Vector unproject(float p) const {
+    return azimuthal_unproject(proj1.first + dx * p, proj1.second + dy * p,
+                               *basis);
+  }
+
+  /**
+   * @brief Position at arc fraction s in [0,1].
+   * @details Inverts the piecewise-linear cumulative-arc table to a projection
+   * parameter, then unprojects. A short scan over PLANAR_LEN_SAMPLES floats —
+   * no trig.
+   */
+  Vector pos(float s) const {
     if (dist < math::EPS_GEOMETRIC)
       return unproject(s);
     float target = s * dist;
@@ -239,21 +227,54 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
         (seg > math::EPS_GEOMETRIC) ? (target - arc_cumul[k]) / seg : 0.0f;
     float p = (static_cast<float>(k) + frac) / PLANAR_LEN_SAMPLES;
     return unproject(std::min(1.0f, std::max(0.0f, p)));
-  };
+  }
 
-  // The azimuthal map has no closed-form tangent, so take it from a short forward
-  // difference (backward at the s=1 end); the difference direction is the unit
-  // tangent regardless of magnitude. Feeds the same screen-velocity sub-step
-  // sampler as the geodesic path.
-  auto sample_planar = [=](float s) -> SamplePT {
-    Vector p = map_planar(s);
+  /**
+   * @brief Position and unit tangent at arc fraction s in [0,1].
+   * @details The azimuthal map has no closed-form tangent, so take it from a
+   * short forward difference (backward at the s=1 end); the difference
+   * direction is the unit tangent regardless of magnitude. Feeds the same
+   * screen-velocity sub-step sampler as the geodesic path.
+   */
+  SamplePT operator()(float s) const {
+    Vector p = pos(s);
     bool fwd = (s + PLANAR_TAN_DT <= 1.0f);
-    Vector q = map_planar(fwd ? s + PLANAR_TAN_DT : s - PLANAR_TAN_DT);
+    Vector q = pos(fwd ? s + PLANAR_TAN_DT : s - PLANAR_TAN_DT);
     Vector d = fwd ? (q - p) : (p - q);
     return {p, normalized_or(d, Vector())};
-  };
+  }
+};
 
-  process_segment(sample_planar, curr, next, dist, is_last_segment);
+/**
+ * @brief Planar interpolation strategy: builds an arc-uniform sampler for one edge.
+ * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
+ * @param curr Start fragment of the edge.
+ * @param next End fragment of the edge.
+ * @param planar_basis Azimuthal-equidistant projection basis.
+ * @param is_last_segment True if this is the final edge of the polyline.
+ * @param process_segment Receives the arc-length sampler, endpoints, on-sphere
+ *                        length (radians), and the last-segment flag.
+ * @details The path is a straight line in the azimuthal-equidistant projection.
+ * Projection-uniform stepping is NOT arc-uniform under the anisotropic metric,
+ * so a short cumulative-arc table is inverted to turn an arc-length fraction into
+ * a projection parameter, making planar sampling arc-uniform with no new trig.
+ */
+template <typename ProcessSegmentFn>
+static void
+rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
+                          const Basis &planar_basis, bool is_last_segment,
+                          ProcessSegmentFn &&process_segment) {
+  PlanarEdgeSampler sampler;
+  sampler.proj1 = azimuthal_project(curr.pos, planar_basis);
+  auto proj2 = azimuthal_project(next.pos, planar_basis);
+  sampler.dx = proj2.first - sampler.proj1.first;
+  sampler.dy = proj2.second - sampler.proj1.second;
+  sampler.basis = &planar_basis;
+  planar_arc_cumul(sampler.proj1, sampler.dx, sampler.dy, planar_basis,
+                   sampler.arc_cumul);
+  sampler.dist = sampler.arc_cumul[PLANAR_LEN_SAMPLES];
+
+  process_segment(sampler, curr, next, sampler.dist, is_last_segment);
 }
 
 /**
@@ -301,15 +322,48 @@ static inline Basis planar_chart_basis(const Vector &center) {
   return {u, center, w};
 }
 
+/** @brief Constant sampler for a coincident-endpoint edge. */
+struct DegenerateEdgeSampler {
+  Vector p; /**< The collapsed edge's single position. */
+
+  Vector pos(float) const { return p; }
+  SamplePT operator()(float) const { return {p, Vector()}; }
+};
+
+/**
+ * @brief Great-circle sampler for one edge.
+ * @details v1 and v_perp are orthonormal, so pos is a unit slerp of the two and
+ * tan = d(pos)/d(ang) is a unit vector out of the same sin/cos — the
+ * screen-velocity sampler's tangent costs no extra trig.
+ */
+struct GeodesicEdgeSampler {
+  Vector v1;        /**< Edge start (unit). */
+  Vector v_perp;    /**< Unit vector perpendicular to v1 in the arc plane. */
+  float total_dist; /**< The edge's on-sphere length (radians). */
+
+  /** @brief Position at arc fraction t in [0,1]. */
+  Vector pos(float t) const {
+    float s, c;
+    fast_sincosf_0_pi(total_dist * t, s, c);
+    return (v1 * c) + (v_perp * s);
+  }
+
+  /** @brief Position and unit tangent at arc fraction t in [0,1]. */
+  SamplePT operator()(float t) const {
+    float s, c;
+    fast_sincosf_0_pi(total_dist * t, s, c);
+    return {(v1 * c) + (v_perp * s), (v_perp * c) - (v1 * s)};
+  }
+};
+
 /**
  * @brief Geodesic interpolation strategy: builds a great-circle sampler for one edge.
  * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
  * @param curr Start fragment of the edge.
  * @param next End fragment of the edge.
  * @param is_last_segment True if this is the final edge of the polyline.
- * @param process_segment Receives the arc-length sampler (position + unit
- *                        tangent), endpoints, on-sphere length (radians), and
- *                        the last-segment flag.
+ * @param process_segment Receives the arc-length sampler, endpoints, on-sphere
+ *                        length (radians), and the last-segment flag.
  * @details Picks a stable perpendicular axis for antipodal/degenerate endpoints
  * and slerps along the great circle; a coincident-endpoint edge collapses to a
  * constant sampler.
@@ -325,8 +379,8 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
   float total_dist = angle_between(v1, v2);
 
   if (total_dist < EPS_GEODESIC_SEGMENT) {
-    auto sample_degenerate = [=](float) -> SamplePT { return {v1, Vector()}; };
-    process_segment(sample_degenerate, curr, next, total_dist, is_last_segment);
+    process_segment(DegenerateEdgeSampler{v1}, curr, next, total_dist,
+                    is_last_segment);
   } else {
     Vector axis;
     if (std::abs(PI_F - total_dist) < TOLERANCE) {
@@ -335,18 +389,8 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
       axis = cross(v1, v2).normalized();
     }
 
-    Vector v_perp = cross(axis, v1);
-
-    auto sample_geodesic = [=](float t) -> SamplePT {
-      float ang = total_dist * t;
-      float s, c;
-      fast_sincosf_0_pi(ang, s, c);
-      // pos on the great circle; tan = d(pos)/d(ang) is a unit vector (v1,
-      // v_perp orthonormal), so the screen-velocity sampler's tangent comes free
-      // from the same sin/cos — no extra trig.
-      return {(v1 * c) + (v_perp * s), (v_perp * c) - (v1 * s)};
-    };
-    process_segment(sample_geodesic, curr, next, total_dist, is_last_segment);
+    process_segment(GeodesicEdgeSampler{v1, cross(axis, v1), total_dist}, curr,
+                    next, total_dist, is_last_segment);
   }
 }
 HS_O3_END
@@ -1164,9 +1208,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   float seg_base = 0.0f; // rendered arc at the in-flight segment's start
 
   // Adaptively sub-step and plot one segment. `sample(t)` returns the sphere
-  // point AND unit tangent at arc fraction t in [0,1] under the chosen strategy;
-  // `total_dist` is the segment's on-sphere length (radians). Endpoints are
-  // omitted on interior / closed segments so a shared vertex isn't plotted twice.
+  // point AND unit tangent at arc fraction t in [0,1] under the chosen strategy,
+  // `sample.pos(t)` the point alone; `total_dist` is the segment's on-sphere
+  // length (radians). Endpoints are omitted on interior / closed segments so a
+  // shared vertex isn't plotted twice.
   auto process_segment = [&](auto &&sample, const Fragment &curr,
                              const Fragment &next, float total_dist,
                              bool is_last_segment) {
@@ -1269,7 +1314,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // the row near the pole, so re-normalize the interpolated positions.
     HS_PROFILE_DEEP(plot_seg_draw);
     {
-      Vector start_pos = sample(0.0f).pos.normalized();
+      Vector start_pos = sample.pos(0.0f).normalized();
       Fragment f = Fragment::lerp_registers(curr, next, 0.0f);
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
@@ -1294,7 +1339,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       // basis set_arc_uv rewrites v0/v1 from the true rendered arc so a shader
       // keying off them as an arc-length proxy tracks the drawn position across
       // the planar bow. Geodesic edges keep the lerped registers.
-      Vector p = sample(t).pos.normalized();
+      Vector p = sample.pos(t).normalized();
       Fragment f = Fragment::lerp_registers(curr, next, t);
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
