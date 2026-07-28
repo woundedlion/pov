@@ -232,15 +232,13 @@ using CullEdgePredRef =
 
 /**
  * @brief Deterministic ownership mask for dissolve transitions.
- * @details The scan tests owns(x, y) before the per-pixel SDF eval, so a
- * skipped pixel costs a few cycles instead of the full distance chain; the
- * wireframe path keys the same hash on an edge's endpoint indices and skips
- * the whole edge. Two draws with the same threshold/salt and opposite `invert`
- * partition the domain exactly (every element owned by one of them), which is
- * what caps a two-mesh transition at one mesh's rasterize cost per frame. The
- * salt must
- * derive from frame counters/seeds, never wall time: the mask is part of the
- * sim/device parity surface.
+ * @details The wireframe path (Plot::Mesh::draw's edge-list overload) keys
+ * owns() on an edge's endpoint indices and skips an unowned edge before any of
+ * its geometry work; no solid-mesh scan consumes a mask. Two draws with the same threshold/salt
+ * and opposite `invert` partition the domain exactly (every element owned by
+ * one of them), which is what caps a two-mesh transition at one mesh's
+ * rasterize cost per frame. The salt must derive from frame counters/seeds,
+ * never wall time: the mask is part of the sim/device parity surface.
  */
 struct PixelMask {
   uint32_t threshold; /**< Owned fraction in [0, 65536]. */
