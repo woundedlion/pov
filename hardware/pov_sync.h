@@ -515,6 +515,8 @@ private:
     return s;
   }
 
+  // Ordered against the edge ISR by the consumer's __disable_irq() memory
+  // clobber, not by volatile.
   uint32_t count_ = 0;
   uint32_t first_cycles_ = 0;
   uint32_t last_cycles_ = 0;
