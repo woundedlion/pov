@@ -66,6 +66,8 @@ struct TimelineEvent {
     // Relocating a handled event would dangle the caller's cached animation
     // pointer (handled animations are never meant to move); trap instead.
     HS_CHECK(!handled);
+    HS_CHECK(!dst.manager,
+             "move_into would leak the destination's live animation");
     dst.start = start;
     dst.handled = handled; // always false past the check; kept for symmetry
     dst.manager = manager;
