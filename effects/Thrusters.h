@@ -205,9 +205,9 @@ private:
 
     warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_linear);
 
-    // Under a large warp the two oriented vectors can become near-parallel, so
-    // their cross product collapses toward zero; fall back to a fixed axis on the
-    // degenerate case (the spin axis is arbitrary when the pair is parallel).
+    // At the ends of the Radius domain the ring collapses onto its own axis, so
+    // thrust_point and ring_vec turn parallel and their cross product vanishes;
+    // fall back to a fixed axis there (the spin axis is arbitrary when parallel).
     Vector thrust_axis = normalized_or(
         cross(orientation.orient(thrust_point), orientation.orient(ring_vec)),
         Y_AXIS);
