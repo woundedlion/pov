@@ -1285,8 +1285,7 @@ private:
    */
   HS_COLD_MEMBER void step_gated(Canvas &canvas, int frame) {
     Transients &tr = *buf;
-    const float gate = static_cast<float>(tr.sweep_frames);
-    const bool seed_side = static_cast<float>(frame - 1) < gate;
+    const bool seed_side = frame <= tr.sweep_frames;
 
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
