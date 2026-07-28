@@ -7,7 +7,9 @@ name: Docs
 on:
   push:
     branches: [master]
-    # Run for API-reference inputs and every Markdown/checker change.
+    # Run for API-reference inputs and every Markdown change. Markdown link
+    # validation is NOT gated here — it runs unfiltered in ci.yml, so a rename
+    # outside these paths cannot break a documented link unnoticed.
     paths:
       - '**.h'
       - '**.cpp'
@@ -16,8 +18,6 @@ on:
       - 'Doxyfile'
       - 'docs/doxygen-custom.css'
       - 'docs/doxygen-theme.cfg'
-      - 'tools/docs_check.py'
-      - 'tools/docs_check_tests/**'
       - 'justfile'
       - '.github/workflows/docs.yml'
   # Build-only presubmit on PRs touching the same inputs. The deploy job is
@@ -31,8 +31,6 @@ on:
       - 'Doxyfile'
       - 'docs/doxygen-custom.css'
       - 'docs/doxygen-theme.cfg'
-      - 'tools/docs_check.py'
-      - 'tools/docs_check_tests/**'
       - 'justfile'
       - '.github/workflows/docs.yml'
 
@@ -58,11 +56,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-
-      - name: Validate tracked Markdown
-        run: |
-          python -m unittest discover -s tools/docs_check_tests
-          python tools/docs_check.py
 
       # Pin Doxygen to an exact release binary (apt's version trails and lacks
       # newer config tags this Doxyfile uses). Graphviz comes from the pinned
