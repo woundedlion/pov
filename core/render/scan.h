@@ -520,6 +520,32 @@ struct DistortedRing {
  */
 HS_O3_BEGIN
 struct DistortedRingStack {
+  /** @brief Candidate-window pad and the even-spacing tolerance it affords. */
+  static constexpr float WINDOW_PAD = 1e-3f;
+
+  /**
+   * @brief Traps unless every occupied ring sits on its even-spacing slot.
+   * @param n_rings Stack size.
+   * @param shapes Ring shapes indexed by slot.
+   * @param slot_by_ring n_rings entries mapping ring index -> slot, -1 if
+   *        culled.
+   * @details A deviation within WINDOW_PAD still lands inside the shared
+   * candidate window, so geometry survives; beyond it the ring is windowed out
+   * and silently disappears.
+   */
+  HS_COLD_MEMBER
+  static void check_even_spacing(int n_rings, const SDF::DistortedRing *shapes,
+                                 const int8_t *slot_by_ring) {
+    const float delta = PI_F / (n_rings + 1);
+    for (int i = 0; i < n_rings; ++i) {
+      const int s = slot_by_ring[i];
+      if (s < 0)
+        continue;
+      HS_CHECK(std::abs(shapes[s].target_angle - delta * (i + 1)) <=
+               WINDOW_PAD);
+    }
+  }
+
   /**
    * @brief Rasterizes every ring of an evenly spaced same-axis stack in one
    *        scan over the union band.
@@ -554,6 +580,7 @@ struct DistortedRingStack {
                    const SDF::DistortedRing *shapes, const int8_t *slot_by_ring,
                    int n_slots, RingShaderT &&shader) {
     HS_CHECK(n_slots >= 1);
+    check_even_spacing(n_rings, shapes, slot_by_ring);
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
@@ -575,7 +602,7 @@ struct DistortedRingStack {
 
     // Window pad: fast_acos error plus float theta/index inversion slop; a
     // ring wrongly windowed in is discarded by its own exact cos reject.
-    const float b_win = b_max + 1e-3f;
+    const float b_win = b_max + WINDOW_PAD;
     const float inv_delta = (n_rings + 1) / PI_F;
 
     // The per-ring path suppresses the aliased exact-pole rows
