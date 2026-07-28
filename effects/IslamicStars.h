@@ -225,12 +225,10 @@ private:
   size_t dual_bridge_ambo_faces_ =
       0; /**< ambo(P) face count, kept for leg 3's handoff length after the mesh
             itself is dropped at the medial leg (persistent-budget relief). */
-  size_t device_persistent_budget_ =
-      DEVICE_GLOBAL_ARENA_SIZE - SPLIT_SCRATCH_A_DEFAULT -
-      SPLIT_SCRATCH_B_DEFAULT; /**< Device persistent budget of the current
-                                  shape's split; the host arena is
-                                  over-provisioned, so gates check the resident
-                                  persistent high-water against this. */
+  /** Device persistent budget of the current shape's split, set by spawn_shape
+   * before any read; the host arena is over-provisioned, so gates check the
+   * resident persistent high-water against this. */
+  size_t device_persistent_budget_ = 0;
   const Animation::OpLeg::Landing *build_landing_ =
       nullptr; /**< Latest leg's arrival data (leg-arena backed). */
   const uint8_t *build_from_pal_ =
