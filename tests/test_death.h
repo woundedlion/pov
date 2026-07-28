@@ -1736,10 +1736,10 @@ inline int run_death_tests() {
   int n;
   const Case *cs = all_cases(n);
 
-  // Floor against a silently dropped case: the roster must not shrink below its
-  // known size. Bump when adding cases.
-  constexpr int MIN_DEATH_CASES = 69;
-  HS_EXPECT_GE(n, MIN_DEATH_CASES);
+  // Exact roster size, so a silently dropped case fails here rather than
+  // hiding under slack. Update when adding or removing cases.
+  constexpr int DEATH_CASE_COUNT = 76;
+  HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
   // dedicated always-trapping sentinel rather than a real case. A real case that
