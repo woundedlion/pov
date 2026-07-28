@@ -158,10 +158,14 @@ public:
       state.B[i] = 0;
     }
 
+    // Base hue pinned at 160 (deep teal -> magenta -> amber): this palette
+    // bakes once and never re-rolls, so an auto-seeded hue would ride the
+    // global cursor and vary with the session's effect-switch order.
     palette.bake(persistent_arena,
-                 GenerativePalette{
-                     GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
-                     BrightnessProfile::ASCENDING, SaturationProfile::VIBRANT});
+                 GenerativePalette{GradientShape::STRAIGHT,
+                                   HarmonyType::SPLIT_COMPLEMENTARY,
+                                   BrightnessProfile::ASCENDING,
+                                   SaturationProfile::VIBRANT, 160});
 
     cube_lut.build(persistent_arena);
     init_lattice();
