@@ -729,15 +729,10 @@ template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_base = 0;
 template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_step = 1;
 
 #if defined(USE_DMA_LEDS)
-// ledController is intentionally NOT defined out-of-line here. Its HD107SFrame
-// buffers are the eDMA TX source and belong in cached, DMA-reachable OCRAM (where
-// HD107SFrame's arm_dcache_flush() write-back is meaningful — in DTCM it is a
-// dead no-op). DMAMEM (a section attribute) is silently dropped by GCC on a
-// vague-linkage template static member, so a generic definition would land in
-// DTCM regardless. Each instantiating target must instead invoke
-// HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM) once at file scope; it emits
-// the required explicit specialization, whose ordinary strong linkage keeps the
-// DMAMEM section attribute — see Phantasm.ino.
+// ledController has no out-of-line definition: DMAMEM survives only on an
+// explicit specialization (see DMALEDController in dma_led_controller.h). Each
+// instantiating target invokes HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)
+// once at file scope — see targets/Phantasm/Phantasm.ino.
 #define HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)                      \
   template <>                                                                  \
   DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController {  \

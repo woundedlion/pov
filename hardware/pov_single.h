@@ -215,16 +215,10 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds[S];
 #endif
 
 #if defined(USE_DMA_LEDS)
-// ledController is intentionally NOT defined out-of-line here. Its HD107SFrame
-// buffers are the eDMA TX source and belong in cached, DMA-reachable OCRAM (where
-// HD107SFrame's arm_dcache_flush() write-back is meaningful — in DTCM it is a
-// dead no-op). DMAMEM (a section attribute) is silently dropped by GCC on a
-// vague-linkage template static member, so a generic definition would land in
-// DTCM regardless. Each instantiating single-board target must instead invoke
-// HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM) once at file scope; it emits the
-// required explicit specialization, whose ordinary strong linkage keeps the
-// DMAMEM section attribute.
-// POVSegmented carries the same contract (see targets/Phantasm/Phantasm.ino).
+// ledController has no out-of-line definition: DMAMEM survives only on an
+// explicit specialization (see DMALEDController in dma_led_controller.h). Each
+// instantiating single-board target invokes
+// HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM) once at file scope.
 #define HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM)                            \
   template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController {}
 #endif
