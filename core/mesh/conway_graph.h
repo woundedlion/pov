@@ -279,6 +279,37 @@ constexpr bool is_jitterbug_edge(const EdgeSpec &e) {
   return e.op == MorphOp::SNUB && e.to_node == OCTAHEDRON;
 }
 
+/**
+ * @brief Edges is_jitterbug_edge() accepts.
+ * @return The number of SNUB rows landing on OCTAHEDRON.
+ */
+constexpr int jitterbug_edge_count() {
+  int n = 0;
+  for (int e = 0; e < NUM_EDGES; ++e)
+    if (is_jitterbug_edge(EDGES[e]))
+      ++n;
+  return n;
+}
+
+// A second snub row landing on the octahedron would silently inherit the
+// jitterbug clamp and the ambo endpoint swap.
+static_assert(jitterbug_edge_count() == 1);
+
+/**
+ * @brief Whether the table is free of CHAMFER rows.
+ * @return True when no edge sweeps MorphOp::CHAMFER.
+ */
+constexpr bool no_edge_sweeps_chamfer() {
+  for (int e = 0; e < NUM_EDGES; ++e)
+    if (EDGES[e].op == MorphOp::CHAMFER)
+      return false;
+  return true;
+}
+
+// CHAMFER is a recipe-step leg kind: no simple-registry endpoint is a chamfered
+// form, so a chamfer row would have no reachable node.
+static_assert(no_edge_sweeps_chamfer());
+
 /** Largest node degree in the table (cuboctahedron, icosidodecahedron,
  * octahedron). */
 inline constexpr int MAX_DEGREE = 5;
