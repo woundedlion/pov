@@ -56,7 +56,6 @@ class BZReactionDiffusion
   using Base::dist2;
   using Base::for_each_neighbor;
   using Base::init_lattice;
-  using Base::INV_R2;
   using Base::nodes;
   using Base::orientation;
   using Base::RD_K;
@@ -64,6 +63,7 @@ class BZReactionDiffusion
   using Base::refine_center;
   using Base::register_param;
   using Base::seed_face_lut;
+  using Base::with_wendland_weight;
 
 public:
   /**
@@ -404,16 +404,16 @@ private:
     for (int i = 0; i < 4; ++i) {
       Vector v = grid.at(x, i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
-      for (int j = 0; j < RD_K + 1; ++j) {
-        float u = 1.0f - dist2(v, spos[j]) * INV_R2;
-        if (u > 0) {
-          float w = u * u;
-          wa += sa[j] * w;
-          wb += sb[j] * w;
-          wc += sc[j] * w;
-          tw += w;
-        }
-      }
+      // always_inline on the accumulator: without it GCC spends +32 B of ITCM
+      // on this stencil walk.
+      for (int j = 0; j < RD_K + 1; ++j)
+        with_wendland_weight(dist2(v, spos[j]),
+                             [&](float w) __attribute__((always_inline)) {
+                               wa += sa[j] * w;
+                               wb += sb[j] * w;
+                               wc += sc[j] * w;
+                               tw += w;
+                             });
       Color4 c = finalize_sample(tw, wa, wb, wc, ca, cb, cc);
       accum += c.color * (c.alpha * inv_samples);
     }
