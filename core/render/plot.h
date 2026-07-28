@@ -3126,7 +3126,7 @@ struct Mesh {
 
     ScratchScope edge_guard(scratch_arena_a);
     Fragments points;
-    points.bind(scratch_arena_a, 16);
+    points.bind(scratch_arena_a, EDGE_PRESAMPLE_DENSITY + 1);
     {
       HS_PROFILE_DEEP(plot_edge_presample);
       Line::sample(points, fu, fv, EDGE_PRESAMPLE_DENSITY);
