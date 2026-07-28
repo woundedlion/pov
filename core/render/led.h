@@ -31,32 +31,9 @@ static constexpr int PIN_DATA = 11;
  */
 static constexpr int PIN_CLOCK = 13;
 
-// When using DMA LEDs, correction is done in the DMA pipeline — stubs only.
-#ifdef USE_DMA_LEDS
-/**
- * @brief No-op stub: the DMA pipeline applies no color/temperature correction.
- */
-struct NoColorCorrection {
-  NoColorCorrection() = default;
-  ~NoColorCorrection() = default;
-  NoColorCorrection(const NoColorCorrection &) = delete;
-  NoColorCorrection &operator=(const NoColorCorrection &) = delete;
-};
-/**
- * @brief No-op stub: the DMA pipeline applies no temperature correction.
- */
-struct NoTempCorrection {
-  NoTempCorrection() = default;
-  ~NoTempCorrection() = default;
-  NoTempCorrection(const NoTempCorrection &) = delete;
-  NoTempCorrection &operator=(const NoTempCorrection &) = delete;
-};
-#else
-// CONTRACT — restore-to-baseline, NOT save/restore: the destructors reinstate
-// the engine's canonical baseline (TypicalLEDStrip color, Candle temperature),
-// not the correction active at construction (FastLED exposes no getter). At most
-// ONE guard may be live at a time — NoColorCorrection and NoTempCorrection share
-// the single depth counter below, so a second live guard of EITHER type traps.
+// CONTRACT — at most ONE guard may be live at a time: NoColorCorrection and
+// NoTempCorrection share the single depth counter below, so a second live guard
+// of EITHER type traps. Enforced in both the FastLED and DMA-stub builds.
 
 /**
  * @brief Shared liveness counter for the correction guards.
@@ -71,6 +48,42 @@ inline int &correction_guard_depth() {
   static int depth = 0;
   return depth;
 }
+
+// When using DMA LEDs, correction is done in the DMA pipeline — the guards carry
+// only the liveness counter.
+#ifdef USE_DMA_LEDS
+/**
+ * @brief No-op stub: the DMA pipeline applies no color/temperature correction.
+ */
+struct NoColorCorrection {
+  NoColorCorrection() {
+    HS_CHECK(correction_guard_depth() == 0,
+             "at most one correction guard may be live at a time (see contract "
+             "above)");
+    ++correction_guard_depth();
+  }
+  ~NoColorCorrection() { --correction_guard_depth(); }
+  NoColorCorrection(const NoColorCorrection &) = delete;
+  NoColorCorrection &operator=(const NoColorCorrection &) = delete;
+};
+/**
+ * @brief No-op stub: the DMA pipeline applies no temperature correction.
+ */
+struct NoTempCorrection {
+  NoTempCorrection() {
+    HS_CHECK(correction_guard_depth() == 0,
+             "at most one correction guard may be live at a time (see contract "
+             "above)");
+    ++correction_guard_depth();
+  }
+  ~NoTempCorrection() { --correction_guard_depth(); }
+  NoTempCorrection(const NoTempCorrection &) = delete;
+  NoTempCorrection &operator=(const NoTempCorrection &) = delete;
+};
+#else
+// CONTRACT — restore-to-baseline, NOT save/restore: the destructors reinstate
+// the engine's canonical baseline (TypicalLEDStrip color, Candle temperature),
+// not the correction active at construction (FastLED exposes no getter).
 
 /**
  * @brief Reinstates the engine's canonical baseline (TypicalLEDStrip color,
