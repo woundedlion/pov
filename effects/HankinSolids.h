@@ -379,7 +379,7 @@ private:
    * shader skips the per-fragment role select.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
-                 const ArenaVector<int> &topology,
+                 const ArenaVector<uint16_t> &topology,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
                  float opacity, float strap_open_fade = 1.0f,

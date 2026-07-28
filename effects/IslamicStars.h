@@ -187,7 +187,7 @@ private:
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
   struct SpriteFaceShading {
-    const int *classes;
+    const uint16_t *classes;
     const uint8_t *palette;
 
     SpriteFaceShading(const MeshState &mesh, const uint8_t *face_palette)
@@ -349,7 +349,7 @@ private:
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
-    const int *face_classes = shading.classes;
+    const uint16_t *face_classes = shading.classes;
     const uint8_t *face_palette = shading.palette;
 
     HS_PROFILE(is_draw_shape);
@@ -1445,7 +1445,7 @@ private:
       }
       slot.topology.bind(persistent_arena, landed_faces);
       for (size_t f = 0; f < landed_faces; ++f)
-        slot.topology.push_back(static_cast<int>(landed_topology[f]));
+        slot.topology.push_back(landed_topology[f]);
     }
 
     // The per-face colours index the compiled slot by emission order, so the

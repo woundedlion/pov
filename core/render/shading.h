@@ -73,7 +73,7 @@ inline float fragment_edge_dist(const Fragment &f) {
  * @return The palette slot in [0, NumPalettes).
  */
 template <size_t NumPalettes>
-inline int mesh_topology_slot(const Fragment &f, const int *topology,
+inline int mesh_topology_slot(const Fragment &f, const uint16_t *topology,
                               int num_faces) {
   int faceIdx = static_cast<int>(f.v2);
   int topoIdx = (faceIdx >= 0 && faceIdx < num_faces) ? topology[faceIdx] : 0;
@@ -97,7 +97,7 @@ inline int mesh_topology_slot(const Fragment &f, const int *topology,
  */
 template <typename PaletteBank, size_t NumPalettes>
 inline Color4
-shade_mesh_topology(const Fragment &f, const int *topology, int num_faces,
+shade_mesh_topology(const Fragment &f, const uint16_t *topology, int num_faces,
                     PaletteBank &palette_bank,
                     const std::array<int, NumPalettes> &palette_idx, float gain,
                     float opacity) {
