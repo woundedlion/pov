@@ -308,8 +308,13 @@ private:
   Animation::Mutation
       warp_anim; /**< Restartable warp-amplitude decay animation. */
 
-  Timeline timeline;         /**< Animation timeline for sprite/timer/spin. */
-  Orientation<> orientation; /**< Global orientation, spun by each fire. */
+  /**
+   * @brief Global orientation, spun by each fire.
+   * @details Declared before `timeline` so it outlives the Rotations that point
+   * here, which ~Timeline clears on teardown.
+   */
+  Orientation<> orientation;
+  Timeline timeline; /**< Animation timeline for sprite/timer/spin. */
 
   /**
    * @brief User-tunable parameters exposed via register_param.
