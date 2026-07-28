@@ -80,8 +80,6 @@ public:
                    32.0f);
     register_param("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f,
                    32.0f);
-    // Burst/Ripp Dur ranges are clamped to the ripple pool capacity invariant
-    // (see the RIPPLE* constants below).
     register_param("Burst", &params.burst_size, 1.0f, (float)BURST_MAX);
     // Amplitude slider capped at the fold-free ceiling; thickness is fixed (not a
     // slider) so amplitude/thickness can never cross the self-fold onset.
