@@ -117,7 +117,7 @@ public:
 
     timeline.add(0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f));
 
-    last_cycle_duration = params.cycle_duration;
+    last_cycle_duration = (int)params.cycle_duration;
   }
 
   /**
@@ -146,10 +146,11 @@ public:
       noise_xform.prepare_frame();
     }
 
-    apply_if_changed(params.cycle_duration, last_cycle_duration, [&](float cd) {
-      if (motion)
-        motion->set_duration((int)cd);
-    });
+    apply_if_changed((int)params.cycle_duration, last_cycle_duration,
+                     [&](int cd) {
+                       if (motion)
+                         motion->set_duration(cd);
+                     });
 
     node->trail.record(node->orientation);
 
@@ -219,10 +220,9 @@ private:
       static_palette; /**< Bound palette sampled per fragment. */
   Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion =
       nullptr; /**< Retained motion handle for live Cycle Dur updates. */
-  float last_cycle_duration =
-      -1.0f; /**< Last applied cycle duration, for change detection. */
-  float cycle_phase = 0.0f; /**< Current palette cycle phase. */
-  Node *node = nullptr;     /**< The single animated body, arena-allocated. */
+  int last_cycle_duration = -1; /**< Last applied cycle duration, in frames. */
+  float cycle_phase = 0.0f;     /**< Current palette cycle phase. */
+  Node *node = nullptr; /**< The single animated body, arena-allocated. */
   NoiseTransformer<1>
       noise_xform; /**< Warps the trail with noise each frame. */
 };
