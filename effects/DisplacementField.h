@@ -72,7 +72,7 @@ public:
 
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Rings", &params.num_rings, 1.0f, 72.0f);
-    register_param("Thickness", &params.thickness, 0.5f * px, 6.0f * px);
+    register_param("Thickness", &params.thickness, 0.4f * px, 6.0f * px);
     register_param("Ball Amp", &params.ball_amp, 0.0f, 0.8f);
     register_param("Noise Amp", &params.noise_amp, 0.0f, 0.8f);
     register_param("Scale 1", &params.scale1, 0.5f, 4.0f);
@@ -673,7 +673,7 @@ private:
     float alpha = 0.3f; /**< Overall ring opacity multiplier in [0, 1]. */
     float num_rings =
         48.0f; /**< Number of evenly spaced rings (truncated to int when drawn). */
-    float thickness = 0.035f; /**< Stroke half-width (radians). */
+    float thickness = 0.03f; /**< Stroke half-width (radians). */
     float ball_amp =
         0.1f; /**< Ball drape strength; scaled by BALL_DRAPE_PER_AMPLITUDE into the drape gain. */
     float noise_amp =
