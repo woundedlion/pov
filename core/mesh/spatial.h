@@ -7,8 +7,6 @@
 #include <cstdint>
 #include "math/3dmath.h"
 #include <algorithm>
-#include <array>
-#include <cmath>
 #include <span>
 
 #include <cfloat>
