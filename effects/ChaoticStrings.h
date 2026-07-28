@@ -111,13 +111,13 @@ public:
 
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
-    motion_ = timeline.add_get(
+    motion = timeline.add_get(
         0, Animation::Motion<W, ORIENTATION_SUBSTEPS>(
                node->orientation, path, (int)params.cycle_duration, true));
 
     timeline.add(0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f));
 
-    last_cycle_duration_ = params.cycle_duration;
+    last_cycle_duration = params.cycle_duration;
   }
 
   /**
@@ -146,11 +146,10 @@ public:
       noise_xform.prepare_frame();
     }
 
-    apply_if_changed(params.cycle_duration, last_cycle_duration_,
-                     [&](float cd) {
-                       if (motion_)
-                         motion_->set_duration((int)cd);
-                     });
+    apply_if_changed(params.cycle_duration, last_cycle_duration, [&](float cd) {
+      if (motion)
+        motion->set_duration((int)cd);
+    });
 
     node->trail.record(node->orientation);
 
@@ -218,9 +217,9 @@ private:
   ProceduralPalette palette_variant; /**< Active palette variant. */
   StaticPalette<ProceduralPalette, Coords<ScaleModifier, CycleModifier>>
       static_palette; /**< Bound palette sampled per fragment. */
-  Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion_ =
+  Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion =
       nullptr; /**< Retained motion handle for live Cycle Dur updates. */
-  float last_cycle_duration_ =
+  float last_cycle_duration =
       -1.0f; /**< Last applied cycle duration, for change detection. */
   float cycle_phase = 0.0f; /**< Current palette cycle phase. */
   Node *node = nullptr;     /**< The single animated body, arena-allocated. */

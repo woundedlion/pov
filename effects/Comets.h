@@ -80,24 +80,24 @@ public:
     register_param("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     register_param("Debug BB", &params.debug_bb);
 
-    // Runs before motion_ exists, so its reanchor() is a no-op here; the path it
+    // Runs before motion exists, so its reanchor() is a no-op here; the path it
     // sets is still live because Motion below captures `path` by reference.
     update_path();
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
     // Motion + cycle timer are infinite and added before any finite animation,
     // so the timeline never relocates them and the retained handles stay valid.
-    motion_ = timeline.add_get(
+    motion = timeline.add_get(
         0, Animation::Motion<W, 16>(node->orientation, path,
                                     (int)params.cycle_duration, true));
-    cycle_timer_ = timeline.add_get(0, Animation::PeriodicTimer(
-                                           2 * (int)params.cycle_duration,
-                                           [this](Canvas &) {
-                                             functions.next();
-                                             update_path();
-                                             update_palette();
-                                           },
-                                           true));
+    cycle_timer = timeline.add_get(0, Animation::PeriodicTimer(
+                                          2 * (int)params.cycle_duration,
+                                          [this](Canvas &) {
+                                            functions.next();
+                                            update_path();
+                                            update_palette();
+                                          },
+                                          true));
   }
 
   /**
@@ -113,16 +113,16 @@ public:
       timeline.step(canvas);
     }
 
-    apply_if_changed((int)params.cycle_duration, last_cycle_dur_, [&](int cd) {
-      if (motion_)
-        motion_->set_duration(cd);
-      if (cycle_timer_)
-        cycle_timer_->set_period(2 * cd);
+    apply_if_changed((int)params.cycle_duration, last_cycle_dur, [&](int cd) {
+      if (motion)
+        motion->set_duration(cd);
+      if (cycle_timer)
+        cycle_timer->set_period(2 * cd);
     });
 
     {
       HS_PROFILE(cm_wipe_rebake);
-      step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette,
+      step_wipe_rebake(wipe_pending, wipe_frames_remaining, baked_palette,
                        palette);
     }
 
@@ -189,8 +189,8 @@ private:
     // Re-anchor Motion's baseline to the freshly-swapped path: the two curves'
     // travel-tangent frames differ at the seam, so a missing re-anchor teleports
     // the head for one frame.
-    if (motion_)
-      motion_->reanchor();
+    if (motion)
+      motion->reanchor();
   }
 
   /**
@@ -201,16 +201,16 @@ private:
   void update_palette() {
     // Skip while a wipe is in flight: at the Cycle Dur floor the cycle period
     // (20) is shorter than WIPE_FRAMES (48), so the timer can fire mid-wipe and a
-    // second wipe would clobber the next_palette_ the live one still references.
-    if (wipe_frames_remaining_ > 0)
+    // second wipe would clobber the next_palette the live one still references.
+    if (wipe_frames_remaining > 0)
       return;
-    next_palette_ =
+    next_palette =
         GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                           BrightnessProfile::ASCENDING);
-    timeline.add(0, Animation::ColorWipe(palette, next_palette_, WIPE_FRAMES,
+    timeline.add(0, Animation::ColorWipe(palette, next_palette, WIPE_FRAMES,
                                          ease_linear));
-    wipe_frames_remaining_ = WIPE_FRAMES;
-    wipe_pending_ = true;
+    wipe_frames_remaining = WIPE_FRAMES;
+    wipe_pending = true;
   }
 
   static constexpr int WIPE_FRAMES =
@@ -259,16 +259,16 @@ private:
   Presets<LissajousParams, 12> functions{FUNCTIONS};
   Node *node = nullptr; /**< Arena-allocated comet head state. */
   GenerativePalette
-      next_palette_; /**< Target palette a ColorWipe fades toward. */
-  Animation::Motion<W, 16> *motion_ =
+      next_palette; /**< Target palette a ColorWipe fades toward. */
+  Animation::Motion<W, 16> *motion =
       nullptr; /**< Handle to the infinite Motion driving the head along `path`. */
-  Animation::PeriodicTimer *cycle_timer_ =
+  Animation::PeriodicTimer *cycle_timer =
       nullptr; /**< Handle to the timer that rolls path/palette over. */
-  int last_cycle_dur_ =
+  int last_cycle_dur =
       -1; /**< Last applied Cycle Dur, in frames; -1 forces a first apply. */
-  int wipe_frames_remaining_ =
+  int wipe_frames_remaining =
       0; /**< Frames left to rebake `palette` for the in-flight wipe. */
-  bool wipe_pending_ =
+  bool wipe_pending =
       false; /**< Wipe armed this frame; it first steps next frame. */
 
   /**

@@ -155,21 +155,21 @@ public:
 
     /**
      * @brief Vertical scan bounds for the field.
-     * @tparam H_ Display height in pixels.
+     * @tparam H_scan Display height in pixels.
      * @return Full-height bounds; lobes can occupy any region, so no static
      * bounding.
      */
-    template <int H_> SDF::Bounds get_vertical_bounds() const {
-      return {0, H_ - 1};
+    template <int H_scan> SDF::Bounds get_vertical_bounds() const {
+      return {0, H_scan - 1};
     }
     /**
      * @brief Horizontal scan intervals for a given row.
      * @tparam W_scan Display width in pixels.
-     * @tparam H_ Display height in pixels.
+     * @tparam H_scan Display height in pixels.
      * @tparam OutputIt Output iterator type for emitted intervals.
      * @return Always false: no horizontal interval narrowing (full-sphere scan).
      */
-    template <int W_scan, int H_, typename OutputIt>
+    template <int W_scan, int H_scan, typename OutputIt>
     bool get_horizontal_intervals(int, OutputIt) const {
       return false;
     }

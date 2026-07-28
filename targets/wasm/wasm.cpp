@@ -768,7 +768,7 @@ private:
    * Generation of the tooling arena this mesh was built into; compared against
    * the live counter on every use (see check_live()).
    */
-  uint32_t generation_ = tooling_generation;
+  uint32_t generation = tooling_generation;
 
 public:
   /**
@@ -784,7 +784,7 @@ public:
    *          every entry point that touches `mesh`.
    */
   void check_live() const {
-    HS_CHECK(generation_ == tooling_generation,
+    HS_CHECK(generation == tooling_generation,
              "MeshOps wrapper used after clearToolingMemory()");
   }
 
