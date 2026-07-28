@@ -359,14 +359,12 @@ private:
     // declaring LOCAL_SWEEP (the front rides the mesh). The third argument is
     // the face's palette-slot class, mapped exactly as the fragment shader
     // maps it; class-agnostic sweeps ignore it.
-    constexpr bool PER_FACE =
-        requires(const Vector &c) { seg.face_offset(c, 0, 0); };
     // phase is fixed for the whole draw call, so the segue's per-face phase
     // resolves here rather than per fragment; so does the face's palette, whose
     // slot is the same class that face_offset already needs.
     ArenaVector<float> face_phases;
     ArenaVector<const BakedPalette *> face_palettes;
-    if constexpr (PER_FACE) {
+    {
       HS_PROFILE(is_face_offsets);
       constexpr bool LOCAL_SWEEP = requires { requires SegueT::LOCAL_SWEEP; };
       const MeshState &sweep_state =
@@ -392,27 +390,17 @@ private:
 
     {
       HS_PROFILE(is_mesh_scan);
-      if constexpr (PER_FACE) {
-        FacePaletteShader fragment_shader;
-        auto select_face = [&](size_t fi, float size) {
-          HS_CHECK(fi < face_phases.size(),
-                   "IslamicStars: sprite shading face mismatch");
-          fragment_shader.palette = face_palettes[fi];
-          fragment_shader.alpha = seg.opacity(face_phases[fi]);
-          fragment_shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
-        };
-        Scan::Mesh::draw_specialized<W, H>(filters, canvas, transformed_state,
-                                           fragment_shader, scratch_arena_a,
-                                           nullptr, select_face);
-      } else {
-        auto fragment_shader = [&](const Vector &, Fragment &frag) {
-          const size_t fi = static_cast<size_t>(frag.v2);
-          frag.color = shade_mesh_topology(frag, palette_bank[face_palette[fi]],
-                                           1.0f, seg, phase);
-        };
-        Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
-                               fragment_shader, scratch_arena_a);
-      }
+      FacePaletteShader fragment_shader;
+      auto select_face = [&](size_t fi, float size) {
+        HS_CHECK(fi < face_phases.size(),
+                 "IslamicStars: sprite shading face mismatch");
+        fragment_shader.palette = face_palettes[fi];
+        fragment_shader.alpha = seg.opacity(face_phases[fi]);
+        fragment_shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
+      };
+      Scan::Mesh::draw_specialized<W, H>(filters, canvas, transformed_state,
+                                         fragment_shader, scratch_arena_a,
+                                         nullptr, select_face);
     }
   }
 
