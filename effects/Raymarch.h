@@ -106,7 +106,7 @@ private:
     constexpr float VIS_K = MAJOR_K + MINOR_K; // outer ring radius at scale 1
     // Farthest point of the MINOR_K tube about the twisted centerline.
     constexpr float UNIT_BOUNDS = 0.710088f; // √(MAJOR_K²+TWIST_K²)+MINOR_K
-    int twist_n = static_cast<int>(params.twist);
+    int twist_n = static_cast<int>(params.twist + 0.5f);
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
 
     // spin_phase rides in [0,1); scale to radians for make_rotation.
