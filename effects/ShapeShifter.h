@@ -61,10 +61,8 @@ public:
   /**
    * @brief Advances the shape type every 48 frames (unless paused), then steps
    *        the timeline.
-   * @details The shape cycle honors anims_paused_ so "Pause Animation" freezes
-   *        it alongside the twist/rotation timers (which already carry the
-   *        flag). The frame counter is held too, so the cycle resumes mid-phase
-   *        rather than jumping on unpause.
+   * @details "Pause Animation" freezes the shape cycle and the twist Mutation;
+   *        the camera and orientation rotations keep running.
    */
   void draw_frame() override {
     Canvas canvas(*this);
