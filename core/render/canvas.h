@@ -249,8 +249,13 @@ public:
            next_.load(std::memory_order_relaxed);
   }
   /**
-   * @brief Installs a callback run after Canvas acquires a free buffer.
+   * @brief Installs a callback run once per frame from the Canvas constructor.
    * @param hook Callback to install, or null to disable it.
+   * @details Runs after the buffer_free() wait returns and before
+   * `advance_buffer()` and the stale-pixel clear. That slot is the only one that
+   * sees the segment window the ISR settled on during the wait *and* still
+   * precedes the clear, so it is where the segmented driver sets the clip that
+   * governs which band gets cleared.
    */
   void set_buffer_ready_hook(BufferReadyHook hook) { buffer_ready_hook = hook; }
   /**
@@ -655,6 +660,8 @@ public:
    */
   Canvas(Effect &effect) : effect_(effect) {
     wait_for_free_buffer();
+    // Ordering is load-bearing: the hook runs post-wait but pre-clear, so the
+    // clip it sets is the one clear_stale_pixels() honours.
     effect_.notify_buffer_ready();
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
