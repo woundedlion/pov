@@ -47,7 +47,8 @@ public:
       rings[i].palette.bake(persistent_arena, dot_keyed(make_palette()));
 
     timeline.add(0, Animation::RandomTimer(
-                        4, 48, [this](Canvas &) { this->spawn_ring(); }, true));
+                        Ring::SPAWN_MIN_FRAMES, Ring::SPAWN_MAX_FRAMES,
+                        [this](Canvas &) { this->spawn_ring(); }, true));
   }
 
   /**
@@ -95,6 +96,10 @@ private:
         8; /**< Minimum lifetime in frames (>0: guards the radius_at divisor). */
     static constexpr int LIFE_SPAN =
         72; /**< Width of the random lifetime range, in frames. */
+    static constexpr int SPAWN_MIN_FRAMES =
+        4; /**< Minimum frames between spawns. */
+    static constexpr int SPAWN_MAX_FRAMES =
+        48; /**< Maximum frames between spawns; with LIFE_MIN/LIFE_SPAN this sets the live-ring pressure on the MAX_RINGS pool. */
 
     Vector normal; /**< Plane normal fixing the ring's orientation. */
     /**
