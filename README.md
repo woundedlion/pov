@@ -1254,7 +1254,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 | `MeshOps::bevel` | Bevel operator = truncate ∘ ambo |
 | `MeshOps::medial` | Both endpoint vertex sets of the dual morph on one shared medial (rectified) connectivity: `out_a` is `ambo(mesh)`, `out_b` the matching `ambo(dual(mesh))` positions |
 | `MeshOps::relax` | Edge-length relaxation by spring forces on the unit sphere. |
-| `MeshOps::relax_baked` | Substitute a flash-baked relax result for the pass, checked against the bake's dimensions, topology hash and output hash |
+| `MeshOps::relax_baked` | Substitute a flash-baked relax result for the pass. Its runtime checks catch a source/bake mismatch (dimensions, topology hash) and payload corruption (output hash, re-derived from the bake's own vertex bits) — they say nothing about freshness, since a positional retune that leaves connectivity intact passes every one of them. Freshness is the `relax_bake_verify` ctest's job: it re-runs the live `relax` and asserts bit-exact equality with the committed payload |
 | `MeshOps::normalize` | Project all vertices onto the unit sphere |
 
 #### Hankin Pattern System (`hankin.h`)
