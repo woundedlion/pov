@@ -984,7 +984,7 @@ inline bool debug = false;
  * @brief Virtual rows appended below the physical LED ring; 0 on host/sim.
  * @details The simulator has no physical LED ring to clip against, so it maps
  *          the full sphere — an intentional divergence from the device's
- *          H_OFFSET = 3 (see the CORE_TEENSY definition above).
+ *          H_OFFSET = 3 (see the ARDUINO definition above).
  *
  *          HS_TEST_H_OFFSET override: a dedicated host test executable defines it
  *          to 3 so the whole pipeline compiles with the hardware offset and the
