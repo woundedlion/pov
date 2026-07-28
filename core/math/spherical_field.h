@@ -51,13 +51,13 @@ public:
                                           int south_infill = 0,
                                           int equator_samples = 0)
       : spacing(spacing), north_infill(north_infill),
-        south_infill(south_infill), equator_samples(equator_samples) {}
+        south_infill(south_infill), equator_samples(equator_samples) {
+    HS_CHECK(spacing > 0, "SphericalFieldLayout: spacing must be > 0");
+  }
 
   constexpr int latitude_spacing() const { return spacing; }
 
   constexpr int ring_count() const {
-    if (spacing <= 0)
-      return 0;
     int count = 1;
     for (int y = 0; y < H - 1; ++count)
       y = next_ring_y(y);
@@ -65,8 +65,6 @@ public:
   }
 
   constexpr int sample_count() const {
-    if (spacing <= 0)
-      return 0;
     int count = 0;
     for (int y = 0;; y = next_ring_y(y)) {
       count += samples_on_ring(y);
