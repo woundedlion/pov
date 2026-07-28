@@ -15,6 +15,7 @@
 #include "core/render/canvas.h"
 #include "hardware/pov_handoff.h"
 #include "hardware/pov_segment_map.h"
+#include "hardware/pov_submit_gate.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -34,6 +35,8 @@ using pov::SegmentClip;
 using pov::SegmentMap;
 using pov::segment_x_col;
 using pov::segment_y;
+using pov::SubmitAction;
+using pov::SubmitGate;
 
 // Compile-time proof the mapping is genuinely constexpr (the driver relies on
 // it folding at boot, off the ISR hot path).
@@ -555,6 +558,97 @@ inline void test_clip_phase_after_buffer_release() {
 }
 
 /**
+ * @brief A column dropped on DMA overrun is re-submitted on the next wake.
+ * @details The flywheel reports render_column < 0 for the ~7 remaining wakes of
+ * a column it has already decided to draw, so a drop that left no pending state
+ * would paint that column dark for a whole revolution. The retry re-submits the
+ * frame still packed in backFrame() until the transport takes it.
+ */
+inline void test_submit_retries_dropped_column() {
+  SubmitGate g;
+
+  const SubmitAction first = g.choose(/*dark=*/false, /*render_column=*/5);
+  HS_EXPECT_EQ(first, SubmitAction::COLUMN);
+  HS_EXPECT_FALSE(g.settle(first, /*accepted=*/false)); // overrun drop
+  HS_EXPECT_TRUE(g.resubmit_pending());
+
+  // Same column, so the flywheel offers nothing new: retry rather than idle.
+  const SubmitAction retry = g.choose(false, -1);
+  HS_EXPECT_EQ(retry, SubmitAction::RESUBMIT);
+  HS_EXPECT_FALSE(g.settle(retry, false)); // still busy
+  HS_EXPECT_TRUE(g.resubmit_pending());
+
+  const SubmitAction retry2 = g.choose(false, -1);
+  HS_EXPECT_EQ(retry2, SubmitAction::RESUBMIT);
+  HS_EXPECT_TRUE(g.settle(retry2, true));
+  HS_EXPECT_FALSE(g.resubmit_pending());
+
+  // Nothing outstanding: an idempotent wake submits nothing.
+  HS_EXPECT_EQ(g.choose(false, -1), SubmitAction::NONE);
+  HS_EXPECT_FALSE(g.settle(SubmitAction::NONE, false));
+}
+
+/**
+ * @brief An accepted column leaves nothing to retry, and a fresh column wins.
+ * @details Once the arm advances, the time-correct column supersedes the stale
+ * packed one — the driver must never back-fill (spec §4.1).
+ */
+inline void test_submit_fresh_column_supersedes_retry() {
+  SubmitGate g;
+  HS_EXPECT_TRUE(g.settle(g.choose(false, 5), true));
+  HS_EXPECT_FALSE(g.resubmit_pending());
+
+  HS_EXPECT_FALSE(g.settle(g.choose(false, 6), false));
+  HS_EXPECT_TRUE(g.resubmit_pending());
+
+  // The arm advanced before the retry wake: pack column 7, drop column 6.
+  const SubmitAction fresh = g.choose(false, 7);
+  HS_EXPECT_EQ(fresh, SubmitAction::COLUMN);
+  HS_EXPECT_TRUE(g.settle(fresh, true));
+  HS_EXPECT_FALSE(g.resubmit_pending());
+}
+
+/**
+ * @brief The fail-dark black frame latches only once the transport accepts it.
+ * @details Latching on a drop would hold the stale bright column lit for the
+ * whole dark window; the latch clears again on the first lit wake.
+ */
+inline void test_submit_dark_latch_gates_on_acceptance() {
+  SubmitGate g;
+
+  const SubmitAction dropped = g.choose(/*dark=*/true, -1);
+  HS_EXPECT_EQ(dropped, SubmitAction::BLACK);
+  HS_EXPECT_FALSE(g.settle(dropped, false));
+  HS_EXPECT_FALSE(g.dark_latched());
+
+  const SubmitAction again = g.choose(true, -1);
+  HS_EXPECT_EQ(again, SubmitAction::BLACK);
+  HS_EXPECT_TRUE(g.settle(again, true));
+  HS_EXPECT_TRUE(g.dark_latched());
+
+  // Latched: the rest of the dark window costs no transport traffic.
+  HS_EXPECT_EQ(g.choose(true, -1), SubmitAction::NONE);
+  HS_EXPECT_TRUE(g.dark_latched());
+
+  HS_EXPECT_EQ(g.choose(false, 0), SubmitAction::COLUMN);
+  HS_EXPECT_FALSE(g.dark_latched());
+}
+
+/**
+ * @brief Going dark discards a pending image-column retry.
+ * @details The black frame repacks the same back buffer, and a column from
+ * before the dark window is stale by the time the display lights again.
+ */
+inline void test_submit_dark_discards_pending_column() {
+  SubmitGate g;
+  HS_EXPECT_FALSE(g.settle(g.choose(false, 12), false));
+  HS_EXPECT_TRUE(g.resubmit_pending());
+
+  HS_EXPECT_EQ(g.choose(true, -1), SubmitAction::BLACK);
+  HS_EXPECT_FALSE(g.resubmit_pending());
+}
+
+/**
  * @brief Module entry point: run the segmented-POV cases.
  * @return Number of failures recorded by the module.
  */
@@ -575,6 +669,11 @@ inline int run_pov_segmented_tests() {
   test_full_handoff_cycle();
   test_window_alternation();
   test_clip_phase_after_buffer_release();
+
+  test_submit_retries_dropped_column();
+  test_submit_fresh_column_supersedes_retry();
+  test_submit_dark_latch_gates_on_acceptance();
+  test_submit_dark_discards_pending_column();
 
   // Full-canvas tiling across representative rotation columns, including the
   // x=0 and x=w/2 frame boundaries and the wrap seam.

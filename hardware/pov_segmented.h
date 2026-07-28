@@ -46,6 +46,7 @@
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
 #include "pov_sync.h"    // pure sync protocol (host-testable; see that file)
 #include "pov_handoff.h" // pure effect-handoff state machine (host-testable)
+#include "pov_submit_gate.h" // pure LED-submit decision (host-testable)
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -522,9 +523,9 @@ private:
     HS_ISR_PROFILE(hs::g_flywheel_wake_cycles);
     const uint32_t now = ARM_DWT_CYCCNT;
 
-    // Complete a deferred dark-path sync pulse from the previous wake: the
-    // dark-latched path's body is too short to width a same-wake pulse to spec
-    // §5.2's "tens of µs," so it holds the pin HIGH and drops it here instead.
+    // Complete a deferred sync pulse from the previous wake: a wake that
+    // submitted no frame has a body too short to width a same-wake pulse to
+    // spec §5.2's "tens of µs," so it holds the pin HIGH and drops it here.
     if (sync_low_pending_) {
       digitalWriteFast(PIN_FRAME_SYNC, LOW);
       sync_low_pending_ = false;
@@ -587,22 +588,26 @@ private:
     if (a.flip && e)
       e->advance_display();
 
-    bool did_render = false;
-    if (a.dark || e == nullptr) {
-      // Fail-dark (spec §5.3/§6.3). Latch only once the black frame is actually
-      // accepted: latching on a DMA-overrun drop would hold the stale bright
-      // column for the whole dark window. Leaving it false retries next wake.
-      if (!dark_latched_ && render_black()) {
-        dark_latched_ = true;
-        did_render = true;
-      }
-    } else {
-      dark_latched_ = false;
-      if (a.render_column >= 0) {
-        render_column(e, a.render_column);
-        did_render = true;
-      }
+    // Both submit paths clear their pending state only on an accepted frame, so
+    // a DMA-overrun drop is retried on the next wake (spec §5.3/§6.3 fail-dark
+    // for BLACK, the dropped image column for COLUMN/RESUBMIT).
+    const pov::SubmitAction action =
+        submit_gate_.choose(a.dark || e == nullptr, a.render_column);
+    bool accepted = false;
+    switch (action) {
+    case pov::SubmitAction::BLACK:
+      accepted = render_black();
+      break;
+    case pov::SubmitAction::COLUMN:
+      accepted = render_column(e, a.render_column);
+      break;
+    case pov::SubmitAction::RESUBMIT:
+      accepted = resubmit_frame(e->strobe_columns());
+      break;
+    case pov::SubmitAction::NONE:
+      break;
     }
+    const bool did_render = submit_gate_.settle(action, accepted);
 
     if (a.pulse) {
       if (did_render) {
@@ -621,11 +626,13 @@ private:
    * @param e Live effect supplying the display buffer to sample.
    * @param x Canvas column index in [0, CANVAS_W); arm-B segments sample
    *          column x + W/2.
+   * @return true if the LED transport accepted the frame; false if it was
+   *         dropped on a DMA overrun (caller retries via resubmit_frame()).
    * @details The loop is branchless — all per-segment decisions are resolved at
    *          boot in configure_segment().  Arm B segments read from x + W/2
    *          (opposite half of the image).
    */
-  HS_O3_FN static FASTRUN void render_column(Effect *e, int x) {
+  [[nodiscard]] HS_O3_FN static FASTRUN bool render_column(Effect *e, int x) {
     const int w = e->width();
     const int x_col = pov::segment_x_col(arm_b_, x, w);
 
@@ -641,10 +648,20 @@ private:
         frame.packPixel(i, buf[y * w + x_col]);
       }
     }
-    // Drop the accept/overrun result: a dropped image column self-heals next
-    // tick (render_black, by contrast, gates on it for the fail-dark latch).
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
-    (void)ledController_.submitFrame(e->strobe_columns());
+    return ledController_.submitFrame(e->strobe_columns());
+  }
+
+  /**
+   * @brief Re-submits the frame a previous wake had dropped on overrun.
+   * @param strobe Whether the live effect wants the trailing black frame.
+   * @return true if the transport accepted it this time.
+   * @details No repack: submitFrame() returns before swapping buffers on an
+   *          overrun, so backFrame() still holds the dropped column's pixels.
+   */
+  [[nodiscard]] static FASTRUN bool resubmit_frame(bool strobe) {
+    HS_ISR_PROFILE(hs::g_dma_submit_cycles);
+    return ledController_.submitFrame(strobe);
   }
 
   /**
@@ -682,10 +699,14 @@ private:
    *          the instance it has been handed via live().
    */
   static pov::EffectHandoff<Effect> handoff_;
+  /**
+   * @brief Per-wake LED-submit decision and its overrun-retry latches.
+   * @details The accept/drop bookkeeping lives in pov_submit_gate.h
+   *          (host-tested); the ISR only performs the action it names.
+   */
+  static pov::SubmitGate submit_gate_;
   static bool
-      dark_latched_; /**< True once the black frame has latched; ISR-owned. */
-  static bool
-      sync_low_pending_; /**< ISR-owned: dark-path pulse drop deferred to next wake. */
+      sync_low_pending_; /**< ISR-owned: sync-pulse drop deferred to next wake. */
 
   static int
       segment_id_; /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
@@ -714,7 +735,7 @@ template <int S, int N, int RPM>
 pov::EffectHandoff<Effect> POVSegmented<S, N, RPM>::handoff_;
 
 template <int S, int N, int RPM>
-bool POVSegmented<S, N, RPM>::dark_latched_ = false;
+pov::SubmitGate POVSegmented<S, N, RPM>::submit_gate_;
 
 template <int S, int N, int RPM>
 bool POVSegmented<S, N, RPM>::sync_low_pending_ = false;
