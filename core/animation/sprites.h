@@ -150,32 +150,51 @@ template <int TRAIL_LEN = 8> struct Particle {
 
 static constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
 
-[[maybe_unused]] HS_COLD static bool apply_signed_axis_attractor(
-    uint16_t &life, Vector &velocity, const Vector &pos, float pos_sq,
-    float max_delta, const Vector &attractor_position, float strength,
-    float kill_radius, float event_horizon, float gravity, float dot_pa,
-    float cross_sq, float dist_sq) {
-  if (dist_sq < kill_radius * kill_radius) {
+/**
+ * @brief A point attractor influencing nearby particles.
+ */
+struct Attractor {
+  Vector position;     /**< World-space center of the attractor. */
+  float strength;      /**< Attractive force multiplier. */
+  float kill_radius;   /**< Radius within which particles are killed. */
+  float event_horizon; /**< Radius within which steering becomes radial. */
+};
+
+/**
+ * @brief Particle/attractor geometry precomputed by the caller.
+ */
+struct AttractorSample {
+  float pos_sq;   /**< dot(pos, pos). */
+  float dot_pa;   /**< dot(pos, attractor position). */
+  float cross_sq; /**< Squared magnitude of cross(pos, attractor position). */
+  float dist_sq;  /**< Squared distance from pos to the attractor. */
+};
+
+[[maybe_unused]] HS_COLD static bool
+apply_signed_axis_attractor(uint16_t &life, Vector &velocity, const Vector &pos,
+                            float max_delta, float gravity,
+                            const Attractor &attractor, AttractorSample s) {
+  if (s.dist_sq < attractor.kill_radius * attractor.kill_radius) {
     life = 0;
     return false;
   }
 
-  if (dist_sq <= ATTRACTOR_MIN_DISTANCE_SQ)
+  if (s.dist_sq <= ATTRACTOR_MIN_DISTANCE_SQ)
     return true;
 
-  if (dist_sq < event_horizon * event_horizon) {
-    const Vector torque = (attractor_position - pos).normalized();
+  if (s.dist_sq < attractor.event_horizon * attractor.event_horizon) {
+    const Vector torque = (attractor.position - pos).normalized();
     const float speed = std::max(velocity.magnitude(), max_delta);
     velocity = torque * speed;
     return true;
   }
 
-  const float force = (gravity * strength) / dist_sq;
-  if (cross_sq < math::EPS_NORMALIZE_SQ) {
+  const float force = (gravity * attractor.strength) / s.dist_sq;
+  if (s.cross_sq < math::EPS_NORMALIZE_SQ) {
     velocity += cross(Vector(force, 0, 0), pos);
   } else {
-    const Vector tangent = attractor_position * pos_sq - pos * dot_pa;
-    velocity += tangent * (force / sqrtf(cross_sq));
+    const Vector tangent = attractor.position * s.pos_sq - pos * s.dot_pa;
+    velocity += tangent * (force / sqrtf(s.cross_sq));
   }
   return true;
 }
@@ -220,15 +239,7 @@ public:
   float gravity = 0.001f;  /**< Base gravitational constant for attractors. */
   uint16_t max_life = 600; /**< Default particle lifetime in frames. */
 
-  /**
-   * @brief A point attractor influencing nearby particles.
-   */
-  struct Attractor {
-    Vector position;     /**< World-space center of the attractor. */
-    float strength;      /**< Attractive force multiplier. */
-    float kill_radius;   /**< Radius within which particles are killed. */
-    float event_horizon; /**< Radius within which steering becomes radial. */
-  };
+  using Attractor = Animation::Attractor; /**< Point attractor. */
 
   using EmitterFn =
       Fn<void(ParticleSystem &), 32>; /**< Per-frame emitter functor. */
@@ -365,6 +376,45 @@ private:
       0; /**< Number of live particles in the pool prefix. */
 
   /**
+   * @brief Applies every registered attractor to one particle.
+   * @param p The particle whose velocity (and life, on a kill) is updated.
+   * @param pos The particle's world-space position.
+   * @param max_delta Per-frame surface-rotation cap (radians).
+   * @return False once an attractor killed the particle.
+   */
+  __attribute__((always_inline)) bool
+  apply_attractors(Particle<TRAIL_LEN> &p, const Vector &pos, float max_delta) {
+    for (size_t k = 0; k < attractors.size(); ++k) {
+      const Attractor &attr = attractors[k];
+      float dist_sq = distance_squared(pos, attr.position);
+
+      if (dist_sq < attr.kill_radius * attr.kill_radius) {
+        // Stay dead; a live `life` resurrects the particle next frame.
+        p.life = 0;
+        return false;
+      }
+
+      if (dist_sq > ATTRACTOR_MIN_DISTANCE_SQ) {
+        if (dist_sq < attr.event_horizon * attr.event_horizon) {
+          // Steer into center. Floor the speed so a friction-drained particle
+          // still advances inward to kill_radius instead of stalling.
+          Vector torque = (attr.position - pos).normalized();
+          float speed = std::max(p.velocity.magnitude(), max_delta);
+          p.velocity = torque * speed;
+        } else {
+          // Gravity. pos and the attractor can be ~antipodal (undefined cross
+          // axis), so guard the normalize.
+          float force = (gravity * attr.strength) / dist_sq;
+          Vector torque =
+              normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) * force;
+          p.velocity += cross(torque, pos);
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
    * @brief Advances one particle on the sphere surface for one frame.
    * @param p The particle to advance (modified in place).
    * @param max_delta Per-frame surface-rotation cap (radians), one display
@@ -435,14 +485,11 @@ private:
 
             if (!common_far) {
               if (!apply_signed_axis_attractor(
-                      p.life, p.velocity, pos, pos_sq, max_delta, plus.position,
-                      plus.strength, plus.kill_radius, plus.event_horizon,
-                      gravity, q, cross_sq, dist_plus_sq) ||
+                      p.life, p.velocity, pos, max_delta, gravity, plus,
+                      {pos_sq, q, cross_sq, dist_plus_sq}) ||
                   !apply_signed_axis_attractor(
-                      p.life, p.velocity, pos, pos_sq, max_delta,
-                      minus.position, minus.strength, minus.kill_radius,
-                      minus.event_horizon, gravity, -q, cross_sq,
-                      dist_minus_sq)) {
+                      p.life, p.velocity, pos, max_delta, gravity, minus,
+                      {pos_sq, -q, cross_sq, dist_minus_sq})) {
                 active = false;
                 break;
               }
@@ -473,62 +520,11 @@ private:
           }
 #ifdef HS_TEST_BUILD
         } else {
-          for (size_t k = 0; k < attractors.size(); ++k) {
-            const auto &attr = attractors[k];
-            float dist_sq = distance_squared(pos, attr.position);
-
-            if (dist_sq < attr.kill_radius * attr.kill_radius) {
-              p.life = 0;
-              active = false;
-              break;
-            }
-
-            if (dist_sq > ATTRACTOR_MIN_DISTANCE_SQ) {
-              if (dist_sq < attr.event_horizon * attr.event_horizon) {
-                Vector torque = (attr.position - pos).normalized();
-                float speed = std::max(p.velocity.magnitude(), max_delta);
-                p.velocity = torque * speed;
-              } else {
-                float force = (gravity * attr.strength) / dist_sq;
-                Vector torque =
-                    normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) *
-                    force;
-                p.velocity += cross(torque, pos);
-              }
-            }
-          }
+          active = apply_attractors(p, pos, max_delta);
         }
 #endif
       } else {
-        for (size_t k = 0; k < attractors.size(); ++k) {
-          const auto &attr = attractors[k];
-          float dist_sq = distance_squared(pos, attr.position);
-
-          if (dist_sq < attr.kill_radius * attr.kill_radius) {
-            p.life =
-                0; // Stay dead; a live `life` resurrects the particle next frame.
-            active = false;
-            break; // Killed
-          }
-
-          if (dist_sq > ATTRACTOR_MIN_DISTANCE_SQ) {
-            if (dist_sq < attr.event_horizon * attr.event_horizon) {
-              // Steer into center. Floor the speed so a friction-drained particle
-              // still advances inward to kill_radius instead of stalling.
-              Vector torque = (attr.position - pos).normalized();
-              float speed = std::max(p.velocity.magnitude(), max_delta);
-              p.velocity = torque * speed;
-            } else {
-              // Gravity. pos and the attractor can be ~antipodal (undefined cross
-              // axis), so guard the normalize.
-              float force = (gravity * attr.strength) / dist_sq;
-              Vector torque =
-                  normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) *
-                  force;
-              p.velocity += cross(torque, pos);
-            }
-          }
-        }
+        active = apply_attractors(p, pos, max_delta);
       }
 
       if (active) {
