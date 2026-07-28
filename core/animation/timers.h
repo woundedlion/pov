@@ -8,6 +8,12 @@
 #error internal fragment of animation.h; include "animation.h" instead
 #endif
 
+/**
+ * @file timers.h
+ * @brief Animation fragment: the RandomTimer and PeriodicTimer callback
+ * schedulers.
+ */
+
 namespace Animation {
 
 /**

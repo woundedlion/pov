@@ -14,6 +14,12 @@
 #include "color/color.h"
 
 /**
+ * @file shading.h
+ * @brief The Fragment register block handed to every shader, and
+ * FacePaletteShader.
+ */
+
+/**
  * @brief Represents a "Fragment" or a potential pixel/vertex with associated
  * data registers. Mirrors the JS Fragment structure for shader compatibility.
  */

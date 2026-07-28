@@ -8,6 +8,12 @@
 #error internal fragment of animation.h; include "animation.h" instead
 #endif
 
+/**
+ * @file sprites.h
+ * @brief Animation fragment: the Sprite fade envelope, Particle, and
+ * ParticleSystem.
+ */
+
 namespace Animation {
 
 /** Per-window frame cap that keeps a Sprite's fade-in + fade-out sum in int. */

@@ -22,6 +22,12 @@
 #endif
 
 /**
+ * @file scan.h
+ * @brief The scanline rasterizer: Scan::rasterize plus the SDF-backed Scan draw
+ * primitives.
+ */
+
+/**
  * @brief The Scan namespace contains volumetric (raster) drawing primitives.
  * @details General register mapping for Scan primitives:
  *  v0: Normalized parameter t (0-1) or angle

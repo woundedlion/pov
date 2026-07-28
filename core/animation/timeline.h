@@ -9,6 +9,12 @@
 #endif
 
 /**
+ * @file timeline.h
+ * @brief Animation fragment: TimelineEvent inline storage and the Timeline
+ * scheduler.
+ */
+
+/**
  * @brief Structure linking an animation with its starting time.
  * @details Stores the animation inline to avoid arena allocation (survives
  * compaction).

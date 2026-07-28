@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file animation.h
+ * @brief Animation umbrella header: the IAnimation interface, the AnimationBase
+ * CRTP base, and the fragment includes that assemble the Animation namespace.
+ */
+
 #include <algorithm>
 #include <cmath>
 #include <functional>

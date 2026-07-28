@@ -26,6 +26,12 @@
 #include "tests/aa_audit.h"
 #endif
 
+/**
+ * @file sdf.h
+ * @brief Signed-distance shape primitives and the CSG operators that combine
+ * them.
+ */
+
 namespace SDF {
 
 // --- Rasterization constants ------------------------------------------------
