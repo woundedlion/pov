@@ -77,6 +77,18 @@ static constexpr float PLANAR_TAN_DT = 1.0f / 256.0f;
 static constexpr float COS_PLANAR_ANTIPODE = 0.999f;
 
 /**
+ * @brief Columns of slack added on each side of a culled column span.
+ * @details Absorbs plot rounding and the AntiAlias tap spread.
+ */
+static constexpr int COL_PAD = 2;
+
+/**
+ * @brief Columns a padded span reaches past its fractional end.
+ * @details The pad plus the boundary column ceil() adds.
+ */
+static constexpr int COL_FOOTPRINT = COL_PAD + 1;
+
+/**
  * @brief Apply an optional per-control-point vertex shader to every fragment.
  * @tparam FragmentsT Fragment container type.
  * @param vertex_shader Vertex shader to run on each fragment; no-op if null.
@@ -536,7 +548,6 @@ static inline void planar_row_span(const Vector &a, const Vector &b,
 template <int W>
 static __attribute__((always_inline)) inline void
 finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
-  constexpr int COL_PAD = 2;
   const int lo = static_cast<int>(floorf(s_f)) - COL_PAD;
   const int hi = static_cast<int>(ceilf(s_f + len_f)) + COL_PAD;
   col_len = std::min(hi - lo + 1, W);
@@ -566,7 +577,7 @@ finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
  * the endpoints' short-way separation — the direction only disambiguates the
  * near-antipodal boundary, where short-way is float noise. Axis selection
  * mirrors rasterize_geodesic_strategy and the column mapping is the renderer's
- * vector_to_theta; COL_PAD absorbs plot rounding and the AntiAlias tap spread.
+ * vector_to_theta.
  */
 template <int W>
 static inline bool geodesic_col_span_cols(float ca, float cb, const Vector &a,
@@ -646,7 +657,6 @@ enum class RawGeodesicGateResult : uint8_t {
 template <int W>
 static inline void finish_col_span_one_period(float start, float length,
                                               int &col_s, int &col_len) {
-  constexpr int COL_PAD = 2;
   const int lo = static_cast<int>(floorf(start)) - COL_PAD;
   const int hi = static_cast<int>(ceilf(start + length)) + COL_PAD;
   col_len = std::min(hi - lo + 1, W);
@@ -2751,8 +2761,6 @@ make_cartesian_quadrant_clip(const ClipRegion &cr) {
     q.latitude_threshold = -cosf(boundary);
   }
 
-  // finish_col_span includes ceil's boundary column after its two-column pad.
-  constexpr int COL_FOOTPRINT = 3;
   const float half_width =
       PI_F * 0.5f + static_cast<float>(cr.margin + COL_FOOTPRINT) *
                         (2.0f * PI_F / static_cast<float>(W));
