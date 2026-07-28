@@ -993,6 +993,9 @@ public:
    * @brief Refills the existing LUT without allocating. Use for animated palettes.
    * @tparam Source Type exposing Color4 get(float) const.
    * @param source Source palette or composition to sample.
+   * @details Entry i samples t = i / (LUT_SIZE - 1), so the last entry lands on
+   * t = 1 exactly. A composition with Wrap=true folds that sample back to 0 and
+   * collapses its last entry onto its first — bake such sources with Wrap=false.
    */
   template <typename Source> HS_COLD_MEMBER void rebake(const Source &source) {
     HS_CHECK(lut != nullptr, "BakedPalette::rebake before bake()");
