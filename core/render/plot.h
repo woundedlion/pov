@@ -1051,7 +1051,6 @@ template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
  * @tparam W,H Rasterization resolution (pixel grid).
  * @tparam PipelineT Pipeline type.
  * @tparam FragmentShaderT Fragment shader type for direct raster pipelines.
- * @tparam FragmentInterpolatorT Optional typed fragment interpolator.
  * @param pipeline Render pipeline that plots fragments.
  * @param canvas Target canvas (supplies the active clip band).
  * @param points Fragment polyline to rasterize.
@@ -1079,23 +1078,19 @@ template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
  *                   plot); both arrays or neither.
  * @param point_cols Optional per-point screen columns, vector_to_theta of
  *                   each points[k].pos.
- * @param fragment_interpolator Optional typed interpolation policy; must
- *        populate every field read by fragment_shader or pipeline.plot.
  */
 HS_O3_BEGIN
 template <int W, int H, typename PipelineT = PipelineRef,
-          typename FragmentShaderT = FragmentShaderFn,
-          typename FragmentInterpolatorT = std::nullptr_t>
+          typename FragmentShaderT = FragmentShaderFn>
 static void
 rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           FragmentShaderT fragment_shader, bool close_loop = false,
           const Basis *planar_basis = nullptr, bool omit_end = false,
           const uint8_t *edge_visible = nullptr,
           const float *point_rows = nullptr,
-          const float *point_cols = nullptr,
-          FragmentInterpolatorT fragment_interpolator = nullptr) {
-  // Erasure collapses pipeline and shader only; the typed interpolator is
-  // forwarded, and the erased call matches neither clause so recursion ends.
+          const float *point_cols = nullptr) {
+  // Erasure collapses pipeline and shader; the erased call matches neither
+  // clause so recursion ends.
   if constexpr (!pipeline_direct_raster_path<PipelineT>() &&
                 (!std::same_as<std::decay_t<PipelineT>, PipelineRef> ||
                  !std::same_as<std::decay_t<FragmentShaderT>,
@@ -1104,7 +1099,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     FragmentShaderFn erased_shader(fragment_shader);
     rasterize<W, H>(erased, canvas, points, erased_shader, close_loop,
                     planar_basis, omit_end, edge_visible, point_rows,
-                    point_cols, fragment_interpolator);
+                    point_cols);
     return;
   }
   auto &pipeline = source_pipeline;
@@ -1275,12 +1270,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     HS_PROFILE_DEEP(plot_seg_draw);
     {
       Vector start_pos = sample(0.0f).pos.normalized();
-      Fragment f = [&] {
-        if constexpr (std::is_same_v<FragmentInterpolatorT, std::nullptr_t>)
-          return Fragment::lerp(curr, next, 0.0f);
-        else
-          return fragment_interpolator(curr, next, 0.0f);
-      }();
+      Fragment f = Fragment::lerp_registers(curr, next, 0.0f);
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, 0.0f);
@@ -1305,12 +1295,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       // keying off them as an arc-length proxy tracks the drawn position across
       // the planar bow. Geodesic edges keep the lerped registers.
       Vector p = sample(t).pos.normalized();
-      Fragment f = [&] {
-        if constexpr (std::is_same_v<FragmentInterpolatorT, std::nullptr_t>)
-          return Fragment::lerp(curr, next, t);
-        else
-          return fragment_interpolator(curr, next, t);
-      }();
+      Fragment f = Fragment::lerp_registers(curr, next, t);
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, current_dist);
@@ -3312,7 +3297,6 @@ struct ParticleSystem {
    * @tparam FuseVertex Apply the typed vertex shader as each point is emitted.
    * @tparam FragmentShaderT Fragment shader type.
    * @tparam VertexShaderFn Vertex shader type.
-   * @tparam FragmentInterpolatorT Fragment interpolation policy type.
    * @tparam SystemT Particle-system type.
    * @tparam ParticleV2Fn Per-particle v2 mapper type.
    * @param pipeline Render pipeline.
@@ -3328,17 +3312,14 @@ struct ParticleSystem {
    * @param particle_v2 Optional mapper from particle and pool index to v2.
    *        Called once per materialized particle; the default stores the pool
    *        index.
-   * @param fragment_interpolator Optional fragment interpolation policy.
    */
   template <int W, int H, bool HoistableCull, bool FuseVertex,
             typename PipelineT, typename SystemT, typename FragmentShaderT,
-            typename VertexShaderFn, typename ParticleV2Fn,
-            typename FragmentInterpolatorT>
+            typename VertexShaderFn, typename ParticleV2Fn>
   static void
   draw_impl(PipelineT &pipeline, Canvas &canvas, const SystemT &system,
             FragmentShaderT fragment_shader, VertexShaderFn vertex_shader,
-            DeferredShaderRef deferred_shader, ParticleV2Fn particle_v2,
-            FragmentInterpolatorT fragment_interpolator) {
+            DeferredShaderRef deferred_shader, ParticleV2Fn particle_v2) {
     int count = system.active();
     if (count == 0)
       return;
@@ -3399,8 +3380,7 @@ struct ParticleSystem {
       if (!deferred_shader) {
         HS_PROFILE(plot_ps_raster);
         rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
-                        nullptr, false, nullptr, nullptr, nullptr,
-                        fragment_interpolator);
+                        nullptr, false, nullptr, nullptr, nullptr);
         continue;
       }
 
@@ -3511,8 +3491,7 @@ struct ParticleSystem {
       {
         HS_PROFILE(plot_ps_raster);
         rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
-                        nullptr, false, vis, dot_rows, dot_cols,
-                        fragment_interpolator);
+                        nullptr, false, vis, dot_rows, dot_cols);
       }
     }
   }
@@ -3536,12 +3515,12 @@ struct ParticleSystem {
                "direct raster pipeline not prepared for this canvas");
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false>(
           pipeline, canvas, system, fragment_shader, vertex_shader,
-          deferred_shader, particle_v2, nullptr);
+          deferred_shader, particle_v2);
     } else {
       PipelineRef erased(pipeline);
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false>(
           erased, canvas, system, fragment_shader, vertex_shader,
-          deferred_shader, particle_v2, nullptr);
+          deferred_shader, particle_v2);
     }
   }
 
@@ -3556,31 +3535,27 @@ struct ParticleSystem {
    * @param vertex_shader Typed vertex shader.
    * @param deferred_shader Optional deferred vertex shader.
    * @param particle_v2 Optional particle-to-v2 mapper.
-   * @param fragment_interpolator Optional fragment interpolation policy.
    */
   template <int W, int H, typename PipelineT, typename FragmentShaderT,
-            typename VertexShaderFn, typename ParticleV2Fn = std::nullptr_t,
-            typename FragmentInterpolatorT = std::nullptr_t>
+            typename VertexShaderFn, typename ParticleV2Fn = std::nullptr_t>
   static void draw_fused_vertex(PipelineT &pipeline, Canvas &canvas,
                                 const auto &system,
                                 FragmentShaderT fragment_shader,
                                 VertexShaderFn vertex_shader,
                                 DeferredShaderRef deferred_shader = {},
-                                ParticleV2Fn particle_v2 = nullptr,
-                                FragmentInterpolatorT fragment_interpolator =
-                                    nullptr) {
+                                ParticleV2Fn particle_v2 = nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
       HS_CHECK(pipeline.prepared_for(canvas),
                "direct raster pipeline not prepared for this canvas");
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true>(
           pipeline, canvas, system, fragment_shader, vertex_shader,
-          deferred_shader, particle_v2, fragment_interpolator);
+          deferred_shader, particle_v2);
     } else {
       PipelineRef erased(pipeline);
       FragmentShaderFn erased_shader(fragment_shader);
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true>(
-          erased, canvas, system, erased_shader, vertex_shader,
-          deferred_shader, particle_v2, fragment_interpolator);
+          erased, canvas, system, erased_shader, vertex_shader, deferred_shader,
+          particle_v2);
     }
   }
 
