@@ -2223,9 +2223,17 @@ private:
  *   float  face_offset(center, i, cls) — per-face sweep ordering in [0, 1]
  *   float  face_phase(phase, offset, fade_frac) — face-local phase from the
  *                                                 front
+ *   void   reorder(face_classes)     — re-derive the per-transition class
+ *                                      ordering (Segue::NeedsClasses)
+ *   MaskPair mask_pair(phase, frame) — complementary pixel masks the effect
+ *                                      hands its two draws (Segue::Masked)
  *
  * A policy defining face_offset must define face_phase; face_fade_frac is
  * Base's (1 = fade over the whole window) unless the policy shadows it.
+ *
+ * reorder and mask_pair are contracts on the effect, not the draw path: a
+ * NeedsClasses policy left un-reordered fades every class as one, and a Masked
+ * policy drawn without its masks rasterizes both meshes.
  *
  * The per-face hooks and the fragment hooks are mutually exclusive: a per-face
  * draw path resolves phase and opacity once per face and shades through a
@@ -2334,6 +2342,19 @@ template <typename S>
 concept PerFace = requires(const S &s, const Vector &c) {
   s.face_offset(c, 0, 0);
 };
+
+/** @brief Whether a policy orders faces by topology class, so the effect must
+ * hand it the per-face classes before each transition. */
+template <typename S>
+concept NeedsClasses = requires(S &s, const ArenaVector<int> &classes) {
+  s.reorder(classes);
+};
+
+/** @brief Whether a policy splits one frame's rasterizer work between the two
+ * meshes with complementary pixel masks, which the effect passes to the two
+ * draws itself. */
+template <typename S>
+concept Masked = requires(const S &s) { s.mask_pair(0.5f, 0u); };
 
 /**
  * @brief Whether a policy shadows Base's fragment hooks (fill/grade).
