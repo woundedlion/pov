@@ -7,7 +7,7 @@
  *
  * The JS frontend passes untyped integers across the embind boundary; wasm.cpp
  * validates and clamps them before they reach engine code that would otherwise
- * trap or run unbounded. Those checks are plain integer arithmetic with no
+ * trap or run unbounded. Those checks are plain scalar arithmetic with no
  * Emscripten dependency, so they live here and are host-unit-testable without an
  * Emscripten toolchain — see tests/test_wasm_predicates.h. wasm.cpp keeps only
  * the logging/embind shell on top.
@@ -53,6 +53,27 @@ inline int clamp_relax_iterations(int iterations, int max_iterations) {
   if (iterations > max_iterations)
     return max_iterations;
   return iterations;
+}
+
+/**
+ * @brief True when a [0,1] boundary fraction falls outside its domain.
+ */
+inline bool unit_fraction_out_of_range(float t) { return t < 0.0f || t > 1.0f; }
+
+/**
+ * @brief Clamps a [0,1] boundary fraction into range.
+ * @param t Requested fraction from the JS boundary.
+ * @return t clamped to [0, 1]; a NaN passes through unchanged.
+ * @details truncate/bevel/chamfer/snub feed their fraction to an always-on
+ *          HS_CHECK, so an out-of-range value from a direct/API caller would
+ *          abort the whole module. Callers reject non-finite args first.
+ */
+inline float clamp_unit_fraction(float t) {
+  if (t < 0.0f)
+    return 0.0f;
+  if (t > 1.0f)
+    return 1.0f;
+  return t;
 }
 
 /**

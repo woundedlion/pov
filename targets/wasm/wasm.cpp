@@ -979,9 +979,9 @@ public:
   std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
     if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
-    if (arg < 0.0f || arg > 1.0f)                                              \
+    if (hs_wasm::unit_fraction_out_of_range(arg))                              \
       hs::log("WASM: MeshOps::%s clamped %g to [0,1]", #name, arg);            \
-    float t = arg < 0.0f ? 0.0f : (arg > 1.0f ? 1.0f : arg);                   \
+    float t = hs_wasm::clamp_unit_fraction(arg);                               \
     return apply([t](const PolyMesh &m, Arena &a, Arena &b) {                  \
       return MeshOps::name(m, a, b, t);                                        \
     });                                                                        \
@@ -1084,9 +1084,9 @@ public:
   std::unique_ptr<MeshOpsWrapper> snub(float t, float twist) const {
     if (!finite_arg(t, "snub") || !finite_arg(twist, "snub"))
       return nullptr;
-    if (t < 0.0f || t > 1.0f)
+    if (hs_wasm::unit_fraction_out_of_range(t))
       hs::log("WASM: MeshOps::snub clamped t=%g to [0,1]", t);
-    float ct = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+    float ct = hs_wasm::clamp_unit_fraction(t);
     return apply([ct, twist](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::snub(m, a, b, ct, twist);
     });
