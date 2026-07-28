@@ -126,6 +126,56 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
 }
 
 /**
+ * @brief Wraps, sorts and coalesces a row's column spans into integer runs.
+ * @tparam W Canvas width in pixels.
+ * @tparam IntervalBufT Source span buffer type.
+ * @tparam NormBufT Seam-split scratch buffer type; holds 2 spans per source span.
+ * @tparam EmitFn Callable (int x1, int x2) -> void, one call per run.
+ * @param intervals Source spans in fractional column units, each of length <= W.
+ * @param norm Scratch, cleared here, holding the wrapped/split spans.
+ * @param emit Sink receiving each run as a half-open column range [x1, x2).
+ * @details Wrapping each start into [0, W) and splitting spans that cross the
+ * x=0 seam gives the forward sweep sorted, non-wrapping input even when a
+ * shape/CSG straddles θ=0. Runs are emitted monotone and disjoint: last_x2
+ * clamps a run's start past the previous run's end so two spans sharing a
+ * fractional column do not both paint it (double shade / alpha).
+ */
+template <int W, typename IntervalBufT, typename NormBufT, typename EmitFn>
+__attribute__((always_inline)) inline void
+coalesce_spans(const IntervalBufT &intervals, NormBufT &norm, EmitFn &&emit) {
+  norm.clear();
+  SDF::normalize_intervals_to_range<W>(intervals, norm);
+  SDF::sort_intervals_by_start(norm);
+
+  float current_end = -FLT_MAX;
+  int last_x2 = 0;
+  for (const auto &iv : norm) {
+    if (iv.second <= current_end)
+      continue;
+    float start = std::max(iv.first, current_end);
+    float end = iv.second;
+    current_end = end;
+
+    int x1 = static_cast<int>(floorf(start));
+    int x2 = static_cast<int>(ceilf(end));
+    // A zero-width interval (x1 == x2) still owns its pixel column; widen to
+    // paint it.
+    if (x1 == x2)
+      x2++;
+    // After the wrap/split start>=0 and end<=W, so x2>W only from the widen at
+    // the right edge; x1<0 is a defensive floor.
+    if (x1 < 0)
+      x1 = 0;
+    if (x2 > W)
+      x2 = W;
+    if (x1 < last_x2)
+      x1 = last_x2;
+    last_x2 = x2;
+    emit(x1, x2);
+  }
+}
+
+/**
  * @brief Shared pixel iteration utility for bounded spherical regions.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -230,44 +280,9 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       if (full_row) {
         walk_clipped(0, W, y, sp, cp);
       } else {
-        // Wrap each start into [0, W) and split any span crossing the x=0 seam so
-        // the forward-sweep coalescer sees sorted, non-wrapping spans even when a
-        // shape/CSG straddles θ=0; norm holds up to 2 spans per input interval.
-        norm.clear();
-        SDF::normalize_intervals_to_range<W>(intervals, norm);
-        SDF::sort_intervals_by_start(norm);
-
-        float current_end = -FLT_MAX;
-        // Coalesce in integer pixel space too: last_x2 clamps each run's start
-        // past the prior run's end so two spans sharing a fractional column don't
-        // both paint it (double process_pixel / alpha).
-        int last_x2 = 0;
-        for (const auto &iv : norm) {
-          if (iv.second <= current_end)
-            continue;
-          float start = std::max(iv.first, current_end);
-          float end = iv.second;
-          current_end = end;
-
-          int x1 = static_cast<int>(floorf(start));
-          int x2 = static_cast<int>(ceilf(end));
-          // A zero-width interval (x1 == x2) still owns its pixel column; widen
-          // to paint it. The last_x2 clamp then suppresses a following interval
-          // mapping to the same column.
-          if (x1 == x2)
-            x2++;
-          // Clamp to canvas columns. After the wrap/split above start>=0 and
-          // end<=W, so x2>W only from the x1==x2 widen at the right edge; x1<0 is
-          // a defensive floor. last_x2 keeps the integer sweep monotone.
-          if (x1 < 0)
-            x1 = 0;
-          if (x2 > W)
-            x2 = W;
-          if (x1 < last_x2)
-            x1 = last_x2;
-          last_x2 = x2;
+        coalesce_spans<W>(intervals, norm, [&](int x1, int x2) {
           walk_clipped(x1, x2, y, sp, cp);
-        }
+        });
       }
     } else if (!handled) {
       walk_clipped(0, W, y, sp, cp);
@@ -968,32 +983,9 @@ struct RingGroup {
         continue;
       }
 
-      norm.clear();
-      SDF::normalize_intervals_to_range<W>(intervals, norm);
-      SDF::sort_intervals_by_start(norm);
-      float current_end = -FLT_MAX;
-      // Integer coalesce: last_x2 keeps two spans sharing a fractional column
-      // from double-plotting it; a zero-width interval still owns its column.
-      int last_x2 = 0;
-      for (const auto &iv : norm) {
-        if (iv.second <= current_end)
-          continue;
-        float start = std::max(iv.first, current_end);
-        float end = iv.second;
-        current_end = end;
-        int x1 = static_cast<int>(floorf(start));
-        int x2 = static_cast<int>(ceilf(end));
-        if (x1 == x2)
-          x2++;
-        if (x1 < 0)
-          x1 = 0;
-        if (x2 > W)
-          x2 = W;
-        if (x1 < last_x2)
-          x1 = last_x2;
-        last_x2 = x2;
+      coalesce_spans<W>(intervals, norm, [&](int x1, int x2) {
         run_clipped(x1, x2, y, sp, cp);
-      }
+      });
     }
   }
 };
@@ -1252,29 +1244,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         add_run(0, W);
       } else {
         StaticCircularBuffer<std::pair<float, float>, 8> norm;
-        SDF::normalize_intervals_to_range<W>(intervals, norm);
-        SDF::sort_intervals_by_start(norm);
-        float current_end = -FLT_MAX;
-        int last_x2 = 0;
-        for (const auto &iv : norm) {
-          if (iv.second <= current_end)
-            continue;
-          float start = std::max(iv.first, current_end);
-          float end = iv.second;
-          current_end = end;
-          int x1 = static_cast<int>(floorf(start));
-          int x2 = static_cast<int>(ceilf(end));
-          if (x1 == x2)
-            x2++;
-          if (x1 < 0)
-            x1 = 0;
-          if (x2 > W)
-            x2 = W;
-          if (x1 < last_x2)
-            x1 = last_x2;
-          last_x2 = x2;
-          add_run(x1, x2);
-        }
+        coalesce_spans<W>(intervals, norm, add_run);
       }
     }
     if (num_runs == 0)
