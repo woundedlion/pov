@@ -848,9 +848,11 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
  * is just inside the display cube.
  * @details The answer is exactly min(C, C_max(hue, L)), and C_max is a static
  * property of the sRGB gamut. One cell read brackets C_max and
- * gamut_bracket_refine narrows the bracket; a chroma at or below the cell
- * minimum needs neither. The grid is the only implementation and always points
- * at a table, so this needs no fallback.
+ * gamut_bracket_refine narrows the bracket. A chroma at or below the cell
+ * minimum is returned as-is only once it tests in gamut; a cell minimum that
+ * over-reads its region drops the search onto the whole ray instead. The grid
+ * is the only implementation and always points at a table, so this needs no
+ * fallback.
  */
 HS_O3_FN __attribute__((noinline)) inline OKLab
 gamut_clip_preserve_chroma(OKLab lab) {
@@ -872,13 +874,20 @@ gamut_clip_preserve_chroma(OKLab lab) {
   const uint16_t *cell = &lut.table[(li * lut.angle_steps + ai) * 2];
 
   const float c_lo = static_cast<float>(cell[0]) * GAMUT_LUT_INV_SCALE;
-  if (c_sq <= c_lo * c_lo)
-    return lab;
-
-  const float c_hi = static_cast<float>(cell[1]) * GAMUT_LUT_INV_SCALE;
   const float inv_c = fast_rsqrt(c_sq);
-  const float hi = std::min(1.0f, c_hi * inv_c);
-  float u = gamut_bracket_refine(lab.L, lab.a, lab.b, c_lo * inv_c, hi);
+
+  float u;
+  if (c_sq <= c_lo * c_lo) {
+    float r, g, b;
+    oklab_to_linear_rgb(lab, r, g, b);
+    if (linear_rgb_in_gamut(r, g, b))
+      return lab;
+    u = gamut_bracket_refine(lab.L, lab.a, lab.b, 0.0f, 1.0f);
+  } else {
+    const float c_hi = static_cast<float>(cell[1]) * GAMUT_LUT_INV_SCALE;
+    const float hi = std::min(1.0f, c_hi * inv_c);
+    u = gamut_bracket_refine(lab.L, lab.a, lab.b, c_lo * inv_c, hi);
+  }
   // Pulled back off the crossing: without it the caller's own re-conversion
   // rounds a channel a part in a million past the gate.
   u -= GAMUT_CLIP_MARGIN * inv_c;
