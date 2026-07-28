@@ -3234,12 +3234,6 @@ struct Face {
     return d;
   }
 
-  HS_O3_FN float plane_dist_exact(float px, float py) const {
-    bool inside;
-    float d = plane_dsq_exact(px, py, inside);
-    return (inside ? -1.0f : 1.0f) * sqrtf(d);
-  }
-
   /**
    * @brief Signed planar distance via the concave sector walk.
    * @param px Gnomonic x of the query point.
@@ -3379,10 +3373,11 @@ struct Face {
     HS_PROBE_SPAN(project, hs_t);
 
     float plane_dist;
+    bool lut_served = false;
     if (probe_flags & PROBE_HAS_LUT) {
       // Affine map into the canonical LUT grid, then a 4-tap bilinear fetch.
       // Only sign-pure cells at least one cell diagonal from the boundary are
-      // served; the AA fringe and sign-unsafe cells fall back to the exact walk
+      // served; the AA fringe and sign-unsafe cells fall back to the edge walk
       // on the TRUE per-frame edges.
       float fx = lut_ax * px + lut_bx * py + lut_cx;
       float fy = lut_ay * px + lut_by * py + lut_cy;
@@ -3405,21 +3400,12 @@ struct Face {
         float d0 = q00 + (q10 - q00) * tx;
         float d1 = q01 + (q11 - q01) * tx;
         plane_dist = lut_dequant * (d0 + (d1 - d0) * ty);
+        lut_served = true;
         HS_PROBE_SPAN(edge_lut, hs_t);
         HS_PROBE_COUNT(n_lut);
-      } else {
-        HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
-        if (probe_flags & PROBE_CONVEX) {
-          plane_dist = plane_dist_convex(px, py);
-          HS_PROBE_SPAN(edge_convex, hs_t);
-          HS_PROBE_COUNT(n_convex);
-        } else {
-          plane_dist = plane_dist_exact(px, py);
-          HS_PROBE_SPAN(edge_exact, hs_t);
-          HS_PROBE_COUNT(n_exact);
-        }
       }
-    } else {
+    }
+    if (!lut_served) {
       HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
       if (probe_flags & PROBE_CONVEX) {
         plane_dist = plane_dist_convex(px, py);
