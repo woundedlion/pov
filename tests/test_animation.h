@@ -1654,11 +1654,12 @@ inline void test_terminator_sweep_orders_by_axis() {
 }
 
 /**
- * @brief Verifies TerminatorSweep's per-face fade is time-based: schedule()
- * derives the fade fractions so a face ramps over its fade length once the
- * front reaches it, with exact 0/1 window endpoints, and a window shorter than
- * the fade length degrades to one whole-sphere fade. Pins the range to a single
- * length so the per-face random collapses to one deterministic fraction.
+ * @brief Verifies TerminatorSweep's per-face fade is time-based: the fade
+ * length divides the window schedule() recorded, so a face ramps over its fade
+ * length once the front reaches it, with exact 0/1 window endpoints, and a
+ * window shorter than the fade length degrades to one whole-sphere fade. Pins
+ * the range to a single length so the per-face random collapses to one
+ * deterministic fraction.
  */
 inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
   Timeline tl;
@@ -1671,8 +1672,8 @@ inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
   HS_EXPECT_EQ(next_delay, dur); // sequential: one mesh per frame
   const Segue::TerminatorSweep &term = carousel.segue();
   const float f = 8.0f / window;
-  HS_EXPECT_NEAR(term.fade_frac_min, f, 1e-6f);
-  HS_EXPECT_NEAR(term.fade_frac_max, f, 1e-6f);
+  HS_EXPECT_NEAR(term.face_fade_frac(0), f, 1e-6f);
+  HS_EXPECT_NEAR(term.face_fade_frac(97), f, 1e-6f);
   for (float o : {0.0f, 0.5f, 1.0f}) {
     float touch = o * (1.0f - f); // phase at which the front reaches the face
     HS_EXPECT_NEAR(term.face_phase(touch, o, f), 0.0f, 1e-5f);
@@ -1682,7 +1683,26 @@ inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
     HS_EXPECT_NEAR(term.face_phase(0.0f, o, f), 0.0f, 1e-5f);
   }
   carousel.schedule_segue(tl, [](Canvas &, float) {}, 8, 2);
-  HS_EXPECT_NEAR(carousel.segue().fade_frac_max, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(carousel.segue().face_fade_frac(0), 1.0f, 1e-6f);
+}
+
+/**
+ * @brief Verifies a mid-transition Face Fade slider move lands on the next
+ * frame: face_fade_frac reads the frame bounds live rather than a fraction
+ * frozen by the last schedule(), which only runs once per shape.
+ */
+inline void test_terminator_sweep_fade_sliders_apply_without_reschedule() {
+  Timeline tl;
+  MeshCarousel<Segue::TerminatorSweep> carousel;
+  carousel.segue().retarget(Y_AXIS);
+  carousel.segue().fade_frames_min = 4.0f;
+  carousel.segue().fade_frames_max = 4.0f;
+  carousel.schedule_segue(tl, [](Canvas &, float) {}, 400, 64);
+  HS_EXPECT_NEAR(carousel.segue().face_fade_frac(11), 4.0f / 64.0f, 1e-6f);
+  // Slider drag with no reschedule.
+  carousel.segue().fade_frames_min = 16.0f;
+  carousel.segue().fade_frames_max = 16.0f;
+  HS_EXPECT_NEAR(carousel.segue().face_fade_frac(11), 16.0f / 64.0f, 1e-6f);
 }
 
 /**
@@ -2771,6 +2791,7 @@ inline int run_animation_tests() {
   test_sweep_phase_front_ordering();
   test_terminator_sweep_orders_by_axis();
   test_terminator_sweep_fades_faces_over_fixed_frames();
+  test_terminator_sweep_fade_sliders_apply_without_reschedule();
   test_terminator_sweep_per_face_fade_random_in_range();
   test_shockwave_orders_by_distance_from_origin();
   test_per_face_segues_satisfy_draw_contract();
