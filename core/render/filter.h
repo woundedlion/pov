@@ -1211,6 +1211,12 @@ public:
       y_visible_[y] = y >= y_start && y < y_end;
   }
 
+  /**
+   * @brief True when the cached framebuffer base still matches @p cv.
+   * @param cv Canvas the caller is about to draw into.
+   */
+  bool prepared_for(Canvas &cv) const { return base_ == cv.data(); }
+
   /** @brief Splats one screen-space sample directly into the Canvas. */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
             float alpha) {

@@ -3540,6 +3540,8 @@ struct ParticleSystem {
                    DeferredShaderRef deferred_shader = {},
                    ParticleV2Fn particle_v2 = nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
+      HS_CHECK(pipeline.prepared_for(canvas),
+               "direct raster pipeline not prepared for this canvas");
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false>(
           pipeline, canvas, system, fragment_shader, vertex_shader,
           deferred_shader, particle_v2, nullptr);
@@ -3576,6 +3578,8 @@ struct ParticleSystem {
                                 FragmentInterpolatorT fragment_interpolator =
                                     nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
+      HS_CHECK(pipeline.prepared_for(canvas),
+               "direct raster pipeline not prepared for this canvas");
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true>(
           pipeline, canvas, system, fragment_shader, vertex_shader,
           deferred_shader, particle_v2, fragment_interpolator);
