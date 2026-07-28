@@ -28,6 +28,27 @@ struct Fragment {
   Color4 color = Color4(0, 0, 0, 0); /**< Output Color (RGBA) */
 
   /**
+   * @brief Linear interpolation of the shading registers only.
+   * @param a Start fragment.
+   * @param b End fragment.
+   * @param t Interpolation factor (0.0 to 1.0).
+   * @return A fragment with v0-v3, age and size interpolated; pos and color keep
+   * their struct defaults. For callers that supply both themselves (the
+   * rasterizer's drawing loop).
+   */
+  static Fragment lerp_registers(const Fragment &a, const Fragment &b,
+                                 float t) {
+    Fragment f;
+    f.v0 = a.v0 + (b.v0 - a.v0) * t;
+    f.v1 = a.v1 + (b.v1 - a.v1) * t;
+    f.v2 = a.v2 + (b.v2 - a.v2) * t;
+    f.v3 = a.v3 + (b.v3 - a.v3) * t;
+    f.age = a.age + (b.age - a.age) * t;
+    f.size = a.size + (b.size - a.size) * t;
+    return f;
+  }
+
+  /**
    * @brief Linear interpolation between two fragments.
    * @param a Start fragment.
    * @param b End fragment.
@@ -37,14 +58,8 @@ struct Fragment {
    * denominator) resets to its struct default.
    */
   static Fragment lerp(const Fragment &a, const Fragment &b, float t) {
-    Fragment f;
+    Fragment f = lerp_registers(a, b, t);
     f.pos = a.pos + (b.pos - a.pos) * t;
-    f.v0 = a.v0 + (b.v0 - a.v0) * t;
-    f.v1 = a.v1 + (b.v1 - a.v1) * t;
-    f.v2 = a.v2 + (b.v2 - a.v2) * t;
-    f.v3 = a.v3 + (b.v3 - a.v3) * t;
-    f.age = a.age + (b.age - a.age) * t;
-    f.size = a.size + (b.size - a.size) * t;
     f.color = a.color.lerp(b.color, t);
     return f;
   }

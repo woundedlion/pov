@@ -452,16 +452,6 @@ private:
                        alpha * alpha * opacity);
     };
 
-    auto fragment_interpolator = [](const Fragment &a, const Fragment &b,
-                                    float t) {
-      Fragment f;
-      f.v0 = a.v0 + (b.v0 - a.v0) * t;
-      f.v2 = a.v2 + (b.v2 - a.v2) * t;
-      f.v3 = a.v3 + (b.v3 - a.v3) * t;
-      f.age = a.age + (b.age - a.age) * t;
-      return f;
-    };
-
     auto particle_v2 = [&](const auto &p, int i) {
 #ifdef HS_TEST_BUILD
       if (reference_color_seed_lookup)
@@ -486,7 +476,7 @@ private:
 #endif
       Plot::ParticleSystem::draw_fused_vertex<W, H>(
           sink, canvas, particle_system, fragment_shader, vertex_shader,
-          hole_shader, particle_v2, fragment_interpolator);
+          hole_shader, particle_v2);
     }
   }
 
