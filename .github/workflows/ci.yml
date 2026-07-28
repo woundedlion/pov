@@ -536,6 +536,116 @@ jobs:
           fi
           exit "$fail"
 
+  clang-format:
+    name: Formatting (clang-format)
+    # Cloud counterpart of the .githooks/pre-commit format check. That hook is
+    # opt-out (HS_SKIP_FORMAT=1 / --no-verify), silently skips itself on a
+    # machine without clang-format, and every CI job disables the hooks
+    # entirely — so until this job, formatting was enforced nowhere on a push.
+    # Same invocation as the hook (--dry-run --Werror --style=file) over the
+    # same first-party C++ set, but across the whole tracked tree instead of one
+    # commit's staged paths.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      # PRE-EXISTING DRIFT. These files do not match .clang-format under
+      # clang-format-18 — the hook has been skippable since it was added, so
+      # drift accumulated unchecked. Gating them would make this job red on
+      # arrival, so they are excluded; every OTHER tracked source, and every
+      # newly added file, is gated. Shrink this list with `clang-format -i`;
+      # never grow it to turn a red build green.
+      FORMAT_BASELINE: |
+        core/animation/mesh.h
+        core/engine/effect_registry.h
+        core/engine/platform.h
+        core/mesh/conway_graph.h
+        core/mesh/hankin.h
+        core/render/canvas.h
+        core/render/plot.h
+        core/render/sdf.h
+        effects/BZReactionDiffusion.h
+        effects/RingSpin.h
+        effects/Voronoi.h
+        hardware/pov_single.h
+        tests/run_tests.cpp
+        tests/test_animation.h
+        tests/test_canvas.h
+        tests/test_color.h
+        tests/test_conway_morph.h
+        tests/test_death.h
+        tests/test_filter.h
+        tests/test_opchain_arena_survey.h
+        tests/test_opchain_probe.h
+        tests/test_partition_seam.h
+        tests/test_scan.h
+        tests/test_sdf.h
+        tests/test_spatial.h
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          # Pin the major version, matching the clang-18 the build jobs pin.
+          # clang-format re-flows code between LLVM majors, so the unversioned
+          # 'clang-format' package would rewrite the whole tree — and red this
+          # job — the day the runner image moves its default LLVM.
+          sudo apt-get install -y clang-format-18
+
+      - name: Check formatting
+        env:
+          CF: clang-format-18
+        run: |
+          "$CF" --version
+
+          printf '%s\n' "$FORMAT_BASELINE" | sed '/^[[:space:]]*$/d' > /tmp/format-baseline.txt
+
+          # Same file set as .githooks/pre-commit: first-party C++ only, with
+          # core/vendor/ and the three generated sources excluded (they are
+          # emitted by their generators, not hand-formatted).
+          git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' \
+            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$' \
+            > /tmp/format-all.txt
+          grep -vxF -f /tmp/format-baseline.txt /tmp/format-all.txt > /tmp/format-files.txt || true
+
+          if [ ! -s /tmp/format-files.txt ]; then
+            echo "::error::no files selected — the pathspec or exclusion regex is broken"
+            exit 1
+          fi
+
+          rc=0
+          unformatted=
+          while IFS= read -r f; do
+            "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1 \
+              || unformatted="$unformatted $f"
+          done < /tmp/format-files.txt
+          if [ -n "$unformatted" ]; then
+            for f in $unformatted; do
+              echo "::error file=$f::not formatted per .clang-format (fix: clang-format -i $f)"
+            done
+            rc=1
+          fi
+
+          # Surface baseline entries that no longer need to be there. Only a
+          # WARNING: fixing or deleting a baselined file improves the tree, and
+          # must not red master for whoever happens to land that commit.
+          stale=
+          while IFS= read -r f; do
+            if [ ! -f "$f" ]; then
+              stale="$stale $f(gone)"
+            elif "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1; then
+              stale="$stale $f(clean)"
+            fi
+          done < /tmp/format-baseline.txt
+          if [ -n "$stale" ]; then
+            echo "::warning::FORMAT_BASELINE in ci.yml is stale — drop these entries:$stale"
+          fi
+
+          if [ "$rc" -eq 0 ]; then
+            echo "clang-format clean: $(wc -l < /tmp/format-files.txt) files gated, $(wc -l < /tmp/format-baseline.txt) baselined."
+          fi
+          exit "$rc"
+
   teensy-gate-tests:
     name: Teensy gate parser + layout self-tests
     # The Teensy size/layout gate must gate itself: a check that can never fail
