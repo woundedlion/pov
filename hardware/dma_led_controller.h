@@ -58,21 +58,19 @@ public:
    *              The Phantasm driver passes 24 MHz (see pov_segmented.h).
    */
   explicit DMALEDController(uint32_t clock = 12000000)
-      : spi_(clock), activeBuffer_(0), transferCount_(0), overrunCount_(0) {}
+      : spi(clock), activeBuffer(0), transferCount(0), overrunCount(0) {}
 
   /**
    * @brief One-time hardware initialization. Call from setup().
    */
-  void begin() { spi_.init(); }
+  void begin() { spi.init(); }
 
   /**
    * @brief Returns the back frame (not currently being DMA'd).
    * @return Reference to the back-buffer frame; pack pixels via packPixel(),
    *         then call submitFrame().
    */
-  HD107SFrame<N> &backFrame() {
-    return frames_[dma::next_buffer(activeBuffer_)];
-  }
+  HD107SFrame<N> &backFrame() { return frames[dma::next_buffer(activeBuffer)]; }
 
   /**
    * @brief Flushes the back frame and triggers async DMA transfer.
@@ -84,20 +82,20 @@ public:
    *         on this; the steady-state column path ignores it (self-heals).
    */
   [[nodiscard]] bool submitFrame(bool withBg = false) {
-    if (!spi_.isComplete()) {
+    if (!spi.isComplete()) {
       // Drop on overrun. A transfer that NEVER completes is a wedged channel,
       // not a transient, so surface it here — the drop path is where it shows.
-      spi_.checkStaleTransfer();
-      overrunCount_.fetch_add(1, std::memory_order_relaxed);
+      spi.checkStaleTransfer();
+      overrunCount.fetch_add(1, std::memory_order_relaxed);
       return false;
     }
-    int back = dma::next_buffer(activeBuffer_);
-    frames_[back].flush();
-    size_t len = dma::transfer_len(frames_[back].size(),
-                                   frames_[back].sizeWithBg(), withBg);
-    spi_.transmitAsync(frames_[back].data(), len);
-    activeBuffer_ = back;
-    transferCount_.fetch_add(1, std::memory_order_relaxed);
+    int back = dma::next_buffer(activeBuffer);
+    frames[back].flush();
+    size_t len = dma::transfer_len(frames[back].size(),
+                                   frames[back].sizeWithBg(), withBg);
+    spi.transmitAsync(frames[back].data(), len);
+    activeBuffer = back;
+    transferCount.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
 
@@ -107,7 +105,7 @@ public:
    * @return Monotonic transfer counter (number of successful submitFrame()s).
    */
   uint32_t getTransferCount() const {
-    return transferCount_.load(std::memory_order_relaxed);
+    return transferCount.load(std::memory_order_relaxed);
   }
   /**
    * @brief Returns the count of frames dropped on overrun since start.
@@ -115,7 +113,7 @@ public:
    *         was still in flight).
    */
   uint32_t getOverrunCount() const {
-    return overrunCount_.load(std::memory_order_relaxed);
+    return overrunCount.load(std::memory_order_relaxed);
   }
 
   // --- Configuration pass-throughs ---
@@ -152,20 +150,20 @@ public:
 
 private:
   HD107SFrame<N>
-      frames_[2]; /**< Double-buffered protocol frames (front/back). */
-  Transport spi_; /**< Low-level async DMA+SPI transport for this strip. */
+      frames[2]; /**< Double-buffered protocol frames (front/back). */
+  Transport spi; /**< Low-level async DMA+SPI transport for this strip. */
   /**
    * @brief Index (0/1) of the front buffer currently being DMA'd.
    * @details Plain int: every access is in the single column-ISR context; the
    *          completion ISR never touches it, so no barrier is needed.
    */
-  int activeBuffer_;
+  int activeBuffer;
   /**
    * @brief Monotonic count of frames successfully handed to the DMA engine.
    * @details Atomic (ISR RMW + cross-context read); relaxed — an independent
    *          counter, not a happens-before signal.
    */
-  std::atomic<uint32_t> transferCount_;
+  std::atomic<uint32_t> transferCount;
   std::atomic<uint32_t>
-      overrunCount_; /**< Monotonic count of frames dropped on overrun. */
+      overrunCount; /**< Monotonic count of frames dropped on overrun. */
 };

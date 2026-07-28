@@ -62,7 +62,7 @@ public:
    */
   TeensySPIDMA(uint32_t clock = 12000000, uint8_t order = MSBFIRST,
                uint8_t mode = SPI_MODE0)
-      : transferComplete_(true), spiSettings_(clock, order, mode) {}
+      : transferComplete(true), spiSettings(clock, order, mode) {}
 
   /**
    * @brief Initializes SPI and DMA hardware. Must be called from setup(),
@@ -72,15 +72,15 @@ public:
    * the open transaction).
    */
   void init() {
-    HS_CHECK(!initialized_, "TeensySPIDMA::init() called twice");
-    HS_CHECK(instance_ == nullptr,
+    HS_CHECK(!initialized, "TeensySPIDMA::init() called twice");
+    HS_CHECK(instance == nullptr,
              "TeensySPIDMA: only one instance supported (shared DMA-completion "
              "ISR singleton)");
-    initialized_ = true;
-    instance_ = this;
+    initialized = true;
+    instance = this;
 
     SPI.begin();
-    SPI.beginTransaction(spiSettings_);
+    SPI.beginTransaction(spiSettings);
 
     LPSPI4_DER |= LPSPI_DER_TDDE; // TX DMA request
     // RXMSK discards received frames: nothing drains the RX FIFO, so without it
@@ -91,15 +91,15 @@ public:
                  LPSPI_TCR_RXMSK; // 8-bit frames, TX-only
     LPSPI4_CFGR1 &= ~LPSPI_CFGR1_NOSTALL;
 
-    dma_.begin(true);
+    dma_channel.begin(true);
     // The uint8_t cast is load-bearing: the 32-bit destination() overload sets
     // ATTR_DST to 32-bit transfers, conflicting with sourceBuffer()'s NBYTES=1
     // and raising an eDMA config error on enable — nothing transmits.
-    dma_.destination(reinterpret_cast<volatile uint8_t &>(LPSPI4_TDR));
-    dma_.triggerAtHardwareEvent(DMAMUX_SOURCE_LPSPI4_TX);
-    dma_.disableOnCompletion();
-    dma_.interruptAtCompletion();
-    dma_.attachInterrupt(dmaISR);
+    dma_channel.destination(reinterpret_cast<volatile uint8_t &>(LPSPI4_TDR));
+    dma_channel.triggerAtHardwareEvent(DMAMUX_SOURCE_LPSPI4_TX);
+    dma_channel.disableOnCompletion();
+    dma_channel.interruptAtCompletion();
+    dma_channel.attachInterrupt(dmaISR);
   }
 
   /**
@@ -107,22 +107,22 @@ public:
    * @param data Pointer to byte buffer (must remain valid until complete).
    * @param len  Number of bytes to transmit.
    * @pre The caller has cleaned the buffer from cache (submitFrame() does this
-   *      via frames_[back].flush()); this method only enables the DMA and does
+   *      via frames[back].flush()); this method only enables the DMA and does
    *      not flush.
    */
   void transmitAsync(const uint8_t *data, size_t len) {
     // Trap rather than spin on an in-flight transfer: this runs in the column
     // ISR, where spinning would deadlock — the DMA-completion ISR that marks
-    // transferComplete_ true cannot preempt an equal/lower-priority ISR.
-    if (!transferComplete_.load(std::memory_order_relaxed)) {
+    // transferComplete true cannot preempt an equal/lower-priority ISR.
+    if (!transferComplete.load(std::memory_order_relaxed)) {
       hs::log("FATAL: transmitAsync entered with a transfer still in flight — "
               "submitFrame() must guard with isComplete()");
       __builtin_trap();
     }
-    transferComplete_.store(false, std::memory_order_relaxed);
-    transferStartUs_ = micros();
-    dma_.sourceBuffer(data, len);
-    dma_.enable();
+    transferComplete.store(false, std::memory_order_relaxed);
+    transferStartUs = micros();
+    dma_channel.sourceBuffer(data, len);
+    dma_channel.enable();
   }
 
   /**
@@ -130,7 +130,7 @@ public:
    * @return true once the in-flight transfer's completion ISR has fired.
    */
   bool isComplete() const {
-    return transferComplete_.load(std::memory_order_relaxed);
+    return transferComplete.load(std::memory_order_relaxed);
   }
 
   /**
@@ -141,9 +141,9 @@ public:
    *          Only fires while submitFrame() is being called.
    */
   void checkStaleTransfer() {
-    if (transferComplete_.load(std::memory_order_relaxed))
+    if (transferComplete.load(std::memory_order_relaxed))
       return;
-    if (dma::transfer_stale(transferStartUs_, micros(), TRANSFER_WATCHDOG_US)) {
+    if (dma::transfer_stale(transferStartUs, micros(), TRANSFER_WATCHDOG_US)) {
       hs::log("FATAL: DMA channel wedged — in-flight transfer outlived the "
               "watchdog on the overrun-drop path; completion ISR never fired");
       __builtin_trap();
@@ -162,17 +162,17 @@ private:
 
   /**
    * @brief DMA completion ISR: clears the interrupt and marks the transfer done.
-   * @details Dispatched via the singleton instance_; runs in interrupt context.
+   * @details Dispatched via the singleton instance; runs in interrupt context.
    */
   static void FASTRUN dmaISR() {
-    if (instance_) {
-      instance_->dma_.clearInterrupt();
-      instance_->transferComplete_.store(true, std::memory_order_relaxed);
+    if (instance) {
+      instance->dma_channel.clearInterrupt();
+      instance->transferComplete.store(true, std::memory_order_relaxed);
     }
   }
 
   DMAChannel
-      dma_; /**< eDMA channel wired to LPSPI4 TX for async transmission. */
+      dma_channel; /**< eDMA channel wired to LPSPI4 TX for async transmission. */
   /**
    * @brief Completion flag handed between the DMA-completion ISR and the
    *        main/column thread.
@@ -180,35 +180,35 @@ private:
    *          suffices. Does NOT order the buffer for the DMA engine — the
    *          caller's arm_dcache_flush() before transmitAsync() does that.
    */
-  std::atomic<bool> transferComplete_;
+  std::atomic<bool> transferComplete;
   /**
    * @brief micros() at which the in-flight transfer was enabled.
    * @details Touched only in column-ISR context (transmitAsync /
    *          checkStaleTransfer), never the completion ISR, so a plain scalar is
-   *          correct. Only meaningful while transferComplete_ is false.
+   *          correct. Only meaningful while transferComplete is false.
    */
-  unsigned long transferStartUs_ = 0;
+  unsigned long transferStartUs = 0;
   SPISettings
-      spiSettings_; /**< Cached SPI clock/bit-order/mode for this driver. */
+      spiSettings; /**< Cached SPI clock/bit-order/mode for this driver. */
 
   /**
    * @brief Single-init guard set once on the first (setup-time) init() call.
    * @details init() touches global SPI/DMA peripheral state that is not safe to
    *          re-run.
    */
-  bool initialized_ = false;
+  bool initialized = false;
 
   /**
    * @brief Singleton pointer for ISR callback dispatch. Exactly one
    *        TeensySPIDMA per image; init() traps on a second instance.
    * @details Written once from setup() before any ISR uses it, then read from
    *          the completion ISR — race-free under the single-observer model (see
-   *          transferComplete_).
+   *          transferComplete).
    */
-  static TeensySPIDMA *instance_;
+  static TeensySPIDMA *instance;
 };
 
-inline TeensySPIDMA *TeensySPIDMA::instance_ = nullptr;
+inline TeensySPIDMA *TeensySPIDMA::instance = nullptr;
 
 // DMALEDController (double-buffered controller) lives in its own header so its
 // overrun-drop / double-buffer / watchdog orchestration is host-testable against

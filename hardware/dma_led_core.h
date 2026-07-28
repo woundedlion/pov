@@ -46,7 +46,7 @@ constexpr std::size_t transfer_len(std::size_t base_size,
  * @param watchdog_us Watchdog bound in µs.
  * @return true once now_us - start_us reaches watchdog_us.
  * @details Uses unsigned wrap-safe subtraction (now_us - start_us), matching the
- *          device's `micros() - transferStartUs_`: the elapsed delta stays
+ *          device's `micros() - transferStartUs`: the elapsed delta stays
  *          correct across an unsigned-long micros() rollover.
  */
 constexpr bool transfer_stale(unsigned long start_us, unsigned long now_us,
