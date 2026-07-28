@@ -307,10 +307,9 @@ public:
   struct ParamDef {
     const char *name; /**< Parameter name. */
     std::variant<float *, bool *>
-        target;             /**< Type-safe pointer to the variable. */
-    float min = 0;          /**< Minimum value (for floats). */
-    float max = 1;          /**< Maximum value (for floats). */
-    float defaultValue = 0; /**< Default value. */
+        target;    /**< Type-safe pointer to the variable. */
+    float min = 0; /**< Minimum value (for floats). */
+    float max = 1; /**< Maximum value (for floats). */
     bool animated =
         false; /**< True if an animation drives this member; the GUI
                                surfaces these as auto-pausing sliders. */
@@ -537,18 +536,17 @@ protected:
              "register_param: duplicate parameter name");
     // An inverted range feeds hs::clamp() lo > hi (implementation-defined).
     HS_CHECK(min <= max, "register_param: min must be <= max");
-    // A default *ptr outside [min,max] is captured verbatim but would snap on the
-    // first GUI edit (every updateParameter clamps).
+    // A starting *ptr outside [min,max] would snap on the first GUI edit (every
+    // updateParameter clamps).
     HS_CHECK(*ptr >= min && *ptr <= max,
              "register_param: default *ptr outside [min,max]");
-    parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
+    parameters.elements[parameters.count++] = {name, ptr, min, max};
   }
 
   /**
    * @brief Registers an enumerated parameter, rendered by the GUI as a dropdown.
    * @param name The name to expose.
-   * @param ptr Pointer to the float variable holding the selected option index;
-   *   its current value becomes the GUI default.
+   * @param ptr Pointer to the float variable holding the selected option index.
    * @param options Array of option labels indexed by the target's value; must
    *   outlive the effect (string literals).
    * @param option_count Number of labels; the value range is [0, option_count-1].
@@ -565,9 +563,8 @@ protected:
   /**
    * @brief Registers a boolean parameter.
    * @param name The name to expose.
-   * @param ptr Pointer to the bool variable; its current value becomes the GUI
-   *   default. Registration never mutates the target — symmetric with the float
-   *   overload, which likewise captures `*ptr` and leaves it untouched.
+   * @param ptr Pointer to the bool variable; registration never mutates the
+   *   target, symmetric with the float overload.
    */
   HS_COLD_MEMBER void register_param(const char *name, bool *ptr) {
     HS_CHECK(parameters.count < parameters.elements.size(),
@@ -575,8 +572,7 @@ protected:
     // Duplicate name guard, see the float overload.
     HS_CHECK(parameters.find(name) == nullptr,
              "register_param: duplicate parameter name");
-    parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f,
-                                               (float)*ptr};
+    parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f};
   }
 
   /**
