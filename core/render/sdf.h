@@ -9,6 +9,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <new>
 #include <numeric>
 #include <cfloat>
 #include <span>
@@ -17,6 +18,7 @@
 #include "render/shading.h"
 #include "engine/constants.h"
 #include "engine/concepts.h"
+#include "engine/memory.h"
 #include "engine/static_circular_buffer.h"
 #include "engine/util.h"
 
@@ -72,6 +74,21 @@ using IntervalBuffer =
  *  INTERVAL_SPAN_CAP spans, so the union accumulator is sized to hold both. */
 using MergedIntervalBuffer =
     StaticCircularBuffer<std::pair<float, float>, 2 * INTERVAL_SPAN_CAP>;
+
+/**
+ * @brief Places a per-row CSG span buffer in a guarded scratch arena.
+ * @tparam Buf Buffer type to construct.
+ * @param scratch Open scope over the arena; its rewind reclaims the buffer.
+ * @return Reference to the fresh buffer, dead once `scratch` exits.
+ * @details The combinators run under scan_region on the deepest render chain,
+ * where the device DTCM stack is tight, so their spans go to the arena for the
+ * same reason scan_region's do. Arena scopes are LIFO, so a nested combinator's
+ * buffers rewind above its parent's.
+ */
+template <typename Buf> inline Buf &scratch_spans(ScratchScope &scratch) {
+  Arena &arena = scratch.get_arena();
+  return *new (arena.allocate(sizeof(Buf), alignof(Buf))) Buf();
+}
 
 // Forward-declared so the span-count trait below can pattern-match the binary
 // CSG ops (defined later in this header) before their full definitions.
@@ -1193,7 +1210,8 @@ template <typename A, typename B> struct Union {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    MergedIntervalBuffer merged;
+    ScratchScope scratch(scratch_arena_b);
+    MergedIntervalBuffer &merged = scratch_spans<MergedIntervalBuffer>(scratch);
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
@@ -1326,7 +1344,8 @@ template <typename A, typename B> struct SmoothUnion {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
-    MergedIntervalBuffer merged;
+    ScratchScope scratch(scratch_arena_b);
+    MergedIntervalBuffer &merged = scratch_spans<MergedIntervalBuffer>(scratch);
     // Great-circle weld radius k spans k/sin(phi) columns of azimuth; the
     // equatorial conversion under-covers toward the poles. Clamp to full width
     // where the latitude factor diverges.
@@ -1457,8 +1476,9 @@ template <typename A, typename B> struct Subtract {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    IntervalBuffer intervals_a;
-    IntervalBuffer intervals_b;
+    ScratchScope scratch(scratch_arena_b);
+    IntervalBuffer &intervals_a = scratch_spans<IntervalBuffer>(scratch);
+    IntervalBuffer &intervals_b = scratch_spans<IntervalBuffer>(scratch);
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
@@ -1485,7 +1505,9 @@ template <typename A, typename B> struct Subtract {
       constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
       static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP,
                     "post-seam-split span count exceeds norm buffer capacity");
-      StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_a;
+      using NormBuffer =
+          StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP>;
+      NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
       normalize_intervals_to_range<W>(intervals_a, norm_a);
       sort_intervals_by_start(norm_a);
       for (size_t i = 0; i < norm_a.size(); ++i)
@@ -1528,8 +1550,10 @@ template <typename A, typename B> struct Subtract {
     static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
                       2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,
                   "post-seam-split span count exceeds norm buffer capacity");
-    StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_a;
-    StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_b;
+    using NormBuffer =
+        StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP>;
+    NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
+    NormBuffer &norm_b = scratch_spans<NormBuffer>(scratch);
     normalize_intervals_to_range<W>(intervals_a, norm_a);
     normalize_intervals_to_range<W>(intervals_b, norm_b);
 
@@ -1672,8 +1696,9 @@ template <typename A, typename B> struct Intersection {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    IntervalBuffer intervals_a;
-    IntervalBuffer intervals_b;
+    ScratchScope scratch(scratch_arena_b);
+    IntervalBuffer &intervals_a = scratch_spans<IntervalBuffer>(scratch);
+    IntervalBuffer &intervals_b = scratch_spans<IntervalBuffer>(scratch);
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
@@ -1717,8 +1742,10 @@ template <typename A, typename B> struct Intersection {
     static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
                       2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,
                   "post-seam-split span count exceeds norm buffer capacity");
-    StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_a;
-    StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_b;
+    using NormBuffer =
+        StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP>;
+    NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
+    NormBuffer &norm_b = scratch_spans<NormBuffer>(scratch);
     normalize_intervals_to_range<W>(intervals_a, norm_a);
     normalize_intervals_to_range<W>(intervals_b, norm_b);
 
