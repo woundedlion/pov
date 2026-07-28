@@ -65,7 +65,7 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
   shape.template distance<ComputeUVs>(p, result_scratch);
 
   float d = result_scratch.dist;
-  float pixel_width = 2.0f * PI_F / W;
+  constexpr float pixel_width = 2.0f * PI_F / W;
   constexpr bool solid = std::remove_cvref_t<decltype(shape)>::is_solid;
   float threshold = solid ? pixel_width : 0.0f;
 
