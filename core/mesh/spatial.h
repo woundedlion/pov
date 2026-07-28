@@ -150,9 +150,13 @@ public:
 
     search_k(root_index, target, offer_candidate, get_worst_dist);
 
-    std::sort(
-        result.begin(), result.end(),
-        [](const Neighbor &a, const Neighbor &b) { return a.d_sq < b.d_sq; });
+    // Total order (distance, then source index): std::sort is unstable, so
+    // equidistant neighbors would otherwise come back in an unspecified order.
+    std::sort(result.begin(), result.end(),
+              [](const Neighbor &a, const Neighbor &b) {
+                return a.d_sq != b.d_sq ? a.d_sq < b.d_sq
+                                        : a.original_index < b.original_index;
+              });
     return result;
   }
 
@@ -182,6 +186,9 @@ private:
     auto *start = indices;
     auto *end = indices + count;
 
+    // Total order (axis value, then source index): axis ties are the norm for
+    // polyhedron vertices, and an axis-only comparator leaves the tree shape up
+    // to the standard library's partition order.
     std::nth_element(start, start + mid, end, [&](int a, int b) {
       float va = (axis == 0)   ? points[a].x
                  : (axis == 1) ? points[a].y
@@ -189,7 +196,7 @@ private:
       float vb = (axis == 0)   ? points[b].x
                  : (axis == 1) ? points[b].y
                                : points[b].z;
-      return va < vb;
+      return va != vb ? va < vb : a < b;
     });
 
     int median_idx = indices[mid];
