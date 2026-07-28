@@ -46,7 +46,7 @@ public:
 
     baked_palette.bake(persistent_arena, palette);
 
-    timeline.add(0, Animation::RandomWalk<W>(camera, normal, noise));
+    timeline.add(0, Animation::RandomWalk<W>(camera, Y_AXIS, noise));
 
     // spin_phase / palette_phase are effect-owned accumulators wrapped to [0,1)
     // each step, so the trig argument never grows. spin_phase is scaled to
@@ -175,7 +175,6 @@ private:
   }
 
   FastNoiseLite noise;
-  Vector normal = Y_AXIS;
   Orientation<> camera;
   float spin_phase = 0.0f;    // torus tumble phase, [0,1) -> [0,2pi) radians
   float palette_phase = 0.0f; // baked-palette scroll offset, [0,1) cycles
