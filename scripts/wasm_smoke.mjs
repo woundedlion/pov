@@ -67,6 +67,13 @@ async function main() {
   let failures = 0;
   const fail = (msg) => { console.error(`  FAIL: ${msg}`); failures++; };
 
+  // Run-wide: at least one pixel somewhere in the sweep must be non-zero. A
+  // single effect legitimately renders black, but an all-zero sweep means the
+  // draw path or the framebuffer view is dead — which the length check below
+  // cannot see. Scanning stops once the flag is set, so this costs one partial
+  // buffer walk for the whole run.
+  let litPixel = false;
+
   // Enumerated from the module (generated from HS_WASM_RESOLUTIONS) so a new
   // resolution gets coverage without editing this file.
   const RESOLUTIONS = Module.HolosphereEngine.getSupportedResolutions();
@@ -108,6 +115,11 @@ async function main() {
         if (px.length !== expected) {
           fail(`${name}: getPixels() length ${px.length}, expected ${expected} ` +
             `(detached view or wrong stride)`);
+        }
+        if (!litPixel) {
+          for (let i = 0; i < px.length; i++) {
+            if (px[i] !== 0) { litPixel = true; break; }
+          }
         }
 
         // Assert no arena was overrun rendering this effect; the module reports
@@ -187,6 +199,11 @@ async function main() {
           }
         }
       }
+    }
+
+    if (!litPixel) {
+      fail('every effect at every resolution produced an all-zero framebuffer — ' +
+        'the render path or getPixels() is not writing pixels');
     }
 
     // ── Embind write seam: setResolution / setClip / setParameter ─────────────
