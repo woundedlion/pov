@@ -1749,6 +1749,27 @@ static_assert(all_recipe_seeds_in_range(),
               "it without a runtime bound");
 
 /**
+ * @brief Tests whether every entry's Category matches the registry it sits in.
+ * @return True when islamic_registry is uniformly Complex and the other two are
+ * uniformly Simple.
+ */
+inline constexpr bool all_categories_match_registry() {
+  for (const Entry &entry : simple_registry)
+    if (entry.category != Category::Simple)
+      return false;
+  for (const Entry &entry : catalan_registry)
+    if (entry.category != Category::Simple)
+      return false;
+  for (const Entry &entry : islamic_registry)
+    if (entry.category != Category::Complex)
+      return false;
+  return true;
+}
+static_assert(all_categories_match_registry(),
+              "Category must be Complex on islamic_registry and Simple "
+              "everywhere else");
+
+/**
  * @brief Finds a registry entry by name across all registries.
  * @param name Candidate solid name.
  * @return Pointer to the matching entry, or nullptr when no name matches.
