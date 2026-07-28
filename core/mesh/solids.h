@@ -196,8 +196,9 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
 /**
  * @brief Fluent builder for chaining Conway operators with automatic arena
  * swapping.
- * @details Each method runs `mesh_ = op(mesh_, a_, b_)` then swaps a_/b_ (one
- * swap per call, PRIMITIVE polarity). Even-length composed ops
+ * @details Each method runs `mesh = op(mesh, output_arena, scratch_arena)` then
+ * swaps the two arenas (one swap per call, PRIMITIVE polarity). Even-length
+ * composed ops
  * (gyro/needle/zip/bevel) return in `temp` (see COMPOSITION POLARITY in
  * conway.h), shifting the swap parity for one step; odd-length ones (meta)
  * behave like a primitive.
@@ -208,9 +209,9 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
  * arena never rewinds below a live allocation.
  */
 class SolidBuilder {
-  PolyMesh mesh_; /**< Mesh being built; updated in place by each operator. */
-  Arena *a_;      /**< Current output arena (swapped with b_ per op). */
-  Arena *b_;      /**< Current scratch arena (swapped with a_ per op). */
+  PolyMesh mesh; /**< Mesh being built; updated in place by each operator. */
+  Arena *output_arena;  /**< Current output arena (swapped per op). */
+  Arena *scratch_arena; /**< Current scratch arena (swapped per op). */
 
 public:
   /**
@@ -220,15 +221,15 @@ public:
    * @param b Initial scratch arena.
    */
   HS_COLD_MEMBER SolidBuilder(PolyMesh seed, Arena &a, Arena &b)
-      : mesh_(std::move(seed)), a_(&a), b_(&b) {}
+      : mesh(std::move(seed)), output_arena(&a), scratch_arena(&b) {}
 
   /**
    * @brief Applies the dual operator (faces become vertices and vice versa).
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &dual() {
-    mesh_ = MeshOps::dual(mesh_, *a_, *b_);
-    std::swap(a_, b_);
+    mesh = MeshOps::dual(mesh, *output_arena, *scratch_arena);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -236,8 +237,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   HS_COLD_MEMBER SolidBuilder &kis() {
-    mesh_ = MeshOps::kis(mesh_, *a_, *b_);
-    std::swap(a_, b_);
+    mesh = MeshOps::kis(mesh, *output_arena, *scratch_arena);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -245,8 +246,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &ambo() {
-    mesh_ = MeshOps::ambo(mesh_, *a_, *b_);
-    std::swap(a_, b_);
+    mesh = MeshOps::ambo(mesh, *output_arena, *scratch_arena);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -259,8 +260,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &truncate(float t = 0.25f) {
-    mesh_ = MeshOps::truncate(mesh_, *a_, *b_, t);
-    std::swap(a_, b_);
+    mesh = MeshOps::truncate(mesh, *output_arena, *scratch_arena, t);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -270,8 +271,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &expand(float t = MeshOps::EXPAND_DEFAULT_T) {
-    mesh_ = MeshOps::expand(mesh_, *a_, *b_, t);
-    std::swap(a_, b_);
+    mesh = MeshOps::expand(mesh, *output_arena, *scratch_arena, t);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -280,8 +281,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &chamfer(float t = 0.5f) {
-    mesh_ = MeshOps::chamfer(mesh_, *a_, *b_, t);
-    std::swap(a_, b_);
+    mesh = MeshOps::chamfer(mesh, *output_arena, *scratch_arena, t);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -291,8 +292,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &snub(float t = 0.5f, float twist = 0.0f) {
-    mesh_ = MeshOps::snub(mesh_, *a_, *b_, t, twist);
-    std::swap(a_, b_);
+    mesh = MeshOps::snub(mesh, *output_arena, *scratch_arena, t, twist);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -301,8 +302,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &gyro() {
-    mesh_ = MeshOps::gyro(mesh_, *a_, *b_);
-    std::swap(a_, b_);
+    mesh = MeshOps::gyro(mesh, *output_arena, *scratch_arena);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -311,8 +312,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &relax(int iterations = 8) {
-    mesh_ = MeshOps::relax(mesh_, *a_, *b_, iterations);
-    std::swap(a_, b_);
+    mesh = MeshOps::relax(mesh, *output_arena, *scratch_arena, iterations);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -328,11 +329,11 @@ public:
    */
   HS_COLD_MEMBER SolidBuilder &relax_baked(const MeshOps::RelaxBake &bake) {
 #if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
-    HS_CHECK(MeshOps::relax_topology_hash(mesh_) == bake.topology_hash,
+    HS_CHECK(MeshOps::relax_topology_hash(mesh) == bake.topology_hash,
              "relax bake: source topology differs");
-    mesh_ = MeshOps::relax(mesh_, *a_, *b_, bake.iterations);
+    mesh = MeshOps::relax(mesh, *output_arena, *scratch_arena, bake.iterations);
     uint32_t output_hash = MeshOps::FNV1A_BASIS;
-    for (const Vector &v : mesh_.vertices) {
+    for (const Vector &v : mesh.vertices) {
       output_hash =
           MeshOps::fnv1a_step(output_hash, std::bit_cast<uint32_t>(v.x));
       output_hash =
@@ -341,41 +342,41 @@ public:
           MeshOps::fnv1a_step(output_hash, std::bit_cast<uint32_t>(v.z));
     }
 #if defined(HS_RELAX_BAKE_VERIFY)
-    HS_CHECK(mesh_.vertices.size() == bake.vertex_count &&
-                 mesh_.face_counts.size() == bake.face_count &&
-                 mesh_.faces.size() == bake.index_count,
+    HS_CHECK(mesh.vertices.size() == bake.vertex_count &&
+                 mesh.face_counts.size() == bake.face_count &&
+                 mesh.faces.size() == bake.index_count,
              "relax bake verify: dimensions differ");
     HS_CHECK(output_hash == bake.output_hash,
              "relax bake verify: output differs");
-    for (size_t i = 0; i < mesh_.vertices.size(); ++i) {
-      HS_CHECK(std::bit_cast<uint32_t>(mesh_.vertices[i].x) ==
+    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+      HS_CHECK(std::bit_cast<uint32_t>(mesh.vertices[i].x) ==
                        bake.vertex_bits[3 * i] &&
-                   std::bit_cast<uint32_t>(mesh_.vertices[i].y) ==
+                   std::bit_cast<uint32_t>(mesh.vertices[i].y) ==
                        bake.vertex_bits[3 * i + 1] &&
-                   std::bit_cast<uint32_t>(mesh_.vertices[i].z) ==
+                   std::bit_cast<uint32_t>(mesh.vertices[i].z) ==
                        bake.vertex_bits[3 * i + 2],
                "relax bake verify: vertex differs");
     }
 #else // HS_RELAX_BAKE_EXTRACT: emit the payload for the generated header.
     hs::log("RELAX_BAKE_BEGIN %s %d %lu %lu %lu %08lx %08lx", bake.name,
             static_cast<int>(bake.iterations),
-            static_cast<unsigned long>(mesh_.vertices.size()),
-            static_cast<unsigned long>(mesh_.face_counts.size()),
-            static_cast<unsigned long>(mesh_.faces.size()),
+            static_cast<unsigned long>(mesh.vertices.size()),
+            static_cast<unsigned long>(mesh.face_counts.size()),
+            static_cast<unsigned long>(mesh.faces.size()),
             static_cast<unsigned long>(bake.topology_hash),
             static_cast<unsigned long>(output_hash));
-    for (const Vector &v : mesh_.vertices)
+    for (const Vector &v : mesh.vertices)
       hs::log("RELAX_BAKE_DATA %08lx %08lx %08lx",
               static_cast<unsigned long>(std::bit_cast<uint32_t>(v.x)),
               static_cast<unsigned long>(std::bit_cast<uint32_t>(v.y)),
               static_cast<unsigned long>(std::bit_cast<uint32_t>(v.z)));
     hs::log("RELAX_BAKE_END");
 #endif
-    std::swap(a_, b_);
+    std::swap(output_arena, scratch_arena);
     return *this;
 #else
-    mesh_ = MeshOps::relax_baked(mesh_, *a_, bake);
-    std::swap(a_, b_);
+    mesh = MeshOps::relax_baked(mesh, *output_arena, bake);
+    std::swap(output_arena, scratch_arena);
     return *this;
 #endif
   }
@@ -384,8 +385,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &meta() {
-    mesh_ = MeshOps::meta(mesh_, *a_, *b_);
-    std::swap(a_, b_);
+    mesh = MeshOps::meta(mesh, *output_arena, *scratch_arena);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -393,8 +394,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &needle() {
-    mesh_ = MeshOps::needle(mesh_, *a_, *b_);
-    std::swap(a_, b_);
+    mesh = MeshOps::needle(mesh, *output_arena, *scratch_arena);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -402,8 +403,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &zip() {
-    mesh_ = MeshOps::zip(mesh_, *a_, *b_);
-    std::swap(a_, b_);
+    mesh = MeshOps::zip(mesh, *output_arena, *scratch_arena);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -412,8 +413,8 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &bevel(float t = 0.25f) {
-    mesh_ = MeshOps::bevel(mesh_, *a_, *b_, t);
-    std::swap(a_, b_);
+    mesh = MeshOps::bevel(mesh, *output_arena, *scratch_arena, t);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
   /**
@@ -422,10 +423,10 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &hankin(float angle) {
-    // *b_ may hold mesh_ itself; hankin's ScratchScope marks above the input,
-    // so compiling the topology into it leaves the input intact.
-    mesh_ = MeshOps::hankin(mesh_, *a_, *b_, angle);
-    std::swap(a_, b_);
+    // *scratch_arena may hold mesh itself; hankin's ScratchScope marks above
+    // the input, so compiling the topology into it leaves the input intact.
+    mesh = MeshOps::hankin(mesh, *output_arena, *scratch_arena, angle);
+    std::swap(output_arena, scratch_arena);
     return *this;
   }
 
@@ -433,7 +434,7 @@ public:
    * @brief Finalizes the chain and yields the built mesh.
    * @return The accumulated PolyMesh, moved out of the builder.
    */
-  HS_COLD_MEMBER PolyMesh build() { return std::move(mesh_); }
+  HS_COLD_MEMBER PolyMesh build() { return std::move(mesh); }
 };
 
 #include "mesh/relax_bakes_generated.h"

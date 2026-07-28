@@ -865,13 +865,14 @@ struct MobiusParams {
   constexpr MobiusParams() : a(1, 0), b(0, 0), c(0, 0), d(1, 0) {}
   /**
    * @brief Constructs from four Complex coefficients.
-   * @param a_ Coefficient a.
-   * @param b_ Coefficient b.
-   * @param c_ Coefficient c.
-   * @param d_ Coefficient d.
+   * @param coeff_a Coefficient a.
+   * @param coeff_b Coefficient b.
+   * @param coeff_c Coefficient c.
+   * @param coeff_d Coefficient d.
    */
-  constexpr MobiusParams(Complex a_, Complex b_, Complex c_, Complex d_)
-      : a(a_), b(b_), c(c_), d(d_) {}
+  constexpr MobiusParams(Complex coeff_a, Complex coeff_b, Complex coeff_c,
+                         Complex coeff_d)
+      : a(coeff_a), b(coeff_b), c(coeff_c), d(coeff_d) {}
   /**
    * @brief Constructs from eight floats (real/imaginary pairs per coefficient).
    * @param ar Real part of a.

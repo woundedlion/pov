@@ -39,14 +39,14 @@ struct HankinWalkProbe {
    * @brief Current graph node (simple-registry index).
    */
   template <int W, int H> static int node(const HankinSolids<W, H> &fx) {
-    return fx.node_;
+    return fx.node;
   }
   /**
    * @brief Platonic solid the held seed mesh represents.
    */
   template <int W, int H>
   static int seed_identity(const HankinSolids<W, H> &fx) {
-    return fx.seed_identity_;
+    return fx.seed_identity;
   }
   /**
    * @brief In-flight leg's arrival data, or nullptr between legs.
@@ -54,21 +54,21 @@ struct HankinWalkProbe {
   template <int W, int H>
   static const Animation::OpLeg::Landing *
   pending_landing(const HankinSolids<W, H> &fx) {
-    return fx.pending_landing_;
+    return fx.pending_landing;
   }
   /**
    * @brief Face count of the current node's base mesh.
    */
   template <int W, int H>
   static size_t node_faces(const HankinSolids<W, H> &fx) {
-    return fx.node_faces_;
+    return fx.node_faces;
   }
   /**
    * @brief Displayed palette per node base face (emission order).
    */
   template <int W, int H>
   static const uint8_t *node_face_palette(const HankinSolids<W, H> &fx) {
-    return fx.node_face_palette_;
+    return fx.node_face_palette;
   }
   /**
    * @brief Per star face, the palette of the rosettes hosted inside it — the
@@ -76,7 +76,7 @@ struct HankinWalkProbe {
    */
   template <int W, int H>
   static const uint8_t *star_rim_palette(const HankinSolids<W, H> &fx) {
-    return fx.star_rim_palette_;
+    return fx.star_rim_palette;
   }
   /**
    * @brief Live class-slot -> palette assignment the hankin cycle draws with.
@@ -84,7 +84,7 @@ struct HankinWalkProbe {
   template <int W, int H>
   static const std::array<int, HankinSolids<W, H>::NUM_PALETTES> &
   palette_idx(const HankinSolids<W, H> &fx) {
-    return fx.palette_idx_;
+    return fx.palette_idx;
   }
   /**
    * @brief Per-slot crossfade origin palette for the current hankin cycle.
@@ -92,21 +92,21 @@ struct HankinWalkProbe {
   template <int W, int H>
   static const std::array<int, HankinSolids<W, H>::NUM_PALETTES> &
   strap_from(const HankinSolids<W, H> &fx) {
-    return fx.strap_from_;
+    return fx.strap_from;
   }
   /**
    * @brief Bitmask of slots crossfading over the current opening window.
    */
   template <int W, int H>
   static uint8_t strap_blend_mask(const HankinSolids<W, H> &fx) {
-    return fx.strap_blend_mask_;
+    return fx.strap_blend_mask;
   }
   /**
    * @brief Sprite draws since the active hankin cycle's opening bookend.
    */
   template <int W, int H>
   static int hankin_cycle_frame(const HankinSolids<W, H> &fx) {
-    return fx.hankin_cycle_frame_;
+    return fx.hankin_cycle_frame;
   }
   /**
    * @brief Strap-crossfade window length, in sprite frames.
@@ -138,14 +138,14 @@ struct HankinWalkProbe {
    */
   template <int W, int H>
   static const MeshState &mesh(const HankinSolids<W, H> &fx) {
-    return fx.mesh_;
+    return fx.hankin_mesh;
   }
   /**
    * @brief Baked palette bank the effect shades with.
    */
   template <int W, int H>
   static const MeshPaletteBank &palette_bank(const HankinSolids<W, H> &fx) {
-    return fx.palette_bank_;
+    return fx.palette_bank;
   }
   /**
    * @brief Runs the production per-slot LUT resolution at a cycle frame.
@@ -174,14 +174,14 @@ struct HankinWalkProbe {
                               float angle, int cycle_frame, float strap_fade,
                               float close_blend, float terminal_fade,
                               float star_close, Arena &scratch) {
-    MeshOps::update_hankin(fx.compiled_hankin, fx.mesh_, persistent_arena,
+    MeshOps::update_hankin(fx.compiled_hankin, fx.hankin_mesh, persistent_arena,
                            angle);
     BakedPalette blended[HankinSolids<W, H>::NUM_PALETTES];
     const BakedPalette *star_by_slot[HankinSolids<W, H>::NUM_PALETTES];
     const BakedPalette *strap_by_slot[HankinSolids<W, H>::NUM_PALETTES];
     fx.resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                 strap_by_slot, scratch);
-    fx.draw_mesh(canvas, fx.mesh_, fx.mesh_.topology, star_by_slot,
+    fx.draw_mesh(canvas, fx.hankin_mesh, fx.hankin_mesh.topology, star_by_slot,
                  strap_by_slot, 1.0f, strap_fade, close_blend, terminal_fade,
                  star_close);
   }

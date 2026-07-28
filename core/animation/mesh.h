@@ -286,9 +286,9 @@ public:
              "OpLeg: settle frames on a non-settling edge");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
 
     MeshOps::clone(seed, tr.seed, arena);
     tr.seed_ref = &tr.seed;
@@ -354,9 +354,9 @@ public:
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
 
     // Borrowed seed: the swept op reads the caller's live mesh each frame
     // instead of a leg-local clone, dropping one full copy of the (tripled)
@@ -435,9 +435,9 @@ public:
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
 
     // No seed clone: the compiled hankin topology carries the base vertices
     // and every per-frame read goes through it, so the seed is needed only
@@ -549,9 +549,9 @@ public:
              "OpLeg: relax leg needs a positive iteration count");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
 
     // relax_at slerps out of the seed vertices every frame, so the seed stays
     // in the leg arena; only its per-face class ids are dead here.
@@ -623,9 +623,9 @@ public:
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
 
     tr.kind = LegKind::MEDIAL_SLERP;
     tr.sweep_frames = sweep_frames;
@@ -721,9 +721,9 @@ public:
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
 
     tr.kind = LegKind::MEDIAL_SLERP;
     tr.sweep_frames = sweep_frames;
@@ -798,9 +798,9 @@ public:
     HS_CHECK(gate_frames >= 1, "OpLeg needs a positive gate length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
 
     MeshOps::clone(seed, tr.seed, arena);
     tr.seed_faces = seed.face_counts.size();
@@ -822,7 +822,7 @@ public:
    */
   HS_COLD_MEMBER void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
     const int frame = static_cast<int>(
         std::min<uint32_t>(t, static_cast<uint32_t>(duration)));
 
@@ -896,7 +896,7 @@ public:
    * @brief Arrival data for the effect's completion handler.
    * @return Arena-backed Landing; stable until the leg arena is compacted.
    */
-  const Landing &landing() const { return buf_->landing; }
+  const Landing &landing() const { return buf->landing; }
 
   /**
    * @brief Rebuilds a hankin leg's arrival mesh from its baked topology.
@@ -930,8 +930,8 @@ public:
    * [0, 1] defaults keep the single-leg behaviour bit-identical.
    */
   void set_blend_range(float lo, float hi) {
-    buf_->w_lo = lo;
-    buf_->w_hi = hi;
+    buf->w_lo = lo;
+    buf->w_hi = hi;
   }
 
   /**
@@ -1059,14 +1059,15 @@ private:
    * @param settle Whether the leg settles (relax-slerps) at its arrival end.
    * @param jitterbug Whether the leg is the jitterbug bridge (vertex-orbit
    * faces survive into the node mesh).
-   * @details Requires tr.op, tr.reverse, tr.t_/twist_ endpoints and
-   * tr.settle_frames already set by the calling constructor.
+   * @details Requires tr.op, tr.reverse, the tr.t_start/t_end and
+   * tr.twist_start/twist_end endpoints and tr.settle_frames already set by the
+   * calling constructor.
    */
   HS_COLD_MEMBER void init_conway(const PaletteHandoff &handoff,
                                   const BookendClasses &bookend, Arena &arena,
                                   bool settle, bool jitterbug,
                                   bool bridge_provenance) {
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
     const PolyMesh &seed = *tr.seed_ref;
@@ -1190,7 +1191,7 @@ private:
    */
   HS_COLD_MEMBER void init_gated(const PaletteHandoff &handoff,
                                  const BookendClasses &bookend, Arena &arena) {
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
 
@@ -1270,7 +1271,7 @@ private:
    * swap and opening side [gate + 1, 2 * gate + 1].
    */
   HS_COLD_MEMBER void step_gated(Canvas &canvas, int frame) {
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
     const float gate = static_cast<float>(tr.sweep_frames);
     const bool seed_side = static_cast<float>(frame - 1) < gate;
 
@@ -1442,7 +1443,7 @@ private:
   HS_COLD_MEMBER void finish_frame(Canvas &canvas, const PolyMesh &swept,
                                    float w, float gain = 1.0f,
                                    bool seed_side = false) {
-    Transients &tr = *buf_;
+    Transients &tr = *buf;
     const ArenaVector<int> &topo = seed_side ? tr.seed_topo : tr.topo;
     const ArenaVector<uint8_t> &face_ramp =
         seed_side ? tr.seed_face_ramp : tr.face_ramp;
@@ -2193,7 +2194,7 @@ private:
     tr.landing.blend_pairs = tr.num_ramps;
   }
 
-  Transients *buf_;    /**< Pointer to arena-allocated leg state. */
+  Transients *buf;     /**< Pointer to arena-allocated leg state. */
   EasingFn easing_fn;  /**< Easing applied to the sweep parameter. */
   MorphDrawFn draw_fn; /**< Per-frame draw callback. */
 };
@@ -2458,7 +2459,7 @@ struct TerminatorSweep : Base {
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     int fade =
         schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
-    inv_window_ = 1.0f / static_cast<float>(std::max(fade, 1));
+    inv_window = 1.0f / static_cast<float>(std::max(fade, 1));
     return duration;
   }
   void retarget(const Vector &v) {
@@ -2475,8 +2476,8 @@ struct TerminatorSweep : Base {
    * mid-transition slider move takes effect on the next frame. */
   float face_fade_frac(int i) const {
     float t = hash01(static_cast<uint32_t>(i), fade_seed);
-    float lo = std::min(1.0f, fade_frames_min * inv_window_);
-    float hi = std::min(1.0f, fade_frames_max * inv_window_);
+    float lo = std::min(1.0f, fade_frames_min * inv_window);
+    float hi = std::min(1.0f, fade_frames_max * inv_window);
     return lo + (hi - lo) * t;
   }
   float face_phase(float phase, float offset, float fade_frac) const {
@@ -2492,7 +2493,7 @@ private:
   /** @brief Reciprocal of the scheduled fade window in frames; set by
    * schedule(). The initializer only covers a query before the first
    * schedule(). */
-  float inv_window_ = 1.0f / 64.0f;
+  float inv_window = 1.0f / 64.0f;
 };
 
 /**
@@ -2698,13 +2699,13 @@ public:
    * @brief Gets the currently visible (front) mesh.
    * @return Const reference to the front MeshState slot.
    */
-  const MeshState &current() const { return slots_[front_]; }
+  const MeshState &current() const { return slots[front]; }
 
   /**
    * @brief Gets the currently visible (front) mesh (mutable).
    * @return Mutable reference to the front MeshState slot.
    */
-  MeshState &current() { return slots_[front_]; }
+  MeshState &current() { return slots[front]; }
 
   /**
    * @brief Direct slot access by index (for effects that need both).
@@ -2713,7 +2714,7 @@ public:
    */
   const MeshState &slot(int i) const {
     HS_CHECK(i == 0 || i == 1, "MeshCarousel slot index out of range");
-    return slots_[i];
+    return slots[i];
   }
 
   /**
@@ -2723,14 +2724,14 @@ public:
    */
   MeshState &slot(int i) {
     HS_CHECK(i == 0 || i == 1, "MeshCarousel slot index out of range");
-    return slots_[i];
+    return slots[i];
   }
 
   /**
    * @brief Gets the front slot index (for capture in lambdas).
    * @return The index (0 or 1) of the front slot.
    */
-  int front_index() const { return front_; }
+  int front_index() const { return front; }
 
   /**
    * @brief Manually sets the front index (for effects that manage transitions
@@ -2739,7 +2740,7 @@ public:
    */
   void set_front(int idx) {
     HS_CHECK(idx == 0 || idx == 1, "MeshCarousel front index out of range");
-    front_ = idx;
+    front = idx;
   }
 
   /**
@@ -2754,16 +2755,17 @@ public:
    */
   int schedule_segue(Timeline &timeline, SpriteFn draw_fn, int duration,
                      int window) {
-    return segue_.schedule(timeline, std::move(draw_fn), duration, window);
+    return segue_policy.schedule(timeline, std::move(draw_fn), duration,
+                                 window);
   }
 
   /**
    * @brief The carousel's segue policy instance (holds per-transition state
    * such as a sweep axis or wave origin).
    */
-  SegueT &segue() { return segue_; }
+  SegueT &segue() { return segue_policy; }
   /** @brief Const view of the segue policy instance. */
-  const SegueT &segue() const { return segue_; }
+  const SegueT &segue() const { return segue_policy; }
 
   /**
    * @brief Compacts the persistent arena, reclaiming fragmented space.
@@ -2773,8 +2775,8 @@ public:
   void compact() {
     // Both evacuations share scratch_arena_a, which must hold both populated
     // slots.
-    Persist<MeshState> p0(slots_[0], scratch_arena_a, persistent_arena);
-    Persist<MeshState> p1(slots_[1], scratch_arena_a, persistent_arena);
+    Persist<MeshState> p0(slots[0], scratch_arena_a, persistent_arena);
+    Persist<MeshState> p1(slots[1], scratch_arena_a, persistent_arena);
     persistent_arena.reset();
   }
 
@@ -2791,9 +2793,9 @@ public:
    */
   template <typename AfterReset>
   void compact_keep_front(AfterReset after_reset) {
-    int back = 1 - front_;
-    slots_[back] = MeshState();
-    Persist<MeshState> p(slots_[front_], scratch_arena_b, persistent_arena);
+    int back = 1 - front;
+    slots[back] = MeshState();
+    Persist<MeshState> p(slots[front], scratch_arena_b, persistent_arena);
     persistent_arena.reset();
     after_reset(persistent_arena);
   }
@@ -2808,14 +2810,15 @@ public:
    * draw reclaim a whole MeshState over compact_keep_front.
    */
   template <typename AfterReset> void compact_drop_all(AfterReset after_reset) {
-    slots_[0] = MeshState();
-    slots_[1] = MeshState();
+    slots[0] = MeshState();
+    slots[1] = MeshState();
     persistent_arena.reset();
     after_reset(persistent_arena);
   }
 
 private:
-  MeshState slots_[2]; /**< Front/back double-buffered mesh slots. */
-  int front_ = 0;      /**< Index (0 or 1) of the visible front slot. */
-  SegueT segue_; /**< Segue policy instance; per-transition state lives here. */
+  MeshState slots[2]; /**< Front/back double-buffered mesh slots. */
+  int front = 0;      /**< Index (0 or 1) of the visible front slot. */
+  /** Segue policy instance; per-transition state lives here. */
+  SegueT segue_policy;
 };
