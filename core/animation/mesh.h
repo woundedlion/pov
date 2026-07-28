@@ -59,9 +59,9 @@ public:
    * medial constructor. */
   struct ReconcileTag {};
 
-  /** Hankin-angle floor (the T_EPS analog): at angle -> 0 every star point
-   * collapses onto its corner via the p_corner fallback, so the clamp keeps
-   * births positive-area. */
+  /** Floor on a hankin leg's arrival contact angle (the T_EPS analog): the
+   * arrival angle divides the opening angle into the leg's opening slerp
+   * fraction. */
   static constexpr float THETA_EPS = 0.02f;
 
   /** Slerp-fraction floor for a hankin leg's opening frame: at fraction 0 every
@@ -410,10 +410,10 @@ public:
    * mappings.
    * @param seed Base mesh the hankin pattern sweeps on; read only here, never
    * cloned into the leg arena.
-   * @param theta_start Contact angle at frame 0, radians; clamped below to
-   * THETA_EPS.
-   * @param theta_end Arrival contact angle, radians; clamped below to
-   * THETA_EPS.
+   * @param theta_start Contact angle at frame 0, radians; negatives clamp to
+   * 0, and it enters only as the opening slerp fraction theta_start /
+   * theta_end, floored at K_EPS.
+   * @param theta_end Arrival contact angle, radians; floored at THETA_EPS.
    * @param arena Leg arena backing the compiled hankin topology and hoisted
    * state.
    * @param draw Draw callback invoked once per frame.
