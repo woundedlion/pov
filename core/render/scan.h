@@ -2263,12 +2263,12 @@ struct Volume {
                 HS_PROFILE_DEEP(vol_shade);
                 frag_fn(occ.behind, bg);
               }
-              {
+              if (bg.color.alpha > MIN_ALPHA) {
                 HS_PROFILE_DEEP(vol_plot);
                 pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
                               bg.color.alpha);
               }
-              if (frag.color.alpha > MIN_ALPHA) {
+              if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
                 HS_PROFILE_DEEP(vol_plot);
                 pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
                               frag.color.alpha * edge_alpha);
