@@ -280,7 +280,9 @@ public:
     if (wrapped_x < 0.0f)
       wrapped_x += W;
     const float position = wrapped_x * ring.samples / W;
-    const int left = static_cast<int>(position);
+    // A tiny negative x rounds wrapped_x up to exactly W, so the truncation
+    // would otherwise land one sample past the ring.
+    const int left = std::min(static_cast<int>(position), ring.samples - 1);
     const int right = left + 1 < ring.samples ? left + 1 : 0;
     return {ring.offset + left, ring.offset + right, position - left};
   }

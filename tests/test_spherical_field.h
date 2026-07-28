@@ -91,6 +91,17 @@ inline void test_unequal_rings_have_independent_longitude_mix() {
   HS_EXPECT_TRUE(std::abs(a.mix - b.mix) > 0.05f);
 }
 
+inline void test_longitude_stays_in_ring_at_negative_seam() {
+  constexpr hs::SphericalFieldLayout<64, 33, 0> layout(4);
+  const auto ring = layout.ring(4);
+  // A tiny negative x rounds up to exactly W once the seam offset is added.
+  const auto seam = layout.longitude(ring, -1e-8f);
+  HS_EXPECT_GE(seam.left, ring.offset);
+  HS_EXPECT_LT(seam.left, ring.offset + ring.samples);
+  HS_EXPECT_GE(seam.right, ring.offset);
+  HS_EXPECT_LT(seam.right, ring.offset + ring.samples);
+}
+
 inline void test_custom_value_interpolation_wraps_seam() {
   constexpr hs::SphericalFieldLayout<64, 33, 0> layout(4);
   std::array<Pair, layout.sample_count()> values{};
@@ -178,6 +189,7 @@ inline int run_spherical_field_tests() {
   test_offsets_are_contiguous();
   test_metric_spacing_is_uniform();
   test_unequal_rings_have_independent_longitude_mix();
+  test_longitude_stays_in_ring_at_negative_seam();
   test_custom_value_interpolation_wraps_seam();
   test_populate_band_preserves_other_samples();
   test_longitude_filter_tracks_spherical_width();
