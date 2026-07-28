@@ -2753,12 +2753,17 @@ inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
   hs::clear_mock_time();
   HS_EXPECT_EQ(reference.size(), multiply_only.size());
   size_t lit_pixels = 0;
+  size_t different_pixels = 0;
   for (size_t i = 0; i < reference.size(); ++i) {
-    HS_EXPECT_EQ(reference[i], multiply_only[i]);
     if (reference[i].r | reference[i].g | reference[i].b)
       ++lit_pixels;
+    if (reference[i] != multiply_only[i])
+      ++different_pixels;
   }
+  std::printf("hole kernel framebuffer samples=%zu lit=%zu different=%zu\n",
+              reference.size(), lit_pixels, different_pixels);
   HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
+  HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
 }
 
 /** @brief Clip clearing preserves every pixel displayed by the POV driver. */
