@@ -65,6 +65,18 @@ jobs:
           sudo apt-get install -y clang-18 ninja-build ccache
           # cmake is preinstalled on GitHub runners (>= 3.29 required).
 
+      # The generated-artifact gates (unit_color_luts, unit_color_luts_check,
+      # unit_gamut_lut) need python3 + numpy. Provision them on every shard and
+      # configure with -DHS_REQUIRE_GENERATORS=ON below: this is the one job
+      # where those three CTests are required to RUN, so a provisioning break
+      # fails the job instead of silently downgrading them to skips.
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the provenance jobs
+        with:
+          python-version: '3.12'
+
+      - name: Install numpy
+        run: pip install 'numpy==2.4.3'   # gen_gamut_lut.py's only dependency; pinned like platformio
+
       # Each shard gets its own ccache slot so parallel saves don't collide.
       # The shard-agnostic restore-key means any prior shard's warm cache is
       # accepted on a cache miss (all shards compile the same TUs).
@@ -80,7 +92,7 @@ jobs:
       # EMSDK/PATH auto-detection. Don't auto-touch git config in CI.
       - name: Configure
         run: >
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
           -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
 
       - name: Build
@@ -452,8 +464,9 @@ jobs:
         run: pip install 'numpy==2.4.3'   # the generator's only dependency; pinned like platformio
 
       - name: Check gamut LUT provenance and color.h mirrors
-        # ctest unit_gamut_lut runs the same --check but skips without numpy, which
-        # the unit-test jobs do not install; this job is where the gate actually runs.
+        # ctest unit_gamut_lut runs the same --check inside the sharded unit-test
+        # job (which provisions numpy and sets -DHS_REQUIRE_GENERATORS=ON, so it
+        # cannot skip); this job runs it standalone, independent of that build.
         run: python3 tools/gen_gamut_lut.py --check
 
   screenshot-gallery:
