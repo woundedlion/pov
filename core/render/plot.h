@@ -149,11 +149,12 @@ constexpr int PLANAR_LEN_SAMPLES = 4;
  * @brief Cumulative on-sphere arc length at PLANAR_LEN_SAMPLES+1 evenly-spaced
  *        PROJECTION samples of the azimuthal-equidistant straight edge whose
  *        projection starts at `proj` and spans (dx, dy).
- * @details arc_cumul[0] = 0; arc_cumul.back() is the full rendered length. The
- * planar edge bows away from the great-circle chord, so the total exceeds the
- * chord's angle_between. Shared by the planar rasterizer (which inverts the table
- * for arc-uniform stepping) and rasterize()'s perimeter pre-pass (which takes the
- * total), so both sample identical points.
+ * @details arc_cumul[0] = 0; arc_cumul.back() is the PLANAR_LEN_SAMPLES-chord sum,
+ * an underestimate of the rendered length (a few percent on a bowed edge). The
+ * planar edge bows away from the great-circle chord, so the total still exceeds
+ * the chord's angle_between. Shared by the planar rasterizer (which inverts the
+ * table for arc-uniform stepping) and rasterize()'s perimeter pre-pass (which
+ * takes the total), so both sample identical points and sum identical lengths.
  */
 static inline void
 planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
@@ -243,12 +244,14 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
 }
 
 /**
- * @brief On-sphere arc length (radians) of the azimuthal-equidistant straight
- *        edge a->b — the length actually rendered under planar interpolation.
+ * @brief Chord-sum estimate (radians) of the on-sphere length of the
+ *        azimuthal-equidistant straight edge a->b, the path planar
+ *        interpolation actually renders.
  * @details Shares planar_arc_cumul with rasterize_planar_strategy, so
  * rasterize()'s perimeter pre-pass and per-segment arc accumulator sum exactly
- * the lengths the draw phase walks. The planar edge bows away from the
- * great-circle chord, so this exceeds angle_between(a, b).
+ * the lengths the draw phase walks — the guarantee v1 relies on, not absolute
+ * accuracy. The planar edge bows away from the great-circle chord, so this
+ * exceeds angle_between(a, b) while falling short of the true bowed arc.
  */
 static inline float planar_arc_length(const Vector &a, const Vector &b,
                                       const Basis &planar_basis) {
