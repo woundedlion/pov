@@ -44,8 +44,7 @@ public:
 
   /**
    * @brief Constructs the effect and its members.
-   * @details The path seeds to +Y until update_path() installs the Lissajous
-   *          curve in init().
+   * @details The path seeds to +Y until init() installs the Lissajous curve.
    */
   HS_COLD_MEMBER ChaoticStrings()
       : Effect(W, H,
@@ -77,7 +76,8 @@ public:
 
   /**
    * @brief Carves arenas, allocates the node, binds the palette, registers
-   *        sliders, and wires up the timeline animations.
+   *        sliders, installs the Lissajous path, and wires up the timeline
+   *        animations.
    * @details Sets up the random walk, path motion, and cycle driver animations.
    */
   void init() override {
@@ -105,7 +105,13 @@ public:
     noise_xform.template_params.speed = params.speed;
     noise_xform.template_params.sync();
 
-    update_path();
+    // m2 * domain = 5 * 2*PI: path.f(1) == path.f(0), so the curve closes.
+    static constexpr LissajousParams PATH_CONFIG{12.0f, 5.0f, 0, 2 * PI_F};
+    path.f = [](float t) {
+      return lissajous(PATH_CONFIG.m1, PATH_CONFIG.m2, PATH_CONFIG.a,
+                       t * PATH_CONFIG.domain);
+    };
+
     auto *warp = noise_xform.spawn_pinned(0, -1);
     HS_CHECK(warp, "ChaoticStrings: pinned noise spawn must succeed");
 
@@ -179,17 +185,6 @@ public:
   }
 
 private:
-  /**
-   * @brief Installs the procedural path as a fixed Lissajous curve.
-   * @details Samples the curve over its full domain.
-   */
-  void update_path() {
-    static constexpr LissajousParams config{12.0f, 5.0f, 0, 2 * PI_F};
-    path.f = [](float t) {
-      return lissajous(config.m1, config.m2, config.a, t * config.domain);
-    };
-  }
-
   FastNoiseLite noise; /**< Noise source for the random walk. */
   Timeline timeline;   /**< Drives all per-frame animations. */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
