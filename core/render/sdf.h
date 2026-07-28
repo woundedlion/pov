@@ -2283,10 +2283,8 @@ struct Face {
   std::span<Vector> poly_2d;      /**< Projected 2D polygon (+1 wrap entry). */
   std::span<Vector> edge_vectors; /**< Per-edge 2D vectors. */
   std::span<float> edge_lengths_sq;     /**< Per-edge squared lengths. */
-  std::span<Vector> planes;             /**< Per-edge great-circle normals. */
   std::span<float> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
   std::span<float> inv_edge_j; /**< Reciprocal of each edge's y-component. */
-  std::span<Vector> verts_3d;  /**< 3D vertices (+1 wrap entry). */
 
   int y_min, y_max; /**< Inclusive vertical row bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
@@ -2427,7 +2425,6 @@ struct Face {
       return;
     }
 
-    int planes_count;
     {
       HS_PROFILE_DEEP(face_bounds);
       compute_inradius(scratch);
@@ -2435,8 +2432,8 @@ struct Face {
       // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
       // span misses the great-circle edge bulge toward a pole, leaving
       // near-pole faces with unscanned rows; the arc-extrema path covers them.
-      planes_count = compute_full_bounds(scratch, count, center, thickness,
-                                         h_virt, height, y_min, y_max);
+      compute_full_bounds(scratch, count, center, thickness, h_virt, height,
+                          y_min, y_max);
     }
 
     edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
@@ -2444,7 +2441,6 @@ struct Face {
     inv_edge_lengths_sq =
         std::span<float>(scratch.inv_edge_lengths_sq.data(), count);
     inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
-    planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
     {
       HS_PROFILE_DEEP(face_pole);
@@ -2611,7 +2607,6 @@ struct Face {
     poly_2d = std::span<Vector>(scratch.poly_2d.data(), count + 1);
 
     scratch.verts_3d[count] = scratch.verts_3d[0];
-    verts_3d = std::span<Vector>(scratch.verts_3d.data(), count + 1);
   }
 
   /**
@@ -3097,12 +3092,11 @@ struct Face {
    * @param height Canvas height in rows.
    * @param y_min_out Output: first covered row.
    * @param y_max_out Output: last covered row.
-   * @return The number of great-circle planes computed.
    */
-  HS_O3_FN static int compute_full_bounds(FaceScratchBuffer &scratch, int count,
-                                          const Vector &center, float thickness,
-                                          int h_virt, int height,
-                                          int &y_min_out, int &y_max_out) {
+  HS_O3_FN static void
+  compute_full_bounds(FaceScratchBuffer &scratch, int count,
+                      const Vector &center, float thickness, int h_virt,
+                      int height, int &y_min_out, int &y_max_out) {
     float min_phi = 100.0f;
     float max_phi = -100.0f;
     int planes_count = 0;
@@ -3141,7 +3135,6 @@ struct Face {
         phi_bounds_to_rows(min_phi - margin, max_phi + margin, h_virt, height);
     y_min_out = rows.y_min;
     y_max_out = rows.y_max;
-    return planes_count;
   }
 
   /**
