@@ -1171,6 +1171,8 @@ public:
   void plot(float x, float y, const Pixel &c, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
+    // fast_wrap below corrects only a single ±W offset on floorf(x).
+    assert(x >= -W && x < 2 * W);
     float y_i = floorf(y);
     float y_m = y - y_i;
 
