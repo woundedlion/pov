@@ -122,7 +122,7 @@ public:
    * Supplied at construction (classic_blend default, late_blend_weight for the
    * build legs), mirroring easing_fn.
    */
-  using BlendFn = float (*)(int frame, int duration);
+  using BlendWeightFn = float (*)(int frame, int duration);
 
   /** @brief Face-order relationship between departed and swept meshes. */
   enum class FaceCorrespondence : uint8_t {
@@ -277,7 +277,8 @@ public:
         Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
         int sweep_frames, int settle_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
+        BlendWeightFn blend_fn = classic_blend,
+        EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames + settle_frames, false),
         easing_fn(easing_fn), draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -346,7 +347,7 @@ public:
         float t_end, float twist_start, float twist_end, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        BlendFn blend_fn = classic_blend, bool bridge_provenance = false,
+        BlendWeightFn blend_fn = classic_blend, bool bridge_provenance = false,
         bool borrow_seed = false, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
@@ -427,7 +428,8 @@ public:
   OpLeg(const PolyMesh &seed, float theta_start, float theta_end, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
+        BlendWeightFn blend_fn = classic_blend,
+        EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -536,7 +538,8 @@ public:
         const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
         const MeshOps::RelaxBake *bake = nullptr,
-        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
+        BlendWeightFn blend_fn = classic_blend,
+        EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -611,7 +614,8 @@ public:
   OpLeg(const PolyMesh &seed, MedialTag, Arena &arena, MorphDrawFn draw,
         const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
+        BlendWeightFn blend_fn = classic_blend,
+        EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -708,7 +712,8 @@ public:
         Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
         int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
+        BlendWeightFn blend_fn = classic_blend,
+        EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -1010,8 +1015,8 @@ private:
     uint8_t ramp_from[MAX_BLEND_PAIRS] = {}; /**< Per-pair from palette. */
     uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
     int num_ramps = 0;                       /**< Distinct pair count. */
-    float w_lo = 0.0f, w_hi = 1.0f;   /**< Chained-leg blend-weight range. */
-    BlendFn blend_fn = classic_blend; /**< Swept crossfade curve. */
+    float w_lo = 0.0f, w_hi = 1.0f; /**< Chained-leg blend-weight range. */
+    BlendWeightFn blend_fn = classic_blend; /**< Swept crossfade curve. */
     Landing landing; /**< Arrival data exposed to the effect. */
   };
 
