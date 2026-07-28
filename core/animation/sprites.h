@@ -289,7 +289,7 @@ public:
     this->max_life = static_cast<uint16_t>(max_life);
     active_count = 0;
     pool.bind(arena, CAPACITY);
-    for (size_t i = 0; i < CAPACITY; ++i) {
+    for (int i = 0; i < CAPACITY; ++i) {
       pool.emplace_back();
     }
     attractors.bind(arena, ATTRACTOR_CAP);
