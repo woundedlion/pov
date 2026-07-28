@@ -525,33 +525,6 @@ static inline void planar_row_span(const Vector &a, const Vector &b,
 }
 
 /**
- * @brief Conservative screen-row span of a rendered edge, arc bulge included.
- * @tparam W,H Rasterization resolution (pixel grid).
- * @param a Edge start (unit sphere point).
- * @param b Edge end (unit sphere point).
- * @param planar_basis Non-null: edge is azimuthal-equidistant; null: geodesic.
- * @param row_lo Output: minimum screen row touched by the edge.
- * @param row_hi Output: maximum screen row touched by the edge.
- * @details The clip cull must not test endpoints alone: an edge between two
- * points outside a clip band can still bulge through it. Rows come from
- * row = phi_to_y(acos(y)); the endpoint rows are extended by the arc's interior
- * latitude extremum (closed-form for geodesic, sampled with a Lipschitz margin
- * for planar). Runs once per coarse edge on the clip-only path.
- */
-template <int W, int H>
-static inline void edge_row_span(const Vector &a, const Vector &b,
-                                 const Basis *planar_basis, float &row_lo,
-                                 float &row_hi) {
-  if (planar_basis == nullptr) {
-    geodesic_row_span<W, H>(a, b, make_geodesic_edge_span(a, b), row_lo,
-                            row_hi);
-    return;
-  }
-  planar_row_span<W, H>(a, b, make_planar_edge_span(a, b, *planar_basis),
-                        row_lo, row_hi);
-}
-
-/**
  * @brief Pads a fractional column interval and wraps it into a [0, W) arc.
  * @tparam W Rasterization width (pixel grid).
  * @param s_f Fractional start column.
@@ -816,29 +789,6 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
 
   finish_col_span<W>(s_f, len_f, col_s, col_len);
   return true;
-}
-
-/**
- * @brief Conservative screen-column arc of a rendered edge.
- * @tparam W Rasterization width (pixel grid).
- * @param a Edge start (unit sphere point).
- * @param b Edge end (unit sphere point).
- * @param planar_basis Non-null: edge is azimuthal-equidistant; null: geodesic.
- * @param col_s Output: arc start column, in [0, W).
- * @param col_len Output: arc length in columns (may reach W = full width).
- * @return False when no useful bound exists — the caller must skip the
- *         horizontal cull (see geodesic_col_span / planar_col_span).
- */
-template <int W>
-static inline bool edge_col_span(const Vector &a, const Vector &b,
-                                 const Basis *planar_basis, int &col_s,
-                                 int &col_len) {
-  if (planar_basis == nullptr)
-    return geodesic_col_span<W>(a, b, make_geodesic_edge_span(a, b), col_s,
-                                col_len);
-  return planar_col_span<W>(a, *planar_basis,
-                            make_planar_edge_span(a, b, *planar_basis), col_s,
-                            col_len);
 }
 
 /**
