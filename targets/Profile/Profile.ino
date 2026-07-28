@@ -75,7 +75,7 @@ using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 // immediately before the first one, which here sits inside the anonymous
 // namespace below — giving the injected setup/loop internal linkage they never
 // get a definition for. Declaring them at global scope suppresses the injection.
-void setup();
+FLASHMEM void setup();
 void loop();
 
 // Out-of-line definition for this target's controller, emitted as the required
@@ -407,7 +407,7 @@ static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1).valid(),
               "Profile pov::sync::Config invariants violated");
 } // namespace
 
-void setup() {
+FLASHMEM void setup() {
   Serial.begin(9600); // baud inert on Teensy USB-CDC; initializes Serial only
   delay(1000);        // USB-CDC enumeration settle so early output isn't lost
   hs::log("profile harness: effect=%s config=%s segments=%d rpm=%u f_cpu=%lu",
