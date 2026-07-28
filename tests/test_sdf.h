@@ -1725,6 +1725,20 @@ inline void test_line_antipodal_cull_covers_interior() {
 }
 
 /**
+ * @brief Verifies the cull covers a Line whose bounding cap radius exceeds pi.
+ * @details A quarter arc with a stroke this wide gives half-length + thickness
+ *   ≈ 3.39 rad, past the pi where cos turns back up: an unclamped cos reports a
+ *   cap tighter than the whole sphere the stroke actually covers, and the
+ *   horizontal cull then drops interior columns.
+ */
+inline void test_line_thick_cap_past_pi_cull_covers_interior() {
+  constexpr int W = 96, H = 48;
+  SDF::Line ln(Vector(1, 0, 0), Vector(0, 0, 1), /*thickness=*/2.6f);
+  int interior = expect_cull_covers_interior<W, H>(ln);
+  HS_EXPECT_GT(interior, 0);
+}
+
+/**
  * @brief Verifies the Ring interval cull covers interior pixels for thin rings
  *        whose band wraps a pole while the centerline still takes the fast path.
  * @details Regression for the centerline fast path emitting two *unmerged* arcs
@@ -2321,6 +2335,7 @@ inline int run_sdf_tests() {
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_line_arc_bulge_cull_covers_interior();
   test_line_antipodal_cull_covers_interior();
+  test_line_thick_cap_past_pi_cull_covers_interior();
   test_ring_pole_wrap_cull_covers_interior();
   test_distorted_ring_cull_covers_interior_high_freq();
   test_face_cull_covers_aa_fringe();

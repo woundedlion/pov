@@ -4087,7 +4087,9 @@ struct Line {
     mid_ny = mid.y;
     mid_r = sqrtf(mid.x * mid.x + mid.z * mid.z);
     mid_alpha = atan2f(mid.z, mid.x);
-    float cap_radius = len * 0.5f + thickness;
+    // A cap wider than pi covers the sphere; cos turns back up past pi, so an
+    // unclamped radius would report a tighter cap than the arc occupies.
+    float cap_radius = std::min(len * 0.5f + thickness, PI_F);
     cap_D_min = cosf(cap_radius);
     cap_horiz_valid = mid_r >= MIN_HORIZONTAL_PROJ;
 
