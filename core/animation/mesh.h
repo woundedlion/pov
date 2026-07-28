@@ -2236,6 +2236,24 @@ private:
 namespace Segue {
 
 /**
+ * @brief Schedules one sprite with symmetric linear fade-in/fade-out.
+ * @param timeline Timeline receiving the sprite.
+ * @param draw_fn Draws the mesh at the envelope phase.
+ * @param duration Total frames the mesh is on screen.
+ * @param window Requested transition window in frames; clamped to duration/2
+ * so the in/out windows never collide.
+ * @return The clamped fade length, from which each policy derives its own
+ * return offset.
+ */
+inline int schedule_faded_sprite(Timeline &timeline, SpriteFn draw_fn,
+                                 int duration, int window) {
+  int fade = std::min(window, duration / 2);
+  timeline.add(0, Animation::Sprite(std::move(draw_fn), duration, fade,
+                                    ease_linear, fade, ease_linear));
+  return fade;
+}
+
+/**
  * @brief Schedules one sequential fade-in/fade-out sprite: consecutive sprites
  * never overlap, so a transition renders a single mesh per frame.
  * @param timeline Timeline receiving the sprite.
@@ -2247,9 +2265,7 @@ namespace Segue {
  */
 inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
                                int duration, int window) {
-  int fade = std::min(window, duration / 2);
-  timeline.add(0, Animation::Sprite(std::move(draw_fn), duration, fade,
-                                    ease_linear, fade, ease_linear));
+  schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
   return duration;
 }
 
@@ -2345,9 +2361,8 @@ struct Crossfade : Base {
    * minus the effective overlap.
    */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
-    int fade = std::min(window, duration / 2);
-    timeline.add(0, Animation::Sprite(std::move(draw_fn), duration, fade,
-                                      ease_linear, fade, ease_linear));
+    int fade =
+        schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
     return duration - (overlap < 0 ? fade : std::min(overlap, fade));
   }
   float opacity(float phase) const { return phase; }
@@ -2417,11 +2432,12 @@ struct TerminatorSweep : Base {
   uint32_t fade_seed = 0x9e3779b9u; /**< Per-transition seed for the per-face
                                        fade hash; rolled by retarget(). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
-    int fade = std::min(window, duration / 2);
+    int fade =
+        schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
     float inv = 1.0f / static_cast<float>(std::max(fade, 1));
     fade_frac_min = std::min(1.0f, fade_frames_min * inv);
     fade_frac_max = std::min(1.0f, fade_frames_max * inv);
-    return schedule_sequential(timeline, std::move(draw_fn), duration, window);
+    return duration;
   }
   void retarget(const Vector &v) {
     axis = v;
@@ -2590,9 +2606,8 @@ struct Dissolve : Base {
   /** @brief Crossfade-style overlapping schedule: both meshes are on the
    * timeline during the fade window (the masks keep the cost at one mesh). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
-    int fade = std::min(window, duration / 2);
-    timeline.add(0, Animation::Sprite(std::move(draw_fn), duration, fade,
-                                      ease_linear, fade, ease_linear));
+    int fade =
+        schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
     return duration - fade;
   }
 };
