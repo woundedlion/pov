@@ -10,6 +10,9 @@
 
 namespace Animation {
 
+/** Per-window frame cap that keeps a Sprite's fade-in + fade-out sum in int. */
+static constexpr int MAX_FADE_DURATION = 1 << 24;
+
 /**
  * @brief An animation that draws a sprite while managing its fade-in/out
  * effects.
@@ -25,9 +28,9 @@ public:
    * draw_fn(Canvas&, float opacity)`).
    * @param duration The duration the sprite is fully visible (-1 for
    * indefinite).
-   * @param fade_in_duration Frames for fading in.
+   * @param fade_in_duration Frames for fading in; in [0, MAX_FADE_DURATION].
    * @param fade_in_easing_fn Easing for fade-in.
-   * @param fade_out_duration Frames for fading out.
+   * @param fade_out_duration Frames for fading out; in [0, MAX_FADE_DURATION].
    * @param fade_out_easing_fn Easing for fade-out.
    * @param paused Optional pause gate; null = always runs.
    */
@@ -40,8 +43,10 @@ public:
         fade_out_duration(fade_out_duration),
         fade_in_easing(std::move(fade_in_easing_fn)),
         fade_out_easing(std::move(fade_out_easing_fn)), paused(paused) {
-    HS_CHECK(fade_in_duration >= 0, "Sprite fade-in duration must be >= 0");
-    HS_CHECK(fade_out_duration >= 0, "Sprite fade-out duration must be >= 0");
+    HS_CHECK(fade_in_duration >= 0 && fade_in_duration <= MAX_FADE_DURATION,
+             "Sprite fade-in duration must be in [0, MAX_FADE_DURATION]");
+    HS_CHECK(fade_out_duration >= 0 && fade_out_duration <= MAX_FADE_DURATION,
+             "Sprite fade-out duration must be in [0, MAX_FADE_DURATION]");
     // Overlapping windows (durations are independent GUI sliders): scale both
     // fades proportionally to fit the visible duration, so the envelope still
     // peaks at full opacity and stays a continuous triangle (definite sprites
