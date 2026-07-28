@@ -48,6 +48,16 @@ public:
    */
   TransformerPool(Timeline &tl) : timeline(tl) {}
 
+  /**
+   * @brief Drops the pool's clear hook from the timeline.
+   * @details Effects declare their Timeline before their pools, so the pool is
+   * destroyed first and the reference is still live here.
+   */
+  HS_COLD_MEMBER ~TransformerPool() {
+    if (clear_hook_registered_)
+      timeline.remove_clear_hook(this);
+  }
+
   // spawn_impl's one-shot callbacks capture this+slot index; relocation would
   // dangle them, so the object is fixed in place.
   TransformerPool(const TransformerPool &) = delete;
@@ -64,6 +74,25 @@ public:
     for (int i = 0; i < CAPACITY; ++i)
       new (&entities[i]) Entity();
     active_slots_ = arena.allocate_n<int>(CAPACITY);
+    active_count_ = 0;
+    if (!clear_hook_registered_) {
+      timeline.add_clear_hook(this, [](void *self) {
+        static_cast<TransformerPool *>(self)->release_all();
+      });
+      clear_hook_registered_ = true;
+    }
+  }
+
+  /**
+   * @brief Frees every slot without touching the timeline.
+   * @details Slots are normally reclaimed by each animation's completion
+   * callback; Timeline::clear() destroys events without running those, so it
+   * calls this instead (registered by init_storage()). Spawning past CAPACITY
+   * would otherwise return nullptr forever.
+   */
+  HS_COLD_MEMBER void release_all() {
+    for (int i = 0; i < CAPACITY; ++i)
+      entities[i].active = false;
     active_count_ = 0;
   }
 
@@ -151,6 +180,9 @@ protected:
       nullptr; /**< CAPACITY-slot pool, allocated by init_storage(). */
 
 private:
+  bool clear_hook_registered_ =
+      false; /**< Whether init_storage() registered the timeline clear hook. */
+
   /**
    * @brief Appends a slot index to active_slots_ in spawn order.
    * @param idx Slot index to insert; appended at the end so composition order
