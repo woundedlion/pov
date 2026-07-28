@@ -136,14 +136,7 @@ struct Style {
    */
   void sync_hue() {
     float frame_shift = fade == 0.0f ? 0.0f : hue_shift * -logf(fade);
-    float angle = frame_shift * (2.0f * PI_F);
-    float ca = fast_cosf(angle);
-    float sa = fast_sinf(angle);
-    // fast trig is non-orthonormal; renormalize so hue_rotate preserves chroma
-    // (else the scaling compounds per frame under feedback).
-    float inv = 1.0f / sqrtf(ca * ca + sa * sa);
-    hue_ca = ca * inv;
-    hue_sa = sa * inv;
+    turn_to_unit_cos_sin(frame_shift, hue_ca, hue_sa);
     hue_rotate_lms_matrix(hue_ca, hue_sa, hue_k);
   }
 
