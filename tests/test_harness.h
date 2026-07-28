@@ -40,6 +40,42 @@ inline Stats &stats() {
   return s;
 }
 
+/** @brief FAIL lines printed per module before further failures print nothing. */
+inline constexpr int FAIL_PRINT_CAP = 50;
+
+/**
+ * @brief Per-module FAIL-line print budget.
+ * @details Only printing is capped; Stats::failed still counts every failure.
+ * A per-element assertion loop over a multi-million-element suite would
+ * otherwise emit one line per element, and ctest buffers a test's whole output
+ * before printing it.
+ */
+struct FailPrintBudget {
+  int printed = 0;    /**< FAIL lines printed since the current begin_module. */
+  int suppressed = 0; /**< Failures whose line was withheld by the cap. */
+};
+
+/** @brief Accessor for the process-wide FAIL-line print budget. */
+inline FailPrintBudget &fail_print_budget() {
+  static FailPrintBudget b;
+  return b;
+}
+
+/**
+ * @brief Claims one FAIL line from the current module's print budget.
+ * @return True if the caller should print; false after the cap, having tallied
+ * the failure as suppressed.
+ */
+inline bool claim_fail_print() {
+  FailPrintBudget &b = fail_print_budget();
+  if (b.printed >= FAIL_PRINT_CAP) {
+    ++b.suppressed;
+    return false;
+  }
+  ++b.printed;
+  return true;
+}
+
 /**
  * @brief Tests whether two floats are finite and close enough to be equal.
  * @param a First value.
@@ -180,6 +216,8 @@ inline void report_cmp(bool ok, const A &a, const B &b, const char *expr,
     return;
   }
   ++stats().failed;
+  if (!claim_fail_print())
+    return;
   std::printf("  FAIL %s:%d  %s  (", file, line, expr);
   print_operand(a);
   std::printf(" vs ");
@@ -204,6 +242,8 @@ inline void report_near(double a, double b, double tol, const char *expr,
     return;
   }
   ++stats().failed;
+  if (!claim_fail_print())
+    return;
   std::printf("  FAIL %s:%d  %s  (%g vs %g, delta=%g)\n", file, line, expr, a,
               b, std::fabs(a - b));
 }
@@ -227,6 +267,7 @@ struct ModuleScope {
  */
 inline ModuleScope begin_module(const char *name) {
   std::printf("=== %s ===\n", name);
+  fail_print_budget() = FailPrintBudget{};
   return {name, stats().passed, stats().failed, stats().skipped};
 }
 
@@ -246,6 +287,11 @@ inline int end_module(const ModuleScope &m) {
                 m.name);
     return 1;
   }
+  const int suppressed = fail_print_budget().suppressed;
+  if (suppressed > 0)
+    std::printf(
+        "  ... %d further FAIL line(s) suppressed (cap %d per module)\n",
+        suppressed, FAIL_PRINT_CAP);
   if (skipped > 0)
     std::printf("=== %s: %d passed, %d failed, %d SKIPPED ===\n", m.name,
                 passed, failed, skipped);
@@ -263,7 +309,8 @@ inline int end_module(const ModuleScope &m) {
       ++hs_test::stats().passed;                                               \
     } else {                                                                   \
       ++hs_test::stats().failed;                                               \
-      std::printf("  FAIL %s:%d  %s\n", __FILE__, __LINE__, msg);              \
+      if (hs_test::claim_fail_print())                                         \
+        std::printf("  FAIL %s:%d  %s\n", __FILE__, __LINE__, msg);            \
     }                                                                          \
   } while (0)
 
