@@ -52,6 +52,12 @@ static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
  *  identical under fast-math. */
 static constexpr float COLLAPSED_AREA_RATIO = 1e-5f;
 
+/** Squared relative-turn epsilon for the convexity test: a turn registers only
+ *  when |sin| between successive edge directions exceeds 1e-6. Shared with
+ *  MeshOps::polygon_is_concave so a class is LUT-eligible exactly when its
+ *  faces miss Face::build_half_planes' convex fast path. */
+static constexpr float TURN_EPS_SQ = 1e-12f;
+
 // Scanline interval protocol. get_horizontal_intervals returns true when the
 // spans it emitted describe the row, and false to request a full-row scan. A
 // false return MUST emit nothing: the caller walks every column instead, so a
@@ -2683,11 +2689,10 @@ struct Face {
       area2 += a.x * b.y - b.x * a.y;
       const Vector &e2 = edge_vectors[i];
       float cr = e1->x * e2.y - e1->y * e2.x;
-      // Relative turn test: |sin| > 1e-6 between edge directions.
       float scale = l1 * edge_lengths_sq[i];
       e1 = &e2;
       l1 = edge_lengths_sq[i];
-      if (cr * cr > 1e-12f * scale) {
+      if (cr * cr > TURN_EPS_SQ * scale) {
         if (cr > 0)
           pos = true;
         else
