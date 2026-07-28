@@ -236,9 +236,6 @@ private:
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces_ = 0; /**< Length of build_from_pal_. */
   int dual_bridges_built_ = 0;  /**< DUAL bridges scheduled (test coverage). */
-  int gated_swaps_scheduled_ =
-      0; /**< Gated (snapping) kis legs scheduled; must stay 0 now that every
-            dt/dtd chain takes the smooth path (test coverage). */
   int build_macro_sweep_frames_ =
       SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
@@ -513,7 +510,7 @@ private:
    *        or a standalone kis), which spawns on the scratch_a-heavy split.
    * @details Scanned at spawn to pick the per-shape arena split before the build
    * grows the arenas. Every such shape fits the bridge split (needle is the
-   * largest); no seed falls back to the gated (snapping) kis anymore.
+   * largest).
    */
   bool build_uses_smooth_bridge() const {
     for (size_t k = 0; k < build_step_count_; ++k)
@@ -521,13 +518,6 @@ private:
         return true;
     return false;
   }
-
-  /**
-   * @brief Half-gate length of a gated leg's frame budget.
-   * @param frames Budgeted leg frames after the Trans Speed divisor.
-   * @return F_gate, at least 1; the leg then runs 2 * F_gate + 1 frames.
-   */
-  static int gate_frames(int frames) { return std::max(1, (frames - 1) / 2); }
 
   /**
    * @brief Log label of a lowered primitive step.
@@ -877,18 +867,9 @@ private:
                                 0.0f, step.param, 0.0f, 0.0f, persistent_arena,
                                 draw_build_fn_, handoff, frames, bookend));
       break;
-    case Solids::Op::KIS:
-      // Dead on the current roster: every standalone kis routes through the dtd
-      // macro and every trailing kis through dt, both above. Retained as the
-      // partition-op fallback for a future non-macro kis; gated_swaps_scheduled_
-      // pins that the roster never reaches it (needle takes the smooth path).
-      ++gated_swaps_scheduled_;
-      schedule(Animation::OpLeg(build_seed_, Animation::OpLeg::SwapOp::KIS,
-                                persistent_arena, draw_build_fn_, handoff,
-                                gate_frames(frames), bookend));
-      break;
     default:
-      // DUAL never reaches here: it routes through the smooth bridge above.
+      // Neither DUAL nor KIS reaches here: both route through the smooth
+      // bridges above.
       HS_CHECK(false, "IslamicStars: unsweepable primitive op reached a leg");
       break;
     }
