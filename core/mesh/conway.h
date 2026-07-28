@@ -833,12 +833,14 @@ static constexpr float EXPAND_DEFAULT_T = 2.0f - 1.414213562373095f;
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh.
  * @param t Expansion factor: the fraction each face corner moves toward the
- *   face centroid. Unbounded, unlike chamfer's and snub's inset — above 1 the
- *   new corners cross the centroid. Default EXPAND_DEFAULT_T.
+ *   face centroid, in [0..1); at 1 a face's corners all meet at its centroid,
+ *   collapsing it, so it traps per the fail-fast doctrine. Default
+ *   EXPAND_DEFAULT_T.
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
                                float t = EXPAND_DEFAULT_T) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "expand: t out of [0,1)");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
