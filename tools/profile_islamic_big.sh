@@ -16,6 +16,6 @@ if [ -n "$HS_PROFILE_DEEP" ] && [ "$HS_PROFILE_DEEP" != "0" ]; then
 fi
 
 export HS_PROFILE_OUT="build/prof/islamicstars_big_ship${SUFFIX}.log"
-bash tools/profile_one.sh IslamicStars profile "$SECONDS_ARG" "$WINDOW" \
+bash "$(dirname "$0")/profile_one.sh" IslamicStars profile "$SECONDS_ARG" "$WINDOW" \
   "-D HS_ISLAMICSTARS_PROFILE_SHAPE=14" \
   "-D HS_PROFILE_TRANS_SPEED=4" "$@"
