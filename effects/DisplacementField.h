@@ -208,7 +208,8 @@ private:
              "DisplacementField: Rings slider exceeds the baked-ring pool");
     Basis basis = make_basis(orientation.get(), normal);
     const bool try_cull = !clip().is_full();
-    // World-angle pad absorbing the AA splat past the clip's margin.
+    // World-angle pad absorbing the rasterizer's soft stroke cross-section past
+    // the clip's margin.
     const float pad = 3.0f * PI_F / H;
     const float noise_bound = noise_field.field_bound();
 
