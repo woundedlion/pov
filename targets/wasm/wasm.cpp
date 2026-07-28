@@ -334,7 +334,7 @@ public:
    *          re-apply setClip() and setParameter() after every successful
    *          setEffect().
    */
-  bool setEffect(std::string name) {
+  bool setEffect(const std::string &name) {
     // Pass name as the %s argument, never as the format string itself: a '%' in
     // an effect name would otherwise consume uninitialized varargs.
     hs::log("WASM: setEffect called with %s", name.c_str());
@@ -538,7 +538,7 @@ public:
    *          the requested one. A consumer that needs the effective value should
    *          read it back via getParamValues() rather than trust this flag.
    */
-  bool setParameter(std::string name, float value) {
+  bool setParameter(const std::string &name, float value) {
     if (!current_effect)
       return false;
     // Finiteness is single-sourced in Canvas::updateParameter, not re-checked
