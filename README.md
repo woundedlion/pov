@@ -1715,7 +1715,7 @@ Visualizes the Hopf fibration — a map from S³ to S². Points on S² (the base
 
 #### IslamicStars
 
-Procedurally generates Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.). Shapes carrying a recipe are built on screen op by op: the seed solid segues in, then one animated leg per lowered Conway step (ambo, truncate, snub, chamfer, dual, relax) sweeps it into the finished pattern. Each shape then holds still, ripple waves distort the geometry, and it segues out into the next.
+Procedurally generates Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.), with topology classes folded modulo the six-slot `MeshPaletteBank` so a mesh carrying more than six classes aliases two distinct classes onto one color. Shapes carrying a recipe are built on screen op by op: the seed solid segues in, then one animated leg per lowered Conway step (ambo, truncate, snub, chamfer, dual, relax) sweeps it into the finished pattern. Each shape then holds still, ripple waves distort the geometry, and it segues out into the next.
 
 **Parameters**: Face Fade Lo, Face Fade Hi, Burst, Ripp Amp, Ripp Decay, Ripp Dur, Trans Speed
 
