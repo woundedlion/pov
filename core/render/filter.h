@@ -1802,9 +1802,14 @@ private:
             distorted = feedback_style->space_fn(position, *feedback_style);
           }
           HS_PROFILE_DEEP(fb_pop_project);
+          // Both ends go through project() so its fast-trig error cancels; a
+          // pole row's single backing vector has no azimuth to round-trip.
+          constexpr float SOUTH_POLE_ROW = H + hs::H_OFFSET - 1;
+          const bool pole_row = point.y == 0.0f || point.y == SOUTH_POLE_ROW;
           const auto projected = grid.field.project(distorted);
-          float x_offset = projected.x - point.x;
-          const float y_offset = projected.y - point.y;
+          const auto origin = pole_row ? point : grid.field.project(position);
+          float x_offset = projected.x - origin.x;
+          const float y_offset = projected.y - origin.y;
           if (x_offset > W * 0.5f)
             x_offset -= W;
           else if (x_offset < -W * 0.5f)
