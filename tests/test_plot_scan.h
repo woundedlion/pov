@@ -3161,6 +3161,38 @@ inline void test_particle_system_direct_trail_materialization_registers() {
   }
 }
 
+/**
+ * @brief v0 ramps 0 at the OLDEST retained sample to 1 at the newest (head).
+ * @details Pins the register's orientation, not just its spacing: consumers fade
+ * on v0 (MindSplatter's min(v0, v3)), so a reversed ramp would fade the head.
+ * Uses a wrapped history, where the oldest survivor is not the first record.
+ */
+inline void test_particle_system_v0_zero_at_oldest_sample() {
+  StubParticle particle;
+  particle.life = 60;
+  constexpr size_t CAP =
+      std::remove_cvref_t<decltype(particle.history)>::CAPACITY;
+  const size_t recorded = CAP + 5;
+  std::vector<Vector> order;
+  for (size_t i = 0; i < recorded; ++i) {
+    float theta = 0.2f + 0.04f * static_cast<float>(i);
+    Vector v(std::cos(theta), 0.0f, std::sin(theta));
+    particle.history.record(v);
+    order.push_back(v);
+  }
+
+  std::vector<Fragment> vertices = capture_particle_vertices(particle);
+  HS_EXPECT_EQ(vertices.size(), CAP);
+
+  const Vector oldest = order[recorded - CAP];
+  const Vector newest = order.back();
+  HS_EXPECT_GT(angle_between(oldest, newest), 0.1f);
+  HS_EXPECT_EQ(vertices.front().v0, 0.0f);
+  HS_EXPECT_EQ(vertices.back().v0, 1.0f);
+  HS_EXPECT_NEAR(angle_between(vertices.front().pos, oldest), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(angle_between(vertices.back().pos, newest), 0.0f, 1e-3f);
+}
+
 /** @brief A custom v2 mapper runs once per materialized particle. */
 inline void test_particle_system_custom_v2_mapper() {
   constexpr int W = 96, H = 48;
@@ -3924,6 +3956,7 @@ inline int run_plot_scan_tests() {
   test_particle_system_empty_zero_lifetime_is_noop();
   test_particle_system_skips_unrenderable_trails();
   test_particle_system_direct_trail_materialization_registers();
+  test_particle_system_v0_zero_at_oldest_sample();
   test_particle_system_custom_v2_mapper();
   test_particle_system_direct_trail_materialization_output_parity();
   test_particle_system_deferred_shader_parity_and_skip();
