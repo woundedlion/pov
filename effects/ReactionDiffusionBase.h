@@ -103,6 +103,24 @@ protected:
   }
 
   /**
+   * @brief Invokes `on_weight(w)` with the Wendland C2 weight of one squared
+   *        distance, skipping nodes outside the support radius.
+   * @tparam OnWeight Callable accepting the kernel weight.
+   * @param d2 Squared distance from the query to the node.
+   * @param on_weight Callable invoked as `on_weight(weight)` only when the node
+   * lies inside the support radius.
+   * @details Passes the weight to a callback rather than returning it so the
+   * out-of-support test stays a branch around the caller's accumulation.
+   */
+  template <typename OnWeight>
+  static __attribute__((always_inline)) void
+  with_wendland_weight(float d2, OnWeight &&on_weight) {
+    float u = 1.0f - d2 * INV_R2;
+    if (u > 0)
+      on_weight(u * u);
+  }
+
+  /**
    * @brief Refines a cubemap-LUT seed to the genuine nearest node.
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
@@ -163,11 +181,8 @@ protected:
       ++n;
     });
     if (best == 0) {
-      for (int i = 0; i < n; ++i) {
-        float u = 1.0f - d2s[i] * INV_R2;
-        if (u > 0)
-          on_weight(ids[i], u * u);
-      }
+      for (int i = 0; i < n; ++i)
+        with_wendland_weight(d2s[i], [&](float w) { on_weight(ids[i], w); });
       return;
     }
     kernel_accumulate(rv, nodes, ids[best], on_weight);
@@ -317,9 +332,8 @@ private:
   HS_O3_FN static void kernel_accumulate(const Vector &rv, const Vector *nodes,
                                          int center, OnWeight &&on_weight) {
     auto visit = [&](int i) {
-      float u = 1.0f - dist2(rv, nodes[i]) * INV_R2;
-      if (u > 0)
-        on_weight(i, u * u);
+      with_wendland_weight(dist2(rv, nodes[i]),
+                           [&](float w) { on_weight(i, w); });
     };
     visit(center);
     for_each_neighbor(center, visit);
