@@ -8,6 +8,12 @@
 #error internal fragment of animation.h; include "animation.h" instead
 #endif
 
+/**
+ * @file trails.h
+ * @brief Animation fragment: the fixed-capacity Trail history and its
+ * OrientationTrail, VectorTrail and QuantizedVectorTrail forms.
+ */
+
 namespace Animation {
 
 /**

@@ -8,6 +8,13 @@
 #error internal fragment of animation.h; include "animation.h" instead
 #endif
 
+/**
+ * @file params.h
+ * @brief Animation fragment: the parameter drivers (Transition, Mutation,
+ * Driver, Lerp, ColorWipe), the Mobius warps, and the displacement-field
+ * animations.
+ */
+
 namespace Animation {
 
 /**

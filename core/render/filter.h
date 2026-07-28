@@ -22,6 +22,12 @@
 #include "engine/memory.h"
 #include "engine/styles.h"
 
+/**
+ * @file filter.h
+ * @brief The filter pipeline: Pipeline composition plus the World, Screen and
+ * Pixel filter families.
+ */
+
 /** @brief Callback that forwards a 2D plot (x, y, pixel, age, alpha) downstream. */
 using PassFn2D = FunctionRef<void(float, float, const Pixel &, float, float)>;
 /** @brief Callback that forwards a 3D plot (vector, pixel, age, alpha) downstream. */

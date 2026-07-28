@@ -9,6 +9,12 @@
 #endif
 
 /**
+ * @file motion.h
+ * @brief Animation fragment: Path and ProceduralPath, plus the Motion, Rotation
+ * and RandomWalk orientation drivers.
+ */
+
+/**
  * @brief Represents a customizable path.
  * @tparam RESOLUTION Capacity of the internal point ring buffer.
  * @details Retains an internal buffer for state, but draws to the pipeline.

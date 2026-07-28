@@ -19,6 +19,12 @@
 #include "render/canvas.h"
 #include "animation/animation.h"
 
+/**
+ * @file plot.h
+ * @brief The curve rasterizer: edge samplers and the Plot primitives that
+ * stroke lines, rings, polygons, meshes and particle systems.
+ */
+
 namespace Plot {
 
 /**

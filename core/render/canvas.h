@@ -17,6 +17,11 @@
 #include "color/color.h"
 #include <array>
 
+/**
+ * @file canvas.h
+ * @brief EffectConfig, the Effect base class, and the Canvas pixel buffer.
+ */
+
 class Canvas;
 
 /**

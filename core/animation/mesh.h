@@ -8,6 +8,12 @@
 #error internal fragment of animation.h; include "animation.h" instead
 #endif
 
+/**
+ * @file mesh.h
+ * @brief Animation fragment: OpLeg Conway-chain morph legs, the Segue
+ * transition library, and MeshCarousel.
+ */
+
 #include "color/color.h"
 #include "mesh/conway.h"
 #include "mesh/conway_graph.h"
