@@ -474,6 +474,22 @@ inline void case_timeline_handled_relocation() {
 }
 
 /**
+ * @brief Death case: relocating into a slot that still owns an animation must
+ *        trap.
+ * @details Animation surface — move_into overwrites dst.manager/dst.iface, so a
+ *          live destination would lose its animation's destructor. step()'s
+ *          compaction only ever targets slots it has already vacated; the trap
+ *          pins that invariant for every relocation path.
+ */
+inline void case_timeline_move_into_live_destination() {
+  Timeline tl;
+  float v = 0.0f;
+  tl.add(0, Animation::Transition(v, 1.0f, 10, ease_linear));
+  tl.add(0, Animation::Transition(v, 1.0f, 10, ease_linear));
+  global_timeline_events[opaque(0)].move_into(global_timeline_events[1]);
+}
+
+/**
  * @brief Death case: a negative timeline delay must trap.
  */
 inline void case_timeline_negative_delay() {
@@ -1404,6 +1420,8 @@ inline const Case *all_cases(int &n) {
       {"triangular_bitset_unordered_pair",
        case_triangular_bitset_unordered_pair},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
+      {"timeline_move_into_live_destination",
+       case_timeline_move_into_live_destination},
       {"timeline_negative_delay", case_timeline_negative_delay},
       {"timeline_start_overflow", case_timeline_start_overflow},
       {"timeline_handled_completion", case_timeline_handled_completion},
