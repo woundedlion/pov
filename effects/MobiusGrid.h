@@ -292,9 +292,10 @@ private:
    * @param num Fractional line count; ceil(num) lines are drawn.
    * @param phase Scroll offset in [0, 1) advancing the hue gradient.
    * @param q Counter-rotation applied after the Möbius warp.
-   * @details The per-line color comes from each fragment's stereographic
-   *          conformal radius, so the hue gradient runs pole-to-pole and
-   *          scrolls with phase.
+   * @details The color comes from the conformal radius of the source great
+   *          circle's parameter, not of the warped fragment position, so the
+   *          hue gradient is anchored to the pre-warp curve and scrolls with
+   *          phase.
    */
   void draw_longitudes(Canvas &canvas, float num, float phase,
                        const Quaternion &q) {
