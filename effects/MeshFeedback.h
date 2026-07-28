@@ -142,10 +142,11 @@ public:
 
   /**
    * @brief Renders one frame.
-   * @details Advances the preset selection, applies params, runs the feedback
-   * decay flush, draws the mesh, then advances the timeline. The preset switch
-   * leads apply_params() so the noise scalars and the fade/hue the flush reads
-   * come from the same preset.
+   * @details Advances the preset selection, applies params, steps the timeline,
+   * runs the feedback decay flush, then draws the mesh. The preset switch leads
+   * apply_params() so the noise scalars and the fade/hue the flush reads come
+   * from the same preset, and the flush leads the mesh draw so this frame's
+   * wireframe is not decayed by its own flush.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -154,6 +155,11 @@ public:
     {
       HS_PROFILE(mf_apply_params);
       apply_params();
+    }
+
+    {
+      HS_PROFILE(mf_timeline_step);
+      timeline.step(canvas);
     }
 
     {
@@ -168,11 +174,6 @@ public:
       Plot::Mesh::draw<W, H>(
           filters, canvas, mesh,
           [&](const Vector &, Fragment &f) { f.color = shade; });
-    }
-
-    {
-      HS_PROFILE(mf_timeline_step);
-      timeline.step(canvas);
     }
   }
 
