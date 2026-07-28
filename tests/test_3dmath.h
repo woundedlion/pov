@@ -146,6 +146,69 @@ inline void test_fast_atan2() {
 }
 
 /**
+ * @brief Verifies diamond_angle's [0,4) range, cardinal anchors, scale
+ *        invariance, and strict monotonicity with std::atan2.
+ * @details The sweep walks the circle counter-clockwise from +x, which is the
+ *          order the pseudo-angle must reproduce for it to bin a direction. The
+ *          tiny-negative-y probes cover the fourth-quadrant seam, where 4 + r
+ *          rounds back up to exactly 4 and has to fold to 0.
+ */
+inline void test_diamond_angle() {
+  HS_EXPECT_NEAR(diamond_angle(0.0f, 1.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(diamond_angle(1.0f, 0.0f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(diamond_angle(0.0f, -1.0f), 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(diamond_angle(-1.0f, 0.0f), 3.0f, 1e-6f);
+
+  // Degenerate origin.
+  HS_EXPECT_NEAR(diamond_angle(0.0f, 0.0f), 0.0f, 1e-6f);
+
+  // Scale invariance: only the direction matters.
+  for (int i = 0; i < 32; ++i) {
+    float a = (i * 2.0f * PI_F) / 32.0f;
+    float y = std::sin(a), x = std::cos(a);
+    HS_EXPECT_NEAR(diamond_angle(y * 1e4f, x * 1e4f), diamond_angle(y, x),
+                   1e-5f);
+    HS_EXPECT_NEAR(diamond_angle(y * 1e-4f, x * 1e-4f), diamond_angle(y, x),
+                   1e-5f);
+  }
+
+  // Strictly increasing over one counter-clockwise turn, always in [0, 4).
+  float prev = -1.0f;
+  for (int i = 0; i < 1024; ++i) {
+    float a = (i * 2.0f * PI_F) / 1024.0f;
+    float d = diamond_angle(std::sin(a), std::cos(a));
+    HS_EXPECT_TRUE(d >= 0.0f && d < 4.0f);
+    HS_EXPECT_TRUE(d > prev);
+    prev = d;
+  }
+
+  // Fourth-quadrant seam: y -> 0- with x > 0 must stay inside [0, 4).
+  for (float y : {-1e-3f, -1e-6f, -1e-9f, -1e-12f, -1e-20f, -1e-30f}) {
+    float d = diamond_angle(y, 1.0f);
+    HS_EXPECT_TRUE(d >= 0.0f && d < 4.0f);
+  }
+}
+
+/**
+ * @brief Verifies fast_rsqrt against 1/sqrt over a wide sweep at the documented
+ *        ~5e-6 peak relative error.
+ */
+inline void test_fast_rsqrt() {
+  HS_EXPECT_NEAR(fast_rsqrt(1.0f), 1.0f, 5e-6f);
+  HS_EXPECT_NEAR(fast_rsqrt(4.0f), 0.5f, 5e-6f * 0.5f);
+  HS_EXPECT_NEAR(fast_rsqrt(0.25f), 2.0f, 5e-6f * 2.0f);
+
+  // Both exponent parities across ~12 decades: the bit-hack seed's quality
+  // alternates with the low exponent bit, so a one-decade sweep would miss half
+  // the error surface.
+  for (int i = 0; i <= 512; ++i) {
+    float x = std::pow(10.0f, -6.0f + (12.0f * i) / 512.0f);
+    float ref = 1.0f / std::sqrt(x);
+    HS_EXPECT_TRUE(std::abs(fast_rsqrt(x) - ref) / ref <= 5e-6f);
+  }
+}
+
+/**
  * @brief Verifies fast_acos at endpoints, out-of-range clamping to [0,pi], and
  *        across a sweep against std::acos.
  */
@@ -188,6 +251,48 @@ inline void test_fast_cbrt() {
   for (float x : {27.0f, 100.0f, 1000.0f}) {
     float rel = std::abs(fast_cbrt(x) - std::cbrt(x)) / std::cbrt(x);
     HS_EXPECT_TRUE(rel <= 2.3e-5f);
+  }
+}
+
+/**
+ * @brief Verifies fast_cbrt3 tracks three separate fast_cbrt calls, clamps
+ *        non-positive inputs, and stays accurate inside the documented
+ *        ~1.3e11 / ~3e-13 window of the shared reciprocal.
+ */
+inline void test_fast_cbrt3() {
+  for (int i = 0; i < 64; ++i) {
+    float x[3], o[3];
+    for (int j = 0; j < 3; ++j)
+      x[j] = 1.0f + 65534.0f * ((i * 3 + j) % 61) / 60.0f;
+    fast_cbrt3(x[0], x[1], x[2], o[0], o[1], o[2]);
+    for (int j = 0; j < 3; ++j) {
+      float ref = fast_cbrt(x[j]);
+      HS_EXPECT_TRUE(std::abs(o[j] - ref) / ref <= 1e-6f);
+      float rel = std::abs(o[j] - std::cbrt(x[j])) / std::cbrt(x[j]);
+      HS_EXPECT_TRUE(rel <= 2.3e-5f);
+    }
+  }
+
+  // Non-positive inputs clamp to 0 without poisoning the shared product.
+  {
+    float o[3];
+    fast_cbrt3(-1.0f, 0.0f, 8.0f, o[0], o[1], o[2]);
+    HS_EXPECT_NEAR(o[0], 0.0f, 1e-7f);
+    HS_EXPECT_NEAR(o[1], 0.0f, 1e-7f);
+    HS_EXPECT_NEAR(o[2], 2.0f, 2.3e-5f * 2.0f);
+  }
+
+  // Just inside each end of the documented window the result still tracks the
+  // scalar helper; the tiny end is below fast_cbrt's own accurate domain, so
+  // only the re-association is under test there.
+  for (float v : {1.0e11f, 1.0e-12f}) {
+    float o[3];
+    fast_cbrt3(v, v, v, o[0], o[1], o[2]);
+    float ref = fast_cbrt(v);
+    for (int j = 0; j < 3; ++j) {
+      HS_EXPECT_TRUE(std::isfinite(o[j]));
+      HS_EXPECT_TRUE(std::abs(o[j] - ref) / ref <= 1e-5f);
+    }
   }
 }
 
@@ -297,6 +402,23 @@ inline void test_fast_sinf_cosf() {
     float a = i * 0.3f;
     HS_EXPECT_NEAR(fast_sinf(a + 2.0f * PI_F), fast_sinf(a), 3e-3f);
     HS_EXPECT_NEAR(fast_sinf(a - 2.0f * PI_F), fast_sinf(a), 3e-3f);
+  }
+}
+
+/**
+ * @brief Verifies fast_sincosf_0_pi reproduces fast_sinf/fast_cosf across its
+ *        documented [0, pi] domain.
+ */
+inline void test_fast_sincosf_0_pi() {
+  for (int i = 0; i <= 256; ++i) {
+    float x = (i * PI_F) / 256.0f;
+    float s, c;
+    fast_sincosf_0_pi(x, s, c);
+    HS_EXPECT_NEAR(s, fast_sinf(x), 1e-6f);
+    HS_EXPECT_NEAR(c, fast_cosf(x), 1e-6f);
+    HS_EXPECT_NEAR(s, std::sin(x), 1.8e-3f);
+    HS_EXPECT_NEAR(c, std::cos(x), 1.8e-3f);
+    HS_EXPECT_NEAR(s * s + c * c, 1.0f, 5e-3f);
   }
 }
 
@@ -678,6 +800,34 @@ inline void test_make_rotation_axis_angle() {
   // 180° around +Z rotates (1,0,0) to (-1,0,0)
   Quaternion qz180 = make_rotation(Vector(0, 0, 1), PI_F);
   HS_EXPECT_VEC(rotate(Vector(1, 0, 0), qz180), Vector(-1, 0, 0), 5e-3f);
+}
+
+/**
+ * @brief Verifies least_parallel_axis picks +Y only near +/-X, is scale
+ *        invariant, and always seeds a well-conditioned cross.
+ */
+inline void test_least_parallel_axis() {
+  HS_EXPECT_VEC(least_parallel_axis(Vector(1, 0, 0)), Vector(0, 1, 0), 1e-6f);
+  HS_EXPECT_VEC(least_parallel_axis(Vector(-1, 0, 0)), Vector(0, 1, 0), 1e-6f);
+  HS_EXPECT_VEC(least_parallel_axis(Vector(0, 1, 0)), Vector(1, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(least_parallel_axis(Vector(0, 0, 1)), Vector(1, 0, 0), 1e-6f);
+
+  // Scale invariant: the cosine test is against |v|^2, not the raw component.
+  HS_EXPECT_VEC(least_parallel_axis(Vector(50, 0, 0)), Vector(0, 1, 0), 1e-6f);
+  HS_EXPECT_VEC(least_parallel_axis(Vector(0, 50, 0)), Vector(1, 0, 0), 1e-6f);
+
+  // The whole point: cross(axis, v) never collapses. The worst case sits just
+  // inside the COS_AXIS_PARALLEL switch, where sin^2 is ~2*TOLERANCE.
+  for (int i = 0; i <= 128; ++i) {
+    for (int j = 0; j <= 128; ++j) {
+      float phi = (i * PI_F) / 128.0f;
+      float theta = (j * 2.0f * PI_F) / 128.0f;
+      Vector v(std::sin(phi) * std::cos(theta), std::cos(phi),
+               std::sin(phi) * std::sin(theta));
+      Vector c = cross(least_parallel_axis(v), v);
+      HS_EXPECT_TRUE(dot(c, c) >= 1e-4f);
+    }
+  }
 }
 
 /**
@@ -1126,9 +1276,13 @@ inline int run_3dmath_tests() {
   test_value_noise();
 
   test_fast_atan2();
+  test_diamond_angle();
+  test_fast_rsqrt();
   test_fast_acos();
   test_fast_sinf_cosf();
+  test_fast_sincosf_0_pi();
   test_fast_cbrt();
+  test_fast_cbrt3();
   test_fast_cbrt6();
   test_fast_expf();
 
@@ -1155,6 +1309,7 @@ inline int run_3dmath_tests() {
   test_dot_quaternion();
 
   test_make_rotation_axis_angle();
+  test_least_parallel_axis();
   test_make_rotation_from_to();
   test_quaternion_from_basis();
   test_rotate();
