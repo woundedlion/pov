@@ -22,22 +22,30 @@
  * - Misuse — front()/back() on an empty buffer, or operator[] out of range — is an
  *   invariant violation with no valid recovery, so it HS_CHECK-traps (survives
  *   NDEBUG) rather than reading garbage.
+ * - Models the named requirements Container and ReversibleContainer, so generic
+ *   std:: algorithms and range-based for work on it directly. It is deliberately
+ *   NOT a SequenceContainer (pushes evict rather than grow, and there is no
+ *   insert/erase/assign) and NOT a ContiguousContainer (the live run wraps around
+ *   the backing array, so there is no data()).
  */
 template <typename T, size_t N> class StaticCircularBuffer {
   // Defined privately at the bottom; surfaced through the public usings below so
-  // external code can name StaticCircularBuffer<T,N>::iterator (the class is
-  // otherwise fully STL-conformant).
+  // external code can name StaticCircularBuffer<T,N>::iterator.
   class Iterator;
   class ConstIterator;
 
 public:
   using iterator = Iterator;
   using const_iterator = ConstIterator;
+  using reverse_iterator = std::reverse_iterator<Iterator>;
+  using const_reverse_iterator = std::reverse_iterator<ConstIterator>;
   using value_type = T;
   using size_type = size_t;
   using difference_type = std::ptrdiff_t;
   using reference = T &;
   using const_reference = const T &;
+  using pointer = T *;
+  using const_pointer = const T *;
 
   /** @brief Compile-time fixed capacity, for static_asserts binding two buffers'
    *  sizes (e.g. scan_region's seam-split `norm` == 2x its input span buffer). */
@@ -270,6 +278,13 @@ public:
   constexpr bool is_empty() const { return count == 0U; }
 
   /**
+   * @brief Reports whether the buffer holds no elements.
+   * @return True if the buffer is empty.
+   * @details Container-requirement spelling of is_empty().
+   */
+  constexpr bool empty() const { return count == 0U; }
+
+  /**
    * @brief Reports whether the buffer is at capacity.
    * @return True if the buffer holds N elements.
    */
@@ -295,6 +310,13 @@ public:
   constexpr size_t capacity() const { return N; }
 
   /**
+   * @brief Returns the largest number of elements the buffer can ever hold.
+   * @return Maximum number of elements N.
+   * @details Container-requirement spelling of capacity(); fixed, so the two agree.
+   */
+  constexpr size_t max_size() const { return N; }
+
+  /**
    * @brief Returns an iterator to the front element.
    * @return Mutable iterator at the front.
    */
@@ -317,6 +339,118 @@ public:
    * @return Const iterator at one-past-the-end.
    */
   const_iterator end() const { return const_iterator(this, size()); }
+
+  /**
+   * @brief Returns a const iterator to the front element.
+   * @return Const iterator at the front.
+   */
+  const_iterator cbegin() const { return const_iterator(this, 0); }
+
+  /**
+   * @brief Returns a const iterator past the back element.
+   * @return Const iterator at one-past-the-end.
+   */
+  const_iterator cend() const { return const_iterator(this, size()); }
+
+  /**
+   * @brief Returns a reverse iterator to the back element.
+   * @return Mutable reverse iterator at the back.
+   */
+  reverse_iterator rbegin() { return reverse_iterator(end()); }
+
+  /**
+   * @brief Returns a reverse iterator past the front element.
+   * @return Mutable reverse iterator at one-before-the-front.
+   */
+  reverse_iterator rend() { return reverse_iterator(begin()); }
+
+  /**
+   * @brief Returns a const reverse iterator to the back element.
+   * @return Const reverse iterator at the back.
+   */
+  const_reverse_iterator rbegin() const {
+    return const_reverse_iterator(end());
+  }
+
+  /**
+   * @brief Returns a const reverse iterator past the front element.
+   * @return Const reverse iterator at one-before-the-front.
+   */
+  const_reverse_iterator rend() const {
+    return const_reverse_iterator(begin());
+  }
+
+  /**
+   * @brief Returns a const reverse iterator to the back element.
+   * @return Const reverse iterator at the back.
+   */
+  const_reverse_iterator crbegin() const {
+    return const_reverse_iterator(end());
+  }
+
+  /**
+   * @brief Returns a const reverse iterator past the front element.
+   * @return Const reverse iterator at one-before-the-front.
+   */
+  const_reverse_iterator crend() const {
+    return const_reverse_iterator(begin());
+  }
+
+  /**
+   * @brief Exchanges contents with another buffer of the same type.
+   * @param other Buffer to swap with.
+   * @details Swaps all N backing slots elementwise plus the three indices; no
+   * allocation and no element construction or destruction.
+   */
+  void swap(StaticCircularBuffer &other) {
+    buffer.swap(other.buffer);
+    std::swap(head, other.head);
+    std::swap(tail, other.tail);
+    std::swap(count, other.count);
+  }
+
+  /**
+   * @brief Exchanges the contents of two buffers.
+   * @param a First buffer.
+   * @param b Second buffer.
+   * @details Hidden friend, so unqualified swap(a, b) finds it by ADL.
+   */
+  friend void swap(StaticCircularBuffer &a, StaticCircularBuffer &b) {
+    a.swap(b);
+  }
+
+  /**
+   * @brief Compares two buffers elementwise, front to back.
+   * @param a Left buffer.
+   * @param b Right buffer.
+   * @return True if both hold the same number of elements and every logical
+   * position compares equal.
+   * @details Hidden friend defined inline, so T is only required to be
+   * equality-comparable when this is actually called. Dead slots outside the live
+   * run are ignored, so two buffers holding equal elements at different head
+   * offsets still compare equal.
+   */
+  friend bool operator==(const StaticCircularBuffer &a,
+                         const StaticCircularBuffer &b) {
+    if (a.count != b.count)
+      return false;
+    for (uint32_t i = 0; i < a.count; ++i) {
+      if (!(a.buffer[(a.head + i) % N] == b.buffer[(b.head + i) % N]))
+        return false;
+    }
+    return true;
+  }
+
+  /**
+   * @brief Negation of operator==.
+   * @param a Left buffer.
+   * @param b Right buffer.
+   * @return True if the buffers differ in size or in any element.
+   */
+  friend bool operator!=(const StaticCircularBuffer &a,
+                         const StaticCircularBuffer &b) {
+    return !(a == b);
+  }
 
   /**
    * @brief Visits live elements from front to back.
