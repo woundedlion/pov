@@ -1183,11 +1183,12 @@ The mesh system is split across several files:
 
 #### Conway Operators (`conway.h`)
 
-All Conway *geometry* operators (`dual` through `bevel` below) take `(const PolyMesh& mesh, Arena& target, Arena& temp)`; `transform`, `relax`, and `normalize` are listed in the same table but are mesh utilities with their own signatures. **Primitive** operators produce their `PolyMesh` into `target` and use `temp` for intermediate computation. **Composed** operators (`gyro`, `meta`, `needle`, `zip`, `bevel`) reuse the same internal ping-pong as their constituent ops, so their output lands in the arena that backed the last step's `target`: `temp` for an even-length composition (`gyro`, `needle`, `zip`, `bevel`) — the *opposite* arena from a primitive — and back in `target` for the odd-length `meta` (three steps), like a primitive (see the load-bearing COMPOSITION POLARITY note in `conway.h`). Plan arena lifetimes accordingly when invoking a composed operator directly rather than through `SolidBuilder`:
+All Conway *geometry* operators (`dual` through `bevel` below) take `(const PolyMesh& mesh, Arena& target, Arena& temp)` and return a `PolyMesh`; `medial` takes the same two arenas but writes its two outputs through reference parameters — `(const PolyMesh& mesh, PolyMesh& out_a, ArenaVector<Vector>& out_b, Arena& target, Arena& temp)`. `transform`, `transform_in_place`, `relax`, `relax_baked`, and `normalize` are listed in the same table but are mesh utilities with their own signatures. **Primitive** operators produce their `PolyMesh` into `target` and use `temp` for intermediate computation. **Composed** operators (`gyro`, `meta`, `needle`, `zip`, `bevel`) reuse the same internal ping-pong as their constituent ops, so their output lands in the arena that backed the last step's `target`: `temp` for an even-length composition (`gyro`, `needle`, `zip`, `bevel`) — the *opposite* arena from a primitive — and back in `target` for the odd-length `meta` (three steps), like a primitive (see the load-bearing COMPOSITION POLARITY note in `conway.h`). Plan arena lifetimes accordingly when invoking a composed operator directly rather than through `SolidBuilder`:
 
 | Operation | Description |
 |---|---|
 | `MeshOps::transform` | Apply a chain of vertex transformers to produce a new `MeshState` |
+| `MeshOps::transform_in_place` | Apply a chain of vertex transformers to a `MeshState`'s own vertices, leaving topology untouched |
 | `MeshOps::dual` | Dual mesh (faces ↔ vertices) |
 | `MeshOps::kis` | Raise a pyramid on each face |
 | `MeshOps::ambo` | Truncate vertices to edge midpoints |
@@ -1200,7 +1201,9 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 | `MeshOps::needle` | Needle operator = kis ∘ dual |
 | `MeshOps::zip` | Zip operator = dual ∘ kis |
 | `MeshOps::bevel` | Bevel operator = truncate ∘ ambo |
+| `MeshOps::medial` | Both endpoint vertex sets of the dual morph on one shared medial (rectified) connectivity: `out_a` is `ambo(mesh)`, `out_b` the matching `ambo(dual(mesh))` positions |
 | `MeshOps::relax` | Edge-length relaxation by spring forces on the unit sphere. |
+| `MeshOps::relax_baked` | Substitute a flash-baked relax result for the pass, checked against the bake's dimensions, topology hash and output hash |
 | `MeshOps::normalize` | Project all vertices onto the unit sphere |
 
 #### Hankin Pattern System (`hankin.h`)
