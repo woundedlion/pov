@@ -142,7 +142,8 @@ public:
    * @param in_frames Delay in frames before the animation starts.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
-   * @return Pointer to the spawned animation, or nullptr if no slots are free.
+   * @return Pointer to the spawned animation, or nullptr if no pool slot or
+   * timeline event is available.
    * @details pin=false: the returned pointer is transient (used at the call
    * site, not retained across frames). These animations are often finite and
    * are compacted normally; pinning them would trap on routine completion.
@@ -158,7 +159,8 @@ public:
    * @param in_frames Delay in frames before the animation starts.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
-   * @return Pointer to the spawned animation, or nullptr if no slots are free.
+   * @return Pointer to the spawned animation, or nullptr if no pool slot or
+   * timeline event is available.
    * @details Only valid when the spawned animation never completes on its own —
    * infinite, or repeating (it rewinds rather than reaching done()) — and is
    * added before any finite timeline event, so compaction never shifts it: the
@@ -219,7 +221,8 @@ private:
    * @param in_frames Delay in frames before the animation starts.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
-   * @return Pointer to the spawned animation, or nullptr if no slots are free.
+   * @return Pointer to the spawned animation, or nullptr if no pool slot or
+   * timeline event is available.
    */
   template <typename... Args>
   AnimT *spawn_impl(bool pin, int in_frames, Args &&...args) {
