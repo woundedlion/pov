@@ -3750,9 +3750,8 @@ inline ChainPeaks replay_build_chain(const char *name,
         const bool seed_side =
             gated[k] && drawn < static_cast<size_t>(GATE_HALF_FRAMES);
         const int frame = static_cast<int>(drawn) + 1;
-        const float w = gated[k]
-                            ? OpLeg::late_blend_weight(frame, leg_frames[k])
-                            : OpLeg::classic_blend(frame, leg_frames[k]);
+        const float w = gated[k] ? OpLeg::trailing_blend(frame, leg_frames[k])
+                                 : OpLeg::classic_blend(frame, leg_frames[k]);
         blend_arena.reset();
         BakedPalette expected[OpLeg::PALETTES][OpLeg::PALETTES];
         bool baked[OpLeg::PALETTES][OpLeg::PALETTES] = {};
