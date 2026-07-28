@@ -62,6 +62,7 @@
 #include <SPI.h>
 #include <new> // std::nothrow — fail-fast OOM check on the POV allocation below
 
+#include "../common/phantasm_target.h"
 #include "pov_segmented.h"
 #include "engine/effects.h"
 
@@ -356,7 +357,8 @@ POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace 
 
 // Slightly above Phantasm's shipping per-effect budget: the wrapper adds its
 // profiling bookkeeping on top of the wrapped effect.
-static constexpr size_t MAX_EFFECT_HEAP_BYTES = 3584 + 64;
+static constexpr size_t MAX_EFFECT_HEAP_BYTES =
+    HS_PHANTASM_EFFECT_HEAP_BYTES + 64;
 
 Effect *construct_profiled() {
   using E = ProfiledEffect<288, 144>;
