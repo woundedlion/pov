@@ -316,7 +316,8 @@ private:
   /**
    * @brief Runs the reaction lifecycle: edit and stabilization detection, then
    *        the dissolve.
-   * @param mean_db Mean per-node |dB| across this frame's substeps.
+   * @param mean_db Mean per-node |dB| between the frame's start and end states.
+   *        Substep motion that cancels over the frame reads as zero.
    * @details Dissolves when the user edits the reaction, or once the field has
    * stalled for STABLE_HOLD_FRAMES. Edits mid-dissolve are absorbed by the
    * in-flight one, which reseeds into whatever the constants read at its end.
