@@ -204,7 +204,7 @@ cd gen
 # point at your KiCad install if not the default Windows path:
 # export KICAD_SYMBOL_DIR="/path/to/share/kicad/symbols"
 # export KICAD_FOOTPRINT_DIR="/path/to/share/kicad/footprints"
-python board.py          # ../phantasm.kicad_{sch,sym,pro} + sym-lib-table
+python board.py          # ../phantasm.kicad_{sch,sym} + sym-lib-table (.kicad_pro seeded only if absent)
 python pcb.py            # ../phantasm.kicad_pcb (placed, unrouted) + phantasm.pretty + fp-lib-table
 python pcb.py --unplaced # ../unplaced/phantasm_unplaced.kicad_pcb (footprints staged below outline, for Quilter)
 "$KICAD/bin/python" stackup.py  # upgrade unplaced/ board to 4-layer SIG/GND/GND/SIG + stackup, heal min_clearance
