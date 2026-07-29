@@ -491,15 +491,15 @@ jobs:
         run: node scripts/wasm_smoke.mjs build/wasm-release/holosphere_wasm.js
 
       - name: Exercise install + provenance path
-        # The daydream deploy gate consumes the provenance trio (.wasm, .sha,
+        # The daydream deploy gate consumes the provenance set (.wasm, .js, .sha,
         # .wasm.sha256) this install writes, but nothing previously verified the
         # install rules actually produce them. Run the install target and assert
-        # the trio exists and the recorded hash verifies (the same sha256 check
+        # the set exists and the recorded hashes verify (the same sha256 check
         # the gate runs) so a broken provenance step fails here, not at deploy.
         run: |
           cmake --build --preset wasm-release-install
           dd="${{ runner.temp }}/daydream-install"
-          for f in holosphere_wasm.wasm holosphere_wasm.sha holosphere_wasm.wasm.sha256; do
+          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.sha holosphere_wasm.wasm.sha256; do
             if [ ! -f "$dd/$f" ]; then
               echo "::error::install did not produce $f — the deploy gate depends on it"
               exit 1
@@ -512,7 +512,7 @@ jobs:
             exit 1
           fi
           ( cd "$dd" && sha256sum -c holosphere_wasm.wasm.sha256 )
-          echo "Provenance trio produced and artifact hash verified."
+          echo "Provenance set produced and artifact hashes verified."
 
       - name: Upload WASM artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
