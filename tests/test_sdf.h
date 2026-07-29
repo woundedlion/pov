@@ -80,6 +80,21 @@ inline void test_clamp_phi_full_range() {
   HS_EXPECT_NEAR(SDF::clamp_phi(-1.5f * PI_F), 0.5f * PI_F, 1e-5f);
 }
 
+/** @brief Verifies the reciprocal sector fold matches the general wrap path. */
+inline void test_centered_sector_angle_matches_wrap() {
+  const float angles[] = {-13.7f, -2.3f, -0.7f, 0.21f, 1.8f, 9.4f};
+  for (int sides : {3, 5, 8, 17}) {
+    float sector = 2.0f * PI_F / sides;
+    float reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
+    for (float angle : angles) {
+      float expected = wrap(angle + sector * 0.5f, sector) - sector * 0.5f;
+      HS_EXPECT_NEAR(
+          SDF::centered_sector_angle(angle, sector, reciprocal_sector),
+          expected, 1e-5f);
+    }
+  }
+}
+
 // ============================================================================
 // Ring
 // ============================================================================
@@ -480,6 +495,30 @@ inline void test_flower_petal_tip_on_boundary() {
   auto r = SDF::distance_of(flower, tip);
   HS_EXPECT_NEAR(r.dist, 0.0f, 1e-2f);
   HS_EXPECT_NEAR(r.raw_dist, outer, 1e-2f);
+}
+
+/** @brief Verifies the solid-shape unit-vector and no-UV distance paths. */
+inline void test_solid_shape_unit_angle_and_no_uv_paths() {
+  Basis b = make_basis(Quaternion(), Vector(0.3f, 0.8f, -0.5f).normalized());
+  float polar = 0.73f;
+  float azimuth = -1.17f;
+  Vector p = b.v * cosf(polar) +
+             (b.u * cosf(azimuth) + b.w * sinf(azimuth)) * sinf(polar);
+
+  auto check = [&](const auto &shape, float expected_raw) {
+    SDF::DistanceResult with_uv;
+    SDF::DistanceResult no_uv;
+    shape.template distance<true>(p, with_uv);
+    shape.template distance<false>(p, no_uv);
+    HS_EXPECT_NEAR(no_uv.dist, with_uv.dist, 1e-6f);
+    HS_EXPECT_NEAR(no_uv.raw_dist, expected_raw, 2e-4f);
+    HS_EXPECT_EQ(no_uv.t, 0.0f);
+  };
+
+  check(SDF::PlanarPolygon(b, 0.8f, 7, -2.4f), angle_between(p, b.v));
+  check(SDF::SphericalPolygon(b, 0.8f, 7, -2.4f), angle_between(p, b.v));
+  check(SDF::Star(b, 0.8f, 7, -2.4f), angle_between(p, b.v));
+  check(SDF::Flower(b, 0.8f, 7, -2.4f), angle_between(p, -b.v));
 }
 
 // ============================================================================
@@ -2252,6 +2291,7 @@ inline int run_sdf_tests() {
   test_clamp_phi_negative_reflects();
   test_clamp_phi_above_pi_reflects();
   test_clamp_phi_full_range();
+  test_centered_sector_angle_matches_wrap();
 
   test_ring_on_centerline();
   test_ring_inside_band();
@@ -2277,6 +2317,7 @@ inline int run_sdf_tests() {
 
   test_flower_interior_along_petal();
   test_flower_petal_tip_on_boundary();
+  test_solid_shape_unit_angle_and_no_uv_paths();
 
   test_inverted_fill_stays_centered();
   test_inverted_fill_scans_full_sphere();

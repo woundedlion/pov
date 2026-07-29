@@ -239,21 +239,22 @@ private:
                 const F &fragment_shader, float phase) {
     switch (current_shape) {
     case ShapeType::Flower:
-      Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
-                               fragment_shader, phase, params.debug_bb);
-      break;
-    case ShapeType::Star:
-      Scan::Star::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
-                             fragment_shader, phase, params.debug_bb);
-      break;
-    case ShapeType::PlanarPolygon:
-      Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
+      Scan::Flower::draw<W, H, false>(scan_filters, canvas, basis, r, sides_int,
                                       fragment_shader, phase, params.debug_bb);
       break;
+    case ShapeType::Star:
+      Scan::Star::draw<W, H, false>(scan_filters, canvas, basis, r, sides_int,
+                                    fragment_shader, phase, params.debug_bb);
+      break;
+    case ShapeType::PlanarPolygon:
+      Scan::PlanarPolygon::draw<W, H, false>(scan_filters, canvas, basis, r,
+                                             sides_int, fragment_shader, phase,
+                                             params.debug_bb);
+      break;
     case ShapeType::SphericalPolygon:
-      Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r,
-                                         sides_int, fragment_shader, phase,
-                                         params.debug_bb);
+      Scan::SphericalPolygon::draw<W, H, false>(scan_filters, canvas, basis, r,
+                                                sides_int, fragment_shader,
+                                                phase, params.debug_bb);
       break;
     }
   }

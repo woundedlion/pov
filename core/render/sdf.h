@@ -51,6 +51,13 @@ static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
  *  preventing degenerate near-zero inradii from collapsing AA. */
 static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
 
+/** @brief Folds an angle into the centered interval for one sector. */
+inline float centered_sector_angle(float angle, float sector,
+                                   float reciprocal_sector) {
+  float shifted = angle + sector * 0.5f;
+  return shifted - floorf(shifted * reciprocal_sector) * sector - sector * 0.5f;
+}
+
 /** Signed-area-to-circumradius-squared ratio below which a Face is culled as
  *  fully collapsed (no enclosed region). Sits orders of magnitude above the
  *  float noise of an exactly collapsed polygon (~1e-7) and below the thinnest
@@ -2601,8 +2608,8 @@ struct Face {
       ep.key_vy = angle_key(poly_2d[i].y);
       // A y-degenerate edge (inv_ej == 0) has no usable crossing x; equal keys
       // drop it from distance()'s parity test.
-      ep.key_next_vy = (inv_edge_j[i] != 0.0f) ? angle_key(poly_2d[i + 1].y)
-                                               : ep.key_vy;
+      ep.key_next_vy =
+          (inv_edge_j[i] != 0.0f) ? angle_key(poly_2d[i + 1].y) : ep.key_vy;
     }
     packed_edges = std::span<EdgePacked>(scratch.packed_edges.data(), count);
   }
@@ -3040,10 +3047,11 @@ struct Face {
    * @param y_min_out Output: first covered row.
    * @param y_max_out Output: last covered row.
    */
-  HS_O3_FN static void
-  compute_full_bounds(FaceScratchBuffer &scratch, int count,
-                      const Vector &center, float thickness, int h_virt,
-                      int height, int &y_min_out, int &y_max_out) {
+  HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch,
+                                           int count, const Vector &center,
+                                           float thickness, int h_virt,
+                                           int height, int &y_min_out,
+                                           int &y_max_out) {
     float min_phi = 100.0f;
     float max_phi = -100.0f;
     int planes_count = 0;
@@ -3377,11 +3385,13 @@ struct Face {
  * distance from center.
  */
 struct PlanarPolygon {
-  const Basis &basis; /**< Orientation frame (v = polygon axis). */
-  float thickness;    /**< Polygon radius / apothem scale (radians). */
-  int sides;          /**< Number of polygon sides. */
-  float phase;        /**< Azimuth phase offset (radians). */
-  float apothem;      /**< Precomputed inradius (radians). */
+  const Basis &basis;      /**< Orientation frame (v = polygon axis). */
+  float thickness;         /**< Polygon radius / apothem scale (radians). */
+  int sides;               /**< Number of polygon sides. */
+  float phase;             /**< Azimuth phase offset (radians). */
+  float sector;            /**< Angular width of one polygon sector. */
+  float reciprocal_sector; /**< Reciprocal angular sector width. */
+  float apothem;           /**< Precomputed inradius (radians). */
   float ny, R_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
@@ -3404,6 +3414,8 @@ struct PlanarPolygon {
         sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(thickness > 0.0f); // t = polar / thickness
+    sector = 2.0f * PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
     apothem = thickness * cosf(PI_F / sides);
 
     CapBounds cb = cap_bounds(basis.v, thickness, invert);
@@ -3467,8 +3479,7 @@ struct PlanarPolygon {
       azimuth += 2 * PI_F;
     azimuth += phase;
 
-    float sector = 2 * PI_F / sides;
-    float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
+    float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
     float dist_edge = polar * fast_cosf(local) - apothem;
     float t_val = 0.0f;
@@ -3489,9 +3500,11 @@ struct PlanarPolygon {
  * circumradius); raw_dist = polar angle from the polygon center.
  */
 struct SphericalPolygon {
-  const Basis &basis; /**< Orientation frame (v = polygon axis). */
-  int sides;          /**< Number of polygon sides. */
-  float phase;        /**< Azimuth phase offset (radians). */
+  const Basis &basis;      /**< Orientation frame (v = polygon axis). */
+  int sides;               /**< Number of polygon sides. */
+  float phase;             /**< Azimuth phase offset (radians). */
+  float sector;            /**< Angular width of one polygon sector. */
+  float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius; /**< Angular distance from center to vertex (radians). */
   float edge_nv;      /**< Edge normal dotted with the center axis. */
   float edge_nu;      /**< Edge normal dotted with the u-axis. */
@@ -3517,6 +3530,8 @@ struct SphericalPolygon {
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // t = polar / circumradius
+    sector = 2.0f * PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
     circumradius = radius * (PI_F / 2.0f);
 
     // Build canonical edge: between vertices at azimuth ±π/n from
@@ -3597,7 +3612,7 @@ struct SphericalPolygon {
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    float polar = angle_between(p, basis.v);
+    float polar = fast_acos(hs::clamp(dot(p, basis.v), -1.0f, 1.0f));
 
     float dot_u = dot(p, basis.u);
     float dot_w = dot(p, basis.w);
@@ -3606,8 +3621,7 @@ struct SphericalPolygon {
       azimuth += 2 * PI_F;
     azimuth += phase;
 
-    float sector = 2 * PI_F / sides;
-    float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
+    float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
     // Angular distance to the nearest great circle edge via precomputed normal
     // cos(local) is even, so sector folding works automatically
@@ -3630,9 +3644,11 @@ struct SphericalPolygon {
  * from center.
  */
 struct Star {
-  const Basis &basis; /**< Orientation frame (v = star axis). */
-  int sides;          /**< Number of star points. */
-  float phase;        /**< Azimuth phase offset (radians). */
+  const Basis &basis;      /**< Orientation frame (v = star axis). */
+  int sides;               /**< Number of star points. */
+  float phase;             /**< Azimuth phase offset (radians). */
+  float sector;            /**< Angular width of one star sector. */
+  float reciprocal_sector; /**< Reciprocal angular sector width. */
   static constexpr bool is_solid =
       true; /**< Star renders as a filled region. */
 
@@ -3658,6 +3674,8 @@ struct Star {
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // zero radius -> zero-length edge normal (NaN)
+    sector = 2.0f * PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
     float outer_radius = radius * (PI_F / 2.0f);
     float inner_radius = outer_radius * STAR_INNER_RATIO;
     float angle_step = PI_F / sides;
@@ -3731,7 +3749,7 @@ struct Star {
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    float scan_dist = angle_between(p, basis.v);
+    float scan_dist = fast_acos(hs::clamp(dot(p, basis.v), -1.0f, 1.0f));
     float dot_u = dot(p, basis.u);
     float dot_w = dot(p, basis.w);
     float azimuth = fast_atan2(dot_w, dot_u);
@@ -3740,9 +3758,8 @@ struct Star {
 
     azimuth += phase;
 
-    float sector_angle = 2 * PI_F / sides;
     float local_azimuth =
-        wrap(azimuth + sector_angle / 2.0f, sector_angle) - sector_angle / 2.0f;
+        centered_sector_angle(azimuth, sector, reciprocal_sector);
     local_azimuth = std::abs(local_azimuth);
 
     float px = scan_dist * fast_cosf(local_azimuth);
@@ -3764,12 +3781,14 @@ struct Star {
  * distance from the antipode.
  */
 struct Flower {
-  const Basis &basis; /**< Orientation frame (v = flower axis). */
-  int sides;          /**< Number of petals. */
-  float phase;        /**< Azimuth phase offset (radians). */
-  float thickness;    /**< Outer radius / AA scale (radians). */
-  float apothem;      /**< Petal inradius offset (PI - outer radius). */
-  Vector antipode;    /**< Antipode of the flower axis (scan origin). */
+  const Basis &basis;      /**< Orientation frame (v = flower axis). */
+  int sides;               /**< Number of petals. */
+  float phase;             /**< Azimuth phase offset (radians). */
+  float sector;            /**< Angular width of one flower sector. */
+  float reciprocal_sector; /**< Reciprocal angular sector width. */
+  float thickness;         /**< Outer radius / AA scale (radians). */
+  float apothem;           /**< Petal inradius offset (PI - outer radius). */
+  Vector antipode;         /**< Antipode of the flower axis (scan origin). */
   float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection
                                         length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
@@ -3790,6 +3809,8 @@ struct Flower {
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // t = scan_dist / thickness
+    sector = 2.0f * PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
     float outer = radius * (PI_F / 2.0f);
     apothem = PI_F - outer;
     thickness = outer;
@@ -3856,7 +3877,7 @@ struct Flower {
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    float scan_dist = angle_between(p, antipode);
+    float scan_dist = fast_acos(hs::clamp(dot(p, antipode), -1.0f, 1.0f));
     float polar = PI_F - scan_dist;
 
     float dot_u = dot(p, basis.u);
@@ -3866,8 +3887,7 @@ struct Flower {
       azimuth += 2 * PI_F;
     azimuth += phase;
 
-    float sector = 2 * PI_F / sides;
-    float local = wrap(azimuth + sector / 2.0f, sector) - sector / 2.0f;
+    float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
     float dist_edge = polar * fast_cosf(local) - apothem;
     float t_val = 0.0f;
