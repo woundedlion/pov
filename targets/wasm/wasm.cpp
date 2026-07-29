@@ -94,6 +94,10 @@ static uint32_t tooling_generation = 0;
 // geometry. Synchronous single-threaded calls never overlap today; the guard
 // makes that contract enforced rather than implicit, so a future worker/async
 // refactor traps here instead of silently aliasing.
+//
+// A trap inside an op compiles to wasm `unreachable`, which unwinds nothing, so
+// ~ToolingOpGuard() never runs and this stays set. clearToolingMemory() clears
+// it, so a JS caller that catches the RuntimeError can recover through there.
 static bool tooling_op_active = false;
 struct ToolingOpGuard {
   ToolingOpGuard() {
@@ -782,8 +786,13 @@ public:
    *          the 16 MB tooling block is retained for the module's lifetime and
    *          only its arena bump-pointers are reset. A JS caller will not see
    *          memory usage drop; this frees the arenas for reuse, not the OS.
+   *
+   *          Also clears the re-entrancy flag, which a trap inside an op leaves
+   *          set (see tooling_op_active). No op is in flight once JS regains
+   *          control, so this is the recovery entry point after a trap.
    */
   static void clearToolingMemory() {
+    tooling_op_active = false;
     tooling_arena.reset();
     tooling_arena.reset_high_water_mark();
     tooling_scratch_a.reset();
