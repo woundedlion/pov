@@ -141,12 +141,19 @@ set(_hs_test_modules
     dma_controller
     pov_segmented pov_single pov_sync param_marshal wasm_predicates util led
     presets styles shading death)
+# The suite has a real hang mode (a Canvas constructor that spin-waits for a
+# buffer that never frees — see test_effects.h), and CTest's 1500 s default would
+# burn that once per shard. The whole roster runs in ~2 min unsanitized, but
+# ASan + UBSan cost the slowest module (effects) ~2.7x — 227 s plain against
+# 620 s sanitized — so a single budget for both builds is either useless plain
+# or red sanitized.
+set(_hs_test_timeout 600)
+if(HS_SANITIZE)
+  set(_hs_test_timeout 1800)
+endif()
 foreach(_mod IN LISTS _hs_test_modules)
     add_test(NAME unit_${_mod} COMMAND run_tests ${_mod})
-    # The suite has a real hang mode (a Canvas constructor that spin-waits for a
-    # buffer that never frees — see test_effects.h), and CTest's 1500 s default
-    # would burn that once per shard. The whole roster runs in ~2 min.
-    set_tests_properties(unit_${_mod} PROPERTIES TIMEOUT 600)
+    set_tests_properties(unit_${_mod} PROPERTIES TIMEOUT ${_hs_test_timeout})
 endforeach()
 
 # Pin _hs_test_modules against run_tests' HS_TEST_MODULE_LIST: run_tests
