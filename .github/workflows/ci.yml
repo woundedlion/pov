@@ -758,7 +758,6 @@ jobs:
         effects/BZReactionDiffusion.h
         effects/RingSpin.h
         effects/Voronoi.h
-        hardware/pov_single.h
         tests/run_tests.cpp
         tests/test_animation.h
         tests/test_canvas.h

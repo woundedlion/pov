@@ -1497,9 +1497,9 @@ private:
   struct DecayPixel {
     float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
   };
-  int lifetime;                  /**< Per-frame fade divisor in frames. */
-  DecayPixel *points = nullptr;  /**< Arena-owned array of live trail points. */
-  int num_pixels = 0;            /**< Number of live points in points. */
+  int lifetime;                 /**< Per-frame fade divisor in frames. */
+  DecayPixel *points = nullptr; /**< Arena-owned array of live trail points. */
+  int num_pixels = 0;           /**< Number of live points in points. */
 };
 
 /**
