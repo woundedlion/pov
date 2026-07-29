@@ -352,6 +352,16 @@ def evaluate(
     result = GateResult(env=env)
     v = result.violations
 
+    # Both checks below iterate a budget key, so a budget carrying neither (a
+    # singular-key typo, a truncated edit) would satisfy every loop vacuously
+    # and report PASS. A gate that cannot fire is a hard failure.
+    if not budget.get("regions") and not budget.get("symbols"):
+        v.append(Violation(
+            "budget-empty",
+            f"{env}: budget declares no 'regions' and no 'symbols' - every "
+            f"check would pass vacuously (key typo or truncated entry?). An "
+            f"empty budget is a hard failure, never a silent pass."))
+
     # --- Region ceilings + DTCM stack-headroom floor (§7.3, §7.4 #4, §8) ---
     for region, spec in budget.get("regions", {}).items():
         measured = sizes.get(region)
