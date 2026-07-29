@@ -406,6 +406,73 @@ inline void test_clip_x_band_topologies() {
   }
 }
 
+/**
+ * @brief Pins render_x_start/render_x_end (and contains_x) to modular
+ *        arithmetic over the whole domain Canvas::set_clip/set_margin allow.
+ * @details The accessors wrap with conditional add/subtract rather than `%`
+ *          because contains_x() runs per plotted pixel. Sweeping every
+ *          (w, x_start, x_end, margin) in the invariant domain — 0 <= x_start <=
+ *          x_end <= w, 0 <= margin < w — against a `%` reference catches any
+ *          operand that leaves more than one period to correct, including the
+ *          x_start == w / margin == 0 corner where the low branch alone is not
+ *          enough. contains_x() is checked column by column against a reference
+ *          built from the same `%` values.
+ */
+inline void test_clip_x_wrap_matches_modulo() {
+  auto ref_start = [](int x_start, int margin, int w) {
+    return (x_start - margin + w) % w;
+  };
+  auto ref_end = [](int x_end, int margin, int w) {
+    return (x_end + margin) % w;
+  };
+  auto ref_contains = [&](const ClipRegion &cr, int x) {
+    if ((cr.x_end - cr.x_start) + 2 * cr.margin >= cr.w)
+      return true;
+    const int rs = ref_start(cr.x_start, cr.margin, cr.w);
+    const int re = ref_end(cr.x_end, cr.margin, cr.w);
+    if (rs == re)
+      return true;
+    return (rs < re) ? (x >= rs && x < re) : (x >= rs || x < re);
+  };
+
+  // Edge accessors: full (x, margin) sweep at the hardware widths plus a couple
+  // of small ones, where a single margin spans most of the cylinder.
+  for (int w : {1, 2, 3, 7, 96, 288}) {
+    for (int x = 0; x <= w; ++x) {
+      for (int margin = 0; margin < w; ++margin) {
+        ClipRegion cr;
+        cr.x_start = x;
+        cr.x_end = x;
+        cr.margin = margin;
+        cr.w = w;
+        HS_EXPECT_EQ(cr.render_x_start(), ref_start(x, margin, w));
+        HS_EXPECT_EQ(cr.render_x_end(), ref_end(x, margin, w));
+      }
+    }
+  }
+
+  // Whole predicate: every band and margin at a small width, every column.
+  for (int w : {1, 3, 13}) {
+    for (int x0 = 0; x0 <= w; ++x0) {
+      for (int x1 = x0; x1 <= w; ++x1) {
+        for (int margin = 0; margin < w; ++margin) {
+          ClipRegion cr;
+          cr.x_start = x0;
+          cr.x_end = x1;
+          cr.margin = margin;
+          cr.w = w;
+          cr.h = MAX_H;
+          cr.y_end = MAX_H;
+          for (int x = 0; x < w; ++x) {
+            HS_EXPECT_EQ(cr.contains_x(x), ref_contains(cr, x));
+          }
+          expect_xclip_parity(cr);
+        }
+      }
+    }
+  }
+}
+
 // ============================================================================
 // Plot::geodesic_row_span / Plot::planar_row_span — arc-aware clip cull
 // ============================================================================
@@ -3919,6 +3986,7 @@ inline int run_plot_scan_tests() {
 
   test_clip_could_intersect_y();
   test_clip_x_band_topologies();
+  test_clip_x_wrap_matches_modulo();
   test_row_span_covers_arc_bulge();
   test_clip_arcs_overlap();
   test_col_span_covers_arc();

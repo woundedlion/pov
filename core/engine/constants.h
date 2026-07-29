@@ -68,19 +68,28 @@ struct ClipRegion {
   /**
    * @brief Render-region left edge: display left expanded by `margin`, wrapped mod w (cylindrical).
    * @return First render column, in pixels, in [0, w).
-   * @pre margin < w. The single `+ w` corrects only one period of underflow, so
-   *      the [0, w) result holds only while margin <= x_start + w; the
-   *      Canvas::set_margin trap's stricter `margin < w` is sufficient since
-   *      x_start >= 0. Kept single-period (not a double-mod) to avoid extra work on
-   *      the per-fragment contains_x() path.
+   * @pre 0 <= x_start <= w and 0 <= margin < w, as Canvas::set_clip /
+   *      Canvas::set_margin enforce. That puts `x_start - margin` in
+   *      [-(w-1), w], one period either side, so the wrap is a conditional add
+   *      plus a conditional subtract instead of a `%` (the high branch fires
+   *      only at x_start == w with margin == 0). contains_x() runs per plotted
+   *      pixel, where a runtime modulo costs a hardware divide.
    */
-  int render_x_start() const { return (x_start - margin + w) % w; }
+  int render_x_start() const {
+    const int v = x_start - margin;
+    const int lo = v < 0 ? v + w : v;
+    return lo >= w ? lo - w : lo;
+  }
   /**
    * @brief Render-region right edge: display right expanded by `margin`, wrapped mod w (cylindrical).
    * @return One-past-last render column, in pixels, in [0, w).
-   * @pre margin < w (see render_x_start).
+   * @pre 0 <= x_end <= w and 0 <= margin < w (see render_x_start); `x_end +
+   *      margin` is then in [0, 2w-1], so one conditional subtract wraps it.
    */
-  int render_x_end() const { return (x_end + margin) % w; }
+  int render_x_end() const {
+    const int v = x_end + margin;
+    return v >= w ? v - w : v;
+  }
 
   /**
    * @brief Reports whether this region covers the entire canvas (no clipping).
