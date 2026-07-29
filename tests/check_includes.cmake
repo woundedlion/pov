@@ -10,6 +10,11 @@
 # requires every test header outside NON_MODULE_HEADERS to be included by name.
 # -D args: SRC (path to run_tests.cpp), TESTS_DIR (path to tests/).
 
+# Script mode inherits no policies from the project, so without this every
+# policy defaults to OLD and the IN_LIST below is a hard "Unknown arguments"
+# error (CMP0057). Matches the top-level CMakeLists.
+cmake_minimum_required(VERSION 3.29)
+
 file(READ "${SRC}" _text)
 
 string(REGEX MATCHALL "#include \"tests/test_[A-Za-z0-9_]+\\.h\"" _includes "${_text}")
