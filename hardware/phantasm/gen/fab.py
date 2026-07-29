@@ -45,6 +45,10 @@ ASSEMBLY_SIDE = "top"
 MIN_STANDARD_VIA_DIAMETER_MM = 0.45
 MIN_STANDARD_VIA_DRILL_MM = 0.20
 MIN_VIA_COPPER_SPACING_MM = 0.15
+# Smallest copper feature the fab resolves (4 mil), matching the board's
+# min_clearance. Applies to pour fill features as well as tracks.
+MIN_ZONE_FEATURE_MM = 0.1016
+ZONE_FILL_FEATURES = ("thermal_gap", "thermal_bridge_width")
 
 # JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
 # the schematic so the JLC assembly output owns the supplier mapping. R_D1/R_D2
@@ -256,6 +260,10 @@ class ViaGeometryError(ValueError):
     pass
 
 
+class ZoneGeometryError(ValueError):
+    pass
+
+
 def validate_via_geometry(pcb_path):
     try:
         with open(pcb_path, encoding="utf-8") as fh:
@@ -309,6 +317,47 @@ def validate_via_geometry(pcb_path):
         raise ViaGeometryError(
             "via geometry validation failed:\n  " + "\n  ".join(diagnostics))
     return len(vias)
+
+
+def validate_zone_geometry(pcb_path):
+    """Gate copper-pour fill features at the fab's minimum feature size.
+
+    KiCad DRC never flags these: thermal reliefs are same-net geometry, so a
+    sub-process gap exports clean Gerbers that the fab resolves as a solid
+    pour, tying every through-hole GND pad to the full plane and starving the
+    hand-soldered joints R-ASM-6 protects.
+    """
+    try:
+        with open(pcb_path, encoding="utf-8") as fh:
+            root = sexp.parse(fh.read())[0]
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ZoneGeometryError(f"cannot read PCB zones: {pcb_path}") from exc
+
+    diagnostics = []
+    # Only net-bearing zones pour copper; the rest are keepouts.
+    zones = [zone for zone in F(root, "zone") if F(zone, "net")]
+    for index, zone in enumerate(zones, 1):
+        name = sexp._val(zone, "name", [])
+        label = name[0] if name else f"index {index}"
+        features = [("min_thickness", zone)]
+        for fill in F(zone, "fill"):
+            features += [(key, fill) for key in ZONE_FILL_FEATURES]
+        for key, node in features:
+            value = sexp._val(node, key, [])
+            try:
+                feature_mm = float(value[0])
+            except (IndexError, TypeError, ValueError):
+                diagnostics.append(f"zone {label}: {key} is missing or invalid")
+                continue
+            if feature_mm + 1e-9 < MIN_ZONE_FEATURE_MM:
+                diagnostics.append(
+                    f"zone {label}: {key} {feature_mm:g} mm is below "
+                    f"{MIN_ZONE_FEATURE_MM:g} mm")
+
+    if diagnostics:
+        raise ZoneGeometryError(
+            "zone geometry validation failed:\n  " + "\n  ".join(diagnostics))
+    return len(zones)
 
 
 def validate_part_catalog(assembly_metadata):
@@ -413,6 +462,13 @@ def main():
         f"{MIN_STANDARD_VIA_DIAMETER_MM:g}/"
         f"{MIN_STANDARD_VIA_DRILL_MM:g} mm minimum and "
         f"{MIN_VIA_COPPER_SPACING_MM:g} mm copper spacing")
+    try:
+        num_zones = validate_zone_geometry(PCB)
+    except ZoneGeometryError as exc:
+        sys.exit(str(exc))
+    print(
+        f"zone geometry: {num_zones} copper pours meet the "
+        f"{MIN_ZONE_FEATURE_MM:g} mm minimum fill feature")
     # clean fab dir, keep the rest of out/
     if os.path.isdir(JLC):
         for f in os.listdir(JLC):

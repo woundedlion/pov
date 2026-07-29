@@ -50,6 +50,49 @@ class ViaGeometryTests(unittest.TestCase):
             self.validate_source(source)
 
 
+class ZoneGeometryTests(unittest.TestCase):
+    def validate(self, min_thickness, thermal_gap, bridge_width="0.1016"):
+        with tempfile.TemporaryDirectory() as directory:
+            pcb = Path(directory) / "test.kicad_pcb"
+            pcb.write_text(
+                '(kicad_pcb (zone (net "GND") (name "GND_IN1") '
+                f'(min_thickness {min_thickness}) '
+                f'(fill yes (thermal_gap {thermal_gap}) '
+                f'(thermal_bridge_width {bridge_width}))))',
+                encoding="utf-8")
+            return fab.validate_zone_geometry(pcb)
+
+    def test_accepts_process_floor_fill(self):
+        self.assertEqual(self.validate("0.1016", "0.1016"), 1)
+
+    def test_rejects_thin_pour_sliver(self):
+        with self.assertRaisesRegex(
+                fab.ZoneGeometryError,
+                "GND_IN1: min_thickness 0.0254 mm is below 0.1016 mm"):
+            self.validate("0.0254", "0.1016")
+
+    def test_rejects_unresolvable_thermal_gap(self):
+        with self.assertRaisesRegex(
+                fab.ZoneGeometryError,
+                "GND_IN1: thermal_gap 0.0254 mm is below 0.1016 mm"):
+            self.validate("0.1016", "0.0254")
+
+    def test_rejects_thin_thermal_spoke(self):
+        with self.assertRaisesRegex(
+                fab.ZoneGeometryError,
+                "GND_IN1: thermal_bridge_width 0.05 mm is below 0.1016 mm"):
+            self.validate("0.1016", "0.1016", "0.05")
+
+    def test_ignores_keepout_zones(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pcb = Path(directory) / "test.kicad_pcb"
+            pcb.write_text(
+                '(kicad_pcb (zone (name "H1 screw head") '
+                '(min_thickness 0.0254) (keepout (tracks not_allowed))))',
+                encoding="utf-8")
+            self.assertEqual(fab.validate_zone_geometry(pcb), 0)
+
+
 class AssemblyMetadataTests(unittest.TestCase):
     def setUp(self):
         self.ref = "X1"
