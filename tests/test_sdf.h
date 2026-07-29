@@ -1600,9 +1600,10 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
       [&](int y, auto &&out) {
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
-      [&](int wx, int y, const Vector &) {
-        if (wx >= 0 && wx < W && y >= 0 && y < H)
-          visited[static_cast<size_t>(y) * W + wx] = 1;
+      [&](int wx, int y, const Vector &, int run) {
+        for (int i = 0; i < run; ++i)
+          if (wx + i >= 0 && wx + i < W && y >= 0 && y < H)
+            visited[static_cast<size_t>(y) * W + wx + i] = 1;
       });
 }
 
