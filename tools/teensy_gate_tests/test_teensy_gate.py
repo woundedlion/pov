@@ -259,6 +259,40 @@ class TestRegionCeilingsFail(unittest.TestCase):
         self.assertIn("headroom-below-floor", codes)             # DTCM stack room
 
 
+class TestEmptyBudgetFails(unittest.TestCase):
+    """A budget with nothing to check must FAIL, and the shipped budgets must
+    never be one: both loops in evaluate() are vacuous without their key."""
+
+    def test_wholly_empty_budget_fails(self):
+        result = tg.evaluate("x", {}, {}, [])
+        self.assertFalse(result.passed)
+        self.assertEqual(_codes(result), ["budget-empty"])
+
+    def test_singular_key_typo_fails(self):
+        budget = {"region": {"ram1": {"max_bytes": 1}},
+                  "symbol": {"arena": {"name": "_ZL18global_arena_block"}}}
+        result = tg.evaluate("x", budget, {}, [])
+        self.assertEqual(_codes(result), ["budget-empty"])
+
+    def test_either_key_alone_is_enough(self):
+        regions_only = tg.evaluate(
+            "x", {"regions": {"ram1": {"max_bytes": 1 << 20}}},
+            {"ram1": {"used": 0, "free": 0}}, [])
+        self.assertTrue(regions_only.passed, msg=_codes(regions_only))
+        symbols_only = tg.evaluate(
+            "x", {"symbols": {"arena": {"name": "a"}}}, {},
+            [tg.Symbol(1, 0x20000000, 8, "OBJECT", "GLOBAL", "3", "a")])
+        self.assertTrue(symbols_only.passed, msg=_codes(symbols_only))
+
+    def test_every_shipped_budget_declares_regions_and_symbols(self):
+        for env, budget in BUDGETS.items():
+            with self.subTest(env=env):
+                self.assertTrue(budget.get("regions"))
+                self.assertTrue(budget.get("symbols"))
+                self.assertNotIn("budget-empty",
+                                 _codes(tg.evaluate(env, budget, {}, [])))
+
+
 class TestComponentCeilings(unittest.TestCase):
     """Per-component ceilings (§8): the static max_bytes form, plus the shared
     fail-loud rules (missing component, size -A fallback)."""
