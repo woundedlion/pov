@@ -1,3 +1,4 @@
+import json
 import sys
 import tempfile
 import unittest
@@ -205,6 +206,63 @@ class AssemblyMetadataTests(unittest.TestCase):
                 f"{self.ref}: centroid row is missing",
             ),
         )
+
+
+class SchematicParityTests(unittest.TestCase):
+    KNOWN = [
+        {"type": "extra_footprint", "description": "Extra footprint",
+         "items": [{"description": "Footprint H1"}]},
+        {"type": "footprint_symbol_mismatch",
+         "description": "Footprint attributes don't match symbol",
+         "items": [{"description": "Footprint JP_ID0"}]},
+    ]
+
+    def require(self, entries):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "parity.json"
+            report.write_text(json.dumps({"schematic_parity": entries}),
+                              encoding="utf-8")
+            return fab.require_schematic_parity(report)
+
+    def test_accepts_known_differences(self):
+        self.assertEqual(self.require(self.KNOWN), 2)
+
+    def test_rejects_net_drift(self):
+        entries = self.KNOWN + [{
+            "type": "net_conflict",
+            "description": "Pad net (/DATA_SRC) doesn't match net given by "
+                           "schematic (/DATA)",
+            "items": [{"description":
+                       "Pad 1 [/DATA_SRC] of R_D1 on Top Layer"}],
+        }]
+
+        with self.assertRaisesRegex(
+                fab.SchematicParityError,
+                r"net_conflict: Pad net .* doesn't match"):
+            self.require(entries)
+
+    def test_rejects_unknown_extra_footprint(self):
+        entries = [{"type": "extra_footprint",
+                    "description": "Extra footprint",
+                    "items": [{"description": "Footprint R_PDX"}]}]
+
+        with self.assertRaisesRegex(
+                fab.SchematicParityError, "re-route it in Quilter"):
+            self.require(entries)
+
+    def test_rejects_missing_footprint(self):
+        entries = [{"type": "missing_footprint",
+                    "description": "Missing footprint R_PD (10k)"}]
+
+        with self.assertRaisesRegex(
+                fab.SchematicParityError,
+                r"missing_footprint: Missing footprint R_PD"):
+            self.require(entries)
+
+    def test_rejects_unreadable_report(self):
+        with self.assertRaisesRegex(
+                fab.SchematicParityError, "cannot read parity report"):
+            fab.require_schematic_parity("does-not-exist.json")
 
 
 class PartCatalogTests(unittest.TestCase):

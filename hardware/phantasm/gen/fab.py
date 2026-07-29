@@ -4,6 +4,7 @@ Produces, into ../gen/out/:
   * jlc/        — Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
   * jlc/phantasm-BOM.csv / phantasm-CPL.csv — JLCPCB assembly BOM + centroid
   * phantasm-drc.rpt — gating error-severity DRC report
+  * phantasm-parity.json — gating board/schematic parity report
 
 It NEVER runs board.py / pcb.py: those rewrite phantasm.kicad_{sch,pcb} and
 discard the routing + silk. This script only reads the committed board and
@@ -13,6 +14,7 @@ kicad-cli is found via $KICAD_CLI, else common install paths, else PATH.
 """
 import csv
 import glob
+import json
 import math
 import os
 import re
@@ -49,6 +51,22 @@ MIN_VIA_COPPER_SPACING_MM = 0.15
 # min_clearance. Applies to pour fill features as well as tracks.
 MIN_ZONE_FEATURE_MM = 0.1016
 ZONE_FILL_FEATURES = ("thermal_gap", "thermal_bridge_width")
+
+# Parity items KiCad reports on a board that IS in sync with the schematic:
+# the mounting holes have no symbol, the ID/shield jumpers are excluded from
+# the BOM on the board only, and the Teensy symbol carries no footprint field.
+# Anything else means the routed copper predates the current schematic.
+KNOWN_PARITY_ITEMS = {
+    ("extra_footprint", "H1"),
+    ("extra_footprint", "H2"),
+    ("extra_footprint", "H3"),
+    ("extra_footprint", "H4"),
+    ("footprint_symbol_mismatch", "JP_ID0"),
+    ("footprint_symbol_mismatch", "JP_ID1"),
+    ("footprint_symbol_mismatch", "JP_ID2"),
+    ("footprint_symbol_mismatch", "JP_SHLD"),
+    ("footprint_symbol_mismatch", "U_MCU"),
+}
 
 # JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
 # the schematic so the JLC assembly output owns the supplier mapping. R_D1/R_D2
@@ -206,6 +224,62 @@ def run_drc(report_path):
     run([KCLI, "pcb", "drc", "--severity-error", "--exit-code-violations",
          "-o", report_path, PCB], check=False)
     return require_clean_drc(report_path)
+
+
+class SchematicParityError(ValueError):
+    pass
+
+
+def parity_refs(entry):
+    """Footprint references named by a parity entry's items."""
+    refs = []
+    for item in entry.get("items", []):
+        match = re.match(r"Footprint (\S+)$", str(item.get("description", "")))
+        if match:
+            refs.append(match.group(1))
+    return refs
+
+
+def require_schematic_parity(report_path):
+    """Return the parity item count or raise on any unexpected difference."""
+    try:
+        with open(report_path, encoding="utf-8") as fh:
+            report = json.load(fh)
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise SchematicParityError(
+            f"cannot read parity report: {report_path}") from exc
+
+    entries = report.get("schematic_parity", [])
+    diagnostics = []
+    for entry in entries:
+        kind = str(entry.get("type", ""))
+        refs = parity_refs(entry)
+        if len(refs) == 1 and (kind, refs[0]) in KNOWN_PARITY_ITEMS:
+            continue
+        detail = "; ".join(str(item.get("description", ""))
+                           for item in entry.get("items", []))
+        diagnostics.append(f"{kind}: {entry.get('description', '')}"
+                           + (f" [{detail}]" if detail else ""))
+
+    if diagnostics:
+        raise SchematicParityError(
+            f"{PCB} no longer matches {SCH}; regenerate the board with "
+            "gen/pcb.py --unplaced, re-route it in Quilter and promote the "
+            "result before shipping these gerbers:\n  " +
+            "\n  ".join(diagnostics))
+    return len(entries)
+
+
+def run_parity(report_path):
+    """Generate and require a board that matches the committed schematic."""
+    if os.path.exists(report_path):
+        os.remove(report_path)
+    # KiCad reports parity items at warning severity, so they are invisible to
+    # the error-severity DRC gate and need their own run.
+    run([KCLI, "pcb", "drc", "--schematic-parity", "--format", "json",
+         "--severity-error", "--severity-warning", "-o", report_path, PCB],
+        check=False)
+    return require_schematic_parity(report_path)
 
 
 def parse_components(net_path):
@@ -483,11 +557,18 @@ def main():
          "--drill-origin", "absolute", "--excellon-units", "mm",
          "--excellon-separate-th", "-o", JLC + os.sep, PCB])
 
-    print("[3/6] DRC report")
+    print("[3/6] DRC report + schematic parity")
     rpt = os.path.join(OUT, "phantasm-drc.rpt")
     num_violations, num_unconnected = run_drc(rpt)
     print(f"  DRC: {num_violations} error-severity violations, "
           f"{num_unconnected} unconnected items -> {rpt}")
+    parity_rpt = os.path.join(OUT, "phantasm-parity.json")
+    try:
+        num_parity = run_parity(parity_rpt)
+    except SchematicParityError as exc:
+        sys.exit(str(exc))
+    print(f"  parity: board matches schematic, {num_parity} known "
+          f"differences -> {parity_rpt}")
 
     print("[4/6] Netlist + centroid")
     net = os.path.join(OUT, "_fab.net")
