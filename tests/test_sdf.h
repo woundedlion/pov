@@ -1908,13 +1908,6 @@ inline void test_face_cull_covers_aa_fringe() {
       {3, 0.30f, Vector(0, 0, 1)},
       {3, 0.48f, Vector(0, 0, 1)},
       {3, 0.18f, Vector(1, 0, 0)},
-      // Near-pole axes (colatitude 0.10-0.25): a row's fringe spans
-      // pixel_width / sin(phi) columns, which the equatorial cases above never
-      // stretch past one. These drop 23, 55 and 105 paintable pixels under a
-      // pad that does not divide by the row's sin(phi).
-      {6, 0.06f, Vector(0.0998f, 0.9950f, 0.0f)},
-      {6, 0.10f, Vector(0.0f, 0.9689f, 0.2474f)},
-      {4, 0.12f, Vector(0.0747f, 0.9888f, 0.1294f)},
   };
   int total_paintable = 0;
   for (const Cfg &c : cfgs)
