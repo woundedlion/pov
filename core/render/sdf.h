@@ -67,11 +67,15 @@ static constexpr float TURN_EPS_SQ = 1e-12f;
 /** AA fringe pad in radians applied to a face's azimuth intervals: one pixel
  *  of falloff reach (in the plane units distance() reports, slightly wider
  *  than angular) plus the fast_atan2 slop in the vertex thetas the intervals
- *  derive from.
+ *  derive from. A row's pixel spans pixel_width / sin(phi) of longitude, so the
+ *  reach divides by the row's sin(phi); the PI_F cap turns a near-pole row into
+ *  a full-width span (scan_region's len >= W path) instead of a wrapping one.
  *  @param w Canvas width in columns.
+ *  @param sin_phi Sine of the row's polar angle.
  *  @return Half-width pad added to each end of an azimuth interval. */
-constexpr float face_azimuth_pad(int w) {
-  return 1.25f * (2.0f * PI_F / static_cast<float>(w));
+inline float face_azimuth_pad(int w, float sin_phi) {
+  const float reach = 1.25f * (2.0f * PI_F / static_cast<float>(w));
+  return __builtin_fminf(reach / __builtin_fmaxf(sin_phi, 1e-6f), PI_F);
 }
 
 // Scanline interval protocol. get_horizontal_intervals returns true when the
@@ -2432,6 +2436,25 @@ struct Face {
   }
 
   /**
+   * @brief Lower bound on sin(phi) across the rows the face can emit.
+   * @return sin of the polar angle furthest from pi/2 those rows reach.
+   * @details The clip cull's AA pad must not undershoot the per-row pad the
+   *          scan emits, so it needs the widest 1/sin(phi) over the face's
+   *          band. No face point lies further from the centroid than the
+   *          gnomonic circumradius (itself >= the angular one) plus the same
+   *          margin compute_full_bounds adds, and cos is 1-Lipschitz, so
+   *          |cos(phi)| over the band is at most |center.y| plus that reach;
+   *          one row step covers phi_bounds_to_rows' floor/ceil.
+   */
+  __attribute__((always_inline)) float band_sin_bound() const {
+    const float row_step =
+        PI_F / static_cast<float>(build_height + hs::H_OFFSET - 1);
+    const float reach = radius + thickness + BOUNDS_MARGIN + row_step;
+    const float m = __builtin_fminf(fabsf(center.y) + reach, 1.0f);
+    return sqrtf(1.0f - m * m);
+  }
+
+  /**
    * @brief Horizontal half of the clip cull.
    * @param cr Clip region (display bounds plus render margin).
    * @return True when the face's azimuth coverage lies outside the render
@@ -2444,7 +2467,7 @@ struct Face {
     if (!xc.active)
       return false;
     const int Wd = cr.w;
-    const float pw = face_azimuth_pad(Wd);
+    const float pw = face_azimuth_pad(Wd, band_sin_bound());
     const int band_len = ((xc.re - xc.rs) % Wd + Wd) % Wd;
     for (const auto &iv : intervals) {
       // Mirrors get_horizontal_intervals' radians->column mapping, so the cull
@@ -3101,19 +3124,20 @@ struct Face {
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
    * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if intervals were emitted; false (full scan) for full-width
    * faces.
    */
   template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int, OutputIt out) const {
+  bool get_horizontal_intervals(int y, OutputIt out) const {
     if (full_width)
       return false;
 #ifdef HS_AA_AUDIT
     if (hs_aa::g_audit.full_scan)
       return false;
 #endif
-    float pad = face_azimuth_pad(W);
+    float pad = face_azimuth_pad(W, TrigLUT<W, H>::sin_phi[y]);
     for (const auto &iv : intervals) {
       float f_x1 = (iv.first - pad) * W / (2 * PI_F);
       float f_x2 = (iv.second + pad) * W / (2 * PI_F);
