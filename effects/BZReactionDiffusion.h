@@ -57,9 +57,7 @@ class BZReactionDiffusion
   using Base::dist2;
   using Base::for_each_neighbor;
   using Base::init_lattice;
-  using Base::nodes;
-  using Base::orient_nodes;
-  using Base::orientation;
+  using Base::orient_lattice;
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_center;
@@ -78,18 +76,7 @@ public:
    *        and seeds the initial spiral nuclei.
    */
   void init() override {
-    constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
-                                      ReactionGraph::CubemapLUT::RES *
-                                      sizeof(uint16_t); // cube_lut.build
-    constexpr size_t STATE_BYTES =
-        3u * RD_N * sizeof(uint16_t); // allocate_state
-    // NODE_BYTES bounds both the resident node array and the equal-size transient
-    // lattice cube_lut.build() carves and rewinds before init_lattice() allocates
-    // the resident one; the build() peak (state + LUT + transient) is the max.
-    constexpr size_t NODE_BYTES = RD_N * sizeof(Vector); // build_nodes
     constexpr size_t PERSISTENT_BYTES = 184 * 1024;
-    static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES <= PERSISTENT_BYTES,
-                  "BZ persistent arena too small for LUT + state + build peak");
     // render()'s scratch peaks at the larger of the physics phase (the 3 float
     // generation mirrors) and the raster phase (the oriented lattice); the two
     // run under disjoint scopes.
@@ -98,9 +85,8 @@ public:
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
-    static_assert(SCRATCH_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
-                  "BZ scratch arena too small for render()'s phase peak");
-    configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
+    Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES, 0,
+                                       SCRATCH_BYTES>();
 
     // Lotka-Volterra predation coefficient; bounded only by to_q16's [0,1] clamp
     // (not the diffusion stability bound below), so a high value saturates.
@@ -451,11 +437,10 @@ private:
 
     // Physics scratch is popped; the raster phase reuses the arena for the
     // oriented lattice so the kernel walks stay in world space.
-    Vector *world_nodes = static_cast<Vector *>(
-        scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    Vector *world_nodes;
     {
       HS_PROFILE(bz_orient);
-      orient_nodes(nodes, world_nodes, RD_N, orientation.get());
+      world_nodes = orient_lattice();
     }
 
     const Color4 &ca = color_a;

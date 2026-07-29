@@ -257,7 +257,6 @@ private:
       nodes[i] = ReactionGraph::node(i);
   }
 
-protected:
   /**
    * @brief Rotates the lattice nodes into world space by one quaternion.
    * @param nodes Lattice-space node positions, count entries.
@@ -272,6 +271,50 @@ protected:
                                           int count, const Quaternion &q) {
     for (int i = 0; i < count; ++i)
       world[i] = rotate(nodes[i], q);
+  }
+
+protected:
+  /**
+   * @brief Splits the global arena for a reaction-diffusion effect, checking
+   *        both halves against the device budget at compile time.
+   * @tparam StateT Persistent per-node species sample type.
+   * @tparam NSPECIES Persistent per-node species arrays.
+   * @tparam PERSISTENT_BYTES Persistent arena size to carve.
+   * @tparam EXTRA_PERSISTENT_BYTES Derived-only persistent tenants beyond the
+   * cubemap LUT, the species state and the node array.
+   * @tparam SCRATCH_PEAK_BYTES Largest of render()'s disjoint scratch phases.
+   * @details The node-array term also bounds the equal-size transient lattice
+   * cube_lut.build() carves and rewinds before init_lattice() allocates the
+   * resident one, so the build() peak is covered by the same assert.
+   */
+  template <typename StateT, size_t NSPECIES, size_t PERSISTENT_BYTES,
+            size_t EXTRA_PERSISTENT_BYTES, size_t SCRATCH_PEAK_BYTES>
+  HS_COLD_MEMBER static void configure_rd_arenas() {
+    constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
+                                      ReactionGraph::CubemapLUT::RES *
+                                      sizeof(uint16_t);
+    constexpr size_t STATE_BYTES = NSPECIES * RD_N * sizeof(StateT);
+    constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);
+    static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES +
+                          EXTRA_PERSISTENT_BYTES <=
+                      PERSISTENT_BYTES,
+                  "RD persistent arena too small for LUT + state + build peak");
+    static_assert(SCRATCH_PEAK_BYTES <=
+                      DEVICE_GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
+                  "RD scratch arena too small for render()'s phase peak");
+    configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
+  }
+
+  /**
+   * @brief Carves the per-frame oriented lattice out of scratch and fills it.
+   * @return World-space node positions (RD_N entries), live until the caller's
+   * ScratchScope pops.
+   */
+  Vector *orient_lattice() {
+    Vector *world = static_cast<Vector *>(
+        scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    orient_nodes(nodes, world, RD_N, orientation.get());
+    return world;
   }
 
   /**
