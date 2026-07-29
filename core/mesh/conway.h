@@ -1094,7 +1094,8 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
             if (len_sq > math::EPS_LEN_SQ) {
               float dist = sqrtf(len_sq);
               float diff = dist - target_len;
-              force = force + (vec * (1.0f / dist)) * (diff * RELAX_SPRING_GAIN);
+              force =
+                  force + (vec * (1.0f / dist)) * (diff * RELAX_SPRING_GAIN);
             }
           });
         }
