@@ -59,9 +59,7 @@ class GSReactionDiffusion
   using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::init_lattice;
-  using Base::nodes;
-  using Base::orient_nodes;
-  using Base::orientation;
+  using Base::orient_lattice;
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_and_accumulate;
@@ -80,18 +78,9 @@ public:
    * and seeds the A/B state, and builds the cubemap LUT and lattice nodes once.
    */
   void init() override {
-    constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
-                                      ReactionGraph::CubemapLUT::RES *
-                                      sizeof(uint16_t); // cube_lut.build
-    constexpr size_t STATE_BYTES = 2u * RD_N * sizeof(uint16_t); // A + B, Q16
-    constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);         // build_nodes
     constexpr size_t PALETTE_BYTES =
         BakedPalette::required_arena_bytes(); // palette.bake
     constexpr size_t PERSISTENT_BYTES = 174 * 1024;
-    static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES + PALETTE_BYTES <=
-                      PERSISTENT_BYTES,
-                  "GS persistent arena too small for LUT + state + nodes + "
-                  "palette");
     // render()'s scratch peaks at the larger of the physics phase (4 float
     // ping-pong buffers) and the raster phase (the oriented lattice + cull
     // flags); the two run under disjoint scopes.
@@ -101,9 +90,8 @@ public:
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
-    static_assert(SCRATCH_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
-                  "GS scratch arena too small for render()'s phase peak");
-    configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
+    Base::template configure_rd_arenas<uint16_t, 2, PERSISTENT_BYTES,
+                                       PALETTE_BYTES, SCRATCH_BYTES>();
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
@@ -459,9 +447,7 @@ private:
     // oriented lattice so the kernel walks stay in world space, plus the
     // two-ring cull flags.
     HS_PROFILE(grd_rasterize);
-    Vector *world_nodes = static_cast<Vector *>(
-        scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
-    orient_nodes(nodes, world_nodes, RD_N, orientation.get());
+    Vector *world_nodes = orient_lattice();
     uint8_t *hot1 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *hot2 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
