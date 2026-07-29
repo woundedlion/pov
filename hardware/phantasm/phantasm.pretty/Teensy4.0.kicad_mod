@@ -57,7 +57,7 @@
 	)
 	(zone
 		(layer "F.Cu")
-		(uuid "5a5312bc-4fc3-4181-9815-96d4d501b21a")
+		(uuid "1b6bad6d-7eda-5123-ace6-4268ea69722b")
 		(name "USB mating plug")
 		(hatch full 0.5)
 		(connect_pads

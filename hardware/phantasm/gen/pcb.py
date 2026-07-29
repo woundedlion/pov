@@ -97,6 +97,76 @@ def load_mod(libid):
     return _MOD_CACHE[libid]
 
 
+def set_d_bus_land_pattern(node):
+    geometry = {"1": (-1.1, 0), "2": (1.1, 0)}
+    for pad in F(node, "pad"):
+        number = str(pad[1])
+        if number not in geometry:
+            continue
+        for field in pad:
+            if not isinstance(field, list) or not field:
+                continue
+            if field[0] == "at":
+                field[1:3] = geometry[number]
+            elif field[0] == "size":
+                field[1:3] = (0.8, 0.5)
+
+
+ASSEMBLY_LAND_LENGTH_MM = {
+    "R1": 1.2,
+    "R2": 1.2,
+    "R_PD": 1.2,
+    "R_S": 1.4,
+}
+
+
+def set_assembly_land_length(node, ref):
+    length = ASSEMBLY_LAND_LENGTH_MM.get(ref)
+    if length is None:
+        return
+    for pad in F(node, "pad"):
+        for field in pad:
+            if isinstance(field, list) and field and field[0] == "size":
+                field[1] = sexp.Sym(fmt(length))
+
+
+def move_silk_graphics_to_fab(node):
+    for item in node:
+        if not isinstance(item, list) or not item or item[0] not in (
+                "fp_line", "fp_arc", "fp_rect", "fp_poly"):
+            continue
+        for field in item:
+            if (isinstance(field, list) and field and field[0] == "layer"
+                    and field[1] == "F.SilkS"):
+                field[1] = "F.Fab"
+
+
+def set_pad_orientations(node, footprint_rotation):
+    for pad in F(node, "pad"):
+        for field in pad:
+            if not isinstance(field, list) or not field or field[0] != "at":
+                continue
+            pad_rotation = float(field[3]) if len(field) > 3 else 0.0
+            absolute_rotation = (pad_rotation + footprint_rotation) % 360
+            if absolute_rotation:
+                if len(field) > 3:
+                    field[3] = sexp.Sym(fmt(absolute_rotation))
+                else:
+                    field.append(sexp.Sym(fmt(absolute_rotation)))
+            elif len(field) > 3:
+                del field[3:]
+
+
+def refresh_uuids(node):
+    for child in node:
+        if not isinstance(child, list) or not child:
+            continue
+        if child[0] == "uuid":
+            child[1] = uid()
+        else:
+            refresh_uuids(child)
+
+
 def teensy_footprint(model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
     """2x14 THT module, pads named by Teensy pin label; long axis along X.
     Pad map is the top view (component side up) with the USB end at -X:
@@ -156,6 +226,13 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           consumed=None):
     node = teensy_footprint(teensy_model_path) if libid in ("", "phantasm:Teensy4.0") else \
         sexp.parse(sexp.dumps(load_mod(libid)))[0]  # deep copy via round-trip
+    refresh_uuids(node)
+    if ref == "D_BUS":
+        set_d_bus_land_pattern(node)
+    if ref in ("D_BUS", "JP_ID2"):
+        move_silk_graphics_to_fab(node)
+    set_assembly_land_length(node, ref)
+    set_pad_orientations(node, rot)
     fid = libid if libid else "phantasm:Teensy4.0"
     node[1] = fid
     # strip lib-file-only headers
@@ -281,6 +358,10 @@ QUILTER_FIXED = {
     "J2": (49.8, 2.77, 0),
     "J3A": (49.8, 11.7, 0),
     "J3B": (49.8, 20.6, 0),
+    "JP_ID0": (56.0, 8.5, 90),
+    "JP_ID1": (56.0, 11.9, 90),
+    "JP_ID2": (56.0, 15.3, 90),
+    "JP_SHLD": (56.0, 19.0, 90),
     "U_MCU": (29.0, 11.7, 0),
     "C_IN": (20.5, 27.0, 0),
     "C_DEC1": (12.5, 1.35, 0),
@@ -537,6 +618,24 @@ def main(unplaced=False):
     lines.append(f'\t(gr_text "USB PLUG KEEP-OUT" (at 5.3 11.5 90)'
                  f' (layer "Dwgs.User") (uuid "{uid()}") '
                  '(effects (font (size 0.8 0.8) (thickness 0.15))))')
+    front_silk = [
+        ("S", 48.0, 11.7, 0),
+        ("G", 48.0, 14.24, 0),
+        ("H", 48.0, 16.78, 0),
+        ("S", 48.0, 20.6, 0),
+        ("G", 48.0, 23.14, 0),
+        ("H", 48.0, 25.68, 0),
+        ("SYNC IN", 52.0, 14.24, 90),
+        ("SYNC OUT", 52.0, 23.14, 90),
+        ("ID0", 53.9, 8.9, 90),
+        ("ID1", 54.3, 11.9, 90),
+        ("ID2", 54.1, 15.3, 90),
+        ("SHLD", 54.3, 19.0, 90),
+    ]
+    for text, x, y, angle in front_silk:
+        lines.append(f'\t(gr_text "{text}" (at {fmt(x)} {fmt(y)} {angle})'
+                     f' (layer "F.SilkS") (uuid "{uid()}") '
+                     '(effects (font (size 0.8 0.8) (thickness 0.15))))')
     back_silk = [
         ("ID  ID0   ID1   ROLE", 7.0, 0.9),
         ("0   OPEN  OPEN  MASTER", 9.0, 0.9),
@@ -545,6 +644,7 @@ def main(unplaced=False):
         ("3   GND   GND   B-SOUTH", 15.0, 0.9),
         ("MASTER = ALL ID OPEN   SHLD = MASTER ONLY", 17.0, 0.8),
         ("BOARD ID: ____", 23.5, 2.0),
+        ("Phantasm Rev 1.1", 29.5, 1.0),
     ]
     for text, y, size in back_silk:
         lines.append(f'\t(gr_text "{text}" (at {fmt(L/2)} {fmt(y)} 0)'

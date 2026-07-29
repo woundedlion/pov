@@ -44,6 +44,7 @@ EXCLUDE_VAL_SUBSTR = ("Teensy",)
 ASSEMBLY_SIDE = "top"
 MIN_STANDARD_VIA_DIAMETER_MM = 0.45
 MIN_STANDARD_VIA_DRILL_MM = 0.20
+MIN_VIA_COPPER_SPACING_MM = 0.15
 
 # JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
 # the schematic so the JLC assembly output owns the supplier mapping. R_D1/R_D2
@@ -51,7 +52,8 @@ MIN_STANDARD_VIA_DRILL_MM = 0.20
 LCSC_BY_REF = {
     "C_DEC1": "C14663", "C_DEC2": "C14663",
     "C_LF": "C12891", "C_SYNC": "C1603",
-    "F1": "C261952", "FB": "C73732", "Q_REV": "C15127",
+    "D_BUS": "C1975255", "F1": "C261952", "FB": "C73732",
+    "Q_REV": "C15127",
     "R1": "C25804", "R_MEN": "C25804", "R_PD": "C25804",
     "R2": "C22809", "R_D1": "C17634", "R_D2": "C17634",
     "R_LF": "C48928179", "R_S": "C17408", "U1": "C155176",
@@ -61,6 +63,7 @@ LCSC_BY_REF = {
 # KiCad angle of 180 reads wrong in JLC's viewer; a +270 correction (180 -> 90)
 # lands pin 1 on the silk mark. Verify each against the assembly preview.
 ROT_CORRECTION = {
+    "Q_REV": 180,  # SOT-23: JLC single-lead side aligned to pad 3
     "U1": 270,    # SOIC-14: KiCad 180 -> 90, pin 1 on silk mark
 }
 # Exact JLCPCB catalog identity keyed by LCSC #. The LCSC number drives
@@ -81,6 +84,11 @@ PART_BY_LCSC = {
         "manufacturer": "Samsung Electro-Mechanics",
         "mpn": "CL10B221KB8NNNC",
         "description": "220pF 50V X7R +/-10% 0603 MLCC",
+    },
+    "C1975255": {
+        "manufacturer": "Bourns",
+        "mpn": "CDSOD323-T05L",
+        "description": "5V unidirectional 1pF 9.8V-clamp 350W SOD-323 TVS diode",
     },
     "C261952": {
         "manufacturer": "TLC",
@@ -257,6 +265,7 @@ def validate_via_geometry(pcb_path):
 
     diagnostics = []
     vias = F(root, "via")
+    valid_vias = []
     for index, via in enumerate(vias, 1):
         at = sexp._val(via, "at", [])
         size = sexp._val(via, "size", [])
@@ -268,6 +277,13 @@ def validate_via_geometry(pcb_path):
         except (IndexError, TypeError, ValueError):
             diagnostics.append(f"via at {location}: size or drill is invalid")
             continue
+        try:
+            x_mm = float(at[0])
+            y_mm = float(at[1])
+        except (IndexError, TypeError, ValueError):
+            diagnostics.append(f"via at {location}: position is invalid")
+            continue
+        valid_vias.append((x_mm, y_mm, diameter_mm))
         if diameter_mm < MIN_STANDARD_VIA_DIAMETER_MM:
             diagnostics.append(
                 f"via at {location}: {diameter_mm:g} mm diameter is below "
@@ -276,6 +292,18 @@ def validate_via_geometry(pcb_path):
             diagnostics.append(
                 f"via at {location}: {drill_mm:g} mm drill is below "
                 f"{MIN_STANDARD_VIA_DRILL_MM:g} mm")
+
+    for index, (x1, y1, diameter1) in enumerate(valid_vias):
+        for x2, y2, diameter2 in valid_vias[index + 1:]:
+            spacing_mm = (
+                math.hypot(x2 - x1, y2 - y1)
+                - (diameter1 + diameter2) / 2
+            )
+            if spacing_mm + 1e-9 < MIN_VIA_COPPER_SPACING_MM:
+                diagnostics.append(
+                    f"vias at {x1:g},{y1:g} and {x2:g},{y2:g}: "
+                    f"{spacing_mm:g} mm copper spacing is below "
+                    f"{MIN_VIA_COPPER_SPACING_MM:g} mm")
 
     if diagnostics:
         raise ViaGeometryError(
@@ -383,7 +411,8 @@ def main():
     print(
         f"via geometry: {num_vias} vias meet "
         f"{MIN_STANDARD_VIA_DIAMETER_MM:g}/"
-        f"{MIN_STANDARD_VIA_DRILL_MM:g} mm minimum")
+        f"{MIN_STANDARD_VIA_DRILL_MM:g} mm minimum and "
+        f"{MIN_VIA_COPPER_SPACING_MM:g} mm copper spacing")
     # clean fab dir, keep the rest of out/
     if os.path.isdir(JLC):
         for f in os.listdir(JLC):

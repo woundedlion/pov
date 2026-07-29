@@ -15,7 +15,7 @@ KCLI = fab.find_kicad_cli()
 EXPECT = {
     "+5V_RAW":    {"F1", "Q_REV"},
     "+5V_LOGIC":  {"FB", "C_IN", "R_LF", "C_DEC1", "C_DEC2", "U1", "U_MCU"},
-    "+3V3":       {"U_MCU", "R_MEN", "R_ID0", "J4"},
+    "+3V3":       {"U_MCU", "R_MEN", "J4"},
     "DATA_IN":    {"U_MCU", "U1"},
     "CLK_IN":     {"U_MCU", "U1"},
     "FRAME_SYNC": {"U_MCU", "U1", "R1", "R2", "C_SYNC"},
@@ -24,7 +24,7 @@ EXPECT = {
     "CLK":        {"R_D2", "J2"},
     "SYNC_BUS":   {"R_S", "R1", "R_PD", "D_BUS", "J3A", "J3B"},
     "SYNC_PULLDOWN": {"R_PD", "U1"},
-    "ID0":        {"U_MCU", "R_ID0", "JP_ID0"},
+    "ID0":        {"U_MCU", "JP_ID0"},
     "ID1":        {"U_MCU", "JP_ID1"},
     "ID2":        {"U_MCU", "JP_ID2"},
     "SHIELD":     {"J3A", "J3B", "JP_SHLD"},

@@ -21,9 +21,9 @@ class BoardMetadataTests(unittest.TestCase):
             (metadata.width_mm, metadata.height_mm),
             (Decimal("58.28"), Decimal("32")),
         )
-        self.assertEqual(metadata.footprint_sides, (("F.Cu", 33), ("B.Cu", 0)))
-        self.assertEqual(metadata.track_segments, 351)
-        self.assertEqual(metadata.vias, 97)
+        self.assertEqual(metadata.footprint_sides, (("F.Cu", 32), ("B.Cu", 0)))
+        self.assertEqual(metadata.track_segments, 339)
+        self.assertEqual(metadata.vias, 100)
         self.assertEqual(metadata.zones, 6)
         self.assertEqual(
             metadata.zone_layers,
