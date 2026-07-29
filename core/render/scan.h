@@ -307,7 +307,6 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
     }
   };
 
-
   // Inverted range (y_min > y_max) is a no-op: a disjoint CSG Intersection or a
   // fully-culled Face reports y_min=1, y_max=0, and the loop never runs.
   for (int y = y_min; y <= y_max; ++y) {
@@ -1195,6 +1194,7 @@ struct SphericalPolygon {
    * @brief Rasterizes a solid spherical polygon.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the polygon.
@@ -1204,7 +1204,7 @@ struct SphericalPolygon {
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
-  template <int W, int H>
+  template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
@@ -1213,7 +1213,8 @@ struct SphericalPolygon {
 
     SDF::SphericalPolygon shape(res.first, res.second, sides, phase + offset,
                                 radius > 1.0f);
-    Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
+    Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
+                                      debug_bb);
   }
 };
 
@@ -1413,9 +1414,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         const float a = frag.color.alpha * alpha;
         for (int px = x0; px < x1; ++px) {
           if constexpr (requires {
-                          pipeline.plot_in_bounds(canvas, px, y,
-                                                  frag.color.color, frag.age,
-                                                  a);
+                          pipeline.plot_in_bounds(
+                              canvas, px, y, frag.color.color, frag.age, a);
                         }) {
             pipeline.plot_in_bounds(canvas, px, y, frag.color.color, frag.age,
                                     a);
