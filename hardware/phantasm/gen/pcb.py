@@ -21,12 +21,14 @@ PCB_W = 32.0  # board width (mm); within the R-MECH-6 cap (<=35), trimmed to par
 QUILTER_LENGTH = 58.28
 MOUNTING_HOLE_FOOTPRINT = "MountingHole:MountingHole_2.7mm_M2.5"
 MOUNTING_KEEPOUT_RADIUS = 2.7
-MOUNTING_HOLES = {
-    "H1": (3.5, 3.5),
-    "H2": (3.5, 28.5),
-    "H3": (QUILTER_LENGTH - 3.5, 3.5),
-    "H4": (QUILTER_LENGTH - 3.5, 28.5),
-}
+MOUNTING_HOLE_INSET = 3.5
+
+
+def mounting_holes(L):
+    """R-MECH-2: four M2.5 clearance holes, centres 3.5 mm in from each corner."""
+    d = MOUNTING_HOLE_INSET
+    return {"H1": (d, d), "H2": (d, PCB_W - d),
+            "H3": (L - d, d), "H4": (L - d, PCB_W - d)}
 
 
 def build_nets(nlroot):
@@ -539,6 +541,7 @@ def main(unplaced=False):
         NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm (width <=35mm, R-MECH-6); '
                 'shelf-packed draft, route in Pcbnew')
 
+    HOLES = mounting_holes(L)
     teensy_model_path = "${KIPRJMOD}/../phantasm.pretty/Teensy4.0.wrl" if unplaced else \
         "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
     foot_nodes = []
@@ -551,13 +554,13 @@ def main(unplaced=False):
                                 hide_reference=lock,
                                 teensy_model_path=teensy_model_path,
                                 consumed=consumed))
-    for ref, (x, y) in MOUNTING_HOLES.items():
+    for ref, (x, y) in HOLES.items():
         foot_nodes.append(embed(MOUNTING_HOLE_FOOTPRINT, ref, "M2.5",
                                 x, y, 0, pad_net, netid, locked=unplaced,
                                 hide_reference=unplaced, consumed=consumed))
     # A netlist pin with no pad of that name would drop its connection silently;
     # refs that were never embedded drop their nets by design.
-    embedded = set(PLACE) | set(MOUNTING_HOLES)
+    embedded = set(PLACE) | set(HOLES)
     orphan = sorted(k for k in pad_net if k[0] in embedded and k not in consumed)
     if orphan:
         sys.exit("ERROR unmatched netlist pins (no footprint pad of that name): "
@@ -592,7 +595,7 @@ def main(unplaced=False):
     lines.append(f'\t(gr_rect (start 0 0) (end {fmt(L)} {fmt(PCB_W)}) '
                  '(stroke (width 0.15) (type solid)) (fill none) (layer "Edge.Cuts") '
                  f'(uuid "{uid()}"))')
-    for ref, (x, y) in MOUNTING_HOLES.items():
+    for ref, (x, y) in HOLES.items():
         r = MOUNTING_KEEPOUT_RADIUS
         lines.append('\t(zone')
         lines.append('\t\t(net 0)')
@@ -615,27 +618,30 @@ def main(unplaced=False):
     lines.append(f'\t(gr_text "{esc_note}"'
                  f' (at 4 -4 0) (layer "Cmts.User") (uuid "{uid()}") '
                  '(effects (font (size 2 2) (thickness 0.3)) (justify left bottom)))')
-    lines.append(f'\t(gr_text "USB PLUG KEEP-OUT" (at 5.3 11.5 90)'
-                 f' (layer "Dwgs.User") (uuid "{uid()}") '
-                 '(effects (font (size 0.8 0.8) (thickness 0.15))))')
-    front_silk = [
-        ("S", 48.0, 11.7, 0),
-        ("G", 48.0, 14.24, 0),
-        ("H", 48.0, 16.78, 0),
-        ("S", 48.0, 20.6, 0),
-        ("G", 48.0, 23.14, 0),
-        ("H", 48.0, 25.68, 0),
-        ("SYNC IN", 52.0, 14.24, 90),
-        ("SYNC OUT", 52.0, 23.14, 90),
-        ("ID0", 53.9, 8.9, 90),
-        ("ID1", 54.3, 11.9, 90),
-        ("ID2", 54.1, 15.3, 90),
-        ("SHLD", 54.3, 19.0, 90),
-    ]
-    for text, x, y, angle in front_silk:
-        lines.append(f'\t(gr_text "{text}" (at {fmt(x)} {fmt(y)} {angle})'
-                     f' (layer "F.SilkS") (uuid "{uid()}") '
+    # Coordinates below annotate the QUILTER_FIXED placement; a fresh pack moves
+    # those parts, so they are emitted only with the locked layout.
+    if unplaced:
+        lines.append(f'\t(gr_text "USB PLUG KEEP-OUT" (at 5.3 11.5 90)'
+                     f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
+        front_silk = [
+            ("S", 48.0, 11.7, 0),
+            ("G", 48.0, 14.24, 0),
+            ("H", 48.0, 16.78, 0),
+            ("S", 48.0, 20.6, 0),
+            ("G", 48.0, 23.14, 0),
+            ("H", 48.0, 25.68, 0),
+            ("SYNC IN", 52.0, 14.24, 90),
+            ("SYNC OUT", 52.0, 23.14, 90),
+            ("ID0", 53.9, 8.9, 90),
+            ("ID1", 54.3, 11.9, 90),
+            ("ID2", 54.1, 15.3, 90),
+            ("SHLD", 54.3, 19.0, 90),
+        ]
+        for text, x, y, angle in front_silk:
+            lines.append(f'\t(gr_text "{text}" (at {fmt(x)} {fmt(y)} {angle})'
+                         f' (layer "F.SilkS") (uuid "{uid()}") '
+                         '(effects (font (size 0.8 0.8) (thickness 0.15))))')
     back_silk = [
         ("ID  ID0   ID1   ROLE", 7.0, 0.9),
         ("0   OPEN  OPEN  MASTER", 9.0, 0.9),
