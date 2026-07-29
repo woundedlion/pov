@@ -282,11 +282,11 @@ b.label(nd, "FRAME_SYNC")
 b.wire(R2.pin("1"), CSY.pin("1"))   # C_SYNC onto node
 b.junction(R2.pin("1"))
 to_power(R2, "2", GND); to_power(CSY, "2", GND)
-# Master-only bus idle pulldown + optional TVS. U1 ch D drives
+# Master-only bus idle pulldown + bus TVS. U1 ch D drives
 # SYNC_PULLDOWN low on the master and is high-impedance on every slave.
 RPD = place("Device:R", "R_PD", "10k", 292.1, 205.74, fp=SMD06)
 to_label(RPD, "1", "SYNC_BUS"); to_label(RPD, "2", "SYNC_PULLDOWN")
-DBUS = place("Device:D_TVS", "D_BUS", "TVS", 292.1, 231.14, dnp=True,
+DBUS = place("Device:D_TVS", "D_BUS", "CDSOD323-T05L", 292.1, 231.14,
              fp="Diode_SMD:D_SOD-323")
 to_label(DBUS, "1", "SYNC_BUS"); to_power(DBUS, "2", GND)
 # daisy connectors
@@ -304,8 +304,6 @@ to_label(JPS, "1", "SHIELD"); to_power(JPS, "2", GND)
 b.text((25, 245), "ID STRAPS / MASTER_EN PULL-UP / DEBUG", 2.2)
 RMEN = place("Device:R", "R_MEN", "10k", 76.2, 261.62, fp=SMD06)
 to_power(RMEN, "1", V3); to_label(RMEN, "2", "MASTER_EN")
-RID0 = place("Device:R", "R_ID0", "10k DNP", 101.6, 261.62, dnp=True, fp=SMD06)
-to_power(RID0, "1", V3); to_label(RID0, "2", "ID0")
 JID0 = place("Jumper:SolderJumper_2_Open", "JP_ID0", "ID0->GND", 127.0, 274.32,
              fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm")
 to_label(JID0, "1", "ID0"); to_power(JID0, "2", GND)

@@ -10,16 +10,18 @@ import fab  # noqa: E402
 
 
 class ViaGeometryTests(unittest.TestCase):
-    def validate(self, size, drill):
-        source = (
-            "(kicad_pcb "
-            f"(via (at 1 2) (size {size}) (drill {drill}) "
-            '(layers "F.Cu" "B.Cu")))'
-        )
+    def validate_source(self, source):
         with tempfile.TemporaryDirectory() as directory:
             pcb = Path(directory) / "test.kicad_pcb"
             pcb.write_text(source, encoding="utf-8")
             return fab.validate_via_geometry(pcb)
+
+    def validate(self, size, drill):
+        return self.validate_source(
+            "(kicad_pcb "
+            f"(via (at 1 2) (size {size}) (drill {drill}) "
+            '(layers "F.Cu" "B.Cu")))'
+        )
 
     def test_accepts_standard_cost_via(self):
         self.assertEqual(self.validate("0.45", "0.20"), 1)
@@ -33,6 +35,19 @@ class ViaGeometryTests(unittest.TestCase):
         with self.assertRaisesRegex(
                 fab.ViaGeometryError, "0.15 mm drill is below 0.2 mm"):
             self.validate("0.45", "0.15")
+
+    def test_rejects_close_via_copper(self):
+        source = (
+            "(kicad_pcb "
+            '(via (at 1 2) (size 0.45) (drill 0.20) '
+            '(layers "F.Cu" "B.Cu")) '
+            '(via (at 1.48 2) (size 0.45) (drill 0.20) '
+            '(layers "F.Cu" "B.Cu")))'
+        )
+        with self.assertRaisesRegex(
+                fab.ViaGeometryError,
+                "0.03 mm copper spacing is below 0.15 mm"):
+            self.validate_source(source)
 
 
 class AssemblyMetadataTests(unittest.TestCase):

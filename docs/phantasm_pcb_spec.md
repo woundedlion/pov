@@ -49,7 +49,7 @@ Companion documents:
 | 23 | **ID2** | in (PULLUP) | strap bit 2 — read at N=8; unread at N≤4 |
 | VIN | **+5 V** | power in | board + strip rail |
 | GND | **GND** | power | common return |
-| 3V3 | **+3.3 V** | power out | on-board regulator; sources **R_MEN** (mandatory) + R_ID0 pull-up (opt) + J4 |
+| 3V3 | **+3.3 V** | power out | on-board regulator; sources **R_MEN** (mandatory) + J4 |
 
 SPI clock = **24 MHz** ([pov_segmented.h:151](../hardware/pov_segmented.h#L151)). Lay out the fast nets to be
 clean to **≥30 MHz** so headroom exists.
@@ -157,7 +157,7 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
   a floating `/OE` that settles LOW briefly enables a slave's bus driver — the transient phantom-master
   hazard. Fit a **pull-up R_MEN (10 kΩ) on pin 5 → 3V3** (not 5 V — keeps pin 5 safe; 3.3 V is a solid
   AHCT TTL HIGH = `/OE` disabled). Every board then boots with its sync driver **off**, enabled only
-  when firmware actively asserts master — consistent with the DNP ID0 pull-up (R-ID-3). *Companion
+  when firmware actively asserts master. *Companion
   (optional):* weak pulls on the ch A/B inputs (Teensy 11/13) to define DATA/CLK during the same
   boot window, since those '125 inputs float too — **intentionally not in the base BOM** (APA102-class
   strips latch no garbage from a brief boot transient; add only if a startup flash is objectionable).
@@ -239,10 +239,11 @@ conductors carry the signal pair; the drain handles the screen:
   connector (bridged in↔out) for continuity, but **JP_SHLD is DNP on slaves**, so the continuous
   shield has one ground reference and forms **no shorted turn** around the rotor. Heatshrink any
   unused drain tail; never ground the shield at two boards.
-- **R-SYNC-8 — Optional bus transient clamp.** Pin 3 is well protected (R1 = 10 kΩ limits its clamp
+- **R-SYNC-8 — Bus transient clamp.** Pin 3 is well protected (R1 = 10 kΩ limits its clamp
   current), but the '125 output sits directly on a 1–2 m cable in a BLDC field with no clamp. A small
-  **TVS / clamp diode (D_BUS) at the bus tap** is cheap insurance against inductive/ESD transients on
-  that exposed low-impedance node. Optional (DNP footprint).
+  **Bourns CDSOD323-T05L TVS (D_BUS) at the bus tap** protects that exposed low-impedance node
+  against inductive/ESD transients. Populate it on every board; its 1 pF capacitance does not
+  materially load the bus.
 
 ---
 
@@ -425,11 +426,10 @@ hand-soldered by you.
 | R1 | Divider top | 10 kΩ | 0603 | **SMD** |
 | R2 | Divider btm | **15 kΩ** (legacy 18 kΩ — see §4.2) | 0603 | **SMD** |
 | R_PD | Master-only bus idle pull-down, switched by U1 ch D | 10 kΩ | 0603 | **SMD** |
-| R_ID0 (opt) | ID0 pull-up | 10 kΩ → 3V3 | 0603 | **SMD** DNP |
 | R_MEN | MASTER_EN boot pull-up | 10 kΩ → 3V3 | 0603 | **SMD** |
 | FB | Ferrite bead | ≈600 Ω @ 100 MHz, logic branch (~0.15 A) | 1206 | **SMD** |
 | Q_REV | Reverse protect (logic) | AO3401A P-FET | SOT-23 | **SMD** |
-| D_BUS (opt) | Bus transient clamp | TVS / clamp diode | 0603 | **SMD** DNP |
+| D_BUS | Bus transient clamp | Bourns CDSOD323-T05L, JLCPCB C1975255 | SOD-323, Bourns 0.80 × 0.50 mm land pattern | **SMD** |
 | F1 | Fuse / PTC (logic) | ~0.5–1 A | 1206 / TH | **SMD** |
 | J1 | Logic power in | 2-pin ~1 A (0.1″ / JST) | TH | TH |
 | J2 | Strip signal out | 3-pin 0.1″ (DI/CI/SIG_GND) | TH | TH |
@@ -450,18 +450,18 @@ hand-soldered by you.
 |---|---|
 | **+5V_RAW** | J1 → F1 → Q_REV (logic reverse-protect) → FB in |
 | **+5V_LOGIC** (post-bead) | FB out, R_LF, C_LF, C_IN+, Teensy VIN, U1 Vcc, C_DEC1/2 |
-| **3V3** | Teensy 3V3 pin → R_ID0 top (opt), R_MEN top, J4 |
+| **3V3** | Teensy 3V3 pin → R_MEN top, J4 |
 | **GND** | single quiet logic plane: J1 GND, Teensy GND, U1 GND and ch-D input, C_IN/C_LF/C_DEC −, J3A/J3B GND, R2 bottom, strap GND, JP_SHLD (master), SIG_GND → J2 |
 | **DATA** | Teensy 11 → U1 chA in; U1 chA out → R_D1(33 Ω) → J2 DI |
 | **CLK** | Teensy 13 → U1 chB in; U1 chB out → R_D2(33 Ω) → J2 CI |
 | **SIG_GND** | logic GND → J2 pin 3 → strip GND pin (**load-end star**, R-CON-1) |
 | **SYNC_OUT** | Teensy 3 → U1 chC in; U1 chC out → R_S(100 Ω) → SYNC bus |
-| **SYNC bus** | J3A/J3B SYNC (bridged), R1 top, R_PD top, D_BUS (opt), U1 chC out (via R_S) |
+| **SYNC bus** | J3A/J3B SYNC (bridged), R1 top, R_PD top, D_BUS, U1 chC out (via R_S) |
 | **SYNC_RX** | SYNC bus → R1 → node (≈3.0 V; R2 to GND, C_SYNC) → Teensy 3 |
 | **SHIELD** | J3A SHLD, J3B SHLD (bridged drain) → JP_SHLD → GND (**master only**) |
 | **MASTER_EN** | Teensy 5 → U1 chC and chD `/OE`; R_MEN (10 kΩ) pull-up → 3V3 |
 | **SYNC_PULLDOWN** | U1 chD output → R_PD bottom; LOW only on the master, high-impedance on slaves |
-| **ID0** | Teensy 21 → strap pad (→GND per role); opt R_ID0 to 3V3 |
+| **ID0** | Teensy 21 → strap pad (→GND per role); firmware enables the internal pull-up |
 | **ID1** | Teensy 22 → strap pad (→GND per role) |
 
 > **Pin 3 is one physical node.** `SYNC_OUT` and `SYNC_RX` are the two roles of the *same* Teensy
@@ -493,7 +493,7 @@ enabling *hand* assembly, not a hard electrical or mechanical constraint — par
 | C_DEC1,2 (0.1 µF), C_LF (22 µF) | C_IN (≥100 µF) electrolytic — RTV-bonded |
 | FB ferrite (1206), Q_REV (Schottky/P-FET), F1 (fuse) | ID strap links, JP_SHLD — manual |
 | C_SYNC (220 pF, **populated** — noise filter, R-SYNC-3) | C_BULK + LED power harness — **off-board** (§2.3) |
-| R_ID0, D_BUS — **DNP** (footprints only) | — |
+| D_BUS (CDSOD323-T05L sync-bus TVS) | — |
 
 Rationale: SMD pad joints carry negligible centrifugal load at these masses; electrolytics rely on
 pads alone would be a bad trade at 480 RPM, so they stay TH + RTV (R-PWR-6 / R-MECH-3).
@@ -508,8 +508,8 @@ pads alone would be a bad trade at 480 RPM, so they stay TH + RTV (R-PWR-6 / R-M
   assembly (typically bottom or the same top edge), but **no SMD on the second side**.
 - **R-ASM-3 — Check U1 part class.** SN74AHCT125 may be an **extended part** on JLCPCB (one-time
   feeder/setup fee); confirm at quote time. The passives are basic (no fee).
-- **R-ASM-4 — DNP discipline.** **C_SYNC IS populated** (220 pF — the BLDC/LED noise filter, R-SYNC-3);
-  do *not* omit it. **R_ID0 and D_BUS are Do-Not-Populate** (footprints present, parts omitted).
+- **R-ASM-4 — Population discipline.** **C_SYNC IS populated** (220 pF — the BLDC/LED noise filter,
+  R-SYNC-3); do *not* omit it. **D_BUS is populated on every board.**
   JP_SHLD is hand-stuffed on the master only.
 - **R-ASM-5 — Tight SMD placement.** With SMD, honor R-PWR-4 / R-SI-4 easily: C_DEC within 3 mm of
   U1 Vcc and Teensy VIN; C_LF at the bead output. Keep U1 and its decoupling clustered.

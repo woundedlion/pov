@@ -3798,16 +3798,6 @@
 		(uuid "a8497037-85c7-44f5-89bc-86fd8db39f7c")
 	)
 	(wire
-		(pts (xy 101.6 257.81) (xy 101.6 255.27))
-		(stroke (width 0) (type default))
-		(uuid "ec571cad-8880-4595-ba6e-5848bdcf5b60")
-	)
-	(wire
-		(pts (xy 101.6 265.43) (xy 101.6 269.24))
-		(stroke (width 0) (type default))
-		(uuid "fd545af2-b52a-45b2-9c15-8e18405f3226")
-	)
-	(wire
 		(pts (xy 121.92 274.32) (xy 118.11 274.32))
 		(stroke (width 0) (type default))
 		(uuid "92806902-5acd-40bb-bdbe-0f592b5b9269")
@@ -4051,11 +4041,6 @@
 		(at 76.2 269.24 0)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "c65ed26f-49a9-478f-896c-baaa4ee1d76b")
-	)
-	(label "ID0"
-		(at 101.6 269.24 0)
-		(effects (font (size 1.27 1.27)) (justify left bottom))
-		(uuid "ae79176a-5eaa-4faf-94c2-e0047c7ee458")
 	)
 	(label "ID0"
 		(at 118.11 274.32 0)
@@ -5444,13 +5429,13 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(uuid "5c560fe7-4a28-4333-baae-ec781e0c5dce")
 		(property "Reference" "D_BUS"
 			(at 292.1 226.06 0)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "TVS"
+		(property "Value" "CDSOD323-T05L"
 			(at 292.1 236.22 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5458,7 +5443,7 @@
 			(at 292.1 238.76 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.bourns.com/docs/Product-Datasheets/CDSOD323-TxxLC.pdf"
 			(at 292.1 231.14 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
@@ -5776,75 +5761,6 @@
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(pin "1" (uuid "1f445136-f230-4280-9994-9f11fea65b32"))
-		(instances
-			(project "phantasm"
-				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R")
-		(at 101.6 261.62 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp yes)
-		(uuid "79298882-e9c1-49f0-a6c9-534951f0934f")
-		(property "Reference" "R_ID0"
-			(at 101.6 256.54 0)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Value" "10k DNP"
-			(at 101.6 266.7 0)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
-			(at 101.6 269.24 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-		(property "Datasheet" ""
-			(at 101.6 261.62 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-		(pin "1" (uuid "ab053f2d-c340-4b30-977a-f5f668c1026a"))
-		(pin "2" (uuid "7115126f-9b54-4c5e-afe5-0447fb697bf6"))
-		(instances
-			(project "phantasm"
-				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "R_ID0") (unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 101.6 255.27 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "2159f30e-841d-4f37-8548-c0566fecc62a")
-		(property "Reference" "#PWR"
-			(at 101.6 250.19 0)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Value" "+3V3"
-			(at 101.6 260.35 0)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Footprint" ""
-			(at 101.6 262.89 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-		(property "Datasheet" ""
-			(at 101.6 255.27 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-		(pin "1" (uuid "c1f4d30d-2756-47cb-855e-d7cf040c0810"))
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"

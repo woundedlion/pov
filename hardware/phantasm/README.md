@@ -87,8 +87,7 @@ the netlist is what's verified.
 | `C_SYNC` | `Device:C` (220pF) | `C_0603` | populated (noise filter) |
 | `R_PD` | `Device:R` (10k) | `R_0603` | master-only bus idle pull-down; ground-side switched automatically by U1 channel D |
 | `R_MEN` | `Device:R` (10k) | `R_0603` | MASTER_EN boot pull-up → 3V3 |
-| `R_ID0` | `Device:R` (10k) | `R_0603` | **DNP** — ID0 pull-up |
-| `D_BUS` | `Device:D_TVS` | `Diode_SMD:D_SOD-323` | **DNP** — bus clamp |
+| `D_BUS` | `Device:D_TVS` (Bourns CDSOD323-T05L) | `Diode_SMD:D_SOD-323` with Bourns pad geometry | populated 5 V, 1 pF sync-bus TVS; exact Bourns land pattern; JLCPCB C1975255 |
 | `J1` | `Connector_Generic:Conn_01x02` | `PinHeader_1x02_P2.54mm` | +5 V/GND light logic feed, ~1 A |
 | `J2` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | strip **signal only**: DI / CI / SIG_GND (no power) |
 | `J3A/J3B` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | Belden 8451 daisy |
@@ -106,8 +105,9 @@ the netlist is what's verified.
   `VLOGIC = 4.75 − 0.15 × (0.75 + 0.20 + 0.12) = 4.5895 V`. This leaves about
   90 mV above the AHCT125's 4.5 V minimum; verify that J1 itself remains at or above
   4.75 V on the hot, operating rotor because external harness drop is not included.
-- **DNP parts** (`R_ID0`, `D_BUS`) carry the KiCad DNP flag — footprints present,
-  not populated, per §R-ASM-4. `JP_SHLD` is populated **on the master board only**;
+- **ID straps** use the Teensy's internal pull-ups; the former optional `R_ID0`
+  footprint is not required. `D_BUS` is populated on every board. `JP_SHLD` is
+  populated **on the master board only**;
   `JP_ID2` is unread at N = 4 and carries the high segment-ID bit at N = 8.
 - **LED power is off-board (§2.3).** There is **no `C_BULK` and no `+5V_MAIN` heavy
   rail on the card** — the 1000 µF bulk lives at the strip injection point off-board
@@ -149,9 +149,9 @@ The committed routed PCB is the source of truth for these facts. Refresh this bl
 |---|---|
 | Board dimensions | 58.28 × 32 mm |
 | Board thickness | 1.6 mm |
-| Footprints by side | 33 (F.Cu: 33, B.Cu: 0) |
-| Track segments | 351 |
-| Vias | 97 |
+| Footprints by side | 32 (F.Cu: 32, B.Cu: 0) |
+| Track segments | 339 |
+| Vias | 100 |
 | Copper zones | 6 (F.Cu: 4, In1.Cu: 5, In2.Cu: 5, B.Cu: 4) |
 | Copper layers | 4 (F.Cu, In1.Cu, In2.Cu, B.Cu) |
 | Copper thicknesses | F.Cu: 0.035001 mm; In1.Cu: 0.015189 mm; In2.Cu: 0.015189 mm; B.Cu: 0.035001 mm |
@@ -172,7 +172,8 @@ strip/sync `J2`/`J3A`/`J3B` at the far end, R-CON-4). `MASTER_EN` and
   plane for traces on both outer layers (R-SI-1).
 - **Fast nets:** DATA, CLK, and SYNC routing from the validated input was retained;
   the completed Quilter pass added only the low-rate control routing.
-- Existing critical routing uses the JLCPCB **4 mil / 4 mil** process limits.
+- Critical routing uses at least **0.13 mm trace width** with the JLCPCB
+  **4 mil clearance** process limit.
 
 > Routing lives only in `phantasm.kicad_pcb`. **Re-running `gen/pcb.py` overwrites the
 > board and discards routing** — don't regenerate the PCB after this point (or route a copy).
