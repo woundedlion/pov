@@ -51,6 +51,12 @@ Both checks run via `kicad-cli` (KiCad 10.0):
   violations and zero unconnected pads.
 - **Standard-cost via gate:** `gen/fab.py` rejects a routed board containing a
   via smaller than 0.45 mm with a drill smaller than 0.20 mm.
+- **Schematic parity gate:** `gen/fab.py` runs `kicad-cli pcb drc
+  --schematic-parity` and rejects any board/schematic difference outside
+  `KNOWN_PARITY_ITEMS` (mounting holes, jumper BOM attributes, the Teensy
+  footprint field), so gerbers for stale copper cannot ship with a BOM
+  exported from a newer schematic. Parity items are warning severity in
+  KiCad, so this runs separately from the error-severity DRC gate.
 
 ## How connectivity is drawn
 
