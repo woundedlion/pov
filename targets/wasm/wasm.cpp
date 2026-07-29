@@ -565,6 +565,24 @@ public:
   }
 
   /**
+   * @brief Sets near-pole azimuthal shading decimation.
+   * @param aggressiveness Columns per shade are this over sin(colatitude);
+   *        0 disables. Non-finite and negative inputs clamp to 0.
+   * @details The physically-neutral setting is 1.0: at that value one shade
+   *          covers the columns sharing a physical LED footprint. Exposed so
+   *          the value can be tuned against real hardware.
+   */
+  void setPoleLod(float aggressiveness) {
+    if (!std::isfinite(aggressiveness) || aggressiveness < 0.0f)
+      aggressiveness = 0.0f;
+    pole_lod_aggressiveness =
+        aggressiveness > 8.0f ? 8.0f : aggressiveness;
+  }
+
+  /** @brief Current near-pole azimuthal decimation aggressiveness. */
+  float getPoleLod() const { return pole_lod_aggressiveness; }
+
+  /**
    * @brief Builds the GUI's parameter descriptor list.
    * @return JS array with one {name, value, animated, readonly, (+min/max for
    *         floats)} object per param in the effect's declaration order; empty
@@ -1382,6 +1400,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getBufferLength", &HolosphereEngine::getBufferLength)
       .function("setParameter", &HolosphereEngine::setParameter)
       .function("setAnimationsPaused", &HolosphereEngine::setAnimationsPaused)
+      .function("setPoleLod", &HolosphereEngine::setPoleLod)
+      .function("getPoleLod", &HolosphereEngine::getPoleLod)
       .function("getParameterDefinitions",
                 &HolosphereEngine::getParameterDefinitions)
       .function("getParamValues", &HolosphereEngine::getParamValues)

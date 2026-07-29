@@ -569,9 +569,10 @@ inline void test_scan_region_seam_no_double_plot() {
         out((float)(W - 2), (float)(W + 2)); // seam-crosser  -> W-2,W-1,0,1
         return true;
       },
-      [&](int wx, int, const Vector &) {
-        if (wx >= 0 && wx < W)
-          counts[wx]++;
+      [&](int wx, int, const Vector &, int run) {
+        for (int i = 0; i < run; ++i)
+          if (wx + i >= 0 && wx + i < W)
+            counts[wx + i]++;
       });
 
   // No pixel plotted more than once (the wrapped overlap at x=0,1 is not doubled).
@@ -608,9 +609,10 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
         out(5.6f, 8.0f); // floor(5.6)=5 would re-plot x=5 without the clamp
         return true;
       },
-      [&](int wx, int, const Vector &) {
-        if (wx >= 0 && wx < W)
-          counts[wx]++;
+      [&](int wx, int, const Vector &, int run) {
+        for (int i = 0; i < run; ++i)
+          if (wx + i >= 0 && wx + i < W)
+            counts[wx + i]++;
       });
 
   for (int x = 0; x < W; ++x)
@@ -622,6 +624,69 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
     HS_EXPECT_EQ(counts[x], 1);
   HS_EXPECT_EQ(counts[1], 0);
   HS_EXPECT_EQ(counts[8], 0);
+}
+
+/**
+ * @brief Verifies near-pole runs are anchored to canvas columns, not to the
+ *        span or the clip arc.
+ * @details A run that straddled a stride block would shade from a column the
+ * block does not own, so the same physical column would shade differently
+ * depending on which clip segment rendered it — a visible segment seam. Drives
+ * a near-pole row unclipped and under each quarter clip, asserting every
+ * emitted run stays inside one block and that a column's owning block is the
+ * same in all four cases.
+ */
+inline void test_pole_lod_runs_are_canvas_anchored() {
+  constexpr int W = 288;
+  constexpr int H = 144;
+  const int y = 2; // near the north pole, so sin(phi) is small and stride > 1
+
+  TrigLUT<W, H>::init();
+  const int stride = Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]);
+
+  const float saved = pole_lod_aggressiveness;
+  pole_lod_aggressiveness = 1.0f;
+  const int lod_stride = Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]);
+  HS_EXPECT_GT(lod_stride, 1);
+
+  // block[x] = the stride block that painted column x, -1 if unpainted.
+  auto scan_blocks = [&](ClipRegion::XClip xc, std::array<int, W> &block) {
+    block.fill(-1);
+    Scan::scan_region<W, H>(
+        y, y, [](int, auto &&out) { out(0.0f, (float)W); return true; },
+        [&](int wx, int, const Vector &, int run) {
+          for (int i = 0; i < run; ++i) {
+            const int x = wx + i;
+            if (x >= 0 && x < W)
+              block[static_cast<size_t>(x)] = x / lod_stride;
+          }
+          // Every run lies inside one canvas-anchored block.
+          HS_EXPECT_EQ(wx / lod_stride, (wx + run - 1) / lod_stride);
+        },
+        xc);
+  };
+
+  std::array<int, W> full{};
+  scan_blocks(ClipRegion::XClip{}, full);
+
+  for (int q = 0; q < 4; ++q) {
+    ClipRegion::XClip xc{};
+    xc.active = true;
+    xc.wrap = false;
+    xc.rs = q * (W / 4);
+    xc.re = xc.rs + (W / 4);
+    std::array<int, W> part{};
+    scan_blocks(xc, part);
+    for (int x = xc.rs; x < xc.re; ++x)
+      HS_EXPECT_EQ(part[static_cast<size_t>(x)], full[static_cast<size_t>(x)]);
+  }
+
+  // Aggressiveness 0 is exactly one column per run.
+  pole_lod_aggressiveness = 0.0f;
+  HS_EXPECT_EQ(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]), 1);
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 1);
+  (void)stride;
+  pole_lod_aggressiveness = saved;
 }
 
 /**
@@ -647,9 +712,10 @@ inline void test_scan_region_clip_arc_matches_predicate() {
           out((float)(W - 4), (float)(W + 2)); // seam-crosser
           return true;
         },
-        [&](int wx, int, const Vector &) {
-          if (wx >= 0 && wx < W)
-            counts[wx]++;
+        [&](int wx, int, const Vector &, int run) {
+          for (int i = 0; i < run; ++i)
+            if (wx + i >= 0 && wx + i < W)
+              counts[wx + i]++;
         },
         xc);
   };
@@ -1490,6 +1556,7 @@ inline int run_scan_tests() {
   test_scan_region_seam_no_double_plot();
   test_scan_region_fractional_boundary_no_double_plot();
   test_scan_region_clip_arc_matches_predicate();
+  test_pole_lod_runs_are_canvas_anchored();
   test_plot_line_over_pole_reaches_row0();
   test_csg_stroke_aa_uses_winning_child_thickness();
 
