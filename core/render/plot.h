@@ -1128,6 +1128,8 @@ template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
  *                   plot); both arrays or neither.
  * @param point_cols Optional per-point screen columns, vector_to_theta of
  *                   each points[k].pos.
+ * @param loop_seam Optional last-to-first target fragment carrying seam
+ *                  registers for a closed loop without an overlapping point.
  */
 HS_O3_BEGIN
 template <int W, int H, typename PipelineT = PipelineRef,
@@ -1138,7 +1140,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           const Basis *planar_basis = nullptr, bool omit_end = false,
           const uint8_t *edge_visible = nullptr,
           const float *point_rows = nullptr,
-          const float *point_cols = nullptr) {
+          const float *point_cols = nullptr,
+          const Fragment *loop_seam = nullptr) {
   // Erasure collapses pipeline and shader; the erased call matches neither
   // clause so recursion ends.
   if constexpr (!pipeline_direct_raster_path<PipelineT>() &&
@@ -1149,7 +1152,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     FragmentShaderFn erased_shader(fragment_shader);
     rasterize<W, H>(erased, canvas, points, erased_shader, close_loop,
                     planar_basis, omit_end, edge_visible, point_rows,
-                    point_cols);
+                    point_cols, loop_seam);
     return;
   }
   auto &pipeline = source_pipeline;
@@ -1164,6 +1167,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
   HS_CHECK(edge_visible == nullptr || planar_basis == nullptr,
            "precomputed edge visibility is geodesic-only");
+  HS_CHECK(loop_seam == nullptr || close_loop,
+           "a raster seam fragment requires a closed loop");
 #ifdef __EMSCRIPTEN__
   double plot_t0 = emscripten_get_now();
 #endif
@@ -1190,6 +1195,11 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   // arc (`cumul`/`seg_base` track it, `total_arc` normalizes v0). Skipped for
   // geodesic polylines.
   const bool override_uv = (planar_basis != nullptr);
+  auto segment_next = [&](size_t i) -> const Fragment & {
+    if (loop_seam != nullptr && i + 1 == len)
+      return *loop_seam;
+    return points[(i + 1) % len];
+  };
   float total_arc = 0.0f;
   // Per-segment rendered arc length and antipode-seam flag, reused by the draw
   // loop below so the seam decision is taken in exactly one place.
@@ -1201,7 +1211,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     const Vector &pcenter = planar_basis->v;
     for (size_t i = 0; i < count; i++) {
       const Vector &a = points[i].pos;
-      const Vector &b = points[(i + 1) % len].pos;
+      const Vector &b = segment_next(i).pos;
       const bool seam = dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
                         dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
       seg_seam_cache.push_back(seam ? 1 : 0);
@@ -1381,7 +1391,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 
   for (size_t i = 0; i < count; i++) {
     const Fragment &curr = points[i];
-    const Fragment &next = points[(i + 1) % len];
+    const Fragment &next = segment_next(i);
     bool is_last_segment = (i == count - 1);
 
     // --- Interpolation Strategy Selection ---
@@ -1458,6 +1468,8 @@ struct FragmentDrawParams {
       false; /**< Skip the final endpoint plot of an open line, so abutting arcs tile without a double-plot. */
   const Basis *planar_basis =
       nullptr; /**< Planar projection basis (null = geodesic). */
+  Fragment *loop_seam =
+      nullptr; /**< Optional closing target with seam-specific registers. */
 };
 
 /**
@@ -1487,8 +1499,11 @@ inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
   points.bind(scratch_arena_a, params.capacity);
   fill(points);
   apply_vertex_shader(vertex_shader, points);
+  if (params.loop_seam != nullptr && vertex_shader)
+    vertex_shader(*params.loop_seam);
   rasterize<W, H>(pipeline, canvas, points, fragment_shader, params.close_loop,
-                  params.planar_basis, params.omit_end);
+                  params.planar_basis, params.omit_end, nullptr, nullptr,
+                  nullptr, params.loop_seam);
 }
 
 /**
@@ -1608,18 +1623,20 @@ struct Line {
 struct Multiline {
   /**
    * @brief Samples a multiline path from a container of vertices.
-   * @param points Output fragment list; arc-length-parameterized fragments are
-   *               appended.
+   * @param points Output fragment list; one arc-length-parameterized fragment
+   *               is appended per input vertex.
    * @param vertices Iterable container of Fragment.
    * @param closed If true, connects the last point to the first.
+   * @return Closing target with continued seam registers when closed; a
+   *         default Fragment otherwise.
    */
-  static void sample(Fragments &points, const auto &vertices,
-                     bool closed = false) {
+  static Fragment sample(Fragments &points, const auto &vertices,
+                         bool closed = false) {
     auto it = std::begin(vertices);
     auto end = std::end(vertices);
 
     if (it == end)
-      return;
+      return {};
 
     float total_len = 0.0f;
     Fragment first = *it;
@@ -1674,8 +1691,9 @@ struct Multiline {
       f.v0 = 1.0f;
       f.v1 = current_len;
       f.v2 = static_cast<float>(idx);
-      points.push_back(f);
+      return f;
     }
+    return {};
   }
 
   /**
@@ -1692,12 +1710,15 @@ struct Multiline {
   static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, bool closed = false) {
-    // sample() appends the wrap vertex carrying the v0=1 seam register;
-    // close_loop drops the resulting degenerate closing edge.
+    Fragment loop_seam;
     draw_fragments<W, H>(
         pipeline, canvas, vertex_shader, fragment_shader,
-        {.capacity = vertices.size() + 2, .close_loop = closed},
-        [&](Fragments &points) { sample(points, vertices, closed); });
+        {.capacity = vertices.size() + 1,
+         .close_loop = closed,
+         .loop_seam = closed ? &loop_seam : nullptr},
+        [&](Fragments &points) {
+          loop_seam = sample(points, vertices, closed);
+        });
   }
 
   /**
