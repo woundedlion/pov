@@ -121,12 +121,12 @@ inline void test_populate_band_preserves_other_samples() {
 inline void test_longitude_filter_tracks_spherical_width() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4, 4, 1, 72);
   HS_EXPECT_EQ(layout.longitude_filter_width(0), 1);
-  HS_EXPECT_EQ(layout.longitude_filter_width(1), 45);
-  HS_EXPECT_EQ(layout.longitude_filter_width(2), 23);
-  HS_EXPECT_EQ(layout.longitude_filter_width(3), 15);
-  HS_EXPECT_EQ(layout.longitude_filter_width(4), 11);
-  HS_EXPECT_EQ(layout.longitude_filter_width(72), 1);
-  HS_EXPECT_EQ(layout.longitude_filter_width(143), 15);
+  HS_EXPECT_EQ(layout.longitude_filter_width(1), 47);
+  HS_EXPECT_EQ(layout.longitude_filter_width(2), 25);
+  HS_EXPECT_EQ(layout.longitude_filter_width(3), 17);
+  HS_EXPECT_EQ(layout.longitude_filter_width(4), 13);
+  HS_EXPECT_EQ(layout.longitude_filter_width(72), 3);
+  HS_EXPECT_EQ(layout.longitude_filter_width(143), 17);
 }
 
 inline void test_longitude_filter_and_sampler_wrap_poles() {

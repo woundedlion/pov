@@ -128,9 +128,7 @@ public:
     const float sine = latitude_sine(y);
     if (sine < 1.0f / W)
       return 1;
-    int width = static_cast<int>(1.0f / sine);
-    if ((width & 1) == 0)
-      --width;
+    int width = static_cast<int>(ceilf(1.0f / sine)) | 1;
     const int maximum_odd_width = (W & 1) ? W : W - 1;
     return std::clamp(width, 1, maximum_odd_width);
   }
