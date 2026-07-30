@@ -1311,6 +1311,13 @@ public:
   static val getArenaMetrics() { return collect_arena_metrics(); }
 };
 
+// 256 sRGB entries (R,G,B) backing the typed_memory_view PaletteOps::bakeLut
+// returns. File-scope and fixed-size so the view neither outlives its storage
+// (a PaletteOps delete() would free a member buffer while the JS view stayed
+// non-empty and readable over reusable heap) nor reallocates between calls.
+static constexpr size_t PALETTE_LUT_BYTES = 256 * 3;
+static uint8_t palette_lut[PALETTE_LUT_BYTES];
+
 /**
  * @brief WASM bridge that bakes a GenerativePalette LUT for the daydream palette
  *        tool, so the tool previews the engine's exact perceptual color math
@@ -1323,16 +1330,6 @@ public:
  *          touched, so calling this never perturbs a live engine's render stream.
  */
 struct PaletteOps {
-private:
-  // 256 sRGB entries (R,G,B) backing the typed_memory_view bakeLut returns.
-  // Sized once at construction so the view's ArrayBuffer never reallocates
-  // between calls (same contract as HolosphereEngine::getPixels): JS must read
-  // the result before the next bakeLut call and before delete() frees it.
-  std::vector<uint8_t> lut;
-
-public:
-  PaletteOps() : lut(256 * 3, 0) {}
-
   /**
    * @brief Bakes a 256-entry sRGB LUT for a generative palette.
    * @param gradientShape GradientShape as an int (STRAIGHT=0, CIRCULAR=1,
@@ -1347,13 +1344,9 @@ public:
    * @param s3 Third key saturation.
    * @param v3 Third key value.
    * @return JS Uint8Array view over 256*3 sRGB bytes; entry i is the palette
-   *         sampled at t = i/255. Aliases the shared `lut` buffer (same
-   *         memory-view contract as getPixels): read it before the next bakeLut
-   *         call, which overwrites the buffer in place, AND before this
-   *         PaletteOps' delete(), which frees the buffer outright. delete() is
-   *         the sharper hazard: a freed buffer leaves the view non-empty and
-   *         readable over reusable heap, so the usual byteLength === 0
-   *         detachment guard does not catch it.
+   *         sampled at t = i/255. Aliases the module-lifetime palette_lut buffer
+   *         (same memory-view contract as getPixels): read it before the next
+   *         bakeLut call on any PaletteOps, which overwrites the buffer in place.
    */
   val bakeLut(int gradientShape, int h1, int s1, int v1, int h2, int s2, int v2,
               int h3, int s3, int v3) {
@@ -1390,11 +1383,11 @@ public:
       hs::log("WASM: bakeLut hsv key out of [0,255] — clamped");
     for (int i = 0; i < 256; ++i) {
       CRGB c = static_cast<CRGB>(pal.get(i / 255.0f));
-      lut[3 * i + 0] = c.r;
-      lut[3 * i + 1] = c.g;
-      lut[3 * i + 2] = c.b;
+      palette_lut[3 * i + 0] = c.r;
+      palette_lut[3 * i + 1] = c.g;
+      palette_lut[3 * i + 2] = c.b;
     }
-    return val(typed_memory_view(lut.size(), lut.data()));
+    return val(typed_memory_view(PALETTE_LUT_BYTES, palette_lut));
   }
 };
 
