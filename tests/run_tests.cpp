@@ -142,7 +142,7 @@ struct TestModule {
   X("param_marshal", hs_test::param_marshal_tests::run_param_marshal_tests,    \
     1167)                                                                      \
   X("wasm_predicates",                                                         \
-    hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 83)             \
+    hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 92)             \
   X("util", hs_test::util_tests::run_util_tests, 288)                          \
   X("led", hs_test::led_tests::run_led_tests, 12)                              \
   X("presets", hs_test::presets_tests::run_presets_tests, 23)                  \

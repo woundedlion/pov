@@ -101,6 +101,14 @@ static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
                   TOOLING_SCRATCH_BYTES / TOOLING_BYTES_PER_MESH_ELEMENT,
               "a stage at the 16-bit ceiling must still fit a scratch arena");
 
+// Tooling-arena bytes a finalized mesh retains per element: one Vector of
+// vertex, one uint8_t of side count and one uint16_t of index, with slack for the
+// three blocks' alignment padding.
+static constexpr size_t TOOLING_ARENA_BYTES_PER_MESH_ELEMENT = 16;
+static_assert(sizeof(Vector) + sizeof(uint8_t) + sizeof(uint16_t) <
+                  TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
+              "finalized mesh element must fit its predicted arena bytes");
+
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
 // was built under and traps via check_live() if a wipe reclaimed its storage.
 static uint32_t tooling_generation = 0;
@@ -948,15 +956,18 @@ public:
    *         PolyMesh.
    * @param expansion Operator's element expansion factor (see MESHOP_LIST).
    * @param op Operator to run against this wrapper's mesh.
-   * @return Owning pointer to a new wrapper holding the finalized result mesh,
-   *         or null if some stage of this operator would pass
-   *         MAX_MESH_CONNECTIVITY_ELEMENTS.
+   * @return Owning pointer to a new wrapper holding the finalized result mesh, or
+   *         null if some stage of this operator would pass
+   *         MAX_MESH_CONNECTIVITY_ELEMENTS or its output would not fit what is
+   *         left of tooling_arena.
    * @details Captures the shared operator boilerplate: reset both tooling scratch
    *          arenas, run the op into a fresh PolyMesh, finalize it into
    *          tooling_arena, and hand back a new wrapper. An input the operator
    *          would grow past the engine's 16-bit connectivity range is rejected
    *          here, at the untrusted JS boundary, rather than reaching
-   *          build_half_edge_mesh's fail-fast trap partway through a composition.
+   *          build_half_edge_mesh's fail-fast trap partway through a composition;
+   *          likewise a result that would overrun tooling_arena, which accumulates
+   *          one finalized mesh per chained wrapper until clearToolingMemory().
    */
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(size_t expansion, Op &&op) const {
@@ -971,8 +982,19 @@ public:
               mesh.get_faces_size(), expansion, MAX_MESH_CONNECTIVITY_ELEMENTS);
       return nullptr;
     }
-    ToolingOpGuard guard;
     ensure_tooling_arenas();
+    if (hs_wasm::mesh_op_output_over_arena(
+            mesh.vertices.size(), mesh.get_face_counts_size(),
+            mesh.get_faces_size(), expansion,
+            TOOLING_ARENA_BYTES_PER_MESH_ELEMENT, tooling_arena.get_offset(),
+            tooling_arena.get_capacity())) {
+      hs::log("WASM: MeshOps result does not fit the tooling arena (%zu of %zu "
+              "bytes used) — ignored; call clearToolingMemory() to reclaim it, "
+              "which invalidates every live mesh",
+              tooling_arena.get_offset(), tooling_arena.get_capacity());
+      return nullptr;
+    }
+    ToolingOpGuard guard;
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(

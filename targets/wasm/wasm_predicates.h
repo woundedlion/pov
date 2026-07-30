@@ -130,6 +130,36 @@ inline bool mesh_op_expansion_over_ceiling(size_t verts, size_t faces,
 }
 
 /**
+ * @brief True when a mesh operator's finalized output will not fit in what is
+ *        left of an arena.
+ * @param verts Input mesh vertex count.
+ * @param faces Input mesh face count.
+ * @param indices Input mesh flat face-index count.
+ * @param expansion Operator's element expansion (see
+ *        mesh_op_expansion_over_ceiling); >= 1.
+ * @param bytes_per_element Arena bytes one output element retains.
+ * @param used_bytes Bytes already committed in the arena.
+ * @param capacity_bytes Arena capacity in bytes.
+ * @return true when the operator must be rejected.
+ * @details The arena backing the live wrappers is rewound only by an explicit
+ *          wipe, so every chained operator's finalized mesh accumulates in it.
+ *          Each of the output's three counts is at most the predicted peak, so
+ *          pricing all three at that peak bounds the whole mesh and keeps
+ *          Arena::allocate's fail-fast trap out of reach of the JS boundary.
+ */
+inline bool mesh_op_output_over_arena(size_t verts, size_t faces,
+                                      size_t indices, size_t expansion,
+                                      size_t bytes_per_element,
+                                      size_t used_bytes,
+                                      size_t capacity_bytes) {
+  if (used_bytes >= capacity_bytes)
+    return true;
+  const size_t remaining = capacity_bytes - used_bytes;
+  return mesh_largest_element_count(verts, faces, indices) >
+         remaining / (expansion * bytes_per_element);
+}
+
+/**
  * @brief True when a Hankin contact angle falls outside its [0, max] domain.
  * @param radians Contact angle from the JS boundary.
  * @param max_radians Inclusive upper bound of the operator's domain (pi/2).
