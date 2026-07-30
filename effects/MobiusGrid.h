@@ -133,6 +133,9 @@ private:
   // counter-rotation singularity guard.
   friend struct ::hs_test::effects_tests::MobiusGridWhiteBox;
 
+  static constexpr float CONFORMAL_LOG_MIN = -2.5f;
+  static constexpr float CONFORMAL_LOG_MAX = 2.5f;
+
   /**
    * @brief Counter-rotation swinging the transformed-pole midpoint back onto +Z.
    * @param mid Sum of the two Möbius-transformed poles.
@@ -163,9 +166,8 @@ private:
       return 1.0f;
     float R = sqrtf((1.0f + z) / (1.0f - z));
     float log_r = logf(R);
-    const float log_min = -2.5f;
-    const float log_max = 2.5f;
-    float t = (log_r - log_min) / (log_max - log_min);
+    float t = (log_r - CONFORMAL_LOG_MIN) /
+              (CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN);
     return wrap(t - phase, 1.0f);
   }
 
@@ -253,15 +255,13 @@ private:
    * @param num Fractional ring count; ceil(num) rings are drawn.
    * @param phase Scroll offset in [0, 1) advancing the ring radii.
    * @param q Counter-rotation applied after the Möbius warp.
-   * @details Each ring's radius is spaced logarithmically (log_min..log_max) and
+   * @details Each ring's radius spans the shared conformal log range and is
    *          scrolled by phase, mapped through an atan so spacing matches the
    *          stereographic projection.
    */
   void draw_axis_rings(Canvas &canvas, const Vector &normal, float num,
                        float phase, const Quaternion &q) {
-    const float log_min = -2.5f;
-    const float log_max = 2.5f;
-    const float range = log_max - log_min;
+    const float range = CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN;
 
     // normal is loop-invariant, so the basis is identical for every ring.
     const Basis ring_basis = make_basis(Quaternion(), normal);
@@ -272,7 +272,7 @@ private:
         canvas, num, q,
         [&](int i) -> Curve {
           float t = wrap((static_cast<float>(i) / num) + phase, 1.0f);
-          float r_val = expf(log_min + t * range);
+          float r_val = expf(CONFORMAL_LOG_MIN + t * range);
           float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
           return {ring_basis, radius};
         },
