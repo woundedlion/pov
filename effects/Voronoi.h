@@ -296,6 +296,8 @@ private:
       resolution can reach still gets a block no wider than one cell. A fixed
       floor would straddle whole cells at short H (H=20 puts every cell inside a
       pixel row). */
+  static_assert(COHERENCE_BLOCK_MIN <= COHERENCE_BLOCK,
+                "Voronoi coherence block bounds are inverted");
 
   /** @brief Canonical (order-independent) nearest-pair identity at a sample
    *  point; the coarse-grid corner classifier stores one per corner (see the
