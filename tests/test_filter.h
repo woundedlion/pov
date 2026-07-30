@@ -175,9 +175,8 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE(
       (Pipeline<W, H, Filter::Screen::Trails<>>::any_crosses_segments));
 
-  // `public Head` leaks the head stage's traits onto the Pipeline type, so the
-  // unqualified spelling must be shadowed by the fold. MeshStack's head
-  // (World::Orient) is false while the fold is true.
+  // The pipeline spelling exposes the fold. MeshStack's head (World::Orient)
+  // is false while the composed pipeline is true.
   HS_EXPECT_TRUE(MeshStack::crosses_segments);
   HS_EXPECT_FALSE(PlainStack::crosses_segments);
 
@@ -239,6 +238,13 @@ inline void test_history_domain_folds() {
  */
 inline void test_pipeline_sink_is_2d() {
   HS_EXPECT_TRUE((Pipeline<32, 32>::is_2d));
+  HS_EXPECT_FALSE((Pipeline<32, 32>::is_terminal));
+  using Terminal =
+      Pipeline<32, 32, Filter::Pixel::Feedback<32, 32>>;
+  using NonTerminal =
+      Pipeline<32, 32, Filter::Screen::AntiAlias<32, 32>>;
+  static_assert(Terminal::is_terminal);
+  static_assert(!NonTerminal::is_terminal);
 }
 
 /**
@@ -265,8 +271,9 @@ inline void test_pipeline_get_returns_correct_filter() {
   static_assert(std::is_same_v<decltype(pipe.get<CS>()), CS &>,
                 "get<CS>() returns CS&");
 
-  // The head filter is the pipeline itself upcast to AA.
-  HS_EXPECT_TRUE(static_cast<AA *>(&pipe) == &aa);
+  // Stages are reachable through get<T>(), not by converting the composed
+  // pipeline to its private implementation bases.
+  HS_EXPECT_TRUE(&pipe.get<AA>() == &aa);
   HS_EXPECT_TRUE(static_cast<const void *>(&bl) !=
                  static_cast<const void *>(&cs));
 

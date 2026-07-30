@@ -123,6 +123,7 @@ HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr int domain_rank = 2;
   static constexpr bool is_2d = true;
+  static constexpr bool is_terminal = false;
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_2d_history = false;
   static constexpr bool any_3d_history = false;
@@ -266,16 +267,16 @@ HS_O3_END
  * @tparam Tail Remaining filter stages.
  */
 template <int W, int H, typename Head, typename... Tail>
-struct Pipeline<W, H, Head, Tail...> : public Head {
+struct Pipeline<W, H, Head, Tail...> : private Head {
   using Next = Pipeline<W, H, Tail...>;
   Next next;
 
   static constexpr int domain_rank = Head::domain_rank;
+  static constexpr bool is_2d = Head::is_2d;
+  static constexpr bool is_terminal = Head::is_terminal || Next::is_terminal;
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
 
-  // Shadows the trait `public Head` leaks onto the Pipeline type: unqualified
-  // `crosses_segments` would otherwise answer for the head stage alone.
   static constexpr bool crosses_segments = any_crosses_segments;
 
   static constexpr bool any_2d_history =
