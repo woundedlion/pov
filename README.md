@@ -1068,7 +1068,7 @@ Transformers integrate with the `MeshOps::transform()` pipeline and can be chain
 
 #### Displacement Fields
 
-`FieldTransformer<ParamsT, AnimT, FieldFunc, CAPACITY>` is the scalar counterpart: entities superpose by summation instead of composing as warps, so an effect can feed the summed field into a displacement path (e.g. a `DistortedRing` shift LUT). `field(p)` sums the active entities; `field_dominant(p)` blends them magnitude-weighted (`sum(s³)/sum(s²)`) so overlapping bodies dominate instead of stacking; `field_bound()` returns a per-frame upper bound on `|field()|` for sizing conservative culls.
+`FieldTransformer<ParamsT, AnimT, FieldFunc, CAPACITY>` is the scalar counterpart: entities superpose by summation instead of composing as warps, so an effect can feed the summed field into a displacement path (e.g. a `DistortedRing` shift LUT). `field(p)` sums the active entities; `field_bound()` returns a per-frame upper bound on `|field()|` for sizing conservative culls. Where overlapping bodies must dominate instead of stacking, feed the per-entity values through `DominantFieldAccumulator`, which blends them magnitude-weighted (`sum(s³)/sum(s²)`).
 
 | Field | Effect |
 |---|---|

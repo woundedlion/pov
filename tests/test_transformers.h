@@ -21,9 +21,9 @@
  *                               applies and multiple entities compose; a recycled
  *                               freed slot composes in spawn order, not slot order.
  *   - FieldTransformer<>      : no active entities → 0; spawned entities sum;
- *                               field_bound sums the per-entity bounds; the
- *                               subset field_dominant matches the full blend;
- *                               a completed entity's slot is reclaimed.
+ *                               field_bound sums the per-entity bounds;
+ *                               active_params runs in spawn order; a completed
+ *                               entity's slot is reclaimed.
  *   - bump_field              : drape push away from the cap center along the
  *                               polar direction — zero for the ring through the
  *                               center and at the footprint edge, peaking
@@ -852,51 +852,9 @@ inline void test_field_transformer_sums_and_bounds() {
 }
 
 /**
- * @brief Verifies field_dominant blends without stacking: a single entity
- *        passes through exactly, equal same-signed entities yield the shared
- *        value (not the sum), and a mixed-sign overlap gives the
- *        magnitude-weighted blend sum(s^3)/sum(s^2).
+ * @brief Verifies active_params exposes spawned entities in spawn order.
  */
-inline void test_field_transformer_field_dominant() {
-  Timeline tl;
-  global_timeline_t = 0;
-  TestFieldTransformer ft(tl);
-  ft.init_storage(persistent_arena);
-  HS_EXPECT_NEAR(ft.field_dominant(Vector(1, 0, 0)), 0.0f, 1e-6f);
-
-  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
-  HS_EXPECT_NEAR(ft.field_dominant(Vector(1, 0, 0)), 2.0f, 1e-5f);
-
-  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
-  HS_EXPECT_NEAR(ft.field_dominant(Vector(1, 0, 0)), 2.0f, 1e-5f);
-}
-
-/**
- * @brief Verifies field_dominant's mixed-sign blend and its continuity across
- *        the strength crossover that a hard max-by-magnitude would jump.
- */
-inline void test_field_transformer_field_dominant_mixed_sign() {
-  Timeline tl;
-  global_timeline_t = 0;
-  TestFieldTransformer ft(tl);
-  ft.init_storage(persistent_arena);
-
-  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
-  HS_EXPECT_TRUE(ft.spawn(0, -3.0f, 100) != nullptr);
-  // (2^3 + (-3)^3) / (2^2 + (-3)^2) = -19 / 13.
-  HS_EXPECT_NEAR(ft.field_dominant(Vector(1, 0, 0)), -19.0f / 13.0f, 1e-4f);
-  // Equal-and-opposite fields cancel smoothly to 0 (v.x scales both alike, so
-  // sample where the stronger entity's own sign flips the balance).
-  HS_EXPECT_NEAR(ft.field_dominant(Vector(-1, 0, 0)), 19.0f / 13.0f, 1e-4f);
-}
-
-/**
- * @brief Verifies active_params exposes spawned entities in spawn order and
- *        the subset field_dominant matches the full blend when the subset
- *        holds every contributing entity, drops excluded contributions, and
- *        is 0 when empty.
- */
-inline void test_field_transformer_field_dominant_subset() {
+inline void test_field_transformer_active_params_spawn_order() {
   Timeline tl;
   global_timeline_t = 0;
   TestFieldTransformer ft(tl);
@@ -906,13 +864,6 @@ inline void test_field_transformer_field_dominant_subset() {
   HS_EXPECT_TRUE(ft.spawn(0, -3.0f, 100) != nullptr);
   HS_EXPECT_NEAR(ft.active_params(0).value, 2.0f, 1e-6f);
   HS_EXPECT_NEAR(ft.active_params(1).value, -3.0f, 1e-6f);
-
-  Vector p(1, 0, 0);
-  const int both[] = {0, 1};
-  HS_EXPECT_NEAR(ft.field_dominant(p, both, 2), ft.field_dominant(p), 1e-5f);
-  const int first[] = {0};
-  HS_EXPECT_NEAR(ft.field_dominant(p, first, 1), 2.0f, 1e-5f);
-  HS_EXPECT_NEAR(ft.field_dominant(p, nullptr, 0), 0.0f, 1e-6f);
 }
 
 /**
@@ -1297,9 +1248,7 @@ inline int run_transformers_tests() {
   test_transformer_recycled_slot_composes_in_spawn_order();
   test_field_transformer_no_entities_is_zero();
   test_field_transformer_sums_and_bounds();
-  test_field_transformer_field_dominant();
-  test_field_transformer_field_dominant_mixed_sign();
-  test_field_transformer_field_dominant_subset();
+  test_field_transformer_active_params_spawn_order();
   test_field_transformer_slot_reclaimed();
   test_field_transformer_storage_survives_arena_rewind();
   test_bump_field_threshold_sync();

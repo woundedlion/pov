@@ -127,7 +127,7 @@ struct TestModule {
   X("scan", hs_test::scan_tests::run_scan_tests, 189869)                       \
   X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests, 2793)    \
   X("transformers", hs_test::transformers_tests::run_transformers_tests,       \
-    216608)                                                                    \
+    216596)                                                                    \
   X("noise", hs_test::noise_tests::run_noise_tests, 18)                        \
   X("generators", hs_test::generators_tests::run_generators_tests, 59)         \
   X("animation", hs_test::animation_tests::run_animation_tests, 16488)         \
