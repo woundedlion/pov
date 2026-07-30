@@ -39,7 +39,8 @@ public:
                {.strobe = true,
                 .full_frame = decltype(trail_pipeline)::any_crosses_segments,
                 .reads_outside_band =
-                    decltype(trail_pipeline)::any_reads_outside_band}),
+                    decltype(trail_pipeline)::any_reads_outside_band,
+                .margin = decltype(trail_pipeline)::max_segment_margin}),
         trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {}
 
   /**

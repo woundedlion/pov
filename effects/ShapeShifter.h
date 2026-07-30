@@ -46,7 +46,11 @@ public:
                               decltype(scan_filters)::any_crosses_segments,
                 .reads_outside_band =
                     decltype(plot_filters)::any_reads_outside_band ||
-                    decltype(scan_filters)::any_reads_outside_band}),
+                    decltype(scan_filters)::any_reads_outside_band,
+                .margin = decltype(plot_filters)::max_segment_margin >
+                                  decltype(scan_filters)::max_segment_margin
+                              ? decltype(plot_filters)::max_segment_margin
+                              : decltype(scan_filters)::max_segment_margin}),
         current_shape(ShapeType::PlanarPolygon) {}
 
   /**

@@ -200,13 +200,22 @@ broadcast to every worker. The same invariant non-stateful segmented effects
 already depend on; the design adds nothing new to it but is wholly dependent
 on it.
 
-### 4.4 Reuse dormant `set_margin` for the bounded tier
+### 4.4 `set_margin` carries the bounded tier
 
-`set_margin` (canvas.h:127) exists but is exercised only in a test
-(test_canvas.h:461). It is the home for the genuine "clip rasterization to
-save time" case that *does* apply to neighborhood-reading effects: a bounded
-spatial reach (AntiAlias ±1, small blurs) renders band + a declared margin
-instead of full-frame. `MeshFeedback` is unbounded and skips this tier.
+A bounded spatial reach renders band + a declared margin instead of full-frame.
+The reach is a filter trait, `static constexpr int segment_margin` on the four
+trait bases (default 0), max-folded by `Pipeline` into `max_segment_margin`
+alongside the `any_*` OR-folds. Effects pass it as `EffectConfig::margin`
+beside `.full_frame` / `.reads_outside_band`; the `Effect` constructor widens
+`ClipRegion::margin` to it through `set_margin`, never below the ClipRegion
+default of 1, so a pipeline folding to 0 keeps the coverage every effect
+already has.
+
+`Pixel::ChromaticShift` declares `segment_margin = 3` (its +1/+2/+3 column taps
+leave the plotted position) and stays `crosses_segments = false` — 3 columns of
+padding, not a full-canvas render. `MeshFeedback` is unbounded and skips this
+tier. No roster effect uses a margin-declaring filter today, so every effect's
+clip margin is 1.
 
 ---
 
@@ -216,7 +225,7 @@ instead of full-frame. `MeshFeedback` is unbounded and skips this tier.
 |---|---|---|
 | Non-stateful | none | segment band (+1 AA margin) — full clipping win |
 | In-place history (`Screen::Trails`) | 0 (redraws at same coord) | sim: segment band, `crosses_segments = false`. Device alternation halves a quadrant's redraw cadence, so a device-clipped in-place-history effect would decay at the wrong rate — none ship today; flag `persists_pixels()` or full-frame before adding one |
-| Bounded spatial neighborhood (AntiAlias ±1, small blurs) | finite | band + declared `set_margin` (§4.4, future) |
+| Bounded spatial neighborhood (AntiAlias ±1, `ChromaticShift` +3) | finite | band + the pipeline's `max_segment_margin` (§4.4) |
 | Cross-segment history (`Pixel::Feedback`, `World::Trails`) | unbounded | full canvas; output sliced JS-side |
 
 ---
@@ -226,8 +235,8 @@ instead of full-frame. `MeshFeedback` is unbounded and skips this tier.
 | Layer | Change |
 |---|---|
 | `core/render/filter.h` traits | add `crosses_segments = has_history` to the trait bases; `false` on `Screen::Trails`; add a **new** recursive `any_crosses_segments` OR-fold to `Pipeline` + a `false` base case in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
-| `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor |
-| each filtered effect's constructor | pass `.full_frame = decltype(filters)::any_crosses_segments` in the `Effect` base initializer |
+| `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor; `margin` config field applied to `ClipRegion::margin` through `set_margin`, widen-only |
+| each filtered effect's constructor | pass `.full_frame = decltype(filters)::any_crosses_segments` and `.margin = decltype(filters)::max_segment_margin` in the `Effect` base initializer |
 | `targets/wasm/wasm.cpp` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
 | flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
 | `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |
@@ -257,13 +266,21 @@ topological fidelity.
 
 ## 8. Test plan
 
-Implemented in `tests/test_filter.h` and `tests/test_effects.h`:
+Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
+`tests/test_effects.h`:
 
 - **Trait fold** (`test_crosses_segments_trait_and_fold`, test_filter.h): pins
   the per-filter `crosses_segments` values (incl. the `Screen::Trails == false`
   override) and the `Pipeline::any_crosses_segments` OR-fold — `true` for the
   MeshFeedback stack, `false` for a non-stateful stack and a `Screen::Trails`
-  stack — so a future filter addition can't silently regress the gate.
+  stack — so a future filter addition can't silently regress the gate. Also pins
+  `segment_margin` (`ChromaticShift == 3`, everything else 0) and the
+  `max_segment_margin` max-fold.
+- **Margin wiring** (`test_effect_config_margin`, test_canvas.h): asserts
+  `EffectConfig::margin` reaches `ClipRegion::margin` and that a fold of 0 does
+  not shrink it below the default. `smoke_one` asserts the roster's clip margin
+  is still the default, so a widened margin — which costs rendered pixels —
+  cannot appear without a filter asking for it.
 - **Roster gate** (`test_needs_full_frame_gate`, test_effects.h): constructs the
   real effects and asserts `needs_full_frame()` is `true` for exactly the
   cross-segment set (`MeshFeedback`, `Dynamo`) and `false` for
