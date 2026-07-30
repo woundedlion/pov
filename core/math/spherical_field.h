@@ -337,17 +337,6 @@ public:
             static_cast<float>(phase) / W};
   }
 
-  template <typename Value, typename Lerp>
-  constexpr Value interpolate(const Value *values, float x, float y,
-                              Lerp &&lerp) const {
-    const Row latitude = row(y);
-    const Longitude lower = longitude(latitude.lower, x);
-    const Longitude upper = longitude(latitude.upper, x);
-    const Value a = lerp(values[lower.left], values[lower.right], lower.mix);
-    const Value b = lerp(values[upper.left], values[upper.right], upper.mix);
-    return lerp(a, b, latitude.mix);
-  }
-
 private:
   static_assert(W > 0 && H > 1 && H + HOffset > 1);
 
@@ -429,17 +418,6 @@ public:
         theta_cos = next_cos;
       }
     }
-  }
-
-  template <typename Lerp>
-  Value interpolate(float x, float y, Lerp &&lerp) const {
-    return layout.interpolate(values, x, y, std::forward<Lerp>(lerp));
-  }
-
-  template <typename Lerp>
-  Value interpolate(const Ring &ring, int x, Lerp &&lerp) const {
-    const auto longitude = layout.longitude_bounded(ring, x);
-    return lerp(values[longitude.left], values[longitude.right], longitude.mix);
   }
 
   Value *data() { return values; }

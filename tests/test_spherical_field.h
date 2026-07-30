@@ -33,10 +33,6 @@ struct Rgb {
   Rgb(int r = 0, int g = 0, int b = 0) : r(r), g(g), b(b) {}
 };
 
-inline Pair pair_lerp(const Pair &a, const Pair &b, float t) {
-  return {hs::lerp(a.a, b.a, t), hs::lerp(a.b, b.b, t)};
-}
-
 inline void test_constexpr_layout_counts() {
   constexpr hs::SphericalFieldLayout<288, 144, 0> HOST(4);
   constexpr hs::SphericalFieldLayout<288, 144, 3> DEVICE(4);
@@ -100,23 +96,6 @@ inline void test_longitude_stays_in_ring_at_negative_seam() {
   HS_EXPECT_LT(seam.left, ring.offset + ring.samples);
   HS_EXPECT_GE(seam.right, ring.offset);
   HS_EXPECT_LT(seam.right, ring.offset + ring.samples);
-}
-
-inline void test_custom_value_interpolation_wraps_seam() {
-  constexpr hs::SphericalFieldLayout<64, 33, 0> layout(4);
-  std::array<Pair, layout.sample_count()> values{};
-  for (int r = 0; r < layout.ring_count(); ++r) {
-    const auto ring = layout.ring(r);
-    for (int i = 0; i < ring.samples; ++i) {
-      const float theta = 2.0f * PI_F * i / ring.samples;
-      values[ring.offset + i] = {std::cos(theta), std::sin(theta)};
-    }
-  }
-  hs::SphericalField<Pair, 64, 33, 0> field(values.data(), layout);
-  const Pair left = field.interpolate(0.01f, 12.5f, pair_lerp);
-  const Pair right = field.interpolate(63.99f, 12.5f, pair_lerp);
-  HS_EXPECT_NEAR(left.a, right.a, 0.002f);
-  HS_EXPECT_NEAR(left.b, right.b, 0.002f);
 }
 
 inline void test_populate_band_preserves_other_samples() {
@@ -241,7 +220,6 @@ inline int run_spherical_field_tests() {
   test_metric_spacing_is_uniform();
   test_unequal_rings_have_independent_longitude_mix();
   test_longitude_stays_in_ring_at_negative_seam();
-  test_custom_value_interpolation_wraps_seam();
   test_populate_band_preserves_other_samples();
   test_longitude_filter_tracks_spherical_width();
   test_longitude_filter_and_sampler_wrap_poles();
