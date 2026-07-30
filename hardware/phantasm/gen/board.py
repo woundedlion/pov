@@ -107,8 +107,13 @@ def vw(x, y1, y2):
     b.wire((x, y1), (x, y2))
 
 
+power_index = 0
+
+
 def pwr_sym(kind, x, y):
-    ref = "#PWR"
+    global power_index
+    power_index += 1
+    ref = f"#PWR{power_index:02d}"
     lib = {"GND": "power:GND", "+3V3": "power:+3V3"}.get(kind, f"phantasm:{kind}")
     b.place(B.Symbol(lib, ref, kind, x, y))
 
@@ -328,9 +333,15 @@ to_label(J4, "3", "MASTER_EN"); to_label(J4, "4", "SERIAL1_TX")
 
 # ============================================================ POWER FLAGS (ERC)
 b.text((220, 262), "POWER FLAGS (ERC)", 2.2)
+flag_index = 0
+
+
 def flag(net, x, y):
+    global flag_index
+    flag_index += 1
     pwr_sym(net, x, y)
-    fl = B.Symbol("power:PWR_FLAG", "#FLG", "PWR_FLAG", x, y - 5.08)
+    ref = f"#FLG{flag_index:02d}"
+    fl = B.Symbol("power:PWR_FLAG", ref, "PWR_FLAG", x, y - 5.08)
     b.place(fl)
     b.wire((x, y), fl.pin("1"))
 
