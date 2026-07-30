@@ -188,8 +188,8 @@ public:
    * classification instead.
    */
   struct BookendClasses {
-    const int *topology = nullptr; /**< Bookend class per arrival face. */
-    size_t faces = 0;              /**< Arrival base-mesh face count. */
+    const uint16_t *topology = nullptr; /**< Bookend class per arrival face. */
+    size_t faces = 0;                   /**< Arrival base-mesh face count. */
   };
 
   /**
@@ -225,9 +225,10 @@ public:
    * @details Arena-backed; valid until the leg arena is compacted.
    */
   struct Landing {
-    const int *topology = nullptr; /**< Target (bookend-keyed) classification,
-                                      one id per swept face. */
-    size_t faces = 0;              /**< Swept face count. */
+    const uint16_t *topology =
+        nullptr; /**< Target (bookend-keyed) classification, one id per swept
+                    face. */
+    size_t faces = 0;         /**< Swept face count. */
     size_t primary_faces = 0; /**< Seed face count (emission-order prefix). */
     std::array<uint8_t, PALETTES>
         to_palette{}; /**< Slot -> landed palette index. */
@@ -245,7 +246,7 @@ public:
      * leg's displayed palette is from_palette[f] instead.
      */
     uint8_t landed_palette(size_t f) const {
-      return to_palette[wrap(topology[f], PALETTES)];
+      return to_palette[wrap(static_cast<int>(topology[f]), PALETTES)];
     }
     const PolyMesh *arrival_topology =
         nullptr; /**< Fixed connectivity of a packed arrival endpoint. */
@@ -1013,12 +1014,12 @@ private:
     ArenaVector<StarPoint>
         medial_b; /**< Medial b_e (ambo(dual(P))) endpoint, snorm16-packed
                      (MEDIAL_SLERP). */
-    ArenaVector<int>
+    ArenaVector<uint16_t>
         topo; /**< Hoisted arrival classification (drawn grouping). */
-    ArenaVector<int>
+    ArenaVector<uint16_t>
         target_topo; /**< Per-swept-face target class (bookend grouping). */
     ArenaVector<uint8_t> face_ramp; /**< Face -> (from, to) ramp pair. */
-    ArenaVector<int>
+    ArenaVector<uint16_t>
         seed_topo; /**< Seed classification (GATED_SWAP closing half). */
     ArenaVector<uint8_t>
         seed_face_ramp; /**< Seed face -> identity ramp (GATED_SWAP). */
@@ -1422,7 +1423,7 @@ private:
   /** @brief Hoists arrival classes, reusing an exact bookend classification. */
   HS_COLD_MEMBER static void
   hoist_arrival_topology(PolyMesh &arrival, const BookendClasses &bookend,
-                         Arena &arena, ArenaVector<int> &topology) {
+                         Arena &arena, ArenaVector<uint16_t> &topology) {
     const size_t faces = arrival.face_counts.size();
     if (bookend.topology && bookend.faces == faces) {
       topology.bind(arena, faces);
@@ -1451,7 +1452,7 @@ private:
   HS_COLD_MEMBER void finish_frame(Canvas &canvas, const PolyMesh &swept,
                                    float w, bool seed_side = false) {
     Transients &tr = *buf;
-    const ArenaVector<int> &topo = seed_side ? tr.seed_topo : tr.topo;
+    const ArenaVector<uint16_t> &topo = seed_side ? tr.seed_topo : tr.topo;
     const ArenaVector<uint8_t> &face_ramp =
         seed_side ? tr.seed_face_ramp : tr.face_ramp;
 
@@ -1680,7 +1681,7 @@ private:
    * merge, never split, keeping every group an orbit union.
    */
   HS_COLD_MEMBER static const int *perceptual_groups(const PolyMesh &mesh,
-                                                     const int *cls,
+                                                     const uint16_t *cls,
                                                      size_t begin, size_t end,
                                                      Arena &scratch) {
     const size_t n = end - begin;
@@ -1691,7 +1692,7 @@ private:
     // Representative face (first occurrence) per distinct class in the range.
     int max_cls = 0;
     for (size_t f = begin; f < end; ++f)
-      max_cls = std::max(max_cls, cls[f]);
+      max_cls = std::max(max_cls, static_cast<int>(cls[f]));
     int *slot = scratch.allocate_n<int>(max_cls + 1); // class id -> rep slot
     std::fill_n(slot, max_cls + 1, -1);
     int *rep_cls = scratch.allocate_n<int>(n);
@@ -1800,7 +1801,7 @@ private:
    * seed's near-congruent class fragments do not shatter the signatures.
    */
   HS_COLD_MEMBER static const uint16_t *
-  vertex_signature_keys(const PolyMesh &seed, const int *face_groups,
+  vertex_signature_keys(const PolyMesh &seed, const uint16_t *face_groups,
                         int min_valence, size_t &num_keys) {
     const size_t V = seed.vertices.size();
     const size_t I = seed.faces.size();
@@ -1913,7 +1914,7 @@ private:
 
   // always_inline, not a plain helper: an out-of-line copy inherits no cold
   // attribute from its HS_COLD_MEMBER caller and would land in ITCM.
-  __attribute__((always_inline)) static const int *resolve_target_topology(
+  __attribute__((always_inline)) static const uint16_t *resolve_target_topology(
       Transients &tr, const PolyMesh &arrival, const PaletteHandoff &handoff,
       const BookendClasses &bookend, Arena &arena, size_t survivors) {
     const size_t total = tr.topo.size();
@@ -1988,9 +1989,9 @@ private:
   // attribute from its HS_COLD_MEMBER caller and would land in ITCM.
   __attribute__((always_inline)) static BirthPalettes
   assign_birth_palettes(Transients &tr, const PolyMesh &arrival,
-                        const PaletteHandoff &handoff, const int *target_topo,
-                        const uint8_t *forced_from, const uint16_t *birth_orbit,
-                        size_t birth_start) {
+                        const PaletteHandoff &handoff,
+                        const uint16_t *target_topo, const uint8_t *forced_from,
+                        const uint16_t *birth_orbit, size_t birth_start) {
     const size_t total = tr.topo.size();
     const size_t first =
         birth_start == SIZE_MAX ? handoff.prev_faces : birth_start;
@@ -2096,8 +2097,8 @@ private:
     // it collapses onto — the mirror of the newborn from-palette rule below,
     // which is what makes the leg's crossfade symmetric: a sliver closes into
     // its host's color instead of freezing in an unrelated target color.
-    const int *target_topo = resolve_target_topology(tr, arrival, handoff,
-                                                     bookend, arena, survivors);
+    const uint16_t *target_topo = resolve_target_topology(
+        tr, arrival, handoff, bookend, arena, survivors);
     tr.landing.topology = target_topo;
 
     if (handoff.pinned_to) {
@@ -2153,7 +2154,9 @@ private:
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
       const bool is_birth = births.face_palette && f >= births.first_face;
-      uint8_t to = tr.landing.to_palette[wrap(target_topo[f], PALETTES)];
+      uint8_t to =
+          tr.landing
+              .to_palette[wrap(static_cast<int>(target_topo[f]), PALETTES)];
       if (is_birth)
         to = births.face_palette[f - births.first_face];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
@@ -2177,7 +2180,7 @@ private:
           if (f < handoff.prev_faces) {
             from = handoff.prev_face_palette[f];
           } else if (!handoff.immutable) { // immutable newborns stay on `to`
-            const int slot = wrap(target_topo[f], PALETTES);
+            const int slot = wrap(static_cast<int>(target_topo[f]), PALETTES);
             if (newborn_from[slot] < 0)
               newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
                   start_centroid[f], handoff)];
@@ -2411,14 +2414,13 @@ struct Base {
 
 /** @brief Whether a policy defines the per-face hook set. */
 template <typename S>
-concept PerFace = requires(const S &s, const Vector &c) {
-  s.face_offset(c, 0, 0);
-};
+concept PerFace =
+    requires(const S &s, const Vector &c) { s.face_offset(c, 0, 0); };
 
 /** @brief Whether a policy orders faces by topology class, so the effect must
  * hand it the per-face classes before each transition. */
 template <typename S>
-concept NeedsClasses = requires(S &s, const ArenaVector<int> &classes) {
+concept NeedsClasses = requires(S &s, const ArenaVector<uint16_t> &classes) {
   s.reorder(classes);
 };
 

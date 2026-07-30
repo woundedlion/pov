@@ -32,7 +32,7 @@ struct PolyMesh {
    * @details Carried only by clone(); no Conway operator propagates it, so an
    * operator's output arrives with this array empty and the caller reclassifies.
    */
-  ArenaVector<int> topology;
+  ArenaVector<uint16_t> topology;
 
   /**
    * @brief Constructs an empty mesh with no allocated storage.
@@ -759,7 +759,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       if (nodes[i].hash != nodes[i - 1].hash) {
         current_id++;
       }
-      mesh.topology[nodes[i].original_face] = current_id;
+      mesh.topology[nodes[i].original_face] = static_cast<uint16_t>(current_id);
     }
   }
 }
