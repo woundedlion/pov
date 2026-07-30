@@ -609,14 +609,7 @@ public:
   explicit Flywheel(const Config &cfg)
       : period(cfg.cycles_per_half_rev), w(cfg.W), gate_cols(cfg.gate_cols),
         reject_fallback(cfg.reject_fallback) {
-    // position() reinterprets (at - epoch_cycles) as int32, so the elapsed term
-    // must never reach 2^31 cycles. Require at least MIN_SAFE_HALF_REVS half-revs
-    // of coast to fit inside that window.
-    HS_CHECK(
-        period > 0 &&
-            period <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS,
-        "Flywheel: cycles_per_half_rev too large — position()'s int32 "
-        "elapsed window would overflow before MIN_SAFE_HALF_REVS of coast");
+    check_period(period);
   }
 
   /**
@@ -749,11 +742,28 @@ public:
    * @brief §4.3 frequency trim hook (snap-only ships; tests exercise extremes).
    * @param c New half-rev period, in cycles.
    */
-  void set_cycles_per_half_rev(uint32_t c) { period = c; }
+  void set_cycles_per_half_rev(uint32_t c) {
+    check_period(c);
+    period = c;
+  }
 
 private:
   // Min coast (in half-revs) position()'s int32 elapsed cast must survive.
   static constexpr uint32_t MIN_SAFE_HALF_REVS = 16;
+
+  /**
+   * @brief Traps a half-rev period position()'s arithmetic cannot carry.
+   * @param p Candidate cycles_per_half_rev.
+   * @details position() reinterprets (at - epoch_cycles) as int32 and divides by
+   * the period, so zero divides by zero and a period above INT32_MAX /
+   * MIN_SAFE_HALF_REVS voids the signed-safe coast window.
+   */
+  static void check_period(uint32_t p) {
+    HS_CHECK(p > 0 &&
+                 p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS,
+             "Flywheel: cycles_per_half_rev outside the range position()'s "
+             "int32 elapsed window holds for MIN_SAFE_HALF_REVS of coast");
+  }
 
   uint32_t period; /**< cycles_per_half_rev (optionally trimmed). */
   int32_t w;
