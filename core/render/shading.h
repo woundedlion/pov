@@ -97,9 +97,10 @@ inline float fragment_edge_dist(const Fragment &f) {
 template <size_t NumPalettes>
 inline int mesh_topology_slot(const Fragment &f, const uint16_t *topology,
                               int num_faces) {
-  int faceIdx = static_cast<int>(f.v2);
-  int topoIdx = (faceIdx >= 0 && faceIdx < num_faces) ? topology[faceIdx] : 0;
-  return wrap(topoIdx, static_cast<int>(NumPalettes));
+  int face_idx = static_cast<int>(f.v2);
+  int topo_idx =
+      (face_idx >= 0 && face_idx < num_faces) ? topology[face_idx] : 0;
+  return wrap(topo_idx, static_cast<int>(NumPalettes));
 }
 
 /**
