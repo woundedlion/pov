@@ -195,7 +195,9 @@ hs_device_acquire() {
       fi
     done
     if [ "${HS_DEVICE_FORCE:-0}" = "1" ]; then
-      port=$([ "${ports%% *}" = "-" ] && echo "" || echo "${ports%% *}")
+      # ports is one board per line; force takes the first.
+      p=${ports%%$'\n'*}
+      port=$([ "$p" = "-" ] && echo "" || echo "$p")
       d=$(_hs_lock_dir "$port")
       echo "HS_DEVICE_FORCE=1 — breaking a LIVE device lock" >&2
       _hs_holder_desc "$d" >&2
