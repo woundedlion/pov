@@ -102,10 +102,11 @@ static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
               "a stage at the 16-bit ceiling must still fit a scratch arena");
 
 // Tooling-arena bytes a finalized mesh retains per element: one Vector of
-// vertex, one uint8_t of side count and one uint16_t of index, with slack for the
-// three blocks' alignment padding.
-static constexpr size_t TOOLING_ARENA_BYTES_PER_MESH_ELEMENT = 16;
-static_assert(sizeof(Vector) + sizeof(uint8_t) + sizeof(uint16_t) <
+// vertex, one uint8_t of side count, one uint16_t of index and the uint16_t
+// topology code classifyFaces() later binds into the same arena, with slack for
+// the four blocks' alignment padding.
+static constexpr size_t TOOLING_ARENA_BYTES_PER_MESH_ELEMENT = 20;
+static_assert(sizeof(Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
                   TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
               "finalized mesh element must fit its predicted arena bytes");
 
@@ -935,7 +936,8 @@ public:
    * @brief Classifies faces by topology and returns the per-face codes.
    * @return JS Int32Array of one topology code per face, copied out of the
    *         mesh's now-populated topology buffer, or null when the mesh is past
-   *         MAX_MESH_CONNECTIVITY_ELEMENTS. Null rather than an empty array so a
+   *         MAX_MESH_CONNECTIVITY_ELEMENTS or its topology block would not fit
+   *         what is left of tooling_arena. Null rather than an empty array so a
    *         caller can tell "no classification" from "no faces" with a plain
    *         truthiness test.
    * @details Same tooling-arena lifetime contract as getVertices(): the
@@ -958,8 +960,19 @@ public:
               mesh.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS);
       return val::null();
     }
-    ToolingOpGuard guard;
     ensure_tooling_arenas();
+    if (hs_wasm::mesh_op_output_over_arena(
+            mesh.vertices.size(), mesh.get_face_counts_size(),
+            mesh.get_faces_size(), 1, TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
+            tooling_arena.get_offset(), tooling_arena.get_capacity())) {
+      hs::log("WASM: classifyFaces topology block does not fit the tooling "
+              "arena (%zu of %zu bytes used) — ignored; call "
+              "clearToolingMemory() to reclaim it, which invalidates every "
+              "live mesh",
+              tooling_arena.get_offset(), tooling_arena.get_capacity());
+      return val::null();
+    }
+    ToolingOpGuard guard;
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a,
