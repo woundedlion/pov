@@ -570,15 +570,12 @@ static inline void planar_row_span(const Vector &a, const Vector &b,
                                    const PlanarEdgeSpan &es, float &row_lo,
                                    float &row_hi) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  auto y_to_row = [](float y) {
-    return phi_to_y_virtual(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
-  };
-  float ra = y_to_row(a.y);
-  float rb = y_to_row(b.y);
+  float ra = y_to_screen_row<H>(a.y);
+  float rb = y_to_screen_row<H>(b.y);
   row_lo = std::min(ra, rb);
   row_hi = std::max(ra, rb);
   for (const Vector &s : es.interior) {
-    float r = y_to_row(s.y);
+    float r = y_to_screen_row<H>(s.y);
     row_lo = std::min(row_lo, r);
     row_hi = std::max(row_hi, r);
   }
