@@ -242,6 +242,7 @@ struct Config {
            glitch_filter_cycles > 0 && pulse_pitch_cols > 0 &&
            gap_timeout_cols > pulse_pitch_cols && beacon_pitch_cols > 0 &&
            gap_timeout_cols > beacon_pitch_cols &&
+           7 * beacon_pitch_cols + 1 > gate_cols &&
            // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case
            // beacon span must clear W/4 or no beacon is ever scheduled.
            beacon_span_cols() < W / 4 &&

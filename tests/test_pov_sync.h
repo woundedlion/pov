@@ -140,6 +140,12 @@ inline void test_helpers() {
   Config id = test_config();
   id.beacon_interdigit_timeout_cols = id.beacon_span_cols() / 4 - 1;
   HS_EXPECT_FALSE(id.valid());
+
+  Config dg = test_config();
+  dg.gate_cols = 7 * dg.beacon_pitch_cols + 1;
+  HS_EXPECT_FALSE(dg.valid());
+  --dg.gate_cols;
+  HS_EXPECT_TRUE(dg.valid());
 }
 
 /**
