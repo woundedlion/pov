@@ -295,9 +295,12 @@ inline SeamStats compare(const std::vector<Pixel> &a,
  * unreachable at this canvas size: the swap's irreducible coverage delta is a
  * 2-4 px band along the child edges, 6.6-15.3 % of the canvas, so the bound is
  * on the changed fraction, the whole-frame energy and the deepest pixel
- * instead. MAX_CHANGED_FRAC is twice the widest measured swap, so it trips when
- * that band widens structurally, not when it shifts between seeds. */
-constexpr double MAX_CHANGED_FRAC = 0.31;
+ * instead. The changed-fraction cap adds two percentage points to the widest
+ * measured swap, enough for rounding drift without accepting a doubled band. */
+constexpr double MAX_MEASURED_CHANGED_FRAC = 0.1533;
+constexpr double CHANGED_FRAC_MARGIN = 0.02;
+constexpr double MAX_CHANGED_FRAC =
+    MAX_MEASURED_CHANGED_FRAC + CHANGED_FRAC_MARGIN;
 constexpr double MAX_ABS_ENERGY = 0.02;
 constexpr float MAX_PIXEL_DELTA = 0.45f;
 
