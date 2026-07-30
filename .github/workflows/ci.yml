@@ -590,7 +590,9 @@ jobs:
         # Pinned to clang-format-18, matching the clang-format job (see its note):
         # the unversioned package re-flows the whole file the day the runner image
         # moves its default LLVM, which would rewrite the committed header.
-        # CLANG_FORMAT is the generator's own override (scripts/generate_luts.py).
+        # CLANG_FORMAT is the generator's own override (scripts/generate_luts.py);
+        # bumping the pin means bumping EXPECTED_CLANG_FORMAT_MAJOR there too, which
+        # is what warns a local run whose clang-format would reflow the header.
         env:
           CLANG_FORMAT: clang-format-18
         run: |
