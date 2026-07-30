@@ -50,6 +50,7 @@ struct FactoryEntry {
  *          from HS_RESOLUTIONS as `fill_<W>_<H>` (e.g. `fill_96_20`).
  */
 struct EffectRegistration {
+  std::string_view name; /**< Effect class/header stem. */
   using FillFn = void (*)(
       FactoryEntry &); /**< Populates a FactoryEntry for a given resolution. */
 #define HS_REG_FILL_FIELD(W, H) FillFn fill_##W##_##H;
@@ -84,6 +85,12 @@ public:
    *          instead, or sort `entries()` by name at use.
    */
   static int add(EffectRegistration reg) {
+    for (const auto &existing : entries()) {
+      HS_CHECK(existing.name != reg.name,
+               "effect header included by more than one translation unit: "
+               "effects/%.*s.h",
+               static_cast<int>(reg.name.size()), reg.name.data());
+    }
     entries().push_back(reg);
     return 0;
   }
@@ -139,8 +146,9 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
  *          used+retain attributes keep the dynamic initializer from being
  *          discarded under LTO / --gc-sections. Active on the WASM and native
  *          test builds; on the firmware target this macro expands to nothing.
- * @note `effects.h` must be included by exactly one TU per binary; a second
- *       includer registers every effect twice and trips the startup count check.
+ * @note Each effect header must be included by exactly one TU per binary; a
+ *       second includer registers that effect twice and trips the startup count
+ *       check.
  */
 #define REGISTER_EFFECT(ClassName)                                                \
   namespace {                                                                     \
@@ -157,7 +165,8 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
      * silently dropping the effect from the registry. */ \
     HS_REGISTRAR_ANCHOR                                                           \
     static inline int _reg =                                                      \
-        EffectRegistry::add({HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)});            \
+        EffectRegistry::add({#ClassName,                                           \
+                             HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)});             \
   };                                                                              \
   }
 
