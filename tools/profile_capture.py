@@ -67,6 +67,9 @@ def main():
                          "than one Teensy attached")
     args = ap.parse_args()
 
+    if args.seconds <= 0:
+        ap.error("--seconds must be greater than zero")
+
     ser = open_port(args.connect_timeout, args.port)
     print(f"profile_capture: reading {ser.port} for {args.seconds:.0f} s",
           flush=True)
