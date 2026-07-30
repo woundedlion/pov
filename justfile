@@ -11,6 +11,8 @@
 # shell (a developer defaulting just to sh/pwsh would otherwise hit a syntax error).
 set windows-shell := ["cmd", "/c"]
 
+doxygen_awesome_sha := `python tools/build_pins.py doxygen-awesome`
+
 # Show the available recipes when run with no arguments.
 default:
     @just --list
@@ -48,6 +50,7 @@ test:
 docs-check:
     python -m unittest discover -s tools/docs_check_tests
     python tools/docs_check.py
+    python tools/build_pins.py --check
 
 # Build Doxygen API reference locally into build/docs/html/.
 # Clones doxygen-awesome theme into .doxygen-awesome/ on first run and
@@ -62,14 +65,14 @@ docs: docs-check _doxygen-theme _doxyfile-local
 [unix]
 _doxygen-theme:
     test -d .doxygen-awesome/.git || git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
-    git -C .doxygen-awesome fetch --depth 1 origin 568f56cde6ac78b6dfcc14acd380b2e745c301ea
-    git -C .doxygen-awesome checkout --detach 568f56cde6ac78b6dfcc14acd380b2e745c301ea
+    git -C .doxygen-awesome fetch --depth 1 origin {{doxygen_awesome_sha}}
+    git -C .doxygen-awesome checkout --detach {{doxygen_awesome_sha}}
 
 [windows]
 _doxygen-theme:
     if not exist .doxygen-awesome\.git git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
-    git -C .doxygen-awesome fetch --depth 1 origin 568f56cde6ac78b6dfcc14acd380b2e745c301ea
-    git -C .doxygen-awesome checkout --detach 568f56cde6ac78b6dfcc14acd380b2e745c301ea
+    git -C .doxygen-awesome fetch --depth 1 origin {{doxygen_awesome_sha}}
+    git -C .doxygen-awesome checkout --detach {{doxygen_awesome_sha}}
 
 # Synthesize Doxyfile.local = Doxyfile + docs/doxygen-theme.cfg (the same theme
 # overrides docs.yml appends). The copy+append is shell-specific, so it's split
