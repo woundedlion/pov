@@ -509,31 +509,108 @@ inline void test_sh_decode_lm_valid_order() {
   }
 }
 
+// Highest degree the SH cases pin: one above the effect's MAX_DEGREE, so a
+// widening lands on already-covered ground.
+constexpr int SH_PIN_MAX_DEGREE = 5;
+
+/** @brief One closed-form reduced Legendre polynomial. */
+struct SHReducedLegendreRow {
+  int l;
+  int m;
+  double c[SH_PIN_MAX_DEGREE + 1]; /**< Ascending-power coefficients in x. */
+};
+
+// P_l^m(x) / (1 - x²)^(m/2) as an explicit polynomial. Condon-Shortley
+// P_l^m = (-1)^m (1 - x²)^(m/2) d^m/dx^m P_l, so each row is (-1)^m times the
+// m-th derivative of the Legendre polynomial P_l — a closed form owing nothing
+// to the recurrence under test. Covers every (l, m) with 0 <= m <= l <= 5.
+inline constexpr SHReducedLegendreRow SH_REDUCED_LEGENDRE[] = {
+    {0, 0, {1.0}},
+    {1, 0, {0.0, 1.0}},
+    {1, 1, {-1.0}},
+    {2, 0, {-0.5, 0.0, 1.5}},
+    {2, 1, {0.0, -3.0}},
+    {2, 2, {3.0}},
+    {3, 0, {0.0, -1.5, 0.0, 2.5}},
+    {3, 1, {1.5, 0.0, -7.5}},
+    {3, 2, {0.0, 15.0}},
+    {3, 3, {-15.0}},
+    {4, 0, {0.375, 0.0, -3.75, 0.0, 4.375}},
+    {4, 1, {0.0, 7.5, 0.0, -17.5}},
+    {4, 2, {-7.5, 0.0, 52.5}},
+    {4, 3, {0.0, -105.0}},
+    {4, 4, {105.0}},
+    {5, 0, {0.0, 1.875, 0.0, -8.75, 0.0, 7.875}},
+    {5, 1, {-1.875, 0.0, 26.25, 0.0, -39.375}},
+    {5, 2, {0.0, -52.5, 0.0, 157.5}},
+    {5, 3, {52.5, 0.0, -472.5}},
+    {5, 4, {0.0, 945.0}},
+    {5, 5, {-945.0}},
+};
+static_assert(sizeof(SH_REDUCED_LEGENDRE) / sizeof(SH_REDUCED_LEGENDRE[0]) ==
+                  (SH_PIN_MAX_DEGREE + 1) * (SH_PIN_MAX_DEGREE + 2) / 2,
+              "closed-form table must hold every (l, m) up to "
+              "SH_PIN_MAX_DEGREE");
+
+/** @brief Evaluates a closed-form table row at x, in double. */
+inline double sh_closed_form_reduced(const SHReducedLegendreRow &row,
+                                     double x) {
+  double sum = 0.0;
+  for (int k = SH_PIN_MAX_DEGREE; k >= 0; --k)
+    sum = sum * x + row.c[k];
+  return sum;
+}
+
 /** @brief Textbook associated Legendre P_l^m(x) in double, as test truth. */
 inline double sh_reference_legendre(int l, int m, double x) {
-  double pmm = 1.0;
-  if (m > 0) {
-    double somx2 = std::sqrt(std::max(0.0, (1.0 - x) * (1.0 + x)));
-    double fact = 1.0;
-    for (int i = 1; i <= m; i++) {
-      pmm *= -fact * somx2;
-      fact += 2.0;
+  double somx2 = std::sqrt(std::max(0.0, (1.0 - x) * (1.0 + x)));
+  double value = 0.0;
+  for (const SHReducedLegendreRow &row : SH_REDUCED_LEGENDRE)
+    if (row.l == l && row.m == m)
+      value = sh_closed_form_reduced(row, x);
+  for (int i = 0; i < m; ++i)
+    value *= somx2;
+  return value;
+}
+
+/**
+ * @brief Pins SHMath::reduced_legendre against the closed-form P_l^m table.
+ * @details The hand-derived upward recurrence seeds P_m^m, steps to P_{m+1}^m,
+ * then recurs in l; a wrong coefficient in any of the three shifts the result by
+ * an O(1) relative amount. Sweeps every table row (so all three branches run for
+ * degrees the effect can reach and one above) across x = cos(phi) in [-1, 1].
+ */
+inline void test_sh_reduced_legendre_matches_closed_form() {
+  // Relative tolerance: the float recurrence tops out at 3.8e-6 measured under
+  // -O2 -ffast-math, so 3e-5 leaves ~8x reassociation headroom while still
+  // catching any coefficient error, which is O(1) relative.
+  constexpr double REDUCED_LEGENDRE_REL_TOL = 3e-5;
+  constexpr int SAMPLES = 200;
+
+  double worst = 0.0;
+  int worst_l = 0, worst_m = 0;
+  for (const SHReducedLegendreRow &row : SH_REDUCED_LEGENDRE) {
+    for (int i = 0; i <= SAMPLES; ++i) {
+      const double x = -1.0 + 2.0 * i / SAMPLES;
+      const double want = sh_closed_form_reduced(row, x);
+      const double got =
+          SHMath::reduced_legendre(row.l, row.m, static_cast<float>(x));
+      // Relative above unit magnitude; rows reach 945, so a plain absolute
+      // bound would be either meaningless there or unreachable near zero.
+      const double err = std::fabs(got - want) / std::max(1.0, std::fabs(want));
+      if (err > worst) {
+        worst = err;
+        worst_l = row.l;
+        worst_m = row.m;
+      }
     }
   }
-  if (l == m)
-    return pmm;
 
-  double pmmp1 = x * (2.0 * m + 1.0) * pmm;
-  if (l == m + 1)
-    return pmmp1;
-
-  double pll = 0.0;
-  for (int ll = m + 2; ll <= l; ll++) {
-    pll = ((2.0 * ll - 1.0) * x * pmmp1 - (ll + m - 1.0) * pmm) / (ll - m);
-    pmm = pmmp1;
-    pmmp1 = pll;
-  }
-  return pll;
+  if (worst >= REDUCED_LEGENDRE_REL_TOL)
+    std::printf("  SH reduced Legendre: worst relative error %g at l=%d m=%d\n",
+                worst, worst_l, worst_m);
+  HS_EXPECT(worst < REDUCED_LEGENDRE_REL_TOL,
+            "reduced Legendre recurrence must match the closed-form P_l^m");
 }
 
 /**
@@ -542,13 +619,13 @@ inline double sh_reference_legendre(int l, int m, double x) {
  * Legendre term and recovers it from Re/Im((x + iz)^|m|). That identity holds
  * only for unit directions, so this sweeps a full (phi, theta) lattice against
  * a double-precision P_l^m(cos phi) * cos/sin(|m| theta), covering every (l, m)
- * the effect can reach.
+ * up to SH_PIN_MAX_DEGREE.
  */
 inline void test_sh_cartesian_matches_spherical() {
   double worst = 0.0;
   int worst_l = 0, worst_m = 0;
 
-  for (int l = 0; l <= 4; ++l) {
+  for (int l = 0; l <= SH_PIN_MAX_DEGREE; ++l) {
     for (int m = -l; m <= l; ++m) {
       const float N = SHMath::normalization(l, m);
       const int abs_m = std::abs(m);
@@ -3987,6 +4064,7 @@ inline int run_effects_tests() {
     test_voronoi_union_candidates_cover_nearest();
     test_voronoi_segment_render_matches_full_frame();
     test_sh_decode_lm_valid_order();
+    test_sh_reduced_legendre_matches_closed_form();
     test_sh_cartesian_matches_spherical();
     test_gs_q16_roundtrip();
     test_gs_rest_state_is_fixed_point();
