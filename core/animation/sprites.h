@@ -220,9 +220,9 @@ apply_signed_axis_attractor(uint16_t &life, Vector &velocity, const Vector &pos,
 /**
  * @brief A physics-based particle system with emitters and attractors.
  *
- * PERPETUAL (duration -1, no repeat): never reaches done(), so a `.then()`
- * callback NEVER fires. Drive follow-on behavior from a finite animation or
- * cancel() it explicitly.
+ * PERPETUAL (duration -1, no repeat): reaches done() only through cancel(),
+ * which also fires any `.then()` callback. Drive follow-on behavior from a
+ * finite animation, or cancel() it explicitly.
  *
  * @tparam W Denominator of the per-frame surface-advance cap 2*PI/W radians,
  *        i.e. the display width in columns.

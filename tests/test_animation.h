@@ -658,6 +658,33 @@ inline void test_timeline_cancel_removes_repeating_animation() {
 }
 
 /**
+ * @brief Verifies cancel() fires the animation's .then() as the event is
+ * removed.
+ * @details cancel() reaches Timeline's removal branch through done(), so the
+ * post callback runs there. TransformerPool::spawn_pinned reclaims its pool slot
+ * from exactly this path: a pinned animation is infinite or repeating, so
+ * cancellation is its only route to the callback.
+ */
+inline void test_timeline_cancel_fires_post_callback() {
+  Timeline tl;
+  float v = -1.0f;
+  int thens = 0;
+  auto *h = tl.add_get(0,
+                       Animation::Mutation(
+                           v, [](float e) { return e; }, 8, ease_linear)
+                           .then([&]() { thens++; }),
+                       /*pin=*/false);
+  tl.step(fake_canvas());
+  HS_EXPECT_EQ(thens, 0);
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
+
+  h->cancel();
+  tl.step(fake_canvas());
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+  HS_EXPECT_EQ(thens, 1);
+}
+
+/**
  * @brief Verifies step() compacts the event array when a non-repeating event is
  * removed, and relocated survivors keep stepping from their new positions.
  * @details Later survivors are relocated (move_into) into the freed slots. The
@@ -2734,6 +2761,7 @@ inline int run_animation_tests() {
   test_timeline_accepts_maximum_start_frame();
   test_timeline_repeating_animation_rewinds_each_cycle();
   test_timeline_cancel_removes_repeating_animation();
+  test_timeline_cancel_fires_post_callback();
   test_timeline_compaction_preserves_later_events();
   test_timeline_then_chains_follow_up_event();
   test_repeating_timer_fires_then_each_cycle();

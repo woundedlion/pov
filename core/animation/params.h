@@ -510,9 +510,9 @@ private:
  * @brief Continuously modulates Mobius parameters to create an evolving warp.
  * @details Uses multiple frequencies for non-repeating chaos.
  *
- * PERPETUAL (duration -1, no repeat): never reaches done(), so a `.then()`
- * callback NEVER fires. Drive follow-on behavior from a finite animation or
- * cancel() it explicitly.
+ * PERPETUAL (duration -1, no repeat): reaches done() only through cancel(),
+ * which also fires any `.then()` callback. Drive follow-on behavior from a
+ * finite animation, or cancel() it explicitly.
  */
 class MobiusWarpEvolving : public AnimationBase<MobiusWarpEvolving> {
 public:

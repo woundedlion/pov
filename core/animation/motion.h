@@ -491,10 +491,10 @@ private:
  * across the sphere's surface.
  * @details Uses Perlin noise to create continuous, turbulent pivoting motion.
  *
- * PERPETUAL (duration -1, no repeat or self-reset): never reaches done(), so a
- * `.then()` callback NEVER fires and a repeating spawn leaks recycled slots.
- * Drive follow-on behavior from a finite animation or cancel() the walk
- * explicitly.
+ * PERPETUAL (duration -1, no repeat or self-reset): reaches done() only through
+ * cancel(), which also fires any `.then()` callback; a repeating spawn leaks
+ * recycled slots. Drive follow-on behavior from a finite animation, or cancel()
+ * the walk explicitly.
  * @tparam W The width of the LED display.
  * @tparam CAP Orientation sub-frame capacity.
  * @tparam STABLE_ROTATION Preserve rotation helper call boundaries.
