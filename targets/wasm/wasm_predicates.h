@@ -78,16 +78,16 @@ inline float clamp_unit_fraction(float t) {
 }
 
 /**
- * @brief True when an operator's input mesh exceeds the tooling element ceiling.
- * @param verts Input mesh vertex count.
- * @param faces Input mesh face count.
- * @param indices Input mesh flat face-index count.
+ * @brief True when a mesh's element counts exceed a tooling ceiling.
+ * @param verts Mesh vertex count.
+ * @param faces Mesh face count.
+ * @param indices Mesh flat face-index count.
  * @param max_elements Ceiling each of the three counts must stay within.
  * @return true when any of the three counts exceeds the ceiling.
- * @details A Conway operator multiplies its input's element counts (kis triples
- *          the flat index count per application), so a JS-driven chain can
- *          outgrow the tooling scratch arenas. Rejecting the input keeps
- *          Arena::allocate's fail-fast trap out of reach of the JS boundary.
+ * @details A JS-driven operator chain can grow a mesh past what the tooling
+ *          scratch arenas hold or what the engine's 16-bit connectivity can
+ *          address. Rejecting it at the boundary keeps the engine's fail-fast
+ *          traps out of reach of the JS caller.
  */
 inline bool tooling_mesh_over_ceiling(size_t verts, size_t faces,
                                       size_t indices, size_t max_elements) {
