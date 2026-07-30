@@ -863,6 +863,7 @@ public:
       } else if (tr.kind == LegKind::MEDIAL_SLERP) {
         medial_at(tr, swept, scratch_arena_a, tp);
       } else {
+        HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
         swept = run_op(tr.op, *tr.seed_ref, scratch_arena_a, scratch_arena_b,
                        tp, tw);
         if (settle_alpha > 0.0f) {
@@ -1081,6 +1082,7 @@ private:
     Transients &tr = *buf;
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
+    HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
     const PolyMesh &seed = *tr.seed_ref;
     const uint8_t *forced_from = nullptr;
     if (handoff.correspondence == FaceCorrespondence::DUAL_CLOSING)
