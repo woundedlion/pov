@@ -1378,8 +1378,7 @@ inline void test_baked_palette_rebake_samples_closed_interval() {
   HS_EXPECT_EQ(baked.get(1.0f).color.r, 65535);
 
   using Wrapped = StaticPalette<Gradient>;
-  using Unwrapped =
-      StaticPalette<Gradient, Coords<>, Colors<>, /*Wrap=*/false>;
+  using Unwrapped = StaticPalette<Gradient, Coords<>, Colors<>, /*Wrap=*/false>;
   static_assert(Wrapped::WRAPS_COORDINATE);
   static_assert(!Unwrapped::WRAPS_COORDINATE);
 }
@@ -1394,8 +1393,7 @@ inline void test_baked_palette_color_sampler_matches_get() {
     }
   } source;
 
-  alignas(std::max_align_t) uint8_t
-      buf[BakedPalette::required_arena_bytes()];
+  alignas(std::max_align_t) uint8_t buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
   BakedPalette baked;
   baked.bake(arena, source);
