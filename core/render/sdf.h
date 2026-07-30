@@ -3612,7 +3612,8 @@ struct SphericalPolygon {
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
-    float polar = fast_acos(hs::clamp(dot(p, basis.v), -1.0f, 1.0f));
+    float cos_p = hs::clamp(dot(p, basis.v), -1.0f, 1.0f);
+    float polar = fast_acos(cos_p);
 
     float dot_u = dot(p, basis.u);
     float dot_w = dot(p, basis.w);
@@ -3625,8 +3626,7 @@ struct SphericalPolygon {
 
     // Angular distance to the nearest great circle edge via precomputed normal
     // cos(local) is even, so sector folding works automatically
-    float sin_p = fast_sinf(polar);
-    float cos_p = fast_cosf(polar);
+    float sin_p = sqrtf(std::max(0.0f, 1.0f - cos_p * cos_p));
     float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
     float dist_edge = asinf(hs::clamp(dp, -1.0f, 1.0f));
 
@@ -3634,6 +3634,27 @@ struct SphericalPolygon {
     if constexpr (ComputeUVs)
       t_val = polar / circumradius;
     res = DistanceResult(sign * dist_edge, t_val, polar, 0.0f, circumradius);
+  }
+
+  /**
+   * @brief Signed edge-plane dot for sine-domain solid antialiasing.
+   * @param p Point on sphere (normalized).
+   * @return sin of the signed angular distance to the nearest edge.
+   */
+  float sine_distance(const Vector &p) const {
+    float cos_p = hs::clamp(dot(p, basis.v), -1.0f, 1.0f);
+    float sin_p = sqrtf(std::max(0.0f, 1.0f - cos_p * cos_p));
+
+    float dot_u = dot(p, basis.u);
+    float dot_w = dot(p, basis.w);
+    float azimuth = fast_atan2(dot_w, dot_u);
+    if (azimuth < 0)
+      azimuth += 2 * PI_F;
+    azimuth += phase;
+
+    float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
+    float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
+    return sign * hs::clamp(dp, -1.0f, 1.0f);
   }
 };
 

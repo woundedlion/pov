@@ -1244,6 +1244,65 @@ inline void test_solid_color_path_matches_generic() {
 }
 
 /**
+ * @brief Bounds spherical sine-distance framebuffer error at device resolution.
+ */
+inline void test_spherical_sine_distance_framebuffer_error() {
+  constexpr int W = 288;
+  constexpr int H = 144;
+  const Color4 color(Pixel(61000, 43000, 17000), 0.73f);
+  Basis basis = make_basis(
+      make_rotation(Vector(-0.2f, 0.9f, 0.4f).normalized(), 0.63f), Y_AXIS);
+  struct Case {
+    float radius;
+    int sides;
+    float phase;
+  };
+  const Case cases[] = {{0.24f, 3, -2.2f},
+                        {0.74f, 5, 0.37f},
+                        {0.98f, 12, 4.8f},
+                        {1.38f, 7, -0.61f}};
+
+  auto render = [&]<bool SineDistance>(const Case &c) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fx);
+      Scan::SphericalPolygon::draw_solid<W, H, SineDistance>(
+          pipeline, canvas, basis, c.radius, c.sides, color, c.phase);
+    }
+    fx.advance_display();
+    std::vector<Pixel> pixels;
+    pixels.reserve(W * H);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        pixels.push_back(fx.get_pixel(x, y));
+    return pixels;
+  };
+
+  size_t different_pixels = 0;
+  int max_channel_error = 0;
+  for (const Case &c : cases) {
+    const std::vector<Pixel> exact = render.template operator()<false>(c);
+    const std::vector<Pixel> sine = render.template operator()<true>(c);
+    for (size_t i = 0; i < exact.size(); ++i) {
+      int dr = std::abs(static_cast<int>(exact[i].r) - sine[i].r);
+      int dg = std::abs(static_cast<int>(exact[i].g) - sine[i].g);
+      int db = std::abs(static_cast<int>(exact[i].b) - sine[i].b);
+      int pixel_error = std::max(dr, std::max(dg, db));
+      if (pixel_error != 0)
+        ++different_pixels;
+      max_channel_error = std::max(max_channel_error, pixel_error);
+    }
+  }
+
+  std::printf("spherical sine framebuffer samples=%d different=%zu max=%d\n",
+              W * H * static_cast<int>(std::size(cases)), different_pixels,
+              max_channel_error);
+  HS_EXPECT_LE(different_pixels, static_cast<size_t>(512));
+  HS_EXPECT_LE(max_channel_error, 2);
+}
+
+/**
  * @brief Verifies overlapping strokes composite via the over operator at the
  *        shared pixel.
  * @details The 2D sink blends dst.lerp16(src, alpha) = dst*(1-a) + src*a. Two
@@ -1670,6 +1729,7 @@ inline int run_scan_tests() {
   test_planar_polygon_pixel_placement();
   test_flower_pixel_placement();
   test_solid_color_path_matches_generic();
+  test_spherical_sine_distance_framebuffer_error();
   test_overlapping_strokes_composite_blend();
 
   test_transformed_volume_world_local_roundtrip();

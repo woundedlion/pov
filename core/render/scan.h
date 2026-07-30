@@ -490,6 +490,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
  * @brief Rasterizes a solid SDF with a constant color and typed pipeline.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
+ * @tparam SineDistance Use the shape's sine-domain angular distance.
  * @tparam PipelineT Plotting pipeline type.
  * @param pipeline Plotting pipeline receiving the final colors.
  * @param canvas Destination canvas.
@@ -497,7 +498,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
  * @param color Constant source color and alpha.
  * @param debug_bb When true, renders the bounding box for debugging.
  */
-template <int W, int H, typename PipelineT>
+template <int W, int H, bool SineDistance = false, typename PipelineT>
 HS_NOINLINE_NOCLONE inline void
 rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                 const Color4 &color, bool debug_bb = false) {
@@ -530,8 +531,13 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int x, int y, const Vector &p, int run) {
-        shape.template distance<false>(p, result);
-        const float d = result.dist;
+        float d;
+        if constexpr (SineDistance) {
+          d = shape.sine_distance(p);
+        } else {
+          shape.template distance<false>(p, result);
+          d = result.dist;
+        }
         if (d >= PIXEL_WIDTH)
           return;
 
@@ -1317,8 +1323,11 @@ struct SphericalPolygon {
                                       debug_bb);
   }
 
-  /** @brief Rasterizes a constant-color solid spherical polygon. */
-  template <int W, int H, typename PipelineT>
+  /**
+   * @brief Rasterizes a constant-color solid spherical polygon.
+   * @tparam SineDistance Use edge-plane distance for the AA band.
+   */
+  template <int W, int H, bool SineDistance = false, typename PipelineT>
   static void draw_solid(PipelineT &pipeline, Canvas &canvas,
                          const Basis &basis, float radius, int sides,
                          const Color4 &color, float phase = 0,
@@ -1327,7 +1336,8 @@ struct SphericalPolygon {
     float offset = PI_F / sides;
     SDF::SphericalPolygon shape(res.first, res.second, sides, phase + offset,
                                 radius > 1.0f);
-    Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color, debug_bb);
+    Scan::rasterize_solid<W, H, SineDistance>(pipeline, canvas, shape, color,
+                                              debug_bb);
   }
 };
 
