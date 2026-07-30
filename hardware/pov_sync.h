@@ -637,8 +637,8 @@ public:
    * @brief Current column at a given time.
    * @param at Timestamp to evaluate, in cycles.
    * @return Column index in [0, W).
-   * @details Signed-safe for timestamps up to ~±3.5 s around the epoch (snap
-   * evaluation may look slightly into the past).
+   * @details Signed-safe for timestamps up to ±16 half-revolutions around the
+   * epoch (±1.0 s at 480 RPM); snap evaluation may look slightly into the past.
    */
   int32_t position(uint32_t at) const {
     const uint32_t elapsed = at - epoch_cycles; // modular

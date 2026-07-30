@@ -80,8 +80,9 @@
       "reaction_graph": { "name": "_ZN13ReactionGraph9neighborsE", "region": "FLASH" },
       // The segment LED controller's HD107SFrame buffers are the eDMA TX source and
       // must stay in cached, DMA-reachable OCRAM (where arm_dcache_flush() is real;
-      // §5/§8). Defined as an explicit specialization in Phantasm.ino because GCC
-      // drops DMAMEM on the vague-linkage template static member.
+      // §5/§8). Emitted by HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER in
+      // targets/common/phantasm_target.h:48 because GCC drops DMAMEM on the
+      // vague-linkage template static member.
       "dma_tx_buffer":  { "name": "_ZN12POVSegmentedILi288ELi4ELi480EE13ledControllerE", "region": "OCRAM" }
     }
   }
