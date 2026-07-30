@@ -114,9 +114,7 @@ public:
       fade_out = 1.0f - fade_out_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
 
-    // Overshooting easings (ease_out_elastic) exceed 1, so the fade-out ramp
-    // goes negative.
-    draw_fn(canvas, std::max(std::min(fade_in, fade_out), 0.0f));
+    draw_fn(canvas, hs::clamp(std::min(fade_in, fade_out), 0.0f, 1.0f));
   }
 
 private:
