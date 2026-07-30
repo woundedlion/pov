@@ -55,11 +55,10 @@ public:
                 "rasterize's sub-step cache at once");
   using MobiusEntity = typename MobiusWarpTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
-      sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) + alignof(int) +
-      BakedPalette::required_arena_bytes();
-  static_assert(
-      FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
-      "MobiusGrid persistent footprint exceeds its device partition");
+      sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
+      alignof(int) + BakedPalette::required_arena_bytes();
+  static_assert(FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
+                "MobiusGrid persistent footprint exceeds its device partition");
 
   /**
    * @brief Sizes the arenas, exposes the user params, and arms the timeline
@@ -173,8 +172,8 @@ private:
       return 1.0f;
     float R = sqrtf((1.0f + z) / (1.0f - z));
     float log_r = logf(R);
-    float t = (log_r - CONFORMAL_LOG_MIN) /
-              (CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN);
+    float t =
+        (log_r - CONFORMAL_LOG_MIN) / (CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN);
     return wrap(t - phase, 1.0f);
   }
 
