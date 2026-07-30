@@ -649,7 +649,7 @@ def main(unplaced=False, force=False):
     lines.append(")")
     outpath = os.path.join(OUT, OUTFILE)
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    open(outpath, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    open(outpath, "w", encoding="utf-8", newline="\n").write("\n".join(lines) + "\n")
 
     # --- custom footprint library (Teensy) + fp-lib-table ---
     pretty = os.path.join(OUT, "phantasm.pretty")
@@ -659,16 +659,17 @@ def main(unplaced=False, force=False):
     mod.insert(2, [sexp.Sym("version"), sexp.Sym("20240108")])
     mod.insert(3, [sexp.Sym("generator"), "phantasm-gen"])
     mod.insert(4, [sexp.Sym("generator_version"), "10.0"])
-    open(os.path.join(pretty, "Teensy4.0.kicad_mod"), "w", encoding="utf-8").write(
-        sexp.dumps(mod) + "\n")
+    open(os.path.join(pretty, "Teensy4.0.kicad_mod"), "w", encoding="utf-8",
+         newline="\n").write(sexp.dumps(mod) + "\n")
     fplt = os.path.join(OUT, "fp-lib-table")
     if not os.path.exists(fplt):
-        open(fplt, "w", encoding="utf-8").write(
+        open(fplt, "w", encoding="utf-8", newline="\n").write(
             '(fp_lib_table\n\t(version 7)\n'
             '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.pretty")'
             '(options "")(descr "PHANTASM custom footprints"))\n)\n')
     if unplaced:
-        open(os.path.join(OUT, "unplaced", "fp-lib-table"), "w", encoding="utf-8").write(
+        open(os.path.join(OUT, "unplaced", "fp-lib-table"), "w", encoding="utf-8",
+             newline="\n").write(
             '(fp_lib_table\n\t(version 7)\n'
             '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/../phantasm.pretty")'
             '(options "")(descr "PHANTASM custom footprints"))\n)\n')
