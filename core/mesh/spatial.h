@@ -51,7 +51,7 @@ public:
   /**
    * @brief Upper bound on source points, set by the int16_t node-link range.
    * @details One node per point, and node indices flow through int16_t
-   * left/right links, so the point count must fit in [0, INT16_MAX]. This also
+   * left/right links, so the point count must fit in [0, MAX_POINTS]. This also
    * bounds original_index (uint16_t) since indices stay below the count.
    */
   static constexpr size_t MAX_POINTS = static_cast<size_t>(INT16_MAX) + 1;
