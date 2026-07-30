@@ -86,10 +86,14 @@ __attribute__((always_inline)) inline float quintic_kernel(float t) {
  * @details PCG output hash (RXS-M-XS). Stateless, so a hashed value stays
  * fixed across frames — unlike a draw from the global RNG, which advances
  * every frame and would make the value jitter.
+ *
+ * The seed enters twice: once into the index, once into the output state.
+ * Folding it into the index alone would only permute the lattice, leaving
+ * every seed the same multiset of values re-indexed by i -> i ^ seed.
  */
 inline float hash01(uint32_t i, uint32_t seed) {
   uint32_t h = (i ^ seed) * 747796405u + 2891336453u;
-  h = ((h >> ((h >> 28) + 4u)) ^ h) * 277803737u;
+  h = ((h >> ((h >> 28) + 4u)) ^ h ^ seed) * 277803737u;
   h = (h >> 22) ^ h;
   return static_cast<float>(h >> 8) * (1.0f / 16777216.0f);
 }
