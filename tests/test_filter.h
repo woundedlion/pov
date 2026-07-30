@@ -1809,9 +1809,12 @@ inline void test_feedback_spherical_field_angular_error() {
     };
     for (int ring_index = 0; ring_index < layout.ring_count(); ++ring_index) {
       const auto ring = layout.ring(ring_index);
-      for (int x = 0; x < W; x += DOWNSAMPLE)
+      for (int x = 0; x < W; x += DOWNSAMPLE) {
+        const auto longitude = layout.longitude_bounded(ring, x);
         expanded[ring_index * (W / DOWNSAMPLE) + x / DOWNSAMPLE] =
-            field.interpolate(ring, x, circular_lerp);
+            circular_lerp(controls[longitude.left], controls[longitude.right],
+                          longitude.mix);
+      }
     }
 
     auto approximate = [&](int x, int y) {
