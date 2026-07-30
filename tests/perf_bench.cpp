@@ -4,8 +4,8 @@
  *
  * Host render micro-benchmark: per-frame wall time for every effect.
  *
- * Build the two targets (perf_bench_os at -Os = the Phantasm size config,
- * perf_bench_o3 at -O3) and diff to see what optimization buys the render. Host
+ * Build the two targets (perf_bench_Os at -Os = the Phantasm size config,
+ * perf_bench_O3 at -O3) and diff to see what optimization buys the render. Host
  * x86-64 wall time is a relative proxy for the Teensy device, not an absolute.
  * Not a CTest.
  */
