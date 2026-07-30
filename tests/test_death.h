@@ -603,6 +603,14 @@ inline void case_timeline_clear_pinned() {
   tl.clear(); // HS_CHECK(!handled) -> trap
 }
 
+/** @brief Death case: finite parameter animations reject the -1 sentinel. */
+inline void case_finite_param_perpetual_duration() {
+  float value = 0.0f;
+  Animation::Transition transition(value, 1.0f, opaque(-1), ease_linear);
+  if (transition.done())
+    std::printf("x");
+}
+
 /** @brief Adds an event from a clear hook, violating the hook contract. */
 inline void add_event_from_clear_hook(void *ctx) {
   static float value = 0.0f;
@@ -1525,6 +1533,8 @@ inline const Case *all_cases(int &n) {
       {"timeline_move_into_live_destination",
        case_timeline_move_into_live_destination},
       {"timeline_negative_delay", case_timeline_negative_delay},
+      {"finite_param_perpetual_duration",
+       case_finite_param_perpetual_duration},
       {"timeline_start_overflow", case_timeline_start_overflow},
       {"timeline_handled_completion", case_timeline_handled_completion},
       {"timeline_pinned_finite_animation",
@@ -1849,7 +1859,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 83;
+  constexpr int DEATH_CASE_COUNT = 84;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a

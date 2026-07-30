@@ -18,9 +18,26 @@
 namespace Animation {
 
 /**
+ * @brief Shared timing contract for finite parameter animations.
+ * @tparam Derived Concrete animation type used by AnimationBase.
+ */
+template <typename Derived>
+class FiniteParamAnimationBase : public AnimationBase<Derived> {
+protected:
+  FiniteParamAnimationBase(int duration, bool repeat)
+      : AnimationBase<Derived>(duration, repeat) {
+    HS_CHECK(duration >= 0, "finite parameter animation duration must be >= 0");
+  }
+
+  float normalized_progress() const {
+    return hs::clamp(static_cast<float>(this->t) / this->duration, 0.0f, 1.0f);
+  }
+};
+
+/**
  * @brief An animation that smoothly transitions a float variable over time.
  */
-class Transition : public AnimationBase<Transition> {
+class Transition : public FiniteParamAnimationBase<Transition> {
 public:
   /**
    * @brief Constructs a Transition animation.
@@ -33,12 +50,8 @@ public:
    */
   Transition(float &mutant, float to, int duration, EasingFn easing_fn,
              bool quantized = false, bool repeat = false)
-      : AnimationBase(duration, repeat), mutant(mutant), from(0.0f), to(to),
-        easing_fn(std::move(easing_fn)), quantized(quantized) {
-    // Reject the perpetual -1 the base permits: step() would clamp t_norm to 0
-    // forever, silently freezing the tween instead of driving it.
-    HS_CHECK(duration >= 0, "Transition duration must be >= 0");
-  }
+      : FiniteParamAnimationBase(duration, repeat), mutant(mutant), from(0.0f),
+        to(to), easing_fn(std::move(easing_fn)), quantized(quantized) {}
 
   /**
    * @brief Performs one step of the transition.
@@ -51,9 +64,8 @@ public:
       from = mutant;
       captured = true;
     }
-    AnimationBase::step(canvas);
-    // Clamp both ends so a negative duration can't feed easing a negative arg.
-    auto t_norm = hs::clamp(static_cast<float>(this->t) / duration, 0.0f, 1.0f);
+    FiniteParamAnimationBase::step(canvas);
+    auto t_norm = normalized_progress();
     auto n = easing_fn(t_norm) * (to - from) + from;
     if (quantized) {
       n = std::floor(n);
@@ -75,7 +87,7 @@ private:
  * @brief An animation that applies a custom function to a float variable over
  * time.
  */
-class Mutation : public AnimationBase<Mutation> {
+class Mutation : public FiniteParamAnimationBase<Mutation> {
 public:
   /**
    * @brief Constructs a Mutation animation.
@@ -88,12 +100,8 @@ public:
    */
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
            bool repeat = false, const bool *paused = nullptr)
-      : AnimationBase(duration, repeat), mutant(mutant), f(std::move(f)),
-        easing_fn(std::move(easing_fn)), paused(paused) {
-    // Reject the perpetual -1 the base permits: step() would clamp t_norm to 0
-    // forever, silently freezing the curve instead of driving it.
-    HS_CHECK(duration >= 0, "Mutation duration must be >= 0");
-  }
+      : FiniteParamAnimationBase(duration, repeat), mutant(mutant),
+        f(std::move(f)), easing_fn(std::move(easing_fn)), paused(paused) {}
 
   /**
    * @brief Performs one step of the mutation.
@@ -104,8 +112,8 @@ public:
   void step(Canvas &canvas) override {
     if (is_paused(paused))
       return;
-    AnimationBase::step(canvas);
-    auto t_norm = hs::clamp(static_cast<float>(this->t) / duration, 0.0f, 1.0f);
+    FiniteParamAnimationBase::step(canvas);
+    auto t_norm = normalized_progress();
     mutant.get() = f(easing_fn(t_norm));
   }
 
@@ -228,7 +236,7 @@ private:
  * pointers and a type-erased lerp function. Supports any type T that implements
  * lerp(start, target, t).
  */
-class Lerp : public AnimationBase<Lerp> {
+class Lerp : public FiniteParamAnimationBase<Lerp> {
 public:
   /**
    * @brief Constructs a Lerp animation.
@@ -244,12 +252,9 @@ public:
   template <typename T, typename Easing>
   Lerp(T &subject, const T &start, const T &target, int duration,
        Easing easing_fn, const bool *paused = nullptr)
-      : AnimationBase(duration, false), subject_ptr(&subject),
+      : FiniteParamAnimationBase(duration, false), subject_ptr(&subject),
         start_ptr(&start), target_ptr(&target), easing(easing_fn),
         paused(paused) {
-    // Reject the perpetual -1 the base permits: step() would clamp t_norm to 0
-    // forever, silently freezing the lerp instead of driving it.
-    HS_CHECK(duration >= 0, "Lerp duration must be >= 0");
     do_lerp = [](void *subj, const void *s, const void *tgt, float t) {
       static_cast<T *>(subj)->lerp(*static_cast<const T *>(s),
                                    *static_cast<const T *>(tgt), t);
@@ -277,8 +282,8 @@ public:
   void step(Canvas &canvas) override {
     if (is_paused(paused))
       return;
-    AnimationBase::step(canvas);
-    float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
+    FiniteParamAnimationBase::step(canvas);
+    float progress = normalized_progress();
     do_lerp(subject_ptr, start_ptr, target_ptr, easing(progress));
   }
 
@@ -296,7 +301,7 @@ private:
  * @brief An animation that smoothly interpolates a GenerativePalette toward a
  * target palette.
  */
-class ColorWipe : public AnimationBase<ColorWipe> {
+class ColorWipe : public FiniteParamAnimationBase<ColorWipe> {
 public:
   /**
    * @brief Constructs a ColorWipe animation.
@@ -309,12 +314,8 @@ public:
   ColorWipe(GenerativePalette &from_palette,
             const GenerativePalette &to_palette, int duration,
             EasingFn easing_fn)
-      : AnimationBase(duration, false), cur_palette(from_palette),
-        to_snap(to_palette.snapshot()), easing_fn(std::move(easing_fn)) {
-    // Reject the perpetual -1 the base permits: step() would clamp amount to 0
-    // forever, silently freezing the palette instead of driving it.
-    HS_CHECK(duration >= 0, "ColorWipe duration must be >= 0");
-  }
+      : FiniteParamAnimationBase(duration, false), cur_palette(from_palette),
+        to_snap(to_palette.snapshot()), easing_fn(std::move(easing_fn)) {}
 
   /**
    * @brief Steps the animation, blending the palette's colors based on the time
@@ -327,8 +328,8 @@ public:
       from_snap = cur_palette.get().snapshot();
       captured = true;
     }
-    AnimationBase::step(canvas);
-    float amount = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
+    FiniteParamAnimationBase::step(canvas);
+    float amount = normalized_progress();
     cur_palette.get().lerp(from_snap, to_snap, easing_fn(amount));
   }
 
@@ -344,7 +345,7 @@ private:
 /**
  * @brief Animates the Mobius parameters for a continuous loxodromic flow.
  */
-class MobiusFlow : public AnimationBase<MobiusFlow> {
+class MobiusFlow : public FiniteParamAnimationBase<MobiusFlow> {
 public:
   /**
    * @brief Constructs a MobiusFlow animation.
@@ -356,10 +357,8 @@ public:
    */
   MobiusFlow(MobiusParams &params, const float &num_rings,
              const float &num_lines, int duration, bool repeat = true)
-      : AnimationBase(duration, repeat), params(params), num_rings(num_rings),
-        num_lines(num_lines) {
-    HS_CHECK(duration >= 0, "MobiusFlow duration must be >= 0");
-  }
+      : FiniteParamAnimationBase(duration, repeat), params(params),
+        num_rings(num_rings), num_lines(num_lines) {}
 
   // Borrow contract: num_rings/num_lines are read every frame, so they must
   // outlive the Timeline; these deleted overloads reject a temporary scalar.
@@ -377,8 +376,8 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
-    AnimationBase::step(canvas);
-    float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
+    FiniteParamAnimationBase::step(canvas);
+    float progress = normalized_progress();
     // Floor rings at 0 so the divisor rings + 1 stays >= 1; a non-finite or -1
     // rings would make logPeriod inf and poison a/d.
     float rings = num_rings;
@@ -413,7 +412,7 @@ private:
  * @brief Animates the Mobius parameters for a warping effect pulling the poles
  * together.
  */
-class MobiusWarp : public AnimationBase<MobiusWarp> {
+class MobiusWarp : public FiniteParamAnimationBase<MobiusWarp> {
 public:
   /**
    * @brief Constructs a MobiusWarp animation.
@@ -425,9 +424,8 @@ public:
    */
   MobiusWarp(MobiusParams &params, float scale, int duration,
              bool repeat = true, EasingFn easing = ease_in_out_sin)
-      : AnimationBase(duration, repeat), params(params), scale(scale),
-        easing(easing) {
-    HS_CHECK(duration >= 0, "MobiusWarp duration must be >= 0");
+      : FiniteParamAnimationBase(duration, repeat), params(params),
+        scale(scale), easing(easing) {
     HS_CHECK(std::isfinite(scale), "MobiusWarp scale must be finite");
   }
 
@@ -445,9 +443,8 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
-    AnimationBase::step(canvas);
-    float t_norm = static_cast<float>(t) / duration;
-    float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
+    FiniteParamAnimationBase::step(canvas);
+    float progress = easing(normalized_progress());
     float angle = progress * 2 * PI_F;
     float s = scale;
     if (scale_ref) {
@@ -469,7 +466,7 @@ private:
 /**
  * @brief Animates the Mobius parameters for a circular warping effect.
  */
-class MobiusWarpCircular : public AnimationBase<MobiusWarpCircular> {
+class MobiusWarpCircular : public FiniteParamAnimationBase<MobiusWarpCircular> {
 public:
   /**
    * @brief Constructs a MobiusWarpCircular animation.
@@ -481,9 +478,8 @@ public:
    */
   MobiusWarpCircular(MobiusParams &params, float scale, int duration,
                      bool repeat = true, EasingFn easing = ease_in_out_sin)
-      : AnimationBase(duration, repeat), params(params), scale(scale),
-        easing(easing) {
-    HS_CHECK(duration >= 0, "MobiusWarpCircular duration must be >= 0");
+      : FiniteParamAnimationBase(duration, repeat), params(params),
+        scale(scale), easing(easing) {
     HS_CHECK(std::isfinite(scale), "MobiusWarpCircular scale must be finite");
   }
 
@@ -492,9 +488,8 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
-    AnimationBase::step(canvas);
-    float t_norm = static_cast<float>(t) / duration;
-    float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
+    FiniteParamAnimationBase::step(canvas);
+    float progress = easing(normalized_progress());
     float angle = progress * 2 * PI_F;
     params.get().b.re = scale * cosf(angle);
     params.get().b.im = -scale * sinf(angle);
