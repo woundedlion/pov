@@ -50,6 +50,7 @@ using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
  * to `has_history` (fail-safe).
  */
 struct Is2D {
+  static constexpr int domain_rank = 1;
   static constexpr bool is_2d = true;
   static constexpr bool has_history = false;
   static constexpr bool is_terminal = false;
@@ -60,6 +61,7 @@ struct Is2D {
 };
 /** @brief Trait indicating a filter operates in 3D world space. */
 struct Is3D {
+  static constexpr int domain_rank = 0;
   static constexpr bool is_2d = false;
   static constexpr bool has_history = false;
   static constexpr bool is_terminal = false;
@@ -71,6 +73,7 @@ struct Is3D {
 
 /** @brief Trait indicating a 2D filter that maintains state/history. */
 struct Is2DWithHistory {
+  static constexpr int domain_rank = 1;
   static constexpr bool is_2d = true;
   static constexpr bool has_history = true;
   static constexpr bool is_terminal = false;
@@ -82,6 +85,7 @@ struct Is2DWithHistory {
 
 /** @brief Trait indicating a 3D filter that maintains state/history. */
 struct Is3DWithHistory {
+  static constexpr int domain_rank = 0;
   static constexpr bool is_2d = false;
   static constexpr bool has_history = true;
   static constexpr bool is_terminal = false;
@@ -117,6 +121,7 @@ struct PipelineCullEdgeProbe {
  */
 HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
+  static constexpr int domain_rank = 2;
   static constexpr bool is_2d = true;
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_2d_history = false;
@@ -265,6 +270,7 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   using Next = Pipeline<W, H, Tail...>;
   Next next;
 
+  static constexpr int domain_rank = Head::domain_rank;
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
 
@@ -470,6 +476,11 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       "Filter ordering: a screen-space (2D) filter (Screen::* / Pixel::*) must "
       "not precede a world-space (3D) filter (World::*) — World filters operate "
       "before screen projection. Reorder so every World::* stage comes first.");
+
+  static_assert(
+      Head::domain_rank <= Next::domain_rank,
+      "Filter ordering: filter domains must be non-decreasing (World, then "
+      "Screen, then Pixel). Reorder Pixel::* stages after Screen::* stages.");
 
   static_assert(
       !Head::emits_nonunit_world || (... && !Tail::requires_unit_world_input),
@@ -1601,6 +1612,7 @@ namespace Pixel {
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
 public:
+  static constexpr int domain_rank = 2;
   /** @brief Marks this as terminal: flush() writes the Canvas directly. */
   static constexpr bool is_terminal = true;
   /** @brief Opaque store owns the frame: no history stage may precede it. */
@@ -2309,6 +2321,7 @@ template <int W> class ChromaticShift : public Is2D {
   static_assert(W >= 4, "ChromaticShift requires W >= 4 for fast_wrap offsets");
 
 public:
+  static constexpr int domain_rank = 2;
   /** @brief Constructs the chromatic-shift filter (stateless). */
   ChromaticShift() {}
 
