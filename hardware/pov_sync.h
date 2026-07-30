@@ -260,6 +260,10 @@ struct Config {
            // reads as isolated boundary symbols.
            acquire_quiet_cols >= beacon_span_cols() / 4 &&
            beacon_interdigit_timeout_cols >= beacon_span_cols() / 4 &&
+           // Stale-frame window order: tick()'s poll-path reset must be the
+           // tighter one, so a truncated train drops on wire silence rather
+           // than waiting for the next burst to reach BeaconParser::feed.
+           acquire_quiet_cols < beacon_interdigit_timeout_cols &&
            effect_count > 0 && effect_count <= 64 && commit_revs > 0 &&
            // Gate epoch_repeats >= 0 first: a negative value casts to a huge
            // uint32_t and wraps the refractory bound below.
@@ -561,7 +565,8 @@ struct Telemetry {
   uint32_t symbols_rejected_gate = 0;     /**< §5.3 plausibility rejections. */
   uint32_t symbols_discarded_invalid = 0; /**< Invalid pulse counts (§5.2). */
   uint32_t beacons_ok = 0;
-  uint32_t beacons_rejected = 0;         /**< Checksum/digit-count failures. */
+  uint32_t beacons_rejected =
+      0; /**< Checksum, digit-count, or staleness drops. */
   uint32_t beacon_index_corrections = 0; /**< Missed-epoch fixes (§6.3.2). */
   uint32_t beacon_rev_mismatches = 0;
   uint32_t epochs_refractory_ignored = 0;
@@ -1325,7 +1330,10 @@ public:
       // is itself a modular difference, so a partial frame left standing can
       // outlive a counter wrap and concatenate with a fresh train. A burst
       // claimed this tick was folded in above, so a live digit train is never
-      // cut here.
+      // cut here. valid() pins this window below feed()'s, so this is where a
+      // truncated train is normally dropped — count it like any other drop.
+      if (beacon_parser.active())
+        ++telemetry_counters.beacons_rejected;
       beacon_parser.reset();
     }
 
