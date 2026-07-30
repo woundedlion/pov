@@ -48,12 +48,6 @@
 
 set -e
 
-# Per-commit opt-out.
-if [ -n "$HS_SKIP_TESTS" ]; then
-  echo "[pre-commit] HS_SKIP_TESTS set — skipping unit tests."
-  exit 0
-fi
-
 # Run only when C++/CMake/test sources are staged; skip doc-only commits.
 # Include D (deletions) and R (renames): removing or renaming a C++/build file is
 # exactly the change class most likely to break other checkouts, so it must run
@@ -64,29 +58,14 @@ fi
 # CI (which rebuilds from the committed tree and is the authoritative gate).
 CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 
-# Two gates key off the staged paths. NATIVE: the host unit suite (C++/CMake).
-# TEENSY: the Teensy 4 size/layout gate, which any C++ change can move, plus the
-# build/budget/ldscript files that drive the firmware image.
-NATIVE=
-TEENSY=
-if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$'; then
-  NATIVE=1
-fi
-if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl|ino)$|(^|/)platformio\.ini$|(^|/)tools/teensy_[A-Za-z_]*\.py$|(^|/)tools/teensy_budgets\.json$|(^|/)tools/phantasm\.ld$'; then
-  TEENSY=1
-fi
-if [ -z "$NATIVE" ] && [ -z "$TEENSY" ]; then
-  echo "[pre-commit] No C++/build changes staged — skipping unit tests + Teensy gate."
-  exit 0
-fi
-
 # ─── clang-format check (first-party C++ only) ──────────────────────────────
 # Verify staged C++ matches the committed .clang-format. Scoped to first-party
 # sources: core/vendor/ and the generated color_luts.h / gamut_lut.h /
 # reaction_graph.cpp are excluded. Checks the working-tree file (same partial-staging caveat as the
 # suite above). Skipped if clang-format is absent (a contributor without it still
 # commits — CI's clang-format job gates the whole tracked tree) or via
-# HS_SKIP_FORMAT=1.
+# HS_SKIP_FORMAT=1. Ordered ahead of the HS_SKIP_TESTS opt-out: that flag stands
+# down the test and Teensy gates only, never this check.
 if [ -z "$HS_SKIP_FORMAT" ]; then
   FORMAT="$(printf '%s\n' "$CHANGED" \
     | grep -E '\.(h|hpp|cpp|cc|inl)$' \
@@ -110,6 +89,28 @@ if [ -z "$HS_SKIP_FORMAT" ]; then
       echo "[pre-commit] clang-format not found — skipping format check (install it to enable)."
     fi
   fi
+fi
+
+# Per-commit opt-out for the test + Teensy gates below.
+if [ -n "$HS_SKIP_TESTS" ]; then
+  echo "[pre-commit] HS_SKIP_TESTS set — skipping unit tests."
+  exit 0
+fi
+
+# Two gates key off the staged paths. NATIVE: the host unit suite (C++/CMake).
+# TEENSY: the Teensy 4 size/layout gate, which any C++ change can move, plus the
+# build/budget/ldscript files that drive the firmware image.
+NATIVE=
+TEENSY=
+if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$'; then
+  NATIVE=1
+fi
+if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl|ino)$|(^|/)platformio\.ini$|(^|/)tools/teensy_[A-Za-z_]*\.py$|(^|/)tools/teensy_budgets\.json$|(^|/)tools/phantasm\.ld$'; then
+  TEENSY=1
+fi
+if [ -z "$NATIVE" ] && [ -z "$TEENSY" ]; then
+  echo "[pre-commit] No C++/build changes staged — skipping unit tests + Teensy gate."
+  exit 0
 fi
 
 # Caveat: emscripten-only TUs (e.g. targets/wasm/wasm.cpp, guarded entirely by
