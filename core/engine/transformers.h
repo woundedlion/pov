@@ -133,6 +133,8 @@ public:
    * @return The entity's live params.
    */
   const ParamsT &active_params(int k) const {
+    HS_CHECK(k >= 0 && k < active_slot_count,
+             "TransformerPool: active index out of range");
     return entities[active_slots[k]].params;
   }
 
