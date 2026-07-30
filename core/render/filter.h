@@ -113,6 +113,13 @@ struct PipelineCullEdgeProbe {
   }
 };
 
+/** @brief Whether a filter stage transforms edges before clip culling. */
+template <typename Stage>
+inline constexpr bool has_cull_edge =
+    requires(const Stage &stage, const Vector &v, const Basis *pb) {
+      stage.cull_edge(v, v, pb, PipelineCullEdgeProbe{});
+    };
+
 /**
  * @brief Terminal node of the pipeline (base case). Writes final pixels to the
  * Canvas.
@@ -297,9 +304,7 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    *        screen coordinates from the raw geometry.
    */
   static constexpr bool has_world_cull =
-      requires(const Head &h, const Vector &v, const Basis *pb) {
-        h.cull_edge(v, v, pb, PipelineCullEdgeProbe{});
-      } || Next::has_world_cull;
+      has_cull_edge<Head> || Next::has_world_cull;
 
   /**
    * @brief Forwarding-reference constructor: builds Head and the Tail in place.
@@ -432,10 +437,7 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
     auto forward = [&](const Vector &fa, const Vector &fb, const Basis *fpb) {
       return next.could_intersect_clip(fa, fb, fpb, pred);
     };
-    if constexpr (requires {
-                    std::declval<const Head &>().cull_edge(a, b, planar_basis,
-                                                           forward);
-                  })
+    if constexpr (has_cull_edge<Head>)
       return Head::cull_edge(a, b, planar_basis, forward);
     else
       return forward(a, b, planar_basis);

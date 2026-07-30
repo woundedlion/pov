@@ -125,6 +125,8 @@ inline void test_filter_trait_inheritance() {
   static_assert(!Filter::World::Replicate<W>::is_2d, "Replicate is 3D");
   static_assert(Filter::Pixel::Feedback<W, H>::has_history,
                 "Feedback keeps history");
+  static_assert(has_cull_edge<Filter::World::Orient>);
+  static_assert(!has_cull_edge<Filter::World::Replicate<W>>);
   using Ordered =
       Pipeline<W, H, Filter::World::Replicate<W>,
                Filter::Screen::AntiAlias<W, H>,
