@@ -158,9 +158,6 @@ inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
   do {
     HS_CHECK(count < max_orbit, "vertex_orbit: corrupt orbit");
     const HalfEdge &curr_he = he_mesh.half_edges[curr_idx];
-    if (curr_he.face == HE_NONE)
-      break;
-
     visitor(curr_idx);
     count++;
 
