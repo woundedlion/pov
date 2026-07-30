@@ -84,6 +84,21 @@ static Arena tooling_arena(nullptr, 0);
 static Arena tooling_scratch_a(nullptr, 0);
 static Arena tooling_scratch_b(nullptr, 0);
 
+// Worst-case scratch bytes one operator allocates per element of its input mesh,
+// counting vertices, faces and flat face indices alike. The heaviest operator
+// (meta = kis of dual of ambo) keeps an intermediate mesh, its output and its
+// index scratch live in one arena across a 6x index expansion, at 12 bytes per
+// output vertex and 6 per output index; this bound covers that with margin.
+static constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
+// Largest input mesh an operator may be handed, derived from the scratch arena so
+// the ceiling tracks TOOLING_SCRATCH_BYTES. Within it no operator can exhaust a
+// scratch arena; beyond it the JS boundary rejects rather than letting
+// Arena::allocate's fail-fast trap wedge the module. Only the operators that skip
+// the half-edge build (kis) can grow a mesh this far — the rest trap on the
+// engine's 16-bit connectivity range well below it.
+static constexpr size_t MAX_TOOLING_MESH_ELEMENTS =
+    TOOLING_SCRATCH_BYTES / TOOLING_BYTES_PER_MESH_ELEMENT;
+
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
 // was built under and traps via check_live() if a wipe reclaimed its storage.
 static uint32_t tooling_generation = 0;
@@ -916,13 +931,25 @@ public:
    * @tparam Op Callable of signature (const PolyMesh&, Arena&, Arena&) ->
    *         PolyMesh.
    * @param op Operator to run against this wrapper's mesh.
-   * @return Owning pointer to a new wrapper holding the finalized result mesh.
+   * @return Owning pointer to a new wrapper holding the finalized result mesh,
+   *         or null if this mesh is over MAX_TOOLING_MESH_ELEMENTS.
    * @details Captures the shared operator boilerplate: reset both tooling scratch
    *          arenas, run the op into a fresh PolyMesh, finalize it into
-   *          tooling_arena, and hand back a new wrapper.
+   *          tooling_arena, and hand back a new wrapper. An oversized input is
+   *          rejected here, at the untrusted JS boundary, rather than exhausting a
+   *          scratch arena and tripping Arena::allocate's fail-fast trap.
    */
   template <typename Op> std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
     check_live();
+    if (hs_wasm::tooling_mesh_over_ceiling(
+            mesh.vertices.size(), mesh.get_face_counts_size(),
+            mesh.get_faces_size(), MAX_TOOLING_MESH_ELEMENTS)) {
+      hs::log("WASM: MeshOps input mesh of %zu verts / %zu faces / %zu indices "
+              "is over the %zu-element tooling ceiling — ignored",
+              mesh.vertices.size(), mesh.get_face_counts_size(),
+              mesh.get_faces_size(), MAX_TOOLING_MESH_ELEMENTS);
+      return nullptr;
+    }
     ToolingOpGuard guard;
     ensure_tooling_arenas();
     tooling_scratch_a.reset();

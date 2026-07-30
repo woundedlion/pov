@@ -14,6 +14,7 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace hs_wasm {
@@ -74,6 +75,23 @@ inline float clamp_unit_fraction(float t) {
   if (t > 1.0f)
     return 1.0f;
   return t;
+}
+
+/**
+ * @brief True when an operator's input mesh exceeds the tooling element ceiling.
+ * @param verts Input mesh vertex count.
+ * @param faces Input mesh face count.
+ * @param indices Input mesh flat face-index count.
+ * @param max_elements Ceiling each of the three counts must stay within.
+ * @return true when any of the three counts exceeds the ceiling.
+ * @details A Conway operator multiplies its input's element counts (kis triples
+ *          the flat index count per application), so a JS-driven chain can
+ *          outgrow the tooling scratch arenas. Rejecting the input keeps
+ *          Arena::allocate's fail-fast trap out of reach of the JS boundary.
+ */
+inline bool tooling_mesh_over_ceiling(size_t verts, size_t faces,
+                                      size_t indices, size_t max_elements) {
+  return verts > max_elements || faces > max_elements || indices > max_elements;
 }
 
 /**

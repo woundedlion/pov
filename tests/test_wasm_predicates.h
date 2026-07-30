@@ -86,6 +86,23 @@ inline void check_unit_fraction_clamp() {
 }
 
 /**
+ * @brief Exercises the per-operator tooling mesh-size ceiling.
+ */
+inline void check_tooling_mesh_ceiling() {
+  constexpr size_t MAX = 65536;
+
+  // A mesh at the ceiling on every count is still accepted.
+  HS_EXPECT_TRUE(!hs_wasm::tooling_mesh_over_ceiling(0, 0, 0, MAX));
+  HS_EXPECT_TRUE(!hs_wasm::tooling_mesh_over_ceiling(12, 20, 60, MAX));
+  HS_EXPECT_TRUE(!hs_wasm::tooling_mesh_over_ceiling(MAX, MAX, MAX, MAX));
+
+  // Each count is checked independently.
+  HS_EXPECT_TRUE(hs_wasm::tooling_mesh_over_ceiling(MAX + 1, 20, 60, MAX));
+  HS_EXPECT_TRUE(hs_wasm::tooling_mesh_over_ceiling(12, MAX + 1, 60, MAX));
+  HS_EXPECT_TRUE(hs_wasm::tooling_mesh_over_ceiling(12, 20, MAX + 1, MAX));
+}
+
+/**
  * @brief Exercises the Hankin contact-angle domain check.
  */
 inline void check_hankin_angle_domain() {
@@ -150,6 +167,7 @@ inline int run_wasm_predicates_tests() {
   check_clip_bounds();
   check_relax_clamp();
   check_unit_fraction_clamp();
+  check_tooling_mesh_ceiling();
   check_hankin_angle_domain();
   check_gradient_shape_clamp();
   check_hsv_key_clamp();
