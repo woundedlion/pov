@@ -360,12 +360,18 @@ private:
   uint32_t rebind_generation = 0;
 
   /**
-   * @brief Debug-only use-after-free check against the arena generation.
-   * @details Asserts if the source arena was reset out from under this vector.
+   * @brief Debug-only use-after-free check against the source arena.
+   * @details Asserts if the source arena was reset out from under this vector,
+   * or rewound (set_offset/ScratchScope) below the backing block — a rewind
+   * reclaims the bytes without bumping the generation.
    */
   void check_alive() const {
     if (source_arena && source_arena->get_generation() != birth_generation) {
       assert(false && "ArenaVector use-after-free!");
+    }
+    if (source_arena && element_capacity > 0 &&
+        !source_arena->covers(elements, element_capacity * sizeof(T))) {
+      assert(false && "ArenaVector use-after-free (arena rewound below block)!");
     }
   }
 #else
