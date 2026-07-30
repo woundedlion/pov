@@ -20,6 +20,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import zipfile
 
 import sexp
@@ -586,22 +587,8 @@ def main():
     print(
         f"zone geometry: {num_zones} copper pours meet the "
         f"{MIN_ZONE_FEATURE_MM:g} mm minimum fill feature")
-    # clean fab dir, keep the rest of out/
-    if os.path.isdir(JLC):
-        for f in os.listdir(JLC):
-            os.remove(os.path.join(JLC, f))
-    os.makedirs(JLC, exist_ok=True)
-
-    print("[1/6] Gerbers")
-    run([KCLI, "pcb", "export", "gerbers", "--layers", GERBER_LAYERS,
-         "-o", JLC + os.sep, PCB])
-    print("[2/6] Drill")
-    # Absolute origin, matching the gerbers and the centroid below.
-    run([KCLI, "pcb", "export", "drill", "--format", "excellon",
-         "--drill-origin", "absolute", "--excellon-units", "mm",
-         "--excellon-separate-th", "-o", JLC + os.sep, PCB])
-
-    print("[3/6] DRC report + schematic parity")
+    os.makedirs(OUT, exist_ok=True)
+    print("[1/6] DRC report + schematic parity")
     rpt = os.path.join(OUT, "phantasm-drc.rpt")
     num_violations, num_unconnected = run_drc(rpt)
     print(f"  DRC: {num_violations} error-severity violations, "
@@ -613,6 +600,23 @@ def main():
         sys.exit(str(exc))
     print(f"  parity: board matches schematic, {num_parity} known "
           f"differences -> {parity_rpt}")
+
+    with tempfile.TemporaryDirectory(prefix="phantasm-jlc-", dir=OUT) as staged:
+        print("[2/6] Gerbers")
+        run([KCLI, "pcb", "export", "gerbers", "--layers", GERBER_LAYERS,
+             "-o", staged + os.sep, PCB])
+        print("[3/6] Drill")
+        # Absolute origin, matching the gerbers and the centroid below.
+        run([KCLI, "pcb", "export", "drill", "--format", "excellon",
+             "--drill-origin", "absolute", "--excellon-units", "mm",
+             "--excellon-separate-th", "-o", staged + os.sep, PCB])
+
+        if os.path.isdir(JLC):
+            for name in os.listdir(JLC):
+                os.remove(os.path.join(JLC, name))
+        os.makedirs(JLC, exist_ok=True)
+        for name in os.listdir(staged):
+            os.replace(os.path.join(staged, name), os.path.join(JLC, name))
 
     print("[4/6] Netlist + centroid")
     net = os.path.join(OUT, "_fab.net")
