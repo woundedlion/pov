@@ -142,7 +142,7 @@ are purely transition/rebuild frames.
 - **Guard determinism:** sim and device must stay bit-identical (wrap guards,
   `hs::shuffle`, no `<random>`, no `Date.now`/`Math.random` equivalents). Any
   bake must verify host==device (see the `HS_RELAX_BAKE_VERIFY` ctest pattern).
-- **Don't regress correctness:** the immutable birth-colour model and the smooth
+- **Don't regress correctness:** the per-leg palette crossfade and the smooth
   morph visual are owner-validated — keep them. Any face-count cap or bake is a
   visual change needing sign-off.
 

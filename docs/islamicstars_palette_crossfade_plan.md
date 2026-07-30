@@ -93,7 +93,10 @@ All in `effects/IslamicStars.h`:
 3. Delete the now-dead birth-cohort plumbing: `build_palette_order_`,
    `build_birth_counter_`, and the immutable-comment blocks (spawn colouring at
    :692-708 stays — birth colours of the spawned mesh are still class + shuffle).
-   Engine-side immutable machinery stays (other users / tests).
+   Engine-side immutable machinery stays deliberately: no shipped effect,
+   target, or tool selects `PaletteHandoff::immutable`, and its only exercise is
+   the native suite's `test_opleg_build_immutable_colours`
+   (`tests/test_conway_morph.h`).
 4. Newborn faces mid-leg: with a null birth counter the engine keys newborns by
    `wrap(class, PALETTES)` into the leg's fresh `to_palette` — accept, verify
    visually.
