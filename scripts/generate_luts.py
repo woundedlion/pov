@@ -31,10 +31,12 @@ manual format step to forget. clang-format is required, not optional: the CI
 provenance gate diffs the full formatted text against the committed header. If
 clang-format is not on PATH (set CLANG_FORMAT to override), the generator emits
 UNFORMATTED output and prints a loud warning to stderr, so the missing step can
-never pass silently.
+never pass silently. A clang-format whose major version differs from the one CI
+pins also warns: the reflow differences would land as a whole-header diff.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -59,6 +61,13 @@ SRGB_LEVELS = 256
 LINEAR_LEVELS = 65536
 SRGB_MAX = SRGB_LEVELS - 1
 LINEAR_MAX = LINEAR_LEVELS - 1
+
+
+# The clang-format major the provenance gate formats both sides with (the
+# lut-provenance job in .github/workflows/ci.yml sets CLANG_FORMAT=clang-format-18).
+# Another major reflows the arrays differently, so a one-entry data change would
+# arrive in CI as a full-header diff with its real cause buried.
+EXPECTED_CLANG_FORMAT_MAJOR = 18
 
 
 def quantize(v, max_val):
@@ -100,6 +109,40 @@ def render(out, fwd, rev):
                rev, 15)
 
 
+def clang_format_major(cf):
+    """Major version of the clang-format at `cf`, or None if it cannot be read.
+
+    A version probe must never take the generator down: a missing binary, a
+    non-zero exit and an unrecognized banner all report None and are warned
+    about, leaving the formatting attempt itself to decide the exit status.
+    """
+    try:
+        result = subprocess.run([cf, "--version"], capture_output=True, text=True)
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    m = re.search(r"version (\d+)\.", result.stdout)
+    return int(m.group(1)) if m else None
+
+
+def warn_version_skew(cf):
+    major = clang_format_major(cf)
+    if major == EXPECTED_CLANG_FORMAT_MAJOR:
+        return
+    if major is None:
+        sys.stderr.write(
+            f"generate_luts: WARNING - could not read the version of '{cf}'; CI "
+            f"formats with clang-format-{EXPECTED_CLANG_FORMAT_MAJOR}\n")
+    else:
+        sys.stderr.write(
+            f"generate_luts: WARNING - clang-format {major}.x formats this header, "
+            f"but CI pins clang-format-{EXPECTED_CLANG_FORMAT_MAJOR}; committing "
+            "this output can produce a whole-header reflow diff in the "
+            "lut-provenance gate. Set CLANG_FORMAT to a "
+            f"clang-format-{EXPECTED_CLANG_FORMAT_MAJOR} binary.\n")
+
+
 def clang_format(text):
     """Format the generated header through clang-format using the repo style.
 
@@ -111,6 +154,7 @@ def clang_format(text):
     cf = os.environ.get("CLANG_FORMAT") or shutil.which("clang-format")
     if not cf:
         return None
+    warn_version_skew(cf)
     header = Path(__file__).resolve().parent.parent / "core" / "color" / "color_luts.h"
     try:
         result = subprocess.run(
