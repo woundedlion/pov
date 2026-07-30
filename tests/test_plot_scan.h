@@ -3270,6 +3270,27 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
       {30, 48, 0, 96},  // y-only clip (XClip inactive)
   };
   for (const auto &bd : bands) {
+    // The non-deferred path must use the same precomputed gate bits.
+    {
+      hs_test::StubEffect fx(W, H);
+      fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
+      Pipeline<W, H> filters;
+      {
+        Canvas c(fx);
+        Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
+      }
+      fx.advance_display();
+      int diff = 0;
+      for (int y = bd[0]; y < bd[1]; ++y)
+        for (int x = bd[2]; x < bd[3]; ++x) {
+          const Pixel &p = fx.get_pixel(x, y);
+          const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+          if (p.r != r.r || p.g != r.g || p.b != r.b)
+            ++diff;
+        }
+      HS_EXPECT_EQ(diff, 0);
+    }
+
     hs_test::StubEffect fx(W, H);
     fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
     Pipeline<W, H> filters;

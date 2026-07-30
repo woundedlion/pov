@@ -3200,17 +3200,10 @@ struct ParticleSystem {
         apply_vertex_shader(vertex_shader, trail);
       }
 
-      if (!deferred_shader) {
-        HS_PROFILE(plot_ps_raster);
-        rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
-                        nullptr, false, nullptr, nullptr, nullptr);
-        continue;
-      }
-
       // Trail-level gate: precompute each edge's cull verdict from the
       // position-shaded points. No visible edge means the trail renders
-      // nothing, so the deferred pass and the rasterize call are skipped
-      // whole; the bits feed rasterize so the cull is evaluated once.
+      // nothing, so the optional deferred pass and the rasterize call are
+      // skipped whole; the bits feed rasterize so the cull is evaluated once.
       const uint8_t *vis = nullptr;
       const float *dot_rows = nullptr;
       const float *dot_cols = nullptr;
@@ -3306,7 +3299,7 @@ struct ParticleSystem {
         vis = bits;
       }
 
-      {
+      if (deferred_shader) {
         HS_PROFILE(plot_ps_deferred);
         for (size_t k = 0; k < trail.size(); ++k)
           deferred_shader(trail[k], orig[k]);
