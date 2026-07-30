@@ -368,9 +368,37 @@ inline void test_clip_clear_does_not_change_persistence() {
     HS_EXPECT_TRUE(pix_eq(c(i), 7, 8, 9));
 }
 
-/** @brief A full-frame effect clears the whole buffer, clip notwithstanding. */
-inline void test_clip_clear_does_not_change_full_frame_clear() {
+/**
+ * @brief Full-frame rendering alone does not clear the margin-expanded band.
+ */
+inline void test_clip_clear_full_frame_without_reads_keeps_margin() {
   TestEffect fx(8, 4, {.full_frame = true});
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(1, 2, 3);
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(4, 5, 6);
+  }
+  fx.advance_display();
+
+  fx.set_clip(1, 3, 2, 6);
+  Canvas c(fx);
+  for (int y = 0; y < 4; ++y)
+    for (int x = 0; x < 8; ++x) {
+      const bool display_band = y >= 1 && y < 3 && x >= 2 && x < 6;
+      HS_EXPECT_TRUE(display_band ? pix_eq(c(x, y), 0, 0, 0)
+                                  : pix_eq(c(x, y), 1, 2, 3));
+    }
+}
+
+/** @brief A filter that reads outside the display band clears the whole buffer. */
+inline void test_clip_clear_outside_band_reader_clears_full_buffer() {
+  TestEffect fx(8, 4, {.reads_outside_band = true});
   {
     Canvas c(fx);
     for (int i = 0; i < 32; ++i)
@@ -901,7 +929,8 @@ inline int run_canvas_tests() {
   test_clip_clear_full_width_band();
   test_clip_clear_constructor_zeroes_both_buffers();
   test_clip_clear_does_not_change_persistence();
-  test_clip_clear_does_not_change_full_frame_clear();
+  test_clip_clear_full_frame_without_reads_keeps_margin();
+  test_clip_clear_outside_band_reader_clears_full_buffer();
   test_persist_pixels_copies_previous_frame();
   test_double_buffer_handoff_no_aliasing();
   test_double_buffer_handoff_concurrent();

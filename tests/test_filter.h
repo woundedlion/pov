@@ -154,6 +154,10 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_TRUE((Filter::World::Trails<16>::crosses_segments));
   // The sole non-fail-safe override: reach-0 in-place decay stays band-clippable.
   HS_EXPECT_FALSE((Filter::Screen::Trails<>::crosses_segments));
+  HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::reads_outside_band));
+  HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::reads_outside_band));
+  HS_EXPECT_FALSE((Filter::World::Trails<16>::reads_outside_band));
+  HS_EXPECT_FALSE((Filter::Screen::Trails<>::reads_outside_band));
 
   // crosses_segments tracks reach, not has_history: Screen::Trails has history
   // yet does not cross segments.
@@ -162,20 +166,25 @@ inline void test_crosses_segments_trait_and_fold() {
 
   // Pipeline OR-fold.
   HS_EXPECT_FALSE((Pipeline<W, H>::any_crosses_segments));
+  HS_EXPECT_FALSE((Pipeline<W, H>::any_reads_outside_band));
 
   using MeshStack =
       Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
                Filter::Pixel::Feedback<W, H>>;
   HS_EXPECT_TRUE(MeshStack::any_crosses_segments);
+  HS_EXPECT_TRUE(MeshStack::any_reads_outside_band);
 
   // A non-stateful stack does not.
   using PlainStack =
       Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>;
   HS_EXPECT_FALSE(PlainStack::any_crosses_segments);
+  HS_EXPECT_FALSE(PlainStack::any_reads_outside_band);
 
   // A Screen::Trails-only stack does not trip the fold despite has_history.
   HS_EXPECT_FALSE(
       (Pipeline<W, H, Filter::Screen::Trails<>>::any_crosses_segments));
+  HS_EXPECT_FALSE(
+      (Pipeline<W, H, Filter::World::Trails<16>>::any_reads_outside_band));
 
   // The pipeline spelling exposes the fold. MeshStack's head (World::Orient)
   // is false while the composed pipeline is true.

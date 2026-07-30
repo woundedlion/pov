@@ -55,7 +55,9 @@ public:
   HS_COLD_MEMBER Dynamo()
       : Effect(W, H,
                {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments}),
+                .full_frame = decltype(filters)::any_crosses_segments,
+                .reads_outside_band =
+                    decltype(filters)::any_reads_outside_band}),
         palettes{make_palette()}, palette_normal(Z_AXIS),
         filters(Filter::World::Trails<TRAIL_CAPACITY>(
                     (uint32_t)params.trail_length),

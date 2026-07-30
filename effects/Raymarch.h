@@ -23,7 +23,9 @@ public:
   HS_COLD_MEMBER Raymarch()
       : Effect(W, H,
                {.strobe = true,
-                .full_frame = decltype(pipeline)::any_crosses_segments}) {}
+                .full_frame = decltype(pipeline)::any_crosses_segments,
+                .reads_outside_band =
+                    decltype(pipeline)::any_reads_outside_band}) {}
 
   /**
    * @brief Registers tunable params, builds the disdyakis-dodecahedron vertex
