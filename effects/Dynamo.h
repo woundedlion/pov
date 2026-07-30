@@ -453,6 +453,7 @@ private:
     float wipe_duration = 20.0f; /**< Color-wipe transition duration. */
   } params;
 
+  // Precedes filters, whose constructor reads params.trail_length.
   /**
    * @brief Filter pipeline applied to plotted points before color resolution.
    */
