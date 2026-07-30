@@ -125,7 +125,8 @@ HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
  * is the one place the storage under it is handed out again. Owners re-arm from
  * init(), which every swap path runs after this.
  */
-void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
+FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
+                               size_t scratch_b) {
   release_gamut_lut();
   const ScratchBases bases =
       split_bases("configure_arenas", persistent, scratch_a, scratch_b);

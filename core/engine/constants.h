@@ -49,7 +49,13 @@ inline constexpr int POLE_LOD_MAX_RUN = 32;
 #ifndef HS_POLE_LOD_DEFAULT
 #define HS_POLE_LOD_DEFAULT 0.0f
 #endif
+#ifdef ARDUINO
+inline constexpr float pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
+inline constexpr bool POLE_LOD_ENABLED = HS_POLE_LOD_DEFAULT > 0.0f;
+#else
 inline float pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
+inline constexpr bool POLE_LOD_ENABLED = true;
+#endif
 
 /**
  * @brief Clip region for segment-based rendering.

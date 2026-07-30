@@ -51,7 +51,7 @@ public:
    * @brief Bakes palettes, registers the UI sliders, and seeds the timeline
    *        with the orientation walk and the first shape.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     // Asymmetric scratch split (190 KB total): the leg-by-leg build chain
     // peaks at ~114 KB in a and ~69 KB in b, and compact_keep_front evacuates
     // the front slot (up to 63.7 KB) through b. The remainder is persistent:
@@ -600,7 +600,8 @@ private:
     device_persistent_budget = DEVICE_GLOBAL_ARENA_SIZE - split_a - split_b;
     resplit_arenas(GLOBAL_ARENA_SIZE - split_a - split_b, split_a, split_b);
 
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+    generate(persistent_arena, [&](Arena &target, Arena &a,
+                                   Arena &b) HS_COLD_MEMBER {
       if (recipe) {
         // The build starts from the recipe's seed solid; the chain is swept
         // on screen leg by leg. The seed is also held as the first leg's
@@ -812,43 +813,40 @@ private:
     const int frames = build_leg_frames[k];
     hs::log("Build leg: %s (%d frames)", leg_name(step.op), frames);
 
-    auto schedule = [this](Animation::OpLeg &&leg) {
-      build_landing = &leg.landing();
-      timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
-    };
-
     // The swept operator's endpoints: every inflate leg opens at the clamped
     // zero-area birth limit and lands on the step's own parameter; ambo is a
     // truncate swept to the short-circuit point.
     switch (step.op) {
     case Solids::Op::HANKIN:
-      schedule(Animation::OpLeg(build_seed, 0.0f, step.param, persistent_arena,
-                                draw_build_fn, handoff, frames, bookend));
+      schedule_build_leg(Animation::OpLeg(build_seed, 0.0f, step.param,
+                                          persistent_arena, draw_build_fn,
+                                          handoff, frames, bookend));
       break;
     case Solids::Op::RELAX:
-      schedule(Animation::OpLeg(build_seed, static_cast<int>(step.param),
-                                persistent_arena, draw_build_fn, handoff,
-                                frames, bookend, step.bake));
+      schedule_build_leg(Animation::OpLeg(
+          build_seed, static_cast<int>(step.param), persistent_arena,
+          draw_build_fn, handoff, frames, bookend, step.bake));
       break;
     case Solids::Op::AMBO:
-      schedule(Animation::OpLeg(build_seed, ConwayGraph::MorphOp::TRUNCATE,
-                                0.0f, 0.5f, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn, handoff, frames, bookend));
+      schedule_build_leg(Animation::OpLeg(
+          build_seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f, 0.0f,
+          persistent_arena, draw_build_fn, handoff, frames, bookend));
       break;
     case Solids::Op::TRUNCATE:
-      schedule(Animation::OpLeg(build_seed, ConwayGraph::MorphOp::TRUNCATE,
-                                0.0f, step.param, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn, handoff, frames, bookend));
+      schedule_build_leg(Animation::OpLeg(
+          build_seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f, step.param, 0.0f,
+          0.0f, persistent_arena, draw_build_fn, handoff, frames, bookend));
       break;
     case Solids::Op::SNUB:
-      schedule(Animation::OpLeg(build_seed, ConwayGraph::MorphOp::SNUB, 0.0f,
-                                step.param, 0.0f, step.twist, persistent_arena,
-                                draw_build_fn, handoff, frames, bookend));
+      schedule_build_leg(
+          Animation::OpLeg(build_seed, ConwayGraph::MorphOp::SNUB, 0.0f,
+                           step.param, 0.0f, step.twist, persistent_arena,
+                           draw_build_fn, handoff, frames, bookend));
       break;
     case Solids::Op::CHAMFER:
-      schedule(Animation::OpLeg(build_seed, ConwayGraph::MorphOp::CHAMFER, 0.0f,
-                                step.param, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn, handoff, frames, bookend));
+      schedule_build_leg(Animation::OpLeg(
+          build_seed, ConwayGraph::MorphOp::CHAMFER, 0.0f, step.param, 0.0f,
+          0.0f, persistent_arena, draw_build_fn, handoff, frames, bookend));
       break;
     default:
       // Neither DUAL nor KIS reaches here: both route through the smooth
@@ -856,6 +854,11 @@ private:
       HS_CHECK(false, "IslamicStars: unsweepable primitive op reached a leg");
       break;
     }
+  }
+
+  HS_COLD_MEMBER void schedule_build_leg(Animation::OpLeg &&leg) {
+    build_landing = &leg.landing();
+    timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }
 
   /**

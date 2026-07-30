@@ -302,7 +302,7 @@ private:
    * @details On completion commits it as current and recurses, yielding an
    * endless morph chain.
    */
-  void start_morph() {
+  HS_COLD_MEMBER void start_morph() {
 #ifdef HS_PROFILE_ORDERED_CYCLE
     next_idx = (current_idx % MAX_MODE_IDX) + 1;
 #else
