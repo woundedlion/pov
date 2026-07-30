@@ -2848,8 +2848,10 @@ HS_O3_END
 struct Mesh {
   /**
    * @brief Max distinct vertices the edge-dedup bitset can track.
-   * @details A mesh exceeding this traps on the cold setup path. Sized for a
-   * TriangularBitset of 128*127/2 bits = 1016 bytes.
+   * @details A mesh exceeding this traps while its faces are walked: at render
+   * time for draw() (per frame for MeshFeedback), or at setup for
+   * extract_edges(). Sized for a TriangularBitset of 128*127/2 bits = 1016
+   * bytes.
    */
   static constexpr int DEDUP_CAPACITY = 128;
 
@@ -2974,7 +2976,7 @@ struct Mesh {
         int large = std::max(u, v);
 
         // A vertex index past the dedup bitset's capacity is a mesh-sizing bug;
-        // trap on the cold setup path rather than drop the edge.
+        // trap at the face-walk boundary rather than drop the edge.
         HS_CHECK(large < DEDUP_CAPACITY);
 
         if (!visited.test_and_set(small, large))
