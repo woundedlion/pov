@@ -76,7 +76,8 @@ public:
     baked_palette.bake(persistent_arena, palette);
 
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Thickness", &params.thickness, 0.0f, 0.5f);
+    register_param("Thickness", &params.thickness, 0.0f,
+                   7.0f * THICKNESS_PX);
     register_param("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     register_param("Debug BB", &params.debug_bb);
 
@@ -147,6 +148,8 @@ private:
   // Test seam: asserts the closing-loop invariant the smoke harness cannot
   // observe.
   friend struct ::hs_test::effects_tests::CometsWhiteBox;
+
+  static constexpr float THICKNESS_PX = 2.0f * PI_F / W;
 
   /**
    * @brief Snaps an authored domain to the nearest length that closes the curve.
@@ -276,9 +279,7 @@ private:
    */
   struct Params {
     float alpha = 1.0f; /**< Overall trail opacity multiplier in [0, 1]. */
-    float thickness =
-        2.1f * 2 * PI_F /
-        W; /**< Comet body half-width, in radians; default scaled to ≈2.1 px at this build's W for legibility. */
+    float thickness = 2.1f * THICKNESS_PX; /**< Comet body half-width. */
     float cycle_duration =
         80.0f; /**< Duration of one motion cycle, in frames. */
     bool debug_bb =
