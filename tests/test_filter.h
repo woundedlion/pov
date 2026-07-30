@@ -104,6 +104,9 @@ inline void test_filter_trait_inheritance() {
   // Pixel-space feedback is 2D *with* history.
   HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::is_2d));
   HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::has_history));
+  HS_EXPECT_EQ((Filter::World::Replicate<W>::domain_rank), 0);
+  HS_EXPECT_EQ((Filter::Screen::AntiAlias<W, H>::domain_rank), 1);
+  HS_EXPECT_EQ((Filter::Pixel::ChromaticShift<W>::domain_rank), 2);
 
   // 3D world-space, stateless.
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::is_2d));
@@ -122,6 +125,12 @@ inline void test_filter_trait_inheritance() {
   static_assert(!Filter::World::Replicate<W>::is_2d, "Replicate is 3D");
   static_assert(Filter::Pixel::Feedback<W, H>::has_history,
                 "Feedback keeps history");
+  using Ordered =
+      Pipeline<W, H, Filter::World::Replicate<W>,
+               Filter::Screen::AntiAlias<W, H>,
+               Filter::Pixel::ChromaticShift<W>>;
+  static_assert(sizeof(Ordered) > 0,
+                "World/Screen/Pixel domain order must compile");
 }
 
 /**
