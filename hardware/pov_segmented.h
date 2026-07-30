@@ -183,14 +183,15 @@ public:
    *        driver.
    * @details CONTRACT — construct only from setup(), never as a file-scope
    *          global. This constructor performs hardware I/O directly: read_id()
-   *          does pinMode/delay/Serial/DWT-enable, and the body then brings up
-   *          the DMA LED driver — all valid only once the Arduino core is
-   *          initialized. dma_led.h deliberately keeps hardware bring-up out of
-   *          its constructor (an explicit begin()) and warns against
-   *          constructor-time I/O; this class diverges on purpose because its
-   *          sole instantiation site is the Phantasm setup() (a function-local
-   *          singleton), so the "after core init" precondition always holds. Do
-   *          not promote this object to a global or construct it before setup().
+   *          does pinMode/delay, and the body then brings up the DMA LED
+   *          driver, enables the DWT cycle counter, and prints to Serial — all
+   *          valid only once the Arduino core is initialized. dma_led.h
+   *          deliberately keeps hardware bring-up out of its constructor (an
+   *          explicit begin()) and warns against constructor-time I/O; this
+   *          class diverges on purpose because its sole instantiation site is
+   *          the Phantasm setup() (a function-local singleton), so the "after
+   *          core init" precondition always holds. Do not promote this object
+   *          to a global or construct it before setup().
    */
   HS_COLD_MEMBER POVSegmented() {
     read_id();
