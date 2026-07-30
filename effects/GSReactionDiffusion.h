@@ -64,6 +64,7 @@ class GSReactionDiffusion
   using Base::RD_N;
   using Base::refine_and_accumulate;
   using Base::register_param;
+  using Base::seed_blobs;
   using Base::seed_face_lut;
   using Base::to_q16;
 
@@ -126,7 +127,7 @@ public:
 
     cube_lut.build(persistent_arena);
     init_lattice();
-    seed_clusters();
+    seed_blobs(state.B, NUM_SEED_CLUSTERS);
     reaction_edited(); // latch the defaults; frame 1 is not an edit
   }
 
@@ -135,8 +136,12 @@ private:
   // without exposing them to production callers.
   friend struct ::hs_test::effects_tests::GSWhiteBox;
 
-  static constexpr int NUM_SEED_CLUSTERS = 30; /**< B blobs seeded per
-                                                    reaction. */
+  /**
+   * @brief Fully-saturated B blobs seeded per reaction.
+   * @details Nucleation sites for the GS instability to grow from; without them
+   * the uniform A=1/B=0 field never moves.
+   */
+  static constexpr int NUM_SEED_CLUSTERS = 30;
   /** @brief Frames the dissolve takes to convert every node back to rest. */
   static constexpr int DISSOLVE_FRAMES = 64;
   /**
@@ -207,20 +212,6 @@ private:
   static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
 
   /**
-   * @brief Seeds NUM_SEED_CLUSTERS fully-saturated B blobs as nucleation sites.
-   * @details Drops blobs of fully-saturated B (a random node plus its immediate
-   * neighbors) so the otherwise-uniform A=1/B=0 field has nucleation sites for
-   * the GS instability to grow from.
-   */
-  HS_COLD_MEMBER void seed_clusters() {
-    for (int i = 0; i < NUM_SEED_CLUSTERS; i++) {
-      int idx = hs::rand_int(0, RD_N);
-      state.B[idx] = 65535;
-      for_each_neighbor(idx, [&](int nb) { state.B[nb] = 65535; });
-    }
-  }
-
-  /**
    * @brief Holds every node hashing below `phase` at the A=1/B=0 rest state.
    * @param phase Dissolve progress in [0, 1]; the cleared fraction.
    * @details Re-clears the whole swept set each frame, not just the newly
@@ -248,7 +239,7 @@ private:
     transition.dissolve_frame = -1;
     transition.grow_frames = 0;
     transition.stable_run = 0;
-    seed_clusters();
+    seed_blobs(state.B, NUM_SEED_CLUSTERS);
   }
 
   /**

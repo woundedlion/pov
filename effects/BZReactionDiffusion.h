@@ -64,6 +64,7 @@ class BZReactionDiffusion
   using Base::RD_N;
   using Base::refine_center;
   using Base::register_param;
+  using Base::seed_blobs;
   using Base::seed_face_lut;
   using Base::to_q16;
   using Base::with_wendland_weight;
@@ -156,20 +157,15 @@ private:
   // ---------------------------------------------------------------------------
 
   /**
-   * @brief Seeds CLUSTERS_PER_SPECIES clusters per species at random nodes.
-   * @details Saturates each cluster center and its neighbors to Q16 65535,
-   *          ensuring all three species are present so the cyclic competition
-   *          can sustain spiral waves.
+   * @brief Seeds CLUSTERS_PER_SPECIES saturated blobs per species.
+   * @details Puts all three species on the sphere so the cyclic competition has
+   *          something to sustain spiral waves from. Seeds A, then B, then C:
+   *          the order fixes the RNG stream position for everything downstream.
    */
   HS_COLD_MEMBER void seed_spiral_nuclei() {
     uint16_t *species[] = {state.A, state.B, state.C};
-    for (int s = 0; s < 3; s++) {
-      for (int k = 0; k < CLUSTERS_PER_SPECIES; k++) {
-        int center = hs::rand_int(0, RD_N);
-        species[s][center] = 65535;
-        for_each_neighbor(center, [&](int nb) { species[s][nb] = 65535; });
-      }
-    }
+    for (uint16_t *field : species)
+      seed_blobs(field, CLUSTERS_PER_SPECIES);
   }
 
   // ---------------------------------------------------------------------------

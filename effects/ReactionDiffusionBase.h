@@ -19,9 +19,10 @@
  * @details Both systems run on the same 7680-node Fibonacci-lattice K-NN graph,
  * share a Languid random-walk view orientation, build the cached node positions
  * once at init (the lattice is static), and interpolate with the same Wendland
- * C2 kernel. This base captures exactly that shared scaffolding. The physics
- * (Lotka-Volterra 3-species vs Gray-Scott 2-species), seeding, params, palette,
- * and rendering are fundamentally different and stay in the derived classes.
+ * C2 kernel, and seed their fields with the same saturated blobs. This base
+ * captures exactly that shared scaffolding. The physics (Lotka-Volterra
+ * 3-species vs Gray-Scott 2-species), params, palette, and rendering are
+ * fundamentally different and stay in the derived classes.
  *
  * Dispatch is static (CRTP): draw_frame() forwards to Derived::render(); derived
  * classes befriend this base so render() can stay private.
@@ -327,6 +328,23 @@ protected:
   template <typename Fn> static void for_each_neighbor(int node, Fn &&fn) {
     for (int k = 0; k < RD_K; ++k)
       fn(ReactionGraph::neighbors[node][k]);
+  }
+
+  /**
+   * @brief Saturates `clusters` blobs — a random node plus its neighbors — in
+   *        one Q16 species field.
+   * @param field Per-node Q16 samples of one species, RD_N entries.
+   * @param clusters Blob count.
+   * @note Draws exactly one hs::rand_int(0, RD_N) per cluster from the global
+   *       deterministic RNG, so the blob count and the order fields are seeded
+   *       in are both part of the global-determinism contract.
+   */
+  HS_COLD_MEMBER static void seed_blobs(uint16_t *field, int clusters) {
+    for (int i = 0; i < clusters; ++i) {
+      int center = hs::rand_int(0, RD_N);
+      field[center] = 65535;
+      for_each_neighbor(center, [&](int nb) { field[nb] = 65535; });
+    }
   }
 
 private:
