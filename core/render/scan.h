@@ -741,9 +741,12 @@ struct DistortedRingStack {
    * each candidate runs its own cos reject + exact polyline distance via
    * SDF::DistortedRing::distance_from_frame. Candidates evaluate in ascending
    * ring index, so per-pixel blend order — and therefore output — is
-   * bit-identical to rasterizing the rings one by one; only the redundant
-   * per-ring frame recompute is elided. The aliased exact-pole rows are
-   * dropped, matching the per-ring path under suppress_pole_fill.
+   * bit-identical to rasterizing the rings one by one at
+   * pole_lod_aggressiveness 0; only the redundant per-ring frame recompute is
+   * elided. This scan shades every column, so a non-zero aggressiveness, which
+   * decimates the per-ring scan_region walk, breaks that equivalence. The
+   * aliased exact-pole rows are dropped, matching the per-ring path under
+   * suppress_pole_fill.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, int n_rings,
@@ -1003,9 +1006,11 @@ struct RingGroup {
    * every member's band, so the per-row interval math runs once, not per
    * member. Per pixel the members evaluate in ascending slot order via the
    * inline stroke_alpha eval, so blend order matches rasterizing the rings
-   * one by one; the only output divergence is AA-tail pixels (alpha barely
-   * above the 0.001 cutoff) that a member's own interval clip drops but the
-   * covering scan paints.
+   * one by one. At pole_lod_aggressiveness 0 the only output divergence is
+   * AA-tail pixels (alpha barely above the 0.001 cutoff) that a member's own
+   * interval clip drops but the covering scan paints. This scan shades every
+   * column, so a non-zero aggressiveness, which decimates the per-ring
+   * scan_region walk, widens the divergence beyond that dust.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,

@@ -332,11 +332,15 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
  * interval clip drops but the group's covering-ring scan paints (the group
  * is the truer SDF coverage), so mismatches must be both rare and small.
  * Covered: full frame, a partial clip with an x band, and a near-pole axis
- * that forces the group's full-row-scan fallback.
+ * that forces the group's full-row-scan fallback. The claim is scoped to
+ * pole_lod_aggressiveness 0, which the test pins: the fused scan shades every
+ * column while the per-ring path decimates near-pole rows.
  */
 inline void test_ring_group_matches_sequential() {
   constexpr int W = 96, H = 64;
   constexpr int N = 4;
+  const float saved_lod = pole_lod_aggressiveness;
+  pole_lod_aggressiveness = 0.0f;
 
   auto run_case = [&](const Vector &normal, bool partial_clip) {
     Basis bases[N];
@@ -412,6 +416,7 @@ inline void test_ring_group_matches_sequential() {
   // Near-pole axis: r_val under the horizontal-projection floor forces the
   // group's full-row-scan fallback.
   run_case(Vector(0.005f, 1.0f, 0.0f).normalized(), false);
+  pole_lod_aggressiveness = saved_lod;
 }
 
 /**
@@ -424,11 +429,15 @@ inline void test_ring_group_matches_sequential() {
  * its alpha on the coverage v2, so a divergence in either register shows up in
  * the pixels; every channel must match exactly. Covered: full frame, a partial
  * clip with an x band, a culled middle ring (slot_by_ring -1), and a near-pole
- * axis that forces the full-row-scan fallback on both paths.
+ * axis that forces the full-row-scan fallback on both paths. The claim is
+ * scoped to pole_lod_aggressiveness 0, which the test pins: the fused scan
+ * shades every column while the per-ring path decimates near-pole rows.
  */
 inline void test_distorted_ring_stack_matches_sequential() {
   constexpr int W = 96, H = 64;
   constexpr int N_RINGS = 5, LUT_N = 32;
+  const float saved_lod = pole_lod_aggressiveness;
+  pole_lod_aggressiveness = 0.0f;
 
   const float ths[N_RINGS] = {0.07f, 0.05f, 0.09f, 0.05f, 0.07f};
   const Color4 colors[N_RINGS] = {Color4(Pixel(60000, 0, 5000), 0.9f),
@@ -545,6 +554,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
   // Near-pole axis: r_val under the horizontal-projection floor forces the
   // full-row-scan fallback on both paths.
   run_case(Vector(0.005f, 1.0f, 0.0f).normalized(), false, -1);
+  pole_lod_aggressiveness = saved_lod;
 }
 
 /**
