@@ -366,6 +366,7 @@ public:
 
     if (current_effect) {
       current_effect = nullptr;
+      ++param_generation;
       stack_paint_canary(); // repaint to reset stack HWM after teardown
     }
     return true;
@@ -428,6 +429,7 @@ public:
     });
     current_effect = entry->creator();
     current_effect->init();
+    ++param_generation;
     hs::log("WASM: init stack HWM = %u bytes",
             (unsigned)stack_high_water_mark());
     stack_paint_canary();
@@ -699,7 +701,7 @@ public:
   /**
    * @brief Identity token joining a getParameterDefinitions() snapshot to a
    *        later getParamValues() read.
-   * @return Effect loads so far; a fresh value on every effect load.
+   * @return A fresh value after every effect load or teardown.
    * @details Neither stream carries a per-effect identity, so nothing but this
    *          counter distinguishes a value read that describes the snapshotted
    *          effect from one taken after a switch. Parameter counts repeat
@@ -708,7 +710,7 @@ public:
    *          value read; a change means the snapshot is stale and the
    *          definitions must be rebuilt before the values are applied.
    */
-  uint32_t getParamGeneration() const { return effect_loads; }
+  uint32_t getParamGeneration() const { return param_generation; }
 
   /**
    * @brief Reports engine arena and stack metrics for the JS memory HUD.
@@ -797,6 +799,8 @@ private:
   int pixel_height = 0;      /**< Active canvas height in pixels. */
   uint32_t effect_loads = 0; /**< Effect loads so far; epoch for the per-load
                                  RNG seed (0 = the constructor's bootstrap). */
+  uint32_t param_generation =
+      0; /**< Identity token for the current effect or no-effect state. */
 };
 
 // ==========================================================================================

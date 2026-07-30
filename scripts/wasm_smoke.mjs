@@ -357,6 +357,34 @@ async function main() {
           }
         }
 
+        if (RESOLUTIONS.length > 1) {
+          const [w, h] = RESOLUTIONS[1];
+          const beforeResolution = engine.getParamGeneration();
+          if (!engine.setResolution(w, h)) {
+            fail(`state-seam: setResolution(${w}, ${h}) failed`);
+          } else {
+            if (engine.getParamGeneration() !== beforeResolution + 1) {
+              fail(`state-seam: resolution teardown left generation at ` +
+                `${engine.getParamGeneration()}, expected ${beforeResolution + 1}`);
+            }
+            if (engine.getParameterDefinitions().length !== 0 ||
+                engine.getParamValues().length !== 0) {
+              fail('state-seam: resolution teardown left a non-empty parameter stream');
+            }
+            const noEffectGeneration = engine.getParamGeneration();
+            engine.setResolution(w, h);
+            if (engine.getParamGeneration() !== noEffectGeneration) {
+              fail('state-seam: no-op setResolution changed the generation');
+            }
+            if (!engine.setEffect(effectNames[0])) {
+              fail(`state-seam: setEffect("${effectNames[0]}") after resolution failed`);
+            } else if (engine.getParamGeneration() !== noEffectGeneration + 1) {
+              fail(`state-seam: post-resolution load generation ` +
+                `${engine.getParamGeneration()}, expected ${noEffectGeneration + 1}`);
+            }
+          }
+        }
+
         // setAnimationsPaused: pick the first effect whose animated params move
         // over a frame window, then assert the pause holds them still and the
         // resume lets them move again. animated=false params are engine-written
