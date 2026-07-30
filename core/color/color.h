@@ -328,6 +328,31 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Color4 &e) {
 }
 
 /**
+ * @brief Lower entry of a fractional lookup-table index.
+ * @param idx Fractional index; must be non-negative and non-NaN.
+ * @return The truncated index; callers pin `>= size - 1` to the last entry.
+ */
+__attribute__((always_inline)) inline int lut_index_lo(float idx) {
+  return static_cast<int>(idx);
+}
+
+/**
+ * @brief The lerp16 weight from a lookup-table index toward entry `lo + 1`.
+ * @param idx Fractional index; must be non-negative and non-NaN.
+ * @param lo Its lower entry, from lut_index_lo, with `lo + 1` still in range.
+ * @return The fractional part quantized to [0, 65535].
+ * @details One spelling of this arithmetic for every sampler: -ffast-math may
+ * compile two spellings of the same expression differently. The fractional part
+ * of a non-negative index is in [0, 1) by construction, so quantizing it needs
+ * no clamp.
+ */
+__attribute__((always_inline)) inline uint16_t lut_index_weight(float idx,
+                                                                int lo) {
+  const float frac = idx - static_cast<float>(lo);
+  return static_cast<uint16_t>(frac * 65535.0f + 0.5f);
+}
+
+/**
  * @brief Samples a color lookup table at a fractional index, interpolating
  * between adjacent entries.
  * @tparam Entry Table element type accepted by lut_entry_pixel.
@@ -340,13 +365,11 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Color4 &e) {
 template <typename Entry>
 __attribute__((always_inline)) inline Pixel
 lut_sample_pixel(const Entry *table, int size, float idx) {
-  const int lo = static_cast<int>(idx);
+  const int lo = lut_index_lo(idx);
   if (lo >= size - 1)
     return lut_entry_pixel(table[size - 1]);
-  const float frac = idx - lo;
-  return lut_entry_pixel(table[lo]).lerp16(
-      lut_entry_pixel(table[lo + 1]),
-      static_cast<uint16_t>(frac * 65535.0f + 0.5f));
+  return lut_entry_pixel(table[lo]).lerp16(lut_entry_pixel(table[lo + 1]),
+                                           lut_index_weight(idx, lo));
 }
 
 /**
