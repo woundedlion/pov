@@ -730,10 +730,10 @@ struct EdgeFadeShade {
     Pixel black(0, 0, 0);
     if (t < edge)
       return Color4(
-          black.lerp16(c.color, float_to_pixel16(quintic_kernel(t / edge))),
+          black.lerp16(c.color, frac_to_q16(quintic_kernel(t / edge))),
           c.alpha);
     if (t >= 1.0f - edge)
-      return Color4(c.color.lerp16(black, float_to_pixel16(quintic_kernel(
+      return Color4(c.color.lerp16(black, frac_to_q16(quintic_kernel(
                                               (t - (1.0f - edge)) / edge))),
                     c.alpha);
     return c;
