@@ -321,30 +321,6 @@ struct Color4 {
 };
 
 /**
- * @brief Sums two colors, pixel and alpha both saturating (see operator+=).
- * @param lhs First color (taken by value as the accumulator).
- * @param rhs Color to add.
- * @return The saturated sum.
- */
-inline Color4 operator+(Color4 lhs, const Color4 &rhs) { return lhs += rhs; }
-
-/**
- * @brief Scales a color's pixel and alpha by a float (see operator*=).
- * @param lhs Color to scale (taken by value).
- * @param s Scale factor.
- * @return The scaled color.
- */
-inline Color4 operator*(Color4 lhs, float s) { return lhs *= s; }
-
-/**
- * @brief Scales a color's pixel and alpha by a float (see operator*=).
- * @param s Scale factor.
- * @param rhs Color to scale.
- * @return The scaled color.
- */
-inline Color4 operator*(float s, const Color4 &rhs) { return rhs * s; }
-
-/**
  * @brief The interpolatable pixel of a lookup-table entry.
  */
 __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Color4 &e) {
