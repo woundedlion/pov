@@ -376,6 +376,11 @@ jobs:
       - name: Build
         run: cmake --build --preset tests
 
+      - name: Build EXCLUDE_FROM_ALL targets (compile coverage only)
+        run: >
+          cmake --build --preset tests
+          --target perf_bench_Os perf_bench_O3 srgb_decode_gen
+
       - name: Test
         # Deep smoke pass (see the Linux job): cover effect-lifecycle
         # transitions the default 8-frame local run never reaches.
