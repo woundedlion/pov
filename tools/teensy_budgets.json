@@ -52,9 +52,9 @@
       // 6,184 B under the derived ceiling (docs/itcm_ledger.md). RAM2 519,552.
       "flash": { "max_bytes": 1900000 },
       // free_min_bytes is the DTCM stack reservation. The host stack-painting
-      // gate (tests/stack_measure.cpp) measures a worst-effect peak of 9,055 B
-      // (Dynamo); 12 KiB covers that (host figure already over-estimates the
-      // 4-byte-pointer device) plus the ISR allowance. max_bytes = 524288 -
+      // gate (tests/stack_measure.cpp) measures a worst-effect peak of 11,359 B
+      // (HankinSolids); 12 KiB covers that (host figure already over-estimates
+      // the 4-byte-pointer device) plus the ISR allowance. max_bytes = 524288 -
       // 12288, so the 12 KiB stack floor is the binding RAM1 constraint.
       // The ITCM code ceiling is DERIVED from that same stack floor: FlexRAM
       // is 16 x 32 KiB banks split between ITCM (code) and DTCM (variables +
