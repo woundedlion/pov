@@ -205,12 +205,13 @@ template <class T> inline void print_operand(const T &v) {
  * @param a First operand, printed on failure.
  * @param b Second operand, printed on failure.
  * @param expr Stringified comparison expression for the failure message.
+ * @param case_name Test function containing the assertion.
  * @param file Source file name of the call site.
  * @param line Source line number of the call site.
  */
 template <class A, class B>
 inline void report_cmp(bool ok, const A &a, const B &b, const char *expr,
-                       const char *file, int line) {
+                       const char *case_name, const char *file, int line) {
   if (ok) {
     ++stats().passed;
     return;
@@ -218,7 +219,7 @@ inline void report_cmp(bool ok, const A &a, const B &b, const char *expr,
   ++stats().failed;
   if (!claim_fail_print())
     return;
-  std::printf("  FAIL %s:%d  %s  (", file, line, expr);
+  std::printf("  FAIL [%s] %s:%d  %s  (", case_name, file, line, expr);
   print_operand(a);
   std::printf(" vs ");
   print_operand(b);
@@ -232,11 +233,12 @@ inline void report_cmp(bool ok, const A &a, const B &b, const char *expr,
  * @param b Second value.
  * @param tol Maximum allowed absolute difference, in the same units as a and b.
  * @param expr Stringified comparison expression for the failure message.
+ * @param case_name Test function containing the assertion.
  * @param file Source file name of the call site.
  * @param line Source line number of the call site.
  */
 inline void report_near(double a, double b, double tol, const char *expr,
-                        const char *file, int line) {
+                        const char *case_name, const char *file, int line) {
   if (approx(a, b, tol)) {
     ++stats().passed;
     return;
@@ -244,8 +246,8 @@ inline void report_near(double a, double b, double tol, const char *expr,
   ++stats().failed;
   if (!claim_fail_print())
     return;
-  std::printf("  FAIL %s:%d  %s  (%g vs %g, delta=%g)\n", file, line, expr, a,
-              b, std::fabs(a - b));
+  std::printf("  FAIL [%s] %s:%d  %s  (%g vs %g, delta=%g)\n", case_name, file,
+              line, expr, a, b, std::fabs(a - b));
 }
 
 /**
@@ -340,7 +342,8 @@ inline int end_module(const ModuleScope &m) {
     } else {                                                                   \
       ++hs_test::stats().failed;                                               \
       if (hs_test::claim_fail_print())                                         \
-        std::printf("  FAIL %s:%d  %s\n", __FILE__, __LINE__, msg);            \
+        std::printf("  FAIL [%s] %s:%d  %s\n", __func__, __FILE__, __LINE__,   \
+                    msg);                                                      \
     }                                                                          \
   } while (0)
 
@@ -352,7 +355,7 @@ inline int end_module(const ModuleScope &m) {
     double _hs_a = (a);                                                        \
     double _hs_b = (b);                                                        \
     hs_test::report_near(_hs_a, _hs_b, (tol), #a " ~= " #b " (tol=" #tol ")",  \
-                         __FILE__, __LINE__);                                  \
+                         __func__, __FILE__, __LINE__);                        \
   } while (0)
 // Capture each operand once so loop-driven assertions don't re-evaluate side
 // effects, then compare and (on failure) print both values.
@@ -361,7 +364,7 @@ inline int end_module(const ModuleScope &m) {
     auto _hs_a = (a);                                                          \
     auto _hs_b = (b);                                                          \
     hs_test::report_cmp(_hs_a op _hs_b, _hs_a, _hs_b, #a " " opstr " " #b,     \
-                        __FILE__, __LINE__);                                   \
+                        __func__, __FILE__, __LINE__);                         \
   } while (0)
 #define HS_EXPECT_TRUE(cond) HS_EXPECT((cond), #cond)
 #define HS_EXPECT_FALSE(cond) HS_EXPECT(!(cond), "!(" #cond ")")
