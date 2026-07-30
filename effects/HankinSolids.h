@@ -178,15 +178,13 @@ private:
   }
 
   /**
-   * @brief Records the node base mesh's face count, side counts, and unit
-   * centroids for the next leg's palette handoff.
+   * @brief Records the node base mesh's face count and unit centroids for the
+   * next leg's palette handoff.
    * @param base The arrived node's base mesh, in emission order.
    */
   HS_COLD_MEMBER void record_node_faces(const PolyMesh &base) {
     node_faces = base.face_counts.size();
     HS_CHECK(node_faces <= MAX_NODE_FACES);
-    for (size_t f = 0; f < node_faces; ++f)
-      node_face_sides[f] = base.face_counts[f];
     Animation::OpLeg::face_centroids_into(base, node_face_centroid);
   }
 
@@ -689,8 +687,7 @@ private:
              "HankinSolids: leg seed identity mismatch");
 
     Animation::OpLeg::PaletteHandoff handoff{
-        &palette_bank.bank, node_face_palette,         node_face_sides,
-        node_faces,         fix == SeedFix::DUAL_SWAP, node_face_centroid};
+        &palette_bank.bank, node_face_palette, node_faces, node_face_centroid};
 
     // Bookend grouping of the arrival node: the closing bookend displays one
     // palette per hankin star-face class, so the leg's color targets key on
@@ -869,8 +866,6 @@ private:
       {}; /**< Per hankin-added face, the palette of the base face it lives
              inside — the rim color it collapses onto. See
              resolve_host_faces. */
-  uint8_t node_face_sides[MAX_NODE_FACES] =
-      {}; /**< Clean side count per node base face. */
   Vector node_face_centroid[MAX_NODE_FACES] =
       {};                /**< Unit centroid per node base face (geometric
                              palette provenance). */

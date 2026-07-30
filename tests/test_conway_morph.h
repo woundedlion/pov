@@ -1824,14 +1824,12 @@ inline void test_opleg_hankin_sweep_smoke() {
 
   PolyMesh dodeca;
   build_solid<Solids::Dodecahedron>(dodeca, leg);
-  uint8_t pal[16], sides[16];
-  for (size_t f = 0; f < dodeca.face_counts.size(); ++f) {
+  uint8_t pal[16];
+  for (size_t f = 0; f < dodeca.face_counts.size(); ++f)
     pal[f] = static_cast<uint8_t>(f % Animation::OpLeg::PALETTES);
-    sides[f] = dodeca.face_counts[f];
-  }
 
-  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                           dodeca.face_counts.size(), false};
+  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,
+                                           dodeca.face_counts.size()};
 
   // Per-frame motion bound: growing star points out from their corners keeps
   // every step small and unimodal. Re-solving the contact-plane intersection
@@ -2528,9 +2526,9 @@ inline void test_opleg_medial_leg_smoke() {
       off += n;
     }
 
-    OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal.data(),      nullptr, prev_faces,
-        false,      centroid.data(), nullptr, /*immutable=*/true};
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal.data(),
+                                  prev_faces, centroid.data(),
+                                  nullptr,    /*immutable=*/true};
 
     size_t drawn = 0, leg_faces = 0;
     float worst_step = 0.0f;
@@ -2680,11 +2678,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     // with a pinned target set, as IslamicStars drives the bridge (the effect
     // shuffles per leg; the pin keeps the seam colours deterministic here).
     OpLeg::PaletteHandoff handoff2{
-        &bank.bank, pal2.data(),
-        nullptr,    nf,
-        false,      nullptr,
-        &targets,   false,
-        nullptr,    OpLeg::FaceCorrespondence::IDENTITY};
+        &bank.bank, pal2.data(), nf,      nullptr,
+        &targets,   false,       nullptr, OpLeg::FaceCorrespondence::IDENTITY};
     OpLeg leg2(P, OpLeg::MedialTag{}, leg, cb, handoff2, SWEEP);
     const OpLeg::Landing &landing2 = leg2.landing();
     HS_EXPECT_EQ(landing2.faces, nf);
@@ -2737,8 +2732,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
 
     OpLeg::PaletteHandoff handoff3{
         &bank.bank, pal3.data(),
-        nullptr,    nf,
-        false,      nullptr,
+        nf,         nullptr,
         &targets,   false,
         nullptr,    OpLeg::FaceCorrespondence::DUAL_CLOSING};
     OpLeg::BookendClasses bookend3{D.topology.data(), DF};
@@ -2928,8 +2922,8 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
     off += n;
   }
 
-  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal,      nullptr,  prev_faces,
-                                false,      prev_centroid, &targets, true};
+  OpLeg::PaletteHandoff handoff{&bank.bank,    prev_pal, prev_faces,
+                                prev_centroid, &targets, true};
   OpLeg::BookendClasses bookend{endpoint.topology.data(),
                                 endpoint.face_counts.size()};
 
@@ -3061,8 +3055,8 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
     prev_pal[f] = static_cast<uint8_t>(
         slots[wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
 
-  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,  prev_faces,
-                                false,      nullptr,  &targets, true};
+  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, prev_faces,
+                                nullptr,    &targets, true};
   OpLeg::BookendClasses bookend{endpoint.topology.data(),
                                 endpoint.face_counts.size()};
 
@@ -3278,16 +3272,14 @@ inline void test_opleg_build_immutable_colours() {
     Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
     PolyMesh dodeca;
     build_solid<Solids::Dodecahedron>(dodeca, leg_arena);
-    uint8_t pal[16], sides[16];
-    for (size_t f = 0; f < dodeca.face_counts.size(); ++f) {
+    uint8_t pal[16];
+    for (size_t f = 0; f < dodeca.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-      sides[f] = dodeca.face_counts[f];
-    }
     // A nonzero counter start pins the wrap-through continuation.
     uint32_t counter = 3;
     OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal,     sides,   dodeca.face_counts.size(),
-        false,      nullptr, nullptr, /*immutable=*/true,
+        &bank.bank, pal,     dodeca.face_counts.size(),
+        nullptr,    nullptr, /*immutable=*/true,
         &counter};
     using Solids::IslamicStarPatterns::D2R;
     OpLeg leg(dodeca, OpLeg::THETA_EPS, 62.0f * D2R, leg_arena, cb, handoff,
@@ -3308,10 +3300,9 @@ inline void test_opleg_build_immutable_colours() {
     for (size_t f = 0; f < D.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
     uint32_t counter = 1;
-    OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal,     nullptr, D.face_counts.size(),
-        false,      nullptr, nullptr, /*immutable=*/true,
-        &counter};
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal,     D.face_counts.size(),
+                                  nullptr,    nullptr, /*immutable=*/true,
+                                  &counter};
     OpLeg leg(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f,
               leg_arena, cb, handoff, FRAMES, OpLeg::BookendClasses{nullptr, 0},
               OpLeg::classic_blend,
@@ -3350,10 +3341,9 @@ inline void test_opleg_build_immutable_colours() {
     for (size_t f = 0; f < K.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
     uint32_t counter = 2;
-    OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal,     nullptr, K.face_counts.size(),
-        false,      nullptr, nullptr, /*immutable=*/true,
-        &counter};
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal,     K.face_counts.size(),
+                                  nullptr,    nullptr, /*immutable=*/true,
+                                  &counter};
     OpLeg leg(K, OpLeg::SwapOp::DUAL, leg_arena, cb, handoff, 4);
     HS_EXPECT_EQ(counter, 4u);
     const OpLeg::Landing &l = leg.landing();
@@ -3394,8 +3384,8 @@ inline void test_opleg_build_immutable_colours() {
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
     uint32_t counter = 1;
     OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal,     nullptr, dodeca.face_counts.size(),
-        false,      nullptr, nullptr, /*immutable=*/true,
+        &bank.bank, pal,     dodeca.face_counts.size(),
+        nullptr,    nullptr, /*immutable=*/true,
         &counter};
     OpLeg leg(dodeca, OpLeg::SwapOp::KIS, leg_arena, cb, handoff, 4);
     HS_EXPECT_EQ(counter, 2u);
@@ -3420,7 +3410,7 @@ inline void test_opleg_build_immutable_colours() {
     // No newborn faces on the medial: the counter must come back unmoved.
     uint32_t counter = 7;
     OpLeg::PaletteHandoff handoff{
-        &bank.bank,         pal,     nullptr, nf, false, nullptr, nullptr,
+        &bank.bank,         pal,     nf, nullptr, nullptr,
         /*immutable=*/true, &counter};
     OpLeg leg(cube, OpLeg::MedialTag{}, leg_arena, cb, handoff, FRAMES);
     check_immutable("medial", std::move(leg), FRAMES, nf, pal, 7, counter);
@@ -3434,12 +3424,14 @@ inline void test_opleg_build_immutable_colours() {
     for (size_t f = 0; f < cube.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
     uint32_t counter = 2;
-    OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal,
-        nullptr,    cube.face_counts.size(),
-        false,      nullptr,
-        nullptr,    /*immutable=*/true,
-        &counter,   OpLeg::FaceCorrespondence::IDENTITY};
+    OpLeg::PaletteHandoff handoff{&bank.bank,
+                                  pal,
+                                  cube.face_counts.size(),
+                                  nullptr,
+                                  nullptr,
+                                  /*immutable=*/true,
+                                  &counter,
+                                  OpLeg::FaceCorrespondence::IDENTITY};
     OpLeg leg(cube, cube.vertices.data(), OpLeg::ReconcileTag{}, leg_arena, cb,
               handoff, FRAMES);
     check_immutable("reconcile", std::move(leg), FRAMES,
@@ -3454,11 +3446,9 @@ inline void test_opleg_build_immutable_colours() {
     Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
     PolyMesh cube;
     build_solid<Solids::Cube>(cube, leg_arena);
-    uint8_t pal[16], sides[16];
-    for (size_t f = 0; f < cube.face_counts.size(); ++f) {
+    uint8_t pal[16];
+    for (size_t f = 0; f < cube.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-      sides[f] = cube.face_counts[f];
-    }
     const int edge = [] {
       for (int e = 0; e < ConwayGraph::NUM_EDGES; ++e)
         if (ConwayGraph::EDGES[e].from_node == ConwayGraph::CUBE &&
@@ -3467,8 +3457,7 @@ inline void test_opleg_build_immutable_colours() {
       return -1;
     }();
     HS_EXPECT_GE(edge, 0);
-    OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                  cube.face_counts.size(), false};
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal, cube.face_counts.size()};
     constexpr int EDGE_FRAMES = 24;
     OpLeg leg(cube, ConwayGraph::EDGES[edge], false, leg_arena, cb, handoff,
               EDGE_FRAMES, 0);
@@ -3725,9 +3714,9 @@ inline ChainPeaks replay_build_chain(const char *name,
         bookend = {next.topology.data(), bookend_faces};
       }
 
-      OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,
-                                    prev_faces, false,    prev_centroid,
-                                    nullptr,    false,    nullptr};
+      OpLeg::PaletteHandoff handoff{&bank.bank,    prev_pal, prev_faces,
+                                    prev_centroid, nullptr,  false,
+                                    nullptr};
 
       size_t drawn = 0;
       size_t leg_faces = 0;
