@@ -4,7 +4,7 @@ import math
 import sexp
 from kicad_common import uid, fmt
 
-VERSION = "20250114"
+VERSION = "20251024"
 
 
 # ---------- transform: library local coords -> schematic screen coords ----------

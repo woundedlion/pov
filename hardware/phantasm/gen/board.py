@@ -343,7 +343,7 @@ flag(GND, 317.5, fy)
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 open(os.path.join(OUT, "phantasm.kicad_sch"), "w", encoding="utf-8").write(b.dumps())
 
-lib_lines = ['(kicad_symbol_lib', '\t(version 20251024)',
+lib_lines = ['(kicad_symbol_lib', f'\t(version {B.VERSION})',
              '\t(generator "phantasm-gen")', '\t(generator_version "10.0")']
 for lib_id in sorted(b.lib_defs):
     if lib_id.startswith("phantasm:"):
