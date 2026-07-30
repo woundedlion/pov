@@ -2229,7 +2229,7 @@ struct Face {
   Vector basis_v, basis_u, basis_w; /**< Local tangent frame (v = center). */
   int count;                        /**< Vertex/edge count. */
   float thickness;                  /**< Edge half-width (radians). */
-  float size;               /**< Inradius metric for AA normalization. */
+  float size = 0.0f;        /**< Inradius metric for AA normalization. */
   float radius = 0.0f;      /**< Circumradius in the 2D projection. */
   float max_dist = 0.0f;    /**< Cull radius (circumradius plus margin). */
   float max_dist_sq = 0.0f; /**< Squared cull radius. */
