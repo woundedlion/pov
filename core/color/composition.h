@@ -1210,14 +1210,15 @@ private:
     // to the hi bound (last entry) and guarantees idx >= 0.
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
-    int lo = static_cast<int>(idx);
+    // Split and weight through the same helpers lut_sample_pixel uses, so this
+    // path and get_color/get_color_unit share one spelling of the arithmetic.
+    const int lo = lut_index_lo(idx);
     if (lo >= LUT_SIZE - 1) {
       out = Color4(colors[LUT_SIZE - 1],
                    alpha_q16[LUT_SIZE - 1] * (1.0f / 65535.0f));
       return;
     }
-    float frac = idx - lo;
-    const uint16_t weight = frac_to_q16(frac);
+    const uint16_t weight = lut_index_weight(idx, lo);
     out = Color4(colors[lo].lerp16(colors[lo + 1], weight),
                  lerp_q16(alpha_q16[lo], alpha_q16[lo + 1], weight) *
                      (1.0f / 65535.0f));
