@@ -190,7 +190,12 @@ KCLI = find_kicad_cli()
 
 def run(args, check=True, **kw):
     print("  $", os.path.basename(args[0]), " ".join(args[1:]))
-    return subprocess.run(args, check=check, capture_output=True, text=True, **kw)
+    try:
+        return subprocess.run(args, check=check, capture_output=True, text=True,
+                              **kw)
+    except subprocess.CalledProcessError as exc:
+        sys.stderr.write(exc.stderr or "")
+        raise
 
 
 def require_clean_drc(report_path):
