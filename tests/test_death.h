@@ -713,6 +713,56 @@ inline void case_mesh_compile_face_counts_long() {
 }
 
 /**
+ * @brief Death case: a face-offsets span with the wrong length must trap.
+ * @details Mesh-borrow surface — the accessors index offsets by face, so an
+ *          offsets array that is not one entry per face would read past its end
+ *          on the solid scan path; set_view rejects it at the install site.
+ */
+inline void case_mesh_state_set_view_offsets_count_mismatch() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> counts(arena, 1);
+  counts.push_back(opaque<uint8_t>(3));
+  ArenaVector<uint16_t> faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    faces.push_back(opaque(i));
+  ArenaVector<uint16_t> offsets(arena, 2);
+  offsets.push_back(opaque<uint16_t>(0));
+  offsets.push_back(opaque<uint16_t>(3));
+  MeshState m;
+  // 2 offsets for 1 face -> HS_CHECK
+  m.set_view(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
+             ArenaSpan<uint16_t>(offsets));
+  if (m.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: face offsets that do not span the flat faces list must
+ *        trap.
+ * @details Mesh-borrow surface — the last offset plus that face's count must
+ *          reach the end of the flat list, or a walk of the final face reads
+ *          short of the data the view claims to cover.
+ */
+inline void case_mesh_state_set_view_offsets_short_span() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> counts(arena, 1);
+  counts.push_back(opaque<uint8_t>(3));
+  ArenaVector<uint16_t> faces(arena, 4);
+  for (uint16_t i = 0; i < 4; ++i)
+    faces.push_back(opaque(i));
+  ArenaVector<uint16_t> offsets(arena, 1);
+  offsets.push_back(opaque<uint16_t>(0));
+  MeshState m;
+  // 0 + 3 != 4 -> HS_CHECK
+  m.set_view(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
+             ArenaSpan<uint16_t>(offsets));
+  if (m.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
  * @brief Builds a PolyMesh from an explicit face-count and flat index list.
  * @param mesh Mesh to populate.
  * @param arena Arena backing the mesh arrays.
@@ -1449,6 +1499,10 @@ inline const Case *all_cases(int &n) {
       {"half_edge_face_counts_long", case_half_edge_face_counts_long},
       {"mesh_compile_face_counts_short", case_mesh_compile_face_counts_short},
       {"mesh_compile_face_counts_long", case_mesh_compile_face_counts_long},
+      {"mesh_state_set_view_offsets_count_mismatch",
+       case_mesh_state_set_view_offsets_count_mismatch},
+      {"mesh_state_set_view_offsets_short_span",
+       case_mesh_state_set_view_offsets_short_span},
       {"half_edge_zero_side_face", case_half_edge_zero_side_face},
       {"half_edge_non_manifold_edge", case_half_edge_non_manifold_edge},
       {"half_edge_inconsistent_winding", case_half_edge_inconsistent_winding},
@@ -1738,7 +1792,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 76;
+  constexpr int DEATH_CASE_COUNT = 78;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
