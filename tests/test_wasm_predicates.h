@@ -145,6 +145,36 @@ inline void check_mesh_op_expansion_ceiling() {
 }
 
 /**
+ * @brief Exercises the tooling-arena room check for an operator's output.
+ */
+inline void check_mesh_op_arena_room() {
+  constexpr size_t CAP = 8 * 1024 * 1024;
+  constexpr size_t PER = 16;
+
+  // A cube's output is nothing next to an empty 8 MB arena.
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_output_over_arena(8, 6, 24, 6, PER, 0, CAP));
+  // Priced at expansion * bytes_per_element, a whole-arena mesh still fits.
+  HS_EXPECT_TRUE(
+      !hs_wasm::mesh_op_output_over_arena(1, 1, CAP / PER, 1, PER, 0, CAP));
+  HS_EXPECT_TRUE(
+      hs_wasm::mesh_op_output_over_arena(1, 1, CAP / PER + 1, 1, PER, 0, CAP));
+  // The same mesh no longer fits once the arena is mostly spent.
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_output_over_arena(1, 1, 1024, 1, PER,
+                                                     CAP - 1024 * PER, CAP));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_output_over_arena(1, 1, 1024, 1, PER,
+                                                    CAP - 1024 * PER + 1, CAP));
+  // Expansion scales the price, so a 6x operator is rejected where 1x fits.
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_output_over_arena(1, 1, 1024, 1, PER,
+                                                     CAP - 2048 * PER, CAP));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_output_over_arena(1, 1, 1024, 6, PER,
+                                                    CAP - 2048 * PER, CAP));
+  // A full or unbound (capacity 0) arena rejects everything.
+  HS_EXPECT_TRUE(
+      hs_wasm::mesh_op_output_over_arena(8, 6, 24, 1, PER, CAP, CAP));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_output_over_arena(8, 6, 24, 1, PER, 0, 0));
+}
+
+/**
  * @brief Exercises the Hankin contact-angle domain check.
  */
 inline void check_hankin_angle_domain() {
@@ -211,6 +241,7 @@ inline int run_wasm_predicates_tests() {
   check_unit_fraction_clamp();
   check_tooling_mesh_ceiling();
   check_mesh_op_expansion_ceiling();
+  check_mesh_op_arena_room();
   check_hankin_angle_domain();
   check_gradient_shape_clamp();
   check_hsv_key_clamp();
