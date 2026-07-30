@@ -394,7 +394,7 @@ private:
       auto select_face = [&](size_t fi, float size) {
         HS_CHECK(fi < face_phases.size(),
                  "IslamicStars: sprite shading face mismatch");
-        fragment_shader.palette = face_palettes[fi];
+        fragment_shader.set_palette(face_palettes[fi]);
         fragment_shader.alpha = seg.opacity(face_phases[fi]);
         fragment_shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
       };
@@ -431,7 +431,7 @@ private:
 
     auto select_face = [&](size_t fi, float size) {
       HS_CHECK(fi < sh.faces, "IslamicStars: build shading face mismatch");
-      fragment_shader.palette = &sh.ramp_for(fi);
+      fragment_shader.set_palette(&sh.ramp_for(fi));
       fragment_shader.scale = size > math::TOLERANCE ? sh.gain / size : 0.0f;
     };
 
