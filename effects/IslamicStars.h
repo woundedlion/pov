@@ -1186,7 +1186,6 @@ private:
   }
   HS_COLD_MEMBER void dt_after_bridge() {
     carry_landing_to_seed(); // build_seed = dual(truncate(X, 1/3)) (identity)
-    dual_bridge_done = [this] { finish_build_leg(); };
     ++build_step; // advance onto the KIS index the reconcile finishes at
     schedule_reconcile(build_step - 1, /*kis_of_dual=*/true);
   }
@@ -1211,7 +1210,6 @@ private:
   }
   HS_COLD_MEMBER void dtd_after_bridge2() {
     carry_landing_to_seed(); // build_seed = dual(truncate(dual(X), 1/3))
-    dual_bridge_done = [this] { finish_build_leg(); };
     schedule_reconcile(build_step, /*kis_of_dual=*/false);
   }
 
