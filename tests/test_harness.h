@@ -337,7 +337,7 @@ inline ModuleScope begin_module(const char *name) {
  * @details Individual cases are invoked by hand-written calls, so a case that is
  * defined and never called compiles clean. The floor turns that into a red run:
  * dropping a call removes assertions, and the module falls below the count the
- * roster recorded for it.
+ * roster recorded for it. A module that reported a skip is exempt from its floor.
  */
 inline int end_module(const ModuleScope &m) {
   int passed = stats().passed - m.passed_before;
@@ -360,7 +360,10 @@ inline int end_module(const ModuleScope &m) {
                 passed, failed, skipped);
   else
     std::printf("=== %s: %d passed, %d failed ===\n", m.name, passed, failed);
-  if (m.min_assertions > 0 && passed + failed < m.min_assertions) {
+  // A module that reported a skip took a reduced exit by design (death skips its
+  // whole case loop when it cannot re-exec), so its floor cannot apply.
+  if (m.min_assertions > 0 && skipped == 0 &&
+      passed + failed < m.min_assertions) {
     std::printf("=== %s: only %d assertions ran, expected >= %d (a case call "
                 "was dropped) ===\n",
                 m.name, passed + failed, m.min_assertions);

@@ -88,8 +88,8 @@ struct TestModule {
 // test_memory.h (7 assertions, so memory's floor sits 7 under its Debug count).
 // Adding cases raises a module's count and leaves its floor valid; lower a floor
 // only after deliberately removing or cheapening a case. 0 leaves a module
-// unfloored — death, whose case table is already pinned exactly by
-// DEATH_CASE_COUNT and whose suite has legitimate whole-suite skip exits.
+// unfloored. death's floor covers its whole-suite skip exits because end_module
+// exempts a module that reported a skip.
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", hs_test::math3d::run_3dmath_tests, 28826)                        \
   X("concepts", hs_test::concepts_tests::run_concepts_tests, 43273)            \
@@ -148,7 +148,7 @@ struct TestModule {
   X("presets", hs_test::presets_tests::run_presets_tests, 23)                  \
   X("styles", hs_test::styles_tests::run_styles_tests, 17862)                  \
   X("shading", hs_test::shading_tests::run_shading_tests, 43)                  \
-  X("death", hs_test::death::run_death_tests, 0)
+  X("death", hs_test::death::run_death_tests, 85)
 
 #define HS_TEST_MODULE_ENTRY(name, fn, min_assertions)                         \
   {name, fn, min_assertions},
