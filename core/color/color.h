@@ -1315,22 +1315,6 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
 }
 
 /**
- * @brief Converts an OKLCH color to an 8-bit sRGB CPixel, chroma-reducing
- *        out-of-gamut colors to hold hue and lightness (Ottosson clip).
- * @param lch Source color in OKLCH space.
- * @return The gamut-mapped color as an 8-bit sRGB CPixel.
- * @details A vivid color past the sRGB cusp gets its chroma pulled to the
- *          boundary, holding hue and lightness, rather than the per-channel clip
- *          that twists hue toward a primary. In-gamut colors pay only the gate
- *          test.
- */
-inline CPixel oklch_to_cpixel(OKLCH lch) {
-  LinRGB rgb = oklab_to_linear_rgb_gamut(oklch_to_oklab(lch));
-  return CPixel(linear_float_to_srgb8(rgb.r), linear_float_to_srgb8(rgb.g),
-                linear_float_to_srgb8(rgb.b));
-}
-
-/**
  * @brief Abstract base for all palettes.
  * @details Uniform color-lookup interface via a single vtable pointer.
  */
