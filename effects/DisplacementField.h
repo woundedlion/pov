@@ -54,6 +54,7 @@ public:
     solid_colat = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_reach = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_scale = persistent_arena.allocate_n<float>(SOLID_MAX);
+    solid_params = persistent_arena.allocate_n<const BumpParams *>(SOLID_MAX);
     solid_local = persistent_arena.allocate_n<int>(SOLID_MAX);
     shift_pool = persistent_arena.allocate_n<float>(RING_SLOTS * (W + 1));
     hue_pool = persistent_arena.allocate_n<Pixel>(RING_SLOTS * (W + 1));
@@ -173,7 +174,7 @@ private:
     for (int j = 0; j < n; ++j) {
       const int k = ks[j];
       float f =
-          bump_field_with_y(p, balls.active_params(k), theta - solid_colat[k]);
+          bump_field_with_y(p, *solid_params[k], theta - solid_colat[k]);
       accumulator.add(f);
     }
     return accumulator.value();
@@ -214,6 +215,7 @@ private:
     const int n_balls = balls.active_count();
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
+      solid_params[b] = &sp;
       solid_colat[b] =
           fast_acos(hs::clamp(dot(basis.v, sp.center), -1.0f, 1.0f));
       solid_reach[b] = sp.field_bound();
@@ -652,6 +654,8 @@ private:
       nullptr; /**< SOLID_MAX active-body support extents (radians): both the reach prefilter bound and the per-ring band bound. */
   float *solid_scale =
       nullptr; /**< SOLID_MAX active-body LUT feature scales (2/radius). */
+  const BumpParams **solid_params =
+      nullptr; /**< Active-body params validated and cached once per frame. */
   int *solid_local =
       nullptr; /**< SOLID_MAX scratch: active indices of the bodies that can reach the current ring. */
 #ifdef HS_TEST_BUILD
@@ -701,7 +705,8 @@ private:
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
       RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +
                     sizeof(SDF::DistortedRing)) +
-      SOLID_MAX * (3 * sizeof(float) + sizeof(int)) +
+      SOLID_MAX * (3 * sizeof(float) + sizeof(int) +
+                   sizeof(const BumpParams *)) +
       (HUE_TABLE_SIZE + 1) * sizeof(Pixel) +
       MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
       (sizeof(typename decltype(noise_field)::Entity) + sizeof(int));
