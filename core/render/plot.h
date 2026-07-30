@@ -2325,40 +2325,6 @@ struct Spiral {
       fragments.push_back(f);
     }
   }
-
-  /**
-   * @brief Draws a Fibonacci spiral.
-   * @tparam W,H Rasterization resolution.
-   * @param pipeline Render pipeline.
-   * @param canvas Target canvas.
-   * @param n Number of points.
-   * @param eps Epsilon offset shifting points off the poles.
-   * @param fragment_shader Shader function.
-   * @param vertex_shader Optional vertex shader.
-   */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, int n, float eps,
-                   FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader) {
-    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
-                         {.capacity = n},
-                         [&](Fragments &frags) { sample(frags, n, eps); });
-  }
-
-  /**
-   * @brief Draws a Fibonacci spiral without a vertex shader.
-   * @tparam W,H Rasterization resolution.
-   * @param pipeline Render pipeline.
-   * @param canvas Target canvas.
-   * @param n Number of points.
-   * @param eps Epsilon offset shifting points off the poles.
-   * @param fragment_shader Shader function.
-   */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, int n, float eps,
-                   FragmentShaderFn fragment_shader) {
-    draw<W, H>(pipeline, canvas, n, eps, fragment_shader, {});
-  }
 };
 
 /**
