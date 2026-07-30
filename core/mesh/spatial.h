@@ -280,9 +280,9 @@ struct MeshState {
   ArenaVector<uint16_t> faces;      /**< Owned flattened face vertex indices. */
   ArenaVector<uint16_t>
       face_offsets; /**< Owned start offset of each face into faces. */
-  ArenaVector<uint16_t> topology; /**< Owned per-face topology class id from
-                   classify_faces_by_topology; dense, so bounded by the 16-bit
-                   face count. */
+  ArenaVector<uint16_t> topology; /**< Optional owned per-face topology class
+                   ids from classify_faces_by_topology; either empty or one
+                   dense 16-bit-bounded id per face. */
 
   ArenaSpan<uint8_t>
       face_counts_view; /**< Borrowed face-counts view, populated by MeshOps::transform. */
