@@ -491,6 +491,16 @@ inline void test_classify_faces_uncompiled_degenerate() {
   HS_EXPECT_TRUE(m.topology[0] >= 0);
 }
 
+/** @brief Verifies the degenerate sentinel cannot collide with a real edge. */
+inline void test_degenerate_edge_records_never_pair() {
+  HalfEdgePairRecord records[2];
+  fill_edge_record(records[0], HE_NONE, HE_NONE, 0);
+  fill_edge_record(records[1], 0, 0, 1);
+  int pairs = 0;
+  pair_half_edges(records, 2, [&](uint16_t, uint16_t) { ++pairs; });
+  HS_EXPECT_EQ(pairs, 0);
+}
+
 /**
  * @brief Verifies a tetrahedron's 4 faces, being mutually equivalent triangles,
  *        all classify into the same class (0).
@@ -775,6 +785,7 @@ inline int run_mesh_tests() {
 
   test_classify_faces_cube_uniform_topology();
   test_classify_faces_uncompiled_degenerate();
+  test_degenerate_edge_records_never_pair();
   test_classify_faces_tetrahedron_uniform_topology();
   test_classify_faces_truncated_cube_distinct_topology();
   test_classify_faces_roster_hash_collision_free();

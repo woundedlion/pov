@@ -162,6 +162,10 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
   sort_edge_records(records, n);
 
   for (size_t i = 0; i < n;) {
+    if (records[i].min_v == HE_NONE) {
+      ++i;
+      continue;
+    }
     size_t j = i + 1;
     while (j < n && records[j].min_v == records[i].min_v &&
            records[j].max_v == records[i].max_v)
@@ -682,12 +686,11 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         int count = face_counts[fi];
         if (count < 3) {
           // A degenerate face has no real edges; reserve its half-edge slots
-          // with a self-unique key (the he index) so the neighbor-fold indexing
+          // with the never-pair sentinel so the neighbor-fold indexing
           // stays aligned while pair_half_edges leaves them unpaired — a 2-gon's
           // two opposite directed edges would otherwise self-pair.
           for (int k = 0; k < count; ++k) {
-            fill_edge_record(records[he_idx], static_cast<uint16_t>(he_idx),
-                             static_cast<uint16_t>(he_idx),
+            fill_edge_record(records[he_idx], HE_NONE, HE_NONE,
                              static_cast<uint16_t>(he_idx));
             he_to_face[he_idx] = static_cast<uint16_t>(fi);
             he_idx++;
