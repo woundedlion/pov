@@ -980,6 +980,24 @@ public:
     return trailing_blend(frame, duration, TRAILING_BLEND_FRAMES);
   }
 
+  /**
+   * @brief Fills a caller-allocated array with every face's unit centroid.
+   * @param m Mesh whose faces are reduced.
+   * @param out Receives one unit vector per face, in emission order.
+   */
+  HS_COLD_MEMBER static void face_centroids_into(const PolyMesh &m,
+                                                 Vector *out) {
+    size_t off = 0;
+    for (size_t f = 0; f < m.face_counts.size(); ++f) {
+      Vector c(0.0f, 0.0f, 0.0f);
+      const int n = m.face_counts[f];
+      for (int k = 0; k < n; ++k)
+        c = c + m.vertices[m.faces[off + k]];
+      out[f] = c.normalized();
+      off += n;
+    }
+  }
+
 private:
   /**
    * @brief Arena-allocated leg state — keeps OpLeg inline size small.
@@ -1624,24 +1642,6 @@ private:
     Vector *out = arena.allocate_n<Vector>(m.face_counts.size());
     face_centroids_into(m, out);
     return out;
-  }
-
-  /**
-   * @brief Fills a caller-allocated array with every face's unit centroid.
-   * @param m Mesh whose faces are reduced.
-   * @param out Receives one unit vector per face, in emission order.
-   */
-  HS_COLD_MEMBER static void face_centroids_into(const PolyMesh &m,
-                                                 Vector *out) {
-    size_t off = 0;
-    for (size_t f = 0; f < m.face_counts.size(); ++f) {
-      Vector c(0.0f, 0.0f, 0.0f);
-      const int n = m.face_counts[f];
-      for (int k = 0; k < n; ++k)
-        c = c + m.vertices[m.faces[off + k]];
-      out[f] = c.normalized();
-      off += n;
-    }
   }
 
   /**

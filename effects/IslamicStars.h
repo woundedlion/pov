@@ -879,15 +879,7 @@ private:
     Vector *prev_centroid = nullptr;
     if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
       prev_centroid = scratch.allocate_n<Vector>(prev_faces);
-      size_t off = 0;
-      for (size_t f = 0; f < prev_faces; ++f) {
-        Vector c(0.0f, 0.0f, 0.0f);
-        const int n = build_seed.face_counts[f];
-        for (int j = 0; j < n; ++j)
-          c = c + build_seed.vertices[build_seed.faces[off + j]];
-        prev_centroid[f] = c.normalized();
-        off += n;
-      }
+      Animation::OpLeg::face_centroids_into(build_seed, prev_centroid);
     }
     const uint8_t *prev_pal;
     if (!build_from_pal) {
@@ -925,20 +917,12 @@ private:
              build_landing->faces >= nf);
     Vector *cen = nullptr;
     uint8_t *pal = scratch.allocate_n<uint8_t>(nf);
-    if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC)
+    if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
       cen = scratch.allocate_n<Vector>(nf);
-    size_t off = 0;
-    for (size_t f = 0; f < nf; ++f) {
-      if (cen) {
-        Vector c(0.0f, 0.0f, 0.0f);
-        const int n = departed.face_counts[f];
-        for (int j = 0; j < n; ++j)
-          c = c + departed.vertices[departed.faces[off + j]];
-        cen[f] = c.normalized();
-        off += n;
-      }
-      pal[f] = build_landing->landed_palette(f);
+      Animation::OpLeg::face_centroids_into(departed, cen);
     }
+    for (size_t f = 0; f < nf; ++f)
+      pal[f] = build_landing->landed_palette(f);
     return {&palette_bank.bank,
             pal,
             nullptr,
