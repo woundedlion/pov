@@ -56,18 +56,18 @@ inline auto tri_wave(float from, float to, float freq, float phase) {
  * @param from The output value while "off" (low).
  * @param to The output value while "on" (high).
  * @param freq The frequency (cycles per unit time).
- * @param dutyCycle Fraction in [0, 1] of each cycle spent "on" (high).
+ * @param duty_cycle Fraction in [0, 1] of each cycle spent "on" (high).
  * @param phase The starting phase offset, in cycles.
  * @return A lambda mapping time t to the wave value.
  */
-inline auto square_wave(float from, float to, float freq, float dutyCycle,
+inline auto square_wave(float from, float to, float freq, float duty_cycle,
                         float phase) {
-  HS_CHECK(dutyCycle >= 0.0f && dutyCycle <= 1.0f,
-           "square_wave: dutyCycle must be in [0,1]");
+  HS_CHECK(duty_cycle >= 0.0f && duty_cycle <= 1.0f,
+           "square_wave: duty_cycle must be in [0,1]");
   return [=](float t) -> float {
     // wrap_t, not raw fmod: fmod keeps the dividend's sign, so a negative phase
-    // would stay < dutyCycle and wrongly latch the wave "on".
-    if (wrap_t(t * freq + phase) < dutyCycle) {
+    // would stay < duty_cycle and wrongly latch the wave "on".
+    if (wrap_t(t * freq + phase) < duty_cycle) {
       return to;
     }
     return from;
