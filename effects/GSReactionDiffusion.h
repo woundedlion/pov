@@ -5,9 +5,9 @@
  */
 #pragma once
 
-#include <algorithm>
+#include <array>
 #include <cmath>
-#include <cstring>
+#include <utility>
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 

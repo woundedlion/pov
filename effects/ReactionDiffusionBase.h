@@ -7,10 +7,6 @@
 
 #include "core/engine/engine.h"
 
-#include <array>
-#include <cstring>
-#include <utility>
-
 /**
  * @brief CRTP base for the spherical reaction-diffusion effects (BZ, Gray-Scott).
  * @tparam Derived Concrete effect supplying the system-specific render().
