@@ -308,6 +308,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── holosphere_wasm.wasm        Installed from Holosphere's WASM build
 ├── holosphere_wasm.sha         Engine commit + tree state the module was built from
 ├── holosphere_wasm.wasm.sha256 `sha256sum -c` manifest over the installed .wasm and .js — verified by the deploy gate
+├── holosphere_wasm.toolchain   emsdk + clang versions that built the module
 ├── README.md                   Installed from Holosphere (this file)
 ├── docs/screenshots/           Installed from Holosphere
 │

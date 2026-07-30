@@ -133,14 +133,14 @@ if(EMSCRIPTEN)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots")
 
-    # Record the engine commit this WASM module was built from, plus the content
-    # hashes of the module's two shipped halves (.wasm binary, .js glue), alongside
-    # it. The daydream deploy gate reads the SHA to pin its engine checkout to the
-    # exact source the committed module corresponds to (instead of a decoupled engine
-    # HEAD), and asserts the committed files match the recorded hashes so a stale or
-    # swapped binary — or stale glue — can't ride a green gate. All are captured at
-    # install time (immediately after the build) from the same build event, and
-    # committed together with the artifacts they describe.
+    # Record the engine commit this WASM module was built from, the content hashes
+    # of the module's two shipped halves (.wasm binary, .js glue), and the toolchain
+    # that produced them, alongside it. The daydream deploy gate reads the SHA to pin
+    # its engine checkout to the exact source the committed module corresponds to
+    # (instead of a decoupled engine HEAD), and asserts the committed files match the
+    # recorded hashes so a stale or swapped binary — or stale glue — can't ride a
+    # green gate. All are captured at install time (immediately after the build) from
+    # the same build event, and committed together with the artifacts they describe.
     install(CODE "
       execute_process(
         COMMAND git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" rev-parse HEAD
@@ -179,13 +179,24 @@ if(EMSCRIPTEN)
         file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
              \"\${HS_WASM_SHA256}  ${TARGET_NAME}.wasm\\n\${HS_GLUE_SHA256}  ${TARGET_NAME}.js\\n\")
         message(STATUS \"Wrote artifact hashes ${TARGET_NAME}.wasm.sha256: .wasm=\${HS_WASM_SHA256} .js=\${HS_GLUE_SHA256}\")
+
+        # Toolchain identity of the build event. The .sha pins the SOURCE, but the
+        # deploy gate re-verifies that source with its own compiler, so a module
+        # built by an unpinned local emsdk otherwise records provenance the gate
+        # cannot distinguish from CI's pinned one (ci.yml wasm job: emsdk 5.0.0).
+        # A separate additive file, not extra lines in the two above: the gate feeds
+        # .wasm.sha256 to `sha256sum -c` and requires .sha to be a bare 40-hex ref.
+        # Written with the pair above, keeping the provenance set all-or-nothing.
+        file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.toolchain\"
+             \"emsdk ${EMSCRIPTEN_VERSION}\\nclang ${CMAKE_CXX_COMPILER_VERSION}\\n\")
+        message(STATUS \"Wrote toolchain provenance ${TARGET_NAME}.toolchain: emsdk ${EMSCRIPTEN_VERSION}, clang ${CMAKE_CXX_COMPILER_VERSION}\")
       else()
         # Best-effort provenance: git is absent or this is not a working tree (an
-        # exported tarball / non-git checkout). Warn and omit BOTH markers so a plain
+        # exported tarball / non-git checkout). Warn and omit ALL markers so a plain
         # 'just install' still succeeds outside a git checkout, rather than the old
         # FATAL_ERROR. The deploy gate then finds no provenance and refuses to deploy
         # an unverifiable artifact — which is correct; deploy only from a git checkout.
-        message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); skipping ${TARGET_NAME} provenance markers (.sha / .wasm.sha256). Install completes, but the deploy gate has nothing to verify — deploy only from a git checkout.\")
+        message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); skipping ${TARGET_NAME} provenance markers (.sha / .wasm.sha256 / .toolchain). Install completes, but the deploy gate has nothing to verify — deploy only from a git checkout.\")
       endif()
     ")
   else()
