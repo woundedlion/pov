@@ -164,12 +164,6 @@ private:
    */
   void draw_ring(Canvas &canvas, const Basis &basis, RenderMode mode,
                  float scale, const Color4 &color, int layer_index) {
-    auto fragment_shader = [&](const Vector &, Fragment &f) {
-      Color4 c = color;
-      c.alpha = c.alpha * this->params.alpha;
-      f.color = c;
-    };
-
     float phase = layer_index * this->params.twist;
     float r = this->params.radius * scale;
     // radius 2 is a point at the antipode (the fold hands the SDFs radius 0)
@@ -178,10 +172,17 @@ private:
     int sides_int = (int)params.sides;
     if (mode == RenderMode::Plot) {
       HS_PROFILE(ss_plot_dispatch);
+      auto fragment_shader = [&](const Vector &, Fragment &f) {
+        Color4 c = color;
+        c.alpha = c.alpha * this->params.alpha;
+        f.color = c;
+      };
       dispatch_plot(canvas, basis, r, sides_int, fragment_shader, phase);
     } else {
       HS_PROFILE(ss_scan_dispatch);
-      dispatch_scan(canvas, basis, r, sides_int, fragment_shader, phase);
+      Color4 scan_color = color;
+      scan_color.alpha *= params.alpha;
+      dispatch_scan(canvas, basis, r, sides_int, scan_color, phase);
     }
   }
 
@@ -223,38 +224,36 @@ private:
 
   /**
    * @brief Scan-rasterizes the current shape type.
-   * @tparam F Fragment-shader callable type.
    * @param canvas Target canvas the shape is rasterized onto.
    * @param basis Orientation basis for the shape.
    * @param r Ring radius in world units.
    * @param sides_int Polygon/flower/star side count.
-   * @param fragment_shader Per-fragment shader callable.
+   * @param color Constant source color and alpha.
    * @param phase Per-layer twist phase in radians.
    * @details Marked noinline to curb code bloat from the per-shape template
    * instantiation.
    */
-  template <typename F>
   __attribute__((noinline)) void
   dispatch_scan(Canvas &canvas, const Basis &basis, float r, int sides_int,
-                const F &fragment_shader, float phase) {
+                const Color4 &color, float phase) {
     switch (current_shape) {
     case ShapeType::Flower:
-      Scan::Flower::draw<W, H, false>(scan_filters, canvas, basis, r, sides_int,
-                                      fragment_shader, phase, params.debug_bb);
+      Scan::Flower::draw_solid<W, H>(scan_filters, canvas, basis, r, sides_int,
+                                     color, phase, params.debug_bb);
       break;
     case ShapeType::Star:
-      Scan::Star::draw<W, H, false>(scan_filters, canvas, basis, r, sides_int,
-                                    fragment_shader, phase, params.debug_bb);
+      Scan::Star::draw_solid<W, H>(scan_filters, canvas, basis, r, sides_int,
+                                   color, phase, params.debug_bb);
       break;
     case ShapeType::PlanarPolygon:
-      Scan::PlanarPolygon::draw<W, H, false>(scan_filters, canvas, basis, r,
-                                             sides_int, fragment_shader, phase,
-                                             params.debug_bb);
+      Scan::PlanarPolygon::draw_solid<W, H>(scan_filters, canvas, basis, r,
+                                            sides_int, color, phase,
+                                            params.debug_bb);
       break;
     case ShapeType::SphericalPolygon:
-      Scan::SphericalPolygon::draw<W, H, false>(scan_filters, canvas, basis, r,
-                                                sides_int, fragment_shader,
-                                                phase, params.debug_bb);
+      Scan::SphericalPolygon::draw_solid<W, H>(scan_filters, canvas, basis, r,
+                                               sides_int, color, phase,
+                                               params.debug_bb);
       break;
     }
   }
