@@ -385,11 +385,11 @@ public:
     // endpoints to T_EPS (a still image). Every arrival >= 0.1 keeps the T_EPS
     // birth unchanged.
     const bool truncate = op == ConwayGraph::MorphOp::TRUNCATE;
-    // A far-side truncate leg arrives past the ambo pinch (arrival > 0.5) and
-    // sweeps through it on the constant-topology truncate branch; the
-    // ambo-equivalent leg (arrival <= 0.5, exactly 0.5 included) keeps its
-    // 0.495 cap and clean-swaps to ambo, so its clamp stays bit-identical.
-    const bool far_side = truncate && t_end > 0.5f;
+    // A far-side truncate leg reaches past the ambo pinch at either endpoint
+    // and sweeps through it on the constant-topology truncate branch; the
+    // ambo-equivalent leg (both endpoints <= 0.5, exactly 0.5 included) keeps
+    // its 0.495 cap and clean-swaps to ambo.
+    const bool far_side = truncate && std::max(t_start, t_end) > 0.5f;
     const float trunc_floor =
         std::min(ConwayGraph::T_EPS,
                  std::max(t_start, t_end) * ConwayGraph::T_EPS_TRUNCATE_FRAC);
