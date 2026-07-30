@@ -299,7 +299,6 @@ private:
     {
       HS_PROFILE(pf_ring_build);
       for (int i = 0; i < num_samples; ++i) {
-        float t_norm = static_cast<float>(i) / num_samples;
         float theta = i * step;
 
         float final_theta = theta + twist_angle;
@@ -318,9 +317,6 @@ private:
 
         Fragment f;
         f.pos = Vector(x, y, z);
-        f.v0 = t_norm;
-        f.age = 0;
-
         fragments.push_back(f);
       }
     }
