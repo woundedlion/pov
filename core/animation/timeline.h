@@ -158,8 +158,11 @@ public:
       HS_CHECK(!global_timeline_events[i].handled,
                "clear() would destroy a pinned animation");
     }
+    const int event_count = global_timeline_num_events;
     for (int i = 0; i < clear_hook_count; ++i)
       clear_hooks[i].fn(clear_hooks[i].ctx);
+    HS_CHECK(global_timeline_num_events == event_count,
+             "clear hook added or removed timeline events");
     destroy_events();
   }
 

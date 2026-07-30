@@ -602,6 +602,20 @@ inline void case_timeline_clear_pinned() {
   tl.clear(); // HS_CHECK(!handled) -> trap
 }
 
+/** @brief Adds an event from a clear hook, violating the hook contract. */
+inline void add_event_from_clear_hook(void *ctx) {
+  static float value = 0.0f;
+  static_cast<Timeline *>(ctx)->add(
+      0, Animation::Transition(value, 1.0f, 1, ease_linear));
+}
+
+/** @brief Death case: clear hooks must not mutate timeline event storage. */
+inline void case_timeline_clear_hook_adds_event() {
+  Timeline tl;
+  tl.add_clear_hook(&tl, add_event_from_clear_hook);
+  tl.clear();
+}
+
 /**
  * @brief Death case: a second simultaneously-live Timeline must trap.
  * @details Animation surface — every Timeline shares the single global event
@@ -1511,6 +1525,7 @@ inline const Case *all_cases(int &n) {
        case_timeline_pinned_add_on_full_timeline},
       {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer},
       {"timeline_clear_pinned", case_timeline_clear_pinned},
+      {"timeline_clear_hook_adds_event", case_timeline_clear_hook_adds_event},
       {"timeline_double_construct", case_timeline_double_construct},
       {"effect_double_construct", case_effect_double_construct},
       {"effect_width_zero", case_effect_width_zero},
@@ -1825,7 +1840,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 81;
+  constexpr int DEATH_CASE_COUNT = 82;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
