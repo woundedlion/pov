@@ -362,6 +362,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
+
       # emsdk ships the Clang the toolchain prefers AND the lld.exe it aliases to
       # lld-link.exe — using it (rather than the runner's preinstalled LLVM)
       # exercises the alias-copy block, not just the linker-type/rc.exe paths.
@@ -369,8 +373,8 @@ jobs:
       - name: Set up Emscripten
         uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
-          version: 5.0.0
-          actions-cache-folder: emsdk-cache-5.0.0
+          version: ${{ steps.pins.outputs.emsdk }}
+          actions-cache-folder: emsdk-cache-${{ steps.pins.outputs.emsdk }}
 
       # No explicit compiler: let the toolchain auto-locate emsdk's Clang and run
       # its full Windows branch (lld-link alias, rc.exe glob/NATURAL-sort).
@@ -404,10 +408,14 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
+
       - name: Install Ninja + ccache
         run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
 
-      # Pinned to match the local toolchain (emsdk 5.0.0). Bump deliberately.
+      # Pinned to match the local toolchain. Bump deliberately.
       # actions-cache-folder persists the emsdk install across runs. This is the
       # one third-party action and it provisions the toolchain, so it is pinned
       # to a full commit SHA (not a mutable tag) to prevent a retagged v16 from
@@ -415,8 +423,8 @@ jobs:
       - name: Set up Emscripten
         uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
-          version: 5.0.0
-          actions-cache-folder: emsdk-cache-5.0.0
+          version: ${{ steps.pins.outputs.emsdk }}
+          actions-cache-folder: emsdk-cache-${{ steps.pins.outputs.emsdk }}
 
       # ccache also fronts emcc (CMAKE_CXX_COMPILER_LAUNCHER applies to both
       # modes), so cache it here too.
@@ -765,6 +773,7 @@ jobs:
         run: |
           python -m unittest discover -s tools/docs_check_tests
           python tools/docs_check.py
+          python tools/build_pins.py --check
 
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
@@ -1002,7 +1011,7 @@ jobs:
           key: pio-objs-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
           restore-keys: pio-objs-${{ hashFiles('platformio.ini') }}-
       - name: Install pinned PlatformIO
-        run: pip install 'platformio==6.1.19'   # Phase-0 spike resolved this version
+        run: pip install "platformio==$(python tools/build_pins.py platformio)"
       - name: Build + size + layout gate (shipping targets + compile profiles)
         # The extra_script (tools/teensy_gate_extra.py) enforces per-env budgets
         # and sets a non-zero exit on any violation, emitting ::error:: annotations.
@@ -1049,7 +1058,7 @@ jobs:
           key: pio-teensy-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-teensy-
       - name: Install pinned PlatformIO
-        run: pip install 'platformio==6.1.19'   # same pin as teensy-size
+        run: pip install "platformio==$(python tools/build_pins.py platformio)"
       - name: Cold build + warning ratchet (all targets)
         # Deleting .pio/build_cache is what makes the build cold. PlatformIO keeps
         # both the object cache and the SCons signature database under
