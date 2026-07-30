@@ -25,7 +25,7 @@
 namespace hs_test {
 namespace dma_controller {
 
-constexpr int N = 8; // BUFFER_SIZE=37, COMPOSITE_SIZE=74
+constexpr int N = 8; // BUFFER_SIZE=40, COMPOSITE_SIZE=80
 
 using Frame = HD107SFrame<N>;
 

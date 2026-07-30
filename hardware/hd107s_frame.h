@@ -45,10 +45,10 @@ static inline void arm_dcache_flush(void *, uint32_t) {}
  * HD107S frame layout:
  *   Start frame : 4 bytes of 0x00
  *   Per pixel   : [0xFF] [B] [G] [R]   (brightness byte fixed at max)
- *   End frame   : ceil(N/16) = (N+15)/16 bytes of 0x00. Each LED re-clocks one
- *                 half-cycle later, so the last pixel needs ceil(N/2) extra
- *                 clocks; at 8 clocks/byte that is ceil(N/16) bytes. Whole-byte
- *                 granularity may add up to 7 harmless extra zero clocks.
+ *   End frame   : ceil(N/16) bytes of 0x00, padded to a 32-bit word boundary.
+ *                 Each LED re-clocks one half-cycle later, so the last pixel
+ *                 needs ceil(N/2) extra clocks; at 8 clocks/byte that is
+ *                 ceil(N/16) bytes. Padding adds harmless extra zero clocks.
  *
  * Color correction pipeline (packPixel() takes already-linear Pixel16 input):
  *   1. Color correction multiply       (TypicalLEDStrip equivalent)
@@ -58,11 +58,11 @@ static inline void arm_dcache_flush(void *, uint32_t) {}
  */
 template <int N> class HD107SFrame {
 public:
-  /** End-frame latch: ceil(N/16) = (N+15)/16 bytes of 0x00 (see the layout
-      note above for the derivation). */
-  static constexpr int END_FRAME_BYTES = (N + 15) / 16;
+  /** End-frame latch padded to a 32-bit word boundary. */
+  static constexpr int END_FRAME_BYTES = (((N + 15) / 16) + 3) & ~3;
   /** Single-frame buffer size in bytes. */
   static constexpr int BUFFER_SIZE = 4 + (N * 4) + END_FRAME_BYTES;
+  static_assert(BUFFER_SIZE % 4 == 0);
   /** Composite size: image frame + trailing black frame (for strobe_columns). */
   static constexpr int COMPOSITE_SIZE = BUFFER_SIZE * 2;
 

@@ -21,7 +21,7 @@
 namespace hs_test {
 namespace hd107s_tests {
 
-constexpr int N = 40; // small strip: END_FRAME_BYTES=3, COMPOSITE=334 bytes
+constexpr int N = 40; // small strip: END_FRAME_BYTES=4, COMPOSITE=336 bytes
 
 using Frame = HD107SFrame<N>;
 
@@ -51,13 +51,16 @@ inline void reset_correction() {
  * sizeWithBg() agree with the compile-time layout constants.
  */
 inline void test_layout_constants() {
-  HS_EXPECT_EQ(Frame::END_FRAME_BYTES, (N + 15) / 16);
-  HS_EXPECT_EQ(Frame::BUFFER_SIZE, 4 + N * 4 + (N + 15) / 16);
+  HS_EXPECT_EQ(Frame::END_FRAME_BYTES, 4);
+  HS_EXPECT_EQ(Frame::BUFFER_SIZE, 4 + N * 4 + Frame::END_FRAME_BYTES);
   HS_EXPECT_EQ(Frame::COMPOSITE_SIZE, Frame::BUFFER_SIZE * 2);
 
   Frame f;
   HS_EXPECT_EQ(static_cast<int>(f.size()), Frame::BUFFER_SIZE);
   HS_EXPECT_EQ(static_cast<int>(f.sizeWithBg()), Frame::COMPOSITE_SIZE);
+  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(f.data() + Frame::BUFFER_SIZE) %
+                   alignof(uint32_t),
+               0u);
 }
 
 /**
