@@ -77,7 +77,7 @@ public:
       "preset (the range exposes the presets, it does not clamp them)");
 
   /**
-   * @brief Wires up palette, noise, orientation, and the filter pipeline.
+   * @brief Wires up noise, orientation, and the filter pipeline.
    * @details The Feedback filter binds `style` by reference; keep `style`
    * declared before `filters` so it is constructed first (member-declaration
    * init order).
@@ -86,7 +86,7 @@ public:
       : Effect(W, H,
                {.strobe = true,
                 .full_frame = decltype(filters)::any_crosses_segments}),
-        noise_params(), orientation(), timeline(), palette(Palettes::PEACH_POP),
+        noise_params(), orientation(), timeline(),
         filters(Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>(),
                 Filter::Pixel::Feedback<W, H>(style)) {}
@@ -118,6 +118,7 @@ public:
           });
       MeshOps::compile(poly, mesh, persistent_arena, scratch_arena_a);
     }
+    ProceduralPalette palette(Palettes::PEACH_POP);
     mesh_shade = palette.get(0.0f);
 
     register_animated_param("Fade", &style.fade, FADE_MIN, FADE_MAX);
@@ -212,9 +213,7 @@ private:
 
   Orientation<> orientation;
   Timeline timeline;
-  ProceduralPalette palette;
 
-  // The mesh draws one fixed color, so the palette is sampled once in init().
   Color4 mesh_shade;
 
   // The single, fixed solid; built once in init() and never recompiled.
