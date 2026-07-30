@@ -1498,7 +1498,9 @@ public:
    *        global is then neither read nor advanced, giving an instance-local,
    *        deterministic base hue.
    * @details The base hue comes from manual_seed when >= 0, else from the global
-   * golden-ratio hue cursor (which is then advanced).
+   * golden-ratio hue cursor (which is then advanced). With manual_seed >= 0 the
+   * harmony jitter and the saturation/brightness draws are hashed from the seed
+   * too, so the whole palette reproduces regardless of global RNG position.
    */
   HS_COLD_MEMBER
   GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type,
@@ -1522,7 +1524,7 @@ public:
     uint8_t h1 = palette_hue;
     uint8_t h2, h3;
 
-    calc_hues(h1, h2, h3, harmony_type);
+    calc_hues(h1, h2, h3, harmony_type, manual_seed);
 
     uint8_t s1 = 0, s2 = 0, s3 = 0;
     switch (sat_profile) {
@@ -1530,9 +1532,9 @@ public:
       s1 = s2 = s3 = 100;
       break;
     case SaturationProfile::MID:
-      s1 = hs::rand_int(153, 204);
-      s2 = hs::rand_int(153, 204);
-      s3 = hs::rand_int(153, 204);
+      s1 = seeded_rand_int(manual_seed, 4, 153, 204);
+      s2 = seeded_rand_int(manual_seed, 5, 153, 204);
+      s3 = seeded_rand_int(manual_seed, 6, 153, 204);
       break;
     case SaturationProfile::VIBRANT:
       s1 = s2 = s3 = 255;
@@ -1542,26 +1544,26 @@ public:
     uint8_t v1 = 0, v2 = 0, v3 = 0;
     switch (profile) {
     case BrightnessProfile::ASCENDING:
-      v1 = hs::rand_int(25, 76);
-      v2 = hs::rand_int(127, 178);
-      v3 = hs::rand_int(204, 256);
+      v1 = seeded_rand_int(manual_seed, 7, 25, 76);
+      v2 = seeded_rand_int(manual_seed, 8, 127, 178);
+      v3 = seeded_rand_int(manual_seed, 9, 204, 256);
       break;
     case BrightnessProfile::DESCENDING:
-      v1 = hs::rand_int(204, 256);
-      v2 = hs::rand_int(127, 178);
-      v3 = hs::rand_int(25, 76);
+      v1 = seeded_rand_int(manual_seed, 7, 204, 256);
+      v2 = seeded_rand_int(manual_seed, 8, 127, 178);
+      v3 = seeded_rand_int(manual_seed, 9, 25, 76);
       break;
     case BrightnessProfile::FLAT:
       v1 = v2 = v3 = 255;
       break;
     case BrightnessProfile::BELL:
-      v1 = hs::rand_int(51, 127);
-      v2 = hs::rand_int(178, 256);
+      v1 = seeded_rand_int(manual_seed, 7, 51, 127);
+      v2 = seeded_rand_int(manual_seed, 8, 178, 256);
       v3 = v1;
       break;
     case BrightnessProfile::CUP:
-      v1 = hs::rand_int(178, 256);
-      v2 = hs::rand_int(51, 127);
+      v1 = seeded_rand_int(manual_seed, 7, 178, 256);
+      v2 = seeded_rand_int(manual_seed, 8, 51, 127);
       v3 = v1;
       break;
     }
@@ -1836,15 +1838,45 @@ private:
   static uint8_t wrap_hue(int hue) { return (hue % 256 + 256) % 256; }
 
   /**
+   * @brief Setup-time integer draw in [min, max), seed-hashed when pinned.
+   * @param manual_seed Palette seed; < 0 draws from the global RNG instead.
+   * @param site Draw-site index; must be distinct per call site.
+   * @param min Lower bound, inclusive.
+   * @param max Upper bound, exclusive.
+   * @return The drawn value, matching hs::rand_int's range contract.
+   * @details A pinned seed makes every construction draw reproducible without
+   * reading or advancing the global cursor, so an unrelated draw between two
+   * identically-parameterized constructions cannot shift the palette. The site
+   * index is spread by the golden-ratio constant before hashing: seed and site
+   * are both small, and hash01 mixes them with XOR, so raw indices would alias
+   * neighbouring seeds.
+   */
+  HS_COLD_MEMBER static int seeded_rand_int(int manual_seed, uint32_t site,
+                                            int min, int max) {
+    if (manual_seed < 0) {
+      return hs::rand_int(min, max);
+    }
+    if (max <= min) {
+      return min;
+    }
+    const float u =
+        hash01(static_cast<uint32_t>(manual_seed), site * 0x9E3779B9u);
+    return min + static_cast<int>(u * static_cast<float>(max - min));
+  }
+
+  /**
    * @brief Derives the two companion hues from base hue h1 per a harmony.
    * @param h1 Base hue in [0, 255].
    * @param h2 Out: first companion hue.
    * @param h3 Out: second companion hue.
    * @param harmony_type Harmony rule selecting the offsets.
-   * @details Some harmonies add randomized jitter, so output is not pure.
+   * @param manual_seed Palette seed forwarded to the jitter draws; < 0 draws
+   *        from the global RNG.
+   * @details Some harmonies add jitter, so output is not pure unless seeded.
    */
-  static void calc_hues(uint8_t h1, uint8_t &h2, uint8_t &h3,
-                        HarmonyType harmony_type) {
+  HS_COLD_MEMBER static void calc_hues(uint8_t h1, uint8_t &h2, uint8_t &h3,
+                                       HarmonyType harmony_type,
+                                       int manual_seed) {
     const int h1_int = h1;
     switch (harmony_type) {
     case HarmonyType::TRIADIC:
@@ -1860,16 +1892,16 @@ private:
     }
     case HarmonyType::COMPLEMENTARY: {
       h2 = wrap_hue(h1_int + HUE_COMPLEMENT);
-      const int offset = hs::rand_int(-7, 8);
+      const int offset = seeded_rand_int(manual_seed, 0, -7, 8);
       h3 = wrap_hue(h1_int + offset);
       break;
     }
     case HarmonyType::ANALOGOUS:
     default: {
-      const int dir = (hs::rand_int(0, 2) == 0) ? 1 : -1;
-      const int offset1 = dir * hs::rand_int(11, 22);
+      const int dir = (seeded_rand_int(manual_seed, 1, 0, 2) == 0) ? 1 : -1;
+      const int offset1 = dir * seeded_rand_int(manual_seed, 2, 11, 22);
       h2 = wrap_hue(h1_int + offset1);
-      const int offset2 = dir * hs::rand_int(11, 22);
+      const int offset2 = dir * seeded_rand_int(manual_seed, 3, 11, 22);
       h3 = wrap_hue(h2 + offset2);
       break;
     }

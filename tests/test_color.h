@@ -1543,6 +1543,75 @@ inline void test_mutating_palette_blends_endpoints() {
 }
 
 /**
+ * @brief Verifies a manual seed reproduces the palette across every profile.
+ * @details Harmony jitter (ANALOGOUS/COMPLEMENTARY) and the MID saturation and
+ *          ASCENDING/BELL brightness profiles all draw at construction. A
+ *          pinned seed must hash those draws, so an unrelated global-RNG draw
+ *          between two identically-parameterized constructions cannot shift the
+ *          result. Auto-seeded (-1) construction keeps drawing from the global
+ *          stream.
+ */
+inline void test_generative_palette_seeded_profiles_reproducible() {
+  struct Combo {
+    HarmonyType harmony;
+    SaturationProfile sat;
+    BrightnessProfile bright;
+  };
+  const Combo combos[] = {
+      {HarmonyType::ANALOGOUS, SaturationProfile::MID, BrightnessProfile::BELL},
+      {HarmonyType::COMPLEMENTARY, SaturationProfile::MID,
+       BrightnessProfile::ASCENDING},
+      {HarmonyType::ANALOGOUS, SaturationProfile::PASTEL,
+       BrightnessProfile::DESCENDING},
+      {HarmonyType::SPLIT_COMPLEMENTARY, SaturationProfile::MID,
+       BrightnessProfile::CUP},
+  };
+  for (const Combo &combo : combos) {
+    auto make = [&combo](int seed) {
+      return GenerativePalette(GradientShape::STRAIGHT, combo.harmony,
+                               combo.bright, combo.sat, seed);
+    };
+    GenerativePalette first = make(77);
+    // Moves the shared cursor; a seeded palette must not notice.
+    hs::rand_int(0, 1000);
+    GenerativePalette second = make(77);
+    GenerativePalette other = make(180);
+    bool other_differs = false;
+    for (int i = 0; i <= 8; ++i) {
+      float t = i / 8.0f;
+      Color4 a = first.get(t), b = second.get(t), c = other.get(t);
+      HS_EXPECT_EQ(a.color.r, b.color.r);
+      HS_EXPECT_EQ(a.color.g, b.color.g);
+      HS_EXPECT_EQ(a.color.b, b.color.b);
+      if (c.color.r != a.color.r || c.color.g != a.color.g ||
+          c.color.b != a.color.b)
+        other_differs = true;
+    }
+    HS_EXPECT_TRUE(other_differs); // a different seed must change the palette
+  }
+
+  // Auto-seed keeps sourcing the profile draws from the global RNG: pinning the
+  // hue cursor alone no longer reproduces a drawing profile.
+  auto auto_seeded = []() {
+    return GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
+                             BrightnessProfile::BELL, SaturationProfile::MID);
+  };
+  GenerativePalette::reset_hue_seed(0);
+  GenerativePalette auto_a = auto_seeded();
+  GenerativePalette::reset_hue_seed(0);
+  GenerativePalette auto_b = auto_seeded();
+  bool auto_differs = false;
+  for (int i = 0; i <= 8; ++i) {
+    float t = i / 8.0f;
+    Color4 a = auto_a.get(t), b = auto_b.get(t);
+    if (a.color.r != b.color.r || a.color.g != b.color.g ||
+        a.color.b != b.color.b)
+      auto_differs = true;
+  }
+  HS_EXPECT_TRUE(auto_differs);
+}
+
+/**
  * @brief Verifies GenerativePalette is deterministic for a manual seed.
  * @details With a manual seed and rand-free profiles (FLAT/VIBRANT/TRIADIC use
  *          no RNG) the palette is fully deterministic.
@@ -2306,6 +2375,7 @@ inline int run_color_tests() {
   test_procedural_palette_cosine();
   test_mutating_palette_blends_endpoints();
   test_generative_palette_deterministic();
+  test_generative_palette_seeded_profiles_reproducible();
   test_generative_palette_auto_seed_advances();
   test_generative_palette_snapshot_lerp();
   test_generative_palette_lerp_coherent_hue_path();
