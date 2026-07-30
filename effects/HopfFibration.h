@@ -140,11 +140,6 @@ private:
                 "HopfFibration trail staging exceeds the default scratch_a "
                 "budget; retune TRAIL_LEN or carve a larger scratch arena");
 
-  // The trail gate holds every trail's per-edge visibility bytes at once.
-  static_assert(ACTUAL_FIBERS * (TRAIL_LEN - 1) <= DEFAULT_SCRATCH_B_SIZE,
-                "HopfFibration trail-gate bytes exceed the default scratch_b "
-                "budget; retune RINGS/PER_RING/TRAIL_LEN");
-
   // Keeps the projection denominator (1 + eps) - q3 positive at the pole
   // (q3 == 1); only needed to keep the pre-normalize direction NaN-free, since
   // normalized_or() substitutes its fallback axis there.
@@ -268,50 +263,14 @@ private:
   }
 
   /**
-   * @brief Gates every trail's edges against the segment clip in one pass.
-   * @param canvas Target canvas (supplies the active clip band).
-   * @param bits Output: per-edge visibility bytes (gate_trail_edges),
-   *        TRAIL_LEN - 1 per trail, allocated from scratch_arena_b (caller
-   *        owns the scope).
-   * @param skip Output, one entry per fiber: true when no edge is
-   *        clip-visible, so the trail's stage + rasterize can be skipped.
-   */
-  HS_O3_FN void gate_trails(Canvas &canvas, uint8_t *&bits, bool *skip) {
-    HS_PROFILE(hf_trail_gate);
-    constexpr size_t STRIDE = TRAIL_LEN - 1;
-    const ClipRegion &cr = canvas.clip();
-    const auto xc = cr.x_clip();
-    const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
-    bits = static_cast<uint8_t *>(
-        scratch_arena_b.allocate(ACTUAL_FIBERS * STRIDE, alignof(uint8_t)));
-
-    for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
-      skip[i] = false;
-      const auto &trail = trails[i];
-      const size_t len = trail.length();
-      if (len < 2)
-        continue;
-      ScratchScope sc_guard(scratch_arena_a);
-      Fragments points;
-      points.bind(scratch_arena_a, len);
-      for (size_t j = 0; j < len; ++j) {
-        Fragment f;
-        f.pos = orientation.orient(trail.get(j));
-        points.push_back(f);
-      }
-      skip[i] = !Plot::gate_trail_edges<W, H>(trail_pipeline, cr, xc, band_len,
-                                              points, &bits[i * STRIDE]);
-    }
-  }
-
-  /**
    * @brief Renders all fiber trails as anti-aliased polylines.
    * @param canvas Target canvas to rasterize the trail polylines onto.
    * @details Orients each trail's stored world-space points into the current
    * view and shades them with the sunset palette so the tail fades from newest
-   * (opaque) to oldest (transparent). Under an active segment clip the trail
-   * gate runs first: fully-invisible trails are skipped whole and the per-edge
-   * bits feed rasterize as its cull.
+   * (opaque) to oldest (transparent). Under an active segment clip each staged
+   * polyline is gated in place by Plot::gate_trail_edges: a trail with no
+   * visible edge is skipped whole and the per-edge bits feed rasterize as its
+   * cull.
    */
   HS_O3_FN void render_trails(Canvas &canvas) {
     // A sub-LSB alpha paints nothing; skip rasterizing. Trails are still
@@ -320,20 +279,15 @@ private:
       return;
     HS_PROFILE(hf_render_trails);
 
-    constexpr size_t STRIDE = TRAIL_LEN - 1;
-    const bool clip_active = !canvas.clip().is_full();
-    ScratchScope gate_guard(scratch_arena_b);
-    uint8_t *bits = nullptr;
-    bool skip[ACTUAL_FIBERS] = {};
-    if (clip_active)
-      gate_trails(canvas, bits, skip);
+    const ClipRegion &cr = canvas.clip();
+    const bool clip_active = !cr.is_full();
+    const ClipRegion::XClip xc = cr.x_clip();
+    const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
 
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const auto &trail = trails[i];
       size_t len = trail.length();
       if (len < 2)
-        continue;
-      if (clip_active && skip[i])
         continue;
 
       // The tail fades to transparent; drop leading points whose outgoing
@@ -357,6 +311,16 @@ private:
         points.push_back(f);
       }
 
+      uint8_t bits[TRAIL_LEN - 1];
+      const uint8_t *edge_visible = nullptr;
+      if (clip_active) {
+        HS_PROFILE(hf_trail_gate);
+        if (!Plot::gate_trail_edges<W, H>(trail_pipeline, cr, xc, band_len,
+                                          points, bits))
+          continue;
+        edge_visible = bits;
+      }
+
       auto shader = [this](const Vector &, Fragment &f) {
         float t = f.v0; // 0 = oldest, 1 = newest
         Color4 c = baked_sunset.get(1.0f - t);
@@ -366,9 +330,8 @@ private:
 
       {
         HS_PROFILE(hf_trail_raster);
-        Plot::rasterize<W, H>(
-            trail_pipeline, canvas, points, shader, false, nullptr, false,
-            clip_active ? &bits[i * STRIDE + first] : nullptr);
+        Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader, false,
+                              nullptr, false, edge_visible);
       }
     }
   }
