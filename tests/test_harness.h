@@ -258,23 +258,47 @@ struct ModuleScope {
   int passed_before;  /**< Global passed count captured at begin_module. */
   int failed_before;  /**< Global failed count captured at begin_module. */
   int skipped_before; /**< Global skipped count captured at begin_module. */
+  int min_assertions; /**< Floor enforced by end_module; 0 disables the check. */
 };
+
+/**
+ * @brief Accessor for the assertion floor the next begin_module will adopt.
+ * @return Reference to the pending floor, 0 when no floor is published.
+ * @details The roster in run_tests.cpp publishes a module's measured floor here
+ * immediately before invoking it. begin_module consumes the value and resets it
+ * to 0, so a scope opened outside the roster driver — a standalone check binary —
+ * carries no floor.
+ */
+inline int &pending_min_assertions() {
+  static int m = 0;
+  return m;
+}
 
 /**
  * @brief Prints a module header and captures the current counter baseline.
  * @param name Module name to print and store in the scope.
- * @return A ModuleScope holding the name and the baseline pass/fail counts.
+ * @return A ModuleScope holding the name, the baseline pass/fail counts, and the
+ * pending assertion floor.
  */
 inline ModuleScope begin_module(const char *name) {
   std::printf("=== %s ===\n", name);
   fail_print_budget() = FailPrintBudget{};
-  return {name, stats().passed, stats().failed, stats().skipped};
+  const int min_assertions = pending_min_assertions();
+  pending_min_assertions() = 0;
+  return {name, stats().passed, stats().failed, stats().skipped,
+          min_assertions};
 }
 
 /**
- * @brief Prints the module's pass/fail delta since begin_module.
+ * @brief Prints the module's pass/fail delta since begin_module and enforces its
+ * assertion floor.
  * @param m The scope returned by begin_module for this module.
- * @return The module's failure count (delta since begin_module).
+ * @return The module's failure count (delta since begin_module), plus one if the
+ * module ran fewer assertions than its floor.
+ * @details Individual cases are invoked by hand-written calls, so a case that is
+ * defined and never called compiles clean. The floor turns that into a red run:
+ * dropping a call removes assertions, and the module falls below the count the
+ * roster recorded for it.
  */
 inline int end_module(const ModuleScope &m) {
   int passed = stats().passed - m.passed_before;
@@ -297,6 +321,12 @@ inline int end_module(const ModuleScope &m) {
                 passed, failed, skipped);
   else
     std::printf("=== %s: %d passed, %d failed ===\n", m.name, passed, failed);
+  if (m.min_assertions > 0 && passed + failed < m.min_assertions) {
+    std::printf("=== %s: only %d assertions ran, expected >= %d (a case call "
+                "was dropped) ===\n",
+                m.name, passed + failed, m.min_assertions);
+    return failed + 1;
+  }
   return failed;
 }
 
