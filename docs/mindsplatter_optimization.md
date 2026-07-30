@@ -1,5 +1,8 @@
 # MindSplatter sub-59-ms optimization plan
 
+**Status: PLAN (2026-07-25).** A MindSplatter-specific streaming renderer to
+hold every measured render frame under 59 ms.
+
 Date: 2026-07-25  
 Target: Teensy 4.0, i.MX RT1062 Cortex-M7 at 600 MHz  
 Primary objective: every measured MindSplatter render frame under 59.0 ms  

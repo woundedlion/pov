@@ -1,5 +1,9 @@
 # Brief: IslamicStars — remaining optimization levers
 
+**Status: OPEN brief.** The remaining IslamicStars levers, sized against the one
+solid that misses the 62.5 ms display window. §8 records what is measured dead;
+do not re-attempt it.
+
 You are picking up performance work on `c:\work\Holosphere` (Holosphere /
 Phantasm POV renderer, C++20, Teensy 4.0 @ 600 MHz Cortex-M7). Assume none of
 the prior sessions' context. Read this whole brief before touching anything.

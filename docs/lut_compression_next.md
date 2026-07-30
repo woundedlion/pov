@@ -1,5 +1,9 @@
 # Brief: generalized hot-path LUT compression
 
+**Status: OPEN brief.** Find the next hot-path LUT worth compressing, if any.
+§2 is the screen — most LUTs are not candidates, and a rigorously-measured
+negative is the expected outcome.
+
 You are continuing a line of work that just landed on `c:\work\Holosphere`
 (Holosphere / Phantasm POV renderer, C++20, Teensy 4.0 @ 600 MHz Cortex-M7).
 One large lookup table has been compressed and moved out of the L1 cache; your

@@ -1,5 +1,8 @@
 # MindSplatter 2,048-Particle Scaling Analysis
 
+**Status: ANALYSIS (2026-07-22).** 2,048 full particles cannot be reached by
+raising `NUM_PARTICLES` — it fails on both the arena and the CPU.
+
 Date: 2026-07-22  
 Target: Teensy 4.0, i.MX RT1062 Cortex-M7 at 600 MHz  
 Render target: ideally no more than 59 ms peak, with zero spilled frames
