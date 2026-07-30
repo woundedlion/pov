@@ -512,7 +512,15 @@ def render_report(result: GateResult, *, github: bool = False) -> str:
     return "\n".join(lines)
 
 
+#: Exit code for a PASS produced from the uncalibrated `size -A` fallback.
+#: Distinct from 0 (calibrated PASS), 1 (violation) and 2 (the gate could not
+#: run: unknown env, unparseable `size -A`), so a caller can tell an advisory
+#: verdict from a real one by exit status alone.
+EXIT_UNCALIBRATED_PASS = 3
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Run the gate. Exit: 0 PASS, 1 violation, 2 cannot-run, 3 advisory PASS."""
     p = argparse.ArgumentParser(description="Teensy 4 size/layout gate (parser).")
     p.add_argument("--env", required=True, help="budget key, e.g. holosphere")
     p.add_argument("--budgets", default="tools/teensy_budgets.json")
@@ -560,7 +568,12 @@ def main(argv: list[str] | None = None) -> int:
             "boundary-straddling section, so this region verdict is NOT calibrated "
             "- run with teensy_size for an authoritative ceiling decision.")
     print(render_report(result, github=args.github))
-    return 0 if result.passed else 1
+    if not result.passed:
+        return 1
+    # An uncalibrated PASS exits distinctly: the ADVISORY note is only visible to
+    # a human reading the log, and a caller that reads the status alone would
+    # otherwise accept a bucketed guess as a calibrated verdict.
+    return EXIT_UNCALIBRATED_PASS if used_size_a_fallback else 0
 
 
 if __name__ == "__main__":

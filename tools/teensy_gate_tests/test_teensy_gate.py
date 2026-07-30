@@ -819,7 +819,7 @@ class TestSizeAFallback(unittest.TestCase):
         rc, out = self._run_main_size_a(
             _size_a(0x10000, 0x40000, 0x70000, 0x20000),
             "good_readelf_syms.txt", "holosphere")
-        self.assertEqual(rc, 0, msg=out)
+        self.assertEqual(rc, tg.EXIT_UNCALIBRATED_PASS, msg=out)
         self.assertIn("PASS", out)
 
     def test_main_size_a_fallback_free_arithmetic_trips_headroom_floor(self):
@@ -838,10 +838,25 @@ class TestSizeAFallback(unittest.TestCase):
         rc, out = self._run_main_size_a(
             _size_a(0x10000, 0x40000, 0x70000, 0x20000),
             "good_readelf_syms.txt", "holosphere")
-        self.assertEqual(rc, 0, msg=out)
+        self.assertEqual(rc, tg.EXIT_UNCALIBRATED_PASS, msg=out)
         self.assertIn("PASS", out)
         self.assertIn("ADVISORY", out)
         self.assertIn("not calibrated", out.lower())
+
+    def test_fallback_pass_exit_code_differs_from_a_calibrated_pass(self):
+        # The exit status is what an automated caller reads: an uncalibrated
+        # PASS must not be reportable as a real one, and must stay distinct from
+        # the cannot-run code so a guess is not confused with a tooling break.
+        rc_advisory, out_advisory = self._run_main_size_a(
+            _size_a(0x10000, 0x40000, 0x70000, 0x20000),
+            "good_readelf_syms.txt", "holosphere")
+        rc_real, out_real = self._run_main_teensy_size(
+            "good_teensy_size.txt", "good_readelf_syms.txt", "holosphere")
+        self.assertEqual(rc_real, 0, msg=out_real)
+        self.assertIn("PASS", out_real)
+        self.assertNotIn("ADVISORY", out_real)
+        self.assertEqual(rc_advisory, tg.EXIT_UNCALIBRATED_PASS, msg=out_advisory)
+        self.assertNotIn(tg.EXIT_UNCALIBRATED_PASS, (0, 1, 2))
 
     def test_main_rejects_invalid_size_a_output_as_tooling_error(self):
         for name, text in _invalid_size_a_cases().items():
@@ -853,9 +868,16 @@ class TestSizeAFallback(unittest.TestCase):
                 self.assertIn("tooling/format error", out)
 
     def _run_main_size_a(self, size_a_text, syms_fixture, env):
+        return self._run_main("--size-a", size_a_text, syms_fixture, env)
+
+    def _run_main_teensy_size(self, teensy_size_fixture, syms_fixture, env):
+        return self._run_main("--teensy-size", _read(teensy_size_fixture),
+                              syms_fixture, env)
+
+    def _run_main(self, sizes_flag, sizes_text, syms_fixture, env):
         with tempfile.TemporaryDirectory() as d:
-            sa = Path(d) / "size_a.txt"
-            sa.write_text(size_a_text, encoding="utf-8")
+            sizes = Path(d) / "sizes.txt"
+            sizes.write_text(sizes_text, encoding="utf-8")
             syms = Path(d) / "syms.txt"
             syms.write_text(_read(syms_fixture), encoding="utf-8")
             buf = io.StringIO()
@@ -863,7 +885,7 @@ class TestSizeAFallback(unittest.TestCase):
                 rc = tg.main([
                     "--env", env,
                     "--budgets", str(TOOLS / "teensy_budgets.json"),
-                    "--size-a", str(sa),
+                    sizes_flag, str(sizes),
                     "--readelf-syms", str(syms),
                 ])
             return rc, buf.getvalue()
