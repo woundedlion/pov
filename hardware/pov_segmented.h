@@ -532,47 +532,27 @@ private:
     if (a.pulse)
       digitalWriteFast(PIN_FRAME_SYNC, HIGH);
 
-    // Release handshake: the foreground wants the live pointer dropped so it
-    // can destroy the instance (epoch teardown / beacon rebuild).
-    handoff.service_release();
-
-    // Swap in the foreground-constructed pending effect, only ever at a ZERO
-    // boundary. Two paths: commit (the B+K epoch deadline, spec §6.1) and join
-    // (first display: boot / beacon join / index correction, taken at the next
-    // join-grid boundary so all boards go live at the same crossing).
-    if (a.commit) {
-      const auto p = handoff.pending_acquire();
-      HS_CHECK(handoff.committable(
-                   p, pov::sync::SyncBoard::build_gen_of(sync.build_word())),
-               "epoch commit: effect init exceeded the K-revolution window");
-      handoff.adopt(p.effect, p.gen);
-    } else if (a.join_boundary && !a.dark && handoff.live() == nullptr) {
-      // Adopt only an effect still matching the wire's advertised generation; a
-      // visibility lag that fails the match simply joins one grid step later.
-      const auto p = handoff.pending_acquire();
-      if (handoff.joinable(
-              p, pov::sync::SyncBoard::build_gen_of(sync.build_word()))) {
-        handoff.adopt(p.effect, p.gen);
-      }
-    }
-
-    // Publish which half the now-open display window sweeps so the foreground
-    // clips the next frame to the quadrant this segment will paint: a ZERO flip
-    // opens the arm-A-left [0,W/2) half-rev, a HALF flip opens [W/2,W).
-    if (a.flip)
-      handoff.set_window_left(a.zero_crossing);
+    // Teardown handshake, then the pending-effect swap (commit at the B+K epoch
+    // deadline, join at the next join-grid boundary), then the display-window
+    // publish. The sequence lives in pov_handoff.h, host-tested and shared with
+    // the multi-board simulator.
+    const auto w = handoff.apply_wake(
+        {a.commit, a.join_boundary, a.dark, a.flip, a.zero_crossing,
+         pov::sync::SyncBoard::build_gen_of(sync.build_word())});
+    HS_CHECK(w.commit_ok,
+             "epoch commit: effect init exceeded the K-revolution window");
 
     // Flip whenever the effect is live, even during the dark commit window:
     // advance_display() is what releases a foreground blocked in buffer_free().
-    Effect *e = handoff.live();
-    if (a.flip && e)
+    Effect *e = w.live;
+    if (w.advance)
       e->advance_display();
 
     // Both submit paths clear their pending state only on an accepted frame, so
     // a DMA-overrun drop is retried on the next wake (spec §5.3/§6.3 fail-dark
     // for BLACK, the dropped image column for COLUMN/RESUBMIT).
     const pov::SubmitAction action =
-        submit_gate.choose(a.dark || e == nullptr, a.render_column);
+        submit_gate.choose(w.dark, a.render_column);
     bool accepted = false;
     switch (action) {
     case pov::SubmitAction::BLACK:

@@ -19,6 +19,7 @@
  */
 #pragma once
 
+#include "hardware/pov_handoff.h"
 #include "hardware/pov_sync.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -983,6 +984,10 @@ inline void test_master_epoch_train_bounded() {
 
 // ── Multi-board simulator ───────────────────────────────────────────────────
 
+// Stand-in for the constructed effect: the handoff tracks ownership by address
+// only, so one instance per board exercises every path.
+struct SimEffect {};
+
 /**
  * @brief One simulated board: its SyncBoard engine plus the host-side state the
  *        simulator models around it.
@@ -992,6 +997,9 @@ inline void test_master_epoch_train_bounded() {
  */
 struct SimBoard {
   SyncBoard board;
+  /** The real device handoff, driven through apply_wake() each wake. */
+  pov::EffectHandoff<SimEffect> handoff;
+  SimEffect instance; /**< Address the foreground publishes when built. */
   bool master = false;
   int32_t ppm = 0;      /**< Crystal offset, parts per million. */
   uint64_t phase0 = 0;  /**< Local cycle-counter offset at g = 0. */
@@ -1246,7 +1254,9 @@ private:
     const uint32_t gen = SyncBoard::build_gen_of(bw);
     if (gen != b.seen_gen) {
       b.seen_gen = gen;
-      b.live = false; // release + delete the outgoing instance
+      // Release + delete the outgoing instance.
+      b.handoff.request_release();
+      b.handoff.clear_pending();
       b.pending_index = SyncBoard::build_index_of(bw);
       // Mirror the device foreground: the RNG restart at build pickup seeds
       // from the epoch index (pov_segmented.h).
@@ -1255,29 +1265,27 @@ private:
       b.pending_ready_g = tg + b.init_delay;
       b.have_pending = true;
     }
-    const bool ready =
-        b.have_pending && b.pending_gen == gen && tg >= b.pending_ready_g;
-    if (a.commit) {
-      if (!ready) {
-        b.trapped = true; // device: HS_CHECK fires
-      } else {
-        b.live = true;
-        b.live_index = b.pending_index;
-        b.t = 0;
-        b.swap_g = tg;
-      }
-    } else if (a.join_boundary && !a.dark && !b.live && ready) {
-      b.live = true;
+    // Construction completes: the instance is published for the ISR to adopt.
+    if (b.have_pending && b.pending_gen == gen && tg >= b.pending_ready_g)
+      b.handoff.publish(&b.instance, b.pending_gen);
+
+    // The device's flywheel-ISR sequence, verbatim (hardware/pov_handoff.h).
+    const auto w = b.handoff.apply_wake(
+        {a.commit, a.join_boundary, a.dark, a.flip, a.zero_crossing, gen});
+    if (!w.commit_ok)
+      b.trapped = true; // device: HS_CHECK fires
+    if (w.adopted) {
       b.live_index = b.pending_index;
       b.t = 0;
       b.swap_g = tg;
     }
+    b.live = w.live != nullptr;
     if (a.flip) {
       ++b.flips;
-      if (b.live)
+      if (w.advance)
         ++b.t;
     }
-    b.dark_now = a.dark || !b.live;
+    b.dark_now = w.dark;
   }
 };
 
@@ -1720,6 +1728,9 @@ inline void test_sim_reboot() {
   // Reboot board 2 mid-show: fresh engine state, no identity assumption.
   SimBoard &b2 = sim.boards[2];
   b2.board.seed(Sim::local_now(b2, sim.g), false);
+  // A rebooted board's ISR holds no effect and has consumed no generation.
+  b2.handoff.adopt(nullptr, 0);
+  b2.handoff.clear_pending();
   b2.seen_gen = 0;
   b2.have_pending = false;
   b2.live = false;

@@ -427,6 +427,114 @@ inline void test_window_alternation() {
   HS_EXPECT_EQ(h.window_left(), 1u);
 }
 
+/**
+ * @brief The flywheel ISR's per-wake handoff sequence: every ordering the
+ * device's emitted behaviour depends on.
+ * @details Pins the four steps the ISR would otherwise carry untested — the
+ * teardown handshake ahead of the adopt, the join arm's dark gate, the window
+ * publish ahead of the reported advance, and the live re-read after the adopt.
+ */
+inline void test_apply_wake_sequence() {
+  FakeEffect e1, e2;
+
+  // Teardown handshake first: a release outstanding at a commit deadline must
+  // not drop the effect this wake adopts.
+  {
+    EffectHandoff<FakeEffect> h;
+    h.adopt(&e1, 1);
+    h.request_release();
+    h.publish(&e2, 2);
+    const auto w = h.apply_wake({/*commit=*/true, false, false, false, false,
+                                 /*wire_gen=*/2});
+    HS_EXPECT_TRUE(h.release_complete());
+    HS_EXPECT_TRUE(w.commit_ok);
+    HS_EXPECT_TRUE(w.adopted);
+    HS_EXPECT_EQ(w.live, &e2);
+    HS_EXPECT_EQ(h.live(), &e2);
+  }
+
+  // Commit deadline with nothing committable: no adopt, caller traps.
+  {
+    EffectHandoff<FakeEffect> h;
+    const auto w =
+        h.apply_wake({/*commit=*/true, false, false, false, false, 3});
+    HS_EXPECT_FALSE(w.commit_ok);
+    HS_EXPECT_FALSE(w.adopted);
+    HS_EXPECT_EQ(w.live, nullptr);
+    HS_EXPECT_TRUE(w.dark);
+  }
+
+  // Join arm: gated on dark, on emptiness, and on the wire generation.
+  {
+    EffectHandoff<FakeEffect> h;
+    h.publish(&e1, 4);
+    const auto blocked = h.apply_wake(
+        {false, /*join_boundary=*/true, /*dark=*/true, false, false, 4});
+    HS_EXPECT_FALSE(blocked.adopted);
+    HS_EXPECT_EQ(h.live(), nullptr);
+
+    const auto stale = h.apply_wake(
+        {false, /*join_boundary=*/true, false, false, false, /*wire_gen=*/5});
+    HS_EXPECT_FALSE(stale.adopted);
+
+    const auto joined =
+        h.apply_wake({false, /*join_boundary=*/true, false, false, false, 4});
+    HS_EXPECT_TRUE(joined.adopted);
+    HS_EXPECT_EQ(joined.live, &e1);
+
+    // Already consumed: an occupied board does not re-join.
+    const auto again =
+        h.apply_wake({false, /*join_boundary=*/true, false, false, false, 4});
+    HS_EXPECT_FALSE(again.adopted);
+  }
+
+  // The window half is published within the wake that reports the advance, so
+  // the foreground released by advance_display() reads this wake's crossing.
+  {
+    EffectHandoff<FakeEffect> h;
+    h.adopt(&e1, 6);
+    const auto half = h.apply_wake({false, false, false, /*flip=*/true,
+                                    /*zero_crossing=*/false, 6});
+    HS_EXPECT_TRUE(half.advance);
+    HS_EXPECT_EQ(h.window_left(), 0u);
+    const auto zero = h.apply_wake(
+        {false, false, false, /*flip=*/true, /*zero_crossing=*/true, 6});
+    HS_EXPECT_TRUE(zero.advance);
+    HS_EXPECT_EQ(h.window_left(), 1u);
+
+    // A wake with no flip neither advances nor republishes the window.
+    const auto still = h.apply_wake({false, false, false, false, false, 6});
+    HS_EXPECT_FALSE(still.advance);
+    HS_EXPECT_EQ(h.window_left(), 1u);
+  }
+
+  // live is read after the adopt: an effect taken live this wake flips this
+  // wake, and the submit gate is dark only while nothing is live.
+  {
+    EffectHandoff<FakeEffect> h;
+    h.publish(&e1, 7);
+    const auto w = h.apply_wake({/*commit=*/true, false, /*dark=*/false,
+                                 /*flip=*/true, true, 7});
+    HS_EXPECT_TRUE(w.adopted);
+    HS_EXPECT_TRUE(w.advance);
+    HS_EXPECT_FALSE(w.dark);
+
+    // A live effect still flips through the dark commit window.
+    const auto blanked =
+        h.apply_wake({false, false, /*dark=*/true, /*flip=*/true, false, 7});
+    HS_EXPECT_TRUE(blanked.advance);
+    HS_EXPECT_TRUE(blanked.dark);
+
+    // Released: nothing to advance, and the gate goes dark.
+    h.request_release();
+    const auto empty =
+        h.apply_wake({false, false, false, /*flip=*/true, true, 7});
+    HS_EXPECT_FALSE(empty.advance);
+    HS_EXPECT_TRUE(empty.dark);
+    HS_EXPECT_EQ(empty.live, nullptr);
+  }
+}
+
 class PhaseEffect : public Effect {
 public:
   explicit PhaseEffect(bool clipped_clear)
@@ -668,6 +776,7 @@ inline int run_pov_segmented_tests() {
   test_join_adopt_and_gen_gating();
   test_full_handoff_cycle();
   test_window_alternation();
+  test_apply_wake_sequence();
   test_clip_phase_after_buffer_release();
 
   test_submit_retries_dropped_column();

@@ -36,6 +36,18 @@
 namespace pov {
 
 /**
+ * @brief One flywheel wake's sync-layer decisions, as the handoff consumes them.
+ */
+struct WakeInputs {
+  bool commit = false;        /**< B+R+K epoch deadline reached (spec §6.1). */
+  bool join_boundary = false; /**< ZERO crossing on the join grid. */
+  bool dark = false;          /**< The sync layer wants black this wake. */
+  bool flip = false;          /**< A display window opened this wake. */
+  bool zero_crossing = false; /**< The opening flip crossed ZERO. */
+  uint32_t wire_gen = 0;      /**< Build generation advertised by the wire. */
+};
+
+/**
  * @brief Foreground↔ISR effect-handoff state machine.
  * @tparam T Effect pointee type (the device instantiates it with Effect; tests
  *           use a stand-in).
@@ -54,6 +66,18 @@ public:
   struct Pending {
     T *effect;    /**< Constructed instance awaiting adoption, or nullptr. */
     uint32_t gen; /**< Build generation the effect was constructed for. */
+  };
+
+  /**
+   * @brief What a caller must still do once apply_wake() has run the sequence.
+   */
+  struct Wake {
+    T *live = nullptr; /**< Effect live after this wake's adopt, or nullptr. */
+    bool commit_ok = true; /**< False when a commit deadline found nothing
+                                committable: the caller must trap. */
+    bool adopted = false;  /**< An effect was taken live this wake. */
+    bool advance = false;  /**< Call advance_display() on `live`. */
+    bool dark = false;     /**< Submit-gate dark input. */
   };
 
   // ── Foreground side ────────────────────────────────────────────────────
@@ -189,6 +213,45 @@ public:
    */
   uint8_t window_left() const {
     return window_sweeps_left.load(std::memory_order_relaxed);
+  }
+
+  /**
+   * @brief Runs the whole ISR-side handoff sequence for one flywheel wake.
+   * @param in This wake's sync-layer decisions and the wire's build generation.
+   * @return The post-adopt live pointer plus the caller's remaining duties.
+   * @details The step order is the contract: the teardown handshake runs before
+   * the adopt, so a same-wake adopt cannot have its pointer dropped from under
+   * it and the join arm's emptiness test sees the released state; the window
+   * half publishes before the caller's advance_display() unblocks a foreground
+   * waiting in buffer_free(); and `live` is read after the adopt, so an effect
+   * taken live this wake also flips this wake. Commit reports commit_ok=false
+   * for the caller to trap on, where join is conditional — a failed join gate
+   * waits for the next grid step. always_inline: the flywheel ISR must not pay
+   * a call for it.
+   */
+  __attribute__((always_inline)) Wake apply_wake(const WakeInputs &in) {
+    service_release();
+    Wake out;
+    if (in.commit) {
+      const Pending p = pending_acquire();
+      out.commit_ok = committable(p, in.wire_gen);
+      if (out.commit_ok) {
+        adopt(p.effect, p.gen);
+        out.adopted = true;
+      }
+    } else if (in.join_boundary && !in.dark && live_effect == nullptr) {
+      const Pending p = pending_acquire();
+      if (joinable(p, in.wire_gen)) {
+        adopt(p.effect, p.gen);
+        out.adopted = true;
+      }
+    }
+    if (in.flip)
+      set_window_left(in.zero_crossing);
+    out.live = live_effect;
+    out.advance = in.flip && out.live != nullptr;
+    out.dark = in.dark || out.live == nullptr;
+    return out;
   }
 
 private:
