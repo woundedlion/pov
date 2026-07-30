@@ -842,24 +842,17 @@ jobs:
     timeout-minutes: 10
     env:
       # PRE-EXISTING DRIFT. These files do not match .clang-format under
-      # clang-format-18 — the hook has been skippable since it was added, so
-      # drift accumulated unchecked. Gating them would make this job red on
-      # arrival, so they are excluded; every OTHER tracked source, and every
-      # newly added file, is gated. Shrink this list with `clang-format -i`;
-      # never grow it to turn a red build green.
+      # clang-format-18. Gating them would make this job red on arrival, so they
+      # are excluded; every OTHER tracked source, and every newly added file, is
+      # gated. Shrink this list with `clang-format -i`; never grow it to turn a
+      # red build green.
       FORMAT_BASELINE: |
-        core/animation/mesh.h
         core/engine/effect_registry.h
-        core/engine/platform.h
-        core/mesh/conway_graph.h
         core/mesh/hankin.h
         core/render/canvas.h
         core/render/plot.h
-        core/render/sdf.h
         effects/BZReactionDiffusion.h
         effects/RingSpin.h
-        effects/Voronoi.h
-        tests/run_tests.cpp
         tests/test_animation.h
         tests/test_canvas.h
         tests/test_color.h
