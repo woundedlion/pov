@@ -309,15 +309,19 @@ template <int MAX_V> struct TriangularBitset {
 // 3. Arena Structures
 // ============================================================================
 
-#ifndef ARDUINO
 /**
  * @brief Whether T is a sanctioned inline callable safe to store in an
  * ArenaVector despite not being trivially destructible.
- * @details hs::inplace_function owns only its inline buffer and Fn<>'s captures
- * are required to be trivial, so its erased destructor frees nothing outside the
- * arena. Device (ARDUINO) has no STL heap, so this trait is host/WASM-scoped.
+ * @details Fn resolves to hs::inplace_function on host/WASM and
+ * teensy::inplace_function on device, so both concrete aliases are recognized.
+ * Stored captures remain subject to ArenaVector's element destructor contract.
  */
 template <typename T> struct is_arena_inplace_fn : std::false_type {};
+#ifdef ARDUINO
+template <typename R, typename... Args, size_t Cap, size_t Align>
+struct is_arena_inplace_fn<
+    teensy::inplace_function<R(Args...), Cap, Align>> : std::true_type {};
+#else
 template <typename R, typename... Args, size_t Cap, size_t Align>
 struct is_arena_inplace_fn<hs::inplace_function<R(Args...), Cap, Align>>
     : std::true_type {};
@@ -469,13 +473,11 @@ public:
    * a different arena) trips a debug-only contract assert.
    */
   void bind(Arena &arena, size_t exact_capacity) {
-#ifndef ARDUINO
     static_assert(
         std::is_trivially_destructible_v<T> || is_arena_inplace_fn<T>::value,
         "ArenaVector never runs element destructors, so T must own no "
         "state outside the arena buffer: store a trivially-destructible "
         "type or a sanctioned Fn<> (no std::function/std::string).");
-#endif
 #ifndef NDEBUG
     // Rebinding a still-bound vector after its source arena was reset, or to a
     // different arena, is a contract violation (the old block is already dead). A
