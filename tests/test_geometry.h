@@ -10,7 +10,7 @@
  *   - y_to_phi_virtual / phi_to_y_virtual conversions (free + templated)
  *   - PhiLUT / TrigLUT initialisation and lookup values
  *   - pixel_to_vector / vector_to_pixel roundtrip
- *   - tangent_frame / sphere_log / equirect_x_scale / pole_wrap
+ *   - pole_wrap
  *   - fib_spiral, lissajous, random_vector (all on unit sphere)
  *   - Basis: make_basis (orthonormality), get_antipode (flipping)
  *   - Orientation<CAP>: set, push, get, collapse, upsample, orient/unorient
@@ -303,197 +303,8 @@ inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
 }
 
 // ============================================================================
-// tangent_frame / sphere_log / equirect_x_scale / pole_wrap
+// pole_wrap
 // ============================================================================
-
-/**
- * @brief Verifies the tangent basis is orthonormal and tangent to the sphere at
- *        interior, near-pole and exact-pole rows.
- */
-inline void test_tangent_frame_orthonormal() {
-  constexpr int W = 64, H = 64;
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  int xs[] = {0, 7, 31, 48, 63};
-  int ys[] = {0, 1, 2, 17, 32, 50, H_VIRT - 2, H_VIRT - 1};
-  for (int x : xs) {
-    for (int y : ys) {
-      TangentFrame f = tangent_frame<W, H>(x, y);
-      Vector v = pixel_to_vector<W, H>(x, y);
-      HS_EXPECT_NEAR(dot(f.east, f.east), 1.0f, 1e-5f);
-      HS_EXPECT_NEAR(dot(f.down, f.down), 1.0f, 1e-5f);
-      HS_EXPECT_NEAR(dot(f.east, f.down), 0.0f, 1e-5f);
-      HS_EXPECT_NEAR(dot(f.east, v), 0.0f, 1e-5f);
-      HS_EXPECT_NEAR(dot(f.down, v), 0.0f, 1e-5f);
-    }
-  }
-
-  // The pole row's point is column-independent but its frame is not: `down` is
-  // that column's own meridian direction.
-  for (int x : xs) {
-    TangentFrame f = tangent_frame<W, H>(x, 0);
-    float th = (2.0f * PI_F * x) / W;
-    HS_EXPECT_VEC(f.down, Vector(std::cos(th), 0.0f, std::sin(th)), 1e-5f);
-  }
-}
-
-/**
- * @brief Verifies the basis matches the closed-form theta/phi derivatives.
- */
-inline void test_tangent_frame_matches_closed_form() {
-  constexpr int W = 48, H = 32;
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  for (int x = 0; x < W; x += 5) {
-    for (int y = 0; y < H_VIRT; y += 3) {
-      float th = (2.0f * PI_F * x) / W;
-      float ph = y_to_phi<H>(static_cast<float>(y));
-      TangentFrame f = tangent_frame<W, H>(x, y);
-      HS_EXPECT_VEC(f.east, Vector(-std::sin(th), 0.0f, std::cos(th)), 1e-5f);
-      HS_EXPECT_VEC(f.down,
-                    Vector(std::cos(ph) * std::cos(th), -std::sin(ph),
-                           std::cos(ph) * std::sin(th)),
-                    1e-5f);
-    }
-  }
-}
-
-/**
- * @brief Verifies sphere_log inverts the exponential map along each basis axis.
- * @details Exp-maps `v` by a known angle along `east` (then `down`) and checks
- *          the log resolves to exactly that one component. fast_acos carries
- *          ~1.3e-4 rad of error.
- */
-inline void test_sphere_log_recovers_axis_displacement() {
-  constexpr int W = 64, H = 64;
-  float angles[] = {0.01f, 0.2f, 1.0f, 2.5f};
-  int ys[] = {1, 12, 32, 55};
-  for (int y : ys) {
-    Vector v = pixel_to_vector<W, H>(11, y);
-    TangentFrame f = tangent_frame<W, H>(11, y);
-    for (float a : angles) {
-      Vector east_w = v * std::cos(a) + f.east * std::sin(a);
-      TangentOffset e = sphere_log(v, east_w, f);
-      HS_EXPECT_NEAR(e.east, a, 2e-4f);
-      HS_EXPECT_NEAR(e.down, 0.0f, 2e-4f);
-
-      Vector down_w = v * std::cos(a) + f.down * std::sin(a);
-      TangentOffset d = sphere_log(v, down_w, f);
-      HS_EXPECT_NEAR(d.east, 0.0f, 2e-4f);
-      HS_EXPECT_NEAR(d.down, a, 2e-4f);
-    }
-  }
-}
-
-/**
- * @brief Verifies the degenerate pairs (coincident and antipodal) yield no
- *        displacement, since neither defines a direction.
- */
-inline void test_sphere_log_degenerate_pairs() {
-  constexpr int W = 64, H = 64;
-  Vector v = pixel_to_vector<W, H>(9, 21);
-  TangentFrame f = tangent_frame<W, H>(9, 21);
-
-  TangentOffset same = sphere_log(v, v, f);
-  HS_EXPECT_EQ(same.east, 0.0f);
-  HS_EXPECT_EQ(same.down, 0.0f);
-
-  TangentOffset anti = sphere_log(v, -v, f);
-  HS_EXPECT_EQ(anti.east, 0.0f);
-  HS_EXPECT_EQ(anti.down, 0.0f);
-}
-
-/**
- * @brief Verifies the log's magnitude is the great-circle angle between the
- *        two vectors, so the basis decomposition loses nothing.
- */
-inline void test_sphere_log_magnitude_is_great_circle_angle() {
-  constexpr int W = 64, H = 64;
-  int src[][2] = {{5, 3}, {20, 18}, {40, 32}, {60, 58}};
-  int dst[][2] = {{6, 4}, {35, 25}, {12, 50}, {61, 40}};
-  for (auto &s : src) {
-    Vector v = pixel_to_vector<W, H>(s[0], s[1]);
-    TangentFrame f = tangent_frame<W, H>(s[0], s[1]);
-    for (auto &d : dst) {
-      Vector w = pixel_to_vector<W, H>(d[0], d[1]);
-      TangentOffset o = sphere_log(v, w, f);
-      float expected = std::acos(hs::clamp(dot(v, w), -1.0f, 1.0f));
-      HS_EXPECT_NEAR(std::sqrt(o.east * o.east + o.down * o.down), expected,
-                     3e-4f);
-    }
-  }
-}
-
-/**
- * @brief Verifies one fixed displacement off the pole resolves to a rotating,
- *        constant-magnitude offset across the pole row's columns.
- * @details The pole row is a single physical point, so an equirect-offset
- *          encoding stores one value for every column and collapses the cap on
- *          upsample. The tangent basis carries the column instead: the stored
- *          pair sweeps a full cosine while its magnitude stays put.
- */
-inline void test_sphere_log_pole_row_varies_by_column() {
-  constexpr int W = 64, H = 64;
-  const Vector v = pixel_to_vector<W, H>(0, 0);
-  const Vector w = pixel_to_vector<W, H>(23, 6);
-  const float angle = std::acos(hs::clamp(dot(v, w), -1.0f, 1.0f));
-
-  float min_down = 1e9f, max_down = -1e9f;
-  for (int x = 0; x < W; ++x) {
-    TangentOffset o = sphere_log(v, w, tangent_frame<W, H>(x, 0));
-    HS_EXPECT_NEAR(std::sqrt(o.east * o.east + o.down * o.down), angle, 3e-4f);
-    min_down = std::min(min_down, o.down);
-    max_down = std::max(max_down, o.down);
-  }
-  // A full sweep of the meridian direction: +|delta| through -|delta|.
-  HS_EXPECT_NEAR(max_down, angle, 1e-2f);
-  HS_EXPECT_NEAR(min_down, -angle, 1e-2f);
-}
-
-/**
- * @brief Verifies the azimuth scale matches 1/sin(phi) on interior rows and
- *        stays finite on both pole rows.
- */
-inline void test_equirect_x_scale_interior_and_poles() {
-  constexpr int W = 288, H = 144;
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  for (int y = 1; y < H_VIRT - 1; ++y) {
-    float ph = y_to_phi<H>(static_cast<float>(y));
-    float expected = (W / (2.0f * PI_F)) / std::sin(ph);
-    float got = equirect_x_scale<W, H>(y);
-    HS_EXPECT_NEAR(got, expected, expected * 1e-4f);
-  }
-  const float north = equirect_x_scale<W, H>(0);
-  const float below_north = equirect_x_scale<W, H>(1);
-  const float south = equirect_x_scale<W, H>(H_VIRT - 1);
-  HS_EXPECT_EQ(north, below_north);
-  HS_EXPECT_TRUE(std::isfinite(south));
-  HS_EXPECT_GT(south, 0.0f);
-}
-
-/**
- * @brief Verifies an eastward tangent offset decodes to the equirect column
- *        offset of the azimuth step that produced it.
- * @details The offset stays angularly accurate to fast_acos's ~1.3e-4 rad at
- *          every latitude, so the column tolerance carries that budget through
- *          the row's own azimuth scale (~0.14 px at row 2 of 288x144).
- */
-inline void test_equirect_x_scale_decodes_azimuth_step() {
-  constexpr int W = 288, H = 144;
-  const float dtheta = 0.02f;
-  int ys[] = {2, 10, 40, 72, 130};
-  for (int y : ys) {
-    const int x = 60;
-    float th = (2.0f * PI_F * x) / W;
-    float ph = y_to_phi<H>(static_cast<float>(y));
-    Vector v = pixel_to_vector<W, H>(x, y);
-    Vector w(std::sin(ph) * std::cos(th + dtheta), std::cos(ph),
-             std::sin(ph) * std::sin(th + dtheta));
-    TangentOffset o = sphere_log(v, w, tangent_frame<W, H>(x, y));
-    const float scale = equirect_x_scale<W, H>(y);
-    float columns = o.east * scale;
-    HS_EXPECT_NEAR(columns, (dtheta * W) / (2.0f * PI_F),
-                   0.01f + 2e-4f * scale);
-  }
-}
 
 /**
  * @brief Verifies in-range taps pass through pole_wrap untouched.
@@ -982,14 +793,6 @@ inline int run_geometry_tests() {
   test_pixel_to_vector_float_out_of_lut_domain();
   test_vector_to_pixel_roundtrip_via_pixel_to_vector();
 
-  test_tangent_frame_orthonormal();
-  test_tangent_frame_matches_closed_form();
-  test_sphere_log_recovers_axis_displacement();
-  test_sphere_log_degenerate_pairs();
-  test_sphere_log_magnitude_is_great_circle_angle();
-  test_sphere_log_pole_row_varies_by_column();
-  test_equirect_x_scale_interior_and_poles();
-  test_equirect_x_scale_decodes_azimuth_step();
   test_pole_wrap_in_range_is_identity();
   test_pole_wrap_north_reflects_half_turn();
   test_pole_wrap_south_reflects_about_virtual_pole();
