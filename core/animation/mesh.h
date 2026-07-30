@@ -2847,7 +2847,10 @@ public:
    * while the front slot is still evacuated — so the caller can re-bake
    * effect-owned persistent data (e.g. a palette bank) into the fresh arena
    * *before* the front mesh is restored on top of it. Use when only the visible
-   * (front) shape must survive a regeneration of the back slot.
+   * (front) shape must survive a regeneration of the back slot. Legal while no
+   * sprite still draws the back slot — an overlapping segue's outgoing sprite
+   * draws the slot it was spawned into, which set_front() already made the
+   * front one, so it is the slot this preserves.
    */
   template <typename AfterReset>
   void compact_keep_front(AfterReset after_reset) {
