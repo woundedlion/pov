@@ -629,7 +629,7 @@ private:
    * @return true if the black frame was accepted by the LED transport; false
    *         if it was dropped on a DMA overrun (caller must retry, not latch).
    */
-  static FASTRUN bool render_black() {
+  [[nodiscard]] static FASTRUN bool render_black() {
     auto &frame = ledController.backFrame();
     for (int i = 0; i < PPS; ++i) {
       frame.packPixel(i, Pixel(0, 0, 0));
