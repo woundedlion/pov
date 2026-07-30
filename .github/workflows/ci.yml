@@ -664,6 +664,43 @@ jobs:
         # cannot skip); this job runs it standalone, independent of that build.
         run: python3 tools/gen_gamut_lut.py --check
 
+  srgb-decode-provenance:
+    name: Generated sRGB decode tables match committed header
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install Clang + Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 ninja-build   # pinned like the unit-test job
+
+      # srgb_decode_gen is EXCLUDE_FROM_ALL and the sharded job only compiles it;
+      # here it is actually run, to argv[1] rather than over the committed header.
+      - name: Build the generator
+        run: |
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF \
+            -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+          cmake --build --preset tests --target srgb_decode_gen
+
+      - name: Regenerate the decode tables and diff the full header
+        # Diff the FULL text: the banner, the SRGB_DECODE_VSPLIT constant, the
+        # array names and PROGMEM gate alongside the numbers. The generator is
+        # deterministic integer work over linear_to_srgb_lut, so any difference
+        # is a real divergence — a hand-edit of the table, a bucket-geometry
+        # change, or a color_luts.h regeneration that moved a step point.
+        run: |
+          ./build/tests/tests/srgb_decode_gen /tmp/srgb_decode_lut.generated.h
+          if ! diff -u core/color/srgb_decode_lut.h \
+                    /tmp/srgb_decode_lut.generated.h > /tmp/srgb_decode_lut.diff; then
+            head -40 /tmp/srgb_decode_lut.diff
+            echo "::error::core/color/srgb_decode_lut.h is out of sync with scripts/generate_srgb_decode.cpp"
+            echo "Regenerate with: cmake --build --preset tests --target srgb_decode_gen && ./build/tests/tests/srgb_decode_gen"
+            exit 1
+          fi
+          echo "Regenerated tables match core/color/srgb_decode_lut.h in full."
+
   screenshot-gallery:
     name: Screenshot gallery is valid and covers every effect
     # The docs/screenshots gallery is installed into daydream and served live,
