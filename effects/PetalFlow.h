@@ -105,7 +105,7 @@ private:
    * @details Converts the unitless Speed control to per-frame motion along the
    * path.
    */
-  static constexpr float RHO_PER_SPEED = 0.009375f;
+  static constexpr float RHO_PER_SPEED = SPACING / 32.0f;
   static constexpr float FADE_START_RHO =
       2.5f; /**< |rho| at which the pole fade begins. */
   /**
