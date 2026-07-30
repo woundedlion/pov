@@ -23,6 +23,7 @@ struct MobiusGridWhiteBox;
  *          continuously inflates/deflates between two "holes" on the sphere.
  */
 template <int W, int H> class MobiusGrid : public Effect {
+  // Distinct type keys for Pipeline::get<T>; no per-subclass behaviour.
   class NorthHole : public Filter::World::Hole {
   public:
     using Filter::World::Hole::Hole;
