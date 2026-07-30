@@ -2673,7 +2673,7 @@ make_cartesian_quadrant_clip(const ClipRegion &cr) {
  * @return Rejecting halfspace, or exact fallback for every uncertain case.
  */
 HS_O3_BEGIN
-static CartesianTrailGateResult
+static inline CartesianTrailGateResult
 cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
                               const Fragments &trail) {
   if (!clip.active || trail.size() < 2)

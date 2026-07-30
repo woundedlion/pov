@@ -82,7 +82,12 @@ void render(MeshState &mesh, Arena &scratch, std::vector<uint16_t> &out) {
 }
 
 void dump(const char *path, const std::vector<uint16_t> &buf) {
+  // The Windows CRT deprecates fopen in favour of fopen_s, which no other host
+  // provides.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   std::FILE *f = std::fopen(path, "wb");
+#pragma clang diagnostic pop
   std::fwrite(buf.data(), 2, buf.size(), f);
   std::fclose(f);
 }

@@ -44,6 +44,17 @@ endif()
 
 set(HS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
+# The native suite is the one build where diagnostics can run: the device/WASM
+# build compiles the arena guards out, so ASan/UBSan here are the only automated
+# cover for the arena-lifetime hazards the death harness can't reach. -Werror is
+# on so suite hygiene is self-enforcing — the fail-fast doctrine applied to the
+# build itself; a new warning is a hard failure, not noise scrolled past. Every
+# executable defined below goes through this, including the budget gates and the
+# non-CTest compile guards; per-target optimization/math flags stay per-target.
+function(_hs_warnings target)
+  target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+endfunction()
+
 add_executable(run_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
   ${HS_ROOT}/core/engine/memory.cpp
@@ -63,12 +74,7 @@ target_compile_definitions(run_tests PRIVATE HS_TEST_BUILD HS_SCAN_METRICS)
 # Headers are included as "tests/..." and "core/..." from the repo root.
 target_include_directories(run_tests PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 
-# The native suite is the one build where diagnostics can run: the device/WASM
-# build compiles the arena guards out, so ASan/UBSan here are the only automated
-# cover for the arena-lifetime hazards the death harness can't reach. -Werror is
-# on so suite hygiene is self-enforcing — the fail-fast doctrine applied to the
-# build itself; a new warning is a hard failure, not noise scrolled past.
-target_compile_options(run_tests PRIVATE -Wall -Wextra -Werror)
+_hs_warnings(run_tests)
 
 # Opt-in sanitizers. Default OFF so the pre-commit gate and the default
 # `cmake --preset tests` stay fast (ASan ~2x); enable with -DHS_SANITIZE=ON.
@@ -221,7 +227,7 @@ set_tests_properties(unit_gamut_lut PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
 # convention change here cannot leave the web tiling silently mis-partitioned.
 add_executable(pov_segment_map_gen ${HS_ROOT}/tools/pov_segment_map_export.cpp)
 target_include_directories(pov_segment_map_gen PRIVATE ${HS_ROOT})
-target_compile_options(pov_segment_map_gen PRIVATE -Wall -Wextra)
+_hs_warnings(pov_segment_map_gen)
 _hs_sanitize(pov_segment_map_gen)
 add_test(NAME unit_pov_segment_map_golden COMMAND ${CMAKE_COMMAND}
     -DEXPORTER=$<TARGET_FILE:pov_segment_map_gen>
@@ -249,7 +255,8 @@ target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/co
 # edit drops it, core/engine/platform.h's #error makes this TU fail to compile — exactly
 # the regression signal we want.
 target_compile_options(fastmath_clamp_check PRIVATE
-  -Wall -Wextra -O3 -ffast-math -fno-finite-math-only)
+  -O3 -ffast-math -fno-finite-math-only)
+_hs_warnings(fastmath_clamp_check)
 _hs_sanitize(fastmath_clamp_check)
 add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 
@@ -266,7 +273,7 @@ add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(relax_bake_verify PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_VERIFY)
 target_include_directories(relax_bake_verify PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(relax_bake_verify PRIVATE -Wall -Wextra)
+_hs_warnings(relax_bake_verify)
 _hs_sanitize(relax_bake_verify)
 add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
 
@@ -278,7 +285,7 @@ add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(relax_bake_gen PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_EXTRACT)
 target_include_directories(relax_bake_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(relax_bake_gen PRIVATE -Wall -Wextra)
+_hs_warnings(relax_bake_gen)
 
 # The south-pole Y-clip renormalization in the rasterizer (Screen::AntiAlias's
 # bilinear-tap fold, and the H_VIRT handling threaded through geometry/scan/plot/
@@ -296,7 +303,7 @@ add_executable(h_offset_renorm_check
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_BUILD HS_TEST_H_OFFSET=3)
 target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(h_offset_renorm_check PRIVATE -Wall -Wextra)
+_hs_warnings(h_offset_renorm_check)
 _hs_sanitize(h_offset_renorm_check)
 add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 
@@ -312,7 +319,8 @@ add_executable(stack_measure
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(stack_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(stack_measure PRIVATE -Wall -Wextra -Os -ffast-math -fno-finite-math-only)
+target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
+_hs_warnings(stack_measure)
 add_test(NAME unit_stack_budget COMMAND stack_measure)
 
 # Arena high-water gate across every effect. Reports per-effect global-arena
@@ -326,7 +334,8 @@ add_executable(arena_measure
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(arena_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(arena_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(arena_measure PRIVATE -Wall -Wextra -Os -ffast-math -fno-finite-math-only)
+target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
+_hs_warnings(arena_measure)
 add_test(NAME unit_arena_budget COMMAND arena_measure)
 
 # Render micro-benchmark, built at two opt levels to bracket the size config's
@@ -343,7 +352,8 @@ foreach(_opt Os O3)
     ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
   target_compile_definitions(perf_bench_${_opt} PRIVATE HS_TEST_BUILD)
   target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-  target_compile_options(perf_bench_${_opt} PRIVATE -Wall -Wextra -${_opt} -ffast-math -fno-finite-math-only)
+  target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)
+  _hs_warnings(perf_bench_${_opt})
 endforeach()
 
 # Drivers for the HS_AA_AUDIT mesh-scan coverage instrumentation, whose hooks
@@ -358,7 +368,8 @@ foreach(_aa audit search)
     ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
   target_compile_definitions(aa_${_aa} PRIVATE HS_TEST_BUILD HS_AA_AUDIT)
   target_include_directories(aa_${_aa} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-  target_compile_options(aa_${_aa} PRIVATE -Wall -Wextra -O2 -ffast-math -fno-finite-math-only)
+  target_compile_options(aa_${_aa} PRIVATE -O2 -ffast-math -fno-finite-math-only)
+  _hs_warnings(aa_${_aa})
 endforeach()
 
 # Divergence trace for perturbations of the feedback colour path
@@ -370,7 +381,8 @@ add_executable(feedback_divergence
   ${HS_ROOT}/core/engine/memory.cpp)
 target_compile_definitions(feedback_divergence PRIVATE HS_TEST_BUILD)
 target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(feedback_divergence PRIVATE -Wall -Wextra -O2 -ffast-math -fno-finite-math-only)
+target_compile_options(feedback_divergence PRIVATE -O2 -ffast-math -fno-finite-math-only)
+_hs_warnings(feedback_divergence)
 
 # Generator of record for core/color/srgb_decode_lut.h. EXCLUDE_FROM_ALL: run
 # with no argument it rewrites a committed header, so the sharded CI job only
@@ -380,4 +392,4 @@ add_executable(srgb_decode_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/scripts/generate_srgb_decode.cpp)
 target_compile_definitions(srgb_decode_gen PRIVATE HS_TEST_BUILD)
 target_include_directories(srgb_decode_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
-target_compile_options(srgb_decode_gen PRIVATE -Wall -Wextra)
+_hs_warnings(srgb_decode_gen)

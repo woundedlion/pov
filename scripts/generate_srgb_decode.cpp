@@ -72,8 +72,12 @@ int main(int argc, char **argv) {
     return 1;
 
   // Binary mode: the committed header is LF on every host (.gitattributes),
-  // and text mode would emit CRLF on Windows.
+  // and text mode would emit CRLF on Windows. The Windows CRT deprecates fopen
+  // in favour of fopen_s, which no other host provides.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   FILE *f = std::fopen(out_path, "wb");
+#pragma clang diagnostic pop
   if (!f) {
     std::perror(out_path);
     std::printf("FAIL: open %s\n", out_path);
