@@ -170,6 +170,10 @@ inline void test_callable_return_constraints() {
   static_assert(!std::is_constructible_v<Fn<int(int), 16>, ReturnsVoid>);
   static_assert(std::is_constructible_v<Fn<void(int), 16>, ReturnsInt>);
   static_assert(!std::is_assignable_v<Fn<int(int), 16> &, ReturnsIncompatible>);
+  static_assert(
+      !std::is_constructible_v<Fn<int(int), 24>, Fn<int(int), 16>>);
+  static_assert(
+      !std::is_assignable_v<Fn<int(int), 24> &, Fn<int(int), 16>>);
 
   ReturnsInt returns_int;
   FunctionRef<void(int)> borrowed = returns_int;

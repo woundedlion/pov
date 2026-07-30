@@ -32,6 +32,12 @@ class inplace_function; // primary template intentionally undefined
 
 namespace detail {
 
+template <typename T> struct is_inplace_function : std::false_type {};
+
+template <typename Signature, size_t Capacity, size_t Alignment>
+struct is_inplace_function<
+    inplace_function<Signature, Capacity, Alignment>> : std::true_type {};
+
 // Type-erased operation table, one shared instance per captured callable type.
 template <typename R, typename... Args> struct ipf_vtable {
   using invoke_ptr_t = R (*)(void *, Args &&...);
@@ -110,9 +116,6 @@ class inplace_function<R(Args...), Capacity, Alignment> {
   const vtable_t *vtable = empty_vtable();
   alignas(Alignment) mutable unsigned char storage[Capacity];
 
-  template <typename C>
-  using is_self = std::is_same<std::decay_t<C>, inplace_function>;
-
 public:
   // No ctor initializes storage: the empty vtable's copy/move/destroy are
   // no-ops and its invoke traps, so no operation ever reads an empty function's
@@ -129,7 +132,7 @@ public:
    */
   template <typename C,
             typename = std::enable_if_t<
-                !is_self<C>::value &&
+                !detail::is_inplace_function<std::decay_t<C>>::value &&
                 std::is_invocable_r_v<R, std::decay_t<C> &, Args...>>>
   inplace_function(C &&c) {
     using D = std::decay_t<C>;
@@ -190,7 +193,7 @@ public:
   }
   template <typename C,
             typename = std::enable_if_t<
-                !is_self<C>::value &&
+                !detail::is_inplace_function<std::decay_t<C>>::value &&
                 std::is_invocable_r_v<R, std::decay_t<C> &, Args...>>>
   inplace_function &operator=(C &&c) {
     // Build a temporary so the capacity/copyability static_asserts live in one
