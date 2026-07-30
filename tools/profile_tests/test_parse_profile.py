@@ -348,7 +348,7 @@ class ValidateRequiresData(unittest.TestCase):
             f"frame                 {wall_sum} us (100%)   10 calls   {cyc} cyc",
         ])
 
-    def _validate(self, text):
+    def _validate(self, text, scope="frame"):
         import contextlib
         import io
         import tempfile
@@ -357,7 +357,7 @@ class ValidateRequiresData(unittest.TestCase):
             log.write_text(text, encoding="utf-8")
             windows, effect = pp.parse(str(log))
         with contextlib.redirect_stdout(io.StringIO()) as out:
-            ok = pp.cmd_validate(windows, effect, "frame")
+            ok = pp.cmd_validate(windows, effect, scope)
         return ok, out.getvalue()
 
     def test_bare_headers_are_not_valid(self):
@@ -374,6 +374,25 @@ class ValidateRequiresData(unittest.TestCase):
     def test_ppm_drift_is_still_caught(self):
         ok, _ = self._validate(self._measurable(700_000, 1000))
         self.assertFalse(ok)
+
+    def test_scope_selects_the_window_to_validate(self):
+        text = "\n".join([
+            "=== profile Fx [288x144] frames 1-10 window=62500 us ===",
+            "frame wall us: min=100 avg=100 max=100 sum=2000 (10 frames)",
+            "frame                 2000 us (100%)   10 calls   1200000 cyc",
+            "xx_render              100 us (5%)     10 calls   60000 cyc",
+            "=== profile Fx [288x144] frames 11-20 window=62500 us ===",
+            "frame wall us: min=100 avg=100 max=100 sum=1000 (10 frames)",
+            "frame                 1000 us (100%)   10 calls   700000 cyc",
+            "xx_render              900 us (90%)    10 calls   540000 cyc",
+            "=== profile Fx [288x144] frames 21-30 window=62500 us ===",
+            "frame wall us: min=100 avg=100 max=100 sum=1500 (10 frames)",
+            "frame                 1500 us (100%)   10 calls   900000 cyc",
+            "xx_render              200 us (13%)    10 calls   120000 cyc",
+        ])
+        ok, out = self._validate(text, "xx_render")
+        self.assertFalse(ok)
+        self.assertIn("frames 11-20", out)
 
 
 class FramesMode(unittest.TestCase):
