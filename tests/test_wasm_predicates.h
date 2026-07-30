@@ -103,6 +103,48 @@ inline void check_tooling_mesh_ceiling() {
 }
 
 /**
+ * @brief Exercises the per-operator expansion ceiling.
+ */
+inline void check_mesh_op_expansion_ceiling() {
+  constexpr size_t MAX = 65535; // the engine's 16-bit connectivity range
+
+  HS_EXPECT_EQ(hs_wasm::mesh_largest_element_count(8, 6, 24), 24u);
+  HS_EXPECT_EQ(hs_wasm::mesh_largest_element_count(70000, 6, 24), 70000u);
+  HS_EXPECT_EQ(hs_wasm::mesh_largest_element_count(8, 70000, 24), 70000u);
+
+  // A cube is far inside every operator's bound.
+  for (size_t e :
+       {size_t(1), size_t(2), size_t(3), size_t(4), size_t(5), size_t(6)}) {
+    HS_EXPECT_TRUE(!hs_wasm::mesh_op_expansion_over_ceiling(8, 6, 24, e, MAX));
+  }
+
+  // A non-expanding operator (dual, relax) admits a mesh right at the ceiling.
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_expansion_over_ceiling(1, 1, MAX, 1, MAX));
+  HS_EXPECT_TRUE(
+      hs_wasm::mesh_op_expansion_over_ceiling(1, 1, MAX + 1, 1, MAX));
+
+  // The admissible input scales down by the expansion: the same mesh passes at
+  // 3x (kis) and fails at 6x (meta, bevel).
+  HS_EXPECT_TRUE(
+      !hs_wasm::mesh_op_expansion_over_ceiling(1, 1, MAX / 3, 3, MAX));
+  HS_EXPECT_TRUE(
+      hs_wasm::mesh_op_expansion_over_ceiling(1, 1, MAX / 3, 6, MAX));
+  HS_EXPECT_TRUE(
+      !hs_wasm::mesh_op_expansion_over_ceiling(1, 1, MAX / 6, 6, MAX));
+
+  // The bound is per-stage, so it bites one element past MAX / expansion.
+  HS_EXPECT_TRUE(
+      !hs_wasm::mesh_op_expansion_over_ceiling(1, 1, MAX / 5, 5, MAX));
+  HS_EXPECT_TRUE(
+      hs_wasm::mesh_op_expansion_over_ceiling(1, 1, MAX / 5 + 1, 5, MAX));
+
+  // Any of the three counts can be the binding one.
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_expansion_over_ceiling(30000, 6, 24, 4, MAX));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_expansion_over_ceiling(8, 30000, 24, 4, MAX));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_expansion_over_ceiling(8, 6, 30000, 4, MAX));
+}
+
+/**
  * @brief Exercises the Hankin contact-angle domain check.
  */
 inline void check_hankin_angle_domain() {
@@ -168,6 +210,7 @@ inline int run_wasm_predicates_tests() {
   check_relax_clamp();
   check_unit_fraction_clamp();
   check_tooling_mesh_ceiling();
+  check_mesh_op_expansion_ceiling();
   check_hankin_angle_domain();
   check_gradient_shape_clamp();
   check_hsv_key_clamp();
