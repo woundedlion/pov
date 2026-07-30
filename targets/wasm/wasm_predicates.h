@@ -65,15 +65,45 @@ inline bool unit_fraction_out_of_range(float t) { return t < 0.0f || t > 1.0f; }
  * @brief Clamps a [0,1] boundary fraction into range.
  * @param t Requested fraction from the JS boundary.
  * @return t clamped to [0, 1]; a NaN passes through unchanged.
- * @details truncate/bevel/chamfer/snub feed their fraction to an always-on
- *          HS_CHECK, so an out-of-range value from a direct/API caller would
- *          abort the whole module. Callers reject non-finite args first.
+ * @details truncate/bevel feed their fraction to an always-on HS_CHECK, so an
+ *          out-of-range value from a direct/API caller would abort the whole
+ *          module. Callers reject non-finite args first. Operators whose domain
+ *          excludes 1 take clamp_half_open_fraction instead.
  */
 inline float clamp_unit_fraction(float t) {
   if (t < 0.0f)
     return 0.0f;
   if (t > 1.0f)
     return 1.0f;
+  return t;
+}
+
+/// Largest float strictly below 1 — the top of a half-open [0,1) domain.
+inline constexpr float LARGEST_FRACTION_BELOW_ONE = 0x1.fffffep-1f;
+static_assert(LARGEST_FRACTION_BELOW_ONE < 1.0f,
+              "LARGEST_FRACTION_BELOW_ONE must satisfy a t < 1 domain check");
+
+/**
+ * @brief True when a [0,1) boundary fraction falls outside its domain.
+ */
+inline bool half_open_fraction_out_of_range(float t) {
+  return t < 0.0f || t >= 1.0f;
+}
+
+/**
+ * @brief Clamps a boundary fraction into a half-open [0,1) domain.
+ * @param t Requested fraction from the JS boundary.
+ * @return t clamped to [0, LARGEST_FRACTION_BELOW_ONE]; a NaN passes through
+ *         unchanged.
+ * @details chamfer/snub/expand assert `t < 1.0f`, so clamping to 1 would land
+ *          on the trap rather than avoid it. Callers reject non-finite args
+ *          first.
+ */
+inline float clamp_half_open_fraction(float t) {
+  if (t < 0.0f)
+    return 0.0f;
+  if (t >= 1.0f)
+    return LARGEST_FRACTION_BELOW_ONE;
   return t;
 }
 

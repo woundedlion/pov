@@ -75,14 +75,42 @@ inline void check_unit_fraction_clamp() {
   HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(0.5f), 0.5f);
   HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(1.0f), 1.0f);
 
-  // Out-of-range fractions are flagged and saturate, so truncate/bevel/chamfer/
-  // snub cannot trip their always-on HS_CHECK and abort the module.
+  // Out-of-range fractions are flagged and saturate, so truncate/bevel cannot
+  // trip their always-on HS_CHECK and abort the module.
   HS_EXPECT_TRUE(hs_wasm::unit_fraction_out_of_range(-0.001f));
   HS_EXPECT_TRUE(hs_wasm::unit_fraction_out_of_range(1.001f));
   HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(-0.001f), 0.0f);
   HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(1.001f), 1.0f);
   HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(-1e30f), 0.0f);
   HS_EXPECT_EQ(hs_wasm::clamp_unit_fraction(1e30f), 1.0f);
+}
+
+/**
+ * @brief Exercises the [0,1) operator-fraction range check and clamp.
+ */
+inline void check_half_open_fraction_clamp() {
+  // 1 is outside a half-open domain, unlike the inclusive clamp's.
+  HS_EXPECT_TRUE(!hs_wasm::half_open_fraction_out_of_range(0.0f));
+  HS_EXPECT_TRUE(!hs_wasm::half_open_fraction_out_of_range(0.5f));
+  HS_EXPECT_TRUE(hs_wasm::half_open_fraction_out_of_range(1.0f));
+  HS_EXPECT_TRUE(hs_wasm::half_open_fraction_out_of_range(-0.001f));
+  HS_EXPECT_TRUE(hs_wasm::half_open_fraction_out_of_range(1e30f));
+
+  HS_EXPECT_EQ(hs_wasm::clamp_half_open_fraction(0.0f), 0.0f);
+  HS_EXPECT_EQ(hs_wasm::clamp_half_open_fraction(0.5f), 0.5f);
+  HS_EXPECT_EQ(hs_wasm::clamp_half_open_fraction(-0.001f), 0.0f);
+  HS_EXPECT_EQ(hs_wasm::clamp_half_open_fraction(-1e30f), 0.0f);
+
+  // The saturated value is what chamfer/snub/expand assert against: strictly
+  // below 1, and the largest float that is, so the clamp loses no usable range.
+  HS_EXPECT_TRUE(hs_wasm::clamp_half_open_fraction(1.0f) < 1.0f);
+  HS_EXPECT_TRUE(hs_wasm::clamp_half_open_fraction(1e30f) < 1.0f);
+  HS_EXPECT_EQ(hs_wasm::clamp_half_open_fraction(1.0f),
+               hs_wasm::LARGEST_FRACTION_BELOW_ONE);
+  HS_EXPECT_TRUE(hs_wasm::LARGEST_FRACTION_BELOW_ONE > 0.999999f);
+  HS_EXPECT_EQ(
+      hs_wasm::clamp_half_open_fraction(hs_wasm::LARGEST_FRACTION_BELOW_ONE),
+      hs_wasm::LARGEST_FRACTION_BELOW_ONE);
 }
 
 /**
@@ -310,6 +338,7 @@ inline int run_wasm_predicates_tests() {
   check_clip_bounds();
   check_relax_clamp();
   check_unit_fraction_clamp();
+  check_half_open_fraction_clamp();
   check_tooling_mesh_ceiling();
   check_mesh_op_expansion_ceiling();
   check_mesh_op_arena_room();

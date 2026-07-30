@@ -1122,8 +1122,7 @@ public:
  *          (logging when it changed) so a direct/API caller passing a finite
  *          out-of-range value stays within the operator's documented domain —
  *          and, for operators whose fraction reaches an always-on HS_CHECK
- *          (truncate/bevel/chamfer), cannot trip that trap and abort the whole
- *          module.
+ *          (truncate/bevel), cannot trip that trap and abort the whole module.
  */
 #define MESHOP_1U(name, elements, degree, valence)                             \
   std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
@@ -1138,21 +1137,48 @@ public:
                  });                                                           \
   }
 
+/**
+ * @brief Defines a one-float-argument operator whose argument is a [0,1)
+ *        fraction, clamped at the JS boundary.
+ * @param name MeshOps operator name; becomes the generated method name.
+ * @param elements Multiple of the largest input element count (see MESHOP_LIST).
+ * @param degree Multiple of the widest input face's side count.
+ * @param valence Multiple of the highest input vertex valence.
+ * @details Like MESHOP_1U, but these operators assert `t < 1.0f`, so 1 is
+ *          outside the domain and clamping to it would land on the trap instead
+ *          of avoiding it.
+ */
+#define MESHOP_1H(name, elements, degree, valence)                             \
+  std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
+    if (!finite_arg(arg, #name))                                               \
+      return nullptr;                                                          \
+    if (hs_wasm::half_open_fraction_out_of_range(arg))                         \
+      hs::log("WASM: MeshOps::%s clamped %g to [0,1)", #name, arg);            \
+    float t = hs_wasm::clamp_half_open_fraction(arg);                          \
+    return apply({elements, degree, valence},                                  \
+                 [t](const PolyMesh &m, Arena &a, Arena &b) {                  \
+                   return MeshOps::name(m, a, b, t);                           \
+                 });                                                           \
+  }
+
   /**
  * @brief Single source of truth for the Conway/Goldberg operator roster and each
  *        operator's growth factors.
  * @param _OP0  Macro applied to each zero-argument operator.
  * @param _OP1F Macro applied to each one-float-argument operator.
  * @param _OP1U Macro applied to each [0,1]-fraction operator.
- * @details Expanded twice: with MESHOP_0/MESHOP_1F/MESHOP_1U to generate the
+ * @param _OP1H Macro applied to each [0,1)-fraction operator.
+ * @details Expanded twice: with MESHOP_0/MESHOP_1F/MESHOP_1U/MESHOP_1H to
+ *          generate the
  *          wrapper methods (below), and with MESHOP_BIND to generate the embind
  *          .function() bindings (in EMSCRIPTEN_BINDINGS), so an operator cannot
  *          be added to one site and silently left unreachable from the other.
- *          truncate, bevel, and chamfer use _OP1U: each has a documented [0,1]
- *          domain backed by an always-on engine trap.
+ *          Each fraction operator's macro matches the domain its always-on
+ *          engine trap asserts: truncate and bevel accept 1 and use _OP1U;
+ *          chamfer asserts t < 1 and uses _OP1H.
  *          expand takes an unbounded factor, so it stays _OP1F. relax, hankin,
  *          and snub have bespoke signatures/validation (snub takes two float
- *          controls, and clamps its inset to [0,1] for the same trap), so their
+ *          controls, and clamps its inset to [0,1) for the same trap), so their
  *          wrapper methods are hand-written; their names
  *          live in MESHOP_IRREGULAR_LIST below and their bindings expand from
  *          it, so a new irregular op is bound the moment it joins the list.
@@ -1183,23 +1209,25 @@ public:
  *          (topology preserving), hankin {4, 2, 2}, snub {5, 1, 1}.
  */
   // clang-format off
-#define MESHOP_LIST(_OP0, _OP1F, _OP1U)                                         \
+#define MESHOP_LIST(_OP0, _OP1F, _OP1U, _OP1H)                                  \
   _OP0(kis, 3, 0, 0) _OP0(ambo, 2, 1, 1) _OP0(gyro, 5, 1, 1)                    \
   _OP0(dual, 1, 0, 1) _OP0(meta, 6, 1, 1) _OP0(needle, 3, 0, 1)                 \
   _OP0(zip, 3, 1, 2)                                                            \
   _OP1F(expand, 4, 1, 1)                                                        \
-  _OP1U(truncate, 3, 2, 1) _OP1U(bevel, 6, 2, 2) _OP1U(chamfer, 4, 1, 0)
+  _OP1U(truncate, 3, 2, 1) _OP1U(bevel, 6, 2, 2)                                \
+  _OP1H(chamfer, 4, 1, 0)
 // clang-format on
 
 // Irregular ops: hand-written wrapper methods (custom signatures/validation),
 // enumerated here so their embind bindings expand from one list.
 #define MESHOP_IRREGULAR_LIST(_) _(relax) _(hankin) _(snub)
 
-  MESHOP_LIST(MESHOP_0, MESHOP_1F, MESHOP_1U)
+  MESHOP_LIST(MESHOP_0, MESHOP_1F, MESHOP_1U, MESHOP_1H)
 
 #undef MESHOP_0
 #undef MESHOP_1F
 #undef MESHOP_1U
+#undef MESHOP_1H
 
   /**
    * Engine-enforced ceiling on relax smoothing passes: an independent
@@ -1265,7 +1293,7 @@ public:
 
   /**
    * @brief Applies the chiral snub operator with explicit inset and twist.
-   * @param t Inset factor of each face toward its centroid, clamped to [0, 1]
+   * @param t Inset factor of each face toward its centroid, clamped to [0, 1)
    *          (its documented domain) at the JS boundary.
    * @param twist Per-face rotation about the face normal, in radians (0 = none);
    *          unbounded, so only finiteness is checked.
@@ -1279,9 +1307,9 @@ public:
   std::unique_ptr<MeshOpsWrapper> snub(float t, float twist) const {
     if (!finite_arg(t, "snub") || !finite_arg(twist, "snub"))
       return nullptr;
-    if (hs_wasm::unit_fraction_out_of_range(t))
-      hs::log("WASM: MeshOps::snub clamped t=%g to [0,1]", t);
-    float ct = hs_wasm::clamp_unit_fraction(t);
+    if (hs_wasm::half_open_fraction_out_of_range(t))
+      hs::log("WASM: MeshOps::snub clamped t=%g to [0,1)", t);
+    float ct = hs_wasm::clamp_half_open_fraction(t);
     return apply({5, 1, 1}, [ct, twist](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::snub(m, a, b, ct, twist);
     });
@@ -1610,7 +1638,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
 // Variadic so it can take both MESHOP_LIST's (name, expansion) entries and
 // MESHOP_IRREGULAR_LIST's bare names.
 #define MESHOP_BIND(name, ...) .function(#name, &MeshOpsWrapper::name)
-          MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
+          MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
               MESHOP_IRREGULAR_LIST(MESHOP_BIND);
 #undef MESHOP_BIND
 #undef MESHOP_IRREGULAR_LIST
