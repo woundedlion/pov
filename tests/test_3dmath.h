@@ -19,6 +19,8 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <algorithm>
+
 namespace hs_test {
 namespace math3d {
 
@@ -1199,6 +1201,9 @@ inline void test_wrap_index() {
 
 /**
  * @brief Verifies hash01 determinism, range, and seed independence.
+ * @details The sorted-set check is the load-bearing one: a seed that only
+ * permutes the lattice passes pointwise inequality but reproduces the same
+ * multiset of values, so two seeds would be one stream re-indexed.
  */
 inline void test_hash01() {
   HS_EXPECT_EQ(hash01(42u, 7u), hash01(42u, 7u));
@@ -1212,6 +1217,20 @@ inline void test_hash01() {
     if (hash01(i, 1u) != hash01(i, 2u))
       differing++;
   HS_EXPECT_GT(differing, 24);
+
+  // Seeds select streams, not permutations: the value sets must differ.
+  constexpr uint32_t N = 256;
+  const uint32_t pairs[3][2] = {{0u, 1u}, {1u, 2u}, {7u, 8u}};
+  for (const auto &pair : pairs) {
+    float a[N], b[N];
+    for (uint32_t i = 0; i < N; ++i) {
+      a[i] = hash01(i, pair[0]);
+      b[i] = hash01(i, pair[1]);
+    }
+    std::sort(a, a + N);
+    std::sort(b, b + N);
+    HS_EXPECT_TRUE(!std::equal(a, a + N, b));
+  }
 }
 
 /**
