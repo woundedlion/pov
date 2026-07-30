@@ -213,6 +213,22 @@ add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_gamut_lut.cmake)
 set_tests_properties(unit_gamut_lut PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
 
+# Pin hardware/pov_segment_map.json against hardware/pov_segment_map.h. The JSON
+# is the firmware segment->canvas reference the simulator's cross-check (daydream
+# tests/segment_crosscheck.test.js) reads, and the WASM install copies it into the
+# daydream checkout alongside the module. Emitting it from a TU compiled against
+# the header — rather than re-porting the mapping in JS — means a segment
+# convention change here cannot leave the web tiling silently mis-partitioned.
+add_executable(pov_segment_map_gen ${HS_ROOT}/tools/pov_segment_map_export.cpp)
+target_include_directories(pov_segment_map_gen PRIVATE ${HS_ROOT})
+target_compile_options(pov_segment_map_gen PRIVATE -Wall -Wextra)
+_hs_sanitize(pov_segment_map_gen)
+add_test(NAME unit_pov_segment_map_golden COMMAND ${CMAKE_COMMAND}
+    -DEXPORTER=$<TARGET_FILE:pov_segment_map_gen>
+    -DCOMMITTED=${HS_ROOT}/hardware/pov_segment_map.json
+    -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/pov_segment_map.generated.json
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pov_segment_map.cmake)
+
 # The run_tests build sets NO math flags, so its NaN-clamp
 # assertions run under default IEEE semantics where the hs::clamp NaN->hi
 # contract holds trivially — the at-risk codegen the WASM release build actually

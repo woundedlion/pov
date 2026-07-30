@@ -7,3 +7,8 @@ core/color/gamut_lut.h text eol=lf
 core/color/srgb_decode_lut.h text eol=lf
 core/engine/reaction_graph.cpp text eol=lf
 core/mesh/relax_bakes_generated.h text eol=lf
+
+# Same, for the segment-map golden. Its exporter writes to stdout, which picks up
+# CRLF on Windows, and the daydream deploy gate diffs the checked-in bytes against
+# the engine's copy on a Linux runner.
+hardware/pov_segment_map.json text eol=lf
