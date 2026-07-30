@@ -627,7 +627,10 @@ def cmd_validate(windows, effect, scope):
     # Exactness: root cyc/600 vs wall sum for the richest window.
     # Every check above is skip-on-absent, so this one carries the whole
     # certification: without it a capture holding no counters at all is VALID.
-    w = max(windows, key=lambda w: (w.root_us() or 0))
+    scoped = [w for w in windows if scope in w.counters]
+    check(bool(scoped), f"scope '{scope}' appears in at least one window")
+    candidates = scoped or windows
+    w = max(candidates, key=lambda w: (w.per_frame_ms(scope) or 0))
     root = w.counters.get("frame")
     have = bool(root) and bool(w.wall) and w.wall[3] > 0
     check(have, "richest window carries a root 'frame' counter and a wall sum"
