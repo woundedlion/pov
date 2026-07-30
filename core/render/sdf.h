@@ -540,6 +540,40 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
 }
 
 /**
+ * @brief Emit one scanline row of a cap-bounded leaf, padding the cap by one
+ * pixel so the outer AA fringe is scanned.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @tparam RejectFullWidth Drop the row to a full scan when the interval would
+ *         span the whole width.
+ * @tparam OutputIt Sink type invoked as out(float start, float end).
+ * @param sign +1 fills the shape, -1 its complement.
+ * @param cap_radius Angular radius of the bounding cap (radians).
+ * @param ny y-component of the cap axis.
+ * @param R_val Horizontal projection length of the cap axis.
+ * @param alpha_angle Azimuth of the cap axis (radians).
+ * @param y The row index.
+ * @param out Sink accepting (float start, float end).
+ * @return False to request a full-width fallback scan, true if the (possibly
+ *         empty) interval was handled.
+ * @details The complement wraps every row, so sign < 0 always requests the full
+ * scan. Shared by PlanarPolygon / SphericalPolygon / Star.
+ */
+template <int W, int H, bool RejectFullWidth, typename OutputIt>
+inline bool emit_padded_cap_row(float sign, float cap_radius, float ny,
+                                float R_val, float alpha_angle, int y,
+                                OutputIt out) {
+  if (sign < 0.0f)
+    return false;
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
+  float pixel_width = 2.0f * PI_F / W;
+  return emit_cap_interval<W>(cosf(cap_radius + pixel_width), ny, R_val,
+                              alpha_angle, TrigLUT<W, H>::cos_phi[y],
+                              TrigLUT<W, H>::sin_phi[y], RejectFullWidth, out);
+}
+
+/**
  * @brief Map an angular band [phi_min, phi_max] (radians, polar angle) to the
  * inclusive scanline row range it covers, clamped to [0, height-1].
  * @param phi_min Lower polar-angle edge of the band (radians).
@@ -3446,15 +3480,8 @@ struct PlanarPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (sign < 0.0f) // the complement wraps every row
-      return false;
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    // Pad the cap by one pixel so the outer AA fringe is scanned.
-    float pixel_width = 2.0f * PI_F / W;
-    return emit_cap_interval<W>(cosf(thickness + pixel_width), ny, R_val,
-                                alpha_angle, TrigLUT<W, H>::cos_phi[y],
-                                TrigLUT<W, H>::sin_phi[y], false, out);
+    return emit_padded_cap_row<W, H, false>(sign, thickness, ny, R_val,
+                                            alpha_angle, y, out);
   }
 
   /**
@@ -3591,15 +3618,8 @@ struct SphericalPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (sign < 0.0f) // the complement wraps every row
-      return false;
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    // Pad the cap by one pixel so the outer AA fringe is scanned.
-    float pixel_width = 2.0f * PI_F / W;
-    return emit_cap_interval<W>(cosf(circumradius + pixel_width), ny, R_val,
-                                alpha_angle, TrigLUT<W, H>::cos_phi[y],
-                                TrigLUT<W, H>::sin_phi[y], false, out);
+    return emit_padded_cap_row<W, H, false>(sign, circumradius, ny, R_val,
+                                            alpha_angle, y, out);
   }
 
   /**
@@ -3742,20 +3762,13 @@ struct Star {
    * @details Covers the star body, not the AA fringe at the point tips.
    *   distance() folds each sector onto one edge half-plane, whose radial
    *   gradient at a tip is |nx| (0.309 at 5 points, 0.220 at 8), so the ramp
-   *   there spans pixel_width/|nx| radians of cap radius while the interval
-   *   below pads one pixel_width.
+   *   there spans pixel_width/|nx| radians of cap radius while the emitted
+   *   interval pads one pixel_width.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (sign < 0.0f) // the complement wraps every row
-      return false;
-    // Bounding circle; pad the cap by one pixel and reject full-width rows.
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    float pixel_width = 2.0f * PI_F / W;
-    return emit_cap_interval<W>(cosf(thickness + pixel_width), scan_ny, scan_r,
-                                scan_alpha, TrigLUT<W, H>::cos_phi[y],
-                                TrigLUT<W, H>::sin_phi[y], true, out);
+    return emit_padded_cap_row<W, H, true>(sign, thickness, scan_ny, scan_r,
+                                           scan_alpha, y, out);
   }
 
   /**
