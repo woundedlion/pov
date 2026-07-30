@@ -144,6 +144,20 @@ inline void test_helpers() {
   HS_EXPECT_FALSE(dg.valid());
   --dg.gate_cols;
   HS_EXPECT_TRUE(dg.valid());
+
+  // A glitch filter at or above a burst's pulse spacing, less the emitter's
+  // lateness budget, drops every pulse after the first, so all three symbols
+  // would decode as Symbol::HALF. The beacon pitch is the tighter of the two
+  // bounds; the shipped filter clears both. Boundary is exclusive.
+  Config gf = test_config();
+  const uint32_t gf_bound = gf.beacon_pitch_cycles() - gf.late_censor_cycles();
+  HS_EXPECT_TRUE(gf.glitch_filter_cycles < gf_bound);
+  HS_EXPECT_TRUE(gf.glitch_filter_cycles <
+                 gf.pulse_pitch_cycles() - gf.late_censor_cycles());
+  gf.glitch_filter_cycles = gf_bound;
+  HS_EXPECT_FALSE(gf.valid());
+  gf.glitch_filter_cycles = gf_bound - 1;
+  HS_EXPECT_TRUE(gf.valid());
 }
 
 /**
