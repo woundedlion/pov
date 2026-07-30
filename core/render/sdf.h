@@ -1973,6 +1973,11 @@ template <typename Shape> struct AngularRepeat {
    * @param res Output result of the child at the folded point. Note res's UV
    *        registers (t / azimuth) are sector-local: the child sees the folded
    *        point, so t spans one sector and resets at each sector boundary.
+   * @note The folded distance is exact only while the child stays inside one
+   *       sector. A child crossing a sector boundary reports the distance to
+   *       the folded copy rather than to the nearest copy, over-estimating near
+   *       the boundary, so AA bands and any distance-driven cull must keep the
+   *       shape within its sector.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
