@@ -583,11 +583,11 @@ inline void test_row_span_covers_arc_bulge() {
 
     float n_lo, n_hi;
     if (pb != nullptr)
-      Plot::planar_row_span<TW, TH>(
-          a, b, Plot::make_planar_edge_span(a, b, *pb), n_lo, n_hi);
+      Plot::planar_row_span<TH>(a, b, Plot::make_planar_edge_span(a, b, *pb),
+                                n_lo, n_hi);
     else
-      Plot::geodesic_row_span<TW, TH>(a, b, Plot::make_geodesic_edge_span(a, b),
-                                      n_lo, n_hi);
+      Plot::geodesic_row_span<TH>(a, b, Plot::make_geodesic_edge_span(a, b),
+                                  n_lo, n_hi);
 
     // Span must conservatively contain the arc (sub-pixel tolerance for fast-math).
     HS_EXPECT_LE(n_lo, t_lo + 0.25f);
@@ -629,8 +629,8 @@ inline void test_row_span_covers_arc_bulge() {
     }
 
     float n_lo, n_hi;
-    Plot::geodesic_row_span<TW, TH>(a, b, Plot::make_geodesic_edge_span(a, b),
-                                    n_lo, n_hi);
+    Plot::geodesic_row_span<TH>(a, b, Plot::make_geodesic_edge_span(a, b), n_lo,
+                                n_hi);
     HS_EXPECT_LE(n_lo, t_lo + 0.25f);
     HS_EXPECT_GE(n_hi, t_hi - 0.25f);
   }
@@ -913,7 +913,7 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
           sink, cr, xc, band_len, a, b, nullptr);
       const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
       float row_lo, row_hi;
-      Plot::geodesic_row_span<TW, TH>(a, b, es, row_lo, row_hi);
+      Plot::geodesic_row_span<TH>(a, b, es, row_lo, row_hi);
       bool want;
       if (!cr.could_intersect_y(row_lo, row_hi)) {
         want = false;
@@ -948,7 +948,7 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
           sink, cr, xc, band_len, a, b, &basis);
       const Plot::PlanarEdgeSpan ps = Plot::make_planar_edge_span(a, b, basis);
       float row_lo, row_hi;
-      Plot::planar_row_span<TW, TH>(a, b, ps, row_lo, row_hi);
+      Plot::planar_row_span<TH>(a, b, ps, row_lo, row_hi);
       bool want;
       if (!cr.could_intersect_y(row_lo, row_hi)) {
         want = false;
@@ -1315,7 +1315,7 @@ inline void test_raw_geodesic_edge_gate_parity() {
                        const Vector &a, const Vector &b) {
     const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
     float row_lo, row_hi;
-    Plot::geodesic_row_span_rows<W, H>(ra, rb, a, b, es, row_lo, row_hi);
+    Plot::geodesic_row_span_rows<H>(ra, rb, a, b, es, row_lo, row_hi);
     if (!cr.could_intersect_y(row_lo, row_hi))
       return false;
     if (!xc.active)

@@ -502,7 +502,7 @@ template <int H> static inline float y_to_screen_row(float y) {
 
 /**
  * @brief Geodesic screen-row span from precomputed endpoint rows.
- * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam H Rasterization height (pixel grid).
  * @param ra Precomputed y_to_screen_row<H>(a.y).
  * @param rb Precomputed y_to_screen_row<H>(b.y).
  * @param a Edge start (unit sphere point).
@@ -516,7 +516,7 @@ template <int H> static inline float y_to_screen_row(float y) {
  * the exact closed-form y range, so no one-row epsilon. A degenerate setup
  * (no axis) keeps the endpoint rows.
  */
-template <int W, int H>
+template <int H>
 static __attribute__((always_inline)) inline void
 geodesic_row_span_rows(float ra, float rb, const Vector &a, const Vector &b,
                        const GeodesicEdgeSpan &es, float &row_lo,
@@ -540,24 +540,24 @@ geodesic_row_span_rows(float ra, float rb, const Vector &a, const Vector &b,
 
 /**
  * @brief Geodesic screen-row span from a precomputed edge setup.
- * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam H Rasterization height (pixel grid).
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
  * @param es Shared setup from make_geodesic_edge_span(a, b).
  * @param row_lo Output: minimum screen row touched by the edge.
  * @param row_hi Output: maximum screen row touched by the edge.
  */
-template <int W, int H>
+template <int H>
 static inline void geodesic_row_span(const Vector &a, const Vector &b,
                                      const GeodesicEdgeSpan &es, float &row_lo,
                                      float &row_hi) {
-  geodesic_row_span_rows<W, H>(y_to_screen_row<H>(a.y), y_to_screen_row<H>(b.y),
-                               a, b, es, row_lo, row_hi);
+  geodesic_row_span_rows<H>(y_to_screen_row<H>(a.y), y_to_screen_row<H>(b.y), a,
+                            b, es, row_lo, row_hi);
 }
 
 /**
  * @brief Planar screen-row span from a precomputed edge setup.
- * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam H Rasterization height (pixel grid).
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
  * @param es Shared setup from make_planar_edge_span(a, b, basis).
@@ -571,7 +571,7 @@ static inline void geodesic_row_span(const Vector &a, const Vector &b,
  * epsilon absorbs the sub-pixel difference between the unprojected sample
  * (≈unit to fast-math precision) and the renderer's normalized plot position.
  */
-template <int W, int H>
+template <int H>
 static inline void planar_row_span(const Vector &a, const Vector &b,
                                    const PlanarEdgeSpan &es, float &row_lo,
                                    float &row_hi) {
@@ -726,7 +726,7 @@ exact_geodesic_edge_visible(const ClipRegion &cr, const ClipRegion::XClip &xc,
                             const Vector &b, const GeodesicEdgeSpan &es,
                             ColSpanFn &&col_span) {
   float row_lo, row_hi;
-  geodesic_row_span_rows<W, H>(ra, rb, a, b, es, row_lo, row_hi);
+  geodesic_row_span_rows<H>(ra, rb, a, b, es, row_lo, row_hi);
   if (!cr.could_intersect_y(row_lo, row_hi))
     return false;
   if (!xc.active)
@@ -1117,7 +1117,7 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
     float row_lo, row_hi;
     int col_s, col_len;
     const PlanarEdgeSpan ps = make_planar_edge_span(ea, eb, *bp);
-    planar_row_span<W, H>(ea, eb, ps, row_lo, row_hi);
+    planar_row_span<H>(ea, eb, ps, row_lo, row_hi);
     if (!cr.could_intersect_y(row_lo, row_hi))
       return false;
     if (!xc.active)
