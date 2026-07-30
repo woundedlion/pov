@@ -5,15 +5,17 @@ footprint), assigns pad nets by name from the exported netlist, places everythin
 linearly inside a <=35 mm-wide board outline (R-MECH-6), and declares the nets.
 Placement is a rough starting arrangement; route/refine interactively in Pcbnew.
 """
+import argparse
 import os
 import sys
 import sexp
 import fab
-from kicad_common import uid, fmt, F, export_netlist
+from kicad_common import uid, fmt, F, export_netlist, require_writable
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
+PCB_FILE = "phantasm.kicad_pcb"
 FP_DIR = os.environ.get("KICAD_FOOTPRINT_DIR",
                         r"C:\Program Files\KiCad\10.0\share\kicad\footprints")
 KCLI = fab.find_kicad_cli()
@@ -489,7 +491,9 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
     return place
 
 
-def main(unplaced=False):
+def main(unplaced=False, force=False):
+    if not unplaced:
+        require_writable(os.path.join(OUT, PCB_FILE), force)
     nlroot = export_netlist(KCLI, SCH)
     pad_net, netid = build_nets(nlroot)
     paths = build_paths(nlroot)                   # ref -> schematic-symbol path
@@ -520,7 +524,7 @@ def main(unplaced=False):
         NOTE = (f'PHANTASM segment board UNPLACED  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
                 '(width <=35mm); mechanical and signal-integrity placements locked')
     else:
-        OUTFILE = "phantasm.kicad_pcb"
+        OUTFILE = PCB_FILE
         NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm (width <=35mm, R-MECH-6); '
                 'shelf-packed draft, route in Pcbnew')
 
@@ -671,5 +675,16 @@ def main(unplaced=False):
     print(f"wrote {OUTFILE}  footprints:{len(foot_nodes)} nets:{len(netid)} length:{L:.0f}mm")
 
 
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--unplaced", action="store_true",
+                        help="write unplaced/phantasm_unplaced.kicad_pcb for "
+                             "the autoplacer instead")
+    parser.add_argument("--force", action="store_true",
+                        help=f"overwrite the committed, routed {PCB_FILE}")
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
-    main(unplaced="--unplaced" in sys.argv)
+    ARGS = parse_args()
+    main(unplaced=ARGS.unplaced, force=ARGS.force)

@@ -193,8 +193,8 @@ strip/sync `J2`/`J3A`/`J3B` at the far end, R-CON-4). `MASTER_EN` and
 - Critical routing uses at least **0.13 mm trace width** with the JLCPCB
   **4 mil clearance** process limit.
 
-> Routing lives only in `phantasm.kicad_pcb`. **Re-running `gen/pcb.py` overwrites the
-> board and discards routing** — don't regenerate the PCB after this point (or route a copy).
+> Routing lives only in `phantasm.kicad_pcb`. **`gen/pcb.py --force` overwrites the
+> board and discards routing** — without `--force` it refuses while that file exists.
 > Treat `quilter_incremental/` as a historical input snapshot, not as the
 > fabrication board.
 
@@ -258,9 +258,10 @@ three `unplaced/phantasm_unplaced.kicad_*` files together. Run
   accepts them. After promoting the chosen board to `phantasm.kicad_pcb`, run
   `python gen/fab.py`; fabrication output repeats the same via gate.
 
-> `python pcb.py` (no flag) regenerates the placed board and **discards routing** — only
-> rerun it before routing. `--unplaced` writes a *separate* file and never touches
-> `phantasm.kicad_pcb`.
+> `python pcb.py --force` regenerates the placed board and **discards routing**; without
+> `--force` it refuses to touch the committed `phantasm.kicad_pcb`. `--unplaced` writes a
+> *separate* file and needs no flag. `python board.py` guards `phantasm.kicad_sch` the
+> same way.
 
 `gen/sexp.py` is a small S-expression parser/serializer; `gen/builder.py` places
 stock symbols and emits the `.kicad_sch` (placement transform calibrated against
