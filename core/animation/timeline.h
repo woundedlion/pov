@@ -21,8 +21,10 @@
  */
 struct TimelineEvent {
   // Inline storage budget for a type-erased animation: 112 B for device/WASM.
-  // The native test build's std::function is wider, so HS_TEST_BUILD widens the
-  // budget for that build only, leaving the device footprint unchanged.
+  // The 64-bit host inflates every embedded pointer, pushing pointer-bearing
+  // animations past that budget (ColorWipe is 128 B there, 100 B on wasm32), so
+  // HS_TEST_BUILD widens it for that build only, leaving the device footprint
+  // unchanged.
 #ifdef HS_TEST_BUILD
   static constexpr size_t MAX_ANIM_SIZE = 256;
 #else
