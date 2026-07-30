@@ -11,9 +11,9 @@ qualified. The card is **logic-only (~0.15 A)** — each strip draws about 4.3 A
 at N=4 or 2.2 A at N=8, injected **off-board** (spec §2.3), so nothing here
 carries high current.
 
-Contains the **schematic**, the corrected C1 placement/routing, and the completed
-Quilter routing. The main PCB is the fabrication source of truth and has no
-unconnected pads.
+Contains the **schematic**, the corrected `C_IN`, `C_LF`, `C_DEC1/2`, and
+`C_SYNC` placement/routing, and the completed Quilter routing. The main PCB is
+the fabrication source of truth and has no unconnected pads.
 
 ## Files
 
@@ -131,11 +131,12 @@ the netlist is what's verified.
   (R-PWR-11), and `J2` carries **signal only** (DI/CI/SIG_GND, no +5 V). `C_IN`
   (≥100 µF) is the card's only electrolytic and sits on the post-bead `+5V_LOGIC` rail
   (R-PWR-3/6, §10).
-- **Net naming.** Power chain is `J1 → F1 → Q_REV → FB → +5V_LOGIC`; `+5V_RAW` names
-  the F1↔Q_REV node, `+5V_LOGIC` (post-bead) carries C_IN / R_LF / C_DEC / Teensy VIN /
-  U1 Vcc per §10. The strip-return / logic-GND star (§R-SI-2) is a single `GND` net in
-  the schematic — the load-end star tie is a **layout/harness** concern (SIG_GND meets
-  the heavy LED return at the strip GND pin, off-board), not a separate schematic net.
+- **Net naming.** The power chain is `+5V_IN` (J1↔F1), `+5V_RAW` (F1↔Q_REV),
+  `+5V_PROT` (Q_REV↔FB), then `+5V_LOGIC` after the bead. `+5V_LOGIC` carries
+  C_IN / R_LF / C_DEC / Teensy VIN / U1 Vcc per §10. The strip-return /
+  logic-GND star (§R-SI-2) is a single `GND` net in the schematic — the
+  load-end star tie is a **layout/harness** concern (SIG_GND meets the heavy
+  LED return at the strip GND pin, off-board), not a separate schematic net.
 - **Teensy symbol** shows only the **pins this board uses** (VIN, 3V3, GND, D1, D3,
   D5, D11, D13, D21, D22, **D23**); the other ~16 pads are unconnected on this design
   and omitted for readability. Pin **number = the Teensy pad label** (e.g. `11`, `VIN`),
