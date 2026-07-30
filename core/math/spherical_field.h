@@ -60,8 +60,6 @@ public:
    *  south pole. */
   static constexpr int POLE_COUNT = HOffset == 0 ? 2 : 1;
 
-  constexpr int latitude_spacing() const { return spacing; }
-
   constexpr int ring_count() const {
     int count = 1;
     for (int y = 0; y < H - 1; ++count)
