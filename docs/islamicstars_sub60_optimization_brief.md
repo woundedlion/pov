@@ -1,5 +1,10 @@
 # Agent brief — IslamicStars render chain to peak < 60 ms on every shape
 
+**Status: OPEN brief.** Drive the IslamicStars render chain to peak < 60 ms on
+every shape, in both the shipping selective-`-O3` image and the global-`-O3`
+image. The branch layout described under "Where the work lives" predates the
+opchain_morph landing and no longer tracks the tree.
+
 ## Objective
 
 Optimize **IslamicStars** (the opchain_morph version) so that a full 24-shape

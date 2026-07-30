@@ -1,5 +1,9 @@
 # Feedback pole isotropy — analysis & plan
 
+**Status: PLAN — not implemented.** The D1 tangent-warp variant was measured
+and **rejected 2026-07-23**; only the D3 helpers landed (`225f81ee`), opt-in
+with no consumer. Read "Measured outcome" before proposing any variant.
+
 Fix two MeshFeedback pole artifacts — trails pinching toward the poles, and a
 ~4–5 px "lensing" cap under low-frequency noise — so the warp is isotropic over
 the whole sphere, without giving back the GREEN device profile (worst frame

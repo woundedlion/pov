@@ -1,5 +1,9 @@
 # Phantasm ITCM spend ledger: `aeba37b5` → `d4816de0` (2026-07-16 … 07-19)
 
+**Status: CLOSED LEDGER.** Per-commit `.text.itcm` accounting on the phantasm
+image across the window the arena cut opened. The window ends at `d4816de0`;
+later commits are not accounted here.
+
 Complete per-commit accounting of `.text.itcm` on the phantasm image across the
 window that opened when the arena cut (`aeba37b5`) freed a 32 KiB FlexRAM bank
 for ITCM `-O3` promotions.

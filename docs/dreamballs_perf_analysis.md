@@ -1,5 +1,9 @@
 # DreamBalls deep perf analysis — device phase split, M7 codegen audit, and lever outcomes (2026-07-20)
 
+**Status: COMPLETE 2026-07-20.** Two levers landed, five were killed or
+blocked, each with a measurement. What remains is a coverage decision, not a
+codegen one — see "Still the binding constraint".
+
 Companion to the 2026-07-20 profile pair
 (`docs/profiles/shipping|O3/profile_dreamballs_teensy_2026-07-20.md`), which
 concluded from an -Os-vs-O3 twin that DreamBalls is coverage-bound and "the way
