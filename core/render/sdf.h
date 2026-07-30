@@ -934,13 +934,11 @@ struct DistortedRing {
    *           tangent chart), so steep or sharply curved segments render at
    *           full stroke width with no slope approximation.
    * @param n Number of knot cells; at least 1.
-   * @param md Maximum magnitude of the knots (radians); same true-upper-bound
-   *           precondition as the ScalarFn overload.
    * @param ph Azimuth phase offset (radians).
    */
   DistortedRing(const Basis &b, float r, float th, const float *kn, int n,
-                float md, float ph)
-      : DistortedRing(b, r, th, ScalarFn{}, md, ph) {
+                float ph)
+      : DistortedRing(b, r, th, ScalarFn{}, 0.0f, ph) {
     knots = kn;
     lut_n = n;
     float min_shift = kn[0];

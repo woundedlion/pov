@@ -249,7 +249,6 @@ private:
       float *slut = shift_pool + n_slots * (W + 1);
       Pixel *hlut = hue_pool + n_slots * (W + 1);
 
-      float ring_bound = 0.0f;
       int lut_n;
       if (band + noise_bound <= 0.0f) {
         // Flat rings take the zero-knot LUT path even under -Os: the fused
@@ -372,7 +371,6 @@ private:
                          ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
               float s = ball_field(p, ball_local, n_local, theta) +
                         noise_field.field(p);
-              ring_bound = std::max(ring_bound, std::fabs(s));
               slut[x] = s;
               hlut[x] = hue_for_shift(s);
               float next_cos = cos_a * cos_d - sin_a * sin_d;
@@ -394,8 +392,9 @@ private:
         hlut[lut_n] = hlut[0];
       }
 
-      ::new (static_cast<void *>(shapes + n_slots)) SDF::DistortedRing(
-          basis, radius, params.thickness, slut, lut_n, ring_bound, 0.0f);
+      ::new (static_cast<void *>(shapes + n_slots))
+          SDF::DistortedRing(basis, radius, params.thickness, slut, lut_n,
+                             0.0f);
       slot_lut_n[n_slots] = lut_n;
       slot_frag_alpha[n_slots] = ring_color.alpha * opacity * params.alpha;
       slot_by_ring[i] = static_cast<int8_t>(n_slots);

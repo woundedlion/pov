@@ -286,7 +286,7 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
       {
         Canvas canvas(legacy);
         Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis, 1.7f, 0.12f,
-                                        knots, LUT_N, 0.0f, shader);
+                                        knots, LUT_N, shader);
       }
       legacy.advance_display();
       for (int y = 0; y < H; ++y)
@@ -429,7 +429,6 @@ inline void test_ring_group_matches_sequential() {
 inline void test_distorted_ring_stack_matches_sequential() {
   constexpr int W = 96, H = 64;
   constexpr int N_RINGS = 5, LUT_N = 32;
-  constexpr float AMPLITUDE = 0.1f;
 
   const float ths[N_RINGS] = {0.07f, 0.05f, 0.09f, 0.05f, 0.07f};
   const Color4 colors[N_RINGS] = {Color4(Pixel(60000, 0, 5000), 0.9f),
@@ -465,8 +464,8 @@ inline void test_distorted_ring_stack_matches_sequential() {
         slot_by_ring[i] = -1;
         continue;
       }
-      new (&shapes[n_slots]) SDF::DistortedRing(
-          basis, ring_radius(i), ths[i], knots[i], LUT_N, AMPLITUDE, 0.0f);
+      new (&shapes[n_slots]) SDF::DistortedRing(basis, ring_radius(i), ths[i],
+                                                knots[i], LUT_N, 0.0f);
       slot_color[n_slots] = colors[i];
       slot_by_ring[i] = static_cast<int8_t>(n_slots);
       ++n_slots;
@@ -495,7 +494,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
           auto shader = [&](const Vector &, Fragment &f) { shade(s, f); };
           Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis,
                                           ring_radius(i), ths[i], knots[i],
-                                          LUT_N, AMPLITUDE, shader, 0.0f, false,
+                                          LUT_N, shader, 0.0f, false,
                                           /*suppress_pole_fill=*/true);
         }
       }
