@@ -177,10 +177,34 @@ inline void test_longitude_filter_and_sampler_wrap_poles() {
     for (int x = 0; x < W; ++x)
       rgb[y * W + x] = Rgb(y * 100 + x, y * 100 + x + 1, y * 100 + x + 2);
   float r, g, b;
-  layout.sample_bilinear_rgb(rgb.data(), Rgb(-1, -1, -1), 7.0f, -1.0f, r, g, b);
+  const Rgb poles[]{Rgb(-1, -1, -1)};
+  layout.sample_bilinear_rgb(rgb.data(), poles, 7.0f, -1.0f, r, g, b);
   HS_EXPECT_EQ(r, 100 + 7 + W / 2);
   HS_EXPECT_EQ(g, 101 + 7 + W / 2);
   HS_EXPECT_EQ(b, 102 + 7 + W / 2);
+}
+
+inline void test_sampler_collapses_south_pole_without_virtual_rows() {
+  constexpr int W = 64;
+  constexpr int H = 34;
+  constexpr hs::SphericalFieldLayout<W, H, 0> layout(4, 4, 4, W / 4);
+  std::array<Rgb, W * H> rgb{};
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      rgb[y * W + x] = Rgb(y * 100 + x, y * 100 + x + 1, y * 100 + x + 2);
+  const Rgb poles[]{Rgb(-1, -1, -1), Rgb(7000, 7001, 7002)};
+  static_assert(decltype(layout)::POLE_COUNT == 2);
+  float r, g, b;
+  layout.sample_bilinear_rgb(rgb.data(), poles, 7.0f, static_cast<float>(H - 1),
+                             r, g, b);
+  HS_EXPECT_EQ(r, poles[1].r);
+  HS_EXPECT_EQ(g, poles[1].g);
+  HS_EXPECT_EQ(b, poles[1].b);
+
+  // The row above the pole still loads its own samples.
+  layout.sample_bilinear_rgb(rgb.data(), poles, 7.0f, static_cast<float>(H - 2),
+                             r, g, b);
+  HS_EXPECT_EQ(r, (H - 2) * 100 + 7);
 }
 
 inline void test_sampler_wraps_south_pole_with_virtual_rows() {
@@ -222,6 +246,7 @@ inline int run_spherical_field_tests() {
   test_longitude_filter_tracks_spherical_width();
   test_longitude_filter_and_sampler_wrap_poles();
   test_sampler_wraps_south_pole_with_virtual_rows();
+  test_sampler_collapses_south_pole_without_virtual_rows();
   return fixture.result();
 }
 

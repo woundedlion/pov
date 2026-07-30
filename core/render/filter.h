@@ -1942,7 +1942,10 @@ private:
     constexpr float HALF_WRAP_PERIOD = WRAP_PERIOD * 0.5f;
     const ::Pixel *previous = cv.prev_data();
     ::Pixel *current = cv.data();
-    const ::Pixel north_pole = select_north_pole_sample(previous);
+    ::Pixel poles[SphereField::POLE_COUNT];
+    poles[0] = select_pole_sample(previous);
+    if constexpr (SphereField::POLE_COUNT == 2)
+      poles[1] = select_pole_sample(previous + (H - 1) * W);
     const ColumnRuns runs = make_column_runs(band.x_clip);
     int field_y0 = band.field_y_begin;
     int field_y1 = field_y0 + (field_y0 < grid.field_rows - 1 ? 1 : 0);
@@ -1953,8 +1956,12 @@ private:
       constexpr bool PAIR_PIXELS = decltype(pair_pixels)::value;
       for (int y = row_begin; y < row_end; ++y) {
         const int row = y * W;
-        const bool filter_output = !band.x_clip.active && y > 0 &&
-                                   y < downsample &&
+        // The infill bands are dense on both sides, but the southern one backs
+        // a pole only when H_OFFSET is 0; the device's last row is mid-latitude.
+        bool infill_band = y > 0 && y < downsample;
+        if constexpr (hs::H_OFFSET == 0)
+          infill_band = infill_band || (y >= H - downsample && y < H - 1);
+        const bool filter_output = !band.x_clip.active && infill_band &&
                                    grid.field.longitude_filter_width(y) > 1;
         const bool defer_filter = filter_output && !opaque;
         ::Pixel *output = defer_filter ? filtered_row : current + row;
@@ -2029,9 +2036,9 @@ private:
                 float sr0, sg0, sb0, sr1, sg1, sb1;
                 {
                   HS_PROFILE_DEEP(fb_comp_sample);
-                  sample_bilinear_prev(grid.field, previous, north_pole,
-                                       x + ddx0, y + ddy0, sr0, sg0, sb0);
-                  sample_bilinear_prev(grid.field, previous, north_pole,
+                  sample_bilinear_prev(grid.field, previous, poles, x + ddx0,
+                                       y + ddy0, sr0, sg0, sb0);
+                  sample_bilinear_prev(grid.field, previous, poles,
                                        x + 1 + ddx1, y + ddy1, sr1, sg1, sb1);
                 }
                 ::Pixel p0(0, 0, 0), p1(0, 0, 0);
@@ -2070,7 +2077,7 @@ private:
             float sr, sg, sb;
             {
               HS_PROFILE_DEEP(fb_comp_sample);
-              sample_bilinear_prev(grid.field, previous, north_pole, x + ddx,
+              sample_bilinear_prev(grid.field, previous, poles, x + ddx,
                                    y + ddy, sr, sg, sb);
             }
             ::Pixel p(0, 0, 0);
@@ -2208,14 +2215,15 @@ private:
   }
 
   /**
-   * @brief Chooses one color for the longitude-aliased north-pole row.
+   * @brief Chooses one color for a longitude-aliased pole row.
+   * @param pole_row Base of the pole row in the previous frame.
    */
-  HS_O3_FN static ::Pixel select_north_pole_sample(const ::Pixel *prev) {
-    ::Pixel selected = prev[0];
+  HS_O3_FN static ::Pixel select_pole_sample(const ::Pixel *pole_row) {
+    ::Pixel selected = pole_row[0];
     uint32_t selected_energy =
         static_cast<uint32_t>(selected.r) + selected.g + selected.b;
     for (int x = 1; x < W; ++x) {
-      const ::Pixel candidate = prev[x];
+      const ::Pixel candidate = pole_row[x];
       const uint32_t energy =
           static_cast<uint32_t>(candidate.r) + candidate.g + candidate.b;
       if (energy > selected_energy) {
@@ -2230,7 +2238,7 @@ private:
    * @brief Bilinearly samples the Canvas front buffer (previous frame).
    * @param field Spherical topology and interpolation policy.
    * @param prev Base of the previous-frame buffer, row-major with stride W.
-   * @param north_pole Shared value for every aliased column of row zero.
+   * @param poles Shared values for every aliased column of the pole rows.
    * @param bx Fractional column in [-W, 2W).
    * @param by Fractional row; north crossings reflect with a half-turn.
    * @param r Out: interpolated red on the [0, 65535] scale, unquantized.
@@ -2239,9 +2247,9 @@ private:
    */
   HS_O3_FN
   void sample_bilinear_prev(const SphereField &field, const ::Pixel *prev,
-                            const ::Pixel &north_pole, float bx, float by,
-                            float &r, float &g, float &b) const {
-    field.sample_bilinear_rgb(prev, north_pole, bx, by, r, g, b);
+                            const ::Pixel *poles, float bx, float by, float &r,
+                            float &g, float &b) const {
+    field.sample_bilinear_rgb(prev, poles, bx, by, r, g, b);
   }
 
   /** @brief Quantizes an unclamped [0, 65535]-scale channel to a Pixel

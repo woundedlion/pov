@@ -1274,7 +1274,50 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
 }
 
 /**
+ * @brief Verifies the aliased south-pole row retains a lone physical sample.
+ * @details Row H-1 is the south pole only when hs::H_OFFSET is 0, so the
+ *          collapse is host/WASM-only; the device's last row is mid-latitude.
+ */
+inline void test_feedback_south_pole_uses_single_physical_sample() {
+  if constexpr (hs::H_OFFSET == 0) {
+    constexpr int W = 32, H = 16;
+    constexpr Pixel POLE(12000, 30000, 50000);
+    hs_test::StubEffect fx(W, H);
+
+    ::Feedback::Style style{};
+    style.noise = nullptr; // unbound noise_warp is the identity
+    style.fade = 1.0f;
+    style.downsample = 4;
+    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+        Filter::Pixel::Feedback<W, H>(style)};
+    auto trail = [](float, float, float) {
+      return Color4(Pixel(0, 0, 0), 0.0f);
+    };
+
+    {
+      Canvas c(fx);
+      c(W / 3, H - 1) = POLE;
+    }
+    fx.advance_display();
+    {
+      Canvas c(fx);
+      pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    }
+    fx.advance_display();
+
+    for (int x = 0; x < W; ++x)
+      HS_EXPECT_TRUE(fx.get_pixel(x, H - 1) == POLE);
+    for (int x = 0; x < W; ++x)
+      HS_EXPECT_TRUE(px_black(fx.get_pixel(x, H - 2)));
+  }
+}
+
+/**
  * @brief Verifies polar reconstruction suppresses longitude aliasing.
+ * @details Rows 1 and H-2 sit in the dense infill bands and reconstruct at
+ *          their spherical footprint; rows 4 and H-5 have a one-pixel footprint
+ *          and pass the stripe through. The southern half only holds when
+ *          hs::H_OFFSET is 0, where row H-1 is a pole.
  */
 inline void test_feedback_polar_rows_use_spherical_footprint() {
   constexpr int W = 64, H = 34;
@@ -1294,6 +1337,8 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
       const Pixel stripe((x & 1) ? 60000 : 0, 0, 0);
       c(x, 1) = stripe;
       c(x, 4) = stripe;
+      c(x, H - 2) = stripe;
+      c(x, H - 5) = stripe;
     }
   }
   fx.advance_display();
@@ -1303,19 +1348,32 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
   }
   fx.advance_display();
 
-  uint16_t polar_min = 65535;
-  uint16_t polar_max = 0;
-  for (int x = 0; x < W; ++x) {
-    const uint16_t value = fx.get_pixel(x, 1).r;
-    polar_min = std::min(polar_min, value);
-    polar_max = std::max(polar_max, value);
-    if (x & 1)
-      HS_EXPECT_GT(fx.get_pixel(x, 4).r, 58000);
-    else
-      HS_EXPECT_LT(fx.get_pixel(x, 4).r, 2000);
+  auto expect_reconstructed = [&](int y) {
+    uint16_t polar_min = 65535;
+    uint16_t polar_max = 0;
+    for (int x = 0; x < W; ++x) {
+      const uint16_t value = fx.get_pixel(x, y).r;
+      polar_min = std::min(polar_min, value);
+      polar_max = std::max(polar_max, value);
+    }
+    HS_EXPECT_GT(polar_min, 25000);
+    HS_EXPECT_LT(polar_max, 35000);
+  };
+  auto expect_stripe = [&](int y) {
+    for (int x = 0; x < W; ++x) {
+      if (x & 1)
+        HS_EXPECT_GT(fx.get_pixel(x, y).r, 58000);
+      else
+        HS_EXPECT_LT(fx.get_pixel(x, y).r, 2000);
+    }
+  };
+
+  expect_reconstructed(1);
+  expect_stripe(4);
+  if constexpr (hs::H_OFFSET == 0) {
+    expect_reconstructed(H - 2);
+    expect_stripe(H - 5);
   }
-  HS_EXPECT_GT(polar_min, 25000);
-  HS_EXPECT_LT(polar_max, 35000);
 }
 
 /**
@@ -2720,6 +2778,7 @@ inline int run_filter_tests() {
   test_direct_antialias_sink_framebuffer_parity();
   test_feedback_flush_blends_prev_frame();
   test_feedback_north_pole_uses_single_physical_sample();
+  test_feedback_south_pole_uses_single_physical_sample();
   test_feedback_polar_rows_use_spherical_footprint();
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();

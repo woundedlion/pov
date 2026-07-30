@@ -55,6 +55,11 @@ public:
     HS_CHECK(spacing > 0, "SphericalFieldLayout: spacing must be > 0");
   }
 
+  /** @brief Rows that alias a whole longitude range onto one physical point:
+   *  row 0 always, plus row H-1 when no virtual rows separate it from the
+   *  south pole. */
+  static constexpr int POLE_COUNT = HOffset == 0 ? 2 : 1;
+
   constexpr int latitude_spacing() const { return spacing; }
 
   constexpr int ring_count() const {
@@ -212,7 +217,8 @@ public:
   /**
    * @brief Bilinearly samples a row-major three-channel field.
    * @param source Dense W-by-H source field.
-   * @param north_pole Shared value for the longitude-aliased north pole.
+   * @param poles POLE_COUNT shared values for the longitude-aliased pole rows:
+   *   [0] for row 0, [1] for row H-1 where that row is the south pole.
    * @param x Fractional longitude in [-W, 2W).
    * @param y Fractional latitude row.
    * @param r Out: interpolated red channel.
@@ -221,8 +227,8 @@ public:
    */
   template <typename Pixel>
   __attribute__((always_inline)) void
-  sample_bilinear_rgb(const Pixel *source, const Pixel &north_pole, float x,
-                      float y, float &r, float &g, float &b) const {
+  sample_bilinear_rgb(const Pixel *source, const Pixel *poles, float x, float y,
+                      float &r, float &g, float &b) const {
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
     int x0 = static_cast<int>(floor_x);
@@ -233,8 +239,11 @@ public:
     x0 = ::fast_wrap(x0, W);
     const int x1 = x0 + 1 < W ? x0 + 1 : 0;
 
+    // Row H-1 is the south pole only when HOffset is 0; it then leaves the
+    // direct-load band so the pole substitution reaches it.
+    constexpr int LAST_DIRECT_ROW = POLE_COUNT == 2 ? H - 3 : H - 2;
     Pixel p00, p10, p01, p11;
-    if (y0 > 0 && y0 + 1 < H) {
+    if (y0 > 0 && y0 <= LAST_DIRECT_ROW) {
       p00 = source[y0 * W + x0];
       p10 = source[y0 * W + x1];
       p01 = source[(y0 + 1) * W + x0];
@@ -243,7 +252,13 @@ public:
       auto tap = [&](int sample_x, int sample_y) {
         if (!wrap_sample(sample_x, sample_y))
           return Pixel(0, 0, 0);
-        return sample_y == 0 ? north_pole : source[sample_y * W + sample_x];
+        if (sample_y == 0)
+          return poles[0];
+        if constexpr (POLE_COUNT == 2) {
+          if (sample_y == H - 1)
+            return poles[1];
+        }
+        return source[sample_y * W + sample_x];
       };
       p00 = tap(x0, y0);
       p10 = tap(x1, y0);
