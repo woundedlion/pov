@@ -328,15 +328,17 @@ def _rotatable(ref, bb):
 
 # Through-hole connectors are pinned to the board ends (not skyline-packed) so the
 # mating cables are accessible at the edge, per the spec's signal flow: power/debug
-# at the hub end, strip + sync daisy at the far end (R-CON-4). Each is stood with its
-# pin-row across the width (rot 0 for these 1xN vertical headers), so it hugs the end
-# edge and adds almost no length. (v1 opposite-edge split — best SI; the one-edge
-# variant crowds the narrow edge and lengthens the fast nets.)
+# at the hub end, strip + sync daisy at the far end (R-CON-4). Each 0.1in header is
+# stood with its pin-row across the width (rot 0 for these 1xN vertical headers), so it
+# hugs the end edge and adds almost no length. (v1 opposite-edge split — best SI; the
+# one-edge variant crowds the narrow edge and lengthens the fast nets.)
 HUB_CONNS = ("J1", "J4")            # logic power in, debug — hub end (left)
 FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
 
 QUILTER_FIXED = {
-    "J1": (8.5, 18.8, 0),
+    # J1's JST XA body runs along the length; it sits in the hub pocket between
+    # the USB approach corridor and J4, clear of the Teensy courtyard.
+    "J1": (3.9, 21.2, 0),
     "J4": (8.5, 28.5, 90),
     "J2": (49.8, 2.77, 0),
     "J3A": (49.8, 11.7, 0),

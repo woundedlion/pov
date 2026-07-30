@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -243,6 +244,42 @@ class AssemblyMetadataTests(unittest.TestCase):
                 f"{self.ref}: centroid row is missing",
             ),
         )
+
+
+class AssemblyPolicyTests(unittest.TestCase):
+    """JLC reflows top-side SMD only; every hand-soldered part stays out."""
+
+    def component(self, footprint, value="", dnp=False):
+        return {"footprint": footprint, "value": value, "dnp": dnp}
+
+    def test_excludes_hand_soldered_packages(self):
+        for footprint in (
+                "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+                "Connector_JST:JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical",
+                "Jumper:SolderJumper-2_P1.3mm_Open_TrianglePad1.0x1.5mm",
+                "Capacitor_THT:CP_Radial_D8.0mm_P3.50mm"):
+            with self.subTest(footprint=footprint):
+                self.assertFalse(fab.is_assembled(self.component(footprint)))
+
+    def test_excludes_teensy_module(self):
+        self.assertFalse(fab.is_assembled(self.component("", "Teensy4.0")))
+
+    def test_includes_top_side_smd(self):
+        for footprint in ("Package_TO_SOT_SMD:SOT-23",
+                          "Resistor_SMD:R_0603_1608Metric",
+                          "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm"):
+            with self.subTest(footprint=footprint):
+                self.assertTrue(fab.is_assembled(self.component(footprint)))
+
+    def test_excludes_dnp(self):
+        self.assertFalse(fab.is_assembled(
+            self.component("Resistor_SMD:R_0603_1608Metric", dnp=True)))
+
+    def test_excludes_the_j1_footprint_the_schematic_generator_emits(self):
+        source = (GEN / "board.py").read_text(encoding="utf-8")
+        match = re.search(r'"J1".*?fp="([^"]+)"', source, re.DOTALL)
+        self.assertIsNotNone(match, "board.py assigns J1 no footprint")
+        self.assertFalse(fab.is_assembled(self.component(match.group(1))))
 
 
 class SchematicParityTests(unittest.TestCase):
