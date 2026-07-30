@@ -348,6 +348,23 @@ public:
  * dividing. */
 constexpr float FIELD_DOMINANT_DEN_EPS = 1e-9f;
 
+/** @brief Accumulates a magnitude-weighted blend of scalar fields. */
+struct DominantFieldAccumulator {
+  void add(float field) {
+    numerator += field * field * field;
+    denominator += field * field;
+  }
+
+  float value() const {
+    return denominator > FIELD_DOMINANT_DEN_EPS ? numerator / denominator
+                                                : 0.0f;
+  }
+
+private:
+  float numerator = 0.0f;
+  float denominator = 0.0f;
+};
+
 /**
  * @brief A generic manager for animation-driven scalar displacement fields.
  * @tparam ParamsT The configuration struct (e.g., BumpParams).
@@ -400,14 +417,12 @@ public:
    * opposite-signed overlaps cancel smoothly.
    */
   float field_dominant(const Vector &p) const {
-    float num = 0.0f;
-    float den = 0.0f;
+    DominantFieldAccumulator accumulator;
     for (int k = 0; k < this->active_slot_count; ++k) {
       float f = FieldFunc(p, this->entities[this->active_slots[k]].params);
-      num += f * f * f;
-      den += f * f;
+      accumulator.add(f);
     }
-    return den > FIELD_DOMINANT_DEN_EPS ? num / den : 0.0f;
+    return accumulator.value();
   }
 
   /**
@@ -420,14 +435,12 @@ public:
    * do not move the blend), so callers can prefilter with per-entity bounds.
    */
   float field_dominant(const Vector &p, const int *ks, int n) const {
-    float num = 0.0f;
-    float den = 0.0f;
+    DominantFieldAccumulator accumulator;
     for (int j = 0; j < n; ++j) {
       float f = FieldFunc(p, this->active_params(ks[j]));
-      num += f * f * f;
-      den += f * f;
+      accumulator.add(f);
     }
-    return den > FIELD_DOMINANT_DEN_EPS ? num / den : 0.0f;
+    return accumulator.value();
   }
 
   /**

@@ -169,16 +169,14 @@ public:
 private:
   /** @brief Evaluates the active ball fields using cached ring geometry. */
   float ball_field(const Vector &p, const int *ks, int n, float theta) const {
-    float num = 0.0f;
-    float den = 0.0f;
+    DominantFieldAccumulator accumulator;
     for (int j = 0; j < n; ++j) {
       const int k = ks[j];
       float f =
           bump_field_with_y(p, balls.active_params(k), theta - solid_colat[k]);
-      num += f * f * f;
-      den += f * f;
+      accumulator.add(f);
     }
-    return den > 1e-9f ? num / den : 0.0f;
+    return accumulator.value();
   }
 
   /**
