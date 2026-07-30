@@ -346,17 +346,28 @@ public:
   HS_O3_FN Vector operator()(const Vector &v) const { return transform(v); }
 };
 
-/** @brief Denominator floor below which field_dominant() reports 0 instead of
- * dividing. */
+/** @brief Denominator floor below which DominantFieldAccumulator::value()
+ * reports 0 instead of dividing. */
 constexpr float FIELD_DOMINANT_DEN_EPS = 1e-9f;
 
-/** @brief Accumulates a magnitude-weighted blend of scalar fields. */
+/**
+ * @brief Accumulates a magnitude-weighted blend of scalar fields: the strongest
+ * contribution dominates without stacking.
+ * @details Use instead of summation when overlapping entities must not add
+ * (e.g. solid bodies displacing a shared sheet). Unlike a hard max by
+ * magnitude — which jumps discontinuously where opposite-signed fields cross in
+ * strength — the blend is continuous everywhere: a single field passes through
+ * exactly, equal same-signed overlaps yield the shared value, and
+ * opposite-signed overlaps cancel smoothly.
+ */
 struct DominantFieldAccumulator {
+  /** @brief Folds one field sample into the blend. */
   void add(float field) {
     numerator += field * field * field;
     denominator += field * field;
   }
 
+  /** @brief The blend so far: sum(s_i^3) / sum(s_i^2); 0 with nothing added. */
   float value() const {
     return denominator > FIELD_DOMINANT_DEN_EPS ? numerator / denominator
                                                 : 0.0f;
@@ -405,45 +416,6 @@ public:
    * @return The superposed field value.
    */
   float operator()(const Vector &p) const { return field(p); }
-
-  /**
-   * @brief Magnitude-weighted blend of the active entities' fields: the
-   * strongest contribution dominates without stacking.
-   * @param p Sample point (unit vector).
-   * @return sum(s_i^3) / sum(s_i^2); 0 with no active entities.
-   * @details Use instead of field() when overlapping entities must not add
-   * (e.g. solid bodies displacing a shared sheet). Unlike a hard max by
-   * magnitude — which jumps discontinuously where opposite-signed fields cross
-   * in strength — the blend is continuous everywhere: a single entity passes
-   * through exactly, equal same-signed overlaps yield the shared value, and
-   * opposite-signed overlaps cancel smoothly.
-   */
-  float field_dominant(const Vector &p) const {
-    DominantFieldAccumulator accumulator;
-    for (int k = 0; k < this->active_slot_count; ++k) {
-      float f = FieldFunc(p, this->entities[this->active_slots[k]].params);
-      accumulator.add(f);
-    }
-    return accumulator.value();
-  }
-
-  /**
-   * @brief field_dominant() restricted to a subset of the active entities.
-   * @param p Sample point (unit vector).
-   * @param ks Active indices (as accepted by active_params()).
-   * @param n Number of indices.
-   * @return sum(s_i^3) / sum(s_i^2) over the subset; 0 when empty.
-   * @details Exact when every excluded entity's field is 0 at @p p (zero terms
-   * do not move the blend), so callers can prefilter with per-entity bounds.
-   */
-  float field_dominant(const Vector &p, const int *ks, int n) const {
-    DominantFieldAccumulator accumulator;
-    for (int j = 0; j < n; ++j) {
-      float f = FieldFunc(p, this->active_params(ks[j]));
-      accumulator.add(f);
-    }
-    return accumulator.value();
-  }
 
   /**
    * @brief Upper bound on |field()| over the sphere this frame.
