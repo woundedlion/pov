@@ -53,11 +53,11 @@ public:
    */
   void init() override {
     hue_table = persistent_arena.allocate_n<Pixel>(HUE_TABLE_SIZE + 1);
-    solid_colat = persistent_arena.allocate_n<float>(SOLID_MAX);
-    solid_reach = persistent_arena.allocate_n<float>(SOLID_MAX);
-    solid_scale = persistent_arena.allocate_n<float>(SOLID_MAX);
-    solid_params = persistent_arena.allocate_n<const BumpParams *>(SOLID_MAX);
-    solid_local = persistent_arena.allocate_n<int>(SOLID_MAX);
+    ball_colat = persistent_arena.allocate_n<float>(MAX_BALLS);
+    ball_reach = persistent_arena.allocate_n<float>(MAX_BALLS);
+    ball_scale = persistent_arena.allocate_n<float>(MAX_BALLS);
+    ball_params = persistent_arena.allocate_n<const BumpParams *>(MAX_BALLS);
+    ball_local = persistent_arena.allocate_n<int>(MAX_BALLS);
     shift_pool = persistent_arena.allocate_n<float>(RING_SLOTS * (W + 1));
     hue_pool = persistent_arena.allocate_n<Pixel>(RING_SLOTS * (W + 1));
     slot_frag_alpha = persistent_arena.allocate_n<float>(RING_SLOTS);
@@ -93,7 +93,7 @@ public:
 
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
-                          this->draw_fn(canvas, opacity);
+                          this->draw_rings(canvas, opacity);
                         },
                         -1, 24, ease_linear, 0, ease_linear));
 
@@ -159,36 +159,26 @@ public:
     }
   }
 
-  /**
-   * @brief Draws all rings for this frame, over whichever solid-body pool is
-   * active.
-   * @param canvas Render target for the ring fragments.
-   * @param opacity Sprite's animated fade in [0, 1], multiplied into each
-   * fragment's alpha.
-   * @details The shared per-ring machinery runs over the active ball pool.
-   */
-  void draw_fn(Canvas &canvas, float opacity) { draw_rings(canvas, opacity); }
-
 private:
   /** @brief Evaluates the active ball fields using cached ring geometry. */
   float ball_field(const Vector &p, const int *ks, int n, float theta) const {
     DominantFieldAccumulator accumulator;
     for (int j = 0; j < n; ++j) {
       const int k = ks[j];
-      float f = bump_field_with_y(p, *solid_params[k], theta - solid_colat[k]);
+      float f = bump_field_with_y(p, *ball_params[k], theta - ball_colat[k]);
       accumulator.add(f);
     }
     return accumulator.value();
   }
 
   /**
-   * @brief Bakes every ring over one solid-body pool, then rasterizes the
+   * @brief Bakes every ring over the active ball pool, then rasterizes the
    * stack in one fused scan.
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite fade multiplied into each fragment's alpha.
    * @details Per ring, the displacement stack is baked per azimuth column into
    * a pooled slot: the centerline shift knots together with the hue-rotated
-   * ring color. The bake evaluates only the bodies whose support can reach the
+   * ring color. The bake evaluates only the balls whose support can reach the
    * ring's colatitude (centers and rings share the stack axis); a ring nothing
    * can displace takes a constant LUT. The LUT resolution is adaptive: enough
    * samples for the finest active feature along the ring's actual
@@ -216,11 +206,11 @@ private:
     const int n_balls = balls.active_count();
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
-      solid_params[b] = &sp;
-      solid_colat[b] =
+      ball_params[b] = &sp;
+      ball_colat[b] =
           fast_acos(hs::clamp(dot(basis.v, sp.center), -1.0f, 1.0f));
-      solid_reach[b] = sp.field_bound();
-      solid_scale[b] = 2.0f / sp.radius;
+      ball_reach[b] = sp.field_bound();
+      ball_scale[b] = 2.0f / sp.radius;
     }
 
     const float noise_feature =
@@ -238,13 +228,12 @@ private:
 
       int n_local = 0;
       float band = 0.0f;
-      float solid_feature = 0.0f;
+      float ball_feature = 0.0f;
       for (int b = 0; b < n_balls; ++b) {
-        if (std::fabs(theta - solid_colat[b]) <
-            solid_reach[b] + BALL_TOUCH_EPS) {
-          solid_local[n_local++] = b;
-          band = std::max(band, solid_reach[b]);
-          solid_feature = std::max(solid_feature, solid_scale[b]);
+        if (std::fabs(theta - ball_colat[b]) < ball_reach[b] + BALL_TOUCH_EPS) {
+          ball_local[n_local++] = b;
+          band = std::max(band, ball_reach[b]);
+          ball_feature = std::max(ball_feature, ball_scale[b]);
         }
       }
 
@@ -273,7 +262,7 @@ private:
           hlut[x] = flat;
         }
       } else {
-        float feature_scale = std::max(noise_feature, solid_feature);
+        float feature_scale = std::max(noise_feature, ball_feature);
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
 
@@ -381,7 +370,7 @@ private:
             for (; x < x_end; ++x) {
               Vector p = (basis.v * cos_t) +
                          ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
-              float s = ball_field(p, solid_local, n_local, theta) +
+              float s = ball_field(p, ball_local, n_local, theta) +
                         noise_field.field(p);
               ring_bound = std::max(ring_bound, std::fabs(s));
               slut[x] = s;
@@ -569,8 +558,6 @@ private:
   // safely instead of overflowing the shared event buffer.
   static constexpr int MAX_BALLS =
       56; /**< Concurrent falling-ball pool slots. */
-  static constexpr int SOLID_MAX =
-      MAX_BALLS; /**< Shared prefilter scratch size. */
   static constexpr int BALL_PHASE_FRAMES =
       900; /**< Ball-phase spawning window (~15 s); balls keep coming the whole window. */
   static constexpr float BALL_RATE_FPS =
@@ -580,7 +567,7 @@ private:
   static constexpr int NOISE_FADE_FRAMES =
       150; /**< Noise amplitude ramp on each phase handoff. */
   static constexpr int NOISE_HOLD_FRAMES =
-      600; /**< Full-noise dwell before fading out into the next solid phase. */
+      600; /**< Full-noise dwell before fading out into the next ball phase. */
 
   BallDropTransformer<MAX_BALLS>
       balls; /**< Falling-ball displacement fields. */
@@ -649,23 +636,23 @@ private:
       nullptr; /**< Raw storage for RING_SLOTS placement-built SDF::DistortedRing shapes. */
   Pixel *hue_table =
       nullptr; /**< HUE_TABLE_SIZE + 1 dynamic or cyclic hue samples for the current ring. */
-  float *solid_colat =
-      nullptr; /**< SOLID_MAX active-body center colatitudes about the stack axis (radians), rebuilt per frame. */
-  float *solid_reach =
-      nullptr; /**< SOLID_MAX active-body support extents (radians): both the reach prefilter bound and the per-ring band bound. */
-  float *solid_scale =
-      nullptr; /**< SOLID_MAX active-body LUT feature scales (2/radius). */
-  const BumpParams **solid_params =
-      nullptr; /**< Active-body params validated and cached once per frame. */
-  int *solid_local =
-      nullptr; /**< SOLID_MAX scratch: active indices of the bodies that can reach the current ring. */
+  float *ball_colat =
+      nullptr; /**< MAX_BALLS active-ball center colatitudes about the stack axis (radians), rebuilt per frame. */
+  float *ball_reach =
+      nullptr; /**< MAX_BALLS active-ball support extents (radians): both the reach prefilter bound and the per-ring band bound. */
+  float *ball_scale =
+      nullptr; /**< MAX_BALLS active-ball LUT feature scales (2/radius). */
+  const BumpParams **ball_params =
+      nullptr; /**< Active-ball params validated and cached once per frame. */
+  int *ball_local =
+      nullptr; /**< MAX_BALLS scratch: active indices of the balls that can reach the current ring. */
 #ifdef HS_TEST_BUILD
   bool force_exact_hue = false;
   int hue_table_uses = 0;
 #endif
 
-  /** Ring-to-body prefilter pad absorbing fast_acos and tangent-recurrence
-   *  rounding (radians); a body excluded despite the pad fields exactly 0
+  /** Ring-to-ball prefilter pad absorbing fast_acos and tangent-recurrence
+   *  rounding (radians); a ball excluded despite the pad fields exactly 0
    *  everywhere on the ring. */
   static constexpr float BALL_TOUCH_EPS = 1e-3f;
 
@@ -698,7 +685,7 @@ private:
         0.85f; /**< Fastest fall (pole-to-pole traversals per second). */
   } params;
 
-  // init() allocates the per-slot bake pools, the body prefilter scratch, the
+  // init() allocates the per-slot bake pools, the ball prefilter scratch, the
   // hue table, the ring shapes, and both transformer pools from the persistent
   // arena. Effect keeps the default arena split, so the total must fit the
   // device persistent partition.
@@ -706,7 +693,7 @@ private:
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
       RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +
                     sizeof(SDF::DistortedRing)) +
-      SOLID_MAX *
+      MAX_BALLS *
           (3 * sizeof(float) + sizeof(int) + sizeof(const BumpParams *)) +
       (HUE_TABLE_SIZE + 1) * sizeof(Pixel) +
       MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
