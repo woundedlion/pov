@@ -1127,20 +1127,20 @@ private:
   }
 
   /**
-   * @brief Returns the i-th live item by age (0 = oldest).
+   * @brief Returns the i-th logical live item.
    * @param i Index into the live range [0, count).
    * @return Mutable reference to the buffered Item.
    */
   Item &at(size_t i) { return items[(head + i) % Capacity]; }
   /**
-   * @brief Returns the i-th live item by age (0 = oldest).
+   * @brief Returns the i-th logical live item.
    * @param i Index into the live range [0, count).
    * @return Const reference to the buffered Item.
    */
   const Item &at(size_t i) const { return items[(head + i) % Capacity]; }
 
   /**
-   * @brief Appends an item, evicting the oldest when at capacity.
+   * @brief Appends an item, evicting a live item of arbitrary age at capacity.
    * @param item Encoded trail sample to push.
    */
   void push_back(const Item &item) {
@@ -1152,7 +1152,7 @@ private:
     count++;
   }
 
-  /** @brief Drops the oldest buffered item. */
+  /** @brief Drops the logical head, whose age is arbitrary after compaction. */
   void pop_front() {
     head = (head + 1) % Capacity;
     count--;
@@ -1451,9 +1451,9 @@ public:
     float ttl = static_cast<float>(lifetime) - age;
     if (ttl > 0.0f && points) {
       if (num_pixels == MAX_PIXELS) {
-        // At capacity: O(1) drop of slot 0. Saturation eviction order differs
-        // by domain (World::Trails drops the FIFO-oldest, Screen drops slot 0);
-        // per-point ttl fade absorbs the transient either way.
+        // At capacity: O(1) drop of slot 0. Both trail domains may evict a point
+        // of arbitrary age after swap-removal compacts an expired mid-buffer
+        // slot; per-point ttl fade absorbs the transient.
         num_pixels--;
         points[0] = points[num_pixels];
       }
