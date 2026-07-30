@@ -928,7 +928,7 @@ inline void test_orientation_upsample_clamps_past_capacity() {
 
 /**
  * @brief Verifies the by-index accessors: orient(v,i)/unorient(v,i) match
- *        rotate(v, get(i)) and its conjugate, and at(i) aliases the stored
+ *        rotate(v, get(i)) and its conjugate, and set_at(i) updates the stored
  *        quaternion.
  */
 inline void test_orientation_historical_index_accessors() {
@@ -947,9 +947,8 @@ inline void test_orientation_historical_index_accessors() {
     HS_EXPECT_VEC(o.unorient(v, i), rotate(v, o.get(i).conjugate()), 1e-5f);
   }
 
-  // at(i) aliases the stored quaternion: a write through it is seen by get(i).
   Quaternion q_new = make_rotation(Vector(0, 1, 0), 0.25f);
-  o.at(1) = q_new;
+  o.set_at(1, q_new);
   HS_EXPECT_QUAT(o.get(1), q_new, 1e-6f);
   HS_EXPECT_VEC(o.orient(v, 1), rotate(v, q_new), 1e-5f);
 }
