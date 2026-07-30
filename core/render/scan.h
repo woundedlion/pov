@@ -159,26 +159,27 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
  * @tparam W Canvas width in pixels.
  * @tparam IntervalBufT Source span buffer type.
  * @tparam NormBufT Seam-split scratch buffer type; holds 2 spans per source span.
- * @tparam EmitFn Callable (int x1, int x2) -> void, one call per run.
  * @param intervals Source spans in fractional column units, each of length <= W.
- * @param norm Scratch, cleared here, holding the wrapped/split spans.
- * @param emit Sink receiving each run as a half-open column range [x1, x2).
+ * @param norm Scratch, cleared here, receiving coalesced integer column runs.
  * @details Wrapping each start into [0, W) and splitting spans that cross the
  * x=0 seam gives the forward sweep sorted, non-wrapping input even when a
  * shape/CSG straddles θ=0. Runs are emitted monotone and disjoint: last_x2
  * clamps a run's start past the previous run's end so two spans sharing a
  * fractional column do not both paint it (double shade / alpha).
  */
-template <int W, typename IntervalBufT, typename NormBufT, typename EmitFn>
-__attribute__((always_inline)) inline void
-coalesce_spans(const IntervalBufT &intervals, NormBufT &norm, EmitFn &&emit) {
+template <int W, typename IntervalBufT, typename NormBufT>
+HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
+                                               NormBufT &norm) {
   norm.clear();
   SDF::normalize_intervals_to_range<W>(intervals, norm);
   SDF::sort_intervals_by_start(norm);
 
   float current_end = -FLT_MAX;
   int last_x2 = 0;
-  for (const auto &iv : norm) {
+  size_t write = 0;
+  const size_t count = norm.size();
+  for (size_t read = 0; read < count; ++read) {
+    const auto iv = norm[read];
     if (iv.second <= current_end)
       continue;
     float start = std::max(iv.first, current_end);
@@ -200,8 +201,10 @@ coalesce_spans(const IntervalBufT &intervals, NormBufT &norm, EmitFn &&emit) {
     if (x1 < last_x2)
       x1 = last_x2;
     last_x2 = x2;
-    emit(x1, x2);
+    norm[write++] = {static_cast<float>(x1), static_cast<float>(x2)};
   }
+  while (norm.size() > write)
+    norm.pop_back();
 }
 
 /**
@@ -276,6 +279,11 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   // the run's own middle column, both independent of x1/x2, so a clipped
   // sub-run reproduces the shade the full run would have had.
   auto walk = [&](int x1, int x2, int y, float sp, float cp, int stride) {
+    if constexpr (!POLE_LOD_ENABLED) {
+      for (int x = x1; x < x2; ++x)
+        pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
+      return;
+    }
     if (stride == 1) {
       for (int x = x1; x < x2; ++x)
         pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
@@ -336,9 +344,10 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       if (full_row) {
         walk_clipped(0, W, y, sp, cp, stride);
       } else {
-        coalesce_spans<W>(intervals, norm, [&](int x1, int x2) {
-          walk_clipped(x1, x2, y, sp, cp, stride);
-        });
+        coalesce_spans<W>(intervals, norm);
+        for (const auto &run : norm)
+          walk_clipped(static_cast<int>(run.first),
+                       static_cast<int>(run.second), y, sp, cp, stride);
       }
     } else if (!handled) {
       walk_clipped(0, W, y, sp, cp, stride);
@@ -505,11 +514,6 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   static_assert(std::remove_cvref_t<decltype(shape)>::is_solid);
 
   bool effective_debug = debug_bb || canvas.debug();
-  if (effective_debug) {
-    auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
-    rasterize<W, H, false>(pipeline, canvas, shape, shader, true);
-    return;
-  }
 
   int y_lo, y_hi;
   const auto &cr = canvas.clip();
@@ -519,11 +523,14 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
   y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
                                               : cr.render_y_end() - 1;
-  if (y_lo > y_hi || color.alpha <= MIN_ALPHA)
+  if (y_lo > y_hi || (!effective_debug && color.alpha <= MIN_ALPHA))
     return;
 
   SDF::DistanceResult result;
   constexpr float PIXEL_WIDTH = 2.0f * PI_F / W;
+  Pixel16 plot_color = color.color;
+  if (effective_debug)
+    plot_color = plot_color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
   ScopedRenderTimer timer_guard(canvas);
   scan_region<W, H>(
       y_lo, y_hi,
@@ -531,6 +538,12 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int x, int y, const Vector &p, int run) {
+        if (effective_debug) {
+          for (int i = 0; i < run; ++i)
+            pipeline.plot(canvas, x + i, y, plot_color, 0, 1.0f);
+          return;
+        }
+
         float d;
         if constexpr (SineDistance) {
           d = shape.sine_distance(p);
@@ -551,7 +564,7 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
 
         const float alpha = color.alpha * coverage;
         for (int i = 0; i < run; ++i)
-          pipeline.plot(canvas, x + i, y, color.color, 0, alpha);
+          pipeline.plot(canvas, x + i, y, plot_color, 0, alpha);
       },
       xc);
 }
@@ -1124,9 +1137,10 @@ struct RingGroup {
         continue;
       }
 
-      coalesce_spans<W>(intervals, norm, [&](int x1, int x2) {
-        run_clipped(x1, x2, y, sp, cp);
-      });
+      coalesce_spans<W>(intervals, norm);
+      for (const auto &run : norm)
+        run_clipped(static_cast<int>(run.first), static_cast<int>(run.second),
+                    y, sp, cp);
     }
   }
 };
@@ -1427,7 +1441,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         add_run(0, W);
       } else {
         StaticCircularBuffer<std::pair<float, float>, 8> norm;
-        coalesce_spans<W>(intervals, norm, add_run);
+        coalesce_spans<W>(intervals, norm);
+        for (const auto &run : norm)
+          add_run(static_cast<int>(run.first), static_cast<int>(run.second));
       }
     }
     if (num_runs == 0)
@@ -1514,8 +1530,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     // surface cannot change side anywhere in the block, so one shade describes
     // the whole block. 1.25 covers distance() reporting in plane units, which
     // run slightly wider than angular.
-    const float block_slack =
-        static_cast<float>(stride - 1) * pixel_width * sp * 1.25f;
+    float block_slack = 0.0f;
+    if constexpr (POLE_LOD_ENABLED)
+      block_slack = static_cast<float>(stride - 1) * pixel_width * sp * 1.25f;
 
     for (size_t r = 0; r < num_runs; ++r) {
       const int rx2 = runs[r].second;
@@ -1530,9 +1547,12 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         // holding an edge stays per-column, so coverage is identical either way
         // and only the shade's source column moves.
         int span = 1;
-        if (stride > 1 && x % stride == 0 && x + stride <= rx2 &&
-            (d <= -pixel_width - block_slack || d >= pixel_width + block_slack))
-          span = stride;
+        if constexpr (POLE_LOD_ENABLED) {
+          if (stride > 1 && x % stride == 0 && x + stride <= rx2 &&
+              (d <= -pixel_width - block_slack ||
+               d >= pixel_width + block_slack))
+            span = stride;
+        }
 
         if (d >= pixel_width) {
           x += span;
@@ -1569,9 +1589,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           const float a = frag.color.alpha * alpha;
           for (int px = x; px < x + span; ++px) {
             if constexpr (requires {
-                            pipeline.plot_in_bounds(canvas, px, y,
-                                                    frag.color.color, frag.age,
-                                                    a);
+                            pipeline.plot_in_bounds(
+                                canvas, px, y, frag.color.color, frag.age, a);
                           }) {
               pipeline.plot_in_bounds(canvas, px, y, frag.color.color, frag.age,
                                       a);
