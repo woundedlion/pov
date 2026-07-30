@@ -662,6 +662,11 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
 HS_COLD static void medial(const PolyMesh &mesh, PolyMesh &out_a,
                            ArenaVector<Vector> &out_b, Arena &target,
                            Arena &temp) {
+  HS_CHECK(&mesh != &out_a, "medial input mesh must not alias output mesh");
+  HS_CHECK(&mesh.vertices != &out_b,
+           "medial input vertices must not alias output vertices");
+  HS_CHECK(&out_a.vertices != &out_b,
+           "medial output vertex arrays must not alias");
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
