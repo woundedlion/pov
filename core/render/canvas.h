@@ -42,8 +42,8 @@ struct EffectConfig {
  *
  * Naming split: methods on the JS/embind boundary (updateParameter,
  * getParameters, setAnimationsPaused) are camelCase to match the WASM bridge;
- * the internal C++ API (register_param, mark_animated, needs_full_frame,
- * set_clip) is snake_case.
+ * the internal C++ API (register_param, needs_full_frame, set_clip) is
+ * snake_case.
  */
 class Effect {
   friend class Canvas;
@@ -462,19 +462,6 @@ protected:
                                  pass `&anims_paused` to Mutation/Driver. */
 
   /**
-   * @brief Flag a registered param as animation-driven.
-   * @details The GUI renders flagged params as auto-pausing sliders (touching
-   * one engages "Pause Animation"). Call after the matching register_param.
-   */
-  void mark_animated(const char *name) {
-    auto *def = parameters.find(name);
-    // A misspelled name would silently no-op and leave the param un-flagged; trap
-    // instead (cold setup code).
-    HS_CHECK(def, "mark_animated: unknown parameter name");
-    def->animated = true;
-  }
-
-  /**
    * @brief Flag a registered param as engine-written telemetry (read-only).
    * @details The GUI keeps showing its live value but disables editing. Use for
    * output-only values clobbered every frame (e.g. an active-particle count).
@@ -545,9 +532,8 @@ protected:
 
   /**
    * @brief Registers a float param and flags it animation-driven in one call.
-   * @details Convenience for the register_param + mark_animated pair, so the name
-   * literal is written once. Flags the just-registered element directly, skipping
-   * the name lookup mark_animated would redo.
+   * @details The GUI renders flagged params as auto-pausing sliders (touching one
+   * engages "Pause Animation").
    */
   HS_COLD_MEMBER void register_animated_param(const char *name, float *ptr,
                                               float min = 0.0f,
@@ -559,8 +545,6 @@ protected:
   /**
    * @brief Registers a float param and flags it engine-written telemetry in one
    * call.
-   * @details Convenience for the register_param + mark_readonly pair; see
-   * register_animated_param for the single-source-the-literal rationale.
    */
   void register_readonly_param(const char *name, float *ptr, float min = 0.0f,
                                float max = 1.0f) {
