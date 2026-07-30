@@ -173,14 +173,19 @@ public:
         (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites_buffer.size()));
     const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
                             COHERENCE_BLOCK);
-    const int nbx = (x1 - x0 - 1) / B + 2; // corner columns spanning [x0, x1)
-    const int nby = (y1 - y0 - 1) / B + 2; // corner rows spanning    [y0, y1)
+    // Canvas-anchored grid origin (the block boundary at or before the clip):
+    // a clip-anchored one shifts block phase per segment band, so a pixel's
+    // candidate union would depend on which band renders it.
+    const int gx0 = (x0 / B) * B;
+    const int gy0 = (y0 / B) * B;
+    const int nbx = (x1 - 1 - gx0) / B + 2; // corner columns spanning [x0, x1)
+    const int nby = (y1 - 1 - gy0) / B + 2; // corner rows spanning    [y0, y1)
     CellId *cells = static_cast<CellId *>(
         scratch_arena_a.allocate(nbx * nby * sizeof(CellId), alignof(CellId)));
-    // Clamp to the last valid pixel (x1/y1 are exclusive) so every classified
+    // Clamp to the last canvas pixel: band-independent, and every classified
     // point indexes the trig LUT.
-    auto corner_x = [&](int j) { return std::min(x0 + j * B, x1 - 1); };
-    auto corner_y = [&](int k) { return std::min(y0 + k * B, y1 - 1); };
+    auto corner_x = [&](int j) { return std::min(gx0 + j * B, W - 1); };
+    auto corner_y = [&](int k) { return std::min(gy0 + k * B, H - 1); };
 
     // Timer spans the corner-classification pre-pass too: its ~W*H/B^2 KD
     // queries are the frame's only KD queries, so getRenderUs must include
@@ -224,13 +229,13 @@ public:
     // filter with an x margin would read unwritten margin columns.
     int last_ky = -1;
     for (int y = y0; y < y1; ++y) {
-      const int ky = (y - y0) / B;
+      const int ky = (y - gy0) / B;
       if (ky != last_ky) {
         build_candidate_row(ky);
         last_ky = ky;
       }
       for (int x = x0; x < x1; ++x) {
-        const CandSet &cs = cands[(x - x0) / B];
+        const CandSet &cs = cands[(x - gx0) / B];
 
         Vector p = pixel_to_vector<W, H>(x, y);
         float d0 = -2.0f, d1 = -2.0f;
