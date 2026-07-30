@@ -1167,6 +1167,8 @@ public:
    */
   __attribute__((always_inline)) Pixel get_color_unit(float t) const {
     assert(colors != nullptr && "BakedPalette::get_color_unit before bake()");
+    // Also traps NaN: both comparisons fail.
+    assert(t >= 0.0f && t <= 1.0f);
     return sample_color_index(t * (LUT_SIZE - 1));
   }
 
