@@ -897,9 +897,11 @@ public:
    * @param landing Landing of a HANKIN_SWEEP leg.
    * @param out Output mesh, allocated from @p arena.
    * @param arena Arena backing the output vectors.
-   * @details Bitwise the mesh MeshOps::hankin builds at the leg's arrival
-   * angle, so a chain reads its clean endpoint from the finished leg instead
-   * of carrying a second copy of it through the sweep.
+   * @details The static vertices and the topology are MeshOps::hankin's, but
+   * the star points are snorm16-decoded and renormalized, so the result is
+   * bitwise the leg's own final swept frame rather than MeshOps::hankin
+   * evaluated at the arrival angle. A chain reads its clean endpoint from the
+   * finished leg instead of carrying a second copy of it through the sweep.
    */
   HS_COLD_MEMBER static void arrival_mesh(const Landing &landing, PolyMesh &out,
                                           Arena &arena) {
