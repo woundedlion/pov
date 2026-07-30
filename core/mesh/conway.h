@@ -555,6 +555,8 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target,
   const auto *face_counts = mesh.get_face_counts_data();
   const auto *faces = mesh.get_faces_data();
 
+  require_flat_face_length(face_counts, F, I);
+
   out_mesh.vertices.bind(target, V + F);
   out_mesh.face_counts.bind(target, I);
   out_mesh.faces.bind(target, 3 * I);
@@ -568,6 +570,8 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target,
     HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)");
     Vector centroid(0, 0, 0);
     for (int k = 0; k < count; ++k) {
+      HS_CHECK(static_cast<size_t>(faces[offset + k]) < V,
+               "kis: face vertex index out of range");
       centroid = centroid + mesh.vertices[faces[offset + k]];
     }
     centroid = centroid / static_cast<float>(count);
