@@ -11,31 +11,37 @@
 //
 // SIM_URL overrides the simulator origin (defaults to the README's local
 // http.server port); WAIT_MS overrides every configured capture offset.
-import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
-import { captureOffsetMs } from './screenshot_capture_config.mjs';
+import {
+  captureOffsetMs,
+  DEFAULT_CAPTURE_OFFSET_MS,
+} from './screenshot_capture_config.mjs';
 
-// A malformed env value silently disables or distorts the timing it controls,
-// so fall back to the default on anything that isn't a finite, non-negative
-// number. Number('') is 0 (finite), so blank/whitespace is rejected explicitly.
+// Number('') is 0 (finite), so blank/whitespace is rejected explicitly.
 function numEnv(name, def) {
   const raw = process.env[name];
-  if (raw === undefined || raw.trim() === '') return def;
+  if (raw === undefined) return def;
   const v = Number(raw);
-  return Number.isFinite(v) && v >= 0 ? v : def;
+  if (raw.trim() !== '' && Number.isFinite(v) && v >= 0) return v;
+  console.error('========================================================');
+  console.error(`capture_screenshots: ERROR — ${name} must be a finite, non-negative number.`);
+  console.error(`Received: ${JSON.stringify(raw)}`);
+  console.error('========================================================');
+  process.exit(2);
 }
 
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
 const OUT_DIR = join(REPO_ROOT, 'docs', 'screenshots');
-const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined
-  ? null
-  : numEnv('WAIT_MS', null);
+const WAIT_MS = numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS);
+const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
 const BLANK_FLOOR = numEnv('BLANK_FLOOR', 0.0005);
 // Stored width. The README embeds the hero shot at 640 and the gallery at 280,
 // and docs/screenshots/ is installed into daydream, so both repos carry it.
 const OUT_WIDTH = 640;
+
+const { chromium } = await import('playwright');
 
 // The effect roster (and the docs/screenshots freshness gate that mirrors it)
 // is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
