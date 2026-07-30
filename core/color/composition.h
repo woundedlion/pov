@@ -896,6 +896,8 @@ class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap> {
                 "Use Wrap=false.");
 
 public:
+  static constexpr bool WRAPS_COORDINATE = Wrap;
+
   /**
    * @brief Default-constructs an unbound composition (bind() before use).
    */
@@ -1054,6 +1056,10 @@ public:
    * collapses its last entry onto its first — bake such sources with Wrap=false.
    */
   template <typename Source> HS_COLD_MEMBER void rebake(const Source &source) {
+    if constexpr (requires { Source::WRAPS_COORDINATE; }) {
+      static_assert(!Source::WRAPS_COORDINATE,
+                    "BakedPalette cannot rebake a wrapping source");
+    }
     HS_CHECK(lut != nullptr, "BakedPalette::rebake before bake()");
     for (int i = 0; i < LUT_SIZE; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
