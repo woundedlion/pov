@@ -2103,6 +2103,41 @@ inline void test_static_palette_composition() {
   static_assert(!coord_requires_wrap<InsetModifier>());
   static_assert(!coord_requires_wrap<MirrorModifier>());
 
+  // Modifiers that confine [0,1] to [0,1] and reach exactly 1.0 carry
+  // bounded_output, so wrap_t would fold their top endpoint to 0.
+  static_assert(coord_bounded_output<FoldModifier>());
+  static_assert(coord_bounded_output<ReverseModifier>());
+  static_assert(coord_bounded_output<MirrorModifier>());
+  static_assert(coord_bounded_output<InsetModifier>());
+  static_assert(!coord_bounded_output<ScaleModifier>());
+  static_assert(!coord_bounded_output<CycleModifier>());
+  static_assert(!coord_bounded_output<BreatheModifier>());
+  static_assert(!coord_bounded_output<RippleModifier>());
+  static_assert(!coord_bounded_output<NoiseWarpModifier>());
+  static_assert(!coord_bounded_output<DriftModifier>());
+  // Pinch re-anchors to floorf(t) and Quantize scales the whole domain, so both
+  // carry an out-of-range coordinate through and stay wrap-compatible.
+  static_assert(!coord_bounded_output<PinchModifier>());
+  static_assert(!coord_bounded_output<QuantizeModifier>());
+
+  // Only the final entry decides the wrap requirement: a bounded tail re-bounds
+  // an unbounded predecessor, and an unbounded tail undoes a bounded one.
+  static_assert(!coord_chain_leaves_unit<>());
+  static_assert(coord_chain_leaves_unit<ScaleModifier>());
+  static_assert(!coord_chain_leaves_unit<ScaleModifier, FoldModifier>());
+  static_assert(coord_chain_leaves_unit<InsetModifier, CycleModifier>());
+  static_assert(!coord_chain_bounded_tail<>());
+  static_assert(!coord_chain_bounded_tail<MirrorModifier, CycleModifier>());
+  static_assert(coord_chain_bounded_tail<CycleModifier, MirrorModifier>());
+
+  // MirrorModifier's designed peak lands on 1.0; Wrap=false keeps it at the
+  // source's last stop instead of folding it to the first.
+  MirrorModifier mirror;
+  StaticPalette<Gradient, Coords<MirrorModifier>, Colors<>, /*Wrap=*/false>
+      mirrored;
+  mirrored.bind(&grad, &mirror);
+  HS_EXPECT_EQ(mirrored.get(0.5f).color.r, grad.get(1.0f).color.r);
+
   // Two modifiers apply in tuple order (scale THEN cycle): 0.2 -> 0.4 -> 0.5.
   float off = 0.1f;
   CycleModifier cycle(&off);
