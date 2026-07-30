@@ -909,6 +909,63 @@ inline void test_world_vertex_replicate_fanout_and_age() {
 }
 
 /**
+ * @brief Verifies VertexReplicate's clip-cull re-emits the edge under the same
+ *        rotations plot() applies, and short-circuits on the first hit.
+ * @details The rotations move latitude, so culling by the un-rotated endpoints
+ *          would drop copies the fan-out places inside a segment band.
+ */
+inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
+  constexpr int N = 3;
+  static_assert(has_cull_edge<Filter::World::VertexReplicate<N>>);
+  std::array<Vector, N> verts = {X_AXIS, Y_AXIS, Z_AXIS};
+  const Filter::World::VertexReplicate<N> vr(verts);
+
+  Vector seen[N];
+  int n = 0;
+  bool hit = vr.cull_edge(X_AXIS, X_AXIS, nullptr,
+                          [&](const Vector &a, const Vector &, const Basis *) {
+                            if (n < N)
+                              seen[n] = a;
+                            ++n;
+                            return false;
+                          });
+  HS_EXPECT_FALSE(hit);
+  HS_EXPECT_EQ(n, N);
+  for (int i = 0; i < N; ++i) {
+    HS_EXPECT_NEAR(seen[i].x, verts[i].x, 1e-4f);
+    HS_EXPECT_NEAR(seen[i].y, verts[i].y, 1e-4f);
+    HS_EXPECT_NEAR(seen[i].z, verts[i].z, 1e-4f);
+  }
+
+  n = 0;
+  hit = vr.cull_edge(X_AXIS, X_AXIS, nullptr,
+                     [&](const Vector &, const Vector &, const Basis *) {
+                       ++n;
+                       return true;
+                     });
+  HS_EXPECT_TRUE(hit);
+  HS_EXPECT_EQ(n, 1);
+
+  // A planar edge rotates its basis alongside the endpoints.
+  const Basis pb{X_AXIS, Y_AXIS, Z_AXIS};
+  Vector normals[N];
+  n = 0;
+  vr.cull_edge(X_AXIS, X_AXIS, &pb,
+               [&](const Vector &, const Vector &, const Basis *bp) {
+                 if (bp && n < N)
+                   normals[n] = bp->u;
+                 ++n;
+                 return false;
+               });
+  HS_EXPECT_EQ(n, N);
+  for (int i = 0; i < N; ++i) {
+    HS_EXPECT_NEAR(normals[i].x, verts[i].x, 1e-4f);
+    HS_EXPECT_NEAR(normals[i].y, verts[i].y, 1e-4f);
+    HS_EXPECT_NEAR(normals[i].z, verts[i].z, 1e-4f);
+  }
+}
+
+/**
  * @brief Verifies Mobius warps via stereographic -> Mobius -> inverse
  *        stereographic, with the default identity map and a non-identity map.
  * @details The default MobiusParams is the identity (a=1,b=0,c=0,d=1), so an
@@ -940,6 +997,13 @@ inline void test_world_mobius_identity_and_transform() {
             [&](const Vector &o, const Pixel &, float, float) { out2 = o; });
   HS_EXPECT_NEAR(out2.length(), 1.0f, 1e-3f);
   HS_EXPECT_GT(distance_between(out2, v), 0.05f);
+
+  // The map moves latitude non-rigidly and offers no cull_edge bound, so it
+  // must force a full-canvas render through the pipeline fold.
+  static_assert(!has_cull_edge<Filter::World::Mobius>);
+  HS_EXPECT_TRUE(Filter::World::Mobius::crosses_segments);
+  HS_EXPECT_TRUE(
+      (Pipeline<17, 9, Filter::World::Mobius>::any_crosses_segments));
 }
 
 // ============================================================================
@@ -2848,6 +2912,7 @@ inline int run_filter_tests() {
   test_world_orient_motion_blur_sweep_ages();
   test_world_orient_slice_selects_by_projection();
   test_world_vertex_replicate_fanout_and_age();
+  test_world_vertex_replicate_cull_edge_mirrors_plot();
   test_world_mobius_identity_and_transform();
 
   test_pipeline_sink_2d_plot_blends_wraps_clips();

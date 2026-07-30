@@ -996,6 +996,34 @@ public:
     }
   }
 
+  /**
+   * @brief Re-emits a clip-cull edge under every stored vertex rotation.
+   * @tparam FwdFn Downstream cull continuation
+   *         `bool(const Vector&, const Vector&, const Basis*)`.
+   * @param a,b Edge endpoints in world space (pre-rotation).
+   * @param pb Optional planar basis, rotated alongside the endpoints.
+   * @param forward Tail-of-pipeline cull continuation.
+   * @return True if any vertex copy of the edge could intersect the clip band.
+   * @details Mirrors plot(). The rotations move latitude, so culling by the
+   *          un-rotated endpoints would drop copies the fan-out places inside a
+   *          segment band (docs/segmented_stateful_effects_spec.md).
+   */
+  template <typename FwdFn>
+  bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
+                 FwdFn &&forward) const {
+    for (int i = 0; i < N; ++i) {
+      if (pb) {
+        Basis rb = rotate(*pb, rotations[i]);
+        if (forward(rotate(a, rotations[i]), rotate(b, rotations[i]), &rb))
+          return true;
+      } else if (forward(rotate(a, rotations[i]), rotate(b, rotations[i]),
+                         nullptr)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
 private:
   std::array<Quaternion, N>
       rotations; /**< Rotation from vertices[0] to each vertex. */
@@ -1007,6 +1035,11 @@ private:
 class Mobius : public Is3D {
 public:
   static constexpr bool requires_unit_world_input = true;
+  /**
+   * @brief The map is non-rigid, so no rotation-mirroring cull_edge can bound
+   *        the image of an edge; the effect must render the full canvas.
+   */
+  static constexpr bool crosses_segments = true;
   /**
    * @brief Binds the filter to a live Mobius parameter set.
    * @param params Mobius transform parameters applied per point.
