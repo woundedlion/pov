@@ -913,6 +913,40 @@ public:
     }
   }
 
+  /**
+   * @brief Re-emits a clip-cull edge under every copy's Y-axis rotation.
+   * @tparam FwdFn Downstream cull continuation
+   *         `bool(const Vector&, const Vector&, const Basis*)`.
+   * @param a,b Edge endpoints in world space (pre-rotation).
+   * @param pb Optional planar basis, rotated alongside the endpoints.
+   * @param forward Tail-of-pipeline cull continuation.
+   * @return True if any copy of the edge could intersect the clip band.
+   * @details Mirrors plot()'s rotation loop so the cull sees the longitudes the
+   *          copies are drawn at, not the source geometry's.
+   */
+  template <typename FwdFn>
+  bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
+                 FwdFn &&forward) const {
+    if (forward(a, b, pb))
+      return true;
+    Vector ra = a, rb = b;
+    Basis rp;
+    if (pb)
+      rp = *pb;
+    for (int i = 1; i < count; i++) {
+      ra = rotate(ra, step).normalized();
+      rb = rotate(rb, step).normalized();
+      if (pb) {
+        rp = rotate(rp, step);
+        if (forward(ra, rb, &rp))
+          return true;
+      } else if (forward(ra, rb, nullptr)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
 private:
   int count;       /**< Number of copies emitted, in [1, W]. */
   Quaternion step; /**< Per-copy Y-axis rotation (2*pi / count). */
