@@ -340,16 +340,25 @@ public:
    * @param vel Initial velocity.
    * @param seed Color seed for palette offset.
    * @details A full pool is a designed, non-fatal condition (drop the spawn, keep
-   * rendering); log it like Timeline::add rather than dropping it silently.
+   * rendering). A saturated pool is a steady state, so only the first drop logs;
+   * dropped_spawns() carries the rest.
    */
   void spawn(const Vector &pos, const Vector &vel, uint16_t seed) {
     HS_CHECK(pool.is_bound(), "ParticleSystem::spawn before init");
     if (active_count < pool.capacity()) {
       pool[active_count++].init(pos, vel, seed, max_life);
-    } else {
+      return;
+    }
+    if (++dropped_count == 1) {
       hs::log("ParticleSystem pool full, dropping spawn");
     }
   }
+
+  /**
+   * @brief Spawns rejected so far because the pool was full.
+   * @return Total number of dropped spawn() calls.
+   */
+  uint32_t dropped_spawns() const { return dropped_count; }
 
   /**
    * @brief Advances the particle system by one frame.
@@ -390,6 +399,8 @@ private:
 
   uint16_t active_count =
       0; /**< Number of live particles in the pool prefix. */
+
+  uint32_t dropped_count = 0; /**< Spawns dropped against a full pool. */
 
   /**
    * @brief Applies every registered attractor to one particle.
