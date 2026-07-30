@@ -220,11 +220,11 @@ inline void smoke_one(const char *name) {
  * @param effect Effect instance whose editable params are probed.
  * @param name Effect name used in DEAD SLIDER diagnostic output.
  * @details Contract: a registered, editable param — one NOT flagged
- * mark_animated() and NOT flagged markReadonly() — must be genuinely
+ * mark_animated() and NOT flagged mark_readonly() — must be genuinely
  * user-controllable, i.e. a value written through updateParameter() must persist
  * across frames. If the engine overwrites it every frame (a Mutation/Driver/Lerp
  * bound to the same member, or output-only telemetry), the slider is dead: the
- * author must drive a private member and mark_animated() it, or markReadonly()
+ * author must drive a private member and mark_animated() it, or mark_readonly()
  * pure telemetry. This is the build-time gate for the theme-4 dead-slider class
  * (it catches the per-frame overwrite mechanism behind
  * MobiusGrid/ShapeShifter/the preset-lerp group; a value that merely has no
@@ -256,7 +256,7 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
         fabsf(now - target) <= eps && fabsf(now - target) < fabsf(now - cur);
     if (!persisted)
       std::printf("  DEAD SLIDER %s::%s — wrote %.4f, engine reverted to %.4f "
-                  "(mark_animated / markReadonly / drive a private member)\n",
+                  "(mark_animated / mark_readonly / drive a private member)\n",
                   name, def.name, static_cast<double>(target),
                   static_cast<double>(now));
     HS_EXPECT(persisted, "editable param must persist across frames");

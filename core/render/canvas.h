@@ -41,9 +41,9 @@ struct EffectConfig {
  * drawing a frame.
  *
  * Naming split: methods on the JS/embind boundary (updateParameter,
- * getParameters, setAnimationsPaused, markReadonly) are camelCase to match the
- * WASM bridge; the internal C++ API (register_param, mark_animated,
- * needs_full_frame, set_clip) is snake_case.
+ * getParameters, setAnimationsPaused) are camelCase to match the WASM bridge;
+ * the internal C++ API (register_param, mark_animated, needs_full_frame,
+ * set_clip) is snake_case.
  */
 class Effect {
   friend class Canvas;
@@ -479,9 +479,9 @@ protected:
    * @details The GUI keeps showing its live value but disables editing. Use for
    * output-only values clobbered every frame (e.g. an active-particle count).
    */
-  void markReadonly(const char *name) {
+  void mark_readonly(const char *name) {
     auto *def = parameters.find(name);
-    HS_CHECK(def, "markReadonly: unknown parameter name");
+    HS_CHECK(def, "mark_readonly: unknown parameter name");
     def->readonly = true;
   }
 
@@ -559,7 +559,7 @@ protected:
   /**
    * @brief Registers a float param and flags it engine-written telemetry in one
    * call.
-   * @details Convenience for the register_param + markReadonly pair; see
+   * @details Convenience for the register_param + mark_readonly pair; see
    * register_animated_param for the single-source-the-literal rationale.
    */
   void register_readonly_param(const char *name, float *ptr, float min = 0.0f,
