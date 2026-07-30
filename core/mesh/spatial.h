@@ -450,7 +450,8 @@ struct MeshState {
 
   /**
    * @brief Switches to borrowed mode: drops the owned face_counts/faces/
-   *   face_offsets arrays so they cannot shadow the views, then points the three
+   *   face_offsets arrays so they cannot shadow the views, drops the owned
+   *   per-face topology (it describes the dropped faces), then points the three
    *   views at the given spans.
    * @param face_counts_span Borrowed per-face vertex counts.
    * @param faces_span Borrowed flattened face vertex indices.
@@ -483,6 +484,7 @@ struct MeshState {
     face_counts = {};
     faces = {};
     face_offsets = {};
+    topology = {};
     face_counts_view = face_counts_span;
     faces_view = faces_span;
     face_offsets_view = face_offsets_span;
