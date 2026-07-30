@@ -172,6 +172,50 @@ struct Dodecahedron {
 };
 
 /**
+ * @brief Compile-time consistency check for a hardcoded solid's tables.
+ * @tparam StaticMeshT Type exposing constexpr vertices/face_counts/faces arrays.
+ * @return True iff the tables form a closed unit-sphere polyhedron.
+ * @details Checks that face_counts spans the flat face list exactly, every face
+ * index addresses a listed vertex, Euler's formula holds for E = sum/2, and
+ * every vertex is unit length. Compares squared lengths so the whole check is
+ * constant-evaluable.
+ */
+template <typename StaticMeshT> constexpr bool solid_tables_consistent() {
+  size_t total_indices = 0;
+  for (uint8_t count : StaticMeshT::face_counts)
+    total_indices += count;
+  if (total_indices != StaticMeshT::faces.size() || total_indices % 2 != 0)
+    return false;
+
+  for (int index : StaticMeshT::faces)
+    if (index < 0 || static_cast<size_t>(index) >= StaticMeshT::vertices.size())
+      return false;
+
+  // V - E + F == 2, in a form free of unsigned wrap.
+  if (StaticMeshT::vertices.size() + StaticMeshT::face_counts.size() !=
+      total_indices / 2 + 2)
+    return false;
+
+  constexpr float LEN_SQ_TOL = 1e-4f;
+  for (const Vector &v : StaticMeshT::vertices) {
+    const float len_sq = v.x * v.x + v.y * v.y + v.z * v.z;
+    if (len_sq < 1.0f - LEN_SQ_TOL || len_sq > 1.0f + LEN_SQ_TOL)
+      return false;
+  }
+  return true;
+}
+
+static_assert(solid_tables_consistent<Tetrahedron>(),
+              "Tetrahedron tables are inconsistent");
+static_assert(solid_tables_consistent<Cube>(), "Cube tables are inconsistent");
+static_assert(solid_tables_consistent<Octahedron>(),
+              "Octahedron tables are inconsistent");
+static_assert(solid_tables_consistent<Icosahedron>(),
+              "Icosahedron tables are inconsistent");
+static_assert(solid_tables_consistent<Dodecahedron>(),
+              "Dodecahedron tables are inconsistent");
+
+/**
  * @brief Materializes a compile-time static mesh into a runtime PolyMesh.
  * @tparam StaticMeshT Type exposing constexpr vertices/face_counts/faces
  * arrays.
