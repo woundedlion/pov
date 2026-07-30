@@ -1343,14 +1343,16 @@ template <typename A, typename B> struct Union {
     ScratchScope scratch(scratch_arena_b);
     MergedIntervalBuffer &merged = scratch_spans<MergedIntervalBuffer>(scratch);
 
+    // One child fell back to full width: the whole row needs the full scan, so
+    // the merged buffer is discarded and B need not be evaluated.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
+    if (!has_a)
+      return false;
 
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
-
-    // One child fell back to full width: the whole row needs the full scan.
-    if (!has_a || !has_b)
+    if (!has_b)
       return false;
 
     if (merged.is_empty())
