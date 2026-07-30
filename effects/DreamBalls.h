@@ -32,13 +32,13 @@ public:
    * @brief Live, slider-bound render parameters; also the per-preset value set.
    */
   struct Params {
-    const char *solid_name;
-    float num_copies;
-    float offset_radius;
-    float offset_speed;
-    float warp_scale;
-    const Palette *palette;
-    float alpha;
+    const char *solid_name = nullptr;
+    float num_copies = COPIES_MIN;
+    float offset_radius = RADIUS_MIN;
+    float offset_speed = SPEED_MIN;
+    float warp_scale = WARP_MIN;
+    const Palette *palette = nullptr;
+    float alpha = ALPHA_MIN;
   };
 
   /**
