@@ -913,7 +913,6 @@ All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<F
 | `Plot::PlanarPolygon` | Regular N-gon in the tangent plane |
 | `Plot::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `Plot::DistortedRing` | Ring with per-azimuth radius perturbation via callback |
-| `Plot::Spiral` | Fibonacci spiral on the sphere |
 | `Plot::Star` | N-pointed star shape (alternating inner/outer radii) |
 | `Plot::Flower` | N-petal flower shape |
 | `Plot::Mesh` | Wireframe mesh rendering with edge deduplication |
