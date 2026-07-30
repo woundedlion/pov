@@ -3,12 +3,20 @@
 #include <cstdint>
 #include <iterator>
 
-inline constexpr int SRGB_DECODE_LOW_N = SRGB_DECODE_VSPLIT >> 4;
-inline constexpr int SRGB_DECODE_HIGH_N = (65536 - SRGB_DECODE_VSPLIT) >> 7;
+// Bucket geometry of the split-decode, shared with the generator of record
+// (scripts/generate_srgb_decode.cpp, which includes this header): the low
+// region is 1<<LOW_SHIFT wide, the high region 1<<HIGH_SHIFT.
+inline constexpr int SRGB_DECODE_LOW_SHIFT = 4;
+inline constexpr int SRGB_DECODE_HIGH_SHIFT = 7;
+inline constexpr int SRGB_DECODE_LOW_MASK = (1 << SRGB_DECODE_LOW_SHIFT) - 1;
+inline constexpr int SRGB_DECODE_HIGH_MASK = (1 << SRGB_DECODE_HIGH_SHIFT) - 1;
+inline constexpr int SRGB_DECODE_LOW_N =
+    SRGB_DECODE_VSPLIT >> SRGB_DECODE_LOW_SHIFT;
+inline constexpr int SRGB_DECODE_HIGH_N =
+    (65536 - SRGB_DECODE_VSPLIT) >> SRGB_DECODE_HIGH_SHIFT;
 
-// The 16-wide/128-wide bucket geometry is re-derived here from the shifts in
-// scripts/generate_srgb_decode.cpp; a regenerated table with different shifts
-// would otherwise be copied out of bounds below, before main() runs.
+// A committed table generated under different shifts would otherwise be copied
+// out of bounds below, before main() runs.
 static_assert(std::size(srgb_decode_low_src) == SRGB_DECODE_LOW_N,
               "srgb_decode_low_src length disagrees with the low-region shift");
 static_assert(
@@ -44,10 +52,12 @@ inline const bool srgb_decode_dtcm_init = []() {
  */
 inline __attribute__((always_inline)) uint8_t linear_to_srgb8(uint16_t v) {
   if (v < SRGB_DECODE_VSPLIT) {
-    uint16_t e = srgb_decode_low[v >> 4];
-    return (uint8_t)((e & 0xFF) + ((v & 15) >= (e >> 8) ? 1 : 0));
+    uint16_t e = srgb_decode_low[v >> SRGB_DECODE_LOW_SHIFT];
+    return (uint8_t)((e & 0xFF) +
+                     ((v & SRGB_DECODE_LOW_MASK) >= (e >> 8) ? 1 : 0));
   }
   uint32_t d = (uint32_t)v - SRGB_DECODE_VSPLIT;
-  uint16_t e = srgb_decode_high[d >> 7];
-  return (uint8_t)((e & 0xFF) + ((d & 127) >= (e >> 8) ? 1 : 0));
+  uint16_t e = srgb_decode_high[d >> SRGB_DECODE_HIGH_SHIFT];
+  return (uint8_t)((e & 0xFF) +
+                   ((d & SRGB_DECODE_HIGH_MASK) >= (e >> 8) ? 1 : 0));
 }
