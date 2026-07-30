@@ -211,6 +211,9 @@ struct DriftModifier {
  * Null phase driver is the deliberate "no phase offset" mode (shift = 0).
  */
 struct FoldModifier {
+  /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
+  static constexpr bool bounded_output = true;
+
   const float *phase;
   float folds;
 
@@ -351,6 +354,9 @@ struct ScaleModifier {
  * @brief Reverses the palette coordinate (t -> 1 - t).
  */
 struct ReverseModifier {
+  /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
+  static constexpr bool bounded_output = true;
+
   /**
    * @brief Reverses the coordinate.
    * @param t Input coordinate.
@@ -364,6 +370,9 @@ struct ReverseModifier {
  * @details One symmetric bounce, for a seamless loop.
  */
 struct MirrorModifier {
+  /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
+  static constexpr bool bounded_output = true;
+
   /**
    * @brief Mirrors the coordinate into a symmetric bounce.
    * @param t Input coordinate.
@@ -378,6 +387,9 @@ struct MirrorModifier {
  * the last. Pairs with EdgeFadeShade / EdgeAlphaShade to build vignettes.
  */
 struct InsetModifier {
+  /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
+  static constexpr bool bounded_output = true;
+
   float lo, hi;
   /**
    * @brief Constructs the inset window bounds.
@@ -795,6 +807,42 @@ template <typename M> constexpr bool coord_requires_wrap() {
 }
 
 /**
+ * @brief Whether a coordinate modifier maps [0,1] into [0,1] and reaches 1.
+ * @tparam M Coordinate modifier type.
+ * @return M::bounded_output when declared, false otherwise.
+ */
+template <typename M> constexpr bool coord_bounded_output() {
+  if constexpr (requires { M::bounded_output; })
+    return M::bounded_output;
+  else
+    return false;
+}
+
+/**
+ * @brief Whether the coordinate reaching the source may leave [0,1].
+ * @tparam M Coordinate modifier types, in application order.
+ * @return True when an unbounded modifier is not re-bounded by a later one.
+ */
+template <typename... M> constexpr bool coord_chain_leaves_unit() {
+  bool leaves = false;
+  ((leaves = coord_bounded_output<M>() ? false
+                                       : (leaves || coord_requires_wrap<M>())),
+   ...);
+  return leaves;
+}
+
+/**
+ * @brief Whether the last modifier in the chain has bounded output.
+ * @tparam M Coordinate modifier types, in application order.
+ * @return coord_bounded_output of the final entry; false for an empty chain.
+ */
+template <typename... M> constexpr bool coord_chain_bounded_tail() {
+  bool bounded = false;
+  ((bounded = coord_bounded_output<M>()), ...);
+  return bounded;
+}
+
+/**
  * @brief Type-list tag for the coordinate-modifier axis of a StaticPalette.
  * @tparam M Coordinate modifier types.
  */
@@ -817,8 +865,9 @@ template <typename... M> struct Colors {};
  * samples the source (wrapping the coordinate unless Wrap is false), then
  * applies the color mods with the *original* coordinate. Wrap=false suits
  * inset/falloff pipelines that must reach the source's exact endpoints
- * (wrap_t(1)==0 would otherwise fold the top edge), and is rejected at compile
- * time when a coord modifier declares `requires_wrap`.
+ * (wrap_t(1)==0 would otherwise fold the top edge). Both settings are checked
+ * at compile time: `requires_wrap` on any unbounded modifier rejects Wrap=false,
+ * and `bounded_output` on the final coord modifier rejects Wrap=true.
  */
 template <typename Source, typename CoordList = Coords<>,
           typename ColorList = Colors<>, bool Wrap = true>
@@ -835,11 +884,16 @@ template <typename Source, typename... CMods, typename... XMods, bool Wrap>
 class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap> {
   static_assert((CoordMod<CMods> && ...), "Coords<> entries must be CoordMods");
   static_assert((ColorMod<XMods> && ...), "Colors<> entries must be ColorMods");
-  static_assert(Wrap || !(coord_requires_wrap<CMods>() || ...),
+  static_assert(Wrap || !coord_chain_leaves_unit<CMods...>(),
                 "Wrap=false composed with a coordinate modifier that leaves "
                 "[0,1] (requires_wrap, e.g. CycleModifier/ScaleModifier): the "
                 "source would be sampled out of range and the palette would "
                 "freeze at its endpoint. Use Wrap=true.");
+  static_assert(!Wrap || !coord_chain_bounded_tail<CMods...>(),
+                "Wrap=true with a bounded final coordinate modifier "
+                "(bounded_output, e.g. MirrorModifier/InsetModifier): wrap_t "
+                "folds its 1.0 output to 0.0, destroying the top endpoint. "
+                "Use Wrap=false.");
 
 public:
   /**

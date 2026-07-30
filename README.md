@@ -1197,6 +1197,9 @@ the original coordinate in hand. Both chains are inlined by fold expression with
 zero runtime overhead. `Wrap` (default `true`) wraps the final coordinate into
 `[0,1)` before the lookup — leave it on for cycling modifiers that overflow the
 range; set it `false` for bounded remaps that must reach the source endpoints.
+Both directions are `static_assert`ed: an unbounded modifier rejects
+`Wrap=false`, and a bounded final modifier rejects `Wrap=true` (wrapping would
+fold its 1.0 output to 0.0 and destroy the top endpoint).
 
 Coordinate modifiers (`modify(float) -> float`):
 
