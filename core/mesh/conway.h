@@ -517,6 +517,7 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
       Vector c = face_centroid(he_mesh, mesh, i, count);
       // Fall back to the face's first vertex on a zero-length
       // (centrally-symmetric) centroid, where strict normalized() would trap.
+      HS_CHECK(he_mesh.faces[i].half_edge != HE_NONE, "dual: empty face");
       Vector first_v =
           mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
       out_mesh.vertices.push_back(normalized_or(c, first_v));
@@ -685,6 +686,7 @@ HS_COLD static void medial(const PolyMesh &mesh, PolyMesh &out_a,
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       int count;
       Vector c = face_centroid(he_mesh, mesh, i, count);
+      HS_CHECK(he_mesh.faces[i].half_edge != HE_NONE, "medial: empty face");
       Vector first_v =
           mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
       dual_pos[i] = normalized_or(c, normalized_or(first_v, X_AXIS));
