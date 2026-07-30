@@ -103,7 +103,7 @@ public:
   Vector sample_vector(const Ring &ring, int sample_index) const {
     const Coordinates point = sample_coordinates(ring, sample_index);
     const float theta = point.x * (2.0f * PI_F) / W;
-    const float phi = point.y * PI_F / (H + HOffset - 1);
+    const float phi = y_to_phi_virtual(point.y, H + HOffset);
     return Vector(Spherical(theta, phi));
   }
 
@@ -117,7 +117,7 @@ public:
   Coordinates project(const Vector &value) const {
     const Spherical spherical(value);
     return {(spherical.theta * W) / (2.0f * PI_F),
-            (spherical.phi * (H + HOffset - 1)) / PI_F};
+            phi_to_y_virtual(spherical.phi, H + HOffset)};
   }
 
   /**
