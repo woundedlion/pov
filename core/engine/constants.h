@@ -43,9 +43,13 @@ inline constexpr int POLE_LOD_MAX_RUN = 32;
  *
  *          The true masking width depends on the LED's angular size and the
  *          per-column exposure, so this is a hardware-calibrated knob rather
- *          than a derived constant.
+ *          than a derived constant. Firmware has no setter, so the starting
+ *          value comes from HS_POLE_LOD_DEFAULT.
  */
-inline float pole_lod_aggressiveness = 0.0f;
+#ifndef HS_POLE_LOD_DEFAULT
+#define HS_POLE_LOD_DEFAULT 0.0f
+#endif
+inline float pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
 
 /**
  * @brief Clip region for segment-based rendering.
