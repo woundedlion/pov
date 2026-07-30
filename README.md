@@ -377,6 +377,12 @@ Every document carries its own status banner; the summaries below repeat it. A
 banner that says REJECTED or SUPERSEDED is load-bearing — the document is kept
 so a successor does not re-attempt what was already measured and refuted.
 
+**Contributor guide**
+
+| Document | Status |
+|---|---|
+| `docs/agent_workflow.md` | The non-negotiable session rules every brief assumes: worktree and landing discipline, shared-device access, style, and the per-commit gates |
+
 **Design specs**
 
 | Document | Status |

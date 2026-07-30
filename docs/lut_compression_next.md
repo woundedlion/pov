@@ -16,36 +16,8 @@ it.
 
 ## 0. Ground rules (non-negotiable)
 
-**Never write to `C:\work\Holosphere` directly.** Shared main tree, concurrent
-peer sessions committing under the *same* git identity. Work in your own
-worktree, land by rebasing onto live `refs/heads/master` and an **attached
-`git merge --ff-only`** in the main tree, asserting
-`git merge-base --is-ancestor` first. `master` is append-only. If a merge refuses
-over main-tree WIP, **stop and surface it** — never stash or discard a peer's
-work. A peer may land a build-breaking WIP on master (it happened this session: a
-Teensyduino/gcc-upgrade WIP that overflowed phantasm) — if the tree won't build
-phantasm, stop and surface, don't build on top of it. New files need
-`git add` before `git commit <path>` (a bare `git commit <path>` silently
-matches nothing for an untracked file).
-
-**The device is a single shared Teensy.** Never run `pio run -t upload` or
-`profile_capture.py` directly. The only supported path is `tools/profile_one.sh`,
-which takes the host-global lock. `HS_DEVICE_WAIT=<sec>` to queue.
-`profile_one.sh` builds **`/c/work/Holosphere`** (hardcoded), so **you cannot
-profile a worktree — land first** (for a bit-exact change this is safe). Toggle a
-diagnostic via `-D` flags forwarded to the build.
-
-**Style:** invoke the `code-style` skill and obey it. `core/render/sdf.h`,
-`core/color/color.h`, and generated tables carry whole-file clang-format drift
-against local clang-format v22 — hand-format your own lines, wrap generated
-tables in `// clang-format off/on`, and commit with `HS_SKIP_FORMAT=1`; **never**
-run `clang-format -i` on an existing file. No `Co-Authored-By` line.
-
-**Gates after every commit:**
-- `export EMSDK=C:/work/emsdk; cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF;
-  cmake --build --preset tests -j 8; ctest --preset tests` → **51/51**
-- `pio run -e phantasm` → `[teensy-gate] phantasm: PASS`, and report RAM1 `code`,
-  RAM1 `variables` (DTCM), FLASH `data`, **and the per-commit delta of each**.
+Worktree and landing discipline, shared-device access, style, and the
+per-commit gates: `docs/agent_workflow.md`.
 
 ---
 
