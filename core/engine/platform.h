@@ -98,6 +98,28 @@ constexpr uint64_t epoch_seed(uint32_t epoch) {
   z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
   return z ^ (z >> 31);
 }
+
+/**
+ * @brief Returns the global deterministic random number generator.
+ * @return Reference to the process-wide Pcg32 seeded with 1337.
+ * @details DETERMINISM CONTRACT: this `Pcg32(1337)` is the only RNG that is
+ *          bit-identical device-vs-simulator; parity-sensitive effects must draw
+ *          through it via `hs::random()`/`hs::rand_f`/`hs::rand_int`, not the
+ *          FastLED `random8()`/`random16()`/Arduino `random()` path (that
+ *          resolves to FastLED's LCG on device but this Pcg32 on the host mocks,
+ *          so the two diverge; legacy effects only).
+ *
+ *          REENTRANCY CONTRACT: the generator is a function-local `static`, so it
+ *          is main-loop-only — never call it from an ISR or any preemptive
+ *          context.
+ */
+inline Pcg32 &random() {
+  static Pcg32 gen(1337);
+  return gen;
+}
+
+/** @brief Global debug-logging toggle. */
+inline bool debug = false;
 } // namespace hs
 
 #ifdef ARDUINO
@@ -131,24 +153,6 @@ inline void log(const char *msg, ...) {
 inline void flush_log() { Serial.flush(); }
 
 /**
- * @brief Returns the global deterministic random number generator.
- * @return Reference to the process-wide Pcg32 seeded with 1337.
- * @details DETERMINISM CONTRACT: this `Pcg32(1337)` is the only RNG that is
- *          bit-identical device-vs-simulator; parity-sensitive effects must draw
- *          through it via `hs::random()`/`hs::rand_f`/`hs::rand_int`, not the
- *          FastLED `random8()`/`random16()`/Arduino `random()` path (that
- *          resolves to FastLED's LCG on device but this Pcg32 on the host mocks,
- *          so the two diverge; legacy effects only).
- *
- *          REENTRANCY CONTRACT: the generator is a function-local `static`, so it
- *          is main-loop-only — never call it from an ISR or any preemptive
- *          context.
- */
-inline Pcg32 &random() {
-  static Pcg32 gen(1337);
-  return gen;
-}
-/**
  * @brief Wrapped millis() for namespace consistency.
  * @return Milliseconds since boot from the Arduino runtime.
  */
@@ -162,9 +166,6 @@ inline unsigned long micros() { return ::micros(); }
 inline void disable_interrupts() { noInterrupts(); }
 /** @brief Enables interrupts (Arduino). */
 inline void enable_interrupts() { interrupts(); }
-
-/** @brief Global debug-logging toggle. */
-inline bool debug = false;
 // rand_f/rand_int and ScanMetrics are defined once in the shared hs namespace
 // after the #endif below.
 
@@ -434,19 +435,6 @@ inline void log(const char *fmt, ...) {
 
 /** @brief Flushes stdout (used before trap so the breadcrumb is not lost). */
 inline void flush_log() { fflush(stdout); }
-
-/**
- * @brief Returns the global deterministic random number generator.
- * @return Reference to the process-wide Pcg32 seeded with 1337.
- * @details Mirrors the device `Pcg32(1337)` so that `hs::random()`/`hs::rand_*`
- *          reproduce hardware bit-for-bit — see the determinism contract on the
- *          ARDUINO branch's `hs::random()` for which paths are (and are not)
- *          covered.
- */
-inline Pcg32 &random() {
-  static Pcg32 gen(1337);
-  return gen;
-}
 } // namespace hs
 
 // --- Mock Arduino Constants/Types ---
@@ -973,9 +961,6 @@ inline unsigned long micros() {
 inline void disable_interrupts() {}
 /** @brief Enables interrupts (no-op on host). */
 inline void enable_interrupts() {}
-
-/** @brief Global debug-logging toggle. */
-inline bool debug = false;
 // rand_f/rand_int and ScanMetrics are defined once in the shared hs namespace
 // after the #endif below.
 #define HS_OS_CYCLES() 0
@@ -1070,8 +1055,8 @@ inline unsigned long micros() { return hs::micros(); }
 #endif
 
 // ---------------------------------------------------------------------------
-// Platform-agnostic hs:: helpers (defined once; both branches above provide
-// hs::random()).
+// Platform-agnostic hs:: helpers (defined once; hs::random() is defined above,
+// ahead of both platform branches).
 // ---------------------------------------------------------------------------
 namespace hs {
 
