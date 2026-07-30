@@ -224,7 +224,7 @@ async function main() {
     }
     if (strobing === 0) {
       fail('strobeColumns() reported false for every effect — the whole roster ' +
-        'declares strobe = true');
+        'declares strobe = false, or the binding is dead');
     }
 
     // ── Embind write seam: setResolution / setClip / setParameter ─────────────
