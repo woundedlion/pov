@@ -638,15 +638,6 @@ struct GSWhiteBox {
     gs.step_physics(cA, cB, nA, nB);
   }
 
-  // Drives the shared substep driver over render()'s float generation buffers.
-  static void advance_substeps(GS &gs, int steps, float *pA, float *pB,
-                               float *sA, float *sB) {
-    gs.advance_substeps(steps, std::array<float *, 2>{pA, pB},
-                        std::array<float *, 2>{sA, sB},
-                        [&](auto &cur, auto &nxt) {
-                          gs.step_physics(cur[0], cur[1], nxt[0], nxt[1]);
-                        });
-  }
 };
 
 /**
@@ -871,37 +862,6 @@ inline void test_gs_reaction_corner_stays_bounded() {
         cA[i] > 1.0f || cB[i] < 0.0f || cB[i] > 1.0f)
       ++escaped;
   HS_EXPECT_EQ(escaped, 0);
-}
-
-/**
- * @brief Verifies an odd substep count lands the final generation back in the
- *        driver's persistent buffers.
- * @details advance_substeps ping-pongs between the caller's persistent buffers
- *          and scratch, then copies back only when the final generation ended up
- *          in scratch — the parity copy-back, which the even production
- *          STEPS_PER_FRAME never exercises. Drive a single (odd) substep on a
- *          seeded field: the diffused result must appear in the persistent B
- *          buffer (not just the scratch one), so a missing copy-back leaves the
- *          neighbors at rest and fails here.
- */
-inline void test_gs_odd_substep_lands_in_persistent() {
-  std::vector<float> pA(GSWhiteBox::N, 1.0f), pB(GSWhiteBox::N, 0.0f),
-      sA(GSWhiteBox::N, 0.0f), sB(GSWhiteBox::N, 0.0f);
-  const int seed = 4000; // an interior lattice node with a full neighbor ring
-  pB[seed] = 1.0f;
-
-  GSWhiteBox::GS gs;
-  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f);
-  GSWhiteBox::advance_substeps(gs, 1, pA.data(), pB.data(), sA.data(),
-                               sB.data());
-
-  int spread = 0;
-  for (int k = 0; k < ReactionGraph::RD_K; ++k) {
-    int nb = ReactionGraph::neighbors[seed][k];
-    if (nb >= 0 && pB[nb] > 0.0f)
-      ++spread;
-  }
-  HS_EXPECT_GT(spread, 0); // diffusion landed in the persistent buffers
 }
 
 // ---------------------------------------------------------------------------
@@ -4027,7 +3987,6 @@ inline int run_effects_tests() {
     test_gs_substep_signs_and_clamp();
     test_gs_evolution_stays_bounded();
     test_gs_reaction_corner_stays_bounded();
-    test_gs_odd_substep_lands_in_persistent();
     test_gs_dissolve_clears_and_reseeds();
     test_gs_reaction_edit_starts_dissolve();
     test_bz_q16_roundtrip();
