@@ -1707,6 +1707,11 @@ template <typename A, typename B> struct Subtract {
    * @param p Point on sphere (normalized).
    * @param res Output result; max(A, -B) with B's distance negated when it
    * wins, keeping A's size metric.
+   * @note Across the carve edge only `dist` is negated and `size` is held to
+   *       A's; `t`/`raw_dist`/`aux` stay B's own parametrization, so a shader
+   *       keying off them sees a hard edge there. `raw_dist` is a per-shape
+   *       unsigned or supplementary quantity, not a signed metric, so it is
+   *       not negated with `dist`.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
