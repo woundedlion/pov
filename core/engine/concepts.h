@@ -220,7 +220,6 @@ using VertexShaderRef = FunctionRef<void(Fragment &)>;
 // and its original pre-shader position. Plot::ParticleSystem::draw runs it only
 // for trails the segment cull keeps, skipping trails that render nothing.
 using DeferredShaderRef = FunctionRef<void(Fragment &, const Vector &)>;
-using BlendFn = FunctionRef<Pixel(const Pixel &, const Pixel &)>;
 using TweenFn = FunctionRef<void(const Quaternion &, float)>;
 using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
 // Rasterizer's clip-cull predicate: does the (world-transformed) edge a-b, with
