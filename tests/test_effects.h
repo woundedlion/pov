@@ -3521,6 +3521,62 @@ inline void test_voronoi_union_candidates_cover_nearest() {
 }
 
 /**
+ * @brief Requires a Voronoi segment band to shade every pixel exactly as the
+ *        full-canvas render does.
+ * @details The coarse-coherence grid decides per block which sites reach a
+ *          pixel's candidate union, so a grid whose phase follows the clip
+ *          origin shades the same pixel differently depending on which band
+ *          renders it — a discontinuity pinned to the segment seam, since
+ *          Voronoi is neither full-frame nor persisting. The bands below start
+ *          off a block boundary (the adaptive block is 6 px at the default site
+ *          count), which an aligned split would hide.
+ */
+inline void test_voronoi_segment_render_matches_full_frame() {
+  constexpr int W = DEFAULT_W;
+  constexpr int H = DEFAULT_H;
+
+  auto render = [](int x0, int x1, int y0, int y1) {
+    reset_effect_globals();
+    Voronoi<W, H> effect;
+    effect.init();
+    effect.set_clip(y0, y1, x0, x1);
+    effect.draw_frame();
+    effect.advance_display();
+    std::vector<Pixel> band;
+    band.reserve(static_cast<size_t>(x1 - x0) * (y1 - y0));
+    for (int y = y0; y < y1; ++y)
+      for (int x = x0; x < x1; ++x)
+        band.push_back(effect.get_pixel(x, y));
+    return band;
+  };
+
+  const std::vector<Pixel> full = render(0, W, 0, H);
+
+  struct Band {
+    int x0, x1, y0, y1;
+  };
+  const Band bands[] = {
+      {0, 100, 0, H}, {100, W, 0, H}, {0, W, 50, H}, {37, 205, 11, 93}};
+
+  for (const Band &b : bands) {
+    const std::vector<Pixel> banded = render(b.x0, b.x1, b.y0, b.y1);
+    HS_EXPECT_EQ(banded.size(),
+                 static_cast<size_t>(b.x1 - b.x0) * (b.y1 - b.y0));
+    size_t different = 0;
+    size_t i = 0;
+    for (int y = b.y0; y < b.y1; ++y)
+      for (int x = b.x0; x < b.x1; ++x, ++i)
+        if (banded[i] != full[static_cast<size_t>(y) * W + x])
+          ++different;
+    if (different)
+      std::printf("  VORONOI SEAM band x[%d,%d) y[%d,%d): %zu of %zu pixels "
+                  "differ from the full-canvas render\n",
+                  b.x0, b.x1, b.y0, b.y1, different, banded.size());
+    HS_EXPECT_EQ(different, static_cast<size_t>(0));
+  }
+}
+
+/**
  * @brief Gates HankinSolids' hand-tuned scratch budgets against the real
  *        generate+classify+render+compaction peak of every simple solid at the
  *        device height (H=144).
@@ -3963,6 +4019,7 @@ inline int run_effects_tests() {
     test_needs_full_frame_gate();
     test_voronoi_axes_use_uniform_sampler();
     test_voronoi_union_candidates_cover_nearest();
+    test_voronoi_segment_render_matches_full_frame();
     test_sh_decode_lm_valid_order();
     test_sh_cartesian_matches_spherical();
     test_gs_q16_roundtrip();
