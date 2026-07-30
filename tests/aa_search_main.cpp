@@ -34,7 +34,7 @@ int missed_for(int sides, float rho, float phi, float spin) {
   }
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const Vector>(v3, sides),
-                 std::span<const uint16_t>(idx, sides), 0.0f, scratch, HV, H);
+                 std::span<const uint16_t>(idx, sides), scratch, HV, H);
   if (face.y_min > face.y_max)
     return -1;
 

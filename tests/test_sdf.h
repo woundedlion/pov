@@ -1960,8 +1960,7 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   }
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const Vector>(verts3d, sides),
-                 std::span<const uint16_t>(idx, sides), /*thickness=*/0.0f,
-                 scratch, HV, H);
+                 std::span<const uint16_t>(idx, sides), scratch, HV, H);
 
   std::vector<uint8_t> visited;
   cull_visited<W, H>(face, visited);
@@ -2048,8 +2047,7 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
 
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const Vector>(verts3d, n_verts),
-                 std::span<const uint16_t>(idx, n_verts), /*thickness=*/0.0f,
-                 scratch, HV, H);
+                 std::span<const uint16_t>(idx, n_verts), scratch, HV, H);
   HS_EXPECT_EQ(face.convex, rho_inner <= 0.0f);
   const uint32_t probe_flags = face.probe_flags();
 
@@ -2193,7 +2191,7 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
   for (int i = 0; i < n_verts; ++i)
     canon_idx[i] = static_cast<uint16_t>(i);
   SDF::Face canon_face(std::span<const Vector>(orig, n_verts),
-                       std::span<const uint16_t>(canon_idx, n_verts), 0.0f,
+                       std::span<const uint16_t>(canon_idx, n_verts),
                        canon_scratch, HV, H);
   HS_EXPECT_TRUE(!canon_face.convex);
   float canon[2 * n_verts];
@@ -2230,8 +2228,7 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
 
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const Vector>(verts, n_verts),
-                 std::span<const uint16_t>(canon_idx, n_verts), 0.0f, scratch,
-                 HV, H);
+                 std::span<const uint16_t>(canon_idx, n_verts), scratch, HV, H);
   HS_EXPECT_TRUE(face.bind_class_lut(&lut, canon, off, reflected));
   const uint32_t probe_flags = face.probe_flags();
 
@@ -2240,7 +2237,7 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
     SDF::FaceScratchBuffer reject_scratch;
     static const float zeros[2 * n_verts] = {};
     SDF::Face reject_face(std::span<const Vector>(verts, n_verts),
-                          std::span<const uint16_t>(canon_idx, n_verts), 0.0f,
+                          std::span<const uint16_t>(canon_idx, n_verts),
                           reject_scratch, HV, H);
     HS_EXPECT_TRUE(!reject_face.bind_class_lut(&lut, zeros, 0, false));
   }
