@@ -56,13 +56,16 @@ class BZReactionDiffusion
   using Base::cube_lut;
   using Base::dist2;
   using Base::for_each_neighbor;
+  using Base::from_q16;
   using Base::init_lattice;
   using Base::orient_lattice;
+  using Base::Q16_INV;
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_center;
   using Base::register_param;
   using Base::seed_face_lut;
+  using Base::to_q16;
   using Base::with_wendland_weight;
 
 public:
@@ -113,17 +116,6 @@ private:
   // params without exposing them to production callers.
   friend struct ::hs_test::effects_tests::BZWhiteBox;
 
-  // ---------------------------------------------------------------------------
-  // Q16 fixed-point helpers
-  // ---------------------------------------------------------------------------
-
-  /**
-   * @brief Q16 full-scale factor: maps the [0, 65535] state to [0.0, 1.0].
-   */
-  static constexpr float Q16_SCALE = 65535.0f;
-  static constexpr float Q16_INV =
-      1.0f / Q16_SCALE; /**< Reciprocal of Q16_SCALE. */
-
   /**
    * @brief Concentration-sum floor below which a location is treated as empty.
    * @details Distinct from KERNEL_MIN_TOTAL_WEIGHT: that guards the Wendland
@@ -131,24 +123,6 @@ private:
    * average to ~0 if all species are absent), and sample_kernel culls below it.
    */
   static constexpr float SPECIES_EMPTY_EPS = 1e-6f;
-
-  /**
-   * @brief Converts a Q16 fixed-point sample to a normalized float.
-   * @param v Q16 value in [0, 65535].
-   * @return Concentration in [0.0, 1.0].
-   */
-  static inline float from_q16(uint16_t v) { return v * Q16_INV; }
-  /**
-   * @brief Converts a normalized concentration to a Q16 fixed-point sample.
-   * @param v Concentration; clamped to [0.0, 1.0] before scaling.
-   * @return Q16 value in [0, 65535], rounded to nearest.
-   * @details Rounds to nearest (+0.5f); truncating would bias the dynamics down
-   *          by dropping sub-LSB positive updates. clamp bounds the input so
-   *          65535.5 -> 65535 with no overflow.
-   */
-  static inline uint16_t to_q16(float v) {
-    return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
-  }
 
   // Simulation tuning.
   static constexpr int CLUSTERS_PER_SPECIES =

@@ -58,6 +58,7 @@ class GSReactionDiffusion
   using Base::advance_substeps;
   using Base::cube_lut;
   using Base::for_each_neighbor;
+  using Base::from_q16;
   using Base::init_lattice;
   using Base::orient_lattice;
   using Base::RD_K;
@@ -65,6 +66,7 @@ class GSReactionDiffusion
   using Base::refine_and_accumulate;
   using Base::register_param;
   using Base::seed_face_lut;
+  using Base::to_q16;
 
 public:
   /**
@@ -134,14 +136,6 @@ private:
   // without exposing them to production callers.
   friend struct ::hs_test::effects_tests::GSWhiteBox;
 
-  /**
-   * @brief Q16 full-scale factor: maps 1.0 to 65535 for the 16-bit fixed-point
-   * state needed by the GS cubic reaction term.
-   */
-  static constexpr float Q16_SCALE = 65535.0f;
-  static constexpr float Q16_INV = 1.0f / Q16_SCALE; /**< Reciprocal of
-                                                          Q16_SCALE. */
-
   static constexpr int NUM_SEED_CLUSTERS = 30; /**< B blobs seeded per
                                                     reaction. */
   /** @brief Frames the dissolve takes to convert every node back to rest. */
@@ -187,23 +181,6 @@ private:
    * rendering an opaque flat plateau of the lowest palette color.
    */
   static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
-  /**
-   * @brief Converts a Q16 fixed-point value to a float in [0, 1].
-   * @param v Q16 value, where 65535 represents 1.0.
-   * @return Concentration as a float in [0, 1].
-   */
-  static inline float from_q16(uint16_t v) { return v * Q16_INV; }
-  /**
-   * @brief Converts a float concentration to a clamped, rounded Q16 value.
-   * @param v Concentration as a float (clamped to [0, 1]).
-   * @return Q16 value in [0, 65535].
-   * @details Rounds to nearest (+0.5f); truncating would bias the dynamics down
-   * by dropping sub-LSB positive updates. clamp bounds the input so 65535.5 ->
-   * 65535 with no overflow.
-   */
-  static inline uint16_t to_q16(float v) {
-    return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
-  }
 
   /**
    * @brief Seeds NUM_SEED_CLUSTERS fully-saturated B blobs as nucleation sites.
