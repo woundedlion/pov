@@ -235,10 +235,10 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Push the live "Trail Len" slider into the Trails filter, clamped to its
-    // [1,255] domain.
+    // Push the live "Trail Len" slider into the Trails filter, capped to what
+    // the ring can hold for the current emission rate.
     filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().set_lifetime(
-        hs::clamp((int)params.trail_length, 1, 255));
+        hs::clamp((int)params.trail_length, 1, trail_length_ceiling()));
 
     {
       HS_PROFILE(dy_timeline_step);
@@ -259,6 +259,7 @@ public:
     speed_accumulator += std::abs(effective_speed);
     const int steps = static_cast<int>(speed_accumulator);
     speed_accumulator -= static_cast<float>(steps);
+    emitted_points = 0;
     {
       HS_PROFILE(dy_draw_nodes);
       if (steps == 0) {
@@ -272,6 +273,7 @@ public:
         }
       }
     }
+    emission_points = emitted_points / (steps > 0 ? steps : 1);
 
     // The Trails filter replays each buffered point with t = its age fraction;
     // feeding that as color()'s palette parameter fades the trail along the
@@ -300,6 +302,7 @@ private:
         auto from = pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
         Color4 c = color(from, 0);
         c.alpha *= 0.5f;
+        ++emitted_points;
         filters.plot(canvas, from, c.color, age, c.alpha);
       } else {
         auto from = pixel_to_vector<W, H>(nodes[i - 1].x, nodes[i - 1].y);
@@ -307,6 +310,7 @@ private:
         auto fragment_shader = [this](const Vector &v, Fragment &f) {
           f.color = color(v, 0);
           f.color.alpha *= 0.5f;
+          ++emitted_points;
         };
         Fragment f_from;
         f_from.pos = from;
@@ -317,6 +321,26 @@ private:
         Plot::Line::draw<W, H>(filters, canvas, f_from, f_to, fragment_shader);
       }
     }
+  }
+
+  /**
+   * @brief Longest trail, in frames, the ring can hold at the current rate.
+   * @return Frame count in [1, 255]; 255 before the first frame is measured.
+   * @details Steady-state occupancy is points-per-frame x lifetime, so a longer
+   *          trail than this would overrun the ring and evict live points of
+   *          arbitrary age (flush()'s compaction leaves the ring unordered),
+   *          punching holes in the tail rather than shortening it. The step
+   *          count is bounded by |speed| + 1: speed_accumulator carries at most
+   *          one extra whole step into any frame.
+   */
+  int trail_length_ceiling() const {
+    if (emission_points == 0)
+      return 255;
+    const uint32_t emissions =
+        static_cast<uint32_t>(std::abs(params.speed)) + 1;
+    return hs::clamp(
+        static_cast<int>(TRAIL_CAPACITY / (emission_points * emissions)), 1,
+        255);
   }
 
   /**
@@ -402,10 +426,11 @@ private:
   static constexpr size_t NUM_NODES = H_VIRT;     /**< Strand node count. */
   /**
    * @brief Compile-time Trails storage capacity (max buffered trail points).
-   * @details Memory-budget cap, not a worst-case bound; over-budget is graceful
-   *          (World::Trails' ring drops the oldest point, shortening the tail).
+   * @details Sized to the persistent partition left by the nodes and the baked
+   *          palette LUTs; trail_length_ceiling() keeps the live trail inside it
+   *          so the ring never evicts.
    */
-  static constexpr int TRAIL_CAPACITY = 10000;
+  static constexpr int TRAIL_CAPACITY = 29000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES>
       palettes; /**< Live palettes. */
   StaticCircularBuffer<float, MAX_PALETTES - 1>
@@ -444,6 +469,9 @@ private:
    *        multiple frames instead of truncating to zero.
    */
   float speed_accumulator = 0.0f;
+
+  uint32_t emitted_points = 0;  /**< Points plotted this frame. */
+  uint32_t emission_points = 0; /**< Points per strand emission, last frame. */
 
   /**
    * @brief Live slider-backed parameters for the effect.
