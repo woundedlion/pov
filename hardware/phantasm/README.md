@@ -93,10 +93,10 @@ the netlist is what's verified.
 | `R_LF` / `C_LF` | `Device:R` / `Device:C` | 0805 / `C_1206` | bead-LC damper, 22 µF |
 | `C_DEC1/2` | `Device:C` (0.1µF) | `Capacitor_SMD:C_0603_1608Metric` | |
 | `R_D1/R_D2` | `Device:R` (33Ω) | `Resistor_SMD:R_0805_2012Metric` | DATA/CLK source term |
-| `R_S` | `Device:R` (100Ω) | `R_0805` | SYNC source term |
-| `R1/R2` | `Device:R` (10k/15k) | `R_0603` | sync divider |
+| `R_S` | `Device:R` (100Ω) | `R_0805_2012Metric_Pad1.20x1.40mm_HandSolder` | SYNC source term; hand-solder land |
+| `R1/R2` | `Device:R` (10k/15k) | `R_0603_1608Metric_Pad0.98x0.95mm_HandSolder` | sync divider; hand-solder land |
 | `C_SYNC` | `Device:C` (220pF) | `C_0603` | populated (noise filter) |
-| `R_PD` | `Device:R` (10k) | `R_0603` | master-only bus idle pull-down; ground-side switched automatically by U1 channel D |
+| `R_PD` | `Device:R` (10k) | `R_0603_1608Metric_Pad0.98x0.95mm_HandSolder` | master-only bus idle pull-down, hand-solder land; ground-side switched automatically by U1 channel D |
 | `R_MEN` | `Device:R` (10k) | `R_0603` | MASTER_EN boot pull-up → 3V3 |
 | `D_BUS` | `Device:D_TVS` (Bourns CDSOD323-T05L) | `Diode_SMD:D_SOD-323` with Bourns pad geometry | populated 5 V, 1 pF sync-bus TVS; exact Bourns land pattern; JLCPCB C1975255 |
 | `J1` | `Connector_Generic:Conn_01x02` | `PinHeader_1x02_P2.54mm` | +5 V/GND light logic feed, ~1 A |
@@ -116,6 +116,12 @@ the netlist is what's verified.
   `VLOGIC = 4.75 − 0.15 × (0.75 + 0.20 + 0.12) = 4.5895 V`. This leaves about
   90 mV above the AHCT125's 4.5 V minimum; verify that J1 itself remains at or above
   4.75 V on the hot, operating rotor because external harness drop is not included.
+- **Hand-solder lands on the bench-tuned sync resistors.** `R1`, `R2` (divider ratio,
+  spec §4.2), `R_PD` (bus idle pull-down) and `R_S` (source termination) carry KiCad's
+  `_HandSolder` land: the pad centre moves outward with the extra length, so the toe
+  grows while the inter-pad gap stays at the IPC-nominal **0.85 mm** (0603) /
+  **0.80 mm** (0805) and no copper reaches under the ceramic body. Every other chip
+  passive uses the stock IPC-nominal land; `D_BUS` uses the Bourns land pattern.
 - **ID straps** use the Teensy's internal pull-ups; the former optional `R_ID0`
   footprint is not required. `D_BUS` is populated on every board. `JP_SHLD` is
   populated **on the master board only**;
