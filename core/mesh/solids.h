@@ -1771,6 +1771,20 @@ static_assert(all_categories_match_registry(),
               "everywhere else");
 
 /**
+ * @brief Tests whether every Islamic star-pattern entry carries a Recipe mirror.
+ * @return True when no islamic_registry entry has a null recipe.
+ */
+inline constexpr bool all_islamic_entries_have_recipes() {
+  for (const Entry &entry : islamic_registry)
+    if (!entry.recipe)
+      return false;
+  return true;
+}
+static_assert(all_islamic_entries_have_recipes(),
+              "every islamic_registry entry needs its Recipe mirror; the "
+              "lowering and morph-feasibility sweeps skip recipe-less entries");
+
+/**
  * @brief Finds a registry entry by name across all registries.
  * @param name Candidate solid name.
  * @return Pointer to the matching entry, or nullptr when no name matches.
