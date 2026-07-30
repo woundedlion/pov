@@ -181,7 +181,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   HS_CHECK(mesh.get_face_offsets_size() == F,
            "build_mesh_class_bake requires one face offset per face");
 
-  out.classes.bind(persistent, MAX_CONGRUENCE_CLASSES);
+  out.classes.bind(persistent, std::min<size_t>(MAX_CONGRUENCE_CLASSES, F));
   out.face_recs.bind(persistent, F);
 
   out.shared_faces = 0;
