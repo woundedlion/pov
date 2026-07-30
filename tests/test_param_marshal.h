@@ -61,8 +61,8 @@ template <template <int, int> class E> inline bool check_one(const char *) {
   HS_EXPECT_EQ(views.size(), n);
   HS_EXPECT_EQ(values.size(), n);
 
-  // Both streams come from one ordered pass: for every i, name/value/type must
-  // match the source param.
+  // For every i, name/value/type from the independent passes must match the
+  // source param.
   size_t i = 0;
   for (const auto &def : effect.getParameters()) {
     HS_EXPECT(i < views.size(), "marshaled index within range");

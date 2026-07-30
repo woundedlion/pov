@@ -8,9 +8,11 @@
  * The JS frontend consumes two parallel streams from the engine: the parameter
  * *definitions* (getParameterDefinitions) and the per-frame *values*
  * (getParamValues). They MUST agree on order — values[i] describes
- * definitions[i] — or every slider mis-binds. Both are derived here from a
- * single pass over Effect::getParameters(), so the order is defined in exactly
- * one place. This layer carries no Emscripten dependency (wasm.cpp adds the
+ * definitions[i] — or every slider mis-binds. This layer takes two independent
+ * passes over Effect::getParameters() at different times. Effect implementations
+ * own the invariant by completing ParamList registration during init; the WASM
+ * bridge's generation token detects replacement of the whole effect between
+ * passes. This layer carries no Emscripten dependency (wasm.cpp adds the
  * emscripten::val translation on top), so the contract is host-unit-testable
  * without an Emscripten toolchain — see tests/test_param_marshal.h.
  */
@@ -46,7 +48,7 @@ struct ParamView {
  * @param effect Effect whose getParameters() sequence defines the order.
  * @param out Destination vector, cleared then filled in definition order;
  *            caller-owned so a reused vector amortizes its allocation.
- * @details The single source of ordering for the definition stream.
+ * @details Captures the order supplied by Effect's stable registered ParamList.
  */
 inline void collect_param_views(const Effect &effect,
                                 std::vector<ParamView> &out) {
@@ -64,8 +66,9 @@ inline void collect_param_views(const Effect &effect,
  * @param effect Effect whose getParameters() values are read, in order.
  * @param out Destination vector, cleared (retaining capacity) then filled so
  *            that out[i] corresponds to collect_param_views()'s view[i].
- * @details Iterates the identical Effect::getParameters() sequence, so
- *          values[i] always corresponds to view[i]. The stream carries raw
+ * @details Iterates Effect's stable registered ParamList independently of
+ *          collect_param_views(), so its order must remain unchanged between
+ *          the two calls. The stream carries raw
  *          floats even for is_bool params (a bool is emitted as 0.0/1.0, not a
  *          JS boolean); consumers key off the definition type from
  *          collect_param_views(), not this value. `out.clear()` retains
