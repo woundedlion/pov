@@ -1396,6 +1396,15 @@ inline void test_sprite_fade_in_plateau_fade_out_envelope() {
   HS_EXPECT_TRUE(s.done());
 }
 
+/** @brief Clamps an overshooting fade-in easing to full opacity. */
+inline void test_sprite_clamps_overshooting_fade_in() {
+  float opacity = -1.0f;
+  Animation::Sprite s([&](Canvas &, float o) { opacity = o; }, 4, 2,
+                      [](float) { return 1.35f; }, 0, ease_linear);
+  s.step(fake_canvas());
+  HS_EXPECT_NEAR(opacity, 1.0f, 1e-6f);
+}
+
 /**
  * @brief Verifies that when fade_in + fade_out exceed duration the fades scale
  * proportionally into a continuous triangle that still peaks at full opacity.
@@ -2783,6 +2792,7 @@ inline int run_animation_tests() {
   test_particle_system_signed_axis_trajectory();
 
   test_sprite_fade_in_plateau_fade_out_envelope();
+  test_sprite_clamps_overshooting_fade_in();
   test_sprite_overlapping_fades_stay_continuous();
   test_sprite_paused_holds_frame();
 
