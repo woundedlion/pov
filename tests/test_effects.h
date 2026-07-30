@@ -45,20 +45,21 @@ constexpr int DEFAULT_W = 288;
 constexpr int DEFAULT_H = 144;
 
 /**
- * @brief Holosphere device render width in pixels.
- * @details The hardware target instantiates every effect at <96,20>. The native
- * suite is the only place that specialization runs under asserts (the device
- * forces NDEBUG; the CI WASM smoke runs assert-free), so a second roster pass at
- * this resolution exercises height-20-specific paths (PhiLUT<20> indexing,
- * small-aspect arena sizing, H_OFFSET interactions) that bypass every
- * assert-enabled layer otherwise. Both are in HS_WASM_RESOLUTIONS (wasm.cpp).
+ * @brief Small-aspect render width in pixels.
+ * @details <96,20> is a simulator/test resolution, not a hardware target: every
+ * PlatformIO env builds 288x144. The native suite is the only place the <96,20>
+ * specialization runs under asserts (the device forces NDEBUG; the CI WASM
+ * smoke runs assert-free), so a second roster pass at this resolution exercises
+ * height-20-specific paths (PhiLUT<20> indexing, small-aspect arena sizing,
+ * H_OFFSET interactions) that bypass every assert-enabled layer otherwise. Both
+ * are in HS_WASM_RESOLUTIONS (wasm.cpp).
  */
-constexpr int DEVICE_W = 96;
+constexpr int SMALL_W = 96;
 /**
- * @brief Holosphere device render height in pixels.
- * @details Paired with DEVICE_W for the <96,20> device specialization.
+ * @brief Small-aspect render height in pixels.
+ * @details Paired with SMALL_W for the <96,20> specialization.
  */
-constexpr int DEVICE_H = 20;
+constexpr int SMALL_H = 20;
 
 /**
  * @brief Per-effect smoke frame count, resolved from HS_SMOKE_FRAMES.
@@ -78,7 +79,7 @@ using hs_test::smoke_frames;
  * resolution across a smoke pass, a determinism pass, and several full-frame
  * white-box tests — ~40 s, dominated by the ~71 ms/frame software raster of
  * 41,472-pixel frames (27 effects x N frames, back to back). The QUICK tier
- * (default) runs only the device-resolution <96,20> smoke + determinism passes,
+ * (default) runs only the small-aspect <96,20> smoke + determinism passes,
  * ~1,920-pixel frames that cover every effect's construct/init/render/read-back
  * and cross-run determinism in ~2 s — the fast path for the local pre-commit
  * hook. CI opts into the full suite on every push/PR by setting HS_EFFECTS_FULL=1
@@ -422,7 +423,7 @@ constexpr int PARITY_SEGMENTS = 4;
  *          reads back or carries forward from there shows up here as a mismatch
  *          against the whole-buffer clear.
  */
-template <template <int, int> class E, int W = DEVICE_W, int H = DEVICE_H>
+template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
 inline void clip_clear_parity_one(const char *name) {
   constexpr int S = H * 2;
 
@@ -589,11 +590,11 @@ inline void test_sh_cartesian_matches_spherical() {
  *          crash and renders reproducibly — it cannot see a Q16 round-trip error
  *          or a numerically-unstable-but-deterministic blow-up. This seam pins
  *          the conversions and one Gray-Scott substep directly. The lattice is a
- *          fixed 7680-node graph, independent of <W,H>, so the device resolution
- *          is used arbitrarily.
+ *          fixed 7680-node graph, independent of <W,H>, so the small-aspect
+ *          resolution is used arbitrarily.
  */
 struct GSWhiteBox {
-  using GS = GSReactionDiffusion<DEVICE_W, DEVICE_H>;
+  using GS = GSReactionDiffusion<SMALL_W, SMALL_H>;
   static constexpr int N = GS::RD_N;
 
   static uint16_t to_q16(float v) { return GS::to_q16(v); }
@@ -875,11 +876,11 @@ inline void test_gs_reaction_corner_stays_bounded() {
  *          update, or a perturbation that wraps past the Q16 rail, so the
  *          conversions, one species step, the perturbation, and one fused physics
  *          substep are pinned directly. The lattice is the same fixed 7680-node
- *          graph as GS, independent of <W,H>, so the device resolution is used
- *          arbitrarily.
+ *          graph as GS, independent of <W,H>, so the small-aspect resolution is
+ *          used arbitrarily.
  */
 struct BZWhiteBox {
-  using BZ = BZReactionDiffusion<DEVICE_W, DEVICE_H>;
+  using BZ = BZReactionDiffusion<SMALL_W, SMALL_H>;
   static constexpr int N = BZ::RD_N;
 
   static uint16_t to_q16(float v) { return BZ::to_q16(v); }
@@ -1113,7 +1114,7 @@ inline void test_bz_substep_diffuses() {
  *          resolution-independent.
  */
 struct DreamBallsWhiteBox {
-  using DB = DreamBalls<DEVICE_W, DEVICE_H>;
+  using DB = DreamBalls<SMALL_W, SMALL_H>;
   static constexpr int PRESETS = 4;
 
   static int active_bake(const DB &db) { return db.active_bake; }
@@ -1576,7 +1577,7 @@ struct DisplacementFieldWhiteBox {
  */
 inline void test_displacement_field_lazy_hue_table_matches_eager() {
   reset_effect_globals();
-  DisplacementField<DEVICE_W, DEVICE_H> effect;
+  DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   GenerativePalette palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
                             BrightnessProfile::FLAT);
@@ -1633,7 +1634,7 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
  */
 inline void test_displacement_field_hue_table_fidelity() {
   reset_effect_globals();
-  DisplacementField<DEVICE_W, DEVICE_H> effect;
+  DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
 
   constexpr float INV16 = 1.0f / 65535.0f;
@@ -2127,7 +2128,7 @@ struct MindSplatterWhiteBox {
 
 /** @brief Every MindSplatter palette rebuild stays exactly opaque. */
 inline void test_mindsplatter_opaque_palette_invariant() {
-  using MS = MindSplatter<DEVICE_W, DEVICE_H>;
+  using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;
   std::array<Pixel, BakedPalette::LUT_SIZE> previous_colors{};
   bool saw_distinct_palette = false;
@@ -2157,8 +2158,8 @@ inline void test_mindsplatter_opaque_palette_invariant() {
  * @brief Replays one frozen saturated state with exact particle and frame output.
  */
 inline void test_mindsplatter_replay_snapshot_exact() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
   constexpr int WARMUP_FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
@@ -2228,8 +2229,8 @@ inline void test_mindsplatter_replay_snapshot_exact() {
  * a frozen saturated MindSplatter particle pool.
  */
 inline void test_mindsplatter_saturated_quadrant_sink_parity() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
   constexpr int WARMUP_FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
@@ -2295,8 +2296,8 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
 
 /** @brief Opaque-LUT shading matches the generic path in a saturated quadrant. */
 inline void test_mindsplatter_opaque_palette_framebuffer_parity() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
   constexpr int WARMUP_FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
@@ -2528,8 +2529,8 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
 
 /** @brief Bounds rendered output drift from the matrix orientation path. */
 inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
   constexpr int FRAMES = 16;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
@@ -2591,8 +2592,8 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
 
 /** @brief The normalized-seed render matches the particle-pool lookup. */
 inline void test_mindsplatter_color_seed_framebuffer_parity() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
   constexpr int FRAMES = 16;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
@@ -2636,8 +2637,8 @@ inline void test_mindsplatter_color_seed_framebuffer_parity() {
 
 /** @brief Fusing the vertex pass into trail materialization is pixel exact. */
 inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
   constexpr int FRAMES = 16;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
@@ -2681,8 +2682,8 @@ inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
 
 /** @brief The multiply-only hole kernel matches the generic kernel exactly. */
 inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
   constexpr int FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
@@ -2727,8 +2728,8 @@ inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
 
 /** @brief Clip clearing preserves every pixel displayed by the POV driver. */
 inline void test_mindsplatter_clip_clear_display_parity() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
   constexpr int S = H * 2;
   constexpr int N = 4;
   constexpr int FRAMES = 160;
@@ -2804,8 +2805,8 @@ inline void test_mindsplatter_clip_clear_display_parity() {
 
 /** @brief Bounds full-lifetime render drift from signed-axis physics. */
 inline void test_mindsplatter_signed_axis_framebuffer_error() {
-  constexpr int W = DEVICE_W;
-  constexpr int H = DEVICE_H;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
   constexpr int FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
@@ -3228,7 +3229,7 @@ inline void test_shapeshifter_shape_cut_lifecycle() {
  */
 inline void test_shapeshifter_max_radius_survives_cycle() {
   reset_effect_globals();
-  ShapeShifter<DEVICE_W, DEVICE_H> ss;
+  ShapeShifter<SMALL_W, SMALL_H> ss;
   ss.init();
 
   for (const auto &def : ss.getParameters())
@@ -3325,7 +3326,7 @@ struct VoronoiWhiteBox {
 inline void test_voronoi_axes_use_uniform_sampler() {
   using WB = VoronoiWhiteBox;
   reset_effect_globals();
-  Voronoi<DEVICE_W, DEVICE_H> effect;
+  Voronoi<SMALL_W, SMALL_H> effect;
   effect.init();
 
   hs::random().seed(1337u);
@@ -3451,7 +3452,7 @@ inline void test_voronoi_union_candidates_cover_nearest() {
       voronoi_union_nearest_match<DEFAULT_W, DEFAULT_H>(sparse, deficit);
   HS_EXPECT_EQ(octa_match, 1.0);
   const double octa_match_dev =
-      voronoi_union_nearest_match<DEVICE_W, DEVICE_H>(sparse, deficit);
+      voronoi_union_nearest_match<SMALL_W, SMALL_H>(sparse, deficit);
   HS_EXPECT_EQ(octa_match_dev, 1.0);
 
   // Dense regime: seed MAX_SITES on a Fibonacci sphere exactly as
@@ -3474,7 +3475,7 @@ inline void test_voronoi_union_candidates_cover_nearest() {
   HS_EXPECT_LE(deficit, 0.005f);
 
   const double fib_match_dev =
-      voronoi_union_nearest_match<DEVICE_W, DEVICE_H>(dense, deficit);
+      voronoi_union_nearest_match<SMALL_W, SMALL_H>(dense, deficit);
   HS_EXPECT_EQ(fib_match_dev, 1.0);
   HS_EXPECT_EQ(deficit, 0.0f);
 }
@@ -3635,7 +3636,7 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
  * the build bookkeeping is resolution-independent.
  */
 struct IslamicBuildProbe {
-  using IS = IslamicStars<DEVICE_W, DEVICE_H>;
+  using IS = IslamicStars<SMALL_W, SMALL_H>;
   template <int W, int H>
   static void set_trans_speed(IslamicStars<W, H> &e, float v) {
     e.params.trans_speed = v;
@@ -3763,8 +3764,8 @@ inline void test_islamicstars_recipe_build_smoke() {
     effect.advance_display();
   }
   uint64_t acc = 0;
-  for (int y = 0; y < DEVICE_H; ++y)
-    for (int x = 0; x < DEVICE_W; ++x) {
+  for (int y = 0; y < SMALL_H; ++y)
+    for (int x = 0; x < SMALL_W; ++x) {
       const Pixel &p = effect.get_pixel(x, y);
       acc += static_cast<uint64_t>(p.r) + p.g + p.b;
     }
@@ -3939,7 +3940,7 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the SH-decode check, then both smoke and determinism passes over
- * the full effect roster at the production and device resolutions.
+ * the full effect roster at the production and small-aspect resolutions.
  */
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
@@ -3969,7 +3970,7 @@ inline int run_effects_tests() {
   // correctness block and the 288x144 production-resolution roster passes below
   // are the ~40 s bulk of this module — dominated by full-frame software raster
   // (see effects_full_suite()). The QUICK tier (default, local pre-commit) skips
-  // straight to the ~2 s device-resolution passes, which already cover every
+  // straight to the ~2 s small-aspect passes, which already cover every
   // effect's construct/init/render/read-back and cross-run determinism. So a
   // green local commit is NOT authoritative for the full-resolution paths or the
   // white-box invariants — CI is (same split as HS_SMOKE_FRAMES's cyclic-window
@@ -4034,25 +4035,25 @@ inline int run_effects_tests() {
 #undef HS_DET_ONE
   }
 
-  // Device-resolution <96,20> roster passes — always run; this is the QUICK
-  // tier's core and the only place that specialization runs under native asserts
-  // (see DEVICE_W/DEVICE_H).
-  std::printf("  -- device resolution %dx%d --\n", DEVICE_W, DEVICE_H);
+  // Small-aspect <96,20> roster passes — always run; this is the QUICK tier's
+  // core and the only place that specialization runs under native asserts
+  // (see SMALL_W/SMALL_H).
+  std::printf("  -- small-aspect resolution %dx%d --\n", SMALL_W, SMALL_H);
   g_nonblack_effects = 0;
-#define HS_SMOKE_ONE_DEV(name) smoke_one<name, DEVICE_W, DEVICE_H>(#name);
-  HS_EFFECT_LIST(HS_SMOKE_ONE_DEV)
-#undef HS_SMOKE_ONE_DEV
-  // The device <96,20> specialization is a distinct codepath; require it lights up too.
+#define HS_SMOKE_ONE_SMALL(name) smoke_one<name, SMALL_W, SMALL_H>(#name);
+  HS_EFFECT_LIST(HS_SMOKE_ONE_SMALL)
+#undef HS_SMOKE_ONE_SMALL
+  // The <96,20> specialization is a distinct codepath; require it lights up.
   HS_EXPECT_GT(g_nonblack_effects, 0);
-#define HS_DET_ONE_DEV(name) determinism_one<name, DEVICE_W, DEVICE_H>(#name);
-  HS_EFFECT_LIST(HS_DET_ONE_DEV)
-#undef HS_DET_ONE_DEV
+#define HS_DET_ONE_SMALL(name) determinism_one<name, SMALL_W, SMALL_H>(#name);
+  HS_EFFECT_LIST(HS_DET_ONE_SMALL)
+#undef HS_DET_ONE_SMALL
 
   // Every effect that does not read outside its display band clip-clears, so the
   // roster is swept rather than the one effect the optimization started on.
   std::printf("  -- clip-clear display parity --\n");
 #define HS_CLIP_PARITY_ONE(name)                                               \
-  clip_clear_parity_one<name, DEVICE_W, DEVICE_H>(#name);
+  clip_clear_parity_one<name, SMALL_W, SMALL_H>(#name);
   HS_EFFECT_LIST(HS_CLIP_PARITY_ONE)
 #undef HS_CLIP_PARITY_ONE
 
