@@ -16,6 +16,7 @@
 
 #if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
 
+#include "engine/platform.h"
 #include <vector>
 #include <string_view>
 #include <functional>
