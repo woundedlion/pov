@@ -8,10 +8,25 @@ Layout: left-to-right signal flow in labelled blocks. Power distribution uses
 visible horizontal rail wires with vertical component drops + junctions; signal
 buses between the Teensy, level shifter and connectors use net labels (ports).
 """
+import argparse
 import copy
 import os
 import builder as B
 import sexp
+from kicad_common import require_writable
+
+OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCH = os.path.join(OUT, "phantasm.kicad_sch")
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--force", action="store_true",
+                        help="overwrite the committed phantasm.kicad_sch")
+    return parser.parse_args(argv)
+
+
+require_writable(SCH, parse_args().force)
 
 b = B.Builder("PHANTASM Segment Board  -  per-segment carrier (x4, strap-selected role)",
               paper="A3")
@@ -351,8 +366,7 @@ flag("+5V_LOGIC", 284.48, fy)
 flag(GND, 317.5, fy)
 
 # ---------------------------------------------------------------- write files
-OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-open(os.path.join(OUT, "phantasm.kicad_sch"), "w", encoding="utf-8").write(b.dumps())
+open(SCH, "w", encoding="utf-8").write(b.dumps())
 
 lib_lines = ['(kicad_symbol_lib', f'\t(version {B.VERSION})',
              '\t(generator "phantasm-gen")', '\t(generator_version "10.0")']

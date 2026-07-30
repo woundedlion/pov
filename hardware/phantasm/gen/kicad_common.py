@@ -37,6 +37,20 @@ def F(n, k):
     return [c for c in n if isinstance(c, list) and c and c[0] == k]
 
 
+def require_writable(path, force):
+    """Exit unless `path` is absent or `force` is set.
+
+    The committed board and schematic carry KiCad-authored routing, silk and
+    hand edits that these generators do not reproduce.
+    """
+    if force or not os.path.exists(path):
+        return
+    sys.exit(f"refusing to overwrite {path}\n"
+             "  It holds KiCad-authored work these generators do not reproduce\n"
+             "  (routing, vias, silk, hand edits). Re-run with --force to\n"
+             "  regenerate it from scratch and discard that work.")
+
+
 def export_netlist(kcli, sch):
     """Export `sch` to a kicadsexpr netlist via kicad-cli; return its parsed root."""
     fd, net = tempfile.mkstemp(suffix=".net")
