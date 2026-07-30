@@ -487,6 +487,70 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
 }
 
 /**
+ * @brief Rasterizes a solid SDF with a constant color and typed pipeline.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam PipelineT Plotting pipeline type.
+ * @param pipeline Plotting pipeline receiving the final colors.
+ * @param canvas Destination canvas.
+ * @param shape Solid SDF shape providing bounds, intervals, and distance().
+ * @param color Constant source color and alpha.
+ * @param debug_bb When true, renders the bounding box for debugging.
+ */
+template <int W, int H, typename PipelineT>
+HS_NOINLINE_NOCLONE inline void
+rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
+                const Color4 &color, bool debug_bb = false) {
+  static_assert(std::remove_cvref_t<decltype(shape)>::is_solid);
+
+  bool effective_debug = debug_bb || canvas.debug();
+  if (effective_debug) {
+    auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
+    rasterize<W, H, false>(pipeline, canvas, shape, shader, true);
+    return;
+  }
+
+  int y_lo, y_hi;
+  const auto &cr = canvas.clip();
+  const auto xc = cr.x_clip();
+  auto bounds = shape.template get_vertical_bounds<H>();
+  y_lo =
+      bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
+  y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
+                                              : cr.render_y_end() - 1;
+  if (y_lo > y_hi || color.alpha <= MIN_ALPHA)
+    return;
+
+  SDF::DistanceResult result;
+  constexpr float PIXEL_WIDTH = 2.0f * PI_F / W;
+  ScopedRenderTimer timer_guard(canvas);
+  scan_region<W, H>(
+      y_lo, y_hi,
+      [&](int y, auto &&out) {
+        return shape.template get_horizontal_intervals<W, H>(y, out);
+      },
+      [&](int x, int y, const Vector &p, int run) {
+        shape.template distance<false>(p, result);
+        const float d = result.dist;
+        if (d >= PIXEL_WIDTH)
+          return;
+
+        float coverage = 1.0f;
+        if (d > -PIXEL_WIDTH) {
+          const float t = 0.5f - d / (2.0f * PIXEL_WIDTH);
+          coverage = quintic_kernel(t);
+          if (coverage <= MIN_ALPHA)
+            return;
+        }
+
+        const float alpha = color.alpha * coverage;
+        for (int i = 0; i < run; ++i)
+          pipeline.plot(canvas, x + i, y, color.color, 0, alpha);
+      },
+      xc);
+}
+
+/**
  * @brief Draws a ring whose radius is modulated around the circumference by
  *        shift_fn.
  */
@@ -787,6 +851,20 @@ struct PlanarPolygon {
     SDF::PlanarPolygon shape(res.first, thickness, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
+  }
+
+  /**
+   * @brief Rasterizes a constant-color tangent-plane regular polygon.
+   */
+  template <int W, int H, typename PipelineT>
+  static void draw_solid(PipelineT &pipeline, Canvas &canvas,
+                         const Basis &basis, float radius, int sides,
+                         const Color4 &color, float phase = 0,
+                         bool debug_bb = false) {
+    auto res = get_antipode(basis, radius);
+    float thickness = res.second * (PI_F / 2.0f);
+    SDF::PlanarPolygon shape(res.first, thickness, sides, phase, radius > 1.0f);
+    Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color, debug_bb);
   }
 };
 
@@ -1155,6 +1233,17 @@ struct Star {
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
+
+  /** @brief Rasterizes a constant-color solid star. */
+  template <int W, int H, typename PipelineT>
+  static void draw_solid(PipelineT &pipeline, Canvas &canvas,
+                         const Basis &basis, float radius, int sides,
+                         const Color4 &color, float phase = 0,
+                         bool debug_bb = false) {
+    auto res = get_antipode(basis, radius);
+    SDF::Star shape(res.first, res.second, sides, phase, radius > 1.0f);
+    Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color, debug_bb);
+  }
 };
 
 /**
@@ -1183,6 +1272,17 @@ struct Flower {
     SDF::Flower shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
+  }
+
+  /** @brief Rasterizes a constant-color solid flower. */
+  template <int W, int H, typename PipelineT>
+  static void draw_solid(PipelineT &pipeline, Canvas &canvas,
+                         const Basis &basis, float radius, int sides,
+                         const Color4 &color, float phase = 0,
+                         bool debug_bb = false) {
+    auto res = get_antipode(basis, radius);
+    SDF::Flower shape(res.first, res.second, sides, phase, radius > 1.0f);
+    Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color, debug_bb);
   }
 };
 
@@ -1215,6 +1315,19 @@ struct SphericalPolygon {
                                 radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
+  }
+
+  /** @brief Rasterizes a constant-color solid spherical polygon. */
+  template <int W, int H, typename PipelineT>
+  static void draw_solid(PipelineT &pipeline, Canvas &canvas,
+                         const Basis &basis, float radius, int sides,
+                         const Color4 &color, float phase = 0,
+                         bool debug_bb = false) {
+    auto res = get_antipode(basis, radius);
+    float offset = PI_F / sides;
+    SDF::SphericalPolygon shape(res.first, res.second, sides, phase + offset,
+                                radius > 1.0f);
+    Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color, debug_bb);
   }
 };
 

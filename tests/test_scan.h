@@ -653,7 +653,11 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
   auto scan_blocks = [&](ClipRegion::XClip xc, std::array<int, W> &block) {
     block.fill(-1);
     Scan::scan_region<W, H>(
-        y, y, [](int, auto &&out) { out(0.0f, (float)W); return true; },
+        y, y,
+        [](int, auto &&out) {
+          out(0.0f, (float)W);
+          return true;
+        },
         [&](int wx, int, const Vector &, int run) {
           for (int i = 0; i < run; ++i) {
             const int x = wx + i;
@@ -1137,6 +1141,108 @@ inline void test_flower_pixel_placement() {
   expect_filled_cap<W, H>(fx, /*cap_north=*/false);
 }
 
+enum class SolidShape { PLANAR_POLYGON, SPHERICAL_POLYGON, FLOWER, STAR };
+
+/**
+ * @brief Verifies the typed solid-color path matches generic Scan output.
+ */
+inline void test_solid_color_path_matches_generic() {
+  constexpr int W = 64, H = 48;
+  constexpr float RADIUS = 0.72f;
+  constexpr int SIDES = 5;
+  constexpr float PHASE = 0.31f;
+  const Color4 color(Pixel(51000, 23000, 9000), 0.37f);
+  const SolidShape shapes[] = {SolidShape::PLANAR_POLYGON,
+                               SolidShape::SPHERICAL_POLYGON,
+                               SolidShape::FLOWER, SolidShape::STAR};
+
+  for (SolidShape shape : shapes) {
+    for (bool debug_bb : {false, true}) {
+      std::vector<Pixel> generic_pixels;
+      generic_pixels.reserve(W * H);
+
+      {
+        hs_test::StubEffect generic_fx(W, H);
+        Pipeline<W, H> generic_pipeline;
+        {
+          Canvas canvas(generic_fx);
+          Basis basis = make_basis(
+              make_rotation(Vector(0.3f, 0.7f, 0.2f).normalized(), 0.4f),
+              Y_AXIS);
+          auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
+          switch (shape) {
+          case SolidShape::PLANAR_POLYGON:
+            Scan::PlanarPolygon::draw<W, H, false>(generic_pipeline, canvas,
+                                                   basis, RADIUS, SIDES, shader,
+                                                   PHASE, debug_bb);
+            break;
+          case SolidShape::SPHERICAL_POLYGON:
+            Scan::SphericalPolygon::draw<W, H, false>(generic_pipeline, canvas,
+                                                      basis, RADIUS, SIDES,
+                                                      shader, PHASE, debug_bb);
+            break;
+          case SolidShape::FLOWER:
+            Scan::Flower::draw<W, H, false>(generic_pipeline, canvas, basis,
+                                            RADIUS, SIDES, shader, PHASE,
+                                            debug_bb);
+            break;
+          case SolidShape::STAR:
+            Scan::Star::draw<W, H, false>(generic_pipeline, canvas, basis,
+                                          RADIUS, SIDES, shader, PHASE,
+                                          debug_bb);
+            break;
+          }
+        }
+        generic_fx.advance_display();
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x)
+            generic_pixels.push_back(generic_fx.get_pixel(x, y));
+      }
+
+      {
+        hs_test::StubEffect solid_fx(W, H);
+        Pipeline<W, H> solid_pipeline;
+        {
+          Canvas canvas(solid_fx);
+          Basis basis = make_basis(
+              make_rotation(Vector(0.3f, 0.7f, 0.2f).normalized(), 0.4f),
+              Y_AXIS);
+          switch (shape) {
+          case SolidShape::PLANAR_POLYGON:
+            Scan::PlanarPolygon::draw_solid<W, H>(solid_pipeline, canvas, basis,
+                                                  RADIUS, SIDES, color, PHASE,
+                                                  debug_bb);
+            break;
+          case SolidShape::SPHERICAL_POLYGON:
+            Scan::SphericalPolygon::draw_solid<W, H>(solid_pipeline, canvas,
+                                                     basis, RADIUS, SIDES,
+                                                     color, PHASE, debug_bb);
+            break;
+          case SolidShape::FLOWER:
+            Scan::Flower::draw_solid<W, H>(solid_pipeline, canvas, basis,
+                                           RADIUS, SIDES, color, PHASE,
+                                           debug_bb);
+            break;
+          case SolidShape::STAR:
+            Scan::Star::draw_solid<W, H>(solid_pipeline, canvas, basis, RADIUS,
+                                         SIDES, color, PHASE, debug_bb);
+            break;
+          }
+        }
+        solid_fx.advance_display();
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x) {
+            const Pixel &generic = generic_pixels[y * W + x];
+            const Pixel &solid = solid_fx.get_pixel(x, y);
+            HS_EXPECT_EQ(generic.r, solid.r);
+            HS_EXPECT_EQ(generic.g, solid.g);
+            HS_EXPECT_EQ(generic.b, solid.b);
+          }
+      }
+    }
+  }
+}
+
 /**
  * @brief Verifies overlapping strokes composite via the over operator at the
  *        shared pixel.
@@ -1563,6 +1669,7 @@ inline int run_scan_tests() {
   test_star_pixel_placement();
   test_planar_polygon_pixel_placement();
   test_flower_pixel_placement();
+  test_solid_color_path_matches_generic();
   test_overlapping_strokes_composite_blend();
 
   test_transformed_volume_world_local_roundtrip();
