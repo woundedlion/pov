@@ -409,6 +409,158 @@ inline void test_meshstate_view_fallback() {
   HS_EXPECT_EQ(m.num_faces(), (size_t)2);
 }
 
+/**
+ * @brief Verifies set_view() switches to borrowed mode by dropping the owned
+ *        face arrays, so they cannot shadow the installed views.
+ * @details Every topology accessor must read the borrowed spans; the owned
+ *          vertices are untouched by the switch.
+ */
+inline void test_meshstate_set_view_drops_owned() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+
+  MeshState m;
+  m.vertices.bind(arena, 1);
+  m.vertices.push_back(Vector(1, 0, 0));
+  m.face_counts.bind(arena, 1);
+  m.face_counts.push_back(3);
+  m.faces.bind(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    m.faces.push_back(i);
+  m.face_offsets.bind(arena, 1);
+  m.face_offsets.push_back(0);
+  HS_EXPECT_TRUE(m.get_face_counts_data() == m.face_counts.data());
+
+  ArenaVector<uint8_t> view_counts(arena, 2);
+  view_counts.push_back(4);
+  view_counts.push_back(3);
+  ArenaVector<uint16_t> view_faces(arena, 7);
+  for (uint16_t i = 0; i < 7; ++i)
+    view_faces.push_back(static_cast<uint16_t>(10 + i));
+  ArenaVector<uint16_t> view_offsets(arena, 2);
+  view_offsets.push_back(0);
+  view_offsets.push_back(4);
+
+  m.set_view(ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
+             ArenaSpan<uint16_t>(view_offsets));
+
+  HS_EXPECT_FALSE(m.face_counts.is_bound());
+  HS_EXPECT_FALSE(m.faces.is_bound());
+  HS_EXPECT_FALSE(m.face_offsets.is_bound());
+  HS_EXPECT_EQ(m.face_counts.size(), (size_t)0);
+  HS_EXPECT_EQ(m.faces.size(), (size_t)0);
+  HS_EXPECT_EQ(m.face_offsets.size(), (size_t)0);
+
+  HS_EXPECT_TRUE(m.get_face_counts_data() == view_counts.data());
+  HS_EXPECT_TRUE(m.get_faces_data() == view_faces.data());
+  HS_EXPECT_TRUE(m.get_face_offsets_data() == view_offsets.data());
+  HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)2);
+  HS_EXPECT_EQ(m.get_faces_size(), (size_t)7);
+  HS_EXPECT_EQ(m.get_face_offsets_size(), (size_t)2);
+  HS_EXPECT_EQ(m.num_faces(), (size_t)2);
+  HS_EXPECT_EQ(m.get_faces_data()[6], (uint16_t)16);
+
+  HS_EXPECT_TRUE(m.vertices.is_bound());
+  HS_EXPECT_EQ(m.num_vertices(), (size_t)1);
+}
+
+/**
+ * @brief Verifies set_view() accepts an empty face-offsets span.
+ * @details Only the solid scan path carries offsets; an empty span skips the
+ *          consistency checks and leaves the offsets accessor empty.
+ */
+inline void test_meshstate_set_view_empty_offsets() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+
+  ArenaVector<uint8_t> view_counts(arena, 1);
+  view_counts.push_back(3);
+  ArenaVector<uint16_t> view_faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    view_faces.push_back(i);
+
+  MeshState m;
+  m.set_view(ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
+             ArenaSpan<uint16_t>());
+
+  HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)1);
+  HS_EXPECT_EQ(m.get_faces_size(), (size_t)3);
+  HS_EXPECT_EQ(m.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_TRUE(m.get_face_offsets_data() == nullptr);
+}
+
+/**
+ * @brief Verifies set_owned() drops the borrowed views so they cannot shadow
+ *        the owned arrays.
+ * @details With the owned arrays left unbound, a surviving view would still be
+ *          reported by the accessors; after set_owned() they read empty.
+ */
+inline void test_meshstate_set_owned_drops_views() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+
+  ArenaVector<uint8_t> view_counts(arena, 1);
+  view_counts.push_back(3);
+  ArenaVector<uint16_t> view_faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    view_faces.push_back(i);
+  ArenaVector<uint16_t> view_offsets(arena, 1);
+  view_offsets.push_back(0);
+
+  MeshState m;
+  m.set_view(ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
+             ArenaSpan<uint16_t>(view_offsets));
+  HS_EXPECT_EQ(m.num_faces(), (size_t)1);
+
+  m.set_owned();
+
+  HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)0);
+  HS_EXPECT_EQ(m.get_faces_size(), (size_t)0);
+  HS_EXPECT_EQ(m.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_EQ(m.num_faces(), (size_t)0);
+  HS_EXPECT_TRUE(m.get_face_counts_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_faces_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_face_offsets_data() == nullptr);
+}
+
+/**
+ * @brief Verifies moving a borrowed-mode MeshState hands the views to the
+ *        destination and clears them in the source.
+ * @details Covers both the move constructor and move assignment, so a
+ *          moved-from mesh holds no dangling borrow.
+ */
+inline void test_meshstate_move_clears_source_views() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+
+  ArenaVector<uint8_t> view_counts(arena, 1);
+  view_counts.push_back(3);
+  ArenaVector<uint16_t> view_faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    view_faces.push_back(i);
+  ArenaVector<uint16_t> view_offsets(arena, 1);
+  view_offsets.push_back(0);
+
+  MeshState src;
+  src.set_view(ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
+               ArenaSpan<uint16_t>(view_offsets));
+
+  MeshState moved(std::move(src));
+  HS_EXPECT_TRUE(moved.get_face_counts_data() == view_counts.data());
+  HS_EXPECT_TRUE(moved.get_faces_data() == view_faces.data());
+  HS_EXPECT_TRUE(moved.get_face_offsets_data() == view_offsets.data());
+  HS_EXPECT_EQ(moved.num_faces(), (size_t)1);
+  HS_EXPECT_EQ(src.get_face_counts_size(), (size_t)0);
+  HS_EXPECT_EQ(src.get_faces_size(), (size_t)0);
+  HS_EXPECT_EQ(src.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_TRUE(src.get_face_counts_data() == nullptr);
+
+  MeshState assigned;
+  assigned = std::move(moved);
+  HS_EXPECT_TRUE(assigned.get_faces_data() == view_faces.data());
+  HS_EXPECT_EQ(assigned.num_faces(), (size_t)1);
+  HS_EXPECT_EQ(moved.get_face_counts_size(), (size_t)0);
+  HS_EXPECT_EQ(moved.get_faces_size(), (size_t)0);
+  HS_EXPECT_EQ(moved.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_TRUE(moved.get_faces_data() == nullptr);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -435,6 +587,10 @@ inline int run_spatial_tests() {
   test_meshstate_clear_resets_views();
   test_meshstate_move_invalidates_source();
   test_meshstate_view_fallback();
+  test_meshstate_set_view_drops_owned();
+  test_meshstate_set_view_empty_offsets();
+  test_meshstate_set_owned_drops_views();
+  test_meshstate_move_clears_source_views();
 
   return fixture.result();
 }
