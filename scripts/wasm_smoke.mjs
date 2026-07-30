@@ -415,6 +415,48 @@ async function main() {
       }
     }
 
+    // ── Pole LOD seam: setPoleLod / getPoleLod ────────────────────────────────
+    // The sweep above renders at the shipped default (0, decimation off), so
+    // nothing else drives this pair. Write a non-zero aggressiveness, read it
+    // back, and render through the decimated scan.
+    {
+      const effectNames = Object.keys(engine.getEffectSizes());
+      if (effectNames.length === 0) {
+        fail('pole-lod: no effects to drive');
+      } else if (!engine.setEffect(effectNames[0])) {
+        fail(`pole-lod: setEffect("${effectNames[0]}") failed`);
+      } else {
+        const original = engine.getPoleLod();
+        if (!Number.isFinite(original) || original < 0) {
+          fail(`pole-lod: getPoleLod() = ${original}, expected a finite non-negative default`);
+        }
+        try {
+          // 1.5 is exact in float32, so the readback needs no epsilon.
+          engine.setPoleLod(1.5);
+          if (engine.getPoleLod() !== 1.5) {
+            fail(`pole-lod: getPoleLod() = ${engine.getPoleLod()} after setPoleLod(1.5)`);
+          }
+          engine.drawFrame();
+          if (engine.getPixels().length === 0) {
+            fail('pole-lod: getPixels() is empty after a decimated frame');
+          }
+          // Out-of-domain inputs clamp, never trap (setPoleLod in wasm.cpp).
+          engine.setPoleLod(-1);
+          if (engine.getPoleLod() !== 0) {
+            fail(`pole-lod: setPoleLod(-1) left ${engine.getPoleLod()}, expected the 0 clamp`);
+          }
+          engine.setPoleLod(1e9);
+          if (engine.getPoleLod() !== 8) {
+            fail(`pole-lod: setPoleLod(1e9) left ${engine.getPoleLod()}, expected the 8 ceiling`);
+          }
+        } finally {
+          // Later steps must see the value the sweep ran at.
+          engine.setPoleLod(original);
+        }
+        console.log(`  pole-lod: setPoleLod/getPoleLod readback + decimated frame on ${effectNames[0]} OK`);
+      }
+    }
+
     // Log worst-case stack usage as a margin against STACK_SIZE.
     const stack = engine.getArenaMetrics().stack;
     if (!stack) fail('getArenaMetrics() omits the stack region');
