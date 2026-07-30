@@ -210,12 +210,13 @@ private:
   // by op between the fade-in and the still hold. Null-recipe entries never
   // touch any of it.
   bool build_active = false; /**< Legs draw; the sprite draw_fn is muted. */
-  Solids::OpStep build_steps[MAX_BUILD_STEPS]; /**< Lowered primitive chain. */
-  size_t build_step_count = 0;                 /**< Lowered step count. */
-  size_t build_step = 0;                       /**< Current leg index. */
-  int build_leg_frames[MAX_BUILD_STEPS] = {};  /**< Per-leg frame budget. */
-  int build_total_frames = 0;                  /**< Sum of leg frames. */
-  PolyMesh build_seed;                         /**< Leg-k seed (persistent). */
+  Solids::OpStep
+      build_step_chain[MAX_BUILD_STEPS];      /**< Lowered primitive chain. */
+  size_t build_step_count = 0;                /**< Lowered step count. */
+  size_t build_step = 0;                      /**< Current leg index. */
+  int build_leg_frames[MAX_BUILD_STEPS] = {}; /**< Per-leg frame budget. */
+  int build_total_frames = 0;                 /**< Sum of leg frames. */
+  PolyMesh build_seed;                        /**< Leg-k seed (persistent). */
   PolyMesh build_next_seed;  /**< Clean endpoint seed_{k+1}: built eagerly at
                                  leg start, or from the leg's own topology at
                                  its end on a hankin step. */
@@ -476,8 +477,9 @@ private:
    * @param k Lowered step index.
    */
   bool dt_pair_at(size_t k) const {
-    return k + 1 < build_step_count && build_steps[k].op == Solids::Op::DUAL &&
-           build_steps[k + 1].op == Solids::Op::KIS;
+    return k + 1 < build_step_count &&
+           build_step_chain[k].op == Solids::Op::DUAL &&
+           build_step_chain[k + 1].op == Solids::Op::KIS;
   }
 
   /**
@@ -486,8 +488,8 @@ private:
    * @param k Lowered step index.
    */
   bool standalone_kis_at(size_t k) const {
-    return build_steps[k].op == Solids::Op::KIS &&
-           !(k > 0 && build_steps[k - 1].op == Solids::Op::DUAL);
+    return build_step_chain[k].op == Solids::Op::KIS &&
+           !(k > 0 && build_step_chain[k - 1].op == Solids::Op::DUAL);
   }
 
   /**
@@ -555,10 +557,10 @@ private:
     // back to today's whole-generate path, seed solid and all.
     const Solids::Recipe *recipe = solids[idx].recipe;
     if (recipe) {
-      build_step_count =
-          Solids::expand_to_primitives(*recipe, build_steps, MAX_BUILD_STEPS);
+      build_step_count = Solids::expand_to_primitives(*recipe, build_step_chain,
+                                                      MAX_BUILD_STEPS);
       for (size_t k = 0; k < build_step_count; ++k) {
-        if (!Solids::is_morphable_step(build_steps[k])) {
+        if (!Solids::is_morphable_step(build_step_chain[k])) {
           hs::log("IslamicStars: %s has an unsweepable step, generating whole",
                   solids[idx].name);
           recipe = nullptr;
@@ -690,7 +692,7 @@ private:
       // build_leg_frames[k] carries the dual-bridge budget the bridge splits by
       // three; the truncate and reconcile legs draw fixed member budgets.
       for (size_t k = 0; k < build_step_count; ++k) {
-        const Solids::Op op = build_steps[k].op;
+        const Solids::Op op = build_step_chain[k].op;
         if (dt_pair_at(k)) {
           build_leg_frames[k] = bridge_frames; // dual bridge (DUAL step)
           build_total_frames +=
@@ -756,7 +758,7 @@ private:
    */
   HS_COLD_MEMBER void start_build_leg() {
     const size_t k = build_step;
-    const Solids::OpStep &step = build_steps[k];
+    const Solids::OpStep &step = build_step_chain[k];
 
     // Smooth kis/needle macros (docs/opchain_morph_spec.md, smooth kis/needle):
     // a trailing dual,kis is the dt macro (spanning both steps), a standalone
@@ -1257,7 +1259,7 @@ private:
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
-      PolyMesh X = Solids::build_steps(seed, build_steps, x_prefix,
+      PolyMesh X = Solids::build_steps(seed, build_step_chain, x_prefix,
                                        scratch_arena_a, scratch_arena_b);
       PolyMesh Xc;
       MeshOps::clone(X, Xc, scratch_arena_a);
@@ -1332,7 +1334,7 @@ private:
     // landed on is snapshotted too: the next leg departs from it and the
     // landing does not survive.
     ScratchScope a_guard(scratch_arena_a);
-    if (build_steps[build_step].op == Solids::Op::HANKIN) {
+    if (build_step_chain[build_step].op == Solids::Op::HANKIN) {
       build_next_seed = PolyMesh();
       Animation::OpLeg::arrival_mesh(*build_landing, build_next_seed,
                                      scratch_arena_a);
