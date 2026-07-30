@@ -711,7 +711,8 @@ private:
 
     int duration = fade + build_span + still + burst_span + still + fade;
 
-    int next_delay = carousel.schedule_segue(timeline, draw_fn, duration, fade);
+    int next_delay =
+        carousel.schedule_segue(timeline, back, draw_fn, duration, fade);
 
     // Added after the sprite: on the frame this fires the sprite has already
     // drawn the seed at the phase-1 boundary, and the first leg's first draw

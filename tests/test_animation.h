@@ -1477,7 +1477,8 @@ inline void test_crossfade_segue_schedules_overlapping_sprite() {
   const int dur = 10, window = 3;
   MeshCarousel<Segue::Crossfade> carousel;
   int next_delay = carousel.schedule_segue(
-      tl, [&](Canvas &, float o) { ops.push_back(o); }, dur, window);
+      tl, carousel.front_index(),
+      [&](Canvas &, float o) { ops.push_back(o); }, dur, window);
   HS_EXPECT_EQ(next_delay, dur - window);
   HS_EXPECT_EQ(global_timeline_num_events, 1);
 
@@ -1500,8 +1501,8 @@ inline void test_crossfade_segue_clamps_fade_to_half_duration() {
   Timeline tl;
   const int dur = 10, window = 9; // > dur/2, clamps to 5
   MeshCarousel<Segue::Crossfade> carousel;
-  int next_delay =
-      carousel.schedule_segue(tl, [](Canvas &, float) {}, dur, window);
+  int next_delay = carousel.schedule_segue(
+      tl, carousel.front_index(), [](Canvas &, float) {}, dur, window);
   HS_EXPECT_EQ(next_delay, dur - dur / 2);
 }
 
@@ -1517,11 +1518,17 @@ inline void test_crossfade_segue_overlap_is_configurable() {
   MeshCarousel<Segue::Crossfade> carousel;
   auto noop = [](Canvas &, float) {};
   carousel.segue().overlap = 0;
-  HS_EXPECT_EQ(carousel.schedule_segue(tl, noop, dur, window), dur);
+  HS_EXPECT_EQ(
+      carousel.schedule_segue(tl, carousel.front_index(), noop, dur, window),
+      dur);
   carousel.segue().overlap = 100;
-  HS_EXPECT_EQ(carousel.schedule_segue(tl, noop, dur, window), dur - window);
+  HS_EXPECT_EQ(
+      carousel.schedule_segue(tl, carousel.front_index(), noop, dur, window),
+      dur - window);
   carousel.segue().overlap = 2;
-  HS_EXPECT_EQ(carousel.schedule_segue(tl, noop, dur, window), dur - 2);
+  HS_EXPECT_EQ(
+      carousel.schedule_segue(tl, carousel.front_index(), noop, dur, window),
+      dur - 2);
 }
 
 /**
@@ -1535,7 +1542,8 @@ inline void test_sequential_segue_never_overlaps_sprites() {
   const int dur = 10, window = 3;
   MeshCarousel<Segue::SpinFlip> carousel;
   int next_delay = carousel.schedule_segue(
-      tl, [&](Canvas &, float p) { ops.push_back(p); }, dur, window);
+      tl, carousel.front_index(),
+      [&](Canvas &, float p) { ops.push_back(p); }, dur, window);
   HS_EXPECT_EQ(next_delay, dur);
   HS_EXPECT_EQ(global_timeline_num_events, 1);
 
@@ -1707,8 +1715,8 @@ inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
   MeshCarousel<Segue::TerminatorSweep> carousel;
   carousel.segue().fade_frames_min = 8.0f;
   carousel.segue().fade_frames_max = 8.0f;
-  int next_delay =
-      carousel.schedule_segue(tl, [](Canvas &, float) {}, dur, window);
+  int next_delay = carousel.schedule_segue(
+      tl, carousel.front_index(), [](Canvas &, float) {}, dur, window);
   HS_EXPECT_EQ(next_delay, dur); // sequential: one mesh per frame
   const Segue::TerminatorSweep &term = carousel.segue();
   const float f = 8.0f / window;
@@ -1722,7 +1730,8 @@ inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
     HS_EXPECT_NEAR(term.face_phase(1.0f, o, f), 1.0f, 1e-5f);
     HS_EXPECT_NEAR(term.face_phase(0.0f, o, f), 0.0f, 1e-5f);
   }
-  carousel.schedule_segue(tl, [](Canvas &, float) {}, 8, 2);
+  carousel.schedule_segue(tl, carousel.front_index(),
+                           [](Canvas &, float) {}, 8, 2);
   HS_EXPECT_NEAR(carousel.segue().face_fade_frac(0), 1.0f, 1e-6f);
 }
 
@@ -1737,7 +1746,8 @@ inline void test_terminator_sweep_fade_sliders_apply_without_reschedule() {
   carousel.segue().retarget(Y_AXIS);
   carousel.segue().fade_frames_min = 4.0f;
   carousel.segue().fade_frames_max = 4.0f;
-  carousel.schedule_segue(tl, [](Canvas &, float) {}, 400, 64);
+  carousel.schedule_segue(tl, carousel.front_index(),
+                           [](Canvas &, float) {}, 400, 64);
   HS_EXPECT_NEAR(carousel.segue().face_fade_frac(11), 4.0f / 64.0f, 1e-6f);
   // Slider drag with no reschedule.
   carousel.segue().fade_frames_min = 16.0f;
@@ -1759,7 +1769,8 @@ inline void test_terminator_sweep_per_face_fade_random_in_range() {
   carousel.segue().retarget(Y_AXIS); // rolls the per-face fade seed
   carousel.segue().fade_frames_min = 4.0f;
   carousel.segue().fade_frames_max = 16.0f;
-  carousel.schedule_segue(tl, [](Canvas &, float) {}, dur, window);
+  carousel.schedule_segue(tl, carousel.front_index(),
+                           [](Canvas &, float) {}, dur, window);
   const Segue::TerminatorSweep &term = carousel.segue();
   const float lo = 4.0f / window, hi = 16.0f / window;
   const float first = term.face_fade_frac(0);

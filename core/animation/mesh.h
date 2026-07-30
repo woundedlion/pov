@@ -2820,14 +2820,17 @@ public:
    * @brief Schedules the segue's transition animation for the (already
    * front-flipped) incoming mesh.
    * @param timeline Timeline receiving the segue's animation.
+   * @param slot Incoming mesh slot captured by @p draw_fn.
    * @param draw_fn Draws the incoming mesh; the float argument is the segue's
    * phase (opacity for Segue::Crossfade).
    * @param duration Total frames the mesh is on screen.
    * @param window Transition window length in frames, segue-interpreted.
    * @return Frames after which the effect should begin the next transition.
    */
-  int schedule_segue(Timeline &timeline, SpriteFn draw_fn, int duration,
-                     int window) {
+  int schedule_segue(Timeline &timeline, int slot, SpriteFn draw_fn,
+                     int duration, int window) {
+    HS_CHECK(slot == front,
+             "MeshCarousel segue scheduled before incoming slot flip");
     return segue_policy.schedule(timeline, std::move(draw_fn), duration,
                                  window);
   }
