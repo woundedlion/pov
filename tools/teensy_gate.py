@@ -143,30 +143,6 @@ _NON_ALLOC_SECTIONS = (
 )
 
 
-def region_totals_from_size_a(text: str) -> dict[str, int]:
-    """Sum `size -A` sections into ITCM/DTCM/OCRAM/FLASH totals by VMA.
-
-    A documented fallback / cross-check for parse_teensy_size (§7.3, §9). NOTE:
-    it buckets by VMA, so an ITCM/.fast code section is counted under RAM1 here
-    even though its initialized copy also consumes flash — i.e. this UNDERCOUNTS
-    flash relative to teensy_size, which does the correct LMA accounting. Use it
-    for RAM1/RAM2 placement cross-checks, not as the authoritative flash ceiling.
-    Non-allocated metadata sections (VMA 0) are dropped so they do not inflate ITCM.
-    Also buckets each section by its START VMA only: a section spilling past a
-    region boundary is charged entirely to the start region, so a region's "free"
-    can read negative — another reason this is a cross-check, not a ceiling.
-    """
-    totals: dict[str, int] = {}
-    for name, size, addr in parse_size_a(text):
-        if name.startswith(_NON_ALLOC_SECTIONS):
-            continue
-        if addr == 0 and size == 0:
-            continue
-        r = region_for_address(addr)
-        totals[r] = totals.get(r, 0) + size
-    return totals
-
-
 class SizeAFormatError(ValueError):
     pass
 
