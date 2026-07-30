@@ -1457,7 +1457,8 @@ inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
  * @param hi Upper bound.
  * @return v clamped to [lo, hi].
  */
-inline __attribute__((always_inline)) int clamp(int v, int lo, int hi) {
+inline constexpr __attribute__((always_inline)) int clamp(int v, int lo,
+                                                          int hi) {
   return (v < lo) ? lo : ((v > hi) ? hi : v);
 }
 
