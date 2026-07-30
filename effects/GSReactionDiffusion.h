@@ -168,11 +168,17 @@ private:
   static_assert(STEPS_PER_FRAME % 2 == 0,
                 "GS ping-pong state must land in its input buffers");
 
+  /**
+   * @brief Advances the frame-scratch species state through all substeps.
+   * @param state Input buffers receiving the final even-numbered generation.
+   * @param scratch Alternate frame-scratch ping-pong buffers.
+   * @param step Physics kernel invoked for each substep.
+   */
   template <typename StepFn>
-  static void
-  advance_substeps(const std::array<float *, 2> &persistent,
-                   const std::array<float *, 2> &scratch, StepFn &&step) {
-    std::array<float *, 2> cur = persistent;
+  static void advance_substeps(const std::array<float *, 2> &state,
+                               const std::array<float *, 2> &scratch,
+                               StepFn &&step) {
+    std::array<float *, 2> cur = state;
     std::array<float *, 2> nxt = scratch;
     for (int k = 0; k < STEPS_PER_FRAME; ++k) {
       step(cur, nxt);
