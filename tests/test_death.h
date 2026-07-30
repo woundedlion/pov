@@ -32,6 +32,7 @@
 
 #include "core/math/3dmath.h"
 #include "core/animation/animation.h"
+#include "core/animation/mesh.h"
 #include "core/render/canvas.h"
 #include "core/color/color.h"
 #include "core/math/geometry.h"
@@ -614,6 +615,13 @@ inline void case_timeline_clear_hook_adds_event() {
   Timeline tl;
   tl.add_clear_hook(&tl, add_event_from_clear_hook);
   tl.clear();
+}
+
+/** @brief Death case: a segue must target the already-flipped front slot. */
+inline void case_mesh_carousel_unflipped_slot() {
+  Timeline tl;
+  MeshCarousel<> carousel;
+  carousel.schedule_segue(tl, 1, [](Canvas &, float) {}, 4, 1);
 }
 
 /**
@@ -1526,6 +1534,7 @@ inline const Case *all_cases(int &n) {
       {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer},
       {"timeline_clear_pinned", case_timeline_clear_pinned},
       {"timeline_clear_hook_adds_event", case_timeline_clear_hook_adds_event},
+      {"mesh_carousel_unflipped_slot", case_mesh_carousel_unflipped_slot},
       {"timeline_double_construct", case_timeline_double_construct},
       {"effect_double_construct", case_effect_double_construct},
       {"effect_width_zero", case_effect_width_zero},
@@ -1840,7 +1849,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 82;
+  constexpr int DEATH_CASE_COUNT = 83;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
