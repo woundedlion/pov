@@ -139,21 +139,17 @@ public:
 
   /**
    * @brief Palette provenance of the departed node (spec sections 2.5/2.6).
-   * @details prev_face_palette/prev_face_sides describe the node base mesh the
-   * leg departs from, in emission order; consumed by the constructor only.
-   * When prev_face_centroid is supplied, the mapping is geometric (see
-   * build_palette_mapping) and by_class_signature is ignored.
+   * @details prev_face_palette describes the node base mesh the leg departs
+   * from, in emission order; consumed by the constructor only. When
+   * prev_face_centroid is supplied, the mapping is geometric (see
+   * build_palette_mapping).
    */
   struct PaletteHandoff {
     const BakedPaletteBank *bank =
         nullptr; /**< The effect's baked source LUTs. */
     const uint8_t *prev_face_palette =
-        nullptr; /**< Per-face palette of the departed base mesh. */
-    const uint8_t *prev_face_sides =
-        nullptr; /**< Per-face clean side counts (class-signature mapping). */
+        nullptr;           /**< Per-face palette of the departed base mesh. */
     size_t prev_faces = 0; /**< Face count of the departed base mesh. */
-    bool by_class_signature = false; /**< DUAL_SWAP departure: map by side
-                                        count, not emission order. */
     const Vector *prev_face_centroid =
         nullptr; /**< Unit centroid per departed base face; enables the
                     geometric provenance mapping. */
@@ -448,10 +444,7 @@ public:
 
     // No seed clone: the compiled hankin topology carries the base vertices
     // and every per-frame read goes through it, so the seed is needed only
-    // inside this constructor. The class-signature mapping is the one consumer
-    // that would need per-face seed sides after it returns.
-    HS_CHECK(!handoff.by_class_signature,
-             "OpLeg: hankin leg has no seed to map by class signature");
+    // inside this constructor.
     tr.seed_faces = seed.face_counts.size();
     tr.kind = LegKind::HANKIN_SWEEP;
     tr.sweep_frames = sweep_frames;
@@ -2052,7 +2045,7 @@ private:
    * @param bookend Arrival-node bookend grouping the targets key on.
    * @param arena Leg arena for the face -> ramp table.
    * @param start_centroid Unit centroid per swept face at the start parameter,
-   * or nullptr for the emission-order/class-signature mappings.
+   * or nullptr for the emission-order mapping.
    * @param survivors Emission-order face-prefix length corresponding 1:1 to a
    * node base mesh at the boundary swaps (the seed face count; plus the
    * vertex-orbit faces on the jitterbug bridge, whose octahedron-end node
@@ -2109,18 +2102,13 @@ private:
       hs::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end());
     }
 
-    if (start_centroid || !handoff.by_class_signature) {
-      // Either the whole face list corresponds (departing a mid-parameter
-      // node) or an emission prefix does: the survivor prefix departing a
-      // node form, the seed's primaries departing the seed form (the
-      // remaining faces are births).
-      HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == survivors ||
-                   handoff.prev_faces == primary,
-               "OpLeg: handoff face count matches no mapping");
-    } else {
-      HS_CHECK(handoff.prev_face_sides,
-               "OpLeg: class-signature mapping needs prev side counts");
-    }
+    // Either the whole face list corresponds (departing a mid-parameter node)
+    // or an emission prefix does: the survivor prefix departing a node form,
+    // the seed's primaries departing the seed form (the remaining faces are
+    // births).
+    HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == survivors ||
+                 handoff.prev_faces == primary,
+             "OpLeg: handoff face count matches no mapping");
 
     // Full-correspondence geometric mapping: nearest departed centroid,
     // pinned as a bijection within tolerance. The bijection mark is scoped to
@@ -2185,16 +2173,6 @@ private:
               newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
                   start_centroid[f], handoff)];
             from = static_cast<uint8_t>(newborn_from[slot]);
-          }
-        } else if (handoff.by_class_signature) {
-          // DUAL_SWAP: side count at the shared ambo point is unambiguous.
-          int sides =
-              f < primary ? tr.seed.face_counts[f] : arrival.face_counts[f];
-          for (size_t j = 0; j < handoff.prev_faces; ++j) {
-            if (handoff.prev_face_sides[j] == sides) {
-              from = handoff.prev_face_palette[j];
-              break;
-            }
           }
         } else if (f < handoff.prev_faces) {
           from = handoff.prev_face_palette[f];

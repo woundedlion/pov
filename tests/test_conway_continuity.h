@@ -733,14 +733,10 @@ inline void step_and_snapshot(Animation::OpLeg &anim, hs_test::StubEffect &fx,
  *        by emission order.
  * @param seed Departed base mesh.
  * @param pal Receives one palette index per face (deterministic pattern).
- * @param sides Receives the per-face side counts.
  */
-inline void fill_emission_handoff(const PolyMesh &seed, uint8_t *pal,
-                                  uint8_t *sides) {
-  for (size_t f = 0; f < seed.face_counts.size(); ++f) {
+inline void fill_emission_handoff(const PolyMesh &seed, uint8_t *pal) {
+  for (size_t f = 0; f < seed.face_counts.size(); ++f)
     pal[f] = static_cast<uint8_t>(f % Animation::OpLeg::PALETTES);
-    sides[f] = seed.face_counts[f];
-  }
 }
 
 /**
@@ -788,19 +784,16 @@ inline void test_collapsing_faces_land_on_host_palette() {
     const size_t dep_faces = departed.face_counts.size();
     HS_EXPECT_LE(dep_faces, MAX_FACES);
     uint8_t pal[MAX_FACES];
-    uint8_t sides[MAX_FACES];
     Vector cen[MAX_FACES];
     for (size_t f = 0, off = 0; f < dep_faces; ++f) {
-      sides[f] = static_cast<uint8_t>(departed.face_counts[f]);
-      pal[f] = static_cast<uint8_t>(sides[f] % PALETTES);
+      pal[f] = static_cast<uint8_t>(departed.face_counts[f] % PALETTES);
       Vector c(0.0f, 0.0f, 0.0f);
       for (int k = 0; k < departed.face_counts[f]; ++k)
         c = c + departed.vertices[departed.faces[off + k]];
       cen[f] = c.normalized();
       off += departed.face_counts[f];
     }
-    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,   sides,
-                                             dep_faces,  false, cen};
+    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, dep_faces, cen};
 
     // Bookend: the hankin star-face classification of the arrival node, as
     // start_morph_cycle builds it.
@@ -860,8 +853,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
 
   PolyMesh cube;
   build_solid<Solids::Cube>(cube, leg);
-  uint8_t pal[16], sides[16];
-  fill_emission_handoff(cube, pal, sides);
+  uint8_t pal[16];
+  fill_emission_handoff(cube, pal);
 
   const int edge = [] {
     for (int e = 0; e < ConwayGraph::NUM_EDGES; ++e)
@@ -872,8 +865,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   }();
   HS_EXPECT_GE(edge, 0);
 
-  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                           cube.face_counts.size(), false};
+  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,
+                                           cube.face_counts.size()};
 
   ShadingSnapshot snap;
   auto cb = [&](Canvas &, const MeshState &m,
@@ -924,83 +917,6 @@ inline void test_crossfade_exact_at_endpoints_emission() {
 }
 
 /**
- * @brief Verifies the class-signature (DUAL_SWAP) mapping end to end on the
- *        cuboctahedron -> octahedron departure: at frame 1 every primary face
- *        (clean side count 3) inherits the departed triangles' palette and
- *        every vertex face (side count 4) the squares' palette.
- */
-inline void test_crossfade_class_signature_mapping() {
-  reset_globals();
-  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
-                   32 * 1024);
-  hs::random().seed(777u);
-
-  Arena leg(cc_leg_buf, sizeof(cc_leg_buf));
-  Arena bank_arena(cc_bank_buf, sizeof(cc_bank_buf));
-  Arena temp(cc_temp_buf, sizeof(cc_temp_buf));
-  Arena aux(cc_aux_buf, sizeof(cc_aux_buf));
-
-  MeshPaletteBank bank;
-  bank.bake_all(bank_arena);
-
-  // Departed node: the cuboctahedron at the ambo crossover.
-  PolyMesh cube;
-  build_solid<Solids::Cube>(cube, temp);
-  PolyMesh cubocta = MeshOps::ambo(cube, aux, temp);
-  constexpr uint8_t PAL_TRI = 4, PAL_SQ = 2;
-  uint8_t pal[32], sides[32];
-  HS_EXPECT_LE(cubocta.face_counts.size(), (size_t)32);
-  for (size_t f = 0; f < cubocta.face_counts.size(); ++f) {
-    sides[f] = cubocta.face_counts[f];
-    pal[f] = sides[f] == 3 ? PAL_TRI : PAL_SQ;
-  }
-
-  // Departing leg after the dual swap: reverse traversal of octahedron ->
-  // cuboctahedron on the octahedron seed.
-  const int edge = [] {
-    for (int e = 0; e < ConwayGraph::NUM_EDGES; ++e)
-      if (ConwayGraph::EDGES[e].from_node == ConwayGraph::OCTAHEDRON &&
-          ConwayGraph::EDGES[e].to_node == ConwayGraph::CUBOCTAHEDRON &&
-          ConwayGraph::EDGES[e].reseed == ConwayGraph::Reseed::DUAL_SWAP)
-        return e;
-    return -1;
-  }();
-  HS_EXPECT_GE(edge, 0);
-
-  PolyMesh octa;
-  build_solid<Solids::Octahedron>(octa, leg);
-  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                           cubocta.face_counts.size(), true};
-
-  ShadingSnapshot snap;
-  auto cb = [&](Canvas &, const MeshState &,
-                const Animation::OpLeg::Shading &sh) {
-    snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
-    snap.colors.resize(sh.faces);
-    for (size_t f = 0; f < sh.faces; ++f)
-      for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
-        snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
-  };
-
-  Animation::OpLeg anim(octa, ConwayGraph::EDGES[edge], /*reverse*/ true, leg,
-                        cb, handoff, ConwayGraph::SWEEP_FRAMES, 0);
-  const Animation::OpLeg::Landing &landing = anim.landing();
-  HS_EXPECT_EQ(landing.primary_faces, octa.face_counts.size());
-
-  hs_test::StubEffect fx(FB_W, FB_H);
-  step_and_snapshot(anim, fx, snap); // frame 1: w == 0
-  HS_EXPECT_EQ(snap.colors.size(), landing.faces);
-  for (size_t f = 0; f < snap.colors.size(); ++f) {
-    // Primary faces are the octahedron's triangles; the rest are the truncate
-    // vertex faces (squares at the octahedron's 4-valent vertices).
-    const uint8_t from = f < landing.primary_faces ? PAL_TRI : PAL_SQ;
-    for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
-      expect_color_eq(snap.colors[f][s],
-                      bank.bank.entries[from].get(RAMP_SAMPLES[s]));
-  }
-}
-
-/**
  * @brief Verifies every edge's palette mapping is total: at frame 1 each
  *        face's ramp resolves to a real bank entry — the handed-off palette
  *        for surviving primaries, the landed target for newborn faces — and
@@ -1026,17 +942,16 @@ inline void test_palette_mapping_total_all_edges() {
     PolyMesh seed =
         Solids::simple_registry[e.seed_solid].generate(seed_a, seed_b);
 
-    uint8_t pal[128], sides[128];
+    uint8_t pal[128];
     HS_EXPECT_LE(seed.face_counts.size(), (size_t)128);
     // Class-keyed handoff (faces of one side count share a palette), as the
     // effect hands off: per-face-arbitrary palettes would exceed the leg's
     // MAX_BLEND_PAIRS pair budget on the large seeds.
-    for (size_t f = 0; f < seed.face_counts.size(); ++f) {
-      sides[f] = seed.face_counts[f];
-      pal[f] = static_cast<uint8_t>(sides[f] % Animation::OpLeg::PALETTES);
-    }
-    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                             seed.face_counts.size(), false};
+    for (size_t f = 0; f < seed.face_counts.size(); ++f)
+      pal[f] = static_cast<uint8_t>(seed.face_counts[f] %
+                                    Animation::OpLeg::PALETTES);
+    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,
+                                             seed.face_counts.size()};
 
     ShadingSnapshot snap;
     auto cb = [&](Canvas &, const MeshState &,
@@ -1113,10 +1028,10 @@ inline void test_palette_mapping_deterministic() {
     Arena leg(cc_leg_buf, sizeof(cc_leg_buf));
     PolyMesh cube;
     build_solid<Solids::Cube>(cube, leg);
-    uint8_t pal[16], sides[16];
-    fill_emission_handoff(cube, pal, sides);
-    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
-                                             cube.face_counts.size(), false};
+    uint8_t pal[16];
+    fill_emission_handoff(cube, pal);
+    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,
+                                             cube.face_counts.size()};
 
     ShadingSnapshot &snap = snaps[run];
     auto cb = [&](Canvas &, const MeshState &,
@@ -1291,18 +1206,17 @@ inline void test_leg_start_seed_frame_continuity() {
     const PolyMesh &leg_seed =
         fix == SeedFix::DERIVE_AMBO ? derived : seed_base;
 
-    // Departed-node handoff: alternating palettes, real sides/centroids.
+    // Departed-node handoff: alternating palettes, real centroids.
     const size_t prev_faces = node_mesh.face_counts.size();
-    uint8_t pal[128], sides[128];
+    uint8_t pal[128];
     Vector cents[128];
     HS_EXPECT_LE(prev_faces, (size_t)128);
     for (size_t f = 0; f < prev_faces; ++f) {
       pal[f] = (f % 2) ? SEEDFRAME_PAL_B : SEEDFRAME_PAL_A;
-      sides[f] = node_mesh.face_counts[f];
       cents[f] = poly_face_centroid(node_mesh, f);
     }
-    Animation::OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal, sides, prev_faces, fix == SeedFix::DUAL_SWAP, cents};
+    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, prev_faces,
+                                             cents};
 
     // The mesh the first morph frame draws.
     auto clampp = [&](float t) {
@@ -2050,7 +1964,6 @@ inline int run_conway_continuity_tests() {
 
   test_collapsing_faces_land_on_host_palette();
   test_crossfade_exact_at_endpoints_emission();
-  test_crossfade_class_signature_mapping();
   test_palette_mapping_total_all_edges();
   test_palette_mapping_deterministic();
 
