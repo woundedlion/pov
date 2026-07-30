@@ -412,6 +412,57 @@ inline void test_spherical_polygon_center_and_edge_magnitude() {
   HS_EXPECT_NEAR(em.raw_dist, inradius, 1e-2f);
 }
 
+/**
+ * @brief Bounds sine-domain distance error across the device-width AA band.
+ */
+inline void test_spherical_polygon_sine_distance_aa_error() {
+  constexpr int W = 288;
+  constexpr int H = 144;
+  constexpr float PIXEL_WIDTH = 2.0f * PI_F / W;
+  Basis basis = make_basis(
+      make_rotation(Vector(0.3f, -0.8f, 0.5f).normalized(), 0.71f), Y_AXIS);
+  struct Case {
+    float radius;
+    int sides;
+    float phase;
+  };
+  const Case cases[] = {{0.22f, 3, -2.7f},
+                        {0.72f, 5, 0.31f},
+                        {0.98f, 12, 5.4f},
+                        {1.42f, 7, -0.9f}};
+
+  float max_error = 0.0f;
+  int edge_samples = 0;
+  for (const Case &c : cases) {
+    auto folded = get_antipode(basis, c.radius);
+    SDF::SphericalPolygon shape(folded.first, folded.second, c.sides, c.phase,
+                                c.radius > 1.0f);
+    for (int y = 0; y < H; ++y) {
+      float polar = PI_F * (static_cast<float>(y) + 0.5f) / H;
+      float sin_p = sinf(polar);
+      float cos_p = cosf(polar);
+      for (int x = 0; x < W; ++x) {
+        float azimuth = 2.0f * PI_F * (static_cast<float>(x) + 0.5f) / W;
+        Vector p(sin_p * cosf(azimuth), cos_p, sin_p * sinf(azimuth));
+        SDF::DistanceResult exact;
+        shape.distance<false>(p, exact);
+        float sine = shape.sine_distance(p);
+        HS_EXPECT_TRUE(exact.dist == 0.0f || sine == 0.0f ||
+                       std::signbit(exact.dist) == std::signbit(sine));
+        if (std::abs(exact.dist) <= PIXEL_WIDTH) {
+          max_error = std::max(max_error, std::abs(exact.dist - sine));
+          ++edge_samples;
+        }
+      }
+    }
+  }
+
+  std::printf("spherical sine AA samples=%d max_error=%.9g rad\n", edge_samples,
+              max_error);
+  HS_EXPECT_GT(edge_samples, 1000);
+  HS_EXPECT_LE(max_error, 2.0e-6f);
+}
+
 // ============================================================================
 // Star
 // ============================================================================
@@ -2310,6 +2361,7 @@ inline int run_sdf_tests() {
   test_spherical_polygon_center_inside();
   test_spherical_polygon_far_outside();
   test_spherical_polygon_center_and_edge_magnitude();
+  test_spherical_polygon_sine_distance_aa_error();
 
   test_star_center_inside();
   test_star_far_outside();

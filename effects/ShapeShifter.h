@@ -251,9 +251,9 @@ private:
                                             params.debug_bb);
       break;
     case ShapeType::SphericalPolygon:
-      Scan::SphericalPolygon::draw_solid<W, H>(scan_filters, canvas, basis, r,
-                                               sides_int, color, phase,
-                                               params.debug_bb);
+      Scan::SphericalPolygon::draw_solid<W, H, true>(
+          scan_filters, canvas, basis, r, sides_int, color, phase,
+          params.debug_bb);
       break;
     }
   }
