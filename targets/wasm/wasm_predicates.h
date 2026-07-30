@@ -160,6 +160,81 @@ inline bool mesh_op_output_over_arena(size_t verts, size_t faces,
 }
 
 /**
+ * @brief The largest side count in a mesh's per-face count list.
+ * @param counts Per-face side counts.
+ * @param num_faces Length of @p counts.
+ * @return The widest face's side count, or 0 for a mesh with no faces.
+ */
+inline size_t mesh_max_face_degree(const uint8_t *counts, size_t num_faces) {
+  size_t largest = 0;
+  for (size_t i = 0; i < num_faces; ++i) {
+    if (counts[i] > largest)
+      largest = counts[i];
+  }
+  return largest;
+}
+
+/**
+ * @brief The largest number of faces meeting at any one vertex.
+ * @param faces Flat per-face vertex index list.
+ * @param total_indices Length of @p faces.
+ * @param incidence Scratch for one counter per vertex, cleared here; must hold
+ *        at least @p num_verts entries.
+ * @param num_verts Vertex count; an index at or past it is skipped.
+ * @return The highest incidence count, or 0 for a mesh with no faces.
+ * @details One clearing pass over @p incidence plus one pass over @p faces. On a
+ *          closed manifold — which every vertex-orbit operator requires — a
+ *          vertex's incidence count is its valence, and its valence is the side
+ *          count of the face those operators emit for it. Valence is not stored
+ *          on the mesh, so there is nothing cheaper to read.
+ */
+inline size_t mesh_max_vertex_valence(const uint16_t *faces,
+                                      size_t total_indices, uint32_t *incidence,
+                                      size_t num_verts) {
+  for (size_t i = 0; i < num_verts; ++i)
+    incidence[i] = 0;
+  size_t largest = 0;
+  for (size_t i = 0; i < total_indices; ++i) {
+    const size_t v = faces[i];
+    if (v >= num_verts)
+      continue;
+    const size_t n = ++incidence[v];
+    if (n > largest)
+      largest = n;
+  }
+  return largest;
+}
+
+/**
+ * @brief True when a mesh operator would emit a face with more sides than the
+ *        mesh's 8-bit per-face count can hold.
+ * @param max_face_degree Widest face in the input mesh.
+ * @param max_vertex_valence Highest vertex valence in the input mesh.
+ * @param face_degree_factor Multiple of @p max_face_degree that the operator's
+ *        widest face-derived face reaches; 0 when it emits none.
+ * @param valence_factor Multiple of @p max_vertex_valence that the operator's
+ *        widest vertex-derived face reaches; 0 when it emits none.
+ * @param max_degree Inclusive side-count ceiling (UINT8_MAX).
+ * @return true when the operator must be rejected.
+ * @details This is a separate dimension from the element-count ceiling: a mesh
+ *          well inside every element bound can still hold one very high-valence
+ *          vertex, and the operators that emit a face per vertex turn that
+ *          valence straight into a side count. Division, not multiplication, so
+ *          the prediction itself cannot overflow.
+ */
+inline bool mesh_op_face_degree_overflows(size_t max_face_degree,
+                                          size_t max_vertex_valence,
+                                          size_t face_degree_factor,
+                                          size_t valence_factor,
+                                          size_t max_degree) {
+  const bool face_over = face_degree_factor != 0 &&
+                         max_face_degree > max_degree / face_degree_factor;
+  const bool valence_over =
+      valence_factor != 0 && max_vertex_valence > max_degree / valence_factor;
+  return face_over || valence_over;
+}
+
+/**
  * @brief True when a Hankin contact angle falls outside its [0, max] domain.
  * @param radians Contact angle from the JS boundary.
  * @param max_radians Inclusive upper bound of the operator's domain (pi/2).

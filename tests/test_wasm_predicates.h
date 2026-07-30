@@ -175,6 +175,77 @@ inline void check_mesh_op_arena_room() {
 }
 
 /**
+ * @brief Exercises the mesh measurements the face-degree guard reads.
+ */
+inline void check_mesh_degree_measurements() {
+  // A cube: six quads, eight vertices of valence 3.
+  const uint8_t cube_counts[6] = {4, 4, 4, 4, 4, 4};
+  const uint16_t cube_faces[24] = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 5, 4,
+                                   2, 3, 7, 6, 0, 3, 7, 4, 1, 2, 6, 5};
+  uint32_t incidence[8] = {};
+
+  HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(cube_counts, 6), 4u);
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(cube_faces, 24, incidence, 8),
+               3u);
+
+  // An empty mesh measures zero on both axes.
+  HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(cube_counts, 0), 0u);
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(cube_faces, 0, incidence, 8),
+               0u);
+
+  // A mixed-degree list reports the widest face.
+  const uint8_t mixed[4] = {3, 200, 6, 3};
+  HS_EXPECT_EQ(hs_wasm::mesh_max_face_degree(mixed, 4), 200u);
+
+  // The scan reports the single hottest vertex, not an average, and re-clears
+  // its counters so a reused buffer cannot inflate the next measurement.
+  const uint16_t fan[7] = {0, 0, 0, 0, 0, 1, 2};
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(fan, 7, incidence, 3), 5u);
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(fan, 7, incidence, 3), 5u);
+
+  // An index past the vertex count is skipped rather than read out of bounds.
+  const uint16_t stray[3] = {0, 1, 9};
+  HS_EXPECT_EQ(hs_wasm::mesh_max_vertex_valence(stray, 3, incidence, 2), 1u);
+}
+
+/**
+ * @brief Exercises the per-operator face-degree overflow check.
+ */
+inline void check_mesh_op_face_degree() {
+  constexpr size_t MAX = 255; // PolyMesh's uint8_t per-face side count
+
+  // A cube is inside every operator's degree bound.
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_face_degree_overflows(4, 3, 2, 2, MAX));
+  // kis measures nothing and can never overflow: it emits only triangles.
+  HS_EXPECT_TRUE(
+      !hs_wasm::mesh_op_face_degree_overflows(255, 100000, 0, 0, MAX));
+
+  // A vertex-orbit operator (dual, needle) turns valence into a side count.
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_face_degree_overflows(0, MAX, 0, 1, MAX));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_face_degree_overflows(0, MAX + 1, 0, 1, MAX));
+  // The kis x7 cube that trips narrow_face_count: valence 384 through dual.
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_face_degree_overflows(3, 384, 0, 1, MAX));
+
+  // A doubling operator (zip's valence, truncate's face degree) halves the room.
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_face_degree_overflows(0, 127, 0, 2, MAX));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_face_degree_overflows(0, 128, 0, 2, MAX));
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_face_degree_overflows(127, 3, 2, 1, MAX));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_face_degree_overflows(128, 3, 2, 1, MAX));
+
+  // The two axes are independent: a wide face passes an operator that only
+  // widens valence, and vice versa.
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_face_degree_overflows(200, 3, 0, 2, MAX));
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_face_degree_overflows(3, 200, 1, 0, MAX));
+  // Hankin doubles both, so either axis alone can reject it.
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_face_degree_overflows(200, 3, 2, 2, MAX));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_face_degree_overflows(3, 200, 2, 2, MAX));
+
+  // A factor of 1 on the face degree cannot fire: PolyMesh stores side counts
+  // in a uint8_t, so the input's widest face is already within the ceiling.
+  HS_EXPECT_TRUE(!hs_wasm::mesh_op_face_degree_overflows(MAX, 3, 1, 1, MAX));
+}
+
+/**
  * @brief Exercises the Hankin contact-angle domain check.
  */
 inline void check_hankin_angle_domain() {
@@ -242,6 +313,8 @@ inline int run_wasm_predicates_tests() {
   check_tooling_mesh_ceiling();
   check_mesh_op_expansion_ceiling();
   check_mesh_op_arena_room();
+  check_mesh_degree_measurements();
+  check_mesh_op_face_degree();
   check_hankin_angle_domain();
   check_gradient_shape_clamp();
   check_hsv_key_clamp();
