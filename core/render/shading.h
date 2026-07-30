@@ -168,11 +168,15 @@ inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
  */
 struct FacePaletteShader {
   const BakedPalette *palette = nullptr;
-  float scale = 0.0f;
-  float alpha = 0.0f;
+  float scale = 1.0f;
+  float alpha = 1.0f;
+
+  void set_palette(const BakedPalette *value) {
+    HS_CHECK(value != nullptr, "FacePaletteShader requires a palette");
+    palette = value;
+  }
 
   void operator()(const Vector &, Fragment &frag) const {
-    assert(palette != nullptr);
     float t = hs::clamp(-frag.v1 * scale, 0.0f, 1.0f);
     frag.color.color = palette->get_color_unit(t);
     frag.color.alpha = alpha;

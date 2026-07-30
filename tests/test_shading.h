@@ -292,6 +292,29 @@ inline void test_shade_mesh_topology_direct() {
 }
 
 /**
+ * @brief Verifies FacePaletteShader's rendering defaults and edge-depth lookup.
+ */
+inline void test_face_palette_shader_defaults() {
+  SolidColorPalette source(Color4(Pixel(1000, 2000, 3000), 1.0f));
+  alignas(std::max_align_t) static uint8_t
+      buffer[BakedPalette::required_arena_bytes()];
+  Arena arena(buffer, sizeof(buffer));
+  BakedPalette palette;
+  palette.bake(arena, source);
+
+  FacePaletteShader shader;
+  shader.set_palette(&palette);
+  Fragment fragment;
+  fragment.v1 = -0.5f;
+  shader(Vector(), fragment);
+
+  HS_EXPECT_EQ(fragment.color.color.r, 1000);
+  HS_EXPECT_EQ(fragment.color.color.g, 2000);
+  HS_EXPECT_EQ(fragment.color.color.b, 3000);
+  HS_EXPECT_NEAR(fragment.color.alpha, 1.0f, 1e-6f);
+}
+
+/**
  * @brief Runs every shading test case.
  * @return The module's failure count.
  */
@@ -308,6 +331,7 @@ inline int run_shading_tests() {
   test_shade_blinn_phong();
   test_shade_mesh_topology_segue();
   test_shade_mesh_topology_direct();
+  test_face_palette_shader_defaults();
 
   return fixture.result();
 }
