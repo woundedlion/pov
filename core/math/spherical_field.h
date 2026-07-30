@@ -177,7 +177,8 @@ public:
    * poles.
    * @param x Fractional longitude in [-W, 2W).
    * @param y Fractional latitude row.
-   * @param north_pole Shared value for the longitude-aliased north pole.
+   * @param poles POLE_COUNT shared values for the longitude-aliased pole rows:
+   *   [0] for row 0, [1] for row H-1 where that row is the south pole.
    * @param outside Value returned where the rendered domain has no sample.
    * @param load Loads an in-domain, non-pole lattice sample.
    * @param combine Combines four topology-correct taps and fractional
@@ -185,29 +186,38 @@ public:
    */
   template <typename Value, typename Load, typename Combine>
   __attribute__((always_inline)) decltype(auto)
-  sample_bilinear(float x, float y, const Value &north_pole,
-                  const Value &outside, Load &&load, Combine &&combine) const {
+  sample_bilinear(float x, float y, const Value *poles, const Value &outside,
+                  Load &&load, Combine &&combine) const {
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
     int x0 = static_cast<int>(floor_x);
-    int y0 = static_cast<int>(floor_y);
+    const int y0 = static_cast<int>(floor_y);
     const float fx = x - floor_x;
     const float fy = y - floor_y;
 
     x0 = ::fast_wrap(x0, W);
     const int x1 = x0 + 1 < W ? x0 + 1 : 0;
 
-    auto tap = [&](int sample_x, int sample_y) {
-      if (!wrap_sample(sample_x, sample_y))
-        return outside;
-      return sample_y == 0 ? north_pole : load(sample_x, sample_y);
-    };
-
-    if (y0 > 0 && y0 + 1 < H) {
+    // Row H-1 is the south pole only when HOffset is 0; it then leaves the
+    // direct-load band so the pole substitution reaches it.
+    constexpr int LAST_DIRECT_ROW = POLE_COUNT == 2 ? H - 3 : H - 2;
+    if (y0 > 0 && y0 <= LAST_DIRECT_ROW) {
       return std::forward<Combine>(combine)(load(x0, y0), load(x1, y0),
                                             load(x0, y0 + 1), load(x1, y0 + 1),
                                             fx, fy);
     }
+
+    auto tap = [&](int sample_x, int sample_y) {
+      if (!wrap_sample(sample_x, sample_y))
+        return outside;
+      if (sample_y == 0)
+        return poles[0];
+      if constexpr (POLE_COUNT == 2) {
+        if (sample_y == H - 1)
+          return poles[1];
+      }
+      return load(sample_x, sample_y);
+    };
     return std::forward<Combine>(combine)(
         tap(x0, y0), tap(x1, y0), tap(x0, y0 + 1), tap(x1, y0 + 1), fx, fy);
   }
@@ -227,50 +237,22 @@ public:
   __attribute__((always_inline)) void
   sample_bilinear_rgb(const Pixel *source, const Pixel *poles, float x, float y,
                       float &r, float &g, float &b) const {
-    const float floor_x = std::floor(x);
-    const float floor_y = std::floor(y);
-    int x0 = static_cast<int>(floor_x);
-    const int y0 = static_cast<int>(floor_y);
-    const float fx = x - floor_x;
-    const float fy = y - floor_y;
-
-    x0 = ::fast_wrap(x0, W);
-    const int x1 = x0 + 1 < W ? x0 + 1 : 0;
-
-    // Row H-1 is the south pole only when HOffset is 0; it then leaves the
-    // direct-load band so the pole substitution reaches it.
-    constexpr int LAST_DIRECT_ROW = POLE_COUNT == 2 ? H - 3 : H - 2;
-    Pixel p00, p10, p01, p11;
-    if (y0 > 0 && y0 <= LAST_DIRECT_ROW) {
-      p00 = source[y0 * W + x0];
-      p10 = source[y0 * W + x1];
-      p01 = source[(y0 + 1) * W + x0];
-      p11 = source[(y0 + 1) * W + x1];
-    } else {
-      auto tap = [&](int sample_x, int sample_y) {
-        if (!wrap_sample(sample_x, sample_y))
-          return Pixel(0, 0, 0);
-        if (sample_y == 0)
-          return poles[0];
-        if constexpr (POLE_COUNT == 2) {
-          if (sample_y == H - 1)
-            return poles[1];
-        }
-        return source[sample_y * W + sample_x];
-      };
-      p00 = tap(x0, y0);
-      p10 = tap(x1, y0);
-      p01 = tap(x0, y0 + 1);
-      p11 = tap(x1, y0 + 1);
-    }
-
-    const float w00 = (1.0f - fx) * (1.0f - fy);
-    const float w10 = fx * (1.0f - fy);
-    const float w01 = (1.0f - fx) * fy;
-    const float w11 = fx * fy;
-    r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
-    g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
-    b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
+    static constexpr Pixel OUTSIDE{};
+    sample_bilinear(
+        x, y, poles, OUTSIDE,
+        [source](int sample_x, int sample_y) {
+          return source[sample_y * W + sample_x];
+        },
+        [&](const Pixel &p00, const Pixel &p10, const Pixel &p01,
+            const Pixel &p11, float fx, float fy) {
+          const float w00 = (1.0f - fx) * (1.0f - fy);
+          const float w10 = fx * (1.0f - fy);
+          const float w01 = (1.0f - fx) * fy;
+          const float w11 = fx * fy;
+          r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
+          g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
+          b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
+        });
   }
 
   constexpr Row row(float y) const {
