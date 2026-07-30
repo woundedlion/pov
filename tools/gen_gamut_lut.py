@@ -36,6 +36,7 @@ the committed header, and pins the constants mirrored below against
 core/color/color.h. Wired as ctest unit_gamut_lut and CI gamut-lut-provenance.
 """
 
+import argparse
 import os
 import re
 import sys
@@ -345,24 +346,32 @@ def check_provenance(committed_path):
 
 
 def main():
-    argv = sys.argv[1:]
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    positional = [a for a in argv if not a.startswith("--")]
-    out_path = (positional[0] if positional
-                else os.path.join(root, "core", "color", "gamut_lut.h"))
 
-    if "--check" in argv:
+    parser = argparse.ArgumentParser(
+        description="Generate the sRGB gamut boundary bracket table.")
+    parser.add_argument(
+        "output_path", nargs="?",
+        default=os.path.join(root, "core", "color", "gamut_lut.h"),
+        help="header to write, or to diff against under --check")
+    parser.add_argument(
+        "--check", action="store_true",
+        help="diff a fresh table against the header and pin the mirrored"
+             " constants against color.h instead of writing")
+    args = parser.parse_args()
+
+    if args.check:
         ok = check_mirrors(os.path.join(root, "core", "color", "color.h"))
-        ok = check_provenance(out_path) and ok
+        ok = check_provenance(args.output_path) and ok
         sys.exit(0 if ok else 1)
 
     table, worst_width = build_table()
-    with open(out_path, "w", newline="\n") as f:
+    with open(args.output_path, "w", newline="\n") as f:
         f.write(render(table))
     sys.stderr.write(
         "wrote %s (%d x %d cells, %d entries)\n"
         "worst bracket width at full resolution: %.6f\n"
-        % (out_path, ANGLE_STEPS, L_STEPS, table.size, worst_width))
+        % (args.output_path, ANGLE_STEPS, L_STEPS, table.size, worst_width))
 
 
 if __name__ == "__main__":
