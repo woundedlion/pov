@@ -179,12 +179,6 @@ private:
 
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   MobiusWarpTransformer<1> mobius_gen;
-  /**
-   * @brief Two baked LUTs, ping-ponged per spawn.
-   * @details At most two sprites overlap on a preset change; each captures its
-   *          own slot so an outgoing fade keeps its spawn-time palette. Non-color
-   *          live params stay shared (Copies/Radius/Speed/Alpha liveness).
-   */
   static constexpr int SPRITE_LIFE = 320; /**< Visible frames per sprite. */
   static constexpr int FADE_WINDOW = 32;  /**< Fade-in/out length in frames. */
   /** Frames consecutive sprites coexist; 0 keeps every frame at a single mesh
@@ -195,6 +189,11 @@ private:
   static_assert(SPRITE_LIFE < 2 * (SPRITE_LIFE - CROSSFADE_OVERLAP),
                 "DreamBalls ping-pong needs at most two overlapping sprites");
 
+  /**
+   * @brief Two baked LUTs, ping-ponged per spawn.
+   * @details At most two sprites overlap on a preset change; each captures its
+   *          own slot so an outgoing fade keeps its spawn-time palette.
+   */
   BakedPalette baked_palettes[2];
   // Persistent allocations: two ping-ponged palette LUTs plus every preset's
   // baked vertices, faces, face counts, tangent frames, and unique edge list.
