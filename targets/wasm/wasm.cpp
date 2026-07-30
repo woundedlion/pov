@@ -1064,16 +1064,32 @@ public:
   }
 
   /**
+   * Inclusive upper bound of the Hankin contact-angle domain: at pi/2 the
+   * contact rays leave the edge perpendicular to it, and past that they tilt
+   * back into the neighbouring face, mirroring an angle already in domain.
+   */
+  static constexpr float MAX_HANKIN_ANGLE = PI_F / 2.0f;
+
+  /**
    * @brief Applies the Hankin interlace operator to the mesh.
-   * @param radians Interlace angle in radians (the unit MeshOps::hankin expects).
+   * @param radians Interlace angle in radians (the unit MeshOps::hankin
+   *        expects), in the operator's [0, MAX_HANKIN_ANGLE] domain.
    * @return Owning pointer to a new wrapper holding the result, or null if the
-   *         angle is non-finite.
+   *         angle is non-finite or out of domain.
    * @details Explicit (not a MESHOP_* macro) so the radians unit contract the JS
-   *          caller relies on is carried here.
+   *          caller relies on is carried here. The angle is rejected rather than
+   *          clamped: MeshOps::hankin aliases an out-of-domain angle onto an
+   *          in-domain pattern, so clamping would hand back geometry the caller
+   *          did not ask for.
    */
   std::unique_ptr<MeshOpsWrapper> hankin(float radians) const {
     if (!finite_arg(radians, "hankin"))
       return nullptr;
+    if (hs_wasm::hankin_angle_out_of_range(radians, MAX_HANKIN_ANGLE)) {
+      hs::log("WASM: MeshOps::hankin angle %g outside [0, %g] — ignored",
+              radians, MAX_HANKIN_ANGLE);
+      return nullptr;
+    }
     return apply([radians](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::hankin(m, a, b, radians);
     });

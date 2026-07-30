@@ -86,6 +86,25 @@ inline void check_unit_fraction_clamp() {
 }
 
 /**
+ * @brief Exercises the Hankin contact-angle domain check.
+ */
+inline void check_hankin_angle_domain() {
+  constexpr float MAX = 1.5707963f; // pi/2
+  constexpr float FIFTY_FOUR_DEG = 0.9424778f;
+
+  // In-domain angles, including both endpoints, are accepted.
+  HS_EXPECT_TRUE(!hs_wasm::hankin_angle_out_of_range(0.0f, MAX));
+  HS_EXPECT_TRUE(!hs_wasm::hankin_angle_out_of_range(FIFTY_FOUR_DEG, MAX));
+  HS_EXPECT_TRUE(!hs_wasm::hankin_angle_out_of_range(MAX, MAX));
+
+  // Negative and past-pi/2 angles are rejected rather than mirroring an
+  // in-domain pattern.
+  HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(-0.001f, MAX));
+  HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(MAX + 0.01f, MAX));
+  HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(12.0f, MAX));
+}
+
+/**
  * @brief Exercises the bakeLut gradient-shape range check and clamp.
  */
 inline void check_gradient_shape_clamp() {
@@ -131,6 +150,7 @@ inline int run_wasm_predicates_tests() {
   check_clip_bounds();
   check_relax_clamp();
   check_unit_fraction_clamp();
+  check_hankin_angle_domain();
   check_gradient_shape_clamp();
   check_hsv_key_clamp();
   return fixture.result();
