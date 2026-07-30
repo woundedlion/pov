@@ -148,7 +148,9 @@ private:
   /** @brief Consecutive sub-floor frames that count as stabilized. */
   static constexpr int STABLE_HOLD_FRAMES = 24;
   /**
-   * @brief Mean per-node |dB| per frame below which the field counts as settled.
+   * @brief Mean per-node |dB| per frame below which the field counts as
+   * settled, at DEFAULT_DT; the detector scales it by params.dt / DEFAULT_DT so
+   * the 30x Speed range does not move the stabilization point.
    * @details Deliberately loose. A converged field floors at 1.1e-6..4.0e-6 of
    * Q16 chatter, so a floor-hugging threshold is what the reaction has truly
    * stopped at — but measured, that costs 328 frames (20 s at 16 fps) before the
@@ -159,6 +161,8 @@ private:
    * this and reseeds.
    */
   static constexpr float MEAN_DB_STABLE = 2.0e-4f;
+  /** @brief Speed the stabilization floor is calibrated at. */
+  static constexpr float DEFAULT_DT = 2.5f;
   /**
    * @brief Physics substeps advanced per rendered frame.
    * @details 16 substeps/frame advance the slow GS morphogenesis at a visible
@@ -299,8 +303,9 @@ private:
     }
     if (++transition.grow_frames < MIN_GROW_FRAMES)
       return;
-    transition.stable_run =
-        mean_db < MEAN_DB_STABLE ? transition.stable_run + 1 : 0;
+    // Per-frame |dB| scales with the timestep, so the floor tracks Speed.
+    const float floor_db = MEAN_DB_STABLE * (params.dt * (1.0f / DEFAULT_DT));
+    transition.stable_run = mean_db < floor_db ? transition.stable_run + 1 : 0;
     if (transition.stable_run >= STABLE_HOLD_FRAMES)
       begin_dissolve();
   }
@@ -517,6 +522,8 @@ private:
     float d_b = 0.01f;  /**< Diffusion coefficient of B. */
     float dt = 2.5f;    /**< Integration timestep (Speed slider). */
   } params;
+  static_assert(Params{}.dt == DEFAULT_DT,
+                "the stabilization floor is calibrated at the Speed default");
 };
 
 #include "core/engine/effect_registry.h"
