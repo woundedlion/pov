@@ -1341,7 +1341,9 @@ HS_COLD static PolyMesh zip(const PolyMesh &mesh, Arena &target, Arena &temp) {
  * @param mesh Source mesh.
  * @param target Arena used as the ping-pong source for the composition.
  * @param temp Arena used as the ping-pong destination for the composition.
- * @param t Truncation depth forwarded to the truncate step, in [0..1].
+ * @param t Truncation depth forwarded to the truncate step, in [0..1]. At
+ *   exactly 0.5, truncate aliases to ambo, so the composition is ambo(ambo)
+ *   with that operator's vertex and face census rather than a true bevel.
  * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
  *   POLARITY at the top of the operator block).
  */
