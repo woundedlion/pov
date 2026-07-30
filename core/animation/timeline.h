@@ -394,10 +394,13 @@ public:
              "new_vals_count would go negative");
     int new_vals_count = global_timeline_num_events - active_cnt;
     // Each kept event advances write_idx by one, so it never outruns the events
-    // scanned: the source span [active_cnt, ...) and the gap-fill destination
-    // span [write_idx, ...) stay disjoint.
+    // scanned.
     HS_CHECK(write_idx <= active_cnt);
     if (new_vals_count > 0 && write_idx < active_cnt) {
+      // The source span [active_cnt, ...) and the destination span
+      // [write_idx, ...) can overlap, but write_idx + i < active_cnt + i for
+      // every i, so this forward loop reads each source slot before a write
+      // reaches it. Reversing the loop would overwrite unread sources.
       for (int i = 0; i < new_vals_count; ++i) {
         global_timeline_events[active_cnt + i].move_into(
             global_timeline_events[write_idx + i]);
