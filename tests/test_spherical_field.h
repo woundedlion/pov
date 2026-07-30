@@ -30,7 +30,7 @@ struct Rgb {
   int g;
   int b;
 
-  Rgb(int r = 0, int g = 0, int b = 0) : r(r), g(g), b(b) {}
+  constexpr Rgb(int r = 0, int g = 0, int b = 0) : r(r), g(g), b(b) {}
 };
 
 inline void test_constexpr_layout_counts() {
@@ -140,8 +140,9 @@ inline void test_longitude_filter_and_sampler_wrap_poles() {
   HS_EXPECT_GT(filtered[0], 0);
   HS_EXPECT_EQ(filtered[W / 2], 0);
 
+  const int scalar_poles[]{-1};
   const int sample = layout.sample_bilinear(
-      7.0f, -1.0f, -1, 0, [](int x, int y) { return y * 100 + x; },
+      7.0f, -1.0f, scalar_poles, 0, [](int x, int y) { return y * 100 + x; },
       [](int p00, int p10, int p01, int p11, float fx, float fy) {
         const float lower =
             hs::lerp(static_cast<float>(p00), static_cast<float>(p10), fx);
@@ -184,6 +185,19 @@ inline void test_sampler_collapses_south_pole_without_virtual_rows() {
   layout.sample_bilinear_rgb(rgb.data(), poles, 7.0f, static_cast<float>(H - 2),
                              r, g, b);
   HS_EXPECT_EQ(r, (H - 2) * 100 + 7);
+
+  const int scalar_poles[]{-1, 7000};
+  const int sample = layout.sample_bilinear(
+      7.0f, static_cast<float>(H - 1), scalar_poles, 0,
+      [](int x, int y) { return y * 100 + x; },
+      [](int p00, int p10, int p01, int p11, float fx, float fy) {
+        const float lower =
+            hs::lerp(static_cast<float>(p00), static_cast<float>(p10), fx);
+        const float upper =
+            hs::lerp(static_cast<float>(p01), static_cast<float>(p11), fx);
+        return static_cast<int>(hs::lerp(lower, upper, fy));
+      });
+  HS_EXPECT_EQ(sample, scalar_poles[1]);
 }
 
 inline void test_sampler_wraps_south_pole_with_virtual_rows() {
@@ -201,8 +215,9 @@ inline void test_sampler_wraps_south_pole_with_virtual_rows() {
   row = 37;
   HS_EXPECT_FALSE(layout.wrap_sample(col, row));
 
+  const int scalar_poles[]{-1};
   const int sample = layout.sample_bilinear(
-      7.0f, 40.0f, -1, 0, [](int x, int y) { return y * 100 + x; },
+      7.0f, 40.0f, scalar_poles, 0, [](int x, int y) { return y * 100 + x; },
       [](int p00, int p10, int p01, int p11, float fx, float fy) {
         const float lower =
             hs::lerp(static_cast<float>(p00), static_cast<float>(p10), fx);
