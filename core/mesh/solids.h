@@ -1845,9 +1845,9 @@ inline bool has_name(std::string_view name) {
 /**
  * @brief Builds a registry solid's unit vertex directions plus per-vertex
  *        orientation quaternions and nearest-neighbour gaps.
- * @param geom Arena backing the intermediate mesh (typically a caller scratch
- *        scope; nothing is retained after return).
- * @param scratch Scratch arena for odd pipeline stages.
+ * @param scratch Arena backing the intermediate mesh; nothing is retained
+ *        after return.
+ * @param temp Alternate scratch arena for odd pipeline stages.
  * @param name Registry name of the solid; traps if unknown.
  * @param max_points Capacity of the output arrays; traps if exceeded.
  * @param points Out: vertex directions projected onto the unit sphere (Catalan
@@ -1860,14 +1860,14 @@ inline bool has_name(std::string_view name) {
  * setup-only, keeps the build loops out of ITCM.
  */
 [[maybe_unused]] HS_COLD static int
-build_vertex_directions(Arena &geom, Arena &scratch, std::string_view name,
+build_vertex_directions(Arena &scratch, Arena &temp, std::string_view name,
                         int max_points, Vector *points, Quaternion *quats,
                         float *nn_angle) {
   const Entry *entry = find_entry(name);
   HS_CHECK(entry, "build_vertex_directions: unknown solid name");
   // Read straight out of the generator's arena pair; nothing outlives the call,
-  // so finalize_solid's copy into geom would buy nothing.
-  PolyMesh mesh = entry->generate(geom, scratch);
+  // so finalize_solid's long-lived copy would buy nothing.
+  PolyMesh mesh = entry->generate(scratch, temp);
   int count = static_cast<int>(mesh.vertices.size());
   HS_CHECK(count <= max_points,
            "build_vertex_directions: vertex count exceeds capacity");
