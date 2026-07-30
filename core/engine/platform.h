@@ -1176,9 +1176,6 @@ template <typename It> inline void shuffle(It first, It last) {
  *          context. Never returns.
  */
 [[noreturn]] inline void check_fail(const char *file, int line,
-                                    const char *cond, const char *fmt, ...)
-    __attribute__((format(printf, 4, 5)));
-[[noreturn]] inline void check_fail(const char *file, int line,
                                     const char *cond, const char *fmt, ...) {
   char msg[256];
   va_list args;
