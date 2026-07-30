@@ -1,19 +1,21 @@
 # Design Spec: Teensy 4 CI Gate — Build, Warning Hygiene, Image Size & Memory Layout
 
-**Status (2026-07-12): active and green.** The `teensy-size` CI job builds `holosphere`,
+**Status (2026-07-30): active and green.** The `teensy-size` CI job builds `holosphere`,
 `phantasm`, and the `holosphere_dma` compile-drift target on pushes to master and pull requests. The
 post-build gate enforces the checked-in region budgets and ELF layout invariants; the separate
 cold `teensy-warnings` job enforces a currently empty first-party warning baseline.
 `just teensy-size` runs the two shipping-image gates locally.
 
-The pinned toolchain is `platform = teensy@5.0.0` (Teensyduino 1.59.0 and arm-none-eabi-gcc
-11.3.1), `platformio==6.1.19`, and the bench-compatible **FastLED 3.4.0**. Holosphere builds at
+The pinned toolchain is `platform = teensy@5.2.0` (Teensyduino 1.62.0 and arm-none-eabi-gcc
+15.2.1), `platformio==6.1.19`, and the bench-compatible **FastLED 3.4.0**. Holosphere builds at
 96×20 with the bench-parity `-O3` configuration. Phantasm builds every effect at 288×144 with its
 documented size configuration: `-Os`, newlib-nano, `tools/phantasm.ld`, cold-code relocation,
 the small PRNG/cosine-table reductions, and the measured **298 KiB arena**. Both shipping images
-pass; Phantasm uses 476,544 B of RAM1 and leaves 47,744 B for locals, above its measured
-12 KiB floor. The active thresholds and symbol contracts live in
-[`tools/teensy_budgets.json`](../tools/teensy_budgets.json).
+pass; Phantasm uses 1,554,424 B of FLASH and 510,784 B of RAM1 (variables 314,176 plus ITCM code
+194,200 rounded up to a whole 32 KiB FlexRAM bank), leaving 13,504 B for locals above its measured
+12 KiB floor and putting that code 2,408 B under its bank-derived 196,608 B ceiling. Holosphere
+uses 622,588 B of FLASH and 418,144 B of RAM1, 106,144 B free. The active thresholds and symbol
+contracts live in [`tools/teensy_budgets.json`](../tools/teensy_budgets.json).
 
 **Historical Phase-0 result (June 2026; resolved):** the initial Phantasm all-effects image used
 the bench-parity `-O3`/full-newlib configuration and overflowed RAM1 by about 243 KiB. Section 16
@@ -141,13 +143,16 @@ Design rules to keep them from interfering:
 This record was read from the formerly tracked `targets/Holosphere/Holosphere.vcxproj`
 (`UserProperties`) and generated `__vm/Compile.vmps.xml`, `Configuration.Release.vmps.xml`, and
 `.Holosphere.vsarduino.h` files. The project artifacts are no longer retained; `platformio.ini`
-contains the active configuration derived from this capture:
+contains the active configuration derived from this capture. The "VMicro value" column reproduces
+the captured project verbatim, including the core and GCC versions it was built against; the
+active pin is `teensy@5.2.0` (Teensyduino 1.62.0, arm-none-eabi-gcc 15.2.1), which mirrors the
+bench install.
 
 | Option | VMicro value | Evidence | PlatformIO encoding |
 |---|---|---|---|
 | Board | **Teensy 4.0** (`teensy40`, `Platform=teensy4`) | `.vsarduino.h` line 9; vmps `Platform` | `board = teensy40` |
-| Core / Teensyduino | **1.59.0** (`TEENSYDUINO=159`) | vcxproj include path `.../avr/1.59.0/...`; vmps | pinned via `platform = teensy@<ver mapping to TD 1.59>` |
-| GCC toolchain | **arm-none-eabi-gcc 11.3.1** | vcxproj `RemoteCppCompileToolExe` `.../teensy-compile/11.3.1/...` | comes with the pinned platform — verify it resolves to 11.3.1 |
+| Core / Teensyduino | **1.59.0** (`TEENSYDUINO=159`) | vcxproj include path `.../avr/1.59.0/...`; vmps | `platform = teensy@5.2.0`, which delivers Teensyduino 1.62.0 |
+| GCC toolchain | **arm-none-eabi-gcc 11.3.1** | vcxproj `RemoteCppCompileToolExe` `.../teensy-compile/11.3.1/...` | comes with the pinned platform: arm-none-eabi-gcc 15.2.1 |
 | **Optimization** | **`-O3` ("Fastest", no LTO)** — owner-confirmed (`o3std`) | vcxproj `custom_teensy40_opt="o3std"` (the explicit override; last-build state still showed the `o2std`/`-O2` default) | `build_unflags = <PIO/Teensy default -O*>` **+** `build_flags = -O3`; no LTO |
 | CPU speed | **600 MHz** (`F_CPU=600000000`) — board default | vcxproj `PreprocessorDefinitions` `F_CPU=600000000` | `board_build.f_cpu = 600000000L` |
 | USB type | **Serial** (`USB_SERIAL`) — board default, no override | vcxproj `PreprocessorDefinitions` `USB_SERIAL` | `-D USB_SERIAL` (Teensy default; pin it explicitly) |
@@ -159,12 +164,12 @@ contains the active configuration derived from this capture:
 | Warning suppressions | **`-Wno-psabi -Wno-deprecated -Wno-attributes`** | vcxproj `VM_ADDITIONAL_COMPILER_CPP_FLAGS` | add to `build_flags`; feeds §7.2 (these are already-tolerated warnings) |
 | Include dirs | **`core/`, `effects/`, `hardware/`** (+ sketch dir + repo root via `-I …/../../`) | vcxproj `IncludePath`; user flag `-I{build.source.path}/../../` | `-I core -I effects -I hardware` — **`effects/` is parity; the repo root (via `src_dir=.`) is the real requirement**, see §6 |
 | Core/lib optimization | `OptimiseLibs=True`, `OptimiseCore=True` | vmps `Compile` attrs | PlatformIO optimizes core/libs with the env flags by default |
-| Linker script / FlexRAM split | Teensy core's `.ld` (ITCM↔DTCM FlexRAM bank config) | from `board = teensy40` + core 1.59 | **automatic** (same core ⇒ same `.ld`); see note below — load-bearing for the DTCM/RAM1 budget |
+| Linker script / FlexRAM split | Teensy core's `.ld` (ITCM↔DTCM FlexRAM bank config) | from `board = teensy40` + the pinned core | **automatic** (same core ⇒ same `.ld`); see note below — load-bearing for the DTCM/RAM1 budget |
 
 **FlexRAM / linker-script parity (the mechanism behind the RAM1 budget matching).** The Teensy 4
 RAM1 (512 KiB) is split between ITCM (code) and DTCM (data + stack) in **32 KiB FlexRAM banks** by
 the Teensy core's linker script. Because both VMicro and PlatformIO build with the *same* core
-(1.59.0), they get the *same* `.ld` and the *same* split rule — so DTCM size (hence arena + stack
+(1.62.0), they get the *same* `.ld` and the *same* split rule — so DTCM size (hence arena + stack
 headroom, §7.4 #1/#4) matches the flashed image without any extra pinning. Two consequences worth
 naming: it is parity we get for free *only as long as the core pin holds* (a core bump can change
 the `.ld`), and the split is **quantized to 32 KiB** — when ITCM crosses a bank boundary, DTCM-free
@@ -283,7 +288,7 @@ src_dir = .                           # repo root — sources live in core/ and 
 # Sources are referenced in place — no files move.
 
 [env]
-platform = teensy@5.0.0               # Teensy core 1.59.0 / arm-gcc 11.3.1 (§4.1)
+platform = teensy@5.2.0               # Teensy core 1.62.0 / arm-gcc 15.2.1 (§4.1)
 framework = arduino
 board_build.f_cpu = 600000000L        # 600 MHz (§4.1)
 build_cache_dir = .pio/build_cache    # object cache (mirrors ci.yml's ccache) — gitignored, CI-cached (§10)
@@ -357,7 +362,7 @@ build_src_filter = ${env.build_src_filter} +<targets/Phantasm/Phantasm.ino.cpp>
 
 ### Version pinning and optional hardening
 
-The active version pin is `teensy@5.0.0`; replacing the version tag with a commit SHA remains an
+The active version pin is `teensy@5.2.0`; replacing the version tag with a commit SHA remains an
 optional hardening step.
 For stronger immutability, mirror `ci.yml`'s SHA discipline:
 - `platform = teensy@…` — optionally replace the version tag with a git URL + commit SHA. `ci.yml` pins emsdk
@@ -541,8 +546,8 @@ Phantasm's `USE_DMA_LEDS` path adds the `DMAMEM DMALEDController` eDMA TX buffer
 The active budgets cap both RAM2 images at the 524,288 B hardware wall and enforce named-symbol
 placement. Because that cap is the wall, the binding RAM2 constraint for both targets is a 4 KiB
 `free_min_bytes` heap floor. Phantasm additionally checks its DMA TX controller in OCRAM and its
-reaction graph in flash. Phantasm's 12 KiB DTCM-free floor is derived from the measured 9,055 B worst-effect host
-stack peak; the current device image leaves 14,976 B.
+reaction graph in flash. Phantasm's 12 KiB DTCM-free floor is derived from the measured 11,359 B worst-effect host
+stack peak; the current device image leaves 13,504 B.
 
 Two current calibration constraints:
 
@@ -876,7 +881,7 @@ All five prior open questions have been decided; the spec body reflects them.
   `build_src_filter` must default-exclude and re-add only the wanted TUs or it sweeps in
   `targets/wasm/`, the CMake `build*/` trees, `.pio/`, etc. Mitigate with the Phase-0 spike (§6)
   that asserts each env compiles exactly its `.ino` + the two `core/engine/*.cpp` and nothing else.
-- **OCRAM is structurally tight (~6 KiB free in the current images).** Not a tuning
+- **OCRAM is structurally tight (4,736–6,016 B free in the current images).** Not a tuning
   knob — the buffers are fixed at `MAX_W*MAX_H`. The value is
   the **layout invariant** keeping those buffers in OCRAM (`dma_tx_buffers_section: OCRAM`) plus the
   recorded as-built margin (§8). A future OCRAM consumer, or a bump to `MAX_W`/`MAX_H`, is the real
@@ -912,8 +917,8 @@ All five prior open questions have been decided; the spec body reflects them.
 This section preserves the initial spike state. Its Phantasm overflow was resolved by the size
 configuration and RAM1 work summarized in the current status at the top of this document.
 
-The go/no-go toolchain spike (§6) was run with a real PlatformIO build. Outcome and the concrete
-values now pinned:
+The go/no-go toolchain spike (§6) was run with a real PlatformIO build. Its outcome and the
+concrete values it pinned at the time (§4.1 and §6 carry the active pin):
 
 **Toolchain — branch 1 (exact bench parity), no override needed.** `platform = teensy@5.0.0`
 natively installs, for Teensy 4, the *same* PJRC toolchain Teensyduino/VMicro use:
@@ -966,4 +971,4 @@ the set-based ratchet working as designed; and the object cache was observed bli
 about 243 KiB (~381 KiB ITCM + ~380 KiB DTCM). Its ELF was captured for symbol analysis by
 temporarily neutralizing `teensy_size`'s overflow exit (reverted). The current `-Os`/newlib-nano
 image, cold-code routing, and 298 KiB arena resolve that overflow; the active Phantasm gate passes
-with 47,744 B free for locals.
+with 13,504 B free for locals.
