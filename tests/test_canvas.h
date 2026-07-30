@@ -29,6 +29,8 @@ namespace canvas_tests {
  * by the tests.
  */
 struct TestEffect : public Effect {
+  using Effect::mark_readonly;
+
   float speed = 1.5f; /**< Sample float param backing store. */
   bool flag = false;  /**< Sample bool param backing store. */
 
@@ -68,11 +70,6 @@ struct TestEffect : public Effect {
     *p = d; // register_param(bool) captures *ptr as the default; set it first
     register_param(n, p);
   }
-  /**
-   * @brief Marks a registered parameter as readonly (engine-written).
-   * @param n Parameter name to mark.
-   */
-  void mark_readonly(const char *n) { markReadonly(n); }
   /**
    * @brief Registers an enumerated parameter with the base Effect.
    * @param n Parameter name.
