@@ -128,10 +128,10 @@ public:
         constexpr float pixel_w = 2.0f * PI_F / W;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];
-          // The trail's length-fade comes entirely from the palette: sampling
-          // at 1-t walks a transparent-vignette palette whose alpha tapers to
-          // ~0 toward the tail, so there is deliberately no explicit t-fade
-          // here.
+          // The trail's length-fade comes entirely from the palette's alpha
+          // vignette, which tapers to ~0 at both ends, so the head fades out
+          // along with the tail — unlike the sibling trail effects, which fade
+          // the tail alone. There is deliberately no explicit t-fade here.
           Color4 c = ring.palette->get(1.0f - t);
           c.alpha = c.alpha * params.alpha;
           if (c.alpha <= 0.001f)
