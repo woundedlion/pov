@@ -3303,8 +3303,11 @@ struct ParticleSystem {
             continue;
           const float *rows = pro.rows;
           const float *cols = pro.cols;
-          dot_rows = rows;
-          dot_cols = cols;
+          // rasterize's single-dot shortcut takes both projections or neither.
+          if (cols != nullptr) {
+            dot_rows = rows;
+            dot_cols = cols;
+          }
 
           for (size_t e = 0; e < edges; ++e) {
             const Vector &ea = trail[e].pos;
