@@ -1256,6 +1256,10 @@ inline Pixel oklch_to_pixel(OKLCH lch) {
  * @return The equivalent angle in (-pi, pi].
  */
 inline float wrap_angle_pi(float x) {
+  // At large |x| the subtraction below rounds away and the loop never finishes.
+  // Negated so NaN takes this branch too.
+  if (!(fabsf(x) <= 4.0f * PI_F))
+    x = fmodf(x, 2.0f * PI_F);
   while (x > PI_F)
     x -= 2.0f * PI_F;
   while (x < -PI_F)
