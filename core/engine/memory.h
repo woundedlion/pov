@@ -319,8 +319,8 @@ template <int MAX_V> struct TriangularBitset {
 template <typename T> struct is_arena_inplace_fn : std::false_type {};
 #ifdef ARDUINO
 template <typename R, typename... Args, size_t Cap, size_t Align>
-struct is_arena_inplace_fn<
-    teensy::inplace_function<R(Args...), Cap, Align>> : std::true_type {};
+struct is_arena_inplace_fn<teensy::inplace_function<R(Args...), Cap, Align>>
+    : std::true_type {};
 #else
 template <typename R, typename... Args, size_t Cap, size_t Align>
 struct is_arena_inplace_fn<hs::inplace_function<R(Args...), Cap, Align>>
@@ -375,7 +375,8 @@ private:
     }
     if (source_arena && element_capacity > 0 &&
         !source_arena->covers(elements, element_capacity * sizeof(T))) {
-      assert(false && "ArenaVector use-after-free (arena rewound below block)!");
+      assert(false &&
+             "ArenaVector use-after-free (arena rewound below block)!");
     }
   }
 #else

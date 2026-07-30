@@ -35,8 +35,8 @@ namespace detail {
 template <typename T> struct is_inplace_function : std::false_type {};
 
 template <typename Signature, size_t Capacity, size_t Alignment>
-struct is_inplace_function<
-    inplace_function<Signature, Capacity, Alignment>> : std::true_type {};
+struct is_inplace_function<inplace_function<Signature, Capacity, Alignment>>
+    : std::true_type {};
 
 // Type-erased operation table, one shared instance per captured callable type.
 template <typename R, typename... Args> struct ipf_vtable {

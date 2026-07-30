@@ -173,8 +173,7 @@ private:
     DominantFieldAccumulator accumulator;
     for (int j = 0; j < n; ++j) {
       const int k = ks[j];
-      float f =
-          bump_field_with_y(p, *solid_params[k], theta - solid_colat[k]);
+      float f = bump_field_with_y(p, *solid_params[k], theta - solid_colat[k]);
       accumulator.add(f);
     }
     return accumulator.value();
@@ -705,8 +704,8 @@ private:
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
       RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +
                     sizeof(SDF::DistortedRing)) +
-      SOLID_MAX * (3 * sizeof(float) + sizeof(int) +
-                   sizeof(const BumpParams *)) +
+      SOLID_MAX *
+          (3 * sizeof(float) + sizeof(int) + sizeof(const BumpParams *)) +
       (HUE_TABLE_SIZE + 1) * sizeof(Pixel) +
       MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
       (sizeof(typename decltype(noise_field)::Entity) + sizeof(int));
