@@ -65,11 +65,11 @@ inline Pixel hue_fade(const Pixel &p, float fade, const Style &s);
 
 /**
  * @brief Named feedback preset: spatial/color transforms plus scalar params.
- * @details POD-copyable for Presets<> and lerp. Non-preset state (bound noise
- * pointer, per-frame hue cache) survives lerp() but a full-struct copy or
- * assignment (Presets::apply, `style = Style::Smoke()`) resets noise to nullptr
- * (noise_warp degrades to identity) and the hue cache to identity. Re-bind noise
- * and call sync_hue() after any such copy.
+ * @details POD-copyable for Presets<> and lerp. The bound noise pointer and
+ * per-frame hue cache survive lerp(), while a full-struct copy or assignment
+ * overwrites them with the source's values. MeshFeedback pre-binds every preset
+ * entry so Presets::apply preserves its NoiseParams binding. A copy from an
+ * unbound named preset sets noise to nullptr; bind it before using noise_warp.
  */
 struct Style {
   // --- Lerpable scalar params ---
