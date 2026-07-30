@@ -616,9 +616,9 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   for (size_t i = 0; i < F; ++i) {
     int count = face_counts[i];
 
-    // The 32-bit hash (count + sorted whole-degree interior angles) is used
-    // directly as the topology id, so a hash collision merges two distinct face
-    // topologies into one class. Acceptable for the fixed polyhedron roster.
+    // Pre-fold hash: count + sorted whole-degree interior angles. Class
+    // identity is the neighbor-folded hash below, where a collision merges two
+    // distinct face topologies. Acceptable for the fixed polyhedron roster.
     uint32_t h = 0x12345678;
     hash_combine(h, static_cast<uint32_t>(count));
 
