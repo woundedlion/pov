@@ -271,10 +271,15 @@ private:
 
   Params params;
 
-  static_assert(gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) <=
-                    DEVICE_PERSISTENT_BUDGET,
-                "Flyby gamut grid exceeds the default persistent partition; "
-                "coarsen the grid");
+  // init() buys the gamut bracket grid and the palette LUT from the persistent
+  // arena. Effect keeps the default arena split, so the total must fit the
+  // device persistent partition.
+  static constexpr size_t FOOTPRINT_BYTES =
+      gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
+      BakedPalette::required_arena_bytes();
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+                "Flyby persistent footprint exceeds the default partition; "
+                "coarsen the gamut grid or carve arenas");
 };
 
 #include "core/engine/effect_registry.h"
