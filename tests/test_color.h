@@ -1356,9 +1356,9 @@ inline void test_baked_palette_in_range() {
 /**
  * @brief Verifies rebake samples the closed [0, 1] with divisor LUT_SIZE - 1.
  * @details The divisor fixes every entry's sampled coordinate, so a change to it
- *          shifts the whole LUT; the t = 1 endpoint pins it. A Wrap=true
- *          composition folds that endpoint to 0, collapsing the last entry onto
- *          the first, which is why baked sources are composed with Wrap=false.
+ *          shifts the whole LUT; the t = 1 endpoint pins it. StaticPalette
+ *          exposes its wrapping policy so BakedPalette can reject Wrap=true
+ *          sources at compile time.
  */
 inline void test_baked_palette_rebake_samples_closed_interval() {
   struct Ramp {
@@ -1369,7 +1369,7 @@ inline void test_baked_palette_rebake_samples_closed_interval() {
   } ramp;
 
   alignas(std::max_align_t) static uint8_t
-      buf[2 * BakedPalette::required_arena_bytes()];
+      buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
 
   BakedPalette baked;
@@ -1377,12 +1377,11 @@ inline void test_baked_palette_rebake_samples_closed_interval() {
   HS_EXPECT_EQ(baked.get(0.0f).color.r, 0);
   HS_EXPECT_EQ(baked.get(1.0f).color.r, 65535);
 
-  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
-  StaticPalette<Gradient> wrapped;
-  wrapped.bind(&grad);
-  BakedPalette baked_wrapped;
-  baked_wrapped.bake(arena, wrapped);
-  HS_EXPECT_EQ(baked_wrapped.get(1.0f).color.r, baked_wrapped.get(0.0f).color.r);
+  using Wrapped = StaticPalette<Gradient>;
+  using Unwrapped =
+      StaticPalette<Gradient, Coords<>, Colors<>, /*Wrap=*/false>;
+  static_assert(Wrapped::WRAPS_COORDINATE);
+  static_assert(!Unwrapped::WRAPS_COORDINATE);
 }
 
 inline void test_baked_palette_color_sampler_matches_get() {
