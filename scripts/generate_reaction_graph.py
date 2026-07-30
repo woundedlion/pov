@@ -14,9 +14,9 @@ committed table reproduces bit-for-bit ONLY in double: computing y / radius in
 float32 (as a naive runtime port would) flips the sort order of a handful of rows
 at near-tie distances. core/engine/reaction_graph.h::node() therefore folds y, radius,
 and theta in double and narrows once into the float Vector, symmetric with this
-generator. RD_N, RD_K and golden_angle are parsed out of that header rather than
-restated here, so only the node() formula itself is mirrored by hand; any edit to
-it requires regenerating the table.
+generator. RD_N, RD_K, golden_angle and two_pi are parsed out of that header
+rather than restated here, so only the node() formula itself is mirrored by hand;
+any edit to it requires regenerating the table.
 
 Lattice (mirrors core/engine/reaction_graph.h::node):
 
@@ -44,8 +44,6 @@ from pathlib import Path
 HEADER = (Path(__file__).resolve().parent.parent / "core" / "engine" /
           "reaction_graph.h")
 
-TWO_PI = 6.283185307179586
-
 
 def _header_constant(text, pattern, name):
     match = re.search(pattern, text)
@@ -57,7 +55,7 @@ def _header_constant(text, pattern, name):
 
 
 def _load_header_constants():
-    """RD_N, RD_K and golden_angle read out of core/engine/reaction_graph.h.
+    """Lattice constants read out of core/engine/reaction_graph.h.
 
     Restating them here would let a header-only edit produce a table the CI
     provenance diff still accepts (the C++ array bound comes from the header, so
@@ -72,10 +70,13 @@ def _load_header_constants():
         float(_header_constant(
             text, r"constexpr\s+double\s+golden_angle\s*=\s*([0-9.eE+-]+)\s*;",
             "golden_angle")),
+        float(_header_constant(
+            text, r"constexpr\s+double\s+two_pi\s*=\s*([0-9.eE+-]+)\s*;",
+            "two_pi")),
     )
 
 
-RD_N, RD_K, GOLDEN_ANGLE = _load_header_constants()
+RD_N, RD_K, GOLDEN_ANGLE, TWO_PI = _load_header_constants()
 
 
 def node(i):
