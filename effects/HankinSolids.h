@@ -185,16 +185,9 @@ private:
   HS_COLD_MEMBER void record_node_faces(const PolyMesh &base) {
     node_faces = base.face_counts.size();
     HS_CHECK(node_faces <= MAX_NODE_FACES);
-    size_t off = 0;
-    for (size_t f = 0; f < node_faces; ++f) {
+    for (size_t f = 0; f < node_faces; ++f)
       node_face_sides[f] = base.face_counts[f];
-      Vector c(0.0f, 0.0f, 0.0f);
-      const int n = base.face_counts[f];
-      for (int k = 0; k < n; ++k)
-        c = c + base.vertices[base.faces[off + k]];
-      node_face_centroid[f] = c.normalized();
-      off += n;
-    }
+    Animation::OpLeg::face_centroids_into(base, node_face_centroid);
   }
 
   /**
