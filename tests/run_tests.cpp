@@ -122,7 +122,7 @@ struct TestModule {
   X("easing_waves", hs_test::easing_waves_tests::run_easing_waves_tests, 6080) \
   X("platform", hs_test::platform_tests::run_platform_tests, 201119)           \
   X("filter", hs_test::filter_tests::run_filter_tests, 10297)                  \
-  X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests, 9110233)       \
+  X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests, 9109889)       \
   X("canvas", hs_test::canvas_tests::run_canvas_tests, 452)                    \
   X("scan", hs_test::scan_tests::run_scan_tests, 189869)                       \
   X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests, 2793)    \
