@@ -1270,6 +1270,20 @@ struct FlatDistortedRing : private DistortedRing {
   }
 };
 
+inline Bounds union_vertical_bounds(Bounds a, Bounds b, int pad, int max_y) {
+  const bool a_culled = a.y_min > a.y_max;
+  const bool b_culled = b.y_min > b.y_max;
+  if (a_culled && b_culled)
+    return {1, 0};
+  const int lo = a_culled   ? b.y_min
+                 : b_culled ? a.y_min
+                            : std::min(a.y_min, b.y_min);
+  const int hi = a_culled   ? b.y_max
+                 : b_culled ? a.y_max
+                            : std::max(a.y_max, b.y_max);
+  return {std::max(0, lo - pad), std::min(max_y, hi + pad)};
+}
+
 /**
  * @brief CSG Union operation (A + B), taking the minimum distance of two
  * shapes.
@@ -1313,19 +1327,7 @@ template <typename A, typename B> struct Union {
   template <int H> Bounds get_vertical_bounds() const {
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
-    // A culled child returns {1,0}; folding its sentinel via min/max would
-    // annex rows neither child occupies.
-    bool a_culled = b1.y_min > b1.y_max;
-    bool b_culled = b2.y_min > b2.y_max;
-    if (a_culled && b_culled)
-      return {1, 0};
-    int lo = a_culled   ? b2.y_min
-             : b_culled ? b1.y_min
-                        : std::min(b1.y_min, b2.y_min);
-    int hi = a_culled   ? b2.y_max
-             : b_culled ? b1.y_max
-                        : std::max(b1.y_max, b2.y_max);
-    return {lo, hi};
+    return union_vertical_bounds(b1, b2, 0, H - 1);
   }
 
   /**
@@ -1431,22 +1433,10 @@ template <typename A, typename B> struct SmoothUnion {
     constexpr int H_VIRT = H + hs::H_OFFSET;
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
-    // A culled child returns {1,0}; folding its sentinel via min/max would
-    // annex rows neither child occupies.
-    bool a_culled = b1.y_min > b1.y_max;
-    bool b_culled = b2.y_min > b2.y_max;
-    if (a_culled && b_culled)
-      return {1, 0};
-    int lo = a_culled   ? b2.y_min
-             : b_culled ? b1.y_min
-                        : std::min(b1.y_min, b2.y_min);
-    int hi = a_culled   ? b2.y_max
-             : b_culled ? b1.y_max
-                        : std::max(b1.y_max, b2.y_max);
     // Expand by the blend radius k (radians) converted to rows: phi spans [0,π]
     // over (H_VIRT-1) rows.
     int pad = std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));
-    return {std::max(0, lo - pad), std::min(H - 1, hi + pad)};
+    return union_vertical_bounds(b1, b2, pad, H - 1);
   }
 
   /**
