@@ -366,7 +366,7 @@ flag("+5V_LOGIC", 284.48, fy)
 flag(GND, 317.5, fy)
 
 # ---------------------------------------------------------------- write files
-open(SCH, "w", encoding="utf-8").write(b.dumps())
+open(SCH, "w", encoding="utf-8", newline="\n").write(b.dumps())
 
 lib_lines = ['(kicad_symbol_lib', f'\t(version {B.VERSION})',
              '\t(generator "phantasm-gen")', '\t(generator_version "10.0")']
@@ -375,9 +375,10 @@ for lib_id in sorted(b.lib_defs):
         node = copy.deepcopy(b.lib_defs[lib_id]); node[1] = lib_id.split(":", 1)[1]
         lib_lines.append(sexp.dumps(node, indent=1))
 lib_lines.append(')')
-open(os.path.join(OUT, "phantasm.kicad_sym"), "w", encoding="utf-8").write("\n".join(lib_lines) + "\n")
+open(os.path.join(OUT, "phantasm.kicad_sym"), "w", encoding="utf-8",
+     newline="\n").write("\n".join(lib_lines) + "\n")
 
-open(os.path.join(OUT, "sym-lib-table"), "w", encoding="utf-8").write(
+open(os.path.join(OUT, "sym-lib-table"), "w", encoding="utf-8", newline="\n").write(
     '(sym_lib_table\n\t(version 7)\n'
     '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.kicad_sym")'
     '(options "")(descr "PHANTASM custom symbols"))\n)\n')
@@ -389,7 +390,7 @@ PRO = os.path.join(OUT, "phantasm.kicad_pro")
 if os.path.exists(PRO):
     print("kept existing phantasm.kicad_pro (DRC rules preserved)")
 else:
-    open(PRO, "w", encoding="utf-8").write(
+    open(PRO, "w", encoding="utf-8", newline="\n").write(
         # design_settings.rules.min_clearance > 0 so Quilter accepts the project on upload
         # (it rejects 0). KiCad re-zeroes it whenever the project is opened in the GUI, so
         # run gen/heal_clearance.py before any Quilter upload to restore it.
