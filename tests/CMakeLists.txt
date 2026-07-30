@@ -60,9 +60,9 @@ add_executable(run_tests
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 
-# HS_TEST_BUILD widens the test-only inline/arena budgets (MSVC STL's
-# std::function is larger than libc++/inplace_function on the device); the
-# device footprint is unchanged. See core/animation/animation.h and core/engine/memory.h.
+# HS_TEST_BUILD widens the test-only inline/arena budgets (the 64-bit host
+# inflates every embedded pointer past the 32-bit device footprints); the device
+# footprint is unchanged. See core/animation/animation.h and core/engine/memory.h.
 #
 # HS_SCAN_METRICS compiles the per-pixel g_scan_metrics counters back in (off in
 # the device/WASM release build, where they would be a per-pixel global store on
