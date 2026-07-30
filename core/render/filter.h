@@ -875,7 +875,7 @@ public:
 
 private:
   Vector origin; /**< Center of the hole (unit vector). */
-  float radius; /**< Angular radius of the hole in radians. */
+  float radius;  /**< Angular radius of the hole in radians. */
 };
 
 /**
@@ -985,7 +985,8 @@ public:
    * @tparam VertexArray Indexable container of N unit vectors.
    * @param vertices Vertex positions; rotations map vertices[0] onto each vertex.
    */
-  template <typename VertexArray> void set_vertices(const VertexArray &vertices) {
+  template <typename VertexArray>
+  void set_vertices(const VertexArray &vertices) {
     for (int i = 0; i < N; ++i)
       rotations[i] = make_rotation(vertices[0], vertices[i]);
   }

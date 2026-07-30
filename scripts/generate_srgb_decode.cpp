@@ -71,9 +71,9 @@ int main(int argc, char **argv) {
   if (mism)
     return 1;
 
-  // Binary mode: the committed header is LF on every host (.gitattributes),
-  // and text mode would emit CRLF on Windows. The Windows CRT deprecates fopen
-  // in favour of fopen_s, which no other host provides.
+    // Binary mode: the committed header is LF on every host (.gitattributes),
+    // and text mode would emit CRLF on Windows. The Windows CRT deprecates fopen
+    // in favour of fopen_s, which no other host provides.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   FILE *f = std::fopen(out_path, "wb");
