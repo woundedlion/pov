@@ -659,9 +659,9 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
  *   bridge's medial leg. dual_g is the normalized centroid of face g, matching
  *   MeshOps::dual's vertex, so out_b lands on ambo(dual(mesh)) exactly.
  */
-HS_COLD static void medial(const PolyMesh &mesh, PolyMesh &out_a,
-                           ArenaVector<Vector> &out_b, Arena &target,
-                           Arena &temp) {
+HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
+                                  ArenaVector<Vector> &out_b, Arena &target,
+                                  Arena &temp) {
   HS_CHECK(&mesh != &out_a, "medial input mesh must not alias output mesh");
   HS_CHECK(&mesh.vertices != &out_b,
            "medial input vertices must not alias output vertices");
