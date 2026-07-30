@@ -1390,6 +1390,8 @@ public:
             float alpha) {
     assert(age >= 0.0f && alpha >= 0.0f);
     assert(prepared_for(cv));
+    // fast_wrap below corrects only a single ±W offset on floorf(x).
+    assert(x >= -W && x < 2 * W);
     (void)age;
     (void)cv;
 
