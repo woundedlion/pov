@@ -1909,6 +1909,28 @@ inline void test_feedback_spherical_field_angular_error() {
     float x;
     float y;
   };
+  struct TangentError {
+    float east;
+    float down;
+  };
+  // Log map of `measured` at `reference`, resolved on the equirect east/down
+  // basis at (x, y): a great-circle error split into its azimuthal and
+  // meridional parts.
+  auto tangent_error = [](const Vector &reference, const Vector &measured,
+                          int x, int y) {
+    const float theta = (2.0f * PI_F * x) / W;
+    const float phi = y_to_phi<H>(y);
+    const Vector east(-std::sin(theta), 0.0f, std::cos(theta));
+    const Vector down(std::cos(phi) * std::cos(theta), -std::sin(phi),
+                      std::cos(phi) * std::sin(theta));
+    const float c = hs::clamp(dot(reference, measured), -1.0f, 1.0f);
+    const Vector u = measured - reference * c;
+    const float len_sq = dot(u, u);
+    if (len_sq < math::EPS_NORMALIZE_SQ)
+      return TangentError{0.0f, 0.0f};
+    const Vector delta = u * (fast_acos(c) * fast_rsqrt(len_sq));
+    return TangentError{dot(delta, east), dot(delta, down)};
+  };
   NoiseParams noise;
   ::Feedback::Style style{};
   style.noise = &noise;
@@ -2018,8 +2040,7 @@ inline void test_feedback_spherical_field_angular_error() {
         const Vector source = pixel_to_vector<W, H>(x, y);
         const Vector exact = style.space_fn(source, style);
         const Vector got = approximate(x, y);
-        const TangentOffset error =
-            sphere_log(exact, got, tangent_frame<W, H>(x, y));
+        const TangentError error = tangent_error(exact, got, x, y);
         const double area_weight = std::sin(y_to_phi<H>(y));
         east_sq += area_weight * error.east * error.east;
         down_sq += area_weight * error.down * error.down;

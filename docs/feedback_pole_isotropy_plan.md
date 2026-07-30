@@ -1,8 +1,8 @@
 # Feedback pole isotropy — analysis & plan
 
 **Status: PLAN — not implemented.** The D1 tangent-warp variant was measured
-and **rejected 2026-07-23**; only the D3 helpers landed (`225f81ee`), opt-in
-with no consumer. Read "Measured outcome" before proposing any variant.
+and **rejected 2026-07-23**; of the D3 helpers only `pole_wrap` is in the tree.
+Read "Measured outcome" before proposing any variant.
 
 Fix two MeshFeedback pole artifacts — trails pinching toward the poles, and a
 ~4–5 px "lensing" cap under low-frequency noise — so the warp is isotropic over
@@ -136,9 +136,11 @@ existing pole contract tests elsewhere stay untouched):
 - `equirect_x_scale<W,H>(y)` → the per-row azimuth scale (D1 decoder side).
 - `pole_wrap<W,H>(col, row)` → the D2 tap-reflection rule.
 
-Feedback is the first consumer; any future filter that resamples an equirect
-history buffer or interpolates a sphere field over an equirect grid uses the
-same four primitives instead of re-deriving them.
+Only `pole_wrap` is in the tree (`core/math/spherical_field.h` uses it); the
+three tangent primitives are part of the rejected D1 variant and would have to
+be written alongside it. Any future filter that resamples an equirect history
+buffer or interpolates a sphere field over an equirect grid should reach for the
+same primitives instead of re-deriving them.
 
 Deliberately **not** doing: per-pixel exact reprojection (hoist every pixel to
 cartesian, rotate, `atan2`+`acos` back). It is the exactness gold standard but
@@ -254,9 +256,10 @@ SlowTwist's cap error only 0.4082 → 0.3561.
   folds a pole crossing into a longitude jump plus a positive Δφ, so `by < 0`
   only ever arises from interpolation undershoot. D2 becomes reachable only
   under a signed-`δn` encoding.
-- **D3 landed** (`225f81ee`). `tangent_frame`/`sphere_log` are the encoder half
-  and are sound and unit-tested; `equirect_x_scale` is the decoder half that
-  this measurement invalidates. All four are opt-in with no consumer.
+- **The tangent encode/decode pair is not carried.** `equirect_x_scale` is the
+  decoder half this measurement invalidates, and `tangent_frame`/`sphere_log`
+  encode into a representation nothing decodes. Reviving any of them belongs to
+  whichever variant needs them.
 - **An exact decode needs a per-pixel reprojection** (`exp` map then
   `fast_acos` + `fast_atan2`), the option this plan rejected on cost. That is
   the only route that keeps the tangent representation.
