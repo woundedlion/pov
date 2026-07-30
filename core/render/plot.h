@@ -46,6 +46,14 @@ static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
 static constexpr float AXIS_Y_EPS = 1e-4f;
 
 /**
+ * @brief Minimum worst-case sin(φ) over a curve for which its plotted columns
+ *        are trusted enough to cull by.
+ * @details The azimuth Lipschitz bound scales as 1/sin(φ), and nearer the poles
+ * the plotted column is float noise; below this the column cull bails.
+ */
+static constexpr float MIN_SIN_PHI = 0.05f;
+
+/**
  * @brief Floor on the adaptive sub-step length, as a fraction of base_step.
  * @details Caps sub-steps per segment so polar curves don't oversample: the
  * screen-velocity step sampler (screen_step) drives the step toward zero where
@@ -867,8 +875,6 @@ template <int W>
 static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
                                    const PlanarEdgeSpan &es, int &col_s,
                                    int &col_len) {
-  constexpr float MIN_SIN_PHI = 0.05f;
-
   const float ca = vector_to_theta<W>(a);
   float s_f, len_f;
 
@@ -2758,7 +2764,6 @@ static __attribute__((always_inline)) inline TrailGatePrologue
 trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
                     int band_len, const Fragments &trail) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  constexpr float MIN_SIN_PHI = 0.05f;
   const size_t n = trail.size();
   auto *rows = static_cast<float *>(
       scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
