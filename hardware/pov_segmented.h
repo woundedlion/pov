@@ -333,8 +333,7 @@ public:
       }
 
       // Health telemetry (spec §8.6): foreground-polled, emitted only on change.
-      // telemetry() aliases the live, ISR-mutated block, so copy it under a brief
-      // IRQ-off bracket or a torn read could mis-fire the comparison below.
+      // Snapshot the ISR-mutated counters under an IRQ-off bracket.
       if (hs::debug && millis() - last_report >= 1000UL) {
         last_report = millis();
         hs::disable_interrupts();
