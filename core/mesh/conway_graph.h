@@ -527,11 +527,8 @@ constexpr int pick_next_edge(int node, int prev_edge, int legs_in_family,
       return cand[i];
     pick -= weights[i];
   }
-  // Unreachable while total > 0; a zero weight marks the backtrack edge.
-  for (int i = n - 1; i > 0; --i)
-    if (weights[i] != 0)
-      return cand[i];
-  return cand[0];
+  HS_CHECK(false, "weighted edge selection exhausted a positive total");
+  __builtin_unreachable();
 }
 
 /** Deterministic profile tour: a fixed edge cycle from the tetrahedron that
