@@ -76,8 +76,7 @@ public:
     baked_palette.bake(persistent_arena, palette);
 
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Thickness", &params.thickness, 0.0f,
-                   7.0f * THICKNESS_PX);
+    register_param("Thickness", &params.thickness, 0.0f, 7.0f * THICKNESS_PX);
     register_param("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     register_param("Debug BB", &params.debug_bb);
 

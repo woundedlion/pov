@@ -637,7 +637,6 @@ struct GSWhiteBox {
                          float *nB) {
     gs.step_physics(cA, cB, nA, nB);
   }
-
 };
 
 /**
