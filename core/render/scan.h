@@ -12,9 +12,6 @@
 #include "render/filter.h"
 #include "engine/static_circular_buffer.h"
 #include "render/canvas.h"
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
 #include "engine/platform.h"
 
 #ifdef HS_AA_AUDIT
@@ -444,26 +441,6 @@ template <int W, int H> struct BoundingSphere {
 };
 
 /**
- * @brief Scoped accumulator for per-draw render time (telemetry only).
- * @details Measures wall-clock over its lifetime and adds it to the canvas's
- * render-time counter on destruction. Off-Emscripten there is no JS perf clock,
- * so the type is empty and every use optimizes away to nothing.
- */
-struct ScopedRenderTimer {
-#ifdef __EMSCRIPTEN__
-  Canvas &canvas;
-  double t0;
-  explicit ScopedRenderTimer(Canvas &target)
-      : canvas(target), t0(emscripten_get_now()) {}
-  ~ScopedRenderTimer() { canvas.add_render_us(emscripten_get_now() - t0); }
-#else
-  explicit ScopedRenderTimer(Canvas &) {}
-#endif
-  ScopedRenderTimer(const ScopedRenderTimer &) = delete;
-  ScopedRenderTimer &operator=(const ScopedRenderTimer &) = delete;
-};
-
-/**
  * @brief Main rasterization routine for SDF shapes.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -498,7 +475,6 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
 
-  ScopedRenderTimer timer_guard(canvas);
   scan_region<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
@@ -548,7 +524,6 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   Pixel16 plot_color = color.color;
   if (effective_debug)
     plot_color = plot_color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
-  ScopedRenderTimer timer_guard(canvas);
   scan_region<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
@@ -815,7 +790,6 @@ struct DistortedRingStack {
 
     SDF::DistanceResult res;
     Fragment frag;
-    ScopedRenderTimer timer_guard(canvas);
     for (int y = y_lo; y <= y_hi; ++y) {
       const float sp = TrigLUT<W, H>::sin_phi[y];
       const float cp = TrigLUT<W, H>::cos_phi[y];
@@ -1089,7 +1063,6 @@ struct RingGroup {
     SDF::Ring cover(shapes[mid].basis, shapes[mid].radius, pad_th);
 
     Fragment frag;
-    ScopedRenderTimer timer_guard(canvas);
 
     // Row-local walk instead of scan_region: the covering ring emits at most
     // 2 arcs per row, so small stack buffers replace the arena-backed CSG
@@ -1547,7 +1520,6 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 
   SDF::DistanceResult res;
   Fragment frag;
-  ScopedRenderTimer timer_guard(canvas);
 
   // 1.0002 margin keeps the sqrt-free cull strictly conservative against the
   // pixel_width reject below.
@@ -1902,7 +1874,6 @@ struct Shader {
     const auto xc = cr.x_clip();
 
     if constexpr (SAMPLES == 1) {
-      ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = 0; x < W; ++x) {
           if (xc.clipped(x))
@@ -1918,7 +1889,6 @@ struct Shader {
         TrigLUT<W, H>::init();
       SsaaGrid<W, H> grid;
 
-      ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         grid.set_row(y);
         for (int x = 0; x < W; ++x) {
@@ -1973,7 +1943,6 @@ struct Shader {
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
       const auto xc = cr.x_clip();
-      ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = 0; x < W; ++x) {
           if (xc.clipped(x))
@@ -1997,7 +1966,6 @@ struct Shader {
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
       const auto xc = cr.x_clip();
-      ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         grid.set_row(y);
         for (int x = 0; x < W; ++x) {
@@ -2046,7 +2014,7 @@ struct Shader {
    *        type-erased FunctionRef: the whole body inlines into this loop, and
    *        the effect can hoist work its sub-samples share.
    * @details Same outer scaffolding as the SSAA draw() overloads (clip,
-   * LUT-domain check, trig-LUT init, per-row SsaaGrid, render timer); the
+   * LUT-domain check, trig-LUT init, per-row SsaaGrid); the
    * per-pixel work is delegated whole so the caller controls the sampling.
    */
   template <int W, int H, typename VertexFn, typename PixelFn>
@@ -2058,7 +2026,6 @@ struct Shader {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     SsaaGrid<W, H> grid;
-    ScopedRenderTimer timer_guard(canvas);
     for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
       grid.set_row(y);
       for (int x = 0; x < W; ++x) {
@@ -2442,7 +2409,6 @@ struct Volume {
     if (vol_y_lo > vol_y_hi)
       return;
 
-    ScopedRenderTimer timer_guard(canvas);
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },

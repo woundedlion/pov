@@ -187,10 +187,6 @@ public:
     auto corner_x = [&](int j) { return std::min(gx0 + j * B, W - 1); };
     auto corner_y = [&](int k) { return std::min(gy0 + k * B, H - 1); };
 
-    // Timer spans the corner-classification pre-pass too: its ~W*H/B^2 KD
-    // queries are the frame's only KD queries, so getRenderUs must include
-    // them.
-    Scan::ScopedRenderTimer timer_guard(canvas);
     for (int k = 0; k < nby; ++k)
       for (int j = 0; j < nbx; ++j)
         cells[k * nbx + j] =

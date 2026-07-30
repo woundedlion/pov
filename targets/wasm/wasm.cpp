@@ -492,7 +492,6 @@ public:
       return;
     }
 
-    current_effect->render_us = 0.0;
     current_effect->draw_frame();
     current_effect->advance_display();
 
@@ -519,21 +518,6 @@ public:
         }
       }
     }
-  }
-
-  /**
-   * @brief Returns the last frame's render time.
-   * @return Render duration of the most recent drawFrame() in microseconds, or
-   *         0.0 if no effect is set.
-   * @note render_us is accumulated by the scan/plot ScopedRenderTimer, so
-   *       full-screen shader effects that bypass that path (e.g. Raymarch,
-   *       Liquid2D, Flyby — they shade every pixel directly rather than via
-   *       Scan/Plot) report 0.0 even while actively rendering. A 0 here means
-   *       "not instrumented," not "free"; it is not a reliable cross-effect cost
-   *       metric for those effects.
-   */
-  double getRenderUs() const {
-    return current_effect ? current_effect->render_us : 0.0;
   }
 
   /**
@@ -1604,7 +1588,6 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .class_function("getSupportedResolutions",
                       &HolosphereEngine::getSupportedResolutions)
       .function("setClip", &HolosphereEngine::setClip)
-      .function("getRenderUs", &HolosphereEngine::getRenderUs)
       .function("strobeColumns", &HolosphereEngine::strobeColumns);
 
   // No public .constructor<>(): all construction goes through fromSolidName so

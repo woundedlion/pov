@@ -194,7 +194,7 @@ frame across workers" holds only because per-worker frame inputs are already
 deterministic: animations are *frame-stepped*, not wall-clock-stepped
 (`AnimationBase::step` counts frames, `core/animation/animation.h:152`;
 `drawFrame()` advances exactly one, `targets/wasm/wasm.cpp:449` — the
-`elapsed`/`renderUs` timings are telemetry and never feed
+`elapsed` timing is telemetry and never feeds
 animation), the RNG is fixed-seed (`hs::Pcg32(1337)`), and params are
 broadcast to every worker. The same invariant non-stateful segmented effects
 already depend on; the design adds nothing new to it but is wholly dependent
