@@ -372,6 +372,11 @@ public:
                        SIGNED_AXIS_ATTRACTORS>>::step(canvas);
 
     {
+      if constexpr (SIGNED_AXIS_ATTRACTORS) {
+        HS_CHECK(attractors.size() == 6,
+                 "signed-axis physics requires six registered attractors");
+      }
+
       for (size_t i = 0; i < emitters.size(); ++i) {
         emitters[i](*this);
       }
@@ -479,7 +484,6 @@ private:
 #ifdef HS_TEST_BUILD
         if (!reference_signed_axis_physics) {
 #endif
-          assert(attractors.size() == 6);
           const float pos_sq = dot(pos, pos);
           const float coordinates[] = {pos.x, pos.y, pos.z};
           for (size_t pair = 0; pair < 3; ++pair) {
