@@ -2251,7 +2251,6 @@ struct Face {
   Vector center; /**< Normalized face centroid (projection axis). */
   Vector basis_v, basis_u, basis_w; /**< Local tangent frame (v = center). */
   int count;                        /**< Vertex/edge count. */
-  float thickness;                  /**< Edge half-width (radians). */
   float size = 0.0f;        /**< Inradius metric for AA normalization. */
   float radius = 0.0f;      /**< Circumradius in the 2D projection. */
   float max_dist = 0.0f;    /**< Cull radius (circumradius plus margin). */
@@ -2330,20 +2329,18 @@ struct Face {
    * @brief Builds a face's projection, bounds, and edge data.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices from the pool.
-   * @param th Edge half-width (radians).
    * @param scratch Reusable scratch storage backing the spans.
    * @param h_virt Virtual row count (height plus pole offset).
    * @param height Canvas height in rows.
    * @param clip Optional render clip used to tighten the face bounds.
    */
   HS_O3_FN Face(std::span<const Vector> vertices,
-                std::span<const uint16_t> indices, float th,
-                FaceScratchBuffer &scratch, int h_virt, int height,
-                const ClipRegion *clip = nullptr)
-      : thickness(th), build_height(height), full_width(true) {
+                std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
+                int h_virt, int height, const ClipRegion *clip = nullptr)
+      : build_height(height), full_width(true) {
 
-    // Early vertical exit: a face whose latitude band (plus thickness margin)
-    // maps to an empty row range can never be rasterized.
+    // Early vertical exit: a face whose latitude band (plus AA margin) maps to
+    // an empty row range can never be rasterized.
     const bool phi_culled = [&] {
       HS_PROFILE_DEEP(face_phi_extent);
       return compute_phi_extent(vertices, indices, h_virt, height);
@@ -2369,9 +2366,8 @@ struct Face {
     // AA line; cull it like the phi-extent reject. The residual of an exactly
     // collapsed face is float noise (< ~1e-6 of radius^2), orders of
     // magnitude under the thinnest real sliver a sweep draws, so the
-    // threshold decision is identical sim/device. Stroked shapes keep
-    // drawing their outline.
-    if (thickness <= 0.0f) {
+    // threshold decision is identical sim/device.
+    {
       float area2 = 0.0f;
       for (int i = 0; i < count; ++i)
         area2 +=
@@ -2409,8 +2405,7 @@ struct Face {
       // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
       // span misses the great-circle edge bulge toward a pole, leaving
       // near-pole faces with unscanned rows; the arc-extrema path covers them.
-      compute_full_bounds(scratch, count, center, thickness, h_virt, height,
-                          y_min, y_max);
+      compute_full_bounds(scratch, count, center, h_virt, height, y_min, y_max);
     }
 
     edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
@@ -2504,7 +2499,7 @@ struct Face {
    * @param indices Indices selecting this face's vertices.
    * @param h_virt Virtual row count (height plus pole offset).
    * @param height Canvas height in rows.
-   * @return True when the phi extent plus thickness margin maps to an empty
+   * @return True when the phi extent plus AA margin maps to an empty
    *         canvas-row range.
    */
   __attribute__((always_inline)) bool
@@ -2522,11 +2517,9 @@ struct Face {
 
     float min_phi_check = fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
     float max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
-    float margin_check = thickness + BOUNDS_MARGIN;
-
     Bounds rows =
-        phi_bounds_to_rows(min_phi_check - margin_check,
-                           max_phi_check + margin_check, h_virt, height);
+        phi_bounds_to_rows(min_phi_check - BOUNDS_MARGIN,
+                           max_phi_check + BOUNDS_MARGIN, h_virt, height);
 
     return rows.y_min > rows.y_max;
   }
@@ -3064,7 +3057,6 @@ struct Face {
    * data and planes.
    * @param count Vertex/edge count.
    * @param center Normalized face centroid.
-   * @param thickness Edge half-width (radians).
    * @param h_virt Virtual row count (height plus pole offset).
    * @param height Canvas height in rows.
    * @param y_min_out Output: first covered row.
@@ -3072,9 +3064,8 @@ struct Face {
    */
   HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch,
                                            int count, const Vector &center,
-                                           float thickness, int h_virt,
-                                           int height, int &y_min_out,
-                                           int &y_max_out) {
+                                           int h_virt, int height,
+                                           int &y_min_out, int &y_max_out) {
     float min_phi = 100.0f;
     float max_phi = -100.0f;
     int planes_count = 0;
@@ -3108,9 +3099,8 @@ struct Face {
                                      min_phi, max_phi);
     }
     snap_phi_for_pole_planes(scratch, planes_count, center, min_phi, max_phi);
-    float margin = thickness + BOUNDS_MARGIN;
-    Bounds rows =
-        phi_bounds_to_rows(min_phi - margin, max_phi + margin, h_virt, height);
+    Bounds rows = phi_bounds_to_rows(min_phi - BOUNDS_MARGIN,
+                                     max_phi + BOUNDS_MARGIN, h_virt, height);
     y_min_out = rows.y_min;
     y_max_out = rows.y_max;
   }
@@ -3269,9 +3259,8 @@ struct Face {
    * @brief Computes signed distance to the face, writing into res.
    * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
    * @param p Point on sphere (normalized).
-   * @param res Output result; dist = signed edge distance minus thickness,
-   *        raw_dist = the signed edge distance, size = inradius (gnomonic
-   *        plane units).
+   * @param res Output result; dist = raw_dist = the signed edge distance,
+   *        size = inradius (gnomonic plane units).
    * @param reject_dsq Squared plane distance at/above which an outside probe
    *        is reported as the far sentinel without taking the square root.
    *        Must be conservative: only probes the caller rejects on dist may
@@ -3396,7 +3385,7 @@ struct Face {
     // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
     float raw = (probe_flags & PROBE_LINEAR) ? plane_dist
                                              : fast_atan2(plane_dist, 1.0f);
-    res = DistanceResult(raw - thickness, 0.0f, raw, 0.0f, size);
+    res = DistanceResult(raw, 0.0f, raw, 0.0f, size);
     HS_PROBE_SPAN(pack, hs_t);
   }
 };

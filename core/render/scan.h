@@ -1550,8 +1550,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   ScopedRenderTimer timer_guard(canvas);
 
   // 1.0002 margin keeps the sqrt-free cull strictly conservative against the
-  // caller's post-subtraction reject.
-  const float reject_rad = (pixel_width + shape.thickness) * 1.0002f;
+  // pixel_width reject below.
+  const float reject_rad = pixel_width * 1.0002f;
   const float reject_dsq = reject_rad * reject_rad;
 
   HS_PROFILE_DEEP(raster_scan);
@@ -1710,7 +1710,7 @@ struct Mesh {
       // elided in place), not the rasterize below.
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
-        return SDF::Face(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H,
+        return SDF::Face(verts, indices, *scratch, H + hs::H_OFFSET, H,
                          &canvas.clip());
       }();
 

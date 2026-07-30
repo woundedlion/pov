@@ -99,10 +99,10 @@ inline Vector newell(const PolyMesh &m, size_t off, int n) {
 inline bool face_is_culled(const PolyMesh &m, size_t off, int n) {
   if (static_cast<size_t>(n) > SDF::FaceScratchBuffer::MAX_VERTS)
     return false;
-  SDF::Face face(std::span<const Vector>(m.vertices.data(), m.vertices.size()),
-                 std::span<const uint16_t>(m.faces.data() + off,
-                                           static_cast<size_t>(n)),
-                 /*thickness=*/0.0f, probe_face_scratch, PROBE_HV, PROBE_H);
+  SDF::Face face(
+      std::span<const Vector>(m.vertices.data(), m.vertices.size()),
+      std::span<const uint16_t>(m.faces.data() + off, static_cast<size_t>(n)),
+      probe_face_scratch, PROBE_HV, PROBE_H);
   return face.y_min > face.y_max;
 }
 
