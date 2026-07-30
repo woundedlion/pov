@@ -914,21 +914,6 @@ public:
   }
 
   /**
-   * @brief Sets the crossfade-weight range for chained legs
-   * (docs/opchain_morph_spec.md, section 5.3).
-   * @param lo Effective weight at the leg's opening plateau.
-   * @param hi Effective weight at the closing plateau.
-   * @details step() remaps blend_weight through [lo, hi] against the
-   * unchanged bank endpoints (nested-lerp rebasing), so a chain spreads one
-   * colour convergence across its legs. Call before the first step; the
-   * [0, 1] defaults keep the single-leg behaviour bit-identical.
-   */
-  void set_blend_range(float lo, float hi) {
-    buf->w_lo = lo;
-    buf->w_hi = hi;
-  }
-
-  /**
    * @brief Mid-leg crossfade weight (spec 2.6), the swept ctors' default:
    * exactly 0 through the first 20% of the leg, smoothstep to exactly 1 by
    * 80%.
@@ -1042,8 +1027,7 @@ private:
     uint8_t ramp_from[MAX_BLEND_PAIRS] = {}; /**< Per-pair from palette. */
     uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
     int num_ramps = 0;                       /**< Distinct pair count. */
-    float w_lo = 0.0f, w_hi = 1.0f; /**< Chained-leg blend-weight range. */
-    BlendWeightFn blend_fn = classic_blend; /**< Swept crossfade curve. */
+    BlendWeightFn blend_fn = classic_blend;  /**< Swept crossfade curve. */
     Landing landing; /**< Arrival data exposed to the effect. */
   };
 
@@ -1454,8 +1438,7 @@ private:
    * @param canvas The canvas passed through to the draw callback.
    * @param swept This frame's swept mesh (scratch-backed).
    * @param w Crossfade weight in [0, 1] the caller already resolved (the leg's
-   * blend_fn for the swept kinds, trailing_blend for the gate); rebased
-   * through the leg's [w_lo, w_hi] share here.
+   * blend_fn for the swept kinds, trailing_blend for the gate).
    * @param seed_side Draw the gate's seed-side tables (GATED_SWAP only): the
    * seed classification and its identity ramp table, which w == 0 leaves at the
    * departed palettes.
@@ -1475,9 +1458,6 @@ private:
     HS_CHECK(compiled.face_counts.size() == topo.size(),
              "OpLeg: sweep changed the compiled face count");
 
-    // Chained-leg rebasing (spec 5.3): the plateau weights land on the leg's
-    // [w_lo, w_hi] share of the whole-chain convergence.
-    w = tr.w_lo + w * (tr.w_hi - tr.w_lo);
     const int num_ramps = seed_side ? tr.seed_num_ramps : tr.num_ramps;
     BakedPalette *ramps = scratch_arena_b.allocate_n<BakedPalette>(num_ramps);
     for (int r = 0; r < num_ramps; ++r) {

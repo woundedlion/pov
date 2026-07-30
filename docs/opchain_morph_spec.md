@@ -775,6 +775,11 @@ reaches its final slot assignment on the *last* leg, not the first, so colour an
 geometry arrive together. Each leg carries a share of the total colour distance
 weighted by its frame count.
 
+**Spreading is specified but not implemented.** `OpLeg` carries no per-leg blend
+range; every leg applies its own `blend_fn` weight directly against the bank
+endpoints, so each leg converges over its own span. The rest of this section is
+the design a chained implementation would follow.
+
 **Mechanics.** `ramp_from` / `ramp_to` are `uint8_t` **bank indices**, consumed
 as `tr.bank->entries[tr.ramp_from[r]]` (`core/animation/mesh.h:445-451,
 486-487`). `bake_palette_blend` (`core/color/composition.h:1042-1051`) resolves
