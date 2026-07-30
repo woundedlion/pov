@@ -10,12 +10,12 @@
 #include <type_traits> // std::remove_cvref_t
 #include <utility>     // std::forward
 #include "math/3dmath.h"
-#include "render/canvas.h"
 #include "color/color.h"     // Pixel
 #include "engine/platform.h" // Fn
 #include <cassert>
 
 struct Basis; // core/math/geometry.h; used only as const Basis* below
+class Canvas; // core/render/canvas.h; used only behind references below
 
 // ---------------------------------------------------------------------------
 // Callable wrappers — two complementary types:

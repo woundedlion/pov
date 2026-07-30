@@ -1,6 +1,7 @@
 #include "engine/memory.h"
 #include "animation/animation.h"
 #include "color/color.h"
+#include "render/canvas.h"
 #ifdef ARDUINO
 #include <exception>
 #endif
