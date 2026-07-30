@@ -41,11 +41,13 @@ if(EMSCRIPTEN)
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core)
 
-  # Warning hygiene, matching the device firmware's baseline ratchet
-  # (platformio.ini). targets/wasm/ is built by no other target, so without this
-  # the JS bridge is the one first-party TU with zero warning coverage. Not
+  # Warning hygiene for the JS bridge: targets/wasm/ is built by no other target,
+  # so without this it is the one first-party TU with zero warning coverage. Not
   # -Werror: unlike the native suite, third-party emscripten system headers ride
-  # this compile line.
+  # this compile line. The gate is in CI instead — the wasm job greps both build
+  # logs for warnings under first-party paths and fails on any
+  # (.github/workflows/ci.yml), the same first-party/third-party split the device
+  # firmware ratchet uses (tools/teensy_warnings.py).
   target_compile_options(${TARGET_NAME} PRIVATE "-Wall" "-Wextra")
 
   target_link_options(${TARGET_NAME} PRIVATE

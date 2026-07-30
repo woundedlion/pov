@@ -425,13 +425,16 @@ jobs:
         run: ccache -z
 
       - name: Configure + build WASM (compile check)
+        # The build is teed for the warning gate below (2>&1: em++ warnings are on
+        # stderr). pipefail (GitHub's default bash) keeps a build failure fatal
+        # rather than masking it behind tee.
         run: |
           # Create a throwaway daydream checkout so the install() rules are active
           # (DAYDREAM_DIR is resolved at configure time and must already exist).
           # This lets the job exercise the provenance/install path below.
           mkdir -p "${{ runner.temp }}/daydream-install"
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
-          cmake --build --preset wasm-release
+          cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
 
       - name: Configure + build WASM debug (compile check)
         # The wasm-debug preset (Debug: 64 KB stack, -sASSERTIONS=1) ships no
@@ -443,7 +446,35 @@ jobs:
         run: |
           cmake --preset wasm-debug -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install" \
             -DHS_WASM_DEV_BINDINGS=ON
-          cmake --build --preset wasm-debug
+          cmake --build --preset wasm-debug 2>&1 | tee build/wasm-debug-build.log
+
+      - name: First-party WASM warning gate
+        # The WASM target compiles -Wall -Wextra but not -Werror: emscripten's
+        # system headers ride that compile line (CMakeLists.txt). Enforcement is
+        # here instead — fail on any warning whose file sits under a first-party
+        # directory, the same split the firmware ratchet uses
+        # (tools/teensy_warnings.py). A diagnostic raised in a sysroot header
+        # names the sysroot path, which is what makes the path filter sufficient.
+        # No baseline: this target's first-party warning set is empty, so the bar
+        # is zero. Both configurations are checked — -O0 and -O3 diagnose
+        # different things, and HS_WASM_DEV_BINDINGS code compiles only in the
+        # debug build. ccache replays a hit's stored stderr, so a warm cache still
+        # surfaces the warnings.
+        run: |
+          logs="build/wasm-release-build.log build/wasm-debug-build.log"
+          # A missing log makes grep exit 2, which reads as "no warnings" — assert
+          # the captures exist rather than let a broken tee pass the gate.
+          for log in $logs; do
+            if [ ! -f "$log" ]; then
+              echo "::error::$log missing — the warning capture broke, so the gate proves nothing"
+              exit 1
+            fi
+          done
+          if grep -nE '(^|[[:space:]/])(core|effects|hardware|targets)/[^:[:space:]]+:[0-9]+:([0-9]+:)?[[:space:]]*warning:' $logs; then
+            echo "::error::first-party warning(s) in the WASM build — fix them (this target has no baseline)"
+            exit 1
+          fi
+          echo "No first-party warnings in the release or debug WASM build."
 
       - name: Runtime-smoke WASM debug
         # The debug build carries -sASSERTIONS=1 and a distinct 64 KB stack;
