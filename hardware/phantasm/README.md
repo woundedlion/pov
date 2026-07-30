@@ -58,6 +58,10 @@ Both checks run via `kicad-cli` (KiCad 10.0):
   footprint field), so gerbers for stale copper cannot ship with a BOM
   exported from a newer schematic. Parity items are warning severity in
   KiCad, so this runs separately from the error-severity DRC gate.
+- **Plot-origin gate:** the gerbers, Excellon drill, and CPL are all exported
+  in absolute board coordinates, and `gen/fab.py` rejects a board carrying a
+  non-zero drill/place origin (`aux_axis_origin`) — that would move only the
+  origin-relative exports and place every assembled part off-board.
 
 ## How connectivity is drawn
 

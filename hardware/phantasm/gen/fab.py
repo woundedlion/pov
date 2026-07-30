@@ -338,6 +338,43 @@ class ZoneGeometryError(ValueError):
     pass
 
 
+class PlotOriginError(ValueError):
+    pass
+
+
+def validate_plot_origin(pcb_path):
+    """Return the board plot origin, or raise unless it is absolute (0, 0).
+
+    Gerbers, drill, and centroid all export in absolute board coordinates. A
+    non-zero `aux_axis_origin` shifts only the origin-relative exports, so the
+    frames would diverge and JLC would place every part off-board.
+    """
+    try:
+        with open(pcb_path, encoding="utf-8") as fh:
+            root = sexp.parse(fh.read())[0]
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise PlotOriginError(f"cannot read PCB setup: {pcb_path}") from exc
+
+    origin = (0.0, 0.0)
+    for setup in F(root, "setup"):
+        raw = sexp._val(setup, "aux_axis_origin", [])
+        if not raw:
+            continue
+        try:
+            origin = (float(raw[0]), float(raw[1]))
+        except (IndexError, TypeError, ValueError):
+            raise PlotOriginError(
+                f"{pcb_path}: aux_axis_origin is invalid: "
+                + " ".join(str(value) for value in raw)) from None
+        if origin != (0.0, 0.0):
+            raise PlotOriginError(
+                f"{pcb_path}: drill/place origin is {origin[0]:g},"
+                f"{origin[1]:g} mm; the fab exports are pinned to absolute "
+                "board coordinates. Reset the drill/place origin in Pcbnew "
+                "before regenerating the fab package.")
+    return origin
+
+
 def validate_via_geometry(pcb_path):
     try:
         with open(pcb_path, encoding="utf-8") as fh:
@@ -528,6 +565,12 @@ def main():
     if not os.path.exists(PCB):
         sys.exit(f"board not found: {PCB}")
     try:
+        validate_plot_origin(PCB)
+    except PlotOriginError as exc:
+        sys.exit(str(exc))
+    print("plot origin: absolute board coordinates for gerbers, drill, "
+          "and centroid")
+    try:
         num_vias = validate_via_geometry(PCB)
     except ViaGeometryError as exc:
         sys.exit(str(exc))
@@ -553,6 +596,7 @@ def main():
     run([KCLI, "pcb", "export", "gerbers", "--layers", GERBER_LAYERS,
          "-o", JLC + os.sep, PCB])
     print("[2/6] Drill")
+    # Absolute origin, matching the gerbers and the centroid below.
     run([KCLI, "pcb", "export", "drill", "--format", "excellon",
          "--drill-origin", "absolute", "--excellon-units", "mm",
          "--excellon-separate-th", "-o", JLC + os.sep, PCB])
@@ -575,8 +619,10 @@ def main():
     run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
          "-o", net, SCH])
     pos = os.path.join(OUT, "_fab_pos.csv")
+    # No --use-drill-file-origin: the CPL stays in the same absolute frame as
+    # the gerbers and the drill file.
     run([KCLI, "pcb", "export", "pos", "--format", "csv", "--units", "mm",
-         "--use-drill-file-origin", "-o", pos, PCB])
+         "-o", pos, PCB])
     comps = parse_components(net)
     posrows = {}
     with open(pos, newline='', encoding="utf-8") as fh:
