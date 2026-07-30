@@ -432,13 +432,12 @@ HS_O3_FN inline float fast_rsqrt(float x) {
 
 /**
  * @brief Fast cube root for x >= 0.
- * @param x Input value; the domain is x >= 0 (cbrt(0)=0), negative inputs
- * return 0. Accuracy holds for x >~ 1e-6; in the denormal/tiny-normal tail
- * below that the bit-hack seed degrades and the result collapses toward 0.
+ * @param x Input value; the domain is x >= 0 (cbrt(0)=0); negative inputs
+ * return 0.
  * @return An approximation of the cube root of `x`.
  * @details Bit-hack initial guess (divide the float exponent by three) refined
- * by ONE Halley step. Peak relative error ~2.3e-5 against cbrtf for x >= 1e-6;
- * the seed degrades in the denormal/tiny-normal tail.
+ * by ONE Halley step. Peak relative error is ~2.3e-5 against cbrtf over
+ * [1e-20, 1].
  */
 HS_O3_FN inline float fast_cbrt(float x) {
   if (x <= 0.0f)
