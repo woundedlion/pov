@@ -1680,8 +1680,10 @@ inline void test_sweep_phase_front_ordering() {
  */
 inline void test_terminator_sweep_orders_by_axis() {
   Segue::TerminatorSweep term;
-  Vector axis = Vector(1.0f, 2.0f, -0.5f).normalized();
-  term.retarget(axis);
+  Vector raw_axis(1.0f, 2.0f, -0.5f);
+  Vector axis = raw_axis.normalized();
+  term.retarget(raw_axis);
+  HS_EXPECT_NEAR(term.axis.length(), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(term.face_offset(axis, 0, 0), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(term.face_offset(-axis, 0, 0), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(term.face_offset(cross(axis, X_AXIS).normalized(), 0, 0), 0.5f,
@@ -1883,7 +1885,8 @@ inline void test_breakdown_fades_classes_sequentially() {
  */
 inline void test_spin_flip_warp_is_rigid() {
   Segue::SpinFlip spin;
-  spin.retarget(Vector(0.5f, 0.5f, -0.7f).normalized());
+  spin.retarget(Vector(0.5f, 0.5f, -0.7f));
+  HS_EXPECT_NEAR(spin.axis.length(), 1.0f, 1e-6f);
   Vector a = Vector(1.0f, 0.2f, 0.1f).normalized();
   Vector b = Vector(-0.3f, 0.9f, 0.4f).normalized();
   Vector wa = spin.warp(a, 0.3f), wb = spin.warp(b, 0.3f);

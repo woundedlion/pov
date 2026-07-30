@@ -2535,7 +2535,7 @@ struct TerminatorSweep : Base {
     return duration;
   }
   void retarget(const Vector &v) {
-    axis = v;
+    axis = v.normalized();
     fade_seed = static_cast<uint32_t>(hs::random()());
   }
   float face_offset(const Vector &center, int, int) const {
@@ -2654,7 +2654,7 @@ struct Breakdown : Base {
 struct SpinFlip : Base {
   static constexpr float REVS = 3.0f; /**< Extra revolutions at peak spin. */
   Vector axis = Y_AXIS;               /**< Spin axis. */
-  void retarget(const Vector &v) { axis = v; }
+  void retarget(const Vector &v) { axis = v.normalized(); }
   Vector warp(const Vector &v, float phase) const {
     float wind = 1.0f - phase;
     return rotate(v, make_rotation(axis, wind * wind * REVS * 2.0f * PI_F));
