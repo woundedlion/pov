@@ -69,17 +69,7 @@ struct NoColorCorrection {
 /**
  * @brief No-op stub: the DMA pipeline applies no temperature correction.
  */
-struct NoTempCorrection {
-  NoTempCorrection() {
-    HS_CHECK(correction_guard_depth() == 0,
-             "at most one correction guard may be live at a time (see contract "
-             "above)");
-    ++correction_guard_depth();
-  }
-  ~NoTempCorrection() { --correction_guard_depth(); }
-  NoTempCorrection(const NoTempCorrection &) = delete;
-  NoTempCorrection &operator=(const NoTempCorrection &) = delete;
-};
+using NoTempCorrection = NoColorCorrection;
 #else
 // CONTRACT — restore-to-baseline, NOT save/restore: the destructors reinstate
 // the engine's canonical baseline (TypicalLEDStrip color, Candle temperature),
