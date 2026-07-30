@@ -104,8 +104,15 @@ private:
     // a few wasted ray steps, no visual overlap).
     constexpr float MAJOR_K = 0.45f, MINOR_K = 0.14f, TWIST_K = 0.35f;
     constexpr float VIS_K = MAJOR_K + MINOR_K; // outer ring radius at scale 1
+    constexpr auto square_root = [](float x) {
+      float root = 1.0f;
+      for (int i = 0; i < 8; ++i)
+        root = 0.5f * (root + x / root);
+      return root;
+    };
     // Farthest point of the MINOR_K tube about the twisted centerline.
-    constexpr float UNIT_BOUNDS = 0.710088f; // √(MAJOR_K²+TWIST_K²)+MINOR_K
+    constexpr float UNIT_BOUNDS =
+        square_root(MAJOR_K * MAJOR_K + TWIST_K * TWIST_K) + MINOR_K;
     int twist_n = static_cast<int>(params.twist + 0.5f);
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
 
