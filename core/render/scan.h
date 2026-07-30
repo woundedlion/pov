@@ -1499,95 +1499,78 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     float sp = TrigLUT<W, H>::sin_phi[y];
     float cp = TrigLUT<W, H>::cos_phi[y];
     const int stride = pole_lod_run(sp);
-    // Greatest great-circle angle from a block's shaded column to its farthest
-    // column: half a block of longitude, foreshortened by sin(phi). A probe
-    // farther than this from the surface cannot change side anywhere in the
-    // block, so one shade describes it. 1.25 covers distance() reporting in
-    // plane units, which run slightly wider than angular.
+    // Great-circle angle from a block's first column to its last: a block of
+    // longitude, foreshortened by sin(phi). A probe farther than this from the
+    // surface cannot change side anywhere in the block, so one shade describes
+    // the whole block. 1.25 covers distance() reporting in plane units, which
+    // run slightly wider than angular.
     const float block_slack =
-        0.5f * static_cast<float>(stride) * pixel_width * sp * 1.25f;
-
-    auto emit = [&](const Vector &pos, float alpha, int x0,
-                    int x1) __attribute__((always_inline)) {
-      HS_PROFILE_DEEP(raster_shade);
-      if constexpr (MinimalFragment) {
-        frag.v1 = res.raw_dist;
-      } else {
-        frag.color = Color4(0, 0, 0, 0);
-        frag.pos = pos;
-        frag.v0 = res.t;
-        frag.v1 = res.raw_dist;
-        frag.v2 = 0.0f;
-        frag.v3 = res.aux;
-        frag.size = res.size;
-        frag.age = 0;
-      }
-      fragment_shader(pos, frag);
-      if (frag.color.alpha > MIN_ALPHA) {
-        const float a = frag.color.alpha * alpha;
-        for (int px = x0; px < x1; ++px) {
-          if constexpr (requires {
-                          pipeline.plot_in_bounds(
-                              canvas, px, y, frag.color.color, frag.age, a);
-                        }) {
-            pipeline.plot_in_bounds(canvas, px, y, frag.color.color, frag.age,
-                                    a);
-          } else {
-            pipeline.plot(canvas, px, y, frag.color.color, frag.age, a);
-          }
-        }
-      }
-    };
-
-    auto probe_column = [&](int px) __attribute__((always_inline)) {
-      Vector p(sp * cos_theta[px], cp, sp * sin_theta[px]);
-      shape.template distance_with_flags<true>(p, res, reject_dsq, probe_flags);
-      const float d = res.dist;
-      if (d >= pixel_width)
-        return;
-      HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
-      HS_PROBE_COUNT(n_alpha);
-      HS_PROBE_MARK(hs_ta);
-      float alpha = 1.0f;
-      if (d > -pixel_width) {
-        alpha = quintic_kernel(0.5f - d / (2.0f * pixel_width));
-      }
-      HS_PROBE_SPAN(alpha, hs_ta);
-      if (alpha <= MIN_ALPHA)
-        return;
-      emit(p, alpha, px, px + 1);
-    };
+        static_cast<float>(stride - 1) * pixel_width * sp * 1.25f;
 
     for (size_t r = 0; r < num_runs; ++r) {
-      const int rx1 = runs[r].first;
       const int rx2 = runs[r].second;
-      for (int base = (rx1 / stride) * stride; base < rx2; base += stride) {
-        const int x = base > rx1 ? base : rx1;
-        const int x_end = (base + stride) < rx2 ? (base + stride) : rx2;
-        if (x >= x_end)
+      for (int x = runs[r].first; x < rx2;) {
+        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        shape.template distance_with_flags<true>(p, res, reject_dsq,
+                                                 probe_flags);
+        const float d = res.dist;
+
+        // Columns this one shade covers. Only a canvas-aligned block that fits
+        // in the run and that the surface cannot cross qualifies; anything
+        // holding an edge stays per-column, so coverage is identical either way
+        // and only the shade's source column moves.
+        int span = 1;
+        if (stride > 1 && x % stride == 0 && x + stride <= rx2 &&
+            (d <= -pixel_width - block_slack || d >= pixel_width + block_slack))
+          span = stride;
+
+        if (d >= pixel_width) {
+          x += span;
           continue;
-
-        if (stride > 1) {
-          int sx = base + (stride >> 1);
-          if (sx >= W)
-            sx = W - 1;
-          Vector p(sp * cos_theta[sx], cp, sp * sin_theta[sx]);
-          shape.template distance_with_flags<true>(p, res, reject_dsq,
-                                                   probe_flags);
-          const float d = res.dist;
-          if (d >= pixel_width + block_slack)
-            continue; // whole block clears the surface
-          if (d <= -pixel_width - block_slack) {
-            HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
-            emit(p, 1.0f, x, x_end);
-            continue;
-          }
-          // Block holds an edge; shade per column so the silhouette keeps its
-          // resolution.
         }
-
-        for (int px = x; px < x_end; ++px)
-          probe_column(px);
+        HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
+        HS_PROBE_COUNT(n_alpha);
+        HS_PROBE_MARK(hs_ta);
+        float alpha = 1.0f;
+        if (d > -pixel_width) {
+          float t_aa = 0.5f - d / (2.0f * pixel_width);
+          alpha = quintic_kernel(t_aa);
+        }
+        HS_PROBE_SPAN(alpha, hs_ta);
+        if (alpha <= MIN_ALPHA) {
+          x += span;
+          continue;
+        }
+        HS_PROFILE_DEEP(raster_shade);
+        if constexpr (MinimalFragment) {
+          frag.v1 = res.raw_dist;
+        } else {
+          frag.color = Color4(0, 0, 0, 0);
+          frag.pos = p;
+          frag.v0 = res.t;
+          frag.v1 = res.raw_dist;
+          frag.v2 = 0.0f;
+          frag.v3 = res.aux;
+          frag.size = res.size;
+          frag.age = 0;
+        }
+        fragment_shader(p, frag);
+        if (frag.color.alpha > MIN_ALPHA) {
+          const float a = frag.color.alpha * alpha;
+          for (int px = x; px < x + span; ++px) {
+            if constexpr (requires {
+                            pipeline.plot_in_bounds(canvas, px, y,
+                                                    frag.color.color, frag.age,
+                                                    a);
+                          }) {
+              pipeline.plot_in_bounds(canvas, px, y, frag.color.color, frag.age,
+                                      a);
+            } else {
+              pipeline.plot(canvas, px, y, frag.color.color, frag.age, a);
+            }
+          }
+        }
+        x += span;
       }
     }
   }
