@@ -69,10 +69,11 @@ CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 #
 # clang-format reflows code between LLVM majors, so a binary of a different major
 # than the CI job's disagrees in BOTH directions: it rejects code the gate accepts
-# and accepts code the gate rejects. Set CLANG_FORMAT to override the binary (the
-# ci.yml jobs pass clang-format-18 the same way); a major other than
-# HS_CLANG_FORMAT_MAJOR only warns, since a contributor without that exact version
-# should still be able to commit.
+# and accepts code the gate rejects. Its verdict is therefore ADVISORY — reported,
+# never blocking — so a contributor without clang-format-$HS_CLANG_FORMAT_MAJOR
+# still commits. Only a matching major (or an unparseable --version, assumed to be
+# a wrapper for the pinned binary) blocks. Set CLANG_FORMAT to override the binary
+# (the ci.yml jobs pass clang-format-18 the same way).
 HS_CLANG_FORMAT_MAJOR=18
 if [ -z "$HS_SKIP_FORMAT" ]; then
   FORMAT="$(printf '%s\n' "$CHANGED" \
@@ -83,10 +84,12 @@ if [ -z "$HS_SKIP_FORMAT" ]; then
     if command -v "$CF" >/dev/null 2>&1; then
       cf_version="$("$CF" --version 2>/dev/null | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
       echo "[pre-commit] Checking clang-format on staged first-party C++ ($CF ${cf_version:-unknown})..."
+      advisory=
       if [ -n "$cf_version" ] && [ "$cf_version" != "$HS_CLANG_FORMAT_MAJOR" ]; then
-        echo "[pre-commit] WARNING: clang-format $cf_version differs from CI's clang-format-$HS_CLANG_FORMAT_MAJOR;"
-        echo "[pre-commit] it reflows differently, so this check and CI can disagree either way."
-        echo "[pre-commit] (point CLANG_FORMAT at a clang-format-$HS_CLANG_FORMAT_MAJOR binary to match the gate)"
+        advisory=1
+        echo "[pre-commit] clang-format $cf_version differs from CI's clang-format-$HS_CLANG_FORMAT_MAJOR;"
+        echo "[pre-commit] it reflows differently, so its verdict is advisory and does not block."
+        echo "[pre-commit] (point CLANG_FORMAT at a clang-format-$HS_CLANG_FORMAT_MAJOR binary to enforce the gate)"
       fi
       unformatted=
       for f in $FORMAT; do
@@ -94,12 +97,16 @@ if [ -z "$HS_SKIP_FORMAT" ]; then
         "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1 \
           || unformatted="$unformatted $f"
       done
-      if [ -n "$unformatted" ]; then
+      if [ -n "$unformatted" ] && [ -n "$advisory" ]; then
+        echo "[pre-commit] clang-format $cf_version reports unformatted files:$unformatted"
+        echo "[pre-commit] (advisory only — confirm with clang-format-$HS_CLANG_FORMAT_MAJOR before reformatting)"
+      elif [ -n "$unformatted" ]; then
         echo "[pre-commit] clang-format found unformatted files:$unformatted"
         echo "[pre-commit] (fix with: $CF -i$unformatted, or bypass once with HS_SKIP_FORMAT=1 / --no-verify)"
         exit 1
+      else
+        echo "[pre-commit] clang-format clean."
       fi
-      echo "[pre-commit] clang-format clean."
     else
       echo "[pre-commit] $CF not found — skipping format check (install it to enable)."
     fi
