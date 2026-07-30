@@ -1018,8 +1018,8 @@ private:
 };
 
 /**
- * @brief Pre-baked 256-entry Pixel16 LUT allocated in an arena.
- * @details Converts any Palette into a fast table lookup with lerp
+ * @brief Pre-baked 256-entry color/alpha LUT allocated in an arena.
+ * @details Stores parallel Pixel16 and Q16-alpha tables with lerp
  * interpolation. Not a Palette subclass — call get(t) directly for
  * zero-overhead lookups.
  */
@@ -1031,7 +1031,8 @@ public:
    * @brief Arena bytes bake() consumes, including worst-case alignment padding.
    */
   static constexpr size_t required_arena_bytes() {
-    return LUT_SIZE * sizeof(Color4) + alignof(Color4);
+    return LUT_SIZE * (sizeof(Pixel) + sizeof(uint16_t)) + alignof(Pixel) +
+           alignof(uint16_t);
   }
 
   /**
@@ -1048,7 +1049,8 @@ public:
    */
   template <typename Source>
   HS_COLD_MEMBER void bake(Arena &arena, const Source &source) {
-    lut = arena.allocate_n<Color4>(LUT_SIZE);
+    colors = arena.allocate_n<Pixel>(LUT_SIZE);
+    alpha_q16 = arena.allocate_n<uint16_t>(LUT_SIZE);
     rebake(source);
   }
 
@@ -1065,10 +1067,13 @@ public:
       static_assert(!Source::WRAPS_COORDINATE,
                     "BakedPalette cannot rebake a wrapping source");
     }
-    HS_CHECK(lut != nullptr, "BakedPalette::rebake before bake()");
+    HS_CHECK(colors != nullptr && alpha_q16 != nullptr,
+             "BakedPalette::rebake before bake()");
     for (int i = 0; i < LUT_SIZE; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
-      lut[i] = source.get(t);
+      const Color4 sample = source.get(t);
+      colors[i] = sample.color;
+      alpha_q16[i] = frac_to_q16(sample.alpha);
     }
   }
 
@@ -1083,17 +1088,18 @@ public:
    */
   HS_COLD_MEMBER void bake_blend(Arena &arena, const BakedPalette &from,
                                  const BakedPalette &to, float w) {
-    HS_CHECK(from.lut && to.lut, "BakedPalette::bake_blend before bake()");
-    lut = arena.allocate_n<Color4>(LUT_SIZE);
+    HS_CHECK(from.colors && from.alpha_q16 && to.colors && to.alpha_q16,
+             "BakedPalette::bake_blend before bake()");
+    colors = arena.allocate_n<Pixel>(LUT_SIZE);
+    alpha_q16 = arena.allocate_n<uint16_t>(LUT_SIZE);
     // Clamp before the cast: w < 0 or NaN is float->int UB, and a NaN weight
     // would otherwise reach every entry's alpha.
     const float wc = hs::clamp(w, 0.0f, 1.0f);
     const uint16_t weight = frac_to_q16(wc);
     for (int i = 0; i < LUT_SIZE; ++i) {
-      const Color4 &a = from.lut[i];
-      const Color4 &b = to.lut[i];
-      lut[i] = Color4(a.color.lerp16(b.color, weight),
-                      a.alpha + (b.alpha - a.alpha) * wc);
+      colors[i] = from.colors[i].lerp16(to.colors[i], weight);
+      alpha_q16[i] =
+          lerp_q16(from.alpha_q16[i], to.alpha_q16[i], weight);
     }
   }
 
@@ -1114,7 +1120,7 @@ public:
    * @return The same pixel as get(t).color without interpolating alpha.
    */
   __attribute__((always_inline)) Pixel get_color(float t) const {
-    assert(lut != nullptr && "BakedPalette::get_color before bake()");
+    assert(colors != nullptr && "BakedPalette::get_color before bake()");
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
     return sample_color_index(idx);
@@ -1126,7 +1132,7 @@ public:
    * @return The same pixel as get(t).color.
    */
   __attribute__((always_inline)) Pixel get_color_unit(float t) const {
-    assert(lut != nullptr && "BakedPalette::get_color_unit before bake()");
+    assert(colors != nullptr && "BakedPalette::get_color_unit before bake()");
     return sample_color_index(t * (LUT_SIZE - 1));
   }
 
@@ -1137,36 +1143,50 @@ public:
    * @details Used by Persist for arena compaction.
    */
   void clone_from(const BakedPalette &src, Arena &arena) {
-    HS_CHECK(src.lut != nullptr, "BakedPalette::clone_from before src bake()");
-    lut = arena.allocate_n<Color4>(LUT_SIZE);
-    memcpy(lut, src.lut, LUT_SIZE * sizeof(Color4));
+    HS_CHECK(src.colors != nullptr && src.alpha_q16 != nullptr,
+             "BakedPalette::clone_from before src bake()");
+    colors = arena.allocate_n<Pixel>(LUT_SIZE);
+    alpha_q16 = arena.allocate_n<uint16_t>(LUT_SIZE);
+    memcpy(colors, src.colors, LUT_SIZE * sizeof(Pixel));
+    memcpy(alpha_q16, src.alpha_q16, LUT_SIZE * sizeof(uint16_t));
   }
 
 private:
+  static __attribute__((always_inline)) uint16_t
+  lerp_q16(uint16_t a, uint16_t b, uint16_t weight) {
+    const uint32_t inverse = 65535u - weight;
+    const uint32_t x = static_cast<uint32_t>(a) * inverse +
+                       static_cast<uint32_t>(b) * weight;
+    return static_cast<uint16_t>((x + (x >> 16) + 32768u) >> 16);
+  }
+
   __attribute__((always_inline)) Pixel sample_color_index(float idx) const {
     if (idx <= 0.0f)
-      return lut[0].color;
-    return lut_sample_pixel(lut, LUT_SIZE, idx);
+      return colors[0];
+    return lut_sample_pixel(colors, LUT_SIZE, idx);
   }
 
   __attribute__((always_inline)) void sample_into(float t, Color4 &out) const {
-    assert(lut != nullptr && "BakedPalette::get before bake()");
+    assert(colors != nullptr && alpha_q16 != nullptr &&
+           "BakedPalette::get before bake()");
     // Clamp before the int cast: static_cast<int>(NaN) is UB. hs::clamp maps NaN
     // to the hi bound (last entry) and guarantees idx >= 0.
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
     int lo = static_cast<int>(idx);
     if (lo >= LUT_SIZE - 1) {
-      out = lut[LUT_SIZE - 1];
+      out = Color4(colors[LUT_SIZE - 1],
+                   alpha_q16[LUT_SIZE - 1] * (1.0f / 65535.0f));
       return;
     }
     float frac = idx - lo;
-    const Color4 &a = lut[lo];
-    const Color4 &b = lut[lo + 1];
-    out = Color4(a.color.lerp16(b.color, frac_to_q16(frac)),
-                 hs::clamp(a.alpha + (b.alpha - a.alpha) * frac, 0.0f, 1.0f));
+    const uint16_t weight = frac_to_q16(frac);
+    out = Color4(colors[lo].lerp16(colors[lo + 1], weight),
+                 lerp_q16(alpha_q16[lo], alpha_q16[lo + 1], weight) *
+                     (1.0f / 65535.0f));
   }
-  Color4 *lut = nullptr;
+  Pixel *colors = nullptr;
+  uint16_t *alpha_q16 = nullptr;
 };
 
 /**
