@@ -287,7 +287,8 @@ private:
    */
   struct Params {
     float alpha = 0.5f;      /**< Global alpha multiplier in [0, 1]. */
-    float num_shapes = 7.0f; /**< Ring count; read live each frame. */
+    float num_shapes =
+        std::min(7.0f, static_cast<float>(MAX_RINGS)); /**< Ring count. */
     float radius = 1.0f;     /**< Outermost ring radius in world units. */
     float sides = 5.0f;      /**< Polygon/flower/star side count. */
     float twist = 0.0f;      /**< Per-layer twist phase in radians. */
