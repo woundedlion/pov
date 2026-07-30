@@ -1269,7 +1269,7 @@ public:
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
             float alpha) {
     assert(age >= 0.0f && alpha >= 0.0f);
-    assert(base == cv.data());
+    assert(prepared_for(cv));
     (void)age;
     (void)cv;
 
