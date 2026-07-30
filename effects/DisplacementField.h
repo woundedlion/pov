@@ -392,9 +392,8 @@ private:
         hlut[lut_n] = hlut[0];
       }
 
-      ::new (static_cast<void *>(shapes + n_slots))
-          SDF::DistortedRing(basis, radius, params.thickness, slut, lut_n,
-                             0.0f);
+      ::new (static_cast<void *>(shapes + n_slots)) SDF::DistortedRing(
+          basis, radius, params.thickness, slut, lut_n, 0.0f);
       slot_lut_n[n_slots] = lut_n;
       slot_frag_alpha[n_slots] = ring_color.alpha * opacity * params.alpha;
       slot_by_ring[i] = static_cast<int8_t>(n_slots);
