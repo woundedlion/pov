@@ -139,6 +139,15 @@ inline void test_helpers() {
   id.beacon_interdigit_timeout_cols = id.beacon_span_cols() / 4 - 1;
   HS_EXPECT_FALSE(id.valid());
 
+  // Stale-frame window order: tick()'s poll-path parser reset must be tighter
+  // than BeaconParser::feed's interdigit test. Boundary is exclusive (equal
+  // windows are rejected).
+  Config so = test_config();
+  so.acquire_quiet_cols = so.beacon_interdigit_timeout_cols;
+  HS_EXPECT_FALSE(so.valid());
+  so.acquire_quiet_cols = so.beacon_interdigit_timeout_cols - 1;
+  HS_EXPECT_TRUE(so.valid());
+
   Config dg = test_config();
   dg.gate_cols = 7 * dg.beacon_pitch_cols + 1;
   HS_EXPECT_FALSE(dg.valid());
@@ -527,7 +536,8 @@ inline void test_beacon_partial_frame_ages_out() {
     f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
   }
   HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
-  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 0u);
+  // The aged-out partial is a dropped frame and counts as one.
+  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 1u);
   HS_EXPECT_EQ(board.content().effect_index, 2);
 }
 
