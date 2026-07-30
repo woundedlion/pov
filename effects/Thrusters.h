@@ -56,7 +56,7 @@ public:
     timeline.add(
         0, Animation::Sprite(
                [this](Canvas &c, float opacity) { draw_ring(c, opacity); }, -1,
-               16, ease_in_sin, 16, ease_out_sin));
+               16, ease_in_sin));
 
     timeline.add(0,
                  Animation::RandomTimer(

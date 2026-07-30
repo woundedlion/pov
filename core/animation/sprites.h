@@ -36,7 +36,9 @@ public:
    * indefinite).
    * @param fade_in_duration Frames for fading in; in [0, MAX_FADE_DURATION].
    * @param fade_in_easing_fn Easing for fade-in.
-   * @param fade_out_duration Frames for fading out; in [0, MAX_FADE_DURATION].
+   * @param fade_out_duration Frames for fading out; in [0, MAX_FADE_DURATION],
+   * and must be 0 for an indefinite sprite, which has no end frame to fade
+   * toward.
    * @param fade_out_easing_fn Easing for fade-out.
    * @param paused Optional pause gate; null = always runs.
    */
@@ -53,6 +55,8 @@ public:
              "Sprite fade-in duration must be in [0, MAX_FADE_DURATION]");
     HS_CHECK(fade_out_duration >= 0 && fade_out_duration <= MAX_FADE_DURATION,
              "Sprite fade-out duration must be in [0, MAX_FADE_DURATION]");
+    HS_CHECK(this->duration >= 0 || fade_out_duration == 0,
+             "Sprite fade-out duration must be 0 for an indefinite sprite");
     // Overlapping windows (durations are independent GUI sliders): scale both
     // fades proportionally to fit the visible duration, so the envelope still
     // peaks at full opacity and stays a continuous triangle (definite sprites
