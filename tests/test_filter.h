@@ -697,8 +697,8 @@ inline void test_world_hole_masks_cap() {
   Vector half(sinf(0.25f), cosf(0.25f), 0.0f); // 0.25 rad from +Y
   hole.plot(half, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
             [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
-  HS_EXPECT_NEAR((float)got.c.r, 5000.0f, 50.0f);
-  HS_EXPECT_NEAR((float)got.c.g, 10000.0f, 50.0f);
+  HS_EXPECT_NEAR_REL((float)got.c.r, 5000.0f, 0.01f);
+  HS_EXPECT_NEAR_REL((float)got.c.g, 10000.0f, 0.005f);
 }
 
 /**
