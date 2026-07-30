@@ -436,6 +436,26 @@ template <int W, int H> struct BoundingSphere {
 };
 
 /**
+ * @brief Intersects a shape's row band with the clip region's render rows.
+ * @tparam BoundsT Bounds type exposing `y_min` and `y_max`.
+ * @param bounds Shape vertical bounds.
+ * @param cr Clip region of the destination canvas.
+ * @param y_lo Receives the first row to scan, inclusive.
+ * @param y_hi Receives the last row to scan, inclusive.
+ * @return False when the intersection is empty and nothing should be scanned.
+ */
+template <typename BoundsT>
+__attribute__((always_inline)) inline bool
+clamp_rows_to_clip(const BoundsT &bounds, const ClipRegion &cr, int &y_lo,
+                   int &y_hi) {
+  y_lo =
+      bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
+  y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
+                                              : cr.render_y_end() - 1;
+  return y_lo <= y_hi;
+}
+
+/**
  * @brief Main rasterization routine for SDF shapes.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -460,11 +480,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   const auto &cr = canvas.clip();
   const auto xc = cr.x_clip();
   auto bounds = shape.template get_vertical_bounds<H>();
-  y_lo =
-      bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
-  y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
-                                              : cr.render_y_end() - 1;
-  if (y_lo > y_hi)
+  if (!clamp_rows_to_clip(bounds, cr, y_lo, y_hi))
     return;
 
   SDF::DistanceResult result_scratch;
@@ -507,11 +523,8 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   const auto &cr = canvas.clip();
   const auto xc = cr.x_clip();
   auto bounds = shape.template get_vertical_bounds<H>();
-  y_lo =
-      bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
-  y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
-                                              : cr.render_y_end() - 1;
-  if (y_lo > y_hi || (!effective_debug && color.alpha <= MIN_ALPHA))
+  if (!clamp_rows_to_clip(bounds, cr, y_lo, y_hi) ||
+      (!effective_debug && color.alpha <= MIN_ALPHA))
     return;
 
   SDF::DistanceResult result;
@@ -1397,11 +1410,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   {
     HS_PROFILE_DEEP(raster_setup);
     auto bounds = shape.template get_vertical_bounds<H>();
-    y_lo =
-        bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
-    y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
-                                                : cr.render_y_end() - 1;
-    if (y_lo > y_hi)
+    if (!clamp_rows_to_clip(bounds, cr, y_lo, y_hi))
       return;
 
     if (!TrigLUT<W, H>::initialized)
@@ -2399,11 +2408,8 @@ struct Volume {
     // Tier 2: Clamp volume bounds to clip region
     const auto &cr = canvas.clip();
     const auto vol_xc = cr.x_clip();
-    int vol_y_lo =
-        bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
-    int vol_y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
-                                                        : cr.render_y_end() - 1;
-    if (vol_y_lo > vol_y_hi)
+    int vol_y_lo, vol_y_hi;
+    if (!clamp_rows_to_clip(bounds, cr, vol_y_lo, vol_y_hi))
       return;
 
     scan_region<W, H>(
