@@ -74,6 +74,12 @@ async function main() {
   // buffer walk for the whole run.
   let litPixel = false;
 
+  // Run-wide counters for the per-frame telemetry the simulator reads. render_us
+  // is only accumulated by the Scan/Plot timer, so a single effect reporting 0 is
+  // legitimate (see getRenderUs() in wasm.cpp) but an all-zero sweep is not.
+  let renderTimed = 0;
+  let strobing = 0;
+
   // Enumerated from the module (generated from HS_WASM_RESOLUTIONS) so a new
   // resolution gets coverage without editing this file.
   const RESOLUTIONS = Module.HolosphereEngine.getSupportedResolutions();
@@ -116,6 +122,25 @@ async function main() {
           fail(`${name}: getPixels() length ${px.length}, expected ${expected} ` +
             `(detached view or wrong stride)`);
         }
+        // getBufferLength() describes the same span without touching the view.
+        const len = engine.getBufferLength();
+        if (len !== expected) {
+          fail(`${name}: getBufferLength() ${len}, expected ${expected}`);
+        }
+
+        const us = engine.getRenderUs();
+        if (!Number.isFinite(us) || us < 0) {
+          fail(`${name}: getRenderUs() = ${us}, expected a finite non-negative duration`);
+        } else if (us > 0) {
+          renderTimed++;
+        }
+        const strobe = engine.strobeColumns();
+        if (typeof strobe !== 'boolean') {
+          fail(`${name}: strobeColumns() returned ${typeof strobe} "${strobe}", expected a boolean`);
+        } else if (strobe) {
+          strobing++;
+        }
+
         if (!litPixel) {
           for (let i = 0; i < px.length; i++) {
             if (px[i] !== 0) { litPixel = true; break; }
@@ -205,6 +230,14 @@ async function main() {
       fail('every effect at every resolution produced an all-zero framebuffer — ' +
         'the render path or getPixels() is not writing pixels');
     }
+    if (renderTimed === 0) {
+      fail('getRenderUs() reported 0 for every effect at every resolution — ' +
+        'the render timer or the binding is dead');
+    }
+    if (strobing === 0) {
+      fail('strobeColumns() reported false for every effect — the whole roster ' +
+        'declares strobe = true');
+    }
 
     // ── Embind write seam: setResolution / setClip / setParameter ─────────────
     // The per-effect loop above only READS the param streams; drive the write
@@ -279,6 +312,89 @@ async function main() {
         }
         if (!clampTested) {
           fail('write-seam: found no float param to exercise the setParameter clamp');
+        }
+      }
+    }
+
+    // ── Embind state seam: getParamGeneration / setAnimationsPaused ───────────
+    {
+      const effectNames = Object.keys(engine.getEffectSizes());
+      if (effectNames.length === 0) {
+        fail('state-seam: no effects to drive');
+      } else {
+        // The generation is the only token joining a definitions snapshot to a
+        // later value read: it must hold across frames, reads and param writes,
+        // hold across a rejected load, and advance by exactly one per accepted
+        // load (effect_loads in wasm.cpp).
+        const g0 = engine.getParamGeneration();
+        if (!Number.isInteger(g0) || g0 < 1) {
+          fail(`state-seam: getParamGeneration() = ${g0}, expected a positive integer ` +
+            `after the sweep's effect loads`);
+        }
+        engine.drawFrame();
+        engine.getParameterDefinitions();
+        engine.getParamValues();
+        engine.setParameter('definitely_not_a_param', 1);
+        if (engine.getParamGeneration() !== g0) {
+          fail(`state-seam: getParamGeneration() moved ${g0} -> ` +
+            `${engine.getParamGeneration()} without an effect load`);
+        }
+        if (engine.setEffect('definitely_not_an_effect')) {
+          fail('state-seam: setEffect(unknown) returned true');
+        }
+        if (engine.getParamGeneration() !== g0) {
+          fail(`state-seam: a rejected setEffect bumped the generation to ` +
+            `${engine.getParamGeneration()} (want ${g0})`);
+        }
+        for (let load = 1; load <= 2; load++) {
+          if (!engine.setEffect(effectNames[0])) {
+            fail(`state-seam: setEffect("${effectNames[0]}") failed`);
+            break;
+          }
+          if (engine.getParamGeneration() !== g0 + load) {
+            fail(`state-seam: generation ${engine.getParamGeneration()} after load ` +
+              `${load}, expected ${g0 + load}`);
+          }
+        }
+
+        // setAnimationsPaused: pick the first effect whose animated params move
+        // over a frame window, then assert the pause holds them still and the
+        // resume lets them move again. animated=false params are engine-written
+        // telemetry the pause gate does not cover.
+        const animatedValues = () => engine.getParameterDefinitions()
+          .filter((d) => d.animated).map((d) => d.value);
+        const PAUSE_FRAMES = 20;
+        const anyMoved = (before, after) => after.some((v, i) => v !== before[i]);
+        let pauseTested = false;
+        for (const name of effectNames) {
+          if (!engine.setEffect(name)) continue;
+          engine.drawFrame();
+          const before = animatedValues();
+          if (before.length === 0) continue;
+          for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
+          if (!anyMoved(before, animatedValues())) continue;
+
+          engine.setAnimationsPaused(true);
+          const held = animatedValues();
+          for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
+          const stillHeld = animatedValues();
+          const moved = stillHeld.filter((v, i) => v !== held[i]).length;
+          if (moved > 0) {
+            fail(`state-seam: setAnimationsPaused(true) on ${name} left ${moved} ` +
+              `animated param(s) moving`);
+          }
+          engine.setAnimationsPaused(false);
+          for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
+          if (!anyMoved(stillHeld, animatedValues())) {
+            fail(`state-seam: setAnimationsPaused(false) on ${name} did not resume animation`);
+          }
+          console.log(`  state-seam: paramGeneration + setAnimationsPaused freeze/resume on ${name} OK`);
+          pauseTested = true;
+          break;
+        }
+        if (!pauseTested) {
+          fail('state-seam: no effect had a moving animated param to exercise ' +
+            'setAnimationsPaused');
         }
       }
     }
@@ -504,6 +620,89 @@ async function main() {
         MeshOps.clearToolingMemory();
         console.log(`  getRecipe: null cases + payload + reconstruction parity (${RECIPE_ENTRIES.join(', ')}) OK`);
       }
+
+      // ── Operator roster: one topology signature per bound operator ──────────
+      // MESHOP_BIND guarantees a .function() exists per MESHOP_LIST /
+      // MESHOP_IRREGULAR_LIST name, not that it reaches the matching method —
+      // two names on one method compile clean. Each row pins what the operator
+      // is defined to produce from a cube (V=8, E=12, F=6): vertex/face/index
+      // counts plus the face-degree and vertex-incidence histograms, per the
+      // element formulas in core/mesh/conway.h (dual F/V swap, kis V+F and 2E
+      // faces, ambo E and V+F, truncate 2E and V+F, expand 2E and V+E+F,
+      // chamfer V+2E and F+E, snub 2E and V+2E+F) and the compositions
+      // gyro = d·snub, meta = k·d·a, needle = k·d, zip = d·k, bevel = t·a.
+      //
+      // kis/needle and truncate/zip share all three counts on every seed, so
+      // the histograms — not the counts — separate those pairs. The seed choice
+      // is load-bearing too: on a self-dual seed truncate and zip coincide.
+      const OP_SEED = 'cube';
+      // "<degree>x<count>", ascending by degree.
+      const histogram = (degrees) => {
+        const h = new Map();
+        for (const n of degrees) h.set(n, (h.get(n) ?? 0) + 1);
+        return [...h.keys()].sort((a, b) => a - b).map((k) => `${k}x${h.get(k)}`).join(' ');
+      };
+      const signature = (w) => {
+        const V = w.getVertices().length / 3;
+        const f = w.getFaces();
+        const incidence = new Array(V).fill(0);
+        for (const i of f.indices) incidence[i]++;
+        return `V=${V} F=${f.counts.length} I=${f.indices.length} ` +
+          `faces[${histogram(f.counts)}] verts[${histogram(incidence)}]`;
+      };
+
+      // Fraction args stay at 0.25: truncate(0.5) merges each edge's two cut
+      // vertices and collapses to ambo, a different topology.
+      const FRACTION = 0.25;
+      const OP_SIGNATURES = [
+        ['dual', (s) => s.dual(), 'V=6 F=8 I=24 faces[3x8] verts[4x6]'],
+        ['kis', (s) => s.kis(), 'V=14 F=24 I=72 faces[3x24] verts[4x6 6x8]'],
+        ['ambo', (s) => s.ambo(), 'V=12 F=14 I=48 faces[3x8 4x6] verts[4x12]'],
+        ['gyro', (s) => s.gyro(), 'V=38 F=24 I=120 faces[5x24] verts[3x32 4x6]'],
+        ['meta', (s) => s.meta(), 'V=26 F=48 I=144 faces[3x48] verts[4x12 6x8 8x6]'],
+        ['needle', (s) => s.needle(), 'V=14 F=24 I=72 faces[3x24] verts[3x8 8x6]'],
+        ['zip', (s) => s.zip(), 'V=24 F=14 I=72 faces[4x6 6x8] verts[3x24]'],
+        ['truncate', (s) => s.truncate(FRACTION), 'V=24 F=14 I=72 faces[3x8 8x6] verts[3x24]'],
+        ['bevel', (s) => s.bevel(FRACTION), 'V=48 F=26 I=144 faces[4x12 6x8 8x6] verts[3x48]'],
+        ['chamfer', (s) => s.chamfer(FRACTION), 'V=32 F=18 I=96 faces[4x6 6x12] verts[3x32]'],
+        ['expand', (s) => s.expand(FRACTION), 'V=24 F=26 I=96 faces[3x8 4x18] verts[4x24]'],
+        ['snub', (s) => s.snub(FRACTION, 0), 'V=24 F=38 I=120 faces[3x32 4x6] verts[5x24]'],
+      ];
+
+      // The table only catches an aliased name while its rows stay distinct.
+      const distinct = new Set(OP_SIGNATURES.map(([, , want]) => want));
+      if (distinct.size !== OP_SIGNATURES.length) {
+        fail(`operator roster: ${OP_SIGNATURES.length} operators share ${distinct.size} ` +
+          `expected signatures — the table cannot see a name aliased onto another method`);
+      }
+
+      const opSeed = MeshOps.fromSolidName(OP_SEED);
+      if (!opSeed) {
+        fail(`operator roster: fromSolidName("${OP_SEED}") returned null`);
+      } else {
+        const seedSig = signature(opSeed);
+        const wantSeed = 'V=8 F=6 I=24 faces[4x6] verts[3x8]';
+        if (seedSig !== wantSeed) {
+          fail(`operator roster: seed ${OP_SEED} is ${seedSig}, expected ${wantSeed} — ` +
+            `the expected operator signatures are derived from that seed`);
+        } else {
+          for (const [opName, apply, want] of OP_SIGNATURES) {
+            const out = apply(opSeed);
+            if (!out) {
+              fail(`operator roster: ${OP_SEED}.${opName}() returned null`);
+              continue;
+            }
+            const got = signature(out);
+            if (got !== want) {
+              fail(`operator roster: ${opName}(${OP_SEED}) is ${got}, expected ${want}`);
+            }
+            out.delete();
+          }
+          console.log(`  operator roster: ${OP_SIGNATURES.length} operator topologies pinned on ${OP_SEED}`);
+        }
+        opSeed.delete();
+      }
+      MeshOps.clearToolingMemory();
     }
   }
 
@@ -572,6 +771,58 @@ async function main() {
     const c = Module.procedural_palette_linear(0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     if (!c || !(c.r > 0) || c.g !== 0 || c.b !== 0) {
       fail(`procedural_palette_linear r-only = ${JSON.stringify(c)}, expected r>0, g=b=0`);
+    }
+  }
+
+  // named_procedural_palettes: the browser tool's mirror of the palettes.h
+  // X-macro. Shape and name uniqueness for every entry, plus two entries pinned
+  // against the header literals; MAUVE_FADE's per-channel-asymmetric rows catch a
+  // channel or an a/b/c/d transposition that a symmetric palette would hide.
+  {
+    const pals = Module.named_procedural_palettes();
+    if (!Array.isArray(pals) || pals.length === 0) {
+      fail(`named_procedural_palettes() returned ${JSON.stringify(pals)}, expected a non-empty array`);
+    } else {
+      const seen = new Set();
+      for (const p of pals) {
+        if (typeof p.name !== 'string' || p.name.length === 0) {
+          fail(`named_procedural_palettes(): entry with no name: ${JSON.stringify(p)}`);
+          continue;
+        }
+        if (seen.has(p.name)) fail(`named_procedural_palettes() repeats "${p.name}"`);
+        seen.add(p.name);
+        for (const k of ['a', 'b', 'c', 'd']) {
+          const v = p[k];
+          if (!Array.isArray(v) || v.length !== 3 || !v.every(Number.isFinite)) {
+            fail(`${p.name}: coefficient ${k} = ${JSON.stringify(v)}, expected 3 finite floats`);
+          }
+        }
+      }
+      const PINNED = {
+        DARK_RAINBOW: {
+          a: [0.367, 0.367, 0.367], b: [0.5, 0.5, 0.5],
+          c: [1, 1, 1], d: [0, 0.33, 0.67],
+        },
+        MAUVE_FADE: {
+          a: [0.583, 0, 0.583], b: [1, 0, 1],
+          c: [0.191, 0.348, 0.191], d: [0.175, 0.045, 0.15],
+        },
+      };
+      for (const [name, want] of Object.entries(PINNED)) {
+        const p = pals.find((e) => e.name === name);
+        if (!p) {
+          fail(`named_procedural_palettes() omits ${name}`);
+          continue;
+        }
+        for (const k of ['a', 'b', 'c', 'd']) {
+          const got = p[k];
+          if (!Array.isArray(got) || got.some((v, i) => !approx(v, want[k][i], 1e-6))) {
+            fail(`${name}.${k} = ${JSON.stringify(got)}, expected ${JSON.stringify(want[k])}`);
+          }
+        }
+      }
+      console.log(`  named_procedural_palettes: ${pals.length} entries, ` +
+        `${Object.keys(PINNED).join(' + ')} coefficients pinned`);
     }
   }
 
