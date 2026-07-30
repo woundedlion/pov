@@ -293,9 +293,7 @@ public:
              "OpLeg: settle frames disagree with the edge");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
-        Transients();
-    Transients &tr = *buf;
+    Transients &tr = bind_transients(arena);
 
     MeshOps::clone(seed, tr.seed, arena);
     tr.seed_ref = &tr.seed;
@@ -366,9 +364,7 @@ public:
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
-        Transients();
-    Transients &tr = *buf;
+    Transients &tr = bind_transients(arena);
 
     // Borrowed seed: the swept op reads the caller's live mesh each frame
     // instead of a leg-local clone, dropping one full copy of the (tripled)
@@ -447,9 +443,7 @@ public:
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
-        Transients();
-    Transients &tr = *buf;
+    Transients &tr = bind_transients(arena);
 
     // No seed clone: the compiled hankin topology carries the base vertices
     // and every per-frame read goes through it, so the seed is needed only
@@ -562,9 +556,7 @@ public:
              "OpLeg: relax leg needs a positive iteration count");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
-        Transients();
-    Transients &tr = *buf;
+    Transients &tr = bind_transients(arena);
 
     // relax_at slerps out of the seed vertices every frame, so the seed stays
     // in the leg arena; only its per-face class ids are dead here.
@@ -636,9 +628,7 @@ public:
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
-        Transients();
-    Transients &tr = *buf;
+    Transients &tr = bind_transients(arena);
 
     tr.kind = LegKind::MEDIAL_SLERP;
     tr.sweep_frames = sweep_frames;
@@ -734,9 +724,7 @@ public:
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
-        Transients();
-    Transients &tr = *buf;
+    Transients &tr = bind_transients(arena);
 
     tr.kind = LegKind::MEDIAL_SLERP;
     tr.sweep_frames = sweep_frames;
@@ -811,9 +799,7 @@ public:
     HS_CHECK(gate_frames >= 1, "OpLeg needs a positive gate length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
-    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
-        Transients();
-    Transients &tr = *buf;
+    Transients &tr = bind_transients(arena);
 
     MeshOps::clone(seed, tr.seed, arena);
     tr.seed_faces = seed.face_counts.size();
@@ -835,6 +821,7 @@ public:
    */
   HS_COLD_MEMBER void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
+    check_alive();
     Transients &tr = *buf;
     const int frame = static_cast<int>(
         std::min<uint32_t>(t, static_cast<uint32_t>(duration)));
@@ -906,7 +893,10 @@ public:
    * @brief Arrival data for the effect's completion handler.
    * @return Arena-backed Landing; stable until the leg arena is compacted.
    */
-  const Landing &landing() const { return buf->landing; }
+  const Landing &landing() const {
+    check_alive();
+    return buf->landing;
+  }
 
   /**
    * @brief Rebuilds a hankin leg's arrival mesh from its baked topology.
@@ -2219,7 +2209,43 @@ private:
     tr.landing.blend_pairs = tr.num_ramps;
   }
 
-  Transients *buf;     /**< Pointer to arena-allocated leg state. */
+  /**
+   * @brief Allocates the leg's Transients and stamps what check_alive() tests.
+   * @param arena Leg arena backing the leg's state.
+   * @return The fresh Transients.
+   */
+  Transients &bind_transients(Arena &arena) {
+    buf = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    leg_arena = &arena;
+    live_end = arena.get_offset();
+#ifndef NDEBUG
+    birth_generation = arena.get_generation();
+#endif
+    return *buf;
+  }
+
+  /**
+   * @brief Traps if the leg arena was reclaimed while the leg is still live.
+   * @details A rewind is caught in every build by the watermark; a reset()
+   * refills the arena to any offset, so only the debug generation stamp
+   * (which a rewind does not bump) detects it exactly.
+   */
+  void check_alive() const {
+    HS_CHECK(leg_arena->get_offset() >= live_end,
+             "OpLeg: leg arena rewound under a live leg");
+#ifndef NDEBUG
+    HS_CHECK(leg_arena->get_generation() == birth_generation,
+             "OpLeg: leg arena reset under a live leg");
+#endif
+  }
+
+  Transients *buf;  /**< Pointer to arena-allocated leg state. */
+  Arena *leg_arena; /**< Arena backing buf and the Transients vectors. */
+  size_t live_end;  /**< Arena offset just past the Transients block. */
+#ifndef NDEBUG
+  uint32_t birth_generation = 0; /**< Leg-arena generation at construction. */
+#endif
   EasingFn easing_fn;  /**< Easing applied to the sweep parameter. */
   MorphDrawFn draw_fn; /**< Per-frame draw callback. */
 };
