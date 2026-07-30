@@ -459,7 +459,8 @@ struct MeshState {
    *   them); otherwise one entry per face.
    * @details Traps on inconsistent spans: a present offsets array must be one
    *   entry per face, and its last offset plus that face's count must cover the
-   *   whole flat faces list.
+   *   whole flat faces list. With no offsets the counts must sum to the flat
+   *   faces length.
    */
   void set_view(ArenaSpan<uint8_t> face_counts_span,
                 ArenaSpan<uint16_t> faces_span,
@@ -472,6 +473,12 @@ struct MeshState {
                        face_counts_span[last] ==
                    faces_span.size(),
                "MeshState::set_view: face offsets do not span faces");
+    } else {
+      size_t counted = 0;
+      for (size_t i = 0; i < face_counts_span.size(); ++i)
+        counted += face_counts_span[i];
+      HS_CHECK(counted == faces_span.size(),
+               "MeshState::set_view: face counts do not span faces");
     }
     face_counts = {};
     faces = {};
