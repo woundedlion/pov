@@ -31,8 +31,9 @@ static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 
 /**
  * @brief Geodesic segment shorter than this (radians) collapses to a point.
- * @details Deliberately ~10× math::EPS_GEOMETRIC — a looser threshold for
- * slerp-axis stability, not positional near-equality.
+ * @details 100× math::EPS_GEOMETRIC (1e-3 vs 1e-5): a slerp-axis stability
+ * bound that picks the interpolation strategy, not a positional near-equality
+ * test, so it does not track math::EPS_GEOMETRIC.
  */
 static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
 
