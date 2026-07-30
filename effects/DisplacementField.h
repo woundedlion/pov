@@ -574,7 +574,7 @@ private:
   static constexpr float BALL_RATE_FPS =
       60.0f; /**< Frame cadence assumed by the Ball Rate and Speed sliders' per-second units. */
   static constexpr float BALL_DRAPE_PER_AMPLITUDE =
-      4.0f; /**< Drape gain per Ball Amp unit: the 0.25 default = gain 1, the 0.8 max saturates toward full clearance. */
+      4.0f; /**< Drape gain per Ball Amp unit: the 0.1 default gives gain 0.4. */
   static constexpr int NOISE_FADE_FRAMES =
       150; /**< Noise amplitude ramp on each phase handoff. */
   static constexpr int NOISE_HOLD_FRAMES =
