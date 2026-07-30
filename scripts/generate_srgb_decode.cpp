@@ -5,6 +5,8 @@
 // compare per region. Asserts the <=1-step property and self-verifies
 // bit-exactness over all 65536 inputs. Total ~1.5 KB (fits the DTCM slack).
 // Build: clang++ -std=c++20 -I. -Icore scripts/generate_srgb_decode.cpp
+// Run from the repo root; argv[1] overrides the output path (CI writes to a
+// temp file and diffs it against the committed header).
 // (unit_color's test_linear_to_srgb8_decode_matches_lut re-checks the
 // equivalence in CI).
 #include "core/color/color_luts.h"
@@ -49,7 +51,8 @@ static uint8_t decode(int v, const uint16_t *low, const uint16_t *high) {
                    (((d & ((1 << HIGH_SHIFT) - 1)) >= (e >> 8)) ? 1 : 0));
 }
 
-int main() {
+int main(int argc, char **argv) {
+  const char *out_path = argc > 1 ? argv[1] : "core/color/srgb_decode_lut.h";
   static uint16_t low[LOW_N], high[HIGH_N];
   for (int i = 0; i < LOW_N; ++i)
     if (!pack_bucket(i << LOW_SHIFT, 1 << LOW_SHIFT, low[i])) {
@@ -72,9 +75,10 @@ int main() {
 
   // Binary mode: the committed header is LF on every host (.gitattributes),
   // and text mode would emit CRLF on Windows.
-  FILE *f = std::fopen("core/color/srgb_decode_lut.h", "wb");
+  FILE *f = std::fopen(out_path, "wb");
   if (!f) {
-    std::perror("FAIL: open core/color/srgb_decode_lut.h");
+    std::perror(out_path);
+    std::printf("FAIL: open %s\n", out_path);
     return 1;
   }
   std::fprintf(f, "#pragma once\n#include \"engine/platform.h\"\n");
@@ -102,9 +106,10 @@ int main() {
   emit("srgb_decode_high_src", high, HIGH_N);
   const bool write_failed = std::ferror(f) != 0;
   if (std::fclose(f) != 0 || write_failed) {
-    std::perror("FAIL: write core/color/srgb_decode_lut.h");
+    std::perror(out_path);
+    std::printf("FAIL: write %s\n", out_path);
     return 1;
   }
-  std::printf("wrote core/color/srgb_decode_lut.h\n");
+  std::printf("wrote %s\n", out_path);
   return 0;
 }
