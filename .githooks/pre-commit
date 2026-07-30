@@ -66,27 +66,42 @@ CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 # commits — CI's clang-format job gates the whole tracked tree) or via
 # HS_SKIP_FORMAT=1. Ordered ahead of the HS_SKIP_TESTS opt-out: that flag stands
 # down the test and Teensy gates only, never this check.
+#
+# clang-format reflows code between LLVM majors, so a binary of a different major
+# than the CI job's disagrees in BOTH directions: it rejects code the gate accepts
+# and accepts code the gate rejects. Set CLANG_FORMAT to override the binary (the
+# ci.yml jobs pass clang-format-18 the same way); a major other than
+# HS_CLANG_FORMAT_MAJOR only warns, since a contributor without that exact version
+# should still be able to commit.
+HS_CLANG_FORMAT_MAJOR=18
 if [ -z "$HS_SKIP_FORMAT" ]; then
   FORMAT="$(printf '%s\n' "$CHANGED" \
     | grep -E '\.(h|hpp|cpp|cc|inl)$' \
     | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$' || true)"
   if [ -n "$FORMAT" ]; then
-    if command -v clang-format >/dev/null 2>&1; then
-      echo "[pre-commit] Checking clang-format on staged first-party C++..."
+    CF="${CLANG_FORMAT:-clang-format}"
+    if command -v "$CF" >/dev/null 2>&1; then
+      cf_version="$("$CF" --version 2>/dev/null | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
+      echo "[pre-commit] Checking clang-format on staged first-party C++ ($CF ${cf_version:-unknown})..."
+      if [ -n "$cf_version" ] && [ "$cf_version" != "$HS_CLANG_FORMAT_MAJOR" ]; then
+        echo "[pre-commit] WARNING: clang-format $cf_version differs from CI's clang-format-$HS_CLANG_FORMAT_MAJOR;"
+        echo "[pre-commit] it reflows differently, so this check and CI can disagree either way."
+        echo "[pre-commit] (point CLANG_FORMAT at a clang-format-$HS_CLANG_FORMAT_MAJOR binary to match the gate)"
+      fi
       unformatted=
       for f in $FORMAT; do
         [ -f "$f" ] || continue     # deleted/renamed-away path: nothing to check
-        clang-format --dry-run --Werror --style=file "$f" >/dev/null 2>&1 \
+        "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1 \
           || unformatted="$unformatted $f"
       done
       if [ -n "$unformatted" ]; then
         echo "[pre-commit] clang-format found unformatted files:$unformatted"
-        echo "[pre-commit] (fix with: clang-format -i$unformatted, or bypass once with HS_SKIP_FORMAT=1 / --no-verify)"
+        echo "[pre-commit] (fix with: $CF -i$unformatted, or bypass once with HS_SKIP_FORMAT=1 / --no-verify)"
         exit 1
       fi
       echo "[pre-commit] clang-format clean."
     else
-      echo "[pre-commit] clang-format not found — skipping format check (install it to enable)."
+      echo "[pre-commit] $CF not found — skipping format check (install it to enable)."
     fi
   fi
 fi
