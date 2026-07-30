@@ -32,11 +32,14 @@ b.SetEnabledLayers(en)
 b.SetVisibleLayers(en)
 
 # mark the inner copper as plane (power-type) layers
-for L in (pcbnew.In1_Cu, pcbnew.In2_Cu):
+plane_type_set = True
+for L, layer_name in ((pcbnew.In1_Cu, "In1.Cu"), (pcbnew.In2_Cu, "In2.Cu")):
     try:
         b.SetLayerType(L, pcbnew.LT_POWER)
-    except Exception:
-        pass
+    except (AttributeError, TypeError, RuntimeError) as exc:
+        plane_type_set = False
+        sys.stderr.write(f"WARNING: {layer_name}: could not set the power-plane "
+                         f"layer type ({exc})\n")
 
 # Physical dielectric stackup uses JLC04161H-7628 with 1 oz outer and 0.5 oz inner copper,
 # thin outer prepreg, thick core) — applied when the board is opened/saved in KiCad.
@@ -124,5 +127,6 @@ if os.path.exists(PRO):
         default["via_drill"] = max(default.get("via_drill", 0), VIA_DRILL)
     json.dump(pro, open(PRO, "w", encoding="utf-8"), indent=2)
 
-print("4-layer SIG/GND/GND/SIG; copper layers =", b.GetCopperLayerCount(),
-      "; inner GND planes + explicit 1.6 mm stackup encoded")
+plane_note = "" if plane_type_set else "; inner layers NOT typed as power planes"
+print(f"4-layer SIG/GND/GND/SIG; copper layers = {b.GetCopperLayerCount()}"
+      f"; inner GND planes + explicit 1.6 mm stackup encoded{plane_note}")
