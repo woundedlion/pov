@@ -422,10 +422,10 @@ hand-soldered by you.
 | C_DEC1,2 | Ceramic | 0.1 µF | 0603/0805 | **SMD** |
 | C_SYNC | Ceramic | 220 pF (default-populated; 100 pF–1 nF tunable) | 0603 | **SMD** |
 | R_D1, R_D2 | Series term | 33 Ω | 0603/0805 | **SMD** |
-| R_S | Sync source | 100 Ω | 0603/0805 | **SMD** |
-| R1 | Divider top | 10 kΩ | 0603 | **SMD** |
-| R2 | Divider btm | **15 kΩ** (legacy 18 kΩ — see §4.2) | 0603 | **SMD** |
-| R_PD | Master-only bus idle pull-down, switched by U1 ch D | 10 kΩ | 0603 | **SMD** |
+| R_S | Sync source | 100 Ω | 0805, hand-solder land (§11.1) | **SMD** |
+| R1 | Divider top | 10 kΩ | 0603, hand-solder land (§11.1) | **SMD** |
+| R2 | Divider btm | **15 kΩ** (legacy 18 kΩ — see §4.2) | 0603, hand-solder land (§11.1) | **SMD** |
+| R_PD | Master-only bus idle pull-down, switched by U1 ch D | 10 kΩ | 0603, hand-solder land (§11.1) | **SMD** |
 | R_MEN | MASTER_EN boot pull-up | 10 kΩ → 3V3 | 0603 | **SMD** |
 | FB | Ferrite bead | ≈600 Ω @ 100 MHz, logic branch (~0.15 A) | 1206 | **SMD** |
 | Q_REV | Reverse protect (logic) | AO3401A P-FET | SOT-23 | **SMD** |
@@ -497,6 +497,13 @@ enabling *hand* assembly, not a hard electrical or mechanical constraint — par
 
 Rationale: SMD pad joints carry negligible centrifugal load at these masses; electrolytics rely on
 pads alone would be a bad trade at 480 RPM, so they stay TH + RTV (R-PWR-6 / R-MECH-3).
+
+**Land patterns.** The four sync resistors whose values get tuned on the bench — R1/R2 (divider
+ratio, §4.2), R_PD (bus idle pull-down) and R_S (source termination) — use the toe-extended
+hand-solder land, so an iron reaches the joint for a value swap. The extra length goes outboard
+only: the inter-pad gap stays at the IPC-7351 nominal **0.85 mm** (0603) / **0.80 mm** (0805) and
+no pad copper runs under the ceramic body, where it would invite solder wicking and tombstoning.
+Every other chip passive uses the stock IPC-nominal land; D_BUS uses the Bourns land pattern (§9).
 
 ### 11.2 Order/layout action items (do before fab)
 

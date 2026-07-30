@@ -114,24 +114,6 @@ def set_d_bus_land_pattern(node):
                 field[1:3] = (0.8, 0.5)
 
 
-ASSEMBLY_LAND_LENGTH_MM = {
-    "R1": 1.2,
-    "R2": 1.2,
-    "R_PD": 1.2,
-    "R_S": 1.4,
-}
-
-
-def set_assembly_land_length(node, ref):
-    length = ASSEMBLY_LAND_LENGTH_MM.get(ref)
-    if length is None:
-        return
-    for pad in F(node, "pad"):
-        for field in pad:
-            if isinstance(field, list) and field and field[0] == "size":
-                field[1] = sexp.Sym(fmt(length))
-
-
 def move_silk_graphics_to_fab(node):
     for item in node:
         if not isinstance(item, list) or not item or item[0] not in (
@@ -233,7 +215,6 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
         set_d_bus_land_pattern(node)
     if ref in ("D_BUS", "JP_ID2"):
         move_silk_graphics_to_fab(node)
-    set_assembly_land_length(node, ref)
     set_pad_orientations(node, rot)
     fid = libid if libid else "phantasm:Teensy4.0"
     node[1] = fid

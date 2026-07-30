@@ -154,6 +154,10 @@ def series_wire(src_sym, src_pin, r_sym, far_label, src_label=None):
 
 SMD08 = "Resistor_SMD:R_0805_2012Metric"
 SMD06 = "Resistor_SMD:R_0603_1608Metric"
+# Toe-extended lands (IPC-nominal 0.85 / 0.80 mm inter-pad gap preserved) for the sync
+# resistors tuned on the bench: R1/R2 divider ratio, R_PD idle pull-down, R_S term.
+SMD08_HAND = "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+SMD06_HAND = "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 C06 = "Capacitor_SMD:C_0603_1608Metric"
 
 
@@ -247,7 +251,7 @@ U1E = place("74xx:74AHCT125", "U1", "74AHCT125", 215.9, 137.16, unit=5,
             fp="Package_SO:SOIC-14_3.9x8.7mm_P1.27mm")
 RD1 = place("Device:R", "R_D1", "33R", 177.8, 137.16, rot=270, fp=SMD08)
 RD2 = place("Device:R", "R_D2", "33R", 177.8, 167.64, rot=270, fp=SMD08)
-RS = place("Device:R", "R_S", "100R", 177.8, 198.12, rot=270, fp=SMD08)
+RS = place("Device:R", "R_S", "100R", 177.8, 198.12, rot=270, fp=SMD08_HAND)
 # ch A (DATA) — source stub (U1->R_D1) named DATA_SRC; post-term net is DATA
 to_label(U1A, "2", "DATA_IN"); to_power(U1A, "1", GND); series_wire(U1A, "3", RD1, "DATA", "DATA_SRC")
 # ch B (CLK)
@@ -272,8 +276,8 @@ to_label(J2, "1", "DATA"); to_label(J2, "2", "CLK"); to_power(J2, "3", GND)
 # ============================================================ BLOCK 3: SYNC
 b.text((220, 180), "SYNC BUS  -  RX DIVIDER + DAISY (Belden 8451)", 2.2)
 # divider: SYNC_BUS -> R1 -> node(FRAME_SYNC) -> R2 -> GND ; C_SYNC at node
-R1 = place("Device:R", "R1", "10k", 246.38, 205.74, fp=SMD06)
-R2 = place("Device:R", "R2", "15k", 246.38, 228.6, fp=SMD06)
+R1 = place("Device:R", "R1", "10k", 246.38, 205.74, fp=SMD06_HAND)
+R2 = place("Device:R", "R2", "15k", 246.38, 228.6, fp=SMD06_HAND)
 CSY = place("Device:C", "C_SYNC", "220pF", 269.24, 217.17, rot=90, fp=C06)
 to_label(R1, "1", "SYNC_BUS")
 nd = R1.pin("2")
@@ -284,7 +288,7 @@ b.junction(R2.pin("1"))
 to_power(R2, "2", GND); to_power(CSY, "2", GND)
 # Master-only bus idle pulldown + bus TVS. U1 ch D drives
 # SYNC_PULLDOWN low on the master and is high-impedance on every slave.
-RPD = place("Device:R", "R_PD", "10k", 292.1, 205.74, fp=SMD06)
+RPD = place("Device:R", "R_PD", "10k", 292.1, 205.74, fp=SMD06_HAND)
 to_label(RPD, "1", "SYNC_BUS"); to_label(RPD, "2", "SYNC_PULLDOWN")
 DBUS = place("Device:D_TVS", "D_BUS", "CDSOD323-T05L", 292.1, 231.14,
              fp="Diode_SMD:D_SOD-323")
