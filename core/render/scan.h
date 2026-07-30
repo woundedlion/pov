@@ -78,23 +78,45 @@ inline int pole_lod_run(float sin_phi) {
  * @param debug_bb When true, forces plotting and tints the bounding box.
  * @param result_scratch Reused DistanceResult scratch (avoids per-pixel alloc).
  * @param frag_scratch Reused Fragment scratch (avoids per-pixel alloc).
+ * @param max_run Columns [x, x+max_run) offered by the scan; see scan_region.
+ * @return Columns consumed: max_run when the probe at x decided the whole
+ *         offer (all clear, or a solid interior shaded once and splatted),
+ *         else 1.
  * @details The shader and pipeline are type-erased (FragmentShaderFn /
  * PipelineRef) so the scanline instantiates once per <W,H> rather than per
  * shader/pipeline; see the PipelineRef note in concepts.h.
  */
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
-inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
-                          Canvas &canvas, const auto &shape,
-                          FragmentShaderFn fragment_shader, bool debug_bb,
-                          SDF::DistanceResult &result_scratch,
-                          Fragment &frag_scratch, int run = 1) {
+inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
+                         Canvas &canvas, const auto &shape,
+                         FragmentShaderFn fragment_shader, bool debug_bb,
+                         SDF::DistanceResult &result_scratch,
+                         Fragment &frag_scratch, int max_run = 1) {
   shape.template distance<ComputeUVs>(p, result_scratch);
 
   float d = result_scratch.dist;
   constexpr float pixel_width = 2.0f * PI_F / W;
   constexpr bool solid = std::remove_cvref_t<decltype(shape)>::is_solid;
   float threshold = solid ? pixel_width : 0.0f;
+
+  // The offer spans (max_run - 1) columns of longitude past the probe, so the
+  // surface cannot cross the block when d clears it by that arc (foreshortened
+  // by sin(phi); 1.25 covers distance() reporting in plane units, which runs
+  // slightly wider than angular). Strokes never splat: their coverage varies
+  // inside the band, so only the all-clear case consumes the block.
+  int span = 1;
+  if constexpr (POLE_LOD_ENABLED) {
+    if (max_run > 1 && !debug_bb) {
+      const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
+      const float block_slack =
+          static_cast<float>(max_run - 1) * pixel_width * sin_phi * 1.25f;
+      if (d >= threshold + block_slack)
+        return max_run;
+      if (solid && d <= -pixel_width - block_slack)
+        span = max_run;
+    }
+  }
 
   if (debug_bb || d < threshold) {
     float alpha = 1.0f;
@@ -122,7 +144,7 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     }
 
     if (!debug_bb && alpha <= MIN_ALPHA)
-      return;
+      return span;
 
     // Scratch Fragment is reused across pixels; reset color each call so a
     // conditionally-writing shader starts from a clean color/alpha (matches
@@ -147,11 +169,12 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
 
     if (frag_scratch.color.alpha > MIN_ALPHA) {
       const float a = frag_scratch.color.alpha * alpha;
-      for (int i = 0; i < run; ++i)
+      for (int i = 0; i < span; ++i)
         pipeline.plot(canvas, x + i, y, frag_scratch.color.color,
                       frag_scratch.age, a);
     }
   }
+  return span;
 }
 
 /**
@@ -218,20 +241,23 @@ HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
  * @param get_intervals (int y, auto &out) -> bool. Pushes {float,float}
  *                      intervals via out(start, end). Returns true if intervals
  *                      were produced, false for full-row scan.
- * @param pixel_fn (int wx, int y, const Vector &p, int run) -> void, called
- *                 once per column run; paints columns [wx, wx+run).
+ * @param pixel_fn (int wx, int y, const Vector &p, int max_run) -> int, offered
+ *                 the columns [wx, wx+max_run) with p at column wx; returns how
+ *                 many of them it consumed — max_run when the wx probe decided
+ *                 the whole offer, else 1 (never 0).
  * @param xc Column-arc clip; pixel runs are intersected with the arc before
  *           walking, so pixel_fn is never called for a clipped column.
  * @details Iterates y in [y_min, y_max], collects float intervals per row via
- * get_intervals, wraps x coordinates, and calls pixel_fn(wx, y, p, run) per
- * column run.
+ * get_intervals, wraps x coordinates, and offers pixel_fn column runs.
  *
- * Near-pole rows shade one column per run of `pole_lod_aggressiveness /
- * sin(phi)` columns and splat that shade across the run (constants.h). Run
- * boundaries and the shaded column are anchored to canvas column 0, not to the
- * clip or the span, so a column shades identically whichever segment renders it
- * and the pattern carries across a segment seam. At aggressiveness 0 every run
- * is one column and the walk is bit-identical to an undecimated one.
+ * Near-pole rows offer whole blocks of `pole_lod_aggressiveness / sin(phi)`
+ * columns (constants.h) so the sink can settle physically-overlapping columns
+ * with one probe; the sink keeps per-column resolution wherever its probe
+ * cannot vouch for the block. Only full canvas-aligned blocks are offered —
+ * partial blocks at clip or span edges go per column — so a column shades
+ * identically whichever segment renders it and the pattern carries across a
+ * segment seam. At aggressiveness 0 every offer is one column and the walk is
+ * bit-identical to an undecimated one.
  *
  * Producer contract: emitted endpoints are in fractional column units and need
  * NOT lie in [0,W) — a start may be negative or a span may straddle θ=0 (this
@@ -275,30 +301,22 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
 
-  // Runs are laid out on canvas-absolute multiples of `stride` and shaded at
-  // the run's own middle column, both independent of x1/x2, so a clipped
-  // sub-run reproduces the shade the full run would have had.
+  // A full canvas-aligned block of `stride` columns is offered to the sink as
+  // one call probed at the block's first column; the sink returns how many
+  // columns it consumed. Partial blocks at clip or span edges are walked per
+  // column, so a column shades identically whichever segment renders it.
   auto walk = [&](int x1, int x2, int y, float sp, float cp, int stride) {
-    if constexpr (!POLE_LOD_ENABLED) {
-      for (int x = x1; x < x2; ++x)
-        pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
-      return;
-    }
-    if (stride == 1) {
-      for (int x = x1; x < x2; ++x)
-        pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
-      return;
-    }
-    for (int base = (x1 / stride) * stride; base < x2; base += stride) {
-      const int rs = base > x1 ? base : x1;
-      const int re = (base + stride) < x2 ? (base + stride) : x2;
-      if (rs >= re)
-        continue;
-      int sx = base + (stride >> 1);
-      if (sx >= W)
-        sx = W - 1;
-      pixel_fn(rs, y, Vector(sp * cos_theta[sx], cp, sp * sin_theta[sx]),
-               re - rs);
+    for (int x = x1; x < x2; ++x) {
+      if constexpr (POLE_LOD_ENABLED) {
+        if (stride > 1 && x % stride == 0 && x + stride <= x2) {
+          x += pixel_fn(x, y,
+                        Vector(sp * cos_theta[x], cp, sp * sin_theta[x]),
+                        stride) -
+               1;
+          continue;
+        }
+      }
+      pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
     }
   };
   // Intersect a coalesced run [x1, x2) with the clip arc before walking. A
@@ -487,10 +505,11 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       [&](int y, auto &&out) {
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
-      [&](int wx, int y, const Vector &p, int run) {
-        process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
-                                        fragment_shader, effective_debug,
-                                        result_scratch, frag_scratch, run);
+      [&](int wx, int y, const Vector &p, int max_run) {
+        return process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas,
+                                               shape, fragment_shader,
+                                               effective_debug, result_scratch,
+                                               frag_scratch, max_run);
       },
       xc);
 }
@@ -537,11 +556,11 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       [&](int y, auto &&out) {
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
-      [&](int x, int y, const Vector &p, int run) {
+      [&](int x, int y, const Vector &p, int max_run) {
         if (effective_debug) {
-          for (int i = 0; i < run; ++i)
+          for (int i = 0; i < max_run; ++i)
             pipeline.plot(canvas, x + i, y, plot_color, 0, 1.0f);
-          return;
+          return max_run;
         }
 
         float d;
@@ -551,20 +570,37 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
           shape.template distance<false>(p, result);
           d = result.dist;
         }
+
+        // The color is constant, so a block the surface cannot cross is exact
+        // whether skipped or splatted at full coverage; edge blocks stay
+        // per-column. Slack as in process_pixel.
+        int span = 1;
+        if constexpr (POLE_LOD_ENABLED) {
+          if (max_run > 1) {
+            const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
+            const float block_slack = static_cast<float>(max_run - 1) *
+                                      PIXEL_WIDTH * sin_phi * 1.25f;
+            if (d >= PIXEL_WIDTH + block_slack)
+              return max_run;
+            if (d <= -PIXEL_WIDTH - block_slack)
+              span = max_run;
+          }
+        }
         if (d >= PIXEL_WIDTH)
-          return;
+          return span;
 
         float coverage = 1.0f;
         if (d > -PIXEL_WIDTH) {
           const float t = 0.5f - d / (2.0f * PIXEL_WIDTH);
           coverage = quintic_kernel(t);
           if (coverage <= MIN_ALPHA)
-            return;
+            return span;
         }
 
         const float alpha = color.alpha * coverage;
-        for (int i = 0; i < run; ++i)
+        for (int i = 0; i < span; ++i)
           pipeline.plot(canvas, x + i, y, plot_color, 0, alpha);
+        return span;
       },
       xc);
 }
@@ -2412,16 +2448,11 @@ struct Volume {
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
-        [&](int px, int py, const Vector &p, int run) {
-          auto splat = [&](const auto &c, float a) {
-            for (int i = 0; i < run; ++i)
-              pipeline.plot(canvas, px + i, py, c, 0.0f, a);
-          };
-
+        [&](int px, int py, const Vector &p, int max_run) {
           // Back-face cull
           float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
           if (facing >= 0.0f)
-            return;
+            return 1;
 
           // Orthographic ray-sphere cull
           float pp_x = p.x - facing * vd.x;
@@ -2431,7 +2462,7 @@ struct Volume {
           float dy = pp_y - bc_proj.y;
           float dz = pp_z - bc_proj.z;
           if (dx * dx + dy * dy + dz * dz > bounds_r2)
-            return;
+            return 1;
 
           // Orthographic ray origin: outside the unit sphere
           Vector ro(pp_x - vd.x * start_offset, pp_y - vd.y * start_offset,
@@ -2448,8 +2479,23 @@ struct Volume {
               trace_closest(shape, local_ro, local_vd, bounds_radius, max_steps,
                             aa_width, closest_local);
 
-          if (closest_d >= aa_width)
-            return;
+          if (closest_d >= aa_width) {
+            // Shifting the ray origin one column moves every sampled point by
+            // at most that chord, and the SDF is 1-Lipschitz, so clearance
+            // beyond the offer's own width holds for the whole block. Traced
+            // hits stay per-column: shading varies along the surface, so a
+            // splat would band.
+            if constexpr (POLE_LOD_ENABLED) {
+              if (max_run > 1) {
+                const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
+                const float block_slack = static_cast<float>(max_run - 1) *
+                                          (2.0f * PI_F / W) * sin_phi * 1.25f;
+                if (closest_d >= aa_width + block_slack)
+                  return max_run;
+              }
+            }
+            return 1;
+          }
 
           // --- Fragment shading ---
           Fragment frag;
@@ -2490,13 +2536,15 @@ struct Volume {
               }
               if (bg.color.alpha > MIN_ALPHA) {
                 HS_PROFILE_DEEP(vol_plot);
-                splat(bg.color.color, bg.color.alpha);
+                pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
+                              bg.color.alpha);
               }
               if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
                 HS_PROFILE_DEEP(vol_plot);
-                splat(frag.color.color, frag.color.alpha * edge_alpha);
+                pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
+                              frag.color.alpha * edge_alpha);
               }
-              return;
+              return 1;
             }
             // No solid behind; a grazed background edge fills the corner,
             // shaded at its own point so the fill carries the background's
@@ -2510,14 +2558,17 @@ struct Volume {
                 frag_fn(occ.behind, bg);
               }
               HS_PROFILE_DEEP(vol_plot);
-              splat(bg.color.color, bg.color.alpha * occ.soft);
+              pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
+                            bg.color.alpha * occ.soft);
             }
           }
 
           if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
             HS_PROFILE_DEEP(vol_plot);
-            splat(frag.color.color, frag.color.alpha * edge_alpha);
+            pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
+                          frag.color.alpha * edge_alpha);
           }
+          return 1;
         },
         vol_xc);
   }

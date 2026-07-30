@@ -573,6 +573,7 @@ inline void test_scan_region_seam_no_double_plot() {
         for (int i = 0; i < run; ++i)
           if (wx + i >= 0 && wx + i < W)
             counts[wx + i]++;
+        return run;
       });
 
   // No pixel plotted more than once (the wrapped overlap at x=0,1 is not doubled).
@@ -613,6 +614,7 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
         for (int i = 0; i < run; ++i)
           if (wx + i >= 0 && wx + i < W)
             counts[wx + i]++;
+        return run;
       });
 
   for (int x = 0; x < W; ++x)
@@ -664,8 +666,12 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
             if (x >= 0 && x < W)
               block[static_cast<size_t>(x)] = x / lod_stride;
           }
-          // Every run lies inside one canvas-anchored block.
+          // Every offer lies inside one canvas-anchored block, and a
+          // multi-column offer starts on its block boundary.
           HS_EXPECT_EQ(wx / lod_stride, (wx + run - 1) / lod_stride);
+          if (run > 1)
+            HS_EXPECT_EQ(wx % lod_stride, 0);
+          return run;
         },
         xc);
   };
@@ -720,6 +726,7 @@ inline void test_scan_region_clip_arc_matches_predicate() {
           for (int i = 0; i < run; ++i)
             if (wx + i >= 0 && wx + i < W)
               counts[wx + i]++;
+          return run;
         },
         xc);
   };
