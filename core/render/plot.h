@@ -692,6 +692,76 @@ static inline bool geodesic_col_span(const Vector &a, const Vector &b,
                                    a, es, col_s, col_len);
 }
 
+/**
+ * @brief Exact clip visibility of one geodesic edge.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam ColSpanFn bool(int &col_s, int &col_len), the edge's column arc;
+ *         false when no useful bound exists.
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param band_len Clip band length in columns (seam-unwrapped).
+ * @param ra Precomputed y_to_screen_row<H>(a.y).
+ * @param rb Precomputed y_to_screen_row<H>(b.y).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param es Shared setup from make_geodesic_edge_span(a, b).
+ * @param col_span Column-arc source, evaluated only once the row span survives
+ *        and x clipping is active.
+ * @return True if the rendered edge could produce a pixel inside the clip.
+ * @details The single definition of the geodesic segment cull: rasterize
+ * evaluates it per edge through edge_visible_in_clip, and the hoisted trail
+ * gates evaluate it per edge from shared per-point coordinates. Every caller
+ * must agree exactly or the paths diverge.
+ */
+template <int W, int H, typename ColSpanFn>
+static __attribute__((always_inline)) inline bool
+exact_geodesic_edge_visible(const ClipRegion &cr, const ClipRegion::XClip &xc,
+                            int band_len, float ra, float rb, const Vector &a,
+                            const Vector &b, const GeodesicEdgeSpan &es,
+                            ColSpanFn &&col_span) {
+  float row_lo, row_hi;
+  geodesic_row_span_rows<W, H>(ra, rb, a, b, es, row_lo, row_hi);
+  if (!cr.could_intersect_y(row_lo, row_hi))
+    return false;
+  if (!xc.active)
+    return true;
+  int col_s, col_len;
+  if (!col_span(col_s, col_len))
+    return true;
+  return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+}
+
+/**
+ * @brief Exact clip visibility of one geodesic edge, from a trail's hoisted
+ *        per-point screen coordinates.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param band_len Clip band length in columns (seam-unwrapped).
+ * @param rows Per-point screen rows from trail_gate_prologue.
+ * @param cols Per-point screen columns from trail_gate_prologue; read only when
+ *        x clipping is active, so it may be null otherwise.
+ * @param e Edge index; the edge runs from point @p e to point @p e + 1.
+ * @param a Edge start, trail point @p e.
+ * @param b Edge end, trail point @p e + 1.
+ * @param es Shared setup from make_geodesic_edge_span(a, b).
+ * @return True if the rendered edge could produce a pixel inside the clip.
+ */
+template <int W, int H>
+static __attribute__((always_inline)) inline bool
+exact_geodesic_edge_visible_hoisted(const ClipRegion &cr,
+                                    const ClipRegion::XClip &xc, int band_len,
+                                    const float *rows, const float *cols,
+                                    size_t e, const Vector &a, const Vector &b,
+                                    const GeodesicEdgeSpan &es) {
+  return exact_geodesic_edge_visible<W, H>(
+      cr, xc, band_len, rows[e], rows[e + 1], a, b, es,
+      [&](int &col_s, int &col_len) {
+        return geodesic_col_span_cols<W>(cols[e], cols[e + 1], a, es, col_s,
+                                         col_len);
+      });
+}
+
 enum class RawGeodesicGateResult : uint8_t {
   CULLED,
   VISIBLE,
@@ -1021,9 +1091,8 @@ static inline bool antialiased_dot_visible_in_clip(const ClipRegion &cr,
  * @param b Edge end (unit sphere point).
  * @param pb Planar projection basis for the edge, or null for geodesic.
  * @return True if the rendered edge could produce a pixel inside the clip.
- * @details The single definition of the segment cull: rasterize evaluates it
- * per edge, and Plot::ParticleSystem::draw precomputes it per trail to gate
- * the deferred shader — both must agree exactly or the two paths diverge.
+ * @details Geodesic edges route to exact_geodesic_edge_visible; the planar
+ * branch is the single definition of the planar segment cull.
  */
 template <int W, int H, typename PipelineT>
 static inline bool
@@ -1031,21 +1100,18 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
                      const ClipRegion::XClip &xc, int band_len, const Vector &a,
                      const Vector &b, const Basis *pb) {
   auto pred = [&](const Vector &ea, const Vector &eb, const Basis *bp) {
-    float row_lo, row_hi;
-    int col_s, col_len;
     if (bp == nullptr) {
       // Geodesic: both span bounds share one edge setup (angle, arc pole).
       const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
-      geodesic_row_span<W, H>(ea, eb, es, row_lo, row_hi);
-      if (!cr.could_intersect_y(row_lo, row_hi))
-        return false;
-      if (!xc.active)
-        return true;
-      if (!geodesic_col_span<W>(ea, eb, es, col_s, col_len))
-        return true;
-      return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+      return exact_geodesic_edge_visible<W, H>(
+          cr, xc, band_len, y_to_screen_row<H>(ea.y), y_to_screen_row<H>(eb.y),
+          ea, eb, es, [&](int &col_s, int &col_len) {
+            return geodesic_col_span<W>(ea, eb, es, col_s, col_len);
+          });
     }
     // Planar: both span bounds share one projection + chart-line sample set.
+    float row_lo, row_hi;
+    int col_s, col_len;
     const PlanarEdgeSpan ps = make_planar_edge_span(ea, eb, *bp);
     planar_row_span<W, H>(ea, eb, ps, row_lo, row_hi);
     if (!cr.could_intersect_y(row_lo, row_hi))
@@ -2785,10 +2851,8 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
  * @param bits Output, one byte per edge (trail.size() - 1): 0 = culled, else
  *        1; valid as rasterize()'s edge_visible input.
  * @return False when no edge is visible; bits are then all zero.
- * @details Per-edge verdicts are exactly edge_visible_in_clip's (rasterize
- * consumes them as its cull). The hoisted per-point coordinates and the
- * whole-trail culls come from trail_gate_prologue, shared with
- * ParticleSystem::draw's gate.
+ * @details The hoisted per-point coordinates and the whole-trail culls come
+ * from trail_gate_prologue, shared with ParticleSystem::draw's gate.
  */
 HS_O3_BEGIN
 template <int W, int H, typename PipelineT>
@@ -2835,20 +2899,8 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
     }
 
     const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
-    float row_lo, row_hi;
-    geodesic_row_span_rows<W, H>(rows[e], rows[e + 1], ea, eb, es, row_lo,
-                                 row_hi);
-    bool v;
-    if (!cr.could_intersect_y(row_lo, row_hi)) {
-      v = false;
-    } else if (!xc.active) {
-      v = true;
-    } else {
-      int col_s, col_len;
-      v = !geodesic_col_span_cols<W>(cols[e], cols[e + 1], ea, es, col_s,
-                                     col_len) ||
-          ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
-    }
+    const bool v = exact_geodesic_edge_visible_hoisted<W, H>(
+        cr, xc, band_len, rows, cols, e, ea, eb, es);
     bits[e] = v ? 1 : 0;
     any = any || v;
   }
@@ -3247,9 +3299,7 @@ struct ParticleSystem {
           // No stage re-emits edges, so the predicate sees the raw points:
           // per-point rows/columns are computed once and shared by every edge,
           // and a conservative whole-trail bound rejects fully-invisible
-          // trails before any per-edge work. The per-edge pass must produce
-          // exactly the bits edge_visible_in_clip would (rasterize consumes
-          // them as its cull).
+          // trails before any per-edge work.
           const TrailGatePrologue pro =
               trail_gate_prologue<W, H>(cr, xc, band_len, trail);
           if (pro.rejected)
@@ -3286,20 +3336,8 @@ struct ParticleSystem {
             } else {
               count_particle_exact_gate_fallback();
               const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
-              float row_lo, row_hi;
-              geodesic_row_span_rows<W, H>(rows[e], rows[e + 1], ea, eb, es,
-                                           row_lo, row_hi);
-              if (!cr.could_intersect_y(row_lo, row_hi)) {
-                v = false;
-              } else if (!xc.active) {
-                v = true;
-              } else {
-                int col_s, col_len;
-                v = !geodesic_col_span_cols<W>(cols[e], cols[e + 1], ea, es,
-                                               col_s, col_len) ||
-                    ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len,
-                                             W);
-              }
+              v = exact_geodesic_edge_visible_hoisted<W, H>(
+                  cr, xc, band_len, rows, cols, e, ea, eb, es);
             }
             bits[e] = EDGE_CLASSIFIED | (v ? EDGE_VISIBLE : uint8_t{0});
             any = any || v;
