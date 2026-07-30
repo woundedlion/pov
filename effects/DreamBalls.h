@@ -62,16 +62,24 @@ public:
 
     // Bind before any preset bakes through it.
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
+    auto entries = preset_manager.get_entries();
+    entries[0].params.palette = &blood_stream_falloff;
+    entries[1].params.palette = &blood_stream_falloff;
+    entries[2].params.palette = &Palettes::RICH_SUNSET;
+    entries[3].params.palette = &Palettes::LAVENDER_LAKE;
 
     params = preset_manager.get();
     baked_palettes[0].bake(persistent_arena, *params.palette);
     baked_palettes[1].bake(persistent_arena, *params.palette);
 
-    register_animated_param("Copies", &params.num_copies, 1.0f, 20.0f);
-    register_animated_param("Radius", &params.offset_radius, 0.0f, 1.0f);
-    register_animated_param("Speed", &params.offset_speed, 0.0f, 5.0f);
-    register_animated_param("Warp", &params.warp_scale, 0.0f, 5.0f);
-    register_animated_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_animated_param("Copies", &params.num_copies, COPIES_MIN,
+                            COPIES_MAX);
+    register_animated_param("Radius", &params.offset_radius, RADIUS_MIN,
+                            RADIUS_MAX);
+    register_animated_param("Speed", &params.offset_speed, SPEED_MIN,
+                            SPEED_MAX);
+    register_animated_param("Warp", &params.warp_scale, WARP_MIN, WARP_MAX);
+    register_animated_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
 
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &) { this->spin_slices(); }, true));
@@ -103,6 +111,12 @@ public:
 
 private:
   friend struct ::hs_test::effects_tests::DreamBallsWhiteBox;
+
+  static constexpr float COPIES_MIN = 1.0f, COPIES_MAX = 20.0f;
+  static constexpr float RADIUS_MIN = 0.0f, RADIUS_MAX = 1.0f;
+  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
+  static constexpr float WARP_MIN = 0.0f, WARP_MAX = 5.0f;
+  static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
 
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
@@ -218,15 +232,29 @@ private:
   PaletteFacade<decltype(blood_stream_composition)> blood_stream_falloff{
       &blood_stream_composition};
 
-  Presets<Params, 4> preset_manager{std::array<PresetEntry<Params>, 4>{
-      {{{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f, &blood_stream_falloff,
-         0.7f}},
-       {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
-         &blood_stream_falloff, 0.7f}},
-       {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
-         &Palettes::RICH_SUNSET, 0.3f}},
-       {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
-         &Palettes::LAVENDER_LAKE, 0.3f}}}}};
+  static constexpr std::array<PresetEntry<Params>, 4> PRESETS = {{
+      {{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f, nullptr, 0.7f}},
+      {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f, nullptr, 0.7f}},
+      {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f, nullptr, 0.3f}},
+      {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f, nullptr, 0.3f}},
+  }};
+
+  static constexpr bool preset_in_ranges(const Params &p) {
+    return p.num_copies >= COPIES_MIN && p.num_copies <= COPIES_MAX &&
+           p.offset_radius >= RADIUS_MIN && p.offset_radius <= RADIUS_MAX &&
+           p.offset_speed >= SPEED_MIN && p.offset_speed <= SPEED_MAX &&
+           p.warp_scale >= WARP_MIN && p.warp_scale <= WARP_MAX &&
+           p.alpha >= ALPHA_MIN && p.alpha <= ALPHA_MAX;
+  }
+
+  static_assert(preset_in_ranges(PRESETS[0].params) &&
+                    preset_in_ranges(PRESETS[1].params) &&
+                    preset_in_ranges(PRESETS[2].params) &&
+                    preset_in_ranges(PRESETS[3].params),
+                "a DreamBalls preset drives a param outside its registered "
+                "slider range; widen the range to accommodate the preset");
+
+  Presets<Params, 4> preset_manager{PRESETS};
 
   /**
    * @brief Generates each preset's solid and bakes its geometry into the
