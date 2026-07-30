@@ -32,6 +32,7 @@
 
 #include <type_traits>
 #include <cstdint>
+#include <cstring>
 
 namespace hs {
 /**
@@ -211,7 +212,6 @@ inline constexpr int H_OFFSET = 3;
 #include <cmath>
 #include <algorithm>
 
-#include <cstring>
 #include <chrono>
 #include <cstdio>
 
