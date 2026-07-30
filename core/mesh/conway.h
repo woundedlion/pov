@@ -929,13 +929,13 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
  * @param t Thickness factor for the new hexagons, the fraction each face corner
- *   moves toward the face centroid, in [0..1]; outside that domain the new
- *   vertices leave the face, so it traps per the fail-fast doctrine.
+ *   moves toward the face centroid, in [0..1); at 1 a face's corners collapse
+ *   to its centroid, so it traps per the fail-fast doctrine.
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
                                 Arena &temp, float t = 0.5f) {
-  HS_CHECK(t >= 0.0f && t <= 1.0f, "chamfer: t out of [0,1]");
+  HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -1178,9 +1178,9 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
- * @param t Inset factor of each face toward its centroid, in [0..1]; outside
- *   that domain the inset vertices leave the face, so it traps per the
- *   fail-fast doctrine.
+ * @param t Inset factor of each face toward its centroid, in [0..1); at 1 a
+ *   face's corners collapse to its centroid, so it traps per the fail-fast
+ *   doctrine.
  * @param twist Per-face rotation about the face normal, in radians; 0 disables
  *   the twist pass. Unbounded (angles wrap).
  * @return Fresh snub PolyMesh allocated in `target`.
@@ -1191,7 +1191,7 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
  */
 HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
                              float t = 0.5f, float twist = 0.0f) {
-  HS_CHECK(t >= 0.0f && t <= 1.0f, "snub: t out of [0,1]");
+  HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();

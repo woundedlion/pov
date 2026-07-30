@@ -630,6 +630,26 @@ inline void case_mesh_narrow_index() {
     std::printf("x");
 }
 
+/** @brief Death case: chamfer rejects the face-collapse endpoint. */
+inline void case_chamfer_collapsed_endpoint() {
+  static uint8_t target_buf[64];
+  static uint8_t temp_buf[64];
+  Arena target(target_buf, sizeof(target_buf));
+  Arena temp(temp_buf, sizeof(temp_buf));
+  PolyMesh mesh;
+  MeshOps::chamfer(mesh, target, temp, opaque(1.0f));
+}
+
+/** @brief Death case: snub rejects the face-collapse endpoint. */
+inline void case_snub_collapsed_endpoint() {
+  static uint8_t target_buf[64];
+  static uint8_t temp_buf[64];
+  Arena target(target_buf, sizeof(target_buf));
+  Arena temp(temp_buf, sizeof(temp_buf));
+  PolyMesh mesh;
+  MeshOps::snub(mesh, target, temp, opaque(1.0f));
+}
+
 /**
  * @brief Builds a one-face PolyMesh with independently sized count and index
  * data.
@@ -1495,6 +1515,8 @@ inline const Case *all_cases(int &n) {
        case_correction_guard_double_construct},
       {"correction_guard_cross_type", case_correction_guard_cross_type},
       {"mesh_narrow_index", case_mesh_narrow_index},
+      {"chamfer_collapsed_endpoint", case_chamfer_collapsed_endpoint},
+      {"snub_collapsed_endpoint", case_snub_collapsed_endpoint},
       {"half_edge_face_counts_short", case_half_edge_face_counts_short},
       {"half_edge_face_counts_long", case_half_edge_face_counts_long},
       {"mesh_compile_face_counts_short", case_mesh_compile_face_counts_short},
@@ -1792,7 +1814,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 78;
+  constexpr int DEATH_CASE_COUNT = 80;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
