@@ -41,7 +41,7 @@ ZIP_EXT = {".gtl", ".g1", ".g2", ".gbl", ".gto", ".gbo", ".gts", ".gbs",
 
 # Assembly policy: JLC reflows only top-side SMD. Exclude hand-soldered
 # through-hole (connectors, electrolytic, Teensy), solder jumpers, and DNP.
-EXCLUDE_FP_SUBSTR = ("PinHeader", "SolderJumper", "CP_Radial")
+EXCLUDE_FP_SUBSTR = ("PinHeader", "JST_", "SolderJumper", "CP_Radial")
 EXCLUDE_VAL_SUBSTR = ("Teensy",)
 ASSEMBLY_SIDE = "top"
 MIN_STANDARD_VIA_DIAMETER_MM = 0.45
