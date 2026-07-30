@@ -2201,11 +2201,12 @@ inline void test_budget_lost_symbol() {
   // exactly one boundary symbol (the HALF, 104 columns ahead).
   sim.boards[1].drop_from = sim.g;
   sim.boards[1].drop_to = sim.g + PERIOD;
-  const Telemetry &tm = sim.boards[1].board.telemetry();
-  const uint32_t acc_before = tm.symbols_accepted;
+  const uint32_t acc_before =
+      sim.boards[1].board.telemetry().symbols_accepted;
 
   HS_EXPECT_LE(max_err_over(sim, 1.5), 1); // sub-column through coast+re-snap
   HS_EXPECT_TRUE(sim.boards[1].board.lock() == LockState::LOCKED);
+  const Telemetry tm = sim.boards[1].board.telemetry();
   HS_EXPECT_GE(tm.max_coast_halves, 2u);             // it did coast…
   HS_EXPECT_GE(tm.symbols_accepted, acc_before + 2); // …and re-snapped
   HS_EXPECT_EQ(tm.symbols_rejected_gate, 0u);
@@ -2349,13 +2350,14 @@ inline void test_budget_beacon_corruption() {
   sim.emi_pos = 0;
   std::sort(sim.emi.begin(), sim.emi.end());
 
-  const Telemetry &tm1 = sim.boards[1].board.telemetry();
-  const uint32_t ok_before = tm1.beacons_ok;
-  const uint32_t rej_before = tm1.beacons_rejected;
+  const Telemetry before = sim.boards[1].board.telemetry();
+  const uint32_t ok_before = before.beacons_ok;
   sim.run_revs(1.0);
-  HS_EXPECT_EQ(tm1.beacons_rejected, rej_before + 1); // dropped whole
-  HS_EXPECT_EQ(tm1.beacons_ok, ok_before);            // nothing applied
-  HS_EXPECT_EQ(tm1.beacon_index_corrections, 0u);
+  const Telemetry after = sim.boards[1].board.telemetry();
+  HS_EXPECT_EQ(after.beacons_rejected,
+               before.beacons_rejected + 1);        // dropped whole
+  HS_EXPECT_EQ(after.beacons_ok, ok_before); // nothing applied
+  HS_EXPECT_EQ(after.beacon_index_corrections, 0u);
   // Recovery: the next clean beacon decodes within one period.
   HS_EXPECT_TRUE(sim.run_until(
       [ok_before](Sim &s) {
