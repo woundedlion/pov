@@ -43,7 +43,8 @@ Both checks run via `kicad-cli` (KiCad 10.0):
   `lib_symbol_mismatch` notices for embedded copies of stock/custom symbols;
   the exported connectivity is verified separately below.
 - **Netlist matches spec §10** — exported with `kicad-cli sch export netlist` and
-  diffed against the net table in the spec (see `gen/check.py`). Every net in §10 is
+  diffed against the net table in the spec (see `gen/check.py`), keyed on `(ref, pin)`
+  so a connector or IC pinout permutation fails. Every net in §10 is
   realized with the correct members (logic feed `J1 → F1 → Q_REV → FB → +5V_LOGIC`;
   series terminations `U1 out → R → J2`/bus; the pin-3 divider node ties Teensy D3,
   `U1` ch-C input, `R1`/`R2`/`C_SYNC`; ID0/ID1/ID2 straps; `MASTER_EN`; shield).
@@ -214,7 +215,7 @@ python board.py          # ../phantasm.kicad_{sch,sym} + sym-lib-table (.kicad_p
 python pcb.py            # ../phantasm.kicad_pcb (placed, unrouted) + phantasm.pretty + fp-lib-table
 python pcb.py --unplaced # ../unplaced/phantasm_unplaced.kicad_pcb (footprints staged below outline, for Quilter)
 "$KICAD/bin/python" stackup.py  # upgrade unplaced/ board to 4-layer SIG/GND/GND/SIG + stackup, heal min_clearance
-python check.py          # gate: exported netlist == spec §10 (by ref membership)
+python check.py          # gate: exported netlist == spec §10 (by (ref, pin) node)
 python shorts.py         # union-find short check on the schematic
 ```
 
