@@ -1400,6 +1400,10 @@ inline void test_baked_palette_color_sampler_matches_get() {
   BakedPalette baked;
   baked.bake(arena, source);
 
+  HS_EXPECT_NEAR(baked.get(0.0f).alpha, 0.1f, 2e-5f);
+  HS_EXPECT_NEAR(baked.get(0.5f).alpha, 0.5f, 2e-5f);
+  HS_EXPECT_NEAR(baked.get(1.0f).alpha, 0.9f, 2e-5f);
+
   for (int i = -128; i <= 65663; ++i) {
     float t = static_cast<float>(i) / 65535.0f;
     HS_EXPECT_EQ(baked.get_color(t), baked.get(t).color);
