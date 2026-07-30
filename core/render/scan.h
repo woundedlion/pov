@@ -309,8 +309,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
     for (int x = x1; x < x2; ++x) {
       if constexpr (POLE_LOD_ENABLED) {
         if (stride > 1 && x % stride == 0 && x + stride <= x2) {
-          x += pixel_fn(x, y,
-                        Vector(sp * cos_theta[x], cp, sp * sin_theta[x]),
+          x += pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]),
                         stride) -
                1;
           continue;
@@ -506,10 +505,9 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int wx, int y, const Vector &p, int max_run) {
-        return process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas,
-                                               shape, fragment_shader,
-                                               effective_debug, result_scratch,
-                                               frag_scratch, max_run);
+        return process_pixel<W, H, ComputeUVs>(
+            wx, y, p, pipeline, canvas, shape, fragment_shader, effective_debug,
+            result_scratch, frag_scratch, max_run);
       },
       xc);
 }
@@ -578,8 +576,8 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         if constexpr (POLE_LOD_ENABLED) {
           if (max_run > 1) {
             const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
-            const float block_slack = static_cast<float>(max_run - 1) *
-                                      PIXEL_WIDTH * sin_phi * 1.25f;
+            const float block_slack =
+                static_cast<float>(max_run - 1) * PIXEL_WIDTH * sin_phi * 1.25f;
             if (d >= PIXEL_WIDTH + block_slack)
               return max_run;
             if (d <= -PIXEL_WIDTH - block_slack)
