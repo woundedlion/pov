@@ -306,9 +306,12 @@ inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
  * @param compiled Baked angle-independent topology.
  * @param out_mesh Output mesh, allocated from @p target_arena.
  * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
- * @param angle Contact angle in radians. At ~0 the star points collapse onto
- *   their corners (flat tiling); larger angles push the rays out so the rays
- *   from adjacent edges intersect to form sharper star points.
+ * @param angle Contact angle in radians; domain [0, pi/2]. At ~0 the star points
+ *   collapse onto their corners (flat tiling); larger angles push the rays out so
+ *   the rays from adjacent edges intersect to form sharper star points. Outside
+ *   the domain the construction aliases onto an in-domain pattern rather than
+ *   failing — it is 2*pi-periodic in the angle and mirrors under negation — so a
+ *   caller at an untrusted boundary must range-check it.
  * @details A corner whose contact planes are near-parallel has no nearby
  *   intersection; its star point falls back to the edge-midpoint mean instead
  *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
@@ -462,7 +465,7 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
  *   reversed polarity below), so it must hold max(compile scratch, output) —
  *   sizing it for the output mesh alone under-provisions.
  * @param temp Arena for the transient compiled topology, discarded on return.
- * @param angle Contact angle in radians (see update_hankin).
+ * @param angle Contact angle in radians; domain [0, pi/2] (see update_hankin).
  * @return The generated Hankin PolyMesh, allocated from @p target.
  * @details Convenience wrapper for callers that do not vary the angle. To
  * animate the angle, keep a CompiledHankin and call update_hankin repeatedly.

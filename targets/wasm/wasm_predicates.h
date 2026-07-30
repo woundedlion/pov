@@ -77,6 +77,20 @@ inline float clamp_unit_fraction(float t) {
 }
 
 /**
+ * @brief True when a Hankin contact angle falls outside its [0, max] domain.
+ * @param radians Contact angle from the JS boundary.
+ * @param max_radians Inclusive upper bound of the operator's domain (pi/2).
+ * @return true when the angle is out of domain.
+ * @details The Hankin construction is 2*pi-periodic in the angle and mirrors
+ *          under negation, so an out-of-domain angle silently aliases onto an
+ *          in-domain pattern instead of failing. Callers reject non-finite args
+ *          first.
+ */
+inline bool hankin_angle_out_of_range(float radians, float max_radians) {
+  return radians < 0.0f || radians > max_radians;
+}
+
+/**
  * @brief True when a gradient-shape index falls outside [lo, hi].
  * @details bakeLut casts the JS int into the GradientShape enum; an out-of-range
  *          value is UB, so the boundary clamps it to the default shape (lo).
