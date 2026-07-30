@@ -89,46 +89,8 @@ LUT is disarmed, and `init_gamut_lut`'s one caller repo-wide is
 
 ## 0. Ground rules (non-negotiable)
 
-**Never write to `C:\work\Holosphere` directly.** It is a shared main tree with
-concurrent peer sessions committing under the *same git identity* as you. Work
-in your own worktree:
-
-```
-cd /c/work/Holosphere && BASE=$(git rev-parse refs/heads/master)
-git worktree add ../hs-wt-<yourtask> -b work/<yourtask> $BASE
-```
-
-Always `git -C C:/work/hs-wt-<yourtask> ...`; never `cd` into a tree and rely on
-cwd. Land only by rebasing onto live `refs/heads/master` and doing an **attached
-`git merge --ff-only`** in the main tree, asserting
-`git merge-base --is-ancestor` first. `master` is append-only and a
-`reference-transaction` hook enforces it. If the merge refuses over main-tree
-WIP, **stop and surface it** — never stash or discard a peer's work.
-
-**The device is a single shared Teensy.** Never run `pio run -t upload` or
-`profile_capture.py` directly — they bypass the host-global lock and an upload
-issued while a peer holds the port reports SUCCESS *without flashing*, so you
-can capture a clean, plausible log of the peer's firmware. The only supported
-path is `tools/profile_one.sh`, which takes the lock. `HS_DEVICE_WAIT=<sec>` to
-queue. `bash tools/device_lock.sh status` to check.
-
-`tools/profile_one.sh` always builds **`/c/work/Holosphere`** (hardcoded `cd`),
-whatever tree you invoke it from. **You cannot profile your worktree.** Land
-first, or hand the run back to the coordinator.
-
-**Style:** invoke the `code-style` skill first and obey it. Terse factual
-comments only — no narration, no justifying correct code, no history in
-comments, no finding/ticket references. `core/render/sdf.h` has pre-existing
-whole-file clang-format drift against local clang-format v22: hand-format your
-own lines and commit with `HS_SKIP_FORMAT=1`; **never** run `clang-format -i`.
-No `Co-Authored-By` line.
-
-**Gates after every commit:**
-- `export EMSDK=C:/work/emsdk; cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF;
-  cmake --build --preset tests -j 8; ctest --preset tests` → **51/51**
-- `pio run -e phantasm` → `[teensy-gate] phantasm: PASS`, and **report the RAM1
-  `code` figure and headroom**. Headroom is ~6 KB of a 196,608 B ceiling; this
-  is a real constraint that has vetoed changes before.
+Worktree and landing discipline, shared-device access, style, and the
+per-commit gates: `docs/agent_workflow.md`.
 
 ---
 
