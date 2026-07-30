@@ -101,9 +101,8 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
-    // Mirror live slider edits into the active sprite's snapshot so the incoming
-    // shape tracks the sliders while a still-fading outgoing sprite keeps the
-    // frozen snapshot it was spawned with.
+    // Mirror live slider edits into the active sprite's snapshot; the previous
+    // sprite's slot stays at the values it was spawned with.
     param_slots[active_bake] = params;
     {
       HS_PROFILE(db_timeline_step);
@@ -193,8 +192,8 @@ private:
 
   /**
    * @brief Two baked LUTs, ping-ponged per spawn.
-   * @details At most two sprites overlap on a preset change; each captures its
-   *          own slot so an outgoing fade keeps its spawn-time palette.
+   * @details A spawn rebakes the inactive slot, so a rebake never lands on the
+   *          slot a sprite is drawing from.
    */
   BakedPalette baked_palettes[2];
   // Persistent allocations: two ping-ponged palette LUTs plus every preset's
@@ -213,8 +212,8 @@ private:
   /**
    * @brief Per-sprite render-param snapshots, ping-ponged with baked_palettes.
    * @details Each sprite renders from its spawn-time slot; draw_frame() mirrors
-   *          live sliders into the active slot, so the incoming sprite stays
-   *          editable while the outgoing slot is frozen.
+   *          live sliders into the active slot only, so edits reach the drawing
+   *          sprite without touching the previous snapshot.
    */
   Params param_slots[2];
   /** @brief Sprite hand-off crossfade; overlap is CROSSFADE_OVERLAP, set at
@@ -344,8 +343,9 @@ private:
       params = entries[safe_idx].params;
       last_preset_idx = safe_idx;
     }
-    // Ping-pong to the inactive slot so the still-fading previous sprite keeps
-    // its palette and params. draw_frame() keeps the active slot tracking sliders.
+    // Ping-pong to the inactive slot so the rebake never lands on the previous
+    // sprite's palette and params. draw_frame() keeps the active slot tracking
+    // sliders.
     active_bake ^= 1;
     baked_palettes[active_bake].rebake(*params.palette);
     const int bake_slot = active_bake;
@@ -363,8 +363,8 @@ private:
         MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
       }
 
-      // This sprite's own param + palette snapshot keeps geometry and color
-      // continuous across a preset change.
+      // Slot captured at spawn, not active_bake: this sprite renders from its
+      // own param + palette snapshot.
       this->draw_scene(canvas, param_slots[bake_slot],
                        crossfade.opacity(opacity), preset.mesh_state,
                        target_mesh, preset.tangents, preset.edges,
