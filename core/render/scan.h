@@ -25,12 +25,7 @@
  */
 
 /**
- * @brief The Scan namespace contains volumetric (raster) drawing primitives.
- * @details General register mapping for Scan primitives:
- *  v0: Normalized parameter t (0-1) or angle
- *  v1: Raw distance or supplementary value
- *  v2: Stroke AA coverage (0-1), also applied by Scan at plot time; 0 for
- *      solid shapes; Mesh uses face index
+ * @brief The Scan namespace contains area-filling scanline drawing primitives.
  */
 namespace Scan {
 
