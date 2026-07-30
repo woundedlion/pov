@@ -657,7 +657,6 @@ struct DistortedRing {
    * @param knots lut_n + 1 centerline shifts, entry lut_n repeating entry 0;
    *        must outlive the call.
    * @param lut_n Number of knot cells.
-   * @param amplitude Modulation amplitude in world units.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
@@ -668,11 +667,9 @@ struct DistortedRing {
             typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness, const float *knots, int lut_n,
-                   float amplitude, FragmentShaderFn fragment_shader,
-                   float phase = 0, bool debug_bb = false,
-                   bool suppress_pole_fill = false) {
-    SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n, amplitude,
-                             phase);
+                   FragmentShaderFn fragment_shader, float phase = 0,
+                   bool debug_bb = false, bool suppress_pole_fill = false) {
+    SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n, phase);
     shape.suppress_pole_fill = suppress_pole_fill;
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
