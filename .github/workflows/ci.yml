@@ -275,10 +275,14 @@ jobs:
       - name: Test
         # Same deep window and full effects tier as the Debug jobs, so the
         # optimized run covers the same code paths they do.
+        # Exclude generated-artifact gates for the same reason as sanitizers:
+        # this job neither provisions numpy nor enables HS_REQUIRE_GENERATORS.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
-        run: ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
+        run: >
+          ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
+          -E "^unit_(color_luts|color_luts_check|gamut_lut)$"
 
   code-coverage:
     name: Native unit tests (Clang) / llvm-cov summary
