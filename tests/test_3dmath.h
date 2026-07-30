@@ -85,7 +85,7 @@ inline void test_constants() {
   HS_EXPECT_NEAR(math::TOLERANCE, 0.0001f, 1e-9f);
   HS_EXPECT_NEAR(TOLERANCE, math::TOLERANCE, 1e-9f);
   HS_EXPECT_NEAR(PI_F, 3.14159265f, 1e-5f);
-  HS_EXPECT_NEAR(STEREO_INF, 1e4f, 1e-3f);
+  HS_EXPECT_NEAR_REL(STEREO_INF, 1e4f, 1e-7f);
 }
 
 // ============================================================================

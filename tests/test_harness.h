@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <type_traits>
@@ -101,6 +102,22 @@ inline bool approx(float a, float b, float tol) {
  */
 inline bool approx(double a, double b, double tol) {
   return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
+}
+
+/**
+ * @brief Tests finite floats with a tolerance relative to their magnitude.
+ */
+inline bool approx_rel(float a, float b, float rel_tol) {
+  return std::isfinite(a) && std::isfinite(b) &&
+         std::abs(a - b) <= rel_tol * std::max(std::abs(a), std::abs(b));
+}
+
+/**
+ * @brief Tests finite doubles with a tolerance relative to their magnitude.
+ */
+inline bool approx_rel(double a, double b, double rel_tol) {
+  return std::isfinite(a) && std::isfinite(b) &&
+         std::abs(a - b) <= rel_tol * std::max(std::abs(a), std::abs(b));
 }
 
 namespace detail {
@@ -251,6 +268,26 @@ inline void report_near(double a, double b, double tol, const char *expr,
 }
 
 /**
+ * @brief Records a relative near-equality result and prints its relative error.
+ */
+inline void report_near_rel(double a, double b, double rel_tol,
+                            const char *expr, const char *case_name,
+                            const char *file, int line) {
+  if (approx_rel(a, b, rel_tol)) {
+    ++stats().passed;
+    return;
+  }
+  ++stats().failed;
+  if (!claim_fail_print())
+    return;
+  const double scale = std::max(std::fabs(a), std::fabs(b));
+  const double rel_error =
+      scale > 0.0 ? std::fabs(a - b) / scale : std::fabs(a - b);
+  std::printf("  FAIL [%s] %s:%d  %s  (%g vs %g, rel_error=%g)\n", case_name,
+              file, line, expr, a, b, rel_error);
+}
+
+/**
  * @brief Snapshot of the global counter taken when a module starts.
  * @details Lets end_module report that module's tally as a delta from the
  * shared process-wide counter.
@@ -356,6 +393,14 @@ inline int end_module(const ModuleScope &m) {
     double _hs_b = (b);                                                        \
     hs_test::report_near(_hs_a, _hs_b, (tol), #a " ~= " #b " (tol=" #tol ")",  \
                          __func__, __FILE__, __LINE__);                        \
+  } while (0)
+#define HS_EXPECT_NEAR_REL(a, b, rel_tol)                                      \
+  do {                                                                         \
+    double _hs_a = (a);                                                        \
+    double _hs_b = (b);                                                        \
+    hs_test::report_near_rel(_hs_a, _hs_b, (rel_tol),                          \
+                             #a " ~= " #b " (rel_tol=" #rel_tol ")", __func__, \
+                             __FILE__, __LINE__);                              \
   } while (0)
 // Capture each operand once so loop-driven assertions don't re-evaluate side
 // effects, then compare and (on failure) print both values.
