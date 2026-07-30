@@ -383,7 +383,9 @@ def main(argv: list[str] | None = None) -> int:
     current = extract_warnings(build_log)
 
     if args.update_baseline:
-        Path(args.baseline).write_text(render_baseline(current), encoding="utf-8")
+        Path(args.baseline).write_text(
+            render_baseline(current), encoding="utf-8", newline="\n"
+        )
         print(f"[teensy-warnings] wrote {len(current)} warning(s) to {args.baseline}")
         return 0
 
