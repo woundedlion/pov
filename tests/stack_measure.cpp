@@ -6,9 +6,11 @@
  *
  * Method: stack painting. Descend writing an address-keyed pattern, unwind (the
  * painted region is now free stack below SP), run one effect (which descends into
- * it), then find the deepest point it reached by paint DENSITY (painting leaves
- * small per-frame gaps, so an untouched window is mostly-painted and a written one
- * is not). Keying each byte to its address stops a frame that writes runs of one
+ * it), then find the deepest point it reached by paint DENSITY. Painting leaves
+ * one small gap per paint() frame, so an untouched window is not perfectly
+ * painted either; the deepest CONTROL_BYTES of the region, which no effect comes
+ * near, calibrates that gap noise floor and the deepest window above it is the
+ * reach. Keying each byte to its address stops a frame that writes runs of one
  * value from reading as unpainted. Built -Os + the device math flags so codegen
  * tracks the size build.
  *
@@ -31,6 +33,11 @@ constexpr int W = 288; // Phantasm device canvas
 constexpr int H = 144;
 const int FRAMES = hs_test::smoke_frames();
 constexpr int CHUNK = 2048;
+constexpr size_t WIN = 256; // classifier granularity
+
+// Deepest slice of the painted region, taken as untouched: it ends ~380 KB
+// below the top, far past any plausible frame.
+constexpr size_t CONTROL_BYTES = 65536;
 
 // Below the 16 KB device stack reservation minus the ISR allowance.
 constexpr size_t BUDGET_BYTES = 12288;
@@ -44,6 +51,15 @@ int g_unmeasured = 0;
 inline uint8_t paint_byte(const volatile uint8_t *a) {
   uintptr_t x = reinterpret_cast<uintptr_t>(a);
   return static_cast<uint8_t>((x ^ (x >> 7)) * 0x2Bu + 0xA5u);
+}
+
+// Bytes of a WIN-sized window that no longer hold their paint value.
+inline size_t mismatch(const uint8_t *p) {
+  size_t m = 0;
+  for (size_t i = 0; i < WIN; ++i)
+    if (p[i] != paint_byte(p + i))
+      ++m;
+  return m;
 }
 
 // Descend painting the address-keyed pattern, then unwind. After return the
@@ -81,24 +97,32 @@ template <typename Effect> size_t measure(const char *name) {
   volatile uint8_t topmark;
   uint8_t *top = const_cast<uint8_t *>(&topmark);
   run_effect<Effect>();
-  // Deepest reach by paint density: an untouched 256-B window is mostly still
-  // painted (paint gaps aside), a workload-written one is not.
-  constexpr size_t WIN = 256;
-  constexpr size_t WRITTEN_MAX = WIN / 4;
+  uint8_t *lo = const_cast<uint8_t *>(g_lo);
+  // Worst untouched window in the control band = the paint-gap noise floor.
+  size_t floor_mismatch = 0;
+  for (uint8_t *p = lo; p + WIN <= lo + CONTROL_BYTES && p + WIN < top;
+       p += WIN) {
+    size_t m = mismatch(p);
+    if (m > floor_mismatch)
+      floor_mismatch = m;
+  }
   size_t peak = 0;
-  for (uint8_t *p = const_cast<uint8_t *>(g_lo); p + WIN < top; p += WIN) {
-    size_t s = 0;
-    for (size_t i = 0; i < WIN; ++i)
-      if (p[i] == paint_byte(p + i))
-        ++s;
-    if (s < WRITTEN_MAX) {
-      peak = static_cast<size_t>(top - p);
-      break;
-    }
+  if (floor_mismatch >= WIN / 4) {
+    std::printf("  %-22s control band dirty (%zu/%zu B) — reach ran past the "
+                "painted region\n",
+                name, floor_mismatch, WIN);
+  } else {
+    // Deepest window damaged past the floor. Control-band windows cannot trip
+    // it: the floor is their own maximum.
+    for (uint8_t *p = lo; p + WIN < top; p += WIN)
+      if (mismatch(p) > floor_mismatch) {
+        peak = static_cast<size_t>(top - p);
+        break;
+      }
+    std::printf("  %-22s peak = %6zu B\n", name, peak);
   }
   if (peak == 0)
     ++g_unmeasured;
-  std::printf("  %-22s peak = %6zu B\n", name, peak);
   return peak;
 }
 
