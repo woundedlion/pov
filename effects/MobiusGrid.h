@@ -23,12 +23,21 @@ struct MobiusGridWhiteBox;
  *          continuously inflates/deflates between two "holes" on the sphere.
  */
 template <int W, int H> class MobiusGrid : public Effect {
+  class NorthHole : public Filter::World::Hole {
+  public:
+    using Filter::World::Hole::Hole;
+  };
+
+  class SouthHole : public Filter::World::Hole {
+  public:
+    using Filter::World::Hole::Hole;
+  };
 
 public:
   /**
    * @brief Builds the palettes, Möbius generator, and the render filter
    *        pipeline.
-   * @details The two HoleRef filters fade geometry near the rotated north/south
+   * @details The two Hole filters fade geometry near the rotated north/south
    *          holes; Orient applies the spinning orientation; AntiAlias smooths
    *          the rasterized lines.
    */
@@ -40,9 +49,8 @@ public:
                 BrightnessProfile::FLAT),
         next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                      BrightnessProfile::FLAT),
-        mobius_gen(timeline), hole_n(Y_AXIS), hole_s(-Y_AXIS),
-        filters(Filter::World::HoleRef(hole_n, 1.2f),
-                Filter::World::HoleRef(hole_s, 1.2f),
+        mobius_gen(timeline),
+        filters(NorthHole(Y_AXIS, 1.2f), SouthHole(-Y_AXIS, 1.2f),
                 Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
@@ -118,8 +126,10 @@ public:
     Vector s_trans = mobius_gen.transform(-Y_AXIS);
     Quaternion q = counter_rotation(n_trans + s_trans);
 
-    hole_n = normalized_or(rotate(n_trans, q), Vector(1, 0, 0));
-    hole_s = normalized_or(rotate(s_trans, q), Vector(1, 0, 0));
+    filters.template get<NorthHole>().set_origin(
+        normalized_or(rotate(n_trans, q), Vector(1, 0, 0)));
+    filters.template get<SouthHole>().set_origin(
+        normalized_or(rotate(s_trans, q), Vector(1, 0, 0)));
 
     {
       HS_PROFILE(mg_draw_grid);
@@ -349,12 +359,9 @@ private:
   Timeline timeline; /**< Drives spin, palette wipe, and mutations. */
   MobiusWarpCircularTransformer<1> mobius_gen; /**< Möbius warp generator. */
 
-  Vector hole_n; /**< North hole origin, tracking the rotated geometry. */
-  Vector hole_s; /**< South hole origin, tracking the rotated geometry. */
-
   /** @brief Render filter pipeline: two hole fades, orientation, anti-alias. */
-  Pipeline<W, H, Filter::World::HoleRef, Filter::World::HoleRef,
-           Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
+  Pipeline<W, H, NorthHole, SouthHole, Filter::World::Orient,
+           Filter::Screen::AntiAlias<W, H>>
       filters;
 
   /**

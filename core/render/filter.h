@@ -813,10 +813,8 @@ private:
 
 /**
  * @brief Creates a spherical hole by masking points within a radius.
- * @tparam OriginT Storage type for the hole center: by value (Vector) or by
- * reference (std::reference_wrapper).
  */
-template <typename OriginT = Vector> class Hole : public Is3D {
+class Hole : public Is3D {
 public:
   static constexpr bool requires_unit_world_input = true;
   /**
@@ -824,7 +822,13 @@ public:
    * @param origin Center of the hole (unit vector).
    * @param radius Angular radius of the hole in radians.
    */
-  Hole(OriginT origin, float radius) : origin(origin), radius(radius) {}
+  Hole(const Vector &origin, float radius) : origin(origin), radius(radius) {}
+
+  /** @brief Moves the hole center to a new unit vector. */
+  void set_origin(const Vector &new_origin) { origin = new_origin; }
+
+  /** @brief Changes the hole's angular radius in radians. */
+  void set_radius(float new_radius) { radius = new_radius; }
   /**
    * @brief Attenuates points near the hole center, leaving others unchanged.
    * @param v World-space point to test.
@@ -838,8 +842,7 @@ public:
   template <typename PassFnT>
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    const Vector &o = origin;
-    float d = angle_between(v, o);
+    float d = angle_between(v, origin);
     if (d > radius)
       pass(v, color, age, alpha);
     else {
@@ -849,15 +852,9 @@ public:
   }
 
 private:
-  OriginT
-      origin; /**< Center of the hole (unit vector), stored by value or ref. */
+  Vector origin; /**< Center of the hole (unit vector). */
   float radius; /**< Angular radius of the hole in radians. */
 };
-
-/**
- * @brief Alias for Hole with reference (std::reference_wrapper) center storage.
- */
-using HoleRef = Hole<std::reference_wrapper<const Vector>>;
 
 /**
  * @brief Replicates geometry by rotating it around the Y-axis.
@@ -874,9 +871,16 @@ public:
    * W because W copies already sit one equatorial pixel column apart; beyond
    * that they land on the same column.
    */
-  Replicate(int count)
-      : count(hs::clamp(count, 1, W)),
-        step(make_rotation(Y_AXIS, 2 * PI_F / this->count)) {}
+  Replicate(int count) { set_count(count); }
+
+  /**
+   * @brief Changes the number of evenly spaced copies.
+   * @param new_count Desired copy count; clamped to [1, W].
+   */
+  void set_count(int new_count) {
+    count = hs::clamp(new_count, 1, W);
+    step = make_rotation(Y_AXIS, 2 * PI_F / count);
+  }
   /**
    * @brief Emits the point plus count-1 rotated copies around the Y axis.
    * @param v World-space point to replicate.
@@ -917,6 +921,15 @@ public:
    * @param vertices Vertex positions; rotations map vertices[0] onto each vertex.
    */
   template <typename VertexArray> VertexReplicate(const VertexArray &vertices) {
+    set_vertices(vertices);
+  }
+
+  /**
+   * @brief Rebuilds the rotations from a new vertex array.
+   * @tparam VertexArray Indexable container of N unit vectors.
+   * @param vertices Vertex positions; rotations map vertices[0] onto each vertex.
+   */
+  template <typename VertexArray> void set_vertices(const VertexArray &vertices) {
     for (int i = 0; i < N; ++i)
       rotations[i] = make_rotation(vertices[0], vertices[i]);
   }
