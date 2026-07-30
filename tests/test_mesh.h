@@ -359,6 +359,8 @@ inline void test_compile_drops_degenerate_faces() {
 /**
  * @brief Verifies clone() of a MeshState yields equal sizes and values but
  *        independent storage in the destination arena (no aliasing of source).
+ * @details compile() leaves topology empty, so it is filled with distinct
+ *          per-face values first: clone() is the only path that carries it.
  */
 inline void test_clone_meshstate_deep_copies() {
   Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -369,6 +371,10 @@ inline void test_clone_meshstate_deep_copies() {
   MeshState src;
   MeshOps::compile(cube, src, src_arena, scratch_arena_a);
 
+  src.topology.bind(src_arena, src.face_counts.size());
+  for (size_t i = 0; i < src.face_counts.size(); ++i)
+    src.topology.push_back(static_cast<uint16_t>(100 + i));
+
   MeshState dst;
   MeshOps::clone(src, dst, dst_arena);
 
@@ -376,8 +382,10 @@ inline void test_clone_meshstate_deep_copies() {
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
   HS_EXPECT_EQ(dst.faces.size(), src.faces.size());
   HS_EXPECT_EQ(dst.face_offsets.size(), src.face_offsets.size());
+  HS_EXPECT_EQ(dst.topology.size(), src.topology.size());
 
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
+  HS_EXPECT_TRUE(dst.topology.data() != src.topology.data());
 
   for (size_t i = 0; i < src.vertices.size(); ++i) {
     HS_EXPECT_NEAR(dst.vertices[i].x, src.vertices[i].x, 1e-6f);
@@ -390,11 +398,15 @@ inline void test_clone_meshstate_deep_copies() {
     HS_EXPECT_EQ(dst.faces[i], src.faces[i]);
   for (size_t i = 0; i < src.face_offsets.size(); ++i)
     HS_EXPECT_EQ(dst.face_offsets[i], src.face_offsets[i]);
+  for (size_t i = 0; i < src.topology.size(); ++i)
+    HS_EXPECT_EQ(dst.topology[i], src.topology[i]);
 }
 
 /**
  * @brief Verifies clone() of a PolyMesh likewise copies all arrays into
  *        independent storage.
+ * @details No Conway operator propagates topology, so clone() is the only path
+ *          that carries it; distinct per-face values pin the copy element-wise.
  */
 inline void test_clone_polymesh_deep_copies() {
   Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -402,6 +414,9 @@ inline void test_clone_polymesh_deep_copies() {
 
   PolyMesh src;
   build_solid<Solids::Cube>(src, src_arena);
+  src.topology.bind(src_arena, src.face_counts.size());
+  for (size_t i = 0; i < src.face_counts.size(); ++i)
+    src.topology.push_back(static_cast<int>(100 + i));
 
   PolyMesh dst;
   MeshOps::clone(src, dst, dst_arena);
@@ -409,7 +424,11 @@ inline void test_clone_polymesh_deep_copies() {
   HS_EXPECT_EQ(dst.vertices.size(), src.vertices.size());
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
   HS_EXPECT_EQ(dst.faces.size(), src.faces.size());
+  HS_EXPECT_EQ(dst.topology.size(), src.topology.size());
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
+  HS_EXPECT_TRUE(dst.topology.data() != src.topology.data());
+  for (size_t i = 0; i < src.topology.size(); ++i)
+    HS_EXPECT_EQ(dst.topology[i], src.topology[i]);
 }
 
 // ---------------------------------------------------------------------------
