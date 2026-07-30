@@ -45,13 +45,13 @@ public:
     register_param("Radius", &params.star_radius, 0.7f * RADIUS_PX,
                    7.0f * RADIUS_PX);
     register_param("Sides", &params.star_sides, 3.0f, 8.0f);
-    register_param("Debug BB", &params.debug_bb);
 
     // Args are (scale, speed): fixed 0.5 magnitude; speed is a don't-care here
     // since draw_frame mirrors params.warp_speed into the warp every frame.
     warp = transformer.spawn_pinned(0, 0.5f, 0.0f);
     HS_CHECK(warp, "GnomonicStars: pinned warp spawn must succeed");
     register_param("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
+    register_param("Debug BB", &params.debug_bb);
 
     baked_palette.bake(persistent_arena, Palettes::MANGO_PEEL);
 

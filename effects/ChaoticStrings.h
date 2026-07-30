@@ -198,8 +198,8 @@ private:
   struct Params {
     float alpha = 1.0f;           /**< Overall trail opacity in [0, 1]. */
     float cycle_duration = 80.0f; /**< Motion cycle duration in frames. */
-    float jitter_amp = 1.7f;      /**< Noise displacement amplitude. */
     float speed = 0.04f;          /**< Noise field evolution speed. */
+    float jitter_amp = 1.7f;      /**< Noise displacement amplitude. */
     float noise_freq = 0.32f;     /**< Noise spatial frequency. */
     float scale_factor = 200.0f;  /**< Palette coordinate scale factor. */
     float cycle_speed = 0.1f;     /**< Palette cycle phase advance per step. */
