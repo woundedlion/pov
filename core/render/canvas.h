@@ -141,14 +141,6 @@ public:
    */
   [[nodiscard]] const ClipRegion &clip() const { return clip_region; }
 
-  /** @brief Accumulated rasterization time for the current frame (µs).
-   *  WASM-only telemetry: only emscripten builds stamp and read it (the
-   *  ScopedRenderTimer and wasm bridge), so the field and its accessors below
-   *  are compiled out on the device rather than carried as dead storage. */
-#ifdef __EMSCRIPTEN__
-  double render_us = 0.0;
-#endif
-
   /**
    * @brief Driver sets display bounds (which segment this Teensy owns).
    * @param y0 Inclusive start row of the owned segment.
@@ -780,24 +772,6 @@ public:
     return effect.clip_region;
   }
 
-#ifdef __EMSCRIPTEN__
-  // WASM-only render-time telemetry (see Effect::render_us). Compiled out on the
-  // device, where there is no JS perf clock and nothing reads the counter.
-  /**
-   * @brief Resets the accumulated rasterization time for the current frame.
-   */
-  inline void reset_render_us() { effect.render_us = 0.0; }
-  /**
-   * @brief Adds to the accumulated rasterization time for the current frame.
-   * @param us Elapsed time to add, in microseconds.
-   */
-  inline void add_render_us(double us) { effect.render_us += us; }
-  /**
-   * @brief Gets the accumulated rasterization time for the current frame.
-   * @return The accumulated render time, in microseconds.
-   */
-  [[nodiscard]] inline double get_render_us() const { return effect.render_us; }
-#endif
   /**
    * @brief Checks if debug visuals are enabled.
    * @return True if debugging is active.

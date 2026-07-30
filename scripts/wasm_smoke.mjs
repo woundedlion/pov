@@ -74,10 +74,8 @@ async function main() {
   // buffer walk for the whole run.
   let litPixel = false;
 
-  // Run-wide counters for the per-frame telemetry the simulator reads. render_us
-  // is only accumulated by the Scan/Plot timer, so a single effect reporting 0 is
-  // legitimate (see getRenderUs() in wasm.cpp) but an all-zero sweep is not.
-  let renderTimed = 0;
+  // Run-wide counter for the per-frame telemetry the simulator reads: a single
+  // effect reporting false is legitimate, an all-false sweep is not.
   let strobing = 0;
 
   // Enumerated from the module (generated from HS_WASM_RESOLUTIONS) so a new
@@ -128,12 +126,6 @@ async function main() {
           fail(`${name}: getBufferLength() ${len}, expected ${expected}`);
         }
 
-        const us = engine.getRenderUs();
-        if (!Number.isFinite(us) || us < 0) {
-          fail(`${name}: getRenderUs() = ${us}, expected a finite non-negative duration`);
-        } else if (us > 0) {
-          renderTimed++;
-        }
         const strobe = engine.strobeColumns();
         if (typeof strobe !== 'boolean') {
           fail(`${name}: strobeColumns() returned ${typeof strobe} "${strobe}", expected a boolean`);
@@ -229,10 +221,6 @@ async function main() {
     if (!litPixel) {
       fail('every effect at every resolution produced an all-zero framebuffer — ' +
         'the render path or getPixels() is not writing pixels');
-    }
-    if (renderTimed === 0) {
-      fail('getRenderUs() reported 0 for every effect at every resolution — ' +
-        'the render timer or the binding is dead');
     }
     if (strobing === 0) {
       fail('strobeColumns() reported false for every effect — the whole roster ' +

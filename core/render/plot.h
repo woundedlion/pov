@@ -9,9 +9,6 @@
 #include <cmath>
 #include <array>
 #include <concepts>
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
 #include "math/geometry.h"
 #include "render/shading.h"
 #include "color/color.h"
@@ -1232,9 +1229,6 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
            "precomputed edge visibility is geodesic-only");
   HS_CHECK(loop_seam == nullptr || close_loop,
            "a raster seam fragment requires a closed loop");
-#ifdef __EMSCRIPTEN__
-  double plot_t0 = emscripten_get_now();
-#endif
 
   size_t count = close_loop ? len : len - 1;
   // SCRATCH ARENA CONTRACT (load-bearing): scratch_arena_a is a LIFO bump
@@ -1512,9 +1506,6 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       rasterize_geodesic_strategy(curr, next, is_last_segment, process_segment);
     }
   }
-#ifdef __EMSCRIPTEN__
-  canvas.add_render_us(emscripten_get_now() - plot_t0);
-#endif
 }
 HS_O3_END
 
