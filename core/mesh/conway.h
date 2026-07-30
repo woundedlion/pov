@@ -1183,7 +1183,9 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
  *   the twist pass. Unbounded (angles wrap).
  * @return Fresh snub PolyMesh allocated in `target`.
  * @details Uses Newell's method for face normals, robust to non-planar faces on
- *   the unit sphere and to collinear vertex triplets.
+ *   the unit sphere and to collinear vertex triplets. A face with neither a
+ *   usable Newell normal nor a usable centroid direction has no twist axis and
+ *   skips the twist.
  */
 HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
                              float t = 0.5f, float twist = 0.0f) {
@@ -1222,7 +1224,8 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
         normal = centroid.normalized();
       }
 
-      const bool do_twist = twist != 0.0f;
+      // A zero axis makes make_rotation trap near theta = pi.
+      const bool do_twist = twist != 0.0f && dot(normal, normal) > 0.0f;
       Quaternion twist_q;
       if (do_twist)
         twist_q = make_rotation(normal, twist);
