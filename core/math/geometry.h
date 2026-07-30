@@ -637,11 +637,8 @@ public:
    */
   void upsample(int count) {
     HS_CHECK(count >= 1);
-    if (count > CAPACITY) {
-      hs::log("Orientation: clamping %d sub-frames to capacity %d", count,
-              CAPACITY);
+    if (count > CAPACITY)
       count = CAPACITY;
-    }
     if (num_frames >= count)
       return;
 
