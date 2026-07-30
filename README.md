@@ -1202,7 +1202,10 @@ zero runtime overhead. `Wrap` (default `true`) wraps the final coordinate into
 range; set it `false` for bounded remaps that must reach the source endpoints.
 Both directions are `static_assert`ed: an unbounded modifier rejects
 `Wrap=false`, and a bounded final modifier rejects `Wrap=true` (wrapping would
-fold its 1.0 output to 0.0 and destroy the top endpoint).
+fold its 1.0 output to 0.0 and destroy the top endpoint). Only a modifier that
+re-bounds *arbitrary* input (`FoldModifier`'s triangle wave, `InsetModifier`'s
+clamp) clears an unbounded predecessor; `ReverseModifier` and `MirrorModifier`
+are bounded on `[0,1]` but pass an out-of-range coordinate straight through.
 
 Coordinate modifiers (`modify(float) -> float`):
 

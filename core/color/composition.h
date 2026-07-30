@@ -213,6 +213,8 @@ struct DriftModifier {
 struct FoldModifier {
   /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
   static constexpr bool bounded_output = true;
+  /** @brief The triangle wave folds any input, in range or not, into [0,1]. */
+  static constexpr bool rebounds_input = true;
 
   const float *phase;
   float folds;
@@ -354,7 +356,8 @@ struct ScaleModifier {
  * @brief Reverses the palette coordinate (t -> 1 - t).
  */
 struct ReverseModifier {
-  /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
+  /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
+   */
   static constexpr bool bounded_output = true;
 
   /**
@@ -370,7 +373,8 @@ struct ReverseModifier {
  * @details One symmetric bounce, for a seamless loop.
  */
 struct MirrorModifier {
-  /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
+  /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
+   */
   static constexpr bool bounded_output = true;
 
   /**
@@ -389,6 +393,8 @@ struct MirrorModifier {
 struct InsetModifier {
   /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
   static constexpr bool bounded_output = true;
+  /** @brief The clamp confines any input, in range or not, to [0,1]. */
+  static constexpr bool rebounds_input = true;
 
   float lo, hi;
   /**
@@ -819,13 +825,29 @@ template <typename M> constexpr bool coord_bounded_output() {
 }
 
 /**
+ * @brief Whether a coordinate modifier maps any input, in range or not, into
+ * [0,1].
+ * @tparam M Coordinate modifier type.
+ * @return M::rebounds_input when declared, false otherwise.
+ * @details Stronger than bounded_output, which only describes in-range input:
+ * ReverseModifier and MirrorModifier are bounded on [0,1] but carry an
+ * out-of-range coordinate straight through.
+ */
+template <typename M> constexpr bool coord_rebounds_input() {
+  if constexpr (requires { M::rebounds_input; })
+    return M::rebounds_input;
+  else
+    return false;
+}
+
+/**
  * @brief Whether the coordinate reaching the source may leave [0,1].
  * @tparam M Coordinate modifier types, in application order.
  * @return True when an unbounded modifier is not re-bounded by a later one.
  */
 template <typename... M> constexpr bool coord_chain_leaves_unit() {
   bool leaves = false;
-  ((leaves = coord_bounded_output<M>() ? false
+  ((leaves = coord_rebounds_input<M>() ? false
                                        : (leaves || coord_requires_wrap<M>())),
    ...);
   return leaves;
@@ -867,8 +889,9 @@ template <typename... M> struct Colors {};
  * original coordinate when Wrap is false. Wrap=false suits inset/falloff
  * pipelines that must reach the source's exact endpoints
  * (wrap_t(1)==0 would otherwise fold the top edge). Both settings are checked
- * at compile time: `requires_wrap` on any unbounded modifier rejects Wrap=false,
- * and `bounded_output` on the final coord modifier rejects Wrap=true.
+ * at compile time: `requires_wrap` on any unbounded modifier rejects Wrap=false
+ * unless a later modifier declares `rebounds_input`, and `bounded_output` on the
+ * final coord modifier rejects Wrap=true.
  */
 template <typename Source, typename CoordList = Coords<>,
           typename ColorList = Colors<>, bool Wrap = true>
@@ -889,7 +912,9 @@ class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap> {
                 "Wrap=false composed with a coordinate modifier that leaves "
                 "[0,1] (requires_wrap, e.g. CycleModifier/ScaleModifier): the "
                 "source would be sampled out of range and the palette would "
-                "freeze at its endpoint. Use Wrap=true.");
+                "freeze at its endpoint. Use Wrap=true, or follow it with a "
+                "modifier that re-bounds arbitrary input (rebounds_input, e.g. "
+                "FoldModifier/InsetModifier).");
   static_assert(!Wrap || !coord_chain_bounded_tail<CMods...>(),
                 "Wrap=true with a bounded final coordinate modifier "
                 "(bounded_output, e.g. MirrorModifier/InsetModifier): wrap_t "

@@ -2192,11 +2192,23 @@ inline void test_static_palette_composition() {
   static_assert(!coord_bounded_output<PinchModifier>());
   static_assert(!coord_bounded_output<QuantizeModifier>());
 
-  // Only the final entry decides the wrap requirement: a bounded tail re-bounds
-  // an unbounded predecessor, and an unbounded tail undoes a bounded one.
+  // Fold's triangle wave and Inset's clamp confine arbitrary input, so they can
+  // absorb an out-of-range predecessor. Reverse and Mirror are bounded only on
+  // [0,1] and pass an out-of-range coordinate through.
+  static_assert(coord_rebounds_input<FoldModifier>());
+  static_assert(coord_rebounds_input<InsetModifier>());
+  static_assert(!coord_rebounds_input<ReverseModifier>());
+  static_assert(!coord_rebounds_input<MirrorModifier>());
+  static_assert(!coord_rebounds_input<ScaleModifier>());
+  static_assert(!coord_rebounds_input<CycleModifier>());
+
+  // Only a re-bounding entry clears an unbounded predecessor, and an unbounded
+  // tail undoes it again.
   static_assert(!coord_chain_leaves_unit<>());
   static_assert(coord_chain_leaves_unit<ScaleModifier>());
   static_assert(!coord_chain_leaves_unit<ScaleModifier, FoldModifier>());
+  static_assert(coord_chain_leaves_unit<ScaleModifier, ReverseModifier>());
+  static_assert(coord_chain_leaves_unit<CycleModifier, MirrorModifier>());
   static_assert(coord_chain_leaves_unit<InsetModifier, CycleModifier>());
   static_assert(!coord_chain_bounded_tail<>());
   static_assert(!coord_chain_bounded_tail<MirrorModifier, CycleModifier>());
