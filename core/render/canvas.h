@@ -276,42 +276,6 @@ public:
     prev.store(n, std::memory_order_relaxed);
   }
   /**
-   * @brief Advances the drawing buffer pointer to the next available buffer.
-   * @details If `persist_pixels` is true, copies the previous frame's content
-   * to the new buffer.
-   */
-  inline void advance_buffer() {
-    int c = cur.load(std::memory_order_relaxed) ? 0 : 1;
-    // The new write buffer must not be the one the ISR is scanning out (prev);
-    // with two buffers this holds only if buffer_free() gated the advance. Trap
-    // it here (once per frame, cold) instead of tearing.
-    HS_CHECK(c != prev.load(std::memory_order_relaxed));
-    cur.store(c, std::memory_order_relaxed);
-    if (persist_pixels) {
-      // The trail base is the last COMPLETED frame (next). The buffer_free()
-      // gate forces prev == next, so copy from next and assert the equality
-      // rather than depend on the gate silently across methods.
-      int last = next.load(std::memory_order_relaxed);
-      HS_CHECK(last == prev.load(std::memory_order_relaxed));
-      memcpy(bufs[c], bufs[last], sizeof(Pixel) * frame_width * frame_height);
-    }
-  }
-
-  /**
-   * @brief Queues the newly drawn frame to be displayed.
-   * @details Publishes `cur` as the new `next`. The release fence orders the
-   * frame's pixel writes before the publish, pairing with the acquire fence in
-   * `advance_display()`; the IRQ-off bracket keeps the publish atomic against
-   * the on-device display ISR.
-   */
-  inline void queue_frame() {
-    hs::disable_interrupts();
-    std::atomic_thread_fence(std::memory_order_release);
-    next.store(cur.load(std::memory_order_relaxed), std::memory_order_relaxed);
-    hs::enable_interrupts();
-  }
-
-  /**
    * @brief Defines a runtime-adjustable parameter.
    */
   struct ParamDef {
@@ -613,6 +577,42 @@ protected:
   }
 
 private:
+  /**
+   * @brief Advances the drawing buffer pointer to the next available buffer.
+   * @details If `persist_pixels` is true, copies the previous frame's content
+   * to the new buffer.
+   */
+  inline void advance_buffer() {
+    int c = cur.load(std::memory_order_relaxed) ? 0 : 1;
+    // The new write buffer must not be the one the ISR is scanning out (prev);
+    // with two buffers this holds only if buffer_free() gated the advance. Trap
+    // it here (once per frame, cold) instead of tearing.
+    HS_CHECK(c != prev.load(std::memory_order_relaxed));
+    cur.store(c, std::memory_order_relaxed);
+    if (persist_pixels) {
+      // The trail base is the last COMPLETED frame (next). The buffer_free()
+      // gate forces prev == next, so copy from next and assert the equality
+      // rather than depend on the gate silently across methods.
+      int last = next.load(std::memory_order_relaxed);
+      HS_CHECK(last == prev.load(std::memory_order_relaxed));
+      memcpy(bufs[c], bufs[last], sizeof(Pixel) * frame_width * frame_height);
+    }
+  }
+
+  /**
+   * @brief Queues the newly drawn frame to be displayed.
+   * @details Publishes `cur` as the new `next`. The release fence orders the
+   * frame's pixel writes before the publish, pairing with the acquire fence in
+   * `advance_display()`; the IRQ-off bracket keeps the publish atomic against
+   * the on-device display ISR.
+   */
+  inline void queue_frame() {
+    hs::disable_interrupts();
+    std::atomic_thread_fence(std::memory_order_release);
+    next.store(cur.load(std::memory_order_relaxed), std::memory_order_relaxed);
+    hs::enable_interrupts();
+  }
+
   /**
    * @brief Points bufs at the shared static storage and zeroes both buffers.
    * @details noinline so the two full-frame fills are emitted once, not inlined
