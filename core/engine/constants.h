@@ -56,9 +56,9 @@ inline float pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
  * @details Display bounds define the ISR's pixel range (exact segment).
  *          Render bounds expand by `margin` to accommodate stateful filters
  *          (e.g. AntiAlias ±1, MeshFeedback noise warp ±8).
- *          `w`/`h` are the active canvas size, set by the driver before the
- *          first frame; the `MAX_W`/`MAX_H` defaults are a full-canvas fallback
- *          and are not valid for a sub-max canvas until the driver populates them.
+ *          `w`/`h` are the active canvas size, set from W/H by the Effect
+ *          constructor (core/render/canvas.h); the `MAX_W`/`MAX_H` defaults
+ *          apply only to a standalone ClipRegion.
  */
 struct ClipRegion {
   int y_start = 0;   /**< Display top row (inclusive), in pixels. */
