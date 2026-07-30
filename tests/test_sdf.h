@@ -1694,6 +1694,7 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
         for (int i = 0; i < run; ++i)
           if (wx + i >= 0 && wx + i < W && y >= 0 && y < H)
             visited[static_cast<size_t>(y) * W + wx + i] = 1;
+        return run;
       });
 }
 
