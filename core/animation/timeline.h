@@ -200,7 +200,8 @@ public:
   /**
    * @brief Adds a new animation event to the timeline.
    * @tparam A The animation type.
-   * @param in_frames The number of frames to delay before starting.
+   * @param in_frames The number of frames to delay before starting; 0 and 1 both
+   * start on the next step().
    * @param animation The animation object.
    * @return Reference to the Timeline object.
    */
@@ -214,7 +215,8 @@ public:
    * @brief Like add(), but returns the typed pointer to the inline-stored
    * animation. Use when you need to hold a reference for later mutation.
    * @tparam A The animation type.
-   * @param in_frames The number of frames to delay before starting.
+   * @param in_frames The number of frames to delay before starting; 0 and 1 both
+   * start on the next step(), and every existing schedule is tuned to that.
    * @param animation The animation object.
    * @param pin If true (default), the caller intends to RETAIN this pointer
    * across frames, so the event is marked handled and step()'s compaction traps
