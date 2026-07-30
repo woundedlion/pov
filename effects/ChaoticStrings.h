@@ -208,7 +208,7 @@ private:
 
   // Precedes scale_mod, which binds &params.scale_factor at construction.
   ScaleModifier scale_mod{
-      200.0f, &params.scale_factor}; /**< Palette scale coordinate modifier. */
+      &params.scale_factor}; /**< Palette scale coordinate modifier. */
   CycleModifier cycle_mod{
       &cycle_phase};                 /**< Palette cycle coordinate modifier. */
   ProceduralPalette palette_variant; /**< Active palette variant. */

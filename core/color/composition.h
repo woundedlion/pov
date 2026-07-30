@@ -339,6 +339,16 @@ struct ScaleModifier {
       : dynamic_scale(d_scale), base_scale(s) {}
 
   /**
+   * @brief Constructs driven purely by an animated scale.
+   * @param d_scale Pointer to an animated scale; must not be null.
+   */
+  ScaleModifier(const float *d_scale)
+      : dynamic_scale(d_scale), base_scale(1.0f) {
+    HS_CHECK(d_scale != nullptr,
+             "ScaleModifier: dynamic scale must not be null");
+  }
+
+  /**
    * @brief Multiplies the coordinate by the active scale.
    * @param t Input coordinate.
    * @return The scaled coordinate.
