@@ -863,8 +863,9 @@ template <typename... M> struct Colors {};
  * @details Default construct, then bind() (ArenaVector idiom); both chains are
  * inlined by fold expression. get() applies the coord mods to t in order,
  * samples the source (wrapping the coordinate unless Wrap is false), then
- * applies the color mods with the *original* coordinate. Wrap=false suits
- * inset/falloff pipelines that must reach the source's exact endpoints
+ * applies the color mods with the wrapped coordinate when Wrap is true, or the
+ * original coordinate when Wrap is false. Wrap=false suits inset/falloff
+ * pipelines that must reach the source's exact endpoints
  * (wrap_t(1)==0 would otherwise fold the top edge). Both settings are checked
  * at compile time: `requires_wrap` on any unbounded modifier rejects Wrap=false,
  * and `bounded_output` on the final coord modifier rejects Wrap=true.
@@ -929,7 +930,8 @@ public:
    * @return The fully modified color.
    * @details The coord mods remap t in order; the source is sampled (wrapping
    * the coordinate unless Wrap is false); then the color mods reshape the
-   * sample with the *original* coordinate.
+   * sample with the wrapped coordinate, or the original coordinate when
+   * Wrap=false.
    */
   Color4 get(float t) const {
     assert(source != nullptr && "StaticPalette used before bind()!");
@@ -942,7 +944,10 @@ public:
       u = wrap_t(ft);
     Color4 c = source->get(u);
 
-    std::apply([&](const auto *...m) { ((c = m->shade(c, t)), ...); }, colors);
+    const float shade_coordinate = Wrap ? u : t;
+    std::apply(
+        [&](const auto *...m) { ((c = m->shade(c, shade_coordinate)), ...); },
+        colors);
     return c;
   }
 

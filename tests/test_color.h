@@ -2212,6 +2212,12 @@ inline void test_static_palette_composition() {
   StaticPalette<Gradient, Coords<ScaleModifier, CycleModifier>> sp2;
   sp2.bind(&grad, &scale, &cycle);
   HS_EXPECT_EQ(sp2.get(0.2f).color.r, grad.get(0.5f).color.r);
+
+  EdgeAlphaShade edge_alpha;
+  StaticPalette<Gradient, Coords<CycleModifier>, Colors<EdgeAlphaShade>>
+      cycled_alpha;
+  cycled_alpha.bind(&grad, &cycle, &edge_alpha);
+  HS_EXPECT_GT(cycled_alpha.get(1.2f).alpha, 0.9f);
 }
 
 /**
