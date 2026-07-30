@@ -430,7 +430,8 @@ HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * vertex count matches what vertex-count consumers (e.g. OpLeg) see rather
  * than carrying orphans left by the stripped faces. Traps if geom_arena aliases
  * scratch, the flat face lengths disagree, or the cumulative face offset
- * exceeds the 16-bit range.
+ * exceeds the 16-bit range. The destination topology array is empty on return;
+ * callers that consume topology classes must classify the compiled mesh first.
  */
 HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
                                    Arena &geom_arena, Arena &scratch) {
