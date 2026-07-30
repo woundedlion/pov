@@ -55,9 +55,7 @@ struct SyncBoardTestAccess {
   static void maybe_schedule_beacon(SyncBoard &b, uint32_t now) {
     b.maybe_schedule_beacon(now);
   }
-  static bool beacon_done(const SyncBoard &b) {
-    return b.beacon_done_this_rev;
-  }
+  static bool beacon_done(const SyncBoard &b) { return b.beacon_done_this_rev; }
 };
 
 inline Flywheel &flywheel_mut(SyncBoard &b) {
@@ -900,8 +898,8 @@ inline void test_master_beacon_busy_retry() {
 
   const uint32_t beacon_at = PERIOD / 2;
   SymbolEmitter &emitter = SyncBoardTestAccess::emitter(board);
-  HS_EXPECT_TRUE(emitter.schedule_boundary(Symbol::ZERO, beacon_at + COL,
-                                           beacon_at, cfg));
+  HS_EXPECT_TRUE(
+      emitter.schedule_boundary(Symbol::ZERO, beacon_at + COL, beacon_at, cfg));
 
   SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
   HS_EXPECT_FALSE(SyncBoardTestAccess::beacon_done(board));
@@ -2201,8 +2199,7 @@ inline void test_budget_lost_symbol() {
   // exactly one boundary symbol (the HALF, 104 columns ahead).
   sim.boards[1].drop_from = sim.g;
   sim.boards[1].drop_to = sim.g + PERIOD;
-  const uint32_t acc_before =
-      sim.boards[1].board.telemetry().symbols_accepted;
+  const uint32_t acc_before = sim.boards[1].board.telemetry().symbols_accepted;
 
   HS_EXPECT_LE(max_err_over(sim, 1.5), 1); // sub-column through coast+re-snap
   HS_EXPECT_TRUE(sim.boards[1].board.lock() == LockState::LOCKED);
@@ -2355,7 +2352,7 @@ inline void test_budget_beacon_corruption() {
   sim.run_revs(1.0);
   const Telemetry after = sim.boards[1].board.telemetry();
   HS_EXPECT_EQ(after.beacons_rejected,
-               before.beacons_rejected + 1);        // dropped whole
+               before.beacons_rejected + 1); // dropped whole
   HS_EXPECT_EQ(after.beacons_ok, ok_before); // nothing applied
   HS_EXPECT_EQ(after.beacon_index_corrections, 0u);
   // Recovery: the next clean beacon decodes within one period.
