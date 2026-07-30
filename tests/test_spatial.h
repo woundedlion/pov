@@ -311,9 +311,11 @@ inline void test_meshstate_default_unbound() {
 }
 
 /**
- * @brief Verifies clone() deep-copies vertices, face counts, and faces into the
- *        destination arena.
- * @details The copy is value-equal yet backed by separate storage.
+ * @brief Verifies clone() deep-copies vertices, face counts, faces, and
+ *        topology into the destination arena.
+ * @details The copy is value-equal yet backed by separate storage. topology is
+ *          carried by clone() alone, so it is asserted element-wise with
+ *          distinct values.
  */
 inline void test_meshstate_clone_deep_copies() {
   Arena src_arena(spatial_buf, SPATIAL_BUF_SPLIT);
@@ -334,6 +336,9 @@ inline void test_meshstate_clone_deep_copies() {
   src.faces.push_back(1);
   src.faces.push_back(2);
 
+  src.topology.bind(src_arena, 1);
+  src.topology.push_back(7);
+
   MeshState dst;
   MeshState::clone(src, dst, dst_arena);
 
@@ -348,7 +353,11 @@ inline void test_meshstate_clone_deep_copies() {
   HS_EXPECT_EQ(dst.faces[1], (uint16_t)1);
   HS_EXPECT_EQ(dst.faces[2], (uint16_t)2);
 
+  HS_EXPECT_EQ(dst.topology.size(), (size_t)1);
+  HS_EXPECT_EQ(dst.topology[0], (uint16_t)7);
+
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
+  HS_EXPECT_TRUE(dst.topology.data() != src.topology.data());
 }
 
 /**
