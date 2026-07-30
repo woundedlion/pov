@@ -29,9 +29,8 @@ struct Audit {
   long long alpha_hist[10] = {}; /**< Missed-pixel alpha, 10 deciles. */
   int max_gap_cols = 0;          /**< Widest column gap to a run edge. */
   int frames = 0;
-  bool enabled = false;    /**< Run the brute-force coverage comparison. */
-  bool full_scan = false;  /**< Force every face to the full-width scan. */
-  bool legacy_pad = false; /**< Use the constant AA pad (pre-fix behaviour). */
+  bool enabled = false;   /**< Run the brute-force coverage comparison. */
+  bool full_scan = false; /**< Force every face to the full-width scan. */
 
   void reset() {
     probes = painted = missed = 0;

@@ -102,8 +102,6 @@ int main(int argc, char **argv) {
       orientations = atoi(argv[++i]);
     else if (!strcmp(argv[i], "--noref"))
       g_no_ref = true;
-    else if (!strcmp(argv[i], "--legacy"))
-      hs_aa::g_audit.legacy_pad = true;
     else if (!strcmp(argv[i], "--facecolor"))
       g_face_color = true;
   }

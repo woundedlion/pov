@@ -71,7 +71,6 @@ int missed_for(int sides, float rho, float phi, float spin) {
 
 int main() {
   hs_test::reset_globals();
-  hs_aa::g_audit.legacy_pad = true;
   for (int sides = 3; sides <= 6; ++sides)
     for (int ri = 1; ri <= 20; ++ri)
       for (int pi = 1; pi <= 30; ++pi)
