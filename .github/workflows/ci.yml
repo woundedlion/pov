@@ -865,7 +865,6 @@ jobs:
         effects/RingSpin.h
         tests/test_animation.h
         tests/test_canvas.h
-        tests/test_color.h
         tests/test_conway_morph.h
         tests/test_death.h
         tests/test_filter.h
