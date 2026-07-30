@@ -51,6 +51,13 @@ inline BurstSnapshot claim(EdgeMailbox &m) {
 struct SyncBoardTestAccess {
   static Flywheel &flywheel(SyncBoard &b) { return b.flywheel_mut(); }
   static ContentTracker &content(SyncBoard &b) { return b.content_mut(); }
+  static SymbolEmitter &emitter(SyncBoard &b) { return b.emitter; }
+  static void maybe_schedule_beacon(SyncBoard &b, uint32_t now) {
+    b.maybe_schedule_beacon(now);
+  }
+  static bool beacon_done(const SyncBoard &b) {
+    return b.beacon_done_this_rev;
+  }
 };
 
 inline Flywheel &flywheel_mut(SyncBoard &b) {
@@ -823,7 +830,8 @@ inline void test_emitter() {
     HS_EXPECT_TRUE(e.drop_pending_emission() == Dropped::NONE); // idle
     uint8_t d[5];
     encode_beacon_digits(3, 9, d);
-    e.schedule_beacon(d, 2000000u, cfg);
+    HS_EXPECT_TRUE(e.schedule_beacon(d, 2000000u, cfg));
+    HS_EXPECT_FALSE(e.schedule_beacon(d, 2000000u, cfg));
     HS_EXPECT_FALSE(e.idle());
     HS_EXPECT_TRUE(e.drop_pending_emission() == Dropped::BEACON);
     HS_EXPECT_TRUE(e.idle());
@@ -876,6 +884,31 @@ inline void test_emitter() {
     HS_EXPECT_EQ(f.effect_index, 13);
     HS_EXPECT_EQ(f.rev_count, 22u);
   }
+}
+
+inline void test_master_beacon_busy_retry() {
+  const Config cfg = test_config();
+  SyncBoard board(cfg);
+  board.seed(0, true);
+  content_mut(board).rev_in_effect = 1;
+
+  const uint32_t beacon_at = PERIOD / 2;
+  SymbolEmitter &emitter = SyncBoardTestAccess::emitter(board);
+  HS_EXPECT_TRUE(emitter.schedule_boundary(Symbol::ZERO, beacon_at + COL,
+                                           beacon_at, cfg));
+
+  SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
+  HS_EXPECT_FALSE(SyncBoardTestAccess::beacon_done(board));
+  HS_EXPECT_EQ(board.telemetry().beacons_busy_dropped, 1u);
+
+  SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
+  HS_EXPECT_FALSE(SyncBoardTestAccess::beacon_done(board));
+  HS_EXPECT_EQ(board.telemetry().beacons_busy_dropped, 1u);
+
+  emitter.drop_pending_emission();
+  SyncBoardTestAccess::maybe_schedule_beacon(board, beacon_at);
+  HS_EXPECT_TRUE(SyncBoardTestAccess::beacon_done(board));
+  HS_EXPECT_EQ(board.telemetry().beacons_busy_dropped, 1u);
 }
 
 // ── Master beacon late-coast bound (§6.4) ───────────────────────────────────
@@ -2414,6 +2447,7 @@ inline int run_pov_sync_tests() {
   test_snap_gate();
   test_suspect_timeout_acquire_uncounted();
   test_emitter();
+  test_master_beacon_busy_retry();
   test_beacon_late_coast();
   test_master_epoch_train_bounded();
 

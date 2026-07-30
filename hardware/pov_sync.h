@@ -560,6 +560,8 @@ struct Telemetry {
   uint32_t flips = 0;
   uint32_t emit_censored = 0; /**< Master skipped a late boundary symbol. */
   uint32_t emit_aborted = 0;  /**< Master truncated a burst mid-emission. */
+  uint32_t beacons_busy_dropped =
+      0; /**< Revolutions whose beacon schedule found the emitter busy. */
   uint32_t beacons_overrun_dropped =
       0; /**< Stale overrun beacon dropped at a boundary. */
   uint32_t boundary_bursts_dropped =
@@ -1039,12 +1041,13 @@ public:
    * @param digits The five base-8 beacon digits.
    * @param now Current timestamp (frame start), in cycles.
    * @param cfg Protocol configuration.
+   * @return False when another emission is still active.
    * @details Called when the master reaches the beacon point (x ≈ W/4).
    */
-  void schedule_beacon(const uint8_t digits[5], uint32_t now,
+  bool schedule_beacon(const uint8_t digits[5], uint32_t now,
                        const Config &cfg) {
     if (pulses_left > 0 || queue_pos < queue_len)
-      return; // defensive: never interleave with an active emission
+      return false; // defensive: never interleave with an active emission
     uint32_t start = now;
     const uint32_t col = cfg.cycles_per_column();
     for (int i = 0; i < 5; ++i) {
@@ -1056,6 +1059,7 @@ public:
     }
     queue_len = 5;
     queue_pos = 0;
+    return true;
   }
 
   /**
@@ -1232,6 +1236,7 @@ public:
     suspect_pending = false;
     epoch_emits_left = 0;
     beacon_done_this_rev = false;
+    beacon_busy_counted_this_rev = false;
     build_gen = 0;
     build_request_word.store(0, std::memory_order_relaxed);
     if (is_master) {
@@ -1454,6 +1459,7 @@ private:
     if (!a.zero_crossing)
       return;
     beacon_done_this_rev = false;
+    beacon_busy_counted_this_rev = false;
     if (content_tracker.identity_known) {
       if (content_tracker.on_zero_crossing(protocol_config))
         a.commit = true; // B+R+K reached; driver swaps in the pending effect
@@ -1680,7 +1686,6 @@ private:
     if (x < protocol_config.W / 4 ||
         x + protocol_config.beacon_span_cols() >= protocol_config.W / 2)
       return;
-    beacon_done_this_rev = true;
     const uint32_t rev = content_tracker.rev_in_effect;
     const bool due = (rev % protocol_config.beacon_period_revs) == 1u ||
                      (rev >= 1u && rev <= static_cast<uint32_t>(
@@ -1689,7 +1694,12 @@ private:
       return;
     uint8_t digits[5];
     encode_beacon_digits(content_tracker.effect_index, rev, digits);
-    emitter.schedule_beacon(digits, now, protocol_config);
+    if (emitter.schedule_beacon(digits, now, protocol_config))
+      beacon_done_this_rev = true;
+    else if (!beacon_busy_counted_this_rev) {
+      ++telemetry_counters.beacons_busy_dropped;
+      beacon_busy_counted_this_rev = true;
+    }
   }
 
   /**
@@ -1724,6 +1734,7 @@ private:
   uint32_t epoch_emits_left =
       0; /**< ZERO boundaries left in the EPOCH train. */
   bool beacon_done_this_rev = false;
+  bool beacon_busy_counted_this_rev = false;
   uint32_t build_gen = 0;
   static_assert(std::atomic<uint32_t>::is_always_lock_free);
   std::atomic<uint32_t> build_request_word{
