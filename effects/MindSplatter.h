@@ -122,7 +122,7 @@ private:
    *          enforces the budget at compile time against the real device arena
    *          literal.
    */
-  static const int NUM_PARTICLES = 1088;
+  static constexpr int NUM_PARTICLES = 1088;
 
   typedef Solids::Cube EmitSolid;
   typedef Solids::Octahedron AttractSolid;
