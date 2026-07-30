@@ -85,6 +85,25 @@ inline void test_compile_hankin_populates_arrays() {
 }
 
 /**
+ * @brief Keeps the antipodal-edge midpoint fallback on the unit sphere.
+ */
+inline void test_compile_hankin_normalizes_antipodal_fallback() {
+  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh tetra;
+  build_solid<Solids::Tetrahedron>(tetra, temp);
+  tetra.vertices[0] = Vector(2.0f, 0.0f, 0.0f);
+  tetra.vertices[1] = Vector(-2.0f, 0.0f, 0.0f);
+
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(tetra, compiled, target, temp);
+
+  for (const Vector &mid : compiled.static_vertices)
+    HS_EXPECT_NEAR(mid.length(), 1.0f, 1e-5f);
+}
+
+/**
  * @brief Verifies every dynamic instruction references base-vertex and
  *        static-vertex indices within their respective array bounds.
  */
@@ -693,6 +712,7 @@ inline int run_hankin_tests() {
   hs_test::ModuleFixture fixture("hankin");
 
   test_compile_hankin_populates_arrays();
+  test_compile_hankin_normalizes_antipodal_fallback();
   test_compile_hankin_instruction_indices_in_range();
   test_compile_hankin_static_vertices_are_edge_midpoints();
   test_compile_hankin_icosahedron_triangular_faces();
