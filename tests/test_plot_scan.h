@@ -2308,6 +2308,17 @@ inline void test_multiline_sample_arclength_param() {
   }
   // v1 cumulative arc length sums the two equal 90deg hops.
   HS_EXPECT_NEAR(points.back().v1, PI_F, 1e-3f);
+
+  Fragments closed_points;
+  closed_points.bind(plot_arena(), 8);
+  Fragment seam =
+      Plot::Multiline::sample(closed_points, verts, /*closed=*/true);
+  HS_EXPECT_EQ(closed_points.size(), verts.size());
+  HS_EXPECT_NEAR(seam.pos.x, closed_points[0].pos.x, 1e-6f);
+  HS_EXPECT_NEAR(seam.pos.y, closed_points[0].pos.y, 1e-6f);
+  HS_EXPECT_NEAR(seam.v0, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(seam.v1, 2.0f * PI_F, 1e-3f);
+  HS_EXPECT_NEAR(seam.v2, 3.0f, 1e-6f);
 }
 
 // ============================================================================
