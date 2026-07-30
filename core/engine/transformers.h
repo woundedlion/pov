@@ -563,9 +563,9 @@ HS_O3_FN inline Vector ripple_transform(const Vector &v,
                 fast_expf(-0.5f * t * t - params.decay * d);
 
   Vector axis = cross(params.center, v);
-  float lenSq = dot(axis, axis);
-  if (lenSq > 1e-6f) {
-    axis = axis * (1.0f / sqrtf(lenSq));
+  float len_sq = dot(axis, axis);
+  if (len_sq > 1e-6f) {
+    axis = axis * (1.0f / sqrtf(len_sq));
     if (fabsf(theta) <= RIPPLE_SMALL_ANGLE_MAX) {
       // The truncated series leave the quaternion unit to ~1e-9, so the libm
       // trig and the normalize both drop out.
