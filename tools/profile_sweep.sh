@@ -17,6 +17,7 @@
 set -u
 P="$(dirname "$0")/profile_one.sh"
 FAILED=()
+GROUP=${1:-}
 
 # run <Effect> <env> <seconds> <window> [extra flags]
 run() {
@@ -25,7 +26,7 @@ run() {
     FAILED+=("$1/$2")
   fi
 }
-case "$1" in
+case "$GROUP" in
 g1_ship)
   run BZReactionDiffusion profile 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
   run ChaoticStrings profile 70 32
@@ -56,10 +57,10 @@ g4_ship)
   run IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"
   run DreamBalls profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   ;;
-*) echo "unknown group $1"; exit 1;;
+*) echo "unknown group $GROUP"; exit 1;;
 esac
 if [ ${#FAILED[@]} -gt 0 ]; then
-  echo "GROUP $1 INCOMPLETE — ${#FAILED[@]} failed: ${FAILED[*]}"
+  echo "GROUP $GROUP INCOMPLETE — ${#FAILED[@]} failed: ${FAILED[*]}"
   exit 1
 fi
-echo "GROUP $1 DONE"
+echo "GROUP $GROUP DONE"
