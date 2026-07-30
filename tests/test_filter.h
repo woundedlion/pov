@@ -111,8 +111,8 @@ inline void test_filter_trait_inheritance() {
   // 3D world-space, stateless.
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::is_2d));
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::has_history));
-  HS_EXPECT_FALSE((Filter::World::Hole<>::is_2d));
-  HS_EXPECT_FALSE((Filter::World::Hole<>::has_history));
+  HS_EXPECT_FALSE((Filter::World::Hole::is_2d));
+  HS_EXPECT_FALSE((Filter::World::Hole::has_history));
 
   // History-bearing trail filters.
   HS_EXPECT_FALSE((Filter::World::Trails<16>::is_2d));
@@ -686,8 +686,8 @@ struct Tap3D {
  *        quintic_kernel(d/r) so the very center is fully extinguished.
  */
 inline void test_world_hole_masks_cap() {
-  Filter::World::Hole<> hole(Vector(0, 1, 0),
-                             0.5f); // cap at +Y, radius 0.5 rad
+  Filter::World::Hole hole(Vector(0, 1, 0),
+                           0.5f); // cap at +Y, radius 0.5 rad
 
   // Far point (south pole) is well outside -> verbatim passthrough.
   int n = 0;
@@ -720,12 +720,11 @@ inline void test_world_hole_masks_cap() {
 }
 
 /**
- * @brief Verifies HoleRef tracks a mutable referenced origin: masking the point
- *        at the current center, then following the center after it moves.
+ * @brief Verifies Hole's origin and radius can be retuned after construction.
  */
-inline void test_world_hole_ref_follows_origin() {
+inline void test_world_hole_setters() {
   Vector center(0, 1, 0); // start at +Y
-  Filter::World::HoleRef hole(std::cref(center), 0.5f);
+  Filter::World::Hole hole(center, 0.5f);
 
   // At the initial center the point is fully masked (quintic_kernel(0) = 0).
   Tap3D got{};
@@ -735,7 +734,8 @@ inline void test_world_hole_ref_follows_origin() {
   HS_EXPECT_EQ((int)got.c.g, 0);
 
   // The old center now lies well outside -> verbatim passthrough.
-  center = Vector(0, -1, 0); // move the referenced origin to -Y
+  center = Vector(0, -1, 0);
+  hole.set_origin(center);
   hole.plot(Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f,
             [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
   HS_EXPECT_EQ((int)got.c.r, 10000);
@@ -746,6 +746,17 @@ inline void test_world_hole_ref_follows_origin() {
             [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
   HS_EXPECT_EQ((int)got.c.r, 0);
   HS_EXPECT_EQ((int)got.c.g, 0);
+
+  Vector quarter(sinf(0.25f), -cosf(0.25f), 0.0f);
+  hole.set_radius(0.1f);
+  hole.plot(quarter, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
+            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
+  HS_EXPECT_EQ((int)got.c.r, 10000);
+
+  hole.set_radius(0.5f);
+  hole.plot(quarter, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
+            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
+  HS_EXPECT_NEAR((float)got.c.r, 5000.0f, 50.0f);
 }
 
 /**
@@ -870,6 +881,21 @@ inline void test_world_vertex_replicate_fanout_and_age() {
     HS_EXPECT_NEAR(taps[i].v.z, verts[i].z, 1e-4f);
     // Age is unchanged for every copy (no per-copy +i offset).
     HS_EXPECT_NEAR(taps[i].age, 7.0f, 1e-6f);
+  }
+
+  std::array<Vector, N> updated = {X_AXIS, -Y_AXIS, -Z_AXIS};
+  vr.set_vertices(updated);
+  n = 0;
+  vr.plot(X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
+          [&](const Vector &v, const Pixel &c, float age, float a) {
+            if (n < N)
+              taps[n] = {v, c, age, a};
+            ++n;
+          });
+  for (int i = 0; i < N; ++i) {
+    HS_EXPECT_NEAR(taps[i].v.x, updated[i].x, 1e-4f);
+    HS_EXPECT_NEAR(taps[i].v.y, updated[i].y, 1e-4f);
+    HS_EXPECT_NEAR(taps[i].v.z, updated[i].z, 1e-4f);
   }
 }
 
@@ -1019,18 +1045,42 @@ inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
  */
 inline void test_pipeline_world_replicate_fans_out() {
   constexpr int W = 32, H = 16;
-  hs_test::StubEffect fx(W, H);
   // Replicate(2): original + one copy rotated 180 deg about Y (same latitude,
   // longitude + W/2) -> two distinct columns -> two lit pixels.
   Pipeline<W, H, Filter::World::Replicate<W>> pipe(
       Filter::World::Replicate<W>(2));
   Vector v = Vector(0.6f, 0.4f, 0.69f).normalized();
   {
-    Canvas c(fx);
-    pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
+    hs_test::StubEffect fx(W, H);
+    {
+      Canvas c(fx);
+      pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
+    }
+    fx.advance_display();
+    HS_EXPECT_EQ(count_lit(fx), (size_t)2);
   }
-  fx.advance_display();
-  HS_EXPECT_EQ(count_lit(fx), (size_t)2);
+
+  pipe.get<Filter::World::Replicate<W>>().set_count(3);
+  {
+    hs_test::StubEffect fx(W, H);
+    {
+      Canvas c(fx);
+      pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
+    }
+    fx.advance_display();
+    HS_EXPECT_EQ(count_lit(fx), (size_t)3);
+  }
+
+  pipe.get<Filter::World::Replicate<W>>().set_count(0);
+  {
+    hs_test::StubEffect fx(W, H);
+    {
+      Canvas c(fx);
+      pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
+    }
+    fx.advance_display();
+    HS_EXPECT_EQ(count_lit(fx), (size_t)1);
+  }
 }
 
 /**
@@ -2784,7 +2834,7 @@ inline int run_filter_tests() {
   test_feedback_plot_is_passthrough();
 
   test_world_hole_masks_cap();
-  test_world_hole_ref_follows_origin();
+  test_world_hole_setters();
   test_world_orient_rotates_and_offsets_age();
   test_world_orient_motion_blur_sweep_ages();
   test_world_orient_slice_selects_by_projection();
