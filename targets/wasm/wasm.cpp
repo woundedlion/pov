@@ -99,6 +99,12 @@ static constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
 static constexpr size_t MAX_TOOLING_MESH_ELEMENTS =
     TOOLING_SCRATCH_BYTES / TOOLING_BYTES_PER_MESH_ELEMENT;
 
+// Largest element count the engine's 16-bit connectivity can address. Half-edge
+// construction and the topology classifier both narrow face/index counts to
+// uint16_t behind an always-on HS_CHECK, so a mesh past this must be rejected at
+// the JS boundary rather than allowed to reach one.
+static constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS = UINT16_MAX;
+
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
 // was built under and traps via check_live() if a wipe reclaimed its storage.
 static uint32_t tooling_generation = 0;
@@ -902,7 +908,10 @@ public:
   /**
    * @brief Classifies faces by topology and returns the per-face codes.
    * @return JS Int32Array of one topology code per face, copied out of the
-   *         mesh's now-populated topology buffer.
+   *         mesh's now-populated topology buffer, or null when the mesh is past
+   *         MAX_MESH_CONNECTIVITY_ELEMENTS. Null rather than an empty array so a
+   *         caller can tell "no classification" from "no faces" with a plain
+   *         truthiness test.
    * @details Same tooling-arena lifetime contract as getVertices(): the
    *          `topology` buffer lives in tooling_arena and is invalidated by the
    *          next mesh op / arena reset. The `.new_(Int32Array)(view)` form
@@ -914,6 +923,15 @@ public:
    */
   val classifyFaces() {
     check_live();
+    if (hs_wasm::tooling_mesh_over_ceiling(
+            mesh.vertices.size(), mesh.get_face_counts_size(),
+            mesh.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS)) {
+      hs::log("WASM: classifyFaces mesh of %zu verts / %zu faces / %zu indices "
+              "is past the %zu-element 16-bit connectivity range — ignored",
+              mesh.vertices.size(), mesh.get_face_counts_size(),
+              mesh.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS);
+      return val::null();
+    }
     ToolingOpGuard guard;
     ensure_tooling_arenas();
     tooling_scratch_a.reset();
