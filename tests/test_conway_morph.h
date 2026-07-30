@@ -1439,20 +1439,20 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
     }
 
     const float raw_ratio_sq = distance_squared(raw_star, cn) / local_sq;
-    const float conditioned =
-        hankin_blend_above(raw_ratio_sq, MeshOps::HANKIN_CONDITIONED_NEAR_RATIO_SQ,
-                           MeshOps::HANKIN_CONDITIONED_FAR_RATIO_SQ);
+    const float conditioned = hankin_blend_above(
+        raw_ratio_sq, MeshOps::HANKIN_CONDITIONED_NEAR_RATIO_SQ,
+        MeshOps::HANKIN_CONDITIONED_FAR_RATIO_SQ);
     const float anchor =
         std::max(0.0f,
                  MeshOps::HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
-        conditioned *
-            std::max(0.0f, MeshOps::HANKIN_CONDITIONED_CLEAR_SQ - plane_cross_sq);
+        conditioned * std::max(0.0f, MeshOps::HANKIN_CONDITIONED_CLEAR_SQ -
+                                         plane_cross_sq);
     intersect = normalized_or(oriented_intersect + fallback * anchor, fallback);
 
     const float far_ratio = distance_squared(intersect, cn) / local_sq;
-    const float parallel_gate =
-        hankin_blend_above(-plane_cross_sq, -MeshOps::HANKIN_PARALLEL_GATE_HI_SQ,
-                           -MeshOps::HANKIN_PARALLEL_GATE_LO_SQ);
+    const float parallel_gate = hankin_blend_above(
+        -plane_cross_sq, -MeshOps::HANKIN_PARALLEL_GATE_HI_SQ,
+        -MeshOps::HANKIN_PARALLEL_GATE_LO_SQ);
     const float fallback_blend =
         hankin_blend_above(far_ratio, MeshOps::STAR_FAR_BLEND_START_RATIO_SQ,
                            MeshOps::STAR_FAR_RATIO_SQ) *
@@ -1517,8 +1517,7 @@ struct HankinStepStats {
   int normal_flips =
       0;              /**< Non-degenerate faces whose Newell normal reversed. */
   int flat_faces = 0; /**< Faces below HANKIN_FLAT_FACE this step. */
-  float max_far_ratio =
-      0; /**< Largest far_ratio this step. */
+  float max_far_ratio = 0;    /**< Largest far_ratio this step. */
   float max_corner_chord = 0; /**< Largest chord(star point, its corner). */
 };
 
@@ -2519,7 +2518,8 @@ inline void test_opleg_medial_leg_smoke() {
     std::vector<Vector> centroid(prev_faces);
     size_t off = 0;
     for (size_t f = 0; f < prev_faces; ++f) {
-      pal[f] = static_cast<uint8_t>(wrap(ambo_p.topology[f], OpLeg::PALETTES));
+      pal[f] = static_cast<uint8_t>(
+          wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
       Vector c(0.0f, 0.0f, 0.0f);
       const int n = ambo_p.face_counts[f];
       for (int j = 0; j < n; ++j)
@@ -2644,7 +2644,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const size_t nf = ambo_p.face_counts.size();
     std::vector<uint8_t> pal2(nf);
     for (size_t f = 0; f < nf; ++f)
-      pal2[f] = static_cast<uint8_t>(wrap(ambo_p.topology[f], OpLeg::PALETTES));
+      pal2[f] = static_cast<uint8_t>(
+          wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
     // Identity targets keep the seam's class-keyed contrast structure, so the
     // pixel gate's calibration stays wide of the mis-key flip signature.
     std::array<uint8_t, OpLeg::PALETTES> targets;
@@ -2917,8 +2918,8 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
   Vector *prev_centroid = leg_arena.allocate_n<Vector>(prev_faces);
   size_t off = 0;
   for (size_t f = 0; f < prev_faces; ++f) {
-    prev_pal[f] =
-        static_cast<uint8_t>(slots[wrap(seed.topology[f], OpLeg::PALETTES)]);
+    prev_pal[f] = static_cast<uint8_t>(
+        slots[wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
     Vector c(0.0f, 0.0f, 0.0f);
     const int n = seed.face_counts[f];
     for (int j = 0; j < n; ++j)
@@ -3057,8 +3058,8 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   const size_t prev_faces = seed.face_counts.size();
   uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
   for (size_t f = 0; f < prev_faces; ++f)
-    prev_pal[f] =
-        static_cast<uint8_t>(slots[wrap(seed.topology[f], OpLeg::PALETTES)]);
+    prev_pal[f] = static_cast<uint8_t>(
+        slots[wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
 
   OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,  prev_faces,
                                 false,      nullptr,  &targets, true};
@@ -3205,7 +3206,8 @@ inline void test_opleg_build_immutable_colours() {
     bool from_ok = true, to_ok = true;
     for (size_t f = 0; f < sh.faces; ++f) {
       const uint8_t from = lp->from_palette[f];
-      const uint8_t to = lp->to_palette[wrap(lp->topology[f], OpLeg::PALETTES)];
+      const uint8_t to = lp->to_palette[wrap(static_cast<int>(lp->topology[f]),
+                                             OpLeg::PALETTES)];
       from_ok = from_ok && matches(sh, f, from);
       to_ok = to_ok && matches(sh, f, to);
     }
@@ -3216,7 +3218,8 @@ inline void test_opleg_build_immutable_colours() {
     int n = 0;
     for (size_t f = 0; f < lp->faces; ++f)
       if (lp->from_palette[f] !=
-          lp->to_palette[wrap(lp->topology[f], OpLeg::PALETTES)])
+          lp->to_palette[wrap(static_cast<int>(lp->topology[f]),
+                              OpLeg::PALETTES)])
         ++n;
     return n;
   };

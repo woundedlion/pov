@@ -241,7 +241,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     }
 
     // Best alignment against every same-topology class rep.
-    const int topo = mesh.topology[f];
+    const uint16_t topo = mesh.topology[f];
     int best_class = -1, best_off = 0;
     bool best_refl = false;
     float best_res_sq = FLT_MAX;

@@ -700,7 +700,7 @@ private:
     // that classification — every face it merges converges to a single color
     // before the swap. Built from the same arrival mesh finish_morph_cycle
     // rebuilds, so the class ids match at completion.
-    int arrival_topo[MAX_NODE_FACES];
+    uint16_t arrival_topo[MAX_NODE_FACES];
     size_t arrival_faces = 0;
     {
       ScratchScope ba(scratch_arena_a);

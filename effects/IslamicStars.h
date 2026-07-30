@@ -233,7 +233,8 @@ private:
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces = 0; /**< Length of build_from_pal. */
   int dual_bridges_built = 0;  /**< DUAL bridges scheduled (test coverage). */
-  int build_macro_sweep_frames = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
+  int build_macro_sweep_frames =
+      SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
   int build_reconcile_frames =
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
@@ -999,7 +1000,8 @@ private:
                         Animation::OpLeg::FaceCorrespondence::IDENTITY);
     const size_t medial_faces = dual_bridge_ambo.face_counts.size();
     HS_CHECK(build_landing && build_landing->faces == medial_faces);
-    int *medial_topology = scratch_arena_a.allocate_n<int>(medial_faces);
+    uint16_t *medial_topology =
+        scratch_arena_a.allocate_n<uint16_t>(medial_faces);
     std::copy_n(build_landing->topology, medial_faces, medial_topology);
     build_landing = nullptr;
 
