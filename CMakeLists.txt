@@ -129,6 +129,14 @@ if(EMSCRIPTEN)
             DESTINATION "${DAYDREAM_DIR}")
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
             DESTINATION "${DAYDREAM_DIR}")
+    # The segment-map golden, emitted from hardware/pov_segment_map.h and pinned
+    # against it by the unit_pov_segment_map_golden CTest. The simulator's
+    # tests/segment_crosscheck.test.js reads it as the firmware reference, so it
+    # travels the same install path as the module rather than being hand-ported
+    # into JS. daydream's deploy gate diffs its committed copy against this file in
+    # the engine checkout it pins, so a stale copy there fails too.
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/hardware/pov_segment_map.json"
+            DESTINATION "${DAYDREAM_DIR}")
     install(CODE "file(REMOVE_RECURSE \"${DAYDREAM_DIR}/docs/screenshots\")")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots")

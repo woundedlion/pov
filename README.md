@@ -233,6 +233,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── dma_led_core.h          Pure double-buffer / transfer-length / stale-transfer math (host-testable)
 │   ├── hd107s_frame.h          HD107S protocol buffer + inline color correction (host-testable)
 │   ├── pov_segment_map.h       Pure segment index math (host-testable)
+│   ├── pov_segment_map.json    Segment→canvas golden emitted from that header; read by daydream's cross-check
 │   ├── pov_single.h            Single-Teensy POV driver (Holosphere)
 │   ├── pov_single_map.h        Pure single-board strip index math (host-testable)
 │   ├── pov_sync.h              Phantasm sync protocol core: flywheel timebase, symbol codec, epoch/beacon (host-testable)
@@ -309,6 +310,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── holosphere_wasm.sha         Engine commit + tree state the module was built from
 ├── holosphere_wasm.wasm.sha256 `sha256sum -c` manifest over the installed .wasm and .js — verified by the deploy gate
 ├── holosphere_wasm.toolchain   emsdk + clang versions that built the module
+├── pov_segment_map.json        Firmware segment→canvas golden, installed from Holosphere — read by the segment cross-check
 ├── README.md                   Installed from Holosphere (this file)
 ├── docs/screenshots/           Installed from Holosphere
 │
