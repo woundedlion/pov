@@ -94,6 +94,43 @@ class ZoneGeometryTests(unittest.TestCase):
             self.assertEqual(fab.validate_zone_geometry(pcb), 0)
 
 
+class PlotOriginTests(unittest.TestCase):
+    def validate_source(self, source):
+        with tempfile.TemporaryDirectory() as directory:
+            pcb = Path(directory) / "test.kicad_pcb"
+            pcb.write_text(source, encoding="utf-8")
+            return fab.validate_plot_origin(pcb)
+
+    def test_accepts_board_without_plot_origin(self):
+        source = "(kicad_pcb (setup (pad_to_mask_clearance 0)))"
+
+        self.assertEqual(self.validate_source(source), (0.0, 0.0))
+
+    def test_accepts_plot_origin_at_absolute_zero(self):
+        self.assertEqual(
+            self.validate_source("(kicad_pcb (setup (aux_axis_origin 0 0)))"),
+            (0.0, 0.0))
+
+    def test_rejects_offset_plot_origin(self):
+        with self.assertRaisesRegex(
+                fab.PlotOriginError,
+                r"drill/place origin is 10,-5 mm"):
+            self.validate_source("(kicad_pcb (setup (aux_axis_origin 10 -5)))")
+
+    def test_rejects_invalid_plot_origin(self):
+        with self.assertRaisesRegex(
+                fab.PlotOriginError, "aux_axis_origin is invalid: 10"):
+            self.validate_source("(kicad_pcb (setup (aux_axis_origin 10)))")
+
+    def test_rejects_unreadable_board(self):
+        with self.assertRaisesRegex(
+                fab.PlotOriginError, "cannot read PCB setup"):
+            fab.validate_plot_origin("does-not-exist.kicad_pcb")
+
+    def test_committed_board_exports_in_absolute_coordinates(self):
+        self.assertEqual(fab.validate_plot_origin(fab.PCB), (0.0, 0.0))
+
+
 class AssemblyMetadataTests(unittest.TestCase):
     def setUp(self):
         self.ref = "X1"
