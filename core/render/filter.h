@@ -49,7 +49,9 @@ using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
  * segment bands, so the effect must render the full canvas. `reads_outside_band`:
  * the stage samples framebuffer pixels outside the display band, so stale pixels
  * outside that band must also be cleared. Both default to `has_history`
- * (fail-safe).
+ * (fail-safe). `segment_margin`: how many pixels the stage's output can land
+ * away from the plotted position, i.e. how far the render bounds must be padded
+ * past the display band for a segment worker to still write the stage's taps.
  */
 struct Is2D {
   static constexpr int domain_rank = 1;
@@ -61,6 +63,7 @@ struct Is2D {
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
   static constexpr bool reads_outside_band = has_history;
+  static constexpr int segment_margin = 0;
 };
 /** @brief Trait indicating a filter operates in 3D world space. */
 struct Is3D {
@@ -73,6 +76,7 @@ struct Is3D {
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
   static constexpr bool reads_outside_band = has_history;
+  static constexpr int segment_margin = 0;
 };
 
 /** @brief Trait indicating a 2D filter that maintains state/history. */
@@ -86,6 +90,7 @@ struct Is2DWithHistory {
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
   static constexpr bool reads_outside_band = has_history;
+  static constexpr int segment_margin = 0;
 };
 
 /** @brief Trait indicating a 3D filter that maintains state/history. */
@@ -99,6 +104,7 @@ struct Is3DWithHistory {
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
   static constexpr bool reads_outside_band = has_history;
+  static constexpr int segment_margin = 0;
 };
 
 /**
@@ -139,6 +145,7 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_terminal = false;
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_reads_outside_band = false;
+  static constexpr int max_segment_margin = 0;
   static constexpr bool any_2d_history = false;
   static constexpr bool any_3d_history = false;
   static constexpr bool any_2d_trail_history = false;
@@ -292,9 +299,14 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
       Head::crosses_segments || Next::any_crosses_segments;
   static constexpr bool any_reads_outside_band =
       Head::reads_outside_band || Next::any_reads_outside_band;
+  static constexpr int max_segment_margin =
+      Head::segment_margin > Next::max_segment_margin
+          ? Head::segment_margin
+          : Next::max_segment_margin;
 
   static constexpr bool crosses_segments = any_crosses_segments;
   static constexpr bool reads_outside_band = any_reads_outside_band;
+  static constexpr int segment_margin = max_segment_margin;
 
   static constexpr bool any_2d_history =
       (Head::has_history && Head::is_2d) || Next::any_2d_history;
@@ -1344,6 +1356,7 @@ template <int W, int H> class DirectAntiAliasSink : public Is2D {
 public:
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_reads_outside_band = false;
+  static constexpr int max_segment_margin = 0;
   static constexpr bool has_world_cull = false;
   static constexpr bool direct_raster_path = true;
 
@@ -2418,6 +2431,11 @@ template <int W> class ChromaticShift : public Is2D {
 
 public:
   static constexpr int domain_rank = 2;
+  /**
+   * @brief The +1/+2/+3 column taps land outside the plotted position, so a
+   *        segment worker needs 3 columns of render margin to write them.
+   */
+  static constexpr int segment_margin = 3;
   /** @brief Constructs the chromatic-shift filter (stateless). */
   ChromaticShift() {}
 

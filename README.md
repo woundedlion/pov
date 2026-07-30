@@ -617,8 +617,10 @@ The clear covers only the current display clip unless a filter declares
 `reads_outside_band`. Rendering a full frame and sampling old framebuffer
 contents outside the band are separate properties: `World::Trails` needs the
 former, while `Pixel::Feedback` needs both. The margin-expanded render band is
-otherwise write-only scratch. Filtered effects derive both flags from their
-pipelines.
+otherwise write-only scratch; its width comes from the pipeline's
+`max_segment_margin` fold over each filter's `segment_margin` (how far the
+stage's output lands from the plotted position), floored at 1. Filtered effects
+derive all three from their pipelines.
 
 `canvas(x, y)` is a direct array subscript into the write buffer (`bufs[cur][y * width + x]`). No bounds checking, no virtual dispatch.
 

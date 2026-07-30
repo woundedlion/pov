@@ -174,6 +174,10 @@ inline void smoke_one(const char *name) {
   HS_EXPECT_EQ(effect.width(), W);
   HS_EXPECT_EQ(effect.height(), H);
 
+  // A wider render margin costs rendered pixels, so it may only appear when a
+  // filter's segment_margin asks for it; no roster pipeline does today.
+  HS_EXPECT_EQ(effect.clip().margin, ClipRegion{}.margin);
+
   const int frames = smoke_frames();
   for (int f = 0; f < frames; ++f) {
     effect.draw_frame();

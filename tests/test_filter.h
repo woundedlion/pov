@@ -198,6 +198,31 @@ inline void test_crosses_segments_trait_and_fold() {
                 "Pipeline::crosses_segments must answer the fold, not the head");
   static_assert(!PlainStack::any_crosses_segments,
                 "non-stateful pipeline must keep the segment clipping win");
+
+  // segment_margin: the render-bound padding a stage's off-position taps need.
+  HS_EXPECT_EQ((Filter::Pixel::ChromaticShift<W>::segment_margin), 3);
+  HS_EXPECT_EQ((Filter::Screen::AntiAlias<W, H>::segment_margin), 0);
+  HS_EXPECT_EQ((Filter::World::Orient::segment_margin), 0);
+  HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::segment_margin), 0);
+
+  // max_segment_margin fold: empty pipeline, plain stack, and the max over a
+  // chain carrying ChromaticShift as head and as tail.
+  HS_EXPECT_EQ((Pipeline<W, H>::max_segment_margin), 0);
+  HS_EXPECT_EQ((PlainStack::max_segment_margin), 0);
+  HS_EXPECT_EQ((MeshStack::max_segment_margin), 0);
+  HS_EXPECT_EQ(
+      (Pipeline<W, H, Filter::Pixel::ChromaticShift<W>>::max_segment_margin),
+      3);
+  using ShiftStack =
+      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
+               Filter::Pixel::ChromaticShift<W>>;
+  HS_EXPECT_EQ((ShiftStack::max_segment_margin), 3);
+  HS_EXPECT_EQ((ShiftStack::segment_margin), ShiftStack::max_segment_margin);
+  // ChromaticShift pads the render bounds instead of forcing a full frame.
+  static_assert(!Filter::Pixel::ChromaticShift<W>::crosses_segments,
+                "ChromaticShift must stay band-clippable");
+  static_assert(!ShiftStack::any_crosses_segments,
+                "a ChromaticShift stack must keep the segment clipping win");
 }
 
 /**

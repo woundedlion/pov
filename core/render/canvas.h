@@ -33,6 +33,11 @@ struct EffectConfig {
   bool persist = false; /**< Copy previous frame forward (persists_pixels). */
   bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
   bool reads_outside_band = false; /**< Clear pixels outside the display band. */
+  /**
+   * @brief Render-bound expansion the effect's filters need, in pixels
+   *        (ClipRegion::margin). Raised to the ClipRegion default when lower.
+   */
+  int margin = ClipRegion{}.margin;
 };
 
 /**
@@ -84,6 +89,10 @@ public:
     clip_region.h = H;
     clip_region.y_end = H;
     clip_region.x_end = W;
+    // Only widen: a filter fold of 0 must not shrink the coverage every effect
+    // already gets from the ClipRegion default.
+    if (cfg.margin > clip_region.margin)
+      set_margin(cfg.margin);
   }
 
   /**

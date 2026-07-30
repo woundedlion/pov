@@ -845,6 +845,28 @@ inline void test_clip_setters() {
   HS_EXPECT_EQ(fx.clip().margin, 3);
 }
 
+/**
+ * @brief Verifies EffectConfig::margin reaches ClipRegion::margin, floored at
+ *        the ClipRegion default.
+ * @details A pipeline whose max_segment_margin folds to 0 must not shrink the
+ *          coverage a plain effect already has.
+ */
+inline void test_effect_config_margin() {
+  const int base = ClipRegion{}.margin;
+  {
+    TestEffect fx(96, 20);
+    HS_EXPECT_EQ(fx.clip().margin, base);
+  }
+  {
+    TestEffect fx(96, 20, {.margin = 0});
+    HS_EXPECT_EQ(fx.clip().margin, base);
+  }
+  {
+    TestEffect fx(96, 20, {.margin = 3});
+    HS_EXPECT_EQ(fx.clip().margin, 3);
+  }
+}
+
 struct StubPipe {
   int integer_hits = 0;
   int float_hits = 0;
@@ -939,6 +961,7 @@ inline int run_canvas_tests() {
   test_register_and_update_enum_param();
   test_paramlist_fills_to_capacity();
   test_clip_setters();
+  test_effect_config_margin();
   test_pipeline_ref_routes_screen_coordinate_overloads();
   test_pipeline_ref_copy_is_independent_of_source();
 
