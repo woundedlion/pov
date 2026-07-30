@@ -942,8 +942,10 @@ gamut_clip_preserve_chroma(OKLab lab) {
  */
 inline void oklab_to_linear_rgb_gamut(OKLab lab, float &r, float &g, float &b) {
   oklab_to_linear_rgb(lab, r, g, b);
-  if (!linear_rgb_in_gamut(r, g, b))
+  if (!linear_rgb_in_gamut(r, g, b)) {
+    HS_PROFILE_DEEP(gamut_clip);
     oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r, g, b);
+  }
 }
 
 /**
