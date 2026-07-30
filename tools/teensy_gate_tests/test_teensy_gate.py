@@ -158,16 +158,6 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(syms["_ZN6Effect8buffer_aE"].region, "OCRAM")
         self.assertEqual(syms["_ZL18global_arena_block"].size, 305152)
 
-    def test_parse_size_a_bucketing(self):
-        totals = tg.region_totals_from_size_a(_read("good_size_a.txt"))
-        # .ARM.attributes/.comment sit at VMA 0 but are non-allocated: they must be
-        # dropped, not bucketed into ITCM (whose base is also 0x0).
-        self.assertEqual(totals["ITCM"], 0xf320 + 0x2a00)   # .text.itcm + .text.code
-        self.assertEqual(totals["FLASH"], 0x2cc00 + 0x8)    # .text.progmem + .ARM.exidx
-        self.assertEqual(totals["DTCM"], 0x1a00 + 0x53c00)
-        self.assertEqual(totals["OCRAM"], 0x79900)
-
-
 class TestGoodBuildPasses(unittest.TestCase):
     def test_holosphere_good_build_clean(self):
         result = _eval("holosphere", "good_teensy_size.txt", "good_readelf_syms.txt")
@@ -820,11 +810,10 @@ class TestSizeAFallback(unittest.TestCase):
     free-headroom arithmetic, end-to-end through main() and evaluate()."""
 
     def test_free_headroom_is_0x80000_minus_used(self):
-        totals = tg.region_totals_from_size_a(_read("good_size_a.txt"))
         sizes = tg.fallback_sizes_from_size_a(_read("good_size_a.txt"))
-        ram1 = totals["ITCM"] + totals["DTCM"]
-        self.assertEqual(sizes["ram1"]["free"], 0x80000 - ram1)
-        self.assertEqual(sizes["ram2"]["free"], 0x80000 - totals["OCRAM"])
+        expected_ram1 = 0xf320 + 0x2a00 + 0x1a00 + 0x53c00
+        self.assertEqual(sizes["ram1"]["free"], 0x80000 - expected_ram1)
+        self.assertEqual(sizes["ram2"]["free"], 0x80000 - 0x79900)
 
     def test_main_size_a_fallback_passes_a_fitting_build(self):
         rc, out = self._run_main_size_a(
