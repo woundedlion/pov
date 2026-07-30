@@ -104,8 +104,6 @@ private:
    * budget.
    */
   HS_COLD_MEMBER void build() {
-    timeline.clear();
-
     timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, {},
                                              hs::rand_int(0, 65536)));
 
