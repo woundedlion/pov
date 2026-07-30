@@ -591,13 +591,35 @@ public:
   }
 
   /**
-   * @brief Access a mutable quaternion at a specific historical frame index.
+   * @brief Access a quaternion at a specific historical frame index.
    * @param i The frame index.
-   * @return The Quaternion reference.
+   * @return The const Quaternion reference.
    */
-  Quaternion &at(int i) {
+  const Quaternion &at(int i) const {
     HS_CHECK(i >= 0 && i < num_frames);
     return orientations[i];
+  }
+
+  /**
+   * @brief Replaces a quaternion at a specific historical frame index.
+   * @param i The frame index.
+   * @param q Unit-length replacement quaternion.
+   */
+  void set_at(int i, const Quaternion &q) {
+    HS_CHECK(i >= 0 && i < num_frames);
+    HS_CHECK(std::abs(q.squared_magnitude() - 1.0f) < math::EPS_UNIT_QUAT_SQ);
+    orientations[i] = q;
+  }
+
+  /**
+   * @brief Normalizes and replaces a historical quaternion.
+   * @param i The frame index.
+   * @param q Replacement quaternion; must have nonzero magnitude.
+   */
+  void set_at_normalized(int i, Quaternion q) {
+    HS_CHECK(i >= 0 && i < num_frames);
+    q.normalize();
+    orientations[i] = q;
   }
 
   /**

@@ -278,13 +278,13 @@ public:
 
       // Relative delta from the baseline frame to this substep's frame: World
       // pre-multiplies, Local post-multiplies.
-      Quaternion &current_q = orientation.get().at(i);
+      Quaternion current_q = orientation.get().at(i);
       if (space == Space::Local) {
         current_q = current_q * (base_inv * frame);
       } else {
         current_q = (frame * base_inv) * current_q;
       }
-      current_q.normalize();
+      orientation.get().set_at_normalized(i, current_q);
     }
     // Carry the final substep's frame as the next frame's baseline.
     prev_frame = frame;
@@ -451,9 +451,9 @@ public:
       float angle = step_angle * i;
       Quaternion q = make_rotation(axis, angle);
 
-      Quaternion &current_q = orientation->at(i);
+      Quaternion current_q = orientation->at(i);
       apply_rotation(current_q, q);
-      current_q.normalize();
+      orientation->set_at_normalized(i, current_q);
     }
     last_angle = target_angle;
   }
