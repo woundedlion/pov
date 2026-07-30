@@ -55,7 +55,6 @@ class GSReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
-  using Base::advance_substeps;
   using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::from_q16;
@@ -166,6 +165,21 @@ private:
    * rate; each stays within the explicit-Euler stability bound (see "Speed").
    */
   static constexpr int STEPS_PER_FRAME = 16;
+  static_assert(STEPS_PER_FRAME % 2 == 0,
+                "GS ping-pong state must land in its input buffers");
+
+  template <typename StepFn>
+  static void
+  advance_substeps(const std::array<float *, 2> &persistent,
+                   const std::array<float *, 2> &scratch, StepFn &&step) {
+    std::array<float *, 2> cur = persistent;
+    std::array<float *, 2> nxt = scratch;
+    for (int k = 0; k < STEPS_PER_FRAME; ++k) {
+      step(cur, nxt);
+      std::swap(cur[0], nxt[0]);
+      std::swap(cur[1], nxt[1]);
+    }
+  }
   /**
    * @brief Lower bound of the B render band: below this, pixels are transparent;
    * [B_COLOR_FLOOR, B_COLOR_FLOOR + 1/B_COLOR_SCALE] maps to the full palette
@@ -405,7 +419,7 @@ private:
         cur_a[i] = from_q16(state.A[i]);
         cur_b[i] = from_q16(state.B[i]);
       }
-      advance_substeps(STEPS_PER_FRAME, std::array<float *, 2>{cur_a, cur_b},
+      advance_substeps(std::array<float *, 2>{cur_a, cur_b},
                        std::array<float *, 2>{nxt_a, nxt_b},
                        [&](auto &cur, auto &nxt) {
                          step_physics(cur[0], cur[1], nxt[0], nxt[1]);
