@@ -149,10 +149,15 @@ jobs:
         # passes. The local pre-commit default is the QUICK tier (device-resolution
         # <96,20> passes only, ~2 s); CI is the authoritative gate for the
         # full-resolution paths (tests/test_effects.h effects_full_suite()).
+        #
+        # --no-tests=error: a shard regex that matches nothing is a shard-matrix
+        # bug; without it an empty shard runs zero tests and reports green.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
-        run: ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
+        run: >
+          ctest --preset tests --output-on-failure --no-tests=error
+          -R "${{ matrix.test_regex }}"
 
   sanitizers:
     name: Native unit tests (Clang, ASan + UBSan) / shard ${{ matrix.shard }}
@@ -214,11 +219,14 @@ jobs:
         # runs them with -DHS_REQUIRE_GENERATORS=ON and the provenance jobs re-run
         # them standalone. Shard membership is untouched, so the shard-coverage
         # job still asserts every registered test is claimed by exactly one shard.
+        # --no-tests=error for the same reason as the tests job; every shard keeps
+        # tests outside the -E set.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
         run: >
-          ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
+          ctest --preset tests --output-on-failure --no-tests=error
+          -R "${{ matrix.test_regex }}"
           -E "^unit_(color_luts|color_luts_check|gamut_lut)$"
 
   optimized-tests:
@@ -277,11 +285,13 @@ jobs:
         # optimized run covers the same code paths they do.
         # Exclude generated-artifact gates for the same reason as sanitizers:
         # this job neither provisions numpy nor enables HS_REQUIRE_GENERATORS.
+        # --no-tests=error for the same reason as the tests job.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
         run: >
-          ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
+          ctest --preset tests --output-on-failure --no-tests=error
+          -R "${{ matrix.test_regex }}"
           -E "^unit_(color_luts|color_luts_check|gamut_lut)$"
 
   code-coverage:
