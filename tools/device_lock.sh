@@ -56,7 +56,7 @@ _hs_now() { date +%s; }
 # resolves its USB location against. Empty output = enumerate-less host; the
 # caller falls back to the portless lock and the loader's auto-search.
 hs_device_ports() {
-  if [ -n "$HS_TEENSY_PORT" ]; then echo "$HS_TEENSY_PORT"; return 0; fi
+  if [ -n "${HS_TEENSY_PORT:-}" ]; then echo "$HS_TEENSY_PORT"; return 0; fi
   local tools=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}
   [ -x "$tools/teensy_ports.exe" ] || return 0
   "$tools/teensy_ports.exe" -L 2>/dev/null | awk '$2 ~ /^COM[0-9]+$/ {print $2}'
