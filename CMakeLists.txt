@@ -171,7 +171,8 @@ if(EMSCRIPTEN)
           set(HS_ENGINE_SHA \"\${HS_ENGINE_SHA}-dirty\")
           message(WARNING \"Engine tree has uncommitted changes; recording ${TARGET_NAME}.sha as \${HS_ENGINE_SHA}. The deploy gate will reject this ref — rebuild from a clean (committed) tree before deploying.\")
         endif()
-        file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\" \"\${HS_ENGINE_SHA}\\n\")
+        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\"
+             CONTENT \"\${HS_ENGINE_SHA}\\n\" @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote engine provenance ${TARGET_NAME}.sha: \${HS_ENGINE_SHA}\")
 
         # sha256sum -c manifest, one '<hash>  <filename>' line per artifact, checked
@@ -182,10 +183,15 @@ if(EMSCRIPTEN)
         # gate already passes to `sha256sum -c`.
         # Written only alongside the .sha so the provenance set is never half-written
         # (a .wasm.sha256 without a .sha is a partial set the deploy gate rejects).
+        # Git stores the generated glue and provenance files as LF on every host.
+        file(READ \"${DAYDREAM_DIR}/${TARGET_NAME}.js\" HS_GLUE_CONTENT)
+        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.js\"
+             CONTENT \"\${HS_GLUE_CONTENT}\" @ONLY NEWLINE_STYLE LF)
         file(SHA256 \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm\" HS_WASM_SHA256)
         file(SHA256 \"${DAYDREAM_DIR}/${TARGET_NAME}.js\" HS_GLUE_SHA256)
-        file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
-             \"\${HS_WASM_SHA256}  ${TARGET_NAME}.wasm\\n\${HS_GLUE_SHA256}  ${TARGET_NAME}.js\\n\")
+        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
+             CONTENT \"\${HS_WASM_SHA256}  ${TARGET_NAME}.wasm\\n\${HS_GLUE_SHA256}  ${TARGET_NAME}.js\\n\"
+             @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote artifact hashes ${TARGET_NAME}.wasm.sha256: .wasm=\${HS_WASM_SHA256} .js=\${HS_GLUE_SHA256}\")
 
         # Toolchain identity of the build event. The .sha pins the SOURCE, but the
@@ -195,8 +201,9 @@ if(EMSCRIPTEN)
         # A separate additive file, not extra lines in the two above: the gate feeds
         # .wasm.sha256 to `sha256sum -c` and requires .sha to be a bare 40-hex ref.
         # Written with the pair above, keeping the provenance set all-or-nothing.
-        file(WRITE \"${DAYDREAM_DIR}/${TARGET_NAME}.toolchain\"
-             \"emsdk ${EMSCRIPTEN_VERSION}\\nclang ${CMAKE_CXX_COMPILER_VERSION}\\n\")
+        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.toolchain\"
+             CONTENT \"emsdk ${EMSCRIPTEN_VERSION}\\nclang ${CMAKE_CXX_COMPILER_VERSION}\\n\"
+             @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote toolchain provenance ${TARGET_NAME}.toolchain: emsdk ${EMSCRIPTEN_VERSION}, clang ${CMAKE_CXX_COMPILER_VERSION}\")
       else()
         # Best-effort provenance: git is absent or this is not a working tree (an
