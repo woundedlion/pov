@@ -607,11 +607,12 @@ void MyEffect::draw_frame() override {
 }                           // ~Canvas() — queue_frame()
 ```
 
-The clear covers only the current display clip unless the effect declares
-`needs_full_frame`, since a band-clippable effect never reads outside its
-display clip. It does draw into the margin-expanded render bounds, but that band
-is write-only scratch: nothing samples or displays it. Nothing to opt into: the
-constructor reads both flags off the effect.
+The clear covers only the current display clip unless a filter declares
+`reads_outside_band`. Rendering a full frame and sampling old framebuffer
+contents outside the band are separate properties: `World::Trails` needs the
+former, while `Pixel::Feedback` needs both. The margin-expanded render band is
+otherwise write-only scratch. Filtered effects derive both flags from their
+pipelines.
 
 `canvas(x, y)` is a direct array subscript into the write buffer (`bufs[cur][y * width + x]`). No bounds checking, no virtual dispatch.
 

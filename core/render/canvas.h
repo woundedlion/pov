@@ -32,6 +32,7 @@ struct EffectConfig {
   bool strobe = false;  /**< POV column strobe (Effect::strobe_columns). */
   bool persist = false; /**< Copy previous frame forward (persists_pixels). */
   bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
+  bool reads_outside_band = false; /**< Clear pixels outside the display band. */
 };
 
 /**
@@ -65,7 +66,8 @@ public:
    */
   HS_COLD_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
-        strobe(cfg.strobe), frame_width(W), frame_height(H) {
+        reads_outside_band(cfg.reads_outside_band), strobe(cfg.strobe),
+        frame_width(W), frame_height(H) {
     HS_CHECK(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H,
              "Effect dimensions %d x %d are outside 1..%d x 1..%d", W, H, MAX_W,
              MAX_H);
@@ -114,10 +116,9 @@ public:
   /**
    * @brief Whether this effect must render the FULL canvas per simulator worker
    *        rather than be clipped to a segment band.
-   * @return True for a cross-segment stateful effect (its per-frame state reads
-   *         pixels outside the band — e.g. MeshFeedback's unbounded warp);
-   *         false (the default) for every effect whose output in a band depends
-   *         only on that band, which keeps segmented rendering's clipping win.
+   * @return True for an effect whose output can cross segment boundaries (for
+   *         example MeshFeedback's unbounded warp or World::Trails);
+   *         false (the default) when each segment can render independently.
    * @details Read by the segment drivers to leave the clip at full canvas for
    *          stateful effects. Set once at construction from the filter
    *          pipeline's `any_crosses_segments` fold; defaults to false.
@@ -494,6 +495,8 @@ protected:
    * construction from the filter pipeline `any_crosses_segments` trait.
    */
   bool full_frame;
+  /** @brief Whether frame generation samples pixels outside the display band. */
+  bool reads_outside_band;
   /**
    * @brief POV column-strobe flag (see strobe_columns()); set at construction.
    */
@@ -844,14 +847,14 @@ private:
   /**
    * @brief Clears whatever of the freshly acquired buffer can still show stale
    *        pixels from the frame that last wrote it.
-   * @details A band-clippable effect never reads outside its display clip, so
-   *          the leftovers there are invisible and only the display band has to
+   * @details For an effect that does not read outside its display clip, the
+   *          leftovers there are invisible and only the display band has to
    *          be cleared. It does draw into the margin-expanded render bounds,
    *          but that band is write-only scratch: nothing samples or displays
-   *          it. A full-frame effect does read across the band edge
-   *          (some filter in its pipeline crosses segments), so it needs the
-   *          whole buffer. Unsegmented targets clip to the full canvas, where
-   *          the two are the same fill.
+   *          it. A filter that samples across the band edge needs the whole
+   *          buffer cleared, independently of whether its output crosses
+   *          segment boundaries. Unsegmented targets clip to the full canvas,
+   *          where the two are the same fill.
    */
   void clear_stale_pixels() {
 #ifdef HS_TEST_BUILD
@@ -860,7 +863,7 @@ private:
       return;
     }
 #endif
-    if (effect.full_frame)
+    if (effect.reads_outside_band)
       clear_buffer();
     else
       clear_display_clip_buffer();

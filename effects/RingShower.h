@@ -31,7 +31,9 @@ public:
   HS_COLD_MEMBER RingShower()
       : Effect(W, H,
                {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments}) {}
+                .full_frame = decltype(filters)::any_crosses_segments,
+                .reads_outside_band =
+                    decltype(filters)::any_reads_outside_band}) {}
 
   /**
    * @brief Registers parameters, bakes per-slot palette LUTs, and arms the

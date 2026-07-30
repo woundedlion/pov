@@ -58,7 +58,9 @@ public:
   HS_COLD_MEMBER RingSpin()
       : Effect(W, H,
                {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments}) {}
+                .full_frame = decltype(filters)::any_crosses_segments,
+                .reads_outside_band =
+                    decltype(filters)::any_reads_outside_band}) {}
 
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.

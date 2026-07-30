@@ -43,7 +43,10 @@ public:
       : Effect(W, H,
                {.strobe = true,
                 .full_frame = decltype(plot_filters)::any_crosses_segments ||
-                              decltype(scan_filters)::any_crosses_segments}),
+                              decltype(scan_filters)::any_crosses_segments,
+                .reads_outside_band =
+                    decltype(plot_filters)::any_reads_outside_band ||
+                    decltype(scan_filters)::any_reads_outside_band}),
         current_shape(ShapeType::PlanarPolygon) {}
 
   /**

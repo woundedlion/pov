@@ -49,7 +49,9 @@ public:
   HS_COLD_MEMBER DreamBalls()
       : Effect(W, H,
                {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments}),
+                .full_frame = decltype(filters)::any_crosses_segments,
+                .reads_outside_band =
+                    decltype(filters)::any_reads_outside_band}),
         filters(Filter::Screen::AntiAlias<W, H>()), mobius_gen(timeline) {}
 
   /**

@@ -33,7 +33,9 @@ public:
   HS_COLD_MEMBER Thrusters()
       : Effect(W, H,
                {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments}),
+                .full_frame = decltype(filters)::any_crosses_segments,
+                .reads_outside_band =
+                    decltype(filters)::any_reads_outside_band}),
         palette(/*bias*/ {0.5f, 0.5f, 0.5f},
                 /*amp*/ {0.5f, 0.5f, 0.5f},
                 /*freq*/ {0.3f, 0.3f, 0.3f},

@@ -60,7 +60,9 @@ public:
   HS_COLD_MEMBER Comets()
       : Effect(W, H,
                {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments}) {}
+                .full_frame = decltype(filters)::any_crosses_segments,
+                .reads_outside_band =
+                    decltype(filters)::any_reads_outside_band}) {}
 
   /**
    * @brief Allocates state and wires up the animation timeline.

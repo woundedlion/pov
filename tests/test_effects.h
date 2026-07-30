@@ -4048,8 +4048,8 @@ inline int run_effects_tests() {
   HS_EFFECT_LIST(HS_DET_ONE_DEV)
 #undef HS_DET_ONE_DEV
 
-  // Every effect clip-clears unless it declares needs_full_frame, so the roster
-  // is swept rather than the one effect the optimization started on.
+  // Every effect that does not read outside its display band clip-clears, so the
+  // roster is swept rather than the one effect the optimization started on.
   std::printf("  -- clip-clear display parity --\n");
 #define HS_CLIP_PARITY_ONE(name)                                               \
   clip_clear_parity_one<name, DEVICE_W, DEVICE_H>(#name);

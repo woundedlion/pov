@@ -85,7 +85,9 @@ public:
   HS_COLD_MEMBER MeshFeedback()
       : Effect(W, H,
                {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments}),
+                .full_frame = decltype(filters)::any_crosses_segments,
+                .reads_outside_band =
+                    decltype(filters)::any_reads_outside_band}),
         noise_params(), orientation(), timeline(),
         filters(Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>(),

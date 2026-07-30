@@ -45,9 +45,11 @@ using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
  * destination pixel, erasing anything already plotted.
  * `emits_nonunit_world` /
  * `requires_unit_world_input`: a non-unit-emitting world stage must not precede
- * a unit-assuming one. `crosses_segments`: per-frame state reads pixels outside
- * the worker's segment band, so the effect must render the full canvas; defaults
- * to `has_history` (fail-safe).
+ * a unit-assuming one. `crosses_segments`: output can move between worker
+ * segment bands, so the effect must render the full canvas. `reads_outside_band`:
+ * the stage samples framebuffer pixels outside the display band, so stale pixels
+ * outside that band must also be cleared. Both default to `has_history`
+ * (fail-safe).
  */
 struct Is2D {
   static constexpr int domain_rank = 1;
@@ -58,6 +60,7 @@ struct Is2D {
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
+  static constexpr bool reads_outside_band = has_history;
 };
 /** @brief Trait indicating a filter operates in 3D world space. */
 struct Is3D {
@@ -69,6 +72,7 @@ struct Is3D {
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
+  static constexpr bool reads_outside_band = has_history;
 };
 
 /** @brief Trait indicating a 2D filter that maintains state/history. */
@@ -81,6 +85,7 @@ struct Is2DWithHistory {
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
+  static constexpr bool reads_outside_band = has_history;
 };
 
 /** @brief Trait indicating a 3D filter that maintains state/history. */
@@ -93,6 +98,7 @@ struct Is3DWithHistory {
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
+  static constexpr bool reads_outside_band = has_history;
 };
 
 /**
@@ -132,6 +138,7 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
   static constexpr bool is_terminal = false;
   static constexpr bool any_crosses_segments = false;
+  static constexpr bool any_reads_outside_band = false;
   static constexpr bool any_2d_history = false;
   static constexpr bool any_3d_history = false;
   static constexpr bool any_2d_trail_history = false;
@@ -283,8 +290,11 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
   static constexpr bool is_terminal = Head::is_terminal || Next::is_terminal;
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
+  static constexpr bool any_reads_outside_band =
+      Head::reads_outside_band || Next::any_reads_outside_band;
 
   static constexpr bool crosses_segments = any_crosses_segments;
+  static constexpr bool reads_outside_band = any_reads_outside_band;
 
   static constexpr bool any_2d_history =
       (Head::has_history && Head::is_2d) || Next::any_2d_history;
@@ -994,6 +1004,7 @@ private:
 template <int Capacity> class Trails : public Is3DWithHistory {
 public:
   static constexpr bool emits_nonunit_world = true;
+  static constexpr bool reads_outside_band = false;
 
   /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
@@ -1265,6 +1276,7 @@ HS_O3_BEGIN
 template <int W, int H> class DirectAntiAliasSink : public Is2D {
 public:
   static constexpr bool any_crosses_segments = false;
+  static constexpr bool any_reads_outside_band = false;
   static constexpr bool has_world_cull = false;
   static constexpr bool direct_raster_path = true;
 
@@ -1427,6 +1439,7 @@ public:
   // Trail points are seeded from and re-emitted into the same band, so they
   // never sample a neighbor segment.
   static constexpr bool crosses_segments = false;
+  static constexpr bool reads_outside_band = false;
 
   /**
    * @brief Constructs a screen trail buffer with the given fade lifetime.
