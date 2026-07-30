@@ -95,6 +95,41 @@ inline bool tooling_mesh_over_ceiling(size_t verts, size_t faces,
 }
 
 /**
+ * @brief The largest of a mesh's three element counts.
+ * @param verts Mesh vertex count.
+ * @param faces Mesh face count.
+ * @param indices Mesh flat face-index count.
+ */
+inline size_t mesh_largest_element_count(size_t verts, size_t faces,
+                                         size_t indices) {
+  const size_t largest = verts > faces ? verts : faces;
+  return largest > indices ? largest : indices;
+}
+
+/**
+ * @brief True when a mesh operator's expansion would carry some stage past an
+ *        element ceiling.
+ * @param verts Input mesh vertex count.
+ * @param faces Input mesh face count.
+ * @param indices Input mesh flat face-index count.
+ * @param expansion Largest multiple of the input's biggest element count that
+ *        any of this operator's intermediate or output stages reaches; >= 1.
+ * @param max_elements Ceiling every stage must stay within.
+ * @return true when the operator must be rejected.
+ * @details A ceiling on the input alone does not bound the intermediates a
+ *          composition builds — bevel = truncate of ambo reaches six times the
+ *          input index count, and gyro's snub stage five — so the admissible
+ *          input scales down by the operator's expansion. Division, not
+ *          multiplication, so the prediction itself cannot overflow.
+ */
+inline bool mesh_op_expansion_over_ceiling(size_t verts, size_t faces,
+                                           size_t indices, size_t expansion,
+                                           size_t max_elements) {
+  return mesh_largest_element_count(verts, faces, indices) >
+         max_elements / expansion;
+}
+
+/**
  * @brief True when a Hankin contact angle falls outside its [0, max] domain.
  * @param radians Contact angle from the JS boundary.
  * @param max_radians Inclusive upper bound of the operator's domain (pi/2).

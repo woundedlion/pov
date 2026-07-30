@@ -84,26 +84,22 @@ static Arena tooling_arena(nullptr, 0);
 static Arena tooling_scratch_a(nullptr, 0);
 static Arena tooling_scratch_b(nullptr, 0);
 
-// Worst-case scratch bytes one operator allocates per element of its input mesh,
-// counting vertices, faces and flat face indices alike. The heaviest operator
-// (meta = kis of dual of ambo) keeps an intermediate mesh, its output and its
-// index scratch live in one arena across a 6x index expansion, at 12 bytes per
-// output vertex and 6 per output index; this bound covers that with margin.
+// Worst-case scratch bytes one operator allocates per element of its largest
+// stage, counting vertices, faces and flat face indices alike. The heaviest
+// operator (meta = kis of dual of ambo) keeps an intermediate mesh, its output and
+// its index scratch live in one arena, at 12 bytes per vertex and 6 per index;
+// this bound covers that with margin.
 static constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
-// Largest input mesh an operator may be handed, derived from the scratch arena so
-// the ceiling tracks TOOLING_SCRATCH_BYTES. Within it no operator can exhaust a
-// scratch arena; beyond it the JS boundary rejects rather than letting
-// Arena::allocate's fail-fast trap wedge the module. Only the operators that skip
-// the half-edge build (kis) can grow a mesh this far — the rest trap on the
-// engine's 16-bit connectivity range well below it.
-static constexpr size_t MAX_TOOLING_MESH_ELEMENTS =
-    TOOLING_SCRATCH_BYTES / TOOLING_BYTES_PER_MESH_ELEMENT;
 
-// Largest element count the engine's 16-bit connectivity can address. Half-edge
-// construction and the topology classifier both narrow face/index counts to
-// uint16_t behind an always-on HS_CHECK, so a mesh past this must be rejected at
-// the JS boundary rather than allowed to reach one.
+// Largest element count any operator stage may reach. Half-edge construction and
+// the topology classifier both narrow face/index counts to uint16_t behind an
+// always-on HS_CHECK, so a mesh past this must be rejected at the JS boundary
+// rather than allowed to reach one. The scratch arenas hold exactly this many
+// elements, so the same ceiling also keeps Arena::allocate's trap out of reach.
 static constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS = UINT16_MAX;
+static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
+                  TOOLING_SCRATCH_BYTES / TOOLING_BYTES_PER_MESH_ELEMENT,
+              "a stage at the 16-bit ceiling must still fit a scratch arena");
 
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
 // was built under and traps via check_live() if a wipe reclaimed its storage.
@@ -950,24 +946,29 @@ public:
    * @brief Runs a mesh operator and wraps the result.
    * @tparam Op Callable of signature (const PolyMesh&, Arena&, Arena&) ->
    *         PolyMesh.
+   * @param expansion Operator's element expansion factor (see MESHOP_LIST).
    * @param op Operator to run against this wrapper's mesh.
    * @return Owning pointer to a new wrapper holding the finalized result mesh,
-   *         or null if this mesh is over MAX_TOOLING_MESH_ELEMENTS.
+   *         or null if some stage of this operator would pass
+   *         MAX_MESH_CONNECTIVITY_ELEMENTS.
    * @details Captures the shared operator boilerplate: reset both tooling scratch
    *          arenas, run the op into a fresh PolyMesh, finalize it into
-   *          tooling_arena, and hand back a new wrapper. An oversized input is
-   *          rejected here, at the untrusted JS boundary, rather than exhausting a
-   *          scratch arena and tripping Arena::allocate's fail-fast trap.
+   *          tooling_arena, and hand back a new wrapper. An input the operator
+   *          would grow past the engine's 16-bit connectivity range is rejected
+   *          here, at the untrusted JS boundary, rather than reaching
+   *          build_half_edge_mesh's fail-fast trap partway through a composition.
    */
-  template <typename Op> std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
+  template <typename Op>
+  std::unique_ptr<MeshOpsWrapper> apply(size_t expansion, Op &&op) const {
     check_live();
-    if (hs_wasm::tooling_mesh_over_ceiling(
+    if (hs_wasm::mesh_op_expansion_over_ceiling(
             mesh.vertices.size(), mesh.get_face_counts_size(),
-            mesh.get_faces_size(), MAX_TOOLING_MESH_ELEMENTS)) {
+            mesh.get_faces_size(), expansion, MAX_MESH_CONNECTIVITY_ELEMENTS)) {
       hs::log("WASM: MeshOps input mesh of %zu verts / %zu faces / %zu indices "
-              "is over the %zu-element tooling ceiling — ignored",
+              "expands %zux, past the %zu-element 16-bit connectivity range — "
+              "ignored",
               mesh.vertices.size(), mesh.get_face_counts_size(),
-              mesh.get_faces_size(), MAX_TOOLING_MESH_ELEMENTS);
+              mesh.get_faces_size(), expansion, MAX_MESH_CONNECTIVITY_ELEMENTS);
       return nullptr;
     }
     ToolingOpGuard guard;
@@ -997,27 +998,29 @@ public:
 /**
  * @brief Defines a zero-argument Conway/Goldberg operator method.
  * @param name MeshOps operator name; becomes the generated method name.
+ * @param expansion Operator's element expansion factor (see MESHOP_LIST).
  * @details The generated method runs MeshOps::name(mesh) via apply() and returns
  *          a new wrapper holding the result.
  */
-#define MESHOP_0(name)                                                         \
+#define MESHOP_0(name, expansion)                                              \
   std::unique_ptr<MeshOpsWrapper> name() const {                               \
-    return apply([](const PolyMesh &m, Arena &a, Arena &b) {                   \
+    return apply(expansion, [](const PolyMesh &m, Arena &a, Arena &b) {        \
       return MeshOps::name(m, a, b);                                           \
     });                                                                        \
   }
 /**
  * @brief Defines a one-float-argument Conway/Goldberg operator method.
  * @param name MeshOps operator name; becomes the generated method name.
+ * @param expansion Operator's element expansion factor (see MESHOP_LIST).
  * @details The generated method rejects a non-finite arg (finite_arg) before
  *          running MeshOps::name(mesh, arg) via apply(), returning a new wrapper
  *          or null.
  */
-#define MESHOP_1F(name)                                                        \
+#define MESHOP_1F(name, expansion)                                             \
   std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
     if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
-    return apply([arg](const PolyMesh &m, Arena &a, Arena &b) {                \
+    return apply(expansion, [arg](const PolyMesh &m, Arena &a, Arena &b) {     \
       return MeshOps::name(m, a, b, arg);                                      \
     });                                                                        \
   }
@@ -1026,6 +1029,7 @@ public:
  * @brief Defines a one-float-argument operator whose argument is a [0,1]
  *        fraction, clamped at the JS boundary.
  * @param name MeshOps operator name; becomes the generated method name.
+ * @param expansion Operator's element expansion factor (see MESHOP_LIST).
  * @details Like MESHOP_1F but clamps the fraction to [0,1] at the JS boundary
  *          (logging when it changed) so a direct/API caller passing a finite
  *          out-of-range value stays within the operator's documented domain —
@@ -1033,23 +1037,24 @@ public:
  *          (truncate/bevel/chamfer), cannot trip that trap and abort the whole
  *          module.
  */
-#define MESHOP_1U(name)                                                        \
+#define MESHOP_1U(name, expansion)                                             \
   std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
     if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
     if (hs_wasm::unit_fraction_out_of_range(arg))                              \
       hs::log("WASM: MeshOps::%s clamped %g to [0,1]", #name, arg);            \
     float t = hs_wasm::clamp_unit_fraction(arg);                               \
-    return apply([t](const PolyMesh &m, Arena &a, Arena &b) {                  \
+    return apply(expansion, [t](const PolyMesh &m, Arena &a, Arena &b) {       \
       return MeshOps::name(m, a, b, t);                                        \
     });                                                                        \
   }
 
   /**
- * @brief Single source of truth for the Conway/Goldberg operator roster.
- * @param _OP0  Macro applied to each zero-argument operator name.
- * @param _OP1F Macro applied to each one-float-argument operator name.
- * @param _OP1U Macro applied to each [0,1]-fraction operator name.
+ * @brief Single source of truth for the Conway/Goldberg operator roster and each
+ *        operator's element expansion factor.
+ * @param _OP0  Macro applied to each zero-argument operator.
+ * @param _OP1F Macro applied to each one-float-argument operator.
+ * @param _OP1U Macro applied to each [0,1]-fraction operator.
  * @details Expanded twice: with MESHOP_0/MESHOP_1F/MESHOP_1U to generate the
  *          wrapper methods (below), and with MESHOP_BIND to generate the embind
  *          .function() bindings (in EMSCRIPTEN_BINDINGS), so an operator cannot
@@ -1062,13 +1067,24 @@ public:
  *          wrapper methods are hand-written; their names
  *          live in MESHOP_IRREGULAR_LIST below and their bindings expand from
  *          it, so a new irregular op is bound the moment it joins the list.
+ *
+ *          The second argument is the operator's expansion: the largest multiple
+ *          of its input's biggest element count that any of its intermediate or
+ *          output stages reaches. Read off the output bindings in
+ *          core/mesh/conway.h with I as the input flat index count — dual I,
+ *          ambo 2I, kis/truncate 3I, expand/chamfer 4I, snub 5I — and multiplied
+ *          through for the compositions: gyro = d(snub) 5I, needle = k(d) 3I,
+ *          zip = d(k) 3I, meta = k(d(a)) 6I, bevel = t(a) 6I. Every stage's
+ *          vertex and face count stays under its operator's index expansion, so
+ *          one factor bounds all three counts. Irregular ops pass theirs at their
+ *          own apply() call: relax 1 (topology preserving), hankin 4I.
  */
   // clang-format off
 #define MESHOP_LIST(_OP0, _OP1F, _OP1U)                                         \
-  _OP0(kis) _OP0(ambo) _OP0(gyro) _OP0(dual) _OP0(meta)                         \
-  _OP0(needle) _OP0(zip)                                                        \
-  _OP1F(expand)                                                                 \
-  _OP1U(truncate) _OP1U(bevel) _OP1U(chamfer)
+  _OP0(kis, 3) _OP0(ambo, 2) _OP0(gyro, 5) _OP0(dual, 1) _OP0(meta, 6)          \
+  _OP0(needle, 3) _OP0(zip, 3)                                                  \
+  _OP1F(expand, 4)                                                              \
+  _OP1U(truncate, 3) _OP1U(bevel, 6) _OP1U(chamfer, 4)
 // clang-format on
 
 // Irregular ops: hand-written wrapper methods (custom signatures/validation),
@@ -1105,7 +1121,7 @@ public:
       hs::log("WASM: MeshOps::relax clamped %d iterations to %d", iterations,
               clamped);
     iterations = clamped;
-    return apply([iterations](const PolyMesh &m, Arena &a, Arena &b) {
+    return apply(1, [iterations](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::relax(m, a, b, iterations);
     });
   }
@@ -1137,7 +1153,7 @@ public:
               radians, MAX_HANKIN_ANGLE);
       return nullptr;
     }
-    return apply([radians](const PolyMesh &m, Arena &a, Arena &b) {
+    return apply(4, [radians](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::hankin(m, a, b, radians);
     });
   }
@@ -1161,7 +1177,7 @@ public:
     if (hs_wasm::unit_fraction_out_of_range(t))
       hs::log("WASM: MeshOps::snub clamped t=%g to [0,1]", t);
     float ct = hs_wasm::clamp_unit_fraction(t);
-    return apply([ct, twist](const PolyMesh &m, Arena &a, Arena &b) {
+    return apply(5, [ct, twist](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::snub(m, a, b, ct, twist);
     });
   }
@@ -1486,7 +1502,9 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
   // Bound from the same MESHOP_LIST that generates the wrapper methods, plus
   // MESHOP_IRREGULAR_LIST for the hand-written ops.
-#define MESHOP_BIND(name) .function(#name, &MeshOpsWrapper::name)
+// Variadic so it can take both MESHOP_LIST's (name, expansion) entries and
+// MESHOP_IRREGULAR_LIST's bare names.
+#define MESHOP_BIND(name, ...) .function(#name, &MeshOpsWrapper::name)
           MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
               MESHOP_IRREGULAR_LIST(MESHOP_BIND);
 #undef MESHOP_BIND
