@@ -540,8 +540,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
 }
 
 /**
- * @brief Emit one scanline row of a cap-bounded leaf, padding the cap by one
- * pixel so the outer AA fringe is scanned.
+ * @brief Emit one scanline row of a cap-bounded leaf with a one-pixel cap pad.
  * @tparam W Canvas width in columns.
  * @tparam H Canvas height in rows.
  * @tparam RejectFullWidth Drop the row to a full scan when the interval would
@@ -3477,6 +3476,10 @@ struct PlanarPolygon {
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false requests a full scan.
+   * @details Covers the polygon body, but not the full AA fringe at vertices.
+   *   The radial gradient there is cos(PI/sides), so the fringe reaches
+   *   pixel_width/cos(PI/sides) beyond the vertex while the cap pads one
+   *   pixel_width.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -3615,6 +3618,9 @@ struct SphericalPolygon {
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false requests a full scan.
+   * @details Covers the polygon body, but not the full AA fringe at vertices:
+   *   the radial direction meets each great-circle edge obliquely there while
+   *   the bounding cap pads one pixel_width.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -3875,6 +3881,10 @@ struct Flower {
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false requests a full scan.
+   * @details Covers the flower body, but not the full AA fringe at petal tips.
+   *   The radial gradient there is cos(PI/sides), so the fringe reaches
+   *   pixel_width/cos(PI/sides) beyond the tip while the cap pads one
+   *   pixel_width.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -3892,7 +3902,6 @@ struct Flower {
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
-    // Pad the cap by one pixel so the outer AA fringe is scanned.
     float pixel_width = 2.0f * PI_F / W;
     float cos_limit = cosf(thickness + pixel_width);
 
