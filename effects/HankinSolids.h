@@ -527,6 +527,8 @@ private:
     const size_t faces = compiled_hankin.face_counts.size();
     HS_CHECK(faces <= MAX_HANKIN_FACES,
              "HankinSolids: hankin face count exceeds the host-palette table");
+    HS_CHECK(faces <= hankin_mesh.topology.size(),
+             "HankinSolids: topology classification omitted hankin faces");
     for (size_t j = 0; j < MAX_NODE_FACES; ++j)
       star_rim_palette[j] = NO_RIM;
     // Rebuild at the sweep peak, where every rosette is fully open and
