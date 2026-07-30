@@ -1430,10 +1430,11 @@ private:
         slot.topology.push_back(landed_topology[f]);
     }
 
-    // The per-face colours index the compiled slot by emission order, so the
-    // counts must agree exactly.
-    HS_CHECK(landed_faces == slot.topology.size(),
-             "IslamicStars: built mesh face count differs from the last leg");
+    // The per-face colours index the compiled slot by emission order, and
+    // compile() strips faces with fewer than 3 sides, so the counts must agree
+    // exactly.
+    HS_CHECK(landed_faces == slot.num_faces(),
+             "IslamicStars: compiled face count differs from the leg landing");
     build_active = false;
 
     hs::log("Built Shape: %s (V=%d, E=%d, F=%d, I=%d)",
