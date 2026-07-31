@@ -489,6 +489,16 @@ def _strip_jsonc_comments(text: str) -> str:
     return "".join(out)
 
 
+def declares_components(budget: dict) -> bool:
+    """True if any region of `budget` carries per-component ceilings.
+
+    The `size -A` fallback synthesizes region totals with no component
+    breakdown, so such a budget cannot be evaluated from it at all.
+    """
+    return any(spec.get("components")
+               for spec in budget.get("regions", {}).values())
+
+
 def load_budgets(path: str | Path) -> dict:
     """Load tools/teensy_budgets.json, tolerating // and /* */ comments."""
     raw = Path(path).read_text(encoding="utf-8")
@@ -561,6 +571,13 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     else:
         p.error("one of --teensy-size or --size-a is required")
+
+    if used_size_a_fallback and declares_components(budgets[args.env]):
+        print(f"::error::teensy-gate: env '{args.env}' declares per-component "
+              f"ceilings, which the `size -A` fallback cannot measure. No "
+              f"component figure was read: this is a tooling break, not a "
+              f"size-budget violation — re-run with --teensy-size.")
+        return 2
 
     symbols = parse_readelf_symbols(Path(args.readelf_syms).read_text(encoding="utf-8"))
     sections = (parse_readelf_sections(Path(args.readelf_secs).read_text(encoding="utf-8"))
