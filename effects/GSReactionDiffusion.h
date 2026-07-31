@@ -62,6 +62,7 @@ class GSReactionDiffusion
   using Base::init_lattice;
   using Base::orient_lattice;
   using Base::Q16_INV;
+  using Base::Q16_SCALE;
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_and_accumulate;
@@ -101,12 +102,10 @@ public:
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
-    // dA/dB cap at 0.05 keeps the diffusion term inside explicit Euler's
-    // dt·D·|λ|max ≤ 2: the graph Laplacian on a degree-RD_K lattice has
-    // |λ|max ≤ 2·RD_K (= 12 at RD_K=6), giving 3·0.05·12 = 1.8 at Speed top.
-    // That bound does not cover the reaction Jacobian, whose rows run past 2 at
-    // the joint feed/k corner of the slider box; there it is step_physics'
-    // per-substep [0,1] clamp, not the step size, that bounds the excursion.
+    // The six-step temporal block scales the Euler timestep by 4/3. At the
+    // joint Speed/diffusion maximum this exceeds the linear diffusion bound;
+    // step_physics' per-substep [0,1] clamp bounds that parameter corner, which
+    // the long worst-case stability test exercises directly.
     register_param("dA", &params.d_a, 0.0f, 0.05f);
     register_param("dB", &params.d_b, 0.0f, 0.05f);
     register_param("Speed", &params.dt, 0.1f, 3.0f);
@@ -146,16 +145,20 @@ private:
    * the uniform A=1/B=0 field never moves.
    */
   static constexpr int NUM_SEED_CLUSTERS = 30;
-  /** @brief Frames the dissolve takes to convert every node back to rest. */
-  static constexpr int DISSOLVE_FRAMES = 64;
+  /** @brief Physics work performed per frame at the original 8 fps cadence. */
+  static constexpr int BASELINE_STEPS_PER_FRAME = 16;
+  /** @brief Substeps the dissolve takes to convert every node back to rest. */
+  static constexpr int DISSOLVE_SUBSTEPS = 64 * BASELINE_STEPS_PER_FRAME;
   /**
-   * @brief Frames a fresh reaction runs before the stabilization detector arms.
+   * @brief Substeps a fresh reaction runs before the stabilization detector arms.
    * @details A young field has only NUM_SEED_CLUSTERS active sites, so its mean
    * |dB| sits under MEAN_DB_STABLE and would read as stalled at birth.
    */
-  static constexpr int MIN_GROW_FRAMES = 96;
-  /** @brief Consecutive sub-floor frames that count as stabilized. */
-  static constexpr int STABLE_HOLD_FRAMES = 24;
+  static constexpr int MIN_GROW_SUBSTEPS = 96 * BASELINE_STEPS_PER_FRAME;
+  /** @brief Consecutive sub-floor substeps that count as stabilized. */
+  static constexpr int STABLE_HOLD_SUBSTEPS = 24 * BASELINE_STEPS_PER_FRAME;
+  /** @brief Fraction of the dissolve spent fading a node before conversion. */
+  static constexpr float DISSOLVE_FADE_FRACTION = 1.0f / 16.0f;
   /**
    * @brief Mean per-node |dB| per frame below which the field counts as
    * settled, at DEFAULT_DT; the detector scales it by params.dt / DEFAULT_DT so
@@ -164,20 +167,24 @@ private:
    * Q16 chatter, so a floor-hugging threshold is what the reaction has truly
    * stopped at — but measured, that costs 328 frames (20 s at 16 fps) before the
    * default reaction turns over, and tightening the frame gates does not help:
-   * the detector binds, not MIN_GROW_FRAMES. This fires at ~222 frames instead,
-   * while the form is still refining slightly, trading the last of the
-   * settling for a watchable cadence. A reaction that dies out floors far below
-   * this and reseeds.
+   * the detector binds, not MIN_GROW_SUBSTEPS. This fires at ~222 baseline
+   * frames instead, while the form is still refining slightly, trading the last
+   * of the settling for a watchable cadence. A reaction that dies out floors
+   * far below this and reseeds.
    */
   static constexpr float MEAN_DB_STABLE = 2.0e-4f;
   /** @brief Speed the stabilization floor is calibrated at. */
   static constexpr float DEFAULT_DT = 2.5f;
+  /** @brief Original-size substep equivalents advanced per rendered frame. */
+  static constexpr int EVOLUTION_STEPS_PER_FRAME = 8;
   /**
-   * @brief Physics substeps advanced per rendered frame.
-   * @details 16 substeps/frame advance the slow GS morphogenesis at a visible
-   * rate; each stays within the explicit-Euler stability bound (see "Speed").
+   * @brief Euler integrations performed per rendered frame.
+   * @details Six 4/3-sized integrations cover the same simulated interval as
+   * eight original-size integrations.
    */
-  static constexpr int STEPS_PER_FRAME = 16;
+  static constexpr int STEPS_PER_FRAME = 6;
+  static constexpr float STEP_DT_SCALE =
+      static_cast<float>(EVOLUTION_STEPS_PER_FRAME) / STEPS_PER_FRAME;
   static_assert(STEPS_PER_FRAME % 2 == 0,
                 "GS ping-pong state must land in its input buffers");
 
@@ -216,19 +223,25 @@ private:
   static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
 
   /**
-   * @brief Holds every node hashing below `phase` at the A=1/B=0 rest state.
+   * @brief Fades nodes approaching the dissolve frontier, then holds them at
+   * rest.
    * @param phase Dissolve progress in [0, 1]; the cleared fraction.
-   * @details Re-clears the whole swept set each frame, not just the newly
-   * crossed band: B is autocatalytic, so a scattered rest node is refilled by
-   * its neighbors within one frame's substeps and the spatter would never
-   * take. Holding the set down keeps cleared ground cleared, so the sphere
-   * empties as phase advances.
+   * @details The band ahead of the frontier eases A/B toward rest over eight
+   * rendered frames. The swept set is re-cleared every frame because B is
+   * autocatalytic and otherwise refills from its neighbors.
    */
   void convert_below(float phase) {
     for (int i = 0; i < RD_N; i++) {
-      if (hash01(static_cast<uint32_t>(i), transition.dissolve_seed) < phase) {
+      float h = hash01(static_cast<uint32_t>(i), transition.dissolve_seed);
+      if (h < phase) {
         state.A[i] = 65535;
         state.B[i] = 0;
+      } else if (h < phase + DISSOLVE_FADE_FRACTION) {
+        float keep = (h - phase) * (1.0f / DISSOLVE_FADE_FRACTION);
+        state.A[i] = static_cast<uint16_t>(
+            65535.0f - (65535.0f - state.A[i]) * keep + 0.5f);
+        state.B[i] =
+            static_cast<uint16_t>(static_cast<float>(state.B[i]) * keep + 0.5f);
       }
     }
   }
@@ -240,9 +253,9 @@ private:
    * feed/k are the user's and are left alone.
    */
   HS_COLD_MEMBER void start_reaction() {
-    transition.dissolve_frame = -1;
-    transition.grow_frames = 0;
-    transition.stable_run = 0;
+    transition.dissolve_substeps = -1;
+    transition.grow_substeps = 0;
+    transition.stable_substeps = 0;
     seed_blobs(state.B, NUM_SEED_CLUSTERS);
   }
 
@@ -250,7 +263,7 @@ private:
    * @brief Starts a dissolve at a fresh node ordering.
    */
   void begin_dissolve() {
-    transition.dissolve_frame = 0;
+    transition.dissolve_substeps = 0;
     transition.dissolve_seed = static_cast<uint32_t>(hs::random()());
   }
 
@@ -278,17 +291,17 @@ private:
    * @param mean_db Mean per-node |dB| between the frame's start and end states.
    *        Substep motion that cancels over the frame reads as zero.
    * @details Dissolves when the user edits the reaction, or once the field has
-   * stalled for STABLE_HOLD_FRAMES. Edits mid-dissolve are absorbed by the
+   * stalled for STABLE_HOLD_SUBSTEPS. Edits mid-dissolve are absorbed by the
    * in-flight one, which reseeds into whatever the constants read at its end.
    */
   void advance_transition(float mean_db) {
-    if (transition.dissolve_frame >= 0) {
-      ++transition.dissolve_frame;
-      convert_below(static_cast<float>(transition.dissolve_frame) /
-                    DISSOLVE_FRAMES);
+    if (transition.dissolve_substeps >= 0) {
+      transition.dissolve_substeps += EVOLUTION_STEPS_PER_FRAME;
+      convert_below(static_cast<float>(transition.dissolve_substeps) /
+                    DISSOLVE_SUBSTEPS);
       // Latch edits made mid-dissolve; this dissolve already covers them.
       reaction_edited();
-      if (transition.dissolve_frame >= DISSOLVE_FRAMES)
+      if (transition.dissolve_substeps >= DISSOLVE_SUBSTEPS)
         start_reaction();
       return;
     }
@@ -296,12 +309,19 @@ private:
       begin_dissolve();
       return;
     }
-    if (++transition.grow_frames < MIN_GROW_FRAMES)
+    transition.grow_substeps += EVOLUTION_STEPS_PER_FRAME;
+    if (transition.grow_substeps < MIN_GROW_SUBSTEPS)
       return;
     // Per-frame |dB| scales with the timestep, so the floor tracks Speed.
-    const float floor_db = MEAN_DB_STABLE * (params.dt * (1.0f / DEFAULT_DT));
-    transition.stable_run = mean_db < floor_db ? transition.stable_run + 1 : 0;
-    if (transition.stable_run >= STABLE_HOLD_FRAMES)
+    const float floor_db =
+        MEAN_DB_STABLE * (params.dt * (1.0f / DEFAULT_DT)) *
+        (static_cast<float>(EVOLUTION_STEPS_PER_FRAME) /
+         BASELINE_STEPS_PER_FRAME);
+    transition.stable_substeps =
+        mean_db < floor_db
+            ? transition.stable_substeps + EVOLUTION_STEPS_PER_FRAME
+            : 0;
+    if (transition.stable_substeps >= STABLE_HOLD_SUBSTEPS)
       begin_dissolve();
   }
 
@@ -318,8 +338,14 @@ private:
    * (see "Speed"); substeps stay in float so the Q16 state quantizes once per
    * frame, not once per substep.
    */
-  void step_physics(const float *c_a, const float *c_b, float *n_a,
-                    float *n_b) {
+  HS_O3_FN void step_physics(const float *__restrict c_a,
+                             const float *__restrict c_b,
+                             float *__restrict n_a, float *__restrict n_b) {
+    const float feed = params.feed;
+    const float k = params.k;
+    const float d_a = params.d_a;
+    const float d_b = params.d_b;
+    const float dt = params.dt * STEP_DT_SCALE;
     for (int i = 0; i < RD_N; i++) {
       float a = c_a[i];
       float b = c_b[i];
@@ -333,13 +359,10 @@ private:
       float l_b = sum_b - RD_K * b;
 
       float abb = a * b * b;
-      n_a[i] = hs::clamp(
-          a + (params.d_a * l_a - abb + params.feed * (1.0f - a)) * params.dt,
-          0.0f, 1.0f);
-      n_b[i] = hs::clamp(
-          b + (params.d_b * l_b + abb - (params.k + params.feed) * b) *
-                  params.dt,
-          0.0f, 1.0f);
+      n_a[i] =
+          hs::clamp(a + (d_a * l_a - abb + feed * (1.0f - a)) * dt, 0.0f, 1.0f);
+      n_b[i] =
+          hs::clamp(b + (d_b * l_b + abb - (k + feed) * b) * dt, 0.0f, 1.0f);
     }
   }
 
@@ -366,6 +389,29 @@ private:
     return wb / tw;
   }
 
+  HS_O3_FN static int refine_render_center(const Vector &rv,
+                                           const Vector *nodes, int seed) {
+    float best_d2 = dist2(rv, nodes[seed]);
+    float safe_d2 =
+        seed >= 4 && seed < RD_N - 4 ? 0.000333f : 0.00012f;
+    if (best_d2 < safe_d2)
+      return seed;
+    int best = seed;
+    for_each_neighbor(seed, [&](int ni) {
+      float d = dist2(rv, nodes[ni]);
+      if (d < best_d2) {
+        best_d2 = d;
+        best = ni;
+      }
+    });
+    return best;
+  }
+
+  static __attribute__((always_inline)) inline uint16_t
+  quantize_q16(float v) {
+    return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
+  }
+
   /**
    * @brief Shades one pixel's four sub-samples through an inlinable typed path.
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
@@ -375,10 +421,9 @@ private:
    * @param grid Row's SSAA sub-pixel grid.
    * @param x Pixel column.
    * @return The finished alpha-premultiplied pixel.
-   * @details Refines and gathers the center stencil once, then evaluates its
-   * four sub-pixel weight sets. A quarter-pixel sample may choose an adjacent
-   * center near a Voronoi boundary; reuse trades that near-tie distinction for
-   * one gather per pixel.
+   * @details Accepts seeds inside a proven nearest-node radius immediately;
+   * boundary pixels check all six neighbors. The center stencil is shared
+   * across the four sub-pixel samples.
    */
   template <typename Grid>
   HS_O3_FN Pixel shade_pixel(int seed, const Vector &center_rv,
@@ -387,7 +432,7 @@ private:
     if (seed < 0)
       return Pixel(0, 0, 0);
 
-    int center = refine_center(center_rv, world_nodes, seed);
+    int center = refine_render_center(center_rv, world_nodes, seed);
     Vector spos[RD_K + 1];
     uint16_t sb[RD_K + 1];
     spos[0] = world_nodes[center];
@@ -487,13 +532,15 @@ private:
                        [&](auto &cur, auto &nxt) {
                          step_physics(cur[0], cur[1], nxt[0], nxt[1]);
                        });
-      float db_sum = 0.0f;
+      uint32_t db_sum_q16 = 0;
       for (int i = 0; i < RD_N; i++) {
-        state.A[i] = to_q16(cur_a[i]);
-        db_sum += std::fabs(cur_b[i] - from_q16(state.B[i]));
-        state.B[i] = to_q16(cur_b[i]);
+        state.A[i] = quantize_q16(cur_a[i]);
+        uint16_t next_b = quantize_q16(cur_b[i]);
+        int db = static_cast<int>(next_b) - state.B[i];
+        db_sum_q16 += static_cast<uint32_t>(db < 0 ? -db : db);
+        state.B[i] = next_b;
       }
-      mean_db = db_sum * (1.0f / RD_N);
+      mean_db = static_cast<float>(db_sum_q16) * (Q16_INV / RD_N);
     }
     advance_transition(mean_db);
 
@@ -538,10 +585,9 @@ private:
    *        progress.
    */
   struct {
-    int grow_frames = 0;        /**< Frames since this reaction was seeded. */
-    int stable_run = 0;         /**< Consecutive frames with |dB| sub-floor. */
-    int dissolve_frame = -1;    /**< Frames into the dissolve; -1 when not
-                                  dissolving. */
+    int grow_substeps = 0;      /**< Substeps since this reaction was seeded. */
+    int stable_substeps = 0;    /**< Consecutive sub-floor substeps. */
+    int dissolve_substeps = -1; /**< Dissolve progress; -1 when inactive. */
     uint32_t dissolve_seed = 0; /**< Per-transition node-order hash seed. */
     /** Reaction constants as of the last frame; reaction_edited() latches them
      *  to spot a user edit, seeded from params in init() so frame 1 is
