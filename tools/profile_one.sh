@@ -81,7 +81,6 @@ CYCLERS="Liquid2D ShapeShifter MindSplatter DreamBalls Comets Flyby MeshFeedback
 MARKER=""
 case " $CYCLERS " in *" $EFFECT "*)
   case "$EFFECT" in
-    ShapeShifter) MARKER="Shape:";;
     SphericalHarmonics) MARKER="Mode:";;
     IslamicStars) MARKER="Spawning Shape:";;
     HankinSolids) MARKER="Loading shape:";;

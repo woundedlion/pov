@@ -231,8 +231,8 @@ inline void smoke_one(const char *name) {
  * author must drive a private member and register_animated_param() it, or
  * mark_readonly()
  * pure telemetry. This is the build-time gate for the theme-4 dead-slider class
- * (it catches the per-frame overwrite mechanism behind
- * MobiusGrid/ShapeShifter/the preset-lerp group; a value that merely has no
+ * (it catches the per-frame overwrite mechanism behind MobiusGrid and the
+ * preset-lerp group; a value that merely has no
  * rendered effect can't be detected without flaky golden-image diffing and is
  * out of scope).
  */
@@ -3566,62 +3566,64 @@ inline void test_ringspin_pool_clamped() {
   }
 }
 
-/**
- * @brief Drives ShapeShifter through its 48-frame shape cut to cover the cycle
- *        wrap the default 8-frame smoke window never reaches.
- * @details draw_frame advances frame_count mod 48 and rotates current_shape on
- *          the wrap, so the cut path (and the post-cut shape's renderer) only
- *          executes past frame 48. Run two full periods under a fixed clock and
- *          require non-black output on every frame: the cut must neither blank
- *          the effect nor blow an assert on the new shape's first render. Uses
- *          only public draw_frame/get_pixel — no production seam.
- */
-inline void test_shapeshifter_shape_cut_lifecycle() {
+/** @brief Verifies ShapeShifter's initial preset and slider contract. */
+inline void test_shapeshifter_preset_defaults() {
   reset_effect_globals();
-  hs::set_mock_time(0, 0);
   ShapeShifter<DEFAULT_W, DEFAULT_H> ss;
   ss.init();
 
-  const int period = 48;
-  const int frames = smoke_frames() < 2 * period ? 2 * period : smoke_frames();
-  for (int f = 0; f < frames; ++f) {
-    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                      static_cast<unsigned long>(f) * FRAME_US);
-    ss.draw_frame();
-    ss.advance_display();
-    uint64_t acc = 0;
-    for (int y = 0; y < DEFAULT_H; ++y)
-      for (int x = 0; x < DEFAULT_W; ++x) {
-        const Pixel &p = ss.get_pixel(x, y);
-        acc += static_cast<uint64_t>(p.r) + p.g + p.b;
-      }
-    HS_EXPECT_GT(acc, 0u); // each shape, including post-cut, must render
-  }
-  hs::clear_mock_time();
+  auto value = [&](const char *name) {
+    for (const auto &def : ss.getParameters())
+      if (std::strcmp(def.name, name) == 0)
+        return def.get();
+    HS_EXPECT(false, "ShapeShifter parameter is missing");
+    return -1.0f;
+  };
+
+  HS_EXPECT_EQ(value("Shape"), 1.017f);
+  HS_EXPECT_EQ(value("Count"), 74.644997f);
+  HS_EXPECT_EQ(value("Sides"), 3.0f);
+  HS_EXPECT_EQ(value("Function"),
+               static_cast<float>(
+                   ShapeShifter<DEFAULT_W, DEFAULT_H>::PhaseFunction::SINE));
+  HS_EXPECT_EQ(value("Speed"), 0.0318f);
 }
 
 /**
- * @brief Drives ShapeShifter at the Radius slider maximum through a full shape
- *        cycle, covering the antipode-folded (radius > 1) path of every shape.
- * @details The Radius range must stay within the angular-radius domain [0, 2]
- *          (past 2 the fold hands the SDFs a negative radius, which the Star
- *          constructor traps); pin the registered maximum and render four
- *          48-frame cut periods so every shape draws at the extreme.
+ * @brief Renders every Shape and Function slider selection.
+ * @details Each primitive is exercised at radii on both sides of the antipode
+ * fold while the four phase functions advance through the same Plot pipeline.
  */
-inline void test_shapeshifter_max_radius_survives_cycle() {
+inline void test_shapeshifter_slider_selections_render() {
   reset_effect_globals();
   ShapeShifter<SMALL_W, SMALL_H> ss;
   ss.init();
 
-  for (const auto &def : ss.getParameters())
-    if (std::strcmp(def.name, "Radius") == 0)
-      HS_EXPECT_LE(def.max, 2.0f);
-  HS_EXPECT_TRUE(ss.updateParameter("Radius", 2.0f) ==
-                 ParamSetResult::APPLIED);
-
-  for (int f = 0; f < 4 * 48 + 1; ++f) {
+  auto render = [&] {
     ss.draw_frame();
     ss.advance_display();
+
+    uint64_t acc = 0;
+    for (int y = 0; y < SMALL_H; ++y)
+      for (int x = 0; x < SMALL_W; ++x) {
+        const Pixel &pixel = ss.get_pixel(x, y);
+        acc += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+      }
+    HS_EXPECT_GT(acc, 0u);
+  };
+
+  for (int shape = 0; shape < ShapeShifter<SMALL_W, SMALL_H>::NUM_SHAPES;
+       ++shape) {
+    HS_EXPECT_TRUE(ss.updateParameter("Shape", static_cast<float>(shape)) ==
+                   ParamSetResult::APPLIED);
+    render();
+  }
+  for (int function = 0;
+       function < ShapeShifter<SMALL_W, SMALL_H>::NUM_FUNCTIONS; ++function) {
+    HS_EXPECT_TRUE(
+        ss.updateParameter("Function", static_cast<float>(function)) ==
+        ParamSetResult::APPLIED);
+    render();
   }
 }
 
@@ -4350,6 +4352,8 @@ inline int run_effects_tests() {
   test_gs_shared_stencil_error_is_bounded();
   test_gs_dissolve_frontier_fades_before_clear();
   test_gs_substep_matches_scalar_reference();
+  test_shapeshifter_preset_defaults();
+  test_shapeshifter_slider_selections_render();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
   // correctness block and the 288x144 production-resolution roster passes below
@@ -4400,8 +4404,6 @@ inline int run_effects_tests() {
     test_liquid2d_glitch_lens_unit_norm();
     test_mobiusgrid_conformal_and_counter_rotation();
     test_ringspin_pool_clamped();
-    test_shapeshifter_shape_cut_lifecycle();
-    test_shapeshifter_max_radius_survives_cycle();
     test_hankinsolids_arena_budget_covers_every_solid();
     test_islamicstars_seed_sprite_fade_in();
     test_islamicstars_recipe_build_smoke();

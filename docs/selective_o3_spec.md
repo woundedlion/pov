@@ -301,7 +301,7 @@ final keep/revert verdict until after R3 lands and the seams heal.
 
 Shared per-`<W,H,ComputeUVs>` by design (type-erased shader, `PipelineRef`
 default — see the comment at `scan.h:46–48`); typed-pipeline callers add
-instantiations (RingSpin, DistortedRing, ShapeShifter — watch the map).
+instantiations (RingSpin and DistortedRing — watch the map).
 
 - `Scan::process_pixel` (`scan.h:50–118`) — per-pixel SDF eval + AA coverage +
   shader + plot.
@@ -325,7 +325,7 @@ instantiations (RingSpin, DistortedRing, ShapeShifter — watch the map).
 Serves: IslamicStars + HankinSolids (`Scan::Mesh::draw` at `scan.h:787–852`
 calls `Scan::rasterize`; its per-face setup loop may join the region if the map
 shows it matters), RingSpin (`RingGroup`), DistortedRing, DisplacementField
-(`DistortedRingStack`), ShapeShifter.
+(`DistortedRingStack`).
 
 The per-pixel arithmetic R2 exists to speed up lives in `core/render/sdf.h`,
 reached as `shape.distance<ComputeUVs>()` from `process_pixel` — a `distance()`

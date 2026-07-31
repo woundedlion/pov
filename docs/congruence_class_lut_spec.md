@@ -196,8 +196,8 @@ The division of labor keeps ripple correctness simple:
   canonical shape is placed at the face's current least-squares pose — the
   interior gradient follows the face's rigid motion through the ripple.
 
-Effects whose meshes change shape per frame (HankinSolids' angle sweep,
-ShapeShifter/MeshMorph) must not reuse a spawn-time clustering: they simply
+Effects whose meshes change shape per frame (HankinSolids' angle sweep and
+MeshMorph) must not reuse a spawn-time clustering: they simply
 don't pass a bake (null ⇒ status quo). IslamicStars is the Phase-1 consumer.
 HankinSolids could rebake per morph target later (its sweep changes vertex
 positions every frame, so per-frame congruence would need re-validation —
@@ -218,7 +218,7 @@ out of scope).
    envelope of this campaign (worst-frame mean ≤ ~0.2% FS expected — interior
    deviation ≤ 0.25 px against palette slope); worst frame eyeballed at 1×.
 5. **Interleaved same-session A/B**, native + WASM, IslamicStars +
-   HankinSolids + ShapeShifter control. Never compare across sessions
+   HankinSolids. Never compare across sessions
    (machine-state swings 30%+, measured). Expected: native scan −15–25%,
    WASM −10–20%, concentrated on concave-heavy meshes; solid 6
    (100% concave) is the bellwether. Gate: no regression on any mesh.

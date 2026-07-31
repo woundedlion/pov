@@ -153,8 +153,8 @@ pipeline's compile-time `any_crosses_segments` fold, so adding or removing a
 filter updates the answer automatically. Only the one-line bridge is manual,
 because `Effect` is type-erased — the driver holds an `Effect*` and the fold
 lives in the derived effect's `filters` member, so the base cannot read it
-without the derived type passing it up. `ShapeShifter` runs two pipelines and
-ORs both folds; `HopfFibration` names its pipeline `trail_pipeline` and
+without the derived type passing it up. `HopfFibration` names its pipeline
+`trail_pipeline` and
 `Raymarch` names its `pipeline`. Effects with no filter pipeline omit the field
 and take the `false` default.
 

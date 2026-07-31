@@ -25,7 +25,7 @@ namespace hs_test {
  * @details Kept small so the local pre-commit gate stays quick. 8 frames never
  * reaches the long, cyclic code paths (effect morph cycles, particle/trail
  * wraps, arena compaction, and the effect-lifecycle transitions — RingShower
- * slot reuse, Thrusters fire/FIFO expiry, ShapeShifter's 48-frame cut), so CI
+ * slot reuse and Thrusters fire/FIFO expiry), so CI
  * sets HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to exercise them on every
  * push/PR. The effects smoke/determinism passes and the arena/stack budget
  * gates all resolve their window through smoke_frames(), so the budgets are
