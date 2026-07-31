@@ -1873,18 +1873,6 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
 }
 
 /**
- * @brief Tests whether a solid name exists in any registry, without trapping.
- * @param name Candidate registry name to look up.
- * @return True if the name matches a registered solid, false otherwise.
- * @details Trusted (firmware) callers use get_by_name() with its fail-fast
- * contract; untrusted boundaries (e.g. the WASM/JS mesh editor) must validate
- * with this first and reject unknown names rather than abort.
- */
-inline bool has_name(std::string_view name) {
-  return find_entry(name) != nullptr;
-}
-
-/**
  * @brief Builds a registry solid's unit vertex directions plus per-vertex
  *        orientation quaternions and nearest-neighbour gaps.
  * @param scratch Arena backing the intermediate mesh; nothing is retained
