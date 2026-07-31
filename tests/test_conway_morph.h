@@ -571,8 +571,8 @@ inline void test_ops_at_t_eps_primary_faces_match_seed() {
 // §7.1 Endpoint exactness: sweeping to an edge endpoint arrives at the
 // registry generator's output — exactly where the composition is the registry
 // chain (same code path, same seed frame), within geometric tolerance where it
-// is not (dual-family ambo arrivals, bridge arrivals, and t = 0 ends, which
-// emit expanded topology).
+// is not (dual-family ambo arrivals, bridge arrivals, flash-baked relax
+// arrivals, and t = 0 ends, which emit expanded topology).
 // ---------------------------------------------------------------------------
 
 /**
@@ -611,16 +611,34 @@ enum class EndRegime {
                      (tetra -> icosa bridge). */
   PAIR_COVER,   /**< Jitterbug octa end: vertices merge pairwise onto the node
                      mesh's, and the edge-orbit faces are zero-area. */
+  BAKED_RELAX,  /**< Registry node ends in relax_baked: identical topology, and
+                     vertices within the relax convergence gate. */
 };
+
+/**
+ * @brief Whether a simple-registry node's generator ends in relax_baked.
+ * @param node Simple-registry index.
+ * @return True for the two nodes carrying a flash bake.
+ * @details Their registry mesh is a table of float bits captured from a host
+ *   IEEE relax(), while the leg runs relax() live under the build's own float
+ *   semantics — so the two agree bitwise only on a build whose arithmetic
+ *   matches the bake's, not on the -ffast-math shipping targets.
+ */
+inline bool is_relax_baked_node(uint8_t node) {
+  return node == ConwayGraph::SNUB_DODECAHEDRON ||
+         node == ConwayGraph::TRUNCATED_ICOSIDODECAHEDRON;
+}
 
 /**
  * @brief Comparison regime of an edge's to_node end.
  * @param e Edge to classify.
  * @return EXACT when op(seed, t_to) [+ relax] is the to_node registry chain;
- *         VERTEX_MATCH for arrivals off the registry seed (dual-family ambo,
- *         non-settle bridges); REGULAR for the settling bridge, whose relax
- *         orientation tracks the seed frame, not the registry icosahedron;
- *         PAIR_COVER for the jitterbug bridge's collapsed octa end.
+ *         BAKED_RELAX when that chain ends in a flash bake rather than the live
+ *         relax the leg runs; VERTEX_MATCH for arrivals off the registry seed
+ *         (dual-family ambo, non-settle bridges); REGULAR for the settling
+ *         bridge, whose relax orientation tracks the seed frame, not the
+ *         registry icosahedron; PAIR_COVER for the jitterbug bridge's collapsed
+ *         octa end.
  */
 inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
   using namespace ConwayGraph;
@@ -632,6 +650,8 @@ inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
     return EndRegime::VERTEX_MATCH;
   if (e.bridge)
     return e.settle ? EndRegime::REGULAR : EndRegime::VERTEX_MATCH;
+  if (e.settle && is_relax_baked_node(e.to_node))
+    return EndRegime::BAKED_RELAX;
   return EndRegime::EXACT;
 }
 
@@ -652,6 +672,36 @@ inline void check_exactly_equal(const PolyMesh &got, const PolyMesh &want) {
     HS_EXPECT_EQ(got.vertices[i].y, want.vertices[i].y);
     HS_EXPECT_EQ(got.vertices[i].z, want.vertices[i].z);
   }
+  for (size_t i = 0; i < got.face_counts.size(); ++i)
+    HS_EXPECT_EQ((int)got.face_counts[i], (int)want.face_counts[i]);
+  for (size_t i = 0; i < got.faces.size(); ++i)
+    HS_EXPECT_EQ(got.faces[i], want.faces[i]);
+}
+
+/**
+ * @brief Asserts two meshes share a bitwise-identical face list and agree
+ *        vertex-for-vertex within the relax convergence gate.
+ * @param got Mesh whose settle end ran a live relax.
+ * @param want Registry mesh whose chain ends in a flash bake.
+ * @details The bake froze relax()'s converged vertices at the generating host's
+ *   IEEE arithmetic; a build with different float semantics reaches the gate at
+ *   its own converged point. sqrt(RELAX_CONVERGE_EPS_SQ) bounds the step relax
+ *   declines to take, and normalization only shrinks it, so two relaxations
+ *   that both reach the gate sit at most that far apart. Everything integral —
+ *   vertex order, face_counts, faces — stays exact.
+ */
+inline void check_equal_within_relax_gate(const PolyMesh &got,
+                                          const PolyMesh &want) {
+  const float tol = std::sqrt(MeshOps::RELAX_CONVERGE_EPS_SQ);
+  HS_EXPECT_EQ(got.vertices.size(), want.vertices.size());
+  HS_EXPECT_EQ(got.face_counts.size(), want.face_counts.size());
+  HS_EXPECT_EQ(got.faces.size(), want.faces.size());
+  if (got.vertices.size() != want.vertices.size() ||
+      got.face_counts.size() != want.face_counts.size() ||
+      got.faces.size() != want.faces.size())
+    return;
+  for (size_t i = 0; i < got.vertices.size(); ++i)
+    HS_EXPECT_LE(distance_between(got.vertices[i], want.vertices[i]), tol);
   for (size_t i = 0; i < got.face_counts.size(); ++i)
     HS_EXPECT_EQ((int)got.face_counts[i], (int)want.face_counts[i]);
   for (size_t i = 0; i < got.faces.size(); ++i)
@@ -705,7 +755,8 @@ inline void check_regular_form(const PolyMesh &got, const PolyMesh &want,
 /**
  * @brief Verifies every ConwayGraph edge endpoint against its node's registry
  *        generator: exact on the registry code path, geometric tolerance for
- *        the t = 0 ends and the off-registry-seed arrivals.
+ *        the t = 0 ends, the off-registry-seed arrivals and the flash-baked
+ *        relax arrivals.
  * @details Seeds are built via the registry generators, so the DERIVE_AMBO
  *          rows (cuboctahedron / icosidodecahedron seeds) run the exact bevel
  *          decomposition of their to_node chains. from ends at t = 0 use the
@@ -763,6 +814,9 @@ inline void test_edge_endpoints_match_registry() {
       switch (to_end_regime(e)) {
       case EndRegime::EXACT:
         check_exactly_equal(got, want);
+        break;
+      case EndRegime::BAKED_RELAX:
+        check_equal_within_relax_gate(got, want);
         break;
       case EndRegime::VERTEX_MATCH:
         check_equal_up_to_vertex_order(got, want, 1e-4f);
