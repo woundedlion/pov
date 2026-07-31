@@ -321,6 +321,10 @@ class TestComponentCeilings(unittest.TestCase):
                        "good_readelf_syms.txt")
         self.assertTrue(result.passed, msg=_codes(result))
 
+    def test_declares_components_is_per_target(self):
+        self.assertTrue(tg.declares_components(BUDGETS["phantasm"]))
+        self.assertFalse(tg.declares_components(BUDGETS["holosphere"]))
+
     def test_size_a_fallback_reports_component_missing(self):
         # The `size -A` fallback synthesizes region totals without components,
         # so a component-ceiling target must fail loud there, not false-green.
@@ -859,6 +863,16 @@ class TestSizeAFallback(unittest.TestCase):
         self.assertEqual(rc_advisory, tg.EXIT_UNCALIBRATED_PASS, msg=out_advisory)
         self.assertNotIn(tg.EXIT_UNCALIBRATED_PASS, (0, 1, 2))
 
+    def test_main_rejects_a_component_env_under_the_fallback(self):
+        # phantasm's ram1 code ceiling is unmeasurable from `size -A`; the missing
+        # tool must read as cannot-run, not as a component-missing violation.
+        rc, out = self._run_main_size_a(
+            _size_a(0x10000, 0x40000, 0x70000, 0x20000),
+            "good_readelf_syms.txt", "phantasm")
+        self.assertEqual(rc, 2, msg=out)
+        self.assertIn("per-component ceilings", out)
+        self.assertNotIn("component-missing", out)
+
     def test_main_rejects_invalid_size_a_output_as_tooling_error(self):
         for name, text in _invalid_size_a_cases().items():
             with self.subTest(name=name):
@@ -1048,6 +1062,25 @@ class TestGateExtra(unittest.TestCase):
         self.assertIn("using `size -A` fallback", out)
         self.assertIn("ADVISORY", out)
         self.assertIn("UNCALIBRATED", out)
+
+    def test_size_a_fallback_on_a_component_env_exits_2(self):
+        # A missing teensy_size is a tooling break for phantasm too: its ram1
+        # code ceiling has no measurement under the fallback, so the gate must
+        # not red-flag it as a renamed field or a code-size regression.
+        self.ge._find_teensy_size = lambda env: None
+
+        def _run(args, check=True):
+            if "-A" in args:
+                return _size_a(0x10000, 0x40000, 0x70000, 0x20000)
+            if "-sW" in args:
+                return _read("good_readelf_syms.txt")
+            return _read("good_readelf_secs.txt")
+
+        self.ge._run = _run
+        rc, out = self._run_gate("phantasm")
+        self.assertEqual(rc, 2, msg=out)
+        self.assertIn("per-component ceilings", out)
+        self.assertNotIn("component-missing", out)
 
     def test_size_a_fallback_rejects_invalid_output_as_tooling_error(self):
         self.ge._find_teensy_size = lambda env: None

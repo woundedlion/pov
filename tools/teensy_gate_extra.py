@@ -146,6 +146,17 @@ def run_gate(source, target, env):
         print(f"::error::no budget for env '{pioenv}' in {BUDGETS}")
         sys.exit(1)
 
+    # The fallback synthesizes region totals with no component breakdown, so a
+    # per-component ceiling would evaluate to `component-missing` — a message
+    # about a renamed field or a code-size regression, for a missing tool.
+    if used_size_a_fallback and teensy_gate.declares_components(budgets[pioenv]):
+        print(f"::error::teensy-gate: env '{pioenv}' declares per-component "
+              f"ceilings, which the `size -A` fallback cannot measure. teensy_size "
+              f"is unavailable, so no component figure was read: this is a "
+              f"build/tooling break (install the Teensy platform tools), NOT a "
+              f"size-budget violation — do not adjust budgets.")
+        sys.exit(2)
+
     result = teensy_gate.evaluate(pioenv, budgets[pioenv], sizes, symbols, sections)
     if used_size_a_fallback:
         result.notes.insert(0, teensy_gate.UNCALIBRATED_NOTE)

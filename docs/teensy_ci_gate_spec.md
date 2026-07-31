@@ -603,7 +603,8 @@ components, in either of two forms:
 For both forms, a configured component that the size output no longer reports is a hard
 `component-missing` failure (same fail-loud rule as regions and symbols — a renamed `teensy_size`
 field must not silently disable the ceiling). The `size -A` fallback carries no component
-breakdown, so a component-ceiling target fails loud under it rather than passing uncalibrated.
+breakdown, so a component-ceiling target is rejected before evaluation as a cannot-run tooling
+break (exit 2) rather than passing uncalibrated or reporting a `component-missing` violation.
 Only the phantasm budget uses component ceilings today (`ram1.components.code`, derived form).
 
 **Raising a ceiling is a reviewed, one-line edit** to `tools/teensy_budgets.json`, landed in the
