@@ -45,6 +45,8 @@ static constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
 static constexpr float INTERVAL_DENOM_EPS = 1e-6f;
 /** Threshold for near-pole ring approximation safety. */
 static constexpr float POLE_SAFE_MARGIN = 0.05f;
+/** Pole-on-boundary tolerance, as a fraction of a face's 2D circumradius. */
+static constexpr float POLE_BOUNDARY_TOL = 1e-3f;
 /** Inner/outer radius ratio for star shapes. */
 static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 /** Minimum inradius-to-circumradius ratio used to floor Face::size,
@@ -2964,6 +2966,39 @@ struct Face {
   }
 
   /**
+   * @brief Whether the projected pole touches the 2D face polygon at all.
+   * @param ppx Projected pole x in the face's 2D basis.
+   * @param ppy Projected pole y in the face's 2D basis.
+   * @return true when the pole is inside the polygon or on its boundary.
+   * @details A pole sitting exactly on a vertex or an edge - where a partition
+   * op plants an apex on the projection axis - leaves pole_inside_polygon's
+   * crossing parity decided by rounding, so congruent faces disagree on their
+   * azimuth coverage and the pole row loses part of its overlap. Closing the
+   * test over the boundary makes the answer independent of that rounding.
+   */
+  bool pole_covered(float ppx, float ppy) const {
+    if (!pole_within_circumcircle())
+      return false;
+    const float tol = radius * POLE_BOUNDARY_TOL;
+    const float tol_sq = tol * tol;
+    for (int i = 0; i < count; ++i) {
+      const float ax = ppx - poly_2d[i].x;
+      const float ay = ppy - poly_2d[i].y;
+      if (ax * ax + ay * ay <= tol_sq)
+        return true;
+      const float t =
+          hs::clamp((ax * edge_vectors[i].x + ay * edge_vectors[i].y) *
+                        inv_edge_lengths_sq[i],
+                    0.0f, 1.0f);
+      const float dx = ax - t * edge_vectors[i].x;
+      const float dy = ay - t * edge_vectors[i].y;
+      if (dx * dx + dy * dy <= tol_sq)
+        return true;
+    }
+    return pole_inside_polygon(ppx, ppy);
+  }
+
+  /**
    * @brief Extends the vertical bounds when the face encircles a pole.
    * @param height Canvas height in rows.
    * @details If the face encircles the north or south pole, the vertical bounds
@@ -2972,7 +3007,7 @@ struct Face {
   __attribute__((always_inline)) void apply_pole_containment(int height) {
     if (center.y > 0.01f) {
       float inv_c = 1.0f / center.y;
-      if (pole_inside_polygon(basis_u.y * inv_c, basis_w.y * inv_c)) {
+      if (pole_covered(basis_u.y * inv_c, basis_w.y * inv_c)) {
         y_min = 0;
         full_width = true;
       }
@@ -2980,7 +3015,7 @@ struct Face {
     // South pole (0, -1, 0)
     if (center.y < -0.01f) {
       float inv_c = 1.0f / -center.y;
-      if (pole_inside_polygon(-basis_u.y * inv_c, -basis_w.y * inv_c)) {
+      if (pole_covered(-basis_u.y * inv_c, -basis_w.y * inv_c)) {
         y_max = height - 1;
         full_width = true;
       }

@@ -302,7 +302,14 @@ constexpr double CHANGED_FRAC_MARGIN = 0.02;
 constexpr double MAX_CHANGED_FRAC =
     MAX_MEASURED_CHANGED_FRAC + CHANGED_FRAC_MARGIN;
 constexpr double MAX_ABS_ENERGY = 0.02;
-constexpr float MAX_PIXEL_DELTA = 0.45f;
+
+/** Deepest pixel measured over the six calibration swaps, the same under
+ * -ffast-math as under IEEE: a seam pixel that both children claim at half
+ * coverage composites to 3/4 of the parent's fill. A child that loses its
+ * share of such a pixel leaves half, so the margin stays well under 0.5. */
+constexpr float MAX_MEASURED_PIXEL_DELTA = 0.25f;
+constexpr float PIXEL_DELTA_MARGIN = 0.05f;
+constexpr float MAX_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA + PIXEL_DELTA_MARGIN;
 
 /**
  * @brief Asserts one swap's statistics against the gated-swap envelope.
