@@ -163,6 +163,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── engine/                 Machinery: platform layer, memory, callables, rosters, effect support
 │   │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
 │   │   ├── platform_arduino_mocks.h Off-device emulation of the Arduino/FastLED API
+│   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
 │   │   ├── constants.h             MAX_W, MAX_H + ClipRegion segment clip rectangle
 │   │   ├── engine.h                Engine API umbrella — included by every effect
 │   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
