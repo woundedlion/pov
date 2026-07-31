@@ -302,7 +302,7 @@ Leads, in order of suspicion:
    frame conversion may be foldable into how the renderer writes pixels.
 
 **Measure before optimising.** `HS_ISR_PROFILE` scopes already exist
-(`core/engine/platform.h`, used in `pov_segmented.h`); add finer ones inside the
+(`core/engine/profiling.h`, used in `pov_segmented.h`); add finer ones inside the
 pack if needed — but note ISR-side profiling must use `HS_ISR_PROFILE`/
 `hs::IsrCycleStats`, **not** `HS_PROFILE` (the main-loop registry is non-atomic).
 

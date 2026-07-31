@@ -230,7 +230,7 @@ out of scope).
 1. `core/render/sdf.h`: resurrect `build_distance_lut` (from `6241a24b^`) as a
    free function over a centered canonical polygon at fixed n; add the
    hybrid branch + members (`const ClassLut *`, `rot`, `mean`, `reflected`)
-   to `Face`; `lut_hits` metric back into `platform.h`.
+   to `Face`; `lut_hits` metric back into `profiling.h`.
 2. `core/mesh/mesh.h` (or a new `core/mesh/mesh_classes.h`): the Procrustes clustering
    (port of the census code, arena-based, no std::vector), `MeshClassBake`
    build, per-face record table.
