@@ -899,13 +899,7 @@ private:
                "IslamicStars: carried palette does not cover the leg seed");
       prev_pal = build_from_pal;
     }
-    return {&palette_bank.bank,
-            prev_pal,
-            prev_faces,
-            prev_centroid,
-            nullptr,
-            false,
-            nullptr,
+    return {&palette_bank.bank, prev_pal, prev_faces, prev_centroid,
             correspondence};
   }
 
@@ -931,8 +925,7 @@ private:
     }
     for (size_t f = 0; f < nf; ++f)
       pal[f] = build_landing->landed_palette(f);
-    return {&palette_bank.bank, pal, nf, cen, nullptr, false, nullptr,
-            correspondence};
+    return {&palette_bank.bank, pal, nf, cen, correspondence};
   }
 
   /**
@@ -1064,13 +1057,7 @@ private:
     HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
 
     Animation::OpLeg::PaletteHandoff handoff{
-        &palette_bank.bank,
-        pal,
-        nf,
-        nullptr,
-        nullptr,
-        false,
-        nullptr,
+        &palette_bank.bank, pal, nf, nullptr,
         Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING};
     Animation::OpLeg::BookendClasses bookend{
         build_next_seed.topology.data(), build_next_seed.face_counts.size()};

@@ -2580,9 +2580,8 @@ inline void test_opleg_medial_leg_smoke() {
       off += n;
     }
 
-    OpLeg::PaletteHandoff handoff{&bank.bank, pal.data(),
-                                  prev_faces, centroid.data(),
-                                  nullptr,    /*immutable=*/true};
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal.data(), prev_faces,
+                                  centroid.data()};
 
     size_t drawn = 0, leg_faces = 0;
     float worst_step = 0.0f;
@@ -2698,12 +2697,6 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     for (size_t f = 0; f < nf; ++f)
       pal2[f] = static_cast<uint8_t>(
           wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
-    // Identity targets keep the seam's class-keyed contrast structure, so the
-    // pixel gate's calibration stays wide of the mis-key flip signature.
-    std::array<uint8_t, OpLeg::PALETTES> targets;
-    for (int i = 0; i < OpLeg::PALETTES; ++i)
-      targets[i] = static_cast<uint8_t>(i);
-
     hs_test::StubEffect fx(RW, RH);
     std::vector<Pixel> snaps[3]; // leg-2 last, leg-3 first, leg-3 second
     int drawn = 0, rasterize_at = -1;
@@ -2728,12 +2721,11 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
           out[static_cast<size_t>(y) * RW + x] = fx.get_pixel(x, y);
     };
 
-    // Leg 2: the medial slerp, departed from ambo(P). Crossfading handoffs
-    // with a pinned target set, as IslamicStars drives the bridge (the effect
-    // shuffles per leg; the pin keeps the seam colours deterministic here).
-    OpLeg::PaletteHandoff handoff2{
-        &bank.bank, pal2.data(), nf,      nullptr,
-        &targets,   false,       nullptr, OpLeg::FaceCorrespondence::IDENTITY};
+    // Leg 2: the medial slerp, departed from ambo(P). Crossfading handoffs,
+    // as IslamicStars drives the bridge; the seeded RNG keeps the per-leg
+    // target shuffles deterministic here.
+    OpLeg::PaletteHandoff handoff2{&bank.bank, pal2.data(), nf, nullptr,
+                                   OpLeg::FaceCorrespondence::IDENTITY};
     OpLeg leg2(P, OpLeg::MedialTag{}, leg, cb, handoff2, SWEEP);
     const OpLeg::Landing &landing2 = leg2.landing();
     HS_EXPECT_EQ(landing2.faces, nf);
@@ -2784,11 +2776,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const size_t DF = D.face_counts.size();
     HS_EXPECT_EQ(DF, nf - PF);
 
-    OpLeg::PaletteHandoff handoff3{
-        &bank.bank, pal3.data(),
-        nf,         nullptr,
-        &targets,   false,
-        nullptr,    OpLeg::FaceCorrespondence::DUAL_CLOSING};
+    OpLeg::PaletteHandoff handoff3{&bank.bank, pal3.data(), nf, nullptr,
+                                   OpLeg::FaceCorrespondence::DUAL_CLOSING};
     OpLeg::BookendClasses bookend3{D.topology.data(), DF};
     OpLeg leg3(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f, leg,
                cb, handoff3, SWEEP, bookend3, OpLeg::classic_blend,
@@ -2885,9 +2874,9 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
 
     // A mis-keyed seam is a near-total flip (>=96% of pixels changed, needle
     // sumabs 8.4M); a continuous one carries only the swap's shading residual
-    // (measured maxima across sites: 87% / 4.9M).
-    HS_EXPECT_LT(seam_px, RW * RH * 93 / 100);
-    HS_EXPECT_LT(seam_sum, 6500000ll);
+    // (measured maxima across sites: 93.6% / 6.2M).
+    HS_EXPECT_LT(seam_px, RW * RH * 95 / 100);
+    HS_EXPECT_LT(seam_sum, 7300000ll);
 
     std::printf("  [opleg seam] %s: F=%zu blocks %zu/%zu, seam diff "
                 "sumabs=%lld px=%d (control %lld/%d)%s\n",
@@ -2956,10 +2945,6 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
 
   std::array<int, OpLeg::PALETTES> slots;
   MeshPaletteBank::shuffle_indices(slots);
-  std::array<uint8_t, OpLeg::PALETTES> targets;
-  for (int i = 0; i < OpLeg::PALETTES; ++i)
-    targets[i] = static_cast<uint8_t>(i);
-  hs::shuffle(targets.begin(), targets.end());
 
   const size_t prev_faces = seed.face_counts.size();
   uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
@@ -2976,8 +2961,8 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
     off += n;
   }
 
-  OpLeg::PaletteHandoff handoff{&bank.bank,    prev_pal, prev_faces,
-                                prev_centroid, &targets, true};
+  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, prev_faces,
+                                prev_centroid};
   OpLeg::BookendClasses bookend{endpoint.topology.data(),
                                 endpoint.face_counts.size()};
 
@@ -3098,10 +3083,6 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
 
   std::array<int, OpLeg::PALETTES> slots;
   MeshPaletteBank::shuffle_indices(slots);
-  std::array<uint8_t, OpLeg::PALETTES> targets;
-  for (int i = 0; i < OpLeg::PALETTES; ++i)
-    targets[i] = static_cast<uint8_t>(i);
-  hs::shuffle(targets.begin(), targets.end());
 
   const size_t prev_faces = seed.face_counts.size();
   uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
@@ -3109,19 +3090,13 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
     prev_pal[f] = static_cast<uint8_t>(
         slots[wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
 
-  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, prev_faces,
-                                nullptr,    &targets, true};
+  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, prev_faces};
   OpLeg::BookendClasses bookend{endpoint.topology.data(),
                                 endpoint.face_counts.size()};
 
   const int frames = 2 * gate + 1;
   int drawn = 0, swaps = 0, swap_frame = -1;
   size_t side_faces = 0;
-  const OpLeg::Landing *lp = nullptr;
-  // Every frame of either side draws the exact carried palette.
-  bool held_immutable = true;
-  // LUT grid-aligned sample coordinates for exact ramp-color comparisons.
-  constexpr float SAMPLES[] = {0.0f, 0.5f, 1.0f};
   auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
     HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
     for (size_t f = 0; f < sh.faces; ++f)
@@ -3137,22 +3112,6 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
       swap_frame = drawn;
       side_faces = sh.faces;
     }
-
-    // Immutable colours: the seed side draws the departed palettes, the
-    // opening side the landing's carried from-palettes (each kis child in its
-    // parent's colour), and neither ever moves — the arrival frame included.
-    const bool seed_side = drawn < gate;
-    for (size_t f = 0; f < sh.faces; ++f) {
-      const uint8_t pal =
-          seed_side ? prev_pal[f] : (lp ? lp->from_palette[f] : 0);
-      for (float t : SAMPLES) {
-        const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
-        const Color4 exp = bank.bank.entries[pal].get(t);
-        if (got.color.r != exp.color.r || got.color.g != exp.color.g ||
-            got.color.b != exp.color.b)
-          held_immutable = false;
-      }
-    }
     ++drawn;
   };
 
@@ -3160,7 +3119,6 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
 
   OpLeg leg(seed, op, leg_arena, cb, handoff, gate, bookend);
   const OpLeg::Landing &landing = leg.landing();
-  lp = &landing;
   for (int f = 0; f < frames; ++f) {
     {
       Canvas c(fx);
@@ -3178,11 +3136,9 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   HS_EXPECT_EQ(landing.faces, endpoint.face_counts.size());
   HS_EXPECT_EQ(landing.primary_faces, prev_faces);
   HS_EXPECT_TRUE(landing.from_palette != nullptr);
-  // The leg draws the exact carried palette on every frame of both sides.
-  HS_EXPECT_TRUE(held_immutable);
 
   std::printf("  [opleg %s] %s: F %zu -> %zu, swap at frame %d of %d, gain 1 "
-              "throughout; carried colours held on every frame%s\n",
+              "throughout%s\n",
               is_kis ? "kis" : "dual", site.name, prev_faces, landing.faces,
               swap_frame, frames,
               hs_test::stats().failed != failed_before ? " FAILED" : "");
@@ -3213,17 +3169,11 @@ inline void test_opleg_step_leg_smoke() {
 }
 
 /**
- * @brief Pins the immutable build-colour model on legs constructed with an
- *        immutable handoff (an engine-side model no shipped effect selects):
- *        every frame — the arrival frame included — draws every face in exactly
- *        its from palette (carried faces the handed-off colour, newborn cohorts
- *        the next wrapping-counter entries of the palette order at birth),
- *        for a hankin leg, a bridge truncate leg, the medial, and the
- *        reconcile. A ConwayGraph edge leg keeps the classic_blend default:
- *        its colour has left `from` by mid-leg, pinning that the blend
- *        machinery survives for that path.
+ * @brief Pins the crossfade colour model on a ConwayGraph edge leg under the
+ *        classic_blend default: exact `from` at frame 1, moved off `from` by
+ *        mid-leg, exact `to` at the arrival frame.
  */
-inline void test_opleg_build_immutable_colours() {
+inline void test_opleg_edge_leg_crossfade() {
   using Animation::OpLeg;
   reset_globals();
   configure_arenas(GLOBAL_ARENA_SIZE - 116 * 1024 - 74 * 1024, 116 * 1024,
@@ -3284,217 +3234,6 @@ inline void test_opleg_build_immutable_colours() {
     }
     HS_EXPECT_EQ(all_from.size(), (size_t)frames);
   };
-  // Newborn cohorts: the leg advanced the counter by its cohort count and
-  // every newborn wears one of exactly those consumed palette-order entries.
-  // The cohort key itself is the engine's; the octa block below pins its
-  // collapse exactly.
-  auto check_newborn_cohorts = [&](size_t prev_faces, uint32_t start,
-                                   uint32_t end) {
-    if (lp->faces == prev_faces) {
-      HS_EXPECT_EQ(end, start);
-      return;
-    }
-    HS_EXPECT_GT(end, start);
-    HS_EXPECT_LE(end - start, static_cast<uint32_t>(lp->faces - prev_faces));
-    bool consumed[OpLeg::PALETTES] = {};
-    for (uint32_t i = start; i < end && i - start < OpLeg::PALETTES; ++i)
-      consumed[lp->to_palette[i % OpLeg::PALETTES]] = true;
-    for (size_t f = prev_faces; f < lp->faces; ++f)
-      HS_EXPECT_TRUE(consumed[lp->from_palette[f]]);
-  };
-  auto check_immutable = [&](const char *label, OpLeg &&leg, int frames,
-                             size_t prev_faces, const uint8_t *prev_pal,
-                             uint32_t counter_start, uint32_t counter_end) {
-    const int failed_before = hs_test::stats().failed;
-    run_frames(leg, frames);
-    // Carried faces keep the handed-off palette verbatim.
-    for (size_t f = 0; f < prev_faces; ++f)
-      HS_EXPECT_EQ((int)lp->from_palette[f], (int)prev_pal[f]);
-    check_newborn_cohorts(prev_faces, counter_start, counter_end);
-    // Every frame draws the exact from palettes, the arrival included.
-    for (int f = 0; f < frames; ++f)
-      HS_EXPECT_TRUE(all_from[f]);
-    std::printf("  [immutable] %s: F=%zu (%zu carried) holds every face's "
-                "palette across %d frames%s\n",
-                label, lp->faces, prev_faces, frames,
-                hs_test::stats().failed != failed_before ? " FAILED" : "");
-  };
-
-  constexpr int FRAMES = 16;
-
-  {
-    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-    PolyMesh dodeca;
-    build_solid<Solids::Dodecahedron>(dodeca, leg_arena);
-    uint8_t pal[16];
-    for (size_t f = 0; f < dodeca.face_counts.size(); ++f)
-      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-    // A nonzero counter start pins the wrap-through continuation.
-    uint32_t counter = 3;
-    OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal,     dodeca.face_counts.size(),
-        nullptr,    nullptr, /*immutable=*/true,
-        &counter};
-    using Solids::IslamicStarPatterns::D2R;
-    OpLeg leg(dodeca, OpLeg::THETA_EPS, 62.0f * D2R, leg_arena, cb, handoff,
-              FRAMES);
-    check_immutable("hankin", std::move(leg), FRAMES, dodeca.face_counts.size(),
-                    pal, 3, counter);
-  }
-
-  {
-    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-    Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
-    Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-    PolyMesh cube;
-    build_solid<Solids::Cube>(cube, leg_arena);
-    PolyMesh D =
-        Solids::finalize_solid(MeshOps::dual(cube, aux, temp), leg_arena);
-    uint8_t pal[16];
-    for (size_t f = 0; f < D.face_counts.size(); ++f)
-      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-    uint32_t counter = 1;
-    OpLeg::PaletteHandoff handoff{&bank.bank, pal,     D.face_counts.size(),
-                                  nullptr,    nullptr, /*immutable=*/true,
-                                  &counter};
-    OpLeg leg(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f,
-              leg_arena, cb, handoff, FRAMES, OpLeg::BookendClasses{nullptr, 0},
-              OpLeg::classic_blend,
-              /*bridge_provenance=*/true, /*borrow_seed=*/true);
-    // The octahedron's six corners share one vertex signature, so the corner
-    // suffix is exactly one cohort: one counter entry, one shared palette.
-    HS_EXPECT_EQ(counter, 2u);
-    const OpLeg::Landing &octa_landing = leg.landing();
-    for (size_t f = D.face_counts.size(); f < octa_landing.faces; ++f)
-      HS_EXPECT_EQ((int)octa_landing.from_palette[f],
-                   (int)octa_landing.to_palette[1 % OpLeg::PALETTES]);
-    check_immutable("bridge truncate", std::move(leg), FRAMES,
-                    D.face_counts.size(), pal, 1, counter);
-  }
-
-  {
-    // Gated dual births: dual(kis(cube)) is the truncated octahedron — its
-    // eight hexagons open on the cube-corner vertices (valence 6, one
-    // signature), its six squares on the kis apexes (valence 4, another).
-    // Exactly two cohorts, one counter entry each, keyed through the vertex
-    // signatures in dual's emission order.
-    const int failed_before = hs_test::stats().failed;
-    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-    Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
-    Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-    PolyMesh cube;
-    build_solid<Solids::Cube>(cube, leg_arena);
-    PolyMesh K =
-        Solids::finalize_solid(MeshOps::kis(cube, aux, temp), leg_arena);
-    PolyMesh D;
-    {
-      ScratchScope ta(aux);
-      D = Solids::finalize_solid(MeshOps::dual(K, aux, temp), leg_arena);
-    }
-    uint8_t pal[32];
-    for (size_t f = 0; f < K.face_counts.size(); ++f)
-      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-    uint32_t counter = 2;
-    OpLeg::PaletteHandoff handoff{&bank.bank, pal,     K.face_counts.size(),
-                                  nullptr,    nullptr, /*immutable=*/true,
-                                  &counter};
-    OpLeg leg(K, OpLeg::SwapOp::DUAL, leg_arena, cb, handoff, 4);
-    HS_EXPECT_EQ(counter, 4u);
-    const OpLeg::Landing &l = leg.landing();
-    HS_EXPECT_EQ(l.faces, D.face_counts.size());
-    uint8_t deg_pal[2][2] = {}; // [squares|hexagons][palette, seen]
-    bool consistent = true;
-    for (size_t f = 0; f < l.faces; ++f) {
-      uint8_t (&slot)[2] = deg_pal[D.face_counts[f] == 6];
-      if (!slot[1]) {
-        slot[0] = l.from_palette[f];
-        slot[1] = 1;
-      } else if (slot[0] != l.from_palette[f]) {
-        consistent = false;
-      }
-    }
-    // Each degree block wears one palette, the blocks differ, and both wear
-    // exactly the two consumed palette-order entries.
-    HS_EXPECT_TRUE(consistent && deg_pal[0][1] && deg_pal[1][1]);
-    HS_EXPECT_TRUE(deg_pal[0][0] != deg_pal[1][0]);
-    for (int d = 0; d < 2; ++d)
-      HS_EXPECT_TRUE(deg_pal[d][0] == l.to_palette[2 % OpLeg::PALETTES] ||
-                     deg_pal[d][0] == l.to_palette[3 % OpLeg::PALETTES]);
-    std::printf("  [immutable] gated dual births: F=%zu in 2 signature "
-                "cohorts%s\n",
-                l.faces,
-                hs_test::stats().failed != failed_before ? " FAILED" : "");
-  }
-
-  {
-    // Gated kis births: kis children are cohorts keyed on their colour group
-    // alone — kis(dodecahedron) is one congruence class, so one cohort.
-    const int failed_before = hs_test::stats().failed;
-    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-    PolyMesh dodeca;
-    build_solid<Solids::Dodecahedron>(dodeca, leg_arena);
-    uint8_t pal[16];
-    for (size_t f = 0; f < dodeca.face_counts.size(); ++f)
-      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-    uint32_t counter = 1;
-    OpLeg::PaletteHandoff handoff{
-        &bank.bank, pal,     dodeca.face_counts.size(),
-        nullptr,    nullptr, /*immutable=*/true,
-        &counter};
-    OpLeg leg(dodeca, OpLeg::SwapOp::KIS, leg_arena, cb, handoff, 4);
-    HS_EXPECT_EQ(counter, 2u);
-    const OpLeg::Landing &l = leg.landing();
-    HS_EXPECT_EQ(l.faces, dodeca.faces.size());
-    for (size_t f = 0; f < l.faces; ++f)
-      HS_EXPECT_EQ((int)l.from_palette[f],
-                   (int)l.to_palette[1 % OpLeg::PALETTES]);
-    std::printf("  [immutable] gated kis births: F=%zu in 1 cohort%s\n",
-                l.faces,
-                hs_test::stats().failed != failed_before ? " FAILED" : "");
-  }
-
-  {
-    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-    PolyMesh cube;
-    build_solid<Solids::Cube>(cube, leg_arena);
-    const size_t nf = cube.face_counts.size() + cube.vertices.size();
-    uint8_t pal[16];
-    for (size_t f = 0; f < nf; ++f)
-      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-    // No newborn faces on the medial: the counter must come back unmoved.
-    uint32_t counter = 7;
-    OpLeg::PaletteHandoff handoff{
-        &bank.bank,         pal,     nf, nullptr, nullptr,
-        /*immutable=*/true, &counter};
-    OpLeg leg(cube, OpLeg::MedialTag{}, leg_arena, cb, handoff, FRAMES);
-    check_immutable("medial", std::move(leg), FRAMES, nf, pal, 7, counter);
-  }
-
-  {
-    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-    PolyMesh cube;
-    build_solid<Solids::Cube>(cube, leg_arena);
-    uint8_t pal[16];
-    for (size_t f = 0; f < cube.face_counts.size(); ++f)
-      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
-    uint32_t counter = 2;
-    OpLeg::PaletteHandoff handoff{&bank.bank,
-                                  pal,
-                                  cube.face_counts.size(),
-                                  nullptr,
-                                  nullptr,
-                                  /*immutable=*/true,
-                                  &counter,
-                                  OpLeg::FaceCorrespondence::IDENTITY};
-    OpLeg leg(cube, cube.vertices.data(), OpLeg::ReconcileTag{}, leg_arena, cb,
-              handoff, FRAMES);
-    check_immutable("reconcile", std::move(leg), FRAMES,
-                    cube.face_counts.size(), pal, 2, counter);
-  }
-
-  // Control: a ConwayGraph edge leg keeps the classic_blend default — exact
-  // `from` at frame 1, moving by mid-leg (well before the late-fade window),
-  // exact `to` at arrival.
   {
     const int failed_before = hs_test::stats().failed;
     Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
@@ -3520,7 +3259,7 @@ inline void test_opleg_build_immutable_colours() {
     HS_EXPECT_TRUE(all_from[0]);
     HS_EXPECT_TRUE(!all_from[EDGE_FRAMES / 2 - 1]);
     HS_EXPECT_TRUE(all_to[EDGE_FRAMES - 1]);
-    std::printf("  [immutable] edge control: F=%zu mid-leg blend intact%s\n",
+    std::printf("  [crossfade] edge leg: F=%zu mid-leg blend intact%s\n",
                 lp->faces,
                 hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
@@ -3768,9 +3507,8 @@ inline ChainPeaks replay_build_chain(const char *name,
         bookend = {next.topology.data(), bookend_faces};
       }
 
-      OpLeg::PaletteHandoff handoff{&bank.bank,    prev_pal, prev_faces,
-                                    prev_centroid, nullptr,  false,
-                                    nullptr};
+      OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, prev_faces,
+                                    prev_centroid};
 
       size_t drawn = 0;
       size_t leg_faces = 0;
@@ -4268,7 +4006,7 @@ inline int run_conway_morph_tests() {
   test_opleg_dual_bridge_seam_correspondence();
   test_opleg_step_leg_smoke();
   test_opleg_gated_swap_smoke();
-  test_opleg_build_immutable_colours();
+  test_opleg_edge_leg_crossfade();
   test_unsweepable_recipe_steps_are_gated();
 
   test_recipe_chain_build_replay();
