@@ -2279,6 +2279,9 @@ struct Face {
   std::span<std::pair<float, float>>
       intervals;   /**< Azimuth coverage intervals (radians). */
   bool full_width; /**< True when the face spans all columns. */
+  /** A pole lies on the face boundary, so the azimuth intervals take the
+   *  per-row pole widening instead of full width. */
+  bool pole_touch = false;
   static constexpr bool is_solid =
       true; /**< Face renders as a filled region. */
 
@@ -2472,10 +2475,11 @@ struct Face {
    * @brief Horizontal half of the clip cull.
    * @param cr Clip region (display bounds plus render margin).
    * @return True when the face's azimuth coverage lies outside the render
-   *         columns. A full-width face or an inactive x-clip never rejects.
+   *         columns. A full-width face, a pole-touching face (whose coverage
+   *         widens per row) or an inactive x-clip never rejects.
    */
   bool clip_rejects_azimuth(const ClipRegion &cr) const {
-    if (full_width)
+    if (full_width || pole_touch)
       return false;
     const ClipRegion::XClip xc = cr.x_clip();
     if (!xc.active)
@@ -2965,27 +2969,34 @@ struct Face {
     return inside;
   }
 
+  /** How a projected pole sits against the 2D face polygon. */
+  enum class PoleHit {
+    NONE,     /**< Outside the closed region. */
+    BOUNDARY, /**< Within POLE_BOUNDARY_TOL of a vertex or an edge. */
+    INTERIOR  /**< Strictly inside, off the boundary band. */
+  };
+
   /**
-   * @brief Whether the projected pole touches the 2D face polygon at all.
+   * @brief Classifies a projected pole against the 2D face polygon.
    * @param ppx Projected pole x in the face's 2D basis.
    * @param ppy Projected pole y in the face's 2D basis.
-   * @return true when the pole is inside the polygon or on its boundary.
+   * @return Where the pole falls relative to the closed polygon.
    * @details A pole sitting exactly on a vertex or an edge - where a partition
    * op plants an apex on the projection axis - leaves pole_inside_polygon's
    * crossing parity decided by rounding, so congruent faces disagree on their
-   * azimuth coverage and the pole row loses part of its overlap. Closing the
-   * test over the boundary makes the answer independent of that rounding.
+   * azimuth coverage and the pole row loses part of its overlap. Testing the
+   * boundary band first makes the answer independent of that rounding.
    */
-  bool pole_covered(float ppx, float ppy) const {
+  PoleHit pole_hit(float ppx, float ppy) const {
     if (!pole_within_circumcircle())
-      return false;
+      return PoleHit::NONE;
     const float tol = radius * POLE_BOUNDARY_TOL;
     const float tol_sq = tol * tol;
     for (int i = 0; i < count; ++i) {
       const float ax = ppx - poly_2d[i].x;
       const float ay = ppy - poly_2d[i].y;
       if (ax * ax + ay * ay <= tol_sq)
-        return true;
+        return PoleHit::BOUNDARY;
       const float t =
           hs::clamp((ax * edge_vectors[i].x + ay * edge_vectors[i].y) *
                         inv_edge_lengths_sq[i],
@@ -2993,31 +3004,41 @@ struct Face {
       const float dx = ax - t * edge_vectors[i].x;
       const float dy = ay - t * edge_vectors[i].y;
       if (dx * dx + dy * dy <= tol_sq)
-        return true;
+        return PoleHit::BOUNDARY;
     }
-    return pole_inside_polygon(ppx, ppy);
+    return pole_inside_polygon(ppx, ppy) ? PoleHit::INTERIOR : PoleHit::NONE;
   }
 
   /**
-   * @brief Extends the vertical bounds when the face encircles a pole.
+   * @brief Extends the vertical bounds when the face reaches a pole.
    * @param height Canvas height in rows.
-   * @details If the face encircles the north or south pole, the vertical bounds
-   * are extended to it and full-width azimuth coverage is forced.
+   * @details A face enclosing a pole wraps every azimuth, so it takes full
+   * width outright. A face that only meets the pole on its boundary keeps its
+   * azimuth wedge and widens it per row instead, which get_horizontal_intervals
+   * does from pole_touch.
    */
   __attribute__((always_inline)) void apply_pole_containment(int height) {
     if (center.y > 0.01f) {
       float inv_c = 1.0f / center.y;
-      if (pole_covered(basis_u.y * inv_c, basis_w.y * inv_c)) {
+      const PoleHit hit = pole_hit(basis_u.y * inv_c, basis_w.y * inv_c);
+      if (hit != PoleHit::NONE) {
         y_min = 0;
-        full_width = true;
+        if (hit == PoleHit::INTERIOR)
+          full_width = true;
+        else
+          pole_touch = true;
       }
     }
     // South pole (0, -1, 0)
     if (center.y < -0.01f) {
       float inv_c = 1.0f / -center.y;
-      if (pole_covered(-basis_u.y * inv_c, -basis_w.y * inv_c)) {
+      const PoleHit hit = pole_hit(-basis_u.y * inv_c, -basis_w.y * inv_c);
+      if (hit != PoleHit::NONE) {
         y_max = height - 1;
-        full_width = true;
+        if (hit == PoleHit::INTERIOR)
+          full_width = true;
+        else
+          pole_touch = true;
       }
     }
   }
@@ -3167,12 +3188,18 @@ struct Face {
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
    * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y Row index, which sets the pole widening below.
    * @param out Sink accepting (float start, float end).
    * @return True if intervals were emitted; false (full scan) for full-width
-   * faces.
+   * faces and for the rows a pole-touching face cannot bound.
+   * @details The pad is an azimuth angle, so it holds a whole pixel of AA reach
+   * only at the equator; at colatitude phi one pad p of great-circle reach
+   * subtends asin(sin p / sin phi), the whole row once sin phi <= sin p. A face
+   * that meets a pole spans those rows, so widen its pad by the bound
+   * asin(x) <= (pi/2) x rather than force it full width everywhere.
    */
   template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int, OutputIt out) const {
+  bool get_horizontal_intervals(int y, OutputIt out) const {
     if (full_width)
       return false;
 #ifdef HS_AA_AUDIT
@@ -3180,6 +3207,12 @@ struct Face {
       return false;
 #endif
     float pad = face_azimuth_pad(W);
+    if (pole_touch) {
+      const float sin_phi = TrigLUT<W, H>::sin_phi[y];
+      if (sin_phi <= pad)
+        return false;
+      pad *= (0.5f * PI_F) / sin_phi;
+    }
     for (const auto &iv : intervals) {
       float f_x1 = (iv.first - pad) * W / (2 * PI_F);
       float f_x2 = (iv.second + pad) * W / (2 * PI_F);
