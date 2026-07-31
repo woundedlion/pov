@@ -182,6 +182,17 @@ class ProfileConfigVerification(unittest.TestCase):
 
 
 class ToolchainAttestation(unittest.TestCase):
+    def test_envdump_precedes_each_attested_build(self):
+        body = shell_function("build_and_attest")
+        self.assertLess(
+            body.index('pio run -e phantasm -t envdump'),
+            body.index('build_image phantasm'),
+        )
+        self.assertLess(
+            body.index('pio run -e "$ENV" -t envdump'),
+            body.index('build_image "$ENV"'),
+        )
+
     def test_matching_compiler_passes(self):
         result = attest_toolchains("GCC 15.2.1", "GCC 15.2.1")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
