@@ -1882,8 +1882,10 @@ inline void test_opleg_hankin_sweep_smoke() {
   for (size_t f = 0; f < dodeca.face_counts.size(); ++f)
     pal[f] = static_cast<uint8_t>(f % Animation::OpLeg::PALETTES);
 
-  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,
-                                           dodeca.face_counts.size()};
+  Animation::OpLeg::PaletteHandoff handoff{
+      .bank = &bank.bank,
+      .prev_face_palette = pal,
+      .prev_faces = dodeca.face_counts.size()};
 
   // Per-frame motion bound: growing star points out from their corners keeps
   // every step small and unimodal. Re-solving the contact-plane intersection
@@ -2580,8 +2582,10 @@ inline void test_opleg_medial_leg_smoke() {
       off += n;
     }
 
-    OpLeg::PaletteHandoff handoff{&bank.bank, pal.data(), prev_faces,
-                                  centroid.data()};
+    OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                  .prev_face_palette = pal.data(),
+                                  .prev_faces = prev_faces,
+                                  .prev_face_centroid = centroid.data()};
 
     size_t drawn = 0, leg_faces = 0;
     float worst_step = 0.0f;
@@ -2724,8 +2728,11 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     // Leg 2: the medial slerp, departed from ambo(P). Crossfading handoffs,
     // as IslamicStars drives the bridge; the seeded RNG keeps the per-leg
     // target shuffles deterministic here.
-    OpLeg::PaletteHandoff handoff2{&bank.bank, pal2.data(), nf, nullptr,
-                                   OpLeg::FaceCorrespondence::IDENTITY};
+    OpLeg::PaletteHandoff handoff2{
+        .bank = &bank.bank,
+        .prev_face_palette = pal2.data(),
+        .prev_faces = nf,
+        .correspondence = OpLeg::FaceCorrespondence::IDENTITY};
     OpLeg leg2(P, OpLeg::MedialTag{}, leg, cb, handoff2, SWEEP);
     const OpLeg::Landing &landing2 = leg2.landing();
     HS_EXPECT_EQ(landing2.faces, nf);
@@ -2776,9 +2783,12 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const size_t DF = D.face_counts.size();
     HS_EXPECT_EQ(DF, nf - PF);
 
-    OpLeg::PaletteHandoff handoff3{&bank.bank, pal3.data(), nf, nullptr,
-                                   OpLeg::FaceCorrespondence::DUAL_CLOSING};
-    OpLeg::BookendClasses bookend3{D.topology.data(), DF};
+    OpLeg::PaletteHandoff handoff3{
+        .bank = &bank.bank,
+        .prev_face_palette = pal3.data(),
+        .prev_faces = nf,
+        .correspondence = OpLeg::FaceCorrespondence::DUAL_CLOSING};
+    OpLeg::BookendClasses bookend3{.topology = D.topology.data(), .faces = DF};
     OpLeg leg3(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f, leg,
                cb, handoff3, SWEEP, bookend3, OpLeg::classic_blend,
                /*bridge_provenance=*/true, /*borrow_seed=*/true);
@@ -2961,10 +2971,12 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
     off += n;
   }
 
-  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, prev_faces,
-                                prev_centroid};
-  OpLeg::BookendClasses bookend{endpoint.topology.data(),
-                                endpoint.face_counts.size()};
+  OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                .prev_face_palette = prev_pal,
+                                .prev_faces = prev_faces,
+                                .prev_face_centroid = prev_centroid};
+  OpLeg::BookendClasses bookend{.topology = endpoint.topology.data(),
+                                .faces = endpoint.face_counts.size()};
 
   size_t drawn_frames = 0, drawn_faces = 0;
   float worst_step = 0.0f;
@@ -3090,9 +3102,11 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
     prev_pal[f] = static_cast<uint8_t>(
         slots[wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
 
-  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, prev_faces};
-  OpLeg::BookendClasses bookend{endpoint.topology.data(),
-                                endpoint.face_counts.size()};
+  OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                .prev_face_palette = prev_pal,
+                                .prev_faces = prev_faces};
+  OpLeg::BookendClasses bookend{.topology = endpoint.topology.data(),
+                                .faces = endpoint.face_counts.size()};
 
   const int frames = 2 * gate + 1;
   int drawn = 0, swaps = 0, swap_frame = -1;
@@ -3250,7 +3264,9 @@ inline void test_opleg_edge_leg_crossfade() {
       return -1;
     }();
     HS_EXPECT_GE(edge, 0);
-    OpLeg::PaletteHandoff handoff{&bank.bank, pal, cube.face_counts.size()};
+    OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                  .prev_face_palette = pal,
+                                  .prev_faces = cube.face_counts.size()};
     constexpr int EDGE_FRAMES = 24;
     OpLeg leg(cube, ConwayGraph::EDGES[edge], false, leg_arena, cb, handoff,
               EDGE_FRAMES, 0);
@@ -3504,11 +3520,13 @@ inline ChainPeaks replay_build_chain(const char *name,
         }
         const size_t bookend_faces = next.face_counts.size();
         HS_EXPECT_LE(bookend_faces, MAX_FACES);
-        bookend = {next.topology.data(), bookend_faces};
+        bookend = {.topology = next.topology.data(), .faces = bookend_faces};
       }
 
-      OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, prev_faces,
-                                    prev_centroid};
+      OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                    .prev_face_palette = prev_pal,
+                                    .prev_faces = prev_faces,
+                                    .prev_face_centroid = prev_centroid};
 
       size_t drawn = 0;
       size_t leg_faces = 0;

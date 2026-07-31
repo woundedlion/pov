@@ -687,7 +687,10 @@ private:
              "HankinSolids: leg seed identity mismatch");
 
     Animation::OpLeg::PaletteHandoff handoff{
-        &palette_bank.bank, node_face_palette, node_faces, node_face_centroid};
+        .bank = &palette_bank.bank,
+        .prev_face_palette = node_face_palette,
+        .prev_faces = node_faces,
+        .prev_face_centroid = node_face_centroid};
 
     // Bookend grouping of the arrival node: the closing bookend displays one
     // palette per hankin star-face class, so the leg's color targets key on
@@ -714,7 +717,8 @@ private:
       for (size_t f = 0; f < arrival_faces; ++f)
         arrival_topo[f] = hk.topology[f];
     }
-    Animation::OpLeg::BookendClasses bookend{arrival_topo, arrival_faces};
+    Animation::OpLeg::BookendClasses bookend{.topology = arrival_topo,
+                                             .faces = arrival_faces};
 
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);

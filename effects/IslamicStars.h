@@ -807,7 +807,8 @@ private:
       }
       const size_t bookend_faces = build_next_seed.face_counts.size();
       HS_CHECK(bookend_faces <= MAX_BUILD_FACES);
-      bookend = {build_next_seed.topology.data(), bookend_faces};
+      bookend = {.topology = build_next_seed.topology.data(),
+                 .faces = bookend_faces};
     }
 
     // Handoff arrays are ctor-scoped: scratch-backed under this scope, alive
@@ -899,8 +900,11 @@ private:
                "IslamicStars: carried palette does not cover the leg seed");
       prev_pal = build_from_pal;
     }
-    return {&palette_bank.bank, prev_pal, prev_faces, prev_centroid,
-            correspondence};
+    return {.bank = &palette_bank.bank,
+            .prev_face_palette = prev_pal,
+            .prev_faces = prev_faces,
+            .prev_face_centroid = prev_centroid,
+            .correspondence = correspondence};
   }
 
   /**
@@ -925,7 +929,11 @@ private:
     }
     for (size_t f = 0; f < nf; ++f)
       pal[f] = build_landing->landed_palette(f);
-    return {&palette_bank.bank, pal, nf, cen, correspondence};
+    return {.bank = &palette_bank.bank,
+            .prev_face_palette = pal,
+            .prev_faces = nf,
+            .prev_face_centroid = cen,
+            .correspondence = correspondence};
   }
 
   /**
@@ -1005,10 +1013,11 @@ private:
 
     const int frames = dual_sub_frames(1);
     hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
-    Animation::OpLeg leg(
-        build_seed, Animation::OpLeg::MedialTag{}, persistent_arena,
-        draw_build_fn, handoff, frames,
-        Animation::OpLeg::BookendClasses{medial_topology, medial_faces});
+    Animation::OpLeg leg(build_seed, Animation::OpLeg::MedialTag{},
+                         persistent_arena, draw_build_fn, handoff, frames,
+                         Animation::OpLeg::BookendClasses{
+                             .topology = medial_topology,
+                             .faces = medial_faces});
     build_landing = &leg.landing();
     timeline.add(0,
                  std::move(leg).then([this] { schedule_dual_untruncate(); }));
@@ -1057,10 +1066,13 @@ private:
     HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
 
     Animation::OpLeg::PaletteHandoff handoff{
-        &palette_bank.bank, pal, nf, nullptr,
-        Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING};
+        .bank = &palette_bank.bank,
+        .prev_face_palette = pal,
+        .prev_faces = nf,
+        .correspondence = Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING};
     Animation::OpLeg::BookendClasses bookend{
-        build_next_seed.topology.data(), build_next_seed.face_counts.size()};
+        .topology = build_next_seed.topology.data(),
+        .faces = build_next_seed.face_counts.size()};
     const int frames = dual_sub_frames(2);
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
     Animation::OpLeg leg(build_next_seed, ConwayGraph::MorphOp::TRUNCATE, 0.5f,
@@ -1128,7 +1140,8 @@ private:
     }
     HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
     Animation::OpLeg::BookendClasses bookend{
-        build_next_seed.topology.data(), build_next_seed.face_counts.size()};
+        .topology = build_next_seed.topology.data(),
+        .faces = build_next_seed.face_counts.size()};
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = build_macro_sweep_frames;
@@ -1264,7 +1277,8 @@ private:
     }
     HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
     Animation::OpLeg::BookendClasses bookend{
-        build_next_seed.topology.data(), build_next_seed.face_counts.size()};
+        .topology = build_next_seed.topology.data(),
+        .faces = build_next_seed.face_counts.size()};
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(
         scratch_arena_a, Animation::OpLeg::FaceCorrespondence::IDENTITY);
