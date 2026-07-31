@@ -1730,6 +1730,7 @@ struct Mesh {
 
       if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
         auto wrapper = [&](const Vector &p, Fragment &f_in) {
+          // v2 carries the face index (decoded by mesh_face_index()).
           // Exact for i < 2^24 (float mantissa); meshes never approach that face count.
           f_in.v2 = static_cast<float>(i);
           fragment_shader(p, f_in);

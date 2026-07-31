@@ -412,7 +412,7 @@ private:
           SLOT_IDENTITY, params.intensity, opacity);
     };
     auto split_shader = [&](const Vector &, Fragment &f) {
-      const bool is_strap = static_cast<int>(f.v2) >= star_faces;
+      const bool is_strap = mesh_face_index(f) >= star_faces;
       const SlotLutView &view = is_strap ? strap_view : star_view;
       f.color = shade_mesh_topology(f, topology.data(),
                                     static_cast<int>(topology.size()), view,
@@ -428,7 +428,7 @@ private:
       // symmetric across the sweep. The coverage fade below is a separate
       // concern: it only matters while the face is sub-pixel, where the ramp
       // cross-fade has nothing to bite on.
-      const int fi = static_cast<int>(f.v2);
+      const int fi = mesh_face_index(f);
       const float counterpart_blend =
           is_strap ? (strap_open_fade < strap_close_blend ? strap_open_fade
                                                           : strap_close_blend)
@@ -495,7 +495,7 @@ private:
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       float t = hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
       Color4 c =
-          shading.ramp_for(static_cast<size_t>(static_cast<int>(f.v2))).get(t);
+          shading.ramp_for(static_cast<size_t>(mesh_face_index(f))).get(t);
       c.alpha = 1.0f;
       f.color = c;
     };
