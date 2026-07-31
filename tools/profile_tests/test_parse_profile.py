@@ -326,6 +326,65 @@ class ProbeBreakdownLines(unittest.TestCase):
         self.assertIn("HS_PROBE_BREAKDOWN", err.getvalue())
 
 
+class PlotCountLines(unittest.TestCase):
+    """The HS_PLOT_COUNTS count-only workload line."""
+
+    PLOT = ("plot counts: r=8,e=40,p=16,g=12,d=2,o=6,t=40,c=4,"
+            "s=200,y=160,u=240,a=80,n=320,h=120,x=120,k=11,b=1")
+
+    def _log(self, path, plot_line=PLOT):
+        lines = [
+            "=== profile Fx [288x144] frames 1-4 window=1000000 us ===",
+            "frame wall us: min=0 avg=0 max=0 sum=0 (4 frames)",
+            "frame render us: avg=0 max=0",
+            "frame                  1 us (100%)  4 calls  1 cyc",
+        ]
+        if plot_line:
+            lines.append(plot_line)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return path
+
+    def _parse(self, **kw):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            windows, _ = pp.parse(self._log(Path(d) / "cap.log", **kw))
+        return windows
+
+    def test_counts_are_parsed(self):
+        p = self._parse()[0].plot
+        self.assertEqual(p["rings"], 8)
+        self.assertEqual(p["planar_unprojects"], 240)
+        self.assertEqual(p["steps_peak"], 11)
+
+    def test_absent_line_leaves_plot_none(self):
+        self.assertIsNone(self._parse(plot_line=None)[0].plot)
+
+    def test_plot_line_is_not_read_as_a_counter(self):
+        self.assertEqual(set(self._parse()[0].counters), {"frame"})
+
+    def test_row_reports_per_frame_and_per_edge_counts(self):
+        row = pp._plot_row(self._parse()[0].plot, 4).split()
+        self.assertEqual(row[:2], ["2.0", "10.0"])
+        self.assertEqual(row[8:13], ["5.0", "4.0", "6.0", "2.0", "8.0"])
+        self.assertEqual(row[-4:], ["30.0", "30.0", "11.0", "1.0"])
+
+    def test_command_reports_missing_instrumentation(self):
+        self.assertEqual(pp.cmd_plot(self._parse(plot_line=None)), 2)
+
+    def test_command_succeeds_on_count_capture(self):
+        self.assertEqual(pp.cmd_plot(self._parse()), 0)
+
+    def test_aggregate_uses_peak_cache_depth(self):
+        import contextlib
+        import io
+        windows = self._parse()
+        second = self._parse()[0]
+        second.plot["steps_peak"] = 7
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(pp.cmd_plot(windows + [second]), 0)
+        aggregate = out.getvalue().splitlines()[-1]
+        self.assertTrue(aggregate.endswith("11.0      2.0  8 frames"))
+
 
 class ValidateRequiresData(unittest.TestCase):
     """`validate` is the mandatory pre-trust step: it must not certify nothing."""

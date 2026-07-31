@@ -164,6 +164,7 @@ static inline std::pair<float, float> azimuthal_project(const Vector &p,
  */
 static inline Vector azimuthal_unproject(float Px, float Py,
                                          const Basis &basis) {
+  HS_PLOT_COUNT(planar_unprojects);
   float R = sqrtf(Px * Px + Py * Py);
   if (R < math::EPS_GEOMETRIC)
     return basis.v;
@@ -200,6 +201,7 @@ static inline void
 planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
                  const Basis &planar_basis,
                  std::array<float, PLANAR_LEN_SAMPLES + 1> &arc_cumul) {
+  HS_PLOT_ADD(planar_arc_samples, PLANAR_LEN_SAMPLES + 1);
   arc_cumul[0] = 0.0f;
   Vector prev = azimuthal_unproject(proj.first, proj.second, planar_basis);
   for (int k = 1; k <= PLANAR_LEN_SAMPLES; ++k) {
@@ -268,6 +270,7 @@ struct PlanarEdgeSampler {
     bool fwd = (s + PLANAR_TAN_DT <= 1.0f);
     Vector q = pos(fwd ? s + PLANAR_TAN_DT : s - PLANAR_TAN_DT);
     Vector d = fwd ? (q - p) : (p - q);
+    HS_PLOT_COUNT(normalizations);
     return {p, normalized_or(d, Vector())};
   }
 };
@@ -334,6 +337,7 @@ static inline float planar_arc_length(const Vector &a, const Vector &b,
  * rotation axis. Shared by rasterize_geodesic_strategy and Line::sample.
  */
 static inline Vector stable_perpendicular_axis(const Vector &v) {
+  HS_PLOT_COUNT(normalizations);
   return cross(v, least_parallel_axis(v)).normalized();
 }
 
@@ -344,6 +348,7 @@ static inline Vector stable_perpendicular_axis(const Vector &v) {
  */
 static inline Basis planar_chart_basis(const Vector &center) {
   Vector ref = least_parallel_axis(center);
+  HS_PLOT_ADD(normalizations, 2);
   Vector u = cross(center, ref).normalized();
   Vector w = cross(center, u).normalized();
   return {u, center, w};
@@ -406,6 +411,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
   float total_dist = angle_between(v1, v2);
 
   if (total_dist < EPS_GEODESIC_SEGMENT) {
+    HS_PLOT_COUNT(degenerate);
     process_segment(DegenerateEdgeSampler{v1}, curr, next, total_dist,
                     is_last_segment);
   } else {
@@ -415,6 +421,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
     if (pole_len_sq < EPS_ARC_POLE_SQ) {
       axis = stable_perpendicular_axis(v1);
     } else {
+      HS_PLOT_COUNT(normalizations);
       axis = pole * (1.0f / sqrtf(pole_len_sq));
     }
 
@@ -458,6 +465,7 @@ static inline GeodesicEdgeSpan make_geodesic_edge_span(const Vector &a,
   if (es.antipodal) {
     es.axis = stable_perpendicular_axis(a);
   } else {
+    HS_PLOT_COUNT(normalizations);
     es.axis = pole * (1.0f / sqrtf(pole_len_sq));
   }
   es.have_axis = true;
@@ -1256,6 +1264,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     rasterize<W, H>(erased, canvas, points, erased_shader, opts);
     return;
   }
+  HS_PLOT_COUNT(rings);
   const bool close_loop = opts.close_loop;
   const Basis *planar_basis = opts.planar_basis;
   const bool omit_end = opts.omit_end;
@@ -1279,6 +1288,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
            "a raster seam fragment requires a closed loop");
 
   size_t count = close_loop ? len : len - 1;
+  HS_PLOT_ADD(edges, count);
   // SCRATCH ARENA CONTRACT (load-bearing): scratch_arena_a is a LIFO bump
   // allocator shared with Pixel::Feedback::flush; do not let a raw pointer into
   // it outlive the scope that produced it.
@@ -1360,7 +1370,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         f_copy.color = Color4(0, 0, 0, 0);
         set_arc_uv(f_copy, 0.0f);
 
+        HS_PLOT_COUNT(shader_calls);
         fragment_shader(curr.pos, f_copy);
+        HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, curr.pos, f_copy.color.color, f_copy.age,
                       f_copy.color.alpha);
       }
@@ -1369,6 +1381,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 
     // Sub-step length at the segment start (also the first simulation step).
     const float base_step = (2.0f * PI_F) / W;
+    HS_PLOT_COUNT(sim_samples);
     SamplePT smp = sample(0.0f);
     float first_step = screen_step<W, H>(smp.pos, smp.tan, base_step);
 
@@ -1377,16 +1390,21 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // still cross several pixels on a steep/near-polar segment, which an
     // arc-length test would undersample into a beaded line.
     if (total_dist <= first_step) {
+      HS_PLOT_COUNT(one_dot);
       Fragment f = curr;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, 0.0f);
+      HS_PLOT_COUNT(shader_calls);
       fragment_shader(curr.pos, f);
+      HS_PLOT_COUNT(plotted_samples);
       pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
       if (!close_loop && is_last_segment && !omit_end) {
         Fragment fl = next;
         fl.color = Color4(0, 0, 0, 0);
         set_arc_uv(fl, total_dist);
+        HS_PLOT_COUNT(shader_calls);
         fragment_shader(next.pos, fl);
+        HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, next.pos, fl.color.color, fl.age, fl.color.alpha);
       }
       return;
@@ -1410,13 +1428,16 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         // over the rest of the segment (coarser sampling on an extreme arc is
         // fine).
         if (steps_cache.size() >= steps_cache.capacity()) {
+          HS_PLOT_COUNT(backstops);
           HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
           break;
         }
         steps_cache.push_back(step);
+        HS_PLOT_MAX(steps_peak, steps_cache.size());
         sim_dist += step;
 
         if (sim_dist < total_dist) {
+          HS_PLOT_COUNT(sim_samples);
           smp = sample(sim_dist / total_dist);
         }
       }
@@ -1436,13 +1457,17 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // the row near the pole, so re-normalize the interpolated positions.
     HS_PROFILE_DEEP(plot_seg_draw);
     {
+      HS_PLOT_COUNT(replay_samples);
+      HS_PLOT_COUNT(normalizations);
       Vector start_pos = sample.pos(0.0f).normalized();
       Fragment f = Fragment::lerp_registers(curr, next, 0.0f);
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, 0.0f);
 
+      HS_PLOT_COUNT(shader_calls);
       fragment_shader(start_pos, f);
+      HS_PLOT_COUNT(plotted_samples);
       pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha);
     }
 
@@ -1461,13 +1486,17 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       // basis set_arc_uv rewrites v0/v1 from the true rendered arc so a shader
       // keying off them as an arc-length proxy tracks the drawn position across
       // the planar bow. Geodesic edges keep the lerped registers.
+      HS_PLOT_COUNT(replay_samples);
+      HS_PLOT_COUNT(normalizations);
       Vector p = sample.pos(t).normalized();
       Fragment f = Fragment::lerp_registers(curr, next, t);
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, current_dist);
 
+      HS_PLOT_COUNT(shader_calls);
       fragment_shader(p, f);
+      HS_PLOT_COUNT(plotted_samples);
       pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
     }
   };
@@ -1483,14 +1512,17 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   auto plot_dot = [&](const Fragment &src, size_t k) {
     Fragment f = src;
     f.color = Color4(0, 0, 0, 0);
+    HS_PLOT_COUNT(shader_calls);
     fragment_shader(src.pos, f);
     if constexpr (pipeline_hoistable_cull<PipelineT>()) {
       if (point_rows != nullptr && point_cols != nullptr) {
+        HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, point_cols[k], point_rows[k], f.color.color,
                       f.age, f.color.alpha);
         return;
       }
     }
+    HS_PLOT_COUNT(plotted_samples);
     pipeline.plot(canvas, src.pos, f.color.color, f.age, f.color.alpha);
   };
 
@@ -1520,6 +1552,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // (arc bulge included) lies outside the clip band; precomputed bits replace
     // the evaluation when the producer already ran the same predicate.
     if (clip_active) {
+      HS_PLOT_COUNT(cull_tests);
       HS_PROFILE_DEEP(plot_seg_cull);
       const bool visible =
           edge_visible != nullptr
@@ -1527,8 +1560,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
               : edge_visible_in_clip<W, H>(pipeline, cr, xc, band_len, curr.pos,
                                            next.pos,
                                            use_planar ? planar_basis : nullptr);
-      if (!visible)
+      if (!visible) {
+        HS_PLOT_COUNT(culled);
         continue;
+      }
     }
 
     // Single-dot shortcut: an edge proven to span <= one screen step renders
@@ -1541,6 +1576,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
              ? (edge_visible[i] & EDGE_ONE_DOT) != 0
              : edge_fits_one_dot<W, H>(curr.pos, next.pos));
     if (one_dot) {
+      HS_PLOT_COUNT(one_dot);
       plot_dot(curr, i);
       if (!close_loop && is_last_segment && !omit_end)
         plot_dot(next, i + 1);
@@ -1548,9 +1584,11 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     }
 
     if (use_planar) {
+      HS_PLOT_COUNT(planar);
       rasterize_planar_strategy(curr, next, *planar_basis, is_last_segment,
                                 process_segment);
     } else {
+      HS_PLOT_COUNT(geodesic);
       rasterize_geodesic_strategy(curr, next, is_last_segment, process_segment);
     }
   }
@@ -1647,6 +1685,7 @@ struct Line {
     if (pole_len_sq < EPS_ARC_POLE_SQ) {
       axis = stable_perpendicular_axis(f1.pos);
     } else {
+      HS_PLOT_COUNT(normalizations);
       axis = pole * (1.0f / sqrtf(pole_len_sq));
     }
     // Same orthonormal-basis parameterization the rasterizer samples this arc
@@ -1669,6 +1708,7 @@ struct Line {
         float s, c;
         fast_sincosf_0_pi(ang, s, c);
         Vector p = (f1.pos * c) + (perp * s);
+        HS_PLOT_COUNT(normalizations);
         f.pos = p * fast_rsqrt(dot(p, p));
       }
 
@@ -1967,6 +2007,7 @@ struct Ring {
       Vector u_temp = (u * cosf(t)) + (w * sinf(t));
 
       Fragment f;
+      HS_PLOT_COUNT(normalizations);
       f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
       if (i == 0)
         first_pos = f.pos;
@@ -2034,6 +2075,7 @@ struct Ring {
       Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
 
       Fragment f;
+      HS_PLOT_COUNT(normalizations);
       f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
       f.v0 = static_cast<float>(i) / W;
       f.v1 = (i * step) * r_val;
@@ -2046,6 +2088,7 @@ struct Ring {
     // Manual Close (Overlap): θ = 2π folds to (cos φ, sin φ) by periodicity.
     Fragment f;
     Vector u_temp = (u * cos_phase) + (w * sin_phase);
+    HS_PLOT_COUNT(normalizations);
     f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
     f.v0 = 1.0f;
     f.v1 = (2.0f * PI_F) * r_val;
@@ -2324,6 +2367,7 @@ struct DistortedRing {
     const float theta_eq = work_radius * (PI_F / 2.0f);
     const float polar = theta_eq + shift_fn(angle / (2.0f * PI_F));
     Vector u_temp = (u * cosf(angle)) + (w * sinf(angle));
+    HS_PLOT_COUNT(normalizations);
     return ((v * cosf(polar)) + (u_temp * sinf(polar))).normalized();
   }
 
@@ -2373,6 +2417,7 @@ struct DistortedRing {
       float v_scale = d_val * cos_shift - r_val * sin_shift;
       float u_scale = r_val * cos_shift + d_val * sin_shift;
 
+      HS_PLOT_COUNT(normalizations);
       return ((v * v_scale) + (u_temp * u_scale)).normalized();
     });
   }
@@ -2499,6 +2544,7 @@ struct Star {
       float cos_t = cosf(theta);
       float sin_t = sinf(theta);
       Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+      HS_PLOT_COUNT(normalizations);
       p.normalize();
       return p;
     });
@@ -2597,6 +2643,7 @@ struct Flower {
       float cos_t = cosf(theta);
       float sin_t = sinf(theta);
       Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+      HS_PLOT_COUNT(normalizations);
       p.normalize();
       return p;
     });

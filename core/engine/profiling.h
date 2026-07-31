@@ -93,6 +93,34 @@ struct ProbeBreakdown {
 inline ProbeBreakdown g_probe_breakdown;
 #endif
 
+#ifdef HS_PLOT_COUNTS
+/** @brief Count-only Plot rasterizer workload attribution. */
+struct PlotCounts {
+  uint32_t rings = 0;
+  uint32_t edges = 0;
+  uint32_t planar = 0;
+  uint32_t geodesic = 0;
+  uint32_t degenerate = 0;
+  uint32_t one_dot = 0;
+  uint32_t cull_tests = 0;
+  uint32_t culled = 0;
+  uint32_t sim_samples = 0;
+  uint32_t replay_samples = 0;
+  uint32_t planar_unprojects = 0;
+  uint32_t planar_arc_samples = 0;
+  uint32_t normalizations = 0;
+  uint32_t shader_calls = 0;
+  uint32_t plotted_samples = 0;
+  uint32_t steps_peak = 0;
+  uint32_t backstops = 0;
+
+  /** @brief Zeroes every count. */
+  void reset() { *this = {}; }
+};
+
+inline PlotCounts g_plot_counts;
+#endif
+
 } // namespace hs
 
 // Per-pixel scan instrumentation is OFF by default: a g_scan_metrics increment is
@@ -138,6 +166,21 @@ inline ProbeBreakdown g_probe_breakdown;
 #define HS_PROBE_SPAN(field, var) ((void)0)
 #define HS_PROBE_COUNT(field) ((void)0)
 #define HS_PROBE_TICK() ((void)0)
+#endif
+
+#ifdef HS_PLOT_COUNTS
+#define HS_PLOT_COUNT(field) (++hs::g_plot_counts.field)
+#define HS_PLOT_ADD(field, value) (hs::g_plot_counts.field += (value))
+#define HS_PLOT_MAX(field, value)                                             \
+  do {                                                                         \
+    uint32_t hs_plot_value = static_cast<uint32_t>(value);                     \
+    if (hs_plot_value > hs::g_plot_counts.field)                               \
+      hs::g_plot_counts.field = hs_plot_value;                                 \
+  } while (0)
+#else
+#define HS_PLOT_COUNT(field) ((void)0)
+#define HS_PLOT_ADD(field, value) ((void)0)
+#define HS_PLOT_MAX(field, value) ((void)0)
 #endif
 
 // ---------------------------------------------------------------------------
