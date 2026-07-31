@@ -1,6 +1,7 @@
 # GSReactionDiffusion optimization plan
 
-Status: ready to execute. Baseline captured 2026-07-30 at `dd25b7d0`.
+Status: complete. Baseline captured 2026-07-30 at `dd25b7d0`; final
+code captured at `1deec495`.
 
 The goal is a sustained 16 fps shipping result on Teensy 4.0 under the real
 segmented Phantasm driver, not a host-only speedup and not a global-`-O3`
@@ -514,13 +515,14 @@ flags, then archives and hashes both exact ELFs before capture.
 |---|---:|---:|---:|
 | Lifecycle capture | 130 s | 130 s | 130 s |
 | Windows | 48 | 64 | 64 |
-| Worst render | 94.830 ms | **58.722 ms** | **58.934 ms** |
-| Dense-window shader average | 59.04 ms | 42.54 ms | 42.54 ms |
-| Dense-window simulation average | 31.56 ms | 12.13 ms | 12.00 ms |
+| Worst render | 94.830 ms | **58.783 ms** | **58.818 ms** |
+| Dense-window shader average | 59.04 ms | 42.560 ms | 42.569 ms |
+| Dense-window simulation average | 31.56 ms | 11.964 ms | 11.930 ms |
 | Phantasm ITCM code | 192,296 B | 192,216 B | 192,216 B |
 | ITCM bank headroom | 4,312 B | 4,392 B | 4,392 B |
 
-Shipping worst-case render fell by 36.108 ms (38.1%). The final Phantasm image
+Shipping worst-case render fell by 36.047 ms (38.0%). No captured render frame
+exceeded the owner-set 59 ms ceiling. The final Phantasm image
 uses 331,340 B of flash code and 1,209,676 B of flash data, leaving 482,312 B
 for files. The final shader specialization is 2,452 B and its hot body contains
 673 instructions, 76 `vldr`, and 22 `vstr`; the O3 physics kernel is 356 B and
@@ -533,6 +535,17 @@ The final 130-second captures are:
 
 Their provenance sidecars identify
 `GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203`.
+Both captures used COM3, `POVSegmented<288,4,480>`, a 32-frame window,
+`HS_PROFILE_EPOCH_REVS=1200`, and the real build's Cortex-M7/FPU/fast-math
+contract. The shipping capture completed 2026-07-30 23:02:07 PDT and the O3
+capture completed 2026-07-30 23:06:14 PDT.
+
+| Exact artifact | ELF SHA-256 | map SHA-256 |
+|---|---|---|
+| shipping profile | `7C260B1D1F6EDA4B885DE3C9C31F87DC58B9FC7D68FADDC5F4B23717C73D8792` | `D15DFAA367CF243697C54E3E528F59F30E80A2F7C617C4B97295AF5D00F52B62` |
+| O3 profile | `D449CC80DB0F5EA813C4F39D64950FEE7DCB72A133125DD284CAA7E8B60F0729` | `5E2A553CF7F927A816BF1AF80B36D70ACF2DB45A5BCD552B1FB69642809C94DC` |
+| shipping Phantasm | `2CAE8174E17C02FDDBFBD66406FBA097DCE8DE6BFC2E581CA37EB1B12D583D58` | `96A343588117AE0F27F958225849E287CAA6D8DDF53CD7FC2EE3AEF1C1CB56C0` |
+| O3 Phantasm | `0B5070540C0E2BC001D4AAB73E11318B7D7E516549B65752310C833FD10DC13A` | `01C44A5513E960DEFFA01F8851FBC82F52286536EF21E1FE4EC887206185CDCD` |
 
 ### Landed design
 
