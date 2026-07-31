@@ -86,6 +86,13 @@ inline float fragment_edge_dist(const Fragment &f) {
 }
 
 /**
+ * @brief The mesh face index carried by a rasterized fragment.
+ * @param f Mesh-rasterized fragment; Scan::Mesh writes the face index into v2.
+ * @return The face index.
+ */
+inline int mesh_face_index(const Fragment &f) { return static_cast<int>(f.v2); }
+
+/**
  * @brief Resolves a fragment's palette slot from its face's topology class.
  * @tparam NumPalettes Palette count; the class index wraps modulo this.
  * @param f Rasterized fragment; v2 carries the integer face index.
@@ -97,7 +104,7 @@ inline float fragment_edge_dist(const Fragment &f) {
 template <size_t NumPalettes>
 inline int mesh_topology_slot(const Fragment &f, const uint16_t *topology,
                               int num_faces) {
-  int face_idx = static_cast<int>(f.v2);
+  int face_idx = mesh_face_index(f);
   int topo_idx =
       (face_idx >= 0 && face_idx < num_faces) ? topology[face_idx] : 0;
   return wrap(topo_idx, static_cast<int>(NumPalettes));
