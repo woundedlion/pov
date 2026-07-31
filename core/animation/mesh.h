@@ -55,15 +55,88 @@ public:
   /** Partition operator a GATED_SWAP leg swaps to. */
   enum class SwapOp : uint8_t { KIS, DUAL };
 
-  /** Disambiguating tag for the medial-slerp constructor (the Conway-dual
-   * bridge's middle leg), whose signature otherwise collides with the sweep
-   * constructors. */
-  struct MedialTag {};
+  /**
+   * @brief Graph-edge Conway sweep: the edge's single op swept between the
+   * edge's endpoint parameters (docs/conway_morph_spec.md, section 4.1).
+   */
+  struct EdgeSweepSpec {
+    const ConwayGraph::EdgeSpec *edge =
+        nullptr;          /**< Graph edge being traversed. */
+    bool reverse = false; /**< True when traversing to_node -> from_node. */
+    int sweep_frames = 0; /**< Operator-sweep frames (N). */
+    int settle_frames = 0; /**< Relax-slerp frames (S); positive on a settling
+                              edge, 0 otherwise. */
+  };
 
-  /** Disambiguating tag for the reconcile-slerp constructor (the closing leg of
-   * a smooth kis/needle path), whose signature otherwise collides with the
-   * medial constructor. */
-  struct ReconcileTag {};
+  /**
+   * @brief Recipe-step Conway sweep: one primitive op swept t_start -> t_end
+   * on a fixed seed, no graph edge (docs/opchain_morph_spec.md, section 5.1).
+   */
+  struct ParamSweepSpec {
+    ConwayGraph::MorphOp op; /**< Swept operator. */
+    float t_start = 0.0f;    /**< Sweep parameter at frame 0; clamped to the
+                                topology-constant open interval (T_EPS floor;
+                                TRUNCATE capped below the ambo point). */
+    float t_end = 0.0f;      /**< Arrival parameter; same clamp. */
+    float twist_start = 0.0f; /**< Snub twist at frame 0. */
+    float twist_end = 0.0f;   /**< Arrival snub twist. */
+    int sweep_frames = 0;     /**< Operator-sweep frames (N). */
+    bool bridge_provenance =
+        false; /**< Dual-bridge leg: geometric provenance takes its start
+                  centroids from the leg's own start (closing) or arrival
+                  (opening) mesh, since the departed face blocks are
+                  transposed against the handoff. */
+    bool borrow_seed =
+        false; /**< Sweep the caller's live mesh each frame instead of a
+                  leg-local clone; legal only where the seed outlives the leg
+                  unmoved. */
+  };
+
+  /** @brief Hankin contact-angle sweep on a fixed seed. */
+  struct HankinSweepSpec {
+    float theta_start = 0.0f; /**< Contact angle at frame 0, radians;
+                                 negatives clamp to 0, and it enters only as
+                                 the opening slerp fraction theta_start /
+                                 theta_end, floored at K_EPS. */
+    float theta_end = 0.0f;   /**< Arrival contact angle, radians; floored at
+                                 THETA_EPS. */
+    int sweep_frames = 0;     /**< Angle-sweep frames (N). */
+  };
+
+  /**
+   * @brief Relax leg: every vertex slerps from its seed position to its
+   * relaxed one (docs/opchain_morph_spec.md, section 2.2).
+   */
+  struct RelaxSpec {
+    int iterations = 0; /**< Spring-relaxation passes of the arrival form. */
+    const MeshOps::RelaxBake *bake =
+        nullptr; /**< Shipped converged relaxation to land on; null instead
+                    runs `iterations` live steps, and one of the two is
+                    required. */
+    int sweep_frames = 0; /**< Slerp frames (N). */
+  };
+
+  /** @brief Medial-slerp leg (the Conway-dual bridge's middle leg). */
+  struct MedialSpec {
+    int sweep_frames = 0; /**< Slerp frames (N). */
+  };
+
+  /** @brief Reconcile leg closing a smooth kis/needle path. */
+  struct ReconcileSpec {
+    const Vector *to_positions =
+        nullptr; /**< Authored vertex positions, one per seed vertex
+                    (index-corresponded through the caller's bijection); slerp
+                    endpoints. */
+    int sweep_frames = 0; /**< Slerp frames (N). */
+  };
+
+  /** @brief Gated-swap leg: a partition op with no sweep. */
+  struct GatedSwapSpec {
+    SwapOp op = SwapOp::KIS; /**< Partition operator applied at the swap
+                                frame. */
+    int gate_frames = 0; /**< Frames on each side of the swap (F_gate); the
+                            leg runs 2 * gate_frames + 1 frames. */
+  };
 
   /** Floor on a hankin leg's arrival contact angle (the T_EPS analog): the
    * arrival angle divides the opening angle into the leg's opening slerp
@@ -233,35 +306,33 @@ public:
   };
 
   /**
-   * @brief Constructs one leg: clones the seed, computes the arrival
-   * classification (relaxed form when settling), and builds the palette
-   * mappings.
+   * @brief Constructs a graph-edge sweep leg: clones the seed, computes the
+   * arrival classification (relaxed form when settling), and builds the
+   * palette mappings.
    * @param seed Seed mesh the op sweeps on (cloned, not borrowed).
-   * @param edge Graph edge being traversed.
-   * @param reverse True when traversing to_node -> from_node.
+   * @param spec Traversed edge and frame counts.
    * @param arena Leg arena backing the cloned seed and hoisted state.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed node.
-   * @param sweep_frames Operator-sweep frames (N).
-   * @param settle_frames Relax-slerp frames (S); positive on a settling edge, 0
-   * otherwise.
    * @param bookend Bookend grouping of the arrival node (target keying);
    * defaults to the swept-classification fallback.
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
-  OpLeg(const PolyMesh &seed, const ConwayGraph::EdgeSpec &edge, bool reverse,
-        Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
-        int sweep_frames, int settle_frames,
+  OpLeg(const PolyMesh &seed, const EdgeSweepSpec &spec, Arena &arena,
+        MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
-      : AnimationBase(sweep_frames + settle_frames, false),
+      : AnimationBase(spec.sweep_frames + spec.settle_frames, false),
         easing_fn(easing_fn), draw_fn(draw) {
-    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(settle_frames >= 0 && edge.settle == (settle_frames > 0),
+    HS_CHECK(spec.edge, "OpLeg: edge sweep carries no graph edge");
+    const ConwayGraph::EdgeSpec &edge = *spec.edge;
+    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(spec.settle_frames >= 0 &&
+                 edge.settle == (spec.settle_frames > 0),
              "OpLeg: settle frames disagree with the edge");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
@@ -271,9 +342,9 @@ public:
     tr.seed_ref = &tr.seed;
     tr.seed_faces = seed.face_counts.size();
     tr.op = edge.op;
-    tr.reverse = reverse;
-    tr.sweep_frames = sweep_frames;
-    tr.settle_frames = settle_frames;
+    tr.reverse = spec.reverse;
+    tr.sweep_frames = spec.sweep_frames;
+    tr.settle_frames = spec.settle_frames;
     tr.bank = handoff.bank;
     tr.blend_fn = blend_fn;
 
@@ -289,10 +360,10 @@ public:
         t = std::max(t, ConwayGraph::T_EPS_JITTERBUG);
       return t;
     };
-    tr.t_start = clamp_param(reverse ? edge.t_to : edge.t_from);
-    tr.t_end = clamp_param(reverse ? edge.t_from : edge.t_to);
-    tr.twist_start = reverse ? edge.twist_to : edge.twist_from;
-    tr.twist_end = reverse ? edge.twist_from : edge.twist_to;
+    tr.t_start = clamp_param(spec.reverse ? edge.t_to : edge.t_from);
+    tr.t_end = clamp_param(spec.reverse ? edge.t_from : edge.t_to);
+    tr.twist_start = spec.reverse ? edge.twist_to : edge.twist_from;
+    tr.twist_end = spec.reverse ? edge.twist_from : edge.twist_to;
 
     init_conway(handoff, bookend, arena, edge.settle,
                 ConwayGraph::is_jitterbug_edge(edge),
@@ -303,38 +374,26 @@ public:
    * @brief Constructs a recipe-step Conway sweep leg: one primitive op swept
    * t_start -> t_end on a fixed seed, no graph edge
    * (docs/opchain_morph_spec.md, section 5.1).
-   * @param seed Seed mesh the op sweeps on (cloned unless borrow_seed).
-   * @param op Swept operator.
-   * @param t_start Sweep parameter at frame 0; clamped to the topology-constant
-   * open interval (T_EPS floor; TRUNCATE capped below the ambo point).
-   * @param t_end Arrival parameter; same clamp.
-   * @param twist_start Snub twist at frame 0.
-   * @param twist_end Arrival snub twist.
+   * @param seed Seed mesh the op sweeps on (cloned unless spec.borrow_seed).
+   * @param spec Swept operator, parameter endpoints and frame count.
    * @param arena Leg arena backing the cloned seed and hoisted state.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed mesh.
-   * @param sweep_frames Operator-sweep frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
    * @param blend_fn Crossfade-weight curve.
-   * @param bridge_provenance Dual-bridge leg: geometric provenance takes its
-   * start centroids from the leg's own start (closing) or arrival (opening)
-   * mesh, since the departed face blocks are transposed against the handoff.
-   * @param borrow_seed Sweep the caller's live mesh each frame instead of a
-   * leg-local clone; legal only where the seed outlives the leg unmoved.
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
-  OpLeg(const PolyMesh &seed, ConwayGraph::MorphOp op, float t_start,
-        float t_end, float twist_start, float twist_end, Arena &arena,
-        MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
+  OpLeg(const PolyMesh &seed, const ParamSweepSpec &spec, Arena &arena,
+        MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
-        BlendWeightFn blend_fn = classic_blend, bool bridge_provenance = false,
-        bool borrow_seed = false, EasingFn easing_fn = ease_in_out_sin)
-      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+        BlendWeightFn blend_fn = classic_blend,
+        EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
-    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
     Transients &tr = bind_transients(arena);
@@ -344,15 +403,15 @@ public:
     // dual-bridge seed from the persistent arena. Only legal where the source
     // outlives the leg unmoved (the dt-bridge seed is persistent-resident and
     // untouched until the leg completes); every other caller clones.
-    if (borrow_seed) {
+    if (spec.borrow_seed) {
       tr.seed_ref = &seed;
     } else {
       MeshOps::clone(seed, tr.seed, arena);
       tr.seed_ref = &tr.seed;
     }
     tr.seed_faces = seed.face_counts.size();
-    tr.op = op;
-    tr.sweep_frames = sweep_frames;
+    tr.op = spec.op;
+    tr.sweep_frames = spec.sweep_frames;
     tr.bank = handoff.bank;
     tr.blend_fn = blend_fn;
 
@@ -360,15 +419,16 @@ public:
     // 0.01 target sweeps from a smaller positive birth instead of clamping both
     // endpoints to T_EPS (a still image). Every arrival >= 0.1 keeps the T_EPS
     // birth unchanged.
-    const bool truncate = op == ConwayGraph::MorphOp::TRUNCATE;
+    const bool truncate = spec.op == ConwayGraph::MorphOp::TRUNCATE;
     // A far-side truncate leg reaches past the ambo pinch at either endpoint
     // and sweeps through it on the constant-topology truncate branch; the
     // ambo-equivalent leg (both endpoints <= 0.5, exactly 0.5 included) keeps
     // its 0.495 cap and clean-swaps to ambo.
-    const bool far_side = truncate && std::max(t_start, t_end) > 0.5f;
+    const bool far_side =
+        truncate && std::max(spec.t_start, spec.t_end) > 0.5f;
     const float trunc_floor =
-        std::min(ConwayGraph::T_EPS,
-                 std::max(t_start, t_end) * ConwayGraph::T_EPS_TRUNCATE_FRAC);
+        std::min(ConwayGraph::T_EPS, std::max(spec.t_start, spec.t_end) *
+                                         ConwayGraph::T_EPS_TRUNCATE_FRAC);
     auto clamp_param = [&](float t) {
       t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
       if (truncate)
@@ -376,13 +436,13 @@ public:
                                  : 0.5f - ConwayGraph::T_EPS_AMBO);
       return t;
     };
-    tr.t_start = clamp_param(t_start);
-    tr.t_end = clamp_param(t_end);
-    tr.twist_start = twist_start;
-    tr.twist_end = twist_end;
+    tr.t_start = clamp_param(spec.t_start);
+    tr.t_end = clamp_param(spec.t_end);
+    tr.twist_start = spec.twist_start;
+    tr.twist_end = spec.twist_end;
 
     init_conway(handoff, bookend, arena, /*settle=*/false,
-                /*jitterbug=*/false, bridge_provenance);
+                /*jitterbug=*/false, spec.bridge_provenance);
   }
 
   /**
@@ -391,30 +451,26 @@ public:
    * mappings.
    * @param seed Base mesh the hankin pattern sweeps on; read only here, never
    * cloned into the leg arena.
-   * @param theta_start Contact angle at frame 0, radians; negatives clamp to
-   * 0, and it enters only as the opening slerp fraction theta_start /
-   * theta_end, floored at K_EPS.
-   * @param theta_end Arrival contact angle, radians; floored at THETA_EPS.
+   * @param spec Contact-angle endpoints and frame count.
    * @param arena Leg arena backing the compiled hankin topology and hoisted
    * state.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed node.
-   * @param sweep_frames Angle-sweep frames (N).
    * @param bookend Bookend grouping of the arrival node (target keying);
    * defaults to the swept-classification fallback.
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep angle.
    */
   HS_COLD_MEMBER
-  OpLeg(const PolyMesh &seed, float theta_start, float theta_end, Arena &arena,
-        MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
+  OpLeg(const PolyMesh &seed, const HankinSweepSpec &spec, Arena &arena,
+        MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
-      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
-    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
     Transients &tr = bind_transients(arena);
@@ -424,7 +480,7 @@ public:
     // inside this constructor.
     tr.seed_faces = seed.face_counts.size();
     tr.kind = LegKind::HANKIN_SWEEP;
-    tr.sweep_frames = sweep_frames;
+    tr.sweep_frames = spec.sweep_frames;
     tr.bank = handoff.bank;
     tr.blend_fn = blend_fn;
 
@@ -434,10 +490,10 @@ public:
     // seeds, tripping the far-star fallback and flipping branches, which draws
     // as lines crossing the pattern. Growing each star point out from its
     // collapsed corner is monotone and lands on the same arrival geometry.
-    HS_CHECK(theta_start <= theta_end,
+    HS_CHECK(spec.theta_start <= spec.theta_end,
              "OpLeg: hankin leg sweeps back to a smaller contact angle");
-    const float theta_hi = std::max(theta_end, THETA_EPS);
-    tr.t_start = std::max(std::max(theta_start, 0.0f) / theta_hi, K_EPS);
+    const float theta_hi = std::max(spec.theta_end, THETA_EPS);
+    tr.t_start = std::max(std::max(spec.theta_start, 0.0f) / theta_hi, K_EPS);
     tr.t_end = 1.0f;
 
     {
@@ -490,32 +546,28 @@ public:
    * (docs/opchain_morph_spec.md, section 2.2).
    * @param seed Mesh being relaxed; its geometry is cloned, its class ids are
    * not.
-   * @param iterations Spring-relaxation passes of the arrival form.
+   * @param spec Relaxation source (live iterations or bake) and frame count.
    * @param arena Leg arena backing the cloned seed geometry and hoisted state.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed mesh.
-   * @param sweep_frames Slerp frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
-   * @param bake Shipped converged relaxation to land on; null instead runs
-   * `iterations` live steps, and one of the two is required.
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the slerp fraction.
    * @note relax preserves vertex count and vertex order, so the leg needs no
    * correspondence pass and its topology is constant by construction.
    */
   HS_COLD_MEMBER
-  OpLeg(const PolyMesh &seed, int iterations, Arena &arena, MorphDrawFn draw,
-        const PaletteHandoff &handoff, int sweep_frames,
+  OpLeg(const PolyMesh &seed, const RelaxSpec &spec, Arena &arena,
+        MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
-        const MeshOps::RelaxBake *bake = nullptr,
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
-      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
-    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(bake || iterations >= 1,
+    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(spec.bake || spec.iterations >= 1,
              "OpLeg: relax leg needs a positive iteration count");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
@@ -526,7 +578,7 @@ public:
     clone_geometry(seed, tr.seed, arena);
     tr.seed_faces = seed.face_counts.size();
     tr.kind = LegKind::RELAX_SLERP;
-    tr.sweep_frames = sweep_frames;
+    tr.sweep_frames = spec.sweep_frames;
     tr.bank = handoff.bank;
     tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
@@ -539,9 +591,10 @@ public:
       // With a bake the leg lands on the shipped converged mesh (the generator
       // used relax_baked too); otherwise it runs `iterations` live steps.
       PolyMesh arrival =
-          bake ? MeshOps::relax_baked(tr.seed, scratch_arena_a, *bake)
-               : MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b,
-                                iterations);
+          spec.bake
+              ? MeshOps::relax_baked(tr.seed, scratch_arena_a, *spec.bake)
+              : MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b,
+                               spec.iterations);
       HS_CHECK(arrival.vertices.size() == tr.seed.vertices.size(),
                "OpLeg: relax changed the vertex count");
       tr.relaxed.bind(arena, arrival.vertices.size());
@@ -565,12 +618,12 @@ public:
    * rectified connectivity of P and slerps every vertex from ambo(P) to
    * ambo(dual(P)) at a fixed emission order (docs conway dual morph, leg 2).
    * @param seed Mesh whose dual bridge this leg spans; its medial is built here.
+   * @param spec Slerp frame count.
    * @param arena Leg arena backing the medial connectivity and both
    * snorm16-packed vertex sets.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed mesh (ambo(P), one face
    * per primal face + one per primal vertex).
-   * @param sweep_frames Slerp frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
    * @param blend_fn Crossfade-weight curve.
@@ -581,21 +634,21 @@ public:
    * positions many-to-one (a lossy dual), which leaves the faces well-formed.
    */
   HS_COLD_MEMBER
-  OpLeg(const PolyMesh &seed, MedialTag, Arena &arena, MorphDrawFn draw,
-        const PaletteHandoff &handoff, int sweep_frames,
+  OpLeg(const PolyMesh &seed, const MedialSpec &spec, Arena &arena,
+        MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
-      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
-    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
     Transients &tr = bind_transients(arena);
 
     tr.kind = LegKind::MEDIAL_SLERP;
-    tr.sweep_frames = sweep_frames;
+    tr.sweep_frames = spec.sweep_frames;
     tr.bank = handoff.bank;
     tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
@@ -660,14 +713,12 @@ public:
    * nearest-vertex bijection (docs/opchain_morph_spec.md, smooth kis/needle).
    * @param from_mesh Identity mesh (dual(truncate(...))): its connectivity and
    * vertex order are the leg's fixed emission order. Cloned, not borrowed.
-   * @param to_positions Authored vertex positions, one per @p from_mesh vertex
-   * (index-corresponded through the caller's bijection); slerp endpoints.
+   * @param spec Authored slerp endpoints and frame count.
    * @param arena Leg arena backing the connectivity and both snorm16-packed
    * vertex sets.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed mesh (the identity mesh;
    * one face per identity face).
-   * @param sweep_frames Slerp frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying).
    * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the slerp fraction.
@@ -677,22 +728,22 @@ public:
    * meshes) so the leg needs no per-frame matching.
    */
   HS_COLD_MEMBER
-  OpLeg(const PolyMesh &from_mesh, const Vector *to_positions, ReconcileTag,
-        Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
-        int sweep_frames,
+  OpLeg(const PolyMesh &from_mesh, const ReconcileSpec &spec, Arena &arena,
+        MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
-      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+      : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
-    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(spec.to_positions, "OpLeg: reconcile leg carries no endpoints");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
     Transients &tr = bind_transients(arena);
 
     tr.kind = LegKind::MEDIAL_SLERP;
-    tr.sweep_frames = sweep_frames;
+    tr.sweep_frames = spec.sweep_frames;
     tr.bank = handoff.bank;
     tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
@@ -711,13 +762,13 @@ public:
       tr.medial_b.bind(arena, n);
       for (size_t i = 0; i < n; ++i) {
         tr.medial_a.push_back(StarPoint::encode(from_mesh.vertices[i]));
-        tr.medial_b.push_back(StarPoint::encode(to_positions[i]));
+        tr.medial_b.push_back(StarPoint::encode(spec.to_positions[i]));
       }
 
       // Arrival: the identity connectivity carrying the authored positions.
       PolyMesh arrival;
       arrival.vertices.bind(scratch_arena_a, n);
-      arrival.vertices.append_bulk(to_positions, n);
+      arrival.vertices.append_bulk(spec.to_positions, n);
       copy_topology(arrival, scratch_arena_a, from_mesh.face_counts,
                     from_mesh.faces);
 
@@ -740,12 +791,10 @@ public:
    * inherited source colour until the late fade (docs/opchain_morph_spec.md,
    * section 3.3).
    * @param seed Mesh the partition op runs on (cloned, not borrowed).
-   * @param op Partition operator applied at the swap frame.
+   * @param spec Partition operator and gate length.
    * @param arena Leg arena backing the cloned seed and hoisted state.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed mesh.
-   * @param gate_frames Frames on each side of the swap (F_gate); the leg runs
-   * 2 * gate_frames + 1 frames.
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
    * @param easing_fn Unused by the gate (no sweep); kept for the shared
@@ -755,14 +804,14 @@ public:
    * each side of the swap and changes exactly once, at it.
    */
   HS_COLD_MEMBER
-  OpLeg(const PolyMesh &seed, SwapOp op, Arena &arena, MorphDrawFn draw,
-        const PaletteHandoff &handoff, int gate_frames,
+  OpLeg(const PolyMesh &seed, const GatedSwapSpec &spec, Arena &arena,
+        MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         EasingFn easing_fn = ease_in_out_sin)
-      : AnimationBase(2 * gate_frames + 1, false), easing_fn(easing_fn),
+      : AnimationBase(2 * spec.gate_frames + 1, false), easing_fn(easing_fn),
         draw_fn(draw) {
-    HS_CHECK(gate_frames >= 1, "OpLeg needs a positive gate length");
+    HS_CHECK(spec.gate_frames >= 1, "OpLeg needs a positive gate length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
     Transients &tr = bind_transients(arena);
@@ -770,8 +819,8 @@ public:
     MeshOps::clone(seed, tr.seed, arena);
     tr.seed_faces = seed.face_counts.size();
     tr.kind = LegKind::GATED_SWAP;
-    tr.swap_op = op;
-    tr.sweep_frames = gate_frames;
+    tr.swap_op = spec.op;
+    tr.sweep_frames = spec.gate_frames;
     tr.bank = handoff.bank;
 
     init_gated(handoff, bookend, arena);

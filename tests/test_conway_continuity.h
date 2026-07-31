@@ -818,9 +818,14 @@ inline void test_collapsing_faces_land_on_host_palette() {
     auto cb = [](Canvas &, const MeshState &,
                  const Animation::OpLeg::Shading &) {};
     hs::random().seed(2000u + static_cast<uint32_t>(ei));
-    Animation::OpLeg anim(seed, e, true, leg, cb, handoff,
-                          ConwayGraph::SWEEP_FRAMES,
-                          e.settle ? ConwayGraph::SETTLE_FRAMES : 0, bookend);
+    Animation::OpLeg anim(
+        seed,
+        Animation::OpLeg::EdgeSweepSpec{
+            .edge = &e,
+            .reverse = true,
+            .sweep_frames = ConwayGraph::SWEEP_FRAMES,
+            .settle_frames = e.settle ? ConwayGraph::SETTLE_FRAMES : 0},
+        leg, cb, handoff, bookend);
     const Animation::OpLeg::Landing &landing = anim.landing();
     if (landing.faces == survivors)
       continue;
@@ -889,8 +894,11 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   };
 
   constexpr int SWEEP = ConwayGraph::SWEEP_FRAMES;
-  Animation::OpLeg anim(cube, ConwayGraph::EDGES[edge], false, leg, cb, handoff,
-                        SWEEP, 0);
+  Animation::OpLeg anim(cube,
+                        Animation::OpLeg::EdgeSweepSpec{
+                            .edge = &ConwayGraph::EDGES[edge],
+                            .sweep_frames = SWEEP},
+                        leg, cb, handoff);
   const Animation::OpLeg::Landing &landing = anim.landing();
   HS_EXPECT_EQ(landing.primary_faces, cube.face_counts.size());
 
@@ -975,9 +983,13 @@ inline void test_palette_mapping_total_all_edges() {
     };
 
     hs::random().seed(1000u + static_cast<uint32_t>(ei));
-    Animation::OpLeg anim(seed, e, false, leg, cb, handoff,
-                          ConwayGraph::SWEEP_FRAMES,
-                          e.settle ? ConwayGraph::SETTLE_FRAMES : 0);
+    Animation::OpLeg anim(
+        seed,
+        Animation::OpLeg::EdgeSweepSpec{
+            .edge = &e,
+            .sweep_frames = ConwayGraph::SWEEP_FRAMES,
+            .settle_frames = e.settle ? ConwayGraph::SETTLE_FRAMES : 0},
+        leg, cb, handoff);
     const Animation::OpLeg::Landing &landing = anim.landing();
 
     // The landed assignment is a permutation of the bank slots.
@@ -1054,9 +1066,13 @@ inline void test_palette_mapping_deterministic() {
     };
 
     hs::random().seed(31337u);
-    Animation::OpLeg anim(cube, ConwayGraph::EDGES[edge], false, leg, cb,
-                          handoff, ConwayGraph::SWEEP_FRAMES,
-                          ConwayGraph::SETTLE_FRAMES);
+    Animation::OpLeg anim(
+        cube,
+        Animation::OpLeg::EdgeSweepSpec{
+            .edge = &ConwayGraph::EDGES[edge],
+            .sweep_frames = ConwayGraph::SWEEP_FRAMES,
+            .settle_frames = ConwayGraph::SETTLE_FRAMES},
+        leg, cb, handoff);
     const Animation::OpLeg::Landing &landing = anim.landing();
     to_palette[run] = landing.to_palette;
     topo[run].assign(landing.topology, landing.topology + landing.faces);
@@ -1289,8 +1305,14 @@ inline void test_leg_start_seed_frame_continuity() {
     };
     {
       Arena leg_arena(cc_leg_buf, sizeof(cc_leg_buf));
-      Animation::OpLeg anim(leg_seed, e, reverse, leg_arena, cb, handoff,
-                            SWEEP_FRAMES, e.settle ? SETTLE_FRAMES : 0);
+      Animation::OpLeg anim(
+          leg_seed,
+          Animation::OpLeg::EdgeSweepSpec{
+              .edge = &e,
+              .reverse = reverse,
+              .sweep_frames = SWEEP_FRAMES,
+              .settle_frames = e.settle ? SETTLE_FRAMES : 0},
+          leg_arena, cb, handoff);
       step_and_snapshot(anim, fx, snap);
       HS_EXPECT_EQ(snap.colors.size(), total);
       for (size_t f = 0; f < snap.colors.size(); ++f) {
