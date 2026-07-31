@@ -1743,7 +1743,7 @@ An effect passes construction-time flags to its base as `Effect(W, H, {.strobe =
 
 ## 9. Effects Reference
 
-All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for RingShower and Dynamo.
+All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for RingShower, Dynamo and Thrusters.
 
 The simulator, the effect registry, and the tests carry the full roster. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) is a 22-effect subset of it, excluding the two Holosphere-96×20-only effects, Dynamo and Thrusters.
 
@@ -1896,7 +1896,7 @@ Four great-circle rings tumble continuously under energetic random-walk rotation
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=RingShower" target="_blank"><img src="docs/screenshots/RingShower.png" alt="RingShower" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=RingShower&resolution=Holosphere%20(96x20)" target="_blank"><img src="docs/screenshots/RingShower.png" alt="RingShower" width="280"></a></td>
 <td valign="top">
 
 #### RingShower
@@ -1956,7 +1956,7 @@ Particles spray from emitters at the eight cube vertices — each sweeping its o
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Dynamo" target="_blank"><img src="docs/screenshots/Dynamo.png" alt="Dynamo" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Dynamo&resolution=Holosphere%20(96x20)" target="_blank"><img src="docs/screenshots/Dynamo.png" alt="Dynamo" width="280"></a></td>
 <td valign="top">
 
 #### Dynamo
@@ -1968,7 +1968,7 @@ A vertical strand of points — one per latitude row — drifts horizontally aro
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Thrusters" target="_blank"><img src="docs/screenshots/Thrusters.png" alt="Thrusters" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Thrusters&resolution=Holosphere%20(96x20)" target="_blank"><img src="docs/screenshots/Thrusters.png" alt="Thrusters" width="280"></a></td>
 <td valign="top">
 
 #### Thrusters
