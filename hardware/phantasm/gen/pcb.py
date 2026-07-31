@@ -21,6 +21,9 @@ FP_DIR = os.environ.get("KICAD_FOOTPRINT_DIR",
 KCLI = fab.find_kicad_cli()
 PCB_W = 32.0  # board width (mm); within the R-MECH-6 cap (<=35), trimmed to part extent
 QUILTER_LENGTH = 58.28
+TEENSY_LIBRARY_REASON = (
+    "The committed, routed phantasm.kicad_pcb resolves its Teensy pads\n"
+    "  against this library file.")
 MOUNTING_HOLE_FOOTPRINT = "MountingHole:MountingHole_2.7mm_M2.5"
 MOUNTING_KEEPOUT_RADIUS = 2.7
 MOUNTING_HOLE_INSET = 3.5
@@ -659,8 +662,12 @@ def main(unplaced=False, force=False):
     mod.insert(2, [sexp.Sym("version"), sexp.Sym("20240108")])
     mod.insert(3, [sexp.Sym("generator"), "phantasm-gen"])
     mod.insert(4, [sexp.Sym("generator_version"), "10.0"])
-    open(os.path.join(pretty, "Teensy4.0.kicad_mod"), "w", encoding="utf-8",
-         newline="\n").write(sexp.dumps(mod) + "\n")
+    mod_path = os.path.join(pretty, "Teensy4.0.kicad_mod")
+    mod_text = sexp.dumps(mod) + "\n"
+    if not os.path.exists(mod_path) or \
+            open(mod_path, encoding="utf-8").read() != mod_text:
+        require_writable(mod_path, force, TEENSY_LIBRARY_REASON)
+        open(mod_path, "w", encoding="utf-8", newline="\n").write(mod_text)
     fplt = os.path.join(OUT, "fp-lib-table")
     if not os.path.exists(fplt):
         open(fplt, "w", encoding="utf-8", newline="\n").write(
@@ -682,7 +689,8 @@ def parse_args(argv=None):
                         help="write unplaced/phantasm_unplaced.kicad_pcb for "
                              "the autoplacer instead")
     parser.add_argument("--force", action="store_true",
-                        help=f"overwrite the committed, routed {PCB_FILE}")
+                        help=f"overwrite the committed, routed {PCB_FILE} or a "
+                             "changed Teensy footprint library")
     return parser.parse_args(argv)
 
 

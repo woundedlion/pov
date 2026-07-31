@@ -10,6 +10,7 @@ import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
 UNPLACED = GEN_DIR.parent / "unplaced" / "phantasm_unplaced.kicad_pcb"
+TEENSY_LIBRARY = GEN_DIR.parent / "phantasm.pretty" / "Teensy4.0.kicad_mod"
 
 # Every reference whose land must come from its footprint library unchanged.
 LIBRARY_LAND_REFS = ("R1", "R2", "R_PD", "R_S", "R_MEN", "R_D1", "R_D2",
@@ -77,6 +78,16 @@ class UnplacedBoardLandTests(unittest.TestCase):
         self.assertTrue(families)
         for libid, lands in sorted(families.items()):
             self.assertEqual(len(set(lands.values())), 1, f"{libid}: {lands}")
+
+
+class TeensyLibraryTests(unittest.TestCase):
+    """The committed, routed board resolves its Teensy pads against the
+    committed library, so generator drift there invalidates the routing."""
+
+    def test_generator_matches_the_committed_library(self):
+        library = sexp.parse(TEENSY_LIBRARY.read_text(encoding="utf-8"))[0]
+
+        self.assertEqual(pad_lands(pcb.teensy_footprint()), pad_lands(library))
 
 
 if __name__ == "__main__":
