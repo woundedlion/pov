@@ -26,7 +26,7 @@ transitions.
 - **Effect:** `effects/IslamicStars.h` (spawn scheduler, `spawn_shape`,
   `start_build_leg`, `schedule_dual_bridge` / `schedule_dt_macro` /
   `schedule_dtd_macro` / `schedule_macro_truncate`, `draw_shape`, `draw_sprite`).
-- **Morph machinery:** `core/animation/mesh.h` (`OpLeg`: leg constructors,
+- **Morph machinery:** `core/animation/opleg.h` (`OpLeg`: leg constructors,
   `run_op`, `arrival_mesh`, `hankin_at`/`relax_at`/`medial_at`, `slerp_vertices`,
   `finish_frame`, cohort/coarsening).
 - **Mesh operators:** `core/mesh/` (`MeshOps::dual/kis/ambo/truncate/…/relax`,

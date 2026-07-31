@@ -3,7 +3,7 @@
 **SUPERSEDED.** This document records the design as it landed and no longer
 tracks the tree: the symbol names, module layout and tuning constants below have
 since moved on. The current design of record is `docs/opchain_morph_spec.md`;
-the source of truth for behaviour is `core/animation/mesh.h` and
+the source of truth for behaviour is `core/animation/opleg.h` and
 `core/mesh/hankin.h`.
 
 Status: LANDED 2026-07-16 (`06c95e93..190a91d8`). Replaces the
@@ -354,7 +354,7 @@ so they'd test within tolerance like bridges, not exactly like §7.1).
 
 ## 4. Runtime architecture
 
-### 4.1 `Animation::ConwayMorph` (core/animation/mesh.h, beside MeshMorph)
+### 4.1 `Animation::ConwayMorph` (core/animation/opleg.h, beside MeshMorph)
 
 Constructor `(seed PolyMesh, EdgeSpec, Arena&, draw callbacks, frames,
 easing)`:

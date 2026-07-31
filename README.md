@@ -218,7 +218,9 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   │   ├── trails.h                OrientationTrail/VectorTrail/QuantizedVectorTrail history + tween/deep_tween traversal
 │   │   ├── sprites.h               Sprite draw envelope, Particle/ParticleSystem
 │   │   ├── timeline.h              TimelineEvent inline storage + the Timeline scheduler
-│   │   └── mesh.h                  Mesh-to-mesh transitions: OpLeg, Segue policies, MeshCarousel
+│   │   ├── opleg.h                 Conway-chain morph legs: OpLeg
+│   │   ├── segue.h                 Mesh-to-mesh transition policies: the Segue library
+│   │   └── carousel.h              Double-buffered mesh slot pair: MeshCarousel
 │   └── vendor/                 Third-party code
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
@@ -389,7 +391,7 @@ so a successor does not re-attempt what was already measured and refuted.
 |---|---|
 | `docs/phantasm_pcb_spec.md` | Source of truth for the KiCad schematic and layout of the per-segment carrier board — `hardware/phantasm/`. `just pcb` runs `gen/fab.py` against the committed board; `board.py`/`pcb.py` are opt-in generators that rewrite design sources. One identical PCB ×4 qualified; ×8 compile-tested only |
 | `docs/phantasm_frame_sync_spec.md` | IMPLEMENTED, and describes the implementation. 1-wire flywheel sync; protocol core `hardware/pov_sync.h`, device shell `hardware/pov_segmented.h` |
-| `docs/opchain_morph_spec.md` | LANDED. Op-by-op Conway-chain morphing generation of solids; design of record for `effects/IslamicStars.h` + `core/animation/mesh.h` |
+| `docs/opchain_morph_spec.md` | LANDED. Op-by-op Conway-chain morphing generation of solids; design of record for `effects/IslamicStars.h` + `core/animation/opleg.h` |
 | `docs/conway_morph_spec.md` | SUPERSEDED by `docs/opchain_morph_spec.md`; records the design as it landed and no longer tracks the tree |
 | `docs/segmented_stateful_effects_spec.md` | IMPLEMENTED. History-reading pixel effects (`Pixel::Feedback`) under segmented mode, gated on `needs_full_frame()` |
 | `docs/selective_o3_spec.md` | Implemented 2026-07-15, minimal region set; the full R1–R6 set is measured-unaffordable |
@@ -944,7 +946,9 @@ The `Timeline` class manages a list of running `IAnimation` objects. Each frame,
 | `trails.h` | Recorded history | `OrientationTrail`, `VectorTrail`, `QuantizedVectorTrail`, the `tween`/`deep_tween` traversals |
 | `sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
 | `timeline.h` | Scheduling | `TimelineEvent`, `Timeline` |
-| `mesh.h` | Mesh-to-mesh transitions | `OpLeg`, the `Segue` policies, `MeshCarousel` |
+| `opleg.h` | One Conway-chain morph leg, swept per frame | `OpLeg` |
+| `segue.h` | How one mesh hands the sphere to the next | the `Segue` policies |
+| `carousel.h` | Two persistent mesh slots + arena compaction | `MeshCarousel` |
 
 The fragments compile only inside `animation.h` (a direct include fails with an `#error`); consumers include `animation.h` alone.
 

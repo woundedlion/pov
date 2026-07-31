@@ -386,7 +386,7 @@ earlier draft blamed the shape handover ("two meshes drawn in one frame"). That
 is **wrong**, proven three ways:
 
 - IslamicStars uses `Segue::TerminatorSweep`, which schedules via
-  `schedule_sequential` (`core/animation/mesh.h:742`) — one sprite, returns the
+  `schedule_sequential` (`core/animation/segue.h:96`) — one sprite, returns the
   full `duration`. Only `Crossfade` overlaps two sprites, and it returns
   `duration - fade`; IslamicStars does not use it.
 - On the handoff frame the outgoing sprite steps at `t==duration` → `phase==0` →

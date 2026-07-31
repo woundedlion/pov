@@ -1,7 +1,7 @@
 # OpChainMorph — Op-by-Op Morphing Generation of Solids — Design Spec
 
 Status: **LANDED.** Implemented across merges 810db7c6, 1138ff8e and 661f1a78;
-`effects/IslamicStars.h`, `core/animation/mesh.h` and `core/mesh/recipe.h` cite
+`effects/IslamicStars.h`, `core/animation/opleg.h` and `core/mesh/recipe.h` cite
 its sections as the shipped design. §3 and §12 record constraints and dead ends
 established against the renderer; read them before §10.
 
@@ -46,15 +46,15 @@ the two disagree, the landed ConwayMorph behaviour wins; this document only adds
    PolyMesh f(Arena&, Arena&)` function body. §4 makes it data.
 
 2. **Sweeping one op with constant topology is a solved problem.**
-   `Animation::ConwayMorph` (`core/animation/mesh.h:177-703`) re-runs one Conway
+   `Animation::ConwayMorph` (`core/animation/opleg.h`) re-runs one Conway
    operator per frame at an interpolated parameter, compiles, and draws — 173 µs
    per frame for the 18-solid roster, 0.3 % of a frame, 0 spilled frames over two
    full tours. There is no vertex correspondence and no crossfade: topology is
-   constant along a leg (`core/animation/mesh.h:435`), so vertex identity is implicit in the
+   constant along a leg (`core/animation/opleg.h:1438`), so vertex identity is implicit in the
    operator's deterministic emission order.
 
 3. **Topology changes only at bookends, and only under clamp.** `clamp_param`
-   (`core/animation/mesh.h:298-305`) keeps the sweep inside the topology-constant open interval:
+   (`core/animation/opleg.h:353-360`) keeps the sweep inside the topology-constant open interval:
    `T_EPS = 0.02` at the zero end, `T_EPS_AMBO = 0.005` below truncate's 0.5
    short-circuit (`conway_graph.h:113-124`). Newborn faces at the ε end are
    **zero-area and culled at draw time** by `SDF::Face` (|signed area| <
@@ -80,7 +80,7 @@ the two disagree, the landed ConwayMorph behaviour wins; this document only adds
    §3.3's note on policy dependence turns on the difference. Palette selection is per topology
    class through `MeshPaletteBank` (`core/color/palettes.h:111-175`, N = 5).
    Seamlessness across a leg comes from `build_palette_mapping`
-   (`core/animation/mesh.h:595-698`): geometric provenance by departed-face centroid, with a
+   (`core/animation/opleg.h:1751`): geometric provenance by departed-face centroid, with a
    checked bijection inside `PROVENANCE_TOL_SQ = 0.15²`.
 
 5. **`hankin` is already a sweepable op.** `compile_hankin` bakes the
@@ -93,7 +93,7 @@ the two disagree, the landed ConwayMorph behaviour wins; this document only adds
    (`effects/IslamicStars.h:236-318`) walks the registry round-robin, generates
    the next solid whole into the carousel's back slot, flips front, and hides the
    discontinuity behind `Segue::TerminatorSweep`
-   (`core/animation/mesh.h:884-926`). Per-shape choreography is
+   (`core/animation/segue.h:282`). Per-shape choreography is
    `fade + still + burst_span + still + fade` (`IslamicStars.h:299`).
 
 7. **The effect is rasterizer- and probe-bound, not geometry-bound.** Per
@@ -121,7 +121,7 @@ cleanly in two, and the split is the whole design:
 | `snub(t, twist)` | `conway.h:929` | **inflate** | sweep `T_EPS → t★`, twist lerped |
 | `chamfer(t)` | `conway.h:736` | **inflate** | sweep `T_EPS → t★` |
 | `hankin(θ)` | `hankin.h:388` | **inflate** | `compile_hankin` once, `update_hankin` per frame, sweep `θ_EPS → θ★` |
-| `relax(n)` | `conway.h:813` | **continuous** | existing settle slerp (`core/animation/mesh.h:322-338, 422-427`) |
+| `relax(n)` | `conway.h:813` | **continuous** | existing settle slerp (`core/animation/opleg.h:857-868, 888-899`) |
 | `ambo` | `conway.h:458` | **inflate-equivalent** | truncate sweep to `0.5 − T_EPS_AMBO`, then clean swap to `ambo` |
 | `bevel(t)` = `ta` | `conway.h:1082` | composite | ambo leg, then truncate leg |
 | `kis` | `conway.h:405` | **partition** | §3.3 gated swap, no sweep (no renderable parameter, §3.2) |
@@ -136,7 +136,7 @@ cleanly in two, and the split is the whole design:
 
 Of those eight, **three are device-proven sweeps**: `ConwayGraph::MorphOp` is
 exactly `{TRUNCATE, EXPAND, SNUB}` (`conway_graph.h:97`) and `run_op` has exactly
-those three cases (`core/animation/mesh.h:495-506`). The rest each need work:
+those three cases (`core/animation/opleg.h:1382-1395`). The rest each need work:
 
 - `chamfer` is **deliberately unused** by the landed graph — "no simple-registry
   endpoint is a chamfered form" (`conway_graph.h`, echoed at
@@ -191,7 +191,7 @@ registry violates both bounds:
 | `..._truncate001_hankin73` (`solids.h:934-940`) | `.truncate(0.01f)` | below `T_EPS` |
 
 **Neither failure is a trap or a CI failure — both are silent, on-screen.**
-`clamp_param` (`core/animation/mesh.h:298-307`) applies to `t_start` *and*
+`clamp_param` (`core/animation/opleg.h:353-360`) applies to `t_start` *and*
 `t_end`, and it lives only in `ConwayMorph`: `build_recipe` and `entry.generate`
 never see it, so §9.1's bitwise gate compares two unclamped chains and is
 unaffected. The leg is what goes wrong:
@@ -201,7 +201,7 @@ unaffected. The leg is what goes wrong:
   Its final frame sits at `t = 0.02` against a held solid built at `t = 0.01`.
 - **`truncate50d`:** `t_end` clamps down to `0.5 − T_EPS_AMBO = 0.495`, and
   `tr.topo` is classified from `run_op` at that *clamped* arrival
-  (`core/animation/mesh.h:315-343`), so face counts agree every frame and there
+  (`core/animation/opleg.h:1131-1155`), so face counts agree every frame and there
   is **no trap**. The leg sweeps to a cuboctahedron-like form and then clean-swaps
   to the self-intersecting `truncate(0.873)` mesh the recipe actually specifies —
   a full-screen geometry pop. (`conway.h:555-560` documents that `t > 0.5`
@@ -224,8 +224,8 @@ on. `expand_to_primitives` (§4.2) must special-case `t == 0.5f` in a bevel to e
 
 The settle mechanism slerps per-vertex between the swept mesh and
 `relax(arrival)` and therefore requires vertex-count identity —
-`HS_CHECK(swept.vertices.size() == tr.relaxed.size())` (`core/animation/mesh.h:423`, with the
-construction check at `:336`).
+`HS_CHECK(swept.vertices.size() == tr.relaxed.size())` (`core/animation/opleg.h:889`, with the
+construction check at `:1152`).
 
 The Islamic registry has **nine** `relax` calls (`solids.h:697, 872, 892, 921,
 937, 965, 978, 993, 1009`), and **six** of them follow an ambo-class leg —
@@ -305,7 +305,7 @@ nobody has checked:
    tuned at ≤ 92 faces. On the small faces the opening bookend may be visible.
 2. **`MeshOps::compile` drops degenerate faces size-dependently**, so
    `compiled.face_counts.size()` **can** move mid-leg — which *is* the real
-   `HS_CHECK` trap at `core/animation/mesh.h:435`. §2.1's cases turned out not to
+   `HS_CHECK` trap at `core/animation/opleg.h:1438`. §2.1's cases turned out not to
    trap; this one plausibly does.
 3. **`require_closed_manifold` must hold for the hankin output under sweep.** It
    holds today at the chains' fixed parameters, since they ship — but nothing
@@ -448,9 +448,9 @@ Two costs to price in:
   hides the seam.
 - **The gate is segue-policy-dependent.** The shading overload in play
   (`shading.h:158-167`) passes `t` to `segue.fill(t, phase)` by **non-const
-  reference**, which may remap or cull it (`core/animation/mesh.h:798`).
+  reference**, which may remap or cull it (`core/animation/segue.h:160`).
   `TerminatorSweep` inherits the identity `fill` so a low `gain` survives, but
-  `IrisBloom` and `Lace` (`:845, :866`) would cull small `t` outright. Any effect
+  `IrisBloom` and `Lace` (`:243, :263`) would cull small `t` outright. Any effect
   adopting the gate must re-check its segue.
 
 **The two ops are different visual events, and §9.6 must measure them
@@ -471,7 +471,7 @@ reads as a transformation or as a cut.
 **`dual`'s provenance mapping.** Each dual face `d` corresponds to source vertex
 `v` and takes the palette of the orbit face whose centroid is nearest `v`,
 matching the nearest-centroid discipline in `build_palette_mapping`
-(`core/animation/mesh.h:640-666`). The orbit is already walked by
+(`core/animation/opleg.h:1814-1818`). The orbit is already walked by
 `emit_vertex_orbit_faces<'P'>` (`conway.h:150`), so the mapping is a by-product
 of the op rather than a second pass. This gives colour-*locality* across the swap
 — a dual face opens in the colour already painted where it lands. Pixel-identity
@@ -480,7 +480,7 @@ is not available (§3.1).
 ### 3.4 Named fallback
 
 If §9.6 rejects the gated swap, the fallback is a short local
-`Segue::Crossfade` (`core/animation/mesh.h:815-832`, the only overlapping policy
+`Segue::Crossfade` (`core/animation/segue.h:212`, the only overlapping policy
 in the codebase) across the swap frame. An opacity blend of two complete meshes
 has no coverage-seam problem, at the cost of drawing two meshes for the window's
 duration on an effect already at 8 fps for its heaviest recipes. Six frames of
@@ -714,7 +714,7 @@ Do not build a monolithic multi-op animation. Chain single-leg animations on the
 `start_morph_cycle` / `finish_morph_cycle` (`HankinSolids.h:690-842`).
 
 ```cpp
-// core/animation/mesh.h
+// core/animation/opleg.h
 class OpLeg : public AnimationBase<OpLeg> {  // generalizes ConwayMorph
   // Three leg kinds, dispatched once at construction:
   //   CONWAY_SWEEP  - run_op(op, seed, t(frame))          [existing path]
@@ -735,11 +735,11 @@ scheduler is a separate, later change. Concretely this means the graph-edge
 constructor stays a supported entry point alongside the recipe-step one, rather
 than being reworked into it.
 
-`ConwayMorph` (`core/animation/mesh.h:177`) is the CONWAY_SWEEP kind with the graph-edge
+`ConwayMorph` (`core/animation/opleg.h`) is the CONWAY_SWEEP kind with the graph-edge
 constructor. **Refactor it into `OpLeg`'s first kind rather than forking it** —
 the palette machinery (`PaletteHandoff`, `BookendClasses`, `Landing`,
 `build_palette_mapping`, `bake_palette_blend` pre-blend, `MAX_BLEND_PAIRS`) is
-kind-agnostic and must not be duplicated. `run_op` (`core/animation/mesh.h:495-506`) grows the
+kind-agnostic and must not be duplicated. `run_op` (`core/animation/opleg.h:1382-1395`) grows the
 missing primitives.
 
 ### 5.2 State carried between legs
@@ -756,7 +756,7 @@ identical to ConwayMorph today. What crosses the boundary:
 | slot → palette | `std::array<uint8_t, 5>` | previous `Landing::to_palette` |
 | gate state | `float gain` per face | gated swap, §3.3 |
 
-`Landing` (`core/animation/mesh.h:244-251`) already carries `topology`, `faces`,
+`Landing` (`core/animation/opleg.h:271`) already carries `topology`, `faces`,
 `primary_faces`, `to_palette` and is the existing leg→effect handoff. It needs
 one addition: the **final swept `PolyMesh`**, or a cheap way to reconstruct it
 (op + final parameter + seed), so leg `k+1` can seed from it without a
@@ -767,7 +767,7 @@ whole-chain replay.
 `HankinSolids` re-shuffles palette slots once per solid. For a chain build the
 shuffle happens **once per shape, before the first leg** — the whole build is one
 shape. Newborn classes inherit their first face's nearest-departed palette
-(`core/animation/mesh.h:657-666`), which keeps `T_EPS`-wide births from popping
+(`core/animation/opleg.h:1820-1829`), which keeps `T_EPS`-wide births from popping
 in target-coloured.
 
 **Convergence is spread across the whole build** (owner decision, §11): the shape
@@ -781,8 +781,8 @@ endpoints, so each leg converges over its own span. The rest of this section is
 the design a chained implementation would follow.
 
 **Mechanics.** `ramp_from` / `ramp_to` are `uint8_t` **bank indices**, consumed
-as `tr.bank->entries[tr.ramp_from[r]]` (`core/animation/mesh.h:445-451,
-486-487`). `bake_palette_blend` (`core/color/composition.h:1042-1051`) resolves
+as `tr.bank->entries[tr.ramp_from[r]]` (`core/animation/opleg.h:1449-1451,
+1718-1719`). `bake_palette_blend` (`core/color/composition.h:1042-1051`) resolves
 to `from.get(t).lerp(to.get(t), w)` -> `Color4::lerp` -> `Pixel::lerp16`
 (`core/color/color.h:153-162`): **a linear lerp on 16-bit linear-light
 channels**, no perceptual space anywhere. So
@@ -805,7 +805,7 @@ Two costs that are *not* free, both easy to miss:
   entries into `scratch_arena_b` instead of aliasing. With `MAX_BLEND_PAIRS = 8`
   and ~3.5 KB of headroom in `b` (§8.2), this lands on exactly the frames the
   arena analysis assumed were cheapest. §9.3 must exercise it.
-  (The `ramp_from[r] == ramp_to[r]` fast path at `core/animation/mesh.h:448` is a separate,
+  (The `ramp_from[r] == ramp_to[r]` fast path at `core/animation/opleg.h:1451` is a separate,
   index-based test and is unaffected by re-basing.)
 - **Bookend swaps stay exact, but only to a few LSB.** The same `w'` on both
   sides of a swap yields the same LUT, so the swap itself is exact. The nested
@@ -817,7 +817,7 @@ Two costs that are *not* free, both easy to miss:
   than as exactness.
 
 **The visible cost is a stutter.** `blend_weight` is exactly 0 for `p <= 0.2` and
-exactly 1 for `p >= 0.8` (`core/animation/mesh.h:560-568`) — plateaus that exist
+exactly 1 for `p >= 0.8` (`core/animation/opleg.h:1624-1632`) — plateaus that exist
 to make each leg's bookends exact swaps. Under spreading, colour is therefore
 **frozen for the first and last 20 % of every leg**: it advances in a
 move/freeze/move/freeze rhythm, 40 % dead per leg, with the period varying by leg
@@ -860,12 +860,12 @@ right: the sweep delivers a bare seed, the build does the work, the sweep takes
 away a finished solid.
 
 Consequence for `retarget`: `TerminatorSweep::retarget(v)` rolls a fresh sweep
-axis and `fade_seed` per transition (`IslamicStars.h:279-280`, `core/animation/mesh.h:~905`).
+axis and `fade_seed` per transition (`IslamicStars.h:279-280`, `core/animation/segue.h:289-299`).
 It must keep firing **once per shape, before the seed sweeps in** — not per leg.
 The build phase sits on the phase-1 plateau where the axis is unused, so a
 mid-build retarget would be invisible on the build and then wrong on the way out.
 
-`MeshCarousel::schedule_segue` (`core/animation/mesh.h:1126-1129`) assumes a symmetric
+`MeshCarousel::schedule_segue` (`core/animation/carousel.h:111`) assumes a symmetric
 `(duration, window)` sprite. The build phase sits on the phase-1 plateau where
 `TerminatorSweep::opacity(1) = 1` and `fill` is identity, so **the simplest
 integration is to leave the carousel contract alone and lengthen `duration` by
@@ -982,9 +982,9 @@ risk in the feature** on a 298 KB device arena
 
 1. Drop to a **single** carousel slot during the build — the outgoing shape is
    gone by then (`TerminatorSweep` is sequential: `schedule_sequential` returns
-   `duration`, `core/animation/mesh.h:757`; `IslamicStars.h:277-278` already relies on this), so
+   `duration`, `core/animation/segue.h:96`; `IslamicStars.h:277-278` already relies on this), so
    slot reuse is legal and buys back a full `MeshState`. **Not free, though:**
-   `compact_keep_front` (`core/animation/mesh.h:1164-1170`) is built to keep the *front* slot
+   `compact_keep_front` (`core/animation/carousel.h:142`) is built to keep the *front* slot
    alive across the back slot's regeneration, and `spawn_shape` compacts → 
    generates → flips (`IslamicStars.h:253-274`). Going to one slot restructures
    that ordering, and the front slot is what `Persist` evacuates through
@@ -1009,17 +1009,17 @@ risk in the feature** on a 298 KB device arena
 Current caps, all sized for the 18-solid roster and all exceeded by F = 1082:
 
 - `prev_used[128]` in `build_palette_mapping`, with a hard
-  `HS_CHECK(handoff.prev_faces <= 128)` (`core/animation/mesh.h:638-639`) — **traps** at
+  `HS_CHECK(handoff.prev_faces <= 128)` (`core/animation/opleg.h`) — **traps** at
   F = 1082.
 - `MAX_NODE_FACES = 92`, `MAX_HANKIN_FACES = 256` (`HankinSolids.h:115-118`)
-- `narrow_face_count` bounds to **UINT8_MAX = 255** (`core/animation/mesh.h:337`) — the tighter
+- `narrow_face_count` bounds to **UINT8_MAX = 255** (`core/mesh/mesh.h:361`) — the tighter
   and more reachable of the two narrowing guards; a `kis` or `needle` on a
   high-valence orbit can hit it. (`narrow_index`, the INT16_MAX one, is at
-  `core/animation/mesh.h:323`.)
+  `core/mesh/mesh.h:347`.)
 
 **The limit that matters most is not a cap — it is a tolerance.**
 `PROVENANCE_TOL_SQ = 0.15²` is documented as "under half the face-centroid
-spacing of the largest node (~0.37 chord at 92 faces)" (`core/animation/mesh.h:512`). At
+spacing of the largest node (~0.37 chord at 92 faces)" (`core/animation/opleg.h:1581-1585`). At
 F = 1082 the centroid spacing is ~0.108 chord and half-spacing ~0.054, so **the
 tolerance is roughly 3× the discriminating distance.** The bijection
 `HS_CHECK` at `:653` will keep passing while the nearest-centroid match is simply
@@ -1057,7 +1057,7 @@ daydream master. Qualify paths accordingly when implementing.
    in `tests/test_solids.h`.
 
 2. **Per-leg topology constancy.** Already asserted at runtime
-   (`core/animation/mesh.h:435`); add a host test that steps every leg of every recipe frame by
+   (`core/animation/opleg.h:1438`); add a host test that steps every leg of every recipe frame by
    frame and checks `compiled.face_counts.size()` never moves within a leg.
 
 3. **Scratch and persistent high-water sweep.** Extend
@@ -1235,7 +1235,7 @@ sections above describe the decided design, not options.
    and both Phase-1 recipes — sweep a Conway op on a hankin mesh, while the
    entire `T_EPS` / zero-area-birth analysis is characterized against simple
    solids of ≤ 92 faces. If `compile` drops a degenerate face mid-leg this traps
-   at `core/animation/mesh.h:435`. Phase 0 exists to answer it first; it is
+   at `core/animation/opleg.h:1438`. Phase 0 exists to answer it first; it is
    ranked here because nothing else in the plan proceeds if it fails.
 2. **Silent palette misrouting at high F, §8.3.** Highest, because it is the only
    one that fails *quietly*. `PROVENANCE_TOL_SQ` is sized for F ≤ 92 and is ~3×
@@ -1301,5 +1301,5 @@ analysis is not redone.
 
 5. **Folding every `relax` into the preceding leg's settle.** **DEAD** for six of
    the nine sites: the settle slerps per-vertex and requires vertex-count
-   identity (`core/animation/mesh.h:423`), but an ambo leg sweeps `2E` vertices
+   identity (`core/animation/opleg.h:889`), but an ambo leg sweeps `2E` vertices
    toward a relaxed form with `E`. §2.2.

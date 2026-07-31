@@ -20,7 +20,7 @@
 #include <cstdlib>
 #include <vector>
 
-#include "core/animation/mesh.h"
+#include "core/animation/opleg.h"
 #include "core/mesh/conway.h"
 #include "core/mesh/mesh.h"
 #include "core/mesh/solids.h"

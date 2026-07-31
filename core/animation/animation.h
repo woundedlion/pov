@@ -264,7 +264,8 @@ private:
 } // namespace Animation
 
 // Internal fragments, in dependency order: every animation type derives from
-// AnimationBase above; sprites builds on trails, mesh on timeline and sprites.
+// AnimationBase above; sprites builds on trails, segue on timeline and sprites,
+// carousel on segue.
 #define HS_ANIMATION_INTERNAL
 #include "animation/timers.h"
 #include "animation/params.h"
@@ -272,7 +273,9 @@ private:
 #include "animation/trails.h"
 #include "animation/sprites.h"
 #include "animation/timeline.h"
-#include "animation/mesh.h"
+#include "animation/opleg.h"
+#include "animation/segue.h"
+#include "animation/carousel.h"
 #undef HS_ANIMATION_INTERNAL
 
 // Device inline-storage budget audit. The per-type static_assert in
