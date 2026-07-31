@@ -152,7 +152,7 @@ constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 18783224;
   X("pov_segmented", hs_test::pov_segmented_tests::run_pov_segmented_tests,    \
     263162)                                                                    \
   X("pov_single", hs_test::pov_single_tests::run_pov_single_tests, 8640)       \
-  X("pov_sync", hs_test::pov_sync_tests::run_pov_sync_tests, 2009)             \
+  X("pov_sync", hs_test::pov_sync_tests::run_pov_sync_tests, 2015)             \
   X("param_marshal", hs_test::param_marshal_tests::run_param_marshal_tests,    \
     1158)                                                                      \
   X("wasm_predicates",                                                         \
