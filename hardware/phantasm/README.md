@@ -23,7 +23,7 @@ the fabrication source of truth and has no unconnected pads.
 | `phantasm.kicad_sch` | Schematic — all parts, values, footprints, full §10 connectivity |
 | `phantasm.kicad_pcb` | Completed routed PCB with validated placement, control routing, planes, mounting, and service clearances |
 | `quilter_incremental/` | Historical protected input snapshot used for the completed control-net routing |
-| `unplaced/phantasm_unplaced.kicad_pcb` | **4-layer** (SIG/GND/GND/SIG) outline + net-assigned footprints **staged below the board, unrouted** — for an autoplacer (Quilter). Stackup encoded in-file. Regenerate: `python gen/pcb.py --unplaced` then `<kicad-python> gen/stackup.py` (both write into `unplaced/`) |
+| `unplaced/phantasm_unplaced.kicad_pcb` | **4-layer** (SIG/GND/GND/SIG) outline + net-assigned footprints **staged below the board, unrouted** — for an autoplacer (Quilter). Stackup encoded in-file. Regenerate: `python gen/pcb.py --unplaced` |
 | `phantasm.kicad_sym` | Project symbol library: custom `Teensy4.0` + `+5V_RAW/+5V_LOGIC` power symbols |
 | `phantasm.pretty/` | Project footprint library: generated `Teensy4.0` footprint (2×14 0.1″ THT) |
 | `sym-lib-table` / `fp-lib-table` | Register the `phantasm` symbol / footprint libraries |
@@ -225,7 +225,6 @@ cd gen
 python board.py          # ../phantasm.kicad_{sch,sym} + sym-lib-table (.kicad_pro seeded only if absent)
 python pcb.py            # ../phantasm.kicad_pcb (placed, unrouted) + phantasm.pretty + fp-lib-table
 python pcb.py --unplaced # ../unplaced/phantasm_unplaced.kicad_pcb (footprints staged below outline, for Quilter)
-"$KICAD/bin/python" stackup.py  # upgrade unplaced/ board to 4-layer SIG/GND/GND/SIG + stackup, heal min_clearance
 python check.py          # gate: exported netlist == spec §10 (by (ref, pin) node)
 python shorts.py         # union-find short check on the schematic
 ```
@@ -244,8 +243,7 @@ three `unplaced/phantasm_unplaced.kicad_*` files together. Run
   default of 0 ("min clearance must be > 0"). KiCad **re-zeroes it whenever the project is
   opened in the GUI**, so it must be restored right before upload. `gen/heal_clearance.py`
   restores at least 0.1016 mm in routed projects and preserves the unplaced
-  project's 0.2 mm setting; `stackup.py` also heals the unplaced project on
-  every regeneration.
+  project's 0.2 mm setting.
 - The unplaced project intentionally allows Quilter to place unlocked components;
   only explicit mechanical and signal-integrity placements remain locked.
 - **Every footprint carries its schematic `(path)`** so Quilter matches board↔schematic

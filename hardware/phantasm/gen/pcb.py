@@ -3,6 +3,8 @@
 Embeds each component's footprint (from KiCad stock libs, or a generated Teensy
 footprint), assigns pad nets by name from the exported netlist, places everything
 linearly inside a <=35 mm-wide board outline (R-MECH-6), and declares the nets.
+Emits a 4-layer SIG/GND/GND/SIG board: the physical stackup and the inner GND
+planes are encoded in the file, so an autoplacer/fab reads them on upload.
 Placement is a rough starting arrangement; route/refine interactively in Pcbnew.
 """
 import argparse
@@ -27,6 +29,50 @@ TEENSY_LIBRARY_REASON = (
 MOUNTING_HOLE_FOOTPRINT = "MountingHole:MountingHole_2.7mm_M2.5"
 MOUNTING_KEEPOUT_RADIUS = 2.7
 MOUNTING_HOLE_INSET = 3.5
+
+# R-SI-1: SIG/GND/GND/SIG, so a trace on either outer layer has an adjacent
+# reference plane. The inner planes are poured GND (GROUND_PLANE_LAYERS).
+COPPER_LAYERS = ((0, "F.Cu", "signal"), (4, "In1.Cu", "power"),
+                 (6, "In2.Cu", "power"), (2, "B.Cu", "signal"))
+TECHNICAL_LAYERS = ((9, "F.Adhes", "user"), (11, "B.Adhes", "user"),
+                    (13, "F.Paste", "user"), (15, "B.Paste", "user"),
+                    (5, "F.SilkS", "user"), (7, "B.SilkS", "user"),
+                    (1, "F.Mask", "user"), (3, "B.Mask", "user"),
+                    (17, "Dwgs.User", "user"), (19, "Cmts.User", "user"),
+                    (21, "Eco1.User", "user"), (23, "Eco2.User", "user"),
+                    (25, "Edge.Cuts", "user"), (27, "Margin", "user"),
+                    (31, "F.CrtYd", "user"), (29, "B.CrtYd", "user"),
+                    (35, "F.Fab", "user"), (33, "B.Fab", "user"))
+GROUND_NET = "GND"
+GROUND_PLANE_LAYERS = ("In1.Cu", "In2.Cu")
+
+# Standard 1.6 mm JLCPCB 4-layer build (JLC04161H-7628): 1 oz outer copper,
+# 0.5 oz inner, thin outer prepreg over a thick core, ENIG. Encoded in the file
+# so an autoplacer/fab reads the intended stackup without hand-entered values.
+STACKUP = (
+    '(layer "F.SilkS" (type "Top Silk Screen"))',
+    '(layer "F.Paste" (type "Top Solder Paste"))',
+    '(layer "F.Mask" (type "Top Solder Mask") (thickness 0.01))',
+    '(layer "F.Cu" (type "copper") (thickness 0.035))',
+    '(layer "dielectric 1" (type "prepreg") (thickness 0.2104) (material "FR4")'
+    ' (epsilon_r 4.5) (loss_tangent 0.02))',
+    '(layer "In1.Cu" (type "copper") (thickness 0.0152))',
+    '(layer "dielectric 2" (type "core") (thickness 1.065) (material "FR4")'
+    ' (epsilon_r 4.5) (loss_tangent 0.02))',
+    '(layer "In2.Cu" (type "copper") (thickness 0.0152))',
+    '(layer "dielectric 3" (type "prepreg") (thickness 0.2104) (material "FR4")'
+    ' (epsilon_r 4.5) (loss_tangent 0.02))',
+    '(layer "B.Cu" (type "copper") (thickness 0.035))',
+    '(layer "B.Mask" (type "Bottom Solder Mask") (thickness 0.01))',
+    '(layer "B.Paste" (type "Bottom Solder Paste"))',
+    '(layer "B.SilkS" (type "Bottom Silk Screen"))',
+    '(copper_finish "ENIG")',
+    '(dielectric_constraints no)',
+)
+
+
+def copper_layer_names():
+    return tuple(name for _, name, _ in COPPER_LAYERS)
 
 
 def mounting_holes(L):
@@ -564,19 +610,15 @@ def main(unplaced=False, force=False):
     lines.append("\t(general (thickness 1.6) (legacy_teardrops no))")
     lines.append('\t(paper "A2")')
     lines.append("\t(layers")
-    for n, nm, ty in [(0, "F.Cu", "signal"), (2, "B.Cu", "signal"),
-                      (9, "F.Adhes", "user"), (11, "B.Adhes", "user"),
-                      (13, "F.Paste", "user"), (15, "B.Paste", "user"),
-                      (5, "F.SilkS", "user"), (7, "B.SilkS", "user"),
-                      (1, "F.Mask", "user"), (3, "B.Mask", "user"),
-                      (17, "Dwgs.User", "user"), (19, "Cmts.User", "user"),
-                      (21, "Eco1.User", "user"), (23, "Eco2.User", "user"),
-                      (25, "Edge.Cuts", "user"), (27, "Margin", "user"),
-                      (31, "F.CrtYd", "user"), (29, "B.CrtYd", "user"),
-                      (35, "F.Fab", "user"), (33, "B.Fab", "user")]:
+    for n, nm, ty in COPPER_LAYERS + TECHNICAL_LAYERS:
         lines.append(f'\t\t({n} "{nm}" {ty})')
     lines.append("\t)")
-    lines.append("\t(setup (pad_to_mask_clearance 0))")
+    lines.append("\t(setup")
+    lines.append("\t\t(stackup")
+    lines += [f"\t\t\t{layer}" for layer in STACKUP]
+    lines.append("\t\t)")
+    lines.append("\t\t(pad_to_mask_clearance 0)")
+    lines.append("\t)")
     # nets
     for nm, i in sorted(netid.items(), key=lambda kv: kv[1]):
         esc = nm.replace("\\", "\\\\").replace('"', '\\"')
@@ -585,12 +627,32 @@ def main(unplaced=False, force=False):
     lines.append(f'\t(gr_rect (start 0 0) (end {fmt(L)} {fmt(PCB_W)}) '
                  '(stroke (width 0.15) (type solid)) (fill none) (layer "Edge.Cuts") '
                  f'(uuid "{uid()}"))')
+    # inner reference planes over the whole outline (R-SI-1), left unfilled for
+    # the router to pour
+    if GROUND_NET not in netid:
+        sys.exit(f"ERROR no {GROUND_NET} net to pour the inner planes on")
+    for layer in GROUND_PLANE_LAYERS:
+        lines.append('\t(zone')
+        lines.append(f'\t\t(net {netid[GROUND_NET]})')
+        lines.append(f'\t\t(net_name "{GROUND_NET}")')
+        lines.append(f'\t\t(layer "{layer}")')
+        lines.append(f'\t\t(uuid "{uid()}")')
+        lines.append(f'\t\t(name "{GROUND_NET} plane {layer}")')
+        lines.append('\t\t(hatch edge 0.5)')
+        lines.append('\t\t(connect_pads (clearance 0.5))')
+        lines.append('\t\t(min_thickness 0.25)')
+        lines.append('\t\t(fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5))')
+        lines.append('\t\t(polygon (pts '
+                     f'(xy 0 0) (xy {fmt(L)} 0) '
+                     f'(xy {fmt(L)} {fmt(PCB_W)}) (xy 0 {fmt(PCB_W)})))')
+        lines.append('\t)')
     for ref, (x, y) in HOLES.items():
         r = MOUNTING_KEEPOUT_RADIUS
         lines.append('\t(zone')
         lines.append('\t\t(net 0)')
         lines.append('\t\t(net_name "")')
-        lines.append('\t\t(layers "F.Cu" "In1.Cu" "In2.Cu" "B.Cu")')
+        lines.append('\t\t(layers '
+                     + " ".join(f'"{nm}"' for nm in copper_layer_names()) + ')')
         lines.append(f'\t\t(uuid "{uid()}")')
         lines.append(f'\t\t(name "{ref} screw head")')
         lines.append('\t\t(hatch full 0.5)')
