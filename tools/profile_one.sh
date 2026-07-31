@@ -166,12 +166,12 @@ assert_matching_toolchains() {
 
 build_and_attest() {
   mkdir -p "$ATTEST_DIR"
-  PLATFORMIO_BUILD_FLAGS= build_image phantasm "$PHANTASM_BUILD_LOG"
   PLATFORMIO_BUILD_FLAGS= pio run -e phantasm -t envdump >"$PHANTASM_ENVDUMP"
+  PLATFORMIO_BUILD_FLAGS= build_image phantasm "$PHANTASM_BUILD_LOG"
   cp .pio/build/phantasm/firmware.elf "$PHANTASM_ELF"
   cp .pio/build/phantasm/firmware.map "$PHANTASM_MAP"
-  build_image "$ENV" "$PROFILE_BUILD_LOG"
   pio run -e "$ENV" -t envdump >"$PROFILE_ENVDUMP"
+  build_image "$ENV" "$PROFILE_BUILD_LOG"
   assert_matching_toolchains
 
   local source_sha profile_sha phantasm_sha artifact_dir
