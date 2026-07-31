@@ -13,6 +13,7 @@ Run:  python -m unittest discover -s tools/teensy_gate_tests
 import contextlib
 import copy
 import io
+import os
 import subprocess
 import sys
 import tempfile
@@ -958,26 +959,59 @@ class TestGateExtra(unittest.TestCase):
     def test_tool_falls_back_to_path_lookup(self):
         self.assertEqual(self.ge._tool("clang", "size"), "arm-none-eabi-size")
 
-    def test_find_teensy_size_accepts_self_identifying(self):
-        probe = types.SimpleNamespace(stdout="usage: teensy_size <elf>", stderr="")
-        with mock_patch(subprocess, "run", lambda *a, **k: probe):
-            self.assertEqual(self.ge._find_teensy_size(), "teensy_size")
+    def test_candidates_probe_the_tool_package_before_path(self):
+        # teensy_size is not on PATH; it ships in the tool-teensy package, so the
+        # package paths must be probed first and the bare names only last.
+        cands = self.ge._teensy_size_candidates(self._env("/pkg/tool-teensy"))
+        self.assertEqual(cands[0], os.path.join("/pkg/tool-teensy", "teensy_size"))
+        self.assertEqual(cands[-2:], ["teensy_size", "teensy_size.exe"])
+
+    def test_candidates_include_the_default_core_dir(self):
+        # No PlatformIO platform object (plain SCons env): the gate still probes
+        # the default core packages dir rather than giving up on PATH alone.
+        cands = self.ge._teensy_size_candidates(self._env())
+        expected = os.path.join(os.path.expanduser("~"), ".platformio",
+                                "packages", "tool-teensy", "teensy_size.exe")
+        self.assertIn(expected, cands)
+
+    def test_find_teensy_size_resolves_from_the_tool_package(self):
+        # Only the packaged binary exists; a PATH-only probe would return None
+        # and drop the gate to the uncalibrated fallback.
+        packaged = os.path.join("/pkg/tool-teensy", "teensy_size.exe")
+
+        def _probe(args, **kwargs):
+            if args[0] != packaged:
+                raise OSError("not found")
+            return types.SimpleNamespace(stdout="", stderr="teensy_size: usage")
+
+        with mock_patch(subprocess, "run", _probe):
+            self.assertEqual(self.ge._find_teensy_size(self._env("/pkg/tool-teensy")),
+                             packaged)
+
+    def test_find_teensy_size_accepts_self_identifying_on_path(self):
+        def _probe(args, **kwargs):
+            if args[0] not in ("teensy_size", "teensy_size.exe"):
+                raise OSError("not found")
+            return types.SimpleNamespace(stdout="usage: teensy_size <elf>", stderr="")
+
+        with mock_patch(subprocess, "run", _probe):
+            self.assertEqual(self.ge._find_teensy_size(self._env()), "teensy_size")
 
     def test_find_teensy_size_rejects_foreign_binary(self):
         probe = types.SimpleNamespace(stdout="usage: other-tool", stderr="")
         with mock_patch(subprocess, "run", lambda *a, **k: probe):
-            self.assertIsNone(self.ge._find_teensy_size())
+            self.assertIsNone(self.ge._find_teensy_size(self._env()))
 
     def test_find_teensy_size_none_when_absent(self):
         def _raise(*a, **k):
             raise OSError("not found")
         with mock_patch(subprocess, "run", _raise):
-            self.assertIsNone(self.ge._find_teensy_size())
+            self.assertIsNone(self.ge._find_teensy_size(self._env()))
 
     def test_toolchain_oserror_exits_2(self):
         # A tool step raising OSError is a build/tooling break -> exit(2), never a
         # size-budget "violation".
-        self.ge._find_teensy_size = lambda: None
+        self.ge._find_teensy_size = lambda env: None
         def _boom(*a, **k):
             raise OSError("no such tool")
         self.ge._run = _boom
@@ -989,15 +1023,17 @@ class TestGateExtra(unittest.TestCase):
         # Tool output the parser no longer recognizes (no FLASH/RAM1/RAM2) is a
         # format break -> exit(2), not a region-missing "violation". teensy_gate
         # is the shared module, so restore parse_teensy_size after the patch.
-        self.ge._find_teensy_size = lambda: "teensy_size"
+        self.ge._find_teensy_size = lambda env: "teensy_size"
         self.ge._run = lambda *a, **k: ""
         with mock_patch(self.ge.teensy_gate, "parse_teensy_size", lambda text: {}):
             rc, out = self._run_gate("holosphere")
         self.assertEqual(rc, 2)
         self.assertIn("parsed no FLASH/RAM1/RAM2 regions", out)
 
-    def test_size_a_fallback_preserves_advisory_pass(self):
-        self.ge._find_teensy_size = lambda: None
+    def test_size_a_fallback_pass_exits_advisory_not_zero(self):
+        # The workflow doc and the pre-commit hook accept a build on this gate's
+        # status, so a bucketed guess must not report as a calibrated PASS.
+        self.ge._find_teensy_size = lambda env: None
 
         def _run(args, check=True):
             if "-A" in args:
@@ -1008,12 +1044,13 @@ class TestGateExtra(unittest.TestCase):
 
         self.ge._run = _run
         rc, out = self._run_gate("holosphere")
-        self.assertEqual(rc, 0, msg=out)
+        self.assertEqual(rc, tg.EXIT_UNCALIBRATED_PASS, msg=out)
         self.assertIn("using `size -A` fallback", out)
-        self.assertIn("PASS", out)
+        self.assertIn("ADVISORY", out)
+        self.assertIn("UNCALIBRATED", out)
 
     def test_size_a_fallback_rejects_invalid_output_as_tooling_error(self):
-        self.ge._find_teensy_size = lambda: None
+        self.ge._find_teensy_size = lambda env: None
         for name, text in _invalid_size_a_cases().items():
             with self.subTest(name=name):
                 self.ge._run = lambda *args, output=text, **kw: output
@@ -1022,11 +1059,20 @@ class TestGateExtra(unittest.TestCase):
                 self.assertIn("invalid `size -A` output", out)
                 self.assertIn("tooling/format error", out)
 
-    def _run_gate(self, pioenv):
+    def _env(self, package_dir=None):
+        """Stub SCons env; `package_dir` adds the PlatformIO platform object."""
         class _Env(dict):
             def subst(self, s):
                 return self.get(s.lstrip("$"), s)
-        env = _Env(PIOENV=pioenv, CC="/opt/arm/bin/arm-none-eabi-gcc")
+        env = _Env(PIOENV="holosphere", CC="/opt/arm/bin/arm-none-eabi-gcc")
+        if package_dir is not None:
+            env.PioPlatform = lambda: types.SimpleNamespace(
+                get_package_dir=lambda name: package_dir)
+        return env
+
+    def _run_gate(self, pioenv):
+        env = self._env()
+        env["PIOENV"] = pioenv
         target = [str(TOOLS / "build" / "firmware.elf")]
         buf = io.StringIO()
         rc = 0
