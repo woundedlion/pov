@@ -99,7 +99,7 @@ struct TestModule {
   X("sdf", hs_test::sdf::run_sdf_tests, 271686)                                \
   X("conway", hs_test::conway_tests::run_conway_tests, 5982)                   \
   X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests,       \
-    1656594)                                                                   \
+    1656234)                                                                   \
   X("conway_continuity",                                                       \
     hs_test::conway_continuity_tests::run_conway_continuity_tests, 49151)      \
   X("partition_seam", hs_test::partition_seam_tests::run_partition_seam_tests, \
