@@ -386,19 +386,43 @@ struct Bounds {
 /**
  * @brief Result of a signed distance query.
  *
- * `dist` and `size` have fixed meanings, but `t`, `raw_dist` and `aux` are
- * overloaded per shape — the authoritative meaning is that shape's own
- * "Returns:" docblock. The scan rasterizer copies them into the Fragment
- * register file with no reinterpretation (see Scan::process_pixel): t        ->
- * Fragment::v0 raw_dist -> Fragment::v1 aux      -> Fragment::v3 size     ->
- * Fragment::size Fragment::v2 is generated downstream: Scan writes stroke AA
- * coverage or 0 for solid shapes, and Scan::Mesh replaces it with a face index.
+ * `dist` and `size` have fixed meanings; `t`, `raw_dist` and `aux` are
+ * per-shape registers whose authoritative meanings are the table below. The
+ * scan rasterizer copies them into the Fragment register file with no
+ * reinterpretation (see Scan::process_pixel): t -> Fragment::v0, raw_dist ->
+ * Fragment::v1, aux -> Fragment::v3, size -> Fragment::size. Fragment::v2 is
+ * generated downstream: Scan writes stroke AA coverage or 0 for solid shapes,
+ * and Scan::Mesh replaces it with a face index.
+ *
+ * Per-producer register semantics (a leaf built with ComputeUVs = false
+ * reports t = 0; a bounds/cull miss reports the far sentinel dist = raw_dist
+ * = 100 with t = 0):
+ *
+ * | Producer          | dist (negative inside)     | t                | raw_dist         | size |
+ * |-------------------|----------------------------|------------------|------------------|------|
+ * | Ring              | centerline dist - thickness | azimuth turns in [0,1), phase applied | unsigned centerline distance | thickness |
+ * | DistortedRing / FlatDistortedRing | displaced-centerline dist - thickness | azimuth turns in [0,1), phase applied | unsigned distance to the displaced centerline | thickness |
+ * | Line              | segment dist - thickness   | 0                | unsigned angular distance to the arc segment | thickness |
+ * | Face              | signed edge distance (gnomonic plane units; see Face::distance) | 0 | = dist | inradius |
+ * | PlanarPolygon     | sign * (polar*cos(local) - apothem) | polar / thickness | polar angle from center | apothem |
+ * | SphericalPolygon  | sign * angular distance to the nearest great-circle edge | polar / circumradius | polar angle from center | circumradius |
+ * | Star              | sign * folded edge half-plane distance | azimuth turns in [0,1), phase applied | polar angle from center | outer radius (thickness) |
+ * | Flower            | sign * -(polar*cos(local) - apothem) | scan_dist / thickness | scan distance from the antipode | outer radius (thickness) |
+ *
+ * Combinators forward a child's registers: Union/Intersection keep the
+ * nearer/farther child's result verbatim; SmoothUnion keeps the nearer
+ * child's and blends only dist; Subtract keeps the winner's, negating dist
+ * and holding size to the minuend's when B wins; AngularRepeat reports the
+ * child at the folded point (t is sector-local).
+ *
+ * Every current producer writes aux = 0; it is a pass-through register
+ * reserved for shader-visible per-shape data, riding to Fragment::v3.
  */
 struct DistanceResult {
   float dist; /**< Signed distance (negative inside); always this meaning. */
-  float t;    /**< Per-shape: normalized parameter (0-1) or angle. */
-  float raw_dist; /**< Per-shape: unsigned or supplementary distance. */
-  float aux; /**< Per-shape: auxiliary value (e.g. barycentric coordinate). */
+  float t;    /**< Per-shape register; see the table above. */
+  float raw_dist; /**< Per-shape register; see the table above. */
+  float aux;      /**< Per-shape register; see the table above. */
   float size = 1.0f; /**< Size metric for AA-falloff normalization. */
 
   /**
@@ -685,9 +709,7 @@ inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
 
 /**
  * @brief Calculates signed distance to a ring.
- * @details DistanceResult fields: dist = signed distance (negative inside);
- * t = normalized parameter (0-1) corresponding to angle/2PI; raw_dist =
- * unsigned distance to centerline.
+ * @details Register semantics: the DistanceResult table (stroke row: Ring).
  */
 struct Ring {
   const Basis &basis; /**< Orientation frame (v = ring axis). */
@@ -859,9 +881,8 @@ struct Ring {
 
 /**
  * @brief Calculates signed distance to a distorted ring.
- * @details DistanceResult fields: dist = signed distance minus thickness;
- * t = normalized parameter (0-1) corresponding to angle/2PI; raw_dist =
- * unsigned distance to centerline.
+ * @details Register semantics: the DistanceResult table (stroke row:
+ * DistortedRing).
  */
 struct DistortedRing {
   const Basis &basis; /**< Orientation frame (v = ring axis). */
@@ -3470,9 +3491,7 @@ struct Face {
 
 /**
  * @brief Calculates signed distance to a planar polygon.
- * @details DistanceResult fields: dist = signed distance from edge (negative
- * inside); t = normalized polar distance (polar / thickness); raw_dist = polar
- * distance from center.
+ * @details Register semantics: the DistanceResult table (row: PlanarPolygon).
  */
 struct PlanarPolygon {
   const Basis &basis;      /**< Orientation frame (v = polygon axis). */
@@ -3582,9 +3601,7 @@ struct PlanarPolygon {
  * edges).
  * @details Uses sector folding plus a precomputed great-circle plane normal for
  * O(1) per-pixel distance, with exact angular distances for smooth AA.
- * DistanceResult fields: dist = signed angular distance to the nearest
- * great-circle edge (negative inside); t = normalized radial position (polar /
- * circumradius); raw_dist = polar angle from the polygon center.
+ * Register semantics: the DistanceResult table (row: SphericalPolygon).
  */
 struct SphericalPolygon {
   const Basis &basis;      /**< Orientation frame (v = polygon axis). */
@@ -3743,9 +3760,7 @@ struct SphericalPolygon {
 
 /**
  * @brief Calculates signed distance to a star shape.
- * @details DistanceResult fields: dist = signed distance from edge (negative
- * inside); t = normalized azimuth (azimuth / 2PI); raw_dist = polar distance
- * from center.
+ * @details Register semantics: the DistanceResult table (row: Star).
  */
 struct Star {
   const Basis &basis;      /**< Orientation frame (v = star axis). */
@@ -3873,9 +3888,7 @@ struct Star {
 
 /**
  * @brief Calculates signed distance to a flower shape.
- * @details DistanceResult fields: dist = signed distance from the flower edge;
- * t = normalized scan distance (scan_dist / thickness); raw_dist = scan
- * distance from the antipode.
+ * @details Register semantics: the DistanceResult table (row: Flower).
  */
 struct Flower {
   const Basis &basis;      /**< Orientation frame (v = flower axis). */
@@ -4000,9 +4013,7 @@ struct Flower {
 
 /**
  * @brief Signed distance to a great-circle arc segment of given thickness.
- * @details DistanceResult fields: dist = signed distance to the segment minus
- * thickness (negative inside); raw_dist = unsigned angular distance to the
- * segment.
+ * @details Register semantics: the DistanceResult table (stroke row: Line).
  *
  * Antipodal endpoints select no arc; the shape degrades to the full great
  * circle through them, bounded and culled as such.
