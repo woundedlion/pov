@@ -1066,6 +1066,8 @@ struct SimBoard {
   uint64_t phase0 = 0;  /**< Local cycle-counter offset at g = 0. */
   double next_tick = 0; /**< Next flywheel wake, in global cycles. */
   double tick_step = 0; /**< Wake period in global cycles. */
+  /** Flywheel phase this board was seeded at, columns ahead of the master. */
+  int32_t birth_cols = 0;
   /** Masked-IRQ model: while g < mask_until, wakes coalesce and edges latch
       into a single delayed delivery (one latched flag per pin). */
   uint64_t mask_until = 0;
@@ -1118,7 +1120,10 @@ public:
    * @param ppm Per-board crystal offsets, parts per million (length @p n).
    * @param phase0 Common starting clock offset, cycles, at global time 0.
    * @details Each flywheel polls on a ⅛-column grid scaled by its ppm, with a
-   *          small per-board boot stagger.
+   *          small per-board boot stagger. Boards power on at unrelated rotor
+   *          angles, so board i is born believing ZERO happened i·W/n columns
+   *          ago — only acquisition closes that gap. The master defines phase
+   *          and is born at offset 0.
    */
   Sim(const Config &c, int n, const int32_t *ppm, uint64_t phase0 = 0)
       : cfg(c) {
@@ -1129,9 +1134,12 @@ public:
       b.master = (i == 0);
       b.ppm = ppm[i];
       b.phase0 = phase0;
+      b.birth_cols = i * c.W / n;
       b.tick_step = step0 * 1e6 / (1e6 + ppm[i]);
       b.next_tick = double(7 * (i + 1)); // small boot stagger
-      b.board.seed(local_now(b, 0), b.master);
+      b.board.seed(local_now(b, 0) - static_cast<uint32_t>(b.birth_cols) *
+                                         c.cycles_per_column(),
+                   b.master);
     }
   }
 
@@ -1393,11 +1401,11 @@ inline bool to_pre_train(Sim &sim, const Config &cfg) {
 // ── Scenario: clean 4-board run (boot join, phase, flips, wrap) ─────────────
 
 /**
- * @brief Verifies a clean 4-board run: every board locks within a revolution,
- *        joins live at the same boundary with the same effect and frame
- *        counter, and holds sub-2-column phase, equal frame counters, and ~2
- *        flips/rev through a 32-bit clock wrap — with no gate rejections,
- *        invalid symbols, or traps.
+ * @brief Verifies a clean 4-board run: every board is born tens of columns out
+ *        of phase, locks within a revolution, joins live at the same boundary
+ *        with the same effect and frame counter, and holds sub-2-column phase,
+ *        equal frame counters, and ~2 flips/rev through a 32-bit clock wrap —
+ *        with no gate rejections, invalid symbols, or traps.
  */
 inline void test_sim_boot_and_phase() {
   const Config cfg = test_config();
@@ -1405,6 +1413,16 @@ inline void test_sim_boot_and_phase() {
   // Local clocks start just below the 32-bit wrap: every board's CYCCNT
   // wraps ~10 revolutions in, mid-run (§12 timebase arithmetic).
   Sim sim(cfg, 4, ppm, 0xFFFFFFFFull - 10ull * 2 * PERIOD + 12345);
+
+  // Birth phase, before a single symbol: every downstream board is tens of
+  // columns from the master, so the sub-2-column oracles below measure
+  // acquisition, not crystal drift. Bounded away from the gate too — none of
+  // these could be closed by a LOCKED snap.
+  for (int i = 1; i < 4; ++i) {
+    const int32_t born = circ_dist(sim.board_pos(i), sim.board_pos(0), cfg.W);
+    HS_EXPECT_GT(born, cfg.gate_cols);
+    HS_EXPECT_GE(born, 40);
+  }
 
   // All boards lock within the first revolution (two boundary symbols).
   HS_EXPECT_TRUE(sim.run_until(
