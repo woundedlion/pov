@@ -363,6 +363,35 @@ private:
   }
 
   /**
+   * @brief Shades one pixel's four sub-samples through an inlinable typed path.
+   * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
+   * @param seed Cubemap-LUT seed node id, or -1 for a culled pixel.
+   * @param world_nodes Oriented lattice node positions.
+   * @param grid Row's SSAA sub-pixel grid.
+   * @param x Pixel column.
+   * @return The finished alpha-premultiplied pixel.
+   */
+  template <typename Grid>
+  HS_O3_FN Pixel shade_pixel(int seed, const Vector *world_nodes,
+                             const Grid &grid, int x) const {
+    if (seed < 0)
+      return Pixel(0, 0, 0);
+
+    constexpr float inv_samples = 1.0f / 4.0f;
+    Pixel accum(0, 0, 0);
+    for (int i = 0; i < 4; ++i) {
+      float b = interpolate_b(grid.at(x, i), seed, world_nodes);
+      if (b < B_CULL_THRESHOLD)
+        continue;
+
+      float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
+      Color4 sample = palette.get(t);
+      accum += sample.color * (sample.alpha * inv_samples);
+    }
+    return accum;
+  }
+
+  /**
    * @brief Builds per-node two-ring "renderable" flags for the B field.
    * @param b Per-node B concentrations, Q16.
    * @param hot1 Scratch: per-node flag, set when any of {node, neighbors}
@@ -453,26 +482,13 @@ private:
         frag.v0 = -1.0f;
     };
 
-    auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      int seed = static_cast<int>(frag.v0);
-      if (seed < 0) {
-        frag.color = Color4(Pixel(0, 0, 0), 0.0f);
-        return;
-      }
-      float b = interpolate_b(v, seed, world_nodes);
-
-      if (b < B_CULL_THRESHOLD) {
-        frag.color = Color4(Pixel(0, 0, 0), 0.0f);
-        return;
-      }
-
-      float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
-      frag.color = palette.get(t);
+    auto pixel_shader = [&](Fragment &frag, const auto &grid, int x) -> Pixel {
+      return shade_pixel(static_cast<int>(frag.v0), world_nodes, grid, x);
     };
 
     {
       HS_PROFILE(grd_shader_draw);
-      Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
+      Scan::Shader::draw_grid<W, H>(canvas, vertex_shader, pixel_shader);
     }
   }
 

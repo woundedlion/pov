@@ -721,6 +721,43 @@ struct GSWhiteBox {
                          float *nB) {
     gs.step_physics(cA, cB, nA, nB);
   }
+
+  static int typed_shader_mismatches(GS &gs) {
+    ScratchScope guard(scratch_arena_a);
+    Vector *world_nodes = gs.orient_lattice();
+    using Grid = Scan::Shader::SsaaGrid<SMALL_W, SMALL_H>;
+    if (!TrigLUT<SMALL_W, SMALL_H>::initialized)
+      TrigLUT<SMALL_W, SMALL_H>::init();
+    Grid grid;
+    int mismatches = 0;
+    for (int y = 0; y < SMALL_H; ++y) {
+      grid.set_row(y);
+      for (int x = 0; x < SMALL_W; ++x) {
+        Fragment frag;
+        frag.pos = pixel_to_vector<SMALL_W, SMALL_H>(x, y);
+        gs.seed_face_lut(frag);
+        int seed = static_cast<int>(frag.v0);
+        Pixel got = gs.shade_pixel(seed, world_nodes, grid, x);
+
+        Pixel expected(0, 0, 0);
+        for (int i = 0; i < 4; ++i) {
+          float b = gs.interpolate_b(grid.at(x, i), seed, world_nodes);
+          if (b < GS::B_CULL_THRESHOLD)
+            continue;
+          float t = hs::clamp((b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE, 0.0f,
+                              1.0f);
+          Color4 sample = gs.palette.get(t);
+          expected += sample.color * (sample.alpha * 0.25f);
+        }
+        if (got != expected)
+          ++mismatches;
+      }
+    }
+    Pixel culled = gs.shade_pixel(-1, world_nodes, grid, 0);
+    if (culled != Pixel(0, 0, 0))
+      ++mismatches;
+    return mismatches;
+  }
 };
 
 /**
@@ -743,6 +780,13 @@ inline void test_gs_q16_roundtrip() {
     if (GSWhiteBox::to_q16(GSWhiteBox::from_q16((uint16_t)v)) != (uint16_t)v)
       ++bad;
   HS_EXPECT_EQ(bad, 0);
+}
+
+inline void test_gs_typed_shader_matches_split_path() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  HS_EXPECT_EQ(GSWhiteBox::typed_shader_mismatches(gs), 0);
 }
 
 /**
@@ -4048,6 +4092,7 @@ inline int run_effects_tests() {
   test_mindsplatter_hole_kernel_framebuffer_parity();
   test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
+  test_gs_typed_shader_matches_split_path();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
   // correctness block and the 288x144 production-resolution roster passes below
