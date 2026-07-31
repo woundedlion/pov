@@ -462,10 +462,10 @@ inline void transform_in_place(MeshState &mesh,
 // a closed manifold (require_closed_manifold traps otherwise); kis is per-face;
 // relax tolerates a boundary mesh (partial relaxation).
 //
-// COMPOSITION POLARITY (load-bearing): a composition alternates the ping-pong
-// once per primitive step, so its output lands in the arena that backed the
-// last step's `target` — `temp` for an even-length composition (gyro/needle/
-// zip/bevel), back in `target` for an odd-length one (meta = kda, three steps).
+// COMPOSITION POLARITY: every operator, primitive or composed, returns its
+// output in `target`. A composition alternates the ping-pong once per
+// primitive step, so an even-length composition (gyro/needle/zip/bevel)
+// starts its first step in `temp` to land the last one in `target`.
 //
 // Per-vertex orbit buffers are sized to the max valence (= total half-edges).
 // ---------------------------------------------------------------------------
@@ -1292,13 +1292,13 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
 /**
  * @brief Gyro operator: dual of snub (pentagonal chiral subdivision).
  * @param mesh Source mesh.
- * @param target Arena used as the ping-pong source for the composition.
- * @param temp Arena used as the ping-pong destination for the composition.
- * @return Composed PolyMesh; the output lands in `temp`, not `target` (see
- *   COMPOSITION POLARITY at the top of the operator block).
+ * @param target Arena receiving the output mesh.
+ * @param temp Ping-pong scratch arena for the intermediate step.
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
+ *   the top of the operator block).
  */
 HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
-  return dual(snub(mesh, target, temp), temp, target);
+  return dual(snub(mesh, temp, target), target, temp);
 }
 
 // ---------------------------------------------------------------------------
@@ -1317,11 +1317,10 @@ HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
  * @brief Meta operator (Hart's `m`): kis of dual of ambo (m = kj = kda, j =
  * da).
  * @param mesh Source mesh.
- * @param target Arena used as the ping-pong source for the composition.
- * @param temp Arena used as the ping-pong destination for the composition.
- * @return Composed PolyMesh; being a three-step (odd) composition its output
- *   lands in `target`, like a primitive (see COMPOSITION POLARITY at the top of
- *   the operator block).
+ * @param target Arena receiving the output mesh.
+ * @param temp Ping-pong scratch arena for the intermediate steps.
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
+ *   the top of the operator block).
  */
 HS_COLD static PolyMesh meta(const PolyMesh &mesh, Arena &target, Arena &temp) {
   return kis(dual(ambo(mesh, target, temp), temp, target), target, temp);
@@ -1330,42 +1329,42 @@ HS_COLD static PolyMesh meta(const PolyMesh &mesh, Arena &target, Arena &temp) {
 /**
  * @brief Needle operator: kis of the dual (n = kd).
  * @param mesh Source mesh.
- * @param target Arena used as the ping-pong source for the composition.
- * @param temp Arena used as the ping-pong destination for the composition.
- * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
- *   POLARITY at the top of the operator block).
+ * @param target Arena receiving the output mesh.
+ * @param temp Ping-pong scratch arena for the intermediate step.
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
+ *   the top of the operator block).
  */
 HS_COLD static PolyMesh needle(const PolyMesh &mesh, Arena &target,
                                Arena &temp) {
-  return kis(dual(mesh, target, temp), temp, target);
+  return kis(dual(mesh, temp, target), target, temp);
 }
 
 /**
  * @brief Zip operator: dual of kis, i.e. the truncated dual (z = dk).
  * @param mesh Source mesh.
- * @param target Arena used as the ping-pong source for the composition.
- * @param temp Arena used as the ping-pong destination for the composition.
- * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
- *   POLARITY at the top of the operator block).
+ * @param target Arena receiving the output mesh.
+ * @param temp Ping-pong scratch arena for the intermediate step.
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
+ *   the top of the operator block).
  */
 HS_COLD static PolyMesh zip(const PolyMesh &mesh, Arena &target, Arena &temp) {
-  return dual(kis(mesh, target, temp), temp, target);
+  return dual(kis(mesh, temp, target), target, temp);
 }
 
 /**
  * @brief Bevel operator: truncate of ambo (b = ta).
  * @param mesh Source mesh.
- * @param target Arena used as the ping-pong source for the composition.
- * @param temp Arena used as the ping-pong destination for the composition.
+ * @param target Arena receiving the output mesh.
+ * @param temp Ping-pong scratch arena for the intermediate step.
  * @param t Truncation depth forwarded to the truncate step, in [0..1]. At
  *   exactly 0.5, truncate aliases to ambo, so the composition is ambo(ambo)
  *   with that operator's vertex and face census rather than a true bevel.
- * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
- *   POLARITY at the top of the operator block).
+ * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
+ *   the top of the operator block).
  */
 HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
                               float t = 0.25f) {
-  return truncate(ambo(mesh, target, temp), temp, target, t);
+  return truncate(ambo(mesh, temp, target), target, temp, t);
 }
 
 // TODO: Propeller (Hart's `p`) and whirl/loft are not implemented; their chiral

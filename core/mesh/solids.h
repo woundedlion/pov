@@ -241,11 +241,9 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
  * @brief Fluent builder for chaining Conway operators with automatic arena
  * swapping.
  * @details Each method runs `mesh = op(mesh, output_arena, scratch_arena)` then
- * swaps the two arenas (one swap per call, PRIMITIVE polarity). Even-length
- * composed ops
- * (gyro/needle/zip/bevel) return in `temp` (see COMPOSITION POLARITY in
- * conway.h), shifting the swap parity for one step; odd-length ones (meta)
- * behave like a primitive.
+ * swaps the two arenas; every operator returns its output in the arena passed
+ * as `target` (COMPOSITION POLARITY in conway.h), so after each step the mesh
+ * sits in `scratch_arena` and the next step writes into the other arena.
  *
  * Callers build the seed into `a`, so the first operator reads its input from
  * the arena it writes its output into. That costs peak arena, not correctness:
