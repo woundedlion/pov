@@ -32,6 +32,7 @@
  */
 #pragma once
 
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <vector>
@@ -1174,6 +1175,29 @@ inline float max_component_delta(const Vector &a, const Vector &b) {
                   std::max(std::abs(a.y - b.y), std::abs(a.z - b.z)));
 }
 
+/**
+ * @brief Angle between two near-parallel vectors, below angle_between's floor.
+ * @param a First vector (non-zero).
+ * @param b Second vector (non-zero).
+ * @return The angle in radians.
+ * @details angle_between() reads fast_acos of a float cosine. For vectors this
+ * close that cosine rounds to 1 - k*2^-24, and fast_acos(1 - d) is sqrt(2*d), so
+ * its output quantizes to sqrt(2*k)*2^-12 — 3.4e-4 at k = 1, four orders above
+ * the angle under measurement. Differencing the normalized endpoints in double
+ * keeps the subtraction exact and resolves an angle of 1e-8.
+ */
+inline double small_angle_between(const Vector &a, const Vector &b) {
+  const double ax = a.x, ay = a.y, az = a.z;
+  const double bx = b.x, by = b.y, bz = b.z;
+  const double na = std::sqrt(ax * ax + ay * ay + az * az);
+  const double nb = std::sqrt(bx * bx + by * by + bz * bz);
+  const double dx = ax / na - bx / nb;
+  const double dy = ay / na - by / nb;
+  const double dz = az / na - bz / nb;
+  const double chord = std::sqrt(dx * dx + dy * dy + dz * dz);
+  return 2.0 * std::asin(std::min(1.0, chord / 2.0));
+}
+
 /** @brief Bounds one-step signed-axis physics against the generic path. */
 inline void test_particle_system_signed_axis_one_step_equivalence() {
   constexpr int COUNT = 256;
@@ -1216,7 +1240,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
   HS_EXPECT_EQ(reference.active(), specialized.active());
   float max_position_error = 0.0f;
   float max_velocity_error = 0.0f;
-  float max_angle_error = 0.0f;
+  double max_angle_error = 0.0;
   float max_norm_drift = 0.0f;
   for (size_t i = 0; i < reference.active(); ++i) {
     const auto &a = reference.pool[i];
@@ -1228,7 +1252,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
     max_velocity_error = std::max(max_velocity_error,
                                   max_component_delta(a.velocity, b.velocity));
     max_angle_error =
-        std::max(max_angle_error, angle_between(a.position, b.position));
+        std::max(max_angle_error, small_angle_between(a.position, b.position));
     max_norm_drift =
         std::max(max_norm_drift, std::abs(dot(a.position, a.position) - 1.0f));
   }
@@ -1236,9 +1260,15 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
               "norm=%.9g\n",
               reference.active(), max_position_error, max_velocity_error,
               max_angle_error, max_norm_drift);
-  HS_EXPECT_LE(max_position_error, 2e-7f);
-  HS_EXPECT_LE(max_velocity_error, 2e-7f);
-  HS_EXPECT_LE(max_angle_error, 1e-6f);
+  // The angle bound is the component bound, not a free constant: two vectors
+  // whose components agree to COMPONENT_BOUND lie at most sqrt(3)*COMPONENT_BOUND
+  // of chord apart, and normalizing each endpoint can move it by that chord
+  // again, so the angle cannot exceed twice that.
+  constexpr float COMPONENT_BOUND = 2e-7f;
+  const double angle_bound = 2.0 * std::sqrt(3.0) * COMPONENT_BOUND;
+  HS_EXPECT_LE(max_position_error, COMPONENT_BOUND);
+  HS_EXPECT_LE(max_velocity_error, COMPONENT_BOUND);
+  HS_EXPECT_LE(max_angle_error, angle_bound);
 }
 
 /** @brief Pins signed-axis kill, horizon, and cross-axis fallback boundaries. */
