@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Host tests for profile_one.sh configuration verification."""
 
+import hashlib
 import re
 import subprocess
 import tempfile
@@ -20,13 +21,23 @@ def shell_function(name):
     return match.group(0)
 
 
-def verify_log(text, expected="o3"):
+def verify_log(text, expected="o3", provenance=True):
     with tempfile.TemporaryDirectory() as directory:
+        artifact = Path(directory) / "firmware.elf"
+        artifact.write_bytes(b"profile firmware")
+        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        if provenance:
+            text += (
+                "profile provenance: version=1\n"
+                f"profile provenance: profile_elf_sha256={digest}\n"
+                f"profile provenance: artifact_profile_elf={artifact.as_posix()}\n"
+            )
         log = Path(directory) / "capture.log"
         log.write_text(text, encoding="utf-8")
         script = (
             "set -e\n"
             f"{shell_function('verify')}\n"
+            f"{shell_function('file_sha256')}\n"
             'OUT=$1; EFFECT=Fx; TAG=$2; MARKER=""\n'
             "verify\n"
         )
@@ -43,6 +54,31 @@ def capture_log(config):
         "f_cpu=600000000\n"
         "f 1 w=100 r=90\n"
         "=== profile Fx [288x144] frames 1-1 window=100 us ===\n"
+    )
+
+
+def attest_toolchains(profile_compiler, phantasm_compiler):
+    script = (
+        f"{shell_function('assert_matching_toolchains')}\n"
+        "elf_compiler() {\n"
+        '  if [ "$1" = profile.elf ]; then\n'
+        f"    echo '{profile_compiler}'\n"
+        "  else\n"
+        f"    echo '{phantasm_compiler}'\n"
+        "  fi\n"
+        "}\n"
+        "elf_abi() { echo 'Tag_CPU_name: 7E-M'; }\n"
+        "package_fingerprint() { echo 'toolchain 15.2.1'; }\n"
+        "PROFILE_ELF=profile.elf\n"
+        "PHANTASM_ELF=phantasm.elf\n"
+        "PROFILE_BUILD_LOG=profile.log\n"
+        "PHANTASM_BUILD_LOG=phantasm.log\n"
+        "assert_matching_toolchains\n"
+    )
+    return subprocess.run(
+        ["bash", "-c", script],
+        capture_output=True,
+        text=True,
     )
 
 
@@ -98,20 +134,62 @@ class ProfileConfigVerification(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("NO CONFIG TAG", result.stdout)
 
-    def test_platformio_failure_survives_tail_pipeline(self):
-        source = PROFILE_ONE.read_text(encoding="utf-8")
-        set_line = re.search(r"(?m)^set .+$", source).group(0)
+    def test_missing_provenance_fails(self):
+        result = verify_log(capture_log("o3"), provenance=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("NO/INVALID PROFILE PROVENANCE", result.stdout)
+
+    def test_artifact_hash_mismatch_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifact = Path(directory) / "firmware.elf"
+            artifact.write_bytes(b"profile firmware")
+            text = capture_log("o3") + (
+                "profile provenance: version=1\n"
+                f"profile provenance: profile_elf_sha256={'0' * 64}\n"
+                f"profile provenance: artifact_profile_elf={artifact.as_posix()}\n"
+            )
+            log = Path(directory) / "capture.log"
+            log.write_text(text, encoding="utf-8")
+            script = (
+                "set -e\n"
+                f"{shell_function('verify')}\n"
+                f"{shell_function('file_sha256')}\n"
+                'OUT=$1; EFFECT=Fx; TAG=o3; MARKER=""\n'
+                "verify\n"
+            )
+            result = subprocess.run(
+                ["bash", "-c", script, "profile-test", str(log)],
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("PROFILE ARTIFACT HASH MISMATCH", result.stdout)
+
+    def test_platformio_failure_propagates_from_build(self):
         script = (
-            f"{set_line}\n"
             "pio() { return 23; }\n"
-            f"{shell_function('flash')}\n"
-            'HS_TEENSY_PORT=""; ENV=profile\n'
-            "flash\n"
+            f"{shell_function('build_image')}\n"
+            "build_image profile $1\n"
         )
-        result = subprocess.run(
-            ["bash", "-c", script], capture_output=True, text=True
-        )
-        self.assertEqual(result.returncode, 23)
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "build.log"
+            result = subprocess.run(
+                ["bash", "-c", script, "profile-test", str(log)],
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(result.returncode, 0)
+
+
+class ToolchainAttestation(unittest.TestCase):
+    def test_matching_compiler_passes(self):
+        result = attest_toolchains("GCC 15.2.1", "GCC 15.2.1")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_compiler_mismatch_fails_before_flash(self):
+        result = attest_toolchains("GCC 11.3.1", "GCC 15.2.1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("compiler mismatch", result.stdout)
 
 
 if __name__ == "__main__":
