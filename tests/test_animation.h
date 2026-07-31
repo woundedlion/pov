@@ -2595,11 +2595,21 @@ inline void test_random_walk_stays_unit_and_travels() {
 }
 
 /**
- * @brief Stable rotation boundaries preserve the seeded RandomWalk trajectory.
+ * @brief Stable rotation boundaries hold the seeded RandomWalk trajectory.
  */
-inline void test_random_walk_stable_rotation_matches_default() {
+inline void test_random_walk_stable_rotation_tracks_default() {
   using DefaultWalk = Animation::RandomWalk<288, 4>;
   using StableWalk = Animation::RandomWalk<288, 4, true>;
+  constexpr int FRAMES = 50;
+  // Both walks push identical operands through identical rotation arithmetic and
+  // differ only in whether the compiler may optimize across the rotation
+  // helper's call boundary — the one thing STABLE_ROTATION exists to forbid, and
+  // worth about a float ULP per component under the shipping -ffast-math. The
+  // orientation advances by composing unit quaternions, which is norm-preserving,
+  // and the walk's noise feedback carries unit gain (the 100x sample scale times
+  // noise_scale times pivot_strength times 1 - smoothing), so those ULPs add
+  // instead of amplifying: FRAMES of them across the window.
+  constexpr float DRIFT_BOUND = FRAMES * std::numeric_limits<float>::epsilon();
 
   Orientation<4> default_orientation;
   Orientation<4> stable_orientation;
@@ -2610,15 +2620,15 @@ inline void test_random_walk_stable_rotation_matches_default() {
   StableWalk stable_walk(stable_orientation, Y_AXIS, stable_noise,
                          StableWalk::Options::Energetic(), /*seed=*/1234);
 
-  for (int frame = 0; frame < 50; ++frame) {
+  for (int frame = 0; frame < FRAMES; ++frame) {
     default_walk.step(fake_canvas());
     stable_walk.step(fake_canvas());
     const Quaternion &expected = default_orientation.get();
     const Quaternion &actual = stable_orientation.get();
-    HS_EXPECT_EQ(actual.r, expected.r);
-    HS_EXPECT_EQ(actual.v.x, expected.v.x);
-    HS_EXPECT_EQ(actual.v.y, expected.v.y);
-    HS_EXPECT_EQ(actual.v.z, expected.v.z);
+    HS_EXPECT_NEAR(actual.r, expected.r, DRIFT_BOUND);
+    HS_EXPECT_NEAR(actual.v.x, expected.v.x, DRIFT_BOUND);
+    HS_EXPECT_NEAR(actual.v.y, expected.v.y, DRIFT_BOUND);
+    HS_EXPECT_NEAR(actual.v.z, expected.v.z, DRIFT_BOUND);
   }
 }
 
@@ -2885,7 +2895,7 @@ inline int run_animation_tests() {
   test_noise_publishes_time_and_is_perpetual();
 
   test_random_walk_stays_unit_and_travels();
-  test_random_walk_stable_rotation_matches_default();
+  test_random_walk_stable_rotation_tracks_default();
 
   test_random_timer_fires_within_range();
   test_one_shot_timer_ends_by_completion_not_cancel();
