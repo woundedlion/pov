@@ -272,6 +272,10 @@ add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(relax_bake_verify PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_VERIFY)
+# IEEE float semantics whatever the build's global flags are: the committed
+# payload is a host-IEEE-captured constant, and live fast-math arithmetic does
+# not reproduce its bits. The device loads the payload, it never re-derives it.
+target_compile_options(relax_bake_verify PRIVATE -fno-fast-math)
 target_include_directories(relax_bake_verify PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 _hs_warnings(relax_bake_verify)
 _hs_sanitize(relax_bake_verify)
@@ -284,6 +288,9 @@ add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
 add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp
   ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(relax_bake_gen PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_EXTRACT)
+# Same IEEE pin as the verifier above: the two halves must share float semantics
+# or generation emits payloads the gate rejects.
+target_compile_options(relax_bake_gen PRIVATE -fno-fast-math)
 target_include_directories(relax_bake_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 _hs_warnings(relax_bake_gen)
 
