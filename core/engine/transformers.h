@@ -151,7 +151,8 @@ public:
    * are compacted normally; pinning them would trap on routine completion.
    */
   template <typename... Args> AnimT *spawn(int in_frames, Args &&...args) {
-    return spawn_impl(/*pin=*/false, in_frames, std::forward<Args>(args)...);
+    return spawn_impl(Timeline::Pin::UNPINNED, in_frames,
+                      std::forward<Args>(args)...);
   }
 
   /**
@@ -171,7 +172,8 @@ public:
    */
   template <typename... Args>
   AnimT *spawn_pinned(int in_frames, Args &&...args) {
-    return spawn_impl(/*pin=*/true, in_frames, std::forward<Args>(args)...);
+    return spawn_impl(Timeline::Pin::PINNED, in_frames,
+                      std::forward<Args>(args)...);
   }
 
 protected:
@@ -227,7 +229,7 @@ private:
    * timeline event is available.
    */
   template <typename... Args>
-  AnimT *spawn_impl(bool pin, int in_frames, Args &&...args) {
+  AnimT *spawn_impl(Timeline::Pin pin, int in_frames, Args &&...args) {
     HS_CHECK(entities, "TransformerPool: call init_storage() before spawn");
     // Linear scan for a free slot (cold path).
     for (int idx = 0; idx < CAPACITY; ++idx) {
@@ -247,7 +249,7 @@ private:
           // infinite one never reaches done() and a repeating one rewinds instead
           // of being removed, so either would hold its slot for the effect's life
           // (nullptr after CAPACITY spawns) — use spawn_pinned.
-          if (!pin)
+          if (pin == Timeline::Pin::UNPINNED)
             HS_CHECK(p->is_finite() && !p->repeats(),
                      "Transformer::spawn needs a finite, non-repeating "
                      "animation; infinite or repeating spawns leak their pool "
@@ -259,7 +261,7 @@ private:
           //     live through p to tell a removal from a mid-repeat post fire.
           //   - Non-pinned: p must not be retained (step() compacts the event),
           //     and the HS_CHECK above pins repeats() false, so fire once at done().
-          if (pin) {
+          if (pin == Timeline::Pin::PINNED) {
             p->then([this, idx, p]() {
               if (!p->repeats()) {
                 entities[idx].active = false;
