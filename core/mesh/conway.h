@@ -1136,8 +1136,10 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
 }
 
 /**
- * @brief Replaces a deterministic relax pass with its exact flash-baked
- * result.
+ * @brief Replaces a relax pass with a host-captured payload of its result.
+ * @details The payload's vertex bits are loaded verbatim on host and device;
+ * neither recomputes them, so neither platform's own arithmetic has to
+ * reproduce them.
  * @param mesh Source mesh; its dimensions and connectivity must match the bake,
  * and its face list is copied through to the output. Source vertex positions are
  * not checked, so a bake replays onto any mesh carrying the baked connectivity —
