@@ -748,11 +748,13 @@ struct DistortedRingStack {
    * the frame's polar angle by arithmetic (the stack is evenly spaced), and
    * each candidate runs its own cos reject + exact polyline distance via
    * SDF::DistortedRing::distance_from_frame. Candidates evaluate in ascending
-   * ring index, so per-pixel blend order — and therefore output — is
-   * bit-identical to rasterizing the rings one by one at
-   * pole_lod_aggressiveness 0; only the redundant per-ring frame recompute is
-   * elided. This scan shades every column, so a non-zero aggressiveness, which
-   * decimates the per-ring scan_region walk, breaks that equivalence. The
+   * ring index, so the pixels plotted, their per-pixel blend order and their
+   * colors match rasterizing the rings one by one at pole_lod_aggressiveness 0;
+   * only the redundant per-ring frame recompute is elided. Blend weights match
+   * to float rounding, not bit-exactly: the shared arithmetic is spelled once
+   * but inlined into two different loops, which -ffast-math reassociates
+   * independently. This scan shades every column, so a non-zero aggressiveness,
+   * which decimates the per-ring scan_region walk, breaks that equivalence. The
    * aliased exact-pole rows are dropped, matching the per-ring path under
    * suppress_pole_fill.
    */
