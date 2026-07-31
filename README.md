@@ -162,6 +162,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── core/                       Rendering engine
 │   ├── engine/                 Machinery: platform layer, memory, callables, rosters, effect support
 │   │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
+│   │   ├── platform_arduino_mocks.h Off-device emulation of the Arduino/FastLED API
 │   │   ├── constants.h             MAX_W, MAX_H + ClipRegion segment clip rectangle
 │   │   ├── engine.h                Engine API umbrella — included by every effect
 │   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
@@ -479,6 +480,8 @@ The `platform.h` header abstracts all target-specific differences:
 | `hs::rand_f()` | `Pcg32(1337)` | `Pcg32(1337)` |
 | `hs::disable_interrupts()` | `noInterrupts()` | No-op |
 | `CRGB`, `CHSV` | FastLED types | Struct mocks |
+
+The host-side mock implementations — the `CRGB`/`CHSV` structs plus the rest of the emulated Arduino/FastLED surface (`random8`, `beatsin8`, `SerialMock`, …) — live in `platform_arduino_mocks.h`, included from `platform.h`'s non-Arduino branch.
 
 ---
 
