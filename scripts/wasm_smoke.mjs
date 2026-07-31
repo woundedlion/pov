@@ -17,7 +17,7 @@ const jsArg = process.argv[2] || process.env.WASM_JS || DEFAULT_JS;
 const jsPath = isAbsolute(jsArg) ? jsArg : join(process.cwd(), jsArg);
 
 // CI overrides via WASM_SMOKE_FRAMES to reach late-lifecycle events the
-// 3-frame default never hits (frame-48 ShapeShifter cut, arena compaction).
+// 3-frame default never hits late lifecycle events such as arena compaction.
 const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 3);
 
 // The stack has no allocator trap and stack_high_water_mark() saturates at

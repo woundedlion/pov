@@ -140,7 +140,7 @@ struct TestModule {
   X("pov_single", hs_test::pov_single_tests::run_pov_single_tests, 8640)       \
   X("pov_sync", hs_test::pov_sync_tests::run_pov_sync_tests, 2009)             \
   X("param_marshal", hs_test::param_marshal_tests::run_param_marshal_tests,    \
-    1167)                                                                      \
+    1158)                                                                      \
   X("wasm_predicates",                                                         \
     hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 128)            \
   X("util", hs_test::util_tests::run_util_tests, 288)                          \

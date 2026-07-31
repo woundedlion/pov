@@ -8,297 +8,240 @@
 #include "core/engine/engine.h"
 
 /**
- * @brief Renders concentric rings of a morphing shape in Plot and Scan modes.
+ * @brief Draws phase-modulated concentric shapes across the sphere.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Draws nested rings of a polygon/flower/star shape in both the Plot
- * and Scan render modes, cycling the shape type and tumbling the camera.
+ * @details Evenly spaced Plot primitives share a center and sample a selectable
+ * waveform at successive radii, producing an animated radial twist.
  */
 template <int W, int H> class ShapeShifter : public Effect {
 public:
-  /**
-   * @brief Shape primitives this effect can morph between.
-   */
-  enum class ShapeType { PlanarPolygon, SphericalPolygon, Flower, Star };
-  /**
-   * @brief Number of shape primitives; Star is the last ShapeType enumerator.
-   */
-  static constexpr int NUM_SHAPES = static_cast<int>(ShapeType::Star) + 1;
-  /**
-   * @brief Rasterization paths a ring can be drawn through.
-   */
-  enum class RenderMode { Plot, Scan };
+  /** @brief Plot primitives available through the Shape slider. */
+  enum class ShapeType { PLANAR_POLYGON, SPHERICAL_POLYGON, FLOWER, STAR };
 
-  /**
-   * @brief Maximum rings the raster can resolve: one per row. Rings spaced finer
-   * than a row apart collapse, so this bounds both the Count slider and draw_all.
-   */
-  static constexpr int MAX_RINGS = H > 1 ? H : 1;
+  /** @brief Waveforms available through the Function slider. */
+  enum class PhaseFunction { SINE, TRIANGLE, SAWTOOTH, SQUARE };
 
-  /**
-   * @brief Constructs the effect on a WxH canvas.
-   * @details Starts on the planar polygon shape.
-   */
+  static constexpr int NUM_SHAPES = static_cast<int>(ShapeType::STAR) + 1;
+  static constexpr int NUM_FUNCTIONS =
+      static_cast<int>(PhaseFunction::SQUARE) + 1;
+  static constexpr int MAX_SHAPES = H > 75 ? H : 75;
+
+  /** @brief Constructs the Plot-only effect on a WxH canvas. */
   HS_COLD_MEMBER ShapeShifter()
       : Effect(W, H,
                {.strobe = true,
-                .full_frame = decltype(plot_filters)::any_crosses_segments ||
-                              decltype(scan_filters)::any_crosses_segments,
+                .full_frame = decltype(plot_filters)::any_crosses_segments,
                 .reads_outside_band =
-                    decltype(plot_filters)::any_reads_outside_band ||
-                    decltype(scan_filters)::any_reads_outside_band,
-                .margin = decltype(plot_filters)::max_segment_margin >
-                                  decltype(scan_filters)::max_segment_margin
-                              ? decltype(plot_filters)::max_segment_margin
-                              : decltype(scan_filters)::max_segment_margin}),
-        current_shape(ShapeType::PlanarPolygon) {}
+                    decltype(plot_filters)::any_reads_outside_band,
+                .margin = decltype(plot_filters)::max_segment_margin}) {}
 
-  /**
-   * @brief Registers tunable params and builds the animation timeline.
-   */
+  /** @brief Loads the initial preset and registers its fields as GUI sliders. */
   void init() override {
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Count", &params.num_shapes, 1.0f,
-                   static_cast<float>(MAX_RINGS));
-    register_param("Radius", &params.radius, 0.1f, 2.0f);
-    register_param("Sides", &params.sides, 3.0f, 12.0f);
-    register_animated_param("Twist", &params.twist, -5.0f, 5.0f);
-    register_param("Debug BB", &params.debug_bb);
+    params = presets.get();
+
+    register_animated_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
+    register_animated_param("Shape", &params.shape, 0.0f,
+                            static_cast<float>(NUM_SHAPES - 1));
+    register_animated_param("Count", &params.count, 1.0f,
+                            static_cast<float>(MAX_SHAPES));
+    register_animated_param("Sides", &params.sides, SIDES_MIN, SIDES_MAX);
+    register_animated_param("Function", &params.function, 0.0f,
+                            static_cast<float>(NUM_FUNCTIONS - 1));
+    register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
-    build();
+    timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
+                                             hs::rand_int(0, 65536)));
+    next_preset();
   }
 
-  /**
-   * @brief Advances the shape type every 48 frames (unless paused), then steps
-   *        the timeline.
-   * @details "Pause Animation" freezes the shape cycle and the twist Mutation;
-   *        the camera and orientation rotations keep running.
-   */
+  /** @brief Advances the waveform and draws the full radial shape stack. */
   void draw_frame() override {
-    Canvas canvas(*this);
-
-    if (!anims_paused) {
-      // Wrap at the 48-frame cycle period to keep the counter bounded.
-      frame_count = (frame_count + 1) % 48;
-      if (frame_count == 0) {
-        int next = (static_cast<int>(current_shape) + 1) % NUM_SHAPES;
-        current_shape = static_cast<ShapeType>(next);
-        hs::log("Shape: %d/%d", next, NUM_SHAPES);
-      }
-    }
-
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(ss_buffer_wait);
+      return Canvas(*this);
+    }();
     {
       HS_PROFILE(ss_timeline_step);
       timeline.step(canvas);
     }
+    phase = wrap_t(phase + params.speed);
+    draw_all(canvas);
   }
 
 private:
-  /**
-   * @brief Builds a fixed five-slot timeline independent of the Count param.
-   * @details The slots are the camera tumble, the twist Mutation, two shared
-   * orientation tumbles (one per render mode), and a single draw event that
-   * walks the live Count each frame. All rings of a mode share one orientation,
-   * so Count scales to the raster budget rather than the 64-slot timeline
-   * budget.
-   */
-  HS_COLD_MEMBER void build() {
-    timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, {},
-                                             hs::rand_int(0, 65536)));
+  static constexpr float ALPHA_MIN = 0.0f;
+  static constexpr float ALPHA_MAX = 1.0f;
+  static constexpr float SIDES_MIN = 3.0f;
+  static constexpr float SIDES_MAX = 16.0f;
+  static constexpr float SPEED_MIN = 0.0f;
+  static constexpr float SPEED_MAX = 0.1f;
+  static constexpr float PHASE_AMPLITUDE = 1.0f;
+  static constexpr int PRESET_FRAMES = 240;
 
-    timeline.add(0, Animation::Mutation(
-                        params.twist,
-                        [](float t) { return (PI_F / 4.0f) * sinf(t * PI_F); },
-                        480, ease_linear, true, &anims_paused));
+  /** @brief Tunable rendering state stored by each preset. */
+  struct Params {
+    float alpha;
+    float shape;
+    float count;
+    float sides;
+    float function;
+    float speed;
 
-    // Shared tumbles: every Plot ring rides plot_orient (+X), every Scan ring
-    // rides scan_orient (-X).
-    timeline.add(0, Animation::Rotation<W>(plot_orient, X_AXIS, 2 * PI_F, 160,
-                                           ease_linear, true,
-                                           Animation::Space::Local));
-    timeline.add(0, Animation::Rotation<W>(scan_orient, -X_AXIS, 2 * PI_F, 160,
-                                           ease_linear, true,
-                                           Animation::Space::Local));
+    /** @brief Interpolates every preset field from a to b. */
+    void lerp(const Params &a, const Params &b, float t) {
+      alpha = hs::lerp(a.alpha, b.alpha, t);
+      shape = hs::lerp(a.shape, b.shape, t);
+      count = hs::lerp(a.count, b.count, t);
+      sides = hs::lerp(a.sides, b.sides, t);
+      function = hs::lerp(a.function, b.function, t);
+      speed = hs::lerp(a.speed, b.speed, t);
+    }
+  };
 
-    // Single draw event reading Count live. Added last so it steps after the
-    // rotations have collapsed.
-    timeline.add(0, Animation::Sprite(
-                        [this](Canvas &canvas, float) { draw_all(canvas); }, -1,
-                        0, ease_linear, 0, ease_linear));
+  /** @brief Advances to the next preset and schedules a continuous blend. */
+  void next_preset() {
+    presets.next();
+    timeline.add(0,
+                 Animation::Lerp(params, presets.prev_get(), presets.get(),
+                                 PRESET_FRAMES, ease_in_out_sin, &anims_paused)
+                     .then([this]() { next_preset(); }));
   }
 
   /**
-   * @brief Draws all Count rings, outermost first, in both Plot and Scan modes.
-   * @param canvas Target canvas the rings are rasterized onto.
-   * @details Computes the shared per-mode basis once per frame (all rings of a
-   * mode share orientation and a fixed normal) instead of once per ring.
+   * @brief Draws the selected shape at equally spaced midpoint radii.
+   * @param canvas Target canvas.
    */
   void draw_all(Canvas &canvas) {
     HS_PROFILE(ss_draw_all);
-    int count = static_cast<int>(params.num_shapes);
-    if (count < 1)
-      count = 1;
-    if (count > MAX_RINGS)
-      count = MAX_RINGS;
-
-    Quaternion cam_q = camera.get();
-    Basis plot_basis = make_basis(cam_q * plot_orient.get(), X_AXIS);
-    Basis scan_basis = make_basis(cam_q * scan_orient.get(), -X_AXIS);
+    const int count = hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES);
+    const int sides =
+        hs::clamp(static_cast<int>(params.sides), static_cast<int>(SIDES_MIN),
+                  static_cast<int>(SIDES_MAX));
+    const ShapeType shape = selected_shape();
+    const PhaseFunction function = selected_function();
+    const Basis basis = make_basis(orientation.get(), X_AXIS);
 
     for (int i = count - 1; i >= 0; --i) {
-      // (i+1)/count maps layers to (0, 1]; i/(count-1) would give the i=0 layer
-      // radius 0 and render nothing at Count=1.
-      float t = static_cast<float>(i + 1) / count;
-      Color4 color = baked_sunset.get(t);
-      draw_ring(canvas, plot_basis, RenderMode::Plot, t, color, i);
-      draw_ring(canvas, scan_basis, RenderMode::Scan, t, color, i);
-    }
-  }
+      const float radius_t =
+          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+      const float radius = 2.0f * radius_t;
+      const float shape_phase =
+          PHASE_AMPLITUDE * evaluate(function, radius_t + phase);
+      const Color4 color = baked_sunset.get(radius_t);
 
-  /**
-   * @brief Draws one ring through the current shape's Plot or Scan renderer.
-   * @param canvas Target canvas the ring is rasterized onto.
-   * @param basis Shared orientation basis for this render mode.
-   * @param mode Whether to dispatch to the Plot or Scan renderer.
-   * @param scale Radius scale factor in [0, 1] for this layer.
-   * @param color Base palette color for the ring, before alpha modulation.
-   * @param layer_index Layer ordinal; scales the per-layer twist phase.
-   * @details Scales the radius by `scale`, twists the ring by its layer index,
-   * and applies a per-fragment alpha shader.
-   */
-  void draw_ring(Canvas &canvas, const Basis &basis, RenderMode mode,
-                 float scale, const Color4 &color, int layer_index) {
-    float phase = layer_index * this->params.twist;
-    float r = this->params.radius * scale;
-    // radius 2 is a point at the antipode (the fold hands the SDFs radius 0)
-    if (r >= 2.0f)
-      return;
-    int sides_int = (int)params.sides;
-    if (mode == RenderMode::Plot) {
-      HS_PROFILE(ss_plot_dispatch);
-      auto fragment_shader = [&](const Vector &, Fragment &f) {
-        Color4 c = color;
-        c.alpha = c.alpha * this->params.alpha;
-        f.color = c;
+      auto shader = [&](const Vector &, Fragment &fragment) {
+        fragment.color = color;
+        fragment.color.alpha *= params.alpha;
       };
-      dispatch_plot(canvas, basis, r, sides_int, fragment_shader, phase);
-    } else {
-      HS_PROFILE(ss_scan_dispatch);
-      Color4 scan_color = color;
-      scan_color.alpha *= params.alpha;
-      dispatch_scan(canvas, basis, r, sides_int, scan_color, phase);
+      dispatch_plot(canvas, basis, shape, radius, sides, shader, shape_phase);
     }
   }
 
+  /** @brief Returns the nearest valid Shape slider selection. */
+  ShapeType selected_shape() const {
+    const int selected =
+        hs::clamp(static_cast<int>(params.shape + 0.5f), 0, NUM_SHAPES - 1);
+    return static_cast<ShapeType>(selected);
+  }
+
+  /** @brief Returns the nearest valid Function slider selection. */
+  PhaseFunction selected_function() const {
+    const int selected = hs::clamp(static_cast<int>(params.function + 0.5f), 0,
+                                   NUM_FUNCTIONS - 1);
+    return static_cast<PhaseFunction>(selected);
+  }
+
   /**
-   * @brief Plot-rasterizes the current shape type.
+   * @brief Samples a phase waveform.
+   * @param function Waveform to sample.
+   * @param t Phase in turns.
+   * @return Waveform value in [-1, 1].
+   */
+  static float evaluate(PhaseFunction function, float t) {
+    const float wrapped = t - floorf(t);
+    switch (function) {
+    case PhaseFunction::SINE:
+      return sinf(2.0f * PI_F * wrapped);
+    case PhaseFunction::TRIANGLE:
+      return 1.0f - 4.0f * fabsf(wrapped - 0.5f);
+    case PhaseFunction::SAWTOOTH:
+      return 2.0f * wrapped - 1.0f;
+    case PhaseFunction::SQUARE:
+      return wrapped < 0.5f ? 1.0f : -1.0f;
+    }
+    return 0.0f;
+  }
+
+  /**
+   * @brief Plot-rasterizes one selected primitive.
    * @tparam F Fragment-shader callable type.
-   * @param canvas Target canvas the shape is rasterized onto.
-   * @param basis Orientation basis for the shape.
-   * @param r Ring radius in world units.
-   * @param sides_int Polygon/flower/star side count.
-   * @param fragment_shader Per-fragment shader callable.
-   * @param phase Per-layer twist phase in radians.
-   * @details Marked noinline to curb code bloat from the per-shape template
-   * instantiation.
+   * @param canvas Target canvas.
+   * @param basis Shared shape basis.
+   * @param shape Primitive to draw.
+   * @param radius Shape radius in [0, 2].
+   * @param sides Polygon side, flower petal, or star point count.
+   * @param fragment_shader Per-fragment shader.
+   * @param shape_phase Primitive rotation in radians.
    */
   template <typename F>
   __attribute__((noinline)) void
-  dispatch_plot(Canvas &canvas, const Basis &basis, float r, int sides_int,
-                const F &fragment_shader, float phase) {
-    switch (current_shape) {
-    case ShapeType::Flower:
-      Plot::Flower::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
-                               fragment_shader, {}, phase);
+  dispatch_plot(Canvas &canvas, const Basis &basis, ShapeType shape,
+                float radius, int sides, const F &fragment_shader,
+                float shape_phase) {
+    HS_PROFILE(ss_plot_dispatch);
+    switch (shape) {
+    case ShapeType::PLANAR_POLYGON:
+      Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, radius,
+                                      sides, fragment_shader, shape_phase);
       break;
-    case ShapeType::Star:
-      Plot::Star::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
-                             fragment_shader, phase);
+    case ShapeType::SPHERICAL_POLYGON:
+      Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, radius,
+                                         sides, fragment_shader, shape_phase);
       break;
-    case ShapeType::PlanarPolygon:
-      Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
-                                      fragment_shader, phase);
+    case ShapeType::FLOWER:
+      Plot::Flower::draw<W, H>(plot_filters, canvas, basis, radius, sides,
+                               fragment_shader, {}, shape_phase);
       break;
-    case ShapeType::SphericalPolygon:
-      Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, r,
-                                         sides_int, fragment_shader, phase);
-      break;
-    }
-  }
-
-  /**
-   * @brief Scan-rasterizes the current shape type.
-   * @param canvas Target canvas the shape is rasterized onto.
-   * @param basis Orientation basis for the shape.
-   * @param r Ring radius in world units.
-   * @param sides_int Polygon/flower/star side count.
-   * @param color Constant source color and alpha.
-   * @param phase Per-layer twist phase in radians.
-   * @details Marked noinline to curb code bloat from the per-shape template
-   * instantiation.
-   */
-  __attribute__((noinline)) void
-  dispatch_scan(Canvas &canvas, const Basis &basis, float r, int sides_int,
-                const Color4 &color, float phase) {
-    switch (current_shape) {
-    case ShapeType::Flower:
-      Scan::Flower::draw_solid<W, H>(scan_filters, canvas, basis, r, sides_int,
-                                     color, phase, params.debug_bb);
-      break;
-    case ShapeType::Star:
-      Scan::Star::draw_solid<W, H>(scan_filters, canvas, basis, r, sides_int,
-                                   color, phase, params.debug_bb);
-      break;
-    case ShapeType::PlanarPolygon:
-      Scan::PlanarPolygon::draw_solid<W, H>(scan_filters, canvas, basis, r,
-                                            sides_int, color, phase,
-                                            params.debug_bb);
-      break;
-    case ShapeType::SphericalPolygon:
-      Scan::SphericalPolygon::draw_solid<W, H, true>(scan_filters, canvas,
-                                                     basis, r, sides_int, color,
-                                                     phase, params.debug_bb);
+    case ShapeType::STAR:
+      Plot::Star::draw<W, H>(plot_filters, canvas, basis, radius, sides,
+                             fragment_shader, shape_phase);
       break;
     }
   }
 
-  FastNoiseLite noise;  /**< Noise source driving the camera RandomWalk. */
-  Orientation<> camera; /**< Global camera orientation, tumbled each frame. */
-  /**
-   * @brief Shared Plot-mode tumble orientation; every Plot ring rides it.
-   * @details Declared before `timeline` so it outlives the Rotations that point
-   * here, which ~Timeline clears on teardown.
-   */
-  Orientation<> plot_orient;
-  /**
-   * @brief Shared Scan-mode tumble orientation; every Scan ring rides it.
-   * @details Declared before `timeline` so it outlives the Rotations that point
-   * here, which ~Timeline clears on teardown.
-   */
-  Orientation<> scan_orient;
-  Timeline timeline; /**< Fixed five-slot animation timeline. */
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
-      plot_filters; /**< Anti-aliased filter pipeline for Plot mode. */
-  Pipeline<W, H> scan_filters; /**< Filter pipeline for Scan mode. */
-  BakedPalette baked_sunset;   /**< LUT-baked RICH_SUNSET sampled per layer. */
+  static constexpr std::array<PresetEntry<Params>, 3> PRESETS = {{
+      {{0.5f, 1.017f, 74.644997f, 3.0f, 0.0f, 0.0318f}},
+      {{0.5f, 2.793f, 43.327999f, 6.562f, 0.0f, 0.0142f}},
+      {{0.5f, 1.872f, 70.0f, 3.0f, 0.0f, 0.0186f}},
+  }};
 
-  ShapeType current_shape; /**< Shape currently being rendered. */
-  int frame_count =
-      0; /**< Frame phase in [0, 48) — gates shape cycling; never overflows. */
+  static constexpr bool preset_in_ranges(const Params &preset) {
+    return preset.alpha >= ALPHA_MIN && preset.alpha <= ALPHA_MAX &&
+           preset.shape >= 0.0f &&
+           preset.shape <= static_cast<float>(NUM_SHAPES - 1) &&
+           preset.count >= 1.0f &&
+           preset.count <= static_cast<float>(MAX_SHAPES) &&
+           preset.sides >= SIDES_MIN && preset.sides <= SIDES_MAX &&
+           preset.function >= 0.0f &&
+           preset.function <= static_cast<float>(NUM_FUNCTIONS - 1) &&
+           preset.speed >= SPEED_MIN && preset.speed <= SPEED_MAX;
+  }
 
-  /**
-   * @brief Tunable rendering parameters exposed to the GUI.
-   */
-  struct Params {
-    float alpha = 0.5f; /**< Global alpha multiplier in [0, 1]. */
-    float num_shapes =
-        std::min(7.0f, static_cast<float>(MAX_RINGS)); /**< Ring count. */
-    float radius = 1.0f;   /**< Outermost ring radius in world units. */
-    float sides = 5.0f;    /**< Polygon/flower/star side count. */
-    float twist = 0.0f;    /**< Per-layer twist phase in radians. */
-    bool debug_bb = false; /**< Draw Scan bounding boxes when true. */
-  } params;
+  static_assert(preset_in_ranges(PRESETS[0].params) &&
+                    preset_in_ranges(PRESETS[1].params) &&
+                    preset_in_ranges(PRESETS[2].params),
+                "ShapeShifter preset is outside a registered slider range");
+
+  FastNoiseLite noise;
+  Orientation<> orientation;
+  Timeline timeline;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
+  BakedPalette baked_sunset;
+  Presets<Params, 3> presets{PRESETS};
+  Params params{};
+  float phase = 0.0f;
 };
 
 #include "core/engine/effect_registry.h"

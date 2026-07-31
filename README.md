@@ -2033,9 +2033,9 @@ A stack of evenly spaced soft-stroked rings (`Scan::DistortedRing`) sharing one 
 
 #### ShapeShifter
 
-Layered polygon, star, and flower rings (planar and spherical polygon variants) drawn through both the `Plot` and `Scan` rasterizers at once. The shape type hard-cuts to the next of four (planar polygon, spherical polygon, flower, star) every 48 frames while a twist Mutation shears the layers. All `Plot` rings share one tumbling orientation and all `Scan` rings share another, so layer Count scales with the raster budget rather than the timeline.
+Concentric polygon, star, or flower outlines drawn exclusively through the `Plot` rasterizer. The rings are evenly spaced across the full sphere radius, and a selectable animated waveform offsets each ring's phase to twist the stack back and forth while a global random walk reorients the stack. Three presets continuously blend among spherical polygons, flowers, and stars.
 
-**Parameters**: Alpha, Count, Radius, Sides, Twist, Debug BB
+**Parameters**: Alpha, Shape, Count, Sides, Function, Speed
 
 </td></tr></table>
 
