@@ -7,6 +7,14 @@
 
 #include "core/engine/engine.h"
 
+#ifdef HS_TEST_BUILD
+namespace hs_test {
+namespace shapeshifter_oracle_tests {
+struct ShapeShifterWhiteBox;
+} // namespace shapeshifter_oracle_tests
+} // namespace hs_test
+#endif
+
 /**
  * @brief Draws phase-modulated concentric shapes across the sphere.
  * @tparam W Canvas width in pixels.
@@ -71,6 +79,10 @@ public:
   }
 
 private:
+#ifdef HS_TEST_BUILD
+  friend struct ::hs_test::shapeshifter_oracle_tests::ShapeShifterWhiteBox;
+#endif
+
   static constexpr float ALPHA_MIN = 0.0f;
   static constexpr float ALPHA_MAX = 1.0f;
   static constexpr float SIDES_MIN = 3.0f;
