@@ -176,11 +176,11 @@ private:
   /** @brief Speed the stabilization floor is calibrated at. */
   static constexpr float DEFAULT_DT = 2.5f;
   /** @brief Original-size substep equivalents advanced per rendered frame. */
-  static constexpr int EVOLUTION_STEPS_PER_FRAME = 8;
+  static constexpr int EVOLUTION_STEPS_PER_FRAME = 10;
   /**
    * @brief Euler integrations performed per rendered frame.
-   * @details Six 4/3-sized integrations cover the same simulated interval as
-   * eight original-size integrations.
+   * @details Six 5/3-sized integrations cover the same simulated interval as
+   * ten original-size integrations.
    */
   static constexpr int STEPS_PER_FRAME = 6;
   static constexpr float STEP_DT_SCALE =
