@@ -1526,6 +1526,35 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
   }
 }
 
+/** Chord tolerance between hankin_solve and MeshOps::update_hankin; the two
+ * evaluate identical expressions under independently contracted float
+ * arithmetic, so bitwise agreement is not guaranteed. */
+inline constexpr float HANKIN_MIRROR_TOL = 1e-5f;
+
+/**
+ * @brief Pins hankin_solve's star points to MeshOps::update_hankin's.
+ * @param compiled Baked hankin topology.
+ * @param angle Contact angle in radians.
+ * @param arena Scratch arena backing the reference mesh; rewound on return.
+ * @return Largest chord between a mirrored and a shipping star point.
+ */
+inline float hankin_check_mirror(CompiledHankin &compiled, float angle,
+                                 Arena &arena) {
+  ScratchScope guard(arena);
+  std::vector<HankinSolve> mirror;
+  hankin_solve(compiled, angle, mirror);
+  PolyMesh ref;
+  MeshOps::update_hankin(compiled, ref, arena, angle);
+  const size_t base = compiled.static_vertices.size();
+  HS_EXPECT_EQ(ref.vertices.size(), base + mirror.size());
+  float max_chord = 0;
+  for (size_t i = 0; i < mirror.size() && base + i < ref.vertices.size(); ++i)
+    max_chord = std::max(max_chord,
+                         (ref.vertices[base + i] - mirror[i].pos).magnitude());
+  HS_EXPECT_LT(max_chord, HANKIN_MIRROR_TOL);
+  return max_chord;
+}
+
 /**
  * @brief Newell normals of every compiled hankin face for a solved star set.
  * @param compiled Baked hankin topology.
@@ -1717,6 +1746,21 @@ inline void test_hankin_sweep_vertex_stability() {
     hankin_solve(compiled, 0.0f, collapsed);
     hankin_solve(compiled, site.theta_star, arrival);
 
+    // Every metric below reads hankin_solve, not the shipping solver. Pin the
+    // two together over both sample grids first, else the whole suite measures
+    // the mirror.
+    float mirror_chord =
+        std::max(hankin_check_mirror(compiled, 0.0f, b),
+                 hankin_check_mirror(compiled, site.theta_star, b));
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float u = static_cast<float>(s) / (SAMPLES - 1);
+      const float span = site.theta_star - THETA_EPS;
+      mirror_chord = std::max(
+          {mirror_chord, hankin_check_mirror(compiled, THETA_EPS + span * u, b),
+           hankin_check_mirror(compiled, THETA_EPS + span * ease_in_out_sin(u),
+                               b)});
+    }
+
     // Guard headroom: the far-star guard is scaled by the corner's local edge
     // scale, so on coarse seeds STAR_FAR_RATIO_SQ * local_sq can exceed the
     // 4.0 maximum squared chord, making the guard unreachable for that vertex.
@@ -1741,6 +1785,9 @@ inline void test_hankin_sweep_vertex_stability() {
                 seed.face_counts.size(), collapsed.size(),
                 compiled.face_counts.size(), unreachable, collapsed.size(),
                 max_local_sq);
+    std::printf(
+        "      mirror vs update_hankin: max chord %.3e over %d angles\n",
+        mirror_chord, 2 * SAMPLES + 2);
 
     // Three parameterizations over the same sample grid.
     std::vector<HankinStepStats> tables[3];
