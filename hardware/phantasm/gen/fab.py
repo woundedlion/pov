@@ -255,7 +255,16 @@ def require_schematic_parity(report_path):
         raise SchematicParityError(
             f"cannot read parity report: {report_path}") from exc
 
-    entries = report.get("schematic_parity", [])
+    if not isinstance(report, dict) or "schematic_parity" not in report:
+        raise SchematicParityError(
+            f"parity report has no schematic_parity section: {report_path}")
+    entries = report["schematic_parity"]
+    if len(entries) < len(KNOWN_PARITY_ITEMS):
+        raise SchematicParityError(
+            f"parity report lists {len(entries)} items, fewer than the "
+            f"{len(KNOWN_PARITY_ITEMS)} KiCad reports on a board that matches "
+            f"its schematic: {report_path}")
+
     diagnostics = []
     for entry in entries:
         kind = str(entry.get("type", ""))

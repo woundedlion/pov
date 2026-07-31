@@ -282,24 +282,42 @@ class AssemblyPolicyTests(unittest.TestCase):
         self.assertFalse(fab.is_assembled(self.component(match.group(1))))
 
 
+PARITY_DESCRIPTIONS = {
+    "extra_footprint": "Extra footprint",
+    "footprint_symbol_mismatch": "Footprint attributes don't match symbol",
+}
+
+
 class SchematicParityTests(unittest.TestCase):
     KNOWN = [
-        {"type": "extra_footprint", "description": "Extra footprint",
-         "items": [{"description": "Footprint H1"}]},
-        {"type": "footprint_symbol_mismatch",
-         "description": "Footprint attributes don't match symbol",
-         "items": [{"description": "Footprint JP_ID0"}]},
+        {"type": kind, "description": PARITY_DESCRIPTIONS[kind],
+         "items": [{"description": f"Footprint {ref}"}]}
+        for kind, ref in sorted(fab.KNOWN_PARITY_ITEMS)
     ]
 
-    def require(self, entries):
+    def require_report(self, report):
         with tempfile.TemporaryDirectory() as directory:
-            report = Path(directory) / "parity.json"
-            report.write_text(json.dumps({"schematic_parity": entries}),
-                              encoding="utf-8")
-            return fab.require_schematic_parity(report)
+            path = Path(directory) / "parity.json"
+            path.write_text(json.dumps(report), encoding="utf-8")
+            return fab.require_schematic_parity(path)
+
+    def require(self, entries):
+        return self.require_report({"schematic_parity": entries})
 
     def test_accepts_known_differences(self):
-        self.assertEqual(self.require(self.KNOWN), 2)
+        self.assertEqual(self.require(self.KNOWN), len(self.KNOWN))
+
+    def test_rejects_report_without_a_parity_section(self):
+        with self.assertRaisesRegex(
+                fab.SchematicParityError,
+                "no schematic_parity section"):
+            self.require_report({"coordinate_units": "mm"})
+
+    def test_rejects_report_missing_known_differences(self):
+        with self.assertRaisesRegex(
+                fab.SchematicParityError,
+                r"lists 0 items, fewer than the \d+ KiCad reports"):
+            self.require([])
 
     def test_rejects_net_drift(self):
         entries = self.KNOWN + [{
@@ -316,17 +334,17 @@ class SchematicParityTests(unittest.TestCase):
             self.require(entries)
 
     def test_rejects_unknown_extra_footprint(self):
-        entries = [{"type": "extra_footprint",
-                    "description": "Extra footprint",
-                    "items": [{"description": "Footprint R_PDX"}]}]
+        entries = self.KNOWN + [{"type": "extra_footprint",
+                                 "description": "Extra footprint",
+                                 "items": [{"description": "Footprint R_PDX"}]}]
 
         with self.assertRaisesRegex(
                 fab.SchematicParityError, "re-route it in Quilter"):
             self.require(entries)
 
     def test_rejects_missing_footprint(self):
-        entries = [{"type": "missing_footprint",
-                    "description": "Missing footprint R_PD (10k)"}]
+        entries = self.KNOWN + [{"type": "missing_footprint",
+                                 "description": "Missing footprint R_PD (10k)"}]
 
         with self.assertRaisesRegex(
                 fab.SchematicParityError,
