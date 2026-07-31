@@ -722,26 +722,42 @@ struct GSWhiteBox {
     gs.step_physics(cA, cB, nA, nB);
   }
 
-  static int typed_shader_mismatches(GS &gs) {
+  struct ShaderError {
+    int different = 0;
+    int lit = 0;
+    int coverage = 0;
+    int hard = 0;
+    int stencil_samples = 0;
+    int stencil_changes = 0;
+    int max_channel = 0;
+    uint64_t total_channel = 0;
+  };
+
+  template <int W, int H> static ShaderError shared_shader_error(GS &gs) {
     ScratchScope guard(scratch_arena_a);
     Vector *world_nodes = gs.orient_lattice();
-    using Grid = Scan::Shader::SsaaGrid<SMALL_W, SMALL_H>;
-    if (!TrigLUT<SMALL_W, SMALL_H>::initialized)
-      TrigLUT<SMALL_W, SMALL_H>::init();
+    using Grid = Scan::Shader::SsaaGrid<W, H>;
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
     Grid grid;
-    int mismatches = 0;
-    for (int y = 0; y < SMALL_H; ++y) {
+    ShaderError error;
+    for (int y = 0; y < H; ++y) {
       grid.set_row(y);
-      for (int x = 0; x < SMALL_W; ++x) {
+      for (int x = 0; x < W; ++x) {
         Fragment frag;
-        frag.pos = pixel_to_vector<SMALL_W, SMALL_H>(x, y);
+        frag.pos = pixel_to_vector<W, H>(x, y);
         gs.seed_face_lut(frag);
         int seed = static_cast<int>(frag.v0);
-        Pixel got = gs.shade_pixel(seed, world_nodes, grid, x);
+        int shared_center = gs.refine_center(frag.pos, world_nodes, seed);
+        Pixel got = gs.shade_pixel(seed, frag.pos, world_nodes, grid, x);
 
         Pixel expected(0, 0, 0);
         for (int i = 0; i < 4; ++i) {
-          float b = gs.interpolate_b(grid.at(x, i), seed, world_nodes);
+          Vector sample_v = grid.at(x, i);
+          ++error.stencil_samples;
+          if (gs.refine_center(sample_v, world_nodes, seed) != shared_center)
+            ++error.stencil_changes;
+          float b = gs.interpolate_b(sample_v, seed, world_nodes);
           if (b < GS::B_CULL_THRESHOLD)
             continue;
           float t = hs::clamp((b - GS::B_COLOR_FLOOR) * GS::B_COLOR_SCALE, 0.0f,
@@ -749,14 +765,28 @@ struct GSWhiteBox {
           Color4 sample = gs.palette.get(t);
           expected += sample.color * (sample.alpha * 0.25f);
         }
+        int dr = std::abs(static_cast<int>(got.r) - expected.r);
+        int dg = std::abs(static_cast<int>(got.g) - expected.g);
+        int db = std::abs(static_cast<int>(got.b) - expected.b);
+        int pixel_max = std::max(dr, std::max(dg, db));
+        bool got_lit = got.r || got.g || got.b;
+        bool expected_lit = expected.r || expected.g || expected.b;
         if (got != expected)
-          ++mismatches;
+          ++error.different;
+        if (got_lit || expected_lit)
+          ++error.lit;
+        if (got_lit != expected_lit)
+          ++error.coverage;
+        if (pixel_max > 4096)
+          ++error.hard;
+        error.max_channel = std::max(error.max_channel, pixel_max);
+        error.total_channel += dr + dg + db;
       }
     }
-    Pixel culled = gs.shade_pixel(-1, world_nodes, grid, 0);
+    Pixel culled = gs.shade_pixel(-1, Vector(), world_nodes, grid, 0);
     if (culled != Pixel(0, 0, 0))
-      ++mismatches;
-    return mismatches;
+      ++error.different;
+    return error;
   }
 };
 
@@ -782,11 +812,42 @@ inline void test_gs_q16_roundtrip() {
   HS_EXPECT_EQ(bad, 0);
 }
 
-inline void test_gs_typed_shader_matches_split_path() {
+/**
+ * @brief Bounds the shared stencil against independent SSAA refinement.
+ * @details Compares production-resolution pixels after 64, 256, and 640
+ * physics substeps. Near-tie Voronoi samples may change, but coverage and
+ * high-amplitude errors remain confined to under 2% of lit pixels.
+ */
+inline void test_gs_shared_stencil_error_is_bounded() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
-  HS_EXPECT_EQ(GSWhiteBox::typed_shader_mismatches(gs), 0);
+  constexpr int probe_frames[] = {4, 16, 40};
+  int next_probe = 0;
+  for (int frame = 1; frame <= probe_frames[2]; ++frame) {
+    gs.draw_frame();
+    gs.advance_display();
+    if (frame != probe_frames[next_probe])
+      continue;
+    auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs);
+    std::printf("GS shared stencil frame=%d: different=%d lit=%d coverage=%d "
+                "hard=%d center_changes=%d/%d max=%d total=%llu\n",
+                frame, error.different, error.lit, error.coverage, error.hard,
+                error.stencil_changes, error.stencil_samples, error.max_channel,
+                static_cast<unsigned long long>(error.total_channel));
+    HS_EXPECT(error.different * 2 <= error.lit,
+              "shared stencil changed over half of lit pixels");
+    HS_EXPECT(error.coverage * 50 <= error.lit,
+              "shared stencil moved over 2% of lit coverage");
+    HS_EXPECT(error.hard * 50 <= error.lit,
+              "shared stencil put over 2% of lit pixels past 6.25% error");
+    HS_EXPECT_LE(error.max_channel, 16384);
+    HS_EXPECT(error.total_channel <=
+                  static_cast<uint64_t>(error.lit) * 3u * 256u,
+              "shared stencil mean channel error exceeds 1/256 full scale");
+    if (next_probe < 2)
+      ++next_probe;
+  }
 }
 
 /**
@@ -4178,7 +4239,7 @@ inline int run_effects_tests() {
   test_mindsplatter_hole_kernel_framebuffer_parity();
   test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
-  test_gs_typed_shader_matches_split_path();
+  test_gs_shared_stencil_error_is_bounded();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
   // correctness block and the 288x144 production-resolution roster passes below
