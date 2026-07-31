@@ -464,12 +464,12 @@ inline void case_triangular_bitset_unordered_pair() {
  * @brief Death case: relocating a retained (pinned) add_get() handle must trap.
  * @details Animation surface — step()'s compaction routes every relocation
  *          through TimelineEvent::move_into, which traps when the event was
- *          handed out via add_get(pin=true), converting the dangling-handle
+ *          handed out via add_get(Pin::PINNED), converting the dangling-handle
  *          hazard into a fail-fast crash instead of silent corruption.
  */
 inline void case_timeline_handled_relocation() {
   TimelineEvent src;
-  src.handled = opaque(true); // as if handed out by add_get(pin=true)
+  src.handled = opaque(true); // as if handed out by add_get(Pin::PINNED)
   TimelineEvent dst;
   src.move_into(dst); // HS_CHECK(!handled) -> trap
 }
@@ -527,7 +527,7 @@ inline void case_timeline_handled_completion() {
   static Canvas canvas(fx);
   Timeline tl;
   float v = 0.0f;
-  // add_get(pin=true) rejects a finite non-repeating animation up front (see
+  // add_get(Pin::PINNED) rejects a finite non-repeating animation up front (see
   // case_timeline_pinned_finite_animation), so the event is marked handled
   // directly to reach step()'s completion branch. A 1-frame Transition is finite
   // and the sole event, so step() routes it through completion/destroy.
@@ -538,7 +538,7 @@ inline void case_timeline_handled_completion() {
 
 /**
  * @brief Death case: pinning a finite, non-repeating animation must trap.
- * @details Animation surface — add_get(pin=true) promises the caller a pointer
+ * @details Animation surface — add_get(Pin::PINNED) promises the caller a pointer
  *          valid across frames, which only holds for an animation that never
  *          completes on its own. The up-front check rejects the misuse at the
  *          add site instead of leaving it to step()'s completion guard, which
@@ -548,13 +548,13 @@ inline void case_timeline_pinned_finite_animation() {
   Timeline tl;
   float v = 0.0f;
   tl.add_get(0, Animation::Transition(v, 1.0f, opaque(1), ease_linear),
-             /*pin=*/true);
+             Timeline::Pin::PINNED);
 }
 
 /**
  * @brief Death case: dropping a pinned add on a full timeline must trap.
  * @details Animation surface — the capacity guard returns nullptr, but an
- *          add_get(pin=true) caller retains that pointer across frames and no
+ *          add_get(Pin::PINNED) caller retains that pointer across frames and no
  *          call site null-checks it. The guard traps on the pinned case so a
  *          full timeline fails at the add instead of at the first use of the
  *          stored handle.
@@ -565,7 +565,7 @@ inline void case_timeline_pinned_add_on_full_timeline() {
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
   tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, /*repeat=*/true),
-             /*pin=*/opaque(true));
+             opaque(Timeline::Pin::PINNED));
 }
 
 /**

@@ -674,7 +674,7 @@ inline void test_timeline_cancel_fires_post_callback() {
                        Animation::Mutation(
                            v, [](float e) { return e; }, 8, ease_linear)
                            .then([&]() { thens++; }),
-                       /*pin=*/false);
+                       Timeline::Pin::UNPINNED);
   tl.step(fake_canvas());
   HS_EXPECT_EQ(thens, 0);
   HS_EXPECT_EQ(global_timeline_num_events, 1);
@@ -801,7 +801,7 @@ inline void test_timeline_instance_boundary_reclaims_pinned_event() {
   {
     Timeline tl;
     tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, /*repeat=*/true),
-               /*pin=*/true);
+               Timeline::Pin::PINNED);
     tl.step(fake_canvas());
     HS_EXPECT_EQ(global_timeline_num_events, 1);
     HS_EXPECT_EQ(global_timeline_t, 1u);

@@ -119,6 +119,12 @@ extern uint32_t global_timeline_dropped; // monotonic full-timeline drop count
 class Timeline {
 public:
   /**
+   * @brief Whether an add_get() caller retains the returned pointer across
+   * frames (see add_get()).
+   */
+  enum class Pin { UNPINNED, PINNED };
+
+  /**
    * @brief Constructs a Timeline.
    *
    * Traps if one is already alive: all Timelines share global_timeline_events,
@@ -148,7 +154,7 @@ public:
 
   /**
    * @brief Destroys all events, leaving the timeline empty and reusable.
-   * @details Traps on a pinned event (add_get(pin=true)): destroying one dangles
+   * @details Traps on a pinned event (add_get(Pin::PINNED)): destroying one dangles
    * the caller's retained animation pointer, the same contract move_into() and
    * step()'s destroy branch enforce. The global frame cursor is deliberately NOT
    * rewound — it is process-global and effects derive a phase from frame(), so a
@@ -206,8 +212,8 @@ public:
    * @return Reference to the Timeline object.
    */
   template <typename A> Timeline &add(int in_frames, A animation) {
-    // pin=false: an add() caller keeps no handle, so the event compacts normally.
-    add_get(in_frames, std::move(animation), /*pin=*/false);
+    // An add() caller keeps no handle, so the event compacts normally.
+    add_get(in_frames, std::move(animation), Pin::UNPINNED);
     return *this;
   }
 
@@ -218,19 +224,19 @@ public:
    * @param in_frames The number of frames to delay before starting; 0 and 1 both
    * start on the next step(), and every existing schedule is tuned to that.
    * @param animation The animation object.
-   * @param pin If true (default), the caller intends to RETAIN this pointer
+   * @param pin Pin::PINNED (default): the caller intends to RETAIN this pointer
    * across frames, so the event is marked handled and step()'s compaction traps
    * (move_into) rather than relocating it out from under the cached pointer.
    * Such a retained handle is only safe when the animation is infinite and added
    * before any finite one (so no earlier event is ever removed to shift it) —
    * the contract the direct callers rely on; the trap enforces it. Pass
-   * `pin=false` for a TRANSIENT pointer used only at the call site and not kept
-   * across frames (e.g. TransformerPool::spawn, whose finite animations are
+   * Pin::UNPINNED for a TRANSIENT pointer used only at the call site and not
+   * kept across frames (e.g. TransformerPool::spawn, whose finite animations are
    * compacted normally and whose return is typically discarded).
    * @return Typed pointer to the inline-stored animation, or nullptr if full.
    */
   template <typename A>
-  A *add_get(int in_frames, A animation, bool pin = true) {
+  A *add_get(int in_frames, A animation, Pin pin = Pin::PINNED) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
     static_assert(alignof(A) <= alignof(std::max_align_t),
@@ -243,13 +249,13 @@ public:
     if (global_timeline_num_events >= MAX_EVENTS) {
       // A pinned caller retains the return value; dropping hands back a nullptr
       // no call site null-checks.
-      HS_CHECK(!pin, "Timeline full, dropped a pinned animation");
+      HS_CHECK(pin == Pin::UNPINNED, "Timeline full, dropped a pinned animation");
       ++global_timeline_dropped;
       hs::log("Timeline full, failed to add animation! (%lu dropped)",
               (unsigned long)global_timeline_dropped);
       return nullptr;
     }
-    if (pin) {
+    if (pin == Pin::PINNED) {
       // The pinned animation itself must never complete: it would be destroyed
       // under the caller's retained pointer.
       HS_CHECK(!animation.is_finite() || animation.repeats(),
@@ -266,7 +272,7 @@ public:
     }
     auto &e = global_timeline_events[global_timeline_num_events++];
     e.start = global_timeline_t + delay;
-    e.handled = pin;
+    e.handled = (pin == Pin::PINNED);
     auto *ptr = new (e.storage) A(std::move(animation));
     e.iface = static_cast<IAnimation *>(ptr);
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
