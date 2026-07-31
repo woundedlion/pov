@@ -124,7 +124,7 @@ namespace detail {
 /**
  * @brief Structural detection for the engine's small value types so
  * print_operand can show components without test_harness.h depending on the
- * engine headers. Pixel/Pixel16 expose r/g/b; Vector exposes x/y/z; Quaternion
+ * engine headers. Pixel exposes r/g/b; Vector exposes x/y/z; Quaternion
  * exposes r/v; Color4 exposes color/alpha.
  */
 template <class T, class = void> struct has_rgb : std::false_type {};
@@ -161,7 +161,7 @@ struct has_color_alpha<T,
  * engine's r/g/b and x/y/z value types are formatted specially.
  * @param v The operand value to print.
  * @details Lets a failing HS_EXPECT_* line show the actual values, not just the
- * stringified expr. Pixel/Pixel16 (r,g,b), Vector (x,y,z), Quaternion (r,v),
+ * stringified expr. Pixel (r,g,b), Vector (x,y,z), Quaternion (r,v),
  * and Color4 (color,alpha) are detected structurally — so an HS_EXPECT_EQ/CMP on
  * those prints components rather than "?" — and their fields recurse through this
  * same printer. Any other non-arithmetic operand still falls back to "?".

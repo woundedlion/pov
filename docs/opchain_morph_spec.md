@@ -783,7 +783,7 @@ the design a chained implementation would follow.
 **Mechanics.** `ramp_from` / `ramp_to` are `uint8_t` **bank indices**, consumed
 as `tr.bank->entries[tr.ramp_from[r]]` (`core/animation/mesh.h:445-451,
 486-487`). `bake_palette_blend` (`core/color/composition.h:1042-1051`) resolves
-to `from.get(t).lerp(to.get(t), w)` -> `Color4::lerp` -> `Pixel16::lerp16`
+to `from.get(t).lerp(to.get(t), w)` -> `Color4::lerp` -> `Pixel::lerp16`
 (`core/color/color.h:153-162`): **a linear lerp on 16-bit linear-light
 channels**, no perceptual space anywhere. So
 

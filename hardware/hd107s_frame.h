@@ -24,7 +24,7 @@
 #include "core/engine/platform.h" // HS_O3_FN — used directly below;
 // included explicitly rather than relying on color.h
 // pulling it (this header is independently host-tested)
-#include "core/color/color.h"       // Pixel16
+#include "core/color/color.h"       // Pixel
 #include "core/color/srgb_decode.h" // linear_to_srgb8: bit-exact DTCM split-decode
 
 // arm_dcache_flush (Arduino.h) cleans dirty D-cache lines without invalidating:
@@ -50,7 +50,7 @@ static inline void arm_dcache_flush(void *, uint32_t) {}
  *                 needs ceil(N/2) extra clocks; at 8 clocks/byte that is
  *                 ceil(N/16) bytes. Padding adds harmless extra zero clocks.
  *
- * Color correction pipeline (packPixel() takes already-linear Pixel16 input):
+ * Color correction pipeline (packPixel() takes already-linear Pixel input):
  *   1. Color correction multiply       (TypicalLEDStrip equivalent)
  *   2. Temperature correction multiply (Candle equivalent)
  *   3. Brightness scaling
@@ -123,7 +123,7 @@ public:
   }
 
   /**
-   * @brief Packs a single Pixel16 directly into the buffer with corrections.
+   * @brief Packs a single Pixel directly into the buffer with corrections.
    * @param index LED index, must be in [0, N). Unchecked on the device hot path
    *              (no clamp: an out-of-range index is UB); callers own the bound.
    *              The assert below is a host-only trip-wire — a stripped assert,
@@ -137,7 +137,7 @@ public:
    *       *(.text*), so ITCM residency does not depend on it, and the explicit
    *       section blocks the -O3 attribute (comdat section type conflict).
    */
-  HS_O3_FN inline void packPixel(int index, const Pixel16 &p) {
+  HS_O3_FN inline void packPixel(int index, const Pixel &p) {
     assert(index >= 0 && index < N);
     uint8_t *dest = buffer + 4 + index * 4;
 

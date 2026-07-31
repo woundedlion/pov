@@ -46,7 +46,7 @@ The original automation gap had three consequences:
   a human opened VMicro. `docs/device_host_divergence_ledger.md` row 4 records the host limitation:
   *"the bare DMA/register writes are device-only by nature and not host-reachable."*
 - **There was no size or memory-layout signal.** The two framebuffers (`MAX_W*MAX_H` = 288×144 ×
-  `sizeof(Pixel16)` = 6 B = **243 KiB each**; 486 KiB together) live in `DMAMEM` (OCRAM/RAM2,
+  `sizeof(Pixel)` = 6 B = **243 KiB each**; 486 KiB together) live in `DMAMEM` (OCRAM/RAM2,
   512 KiB total), the **298 KiB arena lives in DTCM/RAM1** (`global_arena_block`, no `DMAMEM` — it
   is the largest single RAM1 object, [memory.cpp](../core/engine/memory.cpp)), and the 90 KB
   reaction-graph table lives in flash. Both buffers are fixed at `MAX_W*MAX_H` for **both**
@@ -950,12 +950,12 @@ cannot see.** Each was fixed; the device build is the first thing to compile thi
 - **Wrong FastLED pin** — I first pinned 3.10.3; the bench/Teensyduino 1.59 bundles **FastLED 3.4.0**,
   and 3.7+ moved `CHSVPalette16`/`HUE_RED`/`CEveryNMillis` and `CRGB`/`CHSV` into `namespace fl`.
   **Fixed:** pinned `FastLED@3.4.0` (§4.1 parity) — cleared a whole error class at once.
-- **`effects_legacy.h` `Pixel16`→`CRGB`** (lines 25, 42, 100–112, 517, 743): `operator CRGB()` was made
+- **`effects_legacy.h` `Pixel`→`CRGB`** (lines 25, 42, 100–112, 517, 743): `operator CRGB()` was made
   `explicit`, so the legacy effects no longer convert implicitly. **Fixed:** explicit `static_cast<CRGB>`.
 - **Ambiguous `pov`** — the sketch var collided with the hardware `namespace pov` (pov_segment_map.h).
   **Fixed:** sketch var → `g_pov` in both `.ino`s.
 - **`color.h` include collision** — FastLED ships its own `src/color.h`; the device `-I` order made
-  `hardware/{dma_led,hd107s_frame}.h`'s bare `"color.h"` resolve to FastLED's (no `Pixel16`/LUTs),
+  `hardware/{dma_led,hd107s_frame}.h`'s bare `"color.h"` resolve to FastLED's (no `Pixel`/LUTs),
   while host builds got the engine's. **Fixed:** those two now `#include "core/color/color.h"`.
 
 **Result — Holosphere builds GREEN and the gate PASSES end-to-end on the real ELF.** Real calibrated

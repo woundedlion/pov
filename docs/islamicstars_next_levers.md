@@ -298,7 +298,7 @@ Leads, in order of suspicion:
 3. **Wider loads.** 21 `ldr` in a 53-instruction `packPixel` — if it is loading
    byte/halfword components separately, `ldrd`/`ldm` or a 32-bit load with shifts
    could cut the load count.
-4. **Do less.** Is the pack converting a format it need not? `Pixel16` → HD107S
+4. **Do less.** Is the pack converting a format it need not? `Pixel` → HD107S
    frame conversion may be foldable into how the renderer writes pixels.
 
 **Measure before optimising.** `HS_ISR_PROFILE` scopes already exist

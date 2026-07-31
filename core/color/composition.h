@@ -1054,7 +1054,7 @@ private:
 
 /**
  * @brief Pre-baked 256-entry color/alpha LUT allocated in an arena.
- * @details Stores parallel Pixel16 and Q16-alpha tables with lerp
+ * @details Stores parallel Pixel and Q16-alpha tables with lerp
  * interpolation. Not a Palette subclass — call get(t) directly for
  * zero-overhead lookups.
  */

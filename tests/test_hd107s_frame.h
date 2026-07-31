@@ -190,9 +190,9 @@ inline void test_packpixel_wire_order() {
   reset_correction();
   Frame f;
 
-  const Pixel16 red(CRGB(255, 0, 0));
-  const Pixel16 green(CRGB(0, 255, 0));
-  const Pixel16 blue(CRGB(0, 0, 255));
+  const Pixel red(CRGB(255, 0, 0));
+  const Pixel green(CRGB(0, 255, 0));
+  const Pixel blue(CRGB(0, 0, 255));
 
   // Wire record is [0xFF][B][G][R]. Under unity correction the lit channel
   // round-trips the sRGB<->linear LUTs back to 255; the rest stay 0.
