@@ -419,6 +419,16 @@ private:
   }
 
 public:
+  using value_type = T;
+  using size_type = size_t;
+  using difference_type = std::ptrdiff_t;
+  using reference = T &;
+  using const_reference = const T &;
+  using pointer = T *;
+  using const_pointer = const T *;
+  using iterator = T *;
+  using const_iterator = const T *;
+
   /**
    * @brief Default-constructs an unbound vector.
    * @details Must call bind() before use.
@@ -771,6 +781,17 @@ template <typename T> class ArenaSpan {
 #endif
 
 public:
+  // Read-only view: the mutable spellings alias the const ones.
+  using value_type = T;
+  using size_type = size_t;
+  using difference_type = std::ptrdiff_t;
+  using reference = const T &;
+  using const_reference = const T &;
+  using pointer = const T *;
+  using const_pointer = const T *;
+  using iterator = const T *;
+  using const_iterator = const T *;
+
   /**
    * @brief Default-constructs an empty span.
    */
