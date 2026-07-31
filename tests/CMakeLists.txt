@@ -143,7 +143,8 @@ set(_hs_test_modules
     conway_soak opchain_probe opchain_arena_survey hankin geometry spherical_field
     mesh solids
     reaction_graph color palettes easing_waves platform filter plot_scan canvas
-    scan mesh_raster transformers noise generators animation effects dma_core hd107s
+    scan mesh_raster transformers noise generators animation effects
+    shapeshifter_oracle dma_core hd107s
     dma_controller
     pov_segmented pov_single pov_sync param_marshal wasm_predicates util led
     presets styles shading death)
