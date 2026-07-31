@@ -556,9 +556,9 @@ capture completed 2026-07-30 23:06:14 PDT.
 - Physics buffers are restricted, frame parameters are hoisted, Q16 output is
   forced inline, stabilization motion accumulates directly in Q16 units, and
   the graph kernel alone receives O3 codegen.
-- Six 4/3-sized Euler integrations cover the same simulated interval as eight
+- Six 5/3-sized Euler integrations cover the same simulated interval as ten
   smaller integrations. Lifecycle counters advance in original-size substep
-  equivalents, preserving grow/dissolve wall time.
+  equivalents so transitions track the faster evolution.
 - Nodes enter an eight-frame dissolve band that eases A/B toward rest before
   the frontier pins them, eliminating the previous hard disappearance.
 
