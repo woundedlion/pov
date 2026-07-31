@@ -18,6 +18,8 @@ teensy-profile skill). Reads a capture produced by `profile`/`profile_o3` and:
   probe     per-probe stage cycle split, from a capture built with
             -D HS_PROBE_BREAKDOWN. Ratios only: every stage boundary is a
             cycle-counter read, whose measured cost the view subtracts.
+  plot      per-window Plot workload attribution, from a capture built with
+            -D HS_PLOT_COUNTS. Counts only; timings from this build are perturbed.
   validate  sanity checks a cycling-effect capture: preset markers present,
             the cycle wraps back to its first index, the effect instance is
             never torn down mid-capture (frame numbers stay monotonic), and the
@@ -68,6 +70,15 @@ PROBE_CNT_RE = re.compile(
     r"convex=(\d+) sector=(\d+) exact=(\d+) alpha=(\d+)\s*$")
 PROBE_CNT_FIELDS = ("n_probe", "n_cull_cos", "n_cull_r", "n_lut", "n_convex",
                     "n_sector", "n_exact", "n_alpha")
+PLOT_RE = re.compile(
+    r"^plot counts: r=(\d+),e=(\d+),p=(\d+),g=(\d+),d=(\d+),o=(\d+),"
+    r"t=(\d+),c=(\d+),s=(\d+),y=(\d+),u=(\d+),a=(\d+),n=(\d+),"
+    r"h=(\d+),x=(\d+),k=(\d+),b=(\d+)\s*$")
+PLOT_FIELDS = ("rings", "edges", "planar", "geodesic", "degenerate",
+               "one_dot", "cull_tests", "culled", "sim_samples",
+               "replay_samples", "planar_unprojects", "planar_arc_samples",
+               "normalizations", "shader_calls", "plotted_samples",
+               "steps_peak", "backstops")
 
 # Preset/shape/mode advance markers. `key` groups them; `idx`/`total`/`name`
 # are pulled when present.
@@ -101,6 +112,7 @@ class Window:
         self.marker = None  # active preset marker at this window
         self.scan = None  # HS_SCAN_METRICS window totals, when the build has them
         self.probe = None  # HS_PROBE_BREAKDOWN window buckets + counts
+        self.plot = None  # HS_PLOT_COUNTS window workload
 
     def per_frame_ms(self, label):
         n = self.counters.get(label)
@@ -231,6 +243,11 @@ def parse(path):
                 cur.probe = dict(cur.probe or {})
                 cur.probe.update(zip(PROBE_CNT_FIELDS,
                                      (int(g) for g in m.groups())))
+                continue
+            m = PLOT_RE.match(line)
+            if m and cur:
+                cur.plot = dict(zip(PLOT_FIELDS,
+                                    (int(g) for g in m.groups())))
                 continue
             m = COUNTER_RE.match(line)
             if m and cur:
@@ -569,6 +586,50 @@ def cmd_probe(windows):
     return 0
 
 
+PLOT_COLS = ("rings/f", "edges/f", "plan/f", "geo/f", "deg/f", "dot/f",
+             "cull/f", "reject/f", "sim/e", "replay/e", "unproj/e",
+             "arc/e", "norm/e", "shader/f", "plot/f", "peak", "back")
+
+
+def _plot_row(p, frames):
+    edges = p["edges"]
+    per_frame = (p["rings"] / frames, edges / frames, p["planar"] / frames,
+                 p["geodesic"] / frames, p["degenerate"] / frames,
+                 p["one_dot"] / frames, p["cull_tests"] / frames,
+                 p["culled"] / frames)
+    per_edge = tuple(p[k] / edges if edges else 0.0 for k in
+                     ("sim_samples", "replay_samples", "planar_unprojects",
+                      "planar_arc_samples", "normalizations"))
+    tail = (p["shader_calls"] / frames, p["plotted_samples"] / frames,
+            p["steps_peak"], p["backstops"])
+    return " ".join(f"{v:8.1f}" for v in per_frame + per_edge + tail)
+
+
+def cmd_plot(windows):
+    """Per-window count-only Plot rasterizer workload attribution."""
+    have = [w for w in windows if w.plot]
+    if not have:
+        print("no 'plot counts' lines: rebuild with -D HS_PLOT_COUNTS",
+              file=sys.stderr)
+        return 2
+    print(f"{'# window':<13} " + " ".join(f"{h:>8}" for h in PLOT_COLS)
+          + "  marker")
+    agg = Counter()
+    agg_frames = 0
+    peak = 0
+    for w in have:
+        agg.update(w.plot)
+        agg_frames += w.frames
+        peak = max(peak, w.plot["steps_peak"])
+        marker = w.marker["name"] if w.marker else "-"
+        print(f"{w.f_start:6d}-{w.f_end:<6d} " +
+              _plot_row(w.plot, w.frames) + f"  {marker}")
+    agg["steps_peak"] = peak
+    print(f"{'# aggregate':<13} " + _plot_row(agg, agg_frames) +
+          f"  {agg_frames} frames")
+    return 0
+
+
 def cmd_validate(windows, effect, scope):
     ok = True
 
@@ -652,7 +713,7 @@ def main():
     ap.add_argument("log")
     ap.add_argument("mode", choices=["windows", "presets", "buckets",
                                      "validate", "frames", "metrics",
-                                     "probe"])
+                                     "probe", "plot"])
     ap.add_argument("--scope", help="counter label to read (default: costliest leaf)")
     ap.add_argument("--gate", help="call-count scope gating clean holds "
                                     "(default: --scope)")
@@ -679,6 +740,8 @@ def main():
         return cmd_metrics(windows)
     elif args.mode == "probe":
         return cmd_probe(windows)
+    elif args.mode == "plot":
+        return cmd_plot(windows)
     else:
         return 0 if cmd_validate(windows, effect, scope) else 1
     return 0

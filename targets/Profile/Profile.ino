@@ -44,6 +44,8 @@
 //                            adds the "probe cycles"/"probe counts" lines. Every
 //                            stage boundary is a cycle-counter read, so read
 //                            RATIOS from such a build, discounted by `tick`.
+//   HS_PLOT_COUNTS           compiles in count-only Plot workload attribution
+//                            and adds one "plot counts" line per window.
 
 #define HS_PROFILE_STR2(x) #x
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
@@ -122,6 +124,9 @@ private:
 #endif
 #ifdef HS_PROBE_BREAKDOWN
     dump_probe_breakdown();
+#endif
+#ifdef HS_PLOT_COUNTS
+    dump_plot_counts();
 #endif
     hs::CycleCounter::reset_all();
     window_frames = 0;
@@ -244,6 +249,25 @@ private:
   }
 
   ScanTotals scan_totals; /**< This window's drained scan counters. */
+#endif
+
+#ifdef HS_PLOT_COUNTS
+  static void dump_plot_counts() {
+    const hs::PlotCounts &t = hs::g_plot_counts;
+    hs::log("plot counts: r=%lu,e=%lu,p=%lu,g=%lu,d=%lu,o=%lu,t=%lu,c=%lu,"
+            "s=%lu,y=%lu,u=%lu,a=%lu,n=%lu,h=%lu,x=%lu,k=%lu,b=%lu",
+            (unsigned long)t.rings, (unsigned long)t.edges,
+            (unsigned long)t.planar, (unsigned long)t.geodesic,
+            (unsigned long)t.degenerate, (unsigned long)t.one_dot,
+            (unsigned long)t.cull_tests, (unsigned long)t.culled,
+            (unsigned long)t.sim_samples, (unsigned long)t.replay_samples,
+            (unsigned long)t.planar_unprojects,
+            (unsigned long)t.planar_arc_samples,
+            (unsigned long)t.normalizations, (unsigned long)t.shader_calls,
+            (unsigned long)t.plotted_samples, (unsigned long)t.steps_peak,
+            (unsigned long)t.backstops);
+    hs::g_plot_counts.reset();
+  }
 #endif
 
 #ifdef HS_PROBE_BREAKDOWN
