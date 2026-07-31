@@ -38,13 +38,17 @@ jobs:
         # module added to CMake but to no shard fails CI instead of silently
         # running in zero Linux/sanitizer jobs. Adjust groupings here only.
         include: &shard_matrix
-          - shard: 1
+          - &shard1_entry
+            shard: 1
             test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|partition_seam|hankin|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes)$"
-          - shard: 2
+          - &shard2_entry
+            shard: 2
             test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|gamut_lut|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|relax_bake_verify)$"
-          - shard: 3
+          - &shard3_entry
+            shard: 3
             test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|generators|animation|effects|h_offset_renorm|stack_budget|arena_budget)$"
-          - shard: 4
+          - &shard4_entry
+            shard: 4
             test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|util|presets|styles|shading|death|conway_morph)$"
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
@@ -234,9 +238,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Same shard partition as the tests job — referenced by anchor, not
-        # re-typed, so the job matrices cannot drift.
-        include: *shard_matrix
+        # Same shard partition as the tests job — the entries are anchor
+        # references, not re-typed, so the partition cannot drift. YAML cannot
+        # append to an aliased sequence, hence the per-entry aliases rather than
+        # *shard_matrix.
+        # The fifth entry is the float-configuration axis, not a fifth shard:
+        # it compiles the whole suite with the flag pair both shipping targets
+        # use (platformio.ini, CMakeLists.txt) and runs every test in one job,
+        # so the axis costs one runner instead of four. `.` matches every test
+        # name, so a newly registered test joins this leg with no regex edit.
+        include:
+          - *shard1_entry
+          - *shard2_entry
+          - *shard3_entry
+          - *shard4_entry
+          - shard: fastmath
+            test_regex: "."
+            float_flags: -ffast-math -fno-finite-math-only
     # The `tests` preset pins Debug, and the jobs above all reuse it, so every
     # assertion in the suite runs at -O0: UB the optimizer acts on, and FP
     # results that move under -O2 contraction, are structurally invisible there.
@@ -244,6 +262,11 @@ jobs:
     # overridden to a plain "-O2 -g" so NDEBUG stays undefined — assert() and
     # the memory.h arena guards remain live, leaving the optimization level as
     # the only variable against the Debug jobs.
+    # Both shipping targets build with -ffast-math -fno-finite-math-only
+    # (platformio.ini, CMakeLists.txt); the fastmath entry is the leg that
+    # asserts the suite under that pair, so the configuration the device and the
+    # browser actually run is the one CI checks. relax_bake_verify pins itself
+    # back to IEEE — see tests/CMakeLists.txt.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -259,18 +282,25 @@ jobs:
 
       # Separate cache prefix from the Debug jobs: the opt flags change the
       # compile command, so the object caches must not collide. Per-shard slot
-      # for the same reason as the tests job above.
+      # for the same reason as the tests job above. The restore-key carries the
+      # shard: the fastmath entry compiles every TU differently from the four
+      # IEEE shards, and "ccache-optimized-fastmath-" cannot prefix-match a
+      # numbered shard's key (nor the reverse), so the two float configurations
+      # never restore each other's objects.
       - name: Cache ccache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-optimized-${{ github.run_id }}-${{ matrix.shard }}
-          restore-keys: ccache-optimized-
+          key: ccache-optimized-${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: ccache-optimized-${{ matrix.shard }}-
 
+      # float_flags is empty for the four shard entries, leaving them at the
+      # plain "-O2 -g" this job has always used.
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
-          -DCMAKE_BUILD_TYPE=RelWithDebInfo "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g"
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g ${{ matrix.float_flags }}"
           -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
 
       - name: Build
