@@ -56,17 +56,21 @@ class GSReactionDiffusion
 
   // Bring dependent-base names into scope (template base requires this).
   using Base::cube_lut;
+  using Base::dist2;
   using Base::for_each_neighbor;
   using Base::from_q16;
   using Base::init_lattice;
   using Base::orient_lattice;
+  using Base::Q16_INV;
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_and_accumulate;
+  using Base::refine_center;
   using Base::register_param;
   using Base::seed_blobs;
   using Base::seed_face_lut;
   using Base::to_q16;
+  using Base::with_wendland_weight;
 
 public:
   /**
@@ -366,21 +370,49 @@ private:
    * @brief Shades one pixel's four sub-samples through an inlinable typed path.
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
    * @param seed Cubemap-LUT seed node id, or -1 for a culled pixel.
+   * @param center_rv World-space direction at the pixel center.
    * @param world_nodes Oriented lattice node positions.
    * @param grid Row's SSAA sub-pixel grid.
    * @param x Pixel column.
    * @return The finished alpha-premultiplied pixel.
+   * @details Refines and gathers the center stencil once, then evaluates its
+   * four sub-pixel weight sets. A quarter-pixel sample may choose an adjacent
+   * center near a Voronoi boundary; reuse trades that near-tie distinction for
+   * one gather per pixel.
    */
   template <typename Grid>
-  HS_O3_FN Pixel shade_pixel(int seed, const Vector *world_nodes,
-                             const Grid &grid, int x) const {
+  HS_O3_FN Pixel shade_pixel(int seed, const Vector &center_rv,
+                             const Vector *world_nodes, const Grid &grid,
+                             int x) const {
     if (seed < 0)
       return Pixel(0, 0, 0);
+
+    int center = refine_center(center_rv, world_nodes, seed);
+    Vector spos[RD_K + 1];
+    uint16_t sb[RD_K + 1];
+    spos[0] = world_nodes[center];
+    sb[0] = state.B[center];
+    int k = 1;
+    for_each_neighbor(center, [&](int ni) {
+      spos[k] = world_nodes[ni];
+      sb[k] = state.B[ni];
+      ++k;
+    });
 
     constexpr float inv_samples = 1.0f / 4.0f;
     Pixel accum(0, 0, 0);
     for (int i = 0; i < 4; ++i) {
-      float b = interpolate_b(grid.at(x, i), seed, world_nodes);
+      Vector v = grid.at(x, i);
+      float tw = 0.0f, wb = 0.0f;
+      for (int j = 0; j < RD_K + 1; ++j)
+        with_wendland_weight(dist2(v, spos[j]),
+                             [&](float w) __attribute__((always_inline)) {
+                               wb += sb[j] * w;
+                               tw += w;
+                             });
+      if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
+        continue;
+      float b = wb * (Q16_INV / tw);
       if (b < B_CULL_THRESHOLD)
         continue;
 
@@ -483,7 +515,8 @@ private:
     };
 
     auto pixel_shader = [&](Fragment &frag, const auto &grid, int x) -> Pixel {
-      return shade_pixel(static_cast<int>(frag.v0), world_nodes, grid, x);
+      return shade_pixel(static_cast<int>(frag.v0), frag.pos, world_nodes, grid,
+                         x);
     };
 
     {
