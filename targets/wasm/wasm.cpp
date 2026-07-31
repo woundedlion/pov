@@ -855,12 +855,18 @@ public:
   /**
    * @brief Builds a wrapper for the named base solid.
    * @param name Solid name to look up in the Solids registry.
-   * @return Owning pointer to the new wrapper, or null for an unknown name.
+   * @return Owning pointer to the new wrapper, or null for an unknown name or a
+   *         solid that would not fit what is left of tooling_arena.
    * @details Rejects an unknown name at the untrusted JS boundary rather than
    *          tripping get_by_name()'s fail-fast HS_CHECK and aborting the module.
+   *          Generates into the scratch arenas and prices the finalized copy
+   *          against tooling_arena's remaining bytes before committing it, since
+   *          that arena accumulates one finalized mesh per live wrapper until
+   *          clearToolingMemory() and Arena::allocate traps when it runs out.
    */
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
-    if (!Solids::has_name(name)) {
+    const Solids::Entry *entry = Solids::find_entry(name);
+    if (!entry) {
       hs::log("WASM: fromSolidName unknown solid '%s' — ignored", name.c_str());
       return nullptr;
     }
@@ -868,8 +874,21 @@ public:
     ensure_tooling_arenas();
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
-    return std::make_unique<MeshOpsWrapper>(Solids::get_by_name(
-        tooling_arena, tooling_scratch_a, tooling_scratch_b, name));
+    const PolyMesh generated =
+        entry->generate(tooling_scratch_a, tooling_scratch_b);
+    if (hs_wasm::mesh_op_output_over_arena(
+            generated.vertices.size(), generated.get_face_counts_size(),
+            generated.get_faces_size(), 1, TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
+            tooling_arena.get_offset(), tooling_arena.get_capacity())) {
+      hs::log("WASM: fromSolidName '%s' does not fit the tooling arena (%zu of "
+              "%zu bytes used) — ignored; call clearToolingMemory() to reclaim "
+              "it, which invalidates every live mesh",
+              name.c_str(), tooling_arena.get_offset(),
+              tooling_arena.get_capacity());
+      return nullptr;
+    }
+    return std::make_unique<MeshOpsWrapper>(
+        Solids::finalize_solid(generated, tooling_arena));
   }
 
   /**
