@@ -21,6 +21,14 @@ namespace shapeshifter_oracle_tests {
 
 constexpr int ORACLE_W = 288;
 constexpr int ORACLE_H = 144;
+constexpr uint32_t BRIGHT_ENERGY = 12288;
+constexpr uint32_t COVERAGE_ENERGY = 512;
+constexpr uint32_t HIGH_CHANNEL_ERROR = 4096;
+constexpr double MAX_MEAN_ABSOLUTE_ERROR = 350.0;
+constexpr double MAX_ROOT_MEAN_SQUARED_ERROR = 1250.0;
+constexpr uint32_t MAX_CHANNEL_ERROR = 32768;
+constexpr double MAX_ENERGY_DRIFT = 0.006;
+constexpr size_t MAX_HIGH_ERROR_PIXELS = 1600;
 using OracleEffect = ShapeShifter<ORACLE_W, ORACLE_H>;
 
 /** @brief Display bounds used by one oracle render. */
@@ -127,6 +135,12 @@ struct ShapeShifterWhiteBox {
   }
 
   static void render_reference(OracleEffect &effect, Canvas &canvas) {
+    effect.plot_filters.prepare(canvas);
+    effect.draw_all_reference(canvas);
+  }
+
+  static void render_candidate(OracleEffect &effect, Canvas &canvas) {
+    effect.plot_filters.prepare(canvas);
     effect.draw_all(canvas);
   }
 };
@@ -183,6 +197,12 @@ inline RenderComparison compare_renders(const OracleState &state,
 inline auto reference_renderer() {
   return [](OracleEffect &effect, Canvas &canvas) {
     ShapeShifterWhiteBox::render_reference(effect, canvas);
+  };
+}
+
+inline auto candidate_renderer() {
+  return [](OracleEffect &effect, Canvas &canvas) {
+    ShapeShifterWhiteBox::render_candidate(effect, canvas);
   };
 }
 
@@ -266,6 +286,71 @@ inline void test_reference_matrix_is_exact_and_nonblack() {
   }
 }
 
+inline bool pixel_is_bright(const Pixel &pixel) {
+  return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b > BRIGHT_ENERGY;
+}
+
+inline bool pixel_has_coverage(const Pixel &pixel) {
+  return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b > COVERAGE_ENERGY;
+}
+
+inline bool candidate_covers_neighborhood(const OracleFrame &candidate, int x,
+                                          int y) {
+  for (int dy = -1; dy <= 1; ++dy) {
+    const int sample_y = y + dy;
+    if (sample_y < 0 || sample_y >= ORACLE_H)
+      continue;
+    for (int dx = -1; dx <= 1; ++dx) {
+      const int sample_x = (x + dx + ORACLE_W) % ORACLE_W;
+      if (pixel_has_coverage(candidate.at(sample_x, sample_y)))
+        return true;
+    }
+  }
+  return false;
+}
+
+inline void test_candidate_matrix_stays_within_visual_budget() {
+  for (const OracleState &state : exhaustive_matrix()) {
+    RenderComparison comparison =
+        compare_renders(state, reference_renderer(), candidate_renderer());
+    const uint64_t reference_energy = frame_energy(comparison.reference);
+    const int64_t energy_delta =
+        static_cast<int64_t>(frame_energy(comparison.candidate)) -
+        static_cast<int64_t>(reference_energy);
+    const double energy_ratio =
+        reference_energy == 0
+            ? 0.0
+            : std::fabs(static_cast<double>(energy_delta)) / reference_energy;
+    size_t uncovered_bright_pixels = 0;
+    size_t high_error_pixels = 0;
+    for (size_t pixel = 0; pixel < comparison.reference.pixels.size(); ++pixel) {
+      const Pixel &a = comparison.reference.pixels[pixel];
+      const Pixel &b = comparison.candidate.pixels[pixel];
+      if (pixel_is_bright(a)) {
+        const int x = static_cast<int>(pixel % ORACLE_W);
+        const int y = static_cast<int>(pixel / ORACLE_W);
+        if (!candidate_covers_neighborhood(comparison.candidate, x, y))
+          ++uncovered_bright_pixels;
+      }
+      const uint32_t max_error =
+          std::max({a.r > b.r ? a.r - b.r : b.r - a.r,
+                    a.g > b.g ? a.g - b.g : b.g - a.g,
+                    a.b > b.b ? a.b - b.b : b.b - a.b});
+      if (max_error > HIGH_CHANNEL_ERROR)
+        ++high_error_pixels;
+    }
+    HS_EXPECT_LT(comparison.error.mean_absolute_error(),
+                 MAX_MEAN_ABSOLUTE_ERROR);
+    HS_EXPECT_LT(comparison.error.root_mean_squared_error(),
+                 MAX_ROOT_MEAN_SQUARED_ERROR);
+    HS_EXPECT_LT(comparison.error.max_absolute_error, MAX_CHANNEL_ERROR);
+    HS_EXPECT_LT(energy_ratio, MAX_ENERGY_DRIFT);
+    HS_EXPECT_LT(high_error_pixels, MAX_HIGH_ERROR_PIXELS);
+    HS_EXPECT_EQ(uncovered_bright_pixels, size_t{0});
+    HS_EXPECT_EQ(hs::g_scan_metrics.plot_backstop_hits, uint32_t{0});
+  }
+}
+
 inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
                       const OracleClip &clip) {
   for (int y = clip.y0; y < clip.y1; ++y)
@@ -274,7 +359,8 @@ inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
           source.at(x, y);
 }
 
-inline void test_segment_tiles_reconstruct_full_frame() {
+template <typename Render>
+inline void expect_segment_tiles_reconstruct_full_frame(Render render) {
   const OracleClip clips[] = {{0, ORACLE_H / 2, 0, ORACLE_W / 2},
                               {0, ORACLE_H / 2, ORACLE_W / 2, ORACLE_W},
                               {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
@@ -284,14 +370,14 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   for (int shape = 0; shape < 4; ++shape) {
     OracleState full_state = matrix[shape * 4 + shape];
     full_state.orientation = Quaternion();
-    OracleFrame full = capture_frame(full_state, reference_renderer());
+    OracleFrame full = capture_frame(full_state, render);
     OracleFrame tiled;
     tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
 
     for (const OracleClip &clip : clips) {
       OracleState segment_state = full_state;
       segment_state.clip = clip;
-      OracleFrame segment = capture_frame(segment_state, reference_renderer());
+      OracleFrame segment = capture_frame(segment_state, render);
       copy_clip(tiled, segment, clip);
     }
 
@@ -302,10 +388,16 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   }
 }
 
+inline void test_segment_tiles_reconstruct_full_frame() {
+  expect_segment_tiles_reconstruct_full_frame(reference_renderer());
+  expect_segment_tiles_reconstruct_full_frame(candidate_renderer());
+}
+
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
   test_buffer_comparator_statistics();
   test_reference_matrix_is_exact_and_nonblack();
+  test_candidate_matrix_stays_within_visual_budget();
   test_segment_tiles_reconstruct_full_frame();
   return fixture.result();
 }
