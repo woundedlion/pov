@@ -5,7 +5,7 @@
  * Unit tests for core/color/color.h.
  *
  * Coverage:
- *   - Pixel16::lerp16 (endpoints + midpoint)
+ *   - Pixel::lerp16 (endpoints + midpoint)
  *   - Blend modes (over/under/max/mean/add) — identity & boundedness invariants
  *   - OKLab / OKLCH round-trips (sRGB -> OKLab -> sRGB, sRGB -> OKLCH -> sRGB)
  *     for grays and saturated primaries; achromatic hue handling in lerp_oklch
@@ -35,15 +35,15 @@ namespace color_tests {
  * @brief Verifies frac=0 and frac=65535 recover the two endpoints exactly.
  */
 inline void test_lerp16_endpoints() {
-  Pixel16 a(1000, 2000, 3000);
-  Pixel16 b(40000, 50000, 60000);
+  Pixel a(1000, 2000, 3000);
+  Pixel b(40000, 50000, 60000);
 
-  Pixel16 at0 = a.lerp16(b, 0);
+  Pixel at0 = a.lerp16(b, 0);
   HS_EXPECT_EQ(at0.r, a.r);
   HS_EXPECT_EQ(at0.g, a.g);
   HS_EXPECT_EQ(at0.b, a.b);
 
-  Pixel16 at1 = a.lerp16(b, 65535);
+  Pixel at1 = a.lerp16(b, 65535);
   HS_EXPECT_EQ(at1.r, b.r);
   HS_EXPECT_EQ(at1.g, b.g);
   HS_EXPECT_EQ(at1.b, b.b);
@@ -55,9 +55,9 @@ inline void test_lerp16_endpoints() {
  *          equal endpoints stay put.
  */
 inline void test_lerp16_midpoint() {
-  Pixel16 a(0, 100, 65535);
-  Pixel16 b(65535, 300, 65535);
-  Pixel16 mid = a.lerp16(b, 32768); // ~0.5
+  Pixel a(0, 100, 65535);
+  Pixel b(65535, 300, 65535);
+  Pixel mid = a.lerp16(b, 32768); // ~0.5
 
   HS_EXPECT_NEAR(static_cast<float>(mid.r), 32767.0f, 2.0f);
   HS_EXPECT_NEAR(static_cast<float>(mid.g), 200.0f, 2.0f);
@@ -72,9 +72,9 @@ inline void test_lerp16_midpoint() {
  *          both the portable and smlad paths.
  */
 inline void test_lerp16_rounds_to_nearest() {
-  Pixel16 a(0, 0, 0);
-  Pixel16 b(1, 2, 4);
-  Pixel16 m = a.lerp16(b, 49152); // 0.75
+  Pixel a(0, 0, 0);
+  Pixel b(1, 2, 4);
+  Pixel m = a.lerp16(b, 49152); // 0.75
   // True values 0.75 / 1.5 / 3.0 -> round-to-nearest 1 / 2 / 3 (floor: 0 / 1 / 2).
   HS_EXPECT_EQ(m.r, 1);
   HS_EXPECT_EQ(m.g, 2);
@@ -87,10 +87,10 @@ inline void test_lerp16_rounds_to_nearest() {
  *          endpoints (allowing +/- 1 LSB of rounding slack).
  */
 inline void test_lerp16_bounded() {
-  Pixel16 a(123, 45678, 65535);
-  Pixel16 b(65535, 0, 12345);
+  Pixel a(123, 45678, 65535);
+  Pixel b(65535, 0, 12345);
   for (uint32_t f = 0; f <= 65535; f += 4095) {
-    Pixel16 m = a.lerp16(b, static_cast<uint16_t>(f));
+    Pixel m = a.lerp16(b, static_cast<uint16_t>(f));
     HS_EXPECT_LE(m.r, static_cast<uint16_t>(std::max(a.r, b.r)));
     HS_EXPECT_GE(m.r + 1, static_cast<uint16_t>(std::min(a.r, b.r)));
     HS_EXPECT_LE(m.g, static_cast<uint16_t>(std::max(a.g, b.g)));
@@ -124,13 +124,13 @@ inline uint16_t lerp16_reference(uint16_t a, uint16_t b, uint16_t frac) {
 inline void test_lerp16_full_range_correct() {
   // Midpoint of two maximal channels stays maximal — the canonical case a signed
   // multiply collapses (65535 read as -1 -> product ~0).
-  Pixel16 hi(65535, 65535, 65535), lo(0, 0, 0);
-  Pixel16 mid = hi.lerp16(lo, 32768);
+  Pixel hi(65535, 65535, 65535), lo(0, 0, 0);
+  Pixel mid = hi.lerp16(lo, 32768);
   HS_EXPECT_NEAR(static_cast<float>(mid.r), 32768.0f, 2.0f);
   HS_EXPECT_NEAR(static_cast<float>(mid.g), 32768.0f, 2.0f);
 
   // Bright endpoints recovered exactly.
-  Pixel16 a(65535, 49152, 40000), b(32768, 60000, 33000);
+  Pixel a(65535, 49152, 40000), b(32768, 60000, 33000);
   HS_EXPECT_TRUE(a.lerp16(b, 0) == a);
   HS_EXPECT_TRUE(a.lerp16(b, 65535) == b);
 
@@ -140,7 +140,7 @@ inline void test_lerp16_full_range_correct() {
   for (uint16_t av : vals)
     for (uint16_t bv : vals)
       for (uint32_t f = 0; f <= 65535; f += 8191) {
-        Pixel16 pa(av, 0, 0), pb(bv, 0, 0);
+        Pixel pa(av, 0, 0), pb(bv, 0, 0);
         uint16_t got = pa.lerp16(pb, static_cast<uint16_t>(f)).r;
         uint16_t ref = lerp16_reference(av, bv, static_cast<uint16_t>(f));
         HS_EXPECT_TRUE(
@@ -157,7 +157,7 @@ inline void test_lerp16_full_range_correct() {
  * @details The device path of operator+= packs g|b into one 32-bit
  *          uqadd16 lane and r into another, then unpacks. That asm path never
  *          runs on the host, so a transposed g/b lane or a wrong unpack shift
- *          would ship silently (wrong colors, not a crash). pixel16_blend_add_packed
+ *          would ship silently (wrong colors, not a crash). pixel_blend_add_packed
  *          shares the exact lane layout with the device and compiles natively via
  *          the software uqadd16, so this checks it against an independent
  *          per-channel saturating reference across cases that stress each lane.
@@ -167,20 +167,20 @@ inline void test_blend_add_packed_lane_layout() {
     uint32_t s = x + y;
     return (uint16_t)(s > 65535 ? 65535 : s);
   };
-  const Pixel16 cases[][2] = {
-      {Pixel16(60000, 1000, 40000),
-       Pixel16(10000, 200, 40000)},                     // r,b sat; g not
-      {Pixel16(0, 65535, 0), Pixel16(65535, 0, 65535)}, // each lane to max
-      {Pixel16(123, 45678, 9000), Pixel16(40000, 30000, 50)}, // g sat only
-      {Pixel16(0, 0, 0), Pixel16(0, 0, 0)},                   // zero
+  const Pixel cases[][2] = {
+      {Pixel(60000, 1000, 40000),
+       Pixel(10000, 200, 40000)},                     // r,b sat; g not
+      {Pixel(0, 65535, 0), Pixel(65535, 0, 65535)}, // each lane to max
+      {Pixel(123, 45678, 9000), Pixel(40000, 30000, 50)}, // g sat only
+      {Pixel(0, 0, 0), Pixel(0, 0, 0)},                   // zero
   };
   for (const auto &c : cases) {
-    Pixel16 got = pixel16_blend_add_packed(c[0], c[1]);
+    Pixel got = pixel_blend_add_packed(c[0], c[1]);
     HS_EXPECT_EQ(got.r, ref(c[0].r, c[1].r));
     HS_EXPECT_EQ(got.g, ref(c[0].g, c[1].g));
     HS_EXPECT_EQ(got.b, ref(c[0].b, c[1].b));
     // Host add operators must agree with the packed device layout.
-    Pixel16 acc = c[0];
+    Pixel acc = c[0];
     acc += c[1];
     HS_EXPECT_TRUE(acc == got);
   }
@@ -192,7 +192,7 @@ inline void test_blend_add_packed_lane_layout() {
  *          silently reweight any average built from these operators.
  */
 inline void test_color4_scale_affects_color_and_alpha() {
-  Color4 c(Pixel16(1000, 2000, 4000), 0.8f);
+  Color4 c(Pixel(1000, 2000, 4000), 0.8f);
   c *= 0.5f;
   HS_EXPECT_EQ(c.color.r, 500);
   HS_EXPECT_EQ(c.color.g, 1000);
@@ -207,8 +207,8 @@ inline void test_color4_scale_affects_color_and_alpha() {
  */
 inline void test_color4_add_clamps_alpha_and_sums_color() {
   // Two near-opaque samples sum past 1.0 -> clamped.
-  Color4 a(Pixel16(10000, 0, 0), 0.7f);
-  a += Color4(Pixel16(20000, 100, 0), 0.6f);
+  Color4 a(Pixel(10000, 0, 0), 0.7f);
+  a += Color4(Pixel(20000, 100, 0), 0.6f);
   HS_EXPECT_EQ(a.color.r, 30000);
   HS_EXPECT_EQ(a.color.g, 100);
   HS_EXPECT_NEAR(a.alpha, 1.0f, 1e-6f); // 1.3 clamped
@@ -216,12 +216,12 @@ inline void test_color4_add_clamps_alpha_and_sums_color() {
   // Sum of (sample * 1/N) reproduces the average, alpha <= 1.
   const int N = 4;
   Color4 samples[N] = {
-      Color4(Pixel16(40000, 0, 0), 1.0f),
-      Color4(Pixel16(0, 40000, 8000), 1.0f),
-      Color4(Pixel16(0, 8000, 40000), 0.5f),
-      Color4(Pixel16(0, 8000, 24000), 0.5f),
+      Color4(Pixel(40000, 0, 0), 1.0f),
+      Color4(Pixel(0, 40000, 8000), 1.0f),
+      Color4(Pixel(0, 8000, 40000), 0.5f),
+      Color4(Pixel(0, 8000, 24000), 0.5f),
   };
-  Color4 acc(Pixel16(0, 0, 0), 0.0f);
+  Color4 acc(Pixel(0, 0, 0), 0.0f);
   for (int i = 0; i < N; ++i) {
     Color4 s = samples[i];
     s *= 1.0f / N;
@@ -241,8 +241,8 @@ inline void test_color4_add_clamps_alpha_and_sums_color() {
  *          endpoint instead of invoking cast UB.
  */
 inline void test_blend_alpha_clamps_before_cast() {
-  Pixel16 a(0, 0, 0);
-  Pixel16 b(60000, 40000, 20000);
+  Pixel a(0, 0, 0);
+  Pixel b(60000, 40000, 20000);
 
   HS_EXPECT_TRUE(blend_alpha(0.0f)(a, b) == a); // fully a
   HS_EXPECT_TRUE(blend_alpha(1.0f)(a, b) == b); // fully b
@@ -256,32 +256,32 @@ inline void test_blend_alpha_clamps_before_cast() {
   // Large enough to overflow int in an unclamped (int)(a*65535).
   HS_EXPECT_TRUE(blend_alpha(1e9f)(a, b) == b);
   // NaN folds to the hi bound via hs::clamp.
-  Pixel16 nan_res = blend_alpha(NAN)(a, b);
+  Pixel nan_res = blend_alpha(NAN)(a, b);
   HS_EXPECT_TRUE(nan_res == b);
 }
 
 /**
- * @brief Verifies Pixel16 * float clamps each scaled channel into [0,65535]
+ * @brief Verifies Pixel * float clamps each scaled channel into [0,65535]
  *        before the cast.
  * @details Overflowing scales saturate, negatives clamp to 0, and NaN folds to
  *          the hi bound (matching blend_alpha) rather than invoking cast UB.
  */
-inline void test_pixel16_scale_clamps_before_cast() {
-  Pixel16 c(100, 2000, 30000);
+inline void test_pixel_scale_clamps_before_cast() {
+  Pixel c(100, 2000, 30000);
 
-  HS_EXPECT_TRUE(c * 0.0f == Pixel16(0, 0, 0));
+  HS_EXPECT_TRUE(c * 0.0f == Pixel(0, 0, 0));
   HS_EXPECT_TRUE(c * 1.0f == c);
-  HS_EXPECT_TRUE(c * 2.0f == Pixel16(200, 4000, 60000));
+  HS_EXPECT_TRUE(c * 2.0f == Pixel(200, 4000, 60000));
 
   // Half-LSB results round up: odd channels * 0.5 land on .5 and carry up.
-  HS_EXPECT_TRUE(Pixel16(3, 5, 7) * 0.5f == Pixel16(2, 3, 4));
+  HS_EXPECT_TRUE(Pixel(3, 5, 7) * 0.5f == Pixel(2, 3, 4));
 
   // Overflowing scale saturates at 65535.
-  HS_EXPECT_TRUE(c * 1e9f == Pixel16(65535, 65535, 65535));
+  HS_EXPECT_TRUE(c * 1e9f == Pixel(65535, 65535, 65535));
   // Negative scale clamps to zero.
-  HS_EXPECT_TRUE(c * -3.0f == Pixel16(0, 0, 0));
+  HS_EXPECT_TRUE(c * -3.0f == Pixel(0, 0, 0));
   // NaN folds to the hi bound.
-  HS_EXPECT_TRUE(c * NAN == Pixel16(65535, 65535, 65535));
+  HS_EXPECT_TRUE(c * NAN == Pixel(65535, 65535, 65535));
 }
 
 // ============================================================================
@@ -2329,7 +2329,7 @@ inline void test_palette_wrappers() {
 // run and the -ffast-math -fno-finite-math-only pass.
 #define HS_FASTMATH_CLAMP_TESTS(X)                                             \
   X(test_blend_alpha_clamps_before_cast)                                       \
-  X(test_pixel16_scale_clamps_before_cast)                                     \
+  X(test_pixel_scale_clamps_before_cast)                                       \
   X(test_gradient_get_clamps_out_of_range)                                     \
   X(test_generative_palette_get_clamps_out_of_range)                           \
   X(test_mobius_longitude_singularity_saturates_to_endpoint)

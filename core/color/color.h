@@ -40,10 +40,10 @@ inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
 }
 #endif
 
-struct Pixel16;
+struct Pixel;
 // Saturating per-channel add packed into two uqadd16 lanes (g|b in one 32-bit
-// word, r alone in another). Used by Pixel16::operator+=.
-inline Pixel16 pixel16_blend_add_packed(const Pixel16 &c1, const Pixel16 &c2);
+// word, r alone in another). Used by Pixel::operator+=.
+inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2);
 
 /**
  * @brief Maps an 8-bit sRGB channel value to its 16-bit linear equivalent.
@@ -57,27 +57,27 @@ inline uint16_t srgb_to_linear(uint8_t srgb);
  * @details Used for high-precision mixing and HDR rendering before
  * downsampling/tone-mapping to 8-bit output.
  */
-struct Pixel16 {
+struct Pixel {
   uint16_t r, g, b;
 
   /**
    * @brief Constructs a black pixel (all channels zero).
    */
-  constexpr Pixel16() : r(0), g(0), b(0) {}
+  constexpr Pixel() : r(0), g(0), b(0) {}
   /**
    * @brief Constructs a pixel from explicit 16-bit linear channels.
    * @param _r Red channel in [0, 65535].
    * @param _g Green channel in [0, 65535].
    * @param _b Blue channel in [0, 65535].
    */
-  constexpr Pixel16(uint16_t _r, uint16_t _g, uint16_t _b)
+  constexpr Pixel(uint16_t _r, uint16_t _g, uint16_t _b)
       : r(_r), g(_g), b(_b) {}
 
   /**
    * @brief Constructs a pixel from HSV (converts to sRGB then Linear).
    * @param hsv Source color in HSV space.
    */
-  Pixel16(const CHSV &hsv) {
+  Pixel(const CHSV &hsv) {
     CRGB srgb(hsv);
     r = srgb_to_linear(srgb.r);
     g = srgb_to_linear(srgb.g);
@@ -88,7 +88,7 @@ struct Pixel16 {
    * @brief Constructs a pixel from CRGB (converts to Linear).
    * @param c Source color in 8-bit sRGB space.
    */
-  Pixel16(const CRGB &c) {
+  Pixel(const CRGB &c) {
     r = srgb_to_linear(c.r);
     g = srgb_to_linear(c.g);
     b = srgb_to_linear(c.b);
@@ -97,7 +97,7 @@ struct Pixel16 {
   /**
    * @brief Lossy 16-bit-linear -> 8-bit-sRGB downcast.
    * @return The color quantized to an 8-bit sRGB CRGB.
-   * @details Explicit so a stray Pixel16 in a CRGB context is a compile error,
+   * @details Explicit so a stray Pixel in a CRGB context is a compile error,
    * not a silent round-trip through 8-bit gamma.
    */
   explicit operator CRGB() const;
@@ -107,9 +107,9 @@ struct Pixel16 {
    * @param rhs Pixel to add.
    * @return Reference to this pixel after the clamped add.
    */
-  Pixel16 &operator+=(const Pixel16 &rhs) {
+  Pixel &operator+=(const Pixel &rhs) {
 #if defined(__ARM_FEATURE_DSP)
-    *this = pixel16_blend_add_packed(*this, rhs);
+    *this = pixel_blend_add_packed(*this, rhs);
 #else
     r = (uint16_t)std::min((uint32_t)65535, (uint32_t)r + rhs.r);
     g = (uint16_t)std::min((uint32_t)65535, (uint32_t)g + rhs.g);
@@ -123,8 +123,8 @@ struct Pixel16 {
    * @param rhs Pixel to add.
    * @return A new pixel with each channel clamped to the 16-bit max.
    */
-  Pixel16 operator+(const Pixel16 &rhs) const {
-    Pixel16 out = *this;
+  Pixel operator+(const Pixel &rhs) const {
+    Pixel out = *this;
     out += rhs;
     return out;
   }
@@ -138,8 +138,8 @@ struct Pixel16 {
    * float->int is UB out of range; hs::clamp also maps a NaN scale to the hi
    * bound before it can reach the cast.
    */
-  Pixel16 operator*(float s) const {
-    return Pixel16((uint16_t)hs::clamp(r * s + 0.5f, 0.0f, 65535.0f),
+  Pixel operator*(float s) const {
+    return Pixel((uint16_t)hs::clamp(r * s + 0.5f, 0.0f, 65535.0f),
                    (uint16_t)hs::clamp(g * s + 0.5f, 0.0f, 65535.0f),
                    (uint16_t)hs::clamp(b * s + 0.5f, 0.0f, 65535.0f));
   }
@@ -154,7 +154,7 @@ struct Pixel16 {
    * the endpoints (frac 0/65535 -> a/b). Plain 32-bit MACs, not packed `smlad`:
    * smlad's signed 16x16 dual-MAC reads an operand >= 32768 as negative.
    */
-  __attribute__((always_inline)) Pixel16 lerp16(const Pixel16 &other,
+  __attribute__((always_inline)) Pixel lerp16(const Pixel &other,
                                                 uint16_t frac) const {
     uint16_t inv = 65535 - frac;
     uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
@@ -163,7 +163,7 @@ struct Pixel16 {
     uint32_t r32 = (xr + (xr >> 16) + 32768) >> 16;
     uint32_t g32 = (xg + (xg >> 16) + 32768) >> 16;
     uint32_t b32 = (xb + (xb >> 16) + 32768) >> 16;
-    return Pixel16((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
+    return Pixel((uint16_t)r32, (uint16_t)g32, (uint16_t)b32);
   }
 
   /**
@@ -171,7 +171,7 @@ struct Pixel16 {
    * @param rhs Pixel to compare against.
    * @return True if all three channels match.
    */
-  bool operator==(const Pixel16 &rhs) const {
+  bool operator==(const Pixel &rhs) const {
     return r == rhs.r && g == rhs.g && b == rhs.b;
   }
 
@@ -180,38 +180,36 @@ struct Pixel16 {
    * @param rhs Pixel to compare against.
    * @return True if any channel differs.
    */
-  bool operator!=(const Pixel16 &rhs) const { return !(*this == rhs); }
+  bool operator!=(const Pixel &rhs) const { return !(*this == rhs); }
 
   /**
-   * @brief Tests equality against an HSV color (converted to Pixel16).
+   * @brief Tests equality against an HSV color (converted to Pixel).
    * @param rhs Color in HSV space.
    * @return True if this pixel equals the converted color.
    */
-  bool operator==(const CHSV &rhs) const { return *this == Pixel16(rhs); }
+  bool operator==(const CHSV &rhs) const { return *this == Pixel(rhs); }
 
   /**
-   * @brief Tests inequality against an HSV color (converted to Pixel16).
+   * @brief Tests inequality against an HSV color (converted to Pixel).
    * @param rhs Color in HSV space.
    * @return True if this pixel differs from the converted color.
    */
   bool operator!=(const CHSV &rhs) const { return !(*this == rhs); }
 
   /**
-   * @brief Tests equality against a CRGB color (converted to Pixel16).
+   * @brief Tests equality against a CRGB color (converted to Pixel).
    * @param rhs Color in 8-bit sRGB space.
    * @return True if this pixel equals the converted color.
    */
-  bool operator==(const CRGB &rhs) const { return *this == Pixel16(rhs); }
+  bool operator==(const CRGB &rhs) const { return *this == Pixel(rhs); }
 
   /**
-   * @brief Tests inequality against a CRGB color (converted to Pixel16).
+   * @brief Tests inequality against a CRGB color (converted to Pixel).
    * @param rhs Color in 8-bit sRGB space.
    * @return True if this pixel differs from the converted color.
    */
   bool operator!=(const CRGB &rhs) const { return !(*this == rhs); }
 };
-
-using Pixel = Pixel16;
 
 /**
  * @brief Quantizes a [0,1] interpolation fraction to a 16-bit lerp16 weight.
@@ -422,7 +420,7 @@ inline uint16_t srgb_to_linear_interp(float s_srgb) {
  * @brief Lossy 16-bit-linear -> 8-bit-sRGB downcast.
  * @return The color quantized to an 8-bit sRGB CRGB.
  */
-inline Pixel16::operator CRGB() const {
+inline Pixel::operator CRGB() const {
   return CRGB(linear_to_srgb8(r), linear_to_srgb8(g), linear_to_srgb8(b));
 }
 
@@ -432,14 +430,14 @@ inline Pixel16::operator CRGB() const {
 
 // Packs g|b into the low add lane and r into a separate lane (its high halfword
 // stays 0, so uqadd16's upper add is a harmless 0+0).
-inline Pixel16 pixel16_blend_add_packed(const Pixel16 &c1, const Pixel16 &c2) {
+inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2) {
   uint32_t bg1 = ((uint32_t)c1.g << 16) | c1.b;
   uint32_t bg2 = ((uint32_t)c2.g << 16) | c2.b;
   uint32_t sum_bg = inline_uqadd16(bg1, bg2);
 
   uint32_t sum_r = inline_uqadd16((uint32_t)c1.r, (uint32_t)c2.r);
 
-  return Pixel16((uint16_t)sum_r, (uint16_t)(sum_bg >> 16), (uint16_t)sum_bg);
+  return Pixel((uint16_t)sum_r, (uint16_t)(sum_bg >> 16), (uint16_t)sum_bg);
 }
 
 /**

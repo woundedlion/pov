@@ -148,7 +148,7 @@ inline void test_submit_happy_path() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
-  ctl.backFrame().packPixel(0, Pixel16(CRGB(255, 0, 0)));
+  ctl.backFrame().packPixel(0, Pixel(CRGB(255, 0, 0)));
   bool ok = ctl.submitFrame(/*withBg=*/false);
 
   HS_EXPECT_TRUE(ok);
@@ -252,10 +252,10 @@ inline void test_end_to_end_wire_bytes() {
 
   Frame ref;
   for (int i = 0; i < N; ++i)
-    ref.packPixel(i, Pixel16(colors[i]));
+    ref.packPixel(i, Pixel(colors[i]));
 
   for (int i = 0; i < N; ++i)
-    ctl.backFrame().packPixel(i, Pixel16(colors[i]));
+    ctl.backFrame().packPixel(i, Pixel(colors[i]));
   HS_EXPECT_TRUE(ctl.submitFrame(false));
 
   HS_EXPECT_EQ(MockStrip::state().last_len,

@@ -529,7 +529,7 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
 
   SDF::DistanceResult result;
   constexpr float PIXEL_WIDTH = 2.0f * PI_F / W;
-  Pixel16 plot_color = color.color;
+  Pixel plot_color = color.color;
   if (effective_debug)
     plot_color = plot_color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
   scan_region<W, H>(
