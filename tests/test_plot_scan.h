@@ -249,6 +249,72 @@ inline void test_line_sample_antipodal_stable_axis() {
   HS_EXPECT_NEAR(angle_between(b.pos, mid), PI_F * 0.5f, 1e-3f);
 }
 
+/**
+ * @brief Antipodal endpoints one ULP apart in length still pick a stable axis at
+ *        every geodesic site: Line::sample, make_geodesic_edge_span, and the
+ *        rasterizer's own edge setup.
+ * @details acos' derivative diverges at ±1, so a single-ULP perturbation of the
+ *          normalized dot moves angle_between off π by ~5e-4 rad — several times
+ *          any angular tolerance the sites could name, while cross(a, b) stays
+ *          exactly zero. Selecting the axis from |cross|² instead keeps the
+ *          three sites agreeing with each other and with the geometry.
+ *          The miss here comes out of correctly-rounded mul/div/sqrt alone —
+ *          dot is exactly -1 while sqrt(m1·m2) rounds to 1 + 2^-23 — so it holds
+ *          on every target regardless of FMA contraction or fast-math
+ *          reciprocals.
+ */
+inline void test_line_sample_near_antipodal_ulp_stable_axis() {
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 16);
+
+  Fragment a, b;
+  a.pos = Vector(-0.28f, 0.96f, 0.0f);
+  b.pos = a.pos * -(1.0f + 0x1p-23f); // one ULP longer than -a
+
+  // The arc pole cannot come from the cross product: it is unnormalizable.
+  const Vector pole = cross(a.pos, b.pos);
+  HS_EXPECT_LT(dot(pole, pole), math::EPS_NORMALIZE_SQ);
+
+  const int density = 8;
+  Plot::Line::sample(points, a, b, density);
+
+  HS_EXPECT_EQ(points.size(), (size_t)(density + 1));
+  for (size_t i = 0; i < points.size(); ++i) {
+    const Vector &p = points[i].pos;
+    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
+                   std::isfinite(p.z));
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+  }
+  const Vector &mid = points[density / 2].pos;
+  HS_EXPECT_NEAR(angle_between(a.pos, mid), PI_F * 0.5f, 1e-3f);
+  HS_EXPECT_NEAR(angle_between(b.pos, mid), PI_F * 0.5f, 1e-3f);
+
+  // The span setup resolves the same edge to a unit arc pole perpendicular to a.
+  const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a.pos, b.pos);
+  HS_EXPECT_TRUE(es.have_axis);
+  HS_EXPECT_TRUE(es.antipodal);
+  HS_EXPECT_NEAR(es.axis.length(), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(dot(es.axis, a.pos.normalized()), 0.0f, 1e-5f);
+
+  // And so does rasterize_geodesic_strategy, reached through the rasterizer.
+  constexpr int W = 128, H = 64;
+  hs_test::StubEffect fx(W, H);
+  CapturePipeline pipe;
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/false,
+                          /*planar_basis=*/nullptr);
+  }
+  fx.advance_display();
+  HS_EXPECT_GT(pipe.plotted.size(), (size_t)0);
+  for (const Vector &p : pipe.plotted) {
+    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
+                   std::isfinite(p.z));
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+  }
+}
+
 // ============================================================================
 // ClipRegion::could_intersect_y  (constants.h — pure clip culling)
 // ============================================================================
@@ -2430,8 +2496,11 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
 
   // Fast path on an open last segment plots curr and next.
   HS_EXPECT_EQ(pipe.plotted.size(), (size_t)2);
-  HS_EXPECT_NEAR(angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-4f);
+  // Chord, not angle_between: acos' derivative diverges at |dot| = 1, so the
+  // angle a unit pair reports quantizes in ~3.5e-4 steps and cannot resolve a
+  // tolerance this tight. The chord tracks the angle to within angle^3/24.
+  HS_EXPECT_NEAR((pipe.plotted.front() - a.pos).length(), 0.0f, 1e-4f);
+  HS_EXPECT_NEAR((pipe.plotted.back() - b.pos).length(), 0.0f, 1e-4f);
   for (const Vector &p : pipe.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
 }
@@ -2549,7 +2618,7 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   HS_EXPECT_EQ(planar_pipe.plotted.size(), geo_pipe.plotted.size());
   size_t n = std::min(planar_pipe.plotted.size(), geo_pipe.plotted.size());
   for (size_t i = 0; i < n; ++i)
-    HS_EXPECT_NEAR(angle_between(planar_pipe.plotted[i], geo_pipe.plotted[i]),
+    HS_EXPECT_NEAR((planar_pipe.plotted[i] - geo_pipe.plotted[i]).length(),
                    0.0f, 1e-5f);
 }
 
@@ -3124,7 +3193,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   int orig_mismatches = 0;
   auto deferred_pass = [&](Fragment &f, const Vector &orig) {
     // orig must be the pre-shader position: the negation of the shaded one.
-    if (angle_between(orig * -1.0f, f.pos) > 1e-4f)
+    if ((orig * -1.0f - f.pos).length() > 1e-4f)
       orig_mismatches++;
     deferred_calls[static_cast<size_t>(f.v2 + 0.5f)]++;
     f.v3 *= 0.5f;
@@ -3743,6 +3812,7 @@ inline int run_plot_scan_tests() {
   test_line_sample_interior_between_endpoints();
   test_line_sample_degenerate_segment();
   test_line_sample_antipodal_stable_axis();
+  test_line_sample_near_antipodal_ulp_stable_axis();
 
   test_clip_could_intersect_y();
   test_clip_x_band_topologies();

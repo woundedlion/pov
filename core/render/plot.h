@@ -38,6 +38,21 @@ static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
 
 /**
+ * @brief Minimum |cross(a, b)|² for which the arc pole of a geodesic edge is
+ *        taken from the cross product rather than a stable perpendicular.
+ * @details The bound is on the quantity the pole normalization consumes rather
+ * than on angle_between, whose derivative diverges as the normalized dot
+ * approaches ±1: one ULP there moves the reported angle by ~3.5e-4 rad, so no
+ * angular band narrow enough to be useful can also be wide enough to hold, and
+ * an antipodal edge reaches a cross product it cannot normalize. |cross| =
+ * sin(angle), so 1e-8 names the same geometric band an angular 1e-4 does,
+ * without the amplification. Above it the cross components carry ~1e-7 of
+ * absolute rounding, bounding the pole's direction error at ~2e-3 rad — a tenth
+ * of a pixel at W=288.
+ */
+static constexpr float EPS_ARC_POLE_SQ = 1e-8f;
+
+/**
  * @brief Minimum |axis.y| for which a geodesic edge's endpoint columns bound
  *        its azimuth span.
  * @details Below this the great circle runs near the poles, where longitude is
@@ -376,9 +391,9 @@ struct GeodesicEdgeSampler {
  * @param is_last_segment True if this is the final edge of the polyline.
  * @param process_segment Receives the arc-length sampler, endpoints, on-sphere
  *                        length (radians), and the last-segment flag.
- * @details Picks a stable perpendicular axis for antipodal/degenerate endpoints
- * and slerps along the great circle; a coincident-endpoint edge collapses to a
- * constant sampler.
+ * @details Picks a stable perpendicular axis when cross(v1, v2) is too short to
+ * pole the arc, and slerps along the great circle; a coincident-endpoint edge
+ * collapses to a constant sampler.
  */
 HS_O3_BEGIN
 template <typename ProcessSegmentFn>
@@ -395,10 +410,12 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
                     is_last_segment);
   } else {
     Vector axis;
-    if (std::abs(PI_F - total_dist) < TOLERANCE) {
+    Vector pole = cross(v1, v2);
+    float pole_len_sq = dot(pole, pole);
+    if (pole_len_sq < EPS_ARC_POLE_SQ) {
       axis = stable_perpendicular_axis(v1);
     } else {
-      axis = cross(v1, v2).normalized();
+      axis = pole * (1.0f / sqrtf(pole_len_sq));
     }
 
     process_segment(GeodesicEdgeSampler{v1, cross(axis, v1), total_dist}, curr,
@@ -410,12 +427,12 @@ HS_O3_END
 /**
  * @brief Shared per-edge geodesic setup for the row/column span bounds.
  * @details axis mirrors rasterize_geodesic_strategy's slerp-axis selection;
- *          have_axis is false when cross(a, b) collapses on a non-antipodal
- *          edge (no stable arc pole exists).
+ *          have_axis is false on an edge the renderer collapses to a dot, which
+ *          has no arc to pole.
  */
 struct GeodesicEdgeSpan {
   float total;    /**< angle_between(a, b) in radians. */
-  bool antipodal; /**< |π - total| < TOLERANCE. */
+  bool antipodal; /**< axis came from stable_perpendicular_axis, not cross. */
   bool have_axis; /**< axis holds a unit arc pole. */
   Vector axis;    /**< Unit arc pole (valid iff have_axis). */
 };
@@ -429,20 +446,20 @@ static inline GeodesicEdgeSpan make_geodesic_edge_span(const Vector &a,
                                                        const Vector &b) {
   GeodesicEdgeSpan es;
   es.total = angle_between(a, b);
-  es.antipodal = std::abs(PI_F - es.total) < TOLERANCE;
-  if (es.antipodal) {
-    es.axis = stable_perpendicular_axis(a);
-    es.have_axis = true;
-    return es;
-  }
-  Vector c = cross(a, b);
-  float L2 = dot(c, c);
-  if (L2 <= math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
+  if (es.total < EPS_GEODESIC_SEGMENT) {
+    es.antipodal = false;
     es.axis = Vector(0.0f, 0.0f, 0.0f);
     es.have_axis = false;
     return es;
   }
-  es.axis = c * (1.0f / sqrtf(L2));
+  Vector pole = cross(a, b);
+  float pole_len_sq = dot(pole, pole);
+  es.antipodal = pole_len_sq < EPS_ARC_POLE_SQ;
+  if (es.antipodal) {
+    es.axis = stable_perpendicular_axis(a);
+  } else {
+    es.axis = pole * (1.0f / sqrtf(pole_len_sq));
+  }
   es.have_axis = true;
   return es;
 }
@@ -1599,10 +1616,12 @@ struct Line {
     }
 
     Vector axis;
-    if (std::abs(PI_F - angle) < TOLERANCE) {
+    Vector pole = cross(f1.pos, f2.pos);
+    float pole_len_sq = dot(pole, pole);
+    if (pole_len_sq < EPS_ARC_POLE_SQ) {
       axis = stable_perpendicular_axis(f1.pos);
     } else {
-      axis = cross(f1.pos, f2.pos).normalized();
+      axis = pole * (1.0f / sqrtf(pole_len_sq));
     }
     // Same orthonormal-basis parameterization the rasterizer samples this arc
     // with (rasterize_geodesic_strategy), so the presampled polyline and the
