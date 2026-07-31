@@ -143,7 +143,7 @@ shade_mesh_topology(const Fragment &f, const uint16_t *topology, int num_faces,
  * once per face and passes it directly, so the per-fragment path skips the
  * topology-slot lookup and palette-bank indirection.
  * @tparam Palette Baked palette type exposing `Color4 get(float) const`.
- * @tparam SegueT Segue policy type (see namespace Segue in animation/mesh.h);
+ * @tparam SegueT Segue policy type (see namespace Segue in animation/segue.h);
  * duck-typed, so this header needs no dependency on it.
  * @param f Rasterized fragment.
  * @param palette The face's already-resolved palette.

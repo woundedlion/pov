@@ -30,7 +30,7 @@
 #include <span>
 #include <vector>
 
-#include "core/animation/mesh.h"
+#include "core/animation/opleg.h"
 #include "core/mesh/conway.h"
 #include "core/mesh/conway_graph.h"
 #include "core/mesh/hankin.h"

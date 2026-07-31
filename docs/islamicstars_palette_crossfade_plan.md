@@ -21,19 +21,19 @@ The requested behaviour is `OpLeg`'s *default* colour model; IslamicStars opts
 out of it via `PaletteHandoff::immutable = true`:
 
 - `immutable = false` makes every carried face crossfade `from -> to` under the
-  leg's `BlendWeightFn` (`core/animation/mesh.h:300`). IslamicStars already passes
+  leg's `BlendWeightFn` (`core/animation/opleg.h:195`). IslamicStars already passes
   `classic_blend` at all three leg-construction sites
   (`effects/IslamicStars.h:1077,1187,1254`), so the whole-leg smooth lerp comes
   for free the moment `immutable` flips.
 - `pinned_to = nullptr` gives the per-leg fresh shuffle of target palettes
-  (`mesh.h:2181-2187`, via `hs::shuffle` — determinism preserved).
+  (`opleg.h:1771-1772`, via `hs::shuffle` — determinism preserved).
 - Fresh classification per arrival is *already computed* — every leg site runs
   `classify_faces_by_topology` on the arrival seed and passes it as
-  `BookendClasses`. Colour targets key on it (`mesh.h:317-329`), so the w = 1
+  `BookendClasses`. Colour targets key on it (`opleg.h:1805`), so the w = 1
   frame equals the standing display by construction.
 - The fragment path is identical in both modes: `ramps[face_ramp[f]].get(t)`,
   one baked-LUT lookup. Crossfade cost is a once-per-frame pre-blend of the
-  distinct (from, to) pairs into `scratch_arena_b` (`mesh.h:1580-1593`), with a
+  distinct (from, to) pairs into `scratch_arena_b` (`opleg.h:1441-1455`), with a
   zero-cost aliasing fast path at w <= 0 / w >= 1
   (`composition.h:1093-1102`).
 
@@ -42,10 +42,10 @@ pre-blend (time + scratch_b bytes) on mid-leg frames.
 
 ## 2. The one real hazard: MAX_BLEND_PAIRS is stale
 
-`OpLeg::MAX_BLEND_PAIRS = 25` (`mesh.h:190`) with a comment claiming it covers
+`OpLeg::MAX_BLEND_PAIRS = 25` (`opleg.h:42`) with a comment claiming it covers
 `BakedPaletteBank::N^2 = 25`. **N is now 6** (`composition.h:1129`), so the
 true pair space is 36. `intern_palette_ramp` traps via `HS_CHECK` on overflow
-(`mesh.h:2115`) — a fail-fast device crash. Today immutable legs stay tiny and
+(`opleg.h:1715`) — a fail-fast device crash. Today immutable legs stay tiny and
 the worst measured leg (gyro_kis reconcile) hit 18; fresh-classified legs raise
 the ceiling everywhere. This must be resolved by measurement + a bound, not
 hope.
@@ -95,7 +95,7 @@ All in `effects/IslamicStars.h`:
    :692-708 stays — birth colours of the spawned mesh are still class + shuffle).
    The engine-side immutable machinery (`PaletteHandoff::immutable` /
    `birth_counter` / `pinned_to` and everything they gated) has since been
-   deleted from `core/animation/mesh.h`; no shipped effect, target, or tool
+   deleted from `core/animation/opleg.h`; no shipped effect, target, or tool
    ever selected it.
 4. Newborn faces mid-leg: with a null birth counter the engine keys newborns by
    `wrap(class, PALETTES)` into the leg's fresh `to_palette` — accept, verify
