@@ -691,12 +691,29 @@ struct GSWhiteBox {
     gs.params.dt = dt;
   }
   static int dissolve_frame(const GS &gs) {
-    return gs.transition.dissolve_frame;
+    return gs.transition.dissolve_substeps;
   }
   static const uint16_t *b_field(const GS &gs) { return gs.state.B; }
-  static constexpr int DISSOLVE_FRAMES = GS::DISSOLVE_FRAMES;
-  static constexpr int MIN_GROW_FRAMES = GS::MIN_GROW_FRAMES;
-  static constexpr int STABLE_HOLD_FRAMES = GS::STABLE_HOLD_FRAMES;
+  static const uint16_t *a_field(const GS &gs) { return gs.state.A; }
+  static float dissolve_hash(int i, uint32_t seed) {
+    return ::hash01(static_cast<uint32_t>(i), seed);
+  }
+  static void convert(GS &gs, float phase, uint32_t seed) {
+    gs.transition.dissolve_seed = seed;
+    gs.convert_below(phase);
+  }
+  static void set_node(GS &gs, int i, uint16_t a, uint16_t b) {
+    gs.state.A[i] = a;
+    gs.state.B[i] = b;
+  }
+  static constexpr float DISSOLVE_FADE_FRACTION =
+      GS::DISSOLVE_FADE_FRACTION;
+  static constexpr int DISSOLVE_FRAMES =
+      GS::DISSOLVE_SUBSTEPS / GS::EVOLUTION_STEPS_PER_FRAME;
+  static constexpr int MIN_GROW_FRAMES =
+      GS::MIN_GROW_SUBSTEPS / GS::EVOLUTION_STEPS_PER_FRAME;
+  static constexpr int STABLE_HOLD_FRAMES =
+      GS::STABLE_HOLD_SUBSTEPS / GS::EVOLUTION_STEPS_PER_FRAME;
 
   static void step(GS &gs, const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
                    uint16_t *nB) {
@@ -722,6 +739,32 @@ struct GSWhiteBox {
     gs.step_physics(cA, cB, nA, nB);
   }
 
+  static void step_float_reference(const GS &gs, const float *cA,
+                                   const float *cB, float *nA, float *nB) {
+    const float dt = gs.params.dt * GS::STEP_DT_SCALE;
+    for (int i = 0; i < N; ++i) {
+      float a = cA[i];
+      float b = cB[i];
+      float sumA = 0.0f, sumB = 0.0f;
+      for (int k = 0; k < ReactionGraph::RD_K; ++k) {
+        int ni = ReactionGraph::neighbors[i][k];
+        sumA += cA[ni];
+        sumB += cB[ni];
+      }
+      float lA = sumA - ReactionGraph::RD_K * a;
+      float lB = sumB - ReactionGraph::RD_K * b;
+      float abb = a * b * b;
+      nA[i] = hs::clamp(
+          a + (gs.params.d_a * lA - abb + gs.params.feed * (1.0f - a)) *
+                  dt,
+          0.0f, 1.0f);
+      nB[i] = hs::clamp(
+          b + (gs.params.d_b * lB + abb - (gs.params.k + gs.params.feed) * b) *
+                  dt,
+          0.0f, 1.0f);
+    }
+  }
+
   struct ShaderError {
     int different = 0;
     int lit = 0;
@@ -729,6 +772,7 @@ struct GSWhiteBox {
     int hard = 0;
     int stencil_samples = 0;
     int stencil_changes = 0;
+    int center_mismatches = 0;
     int max_channel = 0;
     uint64_t total_channel = 0;
   };
@@ -748,7 +792,10 @@ struct GSWhiteBox {
         frag.pos = pixel_to_vector<W, H>(x, y);
         gs.seed_face_lut(frag);
         int seed = static_cast<int>(frag.v0);
-        int shared_center = gs.refine_center(frag.pos, world_nodes, seed);
+        int shared_center =
+            gs.refine_render_center(frag.pos, world_nodes, seed);
+        if (shared_center != gs.refine_center(frag.pos, world_nodes, seed))
+          ++error.center_mismatches;
         Pixel got = gs.shade_pixel(seed, frag.pos, world_nodes, grid, x);
 
         Pixel expected(0, 0, 0);
@@ -831,10 +878,13 @@ inline void test_gs_shared_stencil_error_is_bounded() {
       continue;
     auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs);
     std::printf("GS shared stencil frame=%d: different=%d lit=%d coverage=%d "
-                "hard=%d center_changes=%d/%d max=%d total=%llu\n",
+                "hard=%d center_changes=%d/%d center_mismatches=%d max=%d "
+                "total=%llu\n",
                 frame, error.different, error.lit, error.coverage, error.hard,
-                error.stencil_changes, error.stencil_samples, error.max_channel,
+                error.stencil_changes, error.stencil_samples,
+                error.center_mismatches, error.max_channel,
                 static_cast<unsigned long long>(error.total_channel));
+    HS_EXPECT_EQ(error.center_mismatches, 0);
     HS_EXPECT(error.different * 2 <= error.lit,
               "shared stencil changed over half of lit pixels");
     HS_EXPECT(error.coverage * 50 <= error.lit,
@@ -848,6 +898,37 @@ inline void test_gs_shared_stencil_error_is_bounded() {
     if (next_probe < 2)
       ++next_probe;
   }
+}
+
+inline void test_gs_dissolve_frontier_fades_before_clear() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  constexpr float phase = 0.5f;
+  constexpr uint32_t seed = 0x7b31d2a5u;
+  int cleared = -1, fading = -1;
+  for (int i = 0; i < GSWhiteBox::N; ++i) {
+    float h = GSWhiteBox::dissolve_hash(i, seed);
+    if (cleared < 0 && h < phase)
+      cleared = i;
+    float fade =
+        (h - phase) / GSWhiteBox::DISSOLVE_FADE_FRACTION;
+    if (fading < 0 && fade > 0.25f && fade < 0.75f)
+      fading = i;
+  }
+  HS_EXPECT(cleared >= 0 && fading >= 0,
+            "dissolve probe did not find clear and fade nodes");
+  GSWhiteBox::set_node(gs, cleared, 0, 65535);
+  GSWhiteBox::set_node(gs, fading, 0, 65535);
+  GSWhiteBox::convert(gs, phase, seed);
+  HS_EXPECT_EQ(GSWhiteBox::a_field(gs)[cleared], (uint16_t)65535);
+  HS_EXPECT_EQ(GSWhiteBox::b_field(gs)[cleared], (uint16_t)0);
+  HS_EXPECT(GSWhiteBox::a_field(gs)[fading] > 0 &&
+                GSWhiteBox::a_field(gs)[fading] < 65535,
+            "dissolve fade did not ease A toward rest");
+  HS_EXPECT(GSWhiteBox::b_field(gs)[fading] > 0 &&
+                GSWhiteBox::b_field(gs)[fading] < 65535,
+            "dissolve fade cleared B without an intermediate value");
 }
 
 /**
@@ -950,6 +1031,30 @@ inline void test_gs_rest_state_is_fixed_point() {
     if (nA[i] != 65535 || nB[i] != 0)
       ++moved;
   HS_EXPECT_EQ(moved, 0);
+}
+
+/**
+ * @brief Pins the optimized float substep to the scalar equation bit-for-bit.
+ */
+inline void test_gs_substep_matches_scalar_reference() {
+  std::vector<float> a(GSWhiteBox::N), b(GSWhiteBox::N);
+  std::vector<float> gotA(GSWhiteBox::N), gotB(GSWhiteBox::N);
+  std::vector<float> refA(GSWhiteBox::N), refB(GSWhiteBox::N);
+  for (int i = 0; i < GSWhiteBox::N; ++i) {
+    a[i] = static_cast<float>((i * 73) & 65535) * (1.0f / 65535.0f);
+    b[i] = static_cast<float>((i * 151 + 17) & 65535) * (1.0f / 65535.0f);
+  }
+  GSWhiteBox::GS gs;
+  GSWhiteBox::set_params(gs, 0.037f, 0.061f, 0.019f, 0.013f, 2.3f);
+  GSWhiteBox::step_float(gs, a.data(), b.data(), gotA.data(), gotB.data());
+  GSWhiteBox::step_float_reference(gs, a.data(), b.data(), refA.data(),
+                                   refB.data());
+  HS_EXPECT(
+      std::memcmp(gotA.data(), refA.data(), gotA.size() * sizeof(float)) == 0,
+      "optimized A substep differs from scalar reference");
+  HS_EXPECT(
+      std::memcmp(gotB.data(), refB.data(), gotB.size() * sizeof(float)) == 0,
+      "optimized B substep differs from scalar reference");
 }
 
 /**
@@ -4240,6 +4345,8 @@ inline int run_effects_tests() {
   test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
   test_gs_shared_stencil_error_is_bounded();
+  test_gs_dissolve_frontier_fades_before_clear();
+  test_gs_substep_matches_scalar_reference();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
   // correctness block and the 288x144 production-resolution roster passes below

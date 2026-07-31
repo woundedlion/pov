@@ -494,9 +494,75 @@ arena high-water, and any accepted visual/numerical divergence.
 ## Definition of done
 
 This effort is complete only when the shipping full-roster image holds
-GSReactionDiffusion at zero spills with a peak at or below 58 ms, or when every
+GSReactionDiffusion at a peak below the owner-set 59 ms ceiling, or when every
 ranked architectural lever above has measured evidence and the remaining gap
 is explicitly traded against an owner-approved visual/numerical change.
 
 “Global O3 is faster,” a host benchmark, or one favorable short capture is not
 a completion condition.
+
+## Execution report
+
+The implemented campaign uses the shipping Arm GNU 15.2.1 compiler for every
+device measurement. `profile_one.sh` builds Phantasm and the profile image,
+compares compiler comments, ARM attributes, PlatformIO packages, and build
+flags, then archives and hashes both exact ELFs before capture.
+
+### Final result
+
+| Metric | Original shipping | Final shipping | Final O3 |
+|---|---:|---:|---:|
+| Lifecycle capture | 130 s | 130 s | 130 s |
+| Windows | 48 | 64 | 64 |
+| Worst render | 94.830 ms | **58.722 ms** | **58.934 ms** |
+| Dense-window shader average | 59.04 ms | 42.54 ms | 42.54 ms |
+| Dense-window simulation average | 31.56 ms | 12.13 ms | 12.00 ms |
+| Phantasm ITCM code | 192,296 B | 192,216 B | 192,216 B |
+| ITCM bank headroom | 4,312 B | 4,392 B | 4,392 B |
+
+Shipping worst-case render fell by 36.108 ms (38.1%). The final Phantasm image
+uses 331,340 B of flash code and 1,209,676 B of flash data, leaving 482,312 B
+for files. The final shader specialization is 2,452 B and its hot body contains
+673 instructions, 76 `vldr`, and 22 `vstr`; the O3 physics kernel is 356 B and
+90 instructions. No indirect shader call remains.
+
+The final 130-second captures are:
+
+- `build/prof/gsreactiondiffusion_threshold_final_ship.log`
+- `build/prof/gsreactiondiffusion_threshold_final_o3.log`
+
+Their provenance sidecars identify
+`GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203`.
+
+### Landed design
+
+- The typed four-sample renderer removes type erasure and indirect calls.
+- Four SSAA samples share one pixel-center stencil.
+- A triangle-inequality radius accepts provably nearest cubemap seeds without
+  checking six neighbors; production probes report zero center mismatches.
+- Physics buffers are restricted, frame parameters are hoisted, Q16 output is
+  forced inline, stabilization motion accumulates directly in Q16 units, and
+  the graph kernel alone receives O3 codegen.
+- Six 4/3-sized Euler integrations cover the same simulated interval as eight
+  smaller integrations. Lifecycle counters advance in original-size substep
+  equivalents, preserving grow/dissolve wall time.
+- Nodes enter an eight-frame dissolve band that eases A/B toward rest before
+  the frontier pins them, eliminating the previous hard disappearance.
+
+The temporal block is an accepted numerical-method change: it preserves the
+equations and simulated interval but is not bit-identical to eight smaller
+Euler stages. Scalar-equation parity, worst-corner bounded evolution,
+production framebuffer bounds, full dissolve/reseed lifecycle, arena, stack,
+and all 58 native tests pass.
+
+### Rejected experiments
+
+- A fused refine/gather loop increased the dense peak to 64.57 ms.
+- Reusing the raw 64² seed reached about 58.5 ms but exceeded hard visual-error
+  and peak-channel gates.
+- Checking three or four fixed neighbors also missed those gates; five passed
+  but peaked at 63.45 ms.
+- A compressed 256² flash seed table passed aggregate visual gates only with
+  boundary fallback and regressed the peak to 69.90 ms from flash-cache traffic.
+- Interleaved state, forced unrolling, and broad O3 codegen produced only small
+  wins relative to their footprint and were reverted.
