@@ -100,7 +100,8 @@ template <template <int, int> class E> inline bool check_one(const char *) {
   if (newv == views[target].value)
     newv = lo + 0.25f * (hi - lo);
 
-  HS_EXPECT(effect.updateParameter(views[target].name, newv),
+  HS_EXPECT(effect.updateParameter(views[target].name, newv) ==
+                ParamSetResult::APPLIED,
             "updateParameter by name succeeds for an editable param");
 
   std::vector<hs_wasm::ParamView> views2;

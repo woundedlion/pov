@@ -714,30 +714,33 @@ inline void test_register_float_and_bool_params() {
 
 /**
  * @brief Verifies updateParameter writes a float param by name, thresholds at
- * 0.5 for bool params, and returns false (leaving values untouched) for unknown
- * names or non-finite inputs.
+ * 0.5 for bool params, and names the rejection reason (leaving values
+ * untouched) for unknown names or non-finite inputs.
  */
 inline void test_update_parameter_by_name() {
   TestEffect fx(4, 4);
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
   fx.add_bool("Flag", &fx.flag, false);
 
-  HS_EXPECT_TRUE(fx.updateParameter("Speed", 7.25f));
+  HS_EXPECT_TRUE(fx.updateParameter("Speed", 7.25f) ==
+                 ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
   // Bool target uses a 0.5 threshold.
-  HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.2f));
+  HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.2f) == ParamSetResult::APPLIED);
   HS_EXPECT_FALSE(fx.flag);
-  HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.8f));
+  HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.8f) == ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(fx.flag);
 
-  // Unknown name is a no-op returning false.
-  HS_EXPECT_FALSE(fx.updateParameter("Nope", 99.0f));
+  // Unknown name is a no-op reported as UNKNOWN_PARAM.
+  HS_EXPECT_TRUE(fx.updateParameter("Nope", 99.0f) ==
+                 ParamSetResult::UNKNOWN_PARAM);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
-  // Non-finite values are rejected, returning false.
-  HS_EXPECT_FALSE(
-      fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()));
+  // Non-finite values are rejected as NON_FINITE.
+  HS_EXPECT_TRUE(
+      fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()) ==
+      ParamSetResult::NON_FINITE);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
 
@@ -752,12 +755,13 @@ inline void test_update_parameter_rejects_readonly() {
   fx.add_float("Telemetry", &telemetry, 0.0f, 10.0f);
   fx.mark_readonly("Telemetry");
 
-  HS_EXPECT_FALSE(fx.updateParameter("Telemetry", 5.0f));
+  HS_EXPECT_TRUE(fx.updateParameter("Telemetry", 5.0f) ==
+                 ParamSetResult::READONLY);
   HS_EXPECT_NEAR(telemetry, 1.0f, 1e-6f);
 
   // An editable param in the same effect still writes.
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
-  HS_EXPECT_TRUE(fx.updateParameter("Speed", 4.0f));
+  HS_EXPECT_TRUE(fx.updateParameter("Speed", 4.0f) == ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(fx.speed, 4.0f, 1e-6f);
 }
 
@@ -784,13 +788,13 @@ inline void test_register_and_update_enum_param() {
   HS_EXPECT_NEAR(def->get(), 1.0f, 1e-6f); // captured current value as default
 
   // A fractional write snaps to the nearest option index.
-  HS_EXPECT_TRUE(fx.updateParameter("Mode", 1.7f));
+  HS_EXPECT_TRUE(fx.updateParameter("Mode", 1.7f) == ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(mode, 2.0f, 1e-6f);
 
   // Out-of-range writes clamp to the option range.
-  HS_EXPECT_TRUE(fx.updateParameter("Mode", 9.0f));
+  HS_EXPECT_TRUE(fx.updateParameter("Mode", 9.0f) == ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(mode, 2.0f, 1e-6f);
-  HS_EXPECT_TRUE(fx.updateParameter("Mode", -3.0f));
+  HS_EXPECT_TRUE(fx.updateParameter("Mode", -3.0f) == ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(mode, 0.0f, 1e-6f);
 
   // Plain params stay non-enum.

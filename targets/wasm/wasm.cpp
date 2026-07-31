@@ -565,24 +565,22 @@ public:
    * @brief Updates one named effect parameter.
    * @param name Parameter name to update.
    * @param value New parameter value, in the parameter's native units.
-   * @return true if the write was accepted; false otherwise.
-   * @details Like setClip()/setResolution(), the boolean is intentionally
-   *          coarse — it does NOT let JS distinguish the rejection reasons. A
-   *          false collapses four distinct cases: no effect is set, the name is
-   *          unknown to the effect, the parameter is readonly (engine-written
-   *          telemetry the GUI must not poke), or the value is non-finite
-   *          (rejected before it can poison render math; see
-   *          Canvas::updateParameter). A true means the value was applied, but
-   *          note an accepted float is silently clamped to the parameter's
-   *          registered [min,max] — true does NOT imply the stored value equals
-   *          the requested one. A consumer that needs the effective value should
-   *          read it back via getParamValues() rather than trust this flag.
+   * @return APPLIED if the write was accepted, otherwise the rejection reason:
+   *         NO_EFFECT (no effect is set), UNKNOWN_PARAM (the name is unknown to
+   *         the effect), READONLY (engine-written telemetry the GUI must not
+   *         poke), or NON_FINITE (rejected before it can poison render math).
+   *         Exposed to JS as the Module.ParamSetResult embind enum; compare
+   *         against its values, never by truthiness (every enum value is a
+   *         truthy object). An APPLIED float is silently clamped to the
+   *         parameter's registered [min,max] — APPLIED does NOT imply the
+   *         stored value equals the requested one. A consumer that needs the
+   *         effective value should read it back via getParamValues().
    */
-  bool setParameter(const std::string &name, float value) {
+  ParamSetResult setParameter(const std::string &name, float value) {
     if (!current_effect)
-      return false;
-    // Finiteness is single-sourced in Canvas::updateParameter, not re-checked
-    // here.
+      return ParamSetResult::NO_EFFECT;
+    // The rejection classification is single-sourced in Effect::updateParameter,
+    // not re-checked here.
     return current_effect->updateParameter(name.c_str(), value);
   }
 
@@ -1568,6 +1566,13 @@ static bool all_finite(std::initializer_list<float> args) {
  *        JavaScript can construct and call them.
  */
 EMSCRIPTEN_BINDINGS(holosphere_engine) {
+  enum_<ParamSetResult>("ParamSetResult")
+      .value("APPLIED", ParamSetResult::APPLIED)
+      .value("NO_EFFECT", ParamSetResult::NO_EFFECT)
+      .value("UNKNOWN_PARAM", ParamSetResult::UNKNOWN_PARAM)
+      .value("READONLY", ParamSetResult::READONLY)
+      .value("NON_FINITE", ParamSetResult::NON_FINITE);
+
   class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
       .function("setResolution", &HolosphereEngine::setResolution)
