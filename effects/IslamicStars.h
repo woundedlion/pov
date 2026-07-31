@@ -824,35 +824,58 @@ private:
     // truncate swept to the short-circuit point.
     switch (step.op) {
     case Solids::Op::HANKIN:
-      schedule_build_leg(Animation::OpLeg(build_seed, 0.0f, step.param,
-                                          persistent_arena, draw_build_fn,
-                                          handoff, frames, bookend));
+      schedule_build_leg(Animation::OpLeg(
+          build_seed,
+          Animation::OpLeg::HankinSweepSpec{.theta_start = 0.0f,
+                                            .theta_end = step.param,
+                                            .sweep_frames = frames},
+          persistent_arena, draw_build_fn, handoff, bookend));
       break;
     case Solids::Op::RELAX:
       schedule_build_leg(Animation::OpLeg(
-          build_seed, static_cast<int>(step.param), persistent_arena,
-          draw_build_fn, handoff, frames, bookend, step.bake));
+          build_seed,
+          Animation::OpLeg::RelaxSpec{.iterations =
+                                          static_cast<int>(step.param),
+                                      .bake = step.bake,
+                                      .sweep_frames = frames},
+          persistent_arena, draw_build_fn, handoff, bookend));
       break;
     case Solids::Op::AMBO:
       schedule_build_leg(Animation::OpLeg(
-          build_seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f, 0.0f,
-          persistent_arena, draw_build_fn, handoff, frames, bookend));
+          build_seed,
+          Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                           .t_start = 0.0f,
+                                           .t_end = 0.5f,
+                                           .sweep_frames = frames},
+          persistent_arena, draw_build_fn, handoff, bookend));
       break;
     case Solids::Op::TRUNCATE:
       schedule_build_leg(Animation::OpLeg(
-          build_seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f, step.param, 0.0f,
-          0.0f, persistent_arena, draw_build_fn, handoff, frames, bookend));
+          build_seed,
+          Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                           .t_start = 0.0f,
+                                           .t_end = step.param,
+                                           .sweep_frames = frames},
+          persistent_arena, draw_build_fn, handoff, bookend));
       break;
     case Solids::Op::SNUB:
-      schedule_build_leg(
-          Animation::OpLeg(build_seed, ConwayGraph::MorphOp::SNUB, 0.0f,
-                           step.param, 0.0f, step.twist, persistent_arena,
-                           draw_build_fn, handoff, frames, bookend));
+      schedule_build_leg(Animation::OpLeg(
+          build_seed,
+          Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::SNUB,
+                                           .t_start = 0.0f,
+                                           .t_end = step.param,
+                                           .twist_end = step.twist,
+                                           .sweep_frames = frames},
+          persistent_arena, draw_build_fn, handoff, bookend));
       break;
     case Solids::Op::CHAMFER:
       schedule_build_leg(Animation::OpLeg(
-          build_seed, ConwayGraph::MorphOp::CHAMFER, 0.0f, step.param, 0.0f,
-          0.0f, persistent_arena, draw_build_fn, handoff, frames, bookend));
+          build_seed,
+          Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::CHAMFER,
+                                           .t_start = 0.0f,
+                                           .t_end = step.param,
+                                           .sweep_frames = frames},
+          persistent_arena, draw_build_fn, handoff, bookend));
       break;
     default:
       // Neither DUAL nor KIS reaches here: both route through the smooth
@@ -967,11 +990,15 @@ private:
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = dual_sub_frames(0);
     hs::log("Build leg: dual bridge 1/3 truncate->ambo (%d frames)", frames);
-    Animation::OpLeg leg(build_seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f,
-                         0.0f, 0.0f, persistent_arena, draw_build_fn, handoff,
-                         frames, Animation::OpLeg::BookendClasses{},
-                         Animation::OpLeg::classic_blend,
-                         /*bridge_provenance=*/true, /*borrow_seed=*/true);
+    Animation::OpLeg leg(
+        build_seed,
+        Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                         .t_start = 0.0f,
+                                         .t_end = 0.5f,
+                                         .sweep_frames = frames,
+                                         .bridge_provenance = true,
+                                         .borrow_seed = true},
+        persistent_arena, draw_build_fn, handoff);
     build_landing = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { schedule_dual_medial(); }));
   }
@@ -1013,8 +1040,9 @@ private:
 
     const int frames = dual_sub_frames(1);
     hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
-    Animation::OpLeg leg(build_seed, Animation::OpLeg::MedialTag{},
-                         persistent_arena, draw_build_fn, handoff, frames,
+    Animation::OpLeg leg(build_seed,
+                         Animation::OpLeg::MedialSpec{.sweep_frames = frames},
+                         persistent_arena, draw_build_fn, handoff,
                          Animation::OpLeg::BookendClasses{
                              .topology = medial_topology,
                              .faces = medial_faces});
@@ -1075,11 +1103,15 @@ private:
         .faces = build_next_seed.face_counts.size()};
     const int frames = dual_sub_frames(2);
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
-    Animation::OpLeg leg(build_next_seed, ConwayGraph::MorphOp::TRUNCATE, 0.5f,
-                         0.0f, 0.0f, 0.0f, persistent_arena, draw_build_fn,
-                         handoff, frames, bookend,
-                         Animation::OpLeg::classic_blend,
-                         /*bridge_provenance=*/true, /*borrow_seed=*/true);
+    Animation::OpLeg leg(
+        build_next_seed,
+        Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                         .t_start = 0.5f,
+                                         .t_end = 0.0f,
+                                         .sweep_frames = frames,
+                                         .bridge_provenance = true,
+                                         .borrow_seed = true},
+        persistent_arena, draw_build_fn, handoff, bookend);
     build_landing = &leg.landing();
     // Rejoin the caller's continuation: finish_build_leg for a lone DUAL, or the
     // next stage of a smooth kis/needle macro.
@@ -1146,11 +1178,15 @@ private:
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = build_macro_sweep_frames;
     hs::log("Build leg: %s (%d frames)", log, frames);
-    Animation::OpLeg leg(build_seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
-                         MACRO_TRUNCATE_T, 0.0f, 0.0f, persistent_arena,
-                         draw_build_fn, handoff, frames, bookend,
-                         Animation::OpLeg::classic_blend,
-                         /*bridge_provenance=*/true, /*borrow_seed=*/true);
+    Animation::OpLeg leg(
+        build_seed,
+        Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                         .t_start = 0.0f,
+                                         .t_end = MACRO_TRUNCATE_T,
+                                         .sweep_frames = frames,
+                                         .bridge_provenance = true,
+                                         .borrow_seed = true},
+        persistent_arena, draw_build_fn, handoff, bookend);
     build_landing = &leg.landing();
     timeline.add(0, std::move(leg).then(std::forward<Then>(then)));
   }
@@ -1284,9 +1320,11 @@ private:
         scratch_arena_a, Animation::OpLeg::FaceCorrespondence::IDENTITY);
     const int frames = build_reconcile_frames;
     hs::log("Build leg: reconcile (%d frames)", frames);
-    Animation::OpLeg leg(build_seed, build_next_seed.vertices.data(),
-                         Animation::OpLeg::ReconcileTag{}, persistent_arena,
-                         draw_build_fn, handoff, frames, bookend);
+    Animation::OpLeg leg(build_seed,
+                         Animation::OpLeg::ReconcileSpec{
+                             .to_positions = build_next_seed.vertices.data(),
+                             .sweep_frames = frames},
+                         persistent_arena, draw_build_fn, handoff, bookend);
     build_landing = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }

@@ -1919,8 +1919,13 @@ inline void test_opleg_hankin_sweep_smoke() {
 
   using Solids::IslamicStarPatterns::D2R;
   constexpr int SWEEP = 8;
-  Animation::OpLeg anim(dodeca, Animation::OpLeg::THETA_EPS, 62.0f * D2R, leg,
-                        cb, handoff, SWEEP);
+  Animation::OpLeg anim(
+      dodeca,
+      Animation::OpLeg::HankinSweepSpec{
+          .theta_start = Animation::OpLeg::THETA_EPS,
+          .theta_end = 62.0f * D2R,
+          .sweep_frames = SWEEP},
+      leg, cb, handoff);
 
   // 12 star faces (the base-face-order prefix) + 20 rosette faces.
   const Animation::OpLeg::Landing &landing = anim.landing();
@@ -2608,7 +2613,7 @@ inline void test_opleg_medial_leg_smoke() {
       ++drawn;
     };
 
-    OpLeg anim(P, OpLeg::MedialTag{}, leg, cb, handoff, SWEEP);
+    OpLeg anim(P, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff);
     const OpLeg::Landing &landing = anim.landing();
     // The medial connectivity is ambo(P), so the leg's face list is the whole
     // rectified polyhedron and every face lives the whole slerp.
@@ -2733,7 +2738,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
         .prev_face_palette = pal2.data(),
         .prev_faces = nf,
         .correspondence = OpLeg::FaceCorrespondence::IDENTITY};
-    OpLeg leg2(P, OpLeg::MedialTag{}, leg, cb, handoff2, SWEEP);
+    OpLeg leg2(P, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff2);
     const OpLeg::Landing &landing2 = leg2.landing();
     HS_EXPECT_EQ(landing2.faces, nf);
     HS_EXPECT_TRUE(landing2.arrival_topology != nullptr);
@@ -2789,9 +2794,14 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
         .prev_faces = nf,
         .correspondence = OpLeg::FaceCorrespondence::DUAL_CLOSING};
     OpLeg::BookendClasses bookend3{.topology = D.topology.data(), .faces = DF};
-    OpLeg leg3(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f, leg,
-               cb, handoff3, SWEEP, bookend3, OpLeg::classic_blend,
-               /*bridge_provenance=*/true, /*borrow_seed=*/true);
+    OpLeg leg3(D,
+               OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                     .t_start = 0.5f,
+                                     .t_end = 0.0f,
+                                     .sweep_frames = SWEEP,
+                                     .bridge_provenance = true,
+                                     .borrow_seed = true},
+               leg, cb, handoff3, bookend3);
     const OpLeg::Landing &landing3 = leg3.landing();
     HS_EXPECT_EQ(landing3.faces, nf);
     HS_EXPECT_TRUE(landing3.from_palette != nullptr);
@@ -3018,16 +3028,26 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
 
   switch (kind) {
   case StepLegKind::TRUNCATE:
-    run(OpLeg(seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f, site.param, 0.0f,
-              0.0f, leg_arena, cb, handoff, frames, bookend));
+    run(OpLeg(seed,
+              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                    .t_start = 0.0f,
+                                    .t_end = site.param,
+                                    .sweep_frames = frames},
+              leg_arena, cb, handoff, bookend));
     break;
   case StepLegKind::SNUB:
-    run(OpLeg(seed, ConwayGraph::MorphOp::SNUB, 0.0f, site.param, 0.0f, 0.0f,
-              leg_arena, cb, handoff, frames, bookend));
+    run(OpLeg(seed,
+              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::SNUB,
+                                    .t_start = 0.0f,
+                                    .t_end = site.param,
+                                    .sweep_frames = frames},
+              leg_arena, cb, handoff, bookend));
     break;
   case StepLegKind::RELAX:
-    run(OpLeg(seed, static_cast<int>(site.param), leg_arena, cb, handoff,
-              frames, bookend));
+    run(OpLeg(seed,
+              OpLeg::RelaxSpec{.iterations = static_cast<int>(site.param),
+                               .sweep_frames = frames},
+              leg_arena, cb, handoff, bookend));
     break;
   }
 
@@ -3131,7 +3151,8 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
 
   hs_test::StubEffect fx(288, 144);
 
-  OpLeg leg(seed, op, leg_arena, cb, handoff, gate, bookend);
+  OpLeg leg(seed, OpLeg::GatedSwapSpec{.op = op, .gate_frames = gate},
+            leg_arena, cb, handoff, bookend);
   const OpLeg::Landing &landing = leg.landing();
   for (int f = 0; f < frames; ++f) {
     {
@@ -3268,8 +3289,10 @@ inline void test_opleg_edge_leg_crossfade() {
                                   .prev_face_palette = pal,
                                   .prev_faces = cube.face_counts.size()};
     constexpr int EDGE_FRAMES = 24;
-    OpLeg leg(cube, ConwayGraph::EDGES[edge], false, leg_arena, cb, handoff,
-              EDGE_FRAMES, 0);
+    OpLeg leg(cube,
+              OpLeg::EdgeSweepSpec{.edge = &ConwayGraph::EDGES[edge],
+                                   .sweep_frames = EDGE_FRAMES},
+              leg_arena, cb, handoff);
     run_frames(leg, EDGE_FRAMES);
     HS_EXPECT_GT(divergent_faces(), 0);
     HS_EXPECT_TRUE(all_from[0]);
@@ -3588,33 +3611,60 @@ inline ChainPeaks replay_build_chain(const char *name,
       auto make_leg = [&]() {
         switch (steps[k].op) {
         case Solids::Op::KIS:
-          return OpLeg(cur, OpLeg::SwapOp::KIS, persistent_arena, cb, handoff,
-                       GATE_HALF_FRAMES, bookend);
+          return OpLeg(cur,
+                       OpLeg::GatedSwapSpec{.op = OpLeg::SwapOp::KIS,
+                                            .gate_frames = GATE_HALF_FRAMES},
+                       persistent_arena, cb, handoff, bookend);
         case Solids::Op::DUAL:
-          return OpLeg(cur, OpLeg::SwapOp::DUAL, persistent_arena, cb, handoff,
-                       GATE_HALF_FRAMES, bookend);
+          return OpLeg(cur,
+                       OpLeg::GatedSwapSpec{.op = OpLeg::SwapOp::DUAL,
+                                            .gate_frames = GATE_HALF_FRAMES},
+                       persistent_arena, cb, handoff, bookend);
         case Solids::Op::HANKIN:
-          return OpLeg(cur, 0.0f, steps[k].param, persistent_arena, cb, handoff,
-                       leg_frames[k], bookend);
+          return OpLeg(cur,
+                       OpLeg::HankinSweepSpec{.theta_start = 0.0f,
+                                              .theta_end = steps[k].param,
+                                              .sweep_frames = leg_frames[k]},
+                       persistent_arena, cb, handoff, bookend);
         case Solids::Op::AMBO:
-          return OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f,
-                       0.0f, persistent_arena, cb, handoff, leg_frames[k],
-                       bookend);
+          return OpLeg(
+              cur,
+              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                    .t_start = 0.0f,
+                                    .t_end = 0.5f,
+                                    .sweep_frames = leg_frames[k]},
+              persistent_arena, cb, handoff, bookend);
         case Solids::Op::TRUNCATE:
-          return OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
-                       steps[k].param, 0.0f, 0.0f, persistent_arena, cb,
-                       handoff, leg_frames[k], bookend);
+          return OpLeg(
+              cur,
+              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                    .t_start = 0.0f,
+                                    .t_end = steps[k].param,
+                                    .sweep_frames = leg_frames[k]},
+              persistent_arena, cb, handoff, bookend);
         case Solids::Op::SNUB:
-          return OpLeg(cur, ConwayGraph::MorphOp::SNUB, 0.0f, steps[k].param,
-                       0.0f, steps[k].twist, persistent_arena, cb, handoff,
-                       leg_frames[k], bookend);
+          return OpLeg(cur,
+                       OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::SNUB,
+                                             .t_start = 0.0f,
+                                             .t_end = steps[k].param,
+                                             .twist_end = steps[k].twist,
+                                             .sweep_frames = leg_frames[k]},
+                       persistent_arena, cb, handoff, bookend);
         case Solids::Op::CHAMFER:
-          return OpLeg(cur, ConwayGraph::MorphOp::CHAMFER, 0.0f, steps[k].param,
-                       0.0f, 0.0f, persistent_arena, cb, handoff, leg_frames[k],
-                       bookend);
+          return OpLeg(
+              cur,
+              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::CHAMFER,
+                                    .t_start = 0.0f,
+                                    .t_end = steps[k].param,
+                                    .sweep_frames = leg_frames[k]},
+              persistent_arena, cb, handoff, bookend);
         default:
-          return OpLeg(cur, static_cast<int>(steps[k].param), persistent_arena,
-                       cb, handoff, leg_frames[k], bookend, steps[k].bake);
+          return OpLeg(
+              cur,
+              OpLeg::RelaxSpec{.iterations = static_cast<int>(steps[k].param),
+                               .bake = steps[k].bake,
+                               .sweep_frames = leg_frames[k]},
+              persistent_arena, cb, handoff, bookend);
         }
       };
       OpLeg leg = make_leg();
