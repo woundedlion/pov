@@ -1383,6 +1383,17 @@ inline void test_baked_palette_rebake_samples_closed_interval() {
   static_assert(!Unwrapped::WRAPS_COORDINATE);
 }
 
+/**
+ * @brief Produces a palette lookup coordinate.
+ * @param i Sample number.
+ * @return i / 65535 as a float.
+ * @details noinline so every sampler reads one evaluation of the coordinate:
+ * the samplers agree for a given index, not for a t each call site recomputes.
+ */
+__attribute__((noinline)) inline float palette_sample_coord(int i) {
+  return static_cast<float>(i) / 65535.0f;
+}
+
 inline void test_baked_palette_color_sampler_matches_get() {
   struct Source {
     Color4 get(float t) const {
@@ -1403,7 +1414,7 @@ inline void test_baked_palette_color_sampler_matches_get() {
   HS_EXPECT_NEAR(baked.get(1.0f).alpha, 0.9f, 2e-5f);
 
   for (int i = -128; i <= 65663; ++i) {
-    float t = static_cast<float>(i) / 65535.0f;
+    const float t = palette_sample_coord(i);
     HS_EXPECT_EQ(baked.get_color(t), baked.get(t).color);
     if (i >= 0 && i <= 65535)
       HS_EXPECT_EQ(baked.get_color_unit(t), baked.get(t).color);
