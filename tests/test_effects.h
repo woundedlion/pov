@@ -3614,7 +3614,8 @@ inline void test_shapeshifter_max_radius_survives_cycle() {
   for (const auto &def : ss.getParameters())
     if (std::strcmp(def.name, "Radius") == 0)
       HS_EXPECT_LE(def.max, 2.0f);
-  HS_EXPECT_TRUE(ss.updateParameter("Radius", 2.0f));
+  HS_EXPECT_TRUE(ss.updateParameter("Radius", 2.0f) ==
+                 ParamSetResult::APPLIED);
 
   for (int f = 0; f < 4 * 48 + 1; ++f) {
     ss.draw_frame();

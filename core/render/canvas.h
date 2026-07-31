@@ -25,6 +25,21 @@
 class Canvas;
 
 /**
+ * @brief Outcome of a named parameter write (Effect::updateParameter, surfaced
+ *        to JS by the WASM bridge's setParameter).
+ * @details NO_EFFECT is produced only by the bridge, which may have no effect
+ *          installed to forward the write to; Effect::updateParameter itself
+ *          never returns it.
+ */
+enum class ParamSetResult {
+  APPLIED,       /**< Value written (floats clamped to [min,max] first). */
+  NO_EFFECT,     /**< No effect is installed to receive the write. */
+  UNKNOWN_PARAM, /**< No registered parameter has this name. */
+  READONLY,      /**< Parameter is engine-written telemetry. */
+  NON_FINITE,    /**< Value is NaN or infinite. */
+};
+
+/**
  * @brief Construction-time flags for an Effect (see the accessors of the same
  *        name). Defaults suit a plain, non-strobing, band-clippable effect.
  */
@@ -404,20 +419,20 @@ public:
    * @brief Updates a parameter's value by name.
    * @param name The name of the parameter.
    * @param value The new value (mapped to bool if necessary).
-   * @return true if the value was applied; false if the name is unknown, the
-   *         parameter is readonly, or the value was non-finite. The WASM bridge
-   *         propagates this so the frontend can detect a no-op.
+   * @return APPLIED if the value was written; otherwise the rejection reason
+   *         (UNKNOWN_PARAM, READONLY, or NON_FINITE). The WASM bridge forwards
+   *         this so the frontend can report why a write was dropped.
    */
-  bool updateParameter(const char *name, float value) {
+  ParamSetResult updateParameter(const char *name, float value) {
     auto *def = parameters.find(name);
     if (def == nullptr)
-      return false;
+      return ParamSetResult::UNKNOWN_PARAM;
     // Untrusted JS boundary: reject readonly-param writes and non-finite input,
     // and clamp floats to [min,max]. Bools are thresholded at 0.5 by set().
     if (def->readonly)
-      return false;
+      return ParamSetResult::READONLY;
     if (!std::isfinite(value))
-      return false;
+      return ParamSetResult::NON_FINITE;
     // Enum targets hold an option index: snap a fractional write (e.g. a stale
     // deep link) to the nearest option before the range clamp.
     if (def->is_enum())
@@ -425,7 +440,7 @@ public:
     if (!def->is_bool())
       value = hs::clamp(value, def->min, def->max);
     def->set(value);
-    return true;
+    return ParamSetResult::APPLIED;
   }
 
   /**

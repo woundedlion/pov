@@ -260,16 +260,26 @@ async function main() {
           if (engine.setClip(w, 0, 0, h)) fail('write-seam: setClip accepted an inverted (x0 > x1) band');
         }
 
+        // setParameter reports its outcome as the ParamSetResult embind enum;
+        // pin the value roster so a dropped/renamed enumerator fails here.
+        const R = Module.ParamSetResult;
+        for (const reason of
+             ['APPLIED', 'NO_EFFECT', 'UNKNOWN_PARAM', 'READONLY', 'NON_FINITE']) {
+          if (!R || !R[reason]) {
+            fail(`write-seam: Module.ParamSetResult.${reason} is not bound`);
+          }
+        }
+
         // setParameter unknown-name rejection.
-        if (engine.setParameter('definitely_not_a_param', 1)) {
-          fail('write-seam: setParameter(unknown name) returned true');
+        if (engine.setParameter('definitely_not_a_param', 1) !== R.UNKNOWN_PARAM) {
+          fail('write-seam: setParameter(unknown name) did not report UNKNOWN_PARAM');
         }
 
         // setParameter clamp-readback: find a non-readonly float param with a
         // finite range, write past each bound, and read the effective value back
         // through getParameterDefinitions() (no drawFrame between, so animation
-        // cannot move it). setParameter returns true even when it clamps, so the
-        // readback — not the flag — is what proves the clamp took.
+        // cannot move it). setParameter reports APPLIED even when it clamps, so
+        // the readback — not the result — is what proves the clamp took.
         let clampTested = false;
         const near = (a, b) => Number.isFinite(a) && Math.abs(a - b) <= 1e-3 * (1 + Math.abs(b));
         for (const name of effectNames) {
@@ -284,15 +294,21 @@ async function main() {
             return d ? d.value : undefined;
           };
           const span = t.max - t.min;
-          if (!engine.setParameter(t.name, t.max + span + 1)) {
+          if (engine.setParameter(t.name, t.max + span + 1) !== R.APPLIED) {
             fail(`write-seam: setParameter("${t.name}", above max) was rejected`);
           } else if (!near(readBack(), t.max)) {
             fail(`write-seam: setParameter above max not clamped: read ${readBack()}, want ${t.max}`);
           }
-          if (!engine.setParameter(t.name, t.min - span - 1)) {
+          if (engine.setParameter(t.name, t.min - span - 1) !== R.APPLIED) {
             fail(`write-seam: setParameter("${t.name}", below min) was rejected`);
           } else if (!near(readBack(), t.min)) {
             fail(`write-seam: setParameter below min not clamped: read ${readBack()}, want ${t.min}`);
+          }
+          // A non-finite write names its reason and leaves the value in place.
+          if (engine.setParameter(t.name, NaN) !== R.NON_FINITE) {
+            fail(`write-seam: setParameter("${t.name}", NaN) did not report NON_FINITE`);
+          } else if (!near(readBack(), t.min)) {
+            fail(`write-seam: setParameter(NaN) moved the value to ${readBack()}`);
           }
           console.log(`  write-seam: setParameter clamp on ${name}."${t.name}" [${t.min}, ${t.max}] OK`);
           clampTested = true;
@@ -300,6 +316,23 @@ async function main() {
         }
         if (!clampTested) {
           fail('write-seam: found no float param to exercise the setParameter clamp');
+        }
+        // A readonly param write names its reason; skip if the roster exposes
+        // none (engine_contract_wasm.test.js requires at least one, so drift
+        // toward zero readonly params is caught there).
+        let readonlyTested = false;
+        for (const name of effectNames) {
+          if (!engine.setEffect(name)) continue;
+          const t = engine.getParameterDefinitions().find((d) => d.readonly);
+          if (!t) continue;
+          if (engine.setParameter(t.name, t.value) !== R.READONLY) {
+            fail(`write-seam: setParameter(readonly "${t.name}") did not report READONLY`);
+          }
+          readonlyTested = true;
+          break;
+        }
+        if (!readonlyTested) {
+          console.log('  write-seam: no readonly param in the roster; READONLY untested');
         }
       }
     }
