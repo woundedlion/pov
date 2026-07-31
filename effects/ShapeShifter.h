@@ -75,6 +75,7 @@ public:
       timeline.step(canvas);
     }
     phase = wrap_t(phase + params.speed);
+    plot_filters.prepare(canvas);
     draw_all(canvas);
   }
 
@@ -151,6 +152,33 @@ private:
     }
   }
 
+#ifdef HS_TEST_BUILD
+  void draw_all_reference(Canvas &canvas) {
+    const int count = hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES);
+    const int sides =
+        hs::clamp(static_cast<int>(params.sides), static_cast<int>(SIDES_MIN),
+                  static_cast<int>(SIDES_MAX));
+    const ShapeType shape = selected_shape();
+    const PhaseFunction function = selected_function();
+    const Basis basis = make_basis(orientation.get(), X_AXIS);
+
+    for (int i = count - 1; i >= 0; --i) {
+      const float radius_t =
+          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+      const float radius = 2.0f * radius_t;
+      const float shape_phase =
+          PHASE_AMPLITUDE * evaluate(function, radius_t + phase);
+      const Color4 color = baked_sunset.get(radius_t);
+      auto shader = [&](const Vector &, Fragment &fragment) {
+        fragment.color = color;
+        fragment.color.alpha *= params.alpha;
+      };
+      dispatch_plot_reference(canvas, basis, shape, radius, sides, shader,
+                              shape_phase);
+    }
+  }
+#endif
+
   /** @brief Returns the nearest valid Shape slider selection. */
   ShapeType selected_shape() const {
     const int selected =
@@ -199,10 +227,69 @@ private:
    */
   template <typename F>
   __attribute__((noinline)) void
+  draw_sampled(Canvas &canvas, size_t capacity, const Basis *planar_basis,
+               const F &fragment_shader, auto &&fill) {
+    ScratchScope guard(scratch_arena_a);
+    Fragments points;
+    points.bind(scratch_arena_a, capacity);
+    fill(points);
+    Plot::rasterize<W, H, true>(
+        plot_filters, canvas, points, fragment_shader,
+        {.planar_basis = planar_basis, .omit_end = true});
+  }
+
+  template <typename F>
+  HS_FLASH_MEMBER void
   dispatch_plot(Canvas &canvas, const Basis &basis, ShapeType shape,
                 float radius, int sides, const F &fragment_shader,
                 float shape_phase) {
     HS_PROFILE(ss_plot_dispatch);
+    switch (shape) {
+    case ShapeType::PLANAR_POLYGON: {
+      Basis planar_basis =
+          radius > 1.0f ? Plot::planar_chart_basis(-basis.v) : basis;
+      draw_sampled(canvas, static_cast<size_t>(sides + 2), &planar_basis,
+                   fragment_shader, [&](Fragments &points) {
+                     Plot::PlanarPolygon::sample(points, basis, radius, sides,
+                                                 shape_phase);
+                   });
+      break;
+    }
+    case ShapeType::SPHERICAL_POLYGON:
+      draw_sampled(canvas, static_cast<size_t>(sides + 2), nullptr,
+                   fragment_shader, [&](Fragments &points) {
+                     Plot::SphericalPolygon::sample(points, basis, radius,
+                                                    sides, shape_phase);
+                   });
+      break;
+    case ShapeType::FLOWER: {
+      Basis planar_basis =
+          Plot::planar_chart_basis(get_antipode(basis, radius).first.v);
+      draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
+                   fragment_shader, [&](Fragments &points) {
+                     Plot::Flower::sample(points, basis, radius, sides,
+                                          shape_phase);
+                   });
+      break;
+    }
+    case ShapeType::STAR: {
+      Basis planar_basis =
+          Plot::planar_chart_basis(get_antipode(basis, radius).first.v);
+      draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
+                   fragment_shader, [&](Fragments &points) {
+                     Plot::Star::sample(points, basis, radius, sides,
+                                        shape_phase);
+                   });
+      break;
+    }
+    }
+  }
+
+#ifdef HS_TEST_BUILD
+  template <typename F>
+  void dispatch_plot_reference(Canvas &canvas, const Basis &basis,
+                               ShapeType shape, float radius, int sides,
+                               const F &fragment_shader, float shape_phase) {
     switch (shape) {
     case ShapeType::PLANAR_POLYGON:
       Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, radius,
@@ -222,6 +309,7 @@ private:
       break;
     }
   }
+#endif
 
   static constexpr std::array<PresetEntry<Params>, 3> PRESETS = {{
       {{0.5f, 1.017f, 74.644997f, 3.0f, 0.0f, 0.0318f}},
@@ -249,7 +337,7 @@ private:
   FastNoiseLite noise;
   Orientation<> orientation;
   Timeline timeline;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters;
+  Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
   BakedPalette baked_sunset;
   Presets<Params, 3> presets{PRESETS};
   Params params{};

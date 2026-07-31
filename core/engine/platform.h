@@ -456,17 +456,20 @@ inline unsigned long micros() { return hs::micros(); }
 // regardless). Apply ONLY to internal-linkage (`static`) free functions on cold
 // paths (mesh/solid construction): a section attribute on a COMDAT (inline/template
 // member) function is a section-type conflict. Off-device it degrades to a no-op.
-// HS_COLD_MEMBER is the COMDAT-safe variant for inline/template member functions:
-// `cold` prefixes the per-function section (.text.unlikely.*) instead of naming a
-// shared one, and tools/phantasm.ld routes .text.unlikely* to FLASH. On the -Os
-// device image it also uses HS_O3_FN; elsewhere HS_O3_FN is empty.
+// HS_FLASH_MEMBER is the COMDAT-safe variant for inline/template member
+// functions: GCC's `cold` attribute supplies a unique .text.unlikely.* section,
+// and tools/phantasm.ld routes that section to FLASH. HS_COLD_MEMBER names the
+// setup-only use; HS_FLASH_MEMBER also supports explicitly measured code
+// placement. On the -Os device image both use HS_O3_FN.
 // ---------------------------------------------------------------------------
 #if defined(__GNUC__) && !defined(__clang__)
 #define HS_COLD FLASHMEM __attribute__((noinline, noclone))
-#define HS_COLD_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
+#define HS_FLASH_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
+#define HS_COLD_MEMBER HS_FLASH_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
 #else
 #define HS_COLD FLASHMEM
+#define HS_FLASH_MEMBER
 #define HS_COLD_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline))
 #endif

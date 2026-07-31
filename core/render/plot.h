@@ -228,6 +228,22 @@ struct PlanarEdgeSampler {
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
   float dist; /**< The edge's on-sphere length (radians). */
 
+  /** @brief Maps normalized arc distance to normalized chart distance. */
+  float projection_fraction(float s) const {
+    if (dist < math::EPS_GEOMETRIC)
+      return s;
+    const float target = s * dist;
+    int k = 0;
+    while (k < PLANAR_LEN_SAMPLES - 1 && arc_cumul[k + 1] < target)
+      ++k;
+    const float seg = arc_cumul[k + 1] - arc_cumul[k];
+    const float frac =
+        seg > math::EPS_GEOMETRIC ? (target - arc_cumul[k]) / seg : 0.0f;
+    return std::min(1.0f, std::max(0.0f,
+                                   (static_cast<float>(k) + frac) /
+                                       PLANAR_LEN_SAMPLES));
+  }
+
   /**
    * @brief Unprojects the chart line at PROJECTION fraction p in [0,1].
    * @details Projection-uniform, so not arc-uniform under the anisotropic
@@ -245,17 +261,39 @@ struct PlanarEdgeSampler {
    * no trig.
    */
   Vector pos(float s) const {
-    if (dist < math::EPS_GEOMETRIC)
-      return unproject(s);
-    float target = s * dist;
-    int k = 0;
-    while (k < PLANAR_LEN_SAMPLES - 1 && arc_cumul[k + 1] < target)
-      ++k;
-    float seg = arc_cumul[k + 1] - arc_cumul[k];
-    float frac =
-        (seg > math::EPS_GEOMETRIC) ? (target - arc_cumul[k]) / seg : 0.0f;
-    float p = (static_cast<float>(k) + frac) / PLANAR_LEN_SAMPLES;
-    return unproject(std::min(1.0f, std::max(0.0f, p)));
+    return unproject(projection_fraction(s));
+  }
+
+  /** @brief Evaluates position and analytic tangent without a second unproject. */
+  SamplePT one_pass(float s) const {
+    const float p = projection_fraction(s);
+    const float x = proj1.first + dx * p;
+    const float y = proj1.second + dy * p;
+    const float r2 = x * x + y * y;
+    const Vector chart_tangent = (basis->u * dx) + (basis->w * dy);
+    if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
+      HS_PLOT_COUNT(normalizations);
+      return {basis->v, normalized_or(chart_tangent, Vector())};
+    }
+
+    const float radius = sqrtf(r2);
+    const float inv_radius = 1.0f / radius;
+    const float sin_radius = fast_sinf(radius);
+    const float cos_radius = fast_cosf(radius);
+    const Vector radial = (basis->u * x) + (basis->w * y);
+    const float radial_scale = sin_radius * inv_radius;
+    const Vector position =
+        (basis->v * cos_radius) + (radial * radial_scale);
+
+    const float radius_rate = (x * dx + y * dy) * inv_radius;
+    const float scale_rate =
+        (radius * cos_radius - sin_radius) * inv_radius * inv_radius;
+    const Vector tangent =
+        (basis->v * (-sin_radius * radius_rate)) +
+        (chart_tangent * radial_scale) +
+        (radial * (scale_rate * radius_rate));
+    HS_PLOT_COUNT(normalizations);
+    return {position, normalized_or(tangent, Vector())};
   }
 
   /**
@@ -1236,6 +1274,8 @@ struct RasterOptions {
  * culled.
  *
  * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam SinglePass Emit adaptive samples immediately instead of replaying a
+ *         normalized step cache.
  * @tparam PipelineT Pipeline type.
  * @tparam FragmentShaderT Fragment shader type for direct raster pipelines.
  * @param source_pipeline Render pipeline that plots fragments.
@@ -1248,7 +1288,7 @@ struct RasterOptions {
  * @param opts Optional loop/projection/culling behaviors (see RasterOptions).
  */
 HS_O3_BEGIN
-template <int W, int H, typename PipelineT = PipelineRef,
+template <int W, int H, bool SinglePass = false, typename PipelineT = PipelineRef,
           typename FragmentShaderT = FragmentShaderFn>
 static void
 rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
@@ -1261,7 +1301,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
                                FragmentShaderFn>)) {
     PipelineRef erased(source_pipeline);
     FragmentShaderFn erased_shader(fragment_shader);
-    rasterize<W, H>(erased, canvas, points, erased_shader, opts);
+    rasterize<W, H, SinglePass>(erased, canvas, points, erased_shader, opts);
     return;
   }
   HS_PLOT_COUNT(rings);
@@ -1381,8 +1421,13 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 
     // Sub-step length at the segment start (also the first simulation step).
     const float base_step = (2.0f * PI_F) / W;
+    auto adaptive_sample = [&](float t) -> SamplePT {
+      if constexpr (SinglePass && requires { sample.one_pass(t); })
+        return sample.one_pass(t);
+      return sample(t);
+    };
     HS_PLOT_COUNT(sim_samples);
-    SamplePT smp = sample(0.0f);
+    SamplePT smp = adaptive_sample(0.0f);
     float first_step = screen_step<W, H>(smp.pos, smp.tan, base_step);
 
     // FAST PATH: the whole segment spans ≤ one screen step, so a single dot
@@ -1410,9 +1455,49 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       return;
     }
 
-    // SIMULATION PHASE — size each sub-step so consecutive samples land
-    // ~SCREEN_STEP_PX apart in SCREEN space (screen_step). `smp`/`first_step`
-    // above seed the first iteration.
+    // Size each sub-step so consecutive samples land ~SCREEN_STEP_PX apart in
+    // screen space. `smp`/`first_step` above seed the first iteration.
+    if constexpr (SinglePass) {
+      HS_PROFILE_DEEP(plot_seg_single_pass);
+      float current_dist = 0.0f;
+      size_t step_count = 0;
+      while (current_dist < total_dist) {
+        const float t = current_dist / total_dist;
+        HS_PLOT_COUNT(normalizations);
+        Vector p = smp.pos.normalized();
+        Fragment f = Fragment::lerp_registers(curr, next, t);
+        f.pos = p;
+        f.color = Color4(0, 0, 0, 0);
+        set_arc_uv(f, current_dist);
+        HS_PLOT_COUNT(shader_calls);
+        fragment_shader(p, f);
+        HS_PLOT_COUNT(plotted_samples);
+        pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
+
+        if (++step_count >= max_cache) {
+          HS_PLOT_COUNT(backstops);
+          HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
+          break;
+        }
+        HS_PLOT_MAX(steps_peak, step_count);
+        current_dist += screen_step<W, H>(smp.pos, smp.tan, base_step);
+        if (current_dist < total_dist) {
+          HS_PLOT_COUNT(sim_samples);
+          smp = adaptive_sample(current_dist / total_dist);
+        }
+      }
+      if (!close_loop && is_last_segment && !omit_end) {
+        Fragment f = next;
+        f.color = Color4(0, 0, 0, 0);
+        set_arc_uv(f, total_dist);
+        HS_PLOT_COUNT(shader_calls);
+        fragment_shader(next.pos, f);
+        HS_PLOT_COUNT(plotted_samples);
+        pipeline.plot(canvas, next.pos, f.color.color, f.age, f.color.alpha);
+      }
+      return;
+    }
+
     steps_cache.clear();
     float sim_dist = 0.0f;
 
