@@ -420,18 +420,29 @@ inline void test_ring_group_matches_sequential() {
 }
 
 /**
- * @brief Verifies DistortedRingStack::draw is bit-identical to rasterizing the
- *        stack's rings one by one.
+ * @brief Verifies DistortedRingStack::draw matches rasterizing the stack's
+ *        rings one by one.
  * @details Five evenly spaced same-axis knot rings with distinct thicknesses,
  * colors, and alphas, drawn sequentially through Scan::DistortedRing::draw with
  * suppress_pole_fill (the per-ring path the stack's doc claims to mirror) vs as
  * one fused stack scan. The shader keys its green channel on the azimuth v0 and
  * its alpha on the coverage v2, so a divergence in either register shows up in
- * the pixels; every channel must match exactly. Covered: full frame, a partial
- * clip with an x band, a culled middle ring (slot_by_ring -1), and a near-pole
- * axis that forces the full-row-scan fallback on both paths. The claim is
- * scoped to pole_lod_aggressiveness 0, which the test pins: the fused scan
- * shades every column while the per-ring path decimates near-pole rows.
+ * the pixels. Covered: full frame, a partial clip with an x band, a culled
+ * middle ring (slot_by_ring -1), and a near-pole axis that forces the
+ * full-row-scan fallback on both paths. The claim is scoped to
+ * pole_lod_aggressiveness 0, which the test pins: the fused scan shades every
+ * column while the per-ring path decimates near-pole rows.
+ *
+ * Which pixels light is exact. Channel values carry a tolerance: the shipping
+ * builds are -ffast-math, which inlines the shared frame and coverage
+ * arithmetic into two different loops and reassociates each copy on its own, so
+ * the two blend weights agree to float rounding rather than bit-exactly. The
+ * tolerance is derived, not fitted: blend_alpha quantizes the weight to 16 bits
+ * and the reassociation divergence stays far inside one 1/65535 quantum, so
+ * each blend's weight shifts by at most one step; lerp16's slope in both the
+ * weight and the destination is at most 1 at 16-bit scale, so one blend moves a
+ * channel by at most 1 and passes an incoming difference through undamped. At
+ * most N_RINGS blends land on a pixel, so N_RINGS bounds the channel delta.
  */
 inline void test_distorted_ring_stack_matches_sequential() {
   constexpr int W = 96, H = 64;
@@ -531,6 +542,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
     for (int s = 0; s < n_slots; ++s)
       shapes[s].~DistortedRing();
 
+    constexpr int CHANNEL_TOL = N_RINGS; // one 16-bit step per composited blend
     size_t lit = 0;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
@@ -538,9 +550,10 @@ inline void test_distorted_ring_stack_matches_sequential() {
         const Pixel &b = fused.get_pixel(x, y);
         if (!is_black(a))
           ++lit;
-        HS_EXPECT_EQ(static_cast<int>(a.r), static_cast<int>(b.r));
-        HS_EXPECT_EQ(static_cast<int>(a.g), static_cast<int>(b.g));
-        HS_EXPECT_EQ(static_cast<int>(a.b), static_cast<int>(b.b));
+        HS_EXPECT_EQ(is_black(a), is_black(b));
+        HS_EXPECT_NEAR(static_cast<int>(a.r), static_cast<int>(b.r), CHANNEL_TOL);
+        HS_EXPECT_NEAR(static_cast<int>(a.g), static_cast<int>(b.g), CHANNEL_TOL);
+        HS_EXPECT_NEAR(static_cast<int>(a.b), static_cast<int>(b.b), CHANNEL_TOL);
       }
     }
     // Guard against both paths drawing nothing.
