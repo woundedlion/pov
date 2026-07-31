@@ -46,13 +46,45 @@ def _run(args, check=True):
     return r.stdout + r.stderr
 
 
-def _find_teensy_size():
+_TEENSY_SIZE_NAMES = ("teensy_size", "teensy_size.exe")
+
+
+def _teensy_size_candidates(env):
+    """Paths to probe for teensy_size: installed tool package first, PATH last.
+
+    teensy_size ships inside the PlatformIO `tool-teensy` package and is not on
+    PATH, so a bare-name probe alone never finds it and the gate silently drops
+    to the uncalibrated `size -A` fallback.
+    """
+    roots = []
+    pio_platform = getattr(env, "PioPlatform", None)
+    if pio_platform is not None:
+        try:
+            root = pio_platform().get_package_dir("tool-teensy")
+        except Exception:
+            root = None
+        if root:
+            roots.append(root)
+    packages = env.subst("$PROJECT_PACKAGES_DIR")
+    if packages and not packages.startswith("$"):
+        roots.append(os.path.join(packages, "tool-teensy"))
+    core = os.environ.get("PLATFORMIO_CORE_DIR") or os.path.join(
+        os.path.expanduser("~"), ".platformio")
+    roots.append(os.path.join(core, "packages", "tool-teensy"))
+
+    cands = [os.path.join(root, name) for root in roots
+             for name in _TEENSY_SIZE_NAMES]
+    cands.extend(_TEENSY_SIZE_NAMES)
+    return list(dict.fromkeys(cands))
+
+
+def _find_teensy_size(env):
     """Best-effort locate of teensy_size (ships with the Teensy platform tools).
 
     Validates the probe output identifies itself as teensy_size, so an unrelated
     same-named binary on PATH (which would merely launch) is not accepted.
     """
-    for cand in ("teensy_size", "teensy_size.exe"):
+    for cand in _teensy_size_candidates(env):
         try:
             r = subprocess.run([cand, "--help"], capture_output=True, text=True,
                                check=False)
@@ -79,7 +111,8 @@ def run_gate(source, target, env):
     try:
         # Region totals: prefer teensy_size (correct flash-LMA accounting, §7.3),
         # fall back to `size -A` VMA bucketing (undercounts flash — see teensy_gate).
-        teensy_size = _find_teensy_size()
+        teensy_size = _find_teensy_size(env)
+        used_size_a_fallback = teensy_size is None
         if teensy_size:
             sizes = teensy_gate.parse_teensy_size(_run([teensy_size, elf], check=False))
         else:
@@ -114,9 +147,20 @@ def run_gate(source, target, env):
         sys.exit(1)
 
     result = teensy_gate.evaluate(pioenv, budgets[pioenv], sizes, symbols, sections)
+    if used_size_a_fallback:
+        result.notes.insert(0, teensy_gate.UNCALIBRATED_NOTE)
     print(teensy_gate.render_report(result, github=True))
     if not result.passed:
         sys.exit(1)
+    if used_size_a_fallback:
+        # A bucketed guess must never read as a shipped verdict: the workflow doc
+        # and the pre-commit hook accept this build on the gate's exit status, so
+        # an uncalibrated PASS exits non-zero (advisory code) and fails the build.
+        print("::error::teensy-gate: PASS is UNCALIBRATED - teensy_size was not "
+              "found, so region totals come from `size -A` VMA bucketing. Install "
+              "the Teensy platform tools (tool-teensy package) and re-run; do not "
+              "record this as a gate PASS.")
+        sys.exit(teensy_gate.EXIT_UNCALIBRATED_PASS)
 
 
 ELF = "$BUILD_DIR/${PROGNAME}.elf"

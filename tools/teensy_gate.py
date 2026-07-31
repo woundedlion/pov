@@ -518,6 +518,15 @@ def render_report(result: GateResult, *, github: bool = False) -> str:
 #: verdict from a real one by exit status alone.
 EXIT_UNCALIBRATED_PASS = 3
 
+#: Note prefixed to any verdict computed from the `size -A` fallback. Region
+#: totals are bucketed by start VMA, so a section straddling a region boundary
+#: is mis-measured; teensy_size does the correct LMA accounting.
+UNCALIBRATED_NOTE = (
+    "ADVISORY: `size -A` fallback in use (teensy_size unavailable). Region "
+    "ceilings/floors are bucketed by start VMA and can mis-measure a "
+    "boundary-straddling section, so this region verdict is NOT calibrated "
+    "- run with teensy_size for an authoritative ceiling decision.")
+
 
 def main(argv: list[str] | None = None) -> int:
     """Run the gate. Exit: 0 PASS, 1 violation, 2 cannot-run, 3 advisory PASS."""
@@ -559,14 +568,7 @@ def main(argv: list[str] | None = None) -> int:
 
     result = evaluate(args.env, budgets[args.env], sizes, symbols, sections)
     if used_size_a_fallback:
-        # Region totals are bucketed by start VMA, so a section straddling a
-        # region boundary is mis-measured; the region PASS/FAIL is advisory here.
-        # teensy_size does the correct LMA accounting for a calibrated verdict.
-        result.notes.insert(0,
-            "ADVISORY: `size -A` fallback in use (teensy_size unavailable). Region "
-            "ceilings/floors are bucketed by start VMA and can mis-measure a "
-            "boundary-straddling section, so this region verdict is NOT calibrated "
-            "- run with teensy_size for an authoritative ceiling decision.")
+        result.notes.insert(0, UNCALIBRATED_NOTE)
     print(render_report(result, github=args.github))
     if not result.passed:
         return 1
