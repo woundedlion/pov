@@ -783,6 +783,9 @@ inline void test_collapsing_faces_land_on_host_palette() {
         conway_morph_tests::run_edge_op(e, seed, aux, temp, e.t_to, e.twist_to);
     const size_t dep_faces = departed.face_counts.size();
     HS_EXPECT_LE(dep_faces, MAX_FACES);
+    HS_EXPECT_LE(survivors, MAX_FACES);
+    if (dep_faces > MAX_FACES || survivors > MAX_FACES)
+      continue;
     uint8_t pal[MAX_FACES];
     Vector cen[MAX_FACES];
     for (size_t f = 0, off = 0; f < dep_faces; ++f) {
@@ -958,6 +961,8 @@ inline void test_palette_mapping_total_all_edges() {
 
     uint8_t pal[128];
     HS_EXPECT_LE(seed.face_counts.size(), (size_t)128);
+    if (seed.face_counts.size() > 128)
+      continue;
     // Class-keyed handoff (faces of one side count share a palette), as the
     // effect hands off: per-face-arbitrary palettes would exceed the leg's
     // MAX_BLEND_PAIRS pair budget on the large seeds.
@@ -1237,6 +1242,10 @@ inline void test_leg_start_seed_frame_continuity() {
     uint8_t pal[128];
     Vector cents[128];
     HS_EXPECT_LE(prev_faces, (size_t)128);
+    // The script threads state leg to leg, so an over-cap node cannot be
+    // skipped: stop the walk instead of writing past pal/cents.
+    if (prev_faces > 128)
+      return;
     for (size_t f = 0; f < prev_faces; ++f) {
       pal[f] = (f % 2) ? SEEDFRAME_PAL_B : SEEDFRAME_PAL_A;
       cents[f] = poly_face_centroid(node_mesh, f);
@@ -1269,6 +1278,8 @@ inline void test_leg_start_seed_frame_continuity() {
     int match_of[128];
     bool used[128] = {};
     HS_EXPECT_LE(total, (size_t)128);
+    if (total > 128)
+      return;
     for (size_t f = 0; f < total; ++f) {
       const Vector c = poly_face_centroid(start, f);
       size_t best = 0;

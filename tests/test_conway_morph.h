@@ -3519,6 +3519,10 @@ inline ChainPeaks replay_build_chain(const char *name,
     for (size_t k = 0; k < count; ++k) {
       const size_t prev_faces = cur.face_counts.size();
       HS_EXPECT_LE(prev_faces, MAX_FACES);
+      // The replay threads state leg to leg, so an over-cap leg cannot be
+      // skipped: abandon the chain instead of writing past the handoff arrays.
+      if (prev_faces > MAX_FACES)
+        return peaks;
       {
         size_t off = 0;
         for (size_t f = 0; f < prev_faces; ++f) {
@@ -3736,6 +3740,8 @@ inline ChainPeaks replay_build_chain(const char *name,
       // correspondence to its seed, so its from-palettes are the leg's own
       // geometric provenance.
       HS_EXPECT_LE(landing.faces, MAX_FACES);
+      if (landing.faces > MAX_FACES)
+        return peaks;
       if (!supported) {
         // A clamped leg lands somewhere other than its clean endpoint, so
         // neither the palette correspondence nor the closing handoff below is
@@ -3830,6 +3836,9 @@ inline ChainPeaks replay_build_chain(const char *name,
     // frame drew (the closing w = 1 plateau).
     const size_t landed_faces = cur.face_counts.size();
     HS_EXPECT_LE(landed_faces, prev_landing->faces);
+    HS_EXPECT_LE(landed_faces, MAX_FACES);
+    if (landed_faces > MAX_FACES)
+      return peaks;
     uint8_t sprite_pal[MAX_FACES];
     for (size_t f = 0; f < landed_faces; ++f)
       sprite_pal[f] = prev_landing->landed_palette(f);
