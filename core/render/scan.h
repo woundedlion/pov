@@ -1392,9 +1392,9 @@ HS_O3_BEGIN
  * @details Self-contained (the shared rasterize/scan_region/process_pixel
  * kernel stays -Os; GCC reuses that existing -Os instantiation rather than
  * re-optimizing it into a region caller). A Face's column intervals are
- * row-independent, so the wrap/sort/coalesce pass — per-row in scan_region —
- * and the clip-arc intersection run once per face; the per-pixel body mirrors
- * process_pixel's solid path.
+ * row-independent unless it touches a pole, so for every other face the
+ * wrap/sort/coalesce pass — per-row in scan_region — and the clip-arc
+ * intersection run once; the per-pixel body mirrors process_pixel's solid path.
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
@@ -1417,13 +1417,17 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
+  }
+
+  auto build_runs = [&](int y) {
+    HS_PROFILE_DEEP(raster_setup);
+    num_runs = 0;
 
     // Face emits <= 2 spans; each wraps into <= 2 pieces, each clip-split into
     // <= 2 runs.
     StaticCircularBuffer<std::pair<float, float>, 4> intervals;
     bool handled = shape.template get_horizontal_intervals<W, H>(
-        y_lo,
-        [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
+        y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
     auto add_run = [&](int x1, int x2) {
       auto push = [&](int a, int b) {
@@ -1461,6 +1465,13 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           add_run(static_cast<int>(run.first), static_cast<int>(run.second));
       }
     }
+  };
+
+  // A pole-touching face widens its azimuth wedge toward the pole, so its runs
+  // describe one row; every other face reuses one set for the whole band.
+  const bool per_row = shape.pole_touch;
+  if (!per_row) {
+    build_runs(y_lo);
     if (num_runs == 0)
 #ifdef HS_AA_AUDIT
       ;
@@ -1478,6 +1489,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   if (hs_aa::g_audit.enabled) {
     SDF::DistanceResult ares;
     for (int y = y_lo; y <= y_hi; ++y) {
+      if (per_row)
+        build_runs(y);
       float sp = TrigLUT<W, H>::sin_phi[y];
       float cp = TrigLUT<W, H>::cos_phi[y];
       for (int x = 0; x < W; ++x) {
@@ -1515,14 +1528,17 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           hs_aa::g_audit.note_missed(y, alpha, gap);
       }
     }
-    for (size_t r = 0; r < num_runs; ++r) {
-      const long long len = runs[r].second - runs[r].first;
-      hs_aa::g_audit.probes += (y_hi - y_lo + 1) * len;
-      for (int y = y_lo; y <= y_hi; ++y)
+    for (int y = y_lo; y <= y_hi; ++y) {
+      if (per_row)
+        build_runs(y);
+      for (size_t r = 0; r < num_runs; ++r) {
+        const long long len = runs[r].second - runs[r].first;
+        hs_aa::g_audit.probes += len;
         hs_aa::g_audit.probe_rows[y] += len;
+      }
     }
   }
-  if (num_runs == 0)
+  if (!per_row && num_runs == 0)
     return;
 #endif
 
@@ -1536,6 +1552,11 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 
   HS_PROFILE_DEEP(raster_scan);
   for (int y = y_lo; y <= y_hi; ++y) {
+    if (per_row) {
+      build_runs(y);
+      if (num_runs == 0)
+        continue;
+    }
     float sp = TrigLUT<W, H>::sin_phi[y];
     float cp = TrigLUT<W, H>::cos_phi[y];
     const int stride = pole_lod_run(sp);
