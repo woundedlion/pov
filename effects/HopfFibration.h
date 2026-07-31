@@ -330,8 +330,8 @@ private:
 
       {
         HS_PROFILE(hf_trail_raster);
-        Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader, false,
-                              nullptr, false, edge_visible);
+        Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader,
+                              {.edge_visible = edge_visible});
       }
     }
   }

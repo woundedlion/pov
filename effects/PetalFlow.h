@@ -327,7 +327,8 @@ private:
 
     {
       HS_PROFILE(pf_ring_scan);
-      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
+      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader,
+                            {.close_loop = true});
     }
   }
 

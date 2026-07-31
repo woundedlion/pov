@@ -303,8 +303,7 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   CapturePipeline pipe;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/false,
-                          /*planar_basis=*/nullptr);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader);
   }
   fx.advance_display();
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)0);
@@ -1289,8 +1288,8 @@ inline void test_rasterize_column_cull_pixel_parity() {
         pts.push_back(f);
       }
       Canvas c(fx);
-      Plot::rasterize<W, H>(filters, c, pts, shade, /*close_loop=*/false,
-                            planar ? &chart : nullptr);
+      Plot::rasterize<W, H>(filters, c, pts, shade,
+                            {.planar_basis = planar ? &chart : nullptr});
     };
 
     std::vector<Pixel> ref(static_cast<size_t>(W) * H);
@@ -1826,8 +1825,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
             return;
           vis = bits;
         }
-        Plot::rasterize<W, H>(filters, c, pts, shade, false, nullptr, false,
-                              vis);
+        Plot::rasterize<W, H>(filters, c, pts, shade, {.edge_visible = vis});
       };
 
       std::vector<Pixel> ref(static_cast<size_t>(W) * H);
@@ -2490,7 +2488,7 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
   CapturePipeline pipe;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/false);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader);
   }
   fx.advance_display();
 
@@ -2527,7 +2525,7 @@ inline void test_rasterize_open_segment_gap_free() {
   CapturePipeline pipe;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/false);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader);
   }
   fx.advance_display();
 
@@ -2566,7 +2564,7 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
   CapturePipeline pipe;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/true);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader, {.close_loop = true});
   }
   fx.advance_display();
 
@@ -2605,13 +2603,12 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   {
     Canvas c(fx);
     Plot::rasterize<W, H>(planar_pipe, c, points, noop_shader,
-                          /*close_loop=*/false, &basis);
+                          {.planar_basis = &basis});
   }
   fx.advance_display();
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(geo_pipe, c, points, noop_shader,
-                          /*close_loop=*/false, /*planar_basis=*/nullptr);
+    Plot::rasterize<W, H>(geo_pipe, c, points, noop_shader);
   }
   fx.advance_display();
 
@@ -2662,8 +2659,8 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   CapturePipeline pipe;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, noop_shader, /*close_loop=*/false,
-                          &basis);
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader,
+                          {.planar_basis = &basis});
   }
   fx.advance_display();
 
@@ -2717,8 +2714,8 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   };
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, capture, /*close_loop=*/false,
-                          &basis);
+    Plot::rasterize<W, H>(pipe, c, points, capture,
+                          {.planar_basis = &basis});
   }
   fx.advance_display();
 
@@ -3522,7 +3519,7 @@ inline void test_rasterize_cull_follows_filter_orientation() {
       pts.push_back(a);
       pts.push_back(b);
       Canvas c(fx);
-      Plot::rasterize<W, H>(filters, c, pts, shade, /*close_loop=*/false);
+      Plot::rasterize<W, H>(filters, c, pts, shade);
     }
     fx.advance_display();
     int lit = 0;
