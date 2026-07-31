@@ -1174,6 +1174,51 @@ template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
 }
 
 /**
+ * @brief Optional rasterize() behaviors beyond the plain open geodesic
+ * polyline; every field defaults to that common case.
+ */
+struct RasterOptions {
+  /** Also draw the last→first edge. */
+  bool close_loop = false;
+  /**
+   * Non-null selects azimuthal-equidistant interpolation (straight in the
+   * projection); null uses geodesic edges.
+   */
+  const Basis *planar_basis = nullptr;
+  /**
+   * Open lines only: skip the final endpoint plot (each vertex is otherwise
+   * plotted once by its outgoing segment), so abutting arcs tile a longer
+   * curve without double-plotting the shared vertex.
+   */
+  bool omit_end = false;
+  /**
+   * Optional precomputed Tier-3 edge flags, one byte per segment-loop edge.
+   * Bit 0 is visibility. Bits 1 and 2 optionally retain one-dot and
+   * classification-known; legacy 0/1 visibility arrays remain valid.
+   * Geodesic polylines only: a planar polyline's per-edge basis depends on
+   * rasterize()'s seam pre-pass.
+   */
+  const uint8_t *edge_visible = nullptr;
+  /**
+   * Optional per-point screen rows, y_to_screen_row of each points[k].pos.
+   * With point_cols, lets the single-dot shortcut skip the projection. Only
+   * consumed when the pipeline is hoistable (no world stage re-positions the
+   * plot); both arrays or neither.
+   */
+  const float *point_rows = nullptr;
+  /**
+   * Optional per-point screen columns, vector_to_theta of each
+   * points[k].pos.
+   */
+  const float *point_cols = nullptr;
+  /**
+   * Optional last-to-first target fragment carrying seam registers for a
+   * closed loop without an overlapping point.
+   */
+  const Fragment *loop_seam = nullptr;
+};
+
+/**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
@@ -1192,40 +1237,14 @@ template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
  *                        non-null (the per-pixel call sites below do not guard
  *                        it, and operator()'s null assert is stripped under
  *                        NDEBUG on-device).
- * @param close_loop Also draw the last→first edge.
- * @param planar_basis Non-null selects azimuthal-equidistant interpolation
- *                     (straight in the projection); null uses geodesic edges.
- * @param omit_end Open lines only: skip the final endpoint plot (each vertex is
- *                 otherwise plotted once by its outgoing segment), so abutting
- *                 arcs tile a longer curve without double-plotting the shared
- *                 vertex.
- * @param edge_visible Optional precomputed Tier-3 edge flags, one byte per
- *                     segment-loop edge. Bit 0 is visibility. Bits 1 and 2
- *                     optionally retain one-dot and classification-known;
- *                     legacy 0/1 visibility arrays remain valid.
- *                     Geodesic polylines only: a planar polyline's per-edge
- *                     basis depends on the seam pre-pass below.
- * @param point_rows Optional per-point screen rows, y_to_screen_row of each
- *                   points[k].pos. With point_cols, lets the single-dot
- *                   shortcut skip the projection. Only consumed when the
- *                   pipeline is hoistable (no world stage re-positions the
- *                   plot); both arrays or neither.
- * @param point_cols Optional per-point screen columns, vector_to_theta of
- *                   each points[k].pos.
- * @param loop_seam Optional last-to-first target fragment carrying seam
- *                  registers for a closed loop without an overlapping point.
+ * @param opts Optional loop/projection/culling behaviors (see RasterOptions).
  */
 HS_O3_BEGIN
 template <int W, int H, typename PipelineT = PipelineRef,
           typename FragmentShaderT = FragmentShaderFn>
 static void
 rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
-          FragmentShaderT fragment_shader, bool close_loop = false,
-          const Basis *planar_basis = nullptr, bool omit_end = false,
-          const uint8_t *edge_visible = nullptr,
-          const float *point_rows = nullptr,
-          const float *point_cols = nullptr,
-          const Fragment *loop_seam = nullptr) {
+          FragmentShaderT fragment_shader, const RasterOptions &opts = {}) {
   // Erasure collapses pipeline and shader; the erased call matches neither
   // clause so recursion ends.
   if constexpr (!pipeline_direct_raster_path<PipelineT>() &&
@@ -1234,11 +1253,16 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
                                FragmentShaderFn>)) {
     PipelineRef erased(source_pipeline);
     FragmentShaderFn erased_shader(fragment_shader);
-    rasterize<W, H>(erased, canvas, points, erased_shader, close_loop,
-                    planar_basis, omit_end, edge_visible, point_rows,
-                    point_cols, loop_seam);
+    rasterize<W, H>(erased, canvas, points, erased_shader, opts);
     return;
   }
+  const bool close_loop = opts.close_loop;
+  const Basis *planar_basis = opts.planar_basis;
+  const bool omit_end = opts.omit_end;
+  const uint8_t *edge_visible = opts.edge_visible;
+  const float *point_rows = opts.point_rows;
+  const float *point_cols = opts.point_cols;
+  const Fragment *loop_seam = opts.loop_seam;
   auto &pipeline = source_pipeline;
   size_t len = points.size();
   // A degenerate path is not drawn — callers wanting a dot duplicate the vertex,
@@ -1579,9 +1603,11 @@ inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
   apply_vertex_shader(vertex_shader, points);
   if (params.loop_seam != nullptr && vertex_shader)
     vertex_shader(*params.loop_seam);
-  rasterize<W, H>(pipeline, canvas, points, fragment_shader, params.close_loop,
-                  params.planar_basis, params.omit_end, nullptr, nullptr,
-                  nullptr, params.loop_seam);
+  rasterize<W, H>(pipeline, canvas, points, fragment_shader,
+                  {.close_loop = params.close_loop,
+                   .planar_basis = params.planar_basis,
+                   .omit_end = params.omit_end,
+                   .loop_seam = params.loop_seam});
 }
 
 /**
@@ -3016,12 +3042,12 @@ struct Mesh {
                  points.size() - 1 <= EDGE_PRESAMPLE_DENSITY);
         if (!gate_trail_edges<W, H>(pipeline, cr, xc, band_len, points, bits))
           return;
-        rasterize<W, H>(pipeline, canvas, points, fragment_shader, false,
-                        nullptr, false, bits);
+        rasterize<W, H>(pipeline, canvas, points, fragment_shader,
+                        {.edge_visible = bits});
         return;
       }
     }
-    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, nullptr);
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader);
   }
 
   /**
@@ -3383,8 +3409,10 @@ struct ParticleSystem {
       }
       {
         HS_PROFILE(plot_ps_raster);
-        rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
-                        nullptr, false, vis, dot_rows, dot_cols);
+        rasterize<W, H>(pipeline, canvas, trail, fragment_shader,
+                        {.edge_visible = vis,
+                         .point_rows = dot_rows,
+                         .point_cols = dot_cols});
       }
     }
   }

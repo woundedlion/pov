@@ -263,7 +263,7 @@ private:
       };
 
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
-                            true);
+                            {.close_loop = true});
     }
   }
 
