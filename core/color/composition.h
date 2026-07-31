@@ -1151,7 +1151,8 @@ public:
   /**
    * @brief Samples only the interpolated RGB channels.
    * @param t Lookup coordinate; clamped to [0, 1].
-   * @return The same pixel as get(t).color without interpolating alpha.
+   * @return The pixel get() gives for the same index, without interpolating
+   * alpha.
    */
   __attribute__((always_inline)) Pixel get_color(float t) const {
     assert(colors != nullptr && "BakedPalette::get_color before bake()");
@@ -1163,7 +1164,7 @@ public:
   /**
    * @brief Samples RGB for a coordinate already clamped to [0, 1].
    * @param t Finite lookup coordinate in [0, 1].
-   * @return The same pixel as get(t).color.
+   * @return The pixel get() gives for the same index.
    */
   __attribute__((always_inline)) Pixel get_color_unit(float t) const {
     assert(colors != nullptr && "BakedPalette::get_color_unit before bake()");
