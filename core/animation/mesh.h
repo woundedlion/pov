@@ -254,7 +254,8 @@ public:
   OpLeg(const PolyMesh &seed, const ConwayGraph::EdgeSpec &edge, bool reverse,
         Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
         int sweep_frames, int settle_frames,
-        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        const BookendClasses &bookend = BookendClasses{.topology = nullptr,
+                                                       .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames + settle_frames, false),
@@ -327,7 +328,8 @@ public:
   OpLeg(const PolyMesh &seed, ConwayGraph::MorphOp op, float t_start,
         float t_end, float twist_start, float twist_end, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
-        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        const BookendClasses &bookend = BookendClasses{.topology = nullptr,
+                                                       .faces = 0},
         BlendWeightFn blend_fn = classic_blend, bool bridge_provenance = false,
         bool borrow_seed = false, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
@@ -406,7 +408,8 @@ public:
   HS_COLD_MEMBER
   OpLeg(const PolyMesh &seed, float theta_start, float theta_end, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
-        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        const BookendClasses &bookend = BookendClasses{.topology = nullptr,
+                                                       .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
@@ -504,7 +507,8 @@ public:
   HS_COLD_MEMBER
   OpLeg(const PolyMesh &seed, int iterations, Arena &arena, MorphDrawFn draw,
         const PaletteHandoff &handoff, int sweep_frames,
-        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        const BookendClasses &bookend = BookendClasses{.topology = nullptr,
+                                                       .faces = 0},
         const MeshOps::RelaxBake *bake = nullptr,
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
@@ -579,7 +583,8 @@ public:
   HS_COLD_MEMBER
   OpLeg(const PolyMesh &seed, MedialTag, Arena &arena, MorphDrawFn draw,
         const PaletteHandoff &handoff, int sweep_frames,
-        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        const BookendClasses &bookend = BookendClasses{.topology = nullptr,
+                                                       .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
@@ -675,7 +680,8 @@ public:
   OpLeg(const PolyMesh &from_mesh, const Vector *to_positions, ReconcileTag,
         Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
         int sweep_frames,
-        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        const BookendClasses &bookend = BookendClasses{.topology = nullptr,
+                                                       .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
         EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
@@ -751,7 +757,8 @@ public:
   HS_COLD_MEMBER
   OpLeg(const PolyMesh &seed, SwapOp op, Arena &arena, MorphDrawFn draw,
         const PaletteHandoff &handoff, int gate_frames,
-        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        const BookendClasses &bookend = BookendClasses{.topology = nullptr,
+                                                       .faces = 0},
         EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(2 * gate_frames + 1, false), easing_fn(easing_fn),
         draw_fn(draw) {

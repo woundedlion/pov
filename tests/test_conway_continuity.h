@@ -793,7 +793,10 @@ inline void test_collapsing_faces_land_on_host_palette() {
       cen[f] = c.normalized();
       off += departed.face_counts[f];
     }
-    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, dep_faces, cen};
+    Animation::OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                             .prev_face_palette = pal,
+                                             .prev_faces = dep_faces,
+                                             .prev_face_centroid = cen};
 
     // Bookend: the hankin star-face classification of the arrival node, as
     // start_morph_cycle builds it.
@@ -809,7 +812,8 @@ inline void test_collapsing_faces_land_on_host_palette() {
       for (size_t f = 0; f < survivors; ++f)
         arrival_topo[f] = hk.topology[f];
     }
-    Animation::OpLeg::BookendClasses bookend{arrival_topo, survivors};
+    Animation::OpLeg::BookendClasses bookend{.topology = arrival_topo,
+                                             .faces = survivors};
 
     auto cb = [](Canvas &, const MeshState &,
                  const Animation::OpLeg::Shading &) {};
@@ -865,8 +869,10 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   }();
   HS_EXPECT_GE(edge, 0);
 
-  Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,
-                                           cube.face_counts.size()};
+  Animation::OpLeg::PaletteHandoff handoff{
+      .bank = &bank.bank,
+      .prev_face_palette = pal,
+      .prev_faces = cube.face_counts.size()};
 
   ShadingSnapshot snap;
   auto cb = [&](Canvas &, const MeshState &m,
@@ -950,8 +956,10 @@ inline void test_palette_mapping_total_all_edges() {
     for (size_t f = 0; f < seed.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(seed.face_counts[f] %
                                     Animation::OpLeg::PALETTES);
-    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,
-                                             seed.face_counts.size()};
+    Animation::OpLeg::PaletteHandoff handoff{
+        .bank = &bank.bank,
+        .prev_face_palette = pal,
+        .prev_faces = seed.face_counts.size()};
 
     ShadingSnapshot snap;
     auto cb = [&](Canvas &, const MeshState &,
@@ -1030,8 +1038,10 @@ inline void test_palette_mapping_deterministic() {
     build_solid<Solids::Cube>(cube, leg);
     uint8_t pal[16];
     fill_emission_handoff(cube, pal);
-    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,
-                                             cube.face_counts.size()};
+    Animation::OpLeg::PaletteHandoff handoff{
+        .bank = &bank.bank,
+        .prev_face_palette = pal,
+        .prev_faces = cube.face_counts.size()};
 
     ShadingSnapshot &snap = snaps[run];
     auto cb = [&](Canvas &, const MeshState &,
@@ -1215,8 +1225,10 @@ inline void test_leg_start_seed_frame_continuity() {
       pal[f] = (f % 2) ? SEEDFRAME_PAL_B : SEEDFRAME_PAL_A;
       cents[f] = poly_face_centroid(node_mesh, f);
     }
-    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal, prev_faces,
-                                             cents};
+    Animation::OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                             .prev_face_palette = pal,
+                                             .prev_faces = prev_faces,
+                                             .prev_face_centroid = cents};
 
     // The mesh the first morph frame draws.
     auto clampp = [&](float t) {
