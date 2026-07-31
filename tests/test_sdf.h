@@ -346,7 +346,8 @@ inline void test_distorted_ring_knot_extrema_tighten_band() {
 /** @brief Verifies the polygon center is inside, with dist equal to the negated apothem. */
 inline void test_polygon_at_center_inside() {
   Basis b = equator_basis();
-  SDF::PlanarPolygon poly(b, /*thickness*/ 0.5f, /*sides*/ 6, /*phase*/ 0.0f);
+  SDF::PlanarPolygon poly(b, /*circumradius*/ 0.5f, /*sides*/ 6,
+                          /*phase*/ 0.0f);
 
   auto r = SDF::distance_of(poly, Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f);
@@ -1757,8 +1758,8 @@ inline void test_cull_covers_interior_over_orientation_grid() {
       SDF::Star star(basis, radius, /*sides=*/5, 0.0f);
       expect_cull_covers_interior<W, H>(star);
 
-      // PlanarPolygon's `thickness` is its angular circumradius.
-      SDF::PlanarPolygon ppoly(basis, /*thickness=*/radius, /*sides=*/6, 0.0f);
+      SDF::PlanarPolygon ppoly(basis, /*circumradius=*/radius, /*sides=*/6,
+                               0.0f);
       expect_cull_covers_interior<W, H>(ppoly);
 
       SDF::Flower flower(basis, radius, /*sides=*/5, 0.0f);

@@ -404,10 +404,10 @@ struct Bounds {
  * | DistortedRing / FlatDistortedRing | displaced-centerline dist - thickness | azimuth turns in [0,1), phase applied | unsigned distance to the displaced centerline | thickness |
  * | Line              | segment dist - thickness   | 0                | unsigned angular distance to the arc segment | thickness |
  * | Face              | signed edge distance (gnomonic plane units; see Face::distance) | 0 | = dist | inradius |
- * | PlanarPolygon     | sign * (polar*cos(local) - apothem) | polar / thickness | polar angle from center | apothem |
+ * | PlanarPolygon     | sign * (polar*cos(local) - apothem) | polar / circumradius | polar angle from center | apothem |
  * | SphericalPolygon  | sign * angular distance to the nearest great-circle edge | polar / circumradius | polar angle from center | circumradius |
- * | Star              | sign * folded edge half-plane distance | azimuth turns in [0,1), phase applied | polar angle from center | outer radius (thickness) |
- * | Flower            | sign * -(polar*cos(local) - apothem) | scan_dist / thickness | scan distance from the antipode | outer radius (thickness) |
+ * | Star              | sign * folded edge half-plane distance | azimuth turns in [0,1), phase applied | polar angle from center | circumradius |
+ * | Flower            | sign * -(polar*cos(local) - apothem) | scan_dist / circumradius | scan distance from the antipode | circumradius |
  *
  * Combinators forward a child's registers: Union/Intersection keep the
  * nearer/farther child's result verbatim; SmoothUnion keeps the nearer
@@ -457,12 +457,20 @@ inline DistanceResult distance_of(const S &shape, const Vector &p) {
 }
 
 /**
- * @brief Structural fingerprint shared by every SDF leaf and CSG combinator:
- * a static is_solid flag and an AA-falloff thickness.
+ * @brief Structural fingerprint of a CSG-composable SDF shape: a static
+ * is_solid flag and a `thickness` reach scalar.
  * @tparam T Candidate shape type.
- * @details The CSG combinators assert this on their children so a wrong-type
- * argument fails at the boundary. distance() and the scanline members vary by
- * render path and are not part of the shared contract.
+ * @details `thickness` is the shape's AA-falloff reach in radians. A stroke
+ * leaf (is_solid == false) stores its stroke half-width: the alpha ramp spans
+ * exactly this reach, and the rasterizer's stroke epilogue consumes it per
+ * probe as DistanceResult::size. A solid cap leaf ramps over a fixed
+ * one-pixel band instead and aliases its cap angular radius (`circumradius`)
+ * here as an upper bound. A combinator folds its children's values (max for
+ * the unions, min for Intersection, the minuend's for Subtract) so a
+ * composite's value stays a conservative reach bound. The CSG combinators
+ * assert this concept on their children so a wrong-type argument fails at the
+ * boundary. distance() and the scanline members vary by render path and are
+ * not part of the shared contract.
  */
 template <typename T>
 concept SDFShape = requires(const T &t) {
@@ -524,7 +532,7 @@ inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
  *
  * @tparam W Canvas width in columns.
  * @tparam OutputIt Sink type invoked as out(float start, float end).
- * @param cos_cap cos of the cap's angular radius (cosf(thickness) etc.).
+ * @param cos_cap cos of the cap's angular radius (cosf(circumradius) etc.).
  * @param ny y-component of the cap axis.
  * @param R_val Horizontal projection length of the cap axis.
  * @param alpha_angle Azimuth of the cap axis (radians).
@@ -1314,7 +1322,8 @@ inline Bounds union_vertical_bounds(Bounds a, Bounds b, int pad, int max_y) {
 template <typename A, typename B> struct Union {
   const A &a;      /**< First child shape. */
   const B &b;      /**< Second child shape. */
-  float thickness; /**< Max child thickness (drives AA falloff). */
+  float thickness; /**< Max child thickness (SDFShape reach bound; per-pixel AA
+                      uses the winning leaf's DistanceResult::size). */
   static constexpr bool is_solid =
       A::is_solid; /**< Both children share solidity, pinned by the
                         static_assert below. */
@@ -1417,7 +1426,7 @@ template <typename A, typename B> struct SmoothUnion {
   const A &a;      /**< First child shape. */
   const B &b;      /**< Second child shape. */
   float k;         /**< Smoothing radius in radians (e.g. 0.1). */
-  float thickness; /**< Max child thickness (drives AA falloff). */
+  float thickness; /**< Max child thickness (SDFShape reach bound). */
   static constexpr bool is_solid =
       A::is_solid; /**< Both children share solidity, pinned by the
                         static_assert below. */
@@ -1760,7 +1769,7 @@ template <typename A, typename B> struct Subtract {
 template <typename A, typename B> struct Intersection {
   const A &a;      /**< First child shape. */
   const B &b;      /**< Second child shape. */
-  float thickness; /**< Min child thickness (drives AA falloff). */
+  float thickness; /**< Min child thickness (SDFShape reach bound). */
   static constexpr bool is_solid =
       A::is_solid; /**< Both children share solidity, pinned by the
                         static_assert below. */
@@ -3494,9 +3503,10 @@ struct Face {
  * @details Register semantics: the DistanceResult table (row: PlanarPolygon).
  */
 struct PlanarPolygon {
-  const Basis &basis;      /**< Orientation frame (v = polygon axis). */
-  float thickness;         /**< Polygon radius / apothem scale (radians). */
-  int sides;               /**< Number of polygon sides. */
+  const Basis &basis; /**< Orientation frame (v = polygon axis). */
+  float circumradius; /**< Angular radius from center to vertex (radians). */
+  float thickness;    /**< SDFShape reach contract; equals circumradius. */
+  int sides;          /**< Number of polygon sides. */
   float phase;             /**< Azimuth phase offset (radians). */
   float sector;            /**< Angular width of one polygon sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
@@ -3509,25 +3519,25 @@ struct PlanarPolygon {
       true; /**< Polygon renders as a filled region. */
 
   /**
-   * @brief Builds a planar polygon from its basis, thickness, side count,
+   * @brief Builds a planar polygon from its basis, circumradius, side count,
    * phase.
    * @param b Orientation frame (v = polygon axis).
-   * @param th Polygon radius / apothem scale (radians).
+   * @param cr Angular circumradius of the polygon (radians).
    * @param s Number of polygon sides (must be >= 3).
    * @param ph Azimuth phase offset (radians).
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
-  PlanarPolygon(const Basis &b, float th, int s, float ph, bool invert = false)
-      : basis(b), thickness(th), sides(s), phase(ph),
+  PlanarPolygon(const Basis &b, float cr, int s, float ph, bool invert = false)
+      : basis(b), circumradius(cr), thickness(cr), sides(s), phase(ph),
         sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
-    HS_CHECK(thickness > 0.0f); // t = polar / thickness
+    HS_CHECK(circumradius > 0.0f); // t = polar / circumradius
     sector = 2.0f * PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
-    apothem = thickness * cosf(PI_F / sides);
+    apothem = circumradius * cosf(PI_F / sides);
 
-    CapBounds cb = cap_bounds(basis.v, thickness, invert);
+    CapBounds cb = cap_bounds(basis.v, circumradius, invert);
     ny = cb.ny;
     R_val = cb.R_val;
     alpha_angle = cb.alpha_angle;
@@ -3559,7 +3569,7 @@ struct PlanarPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H, false>(sign, thickness, ny, R_val,
+    return emit_padded_cap_row<W, H, false>(sign, circumradius, ny, R_val,
                                             alpha_angle, y, out);
   }
 
@@ -3568,7 +3578,7 @@ struct PlanarPolygon {
    * @tparam ComputeUVs When true, also computes the normalized radial t.
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = polar*cos(local) - apothem, raw_dist =
-   *        polar angle from center, t = polar/thickness when ComputeUVs.
+   *        polar angle from center, t = polar/circumradius when ComputeUVs.
    * @note The `polar*cos(local)` form under-estimates the true distance near
    *       the sector corners (gradient < 1 there), like the tangent-plane
    *       caveat on the public distance() above; for scanline shading, not a
@@ -3590,7 +3600,7 @@ struct PlanarPolygon {
     float dist_edge = polar * fast_cosf(local) - apothem;
     float t_val = 0.0f;
     if constexpr (ComputeUVs)
-      t_val = polar / thickness;
+      t_val = polar / circumradius;
 
     res = DistanceResult(sign * dist_edge, t_val, polar, 0.0f, apothem);
   }
@@ -3772,8 +3782,9 @@ struct Star {
       true; /**< Star renders as a filled region. */
 
   float nx, ny,
-      plane_d;     /**< 2D edge plane (normal and offset) for one point. */
-  float thickness; /**< Outer radius / AA scale (radians). */
+      plane_d;        /**< 2D edge plane (normal and offset) for one point. */
+  float circumradius; /**< Angular radius from center to point tip (radians). */
+  float thickness;    /**< SDFShape reach contract; equals circumradius. */
 
   float scan_ny, scan_r,
       scan_alpha; /**< Axis y-component, XZ projection length and azimuth. */
@@ -3809,6 +3820,7 @@ struct Star {
     nx = -dy / len;
     ny = dx / len;
     plane_d = -(nx * v_t);
+    circumradius = outer_radius;
     thickness = outer_radius;
 
     CapBounds cb = cap_bounds(basis.v, outer_radius, invert);
@@ -3845,7 +3857,7 @@ struct Star {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H, true>(sign, thickness, scan_ny, scan_r,
+    return emit_padded_cap_row<W, H, true>(sign, circumradius, scan_ny, scan_r,
                                            scan_alpha, y, out);
   }
 
@@ -3882,7 +3894,8 @@ struct Star {
     float t = 0.0f;
     if constexpr (ComputeUVs)
       t = wrap_t(azimuth / (2 * PI_F));
-    res = DistanceResult(sign * -dist_to_edge, t, scan_dist, 0.0f, thickness);
+    res =
+        DistanceResult(sign * -dist_to_edge, t, scan_dist, 0.0f, circumradius);
   }
 };
 
@@ -3896,8 +3909,10 @@ struct Flower {
   float phase;             /**< Azimuth phase offset (radians). */
   float sector;            /**< Angular width of one flower sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
-  float thickness;         /**< Outer radius / AA scale (radians). */
-  float apothem;           /**< Petal inradius offset (PI - outer radius). */
+  float circumradius; /**< Angular radius from the antipode to petal tip
+                         (radians). */
+  float thickness;    /**< SDFShape reach contract; equals circumradius. */
+  float apothem;      /**< Petal inradius offset (PI - outer radius). */
   Vector antipode;         /**< Antipode of the flower axis (scan origin). */
   float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection
                                         length and azimuth. */
@@ -3918,15 +3933,16 @@ struct Flower {
   Flower(const Basis &b, float radius, int s, float ph, bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
-    HS_CHECK(radius > 0.0f); // t = scan_dist / thickness
+    HS_CHECK(radius > 0.0f); // t = scan_dist / circumradius
     sector = 2.0f * PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
     float outer = radius * (PI_F / 2.0f);
     apothem = PI_F - outer;
+    circumradius = outer;
     thickness = outer;
     antipode = -basis.v;
 
-    CapBounds cb = cap_bounds(antipode, thickness, invert);
+    CapBounds cb = cap_bounds(antipode, circumradius, invert);
     scan_ny = cb.ny;
     scan_R = cb.R_val;
     scan_alpha = cb.alpha_angle;
@@ -3973,7 +3989,7 @@ struct Flower {
       return false;
 
     float pixel_width = 2.0f * PI_F / W;
-    float cos_limit = cosf(thickness + pixel_width);
+    float cos_limit = cosf(circumradius + pixel_width);
 
     emit_annular_band<W>(cos_limit, 1.0f, scan_ny, cos_phi, denom, scan_alpha,
                          out);
@@ -3985,8 +4001,8 @@ struct Flower {
    * @tparam ComputeUVs When true, also computes the normalized scan-distance t.
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = signed distance from the petal edge,
-   *        raw_dist = scan distance from the antipode, t = scan_dist/thickness
-   *        when ComputeUVs.
+   *        raw_dist = scan distance from the antipode, t =
+   *        scan_dist/circumradius when ComputeUVs.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -4005,9 +4021,10 @@ struct Flower {
     float dist_edge = polar * fast_cosf(local) - apothem;
     float t_val = 0.0f;
     if constexpr (ComputeUVs)
-      t_val = scan_dist / thickness;
+      t_val = scan_dist / circumradius;
 
-    res = DistanceResult(sign * -dist_edge, t_val, scan_dist, 0.0f, thickness);
+    res = DistanceResult(sign * -dist_edge, t_val, scan_dist, 0.0f,
+                         circumradius);
   }
 };
 

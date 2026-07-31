@@ -883,9 +883,10 @@ struct PlanarPolygon {
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = get_antipode(basis, radius);
-    float thickness = res.second * (PI_F / 2.0f);
+    float circumradius = res.second * (PI_F / 2.0f);
 
-    SDF::PlanarPolygon shape(res.first, thickness, sides, phase, radius > 1.0f);
+    SDF::PlanarPolygon shape(res.first, circumradius, sides, phase,
+                             radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
@@ -899,8 +900,9 @@ struct PlanarPolygon {
                          const Color4 &color, float phase = 0,
                          bool debug_bb = false) {
     auto res = get_antipode(basis, radius);
-    float thickness = res.second * (PI_F / 2.0f);
-    SDF::PlanarPolygon shape(res.first, thickness, sides, phase, radius > 1.0f);
+    float circumradius = res.second * (PI_F / 2.0f);
+    SDF::PlanarPolygon shape(res.first, circumradius, sides, phase,
+                             radius > 1.0f);
     Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color, debug_bb);
   }
 };
