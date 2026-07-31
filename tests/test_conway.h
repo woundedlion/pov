@@ -767,9 +767,9 @@ inline void test_bevel_cube() {
 }
 
 // ---------------------------------------------------------------------------
-// Composition polarity: a primitive operator returns its output in `target`; an
-// even-length composed operator (gyro/needle/zip/bevel) returns it in `temp`,
-// while an odd-length one (meta = kda, three steps) returns it in `target`.
+// Composition polarity: every operator, primitive or composed, returns its
+// output in `target` (even-length compositions start their ping-pong in
+// `temp`; see COMPOSITION POLARITY in conway.h).
 // ---------------------------------------------------------------------------
 
 /**
@@ -788,14 +788,13 @@ inline bool ptr_in_buffer(const void *p, const uint8_t *buf, size_t n) {
 }
 
 /**
- * @brief Verifies the primitive-vs-composed arena polarity in conway.h.
- * @details A primitive (dual) must return its output in `target`; each
- *          even-length composed operator (gyro/needle/zip/bevel) must return it
- *          in `temp`, while odd-length meta returns in `target` like a
- *          primitive. The seed is built in `temp` for every case, matching the
- *          per-operator tests and SolidBuilder's calling convention. Each output
- *          also satisfies the basic structural invariants, so the polarity check
- *          is asserted on a genuinely valid mesh.
+ * @brief Verifies every operator returns its output in `target`.
+ * @details Covers a primitive (dual), the odd-length composition (meta), and
+ *          each even-length composed operator (gyro/needle/zip/bevel). The seed
+ *          is built in `temp` for every case, matching the per-operator tests
+ *          and SolidBuilder's calling convention. Each output also satisfies
+ *          the basic structural invariants, so the polarity check is asserted
+ *          on a genuinely valid mesh.
  */
 inline void test_conway_composition_polarity() {
   const uint8_t *tgt = conway_target_buf;
@@ -827,7 +826,7 @@ inline void test_conway_composition_polarity() {
     HS_EXPECT_FALSE(ptr_in_buffer(&m.vertices[0], tmp, tmp_n));
   }
 
-  // Each even-length composed operator returns in `temp`.
+  // Each even-length composed operator also returns in `target`.
 #define HS_POLARITY_COMPOSED(CALL)                                             \
   do {                                                                         \
     Arena target(conway_target_buf, sizeof(conway_target_buf));                \
@@ -836,8 +835,8 @@ inline void test_conway_composition_polarity() {
     build_solid<Solids::Cube>(seed, temp);                                     \
     PolyMesh out = MeshOps::CALL;                                              \
     check_basic_invariants(out);                                               \
-    HS_EXPECT_TRUE(ptr_in_buffer(&out.vertices[0], tmp, tmp_n));               \
-    HS_EXPECT_FALSE(ptr_in_buffer(&out.vertices[0], tgt, tgt_n));              \
+    HS_EXPECT_TRUE(ptr_in_buffer(&out.vertices[0], tgt, tgt_n));               \
+    HS_EXPECT_FALSE(ptr_in_buffer(&out.vertices[0], tmp, tmp_n));              \
   } while (0)
 
   HS_POLARITY_COMPOSED(gyro(seed, target, temp));
