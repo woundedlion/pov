@@ -1355,6 +1355,33 @@ inline float fast_expf(float x) {
 }
 
 /**
+ * @brief Bhaskara I sine approximation for an angle in [0, π].
+ * @param x Angle in radians, in [0, π].
+ * @param sign Sign of the half-period `x` was folded out of, +1 or -1.
+ * @return The approximate sine, `sign * sin(x)`. Max error ~0.17% (~0.1 deg).
+ * @details The single spelling of the kernel: every fast sine path funnels
+ * through it, so no two paths can be reassociated apart under -ffast-math.
+ */
+__attribute__((always_inline)) inline float bhaskara_sinf(float x, float sign) {
+  float xpi = x * (PI_F - x);
+  return sign * (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
+}
+
+/**
+ * @brief Fast sine for an angle already reduced into [0, 2π).
+ * @param x Angle in radians, in [0, 2π).
+ * @return The approximate sine of `x`.
+ */
+__attribute__((always_inline)) inline float sinf_0_2pi(float x) {
+  float sign = 1.0f;
+  if (x > PI_F) {
+    x -= PI_F;
+    sign = -1.0f;
+  }
+  return bhaskara_sinf(x, sign);
+}
+
+/**
  * @brief Fast sine using the Bhaskara I approximation.
  * @param x Angle in radians (range-reduced internally).
  * @return The approximate sine of `x`.
@@ -1364,53 +1391,44 @@ inline float fast_expf(float x) {
  * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
  */
 __attribute__((always_inline)) inline float fast_sinf(float x) {
-  // Range reduce to [0, 2π)
   constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
-  x = x - floorf(x * INV_2PI) * (2.0f * PI_F);
-  // Map to [0, π) with sign tracking
-  float sign = 1.0f;
-  if (x > PI_F) {
-    x -= PI_F;
-    sign = -1.0f;
-  }
-  // Bhaskara I: 16x(π-x) / (5π² - 4x(π-x))
-  float xpi = x * (PI_F - x);
-  return sign * (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
+  return sinf_0_2pi(x - floorf(x * INV_2PI) * (2.0f * PI_F));
 }
 
 /**
- * @brief Fast cosine, computed as fast_sinf(x + π/2).
+ * @brief Fast cosine, equal to fast_sinf(x + π/2).
  * @param x Angle in radians.
  * @return The approximate cosine of `x`.
+ * @details Reduces x into [-π/2, 3π/2) rather than reducing x + π/2 into
+ * [0, 2π), so the quarter-turn shift is the last step here exactly as it is in
+ * fast_sincosf_0_pi. On [0, π] the reduction subtracts an exact zero, leaving
+ * both paths one shared expression over the same bits whatever the compiler
+ * reassociates.
  * @warning Accuracy degrades for large |x|: the `x - floor(x/2π)·2π` range
  * reduction loses precision as a float's ULP grows past the period, so callers
  * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
  */
 __attribute__((always_inline)) inline float fast_cosf(float x) {
-  return fast_sinf(x + PI_F * 0.5f);
+  constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
+  float r = x - floorf(x * INV_2PI + 0.25f) * (2.0f * PI_F);
+  return sinf_0_2pi(r + PI_F * 0.5f);
 }
 
 /**
  * @brief Fast sine and cosine for an angle in [0, π].
  * @param x Angle in radians.
- * @param s Output matching fast_sinf(x).
- * @param c Output matching fast_cosf(x).
+ * @param s Output matching fast_sinf(x) bit for bit.
+ * @param c Output matching fast_cosf(x) bit for bit.
+ * @details The domain makes both range reductions exact no-ops, so this drops
+ * them and calls the same kernels the general functions do.
  * @warning The sine branch has no range reduction and no sign tracking; for
  * x outside [0, π] it returns the wrong value, so callers must bound x.
  */
 __attribute__((always_inline)) inline void fast_sincosf_0_pi(float x, float &s,
                                                              float &c) {
   assert(x >= 0.0f && x <= PI_F);
-  float xpi = x * (PI_F - x);
-  s = (16.0f * xpi) / (5.0f * PI_F * PI_F - 4.0f * xpi);
-  float cx = x + PI_F * 0.5f;
-  float sign = 1.0f;
-  if (cx > PI_F) {
-    cx -= PI_F;
-    sign = -1.0f;
-  }
-  float cxpi = cx * (PI_F - cx);
-  c = sign * (16.0f * cxpi) / (5.0f * PI_F * PI_F - 4.0f * cxpi);
+  s = bhaskara_sinf(x, 1.0f);
+  c = sinf_0_2pi(x + PI_F * 0.5f);
 }
 
 /**
