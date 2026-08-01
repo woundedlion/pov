@@ -129,6 +129,9 @@ private:
              "column interval rounded to 0 µs (RPM/width too high)");
     HS_CHECK(timer.begin(show_col, interval_us),
              "column IntervalTimer failed to start (no PIT channel)");
+#if defined(USE_DMA_LEDS)
+    uint32_t last_overrun = ledController.getOverrunCount();
+#endif
     while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
       effect->draw_frame();
@@ -136,6 +139,14 @@ private:
       if (hs::debug) {
         Serial.print("ft ");
         Serial.println(dt);
+#if defined(USE_DMA_LEDS)
+        const uint32_t overruns = ledController.getOverrunCount();
+        if (overruns != last_overrun) {
+          Serial.print("overrun ");
+          Serial.println(overruns);
+          last_overrun = overruns;
+        }
+#endif
       }
     }
     timer.end();
