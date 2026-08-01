@@ -162,7 +162,7 @@ inline void reset_effect_globals() {
  * @details Verifies the effect constructs, init's, renders smoke_frames()
  * frames, and reads back every pixel without tripping an assert/OOB/hang, and
  * that get_pixel is a stable pure accessor. Runs the dead-slider lint once on
- * the primary <DEFAULT_W,DEFAULT_H> pass.
+ * the <SMALL_W,SMALL_H> pass, which both depth tiers execute.
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void smoke_one(const char *name) {
@@ -214,8 +214,9 @@ inline void smoke_one(const char *name) {
     HS_EXPECT(acc > 0, "effect must produce non-black output");
   }
 
-  // The dead-slider lint is resolution-independent; run it once on the primary pass.
-  if constexpr (W == DEFAULT_W && H == DEFAULT_H)
+  // The dead-slider lint is resolution-independent; run it once, on the pass
+  // both depth tiers execute.
+  if constexpr (W == SMALL_W && H == SMALL_H)
     lint_dead_sliders(effect, name);
 }
 
