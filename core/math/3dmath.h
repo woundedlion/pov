@@ -1113,6 +1113,8 @@ constexpr float distance_squared(const Vector &a, const Vector &b) {
  * @param v1 First vector.
  * @param v2 Second vector.
  * @return The angle in radians.
+ * @note Traps on a degenerate input: both vectors must have length squared at
+ * least math::EPS_LEN_SQ. The check stays on in per-pixel callers (README §2).
  */
 inline float angle_between(const Vector &v1, const Vector &v2) {
   float m1 = dot(v1, v1);
