@@ -2391,4 +2391,4 @@ This project is split-licensed: the rendering engine and the visual effects carr
 
 **Effects — proprietary.** The visual effects in `effects/` are Copyright 2025 Gabriel Levy. All rights reserved. They are not covered by the PolyForm license — no rights to use, copy, modify, or distribute them are granted.
 
-**Third-party.** `FastNoiseLite.h` is under the MIT License (Auburn / Jordan Peck).
+**Third-party.** The engine vendors `core/vendor/FastNoiseLite.h` under the MIT License (Auburn / Jordan Peck). The simulator vendors nothing — it loads [three.js](https://github.com/mrdoob/three.js) (MIT, three.js authors) and [lil-gui](https://github.com/georgealways/lil-gui) (MIT, George Michael Brower) from the jsdelivr CDN at the versions pinned in `daydream/package.json` (currently three 0.183.1, lil-gui 0.21.0). The optional self-hosted fonts under `daydream/vendor/fonts/` (Inter and JetBrains Mono, both SIL OFL 1.1) are gitignored and distributed by neither repo.
