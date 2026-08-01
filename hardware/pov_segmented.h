@@ -55,7 +55,7 @@
 #include "dma_led.h"
 #else
 #error                                                                         \
-    "POVSegmented requires USE_DMA_LEDS (the Phantasm DMA LED transport): the FastLED fallback cannot honor the master sync pulse-width contract (spec §5.2)."
+    "POVSegmented requires USE_DMA_LEDS (the Phantasm DMA LED transport): FastLED's bit-bang show() masks IRQs for windows that break the sync symbol margins (pitch > M, gap timeout > pitch + M; spec §5.2)."
 #endif
 
 #include "render/canvas.h"
