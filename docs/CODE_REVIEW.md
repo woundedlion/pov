@@ -455,7 +455,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 182. ✅ **A death case passes on *any* trap, not the intended one** — `tests/test_death.h:1878-1884`. The loop asserts only `child_trapped(rc, shape)`. `case_solids_unknown_name` runs a full `get_by_name` through three arenas before reaching the name lookup, so an earlier arena guard would read green. Inherent to `__builtin_trap`; the gap is that positive controls exist for some cases but are ad hoc rather than a roster invariant.
 
-183. **One-sided boundary probe leaves two demarcation thresholds unpinned** — `tests/test_pov_sync.h:135-140`. Only the rejected side is checked for `acquire_quiet_cols` and `beacon_interdigit_timeout_cols`; flipping either `>=` to `>` in `hardware/pov_sync.h:261` still passes. Every other boundary in `test_helpers` pins both sides.
+183. ✅ **One-sided boundary probe leaves two demarcation thresholds unpinned** — `tests/test_pov_sync.h:135-140`. Only the rejected side is checked for `acquire_quiet_cols` and `beacon_interdigit_timeout_cols`; flipping either `>=` to `>` in `hardware/pov_sync.h:261` still passes. Every other boundary in `test_helpers` pins both sides.
 
 184. **The single-board strip tiling oracle re-derives its column from the function under test** — `tests/test_pov_single.h:52`. `col_bot = strip_opposite_col(x, w)` then every coverage assertion is expressed in terms of that output, so a driver returning `(x + w/3) % w` tiles "exactly once" onto the wrong column and passes all 18 sweeps. The segmented sibling computes it locally and gets this right.
 

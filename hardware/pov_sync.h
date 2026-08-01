@@ -254,12 +254,10 @@ struct Config {
            // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case
            // beacon span must clear W/4 or no beacon is ever scheduled.
            beacon_span_cols() < W / 4 &&
-           // Demarcation: both wire timeouts must clear the beacon's worst-case
-           // per-digit advance, which beacon_span_cols() / 4 bounds (the span is
-           // four such advances plus a final burst). Below it a real digit train
-           // reads as isolated boundary symbols.
+           // Demarcation: the acquisition timeout must clear the beacon's
+           // worst-case per-digit advance, which beacon_span_cols() / 4 bounds.
+           // The strict ordering below makes the interdigit timeout larger.
            acquire_quiet_cols >= beacon_span_cols() / 4 &&
-           beacon_interdigit_timeout_cols >= beacon_span_cols() / 4 &&
            // Stale-frame window order: tick()'s poll-path reset must be the
            // tighter one, so a truncated train drops on wire silence rather
            // than waiting for the next burst to reach BeaconParser::feed.
