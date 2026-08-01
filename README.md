@@ -245,8 +245,14 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── pov_submit_gate.h       Pure LED-submit accept/drop decision for the POVSegmented ISR (host-testable)
 │   ├── pov_segmented.h         Multi-Teensy segmented POV driver (Phantasm)
 │   └── phantasm/               KiCad 10 project for the per-segment carrier board
+│       ├── README.md               Project entry point and validation matrix
 │       ├── phantasm.kicad_sch      Schematic — parts, values, footprints, full connectivity
 │       ├── phantasm.kicad_pcb      Routed PCB (fabrication source of truth)
+│       ├── phantasm.kicad_pro      KiCad project configuration
+│       ├── phantasm.kicad_sym      Project symbol library
+│       ├── phantasm.pretty/        Project footprint library and 3D model
+│       ├── fp-lib-table / sym-lib-table  KiCad library mappings
+│       ├── quilter_incremental/    Independently tracked incremental-router board project
 │       ├── unplaced/               Net-assigned, unrouted board staged for an autoplacer
 │       └── gen/                    Python design/fabrication tools (`just pcb` runs `fab.py` only)
 │
