@@ -449,7 +449,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 179. ✅ **Face-cull fringe check has no per-config non-vacuity floor** — `tests/test_sdf.h:1945-1984`. Its sibling `expect_cull_covers_interior` guards itself with `HS_EXPECT_GT(interior, 0)`; only the caller's aggregate `total_paintable > 1000` is asserted here, so one of four configs degenerating to zero paintable pixels would be fully vacuous and invisible.
 
-180. **Table-integrity failures report a count, not a location** — `tests/test_reaction_graph.h:146, 162, 176, 224, 250`. Five cases accumulate a total and assert zero, so a red run on a 92 KB machine-generated table says "37 vs 0" and nothing about which row is corrupt. The harness's own `FAIL_PRINT_CAP` already solves the flood problem the aggregation avoids.
+180. ✅ **Table-integrity failures report a count, not a location** — `tests/test_reaction_graph.h:146, 162, 176, 224, 250`. Five cases accumulate a total and assert zero, so a red run on a 92 KB machine-generated table says "37 vs 0" and nothing about which row is corrupt. The harness's own `FAIL_PRINT_CAP` already solves the flood problem the aggregation avoids.
 
 181. **`exhaustive_matrix()` is a 16-point diagonal, not exhaustive** — `tests/test_shapeshifter_oracle.h:216-244`. Each parameter is tied to one loop index, so `count` is never crossed with a shape and `sides` never with a phase function. A real concern given the candidate envelope's width (`MAX_HIGH_ERROR_PIXELS = 1600`, `MAX_CHANNEL_ERROR = 32768`).
 
