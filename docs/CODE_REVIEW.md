@@ -545,7 +545,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 227. ✅ **The only relative repo link in the README breaks in the installed daydream copy** — `README.md:2356`. `daydream/docs/` contains only `screenshots/`. `tools/docs_check.py:55-58` records exactly this convention ("the README is installed into the sibling checkout, where relative paths break") and every other repo link uses the absolute GitHub form.
 
-228. **"The simulator … carries the full roster" contradicts §10.5** — `README.md:1748`. The registry does carry all 24, but the sidebar never offers 3 of them at 288×144 and 6 at 96×20, exactly as §10.5 describes.
+228. ✅ **"The simulator … carries the full roster" contradicts §10.5** — `README.md:1748`. The registry does carry all 24, but the sidebar never offers 3 of them at 288×144 and 6 at 96×20, exactly as §10.5 describes.
 
 229. **The `hardware/phantasm/` map omits its own README and a second tracked board project** — `README.md:246-251` shows four entries against 40 tracked files, missing `hardware/phantasm/README.md` (the entry point, with the validation table), the whole `quilter_incremental/` project, `phantasm.pretty/`, `phantasm.kicad_sym`, and the lib-table pair.
 
