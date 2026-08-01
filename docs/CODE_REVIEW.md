@@ -541,7 +541,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 225. ✅ **"seven fragment headers"; there are nine** — `README.md:943`, followed immediately by a nine-row table. `core/animation/animation.h:270-278` includes nine. The prose was correct until the `opleg`/`segue`/`carousel` split; the table was updated and the numeral was not.
 
-226. **Repo map contradicts §10.7 about `worker_protocol.js`** — `README.md:341` says "(no runtime code)"; `daydream/worker_protocol.js:28` exports `PROTOCOL_VERSION` and `README.md:2208` itself describes both ends stamping and checking it.
+226. ✅ **Repo map contradicts §10.7 about `worker_protocol.js`** — `README.md:341` says "(no runtime code)"; `daydream/worker_protocol.js:28` exports `PROTOCOL_VERSION` and `README.md:2208` itself describes both ends stamping and checking it.
 
 227. **The only relative repo link in the README breaks in the installed daydream copy** — `README.md:2356`. `daydream/docs/` contains only `screenshots/`. `tools/docs_check.py:55-58` records exactly this convention ("the README is installed into the sibling checkout, where relative paths break") and every other repo link uses the absolute GitHub form.
 
