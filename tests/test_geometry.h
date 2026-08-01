@@ -10,7 +10,7 @@
  *   - y_to_phi_virtual / phi_to_y_virtual conversions (free + templated)
  *   - PhiLUT / TrigLUT initialisation and lookup values
  *   - pixel_to_vector / vector_to_pixel roundtrip
- *   - pole_wrap
+ *   - pole_wrap (tests/test_pole_wrap.h)
  *   - fib_spiral, lissajous, random_vector (all on unit sphere)
  *   - Basis: make_basis (orthonormality), get_antipode (flipping)
  *   - Orientation<CAP>: set, push, get, collapse, upsample, orient/unorient
@@ -21,6 +21,7 @@
 #include "tests/test_3dmath.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/test_pole_wrap.h"
 
 namespace hs_test {
 namespace geometry {
@@ -300,69 +301,6 @@ inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
       HS_EXPECT_NEAR(p.y, static_cast<float>(y), 0.5f);
     }
   }
-}
-
-// ============================================================================
-// pole_wrap
-// ============================================================================
-
-/**
- * @brief Verifies in-range taps pass through pole_wrap untouched.
- */
-inline void test_pole_wrap_in_range_is_identity() {
-  constexpr int W = 64, H = 64;
-  int rows[] = {0, 1, 30, H - 1};
-  for (int r : rows) {
-    int col = 17, row = r;
-    HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
-    HS_EXPECT_EQ(col, 17);
-    HS_EXPECT_EQ(row, r);
-  }
-}
-
-/**
- * @brief Verifies a tap past the north pole reflects onto the far meridian, and
- *        one past the whole buffer reports no data.
- */
-inline void test_pole_wrap_north_reflects_half_turn() {
-  constexpr int W = 64, H = 64;
-  int col = 5, row = -1;
-  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
-  HS_EXPECT_EQ(row, 1);
-  HS_EXPECT_EQ(col, 5 + W / 2);
-
-  col = 40;
-  row = -3;
-  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
-  HS_EXPECT_EQ(row, 3);
-  HS_EXPECT_EQ(col, 40 - W / 2);
-
-  col = 5;
-  row = -(H + 5);
-  HS_EXPECT_TRUE(!(pole_wrap<W, H>(col, row)));
-}
-
-/**
- * @brief Verifies the south edge reflects about the true (virtual) pole row, so
- *        the sub-pole gap the device leaves unrendered reports no data.
- */
-inline void test_pole_wrap_south_reflects_about_virtual_pole() {
-  constexpr int W = 64, H = 64;
-  int col = 9, row = H;
-  const bool live = pole_wrap<W, H>(col, row);
-  if constexpr (hs::H_OFFSET == 0) {
-    // The south pole is the last rendered row, so row H mirrors to H - 2.
-    HS_EXPECT_TRUE(live);
-    HS_EXPECT_EQ(row, H - 2);
-    HS_EXPECT_EQ(col, 9 + W / 2);
-  } else {
-    // Row H is still inside the virtual gap; nothing is ever rendered there.
-    HS_EXPECT_TRUE(!live);
-  }
-
-  col = 9;
-  row = 4 * H;
-  HS_EXPECT_TRUE(!(pole_wrap<W, H>(col, row)));
 }
 
 // ============================================================================
@@ -793,9 +731,7 @@ inline int run_geometry_tests() {
   test_pixel_to_vector_float_out_of_lut_domain();
   test_vector_to_pixel_roundtrip_via_pixel_to_vector();
 
-  test_pole_wrap_in_range_is_identity();
-  test_pole_wrap_north_reflects_half_turn();
-  test_pole_wrap_south_reflects_about_virtual_pole();
+  pole_wrap_tests::run_pole_wrap_cases();
 
   test_fib_spiral_unit_length();
   test_fib_spiral_deterministic();

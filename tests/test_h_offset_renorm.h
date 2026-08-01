@@ -14,6 +14,7 @@
 #include "core/render/filter.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/test_pole_wrap.h"
 
 namespace hs_test {
 namespace h_offset_renorm {
@@ -165,6 +166,7 @@ inline int run_h_offset_renorm_tests() {
   test_energy_conserved_through_clip_boundary();
   test_boundary_row_splits_two_columns_and_conserves();
   test_boundary_energy_independent_of_x_fraction();
+  pole_wrap_tests::run_pole_wrap_cases();
   return fixture.result();
 }
 

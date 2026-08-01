@@ -15,7 +15,7 @@ int main() {
               "(HS_TEST_H_OFFSET=3) ===\n",
               hs_test::stats().passed, hs_test::stats().failed);
   // Floor against silent drift: bump when adding assertions.
-  constexpr int MIN_ASSERTIONS = 108;
+  constexpr int MIN_ASSERTIONS = 129;
   if (total < MIN_ASSERTIONS) {
     std::printf("=== h_offset_renorm: only %d assertions ran, expected >= %d "
                 "(a check was dropped) ===\n",
