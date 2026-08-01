@@ -102,7 +102,7 @@ public:
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
-    // The six-step temporal block scales the Euler timestep by 4/3. At the
+    // The six-step temporal block scales the Euler timestep by 5/3. At the
     // joint Speed/diffusion maximum this exceeds the linear diffusion bound;
     // step_physics' per-substep [0,1] clamp bounds that parameter corner, which
     // the long worst-case stability test exercises directly.
