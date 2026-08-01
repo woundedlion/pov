@@ -511,7 +511,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 210. ✅ **Two bare-`_` placeholder bindings remain** — `daydream/tools/solid_codegen.js:671`, `solids.html:1660`. `catch (_) { }` is also unnecessary — optional catch binding has been available since ES2019 and the repo targets Node ≥ 22.3.
 
-211. **`.drag-handle` carries button resets for an element that is a `<div>`** — `daydream/tools/solids.html:216-231` vs `:1586`. Three declarations whose values are already the initial values for a div — residue of a `<button>` handle whose keyboard path now lives in the sibling `.move-op-btn` controls.
+211. ✅ **`.drag-handle` carries button resets for an element that is a `<div>`** — `daydream/tools/solids.html:216-231` vs `:1586`. Three declarations whose values are already the initial values for a div — residue of a `<button>` handle whose keyboard path now lives in the sibling `.move-op-btn` controls.
 
 212. **A failed static import of the WASM glue bypasses the fatal banner the README promises** — `daydream/tools/palettes.html:444`, `solids.html:626`. If the glue file fails to resolve the module graph never evaluates, `bootstrapTool` is never registered, and the page shows a blank canvas with only a console line — the outcome README §10.11 says is avoided. Narrow (the artifacts are committed) but the message text describes exactly the uncovered case. Use `await import(...)` inside the existing try block.
 
