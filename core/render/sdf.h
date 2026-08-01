@@ -3620,6 +3620,7 @@ struct SphericalPolygon {
   float sector;            /**< Angular width of one polygon sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius; /**< Angular distance from center to vertex (radians). */
+  float thickness;    /**< SDFShape reach contract; equals circumradius. */
   float edge_nv;      /**< Edge normal dotted with the center axis. */
   float edge_nu;      /**< Edge normal dotted with the u-axis. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
@@ -3647,6 +3648,7 @@ struct SphericalPolygon {
     sector = 2.0f * PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
     circumradius = radius * (PI_F / 2.0f);
+    thickness = circumradius;
 
     // Build canonical edge: between vertices at azimuth ±π/n from
     // the sector bisector (u-axis), at angular distance circumradius

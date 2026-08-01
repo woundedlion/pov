@@ -463,6 +463,52 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
   HS_EXPECT_LE(max_error, 2.0e-6f);
 }
 
+/**
+ * @brief Verifies SphericalPolygon satisfies SDFShape and composes under CSG.
+ * @details Every combinator static_asserts SDFShape on its children and folds
+ *   their `thickness` reach bounds, so a leaf without one is barred from all of
+ *   them and its sdf_max_spans specialization never applies. Union takes the max
+ *   reach, and two disjoint polygons must emit their two arcs through the
+ *   span-bounded scanline path.
+ */
+inline void test_spherical_polygon_composes_under_csg() {
+  static_assert(SDF::SDFShape<SDF::SphericalPolygon>,
+                "SphericalPolygon must satisfy the CSG child contract");
+  using U = SDF::Union<SDF::SphericalPolygon, SDF::SphericalPolygon>;
+  static_assert(SDF::sdf_max_spans<SDF::SphericalPolygon>::value == 1);
+  static_assert(SDF::sdf_max_spans<U>::value == 2);
+  static_assert(SDF::sdf_max_spans<SDF::Intersection<U, U>>::value == 6);
+
+  Basis b = equator_basis();
+  SDF::SphericalPolygon inner(b, 0.3f, 5, 0.0f);
+  SDF::SphericalPolygon outer(b, 0.7f, 5, 0.0f);
+  HS_EXPECT_NEAR(inner.thickness, inner.circumradius, 1e-6f);
+  HS_EXPECT_NEAR(outer.thickness, outer.circumradius, 1e-6f);
+
+  U coaxial(inner, outer);
+  HS_EXPECT_NEAR(coaxial.thickness, outer.circumradius, 1e-6f);
+  // Sector bisector (+u) at polar 0.7: past inner's inradius, short of outer's.
+  Vector p(std::sin(0.7f), std::cos(0.7f), 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(inner, p).dist > 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(outer, p).dist < 0.0f);
+  HS_EXPECT_NEAR(SDF::distance_of(coaxial, p).dist,
+                 SDF::distance_of(outer, p).dist, 1e-6f);
+
+  // Poles on +X and +Z: both cross the equatorial row, a quarter turn apart.
+  constexpr int W = 256, H = 128;
+  const Basis bx{Vector(0, 1, 0), Vector(1, 0, 0), Vector(0, 0, 1)};
+  const Basis bz{Vector(0, 1, 0), Vector(0, 0, 1), Vector(-1, 0, 0)};
+  SDF::SphericalPolygon px(bx, 0.3f, 5, 0.0f), pz(bz, 0.3f, 5, 0.0f);
+  U disjoint(px, pz);
+
+  std::vector<std::pair<float, float>> out;
+  bool ok = disjoint.get_horizontal_intervals<W, H>(
+      H / 2, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+  HS_EXPECT_LE(out.size(), SDF::sdf_max_spans<U>::value);
+}
+
 // ============================================================================
 // Star
 // ============================================================================
@@ -2359,6 +2405,7 @@ inline int run_sdf_tests() {
   test_spherical_polygon_far_outside();
   test_spherical_polygon_center_and_edge_magnitude();
   test_spherical_polygon_sine_distance_aa_error();
+  test_spherical_polygon_composes_under_csg();
 
   test_star_center_inside();
   test_star_far_outside();
