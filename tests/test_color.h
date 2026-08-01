@@ -2185,6 +2185,7 @@ inline void test_static_palette_composition() {
   static_assert(coord_requires_wrap<RippleModifier>());
   static_assert(coord_requires_wrap<NoiseWarpModifier>());
   static_assert(coord_requires_wrap<DriftModifier>());
+  static_assert(coord_requires_wrap<QuantizeModifier>());
   static_assert(!coord_requires_wrap<InsetModifier>());
   static_assert(!coord_requires_wrap<MirrorModifier>());
 
