@@ -4007,6 +4007,7 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     HS_EXPECT_TRUE(a_peak <= SCRATCH_A);
     HS_EXPECT_TRUE(b_peak <= SCRATCH_B);
   }
+  configure_arenas_default();
 }
 
 /**
