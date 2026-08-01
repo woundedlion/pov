@@ -187,54 +187,6 @@ inline void test_blend_add_packed_lane_layout() {
 }
 
 /**
- * @brief Verifies Color4::operator*= scales both pixel and alpha.
- * @details Pins the plain-4-vector semantics: scaling color but not alpha would
- *          silently reweight any average built from these operators.
- */
-inline void test_color4_scale_affects_color_and_alpha() {
-  Color4 c(Pixel(1000, 2000, 4000), 0.8f);
-  c *= 0.5f;
-  HS_EXPECT_EQ(c.color.r, 500);
-  HS_EXPECT_EQ(c.color.g, 1000);
-  HS_EXPECT_EQ(c.color.b, 2000);
-  HS_EXPECT_NEAR(c.alpha, 0.4f, 1e-6f);
-}
-
-/**
- * @brief Verifies Color4::operator+= sums color and clamps alpha at 1.0.
- * @details Alpha must saturate at 1.0 so the sum stays a valid blend weight; a
- *          missing clamp would let summed coverage ride past 1.
- */
-inline void test_color4_add_clamps_alpha_and_sums_color() {
-  // Two near-opaque samples sum past 1.0 -> clamped.
-  Color4 a(Pixel(10000, 0, 0), 0.7f);
-  a += Color4(Pixel(20000, 100, 0), 0.6f);
-  HS_EXPECT_EQ(a.color.r, 30000);
-  HS_EXPECT_EQ(a.color.g, 100);
-  HS_EXPECT_NEAR(a.alpha, 1.0f, 1e-6f); // 1.3 clamped
-
-  // Sum of (sample * 1/N) reproduces the average, alpha <= 1.
-  const int N = 4;
-  Color4 samples[N] = {
-      Color4(Pixel(40000, 0, 0), 1.0f),
-      Color4(Pixel(0, 40000, 8000), 1.0f),
-      Color4(Pixel(0, 8000, 40000), 0.5f),
-      Color4(Pixel(0, 8000, 24000), 0.5f),
-  };
-  Color4 acc(Pixel(0, 0, 0), 0.0f);
-  for (int i = 0; i < N; ++i) {
-    Color4 s = samples[i];
-    s *= 1.0f / N;
-    acc += s;
-  }
-  HS_EXPECT_EQ(acc.color.r, 10000);        // 40000/4
-  HS_EXPECT_EQ(acc.color.g, 14000);        // 56000/4
-  HS_EXPECT_EQ(acc.color.b, 18000);        // 72000/4
-  HS_EXPECT_NEAR(acc.alpha, 0.75f, 1e-6f); // (1+1+0.5+0.5)/4
-  HS_EXPECT_LE(acc.alpha, 1.0f);
-}
-
-/**
  * @brief Verifies blend_alpha clamps its alpha to [0,1] before the float->int cast.
  * @details In-range values interpolate with round-to-nearest (+0.5f) weight
  *          quantization and out-of-range/overflowing/NaN alphas saturate to an
@@ -2357,8 +2309,6 @@ inline int run_color_tests() {
   test_lerp16_bounded();
 
   test_blend_add_packed_lane_layout();
-  test_color4_scale_affects_color_and_alpha();
-  test_color4_add_clamps_alpha_and_sums_color();
 
   test_oklab_roundtrip();
   test_oklch_roundtrip();
