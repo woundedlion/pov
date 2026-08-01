@@ -501,7 +501,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 205. ✅ **Two tool pages leave Three.js materials and live geometries undisposed on teardown** — `daydream/tools/lissajous.html:176-179`, `solids.html:792-795`. `initScene`'s `dispose()` calls `scene.clear()`, which detaches children without freeing GPU buffers by design (the scaffold does not own them). `mobius.html:780-787` disposes its page-owned resources correctly, so these two are inconsistent with an established pattern.
 
-206. **The locked-group guard bails after the readout has already been written** — `daydream/tools/palettes.html:601-604`. Any `input` event arriving without one of the three seed events finds the map keyed to a different group and returns — by which point `createSlider` has already written `textContent` and `aria-valuetext`, so the visible and announced values show the new number while state keeps the old one and no update is scheduled.
+206. ✅ **The locked-group guard bails after the readout has already been written** — `daydream/tools/palettes.html:601-604`. Any `input` event arriving without one of the three seed events finds the map keyed to a different group and returns — by which point `createSlider` has already written `textContent` and `aria-valuetext`, so the visible and announced values show the new number while state keeps the old one and no update is scheduled.
 
 207. **The shared token set is defined but bypassed by hardcoded hex in every tool page** — `daydream/tools/tools.css:13-22` vs `palettes.html`, `mobius.html`, `solids.html`. Six published tokens are restated literally across the three pages, with mixed casing (`#3B82F6` vs `#3b82f6`) so the duplicates are not even greppable as one string.
 
