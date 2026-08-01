@@ -441,7 +441,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 175. ✅ **`setPoleLod` is the one boundary clamp outside `wasm_predicates.h`** — `targets/wasm/wasm.cpp:606-613`. Written inline rather than as a pure predicate (so it is the only clamp not host-tested), with an unexplained `8.0f` ceiling where every other bound is a named constant with a derivation, on instance methods that mutate a module-global shared by every engine.
 
-176. **Style and encapsulation inconsistencies in the MeshOps section** — `targets/wasm/wasm.cpp:793, 862, 977-987, 333, 395`. A mid-file `#include`; `fromSolidName(std::string)` by value against `const std::string&` at neighbouring entry points; four helpers public with no embind binding and a misleading `const` on one that resets a global arena; a load-bearing side effect inside `HS_CHECK`; and an unconditional log before validation in `setEffect`.
+176. ✅ **Style and encapsulation inconsistencies in the MeshOps section** — `targets/wasm/wasm.cpp:793, 862, 977-987, 333, 395`. A mid-file `#include`; `fromSolidName(std::string)` by value against `const std::string&` at neighbouring entry points; four helpers public with no embind binding and a misleading `const` on one that resets a global arena; a load-bearing side effect inside `HS_CHECK`; and an unconditional log before validation in `setEffect`.
 
 177. **Duplicated `Fragment::lerp` coverage and a stale coverage claim** — `tests/test_geometry.h:9, 53-97`. `Fragment` lives in `core/render/shading.h`, not `geometry.h`, and the two cases duplicate `tests/test_shading.h:27, 64` — the latter strictly stronger, also checking `size` and `color`.
 

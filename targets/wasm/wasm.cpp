@@ -11,6 +11,7 @@
 #include "core/engine/effect_registry.h"
 #include "core/color/palettes.h" // HS_PROCEDURAL_PALETTE_LIST — named-palette export
 #include "engine/platform.h"
+#include "mesh/solids.h"
 #include "targets/wasm/param_marshal.h"   // pure, host-tested param marshaling
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <algorithm> // std::fill_n — blank-frame clear in drawFrame
@@ -342,7 +343,8 @@ public:
 
     // Bootstrap default; daydream overrides it almost immediately.
     setResolution(96, 20);
-    HS_CHECK(setEffect("DisplacementField"));
+    const bool default_effect_set = setEffect("DisplacementField");
+    HS_CHECK(default_effect_set);
   }
 
   /**
@@ -408,10 +410,6 @@ public:
    *          setEffect().
    */
   bool setEffect(const std::string &name) {
-    // Pass name as the %s argument, never as the format string itself: a '%' in
-    // an effect name would otherwise consume uninitialized varargs.
-    hs::log("WASM: setEffect called with %s", name.c_str());
-
     // Validate against the current resolution's factory BEFORE tearing anything
     // down, so a typo'd name keeps the prior valid state alive.
     const FactoryEntry *entry = nullptr;
@@ -425,6 +423,8 @@ public:
               pixel_width, pixel_height);
       return false;
     }
+
+    hs::log("WASM: setEffect called with %s", name.c_str());
     if (!entry) {
       hs::log("WASM: setEffect unknown effect '%s' — keeping current effect",
               name.c_str());
@@ -807,8 +807,6 @@ private:
 // MESH OPS BINDINGS
 // ==========================================================================================
 
-#include "mesh/solids.h"
-
 /**
  * @brief Why the most recent mesh-producing MeshOps call returned null.
  * @details A bare null collapses reasons that demand opposite caller actions —
@@ -856,6 +854,7 @@ public:
    */
   MeshOpsWrapper(PolyMesh &&m) : mesh(std::move(m)) {}
 
+private:
   /**
    * @brief Traps if this wrapper outlived a clearToolingMemory() wipe.
    * @details Its mesh would alias reclaimed arena storage, which release builds
@@ -867,6 +866,7 @@ public:
              "MeshOps wrapper used after clearToolingMemory()");
   }
 
+public:
   /**
    * @brief Resets all tooling arenas to empty and invalidates live wrappers.
    * @details Reclaims the storage behind every live wrapper and bumps the
@@ -906,7 +906,8 @@ public:
    *          that arena accumulates one finalized mesh per live wrapper until
    *          clearToolingMemory() and Arena::allocate traps when it runs out.
    */
-  static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
+  static std::unique_ptr<MeshOpsWrapper>
+  fromSolidName(const std::string &name) {
     last_mesh_op_result = MeshOpResult::OK;
     const Solids::Entry *entry = Solids::find_entry(name);
     if (!entry) {
@@ -1034,6 +1035,7 @@ public:
 
   // --- Conway/Goldberg operators -------------------------------------------
 
+private:
   /**
    * @brief Highest vertex valence in this wrapper's mesh.
    * @return Faces meeting at the most-incident vertex, or 0 for an empty mesh.
@@ -1041,7 +1043,7 @@ public:
    *          before the operator runs), so the whole measurement is one pass over
    *          the flat index list on top of clearing the counters.
    */
-  size_t max_vertex_valence() const {
+  size_t max_vertex_valence() {
     const size_t verts = mesh.vertices.size();
     if (verts == 0)
       return 0;
@@ -1076,7 +1078,7 @@ public:
    *          mesh per chained wrapper until clearToolingMemory().
    */
   template <typename Op>
-  std::unique_ptr<MeshOpsWrapper> apply(MeshOpBounds bounds, Op &&op) const {
+  std::unique_ptr<MeshOpsWrapper> apply(MeshOpBounds bounds, Op &&op) {
     check_live();
     last_mesh_op_result = MeshOpResult::OK;
     if (hs_wasm::mesh_op_expansion_over_ceiling(
@@ -1143,6 +1145,7 @@ public:
     return false;
   }
 
+public:
 /**
  * @brief Defines a zero-argument Conway/Goldberg operator method.
  * @param name MeshOps operator name; becomes the generated method name.
@@ -1153,7 +1156,7 @@ public:
  *          a new wrapper holding the result.
  */
 #define MESHOP_0(name, elements, degree, valence)                              \
-  std::unique_ptr<MeshOpsWrapper> name() const {                               \
+  std::unique_ptr<MeshOpsWrapper> name() {                                     \
     return apply({elements, degree, valence},                                  \
                  [](const PolyMesh &m, Arena &a, Arena &b) {                   \
                    return MeshOps::name(m, a, b);                              \
@@ -1173,7 +1176,7 @@ public:
  *          abort the whole module.
  */
 #define MESHOP_1U(name, elements, degree, valence)                             \
-  std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
+  std::unique_ptr<MeshOpsWrapper> name(float arg) {                            \
     if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
     if (hs_wasm::unit_fraction_out_of_range(arg))                              \
@@ -1197,7 +1200,7 @@ public:
  *          of avoiding it.
  */
 #define MESHOP_1H(name, elements, degree, valence)                             \
-  std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
+  std::unique_ptr<MeshOpsWrapper> name(float arg) {                            \
     if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
     if (hs_wasm::half_open_fraction_out_of_range(arg))                         \
@@ -1289,7 +1292,7 @@ public:
    *          thread for billions of passes, so the count is clamped rather than
    *          trusted.
    */
-  std::unique_ptr<MeshOpsWrapper> relax(int iterations) const {
+  std::unique_ptr<MeshOpsWrapper> relax(int iterations) {
     int clamped =
         hs_wasm::clamp_relax_iterations(iterations, MAX_RELAX_ITERATIONS);
     if (clamped != iterations)
@@ -1321,7 +1324,7 @@ public:
    *          in-domain pattern, so clamping would hand back geometry the caller
    *          did not ask for.
    */
-  std::unique_ptr<MeshOpsWrapper> hankin(float radians) const {
+  std::unique_ptr<MeshOpsWrapper> hankin(float radians) {
     if (!finite_arg(radians, "hankin"))
       return nullptr;
     if (hs_wasm::hankin_angle_out_of_range(radians, MAX_HANKIN_ANGLE)) {
@@ -1348,7 +1351,7 @@ public:
    *          (0.5, 0.0) defaults and leaves both controls unreachable from JS;
    *          this 2-arg form exposes them to the solids editor.
    */
-  std::unique_ptr<MeshOpsWrapper> snub(float t, float twist) const {
+  std::unique_ptr<MeshOpsWrapper> snub(float t, float twist) {
     if (!finite_arg(t, "snub") || !finite_arg(twist, "snub"))
       return nullptr;
     if (hs_wasm::half_open_fraction_out_of_range(t))
