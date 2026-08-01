@@ -6,7 +6,7 @@
 *.o
 *.pdb
 *.ilk
-build.log
+*.log
 
 # CMake user presets (machine-local overrides)
 CMakeUserPresets.json

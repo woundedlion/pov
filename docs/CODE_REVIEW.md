@@ -551,7 +551,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 230. ✅ **Three tools omitted from the `tools/` map** — `README.md:284-299`. `tools/build_pins.py` (invoked at *parse time* by `justfile:14`, so every `just` invocation depends on it), `tools/pov_segment_map_export.cpp` (emits the segment-map golden §3 documents), and `tools/profile_islamic_big.sh`.
 
-231. **No `*.log` glob, so `minimal.log` is permanently dirty** — `Holosphere/.gitignore:9` ignores the single literal `build.log`. daydream's `.gitignore:27` gets this right with `*.log`. Delete `minimal.log` (166 bytes of header-only profiler output with no data rows) and the 0-byte `build.log`.
+231. ✅ **No `*.log` glob, so `minimal.log` is permanently dirty** — `Holosphere/.gitignore:9` ignores the single literal `build.log`. daydream's `.gitignore:27` gets this right with `*.log`. Delete `minimal.log` (166 bytes of header-only profiler output with no data rows) and the 0-byte `build.log`.
 
 232. **Unreferenced scratch dump inside the docs directory** — `docs/Feedback Styles.txt`. 796 bytes of bare initializer lists with no header, including a literal `Smoke goes here` placeholder on line 4, referenced from nowhere in either repo. The canonical data is `core/engine/styles.h:167-270`.
 
