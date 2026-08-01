@@ -61,7 +61,10 @@ public:
     register_animated_param("Sides", &params.sides, SIDES_MIN, SIDES_MAX);
     register_animated_param("Function", &params.function, 0.0f,
                             static_cast<float>(NUM_FUNCTIONS - 1));
+    register_animated_param("Amplitude", &params.amplitude, AMPLITUDE_MIN,
+                            AMPLITUDE_MAX);
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
+    register_param("Opposite", &opposite_halves);
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
@@ -79,7 +82,7 @@ public:
       HS_PROFILE(ss_timeline_step);
       timeline.step(canvas);
     }
-    phase = wrap_t(phase + params.speed);
+    advance_phase();
     plot_filters.prepare(canvas);
     draw_all(canvas);
   }
@@ -93,9 +96,10 @@ private:
   static constexpr float ALPHA_MAX = 1.0f;
   static constexpr float SIDES_MIN = 3.0f;
   static constexpr float SIDES_MAX = 16.0f;
+  static constexpr float AMPLITUDE_MIN = 0.1f;
+  static constexpr float AMPLITUDE_MAX = 10.0f;
   static constexpr float SPEED_MIN = 0.0f;
   static constexpr float SPEED_MAX = 0.1f;
-  static constexpr float PHASE_AMPLITUDE = 1.0f;
   static constexpr int PRESET_FRAMES = 240;
 
   /** @brief Tunable rendering state stored by each preset. */
@@ -106,6 +110,7 @@ private:
     float sides;
     float function;
     float speed;
+    float amplitude;
 
     /** @brief Interpolates every preset field from a to b. */
     void lerp(const Params &a, const Params &b, float t) {
@@ -115,8 +120,17 @@ private:
       sides = hs::lerp(a.sides, b.sides, t);
       function = hs::lerp(a.function, b.function, t);
       speed = hs::lerp(a.speed, b.speed, t);
+      amplitude = hs::lerp(a.amplitude, b.amplitude, t);
     }
   };
+
+  void advance_phase() {
+    phase = wrap_t(phase + params.speed / params.amplitude);
+  }
+
+  float phase_direction(float radius) const {
+    return opposite_halves && radius > 1.0f ? -1.0f : 1.0f;
+  }
 
   /** @brief Advances to the next preset and schedules a continuous blend. */
   void next_preset() {
@@ -146,7 +160,8 @@ private:
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       const float radius = 2.0f * radius_t;
       const float shape_phase =
-          PHASE_AMPLITUDE * evaluate(function, radius_t + phase);
+          phase_direction(radius) * params.amplitude *
+          evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(radius_t);
 
       auto shader = [&](const Vector &, Fragment &fragment) {
@@ -172,7 +187,8 @@ private:
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       const float radius = 2.0f * radius_t;
       const float shape_phase =
-          PHASE_AMPLITUDE * evaluate(function, radius_t + phase);
+          phase_direction(radius) * params.amplitude *
+          evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(radius_t);
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
@@ -327,10 +343,11 @@ private:
   }
 #endif
 
-  static constexpr std::array<PresetEntry<Params>, 3> PRESETS = {{
-      {{0.5f, 1.017f, 74.644997f, 3.0f, 0.0f, 0.0318f}},
-      {{0.5f, 2.793f, 43.327999f, 6.562f, 0.0f, 0.0142f}},
-      {{0.5f, 1.872f, 70.0f, 3.0f, 0.0f, 0.0186f}},
+  static constexpr std::array<PresetEntry<Params>, 4> PRESETS = {{
+      {{0.5f, 1.017f, 74.644997f, 3.0f, 0.0f, 0.0318f, 1.0f}},
+      {{0.5f, 2.793f, 43.327999f, 6.562f, 0.0f, 0.0142f, 1.0f}},
+      {{0.5f, 1.872f, 70.0f, 3.0f, 0.0f, 0.0186f, 1.0f}},
+      {{0.274f, 2.988f, 72.0f, 4.417f, 0.0f, 0.0077f, 1.0f}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
@@ -342,12 +359,15 @@ private:
            preset.sides >= SIDES_MIN && preset.sides <= SIDES_MAX &&
            preset.function >= 0.0f &&
            preset.function <= static_cast<float>(NUM_FUNCTIONS - 1) &&
+           preset.amplitude >= AMPLITUDE_MIN &&
+           preset.amplitude <= AMPLITUDE_MAX &&
            preset.speed >= SPEED_MIN && preset.speed <= SPEED_MAX;
   }
 
   static_assert(preset_in_ranges(PRESETS[0].params) &&
                     preset_in_ranges(PRESETS[1].params) &&
-                    preset_in_ranges(PRESETS[2].params),
+                    preset_in_ranges(PRESETS[2].params) &&
+                    preset_in_ranges(PRESETS[3].params),
                 "ShapeShifter preset is outside a registered slider range");
 
   FastNoiseLite noise;
@@ -355,9 +375,10 @@ private:
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
   BakedPalette baked_sunset;
-  Presets<Params, 3> presets{PRESETS};
+  Presets<Params, 4> presets{PRESETS};
   Params params{};
   float phase = 0.0f;
+  bool opposite_halves = false;
 };
 
 #include "core/engine/effect_registry.h"
