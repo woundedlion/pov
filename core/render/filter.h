@@ -152,6 +152,8 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool any_terminal_history = false;
   /** @brief No stage re-emits clip-cull edges (see the recursive case). */
   static constexpr bool has_world_cull = false;
+  /** @brief No stage runs in world space (see the recursive case). */
+  static constexpr bool has_world_stage = false;
 
   /**
    * @brief Type-safe filter accessor (base case: T not found).
@@ -327,6 +329,15 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
    */
   static constexpr bool has_world_cull =
       has_cull_edge<Head> || Next::has_world_cull;
+
+  /**
+   * @brief True when any stage runs in world space, so a screen-space
+   *        coordinate handed to plot() is lifted back through pixel_to_vector
+   *        (not an inverse of vector_to_pixel) before that stage sees it, and a
+   *        caller may not substitute precomputed screen coordinates for the
+   *        point's world position.
+   */
+  static constexpr bool has_world_stage = !Head::is_2d || Next::has_world_stage;
 
   /**
    * @brief Forwarding-reference constructor: builds Head and the Tail in place.
@@ -1359,6 +1370,7 @@ public:
   static constexpr bool any_reads_outside_band = false;
   static constexpr int max_segment_margin = 0;
   static constexpr bool has_world_cull = false;
+  static constexpr bool has_world_stage = false;
   static constexpr bool direct_raster_path = true;
 
   /** @brief Caches the current frame's framebuffer and clip bounds. */
