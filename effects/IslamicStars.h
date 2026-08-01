@@ -186,12 +186,11 @@ private:
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
   struct SpriteFaceShading {
-    const uint16_t *classes;
     const uint8_t *palette;
 
     SpriteFaceShading(const MeshState &mesh, const uint8_t *face_palette)
-        : classes(mesh.topology.data()), palette(face_palette) {
-      HS_CHECK(mesh.topology.size() == mesh.num_faces(),
+        : palette(face_palette) {
+      HS_CHECK(mesh.get_topology_size() == mesh.num_faces(),
                "IslamicStars: sprite shading face count mismatch");
     }
   };
@@ -337,8 +336,9 @@ private:
    * @param canvas Render target receiving the rasterized mesh.
    * @param phase Segue phase in [0, 1] from the sprite envelope: rises over
    *        the incoming window, holds 1, falls over the outgoing window.
-   * @param base_state Undistorted source mesh to transform and draw.
-   * @param shading Per-face topology classes and palette ids.
+   * @param base_state Undistorted source mesh to transform and draw; carries
+   *        the per-face topology classes.
+   * @param shading Per-face palette ids.
    * @note Draws on the exact SDF path, not the congruence-class LUT
    * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
@@ -349,12 +349,13 @@ private:
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
-    const uint16_t *face_classes = shading.classes;
     const uint8_t *face_palette = shading.palette;
 
     HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
     MeshState transformed_state = transform_shape(base_state);
+    // transform borrows the source's per-face classes into the transformed mesh.
+    const uint16_t *face_classes = transformed_state.get_topology_data();
 
     // Per-face segues order faces by their center, recomputed per frame: from
     // world space by default (the front stays fixed in the room while the

@@ -290,6 +290,8 @@ struct MeshState {
       faces_view; /**< Borrowed faces view, populated by MeshOps::transform. */
   ArenaSpan<uint16_t>
       face_offsets_view; /**< Borrowed face-offsets view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t>
+      topology_view; /**< Borrowed per-face topology view, populated by MeshOps::transform. */
 
   /**
    * @brief Constructs an empty, unbound mesh.
@@ -308,7 +310,8 @@ struct MeshState {
         face_offsets(std::move(other.face_offsets)),
         topology(std::move(other.topology)),
         face_counts_view(other.face_counts_view), faces_view(other.faces_view),
-        face_offsets_view(other.face_offsets_view) {
+        face_offsets_view(other.face_offsets_view),
+        topology_view(other.topology_view) {
     other.set_owned();
   }
 
@@ -328,6 +331,7 @@ struct MeshState {
       face_counts_view = other.face_counts_view;
       faces_view = other.faces_view;
       face_offsets_view = other.face_offsets_view;
+      topology_view = other.topology_view;
       other.set_owned();
     }
     return *this;
@@ -406,6 +410,23 @@ struct MeshState {
   }
 
   /**
+   * @brief Returns the per-face topology-class pointer for the active mode.
+   * @return Owned data in owned mode, otherwise the borrowed view pointer.
+   *   Null when the mesh is unclassified.
+   */
+  const uint16_t *get_topology_data() const {
+    return topology.is_bound() ? topology.data() : topology_view.data();
+  }
+  /**
+   * @brief Returns the number of per-face topology classes for the active mode.
+   * @return Owned size in owned mode, otherwise the borrowed view size; 0 when
+   *   the mesh is unclassified.
+   */
+  size_t get_topology_size() const {
+    return topology.is_bound() ? topology.size() : topology_view.size();
+  }
+
+  /**
    * @brief Returns the number of vertices in the mesh.
    * @return Vertex count.
    */
@@ -433,7 +454,8 @@ struct MeshState {
     copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
     copy_vector(dst.face_offsets, src.get_face_offsets_data(),
                 src.get_face_offsets_size(), arena);
-    copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
+    copy_vector(dst.topology, src.get_topology_data(), src.get_topology_size(),
+                arena);
   }
 
   /**
@@ -446,26 +468,29 @@ struct MeshState {
     face_counts_view = {};
     faces_view = {};
     face_offsets_view = {};
+    topology_view = {};
   }
 
   /**
    * @brief Switches to borrowed mode: drops the owned face_counts/faces/
-   *   face_offsets arrays so they cannot shadow the views, drops the owned
-   *   per-face topology (it describes the dropped faces), then points the three
-   *   views at the given spans.
+   *   face_offsets/topology arrays so they cannot shadow the views, then points
+   *   the four views at the given spans.
    * @param face_counts_span Borrowed per-face vertex counts.
    * @param faces_span Borrowed flattened face vertex indices.
    * @param face_offsets_span Borrowed per-face start offsets into faces. Empty
    *   when the source mesh carries no offsets (only the solid scan path needs
    *   them); otherwise one entry per face.
+   * @param topology_span Borrowed per-face topology class ids. Empty when the
+   *   source mesh is unclassified; otherwise one entry per face.
    * @details Traps on inconsistent spans: a present offsets array must be one
    *   entry per face, and its last offset plus that face's count must cover the
    *   whole flat faces list. With no offsets the counts must sum to the flat
-   *   faces length.
+   *   faces length. A present topology array must be one entry per face.
    */
   void set_view(ArenaSpan<uint8_t> face_counts_span,
                 ArenaSpan<uint16_t> faces_span,
-                ArenaSpan<uint16_t> face_offsets_span) {
+                ArenaSpan<uint16_t> face_offsets_span,
+                ArenaSpan<uint16_t> topology_span = {}) {
     if (!face_offsets_span.is_empty()) {
       HS_CHECK(face_offsets_span.size() == face_counts_span.size(),
                "MeshState::set_view: one face offset per face count required");
@@ -481,6 +506,9 @@ struct MeshState {
       HS_CHECK(counted == faces_span.size(),
                "MeshState::set_view: face counts do not span faces");
     }
+    HS_CHECK(topology_span.is_empty() ||
+                 topology_span.size() == face_counts_span.size(),
+             "MeshState::set_view: one topology class per face required");
     face_counts = {};
     faces = {};
     face_offsets = {};
@@ -488,5 +516,6 @@ struct MeshState {
     face_counts_view = face_counts_span;
     faces_view = faces_span;
     face_offsets_view = face_offsets_span;
+    topology_view = topology_span;
   }
 };

@@ -406,7 +406,7 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
   HS_CHECK(mesh.face_counts.is_bound(),
            "MeshOps::transform: source mesh must be owned-mode");
   transformed.set_view(ArenaSpan(mesh.face_counts), ArenaSpan(mesh.faces),
-                       ArenaSpan(mesh.face_offsets));
+                       ArenaSpan(mesh.face_offsets), ArenaSpan(mesh.topology));
 
   transformed.vertices.bind(arena, mesh.vertices.size());
 
