@@ -2063,6 +2063,93 @@ inline void test_face_cull_covers_aa_fringe() {
   HS_EXPECT_GT(total_paintable, 1000);
 }
 
+/**
+ * @brief Rasterizes a wedge face apexed on a pole and compares it against a
+ *        full-canvas distance scan.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param pole_y +1 for the north pole, -1 for the south pole.
+ * @return Count of pixels the scan expects painted.
+ * @details The apex projects onto a polygon vertex, so the face classifies as
+ *   PoleHit::BOUNDARY: it keeps its azimuth wedge, widens the pad per row, and
+ *   rasterize_face rebuilds its runs per row rather than once for the band. The
+ *   expectation covers the AA fringe, whose azimuth reach is what grows as the
+ *   rows approach the apex.
+ */
+template <int W, int H>
+inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
+  constexpr int HV = H + hs::H_OFFSET;
+  constexpr int N_VERTS = 4;
+  const float rho = 0.7f;
+
+  Vector verts[N_VERTS];
+  uint16_t idx[N_VERTS];
+  verts[0] = Vector(0, pole_y, 0);
+  for (int i = 1; i < N_VERTS; ++i) {
+    const float a = pole_y * 0.55f * static_cast<float>(i - 2);
+    verts[i] = Vector(sinf(rho) * cosf(a), pole_y * cosf(rho),
+                      sinf(rho) * sinf(a));
+  }
+  for (int i = 0; i < N_VERTS; ++i)
+    idx[i] = static_cast<uint16_t>(i);
+
+  SDF::FaceScratchBuffer scratch;
+  SDF::Face face(std::span<const Vector>(verts, N_VERTS),
+                 std::span<const uint16_t>(idx, N_VERTS), scratch, HV, H);
+  HS_EXPECT_TRUE(face.pole_touch);
+  HS_EXPECT_TRUE(!face.full_width);
+
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipeline;
+  {
+    Canvas canvas(fx);
+    auto shader = [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+    };
+    Scan::rasterize_face<W, H>(pipeline, canvas, face, shader);
+  }
+  fx.advance_display();
+
+  const float *cos_theta =
+      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
+  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+  const float pixel_width = 2.0f * PI_F / W;
+  int painted = 0;
+  for (int y = 0; y < H; ++y) {
+    float sp = TrigLUT<W, H>::sin_phi[y];
+    float cp = TrigLUT<W, H>::cos_phi[y];
+    for (int x = 0; x < W; ++x) {
+      Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      const float d = SDF::distance_of(face, p).dist;
+      const Pixel px = fx.get_pixel(x, y);
+      const bool lit = px.r != 0 || px.g != 0 || px.b != 0;
+      if (d >= pixel_width) {
+        HS_EXPECT_TRUE(!lit);
+        continue;
+      }
+      // Dead band around Scan::MIN_ALPHA: an alpha that rounds the shade to
+      // black is neither required nor forbidden.
+      const float alpha =
+          d <= -pixel_width ? 1.0f
+                            : quintic_kernel(0.5f - d / (2.0f * pixel_width));
+      if (alpha > 0.05f) {
+        ++painted;
+        HS_EXPECT_TRUE(lit);
+      }
+    }
+  }
+  return painted;
+}
+
+/** @brief Covers the pole-boundary classification and its per-row raster at both poles. */
+inline void test_face_pole_vertex_matches_full_scan() {
+  constexpr int W = 96, H = 64;
+  const int north = expect_pole_vertex_face_matches_full_scan<W, H>(1.0f);
+  const int south = expect_pole_vertex_face_matches_full_scan<W, H>(-1.0f);
+  HS_EXPECT_GT(north, 100);
+  HS_EXPECT_GT(south, 100);
+}
+
 // ============================================================================
 // Face distance vs an independent exact oracle
 //
@@ -2489,6 +2576,7 @@ inline int run_sdf_tests() {
   test_ring_pole_wrap_cull_covers_interior();
   test_distorted_ring_cull_covers_interior_high_freq();
   test_face_cull_covers_aa_fringe();
+  test_face_pole_vertex_matches_full_scan();
   test_face_distance_matches_exact_oracle();
   test_face_class_lut_matches_oracle();
 
