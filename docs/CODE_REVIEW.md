@@ -533,7 +533,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 221. ✅ **A module-global is left pointing at a deleted embind object** — `daydream/tests/color_parity_wasm.test.js:224, 228`. `setPaletteOps` installs a closure over `ops` into `palette_math.js`'s module scope and the `finally` calls `ops.delete()` without restoring it. Harmless only because this is the last palette test in the file.
 
-222. **Untested clamps and degenerate-dimension guards** — `daydream/tests/slider.test.js`, `geometry.test.js`. Replacing `tools/slider.js:79`'s clamp with `value` leaves the file green (only `setValue`'s clamp is covered), as does deleting `container.replaceChildren()`; and reducing `geometry.js:37`'s `Math.max(1, ...)` guards leaves the file green because every case uses `{W:288, H:144}`.
+222. ✅ **Untested clamps and degenerate-dimension guards** — `daydream/tests/slider.test.js`, `geometry.test.js`. Replacing `tools/slider.js:79`'s clamp with `value` leaves the file green (only `setValue`'s clamp is covered), as does deleting `container.replaceChildren()`; and reducing `geometry.js:37`'s `Math.max(1, ...)` guards leaves the file green because every case uses `{W:288, H:144}`.
 
 223. **Assorted dead code and style in the daydream test suite** — `tests/sidebar.test.js:31, 63` writes `innerHTMLSetCount` that no assertion reads and `:16` sets a `tagName` never read; `tests/fake_three.js:56, 87` expose counters no test reads (doubly dead, since finding 79 shows the only writer is never invoked); `tests/clipboard.test.js:11-14` overrides `globalThis.navigator` at module scope and never restores it, unlike the three tests below it; `gui.test.js` mixes success- and failure-phrased assertion messages within one file.
 
