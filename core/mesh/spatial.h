@@ -261,7 +261,8 @@ private:
  * @param src Pointer to the first source element (ignored when n == 0).
  * @param n Number of elements to copy.
  * @param arena Arena supplying storage for dst.
- * @details Shared by MeshState::clone and MeshOps::clone/compile.
+ * @details Shared by MeshState::clone, MeshOps::clone and
+ * CompiledHankin::clone.
  */
 template <typename T>
 inline void copy_vector(ArenaVector<T> &dst, const T *src, size_t n,
