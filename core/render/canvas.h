@@ -567,6 +567,16 @@ protected:
   }
 
   /**
+   * @brief Registers a boolean param and flags it animation-driven.
+   * @param name The name to expose.
+   * @param ptr Pointer to the bool variable.
+   */
+  HS_COLD_MEMBER void register_animated_param(const char *name, bool *ptr) {
+    register_param(name, ptr);
+    parameters.elements[parameters.count - 1].animated = true;
+  }
+
+  /**
    * @brief Registers a float param and flags it engine-written telemetry in one
    * call.
    */

@@ -36,6 +36,8 @@ set -eo pipefail
 . "$(dirname "$0")/device_lock.sh"
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
 EXTRA="$*"
+PROFILE_PRESET=$(printf '%s\n' "$EXTRA" |
+  sed -nE 's/.*-D[[:space:]]*HS_PROFILE_PRESET=([0-9]+).*/\1/p')
 case "$ENV" in
   profile) TAG=ship;;
   profile_o3) TAG=o3;;
@@ -87,6 +89,9 @@ case " $CYCLERS " in *" $EFFECT "*)
     *) MARKER="Preset:";;
   esac ;;
 esac
+if [ -n "$PROFILE_PRESET" ]; then
+  MARKER="Profile preset:"
+fi
 
 TEENSY_TOOLS=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}
 
@@ -260,6 +265,11 @@ verify() {
   actual_profile_sha=$(file_sha256 "$artifact_profile_elf")
   [ "$profile_sha" = "$actual_profile_sha" ] ||
     { echo "PROFILE ARTIFACT HASH MISMATCH"; return 1; }
+  if [ -n "$PROFILE_PRESET" ]; then
+    grep -q "^Profile preset: $PROFILE_PRESET/" "$OUT" || {
+      echo "PROFILE PRESET MISMATCH (expected $PROFILE_PRESET)"; return 1;
+    }
+  fi
   if [ -n "$MARKER" ]; then
     grep -q "$MARKER" "$OUT" || { echo "NO '$MARKER' MARKER — stale build?"; return 1; }
   fi

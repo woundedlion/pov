@@ -157,7 +157,7 @@ struct ShapeShifterWhiteBox {
 
   static float phase_direction(OracleEffect &effect, bool opposite,
                                float radius) {
-    effect.opposite_halves = opposite;
+    effect.params.opposite = opposite;
     return effect.phase_direction(radius);
   }
 };
