@@ -1724,9 +1724,11 @@ inline void test_strap_crossfade_seed_swept() {
   std::printf("  [strap-sweep] %d star-shared far pairs, worst would-be "
               "shared open jump %d (crossfaded to per-frame steps)\n",
               shared_far, shared_jump);
-  // Seven slots remove the old deterministic star/strap alias on this tour.
-  // Far strap turnovers still make the crossfade checks discriminating.
+  // Both coverages must stay live or the crossfade pins above prove nothing:
+  // far strap turnovers at all, and turnovers on a slot a star class shares —
+  // the regression this sweep exists for.
   HS_EXPECT_GT(far, 0);
+  HS_EXPECT_GT(shared_far, 0);
 }
 
 // ---------------------------------------------------------------------------
