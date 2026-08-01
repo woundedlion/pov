@@ -3450,8 +3450,10 @@ struct ParticleSystem {
       {
         HS_PROFILE(plot_ps_tween);
         p.history.tween([&](const Vector &v, float t) {
-          trail.emplace_back(Fragment{v, t, 0.0f, v2, particle_life, 1.0f, 0.0f,
-                                      Color4(0, 0, 0, 0)});
+          trail.emplace_back(Fragment{.pos = v,
+                                      .v0 = t,
+                                      .v2 = v2,
+                                      .v3 = particle_life});
           if constexpr (FuseVertex)
             vertex_shader(trail.back());
           if (deferred_shader)
