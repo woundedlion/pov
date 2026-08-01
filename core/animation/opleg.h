@@ -237,34 +237,6 @@ public:
   };
 
   /**
-   * @brief A hankin arrival star point, snorm16-quantized on the unit sphere.
-   * @details The leg holds one per dynamic vertex for its whole life, so the
-   * 6-byte packed form halves the 12-byte Vector's resident cost.
-   * Reconstruction error is bounded by the 1/32767 quantum (max chord ~2.4e-5,
-   * far below a pixel); slerp() renormalizes the decoded target, so the
-   * near-unit result is exact enough for both the swept blend and the rebuilt
-   * arrival mesh.
-   */
-  struct StarPoint {
-    int16_t x, y, z;
-
-    static constexpr float SCALE = 32767.0f;
-    static constexpr float INV_SCALE = 1.0f / SCALE;
-
-    static StarPoint encode(const Vector &v) {
-      return {quant(v.x), quant(v.y), quant(v.z)};
-    }
-    Vector decode() const {
-      return Vector(x * INV_SCALE, y * INV_SCALE, z * INV_SCALE);
-    }
-
-  private:
-    static int16_t quant(float c) {
-      return static_cast<int16_t>(roundf(hs::clamp(c, -1.0f, 1.0f) * SCALE));
-    }
-  };
-
-  /**
    * @brief Leg-static arrival data the effect's completion consumes.
    * @details Arena-backed; valid until the leg arena is compacted.
    */
@@ -291,14 +263,14 @@ public:
     }
     const PolyMesh *arrival_topology =
         nullptr; /**< Fixed connectivity of a packed arrival endpoint. */
-    const StarPoint *arrival_point =
+    const Snorm3 *arrival_point =
         nullptr; /**< Packed arrival vertices for a later bridge handoff. */
     size_t arrival_points = 0; /**< Length of arrival_point. */
     const CompiledHankin *hankin =
         nullptr; /**< Baked arrival topology (HANKIN_SWEEP legs only, null
                     otherwise); with star_point it rebuilds the arrival mesh
                     through arrival_mesh(). */
-    const StarPoint *star_point =
+    const Snorm3 *star_point =
         nullptr;            /**< Arrival star points (snorm16-packed). */
     size_t star_points = 0; /**< Star-point count. */
   };
@@ -516,7 +488,7 @@ public:
       const size_t dyn = arrival.vertices.size() - statics;
       tr.hk_final.bind(arena, dyn);
       for (size_t i = 0; i < dyn; ++i)
-        tr.hk_final.push_back(StarPoint::encode(arrival.vertices[statics + i]));
+        tr.hk_final.push_back(Snorm3::encode(arrival.vertices[statics + i]));
       tr.landing.hankin = &tr.hankin;
       tr.landing.star_point = tr.hk_final.data();
       tr.landing.star_points = tr.hk_final.size();
@@ -676,8 +648,8 @@ public:
       tr.medial_a.bind(arena, medial_verts);
       tr.medial_b.bind(arena, medial_verts);
       for (size_t i = 0; i < medial_verts; ++i) {
-        tr.medial_a.push_back(StarPoint::encode(med.vertices[i]));
-        tr.medial_b.push_back(StarPoint::encode(med_b[i]));
+        tr.medial_a.push_back(Snorm3::encode(med.vertices[i]));
+        tr.medial_b.push_back(Snorm3::encode(med_b[i]));
       }
 
       // The opening frame is ambo(P) verbatim (the packed a_e), so med's s=0
@@ -759,8 +731,8 @@ public:
       tr.medial_a.bind(arena, n);
       tr.medial_b.bind(arena, n);
       for (size_t i = 0; i < n; ++i) {
-        tr.medial_a.push_back(StarPoint::encode(from_mesh.vertices[i]));
-        tr.medial_b.push_back(StarPoint::encode(spec.to_positions[i]));
+        tr.medial_a.push_back(Snorm3::encode(from_mesh.vertices[i]));
+        tr.medial_b.push_back(Snorm3::encode(spec.to_positions[i]));
       }
 
       // Arrival: the identity connectivity carrying the authored positions.
@@ -1014,7 +986,7 @@ private:
                               the ones that keep no seed. */
     LegKind kind = LegKind::CONWAY_SWEEP; /**< Swept-mesh production path. */
     CompiledHankin hankin; /**< Baked topology (HANKIN_SWEEP legs). */
-    ArenaVector<StarPoint>
+    ArenaVector<Snorm3>
         hk_final; /**< Arrival star points, snorm16-packed (HANKIN_SWEEP). */
     ConwayGraph::MorphOp op =
         ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator (CONWAY_SWEEP). */
@@ -1026,10 +998,10 @@ private:
     float twist_start = 0, twist_end = 0; /**< Snub twist endpoints. */
     ArenaVector<Vector>
         relaxed; /**< Relaxed endpoint vertices (settling and relax legs). */
-    ArenaVector<StarPoint>
+    ArenaVector<Snorm3>
         medial_a; /**< Medial a_e (ambo(P)) endpoint, snorm16-packed
                      (MEDIAL_SLERP). */
-    ArenaVector<StarPoint>
+    ArenaVector<Snorm3>
         medial_b; /**< Medial b_e (ambo(dual(P))) endpoint, snorm16-packed
                      (MEDIAL_SLERP). */
     ArenaVector<uint16_t>

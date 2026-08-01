@@ -100,10 +100,7 @@ public:
    * @param source The position to copy into the trail; components outside
    *        [-1, 1] are clamped.
    */
-  void record(const Vector &source) {
-    snapshots.record(
-        {quantize(source.x), quantize(source.y), quantize(source.z)});
-  }
+  void record(const Vector &source) { snapshots.record(Snorm3::encode(source)); }
 
   /**
    * @brief Gets the number of recorded snapshots.
@@ -117,7 +114,7 @@ public:
    *          newest (same ordering as Trail).
    * @return The decoded position, by value.
    */
-  Vector get(size_t i) const { return decode(snapshots.get(i)); }
+  Vector get(size_t i) const { return snapshots.get(i).decode(); }
 
   /**
    * @brief Visits decoded snapshots with normalized oldest-to-newest progress.
@@ -128,12 +125,12 @@ public:
     if (len == 0)
       return;
     if (len == 1) {
-      callback(decode(snapshots.get(0)), 1.0f);
+      callback(snapshots.get(0).decode(), 1.0f);
       return;
     }
     const float denominator = static_cast<float>(len - 1);
     snapshots.for_each([&](const Snorm3 &s, uint32_t i) {
-      callback(decode(s), static_cast<float>(i) / denominator);
+      callback(s.decode(), static_cast<float>(i) / denominator);
     });
   }
 
@@ -148,21 +145,6 @@ public:
   void expire() { snapshots.expire(); }
 
 private:
-  struct Snorm3 {
-    int16_t x, y, z;
-  };
-
-  static constexpr float SCALE = 32767.0f;
-  static constexpr float INV_SCALE = 1.0f / SCALE;
-
-  static int16_t quantize(float c) {
-    return static_cast<int16_t>(roundf(hs::clamp(c, -1.0f, 1.0f) * SCALE));
-  }
-
-  static Vector decode(const Snorm3 &s) {
-    return Vector(s.x * INV_SCALE, s.y * INV_SCALE, s.z * INV_SCALE);
-  }
-
   Trail<Snorm3, CAP> snapshots;
 };
 

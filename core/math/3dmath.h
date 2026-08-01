@@ -355,6 +355,44 @@ normalized_or(const Vector &v, const Vector &fallback) {
 }
 
 /**
+ * @brief A unit-sphere direction packed into three snorm16 components.
+ * @details 6 bytes against Vector's 12. Components are clamped to [-1, 1] on
+ * encode and round-trip with error <= 1/65534 each (max chord ~2.6e-5), so a
+ * decoded value is near-unit rather than unit: renormalize where exact length
+ * matters.
+ */
+struct Snorm3 {
+  int16_t x; /**< X-component, snorm16. */
+  int16_t y; /**< Y-component, snorm16. */
+  int16_t z; /**< Z-component, snorm16. */
+
+  static constexpr float SCALE = 32767.0f;         /**< Unit -> snorm16. */
+  static constexpr float INV_SCALE = 1.0f / SCALE; /**< snorm16 -> unit. */
+
+  /**
+   * @brief Packs a direction, clamping each component to [-1, 1].
+   * @param v The direction to pack.
+   * @return The snorm16 triple.
+   */
+  static Snorm3 encode(const Vector &v) {
+    return {quantize(v.x), quantize(v.y), quantize(v.z)};
+  }
+
+  /**
+   * @brief Unpacks to a near-unit direction.
+   * @return The decoded direction.
+   */
+  Vector decode() const {
+    return Vector(x * INV_SCALE, y * INV_SCALE, z * INV_SCALE);
+  }
+
+private:
+  static int16_t quantize(float c) {
+    return static_cast<int16_t>(roundf(hs::clamp(c, -1.0f, 1.0f) * SCALE));
+  }
+};
+
+/**
  * @brief Fast atan2 using the 0.273-Hastings polynomial.
  * @param y Y (numerator) coordinate.
  * @param x X (denominator) coordinate.
