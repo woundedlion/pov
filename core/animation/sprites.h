@@ -325,7 +325,8 @@ public:
    * cardinality, so an overrun is a bug — unlike spawn()'s runtime soft-drop.
    */
   void add_attractor(const Vector &pos, float str, float kill, float horizon) {
-    HS_CHECK(attractors.is_bound(), "ParticleSystem::add_attractor before init");
+    HS_CHECK(attractors.is_bound(),
+             "ParticleSystem::add_attractor before init");
     if constexpr (SIGNED_AXIS_ATTRACTORS) {
       static constexpr std::array<Vector, 6> AXES = {X_AXIS,  -X_AXIS, Y_AXIS,
                                                      -Y_AXIS, Z_AXIS,  -Z_AXIS};

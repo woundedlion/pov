@@ -100,7 +100,9 @@ public:
    * @param source The position to copy into the trail; components outside
    *        [-1, 1] are clamped.
    */
-  void record(const Vector &source) { snapshots.record(Snorm3::encode(source)); }
+  void record(const Vector &source) {
+    snapshots.record(Snorm3::encode(source));
+  }
 
   /**
    * @brief Gets the number of recorded snapshots.
