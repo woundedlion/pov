@@ -505,7 +505,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 207. ✅ **The shared token set is defined but bypassed by hardcoded hex in every tool page** — `daydream/tools/tools.css:13-22` vs `palettes.html`, `mobius.html`, `solids.html`. Six published tokens are restated literally across the three pages, with mixed casing (`#3B82F6` vs `#3b82f6`) so the duplicates are not even greppable as one string.
 
-208. **The palette tabs carry no tab semantics** — `daydream/tools/palettes.html:212-216, 223, 282`. No `role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`/`role="tabpanel"`; `switchTab` toggles a visual class only. Conspicuous on a page that otherwise carries `role="group"` on all four coefficient cards and `role="slider"` with `aria-keyshortcuts` on the strip.
+208. ✅ **The palette tabs carry no tab semantics** — `daydream/tools/palettes.html:212-216, 223, 282`. No `role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`/`role="tabpanel"`; `switchTab` toggles a visual class only. Conspicuous on a page that otherwise carries `role="group"` on all four coefficient cards and `role="slider"` with `aria-keyshortcuts` on the strip.
 
 209. **Each saved solid stores a full-canvas PNG data URL in localStorage** — `daydream/tools/solids.html:1128-1129, 1159`. Multi-megabyte base64 per card against a ~5 MB origin quota, rendered into a fixed 120 px box. The quota error is handled gracefully, but the limit is reached after a handful of saves. The thumbnail pipeline already demonstrates the right size (256×256 offscreen).
 
