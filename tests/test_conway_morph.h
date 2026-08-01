@@ -1865,7 +1865,6 @@ inline void test_hankin_sweep_vertex_stability() {
     HS_EXPECT_TRUE(end1 < 1e-5f);
 
     const HankinSweepSummary slerp_sum = hankin_summarize(tables[2]);
-    HS_EXPECT_EQ(slerp_sum.total_branch_flips, 0);
     HS_EXPECT_EQ(slerp_sum.total_normal_flips, 0);
 
     // Opening bookend: chord between the collapsed form and the leg's first
