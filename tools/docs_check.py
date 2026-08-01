@@ -68,6 +68,8 @@ _UNTRACKED_ALLOWED = (
     "tools/solids.html",
 )
 
+_MARKDOWN_EXCLUDED = frozenset({PurePosixPath("docs/CODE_REVIEW.md")})
+
 
 def _normalize_label(label: str) -> str:
     return " ".join(label.split()).casefold()
@@ -409,7 +411,8 @@ def _tracked_entries(root: Path) -> tuple[list[PurePosixPath], set[PurePosixPath
         entries.update(parent for parent in file_path.parents
                        if parent != PurePosixPath("."))
     markdown = sorted(path for path in files
-                      if path.suffix.casefold() in (".md", ".markdown"))
+                      if path.suffix.casefold() in (".md", ".markdown")
+                      and path not in _MARKDOWN_EXCLUDED)
     return markdown, entries
 
 
