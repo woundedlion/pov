@@ -407,7 +407,7 @@ public:
    *          clip and with default parameter values, so callers that use a
    *          sub-canvas clip (segmented rendering) or tuned parameters must
    *          re-apply setClip() and setParameter() after every successful
-   *          setEffect().
+   *          setEffect(). The engine-owned animation pause state is retained.
    */
   bool setEffect(const std::string &name) {
     // Validate against the current resolution's factory BEFORE tearing anything
@@ -447,6 +447,7 @@ public:
       init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
     });
     current_effect = entry->creator();
+    current_effect->setAnimationsPaused(animations_paused);
     current_effect->init();
     ++param_generation;
     hs::log("WASM: init stack HWM = %u bytes",
@@ -604,13 +605,14 @@ public:
 
   /**
    * @brief Pauses or resumes the current effect's parameter animations.
-   * @param paused true to pause animations, false to resume. No-op if no effect
-   *        is set.
+   * @param paused true to pause animations, false to resume.
+   * @details Retained across effect and resolution changes and applied to the
+   *          next effect when no effect is currently loaded.
    */
   void setAnimationsPaused(bool paused) {
-    if (current_effect) {
+    animations_paused = paused;
+    if (current_effect)
       current_effect->setAnimationsPaused(paused);
-    }
   }
 
   /**
@@ -801,6 +803,7 @@ private:
                                  RNG seed (0 = the constructor's bootstrap). */
   uint32_t param_generation =
       0; /**< Identity token for the current effect or no-effect state. */
+  bool animations_paused = false; /**< Pause state applied to every effect. */
 };
 
 // ==========================================================================================
