@@ -20,6 +20,7 @@ CMakeUserPresets.json
 
 # IDE / tooling
 .vs/
+*.code-workspace
 # Local agent/tooling config (machine-specific, not repo-shared)
 .claude/
 .agent/
