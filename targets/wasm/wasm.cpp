@@ -173,12 +173,15 @@ static void ensure_tooling_arenas() {
 }
 
 /**
- * @brief Builds a {usage, high_water_mark, capacity} report for the four engine
- *        arenas.
+ * @brief Builds a {usage, high_water_mark, capacity} report for the three engine
+ *        arenas and the three tooling arenas.
  * @return JS object mapping each arena name to its {usage, high_water_mark,
  *         capacity} metrics, in bytes.
  * @details Shared by HolosphereEngine and MeshOpsWrapper. Callers that also want
- *          stack metrics append them to the returned object.
+ *          stack metrics append them to the returned object. The tooling scratch
+ *          arenas are the regions TOOLING_BYTES_PER_MESH_ELEMENT is sized
+ *          against, and an operator that overruns one takes the module down, so
+ *          they are reported alongside the rest rather than left unobservable.
  */
 static val collect_arena_metrics() {
   val metrics = val::object();
@@ -193,6 +196,8 @@ static val collect_arena_metrics() {
   add_metrics("scratch_arena_b", scratch_arena_b);
   add_metrics("persistent_arena", persistent_arena);
   add_metrics("tooling_arena", tooling_arena);
+  add_metrics("tooling_scratch_a", tooling_scratch_a);
+  add_metrics("tooling_scratch_b", tooling_scratch_b);
   return metrics;
 }
 
