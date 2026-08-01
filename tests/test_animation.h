@@ -18,7 +18,7 @@
  * (balancing the guard) and resets the global cursors when it pokes them.
  *
  * Coverage:
- *   - Path::get_point: empty guard, endpoints, end-of-path clamp, midpoint
+ *   - Path::get_point: empty guard, endpoints, both-ends clamp, midpoint
  *   - AnimationBase duration==0 -> 1 coercion (no divide-by-zero)
  *   - Transition: start->end stepping, easing, quantize, done()
  *   - Mutation: applies f(easing(t))
@@ -92,7 +92,7 @@ inline void test_path_empty_returns_origin() {
 
 /**
  * @brief Verifies get_point hits the exact endpoints at t=0/1, clamps to back()
- * past t=1, and interpolates linearly between samples.
+ * past t=1 and to front() below t=0, and interpolates linearly between samples.
  */
 inline void test_path_endpoints_and_clamp() {
   Path<32> p;
@@ -108,6 +108,12 @@ inline void test_path_endpoints_and_clamp() {
 
   Vector over = p.get_point(2.0f);
   HS_EXPECT_NEAR(over.x, end.x, 1e-5f);
+
+  // Only the clamp keeps this out of a negative float->size_t cast.
+  Vector under = p.get_point(-1.0f);
+  HS_EXPECT_NEAR(under.x, start.x, 1e-5f);
+  HS_EXPECT_NEAR(under.y, start.y, 1e-5f);
+  HS_EXPECT_NEAR(under.z, start.z, 1e-5f);
 
   Vector mid = p.get_point(0.5f);
   HS_EXPECT_NEAR(mid.x, 0.5f, 1e-5f);
