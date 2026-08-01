@@ -301,7 +301,6 @@ inline void case_solids_index_oob() {
  * @details Registry-by-name surface — an unknown name has no valid fallback.
  */
 inline void case_solids_unknown_name() {
-  configure_arenas_default();
   PolyMesh m = Solids::get_by_name(persistent_arena, scratch_arena_a,
                                    scratch_arena_b, "definitely_not_a_solid");
   if (m.vertices.size() == 0x7fff)
