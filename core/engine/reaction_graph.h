@@ -172,8 +172,12 @@ struct CubemapLUT {
       }
     }
 
-    int ui = hs::clamp(static_cast<int>((u + 1.0f) * 0.5f * RES), 0, RES - 1);
-    int vi = hs::clamp(static_cast<int>((v + 1.0f) * 0.5f * RES), 0, RES - 1);
+    // Clamp before the cast: a zero or NaN `p` leaves u/v NaN, and only the
+    // float clamp's NaN->hi contract keeps that out of the cast.
+    int ui = static_cast<int>(
+        hs::clamp((u + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
+    int vi = static_cast<int>(
+        hs::clamp((v + 1.0f) * 0.5f * RES, 0.0f, static_cast<float>(RES - 1)));
     return data[static_cast<size_t>((face * RES + vi) * RES + ui)];
   }
 
