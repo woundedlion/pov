@@ -584,8 +584,8 @@ struct FaceTopoRecord {
 };
 
 /**
- * @brief Recomputes a face's canonical key (count, sorted angles) and the base
- *        topology hash, mirroring classify_faces_impl.
+ * @brief Recomputes a face's canonical key and asks the classifier for its base
+ *        topology hash.
  */
 inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
                                        const uint16_t *idx, int count) {
@@ -595,8 +595,6 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
     rec.angles[k] = 0;
   HS_CHECK(count <= MAX_TOPO_SIDES,
            "face_topo_record: face sides overrun angles[]");
-  uint32_t h = 0x12345678;
-  MeshOps::hash_combine(h, static_cast<uint32_t>(count));
   if (count >= 3) {
     for (int k = 0; k < count; ++k) {
       const Vector &prev = mesh.vertices[idx[(k - 1 + count) % count]];
@@ -607,10 +605,8 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
       rec.angles[k] = (int)std::round(angle_between(v1, v2) * 180.0f / PI_F);
     }
     std::sort(rec.angles, rec.angles + count);
-    for (int k = 0; k < count; ++k)
-      MeshOps::hash_combine(h, static_cast<uint32_t>(rec.angles[k]));
   }
-  rec.hash = MeshOps::fmix32(h);
+  rec.hash = MeshOps::face_topology_base_hash(count, rec.angles);
   return rec;
 }
 
@@ -737,9 +733,8 @@ inline void test_classify_faces_roster_hash_collision_free() {
           neighbor_keys[n_neighbors++] = face_keys[neighbor];
         }
         std::sort(neighbor_keys, neighbor_keys + n_neighbors);
-        uint32_t final_h = face_hashes[f];
-        MeshOps::hash_combine(final_h, neighbor_acc);
-        folded.insert(MeshOps::fmix32(final_h),
+        folded.insert(MeshOps::fold_face_topology_hash(face_hashes[f],
+                                                       neighbor_acc),
                       fnv1a64(neighbor_keys,
                               sizeof(neighbor_keys[0]) * n_neighbors,
                               face_keys[f]));
