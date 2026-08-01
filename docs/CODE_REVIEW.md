@@ -493,7 +493,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 201. ✅ **Comment promises a drain of the pre-sink fallback buffer that the streaming sink does not perform** — `daydream/recorder.js:239-242` vs `:500-506`. Once a writable has opened, anything in `chunks` is dropped, never written and never downloaded. The window is currently empty because the sink is assigned synchronously.
 
-202. **`warmModules()` downloads the whole WASM binary into a discarded `ArrayBuffer` on every enable and every segment-count change** — `daydream/segment_controller.js:77-89`. A user sweeping 2→4→6→8 pays four full multi-MB materializations for a best-effort cache prime whose real guarantee is the boot retry.
+202. ✅ **`warmModules()` downloads the whole WASM binary into a discarded `ArrayBuffer` on every enable and every segment-count change** — `daydream/segment_controller.js:77-89`. A user sweeping 2→4→6→8 pays four full multi-MB materializations for a best-effort cache prime whose real guarantee is the boot retry.
 
 203. **Inconsistent null-guarding of `dotMesh`** — `daydream/driver.js:612`. `render()` guards with `?.instanceColor` but `stepSimulation()`, reached from the same call, dereferences bare. Not reachable today (teardown is one synchronous block) but reads as an oversight.
 
