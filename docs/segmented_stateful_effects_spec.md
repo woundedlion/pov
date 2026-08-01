@@ -99,8 +99,8 @@ matters here — whether a filter's state *moves across segment boundaries*:
 
 - `static constexpr bool crosses_segments`, defaulting to `has_history`
   (fail-safe: a new history filter is treated as cross-segment until proven
-  bounded). Add it to the four trait bases (`Is2D`/`Is3D`/`Is2DWithHistory`/
-  `Is3DWithHistory`, filter.h:49) as `= has_history`.
+  bounded). Add it to `FilterTraits` — the base `Is2D`/`Is3D`/
+  `Is2DWithHistory`/`Is3DWithHistory` all alias — as `= has_history`.
 - `true` on `Pixel::Feedback` — the load-bearing case, and the only one that
   *must* be `true`. It reads `cv.prev` (other segments' pixels).
 - `true` on `World::Trails` — already `true` by default (`has_history`), so
