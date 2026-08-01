@@ -308,6 +308,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
 ```
 ├── index.html                  Main simulator page
+├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects reserved
 ├── vendor-importmap.js         Local-first / CDN-fallback importmap helper
 ├── holosphere_wasm.js          Installed from Holosphere's WASM build
 ├── holosphere_wasm.wasm        Installed from Holosphere's WASM build
@@ -320,10 +321,13 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │
 ├── bootstrap.js                Dynamic-import boot of daydream.js + failure overlay
 ├── daydream.js                 App entry: WASM loader, state wiring, GUI/sidebar
+├── app_lifecycle.js            Composition-root frame adapter, display-alias heal, and teardown
 ├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
+├── effect_gui.js               Effect panel lifecycle: build, mount, value sync, Export, teardown
 ├── effect_sequencing.js        DOM-free effect/resolution apply-order and skew-guard rules
 ├── param_sync.js               DOM-free "should this slider adopt the engine value?" rule
 ├── pixel_view.js               DOM-free zero-copy pixel-view detach/re-fetch contract
+├── frame_constants.js          Simulation FPS and the slow-frame threshold derived from it
 ├── driver.js                   Three.js scene: sphere mesh, dots, OrbitControls,
 │                                  axes overlay, picture-in-picture camera, resize
 ├── label_format.js             DOM-free label number formatting with symbolic snapping
@@ -338,6 +342,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── segment_worker.js           Web Worker that hosts one WASM instance per
 │                                  Phantasm hardware segment (parallel render)
 ├── segment_layout.js           Pure segment-layout math (Node-unit-testable, no WASM/Worker)
+├── segment_stats_view.js       Per-segment timing/arena stats overlay + spawn and fault states
 ├── worker_protocol.js          JSDoc @typedef contract for main↔worker messages (no runtime code)
 ├── styles/                     CSS for the main page and tools
 │
@@ -355,6 +360,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── export_params.js        Formatter behind the GUI's Export action
 │   ├── lissajous_math.js       Pure Lissajous curve math from lissajous.html
 │   ├── mobius_transforms.js    Pure Möbius coefficient presets from mobius.html
+│   ├── page_lifecycle.js       Animation-frame recompute coalescer + bfcache-aware teardown hook
+│   ├── palette_controls.js     DOM-free zoom history and locked-slider delta capping for palettes.html
 │   ├── palette_math.js         ProceduralPalette / GenerativePalette mirror + the PaletteOps bridge
 │   ├── solid_codegen.js        Op dispatch, codegen, and op-chain sequencing for solids.html
 │   └── tools.css               Shared design tokens and control styling for the tool pages
