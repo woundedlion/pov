@@ -121,9 +121,10 @@ public:
                        palette);
     }
 
-    // int % 120 before the float cast: a float frame counter would lose integer
-    // precision past 2^24.
-    float phase = static_cast<float>(timeline.frame() % 120) / 120.0f;
+    // Integer modulo before the float cast: a float frame counter would lose
+    // integer precision past 2^24.
+    float phase = static_cast<float>(timeline.frame() % SCROLL_PERIOD) /
+                  static_cast<float>(SCROLL_PERIOD);
 
     Vector n_trans = mobius_gen.transform(Y_AXIS);
     Vector s_trans = mobius_gen.transform(-Y_AXIS);
@@ -154,6 +155,8 @@ private:
 
   static constexpr float CONFORMAL_LOG_MIN = -2.5f;
   static constexpr float CONFORMAL_LOG_MAX = 2.5f;
+  static constexpr int SCROLL_PERIOD =
+      120; /**< Frames per full grid-scroll cycle. */
 
   /**
    * @brief Counter-rotation swinging the transformed-pole midpoint back onto +Z.
