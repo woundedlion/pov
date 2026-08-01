@@ -304,12 +304,22 @@ private:
     uint16_t hi; /**< max(nearest, second) site index. */
   };
 
+  static constexpr int BLOCK_CORNERS = 4;    /**< Corners bounding one block. */
+  static constexpr int SITES_PER_CORNER = 2; /**< CellId site indices. */
+  static_assert(sizeof(CellId) == SITES_PER_CORNER * sizeof(uint16_t),
+                "Voronoi CellId no longer holds SITES_PER_CORNER indices");
+  /** @brief CandSet capacity. The per-block builder adds one entry per corner
+   *  site with no bounds test, so this is the exact pre-dedup entry count. */
+  static constexpr int MAX_CANDIDATES = BLOCK_CORNERS * SITES_PER_CORNER;
+
   /** @brief Shading candidates for one block: the deduped union of its four
    *  corners' CellId pairs, positions copied in for the per-pixel dot scan. */
   struct CandSet {
-    Vector pos[8];   /**< Candidate site positions (parallel to idx). */
-    uint16_t idx[8]; /**< Candidate site indices into sites_buffer. */
-    uint8_t n;       /**< Number of distinct candidates (1..8). */
+    Vector pos[MAX_CANDIDATES];   /**< Candidate site positions (parallel to
+                                       idx). */
+    uint16_t idx[MAX_CANDIDATES]; /**< Candidate site indices into
+                                       sites_buffer. */
+    uint8_t n; /**< Number of distinct candidates (1..MAX_CANDIDATES). */
   };
 
   // Compile-time high-water check for the 64 KB scratch_arena_a reserve. Two
