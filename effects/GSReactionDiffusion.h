@@ -512,9 +512,9 @@ private:
    * two-ring sits entirely below the floor cannot produce a renderable sample —
    * culling on !hot2[seed] is exact, not approximate.
    */
-  HS_COLD_MEMBER static void fill_hot_flags(const uint16_t *b, uint8_t *hot1,
-                                            uint8_t *hot2, int count,
-                                            uint16_t threshold) {
+  HS_O3_FN static void fill_hot_flags(const uint16_t *b, uint8_t *hot1,
+                                      uint8_t *hot2, int count,
+                                      uint16_t threshold) {
     for (int i = 0; i < count; ++i) {
       bool hot = b[i] >= threshold;
       for (int k = 0; k < RD_K && !hot; ++k)
