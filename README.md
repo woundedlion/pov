@@ -2190,7 +2190,15 @@ The local-vs-CDN choice is **baked at build time**, not probed at runtime — th
 The generated integrity map covers the top-level libraries and the two addons
 the app imports directly. Relative sub-imports inside those modules bypass the
 import map, so the exact package-version pin is the primary defense; the
-available SRI entries are additional partial coverage.
+available SRI entries are additional partial coverage. Import-map `integrity`
+is Chromium-only — Firefox and Safari ignore the key entirely, so SRI is no
+coverage at all there. The second boundary on every browser is a
+`Content-Security-Policy` meta tag, carried by `index.html` and each of the
+four tool pages, which restricts script loads to `'self'` plus the CDN origins
+that page actually uses. `'unsafe-eval'` is required wherever the WASM engine
+loads: Emscripten's embind builds its invokers with `new Function`, which
+`'wasm-unsafe-eval'` does not permit. `font-src` allows `data:` for the woff2
+lil-gui inlines in its stylesheet.
 
 A page-specific local import (e.g. `solids.html` referencing `../solids.js`) is added by setting `window.__DAYDREAM_EXTRA_IMPORTS` before the helper script.
 
