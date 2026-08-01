@@ -238,7 +238,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
     // Per-orbit scratch buffer. Each orbit step appends two indices (a
     // midpoint and a dynamic vertex), so the absolute upper bound on entries
     // is twice the total half-edge count.
-    int16_t *face_indices = temp_arena.allocate_n<int16_t>(2 * I);
+    uint16_t *face_indices = temp_arena.allocate_n<uint16_t>(2 * I);
 
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       uint16_t he_start_idx = static_cast<uint16_t>(i);
