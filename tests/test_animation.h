@@ -531,6 +531,30 @@ inline void test_rotation_accumulates_subthreshold_deltas() {
 }
 
 /**
+ * @brief Verifies a repeating Rotation lands its full sweep every cycle.
+ * @details An easing with zero slope at t=1 leaves a sub-TOLERANCE residual on
+ * the final frame. That frame has no successor to accumulate into, so dropping
+ * it slips the residual (~1e-4 rad here) once per cycle.
+ */
+inline void test_rotation_applies_final_frame_residual() {
+  using Ori = Orientation<16>;
+  constexpr float ANGLE = 0.2f;
+  constexpr int DURATION = 1000;
+  constexpr int CYCLES = 10;
+  Ori o; // identity
+  Animation::Rotation<288, 16> rot(o, Z_AXIS, ANGLE, DURATION,
+                                   ease_in_out_sin);
+  for (int c = 0; c < CYCLES; ++c) {
+    for (int i = 0; i < DURATION; ++i)
+      rot.step(fake_canvas());
+    rot.rewind();
+  }
+  // A Z rotation sends +X to (cos, sin) of the accumulated angle.
+  Vector v = o.orient(X_AXIS, o.length() - 1);
+  HS_EXPECT_NEAR(std::atan2(v.y, v.x), ANGLE * CYCLES, 2e-4f);
+}
+
+/**
  * @brief Verifies two animations sharing one Orientation COMPOSE their
  * sub-frame motion-blur history within a frame instead of clobbering it.
  * @details A per-animation collapse would discard the first animation's
@@ -2845,6 +2869,7 @@ inline int run_animation_tests() {
 
   test_rotation_substeps_shared_and_tight();
   test_rotation_accumulates_subthreshold_deltas();
+  test_rotation_applies_final_frame_residual();
   test_timeline_shared_orientation_composes_motion_blur();
   test_timeline_sequences_events_by_start_frame();
   test_timeline_accepts_maximum_start_frame();
