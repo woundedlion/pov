@@ -355,7 +355,7 @@ inline uint16_t narrow_index(size_t i) {
  * @param count Face side count to narrow.
  * @return The side count as a uint8_t.
  * @details A face side count wider than 255 (high-valence orbit, count*2 in
- * snub, a long Hankin rosette walk) would silently wrap the uint8_t
+ * truncate, a long Hankin rosette walk) would silently wrap the uint8_t
  * face_counts array; bounds to [0, UINT8_MAX] and traps instead.
  */
 inline uint8_t narrow_face_count(int count) {
