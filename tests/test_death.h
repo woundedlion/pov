@@ -603,6 +603,24 @@ inline void case_timeline_clear_pinned() {
   tl.clear(); // HS_CHECK(!handled) -> trap
 }
 
+/**
+ * @brief Death case: clear()ing from a completion callback must trap.
+ * @details Animation surface — step() runs post_callback() and only afterwards
+ *          destroys the event, so a clear() inside that callback would free the
+ *          callable whose frame is still executing. The trap sits at the top of
+ *          clear(), ahead of destroy_events().
+ */
+inline void case_timeline_clear_during_step() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  Timeline tl;
+  float v = 0.0f;
+  tl.add(0, Animation::Transition(v, 1.0f, 1, ease_linear).then([&tl]() {
+    tl.clear();
+  }));
+  tl.step(canvas); // t=1: completes -> callback -> clear() while stepping
+}
+
 /** @brief Death case: finite parameter animations reject the -1 sentinel. */
 inline void case_finite_param_perpetual_duration() {
   float value = 0.0f;
@@ -1543,6 +1561,7 @@ inline const Case *all_cases(int &n) {
        case_timeline_pinned_add_on_full_timeline},
       {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer},
       {"timeline_clear_pinned", case_timeline_clear_pinned},
+      {"timeline_clear_during_step", case_timeline_clear_during_step},
       {"timeline_clear_hook_adds_event", case_timeline_clear_hook_adds_event},
       {"mesh_carousel_unflipped_slot", case_mesh_carousel_unflipped_slot},
       {"timeline_double_construct", case_timeline_double_construct},
@@ -1859,7 +1878,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 84;
+  constexpr int DEATH_CASE_COUNT = 85;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
