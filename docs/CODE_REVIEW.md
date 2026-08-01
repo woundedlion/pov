@@ -515,7 +515,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 212. ✅ **A failed static import of the WASM glue bypasses the fatal banner the README promises** — `daydream/tools/palettes.html:444`, `solids.html:626`. If the glue file fails to resolve the module graph never evaluates, `bootstrapTool` is never registered, and the page shows a blank canvas with only a console line — the outcome README §10.11 says is avoided. Narrow (the artifacts are committed) but the message text describes exactly the uncovered case. Use `await import(...)` inside the existing try block.
 
-213. **Unused import** — `daydream/tests/segment_controller.test.js:16`. `SLOW_FRAME_MS` is imported and never referenced, also loading a module the file otherwise does not need.
+213. ✅ **Unused import** — `daydream/tests/segment_controller.test.js:16`. `SLOW_FRAME_MS` is imported and never referenced, also loading a module the file otherwise does not need.
 
 214. **Every `@ts-check`/`@ts-nocheck` pragma in `daydream/tests/` is inert** — `daydream/tsconfig.json:14-24` plus 45 of 46 test files. The tsconfig's own comment says so, yet 27 files declare `@ts-check` and 18 declare `@ts-nocheck`, so a reader reasonably infers the former are checked in CI and the latter deliberately opted out. Neither is true.
 
