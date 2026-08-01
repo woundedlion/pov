@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "color/srgb_decode_lut.h"
+#include "engine/platform.h"
 #include <cstdint>
 #include <iterator>
 
@@ -55,6 +56,12 @@ inline const bool srgb_decode_dtcm_init = []() {
  * by unit_color's test_linear_to_srgb8_decode_matches_lut.
  */
 inline __attribute__((always_inline)) uint8_t linear_to_srgb8(uint16_t v) {
+#ifndef NDEBUG
+  // Still false means this call beat the dynamic init above and would read a
+  // zeroed table.
+  HS_CHECK(srgb_decode_dtcm_init,
+           "linear_to_srgb8 before the DTCM decode tables are filled");
+#endif
   if (v < SRGB_DECODE_VSPLIT) {
     uint16_t e = srgb_decode_low[v >> SRGB_DECODE_LOW_SHIFT];
     return (uint8_t)((e & 0xFF) +
