@@ -483,7 +483,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 196. ✅ **Dead transition, `transition: all`, and no palette variables** — `daydream/styles/index.css:194, 332, 374`. The loading-overlay opacity transition never fires (nothing animates it); `.effect-button` and `.sort-btn` transition layout-affecting properties alongside paint ones; and five colours plus two font stacks recur 5–9 times across a 702-line sheet with no custom properties.
 
-197. **Heading-level skip and an unroled focusable canvas** — `daydream/index.html:15, 68-69`; `daydream/sidebar.js:31-33`. The document goes `h1` straight to `h3`, which screen-reader outline navigation reports as a structural error; and `#canvas` is `tabindex="0"` with an `aria-label` but no `role`, while the label promises arrow-key orbiting that is gated on a keyboard-focus latch.
+197. ✅ **Heading-level skip and an unroled focusable canvas** — `daydream/index.html:15, 68-69`; `daydream/sidebar.js:31-33`. The document goes `h1` straight to `h3`, which screen-reader outline navigation reports as a structural error; and `#canvas` is `tabindex="0"` with an `aria-label` but no `role`, while the label promises arrow-key orbiting that is gated on a keyboard-focus latch.
 
 198. **The duplicate-frame guard runs after the staging write it is meant to protect** — `daydream/segment_controller.js:349-368`. The comment says the check exists "so a doubled 'frame' message can't re-publish", but only `paramValues` is guarded — `scratch[segId]`, `timings` and `arenas` are all written before the bail. Defensive-only (no shipped worker can double-post), but the guard's own comment claims a protection the ordering does not give.
 
