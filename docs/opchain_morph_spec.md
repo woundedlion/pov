@@ -14,8 +14,9 @@ boundary, to the standard `HankinSolids` already meets: no palette pop, no
 position jump, no crease flash.
 
 `IslamicStars` is the test case: its 24 recipes
-(`core/mesh/solids.h:1096-1160`) are 2–6 op chains over 9 distinct seeds, so it
-exercises composition depth, mid-chain `hankin`, mid-chain `relax`, and the two
+(`Solids::islamic_registry` in `core/mesh/solids.h`) are 2–6 op chains over 9
+distinct seeds, so it exercises composition depth, mid-chain `hankin`,
+mid-chain `relax`, and the two
 ops that need genuinely new machinery (`kis`, `dual`). The design generalizes to
 `catalan_registry` (13 entries, every one a single `.dual()` leg) and to
 `simple_registry`, whose chains `HankinSolids` already sweeps.
@@ -37,10 +38,10 @@ the two disagree, the landed ConwayMorph behaviour wins; this document only adds
 ## 1. Facts this design builds on
 
 1. **A solid is already a seed plus an op chain.** Only the five Platonic solids
-   are explicit vertex data (`core/mesh/solids.h:56-170`). Every Archimedean,
-   Catalan and Islamic entry is a `Solids::SolidBuilder` chain
-   (`core/mesh/solids.h:203-364`), e.g.
-   `dodecahedron_hk35_ambo_hk62_ambo_relax_hk42` (`solids.h:885-895`) =
+   are explicit vertex data (the `Solids::Tetrahedron`…`Solids::Dodecahedron`
+   tables in `core/mesh/solids.h`). Every Archimedean, Catalan and Islamic entry
+   is a `Solids::SolidBuilder` chain, e.g.
+   `Solids::IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk42` =
    dodeca → hankin(35°) → ambo → hankin(62°) → ambo → relax(100) → hankin(42°).
    The chain exists; it is just *imperative* today, buried in a `FLASHMEM static
    PolyMesh f(Arena&, Arena&)` function body. §4 makes it data.
@@ -56,7 +57,8 @@ the two disagree, the landed ConwayMorph behaviour wins; this document only adds
 3. **Topology changes only at bookends, and only under clamp.** `clamp_param`
    (`core/animation/opleg.h:353-360`) keeps the sweep inside the topology-constant open interval:
    `T_EPS = 0.02` at the zero end, `T_EPS_AMBO = 0.005` below truncate's 0.5
-   short-circuit (`conway_graph.h:113-124`). Newborn faces at the ε end are
+   short-circuit (`ConwayGraph::T_EPS` / `ConwayGraph::T_EPS_AMBO` in
+   `core/mesh/conway_graph.h`). Newborn faces at the ε end are
    **zero-area and culled at draw time** by `SDF::Face` (|signed area| <
    1e-5·radius²) — see `docs/conway_morph_spec.md:48-52`. That cull is what makes
    a bookend swap invisible.
@@ -85,8 +87,9 @@ the two disagree, the landed ConwayMorph behaviour wins; this document only adds
 
 5. **`hankin` is already a sweepable op.** `compile_hankin` bakes the
    angle-independent topology once; `update_hankin` repositions only the star
-   points (`core/mesh/hankin.h:86-340`). At angle → 0 every star point collapses
-   onto its corner via the `p_corner` fallback (`hankin.h:285-302`), so the
+   points (`MeshOps::compile_hankin` / `MeshOps::update_hankin` in
+   `core/mesh/hankin.h`). At angle → 0 every star point collapses onto its
+   corner via `update_hankin`'s `p_corner` fallback, so the
    hankin mesh at angle 0 **is** the base solid with midpoint vertices.
 
 6. **`IslamicStars` cuts, it does not morph.** `spawn_shape`
@@ -114,36 +117,40 @@ bookend swap changes no pixels, which is the only reason ConwayMorph is seamless
 Auditing `core/mesh/conway.h` against that condition splits the operator set
 cleanly in two, and the split is the whole design:
 
-| Op | Signature | Class | Leg treatment |
+All symbols below are in namespace `MeshOps`; `hankin` lives in
+`core/mesh/hankin.h`, the rest in `core/mesh/conway.h`.
+
+| Op | Symbol | Class | Leg treatment |
 |---|---|---|---|
-| `truncate(t)` | `conway.h:564` | **inflate** | sweep `T_EPS → t★` — but see §2.1, four recipes have unreachable `t★` |
-| `expand(t)` | `conway.h:665` | **inflate** | sweep `T_EPS → t★` |
-| `snub(t, twist)` | `conway.h:929` | **inflate** | sweep `T_EPS → t★`, twist lerped |
-| `chamfer(t)` | `conway.h:736` | **inflate** | sweep `T_EPS → t★` |
-| `hankin(θ)` | `hankin.h:388` | **inflate** | `compile_hankin` once, `update_hankin` per frame, sweep `θ_EPS → θ★` |
-| `relax(n)` | `conway.h:813` | **continuous** | existing settle slerp (`core/animation/opleg.h:857-868, 888-899`) |
-| `ambo` | `conway.h:458` | **inflate-equivalent** | truncate sweep to `0.5 − T_EPS_AMBO`, then clean swap to `ambo` |
-| `bevel(t)` = `ta` | `conway.h:1082` | composite | ambo leg, then truncate leg |
-| `kis` | `conway.h:405` | **partition** | §3.3 gated swap, no sweep (no renderable parameter, §3.2) |
-| `zip` = `dk` | `conway.h:1069` | composite | kis leg, then dual leg |
-| `needle` = `kd` | `conway.h:1057` | composite | dual leg, then kis leg |
-| `gyro` = `ds` | `conway.h:1020` | composite | snub leg, then dual leg |
-| `meta` = `kda` | `conway.h:1045` | composite | ambo leg, dual leg, kis leg |
-| `dual` | `conway.h:355` | **reflection** | §3.3 gated swap + provenance mapping |
+| `truncate(t)` | `MeshOps::truncate` | **inflate** | sweep `T_EPS → t★` — but see §2.1, four recipes have unreachable `t★` |
+| `expand(t)` | `MeshOps::expand` | **inflate** | sweep `T_EPS → t★` |
+| `snub(t, twist)` | `MeshOps::snub` | **inflate** | sweep `T_EPS → t★`, twist lerped |
+| `chamfer(t)` | `MeshOps::chamfer` | **inflate** | sweep `T_EPS → t★` |
+| `hankin(θ)` | `MeshOps::hankin` | **inflate** | `compile_hankin` once, `update_hankin` per frame, sweep `θ_EPS → θ★` |
+| `relax(n)` | `MeshOps::relax` | **continuous** | existing settle slerp (`Animation::OpLeg::step` in `core/animation/opleg.h`) |
+| `ambo` | `MeshOps::ambo` | **inflate-equivalent** | truncate sweep to `0.5 − T_EPS_AMBO`, then clean swap to `ambo` |
+| `bevel(t)` = `ta` | `MeshOps::bevel` | composite | ambo leg, then truncate leg |
+| `kis` | `MeshOps::kis` | **partition** | §3.3 gated swap, no sweep (no renderable parameter, §3.2) |
+| `zip` = `dk` | `MeshOps::zip` | composite | kis leg, then dual leg |
+| `needle` = `kd` | `MeshOps::needle` | composite | dual leg, then kis leg |
+| `gyro` = `ds` | `MeshOps::gyro` | composite | snub leg, then dual leg |
+| `meta` = `kda` | `MeshOps::meta` | composite | ambo leg, dual leg, kis leg |
+| `dual` | `MeshOps::dual` | **reflection** | §3.3 gated swap + provenance mapping |
 
 **Everything reduces to eight primitives: `truncate`, `expand`, `snub`,
 `chamfer`, `hankin`, `relax`, `kis`, `dual`.**
 
-Of those eight, **three are device-proven sweeps**: `ConwayGraph::MorphOp` is
-exactly `{TRUNCATE, EXPAND, SNUB}` (`conway_graph.h:97`) and `run_op` has exactly
-those three cases (`core/animation/opleg.h:1382-1395`). The rest each need work:
+Of those eight, **three are device-proven sweeps**: the graph-swept members of
+`ConwayGraph::MorphOp` (`core/mesh/conway_graph.h`) are exactly
+`{TRUNCATE, EXPAND, SNUB}`, and `run_op` has exactly those three cases
+(`core/animation/opleg.h`). The rest each need work:
 
 - `chamfer` is **deliberately unused** by the landed graph — "no simple-registry
   endpoint is a chamfered form" (`conway_graph.h`, echoed at
   `conway_morph_spec.md:423`). It has never been swept, never been through
   `clamp_param`, and has no `T_EPS` characterization. One Islamic recipe needs it
-  (`truncatedIcosahedron_hk58_chamfer63`, `solids.h:683`) — and it runs on a
-  hankin mesh, so see §2.4.
+  (`Solids::IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63`) — and it
+  runs on a hankin mesh, so see §2.4.
 - `hankin` is swept by `HankinSolids` through an angle `Mutation`, not by
   `run_op`; the mechanism exists but has to be brought into the leg scheduler.
 - `relax` is not a sweep at all — it is a settle-slerp bolted to a leg's end, and
@@ -161,12 +168,12 @@ construction. §4.2 explains why that distinction is load-bearing.
 Consequences worth stating outright:
 
 - **`ambo` is not a new problem, but not for the reason it looks.** `truncate` at
-  exactly `0.5` short-circuits to `ambo` (`conway.h:567`), and face count is
-  `F + V` on both sides (`conway.h:578`, `conway.h:466`). What *does* change
-  across the boundary is **vertex count (2E → E)** and **every primary face's
-  degree (2n → n)** — the `face_counts` array is not preserved. That, not
+  exactly `0.5` short-circuits to `ambo` (`MeshOps::truncate`), and face count
+  is `F + V` on both sides (`MeshOps::truncate`, `MeshOps::ambo`). What *does*
+  change across the boundary is **vertex count (2E → E)** and **every primary
+  face's degree (2n → n)** — the `face_counts` array is not preserved. That, not
   emission order, is why a leg cannot cross 0.5 and why `T_EPS_AMBO` exists.
-  (`conway_graph.h:111-112`'s comment is loose on this; do not inherit it.)
+  (`ConwayGraph::T_EPS`'s comment is loose on this; do not inherit it.)
   ConwayMorph does already land legs on the cuboctahedron and icosidodecahedron
   through this boundary, so the ambo leg is a configuration of a device-proven
   one.
@@ -175,20 +182,22 @@ Consequences worth stating outright:
   becomes icosa → **kis** → **snub** → **dual**: three legible legs where the
   recipe reads as two opaque ones. This is literally the requested "op-by-op".
   (All five decompositions and their leg orders were re-verified against
-  `conway.h:1020, 1046, 1057, 1069, 1085`; composition is right-to-left and the
-  table above reflects it.)
+  `MeshOps::gyro`, `MeshOps::meta`, `MeshOps::needle`, `MeshOps::zip` and
+  `MeshOps::bevel`; composition is right-to-left and the table above reflects
+  it.)
 
 ### 2.1 Four recipes have targets the clamp cannot reach
 
-`T_EPS = 0.02`, `T_EPS_AMBO = 0.005` (`conway_graph.h:113, 119`). The shipping
-registry violates both bounds:
+`ConwayGraph::T_EPS = 0.02`, `ConwayGraph::T_EPS_AMBO = 0.005`. The shipping
+registry violates both bounds — every recipe below is a
+`Solids::IslamicStarPatterns` builder:
 
 | recipe | call | problem |
 |---|---|---|
-| `truncatedIcosidodecahedron_truncate50d_ambo_dual` (`solids.h:745-750`) | `.truncate(50·D2R)` = **0.8727** | far side of the ambo point |
-| `truncatedIcosahedron_truncate50d_ambo_dual` (`solids.h:854-860`) | same | far side of the ambo point |
-| `truncatedIcosahedron_ambo_relax_truncate001_hankin59` (`solids.h:918-924`) | `.truncate(0.01f)` | **below `T_EPS`** |
-| `..._truncate001_hankin73` (`solids.h:934-940`) | `.truncate(0.01f)` | below `T_EPS` |
+| `truncatedIcosidodecahedron_truncate50d_ambo_dual` | `.truncate(50·D2R)` = **0.8727** | far side of the ambo point |
+| `truncatedIcosahedron_truncate50d_ambo_dual` | same | far side of the ambo point |
+| `truncatedIcosahedron_ambo_relax_truncate001_hankin59` | `.truncate(0.01f)` | **below `T_EPS`** |
+| `truncatedIcosahedron_ambo_relax_truncate001_hankin73` | `.truncate(0.01f)` | below `T_EPS` |
 
 **Neither failure is a trap or a CI failure — both are silent, on-screen.**
 `clamp_param` (`core/animation/opleg.h:353-360`) applies to `t_start` *and*
@@ -204,8 +213,9 @@ unaffected. The leg is what goes wrong:
   (`core/animation/opleg.h:1131-1155`), so face counts agree every frame and there
   is **no trap**. The leg sweeps to a cuboctahedron-like form and then clean-swaps
   to the self-intersecting `truncate(0.873)` mesh the recipe actually specifies —
-  a full-screen geometry pop. (`conway.h:555-560` documents that `t > 0.5`
-  deliberately crosses the cut points to produce those self-intersecting faces.)
+  a full-screen geometry pop. (`MeshOps::truncate`'s doc comment records that
+  `t > 0.5` deliberately crosses the cut points to produce those
+  self-intersecting faces.)
 
 **Treatment:** all four are non-morphable on their truncate leg and both failures
 are §9.5 seam items, not gate failures — which means CI will *not* catch them and
@@ -215,9 +225,10 @@ the ambo point. The first is correct for Phase 2; the second is speculative and
 should not be scheduled without a reason.
 
 **Fifth case, benign but must be handled:** `bevel(0.5)` in
-`truncatedIcosidodecahedron_bevel5_relax_hk77` (`solids.h:964`) lowers to a
-truncate leg whose target is *exactly* `0.5` — the one value a leg may never land
-on. `expand_to_primitives` (§4.2) must special-case `t == 0.5f` in a bevel to emit
+`Solids::IslamicStarPatterns::truncatedIcosidodecahedron_bevel5_relax_hk77`
+lowers to a truncate leg whose target is *exactly* `0.5` — the one value a leg
+may never land on. `expand_to_primitives` (§4.2) must special-case `t == 0.5f`
+in a bevel to emit
 `AMBO` instead of a truncate step.
 
 ### 2.2 `relax` cannot always fold into the preceding leg
@@ -227,19 +238,29 @@ The settle mechanism slerps per-vertex between the swept mesh and
 `HS_CHECK(swept.vertices.size() == tr.relaxed.size())` (`core/animation/opleg.h:889`, with the
 construction check at `:1152`).
 
-The Islamic registry has **nine** `relax` calls (`solids.h:697, 872, 892, 921,
-937, 965, 978, 993, 1009`), and **six** of them follow an ambo-class leg —
-`:697, 892, 921, 937`, plus `:965` (`bevel(0.5)` lowers to ambo, §2.1) and
-`:993`. One follows `snub` (`:872`); two follow the truncate leg of a
-`bevel(0.2)` / `bevel(0.33)` (`:978, 1009`).
+The Islamic registry has **nine** `relax` calls, all in
+`Solids::IslamicStarPatterns`, and **six** of them follow an ambo-class leg:
+
+- ambo-class: `truncatedIcosahedron_ambo_relax100_hk54_needle`,
+  `dodecahedron_hk35_ambo_hk62_ambo_relax_hk42`,
+  `truncatedIcosahedron_ambo_relax_truncate001_hankin59`,
+  `truncatedIcosahedron_ambo_relax_truncate001_hankin73`,
+  `truncatedIcosahedron_ambo_relax_truncate33_hk64`, and
+  `truncatedIcosidodecahedron_bevel5_relax_hk77` (`bevel(0.5)` lowers to ambo, §2.1)
+- after `snub`: `icosahedron_snub_relax_truncate033_hankin62`
+- after the truncate leg of a `bevel(0.2)` / `bevel(0.33)`:
+  `dodecahedron_bevel2_relax_gyro`, `dodecahedron_ambo_bevel33_relax_hk66`
 
 An ambo leg is a truncate sweep whose swept mesh has **2E** vertices
-(`conway.h:576`), while `relax(ambo(seed))` has **E** (`conway.h:465`). The slerp
-cannot run during that sweep. **Relax after ambo needs its own leg**, starting
+(`MeshOps::truncate`), while `relax(ambo(seed))` has **E** (`MeshOps::ambo`).
+The slerp cannot run during that sweep. **Relax after ambo needs its own leg**, starting
 after the clean swap to `ambo`, with its own frames. Only relax following a
 vertex-count-preserving leg folds for free — three of the nine.
 
-The Phase-2 (pure-inflate) standalone-relax sites are `solids.h:892, 965, 993`.
+The Phase-2 (pure-inflate) standalone-relax sites are
+`dodecahedron_hk35_ambo_hk62_ambo_relax_hk42`,
+`truncatedIcosidodecahedron_bevel5_relax_hk77` and
+`truncatedIcosahedron_ambo_relax_truncate33_hk64`.
 
 ### 2.3 The inflate-only subset — the most useful fact in this document
 
@@ -295,7 +316,7 @@ The largest unexamined assumption in this document. These recipes run `ambo` or
 
 The whole §2 taxonomy — zero-area birth limits, `T_EPS` sizing, "newborn faces
 are zero-area and culled at draw time" — is characterized against **simple
-solids with ≤ 92 faces** (`conway_graph.h:114-118`). A hankin mesh has hundreds
+solids with ≤ 92 faces** (`ConwayGraph::T_EPS_AMBO`). A hankin mesh has hundreds
 of rosette and strap faces at wildly varying scales, and three things follow that
 nobody has checked:
 
@@ -458,10 +479,10 @@ separately.** Neither can fade in — coverage AA is geometric, so a new edge
 either exists in a frame or does not:
 
 - **`kis` is additive.** It keeps every original vertex and edge and adds an apex
-  plus `n` spokes per face (`conway.h:405-449`). The swap frame reveals `n·F` new
+  plus `n` spokes per face (`MeshOps::kis`). The swap frame reveals `n·F` new
   lines over an otherwise unchanged edge network.
 - **`dual` is wholesale.** Its vertices are the source's face centroids and none
-  of the source's edges survive (`conway.h:355-396`). The swap frame replaces the
+  of the source's edges survive (`MeshOps::dual`). The swap frame replaces the
   entire edge network at once.
 
 §3.1's coplanar-partition analysis applies directly to `kis`; for `dual` the
@@ -472,7 +493,7 @@ reads as a transformation or as a cut.
 `v` and takes the palette of the orbit face whose centroid is nearest `v`,
 matching the nearest-centroid discipline in `build_palette_mapping`
 (`core/animation/opleg.h:1814-1818`). The orbit is already walked by
-`emit_vertex_orbit_faces<'P'>` (`conway.h:150`), so the mapping is a by-product
+`MeshOps::emit_vertex_orbit_faces<'P'>`, so the mapping is a by-product
 of the op rather than a second pass. This gives colour-*locality* across the swap
 — a dual face opens in the colour already painted where it lands. Pixel-identity
 is not available (§3.1).
@@ -502,7 +523,7 @@ sweep segment (§3.2). A recipe with three partition ops pays 39 frames.
 
 ## 4. Recipes as data
 
-`Solids::Entry::generate` (`solids.h:1025-1030`) is an opaque function pointer.
+`Solids::Entry::generate` is an opaque function pointer.
 The build needs to step the chain, so the chain must be inspectable. So does the
 solids tool (§4.4), which today can only *emit* chains, never read one back.
 
@@ -540,8 +561,8 @@ Rules:
   living beside the registry it mirrors.
 - **The seed is a `simple_registry` index**, not a new enum. That registry is
   `[Platonic | Archimedean]` and its order is already load-bearing and pinned by
-  18 `static_assert`s in `ConwayGraph` (`conway_graph.h:46-90`). It also yields a
-  **name** through `get_entry(i).name`, which §4.3 needs. Recipes are therefore
+  18 node-id `static_assert`s in `ConwayGraph` (`core/mesh/conway_graph.h`). It
+  also yields a **name** through `get_entry(i).name`, which §4.3 needs. Recipes are therefore
   *shallow*: a Catalan is `seed = snubDodecahedron, steps = [DUAL]`, not a
   flattening down to a Platonic. That is exactly the leg decomposition §2 wants
   and exactly the base+ops model the tool already has.
@@ -958,8 +979,8 @@ the palette bake. The last leg is necessarily slower than the hold.
 
 **The prediction to gate (§9.10): build frame ≤ hold frame + op cost, with the op
 cost measured, not extrapolated.** The `173 µs → ~2 ms` figure is
-complexity-defensible (`build_half_edge_mesh` is linear-plus-pairing,
-`core/mesh/mesh.h:243`) but its constant is untested, and it silently assumes
+complexity-defensible (`build_half_edge_mesh` in `core/mesh/mesh.h` is
+linear-plus-pairing) but its constant is untested, and it silently assumes
 `MeshOps::compile` also scales linearly. Do not predict 16 fps; the heavy Islamic
 recipes run at 8 fps today and this feature does not change that.
 
@@ -1012,10 +1033,10 @@ Current caps, all sized for the 18-solid roster and all exceeded by F = 1082:
   `HS_CHECK(handoff.prev_faces <= 128)` (`core/animation/opleg.h`) — **traps** at
   F = 1082.
 - `MAX_NODE_FACES = 92`, `MAX_HANKIN_FACES = 256` (`HankinSolids.h:115-118`)
-- `narrow_face_count` bounds to **UINT8_MAX = 255** (`core/mesh/mesh.h:361`) — the tighter
-  and more reachable of the two narrowing guards; a `kis` or `needle` on a
-  high-valence orbit can hit it. (`narrow_index`, the INT16_MAX one, is at
-  `core/mesh/mesh.h:347`.)
+- `MeshOps::narrow_face_count` bounds to **UINT8_MAX = 255**
+  (`core/mesh/mesh.h`) — the tighter and more reachable of the two narrowing
+  guards; a `kis` or `needle` on a high-valence orbit can hit it.
+  (`MeshOps::narrow_index` is the INT16_MAX one.)
 
 **The limit that matters most is not a cap — it is a tolerance.**
 `PROVENANCE_TOL_SQ = 0.15²` is documented as "under half the face-centroid
@@ -1151,8 +1172,8 @@ export, paste.
 **Phase 2 — the inflate-only roster (13 recipes).** §2.3's pure-inflate set needs
 **no partition machinery**, but it is not free: `chamfer` brought under
 `clamp_param` (one recipe), the `hankin` leg kind generalized in the scheduler
-(all 13), §2.2's standalone relax leg (five recipes, sites at `solids.h:892, 965,
-993`), and `expand_to_primitives`' `bevel(0.5) → AMBO` special case (§2.1).
+(all 13), §2.2's standalone relax leg (five recipes, sites listed at the end of
+§2.2), and `expand_to_primitives`' `bevel(0.5) → AMBO` special case (§2.1).
 Also fix §8.3's `prev_used[128]` trap and the `PROVENANCE_TOL_SQ` scaling — both
 are prerequisites for any high-F recipe. Then pass the §9.3 memory gate, tune leg
 frames (§7), device profile and report.
@@ -1199,7 +1220,8 @@ answered first.
 **Out of scope.**
 - Parameterizing `dual` as a continuous sweep — §3.3's gated swap is the answer;
   see §12.
-- `propeller` / `whirl` / `loft` — unimplemented (`conway.h:1087-1088` TODO).
+- `propeller` / `whirl` / `loft` — unimplemented (TODO at the end of
+  `core/mesh/conway.h`).
 - Replacing the generator functions with recipes (§4).
 - **Parsing registry names into ops** (§4.1). Lossy and a competing source of
   truth; the recipe table is the answer.
@@ -1289,7 +1311,7 @@ analysis is not redone.
    rule.
 
 3. **Sweeping a `truncate` leg to `t > 0.5`** (the two `truncate50d` recipes).
-   **DEAD:** `t = 0.5` short-circuits to `ambo` (`conway.h:567`), halving vertex
+   **DEAD:** `t = 0.5` short-circuits to `ambo` (`MeshOps::truncate`), halving vertex
    count and every primary degree. `clamp_param` prevents the trap but lands the
    leg on a cuboctahedron-like form that then clean-swaps to the recipe's
    self-intersecting target — a full-screen pop. §2.1.
