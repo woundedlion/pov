@@ -2057,9 +2057,12 @@ inline void test_face_cull_covers_aa_fringe() {
       {3, 0.18f, Vector(1, 0, 0)},
   };
   int total_paintable = 0;
-  for (const Cfg &c : cfgs)
-    total_paintable +=
+  for (const Cfg &c : cfgs) {
+    const int paintable =
         expect_face_cull_covers_fringe<W, H>(c.sides, c.rho, c.axis);
+    HS_EXPECT_GT(paintable, 0);
+    total_paintable += paintable;
+  }
   HS_EXPECT_GT(total_paintable, 1000);
 }
 

@@ -447,7 +447,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 178. ✅ **Dead computation kept alive by a `(void)` cast** — `tests/test_scan.h:669, 720`. `stride` is never read (superseded by `lod_stride`) and line 720 exists solely to suppress the unused-variable warning.
 
-179. **Face-cull fringe check has no per-config non-vacuity floor** — `tests/test_sdf.h:1945-1984`. Its sibling `expect_cull_covers_interior` guards itself with `HS_EXPECT_GT(interior, 0)`; only the caller's aggregate `total_paintable > 1000` is asserted here, so one of four configs degenerating to zero paintable pixels would be fully vacuous and invisible.
+179. ✅ **Face-cull fringe check has no per-config non-vacuity floor** — `tests/test_sdf.h:1945-1984`. Its sibling `expect_cull_covers_interior` guards itself with `HS_EXPECT_GT(interior, 0)`; only the caller's aggregate `total_paintable > 1000` is asserted here, so one of four configs degenerating to zero paintable pixels would be fully vacuous and invisible.
 
 180. **Table-integrity failures report a count, not a location** — `tests/test_reaction_graph.h:146, 162, 176, 224, 250`. Five cases accumulate a total and assert zero, so a red run on a 92 KB machine-generated table says "37 vs 0" and nothing about which row is corrupt. The harness's own `FAIL_PRINT_CAP` already solves the flood problem the aggregation avoids.
 
