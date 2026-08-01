@@ -76,7 +76,7 @@ protected:
    *          by dropping sub-LSB positive updates. clamp bounds the input so
    *          65535.5 -> 65535 with no overflow.
    */
-  static inline uint16_t to_q16(float v) {
+  static __attribute__((always_inline)) inline uint16_t to_q16(float v) {
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
   }
 
