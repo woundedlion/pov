@@ -189,7 +189,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── mesh/                   Polyhedral meshes and their operators
 │   │   ├── mesh.h                  PolyMesh, HalfEdgeMesh, MeshOps (compile, clone, etc.)
 │   │   ├── mesh_classes.h          Congruence-class clustering + canonical distance-LUT bake
-│   │   ├── spatial.h               KDTree, k-nearest-neighbor, MeshState (+ speculative AABB)
+│   │   ├── spatial.h               KDTree k-nearest-neighbor search, arena-backed MeshState
 │   │   ├── conway.h                Conway operators (dual, kis, ambo, truncate, etc.)
 │   │   ├── conway_graph.h          Constexpr solid-to-solid operator edge graph + walk helpers
 │   │   ├── recipe.h                Recipe lowering to primitive Conway steps + replay
