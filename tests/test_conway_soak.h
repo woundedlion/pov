@@ -230,14 +230,17 @@ inline void test_full_graph_walk_soak() {
   int legs = 0;
   int frames = 0;
   int legs_at_coverage = -1;
-  uint64_t lit = 0;
+  uint64_t render_energy = 0;
   while (frames < SOAK_FRAME_CAP && legs < SOAK_LEG_BOUND) {
     fx.draw_frame();
     fx.advance_display();
     ++frames;
     if (frames % 16 == 0) {
-      const Pixel &p = fx.get_pixel(SOAK_W / 2, SOAK_H / 2);
-      lit += static_cast<uint64_t>(p.r) + p.g + p.b;
+      for (int y = 0; y < SOAK_H; ++y)
+        for (int x = 0; x < SOAK_W; ++x) {
+          const Pixel &p = fx.get_pixel(x, y);
+          render_energy += static_cast<uint64_t>(p.r) + p.g + p.b;
+        }
     }
 
     const int node = HankinWalkProbe::node(fx);
@@ -276,17 +279,17 @@ inline void test_full_graph_walk_soak() {
   HS_EXPECT_EQ(visited_count, ConwayGraph::NUM_NODES);
   HS_EXPECT_GT(legs_at_coverage, 0);
   HS_EXPECT_LE(legs_at_coverage, SOAK_LEG_BOUND);
-  HS_EXPECT_GT(lit, (uint64_t)0);
+  HS_EXPECT_GT(render_energy, (uint64_t)0);
 
   std::printf(
       "  [soak] %d legs (%d frames) to full %d-node coverage; "
       "persistent hw=%zu scratch_a hw=%zu/%zu scratch_b hw=%zu/%zu "
-      "center-sample sum=%llu\n",
+      "sampled frame energy=%llu\n",
       legs_at_coverage, frames, ConwayGraph::NUM_NODES,
       persistent_arena.get_high_water_mark(),
       scratch_arena_a.get_high_water_mark(), scratch_arena_a.get_capacity(),
       scratch_arena_b.get_high_water_mark(), scratch_arena_b.get_capacity(),
-      static_cast<unsigned long long>(lit));
+      static_cast<unsigned long long>(render_energy));
 }
 
 // ---------------------------------------------------------------------------

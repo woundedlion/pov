@@ -63,7 +63,7 @@ with `HS_SKIP_FORMAT=1`; **never** run `clang-format -i` on an existing file. No
 ## 4. Gates after every commit
 
 - `export EMSDK=C:/work/emsdk; cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF;
-  cmake --build --preset tests -j 8; ctest --preset tests` → **51/51**
+  cmake --build --preset tests -j 8; ctest --preset tests` → **59/59**
 - `pio run -e phantasm` → `[teensy-gate] phantasm: PASS`, and report RAM1
   `code`, RAM1 `variables` (DTCM), FLASH `data`, **and the per-commit delta of
   each**.

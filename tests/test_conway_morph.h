@@ -964,8 +964,8 @@ inline void test_edge_morph_frames_fit_scratch_budget() {
         e.twist_from +
         (e.twist_to - e.twist_from) * ((t - e.t_from) / (e.t_to - e.t_from));
 
-    Arena a(morph_target_buf, sizeof(morph_target_buf));
-    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    Arena a(morph_target_buf, MORPH_SCRATCH_A_BUDGET);
+    Arena b(morph_temp_buf, MORPH_SCRATCH_B_BUDGET);
     {
       ScratchScope frame_a(a);
       ScratchScope frame_b(b);

@@ -719,6 +719,51 @@ inline void case_snub_collapsed_endpoint() {
   MeshOps::snub(mesh, target, temp, opaque(1.0f));
 }
 
+/** @brief Death case: a Conway morph operator rejects an empty mesh. */
+inline void case_conway_empty_mesh() {
+  static uint8_t target_buf[64];
+  static uint8_t temp_buf[64];
+  Arena target(target_buf, sizeof(target_buf));
+  Arena temp(temp_buf, sizeof(temp_buf));
+  PolyMesh mesh;
+  MeshOps::truncate(mesh, target, temp, opaque(0.25f));
+}
+
+/** @brief Death case: a Conway morph operator rejects an open one-face mesh. */
+inline void case_conway_degenerate_mesh() {
+  static uint8_t source_buf[1024];
+  static uint8_t target_buf[4096];
+  static uint8_t temp_buf[4096];
+  Arena source(source_buf, sizeof(source_buf));
+  Arena target(target_buf, sizeof(target_buf));
+  Arena temp(temp_buf, sizeof(temp_buf));
+  PolyMesh mesh;
+  mesh.vertices.bind(source, 3);
+  mesh.vertices.push_back(Vector(1, 0, 0));
+  mesh.vertices.push_back(Vector(0, 1, 0));
+  mesh.vertices.push_back(Vector(0, 0, 1));
+  mesh.face_counts.bind(source, 1);
+  mesh.face_counts.push_back(3);
+  mesh.faces.bind(source, 3);
+  mesh.faces.push_back(0);
+  mesh.faces.push_back(1);
+  mesh.faces.push_back(2);
+  MeshOps::truncate(mesh, target, temp, opaque(0.25f));
+}
+
+/** @brief Death case: a Conway morph operator traps on target exhaustion. */
+inline void case_conway_target_exhausted() {
+  static uint8_t source_buf[4096];
+  static uint8_t target_buf[16];
+  static uint8_t temp_buf[4096];
+  Arena source(source_buf, sizeof(source_buf));
+  Arena target(target_buf, sizeof(target_buf));
+  Arena temp(temp_buf, sizeof(temp_buf));
+  PolyMesh mesh;
+  build_solid<Solids::Tetrahedron>(mesh, source);
+  MeshOps::truncate(mesh, target, temp, opaque(0.25f));
+}
+
 /**
  * @brief Builds a one-face PolyMesh with independently sized count and index
  * data.
@@ -1593,6 +1638,9 @@ inline const Case *all_cases(int &n) {
       {"medial_aliases_input", case_medial_aliases_input},
       {"chamfer_collapsed_endpoint", case_chamfer_collapsed_endpoint},
       {"snub_collapsed_endpoint", case_snub_collapsed_endpoint},
+      {"conway_empty_mesh", case_conway_empty_mesh},
+      {"conway_degenerate_mesh", case_conway_degenerate_mesh},
+      {"conway_target_exhausted", case_conway_target_exhausted},
       {"half_edge_face_counts_short", case_half_edge_face_counts_short},
       {"half_edge_face_counts_long", case_half_edge_face_counts_long},
       {"mesh_compile_face_counts_short", case_mesh_compile_face_counts_short},
@@ -1890,7 +1938,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 86;
+  constexpr int DEATH_CASE_COUNT = 89;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
