@@ -135,6 +135,8 @@ inline void test_helpers() {
   Config aq = test_config();
   aq.acquire_quiet_cols = aq.beacon_span_cols() / 4 - 1;
   HS_EXPECT_FALSE(aq.valid());
+  ++aq.acquire_quiet_cols;
+  HS_EXPECT_TRUE(aq.valid());
   Config id = test_config();
   id.beacon_interdigit_timeout_cols = id.beacon_span_cols() / 4 - 1;
   HS_EXPECT_FALSE(id.valid());
