@@ -4179,6 +4179,16 @@ struct Line {
   }
 };
 
+// Leaf roster for the CSG composition contract: a leaf that stops satisfying
+// SDFShape fails here rather than at whichever composition happens to use it.
+static_assert(SDFShape<Ring>);
+static_assert(SDFShape<DistortedRing>);
+static_assert(SDFShape<FlatDistortedRing>);
+static_assert(SDFShape<PlanarPolygon>);
+static_assert(SDFShape<Star>);
+static_assert(SDFShape<Flower>);
+static_assert(SDFShape<Line>);
+
 // ============================================================================
 // 3D Volumetric SDF Shapes (for Scan::Volume raymarching)
 // ============================================================================
