@@ -507,6 +507,23 @@ async function main() {
   if (!MeshOps) {
     fail('Module.MeshOps binding is missing');
   } else {
+    // A rejected mesh-producing call returns null and names the reason through
+    // the MeshOpResult embind enum; pin the value roster so a dropped/renamed
+    // enumerator fails here. The reasons drive opposite caller actions (shrink
+    // the chain vs. clearToolingMemory()), so an undifferentiated null is not
+    // enough for the solids tool.
+    const MR = Module.MeshOpResult;
+    for (const reason of
+         ['OK', 'UNKNOWN_NAME', 'CONNECTIVITY_OVERFLOW', 'FACE_DEGREE_OVERFLOW',
+          'ARENA_EXHAUSTED', 'NON_FINITE_ARG', 'ANGLE_OUT_OF_DOMAIN']) {
+      if (!MR || !MR[reason]) {
+        fail(`Module.MeshOpResult.${reason} is not bound`);
+      }
+    }
+    if (typeof MeshOps.getLastResult !== 'function') {
+      fail('MeshOps.getLastResult binding is missing');
+    }
+
     // Use a real registry name rather than hardcoding one (anti-drift).
     const registry = MeshOps.getRegistry();
     const solidName = registry && registry.length ? registry[0].name : null;
@@ -516,8 +533,14 @@ async function main() {
       // Unknown names must be rejected (null), not abort the module.
       const bogus = MeshOps.fromSolidName('definitely_not_a_solid');
       if (bogus) { fail('fromSolidName(unknown) should return null'); bogus.delete(); }
+      if (MeshOps.getLastResult() !== MR.UNKNOWN_NAME) {
+        fail('fromSolidName(unknown) did not report UNKNOWN_NAME');
+      }
 
       const solid = MeshOps.fromSolidName(solidName);
+      if (MeshOps.getLastResult() !== MR.OK) {
+        fail(`fromSolidName("${solidName}") did not report OK`);
+      }
       if (!solid) {
         fail(`fromSolidName("${solidName}") returned null`);
       } else {
@@ -575,6 +598,16 @@ async function main() {
         // (finite_arg → null) rather than abort the module.
         const hankinBad = solid.hankin(NaN);
         if (hankinBad) { fail(`${solidName}.hankin(NaN) should return null`); hankinBad.delete(); }
+        if (MeshOps.getLastResult() !== MR.NON_FINITE_ARG) {
+          fail(`${solidName}.hankin(NaN) did not report NON_FINITE_ARG`);
+        }
+        // A finite angle outside [0, pi/2] is a different rejection: it is
+        // rejected rather than clamped, and must not read back as NON_FINITE_ARG.
+        const hankinWide = solid.hankin(Math.PI);
+        if (hankinWide) { fail(`${solidName}.hankin(π) should return null`); hankinWide.delete(); }
+        if (MeshOps.getLastResult() !== MR.ANGLE_OUT_OF_DOMAIN) {
+          fail(`${solidName}.hankin(π) did not report ANGLE_OUT_OF_DOMAIN`);
+        }
 
         solid.delete();
       }
@@ -596,7 +629,7 @@ async function main() {
         if (post.getVertices().length === 0) fail('post-wipe getVertices() empty');
         post.delete();
       }
-      console.log(`  MeshOps: ${solidName} + dual, truncate, relax(+clamp), hankin reject, classifyFaces, clearToolingMemory OK`);
+      console.log(`  MeshOps: ${solidName} + dual, truncate, relax(+clamp), hankin reject, classifyFaces, clearToolingMemory, MeshOpResult reasons OK`);
 
       // ── getRecipe: recipe payload + reconstruction parity ──────────────────
       // For every entry with a recipe, replaying the chain from the seed through
