@@ -1,3 +1,5 @@
+Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+
 Scope: These terms cover the core infrastructure — the rendering engine, math,
 scan/raster, hardware drivers, and test harness — everything outside
 `effects/`. The visual effects in `effects/`, including their compiled form in
