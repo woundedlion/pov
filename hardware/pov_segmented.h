@@ -518,10 +518,8 @@ private:
     // Complete a deferred sync pulse from the previous wake: a wake that
     // submitted no frame has a body too short to width a same-wake pulse to
     // spec §5.2's "tens of µs," so it holds the pin HIGH and drops it here.
-    if (sync_low_pending) {
+    if (sync_pulse.take_deferred_low())
       digitalWriteFast(PIN_FRAME_SYNC, LOW);
-      sync_low_pending = false;
-    }
 
     // Mailbox handoff (spec §8.2): a brief IRQ-off copy in the consumer.
     pov::sync::BurstSnapshot burst;
@@ -579,14 +577,9 @@ private:
     }
     const bool did_render = submit_gate.settle(action, accepted);
 
-    if (a.pulse) {
-      if (did_render) {
-        digitalWriteFast(PIN_FRAME_SYNC, LOW);
-      } else {
-        // Body too short to width the pulse: hold HIGH, drop at the next wake.
-        sync_low_pending = true;
-      }
-    }
+    // A body too short to width the pulse holds it HIGH for the next wake.
+    if (sync_pulse.settle(a.pulse, did_render))
+      digitalWriteFast(PIN_FRAME_SYNC, LOW);
   }
 
   // ── Pixel packing ───────────────────────────────────────────────────
@@ -675,8 +668,12 @@ private:
    *          (host-tested); the ISR only performs the action it names.
    */
   static pov::SubmitGate submit_gate;
-  static bool
-      sync_low_pending; /**< ISR-owned: sync-pulse drop deferred to next wake. */
+  /**
+   * @brief Sync-pulse width decision and its deferred-drop latch.
+   * @details Lives in pov_submit_gate.h (host-tested); the ISR only performs
+   *          the pin writes it names.
+   */
+  static pov::SyncPulseGate sync_pulse;
 
   static int
       segment_id; /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
@@ -708,7 +705,7 @@ template <int S, int N, int RPM>
 pov::SubmitGate POVSegmented<S, N, RPM>::submit_gate;
 
 template <int S, int N, int RPM>
-bool POVSegmented<S, N, RPM>::sync_low_pending = false;
+pov::SyncPulseGate POVSegmented<S, N, RPM>::sync_pulse;
 
 template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::segment_id = 0;
 

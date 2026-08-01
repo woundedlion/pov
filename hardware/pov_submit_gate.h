@@ -3,7 +3,8 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
  * @file pov_submit_gate.h
- * @brief Pure, host-testable LED-submit decision for the POVSegmented ISR.
+ * @brief Pure, host-testable LED-submit and sync-pulse decisions for the
+ *        POVSegmented ISR.
  *
  * Split out of pov_segmented.h (Arduino-only) so the one place the driver
  * reacts to the DMA transport's accept/drop verdict is unit-testable on the
@@ -95,6 +96,51 @@ private:
       false; /**< Black frame accepted; no repeat needed. */
   bool resubmit_needed =
       false; /**< Back frame dropped on overrun; retry next wake. */
+};
+
+/**
+ * @brief Width decision for the master's sync pulse on the shared sync wire.
+ * @details ISR-owned, like SubmitGate. A wake that renders a frame has a body
+ *          long enough to width the pulse to spec §5.2's "tens of µs", so the
+ *          pin drops before the wake returns. A wake that renders nothing holds
+ *          the pin HIGH across the ISR boundary and drops it at the head of the
+ *          next wake instead.
+ */
+class SyncPulseGate {
+public:
+  /**
+   * @brief Claims a pulse the previous wake left HIGH.
+   * @return True when the caller must drive the sync pin LOW now; the latch is
+   *         cleared by the claim.
+   */
+  bool take_deferred_low() {
+    if (!low_pending)
+      return false;
+    low_pending = false;
+    return true;
+  }
+
+  /**
+   * @brief Ends this wake's pulse, or defers it to the next wake.
+   * @param pulse Whether this wake drove the sync pin HIGH.
+   * @param did_render Whether the wake's LED work completed, widening the body
+   *        enough to carry the pulse.
+   * @return True when the caller must drive the sync pin LOW before returning.
+   */
+  bool settle(bool pulse, bool did_render) {
+    if (!pulse)
+      return false;
+    if (did_render)
+      return true;
+    low_pending = true;
+    return false;
+  }
+
+  /** @brief Whether a pulse is being held HIGH across the ISR boundary. */
+  bool low_deferred() const { return low_pending; }
+
+private:
+  bool low_pending = false; /**< Pulse held HIGH; drop it at the next wake. */
 };
 
 } // namespace pov

@@ -37,6 +37,7 @@ using pov::segment_x_col;
 using pov::segment_y;
 using pov::SubmitAction;
 using pov::SubmitGate;
+using pov::SyncPulseGate;
 
 // Compile-time proof the mapping is genuinely constexpr (the driver relies on
 // it folding at boot, off the ISR hot path).
@@ -786,6 +787,121 @@ inline void test_submit_dark_discards_pending_column() {
 }
 
 /**
+ * @brief Replays the flywheel ISR's sync-pin writes for a run of wakes.
+ * @details Mirrors the order in POVSegmented::flywheel_isr(): the deferred drop
+ *          at the head of the wake, the pulse's rising edge, then the same-wake
+ *          drop after the LED work.
+ */
+struct SyncPinTrace {
+  SyncPulseGate gate;
+  std::vector<bool> writes; /**< Pin writes in order; true = HIGH. */
+  bool high = false;        /**< Pin level after the last write. */
+
+  void wake(bool pulse, bool did_render) {
+    if (gate.take_deferred_low())
+      drive(false);
+    if (pulse)
+      drive(true);
+    if (gate.settle(pulse, did_render))
+      drive(false);
+  }
+
+  void drive(bool level) {
+    writes.push_back(level);
+    high = level;
+  }
+
+  /** @brief Level of write @p i, or LOW when the trace is that short. */
+  bool at(size_t i) const { return i < writes.size() && writes[i]; }
+};
+
+/**
+ * @brief A pulse on a wake that renders is widthed and dropped in that wake.
+ * @details The rising edge precedes the LED work (spec §5.2), so the render is
+ * what gives the pulse its width; the pin is LOW again before the ISR returns.
+ */
+inline void test_sync_pulse_widthed_by_render() {
+  SyncPinTrace t;
+  t.wake(/*pulse=*/true, /*did_render=*/true);
+
+  HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(2));
+  HS_EXPECT_TRUE(t.at(0));
+  HS_EXPECT_FALSE(t.at(1));
+  HS_EXPECT_FALSE(t.high);
+  HS_EXPECT_FALSE(t.gate.low_deferred());
+
+  // The next wake has nothing to complete, so it touches the pin not at all.
+  t.wake(false, false);
+  HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(2));
+}
+
+/**
+ * @brief A pulse on a wake that renders nothing stays HIGH into the next wake.
+ * @details The empty body would width the pulse to a few hundred ns, well under
+ * a downstream board's glitch filter, so the drop is deferred instead.
+ */
+inline void test_sync_pulse_deferred_across_wake_boundary() {
+  SyncPinTrace t;
+  t.wake(/*pulse=*/true, /*did_render=*/false);
+
+  HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(1));
+  HS_EXPECT_TRUE(t.high); // held across the ISR boundary
+  HS_EXPECT_TRUE(t.gate.low_deferred());
+
+  t.wake(false, false);
+  HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(2));
+  HS_EXPECT_FALSE(t.at(1));
+  HS_EXPECT_FALSE(t.high);
+  HS_EXPECT_FALSE(t.gate.low_deferred());
+
+  // The latch is one-shot: a later render-only wake emits no second drop.
+  t.wake(false, true);
+  HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(2));
+}
+
+/**
+ * @brief Back-to-back deferred pulses stay distinct edges.
+ * @details The held pulse is dropped at the head of the wake that raises the
+ * next one, so consecutive empty-bodied pulses never merge into one long HIGH.
+ */
+inline void test_sync_pulse_deferred_drop_precedes_next_pulse() {
+  SyncPinTrace t;
+  t.wake(/*pulse=*/true, /*did_render=*/false);
+  t.wake(/*pulse=*/true, /*did_render=*/false);
+
+  HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(3));
+  HS_EXPECT_TRUE(t.at(0));
+  HS_EXPECT_FALSE(t.at(1)); // the held pulse falls before the next rises
+  HS_EXPECT_TRUE(t.at(2));
+  HS_EXPECT_TRUE(t.high);
+  HS_EXPECT_TRUE(t.gate.low_deferred());
+
+  t.wake(/*pulse=*/true, /*did_render=*/true);
+  HS_EXPECT_EQ(t.writes.size(), static_cast<size_t>(6));
+  HS_EXPECT_FALSE(t.at(3));
+  HS_EXPECT_TRUE(t.at(4));
+  HS_EXPECT_FALSE(t.at(5));
+  HS_EXPECT_FALSE(t.gate.low_deferred());
+}
+
+/**
+ * @brief A rendering wake without a pulse leaves the sync pin alone.
+ * @details Only the master's scheduled pulse may drive the shared wire; a stray
+ * LOW from a rendering wake would inject an edge downstream boards decode.
+ */
+inline void test_sync_pulse_render_without_pulse_is_silent() {
+  SyncPinTrace t;
+  t.wake(/*pulse=*/false, /*did_render=*/true);
+  HS_EXPECT_TRUE(t.writes.empty());
+  HS_EXPECT_FALSE(t.gate.low_deferred());
+
+  SyncPulseGate g;
+  HS_EXPECT_FALSE(g.settle(/*pulse=*/false, /*did_render=*/false));
+  HS_EXPECT_FALSE(g.low_deferred());
+  HS_EXPECT_FALSE(g.take_deferred_low());
+}
+
+/**
  * @brief Module entry point: run the segmented-POV cases.
  * @return Number of failures recorded by the module.
  */
@@ -812,6 +928,11 @@ inline int run_pov_segmented_tests() {
   test_submit_fresh_column_supersedes_retry();
   test_submit_dark_latch_gates_on_acceptance();
   test_submit_dark_discards_pending_column();
+
+  test_sync_pulse_widthed_by_render();
+  test_sync_pulse_deferred_across_wake_boundary();
+  test_sync_pulse_deferred_drop_precedes_next_pulse();
+  test_sync_pulse_render_without_pulse_is_silent();
 
   // Full-canvas tiling across representative rotation columns, including the
   // x=0 and x=w/2 frame boundaries and the wrap seam.
