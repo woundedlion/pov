@@ -15,7 +15,8 @@ What it does (spec §7.3, §7.4, §8):
     their LOAD ADDRESS against the Teensy 4 memory map (NOT an `nm` type letter:
     DTCM .bss and OCRAM .dmabuffers are both NOBITS and `nm` cannot tell them
     apart), and assert each lands in the region it must, with the arena's
-    MAGNITUDE pinned near 335 KB so a leaked HS_TEST_BUILD (8 MB) arena fails.
+    MAGNITUDE pinned near 305,152 B (298 KiB) so a leaked HS_TEST_BUILD (8 MB)
+    arena fails.
   * fail-loud       — a configured layout symbol that is NOT FOUND in the ELF is a
     violation, never a silent skip: a name that never matches would make the
     invariant never fire (false-green), the exact trap spec §7.4 warns about.
@@ -34,7 +35,7 @@ from pathlib import Path
 # Teensy 4 (i.MX RT1062) memory map — the load-bearing address buckets (§7.4).
 # Classify a symbol by where it LIVES (its VMA), not by section name or nm letter.
 #   ITCM  0x0000_0000  fast code              (part of RAM1)
-#   DTCM  0x2000_0000  fast data + stack      (part of RAM1) — the 335 KB arena
+#   DTCM  0x2000_0000  fast data + stack      (part of RAM1) — the 298 KiB arena
 #   OCRAM 0x2020_0000  DMAMEM + heap          (RAM2)         — the framebuffers
 #   FLASH 0x6000_0000  code + const/PROGMEM   (2 MiB on T4.0)— the reaction graph
 # Half-open [lo, hi) ranges. RAM1 in the budget == ITCM ∪ DTCM.
