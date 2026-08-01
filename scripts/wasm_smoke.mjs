@@ -490,6 +490,64 @@ async function main() {
       }
     }
 
+    // ── Memory-growth seam: a held view detaches, the re-fetch is live ────────
+    // getPixels() aliases WASM linear memory and ALLOW_MEMORY_GROWTH detaches
+    // that view on any heap growth — the bridge's most documented invariant, and
+    // otherwise never driven end to end: the MeshOps section below runs after
+    // engine.delete(), so no pixel view is ever outstanding when the growth
+    // happens. MeshOps' 16 MB tooling block is allocated lazily on first use and
+    // cannot fit the heap this module starts with, so the first call here IS the
+    // growth. Must stay ahead of every other MeshOps call in this file.
+    {
+      const effectNames = Object.keys(engine.getEffectSizes());
+      const registry = Module.MeshOps && Module.MeshOps.getRegistry();
+      const growSolid = registry && registry.length ? registry[0].name : null;
+      if (effectNames.length === 0) {
+        fail('growth-seam: no effects to render a frame with');
+      } else if (!growSolid) {
+        fail('growth-seam: MeshOps reported no solid to allocate the tooling block with');
+      } else if (!engine.setEffect(effectNames[0])) {
+        fail(`growth-seam: setEffect("${effectNames[0]}") failed`);
+      } else {
+        engine.drawFrame();
+        const held = engine.getPixels();
+        const before = Array.from(held);
+        if (held.byteLength === 0) {
+          fail('growth-seam: the freshly fetched pixel view is already detached');
+        }
+        const grower = Module.MeshOps.fromSolidName(growSolid);
+        if (!grower) fail(`growth-seam: fromSolidName("${growSolid}") returned null`);
+        else grower.delete();
+        // Leave the arenas as the MeshOps section below expects to find them.
+        Module.MeshOps.clearToolingMemory();
+
+        if (held.byteLength !== 0) {
+          fail('growth-seam: the 16 MB tooling allocation left the held pixel view ' +
+            'attached — the detachment contract is no longer exercised, so a ' +
+            'regression in it would ship unseen');
+        }
+        const refetched = engine.getPixels();
+        if (refetched.byteLength === 0) {
+          fail('growth-seam: the re-fetched pixel view is detached');
+        } else if (refetched.length !== before.length) {
+          fail(`growth-seam: re-fetched view length ${refetched.length}, ` +
+            `expected ${before.length}`);
+        } else {
+          let mismatch = -1;
+          for (let i = 0; i < before.length; i++) {
+            if (refetched[i] !== before[i]) { mismatch = i; break; }
+          }
+          if (mismatch >= 0) {
+            fail(`growth-seam: re-fetched pixels diverge at index ${mismatch}: ` +
+              `${refetched[mismatch]} != ${before[mismatch]}`);
+          } else {
+            console.log(`  growth-seam: held view detached by the tooling allocation; ` +
+              `re-fetch is live and byte-identical (${before.length} channels)`);
+          }
+        }
+      }
+    }
+
     // Log worst-case stack usage as a margin against STACK_SIZE.
     const stack = engine.getArenaMetrics().stack;
     if (!stack) fail('getArenaMetrics() omits the stack region');
