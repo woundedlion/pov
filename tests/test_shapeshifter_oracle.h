@@ -145,6 +145,21 @@ struct ShapeShifterWhiteBox {
     effect.plot_filters.prepare(canvas);
     effect.draw_all(canvas);
   }
+
+  static float advance_phase(OracleEffect &effect, float speed,
+                             float amplitude) {
+    effect.phase = 0.0f;
+    effect.params.speed = speed;
+    effect.params.amplitude = amplitude;
+    effect.advance_phase();
+    return effect.phase;
+  }
+
+  static float phase_direction(OracleEffect &effect, bool opposite,
+                               float radius) {
+    effect.opposite_halves = opposite;
+    return effect.phase_direction(radius);
+  }
 };
 
 /** @brief Captures one renderer callable from a fresh deterministic effect. */
@@ -398,12 +413,34 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   expect_segment_tiles_reconstruct_full_frame(candidate_renderer());
 }
 
+inline void test_amplitude_preserves_sweep_velocity() {
+  OracleEffect effect;
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::advance_phase(effect, 0.04f, 1.0f),
+                 0.04f, 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::advance_phase(effect, 0.04f, 4.0f),
+                 0.01f, 1e-6f);
+}
+
+inline void test_opposite_halves_direction() {
+  OracleEffect effect;
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, false, 0.5f),
+               1.0f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, false, 1.5f),
+               1.0f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 0.5f),
+               1.0f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 1.5f),
+               -1.0f);
+}
+
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
   test_buffer_comparator_statistics();
   test_reference_matrix_is_exact_and_nonblack();
   test_candidate_matrix_stays_within_visual_budget();
   test_segment_tiles_reconstruct_full_frame();
+  test_amplitude_preserves_sweep_velocity();
+  test_opposite_halves_direction();
   return fixture.result();
 }
 
