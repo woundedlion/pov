@@ -1167,6 +1167,14 @@ inline void test_gnomonic_roundtrip() {
   // Near-equator inputs get clamped to STEREO_INF
   Complex zEq = gnomonic(Vector(1.0f, 1e-10f, 0.0f));
   HS_EXPECT_TRUE(std::abs(zEq.re) >= STEREO_INF - 1.0f);
+
+  // The floored divisor keys on the sign bit, so -0.0f projects like the tiny
+  // negatives it is the limit of, not like +0.0f.
+  Complex z_neg_zero = gnomonic(Vector(1.0f, -0.0f, 0.0f));
+  Complex z_tiny_neg = gnomonic(Vector(1.0f, -1e-12f, 0.0f));
+  Complex z_pos_zero = gnomonic(Vector(1.0f, 0.0f, 0.0f));
+  HS_EXPECT_TRUE(std::signbit(z_neg_zero.re) == std::signbit(z_tiny_neg.re));
+  HS_EXPECT_TRUE(std::signbit(z_neg_zero.re) != std::signbit(z_pos_zero.re));
 }
 
 // ============================================================================
