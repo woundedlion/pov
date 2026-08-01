@@ -2284,6 +2284,7 @@ struct Face {
 
   int y_min, y_max; /**< Inclusive vertical row bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
+  int build_width;  /**< Clip width the azimuth cull ran against; 0 if unclipped. */
   std::span<std::pair<float, float>>
       intervals;   /**< Azimuth coverage intervals (radians). */
   bool full_width; /**< True when the face spans all columns. */
@@ -2360,7 +2361,8 @@ struct Face {
   HS_O3_FN Face(std::span<const Vector> vertices,
                 std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
                 int h_virt, int height, const ClipRegion *clip = nullptr)
-      : build_height(height), full_width(true) {
+      : build_height(height), build_width(clip ? clip->w : 0),
+        full_width(true) {
 
     // Early vertical exit: a face whose latitude band (plus AA margin) maps to
     // an empty row range can never be rasterized.
@@ -3193,7 +3195,8 @@ struct Face {
 
   /**
    * @brief Emits the face's azimuth-coverage intervals for a row.
-   * @tparam W Canvas width in columns.
+   * @tparam W Canvas width in columns; must match the clip width the
+   * construction-time azimuth cull ran against.
    * @tparam H Canvas height in rows.
    * @tparam OutputIt Sink type invoked as out(float start, float end).
    * @param y Row index, which sets the pole widening below.
@@ -3208,6 +3211,9 @@ struct Face {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
+    HS_CHECK(build_width == 0 || W == build_width,
+             "Face::get_horizontal_intervals: W differs from the clip width the "
+             "azimuth cull ran against");
     if (full_width)
       return false;
 #ifdef HS_AA_AUDIT
