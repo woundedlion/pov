@@ -82,6 +82,12 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
                           DEFAULT_SCRATCH_A_SIZE,
                       DEFAULT_SCRATCH_B_SIZE);
 
+FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
+                                    size_t new_capacity) {
+  hs::log("ArenaVector grow abandons %zu bytes (cap %zu -> %zu)", bytes,
+          old_capacity, new_capacity);
+}
+
 namespace {
 /** @brief Offsets of the two scratch arena bases within global_arena_block. */
 struct ScratchBases {

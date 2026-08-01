@@ -343,6 +343,19 @@ template <int MAX_V> struct TriangularBitset {
 // ============================================================================
 
 /**
+ * @brief Logs an ArenaVector grow that abandons its previous block.
+ * @param bytes Size of the abandoned block.
+ * @param old_capacity Element capacity before the grow.
+ * @param new_capacity Element capacity after the grow.
+ * @details Out-of-line and non-template so the device image carries one copy for
+ * every element type. The leak is permanent until the arena is reset, so the
+ * line ships in release: without it a persistent-arena grow surfaces only as a
+ * later, innocent-looking allocation trapping on OOM.
+ */
+void log_arena_vector_grow(size_t bytes, size_t old_capacity,
+                           size_t new_capacity);
+
+/**
  * @brief Whether T is a sanctioned inline callable safe to store in an
  * ArenaVector despite not being trivially destructible.
  * @details Fn resolves to hs::inplace_function on host/WASM and
@@ -543,11 +556,9 @@ public:
     }
     // Otherwise (unbound, or a grow that abandons the old block) → allocate
     // fresh. A grow leaks the old block until the next arena reset/compaction.
-#ifndef NDEBUG
     if (bound)
-      hs::log("ArenaVector grow abandons %zu bytes (cap %zu -> %zu)",
-              element_capacity * sizeof(T), element_capacity, exact_capacity);
-#endif
+      log_arena_vector_grow(element_capacity * sizeof(T), element_capacity,
+                            exact_capacity);
     if (exact_capacity > 0) {
       // Trap an exact_capacity * sizeof(T) overflow that would wrap to a small
       // byte count and slip past Arena::allocate's bounds check.
