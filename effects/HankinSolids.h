@@ -436,20 +436,13 @@ private:
                                                           : strap_close_blend)
                    : star_close_blend;
       if (counterpart_blend < 1.0f) {
-        const int counterpart =
-            is_strap
-                ? (fi < static_cast<int>(MAX_HANKIN_FACES)
-                       ? host_face_palette[fi]
-                       : -1)
-                : (fi < static_cast<int>(MAX_NODE_FACES) ? star_rim_palette[fi]
-                                                         : -1);
-        if (counterpart >= 0) {
-          const float t =
-              hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
-          Color4 other = palette_bank.bank.entries[counterpart].get(t);
-          other.alpha = f.color.alpha;
-          f.color = other.lerp(f.color, counterpart_blend);
-        }
+        const uint8_t counterpart =
+            is_strap ? host_face_palette[fi] : star_rim_palette[fi];
+        const float t =
+            hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
+        Color4 other = palette_bank.bank.entries[counterpart].get(t);
+        other.alpha = f.color.alpha;
+        f.color = other.lerp(f.color, counterpart_blend);
       }
       // Coverage fades, at each end of the strap's life. A newborn rosette is
       // sub-pixel inside a star interior whose pixels sit mid-ramp, so no ramp
