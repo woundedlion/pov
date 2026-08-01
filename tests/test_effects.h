@@ -459,21 +459,36 @@ inline void clip_clear_parity_one(const char *name) {
     return displayed;
   };
 
+  size_t lit = 0, displayed_pixels = 0;
   for (int segment_id = 0; segment_id < PARITY_SEGMENTS; ++segment_id) {
     const std::vector<Pixel> full = render(segment_id, true);
     const std::vector<Pixel> clipped = render(segment_id, false);
     HS_EXPECT_EQ(full.size(), clipped.size());
 
     size_t different = 0;
-    for (size_t i = 0; i < full.size() && i < clipped.size(); ++i)
+    for (size_t i = 0; i < full.size() && i < clipped.size(); ++i) {
       if (full[i] != clipped[i])
         ++different;
+      if (full[i].r | full[i].g | full[i].b)
+        ++lit;
+    }
+    displayed_pixels += full.size();
     if (different)
       std::printf("  CLIP-CLEAR DRIFT %-20s segment %d: %zu of %zu displayed "
                   "pixels differ from the full-buffer clear\n",
                   name, segment_id, different, full.size());
     HS_EXPECT(different == 0,
               "clip clearing must not change any displayed pixel");
+  }
+  // Two all-black renders agree pixel for pixel, so the comparison above only
+  // means something once the sweep has produced output. Sparse effects can miss
+  // a single arm segment, so the requirement spans the whole sweep.
+  if (!effect_may_be_dark(name, PARITY_FRAMES)) {
+    if (lit == 0)
+      std::printf("  CLIP-CLEAR DARK %-20s no lit pixel over %zu displayed "
+                  "pixels\n",
+                  name, displayed_pixels);
+    HS_EXPECT(lit > 0, "clip-clear parity must compare a lit render");
   }
   hs::clear_mock_time();
 }
