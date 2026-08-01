@@ -16,8 +16,8 @@ const DEFAULT_JS = 'build/wasm-release/holosphere_wasm.js';
 const jsArg = process.argv[2] || process.env.WASM_JS || DEFAULT_JS;
 const jsPath = isAbsolute(jsArg) ? jsArg : join(process.cwd(), jsArg);
 
-// CI overrides via WASM_SMOKE_FRAMES to reach late-lifecycle events the
-// 3-frame default never hits late lifecycle events such as arena compaction.
+// CI overrides via WASM_SMOKE_FRAMES to reach late-lifecycle events such as
+// arena compaction that the 3-frame default never hits.
 const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 3);
 
 // The stack has no allocator trap and stack_high_water_mark() saturates at

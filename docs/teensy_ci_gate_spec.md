@@ -259,7 +259,7 @@ Key decisions:
 - **`effects_legacy.h` is in scope here even though it's excluded from code review.**
   `Holosphere.ino` includes it, so the firmware image must compile it. (The review-scope
   exclusion in `prompts/analysis.txt` is about *quality grading*, not *buildability*.)
-- **Same board, different flags.** All four environments set `board = teensy40`. Phantasm adds
+- **Same board, different flags.** All six environments set `board = teensy40`. Phantasm adds
   `build_flags += -D USE_DMA_LEDS`; `phantasm8` also sets `PHANTASM_NUM_SEGMENTS=8`, while
   `holosphere_dma` enables the single-board DMA branch. The DMA define mirrors the guarded define the `.ino` already sets
   (keep the `#define` in the `.ino` as the source of truth; the env flag is only needed if a
@@ -402,9 +402,9 @@ meaningful frame-over-frame.
 ## 7. Validation dimensions
 
 ### 7.1 Build success
-`pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8`. Any compile or link failure
+`pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8 -e profile -e profile_o3`. Any compile or link failure
 fails the job. `holosphere` and the qualified N=4 `phantasm` image also run size/layout budgets;
-`holosphere_dma` and `phantasm8` are compile/link profiles for otherwise-uncovered device branches.
+`holosphere_dma`, `phantasm8`, `profile`, and `profile_o3` are compile/link profiles for otherwise-uncovered device branches and profiling flags.
 
 ### 7.2 Warning hygiene — baseline ratchet *(decided)*
 Policy: **baseline ratchet**, not hard `-Werror`. The tree is not yet known to be warning-clean
@@ -672,9 +672,9 @@ The active implementation is in [`.github/workflows/ci.yml`](../.github/workflow
 `teensy-size` runs the cached size/layout build, while `teensy-warnings` performs a separate
 cold build. The original single-job sketch follows for design context.
 
-A **single job builds all four environments** (no matrix) — they share one Teensy toolchain, so a
+A **single job builds all six environments** (no matrix) — they share one Teensy toolchain, so a
 matrix would download it repeatedly for marginal isolation. `pio run` builds them sequentially;
-the gate script enforces budgets on the two shipping environments, while the two compile profiles
+the gate script enforces budgets on the two shipping environments, while the four compile profiles
 close device-branch drift gaps. This is the same invocation the local recipe uses (§11):
 
 ```yaml
@@ -716,7 +716,7 @@ close device-branch drift gaps. This is the same invocation the local recipe use
       - name: Install pinned PlatformIO
         run: pip install 'platformio==<pinned>'
       - name: Build shipping targets + compile profiles
-        run: pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8
+        run: pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8 -e profile -e profile_o3
       - name: Upload firmware artifacts            # optional: .hex/.elf for inspection
         uses: actions/upload-artifact@v4
         with: { name: firmware, path: .pio/build/*/firmware.* }
@@ -733,7 +733,7 @@ Notes:
 - **Two caches, like `ci.yml`.** `~/.platformio` (toolchain/packages) *and* `build_cache_dir`
   (objects). Without the object cache the big TU + FastLED rebuild cold every run; with it, only
   changed TUs recompile — the same reason `ci.yml` runs ccache.
-- **One job, four environments.** Cold-cache cost is one toolchain download. If per-profile
+- **One job, six environments.** Cold-cache cost is one toolchain download. If per-profile
   *independent* failure isolation later proves worth the extra runner, fall back to a matrix — but
   keep the cache key target-agnostic (above) so the warm-cache case still shares one entry.
 - **Cache `~/.platformio`** (the toolchain + framework packages) keyed on the pinned platform
@@ -754,7 +754,7 @@ A developer who flashes via VMicro should be able to run the identical gate befo
 ```
 # Build budgeted Teensy images and compile/link profiles (CI parity).
 teensy-size:
-    pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8
+    pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8 -e profile -e profile_o3
 ```
 
 `pio` is the only new prerequisite (`pip install platformio`); the Teensy toolchain auto-installs
@@ -822,7 +822,8 @@ it.)
 ### 13.1 Acceptance criteria — "the gate is done when…"
 
 1. The budgeted `holosphere` and N=4 `phantasm` environments plus compile-only
-   `holosphere_dma` and `phantasm8` profiles build **green** under the pinned toolchain.
+   `holosphere_dma`, `phantasm8`, `profile`, and `profile_o3` profiles build
+   **green** under the pinned toolchain.
 2. Holosphere reproduces the VMicro `-O3` options; Phantasm uses the documented `-Os`,
    newlib-nano, and custom-linker size configuration. Both retain 600 MHz, `USB_SERIAL`,
    `gnu++20`, and the captured `-fno-*`/`-Wno-*` flags (§4.1).
@@ -836,7 +837,7 @@ it.)
    and `just teensy-size` reproduces the CI *pass/fail* locally (§11).
 7. **Wall-clock budget met.** Warm-cache run (toolchain + objects restored) completes under a stated
    target (e.g. **< ~3 min**); cold run (toolchain download + full `-O3` rebuild of the 7,685-line
-   `reaction_graph.cpp` + FastLED across four environments) under a looser one. If warm runs blow the target, the
+   `reaction_graph.cpp` + FastLED across six environments) under a looser one. If warm runs blow the target, the
    object cache (§10) isn't engaging — investigate before flipping the check required.
 
 ---
@@ -846,7 +847,8 @@ it.)
 All five prior open questions have been decided; the spec body reflects them.
 
 1. **Targets — both shipping images plus compile profiles.** Gate `Holosphere` and qualified N=4
-   `Phantasm`; compile `holosphere_dma` and `phantasm8` in the same job, not a matrix, since all share
+   `Phantasm`; compile `holosphere_dma`, `phantasm8`, `profile`, and `profile_o3`
+   in the same job, not a matrix, since all share
    one toolchain (§10). Both targets are **Teensy 4.0** (owner-confirmed). Holosphere runs at
    96×20 and Phantasm at 288×144. They share the arena allocation but
    differ in total RAM1, flash, and RAM2. Phantasm's DMA TX buffers are guarded by the

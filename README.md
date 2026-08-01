@@ -2255,7 +2255,8 @@ Each hardware target has its own `.ino` entry point in `targets/`:
 
 > **Optional — headless size/layout gate (CI parity).** A PlatformIO build
 > (`just teensy-size`, needs `pip install platformio`) builds the two budgeted
-> shipping images plus the `holosphere_dma` and `phantasm8` compile/link profiles
+> shipping images plus the `holosphere_dma`, `phantasm8`, `profile`, and
+> `profile_o3` compile/link profiles
 > on a stock machine. It checks shipping-image size and memory-region layout
 > against committed budgets while closing the device-only `#ifdef ARDUINO`
 > compile/size blind spot VMicro alone leaves uncovered. It coexists with VMicro

@@ -471,7 +471,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 190. ✅ **Docstring and memory-map comment state a 335 KB arena; the real figure is 305,152 B (298 KiB)** — `tools/teensy_gate.py:18, 37`. 335 KB is above the configured `max_bytes` ceiling, so the comment describes a value the gate would reject.
 
-191. **Three stale or garbled comments in load-bearing files** — `platformio.ini:141-142` inverts the fact (says Holosphere is committed at 288×144; it commits `RingSpin<96, 20>`); `scripts/wasm_smoke.mjs:19-20` is a half-merged sentence; `justfile:102` now builds six envs while README §11 and the spec both describe four.
+191. ✅ **Three stale or garbled comments in load-bearing files** — `platformio.ini:141-142` inverts the fact (says Holosphere is committed at 288×144; it commits `RingSpin<96, 20>`); `scripts/wasm_smoke.mjs:19-20` is a half-merged sentence; `justfile:102` now builds six envs while README §11 and the spec both describe four.
 
 192. **`build_pins.py`'s substring duplicate-detection will false-positive on a short pin value** — `tools/build_pins.py:36-39`. `if value in text` on unanchored strings like `"5.0.0"` would flag an unrelated `uses: some/action@5.0.0`; symmetrically, it inspects only three files, so a new workflow hardcoding a pin is invisible.
 
