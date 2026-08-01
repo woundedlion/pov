@@ -160,6 +160,8 @@ struct ShapeShifterWhiteBox {
     effect.params.opposite = opposite;
     return effect.phase_direction(radius);
   }
+
+  static void next_preset(OracleEffect &effect) { effect.next_preset(); }
 };
 
 /** @brief Captures one renderer callable from a fresh deterministic effect. */
@@ -433,6 +435,32 @@ inline void test_opposite_halves_direction() {
                -1.0f);
 }
 
+inline void test_preset_transition_snaps() {
+  {
+    OracleEffect effect;
+    effect.init();
+    ShapeShifterWhiteBox::next_preset(effect);
+
+    auto value = [&](const char *name) {
+      for (const auto &def : effect.getParameters())
+        if (std::strcmp(def.name, name) == 0)
+          return def.get();
+      HS_EXPECT(false, "ShapeShifter parameter is missing");
+      return -1.0f;
+    };
+
+    HS_EXPECT_EQ(value("Alpha"), 0.5f);
+    HS_EXPECT_EQ(value("Shape"), 2.793f);
+    HS_EXPECT_EQ(value("Count"), 43.327999f);
+    HS_EXPECT_EQ(value("Sides"), 6.562f);
+    HS_EXPECT_EQ(value("Function"), 0.0f);
+    HS_EXPECT_EQ(value("Amplitude"), 1.0f);
+    HS_EXPECT_EQ(value("Speed"), 0.0142f);
+    HS_EXPECT_EQ(value("Opposite"), 0.0f);
+  }
+  Timeline().clear();
+}
+
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
   test_buffer_comparator_statistics();
@@ -441,6 +469,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_segment_tiles_reconstruct_full_frame();
   test_amplitude_preserves_sweep_velocity();
   test_opposite_halves_direction();
+  test_preset_transition_snaps();
   return fixture.result();
 }
 

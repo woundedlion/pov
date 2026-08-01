@@ -3865,7 +3865,7 @@ inline void test_shapeshifter_preset_defaults() {
  * @details Each primitive is exercised at radii on both sides of the antipode
  * fold while the four phase functions advance through the same Plot pipeline.
  * Every selection renders one frame from an identical fresh state with the
- * preset lerp paused, so the only input that moves between renders is the
+ * preset timer paused, so the only input that moves between renders is the
  * slider: two selections folding to the same frame means the selection switch
  * did not dispatch on them.
  */
@@ -3876,8 +3876,6 @@ inline void test_shapeshifter_slider_selections_render() {
     reset_effect_globals();
     SS ss;
     ss.init();
-    // The preset Lerp rewrites every param each frame; pause it so the slider
-    // write survives into draw_all.
     ss.setAnimationsPaused(true);
     HS_EXPECT_TRUE(ss.updateParameter(slider, static_cast<float>(selection)) ==
                    ParamSetResult::APPLIED);

@@ -69,7 +69,13 @@ public:
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
                                              hs::rand_int(0, 65536)));
-    next_preset();
+    timeline.add(0, Animation::PeriodicTimer(
+                        PRESET_FRAMES,
+                        [this](Canvas &) {
+                          if (!animations_paused())
+                            next_preset();
+                        },
+                        true));
   }
 
   /** @brief Advances the waveform and draws the full radial shape stack. */
@@ -132,18 +138,6 @@ private:
         : alpha(alpha), shape(shape), count(count), sides(sides),
           function(function), amplitude(amplitude), speed(speed),
           opposite(opposite >= 0.5f) {}
-
-    /** @brief Interpolates every preset field from a to b. */
-    void lerp(const Params &a, const Params &b, float t) {
-      alpha = hs::lerp(a.alpha, b.alpha, t);
-      shape = hs::lerp(a.shape, b.shape, t);
-      count = hs::lerp(a.count, b.count, t);
-      sides = hs::lerp(a.sides, b.sides, t);
-      function = hs::lerp(a.function, b.function, t);
-      amplitude = hs::lerp(a.amplitude, b.amplitude, t);
-      speed = hs::lerp(a.speed, b.speed, t);
-      opposite = t < 0.5f ? a.opposite : b.opposite;
-    }
   };
 
   void advance_phase() {
@@ -154,13 +148,10 @@ private:
     return params.opposite && radius > 1.0f ? -1.0f : 1.0f;
   }
 
-  /** @brief Advances to the next preset and schedules a continuous blend. */
+  /** @brief Advances to the next preset and applies it atomically. */
   void next_preset() {
     presets.next();
-    timeline.add(0,
-                 Animation::Lerp(params, presets.prev_get(), presets.get(),
-                                 PRESET_FRAMES, ease_in_out_sin, &anims_paused)
-                     .then([this]() { next_preset(); }));
+    presets.apply(params);
   }
 
   /**
