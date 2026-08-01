@@ -1,8 +1,10 @@
 import json
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 GEN = Path(__file__).resolve().parent.parent
@@ -355,6 +357,64 @@ class SchematicParityTests(unittest.TestCase):
         with self.assertRaisesRegex(
                 fab.SchematicParityError, "cannot read parity report"):
             fab.require_schematic_parity("does-not-exist.json")
+
+
+class DesignRuleTests(unittest.TestCase):
+    def require_report(self, report):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "drc.json"
+            path.write_text(json.dumps(report), encoding="utf-8")
+            return fab.require_clean_drc(path)
+
+    def test_accepts_clean_report(self):
+        self.assertEqual(
+            self.require_report({"violations": [], "unconnected_items": []}),
+            (0, 0))
+
+    def test_rejects_violations(self):
+        with self.assertRaisesRegex(
+                fab.DesignRuleError,
+                "1 error-severity violations, 0 unconnected items"):
+            self.require_report({
+                "violations": [{"type": "clearance",
+                                "description": "Clearance violation"}],
+                "unconnected_items": [],
+            })
+
+    def test_rejects_unconnected_items(self):
+        with self.assertRaisesRegex(
+                fab.DesignRuleError,
+                "0 error-severity violations, 2 unconnected items"):
+            self.require_report({
+                "violations": [],
+                "unconnected_items": [{"type": "unconnected_items"},
+                                      {"type": "unconnected_items"}],
+            })
+
+    def test_rejects_report_without_violation_sections(self):
+        with self.assertRaisesRegex(
+                fab.DesignRuleError,
+                "no violations/unconnected_items sections"):
+            self.require_report({"schematic_parity": []})
+
+    def test_rejects_unreadable_report(self):
+        with self.assertRaisesRegex(
+                fab.DesignRuleError, "cannot read DRC report"):
+            fab.require_clean_drc("does-not-exist.json")
+
+    def test_rejects_nonzero_exit_on_a_clean_report(self):
+        def fake_run(args, check=True, **kw):
+            Path(args[args.index("-o") + 1]).write_text(
+                json.dumps({"violations": [], "unconnected_items": []}),
+                encoding="utf-8")
+            return subprocess.CompletedProcess(args, 5, "", "")
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "drc.json"
+            with unittest.mock.patch.object(fab, "run", fake_run):
+                with self.assertRaisesRegex(
+                        fab.DesignRuleError, "kicad-cli drc exited 5"):
+                    fab.run_drc(path)
 
 
 class PartCatalogTests(unittest.TestCase):
