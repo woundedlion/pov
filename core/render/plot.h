@@ -1359,9 +1359,11 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   // covered by the planar W/H sweep derivation. At W=288 the measured
   // pole-crossing geodesic worst case is 546 of the 2·W=576 slots. A planar
   // chart line can bow farther, so the simulation loop retains its capacity
-  // backstop.
+  // backstop. SinglePass emits as it goes and takes max_cache only as that
+  // backstop, so it never binds the storage.
   size_t max_cache = rasterize_scratch_a_bytes<W>() / sizeof(float);
-  steps_cache.bind(scratch_arena_a, max_cache);
+  if constexpr (!SinglePass)
+    steps_cache.bind(scratch_arena_a, max_cache);
 
   // PLANAR ARC REGISTERS (v0/v1): under a planar basis the rendered edge bows
   // longer than the geodesic chord, so re-derive v0/v1 from the true rendered
