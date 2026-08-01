@@ -3595,38 +3595,60 @@ inline void test_shapeshifter_preset_defaults() {
  * @brief Renders every Shape and Function slider selection.
  * @details Each primitive is exercised at radii on both sides of the antipode
  * fold while the four phase functions advance through the same Plot pipeline.
+ * Every selection renders one frame from an identical fresh state with the
+ * preset lerp paused, so the only input that moves between renders is the
+ * slider: two selections folding to the same frame means the selection switch
+ * did not dispatch on them.
  */
 inline void test_shapeshifter_slider_selections_render() {
-  reset_effect_globals();
-  ShapeShifter<SMALL_W, SMALL_H> ss;
-  ss.init();
+  using SS = ShapeShifter<SMALL_W, SMALL_H>;
 
-  auto render = [&] {
+  auto render = [](const char *slider, int selection) {
+    reset_effect_globals();
+    SS ss;
+    ss.init();
+    // The preset Lerp rewrites every param each frame; pause it so the slider
+    // write survives into draw_all.
+    ss.setAnimationsPaused(true);
+    HS_EXPECT_TRUE(ss.updateParameter(slider, static_cast<float>(selection)) ==
+                   ParamSetResult::APPLIED);
     ss.draw_frame();
     ss.advance_display();
 
     uint64_t acc = 0;
+    uint64_t fold = 1469598103934665603ull; // FNV-1a offset basis
     for (int y = 0; y < SMALL_H; ++y)
       for (int x = 0; x < SMALL_W; ++x) {
         const Pixel &pixel = ss.get_pixel(x, y);
         acc += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+        for (uint16_t channel : {pixel.r, pixel.g, pixel.b})
+          for (int byte = 0; byte < 2; ++byte) {
+            fold ^= (channel >> (8 * byte)) & 0xFF;
+            fold *= 1099511628211ull; // FNV-1a prime
+          }
       }
     HS_EXPECT_GT(acc, 0u);
+    return fold;
   };
 
-  for (int shape = 0; shape < ShapeShifter<SMALL_W, SMALL_H>::NUM_SHAPES;
-       ++shape) {
-    HS_EXPECT_TRUE(ss.updateParameter("Shape", static_cast<float>(shape)) ==
-                   ParamSetResult::APPLIED);
-    render();
-  }
-  for (int function = 0;
-       function < ShapeShifter<SMALL_W, SMALL_H>::NUM_FUNCTIONS; ++function) {
-    HS_EXPECT_TRUE(
-        ss.updateParameter("Function", static_cast<float>(function)) ==
-        ParamSetResult::APPLIED);
-    render();
-  }
+  auto sweep = [&](const char *slider, int selections) {
+    std::vector<uint64_t> folds;
+    for (int selection = 0; selection < selections; ++selection)
+      folds.push_back(render(slider, selection));
+    for (int i = 0; i < selections; ++i)
+      for (int j = i + 1; j < selections; ++j) {
+        if (folds[i] == folds[j])
+          std::printf("  SHAPESHIFTER %s selections %d and %d render the same "
+                      "frame (fold %llu)\n",
+                      slider, i, j,
+                      static_cast<unsigned long long>(folds[i]));
+        HS_EXPECT(folds[i] != folds[j],
+                  "each slider selection must render a distinct frame");
+      }
+  };
+
+  sweep("Shape", SS::NUM_SHAPES);
+  sweep("Function", SS::NUM_FUNCTIONS);
 }
 
 /**
