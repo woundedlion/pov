@@ -77,7 +77,9 @@ struct TimelineEvent {
     HS_CHECK(!dst.manager,
              "move_into would leak the destination's live animation");
     dst.start = start;
-    dst.handled = handled; // always false past the check; kept for symmetry
+    // Clears a stale flag: destroy() leaves handled set on a canceled pinned
+    // event, and this slot may be recycling one.
+    dst.handled = handled;
     dst.manager = manager;
     if (manager) {
       manager(*this, &dst);
