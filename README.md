@@ -288,6 +288,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── screenshot_capture_config.test.mjs Node unit test for the capture-offset table
 │   └── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster (CI)
 ├── tools/                      Firmware gates, device profiling, and asset bakes
+│   ├── build_pins.py           Shared external-tool version pins for CI and `just`
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate on every link
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
@@ -296,9 +297,11 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── teensy_pre.py / teensy_isystem.py / teensy_map.py / teensy_nano.py  PlatformIO build hooks
 │   ├── phantasm.ld             Phantasm linker script (memory-region layout)
 │   ├── profile_one.sh / profile_sweep.sh  On-device HS_PROFILE flash + capture runs
+│   ├── profile_islamic_big.sh  Focused profiling loop for IslamicStars' largest mesh
 │   ├── profile_capture.py      Serial capture of the profiling image's readout
 │   ├── parse_profile.py        Capture-log parser behind the per-window/per-preset reports
 │   ├── device_lock.sh          Host-global per-board lock every device path takes
+│   ├── pov_segment_map_export.cpp  Generator for the committed segment-map golden
 │   ├── relax_bakes.py / relax_bake_harness.cpp  Relaxed-mesh bake generator of record
 │   ├── gen_gamut_lut.py        sRGB gamut-boundary generator of record (emits core/color/gamut_lut.h)
 │   ├── docs_check.py           Markdown fence/link/anchor/path validator (CI)
