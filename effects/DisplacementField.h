@@ -108,12 +108,11 @@ public:
 
   /**
    * @brief Refreshes the displacement stack from the sliders, advances the
-   * NOISE -> BALLS phase machine under the master-gain fade, advances the
-   * palette wipe, then renders one frame.
+   * NOISE -> BALLS phase machine under the master-gain fade, then renders one
+   * frame.
    */
   void draw_frame() override {
     color_spin = wrap_t(color_spin + COLOR_SPIN_RATE);
-    step_palette_wipe();
 
     balls.template_params.amplitude =
         params.ball_amp * BALL_DRAPE_PER_AMPLITUDE;
@@ -526,25 +525,11 @@ private:
 
   /**
    * @brief Rolls the palette toward a freshly generated one via a ColorWipe.
-   * @details Skips while a previous wipe is still in flight so a second wipe
-   * cannot clobber the target the live one references.
    */
   void roll_palette() {
-    if (wipe_frames_remaining > 0)
-      return;
     next_palette = make_palette();
     timeline.add(0, Animation::ColorWipe(palette, next_palette,
                                          PALETTE_WIPE_FRAMES, ease_linear));
-    wipe_frames_remaining = PALETTE_WIPE_FRAMES;
-    wipe_pending = true;
-  }
-
-  void step_palette_wipe() {
-    if (wipe_pending) {
-      wipe_pending = false;
-    } else if (wipe_frames_remaining > 0) {
-      --wipe_frames_remaining;
-    }
   }
 
   FastNoiseLite walk_noise;
@@ -579,11 +564,6 @@ private:
   Vector normal;
   Orientation<> orientation;
 
-  int wipe_frames_remaining =
-      0; /**< Frames left in the in-flight palette wipe. */
-  bool wipe_pending =
-      false; /**< Wipe armed this frame; it first steps next frame. */
-
   /** @brief Displacement-phase state: the noise field or falling balls. */
   enum class Phase { BALLS, NOISE };
 
@@ -601,6 +581,11 @@ private:
       180; /**< Palette rollover period (~3 s at the ~60 fps cadence). */
   static constexpr int PALETTE_WIPE_FRAMES =
       168; /**< Wipe duration; slightly under the cycle so a wipe is never still in flight when the next rollover fires. */
+  // The wipe is armed mid-step and first steps on the next frame, so it spans
+  // PALETTE_WIPE_FRAMES + 1 frames.
+  static_assert(PALETTE_CYCLE_FRAMES > PALETTE_WIPE_FRAMES + 1,
+                "DisplacementField: a rollover firing mid-wipe would clobber "
+                "the next_palette the live ColorWipe still references");
   static constexpr float COLOR_SPIN_RATE =
       0.0015f; /**< Palette spin across the stack, in turns per frame. */
   static constexpr float LUT_SAMPLES_PER_UNIT =
