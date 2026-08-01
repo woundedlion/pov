@@ -538,16 +538,11 @@ inline void test_apply_wake_sequence() {
 class PhaseEffect : public Effect {
 public:
   explicit PhaseEffect(bool clipped_clear)
-      : Effect(8, 4), clipped_clear(clipped_clear) {}
+      : Effect(8, 4, EffectConfig{.reads_outside_band = !clipped_clear}) {}
 
   void draw_frame() override {
-    if (clipped_clear) {
-      Canvas canvas(*this);
-      paint(canvas);
-    } else {
-      Canvas canvas(*this);
-      paint(canvas);
-    }
+    Canvas canvas(*this);
+    paint(canvas);
   }
 
   [[nodiscard]] uint16_t last_stamp() const { return stamp; }
@@ -561,7 +556,6 @@ private:
         canvas(x, y) = Pixel(stamp, 0, 0);
   }
 
-  bool clipped_clear;
   uint16_t stamp = 0;
 };
 
@@ -586,16 +580,48 @@ inline bool phase_frame_matches(const PhaseEffect &effect, uint16_t stamp,
          effect.get_pixel(opposite_x, clip.y0).r != stamp;
 }
 
+/** True when the displayed frame still carries the seed outside its clip. */
+inline bool phase_frame_keeps_offband(const PhaseEffect &effect,
+                                      bool arm_a_left) {
+  const SegmentClip clip =
+      segment_clip(segment_map(0, 8, 4), arm_a_left, 8, 4, 8);
+  return effect.get_pixel((clip.x0 + 4) % 8, clip.y0).r != 0;
+}
+
 struct PhaseRun {
   int mismatches = 0;
   int blocked_draws = 0;
+  int offband_kept = 0;
 };
+
+/**
+ * @brief Scores the displayed frame's clip phase and its off-band residue.
+ * @details The residue is read only from a correctly phased frame: a
+ * mispainted half puts fresh pixels where the seed is sampled.
+ */
+inline void score_phase_frame(PhaseRun &result, const PhaseEffect &effect,
+                              uint16_t stamp, bool arm_a_left) {
+  if (!phase_frame_matches(effect, stamp, arm_a_left)) {
+    ++result.mismatches;
+    return;
+  }
+  if (phase_frame_keeps_offband(effect, arm_a_left))
+    ++result.offband_kept;
+}
 
 inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
   PhaseRun result;
   EffectHandoff<Effect> handoff;
   PhaseEffect effect(clipped_clear);
   phase_handoff = &handoff;
+
+  // Seed both buffers full-canvas: only a whole-buffer clear can erase what
+  // lands outside the segment clips the run then uses.
+  effect.set_clip(0, 4, 0, 8);
+  effect.draw_frame();
+  effect.advance_display();
+  effect.draw_frame();
+  effect.advance_display();
 
   set_phase_clip(effect, true);
   effect.draw_frame();
@@ -605,8 +631,7 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
 
   handoff.set_window_left(true);
   effect.advance_display();
-  if (!phase_frame_matches(effect, effect.last_stamp(), true))
-    ++result.mismatches;
+  score_phase_frame(result, effect, effect.last_stamp(), true);
 
   if (!post_wait)
     set_phase_clip(effect, handoff.window_left() == 0);
@@ -635,8 +660,7 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
     effect.advance_display();
     foreground.join();
 
-    if (!phase_frame_matches(effect, queued_stamp, zero_crossing))
-      ++result.mismatches;
+    score_phase_frame(result, effect, queued_stamp, zero_crossing);
   }
 
   effect.set_buffer_ready_hook(nullptr);
@@ -646,23 +670,28 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
 
 /**
  * @brief Verifies segment clipping is selected after buffer acquisition.
- * @details Composes Effect's double buffer, both Canvas constructors, and
+ * @details Composes Effect's double buffer, both stale-pixel clear paths, and
  * EffectHandoff's window publisher under a zero-spill scheduler. Sampling
  * before a blocked draw produces the alternating-window phase error; the
- * buffer-ready callback selects every displayed frame's live half.
+ * buffer-ready callback selects every displayed frame's live half. The
+ * clip-only clear leaves the seed outside the band intact where the
+ * whole-buffer clear erases it.
  */
 inline void test_clip_phase_after_buffer_release() {
   const PhaseRun pre_wait = run_phase_scheduler(false, false);
   HS_EXPECT_EQ(pre_wait.blocked_draws, 15);
   HS_EXPECT_EQ(pre_wait.mismatches, 14);
+  HS_EXPECT_EQ(pre_wait.offband_kept, 0);
 
   const PhaseRun generic = run_phase_scheduler(true, false);
   HS_EXPECT_EQ(generic.blocked_draws, 15);
   HS_EXPECT_EQ(generic.mismatches, 0);
+  HS_EXPECT_EQ(generic.offband_kept, 0);
 
   const PhaseRun clipped_clear = run_phase_scheduler(true, true);
   HS_EXPECT_EQ(clipped_clear.blocked_draws, 15);
   HS_EXPECT_EQ(clipped_clear.mismatches, 0);
+  HS_EXPECT_EQ(clipped_clear.offband_kept, 16);
 }
 
 /**

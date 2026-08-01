@@ -150,7 +150,7 @@ constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 171001;
   X("hd107s", hs_test::hd107s_tests::run_hd107s_tests, 280)                    \
   X("dma_controller", hs_test::dma_controller::run_dma_controller_tests, 67)   \
   X("pov_segmented", hs_test::pov_segmented_tests::run_pov_segmented_tests,    \
-    263162)                                                                    \
+    263165)                                                                    \
   X("pov_single", hs_test::pov_single_tests::run_pov_single_tests, 8640)       \
   X("pov_sync", hs_test::pov_sync_tests::run_pov_sync_tests, 2015)             \
   X("param_marshal", hs_test::param_marshal_tests::run_param_marshal_tests,    \
