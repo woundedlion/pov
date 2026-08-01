@@ -426,10 +426,12 @@ public:
     float delta = target_angle - last_angle;
 
     // Sub-threshold increments accumulate across a multi-frame sweep: last_angle
-    // persists until the sum crosses TOLERANCE. A one-shot (duration 1, the
-    // animate() path) has no next frame to accumulate into, so it must apply
-    // unconditionally or a very slow per-frame driver freezes forever.
-    if (this->duration > 1 && std::abs(delta) < TOLERANCE) {
+    // persists until the sum crosses TOLERANCE. The last frame has no successor
+    // to accumulate into — rewind() would discard the residual, so a repeat
+    // slips it every cycle — and neither does a one-shot (duration 1, the
+    // animate() path), so both apply unconditionally.
+    if (this->duration > 1 && this->t < static_cast<uint32_t>(this->duration) &&
+        std::abs(delta) < TOLERANCE) {
       return;
     }
 
