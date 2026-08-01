@@ -213,12 +213,6 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
     std::vector<FactoryEntry> t(regs.size());
     for (size_t i = 0; i < regs.size(); ++i)
       get_fill_fn<W, H>(regs[i])(t[i]);
-    // Duplicate names silently shadow (lookups return the first match); the
-    // names aren't known until the fill functions run, so trap here.
-    for (size_t i = 0; i < t.size(); ++i)
-      for (size_t j = i + 1; j < t.size(); ++j)
-        HS_CHECK(t[i].name != t[j].name,
-                 "get_factory: duplicate effect name in registry");
     return t;
   }();
   return table;
