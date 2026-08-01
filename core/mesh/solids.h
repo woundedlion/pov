@@ -38,13 +38,7 @@ HS_O3_BEGIN
  */
 FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   PolyMesh final_mesh;
-  final_mesh.vertices.bind(geom, temp.vertices.size());
-  final_mesh.vertices.append_bulk(temp.vertices.data(), temp.vertices.size());
-  final_mesh.face_counts.bind(geom, temp.face_counts.size());
-  final_mesh.face_counts.append_bulk(temp.face_counts.data(),
-                                     temp.face_counts.size());
-  final_mesh.faces.bind(geom, temp.faces.size());
-  final_mesh.faces.append_bulk(temp.faces.data(), temp.faces.size());
+  MeshOps::clone(temp, final_mesh, geom);
   return final_mesh;
 }
 
