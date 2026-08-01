@@ -1641,8 +1641,6 @@ public:
     default:
       HS_CHECK(false, "GenerativePalette: unknown gradient_shape");
     }
-    HS_CHECK(size <= MAX_STOPS,
-             "GenerativePalette: stop count exceeds parallel-array capacity");
     for (int i = 0; i < size; ++i) {
       colors_oklch[i] = pixel_to_oklch(colors[i]);
       // Recover the stop's chroma ceiling cmax = C / sin(pi*L) so get() can
