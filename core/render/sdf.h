@@ -536,8 +536,6 @@ inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
  * @param alpha_angle Azimuth of the cap axis (radians).
  * @param cos_phi Cosine of the row's polar angle.
  * @param sin_phi Sine of the row's polar angle.
- * @param reject_full_width Star-only: drop the row to a full scan when the
- *        interval would span the whole width (the others never set this).
  * @param out Sink accepting (float start, float end).
  * @return false to request a full-width fallback scan, true if the (possibly
  *         empty) interval was handled.
@@ -545,7 +543,7 @@ inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
 template <int W, typename OutputIt>
 inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
                               float alpha_angle, float cos_phi, float sin_phi,
-                              bool reject_full_width, OutputIt out) {
+                              OutputIt out) {
   if (R_val < MIN_HORIZONTAL_PROJ)
     return false;
 
@@ -565,8 +563,6 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
   float scale = W / (2.0f * PI_F);
   float x1 = floorf((alpha_angle - d_alpha) * scale);
   float x2 = ceilf((alpha_angle + d_alpha) * scale);
-  if (reject_full_width && x2 - x1 >= W)
-    return false;
   out(x1, x2);
   return true;
 }
@@ -575,8 +571,6 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
  * @brief Emit one scanline row of a cap-bounded leaf with a one-pixel cap pad.
  * @tparam W Canvas width in columns.
  * @tparam H Canvas height in rows.
- * @tparam RejectFullWidth Drop the row to a full scan when the interval would
- *         span the whole width.
  * @tparam OutputIt Sink type invoked as out(float start, float end).
  * @param sign +1 fills the shape, -1 its complement.
  * @param cos_cap Cosine of the bounding cap's angular radius.
@@ -591,7 +585,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
  * @details The complement wraps every row, so sign < 0 always requests the full
  * scan. Shared by PlanarPolygon / SphericalPolygon / Star.
  */
-template <int W, int H, bool RejectFullWidth, typename OutputIt>
+template <int W, int H, typename OutputIt>
 inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
                                 float ny, float R_val, float alpha_angle, int y,
                                 OutputIt out) {
@@ -605,7 +599,7 @@ inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
                      sin_cap * TrigLUT<W, H>::sin_theta[1];
   return emit_cap_interval<W>(cos_padded, ny, R_val, alpha_angle,
                               TrigLUT<W, H>::cos_phi[y],
-                              TrigLUT<W, H>::sin_phi[y], RejectFullWidth, out);
+                              TrigLUT<W, H>::sin_phi[y], out);
 }
 
 /**
@@ -3557,8 +3551,8 @@ struct PlanarPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H, false>(sign, cos_cap, sin_cap, ny, R_val,
-                                            alpha_angle, y, out);
+    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, R_val,
+                                     alpha_angle, y, out);
   }
 
   /**
@@ -3699,8 +3693,8 @@ struct SphericalPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H, false>(sign, cos_cap, sin_cap, ny, R_val,
-                                            alpha_angle, y, out);
+    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, R_val,
+                                     alpha_angle, y, out);
   }
 
   /**
@@ -3839,8 +3833,7 @@ struct Star {
    * @tparam OutputIt Sink type invoked as out(float start, float end).
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
-   * @return True if the row was handled; false requests a full scan (also when
-   *         the cap would span the whole width).
+   * @return True if the row was handled; false requests a full scan.
    * @details Covers the star body, not the AA fringe at the point tips.
    *   distance() folds each sector onto one edge half-plane, whose radial
    *   gradient at a tip is |nx| (0.309 at 5 points, 0.220 at 8), so the ramp
@@ -3849,8 +3842,8 @@ struct Star {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H, true>(sign, cos_cap, sin_cap, scan_ny,
-                                           scan_r, scan_alpha, y, out);
+    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, scan_ny, scan_r,
+                                     scan_alpha, y, out);
   }
 
   /**
@@ -4194,7 +4187,7 @@ struct Line {
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
 
     return emit_cap_interval<W>(cap_D_min, mid_ny, mid_r, mid_alpha, cos_phi,
-                                sin_phi, /*reject_full_width=*/false, out);
+                                sin_phi, out);
   }
 };
 
