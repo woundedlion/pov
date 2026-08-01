@@ -343,7 +343,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │                                  Phantasm hardware segment (parallel render)
 ├── segment_layout.js           Pure segment-layout math (Node-unit-testable, no WASM/Worker)
 ├── segment_stats_view.js       Per-segment timing/arena stats overlay + spawn and fault states
-├── worker_protocol.js          JSDoc @typedef contract for main↔worker messages (no runtime code)
+├── worker_protocol.js          JSDoc @typedef contract plus the runtime protocol version
 ├── styles/                     CSS for the main page and tools
 │
 ├── tools/                      Standalone geometry tools (own HTML pages)
