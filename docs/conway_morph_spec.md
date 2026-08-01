@@ -380,7 +380,7 @@ easing)`:
 settle-slerp if inside the window → `MeshOps::compile` into scratch → attach
 the hoisted topology vector → pre-blend the (from, to) palette ramps at
 w(frame) into scratch → invoke the draw callback. New profile tags:
-`hk_conway_op`, `hk_conway_compile` (the existing `hk_draw_mesh` covers the
+`hk_conway_sweep`, `hk_conway_compile` (the existing `hk_draw_mesh` covers the
 scan; the palette blend is a few hundred lerps and needs no tag).
 
 `EdgeSpec` is a row of a `static constexpr` table: `{from_node, to_node,

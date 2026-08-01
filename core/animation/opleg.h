@@ -874,7 +874,7 @@ public:
 
     PolyMesh swept;
     {
-      HS_PROFILE(hk_conway_op);
+      HS_PROFILE(hk_conway_sweep);
       if (tr.kind == LegKind::HANKIN_SWEEP) {
         hankin_at(tr, swept, scratch_arena_a, tp);
       } else if (tr.kind == LegKind::RELAX_SLERP) {
@@ -1268,7 +1268,7 @@ private:
 
     PolyMesh swapped;
     {
-      HS_PROFILE(hk_conway_op);
+      HS_PROFILE(hk_gate_swap);
       if (!seed_side)
         swapped = swap_at(tr, scratch_arena_a, scratch_arena_b);
     }

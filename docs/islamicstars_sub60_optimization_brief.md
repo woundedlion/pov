@@ -51,7 +51,7 @@ presets. Diagnosis:
    under budget — thin.
 
 2. **In-frame Conway rebuilds (the spikes).** The morph advances by applying
-   Conway operators (`hk_conway_op`) over the build window. On the ~one-in-six
+   Conway operators (`hk_conway_sweep`) over the build window. On the ~one-in-six
    frame where a new operator (or a **live relax** — see below) is applied, the
    topology rebuild runs **synchronously inside the render frame**:
    `render(47) + rebuild(~100) = ~150 ms`. These spikes come in **pairs ~6
@@ -78,7 +78,7 @@ presets. Diagnosis:
   made the branch replay that bake **for recipe steps that mirror a baked
   generator** — but the morph's **intermediate** relax steps inside OpLeg legs
   may still relax **live** (many iterations) on-frame. Confirm whether
-  `hk_conway_op` on the spike frames includes live `MeshOps::relax`; if so,
+  `hk_conway_sweep` on the spike frames includes live `MeshOps::relax`; if so,
   baking / capping those intermediate relaxes could remove most of the spike
   cheaply. **Check this first — it may be the single biggest lever.**
 
@@ -133,7 +133,7 @@ are purely transition/rebuild frames.
   skill; success metric = `parse_profile.py <log> buckets` showing **every preset
   peak < 60 ms and 0 spills**, both configs, full cycle wrapped.
 - The profiler already pinpoints the spikes: the `r=` per-frame lines > 62500,
-  and the windows carrying `hk_conway_op`. Instrument the morph legs with
+  and the windows carrying `hk_conway_sweep`. Instrument the morph legs with
   `HS_PROFILE` sub-scopes (e.g. separate `is_conway_rebuild` from
   `is_mesh_scan`) if you need to attribute the ~100 ms precisely.
 - **Bisect before optimizing:** confirm whether each red's spike is live-relax,
