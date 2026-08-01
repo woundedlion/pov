@@ -11,7 +11,8 @@
  *                               maps match a double-precision oracle and stay
  *                               unit; the poles map to a/c and b/d.
  *   - gnomonic_mobius_transform: identity round-trips through gnomonic; the -z
- *                               map realizes a 180° rotation about y.
+ *                               map realizes a 180° rotation about y; an
+ *                               equator point with y == -0.0f lands south.
  *   - ripple_transform        : amplitude 0 and center-point degeneracies are
  *                               no-ops; an active ripple rotates on-sphere; the
  *                               prepared-threshold fast-reject band applies
@@ -298,6 +299,20 @@ inline void test_gnomonic_mobius_known_rotation() {
   HS_EXPECT_NEAR(r.x, -v.x, 1e-3f);
   HS_EXPECT_NEAR(r.y, v.y, 1e-3f);
   HS_EXPECT_NEAR(r.z, -v.z, 1e-3f);
+}
+
+/**
+ * @brief Verifies an equator point with y == -0.0f lands in the southern
+ *        hemisphere, matching the tiny negatives it is the limit of.
+ */
+inline void test_gnomonic_mobius_negative_zero_hemisphere() {
+  MobiusParams id;
+  Vector neg_zero = gnomonic_mobius_transform(Vector(1.0f, -0.0f, 0.0f), id);
+  Vector tiny_neg = gnomonic_mobius_transform(Vector(1.0f, -1e-12f, 0.0f), id);
+  Vector pos_zero = gnomonic_mobius_transform(Vector(1.0f, 0.0f, 0.0f), id);
+  HS_EXPECT_TRUE(neg_zero.y < 0.0f);
+  HS_EXPECT_TRUE(tiny_neg.y < 0.0f);
+  HS_EXPECT_TRUE(pos_zero.y > 0.0f);
 }
 
 // ============================================================================
@@ -1232,6 +1247,7 @@ inline int run_transformers_tests() {
   test_mobius_poles_map_to_coefficient_ratios();
   test_gnomonic_mobius_identity_roundtrip();
   test_gnomonic_mobius_known_rotation();
+  test_gnomonic_mobius_negative_zero_hemisphere();
   test_ripple_zero_amplitude_is_identity();
   test_ripple_center_point_is_identity();
   test_ripple_active_rotates_on_sphere();

@@ -955,8 +955,10 @@ inline Complex gnomonic(const Vector &v) {
   // Floor the divisor to ±STEREO_EQUATOR_EPS to avoid div-by-zero at v.y == 0,
   // then clamp to ±STEREO_INF. A near-equator point clamps to the sentinel,
   // which inv_gnomonic snaps back to the pole.
+  // copysignf, not a >= 0 test: -0.0f must floor negative like the values it
+  // is the limit of.
   float div = (std::abs(v.y) < STEREO_EQUATOR_EPS)
-                  ? STEREO_EQUATOR_EPS * (v.y >= 0 ? 1.0f : -1.0f)
+                  ? copysignf(STEREO_EQUATOR_EPS, v.y)
                   : v.y;
   float gx = v.x / div;
   float gz = v.z / div;

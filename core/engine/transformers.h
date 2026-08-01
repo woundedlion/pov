@@ -522,7 +522,9 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
                                         const MobiusParams &params) {
   Complex z = gnomonic(v);
   Complex w = mobius(z, params);
-  return inv_gnomonic(w, (v.y >= 0 ? 1.0f : -1.0f));
+  // copysignf keys on the sign bit, matching gnomonic's divisor floor: a >= 0
+  // test would send v.y == -0.0f to the opposite hemisphere from the divisor.
+  return inv_gnomonic(w, copysignf(1.0f, v.y));
 }
 
 /** @brief Largest ripple rotation the series-form quaternion may take; at
