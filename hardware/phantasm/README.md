@@ -22,7 +22,7 @@ the fabrication source of truth and has no unconnected pads.
 | `phantasm.kicad_pro` | Project file |
 | `phantasm.kicad_sch` | Schematic — all parts, values, footprints, full §10 connectivity |
 | `phantasm.kicad_pcb` | Completed routed PCB with validated placement, control routing, planes, mounting, and service clearances |
-| `quilter_incremental/` | Historical protected input snapshot used for the completed control-net routing |
+| `quilter_incremental/` | Historical protected input snapshot used for the completed control-net routing — written by `gen/make_quilter_incremental.py`, which now refuses to run because the board is routed |
 | `unplaced/phantasm_unplaced.kicad_pcb` | **4-layer** (SIG/GND/GND/SIG) outline + net-assigned footprints **staged below the board, unrouted** — for an autoplacer (Quilter). Stackup encoded in-file. Regenerate: `python gen/pcb.py --unplaced` |
 | `phantasm.kicad_sym` | Project symbol library: custom `Teensy4.0` + `+5V_RAW/+5V_LOGIC` power symbols |
 | `phantasm.pretty/` | Project footprint library: generated `Teensy4.0` footprint (2×14 0.1″ THT) |
