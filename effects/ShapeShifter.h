@@ -215,15 +215,14 @@ private:
   }
 
   /**
-   * @brief Plot-rasterizes one selected primitive.
+   * @brief Plot-rasterizes an open polyline sampled into scratch storage.
    * @tparam F Fragment-shader callable type.
    * @param canvas Target canvas.
-   * @param basis Shared shape basis.
-   * @param shape Primitive to draw.
-   * @param radius Shape radius in [0, 2].
-   * @param sides Polygon side, flower petal, or star point count.
+   * @param capacity Fragment slots to bind for the sampler.
+   * @param planar_basis Azimuthal-equidistant chart for the edges, or nullptr
+   * for geodesic edges.
    * @param fragment_shader Per-fragment shader.
-   * @param shape_phase Primitive rotation in radians.
+   * @param fill Callable that samples the primitive into the bound fragments.
    */
   template <typename F>
   __attribute__((noinline)) void
@@ -238,6 +237,18 @@ private:
         {.planar_basis = planar_basis, .omit_end = true});
   }
 
+  /**
+   * @brief Samples the selected primitive and draws it.
+   * @tparam F Fragment-shader callable type.
+   * @param canvas Target canvas.
+   * @param basis Shared shape basis.
+   * @param shape Primitive to draw.
+   * @param radius Shape radius in [0, 2]; above 1 the shape wraps past the
+   * pole and is charted about the antipode.
+   * @param sides Polygon side, flower petal, or star point count.
+   * @param fragment_shader Per-fragment shader.
+   * @param shape_phase Primitive rotation in radians.
+   */
   template <typename F>
   HS_FLASH_MEMBER void
   dispatch_plot(Canvas &canvas, const Basis &basis, ShapeType shape,
