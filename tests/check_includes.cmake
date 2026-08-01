@@ -36,7 +36,8 @@ set(NON_MODULE_HEADERS
   mesh_test_util.h
   test_fixture.h
   test_harness.h
-  test_h_offset_renorm.h)
+  test_h_offset_renorm.h
+  test_pole_wrap.h)
 
 file(GLOB_RECURSE _headers RELATIVE "${TESTS_DIR}"
   "${TESTS_DIR}/*.h"
