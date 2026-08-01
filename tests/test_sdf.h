@@ -1792,6 +1792,40 @@ inline void test_cull_covers_interior_over_orientation_grid() {
 }
 
 /**
+ * @brief Verifies the Intersection interval cull covers every interior pixel of
+ *        a real leaf pair.
+ * @details The seam-split normalization and the merge sweep are otherwise driven
+ *   only by mock span lists. The last pose centers both polygons on +X, so their
+ *   overlap straddles theta = 0 and each child can emit its span in a different
+ *   wrap frame.
+ */
+inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
+  constexpr int W = 96, H = 48;
+  using Poly = SDF::PlanarPolygon;
+
+  struct Pose {
+    Vector axis_a, axis_b;
+    float radius_a, radius_b;
+  };
+  const Pose poses[] = {
+      {Vector(0, 0, 1), Vector(0.3f, 0.2f, 1.0f), 0.8f, 0.5f},
+      {Vector(0, 1, 0), Vector(0.25f, 1.0f, -0.15f), 0.7f, 0.45f},
+      {Vector(-0.4f, 0.6f, 0.7f), Vector(-0.2f, 0.75f, 0.6f), 0.9f, 0.6f},
+      {Vector(1, 0, 0), Vector(1.0f, 0.15f, 0.2f), 0.8f, 0.5f},
+  };
+
+  for (const Pose &pose : poses) {
+    Basis basis_a = make_basis(Quaternion(), pose.axis_a);
+    Basis basis_b = make_basis(Quaternion(), pose.axis_b);
+    Poly poly_a(basis_a, pose.radius_a, /*sides=*/6, 0.0f);
+    Poly poly_b(basis_b, pose.radius_b, /*sides=*/5, 0.4f);
+
+    SDF::Intersection<Poly, Poly> both(poly_a, poly_b);
+    expect_cull_covers_interior<W, H>(both);
+  }
+}
+
+/**
  * @brief Verifies AngularRepeat around a non-Y axis culls in the full canvas, covering all copies.
  * @details A non-Y axis sweeps the folded copies through latitudes the un-repeated
  *   child never occupies, so the child's vertical band no longer bounds them.
@@ -2447,6 +2481,7 @@ inline int run_sdf_tests() {
   test_warped_volume_bounding_distance_never_over_estimates();
 
   test_cull_covers_interior_over_orientation_grid();
+  test_intersection_cull_covers_interior_over_polygon_pairs();
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_line_arc_bulge_cull_covers_interior();
   test_line_antipodal_cull_covers_interior();
