@@ -509,7 +509,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 209. ✅ **Each saved solid stores a full-canvas PNG data URL in localStorage** — `daydream/tools/solids.html:1128-1129, 1159`. Multi-megabyte base64 per card against a ~5 MB origin quota, rendered into a fixed 120 px box. The quota error is handled gracefully, but the limit is reached after a handful of saves. The thumbnail pipeline already demonstrates the right size (256×256 offscreen).
 
-210. **Two bare-`_` placeholder bindings remain** — `daydream/tools/solid_codegen.js:671`, `solids.html:1660`. `catch (_) { }` is also unnecessary — optional catch binding has been available since ES2019 and the repo targets Node ≥ 22.3.
+210. ✅ **Two bare-`_` placeholder bindings remain** — `daydream/tools/solid_codegen.js:671`, `solids.html:1660`. `catch (_) { }` is also unnecessary — optional catch binding has been available since ES2019 and the repo targets Node ≥ 22.3.
 
 211. **`.drag-handle` carries button resets for an element that is a `<div>`** — `daydream/tools/solids.html:216-231` vs `:1586`. Three declarations whose values are already the initial values for a div — residue of a `<button>` handle whose keyboard path now lives in the sibling `.move-op-btn` controls.
 
