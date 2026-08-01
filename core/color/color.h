@@ -673,9 +673,8 @@ HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
   return least >= lo && most <= hi;
 }
 
-// Chroma pulled back off the refined crossing. Without it the caller's own
-// re-conversion rounds a channel a part in a million past the gate; with it the
-// worst residual over a dense sweep of L, hue and chroma is comfortably inside.
+// Chroma pulled back off the refined crossing; without it the caller's own
+// re-conversion rounds a channel a part in a million past the gate.
 inline constexpr float GAMUT_CLIP_MARGIN = 2e-5f;
 
 // Chroma below which an OKLCH color has no usable hue angle and is handled as
@@ -912,8 +911,6 @@ gamut_clip_preserve_chroma(OKLab lab) {
     const float hi = std::min(1.0f, c_hi * inv_c);
     u = gamut_bracket_refine(lab.L, lab.a, lab.b, c_lo * inv_c, hi);
   }
-  // Pulled back off the crossing: without it the caller's own re-conversion
-  // rounds a channel a part in a million past the gate.
   u -= GAMUT_CLIP_MARGIN * inv_c;
   if (u < 0.0f)
     u = 0.0f;
@@ -1318,11 +1315,8 @@ public:
   /**
    * @brief Builds the 256-entry LUT by interpolating between color stops.
    * @param points Sorted-ascending (position in [0,1], color) stops.
-   * @details Stop positions index entries[256] via static_cast<int>(pos * 255 + 0.5f);
-   * a pos outside [0,1] is an out-of-bounds write, and segments fill only when
-   * end > start, so an unsorted pair degenerates silently. An empty stop list
-   * leaves the LUT all-black. Emptiness, bounds and ordering are trapped
-   * always-on (construction is cold).
+   * @details Emptiness, stop bounds and ordering are trapped always-on
+   * (construction is cold).
    */
   Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
     HS_CHECK(points.size() > 0, "Gradient requires at least one stop");
