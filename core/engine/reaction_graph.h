@@ -1,3 +1,8 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the Polyform Noncommercial License 1.0.0
+ */
+
 // Fibonacci lattice K-NN graph. The neighbors[] table (reaction_graph.cpp) is
 // emitted by scripts/generate_reaction_graph.py; node() below MUST stay in
 // lockstep with that generator's lattice math (CI: reaction-graph-provenance).
