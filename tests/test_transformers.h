@@ -293,12 +293,14 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
  */
 inline void test_gnomonic_mobius_known_rotation() {
   MobiusParams neg(-1, 0, 0, 0, 0, 0, 1, 0); // f(z) = -z
-  Vector v = Vector(0.3f, 0.7f, 0.2f).normalized();
-  Vector r = gnomonic_mobius_transform(v, neg);
-  HS_EXPECT_TRUE(finite_vec(r));
-  HS_EXPECT_NEAR(r.x, -v.x, 1e-3f);
-  HS_EXPECT_NEAR(r.y, v.y, 1e-3f);
-  HS_EXPECT_NEAR(r.z, -v.z, 1e-3f);
+  for (float y : {0.7f, -0.7f}) {
+    const Vector v = Vector(0.3f, y, 0.2f).normalized();
+    const Vector r = gnomonic_mobius_transform(v, neg);
+    HS_EXPECT_TRUE(finite_vec(r));
+    HS_EXPECT_NEAR(r.x, -v.x, 1e-3f);
+    HS_EXPECT_NEAR(r.y, v.y, 1e-3f);
+    HS_EXPECT_NEAR(r.z, -v.z, 1e-3f);
+  }
 }
 
 /**

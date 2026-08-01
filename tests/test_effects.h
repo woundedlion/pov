@@ -16,6 +16,7 @@
 #include "core/render/canvas.h"
 #include "core/engine/memory.h"
 #include "hardware/pov_segment_map.h"
+#include "tests/test_3dmath.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

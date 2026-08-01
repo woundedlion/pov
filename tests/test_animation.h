@@ -2630,10 +2630,10 @@ inline void test_random_walk_stays_unit_and_travels() {
     walk.step(fake_canvas());
     const Vector cur = o.orient(probe);
     HS_EXPECT_NEAR(cur.length(), 1.0f, 1e-4f);
-    travel += angle_between(prev, cur);
+    travel += static_cast<float>(small_angle_between(prev, cur));
     prev = cur;
   }
-  HS_EXPECT_GT(travel, 0.0f);
+  HS_EXPECT_GT(travel, 0.01f);
 }
 
 /**
@@ -2810,17 +2810,20 @@ inline void test_motion_set_duration_reanchors_no_teleport() {
   Ori o; // identity
   Animation::Motion<288, 16> motion(o, path, 60, /*repeat=*/true);
 
-  const Vector probe = Z_AXIS;
+  const Vector probe = X_AXIS;
   for (int i = 0; i < 30; ++i)
     motion.step(fake_canvas());
   const Vector before = o.orient(probe);
 
   motion.set_duration(120);
   motion.step(fake_canvas());
-  const Vector after = o.orient(probe);
+  const Vector reanchored = o.orient(probe);
 
-  // Incremental (reanchored) step is a few degrees; a teleport would be ~π/2.
-  HS_EXPECT_LT(angle_between(before, after), 0.5f);
+  HS_EXPECT_LT(angle_between(before, reanchored), 0.5f);
+  motion.step(fake_canvas());
+  const Vector continued = o.orient(probe);
+  HS_EXPECT_GT(small_angle_between(reanchored, continued), 1e-4);
+  HS_EXPECT_LT(angle_between(reanchored, continued), 0.5f);
 }
 
 /**

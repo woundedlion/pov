@@ -136,10 +136,10 @@ constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 171001;
   X("scan", hs_test::scan_tests::run_scan_tests, 189869)                       \
   X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests, 2793)    \
   X("transformers", hs_test::transformers_tests::run_transformers_tests,       \
-    216579)                                                                    \
+    216583)                                                                    \
   X("noise", hs_test::noise_tests::run_noise_tests, 201)                       \
   X("generators", hs_test::generators_tests::run_generators_tests, 59)         \
-  X("animation", hs_test::animation_tests::run_animation_tests, 16444)         \
+  X("animation", hs_test::animation_tests::run_animation_tests, 16446)         \
   X("effects", hs_test::effects_tests::run_effects_tests,                      \
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_FULL_MIN_ASSERTIONS                                          \
