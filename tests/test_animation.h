@@ -2500,7 +2500,8 @@ inline void test_mobiuswarp_circular_traces_radius() {
 
 /**
  * @brief Verifies MobiusWarpEvolving modulates all eight coefficients within
- * ±scale of their captured baseline and, being perpetual, never reports done().
+ * ±scale of their captured baseline, drives each of them, and, being perpetual,
+ * never reports done().
  */
 inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
   hs::random().seed(1337);
@@ -2510,15 +2511,23 @@ inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
   HS_EXPECT_FALSE(warp.done());
 
   const MobiusParams base = params;
+  const float baseline[8] = {base.a.re, base.a.im, base.b.re, base.b.im,
+                             base.c.re, base.c.im, base.d.re, base.d.im};
+  float peak[8] = {};
   for (int i = 0; i < 50; ++i) {
     warp.step(fake_canvas());
     HS_EXPECT_FALSE(warp.done()); // perpetual: duration -1
-    const float bound = scale + 1e-4f;
-    HS_EXPECT_LE(std::abs(params.a.re - base.a.re), bound);
-    HS_EXPECT_LE(std::abs(params.b.im - base.b.im), bound);
-    HS_EXPECT_LE(std::abs(params.d.re - base.d.re), bound);
-    HS_EXPECT_TRUE(std::isfinite(params.c.im));
+    const float live[8] = {params.a.re, params.a.im, params.b.re, params.b.im,
+                           params.c.re, params.c.im, params.d.re, params.d.im};
+    for (int c = 0; c < 8; ++c) {
+      float delta = std::abs(live[c] - baseline[c]);
+      HS_EXPECT_LE(delta, scale + 1e-4f);
+      peak[c] = std::max(peak[c], delta);
+    }
   }
+  // 50 frames at speed 0.05 sweeps even the slowest channel past half amplitude.
+  for (int c = 0; c < 8; ++c)
+    HS_EXPECT_GT(peak[c], 0.5f * scale);
 }
 
 // ============================================================================
