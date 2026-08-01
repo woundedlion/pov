@@ -2504,9 +2504,9 @@ inline void test_medial_dual_bridge_wellformed() {
     // quantized-then-decoded positions the leg actually slerps, not the
     // full-precision medial output.
     for (auto &v : med_a.vertices)
-      v = Animation::OpLeg::StarPoint::encode(v).decode().normalized();
+      v = Snorm3::encode(v).decode().normalized();
     for (auto &v : med_b)
-      v = Animation::OpLeg::StarPoint::encode(v).decode().normalized();
+      v = Snorm3::encode(v).decode().normalized();
 
     // Every medial vertex sits on an ambo(P) vertex at s=0 and an ambo(dual(P))
     // vertex at s=1 (set containment; a lossy dual makes s=1 many-to-one).
