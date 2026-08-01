@@ -154,14 +154,19 @@ public:
 
   /**
    * @brief Destroys all events, leaving the timeline empty and reusable.
-   * @details Traps on a pinned event (add_get(Pin::PINNED)): destroying one dangles
-   * the caller's retained animation pointer, the same contract move_into() and
-   * step()'s destroy branch enforce. The global frame cursor is deliberately NOT
-   * rewound — it is process-global and effects derive a phase from frame(), so a
-   * mid-run rewind desynchronises them. Only construction/destruction, which no
-   * retained handle spans, resets the cursor.
+   * @details Traps if called from inside step() — a completion callback runs
+   * before its event is destroyed, so destroy_events() would free the callable
+   * whose frame is still executing. Traps on a pinned event
+   * (add_get(Pin::PINNED)) too: destroying one dangles the caller's retained
+   * animation pointer, the same contract move_into() and step()'s destroy branch
+   * enforce. The global frame cursor is deliberately NOT rewound — it is
+   * process-global and effects derive a phase from frame(), so a mid-run rewind
+   * desynchronises them. Only construction/destruction, which no retained handle
+   * spans, resets the cursor.
    */
   void clear() {
+    HS_CHECK(!stepping, "clear() from inside step() would destroy the "
+                        "animation whose callback is running");
     for (int i = 0; i < global_timeline_num_events; ++i) {
       HS_CHECK(!global_timeline_events[i].handled,
                "clear() would destroy a pinned animation");
@@ -314,6 +319,12 @@ public:
    * @param canvas The current canvas buffer.
    */
   HS_COLD_MEMBER void step(Canvas &canvas) {
+    struct StepScope {
+      bool &flag;
+      explicit StepScope(bool &f) : flag(f) { flag = true; }
+      ~StepScope() { flag = false; }
+    } step_scope(stepping);
+
     ++global_timeline_t;
 
     int write_idx = 0;
@@ -400,7 +411,7 @@ public:
     //    completed ones. A pinned event spawned inside a callback would trap in
     //    move_into here; callback-spawners use pin=false, so this is safe.
     HS_CHECK(global_timeline_num_events >= active_cnt,
-             "callback shrank the timeline mid-step (e.g. clear()); "
+             "callback shrank the timeline mid-step; "
              "new_vals_count would go negative");
     int new_vals_count = global_timeline_num_events - active_cnt;
     // Each kept event advances write_idx by one, so it never outruns the events
@@ -446,6 +457,7 @@ private:
 
   ClearHook clear_hooks[MAX_CLEAR_HOOKS] = {};
   int clear_hook_count = 0;
+  bool stepping = false; /**< True for the duration of step(); gates clear(). */
 
   /**
    * @brief Destroys every stored animation and empties the slot table.
