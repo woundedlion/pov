@@ -507,7 +507,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 208. ✅ **The palette tabs carry no tab semantics** — `daydream/tools/palettes.html:212-216, 223, 282`. No `role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`/`role="tabpanel"`; `switchTab` toggles a visual class only. Conspicuous on a page that otherwise carries `role="group"` on all four coefficient cards and `role="slider"` with `aria-keyshortcuts` on the strip.
 
-209. **Each saved solid stores a full-canvas PNG data URL in localStorage** — `daydream/tools/solids.html:1128-1129, 1159`. Multi-megabyte base64 per card against a ~5 MB origin quota, rendered into a fixed 120 px box. The quota error is handled gracefully, but the limit is reached after a handful of saves. The thumbnail pipeline already demonstrates the right size (256×256 offscreen).
+209. ✅ **Each saved solid stores a full-canvas PNG data URL in localStorage** — `daydream/tools/solids.html:1128-1129, 1159`. Multi-megabyte base64 per card against a ~5 MB origin quota, rendered into a fixed 120 px box. The quota error is handled gracefully, but the limit is reached after a handful of saves. The thumbnail pipeline already demonstrates the right size (256×256 offscreen).
 
 210. **Two bare-`_` placeholder bindings remain** — `daydream/tools/solid_codegen.js:671`, `solids.html:1660`. `catch (_) { }` is also unnecessary — optional catch binding has been available since ES2019 and the repo targets Node ≥ 22.3.
 
