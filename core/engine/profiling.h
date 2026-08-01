@@ -335,7 +335,9 @@ struct CycleScope {
    */
   explicit CycleScope(CycleCounter &c) : counter(c), start(HS_OS_CYCLES()) {
     prev_active = CycleCounter::active;
-    if (!counter.parent && prev_active)
+    // A recursive scope would self-parent, hiding the counter from log_all()'s
+    // root walk.
+    if (!counter.parent && prev_active && prev_active != &counter)
       counter.parent = prev_active;
     CycleCounter::active = &counter;
   }
