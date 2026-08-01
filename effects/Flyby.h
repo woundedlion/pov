@@ -90,9 +90,11 @@ public:
   HS_COLD_MEMBER void next_preset() {
     constexpr int LERP_FRAMES = 480;
     presets.next();
-    timeline.add(0, Animation::Lerp(params, presets.prev_get(), presets.get(),
-                                    LERP_FRAMES, ease_in_out_sin, &anims_paused)
-                        .then([this]() { next_preset(); }));
+    timeline.add_pausable(
+        0, Animation::Lerp(params, presets.prev_get(), presets.get(),
+                           LERP_FRAMES, ease_in_out_sin)
+               .then([this]() { next_preset(); }),
+        &anims_paused);
   }
 
   /**

@@ -46,6 +46,13 @@ public:
    * @param canvas The canvas buffer to draw into.
    */
   virtual void step(Canvas &canvas) = 0;
+  /**
+   * @brief Renders a held frame without advancing animation state.
+   * @param canvas The current canvas buffer.
+   * @details Timeline event-level pause calls this only after the event has
+   * started. Animations with no held-frame rendering keep the default no-op.
+   */
+  virtual void step_paused(Canvas &canvas) { (void)canvas; }
 
   /**
    * @brief Reports whether the animation has finished.

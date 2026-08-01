@@ -32,7 +32,7 @@ struct TimelineEvent {
 #endif
 
   uint32_t start =
-      0; /**< Global frame at which the animation begins stepping. */
+      0; /**< Global frame at which the animation becomes eligible to step. */
   /**
    * @brief Whether this event's inline animation pointer was handed out via
    * Timeline::add_get().
@@ -40,6 +40,7 @@ struct TimelineEvent {
    * caller's cached pointer.
    */
   bool handled = false;
+  const bool *paused = nullptr; /**< Optional event-level pause gate. */
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE]; /**< Inline
                                   type-erased animation storage. */
 
@@ -80,6 +81,7 @@ struct TimelineEvent {
     // Clears a stale flag: destroy() leaves handled set on a canceled pinned
     // event, and this slot may be recycling one.
     dst.handled = handled;
+    dst.paused = paused;
     dst.manager = manager;
     if (manager) {
       manager(*this, &dst);
@@ -225,6 +227,21 @@ public:
   }
 
   /**
+   * @brief Adds an event whose delay, animation, and callbacks freeze together.
+   * @tparam A The animation type.
+   * @param in_frames Active frames to wait before starting.
+   * @param animation The animation object.
+   * @param paused Pause flag that must outlive the event.
+   * @return Reference to the Timeline object.
+   */
+  template <typename A>
+  Timeline &add_pausable(int in_frames, A animation, const bool *paused) {
+    HS_CHECK(paused != nullptr, "pausable timeline event needs a pause flag");
+    add_get(in_frames, std::move(animation), Pin::UNPINNED, paused);
+    return *this;
+  }
+
+  /**
    * @brief Like add(), but returns the typed pointer to the inline-stored
    * animation. Use when you need to hold a reference for later mutation.
    * @tparam A The animation type.
@@ -240,10 +257,12 @@ public:
    * Pin::UNPINNED for a TRANSIENT pointer used only at the call site and not
    * kept across frames (e.g. TransformerPool::spawn, whose finite animations are
    * compacted normally and whose return is typically discarded).
+   * @param paused Optional event-level pause gate.
    * @return Typed pointer to the inline-stored animation, or nullptr if full.
    */
   template <typename A>
-  A *add_get(int in_frames, A animation, Pin pin = Pin::PINNED) {
+  A *add_get(int in_frames, A animation, Pin pin = Pin::PINNED,
+             const bool *paused = nullptr) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
     static_assert(alignof(A) <= alignof(std::max_align_t),
@@ -280,6 +299,7 @@ public:
     auto &e = global_timeline_events[global_timeline_num_events++];
     e.start = global_timeline_t + delay;
     e.handled = (pin == Pin::PINNED);
+    e.paused = paused;
     auto *ptr = new (e.storage) A(std::move(animation));
     e.iface = static_cast<IAnimation *>(ptr);
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
@@ -342,6 +362,8 @@ public:
     int collapsed_n = 0;
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
+      if (event_paused(e))
+        continue;
       if (global_timeline_t < e.start)
         continue;
       IAnimation *anim = e.animation();
@@ -365,6 +387,22 @@ public:
 
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
+
+      if (event_paused(e)) {
+        const bool started = global_timeline_t >= e.start;
+        HS_CHECK(e.start < UINT32_MAX,
+                 "paused timeline start frame overflow");
+        ++e.start;
+        if (started) {
+          IAnimation *anim = e.animation();
+          HS_CHECK(anim);
+          anim->step_paused(canvas);
+        }
+        if (i != write_idx)
+          e.move_into(global_timeline_events[write_idx]);
+        ++write_idx;
+        continue;
+      }
 
       // Check start time
       if (global_timeline_t < e.start) {
@@ -449,6 +487,10 @@ public:
   static constexpr int MAX_CLEAR_HOOKS = 4; /**< clear_hooks capacity. */
 
 private:
+  static bool event_paused(const TimelineEvent &event) {
+    return event.paused && *event.paused;
+  }
+
   /**
    * @brief One registered clear() observer.
    */

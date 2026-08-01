@@ -67,15 +67,15 @@ public:
     auto preset_timer = Animation::PeriodicTimer(
         160,
         [this](Canvas &) {
-          if (animations_paused())
-            return;
           presets.next();
-          timeline.add(0, Animation::Lerp(params, presets.prev_get(),
-                                          presets.get(), 48, ease_linear,
-                                          &anims_paused));
+          timeline.add_pausable(
+              0,
+              Animation::Lerp(params, presets.prev_get(), presets.get(), 48,
+                              ease_linear),
+              &anims_paused);
         },
         true);
-    timeline.add(0, preset_timer);
+    timeline.add_pausable(0, preset_timer, &anims_paused);
 
     build_particle_system();
     baked_palette.bake(persistent_arena, base_palette);

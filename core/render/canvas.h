@@ -422,6 +422,8 @@ public:
    * @return APPLIED if the value was written; otherwise the rejection reason
    *         (UNKNOWN_PARAM, READONLY, or NON_FINITE). The WASM bridge forwards
    *         this so the frontend can report why a write was dropped.
+   * @details An accepted write to an animated parameter engages the effect's
+   *          animation pause before storing the manual value.
    */
   ParamSetResult updateParameter(const char *name, float value) {
     auto *def = parameters.find(name);
@@ -439,6 +441,8 @@ public:
       value = roundf(value);
     if (!def->is_bool())
       value = hs::clamp(value, def->min, def->max);
+    if (def->animated)
+      setAnimationsPaused(true);
     def->set(value);
     return ParamSetResult::APPLIED;
   }
@@ -451,10 +455,9 @@ public:
 
   /**
    * @brief Pause/resume the effect's parameter-driving animations.
-   * @details Wired to the `Mutation`/`Driver` gate via `anims_paused`. Paused,
-   * those animations freeze and the bound GUI slider is the sole writer, so a
-   * user edit holds; resuming hands the member back. Ambient motion
-   * (rotation/camera/palette) is not gated.
+   * @details Parameter animations and preset transitions wire this flag into
+   * their timeline events. Paused, their active-time clocks and callbacks
+   * freeze while ambient motion keeps running.
    * @param paused True to freeze parameter-driving animations, false to resume.
    */
   void setAnimationsPaused(bool paused) { anims_paused = paused; }
@@ -556,8 +559,8 @@ protected:
 
   /**
    * @brief Registers a float param and flags it animation-driven in one call.
-   * @details The GUI renders flagged params as auto-pausing sliders (touching one
-   * engages "Pause Animation").
+   * @details Accepted writes engage the effect pause; the GUI also renders the
+   * flagged param as an auto-pausing slider.
    */
   HS_COLD_MEMBER void register_animated_param(const char *name, float *ptr,
                                               float min = 0.0f,

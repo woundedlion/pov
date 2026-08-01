@@ -69,13 +69,11 @@ public:
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
                                              hs::rand_int(0, 65536)));
-    timeline.add(0, Animation::PeriodicTimer(
-                        PRESET_FRAMES,
-                        [this](Canvas &) {
-                          if (!animations_paused())
-                            next_preset();
-                        },
-                        true));
+    timeline.add_pausable(
+        0,
+        Animation::PeriodicTimer(
+            PRESET_FRAMES, [this](Canvas &) { next_preset(); }, true),
+        &anims_paused);
   }
 
   /** @brief Advances the waveform and draws the full radial shape stack. */

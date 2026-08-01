@@ -620,6 +620,47 @@ inline void test_timeline_sequences_events_by_start_frame() {
   HS_EXPECT_EQ(global_timeline_num_events, 0);
 }
 
+/** @brief Verifies event-level pause freezes delays, steps, and callbacks. */
+inline void test_timeline_pausable_event_uses_active_time() {
+  Timeline tl;
+  bool paused = true;
+  float value = 0.0f;
+  float ambient = 0.0f;
+  int completions = 0;
+  tl.add_pausable(
+      3,
+      Animation::Transition(value, 9.0f, 3, ease_linear)
+          .then([&]() { ++completions; }),
+      &paused);
+  tl.add(0, Animation::Transition(ambient, 1.0f, 2, ease_linear));
+
+  for (int i = 0; i < 5; ++i)
+    tl.step(fake_canvas());
+  HS_EXPECT_NEAR(value, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(ambient, 1.0f, 1e-6f);
+  HS_EXPECT_EQ(completions, 0);
+
+  paused = false;
+  tl.step(fake_canvas());
+  tl.step(fake_canvas());
+  HS_EXPECT_NEAR(value, 0.0f, 1e-6f);
+  tl.step(fake_canvas());
+  HS_EXPECT_NEAR(value, 3.0f, 1e-6f);
+
+  paused = true;
+  for (int i = 0; i < 5; ++i)
+    tl.step(fake_canvas());
+  HS_EXPECT_NEAR(value, 3.0f, 1e-6f);
+  HS_EXPECT_EQ(completions, 0);
+
+  paused = false;
+  tl.step(fake_canvas());
+  HS_EXPECT_NEAR(value, 6.0f, 1e-6f);
+  tl.step(fake_canvas());
+  HS_EXPECT_NEAR(value, 9.0f, 1e-6f);
+  HS_EXPECT_EQ(completions, 1);
+}
+
 /**
  * @brief Verifies the latest representable start frame remains schedulable.
  */
@@ -1520,6 +1561,32 @@ inline void test_sprite_paused_holds_frame() {
   for (int i = 0; i < 3; ++i)
     s.step(fake_canvas());
   HS_EXPECT_TRUE(s.done());
+}
+
+/** @brief Verifies a Timeline pause keeps a started Sprite drawing in place. */
+inline void test_timeline_pause_redraws_held_sprite() {
+  Timeline timeline;
+  bool paused = false;
+  std::vector<float> opacity;
+  timeline.add_pausable(
+      0,
+      Animation::Sprite(
+          [&](Canvas &, float value) { opacity.push_back(value); }, 4, 2,
+          ease_linear, 0, ease_linear),
+      &paused);
+
+  timeline.step(fake_canvas());
+  HS_EXPECT_NEAR(opacity.back(), 0.5f, 1e-6f);
+  paused = true;
+  for (int i = 0; i < 5; ++i)
+    timeline.step(fake_canvas());
+  HS_EXPECT_EQ(opacity.size(), static_cast<size_t>(6));
+  for (size_t i = 1; i < opacity.size(); ++i)
+    HS_EXPECT_NEAR(opacity[i], 0.5f, 1e-6f);
+
+  paused = false;
+  timeline.step(fake_canvas());
+  HS_EXPECT_NEAR(opacity.back(), 1.0f, 1e-6f);
 }
 
 // ============================================================================
@@ -2867,6 +2934,7 @@ inline int run_animation_tests() {
   test_rotation_applies_final_frame_residual();
   test_timeline_shared_orientation_composes_motion_blur();
   test_timeline_sequences_events_by_start_frame();
+  test_timeline_pausable_event_uses_active_time();
   test_timeline_accepts_maximum_start_frame();
   test_timeline_repeating_animation_rewinds_each_cycle();
   test_timeline_cancel_removes_repeating_animation();
@@ -2895,6 +2963,7 @@ inline int run_animation_tests() {
   test_sprite_clamps_overshooting_fade_in();
   test_sprite_overlapping_fades_stay_continuous();
   test_sprite_paused_holds_frame();
+  test_timeline_pause_redraws_held_sprite();
 
   test_crossfade_segue_schedules_overlapping_sprite();
   test_crossfade_segue_clamps_fade_to_half_duration();

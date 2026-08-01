@@ -806,6 +806,16 @@ public:
    */
   HS_COLD_MEMBER void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
+    draw_frame(canvas);
+  }
+
+  /** @brief Redraws the current morph frame without advancing the leg. */
+  HS_COLD_MEMBER void step_paused(Canvas &canvas) override {
+    draw_frame(canvas);
+  }
+
+private:
+  HS_COLD_MEMBER void draw_frame(Canvas &canvas) {
     check_alive();
     Transients &tr = *buf;
     const int frame = static_cast<int>(
@@ -875,6 +885,7 @@ public:
     finish_frame(canvas, swept, tr.blend_fn(frame, duration));
   }
 
+public:
   /**
    * @brief Arrival data for the effect's completion handler.
    * @return Arena-backed Landing; stable until the leg arena is compacted.
