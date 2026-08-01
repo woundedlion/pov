@@ -66,8 +66,14 @@ const std::terminate_handler s_fail_fast_terminate = std::set_terminate([] {
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
-/** @brief Persistent arena: storage that lives for the whole program run. */
-Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
+/**
+ * @brief Persistent arena: storage that lives for the whole program run.
+ * @details Its extent is the whole block: resplit_arenas() grows the persistent
+ * boundary into scratch's region (with both scratch arenas empty and rebased
+ * afterwards), so the block end is the only true bound on that grow.
+ */
+Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE,
+                       GLOBAL_ARENA_SIZE);
 /** @brief First scratch arena: transient per-frame/per-effect storage. */
 Arena scratch_arena_a(global_arena_block + DEFAULT_PERSISTENT_SIZE,
                       DEFAULT_SCRATCH_A_SIZE);
@@ -130,7 +136,7 @@ FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
   release_gamut_lut();
   const ScratchBases bases =
       split_bases("configure_arenas", persistent, scratch_a, scratch_b);
-  persistent_arena.rebind(global_arena_block, persistent);
+  persistent_arena.rebind(global_arena_block, persistent, GLOBAL_ARENA_SIZE);
   scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);
   scratch_arena_b.rebind(global_arena_block + bases.b, scratch_b);
 }
