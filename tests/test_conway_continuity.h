@@ -739,6 +739,23 @@ inline void fill_emission_handoff(const PolyMesh &seed, uint8_t *pal) {
     pal[f] = static_cast<uint8_t>(f % Animation::OpLeg::PALETTES);
 }
 
+/** Squared-distance band around the nearest survivor centroid that still counts
+ * as the same collapse point. */
+constexpr float HOST_TIE_SQ = 1e-4f;
+
+/**
+ * @brief Unit-sphere vertex-average centroid of face fi.
+ */
+inline Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
+  size_t off = 0;
+  for (size_t i = 0; i < fi; ++i)
+    off += m.face_counts[i];
+  Vector c(0.0f, 0.0f, 0.0f);
+  for (int k = 0; k < m.face_counts[fi]; ++k)
+    c = c + m.vertices[m.faces[off + k]];
+  return c.normalized();
+}
+
 /**
  * @brief Verifies the closing bookend's target keying is symmetric with the
  *        opening one: on a reverse leg into a seed node, every face that
@@ -801,6 +818,23 @@ inline void test_collapsing_faces_land_on_host_palette() {
                                              .prev_faces = dep_faces,
                                              .prev_face_centroid = cen};
 
+    // Arrival geometry: the collapsed form the leg lands on, whose centroids
+    // name the survivor each dying face closes into.
+    Vector arrival_cen[MAX_FACES];
+    size_t arrival_faces = 0;
+    {
+      Arena a(cc_scan_buf, sizeof(cc_scan_buf) / 2);
+      Arena b(cc_scan_buf + sizeof(cc_scan_buf) / 2, sizeof(cc_scan_buf) / 2);
+      PolyMesh arrival = conway_morph_tests::run_edge_op(
+          e, seed, a, b, ConwayGraph::T_EPS, e.twist_from);
+      arrival_faces = arrival.face_counts.size();
+      HS_EXPECT_EQ(arrival_faces, dep_faces);
+      if (arrival_faces > MAX_FACES)
+        continue;
+      for (size_t f = 0; f < arrival_faces; ++f)
+        arrival_cen[f] = poly_face_centroid(arrival, f);
+    }
+
     // Bookend: the hankin star-face classification of the arrival node, as
     // start_morph_cycle builds it.
     uint16_t arrival_topo[MAX_FACES];
@@ -832,13 +866,26 @@ inline void test_collapsing_faces_land_on_host_palette() {
     const Animation::OpLeg::Landing &landing = anim.landing();
     if (landing.faces == survivors)
       continue;
+    HS_EXPECT_EQ(landing.faces, arrival_faces);
+    if (landing.faces != arrival_faces)
+      continue;
     ++checked;
 
     for (size_t f = survivors; f < landing.faces; ++f) {
+      float best = 1e9f;
+      for (size_t j = 0; j < survivors; ++j) {
+        const Vector d = arrival_cen[f] - arrival_cen[j];
+        best = std::min(best, dot(d, d));
+      }
+      // A sliver that collapses onto a vertex or an edge is equidistant from
+      // every survivor meeting there, so any of them is a legal host.
       bool hosted = false;
-      for (size_t j = 0; j < survivors && !hosted; ++j)
-        hosted = wrap(static_cast<int>(landing.topology[f]), PALETTES) ==
-                 wrap(static_cast<int>(landing.topology[j]), PALETTES);
+      for (size_t j = 0; j < survivors && !hosted; ++j) {
+        const Vector d = arrival_cen[f] - arrival_cen[j];
+        hosted = dot(d, d) <= best + HOST_TIE_SQ &&
+                 wrap(static_cast<int>(landing.topology[f]), PALETTES) ==
+                     wrap(static_cast<int>(landing.topology[j]), PALETTES);
+      }
       HS_EXPECT_TRUE(hosted);
     }
   }
@@ -1115,19 +1162,6 @@ constexpr int SEEDFRAME_SCRIPT[] = {19, 8,  1,  0,  2,  8,  19, 21, 14, 10,
  * misrouted provenance flips a face between them. */
 constexpr uint8_t SEEDFRAME_PAL_A = 1;
 constexpr uint8_t SEEDFRAME_PAL_B = 4;
-
-/**
- * @brief Unit-sphere vertex-average centroid of face fi.
- */
-inline Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
-  size_t off = 0;
-  for (size_t i = 0; i < fi; ++i)
-    off += m.face_counts[i];
-  Vector c(0.0f, 0.0f, 0.0f);
-  for (int k = 0; k < m.face_counts[fi]; ++k)
-    c = c + m.vertices[m.faces[off + k]];
-  return c.normalized();
-}
 
 /**
  * @brief The clean node mesh at one end of an edge, built from the held seed —
