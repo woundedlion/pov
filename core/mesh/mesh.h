@@ -564,6 +564,24 @@ static inline void hash_combine(uint32_t &seed, uint32_t v) {
   seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
+/** @brief Derives the classifier's base hash from a canonical face key. */
+static inline uint32_t face_topology_base_hash(int count,
+                                               const int *sorted_angles) {
+  uint32_t hash = 0x12345678;
+  hash_combine(hash, static_cast<uint32_t>(count));
+  if (count >= 3)
+    for (int k = 0; k < count; ++k)
+      hash_combine(hash, static_cast<uint32_t>(sorted_angles[k]));
+  return fmix32(hash);
+}
+
+/** @brief Folds neighboring face hashes into a face's classifier hash. */
+static inline uint32_t fold_face_topology_hash(uint32_t face_hash,
+                                               uint32_t neighbor_acc) {
+  hash_combine(face_hash, neighbor_acc);
+  return fmix32(face_hash);
+}
+
 /**
  * @brief Colors faces based on their vertex count and neighbor topology.
  * @tparam MeshT Mesh type exposing the unified accessors and a topology array.
@@ -624,9 +642,6 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     // Pre-fold hash: count + sorted whole-degree interior angles. Class
     // identity is the neighbor-folded hash below, where a collision merges two
     // distinct face topologies. Acceptable for the fixed polyhedron roster.
-    uint32_t h = 0x12345678;
-    hash_combine(h, static_cast<uint32_t>(count));
-
     // Degenerate faces have no interior-angle vector and hash on count alone.
     if (count >= 3) {
       for (int k = 0; k < count; ++k) {
@@ -657,11 +672,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
           angles[j] = angles[j - 1];
         angles[j] = x;
       }
-      for (int k = 0; k < count; ++k) {
-        hash_combine(h, static_cast<uint32_t>(angles[k]));
-      }
     }
-    h = fmix32(h);
+    const uint32_t h = face_topology_base_hash(count, angles);
     face_hashes.push_back(h);
     final_hashes.push_back(h);
     offset += count;
@@ -728,9 +740,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
           neighbor_acc += fmix32(neigh_h);
         }
       }
-      uint32_t final_h = face_hashes[fi];
-      hash_combine(final_h, neighbor_acc);
-      final_hashes[fi] = fmix32(final_h);
+      final_hashes[fi] =
+          fold_face_topology_hash(face_hashes[fi], neighbor_acc);
       offset += count;
     }
   }
