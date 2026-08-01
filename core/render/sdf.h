@@ -458,25 +458,16 @@ inline DistanceResult distance_of(const S &shape, const Vector &p) {
 
 /**
  * @brief Structural fingerprint of a CSG-composable SDF shape: a static
- * is_solid flag and a `thickness` scalar.
+ * is_solid flag.
  * @tparam T Candidate shape type.
- * @details On a stroke leaf (is_solid == false) `thickness` is the stroke
- * half-width in radians: the alpha ramp spans exactly this reach, and the
- * rasterizer's stroke epilogue consumes it per probe as DistanceResult::size.
- * The combinator fold — max for the unions, min for Intersection, the
- * minuend's for Subtract — keeps a stroke composite's value a conservative
- * half-width bound. A solid leaf instead ramps over a one-pixel band the
- * rasterizer derives from canvas width, and stores its cap angular radius
- * (`circumradius`) here to satisfy the concept; that radius is not a reach
- * bound — it can fall well under one pixel, and the fold runs over caps on
- * different axes. The CSG combinators assert this concept on their children so
- * a wrong-type argument fails at the boundary. distance() and the scanline
+ * @details is_solid selects the rasterizer's AA path, so a composite must
+ * expose one; the CSG combinators assert this concept on their children so a
+ * wrong-type argument fails at the boundary. distance() and the scanline
  * members vary by render path and are not part of the shared contract.
  */
 template <typename T>
-concept SDFShape = requires(const T &t) {
+concept SDFShape = requires {
   { T::is_solid } -> std::convertible_to<bool>;
-  { t.thickness } -> std::convertible_to<float>;
 };
 
 /**
@@ -1321,17 +1312,14 @@ inline Bounds union_vertical_bounds(Bounds a, Bounds b, int pad, int max_y) {
  * @tparam B Second child shape type.
  */
 template <typename A, typename B> struct Union {
-  const A &a;      /**< First child shape. */
-  const B &b;      /**< Second child shape. */
-  float thickness; /**< Max child thickness (SDFShape reach bound; per-pixel AA
-                      uses the winning leaf's DistanceResult::size). */
+  const A &a; /**< First child shape. */
+  const B &b; /**< Second child shape. */
   static constexpr bool is_solid =
       A::is_solid; /**< Both children share solidity, pinned by the
                         static_assert below. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
-                "CSG Union children must be SDF shapes "
-                "(is_solid/thickness)");
+                "CSG Union children must be SDF shapes (is_solid)");
   static_assert(A::is_solid == B::is_solid,
                 "CSG Union children must share solidity; a solid+stroke mix "
                 "renders the stroke winner through the solid AA branch");
@@ -1346,9 +1334,7 @@ template <typename A, typename B> struct Union {
    * @param shape_a First child shape.
    * @param shape_b Second child shape.
    */
-  Union(const A &shape_a, const B &shape_b)
-      : a(shape_a), b(shape_b),
-        thickness(std::max(shape_a.thickness, shape_b.thickness)) {}
+  Union(const A &shape_a, const B &shape_b) : a(shape_a), b(shape_b) {}
 
   /**
    * @brief Row bounds spanning the union of the children's bands.
@@ -1424,17 +1410,15 @@ template <typename A, typename B> struct Union {
  * @details Shapes organically blend together within radius k (radians).
  */
 template <typename A, typename B> struct SmoothUnion {
-  const A &a;      /**< First child shape. */
-  const B &b;      /**< Second child shape. */
-  float k;         /**< Smoothing radius in radians (e.g. 0.1). */
-  float thickness; /**< Max child thickness (SDFShape reach bound). */
+  const A &a; /**< First child shape. */
+  const B &b; /**< Second child shape. */
+  float k;    /**< Smoothing radius in radians (e.g. 0.1). */
   static constexpr bool is_solid =
       A::is_solid; /**< Both children share solidity, pinned by the
                         static_assert below. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
-                "CSG SmoothUnion children must be SDF shapes "
-                "(is_solid/thickness)");
+                "CSG SmoothUnion children must be SDF shapes (is_solid)");
   static_assert(A::is_solid == B::is_solid,
                 "CSG SmoothUnion children must share solidity; a solid+stroke "
                 "mix renders the stroke winner through the solid AA branch");
@@ -1451,8 +1435,7 @@ template <typename A, typename B> struct SmoothUnion {
    * @param smoothness Blend radius k in radians.
    */
   SmoothUnion(const A &shape_a, const B &shape_b, float smoothness)
-      : a(shape_a), b(shape_b), k(smoothness),
-        thickness(std::max(shape_a.thickness, shape_b.thickness)) {
+      : a(shape_a), b(shape_b), k(smoothness) {
     HS_CHECK(k > 0.0f);
   }
 
@@ -1560,16 +1543,14 @@ template <typename A, typename B> struct SmoothUnion {
  * @tparam B Subtrahend shape type (the shape removed).
  */
 template <typename A, typename B> struct Subtract {
-  const A &a;      /**< Minuend shape. */
-  const B &b;      /**< Subtrahend shape (removed from A). */
-  float thickness; /**< Inherited from the minuend A. */
+  const A &a; /**< Minuend shape. */
+  const B &b; /**< Subtrahend shape (removed from A). */
   static constexpr bool is_solid =
       A::is_solid; /**< Tracks the minuend; carving B never changes A's
                       solidity. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
-                "CSG Subtract children must be SDF shapes "
-                "(is_solid/thickness)");
+                "CSG Subtract children must be SDF shapes (is_solid)");
   // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP)
   // before differencing, so a child that could emit more spans must be rejected
   // at compile time rather than trapping in push_interval at runtime.
@@ -1583,8 +1564,7 @@ template <typename A, typename B> struct Subtract {
    * @param shape_a Minuend shape.
    * @param shape_b Subtrahend shape.
    */
-  Subtract(const A &shape_a, const B &shape_b)
-      : a(shape_a), b(shape_b), thickness(shape_a.thickness) {}
+  Subtract(const A &shape_a, const B &shape_b) : a(shape_a), b(shape_b) {}
 
   /**
    * @brief Row bounds of the minuend (subtraction never grows the band).
@@ -1768,16 +1748,14 @@ template <typename A, typename B> struct Subtract {
  * @tparam B Second child shape type.
  */
 template <typename A, typename B> struct Intersection {
-  const A &a;      /**< First child shape. */
-  const B &b;      /**< Second child shape. */
-  float thickness; /**< Min child thickness (SDFShape reach bound). */
+  const A &a; /**< First child shape. */
+  const B &b; /**< Second child shape. */
   static constexpr bool is_solid =
       A::is_solid; /**< Both children share solidity, pinned by the
                         static_assert below. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
-                "CSG Intersection children must be SDF shapes "
-                "(is_solid/thickness)");
+                "CSG Intersection children must be SDF shapes (is_solid)");
   static_assert(A::is_solid == B::is_solid,
                 "CSG Intersection children must share solidity; a solid+stroke "
                 "mix renders the solid winner through the stroke AA branch");
@@ -1795,9 +1773,7 @@ template <typename A, typename B> struct Intersection {
    * @param shape_a First child shape.
    * @param shape_b Second child shape.
    */
-  Intersection(const A &shape_a, const B &shape_b)
-      : a(shape_a), b(shape_b),
-        thickness(std::min(shape_a.thickness, shape_b.thickness)) {}
+  Intersection(const A &shape_a, const B &shape_b) : a(shape_a), b(shape_b) {}
 
   /**
    * @brief Row bounds of the overlap of the children's bands.
@@ -1937,12 +1913,11 @@ template <typename Shape> struct AngularRepeat {
   Vector axis, u,
       w; /**< Rotation axis and the derived perpendicular plane (u, w). */
   int repetitions; /**< Number of copies around the axis. */
-  float thickness; /**< Inherited from the child shape. */
   static constexpr bool is_solid =
       Shape::is_solid; /**< Matches the child's solidity. */
 
-  static_assert(SDFShape<Shape>, "AngularRepeat child must be an SDF shape "
-                                 "(is_solid/thickness)");
+  static_assert(SDFShape<Shape>,
+                "AngularRepeat child must be an SDF shape (is_solid)");
 
   /**
    * @brief Repeats the shape around an arbitrary axis.
@@ -1951,7 +1926,7 @@ template <typename Shape> struct AngularRepeat {
    * @param ax Rotation axis (unit length).
    */
   AngularRepeat(const Shape &s, int reps, const Vector &ax)
-      : shape(s), axis(ax), repetitions(reps), thickness(s.thickness) {
+      : shape(s), axis(ax), repetitions(reps) {
     HS_CHECK(reps > 0);
     HS_CHECK(fabsf(ax.length() - 1.0f) < 1e-3f);
     // Derive perpendicular plane via Gram-Schmidt
@@ -3506,7 +3481,6 @@ struct Face {
 struct PlanarPolygon {
   const Basis &basis; /**< Orientation frame (v = polygon axis). */
   float circumradius; /**< Angular radius from center to vertex (radians). */
-  float thickness;    /**< SDFShape concept member; equals circumradius. */
   int sides;          /**< Number of polygon sides. */
   float phase;             /**< Azimuth phase offset (radians). */
   float sector;            /**< Angular width of one polygon sector. */
@@ -3530,7 +3504,7 @@ struct PlanarPolygon {
    *        hemisphere, rendered via its antipodal fold).
    */
   PlanarPolygon(const Basis &b, float cr, int s, float ph, bool invert = false)
-      : basis(b), circumradius(cr), thickness(cr), sides(s), phase(ph),
+      : basis(b), circumradius(cr), sides(s), phase(ph),
         sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(circumradius > 0.0f); // t = polar / circumradius
@@ -3621,7 +3595,6 @@ struct SphericalPolygon {
   float sector;            /**< Angular width of one polygon sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius; /**< Angular distance from center to vertex (radians). */
-  float thickness;    /**< SDFShape concept member; equals circumradius. */
   float edge_nv;      /**< Edge normal dotted with the center axis. */
   float edge_nu;      /**< Edge normal dotted with the u-axis. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
@@ -3649,7 +3622,6 @@ struct SphericalPolygon {
     sector = 2.0f * PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
     circumradius = radius * (PI_F / 2.0f);
-    thickness = circumradius;
 
     // Build canonical edge: between vertices at azimuth ±π/n from
     // the sector bisector (u-axis), at angular distance circumradius
@@ -3787,7 +3759,6 @@ struct Star {
   float nx, ny,
       plane_d;        /**< 2D edge plane (normal and offset) for one point. */
   float circumradius; /**< Angular radius from center to point tip (radians). */
-  float thickness;    /**< SDFShape concept member; equals circumradius. */
 
   float scan_ny, scan_r,
       scan_alpha; /**< Axis y-component, XZ projection length and azimuth. */
@@ -3824,7 +3795,6 @@ struct Star {
     ny = dx / len;
     plane_d = -(nx * v_t);
     circumradius = outer_radius;
-    thickness = outer_radius;
 
     CapBounds cb = cap_bounds(basis.v, outer_radius, invert);
     scan_ny = cb.ny;
@@ -3914,7 +3884,6 @@ struct Flower {
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius; /**< Angular radius from the antipode to petal tip
                          (radians). */
-  float thickness;    /**< SDFShape concept member; equals circumradius. */
   float apothem;      /**< Petal inradius offset (PI - outer radius). */
   Vector antipode;         /**< Antipode of the flower axis (scan origin). */
   float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection
@@ -3942,7 +3911,6 @@ struct Flower {
     float outer = radius * (PI_F / 2.0f);
     apothem = PI_F - outer;
     circumradius = outer;
-    thickness = outer;
     antipode = -basis.v;
 
     CapBounds cb = cap_bounds(antipode, circumradius, invert);

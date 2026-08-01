@@ -105,7 +105,7 @@ constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 18783224;
   X("memory", hs_test::mem::run_memory_tests, 271)                             \
   X("spatial", hs_test::spatial::run_spatial_tests, 179)                       \
   X("scb", hs_test::scb::run_static_circular_buffer_tests, 197)                \
-  X("sdf", hs_test::sdf::run_sdf_tests, 271686)                                \
+  X("sdf", hs_test::sdf::run_sdf_tests, 271681)                                \
   X("conway", hs_test::conway_tests::run_conway_tests, 5982)                   \
   X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests,       \
     1656015)                                                                   \
