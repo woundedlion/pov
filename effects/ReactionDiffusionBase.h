@@ -236,8 +236,8 @@ private:
    * walks compare world-space queries directly instead of un-orienting every
    * query.
    */
-  HS_COLD_MEMBER static void orient_nodes(const Vector *nodes, Vector *world,
-                                          int count, const Quaternion &q) {
+  HS_O3_FN static void orient_nodes(const Vector *nodes, Vector *world,
+                                    int count, const Quaternion &q) {
     for (int i = 0; i < count; ++i)
       world[i] = rotate(nodes[i], q);
   }
