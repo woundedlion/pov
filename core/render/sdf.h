@@ -458,19 +458,20 @@ inline DistanceResult distance_of(const S &shape, const Vector &p) {
 
 /**
  * @brief Structural fingerprint of a CSG-composable SDF shape: a static
- * is_solid flag and a `thickness` reach scalar.
+ * is_solid flag and a `thickness` scalar.
  * @tparam T Candidate shape type.
- * @details `thickness` is the shape's AA-falloff reach in radians. A stroke
- * leaf (is_solid == false) stores its stroke half-width: the alpha ramp spans
- * exactly this reach, and the rasterizer's stroke epilogue consumes it per
- * probe as DistanceResult::size. A solid cap leaf ramps over a fixed
- * one-pixel band instead and aliases its cap angular radius (`circumradius`)
- * here as an upper bound. A combinator folds its children's values (max for
- * the unions, min for Intersection, the minuend's for Subtract) so a
- * composite's value stays a conservative reach bound. The CSG combinators
- * assert this concept on their children so a wrong-type argument fails at the
- * boundary. distance() and the scanline members vary by render path and are
- * not part of the shared contract.
+ * @details On a stroke leaf (is_solid == false) `thickness` is the stroke
+ * half-width in radians: the alpha ramp spans exactly this reach, and the
+ * rasterizer's stroke epilogue consumes it per probe as DistanceResult::size.
+ * The combinator fold — max for the unions, min for Intersection, the
+ * minuend's for Subtract — keeps a stroke composite's value a conservative
+ * half-width bound. A solid leaf instead ramps over a one-pixel band the
+ * rasterizer derives from canvas width, and stores its cap angular radius
+ * (`circumradius`) here to satisfy the concept; that radius is not a reach
+ * bound — it can fall well under one pixel, and the fold runs over caps on
+ * different axes. The CSG combinators assert this concept on their children so
+ * a wrong-type argument fails at the boundary. distance() and the scanline
+ * members vary by render path and are not part of the shared contract.
  */
 template <typename T>
 concept SDFShape = requires(const T &t) {
@@ -3505,7 +3506,7 @@ struct Face {
 struct PlanarPolygon {
   const Basis &basis; /**< Orientation frame (v = polygon axis). */
   float circumradius; /**< Angular radius from center to vertex (radians). */
-  float thickness;    /**< SDFShape reach contract; equals circumradius. */
+  float thickness;    /**< SDFShape concept member; equals circumradius. */
   int sides;          /**< Number of polygon sides. */
   float phase;             /**< Azimuth phase offset (radians). */
   float sector;            /**< Angular width of one polygon sector. */
@@ -3620,7 +3621,7 @@ struct SphericalPolygon {
   float sector;            /**< Angular width of one polygon sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius; /**< Angular distance from center to vertex (radians). */
-  float thickness;    /**< SDFShape reach contract; equals circumradius. */
+  float thickness;    /**< SDFShape concept member; equals circumradius. */
   float edge_nv;      /**< Edge normal dotted with the center axis. */
   float edge_nu;      /**< Edge normal dotted with the u-axis. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
@@ -3786,7 +3787,7 @@ struct Star {
   float nx, ny,
       plane_d;        /**< 2D edge plane (normal and offset) for one point. */
   float circumradius; /**< Angular radius from center to point tip (radians). */
-  float thickness;    /**< SDFShape reach contract; equals circumradius. */
+  float thickness;    /**< SDFShape concept member; equals circumradius. */
 
   float scan_ny, scan_r,
       scan_alpha; /**< Axis y-component, XZ projection length and azimuth. */
@@ -3913,7 +3914,7 @@ struct Flower {
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius; /**< Angular radius from the antipode to petal tip
                          (radians). */
-  float thickness;    /**< SDFShape reach contract; equals circumradius. */
+  float thickness;    /**< SDFShape concept member; equals circumradius. */
   float apothem;      /**< Petal inradius offset (PI - outer radius). */
   Vector antipode;         /**< Antipode of the flower axis (scan origin). */
   float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection
