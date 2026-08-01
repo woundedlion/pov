@@ -437,6 +437,8 @@ inline void test_meshstate_set_view_drops_owned() {
     m.faces.push_back(i);
   m.face_offsets.bind(arena, 1);
   m.face_offsets.push_back(0);
+  m.topology.bind(arena, 1);
+  m.topology.push_back(9);
   HS_EXPECT_TRUE(m.get_face_counts_data() == m.face_counts.data());
 
   ArenaVector<uint8_t> view_counts(arena, 2);
@@ -448,25 +450,34 @@ inline void test_meshstate_set_view_drops_owned() {
   ArenaVector<uint16_t> view_offsets(arena, 2);
   view_offsets.push_back(0);
   view_offsets.push_back(4);
+  ArenaVector<uint16_t> view_topology(arena, 2);
+  view_topology.push_back(5);
+  view_topology.push_back(6);
 
   m.set_view(ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
-             ArenaSpan<uint16_t>(view_offsets));
+             ArenaSpan<uint16_t>(view_offsets),
+             ArenaSpan<uint16_t>(view_topology));
 
   HS_EXPECT_FALSE(m.face_counts.is_bound());
   HS_EXPECT_FALSE(m.faces.is_bound());
   HS_EXPECT_FALSE(m.face_offsets.is_bound());
+  HS_EXPECT_FALSE(m.topology.is_bound());
   HS_EXPECT_EQ(m.face_counts.size(), (size_t)0);
   HS_EXPECT_EQ(m.faces.size(), (size_t)0);
   HS_EXPECT_EQ(m.face_offsets.size(), (size_t)0);
+  HS_EXPECT_EQ(m.topology.size(), (size_t)0);
 
   HS_EXPECT_TRUE(m.get_face_counts_data() == view_counts.data());
   HS_EXPECT_TRUE(m.get_faces_data() == view_faces.data());
   HS_EXPECT_TRUE(m.get_face_offsets_data() == view_offsets.data());
+  HS_EXPECT_TRUE(m.get_topology_data() == view_topology.data());
   HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)2);
   HS_EXPECT_EQ(m.get_faces_size(), (size_t)7);
   HS_EXPECT_EQ(m.get_face_offsets_size(), (size_t)2);
+  HS_EXPECT_EQ(m.get_topology_size(), (size_t)2);
   HS_EXPECT_EQ(m.num_faces(), (size_t)2);
   HS_EXPECT_EQ(m.get_faces_data()[6], (uint16_t)16);
+  HS_EXPECT_EQ(m.get_topology_data()[1], (uint16_t)6);
 
   HS_EXPECT_TRUE(m.vertices.is_bound());
   HS_EXPECT_EQ(m.num_vertices(), (size_t)1);
@@ -512,10 +523,13 @@ inline void test_meshstate_set_owned_drops_views() {
     view_faces.push_back(i);
   ArenaVector<uint16_t> view_offsets(arena, 1);
   view_offsets.push_back(0);
+  ArenaVector<uint16_t> view_topology(arena, 1);
+  view_topology.push_back(2);
 
   MeshState m;
   m.set_view(ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
-             ArenaSpan<uint16_t>(view_offsets));
+             ArenaSpan<uint16_t>(view_offsets),
+             ArenaSpan<uint16_t>(view_topology));
   HS_EXPECT_EQ(m.num_faces(), (size_t)1);
 
   m.set_owned();
@@ -523,10 +537,12 @@ inline void test_meshstate_set_owned_drops_views() {
   HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)0);
   HS_EXPECT_EQ(m.get_faces_size(), (size_t)0);
   HS_EXPECT_EQ(m.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_EQ(m.get_topology_size(), (size_t)0);
   HS_EXPECT_EQ(m.num_faces(), (size_t)0);
   HS_EXPECT_TRUE(m.get_face_counts_data() == nullptr);
   HS_EXPECT_TRUE(m.get_faces_data() == nullptr);
   HS_EXPECT_TRUE(m.get_face_offsets_data() == nullptr);
+  HS_EXPECT_TRUE(m.get_topology_data() == nullptr);
 }
 
 /**
@@ -545,29 +561,37 @@ inline void test_meshstate_move_clears_source_views() {
     view_faces.push_back(i);
   ArenaVector<uint16_t> view_offsets(arena, 1);
   view_offsets.push_back(0);
+  ArenaVector<uint16_t> view_topology(arena, 1);
+  view_topology.push_back(2);
 
   MeshState src;
   src.set_view(ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
-               ArenaSpan<uint16_t>(view_offsets));
+               ArenaSpan<uint16_t>(view_offsets),
+               ArenaSpan<uint16_t>(view_topology));
 
   MeshState moved(std::move(src));
   HS_EXPECT_TRUE(moved.get_face_counts_data() == view_counts.data());
   HS_EXPECT_TRUE(moved.get_faces_data() == view_faces.data());
   HS_EXPECT_TRUE(moved.get_face_offsets_data() == view_offsets.data());
+  HS_EXPECT_TRUE(moved.get_topology_data() == view_topology.data());
   HS_EXPECT_EQ(moved.num_faces(), (size_t)1);
   HS_EXPECT_EQ(src.get_face_counts_size(), (size_t)0);
   HS_EXPECT_EQ(src.get_faces_size(), (size_t)0);
   HS_EXPECT_EQ(src.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_EQ(src.get_topology_size(), (size_t)0);
   HS_EXPECT_TRUE(src.get_face_counts_data() == nullptr);
 
   MeshState assigned;
   assigned = std::move(moved);
   HS_EXPECT_TRUE(assigned.get_faces_data() == view_faces.data());
+  HS_EXPECT_TRUE(assigned.get_topology_data() == view_topology.data());
   HS_EXPECT_EQ(assigned.num_faces(), (size_t)1);
   HS_EXPECT_EQ(moved.get_face_counts_size(), (size_t)0);
   HS_EXPECT_EQ(moved.get_faces_size(), (size_t)0);
   HS_EXPECT_EQ(moved.get_face_offsets_size(), (size_t)0);
+  HS_EXPECT_EQ(moved.get_topology_size(), (size_t)0);
   HS_EXPECT_TRUE(moved.get_faces_data() == nullptr);
+  HS_EXPECT_TRUE(moved.get_topology_data() == nullptr);
 }
 
 // ============================================================================

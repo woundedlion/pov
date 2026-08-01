@@ -346,8 +346,8 @@ private:
    * @brief Camera-rotates and rasterizes one mesh, coloring each face by its
    * topology class and shading edges by distance.
    * @param canvas Target canvas to draw into.
-   * @param mesh Source mesh in model space.
-   * @param topology Per-face topology-class indices.
+   * @param mesh Source mesh in model space, carrying its per-face topology
+   * classes.
    * @param star_by_slot Resolved palette LUT per class slot for star faces
    * (emission index < node_faces); see resolve_hankin_slot_luts.
    * @param strap_by_slot Resolved palette LUT per class slot for strap faces.
@@ -376,7 +376,6 @@ private:
    * shader skips the per-fragment role select.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
-                 const ArenaVector<uint16_t> &topology,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
                  float opacity, float strap_open_fade = 1.0f,
@@ -395,6 +394,11 @@ private:
       MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
     }
 
+    // transform borrows the source's per-face classes into the rotated mesh.
+    const uint16_t *topology = rotated_mesh.get_topology_data();
+    const int topology_faces =
+        static_cast<int>(rotated_mesh.get_topology_size());
+
     SlotLutView star_view{star_by_slot};
     SlotLutView strap_view{strap_by_slot};
     const bool fade_straps = strap_open_fade < 1.0f;
@@ -407,15 +411,13 @@ private:
     const int star_faces = static_cast<int>(node_faces);
 
     auto star_shader = [&](const Vector &, Fragment &f) {
-      f.color = shade_mesh_topology(
-          f, topology.data(), static_cast<int>(topology.size()), star_view,
-          SLOT_IDENTITY, params.intensity, opacity);
+      f.color = shade_mesh_topology(f, topology, topology_faces, star_view,
+                                    SLOT_IDENTITY, params.intensity, opacity);
     };
     auto split_shader = [&](const Vector &, Fragment &f) {
       const bool is_strap = mesh_face_index(f) >= star_faces;
       const SlotLutView &view = is_strap ? strap_view : star_view;
-      f.color = shade_mesh_topology(f, topology.data(),
-                                    static_cast<int>(topology.size()), view,
+      f.color = shade_mesh_topology(f, topology, topology_faces, view,
                                     SLOT_IDENTITY, params.intensity, opacity);
       // Every collapse is the same operation: cross-fade this face's ramp onto
       // the ramp of the face taking its place, sampled at the same edge
@@ -634,9 +636,8 @@ private:
               // own color.
               const int to_close = DURATION - cycle_frame;
               const int from_mid = cycle_frame - DURATION / 2;
-              draw_mesh(c, hankin_mesh, hankin_mesh.topology, star_by_slot,
-                        strap_by_slot, opacity, shape_weight(cycle_frame),
-                        shape_weight(to_close),
+              draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot, opacity,
+                        shape_weight(cycle_frame), shape_weight(to_close),
                         hs::clamp(static_cast<float>(to_close) /
                                       STRAP_TERMINAL_FRAMES,
                                   0.0f, 1.0f),

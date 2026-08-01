@@ -1053,6 +1053,8 @@ inline void test_transform_applies_translation_chain() {
   src.faces.push_back(0);
   src.faces.push_back(1);
   src.faces.push_back(2);
+  src.topology.bind(src_arena, 1);
+  src.topology.push_back(7);
 
   MeshState dst;
   auto scale = [](const Vector &v) { return v * 2.0f; };
@@ -1070,6 +1072,11 @@ inline void test_transform_applies_translation_chain() {
   // Topology is borrowed (view) from the source; the dst bound no buffer.
   HS_EXPECT_EQ(dst.get_face_counts_size(), (size_t)1);
   HS_EXPECT_EQ(dst.get_faces_size(), (size_t)3);
+
+  // The per-face classes ride along: transform leaves the faces untouched.
+  HS_EXPECT_EQ(dst.get_topology_size(), (size_t)1);
+  HS_EXPECT_TRUE(dst.get_topology_data() == src.topology.data());
+  HS_EXPECT_EQ(dst.get_topology_data()[0], (uint16_t)7);
 }
 
 /**
@@ -1106,6 +1113,9 @@ inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
   dst.faces.bind(dst_arena, 9);
   for (int i = 0; i < 9; ++i)
     dst.faces.push_back(9);
+  dst.topology.bind(dst_arena, 2);
+  dst.topology.push_back(5);
+  dst.topology.push_back(6);
 
   MeshOps::transform(src, dst, dst_arena);
 
@@ -1116,6 +1126,10 @@ inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
   HS_EXPECT_EQ((int)dst.get_faces_data()[0], 0);
   HS_EXPECT_EQ((int)dst.get_faces_data()[1], 1);
   HS_EXPECT_EQ((int)dst.get_faces_data()[2], 2);
+
+  // An unclassified source leaves the destination unclassified, not stale.
+  HS_EXPECT_EQ(dst.get_topology_size(), (size_t)0);
+  HS_EXPECT_TRUE(dst.get_topology_data() == nullptr);
 }
 
 // ---------------------------------------------------------------------------
