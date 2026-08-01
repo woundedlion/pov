@@ -45,7 +45,8 @@ public:
    * @param to The target value.
    * @param duration The duration in frames.
    * @param easing_fn The easing function to use.
-   * @param quantized If true, the final value is rounded down to an integer.
+   * @param quantized If true, every stepped value is floored, so the ramp is an
+   * integer staircase rather than a smooth sweep.
    * @param repeat If true, the transition repeats indefinitely.
    */
   Transition(float &mutant, float to, int duration, EasingFn easing_fn,
@@ -79,7 +80,7 @@ private:
   float from;            /**< Starting value, captured on the first step. */
   float to;              /**< Target value. */
   EasingFn easing_fn;    /**< Easing curve. */
-  bool quantized;        /**< Flag to round result to integer. */
+  bool quantized;        /**< Floors every stepped value. */
   bool captured = false; /**< True once `from` has been snapshotted. */
 };
 
