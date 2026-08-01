@@ -469,7 +469,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 189. ✅ **GNU-only `stat -c %Y` makes an unwritable lock claim permanently unbreakable off-Linux** — `tools/device_lock.sh:77`. Returns empty on BSD/macOS, after which `_hs_lock_is_stale` returns "cannot date it: leave it alone", so a holder that died between `mkdir` and the info write wedges that board forever. The sibling `date -d` call at `:157` is already guarded.
 
-190. **Docstring and memory-map comment state a 335 KB arena; the real figure is 305,152 B (298 KiB)** — `tools/teensy_gate.py:18, 37`. 335 KB is above the configured `max_bytes` ceiling, so the comment describes a value the gate would reject.
+190. ✅ **Docstring and memory-map comment state a 335 KB arena; the real figure is 305,152 B (298 KiB)** — `tools/teensy_gate.py:18, 37`. 335 KB is above the configured `max_bytes` ceiling, so the comment describes a value the gate would reject.
 
 191. **Three stale or garbled comments in load-bearing files** — `platformio.ini:141-142` inverts the fact (says Holosphere is committed at 288×144; it commits `RingSpin<96, 20>`); `scripts/wasm_smoke.mjs:19-20` is a half-merged sentence; `justfile:102` now builds six envs while README §11 and the spec both describe four.
 
