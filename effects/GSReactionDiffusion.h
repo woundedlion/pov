@@ -63,7 +63,6 @@ class GSReactionDiffusion
   using Base::init_lattice;
   using Base::orient_lattice;
   using Base::Q16_INV;
-  using Base::Q16_SCALE;
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_and_accumulate;
@@ -443,11 +442,6 @@ private:
     return best;
   }
 
-  static __attribute__((always_inline)) inline uint16_t
-  quantize_q16(float v) {
-    return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
-  }
-
   /**
    * @brief Shades one pixel's four sub-samples through an inlinable typed path.
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
@@ -570,8 +564,8 @@ private:
                        });
       uint32_t db_sum_q16 = 0;
       for (int i = 0; i < RD_N; i++) {
-        state.A[i] = quantize_q16(cur_a[i]);
-        uint16_t next_b = quantize_q16(cur_b[i]);
+        state.A[i] = to_q16(cur_a[i]);
+        uint16_t next_b = to_q16(cur_b[i]);
         int db = static_cast<int>(next_b) - state.B[i];
         db_sum_q16 += static_cast<uint32_t>(db < 0 ? -db : db);
         state.B[i] = next_b;
