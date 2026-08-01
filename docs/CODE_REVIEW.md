@@ -539,7 +539,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 224. ✅ **One test cannot discriminate what its docstring claims; one relies on sequential execution** — `daydream/tests/palette_controls.test.js:102-110`, `palette_math.test.js:14-25, 287-293`. "An early cap does not hide a later member violation" passes under both the correct and the mutated bounds test (traced: for a same-signed delta where only the max branch fires, both forms agree regardless of order); and `lastBakeArgs` is module-scope state read across tests, correct only because `node:test` runs top-level tests sequentially by default.
 
-225. **"seven fragment headers"; there are nine** — `README.md:943`, followed immediately by a nine-row table. `core/animation/animation.h:270-278` includes nine. The prose was correct until the `opleg`/`segue`/`carousel` split; the table was updated and the numeral was not.
+225. ✅ **"seven fragment headers"; there are nine** — `README.md:943`, followed immediately by a nine-row table. `core/animation/animation.h:270-278` includes nine. The prose was correct until the `opleg`/`segue`/`carousel` split; the table was updated and the numeral was not.
 
 226. **Repo map contradicts §10.7 about `worker_protocol.js`** — `README.md:341` says "(no runtime code)"; `daydream/worker_protocol.js:28` exports `PROTOCOL_VERSION` and `README.md:2208` itself describes both ends stamping and checking it.
 
