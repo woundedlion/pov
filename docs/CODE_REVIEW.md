@@ -479,7 +479,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 194. ✅ **Exported API with no production consumer** — `daydream/state.js:180`, `daydream/gui.js:138, 343-345, 351`. `AppState.snapshot()` and the static `DeepLinkGUI.reset` are referenced only by tests; `get width()` and `open()` by nothing at all. Each carries full JSDoc, so the surface reads as supported API.
 
-195. **`window.__DAYDREAM_EXTRA_IMPORTS` violates the no-underscore rule** — `daydream/vendor-importmap.js:25, 60`. The only underscore-prefixed identifier in the reviewed app surface, and it is an app-owned global config hook rather than a WASM export or data token. Three touchpoints (helper, README §10.8, test).
+195. ✅ **`window.__DAYDREAM_EXTRA_IMPORTS` violates the no-underscore rule** — `daydream/vendor-importmap.js:25, 60`. The only underscore-prefixed identifier in the reviewed app surface, and it is an app-owned global config hook rather than a WASM export or data token. Three touchpoints (helper, README §10.8, test).
 
 196. **Dead transition, `transition: all`, and no palette variables** — `daydream/styles/index.css:194, 332, 374`. The loading-overlay opacity transition never fires (nothing animates it); `.effect-button` and `.sort-btn` transition layout-affecting properties alongside paint ones; and five colours plus two font stacks recur 5–9 times across a 702-line sheet with no custom properties.
 
