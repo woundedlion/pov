@@ -33,6 +33,11 @@ public:
   static constexpr int NUM_SHAPES = static_cast<int>(ShapeType::STAR) + 1;
   static constexpr int NUM_FUNCTIONS =
       static_cast<int>(PhaseFunction::SQUARE) + 1;
+  /**
+   * @brief Count slider ceiling.
+   * @details The 75 floor holds the preset counts inside the registered range
+   * on canvases shorter than that; preset_in_ranges pins the coupling.
+   */
   static constexpr int MAX_SHAPES = H > 75 ? H : 75;
 
   /** @brief Constructs the Plot-only effect on a WxH canvas. */
