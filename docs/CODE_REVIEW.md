@@ -481,7 +481,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 195. ✅ **`window.__DAYDREAM_EXTRA_IMPORTS` violates the no-underscore rule** — `daydream/vendor-importmap.js:25, 60`. The only underscore-prefixed identifier in the reviewed app surface, and it is an app-owned global config hook rather than a WASM export or data token. Three touchpoints (helper, README §10.8, test).
 
-196. **Dead transition, `transition: all`, and no palette variables** — `daydream/styles/index.css:194, 332, 374`. The loading-overlay opacity transition never fires (nothing animates it); `.effect-button` and `.sort-btn` transition layout-affecting properties alongside paint ones; and five colours plus two font stacks recur 5–9 times across a 702-line sheet with no custom properties.
+196. ✅ **Dead transition, `transition: all`, and no palette variables** — `daydream/styles/index.css:194, 332, 374`. The loading-overlay opacity transition never fires (nothing animates it); `.effect-button` and `.sort-btn` transition layout-affecting properties alongside paint ones; and five colours plus two font stacks recur 5–9 times across a 702-line sheet with no custom properties.
 
 197. **Heading-level skip and an unroled focusable canvas** — `daydream/index.html:15, 68-69`; `daydream/sidebar.js:31-33`. The document goes `h1` straight to `h3`, which screen-reader outline navigation reports as a structural error; and `#canvas` is `tabindex="0"` with an `aria-label` but no `role`, while the label promises arrow-key orbiting that is gated on a keyboard-focus latch.
 
