@@ -523,7 +523,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 216. ✅ **`FakeMediaRecorder.isTypeSupported` is static mutable state `installRecorderEnv()` does not reset** — `daydream/tests/recorder.test.js:169, 200-201, 293`. Asymmetric with the two fields it does reset; any future early return between the mutation and its `finally` poisons every later test in the file.
 
-217. **Two user-visible recorder behaviours have no coverage** — `daydream/recorder.js:362-367, 336-337`. `elapsedFormatted` (the M:SS readout rendered in the UI) is referenced by zero tests, so its padding and minute rollover are unverified; and `blitToOffscreen`'s zero-size-source guard — documented as the mid-resize `drawImage`-throws case — is unreached.
+217. ✅ **Two user-visible recorder behaviours have no coverage** — `daydream/recorder.js:362-367, 336-337`. `elapsedFormatted` (the M:SS readout rendered in the UI) is referenced by zero tests, so its padding and minute rollover are unverified; and `blitToOffscreen`'s zero-size-source guard — documented as the mid-resize `drawImage`-throws case — is unreached.
 
 218. **A bare magic count that survives the regression it targets** — `daydream/tests/bootstrap.test.js:225`. Under a test named "associates stats headers", the assertion counts `<th scope="col">` occurrences and expects 10 — so adding an unscoped `<th>` keeps the count at 10 and passes. Use a relational oracle instead.
 
