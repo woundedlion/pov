@@ -2045,7 +2045,7 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 
 ### 10.2 The WASM Bridge
 
-`wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes a single `HolosphereEngine` class:
+`wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes a single `HolosphereEngine` class. At most one instance may be live per module — its effect and arenas are shared module-global storage — so `delete()` the current engine before constructing another; the constructor traps otherwise.
 
 | Method | Description |
 |---|---|

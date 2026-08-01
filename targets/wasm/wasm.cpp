@@ -294,10 +294,17 @@ static bool wasm_resolution_supported(int w, int h) {
   return dispatch_resolution(w, h, []<int W, int H>() {});
 }
 
+// True while a HolosphereEngine is constructed-but-not-deleted. The engine is a
+// singleton: its Effect aliases shared static buffers and its arenas are
+// module-global, so a second instance would corrupt the first's frames.
+static bool engine_alive = false;
+
 /**
  * @brief JS-facing render engine driving one resolution/effect at a time.
  * @details Owns the current effect and the stable readback buffers. Every public
  *          method is exported to JavaScript via EMSCRIPTEN_BINDINGS below.
+ *          At most one instance may be live: delete() the current engine before
+ *          constructing another, or the constructor traps.
  */
 class HolosphereEngine {
 public:
@@ -310,6 +317,11 @@ public:
    *          immediately.
    */
   HolosphereEngine() {
+    HS_CHECK(!engine_alive,
+             "HolosphereEngine is a singleton: delete() the live instance "
+             "before constructing another (its Effect and arenas are shared "
+             "module-global storage)");
+    engine_alive = true;
     stack_paint_canary();
 
     // SSOT guard: the self-registering effect count must match the static roster
@@ -332,6 +344,12 @@ public:
     setResolution(96, 20);
     HS_CHECK(setEffect("DisplacementField"));
   }
+
+  /**
+   * @brief Destroys the engine and admits the next construction.
+   * @details JS reaches this through the embind-generated delete().
+   */
+  ~HolosphereEngine() { engine_alive = false; }
 
   /**
    * @brief Switches the active canvas resolution.
