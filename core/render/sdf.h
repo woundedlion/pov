@@ -496,6 +496,7 @@ struct CapBounds {
   float ny, R_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  float cos_radius, sin_radius; /**< Cap radius trig, for the scanline pad. */
 };
 
 /**
@@ -505,15 +506,20 @@ struct CapBounds {
  * @param radius Angular radius of the cap (radians).
  * @param invert When true the shape fills the complement, which touches every
  *        row, so the band opens to the whole sphere.
- * @return Axis projection and the bounding band, widened by BOUNDS_MARGIN_WIDE.
+ * @return Axis projection, the bounding band widened by BOUNDS_MARGIN_WIDE, and
+ *         the cap radius' cosine and sine.
  */
 inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
   AxisProjection ap = project_axis(axis);
   float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ap.ny)));
   float margin = radius + BOUNDS_MARGIN_WIDE;
-  return {ap.ny, ap.R_val, ap.alpha_angle,
+  return {ap.ny,
+          ap.R_val,
+          ap.alpha_angle,
           invert ? 0.0f : std::max(0.0f, center_phi - margin),
-          invert ? PI_F : std::min(PI_F, center_phi + margin)};
+          invert ? PI_F : std::min(PI_F, center_phi + margin),
+          cosf(radius),
+          sinf(radius)};
 }
 
 /**
@@ -573,7 +579,8 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
  *         span the whole width.
  * @tparam OutputIt Sink type invoked as out(float start, float end).
  * @param sign +1 fills the shape, -1 its complement.
- * @param cap_radius Angular radius of the bounding cap (radians).
+ * @param cos_cap Cosine of the bounding cap's angular radius.
+ * @param sin_cap Sine of the bounding cap's angular radius.
  * @param ny y-component of the cap axis.
  * @param R_val Horizontal projection length of the cap axis.
  * @param alpha_angle Azimuth of the cap axis (radians).
@@ -585,16 +592,19 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
  * scan. Shared by PlanarPolygon / SphericalPolygon / Star.
  */
 template <int W, int H, bool RejectFullWidth, typename OutputIt>
-inline bool emit_padded_cap_row(float sign, float cap_radius, float ny,
-                                float R_val, float alpha_angle, int y,
+inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
+                                float ny, float R_val, float alpha_angle, int y,
                                 OutputIt out) {
   if (sign < 0.0f)
     return false;
   if (!TrigLUT<W, H>::initialized)
     TrigLUT<W, H>::init();
-  float pixel_width = 2.0f * PI_F / W;
-  return emit_cap_interval<W>(cosf(cap_radius + pixel_width), ny, R_val,
-                              alpha_angle, TrigLUT<W, H>::cos_phi[y],
+  // Column 1 of the theta LUT is one pixel of azimuth, so the cap pad is an
+  // angle addition rather than a per-row cosf.
+  float cos_padded = cos_cap * TrigLUT<W, H>::cos_theta(1) -
+                     sin_cap * TrigLUT<W, H>::sin_theta[1];
+  return emit_cap_interval<W>(cos_padded, ny, R_val, alpha_angle,
+                              TrigLUT<W, H>::cos_phi[y],
                               TrigLUT<W, H>::sin_phi[y], RejectFullWidth, out);
 }
 
@@ -3488,6 +3498,7 @@ struct PlanarPolygon {
   float apothem;           /**< Precomputed inradius (radians). */
   float ny, R_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid =
@@ -3518,6 +3529,8 @@ struct PlanarPolygon {
     alpha_angle = cb.alpha_angle;
     phi_min = cb.phi_min;
     phi_max = cb.phi_max;
+    cos_cap = cb.cos_radius;
+    sin_cap = cb.sin_radius;
   }
 
   /**
@@ -3544,7 +3557,7 @@ struct PlanarPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H, false>(sign, circumradius, ny, R_val,
+    return emit_padded_cap_row<W, H, false>(sign, cos_cap, sin_cap, ny, R_val,
                                             alpha_angle, y, out);
   }
 
@@ -3600,7 +3613,8 @@ struct SphericalPolygon {
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float ny, R_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
-  float sign;      /**< +1 fills the polygon, -1 its complement. */
+  float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
+  float sign;             /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid =
       true; /**< Polygon renders as a filled region. */
 
@@ -3658,6 +3672,8 @@ struct SphericalPolygon {
     alpha_angle = cb.alpha_angle;
     phi_min = cb.phi_min;
     phi_max = cb.phi_max;
+    cos_cap = cb.cos_radius;
+    sin_cap = cb.sin_radius;
   }
 
   /**
@@ -3683,7 +3699,7 @@ struct SphericalPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H, false>(sign, circumradius, ny, R_val,
+    return emit_padded_cap_row<W, H, false>(sign, cos_cap, sin_cap, ny, R_val,
                                             alpha_angle, y, out);
   }
 
@@ -3762,6 +3778,7 @@ struct Star {
 
   float scan_ny, scan_r,
       scan_alpha; /**< Axis y-component, XZ projection length and azimuth. */
+  float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the star, -1 its complement. */
 
@@ -3802,6 +3819,8 @@ struct Star {
     scan_alpha = cb.alpha_angle;
     phi_min = cb.phi_min;
     phi_max = cb.phi_max;
+    cos_cap = cb.cos_radius;
+    sin_cap = cb.sin_radius;
   }
 
   /**
@@ -3830,8 +3849,8 @@ struct Star {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H, true>(sign, circumradius, scan_ny, scan_r,
-                                           scan_alpha, y, out);
+    return emit_padded_cap_row<W, H, true>(sign, cos_cap, sin_cap, scan_ny,
+                                           scan_r, scan_alpha, y, out);
   }
 
   /**
