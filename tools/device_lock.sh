@@ -74,7 +74,10 @@ _hs_lock_field() {  # <dir> <field>
 }
 
 _hs_lock_born() {  # <dir> — claim mtime in epoch seconds, empty if unknown
-  stat -c %Y "$1" 2>/dev/null
+  local born
+  born=$(stat -c %Y "$1" 2>/dev/null) ||
+    born=$(stat -f %m "$1" 2>/dev/null) || return 0
+  printf '%s\n' "$born"
 }
 
 _hs_holder_desc() {  # <dir>
