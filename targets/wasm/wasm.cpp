@@ -811,6 +811,30 @@ private:
 #include "mesh/solids.h"
 
 /**
+ * @brief Why the most recent mesh-producing MeshOps call returned null.
+ * @details A bare null collapses reasons that demand opposite caller actions —
+ *          shrinking the op chain versus calling clearToolingMemory() — so the
+ *          reason is recorded here and read back via MeshOps.getLastResult().
+ *          Exposed to JS as the Module.MeshOpResult embind enum; compare
+ *          against its values, never by truthiness.
+ */
+enum class MeshOpResult {
+  OK,                    /**< The call produced a mesh. */
+  UNKNOWN_NAME,          /**< No registry entry carries that name. */
+  CONNECTIVITY_OVERFLOW, /**< A stage would pass the 16-bit element ceiling. */
+  FACE_DEGREE_OVERFLOW,  /**< A stage would emit a face past the 8-bit side
+                              count. */
+  ARENA_EXHAUSTED,       /**< The result would not fit tooling_arena's
+                              remaining bytes. */
+  NON_FINITE_ARG,        /**< An operator argument was NaN or infinite. */
+  ANGLE_OUT_OF_DOMAIN,   /**< An angle argument sat outside its operator's
+                              domain. */
+};
+
+// Outcome of the most recent mesh-producing MeshOps call (getLastResult()).
+static MeshOpResult last_mesh_op_result = MeshOpResult::OK;
+
+/**
  * @brief JS-facing wrapper around a PolyMesh and the Conway/Goldberg operators.
  * @details Named to avoid collision with the MeshOps namespace. Each wrapper's
  *          mesh is built into the tooling arena and records the generation it was
@@ -874,7 +898,8 @@ public:
    * @brief Builds a wrapper for the named base solid.
    * @param name Solid name to look up in the Solids registry.
    * @return Owning pointer to the new wrapper, or null for an unknown name or a
-   *         solid that would not fit what is left of tooling_arena.
+   *         solid that would not fit what is left of tooling_arena;
+   *         getLastResult() names which.
    * @details Rejects an unknown name at the untrusted JS boundary rather than
    *          tripping get_by_name()'s fail-fast HS_CHECK and aborting the module.
    *          Generates into the scratch arenas and prices the finalized copy
@@ -883,9 +908,11 @@ public:
    *          clearToolingMemory() and Arena::allocate traps when it runs out.
    */
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
+    last_mesh_op_result = MeshOpResult::OK;
     const Solids::Entry *entry = Solids::find_entry(name);
     if (!entry) {
       hs::log("WASM: fromSolidName unknown solid '%s' — ignored", name.c_str());
+      last_mesh_op_result = MeshOpResult::UNKNOWN_NAME;
       return nullptr;
     }
     ToolingOpGuard guard;
@@ -903,6 +930,7 @@ public:
               "it, which invalidates every live mesh",
               name.c_str(), tooling_arena.get_offset(),
               tooling_arena.get_capacity());
+      last_mesh_op_result = MeshOpResult::ARENA_EXHAUSTED;
       return nullptr;
     }
     return std::make_unique<MeshOpsWrapper>(
@@ -956,9 +984,9 @@ public:
    * @return JS Int32Array of one topology code per face, copied out of the
    *         mesh's now-populated topology buffer, or null when the mesh is past
    *         MAX_MESH_CONNECTIVITY_ELEMENTS or its topology block would not fit
-   *         what is left of tooling_arena. Null rather than an empty array so a
-   *         caller can tell "no classification" from "no faces" with a plain
-   *         truthiness test.
+   *         what is left of tooling_arena; getLastResult() names which. Null
+   *         rather than an empty array so a caller can tell "no classification"
+   *         from "no faces" with a plain truthiness test.
    * @details Same tooling-arena lifetime contract as getVertices(): the
    *          `topology` buffer lives in tooling_arena and is invalidated by the
    *          next mesh op / arena reset. The `.new_(Int32Array)(view)` form
@@ -970,6 +998,7 @@ public:
    */
   val classifyFaces() {
     check_live();
+    last_mesh_op_result = MeshOpResult::OK;
     if (hs_wasm::tooling_mesh_over_ceiling(
             mesh.vertices.size(), mesh.get_face_counts_size(),
             mesh.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS)) {
@@ -977,6 +1006,7 @@ public:
               "is past the %zu-element 16-bit connectivity range — ignored",
               mesh.vertices.size(), mesh.get_face_counts_size(),
               mesh.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS);
+      last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
       return val::null();
     }
     ensure_tooling_arenas();
@@ -989,6 +1019,7 @@ public:
               "clearToolingMemory() to reclaim it, which invalidates every "
               "live mesh",
               tooling_arena.get_offset(), tooling_arena.get_capacity());
+      last_mesh_op_result = MeshOpResult::ARENA_EXHAUSTED;
       return val::null();
     }
     ToolingOpGuard guard;
@@ -1032,7 +1063,8 @@ public:
    * @return Owning pointer to a new wrapper holding the finalized result mesh, or
    *         null if some stage of this operator would pass
    *         MAX_MESH_CONNECTIVITY_ELEMENTS or MAX_MESH_FACE_DEGREE, or its output
-   *         would not fit what is left of tooling_arena.
+   *         would not fit what is left of tooling_arena; getLastResult() names
+   *         which.
    * @details Captures the shared operator boilerplate: reset both tooling scratch
    *          arenas, run the op into a fresh PolyMesh, finalize it into
    *          tooling_arena, and hand back a new wrapper. An input the operator
@@ -1047,6 +1079,7 @@ public:
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(MeshOpBounds bounds, Op &&op) const {
     check_live();
+    last_mesh_op_result = MeshOpResult::OK;
     if (hs_wasm::mesh_op_expansion_over_ceiling(
             mesh.vertices.size(), mesh.get_face_counts_size(),
             mesh.get_faces_size(), bounds.elements,
@@ -1057,6 +1090,7 @@ public:
               mesh.vertices.size(), mesh.get_face_counts_size(),
               mesh.get_faces_size(), bounds.elements,
               MAX_MESH_CONNECTIVITY_ELEMENTS);
+      last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
       return nullptr;
     }
     ensure_tooling_arenas();
@@ -1069,6 +1103,7 @@ public:
               "bytes used) — ignored; call clearToolingMemory() to reclaim it, "
               "which invalidates every live mesh",
               tooling_arena.get_offset(), tooling_arena.get_capacity());
+      last_mesh_op_result = MeshOpResult::ARENA_EXHAUSTED;
       return nullptr;
     }
     const size_t face_degree = hs_wasm::mesh_max_face_degree(
@@ -1082,6 +1117,7 @@ public:
               "ignored",
               face_degree, bounds.face_degree, valence, bounds.valence,
               MAX_MESH_FACE_DEGREE);
+      last_mesh_op_result = MeshOpResult::FACE_DEGREE_OVERFLOW;
       return nullptr;
     }
     ToolingOpGuard guard;
@@ -1104,6 +1140,7 @@ public:
     if (std::isfinite(arg))
       return true;
     hs::log("WASM: MeshOps::%s got a non-finite argument — ignored", op);
+    last_mesh_op_result = MeshOpResult::NON_FINITE_ARG;
     return false;
   }
 
@@ -1278,7 +1315,7 @@ public:
    * @param radians Interlace angle in radians (the unit MeshOps::hankin
    *        expects), in the operator's [0, MAX_HANKIN_ANGLE] domain.
    * @return Owning pointer to a new wrapper holding the result, or null if the
-   *         angle is non-finite or out of domain.
+   *         angle is non-finite or out of domain; getLastResult() names which.
    * @details Explicit (not a MESHOP_* macro) so the radians unit contract the JS
    *          caller relies on is carried here. The angle is rejected rather than
    *          clamped: MeshOps::hankin aliases an out-of-domain angle onto an
@@ -1291,6 +1328,7 @@ public:
     if (hs_wasm::hankin_angle_out_of_range(radians, MAX_HANKIN_ANGLE)) {
       hs::log("WASM: MeshOps::hankin angle %g outside [0, %g] — ignored",
               radians, MAX_HANKIN_ANGLE);
+      last_mesh_op_result = MeshOpResult::ANGLE_OUT_OF_DOMAIN;
       return nullptr;
     }
     return apply({4, 2, 2}, [radians](const PolyMesh &m, Arena &a, Arena &b) {
@@ -1485,6 +1523,15 @@ public:
    *         in bytes.
    */
   static val getArenaMetrics() { return collect_arena_metrics(); }
+
+  /**
+   * @brief Reports why the most recent mesh-producing call returned null.
+   * @return OK when that call produced a mesh, otherwise its rejection reason.
+   * @details Covers fromSolidName, classifyFaces and the operator methods.
+   *          Read it immediately after the null; the next such call overwrites
+   *          it.
+   */
+  static MeshOpResult getLastResult() { return last_mesh_op_result; }
 };
 
 // 256 sRGB entries (R,G,B) backing the typed_memory_view PaletteOps::bakeLut
@@ -1632,10 +1679,20 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("setClip", &HolosphereEngine::setClip)
       .function("strobeColumns", &HolosphereEngine::strobeColumns);
 
+  enum_<MeshOpResult>("MeshOpResult")
+      .value("OK", MeshOpResult::OK)
+      .value("UNKNOWN_NAME", MeshOpResult::UNKNOWN_NAME)
+      .value("CONNECTIVITY_OVERFLOW", MeshOpResult::CONNECTIVITY_OVERFLOW)
+      .value("FACE_DEGREE_OVERFLOW", MeshOpResult::FACE_DEGREE_OVERFLOW)
+      .value("ARENA_EXHAUSTED", MeshOpResult::ARENA_EXHAUSTED)
+      .value("NON_FINITE_ARG", MeshOpResult::NON_FINITE_ARG)
+      .value("ANGLE_OUT_OF_DOMAIN", MeshOpResult::ANGLE_OUT_OF_DOMAIN);
+
   // No public .constructor<>(): all construction goes through fromSolidName so
   // JS cannot wrap an empty mesh past the operator boundary's check_live().
   class_<MeshOpsWrapper>("MeshOps")
       .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
+      .class_function("getLastResult", &MeshOpsWrapper::getLastResult)
       .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName)
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
       .class_function("getRecipe", &MeshOpsWrapper::getRecipe)
