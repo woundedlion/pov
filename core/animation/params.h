@@ -242,7 +242,6 @@ public:
   /**
    * @brief Constructs a Lerp animation.
    * @tparam T Interpolated type implementing lerp(start, target, t).
-   * @tparam Easing Easing-function type.
    * @param subject The caller-owned object to write each frame.
    * @param start The caller-owned start state.
    * @param target The caller-owned target state.
@@ -250,9 +249,9 @@ public:
    * @param easing_fn The easing function applied to progress.
    * @param paused Optional pause gate; null = always runs.
    */
-  template <typename T, typename Easing>
+  template <typename T>
   Lerp(T &subject, const T &start, const T &target, int duration,
-       Easing easing_fn, const bool *paused = nullptr)
+       EasingFn easing_fn, const bool *paused = nullptr)
       : FiniteParamAnimationBase(duration, false), subject_ptr(&subject),
         start_ptr(&start), target_ptr(&target), easing(easing_fn),
         paused(paused) {
@@ -264,15 +263,15 @@ public:
 
   // Borrow contract: subject/start/target are read across many frames, so they
   // must outlive the Timeline; these deleted overloads reject a temporary.
-  template <typename T, typename Easing>
+  template <typename T>
   Lerp(T &subject, const T &&start, const T &target, int duration,
-       Easing easing_fn, const bool *paused = nullptr) = delete;
-  template <typename T, typename Easing>
+       EasingFn easing_fn, const bool *paused = nullptr) = delete;
+  template <typename T>
   Lerp(T &subject, const T &start, const T &&target, int duration,
-       Easing easing_fn, const bool *paused = nullptr) = delete;
-  template <typename T, typename Easing>
+       EasingFn easing_fn, const bool *paused = nullptr) = delete;
+  template <typename T>
   Lerp(T &subject, const T &&start, const T &&target, int duration,
-       Easing easing_fn, const bool *paused = nullptr) = delete;
+       EasingFn easing_fn, const bool *paused = nullptr) = delete;
 
   /**
    * @brief Performs one step of the interpolation.
