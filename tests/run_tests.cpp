@@ -132,12 +132,12 @@ constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 18783224;
   X("platform", hs_test::platform_tests::run_platform_tests, 201119)           \
   X("filter", hs_test::filter_tests::run_filter_tests, 10297)                  \
   X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests, 9109889)       \
-  X("canvas", hs_test::canvas_tests::run_canvas_tests, 452)                    \
+  X("canvas", hs_test::canvas_tests::run_canvas_tests, 487)                    \
   X("scan", hs_test::scan_tests::run_scan_tests, 189869)                       \
   X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests, 2793)    \
   X("transformers", hs_test::transformers_tests::run_transformers_tests,       \
     216596)                                                                    \
-  X("noise", hs_test::noise_tests::run_noise_tests, 18)                        \
+  X("noise", hs_test::noise_tests::run_noise_tests, 201)                       \
   X("generators", hs_test::generators_tests::run_generators_tests, 59)         \
   X("animation", hs_test::animation_tests::run_animation_tests, 16488)         \
   X("effects", hs_test::effects_tests::run_effects_tests,                      \
