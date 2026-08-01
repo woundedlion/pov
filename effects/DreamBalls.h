@@ -371,8 +371,8 @@ private:
                        baked_palettes[bake_slot]);
     };
 
-    const int period =
-        crossfade.schedule(timeline, draw_fn, SPRITE_LIFE, FADE_WINDOW);
+    const int period = crossfade.schedule(timeline, draw_fn, SPRITE_LIFE,
+                                          FADE_WINDOW, &anims_paused);
 
     // Single-slot pool: free here only because the previous warp runs exactly
     // `period` frames and so completes earlier in the same step() that fires the
@@ -382,16 +382,16 @@ private:
     if (auto *warp = mobius_gen.spawn(0, params.warp_scale, period, false))
       warp->bind_scale(params.warp_scale);
 
-    timeline.add(period, Animation::PeriodicTimer(
-                             0,
-                             [this](Canvas &) {
-                               // Paused: re-spawn the same preset (params hold);
-                               // otherwise advance the selector to the next.
-                               if (!animations_paused())
-                                 preset_manager.next();
-                               this->spawn_sprite();
-                             },
-                             false));
+    timeline.add_pausable(
+        period,
+        Animation::PeriodicTimer(
+            0,
+            [this](Canvas &) {
+              preset_manager.next();
+              this->spawn_sprite();
+            },
+            false),
+        &anims_paused);
   }
 
   /**

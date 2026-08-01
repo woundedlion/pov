@@ -600,7 +600,10 @@ public:
       return ParamSetResult::NO_EFFECT;
     // The rejection classification is single-sourced in Effect::updateParameter,
     // not re-checked here.
-    return current_effect->updateParameter(name.c_str(), value);
+    const ParamSetResult result =
+        current_effect->updateParameter(name.c_str(), value);
+    animations_paused = current_effect->animations_paused();
+    return result;
   }
 
   /**

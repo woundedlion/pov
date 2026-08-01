@@ -292,7 +292,6 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
       std::tuple_size<decltype(Effect::ParamList::elements)>::value;
   std::array<float, PARAM_CAPACITY> held{};
   size_t count = 0;
-  effect.setAnimationsPaused(true);
   for (const auto &def : effect.getParameters()) {
     if (!def.animated)
       continue;
@@ -304,6 +303,7 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
                                     : def.min + 0.75f * (def.max - def.min));
     HS_EXPECT_TRUE(effect.updateParameter(def.name, target) ==
                    ParamSetResult::APPLIED);
+    HS_EXPECT_TRUE(effect.animations_paused());
     held[count++] = def.get();
   }
   if (count == 0)
@@ -1473,6 +1473,58 @@ inline void test_bz_substep_diffuses() {
 // DreamBalls: preset-cycle / re-spawn white-box coverage
 // ---------------------------------------------------------------------------
 
+/** @brief Test access to HankinSolids' morph-chain state. */
+struct HankinPauseWhiteBox {
+  using EffectT = HankinSolids<SMALL_W, SMALL_H>;
+
+  static bool morph_active(const EffectT &effect) {
+    return effect.pending_landing != nullptr;
+  }
+  static uint8_t node(const EffectT &effect) { return effect.node; }
+};
+
+/** @brief Verifies a manual Angle edit freezes an in-flight Conway morph. */
+inline void test_hankinsolids_manual_pause_holds_morph() {
+  reset_effect_globals();
+  HankinPauseWhiteBox::EffectT effect;
+  effect.init();
+
+  int frames = 0;
+  while (!HankinPauseWhiteBox::morph_active(effect) && frames < 100) {
+    effect.draw_frame();
+    effect.advance_display();
+    ++frames;
+  }
+  HS_EXPECT_TRUE(HankinPauseWhiteBox::morph_active(effect));
+
+  for (int i = 0; i < 5; ++i) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  const uint8_t held_node = HankinPauseWhiteBox::node(effect);
+  HS_EXPECT_TRUE(effect.updateParameter("Angle", 0.7f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(effect.animations_paused());
+
+  for (int i = 0; i < 300; ++i) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_TRUE(HankinPauseWhiteBox::morph_active(effect));
+  HS_EXPECT_EQ(HankinPauseWhiteBox::node(effect), held_node);
+  const auto *angle = effect.getParameters().find("Angle");
+  HS_EXPECT_TRUE(angle != nullptr);
+  HS_EXPECT_NEAR(angle->get(), 0.7f, 1e-6f);
+
+  uint64_t energy = 0;
+  for (int y = 0; y < SMALL_H; ++y)
+    for (int x = 0; x < SMALL_W; ++x) {
+      const Pixel &pixel = effect.get_pixel(x, y);
+      energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+    }
+  HS_EXPECT_GT(energy, 0u);
+}
+
 /**
  * @brief White-box accessor for DreamBalls' private preset-cycle bookkeeping
  *        (befriended in effects/DreamBalls.h).
@@ -1496,7 +1548,7 @@ struct DreamBallsWhiteBox {
     db.preset_manager.next();
     db.spawn_sprite();
   }
-  // Paused re-spawn of the current preset (no advance).
+  // Re-spawn of the current preset (no advance).
   static void respawn(DB &db) { db.spawn_sprite(); }
   // The literal solid-name pointer the given preset seeds into params on reseed.
   static const char *preset_name(const DB &db, int idx) {
@@ -1514,8 +1566,8 @@ struct DreamBallsWhiteBox {
  *          Presets::next() then re-spawns, so the active preset walks step % 4.
  *          Each spawn must flip the bake slot (so a fading-out sprite keeps its
  *          own LUT) and, when the preset actually changes, reseed params to the
- *          new entry. A re-spawn of the SAME preset (the paused branch) must
- *          instead hold params so a live slider edit survives.
+ *          new entry. A re-spawn of the SAME preset must instead hold params
+ *          so a live slider edit survives.
  */
 inline void test_dreamballs_preset_cycle_bookkeeping() {
   using WB = DreamBallsWhiteBox;
@@ -1543,7 +1595,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
     HS_EXPECT_EQ(WB::live_solid(db), WB::preset_name(db, safe));
   }
 
-  // Paused-hold path: re-spawn the SAME preset (no advance), so the reseed guard
+  // Same-preset path: re-spawn without advancing, so the reseed guard
   // (safe_idx == last_preset_idx) holds and a live slider edit must survive the
   // re-spawn — while the bake slot still flips. last_preset_idx is now 0.
   const float sentinel = WB::num_copies(db) + 5.0f;
@@ -1557,31 +1609,29 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
 }
 
 /**
- * @brief End-to-end check that the 320-frame re-spawn timer actually fires and
- *        honors the pause gate, by rendering past one period.
- * @details Covers the part the white-box driver cannot: the PeriodicTimer wiring
- *          and the animations_paused()?idx:idx+1 hold-vs-advance decision in the
- *          scheduler lambda. Renders 340 frames (one period is 320; the next
- *          re-spawn is another 320 away, so exactly one fires). Unpaused, the
- *          preset advances 0 -> 1; paused, it re-spawns the same preset and holds.
+ * @brief Verifies pause freezes DreamBalls' sprite and next-preset clock.
  */
 inline void test_dreamballs_respawn_fires_and_honors_pause() {
   using WB = DreamBallsWhiteBox;
-  auto run = [](bool paused) {
-    reset_effect_globals();
-    WB::DB db;
-    db.init();
-    db.setAnimationsPaused(paused);
-    // The re-spawn timer is scheduled 320 frames out; render past it so exactly
-    // one re-spawn fires (the following one is another 320 frames away).
-    for (int f = 0; f < 340; ++f) {
-      db.draw_frame();
-      db.advance_display();
-    }
-    return WB::last_preset_idx(db);
-  };
-  HS_EXPECT_EQ(run(false), 1); // unpaused: re-spawn advanced preset 0 -> 1
-  HS_EXPECT_EQ(run(true), 0);  // paused: re-spawn fired but held preset 0
+  reset_effect_globals();
+  WB::DB db;
+  db.init();
+  const int held_bake = WB::active_bake(db);
+  db.setAnimationsPaused(true);
+  for (int f = 0; f < 340; ++f) {
+    db.draw_frame();
+    db.advance_display();
+  }
+  HS_EXPECT_EQ(WB::last_preset_idx(db), 0);
+  HS_EXPECT_EQ(WB::active_bake(db), held_bake);
+
+  db.setAnimationsPaused(false);
+  for (int f = 0; f < 340; ++f) {
+    db.draw_frame();
+    db.advance_display();
+  }
+  HS_EXPECT_EQ(WB::last_preset_idx(db), 1);
+  HS_EXPECT_EQ(WB::active_bake(db), held_bake ^ 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -4707,6 +4757,7 @@ inline int run_effects_tests() {
   test_gs_substep_matches_scalar_reference();
   test_shapeshifter_preset_defaults();
   test_shapeshifter_slider_selections_render();
+  test_hankinsolids_manual_pause_holds_morph();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
   // correctness block and the 288x144 production-resolution roster passes below

@@ -86,11 +86,19 @@ public:
    * @param canvas The canvas buffer passed to the draw function.
    */
   void step(Canvas &canvas) override {
-    // Paused: hold the frame (don't advance the timer) but keep drawing at the
-    // current opacity.
-    if (!is_paused(paused))
-      AnimationBase::step(canvas);
+    if (is_paused(paused)) {
+      step_paused(canvas);
+      return;
+    }
+    AnimationBase::step(canvas);
+    draw_frame(canvas);
+  }
 
+  /** @brief Draws the current envelope without advancing its timer. */
+  void step_paused(Canvas &canvas) override { draw_frame(canvas); }
+
+private:
+  void draw_frame(Canvas &canvas) {
     // Trapezoid envelope as the MIN of an independent fade-in and fade-out ramp.
     // Computing both keeps opacity continuous when the windows overlap (the
     // durations are independent GUI sliders), degrading to a triangle.
@@ -116,8 +124,6 @@ public:
 
     draw_fn(canvas, hs::clamp(std::min(fade_in, fade_out), 0.0f, 1.0f));
   }
-
-private:
   SpriteFn draw_fn;             /**< The drawing function functor. */
   int fade_in_duration;         /**< Duration of fade-in phase in frames. */
   int fade_out_duration;        /**< Duration of fade-out phase in frames. */

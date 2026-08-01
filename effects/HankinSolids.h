@@ -14,6 +14,9 @@ namespace hs_test {
 namespace conway_soak_tests {
 struct HankinWalkProbe;
 } // namespace conway_soak_tests
+namespace effects_tests {
+struct HankinPauseWhiteBox;
+} // namespace effects_tests
 } // namespace hs_test
 
 /**
@@ -111,6 +114,7 @@ public:
 
 private:
   friend struct ::hs_test::conway_soak_tests::HankinWalkProbe;
+  friend struct ::hs_test::effects_tests::HankinPauseWhiteBox;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   /** Largest node base-mesh face count (snubDodecahedron, F = 92). */
@@ -574,23 +578,25 @@ private:
   HS_COLD_MEMBER void start_hankin_cycle() {
     constexpr int DURATION = 64;
     hankin_cycle_frame = 0;
-    timeline.add(2, Animation::Mutation(params.hankin_angle,
-                                        sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
-                                        DURATION, ease_linear, false,
-                                        &anims_paused)
-                        .then([this]() {
-                          // Bookend-in: the sweep's final sample lands ~0.002
-                          // rad off the flat p_corner branch; force exact 0 so
-                          // the sprite's last draw is the base solid.
-                          params.hankin_angle = 0.0f;
-                          this->start_morph_cycle();
-                        }));
+    timeline.add_pausable(
+        2,
+        Animation::Mutation(params.hankin_angle,
+                            sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f), DURATION,
+                            ease_linear, false)
+            .then([this]() {
+              // Bookend-in: the sweep's final sample lands ~0.002
+              // rad off the flat p_corner branch; force exact 0 so
+              // the sprite's last draw is the base solid.
+              params.hankin_angle = 0.0f;
+              this->start_morph_cycle();
+            }),
+        &anims_paused);
 
     // Snapshot the angle-independent counts for the per-frame HS_CHECK below.
     hankin_vertex_count = compiled_hankin.static_vertices.size() +
                           compiled_hankin.dynamic_instructions.size();
     hankin_face_count = compiled_hankin.face_counts.size();
-    timeline.add(
+    timeline.add_pausable(
         0,
         Animation::Sprite(
             [this](Canvas &c, float opacity) {
@@ -634,7 +640,8 @@ private:
                                   0.0f, 1.0f),
                         shape_weight(from_mid < 0 ? -from_mid : from_mid));
             },
-            DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused));
+            DURATION + 1, 0, ease_linear, 0, ease_linear),
+        &anims_paused);
   }
 
   /**
@@ -731,8 +738,9 @@ private:
                               .settle_frames = e.settle ? SETTLE_FRAMES : 0},
                           persistent_arena, draw_conway_fn, handoff, bookend);
     pending_landing = &anim.landing();
-    timeline.add(
-        0, std::move(anim).then([this]() { this->finish_morph_cycle(); }));
+    timeline.add_pausable(
+        0, std::move(anim).then([this]() { this->finish_morph_cycle(); }),
+        &anims_paused);
   }
 
   /**

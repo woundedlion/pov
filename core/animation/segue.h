@@ -72,14 +72,20 @@ namespace Segue {
  * @param duration Total frames the mesh is on screen.
  * @param window Requested transition window in frames; clamped to duration/2
  * so the in/out windows never collide.
+ * @param paused Optional event-level pause gate.
  * @return The clamped fade length, from which each policy derives its own
  * return offset.
  */
 inline int schedule_faded_sprite(Timeline &timeline, SpriteFn draw_fn,
-                                 int duration, int window) {
+                                 int duration, int window,
+                                 const bool *paused = nullptr) {
   int fade = std::min(window, duration / 2);
-  timeline.add(0, Animation::Sprite(std::move(draw_fn), duration, fade,
-                                    ease_linear, fade, ease_linear));
+  Animation::Sprite sprite(std::move(draw_fn), duration, fade, ease_linear,
+                           fade, ease_linear);
+  if (paused)
+    timeline.add_pausable(0, std::move(sprite), paused);
+  else
+    timeline.add(0, std::move(sprite));
   return fade;
 }
 
@@ -110,12 +116,14 @@ inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
  * so the in/out windows never collide.
  * @param overlap Frames consecutive sprites coexist, clamped to the fade
  * window; negative selects the full window. At 0 the schedule is sequential.
+ * @param paused Optional event-level pause gate.
  * @return duration minus the effective overlap.
  */
 inline int schedule_overlapped(Timeline &timeline, SpriteFn draw_fn,
-                               int duration, int window, int overlap) {
-  int fade =
-      schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
+                               int duration, int window, int overlap,
+                               const bool *paused = nullptr) {
+  int fade = schedule_faded_sprite(timeline, std::move(draw_fn), duration,
+                                   window, paused);
   return duration - (overlap < 0 ? fade : std::min(overlap, fade));
 }
 
@@ -219,12 +227,14 @@ struct Crossfade : Base {
    * @param duration Total frames the mesh is on screen.
    * @param window Requested fade length in frames; clamped to duration/2 so
    * the fade windows never overlap and sprites cannot pile up beyond two.
+   * @param paused Optional event-level pause gate.
    * @return Frames after which the next transition should begin: duration
    * minus the effective overlap.
    */
-  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
+  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
+               const bool *paused = nullptr) {
     return schedule_overlapped(timeline, std::move(draw_fn), duration, window,
-                               overlap);
+                               overlap, paused);
   }
   float opacity(float phase) const { return phase; }
 };

@@ -82,18 +82,20 @@ public:
     static_palette.bind(&palette, &breathe_mod);
 
     // Cycle presets every 3-5 seconds via a 2 second lerp.
-    timeline.add(0, Animation::RandomTimer(
-                        90, 150,
-                        [this](Canvas &) {
-                          if (animations_paused())
-                            return;
-                          presets.next();
-                          timeline.add(0, Animation::Lerp(
-                                              params, presets.prev_get(),
-                                              presets.get(), 60,
-                                              ease_in_out_sin, &anims_paused));
-                        },
-                        true));
+    timeline.add_pausable(
+        0,
+        Animation::RandomTimer(
+            90, 150,
+            [this](Canvas &) {
+              presets.next();
+              timeline.add_pausable(
+                  0,
+                  Animation::Lerp(params, presets.prev_get(), presets.get(),
+                                  60, ease_in_out_sin),
+                  &anims_paused);
+            },
+            true),
+        &anims_paused);
   }
 
   /**

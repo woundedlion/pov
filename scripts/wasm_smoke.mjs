@@ -406,10 +406,9 @@ async function main() {
           }
         }
 
-        // setAnimationsPaused: pick the first effect whose animated params move
-        // over a frame window, then assert the pause holds them still and the
-        // resume lets them move again. animated=false params are engine-written
-        // telemetry the pause gate does not cover.
+        // Pick the first effect whose animated params move over a frame window.
+        // A manual animated write must engage pause, survive an effect reload,
+        // and resume only after setAnimationsPaused(false).
         const animatedValues = () => engine.getParameterDefinitions()
           .filter((d) => d.animated).map((d) => d.value);
         const PAUSE_FRAMES = 20;
@@ -423,7 +422,11 @@ async function main() {
           for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
           if (!anyMoved(before, animatedValues())) continue;
 
-          engine.setAnimationsPaused(true);
+          const manual = engine.getParameterDefinitions().find((d) => d.animated);
+          if (engine.setParameter(manual.name, manual.value) !==
+              Module.ParamSetResult.APPLIED) {
+            fail(`state-seam: manual animated write on ${name}.${manual.name} failed`);
+          }
           const held = animatedValues();
           for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
           const stillHeld = animatedValues();
