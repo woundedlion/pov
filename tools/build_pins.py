@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from pathlib import Path
 
 
@@ -25,6 +26,23 @@ CONSUMERS = {
 }
 
 
+def duplicates_pin(text: str, name: str, value: str) -> bool:
+    """Return whether a dependency context contains its literal pinned value."""
+    aliases = (name.lower(), name.lower().replace("-", "_"))
+    value_pattern = re.compile(
+        rf"(?<![0-9A-Za-z.]){re.escape(value)}(?![0-9A-Za-z.])"
+    )
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        code = line.split("#", 1)[0]
+        if not value_pattern.search(code):
+            continue
+        context = "\n".join(lines[max(0, index - 2) : index + 1]).lower()
+        if any(alias in context for alias in aliases):
+            return True
+    return False
+
+
 def check_consumers() -> int:
     errors: list[str] = []
     for path, references in CONSUMERS.items():
@@ -32,8 +50,13 @@ def check_consumers() -> int:
         for reference in references:
             if reference not in text:
                 errors.append(f"{path.relative_to(ROOT)}: missing {reference!r}")
+    workflow_paths = set((ROOT / ".github/workflows").glob("*.yml"))
+    workflow_paths.update((ROOT / ".github/workflows").glob("*.yaml"))
+    duplicate_paths = workflow_paths | set(CONSUMERS)
+    for path in sorted(duplicate_paths):
+        text = path.read_text(encoding="utf-8")
         for name, value in PINS.items():
-            if value in text:
+            if duplicates_pin(text, name, value):
                 errors.append(
                     f"{path.relative_to(ROOT)}: duplicates {name} pin {value}"
                 )
