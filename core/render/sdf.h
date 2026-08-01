@@ -1606,11 +1606,6 @@ template <typename A, typename B> struct Subtract {
     if (intervals_a.is_empty())
       return true;
 
-    // The set-difference loop and scan_region's coalescer both require
-    // start-sorted intervals; a multi-interval child can emit them out of
-    // order.
-    sort_intervals_by_start(intervals_a);
-
     // A stroke subtrahend's edge-bands can coalesce into one chord spanning the
     // stroke's hollow interior; subtracting that would carve A's interior. So
     // for a non-solid B, emit A's spans (seam-split into [0, W)) and let
@@ -1642,7 +1637,10 @@ template <typename A, typename B> struct Subtract {
       return false;
 
     // B produced no intervals: it removes nothing, so pass A through raw.
+    // scan_region's coalescer requires start-sorted intervals, and a
+    // multi-interval child can emit them out of order.
     if (intervals_b.is_empty()) {
+      sort_intervals_by_start(intervals_a);
       for (size_t i = 0; i < intervals_a.size(); ++i)
         out(intervals_a[i].first, intervals_a[i].second);
       return true;
