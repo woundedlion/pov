@@ -517,7 +517,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 213. ✅ **Unused import** — `daydream/tests/segment_controller.test.js:16`. `SLOW_FRAME_MS` is imported and never referenced, also loading a module the file otherwise does not need.
 
-214. **Every `@ts-check`/`@ts-nocheck` pragma in `daydream/tests/` is inert** — `daydream/tsconfig.json:14-24` plus 45 of 46 test files. The tsconfig's own comment says so, yet 27 files declare `@ts-check` and 18 declare `@ts-nocheck`, so a reader reasonably infers the former are checked in CI and the latter deliberately opted out. Neither is true.
+214. ✅ **Every `@ts-check`/`@ts-nocheck` pragma in `daydream/tests/` is inert** — `daydream/tsconfig.json:14-24` plus 45 of 46 test files. The tsconfig's own comment says so, yet 27 files declare `@ts-check` and 18 declare `@ts-nocheck`, so a reader reasonably infers the former are checked in CI and the latter deliberately opted out. Neither is true.
 
 215. **The suite's only real-timer wait, in the file that built machinery to avoid exactly this** — `daydream/tests/recorder.test.js:859`. `await new Promise(r => setTimeout(r, 0))` guesses at the rejection's task depth, while the same file defines `trackSinkFinish` whose JSDoc says it exists so a test need not guess.
 
