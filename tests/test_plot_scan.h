@@ -17,7 +17,6 @@
  *   - Plot::Ring::sample : unit-length, angular progress.
  *   - Plot::DistortedRing::sample : angle-addition identity (LUT) matches
  *                                   direct cos/sin within tolerance.
- *   - Plot::Spiral::sample      : unit-length, monotone arc length.
  *   - Plot::Multiline::sample   : arc-length parameterization, v0 in [0,1].
  *   - Plot::Star::sample / Flower::sample : unit-length, closed loop.
  *   - PlanarEdgeSampler::one_pass : analytic tangent vs the forward-difference
@@ -2296,61 +2295,6 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
 }
 
 // ============================================================================
-// Plot::Spiral::sample
-// ============================================================================
-
-/**
- * @brief Verifies Spiral::sample emits N unit-length fragments with
- *        non-decreasing cumulative arc length (v1) and v0 progress spanning 0..1,
- *        and that the result is genuinely a pole-to-pole Fibonacci spiral.
- * @details Shape-discriminating check: the latitude (y) sweeps strictly
- *          monotonically from pole to pole while the azimuth winds many full
- *          turns — neither holds for a ring (constant latitude, one turn) or a
- *          meridian arc (no azimuthal winding), so this distinguishes the spiral
- *          from the other closed/curve shapes rather than merely confirming the
- *          points lie on the sphere.
- */
-inline void test_spiral_sample_unit_length_and_monotone_arc() {
-  ScratchScope sc(plot_arena());
-  Fragments frags;
-  const int N = 48;
-  frags.bind(plot_arena(), N);
-
-  Plot::Spiral::sample(frags, N, 0.5f);
-  HS_EXPECT_EQ(frags.size(), (size_t)N);
-
-  float last_v1 = -1.0f;
-  float last_y = 2.0f; // above any unit-sphere y, so the first compare passes
-  float last_theta = 0.0f;
-  float winding = 0.0f; // total absolute azimuthal travel (radians)
-  for (size_t i = 0; i < frags.size(); ++i) {
-    const Vector &p = frags[i].pos;
-    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
-    HS_EXPECT_GE(frags[i].v1, last_v1);
-    last_v1 = frags[i].v1;
-
-    HS_EXPECT_LT(p.y, last_y);
-    last_y = p.y;
-
-    float theta = std::atan2(p.z, p.x);
-    if (i > 0) {
-      float d = theta - last_theta;
-      while (d > PI_F)
-        d -= 2.0f * PI_F;
-      while (d < -PI_F)
-        d += 2.0f * PI_F;
-      winding += std::fabs(d);
-    }
-    last_theta = theta;
-  }
-  HS_EXPECT_NEAR(frags[0].v0, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(frags[N - 1].v0, 1.0f, 1e-6f);
-
-  // Many azimuthal turns — a single ring would wind only ~2π, an arc ~0.
-  HS_EXPECT_GT(winding, 4.0f * PI_F);
-}
-
-// ============================================================================
 // Plot::Multiline::sample
 // ============================================================================
 
@@ -4080,7 +4024,6 @@ inline int run_plot_scan_tests() {
 
   test_distorted_ring_sample_angle_addition_identity();
 
-  test_spiral_sample_unit_length_and_monotone_arc();
   test_multiline_sample_arclength_param();
 
   test_star_sample_unit_length_closed();

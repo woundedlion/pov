@@ -2572,40 +2572,6 @@ struct DistortedRing {
 };
 
 /**
- * @brief Fibonacci Spiral primitive.
- */
-struct Spiral {
-  /**
-   * @brief Samples a Fibonacci spiral.
-   * @param fragments Output fragment list; n fragments are appended.
-   * @param n Number of points.
-   * @param eps Epsilon offset shifting points off the poles.
-   */
-  static void sample(Fragments &fragments, int n, float eps) {
-    HS_CHECK(n >= 1);
-    float cumulative_len = 0.0f;
-    Vector last_pos;
-
-    for (int i = 0; i < n; i++) {
-      Vector pos = fib_spiral(n, eps, i);
-
-      if (i > 0) {
-        cumulative_len += angle_between(last_pos, pos);
-      }
-      last_pos = pos;
-
-      Fragment f;
-      f.pos = pos;
-      f.v0 = (n > 1) ? static_cast<float>(i) / (n - 1) : 0.0f;
-      f.v1 = cumulative_len;
-      f.v2 = static_cast<float>(i);
-      f.age = 0;
-      fragments.push_back(f);
-    }
-  }
-};
-
-/**
  * @brief Star shape.
  * Registers:
  *  v0: Perimeter progress (0.0 -> 1.0)
