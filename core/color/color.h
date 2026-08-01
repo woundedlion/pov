@@ -1272,9 +1272,11 @@ inline Pixel oklch_to_pixel(OKLCH lch) {
 }
 
 /**
- * @brief Wraps an angle in radians to (-pi, pi].
+ * @brief Wraps an angle in radians to [-pi, pi].
  * @param x Angle to wrap; any magnitude.
- * @return The equivalent angle in (-pi, pi].
+ * @return The equivalent angle in [-pi, pi]. Both endpoints are reachable: an
+ * exact half turn keeps the sign it arrived with. Callers use the result as a
+ * shortest-arc delta, for which -pi and +pi are equivalent.
  */
 inline float wrap_angle_pi(float x) {
   // At large |x| the subtraction below rounds away and the loop never finishes.
