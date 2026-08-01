@@ -461,7 +461,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 185. ✅ **A 96-trial parameter sweep draws from an unseeded, order-inherited RNG** — `tests/test_transformers.h:1098-1106`. The only prior seed in the file is inside an unrelated case that then draws a *data-dependent* number of times, so this sweep's parameter coverage — including its own self-checks — shifts whenever that case is edited.
 
-186. **Three inert assertions in the animation module** — `tests/test_animation.h:1811, 1874-1878, 209-220`. A pure function compared to a value captured from the same call two lines earlier; two calls that are the same call because `segue.h:346` declares the third parameter unnamed; and a repeat-flag case that calls `rewind()` by hand, making the flag never exercised.
+186. ✅ **Three inert assertions in the animation module** — `tests/test_animation.h:1811, 1874-1878, 209-220`. A pure function compared to a value captured from the same call two lines earlier; two calls that are the same call because `segue.h:346` declares the third parameter unnamed; and a repeat-flag case that calls `rewind()` by hand, making the flag never exercised.
 
 187. **The classifier collision sweep hand-mirrors `classify_faces_impl`'s hash derivation** — `tests/test_mesh.h:590-615`. The collision detection is sound, but if the classifier changes its derivation the sweep keeps testing the old one and reports collision-free while the shipping classifier merges classes.
 
