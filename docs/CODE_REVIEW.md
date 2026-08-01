@@ -451,7 +451,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 180. ✅ **Table-integrity failures report a count, not a location** — `tests/test_reaction_graph.h:146, 162, 176, 224, 250`. Five cases accumulate a total and assert zero, so a red run on a 92 KB machine-generated table says "37 vs 0" and nothing about which row is corrupt. The harness's own `FAIL_PRINT_CAP` already solves the flood problem the aggregation avoids.
 
-181. **`exhaustive_matrix()` is a 16-point diagonal, not exhaustive** — `tests/test_shapeshifter_oracle.h:216-244`. Each parameter is tied to one loop index, so `count` is never crossed with a shape and `sides` never with a phase function. A real concern given the candidate envelope's width (`MAX_HIGH_ERROR_PIXELS = 1600`, `MAX_CHANNEL_ERROR = 32768`).
+181. ❌ **`exhaustive_matrix()` is a 16-point diagonal, not exhaustive** — `tests/test_shapeshifter_oracle.h:216-244`. Each parameter is tied to one loop index, so `count` is never crossed with a shape and `sides` never with a phase function. A real concern given the candidate envelope's width (`MAX_HIGH_ERROR_PIXELS = 1600`, `MAX_CHANNEL_ERROR = 32768`). Rejected: the shape/function product already crosses shape with count and sides with phase; a full 4⁶ matrix would regress test time.
 
 182. **A death case passes on *any* trap, not the intended one** — `tests/test_death.h:1878-1884`. The loop asserts only `child_trapped(rc, shape)`. `case_solids_unknown_name` runs a full `get_by_name` through three arenas before reaching the name lookup, so an earlier arena guard would read green. Inherent to `__builtin_trap`; the gap is that positive controls exist for some cases but are ad hoc rather than a roster invariant.
 
