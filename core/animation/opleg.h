@@ -953,6 +953,24 @@ public:
   }
 
   /**
+   * @brief Sums the positions of one face's vertices — the unnormalized
+   * centroid, leaving the degenerate-face policy to the caller.
+   * @param vertices Vertex positions the face indices address.
+   * @param faces Flat per-face vertex index list.
+   * @param off Start of this face's span in `faces`.
+   * @param n Side count of this face.
+   * @return Sum of the face's vertex positions.
+   */
+  __attribute__((always_inline)) static Vector
+  face_vertex_sum(const Vector *vertices, const uint16_t *faces, size_t off,
+                  int n) {
+    Vector c(0.0f, 0.0f, 0.0f);
+    for (int k = 0; k < n; ++k)
+      c = c + vertices[faces[off + k]];
+    return c;
+  }
+
+  /**
    * @brief Fills a caller-allocated array with every face's unit centroid.
    * @param m Mesh whose faces are reduced.
    * @param out Receives one unit vector per face, in emission order.
@@ -962,7 +980,8 @@ public:
     size_t off = 0;
     for (size_t f = 0; f < m.face_counts.size(); ++f) {
       const int n = m.face_counts[f];
-      out[f] = face_vertex_sum(m, off, n).normalized();
+      out[f] = face_vertex_sum(m.vertices.data(), m.faces.data(), off, n)
+                   .normalized();
       off += n;
     }
   }
@@ -1288,20 +1307,6 @@ private:
   }
 
   /**
-   * @brief Sums the vertices of one face.
-   * @param m Mesh holding the face.
-   * @param off Index into m.faces of the face's first corner.
-   * @param n Corner count.
-   * @return The unnormalized centroid direction; zero for a degenerate face.
-   */
-  static Vector face_vertex_sum(const PolyMesh &m, size_t off, int n) {
-    Vector c(0.0f, 0.0f, 0.0f);
-    for (int k = 0; k < n; ++k)
-      c = c + m.vertices[m.faces[off + k]];
-    return c;
-  }
-
-  /**
    * @brief Per-face from-palettes across a dual swap: each dual face takes the
    * palette of the orbit face whose centroid is nearest the source vertex it
    * opens on.
@@ -1321,8 +1326,10 @@ private:
     size_t off = 0;
     for (size_t f = 0; f < arrival.face_counts.size(); ++f) {
       const int n = arrival.face_counts[f];
-      const Vector c = normalized_or(face_vertex_sum(arrival, off, n),
-                                     arrival.vertices[arrival.faces[off]]);
+      const Vector c =
+          normalized_or(face_vertex_sum(arrival.vertices.data(),
+                                        arrival.faces.data(), off, n),
+                        arrival.vertices[arrival.faces[off]]);
 
       // The orbit's own source vertex: the dual face's centroid lies in that
       // vertex's cell, so the nearest seed vertex is it.
