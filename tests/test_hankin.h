@@ -68,8 +68,6 @@ inline void test_compile_hankin_populates_arrays() {
 
   // one dynamic vertex per half-edge (twice the edge count)
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)24);
-  HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
-               compiled.dynamic_instructions.size());
 
   HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
 
@@ -77,6 +75,9 @@ inline void test_compile_hankin_populates_arrays() {
   for (size_t i = 0; i < compiled.face_counts.size(); ++i)
     total += compiled.face_counts[i];
   HS_EXPECT_EQ(total, compiled.faces.size());
+
+  // star and rosette faces each contribute two entries per half-edge
+  HS_EXPECT_EQ(compiled.faces.size(), 4 * compiled.dynamic_instructions.size());
 
   size_t max_v =
       compiled.static_vertices.size() + compiled.dynamic_instructions.size();
@@ -199,8 +200,6 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
 
   // one dynamic vertex per half-edge (twice the edge count = 60)
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(), (size_t)60);
-  HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
-               compiled.dynamic_instructions.size());
 
   HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
 
@@ -208,6 +207,9 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
   for (size_t i = 0; i < compiled.face_counts.size(); ++i)
     total += compiled.face_counts[i];
   HS_EXPECT_EQ(total, compiled.faces.size());
+
+  // star and rosette faces each contribute two entries per half-edge
+  HS_EXPECT_EQ(compiled.faces.size(), 4 * compiled.dynamic_instructions.size());
 
   size_t max_v =
       compiled.static_vertices.size() + compiled.dynamic_instructions.size();
