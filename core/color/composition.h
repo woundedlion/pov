@@ -51,6 +51,9 @@ struct CycleModifier {
  * @brief Oscillates the palette coordinate (Breathing).
  */
 struct BreatheModifier {
+  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  static constexpr bool requires_wrap = true;
+
   const float *phase;
   float amplitude;
   /**
@@ -94,6 +97,9 @@ struct BreatheModifier {
  * ripple effect. Compresses and expands colors like waves on a spatial coord.
  */
 struct RippleModifier {
+  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  static constexpr bool requires_wrap = true;
+
   const float *phase;
   float frequency;
   float amplitude;
@@ -127,6 +133,9 @@ struct RippleModifier {
  * instead of oscillating.
  */
 struct NoiseWarpModifier {
+  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  static constexpr bool requires_wrap = true;
+
   const float *time;
   float frequency;
   float amplitude;
@@ -161,6 +170,9 @@ struct NoiseWarpModifier {
  * CycleModifier's linear scroll, the offset wanders, hesitates, and reverses.
  */
 struct DriftModifier {
+  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  static constexpr bool requires_wrap = true;
+
   const float *time;
   float speed;
   float amplitude;
