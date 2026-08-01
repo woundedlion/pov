@@ -1306,6 +1306,11 @@ template <int W, int H, bool SinglePass = false, typename PipelineT = PipelineRe
 static void
 rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           FragmentShaderT fragment_shader, const RasterOptions &opts = {}) {
+  // A direct-raster sink writes through a cached framebuffer base; the canvas
+  // double-buffers, so a stale base is the buffer the display is scanning out.
+  if constexpr (requires { source_pipeline.prepared_for(canvas); })
+    HS_CHECK(source_pipeline.prepared_for(canvas),
+             "direct raster pipeline not prepared for this canvas");
   // Erasure collapses pipeline and shader; the erased call matches neither
   // clause so recursion ends.
   if constexpr (!pipeline_direct_raster_path<PipelineT>() &&
@@ -3577,8 +3582,6 @@ struct ParticleSystem {
                    DeferredShaderRef deferred_shader = {},
                    ParticleV2Fn particle_v2 = nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
-      HS_CHECK(pipeline.prepared_for(canvas),
-               "direct raster pipeline not prepared for this canvas");
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false>(
           pipeline, canvas, system, fragment_shader, vertex_shader,
           deferred_shader, particle_v2);
@@ -3611,8 +3614,6 @@ struct ParticleSystem {
                                 DeferredShaderRef deferred_shader = {},
                                 ParticleV2Fn particle_v2 = nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
-      HS_CHECK(pipeline.prepared_for(canvas),
-               "direct raster pipeline not prepared for this canvas");
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true>(
           pipeline, canvas, system, fragment_shader, vertex_shader,
           deferred_shader, particle_v2);
