@@ -489,7 +489,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 199. ✅ **The resize auto-refit measures the orbit radius from the origin while OrbitControls orbits `controls.target` and pan is enabled** — `daydream/driver.js:466-482`. After any pan the "did the user zoom away from the fit?" test compares two different quantities and auto-refit silently stops working; in the coincidental matching case `setLength()` moves the camera along the origin ray, changing both radius and view direction. `setupKeyboardOrbit()` 80 lines earlier gets this right.
 
-200. **Dead "one extra label render" pass with a comment that is no longer true** — `daydream/driver.js:551-557`. `CSS2DObject`'s constructor installs a `'removed'` listener that removes its element from the DOM, and `LabelPool.cleanup()` dispatches exactly that event — so the DOM node is gone before the extra pass runs.
+200. ✅ **Dead "one extra label render" pass with a comment that is no longer true** — `daydream/driver.js:551-557`. `CSS2DObject`'s constructor installs a `'removed'` listener that removes its element from the DOM, and `LabelPool.cleanup()` dispatches exactly that event — so the DOM node is gone before the extra pass runs.
 
 201. **Comment promises a drain of the pre-sink fallback buffer that the streaming sink does not perform** — `daydream/recorder.js:239-242` vs `:500-506`. Once a writable has opened, anything in `chunks` is dropped, never written and never downloaded. The window is currently empty because the sink is assigned synchronously.
 
