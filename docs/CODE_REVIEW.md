@@ -445,7 +445,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 177. ✅ **Duplicated `Fragment::lerp` coverage and a stale coverage claim** — `tests/test_geometry.h:9, 53-97`. `Fragment` lives in `core/render/shading.h`, not `geometry.h`, and the two cases duplicate `tests/test_shading.h:27, 64` — the latter strictly stronger, also checking `size` and `color`.
 
-178. **Dead computation kept alive by a `(void)` cast** — `tests/test_scan.h:669, 720`. `stride` is never read (superseded by `lod_stride`) and line 720 exists solely to suppress the unused-variable warning.
+178. ✅ **Dead computation kept alive by a `(void)` cast** — `tests/test_scan.h:669, 720`. `stride` is never read (superseded by `lod_stride`) and line 720 exists solely to suppress the unused-variable warning.
 
 179. **Face-cull fringe check has no per-config non-vacuity floor** — `tests/test_sdf.h:1945-1984`. Its sibling `expect_cull_covers_interior` guards itself with `HS_EXPECT_GT(interior, 0)`; only the caller's aggregate `total_paintable > 1000` is asserted here, so one of four configs degenerating to zero paintable pixels would be fully vacuous and invisible.
 
