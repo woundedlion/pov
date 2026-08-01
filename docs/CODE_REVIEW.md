@@ -457,7 +457,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 183. ✅ **One-sided boundary probe leaves two demarcation thresholds unpinned** — `tests/test_pov_sync.h:135-140`. Only the rejected side is checked for `acquire_quiet_cols` and `beacon_interdigit_timeout_cols`; flipping either `>=` to `>` in `hardware/pov_sync.h:261` still passes. Every other boundary in `test_helpers` pins both sides.
 
-184. **The single-board strip tiling oracle re-derives its column from the function under test** — `tests/test_pov_single.h:52`. `col_bot = strip_opposite_col(x, w)` then every coverage assertion is expressed in terms of that output, so a driver returning `(x + w/3) % w` tiles "exactly once" onto the wrong column and passes all 18 sweeps. The segmented sibling computes it locally and gets this right.
+184. ✅ **The single-board strip tiling oracle re-derives its column from the function under test** — `tests/test_pov_single.h:52`. `col_bot = strip_opposite_col(x, w)` then every coverage assertion is expressed in terms of that output, so a driver returning `(x + w/3) % w` tiles "exactly once" onto the wrong column and passes all 18 sweeps. The segmented sibling computes it locally and gets this right.
 
 185. **A 96-trial parameter sweep draws from an unseeded, order-inherited RNG** — `tests/test_transformers.h:1098-1106`. The only prior seed in the file is inside an unrelated case that then draws a *data-dependent* number of times, so this sweep's parameter coverage — including its own self-checks — shifts whenever that case is edited.
 
