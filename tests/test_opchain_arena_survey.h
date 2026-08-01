@@ -6,10 +6,8 @@
 
 // Persistent-arena survey of the whole Islamic registry built op by op. Every
 // entry is replayed leg by leg through the same harness the morph suite gates
-// with (tests/test_conway_morph.h), including the entries carrying no shipping
-// recipe: their chains are transcribed from their generator functions below, so
-// the survey reports what each shape would cost if it were built rather than
-// generated whole.
+// with (tests/test_conway_morph.h), off the shipping Recipe that
+// test_solids.h's bitwise gate pins to the entry's generator.
 
 #include <algorithm>
 #include <array>
@@ -24,134 +22,7 @@ using conway_morph_tests::ChainPeaks;
 using conway_morph_tests::ISLAMIC_PERSISTENT_BUDGET;
 using conway_morph_tests::ISLAMIC_SCRATCH_A_BUDGET;
 using conway_morph_tests::ISLAMIC_SCRATCH_B_BUDGET;
-using Solids::Op;
-using Solids::OpStep;
 using Solids::Recipe;
-using Solids::IslamicStarPatterns::D2R;
-
-/** simple_registry seed indices the transcribed chains build from. */
-inline constexpr uint8_t SEED_TRUNCATED_OCTAHEDRON = 8;
-inline constexpr uint8_t SEED_TRUNCATED_ICOSAHEDRON = 14;
-inline constexpr uint8_t SEED_TRUNCATED_ICOSIDODECAHEDRON = 16;
-static_assert(std::string_view(
-                  Solids::simple_registry[SEED_TRUNCATED_OCTAHEDRON].name) ==
-              "truncatedOctahedron");
-static_assert(std::string_view(
-                  Solids::simple_registry[SEED_TRUNCATED_ICOSAHEDRON].name) ==
-              "truncatedIcosahedron");
-static_assert(
-    std::string_view(
-        Solids::simple_registry[SEED_TRUNCATED_ICOSIDODECAHEDRON].name) ==
-    "truncatedIcosidodecahedron");
-
-// Chains transcribed from the registry entries that ship no Recipe. SolidBuilder
-// defaults are spelled out: relax() is 8 iterations, snub() is t 0.5 / twist 0.
-inline constexpr OpStep TICOSA_AMBO_RELAX100_HK54_NEEDLE_STEPS[] = {
-    {Op::AMBO},
-    {Op::RELAX, 100.0f},
-    {Op::HANKIN, 54.0f * D2R},
-    {Op::NEEDLE}};
-inline constexpr OpStep TICOSA_HK58_CHAMFER63_STEPS[] = {
-    {Op::HANKIN, 58.0f * D2R}, {Op::CHAMFER, 0.63f}};
-inline constexpr OpStep TICOSA_AMBO_RELAX_TRUNCATE33_HK64_STEPS[] = {
-    {Op::AMBO},
-    {Op::RELAX, 217.0f},
-    {Op::TRUNCATE, 0.33f},
-    {Op::HANKIN, 64.0f * D2R}};
-inline constexpr OpStep DODECA_BEVEL2_RELAX_GYRO_STEPS[] = {
-    {Op::BEVEL, 0.2f}, {Op::RELAX, 100.0f}, {Op::GYRO}};
-inline constexpr OpStep TICOSIDODECA_BEVEL5_RELAX_HK77_STEPS[] = {
-    {Op::BEVEL, 0.5f}, {Op::RELAX, 100.0f}, {Op::HANKIN, 77.0f * D2R}};
-inline constexpr OpStep TOCTA_GYRO_KIS_HK17_STEPS[] = {
-    {Op::GYRO}, {Op::KIS}, {Op::HANKIN, 17.0f * D2R}};
-inline constexpr OpStep TICOSA_AMBO_RELAX_TRUNCATE001_HK59_STEPS[] = {
-    {Op::AMBO},
-    {Op::RELAX, 8.0f},
-    {Op::TRUNCATE, 0.01f},
-    {Op::HANKIN, 59.0f * D2R}};
-inline constexpr OpStep TICOSA_AMBO_RELAX_TRUNCATE001_HK73_STEPS[] = {
-    {Op::AMBO},
-    {Op::RELAX, 8.0f},
-    {Op::TRUNCATE, 0.01f},
-    {Op::HANKIN, 73.0f * D2R}};
-inline constexpr OpStep DODECA_HK35_AMBO_HK62_AMBO_RELAX_HK42_STEPS[] = {
-    {Op::HANKIN, 35.0f * D2R}, {Op::AMBO},
-    {Op::HANKIN, 62.0f * D2R}, {Op::AMBO},
-    {Op::RELAX, 100.0f},       {Op::HANKIN, 42.0f * D2R}};
-inline constexpr OpStep TICOSIDODECA_TRUNCATE50D_AMBO_DUAL_STEPS[] = {
-    {Op::TRUNCATE, 50.0f * D2R}, {Op::AMBO}, {Op::DUAL}};
-inline constexpr OpStep TICOSA_HK54_AMBO_HK72_STEPS[] = {
-    {Op::HANKIN, 54.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 72.0f * D2R}};
-inline constexpr OpStep TICOSA_TRUNCATE50D_AMBO_DUAL_STEPS[] = {
-    {Op::TRUNCATE, 50.0f * D2R}, {Op::AMBO}, {Op::DUAL}};
-inline constexpr OpStep ICOSA_SNUB_RELAX_TRUNCATE033_HK62_STEPS[] = {
-    {Op::SNUB, 0.5f, 0.0f},
-    {Op::RELAX, 8.0f},
-    {Op::TRUNCATE, 0.33f},
-    {Op::HANKIN, 62.0f * D2R}};
-
-/** One transcribed chain, keyed by the registry entry it mirrors. */
-struct Transcribed {
-  const char *name;
-  Recipe recipe;
-};
-
-#define HS_TRANSCRIBED(entry, seed, steps)                                     \
-  { entry, {seed, steps, static_cast<uint8_t>(std::size(steps))} }
-
-inline constexpr Transcribed TRANSCRIBED_CHAINS[] = {
-    HS_TRANSCRIBED("truncatedIcosahedron_ambo_relax100_hk54_needle",
-                   SEED_TRUNCATED_ICOSAHEDRON,
-                   TICOSA_AMBO_RELAX100_HK54_NEEDLE_STEPS),
-    HS_TRANSCRIBED("truncatedIcosahedron_hk58_chamfer63",
-                   SEED_TRUNCATED_ICOSAHEDRON, TICOSA_HK58_CHAMFER63_STEPS),
-    HS_TRANSCRIBED("truncatedIcosahedron_ambo_relax_truncate33_hk64",
-                   SEED_TRUNCATED_ICOSAHEDRON,
-                   TICOSA_AMBO_RELAX_TRUNCATE33_HK64_STEPS),
-    HS_TRANSCRIBED("dodecahedron_bevel2_relax_gyro", Solids::SEED_DODECAHEDRON,
-                   DODECA_BEVEL2_RELAX_GYRO_STEPS),
-    HS_TRANSCRIBED("truncatedIcosidodecahedron_bevel5_relax_hk77",
-                   SEED_TRUNCATED_ICOSIDODECAHEDRON,
-                   TICOSIDODECA_BEVEL5_RELAX_HK77_STEPS),
-    HS_TRANSCRIBED("truncatedOctahedron_gyro_kis_hk17",
-                   SEED_TRUNCATED_OCTAHEDRON, TOCTA_GYRO_KIS_HK17_STEPS),
-    HS_TRANSCRIBED("truncatedIcosahedron_ambo_relax_truncate001_hankin59",
-                   SEED_TRUNCATED_ICOSAHEDRON,
-                   TICOSA_AMBO_RELAX_TRUNCATE001_HK59_STEPS),
-    HS_TRANSCRIBED("truncatedIcosahedron_ambo_relax_truncate001_hankin73",
-                   SEED_TRUNCATED_ICOSAHEDRON,
-                   TICOSA_AMBO_RELAX_TRUNCATE001_HK73_STEPS),
-    HS_TRANSCRIBED("dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
-                   Solids::SEED_DODECAHEDRON,
-                   DODECA_HK35_AMBO_HK62_AMBO_RELAX_HK42_STEPS),
-    HS_TRANSCRIBED("truncatedIcosidodecahedron_truncate50d_ambo_dual",
-                   SEED_TRUNCATED_ICOSIDODECAHEDRON,
-                   TICOSIDODECA_TRUNCATE50D_AMBO_DUAL_STEPS),
-    HS_TRANSCRIBED("truncatedIcosahedron_hk54_ambo_hk72",
-                   SEED_TRUNCATED_ICOSAHEDRON, TICOSA_HK54_AMBO_HK72_STEPS),
-    HS_TRANSCRIBED("truncatedIcosahedron_truncate50d_ambo_dual",
-                   SEED_TRUNCATED_ICOSAHEDRON,
-                   TICOSA_TRUNCATE50D_AMBO_DUAL_STEPS),
-    HS_TRANSCRIBED("icosahedron_snub_relax_truncate033_hankin62",
-                   Solids::SEED_ICOSAHEDRON,
-                   ICOSA_SNUB_RELAX_TRUNCATE033_HK62_STEPS)};
-
-#undef HS_TRANSCRIBED
-
-/**
- * @brief Chain of a registry entry: its shipping recipe, or the transcription
- *        of its generator when it ships none.
- * @param entry Registry entry.
- * @return Pointer to the chain, or nullptr when neither exists.
- */
-inline const Recipe *chain_of(const Solids::Entry &entry) {
-  if (entry.recipe)
-    return entry.recipe;
-  for (const Transcribed &t : TRANSCRIBED_CHAINS)
-    if (std::string_view(t.name) == entry.name)
-      return &t.recipe;
-  return nullptr;
-}
 
 /** One surveyed row. */
 struct Row {
@@ -170,7 +41,7 @@ inline void test_islamic_registry_arena_survey() {
   size_t n = 0;
 
   for (const Solids::Entry &entry : entries) {
-    const Recipe *chain = chain_of(entry);
+    const Recipe *chain = entry.recipe;
     HS_EXPECT_TRUE(chain != nullptr);
     if (!chain)
       continue;
