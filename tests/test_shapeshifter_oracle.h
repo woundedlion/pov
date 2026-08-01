@@ -54,6 +54,8 @@ struct OracleState {
 /** @brief Row-major production-resolution framebuffer capture. */
 struct OracleFrame {
   std::vector<Pixel> pixels;
+  uint32_t backstop_hits =
+      0; /**< plot() steps_cache backstop trips during this capture. */
 
   const Pixel &at(int x, int y) const {
     return pixels[static_cast<size_t>(y) * ORACLE_W + x];
@@ -151,6 +153,7 @@ inline OracleFrame capture_frame(const OracleState &state, Render &&render) {
   reset_globals();
   GenerativePalette::reset_hue_seed(0);
   hs::set_mock_time(0, 0);
+  hs::g_scan_metrics.reset();
 
   OracleFrame frame;
   {
@@ -162,6 +165,7 @@ inline OracleFrame capture_frame(const OracleState &state, Render &&render) {
       std::forward<Render>(render)(effect, canvas);
     }
     effect.advance_display();
+    frame.backstop_hits = hs::g_scan_metrics.plot_backstop_hits;
     frame.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
     for (int y = 0; y < ORACLE_H; ++y)
       for (int x = 0; x < ORACLE_W; ++x)
@@ -347,7 +351,8 @@ inline void test_candidate_matrix_stays_within_visual_budget() {
     HS_EXPECT_LT(energy_ratio, MAX_ENERGY_DRIFT);
     HS_EXPECT_LT(high_error_pixels, MAX_HIGH_ERROR_PIXELS);
     HS_EXPECT_EQ(uncovered_bright_pixels, size_t{0});
-    HS_EXPECT_EQ(hs::g_scan_metrics.plot_backstop_hits, uint32_t{0});
+    HS_EXPECT_EQ(comparison.reference.backstop_hits, uint32_t{0});
+    HS_EXPECT_EQ(comparison.candidate.backstop_hits, uint32_t{0});
   }
 }
 
