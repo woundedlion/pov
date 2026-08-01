@@ -3,7 +3,7 @@
 Produces, into ../gen/out/:
   * jlc/        — Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
   * jlc/phantasm-BOM.csv / phantasm-CPL.csv — JLCPCB assembly BOM + centroid
-  * phantasm-drc.rpt — gating error-severity DRC report
+  * phantasm-drc.json — gating error-severity DRC report
   * phantasm-parity.json — gating board/schematic parity report
 
 It NEVER runs board.py / pcb.py: those rewrite phantasm.kicad_{sch,pcb} and
@@ -198,27 +198,32 @@ def run(args, check=True, **kw):
         raise
 
 
+class DesignRuleError(ValueError):
+    pass
+
+
 def require_clean_drc(report_path):
-    """Return DRC counts or raise unless both exact summaries are zero."""
+    """Return DRC counts or raise unless both report sections are empty."""
     try:
         with open(report_path, encoding="utf-8") as fh:
-            src = fh.read()
-    except (OSError, UnicodeError) as exc:
-        raise RuntimeError(f"cannot read DRC report: {report_path}") from exc
+            report = json.load(fh)
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise DesignRuleError(
+            f"cannot read DRC report: {report_path}") from exc
 
-    violations = re.findall(
-        r"^\*\* Found (\d+) DRC violations \*\*$", src, re.MULTILINE)
-    unconnected = re.findall(
-        r"^\*\* Found (\d+) unconnected pads \*\*$", src, re.MULTILINE)
-    if len(violations) != 1 or len(unconnected) != 1:
-        raise RuntimeError(f"cannot parse DRC report summaries: {report_path}")
+    if not isinstance(report, dict) or any(
+            not isinstance(report.get(key), list)
+            for key in ("violations", "unconnected_items")):
+        raise DesignRuleError(
+            "DRC report has no violations/unconnected_items sections: "
+            f"{report_path}")
 
-    num_violations = int(violations[0])
-    num_unconnected = int(unconnected[0])
+    num_violations = len(report["violations"])
+    num_unconnected = len(report["unconnected_items"])
     if num_violations or num_unconnected:
-        raise RuntimeError(
+        raise DesignRuleError(
             f"DRC failed: {num_violations} error-severity violations, "
-            f"{num_unconnected} unconnected items")
+            f"{num_unconnected} unconnected items -> {report_path}")
     return num_violations, num_unconnected
 
 
@@ -226,10 +231,15 @@ def run_drc(report_path):
     """Generate and require a clean error-severity DRC report."""
     if os.path.exists(report_path):
         os.remove(report_path)
-    # --exit-code-violations exits nonzero on a dirty board; the report is the diagnostic
-    run([KCLI, "pcb", "drc", "--severity-error", "--exit-code-violations",
-         "-o", report_path, PCB], check=False)
-    return require_clean_drc(report_path)
+    result = run([KCLI, "pcb", "drc", "--severity-error", "--format", "json",
+                  "--exit-code-violations", "-o", report_path, PCB],
+                 check=False)
+    counts = require_clean_drc(report_path)
+    if result.returncode:
+        raise DesignRuleError(
+            f"kicad-cli drc exited {result.returncode} on a report that lists "
+            f"no error-severity items: {report_path}")
+    return counts
 
 
 class SchematicParityError(ValueError):
@@ -579,32 +589,38 @@ def main():
     print(f"kicad-cli: {KCLI}")
     if not os.path.exists(PCB):
         sys.exit(f"board not found: {PCB}")
+    print("[1/9] Plot origin")
     try:
         validate_plot_origin(PCB)
     except PlotOriginError as exc:
         sys.exit(str(exc))
-    print("plot origin: absolute board coordinates for gerbers, drill, "
+    print("  plot origin: absolute board coordinates for gerbers, drill, "
           "and centroid")
+    print("[2/9] Via geometry")
     try:
         num_vias = validate_via_geometry(PCB)
     except ViaGeometryError as exc:
         sys.exit(str(exc))
     print(
-        f"via geometry: {num_vias} vias meet "
+        f"  via geometry: {num_vias} vias meet "
         f"{MIN_STANDARD_VIA_DIAMETER_MM:g}/"
         f"{MIN_STANDARD_VIA_DRILL_MM:g} mm minimum and "
         f"{MIN_VIA_COPPER_SPACING_MM:g} mm copper spacing")
+    print("[3/9] Zone geometry")
     try:
         num_zones = validate_zone_geometry(PCB)
     except ZoneGeometryError as exc:
         sys.exit(str(exc))
     print(
-        f"zone geometry: {num_zones} copper pours meet the "
+        f"  zone geometry: {num_zones} copper pours meet the "
         f"{MIN_ZONE_FEATURE_MM:g} mm minimum fill feature")
     os.makedirs(OUT, exist_ok=True)
-    print("[1/6] DRC report + schematic parity")
-    rpt = os.path.join(OUT, "phantasm-drc.rpt")
-    num_violations, num_unconnected = run_drc(rpt)
+    print("[4/9] DRC report + schematic parity")
+    rpt = os.path.join(OUT, "phantasm-drc.json")
+    try:
+        num_violations, num_unconnected = run_drc(rpt)
+    except DesignRuleError as exc:
+        sys.exit(str(exc))
     print(f"  DRC: {num_violations} error-severity violations, "
           f"{num_unconnected} unconnected items -> {rpt}")
     parity_rpt = os.path.join(OUT, "phantasm-parity.json")
@@ -616,10 +632,10 @@ def main():
           f"differences -> {parity_rpt}")
 
     with tempfile.TemporaryDirectory(prefix="phantasm-jlc-", dir=OUT) as staged:
-        print("[2/6] Gerbers")
+        print("[5/9] Gerbers")
         run([KCLI, "pcb", "export", "gerbers", "--layers", GERBER_LAYERS,
              "-o", staged + os.sep, PCB])
-        print("[3/6] Drill")
+        print("[6/9] Drill")
         # Absolute origin, matching the gerbers and the centroid below.
         run([KCLI, "pcb", "export", "drill", "--format", "excellon",
              "--drill-origin", "absolute", "--excellon-units", "mm",
@@ -632,7 +648,7 @@ def main():
         for name in os.listdir(staged):
             os.replace(os.path.join(staged, name), os.path.join(JLC, name))
 
-    print("[4/6] Netlist + centroid")
+    print("[7/9] Netlist + centroid")
     net = os.path.join(OUT, "_fab.net")
     run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
          "-o", net, SCH])
@@ -656,7 +672,7 @@ def main():
     except PartCatalogError as exc:
         sys.exit(str(exc))
 
-    print("[5/6] BOM + CPL")
+    print("[8/9] BOM + CPL")
     # BOM grouped by (value, footprint)
     groups = {}
     for r in assembled:
@@ -688,7 +704,7 @@ def main():
             rot = f"{(p['rotation'] + ROT_CORRECTION.get(r, 0)) % 360:.6f}"
             w.writerow([r, p["pos_x"], p["pos_y"], p["side"], rot])
 
-    print("[6/6] JLC upload zip")
+    print("[9/9] JLC upload zip")
     zpath = os.path.join(JLC, "phantasm-jlc-gerbers.zip")
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(os.listdir(JLC)):
