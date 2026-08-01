@@ -553,7 +553,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 231. ✅ **No `*.log` glob, so `minimal.log` is permanently dirty** — `Holosphere/.gitignore:9` ignores the single literal `build.log`. daydream's `.gitignore:27` gets this right with `*.log`. Delete `minimal.log` (166 bytes of header-only profiler output with no data rows) and the 0-byte `build.log`.
 
-232. **Unreferenced scratch dump inside the docs directory** — `docs/Feedback Styles.txt`. 796 bytes of bare initializer lists with no header, including a literal `Smoke goes here` placeholder on line 4, referenced from nowhere in either repo. The canonical data is `core/engine/styles.h:167-270`.
+232. ❌ **Unreferenced scratch dump inside the docs directory** — `docs/Feedback Styles.txt`. 796 bytes of bare initializer lists with no header, including a literal `Smoke goes here` placeholder on line 4, referenced from nowhere in either repo. The canonical data is `core/engine/styles.h:167-270`. — Rejected: the file is untracked main-tree user WIP and absent from the repository and clean worktree; deleting it would alter user-owned data.
 
 233. **`Holosphere.code-workspace` is neither tracked nor ignored** — repo root. A valid two-root VS Code workspace matching the layout §11 documents, permanently dirtying `git status`, while `.gitignore:23-26` states the convention is to keep editor config out. Commit it or ignore it — either, not neither.
 
