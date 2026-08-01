@@ -198,18 +198,25 @@ enum FastLEDCheck {
 
 /**
  * @brief Mock implementation of the FastLED controller for simulation.
- * @details Every method is a no-op; the simulator renders into its own
- *          framebuffer rather than driving real LEDs.
+ * @details The simulator renders into its own framebuffer rather than driving
+ *          real LEDs, so every method is a no-op except setCorrection and
+ *          setTemperature, which record their selector.
  */
 struct FastLEDMock {
+  /** @brief Selector last passed to setCorrection; -1 before any call. */
+  int last_correction = -1;
+  /** @brief Selector last passed to setTemperature; -1 before any call. */
+  int last_temperature = -1;
   /**
-   * @brief Sets the color-correction profile (no-op on host).
+   * @brief Records the color-correction profile.
+   * @param correction Correction selector, stored in last_correction.
    */
-  void setCorrection(int) {}
+  void setCorrection(int correction) { last_correction = correction; }
   /**
-   * @brief Sets the color-temperature profile (no-op on host).
+   * @brief Records the color-temperature profile.
+   * @param temperature Temperature selector, stored in last_temperature.
    */
-  void setTemperature(int) {}
+  void setTemperature(int temperature) { last_temperature = temperature; }
   /**
    * @brief Registers an LED strip (no-op on host).
    * @tparam T LED chipset type.
