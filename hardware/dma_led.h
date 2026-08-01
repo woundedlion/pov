@@ -152,11 +152,14 @@ public:
 
 private:
   /**
-   * @brief Watchdog bound for checkStaleTransfer(), in µs. Over 20× the longest
-   *        real full-frame DMA (~0.22 ms: a 334-byte composite buffer at the
-   *        12 MHz default clock), so only a wedged channel trips it, while
-   *        staying within ~11 column periods (~434 µs each) so a wedge does not
-   *        blank the strip for hundreds of columns before trapping.
+   * @brief Watchdog bound for checkStaleTransfer(), in µs.
+   * @details Covers both shipping configurations. Holosphere: 40 px → 336-byte
+   *          composite at the 12 MHz default clock = 224 µs, column period
+   *          1302 µs. Phantasm: 72 px → 600-byte composite at 24 MHz = 200 µs,
+   *          column period 434 µs. 5 ms is over 20× either transfer, so only a
+   *          wedged channel trips it, and under 12 column periods on either, so
+   *          a wedge does not blank the strip for hundreds of columns before
+   *          trapping.
    */
   static constexpr unsigned long TRANSFER_WATCHDOG_US = 5000UL;
 
