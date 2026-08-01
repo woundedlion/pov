@@ -432,9 +432,20 @@ async function main() {
             fail(`state-seam: setAnimationsPaused(true) on ${name} left ${moved} ` +
               `animated param(s) moving`);
           }
+
+          if (!engine.setEffect(name)) {
+            fail(`state-seam: setEffect("${name}") while paused failed`);
+            break;
+          }
+          const reloadedHeld = animatedValues();
+          for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
+          if (anyMoved(reloadedHeld, animatedValues())) {
+            fail(`state-seam: setEffect("${name}") lost the paused state`);
+          }
+
           engine.setAnimationsPaused(false);
           for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
-          if (!anyMoved(stillHeld, animatedValues())) {
+          if (!anyMoved(reloadedHeld, animatedValues())) {
             fail(`state-seam: setAnimationsPaused(false) on ${name} did not resume animation`);
           }
           console.log(`  state-seam: paramGeneration + setAnimationsPaused freeze/resume on ${name} OK`);
