@@ -14,10 +14,27 @@
  */
 #pragma once
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
 namespace hs_wasm {
+
+/** Maximum near-pole LOD aggressiveness accepted from live WASM controls. */
+inline constexpr float MAX_POLE_LOD_AGGRESSIVENESS = 8.0f;
+
+/**
+ * @brief Clamps near-pole LOD aggressiveness to the live-tuning range.
+ * @param aggressiveness Requested columns-per-footprint multiplier.
+ * @return A finite value in [0, MAX_POLE_LOD_AGGRESSIVENESS].
+ */
+inline float clamp_pole_lod_aggressiveness(float aggressiveness) {
+  if (!std::isfinite(aggressiveness) || aggressiveness < 0.0f)
+    return 0.0f;
+  return aggressiveness > MAX_POLE_LOD_AGGRESSIVENESS
+             ? MAX_POLE_LOD_AGGRESSIVENESS
+             : aggressiveness;
+}
 
 /**
  * @brief Validates a clip band against the canvas extent.
