@@ -911,6 +911,18 @@ static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_cull);
 static_assert(Pipeline<96, 48, Filter::World::Orient,
                        Filter::Screen::AntiAlias<96, 48>>::has_world_cull);
 
+// has_world_stage gates rasterize's precomputed screen-coordinate shortcut: it
+// must be true for every world-space stage, including the ones that define no
+// cull_edge.
+static_assert(!Pipeline<96, 48>::has_world_stage);
+static_assert(
+    !Pipeline<96, 48, Filter::Screen::AntiAlias<96, 48>>::has_world_stage);
+static_assert(!Filter::Screen::DirectAntiAliasSink<96, 48>::has_world_stage);
+static_assert(Pipeline<96, 48, Filter::World::Mobius>::has_world_stage);
+static_assert(Pipeline<96, 48, Filter::World::Hole,
+                       Filter::Screen::AntiAlias<96, 48>>::has_world_stage);
+static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_stage);
+
 inline void test_edge_visible_in_clip_matches_span_composition() {
   constexpr int TW = 288, TH = 144;
   Pipeline<TW, TH> sink;

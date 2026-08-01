@@ -1029,13 +1029,26 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
 
 /**
  * @brief True when @p P statically declares it has no world cull stage, so a
- *        caller may precompute per-point screen coordinates from raw geometry.
+ *        cull predicate may be evaluated against the raw geometry.
  * @tparam P Pipeline type; types without the has_world_cull member (e.g. the
  *           type-erased PipelineRef) are conservatively not hoistable.
  */
 template <typename P> static consteval bool pipeline_hoistable_cull() {
   if constexpr (requires { P::has_world_cull; })
     return !P::has_world_cull;
+  else
+    return false;
+}
+
+/**
+ * @brief True when @p P statically declares it has no world-space stage, so a
+ *        caller may plot a point through precomputed screen coordinates.
+ * @tparam P Pipeline type; types without the has_world_stage member (e.g. the
+ *           type-erased PipelineRef) are conservatively not hoistable.
+ */
+template <typename P> static consteval bool pipeline_hoistable_projection() {
+  if constexpr (requires { P::has_world_stage; })
+    return !P::has_world_stage;
   else
     return false;
 }
@@ -1248,8 +1261,8 @@ struct RasterOptions {
   /**
    * Optional per-point screen rows, y_to_screen_row of each points[k].pos.
    * With point_cols, lets the single-dot shortcut skip the projection. Only
-   * consumed when the pipeline is hoistable (no world stage re-positions the
-   * plot); both arrays or neither.
+   * consumed when the pipeline has no world-space stage; both arrays or
+   * neither.
    */
   const float *point_rows = nullptr;
   /**
@@ -1593,13 +1606,13 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
 
   // Emits one shader-run dot for points[k]; the precomputed projection is
-  // consumed only when no pipeline stage can re-position the plot.
+  // consumed only when no world stage would lift it back to a world vector.
   auto plot_dot = [&](const Fragment &src, size_t k) {
     Fragment f = src;
     f.color = Color4(0, 0, 0, 0);
     HS_PLOT_COUNT(shader_calls);
     fragment_shader(src.pos, f);
-    if constexpr (pipeline_hoistable_cull<PipelineT>()) {
+    if constexpr (pipeline_hoistable_projection<PipelineT>()) {
       if (point_rows != nullptr && point_cols != nullptr) {
         HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, point_cols[k], point_rows[k], f.color.color,
