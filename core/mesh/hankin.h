@@ -484,7 +484,8 @@ HS_COLD static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
     // Arena polarity is reversed from the streaming path: the throwaway
     // CompiledHankin is allocated from `temp` while `target` serves as
     // compile_hankin's working arena, then update_hankin builds `out` into it.
-    compile_hankin(mesh, compiled, temp, target);
+    compile_hankin(mesh, compiled, temp, target,
+                   /*borrow_base_vertices=*/true);
     update_hankin(compiled, out, target, angle);
   }
 
