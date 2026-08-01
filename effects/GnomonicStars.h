@@ -7,6 +7,14 @@
 
 #include "core/engine/engine.h"
 
+// Unit-test accessor reaching the private pixel-pitch constant the star sizes
+// are authored against.
+namespace hs_test {
+namespace effects_tests {
+struct GnomonicStarsWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Scatters polygon "stars" over a Fibonacci spiral on the sphere and
  *        warps the field with an evolving Möbius transform.
@@ -123,6 +131,8 @@ public:
   }
 
 private:
+  friend struct ::hs_test::effects_tests::GnomonicStarsWhiteBox;
+
   /** @brief Spiral-cache capacity; equals the "Points" slider's upper bound. */
   static constexpr int MAX_POINTS = 2000;
 
