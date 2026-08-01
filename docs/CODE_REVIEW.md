@@ -477,7 +477,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 193. ✅ **A rejected effect, resolution, or parameter write is invisible to the user** — `daydream/daydream.js:296-304, 509-513`; `effect_sequencing.js:102-114`. A plain rejection is `console.error` plus a silent revert, so from the UI it reads as a dead click: the sidebar snaps back with no message and a slider keeps showing a value the engine refused. "Degrade gracefully" and "tell the user nothing" are separable.
 
-194. **Exported API with no production consumer** — `daydream/state.js:180`, `daydream/gui.js:138, 343-345, 351`. `AppState.snapshot()` and the static `DeepLinkGUI.reset` are referenced only by tests; `get width()` and `open()` by nothing at all. Each carries full JSDoc, so the surface reads as supported API.
+194. ✅ **Exported API with no production consumer** — `daydream/state.js:180`, `daydream/gui.js:138, 343-345, 351`. `AppState.snapshot()` and the static `DeepLinkGUI.reset` are referenced only by tests; `get width()` and `open()` by nothing at all. Each carries full JSDoc, so the surface reads as supported API.
 
 195. **`window.__DAYDREAM_EXTRA_IMPORTS` violates the no-underscore rule** — `daydream/vendor-importmap.js:25, 60`. The only underscore-prefixed identifier in the reviewed app surface, and it is an app-owned global config hook rather than a WASM export or data token. Three touchpoints (helper, README §10.8, test).
 
