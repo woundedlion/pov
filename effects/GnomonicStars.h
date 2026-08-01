@@ -144,11 +144,14 @@ private:
    */
   static constexpr float RADIUS_PX = 4.0f / W;
 
-  // Persistent allocations: the MAX_POINTS spiral lattice plus the palette LUT.
-  // Effect keeps the default arena split, so the footprint must fit the device
-  // persistent partition. Guards a MAX_POINTS bump.
+  // Persistent allocations: the warp pool, the MAX_POINTS spiral lattice, and
+  // the palette LUT. Effect keeps the default arena split, so the footprint must
+  // fit the device persistent partition. Guards a MAX_POINTS bump.
+  using MobiusEntity = typename MobiusWarpGnomonicTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
-      MAX_POINTS * sizeof(Vector) + BakedPalette::required_arena_bytes();
+      sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
+      alignof(int) + MAX_POINTS * sizeof(Vector) +
+      BakedPalette::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "GnomonicStars persistent footprint exceeds the default "
                 "partition; retune MAX_POINTS or carve arenas");

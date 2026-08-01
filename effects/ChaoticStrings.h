@@ -74,9 +74,13 @@ public:
                 "Multiline-draw fragment buffer and rasterize's sub-step cache "
                 "at once");
 
-  // init() allocates the single Node (Orientation + OrientationTrail) from the
-  // persistent partition; static_palette binds in place with no arena storage.
-  static constexpr size_t FOOTPRINT_BYTES = sizeof(Node);
+  // init() allocates the noise transformer pool and the single Node
+  // (Orientation + OrientationTrail) from the persistent partition;
+  // static_palette binds in place with no arena storage.
+  using NoiseEntity = typename NoiseTransformer<1>::Entity;
+  static constexpr size_t FOOTPRINT_BYTES = sizeof(Node) + sizeof(NoiseEntity) +
+                                            alignof(NoiseEntity) + sizeof(int) +
+                                            alignof(int);
   // The custom split leaves the remainder of the device arena persistent.
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
