@@ -38,11 +38,15 @@ public:
 
   /**
    * @brief Initializes sliders, timeline drivers, palette, and preset cycling.
-   * @details Registers sliders, seeds the timeline drivers/orientations, bakes
-   * the palette, and arms the preset-cycling timer; then loads the first preset.
+   * @details Loads the first preset, registers sliders, seeds the timeline
+   * drivers/orientations, bakes the palette, and arms the preset-cycling timer.
    */
   void init() override {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+
+    // register_param range-checks *ptr and captures it as the GUI default, so
+    // params has to hold the first preset before any registration below.
+    params = presets.get();
 
     register_animated_param("Warp Scale", &params.warp_scale, WARP_SCALE_MIN,
                             WARP_SCALE_MAX);
@@ -90,8 +94,6 @@ public:
                                               ease_in_out_sin, &anims_paused));
                         },
                         true));
-
-    params = presets.get();
   }
 
   /**
