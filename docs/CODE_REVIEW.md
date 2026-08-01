@@ -491,7 +491,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 200. ✅ **Dead "one extra label render" pass with a comment that is no longer true** — `daydream/driver.js:551-557`. `CSS2DObject`'s constructor installs a `'removed'` listener that removes its element from the DOM, and `LabelPool.cleanup()` dispatches exactly that event — so the DOM node is gone before the extra pass runs.
 
-201. **Comment promises a drain of the pre-sink fallback buffer that the streaming sink does not perform** — `daydream/recorder.js:239-242` vs `:500-506`. Once a writable has opened, anything in `chunks` is dropped, never written and never downloaded. The window is currently empty because the sink is assigned synchronously.
+201. ✅ **Comment promises a drain of the pre-sink fallback buffer that the streaming sink does not perform** — `daydream/recorder.js:239-242` vs `:500-506`. Once a writable has opened, anything in `chunks` is dropped, never written and never downloaded. The window is currently empty because the sink is assigned synchronously.
 
 202. **`warmModules()` downloads the whole WASM binary into a discarded `ArrayBuffer` on every enable and every segment-count change** — `daydream/segment_controller.js:77-89`. A user sweeping 2→4→6→8 pays four full multi-MB materializations for a best-effort cache prime whose real guarantee is the boot retry.
 
