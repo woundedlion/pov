@@ -2694,33 +2694,34 @@ inline void test_mindsplatter_normalized_color_seed_boundaries() {
       0.0f, std::nextafter(0.0f, 1.0f), 0.5f, std::nextafter(1.0f, 0.0f), 1.0f,
   };
   size_t samples = 0;
+  size_t mismatches = 0;
   for (uint32_t seed = 0; seed <= 65535; ++seed) {
     const float reference_seed = static_cast<float>(seed) / 65535.0f;
     const float normalized_seed =
         WB::normalized_color_seed(static_cast<uint16_t>(seed));
-    HS_EXPECT_EQ(normalized_seed, reference_seed);
-    for (float progress : progress_boundaries) {
-      HS_EXPECT_EQ(WB::wrapped_color_t(progress, normalized_seed),
-                   wrap_t(progress + reference_seed));
+    auto check = [&](float progress) {
+      const float got = WB::wrapped_color_t(progress, normalized_seed);
+      const float want = wrap_t(progress + reference_seed);
       ++samples;
-    }
+      if (got == want)
+        return;
+      if (!mismatches)
+        std::printf("  WRAPPED COLOR T seed=%u progress=%.9g: %.9g != %.9g\n",
+                    seed, static_cast<double>(progress),
+                    static_cast<double>(got), static_cast<double>(want));
+      ++mismatches;
+    };
+    for (float progress : progress_boundaries)
+      check(progress);
     const float seam = 1.0f - normalized_seed;
     for (float progress :
-         {std::nextafter(seam, 0.0f), seam, std::nextafter(seam, 1.0f)}) {
-      HS_EXPECT_EQ(WB::wrapped_color_t(progress, normalized_seed),
-                   wrap_t(progress + reference_seed));
-      ++samples;
-    }
-    for (int len = 2; len <= WB::trail_length(); ++len) {
-      for (int i = 0; i < len; ++i) {
-        const float progress =
-            static_cast<float>(i) / static_cast<float>(len - 1);
-        HS_EXPECT_EQ(WB::wrapped_color_t(progress, normalized_seed),
-                     wrap_t(progress + reference_seed));
-        ++samples;
-      }
-    }
+         {std::nextafter(seam, 0.0f), seam, std::nextafter(seam, 1.0f)})
+      check(progress);
+    for (int len = 2; len <= WB::trail_length(); ++len)
+      for (int i = 0; i < len; ++i)
+        check(static_cast<float>(i) / static_cast<float>(len - 1));
   }
+  HS_EXPECT_EQ(mismatches, static_cast<size_t>(0));
   HS_EXPECT_EQ(WB::normalized_color_seed(0), 0.0f);
   HS_EXPECT_EQ(WB::normalized_color_seed(65535), 1.0f);
   HS_EXPECT_EQ(WB::wrapped_color_t(1.0f, WB::normalized_color_seed(65535)),
