@@ -1922,7 +1922,8 @@ inline void test_breakdown_fades_classes_sequentially() {
 
 /**
  * @brief Verifies SpinFlip's warp is rigid: pairwise angles are preserved at
- * every phase and the plateau is the identity.
+ * every phase, the mid-phase warp really spins about the axis, and the plateau
+ * is the identity.
  */
 inline void test_spin_flip_warp_is_rigid() {
   Segue::SpinFlip spin;
@@ -1933,6 +1934,16 @@ inline void test_spin_flip_warp_is_rigid() {
   Vector wa = spin.warp(a, 0.3f), wb = spin.warp(b, 0.3f);
   HS_EXPECT_NEAR(dot(wa, wb), dot(a, b), 1e-3f);
   HS_EXPECT_NEAR(wa.length(), 1.0f, 1e-3f);
+
+  // Winding is (1 - phase)^2 * REVS revolutions; this phase makes it a quarter
+  // turn, so an axis-perpendicular input lands perpendicular to where it began.
+  float quarter = 1.0f - std::sqrt(0.25f / Segue::SpinFlip::REVS);
+  Vector perp = cross(spin.axis, a).normalized();
+  Vector wperp = spin.warp(perp, quarter);
+  HS_EXPECT_NEAR(dot(wperp, perp), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(dot(wperp, spin.axis), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(dot(wperp, cross(spin.axis, perp)), 1.0f, 1e-3f);
+
   HS_EXPECT_NEAR((spin.warp(a, 1.0f) - a).length(), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(spin.opacity(0.0f), 1.0f,
                  1e-6f); // never fades: blur hides the swap
