@@ -50,7 +50,9 @@ public:
    *          thrusters every 16-48 frames.
    */
   void init() override {
-    register_param("Radius", &params.radius, 0.1f, 2.0f);
+    // Radius 0 and 2 both collapse the ring to a point (ring_vec and its
+    // antipode), so the slider stops short of each end.
+    register_param("Radius", &params.radius, 0.1f, 1.9f);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     ring_vec.normalize();
@@ -207,9 +209,8 @@ private:
 
     warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_linear);
 
-    // At the ends of the Radius domain the ring collapses onto its own axis, so
-    // thrust_point and ring_vec turn parallel and their cross product vanishes;
-    // fall back to a fixed axis there (the spin axis is arbitrary when parallel).
+    // The warp can carry thrust_point onto ring_vec, vanishing their cross
+    // product; the spin axis is arbitrary when parallel, so fall back.
     Vector thrust_axis = normalized_or(
         cross(orientation.orient(thrust_point), orientation.orient(ring_vec)),
         Y_AXIS);
@@ -279,9 +280,6 @@ private:
    */
   void draw_ring(Canvas &c, float opacity) {
     HS_PROFILE(th_ring_draw);
-    // radius 2 is a point at the antipode (get_antipode folds it to radius 0)
-    if (params.radius >= 2.0f)
-      return;
     Basis basis = make_basis(orientation.get(), ring_vec);
 
     auto fragment_shader = [this, opacity](const Vector &v, Fragment &f) {
