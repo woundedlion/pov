@@ -382,55 +382,6 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
 When the local `three.js/` and `node_modules/lil-gui/` directories are absent (e.g. on the GitHub Pages deploy, and by default), [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) resolves libraries from jsdelivr; `npm run importmap:local` switches it to the vendored copies for offline dev. See [§10.8](#108-vendor-importmap-local-first--cdn-fallback).
 
-### Design Docs (`docs/`)
-
-Every document carries its own status banner; the summaries below repeat it. A
-banner that says REJECTED or SUPERSEDED is load-bearing — the document is kept
-so a successor does not re-attempt what was already measured and refuted.
-
-**Contributor guide**
-
-| Document | Status |
-|---|---|
-| `docs/agent_workflow.md` | The non-negotiable session rules every brief assumes: worktree and landing discipline, shared-device access, style, and the per-commit gates |
-
-**Design specs**
-
-| Document | Status |
-|---|---|
-| `docs/phantasm_pcb_spec.md` | Source of truth for the KiCad schematic and layout of the per-segment carrier board — `hardware/phantasm/`. `just pcb` runs `gen/fab.py` against the committed board; `board.py`/`pcb.py` are opt-in generators that rewrite design sources. One identical PCB ×4 qualified; ×8 compile-tested only |
-| `docs/phantasm_frame_sync_spec.md` | IMPLEMENTED, and describes the implementation. 1-wire flywheel sync; protocol core `hardware/pov_sync.h`, device shell `hardware/pov_segmented.h` |
-| `docs/opchain_morph_spec.md` | LANDED. Op-by-op Conway-chain morphing generation of solids; design of record for `effects/IslamicStars.h` + `core/animation/opleg.h` |
-| `docs/conway_morph_spec.md` | SUPERSEDED by `docs/opchain_morph_spec.md`; records the design as it landed and no longer tracks the tree |
-| `docs/segmented_stateful_effects_spec.md` | IMPLEMENTED. History-reading pixel effects (`Pixel::Feedback`) under segmented mode, gated on `needs_full_frame()` |
-| `docs/selective_o3_spec.md` | Implemented 2026-07-15, minimal region set; the full R1–R6 set is measured-unaffordable |
-| `docs/teensy_ci_gate_spec.md` | Active and green. The `teensy-size` / `teensy-warnings` CI jobs, region budgets, and ELF layout invariants |
-| `docs/congruence_class_lut_spec.md` | FACILITY ONLY — landed, tested, gate-green, and used by no effect. §11–12 record why IslamicStars was unwired |
-| `docs/single_pass_mesh_raster_spec.md` | REJECTED, measured 2026-07-18. Do not build it; the refutation bounds what a successor may attempt |
-
-**Ledgers and audits**
-
-| Document | Status |
-|---|---|
-| `docs/device_host_divergence_ledger.md` | Tracked inventory of every fork on a device-only constant, tagged with whether an automated device-value test build reaches it |
-| `docs/itcm_ledger.md` | Per-commit `.text.itcm` accounting on the phantasm image across the window the arena cut opened |
-| `docs/strobe_columns_audit.md` | Historical audit (June 2026); the renderer follow-up is implemented |
-
-**Optimization briefs and analyses**
-
-| Document | Status |
-|---|---|
-| `docs/meshfeedback_smoke_optimization.md` | RESOLVED 2026-07-19. Smoke peaks at 61.86 ms with zero spilled frames; all eight styles hold 16 fps |
-| `docs/islamicstars_palette_crossfade_plan.md` | LANDED 2026-07-26. Per-leg fresh palette classification with a smooth crossfade |
-| `docs/dreamballs_perf_analysis.md` | Device phase split and M7 codegen audit (2026-07-20): two levers landed, five killed or blocked, each with a measurement |
-| `docs/probe_path_open_items.md` | IslamicStars probe path: the stall pass is done (23 green / 0 yellow / 1 red); two items remain open |
-| `docs/islamicstars_next_levers.md` | Remaining IslamicStars levers, sized against the one solid that misses the 62.5 ms window |
-| `docs/islamicstars_sub60_optimization_brief.md` | Brief: drive the IslamicStars render chain to peak < 60 ms on every shape, in both the shipping and global-`-O3` images |
-| `docs/mindsplatter_optimization.md` | Plan (2026-07-25) for a MindSplatter-specific streaming renderer to hold every frame under 59 ms |
-| `docs/MINDSPLATTER_PARTICLE_SCALING_ANALYSIS.md` | Analysis (2026-07-22): 2,048 full particles cannot be reached by raising `NUM_PARTICLES` — it fails on both arena and CPU |
-| `docs/feedback_pole_isotropy_plan.md` | Analysis and plan for an isotropic MeshFeedback pole warp; the D1 tangent-warp variant was measured and rejected 2026-07-23 |
-| `docs/lut_compression_next.md` | Brief: find the next hot-path LUT worth compressing, if any. §2 is the screen — most LUTs are not candidates |
-
 ---
 
 ## 4. Architecture Overview
