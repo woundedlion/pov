@@ -120,6 +120,10 @@ public:
           });
       MeshOps::compile(poly, mesh, persistent_arena, scratch_arena_a);
     }
+    // On a closed 2-manifold faces.size() (the sum of face degrees) is 2*E.
+    edges.bind(persistent_arena, mesh.faces.size() / 2);
+    Plot::Mesh::extract_edges(mesh, edges);
+
     ProceduralPalette palette(Palettes::PEACH_POP);
     mesh_shade = palette.get(0.0f);
 
@@ -175,7 +179,7 @@ public:
       HS_PROFILE(mf_mesh_draw);
       const Color4 shade = mesh_shade;
       Plot::Mesh::draw<W, H>(
-          filters, canvas, mesh,
+          filters, canvas, mesh, edges,
           [&](const Vector &, Fragment &f) { f.color = shade; });
     }
   }
@@ -220,6 +224,8 @@ private:
 
   // The single, fixed solid; built once in init() and never recompiled.
   MeshState mesh;
+  ArenaVector<Plot::Mesh::Edge>
+      edges; /**< Unique edge list (topology is static). */
 
   Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
            Filter::Pixel::Feedback<W, H>>
