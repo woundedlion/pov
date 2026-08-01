@@ -7,3 +7,8 @@
 [valid cross doc](other.md#real-heading)
 [broken cross doc](other.md#ghost)
 [blob line range](other.md#L12-L20)
+
+## `snake_case` Heading
+
+[valid underscore](#snake_case-heading)
+[dropped underscore](#snakecase-heading)

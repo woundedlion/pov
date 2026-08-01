@@ -54,11 +54,12 @@ class TestDocumentationChecker(unittest.TestCase):
         anchors = {PurePosixPath("docs/other.md"): {"real-heading"}}
         issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries,
                                anchors)
-        self.assertEqual(len(issues), 2)
+        self.assertEqual(len(issues), 3)
         self.assertIn("#missing-anchor", issues[0].message)
         self.assertIn("this document", issues[0].message)
         self.assertIn("#ghost", issues[1].message)
         self.assertIn("docs/other.md", issues[1].message)
+        self.assertIn("#snakecase-heading", issues[2].message)
 
     def test_backticked_repo_paths_are_linted(self):
         text = (FIXTURES / "backticked_paths.txt").read_text(encoding="utf-8")

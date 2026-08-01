@@ -147,7 +147,7 @@ def _slug(heading: str) -> str:
     text = _INLINE_LINK_TEXT_RE.sub(lambda m: m.group(1) or m.group(2) or "", heading)
     text = _HTML_TAG_RE.sub("", text).replace("`", "")
     text = _MARKDOWN_ESCAPE_RE.sub(r"\1", text)
-    text = re.sub(r"[*_~]", "", text).strip().casefold()
+    text = re.sub(r"[*~]", "", text).strip().casefold()
     return _SLUG_DROP_RE.sub("", text).replace(" ", "-")
 
 
