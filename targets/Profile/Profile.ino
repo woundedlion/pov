@@ -36,6 +36,7 @@
 //   HS_PROFILE_ORDERED_CYCLE random-next cyclers advance in order instead
 //                            (HankinSolids, SphericalHarmonics)
 //   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init (below)
+//   HS_PROFILE_PRESET        zero-based fixed preset selected after init
 //   HS_SCAN_METRICS          compiles in the per-pixel hs::g_scan_metrics probe
 //                            counters and adds the "scan totals" window line.
 //                            Every probe pays a non-atomic global increment, so
@@ -356,9 +357,21 @@ private:
 static constexpr size_t MAX_EFFECT_HEAP_BYTES =
     HS_PHANTASM_EFFECT_HEAP_BYTES + 64;
 
+#ifdef HS_PROFILE_PRESET
+template <typename E> void select_profile_preset(E &effect) {
+  static_assert(requires(E &e) { e.profile_select_preset(size_t{}); },
+                "HS_PROFILE_PRESET target does not support preset selection");
+  effect.profile_select_preset(static_cast<size_t>(HS_PROFILE_PRESET));
+}
+#endif
+
 Effect *construct_profiled() {
-  Effect *e =
-      construct_effect<ProfiledEffect<288, 144>, MAX_EFFECT_HEAP_BYTES>();
+  using Target = ProfiledEffect<288, 144>;
+  auto *e = static_cast<Target *>(
+      construct_effect<Target, MAX_EFFECT_HEAP_BYTES>());
+#ifdef HS_PROFILE_PRESET
+  select_profile_preset(*e);
+#endif
 #ifdef HS_PROFILE_TRANS_SPEED
   // Per-run knob (e.g. IslamicStars carousel speed-up so a single epoch walks the
   // whole shape roster). No-op for effects that don't register "Trans Speed".

@@ -35,10 +35,10 @@ public:
       static_cast<int>(PhaseFunction::SQUARE) + 1;
   /**
    * @brief Count slider ceiling.
-   * @details The 75 floor holds the preset counts inside the registered range
+   * @details The 144 floor holds the preset counts inside the registered range
    * on canvases shorter than that; preset_in_ranges pins the coupling.
    */
-  static constexpr int MAX_SHAPES = H > 75 ? H : 75;
+  static constexpr int MAX_SHAPES = H > 144 ? H : 144;
 
   /** @brief Constructs the Plot-only effect on a WxH canvas. */
   HS_COLD_MEMBER ShapeShifter()
@@ -64,7 +64,7 @@ public:
     register_animated_param("Amplitude", &params.amplitude, AMPLITUDE_MIN,
                             AMPLITUDE_MAX);
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
-    register_param("Opposite", &opposite_halves);
+    register_animated_param("Opposite", &params.opposite);
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
@@ -86,6 +86,18 @@ public:
     plot_filters.prepare(canvas);
     draw_all(canvas);
   }
+
+#if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
+  void profile_select_preset(size_t index) {
+    HS_CHECK(index < PRESETS.size(),
+             "ShapeShifter profile preset index out of range");
+    setAnimationsPaused(true);
+    params = PRESETS[index].params;
+    phase = 0.0f;
+    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
+            static_cast<unsigned>(PRESETS.size()));
+  }
+#endif
 
 private:
 #ifdef HS_TEST_BUILD
@@ -109,8 +121,17 @@ private:
     float count;
     float sides;
     float function;
-    float speed;
     float amplitude;
+    float speed;
+    bool opposite;
+
+    constexpr Params() = default;
+    constexpr Params(float alpha, float shape, float count, float sides,
+                     float function, float amplitude, float speed,
+                     float opposite)
+        : alpha(alpha), shape(shape), count(count), sides(sides),
+          function(function), amplitude(amplitude), speed(speed),
+          opposite(opposite >= 0.5f) {}
 
     /** @brief Interpolates every preset field from a to b. */
     void lerp(const Params &a, const Params &b, float t) {
@@ -119,8 +140,9 @@ private:
       count = hs::lerp(a.count, b.count, t);
       sides = hs::lerp(a.sides, b.sides, t);
       function = hs::lerp(a.function, b.function, t);
-      speed = hs::lerp(a.speed, b.speed, t);
       amplitude = hs::lerp(a.amplitude, b.amplitude, t);
+      speed = hs::lerp(a.speed, b.speed, t);
+      opposite = t < 0.5f ? a.opposite : b.opposite;
     }
   };
 
@@ -129,7 +151,7 @@ private:
   }
 
   float phase_direction(float radius) const {
-    return opposite_halves && radius > 1.0f ? -1.0f : 1.0f;
+    return params.opposite && radius > 1.0f ? -1.0f : 1.0f;
   }
 
   /** @brief Advances to the next preset and schedules a continuous blend. */
@@ -343,11 +365,13 @@ private:
   }
 #endif
 
-  static constexpr std::array<PresetEntry<Params>, 4> PRESETS = {{
-      {{0.5f, 1.017f, 74.644997f, 3.0f, 0.0f, 0.0318f, 1.0f}},
-      {{0.5f, 2.793f, 43.327999f, 6.562f, 0.0f, 0.0142f, 1.0f}},
-      {{0.5f, 1.872f, 70.0f, 3.0f, 0.0f, 0.0186f, 1.0f}},
-      {{0.274f, 2.988f, 72.0f, 4.417f, 0.0f, 0.0077f, 1.0f}},
+  static constexpr std::array<PresetEntry<Params>, 6> PRESETS = {{
+      {{0.5f, 1.017f, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f, 0.0f}},
+      {{0.5f, 2.793f, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f}},
+      {{0.5f, 1.872f, 70.0f, 3.0f, 0.0f, 1.0f, 0.0186f, 0.0f}},
+      {{0.274f, 2.988f, 72.0f, 4.417f, 0.0f, 1.0f, 0.0077f, 0.0f}},
+      {{0.5f, 0.822f, 128.0f, 5.561f, 0.0f, 4.0f, 0.0405f, 1.0f}},
+      {{0.45579f, 1.05f, 144.0f, 4.001f, 0.0f, 2.377f, 0.027086f, 0.0f}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
@@ -367,7 +391,9 @@ private:
   static_assert(preset_in_ranges(PRESETS[0].params) &&
                     preset_in_ranges(PRESETS[1].params) &&
                     preset_in_ranges(PRESETS[2].params) &&
-                    preset_in_ranges(PRESETS[3].params),
+                    preset_in_ranges(PRESETS[3].params) &&
+                    preset_in_ranges(PRESETS[4].params) &&
+                    preset_in_ranges(PRESETS[5].params),
                 "ShapeShifter preset is outside a registered slider range");
 
   FastNoiseLite noise;
@@ -375,10 +401,9 @@ private:
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
   BakedPalette baked_sunset;
-  Presets<Params, 4> presets{PRESETS};
+  Presets<Params, 6> presets{PRESETS};
   Params params{};
   float phase = 0.0f;
-  bool opposite_halves = false;
 };
 
 #include "core/engine/effect_registry.h"

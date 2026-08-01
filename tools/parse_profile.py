@@ -83,6 +83,7 @@ PLOT_FIELDS = ("rings", "edges", "planar", "geodesic", "degenerate",
 # Preset/shape/mode advance markers. `key` groups them; `idx`/`total`/`name`
 # are pulled when present.
 MARKER_RES = [
+    ("profile_preset", re.compile(r"^Profile preset: (\d+)/(\d+)")),
     ("preset", re.compile(r"^Preset: (\d+)/(\d+)")),
     ("shape", re.compile(r"^Shape: (\d+)/(\d+)")),
     ("mode", re.compile(r"^Mode: (\d+)/(\d+)")),
@@ -271,7 +272,7 @@ def parse(path):
 
 
 def _marker(key, mm):
-    if key in ("preset", "shape", "mode"):
+    if key in ("profile_preset", "preset", "shape", "mode"):
         return dict(key=key, idx=int(mm.group(1)), total=int(mm.group(2)),
                     name=str(int(mm.group(1))))
     if key == "islamic":
@@ -655,7 +656,13 @@ def cmd_validate(windows, effect, scope):
     names = [m["name"] for m in marks]
     if not marks:
         print("  [INFO] no preset markers - non-cycling capture")
-    if idxs:
+    selected = [m for m in marks if m["key"] == "profile_preset"]
+    if selected:
+        choices = {(m["idx"], m.get("total")) for m in selected}
+        index, total = selected[0]["idx"], selected[0].get("total")
+        check(len(choices) == 1 and total is not None and index < total,
+              f"fixed profile preset {index}/{total}")
+    elif idxs:
         peak = max(idxs)
         wrapped = any(idxs[i] < idxs[i - 1] for i in range(1, len(idxs)))
         check(wrapped, f"cycle wraps to 0 (peak idx {peak}, "
