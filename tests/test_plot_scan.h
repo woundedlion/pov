@@ -20,6 +20,10 @@
  *   - Plot::Spiral::sample      : unit-length, monotone arc length.
  *   - Plot::Multiline::sample   : arc-length parameterization, v0 in [0,1].
  *   - Plot::Star::sample / Flower::sample : unit-length, closed loop.
+ *   - PlanarEdgeSampler::one_pass : analytic tangent vs the forward-difference
+ *                                 operator(), and tangency/forwardness.
+ *   - rasterize<SinglePass=true> : gap-free planar edge, parity with the
+ *                                 cached two-pass replay, closed-loop seam.
  */
 #pragma once
 
@@ -3804,6 +3808,232 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
 }
 
 // ============================================================================
+// SinglePass rasterizer / PlanarEdgeSampler::one_pass
+// ============================================================================
+
+/**
+ * @brief Builds the planar sampler the rasterizer would build for edge a->b.
+ * @param a Edge start (unit vector).
+ * @param b Edge end (unit vector).
+ * @param basis Azimuthal-equidistant projection basis.
+ * @return The sampler, with its cumulative-arc table already filled.
+ */
+inline Plot::PlanarEdgeSampler planar_sampler(const Vector &a, const Vector &b,
+                                              const Basis &basis) {
+  Fragment fa, fb;
+  fa.pos = a;
+  fb.pos = b;
+  Plot::PlanarEdgeSampler out;
+  Plot::rasterize_planar_strategy(
+      fa, fb, basis, /*is_last_segment=*/true,
+      [&](const Plot::PlanarEdgeSampler &s, const Fragment &, const Fragment &,
+          float, bool) { out = s; });
+  return out;
+}
+
+/**
+ * @brief one_pass's analytic tangent agrees with operator()'s forward
+ *        difference, at the same position.
+ * @details The two are independent derivations of the same quantity and only
+ *          the analytic one runs in production (SinglePass). A sign flip or an
+ *          off-by-one in projection_fraction would show here and nowhere else:
+ *          the whole-effect framebuffer compare is far too loose to see it.
+ */
+inline void test_planar_one_pass_matches_forward_difference() {
+  hs::random().seed(0x51F1);
+  int checked = 0;
+  float worst_len = 0.0f, worst_pos = 0.0f, worst_tan_len = 0.0f;
+  float worst_tan_dot = 1.0f;
+  for (int trial = 0; trial < 400; ++trial) {
+    Basis basis = basis_from_normal(az_rand_unit());
+    Vector a = az_rand_unit();
+    Vector b = az_rand_unit();
+    // Both endpoints clear of the antipodal seam, where the planar strategy
+    // is not the path the rasterizer takes.
+    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      continue;
+    Plot::PlanarEdgeSampler s = planar_sampler(a, b, basis);
+    if (s.dist < 0.05f)
+      continue;
+
+    for (int k = 0; k <= 8; ++k) {
+      const float t = static_cast<float>(k) / 8.0f;
+      Plot::SamplePT one = s.one_pass(t);
+      Plot::SamplePT fd = s(t);
+      worst_len = std::max(worst_len, std::abs(one.pos.length() - 1.0f));
+      worst_pos = std::max(worst_pos, angle_between(one.pos, fd.pos));
+      worst_tan_len = std::max(worst_tan_len, std::abs(one.tan.length() - 1.0f));
+      worst_tan_dot = std::min(worst_tan_dot, dot(one.tan, fd.tan));
+      ++checked;
+    }
+  }
+  HS_EXPECT_GT(checked, 1000);
+  // Bounds are the fast_sinf/fast_cosf budget the two derivations each pay,
+  // not agreement to float precision; a sign flip or an off-by-one in
+  // projection_fraction misses them by orders of magnitude.
+  HS_EXPECT_LE(worst_len, 5e-3f);
+  HS_EXPECT_LE(worst_pos, 2e-2f);
+  HS_EXPECT_LE(worst_tan_len, 5e-3f);
+  // Same direction, not merely the same line: a flipped sign steps the
+  // sub-step sampler backwards.
+  HS_EXPECT_GT(worst_tan_dot, 0.9f);
+}
+
+/**
+ * @brief one_pass's tangent is tangent to the sphere and points along the
+ *        rendered chart line.
+ * @details Independent of operator(): the tangent must be orthogonal to the
+ *          position and must advance toward the edge's far endpoint.
+ */
+inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
+  hs::random().seed(0x51F2);
+  int checked = 0;
+  float worst_orth = 0.0f;
+  for (int trial = 0; trial < 400; ++trial) {
+    Basis basis = basis_from_normal(az_rand_unit());
+    Vector a = az_rand_unit();
+    Vector b = az_rand_unit();
+    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      continue;
+    Plot::PlanarEdgeSampler s = planar_sampler(a, b, basis);
+    if (s.dist < 0.2f)
+      continue;
+
+    for (int k = 0; k <= 4; ++k) {
+      const float t = static_cast<float>(k) / 4.0f;
+      Plot::SamplePT one = s.one_pass(t);
+      worst_orth = std::max(worst_orth, std::abs(dot(one.pos, one.tan)));
+      const float step = 1.0f / 64.0f;
+      const Vector ahead = s.pos(std::min(1.0f, t + step));
+      const Vector behind = s.pos(std::max(0.0f, t - step));
+      HS_EXPECT_GT(dot(one.tan, ahead - behind), 0.0f);
+      ++checked;
+    }
+  }
+  HS_EXPECT_GT(checked, 500);
+  HS_EXPECT_LE(worst_orth, 2e-2f);
+}
+
+/**
+ * @brief The SinglePass rasterizer draws the same gap-free planar edge as the
+ *        cached two-pass path.
+ * @details ShapeShifter is the only production caller, so nothing else pins
+ *          this instantiation: it must plot unit-length samples, close every
+ *          consecutive gap to roughly one dot, and trace the same curve the
+ *          two-pass replay traces.
+ */
+inline void test_rasterize_single_pass_planar_matches_two_pass() {
+  constexpr int W = 128, H = 64;
+  constexpr float base_step = (2.0f * PI_F) / W;
+  hs_test::StubEffect fx(W, H);
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 4);
+
+  Basis basis = basis_from_normal(Vector(0, 1, 0));
+  auto on_disk = [&](float colat, float az) {
+    Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
+  };
+  Fragment a, b;
+  a.pos = on_disk(0.3f, 0.0f);
+  b.pos = on_disk(1.3f, 1.0f);
+  points.push_back(a);
+  points.push_back(b);
+
+  CapturePipeline single, cached;
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H, true>(single, c, points, noop_shader,
+                                {.planar_basis = &basis});
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H, false>(cached, c, points, noop_shader,
+                                 {.planar_basis = &basis});
+  }
+  fx.advance_display();
+
+  HS_EXPECT_GT(single.plotted.size(), (size_t)10);
+  HS_EXPECT_LE(max_consecutive_gap(single.plotted, /*wrap=*/false),
+               1.5f * base_step);
+  for (const Vector &p : single.plotted)
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(angle_between(single.plotted.front(), a.pos), 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(angle_between(single.plotted.back(), b.pos), 0.0f, 1e-2f);
+
+  // Same curve: the two paths size their sub-steps from the same screen
+  // velocity, so every emitted sample lies within a dot of the other path's.
+  HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + 2);
+  HS_EXPECT_GE(single.plotted.size() + 2, cached.plotted.size());
+  for (const Vector &p : single.plotted) {
+    float nearest = PI_F;
+    for (const Vector &q : cached.plotted)
+      nearest = std::min(nearest, angle_between(p, q));
+    HS_EXPECT_LE(nearest, base_step);
+  }
+}
+
+/**
+ * @brief SinglePass honours omit_end and close_loop the way the cached path
+ *        does.
+ * @details ShapeShifter draws closed primitives with omit_end, so the seam
+ *          handling is the instantiation that actually ships.
+ */
+inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
+  constexpr int W = 128, H = 64;
+  constexpr float base_step = (2.0f * PI_F) / W;
+  hs_test::StubEffect fx(W, H);
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 8);
+
+  Basis basis = basis_from_normal(Vector(0, 1, 0));
+  for (int i = 0; i < 5; ++i) {
+    float az = (2.0f * PI_F * i) / 5.0f;
+    Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    Fragment f;
+    f.pos = (basis.v * cosf(0.7f) + dir * sinf(0.7f)).normalized();
+    points.push_back(f);
+  }
+
+  const Plot::RasterOptions opts = {
+      .close_loop = true, .planar_basis = &basis, .omit_end = true};
+  CapturePipeline single, cached;
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H, true>(single, c, points, noop_shader, opts);
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H, false>(cached, c, points, noop_shader, opts);
+  }
+  fx.advance_display();
+
+  HS_EXPECT_GT(single.plotted.size(), (size_t)20);
+  HS_EXPECT_LE(max_consecutive_gap(single.plotted, /*wrap=*/true),
+               1.5f * base_step);
+  for (const Vector &p : single.plotted)
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+  // SinglePass has no omit_last equivalent: its sub-step loop stops at
+  // current_dist < total_dist, and projection_fraction clamps a t just under 1
+  // to the segment end, so a shared vertex can be emitted twice. At most one
+  // extra sample per segment either way.
+  HS_EXPECT_GE(single.plotted.size(), cached.plotted.size());
+  HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + points.size());
+  for (const Vector &p : single.plotted) {
+    float nearest = PI_F;
+    for (const Vector &q : cached.plotted)
+      nearest = std::min(nearest, angle_between(p, q));
+    HS_EXPECT_LE(nearest, base_step);
+  }
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -3884,6 +4114,11 @@ inline int run_plot_scan_tests() {
   test_planar_arc_length_matches_fine_quadrature();
   test_dual_metric_radial_vs_azimuthal();
   test_planar_arc_cumul_monotone_and_endpoints();
+
+  test_planar_one_pass_matches_forward_difference();
+  test_planar_one_pass_tangent_is_forward_and_orthogonal();
+  test_rasterize_single_pass_planar_matches_two_pass();
+  test_rasterize_single_pass_closed_loop_matches_two_pass();
 
   return fixture.result();
 }
