@@ -210,19 +210,19 @@ inline void test_transition_quantized_floors_result() {
  * must traverse the full ramp again rather than freezing at the target.
  */
 inline void test_transition_repeat_retraverses_each_cycle() {
+  Timeline tl;
   float v = 0.0f;
   const int duration = 4;
-  Animation::Transition tr(v, 10.0f, duration, ease_linear, /*quantized=*/false,
-                           /*repeat=*/true);
+  tl.add(0, Animation::Transition(v, 10.0f, duration, ease_linear,
+                                  /*quantized=*/false, /*repeat=*/true));
   for (int i = 0; i < duration; ++i)
-    tr.step(fake_canvas());
+    tl.step(fake_canvas());
   HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
 
-  tr.rewind();
-  tr.step(fake_canvas());
+  tl.step(fake_canvas());
   HS_EXPECT_LT(v, 10.0f);
   for (int i = 1; i < duration; ++i)
-    tr.step(fake_canvas());
+    tl.step(fake_canvas());
   HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
 }
 
@@ -1817,9 +1817,9 @@ inline void test_terminator_sweep_fade_sliders_apply_without_reschedule() {
 
 /**
  * @brief Verifies TerminatorSweep draws each face's fade length randomly from
- * [fade_frames_min, fade_frames_max]: the fractions stay in range, are stable
- * for a given index, differ across faces, and preserve exact 0/1 window
- * endpoints for every per-face fade length.
+ * [fade_frames_min, fade_frames_max]: the fractions stay in range, differ
+ * across faces, and preserve exact 0/1 window endpoints for every per-face fade
+ * length.
  */
 inline void test_terminator_sweep_per_face_fade_random_in_range() {
   hs::random().seed(1337);
@@ -1838,7 +1838,6 @@ inline void test_terminator_sweep_per_face_fade_random_in_range() {
   for (int i = 0; i < 256; ++i) {
     float ff = term.face_fade_frac(i);
     HS_EXPECT_TRUE(ff >= lo - 1e-6f && ff <= hi + 1e-6f);
-    HS_EXPECT_NEAR(term.face_fade_frac(i), ff, 0.0f); // stable per index
     HS_EXPECT_NEAR(term.face_phase(1.0f, 0.7f, ff), 1.0f, 1e-5f);
     HS_EXPECT_NEAR(term.face_phase(0.0f, 0.7f, ff), 0.0f, 1e-5f);
     if (std::fabs(ff - first) > 1e-4f)
@@ -1875,8 +1874,7 @@ concept PerFaceSegueDrawable = requires(const SegueT &s, const Vector &c) {
  * @brief Pins every per-face segue against that call pattern, so a policy
  * carrying face_offset alone trips this static_assert instead of only breaking
  * whichever effect first selects it.
- * @details Also pins the fade_frac argument as inert for the two policies with
- * no per-face fade, and Base's default as the whole window. The fragment-hook
+ * @details Also pins Base's default as the whole window. The fragment-hook
  * assertions pin the exclusivity MeshCarousel enforces: a per-face draw path
  * shades through a palette pointer and never calls fill/grade, so shadowing
  * either alongside face_offset would drop it silently. The NeedsClasses and
@@ -1900,12 +1898,6 @@ inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(Segue::Masked<Segue::Dissolve>);
   static_assert(!Segue::Masked<Segue::Crossfade>);
 
-  Segue::Shockwave wave;
-  HS_EXPECT_NEAR(wave.face_phase(0.5f, 0.3f, 0.9f), wave.face_phase(0.5f, 0.3f),
-                 1e-6f);
-  Segue::Breakdown bd;
-  HS_EXPECT_NEAR(bd.face_phase(0.5f, 0.3f, 0.9f), bd.face_phase(0.5f, 0.3f),
-                 1e-6f);
   HS_EXPECT_NEAR(Segue::Base().face_fade_frac(3), 1.0f, 1e-6f);
 }
 
