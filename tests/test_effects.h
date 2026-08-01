@@ -1749,6 +1749,237 @@ inline void test_hopf_projection_math() {
 }
 
 // ---------------------------------------------------------------------------
+// Closed-form geometry pins: a ray-march cull sphere, a pixel-pitch star
+// radius, and a trail-vertex scratch budget.
+//
+// Each is a constant the effect derives once and then trusts. The smoke pass
+// renders all three and sees none of them: a cull sphere that understates its
+// volume just silently clips surface, a star radius off by a factor renders a
+// plausible frame at the wrong size, and a scratch estimate that under-counts
+// only shows up as an arena overrun on some other resolution.
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief White-box accessor for Raymarch's torus proportions and the constexpr
+ *        square root behind UNIT_BOUNDS (befriended in effects/Raymarch.h).
+ */
+struct RaymarchWhiteBox {
+  using RM = Raymarch<DEFAULT_W, DEFAULT_H>;
+  static constexpr float MAJOR = RM::MAJOR_K;
+  static constexpr float MINOR = RM::MINOR_K;
+  static constexpr float TWIST = RM::TWIST_K;
+  static constexpr float VIS = RM::VIS_K;
+  static constexpr float BOUNDS = RM::UNIT_BOUNDS;
+  static constexpr float square_root(float x) { return RM::square_root(x); }
+};
+
+/**
+ * @brief Pins Raymarch's constexpr Newton square root against libm.
+ * @details Eight fixed iterations from a unit seed. It runs only at compile
+ *          time, so nothing else would notice it under-converging, and its one
+ *          consumer is the cull-sphere radius — where a low answer culls real
+ *          surface.
+ */
+inline void test_raymarch_constexpr_sqrt_converges() {
+  using WB = RaymarchWhiteBox;
+  double worst = 0.0;
+  for (int i = 1; i <= 80; ++i) {
+    const float x = 0.05f * static_cast<float>(i); // 0.05 .. 4.0
+    worst = std::max(worst, std::fabs(static_cast<double>(WB::square_root(x)) -
+                                      std::sqrt(static_cast<double>(x))));
+  }
+  HS_EXPECT_LT(worst, 1e-6);
+
+  const float radicand = WB::MAJOR * WB::MAJOR + WB::TWIST * WB::TWIST;
+  HS_EXPECT_NEAR(WB::square_root(radicand), std::sqrt(radicand), 1e-7);
+}
+
+/**
+ * @brief Verifies UNIT_BOUNDS really bounds the twisted tube it culls against.
+ * @details Raymarch hands scale*UNIT_BOUNDS (+ the AA pad) to Scan::Volume::draw
+ *          as the ray-march cull sphere, so any surface outside it is dropped
+ *          with no other tell. The twisted torus surface has a closed form —
+ *          the tube circle of radius MINOR_K about the centerline
+ *          (MAJOR_K, TWIST_K*sin(n*theta)) in the (xz-radius, y) half plane —
+ *          so the whole surface is swept over the "Twist" slider's integer
+ *          domain, checked against the production SDF's zero set, and required
+ *          to sit inside the sphere. The sphere is also required to be tight: a
+ *          slack radius is wasted ray steps at every vertex.
+ */
+inline void test_raymarch_unit_bounds_contains_twisted_tube() {
+  using WB = RaymarchWhiteBox;
+  constexpr double TWO_PI_DBL = 6.283185307179586;
+  const double R = WB::MAJOR, r = WB::MINOR, A = WB::TWIST;
+  const double bound = WB::BOUNDS;
+
+  double max_off_surface = 0.0; // |SDF| at the sampled surface points
+  double max_radius = 0.0;      // farthest surface point from the torus centre
+  double min_on_shell = 1e30;   // least SDF value anywhere on the cull sphere
+
+  // twist_n rounds the "Twist" slider, whose range is 0..8.
+  for (int n = 0; n <= 8; ++n) {
+    const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
+        SDF::Torus{static_cast<float>(R), static_cast<float>(r)},
+        SDF::Warp::Twist{n, static_cast<float>(A), static_cast<float>(R)}};
+
+    for (int i = 0; i < 256; ++i) {
+      const double th = TWO_PI_DBL * i / 256;
+      const double ct = std::cos(th), st = std::sin(th);
+      const double y_mid = A * std::sin(n * th);
+      for (int j = 0; j < 256; ++j) {
+        const double a = TWO_PI_DBL * j / 256;
+        const double s = R + r * std::cos(a);
+        const double y = y_mid + r * std::sin(a);
+        const Vector p(static_cast<float>(s * ct), static_cast<float>(y),
+                       static_cast<float>(s * st));
+        max_off_surface =
+            std::max(max_off_surface,
+                     std::fabs(static_cast<double>(wv.raw_distance(p))));
+        max_radius = std::max(max_radius, std::sqrt(s * s + y * y));
+      }
+    }
+
+    // Sweep the cull sphere itself: no point of it may be inside the volume.
+    for (int i = 0; i < 128; ++i) {
+      const double th = TWO_PI_DBL * i / 128;
+      for (int j = 0; j <= 64; ++j) {
+        const double ph = 0.5 * TWO_PI_DBL * j / 64;
+        const double sp = std::sin(ph);
+        const Vector q(static_cast<float>(bound * sp * std::cos(th)),
+                       static_cast<float>(bound * std::cos(ph)),
+                       static_cast<float>(bound * sp * std::sin(th)));
+        min_on_shell =
+            std::min(min_on_shell, static_cast<double>(wv.raw_distance(q)));
+      }
+    }
+  }
+
+  HS_EXPECT_LT(max_off_surface, 2e-4); // the samples are the SDF's zero set
+  HS_EXPECT_LE(max_radius, bound + 1e-6);
+  HS_EXPECT_GT(min_on_shell, -1e-4);
+  HS_EXPECT_NEAR(max_radius, bound, 1e-3);
+
+  // The visible outer radius the per-vertex auto-size fits to the neighbour gap
+  // is the ring rim, so it must sit inside the cull sphere.
+  HS_EXPECT_LT(static_cast<double>(WB::VIS), bound);
+}
+
+/**
+ * @brief White-box accessor for GnomonicStars' pixel-pitch star radius
+ *        (befriended in effects/GnomonicStars.h).
+ */
+struct GnomonicStarsWhiteBox {
+  template <int W, int H> static constexpr float radius_px() {
+    return GnomonicStars<W, H>::RADIUS_PX;
+  }
+};
+
+/**
+ * @brief Verifies RADIUS_PX is one pixel of azimuth at every build resolution.
+ * @details Star sizes are authored as multiples of RADIUS_PX so they hold their
+ *          pixel size across resolutions. Scan::Star turns its radius argument
+ *          into SDF::Star's circumradius of radius*pi/2 radians, and one column
+ *          spans 2*pi/W radians, so k*RADIUS_PX must come out as exactly k
+ *          columns. The rendered pass then measures the lit set of a real star
+ *          drawn on the equator, where a column is a full 2*pi/W of arc.
+ */
+inline void test_gnomonicstars_radius_px_spans_one_column() {
+  using WB = GnomonicStarsWhiteBox;
+  constexpr int W = DEFAULT_W, H = DEFAULT_H;
+  const double column = 2.0 * static_cast<double>(PI_F) / W;
+  const double small_column = 2.0 * static_cast<double>(PI_F) / SMALL_W;
+  const Basis basis = make_basis(Quaternion(), X_AXIS);
+
+  for (int k : {1, 2, 12}) {
+    const SDF::Star shape(basis, k * WB::radius_px<W, H>(), 5, 0.0f);
+    HS_EXPECT_NEAR(shape.circumradius, k * column, 1e-6);
+    const SDF::Star small(basis, k * WB::radius_px<SMALL_W, SMALL_H>(), 5,
+                          0.0f);
+    HS_EXPECT_NEAR(small.circumradius, k * small_column, 1e-6);
+  }
+
+  constexpr int SPAN_PX = 12;
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipe;
+  {
+    Canvas c(fx);
+    Scan::Star::draw<W, H, false>(
+        pipe, c, basis, SPAN_PX * WB::radius_px<W, H>(), /*sides=*/5,
+        [](const Vector &, Fragment &f) {
+          f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+        });
+  }
+  fx.advance_display();
+
+  size_t lit = 0;
+  double max_arc = 0.0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &p = fx.get_pixel(x, y);
+      if (p.r == 0 && p.g == 0 && p.b == 0)
+        continue;
+      ++lit;
+      const Vector v = pixel_to_vector<W, H>(x, y);
+      max_arc = std::max(max_arc, static_cast<double>(std::acos(
+                                      hs::clamp(dot(v, X_AXIS), -1.0f, 1.0f))));
+    }
+
+  HS_EXPECT_GT(lit, (size_t)0);
+  // The tips reach SPAN_PX columns and nothing lands beyond them, allowing the
+  // AA fringe plus a column of pixel quantization.
+  HS_EXPECT_LE(max_arc, (SPAN_PX + 2) * column);
+  HS_EXPECT_GE(max_arc, (SPAN_PX - 2) * column);
+}
+
+/**
+ * @brief White-box accessor for ChaoticStrings' trail node (befriended in
+ *        effects/ChaoticStrings.h).
+ */
+struct ChaoticStringsWhiteBox {
+  using CS = ChaoticStrings<SMALL_W, SMALL_H>;
+  static size_t tween_vertices(const CS &fx) {
+    size_t n = 0;
+    deep_tween(fx.node->trail, [&](const Quaternion &, float) { ++n; });
+    return n;
+  }
+};
+
+/**
+ * @brief Verifies the scratch-A split's predicted worst case really covers a
+ *        saturated ChaoticStrings frame.
+ * @details SCRATCH_A_BYTES is carved from the global arena against a closed-form
+ *          worst case — the MAX_FRAGMENTS vertex buffer, the Multiline fragment
+ *          buffer it binds, and rasterize's sub-step cache, all live at once.
+ *          The static_assert only checks that estimate against the split, never
+ *          against a real frame, so an estimate that under-counts would go
+ *          unnoticed until the split shrank. Runs past TRAIL_LENGTH frames so
+ *          the trail is full when the peak is read.
+ */
+inline void test_chaoticstrings_scratch_estimate_covers_peak() {
+  reset_effect_globals();
+  using WB = ChaoticStringsWhiteBox;
+  using CS = WB::CS;
+
+  CS fx;
+  fx.init();
+  scratch_arena_a.reset_high_water_mark();
+
+  size_t worst_vertices = 0;
+  for (int i = 0; i < CS::TRAIL_LENGTH + 4; ++i) {
+    fx.draw_frame();
+    fx.advance_display();
+    worst_vertices = std::max(worst_vertices, WB::tween_vertices(fx));
+  }
+
+  constexpr size_t PREDICTED = (2 * CS::MAX_FRAGMENTS + 2) * sizeof(Fragment) +
+                               Plot::rasterize_scratch_a_bytes<SMALL_W>();
+  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), PREDICTED);
+  // The trail fills, so the peak above is a saturated frame and not a warm-up.
+  HS_EXPECT_GT(worst_vertices, (size_t)CS::TRAIL_LENGTH);
+  HS_EXPECT_LE(worst_vertices, (size_t)CS::MAX_FRAGMENTS);
+}
+
+// ---------------------------------------------------------------------------
 // Drift-prone effects: spawn-gap / emit-phase / pool-bound white-box pins.
 //
 // The smoke pass proves these render and the determinism pass proves they
@@ -4432,6 +4663,10 @@ inline int run_effects_tests() {
     RingShowerWhiteBox::check_radius_endpoints();
     DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
     test_hopf_projection_math();
+    test_raymarch_constexpr_sqrt_converges();
+    test_raymarch_unit_bounds_contains_twisted_tube();
+    test_gnomonicstars_radius_px_spans_one_column();
+    test_chaoticstrings_scratch_estimate_covers_peak();
     test_petalflow_spawn_gap_bounded();
     test_displacement_field_lazy_hue_table_matches_eager();
     test_displacement_field_hue_table_fidelity();

@@ -7,6 +7,15 @@
 
 #include "core/engine/engine.h"
 
+// Unit-test accessor reaching the private torus proportions and the constexpr
+// square root behind UNIT_BOUNDS, so a test can pin the cull sphere against the
+// warped SDF it has to contain.
+namespace hs_test {
+namespace effects_tests {
+struct RaymarchWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Ray-marches a twisted torus SDF at each vertex of a disdyakis
  *        dodecahedron, shading each with a metallic headlight model and a baked
@@ -75,8 +84,33 @@ public:
   }
 
 private:
+  friend struct ::hs_test::effects_tests::RaymarchWhiteBox;
+
   /** Vertex-array capacity; the disdyakis dodecahedron has 26. */
   static constexpr int MAX_POINTS = 32;
+
+  // Torus proportions at scale 1: VIS_K is the visible outer ring radius,
+  // UNIT_BOUNDS the bounding-sphere radius (bigger, may overlap a neighbour —
+  // a few wasted ray steps, no visual overlap).
+  static constexpr float MAJOR_K = 0.45f, MINOR_K = 0.14f, TWIST_K = 0.35f;
+  static constexpr float VIS_K = MAJOR_K + MINOR_K;
+
+  /**
+   * @brief Constexpr square root by Newton-Raphson from a unit seed.
+   * @param x Radicand; the fixed iteration count converges over the O(1)
+   *        arguments UNIT_BOUNDS needs, not over the whole float range.
+   * @return sqrt(x).
+   */
+  static constexpr float square_root(float x) {
+    float root = 1.0f;
+    for (int i = 0; i < 8; ++i)
+      root = 0.5f * (root + x / root);
+    return root;
+  }
+
+  // Farthest point of the MINOR_K tube about the twisted centerline.
+  static constexpr float UNIT_BOUNDS =
+      square_root(MAJOR_K * MAJOR_K + TWIST_K * TWIST_K) + MINOR_K;
 
   /**
    * @brief Builds the disdyakis-dodecahedron vertex directions and per-vertex
@@ -102,20 +136,6 @@ private:
     HS_PROFILE(rm_shader_draw);
     constexpr float TWO_PI_F = 2.0f * PI_F;
 
-    // Torus proportions at scale 1: VIS_K is the visible outer ring radius,
-    // UNIT_BOUNDS the bounding-sphere radius (bigger, may overlap a neighbour —
-    // a few wasted ray steps, no visual overlap).
-    constexpr float MAJOR_K = 0.45f, MINOR_K = 0.14f, TWIST_K = 0.35f;
-    constexpr float VIS_K = MAJOR_K + MINOR_K; // outer ring radius at scale 1
-    constexpr auto square_root = [](float x) {
-      float root = 1.0f;
-      for (int i = 0; i < 8; ++i)
-        root = 0.5f * (root + x / root);
-      return root;
-    };
-    // Farthest point of the MINOR_K tube about the twisted centerline.
-    constexpr float UNIT_BOUNDS =
-        square_root(MAJOR_K * MAJOR_K + TWIST_K * TWIST_K) + MINOR_K;
     int twist_n = static_cast<int>(params.twist + 0.5f);
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
 

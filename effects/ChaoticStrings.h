@@ -7,6 +7,14 @@
 
 #include "core/engine/engine.h"
 
+// Unit-test accessor reaching the private node so a test can count the vertices
+// deep_tween emits against the MAX_FRAGMENTS the scratch split is sized for.
+namespace hs_test {
+namespace effects_tests {
+struct ChaoticStringsWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Undulating string of orientation trails drawn as an anti-aliased
  *        multiline colored by trail position.
@@ -186,6 +194,8 @@ public:
   }
 
 private:
+  friend struct ::hs_test::effects_tests::ChaoticStringsWhiteBox;
+
   FastNoiseLite noise; /**< Noise source for the random walk. */
   Timeline timeline;   /**< Drives all per-frame animations. */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
