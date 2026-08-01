@@ -49,7 +49,7 @@ static_assert(strip_opposite_col(48, 96) == 0); // wraps back at the seam
 inline void check_strip_tiling(int S, int w, int x) {
   const int ROWS = S / 2;
   const int col_top = x;
-  const int col_bot = strip_opposite_col(x, w);
+  const int col_bot = (x + w / 2) % w;
   HS_EXPECT_TRUE(col_bot >= 0 && col_bot < w);
   // For even w the two sampled columns are always distinct (offset w/2 != 0).
   HS_EXPECT_TRUE(col_top != col_bot);
