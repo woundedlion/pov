@@ -157,6 +157,18 @@ inline void case_arena_set_capacity_below_offset() {
 }
 
 /**
+ * @brief Death case: growing capacity past the backing buffer must trap.
+ * @details Memory surface — allocate() bounds-checks against the capacity, so a
+ *          capacity beyond the buffer's real end would authorize allocations
+ *          past it with no further guard.
+ */
+inline void case_arena_set_capacity_above_extent() {
+  static uint8_t buf[64];
+  Arena a(buf, sizeof(buf));
+  a.set_capacity(opaque<size_t>(128)); // > extent 64 -> HS_CHECK
+}
+
+/**
  * @brief Death case: a mid-run resplit with live scratch content must trap.
  * @details Config surface — resplit_arenas rebases both scratch arenas, and a
  *          ScratchScope saved at offset 0 restores to 0 either way, so live
@@ -1527,6 +1539,7 @@ inline const Case *all_cases(int &n) {
       {"arena_zero_size_alloc", case_arena_zero_size_alloc},
       {"arena_bad_alignment", case_arena_bad_alignment},
       {"arena_set_capacity_below_offset", case_arena_set_capacity_below_offset},
+      {"arena_set_capacity_above_extent", case_arena_set_capacity_above_extent},
       {"resplit_scratch_not_empty", case_resplit_scratch_not_empty},
       {"arena_set_offset_overflow", case_arena_set_offset_overflow},
       {"scratch_scope_non_lifo", case_scratch_scope_non_lifo},
@@ -1878,7 +1891,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 85;
+  constexpr int DEATH_CASE_COUNT = 86;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
