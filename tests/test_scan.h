@@ -666,7 +666,6 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
   const int y = 2; // near the north pole, so sin(phi) is small and stride > 1
 
   TrigLUT<W, H>::init();
-  const int stride = Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]);
 
   const float saved = pole_lod_aggressiveness;
   pole_lod_aggressiveness = 1.0f;
@@ -717,7 +716,6 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
   pole_lod_aggressiveness = 0.0f;
   HS_EXPECT_EQ(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]), 1);
   HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 1);
-  (void)stride;
   pole_lod_aggressiveness = saved;
 }
 
