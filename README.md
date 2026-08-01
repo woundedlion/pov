@@ -904,7 +904,7 @@ All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<F
 
 The `Timeline` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase` and support method chaining via `.then()` for sequencing.
 
-`animation.h` defines the contract every animation implements — `IAnimation`, the CRTP `AnimationBase`, and `Animation::Space` — and then includes seven fragment headers grouped by what they animate:
+`animation.h` defines the contract every animation implements — `IAnimation`, the CRTP `AnimationBase`, and `Animation::Space` — and then includes nine fragment headers grouped by what they animate:
 
 | Header | Subject | Contents |
 |---|---|---|
