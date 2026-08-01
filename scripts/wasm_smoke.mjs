@@ -613,7 +613,17 @@ async function main() {
       }
 
       // Tooling arena high-water marks must stay within capacity after the ops.
+      // The two scratch arenas are what TOOLING_BYTES_PER_MESH_ELEMENT is sized
+      // against, so a missing or unbound region leaves the loop below blind to
+      // the regions an operator overrun would kill the module through.
       const tm = MeshOps.getArenaMetrics();
+      for (const region of ['tooling_arena', 'tooling_scratch_a', 'tooling_scratch_b']) {
+        if (!tm[region]) {
+          fail(`MeshOps.getArenaMetrics() omits ${region}`);
+        } else if (!(tm[region].capacity > 0)) {
+          fail(`MeshOps ${region} capacity is ${tm[region].capacity} after the ops ran`);
+        }
+      }
       for (const region of Object.keys(tm)) {
         const { high_water_mark: hwm, capacity } = tm[region];
         if (hwm > capacity) fail(`MeshOps ${region} high-water mark ${hwm} exceeds capacity ${capacity}`);
