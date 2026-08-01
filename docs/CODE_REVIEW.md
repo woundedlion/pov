@@ -521,7 +521,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 215. ❌ **The suite's only real-timer wait, in the file that built machinery to avoid exactly this** — `daydream/tests/recorder.test.js:859`. `await new Promise(r => setTimeout(r, 0))` guesses at the rejection's task depth, while the same file defines `trackSinkFinish` whose JSDoc says it exists so a test need not guess. — Rejected: already fixed by `0885cf2`; the test awaits `trackSinkFinish()` and contains no real-timer wait.
 
-216. **`FakeMediaRecorder.isTypeSupported` is static mutable state `installRecorderEnv()` does not reset** — `daydream/tests/recorder.test.js:169, 200-201, 293`. Asymmetric with the two fields it does reset; any future early return between the mutation and its `finally` poisons every later test in the file.
+216. ✅ **`FakeMediaRecorder.isTypeSupported` is static mutable state `installRecorderEnv()` does not reset** — `daydream/tests/recorder.test.js:169, 200-201, 293`. Asymmetric with the two fields it does reset; any future early return between the mutation and its `finally` poisons every later test in the file.
 
 217. **Two user-visible recorder behaviours have no coverage** — `daydream/recorder.js:362-367, 336-337`. `elapsedFormatted` (the M:SS readout rendered in the UI) is referenced by zero tests, so its padding and minute rollover are unverified; and `blitToOffscreen`'s zero-size-source guard — documented as the mid-resize `drawImage`-throws case — is unreached.
 
