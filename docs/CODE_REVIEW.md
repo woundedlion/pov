@@ -529,7 +529,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 219. ✅ **The sRGB oracle is a character-for-character copy of the implementation, evaluated only where it is the identity** — `daydream/tests/palette_math.test.js:32-34`. Compounds finding 12. Related: `color.test.js:23-33` claims to verify "the 0.04045 knee continuity" but moving the knee to `0.03` leaves the file green — continuity is exactly why that sample cannot pin the constant.
 
-220. **The standalone Lissajous suite pins no curve coordinate except the t=0 origin** — `daydream/tests/lissajous_math.test.js:214-221`. An x/z factor swap survives all 20 tests and is caught only by the WASM parity file; if that were ever unbuildable in a constrained CI the curve's shape would be unguarded with nothing going red. Analytic goldens already exist next door.
+220. ✅ **The standalone Lissajous suite pins no curve coordinate except the t=0 origin** — `daydream/tests/lissajous_math.test.js:214-221`. An x/z factor swap survives all 20 tests and is caught only by the WASM parity file; if that were ever unbuildable in a constrained CI the curve's shape would be unguarded with nothing going red. Analytic goldens already exist next door.
 
 221. **A module-global is left pointing at a deleted embind object** — `daydream/tests/color_parity_wasm.test.js:224, 228`. `setPaletteOps` installs a closure over `ops` into `palette_math.js`'s module scope and the `finally` calls `ops.delete()` without restoring it. Harmless only because this is the last palette test in the file.
 
