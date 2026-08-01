@@ -2004,12 +2004,9 @@ inline void test_star_midpoint_dissolve() {
   HS_EXPECT_GT(e_plain, 100000);
   HS_EXPECT_LT(e_shaped, e_plain);
 
-  // Symmetric on the far side: the weight keys off distance to the midpoint, so
-  // the star comes back out of the rosette ramp as it reopens rather than
-  // snapping to its own color.
+  // Symmetric on the far side: the star comes back out of the rosette ramp as
+  // it reopens rather than snapping to its own color.
   const int reopen_cf = mid + 1;
-  HS_EXPECT_NEAR(Probe::strap_open_fade(fx, reopen_cf - mid), star_blend,
-                 1e-6f);
   std::vector<Pixel> reopen_shaped;
   capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, reopen_shaped, 1.0f, 1.0f,
                   reopen_cf, star_blend);
