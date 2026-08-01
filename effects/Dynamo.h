@@ -169,8 +169,8 @@ private:
 
   /**
    * @brief Picks the color for a direction at a palette parameter.
-   * @param v Sample direction; the angle between it and palette_normal selects
-   *          a palette band.
+   * @param v Unit sample direction; the angle between it and palette_normal
+   *          selects a palette band.
    * @param t Palette parameter in [0, 1] indexing into the baked LUT.
    * @return The blended Color4 for the sampled band, with a blend_width-wide
    *         crossfade across each boundary.
@@ -186,7 +186,7 @@ private:
     // Sentinel for "no next boundary": `a` is in [0, PI], so any value above PI
     // makes the `a < next_boundary_lower_edge` test pass.
     constexpr float NO_NEXT_BOUNDARY = 100.0f;
-    float a = angle_between(v, palette_normal);
+    float a = fast_acos(hs::clamp(dot(v, palette_normal), -1.0f, 1.0f));
 
     // The scan assumes palette_boundaries is monotonically non-decreasing; a live
     // Wipe-Dur change can transiently invert it, picking a stale palette for a few
