@@ -83,14 +83,22 @@ struct TestModule {
 // in assertions red.
 //
 // Every value is MEASURED, as the minimum over the configurations that can move
-// a module's count: the effects tier (HS_EFFECTS_FULL, the only axis that moves
-// any count today — it raises effects), the smoke window (HS_SMOKE_FRAMES),
-// Debug -O0 against RelWithDebInfo -O2, and the NDEBUG-gated cases in
-// test_memory.h (7 assertions, so memory's floor sits 7 under its Debug count).
-// Adding cases raises a module's count and leaves its floor valid; lower a floor
-// only after deliberately removing or cheapening a case. 0 leaves a module
-// unfloored. death's floor covers its whole-suite skip exits because end_module
-// exempts a module that reported a skip.
+// a module's count: the smoke window (HS_SMOKE_FRAMES), Debug -O0 against
+// RelWithDebInfo -O2, and the NDEBUG-gated cases in test_memory.h (7
+// assertions, so memory's floor sits 7 under its Debug count). Adding cases
+// raises a module's count and leaves its floor valid; lower a floor only after
+// deliberately removing or cheapening a case. 0 leaves a module unfloored.
+// death's floor covers its whole-suite skip exits because end_module exempts a
+// module that reported a skip.
+
+// Effects floors, one per depth tier (tests/test_effects.h
+// effects_full_suite()). A single floor would have to be the QUICK count,
+// leaving every FULL-tier case deletable without turning CI — the only runner of
+// that tier — red. The roster row below selects the floor for the tier the
+// environment picked.
+constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 18742433;
+constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 18783224;
+
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", hs_test::math3d::run_3dmath_tests, 28826)                        \
   X("concepts", hs_test::concepts_tests::run_concepts_tests, 43273)            \
@@ -132,7 +140,10 @@ struct TestModule {
   X("noise", hs_test::noise_tests::run_noise_tests, 18)                        \
   X("generators", hs_test::generators_tests::run_generators_tests, 59)         \
   X("animation", hs_test::animation_tests::run_animation_tests, 16488)         \
-  X("effects", hs_test::effects_tests::run_effects_tests, 18742433)            \
+  X("effects", hs_test::effects_tests::run_effects_tests,                      \
+    hs_test::effects_tests::effects_full_suite()                               \
+        ? EFFECTS_FULL_MIN_ASSERTIONS                                          \
+        : EFFECTS_QUICK_MIN_ASSERTIONS)                                        \
   X("shapeshifter_oracle",                                                   \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 109)   \
   X("dma_core", hs_test::dma_core::run_dma_core_tests, 12)                     \
