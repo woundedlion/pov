@@ -143,7 +143,7 @@ private:
   }
 
   float phase_direction(float radius) const {
-    return params.opposite && radius > 1.0f ? -1.0f : 1.0f;
+    return !params.opposite && radius > 1.0f ? -1.0f : 1.0f;
   }
 
   /** @brief Advances to the next preset and applies it atomically. */

@@ -47,6 +47,7 @@ struct OracleState {
   int sides = 5;
   float phase = 0.0f;
   float alpha = 0.625f;
+  bool opposite = false;
   Quaternion orientation;
   OracleClip clip;
 };
@@ -131,6 +132,7 @@ struct ShapeShifterWhiteBox {
     effect.params.sides = static_cast<float>(state.sides);
     effect.params.function = static_cast<float>(state.function);
     effect.params.speed = 0.0f;
+    effect.params.opposite = state.opposite;
     effect.phase = state.phase;
     effect.orientation.set(state.orientation);
     effect.set_clip(state.clip.y0, state.clip.y1, state.clip.x0, state.clip.x1);
@@ -424,15 +426,33 @@ inline void test_amplitude_preserves_sweep_velocity() {
 }
 
 inline void test_opposite_halves_direction() {
-  OracleEffect effect;
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, false, 0.5f),
-               1.0f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, false, 1.5f),
-               1.0f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 0.5f),
-               1.0f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 1.5f),
-               -1.0f);
+  {
+    OracleEffect effect;
+    effect.init();
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, false, 0.5f),
+                 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, false, 1.5f),
+                 -1.0f);
+    HS_EXPECT_TRUE(effect.updateParameter("Opposite", 1.0f) ==
+                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 0.5f),
+                 1.0f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 1.5f),
+                 1.0f);
+  }
+  Timeline().clear();
+
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::STAR;
+  state.function = OracleEffect::PhaseFunction::SAWTOOTH;
+  state.count = 6;
+  state.sides = 7;
+  state.phase = 0.23f;
+  const OracleFrame unchecked = capture_frame(state, candidate_renderer());
+  state.opposite = true;
+  const OracleFrame checked = capture_frame(state, candidate_renderer());
+  HS_EXPECT_GT(compare_buffers(unchecked, checked).different_pixels,
+               static_cast<size_t>(0));
 }
 
 inline void test_preset_transition_snaps() {
