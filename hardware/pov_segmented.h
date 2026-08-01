@@ -249,11 +249,12 @@ public:
     sync.reconstruct(cfg);
 
     const bool master = (segment_id == 0);
-    pinMode(PIN_MASTER_EN, OUTPUT);
+    // Level before direction: the GPIO data register resets to 0 and MASTER_EN
+    // is active-low, so the sync-bus driver must be enabled last.
     digitalWriteFast(PIN_MASTER_EN, master ? LOW : HIGH);
     if (master) {
-      pinMode(PIN_FRAME_SYNC, OUTPUT);
       digitalWriteFast(PIN_FRAME_SYNC, LOW);
+      pinMode(PIN_FRAME_SYNC, OUTPUT);
     } else {
       pinMode(PIN_FRAME_SYNC, INPUT);
       // Schmitt-trigger the sync input. The on-board divider + C_SYNC RC slows the
@@ -262,6 +263,7 @@ public:
       // ramp. pinMode rewrites the pad-control register, so enable HYS afterward.
       *(portControlRegister(PIN_FRAME_SYNC)) |= IOMUXC_PAD_HYS;
     }
+    pinMode(PIN_MASTER_EN, OUTPUT);
 
     sync.seed(ARM_DWT_CYCCNT, master);
 
