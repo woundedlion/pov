@@ -527,7 +527,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 218. ✅ **A bare magic count that survives the regression it targets** — `daydream/tests/bootstrap.test.js:225`. Under a test named "associates stats headers", the assertion counts `<th scope="col">` occurrences and expects 10 — so adding an unscoped `<th>` keeps the count at 10 and passes. Use a relational oracle instead.
 
-219. **The sRGB oracle is a character-for-character copy of the implementation, evaluated only where it is the identity** — `daydream/tests/palette_math.test.js:32-34`. Compounds finding 12. Related: `color.test.js:23-33` claims to verify "the 0.04045 knee continuity" but moving the knee to `0.03` leaves the file green — continuity is exactly why that sample cannot pin the constant.
+219. ✅ **The sRGB oracle is a character-for-character copy of the implementation, evaluated only where it is the identity** — `daydream/tests/palette_math.test.js:32-34`. Compounds finding 12. Related: `color.test.js:23-33` claims to verify "the 0.04045 knee continuity" but moving the knee to `0.03` leaves the file green — continuity is exactly why that sample cannot pin the constant.
 
 220. **The standalone Lissajous suite pins no curve coordinate except the t=0 origin** — `daydream/tests/lissajous_math.test.js:214-221`. An x/z factor swap survives all 20 tests and is caught only by the WASM parity file; if that were ever unbuildable in a constrained CI the curve's shape would be unguarded with nothing going red. Analytic goldens already exist next door.
 
