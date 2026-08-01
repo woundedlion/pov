@@ -557,7 +557,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 233. ✅ **`Holosphere.code-workspace` is neither tracked nor ignored** — repo root. A valid two-root VS Code workspace matching the layout §11 documents, permanently dirtying `git status`, while `.gitignore:23-26` states the convention is to keep editor config out. Commit it or ignore it — either, not neither.
 
-234. **A `.gitignore` comment asserts a canonical copy that does not exist** — `daydream/.gitignore:12`: "The canonical prompts/ is tracked in the Holosphere repo." No such directory exists there and `git ls-files` returns zero rows, so the two files have no tracked counterpart anywhere; the comment reads as "safely mirrored" when it means "only copy, unbacked".
+234. ✅ **A `.gitignore` comment asserts a canonical copy that does not exist** — `daydream/.gitignore:12`: "The canonical prompts/ is tracked in the Holosphere repo." No such directory exists there and `git ls-files` returns zero rows, so the two files have no tracked counterpart anywhere; the comment reads as "safely mirrored" when it means "only copy, unbacked".
 
 235. **Four first-party engine sources missing the Required Notice** — `core/engine/reaction_graph.h:1`, `core/engine/inplace_function.h:1`, `core/engine/memory.cpp:1`, `core/color/srgb_decode.h:1`. 94 of 104 tracked sources carry the header and the six generated files correctly substitute a provenance line; these four are hand-written and carry neither.
 
