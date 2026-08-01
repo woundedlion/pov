@@ -155,6 +155,8 @@ inline size_t mesh_largest_element_count(size_t verts, size_t faces,
 inline bool mesh_op_expansion_over_ceiling(size_t verts, size_t faces,
                                            size_t indices, size_t expansion,
                                            size_t max_elements) {
+  if (expansion == 0)
+    return true;
   return mesh_largest_element_count(verts, faces, indices) >
          max_elements / expansion;
 }
@@ -182,7 +184,7 @@ inline bool mesh_op_output_over_arena(size_t verts, size_t faces,
                                       size_t bytes_per_element,
                                       size_t used_bytes,
                                       size_t capacity_bytes) {
-  if (used_bytes >= capacity_bytes)
+  if (expansion == 0 || used_bytes >= capacity_bytes)
     return true;
   const size_t remaining = capacity_bytes - used_bytes;
   return mesh_largest_element_count(verts, faces, indices) >

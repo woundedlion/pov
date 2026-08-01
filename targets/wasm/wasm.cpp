@@ -119,9 +119,10 @@ static constexpr size_t MAX_MESH_FACE_DEGREE = UINT8_MAX;
  * @brief How far one mesh operator grows its input, for the boundary guards.
  * @details Every field is a multiple of an input measurement that some stage of
  *          the operator reaches; see MESHOP_LIST for the per-operator values and
- *          where they come from. A zero factor means the operator emits nothing
- *          of that kind; a zero `valence` additionally skips the valence scan,
- *          the one measurement that costs a pass over the flat index list.
+ *          where they come from. `elements` must be nonzero. A zero degree or
+ *          valence means the operator emits nothing of that kind; a zero
+ *          `valence` additionally skips the valence scan, the one measurement
+ *          that costs a pass over the flat index list.
  */
 struct MeshOpBounds {
   size_t elements;    /**< Multiple of the largest input element count. */

@@ -437,7 +437,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 173. ✅ **Dead O(n²) duplicate-name scan in `get_factory`, justified by a factually wrong comment** — `targets/wasm/wasm.cpp:212-216`. The comment says "the names aren't known until the fill functions run"; they are — `REGISTER_EFFECT` passes the same literal to both, and `EffectRegistry::add` already traps on a duplicate, so the nested loop is unreachable by construction.
 
-174. **A zero `MeshOpBounds::elements` is invited by the doc and is a division by zero** — `targets/wasm/wasm.cpp:126-130`, `wasm_predicates.h:155-190`. The struct doc says a zero factor means "the operator emits nothing of that kind" over all three fields, and the two degree predicates guard for it, but `elements` is used as a divisor in both expansion predicates — an i32 division trap in wasm, i.e. a module abort. Every current row passes 1..6, so this is latent.
+174. ✅ **A zero `MeshOpBounds::elements` is invited by the doc and is a division by zero** — `targets/wasm/wasm.cpp:126-130`, `wasm_predicates.h:155-190`. The struct doc says a zero factor means "the operator emits nothing of that kind" over all three fields, and the two degree predicates guard for it, but `elements` is used as a divisor in both expansion predicates — an i32 division trap in wasm, i.e. a module abort. Every current row passes 1..6, so this is latent.
 
 175. **`setPoleLod` is the one boundary clamp outside `wasm_predicates.h`** — `targets/wasm/wasm.cpp:606-613`. Written inline rather than as a pure predicate (so it is the only clamp not host-tested), with an unexplained `8.0f` ceiling where every other bound is a named constant with a derivation, on instance methods that mutate a module-global shared by every engine.
 
