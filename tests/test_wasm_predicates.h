@@ -18,6 +18,14 @@
 namespace hs_test {
 namespace wasm_predicates_tests {
 
+inline void check_pole_lod_clamp() {
+  HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(-1.0f), 0.0f);
+  HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(1.5f), 1.5f);
+  HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(1e9f),
+               hs_wasm::MAX_POLE_LOD_AGGRESSIVENESS);
+  HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(NAN), 0.0f);
+}
+
 /**
  * @brief Exercises clip_bounds_valid across in-range, edge, and malformed bands.
  */
@@ -338,6 +346,7 @@ inline void check_hsv_key_clamp() {
  */
 inline int run_wasm_predicates_tests() {
   hs_test::ModuleFixture fixture("wasm_predicates");
+  check_pole_lod_clamp();
   check_clip_bounds();
   check_relax_clamp();
   check_unit_fraction_clamp();

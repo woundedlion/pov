@@ -622,9 +622,8 @@ public:
    *          the value can be tuned against real hardware.
    */
   void setPoleLod(float aggressiveness) {
-    if (!std::isfinite(aggressiveness) || aggressiveness < 0.0f)
-      aggressiveness = 0.0f;
-    pole_lod_aggressiveness = aggressiveness > 8.0f ? 8.0f : aggressiveness;
+    pole_lod_aggressiveness =
+        hs_wasm::clamp_pole_lod_aggressiveness(aggressiveness);
   }
 
   /** @brief Current near-pole azimuthal decimation aggressiveness. */

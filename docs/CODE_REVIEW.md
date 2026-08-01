@@ -439,7 +439,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 174. ✅ **A zero `MeshOpBounds::elements` is invited by the doc and is a division by zero** — `targets/wasm/wasm.cpp:126-130`, `wasm_predicates.h:155-190`. The struct doc says a zero factor means "the operator emits nothing of that kind" over all three fields, and the two degree predicates guard for it, but `elements` is used as a divisor in both expansion predicates — an i32 division trap in wasm, i.e. a module abort. Every current row passes 1..6, so this is latent.
 
-175. **`setPoleLod` is the one boundary clamp outside `wasm_predicates.h`** — `targets/wasm/wasm.cpp:606-613`. Written inline rather than as a pure predicate (so it is the only clamp not host-tested), with an unexplained `8.0f` ceiling where every other bound is a named constant with a derivation, on instance methods that mutate a module-global shared by every engine.
+175. ✅ **`setPoleLod` is the one boundary clamp outside `wasm_predicates.h`** — `targets/wasm/wasm.cpp:606-613`. Written inline rather than as a pure predicate (so it is the only clamp not host-tested), with an unexplained `8.0f` ceiling where every other bound is a named constant with a derivation, on instance methods that mutate a module-global shared by every engine.
 
 176. **Style and encapsulation inconsistencies in the MeshOps section** — `targets/wasm/wasm.cpp:793, 862, 977-987, 333, 395`. A mid-file `#include`; `fromSolidName(std::string)` by value against `const std::string&` at neighbouring entry points; four helpers public with no embind binding and a misleading `const` on one that resets a global arena; a load-bearing side effect inside `HS_CHECK`; and an unconditional log before validation in `setEffect`.
 
