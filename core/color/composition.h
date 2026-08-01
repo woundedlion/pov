@@ -304,6 +304,9 @@ struct PinchModifier {
  * @brief Snaps smooth gradients into harsh, distinct bands (Posterization).
  */
 struct QuantizeModifier {
+  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  static constexpr bool requires_wrap = true;
+
   const float *dynamic_steps;
   float base_steps;
 
