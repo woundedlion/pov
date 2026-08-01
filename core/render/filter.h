@@ -1063,6 +1063,11 @@ private:
 
 /**
  * @brief Manages 3D world-space trails.
+ * @details Its Screen:: namesake is not the same filter in another domain — it
+ * gates seeding on alpha where this one seeds regardless, evicts at capacity by
+ * moving the last live point into slot 0 where this one drops the ring's
+ * logical head, and overrides crosses_segments to false where this one keeps
+ * the fail-safe has_history default.
  */
 template <int Capacity> class Trails : public Is3DWithHistory {
 public:
@@ -1500,6 +1505,11 @@ HS_O3_END
 
 /**
  * @brief Manages 2D screen-space trails.
+ * @details Its World:: namesake is not the same filter in another domain — it
+ * seeds regardless of alpha where this one gates, evicts at capacity by
+ * dropping its ring's logical head where this one moves the last live point
+ * into slot 0, and keeps the fail-safe has_history crosses_segments default
+ * where this one overrides it to false.
  */
 template <int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
