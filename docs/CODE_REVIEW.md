@@ -443,7 +443,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 176. ✅ **Style and encapsulation inconsistencies in the MeshOps section** — `targets/wasm/wasm.cpp:793, 862, 977-987, 333, 395`. A mid-file `#include`; `fromSolidName(std::string)` by value against `const std::string&` at neighbouring entry points; four helpers public with no embind binding and a misleading `const` on one that resets a global arena; a load-bearing side effect inside `HS_CHECK`; and an unconditional log before validation in `setEffect`.
 
-177. **Duplicated `Fragment::lerp` coverage and a stale coverage claim** — `tests/test_geometry.h:9, 53-97`. `Fragment` lives in `core/render/shading.h`, not `geometry.h`, and the two cases duplicate `tests/test_shading.h:27, 64` — the latter strictly stronger, also checking `size` and `color`.
+177. ✅ **Duplicated `Fragment::lerp` coverage and a stale coverage claim** — `tests/test_geometry.h:9, 53-97`. `Fragment` lives in `core/render/shading.h`, not `geometry.h`, and the two cases duplicate `tests/test_shading.h:27, 64` — the latter strictly stronger, also checking `size` and `color`.
 
 178. **Dead computation kept alive by a `(void)` cast** — `tests/test_scan.h:669, 720`. `stride` is never read (superseded by `lod_stride`) and line 720 exists solely to suppress the unused-variable warning.
 
