@@ -503,7 +503,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 206. ✅ **The locked-group guard bails after the readout has already been written** — `daydream/tools/palettes.html:601-604`. Any `input` event arriving without one of the three seed events finds the map keyed to a different group and returns — by which point `createSlider` has already written `textContent` and `aria-valuetext`, so the visible and announced values show the new number while state keeps the old one and no update is scheduled.
 
-207. **The shared token set is defined but bypassed by hardcoded hex in every tool page** — `daydream/tools/tools.css:13-22` vs `palettes.html`, `mobius.html`, `solids.html`. Six published tokens are restated literally across the three pages, with mixed casing (`#3B82F6` vs `#3b82f6`) so the duplicates are not even greppable as one string.
+207. ✅ **The shared token set is defined but bypassed by hardcoded hex in every tool page** — `daydream/tools/tools.css:13-22` vs `palettes.html`, `mobius.html`, `solids.html`. Six published tokens are restated literally across the three pages, with mixed casing (`#3B82F6` vs `#3b82f6`) so the duplicates are not even greppable as one string.
 
 208. **The palette tabs carry no tab semantics** — `daydream/tools/palettes.html:212-216, 223, 282`. No `role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`/`role="tabpanel"`; `switchTab` toggles a visual class only. Conspicuous on a page that otherwise carries `role="group"` on all four coefficient cards and `role="slider"` with `aria-keyshortcuts` on the strip.
 
