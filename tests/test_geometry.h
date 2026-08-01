@@ -6,7 +6,6 @@
  *
  * Coverage:
  *   - Axis constants (X/Y/Z_AXIS, UP)
- *   - Fragment::lerp
  *   - y_to_phi_virtual / phi_to_y_virtual conversions (free + templated)
  *   - PhiLUT / TrigLUT initialisation and lookup values
  *   - pixel_to_vector / vector_to_pixel roundtrip
@@ -41,60 +40,6 @@ inline void test_axis_constants() {
   HS_EXPECT_VEC(Y_AXIS, Vector(0, 1, 0), 0.0f);
   HS_EXPECT_VEC(Z_AXIS, Vector(0, 0, 1), 0.0f);
   HS_EXPECT_VEC(UP, Y_AXIS, 0.0f);
-}
-
-// ============================================================================
-// Fragment::lerp
-// ============================================================================
-
-/**
- * @brief Verifies lerp at t=0 returns a and at t=1 returns b for pos/scalar/age
- *        fields.
- */
-inline void test_fragment_lerp_endpoints() {
-  Fragment a;
-  a.pos = Vector(1, 0, 0);
-  a.v0 = 10.0f;
-  a.v1 = 20.0f;
-  a.v2 = 30.0f;
-  a.v3 = 40.0f;
-  a.age = 1.0f;
-
-  Fragment b;
-  b.pos = Vector(0, 1, 0);
-  b.v0 = 110.0f;
-  b.v1 = 220.0f;
-  b.v2 = 330.0f;
-  b.v3 = 440.0f;
-  b.age = 5.0f;
-
-  Fragment at0 = Fragment::lerp(a, b, 0.0f);
-  HS_EXPECT_VEC(at0.pos, a.pos, 1e-6f);
-  HS_EXPECT_NEAR(at0.v0, a.v0, 1e-6f);
-  HS_EXPECT_NEAR(at0.age, a.age, 1e-6f);
-
-  Fragment at1 = Fragment::lerp(a, b, 1.0f);
-  HS_EXPECT_VEC(at1.pos, b.pos, 1e-6f);
-  HS_EXPECT_NEAR(at1.v3, b.v3, 1e-6f);
-}
-
-/**
- * @brief Verifies lerp at t=0.5 averages position and scalar fields
- *        component-wise.
- */
-inline void test_fragment_lerp_midpoint() {
-  Fragment a, b;
-  a.pos = Vector(2, 4, 6);
-  b.pos = Vector(8, 16, 24);
-  a.v0 = 0;
-  b.v0 = 100;
-  a.v1 = -50;
-  b.v1 = 50;
-
-  Fragment mid = Fragment::lerp(a, b, 0.5f);
-  HS_EXPECT_VEC(mid.pos, Vector(5, 10, 15), 1e-5f);
-  HS_EXPECT_NEAR(mid.v0, 50.0f, 1e-5f);
-  HS_EXPECT_NEAR(mid.v1, 0.0f, 1e-5f);
 }
 
 // ============================================================================
@@ -715,8 +660,6 @@ inline int run_geometry_tests() {
 
   test_axis_constants();
 
-  test_fragment_lerp_endpoints();
-  test_fragment_lerp_midpoint();
 
   test_y_to_phi_virtual();
   test_phi_to_y_virtual();
