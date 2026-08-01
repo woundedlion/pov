@@ -2056,7 +2056,7 @@ private:
       poles[1] = select_pole_sample(previous + (H - 1) * W);
     const ColumnRuns runs = make_column_runs(band.x_clip);
     int field_y0 = band.field_y_begin;
-    int field_y1 = field_y0 + (field_y0 < grid.field_rows - 1 ? 1 : 0);
+    int field_y1 = field_y0 + (field_y0 < band.field_y_end ? 1 : 0);
     int control_y0 = grid.field.ring(field_y0).y;
     int control_y1 = grid.field.ring(field_y1).y;
     auto composite_pixels = [&](auto &&transform_pixel, auto &&transform_pair,
