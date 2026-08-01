@@ -144,14 +144,14 @@ inline void test_table_shape_matches_constants() {
  *          there rather than here.
  */
 inline void test_indices_in_range() {
-  int bad = 0;
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k) {
-      int16_t ni = neighbors[i][k];
-      if (!(ni == -1 || (ni >= 0 && ni < RD_N)))
-        ++bad;
+      const int16_t ni = neighbors[i][k];
+      const int bad_slot = ni == -1 || (ni >= 0 && ni < RD_N)
+                               ? -1
+                               : i * RD_K + k;
+      HS_EXPECT_EQ(bad_slot, -1);
     }
-  HS_EXPECT_EQ(bad, 0);
 }
 
 /**
@@ -160,12 +160,9 @@ inline void test_indices_in_range() {
  *          distinct adjacency.
  */
 inline void test_no_self_loops() {
-  int loops = 0;
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k)
-      if (neighbors[i][k] == i)
-        ++loops;
-  HS_EXPECT_EQ(loops, 0);
+      HS_EXPECT_EQ(neighbors[i][k] == i ? i * RD_K + k : -1, -1);
 }
 
 /**
@@ -174,17 +171,14 @@ inline void test_no_self_loops() {
  *          table.
  */
 inline void test_no_duplicate_neighbors_in_row() {
-  int dupes = 0;
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k) {
       int16_t a = neighbors[i][k];
       if (a < 0)
         continue;
       for (int j = k + 1; j < RD_K; ++j)
-        if (neighbors[i][j] == a)
-          ++dupes;
+        HS_EXPECT_EQ(neighbors[i][j] == a ? i * RD_K + j : -1, -1);
     }
-  HS_EXPECT_EQ(dupes, 0);
 }
 
 /**
@@ -224,18 +218,18 @@ inline void test_max_degree_bounds_laplacian() {
 inline void test_neighbors_are_local() {
   // ~11 deg upper bound for a listed neighbor → chord^2 < 0.037.
   const float MAX_CHORD2 = 0.037f;
-  int far = 0;
   for (int i = 0; i < RD_N; i += 7) {
     Vector p = node(i);
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
       if (ni < 0)
         continue;
-      if (chord2(p, node(ni)) > MAX_CHORD2)
-        ++far;
+      const int far_slot = chord2(p, node(ni)) > MAX_CHORD2
+                               ? i * RD_K + k
+                               : -1;
+      HS_EXPECT_EQ(far_slot, -1);
     }
   }
-  HS_EXPECT_EQ(far, 0);
 }
 
 /**
@@ -248,7 +242,6 @@ inline void test_neighbors_are_local() {
  *          needs.
  */
 inline void test_neighbors_closer_than_far_point() {
-  int violations = 0;
   for (int i = 0; i < RD_N; i += 13) {
     Vector p = node(i);
     int far_point = RD_N - 1 - i;
@@ -257,11 +250,12 @@ inline void test_neighbors_closer_than_far_point() {
       int16_t ni = neighbors[i][k];
       if (ni < 0)
         continue;
-      if (chord2(p, node(ni)) >= far2)
-        ++violations;
+      const int violation_slot = chord2(p, node(ni)) >= far2
+                                     ? i * RD_K + k
+                                     : -1;
+      HS_EXPECT_EQ(violation_slot, -1);
     }
   }
-  HS_EXPECT_EQ(violations, 0);
 }
 
 // ---------------------------------------------------------------------------
