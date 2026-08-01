@@ -158,7 +158,7 @@ constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 171001;
   X("wasm_predicates",                                                         \
     hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 128)            \
   X("util", hs_test::util_tests::run_util_tests, 288)                          \
-  X("led", hs_test::led_tests::run_led_tests, 12)                              \
+  X("led", hs_test::led_tests::run_led_tests, 24)                              \
   X("presets", hs_test::presets_tests::run_presets_tests, 23)                  \
   X("styles", hs_test::styles_tests::run_styles_tests, 17862)                  \
   X("shading", hs_test::shading_tests::run_shading_tests, 43)                  \
