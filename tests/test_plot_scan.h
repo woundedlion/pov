@@ -3963,12 +3963,16 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
                1.5f * base_step);
   for (const Vector &p : single.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
-  // SinglePass has no omit_last equivalent: its sub-step loop stops at
-  // current_dist < total_dist, and projection_fraction clamps a t just under 1
-  // to the segment end, so a shared vertex can be emitted twice. At most one
-  // extra sample per segment either way.
-  HS_EXPECT_GE(single.plotted.size(), cached.plotted.size());
+  // Both paths omit the shared vertex, but place their closing sample
+  // differently: the cached path replays scale-normalized steps, so its last
+  // sample sits a full step short of the vertex, while these unscaled steps
+  // land anywhere in [0, step) of it and can coincide with it outright. A
+  // sub-step phase difference at each vertex, not an extra sample — the counts
+  // track within one per segment.
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + points.size());
+  HS_EXPECT_GE(single.plotted.size() + points.size(), cached.plotted.size());
+  HS_EXPECT_LE(angle_between(single.plotted.front(), single.plotted.back()),
+               1.5f * base_step);
   for (const Vector &p : single.plotted) {
     float nearest = PI_F;
     for (const Vector &q : cached.plotted)
