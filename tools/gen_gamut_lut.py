@@ -32,8 +32,9 @@ Usage: python tools/gen_gamut_lut.py [output_path]
        python tools/gen_gamut_lut.py --check
 
 --check regenerates the table in memory and diffs its numeric tokens against
-the committed header, and pins the constants mirrored below against
-core/color/color.h. Wired as ctest unit_gamut_lut and CI gamut-lut-provenance.
+the committed header, pins the constants mirrored below against
+core/color/color.h, and round-trips the angle parameterization. Wired as ctest
+unit_gamut_lut and CI gamut-lut-provenance.
 """
 
 import argparse
@@ -121,6 +122,17 @@ def diamond_direction(t):
     y = ys[q] * (1.0 - f) + ys[(q + 1) % 4] * f
     n = np.hypot(x, y)
     return x / n, y / n
+
+
+def diamond_angle(y, x):
+    """Diamond pseudo-angle of (x, y) in [0, 4); mirrors 3dmath.h
+    diamond_angle(), the parameterization the runtime cell lookup indexes by."""
+    d = np.abs(x) + np.abs(y)
+    r = y / np.where(d < 1e-20, 1.0, d)
+    a = np.where(y >= 0.0,
+                 np.where(x >= 0.0, r, 2.0 - r),
+                 np.where(x < 0.0, 2.0 - r, 4.0 + r))
+    return np.where((d < 1e-20) | (a >= 4.0), 0.0, a)
 
 
 def _bisect(L, a_dir, b_dir, lo, hi, iters=BISECT_ITERS):
@@ -294,6 +306,27 @@ def _function_body(text, signature):
 NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 
 
+def check_angle_roundtrip():
+    """Pins diamond_direction() as the inverse of the diamond angle.
+
+    Every cell of the table is filled along a direction from
+    diamond_direction(), and every runtime lookup indexes it by
+    diamond_angle(b, a). A re-parameterization on either side that is not
+    mirrored on the other leaves the table intact but mis-indexed, which the
+    numeric-token diff of --check cannot see.
+    """
+    n = ANGLE_STEPS * SUBSAMPLES
+    t = np.arange(n) * (4.0 / n)
+    a_dir, b_dir = diamond_direction(t)
+    err = float(np.abs(diamond_angle(b_dir, a_dir) - t).max())
+    if err <= 1e-12:
+        return True
+    sys.stderr.write("diamond_direction() no longer inverts diamond_angle()"
+                     " (worst error %g)\n  re-derive both from"
+                     " core/math/3dmath.h\n" % err)
+    return False
+
+
 def check_mirrors(color_h_path):
     """Diffs the mirrored OKLab matrices and gamut epsilon against color.h."""
     with open(color_h_path, "r") as f:
@@ -361,10 +394,13 @@ def main():
     args = parser.parse_args()
 
     if args.check:
-        ok = check_mirrors(os.path.join(root, "core", "color", "color.h"))
+        ok = check_angle_roundtrip()
+        ok = check_mirrors(os.path.join(root, "core", "color", "color.h")) and ok
         ok = check_provenance(args.output_path) and ok
         sys.exit(0 if ok else 1)
 
+    if not check_angle_roundtrip():
+        sys.exit(1)
     table, worst_width = build_table()
     with open(args.output_path, "w", newline="\n") as f:
         f.write(render(table))
