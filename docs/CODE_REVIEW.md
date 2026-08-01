@@ -531,7 +531,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 220. ✅ **The standalone Lissajous suite pins no curve coordinate except the t=0 origin** — `daydream/tests/lissajous_math.test.js:214-221`. An x/z factor swap survives all 20 tests and is caught only by the WASM parity file; if that were ever unbuildable in a constrained CI the curve's shape would be unguarded with nothing going red. Analytic goldens already exist next door.
 
-221. **A module-global is left pointing at a deleted embind object** — `daydream/tests/color_parity_wasm.test.js:224, 228`. `setPaletteOps` installs a closure over `ops` into `palette_math.js`'s module scope and the `finally` calls `ops.delete()` without restoring it. Harmless only because this is the last palette test in the file.
+221. ✅ **A module-global is left pointing at a deleted embind object** — `daydream/tests/color_parity_wasm.test.js:224, 228`. `setPaletteOps` installs a closure over `ops` into `palette_math.js`'s module scope and the `finally` calls `ops.delete()` without restoring it. Harmless only because this is the last palette test in the file.
 
 222. **Untested clamps and degenerate-dimension guards** — `daydream/tests/slider.test.js`, `geometry.test.js`. Replacing `tools/slider.js:79`'s clamp with `value` leaves the file green (only `setValue`'s clamp is covered), as does deleting `container.replaceChildren()`; and reducing `geometry.js:37`'s `Math.max(1, ...)` guards leaves the file green because every case uses `{W:288, H:144}`.
 
