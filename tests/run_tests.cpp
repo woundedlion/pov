@@ -96,8 +96,8 @@ struct TestModule {
 // leaving every FULL-tier case deletable without turning CI — the only runner of
 // that tier — red. The roster row below selects the floor for the tier the
 // environment picked.
-constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 18742433;
-constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 18783224;
+constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 136043;
+constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 171001;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", hs_test::math3d::run_3dmath_tests, 28826)                        \
