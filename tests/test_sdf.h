@@ -465,11 +465,10 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
 
 /**
  * @brief Verifies SphericalPolygon satisfies SDFShape and composes under CSG.
- * @details Every combinator static_asserts SDFShape on its children and folds
- *   their `thickness` reach bounds, so a leaf without one is barred from all of
- *   them and its sdf_max_spans specialization never applies. Union takes the max
- *   reach, and two disjoint polygons must emit their two arcs through the
- *   span-bounded scanline path.
+ * @details Every combinator static_asserts SDFShape on its children, so a leaf
+ *   that fails it is barred from all of them and its sdf_max_spans
+ *   specialization never applies. Two disjoint polygons must emit their two arcs
+ *   through the span-bounded scanline path.
  */
 inline void test_spherical_polygon_composes_under_csg() {
   static_assert(SDF::SDFShape<SDF::SphericalPolygon>,
@@ -482,11 +481,8 @@ inline void test_spherical_polygon_composes_under_csg() {
   Basis b = equator_basis();
   SDF::SphericalPolygon inner(b, 0.3f, 5, 0.0f);
   SDF::SphericalPolygon outer(b, 0.7f, 5, 0.0f);
-  HS_EXPECT_NEAR(inner.thickness, inner.circumradius, 1e-6f);
-  HS_EXPECT_NEAR(outer.thickness, outer.circumradius, 1e-6f);
 
   U coaxial(inner, outer);
-  HS_EXPECT_NEAR(coaxial.thickness, outer.circumradius, 1e-6f);
   // Sector bisector (+u) at polar 0.7: past inner's inradius, short of outer's.
   Vector p(std::sin(0.7f), std::cos(0.7f), 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(inner, p).dist > 0.0f);
@@ -995,14 +991,6 @@ inline void test_union_picks_closest_shape() {
   HS_EXPECT_NEAR(r2.dist, -0.1f, 1e-2f);
 }
 
-/** @brief Verifies Union exposes the max of its children's thicknesses. */
-inline void test_union_thickness_is_max() {
-  SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
-  SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.3f);
-  SDF::Union<SDF::Line, SDF::Line> u(la, lb);
-  HS_EXPECT_NEAR(u.thickness, 0.3f, 1e-6f);
-}
-
 // ============================================================================
 // Subtract — max(A, -B)
 // ============================================================================
@@ -1044,13 +1032,12 @@ namespace sdf_subtract_detail {
 /**
  * @brief Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list.
  * @details Exercises Subtract's scanline set-difference independently of any real
- *   shape. Minimal surface: only thickness, is_solid, and get_horizontal_intervals
- *   are touched by Subtract's ctor + interval path.
+ *   shape. Minimal surface: only is_solid and get_horizontal_intervals are
+ *   touched by Subtract's ctor + interval path.
  */
 struct MockIntervalShape {
   const std::vector<std::pair<float, float>>
-      *ivs;               /**< Interval list this mock replays. */
-  float thickness = 0.1f; /**< Stroke half-width the parent reads. */
+      *ivs; /**< Interval list this mock replays. */
   static constexpr bool is_solid =
       true; /**< Marks the mock as a solid fill shape. */
   /**
@@ -1075,7 +1062,6 @@ struct MockIntervalShape {
  *   the whole row with distance()", NOT that the shape covers the row.
  */
 struct MockFullWidthShape {
-  float thickness = 0.1f; /**< Stroke half-width the parent reads. */
   static constexpr bool is_solid =
       true; /**< Marks the mock as a solid fill shape. */
   /**
@@ -1098,7 +1084,6 @@ struct MockFullWidthShape {
  *   be checked for propagating the violation upward.
  */
 struct MockEmitThenFullWidthShape {
-  float thickness = 0.1f; /**< Stroke half-width the parent reads. */
   static constexpr bool is_solid =
       true; /**< Marks the mock as a solid fill shape. */
   /**
@@ -1272,14 +1257,6 @@ inline void test_intersection_requires_both_inside() {
   Vector far_pt(-1, 0, 0);
   auto r2 = SDF::distance_of(inter, far_pt);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
-}
-
-/** @brief Verifies Intersection exposes the min of its children's thicknesses. */
-inline void test_intersection_thickness_is_min() {
-  SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
-  SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.3f);
-  SDF::Intersection<SDF::Line, SDF::Line> inter(la, lb);
-  HS_EXPECT_NEAR(inter.thickness, 0.1f, 1e-6f);
 }
 
 /**
@@ -2437,7 +2414,6 @@ inline int run_sdf_tests() {
   test_twist_correct_normal_unit_length();
 
   test_union_picks_closest_shape();
-  test_union_thickness_is_max();
 
   test_subtract_inside_a_outside_b_remains_inside();
   test_subtract_inside_both_becomes_outside();
@@ -2449,7 +2425,6 @@ inline int run_sdf_tests() {
   test_subtract_many_arc_seam_split_within_bound();
 
   test_intersection_requires_both_inside();
-  test_intersection_thickness_is_min();
   test_intersection_unsorted_child_yields_sorted_result();
   test_intersection_full_width_child_replays_other();
   test_intersection_full_scan_emits_no_spans();
