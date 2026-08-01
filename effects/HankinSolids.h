@@ -530,12 +530,10 @@ private:
     MeshOps::update_hankin(compiled_hankin, open_mesh, scratch_arena_a,
                            PI_F / 2.0f);
     for (size_t f = node_faces; f < faces; ++f) {
-      Vector c(0.0f, 0.0f, 0.0f);
-      const size_t off = open_mesh.face_offsets[f];
-      const int n = open_mesh.face_counts[f];
-      for (int k = 0; k < n; ++k)
-        c = c + open_mesh.vertices[open_mesh.faces[off + k]];
-      c = c.normalized();
+      const Vector c = Animation::OpLeg::face_vertex_sum(
+                           open_mesh.vertices.data(), open_mesh.faces.data(),
+                           open_mesh.face_offsets[f], open_mesh.face_counts[f])
+                           .normalized();
       size_t best = 0;
       float best_d = 1e9f;
       for (size_t j = 0; j < node_faces; ++j) {

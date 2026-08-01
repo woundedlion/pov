@@ -380,9 +380,8 @@ private:
       const uint16_t *foff = sweep_state.get_face_offsets_data();
       const uint8_t *fcnt = sweep_state.get_face_counts_data();
       for (size_t f = 0; f < faces; ++f) {
-        Vector c(0.0f, 0.0f, 0.0f);
-        for (int k = 0; k < fcnt[f]; ++k)
-          c = c + sweep_state.vertices[fidx[foff[f] + k]];
+        const Vector c = Animation::OpLeg::face_vertex_sum(
+            sweep_state.vertices.data(), fidx, foff[f], fcnt[f]);
         const int cls = MeshPaletteBank::slot_of(face_classes[f]);
         float off =
             seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls);
