@@ -537,13 +537,17 @@ inline float rand_f(float min, float max) {
  * @param min The minimum value (inclusive).
  * @param max The maximum value (exclusive).
  * @return A random integer in the range [min, max).
- * @note Uses `% (max - min)`, so the result is modulo-biased for ranges that do
- * not divide 2^32 evenly. Acceptable here: callers pass small setup-time ranges
- * and rely on `Pcg32` for determinism, not uniformity.
+ * @note Uses `% span`, so the result is modulo-biased for ranges that do not
+ * divide 2^32 evenly. Acceptable here: callers pass small setup-time ranges and
+ * rely on `Pcg32` for determinism, not uniformity. The span is computed
+ * unsigned: `max - min` overflows int for a span wider than INT_MAX.
  */
 inline int rand_int(int min, int max) {
   if (max > min) {
-    return min + (hs::random()() % (max - min));
+    const uint32_t span =
+        static_cast<uint32_t>(max) - static_cast<uint32_t>(min);
+    return static_cast<int>(static_cast<uint32_t>(min) +
+                            (hs::random()() % span));
   }
   return min;
 }
