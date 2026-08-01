@@ -495,7 +495,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 202. ✅ **`warmModules()` downloads the whole WASM binary into a discarded `ArrayBuffer` on every enable and every segment-count change** — `daydream/segment_controller.js:77-89`. A user sweeping 2→4→6→8 pays four full multi-MB materializations for a best-effort cache prime whose real guarantee is the boot retry.
 
-203. **Inconsistent null-guarding of `dotMesh`** — `daydream/driver.js:612`. `render()` guards with `?.instanceColor` but `stepSimulation()`, reached from the same call, dereferences bare. Not reachable today (teardown is one synchronous block) but reads as an oversight.
+203. ✅ **Inconsistent null-guarding of `dotMesh`** — `daydream/driver.js:612`. `render()` guards with `?.instanceColor` but `stepSimulation()`, reached from the same call, dereferences bare. Not reachable today (teardown is one synchronous block) but reads as an oversight.
 
 204. **A saved solid with an empty op chain throws an uncaught error from the C++ buttons** — `daydream/tools/solids.html:1313-1327`. `saveSolid` now rejects empty chains but the storage key is unchanged, so pre-guard entries persist; their Recipe button reaches `generateRecipeCpp` unguarded, throwing from a click listener with no banner and no `showGateMsg` — the button appears inert. Its sibling `savedFuncName` wraps the same call.
 
