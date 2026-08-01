@@ -34,7 +34,10 @@ using PassFn2D = FunctionRef<void(float, float, const Pixel &, float, float)>;
 using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
 
 /**
- * @brief Trait indicating a filter operates in 2D screen space.
+ * @brief Trait base every filter stage derives from, tagging its domain and
+ * whether it carries state across frames.
+ * @tparam Is2d True for a screen-space stage, false for a world-space one.
+ * @tparam HasHistory True when the stage keeps state between frames.
  * @details `is_terminal`: writes the Canvas directly, so it must be the last
  * stage and its flush takes neither a trail nor a `pass` callback
  * (`flush(Canvas&, float)`). `terminal_replaces`: a terminal that
@@ -52,11 +55,12 @@ using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
  * (fail-safe). `segment_margin`: how many pixels the stage's output can land
  * away from the plotted position, i.e. how far the render bounds must be padded
  * past the display band for a segment worker to still write the stage's taps.
+ * A stage overrides any of these by redeclaring it.
  */
-struct Is2D {
-  static constexpr int domain_rank = 1;
-  static constexpr bool is_2d = true;
-  static constexpr bool has_history = false;
+template <bool Is2d, bool HasHistory> struct FilterTraits {
+  static constexpr int domain_rank = Is2d ? 1 : 0;
+  static constexpr bool is_2d = Is2d;
+  static constexpr bool has_history = HasHistory;
   static constexpr bool is_terminal = false;
   static constexpr bool terminal_replaces = false;
   static constexpr bool emits_nonunit_world = false;
@@ -65,47 +69,15 @@ struct Is2D {
   static constexpr bool reads_outside_band = has_history;
   static constexpr int segment_margin = 0;
 };
+
+/** @brief Trait indicating a filter operates in 2D screen space. */
+using Is2D = FilterTraits<true, false>;
 /** @brief Trait indicating a filter operates in 3D world space. */
-struct Is3D {
-  static constexpr int domain_rank = 0;
-  static constexpr bool is_2d = false;
-  static constexpr bool has_history = false;
-  static constexpr bool is_terminal = false;
-  static constexpr bool terminal_replaces = false;
-  static constexpr bool emits_nonunit_world = false;
-  static constexpr bool requires_unit_world_input = false;
-  static constexpr bool crosses_segments = has_history;
-  static constexpr bool reads_outside_band = has_history;
-  static constexpr int segment_margin = 0;
-};
-
+using Is3D = FilterTraits<false, false>;
 /** @brief Trait indicating a 2D filter that maintains state/history. */
-struct Is2DWithHistory {
-  static constexpr int domain_rank = 1;
-  static constexpr bool is_2d = true;
-  static constexpr bool has_history = true;
-  static constexpr bool is_terminal = false;
-  static constexpr bool terminal_replaces = false;
-  static constexpr bool emits_nonunit_world = false;
-  static constexpr bool requires_unit_world_input = false;
-  static constexpr bool crosses_segments = has_history;
-  static constexpr bool reads_outside_band = has_history;
-  static constexpr int segment_margin = 0;
-};
-
+using Is2DWithHistory = FilterTraits<true, true>;
 /** @brief Trait indicating a 3D filter that maintains state/history. */
-struct Is3DWithHistory {
-  static constexpr int domain_rank = 0;
-  static constexpr bool is_2d = false;
-  static constexpr bool has_history = true;
-  static constexpr bool is_terminal = false;
-  static constexpr bool terminal_replaces = false;
-  static constexpr bool emits_nonunit_world = false;
-  static constexpr bool requires_unit_world_input = false;
-  static constexpr bool crosses_segments = has_history;
-  static constexpr bool reads_outside_band = has_history;
-  static constexpr int segment_margin = 0;
-};
+using Is3DWithHistory = FilterTraits<false, true>;
 
 /**
  * @brief Recursive template pipeline for processing render commands.
