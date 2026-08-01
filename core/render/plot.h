@@ -2263,6 +2263,7 @@ struct PlanarPolygon {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
+    HS_CHECK(num_sides >= 1);
     Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
   }
 
@@ -2338,6 +2339,7 @@ struct SphericalPolygon {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
+    HS_CHECK(num_sides >= 1);
     size_t start_idx = points.size();
     Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
 
@@ -2593,6 +2595,7 @@ struct Star {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
+    HS_CHECK(num_sides >= 1);
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     float work_radius = res.second;
@@ -2692,6 +2695,7 @@ struct Flower {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
+    HS_CHECK(num_sides >= 1);
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     float work_radius = res.second;
