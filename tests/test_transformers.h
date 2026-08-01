@@ -1111,6 +1111,7 @@ inline void test_noise_product_field_parity() {
  * outside it would be culled while still displaced.
  */
 inline void test_noise_product_field_bound_is_conservative() {
+  hs::random().seed(20260801);
   float worst_ratio = 0.0f;
   float worst_octave = 0.0f;
   for (int trial = 0; trial < 96; ++trial) {
