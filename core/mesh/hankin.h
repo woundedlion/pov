@@ -54,7 +54,9 @@ struct CompiledHankin {
   const Vector &corner(size_t i) const { return corner_src[i]; }
 
   /**
-   * @brief Resets all owned vectors to empty, releasing their contents.
+   * @brief Empties all owned vectors and drops the corner source.
+   * @details ArenaVector::clear() zeroes the element count and keeps the arena
+   * binding; the storage is reclaimed by the arena, not here.
    */
   void clear() {
     base_vertices.clear();
@@ -123,7 +125,9 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
   size_t I = mesh.get_faces_size();
 
   if (borrow_base_vertices) {
-    compiled.base_vertices.clear();
+    // Unbind, not clear(): a reused CompiledHankin's binding may name a block
+    // its arena has already reclaimed.
+    compiled.base_vertices = {};
     compiled.corner_src = mesh.vertices.data();
   } else {
     compiled.base_vertices.bind(target_arena, V);
