@@ -549,7 +549,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 229. ✅ **The `hardware/phantasm/` map omits its own README and a second tracked board project** — `README.md:246-251` shows four entries against 40 tracked files, missing `hardware/phantasm/README.md` (the entry point, with the validation table), the whole `quilter_incremental/` project, `phantasm.pretty/`, `phantasm.kicad_sym`, and the lib-table pair.
 
-230. **Three tools omitted from the `tools/` map** — `README.md:284-299`. `tools/build_pins.py` (invoked at *parse time* by `justfile:14`, so every `just` invocation depends on it), `tools/pov_segment_map_export.cpp` (emits the segment-map golden §3 documents), and `tools/profile_islamic_big.sh`.
+230. ✅ **Three tools omitted from the `tools/` map** — `README.md:284-299`. `tools/build_pins.py` (invoked at *parse time* by `justfile:14`, so every `just` invocation depends on it), `tools/pov_segment_map_export.cpp` (emits the segment-map golden §3 documents), and `tools/profile_islamic_big.sh`.
 
 231. **No `*.log` glob, so `minimal.log` is permanently dirty** — `Holosphere/.gitignore:9` ignores the single literal `build.log`. daydream's `.gitignore:27` gets this right with `*.log`. Delete `minimal.log` (166 bytes of header-only profiler output with no data rows) and the 0-byte `build.log`.
 
