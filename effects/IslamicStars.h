@@ -1419,12 +1419,7 @@ private:
     ScratchScope topology_guard(scratch_arena_b);
     uint16_t *landed_topology =
         scratch_arena_b.allocate_n<uint16_t>(landed_faces);
-    for (size_t f = 0; f < landed_faces; ++f) {
-      const int cls = build_landing->topology[f];
-      HS_CHECK(cls >= 0 && cls <= UINT16_MAX,
-               "IslamicStars: topology class exceeds snapshot range");
-      landed_topology[f] = static_cast<uint16_t>(cls);
-    }
+    std::copy_n(build_landing->topology, landed_faces, landed_topology);
     const int front = carousel.front_index();
     // Per-face sprite handoff: copied before the compaction below, whose
     // same-address re-claim keeps the array's bytes.
