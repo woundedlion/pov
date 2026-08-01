@@ -542,10 +542,10 @@ private:
     if (a.pulse)
       digitalWriteFast(PIN_FRAME_SYNC, HIGH);
 
-    // Teardown handshake, then the pending-effect swap (commit at the B+K epoch
-    // deadline, join at the next join-grid boundary), then the display-window
-    // publish. The sequence lives in pov_handoff.h, host-tested and shared with
-    // the multi-board simulator.
+    // Teardown handshake, then the pending-effect swap (commit at the B+R+K
+    // epoch deadline, join at the next join-grid boundary), then the
+    // display-window publish. The sequence lives in pov_handoff.h, host-tested
+    // and shared with the multi-board simulator.
     const auto w = handoff.apply_wake(
         {a.commit, a.join_boundary, a.dark, a.flip, a.zero_crossing,
          pov::sync::SyncBoard::build_gen_of(sync.build_word())});
