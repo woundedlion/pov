@@ -231,18 +231,13 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Pixel &e) {
  * @brief Represents a color with a STRAIGHT (non-premultiplied) alpha channel.
  * @details `color` holds the un-premultiplied color, `alpha` its coverage;
  * premultiplication happens once, at the final canvas write (`color * alpha`).
- * The arithmetic operators (`operator*=`, `operator+=`) are NOT alpha
- * compositing and no render path uses them: they treat (color, alpha) as a
- * plain 4-vector, so `*=` scales alpha alongside color. Both SSAA paths in
- * `Scan::Shader` accumulate premultiplied into a `Pixel` instead.
  */
 struct Color4 {
   Pixel color;
   float alpha;
 
   /**
-   * @brief Constructs a transparent black color (alpha 0.0), the identity for
-   * `operator+=`.
+   * @brief Constructs a transparent black color (alpha 0.0).
    */
   Color4() : color(Pixel(0, 0, 0)), alpha(0.0f) {}
   /**
@@ -284,30 +279,6 @@ struct Color4 {
     Pixel blended = color.lerp16(other.color, frac);
     float blended_a = alpha + (other.alpha - alpha) * ct;
     return Color4(blended, blended_a);
-  }
-
-  /**
-   * @brief Adds another color's pixel and alpha into this one (both saturating).
-   * @param rhs Color to add.
-   * @return Reference to this color after the add.
-   * @details Pixel add saturates at the channel max; alpha saturates at 1.0 so
-   * the sum stays a valid blend weight.
-   */
-  Color4 &operator+=(const Color4 &rhs) {
-    color += rhs.color;
-    alpha = hs::clamp(alpha + rhs.alpha, 0.0f, 1.0f);
-    return *this;
-  }
-
-  /**
-   * @brief Scales both pixel and alpha by a float factor.
-   * @param s Scale factor.
-   * @return Reference to this color after scaling.
-   */
-  Color4 &operator*=(float s) {
-    color = color * s;
-    alpha *= s;
-    return *this;
   }
 
   /**
