@@ -186,6 +186,24 @@ def find_kicad_cli():
     return "kicad-cli"                 # assume on PATH
 
 
+def find_kicad_data_dir(kind, env_name):
+    env = os.environ.get(env_name)
+    if env and os.path.isdir(env):
+        return env
+    pats = [
+        fr"C:\Program Files\KiCad\*\share\kicad\{kind}",
+        fr"C:\Program Files (x86)\KiCad\*\share\kicad\{kind}",
+        f"/Applications/KiCad/KiCad.app/Contents/SharedSupport/{kind}",
+        f"/usr/share/kicad/{kind}",
+        f"/usr/local/share/kicad/{kind}",
+    ]
+    for pattern in pats:
+        hits = glob.glob(pattern)
+        if hits:
+            return max(hits, key=_kicad_version_key)
+    return kind
+
+
 KCLI = find_kicad_cli()
 
 

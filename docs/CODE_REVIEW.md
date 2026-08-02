@@ -563,7 +563,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 236. ❌ **"Every document carries its own status banner" is an over-claim** — `README.md:380`. Three of the 23 indexed docs have no status line: `phantasm_pcb_spec.md`, `device_host_divergence_ledger.md`, `agent_workflow.md`. All three are living documents rather than attempt records, so the omission is defensible; the blanket claim is not. Rejected: the quoted claim no longer exists in `README.md`.
 
-237. **`sexp.py` and `pcb.py` pin KiCad 10.0 by absolute Windows path** — `sexp.py:11`, `pcb.py:19`, `analyze_candidates.py:47`. A KiCad upgrade silently changes the inputs, and the third has no search fallback at all despite `fab.find_kicad_cli()` existing two modules away.
+237. ✅ **`sexp.py` and `pcb.py` pin KiCad 10.0 by absolute Windows path** — `sexp.py:11`, `pcb.py:19`, `analyze_candidates.py:47`. A KiCad upgrade silently changes the inputs, and the third has no search fallback at all despite `fab.find_kicad_cli()` existing two modules away.
 
 238. **`_uid_seq` is process-global and never reset** — `hardware/phantasm/gen/kicad_common.py`. A second `main()` call in one process diverges from the first, undercutting the otherwise-excellent deterministic-UUID scheme.
 
