@@ -17,6 +17,16 @@ class Sym(str):
     """An unquoted atom (token), distinct from a quoted string."""
 
 
+ESCAPE_DECODE = {
+    "\\": "\\",
+    '"': '"',
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+}
+ESCAPE_ENCODE = {value: key for key, value in ESCAPE_DECODE.items()}
+
+
 def tokenize(s):
     toks, i, n = [], 0, len(s)
     while i < n:
@@ -29,11 +39,18 @@ def tokenize(s):
             j = i + 1; buf = []
             while j < n:
                 if s[j] == "\\":
-                    buf.append(s[j + 1]); j += 2
+                    if j + 1 >= n:
+                        raise ValueError("trailing backslash in string")
+                    escaped = s[j + 1]
+                    if escaped not in ESCAPE_DECODE:
+                        raise ValueError(f"unsupported escape: \\{escaped}")
+                    buf.append(ESCAPE_DECODE[escaped]); j += 2
                 elif s[j] == '"':
                     break
                 else:
                     buf.append(s[j]); j += 1
+            if j == n:
+                raise ValueError("unterminated string")
             toks.append(("STR", "".join(buf))); i = j + 1
         else:
             j = i
@@ -91,7 +108,10 @@ def _atom(x):
     if isinstance(x, Sym):
         return str(x)
     if isinstance(x, str):
-        esc = x.replace("\\", "\\\\").replace('"', '\\"')
+        esc = "".join(
+            "\\" + ESCAPE_ENCODE[c] if c in ESCAPE_ENCODE else c
+            for c in x
+        )
         return '"' + esc + '"'
     return str(x)
 
