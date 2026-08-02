@@ -382,16 +382,15 @@ private:
     if (auto *warp = mobius_gen.spawn(0, params.warp_scale, period, false))
       warp->bind_scale(params.warp_scale);
 
-    timeline.add_pausable(
-        period,
-        Animation::PeriodicTimer(
-            0,
-            [this](Canvas &) {
-              preset_manager.next();
-              this->spawn_sprite();
-            },
-            false),
-        &anims_paused);
+    timeline.add_pausable(period,
+                          Animation::PeriodicTimer(
+                              0,
+                              [this](Canvas &) {
+                                preset_manager.next();
+                                this->spawn_sprite();
+                              },
+                              false),
+                          &anims_paused);
   }
 
   /**

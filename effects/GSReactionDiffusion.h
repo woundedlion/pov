@@ -313,10 +313,9 @@ private:
     if (transition.grow_substeps < MIN_GROW_SUBSTEPS)
       return;
     // Per-frame |dB| scales with the timestep, so the floor tracks Speed.
-    const float floor_db =
-        MEAN_DB_STABLE * (params.dt * (1.0f / DEFAULT_DT)) *
-        (static_cast<float>(EVOLUTION_STEPS_PER_FRAME) /
-         BASELINE_STEPS_PER_FRAME);
+    const float floor_db = MEAN_DB_STABLE * (params.dt * (1.0f / DEFAULT_DT)) *
+                           (static_cast<float>(EVOLUTION_STEPS_PER_FRAME) /
+                            BASELINE_STEPS_PER_FRAME);
     transition.stable_substeps =
         mean_db < floor_db
             ? transition.stable_substeps + EVOLUTION_STEPS_PER_FRAME
@@ -339,8 +338,8 @@ private:
    * frame, not once per substep.
    */
   HS_O3_FN void step_physics(const float *__restrict c_a,
-                             const float *__restrict c_b,
-                             float *__restrict n_a, float *__restrict n_b) {
+                             const float *__restrict c_b, float *__restrict n_a,
+                             float *__restrict n_b) {
     const float feed = params.feed;
     const float k = params.k;
     const float d_a = params.d_a;
@@ -480,11 +479,11 @@ private:
       Vector v = grid.at(x, i);
       float tw = 0.0f, wb = 0.0f;
       for (int j = 0; j < RD_K + 1; ++j)
-        with_wendland_weight(dist2(v, spos[j]),
-                             [&](float w) __attribute__((always_inline)) {
-                               wb += sb[j] * w;
-                               tw += w;
-                             });
+        with_wendland_weight(
+            dist2(v, spos[j]), [&](float w) __attribute__((always_inline)) {
+              wb += sb[j] * w;
+              tw += w;
+            });
       if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
         continue;
       float b = wb * (Q16_INV / tw);

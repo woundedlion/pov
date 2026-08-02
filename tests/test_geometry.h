@@ -660,7 +660,6 @@ inline int run_geometry_tests() {
 
   test_axis_constants();
 
-
   test_y_to_phi_virtual();
   test_phi_to_y_virtual();
   test_phi_to_y_south_pole_row_in_bounds();

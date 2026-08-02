@@ -140,8 +140,8 @@ struct Pixel {
    */
   Pixel operator*(float s) const {
     return Pixel((uint16_t)hs::clamp(r * s + 0.5f, 0.0f, 65535.0f),
-                   (uint16_t)hs::clamp(g * s + 0.5f, 0.0f, 65535.0f),
-                   (uint16_t)hs::clamp(b * s + 0.5f, 0.0f, 65535.0f));
+                 (uint16_t)hs::clamp(g * s + 0.5f, 0.0f, 65535.0f),
+                 (uint16_t)hs::clamp(b * s + 0.5f, 0.0f, 65535.0f));
   }
 
   /**
@@ -155,7 +155,7 @@ struct Pixel {
    * smlad's signed 16x16 dual-MAC reads an operand >= 32768 as negative.
    */
   __attribute__((always_inline)) Pixel lerp16(const Pixel &other,
-                                                uint16_t frac) const {
+                                              uint16_t frac) const {
     uint16_t inv = 65535 - frac;
     uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
     uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;

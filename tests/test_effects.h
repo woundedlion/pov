@@ -783,8 +783,7 @@ struct GSWhiteBox {
     gs.state.A[i] = a;
     gs.state.B[i] = b;
   }
-  static constexpr float DISSOLVE_FADE_FRACTION =
-      GS::DISSOLVE_FADE_FRACTION;
+  static constexpr float DISSOLVE_FADE_FRACTION = GS::DISSOLVE_FADE_FRACTION;
   static constexpr int DISSOLVE_FRAMES =
       (GS::DISSOLVE_SUBSTEPS + GS::EVOLUTION_STEPS_PER_FRAME - 1) /
       GS::EVOLUTION_STEPS_PER_FRAME;
@@ -835,8 +834,7 @@ struct GSWhiteBox {
       float lB = sumB - ReactionGraph::RD_K * b;
       float abb = a * b * b;
       nA[i] = hs::clamp(
-          a + (gs.params.d_a * lA - abb + gs.params.feed * (1.0f - a)) *
-                  dt,
+          a + (gs.params.d_a * lA - abb + gs.params.feed * (1.0f - a)) * dt,
           0.0f, 1.0f);
       nB[i] = hs::clamp(
           b + (gs.params.d_b * lB + abb - (gs.params.k + gs.params.feed) * b) *
@@ -991,8 +989,7 @@ inline void test_gs_dissolve_frontier_fades_before_clear() {
     float h = GSWhiteBox::dissolve_hash(i, seed);
     if (cleared < 0 && h < phase)
       cleared = i;
-    float fade =
-        (h - phase) / GSWhiteBox::DISSOLVE_FADE_FRACTION;
+    float fade = (h - phase) / GSWhiteBox::DISSOLVE_FADE_FRACTION;
     if (fading < 0 && fade > 0.25f && fade < 0.75f)
       fading = i;
   }
@@ -4018,8 +4015,7 @@ inline void test_shapeshifter_slider_selections_render() {
         if (folds[i] == folds[j])
           std::printf("  SHAPESHIFTER %s selections %d and %d render the same "
                       "frame (fold %llu)\n",
-                      slider, i, j,
-                      static_cast<unsigned long long>(folds[i]));
+                      slider, i, j, static_cast<unsigned long long>(folds[i]));
         HS_EXPECT(folds[i] != folds[j],
                   "each slider selection must render a distinct frame");
       }

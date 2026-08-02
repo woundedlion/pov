@@ -68,11 +68,10 @@ public:
         160,
         [this](Canvas &) {
           presets.next();
-          timeline.add_pausable(
-              0,
-              Animation::Lerp(params, presets.prev_get(), presets.get(), 48,
-                              ease_linear),
-              &anims_paused);
+          timeline.add_pausable(0,
+                                Animation::Lerp(params, presets.prev_get(),
+                                                presets.get(), 48, ease_linear),
+                                &anims_paused);
         },
         true);
     timeline.add_pausable(0, preset_timer, &anims_paused);

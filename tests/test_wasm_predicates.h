@@ -205,8 +205,7 @@ inline void check_mesh_op_arena_room() {
                                                      CAP - 2048 * PER, CAP));
   HS_EXPECT_TRUE(hs_wasm::mesh_op_output_over_arena(1, 1, 1024, 6, PER,
                                                     CAP - 2048 * PER, CAP));
-  HS_EXPECT_TRUE(
-      hs_wasm::mesh_op_output_over_arena(8, 6, 24, 0, PER, 0, CAP));
+  HS_EXPECT_TRUE(hs_wasm::mesh_op_output_over_arena(8, 6, 24, 0, PER, 0, CAP));
   // A full or unbound (capacity 0) arena rejects everything.
   HS_EXPECT_TRUE(
       hs_wasm::mesh_op_output_over_arena(8, 6, 24, 1, PER, CAP, CAP));

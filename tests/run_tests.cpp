@@ -144,8 +144,8 @@ constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 171001;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_FULL_MIN_ASSERTIONS                                          \
         : EFFECTS_QUICK_MIN_ASSERTIONS)                                        \
-  X("shapeshifter_oracle",                                                   \
-    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 109)   \
+  X("shapeshifter_oracle",                                                     \
+    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 109)    \
   X("dma_core", hs_test::dma_core::run_dma_core_tests, 12)                     \
   X("hd107s", hs_test::hd107s_tests::run_hd107s_tests, 280)                    \
   X("dma_controller", hs_test::dma_controller::run_dma_controller_tests, 67)   \

@@ -740,8 +740,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
           neighbor_acc += fmix32(neigh_h);
         }
       }
-      final_hashes[fi] =
-          fold_face_topology_hash(face_hashes[fi], neighbor_acc);
+      final_hashes[fi] = fold_face_topology_hash(face_hashes[fi], neighbor_acc);
       offset += count;
     }
   }

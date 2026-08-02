@@ -170,9 +170,8 @@ private:
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       const float radius = 2.0f * radius_t;
-      const float shape_phase =
-          phase_direction(radius) * params.amplitude *
-          evaluate(function, radius_t + phase);
+      const float shape_phase = phase_direction(radius) * params.amplitude *
+                                evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(radius_t);
 
       auto shader = [&](const Vector &, Fragment &fragment) {
@@ -197,9 +196,8 @@ private:
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       const float radius = 2.0f * radius_t;
-      const float shape_phase =
-          phase_direction(radius) * params.amplitude *
-          evaluate(function, radius_t + phase);
+      const float shape_phase = phase_direction(radius) * params.amplitude *
+                                evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(radius_t);
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
@@ -282,10 +280,10 @@ private:
    * @param shape_phase Primitive rotation in radians.
    */
   template <typename F>
-  HS_FLASH_MEMBER void
-  dispatch_plot(Canvas &canvas, const Basis &basis, ShapeType shape,
-                float radius, int sides, const F &fragment_shader,
-                float shape_phase) {
+  HS_FLASH_MEMBER void dispatch_plot(Canvas &canvas, const Basis &basis,
+                                     ShapeType shape, float radius, int sides,
+                                     const F &fragment_shader,
+                                     float shape_phase) {
     HS_PROFILE(ss_plot_dispatch);
     switch (shape) {
     case ShapeType::PLANAR_POLYGON: {
@@ -373,8 +371,8 @@ private:
            preset.function >= 0.0f &&
            preset.function <= static_cast<float>(NUM_FUNCTIONS - 1) &&
            preset.amplitude >= AMPLITUDE_MIN &&
-           preset.amplitude <= AMPLITUDE_MAX &&
-           preset.speed >= SPEED_MIN && preset.speed <= SPEED_MAX;
+           preset.amplitude <= AMPLITUDE_MAX && preset.speed >= SPEED_MIN &&
+           preset.speed <= SPEED_MAX;
   }
 
   static_assert(preset_in_ranges(PRESETS[0].params) &&
