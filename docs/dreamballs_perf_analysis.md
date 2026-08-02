@@ -206,7 +206,7 @@ shortening the crossfade or trimming preset 0's copy count — not a codegen one
 
 Same-base worktrees per configuration (`14f4ed3e`, `985bbfa4`, `c25667ff`),
 deep captures at identical settings, `parse_profile.py … validate` PASS on
-each; native suite (51 tests) green per commit; pre-commit Teensy size gate
+each; native suite (59 tests) green per commit; pre-commit Teensy size gate
 (3 envs) per commit; disassembly compared with `arm-none-eabi-objdump` from the
 matching worktree's own ELF. Host timing was not used to judge any lever —
 host -O2 CSEs redundant work device GCC does not.

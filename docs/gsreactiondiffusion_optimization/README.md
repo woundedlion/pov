@@ -566,7 +566,7 @@ The temporal block is an accepted numerical-method change: it preserves the
 equations and simulated interval but is not bit-identical to eight smaller
 Euler stages. Scalar-equation parity, worst-corner bounded evolution,
 production framebuffer bounds, full dissolve/reseed lifecycle, arena, stack,
-and all 58 native tests pass.
+and all 59 native tests pass.
 
 ### Rejected experiments
 
