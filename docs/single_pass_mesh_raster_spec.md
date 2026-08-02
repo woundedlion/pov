@@ -1,9 +1,9 @@
 # Single-pass mesh rasterizer — design
 
 Status: **REJECTED, measured 2026-07-18.** Do not build this. The go/no-go
-probe (branch `probe/single-pass`, `cbeb26e4`) returned
+probe at `cbeb26e4` returned
 `N_scheme/N_today = 0.83-0.96` against the 0.75 threshold this document set —
-no solid clears it. The refutation is in "Why it fails" at the end; read that
+no solid clears it. The audited refutation is in "CORRECTION" below; read that
 before proposing any variant. The design and its two constraints are kept
 because they are correct and they bound what any successor may attempt.
 
@@ -147,8 +147,8 @@ C2).
 ## CORRECTION (audited 2026-07-18)
 
 The verdict below stands — `N_scheme/N_today = 0.83-0.96` reproduces exactly —
-but **both of its supporting claims are wrong.** Audit branch `hs-wt-audit`
-off `cbeb26e4`.
+but **both of its supporting claims are wrong.** The audit used `cbeb26e4` as
+its baseline.
 
 **The "91-98 % overlap, irreducible under C1" claim is inflated 3-4x.** True
 C1-protected fringe-vs-fringe overlap is **22-31 % of `N_today`**; the rest is
@@ -254,9 +254,10 @@ On per-probe cost, one figure deserves a look before it is assumed harvested:
 the device spends ~1,878 scan cycles per shaded pixel at ~2.25 probes per
 shaded pixel, implying **~830 cycles per probe**. That is implausibly high for
 a sector walk (binary search plus three edge distances) and suggests the
-per-pixel loop carries substantial cost outside `Face::distance` itself. Note
-also that no probe count has ever been measured on device — `HS_SCAN_METRICS`
-is not compiled into the profile image — so every probe figure in this
-document's lineage is host-simulated and the absolute baseline (41,820
-probes/frame on solid 11) does not reproduce at quadrant clip (the probe
-measures 19,330). Reconcile that before reusing it.
+per-pixel loop carries substantial cost outside `Face::distance` itself. This
+document's captures did not enable `HS_SCAN_METRICS`, so their probe figures
+are host-simulated. The profile target can be rebuilt with that flag (supported
+by `targets/Profile/Profile.ino` and
+`tools/parse_profile.py`). The absolute baseline (41,820 probes/frame on solid
+11) does not reproduce at quadrant clip (the probe measures 19,330). Reconcile
+that before reusing it.
