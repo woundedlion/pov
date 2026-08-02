@@ -1,4 +1,4 @@
-"""Gate: export netlist via kicad-cli and verify named nets match spec section 10.
+"""Gate: export a netlist and verify the shipped board's named-net partition.
 
 Nodes are keyed on (ref, pin), so a connector or IC pinout permutation fails the
 gate as loudly as a short or a break does.
@@ -24,7 +24,7 @@ def node_key(ref, pin):
     return ref if ref in SYMMETRIC else f"{ref}.{pin}"
 
 
-# expected: named net -> set of node keys (per spec sections 1.1, 3, 6, 10)
+# Expected named net -> set of node keys across the electrical requirements.
 EXPECT = {
     "+5V_IN":     {"J1.1", "F1"},
     "+5V_RAW":    {"F1", "Q_REV.3"},
