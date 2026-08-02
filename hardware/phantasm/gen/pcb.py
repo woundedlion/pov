@@ -8,6 +8,7 @@ planes are encoded in the file, so an autoplacer/fab reads them on upload.
 Placement is a rough starting arrangement; route/refine interactively in Pcbnew.
 """
 import argparse
+import math
 import os
 import sys
 import sexp
@@ -326,6 +327,42 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
 # stacking parts across the width in shelves (first-fit-decreasing). The Teensy
 # (~37x19) sets the floor; small SMD parts pack into the leftover width beside it.
 # Draft placement — refine orientation / push connectors to the edges in Pcbnew.
+def _arc_points(start, mid, end):
+    x1, y1 = start
+    x2, y2 = mid
+    x3, y3 = end
+    denominator = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+    if abs(denominator) < 1e-12:
+        return (start, mid, end)
+
+    center_x = (
+        (x1 * x1 + y1 * y1) * (y2 - y3)
+        + (x2 * x2 + y2 * y2) * (y3 - y1)
+        + (x3 * x3 + y3 * y3) * (y1 - y2)
+    ) / denominator
+    center_y = (
+        (x1 * x1 + y1 * y1) * (x3 - x2)
+        + (x2 * x2 + y2 * y2) * (x1 - x3)
+        + (x3 * x3 + y3 * y3) * (x2 - x1)
+    ) / denominator
+    radius = math.hypot(x1 - center_x, y1 - center_y)
+    angles = tuple(math.atan2(y - center_y, x - center_x) for x, y in (start, mid, end))
+
+    def ccw_between(angle, first, last):
+        return (angle - first) % math.tau <= (last - first) % math.tau + 1e-12
+
+    first, middle, last = angles
+    counterclockwise = ccw_between(middle, first, last)
+    points = [start, mid, end]
+    for angle in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
+        on_arc = ccw_between(angle, first, last) if counterclockwise else \
+            ccw_between(angle, last, first)
+        if on_arc:
+            points.append((center_x + radius * math.cos(angle),
+                           center_y + radius * math.sin(angle)))
+    return points
+
+
 def fp_bbox(node, pads_only=False):
     """Footprint bounding box (minx,miny,maxx,maxy) in its local (origin) frame,
     over pads plus (unless `pads_only`) graphic outlines. Pad rotation is folded
@@ -339,7 +376,21 @@ def fp_bbox(node, pads_only=False):
             x = float(at[0]); y = float(at[1])
             r = max(float(sz[0]), float(sz[1])) / 2 if sz else 0.5
             xs += [x - r, x + r]; ys += [y - r, y + r]
-        elif not pads_only and c[0] in ("fp_rect", "fp_line", "fp_poly", "fp_circle"):
+        elif not pads_only and c[0] == "fp_circle":
+            center = sexp.val(c, "center")
+            end = sexp.val(c, "end")
+            if center and end:
+                x = float(center[0]); y = float(center[1])
+                radius = math.hypot(float(end[0]) - x, float(end[1]) - y)
+                xs += [x - radius, x + radius]
+                ys += [y - radius, y + radius]
+        elif not pads_only and c[0] == "fp_arc":
+            values = [sexp.val(c, key) for key in ("start", "mid", "end")]
+            if all(values):
+                points = [(float(value[0]), float(value[1])) for value in values]
+                for x, y in _arc_points(*points):
+                    xs.append(x); ys.append(y)
+        elif not pads_only and c[0] in ("fp_rect", "fp_line", "fp_poly"):
             for k in ("start", "end", "center"):
                 v = sexp.val(c, k)
                 if v:
