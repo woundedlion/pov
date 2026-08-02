@@ -623,7 +623,7 @@ A supplementary line-by-line audit of every file under `docs/` (excluding this d
 
 262. ✅ **Four stale native-test counts** — `docs/agent_workflow.md:66` ("51/51"), `congruence_class_lut_spec.md:211, 309` ("ctest 45/45"), `dreamballs_perf_analysis.md:210` ("51 tests"), `gsreactiondiffusion_optimization/README.md:569` ("58 native tests"). `tests/CMakeLists.txt` registers **59**; `shapeshifter_optimization/README.md:35` is the one correct instance.
 
-263. **`congruence_class_lut_spec.md` cites a tombstone document that does not exist, and a stale arena size** — `:15` refers the reader to "`inverse_sampling_spec.md` for that tombstone"; no such file exists anywhere in the repo. `:276` says "the WASM release build uses the device **330 KB** `GLOBAL_ARENA_SIZE`"; it is 298 KiB (`core/engine/memory.h:33`), stale by the `aeba37b5` arena cut.
+263. ✅ **`congruence_class_lut_spec.md` cites a tombstone document that does not exist, and a stale arena size** — `:15` refers the reader to "`inverse_sampling_spec.md` for that tombstone"; no such file exists anywhere in the repo. `:276` says "the WASM release build uses the device **330 KB** `GLOBAL_ARENA_SIZE`"; it is 298 KiB (`core/engine/memory.h:33`), stale by the `aeba37b5` arena cut.
 
 #### P3 (continued)
 
