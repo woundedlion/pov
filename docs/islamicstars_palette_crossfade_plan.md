@@ -15,40 +15,18 @@ classified on its own and mapped to a freshly shuffled palette set — and a
 smooth per-face crossfade from the departed palette to the target over the leg.
 Hard constraint: no performance regression.
 
-## 1. What already exists
+## 1. Shipped behavior
 
-The requested behaviour is `OpLeg`'s *default* colour model; IslamicStars opts
-out of it via `PaletteHandoff::immutable = true`:
+Each leg classifies its arrival mesh and derives a fresh target palette. The
+handoff carries the landed palette between legs, and distinct source/target
+pairs are pre-blended into scratch ramps once per frame. The deleted immutable,
+pinned-target and birth-counter modes are not configuration surfaces.
 
-- `immutable = false` makes every carried face crossfade `from -> to` under the
-  leg's `BlendWeightFn` (`core/animation/opleg.h:195`). IslamicStars already passes
-  `classic_blend` at all three leg-construction sites
-  (`effects/IslamicStars.h:1077,1187,1254`), so the whole-leg smooth lerp comes
-  for free the moment `immutable` flips.
-- `pinned_to = nullptr` gives the per-leg fresh shuffle of target palettes
-  (`opleg.h:1771-1772`, via `hs::shuffle` — determinism preserved).
-- Fresh classification per arrival is *already computed* — every leg site runs
-  `classify_faces_by_topology` on the arrival seed and passes it as
-  `BookendClasses`. Colour targets key on it (`opleg.h:1805`), so the w = 1
-  frame equals the standing display by construction.
-- The fragment path is identical in both modes: `ramps[face_ramp[f]].get(t)`,
-  one baked-LUT lookup. Crossfade cost is a once-per-frame pre-blend of the
-  distinct (from, to) pairs into `scratch_arena_b` (`opleg.h:1441-1455`), with a
-  zero-cost aliasing fast path at w <= 0 / w >= 1
-  (`composition.h:1093-1102`).
+## 2. Blend-pair bound
 
-So per-fragment cost cannot regress; the entire perf question is the per-frame
-pre-blend (time + scratch_b bytes) on mid-leg frames.
-
-## 2. The one real hazard: MAX_BLEND_PAIRS is stale
-
-`OpLeg::MAX_BLEND_PAIRS = 25` (`opleg.h:42`) with a comment claiming it covers
-`BakedPaletteBank::N^2 = 25`. **N is now 6** (`composition.h:1129`), so the
-true pair space is 36. `intern_palette_ramp` traps via `HS_CHECK` on overflow
-(`opleg.h:1715`) — a fail-fast device crash. Today immutable legs stay tiny and
-the worst measured leg (gyro_kis reconcile) hit 18; fresh-classified legs raise
-the ceiling everywhere. This must be resolved by measurement + a bound, not
-hope.
+`OpLeg::MAX_BLEND_PAIRS` is derived as `PALETTES * PALETTES`, covering all 36
+pairs for the six-palette bank. The measured roster maximum is 19 pairs, so the
+leg-start fallback considered below was not needed.
 
 Scratch budget: each blended pair costs one 256-entry Color4 LUT = 3 KB per
 frame in scratch_arena_b. Device splits (`IslamicStars.h:163-167`) give
@@ -120,7 +98,7 @@ All in `effects/IslamicStars.h`:
   geometry-heavy ones. Gate: on-device profile (teensy-profile) of IslamicStars
   before/after on identical builds; ship criterion is the binary green —
   0 spilled frames, peak column green.
-- ITCM: phantasm sits at ~40 B headroom. All new code is HS_COLD_MEMBER /
+- ITCM: the landed image measured 1,400 B free. All new code is HS_COLD_MEMBER /
   cold-path; deletion of the cohort plumbing offsets. Verify with
   `pio run -e phantasm` (the only build that catches the granule cliff) and the
   CI size gate.
@@ -132,10 +110,8 @@ All in `effects/IslamicStars.h`:
   check); leg boundaries show no pop.
 - daydream/wasm check after install (hard-refresh; verify disk sha256 first).
 
-## 4. Design knob kept open
+## 4. Configuration surface
 
-If the per-leg re-shuffle reads as too busy (every leg re-rolls every colour),
-the halfway point is `pinned_to = &build_palette_order_` with
-`immutable = false`: fresh classification per leg, shared target set — faces
-whose class survives keep their colour, only reclassified faces fade. Fewer
-blend pairs too. Worth an A/B before committing the shuffle.
+No halfway immutable or pinned-target mode was retained. Changing the palette
+policy now requires a new handoff design rather than setting the deleted
+`immutable`, `pinned_to` or `birth_counter` fields.
