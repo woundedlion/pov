@@ -122,7 +122,8 @@ that function's strictly-positive domain. `Plot::rasterize` drops
   searching a disassembly for `5f3759df` (or for `movw`/`movt` immediates)
   finds nothing and proves nothing — grep the little-endian bytes
   (`df59375f`) or the decimal.
-- **Rotor recurrence for `sample_geodesic` (lever 5) — NOT VIABLE.** The draw
+- **Rotor recurrence for `Line::sample` / `rasterize_geodesic_strategy`
+  (lever 5) — NOT VIABLE.** The draw
   loop advances by *adaptive* steps, so the rotor needs `sin δ`/`cos δ` for a
   varying δ each step — exactly the two trig calls it was meant to replace.
   The only residue is dropping the per-plot `.normalized()` (~30 of ~1,100
@@ -195,12 +196,11 @@ first (`HS_SCAN_METRIC` counter run, as MindSplatter did).
 
 ## Still the binding constraint
 
-The 62.5 ms window leaves ≈58.5 ms for render after the 6.35% ISR share. The
-32-frame two-sprite overlap (`SPRITE_LIFE` 320 > `SPAWN_PERIOD` 288) draws two
-whole shell sets and is what the worst windows measure; preset 0's own hold
-(18 copies × radius 0.30) is the other red. Code work has taken real time out
-of both, but closing the overlap outright is still a coverage decision —
-shortening the crossfade or trimming preset 0's copy count — not a codegen one.
+The 62.5 ms window leaves ≈58.5 ms for render after the 6.35% ISR share.
+`CROSSFADE_OVERLAP` is now zero, so the former 32-frame two-sprite overlap has
+been eliminated. Preset 0's hold (18 copies × radius 0.30) remains the binding
+coverage case; trimming that copy count would be a coverage decision, not a
+codegen one.
 
 ## Validation protocol used
 
