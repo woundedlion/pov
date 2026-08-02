@@ -208,7 +208,7 @@ out of scope).
 1. **Bake telemetry** (log at spawn): classes found, % faces in shared
    classes (expect 100%), worst residual (expect < 0.25 px), predicted
    LUT-hit share from cell geometry. Gate: hit share ≥ ~75%.
-2. **ctest 45/45** — the distance-oracle test gains a canonical-LUT case:
+2. **ctest 59/59** — the distance-oracle test gains a canonical-LUT case:
    LUT-path samples within `|d| > safe_dist` must match the exact oracle to
    the interpolation bound; the sign must always match (reuse the invariants
    of the deleted `check_face_lut`, git history).
@@ -306,7 +306,7 @@ Gate outcomes:
    LUT-bound faces 75-91%. The runtime share runs ~2x below the prediction
    because probes concentrate near faces, where the fallback cells are — the
    predictor is a ranking/quality tool, not a calibrated forecast.
-2. **ctest 45/45**, including the resurrected LUT-vs-oracle invariants
+2. **ctest 59/59**, including the resurrected LUT-vs-oracle invariants
    (sign always correct, magnitude floor, interpolation bound) across
    identity / cyclic-offset+rotation / mirror bindings, census invariants on
    registry meshes, and a rendered A/B (delta mean 0.02% FS, max 1.9% FS).
