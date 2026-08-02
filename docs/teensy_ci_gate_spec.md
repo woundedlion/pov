@@ -1,10 +1,12 @@
 # Design Spec: Teensy 4 CI Gate — Build, Warning Hygiene, Image Size & Memory Layout
 
-**Status (2026-07-30): active and green.** The `teensy-size` CI job builds `holosphere`,
-`phantasm`, and the `holosphere_dma` compile-drift target on pushes to master and pull requests. The
+**Status (2026-07-30): active and green.** The `teensy-size` CI job builds the
+`holosphere`, `phantasm`, `holosphere_dma`, `phantasm8`, `profile`, and
+`profile_o3` environments on pushes to master and pull requests. The
 post-build gate enforces the checked-in region budgets and ELF layout invariants; the separate
 cold `teensy-warnings` job enforces a currently empty first-party warning baseline.
-`just teensy-size` runs the two shipping-image gates locally.
+`just teensy-size` runs the same six-environment build locally; budgets apply to
+the two shipping images.
 
 The pinned toolchain is `platform = teensy@5.2.0` (Teensyduino 1.62.0 and arm-none-eabi-gcc
 15.2.1), `platformio==6.1.19`, and the bench-compatible **FastLED 3.4.0**. Holosphere builds at
@@ -257,7 +259,7 @@ Key decisions:
   library. The rest of `core/` and all of `hardware/` are header-only and reached via `-I`.
 - **`effects_legacy.h` is in scope here even though it's excluded from code review.**
   `Holosphere.ino` includes it, so the firmware image must compile it. (The review-scope
-  exclusion in `prompts/analysis.txt` is about *quality grading*, not *buildability*.)
+  exclusion in [`daydream/prompts/analysis.txt`](../../daydream/prompts/analysis.txt) is about *quality grading*, not *buildability*.)
 - **Same board, different flags.** All six environments set `board = teensy40`. Phantasm adds
   `build_flags += -D USE_DMA_LEDS`; `phantasm8` also sets `PHANTASM_NUM_SEGMENTS=8`, while
   `holosphere_dma` enables the single-board DMA branch. The DMA define mirrors the guarded define the `.ino` already sets
@@ -494,7 +496,7 @@ to be silently wrong (a name that never matches → the invariant never fires �
    `global_arena_block` must stay in DTCM (`.bss`, no `DMAMEM`) **and** measure ~`GLOBAL_ARENA_SIZE`
    = 298 KiB ([memory.h](../core/engine/memory.h)). Pinning the *magnitude* matters: under
    `HS_TEST_BUILD` the same constant is **8 MB** ([memory.h](../core/engine/memory.h)), so if that
-   test-only macro ever leaked into the firmware build the arena would silently balloon 24× — a
+   test-only macro ever leaked into the firmware build the arena would silently balloon 27.5× — a
    "still in DTCM" check passes, a "~298 KiB ± tolerance" check catches it. It is the **largest RAM1
    object and the most likely RAM1-budget mover** — a change to `GLOBAL_ARENA_SIZE`, or accidentally
    tagging the block `DMAMEM` (which would shove 298 KiB into already-tight OCRAM), shows up here too.
@@ -742,7 +744,7 @@ A developer who flashes via VMicro should be able to run the identical gate befo
 ```
 # Build budgeted Teensy images and compile/link profiles (CI parity).
 teensy-size:
-    pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8 -e profile -e profile_o3
+    python tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8 profile profile_o3
 ```
 
 `pio` is the only new prerequisite (`pip install platformio`); the Teensy toolchain auto-installs
@@ -845,7 +847,7 @@ All five prior open questions have been decided; the spec body reflects them.
 3. **Size enforcement — absolute ceilings only.** Per-region caps with headroom; no
    regression-delta gate (considered and deferred to avoid a second baseline to churn). (§8)
 4. **Workflow placement — inside `ci.yml`.** A single `teensy-size` job (two budgeted environments
-   plus two compile profiles in one `pio run`) alongside the existing tests/wasm/provenance jobs; shared triggers/concurrency, no
+   plus four compile profiles in one build) alongside the existing tests/wasm/provenance jobs; shared triggers/concurrency, no
    separate workflow file. (§10)
 5. **Fix the docs — agreed, and a Phase-0 prerequisite for the board pin.** The owner confirms
    **Teensy 4.0** for both (no 4.1). The stale "4× Teensy 4.1" lines in `Phantasm.ino:7` and
@@ -872,7 +874,7 @@ All five prior open questions have been decided; the spec body reflects them.
   that asserts each env compiles exactly its `.ino` + the two `core/engine/*.cpp` and nothing else.
 - **OCRAM is structurally tight (4,736–6,016 B free in the current images).** Not a tuning
   knob — the buffers are fixed at `MAX_W*MAX_H`. The value is
-  the **layout invariant** keeping those buffers in OCRAM (`dma_tx_buffers_section: OCRAM`) plus the
+  the **layout invariant** keeping those buffers in OCRAM (`dma_tx_buffer: OCRAM`) plus the
   recorded as-built margin (§8). A future OCRAM consumer, or a bump to `MAX_W`/`MAX_H`, is the real
   risk the `ram2` ceiling + layout check must catch (§7.4 #2, §8).
 - **Build-option drift between VMicro and PlatformIO defeats the size numbers.** If CI compiles at
