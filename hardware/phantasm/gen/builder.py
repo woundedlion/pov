@@ -78,7 +78,6 @@ class Builder:
         self.wires = []
         self.labels = []
         self.junctions = []
-        self.no_connects = []
         self.texts = []          # (point, string, size)
         self.lib_defs = {}       # lib_id -> symbol node (for lib_symbols)
         self._unit_pins = {}     # lib_id -> {unit -> {num -> pin}}
@@ -162,9 +161,6 @@ class Builder:
     def junction(self, p):
         self.junctions.append(p)
 
-    def nc(self, p):
-        self.no_connects.append(p)
-
     # ---- emit ----
     def dumps(self):
         out = []
@@ -189,12 +185,6 @@ class Builder:
             out.append(f'\t\t(at {fmt(p[0])} {fmt(p[1])})')
             out.append('\t\t(diameter 0)')
             out.append('\t\t(color 0 0 0 0)')
-            out.append(f'\t\t(uuid "{uid()}")')
-            out.append('\t)')
-        # no connects
-        for p in self.no_connects:
-            out.append('\t(no_connect')
-            out.append(f'\t\t(at {fmt(p[0])} {fmt(p[1])})')
             out.append(f'\t\t(uuid "{uid()}")')
             out.append('\t)')
         # wires
@@ -303,11 +293,9 @@ def _overlay_props(base, node):
         if isinstance(c, list) and c and c[0] == "property":
             wanted[c[1]] = c
     newchildren = []
-    seen = set()
     for c in base:
         if isinstance(c, list) and c and c[0] == "property" and c[1] in wanted:
             newchildren.append(copy.deepcopy(wanted[c[1]]))
-            seen.add(c[1])
         else:
             newchildren.append(c)
     base[:] = newchildren
