@@ -314,17 +314,17 @@ def parse_components(net_path):
     comps = {}
     for block in F(root, "components"):
         for comp in F(block, "comp"):
-            ref = sexp._val(comp, "ref")
+            ref = sexp.val(comp, "ref")
             if not ref:
                 continue
             props = {}
             for p in F(comp, "property"):
-                name = sexp._val(p, "name")
+                name = sexp.val(p, "name")
                 if name:
-                    value = sexp._val(p, "value")
+                    value = sexp.val(p, "value")
                     props[name[0]] = value[0] if value else ""
-            val = sexp._val(comp, "value")
-            fp = sexp._val(comp, "footprint")
+            val = sexp.val(comp, "value")
+            fp = sexp.val(comp, "footprint")
             comps[ref[0]] = {
                 "value": val[0] if val else "",
                 "footprint": fp[0] if fp else "",
@@ -406,7 +406,7 @@ def validate_plot_origin(pcb_path):
 
     origin = (0.0, 0.0)
     for setup in F(root, "setup"):
-        raw = sexp._val(setup, "aux_axis_origin", [])
+        raw = sexp.val(setup, "aux_axis_origin", [])
         if not raw:
             continue
         try:
@@ -435,9 +435,9 @@ def validate_via_geometry(pcb_path):
     vias = F(root, "via")
     valid_vias = []
     for index, via in enumerate(vias, 1):
-        at = sexp._val(via, "at", [])
-        size = sexp._val(via, "size", [])
-        drill = sexp._val(via, "drill", [])
+        at = sexp.val(via, "at", [])
+        size = sexp.val(via, "size", [])
+        drill = sexp.val(via, "drill", [])
         location = ",".join(str(value) for value in at[:2]) or f"index {index}"
         try:
             diameter_mm = float(size[0])
@@ -497,13 +497,13 @@ def validate_zone_geometry(pcb_path):
     # Only net-bearing zones pour copper; the rest are keepouts.
     zones = [zone for zone in F(root, "zone") if F(zone, "net")]
     for index, zone in enumerate(zones, 1):
-        name = sexp._val(zone, "name", [])
+        name = sexp.val(zone, "name", [])
         label = name[0] if name else f"index {index}"
         features = [("min_thickness", zone)]
         for fill in F(zone, "fill"):
             features += [(key, fill) for key in ZONE_FILL_FEATURES]
         for key, node in features:
-            value = sexp._val(node, key, [])
+            value = sexp.val(node, key, [])
             try:
                 feature_mm = float(value[0])
             except (IndexError, TypeError, ValueError):

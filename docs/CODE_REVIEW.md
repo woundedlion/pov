@@ -419,7 +419,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 164. ✅ **Malformed s-expression input raises bare `IndexError` from parser internals** — `hardware/phantasm/gen/sexp.py:50-67`. Only `board_metadata.parse_board` catches it; `fab.py`'s three validators catch `ValueError` and list `IndexError` nowhere, so a truncated `.kicad_pcb` bypasses their careful diagnostics. Raise a `ValueError` with the token offset. — FIXED: truncated lists now raise `ValueError` with the failing token offset.
 
-165. **`_val` is a de-facto public API consumed under a private name by five modules** — `hardware/phantasm/gen/sexp.py:119-123`. Imported and called from `shorts.py`, `check.py`, `fab.py`, `pcb.py` and `builder.py` — more call sites than most public helpers in the package. Its sibling `kicad_common.F` is public.
+165. ✅ **`_val` is a de-facto public API consumed under a private name by five modules** — `hardware/phantasm/gen/sexp.py:119-123`. Imported and called from `shorts.py`, `check.py`, `fab.py`, `pcb.py` and `builder.py` — more call sites than most public helpers in the package. Its sibling `kicad_common.F` is public. — FIXED: the helper is now public as `val`, and every call site uses that name.
 
 166. **Stale glob path, no exit code, no failure handling in the clearance healer** — `hardware/phantasm/gen/heal_clearance.py:27, 30-31, 69`. Globs a `divider_rework/` that does not exist (with a stale comment describing it as live), always exits 0 even when nothing was found, and `json.load(open(p))` raises an uncaught `JSONDecodeError`. Its own docstring calls this "the LAST step before any Quilter upload", so a silent no-op is exactly the wrong failure mode.
 

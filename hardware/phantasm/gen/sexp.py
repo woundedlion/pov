@@ -142,7 +142,7 @@ def get_symbol(libname, name):
     raise KeyError(f"{libname}:{name} not found")
 
 
-def _val(node, key, default=None):
+def val(node, key, default=None):
     for c in node:
         if isinstance(c, list) and c and c[0] == key:
             return c[1:]
@@ -157,8 +157,8 @@ def pins(sym):
         for c in node:
             if isinstance(c, list) and c:
                 if c[0] == "pin":
-                    at = _val(c, "at")
-                    length = _val(c, "length", [0])[0]
+                    at = val(c, "at")
+                    length = val(c, "length", [0])[0]
                     num = None; name = None
                     for d in c:
                         if isinstance(d, list) and d and d[0] == "number":

@@ -87,7 +87,7 @@ class Builder:
     def _resolve(self, lib, name):
         """Return a fully-resolved symbol node (extends flattened)."""
         node = copy.deepcopy(sexp.get_symbol(lib, name))
-        ext = sexp._val(node, "extends")
+        ext = sexp.val(node, "extends")
         if ext:
             base = self._resolve(lib, ext[0])
             base = copy.deepcopy(base)
@@ -328,7 +328,7 @@ def _index_unit_pins(node):
                         unit = 1
                     for d in c:
                         if isinstance(d, list) and d and d[0] == "pin":
-                            at = sexp._val(d, "at")
+                            at = sexp.val(d, "at")
                             num = None; name = None
                             for e in d:
                                 if isinstance(e, list) and e and e[0] == "number":

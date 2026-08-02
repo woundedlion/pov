@@ -61,9 +61,9 @@ def netlist_nets(root):
     got = {}
     for nb in F(root, "nets"):
         for net in F(nb, "net"):
-            name = sexp._val(net, "name")[0].lstrip("/")
-            got[name] = set(node_key(sexp._val(nd, "ref")[0],
-                                     sexp._val(nd, "pin")[0])
+            name = sexp.val(net, "name")[0].lstrip("/")
+            got[name] = set(node_key(sexp.val(nd, "ref")[0],
+                                     sexp.val(nd, "pin")[0])
                             for nd in F(net, "node"))
     return got
 
