@@ -50,15 +50,20 @@ if [ -n "$HS_PROFILE_DEEP" ] && [ "$HS_PROFILE_DEEP" != "0" ]; then
   DEEP="-D HS_PROFILE_DEEP_ENABLE"
   DEEP_SUFFIX="_deep"
 fi
-OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}.log}
+REPLAY_SUFFIX=""
+case " $EXTRA " in
+  *" HS_MINDSPLATTER_REPLAY "*|*"HS_MINDSPLATTER_REPLAY="*)
+    REPLAY_SUFFIX="_replay";;
+esac
+OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${REPLAY_SUFFIX}.log}
 PROVENANCE_OUT=${OUT%.log}.provenance
-PROFILE_BUILD_LOG=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}_build.log
+PROFILE_BUILD_LOG=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${REPLAY_SUFFIX}_build.log
 PHANTASM_BUILD_LOG=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}_phantasm_build.log
-PROFILE_ENVDUMP=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}_envdump.txt
+PROFILE_ENVDUMP=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${REPLAY_SUFFIX}_envdump.txt
 PHANTASM_ENVDUMP=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}_phantasm_envdump.txt
 PROFILE_ELF=.pio/build/$ENV/firmware.elf
 PROFILE_MAP=.pio/build/$ENV/firmware.map
-ATTEST_DIR=build/prof/attest/${LOWER}_${TAG}${DEEP_SUFFIX}
+ATTEST_DIR=build/prof/attest/${LOWER}_${TAG}${DEEP_SUFFIX}${REPLAY_SUFFIX}
 PHANTASM_ELF=$ATTEST_DIR/phantasm.elf
 PHANTASM_MAP=$ATTEST_DIR/phantasm.map
 ARM_READELF=${HS_ARM_READELF:-$HOME/.platformio/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-readelf.exe}
@@ -91,6 +96,9 @@ case " $CYCLERS " in *" $EFFECT "*)
 esac
 if [ -n "$PROFILE_PRESET" ]; then
   MARKER="Profile preset:"
+fi
+if [ -n "$REPLAY_SUFFIX" ]; then
+  MARKER="replay corpus:"
 fi
 
 TEENSY_TOOLS=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}

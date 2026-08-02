@@ -128,6 +128,10 @@ teensy-gate-test:
 profile effect="DisplacementField" seconds="150" deep="0":
     HS_PROFILE_DEEP={{deep}} bash tools/profile_one.sh {{effect}} profile {{seconds}} 32
 
+# Repeated physics-free render of the frozen production-resolution corpus.
+profile-mindsplatter-replay env="profile" seconds="150":
+    bash tools/profile_one.sh MindSplatter {{env}} {{seconds}} 32 -D HS_MINDSPLATTER_REPLAY
+
 # Regenerate the PHANTASM PCB outputs into hardware/phantasm/gen/out/ (all
 # gitignored) from the COMMITTED board. It never re-runs the schematic/PCB
 # generators, which would discard the routing + silk; needs kicad-cli on PATH

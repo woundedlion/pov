@@ -47,11 +47,24 @@
 //                            RATIOS from such a build, discounted by `tick`.
 //   HS_PLOT_COUNTS           compiles in count-only Plot workload attribution
 //                            and adds one "plot counts" line per window.
+//   HS_MINDSPLATTER_REPLAY    restores the selected frozen MindSplatter corpus
+//                            and renders it repeatedly without physics.
+//   HS_MINDSPLATTER_REPLAY_CORPUS
+//                            corpus symbol selected from the generated header.
 
 #define HS_PROFILE_STR2(x) #x
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
 
 #include "../common/phantasm_target.h"
+
+#ifdef HS_MINDSPLATTER_REPLAY
+#include "effects/mindsplatter_replay_corpus.h"
+#include "tools/mindsplatter_whitebox.h"
+#include "tools/mindsplatter_replay_metrics.h"
+#ifndef HS_MINDSPLATTER_REPLAY_CORPUS
+#define HS_MINDSPLATTER_REPLAY_CORPUS DENSE_PRESET0_F136
+#endif
+#endif
 
 // The .ino -> .cpp converter injects prototypes for every function it detects
 // immediately before the first one, which here sits inside the anonymous
@@ -69,14 +82,53 @@ namespace {
  */
 template <int W, int H> class ProfiledEffect : public HS_PROFILE_TARGET<W, H> {
 public:
+#ifdef HS_MINDSPLATTER_REPLAY
+  void init() override {
+    using Target = HS_PROFILE_TARGET<W, H>;
+    static_assert(std::is_same_v<Target, MindSplatter<W, H>>,
+                  "HS_MINDSPLATTER_REPLAY requires MindSplatter");
+    Target::init();
+    const auto &corpus = replay_corpus();
+    HS_CHECK(corpus.framebuffer_entries <= static_cast<size_t>(W) * H,
+             "MindSplatter replay framebuffer entries differ");
+    const uint16_t particles = ReplayWhiteBox::restore_render(
+        *this, {corpus.state, corpus.state_size});
+    HS_CHECK(particles == corpus.particle_count,
+             "MindSplatter replay particle count differs");
+    char hash[21];
+    hs::log("replay corpus: id=%s preset=%d traits=%lu particles=%u bytes=%lu "
+            "hash=%s",
+            corpus.id, (int)corpus.preset, (unsigned long)corpus.traits,
+            (unsigned)particles, (unsigned long)corpus.state_size,
+            hs::u64_dec(corpus.corpus_hash, hash));
+    hs::log("replay source: %s", corpus.source);
+  }
+#endif
+
   void draw_frame() override {
     const uint64_t bw0 = buffer_wait ? buffer_wait->cycles : 0;
     const unsigned long t0 = micros();
+#ifdef HS_MINDSPLATTER_REPLAY
+    const Pixel *pixels = nullptr;
+#endif
     {
       HS_PROFILE(frame);
+#ifdef HS_MINDSPLATTER_REPLAY
+      ReplayWhiteBox::draw_particles_inspect(
+          *this, [&](Canvas &canvas, const ClipRegion &clip) {
+            pixels = &canvas(0, 0);
+            replay_clip = clip;
+          });
+#else
       HS_PROFILE_TARGET<W, H>::draw_frame();
+#endif
     }
     const unsigned long dt = micros() - t0;
+#ifdef HS_MINDSPLATTER_REPLAY
+    replay_stats = mindsplatter_replay::compare_frame<W>(
+        pixels, replay_clip, replay_corpus().framebuffer,
+        replay_corpus().framebuffer_entries);
+#endif
     // Per-frame render = wall minus this frame's display-sync wait, read as
     // the effect's *_buffer_wait counter delta. The counter self-registers on
     // the first draw_frame, so the lookup retries until it appears.
@@ -107,6 +159,28 @@ public:
 private:
   static constexpr int WINDOW_FRAMES = HS_PROFILE_WINDOW; /**< Frames per readout window. */
 
+#ifdef HS_MINDSPLATTER_REPLAY
+  using ReplayWhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
+
+  static const mindsplatter_replay::Corpus &replay_corpus() {
+    return mindsplatter_replay::HS_MINDSPLATTER_REPLAY_CORPUS;
+  }
+
+  void dump_replay_stats() const {
+    char actual[21], expected[21], total_error[21];
+    hs::log("replay frame: clip=%d,%d,%d,%d hash=%s expected=%s "
+            "changed=%lu channels=%lu max=%u abs=%s",
+            replay_stats.clip.x_start, replay_stats.clip.x_end,
+            replay_stats.clip.y_start, replay_stats.clip.y_end,
+            hs::u64_dec(replay_stats.framebuffer_hash, actual),
+            hs::u64_dec(replay_stats.expected_hash, expected),
+            (unsigned long)replay_stats.changed_pixels,
+            (unsigned long)replay_stats.changed_channels,
+            (unsigned)replay_stats.max_channel_error,
+            hs::u64_dec(replay_stats.total_absolute_error, total_error));
+  }
+#endif
+
   void dump() {
     const unsigned long now = micros();
     hs::log("=== profile %s [%dx%d] frames %lu-%lu window=%lu us ===",
@@ -128,6 +202,9 @@ private:
 #endif
 #ifdef HS_PLOT_COUNTS
     dump_plot_counts();
+#endif
+#ifdef HS_MINDSPLATTER_REPLAY
+    dump_replay_stats();
 #endif
     hs::CycleCounter::reset_all();
     window_frames = 0;
@@ -350,12 +427,19 @@ private:
   unsigned long render_max = 0;    /**< Slowest render this window (µs). */
   hs::CycleCounter* buffer_wait = nullptr; /**< The effect's *_buffer_wait counter. */
   unsigned long window_start = micros(); /**< Window wall-clock start (µs). */
+#ifdef HS_MINDSPLATTER_REPLAY
+  mindsplatter_replay::FrameStats replay_stats;
+  ClipRegion replay_clip{};
+#endif
 };
 
-// Slightly above Phantasm's shipping per-effect budget: the wrapper adds its
-// profiling bookkeeping on top of the wrapped effect.
-static constexpr size_t MAX_EFFECT_HEAP_BYTES =
-    HS_PHANTASM_EFFECT_HEAP_BYTES + 64;
+// The replay wrapper also carries framebuffer comparison counters.
+static constexpr size_t MAX_EFFECT_HEAP_BYTES = HS_PHANTASM_EFFECT_HEAP_BYTES +
+#ifdef HS_MINDSPLATTER_REPLAY
+                                                192;
+#else
+                                                64;
+#endif
 
 #ifdef HS_PROFILE_PRESET
 template <typename E> void select_profile_preset(E &effect) {

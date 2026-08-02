@@ -122,6 +122,27 @@ endif()
 
 _hs_sanitize(run_tests)
 
+add_executable(mindsplatter_replay_gen EXCLUDE_FROM_ALL
+  ${HS_ROOT}/tools/mindsplatter_replay_gen.cpp
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+target_compile_definitions(mindsplatter_replay_gen PRIVATE HS_TEST_BUILD)
+target_include_directories(mindsplatter_replay_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_compile_options(mindsplatter_replay_gen PRIVATE
+  -O3 -ffast-math -fno-finite-math-only)
+_hs_warnings(mindsplatter_replay_gen)
+
+add_executable(mindsplatter_replay
+  ${HS_ROOT}/tools/mindsplatter_replay_main.cpp
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+target_compile_definitions(mindsplatter_replay PRIVATE HS_TEST_BUILD)
+target_include_directories(mindsplatter_replay PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_compile_options(mindsplatter_replay PRIVATE
+  -O3 -ffast-math -fno-finite-math-only)
+_hs_warnings(mindsplatter_replay)
+add_test(NAME unit_mindsplatter_replay COMMAND mindsplatter_replay)
+
 # Opt-in Clang source-based coverage for the main suite binary. Default OFF: the
 # instrumentation changes codegen and slows the run, so no gating job may carry
 # it. The "code-coverage" CI job turns it on and publishes an llvm-cov summary —
