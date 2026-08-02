@@ -196,10 +196,9 @@ struct EdgeSpec {
   uint8_t to_node;    /**< Node at the t_to end. */
   uint8_t seed_solid; /**< Solid the op sweeps on (leg seed identity). */
   MorphOp op;         /**< Operator whose parameter the leg sweeps. */
-  float
-      t_from; /**< Parameter at from_node (untabled clamp applies at runtime).
+  float t_from; /**< Parameter at from_node (untabled clamp applies at runtime).
                  */
-  float t_to; /**< Parameter at to_node. */
+  float t_to;   /**< Parameter at to_node. */
   float twist_from; /**< Snub twist at from_node (snub legs only). */
   float twist_to;   /**< Snub twist at to_node (snub legs only). */
   bool settle;      /**< to_node end is the relax(50) canonical form. */

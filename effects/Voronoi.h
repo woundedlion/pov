@@ -352,8 +352,8 @@ private:
       "positions + KD-tree + coarse-grid cells; raise the reserve in "
       "init() or lower MAX_SITES / coarsen COHERENCE_BLOCK");
 
-  int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
-                                  refill, no realloc) when the slider changes. */
+  int current_num_sites = 0;      /**< Count currently seeded; re-seeds (clear +
+                                   refill, no realloc) when the slider changes. */
   ArenaVector<Site> sites_buffer; /**< Active Voronoi sites for the frame. */
 
   /**

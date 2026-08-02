@@ -224,12 +224,12 @@ struct CycleCounter {
   static constexpr uint32_t CYCLES_PER_US =
       600; /**< Core clock: Teensy 4 @ 600 MHz. */
 
-  const char *name;    /**< Counter label used in log output. */
-  uint64_t cycles = 0; /**< Accumulated cycle count. 64-bit because a
-                                        32-bit accumulator overflows after only
-                                        ~7 s of summed time at 600 MHz, which a
-                                        multi-frame profiling run easily exceeds. */
-  uint32_t count = 0;  /**< Number of timed invocations. */
+  const char *name;               /**< Counter label used in log output. */
+  uint64_t cycles = 0;            /**< Accumulated cycle count. 64-bit because a
+                                         32-bit accumulator overflows after only
+                                         ~7 s of summed time at 600 MHz, which a
+                                         multi-frame profiling run easily exceeds. */
+  uint32_t count = 0;             /**< Number of timed invocations. */
   CycleCounter *parent = nullptr; /**< Enclosing counter for tree nesting. */
   CycleCounter *next =
       nullptr; /**< Next link in the intrusive registry list. */
