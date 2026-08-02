@@ -728,8 +728,8 @@ struct Ring {
   float cos_max, cos_min, cos_target,
       inv_sin_target; /**< Precomputed band trig. */
 
-  float r_val; /**< Horizontal projection length of the axis (for full-row
-                        check). */
+  float r_val;       /**< Horizontal projection length of the axis (for full-row
+                         check). */
   float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
   static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
 
@@ -1126,11 +1126,9 @@ private:
       64; /**< Outward search budget per side; only near-pole chart compression
              approaches it. */
 
-  float
-      chunk_lo[PREFILTER_CHUNKS]; /**< Min knot per azimuth chunk (knot mode).
+  float chunk_lo[PREFILTER_CHUNKS]; /**< Min knot per azimuth chunk (knot mode).
                                      */
-  float
-      chunk_hi[PREFILTER_CHUNKS]; /**< Max knot per azimuth chunk (knot mode).
+  float chunk_hi[PREFILTER_CHUNKS]; /**< Max knot per azimuth chunk (knot mode).
                                      */
 
   /**
