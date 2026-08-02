@@ -209,7 +209,7 @@ buffer** — see §4.3.
 - **R-SYNC-7 — Receiver hysteresis (implemented in firmware).** A slowed edge (R-SYNC-3) into a
   non-hysteresis i.MX RT pad can double-trigger near threshold, so pad **HYS** is enabled on pin 3
   after `pinMode` in [pov_segmented.h](../hardware/pov_segmented.h) (`portControlRegister(PIN_FRAME_SYNC) |=
-  IOMUXC_SW_PAD_CTL_PAD_HYS`). No PCB action — listed so layout/firmware stay paired with C_SYNC.
+  IOMUXC_PAD_HYS`). No PCB action — listed so layout/firmware stay paired with C_SYNC.
 
 ### 4.3 Decision: bus vs. star (resolved — bus)
 The 74AHCT125 sources **±8 mA** (datasheet, AHCT class). Eight ~25 kΩ receive dividers plus the
@@ -418,7 +418,7 @@ hand-soldered by you.
 | U1 | Level shifter | SN74AHCT125 (…DR) | SOIC-14 | **SMD** |
 | C_IN | Electrolytic | ≥100 µF | radial TH | TH (RTV) |
 | C_LF | Ceramic | 22 µF (≥10 µF *effective* after DC-bias derate) | 1206 | **SMD** |
-| R_LF (opt) | Bead-LC damping | 1–2 Ω default (≤4.7 Ω; or lossy bead / ESR cap instead) | 0805 | **SMD** |
+| R_LF (opt) | Bead-LC damping | 1–2 Ω (≤2 Ω; or lossy bead / ESR cap instead) | 0805 | **SMD** |
 | C_DEC1,2 | Ceramic | 0.1 µF | 0603/0805 | **SMD** |
 | C_SYNC | Ceramic | 220 pF (default-populated; 100 pF–1 nF tunable) | 0603 | **SMD** |
 | R_D1, R_D2 | Series term | 33 Ω | 0603/0805 | **SMD** |
@@ -463,6 +463,7 @@ hand-soldered by you.
 | **SYNC_PULLDOWN** | U1 chD output → R_PD bottom; LOW only on the master, high-impedance on slaves |
 | **ID0** | Teensy 21 → strap pad (→GND per role); firmware enables the internal pull-up |
 | **ID1** | Teensy 22 → strap pad (→GND per role) |
+| **ID2** | Teensy 23 → strap pad (→GND per role) |
 
 > **Pin 3 is one physical node.** `SYNC_OUT` and `SYNC_RX` are the two roles of the *same* Teensy
 > pin-3 net: the master drives it (pin 3 = OUTPUT → ch C), slaves sense the bus through the divider
