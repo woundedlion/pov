@@ -70,12 +70,12 @@ frame                  120.94 ms  72.57 Mcyc  100%
     feedback_litscan      0.00 ms
   mf_mesh_draw            6.09 ms   3.65 Mcyc    5%
   mf_timeline_step        0.03 ms
-  mf_buffer_wait         38.70 ms  23.22 Mcyc   32%
+  canvas_buffer_wait     38.70 ms  23.22 Mcyc   32%
 ```
 
 Render avg **82.25 ms**, peak **89.91 ms**, spilled **243/286 frames (85%)** —
-a hard 8 fps hold. `mf_buffer_wait` is the round-up idle to the second display
-window, not work.
+a hard 8 fps hold. `canvas_buffer_wait` is the engine-side round-up idle to the
+second display window, not effect work.
 
 Composite residual (composite minus its four children) is **11.51 ms**, ~17% of
 the composite: loop scaffolding, the `NEAR_BLACK` test on every pixel, the
@@ -94,30 +94,13 @@ overhead.
 - Sampling, the warp field, the writes and the mesh together are only
   **19.5 ms** — a quarter of the render.
 
-## The controlling comparison: Swirling
+## Colour-path conclusion
 
-Same effect, same canvas, same sampler, same warp machinery — the only
-difference is `plain_fade` instead of `hue_fade`:
-
-| style | lit % | out-of-gamut % | colour ms | gamut ms | sample ms | populate ms | flush ms |
-|---|--:|--:|--:|--:|--:|--:|--:|
-| Smoke | 92.8 | 17.2 | 43.25 | 21.57 | 9.34 | 7.92 | **76.12** |
-| Drift | 91.9 | 12.7 | 35.93 | 15.00 | 9.13 | 7.47 | 67.73 |
-| Churn | 94.3 | 9.8 | 33.69 | 11.69 | 9.38 | 7.58 | 66.30 |
-| Melting | 90.5 | 6.7 | 28.25 | 7.22 | 9.38 | 9.15 | 62.31 |
-| SlowTwist | 95.2 | 9.9 | 34.43 | 11.91 | 9.55 | 0.03 | 59.95 |
-| Shatter | 84.3 | 11.3 | 32.14 | 12.91 | 9.10 | 0.00 | 56.23 |
-| Frozen | 60.8 | 16.9 | 27.51 | 13.74 | 8.99 | 0.00 | 50.69 |
-| Swirling | 95.6 | 0.0 | **0.97** | 0.00 | 10.25 | 9.37 | **36.02** |
-
-Swirling samples *more* pixels than Smoke and populates a *more* expensive warp
-field, yet its flush is 40.10 ms cheaper — and its colour transform is 42.28 ms
-cheaper. **The entire Smoke-vs-Swirling gap is the colour transform.** Give
-Smoke a `plain_fade`-class colour cost and its flush lands at ~34 ms, render
-~40 ms, comfortably 16 fps.
-
-That sets the strategy: the target is reachable through colour alone, and is
-*not* reachable without touching colour.
+Smoke's deep capture places 43.25 ms in the colour transform, including
+21.57 ms in gamut clipping. The current 12-preset roster binds every style to
+`hue_fade`; there is no `plain_fade` control preset. The actionable conclusion
+is therefore limited to the measured Smoke profile: colour and gamut clipping
+are its largest optimization surface.
 
 ## Two findings that outlived the levers
 
@@ -347,17 +330,6 @@ materially better. Captured at the same 300 s / window 16 / epoch 2900:
 | Smoke flush | 78.84 ms | **60.31 ms** |
 | cadence buckets | 6 red, 1 yellow, 1 green | **1 red, 3 yellow, 4 green** |
 
-| # | style | peak render | spilled | cadence |
-|---|---|--:|--:|---|
-| 4 | Smoke | 70.20 | 422/572 | 🔴 |
-| 1 | Melting | 64.74 | 5/572 | 🟡 |
-| 7 | Drift | 63.55 | 4/317 | 🟡 |
-| 3 | Churn | 63.19 | 4/572 | 🟡 |
-| 0 | SlowTwist | 56.20 | 0/571 | 🟢 |
-| 6 | Shatter | 55.80 | 0/572 | 🟢 |
-| 5 | Frozen | 48.79 | 0/572 | 🟢 |
-| 2 | Swirling | 37.70 | 0/572 | 🟢 |
-
 At this intermediate capture, **five of eight styles held 16 fps outright**
 (was two), and the three yellows spilled under 1% of their frames. Smoke still
 slipped a tier, 11.2 ms above the 59 ms target rather than the 17.5 ms the
@@ -413,16 +385,11 @@ about **25 ms remaining**.
 
 The two candidates identified at that stage, in order of preference:
 
-1. **L5b / L5a — replace the per-pixel OKLab chain** (−18 to −37 ms). Still the
-   only single lever that reaches the target. The Swirling comparison bounds it
-   from measurement rather than modelling: same sampler, same warp, `plain_fade`
-   instead of `hue_fade`, 36.02 ms flush against Smoke's original 76.12.
+1. **L5b / L5a — replace the per-pixel OKLab chain** (−18 to −37 ms estimated).
 2. **Bisection iterations 16 → 8** (~−10.8 ms). Now the top *non-look* lever,
    and it is a direct consequence of the L1 finding: halving a serial chain
    halves the scope even though halving its per-iteration flops did nothing.
-   Combined with L5 it would clear the window with margin, and would likely pull
-   Drift, Churn, Melting and SlowTwist under 62.5 ms too — they share the colour
-   path.
+   Combined with L5 it was projected to clear the window with margin.
 
 L4 (temporal warp reuse, ~−3.3 ms) and L6 (coarser downsample, ~−3.5 ms) were
 also left as look-changing candidates at that stage.
