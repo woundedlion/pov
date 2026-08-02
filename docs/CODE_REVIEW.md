@@ -417,7 +417,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 163. ✅ **DRC gate regex-parses English report text, discards the exit code it asked for, and its failure escapes as a traceback** — `hardware/phantasm/gen/fab.py:209-214, 229-232, 596-600`. `run_drc` passes `--exit-code-violations` then `check=False`; `require_clean_drc` raises a `RuntimeError` that `main` alone among the validators does not wrap; and the `[1/6]` step counter omits the three validations that run first. `run_parity` twenty lines below already uses `--format json`.
 
-164. **Malformed s-expression input raises bare `IndexError` from parser internals** — `hardware/phantasm/gen/sexp.py:50-67`. Only `board_metadata.parse_board` catches it; `fab.py`'s three validators catch `ValueError` and list `IndexError` nowhere, so a truncated `.kicad_pcb` bypasses their careful diagnostics. Raise a `ValueError` with the token offset.
+164. ✅ **Malformed s-expression input raises bare `IndexError` from parser internals** — `hardware/phantasm/gen/sexp.py:50-67`. Only `board_metadata.parse_board` catches it; `fab.py`'s three validators catch `ValueError` and list `IndexError` nowhere, so a truncated `.kicad_pcb` bypasses their careful diagnostics. Raise a `ValueError` with the token offset. — FIXED: truncated lists now raise `ValueError` with the failing token offset.
 
 165. **`_val` is a de-facto public API consumed under a private name by five modules** — `hardware/phantasm/gen/sexp.py:119-123`. Imported and called from `shorts.py`, `check.py`, `fab.py`, `pcb.py` and `builder.py` — more call sites than most public helpers in the package. Its sibling `kicad_common.F` is public.
 

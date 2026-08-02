@@ -65,10 +65,16 @@ def parse(s):
     pos = [0]
 
     def rd():
+        if pos[0] >= len(toks):
+            raise ValueError(f"unexpected end of input at token {pos[0]}")
         t = toks[pos[0]]; pos[0] += 1
         if t == "(":
             lst = []
-            while toks[pos[0]] != ")":
+            while True:
+                if pos[0] >= len(toks):
+                    raise ValueError(f"unexpected end of input at token {pos[0]}")
+                if toks[pos[0]] == ")":
+                    break
                 lst.append(rd())
             pos[0] += 1
             return lst
