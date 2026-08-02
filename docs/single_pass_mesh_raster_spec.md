@@ -176,13 +176,10 @@ concentrate on faces whose extent is already tight (13.74 declined vs 19.00
 emitted on solid 11). Not a quadrant artifact — full-frame shows the same
 mechanism, milder.
 
-**Consequence — a latent correctness bug in the CURRENT renderer.** The
-whole-face extent path pads by a constant `1.25 * (2*PI/W)` regardless of
-latitude (`Face::get_horizontal_intervals`), when covering a one-pixel arc
-fringe requires `1.25/sin(phi)` columns. Master therefore **clips AA fringe
-near the poles**. This is almost certainly the unexplained observation that
-per-row spans painted 1-19 more pixels/frame than the extent path. Independent
-of any performance work.
+**Resolved consequence.** This audit identified polar AA under-coverage in the
+then-current renderer. `Face::get_horizontal_intervals` now consumes the row
+and widens pole-touching face intervals, so the constant-pad defect described
+by the historical measurements below is no longer open.
 
 **What the audit did NOT overturn:** the floor `N_ideal/N_today = 0.41-0.46`
 is real, and 27-43 % of probed face-rows contribute nothing (26-35 % of
