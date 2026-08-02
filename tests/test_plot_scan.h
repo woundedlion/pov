@@ -21,8 +21,9 @@
  *   - Plot::Star::sample / Flower::sample : unit-length, closed loop.
  *   - PlanarEdgeSampler::one_pass : analytic tangent vs the forward-difference
  *                                 operator(), and tangency/forwardness.
- *   - rasterize<SinglePass=true> : gap-free planar edge, parity with the
- *                                 cached two-pass replay, closed-loop seam.
+ *   - rasterize<SinglePass=true> : gap-free planar and geodesic edges,
+ *                                 endpoints, poles, seams, long arcs, and
+ *                                 quadrant clips.
  */
 #pragma once
 
@@ -127,6 +128,26 @@ inline float max_consecutive_gap(const std::vector<Vector> &pts, bool wrap) {
     worst = std::max(worst, angle_between(pts[i - 1], pts[i]));
   if (wrap && pts.size() >= 2)
     worst = std::max(worst, angle_between(pts.back(), pts.front()));
+  return worst;
+}
+
+/**
+ * @brief Largest seam-wrapped framebuffer-space gap between raster samples.
+ * @details Longitude is ignored inside the two-row pole cap, where azimuth is
+ * undefined and all columns meet.
+ */
+template <int W, int H>
+inline float max_projected_gap(const std::vector<Vector> &points) {
+  float worst = 0.0f;
+  for (size_t i = 1; i < points.size(); ++i) {
+    const PixelCoords a = vector_to_pixel<W, H>(points[i - 1]);
+    const PixelCoords b = vector_to_pixel<W, H>(points[i]);
+    float dx = std::abs(a.x - b.x);
+    dx = std::min(dx, static_cast<float>(W) - dx);
+    if (a.y < 2.0f || b.y < 2.0f || a.y > H - 3.0f || b.y > H - 3.0f)
+      dx = 0.0f;
+    worst = std::max(worst, std::hypot(dx, a.y - b.y));
+  }
   return worst;
 }
 
@@ -3981,6 +4002,171 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   }
 }
 
+/** @brief Single-pass geodesics preserve the open-line endpoint contract. */
+inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
+  constexpr int W = 128, H = 64;
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 2);
+
+  Fragment a, b;
+  a.pos = Vector(0.8f, 0.3f, 0.5196152f).normalized();
+  b.pos = Vector(-0.2f, -0.7f, 0.6855655f).normalized();
+  points.push_back(a);
+  points.push_back(b);
+
+  auto draw = [&](bool omit_end) {
+    hs_test::StubEffect fx(W, H);
+    CapturePipeline pipeline;
+    Canvas canvas(fx);
+    Plot::rasterize<W, H, true>(pipeline, canvas, points, noop_shader,
+                                {.omit_end = omit_end});
+    return pipeline.plotted;
+  };
+  const std::vector<Vector> complete = draw(false);
+  const std::vector<Vector> omitted = draw(true);
+
+  HS_EXPECT_GT(omitted.size(), size_t{2});
+  HS_EXPECT_EQ(complete.size(), omitted.size() + 1);
+  HS_EXPECT_NEAR(angle_between(complete.front(), a.pos), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(angle_between(complete.back(), b.pos), 0.0f, 1e-3f);
+  for (size_t i = 0; i < omitted.size(); ++i)
+    HS_EXPECT_NEAR(angle_between(complete[i], omitted[i]), 0.0f, 1e-3f);
+}
+
+/** @brief Single-pass geodesics remain gap-free at poles, seams, and long arcs. */
+inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
+  constexpr int W = 128, H = 64;
+  auto sphere_point = [](float colatitude, float longitude) {
+    const float radial = sinf(colatitude);
+    return Vector(radial * cosf(longitude), cosf(colatitude),
+                  radial * sinf(longitude))
+        .normalized();
+  };
+  const std::array<std::pair<Vector, Vector>, 6> arcs = {{
+      {Vector(0, 1, 0), sphere_point(0.9f, 1.1f)},
+      {sphere_point(PI_F - 0.8f, -0.7f), Vector(0, -1, 0)},
+      {sphere_point(0.45f, 0.0f), sphere_point(0.45f, PI_F)},
+      {sphere_point(1.2f, PI_F - 0.12f),
+       sphere_point(1.3f, -PI_F + 0.14f)},
+      {sphere_point(0.35f, -1.0f), sphere_point(PI_F - 0.4f, 2.05f)},
+      {sphere_point(1.0f, 0.25f), sphere_point(2.1f, PI_F - 0.25f)},
+  }};
+
+  for (const auto &[start, end] : arcs) {
+    hs_test::StubEffect fx(W, H);
+    ScratchScope sc(plot_arena());
+    Fragments points;
+    points.bind(plot_arena(), 2);
+    Fragment a, b;
+    a.pos = start;
+    b.pos = end;
+    points.push_back(a);
+    points.push_back(b);
+
+    CapturePipeline pipeline;
+    Canvas canvas(fx);
+    Plot::rasterize<W, H, true>(pipeline, canvas, points, noop_shader);
+
+    HS_EXPECT_GT(pipeline.plotted.size(), size_t{2});
+    HS_EXPECT_LE((max_projected_gap<W, H>(pipeline.plotted)), 1.5f);
+    HS_EXPECT_NEAR(angle_between(pipeline.plotted.front(), start), 0.0f,
+                   1e-3f);
+    HS_EXPECT_NEAR(angle_between(pipeline.plotted.back(), end), 0.0f, 1e-3f);
+    for (const Vector &p : pipeline.plotted)
+      HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+  }
+}
+
+/**
+ * @brief Single-pass direct-AA quadrant renders match the corresponding full
+ *        render pixels.
+ */
+inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
+  constexpr int W = 96, H = 48;
+  const std::array<std::pair<int, int>, 10> control_pixels = {{
+      {4, 4},
+      {W / 2 - 5, H / 2 - 5},
+      {W / 2 + 5, 5},
+      {W - 5, H / 2 - 5},
+      {W - 5, H / 2 + 5},
+      {W / 2 + 5, H - 5},
+      {W / 2 - 5, H / 2 + 5},
+      {5, H - 5},
+      {2, H / 2},
+      {W - 2, H / 2},
+  }};
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 0.8f);
+  };
+  auto render = [&](hs_test::StubEffect &fx) {
+    Filter::Screen::DirectAntiAliasSink<W, H> sink;
+    ScratchScope sc(plot_arena());
+    Fragments points;
+    points.bind(plot_arena(), control_pixels.size());
+    for (const auto &[x, y] : control_pixels) {
+      Fragment f;
+      f.pos = pixel_to_vector<W, H>(x, y);
+      points.push_back(f);
+    }
+
+    Canvas canvas(fx);
+    sink.prepare(canvas);
+    const ClipRegion &clip = canvas.clip();
+    const ClipRegion::XClip x_clip = clip.x_clip();
+    const int band_len =
+        x_clip.wrap ? x_clip.re - x_clip.rs + W : x_clip.re - x_clip.rs;
+    std::array<uint8_t, control_pixels.size() - 1> bits{};
+    const uint8_t *visible = nullptr;
+    if (!clip.is_full()) {
+      if (!Plot::gate_trail_edges<W, H>(sink, clip, x_clip, band_len, points,
+                                        bits.data()))
+        return;
+      visible = bits.data();
+    }
+    Plot::rasterize<W, H, true>(sink, canvas, points, shade,
+                                {.edge_visible = visible});
+  };
+
+  std::vector<Pixel> reference(static_cast<size_t>(W) * H);
+  {
+    hs_test::StubEffect fx(W, H);
+    render(fx);
+    fx.advance_display();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        reference[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  }
+
+  const int quadrants[4][4] = {
+      {0, H / 2, 0, W / 2},
+      {0, H / 2, W / 2, W},
+      {H / 2, H, 0, W / 2},
+      {H / 2, H, W / 2, W},
+  };
+  for (const auto &quadrant : quadrants) {
+    hs_test::StubEffect fx(W, H);
+    fx.set_clip(quadrant[0], quadrant[1], quadrant[2], quadrant[3]);
+    render(fx);
+    fx.advance_display();
+    int lit = 0;
+    int differences = 0;
+    for (int y = quadrant[0]; y < quadrant[1]; ++y) {
+      for (int x = quadrant[2]; x < quadrant[3]; ++x) {
+        const Pixel actual = fx.get_pixel(x, y);
+        const Pixel &expected = reference[static_cast<size_t>(y) * W + x];
+        if (expected.r | expected.g | expected.b)
+          ++lit;
+        if (actual.r != expected.r || actual.g != expected.g ||
+            actual.b != expected.b)
+          ++differences;
+      }
+    }
+    HS_EXPECT_GT(lit, 10);
+    HS_EXPECT_EQ(differences, 0);
+  }
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -4066,6 +4252,9 @@ inline int run_plot_scan_tests() {
   test_planar_one_pass_tangent_is_forward_and_orthogonal();
   test_rasterize_single_pass_planar_matches_two_pass();
   test_rasterize_single_pass_closed_loop_matches_two_pass();
+  test_rasterize_single_pass_geodesic_endpoints_and_omit_end();
+  test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free();
+  test_rasterize_single_pass_geodesic_quadrant_clip_parity();
 
   return fixture.result();
 }

@@ -15,15 +15,26 @@ struct FrameStats {
   uint64_t framebuffer_hash = 1469598103934665603ull;
   uint64_t expected_hash = 1469598103934665603ull;
   uint64_t total_absolute_error = 0;
+  uint64_t total_luminance_error = 0;
+  uint64_t coverage_luminance_error = 0;
+  int64_t luminance_bias = 0;
   uint32_t changed_pixels = 0;
   uint32_t changed_channels = 0;
+  uint32_t added_pixels = 0;
+  uint32_t dropped_pixels = 0;
   uint16_t max_channel_error = 0;
+  uint16_t max_coverage_luminance = 0;
   ClipRegion clip{};
 };
 
 inline uint64_t hash_channel(uint64_t hash, uint16_t channel) {
   hash = (hash ^ static_cast<uint8_t>(channel)) * 1099511628211ull;
   return (hash ^ static_cast<uint8_t>(channel >> 8)) * 1099511628211ull;
+}
+
+inline uint16_t linear_luminance(uint16_t r, uint16_t g, uint16_t b) {
+  return static_cast<uint16_t>(
+      (13933u * r + 46871u * g + 4732u * b + 32768u) >> 16);
 }
 
 template <int W, typename GoldenPixel>
@@ -47,6 +58,28 @@ FrameStats compare_frame(const Pixel *pixels, const ClipRegion &clip,
           expected_lit ? expected[expected_index].g : uint16_t{0},
           expected_lit ? expected[expected_index].b : uint16_t{0},
       };
+      const bool actual_lit = (pixel.r | pixel.g | pixel.b) != 0;
+      if (actual_lit && !expected_lit)
+        ++stats.added_pixels;
+      if (!actual_lit && expected_lit)
+        ++stats.dropped_pixels;
+      const uint16_t actual_luminance =
+          linear_luminance(actual[0], actual[1], actual[2]);
+      const uint16_t reference_luminance =
+          linear_luminance(reference[0], reference[1], reference[2]);
+      stats.total_luminance_error +=
+          actual_luminance > reference_luminance
+              ? actual_luminance - reference_luminance
+              : reference_luminance - actual_luminance;
+      stats.luminance_bias += static_cast<int32_t>(actual_luminance) -
+                              static_cast<int32_t>(reference_luminance);
+      if (actual_lit != expected_lit) {
+        const uint16_t coverage_error =
+            actual_lit ? actual_luminance : reference_luminance;
+        stats.coverage_luminance_error += coverage_error;
+        stats.max_coverage_luminance =
+            std::max(stats.max_coverage_luminance, coverage_error);
+      }
       bool changed = false;
       for (int channel = 0; channel < 3; ++channel) {
         stats.framebuffer_hash =
