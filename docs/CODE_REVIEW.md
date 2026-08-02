@@ -593,7 +593,7 @@ A supplementary line-by-line audit of every file under `docs/` (excluding this d
 
 247. ✅ **`meshfeedback_smoke_optimization.md` states Smoke's `hue_shift` nearly 10× too small, invalidating a lever's argument** — `:288-291` says "0.01 turn — 3.6°"; `core/engine/styles.h:194-197` gives 0.09491219 turn ≈ 34.2°. L5b's small-angle approximation argument rests on the wrong figure.
 
-248. **`selective_o3_spec.md`'s banner contradicts its own ledger** — `docs/selective_o3_spec.md:3-8` scopes the landing to "R1 sink, the fused scan drivers from R2" over `47090612..7284bb09` and declares "the full R1–R6 set is measured-unaffordable". §7 (`:559-579`) then records six further ✅ landings after that range including R3, R4, R5, R7 and R8, and `git grep HS_O3_BEGIN` confirms regions across ten headers. The status date and commit range are five days and eight commits stale.
+248. ✅ **`selective_o3_spec.md`'s banner contradicts its own ledger** — `docs/selective_o3_spec.md:3-8` scopes the landing to "R1 sink, the fused scan drivers from R2" over `47090612..7284bb09` and declares "the full R1–R6 set is measured-unaffordable". §7 (`:559-579`) then records six further ✅ landings after that range including R3, R4, R5, R7 and R8, and `git grep HS_O3_BEGIN` confirms regions across ten headers. The status date and commit range are five days and eight commits stale.
 
 249. **`selective_o3_spec.md` §3's hard invariant is falsified by §7 and by the shipped tree** — `:81-84` declares "A 6th ITCM bank is a hard failure … the image cannot even link/boot"; `:575` records landing "+19,664 (6th ITCM bank)", and `tools/teensy_budgets.json` ships exactly that configuration. `:102-104` and `:703-704` are contradicted with it.
 
