@@ -13,13 +13,13 @@ the whole sphere, without giving back the 2026-07-20 GREEN device profile
 
 Per flush (`Filter::Pixel::Feedback` in `core/render/filter.h`):
 
-1. `populate_warp_field` (~line 1565): for each coarse point (ds=4 grid),
+1. `populate_warp_field` (~line 1960): for each coarse point (ds=4 grid),
    reconstruct the sphere point `v = pixel_to_vector(x, y)`, warp it on the
    sphere (`noise_warp` / `melt_warp` — both are tangent-plane slides, fully
    isotropic in 3D), then project the warped vector back to equirect and store
    **equirect pixel offsets** `(projected_x − x, projected_y − y)` as int16
    (`WARP_SCALE = 128`, ±255 px range).
-2. `composite_previous_frame` (~line 1606): bilinearly upsample the offsets
+2. `composite_previous_frame` (~line 2038): bilinearly upsample the offsets
    (with a 3-branch seam-unwrap per coarse cell anchored on `d00`), add to the
    pixel coordinate, and `sample_bilinear_prev` the previous frame there.
    Rows outside `[0, H)` contribute **black**.
@@ -103,7 +103,7 @@ shape as today), and `ddx = lerp(δe) · Sx[y]` where
 or a small per-flush table). The 1/sin(φ) factor — the thing that cannot be
 interpolated — is now applied *exactly, per pixel*, while interpolation happens
 only on smooth quantities. Cost: **+1 multiply per pixel**; in exchange the
-entire per-cell `WRAP_PERIOD` 3-branch unwrap block (filter.h ~1666–1682)
+entire per-cell `WRAP_PERIOD` 3-branch unwrap block (filter.h ~2059–2129)
 is deleted — tangent components never wrap, including across the x=0 seam.
 
 Pole rows (`sin φ = 0`: row 0 always; row H−1 host-only): clamp `Sx` to the
@@ -199,8 +199,7 @@ serve as the *test oracle* instead (see below).
 ## Measured outcome — D1 rejected (2026-07-23)
 
 D1 was implemented as specified and measured against the current path. It is a
-large regression for 5 of the 8 shipped presets and must not land. The patch is
-kept at `scratchpad/pole-isotropy/d1-d2-tangent-warp.patch`.
+large regression for 5 of the 8 shipped presets and must not land.
 
 ### The flaw
 
