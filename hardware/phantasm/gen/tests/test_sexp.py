@@ -33,5 +33,11 @@ class StringEscapeTests(unittest.TestCase):
             sexp.parse('(a "value\\q")')
 
 
+class ParseTests(unittest.TestCase):
+    def test_truncated_list_reports_token_offset(self):
+        with self.assertRaisesRegex(ValueError, r"unexpected end of input at token 5"):
+            sexp.parse("(root (child)")
+
+
 if __name__ == "__main__":
     unittest.main()
