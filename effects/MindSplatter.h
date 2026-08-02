@@ -486,9 +486,16 @@ private:
         return;
       }
 #endif
-      Plot::ParticleSystem::draw_fused_vertex<W, H>(
-          sink, canvas, particle_system, fragment_shader, vertex_shader,
-          hole_shader, particle_v2);
+      using DirectSink = Filter::Screen::DirectAntiAliasSink<W, H>;
+      if constexpr (std::same_as<std::remove_cvref_t<Sink>, DirectSink>) {
+        Plot::ParticleSystem::draw_fused_vertex<W, H, true>(
+            sink, canvas, particle_system, fragment_shader, vertex_shader,
+            hole_shader, particle_v2);
+      } else {
+        Plot::ParticleSystem::draw_fused_vertex<W, H>(
+            sink, canvas, particle_system, fragment_shader, vertex_shader,
+            hole_shader, particle_v2);
+      }
     }
   }
 

@@ -3448,6 +3448,7 @@ struct ParticleSystem {
    *        index.
    */
   template <int W, int H, bool HoistableCull, bool FuseVertex,
+            bool SinglePassRaster,
             typename PipelineT, typename SystemT, typename FragmentShaderT,
             typename VertexShaderFn, typename ParticleV2Fn>
   static void
@@ -3638,10 +3639,11 @@ struct ParticleSystem {
       }
       {
         HS_PROFILE(plot_ps_raster);
-        rasterize<W, H>(pipeline, canvas, trail, fragment_shader,
-                        {.edge_visible = vis,
-                         .point_rows = dot_rows,
-                         .point_cols = dot_cols});
+        rasterize<W, H, SinglePassRaster>(
+            pipeline, canvas, trail, fragment_shader,
+            {.edge_visible = vis,
+             .point_rows = dot_rows,
+             .point_cols = dot_cols});
       }
     }
   }
@@ -3661,12 +3663,12 @@ struct ParticleSystem {
                    DeferredShaderRef deferred_shader = {},
                    ParticleV2Fn particle_v2 = nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
-      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false>(
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false, false>(
           pipeline, canvas, system, fragment_shader, vertex_shader,
           deferred_shader, particle_v2);
     } else {
       PipelineRef erased(pipeline);
-      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false>(
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), false, false>(
           erased, canvas, system, fragment_shader, vertex_shader,
           deferred_shader, particle_v2);
     }
@@ -3676,6 +3678,8 @@ struct ParticleSystem {
    * @brief Draws particle trails while applying a typed vertex shader during
    *        trail materialization.
    * @details Fuses point materialization and transformation into one traversal.
+   * @tparam SinglePassRaster Emit adaptive geodesic samples without a replay
+   *         cache. Applies only to a direct raster pipeline.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param system Particle system supplying the active pool and trail history.
@@ -3684,7 +3688,8 @@ struct ParticleSystem {
    * @param deferred_shader Optional deferred vertex shader.
    * @param particle_v2 Optional particle-to-v2 mapper.
    */
-  template <int W, int H, typename PipelineT, typename FragmentShaderT,
+  template <int W, int H, bool SinglePassRaster = false, typename PipelineT,
+            typename FragmentShaderT,
             typename VertexShaderFn, typename ParticleV2Fn = std::nullptr_t>
   static void draw_fused_vertex(PipelineT &pipeline, Canvas &canvas,
                                 const auto &system,
@@ -3693,13 +3698,14 @@ struct ParticleSystem {
                                 DeferredShaderRef deferred_shader = {},
                                 ParticleV2Fn particle_v2 = nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
-      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true>(
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true,
+                SinglePassRaster>(
           pipeline, canvas, system, fragment_shader, vertex_shader,
           deferred_shader, particle_v2);
     } else {
       PipelineRef erased(pipeline);
       FragmentShaderFn erased_shader(fragment_shader);
-      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true>(
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true, false>(
           erased, canvas, system, erased_shader, vertex_shader, deferred_shader,
           particle_v2);
     }

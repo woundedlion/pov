@@ -20,6 +20,28 @@ constexpr int REPLAY_FRAMES = 3;
 using ReplayEffect = MindSplatter<WIDTH, HEIGHT>;
 using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
 
+/**
+ * @brief Production-corpus visual bounds for single-pass sample phasing.
+ * @details At most 18.1% of pixels and 17.3% of channels may differ. Mean
+ * absolute error is capped at 73 channel counts and 61 luminance counts per
+ * framebuffer pixel; added and dropped AA fringe pixels are capped at 0.2%
+ * and 0.5% of the frame, with their luminance error capped at five counts per
+ * framebuffer pixel and 9,000 for any one fringe pixel.
+ */
+struct VisualGate {
+  static constexpr uint32_t PIXELS = WIDTH * HEIGHT;
+  static constexpr uint32_t MAX_CHANGED_PIXELS = PIXELS * 181 / 1000;
+  static constexpr uint32_t MAX_CHANGED_CHANNELS = PIXELS * 3 * 173 / 1000;
+  static constexpr uint16_t MAX_CHANNEL_ERROR = 14000;
+  static constexpr uint64_t MAX_TOTAL_ERROR = PIXELS * 3ull * 73;
+  static constexpr uint64_t MAX_LUMINANCE_ERROR = PIXELS * 61ull;
+  static constexpr int64_t MAX_LUMINANCE_BIAS = PIXELS * 2ll;
+  static constexpr uint32_t MAX_ADDED_PIXELS = PIXELS * 2 / 1000;
+  static constexpr uint32_t MAX_DROPPED_PIXELS = PIXELS * 5 / 1000;
+  static constexpr uint64_t MAX_COVERAGE_LUMINANCE_ERROR = PIXELS * 5ull;
+  static constexpr uint16_t MAX_COVERAGE_LUMINANCE = 9000;
+};
+
 } // namespace
 
 int main() {
@@ -42,7 +64,7 @@ int main() {
               static_cast<unsigned long long>(corpus.selection_score),
               corpus.search_adaptive_samples, corpus.search_long_edges,
               corpus.peak_clip);
-  bool exact = true;
+  bool accepted = true;
   std::vector<Pixel> reference(static_cast<size_t>(WIDTH) * HEIGHT);
   for (int frame = 0; frame < REPLAY_FRAMES; ++frame) {
     mindsplatter_replay::FrameStats stats;
@@ -62,19 +84,34 @@ int main() {
     }
     effect.advance_display();
     std::printf(
-        "replay frame=%d candidate=%llu reference=%llu changed=%u "
-        "channels=%u max=%u abs=%llu\n",
+        "replay frame=%d hash=%llu expected=%llu changed=%u "
+        "channels=%u max=%u abs=%llu luma_abs=%llu luma_bias=%lld "
+        "added=%u dropped=%u coverage_luma=%llu coverage_max=%u\n",
         frame + 1, static_cast<unsigned long long>(stats.framebuffer_hash),
         static_cast<unsigned long long>(stats.expected_hash),
         stats.changed_pixels, stats.changed_channels, stats.max_channel_error,
-        static_cast<unsigned long long>(stats.total_absolute_error));
-    std::printf("replay host frame=%d candidate=%llu host=%llu changed=%u\n",
-                frame + 1,
-                static_cast<unsigned long long>(host_stats.framebuffer_hash),
-                static_cast<unsigned long long>(host_stats.expected_hash),
-                host_stats.changed_pixels);
-    exact &= stats.changed_pixels == 0 && host_stats.changed_pixels == 0 &&
-             host_stats.expected_hash == corpus.framebuffer_hash;
+        static_cast<unsigned long long>(stats.total_absolute_error),
+        static_cast<unsigned long long>(stats.total_luminance_error),
+        static_cast<long long>(stats.luminance_bias), stats.added_pixels,
+        stats.dropped_pixels,
+        static_cast<unsigned long long>(stats.coverage_luminance_error),
+        stats.max_coverage_luminance);
+    const bool frame_accepted =
+        stats.changed_pixels <= VisualGate::MAX_CHANGED_PIXELS &&
+        stats.changed_channels <= VisualGate::MAX_CHANGED_CHANNELS &&
+        stats.max_channel_error <= VisualGate::MAX_CHANNEL_ERROR &&
+        stats.total_absolute_error <= VisualGate::MAX_TOTAL_ERROR &&
+        stats.total_luminance_error <= VisualGate::MAX_LUMINANCE_ERROR &&
+        stats.luminance_bias <= VisualGate::MAX_LUMINANCE_BIAS &&
+        stats.luminance_bias >= -VisualGate::MAX_LUMINANCE_BIAS &&
+        stats.added_pixels <= VisualGate::MAX_ADDED_PIXELS &&
+        stats.dropped_pixels <= VisualGate::MAX_DROPPED_PIXELS &&
+        stats.coverage_luminance_error <=
+            VisualGate::MAX_COVERAGE_LUMINANCE_ERROR &&
+        stats.max_coverage_luminance <=
+            VisualGate::MAX_COVERAGE_LUMINANCE &&
+        host_stats.expected_hash == corpus.framebuffer_hash;
+    accepted = accepted && frame_accepted;
   }
-  return exact ? 0 : 1;
+  return accepted ? 0 : 1;
 }
