@@ -41,15 +41,19 @@ jobs:
           - &shard1_entry
             shard: 1
             test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|partition_seam|hankin|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes)$"
+            test_exclude: &generated_exclude "^unit_(color_luts|color_luts_check|gamut_lut)$"
           - &shard2_entry
             shard: 2
             test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|gamut_lut|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|relax_bake_verify)$"
+            test_exclude: *generated_exclude
           - &shard3_entry
             shard: 3
-            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|generators|animation|effects|h_offset_renorm|stack_budget|arena_budget)$"
+            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|generators|animation|effects|shapeshifter_oracle|h_offset_renorm|stack_budget|arena_budget)$"
+            test_exclude: *generated_exclude
           - &shard4_entry
             shard: 4
             test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|util|presets|styles|shading|death|conway_morph)$"
+            test_exclude: *generated_exclude
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
     runs-on: ubuntu-24.04
@@ -244,9 +248,8 @@ jobs:
         # *shard_matrix.
         # The fifth entry is the float-configuration axis, not a fifth shard:
         # it compiles the whole suite with the flag pair both shipping targets
-        # use (platformio.ini, CMakeLists.txt) and runs every test in one job,
-        # so the axis costs one runner instead of four. `.` matches every test
-        # name, so a newly registered test joins this leg with no regex edit.
+        # use (platformio.ini, CMakeLists.txt) and runs compatible tests in one
+        # job, so the axis costs one runner instead of four.
         include:
           - *shard1_entry
           - *shard2_entry
@@ -254,6 +257,9 @@ jobs:
           - *shard4_entry
           - shard: fastmath
             test_regex: "."
+            # These modules assert IEEE-reference equivalence that reassociation
+            # does not preserve.
+            test_exclude: "^unit_(3dmath|sdf|effects|color_luts|color_luts_check|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only
     # The `tests` preset pins Debug, and the jobs above all reuse it, so every
     # assertion in the suite runs at -O0: UB the optimizer acts on, and FP
@@ -311,10 +317,8 @@ jobs:
         run: ccache -sv
 
       - name: Test
-        # Same deep window and full effects tier as the Debug jobs, so the
-        # optimized run covers the same code paths they do.
-        # Exclude generated-artifact gates for the same reason as sanitizers:
-        # this job neither provisions numpy nor enables HS_REQUIRE_GENERATORS.
+        # Numbered shards use the same deep window and full effects tier as Debug.
+        # Each matrix entry excludes tests incompatible with its configuration.
         # --no-tests=error for the same reason as the tests job.
         env:
           HS_SMOKE_FRAMES: 120
@@ -322,7 +326,7 @@ jobs:
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
-          -E "^unit_(color_luts|color_luts_check|gamut_lut)$"
+          -E "${{ matrix.test_exclude }}"
 
   code-coverage:
     name: Native unit tests (Clang) / llvm-cov summary
