@@ -1,9 +1,12 @@
 # OpChainMorph — Op-by-Op Morphing Generation of Solids — Design Spec
 
-Status: **LANDED.** Implemented across merges 810db7c6, 1138ff8e and 661f1a78;
-`effects/IslamicStars.h`, `core/animation/opleg.h` and `core/mesh/recipe.h` cite
-its sections as the shipped design. §3 and §12 record constraints and dead ends
-established against the renderer; read them before §10.
+Status: **HISTORICAL DESIGN WITH LANDED OUTCOMES.** The op-chain morph feature
+landed across merges 810db7c6, 1138ff8e and 661f1a78, but the exploratory names,
+constants, memory plans and phase descriptions below were not maintained as an
+implementation reference. Consult `effects/IslamicStars.h`,
+`core/animation/opleg.h`, `core/mesh/recipe.h` and the current profiling reports
+for shipped behavior. §3 and §12 retain the constraints and dead ends established
+against the renderer.
 
 Goal: a solid should not appear, it should be **built**. Instead of fading a
 finished polyhedron in with `Segue::TerminatorSweep`, the effect starts from the
