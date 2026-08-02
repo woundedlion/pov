@@ -13,7 +13,7 @@ import os
 import sys
 import sexp
 import fab
-from kicad_common import uid, fmt, F, export_netlist, require_writable
+from kicad_common import uid, reset_uid_sequence, fmt, F, export_netlist, require_writable
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
@@ -591,6 +591,7 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
 
 
 def main(unplaced=False, force=False):
+    reset_uid_sequence()
     if not unplaced:
         require_writable(os.path.join(OUT, PCB_FILE), force)
     nlroot = export_netlist(KCLI, SCH)

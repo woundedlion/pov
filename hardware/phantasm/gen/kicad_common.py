@@ -16,6 +16,10 @@ UID_NAMESPACE = _uuid.UUID("73e63115-f1ba-4688-a7e5-5a689c53d6fd")
 _uid_seq = {}
 
 
+def reset_uid_sequence():
+    _uid_seq.clear()
+
+
 def uid():
     """UUID for a generated element, derived from the call site and occurrence.
 

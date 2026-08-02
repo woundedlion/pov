@@ -565,7 +565,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 237. ✅ **`sexp.py` and `pcb.py` pin KiCad 10.0 by absolute Windows path** — `sexp.py:11`, `pcb.py:19`, `analyze_candidates.py:47`. A KiCad upgrade silently changes the inputs, and the third has no search fallback at all despite `fab.find_kicad_cli()` existing two modules away.
 
-238. **`_uid_seq` is process-global and never reset** — `hardware/phantasm/gen/kicad_common.py`. A second `main()` call in one process diverges from the first, undercutting the otherwise-excellent deterministic-UUID scheme.
+238. ✅ **`_uid_seq` is process-global and never reset** — `hardware/phantasm/gen/kicad_common.py`. A second `main()` call in one process diverges from the first, undercutting the otherwise-excellent deterministic-UUID scheme.
 
 239. **`board.py` leans on one/two-letter names and semicolon-joined statements** — `hardware/phantasm/gen/board.py:97, 279-283`, and throughout (`b`, `hw`, `vw`, `tn`, `U`, `J`, `nd`). Separately `pcb.main` uses UPPER_CASE for locals (`PLACE`, `L`, `OUTFILE`, `NOTE`, `HOLES`).
 
