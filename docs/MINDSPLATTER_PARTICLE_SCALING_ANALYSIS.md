@@ -28,9 +28,8 @@ tradeoff.
 
 ## Current baseline
 
-The current four-preset raw capture, `build/prof/mindsplatter_ship.log`, is
-newer than the five-preset July 20 shipping report. It validates a complete
-four-preset cycle:
+The initial four-preset capture used for this sizing analysis validated a
+complete cycle:
 
 - 1,408 frames
 - 58.27 ms peak
@@ -69,9 +68,11 @@ operation, the effect should target 55-56 ms peak rather than 58.9 ms.
 ### Baseline provenance caveat
 
 The detailed July 20 report records commit `5afc18b7`, five presets, 1,728
-frames, and a 59.88 ms peak. The newer raw log reflects the current four-preset
-table and validates a full wrap, but its serial header does not embed a commit
-hash. Use the newer log for workload estimates and capture a fresh explicitly
+frames, and a 59.88 ms peak. The unversioned four-preset capture above recorded
+58.27 ms; the later compact-materialization A/B below reused
+`build/prof/mindsplatter_ship.log` and recorded a 71.70 ms shipping peak. The
+path is mutable and neither serial header embeds a commit hash, so these are
+separate captures rather than one baseline. Capture a fresh explicitly
 versioned baseline before landing an optimization.
 
 ## Capacity is presently RAM-blocked
@@ -169,6 +170,7 @@ The one-dot path still copies complete 48-byte `Fragment` objects onto its
 large stack frame before invoking the shader:
 
 ```asm
+153d4: bl       DirectAntiAliasSink::plot
 153e4: ldmia.w ip!, {r0-r3}
 153e8: stmia.w r5!, {r0-r3}
 153ea: ldmia.w ip!, {r0-r3}
@@ -177,8 +179,6 @@ large stack frame before invoking the shader:
 153f4: stmia.w r5,  {r0-r3}         ; 48-byte Fragment copy
 ...
 15408: blx      r9                   ; fragment shader callback
-...
-153d4: bl       DirectAntiAliasSink::plot
 ```
 
 This is the main remaining compiler-visible structural problem: the dominant
@@ -235,6 +235,10 @@ The analyzed full-roster ELF has 189,696 bytes of ITCM code, only 6,912 bytes
 below the 196,608-byte bank boundary. Crossing that boundary allocates another
 32 KiB FlexRAM bank to ITCM and removes it from DTCM. With 314,176 bytes of
 RAM1 variables, that would make the image fail to fit.
+
+The compact-materialization experiment below used a different temporary
+full-roster baseline of 189,784 bytes; its 88-byte difference is build lineage,
+not growth attributed to the prototype.
 
 Any specialized kernel must replace or outline existing hot code rather than
 simply adding another broad specialization.
