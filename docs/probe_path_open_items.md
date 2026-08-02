@@ -250,59 +250,11 @@ difference can flush to zero on device where no host A/B would catch it.
 
 ---
 
-## TASK B — latent polar AA under-coverage (correctness)
+## TASK B — resolved polar AA under-coverage
 
-**The bug.** `SDF::Face::get_horizontal_intervals` (core/render/sdf.h) pads its
-emitted azimuth interval by a **constant**:
-
-```
-float pad = 1.25f * (2.0f * PI_F / W);   // radians of theta
-```
-
-`clip_rejects` uses the same constant. But the renderer paints every pixel with
-`d < pixel_width`, where `d` is an (approximately angular) **distance**. At
-polar angle φ, an angular distance `R` subtends `Δθ = R / sin(φ)` of azimuth.
-So covering a one-pixel fringe requires `1.25 * (2π/W) / sin(φ)` — and the pad
-is short by exactly `1/sin(φ)` wherever the face is away from the equator.
-
-**Evidence it is real.** A per-row span implementation (since reverted) painted
-**1–19 more pixels/frame** than the constant-pad extent path — i.e. the extent
-path is clipping AA fringe that the geometry says should be painted. Separately,
-a probe measured the true azimuth reach of the fringe as **18.98 columns per
-side at row 3**, 4.80 at row 12, 2.48 at row 24, 1.76 at row 36 — the 1.25
-figure only holds near the equator.
-
-**Impact is small**: ~0.1% of shade events, concentrated in the polar caps,
-losing the outermost AA column. Nobody has confirmed it is *visible*.
-
-### What to do
-
-1. **Quantify before fixing.** Render the real solids natively and diff the
-   framebuffer against a correctly-padded build. Where are the missing pixels,
-   how many, what alpha did they carry, and is the result visible (e.g. edge
-   hardening or a seam near the poles)? There is a framebuffer-dump harness
-   pattern in the repo — render to PNG rather than theorising.
-2. **Then price the fix.** The obvious correction — pad by
-   `1.25 * (2π/W) / sin(φ)` — is not free: near the pole it widens every face's
-   scan span substantially, and at **~520 cycles per probe** extra probes are
-   expensive on an effect that already has 3 shapes missing cadence. Note
-   `get_horizontal_intervals` currently **ignores its row argument** (the
-   parameter is unnamed) and `rasterize_face` evaluates it once at `y_lo`, so a
-   per-row pad is not directly available; the cheap conservative form is the
-   worst-case `1/sin(φ)` over the face's `[y_min, y_max]` band.
-3. **Report the trade and recommend** — do not land a correctness fix with a
-   material frame-time cost without surfacing the number. If it is visually
-   undetectable and costs several ms, the right answer may be to leave it and
-   document it.
-
-Whatever you conclude, **add a regression test** if you fix it: the repo's
-convention is that every new test is wired into the runner
-(`tests/test_sdf.h` / `tests/test_mesh_raster.h`, registered in the
-corresponding `run_*_tests()`; the modules are already in `_hs_test_modules`).
-`tests/test_sdf.h` already has `expect_face_cull_covers_fringe`, which
-brute-forces "every pixel with `distance < pixel_width` must be visited" — but
-only over synthesized *convex* polygons near the equator, which is precisely why
-this slipped through. A polar case belongs there.
+`SDF::Face::get_horizontal_intervals` now consumes its row argument and widens
+the azimuth interval for faces that touch a pole. The constant-pad premise and
+the associated open-work instructions are obsolete.
 
 ---
 
