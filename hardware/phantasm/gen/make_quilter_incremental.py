@@ -20,6 +20,11 @@ FILES = (
 )
 
 
+def snapshot_digest(path: Path) -> str:
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
+
+
 def snapshot_paths(root: Path) -> list[Path]:
     paths = [Path(name) for name in FILES]
     paths.extend(
@@ -44,7 +49,7 @@ def verify_snapshot(root: Path = OUTPUT) -> None:
         raise RuntimeError(f"snapshot manifest mismatch: missing={missing}, extra={extra}")
 
     for path in actual_paths:
-        digest = hashlib.sha256((root / path).read_bytes()).hexdigest()
+        digest = snapshot_digest(root / path)
         if digest != expected[path]:
             raise RuntimeError(f"snapshot hash mismatch: {path}")
 
@@ -86,7 +91,7 @@ def make_snapshot() -> None:
 
     hashes = []
     for path in snapshot_paths(OUTPUT):
-        digest = hashlib.sha256((OUTPUT / path).read_bytes()).hexdigest()
+        digest = snapshot_digest(OUTPUT / path)
         hashes.append(f"{digest}  {path.as_posix()}")
     (OUTPUT / "SHA256SUMS.txt").write_text("\n".join(hashes) + "\n", encoding="utf-8")
     verify_snapshot()
