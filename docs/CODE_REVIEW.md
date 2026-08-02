@@ -429,7 +429,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 169. ✅ **`fp_bbox` under-measures arcs and circles, so the packer can overlap parts** — `hardware/phantasm/gen/pcb.py:280-305`. `fp_arc` is silently skipped and `fp_circle` reads only `center`/`end` keys, so a radius-defined circle contributes a point rather than a disc. Affects the draft (non-`--unplaced`) placement only. — FIXED: circle radii and three-point arc cardinal extrema now contribute to footprint bounds.
 
-170. **`_outline_bounds` hard-fails on any curved Edge.Cuts primitive, which the spec anticipates** — `hardware/phantasm/gen/board_metadata.py:71-100`. Spec R-MECH-4 explicitly contemplates chamfering the leading edge; the first `gr_arc` turns the CI job red with an error reading like a parser bug. The strict-by-default posture is right — just cover the primitives the spec expects.
+170. ✅ **`_outline_bounds` hard-fails on any curved Edge.Cuts primitive, which the spec anticipates** — `hardware/phantasm/gen/board_metadata.py:71-100`. Spec R-MECH-4 explicitly contemplates chamfering the leading edge; the first `gr_arc` turns the CI job red with an error reading like a parser bug. The strict-by-default posture is right — just cover the primitives the spec expects. — FIXED: arc and circle extrema are included while unsupported Edge.Cuts primitives remain errors.
 
 171. **Generated candidate boards are neither tracked nor ignored** — `hardware/phantasm/candidates/`. ~2.2 MB across five directories, permanently `??` in `git status`, while `gen/out/` is correctly ignored and `unplaced/` correctly tracked. `Candidate_1` also breaks the naming convention its four siblings follow, which is what makes finding 37's skip bite.
 

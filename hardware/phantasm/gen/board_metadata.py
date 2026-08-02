@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+import math
 from pathlib import Path
 import sys
 
@@ -68,9 +69,51 @@ def _point(node, key):
     return _decimal(child[1], key), _decimal(child[2], key)
 
 
+def _rounded_decimal(value):
+    return Decimal(str(round(value, 12)))
+
+
+def _arc_points(node):
+    declared = [_point(node, key) for key in ("start", "mid", "end")]
+    (x1, y1), (x2, y2), (x3, y3) = [
+        (float(x), float(y)) for x, y in declared
+    ]
+    denominator = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+    if abs(denominator) < 1e-12:
+        raise MetadataError("Edge.Cuts arc points are collinear")
+
+    center_x = (
+        (x1 * x1 + y1 * y1) * (y2 - y3)
+        + (x2 * x2 + y2 * y2) * (y3 - y1)
+        + (x3 * x3 + y3 * y3) * (y1 - y2)
+    ) / denominator
+    center_y = (
+        (x1 * x1 + y1 * y1) * (x3 - x2)
+        + (x2 * x2 + y2 * y2) * (x1 - x3)
+        + (x3 * x3 + y3 * y3) * (x2 - x1)
+    ) / denominator
+    radius = math.hypot(x1 - center_x, y1 - center_y)
+    angles = tuple(math.atan2(y - center_y, x - center_x) for x, y in (
+        (x1, y1), (x2, y2), (x3, y3)))
+
+    def ccw_between(angle, first, last):
+        return (angle - first) % math.tau <= (last - first) % math.tau + 1e-12
+
+    first, middle, last = angles
+    counterclockwise = ccw_between(middle, first, last)
+    points = list(declared)
+    for angle in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
+        on_arc = ccw_between(angle, first, last) if counterclockwise else \
+            ccw_between(angle, last, first)
+        if on_arc:
+            points.append((_rounded_decimal(center_x + radius * math.cos(angle)),
+                           _rounded_decimal(center_y + radius * math.sin(angle))))
+    return points
+
+
 def _outline_bounds(root):
     points = []
-    supported = {"gr_line", "gr_rect", "gr_poly"}
+    supported = {"gr_line", "gr_rect", "gr_poly", "gr_arc", "gr_circle"}
     for node in root[1:]:
         if not isinstance(node, list) or not node:
             continue
@@ -83,6 +126,19 @@ def _outline_bounds(root):
             raise MetadataError(f"unsupported Edge.Cuts primitive: {key}")
         if key in {"gr_line", "gr_rect"}:
             points.extend((_point(node, "start"), _point(node, "end")))
+            continue
+        if key == "gr_arc":
+            points.extend(_arc_points(node))
+            continue
+        if key == "gr_circle":
+            center = _point(node, "center")
+            end = _point(node, "end")
+            radius = math.hypot(float(end[0] - center[0]), float(end[1] - center[1]))
+            radius = _rounded_decimal(radius)
+            points.extend((
+                (center[0] - radius, center[1] - radius),
+                (center[0] + radius, center[1] + radius),
+            ))
             continue
         pts = _one_child(node, "pts")
         polygon_points = [_point([child], "xy") for child in _children(pts, "xy")]
