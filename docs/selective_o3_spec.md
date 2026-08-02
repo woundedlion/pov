@@ -1,11 +1,9 @@
 # Selective -O3 regions for the Phantasm device build — spec
 
-**Status: implemented 2026-07-15 — minimal region set** (§6 gate extension,
-§4.1 macros, R1 sink, the fused scan drivers from R2, and a
-DisplacementField-local draw-path promotion), landed `47090612..7284bb09`. The full
-R1–R6 set is **measured-unaffordable** in the current tree — see the filled
-ledger and the implementation-outcome notes in §7. Measured results:
-`docs/profiles/shipping/`.
+**Status: implemented through R8 as of 2026-07-20.** The region macros, component
+gate and measured region set are shipped; R6 remains deferred. The filled §7
+ledger is the implementation record, including reverted probes and the later
+sixth-ITCM-bank decision. Measured results: `docs/profiles/shipping/`.
 
 ## 1. Goal
 
