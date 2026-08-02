@@ -4,12 +4,32 @@ Just enough to: load a .kicad_sym, pull a top-level (symbol "Name" ...) block,
 serialize a node back to text, and enumerate a symbol's pins with their
 *local* connection coordinates (the pin tip you wire to).
 """
+import glob
 import os
+import re
 
 # Stock KiCad symbol libraries. Override with env KICAD_SYMBOL_DIR if installed
 # elsewhere or on a newer/older KiCad version.
-KICAD_SHARE = os.environ.get(
-    "KICAD_SYMBOL_DIR", r"C:\Program Files\KiCad\10.0\share\kicad\symbols")
+def find_symbol_dir():
+    env = os.environ.get("KICAD_SYMBOL_DIR")
+    if env and os.path.isdir(env):
+        return env
+    patterns = [
+        r"C:\Program Files\KiCad\*\share\kicad\symbols",
+        r"C:\Program Files (x86)\KiCad\*\share\kicad\symbols",
+        "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols",
+        "/usr/share/kicad/symbols",
+        "/usr/local/share/kicad/symbols",
+    ]
+    for pattern in patterns:
+        hits = glob.glob(pattern)
+        if hits:
+            return max(hits, key=lambda path: tuple(
+                int(part) for part in re.findall(r"\d+", path)))
+    return "symbols"
+
+
+KICAD_SHARE = find_symbol_dir()
 
 
 # ---------- tokenizer / parser ----------
