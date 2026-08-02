@@ -42,7 +42,7 @@ Segmentation-by-clipping runs on **both** paths, but their quadrants differ:
   per segment, each calling `setClip(x0, x1, y0, y1)` (gated on
   `needs_full_frame()`) so the rasterizer's scanline culling skips out-of-clip
   rows/columns. Each worker owns a **fixed** quadrant for the whole effect; the
-  readback copies the full canvas and `segment_worker.js` extracts just the
+  readback copies the full canvas and `segment_layout.js:105` extracts just the
   quadrant rectangle (`blitSegmentRect`) before transfer (README §10.7).
 
 Both clip non-stateful effects to a quadrant and leave `needs_full_frame()`
@@ -55,9 +55,9 @@ the gate exists.
 
 ## 3. Why clipping drops pixels for feedback
 
-The feedback flush iterates only the clip band (filter.h:1487) but reads
+The feedback flush iterates only the clip band (filter.h:1767-1792) but reads
 `cv.prev` at warp offsets up to **±W/2 horizontally and ±H vertically**
-(filter.h:1436 — a melt/swirl warp can pull a row most of the way across the
+(filter.h:1960-2032 — a melt/swirl warp can pull a row most of the way across the
 canvas). That reach is **unbounded relative to a segment band**: a worker
 clipped to its band has stale or zero `prev` outside the band, so cross-band
 trails read as black → dropped pixels and visible seams at the band edges.
@@ -94,7 +94,7 @@ already correct), whereas `Pixel::Feedback` (warp) and `World::Trails`
 
 Statefulness is already a compile-time filter trait (`has_history`, with the
 `Pipeline` constexpr-folding the history/terminal static-asserts at
-filter.h:350). Add a sibling trait that captures the property that actually
+filter.h:452-476). Add a sibling trait that captures the property that actually
 matters here — whether a filter's state *moves across segment boundaries*:
 
 - `static constexpr bool crosses_segments`, defaulting to `has_history`
@@ -105,7 +105,7 @@ matters here — whether a filter's state *moves across segment boundaries*:
   *must* be `true`. It reads `cv.prev` (other segments' pixels).
 - `true` on `World::Trails` — already `true` by default (`has_history`), so
   this is documentation, not a required override. Its store happens at
-  `plot()` time (filter.h:778), upstream of projection; whether band clipping
+  `plot()` time (filter.h:1129-1152), upstream of projection; whether band clipping
   would actually corrupt it depends on whether the rasterizer culls
   out-of-band fragments *before* that store. Left `true` as the fail-safe
   default rather than relying on that analysis.
@@ -116,32 +116,32 @@ matters here — whether a filter's state *moves across segment boundaries*:
 
 `Pipeline` does **not** today expose any aggregate trait constant — the
 existing folding is per-node recursive `static_assert`s on `Head::has_history`
-(filter.h:350), nothing more. So this trait needs a new recursive OR-fold
+(filter.h:452-476), nothing more. So this trait needs a new recursive OR-fold
 written from scratch: `static constexpr bool any_crosses_segments =
 Head::crosses_segments || NextPipeline::any_crosses_segments;` in the recursive
 node, **plus a `false` base case in the terminal `Pipeline<W,H>`**
-(filter.h:111). There is no existing `any_*` member to mirror.
+(filter.h:114-120). There is no existing `any_*` member to mirror.
 
 ### 4.2 Expose it as one runtime query on `Effect`
 
 `Effect` carries the answer as a construction-time flag, not a virtual. The
 `EffectConfig` aggregate the base constructor takes holds it
-(`core/render/canvas.h:29`):
+(`core/render/canvas.h:46`):
 
 ```
 bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
 ```
 
 The constructor copies it into the `full_frame` member
-(`core/render/canvas.h:488`) and a non-virtual accessor publishes it
-(`core/render/canvas.h:120`):
+(`core/render/canvas.h:87-88`) and a non-virtual accessor publishes it
+(`core/render/canvas.h:150`):
 
 ```
 [[nodiscard]] bool needs_full_frame() const { return full_frame; }
 ```
 
 Each filtered effect supplies the value in its base initializer, e.g.
-`effects/MeshFeedback.h:77`:
+`effects/MeshFeedback.h:86-88`:
 
 ```
 Effect(W, H, {.strobe = true,
@@ -168,13 +168,13 @@ forgets the field is caught.
 
 ### 4.3 Honor it at the driver boundary (the only behavioral change)
 
-In `targets/wasm/wasm.cpp` `setClip` (wasm.cpp:449): if
+In `targets/wasm/wasm.cpp` `setClip` (wasm.cpp:477): if
 `currentEffect->needs_full_frame()`, leave the clip at the full canvas
 (optionally record the requested band for telemetry) and return; otherwise
 apply the band as today.
 
 "Leave at full" is safe because the clip is already full when this fires: the
-`Effect` constructor resets `clip` to the whole canvas (canvas.h:58), and the
+`Effect` constructor resets `clip` to the whole canvas (canvas.h:87-110), and the
 worker re-applies the band *only* after `setEffect` rebuilds the effect
 (`segment_worker.js` `applyClip`). So a full-frame effect's clip is never
 narrowed in the first place — the early return preserves the constructor's
@@ -183,7 +183,7 @@ ever changes, harden this to an explicit `set_clip(0, H, 0, W)` instead.)
 
 The elegance is that **the hot-path filter code needs no change**. With a
 full clip, `XClip::active` is false and the coarse-row band spans every row,
-so the flush's existing band-pruning (filter.h:1448, filter.h:1597) already
+so the flush's existing band-pruning (filter.h:1767-1792, filter.h:2038-2061) already
 degrades to full-frame — the comments there note "a full canvas... does the
 same work either way." `blitSegmentRect` still slices each worker's quadrant
 from the full readback, unchanged. Every worker computes the bit-identical
@@ -192,8 +192,8 @@ full frame; only the slice differs — matching the device exactly.
 **Precondition (existing invariant this rests on).** "Bit-identical full
 frame across workers" holds only because per-worker frame inputs are already
 deterministic: animations are *frame-stepped*, not wall-clock-stepped
-(`AnimationBase::step` counts frames, `core/animation/animation.h:152`;
-`drawFrame()` advances exactly one, `targets/wasm/wasm.cpp:449` — the
+(`AnimationBase::step` counts frames, `core/animation/animation.h:165`;
+`drawFrame()` advances exactly one, `targets/wasm/wasm.cpp:505` — the
 `elapsed` timing is telemetry and never feeds
 animation), the RNG is fixed-seed (`hs::Pcg32(1337)`), and params are
 broadcast to every worker. The same invariant non-stateful segmented effects
@@ -300,5 +300,5 @@ Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
   so a band-clipped `Pixel::Feedback` worker's bottom band differs from the
   full-frame render. Demonstrates *why* full-frame is required: band clipping
   here is not equivalent, so the gate is load-bearing, not cosmetic.
-- `test_effect_needs_full_frame_default_false` (`tests/test_filter.h:2503`) pins
+- `test_effect_needs_full_frame_default_false` (`tests/test_filter.h:2777`) pins
   the `EffectConfig::full_frame` default an effect gets when it omits the field.
