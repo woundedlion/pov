@@ -158,8 +158,8 @@ bench install.
 | USB type | **Serial** (`USB_SERIAL`) — board default, no override | vcxproj `PreprocessorDefinitions` `USB_SERIAL` | `-D USB_SERIAL` (Teensy default; pin it explicitly) |
 | Keyboard layout | **US English** (`LAYOUT_US_ENGLISH`) — default | vcxproj `PreprocessorDefinitions` `LAYOUT_US_ENGLISH` | `-D LAYOUT_US_ENGLISH` |
 | CPU/FPU flags | `-mcpu=cortex-m7 -mfloat-abi=hard -mfpu=fpv5-d16 -mthumb` (`v7e-m+dp/hard`) | vmps; include path `thumb/v7e-m+dp/hard` | set by `board = teensy40` (verify) |
-| C++ dialect | **`gnu++20`** (C: `gnu11`) | vcxproj `CppLanguageStandard=gnu++20`, `CLanguageStandard=gnu11` | Teensy core default is `gnu++17` — may need `build_unflags=-std=gnu++17` + `build_flags=-std=gnu++20` |
-| Exceptions / RTTI | **OFF** — `-fno-exceptions -fno-rtti` | vmps default **and** explicit user flag | confirm parity (matters for the `std::nothrow` OOM path in `Phantasm.ino`) |
+| C++ dialect | **`gnu++20`** (C: `gnu11`) | vcxproj `CppLanguageStandard=gnu++20`, `CLanguageStandard=gnu11` | `build_unflags=-std=gnu++17` + `build_flags=-std=gnu++20` |
+| Exceptions / RTTI | **OFF** — `-fno-exceptions -fno-rtti` | vmps default **and** explicit user flag | pinned in `build_flags` |
 | Extra user C++ flags | `-fno-threadsafe-statics -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-use-cxa-atexit` | vcxproj `VM_ADDITIONAL_COMPILER_CPP_FLAGS` | add verbatim to `build_flags` — they shrink code and must match |
 | Warning suppressions | **`-Wno-psabi -Wno-deprecated -Wno-attributes`** | vcxproj `VM_ADDITIONAL_COMPILER_CPP_FLAGS` | add to `build_flags`; feeds §7.2 (these are already-tolerated warnings) |
 | Include dirs | **`core/`, `effects/`, `hardware/`** (+ sketch dir + repo root via `-I …/../../`) | vcxproj `IncludePath`; user flag `-I{build.source.path}/../../` | `-I core -I effects -I hardware` — **`effects/` is parity; the repo root (via `src_dir=.`) is the real requirement**, see §6 |
@@ -202,10 +202,9 @@ is breached), but explains why that floor can move in 32 KiB increments rather t
    hint is updated to add `../../effects` for VMicro parity regardless.
 
 > **Scope of the capture.** Only **Holosphere** had a tracked VMicro/VS configuration to read;
-> **Phantasm had none**. The table above therefore records Holosphere's config; Phantasm is
-> assumed to use the **same** board/optimization/USB/toolchain (same author, same bench) and only
-> adds `-D USE_DMA_LEDS`. Phase 0 must confirm that assumption with the owner before locking
-> Phantasm's flash budget — it is the one remaining unread option set.
+> **Phantasm had none**. The table above therefore records Holosphere's historical config;
+> `platformio.ini` is now the source of truth for Phantasm's separately calibrated `-Os`,
+> newlib-nano, DMA and linker-script configuration.
 
 ---
 
@@ -296,6 +295,7 @@ lib_ldf_mode = chain                  # constrain the Library Dependency Finder;
 build_unflags = -Os -O2 -std=gnu++17  # drop defaults overridden below (§4.1)
 build_flags =
     -O3                               # owner-confirmed "Fastest" (o3std), no LTO (§4.1)
+    -ffast-math -fno-finite-math-only # preserve finite checks under fast math
     -I core
     -I effects                        # VMicro parity; repo-root (src_dir=.) resolves effects/*.h (§4.1)
     -I hardware
@@ -311,6 +311,11 @@ build_flags =
     -Wall -Wextra                     # warning hygiene (baseline ratchet, not -Werror — §7.2)
 lib_deps =
     fastled/FastLED@3.4.0
+extra_scripts =
+    pre:tools/teensy_pre.py
+    pre:tools/teensy_map.py
+    post:tools/teensy_isystem.py
+    post:tools/teensy_gate_extra.py
 # src_dir is the repo root, so the filter must START by excluding everything and
 # then add back ONLY the wanted TUs — otherwise targets/wasm/, build*/ , .pio/,
 # obj/, out/ etc. get swept in. Both targets compile the two real core TUs:
@@ -334,6 +339,7 @@ extra_scripts =
 build_src_filter = ${env.build_src_filter} +<targets/Phantasm/Phantasm.ino.cpp>
 
 [env:holosphere_dma]                   # compile/link profile; no size gate
+board = teensy40
 build_flags = ${env.build_flags} -D USE_DMA_LEDS
 extra_scripts =
     pre:tools/teensy_pre.py
@@ -378,24 +384,10 @@ A toolchain bump is then a deliberate, reviewable one-line change — and becaus
 are toolchain-sensitive (a new GCC changes codegen size), the pin is what makes the size gate
 meaningful frame-over-frame.
 
-> **⚠ Phase-0 gating spike (do this FIRST — it's go/no-go, not a verification line item).** The
-> whole "green PlatformIO ≈ healthy VMicro" argument assumes PlatformIO can actually deliver the
-> **bench toolchain: Teensyduino 1.59.0 + arm-gcc 11.3.1** (§4.1). The upstream `platform-teensy`
-> package has historically *lagged* Teensyduino releases, so there may be **no published platform
-> version that yields exactly TD 1.59 / gcc 11.3.1.** Resolve this before anything downstream,
-> because budgets and the warning baseline are toolchain-sensitive. Decision tree with a written
-> fallback:
-> 1. **A pinnable platform commit yields TD 1.59 / gcc 11.3.1** → pin it (above); done.
-> 2. **It doesn't** → override the toolchain via `platform_packages` pointing at the
->    Teensyduino-provided `toolchain-gccarmnoneeabi` + framework (or vendor a platform fork) to
->    force 11.3.1.
-> 3. **Neither is practical** → accept a *different but pinned* toolchain, and **recalibrate**
->    budgets + warning baseline against it — explicitly noting that CI then approximates (not
->    mirrors) the bench compiler. This is acceptable for a size/link gate but must be stated, not
->    silent.
->
-> Everything else in this spec is downstream of this spike: if none of the three branches is
-> acceptable, the *driver* (PlatformIO) is reconsidered, not just a number.
+> **Resolved Phase-0 toolchain decision.** The gate pins `teensy@5.2.0`, which
+> supplies Teensyduino 1.62.0 and arm-gcc 15.2.1. Budgets and the warning
+> baseline are calibrated to that pinned toolchain rather than the historical
+> 1.59.0 / gcc 11.3.1 VMicro capture.
 
 ---
 
@@ -422,13 +414,9 @@ warnings.
   nondeterministic run-to-run — an ordered diff would flap green/red on identical inputs. The gate
   compares the build's warning *set* against the baseline *set* and **fails only on members not in
   the baseline**. A real fix that removes a baseline warning is fine; the gate flags *additions*.
-- **Library noise excluded.** FastLED and the Teensy core emit their own warnings. The plan is
-  `-isystem` for vendored/core includes so their warnings never enter the set — **but demoting the
-  Teensy core to `-isystem` under PlatformIO is non-trivial (the core is added by the framework,
-  not by us), so make "confirm the core/FastLED can actually be `-isystem`'d" a Phase-0 spike**, not
-  an assumed capability. The first-party path filter (keep only `core/`, `effects/`, `hardware/`,
-  `targets/` warnings) is an independent backstop, so the design is robust even if the `-isystem`
-  demotion proves awkward.
+- **Library noise excluded.** `tools/teensy_isystem.py` demotes FastLED and the
+  Teensy core includes, while the warning collector independently filters to
+  first-party `core/`, `effects/`, `hardware/`, and `targets/` paths.
 - **The warning gate must run on a *cold* build — it cannot share the cached size build.** The
   object cache (§10, `build_cache_dir`) suppresses compiler invocation on a hit, so a
   cached TU emits **no** warnings: a warm build produces a *smaller* warning set than a cold one,
@@ -700,7 +688,7 @@ close device-branch drift gaps. This is the same invocation the local recipe use
           # but DO include everything that changes ~/.platformio contents: the pinned
           # platform version, the FastLED pin, and the PlatformIO Core version — else a
           # dependency bump silently restores a stale cache.
-          key: pio-teensy-<platform-ver>-<fastled-ver>-<pio-core-ver>
+          key: pio-teensy-5.2.0-fastled-3.4.0-pio-6.1.19
           # Optional: hashFiles('platformio.ini') to auto-rotate on any pin change.
       - name: Cache build objects               # mirrors ci.yml's ccache discipline
         uses: actions/cache@v4
@@ -711,10 +699,10 @@ close device-branch drift gaps. This is the same invocation the local recipe use
           # github.sha makes each commit write a fresh entry, restoring from the newest
           # prefix match — standard, but it does churn the cache (Actions evicts at the
           # 10 GB repo budget, LRU). Fine for object caches; just don't be surprised.
-          key: pio-objs-<platform-ver>-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
-          restore-keys: pio-objs-<platform-ver>-
+          key: pio-objs-5.2.0-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
+          restore-keys: pio-objs-5.2.0-
       - name: Install pinned PlatformIO
-        run: pip install 'platformio==<pinned>'
+        run: pip install 'platformio==6.1.19'
       - name: Build shipping targets + compile profiles
         run: pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8 -e profile -e profile_o3
       - name: Upload firmware artifacts            # optional: .hex/.elf for inspection
@@ -790,10 +778,8 @@ active; making their checks required remains a branch-protection setting outside
 1. **Phase 0 — spikes + land `platformio.ini` + the post-build script, report-only.** Build both
    targets in CI; print sizes/warnings; **do not fail** on thresholds yet (not a required check
    yet). Phase 0 must resolve the prerequisites that make the numbers meaningful:
-   - **(0) FIRST: the toolchain go/no-go spike (§6).** Can PlatformIO deliver TD 1.59 / arm-gcc
-     11.3.1, or which fallback (platform_packages override / fork / accept-and-recalibrate)? Settle
-     this before any calibration — everything below is toolchain-sensitive, and a no-go could change
-     the driver, not just a number.
+   - **(0) Toolchain decision (§6):** resolved on `teensy@5.2.0` with
+     Teensyduino 1.62.0 and arm-gcc 15.2.1; budgets were calibrated to it.
    - (a) the `build_src_filter` spike (§6) confirming each env compiles exactly its `.ino` + the two
      `core/engine/*.cpp`, **and** the `lib_ldf_mode` scope check (§6);
    - (b) **build-option parity** (§4.1) — already captured (optimization `-O3`, `f_cpu`, USB, layout,
