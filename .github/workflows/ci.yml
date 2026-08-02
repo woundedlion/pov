@@ -257,9 +257,9 @@ jobs:
           - *shard4_entry
           - shard: fastmath
             test_regex: "."
-            # These modules assert IEEE-reference equivalence that reassociation
-            # does not preserve.
-            test_exclude: "^unit_(3dmath|sdf|effects|color_luts|color_luts_check|gamut_lut)$"
+            # These modules contain IEEE-sensitive reference or assertion-count
+            # checks.
+            test_exclude: "^unit_(3dmath|sdf|effects|conway_continuity|partition_seam|mesh|color_luts|color_luts_check|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only
     # The `tests` preset pins Debug, and the jobs above all reuse it, so every
     # assertion in the suite runs at -O0: UB the optimizer acts on, and FP
