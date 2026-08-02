@@ -13,6 +13,7 @@ import copy
 import os
 import builder as B
 import sexp
+from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
 from kicad_common import require_writable
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -395,14 +396,19 @@ def main(force=False):
             # design_settings.rules.min_clearance > 0 so Quilter accepts the project on upload
             # (it rejects 0). KiCad re-zeroes it whenever the project is opened in the GUI, so
             # run gen/heal_clearance.py before any Quilter upload to restore it.
-            '{\n  "board": { "design_settings": { "rules": { "min_clearance": 0.2,\n'
-            '    "min_through_hole_diameter": 0.2, "min_via_annular_width": 0.125,\n'
-            '    "min_via_diameter": 0.45 } } },\n'
+            f'{{\n  "board": {{ "design_settings": {{ "rules": {{ "min_clearance": '
+            f'{RULE_MINIMUMS["min_clearance"]},\n'
+            f'    "min_through_hole_diameter": '
+            f'{RULE_MINIMUMS["min_through_hole_diameter"]}, '
+            f'"min_via_annular_width": {RULE_MINIMUMS["min_via_annular_width"]},\n'
+            f'    "min_via_diameter": {RULE_MINIMUMS["min_via_diameter"]} }} }} }},\n'
             '  "boards": [],\n  "cvpcb": { "equivalence_files": [] },\n'
             '  "libraries": { "pinned_footprint_libs": [], "pinned_symbol_libs": [] },\n'
             '  "meta": { "filename": "phantasm.kicad_pro", "version": 3 },\n'
             '  "net_settings": { "classes": [ { "name": "Default", "clearance": 0.2,\n'
-            '    "track_width": 0.3, "via_diameter": 0.6, "via_drill": 0.3 } ] },\n'
+            f'    "track_width": 0.3, "via_diameter": '
+            f'{DEFAULT_CLASS_MINIMUMS["via_diameter"]}, "via_drill": '
+            f'{DEFAULT_CLASS_MINIMUMS["via_drill"]} }} ] }},\n'
             '  "pcbnew": { "page_layout_descr_file": "" },\n'
             '  "schematic": { "annotate_start_num": 0,\n'
             '    "drawing": { "default_line_thickness": 6.0, "label_size_ratio": 0.375 } },\n'
