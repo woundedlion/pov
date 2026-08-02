@@ -561,7 +561,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 235. ✅ **Four first-party engine sources missing the Required Notice** — `core/engine/reaction_graph.h:1`, `core/engine/inplace_function.h:1`, `core/engine/memory.cpp:1`, `core/color/srgb_decode.h:1`. 94 of 104 tracked sources carry the header and the six generated files correctly substitute a provenance line; these four are hand-written and carry neither.
 
-236. **"Every document carries its own status banner" is an over-claim** — `README.md:380`. Three of the 23 indexed docs have no status line: `phantasm_pcb_spec.md`, `device_host_divergence_ledger.md`, `agent_workflow.md`. All three are living documents rather than attempt records, so the omission is defensible; the blanket claim is not.
+236. ❌ **"Every document carries its own status banner" is an over-claim** — `README.md:380`. Three of the 23 indexed docs have no status line: `phantasm_pcb_spec.md`, `device_host_divergence_ledger.md`, `agent_workflow.md`. All three are living documents rather than attempt records, so the omission is defensible; the blanket claim is not. Rejected: the quoted claim no longer exists in `README.md`.
 
 237. **`sexp.py` and `pcb.py` pin KiCad 10.0 by absolute Windows path** — `sexp.py:11`, `pcb.py:19`, `analyze_candidates.py:47`. A KiCad upgrade silently changes the inputs, and the third has no search fallback at all despite `fab.find_kicad_cli()` existing two modules away.
 
