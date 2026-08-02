@@ -446,8 +446,7 @@ enough margin to remain solidly green.
 ## Evidence
 
 - `build/prof/mindsplatter_ship.log`
-- `docs/profiles/shipping/profile_mindsplatter_teensy_2026-07-20.md`
-- `docs/profiles/O3/profile_mindsplatter_teensy_2026-07-20.md`
+- 2026-07-20 shipping and O3 profile captures (no longer tracked)
 - `effects/MindSplatter.h`
 - `core/animation/sprites.h`
 - `core/animation/trails.h`

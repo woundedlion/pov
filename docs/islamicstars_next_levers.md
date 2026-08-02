@@ -43,8 +43,7 @@ without touching the colour path. Verify each on device before keeping it.
 
 Capture: `bash tools/profile_one.sh IslamicStars profile 210 16 -D
 HS_PROFILE_EPOCH_REVS=1920 -D HS_PROFILE_TRANS_SPEED=4`, read from the worst
-solid's 8 clean-hold windows. Full report:
-`docs/profiles/shipping/profile_islamicstars_teensy_2026-07-19.md`.
+solid's 8 clean-hold windows. The full 2026-07-19 report is no longer tracked.
 
 ```
 frame                    124.38 ms   (8 fps: render 67.09, peak 75.1)

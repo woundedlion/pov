@@ -3,7 +3,8 @@
 **Status: implemented through R8 as of 2026-07-20.** The region macros, component
 gate and measured region set are shipped; R6 remains deferred. The filled §7
 ledger is the implementation record, including reverted probes and the later
-sixth-ITCM-bank decision. Measured results: `docs/profiles/shipping/`.
+sixth-ITCM-bank decision. The measured results are distilled in §7; the raw
+profile reports are no longer tracked.
 
 ## 1. Goal
 
@@ -11,7 +12,7 @@ The shipping Phantasm image is `-Os` because its playlist —
 `HS_PHANTASM_EFFECT_COUNT` effects, i.e. `HS_EFFECT_LIST` minus the low-res-only
 `Dynamo` and `Thrusters` (`core/engine/effects.h`) — overflows FlexRAM at `-O3`
 (`platformio.ini` §4.1 size relief valve). The 2026-07-14
-on-device profile sweep (`docs/profiles/README.md`) measured what that costs:
+historical on-device profile sweep measured what that costs:
 renders run **1.14×–2.04× faster at -O3**, and the win concentrates almost
 entirely in a handful of per-pixel inner loops (the `filter_blend` leaf alone
 runs ~1.7–2.4× faster).
@@ -36,7 +37,7 @@ a small, gated ITCM cost.
 ## 2. Measured motivation (what to optimize for)
 
 Frame cadence quantizes to 62.5 ms display windows, so a speedup only matters
-when it crosses a window boundary. From `docs/profiles/README.md`, the effects
+when it crosses a window boundary. From that sweep, the effects
 that gain (or partially gain) a cadence tier at -O3, and the hot scope that must
 speed up to buy it:
 
@@ -479,7 +480,7 @@ and the plan must be re-checked against the §3 budget before Phase 2 starts.
    sentinel(s) (R1: RingSpin or DreamBalls; R2: IslamicStars; R3: DreamBalls;
    R4: Flyby; R5: MeshFeedback; R6: Voronoi). Compare the hot-scope figure and
    cadence against the sentinel-baselines table below (distilled from the
-   `docs/profiles/shipping|O3/` reports).
+   historical shipping/O3 reports).
 4. **Decide**: keep if it buys a cadence tier, or closes **≥ half the remaining
    gap** between the -Os baseline and the -O3 ceiling figure for a
    tier-crossing sentinel's hot scope (see the baselines table below), at
@@ -530,7 +531,7 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | MindSplatter wrapper: `Plot::ParticleSystem` region (both `draw` overloads — per-trail tween/cull/dispatch loop) | +3,312 | — | measured dead 2026-07-16 — per-preset scan identical within noise (worst 108.6 → 109.0 ms) | ❌ reverted, not landed |
 | MindSplatter effect-local: `draw_particles` `HS_O3_FN` (mobius/hole/palette shader lambdas) | +1,184 | — | measured ~dead 2026-07-16 — uniform −1.2 % (worst 108.6 → 107.3 ms), no cadence change | ❌ reverted, not landed |
 | `Plot::gate_trail_edges` region (hoisted per-trail clip gate: shared per-point rows/columns, whole-trail coarse reject, bits feed `rasterize`'s cull) + HopfFibration `render_trails` wiring | +1,648 | 10,840 | HopfFibration: replaces the per-edge in-place gate; fully-invisible trails skip stage+rasterize whole | ✅ 2026-07-16 |
-| HopfFibration staging `HS_O3_FN` (`render_trails` orient/stage loops) + `gate_trail_edges` cheap chord-bound row tier | +2,032 | 8,808 | measured with the gate landing (see the on-device A/B in docs/profiles/shipping/) | ✅ 2026-07-16 |
+| HopfFibration staging `HS_O3_FN` (`render_trails` orient/stage loops) + `gate_trail_edges` cheap chord-bound row tier | +2,032 | 8,808 | measured with the gate landing's on-device A/B | ✅ 2026-07-16 |
 | `always_inline` on the O3-region leaf callees (`dot`/`cross`/Vector arithmetic, `normalized`/`length`, `rotate`, `fast_sinf`/`fast_cosf`/`fast_acos`/`fast_atan2`, `lerp16`/`frac_to_q16`, `vector_to_theta`, `geodesic_row_span_rows`, `finish_col_span`) — overrides GCC 11's option-mismatch inline refusal without option-carrying the bodies | +19,664 (6th ITCM bank; DTCM locals 14,976 vs 12,288 floor) | 21,912 (in bank 6) | HopfFibration deterministic 165 s pass: peak frame render 71.3 → **56.8 ms**, spilled 25 → **0** — **16 fps locked**, below the prior global-O3 ceiling (58.8); every region effect shares the win (roster re-sweep pending) | ✅ `d9bd43da` 2026-07-16 |
 | R5 feedback flush (`Feedback::flush` HS_O3 region + `HS_O3_FN` on `sample_bilinear_prev` and the OKLab hue chain `hue_fade_apply`/`linear_rgb_to_lms`/`lms_cbrt_to_linear_rgb`/`lms_cbrt_transform_rgb`/`lms_to_oklab`/`oklab_to_lms_cbrt`/`oklab_to_linear_rgb`/`gamut_clip_preserve_chroma`/`float_to_pixel16`/`fast_cbrt`) | +3,008 (into the 6th bank the always_inline landing opened; padding 13,192) | 13,192 | `feedback_composite` avg 88.6 → 45.3 ms = at global-O3 ceiling (45.2); 16 fps cycle coverage ~0% → **54%** (ceiling 57%). NOT a full lock: even global -O3 tops out at 57% — heavy high-fade presets are intrinsically > 62.5 ms (like MindSplatter, the lever is coverage, not the compiler). `HS_O3_FN` on `flush` did not reach its composite lambda; the walls were out-of-line `-Os` callees. `sample_bilinear_prev` O3 was the biggest step (35→54%) and *shrank* code −1,040 B | ✅ `405197d9` 2026-07-17 (rides a warp-bilerp hoist, `b46de7bd`, −7 ms/frame) |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
@@ -580,10 +581,10 @@ flush guard is R5, not landed); the restatement ordering is still verified by
 the region commits; the image hash differs only via shifted `__LINE__`
 constants in always-on check macros (the region markers add source lines).
 
-### Sentinel baselines (device captures; committed reports under `docs/profiles/{Os,O3}/`)
+### Sentinel baselines (historical device captures)
 
-The full reports are now committed (one current report per effect per level);
-the acceptance-relevant figures are distilled here as the durable referent.
+The full reports are no longer tracked; the acceptance-relevant figures are
+distilled here as the durable referent.
 Hot-scope render time per frame, shipping `-Os` vs the global `-O3` ceiling
 (the full reports carry the window/cadence detail). RingSpin and
 DisplacementField figures are from their 2026-07-15 **fused-tip** recaptures
@@ -603,7 +604,7 @@ Phase-0 recapture (2026-07-15, pre-region tip `2c2470b2`, after the slim
 RingGroup landing + cold evictions): RingSpin `rs_ring_scan` -Os 43–57 ms /
 -O3 29–39 ms (med 33.3); DisplacementField `df_fused_scan` NOISE dwell -Os
 56–62 ms / -O3 41–46 ms — the acceptance comparisons in
-`docs/profiles/shipping/` use these same-tip figures, not the table above.
+the historical shipping comparisons used these same-tip figures, not the table above.
 | shared leaf | `filter_blend` per blend (IslamicStars / RingSpin fused) | 192 / 162 cyc | 86 / 107 cyc | — |
 
 RingSpin's -Os figure is per-blend-chain bound (~960 scan cyc/blend, 4×

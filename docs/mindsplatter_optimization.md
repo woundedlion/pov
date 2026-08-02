@@ -37,8 +37,7 @@ boundary. "Zero spills" alone is not a pass.
 
 The latest matched shipping capture is:
 
-- Source report:
-  `docs/profiles/shipping/profile_mindsplatter_teensy_2026-07-25.md`
+- Source report: 2026-07-25 shipping capture (no longer tracked)
 - Raw log: `build/prof/mindsplatter_ship.log`
 - Profile revision: `32478115`
 - Resolution and driver: 288 x 144, four-segment POV path
@@ -834,8 +833,7 @@ Do not spend another device cycle on these without new evidence:
 - `core/render/filter.h`
 - `core/color/composition.h`
 - `docs/MINDSPLATTER_PARTICLE_SCALING_ANALYSIS.md`
-- `docs/profiles/shipping/profile_mindsplatter_teensy_2026-07-25.md`
-- `docs/profiles/O3/profile_mindsplatter_teensy_2026-07-25.md`
+- 2026-07-25 shipping and O3 profile captures (no longer tracked)
 - `build/prof/mindsplatter_ship.log`
 - `build/prof/mindsplatter_o3.log`
 - `.pio/build/phantasm/firmware.elf`

@@ -4,8 +4,7 @@
 blocked, each with a measurement. What remains is a coverage decision, not a
 codegen one — see "Still the binding constraint".
 
-Companion to the 2026-07-20 profile pair
-(`docs/profiles/shipping|O3/profile_dreamballs_teensy_2026-07-20.md`), which
+Companion to the untracked 2026-07-20 shipping/O3 profile pair, which
 concluded from an -Os-vs-O3 twin that DreamBalls is coverage-bound and "the way
 to 16 fps is a coverage cut, not codegen". That is true of the **opt level** and
 false of the **algorithm**: a deep phase split showed ~46% of `db_mesh_plot`
