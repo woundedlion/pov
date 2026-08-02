@@ -42,10 +42,11 @@ Both checks run via `kicad-cli` (KiCad 10.0):
 - **ERC: 0 errors.** A warning-inclusive KiCad 10 run reports nine
   `lib_symbol_mismatch` notices for embedded copies of stock/custom symbols;
   the exported connectivity is verified separately below.
-- **Netlist matches spec §10** — exported with `kicad-cli sch export netlist` and
-  diffed against the net table in the spec (see `gen/check.py`), keyed on `(ref, pin)`
-  so a connector or IC pinout permutation fails. Every net in §10 is
-  realized with the correct members (logic feed `J1 → F1 → Q_REV → FB → +5V_LOGIC`;
+- **Netlist matches the electrical specification** — exported with
+  `kicad-cli sch export netlist` and checked against the exact named-net
+  partition in `gen/check.py`, keyed on `(ref, pin)` so a connector or IC pinout
+  permutation fails. The required connections are realized with the correct members
+  (logic feed `J1 → F1 → Q_REV → FB → +5V_LOGIC`;
   series terminations `U1 out → R → J2`/bus; the pin-3 divider node ties Teensy D3,
   `U1` ch-C input, `R1`/`R2`/`C_SYNC`; ID0/ID1/ID2 straps; `MASTER_EN`; shield).
 - **PCB geometry DRC: clean** (`kicad-cli pcb drc`): zero error-severity
@@ -225,7 +226,7 @@ cd gen
 python board.py          # ../phantasm.kicad_{sch,sym} + sym-lib-table (.kicad_pro seeded only if absent)
 python pcb.py            # ../phantasm.kicad_pcb (placed, unrouted) + phantasm.pretty + fp-lib-table
 python pcb.py --unplaced # ../unplaced/phantasm_unplaced.kicad_pcb (footprints staged below outline, for Quilter)
-python check.py          # gate: exported netlist == spec §10 (by (ref, pin) node)
+python check.py          # gate: exact named-net partition and (ref, pin) nodes
 python shorts.py         # union-find short check on the schematic
 ```
 

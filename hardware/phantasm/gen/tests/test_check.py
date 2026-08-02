@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 GEN = Path(__file__).resolve().parent.parent
+REPO_ROOT = GEN.parents[2]
 sys.path.insert(0, str(GEN))
 
 import check  # noqa: E402
@@ -37,6 +38,29 @@ def netlist(nets):
         out.append(")")
     out.append("))")
     return sexp.parse("\n".join(out))[0]
+
+
+def committed_board_nets():
+    path = REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
+    root = sexp.parse(path.read_text(encoding="utf-8"))[0]
+    nets = {}
+    for footprint in (
+            node for node in root if isinstance(node, list) and node
+            and node[0] == "footprint"):
+        reference = next(
+            (str(node[2]) for node in footprint
+             if isinstance(node, list) and len(node) > 2
+             and node[0] == "property" and node[1] == "Reference"),
+            None,
+        )
+        for pad in (
+                node for node in footprint if isinstance(node, list) and node
+                and node[0] == "pad"):
+            net = sexp.val(pad, "net")
+            if reference and net:
+                name = str(net[-1]).lstrip("/")
+                nets.setdefault(name, set()).add(check.node_key(reference, str(pad[1])))
+    return nets
 
 
 def run(nets):
@@ -78,6 +102,13 @@ class ExpectTableTests(unittest.TestCase):
 
 
 class GateTests(unittest.TestCase):
+    def test_accepts_committed_board(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            ok = check.check(committed_board_nets())
+        self.assertTrue(ok, output.getvalue())
+        self.assertEqual(output.getvalue(), "")
+
     def test_accepts_spec_netlist(self):
         ok, out = run(expected_nodes())
         self.assertTrue(ok, out)
