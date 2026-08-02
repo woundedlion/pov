@@ -365,6 +365,15 @@ def validate_assembled_refs(assembled):
         raise AssemblyMetadataError(diagnostics)
 
 
+def validate_rotation_refs(assembled):
+    unknown = sorted(set(ROT_CORRECTION) - set(assembled))
+    if unknown:
+        raise AssemblyMetadataError([
+            "rotation corrections missing from assembly: " +
+            ", ".join(unknown)
+        ])
+
+
 class PartCatalogError(ValueError):
     pass
 
@@ -679,6 +688,7 @@ def main():
     assembled = sorted(r for r, c in comps.items() if is_assembled(c))
     try:
         validate_assembled_refs(assembled)
+        validate_rotation_refs(assembled)
         assembly_metadata = validate_assembly_metadata(comps, posrows, assembled)
     except AssemblyMetadataError as exc:
         sys.exit(str(exc))
