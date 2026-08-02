@@ -7,8 +7,8 @@ strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair) plus placement quality
 Usage:
     python analyze_candidates.py [DIR ...]
 
-With no args it globs `../Quilter_phantasm_unplaced.kicad_pcb_Candidate_*` next to
-the project. Pass explicit candidate folders (or .kicad_pcb files) to override.
+With no args it globs `../candidates/Candidate_*`. Pass explicit candidate
+folders (or .kicad_pcb files) to override.
 
 A DRC gate runs kicad-cli on each candidate (override path with env KICAD_CLI; the
 gate is skipped if it is missing) so a geometry-clean but DRC-broken board can't win
@@ -255,23 +255,37 @@ def score(r):
     return max(0.0, min(10.0, si)), max(0.0, min(10.0, erg))
 
 
+def candidate_board(path):
+    if path.endswith(".kicad_pcb"):
+        if os.path.isfile(path):
+            return path
+        raise ValueError(f"candidate board not found: {path}")
+    matches = glob.glob(os.path.join(path, "*.kicad_pcb"))
+    if len(matches) != 1:
+        raise ValueError(
+            f"candidate folder must contain exactly one .kicad_pcb file: "
+            f"{path} ({len(matches)} found)")
+    return matches[0]
+
+
 def main(argv):
     args = argv[1:]
     if args:
         dirs = args
     else:
         dirs = sorted(glob.glob(os.path.join(
-            PROJ, "Quilter_phantasm_unplaced.kicad_pcb_Candidate_*")))
+            PROJ, "candidates", "Candidate_*")))
     if not dirs:
         print("no candidate folders found (pass them as args)")
         return 1
 
     R = {}
     for d in dirs:
-        f = d if d.endswith(".kicad_pcb") else os.path.join(d, "phantasm_unplaced.kicad_pcb")
-        if not os.path.exists(f):
-            print(f"skip {d}: no phantasm_unplaced.kicad_pcb")
-            continue
+        try:
+            f = candidate_board(d)
+        except ValueError as exc:
+            print(exc)
+            return 1
         # name from the Candidate_N anywhere in the path (works whether a folder or a
         # .kicad_pcb file was passed, and regardless of the board's filename)
         m = re.search(r"Candidate_(\w+)", d)
