@@ -11,8 +11,8 @@ meshes hold still between spawns.
 Fourth structural lever of the 2026-07-01 rasterizer campaign, and the only
 one of the last four to survive its go/no-go census. Predecessors: per-face
 LUT removal (`6241a24b`), convex half-plane path (`7b4873d9`), small-face atan
-drop (`bae893c4`); rejected: row-span tightening (two variants), inverse
-sampling (see `inverse_sampling_spec.md` for that tombstone).
+drop (`bae893c4`); rejected: row-span tightening (two variants) and inverse
+sampling.
 
 ## 1. The measured fact this exploits
 
@@ -273,7 +273,7 @@ and per-slot bakes in IslamicStars (rebaked unconditionally after every
 measurement:
 
 - **§6 is wrong about WASM**: the WASM release build uses the device
-  330 KB `GLOBAL_ARENA_SIZE` (the 8 MB figure is `HS_TEST_BUILD` only), so
+  298 KiB `GLOBAL_ARENA_SIZE` (the 8 MiB figure is `HS_TEST_BUILD` only), so
   the "f32 n=96, no policy" host row applies nowhere that ships. The device
   policy is the only policy: **int16, n adaptive 32-64 (degrading to fit
   before dropping a class), 18 KB/mesh budget on every target** — 20 KB
