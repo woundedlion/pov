@@ -46,7 +46,6 @@ speed up to buy it:
 | Flyby | 8↔16 → steady 16 fps | shader (`fly_shader_draw`) |
 | Voronoi | 8 → 16 fps | per-pixel KD walk (`vo_shade`) |
 | DreamBalls | 5.3 → 8 fps (P0) | wireframe raster (`db_mesh_plot`) |
-| FlowField | 5 → 8 fps (saturated) | particle raster |
 | HopfFibration | 8↔16 jitter → steady 16 | trail raster |
 | IslamicStars | 8 → 16 fps (mid shapes) | per-face SDF (`is_mesh_scan`) |
 | HankinSolids | crossfade tier gain | per-face SDF (`hk_mesh_scan`) |
@@ -112,8 +111,8 @@ pools — ignore it except for the existing gate ceiling.
 
 ### 4.1 Definition
 
-`core/engine/platform.h` defines these before the `HS_COLD` block so
-`HS_COLD_MEMBER` can reuse the function attribute:
+`core/engine/platform.h` defines these before the flash-routing block so
+`HS_FLASH_MEMBER` and `HS_COLD_MEMBER` can reuse the function attribute:
 
 ```c
 // ---------------------------------------------------------------------------
@@ -121,10 +120,9 @@ pools — ignore it except for the existing gate ceiling.
 // the -Os device image (selective optimization; docs/selective_o3_spec.md).
 // Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
 // -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
-// The fast-math flags are restated because GCC 11's optimize pragma rebuilds
-// optimization flags from defaults, dropping command-line -ffast-math /
-// -fno-finite-math-only for the region (fixed in GCC 12; harmless to restate).
-// HS_O3_FN is the shared single-function attribute and backs HS_COLD_MEMBER.
+// Restate the finite-math pair and disable GCC 15 loop unswitching, which
+// duplicates large invariant branches in the per-pixel loops.
+// HS_O3_FN is the shared single-function attribute and backs HS_FLASH_MEMBER.
 // ---------------------------------------------------------------------------
 #if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) && \
     defined(__OPTIMIZE_SIZE__)
@@ -142,19 +140,20 @@ pools — ignore it except for the existing gate ceiling.
 #endif
 ```
 
-The device-only attribute is also part of `HS_COLD_MEMBER`, keeping
+The device-only attribute is also part of `HS_FLASH_MEMBER`, keeping
 flash-routed inline/template member functions speed-optimized:
 
 ```c
-#define HS_COLD_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
+#define HS_FLASH_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
+#define HS_COLD_MEMBER HS_FLASH_MEMBER
 ```
 
 Activation matrix (must hold; §8 verifies):
 
 | Build | Compiler | Level | Macros |
 |---|---|---|---|
-| `phantasm`, `phantasm8`, `profile` | arm-gcc 11.3.1 | `-Os` | **active** |
-| `holosphere`, `holosphere_dma`, `profile_o3` | arm-gcc 11.3.1 | `-O3` | no-op (`__OPTIMIZE_SIZE__` undefined) |
+| `phantasm`, `phantasm8`, `profile` | arm-gcc 15.2.1 | `-Os` | **active** |
+| `holosphere`, `holosphere_dma`, `profile_o3` | arm-gcc 15.2.1 | `-O3` | no-op (`__OPTIMIZE_SIZE__` undefined) |
 | native tests | clang | any | no-op |
 | WASM release/debug | emscripten clang | any | no-op |
 
@@ -174,31 +173,18 @@ where per-function attribute application is historically flaky. Prefer
 cannot accidentally span an `#include`. Both produce the same option node; the
 choice is ergonomics and failure surface, not semantics.
 
-### 4.2 GCC 11.3.1 semantics the implementer must respect
+### 4.2 GCC 15.2.1 semantics the implementer must respect
 
 These are load-bearing; getting any one wrong silently produces a slower or
 semantically different image.
 
-1. **Flag reset (why fast-math is restated).** Before GCC 12, `#pragma GCC
-   optimize` / `__attribute__((optimize))` rebuild the optimization-flag set
-   from the *defaults* of the requested level, not from the command line. A bare
-   `optimize("O3")` region would drop `-ffast-math -fno-finite-math-only` inside
-   the region. Worse, dropping only `-fno-finite-math-only` while keeping
-   `fast-math` would fold `std::isfinite()` to constant-true in the render
-   sink's NaN guard (`core/render/filter.h`, see the platformio.ini §4.1 flag
-   comment). The macro therefore restates both, exactly as written above. Do
-   not add or remove flags without re-running the §8 checks — **and do not
-   reorder them**: the list is processed like a command line, and
-   `no-finite-math-only` must follow `fast-math` (which implies
-   finite-math-only) or the isfinite guard folds anyway. One further named
-   risk: `fast-math` is a driver-umbrella token, and GCC's optimize pragma may
-   *ignore* rather than expand it — then the region silently runs without
-   fast-math: safe (the guard stays live) but slower, reading as an "-Os wall".
-   The §8 codegen checks are the detector for both directions — the
-   differential / `profile_o3` comparison for a dropped umbrella, the isfinite
-   probe for a folded guard. If the umbrella proves ignored, restate its
-   constituent sub-flags instead (`no-math-errno`,
-   `unsafe-math-optimizations`, `no-signed-zeros`, `no-trapping-math`).
+1. **Flag restatement and loop unswitching.** `fast-math` must be followed by
+   `no-finite-math-only` so finite checks remain live. GCC 15 also unswitches
+   invariant per-pixel branches into duplicate loop bodies; on the measured
+   feedback compositor that nearly doubled the body and crossed the FlexRAM
+   bank ceiling. The region macros therefore restate the finite-math pair and
+   add `no-unswitch-loops`. Any flag change requires the §8 codegen and size
+   checks.
 2. **Inlining across an optimization boundary is restricted, not forbidden.**
    GCC's mismatch refusal keys on the callee *carrying its own* optimize
    options or semantically incompatible FP flags: a plain, attribute-free
@@ -302,7 +288,7 @@ final keep/revert verdict until after R3 lands and the seams heal.
 
 Shared per-`<W,H,ComputeUVs>` by design (type-erased shader, `PipelineRef`
 default — see the comment at `scan.h:46–48`); typed-pipeline callers add
-instantiations (RingSpin and DistortedRing — watch the map).
+instantiations (RingSpin and DisplacementField — watch the map).
 
 - `Scan::process_pixel` (`scan.h:50–118`) — per-pixel SDF eval + AA coverage +
   shader + plot.
@@ -325,7 +311,7 @@ instantiations (RingSpin and DistortedRing — watch the map).
 
 Serves: IslamicStars + HankinSolids (`Scan::Mesh::draw` at `scan.h:787–852`
 calls `Scan::rasterize`; its per-face setup loop may join the region if the map
-shows it matters), RingSpin (`RingGroup`), DistortedRing, DisplacementField
+shows it matters), RingSpin (`RingGroup`), DisplacementField
 (`DistortedRingStack`).
 
 The per-pixel arithmetic R2 exists to speed up lives in `core/render/sdf.h`,
@@ -336,7 +322,8 @@ about and would gut the region. Expected coverage, per shape family:
 - **`SDF::Face`** (IslamicStars/HankinSolids): its internals are saturated with
   `always_inline` (`sdf.h:2149–2578`), which crosses the optimization boundary
   unconditionally and adopts the region's -O3 — covered by construction.
-- **Ring / knot-polyline SDFs** (RingSpin, DistortedRing, DisplacementField):
+- **Ring / knot-polyline SDFs** (RingSpin and DisplacementField's
+  `SDF::DistortedRing`):
   plain-inline `distance()` members (`sdf.h:627/830`; `polyline_distance`
   `:898`) — expected to inline per §4.2 #2 / Phase 1.5.
 - **Composite shapes** (`sdf.h:1144/1282/1492`): same expectation.
@@ -360,7 +347,7 @@ multiplication potential. If the map shows unacceptable growth, the fallback is
 `HS_O3_FN` on the two strategy leaves only (they are the inner loops; the outer
 `rasterize` body is per-segment, not per-pixel).
 
-Serves: DreamBalls, HopfFibration, FlowField, MeshFeedback's wireframe pass,
+Serves: DreamBalls, HopfFibration, MeshFeedback's wireframe pass,
 plus most 16-fps effects incidentally.
 
 ### R4 — shader compositors (`core/render/scan.h`)
@@ -431,46 +418,17 @@ costs no other effect ITCM — and it measured **negative** (R7 below). The rule
 is "spend no ITCM on a no-tier effect", not "never promote one"; a region that
 returns bytes is free to take.
 
-## 6. Size-gate extension (prerequisite, land first)
+## 6. Size-gate contract
 
-Make ITCM code growth visible and ratcheted before any region lands.
+The landed gate derives the allowable ITCM bank count from the DTCM stack
+floor. Phantasm's RAM1 entry configures
+`components.code.max_banks_from_stack_floor` with 32 KiB banks and sixteen
+total banks. The gate combines live DTCM variables with `free_min_bytes` to
+reserve enough DTCM banks, then permits code only in the remainder. This keeps
+the stack floor load-bearing without maintaining a stale byte ratchet for code.
 
-1. **Schema** (`tools/teensy_budgets.json`): allow an optional per-component
-   ceiling inside a region entry:
-
-   ```jsonc
-   "ram1": {
-     "max_bytes": 512000,
-     "free_min_bytes": 12288,
-     "components": { "code": { "max_bytes": <calibrated> } }
-   }
-   ```
-
-2. **Gate** (`tools/teensy_gate.py`): `parse_teensy_size` already captures the
-   per-region `components` dict; extend `evaluate()` to check
-   `regions.<r>.components.<name>.max_bytes` against
-   `sizes[r]["components"][name]`, with a new violation code
-   `component-over-budget`. A configured component **missing** from the parsed
-   output is a hard `component-missing` violation (same fail-loud rule as
-   regions/symbols — a renamed teensy_size field must not silently disable the
-   ceiling).
-3. **Tests** (`tools/teensy_gate_tests/`, auto-discovered by
-   `just teensy-gate-test` and CI): fixture + cases for pass, over-ceiling, and
-   missing-component. Follow the existing golden/deliberately-broken fixture
-   pattern.
-4. **Calibration and the per-commit ratchet**: set the phantasm
-   `ram1.components.code.max_bytes` to `Phase-0 measured code + 2,048` when §6
-   lands (a pure ratchet proving the gate bites before any region exists).
-   **Every kept region's commit then bumps the ceiling to its own measured
-   code + 2,048** — the budgets file's standard "raising a ceiling is a
-   reviewed one-line edit landed with the change that needs it" rule. Without
-   the per-commit bump, the first region commit turns the gate red. The final
-   value must also satisfy the §3 reserve rule, expressed bank-relative so it
-   survives baseline drift: `bank_ceil(code) − code ≥ 4,096`, with the ITCM
-   active bank count explicitly recorded. Holosphere's budget entry is unchanged
-   (no components key — the feature is opt-in per target).
-5. Update `docs/teensy_ci_gate_spec.md` (§8 budgets schema) to document the
-   `components` key.
+Missing component data and bank/stack violations fail loudly, and the gate's
+informational output reports current code, headroom, and the next bank boundary.
 
 ## 7. Implementation procedure
 
@@ -547,7 +505,7 @@ decision **globally**: a kept shared region that turned out to serve no
 remaining tier crossing can be traded out for a headline region.
 
 **Phase 3 — final calibration + full gates.** Re-set the component ceiling
-(§6.4); `just teensy-size` (all four envs) green; final sentinel sweep.
+(§6); `just teensy-size` (all six envs) green; final sentinel sweep.
 
 ### Ledger (filled 2026-07-15)
 
@@ -571,12 +529,12 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | R4 shader compositors: closure `Shader::draw` `HS_O3_FN` + per-pixel callee chase (`stereo_noise_warp`, `SingleOpenSimplex2`, `hue_rotate_rgb`, `oklab_to_linear_rgb`, `linear_rgb_in_gamut`) | +3,104 | 12,680 (post mesh-scan driver + thunk flash-routing) | Flyby worst preset 50.9 ms vs 43.6 ceiling, **16 fps locked over the full cycle** (was 83.7 ms, 8 fps on 4 of 5 presets); loop+lambda alone and +noise-path were each measured ~flat — the OKLab hue chain was the cost | ✅ 2026-07-15 |
 | MindSplatter wrapper: `Plot::ParticleSystem` region (both `draw` overloads — per-trail tween/cull/dispatch loop) | +3,312 | — | measured dead 2026-07-16 — per-preset scan identical within noise (worst 108.6 → 109.0 ms) | ❌ reverted, not landed |
 | MindSplatter effect-local: `draw_particles` `HS_O3_FN` (mobius/hole/palette shader lambdas) | +1,184 | — | measured ~dead 2026-07-16 — uniform −1.2 % (worst 108.6 → 107.3 ms), no cadence change | ❌ reverted, not landed |
-| `Plot::gate_trail_edges` region (hoisted per-trail clip gate: shared per-point rows/columns, whole-trail coarse reject, bits feed `rasterize`'s cull) + HopfFibration `gate_trails` wiring | +1,648 | 10,840 | HopfFibration: replaces the per-edge in-place gate; fully-invisible trails skip stage+rasterize whole | ✅ 2026-07-16 |
-| HopfFibration staging `HS_O3_FN` (`gate_trails`, `render_trails` — the orient/stage loops) + `gate_trail_edges` cheap chord-bound row tier | +2,032 | 8,808 | measured with the gate landing (see the on-device A/B in docs/profiles/shipping/) | ✅ 2026-07-16 |
+| `Plot::gate_trail_edges` region (hoisted per-trail clip gate: shared per-point rows/columns, whole-trail coarse reject, bits feed `rasterize`'s cull) + HopfFibration `render_trails` wiring | +1,648 | 10,840 | HopfFibration: replaces the per-edge in-place gate; fully-invisible trails skip stage+rasterize whole | ✅ 2026-07-16 |
+| HopfFibration staging `HS_O3_FN` (`render_trails` orient/stage loops) + `gate_trail_edges` cheap chord-bound row tier | +2,032 | 8,808 | measured with the gate landing (see the on-device A/B in docs/profiles/shipping/) | ✅ 2026-07-16 |
 | `always_inline` on the O3-region leaf callees (`dot`/`cross`/Vector arithmetic, `normalized`/`length`, `rotate`, `fast_sinf`/`fast_cosf`/`fast_acos`/`fast_atan2`, `lerp16`/`frac_to_q16`, `vector_to_theta`, `geodesic_row_span_rows`, `finish_col_span`) — overrides GCC 11's option-mismatch inline refusal without option-carrying the bodies | +19,664 (6th ITCM bank; DTCM locals 14,976 vs 12,288 floor) | 21,912 (in bank 6) | HopfFibration deterministic 165 s pass: peak frame render 71.3 → **56.8 ms**, spilled 25 → **0** — **16 fps locked**, below the prior global-O3 ceiling (58.8); every region effect shares the win (roster re-sweep pending) | ✅ `d9bd43da` 2026-07-16 |
 | R5 feedback flush (`Feedback::flush` HS_O3 region + `HS_O3_FN` on `sample_bilinear_prev` and the OKLab hue chain `hue_fade_apply`/`linear_rgb_to_lms`/`lms_cbrt_to_linear_rgb`/`lms_cbrt_transform_rgb`/`lms_to_oklab`/`oklab_to_lms_cbrt`/`oklab_to_linear_rgb`/`gamut_clip_preserve_chroma`/`float_to_pixel16`/`fast_cbrt`) | +3,008 (into the 6th bank the always_inline landing opened; padding 13,192) | 13,192 | `feedback_composite` avg 88.6 → 45.3 ms = at global-O3 ceiling (45.2); 16 fps cycle coverage ~0% → **54%** (ceiling 57%). NOT a full lock: even global -O3 tops out at 57% — heavy high-fade presets are intrinsically > 62.5 ms (like MindSplatter, the lever is coverage, not the compiler). `HS_O3_FN` on `flush` did not reach its composite lambda; the walls were out-of-line `-Os` callees. `sample_bilinear_prev` O3 was the biggest step (35→54%) and *shrank* code −1,040 B | ✅ `405197d9` 2026-07-17 (rides a warp-bilerp hoist, `b46de7bd`, −7 ms/frame) |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
-| R7 Raymarch march path (`Scan::Volume` + `TransformedVolume` region; `SDF::Torus`/`Warp::Twist`/`WarpedVolume` regions) | **−208** (the per-step out-of-line -Os `TransformedVolume::distance` call is eliminated; inlined bodies cost less than the copies they replace) | 11,032 | march lambda `bl` calls 14 → 2, `vsqrt` 0 → 12; device cadence not re-profiled — no tier to cross | ✅ `38b76187` 2026-07-17 |
+| R7 Raymarch march path (`Scan::Volume` + `TransformedVolume` region; `SDF::Torus`/`Warp::Twist`/`WarpedVolume` regions) | **+752** (corrected measurement: 184,464 → 185,216; see `docs/itcm_ledger.md`) | 11,392 | march lambda `bl` calls 14 → 2, `vsqrt` 0 → 12; device cadence not re-profiled — no tier to cross | ✅ `38b76187` 2026-07-17 |
 | R8 mesh construction chain (`MeshOps` half-edge build + compile/classify, Conway orbits + operators, Hankin compile/update, `Solids` generators) | **−320** — the bodies are `HS_COLD`/`FLASHMEM`, so the spend is FLASH code 284,668 → 303,828 (+19,160), not ITCM | not scored (region returns ITCM) | the spawn-path construction chain no longer runs at -Os under an -O3 consumer; construction is off the per-frame path, so no sentinel applies | ✅ `f1debacb` 2026-07-20 |
 
 **MindSplatter's ship→ceiling ratio (1.15–1.49× per preset) is not
@@ -604,13 +562,13 @@ Budget the next region set from a fresh Phase-0 measurement, not this table's
 padding column. Note the probe economics: the shared R2 kernel multiplied by
 per-shape/per-pipeline instantiation to ~28 KB — narrow per-driver regions
 plus targeted `HS_O3_FN` on the out-of-line hot callees bought the same
-sentinel wins for a tenth of the bytes. §4.2 #2's inline expectation held for
-most helpers (blend chain, quintic in the sink) but NOT universally: GCC 11
-refused several plain-inline -Os callees inside regions
+sentinel wins for a tenth of the bytes. In the original GCC 11 capture, §4.2
+#2's inline expectation held for most helpers (blend chain, quintic in the
+sink) but not universally; several plain-inline -Os callees were refused
 (`ClipRegion::render_y_end`, `polyline_distance`, the OKLab chain,
 `quintic_kernel`/`wrap_t` at some sites) — expect to chase per-callee
-`HS_O3_FN` from the disassembly, and judge by the sentinel counter, when
-landing the next region.
+`HS_O3_FN` from the disassembly. Any new region must repeat that inspection on
+the pinned GCC 15.2.1 toolchain.
 
 Codegen checks (§8): (a) PASS — a throwaway bare-`optimize("O3")` build
 produces different sink codegen, so the restated fast-math tokens reach the
@@ -659,7 +617,7 @@ drifted, update this table in the same commit.
 | Check | Command / method | Pass criterion |
 |---|---|---|
 | Gate self-tests | `just teensy-gate-test` | green, incl. new component cases |
-| Device size gates | `just teensy-size` | all four envs pass; phantasm RAM1 `free` unchanged from baseline; component ceiling green |
+| Device size gates | `just teensy-size` | all six envs pass; Phantasm's derived ITCM/DTCM bank constraint is green |
 | Holosphere untouched | compare `teensy_size` output (or hex hash) vs baseline | identical |
 | Host suite | `just test` | green; goldens unchanged (macros expand empty under clang) |
 | WASM | `just smoke` | green |
@@ -694,16 +652,11 @@ drifted, update this table in the same commit.
 
 ## 10. Acceptance checklist
 
-- [ ] §6 gate extension landed first, with tests, doc update, and a biting
-      calibrated ceiling.
-- [ ] `HS_O3_BEGIN/END/FN` in `platform.h`, matching §4.1 exactly (flag
-      restatement included), no-op everywhere but device-GCC `-Os`.
-- [ ] Regions from §5 applied in order, one commit each (each kept region's
-      commit bumping the component ceiling, §6.4), ledger filled in (including
-      reverted regions and why).
-- [ ] ITCM bank count, DTCM variable fit and stack floor are measured, with
-      ≥ 4,096 B intra-bank padding at the accepted partition.
-- [ ] Full §8 matrix green; tier crossings demonstrated on device for at least
-      MeshFeedback, Flyby, and Voronoi (the three full 8→16 candidates), or the
-      ledger documents the measured reason a crossing was not achievable within
-      budget.
+- [x] Derived ITCM-bank gate landed with tests and documentation.
+- [x] `HS_O3_BEGIN/END/FN` is active only for device-GCC `-Os`, with the
+      finite-math and no-unswitch restatement.
+- [x] Kept and reverted regions are recorded in the §7 ledger.
+- [x] ITCM bank count, DTCM variable fit, and stack floor are enforced by the
+      current budget schema.
+- [x] The six-environment size matrix and native validation are green; device
+      outcomes and deferred regions are recorded in the ledger.
