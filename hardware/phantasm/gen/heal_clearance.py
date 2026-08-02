@@ -11,21 +11,21 @@ for either the placed board (phantasm.kicad_pro) or the unplaced board
 import glob
 import json
 import os
+import sys
 
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# the project's own uploadable pros: top-level + the Quilter-prep subdirs (unplaced/,
-# divider_rework/, ...). Quilter-result candidate dirs (v1/, v2/, ...) are not touched.
-pros = glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
-    + glob.glob(os.path.join(OUT, "unplaced", "phantasm*.kicad_pro")) \
-    + glob.glob(os.path.join(OUT, "quilter_incremental", "phantasm*.kicad_pro")) \
-    + glob.glob(os.path.join(OUT, "divider_rework", "phantasm*.kicad_pro"))
+def project_files():
+    return glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
+        + glob.glob(os.path.join(OUT, "unplaced", "phantasm*.kicad_pro")) \
+        + glob.glob(os.path.join(OUT, "quilter_incremental", "phantasm*.kicad_pro"))
 
-healed = 0
-for p in pros:
-    d = json.load(open(p, encoding="utf-8"))
+
+def heal_project(p):
+    with open(p, encoding="utf-8") as project_file:
+        d = json.load(project_file)
     rules = d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})
     changes = {}
     for field, minimum in RULE_MINIMUMS.items():
@@ -49,14 +49,36 @@ for p in pros:
             changes["Default.via_drill"] = (drill, minimum_drill)
 
     if changes:
-        json.dump(d, open(p, "w", encoding="utf-8"), indent=2)
+        with open(p, "w", encoding="utf-8") as project_file:
+            json.dump(d, project_file, indent=2)
         summary = ", ".join(
             f"{field} {old} -> {new}"
             for field, (old, new) in changes.items()
         )
         print(f"healed {os.path.relpath(p, OUT)}: {summary}")
-        healed += 1
     else:
         print(f"ok     {os.path.relpath(p, OUT)}")
+    return bool(changes)
 
-print(f"\n{healed} file(s) healed. Upload-ready for Quilter.")
+
+def main():
+    pros = project_files()
+    if not pros:
+        print(f"error: no uploadable project files found under {OUT}", file=sys.stderr)
+        return 1
+
+    healed = 0
+    for p in pros:
+        try:
+            healed += heal_project(p)
+        except (OSError, json.JSONDecodeError) as error:
+            print(f"error: cannot process {os.path.relpath(p, OUT)}: {error}",
+                  file=sys.stderr)
+            return 1
+
+    print(f"\n{healed} file(s) healed. Upload-ready for Quilter.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
