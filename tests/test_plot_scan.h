@@ -2674,8 +2674,7 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   };
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, capture,
-                          {.planar_basis = &basis});
+    Plot::rasterize<W, H>(pipe, c, points, capture, {.planar_basis = &basis});
   }
   fx.advance_display();
 
@@ -3768,10 +3767,10 @@ inline Plot::PlanarEdgeSampler planar_sampler(const Vector &a, const Vector &b,
   fa.pos = a;
   fb.pos = b;
   Plot::PlanarEdgeSampler out;
-  Plot::rasterize_planar_strategy(
-      fa, fb, basis, /*is_last_segment=*/true,
-      [&](const Plot::PlanarEdgeSampler &s, const Fragment &, const Fragment &,
-          float, bool) { out = s; });
+  Plot::rasterize_planar_strategy(fa, fb, basis, /*is_last_segment=*/true,
+                                  [&](const Plot::PlanarEdgeSampler &s,
+                                      const Fragment &, const Fragment &, float,
+                                      bool) { out = s; });
   return out;
 }
 
@@ -3807,7 +3806,8 @@ inline void test_planar_one_pass_matches_forward_difference() {
       Plot::SamplePT fd = s(t);
       worst_len = std::max(worst_len, std::abs(one.pos.length() - 1.0f));
       worst_pos = std::max(worst_pos, angle_between(one.pos, fd.pos));
-      worst_tan_len = std::max(worst_tan_len, std::abs(one.tan.length() - 1.0f));
+      worst_tan_len =
+          std::max(worst_tan_len, std::abs(one.tan.length() - 1.0f));
       worst_tan_dot = std::min(worst_tan_dot, dot(one.tan, fd.tan));
       ++checked;
     }

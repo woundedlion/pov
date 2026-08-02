@@ -421,8 +421,8 @@ struct Bounds {
 struct DistanceResult {
   float dist; /**< Signed distance (negative inside); always this meaning. */
   float t;    /**< Per-shape register; see the table above. */
-  float raw_dist; /**< Per-shape register; see the table above. */
-  float aux;      /**< Per-shape register; see the table above. */
+  float raw_dist;    /**< Per-shape register; see the table above. */
+  float aux;         /**< Per-shape register; see the table above. */
   float size = 1.0f; /**< Size metric for AA-falloff normalization. */
 
   /**
@@ -2284,7 +2284,7 @@ struct Face {
 
   int y_min, y_max; /**< Inclusive vertical row bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
-  int build_width;  /**< Clip width the azimuth cull ran against; 0 if unclipped. */
+  int build_width; /**< Clip width the azimuth cull ran against; 0 if unclipped. */
   std::span<std::pair<float, float>>
       intervals;   /**< Azimuth coverage intervals (radians). */
   bool full_width; /**< True when the face spans all columns. */
@@ -3211,9 +3211,10 @@ struct Face {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    HS_CHECK(build_width == 0 || W == build_width,
-             "Face::get_horizontal_intervals: W differs from the clip width the "
-             "azimuth cull ran against");
+    HS_CHECK(
+        build_width == 0 || W == build_width,
+        "Face::get_horizontal_intervals: W differs from the clip width the "
+        "azimuth cull ran against");
     if (full_width)
       return false;
 #ifdef HS_AA_AUDIT
@@ -3490,8 +3491,8 @@ struct PlanarPolygon {
   const Basis &basis; /**< Orientation frame (v = polygon axis). */
   float circumradius; /**< Angular radius from center to vertex (radians). */
   int sides;          /**< Number of polygon sides. */
-  float phase;             /**< Azimuth phase offset (radians). */
-  float sector;            /**< Angular width of one polygon sector. */
+  float phase;        /**< Azimuth phase offset (radians). */
+  float sector;       /**< Angular width of one polygon sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float apothem;           /**< Precomputed inradius (radians). */
   float ny, R_val,
@@ -3898,9 +3899,9 @@ struct Flower {
   float phase;             /**< Azimuth phase offset (radians). */
   float sector;            /**< Angular width of one flower sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
-  float circumradius; /**< Angular radius from the antipode to petal tip
+  float circumradius;      /**< Angular radius from the antipode to petal tip
                          (radians). */
-  float apothem;      /**< Petal inradius offset (PI - outer radius). */
+  float apothem;           /**< Petal inradius offset (PI - outer radius). */
   Vector antipode;         /**< Antipode of the flower axis (scan origin). */
   float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection
                                         length and azimuth. */
@@ -4010,8 +4011,8 @@ struct Flower {
     if constexpr (ComputeUVs)
       t_val = scan_dist / circumradius;
 
-    res = DistanceResult(sign * -dist_edge, t_val, scan_dist, 0.0f,
-                         circumradius);
+    res =
+        DistanceResult(sign * -dist_edge, t_val, scan_dist, 0.0f, circumradius);
   }
 };
 

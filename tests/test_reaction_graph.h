@@ -147,9 +147,8 @@ inline void test_indices_in_range() {
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k) {
       const int16_t ni = neighbors[i][k];
-      const int bad_slot = ni == -1 || (ni >= 0 && ni < RD_N)
-                               ? -1
-                               : i * RD_K + k;
+      const int bad_slot =
+          ni == -1 || (ni >= 0 && ni < RD_N) ? -1 : i * RD_K + k;
       HS_EXPECT_EQ(bad_slot, -1);
     }
 }
@@ -224,9 +223,7 @@ inline void test_neighbors_are_local() {
       int16_t ni = neighbors[i][k];
       if (ni < 0)
         continue;
-      const int far_slot = chord2(p, node(ni)) > MAX_CHORD2
-                               ? i * RD_K + k
-                               : -1;
+      const int far_slot = chord2(p, node(ni)) > MAX_CHORD2 ? i * RD_K + k : -1;
       HS_EXPECT_EQ(far_slot, -1);
     }
   }
@@ -250,9 +247,8 @@ inline void test_neighbors_closer_than_far_point() {
       int16_t ni = neighbors[i][k];
       if (ni < 0)
         continue;
-      const int violation_slot = chord2(p, node(ni)) >= far2
-                                     ? i * RD_K + k
-                                     : -1;
+      const int violation_slot =
+          chord2(p, node(ni)) >= far2 ? i * RD_K + k : -1;
       HS_EXPECT_EQ(violation_slot, -1);
     }
   }

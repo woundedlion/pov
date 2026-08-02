@@ -59,9 +59,9 @@ public:
    */
   struct EdgeSweepSpec {
     const ConwayGraph::EdgeSpec *edge =
-        nullptr;          /**< Graph edge being traversed. */
-    bool reverse = false; /**< True when traversing to_node -> from_node. */
-    int sweep_frames = 0; /**< Operator-sweep frames (N). */
+        nullptr;           /**< Graph edge being traversed. */
+    bool reverse = false;  /**< True when traversing to_node -> from_node. */
+    int sweep_frames = 0;  /**< Operator-sweep frames (N). */
     int settle_frames = 0; /**< Relax-slerp frames (S); positive on a settling
                               edge, 0 otherwise. */
   };
@@ -71,11 +71,11 @@ public:
    * on a fixed seed, no graph edge (docs/opchain_morph_spec.md, section 5.1).
    */
   struct ParamSweepSpec {
-    ConwayGraph::MorphOp op; /**< Swept operator. */
-    float t_start = 0.0f;    /**< Sweep parameter at frame 0; clamped to the
+    ConwayGraph::MorphOp op;  /**< Swept operator. */
+    float t_start = 0.0f;     /**< Sweep parameter at frame 0; clamped to the
                                 topology-constant open interval (T_EPS floor;
                                 TRUNCATE capped below the ambo point). */
-    float t_end = 0.0f;      /**< Arrival parameter; same clamp. */
+    float t_end = 0.0f;       /**< Arrival parameter; same clamp. */
     float twist_start = 0.0f; /**< Snub twist at frame 0. */
     float twist_end = 0.0f;   /**< Arrival snub twist. */
     int sweep_frames = 0;     /**< Operator-sweep frames (N). */
@@ -122,7 +122,7 @@ public:
   /** @brief Reconcile leg closing a smooth kis/needle path. */
   struct ReconcileSpec {
     const Vector *to_positions =
-        nullptr; /**< Authored vertex positions, one per seed vertex
+        nullptr;          /**< Authored vertex positions, one per seed vertex
                     (index-corresponded through the caller's bijection); slerp
                     endpoints. */
     int sweep_frames = 0; /**< Slerp frames (N). */
@@ -132,7 +132,7 @@ public:
   struct GatedSwapSpec {
     SwapOp op = SwapOp::KIS; /**< Partition operator applied at the swap
                                 frame. */
-    int gate_frames = 0; /**< Frames on each side of the swap (F_gate); the
+    int gate_frames = 0;     /**< Frames on each side of the swap (F_gate); the
                             leg runs 2 * gate_frames + 1 frames. */
   };
 
@@ -249,7 +249,7 @@ public:
     std::array<uint8_t, PALETTES>
         to_palette{}; /**< Slot -> landed palette index. */
     const uint8_t *from_palette =
-        nullptr; /**< Per-swept-face FROM palette id (arena-backed). */
+        nullptr;         /**< Per-swept-face FROM palette id (arena-backed). */
     int blend_pairs = 0; /**< Distinct (from, to) ramp pairs the leg carries. */
 
     /**
@@ -301,8 +301,7 @@ public:
     HS_CHECK(spec.edge, "OpLeg: edge sweep carries no graph edge");
     const ConwayGraph::EdgeSpec &edge = *spec.edge;
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(spec.settle_frames >= 0 &&
-                 edge.settle == (spec.settle_frames > 0),
+    HS_CHECK(spec.settle_frames >= 0 && edge.settle == (spec.settle_frames > 0),
              "OpLeg: settle frames disagree with the edge");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
@@ -394,8 +393,7 @@ public:
     // and sweeps through it on the constant-topology truncate branch; the
     // ambo-equivalent leg (both endpoints <= 0.5, exactly 0.5 included) keeps
     // its 0.495 cap and clean-swaps to ambo.
-    const bool far_side =
-        truncate && std::max(spec.t_start, spec.t_end) > 0.5f;
+    const bool far_side = truncate && std::max(spec.t_start, spec.t_end) > 0.5f;
     const float trunc_floor =
         std::min(ConwayGraph::T_EPS, std::max(spec.t_start, spec.t_end) *
                                          ConwayGraph::T_EPS_TRUNCATE_FRAC);
@@ -561,10 +559,9 @@ public:
       // With a bake the leg lands on the shipped converged mesh (the generator
       // used relax_baked too); otherwise it runs `iterations` live steps.
       PolyMesh arrival =
-          spec.bake
-              ? MeshOps::relax_baked(tr.seed, scratch_arena_a, *spec.bake)
-              : MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b,
-                               spec.iterations);
+          spec.bake ? MeshOps::relax_baked(tr.seed, scratch_arena_a, *spec.bake)
+                    : MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b,
+                                     spec.iterations);
       HS_CHECK(arrival.vertices.size() == tr.seed.vertices.size(),
                "OpLeg: relax changed the vertex count");
       tr.relaxed.bind(arena, arrival.vertices.size());

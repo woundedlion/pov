@@ -733,11 +733,10 @@ inline void test_classify_faces_roster_hash_collision_free() {
           neighbor_keys[n_neighbors++] = face_keys[neighbor];
         }
         std::sort(neighbor_keys, neighbor_keys + n_neighbors);
-        folded.insert(MeshOps::fold_face_topology_hash(face_hashes[f],
-                                                       neighbor_acc),
-                      fnv1a64(neighbor_keys,
-                              sizeof(neighbor_keys[0]) * n_neighbors,
-                              face_keys[f]));
+        folded.insert(
+            MeshOps::fold_face_topology_hash(face_hashes[f], neighbor_acc),
+            fnv1a64(neighbor_keys, sizeof(neighbor_keys[0]) * n_neighbors,
+                    face_keys[f]));
         he_off += count;
       }
       ++swept_meshes;

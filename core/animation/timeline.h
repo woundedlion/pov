@@ -275,7 +275,8 @@ public:
     if (global_timeline_num_events >= MAX_EVENTS) {
       // A pinned caller retains the return value; dropping hands back a nullptr
       // no call site null-checks.
-      HS_CHECK(pin == Pin::UNPINNED, "Timeline full, dropped a pinned animation");
+      HS_CHECK(pin == Pin::UNPINNED,
+               "Timeline full, dropped a pinned animation");
       ++global_timeline_dropped;
       hs::log("Timeline full, failed to add animation! (%lu dropped)",
               (unsigned long)global_timeline_dropped);
@@ -390,8 +391,7 @@ public:
 
       if (event_paused(e)) {
         const bool started = global_timeline_t >= e.start;
-        HS_CHECK(e.start < UINT32_MAX,
-                 "paused timeline start frame overflow");
+        HS_CHECK(e.start < UINT32_MAX, "paused timeline start frame overflow");
         ++e.start;
         if (started) {
           IAnimation *anim = e.animation();

@@ -924,10 +924,10 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   }();
   HS_EXPECT_GE(edge, 0);
 
-  Animation::OpLeg::PaletteHandoff handoff{
-      .bank = &bank.bank,
-      .prev_face_palette = pal,
-      .prev_faces = cube.face_counts.size()};
+  Animation::OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                           .prev_face_palette = pal,
+                                           .prev_faces =
+                                               cube.face_counts.size()};
 
   ShadingSnapshot snap;
   auto cb = [&](Canvas &, const MeshState &m,
@@ -944,11 +944,11 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   };
 
   constexpr int SWEEP = ConwayGraph::SWEEP_FRAMES;
-  Animation::OpLeg anim(cube,
-                        Animation::OpLeg::EdgeSweepSpec{
-                            .edge = &ConwayGraph::EDGES[edge],
-                            .sweep_frames = SWEEP},
-                        leg, cb, handoff);
+  Animation::OpLeg anim(
+      cube,
+      Animation::OpLeg::EdgeSweepSpec{.edge = &ConwayGraph::EDGES[edge],
+                                      .sweep_frames = SWEEP},
+      leg, cb, handoff);
   const Animation::OpLeg::Landing &landing = anim.landing();
   HS_EXPECT_EQ(landing.primary_faces, cube.face_counts.size());
 
@@ -1016,10 +1016,10 @@ inline void test_palette_mapping_total_all_edges() {
     for (size_t f = 0; f < seed.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(seed.face_counts[f] %
                                     Animation::OpLeg::PALETTES);
-    Animation::OpLeg::PaletteHandoff handoff{
-        .bank = &bank.bank,
-        .prev_face_palette = pal,
-        .prev_faces = seed.face_counts.size()};
+    Animation::OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                             .prev_face_palette = pal,
+                                             .prev_faces =
+                                                 seed.face_counts.size()};
 
     ShadingSnapshot snap;
     auto cb = [&](Canvas &, const MeshState &,
@@ -1102,10 +1102,10 @@ inline void test_palette_mapping_deterministic() {
     build_solid<Solids::Cube>(cube, leg);
     uint8_t pal[16];
     fill_emission_handoff(cube, pal);
-    Animation::OpLeg::PaletteHandoff handoff{
-        .bank = &bank.bank,
-        .prev_face_palette = pal,
-        .prev_faces = cube.face_counts.size()};
+    Animation::OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                             .prev_face_palette = pal,
+                                             .prev_faces =
+                                                 cube.face_counts.size()};
 
     ShadingSnapshot &snap = snaps[run];
     auto cb = [&](Canvas &, const MeshState &,
@@ -1118,13 +1118,12 @@ inline void test_palette_mapping_deterministic() {
     };
 
     hs::random().seed(31337u);
-    Animation::OpLeg anim(
-        cube,
-        Animation::OpLeg::EdgeSweepSpec{
-            .edge = &ConwayGraph::EDGES[edge],
-            .sweep_frames = ConwayGraph::SWEEP_FRAMES,
-            .settle_frames = ConwayGraph::SETTLE_FRAMES},
-        leg, cb, handoff);
+    Animation::OpLeg anim(cube,
+                          Animation::OpLeg::EdgeSweepSpec{
+                              .edge = &ConwayGraph::EDGES[edge],
+                              .sweep_frames = ConwayGraph::SWEEP_FRAMES,
+                              .settle_frames = ConwayGraph::SETTLE_FRAMES},
+                          leg, cb, handoff);
     const Animation::OpLeg::Landing &landing = anim.landing();
     to_palette[run] = landing.to_palette;
     topo[run].assign(landing.topology, landing.topology + landing.faces);
@@ -1350,14 +1349,13 @@ inline void test_leg_start_seed_frame_continuity() {
     };
     {
       Arena leg_arena(cc_leg_buf, sizeof(cc_leg_buf));
-      Animation::OpLeg anim(
-          leg_seed,
-          Animation::OpLeg::EdgeSweepSpec{
-              .edge = &e,
-              .reverse = reverse,
-              .sweep_frames = SWEEP_FRAMES,
-              .settle_frames = e.settle ? SETTLE_FRAMES : 0},
-          leg_arena, cb, handoff);
+      Animation::OpLeg anim(leg_seed,
+                            Animation::OpLeg::EdgeSweepSpec{
+                                .edge = &e,
+                                .reverse = reverse,
+                                .sweep_frames = SWEEP_FRAMES,
+                                .settle_frames = e.settle ? SETTLE_FRAMES : 0},
+                            leg_arena, cb, handoff);
       step_and_snapshot(anim, fx, snap);
       HS_EXPECT_EQ(snap.colors.size(), total);
       for (size_t f = 0; f < snap.colors.size(); ++f) {

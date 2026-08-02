@@ -171,7 +171,7 @@ inline PlotCounts g_plot_counts;
 #ifdef HS_PLOT_COUNTS
 #define HS_PLOT_COUNT(field) (++hs::g_plot_counts.field)
 #define HS_PLOT_ADD(field, value) (hs::g_plot_counts.field += (value))
-#define HS_PLOT_MAX(field, value)                                             \
+#define HS_PLOT_MAX(field, value)                                              \
   do {                                                                         \
     uint32_t hs_plot_value = static_cast<uint32_t>(value);                     \
     if (hs_plot_value > hs::g_plot_counts.field)                               \

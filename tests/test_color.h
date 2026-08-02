@@ -168,11 +168,10 @@ inline void test_blend_add_packed_lane_layout() {
     return (uint16_t)(s > 65535 ? 65535 : s);
   };
   const Pixel cases[][2] = {
-      {Pixel(60000, 1000, 40000),
-       Pixel(10000, 200, 40000)},                     // r,b sat; g not
-      {Pixel(0, 65535, 0), Pixel(65535, 0, 65535)}, // each lane to max
-      {Pixel(123, 45678, 9000), Pixel(40000, 30000, 50)}, // g sat only
-      {Pixel(0, 0, 0), Pixel(0, 0, 0)},                   // zero
+      {Pixel(60000, 1000, 40000), Pixel(10000, 200, 40000)}, // r,b sat; g not
+      {Pixel(0, 65535, 0), Pixel(65535, 0, 65535)},          // each lane to max
+      {Pixel(123, 45678, 9000), Pixel(40000, 30000, 50)},    // g sat only
+      {Pixel(0, 0, 0), Pixel(0, 0, 0)},                      // zero
   };
   for (const auto &c : cases) {
     Pixel got = pixel_blend_add_packed(c[0], c[1]);

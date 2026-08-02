@@ -832,13 +832,13 @@ private:
           persistent_arena, draw_build_fn, handoff, bookend));
       break;
     case Solids::Op::RELAX:
-      schedule_build_leg(Animation::OpLeg(
-          build_seed,
-          Animation::OpLeg::RelaxSpec{.iterations =
-                                          static_cast<int>(step.param),
-                                      .bake = step.bake,
-                                      .sweep_frames = frames},
-          persistent_arena, draw_build_fn, handoff, bookend));
+      schedule_build_leg(
+          Animation::OpLeg(build_seed,
+                           Animation::OpLeg::RelaxSpec{
+                               .iterations = static_cast<int>(step.param),
+                               .bake = step.bake,
+                               .sweep_frames = frames},
+                           persistent_arena, draw_build_fn, handoff, bookend));
       break;
     case Solids::Op::AMBO:
       schedule_build_leg(Animation::OpLeg(
@@ -1040,12 +1040,11 @@ private:
 
     const int frames = dual_sub_frames(1);
     hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
-    Animation::OpLeg leg(build_seed,
-                         Animation::OpLeg::MedialSpec{.sweep_frames = frames},
-                         persistent_arena, draw_build_fn, handoff,
-                         Animation::OpLeg::BookendClasses{
-                             .topology = medial_topology,
-                             .faces = medial_faces});
+    Animation::OpLeg leg(
+        build_seed, Animation::OpLeg::MedialSpec{.sweep_frames = frames},
+        persistent_arena, draw_build_fn, handoff,
+        Animation::OpLeg::BookendClasses{.topology = medial_topology,
+                                         .faces = medial_faces});
     build_landing = &leg.landing();
     timeline.add(0,
                  std::move(leg).then([this] { schedule_dual_untruncate(); }));
