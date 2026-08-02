@@ -1,3 +1,4 @@
+import hashlib
 import shutil
 import sys
 import tempfile
@@ -10,6 +11,13 @@ import make_quilter_incremental
 
 
 class SnapshotTests(unittest.TestCase):
+    def test_digest_is_independent_of_checkout_line_endings(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "snapshot.txt"
+            path.write_bytes(b"first\r\nsecond\r\n")
+            expected = hashlib.sha256(b"first\nsecond\n").hexdigest()
+            self.assertEqual(make_quilter_incremental.snapshot_digest(path), expected)
+
     def test_committed_snapshot_matches_manifest(self):
         make_quilter_incremental.verify_snapshot()
 
