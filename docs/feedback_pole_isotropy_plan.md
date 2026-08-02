@@ -6,8 +6,8 @@ Read "Measured outcome" before proposing any variant.
 
 Fix two MeshFeedback pole artifacts — trails pinching toward the poles, and a
 ~4–5 px "lensing" cap under low-frequency noise — so the warp is isotropic over
-the whole sphere, without giving back the GREEN device profile (worst frame
-54.45 ms, 8.05 ms margin; `docs/profiles/shipping/profile_meshfeedback_teensy_2026-07-20.md`).
+the whole sphere, without giving back the 2026-07-20 GREEN device profile
+(worst frame 54.45 ms, 8.05 ms margin; report no longer tracked).
 
 ## How the current path works
 
