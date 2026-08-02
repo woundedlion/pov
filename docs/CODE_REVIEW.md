@@ -627,7 +627,7 @@ A supplementary line-by-line audit of every file under `docs/` (excluding this d
 
 #### P3 (continued)
 
-264. **`congruence_class_lut_spec.md` names a recipe that does not exist and never reconciles a planned symbol with the landed one** — `:28` writes `…_ambo_relax_hk43`; the registry entry is `…_relax_hk42` (`core/mesh/solids.h:1006, 1652`) and every other doc uses `hk42`. `:100, 230` refer to `build_distance_lut` where the landed free function is `SDF::build_canonical_distance_lut` (`core/render/sdf.h:2145`). `:200` cites `MeshMorph` as a live consumer; zero hits outside `docs/`.
+264. ✅ **`congruence_class_lut_spec.md` names a recipe that does not exist and never reconciles a planned symbol with the landed one** — `:28` writes `…_ambo_relax_hk43`; the registry entry is `…_relax_hk42` (`core/mesh/solids.h:1006, 1652`) and every other doc uses `hk42`. `:100, 230` refer to `build_distance_lut` where the landed free function is `SDF::build_canonical_distance_lut` (`core/render/sdf.h:2145`). `:200` cites `MeshMorph` as a live consumer; zero hits outside `docs/`.
 
 265. **`conway_morph_spec.md` contradicts itself on leg count and has a broken internal reference** — `:19` says "two full 29-leg tours" against `:42`'s "a fixed 30-leg `ORDERED_TOUR`" (the tree has 30, `conway_graph.h:540-542`); `:93` cross-references §3.3, which does not exist (the settle phase is §2.3, cited correctly at `:59, 164, 305`).
 
