@@ -19,7 +19,7 @@ display window. Everything below is sized against that solid.
 Worktree and landing discipline, shared-device access, style, and the
 per-commit gates: `docs/agent_workflow.md`.
 
-**ITCM budget: 190,424 B of 196,608, headroom 6,184 B.** This has vetoed changes
+**ITCM budget: 189,416 B of 196,608, headroom 7,192 B.** This has vetoed changes
 before. If a high-value change is blocked by the ceiling, the owner has
 pre-authorized trading away low-value `HS_O3` regions. Measured de-O3 yields
 (per-file, by deleting that file's `HS_O3_FN` tokens):
@@ -186,7 +186,7 @@ removable bit-exactly, a shared reciprocal is not.
 
 Per probe, on ~43,500 probes/frame:
 - `float inv_cos = 1.0f / cos_angle;` — one `vdiv`, **100% of probes**.
-- `sqrtf(d)` at the tail of `plane_dist_exact`/`plane_dist_sector` — one
+- `sqrtf(dsq)` after `plane_dsq_exact`/`plane_dsq_sector` — one
   `vsqrt`, **~89% of probes** (every non-convex probe).
 
 At ~14 cyc each non-pipelined, that is ~28 cyc of the ~460 cyc probe — **~6%**.
@@ -336,7 +336,7 @@ exhausted:
   columns from one set of line loads, then submitting one pre-packed frame per
   subsequent fire, reads each line once instead of K times — ~5.33× less pack
   AXI traffic. The composite frame's second half is a black strobe written once
-  at construction (`hd107s_frame.h:98`) and never re-touched, so the ring holds
+  at construction (`hd107s_frame.h:81-95`) and never re-touched, so the ring holds
   only the `N*4` = 288 B payload, not the 594 B composite: K=8 fits the ~4.7 KB
   RAM2 free. Constraint is the **sync horizon** — the column index comes from the
   flywheel mailbox (`a.render_column`), not a counter, so pre-packing K columns
