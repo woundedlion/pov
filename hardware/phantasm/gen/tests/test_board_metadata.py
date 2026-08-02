@@ -45,6 +45,29 @@ class BoardMetadataTests(unittest.TestCase):
         with self.assertRaisesRegex(board_metadata.MetadataError, "invalid KiCad S-expression"):
             board_metadata.parse_board("(kicad_pcb (general")
 
+    def test_curved_outline_bounds_include_arc_extrema(self):
+        root = board_metadata.sexp.parse("""
+            (kicad_pcb
+              (gr_arc (start 0 0) (mid 5 -5) (end 10 0) (layer "Edge.Cuts"))
+              (gr_line (start 10 0) (end 10 5) (layer "Edge.Cuts"))
+              (gr_line (start 10 5) (end 0 5) (layer "Edge.Cuts"))
+              (gr_line (start 0 5) (end 0 0) (layer "Edge.Cuts")))
+        """)[0]
+        self.assertEqual(
+            board_metadata._outline_bounds(root),
+            (Decimal("10"), Decimal("10")),
+        )
+
+    def test_circle_outline_uses_full_radius(self):
+        root = board_metadata.sexp.parse("""
+            (kicad_pcb
+              (gr_circle (center 1 2) (end 4 6) (layer "Edge.Cuts")))
+        """)[0]
+        self.assertEqual(
+            board_metadata._outline_bounds(root),
+            (Decimal("10"), Decimal("10")),
+        )
+
     def test_rejects_readme_drift(self):
         metadata = board_metadata.load_board(
             REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
