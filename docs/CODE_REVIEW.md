@@ -615,7 +615,7 @@ A supplementary line-by-line audit of every file under `docs/` (excluding this d
 
 258. ✅ **`phantasm_pcb_spec.md` contains a numeric contradiction between a requirement and its own BOM, and its net summary omits a required net** — `:90` caps R_LF at ≤0.3 V @ 0.15 A (⇒ ≤2 Ω) while `:421`'s BOM allows "≤4.7 Ω" (0.71 V, 2.4× over); the schematic uses `1R5` (`gen/board.py:228`), so the BOM row is wrong. `:449-465`'s §10 net summary omits **ID2**, which `:49`, `:255`, the N=8 table and `gen/check.py:49` all require. `:211-212` also cites `IOMUXC_SW_PAD_CTL_PAD_HYS`, which exists nowhere (the code is `IOMUXC_PAD_HYS`).
 
-259. **`strobe_columns_audit.md`'s active-effect table is a dead roster** — `:34-61` lists `DistortedRing` (`:38`) and `FlowField` (`:41`), both deleted by `3e970314`, and omits `DisplacementField`, which is in the roster and sets `.strobe = true`. `:29-32`'s "the remaining 22 were flipped" is arithmetic against that dead roster.
+259. ✅ **`strobe_columns_audit.md`'s active-effect table is a dead roster** — `:34-61` lists `DistortedRing` (`:38`) and `FlowField` (`:41`), both deleted by `3e970314`, and omits `DisplacementField`, which is in the roster and sets `.strobe = true`. `:29-32`'s "the remaining 22 were flipped" is arithmetic against that dead roster.
 
 260. **`conway_morph_spec.md` states a deletion that did not happen** — `:17`: "`Segue::Dissolve` is deleted." `struct Dissolve : Base` is live at `core/animation/segue.h:454`, documented in `README.md:984`, and exercised by `tests/test_animation.h:1600, 1622`. The SUPERSEDED banner immunizes symbol drift ("the names have moved on"); it does not cover a false claim that a feature was removed.
 
