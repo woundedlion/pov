@@ -920,6 +920,9 @@ jobs:
           # pull_request run HEAD is the merge ref, so HEAD^1 is the base branch
           # and the comparison spans the whole PR.
           fetch-depth: 2
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
 
       - name: Assert FORMAT_BASELINE did not grow
         run: |
@@ -978,17 +981,11 @@ jobs:
           echo "FORMAT_BASELINE: $(wc -l < /tmp/baseline-now.txt) entries, $(wc -l < /tmp/baseline-added.txt) approved addition(s) against $PREV."
 
       - name: Install clang-format
-        run: |
-          sudo apt-get update
-          # Pin the major version, matching the clang-18 the build jobs pin.
-          # clang-format re-flows code between LLVM majors, so the unversioned
-          # 'clang-format' package would rewrite the whole tree — and red this
-          # job — the day the runner image moves its default LLVM.
-          sudo apt-get install -y clang-format-18
+        run: pip install 'clang-format==18.1.8'
 
       - name: Check formatting
         env:
-          CF: clang-format-18
+          CF: clang-format
         run: |
           "$CF" --version
 
