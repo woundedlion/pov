@@ -12,7 +12,7 @@ Render target: ideally no more than 59 ms peak, with zero spilled frames
 The current architecture cannot support 2,048 full 23-sample particles under
 59 ms by merely increasing `NUM_PARTICLES`. It fails on both memory and CPU:
 
-1. The pool would require 368,640 bytes, exceeding the 299,008-byte persistent
+1. The pool would require 368,640 bytes, exceeding the 272,384-byte persistent
    arena.
 2. A workload-matched doubling projects to roughly 94 ms average and 110-120 ms
    peak render.
@@ -76,7 +76,7 @@ versioned baseline before landing an optimization.
 
 ## Capacity is presently RAM-blocked
 
-The current definition is 1,024 particles with 23 samples. Each particle is
+The current definition is 1,088 particles with 23 samples. Each particle is
 180 bytes:
 
 ```text
@@ -92,7 +92,7 @@ At 2,048 particles:
 
 ```text
 2048 x 180 B = 368,640 B
-persistent arena   = 299,008 B
+persistent arena   = 272,384 B
 ```
 
 That is impossible before considering the palette and other persistent
@@ -105,7 +105,7 @@ Useful configurations are:
 | Current, 23 samples | 180 B | 360 KiB | No |
 | Current snorm16, 12 samples | 112 B | 224 KiB | Yes |
 | Current snorm16, 10 samples | 100 B | 200 KiB | Yes |
-| Packed 32-bit sphere point, 23 samples | 132 B | 264 KiB | Yes, narrowly |
+| Packed 32-bit sphere point, 23 samples | 132 B | 264 KiB | No; only 2 KiB remains for all other persistent state |
 
 A packed 32-bit trail solves memory but not CPU. It may also add 0.5-1.5 ms of
 decoding work unless reconstruction is particularly cheap.
@@ -248,7 +248,7 @@ not be summed blindly.
 |---:|---|---:|:---:|
 | 1 | Cap effective trails at about 10 samples at 2,048 particles | 40-50 ms versus naive 23-sample doubling | High |
 | 2 | Replace the generic particle draw/raster path with a streaming one-dot kernel | 3-6 ms with the 10-sample edge budget; 6-12 ms with full trails | Medium-high |
-| 3 | Add a true source-space pre-transform reject; do not use the tested compact-materialization split | Unmeasured; the compact split saved only 0.08-0.20 ms at 1,024 | Low |
+| 3 | Add a true source-space pre-transform reject; do not use the tested compact-materialization split | Unmeasured; the compact split saved only 0.08-0.20 ms at 1,088 | Low |
 | 4 | Pair `+axis/-axis` physics and reuse perpendicular magnitude | 1.1-1.8 ms at 2,048 | Medium-high |
 | 5 | Improve framebuffer locality with order-preserving tile command bins | 2-5 ms with short trails; 3-8 ms full workload | Medium-low |
 | 6 | Use packed 32-bit trail points if 23-sample storage is mandatory | Enables RAM fit; likely costs 0.5-1.5 ms | High for memory |
@@ -259,11 +259,11 @@ not be summed blindly.
 At 2,048 particles and 10 samples:
 
 ```text
-current edges:  1024 x 22 = 22,528
+current edges:  1088 x 22 = 23,936
 target edges:   2048 x  9 = 18,432
 ```
 
-The target has 18% fewer maximum edges than today while doubling particle
+The target has 23% fewer maximum edges than today while nearly doubling particle
 heads. The current representation becomes 100 bytes per particle, so the pool
 occupies only 200 KiB.
 
