@@ -1,7 +1,9 @@
 # MindSplatter sub-59-ms optimization plan
 
-**Status: PLAN (2026-07-25).** A MindSplatter-specific streaming renderer to
-hold every measured render frame under 59 ms.
+**Status: PARTIALLY LANDED PLAN (2026-07-25).** The live path now uses
+`draw_fused_vertex`, covering part of §1.1/§3.2, and the hole-kernel multiply
+barrier from §2.5 is landed. Remaining phases are proposals and must be
+revalidated against the current profile.
 
 Date: 2026-07-25  
 Target: Teensy 4.0, i.MX RT1062 Cortex-M7 at 600 MHz  
@@ -102,14 +104,14 @@ explicit stack references. Its one-dot path still copies complete 48-byte
 440-byte general-raster stack frame.
 
 The direct AA sink is 744 instructions. It recomputes clip state and executes a
-large four-tap branch tree for every plotted dot. MindSplatter is the only
-device user of `DirectAntiAliasSink`, so replacing its renderer can garbage
-collect this specialization instead of adding code beside it.
+large four-tap branch tree for every plotted dot. `ShapeShifter` also uses
+`DirectAntiAliasSink`, so replacing MindSplatter's renderer cannot remove that
+shared specialization.
 
 The fragment shader calls the 220-byte `BakedPalette::get` for every sample.
 That lookup interpolates two 12-byte `Color4` entries and uses a 20-byte local
-temporary. The hole shader's `quintic_kernel` compiles at `-Os` into a
-`__powisf2` veneer call even though the source spells `t*t*t`.
+temporary. The hole shader calls `hole_quintic_kernel`; its explicit multiply
+barrier keeps GCC `-Os` from introducing a `__powisf2` veneer.
 
 Physics still contains eight floating divides and three square roots in its
 1,070-byte body. The six signed-axis attractors are traversed individually even
@@ -340,12 +342,12 @@ Routing MindSplatter away from the current path should remove approximately:
 ```text
 MindSplatter draw_impl                 2,736 B
 Direct-AA rasterizer                   3,264 B
-Direct AA sink                         2,388 B
                                       -------
-gross removable code                   8,388 B
+gross effect-specific code              6,000 B
 ```
 
-Some shared helpers will remain. Require at least **2,048 bytes net ITCM
+The shared direct-AA sink remains for ShapeShifter. Other shared helpers may
+also remain. Require at least **2,048 bytes net ITCM
 reclaimed** after the new kernel and fallback link. Preferred reclaim is 4 KiB
 or more. This creates room for later physics work and reduces the risk of
 layout noise crossing the 196,608-byte boundary.
@@ -460,9 +462,9 @@ semantics and draw order do not change.
 The deferred hole pass is currently about 1.2 ms/frame, so this is not a
 first-line lever.
 
-If it remains material after fusion:
+The explicit `t2=t*t; t3=t2*t` barrier is already present in
+`hole_quintic_kernel`. If the pass remains material after fusion:
 
-- force `t2=t*t; t3=t2*t` and verify `__powisf2` disappears;
 - test a 128- or 256-entry LUT keyed by `max(abs(x),abs(y),abs(z))`;
 - test a polynomial directly in `1-m`, where
   `m=max(abs(x),abs(y),abs(z))`, avoiding `fast_acos`;
