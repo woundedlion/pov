@@ -515,13 +515,13 @@ flags, then archives and hashes both exact ELFs before capture.
 |---|---:|---:|---:|
 | Lifecycle capture | 130 s | 130 s | 130 s |
 | Windows | 48 | 64 | 64 |
-| Worst render | 94.830 ms | **58.783 ms** | **58.818 ms** |
+| Worst render | 94.830 ms | **58.606 ms** | **58.488 ms** |
 | Dense-window shader average | 59.04 ms | 42.560 ms | 42.569 ms |
 | Dense-window simulation average | 31.56 ms | 11.964 ms | 11.930 ms |
 | Phantasm ITCM code | 192,296 B | 192,216 B | 192,216 B |
 | ITCM bank headroom | 4,312 B | 4,392 B | 4,392 B |
 
-Shipping worst-case render fell by 36.047 ms (38.0%). No captured render frame
+Shipping worst-case render fell by 36.224 ms (38.2%). No captured render frame
 exceeded the owner-set 59 ms ceiling. The final Phantasm image
 uses 331,340 B of flash code and 1,209,676 B of flash data, leaving 482,312 B
 for files. The final shader specialization is 2,452 B and its hot body contains
@@ -530,8 +530,8 @@ for files. The final shader specialization is 2,452 B and its hot body contains
 
 The final 130-second captures are:
 
-- `build/prof/gsreactiondiffusion_threshold_final_ship.log`
-- `build/prof/gsreactiondiffusion_threshold_final_o3.log`
+- `build/prof/gsreactiondiffusion_ship.log`
+- `build/prof/gsreactiondiffusion_o3.log`
 
 Their provenance sidecars identify
 `GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203`.
