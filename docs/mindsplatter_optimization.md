@@ -33,7 +33,12 @@ boundary. "Zero spills" alone is not a pass.
 
 ## Current baseline
 
-### Device profile
+### Device profile (superseded baseline)
+
+The capture below is the 2026-07-25 planning baseline. The later 2026-07-27
+capture at `ece0955b` measured a 60.93 ms peak and 0/1,728 spilled frames, so it
+supersedes the cadence and peak figures below while leaving the stricter 59 ms
+objective open.
 
 The latest matched shipping capture is:
 
@@ -119,10 +124,10 @@ intermediates.
 
 ### Required gain
 
-The hard gap from the observed peak is:
+The hard gap from the latest observed peak is:
 
 ```text
-73.09 - 59.00 = 14.09 ms, or 19.3% of the peak
+60.93 - 59.00 = 1.93 ms, or 3.2% of the peak
 ```
 
 Because live RandomWalk captures diverge between builds, the engineering target
@@ -401,8 +406,8 @@ Compute:
 ```text
 wx0 = 65535 - wx1
 wy0 = 65535 - wy1
-tap weight = mul_q16(wx, wy)
-tap alpha  = mul_q16(base_alpha, tap weight)
+tap weight = ((wx * wy + 32768) >> 16)
+tap alpha  = ((base_alpha * tap weight + 32768) >> 16)
 ```
 
 This removes four float-to-integer alpha conversions, repeated clamps, two
