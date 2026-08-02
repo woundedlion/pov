@@ -24,6 +24,7 @@ import tempfile
 import zipfile
 
 import sexp
+from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
 from kicad_common import F
 
 GEN = os.path.dirname(os.path.abspath(__file__))
@@ -45,12 +46,12 @@ ZIP_EXT = {".gtl", ".g1", ".g2", ".gbl", ".gto", ".gbo", ".gts", ".gbs",
 EXCLUDE_FP_SUBSTR = ("PinHeader", "JST_", "SolderJumper", "CP_Radial")
 EXCLUDE_VAL_SUBSTR = ("Teensy",)
 ASSEMBLY_SIDE = "top"
-MIN_STANDARD_VIA_DIAMETER_MM = 0.45
-MIN_STANDARD_VIA_DRILL_MM = 0.20
+MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
+MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
 MIN_VIA_COPPER_SPACING_MM = 0.15
 # Smallest copper feature the fab resolves (4 mil), matching the board's
 # min_clearance. Applies to pour fill features as well as tracks.
-MIN_ZONE_FEATURE_MM = 0.1016
+MIN_ZONE_FEATURE_MM = RULE_MINIMUMS["min_clearance"]
 ZONE_FILL_FEATURES = ("thermal_gap", "thermal_bridge_width")
 
 # Parity items KiCad reports on a board that IS in sync with the schematic:

@@ -12,12 +12,9 @@ import glob
 import json
 import os
 
+from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
+
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MIN_CLEARANCE = 0.1016
-MIN_THROUGH_HOLE_DIAMETER = 0.2
-MIN_VIA_ANNULAR_WIDTH = 0.125
-MIN_VIA_DIAMETER = 0.45
-MIN_DEFAULT_VIA_DRILL = 0.2
 
 # the project's own uploadable pros: top-level + the Quilter-prep subdirs (unplaced/,
 # divider_rework/, ...). Quilter-result candidate dirs (v1/, v2/, ...) are not touched.
@@ -31,13 +28,7 @@ for p in pros:
     d = json.load(open(p, encoding="utf-8"))
     rules = d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})
     changes = {}
-    floors = {
-        "min_clearance": MIN_CLEARANCE,
-        "min_through_hole_diameter": MIN_THROUGH_HOLE_DIAMETER,
-        "min_via_annular_width": MIN_VIA_ANNULAR_WIDTH,
-        "min_via_diameter": MIN_VIA_DIAMETER,
-    }
-    for field, minimum in floors.items():
+    for field, minimum in RULE_MINIMUMS.items():
         current = rules.get(field, 0) or 0
         if current < minimum:
             rules[field] = minimum
@@ -48,12 +39,14 @@ for p in pros:
     if default is not None:
         diameter = default.get("via_diameter", 0) or 0
         drill = default.get("via_drill", 0) or 0
-        if diameter < MIN_VIA_DIAMETER:
-            default["via_diameter"] = MIN_VIA_DIAMETER
-            changes["Default.via_diameter"] = (diameter, MIN_VIA_DIAMETER)
-        if drill < MIN_DEFAULT_VIA_DRILL:
-            default["via_drill"] = MIN_DEFAULT_VIA_DRILL
-            changes["Default.via_drill"] = (drill, MIN_DEFAULT_VIA_DRILL)
+        minimum_diameter = DEFAULT_CLASS_MINIMUMS["via_diameter"]
+        minimum_drill = DEFAULT_CLASS_MINIMUMS["via_drill"]
+        if diameter < minimum_diameter:
+            default["via_diameter"] = minimum_diameter
+            changes["Default.via_diameter"] = (diameter, minimum_diameter)
+        if drill < minimum_drill:
+            default["via_drill"] = minimum_drill
+            changes["Default.via_drill"] = (drill, minimum_drill)
 
     if changes:
         json.dump(d, open(p, "w", encoding="utf-8"), indent=2)
