@@ -14,7 +14,7 @@ Companion documents:
 
 ## 1. Scope & system context
 
-- **Assembly:** The qualified N=4 rotor has 4 boards co-rotating at **480 RPM**.
+- **Qualified rotor:** The N=4 build has 4 boards co-rotating at **480 RPM**.
   N=8 requires a separate mounting, balance, cable, and swept-envelope design.
 - **Per board:** the PCB is a **logic controller card** — 1× Teensy 4.0 (3.3 V logic) + 1× 74AHCT125
   level shifter @ 5 V + sync conditioning. It drives one HD107S segment's **data (DI/CI)** (72 px at
@@ -43,7 +43,7 @@ Companion documents:
 | 11 (MOSI) | LED **DATA** → DI | out | → '125 ch A → 33 Ω → strip DI |
 | 13 (SCK)  | LED **CLK** → CI  | out | → '125 ch B → 33 Ω → strip CI |
 | 3  | **FRAME_SYNC** | in/out | OUTPUT on master, INPUT on slaves (mutually exclusive); drive via '125 ch C, receive via divider |
-| 5  | **MASTER_EN** | out | LOW on master; gates '125 ch C `/OE`; **R_MEN 10 kΩ pull-up → 3V3** (boot-safe disable, R-LS-5) ([pov_segmented.h:112](../hardware/pov_segmented.h#L112)) |
+| 5  | **MASTER_EN** | out | LOW on master; gates '125 ch C `/OE`; **R_MEN 10 kΩ pull-up → 3V3** (boot-safe disable, R-LS-5) ([pov_segmented.h:132,252-266](../hardware/pov_segmented.h#L132)) |
 | 21 | **ID0** | in (PULLUP) | strap bit 0; ground = bit set |
 | 22 | **ID1** | in (PULLUP) | strap bit 1; ground = bit set |
 | 23 | **ID2** | in (PULLUP) | strap bit 2 — read at N=8; unread at N≤4 |
@@ -51,7 +51,7 @@ Companion documents:
 | GND | **GND** | power | common return |
 | 3V3 | **+3.3 V** | power out | on-board regulator; sources **R_MEN** (mandatory) + J4 |
 
-SPI clock = **24 MHz** ([pov_segmented.h:151](../hardware/pov_segmented.h#L151)). Lay out the fast nets to be
+SPI clock = **24 MHz** ([pov_segmented.h:174](../hardware/pov_segmented.h#L174)). Lay out the fast nets to be
 clean to **≥30 MHz** so headroom exists.
 
 ---
@@ -74,7 +74,7 @@ clean to **≥30 MHz** so headroom exists.
 
 ### 2.2 Requirements — controller card
 
-- **R-PWR-1** Logic power enters on a **small** TH connector (J1), `+5 V`/`GND`, **~0.5 A** rating
+- **R-PWR-1** Logic power enters on a **small** TH connector (J1), `+5 V`/`GND`, carrying **~0.5 A** through a connector rated for **~1 A**
   (card draws ~0.15 A). This is the **light logic feed**, separate from the LED-power harness (§2.3).
 - **R-PWR-2** Card copper carries only ~0.15 A → **1 oz is sufficient**, no heavy pours. Strip 5 V/GND
   sizing lives off-board with the power harness (§2.3, R-PWR-10).
@@ -153,7 +153,7 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
   Part = **SN74AHCT125** (e.g. SN74AHCT125DR). The 5 V-tolerance caveat below is about signal
   *direction*, not package.
 - **R-LS-5 — Default the sync driver disabled at boot.** Ch C `/OE` is MASTER_EN (Teensy pin 5),
-  which **floats from power-on until `run_show()` drives it** ([pov_segmented.h:236-237](../hardware/pov_segmented.h#L236-L237));
+  which **floats from power-on until `run_show()` drives it** ([pov_segmented.h:238,252-266](../hardware/pov_segmented.h#L238));
   a floating `/OE` that settles LOW briefly enables a slave's bus driver — the transient phantom-master
   hazard. Fit a **pull-up R_MEN (10 kΩ) on pin 5 → 3V3** (not 5 V — keeps pin 5 safe; 3.3 V is a solid
   AHCT TTL HIGH = `/OE` disabled). Every board then boots with its sync driver **off**, enabled only
@@ -173,7 +173,7 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
 
 Sync is a **low-rate symbol stream**, not a clock: 2 boundary marks/revolution + rare epoch/beacon
 ([pov_sync.h:20](../hardware/pov_sync.h#L20)). Pulse pitch ≈ 868 µs; edges are ≥100 µs apart and pass a
-~100 µs firmware glitch filter ([pov_sync.h:105](../hardware/pov_sync.h#L105)).
+~100 µs firmware glitch filter ([pov_sync.h:111](../hardware/pov_sync.h#L111)).
 
 **Topology: single source-terminated multidrop bus.** The master's one '125 channel drives the
 shared wire; every board taps it through a high-impedance divider (~25 kΩ). With one 10 kΩ idle
@@ -201,7 +201,7 @@ buffer** — see §4.3.
 - **R-SYNC-3 — Node RC filter (populate by default).** Fit **C_SYNC ≈ 220 pF** at the pin-3 divider
   node. With R_th = R1‖R2 ≈ 6.0 kΩ this gives **RC ≈ 1.3 µs** — negligible against the 434 µs column
   and 868 µs pulse pitch, but it attenuates sub-µs BLDC/LED spikes *before* they cross the GPIO
-  threshold. The firmware glitch filter ([pov_sync.h:105](../hardware/pov_sync.h#L105)) gates edge *spacing*
+  threshold. The firmware glitch filter ([pov_sync.h:111](../hardware/pov_sync.h#L111)) gates edge *spacing*
   (≥100 µs), not *amplitude* — a single fast spike that crosses threshold still registers as a real
   edge and can corrupt a burst count. In this known-noisy environment, **default-populate**; keep the
   value (100 pF–1 nF) tunable. Pair with receiver hysteresis (R-SYNC-7).
@@ -250,7 +250,7 @@ conductors carry the signal pair; the drain handles the screen:
 ## 5. Hardware ID strap (pins 21 / 22 / 23)
 
 Straps are `INPUT_PULLUP`; firmware reads **log2(N) of them**, inverts, and masks:
-`segment_id = (~raw) & (N−1)` ([pov_segmented.h](../hardware/pov_segmented.h)). **Grounding a strap
+`segment_id = (~raw) & (N−1)` ([pov_segment_map.h:45](../hardware/pov_segment_map.h#L45)). **Grounding a strap
 sets its bit; all straps open = ID 0 = master.** N=4 reads ID0/ID1; the compile-tested N=8 profile
 also reads ID2. N must be a power of two ≤ 8.
 
@@ -293,17 +293,17 @@ relief, and swept envelope are mechanically qualified.
   get nothing — the on-die pull-up holds HIGH.
 - **R-ID-2** **The grounded link is the load-bearing connection.** Its failure mode is an *open*,
   which reads HIGH → inverts toward ID 0 → **elects a phantom second master** and causes sync-bus
-  contention ([pov_segmented.h:379-385](../hardware/pov_segmented.h#L379-L385)). Use a fully soldered link
+  contention ([pov_segmented.h:405-451](../hardware/pov_segmented.h#L405)). Use a fully soldered link
   (not a removable header/shunt — it can sling off at speed). Keep the link short and tack with RTV.
 - **R-ID-3** **No external pull-downs** on the straps (would invert the decode). **Pull-ups are
   safe**: optionally provide a **DNP 10 kΩ pull-up footprint on ID0 → 3.3 V** to harden the
-  open/master state against a cold strap (firmware author's suggestion, [pov_segmented.h:379-381](../hardware/pov_segmented.h#L379-L381)).
+  open/master state against a cold strap ([pov_segmented.h:405-451](../hardware/pov_segmented.h#L405)).
 - **R-ID-4** **Silkscreen the truth table** beside the straps and a large **board-ID digit field**,
   so each board's role is readable during balancing/assembly. Mark "MASTER = ALL ID OPEN."
 
 ---
 
-## 6. Connectors (all through-hole, for rotor mechanical strength)
+## 6. Connectors and jumpers
 
 | Ref | Function | Pins | Type / rating | Pinout |
 |---|---|---|---|---|
@@ -467,7 +467,7 @@ hand-soldered by you.
 
 > **Pin 3 is one physical node.** `SYNC_OUT` and `SYNC_RX` are the two roles of the *same* Teensy
 > pin-3 net: the master drives it (pin 3 = OUTPUT → ch C), slaves sense the bus through the divider
-> (pin 3 = INPUT). The roles are **mutually exclusive per board** ([pov_segmented.h:239-242](../hardware/pov_segmented.h#L239-L242));
+> (pin 3 = INPUT). The roles are **mutually exclusive per board** ([pov_segmented.h:251-266](../hardware/pov_segmented.h#L251));
 > on the master the divider is bypassed because pin 3 is a driven output.
 
 > **Strip +5 V / GND are _not_ on the card.** They come from the off-board power harness
@@ -482,8 +482,8 @@ hand-soldered by you.
 The board is built as a **partial PCBA**: the assembly house reflow-places the low-mass SMD parts;
 you hand-solder the heavy / mechanical through-hole parts. This keeps the rotor-balance intent of
 §6/§8 (heavy parts TH + RTV-bonded) while removing the tedium and cold-joint risk of hand-soldering
-a dozen tiny passives across the default four boards. The original "all through-hole" framing (old §3 note) was about
-enabling *hand* assembly, not a hard electrical or mechanical constraint — partial PCBA supersedes it.
+a dozen tiny passives across the default four boards. The earlier all-through-hole framing was about enabling *hand*
+assembly, not a hard electrical or mechanical constraint — partial PCBA supersedes it.
 
 ### 11.1 Package split
 
