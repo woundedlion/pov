@@ -351,6 +351,20 @@ class AssemblyMetadataError(ValueError):
         super().__init__(message)
 
 
+def validate_assembled_refs(assembled):
+    actual = set(assembled)
+    expected = set(LCSC_BY_REF)
+    diagnostics = []
+    if missing := sorted(expected - actual):
+        diagnostics.append(
+            "assigned parts missing from assembly: " + ", ".join(missing))
+    if unexpected := sorted(actual - expected):
+        diagnostics.append(
+            "assembled parts without assignments: " + ", ".join(unexpected))
+    if diagnostics:
+        raise AssemblyMetadataError(diagnostics)
+
+
 class PartCatalogError(ValueError):
     pass
 
@@ -664,6 +678,7 @@ def main():
             posrows[r["Ref"]] = r
     assembled = sorted(r for r, c in comps.items() if is_assembled(c))
     try:
+        validate_assembled_refs(assembled)
         assembly_metadata = validate_assembly_metadata(comps, posrows, assembled)
     except AssemblyMetadataError as exc:
         sys.exit(str(exc))

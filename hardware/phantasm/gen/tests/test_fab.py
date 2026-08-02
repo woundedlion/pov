@@ -277,6 +277,17 @@ class AssemblyPolicyTests(unittest.TestCase):
         self.assertFalse(fab.is_assembled(
             self.component("Resistor_SMD:R_0603_1608Metric", dnp=True)))
 
+    def test_accepts_exact_assigned_part_set(self):
+        fab.validate_assembled_refs(fab.LCSC_BY_REF)
+
+    def test_rejects_assigned_part_missing_from_assembly(self):
+        assembled = set(fab.LCSC_BY_REF) - {"U1"}
+
+        with self.assertRaisesRegex(
+                fab.AssemblyMetadataError,
+                "assigned parts missing from assembly: U1"):
+            fab.validate_assembled_refs(assembled)
+
     def test_excludes_the_j1_footprint_the_schematic_generator_emits(self):
         source = (GEN / "board.py").read_text(encoding="utf-8")
         match = re.search(r'"J1".*?fp="([^"]+)"', source, re.DOTALL)
