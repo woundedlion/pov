@@ -367,7 +367,7 @@ def _rot_bb(bb, rot):
     return (min(xs), min(ys), max(xs), max(ys))
 
 
-def _rotatable(ref, bb):
+def _rotatable(ref):
     # Placement aligns the rotated bbox corner to the cell, so any origin packs
     # correctly. Rotate chip passives (R/C) and pin-header connectors (J*). Keep
     # solder jumpers (JP*, custom pads + clearance-outline trip DRC at 90), diodes,
@@ -487,7 +487,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
                       key=lambda r: -max(bxs[r][2] - bxs[r][0], bxs[r][3] - bxs[r][1]))
     for ref in interior:
         bb = bxs[ref]
-        rots = (0, 90) if _rotatable(ref, bb) else (0,)
+        rots = (0, 90) if _rotatable(ref) else (0,)
         choice = None
         for rot in rots:
             rb = _rot_bb(bb, rot)
@@ -554,7 +554,6 @@ def main(unplaced=False, force=False):
         node = teensy_footprint() if fp in ("", "phantasm:Teensy4.0") else load_mod(fp)
         bxs[ref] = fp_bbox(node)
         pad_bxs[ref] = fp_bbox(node, pads_only=True)
-    PLACE, L = pack(bxs, PCB_W)
     if unplaced:
         L = QUILTER_LENGTH
         staged = unplaced_layout(bxs, L, PCB_W)
@@ -573,6 +572,7 @@ def main(unplaced=False, force=False):
         NOTE = (f'PHANTASM segment board UNPLACED  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
                 '(width <=35mm); mechanical and signal-integrity placements locked')
     else:
+        PLACE, L = pack(bxs, PCB_W)
         OUTFILE = PCB_FILE
         NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm (width <=35mm, R-MECH-6); '
                 'shelf-packed draft, route in Pcbnew')
