@@ -26,19 +26,16 @@ strobe or persist on the strip.
 
 ## Audit snapshot — active effects
 
-All non-legacy effects now **strobe** (`strobe_columns() == true`): each column
-blanks to black after it is shown rather than persisting into the next. The four
-that already strobed (Flyby, GnomonicStars, Liquid2D, ReactionDiffusion) are
-unchanged; the remaining 22 were flipped from `false` to `true`.
+All current non-legacy effects **strobe** (`strobe_columns() == true`): each
+column blanks to black after it is shown rather than persisting into the next.
 
 | Effect | `strobe_columns()` |
 |---|---|
 | ChaoticStrings | `true` |
 | Comets | `true` |
-| DistortedRing | `true` |
+| DisplacementField | `true` |
 | DreamBalls | `true` |
 | Dynamo | `true` |
-| FlowField | `true` |
 | Flyby | `true` |
 | GnomonicStars | `true` |
 | HankinSolids | `true` |
