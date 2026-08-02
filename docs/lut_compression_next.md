@@ -89,7 +89,7 @@ If nulling the table barely moves the scope, it wasn't thrashing — stop.
 | table | where | size | hot? | first read |
 |---|---|--:|---|---|
 | `linear_to_srgb_lut` | color_luts.h | 64 KB | per-pixel (pack) | **DONE** — the template |
-| `GAMUT_LUT` | gamut_lut.h | **512 KB flash** (512×256×2, uint16) | gamut-clip effects | **Most promising, but already downsampled at runtime** — `init_gamut_lut` downsamples the flash master into an arena LUT (`g_gamut_lut`), so the *runtime* footprint is far smaller and depends on the downsample factor. Investigate the runtime working set and whether the gamut-clip path (`color.h:840`) thrashes; the flash master is cold (init only). |
+| `GAMUT_LUT` | gamut_lut.h | **512 KB flash** (512×256×2, uint16) | gamut-clip effects | **Most promising, but already downsampled at runtime** — `init_gamut_lut` downsamples the flash master into an arena LUT (`g_gamut_lut`), so the *runtime* footprint is far smaller and depends on the downsample factor. Investigate the runtime working set and whether the gamut-clip path (`color.h:881`) thrashes; the flash master is cold (init only). |
 | trig / "pixel→vector" | `TrigLUT` (geometry.h, plot.h) | `sin_theta`/`cos_theta[W=288]`, `sin_phi[H_VIRT]` ≈ 1–2 KB each | per-pixel in the scan (`Vector p(sp*cos_theta[x], cp, sp*sin_theta[x])`) | Hot but **small** — likely resident, likely NOT a thrash candidate. This is the "pixel→vector" path. **Measure before assuming** — but expect it fits L1 and compressing it only adds compute. |
 | `srgb_to_linear_lut` | color_luts.h | 512 B (256×uint16) | per-pixel where used | **Skip** — fits L1 trivially. |
 | SDF congruence-class LUT | `build_canonical_distance_lut`, sdf.h/scan.h | per-shape, staged | per-probe | Deforming-effect-hostile (see `project_congruence_class_lut_landed` memory) — facility only; do not re-wire. Likely not a compression target. |
@@ -107,12 +107,12 @@ compression.**
 
 ## 4. The hard constraint: DTCM is nearly full
 
-After the sRGB decode, **DTCM has only ~1.2 KB free** (10 banks = 327,680 B;
-314,176 B variables + 12,288 B stack). The arena owns the rest and is sized for
+After the sRGB decode, **DTCM has only ~2.6 KB free** (10 banks = 327,680 B;
+312,704 B variables + 12,288 B stack). The arena owns the rest and is sized for
 GSReactionDiffusion (~298 KB, ~7 KB global margin) — so you **cannot** shave the
 arena without GS optimization (its `static_assert` refuses it). So:
 
-- A new DTCM-resident table must fit ~1.2 KB, **or** you must first free DTCM
+- A new DTCM-resident table must fit ~2.6 KB, **or** you must first free DTCM
   (shrink another table, or GS work — out of scope unless the win justifies it).
 - **Before spending scarce DTCM, test whether a small-enough compressed table
   stays resident in *cacheable flash*.** The sRGB 8 KB flash table still thrashed
@@ -120,7 +120,7 @@ arena without GS optimization (its `static_assert` refuses it). So:
   it needs **no DTCM at all**. Measure flash-resident vs DTCM (the `48cfcb0c`
   three-way did exactly this) before deciding.
 
-ITCM headroom: ~5.8 KB (`code` 190,760 / 196,608). The stack floor (12,288 B) is a
+ITCM headroom: 6,184 B (`code` 190,424 / 196,608). The stack floor (12,288 B) is a
 safety reserve — do not shrink it.
 
 ---
