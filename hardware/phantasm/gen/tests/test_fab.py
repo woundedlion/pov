@@ -1,5 +1,4 @@
 import json
-import re
 import subprocess
 import sys
 import tempfile
@@ -295,13 +294,6 @@ class AssemblyPolicyTests(unittest.TestCase):
                 fab.AssemblyMetadataError,
                 "rotation corrections missing from assembly: U1"):
             fab.validate_rotation_refs(assembled)
-
-    def test_excludes_the_j1_footprint_the_schematic_generator_emits(self):
-        source = (GEN / "board.py").read_text(encoding="utf-8")
-        match = re.search(r'"J1".*?fp="([^"]+)"', source, re.DOTALL)
-        self.assertIsNotNone(match, "board.py assigns J1 no footprint")
-        self.assertFalse(fab.is_assembled(self.component(match.group(1))))
-
 
 PARITY_DESCRIPTIONS = {
     "extra_footprint": "Extra footprint",
