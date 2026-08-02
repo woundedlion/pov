@@ -87,10 +87,10 @@ def build_nets(nlroot):
     names = []
     for nb in F(nlroot, "nets"):
         for net in F(nb, "net"):
-            name = sexp._val(net, "name")[0]
+            name = sexp.val(net, "name")[0]
             names.append(name)
             for nd in F(net, "node"):
-                pad_net[(sexp._val(nd, "ref")[0], sexp._val(nd, "pin")[0])] = name
+                pad_net[(sexp.val(nd, "ref")[0], sexp.val(nd, "pin")[0])] = name
     # stable net ids: 0 = "", then unique names in first-seen order
     netid = {"": 0}
     for n in names:
@@ -104,8 +104,8 @@ def build_paths(nlroot):
     out = {}
     for cb in F(nlroot, "components"):
         for comp in F(cb, "comp"):
-            ref = sexp._val(comp, "ref")[0]
-            ts = sexp._val(comp, "tstamps")
+            ref = sexp.val(comp, "ref")[0]
+            ts = sexp.val(comp, "tstamps")
             if ts:
                 out[ref] = "/" + ts[0].strip("/")
     return out
@@ -132,7 +132,7 @@ def schematic_components():
         if not ref or ref.startswith("#"):
             continue
         if ref not in seen:
-            dnp = sexp._val(c, "dnp", [sexp.Sym("no")])[0] == "yes"
+            dnp = sexp.val(c, "dnp", [sexp.Sym("no")])[0] == "yes"
             seen[ref] = (ref, fp or "", val or "", dnp)
             order.append(ref)
     return [seen[r] for r in order]
@@ -335,16 +335,16 @@ def fp_bbox(node, pads_only=False):
         if not (isinstance(c, list) and c):
             continue
         if c[0] == "pad":
-            at = sexp._val(c, "at"); sz = sexp._val(c, "size")
+            at = sexp.val(c, "at"); sz = sexp.val(c, "size")
             x = float(at[0]); y = float(at[1])
             r = max(float(sz[0]), float(sz[1])) / 2 if sz else 0.5
             xs += [x - r, x + r]; ys += [y - r, y + r]
         elif not pads_only and c[0] in ("fp_rect", "fp_line", "fp_poly", "fp_circle"):
             for k in ("start", "end", "center"):
-                v = sexp._val(c, k)
+                v = sexp.val(c, k)
                 if v:
                     xs.append(float(v[0])); ys.append(float(v[1]))
-            pts = sexp._val(c, "pts")
+            pts = sexp.val(c, "pts")
             if pts:
                 for p in pts:
                     if isinstance(p, list) and p and p[0] == "xy":

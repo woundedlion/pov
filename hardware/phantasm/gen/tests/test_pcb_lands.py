@@ -32,8 +32,8 @@ def pad_lands(node):
     in), not part of the land pattern."""
     lands = []
     for pad in F(node, "pad"):
-        at = sexp._val(pad, "at")
-        size = sexp._val(pad, "size")
+        at = sexp.val(pad, "at")
+        size = sexp.val(pad, "size")
         lands.append((str(pad[1]), float(at[0]), float(at[1]),
                       float(size[0]), float(size[1])))
     return tuple(sorted(lands))

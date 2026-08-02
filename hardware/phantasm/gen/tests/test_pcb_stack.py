@@ -15,9 +15,9 @@ def stackup_copper():
     """(name, thickness) of every copper layer the emitted stackup declares."""
     root = sexp.parse("(stackup " + " ".join(pcb.STACKUP) + ")")[0]
     return tuple(
-        (str(layer[1]), str(sexp._val(layer, "thickness")[0]))
+        (str(layer[1]), str(sexp.val(layer, "thickness")[0]))
         for layer in F(root, "layer")
-        if sexp._val(layer, "type")[0] == "copper"
+        if sexp.val(layer, "type")[0] == "copper"
     )
 
 
