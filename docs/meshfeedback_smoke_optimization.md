@@ -21,6 +21,10 @@ bash tools/profile_one.sh MeshFeedback profile 300 16 "-D HS_PROFILE_EPOCH_REVS=
 Add `HS_PROFILE_DEEP=1` for the per-pixel sub-scopes (a separate `_deep.log`;
 they cost ~6 ms/frame, so deep and shipping captures are not comparable).
 
+The report below is chronological. Baseline and intermediate tables retain the
+measurements that selected each lever; only the resolved banner and final-result
+note describe the shipped endpoint.
+
 ## Method
 
 `feedback_composite` and `feedback_populate` were split into `HS_PROFILE_DEEP`
@@ -271,7 +275,7 @@ every frame. Repopulating every *other* frame and lerping the two cached int16
 fields (2,592 cheap lerps) halves it. The `WarpKey` cache already exists; this
 is a coarser key plus a second field buffer (+5 KB persistent).
 
-### L5 — Replace the per-pixel OKLab chain (look change, −18 to −37 ms) ★ the one that reaches target
+### L5 — Replace the per-pixel OKLab chain (projected look change, −18 to −37 ms)
 
 Two variants, both attacking the 43.25 ms:
 
@@ -330,7 +334,7 @@ not estimated:
 `gamut_clip` per-call: 1,953 → 1,970 → 1,772 → **1,177 cyc/px** (−40% from
 baseline).
 
-### Shipping result (no deep instrumentation)
+### Intermediate shipping result (no deep instrumentation)
 
 Every figure above is instrumented-to-instrumented. The `HS_PROFILE_DEEP` scopes
 cost ~6 ms/frame at four-plus scopes per pixel, so the shipping numbers are
@@ -354,9 +358,9 @@ materially better. Captured at the same 300 s / window 16 / epoch 2900:
 | 5 | Frozen | 48.79 | 0/572 | 🟢 |
 | 2 | Swirling | 37.70 | 0/572 | 🟢 |
 
-**Five of eight styles hold 16 fps outright** (was two), and the three yellows
-spill under 1% of their frames — each is within ~2 ms of locking. Only Smoke
-still slips a tier, 11.2 ms above the 59 ms target rather than the 17.5 ms the
+At this intermediate capture, **five of eight styles held 16 fps outright**
+(was two), and the three yellows spilled under 1% of their frames. Smoke still
+slipped a tier, 11.2 ms above the 59 ms target rather than the 17.5 ms the
 instrumented capture implied.
 
 | lever | estimated | measured | verdict |
@@ -366,7 +370,7 @@ instrumented capture implied.
 | L3 single-reciprocal cbrt triple | −2.5 | −3.4 | landed `574e8521`, beat estimate |
 | gamut LUT (512×128, arena) | −20 | n/a | **abandoned** — 0.041 chroma deficit, resolution-capped |
 | analytic first-exit gamut clip | −18 | **−2.0** | landed `8e76a2d4` (+3,232 B ITCM) |
-| **subtotal** | −45 | **−7.6** | **peak 82.3 ms — misses** |
+| **subtotal at this capture** | −45 | **−7.6** | **peak 82.3 ms — misses** |
 
 ### The gamut clip: four approaches, one root cause
 
@@ -403,11 +407,11 @@ collapsed counted flops on a kernel whose critical path is a serial dependency
 chain (L1). On an in-order M7, **ask what the change does to the critical path
 or to a non-pipelined resource, not to the operation count.**
 
-**Conclusion, revised by measurement.** The exact-lever tier is worth about
-**6 ms, not 24**. Smoke sits at 83.94 ms peak against a 59 ms target, so
-**−25 ms remains and no output-preserving lever on this list can supply it.**
+**Intermediate conclusion.** At this capture the exact-lever tier was worth
+about **6 ms, not 24**. Smoke sat at 83.94 ms peak against a 59 ms target, with
+about **25 ms remaining**.
 
-The two candidates that can, in order of preference:
+The two candidates identified at that stage, in order of preference:
 
 1. **L5b / L5a — replace the per-pixel OKLab chain** (−18 to −37 ms). Still the
    only single lever that reaches the target. The Swirling comparison bounds it
@@ -420,9 +424,15 @@ The two candidates that can, in order of preference:
    Drift, Churn, Melting and SlowTwist under 62.5 ms too — they share the colour
    path.
 
-L4 (temporal warp reuse, ~−3.3 ms) and L6 (coarser downsample, ~−3.5 ms) remain
-available but are look changes for small change, and both estimates should now
-be treated with the same suspicion as L1's.
+L4 (temporal warp reuse, ~−3.3 ms) and L6 (coarser downsample, ~−3.5 ms) were
+also left as look-changing candidates at that stage.
+
+### Final shipping result
+
+The final 2026-07-19 capture superseded the intermediate result: Smoke peaked
+at **61.86 ms** with **zero spilled frames**, and all eight measured styles held
+16 fps. The pass-wide cadence moved from 6 red / 1 yellow / 1 green at baseline
+to **8 green**.
 
 ## Caveats
 
@@ -434,8 +444,8 @@ be treated with the same suspicion as L1's.
   *cycles* carry a few percent of slop.
 - Per-scope overhead ~8.2 cyc is included in each leaf's per-call figure;
   subtract it before comparing a leaf against hand-counted flops.
-- Savings estimates for L2–L6 are static cycle counts, not measurements. Only
-  L1's *exactness* is verified; its 16.3 ms is an estimate like the rest.
+- L2 and L3 savings are measured above. L4–L6 are static estimates from the
+  intermediate investigation.
 - The shipping roster report (`docs/profiles/shipping/`) carries the
   uninstrumented numbers and remains the figure of record; this capture reads
   +2.5% on the flush.
