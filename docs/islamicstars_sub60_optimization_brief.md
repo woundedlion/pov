@@ -1,16 +1,16 @@
 # Agent brief — IslamicStars render chain to peak < 60 ms on every shape
 
-**Status: OPEN brief.** Drive the IslamicStars render chain to peak < 60 ms on
-every shape, in both the shipping selective-`-O3` image and the global-`-O3`
-image. The branch layout described under "Where the work lives" predates the
-opchain_morph landing and no longer tracks the tree.
+**Status: RESOLVED, HISTORICAL BRIEF.** The opchain morph line landed and the
+shipping profile reached 56.91 ms peak with zero spilled frames. All branch,
+landing, profiling and implementation instructions below describe the
+pre-landing investigation and are retained only as its engineering record.
 
 ## Objective
 
 Optimize **IslamicStars** (the opchain_morph version) so that a full 24-shape
 on-device cycle profiles with **peak frame render < 60 ms on every shape, 0
 spilled frames**, in **both** the shipping selective-O3 image and the global-O3
-image. This is the gate to re-landing the reverted opchain_morph feature.
+image. This was the pre-landing acceptance gate for the opchain morph feature.
 
 Colour convention (owner, binary): **0 spills = green, any spill = red, no
 yellow.** "Green with margin" is the goal here: peak render **< 60 ms** (a
@@ -19,10 +19,8 @@ transitions.
 
 ## Where the work lives
 
-- **Branch:** `opchain/dissolve` (`7fd8155d`), which is master `009d3536` + the
-  full opchain_morph feature (77 commits) + both ITCM fixes + the Dissolve seed
-  intro. Do **not** touch master; master was deliberately rewound to the green
-  pre-opchain tip. Work on `opchain/dissolve` or a child branch off it.
+- **Historical branch:** `opchain/dissolve` (`7fd8155d`). Its work is now in
+  master; the branch no longer exists.
 - **Effect:** `effects/IslamicStars.h` (spawn scheduler, `spawn_shape`,
   `start_build_leg`, `schedule_dual_bridge` / `schedule_dt_macro` /
   `schedule_dtd_macro` / `schedule_macro_truncate`, `draw_shape`, `draw_sprite`).
@@ -36,9 +34,9 @@ transitions.
 
 ## My insights on the problem (root-caused this session)
 
-The profile (COM3, 210 s, w16, `TRANS_SPEED=4`, `EPOCH_REVS=1920`, full cycle)
-of the landed feature showed **peak 150.08 ms, 19/3296 frames spilled**, 6 red
-presets. Diagnosis:
+The pre-fix profile (COM3, 210 s, w16, `TRANS_SPEED=4`,
+`EPOCH_REVS=1920`, full cycle) showed **peak 150.08 ms, 19/3296 frames
+spilled**, 6 red presets. Diagnosis:
 
 **There are two distinct cost regimes, and they compound on a few frames.**
 
@@ -169,9 +167,8 @@ are purely transition/rebuild frames.
    cycle validated).
 2. Native suite green; all 3 pio images green (ITCM fits with margin).
 3. Morph visually smooth and colours unchanged (or visual changes owner-approved).
-4. Then re-land `opchain/dissolve` (+ Dissolve) onto master FF-only, reinstall
-   the wasm simulator, and write both profile reports + update the 3 profile
-   READMEs under the binary colour convention.
+4. Land the opchain morph line, reinstall the wasm simulator, and publish the
+   profile reports. Completed by `661f1a78`.
 
 ## Fast start
 
