@@ -7,8 +7,7 @@ window, with margin) on Teensy 4.0 in the shipping selective-O3 image.
 eight styles hold 16 fps.** Pass peak render 87.66 → 61.86 ms (−29 %), spill
 48.1 % → 0 %, cadence buckets 6 red / 1 yellow / 1 green → **8 green**. The
 59 ms figure was a proxy for "clears the window with margin"; the delivered
-margin is 0.64 ms on the worst frame, which clears it but thinly — see the
-caveat at the end.
+margin is 0.64 ms on the worst frame, which clears it but thinly.
 
 Measured 2026-07-17 (baseline) through 2026-07-19 (final), 300 s captures,
 window 16, `HS_PROFILE_EPOCH_REVS=2900`, full 8-style cycle, validated.
@@ -36,7 +35,7 @@ would tax the whole roster's numbers:
 |---|---|---|
 | `fb_pop_warp` | per coarse cell | `space_fn` (OpenSimplex2 noise) + `pixel_to_vector` |
 | `fb_pop_project` | per coarse cell | `Spherical` (atan2/acos) + delta quantization |
-| `fb_comp_cell` | per coarse cell | warp-field bilerp + seam unify |
+| `fb_comp_cell` | per interpolated cell | warp-field bilerp + seam unify |
 | `fb_comp_sample` | per pixel | `sample_bilinear_prev` |
 | `fb_comp_color` | per **lit** pixel | the colour transform, counted only where the `NEAR_BLACK` skip misses |
 | `gamut_clip` | per out-of-gamut pixel | the 16-iteration `gamut_clip_preserve_chroma` bisection |
@@ -201,11 +200,6 @@ cost of 1/256 chroma resolution instead of 1/65536, and the bisection is
 conservative — fewer steps can only under-saturate, never leave gamut. Newton
 on the (now available) cubic would reach full precision in ~4 steps.
 
-Optional follow-on: with the cheap polynomial form, dropping 16 → 8 iterations
-(chroma resolution 1/256, still far below a visible step, and the bisection is
-conservative — it can only under-saturate, never leave gamut) takes it to
-~230 cyc/px for another ~1.5 ms. Low value once L1 has landed.
-
 Further out: the binding channel's cubic can be solved by 3 Newton steps from
 `s = 1` instead of bisected at all (~150 cyc/px), but that needs care where the
 cubic is non-monotone on [0,1].
@@ -213,8 +207,8 @@ cubic is non-monotone on [0,1].
 ### L2 — Hoist the canvas base pointers — LANDED, −2.9 ms (`93a70142`)
 
 `Canvas::prev()` and `operator()` each do a **relaxed atomic load** of
-`prev_`/`cur_`, an indirection through `bufs_[]`, and a runtime
-`y * effect_.width_ + x` multiply — and the composite calls them **five times
+`prev`/`cur`, an indirection through `bufs[]`, and a runtime
+`y * effect.frame_width + x` multiply — and the composite calls them **five times
 per pixel** (four bilinear taps plus the store). Compilers will not hoist atomic
 loads out of the loop.
 
@@ -273,14 +267,11 @@ through the feedback loop, and banding — needs an eyeball, and the "Fade"/"Hue
 Shift" sliders are registered as animated params, so a drifting slider would
 force rebuilds.
 
-**L5b — Small-angle linear-RGB rotation.** Smoke's `hue_shift` is 0.01 turn —
-**3.6°**. A 3×3 fitted directly in linear RGB (9 mul, 6 add, clamp ≈ 30 cyc/px)
-approximates so small an OKLab rotation closely, dropping the cbrt/cube round
-trip and the gamut search entirely (a linear-RGB clamp suffices). Colour+gamut
-43.25 → **~4 ms**. No extra memory, trivial code. Risk: it is a genuine change
-to the perceptual model, and hue error compounds across feedback generations —
-the accumulation is what makes this an eyeball decision rather than a
-measurement one.
+**L5b — Fitted linear-RGB rotation.** Smoke's `hue_shift` is 0.09491219 turn,
+about **34.2°**. A fitted 3×3 linear-RGB approximation was estimated to replace
+the cbrt/cube round trip and gamut search with 9 multiplies, 6 adds and a clamp.
+The angle is not small, so fidelity would need to be established empirically;
+the original small-angle justification does not apply.
 
 ### L6 — Coarser warp downsample for high-scale presets (look change, −3.5 ms)
 
@@ -353,21 +344,6 @@ instrumented capture implied.
 | analytic global first-exit solve | **−10%** (1,953 → 1,772 cyc/px) |
 | **bracket table + in-bracket refinement** | **−40%** (→ 1,177 cyc/px), shipped |
 
-**`linear_rgb_in_gamut`'s ±1e-4 slack is not a rounding detail — it changes the
-topology of the set being searched.** A channel can graze zero, leave tolerance
-and re-enter, so the in-gamut set along a ray is sometimes disconnected. That
-single fact defeated four methods in four different ways: the original bisection
-selected an island arbitrarily (0.038 jumps between adjacent lightnesses); the
-min-only grid truncated the cusp (0.041); Ottosson's Halley refinement converged
-to the far root (+0.042, *out of gamut*); a bisection across the bracket
-converged past the first exit (+0.019, visible banding). The shipped design
-walks the bracket in 4 steps to find the first crossing, then bisects 3× inside
-the straddling step.
-
-Correctness is structural rather than table-dependent: `c_min` is probed before
-it is trusted, and the search only accepts a scale it has evaluated in gamut. A
-bad table degrades accuracy; it cannot produce an invalid colour.
-
 Accuracy is a knob, not a ceiling — worst deficit by bisection count: 0.0028 /
 **0.0014** / 0.00077 / 0.0004 at k = 2/3/4/5. The shipped k = 3 matches the
 analytic solve's accuracy at a third of the cost.
@@ -413,6 +389,5 @@ to **8 green**.
   subtract it before comparing a leaf against hand-counted flops.
 - L2 and L3 savings are measured above. L4–L6 are static estimates from the
   intermediate investigation.
-- The shipping roster report (`docs/profiles/shipping/`) carries the
-  uninstrumented numbers and remains the figure of record; this capture reads
-  +2.5% on the flush.
+- The deep-instrumented capture reads about 2.5% high on the flush relative to
+  the uninstrumented shipping capture.
