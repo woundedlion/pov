@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <span>
+#include <vector>
 
 namespace {
 
@@ -37,23 +38,38 @@ int main() {
               particle_count, corpus.state_size,
               static_cast<unsigned long long>(corpus.corpus_hash));
   bool exact = true;
+  std::vector<Pixel> reference(static_cast<size_t>(WIDTH) * HEIGHT);
   for (int frame = 0; frame < REPLAY_FRAMES; ++frame) {
     mindsplatter_replay::FrameStats stats;
-    WhiteBox::draw_particles_inspect(
-        effect, [&](Canvas &canvas, const ClipRegion &clip) {
-          stats = mindsplatter_replay::compare_frame<WIDTH>(
-              canvas, clip, corpus.framebuffer, corpus.framebuffer_entries);
-        });
+    mindsplatter_replay::FrameStats host_stats;
+    {
+      Canvas canvas(effect);
+      const ClipRegion clip = canvas.clip();
+      WhiteBox::draw_particles_replay_reference(effect, canvas);
+      const size_t reference_count = mindsplatter_replay::capture_frame<WIDTH>(
+          canvas.data(), clip, reference.data(), reference.size());
+      mindsplatter_replay::clear_frame(canvas, clip);
+      WhiteBox::draw_particles_candidate(effect, canvas);
+      stats = mindsplatter_replay::compare_frame_reference<WIDTH>(
+          canvas, clip, reference.data(), reference_count);
+      host_stats = mindsplatter_replay::compare_frame<WIDTH>(
+          canvas, clip, corpus.framebuffer, corpus.framebuffer_entries);
+    }
     effect.advance_display();
     std::printf(
-        "replay frame=%d hash=%llu expected=%llu changed=%u "
+        "replay frame=%d candidate=%llu reference=%llu changed=%u "
         "channels=%u max=%u abs=%llu\n",
         frame + 1, static_cast<unsigned long long>(stats.framebuffer_hash),
         static_cast<unsigned long long>(stats.expected_hash),
         stats.changed_pixels, stats.changed_channels, stats.max_channel_error,
         static_cast<unsigned long long>(stats.total_absolute_error));
-    exact &= stats.changed_pixels == 0 &&
-             stats.expected_hash == corpus.framebuffer_hash;
+    std::printf("replay host frame=%d candidate=%llu host=%llu changed=%u\n",
+                frame + 1,
+                static_cast<unsigned long long>(host_stats.framebuffer_hash),
+                static_cast<unsigned long long>(host_stats.expected_hash),
+                host_stats.changed_pixels);
+    exact &= stats.changed_pixels == 0 && host_stats.changed_pixels == 0 &&
+             host_stats.expected_hash == corpus.framebuffer_hash;
   }
   return exact ? 0 : 1;
 }

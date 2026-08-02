@@ -55,6 +55,8 @@ if [ -n "$HS_PROFILE_DEEP" ] && [ "$HS_PROFILE_DEEP" != "0" ]; then
 fi
 REPLAY_SUFFIX=""
 case " $EXTRA " in
+  *" HS_MINDSPLATTER_REPLAY_AB "*|*"HS_MINDSPLATTER_REPLAY_AB="*)
+    REPLAY_SUFFIX="_replay_ab";;
   *" HS_MINDSPLATTER_REPLAY "*|*"HS_MINDSPLATTER_REPLAY="*)
     REPLAY_SUFFIX="_replay";;
 esac

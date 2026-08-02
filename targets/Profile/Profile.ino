@@ -49,6 +49,8 @@
 //                            and adds one "plot counts" line per window.
 //   HS_MINDSPLATTER_REPLAY    restores the selected frozen MindSplatter corpus
 //                            and renders it repeatedly without physics.
+//   HS_MINDSPLATTER_REPLAY_AB renders the generic baseline and candidate from
+//                            one state and reports their pixel error.
 //   HS_MINDSPLATTER_REPLAY_CORPUS
 //                            corpus symbol selected from the generated header.
 //   HS_PROFILE_MINDSPLATTER_COUNTS
@@ -75,6 +77,10 @@
 #endif
 #endif
 
+#if defined(HS_MINDSPLATTER_REPLAY_AB) && !defined(HS_MINDSPLATTER_REPLAY)
+#error "HS_MINDSPLATTER_REPLAY_AB requires HS_MINDSPLATTER_REPLAY"
+#endif
+
 // The .ino -> .cpp converter injects prototypes for every function it detects
 // immediately before the first one, which here sits inside the anonymous
 // namespace below — giving the injected setup/loop internal linkage they never
@@ -83,6 +89,10 @@ FLASHMEM void setup();
 void loop();
 
 namespace {
+
+#ifdef HS_MINDSPLATTER_REPLAY_AB
+static Pixel replay_reference_pixels[MAX_W * MAX_H / NUM_SEGMENTS];
+#endif
 
 /**
  * @brief Wraps the profiled effect: roots the HS_PROFILE tree at one `frame`
@@ -111,6 +121,12 @@ public:
             (unsigned)particles, (unsigned long)corpus.state_size,
             hs::u64_dec(corpus.corpus_hash, hash));
     hs::log("replay source: %s", corpus.source);
+#ifdef HS_MINDSPLATTER_REPLAY_AB
+    hs::log("replay compare: candidate vs generic device reference; "
+            "timing=combined");
+#else
+    hs::log("replay compare: candidate vs host-generated fingerprint");
+#endif
   }
 #endif
 
@@ -123,20 +139,36 @@ public:
     {
       HS_PROFILE(frame);
 #ifdef HS_MINDSPLATTER_REPLAY
+#ifdef HS_MINDSPLATTER_REPLAY_AB
+      Canvas canvas(*this);
+      replay_clip = canvas.clip();
+      ReplayWhiteBox::draw_particles_replay_reference(*this, canvas);
+      const size_t reference_count = mindsplatter_replay::capture_frame<W>(
+          canvas.data(), replay_clip, replay_reference_pixels,
+          std::size(replay_reference_pixels));
+      mindsplatter_replay::clear_frame(canvas, replay_clip);
+      ReplayWhiteBox::draw_particles_candidate(*this, canvas);
+      pixels = canvas.data();
+      replay_stats = mindsplatter_replay::compare_frame_reference<W>(
+          pixels, replay_clip, replay_reference_pixels, reference_count);
+#else
       ReplayWhiteBox::draw_particles_inspect(
           *this, [&](Canvas &canvas, const ClipRegion &clip) {
             pixels = &canvas(0, 0);
             replay_clip = clip;
           });
+#endif
 #else
       HS_PROFILE_TARGET<W, H>::draw_frame();
 #endif
     }
     const unsigned long dt = micros() - t0;
 #ifdef HS_MINDSPLATTER_REPLAY
+#ifndef HS_MINDSPLATTER_REPLAY_AB
     replay_stats = mindsplatter_replay::compare_frame<W>(
         pixels, replay_clip, replay_corpus().framebuffer,
         replay_corpus().framebuffer_entries);
+#endif
 #endif
     // Per-frame render = wall minus this frame's display-sync wait, read as
     // the effect's *_buffer_wait counter delta. The counter self-registers on
@@ -177,11 +209,17 @@ private:
 
   void dump_replay_stats() const {
     char actual[21], expected[21], total_error[21];
-    hs::log("replay frame: clip=%d,%d,%d,%d hash=%s expected=%s "
+#ifdef HS_MINDSPLATTER_REPLAY_AB
+    static constexpr const char *EXPECTED_LABEL = "reference";
+#else
+    static constexpr const char *EXPECTED_LABEL = "host";
+#endif
+    hs::log("replay frame: clip=%d,%d,%d,%d candidate=%s %s=%s "
             "changed=%lu channels=%lu max=%u abs=%s",
             replay_stats.clip.x_start, replay_stats.clip.x_end,
             replay_stats.clip.y_start, replay_stats.clip.y_end,
             hs::u64_dec(replay_stats.framebuffer_hash, actual),
+            EXPECTED_LABEL,
             hs::u64_dec(replay_stats.expected_hash, expected),
             (unsigned long)replay_stats.changed_pixels,
             (unsigned long)replay_stats.changed_channels,
