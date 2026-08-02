@@ -189,50 +189,17 @@ Consequences worth stating outright:
   `MeshOps::bevel`; composition is right-to-left and the table above reflects
   it.)
 
-### 2.1 Four recipes have targets the clamp cannot reach
+### 2.1 The truncate clamp edge cases are resolved
 
-`ConwayGraph::T_EPS = 0.02`, `ConwayGraph::T_EPS_AMBO = 0.005`. The shipping
-registry violates both bounds — every recipe below is a
-`Solids::IslamicStarPatterns` builder:
+The two `truncate001` recipes now birth their legs at a fraction of the authored
+arrival via `T_EPS_TRUNCATE_FRAC`, so they sweep instead of holding a still
+image. The two `truncate50d` recipes use the far-side range through
+`T_EPS_TRUNCATE_FAR_MAX`; `truncate_off_pinch()` keeps an exact `t = 0.5` sample
+on the constant-topology truncate branch. `Solids::is_morphable_step` accepts
+both classes.
 
-| recipe | call | problem |
-|---|---|---|
-| `truncatedIcosidodecahedron_truncate50d_ambo_dual` | `.truncate(50·D2R)` = **0.8727** | far side of the ambo point |
-| `truncatedIcosahedron_truncate50d_ambo_dual` | same | far side of the ambo point |
-| `truncatedIcosahedron_ambo_relax_truncate001_hankin59` | `.truncate(0.01f)` | **below `T_EPS`** |
-| `truncatedIcosahedron_ambo_relax_truncate001_hankin73` | `.truncate(0.01f)` | below `T_EPS` |
-
-**Neither failure is a trap or a CI failure — both are silent, on-screen.**
-`clamp_param` (`core/animation/opleg.h:353-360`) applies to `t_start` *and*
-`t_end`, and it lives only in `ConwayMorph`: `build_recipe` and `entry.generate`
-never see it, so §9.1's bitwise gate compares two unclamped chains and is
-unaffected. The leg is what goes wrong:
-
-- **`truncate001`:** both endpoints clamp to `T_EPS = 0.02`, so
-  `t_start == t_end` and **the leg is a still image** for its whole duration.
-  Its final frame sits at `t = 0.02` against a held solid built at `t = 0.01`.
-- **`truncate50d`:** `t_end` clamps down to `0.5 − T_EPS_AMBO = 0.495`, and
-  `tr.topo` is classified from `run_op` at that *clamped* arrival
-  (`core/animation/opleg.h:1131-1155`), so face counts agree every frame and there
-  is **no trap**. The leg sweeps to a cuboctahedron-like form and then clean-swaps
-  to the self-intersecting `truncate(0.873)` mesh the recipe actually specifies —
-  a full-screen geometry pop. (`MeshOps::truncate`'s doc comment records that
-  `t > 0.5` deliberately crosses the cut points to produce those
-  self-intersecting faces.)
-
-**Treatment:** all four are non-morphable on their truncate leg and both failures
-are §9.5 seam items, not gate failures — which means CI will *not* catch them and
-they must be checked by eye. Either give the four a null recipe, or add a
-`t > 0.5` leg kind seeded from `ambo(seed)` with its own clamp on the far side of
-the ambo point. The first is correct for Phase 2; the second is speculative and
-should not be scheduled without a reason.
-
-**Fifth case, benign but must be handled:** `bevel(0.5)` in
-`Solids::IslamicStarPatterns::truncatedIcosidodecahedron_bevel5_relax_hk77`
-lowers to a truncate leg whose target is *exactly* `0.5` — the one value a leg
-may never land on. `expand_to_primitives` (§4.2) must special-case `t == 0.5f`
-in a bevel to emit
-`AMBO` instead of a truncate step.
+The `bevel(0.5)` lowering case is also handled: `expand_to_primitives` emits an
+`AMBO` step at the exact truncate short-circuit.
 
 ### 2.2 `relax` cannot always fold into the preceding leg
 
@@ -1313,18 +1280,12 @@ analysis is not redone.
    animation for `SDF::Face` geometry**; see §3.2 for the precise scope of the
    rule.
 
-3. **Sweeping a `truncate` leg to `t > 0.5`** (the two `truncate50d` recipes).
-   **DEAD:** `t = 0.5` short-circuits to `ambo` (`MeshOps::truncate`), halving vertex
-   count and every primary degree. `clamp_param` prevents the trap but lands the
-   leg on a cuboctahedron-like form that then clean-swaps to the recipe's
-   self-intersecting target — a full-screen pop. §2.1.
-
-4. **Deriving recipes by parsing registry names.** **DEAD:** the names are lossy
+3. **Deriving recipes by parsing registry names.** **DEAD:** the names are lossy
    — `hk35` is a rounded degree, `truncate50d` is `50·D2R = 0.873` used as a raw
    `t`, `relax` drops its iteration count. A parser would be a weaker second
    source of truth competing with the recipe table. §4.1.
 
-5. **Folding every `relax` into the preceding leg's settle.** **DEAD** for six of
+4. **Folding every `relax` into the preceding leg's settle.** **DEAD** for six of
    the nine sites: the settle slerps per-vertex and requires vertex-count
    identity (`core/animation/opleg.h:889`), but an ambo leg sweeps `2E` vertices
    toward a relaxed form with `E`. §2.2.
