@@ -569,7 +569,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 239. ❌ **`board.py` leans on one/two-letter names and semicolon-joined statements** — `hardware/phantasm/gen/board.py:97, 279-283`, and throughout (`b`, `hw`, `vw`, `tn`, `U`, `J`, `nd`). Separately `pcb.main` uses UPPER_CASE for locals (`PLACE`, `L`, `OUTFILE`, `NOTE`, `HOLES`). Rejected: this is a broad style-only generator rewrite with no correctness benefit and disproportionate output-regression risk.
 
-240. **Exit-code and CLI conventions differ per script in the PCB tooling** — `fab.py` (the one script `just pcb` runs) has no argument parsing at all; `heal_clearance.py`, `stackup.py` and `make_quilter_incremental.py` have no CLI; conventions vary between `sys.exit(str)`, `return 1`, bare traceback, and always-0. `board_metadata.py:241-264` is the model to converge on.
+240. ❌ **Exit-code and CLI conventions differ per script in the PCB tooling** — `fab.py` (the one script `just pcb` runs) has no argument parsing at all; `heal_clearance.py`, `stackup.py` and `make_quilter_incremental.py` have no CLI; conventions vary between `sys.exit(str)`, `return 1`, bare traceback, and always-0. `board_metadata.py:241-264` is the model to converge on. Rejected: the finding proposes a tooling-wide CLI redesign without identifying a broken invocation or required interface.
 
 241. **`heal_clearance.py`'s docstring describes a live subdirectory that does not exist** — `hardware/phantasm/gen/heal_clearance.py:22-23`. Paired with finding 166; the comment describes `divider_rework/` as a live "Quilter-prep subdir".
 
