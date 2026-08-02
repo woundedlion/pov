@@ -213,8 +213,10 @@ private:
                                             float cos_event_horizon) {
     const float m =
         std::max(std::abs(p.x), std::max(std::abs(p.y), std::abs(p.z)));
-    if (m < cos_event_horizon)
+    if (m < cos_event_horizon) {
+      HS_MSP_COUNT(hole_early_outs);
       return 1.0f;
+    }
     const float d = fast_acos(hs::clamp(m, -1.0f, 1.0f));
     return hole_quintic_kernel(d / EVENT_HORIZON);
   }
@@ -446,6 +448,10 @@ private:
 #else
       t_shifted = wrap_color_t(f.v0, f.v2);
 #endif
+      if (t_shifted <= 0.0f || t_shifted >= 1.0f)
+        HS_MSP_COUNT(palette_endpoints);
+      else
+        HS_MSP_COUNT(palette_interpolated);
 #ifdef HS_TEST_BUILD
       if (reference_palette_alpha) {
         Color4 c = baked_palette.get(t_shifted);

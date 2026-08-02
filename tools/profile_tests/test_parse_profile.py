@@ -386,6 +386,50 @@ class PlotCountLines(unittest.TestCase):
         self.assertTrue(aggregate.endswith("11.0      2.0  8 frames"))
 
 
+class MindSplatterInstrumentationLines(unittest.TestCase):
+    """Dedicated MindSplatter count and short-batch stall lines."""
+
+    LOG = "\n".join([
+        "=== profile MindSplatter [288x144] frames 1-4 window=1000000 us ===",
+        "frame wall us: min=0 avg=0 max=0 sum=0 (4 frames)",
+        "frame render us: avg=0 max=0",
+        "frame                  1 us (100%)  4 calls  1 cyc",
+        "msp counts particles: resident=400 live=360 full=200 partial=160 draining=40",
+        "msp counts gate: cart_lat=10 cart_mer=20 cart_fallback=30 row=4 col=5 edge=6 visible=7 exact=8",
+        "msp counts render: dot=90 long=10 adaptive=50 shader=100 pal_end=2 pal_lerp=98 hole_early=70",
+        "msp counts aa: tap0=1 tap1=2 tap2=3 tap3=4 tap4=90 interior=90 boundary=10",
+        "msp stall: stage=history_vertex batches=20 cyc=2000 cpi=200 lsu=100 exc=2",
+        "msp stall: stage=aa_weights batches=100 cyc=4000 cpi=300 lsu=50 exc=1",
+    ]) + "\n"
+
+    def _parse(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text(self.LOG, encoding="utf-8")
+            return pp.parse(path)[0]
+
+    def test_count_sections_merge_and_do_not_become_cycle_counters(self):
+        window = self._parse()[0]
+        self.assertEqual(window.msp_counts["resident"], 400)
+        self.assertEqual(window.msp_counts["exact_fallback"], 8)
+        self.assertEqual(window.msp_counts["tap4"], 90)
+        self.assertEqual(set(window.counters), {"frame"})
+
+    def test_stall_stages_parse(self):
+        window = self._parse()[0]
+        self.assertEqual(window.msp_stalls["history_vertex"]["cyc"], 2000)
+        self.assertEqual(window.msp_stalls["aa_weights"]["batches"], 100)
+
+    def test_commands_accept_instrumented_capture(self):
+        import contextlib
+        import io
+        windows = self._parse()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(pp.cmd_msp_counts(windows), 0)
+            self.assertEqual(pp.cmd_msp_stalls(windows), 0)
+
+
 class ValidateRequiresData(unittest.TestCase):
     """`validate` is the mandatory pre-trust step: it must not certify nothing."""
 

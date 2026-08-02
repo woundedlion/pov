@@ -20,6 +20,8 @@ teensy-profile skill). Reads a capture produced by `profile`/`profile_o3` and:
             cycle-counter read, whose measured cost the view subtracts.
   plot      per-window Plot workload attribution, from a capture built with
             -D HS_PLOT_COUNTS. Counts only; timings from this build are perturbed.
+  msp-counts MindSplatter particle/gate/raster counts from a dedicated count image.
+  msp-stalls MindSplatter short-batch CYCCNT/CPICNT/LSUCNT/EXCCNT attribution.
   validate  sanity checks a cycling-effect capture: preset markers present,
             the cycle wraps back to its first index, the effect instance is
             never torn down mid-capture (frame numbers stay monotonic), and the
@@ -79,6 +81,28 @@ PLOT_FIELDS = ("rings", "edges", "planar", "geodesic", "degenerate",
                "replay_samples", "planar_unprojects", "planar_arc_samples",
                "normalizations", "shader_calls", "plotted_samples",
                "steps_peak", "backstops")
+MSP_PARTICLE_RE = re.compile(
+    r"^msp counts particles: resident=(\d+) live=(\d+) full=(\d+) "
+    r"partial=(\d+) draining=(\d+)\s*$")
+MSP_PARTICLE_FIELDS = ("resident", "live", "full", "partial", "draining")
+MSP_GATE_RE = re.compile(
+    r"^msp counts gate: cart_lat=(\d+) cart_mer=(\d+) cart_fallback=(\d+) "
+    r"row=(\d+) col=(\d+) edge=(\d+) visible=(\d+) exact=(\d+)\s*$")
+MSP_GATE_FIELDS = ("cart_lat", "cart_mer", "cart_fallback", "row", "col",
+                   "edge_reject", "visible", "exact_fallback")
+MSP_RENDER_RE = re.compile(
+    r"^msp counts render: dot=(\d+) long=(\d+) adaptive=(\d+) shader=(\d+) "
+    r"pal_end=(\d+) pal_lerp=(\d+) hole_early=(\d+)\s*$")
+MSP_RENDER_FIELDS = ("one_dot", "long", "adaptive", "shader", "pal_end",
+                     "pal_lerp", "hole_early")
+MSP_AA_RE = re.compile(
+    r"^msp counts aa: tap0=(\d+) tap1=(\d+) tap2=(\d+) tap3=(\d+) "
+    r"tap4=(\d+) interior=(\d+) boundary=(\d+)\s*$")
+MSP_AA_FIELDS = ("tap0", "tap1", "tap2", "tap3", "tap4", "interior",
+                 "boundary")
+MSP_STALL_RE = re.compile(
+    r"^msp stall: stage=(\S+) batches=(\d+) cyc=(\d+) cpi=(\d+) lsu=(\d+) "
+    r"exc=(\d+)\s*$")
 
 # Preset/shape/mode advance markers. `key` groups them; `idx`/`total`/`name`
 # are pulled when present.
@@ -114,6 +138,8 @@ class Window:
         self.scan = None  # HS_SCAN_METRICS window totals, when the build has them
         self.probe = None  # HS_PROBE_BREAKDOWN window buckets + counts
         self.plot = None  # HS_PLOT_COUNTS window workload
+        self.msp_counts = None  # dedicated MindSplatter count image
+        self.msp_stalls = {}  # stage -> short-batch DWT totals
 
     def per_frame_ms(self, label):
         n = self.counters.get(label)
@@ -249,6 +275,26 @@ def parse(path):
             if m and cur:
                 cur.plot = dict(zip(PLOT_FIELDS,
                                     (int(g) for g in m.groups())))
+                continue
+            matched_msp_counts = False
+            for regex, fields in ((MSP_PARTICLE_RE, MSP_PARTICLE_FIELDS),
+                                  (MSP_GATE_RE, MSP_GATE_FIELDS),
+                                  (MSP_RENDER_RE, MSP_RENDER_FIELDS),
+                                  (MSP_AA_RE, MSP_AA_FIELDS)):
+                m = regex.match(line)
+                if m and cur:
+                    cur.msp_counts = dict(cur.msp_counts or {})
+                    cur.msp_counts.update(zip(fields,
+                                              (int(g) for g in m.groups())))
+                    matched_msp_counts = True
+                    break
+            if matched_msp_counts:
+                continue
+            m = MSP_STALL_RE.match(line)
+            if m and cur:
+                cur.msp_stalls[m.group(1)] = dict(
+                    zip(("batches", "cyc", "cpi", "lsu", "exc"),
+                        (int(g) for g in m.groups()[1:])))
                 continue
             m = COUNTER_RE.match(line)
             if m and cur:
@@ -631,6 +677,49 @@ def cmd_plot(windows):
     return 0
 
 
+def cmd_msp_counts(windows):
+    """Aggregate a dedicated MindSplatter count capture."""
+    have = [w for w in windows if w.msp_counts]
+    if not have:
+        print("no 'msp counts' lines: use HS_PROFILE_MINDSPLATTER=counts",
+              file=sys.stderr)
+        return 2
+    agg = Counter()
+    frames = 0
+    for w in have:
+        agg.update(w.msp_counts)
+        frames += w.frames
+    print(f"frames={frames} windows={len(have)}")
+    print(f"{'# counter':<24} {'total':>12} {'per-frame':>12}")
+    for field in (MSP_PARTICLE_FIELDS + MSP_GATE_FIELDS + MSP_RENDER_FIELDS +
+                  MSP_AA_FIELDS):
+        print(f"{field:<24} {agg[field]:12d} {agg[field] / frames:12.2f}")
+    return 0
+
+
+def cmd_msp_stalls(windows):
+    """Aggregate MindSplatter short-batch DWT cycle/stall attribution."""
+    have = [w for w in windows if w.msp_stalls]
+    if not have:
+        print("no 'msp stall' lines: use HS_PROFILE_MINDSPLATTER=stalls",
+              file=sys.stderr)
+        return 2
+    stages = {}
+    for w in have:
+        for stage, values in w.msp_stalls.items():
+            stages.setdefault(stage, Counter()).update(values)
+    print(f"{'# stage':<22} {'batches':>10} {'cyc/batch':>10} "
+          f"{'cpi/batch':>10} {'lsu/batch':>10} {'exc/batch':>10}")
+    for stage, values in stages.items():
+        batches = values["batches"]
+        divisor = batches or 1
+        print(f"{stage:<22} {batches:10d} {values['cyc'] / divisor:10.1f} "
+              f"{values['cpi'] / divisor:10.2f} "
+              f"{values['lsu'] / divisor:10.2f} "
+              f"{values['exc'] / divisor:10.2f}")
+    return 0
+
+
 def cmd_validate(windows, effect, scope):
     ok = True
 
@@ -720,7 +809,8 @@ def main():
     ap.add_argument("log")
     ap.add_argument("mode", choices=["windows", "presets", "buckets",
                                      "validate", "frames", "metrics",
-                                     "probe", "plot"])
+                                     "probe", "plot", "msp-counts",
+                                     "msp-stalls"])
     ap.add_argument("--scope", help="counter label to read (default: costliest leaf)")
     ap.add_argument("--gate", help="call-count scope gating clean holds "
                                     "(default: --scope)")
@@ -749,6 +839,10 @@ def main():
         return cmd_probe(windows)
     elif args.mode == "plot":
         return cmd_plot(windows)
+    elif args.mode == "msp-counts":
+        return cmd_msp_counts(windows)
+    elif args.mode == "msp-stalls":
+        return cmd_msp_stalls(windows)
     else:
         return 0 if cmd_validate(windows, effect, scope) else 1
     return 0

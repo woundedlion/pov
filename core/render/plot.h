@@ -444,12 +444,14 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
                                         const Fragment &next,
                                         bool is_last_segment,
                                         ProcessSegmentFn &&process_segment) {
+  HS_MSP_STALL_START(edge_setup_start);
   Vector v1 = curr.pos;
   Vector v2 = next.pos;
   float total_dist = angle_between(v1, v2);
 
   if (total_dist < EPS_GEODESIC_SEGMENT) {
     HS_PLOT_COUNT(degenerate);
+    HS_MSP_STALL_STOP(edge_setup, edge_setup_start);
     process_segment(DegenerateEdgeSampler{v1}, curr, next, total_dist,
                     is_last_segment);
   } else {
@@ -463,8 +465,9 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
       axis = pole * (1.0f / sqrtf(pole_len_sq));
     }
 
-    process_segment(GeodesicEdgeSampler{v1, cross(axis, v1), total_dist}, curr,
-                    next, total_dist, is_last_segment);
+    const GeodesicEdgeSampler sampler{v1, cross(axis, v1), total_dist};
+    HS_MSP_STALL_STOP(edge_setup, edge_setup_start);
+    process_segment(sampler, curr, next, total_dist, is_last_segment);
   }
 }
 HS_O3_END
@@ -1399,6 +1402,13 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   float cumul = 0.0f;    // rendered arc reached so far (planar polylines only)
   float seg_base = 0.0f; // rendered arc at the in-flight segment's start
 
+  auto shade_fragment = [&](const Vector &position, Fragment &fragment) {
+    HS_MSP_STALL_START(shade_start);
+    HS_MSP_COUNT(fragment_shader_calls);
+    fragment_shader(position, fragment);
+    HS_MSP_STALL_STOP(shade_palette, shade_start);
+  };
+
   // Adaptively sub-step and plot one segment. `sample(t)` returns the sphere
   // point AND unit tangent at arc fraction t in [0,1] under the chosen strategy,
   // `sample.pos(t)` the point alone; `total_dist` is the segment's on-sphere
@@ -1431,7 +1441,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         set_arc_uv(f_copy, 0.0f);
 
         HS_PLOT_COUNT(shader_calls);
-        fragment_shader(curr.pos, f_copy);
+        shade_fragment(curr.pos, f_copy);
         HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, curr.pos, f_copy.color.color, f_copy.age,
                       f_copy.color.alpha);
@@ -1442,9 +1452,15 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // Sub-step length at the segment start (also the first simulation step).
     const float base_step = (2.0f * PI_F) / W;
     auto adaptive_sample = [&](float t) -> SamplePT {
+      HS_MSP_STALL_START(adaptive_start);
+      SamplePT result;
       if constexpr (SinglePass && requires { sample.one_pass(t); })
-        return sample.one_pass(t);
-      return sample(t);
+        result = sample.one_pass(t);
+      else
+        result = sample(t);
+      HS_MSP_COUNT(adaptive_samples);
+      HS_MSP_STALL_STOP(adaptive_sim, adaptive_start);
+      return result;
     };
     HS_PLOT_COUNT(sim_samples);
     SamplePT smp = adaptive_sample(0.0f);
@@ -1460,7 +1476,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, 0.0f);
       HS_PLOT_COUNT(shader_calls);
-      fragment_shader(curr.pos, f);
+      shade_fragment(curr.pos, f);
       HS_PLOT_COUNT(plotted_samples);
       pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
       if (!close_loop && is_last_segment && !omit_end) {
@@ -1468,7 +1484,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         fl.color = Color4(0, 0, 0, 0);
         set_arc_uv(fl, total_dist);
         HS_PLOT_COUNT(shader_calls);
-        fragment_shader(next.pos, fl);
+        shade_fragment(next.pos, fl);
         HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, next.pos, fl.color.color, fl.age, fl.color.alpha);
       }
@@ -1490,7 +1506,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         f.color = Color4(0, 0, 0, 0);
         set_arc_uv(f, current_dist);
         HS_PLOT_COUNT(shader_calls);
-        fragment_shader(p, f);
+        shade_fragment(p, f);
         HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
 
@@ -1511,7 +1527,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         f.color = Color4(0, 0, 0, 0);
         set_arc_uv(f, total_dist);
         HS_PLOT_COUNT(shader_calls);
-        fragment_shader(next.pos, f);
+        shade_fragment(next.pos, f);
         HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, next.pos, f.color.color, f.age, f.color.alpha);
       }
@@ -1543,7 +1559,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 
         if (sim_dist < total_dist) {
           HS_PLOT_COUNT(sim_samples);
-          smp = sample(sim_dist / total_dist);
+          smp = adaptive_sample(sim_dist / total_dist);
         }
       }
     }
@@ -1562,6 +1578,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // the row near the pole, so re-normalize the interpolated positions.
     HS_PROFILE_DEEP(plot_seg_draw);
     {
+      HS_MSP_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
       Vector start_pos = sample.pos(0.0f).normalized();
@@ -1569,9 +1586,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, 0.0f);
+      HS_MSP_STALL_STOP(normalized_replay, replay_start);
 
       HS_PLOT_COUNT(shader_calls);
-      fragment_shader(start_pos, f);
+      shade_fragment(start_pos, f);
       HS_PLOT_COUNT(plotted_samples);
       pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha);
     }
@@ -1591,6 +1609,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       // basis set_arc_uv rewrites v0/v1 from the true rendered arc so a shader
       // keying off them as an arc-length proxy tracks the drawn position across
       // the planar bow. Geodesic edges keep the lerped registers.
+      HS_MSP_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
       Vector p = sample.pos(t).normalized();
@@ -1598,9 +1617,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, current_dist);
+      HS_MSP_STALL_STOP(normalized_replay, replay_start);
 
       HS_PLOT_COUNT(shader_calls);
-      fragment_shader(p, f);
+      shade_fragment(p, f);
       HS_PLOT_COUNT(plotted_samples);
       pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
     }
@@ -1618,7 +1638,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     Fragment f = src;
     f.color = Color4(0, 0, 0, 0);
     HS_PLOT_COUNT(shader_calls);
-    fragment_shader(src.pos, f);
+    shade_fragment(src.pos, f);
     if constexpr (pipeline_hoistable_projection<PipelineT>()) {
       if (point_rows != nullptr && point_cols != nullptr) {
         HS_PLOT_COUNT(plotted_samples);
@@ -2844,6 +2864,9 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
   if (!clip.active || trail.size() < 2)
     return CartesianTrailGateResult::EXACT_FALLBACK;
 
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+  hs::DwtStallBatch gate_batch(hs::g_mindsplatter_stalls.trail_gate);
+#endif
   float latitude_max = -1.0f;
   float max_chord2 = 0.0f;
   for (size_t k = 0; k < trail.size(); ++k) {
@@ -2853,17 +2876,33 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
       const Vector d = p - trail[k - 1].pos;
       max_chord2 = std::max(max_chord2, dot(d, d));
     }
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+#endif
   }
 
   // Every point on a minor arc lies within half its arc of one endpoint, and
   // arc <= (pi/2)*chord. A unit-normal dot changes by at most angular distance.
   const float slack = (PI_F * 0.25f) * sqrtf(max_chord2);
-  if (latitude_max + slack < clip.latitude_threshold - math::EPS_GEOMETRIC)
+  if (latitude_max + slack < clip.latitude_threshold - math::EPS_GEOMETRIC) {
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+    gate_batch.finish();
+#endif
     return CartesianTrailGateResult::LATITUDE_REJECT;
+  }
 
   float meridian_max = -1.0f;
-  for (const Fragment &f : trail)
+  for (const Fragment &f : trail) {
     meridian_max = std::max(meridian_max, clip.meridian_sign * f.pos.z);
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+#endif
+  }
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+  gate_batch.step();
+  gate_batch.finish();
+#endif
   if (meridian_max + slack < clip.meridian_threshold - math::EPS_GEOMETRIC)
     return CartesianTrailGateResult::MERIDIAN_REJECT;
   return CartesianTrailGateResult::EXACT_FALLBACK;
@@ -2872,6 +2911,12 @@ HS_O3_END
 
 static inline void
 count_cartesian_trail_gate_result(CartesianTrailGateResult result) {
+  if (result == CartesianTrailGateResult::LATITUDE_REJECT)
+    HS_MSP_COUNT(cartesian_latitude_rejects);
+  else if (result == CartesianTrailGateResult::MERIDIAN_REJECT)
+    HS_MSP_COUNT(cartesian_meridian_rejects);
+  else
+    HS_MSP_COUNT(cartesian_fallbacks);
 #if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_CARTESIAN_COUNTS)
   static hs::CycleCounter latitude("plot_ps_cartesian_latitude_reject");
   static hs::CycleCounter meridian("plot_ps_cartesian_meridian_reject");
@@ -2888,6 +2933,10 @@ count_cartesian_trail_gate_result(CartesianTrailGateResult result) {
 }
 
 static inline void count_particle_edge_class(bool one_dot) {
+  if (one_dot)
+    HS_MSP_COUNT(one_dot_edges);
+  else
+    HS_MSP_COUNT(long_edges);
 #if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
   static hs::CycleCounter one_dot_count("plot_ps_edge_one_dot");
   static hs::CycleCounter long_count("plot_ps_edge_long");
@@ -2898,6 +2947,7 @@ static inline void count_particle_edge_class(bool one_dot) {
 }
 
 static inline void count_particle_exact_gate_fallback() {
+  HS_MSP_COUNT(exact_gate_fallbacks);
 #if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
   static hs::CycleCounter exact_count("plot_ps_edge_exact_fallback");
   ++exact_count.count;
@@ -2934,6 +2984,9 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
   const size_t n = trail.size();
   auto *rows = static_cast<float *>(
       scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+  hs::DwtStallBatch gate_batch(hs::g_mindsplatter_stalls.trail_gate);
+#endif
   float row_lo_t = 1e9f, row_hi_t = -1e9f;
   float min_sp2 = 1.0f;
   float max_chord2 = 0.0f;
@@ -2947,6 +3000,9 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
       const Vector d = pt - trail[k - 1].pos;
       max_chord2 = std::max(max_chord2, dot(d, d));
     }
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+#endif
   }
   // arc <= (pi/2)*chord on [0, pi]; an edge's interior latitude extremum lies
   // within arc/2 of an endpoint and phi is 1-Lipschitz in arc length, so this
@@ -2954,8 +3010,14 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
   const float max_arc = (PI_F * 0.5f) * sqrtf(max_chord2);
   const float row_margin =
       (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / PI_F);
-  if (!cr.could_intersect_y(row_lo_t - row_margin, row_hi_t + row_margin))
+  if (!cr.could_intersect_y(row_lo_t - row_margin, row_hi_t + row_margin)) {
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+    gate_batch.step();
+    gate_batch.finish();
+#endif
+    HS_MSP_COUNT(prologue_row_rejects);
     return {rows, nullptr, true};
+  }
 
   float *cols = nullptr;
   if (xc.active) {
@@ -2989,6 +3051,9 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
       cum += d;
       cum_lo = std::min(cum_lo, cum);
       cum_hi = std::max(cum_hi, cum);
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+      gate_batch.step();
+#endif
     }
     // Near a pole the plotted column is float noise (same caution as the
     // per-edge spans), so only cull by the column arc when the whole trail
@@ -2996,10 +3061,20 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
     if (walk_safe && sqrtf(std::max(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
       int col_s, col_len;
       finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s, col_len);
-      if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W))
+      if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W)) {
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+        gate_batch.step();
+        gate_batch.finish();
+#endif
+        HS_MSP_COUNT(prologue_column_rejects);
         return {rows, cols, true};
+      }
     }
   }
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+  gate_batch.step();
+  gate_batch.finish();
+#endif
   return {rows, cols, false};
 }
 
@@ -3401,6 +3476,16 @@ struct ParticleSystem {
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
       const size_t trail_len = p.history.length();
+      HS_MSP_COUNT(resident_particles);
+      if (p.life == 0)
+        HS_MSP_COUNT(draining_histories);
+      else {
+        HS_MSP_COUNT(live_particles);
+        if (trail_len == static_cast<size_t>(p.history.CAPACITY))
+          HS_MSP_COUNT(full_histories);
+        else
+          HS_MSP_COUNT(partial_histories);
+      }
       if (p.life == 0 || trail_len < 2)
         continue;
       const float v2 = [&] {
@@ -3419,6 +3504,10 @@ struct ParticleSystem {
         orig.bind(scratch_arena_a, trail_len);
       {
         HS_PROFILE(plot_ps_tween);
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+        hs::DwtStallBatch history_batch(
+            hs::g_mindsplatter_stalls.history_vertex);
+#endif
         p.history.tween([&](const Vector &v, float t) {
           trail.emplace_back(Fragment{.pos = v,
                                       .v0 = t,
@@ -3428,7 +3517,13 @@ struct ParticleSystem {
             vertex_shader(trail.back());
           if (deferred_shader)
             orig.push_back(v);
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+          history_batch.step();
+#endif
         });
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+        history_batch.finish();
+#endif
       }
 
       if (trail.is_empty())
@@ -3479,6 +3574,7 @@ struct ParticleSystem {
           }
 
           for (size_t e = 0; e < edges; ++e) {
+            HS_MSP_STALL_START(edge_gate_start);
             const Vector &ea = trail[e].pos;
             const Vector &eb = trail[e + 1].pos;
             const bool one_dot = edge_fits_one_dot<W, H>(ea, eb);
@@ -3492,7 +3588,10 @@ struct ParticleSystem {
                              cols != nullptr ? cols[e + 1] : 0.0f);
               bits[e] = EDGE_CLASSIFIED | EDGE_ONE_DOT |
                         (v ? EDGE_VISIBLE : uint8_t{0});
+              if (!v)
+                HS_MSP_COUNT(edge_rejects);
               any = any || v;
+              HS_MSP_STALL_STOP(trail_gate, edge_gate_start);
               continue;
             }
             bool v;
@@ -3509,7 +3608,10 @@ struct ParticleSystem {
                   cr, xc, band_len, rows, cols, e, ea, eb, es);
             }
             bits[e] = EDGE_CLASSIFIED | (v ? EDGE_VISIBLE : uint8_t{0});
+            if (!v)
+              HS_MSP_COUNT(edge_rejects);
             any = any || v;
+            HS_MSP_STALL_STOP(trail_gate, edge_gate_start);
           }
         } else {
           for (size_t e = 0; e < edges; ++e) {
@@ -3523,8 +3625,11 @@ struct ParticleSystem {
         }
         if (!any)
           continue;
+        HS_MSP_COUNT(visible_trails);
         vis = bits;
       }
+      if (!clip_active)
+        HS_MSP_COUNT(visible_trails);
 
       if (deferred_shader) {
         HS_PROFILE(plot_ps_deferred);

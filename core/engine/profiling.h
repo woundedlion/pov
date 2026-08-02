@@ -121,6 +121,147 @@ struct PlotCounts {
 inline PlotCounts g_plot_counts;
 #endif
 
+#ifdef HS_PROFILE_MINDSPLATTER_COUNTS
+/** @brief Count-only attribution for the MindSplatter particle render path. */
+struct MindSplatterCounts {
+  uint32_t resident_particles = 0;
+  uint32_t live_particles = 0;
+  uint32_t full_histories = 0;
+  uint32_t partial_histories = 0;
+  uint32_t draining_histories = 0;
+  uint32_t cartesian_latitude_rejects = 0;
+  uint32_t cartesian_meridian_rejects = 0;
+  uint32_t cartesian_fallbacks = 0;
+  uint32_t prologue_row_rejects = 0;
+  uint32_t prologue_column_rejects = 0;
+  uint32_t edge_rejects = 0;
+  uint32_t visible_trails = 0;
+  uint32_t one_dot_edges = 0;
+  uint32_t long_edges = 0;
+  uint32_t adaptive_samples = 0;
+  uint32_t exact_gate_fallbacks = 0;
+  uint32_t fragment_shader_calls = 0;
+  uint32_t aa_tap_masks[5]{};
+  uint32_t interior_splats = 0;
+  uint32_t clip_boundary_splats = 0;
+  uint32_t palette_endpoints = 0;
+  uint32_t palette_interpolated = 0;
+  uint32_t hole_early_outs = 0;
+
+  /** @brief Zeroes every count. */
+  void reset() { *this = {}; }
+};
+
+inline MindSplatterCounts g_mindsplatter_counts;
+#endif
+
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#ifndef CORE_TEENSY
+#error "HS_PROFILE_MINDSPLATTER_STALLS requires Teensy DWT registers"
+#endif
+
+/** @brief One DWT cycle/stall interval start sample. */
+struct DwtStallSample {
+  uint32_t cycles;
+  uint8_t cpi;
+  uint8_t lsu;
+  uint8_t exc;
+};
+
+inline volatile uint32_t &dwt_cpi_counter() {
+  return *reinterpret_cast<volatile uint32_t *>(0xe0001008u);
+}
+
+inline volatile uint32_t &dwt_exc_counter() {
+  return *reinterpret_cast<volatile uint32_t *>(0xe000100cu);
+}
+
+inline volatile uint32_t &dwt_lsu_counter() {
+  return *reinterpret_cast<volatile uint32_t *>(0xe0001014u);
+}
+
+/** @brief Accumulated short DWT intervals for one pipeline stage. */
+struct DwtStallBucket {
+  uint64_t cycles = 0;
+  uint64_t cpi = 0;
+  uint64_t lsu = 0;
+  uint64_t exc = 0;
+  uint32_t batches = 0;
+
+  /** @brief Adds one interval whose 8-bit event counters cannot wrap. */
+  void add(const DwtStallSample &start) {
+    cycles += static_cast<uint32_t>(ARM_DWT_CYCCNT - start.cycles);
+    cpi += static_cast<uint8_t>(dwt_cpi_counter() - start.cpi);
+    lsu += static_cast<uint8_t>(dwt_lsu_counter() - start.lsu);
+    exc += static_cast<uint8_t>(dwt_exc_counter() - start.exc);
+    ++batches;
+  }
+
+  /** @brief Zeroes every accumulator. */
+  void reset() { *this = {}; }
+};
+
+/** @brief MindSplatter DWT cycle and stall buckets. */
+struct MindSplatterStalls {
+  DwtStallBucket history_vertex;
+  DwtStallBucket trail_gate;
+  DwtStallBucket edge_setup;
+  DwtStallBucket adaptive_sim;
+  DwtStallBucket normalized_replay;
+  DwtStallBucket shade_palette;
+  DwtStallBucket projection;
+  DwtStallBucket aa_weights;
+  DwtStallBucket framebuffer_blend;
+  DwtStallBucket signed_axis_physics;
+
+  /** @brief Zeroes every bucket. */
+  void reset() { *this = {}; }
+};
+
+inline MindSplatterStalls g_mindsplatter_stalls;
+
+/** @brief Enables the Cortex-M7 DWT counters used by stall captures. */
+inline void enable_mindsplatter_stall_counters() {
+  ARM_DEMCR |= ARM_DEMCR_TRCENA;
+  ARM_DWT_CTRL |= (1u << 17) | (1u << 18) | (1u << 20) | ARM_DWT_CTRL_CYCCNTENA;
+}
+
+/** @brief Reads all four DWT counters at one stage boundary. */
+inline DwtStallSample mindsplatter_stall_sample() {
+  return {ARM_DWT_CYCCNT, static_cast<uint8_t>(dwt_cpi_counter()),
+          static_cast<uint8_t>(dwt_lsu_counter()),
+          static_cast<uint8_t>(dwt_exc_counter())};
+}
+
+/** @brief Explicit two-operation batches for variable-length hot loops. */
+class DwtStallBatch {
+public:
+  explicit DwtStallBatch(DwtStallBucket &target)
+      : bucket(target), start(mindsplatter_stall_sample()) {}
+
+  /** @brief Closes each full batch and starts the next interval. */
+  void step() {
+    if (++operations == OPERATIONS_PER_BATCH) {
+      bucket.add(start);
+      operations = 0;
+      start = mindsplatter_stall_sample();
+    }
+  }
+
+  /** @brief Closes the final partial batch. */
+  void finish() {
+    if (operations != 0)
+      bucket.add(start);
+  }
+
+private:
+  static constexpr uint8_t OPERATIONS_PER_BATCH = 2;
+  DwtStallBucket &bucket;
+  DwtStallSample start;
+  uint8_t operations = 0;
+};
+#endif
+
 } // namespace hs
 
 // Per-pixel scan instrumentation is OFF by default: a g_scan_metrics increment is
@@ -181,6 +322,21 @@ inline PlotCounts g_plot_counts;
 #define HS_PLOT_COUNT(field) ((void)0)
 #define HS_PLOT_ADD(field, value) ((void)0)
 #define HS_PLOT_MAX(field, value) ((void)0)
+#endif
+
+#ifdef HS_PROFILE_MINDSPLATTER_COUNTS
+#define HS_MSP_COUNT(field) (++hs::g_mindsplatter_counts.field)
+#else
+#define HS_MSP_COUNT(field) ((void)0)
+#endif
+
+#ifdef HS_PROFILE_MINDSPLATTER_STALLS
+#define HS_MSP_STALL_START(var)                                                \
+  const hs::DwtStallSample var = hs::mindsplatter_stall_sample()
+#define HS_MSP_STALL_STOP(field, var) hs::g_mindsplatter_stalls.field.add(var)
+#else
+#define HS_MSP_STALL_START(var)
+#define HS_MSP_STALL_STOP(field, var) ((void)0)
 #endif
 
 // ---------------------------------------------------------------------------

@@ -32,6 +32,9 @@
 # checkout is built no matter which directory the script is invoked from —
 # profiling a worktree's code under master's name (or the reverse) would leave
 # nothing in the capture to say so.
+# HS_PROFILE_MINDSPLATTER=counts|stalls builds a dedicated MindSplatter
+# instrumentation image and writes a suffixed log. Count images also enable the
+# generic Plot counters; neither image is valid for timing comparisons.
 set -eo pipefail
 . "$(dirname "$0")/device_lock.sh"
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
@@ -55,15 +58,42 @@ case " $EXTRA " in
   *" HS_MINDSPLATTER_REPLAY "*|*"HS_MINDSPLATTER_REPLAY="*)
     REPLAY_SUFFIX="_replay";;
 esac
-OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${REPLAY_SUFFIX}.log}
+MSP_FLAGS=""
+MSP_SUFFIX=""
+MSP_MARKER=""
+case "${HS_PROFILE_MINDSPLATTER:-}" in
+  "") ;;
+  counts)
+    [ "$EFFECT" = MindSplatter ] || {
+      echo "HS_PROFILE_MINDSPLATTER requires effect MindSplatter" >&2; exit 1;
+    }
+    MSP_FLAGS="-D HS_PROFILE_MINDSPLATTER_COUNTS -D HS_PLOT_COUNTS"
+    MSP_SUFFIX="_msp_counts"
+    MSP_MARKER="msp counts particles:"
+    ;;
+  stalls)
+    [ "$EFFECT" = MindSplatter ] || {
+      echo "HS_PROFILE_MINDSPLATTER requires effect MindSplatter" >&2; exit 1;
+    }
+    MSP_FLAGS="-D HS_PROFILE_MINDSPLATTER_STALLS"
+    MSP_SUFFIX="_msp_stalls"
+    MSP_MARKER="msp stall: stage=history_vertex"
+    ;;
+  *)
+    echo "HS_PROFILE_MINDSPLATTER must be counts or stalls" >&2
+    exit 1
+    ;;
+esac
+MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}"
+OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}
 PROVENANCE_OUT=${OUT%.log}.provenance
-PROFILE_BUILD_LOG=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${REPLAY_SUFFIX}_build.log
-PHANTASM_BUILD_LOG=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}_phantasm_build.log
-PROFILE_ENVDUMP=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${REPLAY_SUFFIX}_envdump.txt
-PHANTASM_ENVDUMP=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}_phantasm_envdump.txt
+PROFILE_BUILD_LOG=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}_build.log
+PHANTASM_BUILD_LOG=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MSP_SUFFIX}_phantasm_build.log
+PROFILE_ENVDUMP=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}_envdump.txt
+PHANTASM_ENVDUMP=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MSP_SUFFIX}_phantasm_envdump.txt
 PROFILE_ELF=.pio/build/$ENV/firmware.elf
 PROFILE_MAP=.pio/build/$ENV/firmware.map
-ATTEST_DIR=build/prof/attest/${LOWER}_${TAG}${DEEP_SUFFIX}${REPLAY_SUFFIX}
+ATTEST_DIR=build/prof/attest/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}
 PHANTASM_ELF=$ATTEST_DIR/phantasm.elf
 PHANTASM_MAP=$ATTEST_DIR/phantasm.map
 ARM_READELF=${HS_ARM_READELF:-$HOME/.platformio/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-readelf.exe}
@@ -81,7 +111,7 @@ TREE=${HS_PROFILE_TREE:-$(main_tree)} ||
   { echo "cannot resolve the main checkout from $(dirname "$0")" >&2; exit 1; }
 cd "$TREE" || { echo "no such tree: $TREE" >&2; exit 1; }
 mkdir -p "$(dirname "$OUT")"
-export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $EXTRA"
+export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $MSP_FLAGS $EXTRA"
 
 # Cyclers emit a per-advance marker; a capture of one must contain it.
 CYCLERS="Liquid2D ShapeShifter MindSplatter DreamBalls Comets Flyby MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
@@ -280,6 +310,11 @@ verify() {
   fi
   if [ -n "$MARKER" ]; then
     grep -q "$MARKER" "$OUT" || { echo "NO '$MARKER' MARKER — stale build?"; return 1; }
+  fi
+  if [ -n "$MSP_MARKER" ]; then
+    grep -q "$MSP_MARKER" "$OUT" || {
+      echo "NO '$MSP_MARKER' INSTRUMENTATION; stale build?"; return 1;
+    }
   fi
   # A flash that did not take leaves the previous image running, and the name
   # checks above pass whenever it happens to be the same effect (an -Os log
