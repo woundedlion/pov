@@ -14,7 +14,7 @@ visibly truncate, expand, and twist from one polyhedron into the next. Exactly
 one mesh is on screen at all times — there is no crossfade or dissolve
 anywhere in the design (§2.5). `Animation::MeshMorph` itself remains for other
 effects (MeshFeedback); the edge graph is fully connected, so HankinSolids no
-longer needs it. `Segue::Dissolve` is deleted.
+longer needs it. `Segue::Dissolve` remains available for other transitions.
 
 **Device result** (both build configs, two full 29-leg tours, 6,848 frames):
 **0 spilled frames, 16 fps on all 18 holds and all 29 legs**. The morph is the
