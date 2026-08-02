@@ -288,6 +288,14 @@ class AssemblyPolicyTests(unittest.TestCase):
                 "assigned parts missing from assembly: U1"):
             fab.validate_assembled_refs(assembled)
 
+    def test_rejects_rotation_correction_missing_from_assembly(self):
+        assembled = set(fab.LCSC_BY_REF) - {"U1"}
+
+        with self.assertRaisesRegex(
+                fab.AssemblyMetadataError,
+                "rotation corrections missing from assembly: U1"):
+            fab.validate_rotation_refs(assembled)
+
     def test_excludes_the_j1_footprint_the_schematic_generator_emits(self):
         source = (GEN / "board.py").read_text(encoding="utf-8")
         match = re.search(r'"J1".*?fp="([^"]+)"', source, re.DOTALL)
