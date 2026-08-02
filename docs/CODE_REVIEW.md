@@ -571,7 +571,7 @@ Everything else — the rendering engine, the color pipeline, the memory model, 
 
 240. ❌ **Exit-code and CLI conventions differ per script in the PCB tooling** — `fab.py` (the one script `just pcb` runs) has no argument parsing at all; `heal_clearance.py`, `stackup.py` and `make_quilter_incremental.py` have no CLI; conventions vary between `sys.exit(str)`, `return 1`, bare traceback, and always-0. `board_metadata.py:241-264` is the model to converge on. Rejected: the finding proposes a tooling-wide CLI redesign without identifying a broken invocation or required interface.
 
-241. **`heal_clearance.py`'s docstring describes a live subdirectory that does not exist** — `hardware/phantasm/gen/heal_clearance.py:22-23`. Paired with finding 166; the comment describes `divider_rework/` as a live "Quilter-prep subdir".
+241. ❌ **`heal_clearance.py`'s docstring describes a live subdirectory that does not exist** — `hardware/phantasm/gen/heal_clearance.py:22-23`. Paired with finding 166; the comment describes `divider_rework/` as a live "Quilter-prep subdir". Rejected: the shared generator refactor already removed the stale path and comment.
 
 ---
 
