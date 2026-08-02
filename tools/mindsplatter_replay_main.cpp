@@ -23,7 +23,7 @@ using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
 } // namespace
 
 int main() {
-  const auto &corpus = mindsplatter_replay::DENSE_PRESET0_F136;
+  const auto &corpus = mindsplatter_replay::HEAVY_SEARCH_V1;
   hs::random().seed(1337u);
   GenerativePalette::reset_hue_seed(0);
   configure_arenas_default();
@@ -33,10 +33,15 @@ int main() {
       effect, std::span(corpus.state, corpus.state_size));
 
   std::printf("replay corpus id=%s source=%s preset=%d traits=%u particles=%u "
-              "bytes=%zu hash=%llu\n",
+              "bytes=%zu hash=%llu revision=%s search_frame=%u "
+              "search_score=%llu adaptive=%u long=%u peak_clip=%u\n",
               corpus.id, corpus.source, corpus.preset, corpus.traits,
               particle_count, corpus.state_size,
-              static_cast<unsigned long long>(corpus.corpus_hash));
+              static_cast<unsigned long long>(corpus.corpus_hash),
+              corpus.source_revision, corpus.search_frame,
+              static_cast<unsigned long long>(corpus.selection_score),
+              corpus.search_adaptive_samples, corpus.search_long_edges,
+              corpus.peak_clip);
   bool exact = true;
   std::vector<Pixel> reference(static_cast<size_t>(WIDTH) * HEIGHT);
   for (int frame = 0; frame < REPLAY_FRAMES; ++frame) {

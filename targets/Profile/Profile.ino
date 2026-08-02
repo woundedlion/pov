@@ -73,7 +73,7 @@
 #include "tools/mindsplatter_whitebox.h"
 #include "tools/mindsplatter_replay_metrics.h"
 #ifndef HS_MINDSPLATTER_REPLAY_CORPUS
-#define HS_MINDSPLATTER_REPLAY_CORPUS DENSE_PRESET0_F136
+#define HS_MINDSPLATTER_REPLAY_CORPUS HEAVY_SEARCH_V1
 #endif
 #endif
 
@@ -114,13 +114,20 @@ public:
         *this, {corpus.state, corpus.state_size});
     HS_CHECK(particles == corpus.particle_count,
              "MindSplatter replay particle count differs");
-    char hash[21];
+    char hash[21], score[21];
     hs::log("replay corpus: id=%s preset=%d traits=%lu particles=%u bytes=%lu "
             "hash=%s",
             corpus.id, (int)corpus.preset, (unsigned long)corpus.traits,
             (unsigned)particles, (unsigned long)corpus.state_size,
             hs::u64_dec(corpus.corpus_hash, hash));
     hs::log("replay source: %s", corpus.source);
+    hs::log("replay search: revision=%s frame=%u peak_clip=%u score=%s "
+            "adaptive=%lu long=%lu",
+            corpus.source_revision, (unsigned)corpus.search_frame,
+            (unsigned)corpus.peak_clip,
+            hs::u64_dec(corpus.selection_score, score),
+            (unsigned long)corpus.search_adaptive_samples,
+            (unsigned long)corpus.search_long_edges);
 #ifdef HS_MINDSPLATTER_REPLAY_AB
     hs::log("replay compare: candidate vs generic device reference; "
             "timing=combined");

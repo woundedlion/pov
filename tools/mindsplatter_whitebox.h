@@ -291,6 +291,26 @@ struct MindSplatterWhiteBox {
   }
 
   template <int W, int H>
+  static void select_preset(MindSplatter<W, H> &ms, size_t index) {
+    const size_t count = ms.presets.get_entries().size();
+    HS_CHECK(index < count, "MindSplatter replay preset is out of range");
+    while (ms.presets.current_index() != index)
+      ms.presets.next();
+    ms.presets.apply(ms.params);
+  }
+
+  template <int W, int H>
+  static void step_state_without_render(MindSplatter<W, H> &ms) {
+    Canvas canvas(ms);
+    ms.timeline.step(canvas);
+    ms.particle_system.friction = ms.params.friction;
+    for (size_t i = 0; i < ms.particle_system.attractors.size(); ++i)
+      ms.particle_system.attractors[i].strength = ms.params.well_strength;
+    ms.particle_system.step(canvas);
+    ms.params.active_count = static_cast<float>(ms.particle_system.active());
+  }
+
+  template <int W, int H>
   static bool same_snapshot(const ReplaySnapshot<W, H> &a,
                             const ReplaySnapshot<W, H> &b) {
     if (a.particles != b.particles || a.attractors != b.attractors ||
