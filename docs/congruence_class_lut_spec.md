@@ -25,7 +25,7 @@ alignment over cyclic vertex offsets × reflection × optimal rotation):
 |---|---|---|---|---|
 | dodecahedron_ambo_bevel33_relax_hk66 | 362 | 6 | 8 | 100% |
 | truncatedIcosidodecahedron_bevel5_relax_hk77 | 722 | 10 | 14 | 100% |
-| dodecahedron_hk35_ambo_hk62_ambo_relax_hk43 | 1082 | 13 | 19 | 100% |
+| dodecahedron_hk35_ambo_hk62_ambo_relax_hk42 | 1082 | 13 | 19 | 100% |
 | truncatedOctahedron_gyro_kis_hk17 | 542 | 24 | 24 | 100% |
 | icosahedron_ambo_truncate033_hankin59 | 182 | 4 | 5 | 100% |
 | **range over all 23** | 74–1082 | 3–24 | **3–24** | **100% (every mesh)** |
@@ -97,7 +97,8 @@ succeeding.
 
 ### LUT contents
 
-Same field as the deleted `build_distance_lut` (git history at `6241a24b^`):
+Same field as the deleted `build_distance_lut` (git history at `6241a24b^`),
+landed as `SDF::build_canonical_distance_lut`:
 signed point-to-polygon distance over the canonical polygon's bounding box +
 margin, sign from the crossing test, computed with the exact edge walk at
 bake. Margin = `BOUNDS_MARGIN_WIDE` as before so the lookup domain covers the
@@ -197,7 +198,7 @@ The division of labor keeps ripple correctness simple:
   interior gradient follows the face's rigid motion through the ripple.
 
 Effects whose meshes change shape per frame (HankinSolids' angle sweep and
-MeshMorph) must not reuse a spawn-time clustering: they simply
+`Animation::OpLeg` morphs) must not reuse a spawn-time clustering: they simply
 don't pass a bake (null ⇒ status quo). IslamicStars is the Phase-1 consumer.
 HankinSolids could rebake per morph target later (its sweep changes vertex
 positions every frame, so per-frame congruence would need re-validation —
@@ -227,8 +228,9 @@ out of scope).
 
 ## 9. Implementation plan
 
-1. `core/render/sdf.h`: resurrect `build_distance_lut` (from `6241a24b^`) as a
-   free function over a centered canonical polygon at fixed n; add the
+1. `core/render/sdf.h`: resurrect `build_distance_lut` (from `6241a24b^`) as
+   `build_canonical_distance_lut`, a free function over a centered canonical
+   polygon at fixed n; add the
    hybrid branch + members (`const ClassLut *`, `rot`, `mean`, `reflected`)
    to `Face`; `lut_hits` metric back into `profiling.h`.
 2. `core/mesh/mesh.h` (or a new `core/mesh/mesh_classes.h`): the Procrustes clustering
