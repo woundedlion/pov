@@ -1516,7 +1516,17 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           break;
         }
         HS_PLOT_MAX(steps_peak, step_count);
-        current_dist += screen_step<W, H>(smp.pos, smp.tan, base_step);
+        float remaining = total_dist - current_dist;
+        float desired_step =
+            screen_step<W, H>(smp.pos, smp.tan, base_step);
+        if (remaining < 2.0f * desired_step) {
+          int intervals = static_cast<int>(ceilf(remaining / desired_step));
+          current_dist = intervals == 1
+                             ? total_dist
+                             : current_dist + remaining / intervals;
+        } else {
+          current_dist += desired_step;
+        }
         if (current_dist < total_dist) {
           HS_PLOT_COUNT(sim_samples);
           smp = adaptive_sample(current_dist / total_dist);

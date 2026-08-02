@@ -3984,12 +3984,6 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
                1.5f * base_step);
   for (const Vector &p : single.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
-  // Both paths omit the shared vertex, but place their closing sample
-  // differently: the cached path replays scale-normalized steps, so its last
-  // sample sits a full step short of the vertex, while these unscaled steps
-  // land anywhere in [0, step) of it and can coincide with it outright. A
-  // sub-step phase difference at each vertex, not an extra sample — the counts
-  // track within one per segment.
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + points.size());
   HS_EXPECT_GE(single.plotted.size() + points.size(), cached.plotted.size());
   HS_EXPECT_LE(angle_between(single.plotted.front(), single.plotted.back()),
@@ -4000,6 +3994,48 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
       nearest = std::min(nearest, angle_between(p, q));
     HS_EXPECT_LE(nearest, base_step);
   }
+}
+
+/** @brief Endpoint-aware single-pass steps match constant-speed replay. */
+inline void test_rasterize_single_pass_balances_terminal_interval() {
+  constexpr int W = 128, H = 64;
+  constexpr float BASE_STEP = (2.0f * PI_F) / W;
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 2);
+
+  Vector start(1.0f, 0.0f, 0.0f);
+  Vector tangent(0.0f, 0.0f, 1.0f);
+  float desired_step = Plot::screen_step<W, H>(start, tangent, BASE_STEP);
+  float arc = desired_step * 1.01f;
+  Fragment a, b;
+  a.pos = start;
+  a.v0 = 0.0f;
+  b.pos = Vector(cosf(arc), 0.0f, sinf(arc));
+  b.v0 = 1.0f;
+  points.push_back(a);
+  points.push_back(b);
+
+  auto draw = [&](bool single_pass) {
+    hs_test::StubEffect fx(W, H);
+    CapturePipeline pipeline;
+    Canvas canvas(fx);
+    std::vector<float> samples;
+    auto shader = [&](const Vector &, Fragment &f) { samples.push_back(f.v0); };
+    if (single_pass)
+      Plot::rasterize<W, H, true>(pipeline, canvas, points, shader);
+    else
+      Plot::rasterize<W, H, false>(pipeline, canvas, points, shader);
+    return samples;
+  };
+  std::vector<float> single = draw(true);
+  std::vector<float> cached = draw(false);
+
+  HS_EXPECT_EQ(single.size(), size_t{3});
+  HS_EXPECT_EQ(single.size(), cached.size());
+  HS_EXPECT_NEAR(single[1], 0.5f, 1e-4f);
+  for (size_t i = 0; i < single.size(); ++i)
+    HS_EXPECT_NEAR(single[i], cached[i], 1e-4f);
 }
 
 /** @brief Single-pass geodesics preserve the open-line endpoint contract. */
@@ -4252,6 +4288,7 @@ inline int run_plot_scan_tests() {
   test_planar_one_pass_tangent_is_forward_and_orthogonal();
   test_rasterize_single_pass_planar_matches_two_pass();
   test_rasterize_single_pass_closed_loop_matches_two_pass();
+  test_rasterize_single_pass_balances_terminal_interval();
   test_rasterize_single_pass_geodesic_endpoints_and_omit_end();
   test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free();
   test_rasterize_single_pass_geodesic_quadrant_clip_parity();
