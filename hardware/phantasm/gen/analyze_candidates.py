@@ -38,13 +38,17 @@ import sys
 import tempfile
 from collections import Counter
 
+import sexp
+from fab import find_kicad_cli
+from kicad_common import F
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
 
 # kicad-cli for the DRC gate (override with env KICAD_CLI). DRC is run on each
 # candidate so geometry-clean-but-DRC-broken boards (e.g. Quilter zone-fill
 # artifacts) can't quietly win the ranking. Set to "" / missing to skip the gate.
-KCLI = os.environ.get("KICAD_CLI", r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe")
+KCLI = find_kicad_cli()
 # zone clearance/hole errors usually clear on a KiCad zone refill (Quilter exports
 # pours without antipads around signal vias) -- flagged separately from real faults.
 REFILL_FIXABLE = {"clearance", "hole_clearance"}
@@ -64,47 +68,36 @@ CRIT = SPI + SYNC
 PAIRS = [("DATA", "CLK"), ("DATA_IN", "CLK_IN")]
 
 
-def blocks(text, kind):
-    """Yield the text of each top-level (kind ...) block, depth-matched."""
-    out = []
-    i = 0
-    key = "(" + kind
-    while True:
-        j = text.find(key, i)
-        if j < 0:
-            break
-        if text[j + len(key)] not in " \n\t(":
-            i = j + len(key)
-            continue
-        depth = 0
-        k = j
-        while k < len(text):
-            c = text[k]
-            if c == "(":
-                depth += 1
-            elif c == ")":
-                depth -= 1
-                if depth == 0:
-                    out.append(text[j:k + 1])
-                    break
-            k += 1
-        i = k + 1
-    return out
+def blocks(root, kind):
+    """Return top-level blocks of `kind` from a parsed tree or source text."""
+    if isinstance(root, str):
+        root = sexp.parse(root)[0]
+    return F(root, kind)
 
 
 def net_of(b):
-    m = re.search(r'\(net\s+"([^"]*)"\)', b)
-    return m.group(1).rsplit("/", 1)[-1] if m else None
+    value = sexp._val(b, "net", [])
+    return str(value[0]).rsplit("/", 1)[-1] if value else None
 
 
 def field(b, name):
-    m = re.search(r'\(%s\s+([^\)]*)\)' % re.escape(name), b)
-    return m.group(1).strip() if m else None
+    value = sexp._val(b, name, [])
+    return str(value[0]) if value else None
 
 
 def xy(b, tag):
-    m = re.search(r'\(%s\s+([-\d.]+)\s+([-\d.]+)\)' % tag, b)
-    return (float(m.group(1)), float(m.group(2))) if m else None
+    value = sexp._val(b, tag, [])
+    try:
+        return float(value[0]), float(value[1])
+    except (IndexError, TypeError, ValueError):
+        return None
+
+
+def property_value(block, name):
+    for prop in F(block, "property"):
+        if len(prop) >= 3 and prop[1] == name:
+            return str(prop[2])
+    return None
 
 
 def dist(a, b):
@@ -156,8 +149,10 @@ def run_drc(pcb_path):
 
 
 def analyze(path):
-    text = open(path, encoding="utf-8").read()
-    segs, arcs, vias = blocks(text, "segment"), blocks(text, "arc"), blocks(text, "via")
+    root = sexp.parse(open(path, encoding="utf-8").read())[0]
+    segs = blocks(root, "segment")
+    arcs = blocks(root, "arc")
+    vias = blocks(root, "via")
 
     netlen, netseg, netlayers = {}, {}, {}
     total_len = 0.0
@@ -174,7 +169,7 @@ def analyze(path):
         ly = field(b, "layer")
         netlen[n] = netlen.get(n, 0) + dl
         netseg[n] = netseg.get(n, 0) + 1
-        netlayers.setdefault(n, set()).add((ly or "?").strip('"'))
+        netlayers.setdefault(n, set()).add(ly or "?")
         total_len += dl
 
     netvias, gnd_pts, crit_via_pts = {}, [], []
@@ -203,11 +198,11 @@ def analyze(path):
 
     # footprint positions for ergonomics
     pos = {}
-    for b in blocks(text, "footprint"):
-        m = re.search(r'\(property "Reference" "([^"]*)"', b)
-        at = re.search(r'\(at\s+([-\d.]+)\s+([-\d.]+)', b)
-        if m and at:
-            pos[m.group(1)] = (float(at.group(1)), float(at.group(2)))
+    for b in blocks(root, "footprint"):
+        ref = property_value(b, "Reference")
+        at = xy(b, "at")
+        if ref and at:
+            pos[ref] = at
 
     def d(a, b):
         return dist(pos[a], pos[b]) if a in pos and b in pos else float("nan")
