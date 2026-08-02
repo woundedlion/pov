@@ -16,8 +16,8 @@ anywhere in the design (§2.5). `Animation::MeshMorph` itself remains for other
 effects (MeshFeedback); the edge graph is fully connected, so HankinSolids no
 longer needs it. `Segue::Dissolve` remains available for other transitions.
 
-**Device result** (both build configs, two full 29-leg tours, 6,848 frames):
-**0 spilled frames, 16 fps on all 18 holds and all 29 legs**. The morph is the
+**Device result** (both build configs, two full 30-leg tours, 6,848 frames):
+**0 spilled frames, 16 fps on all 18 holds and all 30 legs**. The morph is the
 effect's lightest phase (legs 13.8–21.8 ms vs the 51.1 ms dissolve crossfade
 it replaces); the worst frame is an ordinary hankin hold (59.0 ms). The
 per-frame Conway op + `compile` costs **173 µs** — 0.3% of a frame, so §6's
@@ -90,7 +90,7 @@ describes the landed state):
 
 5. **`relax` preserves vertex count and order** (copy-then-relax-in-place), so
    a relaxed endpoint corresponds 1:1 to its unrelaxed form — the "settle"
-   phase (§3.3) is a per-vertex slerp.
+   phase (§2.3) is a per-vertex slerp.
 
 6. **Symmetry families connect only through tetrahedral shapes.** Conway
    operators preserve symmetry; the octahedral (order 24) and icosahedral
