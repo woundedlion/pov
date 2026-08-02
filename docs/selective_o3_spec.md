@@ -26,7 +26,8 @@ a small, gated ITCM cost.
 - **No LTO**, no linker-script changes, no per-TU build splits (the device build
   is effectively a single TU — the converted `.ino.cpp` plus two small
   `core/engine/*.cpp` files that include no render headers).
-- **No new FlexRAM bank for ITCM.** See §3 — this is a hard wall, not a budget.
+- **No unbudgeted FlexRAM repartition.** Any added ITCM bank must preserve the
+  calibrated DTCM variables and stack floor; see §3 and the §7 ledger.
 - **No flash-resident hot code.** Moving `-O3` overflow to XIP flash would trade
   deterministic POV column timing for cache-miss jitter; out of scope.
 - **No change to any non-Phantasm image**: `holosphere` (already `-O3`), host
@@ -63,7 +64,7 @@ it just isn't a reason to add a region.)
 The optimization objective is therefore: **maximize cadence-tier crossings per
 ITCM byte**, in the table's order of value.
 
-## 3. Memory model and the hard budget
+## 3. Memory model and the bank-aware budget
 
 Teensy 4.0 FlexRAM = 512 KiB in sixteen 32 KiB banks, partitioned at boot into
 ITCM (code, rounded **up** to whole banks) + DTCM (variables + stack). The
@@ -77,10 +78,12 @@ RAM1 used 509,312 B, free-for-locals 14,976 B, stack floor 12,288 B
 
 Two consequences the implementer must treat as invariants:
 
-1. **A 6th ITCM bank is a hard failure, not a squeeze.** It would shrink DTCM to
-   10 banks = 327,680 B < the 345,472 B of variables — the image cannot even
-   link/boot, independent of the stack floor. The **only** growth room is the
-   intra-bank padding (~17.4 KB at calibration).
+1. **The calibration-time image could not afford a sixth ITCM bank.** At the
+   original 345,472 B variable footprint, ten DTCM banks would not fit. Later
+   playlist and cold-code changes reduced the live footprint enough for §7's
+   measured sixth-bank landing, with 14,976 B left for locals against a
+   12,288 B floor. Bank changes are therefore gated measurements, not a
+   permanent prohibition.
 2. **The existing gate cannot see this growth.** `teensy_size` reports
    `RAM1: variables + code + padding`; code growing into padding moves bytes
    between two components of the *same sum*, so RAM1 `used` and `free` are both
@@ -464,7 +467,7 @@ Make ITCM code growth visible and ratcheted before any region lands.
    the per-commit bump, the first region commit turns the gate red. The final
    value must also satisfy the §3 reserve rule, expressed bank-relative so it
    survives baseline drift: `bank_ceil(code) − code ≥ 4,096`, with the ITCM
-   bank count unchanged from Phase 0. Holosphere's budget entry is unchanged
+   active bank count explicitly recorded. Holosphere's budget entry is unchanged
    (no components key — the feature is opt-in per target).
 5. Update `docs/teensy_ci_gate_spec.md` (§8 budgets schema) to document the
    `components` key.
@@ -698,8 +701,8 @@ drifted, update this table in the same commit.
 - [ ] Regions from §5 applied in order, one commit each (each kept region's
       commit bumping the component ceiling, §6.4), ledger filled in (including
       reverted regions and why).
-- [ ] ITCM bank count unchanged from Phase 0, with ≥ 4,096 B intra-bank
-      padding; RAM1 `free` unchanged.
+- [ ] ITCM bank count, DTCM variable fit and stack floor are measured, with
+      ≥ 4,096 B intra-bank padding at the accepted partition.
 - [ ] Full §8 matrix green; tier crossings demonstrated on device for at least
       MeshFeedback, Flyby, and Voronoi (the three full 8→16 candidates), or the
       ledger documents the measured reason a crossing was not achievable within
