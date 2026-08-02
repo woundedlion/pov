@@ -1384,6 +1384,7 @@ public:
     (void)age;
     (void)cv;
 
+    HS_MSP_STALL_START(aa_start);
     const float y_floor = floorf(y);
     const float x_floor = floorf(x);
     const float xs = quintic_kernel(x - x_floor);
@@ -1421,13 +1422,27 @@ public:
                              ((y0_ok && x1_ok && v10 > TAP_CUTOFF) << 1) |
                              ((y1_ok && x0_ok && v01 > TAP_CUTOFF) << 2) |
                              ((y1_ok && x1_ok && v11 > TAP_CUTOFF) << 3));
+    HS_MSP_STALL_STOP(aa_weights, aa_start);
 
+#ifdef HS_PROFILE_MINDSPLATTER_COUNTS
+    const unsigned tap_count = static_cast<unsigned>(tap_mask & 0x01) +
+                               static_cast<unsigned>((tap_mask >> 1) & 0x01) +
+                               static_cast<unsigned>((tap_mask >> 2) & 0x01) +
+                               static_cast<unsigned>((tap_mask >> 3) & 0x01);
+    ++hs::g_mindsplatter_counts.aa_tap_masks[tap_count];
+#endif
+
+    HS_MSP_STALL_START(blend_start);
     if (tap_mask == 0x0f) {
+      HS_MSP_COUNT(interior_splats);
       blend_four(base + y0 * W, base + y1 * W, x0, x1, c, alpha, v00, v10, v01,
                  v11);
+      HS_MSP_STALL_STOP(framebuffer_blend, blend_start);
       return;
     }
+    HS_MSP_COUNT(clip_boundary_splats);
     blend_masked(base, x0, x1, y0, y1, c, alpha, v00, v10, v01, v11, tap_mask);
+    HS_MSP_STALL_STOP(framebuffer_blend, blend_start);
   }
 
   /** @brief Integer-coordinate overload matching a filtered Pipeline. */
@@ -1438,7 +1453,9 @@ public:
   /** @brief Projects a world point, then applies the direct screen-space splat. */
   void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
             float alpha) {
+    HS_MSP_STALL_START(projection_start);
     const PixelCoords p = vector_to_pixel<W, H>(v);
+    HS_MSP_STALL_STOP(projection, projection_start);
     plot(cv, p.x, p.y, c, age, alpha);
   }
 

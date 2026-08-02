@@ -498,6 +498,7 @@ private:
           const float pos_sq = dot(pos, pos);
           const float coordinates[] = {pos.x, pos.y, pos.z};
           for (size_t pair = 0; pair < 3; ++pair) {
+            HS_MSP_STALL_START(axis_pair_start);
             const auto &plus = attractors[pair * 2];
             const auto &minus = attractors[pair * 2 + 1];
             const float q = coordinates[pair];
@@ -526,12 +527,15 @@ private:
                                     dist_minus_sq >= minus_kill_sq;
 
             if (!common_far) {
-              if (!apply_signed_axis_attractor(
+              const bool survived =
+                  apply_signed_axis_attractor(
                       p.life, p.velocity, pos, max_delta, gravity, plus,
-                      {pos_sq, q, cross_sq, dist_plus_sq}) ||
-                  !apply_signed_axis_attractor(
+                      {pos_sq, q, cross_sq, dist_plus_sq}) &&
+                  apply_signed_axis_attractor(
                       p.life, p.velocity, pos, max_delta, gravity, minus,
-                      {pos_sq, -q, cross_sq, dist_minus_sq})) {
+                      {pos_sq, -q, cross_sq, dist_minus_sq});
+              HS_MSP_STALL_STOP(signed_axis_physics, axis_pair_start);
+              if (!survived) {
                 active = false;
                 break;
               }
@@ -559,6 +563,7 @@ private:
                   (plus.strength * inv_plus - minus.strength * inv_minus);
               p.velocity += tangent * scale;
             }
+            HS_MSP_STALL_STOP(signed_axis_physics, axis_pair_start);
           }
 #ifdef HS_TEST_BUILD
         } else {
@@ -571,6 +576,7 @@ private:
 
       if (active) {
         if constexpr (SIGNED_AXIS_ATTRACTORS) {
+          HS_MSP_STALL_START(axis_motion_start);
           const float speed_sq = dot(p.velocity, p.velocity);
           Vector axis = cross(pos, p.velocity);
           const float axis_sq = dot(axis, axis);
@@ -582,6 +588,7 @@ private:
             p.position = rotate(p.position, dq);
             p.velocity = rotate(p.velocity, dq);
           }
+          HS_MSP_STALL_STOP(signed_axis_physics, axis_motion_start);
         } else {
           // The surface-rotation axis cross(pos, velocity) vanishes for a purely
           // radial velocity (no motion along the sphere), so skip rather than
