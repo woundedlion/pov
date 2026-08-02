@@ -3,8 +3,10 @@
 *Status: IMPLEMENTED, and this document describes the implementation. The
 protocol core lives in `hardware/pov_sync.h` (pure, host-tested — flywheel
 timebase, symbol alphabet, edge mailbox, acceptance gate, beacon codec,
-content tracker, emitter); the device shell is `hardware/pov_segmented.h`
-(two ISRs, pixel packing, effect handoff); `targets/Phantasm/Phantasm.ino`
+content tracker, emitter); effect commit and submit gating live in
+`hardware/pov_handoff.h` and `hardware/pov_submit_gate.h`; the device shell is
+`hardware/pov_segmented.h` (two ISRs, pixel packing, effect handoff);
+`targets/Phantasm/Phantasm.ino`
 supplies the roster factory table; the §12 test plan is
 `tests/test_pov_sync.h` (pure units plus a variable-count simulator with clean
 4- and 8-board runs and 4-board fault scenarios covering crystal offsets,
@@ -27,7 +29,7 @@ and generate columns from a local, time-derived flywheel on every board;
 *Review pass folded in (feasibility + correctness): the architecture is feasible
 and the §4.5 drift math holds. Five findings were incorporated rather than left
 implicit — (i) the symbol must be **count/burst-coded, not width-coded**, so the
-very `FastLED.show()` masking the flywheel defeats can't corrupt the one wire all
+interrupt masking in the retired `FastLED.show()` path can't corrupt the one wire all
 layers ride (§5.2, §11.3); (ii) "extra flip is benign" is a **Layer-2-only**
 statement — content `t` is flip-paced through the `buffer_free()` gate, so a
 spurious flip offsets `t` until the next epoch (§8.4, §6.1); (iii) the §9
@@ -83,7 +85,7 @@ is deleted outright.
 
 ## 2. System model
 
-Hardware constants (`targets/Phantasm/Phantasm.ino`, `core/engine/platform.h`):
+Hardware constants (`targets/common/phantasm_target.h`, `core/engine/platform.h`):
 
 | Quantity            | Value    | Derivation                         |
 |---------------------|----------|------------------------------------|
@@ -204,8 +206,8 @@ ISR has fired:
 x_target = ((now_cycles - epoch_cycles) / cycles_per_column) mod W
 ```
 
-Why this matters: `FastLED.show()` / the WS2801 bit-bang path masks interrupts
-for windows **longer than T0** (`FastLED.show()` masks IRQs, §10). If `x` were
+Why this mattered in the retired bit-bang path: `FastLED.show()` masked
+interrupts for windows **longer than T0**. If `x` were
 incremented once per ISR fire, a masked window would coalesce several pending
 timer interrupts into one fire and **lose** columns — exactly the dropped-column
 bug we are eliminating. With position derived from time, the ISR that finally
@@ -316,7 +318,7 @@ no estimator.
 | Event | Baseline (snap-only) | With frequency trim |
 |-------|----------------------|---------------------|
 | Normal | flywheel free-runs at own T0; snapped 2/rev | period trimmed to master; snap nulls residual |
-| Masked-IRQ window (`FastLED.show()`) | ISR resumes at time-correct column; no drift | same |
+| Masked-IRQ window (retired bit-bang path) | ISR resumes at time-correct column; no drift | same |
 | 1 dropped boundary symbol | coasts ≤1 rev on own crystal (~0.01 col), re-snaps next | same, with even less coast error |
 | 1 spurious symbol | count-decode + `try_flip` identity reject it | trim ignores out-of-window intervals |
 | Sync wire dead | free-runs at nominal T0, precesses on own crystal | precesses on *trimmed* (last-known) frequency |
@@ -338,7 +340,7 @@ to slip one column:
 | 10 ppm | 43 s            | 1.4 col/min  |
 | 20 ppm | 22 s            | 2.8 col/min  |
 | 30 ppm | 14 s            | 4.1 col/min  |
-| 50 ppm | 8.7 s           | 5.5 col/min  |
+| 50 ppm | 8.7 s           | 6.9 col/min  |
 
 Teensy 4's 24 MHz crystal is ~±10 ppm at room temperature, widening to ±30–50
 ppm over its temperature range. Boards differ by the *relative* spread (up to the
@@ -450,7 +452,7 @@ Why count beats width, precisely: on i.MX RT each pin has **one** latched
 interrupt flag, so an IRQ-mask window *delays* an edge's ISR but cannot lose
 the edge — unless **two** edges land inside one mask window and share the
 single latch. Therefore, with pulse pitch chosen **greater than the worst-case
-mask window M**, the decoder's edge *count* is exact even when `FastLED.show()`
+mask window M**, the decoder's edge *count* is exact even when foreground code
 masks IRQs mid-symbol — whereas a width measurement is wrong whenever a mask
 touches *any* edge, because the delayed ISR timestamps it late. Count decoding
 moves the failure mode from "misclassified boundary" (a wrong-by-W/2 snap) to
@@ -465,10 +467,9 @@ locked-mode snap plausibility gate (§11.7) rejects even those when the implied
 correction or boundary identity contradicts the disciplined flywheel.
 
 Parameters — all derived from the worst-case mask window M. **Phantasm ships
-on the DMA LED path (`USE_DMA_LEDS`), where M ≈ 0** — confirm by measurement,
-after which the margins below hold with order-of-magnitude headroom. (The
-bit-bang fallback would require re-deriving them, and risks chronic master
-self-censoring — see §9.1, row "lost boundary symbol.")
+on the required DMA LED path, where M ≈ 0** — confirm by measurement, after
+which the margins below hold with order-of-magnitude headroom. The unsupported
+bit-bang configuration is rejected at compile time by `pov_segmented.h`.
 
 | Parameter | Value | Rule |
 |-----------|-------|------|
@@ -603,7 +604,7 @@ rather than the primary copy counts down to the **same** boundary — see
 §6.3.1 — which is why construction cannot start before B+R: only then is the
 window's start common knowledge regardless of which copy each board heard,
 and only then does every hearer get the full K-revolution build budget.
-`HS_CHECK(init_complete)` at the deadline: an effect that cannot construct
+`HS_CHECK(w.commit_ok)` at the deadline: an effect that cannot construct
 inside K revolutions is an invariant violation and traps (fail-fast), rather
 than silently skewing the show — and because the budget is K for every
 hearer, the trap can only mean a firmware bug, never a missed symbol. K is
@@ -631,7 +632,7 @@ effects, so the epoch reset is what bounds it, not per-flip equality alone. This
 replaces the `millis()`-gated `show<E>(120)` sequencing with epoch-counted
 sequencing.
 
-Because all boards iterate the **same** `HS_EFFECT_LIST` order, the epoch mark
+Because all boards iterate the **same** `HS_PHANTASM_EFFECT_LIST` order, the epoch mark
 need only say "advance," not "advance to N." The absolute index rides the §6.4
 beacon instead, which both verifies each advance after the fact and lets a
 late-booting board establish it without assuming "everyone started at 0
@@ -876,7 +877,7 @@ Invariants:
 
 | Event | Layer 1 (column) | Layer 2 (flip) | Layer 3 (content) |
 |-------|------------------|----------------|-------------------|
-| Masked-IRQ window (`FastLED.show()`) | flywheel resumes at time-correct column; no drift | unaffected | unaffected |
+| Masked-IRQ window (retired bit-bang path) | flywheel resumes at time-correct column; no drift | unaffected | unaffected |
 | 1 dropped boundary symbol | coasts ≤1 rev (~0.01 col); re-snaps next | crossing fallback flips | unaffected |
 | 1 spurious symbol | count alphabet discards (even count) or §5.3 gate rejects | identity check no-ops it | epoch refractory + gate guard it |
 | Late-emitted symbol (master masked) | master self-censors (§5.2); residual rejected by gate (§5.3) | crossing flips on time regardless | unaffected |
@@ -941,10 +942,9 @@ column ISR into the watchdog.
 
 In the old slaved-clock design, a missed column required one board to
 coalesce two edges or latch a spurious one; ranked causes: (1)
-interrupt-masked foreground windows > 434 µs —
-dominant on the FastLED/WS2801 bit-bang path (`FastLED.show()` masks IRQs),
-largely designed out on DMA; (2) worst-case ISR overrun; (3) EMI on a motorized
-spinner (spurious edges). At ~1.1 M column edges/min for the default 4 boards
+worst-case ISR overrun; (2) EMI on a motorized spinner (spurious edges).
+Foreground interrupt masking from the former FastLED/WS2801 path is excluded by
+the shipping DMA requirement. At ~1.1 M column edges/min for the default 4 boards
 (~2.2 M for 8), even a 1e-6 per-edge rate is visible on operational timescales.
 
 The time-derived flywheel **removes causes (1)/(2) as column-drop sources
