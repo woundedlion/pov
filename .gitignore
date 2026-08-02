@@ -27,6 +27,7 @@ CMakeUserPresets.json
 .agents/
 /out/
 /obj/
+/hardware/phantasm/candidates/
 # Visual Studio / Visual Micro generated project and per-user state. Un-anchored
 # so these rules also match projects regenerated under targets/.
 __vm/
