@@ -46,7 +46,8 @@ def power(lib_id, x, y, rot=0):
     return sym(lib_id, "#PWR", x, y, rot=rot, value=lib_id.split(":")[1])
 
 
-def build(symbols=(), wires=(), labels=(), junctions=()):
+def build(symbols=(), wires=(), labels=(), global_labels=(),
+          hierarchical_labels=(), junctions=()):
     """Parse a minimal schematic holding exactly the given geometry."""
     out = ["(kicad_sch (version 20250114) (paper \"A3\")", "(lib_symbols"]
     for lib_id in sorted({s["lib_id"] for s in symbols}):
@@ -56,6 +57,10 @@ def build(symbols=(), wires=(), labels=(), junctions=()):
         out.append(f"(wire (pts (xy {a[0]} {a[1]}) (xy {b[0]} {b[1]})))")
     for (p, text) in labels:
         out.append(f'(label "{text}" (at {p[0]} {p[1]} 0))')
+    for (p, text) in global_labels:
+        out.append(f'(global_label "{text}" (at {p[0]} {p[1]} 0))')
+    for (p, text) in hierarchical_labels:
+        out.append(f'(hierarchical_label "{text}" (at {p[0]} {p[1]} 0))')
     for p in junctions:
         out.append(f"(junction (at {p[0]} {p[1]}))")
     for s in symbols:
@@ -102,6 +107,30 @@ class PowerFlagTests(unittest.TestCase):
         self.assertEqual(conflicts(
             symbols=[power("power:GND", 100, 100), power("power:+5V", 100, 120)],
             wires=[((100, 100), (110, 100)), ((100, 120), (110, 120))]), [])
+
+    def test_global_label_bridging_local_label_fails(self):
+        found = conflicts(
+            labels=[((100, 100), "GND")],
+            global_labels=[((120, 100), "+5V")],
+            wires=[((100, 100), (120, 100))])
+
+        self.assertEqual([nets for nets, _ in found], [["+5V", "GND"]])
+
+    def test_hierarchical_label_bridging_power_fails(self):
+        found = conflicts(
+            symbols=[power("power:GND", 100, 100)],
+            hierarchical_labels=[((120, 100), "+5V")],
+            wires=[((100, 100), (120, 100))])
+
+        self.assertEqual([nets for nets, _ in found], [["+5V", "GND"]])
+
+    def test_incomplete_geometry_is_ignored(self):
+        root = sexp.parse(
+            '(kicad_sch (label "GND") (global_label) '
+            '(symbol (at 1 2)) (wire (pts (xy 1 2))) (junction (at 1)))'
+        )[0]
+
+        self.assertEqual(shorts.analyze(root), ([], []))
 
 
 class CommittedSchematicTests(unittest.TestCase):

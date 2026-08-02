@@ -38,14 +38,24 @@ def on_seg(p, a, b):
 
 
 def named_points(root):
-    """point -> net name, from local labels and power symbols."""
+    """point -> net name, from labels and power symbols."""
     named = {}
-    for c in F(root, "label"):
-        named[R(sexp._val(c, "at"))] = c[1]
+    for kind in ("label", "global_label", "hierarchical_label"):
+        for c in F(root, kind):
+            at = sexp._val(c, "at", [])
+            if len(c) < 2 or len(at) < 2:
+                continue
+            named[R(at)] = c[1]
     for c in F(root, "symbol"):
-        lib = sexp._val(c, "lib_id")[0]
+        lib_id = sexp._val(c, "lib_id", [])
+        at = sexp._val(c, "at", [])
+        if not lib_id or len(at) < 2:
+            continue
+        lib = lib_id[0]
         if lib.startswith("power:") or "phantasm:+" in lib:
-            named[R(sexp._val(c, "at"))] = prop(c, "Value")
+            value = prop(c, "Value")
+            if value is not None:
+                named[R(at)] = value
     return named
 
 
@@ -72,12 +82,13 @@ def analyze(root):
     named = named_points(root)
     wires = []
     for c in F(root, "wire"):
-        xy = [R((p[1], p[2])) for p in sexp._val(c, "pts")
-              if isinstance(p, list) and p[0] == "xy"]
-        wires.append((xy[0], xy[1]))
+        xy = [R((p[1], p[2])) for p in sexp._val(c, "pts", [])
+              if isinstance(p, list) and len(p) >= 3 and p[0] == "xy"]
+        if len(xy) >= 2:
+            wires.append((xy[0], xy[1]))
     # junction dots explicitly connect crossing/T wires that only touch mid-span.
-    junctions = [R(sexp._val(c, "at")) for c in F(root, "junction")
-                 if sexp._val(c, "at")]
+    junctions = [R(at) for c in F(root, "junction")
+                 if len(at := sexp._val(c, "at", [])) >= 2]
 
     allpts = set(named) | set(junctions)
     for a, b in wires:
