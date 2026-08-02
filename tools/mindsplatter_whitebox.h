@@ -425,6 +425,15 @@ struct MindSplatterWhiteBox {
     inspect(canvas, ms.clip());
   }
   template <int W, int H>
+  static void draw_particles_candidate(MindSplatter<W, H> &ms, Canvas &canvas) {
+    ms.draw_particles(canvas);
+  }
+  template <int W, int H>
+  static void draw_particles_replay_reference(MindSplatter<W, H> &ms,
+                                              Canvas &canvas) {
+    ms.draw_particles_with(ms.filters, canvas);
+  }
+  template <int W, int H>
   static void draw_particles_reference(MindSplatter<W, H> &ms) {
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> sink;
     Canvas canvas(ms);

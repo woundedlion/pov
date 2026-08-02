@@ -132,6 +132,10 @@ profile effect="DisplacementField" seconds="150" deep="0":
 profile-mindsplatter-replay env="profile" seconds="150":
     bash tools/profile_one.sh MindSplatter {{env}} {{seconds}} 32 -D HS_MINDSPLATTER_REPLAY
 
+# Same-device candidate/reference visual comparison; timing includes both.
+profile-mindsplatter-replay-ab env="profile" seconds="150":
+    bash tools/profile_one.sh MindSplatter {{env}} {{seconds}} 32 -D HS_MINDSPLATTER_REPLAY -D HS_MINDSPLATTER_REPLAY_AB
+
 # Regenerate the PHANTASM PCB outputs into hardware/phantasm/gen/out/ (all
 # gitignored) from the COMMITTED board. It never re-runs the schematic/PCB
 # generators, which would discard the routing + silk; needs kicad-cli on PATH
