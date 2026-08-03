@@ -520,6 +520,53 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
 }
 
+/**
+ * @brief Pins the star cap's azimuthal cull against narrow column clips.
+ * @details Four full-height W/4 columns tile the canvas, so the y-band half of
+ * the cull passes everything and only the azimuthal bound decides visibility.
+ * A quarter-width column shrinks the cap half-width to a quarter turn, where the
+ * bound rejects most of a dense star stack; any shape it drops that reaches the
+ * column shows up as a mismatch against the unclipped frame.
+ */
+inline void test_star_azimuthal_cull_spans_narrow_columns() {
+  const OracleClip columns[] = {
+      {0, ORACLE_H, 0, ORACLE_W / 4},
+      {0, ORACLE_H, ORACLE_W / 4, ORACLE_W / 2},
+      {0, ORACLE_H, ORACLE_W / 2, 3 * ORACLE_W / 4},
+      {0, ORACLE_H, 3 * ORACLE_W / 4, ORACLE_W}};
+  const std::array<Quaternion, 4> orientations = {{
+      Quaternion(),
+      make_rotation(X_AXIS, Z_AXIS),
+      Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(),
+      Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
+  }};
+  const std::array<float, 4> phases = {{0.0f, 0.37f, 0.5f, 0.83f}};
+
+  for (size_t i = 0; i < orientations.size(); ++i) {
+    OracleState state;
+    state.shape = OracleEffect::ShapeType::STAR;
+    state.function = OracleEffect::PhaseFunction::SINE;
+    state.count = 144;
+    state.sides = 7;
+    state.phase = phases[i];
+    state.alpha = 0.274f;
+    state.orientation = orientations[i];
+
+    const OracleFrame full = capture_frame(state, candidate_renderer());
+    OracleFrame tiled;
+    tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
+    for (const OracleClip &column : columns) {
+      state.clip = column;
+      copy_clip(tiled, capture_frame(state, candidate_renderer()), column);
+    }
+
+    const FrameErrorStats error = compare_buffers(full, tiled);
+    HS_EXPECT_TRUE(error.exact());
+    HS_EXPECT_EQ(error.different_pixels, size_t{0});
+    HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
+  }
+}
+
 inline void test_amplitude_preserves_sweep_velocity() {
   OracleEffect effect;
   HS_EXPECT_NEAR(ShapeShifterWhiteBox::advance_phase(effect, 0.04f, 1.0f),
@@ -605,6 +652,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_high_count_star_preset_stays_within_visual_budget();
   test_high_count_star_preset_covers_north_pole();
   test_segment_tiles_reconstruct_full_frame();
+  test_star_azimuthal_cull_spans_narrow_columns();
   test_amplitude_preserves_sweep_velocity();
   test_shape_alpha_fades_to_equator();
   test_opposite_halves_direction();
