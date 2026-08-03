@@ -369,8 +369,12 @@ inline const char *u64_dec(uint64_t v, char *buf) {
  * @brief Named cumulative cycle accumulator. Each instance self-registers into
  *        a static intrusive list at construction so log_all()/reset_all() can
  *        walk every counter without a central registry. Counters nest: a
- *        CycleScope sets `parent` to whichever counter was active when this one
- *        started, giving log_all() a call tree with per-parent percentages.
+ *        CycleScope latches `parent` to whichever counter was active the first
+ *        time this one started, giving log_all() a call tree with per-parent
+ *        percentages. A counter entered under two different callers keeps the
+ *        latched parent and sets `mixed_parent`, which log_all() marks in the
+ *        report — the tree is a single-parent view, so the marked node's share
+ *        of that parent counts cycles the other caller spent.
  * @warning REENTRANCY: the registry head and the `active` nesting pointer are
  *        non-atomic statics (like hs::random()'s generator), so construction and
  *        CycleScope enter/exit are main-loop-only — driving a CycleScope from an
@@ -389,6 +393,14 @@ struct CycleCounter {
   CycleCounter *parent = nullptr; /**< Enclosing counter for tree nesting. */
   CycleCounter *next =
       nullptr; /**< Next link in the intrusive registry list. */
+
+  /** @brief True once `parent` has been latched, so a null `parent` afterwards
+   *         means a genuine root rather than "not nested yet". */
+  bool parented = false;
+  /** @brief True once entered under a counter other than the latched `parent`.
+   *         Every caller's cycles land on `parent`, so its share is overstated
+   *         and can exceed 100%. */
+  bool mixed_parent = false;
 
   /**
    * @brief Constructs a named counter and self-registers it for bulk logging.
@@ -445,7 +457,9 @@ private:
    * @param depth Tree depth; drives indentation.
    * @details The reported percentage is this node's cycles over its parent's
    *          (or 100% for a root), and cycles are converted to microseconds via
-   *          CYCLES_PER_US.
+   *          CYCLES_PER_US. A mixed_parent node carries a MIXED-PARENT tag: its
+   *          cycles include entries made from callers other than the parent it
+   *          is printed under.
    */
   static void log_node(const CycleCounter *node, int depth) {
     if (!node->count)
@@ -459,9 +473,9 @@ private:
     int name_w = 22 - indent;
     if (name_w < 1)
       name_w = 1;
-    hs::log("%*s%-*s %s us (%lu%%)  %lu calls  %s cyc", indent, "", name_w,
-            node->name, us, (unsigned long)pct, (unsigned long)node->count,
-            cyc);
+    hs::log("%*s%-*s %s us (%lu%%)  %lu calls  %s cyc%s", indent, "", name_w,
+            node->name, us, (unsigned long)pct, (unsigned long)node->count, cyc,
+            node->mixed_parent ? "  MIXED-PARENT" : "");
     for (auto *c = head; c; c = c->next)
       if (c->parent == node)
         log_node(c, depth + 1);
@@ -471,7 +485,7 @@ private:
 /**
  * @brief RAII guard that times its enclosing scope and accumulates the elapsed
  *        cycles into a CycleCounter. On construction it makes its counter the
- *        active one (recording the previously-active counter as parent on first
+ *        active one (latching the previously-active counter as parent on first
  *        use) and snapshots the cycle counter; the destructor adds the delta and
  *        restores the previous active counter, rebuilding the nesting tree.
  */
@@ -485,16 +499,27 @@ struct CycleScope {
   /**
    * @brief Begins timing the enclosing scope into the given counter.
    * @param c Counter that receives the elapsed cycles.
-   * @details Makes c the active counter (recording the previously-active
+   * @details Makes c the active counter (latching the previously-active
    *          counter as its parent on first use) and snapshots the cycle
-   *          counter.
+   *          counter. A later entry under a different counter flags
+   *          mixed_parent instead of re-parenting: the tree is a single-parent
+   *          view, and log_all() marks the node so the inflated share is
+   *          visible rather than silent.
    */
   explicit CycleScope(CycleCounter &c) : counter(c), start(HS_OS_CYCLES()) {
     prev_active = CycleCounter::active;
     // A recursive scope would self-parent, hiding the counter from log_all()'s
-    // root walk.
-    if (!counter.parent && prev_active && prev_active != &counter)
-      counter.parent = prev_active;
+    // root walk. Latching once, root or not, keeps every parent edge pointing at
+    // a counter first entered earlier, so no pair of counters can close a cycle
+    // and drop both subtrees from that walk.
+    if (prev_active != &counter) {
+      if (!counter.parented) {
+        counter.parented = true;
+        counter.parent = prev_active;
+      } else if (counter.parent != prev_active) {
+        counter.mixed_parent = true;
+      }
+    }
     CycleCounter::active = &counter;
   }
   /**
