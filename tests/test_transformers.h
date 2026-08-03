@@ -18,7 +18,9 @@
  *                               no-ops; an active ripple rotates on-sphere; the
  *                               prepared-threshold fast-reject band applies
  *                               in-band points and rejects off-band ones.
- *   - noise_transform         : amplitude≈0 is a no-op; otherwise stays unit.
+ *   - noise_transform         : amplitude≈0 is a no-op; otherwise stays unit; at
+ *                               a shipped preset's amplitude the cross-hemisphere
+ *                               slide cap binds the displacement at atan(0.5).
  *   - Transformer<>           : no active entities → identity; a spawned entity
  *                               applies and multiple entities compose; a recycled
  *                               freed slot composes in spawn order, not slot order.
@@ -608,6 +610,58 @@ inline void test_noise_active_stays_on_sphere() {
         std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
   }
   HS_EXPECT_GT(total_moved, 1e-2f);
+}
+
+/**
+ * @brief Verifies the cross-hemisphere soft cap at the amplitude a shipped
+ *        preset actually drives.
+ * @details Feedback::Style::LooseWormhole() feeds noise_transform an amplitude
+ *          of 11.25 — two orders above the ~0.6 every other test uses, and high
+ *          enough that the raw slide would otherwise reach ~0.97 and grab across
+ *          the sphere. The cap is on the tangential offset, so with the offset
+ *          perpendicular to a unit v the resulting angular displacement is
+ *          exactly atan(|offset|): saturated samples land on atan(0.5) and no
+ *          sample may exceed it. Asserting both sides pins the cap — a removed
+ *          or widened cap overshoots, a cap that never engages undershoots. The
+ *          low-amplitude control confirms the existing tests stay clear of it.
+ */
+inline void test_noise_cross_hemisphere_cap() {
+  constexpr float LOOSE_WORMHOLE_AMPLITUDE = 11.25f;
+  const float capped_angle = std::atan(0.5f);
+
+  auto sweep = [](float amplitude) {
+    Animation::NoiseParams p;
+    p.amplitude = amplitude;
+    p.frequency = 0.22519f; // LooseWormhole's remaining noise config
+    p.scale = 10.1798f;
+    p.speed = 0.0f;
+    p.time = 0.0f;
+    p.noise.SetSeed(4242);
+    p.sync();
+    hs::random().seed(20260803);
+    float worst_angle = 0.0f;
+    int off_sphere = 0;
+    for (int i = 0; i < 4000; ++i) {
+      const Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                     hs::rand_f(-1.0f, 1.0f));
+      if (r.length() < 0.1f)
+        continue;
+      const Vector v = r.normalized();
+      const Vector out = noise_transform(v, p);
+      off_sphere += !finite_vec(out) || std::fabs(out.length() - 1.0f) > 1e-3f;
+      worst_angle = std::max(worst_angle, angle_between(v, out));
+    }
+    HS_EXPECT_EQ(off_sphere, 0);
+    return worst_angle;
+  };
+
+  const float worst_high = sweep(LOOSE_WORMHOLE_AMPLITUDE);
+  HS_EXPECT_LE(worst_high, capped_angle + 1e-4f);
+  HS_EXPECT_GE(worst_high, capped_angle - 1e-4f);
+
+  // 0.6 is the ceiling of every other noise test; the cap must be slack there.
+  const float worst_low = sweep(0.6f);
+  HS_EXPECT_LT(worst_low, capped_angle * 0.5f);
 }
 
 // ============================================================================
@@ -1300,6 +1354,7 @@ inline int run_transformers_tests() {
   test_transforms_nonfinite_passes_through_identity();
   test_noise_zero_amplitude_is_identity();
   test_noise_active_stays_on_sphere();
+  test_noise_cross_hemisphere_cap();
   test_transformer_no_entities_is_identity();
   test_transformer_spawn_applies_and_composes();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
