@@ -186,9 +186,12 @@ inline void test_lerp_scalars_and_snapping() {
   Feedback::Style b{};
   b.fade = 1.0f;
   b.hue_shift = 1.0f;
-  b.amplitude = 1.0f;
-  b.frequency = 1.0f;
-  b.speed = 1.0f;
+  // amplitude/frequency/speed carry endpoints whose midpoint differs from the
+  // Style default, so dropping their interpolation cannot land on the value the
+  // assertion expects.
+  b.amplitude = 3.0f;
+  b.frequency = 0.7f;
+  b.speed = 5.0f;
   b.scale = 1.0f;
   b.space_fn = &Feedback::noise_warp;
   b.color_fn = &Feedback::hue_fade;
@@ -201,6 +204,9 @@ inline void test_lerp_scalars_and_snapping() {
   mid.lerp(a, b, 0.5f);
   HS_EXPECT_NEAR(mid.fade, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(mid.hue_shift, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(mid.amplitude, 1.5f, 1e-6f);
+  HS_EXPECT_NEAR(mid.frequency, 0.35f, 1e-6f);
+  HS_EXPECT_NEAR(mid.speed, 2.5f, 1e-6f);
   HS_EXPECT_NEAR(mid.scale, 0.5f, 1e-6f);
   HS_EXPECT_TRUE(mid.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(mid.color_fn == &Feedback::hue_fade);
