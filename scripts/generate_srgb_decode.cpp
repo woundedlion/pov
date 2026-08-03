@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
                SRGB_DECODE_VSPLIT);
   auto emit = [&](const char *name, const uint16_t *t, int n) {
     std::fprintf(f, "// clang-format off\n");
-    std::fprintf(f, "inline const uint16_t %s[%d] PROGMEM = {\n", name, n);
+    std::fprintf(f, "inline constexpr uint16_t %s[%d] PROGMEM = {\n", name, n);
     for (int i = 0; i < n; ++i) {
       if (i % 12 == 0)
         std::fprintf(f, "    ");

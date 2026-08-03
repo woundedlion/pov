@@ -5,6 +5,7 @@
 #pragma once
 #include "color/srgb_decode_lut.h"
 #include "engine/platform.h"
+#include <array>
 #include <cstdint>
 #include <iterator>
 
@@ -21,7 +22,7 @@ inline constexpr int SRGB_DECODE_HIGH_N =
     (65536 - SRGB_DECODE_VSPLIT) >> SRGB_DECODE_HIGH_SHIFT;
 
 // A committed table generated under different shifts would otherwise be copied
-// out of bounds below, before main() runs.
+// out of bounds below.
 static_assert(std::size(srgb_decode_low_src) == SRGB_DECODE_LOW_N,
               "srgb_decode_low_src length disagrees with the low-region shift");
 static_assert(
@@ -29,20 +30,25 @@ static_assert(
     "srgb_decode_high_src length disagrees with the high-region shift");
 
 // DTCM copies (zero-wait, bypass the L1 D-cache) of the two-region decode
-// tables, filled once at static init from the flash sources. Residing in DTCM
-// is what stops the concurrent render from evicting them, unlike a cacheable
-// table.
-// Dynamic init: linear_to_srgb8 reads zeros if called from another TU's static
-// initializer.
-inline uint16_t srgb_decode_low[SRGB_DECODE_LOW_N];
-inline uint16_t srgb_decode_high[SRGB_DECODE_HIGH_N];
-inline const bool srgb_decode_dtcm_init = []() {
-  for (int i = 0; i < SRGB_DECODE_LOW_N; ++i)
-    srgb_decode_low[i] = srgb_decode_low_src[i];
-  for (int i = 0; i < SRGB_DECODE_HIGH_N; ++i)
-    srgb_decode_high[i] = srgb_decode_high_src[i];
-  return true;
-}();
+// tables. Residing in DTCM is what stops the concurrent render from evicting
+// them, unlike a cacheable table.
+// constinit is load-bearing: an inline variable's dynamic init is unordered
+// against other translation units' static initializers, so a runtime fill would
+// let linear_to_srgb8 read a zeroed table and return 0 for every input.
+inline constinit std::array<uint16_t, SRGB_DECODE_LOW_N> srgb_decode_low =
+    []() constexpr {
+      std::array<uint16_t, SRGB_DECODE_LOW_N> t{};
+      for (int i = 0; i < SRGB_DECODE_LOW_N; ++i)
+        t[i] = srgb_decode_low_src[i];
+      return t;
+    }();
+inline constinit std::array<uint16_t, SRGB_DECODE_HIGH_N> srgb_decode_high =
+    []() constexpr {
+      std::array<uint16_t, SRGB_DECODE_HIGH_N> t{};
+      for (int i = 0; i < SRGB_DECODE_HIGH_N; ++i)
+        t[i] = srgb_decode_high_src[i];
+      return t;
+    }();
 
 /**
  * @brief Bit-exact linear-16 -> sRGB-8 encode via a two-region split-decode.
@@ -56,12 +62,6 @@ inline const bool srgb_decode_dtcm_init = []() {
  * by unit_color's test_linear_to_srgb8_decode_matches_lut.
  */
 inline __attribute__((always_inline)) uint8_t linear_to_srgb8(uint16_t v) {
-#ifndef NDEBUG
-  // Still false means this call beat the dynamic init above and would read a
-  // zeroed table.
-  HS_CHECK(srgb_decode_dtcm_init,
-           "linear_to_srgb8 before the DTCM decode tables are filled");
-#endif
   if (v < SRGB_DECODE_VSPLIT) {
     uint16_t e = srgb_decode_low[v >> SRGB_DECODE_LOW_SHIFT];
     return (uint8_t)((e & 0xFF) +
