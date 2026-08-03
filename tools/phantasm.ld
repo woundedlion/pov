@@ -15,8 +15,10 @@
  *       vtables read fine in place (and skip the boot-time copy to RAM). Routed in
  *       .text.progmem; the .data rodata line is removed so nothing double-claims.
  *
- * Everything else (FlexRAM bank math, heap, stack, csf) is byte-identical to the
- * stock script. Selected per-env via board_build.ldscript (phantasm only).
+ * Everything else (heap, stack, csf) is byte-identical to the stock script; the
+ * derived _etext / _itcm_block_count drop its SIZEOF(.ARM.exidx) term, which is
+ * an ITCM contribution only in the stock layout. Selected per-env via
+ * board_build.ldscript (phantasm only).
  * ============================================================================ */
 MEMORY
 {
@@ -111,6 +113,10 @@ SECTIONS
 		*(.text._ZN10DMAChannel5begin*)
 		. = ALIGN(4);
 		KEEP(*(.init))
+		/* Placed explicitly: .fini matches no other output section, so the
+		 * linker would orphan it into ITCM past .text.itcm, outside the boot
+		 * copy's [_stext, _etext) range. */
+		KEEP(*(.fini))
 		__preinit_array_start = .;
 		KEEP (*(.preinit_array))
 		__preinit_array_end = .;
@@ -171,7 +177,7 @@ SECTIONS
 	} > FLASH
 
 	_stext = ADDR(.text.itcm);
-	_etext = ADDR(.text.itcm) + SIZEOF(.text.itcm) + SIZEOF(.ARM.exidx);
+	_etext = ADDR(.text.itcm) + SIZEOF(.text.itcm);
 	_stextload = LOADADDR(.text.itcm);
 
 	_sdata = ADDR(.data);
@@ -184,7 +190,7 @@ SECTIONS
 	_heap_start = ADDR(.bss.dma) + SIZEOF(.bss.dma);
 	_heap_end = ORIGIN(RAM) + LENGTH(RAM);
 
-	_itcm_block_count = (SIZEOF(.text.itcm) + SIZEOF(.ARM.exidx) + 0x7FFF) >> 15;
+	_itcm_block_count = (SIZEOF(.text.itcm) + 0x7FFF) >> 15;
 	_flexram_bank_config = 0xAAAAAAAA | ((1 << (_itcm_block_count * 2)) - 1);
 	_estack = ORIGIN(DTCM) + ((16 - _itcm_block_count) << 15);
 
