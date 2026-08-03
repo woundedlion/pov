@@ -17,6 +17,7 @@ Run:  python -m unittest discover -s tools/teensy_hook_tests
 import configparser
 import os
 import re
+import sys
 import types
 import unittest
 from pathlib import Path
@@ -24,6 +25,12 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 TOOLS = REPO / "tools"
 PIO_INI = REPO / "platformio.ini"
+
+sys.path.insert(0, str(TOOLS))
+
+import teensy_gate as tg   # noqa: E402
+
+GATE_SCRIPT = "post:tools/teensy_gate_extra.py"
 
 
 def _abs(*parts):
@@ -94,6 +101,30 @@ def _pio_envs():
             if s.startswith("env:")]
 
 
+_INTERP = re.compile(r"\$\{([^.}]+)\.([^}]+)\}")
+
+
+def _option_lines(cfg, section, option, depth=0):
+    """One option's values as PlatformIO resolves them: [env] supplies the
+    default for an [env:X] that omits the option (list options do NOT merge),
+    and a ${section.option} line expands to that option's values."""
+    if depth > 8:
+        raise RecursionError(f"[{section}] {option} interpolates cyclically")
+    if not cfg.has_option(section, option) and section.startswith("env:"):
+        section = "env"
+    out = []
+    for line in cfg.get(section, option, fallback="").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        ref = _INTERP.fullmatch(line)
+        if ref:
+            out.extend(_option_lines(cfg, ref.group(1), ref.group(2), depth + 1))
+        else:
+            out.append(line)
+    return out
+
+
 class TestExtraScriptsExist(unittest.TestCase):
     """Every hook platformio.ini names must be a real file (a typo'd pre:/post:
     path is accepted by PlatformIO's parser and only surfaces at build time)."""
@@ -111,6 +142,34 @@ class TestExtraScriptsExist(unittest.TestCase):
                                 f"[{section}] extra_scripts names missing {rel}")
                 seen += 1
         self.assertGreater(seen, 0, "parsed no extra_scripts from platformio.ini")
+
+
+class TestBudgetedEnvsWireTheGate(unittest.TestCase):
+    """The size/layout gate is a post hook, not a build step, and the envs that
+    skip it re-type their extra_scripts block by hand (list options do not
+    merge). A budgeted env that loses the line builds green with no ceiling
+    enforced -- `pio run` and the teensy-size job both stay silent."""
+
+    def test_every_budgeted_env_resolves_the_gate_hook(self):
+        budgets = tg.load_budgets(TOOLS / "teensy_budgets.json")
+        self.assertTrue(budgets, "teensy_budgets.json names no environments")
+        cfg = _pio_config()
+        for name in budgets:
+            with self.subTest(env=name):
+                self.assertIn(f"env:{name}", cfg.sections(),
+                              f"budgeted env '{name}' has no platformio.ini section")
+                self.assertIn(GATE_SCRIPT,
+                              _option_lines(cfg, f"env:{name}", "extra_scripts"),
+                              f"budgeted env '{name}' does not wire {GATE_SCRIPT}")
+
+    def test_gate_hook_never_runs_without_a_budget(self):
+        # teensy_gate_extra.py looks its env up in teensy_budgets.json by name.
+        budgets = tg.load_budgets(TOOLS / "teensy_budgets.json")
+        cfg = _pio_config()
+        for name in _pio_envs():
+            if GATE_SCRIPT in _option_lines(cfg, f"env:{name}", "extra_scripts"):
+                self.assertIn(name, budgets,
+                              f"env '{name}' wires the gate but has no budget entry")
 
 
 class TestSketchSelection(unittest.TestCase):
