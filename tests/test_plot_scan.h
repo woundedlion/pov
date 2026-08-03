@@ -2234,6 +2234,8 @@ inline void test_ring_draw_stride_tracks_full_grid() {
             seed = i;
         }
       HS_EXPECT_GT(lit, 0);
+      if (seed < 0)
+        continue;
 
       // One 8-connected component: a beaded ring splits into many.
       std::vector<uint8_t> seen(static_cast<size_t>(W) * H, 0);
