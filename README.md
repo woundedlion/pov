@@ -810,7 +810,7 @@ struct DistanceResult {
 | `v2` | Index of the segment's start vertex, interpolated toward the next index across the segment — only the control points land on whole numbers, interior samples are fractional; `Plot::Ring` writes the strided grid index (stride up to W/8), `Plot::Line` has no interior vertices and writes 0 on every sample, and `Plot::Mesh` writes a constant edge index instead |
 | `v3` | Inherited from control-point Fragment (user-defined) |
 
-Plot primitives interpolate registers between control-point Fragments via `Fragment::lerp()`. The vertex shader, if provided, runs once per control point before rasterization. For the always-planar primitives (`Plot::PlanarPolygon`, `Plot::Star`, `Plot::Flower`) the rasterizer re-derives `v0`/`v1` from the rendered azimuthal-equidistant arc — which bows longer than the great-circle chord between vertices — so both stay consistent with the drawn position.
+Plot primitives interpolate registers between control-point Fragments via `Fragment::lerp_registers()`. The vertex shader, if provided, runs once per control point before rasterization. For the always-planar primitives (`Plot::PlanarPolygon`, `Plot::Star`, `Plot::Flower`) the rasterizer re-derives `v0`/`v1` from the rendered azimuthal-equidistant arc — which bows longer than the great-circle chord between vertices — so both stay consistent with the drawn position.
 
 **Full-Screen Shader Path** (`Scan::Shader`):
 
