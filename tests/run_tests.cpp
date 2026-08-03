@@ -41,6 +41,7 @@
 #include "tests/test_generators.h"
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
+#include "tests/test_effects_smoke.h"
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_dma_core.h"
 #include "tests/test_hd107s_frame.h"
@@ -94,10 +95,15 @@ struct TestModule {
 // Effects floors, one per depth tier (tests/test_effects.h
 // effects_full_suite()). A single floor would have to be the QUICK count,
 // leaving every FULL-tier case deletable without turning CI — the only runner of
-// that tier — red. The roster row below selects the floor for the tier the
-// environment picked.
-constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 130508;
-constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 165466;
+// that tier — red. The roster rows below select the floor for the tier the
+// environment picked. effects_smoke carries the roster-wide sweeps and effects
+// the white-box block, so each pair floors its own half. The effects floors are
+// the previous whole-module values less the assertions the sweeps took with
+// them, so that half's gate is exactly as tight as it was.
+constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 129959;
+constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 164748;
+constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 548;
+constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", hs_test::math3d::run_3dmath_tests, 28826)                        \
@@ -144,6 +150,10 @@ constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 165466;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_FULL_MIN_ASSERTIONS                                          \
         : EFFECTS_QUICK_MIN_ASSERTIONS)                                        \
+  X("effects_smoke", hs_test::effects_smoke_tests::run_effects_smoke_tests,    \
+    hs_test::effects_tests::effects_full_suite()                               \
+        ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
+        : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
   X("shapeshifter_oracle",                                                     \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 109)    \
   X("dma_core", hs_test::dma_core::run_dma_core_tests, 12)                     \

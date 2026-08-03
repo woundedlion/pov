@@ -4,11 +4,15 @@
  *
  * Effect smoke / robustness harness — exercises all registered effects.
  *
- * Two passes over the full effect roster:
+ * Defines the per-effect sweep primitives:
  *   1. smoke_one  — construct/init/render/read-back, under native asserts.
  *   2. determinism_one — renders each effect twice under an injected, fixed
  *      per-frame clock (hs::set_mock_time) and asserts the two final frames are
  *      byte-identical.
+ *   3. clip_clear_parity_one — renders under a moving segment clip with each
+ *      clear scope and requires the displayed pixels to agree.
+ * The roster sweeps that apply them are the effects_smoke module
+ * (tests/test_effects_smoke.h); this module holds the white-box invariants.
  */
 #pragma once
 
@@ -77,17 +81,18 @@ using hs_test::smoke_frames;
  * @brief Selects the effects test depth tier from the environment.
  * @return true for the FULL suite (white-box correctness block + the
  * production-resolution 288x144 roster passes), false for the QUICK tier.
- * @details The full suite renders all 27 effects at the 288x144 production
+ * @details The full suite renders every roster effect at the 288x144 production
  * resolution across a smoke pass, a determinism pass, and several full-frame
- * white-box tests — ~40 s, dominated by the ~71 ms/frame software raster of
- * 41,472-pixel frames (27 effects x N frames, back to back). The QUICK tier
- * (default) runs only the small-aspect <96,20> smoke + determinism passes,
- * ~1,920-pixel frames that cover every effect's construct/init/render/read-back
- * and cross-run determinism in ~2 s — the fast path for the local pre-commit
- * hook. CI opts into the full suite on every push/PR by setting HS_EFFECTS_FULL=1
- * (.github/workflows/ci.yml), so the full-resolution passes and the white-box
- * correctness block are the authoritative gate there, not locally. Set
- * HS_EFFECTS_FULL=1 to reproduce the CI depth in a local commit.
+ * white-box tests — dominated by the ~71 ms/frame software raster of
+ * 41,472-pixel frames. The QUICK tier (default) runs only the small-aspect
+ * <96,20> smoke + determinism passes, ~1,920-pixel frames that cover every
+ * effect's construct/init/render/read-back and cross-run determinism in ~2 s —
+ * the fast path for the local pre-commit hook. CI opts into the full suite on
+ * every push/PR by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
+ * full-resolution passes and the white-box correctness block are the
+ * authoritative gate there, not locally. Set HS_EFFECTS_FULL=1 to reproduce the
+ * CI depth in a local commit. Read by both the effects and effects_smoke
+ * modules, which split those two halves.
  */
 inline bool effects_full_suite() {
 #pragma clang diagnostic push
@@ -4793,21 +4798,16 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
 }
 
 /**
- * @brief Module entry point for the effects test suite.
+ * @brief Module entry point for the effects white-box suite.
  * @return Module result code from hs_test::end_module (0 on success).
- * @details Runs the SH-decode check, then both smoke and determinism passes over
- * the full effect roster at the production and small-aspect resolutions.
+ * @details Per-effect invariants with an explicit oracle. The roster-wide smoke,
+ * determinism and clip-clear parity sweeps live in the separate effects_smoke
+ * module (tests/test_effects_smoke.h), which is IEEE-agnostic and so runs on the
+ * fast-math axis this module is excluded from.
  */
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
 
-  // SSOT anti-drift guard, mirroring the WASM startup check (targets/wasm/wasm.cpp):
-  // the self-registering effect count (each header's REGISTER_EFFECT) must equal
-  // the static HS_EFFECT_LIST roster, or an effect present in one and missing from
-  // the other silently drops smoke coverage below. Active because the test build
-  // defines HS_TEST_BUILD (see core/engine/effect_registry.h).
-  HS_EXPECT_EQ(EffectRegistry::entries().size(),
-               static_cast<size_t>(HS_EFFECT_COUNT));
   test_mindsplatter_opaque_palette_invariant();
   test_mindsplatter_replay_snapshot_exact();
   test_mindsplatter_saturated_quadrant_sink_parity();
@@ -4831,15 +4831,11 @@ inline int run_effects_tests() {
   test_shapeshifter_slider_selections_render();
   test_hankinsolids_manual_pause_holds_morph();
 
-  // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
-  // correctness block and the 288x144 production-resolution roster passes below
-  // are the ~40 s bulk of this module — dominated by full-frame software raster
-  // (see effects_full_suite()). The QUICK tier (default, local pre-commit) skips
-  // straight to the ~2 s small-aspect passes, which already cover every
-  // effect's construct/init/render/read-back and cross-run determinism. So a
-  // green local commit is NOT authoritative for the full-resolution paths or the
-  // white-box invariants — CI is (same split as HS_SMOKE_FRAMES's cyclic-window
-  // coverage; see the pre-commit hook header).
+  // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The QUICK tier
+  // (default, local pre-commit) skips the block below entirely, so a green local
+  // commit is NOT authoritative for the full-resolution paths or the white-box
+  // invariants — CI is (same split as HS_SMOKE_FRAMES's cyclic-window coverage;
+  // see the pre-commit hook header).
   if (effects_full_suite()) {
     test_needs_full_frame_gate();
     test_voronoi_axes_use_uniform_sampler();
@@ -4890,41 +4886,7 @@ inline int run_effects_tests() {
     test_islamicstars_recipe_build_smoke();
     test_islamicstars_roster_cycle_fits_budget();
     test_islamicstars_dual_bridge_fits_budget();
-
-    // Full production-resolution roster passes (288x144): smoke, then cross-run
-    // determinism under the injected clock.
-    g_nonblack_effects = 0;
-#define HS_SMOKE_ONE(name) smoke_one<name>(#name);
-    HS_EFFECT_LIST(HS_SMOKE_ONE)
-#undef HS_SMOKE_ONE
-    // At least one effect must light up, catching a total regression-to-black.
-    HS_EXPECT_GT(g_nonblack_effects, 0);
-#define HS_DET_ONE(name) determinism_one<name>(#name);
-    HS_EFFECT_LIST(HS_DET_ONE)
-#undef HS_DET_ONE
   }
-
-  // Small-aspect <96,20> roster passes — always run; this is the QUICK tier's
-  // core and the only place that specialization runs under native asserts
-  // (see SMALL_W/SMALL_H).
-  std::printf("  -- small-aspect resolution %dx%d --\n", SMALL_W, SMALL_H);
-  g_nonblack_effects = 0;
-#define HS_SMOKE_ONE_SMALL(name) smoke_one<name, SMALL_W, SMALL_H>(#name);
-  HS_EFFECT_LIST(HS_SMOKE_ONE_SMALL)
-#undef HS_SMOKE_ONE_SMALL
-  // The <96,20> specialization is a distinct codepath; require it lights up.
-  HS_EXPECT_GT(g_nonblack_effects, 0);
-#define HS_DET_ONE_SMALL(name) determinism_one<name, SMALL_W, SMALL_H>(#name);
-  HS_EFFECT_LIST(HS_DET_ONE_SMALL)
-#undef HS_DET_ONE_SMALL
-
-  // Every effect that does not read outside its display band clip-clears, so the
-  // roster is swept rather than the one effect the optimization started on.
-  std::printf("  -- clip-clear display parity --\n");
-#define HS_CLIP_PARITY_ONE(name)                                               \
-  clip_clear_parity_one<name, SMALL_W, SMALL_H>(#name);
-  HS_EFFECT_LIST(HS_CLIP_PARITY_ONE)
-#undef HS_CLIP_PARITY_ONE
 
   return fixture.result();
 }

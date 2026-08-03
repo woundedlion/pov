@@ -49,7 +49,7 @@ jobs:
             test_exclude: *generated_exclude
           - &shard3_entry
             shard: 3
-            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|generators|animation|effects|shapeshifter_oracle|mindsplatter_replay|h_offset_renorm|stack_budget|arena_budget)$"
+            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|generators|animation|effects|effects_smoke|shapeshifter_oracle|mindsplatter_replay|h_offset_renorm|stack_budget|arena_budget)$"
             test_exclude: *generated_exclude
           - &shard4_entry
             shard: 4
@@ -317,7 +317,12 @@ jobs:
           - shard: fastmath
             test_regex: "."
             # These modules contain IEEE-sensitive reference or assertion-count
-            # checks.
+            # checks. The exclusions are anchored, so unit_effects_smoke — the
+            # roster-wide smoke, cross-run determinism and clip-clear parity
+            # sweeps, every assertion of which compares two renders from the
+            # same binary — runs here even though unit_effects does not. That is
+            # the whole effect roster's cover under the flag pair both shipping
+            # targets build with.
             test_exclude: "^unit_(3dmath|sdf|effects|conway_continuity|partition_seam|mesh|color_luts|color_luts_check|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only
     # The `tests` preset pins Debug, and the jobs above all reuse it, so every
