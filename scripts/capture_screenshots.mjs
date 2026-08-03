@@ -17,6 +17,7 @@ import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
 import {
   captureOffsetMs,
   DEFAULT_CAPTURE_OFFSET_MS,
+  GALLERY_WIDTH,
 } from './screenshot_capture_config.mjs';
 
 // Number('') is 0 (finite), so blank/whitespace is rejected explicitly.
@@ -37,9 +38,6 @@ const OUT_DIR = join(REPO_ROOT, 'docs', 'screenshots');
 const WAIT_MS = numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS);
 const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
 const BLANK_FLOOR = numEnv('BLANK_FLOOR', 0.0005);
-// Stored width. The README embeds the hero shot at 640 and the gallery at 280,
-// and docs/screenshots/ is installed into daydream, so both repos carry it.
-const OUT_WIDTH = 640;
 
 const { chromium } = await import('playwright');
 
@@ -181,7 +179,7 @@ try {
       thumb.height = Math.round(canvas.height * outWidth / canvas.width);
       thumb.getContext('2d').drawImage(canvas, 0, 0, thumb.width, thumb.height);
       return { dataUrl: thumb.toDataURL('image/png'), lit: lit / (SW * SH) };
-    }, OUT_WIDTH);
+    }, GALLERY_WIDTH);
   }
 
   // The app rewrites the URL's effect param to whatever it actually selected, so
