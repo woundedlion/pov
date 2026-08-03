@@ -34,6 +34,11 @@
  *                               between (antisymmetric, exactly 0 outside the
  *                               fast reject); the lifecycle envelope scales the
  *                               footprint.
+ *   - DominantFieldAccumulator: nothing added reports 0; a lone field passes
+ *                               through exactly and repeats neither stack nor
+ *                               shift; the strongest of a mixed overlap
+ *                               dominates without summing; an opposite-signed
+ *                               crossing is continuous and lands on 0.
  *   - noise_product_field     : matches the hand-computed two-octave product;
  *                               ~0 amplitude short-circuits to exactly 0; a
  *                               parameter sweep keeps |field| within
@@ -1019,6 +1024,104 @@ inline void test_field_transformer_storage_survives_arena_rewind() {
 }
 
 // ============================================================================
+// DominantFieldAccumulator — pass-through, no stacking, smooth sign crossing
+// ============================================================================
+
+/**
+ * @brief Verifies the documented blend identities: nothing added reports 0, a
+ *        lone field passes through exactly, and repeats of one value neither
+ *        stack nor shift.
+ * @details Pass-through is the property a swapped numerator/denominator power
+ *          destroys — sum(s^2)/sum(s^3) reports 1/s for a lone field, which
+ *          matches s only at s == 1. Repeats pin the "dominate without stacking"
+ *          contract that motivates the accumulator over plain summation.
+ */
+inline void test_dominant_field_identities() {
+  HS_EXPECT_NEAR(DominantFieldAccumulator().value(), 0.0f, 0.0f);
+
+  const float singles[] = {0.7f, -0.7f, 4.5f, -0.013f, 1.0f};
+  for (float s : singles) {
+    DominantFieldAccumulator acc;
+    acc.add(s);
+    HS_EXPECT_NEAR(acc.value(), s, 1e-6f);
+  }
+
+  for (float s : {0.7f, -2.5f}) {
+    DominantFieldAccumulator acc;
+    for (int n = 1; n <= 5; ++n) {
+      acc.add(s);
+      HS_EXPECT_NEAR(acc.value(), s, 1e-6f);
+    }
+  }
+
+  // Denominator floor: fields too small to square above FIELD_DOMINANT_DEN_EPS
+  // report 0 rather than dividing.
+  DominantFieldAccumulator tiny;
+  tiny.add(1e-6f);
+  tiny.add(-1e-6f);
+  HS_EXPECT_NEAR(tiny.value(), 0.0f, 0.0f);
+}
+
+/**
+ * @brief Verifies the strongest contribution dominates a mixed overlap without
+ *        the two stacking.
+ */
+inline void test_dominant_field_strongest_wins_without_stacking() {
+  DominantFieldAccumulator acc;
+  acc.add(3.0f);
+  acc.add(1.0f);
+  const float blended = acc.value();
+  HS_EXPECT_LT(blended, 3.0f);          // not the plain max
+  HS_EXPECT_GT(blended, 2.0f);          // but far nearer the strong field
+  HS_EXPECT_LT(blended, 4.0f);          // and never the sum
+  HS_EXPECT_GT(blended, 1.0f);
+
+  DominantFieldAccumulator lopsided;
+  lopsided.add(10.0f);
+  lopsided.add(0.1f);
+  HS_EXPECT_NEAR(lopsided.value(), 10.0f, 0.05f);
+}
+
+/**
+ * @brief Verifies the blend crosses an opposite-signed cancellation smoothly
+ *        rather than jumping the way a hard max by magnitude would.
+ * @details A fixed +1 field is swept against a partner from -1.5 to -0.5. At
+ *          exact cancellation the blend is 0; a hard max by magnitude would
+ *          instead flip from -1.5 to +1 across that point, a step of 2.5. The
+ *          sweep asserts every consecutive step stays far below that, that the
+ *          output changes sign across the crossing, and that it moves
+ *          substantially overall (so a constant-0 accumulator cannot pass).
+ */
+inline void test_dominant_field_sign_crossing_is_continuous() {
+  const int steps = 1000;
+  const float lo = -1.5f, hi = -0.5f;
+
+  auto blend = [](float b) {
+    DominantFieldAccumulator acc;
+    acc.add(1.0f);
+    acc.add(b);
+    return acc.value();
+  };
+
+  float prev = blend(lo);
+  const float first = prev;
+  float worst_step = 0.0f;
+  for (int i = 1; i <= steps; ++i) {
+    const float b = lo + (hi - lo) * (float)i / (float)steps;
+    const float cur = blend(b);
+    worst_step = std::max(worst_step, std::fabs(cur - prev));
+    prev = cur;
+  }
+  const float last = prev;
+
+  HS_EXPECT_LT(worst_step, 0.01f);
+  HS_EXPECT_LT(first, 0.0f);
+  HS_EXPECT_GT(last, 0.0f);
+  HS_EXPECT_GT(last - first, 0.5f);
+  HS_EXPECT_NEAR(blend(-1.0f), 0.0f, 1e-6f);
+}
+
+// ============================================================================
 // bump_field — cap falloff, fast reject, envelope gating
 // ============================================================================
 
@@ -1365,6 +1468,9 @@ inline int run_transformers_tests() {
   test_field_transformer_active_params_spawn_order();
   test_field_transformer_slot_reclaimed();
   test_field_transformer_storage_survives_arena_rewind();
+  test_dominant_field_identities();
+  test_dominant_field_strongest_wins_without_stacking();
+  test_dominant_field_sign_crossing_is_continuous();
   test_bump_field_threshold_sync();
   test_bump_field_drapes_over_ball();
   test_bump_field_round_bulge_along_ring();
