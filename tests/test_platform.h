@@ -392,6 +392,67 @@ inline void test_epoch_seed() {
 }
 
 /**
+ * @brief Pins Pcg32's draw stream to golden values taken from the published PCG
+ *        XSH-RR 64/32 reference.
+ * @details The determinism contract makes this stream the sim/device parity
+ *          invariant and every seeded effect's visuals ride it, yet nothing else
+ *          pins its values: test_epoch_seed only compares Pcg32 against Pcg32.
+ *          The literals were computed from M. E. O'Neill's published
+ *          pcg32_srandom_r / pcg32_random_r (state 0, inc (seq << 1) | 1, one
+ *          warmup draw, state += seed, a second warmup draw) with
+ *          seq = Pcg32::STREAM_SEQ = 0x14057b7ef767814f; that transcription was
+ *          validated against the published (state 42, seq 54) demo vector
+ *          0xa15c02b7, 0x7b47f409, 0xba1d3330, 0x83d2f293, 0xbfa4784b,
+ *          0xcbed606e. An edit to the multiplier, the stream id, or either
+ *          warmup draw moves every value below.
+ */
+inline void test_pcg32_golden_stream() {
+  // Seed 1337: the default, and what hs::random() and epoch 0 both use.
+  static constexpr uint32_t GOLDEN_1337[] = {
+      0x4127FA43u, 0xCF153AABu, 0xB659E509u, 0x38CB22FCu,
+      0xB8D410F2u, 0xA18FC7C6u, 0xF01CC07Bu, 0x3BF984CCu};
+  hs::Pcg32 gen;
+  for (uint32_t expected : GOLDEN_1337)
+    HS_EXPECT_EQ(gen(), expected);
+
+  // A second seed pins the `state += s` that sits between the two warmup draws:
+  // a seeding path that dropped it would replay GOLDEN_1337 here.
+  static constexpr uint32_t GOLDEN_12345[] = {0x4EC4235Cu, 0x010BA2A3u,
+                                              0xC79989B1u, 0xAAAB1544u};
+  hs::Pcg32 other(12345u);
+  for (uint32_t expected : GOLDEN_12345)
+    HS_EXPECT_EQ(other(), expected);
+}
+
+/**
+ * @brief Pins hs::shuffle's exact permutation and its draw count for a fixed
+ *        seed and array.
+ * @details hs::shuffle exists because std::shuffle's permutation AND draw count
+ *          are implementation-defined; it is the only legal shuffle here, so
+ *          both its descending Fisher-Yates order and its one-draw-per-step
+ *          consumption are load-bearing — the draw count alone decides where
+ *          every later consumer of the shared stream lands. Derived by hand from
+ *          that definition over the golden Pcg32(1337) draws above:
+ *          j = draw % (i + 1) for i = 7 down to 1 yields j = 3, 1, 5, 0, 2, 2, 1.
+ *          Reversing the direction, changing the modulus, or drawing a different
+ *          number of times per step moves the permutation, the residual stream
+ *          position, or both.
+ */
+inline void test_shuffle_golden_permutation() {
+  hs::random().seed(1337u);
+  int values[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+  hs::shuffle(values, values + 8);
+  static constexpr int GOLDEN[8] = {4, 6, 7, 2, 0, 5, 1, 3};
+  for (int i = 0; i < 8; ++i)
+    HS_EXPECT_EQ(values[i], GOLDEN[i]);
+
+  // Exactly n-1 draws consumed, so the next one is the seeded stream's 8th.
+  HS_EXPECT_EQ(hs::random()(), 0x3BF984CCu);
+
+  hs::random().seed(1337u); // leave the shared stream at the fixture baseline
+}
+
+/**
  * @brief Verifies CRGB's single-argument constructor decodes a 0xRRGGBB
  *        colorcode like FastLED rather than as a grayscale fill.
  * @details CRGB(0xFF8000) must be orange, not black.
@@ -423,6 +484,8 @@ inline int run_platform_tests() {
   test_random_degenerate_range();
   test_rand_f_half_open();
   test_epoch_seed();
+  test_pcg32_golden_stream();
+  test_shuffle_golden_permutation();
   test_crgb_colorcode_constructor();
   test_beat16_accum88_promotion();
   test_beatsin8_faithful();
