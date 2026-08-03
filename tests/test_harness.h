@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
 #include <type_traits>
 
@@ -422,3 +423,18 @@ inline int end_module(const ModuleScope &m) {
 #define HS_EXPECT_LE(a, b) HS_EXPECT_CMP(a, b, <=, "<=")
 #define HS_EXPECT_GT(a, b) HS_EXPECT_CMP(a, b, >, ">")
 #define HS_EXPECT_GE(a, b) HS_EXPECT_CMP(a, b, >=, ">=")
+// Fatal size check for a case that indexes a container afterwards: records the
+// comparison like HS_EXPECT_EQ, then returns from the enclosing void case on a
+// mismatch so the indexing that follows cannot read past the end. The shortened
+// run is already red from the recorded failure, so the module's assertion floor
+// stays consistent.
+#define HS_EXPECT_SIZE_OR_RETURN(container, expected)                          \
+  do {                                                                         \
+    const std::size_t _hs_size = (container).size();                           \
+    const std::size_t _hs_want = static_cast<std::size_t>(expected);           \
+    hs_test::report_cmp(_hs_size == _hs_want, _hs_size, _hs_want,              \
+                        #container ".size() == " #expected, __func__,          \
+                        __FILE__, __LINE__);                                   \
+    if (_hs_size != _hs_want)                                                  \
+      return;                                                                  \
+  } while (0)
