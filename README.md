@@ -308,6 +308,9 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── pov_segment_map_export.cpp  Generator for the committed segment-map golden
 │   ├── relax_bakes.py / relax_bake_harness.cpp  Relaxed-mesh bake generator of record
 │   ├── gen_gamut_lut.py        sRGB gamut-boundary generator of record (emits core/color/gamut_lut.h)
+│   ├── mindsplatter_replay_gen.cpp  Golden-corpus generator of record (emits effects/mindsplatter_replay_corpus.h)
+│   ├── mindsplatter_replay_main.cpp / mindsplatter_replay_metrics.h  Replay comparator over that corpus + its difference metrics
+│   ├── mindsplatter_whitebox.h  White-box MindSplatter accessor shared by its tests and the replay tools
 │   ├── docs_check.py           Markdown fence/link/anchor/path validator (CI)
 │   ├── docs_images.py          Stages README images into the Doxygen output and resolves every `<img>` (CI)
 │   └── *_tests/                Host unit tests for the gate, hooks, profile parser, bakes, docs checks
