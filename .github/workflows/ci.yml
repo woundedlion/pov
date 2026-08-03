@@ -1,6 +1,6 @@
 # Presubmit CI — builds and runs the native unit suite, and compiles the WASM
-# module, on every push and pull request. This is the cloud counterpart of the
-# local .githooks/pre-commit gate (which is opt-out / on by default).
+# module, on master pushes and pull-request updates. This is the cloud
+# counterpart of the local .githooks/pre-commit gate (opt-out / on by default).
 name: CI
 
 on:
@@ -823,7 +823,7 @@ jobs:
     # files). A rename or deletion under scripts/, tools/, .github/ or
     # platformio.ini breaks a documented link and matches none of those filters,
     # so the checker never ran on the commit that broke it. ci.yml has no path
-    # filter, so every push and PR is gated.
+    # filter, so every run of this workflow gates it.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -1066,7 +1066,7 @@ jobs:
     # and region ceiling FAILS on a deliberately-broken fixture and PASSES on the
     # good one (docs/teensy_ci_gate_spec.md §9.1). No ARM toolchain, no
     # PlatformIO — fast, and independent of the heavy build job below, so it runs
-    # on every push regardless of whether the firmware build is enabled yet.
+    # on every run regardless of whether the firmware build is enabled yet.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
