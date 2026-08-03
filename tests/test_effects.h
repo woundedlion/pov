@@ -25,6 +25,7 @@
 #include "tests/test_harness.h"
 #include "tools/mindsplatter_whitebox.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -743,6 +744,305 @@ inline void test_sh_cartesian_matches_spherical() {
                 worst_m);
   HS_EXPECT(worst < 1e-4,
             "Cartesian harmonic must match the spherical form on unit vectors");
+}
+
+/**
+ * @brief White-box accessor for SphericalHarmonics' morph chain and shader inputs.
+ * @details Befriended in effects/SphericalHarmonics.h. The morph legs are 64
+ *          frames and the chain re-arms only from a Transition::then() callback,
+ *          so a frozen chain renders a perfectly valid (static) sphere that the
+ *          smoke and determinism sweeps both accept. This seam reads the mode
+ *          bookkeeping and the palette/orientation the draw_frame shader consumed.
+ */
+struct SphericalHarmonicsWhiteBox {
+  using SH = SphericalHarmonics<SMALL_W, SMALL_H>;
+  using Field = SH::HarmonicField;
+
+  static int current_idx(const SH &fx) { return fx.current_idx; }
+  static int next_idx(const SH &fx) { return fx.next_idx; }
+  static float morph_alpha(const SH &fx) { return fx.morph_alpha; }
+  static Quaternion orientation(const SH &fx) { return fx.orientation.get(); }
+  static const BakedPalette &palette(const SH &fx) { return fx.baked_palette; }
+  static float amplitude(const SH &fx) { return fx.params.amplitude; }
+
+  // Pinning both morph endpoints on one mode makes the blend an identity, so a
+  // frame renders one pure harmonic whatever morph_alpha has reached. The
+  // production roll excludes this state; only a test wants it.
+  static void pin_mode(SH &fx, int idx) {
+    fx.current_idx = idx;
+    fx.next_idx = idx;
+  }
+};
+
+/**
+ * @brief Pins HarmonicField's write-through, blend endpoints, and local frame.
+ * @details The field is the only channel between the harmonic math and the
+ *          shader: distance() must report a constant "inside" so the whole
+ *          sphere rasterizes, and the value must ride out through raw_dist.
+ *          Nothing downstream can tell a frozen blend, a reversed blend, or a
+ *          shape rotated the wrong way from a legitimate mode — every one of
+ *          them still paints a plausible sphere.
+ */
+inline void test_sh_field_write_through_and_endpoints() {
+  using Field = SphericalHarmonicsWhiteBox::Field;
+  const Quaternion spin =
+      make_rotation(Vector(0.3f, 0.8f, -0.5f).normalized(), 1.1f);
+  const Quaternion identity;
+
+  constexpr int LA = 1, MA = 0, LB = 3, MB = 2;
+  Field mix_start(LA, MA, LB, MB, 0.0f, spin);
+  Field mix_end(LA, MA, LB, MB, 1.0f, spin);
+  Field pure_a(LA, MA, LA, MA, 0.0f, spin);
+  Field pure_b(LB, MB, LB, MB, 0.0f, spin);
+  Field pure_a_unrotated(LA, MA, LA, MA, 0.0f, identity);
+
+  constexpr int PHI_STEPS = 24, THETA_STEPS = 32;
+  int samples = 0, inside = 0, positives = 0, negatives = 0;
+  double worst_start = 0.0, worst_end = 0.0, worst_frame = 0.0;
+  for (int i = 0; i <= PHI_STEPS; ++i) {
+    const float phi = PI_F * i / PHI_STEPS;
+    for (int j = 0; j < THETA_STEPS; ++j) {
+      const float theta = 2.0f * PI_F * j / THETA_STEPS;
+      const Vector p(sinf(phi) * cosf(theta), cosf(phi),
+                     sinf(phi) * sinf(theta));
+      SDF::DistanceResult start, end, a, b, spun, unspun;
+      mix_start.distance(p, start);
+      mix_end.distance(p, end);
+      pure_a.distance(p, a);
+      pure_b.distance(p, b);
+      pure_a_unrotated.distance(p, unspun);
+      // Rotating the sample by the same quaternion the shape carries must land
+      // back on the unrotated shape's value.
+      pure_a.distance(rotate(p, spin), spun);
+
+      ++samples;
+      if (start.dist < 0.0f)
+        ++inside;
+      if (a.raw_dist > 0.02f)
+        ++positives;
+      if (a.raw_dist < -0.02f)
+        ++negatives;
+      worst_start =
+          std::max<double>(worst_start, std::fabs(start.raw_dist - a.raw_dist));
+      worst_end =
+          std::max<double>(worst_end, std::fabs(end.raw_dist - b.raw_dist));
+      worst_frame = std::max<double>(
+          worst_frame, std::fabs(spun.raw_dist - unspun.raw_dist));
+    }
+  }
+
+  // The whole sphere is covered: a positive distance anywhere would punch a hole.
+  HS_EXPECT_EQ(inside, samples);
+  // A dipole must actually change sign, or the polarity split below is vacuous.
+  HS_EXPECT_GT(positives, 0);
+  HS_EXPECT_GT(negatives, 0);
+
+  if (worst_start > 0.0 || worst_end > 1e-5 || worst_frame > 1e-5)
+    std::printf("  SH field: blend0 err=%g blend1 err=%g frame err=%g\n",
+                worst_start, worst_end, worst_frame);
+  // blend == 0 is the first mode and blend == 1 is the second, exactly.
+  HS_EXPECT_EQ(worst_start, 0.0);
+  HS_EXPECT_LT(worst_end, 1e-5);
+  HS_EXPECT_LT(worst_frame, 1e-5);
+}
+
+/**
+ * @brief Renders one frame of a mode-pinned SphericalHarmonics and inspects it.
+ * @param idx Flat harmonic index pinned on both morph endpoints.
+ * @param amplitude Value written to the Amplitude slider before the frame.
+ * @param inspect Callback receiving (effect, field the shader saw, amplitude).
+ */
+template <typename FnT>
+inline void sh_render_pinned_mode(int idx, float amplitude, FnT &&inspect) {
+  using WB = SphericalHarmonicsWhiteBox;
+  reset_effect_globals();
+  hs::set_mock_time(0, 0);
+  WB::SH fx;
+  fx.init();
+  WB::pin_mode(fx, idx);
+  HS_EXPECT_TRUE(fx.updateParameter("Amplitude", amplitude) ==
+                 ParamSetResult::APPLIED);
+  fx.draw_frame();
+  fx.advance_display();
+
+  auto [l, m] = SHMath::decode_lm(idx);
+  WB::Field field(l, m, l, m, WB::morph_alpha(fx), WB::orientation(fx));
+  inspect(fx, field, WB::amplitude(fx));
+  hs::clear_mock_time();
+}
+
+/**
+ * @brief Pins the diverging palette split and the ambient-occlusion shaping.
+ * @details Reads the rendered frame back and classifies each pixel by the sign
+ *          and magnitude the field carries there, so the assertions are on
+ *          observed colors rather than on a second copy of the shader. Covers
+ *          three contracts nothing else touches: a saturated positive lobe wears
+ *          the palette's top color unmodified (which is also AO_AMBIENT +
+ *          AO_RANGE == 1, i.e. no residual dimming at saturation), the negative
+ *          lobe wears that same color with red and blue swapped and green
+ *          dimmed, and below the AO falloff every pixel is scaled well under the
+ *          palette entry its own magnitude selects.
+ */
+inline void test_sh_polarity_split_and_ao_shaping() {
+  using WB = SphericalHarmonicsWhiteBox;
+  // idx 2 is (l=1, m=0): one nodal circle, so both polarities cover a wide band.
+  constexpr int DIPOLE_IDX = 2;
+
+  // Amplitude 10 (the slider maximum) saturates the palette across most of both
+  // lobes, leaving a wide margin above the |val| the classification thresholds
+  // on even if the rasterizer's sample point differs from ours in the last bits.
+  sh_render_pinned_mode(
+      DIPOLE_IDX, 10.0f,
+      [](const WB::SH &fx, const WB::Field &field, float amp) {
+        constexpr float SATURATED =
+            1.5f; // |val| * amp; palette saturates at 1.0
+        Pixel pos(0, 0, 0), neg(0, 0, 0);
+        int pos_n = 0, neg_n = 0, pos_split = 0, neg_split = 0;
+        uint64_t pos_green = 0, neg_green = 0;
+        for (int y = 0; y < SMALL_H; ++y)
+          for (int x = 0; x < SMALL_W; ++x) {
+            SDF::DistanceResult res;
+            field.distance(pixel_to_vector<SMALL_W, SMALL_H>(x, y), res);
+            const Pixel &px = fx.get_pixel(x, y);
+            const bool positive = res.raw_dist > 0.0f;
+            // A dipole's two lobes are antipodal mirrors, so their magnitude
+            // distributions match and their green totals differ only by the
+            // negative recolor's scale.
+            (positive ? pos_green : neg_green) += px.g;
+
+            const float mag = std::fabs(res.raw_dist) * amp;
+            if (mag < SATURATED)
+              continue;
+            Pixel &slot = positive ? pos : neg;
+            int &count = positive ? pos_n : neg_n;
+            int &split = positive ? pos_split : neg_split;
+            if (count++ == 0)
+              slot = px;
+            else if (px.r != slot.r || px.g != slot.g || px.b != slot.b)
+              ++split;
+          }
+
+        std::printf("  SH polarity: pos=%d (%u,%u,%u) neg=%d (%u,%u,%u) "
+                    "green %llu vs %llu\n",
+                    pos_n, pos.r, pos.g, pos.b, neg_n, neg.r, neg.g, neg.b,
+                    static_cast<unsigned long long>(pos_green),
+                    static_cast<unsigned long long>(neg_green));
+        HS_EXPECT_GT(pos_n, 0);
+        HS_EXPECT_GT(neg_n, 0);
+        // Past saturation the palette index, the seam weight and the AO factor are
+        // all pinned, so every pixel of a lobe must carry one single color.
+        HS_EXPECT_EQ(pos_split, 0);
+        HS_EXPECT_EQ(neg_split, 0);
+
+        // Positive lobe: the palette color, undimmed.
+        const Pixel top = WB::palette(fx).get(1.0f).color;
+        HS_EXPECT_EQ(pos.r, top.r);
+        HS_EXPECT_EQ(pos.g, top.g);
+        HS_EXPECT_EQ(pos.b, top.b);
+        // Negative lobe: red and blue traded.
+        HS_EXPECT_EQ(neg.r, pos.b);
+        HS_EXPECT_EQ(neg.b, pos.r);
+        // ...and the trade is visible, i.e. the two lobes are not the same color.
+        HS_EXPECT_TRUE(pos.r != pos.b);
+        // The green dimming is invisible at saturation (this palette's top color
+        // has none), so pin it over the whole mirrored lobe instead.
+        HS_EXPECT_GT(pos_green, 0u);
+        HS_EXPECT_TRUE(neg_green * 10 < pos_green * 9);
+      });
+
+  // Amplitude 0.6 keeps every pixel below the AO falloff, so the whole frame
+  // must read as a dimmed copy of the palette rather than the palette itself.
+  sh_render_pinned_mode(
+      DIPOLE_IDX, 0.6f,
+      [](const WB::SH &fx, const WB::Field &field, float amp) {
+        // Only sample where the palette entry is bright enough that a missing
+        // occlusion factor would be unambiguous.
+        constexpr uint32_t PALETTE_FLOOR = 4096;
+        int probed = 0, undimmed = 0;
+        for (int y = 0; y < SMALL_H; ++y)
+          for (int x = 0; x < SMALL_W; ++x) {
+            SDF::DistanceResult res;
+            field.distance(pixel_to_vector<SMALL_W, SMALL_H>(x, y), res);
+            const float mag = std::fabs(res.raw_dist) * amp;
+            const Pixel want = WB::palette(fx).get(std::min(1.0f, mag)).color;
+            const uint32_t want_energy =
+                static_cast<uint32_t>(want.r) + want.g + want.b;
+            if (want_energy < PALETTE_FLOOR)
+              continue;
+            const Pixel &px = fx.get_pixel(x, y);
+            const uint32_t got_energy =
+                static_cast<uint32_t>(px.r) + px.g + px.b;
+            ++probed;
+            // The occlusion factor cannot reach 0.8 at this amplitude.
+            if (got_energy * 5 >= want_energy * 4)
+              ++undimmed;
+          }
+        std::printf("  SH ambient occlusion: probed=%d undimmed=%d\n", probed,
+                    undimmed);
+        HS_EXPECT_GT(probed, 0);
+        HS_EXPECT_EQ(undimmed, 0);
+      });
+}
+
+/**
+ * @brief Verifies the morph chain re-arms itself and keeps advancing modes.
+ * @details start_morph() schedules a 64-frame Transition whose then() callback
+ *          commits the target and calls start_morph() again; a chain that failed
+ *          to re-arm would freeze the sphere on one mode while every smoke,
+ *          determinism and math check still passed. Drives enough frames for at
+ *          least three commits, so the callback must have re-armed twice.
+ */
+inline void test_sh_morph_chain_rearms() {
+  using WB = SphericalHarmonicsWhiteBox;
+  reset_effect_globals();
+  hs::set_mock_time(0, 0);
+  WB::SH fx;
+  fx.init();
+
+  const int seed = WB::current_idx(fx);
+  HS_EXPECT_GT(seed, 0); // never the constant harmonic
+  HS_EXPECT_TRUE(WB::next_idx(fx) != seed);
+
+  constexpr int FRAMES = 260; // four 64-frame legs
+  int commits = 0, held = seed, alpha_out_of_range = 0, self_blend = 0;
+  int rearmed_at_zero = 0;
+  float alpha_peak = 0.0f;
+  std::vector<int> visited{seed};
+  for (int f = 0; f < FRAMES; ++f) {
+    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                      static_cast<unsigned long>(f) * FRAME_US);
+    fx.draw_frame();
+    fx.advance_display();
+
+    const float alpha = WB::morph_alpha(fx);
+    alpha_peak = std::max(alpha_peak, alpha);
+    if (!(alpha >= 0.0f && alpha <= 1.0f))
+      ++alpha_out_of_range;
+    if (WB::next_idx(fx) == WB::current_idx(fx))
+      ++self_blend;
+
+    const int now = WB::current_idx(fx);
+    if (now != held) {
+      ++commits;
+      held = now;
+      // A committed leg rewinds the blend and schedules the next one.
+      if (alpha == 0.0f)
+        ++rearmed_at_zero;
+      if (std::find(visited.begin(), visited.end(), now) == visited.end())
+        visited.push_back(now);
+    }
+  }
+  hs::clear_mock_time();
+
+  std::printf("  SH morph: %d commits over %d frames, %zu distinct modes, "
+              "alpha peak %.3f\n",
+              commits, FRAMES, visited.size(), static_cast<double>(alpha_peak));
+  HS_EXPECT_GE(commits, 3); // the then() callback re-armed at least twice
+  HS_EXPECT_EQ(rearmed_at_zero, commits);
+  HS_EXPECT_GE(visited.size(), 3u);
+  HS_EXPECT_EQ(alpha_out_of_range, 0);
+  HS_EXPECT_EQ(self_blend, 0); // blending a mode into itself would freeze it
+  HS_EXPECT_GT(alpha_peak, 0.9f);
 }
 
 // ---------------------------------------------------------------------------
@@ -5017,6 +5317,9 @@ inline int run_effects_tests() {
     test_sh_decode_lm_valid_order();
     test_sh_reduced_legendre_matches_closed_form();
     test_sh_cartesian_matches_spherical();
+    test_sh_field_write_through_and_endpoints();
+    test_sh_polarity_split_and_ao_shaping();
+    test_sh_morph_chain_rearms();
     test_gs_q16_roundtrip();
     test_gs_rest_state_is_fixed_point();
     test_gs_substep_signs_and_clamp();
