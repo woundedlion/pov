@@ -816,6 +816,7 @@ jobs:
       - name: Validate tracked Markdown
         run: |
           python -m unittest discover -s tools/docs_check_tests
+          python -m unittest discover -s tools/docs_images_tests
           python tools/docs_check.py
           python tools/build_pins.py --check
 

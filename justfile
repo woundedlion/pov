@@ -49,6 +49,7 @@ test:
 # Validate tracked Markdown using the same commands as the ci.yml docs-markdown job.
 docs-check:
     python -m unittest discover -s tools/docs_check_tests
+    python -m unittest discover -s tools/docs_images_tests
     python tools/docs_check.py
     python tools/build_pins.py --check
 
@@ -59,6 +60,7 @@ docs-check:
 docs: docs-check _doxygen-theme _doxyfile-local
     cmake -E make_directory build/docs
     doxygen Doxyfile.local
+    python tools/docs_images.py
 
 # Fetch the exact doxygen-awesome revision used by CI. The clone guard is split
 # per-OS; the fetch and checkout also refresh existing clones.

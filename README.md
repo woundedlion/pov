@@ -305,7 +305,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── relax_bakes.py / relax_bake_harness.cpp  Relaxed-mesh bake generator of record
 │   ├── gen_gamut_lut.py        sRGB gamut-boundary generator of record (emits core/color/gamut_lut.h)
 │   ├── docs_check.py           Markdown fence/link/anchor/path validator (CI)
-│   └── *_tests/                Host unit tests for the gate, hooks, profile parser, bakes, docs check
+│   ├── docs_images.py          Stages README images into the Doxygen output and resolves every `<img>` (CI)
+│   └── *_tests/                Host unit tests for the gate, hooks, profile parser, bakes, docs checks
 ├── docs/                       Design specs, perf ledgers, and the docs/screenshots/ gallery
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools
