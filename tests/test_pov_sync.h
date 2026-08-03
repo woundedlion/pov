@@ -183,6 +183,129 @@ inline void test_helpers() {
 }
 
 /**
+ * @brief Probes the remaining Config::valid() clauses at their boundaries.
+ * @details Each config below violates exactly one clause, so a deleted clause
+ * turns the matching HS_EXPECT_FALSE red. The clauses whose bound is a derived
+ * beacon quantity are probed in test_helpers().
+ */
+inline void test_config_validation() {
+  HS_EXPECT_TRUE(test_config().valid());
+
+  // Odd W: boundary_column(HALF) and every arm-B half-image offset truncate
+  // W/2. 289 keeps W/4 and cycles_per_column at their 288 values, so nothing
+  // else moves.
+  Config ow = test_config();
+  ow.W = 289;
+  HS_EXPECT_FALSE(ow.valid());
+
+  Config gz = test_config();
+  gz.gate_cols = 0;
+  HS_EXPECT_FALSE(gz.valid());
+
+  // gate_cols < W/4 is what lets snap()'s distance check subsume the boundary-
+  // identity check. No config violates it alone: beacon_frame_cols() < W/4
+  // forces W/4 above the 7*beacon_pitch_cols + 1 digit-gate bound, so that
+  // clause (probed in test_helpers) is always the tighter of the two.
+  const Config gw = test_config();
+  HS_EXPECT_TRUE(7 * gw.beacon_pitch_cols + 1 < gw.W / 4);
+  HS_EXPECT_TRUE(gw.gate_cols < gw.W / 4);
+
+  Config rj = test_config();
+  rj.reject_fallback = 0;
+  HS_EXPECT_FALSE(rj.valid());
+
+  Config gz2 = test_config();
+  gz2.glitch_filter_cycles = 0;
+  HS_EXPECT_FALSE(gz2.valid());
+
+  Config pz = test_config();
+  pz.pulse_pitch_cols = 0;
+  HS_EXPECT_FALSE(pz.valid());
+
+  // A gap that does not outlast the boundary-burst pitch terminates the burst
+  // between its own pulses. Boundary is exclusive.
+  Config gp = test_config();
+  gp.gap_timeout_cols = gp.pulse_pitch_cols;
+  HS_EXPECT_FALSE(gp.valid());
+  ++gp.gap_timeout_cols;
+  HS_EXPECT_TRUE(gp.valid());
+
+  // Same ordering against the beacon pitch. At the shipped W the pulse-pitch
+  // clause always binds first, so isolate this one on a canvas wide enough to
+  // carry a beacon pitch above the boundary pitch.
+  Config bg = test_config();
+  bg.W = 1024;
+  bg.glitch_filter_cycles = 10000;
+  bg.pulse_pitch_cols = 1;
+  bg.beacon_pitch_cols = 3;
+  bg.acquire_quiet_cols = 32;
+  bg.beacon_interdigit_timeout_cols = 40;
+  bg.gap_timeout_cols = 4;
+  HS_EXPECT_TRUE(bg.valid());
+  bg.gap_timeout_cols = bg.beacon_pitch_cols;
+  HS_EXPECT_FALSE(bg.valid());
+
+  // Epoch indices are taken mod effect_count and ride a 6-bit beacon field.
+  Config ec = test_config();
+  ec.effect_count = 0;
+  HS_EXPECT_FALSE(ec.valid());
+  ec.effect_count = 65;
+  HS_EXPECT_FALSE(ec.valid());
+  ec.effect_count = 64;
+  HS_EXPECT_TRUE(ec.valid());
+
+  Config cz = test_config();
+  cz.commit_revs = 0;
+  HS_EXPECT_FALSE(cz.valid());
+
+  // A negative epoch_repeats casts to a huge uint32_t and wraps the refractory
+  // sum, so the relation below it reads true; only the explicit sign gate
+  // rejects the config.
+  Config ne = test_config();
+  ne.epoch_repeats = -1;
+  HS_EXPECT_TRUE(ne.refractory_revs >
+                 ne.commit_revs + static_cast<uint32_t>(ne.epoch_repeats));
+  HS_EXPECT_FALSE(ne.valid());
+  ne.epoch_repeats = 0;
+  HS_EXPECT_TRUE(ne.valid());
+
+  // The EPOCH dedup window must outlast the whole redundancy train, or the
+  // train's own last repeat re-arms the commit it just deduped. Boundary is
+  // exclusive.
+  Config rf = test_config();
+  rf.refractory_revs = rf.commit_revs + static_cast<uint32_t>(rf.epoch_repeats);
+  HS_EXPECT_FALSE(rf.valid());
+  ++rf.refractory_revs;
+  HS_EXPECT_TRUE(rf.valid());
+
+  // An effect shorter than the dedup window would advance before the window
+  // that protects its own commit closes. Boundary is exclusive.
+  Config re = test_config();
+  re.revs_per_effect = re.refractory_revs;
+  HS_EXPECT_FALSE(re.valid());
+  ++re.revs_per_effect;
+  HS_EXPECT_TRUE(re.valid());
+
+  // A beacon cadence inside the construction window would land identity
+  // traffic on the commit boundary. Boundary is exclusive.
+  Config bc = test_config();
+  bc.beacon_period_revs = bc.commit_revs;
+  HS_EXPECT_FALSE(bc.valid());
+  ++bc.beacon_period_revs;
+  HS_EXPECT_TRUE(bc.valid());
+
+  // The live-takeover grid must divide 64 so a beacon's mod-64 revolution
+  // count lands on the same grid as the master's true count.
+  Config jg = test_config();
+  jg.join_grid_revs = 0;
+  HS_EXPECT_FALSE(jg.valid());
+  jg.join_grid_revs = 3;
+  HS_EXPECT_FALSE(jg.valid());
+  jg.join_grid_revs = 8;
+  HS_EXPECT_TRUE(jg.valid());
+}
+
+/**
  * @brief Verifies symbol/boundary mapping: odd pulse counts classify to
  *        HALF/ZERO/ZERO_EPOCH, even or out-of-range counts are INVALID, and
  *        each symbol maps to its boundary column.
@@ -2562,6 +2685,7 @@ inline int run_pov_sync_tests() {
   hs_test::ModuleFixture fixture("pov_sync");
 
   test_helpers();
+  test_config_validation();
   test_alphabet();
   test_flip_gate();
   test_mailbox();
