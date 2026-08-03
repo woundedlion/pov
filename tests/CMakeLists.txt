@@ -231,6 +231,15 @@ add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
 
+# Pin the in-tree patches to vendored FastNoiseLite.h against the patch record
+# in core/vendor/FastNoiseLite_config.h. A version bump that drops them still
+# compiles: the size guard goes inert and the sampler loses selective -O3, both
+# silently.
+add_test(NAME unit_vendor_patches COMMAND ${CMAKE_COMMAND}
+    -DHEADER=${HS_ROOT}/core/vendor/FastNoiseLite.h
+    -DCONFIG=${HS_ROOT}/core/vendor/FastNoiseLite_config.h
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_vendor_patches.cmake)
+
 # The three generated-artifact gates below re-run a Python generator and diff it
 # against the committed header. Default OFF keeps a bare local checkout green:
 # a missing python3/numpy exits 77 and CTest reports the gate as skipped. That
