@@ -226,7 +226,9 @@ public:
    * ArenaVectors bound below the offset stay live. Used to shrink/grow the
    * persistent boundary mid-run while its long-lived content survives; the
    * caller must ensure the buffer region beyond the new capacity is not
-   * simultaneously claimed by another arena.
+   * simultaneously claimed by another arena. The extent guard below cannot
+   * enforce that for an arena whose extent deliberately spans a shared block --
+   * persistent_arena is one, and resplit_arenas() is its only legal caller.
    */
   void set_capacity(size_t new_capacity) {
     HS_CHECK(offset <= new_capacity,
