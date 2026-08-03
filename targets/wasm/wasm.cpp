@@ -21,6 +21,7 @@
 #include <cmath>   // std::isfinite — validate MeshOps args at the JS boundary
 #include <climits> // INT_MAX — drawFrame pixel-index accumulator bound
 #include <initializer_list> // all_finite() variadic-arg gate for free exports
+#include <iterator>         // std::size — X-macro roster tables
 
 // ---- Stack canary painting for high water mark tracking ----
 static constexpr uint8_t STACK_CANARY = 0xCD;
@@ -301,6 +302,32 @@ const FactoryEntry *find_factory_entry(std::string_view name) {
 HS_WASM_RESOLUTIONS(X)
 #undef X
 
+/** @brief One HS_WASM_RESOLUTIONS row as runtime values. */
+struct WasmResolution {
+  int w; /**< Canvas width in pixels. */
+  int h; /**< Canvas height in pixels. */
+};
+
+// The rows as data, so the constructor can bootstrap on the first one instead of
+// naming a preset that HS_RESOLUTIONS may later drop.
+static constexpr WasmResolution WASM_RESOLUTIONS[] = {
+#define X(W, H) {(W), (H)},
+    HS_WASM_RESOLUTIONS(X)
+#undef X
+};
+static_assert(std::size(WASM_RESOLUTIONS) > 0,
+              "HS_WASM_RESOLUTIONS must carry a row to bootstrap on");
+
+// The registered effect names, in HS_EFFECT_LIST order. Only the first is used
+// (the constructor's bootstrap), for the same reason as WASM_RESOLUTIONS.
+static constexpr const char *WASM_EFFECT_NAMES[] = {
+#define X(name) #name,
+    HS_EFFECT_LIST(X)
+#undef X
+};
+static_assert(std::size(WASM_EFFECT_NAMES) == HS_EFFECT_COUNT,
+              "HS_EFFECT_LIST and HS_EFFECT_COUNT must agree");
+
 /**
  * @brief Invokes f.operator()<W,H>() for the single HS_WASM_RESOLUTIONS row
  *        matching the runtime (w,h).
@@ -397,10 +424,16 @@ public:
     param_views.reserve(
         MAX_PARAMS); // not view-backed; reserve is amortization only
 
-    // Bootstrap default; daydream overrides it almost immediately.
-    setResolution(96, 20);
-    const bool default_effect_set = setEffect("DisplacementField");
-    HS_CHECK(default_effect_set);
+    // Bootstrap on the first row of each roster; daydream overrides both almost
+    // immediately.
+    const bool bootstrap_resolution_set =
+        setResolution(WASM_RESOLUTIONS[0].w, WASM_RESOLUTIONS[0].h);
+    HS_CHECK(bootstrap_resolution_set,
+             "the first HS_RESOLUTIONS row must be dispatchable here");
+    const bool bootstrap_effect_set = setEffect(WASM_EFFECT_NAMES[0]);
+    HS_CHECK(bootstrap_effect_set,
+             "the first HS_EFFECT_LIST entry must be registered and buildable "
+             "at the first HS_RESOLUTIONS row");
   }
 
   /**
