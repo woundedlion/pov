@@ -1217,6 +1217,72 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
 }
 
 // ---------------------------------------------------------------------------
+// Prebuilt half-edge reuse
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Asserts two meshes agree bit for bit.
+ * @param a First mesh.
+ * @param b Second mesh.
+ * @details Vertices compare exactly: the reuse overloads run the same
+ *          arithmetic in the same order, so anything short of equality is a
+ *          divergence.
+ */
+inline void check_meshes_identical(const PolyMesh &a, const PolyMesh &b) {
+  HS_EXPECT_EQ(a.vertices.size(), b.vertices.size());
+  HS_EXPECT_EQ(a.face_counts.size(), b.face_counts.size());
+  HS_EXPECT_EQ(a.faces.size(), b.faces.size());
+  if (a.vertices.size() != b.vertices.size() ||
+      a.face_counts.size() != b.face_counts.size() ||
+      a.faces.size() != b.faces.size())
+    return;
+  for (size_t i = 0; i < a.vertices.size(); ++i) {
+    HS_EXPECT_EQ(a.vertices[i].x, b.vertices[i].x);
+    HS_EXPECT_EQ(a.vertices[i].y, b.vertices[i].y);
+    HS_EXPECT_EQ(a.vertices[i].z, b.vertices[i].z);
+  }
+  for (size_t i = 0; i < a.face_counts.size(); ++i)
+    HS_EXPECT_EQ(a.face_counts[i], b.face_counts[i]);
+  for (size_t i = 0; i < a.faces.size(); ++i)
+    HS_EXPECT_EQ(a.faces[i], b.faces[i]);
+}
+
+/**
+ * @brief Verifies the parameterized operators match their single-shot entries
+ *        when handed one prebuilt HalfEdgeMesh for a whole parameter sweep.
+ * @details The seed and its connectivity live in `temp`, the arena the
+ *          operators also use for scratch: they mark above it and rewind only
+ *          to their entry offset, so one build survives every call. t = 0.5
+ *          covers truncate's ambo short-circuit.
+ */
+inline void test_conway_ops_reuse_prebuilt_half_edges() {
+  Arena target(conway_target_buf, sizeof(conway_target_buf));
+  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+  HalfEdgeMesh he(temp, cube);
+
+  for (float t : {0.1f, 0.25f, 0.5f, 0.9f}) {
+    check_meshes_identical(MeshOps::truncate(cube, target, temp, t),
+                           MeshOps::truncate(cube, he, target, temp, t));
+    check_meshes_identical(MeshOps::expand(cube, target, temp, t),
+                           MeshOps::expand(cube, he, target, temp, t));
+    check_meshes_identical(MeshOps::chamfer(cube, target, temp, t),
+                           MeshOps::chamfer(cube, he, target, temp, t));
+    check_meshes_identical(MeshOps::snub(cube, target, temp, t, 0.3f),
+                           MeshOps::snub(cube, he, target, temp, t, 0.3f));
+  }
+  check_meshes_identical(MeshOps::ambo(cube, target, temp),
+                         MeshOps::ambo(cube, he, target, temp));
+
+  // The seed and its connectivity survive every call above.
+  HS_EXPECT_EQ(he.half_edges.size(), cube.faces.size());
+  HS_EXPECT_EQ(he.faces.size(), cube.face_counts.size());
+  check_all_unit_vertices(cube, 1e-5f);
+  check_indices_in_range(cube);
+}
+
+// ---------------------------------------------------------------------------
 
 /**
  * @brief Runs every Conway test under a "conway" module scope.
@@ -1249,6 +1315,7 @@ inline int run_conway_tests() {
   test_snub_twist_rotates_primary_faces();
   test_conway_ops_preserve_euler_characteristic();
   test_conway_ops_drop_degenerate_primary_faces();
+  test_conway_ops_reuse_prebuilt_half_edges();
   test_transform_applies_translation_chain();
   test_transform_unbinds_stale_owned_topology_on_reuse();
   test_face_centroid_for_cube_top_face();
