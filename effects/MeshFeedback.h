@@ -7,6 +7,15 @@
 
 #include "core/engine/engine.h"
 
+// Unit-test accessor reaching the private style/noise/preset bookkeeping; the
+// smoke harness renders ~120 frames, short of the PRESET_FRAMES rotation, so
+// the switch frame is only reachable through a dedicated sweep.
+namespace hs_test {
+namespace effects_tests {
+struct MeshFeedbackWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Feedback effect over a fixed icosahedron.
  * @tparam W Canvas width in pixels.
@@ -178,6 +187,8 @@ public:
   }
 
 private:
+  friend struct ::hs_test::effects_tests::MeshFeedbackWhiteBox;
+
   /**
    * @brief Pushes UI-tunable state into the live style/filters each frame.
    * @details Refreshes the noise binding and toggles the feedback filter from
