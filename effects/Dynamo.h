@@ -87,10 +87,10 @@ public:
     }
 
     // Allocate the LUT pool once: bake() allocates, rebake() refills in place,
-    // so push/pop churn never grows the arena.
+    // so push/pop churn never grows the arena. The bake also seeds slot 0, the
+    // only live palette at this point.
     for (auto &bp : baked_palettes)
       bp.bake(persistent_arena, palettes[0]);
-    rebake_active_palettes();
 
     timeline
         .add(0, Animation::RandomTimer(
@@ -130,8 +130,7 @@ private:
 
     palettes.push_front(make_palette());
     palette_boundaries.push_front(0);
-    // push_front shifts every logical index, so rebake the whole active range.
-    rebake_active_palettes();
+    rotate_and_rebake_front();
 
     // Stamp WIPE_COMPLETE on completion (not pop_back): overlapping wipes can
     // finish out of order, so pop_back would evict a still-animating boundary.
@@ -158,13 +157,22 @@ private:
   }
 
   /**
-   * @brief Refills the baked LUT pool from the live GenerativePalettes so the
-   *        per-pixel color() path is a table lookup, not an OKLCH lerp.
-   * @details Called only on a palette-set change (wipe push/pop), never per frame.
+   * @brief Realigns the LUT pool after a palettes push_front and bakes the new
+   *        front.
+   * @details baked_palettes mirrors palettes[] by logical index, so a push_front
+   *          shifts every entry by one. Rotating the pointer-sized LUT handles
+   *          carries each existing bake to its new index, leaving one
+   *          GenerativePalette evaluation pass per wipe instead of one per live
+   *          palette. Slot MAX_PALETTES-1 is always dead here (push_front is
+   *          gated on !is_full), so recycling it to the front strands no LUT
+   *          storage.
    */
-  void rebake_active_palettes() {
-    for (size_t i = 0; i < palettes.size(); ++i)
-      baked_palettes[i].rebake(palettes[i]);
+  void rotate_and_rebake_front() {
+    BakedPalette recycled = baked_palettes[MAX_PALETTES - 1];
+    for (size_t i = MAX_PALETTES - 1; i > 0; --i)
+      baked_palettes[i] = baked_palettes[i - 1];
+    baked_palettes[0] = recycled;
+    baked_palettes[0].rebake(palettes[0]);
   }
 
   /**
@@ -438,8 +446,9 @@ private:
   /**
    * @brief Baked 256-entry LUTs mirroring palettes[] in logical order.
    * @details Read by the per-pixel color() path (lerp16 lookup, not OKLCH lerp);
-   *          kept in sync by rebake_active_palettes() on every wipe push/pop, one
-   *          slot per possible live palette so churn never reallocates.
+   *          a wipe push rotates them to match (rotate_and_rebake_front) and a
+   *          reap pops from the back, which shifts nothing. One slot per possible
+   *          live palette, so churn never reallocates.
    */
   std::array<BakedPalette, MAX_PALETTES> baked_palettes;
 
