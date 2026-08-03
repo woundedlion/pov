@@ -219,7 +219,7 @@ private:
   Presets<Style, 12> presets{PRESETS};
   bool feedback_enabled = true;
   int preset_frames = 0;
-  NoiseParams noise_params;
+  Animation::NoiseParams noise_params;
 
   Orientation<> orientation;
   Timeline timeline;

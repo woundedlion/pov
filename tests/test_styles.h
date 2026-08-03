@@ -170,7 +170,7 @@ inline Pixel lerp_probe_fade(const Pixel &p, float fade,
  *          noise pointer must never be overwritten by a's or b's noise.
  */
 inline void test_lerp_scalars_and_snapping() {
-  NoiseParams na;
+  Animation::NoiseParams na;
   Feedback::Style a{};
   a.fade = 0.0f;
   a.hue_shift = 0.0f;
@@ -198,7 +198,7 @@ inline void test_lerp_scalars_and_snapping() {
   b.downsample = 8;
   b.noise = nullptr;
 
-  NoiseParams subj;
+  Animation::NoiseParams subj;
   Feedback::Style mid{};
   mid.noise = &subj;
   mid.lerp(a, b, 0.5f);
@@ -268,7 +268,7 @@ inline void test_melt_warp_drifts_toward_north() {
  *          so a single noise zero-crossing can't make the test flaky.
  */
 inline void test_noise_warp_bound_distorts() {
-  NoiseParams np;
+  Animation::NoiseParams np;
   Feedback::Style s{};
   s.amplitude = 0.6f;
   s.frequency = 0.5f;
@@ -298,7 +298,7 @@ inline void test_noise_warp_bound_distorts() {
  *          with noise unbound (the pure-drip result), while staying unit length.
  */
 inline void test_melt_warp_bound_noise_perturbs() {
-  NoiseParams np;
+  Animation::NoiseParams np;
   Feedback::Style s{};
   s.speed = 1.0f;
   s.amplitude = 0.6f; // above the melt wobble floor → noise branch runs
@@ -551,7 +551,7 @@ inline void test_hue_fade_apply2_tracks_scalar() {
  *          an unbound sync must not dereference null.
  */
 inline void test_sync_noise_pushes_scalars() {
-  NoiseParams np;
+  Animation::NoiseParams np;
   Feedback::Style s{};
   s.amplitude = 7.0f;
   s.frequency = 0.33f;

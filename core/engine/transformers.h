@@ -11,11 +11,6 @@
 #include "vendor/FastNoiseLite.h"
 #include "animation/animation.h"
 
-using Animation::BumpParams;
-using Animation::NoiseParams;
-using Animation::NoiseProductParams;
-using Animation::RippleParams;
-
 /**
  * @brief Fixed-capacity pool of animation-driven parameter entities.
  * @tparam ParamsT The configuration struct (e.g., RippleParams, MobiusParams).
@@ -547,7 +542,7 @@ constexpr float RIPPLE_SMALL_ANGLE_MAX = 0.15f;
  * @return The displaced vector.
  */
 HS_O3_FN inline Vector ripple_transform(const Vector &v,
-                                        const RippleParams &params) {
+                                        const Animation::RippleParams &params) {
   // Between ripples the envelope drives amplitude to 0; skip the whole per-pixel
   // wavelet (fast_acos + fast_expf) when there is nothing to displace.
   if (params.amplitude <= 0.001f)
@@ -605,7 +600,8 @@ HS_O3_FN inline Vector ripple_transform(const Vector &v,
  * stays on the sphere, soft-caps the slide to avoid cross-hemisphere jumps,
  * then renormalizes. No-op when amplitude is negligible.
  */
-inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
+inline Vector noise_transform(const Vector &v,
+                              const Animation::NoiseParams &params) {
   if (params.amplitude <= 0.001f)
     return v;
 
@@ -711,8 +707,8 @@ stereo_noise_warp(const Complex &z, float r_sq, const FastNoiseLite &noise,
 }
 
 /** @brief Computes the bump profile from prepared local cap geometry. */
-inline float bump_field_profile(const BumpParams &params, float r_eff, float d,
-                                float y) {
+inline float bump_field_profile(const Animation::BumpParams &params,
+                                float r_eff, float d, float y) {
   float abs_y = std::fabs(y);
   float x_sq = std::max(d * d - y * y, 0.0f);
   float depth = sqrtf(std::max(r_eff * r_eff - x_sq, 0.0f)) - abs_y;
@@ -730,7 +726,7 @@ inline float bump_field_profile(const BumpParams &params, float r_eff, float d,
  * @return Whether @p v lies inside the cap and the gain is non-negligible.
  */
 __attribute__((always_inline)) inline bool
-bump_cap_hit(const Vector &v, const BumpParams &params, float &r_eff,
+bump_cap_hit(const Vector &v, const Animation::BumpParams &params, float &r_eff,
              float &d) {
   r_eff = params.radius * params.envelope;
   if (r_eff <= 1e-3f || params.amplitude <= 0.001f)
@@ -749,8 +745,8 @@ bump_cap_hit(const Vector &v, const BumpParams &params, float &r_eff,
  * @param y Signed polar offset from the bump center about the stack axis.
  * @return The signed polar displacement (radians).
  */
-inline float bump_field_with_y(const Vector &v, const BumpParams &params,
-                               float y) {
+inline float bump_field_with_y(const Vector &v,
+                               const Animation::BumpParams &params, float y) {
   float r_eff, d;
   if (!bump_cap_hit(v, params, r_eff, d))
     return 0.0f;
@@ -773,7 +769,7 @@ inline float bump_field_with_y(const Vector &v, const BumpParams &params,
  * pushes toward larger colatitude about the axis; points outside the cap are
  * untouched.
  */
-inline float bump_field(const Vector &v, const BumpParams &params) {
+inline float bump_field(const Vector &v, const Animation::BumpParams &params) {
   float r_eff, d;
   if (!bump_cap_hit(v, params, r_eff, d))
     return 0.0f;
@@ -797,13 +793,13 @@ inline float bump_field(const Vector &v, const BumpParams &params) {
  * envelope is strong and vanish where it crosses zero.
  */
 inline float noise_product_field(const Vector &v,
-                                 const NoiseProductParams &params) {
+                                 const Animation::NoiseProductParams &params) {
   if (std::fabs(params.amplitude) <= 0.001f)
     return 0.0f;
   float n1 = params.noise.GetNoise(v.x * params.scale1, v.y * params.scale1,
                                    v.z * params.scale1 + params.time);
   float n2 = params.noise.GetNoise(
-      v.x * params.scale2 + NoiseProductParams::OCTAVE2_OFFSET,
+      v.x * params.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
       v.y * params.scale2, v.z * params.scale2 + params.time);
   return params.amplitude * n1 * n2;
 }
@@ -814,7 +810,8 @@ inline float noise_product_field(const Vector &v,
  */
 template <int CAPACITY>
 using RippleTransformer =
-    Transformer<RippleParams, Animation::Ripple, ripple_transform, CAPACITY>;
+    Transformer<Animation::RippleParams, Animation::Ripple, ripple_transform,
+                CAPACITY>;
 
 /**
  * @brief Bump displacement fields that fall pole-to-pole through a frame.
@@ -822,7 +819,8 @@ using RippleTransformer =
  */
 template <int CAPACITY>
 using BallDropTransformer =
-    FieldTransformer<BumpParams, Animation::BallDrop, bump_field, CAPACITY>;
+    FieldTransformer<Animation::BumpParams, Animation::BallDrop, bump_field,
+                     CAPACITY>;
 
 /**
  * @brief A two-octave product noise displacement field.
@@ -830,7 +828,7 @@ using BallDropTransformer =
  */
 template <int CAPACITY>
 using NoiseProductTransformer =
-    FieldTransformer<NoiseProductParams, Animation::NoiseProduct,
+    FieldTransformer<Animation::NoiseProductParams, Animation::NoiseProduct,
                      noise_product_field, CAPACITY>;
 
 /**
@@ -872,5 +870,5 @@ using MobiusWarpGnomonicTransformer =
  * @tparam CAPACITY Maximum number of concurrent noise transformations.
  */
 template <int CAPACITY>
-using NoiseTransformer =
-    Transformer<NoiseParams, Animation::Noise, noise_transform, CAPACITY>;
+using NoiseTransformer = Transformer<Animation::NoiseParams, Animation::Noise,
+                                     noise_transform, CAPACITY>;

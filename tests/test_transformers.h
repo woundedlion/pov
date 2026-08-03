@@ -346,7 +346,7 @@ inline void test_gnomonic_mobius_signed_zero_equator() {
  * @brief Verifies zero amplitude short-circuits the ripple to a no-op.
  */
 inline void test_ripple_zero_amplitude_is_identity() {
-  RippleParams p;
+  Animation::RippleParams p;
   p.center = Vector(0, 1, 0);
   p.amplitude = 0.0f;
   p.phase = 0.5f;
@@ -364,7 +364,7 @@ inline void test_ripple_zero_amplitude_is_identity() {
  *          == 0), so the transform must short-circuit to the identity.
  */
 inline void test_ripple_center_point_is_identity() {
-  RippleParams p;
+  Animation::RippleParams p;
   p.center = Vector(0, 1, 0);
   p.amplitude = 0.8f;
   p.phase = 0.0f;
@@ -381,7 +381,7 @@ inline void test_ripple_center_point_is_identity() {
  *        noticeable amount while keeping it on the unit sphere.
  */
 inline void test_ripple_active_rotates_on_sphere() {
-  RippleParams p;
+  Animation::RippleParams p;
   p.center = Vector(0, 1, 0);
   p.amplitude = 0.5f;
   p.phase = PI_F * 0.5f; // wavelet peak at d == 90°
@@ -411,7 +411,7 @@ inline void test_ripple_active_rotates_on_sphere() {
  *          (no move) or pass the off-band points (they move), failing here.
  */
 inline void test_ripple_threshold_reject_path() {
-  RippleParams p;
+  Animation::RippleParams p;
   p.center = Vector(0, 1, 0); // north pole, so cos_d == dot(v, center) == v.y
   p.amplitude = 0.5f;
   p.phase = PI_F * 0.5f; // wavelet peak at d == 90°
@@ -460,7 +460,7 @@ inline void test_ripple_threshold_reject_path() {
  *          ~identity — a decay term that was ignored (or sign-flipped) fails.
  */
 inline void test_ripple_decay_attenuates() {
-  RippleParams base;
+  Animation::RippleParams base;
   base.center = Vector(0, 1, 0);
   base.amplitude = 0.5f;
   base.phase = PI_F * 0.5f; // wavelet peak at d == 90°
@@ -469,7 +469,7 @@ inline void test_ripple_decay_attenuates() {
   const Vector v = Vector(1, 0, 0);
 
   auto moved = [&](float decay) {
-    RippleParams p = base;
+    Animation::RippleParams p = base;
     p.decay = decay;
     Vector r = ripple_transform(v, p);
     return std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
@@ -497,7 +497,7 @@ inline void test_ripple_decay_attenuates() {
  *          (moves vs. exactly-equal) brackets the edge to within the epsilon.
  */
 inline void test_ripple_threshold_boundary() {
-  RippleParams p;
+  Animation::RippleParams p;
   p.center = Vector(0, 1, 0); // north pole → cos_d == dot(v, center) == v.y
   p.amplitude = 0.5f;
   p.phase = PI_F * 0.5f;
@@ -544,10 +544,10 @@ inline void test_transforms_nonfinite_passes_through_identity() {
                         Vector(inf, nan, -inf)};
 
   for (const Vector &v : bad) {
-    RippleParams rp;
+    Animation::RippleParams rp;
     rp.amplitude = 0.0f;
     HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, rp), v));
-    NoiseParams np;
+    Animation::NoiseParams np;
     np.amplitude = 0.0f;
     HS_EXPECT_TRUE(vec_bits_equal(noise_transform(v, np), v));
     Timeline tl;
@@ -564,7 +564,7 @@ inline void test_transforms_nonfinite_passes_through_identity() {
  * @brief Verifies zero amplitude short-circuits the noise warp to a no-op.
  */
 inline void test_noise_zero_amplitude_is_identity() {
-  NoiseParams p;
+  Animation::NoiseParams p;
   p.amplitude = 0.0f;
   Vector v = Vector(0.2f, 0.5f, 0.84f).normalized();
   Vector r = noise_transform(v, p);
@@ -583,7 +583,7 @@ inline void test_noise_zero_amplitude_is_identity() {
  *          noise zero-crossing at one point cannot make the test flaky.
  */
 inline void test_noise_active_stays_on_sphere() {
-  NoiseParams p;
+  Animation::NoiseParams p;
   p.amplitude = 0.5f;
   p.scale = 4.0f;
   p.time = 1.0f;
@@ -960,7 +960,7 @@ inline void test_field_transformer_storage_survives_arena_rewind() {
 
 /** @brief Verifies the bump threshold tracks the effective footprint. */
 inline void test_bump_field_threshold_sync() {
-  BumpParams p;
+  Animation::BumpParams p;
   p.radius = 0.8f;
   p.envelope = 0.25f;
   p.sync();
@@ -983,7 +983,7 @@ inline void test_bump_field_threshold_sync() {
  */
 inline void test_bump_field_drapes_over_ball() {
   const float c_lat = PI_F / 3.0f;
-  BumpParams p;
+  Animation::BumpParams p;
   p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
   p.axis = Vector(0, 1, 0);
   p.radius = 0.5f;
@@ -1021,7 +1021,7 @@ inline void test_bump_field_drapes_over_ball() {
  */
 inline void test_bump_field_round_bulge_along_ring() {
   const float c_lat = PI_F / 2.0f;
-  BumpParams p;
+  Animation::BumpParams p;
   p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
   p.axis = Vector(0, 1, 0);
   p.radius = 0.5f;
@@ -1044,7 +1044,7 @@ inline void test_bump_field_round_bulge_along_ring() {
 /** @brief Verifies the cached-ring evaluator matches the generic bump field. */
 inline void test_bump_field_precomputed_y_parity() {
   const float c_lat = 1.1f;
-  BumpParams p;
+  Animation::BumpParams p;
   p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
   p.axis = Vector(0, 1, 0);
   p.radius = 0.55f;
@@ -1071,7 +1071,7 @@ inline void test_bump_field_precomputed_y_parity() {
  */
 inline void test_bump_field_envelope_gates() {
   const float c_lat = PI_F / 3.0f;
-  BumpParams p;
+  Animation::BumpParams p;
   p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
   p.axis = Vector(0, 1, 0);
   p.radius = 0.5f;
@@ -1098,7 +1098,7 @@ inline void test_bump_field_envelope_gates() {
  *        that ~0 amplitude short-circuits to exactly 0.
  */
 inline void test_noise_product_field_parity() {
-  NoiseProductParams p;
+  Animation::NoiseProductParams p;
   p.amplitude = 0.25f;
   p.scale1 = 1.5f;
   p.scale2 = 3.0f;
@@ -1111,9 +1111,9 @@ inline void test_noise_product_field_parity() {
   for (const Vector &v : samples) {
     float n1 = p.noise.GetNoise(v.x * p.scale1, v.y * p.scale1,
                                 v.z * p.scale1 + p.time);
-    float n2 =
-        p.noise.GetNoise(v.x * p.scale2 + NoiseProductParams::OCTAVE2_OFFSET,
-                         v.y * p.scale2, v.z * p.scale2 + p.time);
+    float n2 = p.noise.GetNoise(
+        v.x * p.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
+        v.y * p.scale2, v.z * p.scale2 + p.time);
     float expected = p.amplitude * n1 * n2;
     HS_EXPECT_NEAR(noise_product_field(v, p), expected, 1e-6f);
     total += std::fabs(expected);
@@ -1144,7 +1144,7 @@ inline void test_noise_product_field_bound_is_conservative() {
     const float time = hs::rand_f(-200.0f, 200.0f);
     const int seed = hs::rand_int(0, 100000);
 
-    NoiseProductParams p;
+    Animation::NoiseProductParams p;
     p.amplitude = amplitude;
     p.scale1 = scale1;
     p.scale2 = scale2;
@@ -1167,9 +1167,9 @@ inline void test_noise_product_field_bound_is_conservative() {
 
       const float n1 = p.noise.GetNoise(v.x * p.scale1, v.y * p.scale1,
                                         v.z * p.scale1 + p.time);
-      const float n2 =
-          p.noise.GetNoise(v.x * p.scale2 + NoiseProductParams::OCTAVE2_OFFSET,
-                           v.y * p.scale2, v.z * p.scale2 + p.time);
+      const float n2 = p.noise.GetNoise(
+          v.x * p.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
+          v.y * p.scale2, v.z * p.scale2 + p.time);
       HS_EXPECT_LE(std::fabs(n1), 1.0f);
       HS_EXPECT_LE(std::fabs(n2), 1.0f);
       worst_octave = std::max(worst_octave, std::fabs(n1));
@@ -1244,7 +1244,7 @@ inline void test_ball_drop_traverses_and_reclaims() {
 inline void test_noise_product_integrates_time() {
   hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
-  NoiseProductParams p;
+  Animation::NoiseProductParams p;
   p.speed = 0.03f;
   Animation::NoiseProduct anim(p);
   for (int i = 0; i < 5; ++i)
