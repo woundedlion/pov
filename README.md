@@ -1981,7 +1981,7 @@ A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic rando
 
 A Fibonacci-spiral field of star-polygon SDFs, continuously deformed by an evolving Möbius warp (built on a gnomonic-projection transformer) and slowly tumbled by a Languid random walk.
 
-**Parameters**: Points, Radius, Sides, Debug BB, Warp Speed
+**Parameters**: Points, Radius, Sides, Warp Speed, Debug BB
 
 </td></tr></table>
 
