@@ -129,11 +129,12 @@ protected:
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
    * @param seed Seed node id from the cubemap LUT.
-   * @return The id of the nearest node among the seed and its neighbors — the
-   * kernel center refine_and_accumulate would walk from.
-   * @details The argmin half of refine_and_accumulate, split out so a
-   * super-sampling caller can refine once per pixel and reuse the stencil
-   * across its sub-samples.
+   * @return The id of the nearest node among the seed and its neighbors.
+   * @details Off the render path: both systems center their stencils with
+   * refine_render_center. This unconditional walk is the independent oracle
+   * tests/test_effects.h measures that certified early-out against, so leave it
+   * a plain argmin — optimizing it forfeits the independence, deleting it
+   * forfeits the check.
    */
   HS_O3_FN static int refine_center(const Vector &rv, const Vector *nodes,
                                     int seed) {
@@ -211,13 +212,17 @@ protected:
    * @param seed Seed node id from the cubemap LUT.
    * @param on_weight Callable invoked as `on_weight(node_index, weight)` for
    * every node inside the support radius.
-   * @details The CubemapLUT quantizes the query direction to a face cell, so
-   * its seed can be a not-quite-nearest node; centering the kernel on the
-   * genuine nearest node removes that quantization bias. The seed stencil's
-   * squared distances are computed once, tracking the argmin: when the seed is
-   * already nearest (the common case — a LUT cell is finer than a lattice
-   * cell) they feed the kernel weights directly; otherwise the kernel re-walks
-   * the refined center's stencil.
+   * @details Off the render path: its only caller is GSReactionDiffusion's
+   * interpolate_b, itself a tests/test_effects.h oracle. It stands as the
+   * per-sample reference the shared-stencil shaders are bounded against.
+   *
+   * The CubemapLUT quantizes the query direction to a face cell, so its seed
+   * can be a not-quite-nearest node; centering the kernel on the genuine
+   * nearest node removes that quantization bias. The seed stencil's squared
+   * distances are computed once, tracking the argmin: when the seed is already
+   * nearest (the common case — a LUT cell is finer than a lattice cell) they
+   * feed the kernel weights directly; otherwise the kernel re-walks the refined
+   * center's stencil.
    */
   template <typename OnWeight>
   HS_O3_FN static void refine_and_accumulate(const Vector &rv,
@@ -249,8 +254,8 @@ protected:
    * @brief Vertex-shader seed: tags a fragment with its cubemap-LUT node id.
    * @param frag Fragment whose pos seeds frag.v0 with the nearest-node id.
    * @details Shared by both systems' render() vertex shaders; the fragment
-   * shader refines this face-quantized seed to the true nearest node per
-   * sub-sample (see refine_center and refine_and_accumulate).
+   * shader refines this face-quantized seed to the true nearest node (see
+   * refine_render_center).
    */
   void seed_face_lut(Fragment &frag) {
     Vector rv = orientation.unorient(frag.pos);

@@ -133,7 +133,7 @@ struct CubemapLUT {
    *         minimum, and the query is quantized to a face cell), so the result can
    *         be off by a neighbor. Callers needing the true nearest node must refine
    *         among the seed and its neighbors (see
-   *         ReactionDiffusionBase::refine_center in effects/).
+   *         ReactionDiffusionBase::refine_render_center in effects/).
    */
   int lookup(const Vector &p) const {
     // debug-only: device hot path stays a single load (assert compiles out).

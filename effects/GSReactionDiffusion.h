@@ -373,6 +373,9 @@ private:
    * @param nodes Node positions in the same frame as `p`.
    * @return Support-radius weighted average of B in [0, 1]; 0 if no node is
    * within the support radius.
+   * @details Off the render path: shade_pixel gathers the stencil once per
+   * pixel and re-weights it inline. This one-sample form is the oracle
+   * tests/test_effects.h bounds that shared stencil against.
    */
   float interpolate_b(const Vector &p, int seed, const Vector *nodes) const {
     float tw = 0, wb = 0;
