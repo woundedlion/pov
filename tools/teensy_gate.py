@@ -20,6 +20,10 @@ What it does (spec §7.3, §7.4, §8):
   * fail-loud       — a configured layout symbol that is NOT FOUND in the ELF is a
     violation, never a silent skip: a name that never matches would make the
     invariant never fire (false-green), the exact trap spec §7.4 warns about.
+  * schema          — load_budgets() rejects any budgets key the gate does not
+    read, at every nesting level. Every ceiling is an optional `.get()`, so a
+    misspelled key (`component`, `max_byte`, `regoin`) removes its check and the
+    gate reports PASS with no violations.
 """
 
 from __future__ import annotations
@@ -500,10 +504,81 @@ def declares_components(budget: dict) -> bool:
                for spec in budget.get("regions", {}).values())
 
 
+class BudgetSchemaError(ValueError):
+    """A budgets entry carries a key the gate would never read."""
+
+
+# Every key the gate reads, per nesting level. Region names, component names and
+# layout-symbol keys stay free-form: a typo there is already a loud
+# region-missing / component-missing / symbol-not-found violation.
+_BUDGET_KEYS = frozenset({"regions", "symbols"})
+_REGION_KEYS = frozenset({"max_bytes", "free_min_bytes", "components"})
+_COMPONENT_KEYS = frozenset({"max_bytes", "max_banks_from_stack_floor"})
+_DERIVED_KEYS = frozenset({"bank_bytes", "total_banks"})
+_SYMBOL_KEYS = frozenset({"name", "region", "min_bytes", "max_bytes"})
+
+
+def _check_keys(spec: object, allowed: frozenset[str], where: str,
+                required: frozenset[str] = frozenset()) -> dict:
+    """Reject unknown / missing keys in one budgets object; return it."""
+    if not isinstance(spec, dict):
+        raise BudgetSchemaError(
+            f"{where}: expected an object, got {type(spec).__name__}.")
+    unknown = sorted(set(spec) - allowed)
+    if unknown:
+        raise BudgetSchemaError(
+            f"{where}: unknown key(s) {', '.join(repr(k) for k in unknown)} - "
+            f"the gate reads only {', '.join(sorted(allowed))}. Every ceiling is "
+            f"optional, so an unrecognized key silently disables the check it "
+            f"was meant to configure.")
+    missing = sorted(required - set(spec))
+    if missing:
+        raise BudgetSchemaError(
+            f"{where}: missing required key(s) "
+            f"{', '.join(repr(k) for k in missing)}.")
+    return spec
+
+
+def _child_map(parent: dict, key: str, where: str) -> dict:
+    """Fetch an optional nested object, rejecting a non-object value."""
+    value = parent.get(key)
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise BudgetSchemaError(
+            f"{where}: '{key}' must be an object, got {type(value).__name__}.")
+    return value
+
+
+def validate_budgets(budgets: object) -> dict:
+    """Validate a parsed budgets mapping against the gate's schema."""
+    if not isinstance(budgets, dict):
+        raise BudgetSchemaError(
+            f"budgets: expected an object of env -> budget, got "
+            f"{type(budgets).__name__}.")
+    for env, budget in budgets.items():
+        _check_keys(budget, _BUDGET_KEYS, f"env '{env}'")
+        for region, spec in _child_map(budget, "regions", f"env '{env}'").items():
+            rwhere = f"env '{env}' region '{region}'"
+            _check_keys(spec, _REGION_KEYS, rwhere)
+            for cname, cspec in _child_map(spec, "components", rwhere).items():
+                cwhere = f"{rwhere} component '{cname}'"
+                _check_keys(cspec, _COMPONENT_KEYS, cwhere)
+                derived = cspec.get("max_banks_from_stack_floor")
+                if derived is not None:
+                    _check_keys(derived, _DERIVED_KEYS,
+                                f"{cwhere} max_banks_from_stack_floor",
+                                required=_DERIVED_KEYS)
+        for key, spec in _child_map(budget, "symbols", f"env '{env}'").items():
+            _check_keys(spec, _SYMBOL_KEYS, f"env '{env}' symbol '{key}'",
+                        required=frozenset({"name"}))
+    return budgets
+
+
 def load_budgets(path: str | Path) -> dict:
     """Load tools/teensy_budgets.json, tolerating // and /* */ comments."""
     raw = Path(path).read_text(encoding="utf-8")
-    return json.loads(_strip_jsonc_comments(raw))
+    return validate_budgets(json.loads(_strip_jsonc_comments(raw)))
 
 
 def render_report(result: GateResult, *, github: bool = False) -> str:
@@ -551,7 +626,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
     args = p.parse_args(argv)
 
-    budgets = load_budgets(args.budgets)
+    try:
+        budgets = load_budgets(args.budgets)
+    except BudgetSchemaError as exc:
+        print(f"::error::teensy-gate: invalid budgets schema in {args.budgets} "
+              f"({exc}). This is a budgets-file error, not a size-budget "
+              f"violation.", file=sys.stderr)
+        return 2
     if args.env not in budgets:
         print(f"::error::no budget for env '{args.env}' in {args.budgets}",
               file=sys.stderr)

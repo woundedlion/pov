@@ -141,7 +141,13 @@ def run_gate(source, target, env):
               "output shape changed), NOT a size-budget violation.")
         sys.exit(2)
 
-    budgets = teensy_gate.load_budgets(BUDGETS)
+    try:
+        budgets = teensy_gate.load_budgets(BUDGETS)
+    except teensy_gate.BudgetSchemaError as exc:
+        print(f"::error::teensy-gate: invalid budgets schema in {BUDGETS} "
+              f"({exc}). This is a budgets-file error (a key the gate never "
+              f"reads disables its ceiling), NOT a size-budget violation.")
+        sys.exit(2)
     if pioenv not in budgets:
         print(f"::error::no budget for env '{pioenv}' in {BUDGETS}")
         sys.exit(1)
