@@ -798,16 +798,7 @@ private:
         build_next_seed =
             Solids::finalize_solid(clean_endpoint(step, a, b), target);
       });
-      {
-        ScratchScope a_guard(scratch_arena_a);
-        ScratchScope b_guard(scratch_arena_b);
-        MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
-                                            scratch_arena_b, persistent_arena);
-      }
-      const size_t bookend_faces = build_next_seed.face_counts.size();
-      HS_CHECK(bookend_faces <= MAX_BUILD_FACES);
-      bookend = {.topology = build_next_seed.topology.data(),
-                 .faces = bookend_faces};
+      bookend = next_seed_bookend();
     }
 
     // Handoff arrays are ctor-scoped: scratch-backed under this scope, alive
@@ -887,6 +878,25 @@ private:
   HS_COLD_MEMBER void schedule_build_leg(Animation::OpLeg &&leg) {
     build_landing = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
+  }
+
+  /**
+   * @brief Classifies the eagerly built endpoint into topology groups and
+   * returns the bookend grouping keyed on it.
+   * @return Bookend classes over build_next_seed's fresh classification.
+   * @details ScratchScope-guarded so the caller's prior allocations in the
+   * shared scratch arenas survive; a bare reset() would drop them.
+   */
+  HS_COLD_MEMBER Animation::OpLeg::BookendClasses next_seed_bookend() {
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+    const size_t faces = build_next_seed.face_counts.size();
+    HS_CHECK(faces <= MAX_BUILD_FACES);
+    return {.topology = build_next_seed.topology.data(), .faces = faces};
   }
 
   /**
@@ -1083,22 +1093,13 @@ private:
           MeshOps::dual(build_seed, scratch_arena_a, scratch_arena_b),
           persistent_arena);
     }
-    {
-      ScratchScope ca(scratch_arena_a);
-      ScratchScope cb(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
-    HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
+    Animation::OpLeg::BookendClasses bookend = next_seed_bookend();
 
     Animation::OpLeg::PaletteHandoff handoff{
         .bank = &palette_bank.bank,
         .prev_face_palette = pal,
         .prev_faces = nf,
         .correspondence = Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING};
-    Animation::OpLeg::BookendClasses bookend{
-        .topology = build_next_seed.topology.data(),
-        .faces = build_next_seed.face_counts.size()};
     const int frames = dual_sub_frames(2);
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
     Animation::OpLeg leg(
@@ -1162,16 +1163,7 @@ private:
       build_next_seed = Solids::finalize_solid(
           MeshOps::truncate(build_seed, a, b, MACRO_TRUNCATE_T), target);
     });
-    {
-      ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
-    HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
-    Animation::OpLeg::BookendClasses bookend{
-        .topology = build_next_seed.topology.data(),
-        .faces = build_next_seed.face_counts.size()};
+    Animation::OpLeg::BookendClasses bookend = next_seed_bookend();
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = build_macro_sweep_frames;
@@ -1303,16 +1295,7 @@ private:
       build_reconcile_endpoint(build_seed, authored, build_next_seed,
                                persistent_arena, scratch_arena_a);
     }
-    {
-      ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(build_next_seed, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
-    HS_CHECK(build_next_seed.face_counts.size() <= MAX_BUILD_FACES);
-    Animation::OpLeg::BookendClasses bookend{
-        .topology = build_next_seed.topology.data(),
-        .faces = build_next_seed.face_counts.size()};
+    Animation::OpLeg::BookendClasses bookend = next_seed_bookend();
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(
         scratch_arena_a, Animation::OpLeg::FaceCorrespondence::IDENTITY);
