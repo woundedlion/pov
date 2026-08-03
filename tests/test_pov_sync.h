@@ -145,10 +145,21 @@ inline void test_helpers() {
   // than BeaconParser::feed's interdigit test. Boundary is exclusive (equal
   // windows are rejected).
   Config so = test_config();
-  so.acquire_quiet_cols = so.beacon_interdigit_timeout_cols;
+  so.beacon_interdigit_timeout_cols = so.acquire_quiet_cols;
   HS_EXPECT_FALSE(so.valid());
-  so.acquire_quiet_cols = so.beacon_interdigit_timeout_cols - 1;
+  ++so.beacon_interdigit_timeout_cols;
   HS_EXPECT_TRUE(so.valid());
+
+  // Beacon tail quiet: a frame started at the beacon point must land its last
+  // pulse and the receiver's quiet window inside the [W/4, W/2) half-window, or
+  // the HALF burst is appended to the last digit burst. Boundary is exclusive —
+  // the slack absorbs the sub-column offset of the scheduling tick.
+  Config bq = test_config();
+  bq.acquire_quiet_cols = bq.W / 4 - bq.beacon_span_cols();
+  HS_EXPECT_EQ(bq.beacon_frame_cols(), bq.W / 4);
+  HS_EXPECT_FALSE(bq.valid());
+  --bq.acquire_quiet_cols;
+  HS_EXPECT_TRUE(bq.valid());
 
   Config dg = test_config();
   dg.gate_cols = 7 * dg.beacon_pitch_cols + 1;
@@ -950,8 +961,8 @@ inline void test_master_beacon_busy_retry() {
  * @details Drives a master across the beacon-due revolution, resuming its first
  *          post-ZERO tick at a chosen column to model the coast. A start at
  *          W/4 schedules and fully emits the frame before HALF; a start past
- *          W/4 + 17 (worst-case 55-col frame must clear HALF at column 144) is
- *          censored — no pulses in the beacon window and no trap at HALF.
+ *          the beacon-frame bound is censored — no pulses in the beacon window
+ *          and no trap at HALF.
  */
 inline void test_beacon_late_coast() {
   const Config cfg = test_config();
@@ -991,6 +1002,76 @@ inline void test_beacon_late_coast() {
   // crossing at column 144 schedules without tripping the wire-busy trap (a
   // trap would __builtin_trap the whole suite).
   HS_EXPECT_EQ(run(cfg.W / 4 + 20), 0);
+}
+
+// ── Master beacon tail quiet (§6.4) ─────────────────────────────────────────
+
+/**
+ * @brief Verifies every beacon the master starts leaves the receiver's quiet
+ *        window between the frame's last pulse and the HALF boundary burst.
+ * @details Sweeps every column of [W/4, W/2) a masked-ISR coast can resume on,
+ *          at the 64-effect roster cap with the widest digit pattern the codec
+ *          can encode, and requires each emitted frame's tail to clear
+ *          acquire_quiet_cycles before the HALF burst. A closer tail is folded
+ *          into the last digit burst by the receiver's gap timeout, consuming
+ *          the boundary symbol instead of decoding it. Ticks run at the device's
+ *          T0/OVERSAMPLE pacing so the HALF symbol clears its own lateness
+ *          censor.
+ */
+inline void test_beacon_tail_quiet() {
+  Config cfg = test_config(64);
+  // Revolution 63 is beacon-due at this cadence, so all four data digits reach
+  // 7 — the widest frame index 63 of a full roster can encode.
+  cfg.beacon_period_revs = 31;
+  cfg.rejoin_budget_revs = 31;
+  HS_EXPECT_TRUE(cfg.valid());
+  const uint32_t period = cfg.cycles_per_half_rev;
+  const uint32_t step = COL / 8u;
+
+  // Resume the master's first post-ZERO tick of the beacon-due revolution at
+  // `resume_col`; return the beacon pulse count and report the cycles between
+  // the frame's last pulse and the first pulse of the HALF burst.
+  auto run = [&](int32_t resume_col, uint32_t *tail_gap) -> int {
+    SyncBoard m(cfg);
+    const uint32_t t0 = 1000000u;
+    m.seed(t0, /*is_master=*/true);
+    const uint32_t epoch1 = t0 + 2u * period;
+    m.tick(epoch1, nullptr);
+    // Drain the ZERO symbol's remaining pulses (columns 2, 4) so the emitter is
+    // idle before the coast, then dial in the worst-case beacon payload.
+    m.tick(epoch1 + 2u * COL, nullptr);
+    m.tick(epoch1 + 4u * COL, nullptr);
+    content_mut(m).effect_index = 63;
+    content_mut(m).rev_in_effect = 63;
+
+    const uint32_t half_at = epoch1 + period;
+    int pulses = 0;
+    uint32_t last_beacon = 0;
+    *tail_gap = 0;
+    for (uint32_t t = epoch1 + static_cast<uint32_t>(resume_col) * COL;
+         t <= half_at + 8u * COL; t += step) {
+      if (!m.tick(t, nullptr).pulse)
+        continue;
+      if (t < half_at) {
+        ++pulses;
+        last_beacon = t;
+      } else if (pulses > 0 && *tail_gap == 0) {
+        *tail_gap = t - last_beacon;
+      }
+    }
+    return pulses;
+  };
+
+  int emitted = 0;
+  for (int32_t c = cfg.W / 4; c < cfg.W / 2; ++c) {
+    uint32_t gap = 0;
+    if (run(c, &gap) == 0)
+      continue;
+    ++emitted;
+    HS_EXPECT_GE(gap, cfg.acquire_quiet_cycles());
+  }
+  // Non-vacuity: the on-time beacon point is still admitted.
+  HS_EXPECT_GT(emitted, 0);
 }
 
 // ── Master EPOCH train window (§6.3.1) ──────────────────────────────────────
@@ -2498,6 +2579,7 @@ inline int run_pov_sync_tests() {
   test_emitter();
   test_master_beacon_busy_retry();
   test_beacon_late_coast();
+  test_beacon_tail_quiet();
   test_master_epoch_train_bounded();
 
   test_sim_boot_and_phase();
