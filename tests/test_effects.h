@@ -2201,7 +2201,7 @@ struct MeshFeedbackWhiteBox {
   using MF = MeshFeedback<SMALL_W, SMALL_H>;
 
   static const Feedback::Style &style(const MF &fx) { return fx.style; }
-  static const NoiseParams &noise(const MF &fx) { return fx.noise_params; }
+  static const Animation::NoiseParams &noise(const MF &fx) { return fx.noise_params; }
   static size_t preset_index(const MF &fx) {
     return fx.presets.current_index();
   }
@@ -2300,7 +2300,7 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
 
   const auto in_sync = [&fx]() {
     const Feedback::Style &s = WB::style(fx);
-    const NoiseParams &n = WB::noise(fx);
+    const Animation::NoiseParams &n = WB::noise(fx);
     return n.amplitude == s.amplitude && n.frequency == s.frequency &&
            n.speed == s.speed && n.scale == s.scale;
   };
