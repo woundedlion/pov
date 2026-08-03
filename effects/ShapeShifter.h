@@ -176,14 +176,12 @@ private:
     const Basis basis = make_basis(orientation.get(), X_AXIS);
     const ClipRegion &clip = canvas.clip();
     const bool full_width_clip = clip.x_start == 0 && clip.x_end == clip.w;
-    const float near_cap_beta =
-        shape == ShapeType::STAR
-            ? acosf(hs::clamp(basis.v.y, -1.0f, 1.0f))
-            : 0.0f;
-    const float far_cap_beta =
-        shape == ShapeType::STAR
-            ? acosf(hs::clamp(-basis.v.y, -1.0f, 1.0f))
-            : 0.0f;
+    const float near_cap_beta = shape == ShapeType::STAR
+                                    ? acosf(hs::clamp(basis.v.y, -1.0f, 1.0f))
+                                    : 0.0f;
+    const float far_cap_beta = shape == ShapeType::STAR
+                                   ? acosf(hs::clamp(-basis.v.y, -1.0f, 1.0f))
+                                   : 0.0f;
     float cap_half_width = 0.0f;
     float near_cap_distance = 0.0f;
     float far_cap_distance = 0.0f;
@@ -197,9 +195,9 @@ private:
           (clip.x_start + width_px * 0.5f) * (2.0f * PI_F) / clip.w;
       auto cap_distance = [&](const Vector &dir) {
         const float lambda = atan2f(dir.z, dir.x);
-        return std::fabs(wrap_t((lambda - lambda_center) / (2.0f * PI_F) +
-                                0.5f) -
-                         0.5f) *
+        return std::fabs(
+                   wrap_t((lambda - lambda_center) / (2.0f * PI_F) + 0.5f) -
+                   0.5f) *
                (2.0f * PI_F);
       };
       near_cap_distance = cap_distance(basis.v);
@@ -216,8 +214,7 @@ private:
         constexpr float AA_PAD = 2.0f * PI_F / W;
         const bool far_side = radius > 1.0f;
         const float cap_radius = far_side ? 2.0f - radius : radius;
-        const float half_angle =
-            cap_radius * (PI_F / 2.0f) + AA_PAD;
+        const float half_angle = cap_radius * (PI_F / 2.0f) + AA_PAD;
         const float t2 = std::min(half_angle, PI_F);
         const float beta = far_side ? far_cap_beta : near_cap_beta;
         const float phi_lo = std::max(beta - t2, 0.0f);
@@ -227,8 +224,7 @@ private:
         if (visible && !full_width_clip && beta > t2 && PI_F - beta > t2) {
           const float sin_beta =
               far_side ? far_cap_sin_beta : near_cap_sin_beta;
-          const float dlam =
-              asinf(hs::clamp(sinf(t2) / sin_beta, 0.0f, 1.0f));
+          const float dlam = asinf(hs::clamp(sinf(t2) / sin_beta, 0.0f, 1.0f));
           const float distance =
               far_side ? far_cap_distance : near_cap_distance;
           visible = distance <= dlam + cap_half_width;
@@ -360,8 +356,8 @@ private:
     case ShapeType::PLANAR_POLYGON: {
       Basis planar_basis =
           radius > 1.0f ? Plot::planar_chart_basis(-basis.v) : basis;
-      draw_sampled(canvas, static_cast<size_t>(sides + 2), &planar_basis,
-                   false, fragment_shader, [&](Fragments &points) {
+      draw_sampled(canvas, static_cast<size_t>(sides + 2), &planar_basis, false,
+                   fragment_shader, [&](Fragments &points) {
                      Plot::PlanarPolygon::sample(points, basis, radius, sides,
                                                  shape_phase);
                    });

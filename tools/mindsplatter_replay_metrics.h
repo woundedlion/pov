@@ -42,8 +42,8 @@ inline uint64_t hash_channel(uint64_t hash, uint16_t channel) {
 }
 
 inline uint16_t linear_luminance(uint16_t r, uint16_t g, uint16_t b) {
-  return static_cast<uint16_t>(
-      (13933u * r + 46871u * g + 4732u * b + 32768u) >> 16);
+  return static_cast<uint16_t>((13933u * r + 46871u * g + 4732u * b + 32768u) >>
+                               16);
 }
 
 template <int W, typename GoldenPixel>
@@ -137,10 +137,9 @@ size_t capture_frame(const Pixel *pixels, const ClipRegion &clip, Pixel *output,
 }
 
 template <int W>
-ReferenceStats compare_frame_reference(const Pixel *pixels,
-                                       const ClipRegion &clip,
-                                       const Pixel *reference,
-                                       size_t reference_count) {
+ReferenceStats
+compare_frame_reference(const Pixel *pixels, const ClipRegion &clip,
+                        const Pixel *reference, size_t reference_count) {
   HS_CHECK(reference_count == frame_pixel_count(clip),
            "MindSplatter replay reference dimensions differ");
   ReferenceStats stats;

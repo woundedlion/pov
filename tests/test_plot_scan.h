@@ -2461,8 +2461,7 @@ inline void test_star_sample_radius_trig_bit_parity() {
           const float cos_r = cosf(r);
           const float cos_t = cosf(theta);
           const float sin_t = sinf(theta);
-          Vector p = (work_basis.v * cos_r) +
-                     (work_basis.u * (cos_t * sin_r)) +
+          Vector p = (work_basis.v * cos_r) + (work_basis.u * (cos_t * sin_r)) +
                      (work_basis.w * (sin_t * sin_r));
           p.normalize();
           return p;
@@ -2826,16 +2825,12 @@ inline void test_planar_sampler_from_cull_bit_parity() {
       normal = Y_AXIS;
     const Basis basis = basis_from_normal(normal.normalized());
     auto point = [&](float radius, float angle) {
-      const Vector radial =
-          basis.u * cosf(angle) + basis.w * sinf(angle);
+      const Vector radial = basis.u * cosf(angle) + basis.w * sinf(angle);
       return (basis.v * cosf(radius) + radial * sinf(radius)).normalized();
     };
-    const Vector a = point(hs::rand_f(0.01f, 2.8f),
-                           hs::rand_f(-PI_F, PI_F));
-    const Vector b = point(hs::rand_f(0.01f, 2.8f),
-                           hs::rand_f(-PI_F, PI_F));
-    const Plot::PlanarEdgeSpan span =
-        Plot::make_planar_edge_span(a, b, basis);
+    const Vector a = point(hs::rand_f(0.01f, 2.8f), hs::rand_f(-PI_F, PI_F));
+    const Vector b = point(hs::rand_f(0.01f, 2.8f), hs::rand_f(-PI_F, PI_F));
+    const Plot::PlanarEdgeSpan span = Plot::make_planar_edge_span(a, b, basis);
     int col_s, col_len;
     Vector end;
     Plot::planar_col_span<W>(a, basis, span, col_s, col_len, &end);
@@ -2845,8 +2840,7 @@ inline void test_planar_sampler_from_cull_bit_parity() {
         Plot::make_planar_edge_sampler(span, end, basis);
 
     auto expect_bits = [](float lhs, float rhs) {
-      HS_EXPECT_EQ(std::bit_cast<uint32_t>(lhs),
-                   std::bit_cast<uint32_t>(rhs));
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(lhs), std::bit_cast<uint32_t>(rhs));
     };
     expect_bits(rebuilt.proj1.first, reused.proj1.first);
     expect_bits(rebuilt.proj1.second, reused.proj1.second);
@@ -2862,10 +2856,8 @@ inline void test_planar_sampler_from_cull_bit_parity() {
     int position_interval = 0;
     for (float t : {0.0f, 0.17f, 0.51f, 0.88f}) {
       const Plot::SamplePT original = rebuilt.one_pass(t);
-      const Plot::SamplePT optimized =
-          reused.one_pass_monotonic(t, interval);
-      const Vector position =
-          reused.position_monotonic(t, position_interval);
+      const Plot::SamplePT optimized = reused.one_pass_monotonic(t, interval);
+      const Vector position = reused.position_monotonic(t, position_interval);
       expect_bits(original.pos.x, optimized.pos.x);
       expect_bits(original.pos.y, optimized.pos.y);
       expect_bits(original.pos.z, optimized.pos.z);
@@ -2898,8 +2890,8 @@ inline void test_rasterize_planar_policy_bit_parity() {
     std::vector<Vector> positions;
     std::vector<std::array<uint32_t, 3>> registers;
   };
-  auto capture = [&]<bool DerivePlanarArcRegisters,
-                    bool InterpolateRegisters>(bool rebuild_sampler = false) {
+  auto capture = [&]<bool DerivePlanarArcRegisters, bool InterpolateRegisters>(
+                     bool rebuild_sampler = false) {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(0, H, 0, W / 2);
     DirectCapturePipeline pipeline;
@@ -2924,10 +2916,8 @@ inline void test_rasterize_planar_policy_bit_parity() {
   };
 
   const Stream derived = capture.template operator()<true, true>();
-  const Stream source_registers =
-      capture.template operator()<false, true>();
-  const Stream positions_only =
-      capture.template operator()<false, false>();
+  const Stream source_registers = capture.template operator()<false, true>();
+  const Stream positions_only = capture.template operator()<false, false>();
   const Stream rebuilt_positions_only =
       capture.template operator()<false, false>(true);
   HS_EXPECT_EQ(derived.positions.size(), source_registers.positions.size());
@@ -2949,15 +2939,15 @@ inline void test_rasterize_planar_policy_bit_parity() {
       HS_EXPECT_EQ(std::bit_cast<uint32_t>(derived.positions[i].z),
                    std::bit_cast<uint32_t>(stream->positions[i].z));
     }
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions_only.positions[i].x),
-                 std::bit_cast<uint32_t>(
-                     rebuilt_positions_only.positions[i].x));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions_only.positions[i].y),
-                 std::bit_cast<uint32_t>(
-                     rebuilt_positions_only.positions[i].y));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions_only.positions[i].z),
-                 std::bit_cast<uint32_t>(
-                     rebuilt_positions_only.positions[i].z));
+    HS_EXPECT_EQ(
+        std::bit_cast<uint32_t>(positions_only.positions[i].x),
+        std::bit_cast<uint32_t>(rebuilt_positions_only.positions[i].x));
+    HS_EXPECT_EQ(
+        std::bit_cast<uint32_t>(positions_only.positions[i].y),
+        std::bit_cast<uint32_t>(rebuilt_positions_only.positions[i].y));
+    HS_EXPECT_EQ(
+        std::bit_cast<uint32_t>(positions_only.positions[i].z),
+        std::bit_cast<uint32_t>(rebuilt_positions_only.positions[i].z));
     derived_differences +=
         derived.registers[i][0] != source_registers.registers[i][0] ||
         derived.registers[i][1] != source_registers.registers[i][1];
@@ -4338,8 +4328,10 @@ inline void test_rasterize_default_sampling_policy_bit_parity() {
     return pipeline;
   };
 
-  const AlphaCapturePipeline implicit_default = capture.template operator()<false>();
-  const AlphaCapturePipeline explicit_default = capture.template operator()<true>();
+  const AlphaCapturePipeline implicit_default =
+      capture.template operator()<false>();
+  const AlphaCapturePipeline explicit_default =
+      capture.template operator()<true>();
   hs_test::StubEffect selectable_fx(W, H);
   AlphaCapturePipeline selectable_default;
   {
@@ -4354,10 +4346,13 @@ inline void test_rasterize_default_sampling_policy_bit_parity() {
          .omit_end = true,
          .balanced_sampling = false});
   }
-  HS_EXPECT_EQ(implicit_default.plotted.size(), explicit_default.plotted.size());
+  HS_EXPECT_EQ(implicit_default.plotted.size(),
+               explicit_default.plotted.size());
   HS_EXPECT_EQ(implicit_default.alphas.size(), explicit_default.alphas.size());
-  HS_EXPECT_EQ(implicit_default.plotted.size(), selectable_default.plotted.size());
-  HS_EXPECT_EQ(implicit_default.alphas.size(), selectable_default.alphas.size());
+  HS_EXPECT_EQ(implicit_default.plotted.size(),
+               selectable_default.plotted.size());
+  HS_EXPECT_EQ(implicit_default.alphas.size(),
+               selectable_default.alphas.size());
   HS_EXPECT_GT(implicit_default.plotted.size(), size_t{0});
   const size_t compared = std::min({implicit_default.plotted.size(),
                                     explicit_default.plotted.size(),
@@ -4435,8 +4430,7 @@ inline void test_rasterize_balanced_sampling_scope() {
     }
   };
 
-  compare.template operator()<false>(on_disk(0.3f, 0.0f),
-                                     on_disk(1.3f, 1.0f));
+  compare.template operator()<false>(on_disk(0.3f, 0.0f), on_disk(1.3f, 1.0f));
   compare.template operator()<true>(on_disk(0.7f, 0.0f),
                                     on_disk(0.702f, 0.001f));
 }
@@ -4501,8 +4495,7 @@ inline void test_rasterize_balanced_pole_guard() {
   constexpr int W = 144, H = 72;
   const Basis basis = basis_from_normal(Y_AXIS);
   auto near_pole = [&](float azimuth) {
-    const Vector radial =
-        basis.u * cosf(azimuth) + basis.w * sinf(azimuth);
+    const Vector radial = basis.u * cosf(azimuth) + basis.w * sinf(azimuth);
     return (basis.v * cosf(0.02f) + radial * sinf(0.02f)).normalized();
   };
   ScratchScope sc(plot_arena());
@@ -4543,12 +4536,9 @@ inline void test_rasterize_balanced_star_visual_budget() {
   };
   const std::array<StarState, 4> states = {{
       {Quaternion(), 0.45f, 4, 0.0f},
-      {Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 0.98f, 7,
-       0.37f},
-      {Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 1.02f, 7,
-       1.2f},
-      {Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(), 1.72f, 16,
-       2.1f},
+      {Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 0.98f, 7, 0.37f},
+      {Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 1.02f, 7, 1.2f},
+      {Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(), 1.72f, 16, 2.1f},
   }};
   struct Frame {
     std::vector<Pixel> pixels;
@@ -4558,7 +4548,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
   };
 
   auto render = [&]<Plot::RasterSamplingPolicy Policy>(const StarState &state,
-                                                        const ClipRegion *clip) {
+                                                       const ClipRegion *clip) {
     hs_test::StubEffect fx(W, H);
     if (clip != nullptr)
       fx.set_clip(clip->y_start, clip->y_end, clip->x_start, clip->x_end);
@@ -4613,8 +4603,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
   uint32_t balanced_position_samples = 0;
   for (const StarState &state : states) {
     const Frame standard =
-        render.template operator()<Plot::RasterSamplingPolicy::DEFAULT>(state,
-                                                                        nullptr);
+        render.template operator()<Plot::RasterSamplingPolicy::DEFAULT>(
+            state, nullptr);
     const Frame balanced =
         render.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>(
             state, nullptr);
@@ -4729,8 +4719,7 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
       {Vector(0, 1, 0), sphere_point(0.9f, 1.1f)},
       {sphere_point(PI_F - 0.8f, -0.7f), Vector(0, -1, 0)},
       {sphere_point(0.45f, 0.0f), sphere_point(0.45f, PI_F)},
-      {sphere_point(1.2f, PI_F - 0.12f),
-       sphere_point(1.3f, -PI_F + 0.14f)},
+      {sphere_point(1.2f, PI_F - 0.12f), sphere_point(1.3f, -PI_F + 0.14f)},
       {sphere_point(0.35f, -1.0f), sphere_point(PI_F - 0.4f, 2.05f)},
       {sphere_point(1.0f, 0.25f), sphere_point(2.1f, PI_F - 0.25f)},
   }};
@@ -4752,8 +4741,7 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
 
     HS_EXPECT_GT(pipeline.plotted.size(), size_t{2});
     HS_EXPECT_LE((max_projected_gap<W, H>(pipeline.plotted)), 1.5f);
-    HS_EXPECT_NEAR(angle_between(pipeline.plotted.front(), start), 0.0f,
-                   1e-3f);
+    HS_EXPECT_NEAR(angle_between(pipeline.plotted.front(), start), 0.0f, 1e-3f);
     HS_EXPECT_NEAR(angle_between(pipeline.plotted.back(), end), 0.0f, 1e-3f);
     for (const Vector &p : pipeline.plotted)
       HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
