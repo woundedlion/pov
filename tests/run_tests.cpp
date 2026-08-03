@@ -31,6 +31,7 @@
 #include "tests/test_palettes.h"
 #include "tests/test_easing_waves.h"
 #include "tests/test_platform.h"
+#include "tests/test_profiling.h"
 #include "tests/test_filter.h"
 #include "tests/test_plot_scan.h"
 #include "tests/test_canvas.h"
@@ -136,6 +137,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("palettes", hs_test::palettes_tests::run_palettes_tests, 95)               \
   X("easing_waves", hs_test::easing_waves_tests::run_easing_waves_tests, 6080) \
   X("platform", hs_test::platform_tests::run_platform_tests, 201119)           \
+  X("profiling", hs_test::profiling_tests::run_profiling_tests, 163)           \
   X("filter", hs_test::filter_tests::run_filter_tests, 10297)                  \
   X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests, 9109889)       \
   X("canvas", hs_test::canvas_tests::run_canvas_tests, 487)                    \
