@@ -385,6 +385,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── palette_controls.js     DOM-free zoom history and locked-slider delta capping for palettes.html
 │   ├── palette_math.js         ProceduralPalette / GenerativePalette mirror + the PaletteOps bridge
 │   ├── solid_codegen.js        Op dispatch, codegen, and op-chain sequencing for solids.html
+│   ├── solid_registry_codegen.js  Registry-paste emitter: the solids.h Entry, OpStep table, and Recipe a saved solid contributes
 │   ├── tailwind.css            Prebuilt utility classes the four tool pages use, served same-origin
 │   └── tools.css               Shared design tokens and control styling for the tool pages
 │
