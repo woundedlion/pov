@@ -1909,7 +1909,7 @@ Rings bloom at random orientations and grow their radius from zero, fading in ov
 
 A head traces a fixed 12:5 spherical Lissajous figure whose long trail is continuously warped by a noise transformer, over a slowly cycling gradient palette.
 
-**Parameters**: Alpha, Cycle Dur, Speed, Jitter Amp, Noise Freq, Scale Factor, Cycle Speed
+**Parameters**: Alpha, Cycle Dur, Speed, Jitter Amp, Noise Scale, Scale Factor, Cycle Speed, Duty Cycle
 
 </td></tr></table>
 
