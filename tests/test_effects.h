@@ -3988,7 +3988,7 @@ inline void test_shapeshifter_preset_defaults() {
                static_cast<float>(
                    ShapeShifter<DEFAULT_W, DEFAULT_H>::PhaseFunction::SINE));
   HS_EXPECT_EQ(value("Amplitude"), 1.0f);
-  HS_EXPECT_EQ(value("Speed"), 0.16f);
+  HS_EXPECT_EQ(value("Speed"), 0.016f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
 
   const auto *count = ss.getParameters().find("Count");
