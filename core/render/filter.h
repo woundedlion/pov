@@ -222,20 +222,32 @@ template <int W, int H> struct Pipeline<W, H> {
   }
 
   /**
-   * @brief Screen-trail flush no-op (sink has no history).
-   * @details Unused Canvas, ScreenTrailFn and alpha parameters.
+   * @brief Trail flush (base case: no stage to flush).
+   * @tparam TrailFn ScreenTrailFn or WorldTrailFn.
+   * @return Never returns; instantiation is a hard error.
+   * @details Dependent-false guard: fires only when flush() is named on a
+   * filterless pipeline. The recursion runs through flush_stages(), so this
+   * overload is reachable from outside the pipeline only.
    */
-  void flush(Canvas &, const ScreenTrailFn &, float) {}
+  template <typename TrailFn> void flush(Canvas &, const TrailFn &, float) {
+    static_assert(
+        !sizeof(TrailFn *),
+        "Wrong flush() domain: this Pipeline has no filter stages, so "
+        "it carries no history and this overload emits nothing. Drop "
+        "the flush() call, or add the history stage it was meant for.");
+  }
   /**
-   * @brief World-trail flush no-op (sink has no history).
-   * @details Unused Canvas, WorldTrailFn and alpha parameters.
+   * @brief Terminal-stage flush (base case: no stage to flush).
+   * @tparam T Unused; carries the dependent-false guard.
+   * @return Never returns; instantiation is a hard error.
    */
-  void flush(Canvas &, const WorldTrailFn &, float) {}
-  /**
-   * @brief Terminal-stage flush no-op (sink has no history).
-   * @details Unused Canvas and alpha parameters.
-   */
-  void flush(Canvas &, float) {}
+  template <typename T = void> void flush(Canvas &, float) {
+    static_assert(
+        !sizeof(T *),
+        "Wrong flush() domain: this Pipeline has no filter stages, so "
+        "it has no terminal stage and this overload emits nothing. "
+        "Drop the flush() call, or add Pixel::Feedback.");
+  }
   /** @brief Terminates the recursive screen-trail flush walk. */
   void flush_stages(Canvas &, const ScreenTrailFn &, float) {}
   /** @brief Terminates the recursive world-trail flush walk. */
