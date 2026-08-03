@@ -63,15 +63,8 @@ public:
       {Style::WigglingWormhole()},
   }};
 
-  /** @brief True iff every entry of PRESETS satisfies preset_in_ranges(). */
-  static constexpr bool all_presets_in_ranges() {
-    for (const auto &e : PRESETS)
-      if (!preset_in_ranges(e.params))
-        return false;
-    return true;
-  }
   static_assert(
-      all_presets_in_ranges(),
+      all_presets_in_ranges(PRESETS, preset_in_ranges),
       "a MeshFeedback preset drives a style field outside its "
       "registered slider range; widen the range to accommodate the "
       "preset (the range exposes the presets, it does not clamp them)");

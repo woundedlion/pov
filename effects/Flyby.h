@@ -261,11 +261,7 @@ private:
       {{47.752f, 2.55f, 7.878f, 0.562f, 2.843f, 0.0f}},
       {{100.0f, 8.67f, 1.0f, 0.586f, 3.432f, 0.636f}},
   }};
-  static_assert(preset_in_ranges(PRESETS[0].params) &&
-                    preset_in_ranges(PRESETS[1].params) &&
-                    preset_in_ranges(PRESETS[2].params) &&
-                    preset_in_ranges(PRESETS[3].params) &&
-                    preset_in_ranges(PRESETS[4].params),
+  static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
                 "a Flyby preset drives a param outside its registered slider "
                 "range; widen the range to accommodate the preset (the range "
                 "exposes the presets, it does not clamp them)");

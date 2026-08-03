@@ -247,10 +247,7 @@ private:
            p.alpha >= ALPHA_MIN && p.alpha <= ALPHA_MAX;
   }
 
-  static_assert(preset_in_ranges(PRESETS[0].params) &&
-                    preset_in_ranges(PRESETS[1].params) &&
-                    preset_in_ranges(PRESETS[2].params) &&
-                    preset_in_ranges(PRESETS[3].params),
+  static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
                 "a DreamBalls preset drives a param outside its registered "
                 "slider range; widen the range to accommodate the preset");
 
