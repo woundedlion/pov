@@ -128,7 +128,7 @@ public:
       return 1;
     int width = static_cast<int>(ceilf(1.0f / sine)) | 1;
     const int maximum_odd_width = (W & 1) ? W : W - 1;
-    return std::clamp(width, 1, maximum_odd_width);
+    return hs::clamp(width, 1, maximum_odd_width);
   }
 
   /**
@@ -254,7 +254,7 @@ public:
   }
 
   constexpr Row row(float y) const {
-    const float bounded_y = std::clamp(y, 0.0f, static_cast<float>(H - 1));
+    const float bounded_y = hs::clamp(y, 0.0f, static_cast<float>(H - 1));
     const int lower_index = ring_index_at_or_before(bounded_y);
     int upper_index = std::min(lower_index + 1, ring_count() - 1);
     Ring lower = ring(lower_index);
@@ -266,7 +266,7 @@ public:
   }
 
   constexpr int ring_index_at_or_before(float y) const {
-    const float bounded_y = std::clamp(y, 0.0f, static_cast<float>(H - 1));
+    const float bounded_y = hs::clamp(y, 0.0f, static_cast<float>(H - 1));
     int index = 0;
     int current_y = 0;
     while (current_y < H - 1 && next_ring_y(current_y) <= bounded_y) {
