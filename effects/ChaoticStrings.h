@@ -171,8 +171,8 @@ public:
     Canvas canvas(*this);
     ScratchScope scratch_a_guard(scratch_arena_a);
     ArenaVector<TrailVertex> vertices(scratch_arena_a, MAX_FRAGMENTS);
-    palette_speed = palette_phase_speed(
-        params.cycle_speed, params.scale_factor, node->trail.length());
+    palette_speed = palette_phase_speed(params.cycle_speed, params.scale_factor,
+                                        node->trail.length());
     {
       HS_PROFILE(cs_timeline_step);
       timeline.step(canvas);

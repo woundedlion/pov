@@ -540,11 +540,10 @@ inline void test_segment_tiles_reconstruct_full_frame() {
  * column shows up as a mismatch against the unclipped frame.
  */
 inline void test_star_azimuthal_cull_spans_narrow_columns() {
-  const OracleClip columns[] = {
-      {0, ORACLE_H, 0, ORACLE_W / 4},
-      {0, ORACLE_H, ORACLE_W / 4, ORACLE_W / 2},
-      {0, ORACLE_H, ORACLE_W / 2, 3 * ORACLE_W / 4},
-      {0, ORACLE_H, 3 * ORACLE_W / 4, ORACLE_W}};
+  const OracleClip columns[] = {{0, ORACLE_H, 0, ORACLE_W / 4},
+                                {0, ORACLE_H, ORACLE_W / 4, ORACLE_W / 2},
+                                {0, ORACLE_H, ORACLE_W / 2, 3 * ORACLE_W / 4},
+                                {0, ORACLE_H, 3 * ORACLE_W / 4, ORACLE_W}};
   const std::array<Quaternion, 4> orientations = {{
       Quaternion(),
       make_rotation(X_AXIS, Z_AXIS),
@@ -592,11 +591,9 @@ inline void test_shape_alpha_fades_to_equator() {
   HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(1, 6), 2.0f / 3.0f, 1e-6f);
   HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 6), 1.0f / 3.0f, 1e-6f);
   HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(3, 6), 1.0f / 3.0f, 1e-6f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(4, 6), 2.0f / 3.0f,
-                 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(4, 6), 2.0f / 3.0f, 1e-6f);
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(5, 6), 1.0f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 5), 2.0f / 5.0f,
-                 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 5), 2.0f / 5.0f, 1e-6f);
 }
 
 inline void test_opposite_halves_direction() {

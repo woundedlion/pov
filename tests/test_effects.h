@@ -2349,18 +2349,15 @@ inline void test_chaoticstrings_preset_and_fire_duty_cycle() {
                    WB::CS::TRAIL_LENGTH);
   HS_EXPECT_EQ(WB::palette_fill_scale(WB::CS::TRAIL_LENGTH), 1.0f);
   const float sample_index = 12.0f;
-  const float short_coord =
-      (sample_index / 32.0f) * WB::palette_fill_scale(32);
-  const float long_coord =
-      (sample_index / 96.0f) * WB::palette_fill_scale(96);
+  const float short_coord = (sample_index / 32.0f) * WB::palette_fill_scale(32);
+  const float long_coord = (sample_index / 96.0f) * WB::palette_fill_scale(96);
   HS_EXPECT_NEAR(short_coord, long_coord, 1e-7f);
 
   const float cycle_speed = value("Cycle Speed");
   const float scale_factor = value("Scale Factor");
   const float coordinate_shift = scale_factor / WB::CS::TRAIL_LENGTH;
-  const float filling_speed =
-      WB::palette_phase_speed(cycle_speed, scale_factor,
-                              WB::CS::TRAIL_LENGTH - 1);
+  const float filling_speed = WB::palette_phase_speed(cycle_speed, scale_factor,
+                                                      WB::CS::TRAIL_LENGTH - 1);
   const float saturated_speed =
       WB::palette_phase_speed(cycle_speed, scale_factor, WB::CS::TRAIL_LENGTH);
   HS_EXPECT_NEAR(filling_speed, cycle_speed - coordinate_shift, 1e-7f);
@@ -3020,12 +3017,11 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
           ++lit_pixels;
       }
     }
-    std::printf(
-        "sink parity quadrant x[%d,%d) y[%d,%d) lit=%zu changed=%zu "
-        "max_channel=%d total=%llu\n",
-        quadrant.x0, quadrant.x1, quadrant.y0, quadrant.y1, lit_pixels,
-        changed_pixels, max_channel_error,
-        static_cast<unsigned long long>(total_channel_error));
+    std::printf("sink parity quadrant x[%d,%d) y[%d,%d) lit=%zu changed=%zu "
+                "max_channel=%d total=%llu\n",
+                quadrant.x0, quadrant.x1, quadrant.y0, quadrant.y1, lit_pixels,
+                changed_pixels, max_channel_error,
+                static_cast<unsigned long long>(total_channel_error));
     HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
   }
   hs::clear_mock_time();
