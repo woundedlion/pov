@@ -87,7 +87,7 @@ static constexpr float MIN_POLE_SCALE = 0.05f;
 static constexpr float SCREEN_STEP_PX = 0.9f;
 
 /** @brief Adaptive raster sampling density. */
-enum class RasterSamplingPolicy { DEFAULT, BALANCED };
+enum class RasterSamplingPolicy { DEFAULT, BALANCED, SELECTABLE };
 
 /** @brief Balanced-policy target spacing in screen pixels. */
 static constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
@@ -1445,6 +1445,8 @@ struct RasterOptions {
    * closed loop without an overlapping point.
    */
   const Fragment *loop_seam = nullptr;
+  /** Enables balanced sampling for a SELECTABLE rasterizer. */
+  bool balanced_sampling = false;
 #ifdef HS_TEST_BUILD
   /** Rebuild a planar sampler after culling instead of reusing cull samples. */
   bool rebuild_planar_sampler = false;
@@ -1520,6 +1522,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   const float *point_rows = opts.point_rows;
   const float *point_cols = opts.point_cols;
   const Fragment *loop_seam = OpenGeodesic ? nullptr : opts.loop_seam;
+  const bool balanced_sampling =
+      SamplingPolicy == RasterSamplingPolicy::BALANCED ||
+      (SamplingPolicy == RasterSamplingPolicy::SELECTABLE &&
+       opts.balanced_sampling);
   auto &pipeline = source_pipeline;
   size_t len = points.size();
   // A degenerate path is not drawn — callers wanting a dot duplicate the vertex,
@@ -1714,17 +1720,17 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       float current_t = 0.0f;
       float desired_step = first_step;
       float default_desired_step = first_step;
-      if constexpr (SamplingPolicy == RasterSamplingPolicy::BALANCED)
-        desired_step = std::min(
-            base_step, first_step *
-                           (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
+      if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
+        if (balanced_sampling)
+          desired_step = std::min(
+              base_step, first_step *
+                             (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
+      }
       size_t step_count = 0;
       while (current_dist < total_dist) {
-        if constexpr (!(SamplingPolicy == RasterSamplingPolicy::BALANCED &&
-                        requires { sample.one_pass(current_t); }))
-          HS_PLOT_COUNT(normalizations);
         Vector p;
         if constexpr (OpenGeodesic) {
+          HS_PLOT_COUNT(normalizations);
 #ifdef HS_TEST_BUILD
           if (g_reference_screen_step) {
             p = smp.pos.normalized();
@@ -1735,11 +1741,16 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
             const float norm2 = dot(smp.pos, smp.pos);
             p = smp.pos * (1.5f - 0.5f * norm2);
           }
-        } else if constexpr (
-            SamplingPolicy == RasterSamplingPolicy::BALANCED &&
-            requires { sample.one_pass(current_t); }) {
-          p = smp.pos;
+        } else if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT &&
+                             requires { sample.one_pass(current_t); }) {
+          if (balanced_sampling) {
+            p = smp.pos;
+          } else {
+            HS_PLOT_COUNT(normalizations);
+            p = smp.pos.normalized();
+          }
         } else {
+          HS_PLOT_COUNT(normalizations);
           p = smp.pos.normalized();
         }
         Fragment f;
@@ -1750,9 +1761,11 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         set_arc_uv(f, current_dist);
         HS_PLOT_COUNT(shader_calls);
         shade_fragment(p, f);
-        if constexpr (SamplingPolicy == RasterSamplingPolicy::BALANCED) {
-          const float alpha_scale = desired_step / default_desired_step;
-          f.color.alpha = std::min(1.0f, f.color.alpha * alpha_scale);
+        if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
+          if (balanced_sampling) {
+            const float alpha_scale = desired_step / default_desired_step;
+            f.color.alpha = std::min(1.0f, f.color.alpha * alpha_scale);
+          }
         }
         HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
@@ -1776,13 +1789,13 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           HS_PLOT_COUNT(sim_samples);
           smp = adaptive_sample(current_t);
           default_desired_step = adaptive_step(smp);
-          if constexpr (SamplingPolicy == RasterSamplingPolicy::BALANCED) {
-            desired_step = std::min(
-                base_step,
-                default_desired_step *
-                    (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
-          } else {
-            desired_step = default_desired_step;
+          desired_step = default_desired_step;
+          if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
+            if (balanced_sampling)
+              desired_step = std::min(
+                  base_step,
+                  default_desired_step *
+                      (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
           }
         }
       }
@@ -1795,9 +1808,11 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         set_arc_uv(f, total_dist);
         HS_PLOT_COUNT(shader_calls);
         shade_fragment(next.pos, f);
-        if constexpr (SamplingPolicy == RasterSamplingPolicy::BALANCED) {
-          const float alpha_scale = desired_step / default_desired_step;
-          f.color.alpha = std::min(1.0f, f.color.alpha * alpha_scale);
+        if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
+          if (balanced_sampling) {
+            const float alpha_scale = desired_step / default_desired_step;
+            f.color.alpha = std::min(1.0f, f.color.alpha * alpha_scale);
+          }
         }
         HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, next.pos, f.color.color, f.age, f.color.alpha);
