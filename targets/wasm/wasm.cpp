@@ -49,12 +49,27 @@ static void stack_paint_canary() {
  *          coincidental byte 0xCD, or that reserved space it never actually
  *          stored to, reads back as still-canary and under-reports. Use it as a
  *          conservative "at least this deep" signal, not a precise measurement.
+ *          The scan walks the whole still-canary region, so it runs word-wise
+ *          and falls back to bytes only at the alignment head and the boundary
+ *          word.
  */
 static size_t stack_high_water_mark() {
   uintptr_t base = emscripten_stack_get_base();
   uintptr_t end = emscripten_stack_get_end();
   const uint8_t *p = reinterpret_cast<const uint8_t *>(end);
   const uint8_t *top = reinterpret_cast<const uint8_t *>(base);
+  constexpr size_t WORD = sizeof(uint64_t);
+  constexpr uint64_t CANARY_WORD = 0x0101010101010101ull * STACK_CANARY;
+  while (p < top && (reinterpret_cast<uintptr_t>(p) % WORD) != 0 &&
+         *p == STACK_CANARY)
+    p++;
+  while (p + WORD <= top) {
+    uint64_t w;
+    std::memcpy(&w, p, WORD);
+    if (w != CANARY_WORD)
+      break;
+    p += WORD;
+  }
   while (p < top && *p == STACK_CANARY)
     p++;
   return static_cast<size_t>(top - p);
@@ -175,31 +190,50 @@ static void ensure_tooling_arenas() {
 }
 
 /**
+ * @brief Adds one arena's {usage, high_water_mark, capacity} entry to a report.
+ * @param metrics Report object to extend.
+ * @param name Key the entry is stored under.
+ * @param arena Arena to measure.
+ */
+static void add_arena_metrics(val &metrics, const char *name, Arena &arena) {
+  val m = val::object();
+  m.set("usage", arena.get_offset());
+  m.set("high_water_mark", arena.get_high_water_mark());
+  m.set("capacity", arena.get_capacity());
+  metrics.set(name, m);
+}
+
+/**
+ * @brief Builds a {usage, high_water_mark, capacity} report for the three engine
+ *        arenas.
+ * @return JS object mapping each engine arena name to its metrics, in bytes.
+ * @details The per-frame HUD path. Every entry costs an embind round-trip, so
+ *          this covers only the arenas an engine instance can move; the tooling
+ *          arenas are reported by collect_arena_metrics().
+ */
+static val collect_engine_arena_metrics() {
+  val metrics = val::object();
+  add_arena_metrics(metrics, "scratch_arena_a", scratch_arena_a);
+  add_arena_metrics(metrics, "scratch_arena_b", scratch_arena_b);
+  add_arena_metrics(metrics, "persistent_arena", persistent_arena);
+  return metrics;
+}
+
+/**
  * @brief Builds a {usage, high_water_mark, capacity} report for the three engine
  *        arenas and the three tooling arenas.
  * @return JS object mapping each arena name to its {usage, high_water_mark,
  *         capacity} metrics, in bytes.
- * @details Shared by HolosphereEngine and MeshOpsWrapper. Callers that also want
- *          stack metrics append them to the returned object. The tooling scratch
+ * @details Read on demand through MeshOps.getArenaMetrics(). The tooling scratch
  *          arenas are the regions TOOLING_BYTES_PER_MESH_ELEMENT is sized
  *          against, and an operator that overruns one takes the module down, so
  *          they are reported alongside the rest rather than left unobservable.
  */
 static val collect_arena_metrics() {
-  val metrics = val::object();
-  auto add_metrics = [&](const char *name, Arena &arena) {
-    val m = val::object();
-    m.set("usage", arena.get_offset());
-    m.set("high_water_mark", arena.get_high_water_mark());
-    m.set("capacity", arena.get_capacity());
-    metrics.set(name, m);
-  };
-  add_metrics("scratch_arena_a", scratch_arena_a);
-  add_metrics("scratch_arena_b", scratch_arena_b);
-  add_metrics("persistent_arena", persistent_arena);
-  add_metrics("tooling_arena", tooling_arena);
-  add_metrics("tooling_scratch_a", tooling_scratch_a);
-  add_metrics("tooling_scratch_b", tooling_scratch_b);
+  val metrics = collect_engine_arena_metrics();
+  add_arena_metrics(metrics, "tooling_arena", tooling_arena);
+  add_arena_metrics(metrics, "tooling_scratch_a", tooling_scratch_a);
+  add_arena_metrics(metrics, "tooling_scratch_b", tooling_scratch_b);
   return metrics;
 }
 
@@ -719,11 +753,16 @@ public:
 
   /**
    * @brief Reports engine arena and stack metrics for the JS memory HUD.
-   * @return JS object of arena metrics ({usage, high_water_mark, capacity})
-   *         plus a "stack" entry ({high_water_mark, capacity}), all in bytes.
+   * @return JS object of the three engine arenas' metrics ({usage,
+   *         high_water_mark, capacity}) plus a "stack" entry ({high_water_mark,
+   *         capacity}), all in bytes.
+   * @details Read once per frame by the HUD, on the main thread and in every
+   *          segment worker. The tooling arenas are not included: an engine
+   *          instance never moves them, and MeshOps.getArenaMetrics() reports
+   *          all six on demand.
    */
   val getArenaMetrics() {
-    val metrics = collect_arena_metrics();
+    val metrics = collect_engine_arena_metrics();
 
     // Stack region. No running usage: the live depth at this call is outside any
     // render, so only the high-water mark is meaningful.
