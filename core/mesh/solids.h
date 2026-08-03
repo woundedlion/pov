@@ -337,7 +337,9 @@ public:
   }
   /**
    * @brief Applies the chamfer operator (replace edges with hexagons).
-   * @param t Chamfer width as a fraction of the edge.
+   * @param t Fraction each face corner moves toward the face centroid, in
+   *   [0, 1); at 1 a face collapses to its centroid, so it traps. See
+   *   MeshOps::chamfer.
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &chamfer(float t = 0.5f) {
@@ -347,8 +349,10 @@ public:
   }
   /**
    * @brief Applies the snub operator (chiral expansion with a twist).
-   * @param t Expansion amount.
-   * @param twist Rotation applied to each face, in radians.
+   * @param t Inset factor of each face toward its centroid, in [0, 1); at 1 a
+   *   face collapses to its centroid, so it traps.
+   * @param twist Per-face rotation about the face normal, in radians; 0
+   *   disables the twist pass. See MeshOps::snub.
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &snub(float t = 0.5f, float twist = 0.0f) {
@@ -368,7 +372,9 @@ public:
   }
   /**
    * @brief Relaxes vertex positions toward a regular configuration.
-   * @param iterations Number of smoothing iterations to run.
+   * @param iterations Upper bound on the smoothing passes; relax stops early
+   *   once the springs converge, so fewer usually run. Must be non-negative;
+   *   0 is a normalize-only pass-through. See MeshOps::relax.
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &relax(int iterations = 8) {
@@ -469,7 +475,9 @@ public:
   }
   /**
    * @brief Applies the bevel operator (truncate composed with ambo).
-   * @param t Bevel depth along each edge.
+   * @param t Truncation depth forwarded to the truncate step, in [0, 1]. At
+   *   exactly 0.5 truncate short-circuits to ambo, so the chain is ambo(ambo)
+   *   with that census rather than a bevel. See MeshOps::bevel.
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &bevel(float t = 0.25f) {
