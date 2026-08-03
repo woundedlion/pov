@@ -1060,9 +1060,8 @@ Available transformers:
 | `MobiusWarpCircularTransformer` | Loops a Möbius warp continuously |
 | `MobiusWarpGnomonicTransformer` | Möbius via gnomonic projection (preserves straight lines in hemisphere) |
 | `NoiseTransformer` | Distorts surface positions with 3D simplex noise |
-| `OrientTransformer` | Applies an `Orientation` quaternion rotation to all vertices |
 
-Transformers integrate with the `MeshOps::transform()` pipeline and can be chained: `MeshOps::transform(input, output, arena, ripple_transformer, orient_transformer)`.
+Transformers integrate with the `MeshOps::transform()` pipeline and can be chained: `MeshOps::transform(input, output, arena, ripple_transformer, orient_transformer)`. `transform()` takes any callable with a `transform(Vector)`, so a pool specialization and a plain adapter compose in the same call.
 
 #### Displacement Fields
 
@@ -1084,6 +1083,8 @@ Both classes derive from `TransformerPool`, which fixes the call order:
 5. `reclaim_storage(Arena&)` — from the after-reset callback of an arena that is compacted mid-effect (e.g. a mesh carousel). Spawned animations hold `Params` references into the slots, so the caller must replay the same allocation order after the reset as after `init_storage()`; the re-claimed blocks must land at their original addresses (asserted). A reset only rewinds the offset, so the untouched bytes carry live entities through.
 
 #### Standalone Utilities
+
+`OrientTransformer<CAP>` (`transformers.h`) is a plain adapter struct, not a `Transformer<>` specialization: it holds a reference to an `Orientation<CAP>` and applies `orientation.orient()` to each vertex. It has no pool, no params and no lifecycle — effects construct one on the stack at the call site (a deduction guide takes `CAP` from the orientation) and hand it straight to `MeshOps::transform()`.
 
 `stereo_noise_warp()` (`transformers.h`) is a free function, not a `Transformer<>` specialization — it is called directly by effects rather than managed through the transformer pool. It takes an already-projected stereographic coordinate `z` (a `Complex`) plus its precomputed `r_sq` (|z|²) — the caller does the `stereo()` projection — and adds FastNoiseLite-driven displacement attenuated near the projection pole. Returns a `StereoWarpResult` containing the warped coordinate and displacement magnitude (used for hue shift by Liquid2D and Flyby).
 
