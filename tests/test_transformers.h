@@ -176,7 +176,10 @@ inline void test_mobius_known_rotation() {
  *          is independent of the homogeneous formulation under test. Points
  *          inside the pole cap are excluded from the value comparison — there
  *          the oracle's own quotient is ill-conditioned — but their image is
- *          still required to be finite and unit.
+ *          still required to be finite and unit. The 4000 draws report through
+ *          worst-error accumulators rather than per-draw assertions: per-draw
+ *          HS_EXPECTs would put ~20k assertions into the module's floor and
+ *          leave the floor gate blind to every other case being deleted.
  */
 inline void test_mobius_matches_double_precision_oracle() {
   hs::random().seed(20260720);
@@ -202,6 +205,9 @@ inline void test_mobius_matches_double_precision_oracle() {
   };
 
   int compared = 0;
+  int nonfinite = 0;
+  float worst_unit_err = 0.0f;
+  float worst_oracle_err = 0.0f;
   for (int n = 0; n < 4000; ++n) {
     Vector v;
     for (;;) {
@@ -233,16 +239,20 @@ inline void test_mobius_matches_double_precision_oracle() {
       continue;
 
     Vector got = mobius_transform(v, p);
-    HS_EXPECT_TRUE(finite_vec(got));
-    HS_EXPECT_NEAR(got.length(), 1.0f, 1e-5f);
+    nonfinite += !finite_vec(got);
+    worst_unit_err =
+        std::max(worst_unit_err, std::fabs(got.length() - 1.0f));
     if (1.0f - v.y < STEREO_POLE_EPS)
       continue;
     Vector want = oracle(v, p);
     ++compared;
-    HS_EXPECT_NEAR(got.x, want.x, 2e-3f);
-    HS_EXPECT_NEAR(got.y, want.y, 2e-3f);
-    HS_EXPECT_NEAR(got.z, want.z, 2e-3f);
+    worst_oracle_err = std::max(worst_oracle_err, std::fabs(got.x - want.x));
+    worst_oracle_err = std::max(worst_oracle_err, std::fabs(got.y - want.y));
+    worst_oracle_err = std::max(worst_oracle_err, std::fabs(got.z - want.z));
   }
+  HS_EXPECT_EQ(nonfinite, 0);
+  HS_EXPECT_LE(worst_unit_err, 1e-5f);
+  HS_EXPECT_LE(worst_oracle_err, 2e-3f);
   HS_EXPECT_GT(compared, 1000);
 }
 
@@ -1131,12 +1141,18 @@ inline void test_noise_product_field_parity() {
  * @details field_bound() = |amplitude| holds only if the generator's own output
  * stays within [-1, 1] on both octaves, so the sweep measures that claim
  * directly rather than trusting it. The bound sizes displacement culls; a point
- * outside it would be culled while still displaced.
+ * outside it would be culled while still displaced. The 49,152 samples report
+ * through violation counters rather than per-sample assertions: a per-sample
+ * HS_EXPECT would put ~200k assertions into the module's floor and leave the
+ * floor gate blind to every other case in the module being deleted.
  */
 inline void test_noise_product_field_bound_is_conservative() {
   hs::random().seed(20260801);
   float worst_ratio = 0.0f;
   float worst_octave = 0.0f;
+  int nonfinite = 0;
+  int over_bound = 0;
+  int octave_out_of_range = 0;
   for (int trial = 0; trial < 96; ++trial) {
     const float amplitude = hs::rand_f(-2.0f, 2.0f);
     const float scale1 = hs::rand_f(0.25f, 12.0f);
@@ -1162,22 +1178,25 @@ inline void test_noise_product_field_bound_is_conservative() {
       const Vector v = r.normalized();
 
       const float f = noise_product_field(v, p);
-      HS_EXPECT_TRUE(std::isfinite(f));
-      HS_EXPECT_LE(std::fabs(f), bound);
+      nonfinite += !std::isfinite(f);
+      over_bound += std::fabs(f) > bound;
 
       const float n1 = p.noise.GetNoise(v.x * p.scale1, v.y * p.scale1,
                                         v.z * p.scale1 + p.time);
       const float n2 = p.noise.GetNoise(
           v.x * p.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
           v.y * p.scale2, v.z * p.scale2 + p.time);
-      HS_EXPECT_LE(std::fabs(n1), 1.0f);
-      HS_EXPECT_LE(std::fabs(n2), 1.0f);
+      octave_out_of_range += std::fabs(n1) > 1.0f;
+      octave_out_of_range += std::fabs(n2) > 1.0f;
       worst_octave = std::max(worst_octave, std::fabs(n1));
       worst_octave = std::max(worst_octave, std::fabs(n2));
       if (bound > 0.001f)
         worst_ratio = std::max(worst_ratio, std::fabs(f) / bound);
     }
   }
+  HS_EXPECT_EQ(nonfinite, 0);
+  HS_EXPECT_EQ(over_bound, 0);
+  HS_EXPECT_EQ(octave_out_of_range, 0);
   // The sweep must reach a substantial fraction of the bound, otherwise it
   // would pass on a field that never leaves zero.
   HS_EXPECT_GT(worst_octave, 0.5f);
