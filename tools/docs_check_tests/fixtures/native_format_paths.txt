@@ -1,0 +1,13 @@
+The firmware sketch `targets/Phantasm/Phantasm.ino` is tracked.
+A stale sketch reference `targets/Phantasm/Ghost.ino` is not.
+The linker script `tools/phantasm.ld` is tracked.
+A stale linker script `tools/ghost.ld` is not.
+The board file `hardware/phantasm/phantasm.kicad_pcb` is tracked.
+A stale board `hardware/phantasm/ghost.kicad_pcb` is not.
+A stale schematic `hardware/phantasm/ghost.kicad_sch` is not.
+A stale project `hardware/phantasm/ghost.kicad_pro` is not.
+A stale symbol library `hardware/phantasm/ghost.kicad_sym` is not.
+A stale footprint `hardware/phantasm/ghost.kicad_mod` is not.
+A stale 3D model `hardware/phantasm/ghost.wrl` is not.
+A stale screenshot `docs/ghost.png` is not.
+A stale theme file `docs/ghost.cfg` is not.
