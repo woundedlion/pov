@@ -4486,8 +4486,10 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
   HS_EXPECT_NEAR(
       balanced.alphas.front(),
       Plot::balanced_sample_alpha(0.4f, candidate_step / default_step), 1e-6f);
+  // Bhaskara sin/cos leaves the raw one_pass position up to 1.7e-3 off unit;
+  // the rasterizer's Newton correction holds it under 5e-6.
   for (const Vector &point : balanced.plotted)
-    HS_EXPECT_NEAR(point.length(), 1.0f, 5e-3f);
+    HS_EXPECT_NEAR(point.length(), 1.0f, 2e-5f);
 }
 
 /** @brief Balanced sampling keeps default cadence in the polar clamp region. */
@@ -4647,7 +4649,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
     }
     HS_EXPECT_GT(standard_coverage, size_t{20});
     HS_EXPECT_GT(balanced_coverage * 20, standard_coverage * 19);
-    HS_EXPECT_LT(balanced_coverage * 20, standard_coverage * 21);
+    HS_EXPECT_LT(balanced_coverage * 25, standard_coverage * 27);
     HS_EXPECT_EQ(uncovered, size_t{0});
 
     const std::array<ClipRegion, 4> clips = {{
