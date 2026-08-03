@@ -1016,19 +1016,39 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
   // sin²φ = 1 - y²; floored so the pole (sin φ → 0) yields a finite, large
   // velocity (hence the min-clamped step) rather than a divide-by-zero.
   const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
-  const float inv_sin = fast_rsqrt(sin2);
-  const float dphi_ds = -tan.y * inv_sin;
-  const float dlon_ds = (pos.x * tan.z - pos.z * tan.x) * inv_sin * inv_sin;
-  const float vx = KX * dlon_ds;
-  const float vy = KY * dphi_ds;
-  // Squared so fast_rsqrt's strictly-positive domain holds; sqrt is monotone,
-  // so flooring here matches flooring the speed at 1e-6.
-  const float speed2 = std::max(vx * vx + vy * vy, 1e-12f);
+  const float vx_num = KX * (pos.x * tan.z - pos.z * tan.x);
+  const float vy_num = KY * tan.y;
+  // Factoring the common sin(phi) denominator avoids a separate reciprocal
+  // square root while preserving the screen-speed floor.
+  const float speed2_num =
+      std::max(vx_num * vx_num + vy_num * vy_num * sin2, 1e-12f * sin2 * sin2);
   // Degenerate-speed floor: guards 1/speed when a zero/near-zero tangent stalls
   // the curve, yielding base_step rather than an unbounded step.
+  const float step = SCREEN_STEP_PX * sin2 * fast_rsqrt(speed2_num);
+  return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
+}
+
+#ifdef HS_TEST_BUILD
+inline bool g_reference_screen_step = false;
+
+template <int W, int H>
+static inline float screen_step_reference(const Vector &pos, const Vector &tan,
+                                          float base_step) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  const float KX = W / (2.0f * PI_F);
+  const float KY = (H_VIRT - 1) / PI_F;
+  const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
+  const float inv_sin = fast_rsqrt(sin2);
+  const float dphi_ds = -tan.y * inv_sin;
+  const float dlon_ds =
+      (pos.x * tan.z - pos.z * tan.x) * inv_sin * inv_sin;
+  const float vx = KX * dlon_ds;
+  const float vy = KY * dphi_ds;
+  const float speed2 = std::max(vx * vx + vy * vy, 1e-12f);
   const float step = SCREEN_STEP_PX * fast_rsqrt(speed2);
   return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
 }
+#endif
 
 /**
  * @brief True when @p P statically declares it has no world cull stage, so a
@@ -1451,6 +1471,13 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 
     // Sub-step length at the segment start (also the first simulation step).
     const float base_step = (2.0f * PI_F) / W;
+    auto adaptive_step = [&](const SamplePT &value) {
+#ifdef HS_TEST_BUILD
+      if (g_reference_screen_step)
+        return screen_step_reference<W, H>(value.pos, value.tan, base_step);
+#endif
+      return screen_step<W, H>(value.pos, value.tan, base_step);
+    };
     auto adaptive_sample = [&](float t) -> SamplePT {
       HS_MSP_STALL_START(adaptive_start);
       SamplePT result;
@@ -1464,7 +1491,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     };
     HS_PLOT_COUNT(sim_samples);
     SamplePT smp = adaptive_sample(0.0f);
-    float first_step = screen_step<W, H>(smp.pos, smp.tan, base_step);
+    float first_step = adaptive_step(smp);
 
     // FAST PATH: the whole segment spans ≤ one screen step, so a single dot
     // covers it. Keyed on SCREEN length, not arc length: a base_step arc can
@@ -1529,7 +1556,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           current_t = current_dist / total_dist;
           HS_PLOT_COUNT(sim_samples);
           smp = adaptive_sample(current_t);
-          desired_step = screen_step<W, H>(smp.pos, smp.tan, base_step);
+          desired_step = adaptive_step(smp);
         }
       }
       if (!close_loop && is_last_segment && !omit_end) {
@@ -1550,9 +1577,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     {
       HS_PROFILE_DEEP(plot_seg_sim);
       while (sim_dist < total_dist) {
-        float step = steps_cache.is_empty()
-                         ? first_step
-                         : screen_step<W, H>(smp.pos, smp.tan, base_step);
+        float step = steps_cache.is_empty() ? first_step : adaptive_step(smp);
 
         // Backstop: a pathological segment could exceed the 2*W cache. Stop
         // subdividing and let the normalized replay stretch the cached steps
