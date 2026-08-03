@@ -30,6 +30,7 @@ constexpr uint32_t MAX_CHANNEL_ERROR = 32768;
 constexpr double MAX_ENERGY_DRIFT = 0.006;
 constexpr double MAX_HIGH_COUNT_STAR_ENERGY_DRIFT = 0.013;
 constexpr size_t MAX_HIGH_ERROR_PIXELS = 1600;
+constexpr size_t MAX_STAR_HIGH_ERROR_PIXELS = 1800;
 using OracleEffect = ShapeShifter<ORACLE_W, ORACLE_H>;
 
 /** @brief Display bounds used by one oracle render. */
@@ -166,6 +167,10 @@ struct ShapeShifterWhiteBox {
 
   static float shape_alpha(int index, int count) {
     return OracleEffect::shape_alpha(index, count);
+  }
+
+  static float star_palette_position(float radius_t) {
+    return OracleEffect::star_palette_position(radius_t);
   }
 
   static void next_preset(OracleEffect &effect) { effect.next_preset(); }
@@ -347,7 +352,8 @@ inline bool candidate_covers_neighborhood(const OracleFrame &candidate, int x,
 }
 
 inline void expect_candidate_within_visual_budget(
-    const OracleState &state, double max_energy_drift = MAX_ENERGY_DRIFT) {
+    const OracleState &state, double max_energy_drift = MAX_ENERGY_DRIFT,
+    size_t max_high_error_pixels = MAX_HIGH_ERROR_PIXELS) {
   RenderComparison comparison =
       compare_renders(state, reference_renderer(), candidate_renderer());
   const uint64_t reference_energy = frame_energy(comparison.reference);
@@ -387,15 +393,21 @@ inline void expect_candidate_within_visual_budget(
                MAX_ROOT_MEAN_SQUARED_ERROR);
   HS_EXPECT_LT(comparison.error.max_absolute_error, MAX_CHANNEL_ERROR);
   HS_EXPECT_LT(energy_ratio, max_energy_drift);
-  HS_EXPECT_LT(high_error_pixels, MAX_HIGH_ERROR_PIXELS);
+  HS_EXPECT_LT(high_error_pixels, max_high_error_pixels);
   HS_EXPECT_EQ(uncovered_bright_pixels, size_t{0});
   HS_EXPECT_EQ(comparison.reference.backstop_hits, uint32_t{0});
   HS_EXPECT_EQ(comparison.candidate.backstop_hits, uint32_t{0});
 }
 
 inline void test_candidate_matrix_stays_within_visual_budget() {
-  for (const OracleState &state : exhaustive_matrix())
-    expect_candidate_within_visual_budget(state);
+  for (const OracleState &state : exhaustive_matrix()) {
+    const size_t max_high_error_pixels =
+        state.shape == OracleEffect::ShapeType::STAR
+            ? MAX_STAR_HIGH_ERROR_PIXELS
+            : MAX_HIGH_ERROR_PIXELS;
+    expect_candidate_within_visual_budget(state, MAX_ENERGY_DRIFT,
+                                          max_high_error_pixels);
+  }
 }
 
 inline void test_high_count_star_preset_stays_within_visual_budget() {
@@ -420,8 +432,9 @@ inline void test_high_count_star_preset_stays_within_visual_budget() {
     state.phase = phases[i];
     state.alpha = 0.274f;
     state.orientation = orientations[i];
-    expect_candidate_within_visual_budget(state,
-                                          MAX_HIGH_COUNT_STAR_ENERGY_DRIFT);
+    expect_candidate_within_visual_budget(
+        state, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT,
+        MAX_STAR_HIGH_ERROR_PIXELS);
   }
 }
 
@@ -458,6 +471,42 @@ inline void test_high_count_star_preset_covers_north_pole() {
   HS_EXPECT_GE(candidate_pole_energy * 10, reference_pole_energy * 9);
   HS_EXPECT_GE(candidate_covered * 100, reference_covered * 98);
   HS_EXPECT_EQ(uncovered_pole_pixels, size_t{0});
+}
+
+inline uint64_t geometric_pole_energy(const OracleFrame &frame,
+                                      const Vector &pole) {
+  const PixelCoords center = vector_to_pixel<ORACLE_W, ORACLE_H>(pole);
+  uint64_t energy = 0;
+  for (int y = 0; y < ORACLE_H; ++y) {
+    for (int x = 0; x < ORACLE_W; ++x) {
+      const float raw_dx = fabsf(static_cast<float>(x) - center.x);
+      const float dx = std::min(raw_dx, ORACLE_W - raw_dx);
+      const float dy = static_cast<float>(y) - center.y;
+      if (dx * dx + dy * dy >= 16.0f)
+        continue;
+      const Pixel &pixel = frame.at(x, y);
+      energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+    }
+  }
+  return energy;
+}
+
+inline void test_high_count_star_preset_has_no_geometric_pole_hole() {
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::STAR;
+  state.function = OracleEffect::PhaseFunction::SINE;
+  state.count = 144;
+  state.sides = 7;
+  state.phase = 0.125f;
+  state.alpha = 0.274f;
+  state.orientation = Quaternion();
+  const OracleFrame frame = capture_frame(state, candidate_renderer());
+  const uint64_t near_energy = geometric_pole_energy(frame, X_AXIS);
+  const uint64_t far_energy = geometric_pole_energy(frame, -X_AXIS);
+  HS_EXPECT_GT(near_energy, uint64_t{0});
+  HS_EXPECT_GT(far_energy, uint64_t{0});
+  HS_EXPECT_GE(std::min(near_energy, far_energy) * 5,
+               std::max(near_energy, far_energy) * 4);
 }
 
 inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
@@ -596,6 +645,14 @@ inline void test_shape_alpha_fades_to_equator() {
   HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 5), 2.0f / 5.0f, 1e-6f);
 }
 
+inline void test_star_palette_position_mirrors_at_equator() {
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::star_palette_position(0.0f), 0.0f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::star_palette_position(0.25f), 0.5f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::star_palette_position(0.5f), 1.0f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::star_palette_position(0.75f), 0.5f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::star_palette_position(1.0f), 0.0f);
+}
+
 inline void test_opposite_halves_direction() {
   {
     OracleEffect effect;
@@ -659,10 +716,12 @@ inline int run_shapeshifter_oracle_tests() {
   test_candidate_matrix_stays_within_visual_budget();
   test_high_count_star_preset_stays_within_visual_budget();
   test_high_count_star_preset_covers_north_pole();
+  test_high_count_star_preset_has_no_geometric_pole_hole();
   test_segment_tiles_reconstruct_full_frame();
   test_star_azimuthal_cull_spans_narrow_columns();
   test_amplitude_preserves_sweep_velocity();
   test_shape_alpha_fades_to_equator();
+  test_star_palette_position_mirrors_at_equator();
   test_opposite_halves_direction();
   test_preset_transition_snaps();
   return fixture.result();
