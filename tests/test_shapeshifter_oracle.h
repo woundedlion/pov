@@ -554,6 +554,42 @@ inline void test_star_pole_caps_fill_innermost_contours() {
                size_t{0});
 }
 
+inline uint32_t vector_pixel_energy(const OracleFrame &frame,
+                                    const Vector &position) {
+  const PixelCoords projected = vector_to_pixel<ORACLE_W, ORACLE_H>(position);
+  const int x = static_cast<int>(floorf(projected.x + 0.5f)) % ORACLE_W;
+  const int y = hs::clamp(static_cast<int>(floorf(projected.y + 0.5f)), 0,
+                          ORACLE_H - 1);
+  const Pixel &pixel = frame.at(x, y);
+  return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b;
+}
+
+inline void test_star_pole_caps_fill_star_arms() {
+  constexpr int COUNT = 4;
+  constexpr float SHAPE_PHASE = 1.0f;
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::STAR;
+  state.function = OracleEffect::PhaseFunction::SQUARE;
+  state.count = COUNT;
+  state.sides = 7;
+  state.phase = 0.0f;
+  state.alpha = 0.274f;
+  state.orientation = Quaternion();
+  const OracleFrame frame = capture_frame(state, candidate_renderer());
+  const Basis near_basis = make_basis(Quaternion(), X_AXIS);
+  const Basis far_basis = get_antipode(near_basis, 2.0f).first;
+  const float angle = 0.65f * (PI_F / (2.0f * COUNT));
+  auto interior = [&](const Basis &basis) {
+    return basis.v * cosf(angle) +
+           basis.u * (cosf(SHAPE_PHASE) * sinf(angle)) +
+           basis.w * (sinf(SHAPE_PHASE) * sinf(angle));
+  };
+  HS_EXPECT_GT(vector_pixel_energy(frame, interior(near_basis)),
+               BRIGHT_ENERGY);
+  HS_EXPECT_GT(vector_pixel_energy(frame, interior(far_basis)),
+               BRIGHT_ENERGY);
+}
+
 inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
                       const OracleClip &clip) {
   for (int y = clip.y0; y < clip.y1; ++y)
@@ -763,6 +799,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_high_count_star_preset_covers_north_pole();
   test_high_count_star_preset_has_no_geometric_pole_hole();
   test_star_pole_caps_fill_innermost_contours();
+  test_star_pole_caps_fill_star_arms();
   test_segment_tiles_reconstruct_full_frame();
   test_star_azimuthal_cull_spans_narrow_columns();
   test_amplitude_preserves_sweep_velocity();
