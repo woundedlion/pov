@@ -3953,10 +3953,10 @@ struct Flower {
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false requests a full scan.
-   * @details Covers the flower body, but not the full AA fringe at petal tips.
-   *   The radial gradient there is cos(PI/sides), so the fringe reaches
-   *   pixel_width/cos(PI/sides) beyond the tip while the cap pads one
-   *   pixel_width.
+   * @details A petal tip is the shape's radial extreme and its gradient there
+   *   is 1, so the fringe reaches one pixel_width past the tip and the cap pad
+   *   covers it — unlike the polygon family, whose extreme sits at a vertex the
+   *   radius meets obliquely.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
