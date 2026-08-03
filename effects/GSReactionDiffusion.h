@@ -473,8 +473,7 @@ private:
       ++k;
     });
 
-    constexpr float inv_samples = 1.0f / 4.0f;
-    Pixel accum(0, 0, 0);
+    uint32_t accum_r = 0, accum_g = 0, accum_b = 0;
     for (int i = 0; i < 4; ++i) {
       Vector v = grid.at(x, i);
       float tw = 0.0f, wb = 0.0f;
@@ -491,10 +490,14 @@ private:
         continue;
 
       float t = hs::clamp((b - B_COLOR_FLOOR) * B_COLOR_SCALE, 0.0f, 1.0f);
-      Color4 sample = palette.get(t);
-      accum += sample.color * (sample.alpha * inv_samples);
+      Pixel sample = palette.get_color_unit(t);
+      accum_r += (static_cast<uint32_t>(sample.r) + 2u) >> 2;
+      accum_g += (static_cast<uint32_t>(sample.g) + 2u) >> 2;
+      accum_b += (static_cast<uint32_t>(sample.b) + 2u) >> 2;
     }
-    return accum;
+    return Pixel(static_cast<uint16_t>(accum_r > 65535u ? 65535u : accum_r),
+                 static_cast<uint16_t>(accum_g > 65535u ? 65535u : accum_g),
+                 static_cast<uint16_t>(accum_b > 65535u ? 65535u : accum_b));
   }
 
   /**
