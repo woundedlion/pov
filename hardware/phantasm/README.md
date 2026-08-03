@@ -238,7 +238,9 @@ hand-enter dielectric/mil values in its UI. Net class is 0.3 mm track / 0.2 mm c
 0.6 mm via (well above the 3.5 mil fab minimum).
 
 **Running a future unplaced board through Quilter** — regenerate and upload the
-three `unplaced/phantasm_unplaced.kicad_*` files together. Run
+contents of `unplaced/` together: `phantasm_unplaced.kicad_pcb`,
+`phantasm_unplaced.kicad_pro`, and `fp-lib-table`. There is no unplaced
+schematic, and the `.kicad_prl` that the KiCad GUI writes is local only. Run
 `python gen/heal_clearance.py` as the final preparation step. Quilter prep:
 - **`min_clearance` must be > 0** in the uploaded `.kicad_pro` — Quilter rejects the KiCad
   default of 0 ("min clearance must be > 0"). KiCad **re-zeroes it whenever the project is
