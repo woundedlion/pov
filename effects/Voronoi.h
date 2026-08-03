@@ -27,10 +27,20 @@ struct VoronoiWhiteBox;
  */
 template <int W, int H> class Voronoi : public Effect {
 public:
+  /** @brief Construction config; named so the render margin is assertable. */
+  static constexpr EffectConfig CONFIG{.strobe = true};
+  // The shading loop writes the margin-expanded rows but only the display
+  // columns, so a stage whose taps land off the plotted column must not widen
+  // the render band until that loop covers the margin columns too.
+  static_assert(CONFIG.margin == ClipRegion{}.margin,
+                "Voronoi shades the bare display column band; a filter with a "
+                "segment margin needs the shading loop widened to the "
+                "margin-expanded column band first");
+
   /**
    * @brief Constructs the effect with the templated framebuffer dimensions.
    */
-  HS_COLD_MEMBER Voronoi() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER Voronoi() : Effect(W, H, CONFIG) {}
 
   /**
    * @brief Configures arenas, registers GUI params, allocates the sites buffer,
@@ -221,8 +231,8 @@ public:
     // SAMPLES=1: one sample at pixel center, open-coded because the coarse grid
     // needs the integer pixel coordinates the generic shader callback does not
     // expose. Rows cover the margin-expanded render band like
-    // Scan::Shader::draw<W, H, 1>, but columns cover the bare display band, so a
-    // filter with an x margin would read unwritten margin columns.
+    // Scan::Shader::draw<W, H, 1>, but columns cover the bare display band; the
+    // CONFIG.margin static_assert holds that gap closed.
     int last_ky = -1;
     for (int y = y0; y < y1; ++y) {
       const int ky = (y - gy0) / B;
