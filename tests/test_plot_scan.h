@@ -113,6 +113,12 @@ struct CapturePipeline {
   void plot(Canvas &, float, float, const Pixel &, float, float) {}
 };
 
+/** @brief Non-erased capture sink exposing the direct-path cull traits. */
+struct DirectCapturePipeline : CapturePipeline {
+  static constexpr bool has_world_cull = false;
+  static constexpr bool direct_raster_path = true;
+};
+
 /** @brief Identity fragment shader (leaves the fragment untouched). */
 inline void noop_shader(const Vector &, Fragment &) {}
 
@@ -2786,6 +2792,64 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   HS_EXPECT_NEAR(v0s.back(), 1.0f, 2e-2f);
 }
 
+/** @brief Cull-sample reuse rebuilds the planar sampler bit for bit. */
+inline void test_planar_sampler_from_cull_bit_parity() {
+  constexpr int W = 128;
+  hs::random().seed(0xC0115A9u);
+  for (int trial = 0; trial < 400; ++trial) {
+    Vector normal(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                  hs::rand_f(-1.0f, 1.0f));
+    if (normal.length() < 0.01f)
+      normal = Y_AXIS;
+    const Basis basis = basis_from_normal(normal.normalized());
+    auto point = [&](float radius, float angle) {
+      const Vector radial =
+          basis.u * cosf(angle) + basis.w * sinf(angle);
+      return (basis.v * cosf(radius) + radial * sinf(radius)).normalized();
+    };
+    const Vector a = point(hs::rand_f(0.01f, 2.8f),
+                           hs::rand_f(-PI_F, PI_F));
+    const Vector b = point(hs::rand_f(0.01f, 2.8f),
+                           hs::rand_f(-PI_F, PI_F));
+    const Plot::PlanarEdgeSpan span =
+        Plot::make_planar_edge_span(a, b, basis);
+    int col_s, col_len;
+    Vector end;
+    Plot::planar_col_span<W>(a, basis, span, col_s, col_len, &end);
+    const Plot::PlanarEdgeSampler rebuilt =
+        Plot::make_planar_edge_sampler(a, b, basis);
+    const Plot::PlanarEdgeSampler reused =
+        Plot::make_planar_edge_sampler(span, end, basis);
+
+    auto expect_bits = [](float lhs, float rhs) {
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(lhs),
+                   std::bit_cast<uint32_t>(rhs));
+    };
+    expect_bits(rebuilt.proj1.first, reused.proj1.first);
+    expect_bits(rebuilt.proj1.second, reused.proj1.second);
+    expect_bits(rebuilt.dx, reused.dx);
+    expect_bits(rebuilt.dy, reused.dy);
+    expect_bits(rebuilt.chart_tangent.x, reused.chart_tangent.x);
+    expect_bits(rebuilt.chart_tangent.y, reused.chart_tangent.y);
+    expect_bits(rebuilt.chart_tangent.z, reused.chart_tangent.z);
+    for (size_t i = 0; i < rebuilt.arc_cumul.size(); ++i)
+      expect_bits(rebuilt.arc_cumul[i], reused.arc_cumul[i]);
+    expect_bits(rebuilt.dist, reused.dist);
+    int interval = 0;
+    for (float t : {0.0f, 0.17f, 0.51f, 0.88f}) {
+      const Plot::SamplePT original = rebuilt.one_pass(t);
+      const Plot::SamplePT optimized =
+          reused.one_pass_monotonic(t, interval);
+      expect_bits(original.pos.x, optimized.pos.x);
+      expect_bits(original.pos.y, optimized.pos.y);
+      expect_bits(original.pos.z, optimized.pos.z);
+      expect_bits(original.tan.x, optimized.tan.x);
+      expect_bits(original.tan.y, optimized.tan.y);
+      expect_bits(original.tan.z, optimized.tan.z);
+    }
+  }
+}
+
 /**
  * @brief Planar compile-time policies preserve positions and default registers.
  */
@@ -2806,9 +2870,10 @@ inline void test_rasterize_planar_policy_bit_parity() {
     std::vector<std::array<uint32_t, 3>> registers;
   };
   auto capture = [&]<bool DerivePlanarArcRegisters,
-                    bool InterpolateRegisters>() {
+                    bool InterpolateRegisters>(bool rebuild_sampler = false) {
     hs_test::StubEffect fx(W, H);
-    CapturePipeline pipeline;
+    fx.set_clip(0, H, 0, W / 2);
+    DirectCapturePipeline pipeline;
     Stream stream;
     auto shader = [&](const Vector &, Fragment &f) {
       stream.registers.push_back({std::bit_cast<uint32_t>(f.v0),
@@ -2820,7 +2885,9 @@ inline void test_rasterize_planar_policy_bit_parity() {
       Plot::rasterize<W, H, true, false, DerivePlanarArcRegisters,
                       InterpolateRegisters>(
           pipeline, canvas, points, shader,
-          {.planar_basis = &planar_basis, .omit_end = true});
+          {.planar_basis = &planar_basis,
+           .omit_end = true,
+           .rebuild_planar_sampler = rebuild_sampler});
     }
     fx.advance_display();
     stream.positions = std::move(pipeline.plotted);
@@ -2832,10 +2899,16 @@ inline void test_rasterize_planar_policy_bit_parity() {
       capture.template operator()<false, true>();
   const Stream positions_only =
       capture.template operator()<false, false>();
+  const Stream rebuilt_positions_only =
+      capture.template operator()<false, false>(true);
   HS_EXPECT_EQ(derived.positions.size(), source_registers.positions.size());
   HS_EXPECT_EQ(derived.positions.size(), positions_only.positions.size());
+  HS_EXPECT_EQ(positions_only.positions.size(),
+               rebuilt_positions_only.positions.size());
   HS_EXPECT_EQ(derived.registers.size(), source_registers.registers.size());
   HS_EXPECT_EQ(derived.registers.size(), positions_only.registers.size());
+  HS_EXPECT_EQ(positions_only.registers.size(),
+               rebuilt_positions_only.registers.size());
   size_t derived_differences = 0;
   size_t source_differences = 0;
   for (size_t i = 0; i < derived.positions.size(); ++i) {
@@ -2847,6 +2920,15 @@ inline void test_rasterize_planar_policy_bit_parity() {
       HS_EXPECT_EQ(std::bit_cast<uint32_t>(derived.positions[i].z),
                    std::bit_cast<uint32_t>(stream->positions[i].z));
     }
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions_only.positions[i].x),
+                 std::bit_cast<uint32_t>(
+                     rebuilt_positions_only.positions[i].x));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions_only.positions[i].y),
+                 std::bit_cast<uint32_t>(
+                     rebuilt_positions_only.positions[i].y));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions_only.positions[i].z),
+                 std::bit_cast<uint32_t>(
+                     rebuilt_positions_only.positions[i].z));
     derived_differences +=
         derived.registers[i][0] != source_registers.registers[i][0] ||
         derived.registers[i][1] != source_registers.registers[i][1];
@@ -4407,6 +4489,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_antipodal_seam_planar_falls_back_geodesic();
   test_rasterize_planar_segment_gap_free_arclength();
   test_rasterize_planar_arc_registers_track_drawn_arc();
+  test_planar_sampler_from_cull_bit_parity();
   test_rasterize_planar_policy_bit_parity();
   test_rasterize_cull_follows_filter_orientation();
 

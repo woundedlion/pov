@@ -253,6 +253,23 @@ struct PlanarEdgeSampler {
                                        PLANAR_LEN_SAMPLES));
   }
 
+  /** @brief Maps increasing arc fractions without rescanning prior intervals. */
+  float projection_fraction_monotonic(float s, int &interval) const {
+    if (dist < math::EPS_GEOMETRIC)
+      return s;
+    const float target = s * dist;
+    while (interval < PLANAR_LEN_SAMPLES - 1 &&
+           arc_cumul[interval + 1] < target)
+      ++interval;
+    const float seg = arc_cumul[interval + 1] - arc_cumul[interval];
+    const float frac = seg > math::EPS_GEOMETRIC
+                           ? (target - arc_cumul[interval]) / seg
+                           : 0.0f;
+    return std::min(1.0f,
+                    std::max(0.0f, (static_cast<float>(interval) + frac) /
+                                       PLANAR_LEN_SAMPLES));
+  }
+
   /**
    * @brief Unprojects the chart line at PROJECTION fraction p in [0,1].
    * @details Projection-uniform, so not arc-uniform under the anisotropic
@@ -276,6 +293,43 @@ struct PlanarEdgeSampler {
   /** @brief Evaluates position and analytic tangent without a second unproject. */
   SamplePT one_pass(float s) const {
     const float p = projection_fraction(s);
+    const float x = proj1.first + dx * p;
+    const float y = proj1.second + dy * p;
+    const float r2 = x * x + y * y;
+    if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
+      HS_PLOT_COUNT(normalizations);
+      return {basis->v, normalized_or(chart_tangent, Vector())};
+    }
+
+    const float radius = sqrtf(r2);
+    const float inv_radius = 1.0f / radius;
+    float sin_radius;
+    float cos_radius;
+    if (radius <= PI_F) {
+      fast_sincosf_0_pi(radius, sin_radius, cos_radius);
+    } else {
+      sin_radius = fast_sinf(radius);
+      cos_radius = fast_cosf(radius);
+    }
+    const Vector radial = (basis->u * x) + (basis->w * y);
+    const float radial_scale = sin_radius * inv_radius;
+    const Vector position =
+        (basis->v * cos_radius) + (radial * radial_scale);
+
+    const float radius_rate = (x * dx + y * dy) * inv_radius;
+    const float scale_rate =
+        (radius * cos_radius - sin_radius) * inv_radius * inv_radius;
+    const Vector tangent =
+        (basis->v * (-sin_radius * radius_rate)) +
+        (chart_tangent * radial_scale) +
+        (radial * (scale_rate * radius_rate));
+    HS_PLOT_COUNT(normalizations);
+    return {position, normalized_or(tangent, Vector())};
+  }
+
+  /** @brief Evaluates an increasing sequence without rescanning arc intervals. */
+  SamplePT one_pass_monotonic(float s, int &interval) const {
+    const float p = projection_fraction_monotonic(s, interval);
     const float x = proj1.first + dx * p;
     const float y = proj1.second + dy * p;
     const float r2 = x * x + y * y;
@@ -579,6 +633,37 @@ static inline PlanarEdgeSpan make_planar_edge_span(const Vector &a,
         es.p1.first + es.dX * p, es.p1.second + es.dY * p, planar_basis);
   }
   return es;
+}
+
+/**
+ * @brief Builds a planar sampler from the exact quarter-point cull samples.
+ * @param span Planar cull setup whose interior samples cover eighth points.
+ * @param end Unprojected edge endpoint from planar_col_span().
+ * @param planar_basis Azimuthal-equidistant projection basis.
+ */
+static inline PlanarEdgeSampler
+make_planar_edge_sampler(const PlanarEdgeSpan &span, const Vector &end,
+                         const Basis &planar_basis) {
+  PlanarEdgeSampler sampler;
+  sampler.proj1 = span.p1;
+  sampler.dx = span.dX;
+  sampler.dy = span.dY;
+  sampler.basis = &planar_basis;
+  sampler.chart_tangent =
+      (planar_basis.u * sampler.dx) + (planar_basis.w * sampler.dy);
+  HS_PLOT_ADD(planar_arc_samples, PLANAR_LEN_SAMPLES + 1);
+  sampler.arc_cumul[0] = 0.0f;
+  Vector prev =
+      azimuthal_unproject(span.p1.first, span.p1.second, planar_basis);
+  for (int k = 1; k < PLANAR_LEN_SAMPLES; ++k) {
+    const Vector &cur = span.interior[k * 2 - 1];
+    sampler.arc_cumul[k] = sampler.arc_cumul[k - 1] + angle_between(prev, cur);
+    prev = cur;
+  }
+  sampler.arc_cumul[PLANAR_LEN_SAMPLES] =
+      sampler.arc_cumul[PLANAR_LEN_SAMPLES - 1] + angle_between(prev, end);
+  sampler.dist = sampler.arc_cumul[PLANAR_LEN_SAMPLES];
+  return sampler;
 }
 
 /**
@@ -951,6 +1036,7 @@ raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
  *           end point enters through its projected chord.
  * @param col_s Output: arc start column, in [0, W).
  * @param col_len Output: arc length in columns (may reach W = full width).
+ * @param end_sample Optional output for the unprojected edge endpoint.
  * @return False when no useful bound exists — the edge nears a pole or the
  *         Lipschitz margin exceeds the short-way-delta proof — the caller
  *         must skip the horizontal cull.
@@ -965,7 +1051,8 @@ raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
 template <int W>
 static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
                                    const PlanarEdgeSpan &es, int &col_s,
-                                   int &col_len) {
+                                   int &col_len,
+                                   Vector *end_sample = nullptr) {
   const float ca = vector_to_theta<W>(a);
   float s_f, len_f;
 
@@ -989,8 +1076,11 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
     };
     for (const Vector &s : es.interior)
       step(s);
-    step(azimuthal_unproject(es.p1.first + es.dX, es.p1.second + es.dY,
-                             planar_basis));
+    Vector end = azimuthal_unproject(es.p1.first + es.dX,
+                                     es.p1.second + es.dY, planar_basis);
+    if (end_sample != nullptr)
+      *end_sample = end;
+    step(end);
 
     // Worst-case sin(phi) anywhere on the edge: phi is 1-Lipschitz in arc
     // length and sin is 1-Lipschitz in phi, so between samples it drifts by at
@@ -1012,6 +1102,24 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
 
   finish_col_span<W>(s_f, len_f, col_s, col_len);
   return true;
+}
+
+/** @brief Tests planar edge visibility from an existing cull sample set. */
+template <int W, int H>
+static inline bool planar_edge_visible_in_clip(
+    const ClipRegion &cr, const ClipRegion::XClip &xc, int band_len,
+    const Vector &a, const Vector &b, const Basis &planar_basis,
+    const PlanarEdgeSpan &span, Vector *end_sample = nullptr) {
+  float row_lo, row_hi;
+  int col_s, col_len;
+  planar_row_span<H>(a, b, span, row_lo, row_hi);
+  if (!cr.could_intersect_y(row_lo, row_hi))
+    return false;
+  if (!xc.active)
+    return true;
+  if (!planar_col_span<W>(a, planar_basis, span, col_s, col_len, end_sample))
+    return true;
+  return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
 }
 
 /**
@@ -1254,17 +1362,9 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
           });
     }
     // Planar: both span bounds share one projection + chart-line sample set.
-    float row_lo, row_hi;
-    int col_s, col_len;
     const PlanarEdgeSpan ps = make_planar_edge_span(ea, eb, *bp);
-    planar_row_span<H>(ea, eb, ps, row_lo, row_hi);
-    if (!cr.could_intersect_y(row_lo, row_hi))
-      return false;
-    if (!xc.active)
-      return true;
-    if (!planar_col_span<W>(ea, *bp, ps, col_s, col_len))
-      return true;
-    return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+    return planar_edge_visible_in_clip<W, H>(cr, xc, band_len, ea, eb, *bp,
+                                              ps);
   };
   if constexpr (requires { pipeline.could_intersect_clip(a, b, pb, pred); }) {
     return pipeline.could_intersect_clip(a, b, pb, pred);
@@ -1339,6 +1439,10 @@ struct RasterOptions {
    * closed loop without an overlapping point.
    */
   const Fragment *loop_seam = nullptr;
+#ifdef HS_TEST_BUILD
+  /** Rebuild a planar sampler after culling instead of reusing cull samples. */
+  bool rebuild_planar_sampler = false;
+#endif
 };
 
 /**
@@ -1448,6 +1552,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   // geodesic polylines or when DerivePlanarArcRegisters is false.
   const bool has_planar_basis = (planar_basis != nullptr);
   const bool override_uv = DerivePlanarArcRegisters && has_planar_basis;
+  constexpr bool REUSE_PLANAR_CULL_SAMPLES =
+      SinglePass && !DerivePlanarArcRegisters && !InterpolateRegisters &&
+      pipeline_hoistable_cull<PipelineT>();
   auto segment_next = [&](size_t i) -> const Fragment & {
     if (loop_seam != nullptr && i + 1 == len)
       return *loop_seam;
@@ -1538,10 +1645,16 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 #endif
       return screen_step<W, H>(value.pos, value.tan, base_step);
     };
+    int planar_arc_interval = 0;
     auto adaptive_sample = [&](float t) -> SamplePT {
       HS_MSP_STALL_START(adaptive_start);
       SamplePT result;
-      if constexpr (SinglePass && requires { sample.one_pass(t); })
+      if constexpr (SinglePass && !DerivePlanarArcRegisters &&
+                    !InterpolateRegisters && requires {
+                      sample.one_pass_monotonic(t, planar_arc_interval);
+                    })
+        result = sample.one_pass_monotonic(t, planar_arc_interval);
+      else if constexpr (SinglePass && requires { sample.one_pass(t); })
         result = sample.one_pass(t);
       else
         result = sample(t);
@@ -1782,6 +1895,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     const Fragment &curr = points[i];
     const Fragment &next = segment_next(i);
     bool is_last_segment = (i == count - 1);
+    PlanarEdgeSpan planar_cull_span;
+    Vector planar_cull_end;
+    bool reuse_planar_cull_samples = false;
 
     // --- Interpolation Strategy Selection ---
     // Branch-cut guard: the planar projection is singular at the basis antipode,
@@ -1810,12 +1926,33 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     if (clip_active) {
       HS_PLOT_COUNT(cull_tests);
       HS_PROFILE_DEEP(plot_seg_cull);
-      const bool visible =
-          edge_visible != nullptr
-              ? (edge_visible[i] & EDGE_VISIBLE) != 0
-              : edge_visible_in_clip<W, H>(pipeline, cr, xc, band_len, curr.pos,
-                                           next.pos,
-                                           use_planar ? planar_basis : nullptr);
+      bool visible;
+      if constexpr (REUSE_PLANAR_CULL_SAMPLES) {
+        bool rebuild_planar_sampler = false;
+#ifdef HS_TEST_BUILD
+        rebuild_planar_sampler = opts.rebuild_planar_sampler;
+#endif
+        if (edge_visible != nullptr) {
+          visible = (edge_visible[i] & EDGE_VISIBLE) != 0;
+        } else if (use_planar && xc.active && !rebuild_planar_sampler) {
+          planar_cull_span =
+              make_planar_edge_span(curr.pos, next.pos, *planar_basis);
+          visible = planar_edge_visible_in_clip<W, H>(
+              cr, xc, band_len, curr.pos, next.pos, *planar_basis,
+              planar_cull_span, &planar_cull_end);
+          reuse_planar_cull_samples = visible;
+        } else {
+          visible = edge_visible_in_clip<W, H>(
+              pipeline, cr, xc, band_len, curr.pos, next.pos,
+              use_planar ? planar_basis : nullptr);
+        }
+      } else {
+        visible = edge_visible != nullptr
+                      ? (edge_visible[i] & EDGE_VISIBLE) != 0
+                      : edge_visible_in_clip<W, H>(
+                            pipeline, cr, xc, band_len, curr.pos, next.pos,
+                            use_planar ? planar_basis : nullptr);
+      }
       if (!visible) {
         HS_PLOT_COUNT(culled);
         continue;
@@ -1841,8 +1978,20 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 
     if (use_planar) {
       HS_PLOT_COUNT(planar);
-      rasterize_planar_strategy(curr, next, *planar_basis, is_last_segment,
-                                process_segment);
+      if constexpr (REUSE_PLANAR_CULL_SAMPLES) {
+        PlanarEdgeSampler sampler;
+        if (reuse_planar_cull_samples) {
+          sampler = make_planar_edge_sampler(planar_cull_span, planar_cull_end,
+                                             *planar_basis);
+        } else {
+          sampler =
+              make_planar_edge_sampler(curr.pos, next.pos, *planar_basis);
+        }
+        process_segment(sampler, curr, next, sampler.dist, is_last_segment);
+      } else {
+        rasterize_planar_strategy(curr, next, *planar_basis, is_last_segment,
+                                  process_segment);
+      }
     } else {
       HS_PLOT_COUNT(geodesic);
       rasterize_geodesic_strategy(curr, next, is_last_segment, process_segment);
