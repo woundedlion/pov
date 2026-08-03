@@ -12,6 +12,7 @@ from pathlib import Path
 PINS = {
     "doxygen-awesome": "568f56cde6ac78b6dfcc14acd380b2e745c301ea",
     "emsdk": "5.0.0",
+    "node": "24.13.0",
     "platformio": "6.1.19",
 }
 

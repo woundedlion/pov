@@ -311,7 +311,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   └── *_tests/                Host unit tests for the gate, hooks, profile parser, bakes, docs checks
 ├── docs/                       Design specs, perf ledgers, and the docs/screenshots/ gallery
 ├── Doxyfile                    Doxygen config for the published API reference
-├── package.json                npm entry points for the scripts/*.mjs tools
+├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
 ├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages)
 └── justfile                    Task runner: `just build` / `test` / `smoke` / `docs` / `install` (`just --list` for the rest)
 ```
