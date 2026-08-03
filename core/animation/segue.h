@@ -145,6 +145,13 @@ inline float sweep_phase(float phase, float offset, float band) {
 }
 
 /**
+ * @brief Cull gate for a policy whose shading vanishes as phase falls to 0.
+ * @param phase Global segue phase in [0, 1].
+ * @return Whether drawing at this phase can produce visible output.
+ */
+inline bool fades_to_black(float phase) { return phase > 0.005f; }
+
+/**
  * @brief Identity hooks every segue inherits; a policy shadows only the hooks
  * its transition uses.
  */
@@ -154,8 +161,10 @@ struct Base {
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     return schedule_sequential(timeline, std::move(draw_fn), duration, window);
   }
-  /** @brief Whether drawing at this phase can produce visible output. */
-  bool visible(float phase) const { return phase > 0.005f; }
+  /** @brief Whether drawing at this phase can produce visible output. The
+   * identity policy never culls; only a policy whose shading actually vanishes
+   * with phase shadows this with fades_to_black(). */
+  bool visible(float) const { return true; }
   /** @brief Global alpha at this phase. */
   float opacity(float) const { return 1.0f; }
   /**
@@ -236,6 +245,7 @@ struct Crossfade : Base {
     return schedule_overlapped(timeline, std::move(draw_fn), duration, window,
                                overlap, paused);
   }
+  bool visible(float phase) const { return fades_to_black(phase); }
   float opacity(float phase) const { return phase; }
 };
 
@@ -326,6 +336,7 @@ struct TerminatorSweep : Base {
     float ff = std::max(fade_frac, 1e-4f);
     return hs::clamp((phase - offset * (1.0f - ff)) / ff, 0.0f, 1.0f);
   }
+  bool visible(float phase) const { return fades_to_black(phase); }
   /** @brief Squared: alpha scales linear-light color, where a linear ramp
    * reads mostly-bright almost immediately; the square spreads the perceived
    * fade across the face's fade window. */
@@ -412,6 +423,7 @@ struct Breakdown : Base {
         (phase - BLACK_DWELL - offset * (1.0f - BLACK_DWELL - band)) / band,
         0.0f, 1.0f);
   }
+  bool visible(float phase) const { return fades_to_black(phase); }
   float opacity(float phase) const { return phase; }
 };
 
