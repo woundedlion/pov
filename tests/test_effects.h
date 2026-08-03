@@ -3905,15 +3905,15 @@ inline void test_shapeshifter_preset_defaults() {
     return -1.0f;
   };
 
-  HS_EXPECT_EQ(value("Alpha"), 1.0f);
-  HS_EXPECT_EQ(value("Shape"), 1.017f);
-  HS_EXPECT_EQ(value("Count"), 74.644997f);
-  HS_EXPECT_EQ(value("Sides"), 3.0f);
+  HS_EXPECT_EQ(value("Alpha"), 0.274f);
+  HS_EXPECT_EQ(value("Shape"), 2.988f);
+  HS_EXPECT_EQ(value("Count"), 144.0f);
+  HS_EXPECT_EQ(value("Sides"), 7.745f);
   HS_EXPECT_EQ(value("Function"),
                static_cast<float>(
                    ShapeShifter<DEFAULT_W, DEFAULT_H>::PhaseFunction::SINE));
   HS_EXPECT_EQ(value("Amplitude"), 1.0f);
-  HS_EXPECT_EQ(value("Speed"), 0.0318f);
+  HS_EXPECT_EQ(value("Speed"), 0.16f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
 
   const auto *count = ss.getParameters().find("Count");
@@ -3926,6 +3926,17 @@ inline void test_shapeshifter_preset_defaults() {
     HS_EXPECT_EQ(speed->max, 0.16f);
 
   ss.profile_select_preset(4);
+  HS_EXPECT_EQ(value("Alpha"), 0.274f);
+  HS_EXPECT_EQ(value("Shape"), 2.988f);
+  HS_EXPECT_EQ(value("Count"), 72.0f);
+  HS_EXPECT_EQ(value("Sides"), 4.417f);
+  HS_EXPECT_EQ(value("Function"), 0.0f);
+  HS_EXPECT_EQ(value("Amplitude"), 1.0f);
+  HS_EXPECT_EQ(value("Speed"), 0.0077f);
+  HS_EXPECT_EQ(value("Opposite"), 0.0f);
+  HS_EXPECT_TRUE(ss.animations_paused());
+
+  ss.profile_select_preset(5);
   HS_EXPECT_EQ(value("Alpha"), 0.5f);
   HS_EXPECT_EQ(value("Shape"), 0.822f);
   HS_EXPECT_EQ(value("Count"), 128.0f);
@@ -3934,9 +3945,8 @@ inline void test_shapeshifter_preset_defaults() {
   HS_EXPECT_EQ(value("Amplitude"), 4.0f);
   HS_EXPECT_EQ(value("Speed"), 0.0405f);
   HS_EXPECT_EQ(value("Opposite"), 1.0f);
-  HS_EXPECT_TRUE(ss.animations_paused());
 
-  ss.profile_select_preset(5);
+  ss.profile_select_preset(6);
   HS_EXPECT_EQ(value("Alpha"), 0.45579f);
   HS_EXPECT_EQ(value("Shape"), 1.05f);
   HS_EXPECT_EQ(value("Count"), 144.0f);
@@ -3946,7 +3956,7 @@ inline void test_shapeshifter_preset_defaults() {
   HS_EXPECT_EQ(value("Speed"), 0.027086f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
 
-  ss.profile_select_preset(6);
+  ss.profile_select_preset(7);
   HS_EXPECT_EQ(value("Alpha"), 0.496f);
   HS_EXPECT_EQ(value("Shape"), 0.897f);
   HS_EXPECT_EQ(value("Count"), 144.0f);
@@ -3954,16 +3964,6 @@ inline void test_shapeshifter_preset_defaults() {
   HS_EXPECT_EQ(value("Function"), 0.0f);
   HS_EXPECT_EQ(value("Amplitude"), 7.0696f);
   HS_EXPECT_EQ(value("Speed"), 0.0113f);
-  HS_EXPECT_EQ(value("Opposite"), 0.0f);
-
-  ss.profile_select_preset(7);
-  HS_EXPECT_EQ(value("Alpha"), 0.274f);
-  HS_EXPECT_EQ(value("Shape"), 2.988f);
-  HS_EXPECT_EQ(value("Count"), 288.0f);
-  HS_EXPECT_EQ(value("Sides"), 7.745f);
-  HS_EXPECT_EQ(value("Function"), 0.0f);
-  HS_EXPECT_EQ(value("Amplitude"), 1.0f);
-  HS_EXPECT_EQ(value("Speed"), 0.16f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
 }
 

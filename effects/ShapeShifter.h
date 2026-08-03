@@ -174,11 +174,68 @@ private:
     const ShapeType shape = selected_shape();
     const PhaseFunction function = selected_function();
     const Basis basis = make_basis(orientation.get(), X_AXIS);
+    const ClipRegion &clip = canvas.clip();
+    const bool full_width_clip = clip.x_start == 0 && clip.x_end == clip.w;
+    const float near_cap_beta =
+        shape == ShapeType::STAR
+            ? acosf(hs::clamp(basis.v.y, -1.0f, 1.0f))
+            : 0.0f;
+    const float far_cap_beta =
+        shape == ShapeType::STAR
+            ? acosf(hs::clamp(-basis.v.y, -1.0f, 1.0f))
+            : 0.0f;
+    float cap_half_width = 0.0f;
+    float near_cap_distance = 0.0f;
+    float far_cap_distance = 0.0f;
+    float near_cap_sin_beta = 0.0f;
+    float far_cap_sin_beta = 0.0f;
+    if (shape == ShapeType::STAR && !full_width_clip) {
+      const float width_px = static_cast<float>(clip.x_end - clip.x_start);
+      cap_half_width =
+          (width_px * 0.5f + clip.margin + 1.0f) * (2.0f * PI_F) / clip.w;
+      const float lambda_center =
+          (clip.x_start + width_px * 0.5f) * (2.0f * PI_F) / clip.w;
+      auto cap_distance = [&](const Vector &dir) {
+        const float lambda = atan2f(dir.z, dir.x);
+        return std::fabs(wrap_t((lambda - lambda_center) / (2.0f * PI_F) +
+                                0.5f) -
+                         0.5f) *
+               (2.0f * PI_F);
+      };
+      near_cap_distance = cap_distance(basis.v);
+      far_cap_distance = cap_distance(-basis.v);
+      near_cap_sin_beta = sinf(near_cap_beta);
+      far_cap_sin_beta = sinf(far_cap_beta);
+    }
 
     for (int i = count - 1; i >= 0; --i) {
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       const float radius = 2.0f * radius_t;
+      if (shape == ShapeType::STAR) {
+        constexpr float AA_PAD = 2.0f * PI_F / W;
+        const bool far_side = radius > 1.0f;
+        const float cap_radius = far_side ? 2.0f - radius : radius;
+        const float half_angle =
+            cap_radius * (PI_F / 2.0f) + AA_PAD;
+        const float t2 = std::min(half_angle, PI_F);
+        const float beta = far_side ? far_cap_beta : near_cap_beta;
+        const float phi_lo = std::max(beta - t2, 0.0f);
+        const float phi_hi = std::min(beta + t2, PI_F);
+        bool visible = phi_to_y<H>(phi_hi) >= clip.render_y_start() &&
+                       phi_to_y<H>(phi_lo) < clip.render_y_end();
+        if (visible && !full_width_clip && beta > t2 && PI_F - beta > t2) {
+          const float sin_beta =
+              far_side ? far_cap_sin_beta : near_cap_sin_beta;
+          const float dlam =
+              asinf(hs::clamp(sinf(t2) / sin_beta, 0.0f, 1.0f));
+          const float distance =
+              far_side ? far_cap_distance : near_cap_distance;
+          visible = distance <= dlam + cap_half_width;
+        }
+        if (!visible)
+          continue;
+      }
       const float shape_phase = phase_direction(radius) * params.amplitude *
                                 evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(radius_t);
@@ -268,14 +325,17 @@ private:
   template <typename F>
   __attribute__((noinline)) void
   draw_sampled(Canvas &canvas, size_t capacity, const Basis *planar_basis,
-               const F &fragment_shader, auto &&fill) {
+               bool balanced_sampling, const F &fragment_shader, auto &&fill) {
     ScratchScope guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, capacity);
     fill(points);
-    Plot::rasterize<W, H, true>(
+    Plot::rasterize<W, H, true, false, false, false,
+                    Plot::RasterSamplingPolicy::SELECTABLE>(
         plot_filters, canvas, points, fragment_shader,
-        {.planar_basis = planar_basis, .omit_end = true});
+        {.planar_basis = planar_basis,
+         .omit_end = true,
+         .balanced_sampling = balanced_sampling});
   }
 
   /**
@@ -301,7 +361,7 @@ private:
       Basis planar_basis =
           radius > 1.0f ? Plot::planar_chart_basis(-basis.v) : basis;
       draw_sampled(canvas, static_cast<size_t>(sides + 2), &planar_basis,
-                   fragment_shader, [&](Fragments &points) {
+                   false, fragment_shader, [&](Fragments &points) {
                      Plot::PlanarPolygon::sample(points, basis, radius, sides,
                                                  shape_phase);
                    });
@@ -309,7 +369,7 @@ private:
     }
     case ShapeType::SPHERICAL_POLYGON:
       draw_sampled(canvas, static_cast<size_t>(sides + 2), nullptr,
-                   fragment_shader, [&](Fragments &points) {
+                   false, fragment_shader, [&](Fragments &points) {
                      Plot::SphericalPolygon::sample(points, basis, radius,
                                                     sides, shape_phase);
                    });
@@ -318,20 +378,22 @@ private:
       Basis planar_basis =
           Plot::planar_chart_basis(get_antipode(basis, radius).first.v);
       draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
-                   fragment_shader, [&](Fragments &points) {
+                   false, fragment_shader, [&](Fragments &points) {
                      Plot::Flower::sample(points, basis, radius, sides,
                                           shape_phase);
                    });
       break;
     }
     case ShapeType::STAR: {
-      Basis planar_basis =
-          Plot::planar_chart_basis(get_antipode(basis, radius).first.v);
-      draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
-                   fragment_shader, [&](Fragments &points) {
-                     Plot::Star::sample(points, basis, radius, sides,
-                                        shape_phase);
-                   });
+      const auto antipode = get_antipode(basis, radius);
+      Basis planar_basis = Plot::planar_chart_basis(antipode.first.v);
+      draw_sampled(
+          canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
+          params.count >= 32.0f,
+          fragment_shader, [&](Fragments &points) {
+            Plot::Star::sample_positions(points, basis, radius, sides,
+                                         shape_phase);
+          });
       break;
     }
     }
@@ -364,6 +426,7 @@ private:
 #endif
 
   static constexpr std::array<PresetEntry<Params>, 8> PRESETS = {{
+      {{0.274f, 2.988f, 144.0f, 7.745f, 0.0f, 1.0f, 0.16f, 0.0f}},
       {{1.0f, 1.017f, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f, 0.0f}},
       {{0.5f, 2.793f, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f}},
       {{0.5f, 1.872f, 70.0f, 3.0f, 0.0f, 1.0f, 0.0186f, 0.0f}},
@@ -371,7 +434,6 @@ private:
       {{0.5f, 0.822f, 128.0f, 5.561f, 0.0f, 4.0f, 0.0405f, 1.0f}},
       {{0.45579f, 1.05f, 144.0f, 4.001f, 0.0f, 2.377f, 0.027086f, 0.0f}},
       {{0.496f, 0.897f, 144.0f, 3.195f, 0.0f, 7.0696f, 0.0113f, 0.0f}},
-      {{0.274f, 2.988f, 288.0f, 7.745f, 0.0f, 1.0f, 0.16f, 0.0f}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
