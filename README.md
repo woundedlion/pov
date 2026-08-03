@@ -228,7 +228,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    24 effects (25 headers incl. the shared ReactionDiffusionBase.h):
+├── effects/                    24 effects (26 headers: the shared ReactionDiffusionBase.h plus the
+│                                generated mindsplatter_replay_corpus.h):
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
 │                                Raymarch.h, … — see §9 Effects Reference
 │
