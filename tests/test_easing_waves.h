@@ -43,9 +43,11 @@ static inline float frac(int i) { return static_cast<float>(i) / N; }
  */
 template <typename Fn>
 static inline void check_curve(Fn f, bool monotone, const char *name) {
+  HS_CONTEXT(name);
   float prev = f(0.0f);
   HS_EXPECT(std::isfinite(prev), name);
   for (int i = 1; i <= N; ++i) {
+    HS_CONTEXT("sample", i);
     float v = f(frac(i));
     HS_EXPECT(std::isfinite(v), name);
     if (monotone)
