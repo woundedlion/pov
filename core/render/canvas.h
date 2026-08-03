@@ -484,9 +484,15 @@ protected:
    * @brief POV column-strobe flag (see strobe_columns()); set at construction.
    */
   bool strobe;
-  ParamList parameters;       /**< List of parameters. */
-  bool anims_paused = false; /**< Pause gate for parameter-driving animations;
-                                 pass `&anims_paused` to Mutation/Driver. */
+  ParamList parameters; /**< List of parameters. */
+  /**
+   * @brief Pause gate for parameter-driving animations.
+   * @details Pass `&anims_paused` to Timeline::add_pausable, which freezes the
+   * whole event: a not-yet-started event's delay counts active frames only.
+   * Mutation/Driver/Lerp/Sprite also take an animation-level `paused` pointer,
+   * which freezes stepping alone — a pending start delay keeps elapsing.
+   */
+  bool anims_paused = false;
 
   /**
    * @brief Flag a registered param as engine-written telemetry (read-only).
