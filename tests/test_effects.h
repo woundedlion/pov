@@ -2057,6 +2057,10 @@ struct ChaoticStringsWhiteBox {
   static float palette_fill_scale(size_t trail_length) {
     return CS::palette_fill_scale(trail_length);
   }
+  static float palette_phase_speed(float cycle_speed, float scale_factor,
+                                   size_t trail_length) {
+    return CS::palette_phase_speed(cycle_speed, scale_factor, trail_length);
+  }
   static Color4 shade_trail(const CS &fx, float palette_t, float age_t) {
     return fx.shade_trail(palette_t, age_t);
   }
@@ -2114,6 +2118,17 @@ inline void test_chaoticstrings_preset_and_fire_duty_cycle() {
   const float long_coord =
       (sample_index / 96.0f) * WB::palette_fill_scale(96);
   HS_EXPECT_NEAR(short_coord, long_coord, 1e-7f);
+
+  const float cycle_speed = value("Cycle Speed");
+  const float scale_factor = value("Scale Factor");
+  const float coordinate_shift = scale_factor / WB::CS::TRAIL_LENGTH;
+  const float filling_speed =
+      WB::palette_phase_speed(cycle_speed, scale_factor,
+                              WB::CS::TRAIL_LENGTH - 1);
+  const float saturated_speed =
+      WB::palette_phase_speed(cycle_speed, scale_factor, WB::CS::TRAIL_LENGTH);
+  HS_EXPECT_NEAR(filling_speed, cycle_speed - coordinate_shift, 1e-7f);
+  HS_EXPECT_NEAR(saturated_speed - coordinate_shift, filling_speed, 1e-7f);
 
   const Vector a = X_AXIS;
   const Vector b = Y_AXIS;

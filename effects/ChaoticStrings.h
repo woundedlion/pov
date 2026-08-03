@@ -155,7 +155,7 @@ public:
         0, Animation::Motion<W, ORIENTATION_SUBSTEPS>(
                node->orientation, path, (int)params.cycle_duration, true));
 
-    timeline.add(0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f));
+    timeline.add(0, Animation::Driver(cycle_phase, &palette_speed, 1.0f));
 
     last_cycle_duration = (int)params.cycle_duration;
   }
@@ -171,6 +171,8 @@ public:
     Canvas canvas(*this);
     ScratchScope scratch_a_guard(scratch_arena_a);
     ArenaVector<TrailVertex> vertices(scratch_arena_a, MAX_FRAGMENTS);
+    palette_speed = palette_phase_speed(
+        params.cycle_speed, params.scale_factor, node->trail.length());
     {
       HS_PROFILE(cs_timeline_step);
       timeline.step(canvas);
@@ -252,6 +254,13 @@ private:
     return static_cast<float>(trail_length) / TRAIL_LENGTH;
   }
 
+  static float palette_phase_speed(float cycle_speed, float scale_factor,
+                                   size_t trail_length) {
+    if (trail_length < TRAIL_LENGTH)
+      return cycle_speed - scale_factor / TRAIL_LENGTH;
+    return cycle_speed;
+  }
+
   Vector warped_position(const Quaternion &q) const {
     const Vector pos =
         noise_xform.transform(orientation.orient(rotate(node->v, q)));
@@ -313,6 +322,7 @@ private:
       nullptr; /**< Retained motion handle for live Cycle Dur updates. */
   int last_cycle_duration = -1; /**< Last applied cycle duration, in frames. */
   float cycle_phase = 0.0f;     /**< Current palette cycle phase. */
+  float palette_speed = 0.0f;   /**< Fill-compensated palette phase speed. */
   Node *node = nullptr; /**< The single animated body, arena-allocated. */
   NoiseTransformer<1>
       noise_xform; /**< Warps the trail with noise each frame. */
