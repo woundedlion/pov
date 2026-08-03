@@ -1617,7 +1617,6 @@ template <typename A, typename B> struct Subtract {
           StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP>;
       NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
       normalize_intervals_to_range<W>(intervals_a, norm_a);
-      sort_intervals_by_start(norm_a);
       for (size_t i = 0; i < norm_a.size(); ++i)
         out(norm_a[i].first, norm_a[i].second);
       return true;
@@ -1635,10 +1634,7 @@ template <typename A, typename B> struct Subtract {
       return false;
 
     // B produced no intervals: it removes nothing, so pass A through raw.
-    // scan_region's coalescer requires start-sorted intervals, and a
-    // multi-interval child can emit them out of order.
     if (intervals_b.is_empty()) {
-      sort_intervals_by_start(intervals_a);
       for (size_t i = 0; i < intervals_a.size(); ++i)
         out(intervals_a[i].first, intervals_a[i].second);
       return true;

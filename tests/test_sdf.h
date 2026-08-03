@@ -1104,10 +1104,10 @@ struct MockEmitThenFullWidthShape {
 
 /**
  * @brief Verifies UNSORTED, multi-piece B intervals still yield the correct set difference.
- * @details The result must be emitted in start-sorted order; scan_region's
- *   coalescer silently drops any out-of-order interval.
+ * @details The set-difference sweep walks both children in start order, so it
+ *   sorts the seam-split lists itself before differencing them.
  */
-inline void test_subtract_unsorted_b_yields_sorted_set_difference() {
+inline void test_subtract_unsorted_b_yields_set_difference() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{0.0f, 100.0f}};
@@ -1128,15 +1128,15 @@ inline void test_subtract_unsorted_b_yields_sorted_set_difference() {
   HS_EXPECT_NEAR(out[1].second, 60.0f, 1e-4f);
   HS_EXPECT_NEAR(out[2].first, 70.0f, 1e-4f);
   HS_EXPECT_NEAR(out[2].second, 100.0f, 1e-4f);
-  for (size_t i = 1; i < out.size(); ++i)
-    HS_EXPECT_TRUE(out[i].first >= out[i - 1].first);
 }
 
 /**
- * @brief Verifies that when B removes nothing, unsorted A intervals pass through start-sorted.
- * @details Sorted passthrough keeps the coalescer from dropping the earlier interval.
+ * @brief Verifies that when B removes nothing, every A interval passes through untouched.
+ * @details Passthrough replays A's emission verbatim — no span dropped, merged
+ *   or reordered. Consumers (scan_region's coalescer, a CSG parent's merge)
+ *   order the list themselves.
  */
-inline void test_subtract_unsorted_a_passthrough_is_sorted() {
+inline void test_subtract_empty_b_passes_a_through_verbatim() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{50.0f, 60.0f}, {0.0f, 10.0f}}; // unsorted
@@ -1148,8 +1148,10 @@ inline void test_subtract_unsorted_a_passthrough_is_sorted() {
   s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
-  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].first, 50.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].first, 50.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 60.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].first, 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].second, 10.0f, 1e-4f);
 }
 
 /**
@@ -1228,8 +1230,8 @@ inline void test_subtract_many_arc_seam_split_within_bound() {
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
 
-  // Every emitted span is a valid in-frame arc, start-sorted (the coalescer
-  // requirement). Reaching here means push_interval never trapped.
+  // Every emitted span is a valid in-frame arc, start-sorted. Reaching here
+  // means push_interval never trapped.
   HS_EXPECT_TRUE(!out.empty());
   for (size_t i = 0; i < out.size(); ++i) {
     HS_EXPECT_TRUE(out[i].first >= 0.0f && out[i].second <= W);
@@ -1261,8 +1263,8 @@ inline void test_intersection_requires_both_inside() {
 
 /**
  * @brief Verifies an UNSORTED multi-interval child still yields a start-sorted intersection.
- * @details Intersection's merge-sweep assumes both child interval lists are
- *   start-sorted; out-of-order output would be dropped by scan_region's coalescer.
+ * @details Intersection's merge-sweep advances the child lists in start order,
+ *   so it sorts the seam-split lists itself before sweeping them.
  */
 inline void test_intersection_unsorted_child_yields_sorted_result() {
   using P = std::pair<float, float>;
@@ -2542,8 +2544,8 @@ inline int run_sdf_tests() {
   test_subtract_inside_a_outside_b_remains_inside();
   test_subtract_inside_both_becomes_outside();
   test_subtract_keeps_minuend_size_when_b_wins();
-  test_subtract_unsorted_b_yields_sorted_set_difference();
-  test_subtract_unsorted_a_passthrough_is_sorted();
+  test_subtract_unsorted_b_yields_set_difference();
+  test_subtract_empty_b_passes_a_through_verbatim();
   test_subtract_full_width_b_requests_full_row_scan();
   test_subtract_seam_straddle_carves_across_wrap_frames();
   test_subtract_many_arc_seam_split_within_bound();
