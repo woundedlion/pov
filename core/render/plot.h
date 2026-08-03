@@ -990,6 +990,19 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
 }
 
 /**
+ * @brief One-refinement reciprocal square root for adaptive screen spacing.
+ * @details The biased refinement bounds relative error to about 0.089%.
+ */
+static __attribute__((always_inline)) inline float screen_rsqrt(float x) {
+  uint32_t bits;
+  std::memcpy(&bits, &x, sizeof(bits));
+  bits = 0x5f37642fu - (bits >> 1);
+  float estimate;
+  std::memcpy(&estimate, &bits, sizeof(estimate));
+  return estimate * (1.500883f - 0.5f * x * estimate * estimate);
+}
+
+/**
  * @brief Adaptive sub-step length (radians of arc) for ~one-pixel screen steps.
  * @tparam W,H Rasterization resolution (pixel grid).
  * @param pos Current unit-sphere sample position.
@@ -1024,7 +1037,7 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
       std::max(vx_num * vx_num + vy_num * vy_num * sin2, 1e-12f * sin2 * sin2);
   // Degenerate-speed floor: guards 1/speed when a zero/near-zero tangent stalls
   // the curve, yielding base_step rather than an unbounded step.
-  const float step = SCREEN_STEP_PX * sin2 * fast_rsqrt(speed2_num);
+  const float step = SCREEN_STEP_PX * sin2 * screen_rsqrt(speed2_num);
   return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
 }
 
@@ -1108,6 +1121,8 @@ static inline bool edge_fits_one_dot(const Vector &a, const Vector &b) {
   constexpr float KX2 = (W / (2.0f * PI_F)) * (W / (2.0f * PI_F));
   constexpr float KY2 = ((H_VIRT - 1) / PI_F) * ((H_VIRT - 1) / PI_F);
   constexpr float SPX2 = SCREEN_STEP_PX * SCREEN_STEP_PX;
+  // Preserve the fast-path implication under screen_rsqrt's <0.1% undershoot.
+  constexpr float SCREEN_RSQRT_MIN2 = 0.999f * 0.999f;
   // chord^2 caps: (2 sin(BASE/2))^2 >= B2*(1 - B2/12) bounds theta <= BASE.
   // The lower cap keeps 1 - dot(a, b) orders of magnitude above float ULP:
   // below ~3.5e-4 rad the dot rounds to 1.0f, angle_between collapses to 0,
@@ -1126,7 +1141,8 @@ static inline bool edge_fits_one_dot(const Vector &a, const Vector &b) {
   const float c = dot(a, b);
   const float cx = a.x * b.z - a.z * b.x;
   const float ty = b.y - c * a.y;
-  return F2 * (KX2 * cx * cx + KY2 * ty * ty * sin2) <= SPX2 * sin2 * sin2;
+  return F2 * (KX2 * cx * cx + KY2 * ty * ty * sin2) <=
+         SPX2 * SCREEN_RSQRT_MIN2 * sin2 * sin2;
 }
 HS_O3_END
 
@@ -1312,6 +1328,8 @@ struct RasterOptions {
  * @tparam W,H Rasterization resolution (pixel grid).
  * @tparam SinglePass Emit adaptive samples immediately instead of replaying a
  *         normalized step cache.
+ * @tparam OpenGeodesic Compile out planar, closed-loop, seam and omit-end
+ *         support for an open geodesic polyline.
  * @tparam PipelineT Pipeline type.
  * @tparam FragmentShaderT Fragment shader type for direct raster pipelines.
  * @param source_pipeline Render pipeline that plots fragments.
@@ -1324,11 +1342,15 @@ struct RasterOptions {
  * @param opts Optional loop/projection/culling behaviors (see RasterOptions).
  */
 HS_O3_BEGIN
-template <int W, int H, bool SinglePass = false, typename PipelineT = PipelineRef,
+template <int W, int H, bool SinglePass = false, bool OpenGeodesic = false,
+          typename PipelineT = PipelineRef,
           typename FragmentShaderT = FragmentShaderFn>
 static void
 rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           FragmentShaderT fragment_shader, const RasterOptions &opts = {}) {
+  if constexpr (OpenGeodesic)
+    assert(!opts.close_loop && opts.planar_basis == nullptr && !opts.omit_end &&
+           opts.loop_seam == nullptr);
   // A direct-raster sink writes through a cached framebuffer base; the canvas
   // double-buffers, so a stale base is the buffer the display is scanning out.
   if constexpr (requires { source_pipeline.prepared_for(canvas); })
@@ -1342,17 +1364,18 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
                                FragmentShaderFn>)) {
     PipelineRef erased(source_pipeline);
     FragmentShaderFn erased_shader(fragment_shader);
-    rasterize<W, H, SinglePass>(erased, canvas, points, erased_shader, opts);
+    rasterize<W, H, SinglePass, OpenGeodesic>(erased, canvas, points,
+                                              erased_shader, opts);
     return;
   }
   HS_PLOT_COUNT(rings);
-  const bool close_loop = opts.close_loop;
-  const Basis *planar_basis = opts.planar_basis;
-  const bool omit_end = opts.omit_end;
+  const bool close_loop = OpenGeodesic ? false : opts.close_loop;
+  const Basis *planar_basis = OpenGeodesic ? nullptr : opts.planar_basis;
+  const bool omit_end = OpenGeodesic ? false : opts.omit_end;
   const uint8_t *edge_visible = opts.edge_visible;
   const float *point_rows = opts.point_rows;
   const float *point_cols = opts.point_cols;
-  const Fragment *loop_seam = opts.loop_seam;
+  const Fragment *loop_seam = OpenGeodesic ? nullptr : opts.loop_seam;
   auto &pipeline = source_pipeline;
   size_t len = points.size();
   // A degenerate path is not drawn — callers wanting a dot duplicate the vertex,
@@ -1528,7 +1551,21 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       size_t step_count = 0;
       while (current_dist < total_dist) {
         HS_PLOT_COUNT(normalizations);
-        Vector p = smp.pos.normalized();
+        Vector p;
+        if constexpr (OpenGeodesic) {
+#ifdef HS_TEST_BUILD
+          if (g_reference_screen_step) {
+            p = smp.pos.normalized();
+          } else
+#endif
+          {
+            // One Newton correction leaves only second-order length error.
+            const float norm2 = dot(smp.pos, smp.pos);
+            p = smp.pos * (1.5f - 0.5f * norm2);
+          }
+        } else {
+          p = smp.pos.normalized();
+        }
         Fragment f = Fragment::lerp_registers(curr, next, current_t);
         f.pos = p;
         f.color = Color4(0, 0, 0, 0);
@@ -3466,6 +3503,7 @@ struct ParticleSystem {
    * @tparam FuseVertex Apply the typed vertex shader as each point is emitted.
    * @tparam FragmentShaderT Fragment shader type.
    * @tparam VertexShaderFn Vertex shader type.
+   * @tparam DeferredShaderT Deferred vertex shader type.
    * @tparam SystemT Particle-system type.
    * @tparam ParticleV2Fn Per-particle v2 mapper type.
    * @param pipeline Render pipeline.
@@ -3485,11 +3523,12 @@ struct ParticleSystem {
   template <int W, int H, bool HoistableCull, bool FuseVertex,
             bool SinglePassRaster,
             typename PipelineT, typename SystemT, typename FragmentShaderT,
-            typename VertexShaderFn, typename ParticleV2Fn>
+            typename VertexShaderFn, typename DeferredShaderT,
+            typename ParticleV2Fn>
   static void
   draw_impl(PipelineT &pipeline, Canvas &canvas, const SystemT &system,
             FragmentShaderT fragment_shader, VertexShaderFn vertex_shader,
-            DeferredShaderRef deferred_shader, ParticleV2Fn particle_v2) {
+            DeferredShaderT deferred_shader, ParticleV2Fn particle_v2) {
     int count = system.active();
     if (count == 0)
       return;
@@ -3499,6 +3538,15 @@ struct ParticleSystem {
                  max_life <= 65535.0f,
              "ParticleSystem render max_life must be finite and in [1, 65535]");
     const float inv_max_life = 1.0f / max_life;
+    const bool has_deferred_shader = [&] {
+      if constexpr (std::is_same_v<std::decay_t<DeferredShaderT>,
+                                   std::nullptr_t>)
+        return false;
+      else if constexpr (requires { static_cast<bool>(deferred_shader); })
+        return static_cast<bool>(deferred_shader);
+      else
+        return true;
+    }();
 
     // Segment-clip state for the trail-level deferred-shader gate below.
     const auto &cr = canvas.clip();
@@ -3536,7 +3584,7 @@ struct ParticleSystem {
       trail.bind(scratch_arena_a, trail_len);
       // Original (pre-shader) positions, kept for the deferred pass.
       ArenaVector<Vector> orig;
-      if (deferred_shader)
+      if (has_deferred_shader)
         orig.bind(scratch_arena_a, trail_len);
       {
         HS_PROFILE(plot_ps_tween);
@@ -3551,7 +3599,7 @@ struct ParticleSystem {
                                       .v3 = particle_life});
           if constexpr (FuseVertex)
             vertex_shader(trail.back());
-          if (deferred_shader)
+          if (has_deferred_shader)
             orig.push_back(v);
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
           history_batch.step();
@@ -3667,14 +3715,14 @@ struct ParticleSystem {
       if (!clip_active)
         HS_MSP_COUNT(visible_trails);
 
-      if (deferred_shader) {
+      if (has_deferred_shader) {
         HS_PROFILE(plot_ps_deferred);
         for (size_t k = 0; k < trail.size(); ++k)
           deferred_shader(trail[k], orig[k]);
       }
       {
         HS_PROFILE(plot_ps_raster);
-        rasterize<W, H, SinglePassRaster>(
+        rasterize<W, H, SinglePassRaster, true>(
             pipeline, canvas, trail, fragment_shader,
             {.edge_visible = vis,
              .point_rows = dot_rows,
@@ -3715,6 +3763,7 @@ struct ParticleSystem {
    * @details Fuses point materialization and transformation into one traversal.
    * @tparam SinglePassRaster Emit adaptive geodesic samples without a replay
    *         cache. Applies only to a direct raster pipeline.
+   * @tparam DeferredShaderT Deferred vertex shader type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param system Particle system supplying the active pool and trail history.
@@ -3725,12 +3774,14 @@ struct ParticleSystem {
    */
   template <int W, int H, bool SinglePassRaster = false, typename PipelineT,
             typename FragmentShaderT,
-            typename VertexShaderFn, typename ParticleV2Fn = std::nullptr_t>
+            typename VertexShaderFn,
+            typename DeferredShaderT = DeferredShaderRef,
+            typename ParticleV2Fn = std::nullptr_t>
   static void draw_fused_vertex(PipelineT &pipeline, Canvas &canvas,
                                 const auto &system,
                                 FragmentShaderT fragment_shader,
                                 VertexShaderFn vertex_shader,
-                                DeferredShaderRef deferred_shader = {},
+                                DeferredShaderT deferred_shader = {},
                                 ParticleV2Fn particle_v2 = nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true,
