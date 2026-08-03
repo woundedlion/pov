@@ -619,6 +619,40 @@ inline void test_ripple_small_angle_series_matches_exact() {
 }
 
 /**
+ * @brief Pins the sync() band past π, where every ripple ends its life.
+ * @details A Ripple advances phase by `speed` per frame for `duration` frames,
+ *          so its defaults (0.2, 100) walk it out to ~20 rad — many times the
+ *          sphere's π of angular range. Every other threshold test pins phase
+ *          to π/2, where the [0, π] clamp is inert. Here the clamp collapses
+ *          both bounds onto cos(π), so the front has left the sphere and every
+ *          direction is fast-rejected; an inverted or dropped clamp reopens an
+ *          arbitrary annulus of a wrapped phase and charges the whole sphere
+ *          the per-pixel wavelet again.
+ */
+inline void test_ripple_threshold_collapses_past_pi() {
+  Animation::RippleParams p;
+  p.center = Vector(0, 1, 0);
+  p.amplitude = 0.5f;
+  p.decay = 0.0f;
+  p.thickness = 0.4f;
+  p.phase = 20.0f;
+  p.sync();
+
+  HS_EXPECT_NEAR(p.cos_threshold_min, -1.0f, 1e-6f);
+  HS_EXPECT_NEAR(p.cos_threshold_max, -1.0f, 1e-6f);
+
+  // The band admits nothing: every direction but the exact antipode falls
+  // outside it, takes the fast reject, and comes back bit for bit.
+  for (int i = 1; i < 64; ++i) {
+    const float d = PI_F * static_cast<float>(i) / 64.0f;
+    const Vector v(std::sin(d), std::cos(d), 0.0f);
+    const float cos_d = dot(v, p.center);
+    HS_EXPECT_TRUE(cos_d > p.cos_threshold_min || cos_d < p.cos_threshold_max);
+    HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, p), v));
+  }
+}
+
+/**
  * @brief Feeds non-finite (NaN/Inf) directions through the transforms' identity
  *        short-circuits and confirms they pass the input through verbatim.
  * @details No in-process test previously pushed NaN/Inf in. The zero-amplitude
@@ -1581,6 +1615,7 @@ inline int run_transformers_tests() {
   test_ripple_decay_attenuates();
   test_ripple_threshold_boundary();
   test_ripple_small_angle_series_matches_exact();
+  test_ripple_threshold_collapses_past_pi();
   test_transforms_nonfinite_passes_through_identity();
   test_noise_zero_amplitude_is_identity();
   test_noise_active_stays_on_sphere();
