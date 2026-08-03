@@ -19,6 +19,7 @@ import {
   DEFAULT_CAPTURE_OFFSET_MS,
   GALLERY_WIDTH,
 } from './screenshot_capture_config.mjs';
+import { descendToHonoredResolution } from './screenshot_resolution.mjs';
 
 // Number('') is 0 (finite), so blank/whitespace is rejected explicitly.
 function numEnv(name, def) {
@@ -182,10 +183,17 @@ try {
     }, GALLERY_WIDTH);
   }
 
-  // The app rewrites the URL's effect param to whatever it actually selected, so
-  // after navigating we can detect a silent fallback (requested effect not offered
-  // at this resolution) by comparing the rewritten param to what we asked for.
-  async function selectedEffect() {
+  // Loads one effect at one resolution and reports the effect the app actually
+  // selected: it rewrites the URL's effect param to its choice, so a silent
+  // fallback (requested effect not offered here) shows up as a different name.
+  // descendToHonoredResolution() owns which resolution wins.
+  async function loadEffect(effect, resolution) {
+    const params = new URLSearchParams({ effect, resolution });
+    await page.goto(`${BASE_URL}?${params.toString()}`,
+      { waitUntil: 'load', timeout: 60000 });
+    await page.waitForSelector('#canvas', { timeout: 30000 });
+    // The fallback rewrite happens during hydration, before the settle wait.
+    await page.waitForTimeout(500);
     return await page.evaluate(() =>
       new URLSearchParams(location.search).get('effect'));
   }
@@ -194,17 +202,8 @@ try {
     process.stdout.write(`Capturing ${effect}... `);
     try {
       // Try resolutions high→low; keep the first that actually offers this effect.
-      let usedRes = null, honored = false;
-      for (const res of RESOLUTIONS) {
-        const params = new URLSearchParams({ effect, resolution: res });
-        await page.goto(`${BASE_URL}?${params.toString()}`,
-          { waitUntil: 'load', timeout: 60000 });
-        await page.waitForSelector('#canvas', { timeout: 30000 });
-        // The fallback rewrite happens during hydration, before the settle wait.
-        await page.waitForTimeout(500);
-        usedRes = res;
-        if ((await selectedEffect()) === effect) { honored = true; break; }
-      }
+      const { resolution: usedRes, honored } =
+        await descendToHonoredResolution(effect, RESOLUTIONS, loadEffect);
       // Offered at no resolution: the canvas shows the app's fallback effect.
       // Saving it would overwrite a (possibly correct) existing PNG with a
       // thumbnail of the WRONG effect — worse than leaving the stale one. Skip the
