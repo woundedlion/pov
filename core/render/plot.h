@@ -92,6 +92,9 @@ enum class RasterSamplingPolicy { DEFAULT, BALANCED, SELECTABLE };
 /** @brief Balanced-policy target spacing in screen pixels. */
 static constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
 
+/** @brief Pole-floor multiple below which balanced sampling keeps exact cadence. */
+static constexpr float BALANCED_POLE_GUARD_SCALE = 2.0f;
+
 /** @brief Source-over-aware alpha gain for balanced sample spacing. */
 static inline float balanced_sample_alpha(float alpha, float step_ratio) {
   const float gain =
@@ -1687,6 +1690,15 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 
     // Sub-step length at the segment start (also the first simulation step).
     const float base_step = (2.0f * PI_F) / W;
+    auto balanced_step = [&](float default_step) {
+      const float POLE_GUARD =
+          base_step * MIN_POLE_SCALE * BALANCED_POLE_GUARD_SCALE;
+      return default_step <= POLE_GUARD
+                 ? default_step
+                 : std::min(base_step,
+                            default_step *
+                                (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
+    };
     auto adaptive_step = [&](const SamplePT &value) {
 #ifdef HS_TEST_BUILD
       if (g_reference_screen_step)
@@ -1762,9 +1774,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       bool reuse_step = false;
       if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
         if (balanced_sampling)
-          desired_step = std::min(
-              base_step,
-              first_step * (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
+          desired_step = balanced_step(first_step);
       }
       size_t step_count = 0;
       while (current_dist < total_dist) {
@@ -1850,7 +1860,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
                 const float sin2 = 1.0f - smp.pos.y * smp.pos.y;
                 reuse_step =
                     sin2 > 0.12f &&
-                    default_desired_step > base_step * MIN_POLE_SCALE * 2.0f &&
+                    default_desired_step >
+                        base_step * MIN_POLE_SCALE *
+                            BALANCED_POLE_GUARD_SCALE &&
                     default_desired_step < base_step * 0.9f &&
                     dot(smp.tan, previous_full_tangent) > 0.995f &&
                     fabsf(default_desired_step - previous_full_step) <
@@ -1866,10 +1878,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           desired_step = default_desired_step;
           if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
             if (balanced_sampling)
-              desired_step = std::min(
-                  base_step,
-                  default_desired_step *
-                      (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
+              desired_step = balanced_step(default_desired_step);
           }
         }
       }
