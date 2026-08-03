@@ -345,8 +345,7 @@ private:
       {{1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 1.4f, 0.05f}},
   }};
   static_assert(
-      preset_in_ranges(PRESETS[0].params) &&
-          preset_in_ranges(PRESETS[1].params),
+      all_presets_in_ranges(PRESETS, preset_in_ranges),
       "a Liquid2D preset drives a param outside its registered slider "
       "range; widen the range to accommodate the preset (the range "
       "exposes the presets, it does not clamp them)");

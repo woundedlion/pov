@@ -22,6 +22,26 @@ template <typename Params> struct PresetEntry {
 };
 
 /**
+ * @brief True iff every entry of @p entries satisfies @p in_ranges.
+ * @tparam Params The preset parameter type stored in each entry.
+ * @tparam N The number of entries.
+ * @param entries The preset table to check.
+ * @param in_ranges Predicate testing one preset against its slider ranges.
+ * @return True when every entry passes.
+ * @details For a `static_assert` over a preset table: the loop covers appended
+ * entries, which an unrolled conjunction over literal indices does not.
+ */
+template <typename Params, size_t N>
+constexpr bool
+all_presets_in_ranges(const std::array<PresetEntry<Params>, N> &entries,
+                      bool (*in_ranges)(const Params &)) {
+  for (const auto &e : entries)
+    if (!in_ranges(e.params))
+      return false;
+  return true;
+}
+
+/**
  * @brief Fixed-size, cyclic selector over a set of Params presets.
  * @tparam Params The preset parameter type held by each entry.
  * @tparam Size The number of entries; must be greater than zero.

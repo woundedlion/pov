@@ -489,14 +489,7 @@ private:
            preset.speed <= SPEED_MAX;
   }
 
-  static_assert(preset_in_ranges(PRESETS[0].params) &&
-                    preset_in_ranges(PRESETS[1].params) &&
-                    preset_in_ranges(PRESETS[2].params) &&
-                    preset_in_ranges(PRESETS[3].params) &&
-                    preset_in_ranges(PRESETS[4].params) &&
-                    preset_in_ranges(PRESETS[5].params) &&
-                    preset_in_ranges(PRESETS[6].params) &&
-                    preset_in_ranges(PRESETS[7].params),
+  static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
                 "ShapeShifter preset is outside a registered slider range");
 
   FastNoiseLite noise;
