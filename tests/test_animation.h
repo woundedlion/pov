@@ -1716,7 +1716,7 @@ inline void test_dissolve_segue_reseeds_per_frame_and_transition() {
 
 /**
  * @brief Verifies the Base shading hooks are identities: full opacity and
- * coverage, unmodified edge distance and color, visible except at ~zero phase.
+ * coverage, unmodified edge distance and color, never culled.
  */
 inline void test_segue_base_hooks_are_identity() {
   Segue::Base base;
@@ -1730,7 +1730,70 @@ inline void test_segue_base_hooks_are_identity() {
   HS_EXPECT_EQ(g.color.g, c.color.g);
   HS_EXPECT_EQ(g.color.b, c.color.b);
   HS_EXPECT_TRUE(base.visible(0.5f));
-  HS_EXPECT_FALSE(base.visible(0.0f));
+  HS_EXPECT_TRUE(base.visible(0.0f));
+}
+
+/**
+ * @brief Peak shading weight a policy can put on screen at one global phase.
+ * @details Per-face policies resolve opacity from their own face-local phase,
+ * so they are sampled across the offset range; fragment policies are sampled
+ * across the edge-distance range through fill.
+ */
+template <typename S>
+inline float segue_peak_weight(const S &seg, float phase) {
+  float peak = 0.0f;
+  for (int i = 0; i <= 20; ++i) {
+    if constexpr (Segue::PerFace<S>) {
+      const float offset = static_cast<float>(i) / 20.0f;
+      const float local = seg.face_phase(phase, offset, seg.face_fade_frac(i));
+      peak = std::max(peak, seg.opacity(local));
+    } else {
+      float t = static_cast<float>(i) / 20.0f;
+      peak = std::max(peak, seg.fill(t, phase) * seg.opacity(phase));
+    }
+  }
+  return peak;
+}
+
+/**
+ * @brief Verifies no segue policy's visible() gate culls a phase at which that
+ * policy still shades something.
+ * @details visible() is a whole-draw cull (IslamicStars gates draw_shape on
+ * it), so a policy whose opacity or fill stays non-negligible where the gate
+ * says false blinks black for those frames at both ends of every transition.
+ * GoldConvergence floors opacity at 0.4 and SpinFlip/IrisBloom/Lace/Dissolve
+ * never fade at all, so the inherited fade-to-black gate is wrong for them.
+ */
+inline void test_segue_visible_gate_culls_only_dark_phases() {
+  auto check = [](const auto &seg) {
+    for (int i = 0; i <= 1000; ++i) {
+      const float phase = static_cast<float>(i) / 1000.0f;
+      if (!seg.visible(phase))
+        HS_EXPECT_LT(segue_peak_weight(seg, phase), 0.02f);
+    }
+  };
+  check(Segue::Base());
+  check(Segue::Crossfade());
+  check(Segue::IrisBloom());
+  check(Segue::Lace());
+  check(Segue::TerminatorSweep());
+  check(Segue::Shockwave());
+  check(Segue::Breakdown());
+  check(Segue::SpinFlip());
+  check(Segue::GoldConvergence());
+  check(Segue::Dissolve());
+
+  // The gate still culls for the policies that do fade to black.
+  HS_EXPECT_FALSE(Segue::Crossfade().visible(0.0f));
+  HS_EXPECT_TRUE(Segue::Crossfade().visible(0.5f));
+  HS_EXPECT_FALSE(Segue::TerminatorSweep().visible(0.0f));
+  // ...and never culls the policies that keep shading at phase 0.
+  HS_EXPECT_TRUE(Segue::GoldConvergence().visible(0.0f));
+  HS_EXPECT_TRUE(Segue::SpinFlip().visible(0.0f));
+  HS_EXPECT_TRUE(Segue::IrisBloom().visible(0.0f));
+  HS_EXPECT_TRUE(Segue::Lace().visible(0.0f));
+  HS_EXPECT_TRUE(Segue::Dissolve().visible(0.0f));
+  HS_EXPECT_TRUE(Segue::Shockwave().visible(0.0f));
 }
 
 /**
@@ -3015,6 +3078,7 @@ inline int run_animation_tests() {
   test_dissolve_segue_masks_partition_the_canvas();
   test_dissolve_segue_reseeds_per_frame_and_transition();
   test_segue_base_hooks_are_identity();
+  test_segue_visible_gate_culls_only_dark_phases();
   test_iris_bloom_fill_contracts_to_face_centers();
   test_lace_fill_keeps_edge_band();
   test_sweep_phase_front_ordering();
