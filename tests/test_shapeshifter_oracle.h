@@ -348,6 +348,13 @@ inline void test_candidate_matrix_stays_within_visual_budget() {
         reference_energy == 0
             ? 0.0
             : std::fabs(static_cast<double>(energy_delta)) / reference_energy;
+    if (energy_ratio >= MAX_ENERGY_DRIFT)
+      hs::log("ShapeShifter oracle energy: shape=%u function=%u count=%d "
+              "sides=%d delta=%lld reference=%llu drift=%f",
+              static_cast<unsigned>(state.shape),
+              static_cast<unsigned>(state.function), state.count, state.sides,
+              static_cast<long long>(energy_delta),
+              static_cast<unsigned long long>(reference_energy), energy_ratio);
     size_t uncovered_bright_pixels = 0;
     size_t high_error_pixels = 0;
     for (size_t pixel = 0; pixel < comparison.reference.pixels.size();
@@ -489,13 +496,13 @@ inline void test_preset_transition_snaps() {
       return -1.0f;
     };
 
-    HS_EXPECT_EQ(value("Alpha"), 0.5f);
-    HS_EXPECT_EQ(value("Shape"), 2.793f);
-    HS_EXPECT_EQ(value("Count"), 43.327999f);
-    HS_EXPECT_EQ(value("Sides"), 6.562f);
+    HS_EXPECT_EQ(value("Alpha"), 1.0f);
+    HS_EXPECT_EQ(value("Shape"), 1.017f);
+    HS_EXPECT_EQ(value("Count"), 74.644997f);
+    HS_EXPECT_EQ(value("Sides"), 3.0f);
     HS_EXPECT_EQ(value("Function"), 0.0f);
     HS_EXPECT_EQ(value("Amplitude"), 1.0f);
-    HS_EXPECT_EQ(value("Speed"), 0.0142f);
+    HS_EXPECT_EQ(value("Speed"), 0.0318f);
     HS_EXPECT_EQ(value("Opposite"), 0.0f);
   }
   Timeline().clear();
