@@ -1251,6 +1251,7 @@ inline void test_gs_reaction_corner_stays_bounded() {
  */
 struct BZWhiteBox {
   using BZ = BZReactionDiffusion<SMALL_W, SMALL_H>;
+  using Grid = Scan::Shader::SsaaGrid<SMALL_W, SMALL_H>;
   static constexpr int N = BZ::RD_N;
 
   static uint16_t to_q16(float v) { return BZ::to_q16(v); }
@@ -1272,6 +1273,82 @@ struct BZWhiteBox {
   static void step(BZ &bz, uint16_t *sA, uint16_t *sB, uint16_t *sC) {
     std::vector<float> fA(N), fB(N), fC(N);
     bz.step_physics(sA, sB, sC, fA.data(), fB.data(), fC.data());
+  }
+  static void set_state(BZ &bz, uint16_t *a, uint16_t *b, uint16_t *c) {
+    bz.state.A = a;
+    bz.state.B = b;
+    bz.state.C = c;
+  }
+  static int nearest_node(const Vector &v, const Vector *nodes) {
+    int nearest = 0;
+    float nearest_d2 = BZ::dist2(v, nodes[0]);
+    for (int i = 1; i < N; ++i) {
+      float d2 = BZ::dist2(v, nodes[i]);
+      if (d2 < nearest_d2) {
+        nearest = i;
+        nearest_d2 = d2;
+      }
+    }
+    return nearest;
+  }
+  static Pixel shade(const BZ &bz, int seed, const Vector &center,
+                     const Vector *nodes, const Grid &grid, int x,
+                     const Color4 &ca, const Color4 &cb, const Color4 &cc) {
+    return bz.shade_pixel(seed, center, nodes, grid, x, ca, cb, cc);
+  }
+  static Pixel reference_shade(const BZ &bz, int seed, const Vector &center_rv,
+                               const Vector *world_nodes, const Grid &grid,
+                               int x, const Color4 &ca, const Color4 &cb,
+                               const Color4 &cc) {
+    int center = BZ::refine_center(center_rv, world_nodes, seed);
+    Vector spos[BZ::RD_K + 1];
+    uint16_t sa[BZ::RD_K + 1], sb[BZ::RD_K + 1], sc[BZ::RD_K + 1];
+    spos[0] = world_nodes[center];
+    sa[0] = bz.state.A[center];
+    sb[0] = bz.state.B[center];
+    sc[0] = bz.state.C[center];
+    int k = 1;
+    BZ::for_each_neighbor(center, [&](int ni) {
+      spos[k] = world_nodes[ni];
+      sa[k] = bz.state.A[ni];
+      sb[k] = bz.state.B[ni];
+      sc[k] = bz.state.C[ni];
+      ++k;
+    });
+
+    constexpr float INV_SAMPLES = 1.0f / 4.0f;
+    Pixel accum(0, 0, 0);
+    for (int i = 0; i < 4; ++i) {
+      Vector v = grid.at(x, i);
+      float tw = 0, wa = 0, wb = 0, wc = 0;
+      for (int j = 0; j < BZ::RD_K + 1; ++j)
+        BZ::with_wendland_weight(BZ::dist2(v, spos[j]), [&](float w) {
+          wa += sa[j] * w;
+          wb += sb[j] * w;
+          wc += sc[j] * w;
+          tw += w;
+        });
+      if (tw <= BZ::KERNEL_MIN_TOTAL_WEIGHT)
+        continue;
+      float inv = BZ::Q16_INV / tw;
+      float a = wa * inv, b = wb * inv, c = wc * inv;
+      float total = a + b + c;
+      if (total < BZ::SPECIES_EMPTY_EPS)
+        continue;
+      float color_inv = 1.0f / total;
+      Pixel color(
+          static_cast<uint16_t>(
+              (ca.color.r * a + cb.color.r * b + cc.color.r * c) * color_inv +
+              0.5f),
+          static_cast<uint16_t>(
+              (ca.color.g * a + cb.color.g * b + cc.color.g * c) * color_inv +
+              0.5f),
+          static_cast<uint16_t>(
+              (ca.color.b * a + cb.color.b * b + cc.color.b * c) * color_inv +
+              0.5f));
+      accum += color * (hs::clamp(total, 0.0f, 1.0f) * INV_SAMPLES);
+    }
+    return accum;
   }
 };
 
@@ -1465,6 +1542,56 @@ inline void test_bz_substep_diffuses() {
       ++spread;
   }
   HS_EXPECT_GT(spread, 0); // A diffused into at least one empty neighbor
+}
+
+/** @brief Pins the optimized BZ raster against its scalar sampling contract. */
+inline void test_bz_raster_matches_reference() {
+  using WhiteBox = BZWhiteBox;
+  std::vector<Vector> nodes(WhiteBox::N);
+  std::vector<uint16_t> a(WhiteBox::N), b(WhiteBox::N), c(WhiteBox::N);
+  for (int i = 0; i < WhiteBox::N; ++i) {
+    nodes[i] = ReactionGraph::node(i);
+    a[i] = static_cast<uint16_t>((i * 4051u + 123u) & 0xffffu);
+    b[i] = static_cast<uint16_t>((i * 7919u + 4567u) & 0xffffu);
+    c[i] = static_cast<uint16_t>((i * 10429u + 8901u) & 0xffffu);
+  }
+
+  WhiteBox::BZ bz;
+  WhiteBox::set_state(bz, a.data(), b.data(), c.data());
+  if (!TrigLUT<SMALL_W, SMALL_H>::initialized)
+    TrigLUT<SMALL_W, SMALL_H>::init();
+  WhiteBox::Grid grid;
+  const Color4 ca(Pixel(61123, 913, 17771), 1.0f);
+  const Color4 cb(Pixel(2819, 59731, 1207), 1.0f);
+  const Color4 cc(Pixel(4513, 7781, 62927), 1.0f);
+
+  auto compare = [&] {
+    int mismatches = 0;
+    for (int y = 0; y < SMALL_H; y += 2) {
+      grid.set_row(y);
+      for (int x = 0; x < SMALL_W; x += 3) {
+        Vector center = pixel_to_vector<SMALL_W, SMALL_H>(x, y);
+        int seed = WhiteBox::nearest_node(center, nodes.data());
+        Pixel expected = WhiteBox::reference_shade(
+            bz, seed, center, nodes.data(), grid, x, ca, cb, cc);
+        Pixel actual = WhiteBox::shade(bz, seed, center, nodes.data(), grid, x,
+                                       ca, cb, cc);
+        if (actual.r != expected.r || actual.g != expected.g ||
+            actual.b != expected.b)
+          ++mismatches;
+      }
+    }
+    return mismatches;
+  };
+
+  int mismatches = compare();
+  for (int i = 0; i < WhiteBox::N; ++i) {
+    a[i] >>= 6;
+    b[i] >>= 6;
+    c[i] >>= 6;
+  }
+  mismatches += compare();
+  HS_EXPECT_EQ(mismatches, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -4598,6 +4725,7 @@ inline int run_effects_tests() {
     test_bz_perturb_state_saturates_and_nudges();
     test_bz_perturb_state_draw_count_pinned();
     test_bz_substep_diffuses();
+    test_bz_raster_matches_reference();
     test_dreamballs_preset_cycle_bookkeeping();
     test_dreamballs_respawn_fires_and_honors_pause();
     CometsWhiteBox::check_paths_close();
