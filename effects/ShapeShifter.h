@@ -160,17 +160,26 @@ private:
   }
 
   HS_FLASH_MEMBER void draw_star_pole_caps(Canvas &canvas, const Basis &basis,
-                                           int count) {
-    const float radius_t = 0.5f / static_cast<float>(count);
-    const Color4 color = baked_sunset.get(star_palette_position(radius_t));
-    auto shader = [&](const Vector &, Fragment &fragment) {
-      fragment.color = color;
-      fragment.color.alpha *= params.alpha;
+                                           int count, int sides,
+                                           PhaseFunction function) {
+    auto draw = [&](float radius_t) {
+      const float radius = 2.0f * radius_t;
+      const float shape_phase = phase_direction(radius) * params.amplitude *
+                                evaluate(function, radius_t + phase);
+      const Color4 color = baked_sunset.get(star_palette_position(radius_t));
+      const float cap_alpha =
+          std::min(1.0f, params.alpha * static_cast<float>(sides));
+      auto shader = [&](const Vector &, Fragment &fragment) {
+        fragment.color = color;
+        fragment.color.alpha *= cap_alpha;
+      };
+      const auto cap = get_antipode(basis, radius);
+      Scan::Star::draw<W, H>(plot_filters, canvas, cap.first, cap.second, sides,
+                             shader, shape_phase);
     };
-    const float thickness = STAR_INNER_RATIO * (PI_F / 2.0f) /
-                            static_cast<float>(count);
-    Scan::Point::draw<W, H>(plot_filters, canvas, basis.v, thickness, shader);
-    Scan::Point::draw<W, H>(plot_filters, canvas, -basis.v, thickness, shader);
+    const float radius_t = 0.5f / static_cast<float>(count);
+    draw(radius_t);
+    draw(1.0f - radius_t);
   }
 
   /** @brief Advances to the next preset and applies it atomically. */
@@ -264,7 +273,7 @@ private:
       dispatch_plot(canvas, basis, shape, radius, sides, shader, shape_phase);
     }
     if (shape == ShapeType::STAR)
-      draw_star_pole_caps(canvas, basis, count);
+      draw_star_pole_caps(canvas, basis, count, sides, function);
   }
 
 #ifdef HS_TEST_BUILD
@@ -295,7 +304,7 @@ private:
                               shape_phase);
     }
     if (shape == ShapeType::STAR)
-      draw_star_pole_caps(canvas, basis, count);
+      draw_star_pole_caps(canvas, basis, count, sides, function);
   }
 #endif
 
