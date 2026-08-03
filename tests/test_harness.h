@@ -157,6 +157,76 @@ struct has_color_alpha<T,
 } // namespace detail
 
 /**
+ * @brief One frame of the scoped assertion-context stack.
+ * @details Holds a label pointer and up to two integer coordinates rather than
+ * formatted text: a frame pushed inside a per-pixel loop must not cost a
+ * vsnprintf on the passing path, so formatting happens only when a failure
+ * prints.
+ */
+struct ContextFrame {
+  const char *label = nullptr; /**< Caller-owned static label. */
+  long long a = 0; /**< First coordinate, printed when arity >= 1. */
+  long long b = 0; /**< Second coordinate, printed when arity == 2. */
+  int arity = 0;   /**< Number of coordinates carried, 0..2. */
+};
+
+/** @brief Context frames retained; deeper pushes are counted, not stored. */
+inline constexpr int CONTEXT_CAP = 8;
+
+/** @brief Accessor for the process-wide context frame array. */
+inline ContextFrame *context_frames() {
+  static ContextFrame frames[CONTEXT_CAP];
+  return frames;
+}
+
+/** @brief Accessor for the live context depth (may exceed CONTEXT_CAP). */
+inline int &context_depth() {
+  static int d = 0;
+  return d;
+}
+
+/** @brief Prints the live context frames as " {outer | inner=(x, y)}". */
+inline void print_context() {
+  const int n = std::min(context_depth(), CONTEXT_CAP);
+  for (int i = 0; i < n; ++i) {
+    const ContextFrame &f = context_frames()[i];
+    std::printf("%s%s", i == 0 ? "  {" : " | ", f.label ? f.label : "?");
+    if (f.arity == 1)
+      std::printf("=%lld", f.a);
+    else if (f.arity == 2)
+      std::printf("=(%lld, %lld)", f.a, f.b);
+  }
+  if (n > 0)
+    std::printf("}");
+}
+
+/**
+ * @brief RAII label naming what the enclosing block is asserting about.
+ * @details HS_EXPECT_* stamps __func__, which inside a shared helper names the
+ * helper rather than the call that reached it. Every live scope is printed with
+ * each failure, so a helper's assertions say which caller and which sample they
+ * came from.
+ */
+class ContextScope {
+public:
+  explicit ContextScope(const char *label) { push(label, 0, 0, 0); }
+  ContextScope(const char *label, long long a) { push(label, a, 0, 1); }
+  ContextScope(const char *label, long long a, long long b) {
+    push(label, a, b, 2);
+  }
+  ~ContextScope() { --context_depth(); }
+  ContextScope(const ContextScope &) = delete;
+  ContextScope &operator=(const ContextScope &) = delete;
+
+private:
+  static void push(const char *label, long long a, long long b, int arity) {
+    const int d = context_depth()++;
+    if (d < CONTEXT_CAP)
+      context_frames()[d] = ContextFrame{label, a, b, arity};
+  }
+};
+
+/**
  * @brief Prints a single comparison operand in a type-appropriate format.
  * @tparam T Operand type; bool, floating-point, enum, integral, pointer, and the
  * engine's r/g/b and x/y/z value types are formatted specially.
@@ -241,7 +311,9 @@ inline void report_cmp(bool ok, const A &a, const B &b, const char *expr,
   print_operand(a);
   std::printf(" vs ");
   print_operand(b);
-  std::printf(")\n");
+  std::printf(")");
+  print_context();
+  std::printf("\n");
 }
 
 /**
@@ -264,8 +336,10 @@ inline void report_near(double a, double b, double tol, const char *expr,
   ++stats().failed;
   if (!claim_fail_print())
     return;
-  std::printf("  FAIL [%s] %s:%d  %s  (%g vs %g, delta=%g)\n", case_name, file,
+  std::printf("  FAIL [%s] %s:%d  %s  (%g vs %g, delta=%g)", case_name, file,
               line, expr, a, b, std::fabs(a - b));
+  print_context();
+  std::printf("\n");
 }
 
 /**
@@ -284,8 +358,10 @@ inline void report_near_rel(double a, double b, double rel_tol,
   const double scale = std::max(std::fabs(a), std::fabs(b));
   const double rel_error =
       scale > 0.0 ? std::fabs(a - b) / scale : std::fabs(a - b);
-  std::printf("  FAIL [%s] %s:%d  %s  (%g vs %g, rel_error=%g)\n", case_name,
+  std::printf("  FAIL [%s] %s:%d  %s  (%g vs %g, rel_error=%g)", case_name,
               file, line, expr, a, b, rel_error);
+  print_context();
+  std::printf("\n");
 }
 
 /**
@@ -406,6 +482,15 @@ inline int end_module(const ModuleScope &m) {
 
 } // namespace hs_test
 
+#define HS_CTX_JOIN_INNER(a, b) a##b
+#define HS_CTX_JOIN(a, b) HS_CTX_JOIN_INNER(a, b)
+// Scoped label printed with every failure raised inside the enclosing block:
+// a name, optionally followed by one or two integer coordinates. Use it in a
+// shared helper (or its callers) where __func__ alone does not identify the
+// sample that failed.
+#define HS_CONTEXT(...)                                                        \
+  const hs_test::ContextScope HS_CTX_JOIN(hs_ctx, __LINE__)(__VA_ARGS__)
+
 // Core assertion all other HS_EXPECT_* macros funnel through.
 #define HS_EXPECT(cond, msg)                                                   \
   do {                                                                         \
@@ -413,9 +498,12 @@ inline int end_module(const ModuleScope &m) {
       ++hs_test::stats().passed;                                               \
     } else {                                                                   \
       ++hs_test::stats().failed;                                               \
-      if (hs_test::claim_fail_print())                                         \
-        std::printf("  FAIL [%s] %s:%d  %s\n", __func__, __FILE__, __LINE__,   \
+      if (hs_test::claim_fail_print()) {                                       \
+        std::printf("  FAIL [%s] %s:%d  %s", __func__, __FILE__, __LINE__,     \
                     msg);                                                      \
+        hs_test::print_context();                                              \
+        std::printf("\n");                                                     \
+      }                                                                        \
     }                                                                          \
   } while (0)
 

@@ -1729,13 +1729,16 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
  * @tparam H Canvas height in pixels.
  * @tparam Shape SDF shape type providing the cull and distance interface.
  * @param shape Shape under test.
+ * @param label Caller-identifying label; every failure here reports it plus the
+ *   pixel, since __func__ names this shared helper for all of them.
  * @return Count of interior pixels (dist < -pixel_width) found.
  * @details Interior pixels are found by a brute-force full-canvas exact distance
  *   scan. Asserts the case is non-trivial (at least one interior pixel) so no
  *   shape silently contributes zero coverage.
  */
 template <int W, int H, typename Shape>
-inline int expect_cull_covers_interior(const Shape &shape) {
+inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
+  HS_CONTEXT(label);
   if (!TrigLUT<W, H>::initialized)
     TrigLUT<W, H>::init();
   std::vector<uint8_t> visited;
@@ -1753,6 +1756,7 @@ inline int expect_cull_covers_interior(const Shape &shape) {
       Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
       if (SDF::distance_of(shape, p).dist < -pixel_width) {
         ++interior;
+        HS_CONTEXT("interior px", x, y);
         HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
       }
     }
@@ -1775,20 +1779,20 @@ inline void test_cull_covers_interior_over_orientation_grid() {
     Basis basis = make_basis(Quaternion(), axis);
     for (float radius : {0.3f, 0.6f, 0.9f}) {
       SDF::Ring ring(basis, radius, /*thickness=*/0.25f);
-      expect_cull_covers_interior<W, H>(ring);
+      expect_cull_covers_interior<W, H>(ring, "ring");
 
       SDF::SphericalPolygon spoly(basis, radius, /*sides=*/5, 0.0f);
-      expect_cull_covers_interior<W, H>(spoly);
+      expect_cull_covers_interior<W, H>(spoly, "spherical polygon");
 
       SDF::Star star(basis, radius, /*sides=*/5, 0.0f);
-      expect_cull_covers_interior<W, H>(star);
+      expect_cull_covers_interior<W, H>(star, "star");
 
       SDF::PlanarPolygon ppoly(basis, /*circumradius=*/radius, /*sides=*/6,
                                0.0f);
-      expect_cull_covers_interior<W, H>(ppoly);
+      expect_cull_covers_interior<W, H>(ppoly, "planar polygon");
 
       SDF::Flower flower(basis, radius, /*sides=*/5, 0.0f);
-      expect_cull_covers_interior<W, H>(flower);
+      expect_cull_covers_interior<W, H>(flower, "flower");
     }
   }
 }
@@ -1823,7 +1827,7 @@ inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
     Poly poly_b(basis_b, pose.radius_b, /*sides=*/5, 0.4f);
 
     SDF::Intersection<Poly, Poly> both(poly_a, poly_b);
-    expect_cull_covers_interior<W, H>(both);
+    expect_cull_covers_interior<W, H>(both, "intersection leaf pair");
   }
 }
 
@@ -1841,7 +1845,7 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
   SDF::Line ln(Vector(0.25f, 1, 0).normalized(),
                Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
   SDF::AngularRepeat<SDF::Line> rep(ln, /*reps=*/4, Vector(1, 0, 0));
-  int interior = expect_cull_covers_interior<W, H>(rep);
+  int interior = expect_cull_covers_interior<W, H>(rep, "angular repeat");
   HS_EXPECT_GT(interior, 0);
 }
 
@@ -1857,7 +1861,7 @@ inline void test_line_arc_bulge_cull_covers_interior() {
   // pole (phi=0), above either endpoint's latitude.
   SDF::Line ln(Vector(0, cosf(0.4f), sinf(0.4f)),
                Vector(0, cosf(0.4f), -sinf(0.4f)), /*thickness=*/0.15f);
-  int interior = expect_cull_covers_interior<W, H>(ln);
+  int interior = expect_cull_covers_interior<W, H>(ln, "line arc bulge");
   HS_EXPECT_GT(interior, 0);
 }
 
@@ -1873,7 +1877,7 @@ inline void test_line_antipodal_cull_covers_interior() {
   constexpr int W = 96, H = 48;
   Vector a = Vector(0.4f, 0.6f, 0.69f).normalized();
   SDF::Line ln(a, -a, /*thickness=*/0.15f);
-  int interior = expect_cull_covers_interior<W, H>(ln);
+  int interior = expect_cull_covers_interior<W, H>(ln, "line antipodal");
   HS_EXPECT_GT(interior, 0);
 }
 
@@ -1887,7 +1891,7 @@ inline void test_line_antipodal_cull_covers_interior() {
 inline void test_line_thick_cap_past_pi_cull_covers_interior() {
   constexpr int W = 96, H = 48;
   SDF::Line ln(Vector(1, 0, 0), Vector(0, 0, 1), /*thickness=*/2.6f);
-  int interior = expect_cull_covers_interior<W, H>(ln);
+  int interior = expect_cull_covers_interior<W, H>(ln, "line thick cap");
   HS_EXPECT_GT(interior, 0);
 }
 
@@ -1918,11 +1922,11 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
   for (const Cfg &c : cfgs) {
     Basis basis_n = make_basis(Quaternion(), Vector(c.tilt, 1.0f, 0.0f));
     SDF::Ring ring_n(basis_n, c.radius, c.thickness);
-    expect_cull_covers_interior<W, H>(ring_n);
+    expect_cull_covers_interior<W, H>(ring_n, "ring north pole");
 
     Basis basis_s = make_basis(Quaternion(), Vector(c.tilt, -1.0f, 0.0f));
     SDF::Ring ring_s(basis_s, c.radius, c.thickness);
-    expect_cull_covers_interior<W, H>(ring_s);
+    expect_cull_covers_interior<W, H>(ring_s, "ring south pole");
   }
 }
 
@@ -1964,7 +1968,7 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
       SDF::DistortedRing ring(basis, /*radius=*/0.6f, /*thickness=*/0.12f,
                               shift,
                               /*max_distortion=*/amp, /*phase=*/0.0f);
-      expect_cull_covers_interior<W, H>(ring);
+      expect_cull_covers_interior<W, H>(ring, "distorted ring");
 
       // The knot overload's exact distance widens the interior toward the
       // band edges; every extra pixel must still fall inside the emitted
@@ -1975,7 +1979,7 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
         knots[k] = shift(static_cast<float>(k % LUT_N) / LUT_N);
       SDF::DistortedRing poly(basis, /*radius=*/0.6f, /*thickness=*/0.12f,
                               knots, LUT_N, /*phase=*/0.0f);
-      expect_cull_covers_interior<W, H>(poly);
+      expect_cull_covers_interior<W, H>(poly, "distorted polygon");
     }
   }
 
@@ -1987,7 +1991,7 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
   Basis basis = make_basis(Quaternion(), Vector(0.3f, 1.0f, 0.2f));
   SDF::DistortedRing asymmetric_ring(basis, 0.6f, 0.08f, asymmetric,
                                      ASYM_LUT_N, 0.0f);
-  expect_cull_covers_interior<W, H>(asymmetric_ring);
+  expect_cull_covers_interior<W, H>(asymmetric_ring, "asymmetric ring");
 }
 
 /**
