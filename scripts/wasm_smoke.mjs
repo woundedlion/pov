@@ -587,7 +587,8 @@ async function main() {
     const MR = Module.MeshOpResult;
     for (const reason of
          ['OK', 'UNKNOWN_NAME', 'CONNECTIVITY_OVERFLOW', 'FACE_DEGREE_OVERFLOW',
-          'ARENA_EXHAUSTED', 'NON_FINITE_ARG', 'ANGLE_OUT_OF_DOMAIN']) {
+          'ARENA_EXHAUSTED', 'NON_FINITE_ARG', 'ANGLE_OUT_OF_DOMAIN',
+          'STALE_WRAPPER']) {
       if (!MR || !MR[reason]) {
         fail(`Module.MeshOpResult.${reason} is not bound`);
       }
@@ -699,6 +700,26 @@ async function main() {
       for (const region of Object.keys(tm)) {
         const { high_water_mark: hwm, capacity } = tm[region];
         if (hwm > capacity) fail(`MeshOps ${region} high-water mark ${hwm} exceeds capacity ${capacity}`);
+      }
+
+      // A wrapper held across clearToolingMemory() aliases reclaimed storage.
+      // Using it must reject (null + STALE_WRAPPER), never abort the module —
+      // the JS layer serializes tasks against exactly this ordering slip, and a
+      // trap here would take the whole page down instead of one call.
+      const stale = MeshOps.fromSolidName(solidName);
+      if (!stale) {
+        fail(`fromSolidName("${solidName}") returned null before the wipe`);
+      } else {
+        MeshOps.clearToolingMemory();
+        for (const [what, result] of
+             [['getVertices', stale.getVertices()], ['getFaces', stale.getFaces()],
+              ['classifyFaces', stale.classifyFaces()], ['dual', stale.dual()]]) {
+          if (result) fail(`stale wrapper ${what}() should return null`);
+          if (MeshOps.getLastResult() !== MR.STALE_WRAPPER) {
+            fail(`stale wrapper ${what}() did not report STALE_WRAPPER`);
+          }
+        }
+        stale.delete();
       }
 
       // The clearToolingMemory generation trap: the wipe reclaims the tooling
