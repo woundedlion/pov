@@ -61,7 +61,8 @@ CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 # ─── clang-format check (first-party C++ only) ──────────────────────────────
 # Verify staged C++ matches the committed .clang-format. Scoped to first-party
 # sources: core/vendor/ and the generated color_luts.h / gamut_lut.h /
-# reaction_graph.cpp are excluded. Checks the working-tree file (same partial-staging caveat as the
+# reaction_graph.cpp / mindsplatter_replay_corpus.h are excluded. Checks the
+# working-tree file (same partial-staging caveat as the
 # suite above). Skipped if clang-format is absent (a contributor without it still
 # commits — CI's clang-format job gates the whole tracked tree) or via
 # HS_SKIP_FORMAT=1. Ordered ahead of the HS_SKIP_TESTS opt-out: that flag stands
@@ -78,7 +79,7 @@ HS_CLANG_FORMAT_MAJOR=18
 if [ -z "$HS_SKIP_FORMAT" ]; then
   FORMAT="$(printf '%s\n' "$CHANGED" \
     | grep -E '\.(h|hpp|cpp|cc|inl)$' \
-    | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$' || true)"
+    | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$|(^|/)effects/mindsplatter_replay_corpus\.h$' || true)"
   if [ -n "$FORMAT" ]; then
     CF="${CLANG_FORMAT:-clang-format}"
     if command -v "$CF" >/dev/null 2>&1; then

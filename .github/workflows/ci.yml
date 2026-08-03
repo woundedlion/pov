@@ -1087,10 +1087,10 @@ jobs:
           printf '%s\n' "$FORMAT_BASELINE" | sed '/^[[:space:]]*$/d' > /tmp/format-baseline.txt
 
           # Same file set as .githooks/pre-commit: first-party C++ only, with
-          # core/vendor/ and the three generated sources excluded (they are
+          # core/vendor/ and the four generated sources excluded (they are
           # emitted by their generators, not hand-formatted).
           git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' \
-            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$' \
+            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$|(^|/)effects/mindsplatter_replay_corpus\.h$' \
             > /tmp/format-all.txt
           grep -vxF -f /tmp/format-baseline.txt /tmp/format-all.txt > /tmp/format-files.txt || true
 
