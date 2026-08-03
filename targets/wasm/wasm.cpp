@@ -329,6 +329,21 @@ static bool wasm_resolution_supported(int w, int h) {
   return dispatch_resolution(w, h, []<int W, int H>() {});
 }
 
+/**
+ * @brief Outcome of a HolosphereEngine::setClip() call.
+ * @details A single bool merged NO_EFFECT — the ordinary state after an init or
+ *          setResolution that carried no effect name — with INVALID_BOUNDS, so a
+ *          caller that faults on rejection had to fault on both. Exposed to JS
+ *          as the Module.ClipSetResult embind enum; compare against its values,
+ *          never by truthiness (every enum value is a truthy object).
+ */
+enum class ClipSetResult {
+  APPLIED,        /**< Band installed, or deliberately kept full-canvas for an
+                       Effect::needs_full_frame() effect. */
+  NO_EFFECT,      /**< No effect is installed to receive the clip. */
+  INVALID_BOUNDS, /**< Bounds malformed or out of range for the resolution. */
+};
+
 // True while a HolosphereEngine is constructed-but-not-deleted. The engine is a
 // singleton: its Effect aliases shared static buffers and its arenas are
 // module-global, so a second instance would corrupt the first's frames.
@@ -496,9 +511,14 @@ public:
    * @param x1 Exclusive right column, with x0 <= x1 <= pixel_width.
    * @param y0 Inclusive top row of the clip band in [0, pixel_height].
    * @param y1 Exclusive bottom row of the clip band, with y0 <= y1 <= pixel_height.
-   * @return true if the bounds were accepted (band applied, OR intentionally
-   *         ignored for a full-frame stateful effect); false if no effect is set
-   *         or the bounds are malformed/out of range (then ignored).
+   * @return APPLIED if the bounds were accepted (band applied, OR intentionally
+   *         kept full-canvas for a full-frame stateful effect), otherwise the
+   *         rejection reason: NO_EFFECT (no effect is set to receive the clip)
+   *         or INVALID_BOUNDS (malformed/out of range, then ignored). Exposed to
+   *         JS as the Module.ClipSetResult embind enum; compare against its
+   *         values, never by truthiness. NO_EFFECT is the ordinary answer
+   *         between a resolution change and the setEffect that follows it, so a
+   *         caller that faults on a rejection must fault on INVALID_BOUNDS only.
    * @details Args are x-pair-first to match the (x, y) convention: embind binds
    *          positionally, so a y-first order would let a transposed JS call pass
    *          the range check and silently clip the wrong axis. Rejects malformed
@@ -508,9 +528,9 @@ public:
    *          (Effect::needs_full_frame()) keeps the full-canvas clip instead of
    *          narrowing to the band — see docs/segmented_stateful_effects_spec.md.
    */
-  bool setClip(int x0, int x1, int y0, int y1) {
+  ClipSetResult setClip(int x0, int x1, int y0, int y1) {
     if (!current_effect)
-      return false;
+      return ClipSetResult::NO_EFFECT;
     // Reject malformed bounds from the untyped JS boundary (negatives would feed
     // ClipRegion's modulo arithmetic); reject-and-return, never trap.
     if (!hs_wasm::clip_bounds_valid(x0, x1, y0, y1, pixel_width,
@@ -518,15 +538,15 @@ public:
       hs::log("WASM: setClip bounds out of range (x0=%d,x1=%d,y0=%d,y1=%d) — "
               "ignored",
               x0, x1, y0, y1);
-      return false;
+      return ClipSetResult::INVALID_BOUNDS;
     }
     // Cross-segment stateful effects must render the FULL canvas in every worker
     // (a band-clipped worker has stale cv.prev outside its band, so trails seam);
     // keep the full clip. See docs/segmented_stateful_effects_spec.md.
     if (current_effect->needs_full_frame())
-      return true;
+      return ClipSetResult::APPLIED;
     current_effect->set_clip(y0, y1, x0, x1);
-    return true;
+    return ClipSetResult::APPLIED;
   }
 
   /**
@@ -1725,6 +1745,11 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .value("UNKNOWN_PARAM", ParamSetResult::UNKNOWN_PARAM)
       .value("READONLY", ParamSetResult::READONLY)
       .value("NON_FINITE", ParamSetResult::NON_FINITE);
+
+  enum_<ClipSetResult>("ClipSetResult")
+      .value("APPLIED", ClipSetResult::APPLIED)
+      .value("NO_EFFECT", ClipSetResult::NO_EFFECT)
+      .value("INVALID_BOUNDS", ClipSetResult::INVALID_BOUNDS);
 
   class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
