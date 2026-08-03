@@ -513,7 +513,9 @@ inline uint32_t geometric_pole_center_energy(const OracleFrame &frame,
 
 inline size_t uncovered_geometric_pole_pixels(const OracleFrame &frame,
                                               const Vector &pole,
-                                              float radius_px) {
+                                              float radius_px,
+                                              uint32_t minimum_energy =
+                                                  COVERAGE_ENERGY) {
   const PixelCoords center = vector_to_pixel<ORACLE_W, ORACLE_H>(pole);
   size_t uncovered = 0;
   for (int y = 0; y < ORACLE_H; ++y) {
@@ -523,7 +525,9 @@ inline size_t uncovered_geometric_pole_pixels(const OracleFrame &frame,
       const float dy = static_cast<float>(y) - center.y;
       if (dx * dx + dy * dy > radius_px * radius_px)
         continue;
-      uncovered += !pixel_has_coverage(frame.at(x, y));
+      const Pixel &pixel = frame.at(x, y);
+      uncovered += static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b <=
+                   minimum_energy;
     }
   }
   return uncovered;
@@ -618,6 +622,7 @@ inline void test_star_pole_cap_covers_display_pole() {
 }
 
 inline void test_high_count_star_cap_fills_visible_center() {
+  constexpr uint32_t MIN_CAP_ENERGY = 4096;
   OracleState state;
   state.shape = OracleEffect::ShapeType::STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
@@ -625,13 +630,30 @@ inline void test_high_count_star_cap_fills_visible_center() {
   state.sides = 7;
   state.phase = 0.125f;
   state.alpha = 0.274f;
-  const OracleFrame frame =
-      capture_frame(state, [](OracleEffect &effect, Canvas &canvas) {
-        ShapeShifterWhiteBox::render_star_caps(effect, canvas);
-      });
-  HS_EXPECT_EQ(uncovered_geometric_pole_pixels(frame, X_AXIS, 2.0f), size_t{0});
-  HS_EXPECT_EQ(uncovered_geometric_pole_pixels(frame, -X_AXIS, 2.0f),
-               size_t{0});
+  const std::array<Quaternion, 7> orientations = {{
+      Quaternion(),
+      make_rotation(X_AXIS, Y_AXIS),
+      make_rotation(X_AXIS, Z_AXIS),
+      Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(),
+      Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
+      Quaternion(0.51f, 0.63f, -0.28f, 0.51f).normalized(),
+      Quaternion(0.31f, -0.24f, 0.81f, 0.43f).normalized(),
+  }};
+  for (const Quaternion &orientation : orientations) {
+    state.orientation = orientation;
+    const OracleFrame frame =
+        capture_frame(state, [](OracleEffect &effect, Canvas &canvas) {
+          ShapeShifterWhiteBox::render_star_caps(effect, canvas);
+        });
+    const Vector near = rotate(X_AXIS, orientation);
+    const Vector far = -near;
+    HS_EXPECT_EQ(uncovered_geometric_pole_pixels(frame, near, 1.5f,
+                                                 MIN_CAP_ENERGY),
+                 size_t{0});
+    HS_EXPECT_EQ(uncovered_geometric_pole_pixels(frame, far, 1.5f,
+                                                 MIN_CAP_ENERGY),
+                 size_t{0});
+  }
 }
 
 inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
