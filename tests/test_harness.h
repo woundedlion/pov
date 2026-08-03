@@ -289,6 +289,34 @@ inline void report_near_rel(double a, double b, double rel_tol,
 }
 
 /**
+ * @brief Accessor for the "this module skipped its entire case set" flag.
+ * @return Reference to the flag; begin_module clears it for every module.
+ */
+inline bool &suite_skipped() {
+  static bool s = false;
+  return s;
+}
+
+/**
+ * @brief Records a skip that stands for the module's ENTIRE case set.
+ * @details Tallies the skip and waives this module's assertion floor — the
+ * module ran no cases, so a floor measured over them cannot apply. This is the
+ * only thing that waives a floor.
+ */
+inline void skip_suite() {
+  ++stats().skipped;
+  suite_skipped() = true;
+}
+
+/**
+ * @brief Records one skipped sub-case, leaving the module's floor in force.
+ * @details A module that skips one case still ran the rest, so the floor must
+ * still gate them. Subtract the skipped case's assertions from the roster floor
+ * if the skip is conditional; do not reach for skip_suite() to silence it.
+ */
+inline void skip_case() { ++stats().skipped; }
+
+/**
  * @brief Snapshot of the global counter taken when a module starts.
  * @details Lets end_module report that module's tally as a delta from the
  * shared process-wide counter.
@@ -323,6 +351,7 @@ inline int &pending_min_assertions() {
 inline ModuleScope begin_module(const char *name) {
   std::printf("=== %s ===\n", name);
   fail_print_budget() = FailPrintBudget{};
+  suite_skipped() = false;
   const int min_assertions = pending_min_assertions();
   pending_min_assertions() = 0;
   return {name, stats().passed, stats().failed, stats().skipped,
@@ -338,15 +367,16 @@ inline ModuleScope begin_module(const char *name) {
  * @details Individual cases are invoked by hand-written calls, so a case that is
  * defined and never called compiles clean. The floor turns that into a red run:
  * dropping a call removes assertions, and the module falls below the count the
- * roster recorded for it. A module that reported a skip is exempt from its floor.
+ * roster recorded for it. Only a whole-suite skip (skip_suite()) is exempt; a
+ * skipped sub-case leaves the floor gating every case the module still ran.
  */
 inline int end_module(const ModuleScope &m) {
   int passed = stats().passed - m.passed_before;
   int failed = stats().failed - m.failed_before;
   int skipped = stats().skipped - m.skipped_before;
-  // A module that ran no assertion and skipped nothing did no work; count it as
-  // a failure so an emptied runner goes red instead of silently green.
-  if (passed + failed == 0 && skipped == 0) {
+  // A module that ran no assertion and did not skip its whole case set did no
+  // work; count it as a failure so an emptied runner goes red, not green.
+  if (passed + failed == 0 && !suite_skipped()) {
     std::printf("=== %s: NO ASSERTIONS RAN — counting as FAILURE ===\n",
                 m.name);
     return 1;
@@ -361,9 +391,10 @@ inline int end_module(const ModuleScope &m) {
                 passed, failed, skipped);
   else
     std::printf("=== %s: %d passed, %d failed ===\n", m.name, passed, failed);
-  // A module that reported a skip took a reduced exit by design (death skips its
-  // whole case loop when it cannot re-exec), so its floor cannot apply.
-  if (m.min_assertions > 0 && skipped == 0 &&
+  // Only a whole-suite skip waives the floor (death skips its whole case loop
+  // when it cannot re-exec). A per-case skip must not, or the first module to
+  // record one would silently lose the floor over all its other cases.
+  if (m.min_assertions > 0 && !suite_skipped() &&
       passed + failed < m.min_assertions) {
     std::printf("=== %s: only %d assertions ran, expected >= %d (a case call "
                 "was dropped) ===\n",
