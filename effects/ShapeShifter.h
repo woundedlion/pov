@@ -162,8 +162,7 @@ private:
   HS_FLASH_MEMBER void draw_star_pole_caps(Canvas &canvas, const Basis &basis,
                                            int count, int sides,
                                            PhaseFunction function) {
-    auto draw = [&](float radius_t) {
-      const float radius = 2.0f * radius_t;
+    auto draw = [&](float radius_t, float radius) {
       const float shape_phase = phase_direction(radius) * params.amplitude *
                                 evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(star_palette_position(radius_t));
@@ -178,8 +177,9 @@ private:
                              shader, shape_phase);
     };
     const float radius_t = 0.5f / static_cast<float>(count);
-    draw(radius_t);
-    draw(1.0f - radius_t);
+    const float cap_radius = std::max(2.0f * radius_t, 4.0f / W);
+    draw(radius_t, cap_radius);
+    draw(1.0f - radius_t, 2.0f - cap_radius);
   }
 
   /** @brief Advances to the next preset and applies it atomically. */
