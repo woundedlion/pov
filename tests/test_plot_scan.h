@@ -36,6 +36,7 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <algorithm>
 #include <bit>
 #include <vector>
 
@@ -4357,7 +4358,11 @@ inline void test_rasterize_default_sampling_policy_bit_parity() {
   HS_EXPECT_EQ(implicit_default.alphas.size(), explicit_default.alphas.size());
   HS_EXPECT_EQ(implicit_default.plotted.size(), selectable_default.plotted.size());
   HS_EXPECT_EQ(implicit_default.alphas.size(), selectable_default.alphas.size());
-  for (size_t i = 0; i < implicit_default.plotted.size(); ++i) {
+  HS_EXPECT_GT(implicit_default.plotted.size(), size_t{0});
+  const size_t compared = std::min({implicit_default.plotted.size(),
+                                    explicit_default.plotted.size(),
+                                    selectable_default.plotted.size()});
+  for (size_t i = 0; i < compared; ++i) {
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].x),
                  std::bit_cast<uint32_t>(explicit_default.plotted[i].x));
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].y),
@@ -4415,7 +4420,10 @@ inline void test_rasterize_balanced_sampling_scope() {
         capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
     HS_EXPECT_EQ(standard.plotted.size(), balanced.plotted.size());
     HS_EXPECT_EQ(standard.alphas.size(), balanced.alphas.size());
-    for (size_t i = 0; i < standard.plotted.size(); ++i) {
+    HS_EXPECT_GT(standard.plotted.size(), size_t{0});
+    const size_t compared =
+        std::min(standard.plotted.size(), balanced.plotted.size());
+    for (size_t i = 0; i < compared; ++i) {
       HS_EXPECT_EQ(std::bit_cast<uint32_t>(standard.plotted[i].x),
                    std::bit_cast<uint32_t>(balanced.plotted[i].x));
       HS_EXPECT_EQ(std::bit_cast<uint32_t>(standard.plotted[i].y),
