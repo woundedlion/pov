@@ -12,7 +12,9 @@ Run:  python -m unittest discover -s tools/teensy_gate_tests
 
 import contextlib
 import copy
+import dataclasses
 import io
+import json
 import os
 import subprocess
 import sys
@@ -282,6 +284,114 @@ class TestEmptyBudgetFails(unittest.TestCase):
                 self.assertTrue(budget.get("symbols"))
                 self.assertNotIn("budget-empty",
                                  _codes(tg.evaluate(env, budget, {}, [])))
+
+
+class TestBudgetSchema(unittest.TestCase):
+    """Every ceiling is an optional `.get()`, so a misspelled key removes its
+    check and the gate reports PASS. load_budgets() must reject the file first."""
+
+    def _load(self, budgets):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "budgets.json"
+            path.write_text(json.dumps(budgets), encoding="utf-8")
+            return tg.load_budgets(path)
+
+    def test_shipped_budgets_validate_unchanged(self):
+        self.assertEqual(tg.validate_budgets(copy.deepcopy(BUDGETS)), BUDGETS)
+
+    def _assert_typo_disables(self, env, path, real, wrong, code, sizes, symbols):
+        """The intact budget rejects this build; the typo'd one PASSes; the
+        schema now rejects the typo'd budgets file."""
+        intact = copy.deepcopy(BUDGETS)
+        self.assertEqual(_codes(tg.evaluate(env, intact[env], sizes, symbols)),
+                         [code])
+        typoed = copy.deepcopy(BUDGETS)
+        spec = typoed[env]
+        for key in path:
+            spec = spec[key]
+        spec[wrong] = spec.pop(real)
+        self.assertTrue(tg.evaluate(env, typoed[env], sizes, symbols).passed)
+        with self.assertRaises(tg.BudgetSchemaError) as ctx:
+            self._load(typoed)
+        self.assertIn(wrong, str(ctx.exception))
+
+    def test_components_typo_drops_the_itcm_bank_ceiling(self):
+        # variables 300,000 + the 12,288 floor -> 10 DTCM banks -> 196,608 B
+        # ITCM ceiling; code 200,000 is over it and nothing regional fires.
+        text = _read("good_teensy_size.txt").replace(
+            "RAM1: variables:351280, code:62240, padding:30496"
+            "   free for local variables: 68256",
+            "RAM1: variables:300000, code:200000, padding:1000"
+            "   free for local variables: 40288")
+        self._assert_typo_disables(
+            "phantasm", ("regions", "ram1"), "components", "component",
+            "component-over-derived-ceiling", tg.parse_teensy_size(text),
+            tg.parse_readelf_symbols(_read("good_readelf_syms.txt")))
+
+    def test_max_bytes_typo_drops_the_flash_ceiling(self):
+        text = _read("good_teensy_size.txt").replace(
+            "FLASH: code:158788", "FLASH: code:1958788")
+        self._assert_typo_disables(
+            "phantasm", ("regions", "flash"), "max_bytes", "max_byte",
+            "region-over-budget", tg.parse_teensy_size(text),
+            tg.parse_readelf_symbols(_read("good_readelf_syms.txt")))
+
+    def test_region_typo_drops_the_ocram_placement_invariant(self):
+        # Only framebuffer_a loses DMAMEM, so exactly one invariant is in play.
+        symbols = [dataclasses.replace(s, value=0x20060000)
+                   if s.name == "_ZN6Effect8buffer_aE" else s
+                   for s in tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))]
+        self._assert_typo_disables(
+            "holosphere", ("symbols", "framebuffer_a"), "region", "regoin",
+            "symbol-wrong-region",
+            tg.parse_teensy_size(_read("good_teensy_size.txt")), symbols)
+
+    def test_unknown_key_rejected_at_every_level(self):
+        for path in (("phantasm",),
+                     ("phantasm", "regions", "ram1"),
+                     ("phantasm", "regions", "ram1", "components", "code"),
+                     ("phantasm", "regions", "ram1", "components", "code",
+                      "max_banks_from_stack_floor"),
+                     ("phantasm", "symbols", "arena")):
+            with self.subTest(level=path[-1]):
+                budgets = copy.deepcopy(BUDGETS)
+                spec = budgets
+                for key in path:
+                    spec = spec[key]
+                spec["bogus"] = 1
+                with self.assertRaises(tg.BudgetSchemaError):
+                    self._load(budgets)
+
+    def test_required_keys_enforced(self):
+        no_name = copy.deepcopy(BUDGETS)
+        del no_name["phantasm"]["symbols"]["arena"]["name"]
+        with self.assertRaises(tg.BudgetSchemaError):
+            self._load(no_name)
+        no_bank = copy.deepcopy(BUDGETS)
+        del (no_bank["phantasm"]["regions"]["ram1"]["components"]["code"]
+             ["max_banks_from_stack_floor"]["bank_bytes"])
+        with self.assertRaises(tg.BudgetSchemaError):
+            self._load(no_bank)
+
+    def test_non_object_spec_rejected(self):
+        budgets = copy.deepcopy(BUDGETS)
+        budgets["phantasm"]["regions"] = [1, 2]
+        with self.assertRaises(tg.BudgetSchemaError):
+            self._load(budgets)
+
+    def test_cli_reports_schema_error_as_cannot_run(self):
+        budgets = copy.deepcopy(BUDGETS)
+        budgets["phantasm"]["regions"]["ram1"]["max_byte"] = 1
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "budgets.json"
+            path.write_text(json.dumps(budgets), encoding="utf-8")
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                code = tg.main(["--env", "phantasm", "--budgets", str(path),
+                                "--teensy-size", str(FIX / "good_teensy_size.txt"),
+                                "--readelf-syms", str(FIX / "good_readelf_syms.txt")])
+        self.assertEqual(code, 2)
+        self.assertIn("max_byte", err.getvalue())
 
 
 class TestComponentCeilings(unittest.TestCase):
