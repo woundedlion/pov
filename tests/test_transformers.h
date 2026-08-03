@@ -17,7 +17,10 @@
  *   - ripple_transform        : amplitude 0 and center-point degeneracies are
  *                               no-ops; an active ripple rotates on-sphere; the
  *                               prepared-threshold fast-reject band applies
- *                               in-band points and rejects off-band ones.
+ *                               in-band points and rejects off-band ones; the
+ *                               truncated small-angle quaternion series matches
+ *                               the exact libm rotation and meets the exact
+ *                               branch at the switchover.
  *   - noise_transform         : amplitude≈0 is a no-op; otherwise stays unit; at
  *                               a shipped preset's amplitude the cross-hemisphere
  *                               slide cap binds the displacement at atan(0.5).
@@ -539,6 +542,79 @@ inline void test_ripple_threshold_boundary() {
   // Just outside each edge: fast-rejected → returned exactly unchanged.
   HS_EXPECT_NEAR(moved(pt(d_max + eps)), 0.0f, 1e-7f);
   HS_EXPECT_NEAR(moved(pt(d_min - eps)), 0.0f, 1e-7f);
+}
+
+/**
+ * @brief Verifies the truncated small-angle quaternion series reproduces the
+ *        exact libm rotation it stands in for, and that the two branches meet
+ *        at RIPPLE_SMALL_ANGLE_MAX.
+ * @details The |theta| <= RIPPLE_SMALL_ANGLE_MAX branch replaces
+ *          make_rotation's sin/cos with three-term series, so nothing but a
+ *          comparison against the exact form pins its coefficients — the one
+ *          test that crosses the boundary asserts only monotonicity, which a
+ *          wrong coefficient survives while seaming visibly on device. theta is
+ *          exactly proportional to amplitude for a fixed geometry, so one
+ *          reading taken in the exact branch calibrates the envelope (the
+ *          approximate acos/expf that produce it are common to both branches
+ *          and cancel), and every series-branch amplitude is then judged
+ *          against rotate(v, make_rotation(axis, theta)) — the closed form the
+ *          series stands in for.
+ */
+inline void test_ripple_small_angle_series_matches_exact() {
+  Animation::RippleParams p;
+  p.center = Vector(0, 1, 0);
+  p.phase = PI_F * 0.5f; // wavelet peak at d == 90 degrees
+  p.decay = 0.0f;
+  p.thickness = 1.0f;
+  // Default thresholds (min=1, max=-1) disable the fast reject.
+  const Vector v = Vector(1, 0, 0);
+  const Vector axis = cross(p.center, v).normalized();
+
+  auto at = [&](float amplitude) {
+    Animation::RippleParams q = p;
+    q.amplitude = amplitude;
+    return ripple_transform(v, q);
+  };
+  auto exact = [&](float theta) {
+    return rotate(v, make_rotation(axis, theta));
+  };
+  auto err = [](const Vector &a, const Vector &b) {
+    return std::max(std::max(std::fabs(a.x - b.x), std::fabs(a.y - b.y)),
+                    std::fabs(a.z - b.z));
+  };
+
+  // Calibrate theta/amplitude from the exact branch, in libm acos rather than
+  // the fast_acos angle_between uses.
+  auto turned = [&](const Vector &out) {
+    return (float)std::acos(hs::clamp(dot(v, out), -1.0f, 1.0f));
+  };
+  const float anchor_amplitude = 0.9f;
+  const Vector anchor = at(anchor_amplitude);
+  const float envelope = turned(anchor) / anchor_amplitude;
+  // The peak of a zero-decay Ricker wavelet is unit gain.
+  HS_EXPECT_NEAR(envelope, 1.0f, 2e-3f);
+  HS_EXPECT_LE(err(anchor, exact(anchor_amplitude * envelope)), 1e-6f);
+
+  // Series branch, from just above the amplitude short-circuit up to the
+  // switchover.
+  const float amp_lo = 0.002f;
+  const float amp_hi = RIPPLE_SMALL_ANGLE_MAX / envelope;
+  float worst_err = 0.0f;
+  float worst_unit_err = 0.0f;
+  const int steps = 300;
+  for (int i = 0; i <= steps; ++i) {
+    const float amplitude =
+        amp_lo + (amp_hi - amp_lo) * (float)i / (float)steps;
+    const Vector got = at(amplitude);
+    worst_err = std::max(worst_err, err(got, exact(amplitude * envelope)));
+    worst_unit_err = std::max(worst_unit_err, std::fabs(got.length() - 1.0f));
+  }
+  HS_EXPECT_LE(worst_err, 5e-7f);
+  HS_EXPECT_LE(worst_unit_err, 5e-7f);
+
+  // The two branches meet: a hair either side of the switchover agrees.
+  const float seam = RIPPLE_SMALL_ANGLE_MAX / envelope;
+  HS_EXPECT_LE(err(at(seam * 0.999f), at(seam * 1.001f)), 1e-3f);
 }
 
 /**
@@ -1454,6 +1530,7 @@ inline int run_transformers_tests() {
   test_ripple_threshold_reject_path();
   test_ripple_decay_attenuates();
   test_ripple_threshold_boundary();
+  test_ripple_small_angle_series_matches_exact();
   test_transforms_nonfinite_passes_through_identity();
   test_noise_zero_amplitude_is_identity();
   test_noise_active_stays_on_sphere();
