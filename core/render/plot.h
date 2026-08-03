@@ -86,6 +86,12 @@ static constexpr float MIN_POLE_SCALE = 0.05f;
  */
 static constexpr float SCREEN_STEP_PX = 0.9f;
 
+/** @brief Adaptive raster sampling density. */
+enum class RasterSamplingPolicy { DEFAULT, BALANCED };
+
+/** @brief Balanced-policy target spacing in screen pixels. */
+static constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
+
 /**
  * @brief Parameter delta for the planar strategy's finite-difference tangent.
  * @details The planar (azimuthal) map has no closed-form tangent, so its screen
@@ -1463,6 +1469,7 @@ struct RasterOptions {
  *         perimeter.
  * @tparam InterpolateRegisters Interpolate source fragment registers at each
  *         adaptive sample.
+ * @tparam SamplingPolicy Adaptive screen-space sample density.
  * @tparam PipelineT Pipeline type.
  * @tparam FragmentShaderT Fragment shader type for direct raster pipelines.
  * @param source_pipeline Render pipeline that plots fragments.
@@ -1476,9 +1483,11 @@ struct RasterOptions {
  */
 HS_O3_BEGIN
 template <int W, int H, bool SinglePass = false, bool OpenGeodesic = false,
-          bool DerivePlanarArcRegisters = true,
-          bool InterpolateRegisters = true, typename PipelineT = PipelineRef,
-          typename FragmentShaderT = FragmentShaderFn>
+           bool DerivePlanarArcRegisters = true,
+           bool InterpolateRegisters = true,
+           RasterSamplingPolicy SamplingPolicy = RasterSamplingPolicy::DEFAULT,
+           typename PipelineT = PipelineRef,
+           typename FragmentShaderT = FragmentShaderFn>
 static void
 rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           FragmentShaderT fragment_shader, const RasterOptions &opts = {}) {
@@ -1499,8 +1508,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     PipelineRef erased(source_pipeline);
     FragmentShaderFn erased_shader(fragment_shader);
     rasterize<W, H, SinglePass, OpenGeodesic, DerivePlanarArcRegisters,
-              InterpolateRegisters>(erased, canvas, points, erased_shader,
-                                    opts);
+               InterpolateRegisters, SamplingPolicy>(erased, canvas, points,
+                                                      erased_shader, opts);
     return;
   }
   HS_PLOT_COUNT(rings);
@@ -1704,9 +1713,16 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       float current_dist = 0.0f;
       float current_t = 0.0f;
       float desired_step = first_step;
+      float default_desired_step = first_step;
+      if constexpr (SamplingPolicy == RasterSamplingPolicy::BALANCED)
+        desired_step = std::min(
+            base_step, first_step *
+                           (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
       size_t step_count = 0;
       while (current_dist < total_dist) {
-        HS_PLOT_COUNT(normalizations);
+        if constexpr (!(SamplingPolicy == RasterSamplingPolicy::BALANCED &&
+                        requires { sample.one_pass(current_t); }))
+          HS_PLOT_COUNT(normalizations);
         Vector p;
         if constexpr (OpenGeodesic) {
 #ifdef HS_TEST_BUILD
@@ -1719,6 +1735,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
             const float norm2 = dot(smp.pos, smp.pos);
             p = smp.pos * (1.5f - 0.5f * norm2);
           }
+        } else if constexpr (
+            SamplingPolicy == RasterSamplingPolicy::BALANCED &&
+            requires { sample.one_pass(current_t); }) {
+          p = smp.pos;
         } else {
           p = smp.pos.normalized();
         }
@@ -1730,6 +1750,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         set_arc_uv(f, current_dist);
         HS_PLOT_COUNT(shader_calls);
         shade_fragment(p, f);
+        if constexpr (SamplingPolicy == RasterSamplingPolicy::BALANCED) {
+          const float alpha_scale = desired_step / default_desired_step;
+          f.color.alpha = std::min(1.0f, f.color.alpha * alpha_scale);
+        }
         HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
 
@@ -1751,7 +1775,15 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           current_t = current_dist / total_dist;
           HS_PLOT_COUNT(sim_samples);
           smp = adaptive_sample(current_t);
-          desired_step = adaptive_step(smp);
+          default_desired_step = adaptive_step(smp);
+          if constexpr (SamplingPolicy == RasterSamplingPolicy::BALANCED) {
+            desired_step = std::min(
+                base_step,
+                default_desired_step *
+                    (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
+          } else {
+            desired_step = default_desired_step;
+          }
         }
       }
       if (!close_loop && is_last_segment && !omit_end) {
@@ -1763,6 +1795,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         set_arc_uv(f, total_dist);
         HS_PLOT_COUNT(shader_calls);
         shade_fragment(next.pos, f);
+        if constexpr (SamplingPolicy == RasterSamplingPolicy::BALANCED) {
+          const float alpha_scale = desired_step / default_desired_step;
+          f.color.alpha = std::min(1.0f, f.color.alpha * alpha_scale);
+        }
         HS_PLOT_COUNT(plotted_samples);
         pipeline.plot(canvas, next.pos, f.color.color, f.age, f.color.alpha);
       }

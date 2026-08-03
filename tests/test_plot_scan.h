@@ -119,6 +119,17 @@ struct DirectCapturePipeline : CapturePipeline {
   static constexpr bool direct_raster_path = true;
 };
 
+/** @brief Pipeline stub recording world positions and effective alpha. */
+struct AlphaCapturePipeline {
+  std::vector<Vector> plotted;
+  std::vector<float> alphas;
+  void plot(Canvas &, const Vector &v, const Pixel &, float, float alpha) {
+    plotted.push_back(v);
+    alphas.push_back(alpha);
+  }
+  void plot(Canvas &, float, float, const Pixel &, float, float) {}
+};
+
 /** @brief Identity fragment shader (leaves the fragment untouched). */
 inline void noop_shader(const Vector &, Fragment &) {}
 
@@ -4262,6 +4273,294 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
     HS_EXPECT_NEAR(single[i], cached[i], 1e-4f);
 }
 
+/** @brief The explicit default sampling policy is bit-identical to the API default. */
+inline void test_rasterize_default_sampling_policy_bit_parity() {
+  constexpr int W = 128, H = 64;
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 18);
+  const Basis shape_basis =
+      make_basis(Quaternion(0.91f, -0.17f, 0.31f, 0.21f).normalized(), X_AXIS);
+  constexpr float RADIUS = 0.83f;
+  Plot::Star::sample(points, shape_basis, RADIUS, 8, 0.73f);
+  const Basis planar_basis =
+      Plot::planar_chart_basis(get_antipode(shape_basis, RADIUS).first.v);
+
+  auto capture = [&]<bool ExplicitDefault>() {
+    hs_test::StubEffect fx(W, H);
+    AlphaCapturePipeline pipeline;
+    Canvas canvas(fx);
+    auto shader = [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
+    };
+    if constexpr (ExplicitDefault) {
+      Plot::rasterize<W, H, true, false, true, true,
+                      Plot::RasterSamplingPolicy::DEFAULT>(
+          pipeline, canvas, points, shader,
+          {.planar_basis = &planar_basis, .omit_end = true});
+    } else {
+      Plot::rasterize<W, H, true>(
+          pipeline, canvas, points, shader,
+          {.planar_basis = &planar_basis, .omit_end = true});
+    }
+    return pipeline;
+  };
+
+  const AlphaCapturePipeline implicit_default = capture.template operator()<false>();
+  const AlphaCapturePipeline explicit_default = capture.template operator()<true>();
+  HS_EXPECT_EQ(implicit_default.plotted.size(), explicit_default.plotted.size());
+  HS_EXPECT_EQ(implicit_default.alphas.size(), explicit_default.alphas.size());
+  for (size_t i = 0; i < implicit_default.plotted.size(); ++i) {
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].x),
+                 std::bit_cast<uint32_t>(explicit_default.plotted[i].x));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].y),
+                 std::bit_cast<uint32_t>(explicit_default.plotted[i].y));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].z),
+                 std::bit_cast<uint32_t>(explicit_default.plotted[i].z));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.alphas[i]),
+                 std::bit_cast<uint32_t>(explicit_default.alphas[i]));
+  }
+}
+
+/** @brief Balanced sampling leaves cached and one-dot raster paths unchanged. */
+inline void test_rasterize_balanced_sampling_scope() {
+  constexpr int W = 128, H = 64;
+  const Basis basis = basis_from_normal(Vector(0, 1, 0));
+  auto on_disk = [&](float colat, float az) {
+    const Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
+  };
+
+  auto compare = [&]<bool SinglePass>(const Vector &start, const Vector &end) {
+    ScratchScope sc(plot_arena());
+    Fragments points;
+    points.bind(plot_arena(), 2);
+    Fragment a, b;
+    a.pos = start;
+    b.pos = end;
+    points.push_back(a);
+    points.push_back(b);
+    auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
+      hs_test::StubEffect fx(W, H);
+      AlphaCapturePipeline pipeline;
+      Canvas canvas(fx);
+      auto shader = [](const Vector &, Fragment &f) {
+        f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
+      };
+      Plot::rasterize<W, H, SinglePass, false, true, true, Policy>(
+          pipeline, canvas, points, shader, {.planar_basis = &basis});
+      return pipeline;
+    };
+    const AlphaCapturePipeline standard =
+        capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
+    const AlphaCapturePipeline balanced =
+        capture.template operator()<Plot::RasterSamplingPolicy::BALANCED>();
+    HS_EXPECT_EQ(standard.plotted.size(), balanced.plotted.size());
+    HS_EXPECT_EQ(standard.alphas.size(), balanced.alphas.size());
+    for (size_t i = 0; i < standard.plotted.size(); ++i) {
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(standard.plotted[i].x),
+                   std::bit_cast<uint32_t>(balanced.plotted[i].x));
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(standard.plotted[i].y),
+                   std::bit_cast<uint32_t>(balanced.plotted[i].y));
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(standard.plotted[i].z),
+                   std::bit_cast<uint32_t>(balanced.plotted[i].z));
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(standard.alphas[i]),
+                   std::bit_cast<uint32_t>(balanced.alphas[i]));
+    }
+  };
+
+  compare.template operator()<false>(on_disk(0.3f, 0.0f),
+                                     on_disk(1.3f, 1.0f));
+  compare.template operator()<true>(on_disk(0.7f, 0.0f),
+                                    on_disk(0.702f, 0.001f));
+}
+
+/** @brief Balanced long edges trade sample density for alpha-weighted coverage. */
+inline void test_rasterize_balanced_sampling_density_and_alpha() {
+  constexpr int W = 128, H = 64;
+  constexpr float BASE_STEP = 2.0f * PI_F / W;
+  const Basis basis = basis_from_normal(Vector(0, 1, 0));
+  auto on_disk = [&](float colat, float az) {
+    const Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
+  };
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 2);
+  Fragment a, b;
+  a.pos = on_disk(0.35f, -0.2f);
+  b.pos = on_disk(1.4f, 1.1f);
+  points.push_back(a);
+  points.push_back(b);
+
+  auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
+    hs_test::StubEffect fx(W, H);
+    AlphaCapturePipeline pipeline;
+    Canvas canvas(fx);
+    auto shader = [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
+    };
+    Plot::rasterize<W, H, true, false, true, true, Policy>(
+        pipeline, canvas, points, shader, {.planar_basis = &basis});
+    return pipeline;
+  };
+  const AlphaCapturePipeline standard =
+      capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
+  const AlphaCapturePipeline balanced =
+      capture.template operator()<Plot::RasterSamplingPolicy::BALANCED>();
+
+  HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
+  HS_EXPECT_GE(balanced.plotted.size() * 5, standard.plotted.size() * 3);
+  HS_EXPECT_LE((max_projected_gap<W, H>(balanced.plotted)), 1.3f);
+  const Plot::PlanarEdgeSampler sampler = planar_sampler(a.pos, b.pos, basis);
+  const Plot::SamplePT first = sampler.one_pass(0.0f);
+  const float default_step = Plot::screen_step<W, H>(first.pos, first.tan,
+                                                      BASE_STEP);
+  const float candidate_step = std::min(
+      BASE_STEP, default_step *
+                     (Plot::BALANCED_SCREEN_STEP_PX / Plot::SCREEN_STEP_PX));
+  HS_EXPECT_NEAR(standard.alphas.front(), 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(balanced.alphas.front(),
+                 std::min(1.0f, 0.4f * candidate_step / default_step), 1e-6f);
+  for (const Vector &point : balanced.plotted)
+    HS_EXPECT_NEAR(point.length(), 1.0f, 5e-3f);
+}
+
+/** @brief Balanced planar stars retain connected, energy-stable clipped coverage. */
+inline void test_rasterize_balanced_star_visual_budget() {
+  constexpr int W = 144, H = 72;
+  struct StarState {
+    Quaternion orientation;
+    float radius;
+    int sides;
+    float phase;
+  };
+  const std::array<StarState, 4> states = {{
+      {Quaternion(), 0.45f, 4, 0.0f},
+      {Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 0.98f, 7,
+       0.37f},
+      {Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 1.02f, 7,
+       1.2f},
+      {Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(), 1.72f, 16,
+       2.1f},
+  }};
+  struct Frame {
+    std::vector<Pixel> pixels;
+    uint32_t backstops = 0;
+  };
+
+  auto render = [&]<Plot::RasterSamplingPolicy Policy>(const StarState &state,
+                                                        const ClipRegion *clip) {
+    hs_test::StubEffect fx(W, H);
+    if (clip != nullptr)
+      fx.set_clip(clip->y_start, clip->y_end, clip->x_start, clip->x_end);
+    hs::g_scan_metrics.reset();
+    {
+      ScratchScope sc(plot_arena());
+      Fragments points;
+      points.bind(plot_arena(), static_cast<size_t>(state.sides * 2 + 2));
+      const Basis basis = make_basis(state.orientation, X_AXIS);
+      Plot::Star::sample_positions(points, basis, state.radius, state.sides,
+                                   state.phase);
+      const Basis planar_basis =
+          Plot::planar_chart_basis(get_antipode(basis, state.radius).first.v);
+      Filter::Screen::DirectAntiAliasSink<W, H> sink;
+      Canvas canvas(fx);
+      sink.prepare(canvas);
+      auto shader = [](const Vector &, Fragment &f) {
+        f.color = Color4(Pixel(65535, 65535, 65535), 0.32f);
+      };
+      Plot::rasterize<W, H, true, false, false, false, Policy>(
+          sink, canvas, points, shader,
+          {.planar_basis = &planar_basis, .omit_end = true});
+    }
+    fx.advance_display();
+    Frame frame;
+    frame.backstops = hs::g_scan_metrics.plot_backstop_hits;
+    frame.pixels.resize(static_cast<size_t>(W) * H);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        frame.pixels[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+    return frame;
+  };
+
+  auto energy = [](const Frame &frame) {
+    uint64_t total = 0;
+    for (const Pixel &pixel : frame.pixels)
+      total += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+    return total;
+  };
+  auto covered = [](const Pixel &pixel) {
+    return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b > 512;
+  };
+
+  for (const StarState &state : states) {
+    const Frame standard =
+        render.template operator()<Plot::RasterSamplingPolicy::DEFAULT>(state,
+                                                                        nullptr);
+    const Frame balanced =
+        render.template operator()<Plot::RasterSamplingPolicy::BALANCED>(state,
+                                                                         nullptr);
+    HS_EXPECT_EQ(standard.backstops, uint32_t{0});
+    HS_EXPECT_EQ(balanced.backstops, uint32_t{0});
+    const double energy_ratio =
+        static_cast<double>(energy(balanced)) / energy(standard);
+    HS_EXPECT_GT(energy_ratio, 0.98);
+    HS_EXPECT_LT(energy_ratio, 1.06);
+
+    size_t standard_coverage = 0;
+    size_t balanced_coverage = 0;
+    size_t uncovered = 0;
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        const size_t index = static_cast<size_t>(y) * W + x;
+        standard_coverage += covered(standard.pixels[index]);
+        balanced_coverage += covered(balanced.pixels[index]);
+        if (!covered(standard.pixels[index]))
+          continue;
+        bool neighborhood = false;
+        for (int dy = -1; dy <= 1 && !neighborhood; ++dy) {
+          const int sy = y + dy;
+          if (sy < 0 || sy >= H)
+            continue;
+          for (int dx = -1; dx <= 1; ++dx) {
+            const int sx = (x + dx + W) % W;
+            if (covered(balanced.pixels[static_cast<size_t>(sy) * W + sx])) {
+              neighborhood = true;
+              break;
+            }
+          }
+        }
+        uncovered += !neighborhood;
+      }
+    }
+    HS_EXPECT_GT(standard_coverage, size_t{20});
+    HS_EXPECT_GT(balanced_coverage * 20, standard_coverage * 19);
+    HS_EXPECT_LT(balanced_coverage * 20, standard_coverage * 21);
+    HS_EXPECT_EQ(uncovered, size_t{0});
+
+    const std::array<ClipRegion, 4> clips = {{
+        {0, H / 2, 0, W / 2},
+        {0, H / 2, W / 2, W},
+        {H / 2, H, 0, W / 2},
+        {H / 2, H, W / 2, W},
+    }};
+    for (const ClipRegion &clip : clips) {
+      const Frame tile =
+          render.template operator()<Plot::RasterSamplingPolicy::BALANCED>(
+              state, &clip);
+      HS_EXPECT_EQ(tile.backstops, uint32_t{0});
+      for (int y = clip.y_start; y < clip.y_end; ++y)
+        for (int x = clip.x_start; x < clip.x_end; ++x) {
+          const size_t index = static_cast<size_t>(y) * W + x;
+          HS_EXPECT_EQ(tile.pixels[index].r, balanced.pixels[index].r);
+          HS_EXPECT_EQ(tile.pixels[index].g, balanced.pixels[index].g);
+          HS_EXPECT_EQ(tile.pixels[index].b, balanced.pixels[index].b);
+        }
+    }
+  }
+}
+
 /** @brief Single-pass geodesics preserve the open-line endpoint contract. */
 inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
   constexpr int W = 128, H = 64;
@@ -4516,6 +4815,10 @@ inline int run_plot_scan_tests() {
   test_rasterize_single_pass_planar_matches_two_pass();
   test_rasterize_single_pass_closed_loop_matches_two_pass();
   test_rasterize_single_pass_balances_terminal_interval();
+  test_rasterize_default_sampling_policy_bit_parity();
+  test_rasterize_balanced_sampling_scope();
+  test_rasterize_balanced_sampling_density_and_alpha();
+  test_rasterize_balanced_star_visual_budget();
   test_rasterize_single_pass_geodesic_endpoints_and_omit_end();
   test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free();
   test_rasterize_single_pass_geodesic_quadrant_clip_parity();
