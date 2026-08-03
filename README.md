@@ -2208,7 +2208,7 @@ Key properties:
 
 ### 10.8 Vendor Importmap (Local-First / CDN Fallback)
 
-`vendor-importmap.js` is loaded as a regular (non-module) `<script>` in every HTML page. At parse time it:
+`vendor-importmap.js` is loaded as a regular (non-module) `<script>` by `index.html` and by the three tool pages that import bare specifiers. `palettes.html` imports none — every module it loads is page-relative — so it carries no importmap script at all. At parse time the helper:
 
 1. Locates itself via `document.currentScript.src`, so it works whether called as `./vendor-importmap.js` (root) or `../vendor-importmap.js` (a tool page).
 2. Reads a build-time-baked `VENDOR` decision (per library, `'cdn'` or `'local'`).
@@ -2258,7 +2258,7 @@ Four standalone HTML pages. Three render with their own Three.js scene; `palette
 | `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and `GenerativePalette` harmony rules and exports the C++ initializer; renders its swatches and graphs on 2D canvas contexts rather than a Three.js scene. `GenerativePalette` LUTs are baked through the WASM `PaletteOps.bakeLut` bridge, so its harmony colors are the engine's own. |
 | `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas (16 MB, separate from the engine's 298 KiB arena). |
 
-All four reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`.
+The three Three.js pages reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` is `'self'` with no CDN origin.
 
 ---
 
