@@ -490,6 +490,34 @@ inline uint64_t geometric_pole_energy(const OracleFrame &frame,
   return energy;
 }
 
+inline uint32_t geometric_pole_center_energy(const OracleFrame &frame,
+                                             const Vector &pole) {
+  const PixelCoords center = vector_to_pixel<ORACLE_W, ORACLE_H>(pole);
+  const int x = static_cast<int>(floorf(center.x + 0.5f)) % ORACLE_W;
+  const int y = hs::clamp(static_cast<int>(floorf(center.y + 0.5f)), 0,
+                          ORACLE_H - 1);
+  const Pixel &pixel = frame.at(x, y);
+  return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b;
+}
+
+inline size_t uncovered_geometric_pole_pixels(const OracleFrame &frame,
+                                              const Vector &pole,
+                                              float radius_px) {
+  const PixelCoords center = vector_to_pixel<ORACLE_W, ORACLE_H>(pole);
+  size_t uncovered = 0;
+  for (int y = 0; y < ORACLE_H; ++y) {
+    for (int x = 0; x < ORACLE_W; ++x) {
+      const float raw_dx = fabsf(static_cast<float>(x) - center.x);
+      const float dx = std::min(raw_dx, ORACLE_W - raw_dx);
+      const float dy = static_cast<float>(y) - center.y;
+      if (dx * dx + dy * dy > radius_px * radius_px)
+        continue;
+      uncovered += !pixel_has_coverage(frame.at(x, y));
+    }
+  }
+  return uncovered;
+}
+
 inline void test_high_count_star_preset_has_no_geometric_pole_hole() {
   OracleState state;
   state.shape = OracleEffect::ShapeType::STAR;
@@ -504,8 +532,26 @@ inline void test_high_count_star_preset_has_no_geometric_pole_hole() {
   const uint64_t far_energy = geometric_pole_energy(frame, -X_AXIS);
   HS_EXPECT_GT(near_energy, uint64_t{0});
   HS_EXPECT_GT(far_energy, uint64_t{0});
+  HS_EXPECT_GT(geometric_pole_center_energy(frame, X_AXIS), COVERAGE_ENERGY);
+  HS_EXPECT_GT(geometric_pole_center_energy(frame, -X_AXIS), COVERAGE_ENERGY);
   HS_EXPECT_GE(std::min(near_energy, far_energy) * 5,
                std::max(near_energy, far_energy) * 4);
+}
+
+inline void test_star_pole_caps_fill_innermost_contours() {
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::STAR;
+  state.function = OracleEffect::PhaseFunction::SINE;
+  state.count = 8;
+  state.sides = 7;
+  state.phase = 0.125f;
+  state.alpha = 0.274f;
+  state.orientation = Quaternion();
+  const OracleFrame frame = capture_frame(state, candidate_renderer());
+  HS_EXPECT_EQ(uncovered_geometric_pole_pixels(frame, X_AXIS, 2.0f),
+               size_t{0});
+  HS_EXPECT_EQ(uncovered_geometric_pole_pixels(frame, -X_AXIS, 2.0f),
+               size_t{0});
 }
 
 inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
@@ -716,6 +762,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_high_count_star_preset_stays_within_visual_budget();
   test_high_count_star_preset_covers_north_pole();
   test_high_count_star_preset_has_no_geometric_pole_hole();
+  test_star_pole_caps_fill_innermost_contours();
   test_segment_tiles_reconstruct_full_frame();
   test_star_azimuthal_cull_spans_narrow_columns();
   test_amplitude_preserves_sweep_velocity();

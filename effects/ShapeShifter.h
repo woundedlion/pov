@@ -159,6 +159,20 @@ private:
     return radius_t <= 0.5f ? 2.0f * radius_t : 2.0f * (1.0f - radius_t);
   }
 
+  HS_FLASH_MEMBER void draw_star_pole_caps(Canvas &canvas, const Basis &basis,
+                                           int count) {
+    const float radius_t = 0.5f / static_cast<float>(count);
+    const Color4 color = baked_sunset.get(star_palette_position(radius_t));
+    auto shader = [&](const Vector &, Fragment &fragment) {
+      fragment.color = color;
+      fragment.color.alpha *= params.alpha;
+    };
+    const float thickness = STAR_INNER_RATIO * (PI_F / 2.0f) /
+                            static_cast<float>(count);
+    Scan::Point::draw<W, H>(plot_filters, canvas, basis.v, thickness, shader);
+    Scan::Point::draw<W, H>(plot_filters, canvas, -basis.v, thickness, shader);
+  }
+
   /** @brief Advances to the next preset and applies it atomically. */
   void next_preset() {
     presets.next();
@@ -249,6 +263,8 @@ private:
       };
       dispatch_plot(canvas, basis, shape, radius, sides, shader, shape_phase);
     }
+    if (shape == ShapeType::STAR)
+      draw_star_pole_caps(canvas, basis, count);
   }
 
 #ifdef HS_TEST_BUILD
@@ -278,6 +294,8 @@ private:
       dispatch_plot_reference(canvas, basis, shape, radius, sides, shader,
                               shape_phase);
     }
+    if (shape == ShapeType::STAR)
+      draw_star_pole_caps(canvas, basis, count);
   }
 #endif
 
