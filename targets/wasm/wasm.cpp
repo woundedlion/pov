@@ -75,6 +75,13 @@ static size_t stack_high_water_mark() {
   return static_cast<size_t>(top - p);
 }
 
+// Deepest stack an effect's construction + init() has reached, as a running max
+// over every load. Latched because the very next repaint erases the canary
+// evidence: without it the only readable mark is the render path's, and a
+// stack-hungry constructor — what this instrumentation exists to catch — leaves
+// nothing a gate can fail on.
+static size_t init_stack_peak = 0;
+
 using namespace emscripten;
 
 // Upper bound on a single effect's exposed parameters. Mirrors the fixed
@@ -499,8 +506,10 @@ public:
     current_effect->setAnimationsPaused(animations_paused);
     current_effect->init();
     ++param_generation;
-    hs::log("WASM: init stack HWM = %u bytes",
-            (unsigned)stack_high_water_mark());
+    const size_t init_hwm = stack_high_water_mark();
+    if (init_hwm > init_stack_peak)
+      init_stack_peak = init_hwm;
+    hs::log("WASM: init stack HWM = %u bytes", (unsigned)init_hwm);
     stack_paint_canary();
     return true;
   }
@@ -774,23 +783,28 @@ public:
   /**
    * @brief Reports engine arena and stack metrics for the JS memory HUD.
    * @return JS object of the three engine arenas' metrics ({usage,
-   *         high_water_mark, capacity}) plus a "stack" entry ({high_water_mark,
-   *         capacity}), all in bytes.
+   *         high_water_mark, capacity}) plus a "stack" entry
+   *         ({high_water_mark, init_high_water_mark, capacity}), all in bytes.
    * @details Read once per frame by the HUD, on the main thread and in every
    *          segment worker. The tooling arenas are not included: an engine
    *          instance never moves them, and MeshOps.getArenaMetrics() reports
-   *          all six on demand.
+   *          all six on demand. `high_water_mark` is the canary's live reading,
+   *          which a repaint resets and the render path then dominates;
+   *          `init_high_water_mark` is the latched deepest effect construction +
+   *          init(), which no repaint erases, so the two peaks can be gated
+   *          separately.
    */
   val getArenaMetrics() {
     val metrics = collect_engine_arena_metrics();
 
     // Stack region. No running usage: the live depth at this call is outside any
-    // render, so only the high-water mark is meaningful.
+    // render, so only the high-water marks are meaningful.
     {
       uintptr_t base = emscripten_stack_get_base();
       uintptr_t end = emscripten_stack_get_end();
       val m = val::object();
       m.set("high_water_mark", static_cast<size_t>(stack_high_water_mark()));
+      m.set("init_high_water_mark", init_stack_peak);
       m.set("capacity", static_cast<size_t>(base >= end ? base - end : 0));
       metrics.set("stack", m);
     }

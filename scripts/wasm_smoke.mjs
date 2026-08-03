@@ -163,6 +163,19 @@ async function main() {
           fail(`${name}: stack high-water mark ${stack.high_water_mark} of ` +
             `${stack.capacity} bytes exceeds the ${stackGate}-byte creep budget — approaching overflow`);
         }
+        // The render path repaints the canary after every effect load, so the
+        // mark above never reflects construction depth. init_high_water_mark is
+        // latched at load time and survives the repaint; it is a running max, so
+        // the first effect whose read crosses the budget is the one that did.
+        if (stack && typeof stack.init_high_water_mark !== 'number') {
+          fail(`${name}: getArenaMetrics().stack omits init_high_water_mark`);
+        } else if (stack && stack.init_high_water_mark === 0) {
+          fail(`${name}: init stack high-water mark is 0 (init canary tracking is broken)`);
+        } else if (stack && stack.init_high_water_mark >= stackGate) {
+          fail(`${name}: init-time stack high-water mark ${stack.init_high_water_mark} of ` +
+            `${stack.capacity} bytes exceeds the ${stackGate}-byte creep budget — ` +
+            `a stack-hungry effect constructor`);
+        }
 
         // Exercise the embind param seam (getParameterDefinitions() +
         // getParamValues()) the GUI rides every frame: assert the two streams
@@ -590,7 +603,8 @@ async function main() {
     // Log worst-case stack usage as a margin against STACK_SIZE.
     const stack = engine.getArenaMetrics().stack;
     if (!stack) fail('getArenaMetrics() omits the stack region');
-    else console.log(`\nstack: ${stack.high_water_mark}/${stack.capacity} bytes peak`);
+    else console.log(`\nstack: ${stack.high_water_mark}/${stack.capacity} bytes peak ` +
+      `(effect init peak ${stack.init_high_water_mark})`);
   } finally {
     engine.delete();
   }
