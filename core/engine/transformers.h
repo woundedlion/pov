@@ -451,6 +451,13 @@ template <int CAP = 4> struct OrientTransformer {
   explicit OrientTransformer(const Orientation<CAP> &ori) : orientation(ori) {}
 
   /**
+   * @brief Deleted constructor from a temporary Orientation.
+   * @details The adapter retains its argument by reference, so binding a
+   * temporary would leave every later transform() reading a dead object.
+   */
+  explicit OrientTransformer(const Orientation<CAP> &&) = delete;
+
+  /**
    * @brief Orients a vector through the wrapped orientation.
    * @param v Vector to transform.
    * @return The oriented vector.
