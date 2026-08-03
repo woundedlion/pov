@@ -17,8 +17,8 @@ namespace ReactionGraph {
 
 // Changing RD_N requires regenerating neighbors[] (generate_reaction_graph.py)
 // and re-pasting D_AVG below — both are guarded, neither is auto-derived.
-static constexpr int RD_N = 7680;
-static constexpr int RD_K = 6;
+inline constexpr int RD_N = 7680;
+inline constexpr int RD_K = 6;
 
 /**
  * @brief Mean nearest-neighbor spacing on the unit sphere for an RD_N-point
@@ -26,7 +26,7 @@ static constexpr int RD_K = 6;
  * @details Used as the base radius for reaction-diffusion interpolation kernels
  *          (BZ / GS). Precomputed because std::sqrt isn't constexpr here.
  */
-static constexpr float D_AVG = 0.0404505398f; // sqrt(4π / 7680)
+inline constexpr float D_AVG = 0.0404505398f; // sqrt(4π / 7680)
 
 // node()'s `(RD_N - 1)` divisor degenerates (divide-by-zero) when RD_N <= 1.
 static_assert(RD_N >= 2, "node() lattice mapping degenerates when RD_N <= 1");
@@ -42,13 +42,15 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
 
 /**
  * @brief Computes Fibonacci-lattice node i as a unit vector on the sphere.
- * @param i Node index in [0, RD_N), ordered from north pole (i=0) southward.
+ * @param i Node index in [0, RD_N), ordered from north pole (i=0) southward;
+ *        out of range traps.
  * @return Unit-length direction for lattice point i.
  * @details Recomputed on demand to avoid storing 90KB in flash. Only called at
  *          init, so the double-precision folding below is off the per-frame render
  *          path; see the implementation note for why the wider math is needed.
  */
 HS_COLD_MEMBER inline Vector node(int i) {
+  HS_CHECK(i >= 0 && i < RD_N, "node() index outside the lattice");
   // Must fold y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
   // float32 flips near-tie sort order, and theta = golden_angle*i reaches ~18,400
   // rad at i=RD_N-1 where a float holds only ~1e-3 rad of azimuth. Bit-exact
