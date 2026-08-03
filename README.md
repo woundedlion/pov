@@ -2283,14 +2283,20 @@ Each hardware target has its own `.ino` entry point in `targets/`:
 5. Select **Board: Teensy 4.0**, **CPU Speed: 600 MHz**.
 6. Upload.
 
-> **Optional — headless size/layout gate (CI parity).** A PlatformIO build
-> (`just teensy-size`, needs `pip install platformio`) builds the two budgeted
-> shipping images plus the `holosphere_dma`, `phantasm8`, `profile`, and
-> `profile_o3` compile/link profiles
+> **Headless size/layout gate — an active CI job, optional locally.** A
+> PlatformIO build (`just teensy-size`, needs `pip install platformio`) builds
+> the two budgeted shipping images plus the `holosphere_dma`, `phantasm8`,
+> `profile`, and `profile_o3` compile/link profiles
 > on a stock machine. It checks shipping-image size and memory-region layout
 > against committed budgets while closing the device-only `#ifdef ARDUINO`
-> compile/size blind spot VMicro alone leaves uncovered. It coexists with VMicro
-> (it owns `.pio/`, never `__vm/`) and asserts the images *fit*, not byte-identity
+> compile/size blind spot VMicro alone leaves uncovered. CI runs the same build
+> and the same budgets on every master push and pull-request update as the
+> `teensy-size` job, alongside `teensy-warnings` (a cold rebuild enforcing the
+> first-party warning ratchet) and `teensy-gate-tests` (host-Python proofs that
+> each budget and layout invariant fails on a broken fixture) — the firmware is
+> compiled and gated in CI, and only running it on real hardware is manual.
+> Locally it coexists with VMicro (it owns `.pio/`, never `__vm/`) and asserts
+> the images *fit*, not byte-identity
 > with the bench build. See [`docs/teensy_ci_gate_spec.md`](https://github.com/woundedlion/pov/blob/master/docs/teensy_ci_gate_spec.md).
 
 Target-specific constants are defined in each `.ino` file (not a global `constants.h`):
