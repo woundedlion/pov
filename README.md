@@ -1028,7 +1028,7 @@ float twist = 0.0f;
 GenerativePalette palette;
 
 // Timeline drives state via animations:
-timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, TAU, 600, ease_linear, true));
+timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600, ease_linear, true));
 timeline.add(0, Animation::Transition(twist, 2.5f, 1000, ease_in_out_cubic));
 timeline.add(0, Animation::ColorWipe(palette, target_palette, 2000, ease_linear));
 
