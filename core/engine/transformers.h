@@ -98,6 +98,8 @@ public:
    * would otherwise return nullptr forever.
    */
   HS_COLD_MEMBER void release_all() {
+    HS_CHECK(entities,
+             "TransformerPool: call init_storage() before release_all");
     for (int i = 0; i < CAPACITY; ++i)
       entities[i].active = false;
     active_slot_count = 0;
