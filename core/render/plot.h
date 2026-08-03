@@ -1496,12 +1496,13 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     if constexpr (SinglePass) {
       HS_PROFILE_DEEP(plot_seg_single_pass);
       float current_dist = 0.0f;
+      float current_t = 0.0f;
+      float desired_step = first_step;
       size_t step_count = 0;
       while (current_dist < total_dist) {
-        const float t = current_dist / total_dist;
         HS_PLOT_COUNT(normalizations);
         Vector p = smp.pos.normalized();
-        Fragment f = Fragment::lerp_registers(curr, next, t);
+        Fragment f = Fragment::lerp_registers(curr, next, current_t);
         f.pos = p;
         f.color = Color4(0, 0, 0, 0);
         set_arc_uv(f, current_dist);
@@ -1517,8 +1518,6 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         }
         HS_PLOT_MAX(steps_peak, step_count);
         float remaining = total_dist - current_dist;
-        float desired_step =
-            screen_step<W, H>(smp.pos, smp.tan, base_step);
         if (remaining <= desired_step) {
           current_dist = total_dist;
         } else if (remaining < 2.0f * desired_step) {
@@ -1527,8 +1526,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           current_dist += desired_step;
         }
         if (current_dist < total_dist) {
+          current_t = current_dist / total_dist;
           HS_PLOT_COUNT(sim_samples);
-          smp = adaptive_sample(current_dist / total_dist);
+          smp = adaptive_sample(current_t);
+          desired_step = screen_step<W, H>(smp.pos, smp.tan, base_step);
         }
       }
       if (!close_loop && is_last_segment && !omit_end) {
