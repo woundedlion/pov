@@ -1484,7 +1484,7 @@ inline void test_sprite_fade_in_plateau_fade_out_envelope() {
   for (int i = 0; i < dur; ++i)
     s.step(fake_canvas()); // observed at t = 1..10
 
-  HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
+  HS_EXPECT_SIZE_OR_RETURN(ops, dur);
   // Fade-in (linear): t=1 -> 1/3, then rising.
   HS_EXPECT_NEAR(ops[0], 1.0f / 3.0f, 1e-3f);
   HS_EXPECT_GT(ops[1], ops[0]);
@@ -1521,7 +1521,7 @@ inline void test_sprite_overlapping_fades_stay_continuous() {
   for (int i = 0; i < dur; ++i)
     s.step(fake_canvas()); // observed at t = 1..10
 
-  HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
+  HS_EXPECT_SIZE_OR_RETURN(ops, dur);
   // Scaled to 5 + 5: slope 1/5 per frame, so no single-frame step exceeds ~0.2.
   float max_jump = 0.0f;
   for (size_t i = 1; i < ops.size(); ++i)
@@ -1576,11 +1576,12 @@ inline void test_timeline_pause_redraws_held_sprite() {
       &paused);
 
   timeline.step(fake_canvas());
+  HS_EXPECT_SIZE_OR_RETURN(opacity, 1);
   HS_EXPECT_NEAR(opacity.back(), 0.5f, 1e-6f);
   paused = true;
   for (int i = 0; i < 5; ++i)
     timeline.step(fake_canvas());
-  HS_EXPECT_EQ(opacity.size(), static_cast<size_t>(6));
+  HS_EXPECT_SIZE_OR_RETURN(opacity, 6);
   for (size_t i = 1; i < opacity.size(); ++i)
     HS_EXPECT_NEAR(opacity[i], 0.5f, 1e-6f);
 
@@ -1612,7 +1613,7 @@ inline void test_crossfade_segue_schedules_overlapping_sprite() {
   for (int i = 0; i < dur; ++i)
     tl.step(fake_canvas()); // observed at t = 1..10
 
-  HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
+  HS_EXPECT_SIZE_OR_RETURN(ops, dur);
   // Fade-in ramp, full-opacity plateau, transparent on the final frame.
   HS_EXPECT_LT(ops[0], 1.0f);
   HS_EXPECT_NEAR(ops[4], 1.0f, 1e-3f);
@@ -1677,7 +1678,7 @@ inline void test_sequential_segue_never_overlaps_sprites() {
   for (int i = 0; i < dur; ++i)
     tl.step(fake_canvas()); // observed at t = 1..10
 
-  HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
+  HS_EXPECT_SIZE_OR_RETURN(ops, dur);
   // Phase ramps up, plateaus at 1, and returns to 0 on the final frame.
   HS_EXPECT_LT(ops[0], 1.0f);
   HS_EXPECT_NEAR(ops[4], 1.0f, 1e-3f);
@@ -2104,7 +2105,7 @@ inline void test_deep_tween_global_t_spans_unit_interval() {
   std::vector<float> gts;
   deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
 
-  HS_EXPECT_EQ(gts.size(), static_cast<size_t>(M + (N - 1) * (M - 1)));
+  HS_EXPECT_SIZE_OR_RETURN(gts, M + (N - 1) * (M - 1));
   HS_EXPECT_NEAR(gts.front(), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
   for (size_t i = 1; i < gts.size(); ++i)
@@ -2136,7 +2137,7 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
   // The collapsed tail frame is dropped, so the count matches the two
   // contentful frames (M=3 sub-frames each): M + (contentful-1)*(M-1).
   const size_t M = 3, contentful = 2;
-  HS_EXPECT_EQ(gts.size(), M + (contentful - 1) * (M - 1));
+  HS_EXPECT_SIZE_OR_RETURN(gts, M + (contentful - 1) * (M - 1));
   HS_EXPECT_NEAR(gts.front(), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
   for (size_t i = 1; i < gts.size(); ++i)
@@ -2160,7 +2161,7 @@ inline void test_deep_tween_all_collapsed_reaches_one() {
   std::vector<float> gts;
   deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
 
-  HS_EXPECT_EQ(gts.size(), static_cast<size_t>(1));
+  HS_EXPECT_SIZE_OR_RETURN(gts, 1);
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
 }
 
@@ -2233,7 +2234,7 @@ inline void test_deep_tween_interior_motionless_frame_no_gap() {
   deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
 
   const float expected[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
-  HS_EXPECT_EQ(gts.size(), static_cast<size_t>(5));
+  HS_EXPECT_SIZE_OR_RETURN(gts, 5);
   for (size_t i = 0; i < gts.size(); ++i)
     HS_EXPECT_NEAR(gts[i], expected[i], 1e-6f);
 }
@@ -2250,14 +2251,14 @@ inline void test_tween_vectortrail_single_sample_reaches_one() {
 
   std::vector<float> ts;
   tween(trail, [&](const Vector &, float t) { ts.push_back(t); });
-  HS_EXPECT_EQ(ts.size(), static_cast<size_t>(1));
+  HS_EXPECT_SIZE_OR_RETURN(ts, 1);
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
 
   trail.record(Vector(0, 1, 0));
   trail.record(Vector(0, 0, 1));
   ts.clear();
   tween(trail, [&](const Vector &, float t) { ts.push_back(t); });
-  HS_EXPECT_EQ(ts.size(), static_cast<size_t>(3));
+  HS_EXPECT_SIZE_OR_RETURN(ts, 3);
   HS_EXPECT_NEAR(ts.front(), 0.0f, 1e-6f); // oldest = tail
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);  // newest = head
 }
@@ -2304,7 +2305,7 @@ inline void test_quantized_vector_trail_roundtrip_and_ring() {
 
   std::vector<float> ts;
   tween(ring, [&](const Vector &, float t) { ts.push_back(t); });
-  HS_EXPECT_EQ(ts.size(), static_cast<size_t>(3));
+  HS_EXPECT_SIZE_OR_RETURN(ts, 3);
   HS_EXPECT_NEAR(ts.front(), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(ts[1], 0.5f, 1e-6f);
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
