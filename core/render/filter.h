@@ -2019,9 +2019,9 @@ private:
     constexpr float HALF_WRAP_PERIOD = WRAP_PERIOD * 0.5f;
     {
       HS_PROFILE_DEEP(fb_pop_expand);
+      auto ring = grid.field.ring(band.field_y_begin);
       for (int field_y = band.field_y_begin; field_y <= band.field_y_end;
-           ++field_y) {
-        const auto ring = grid.field.ring(field_y);
+           ++field_y, ring = grid.field.next_ring(ring)) {
         for (int coarse_x = 0; coarse_x < grid.columns; ++coarse_x) {
           if (band.x_clip.active && !band.coarse_columns_used[coarse_x])
             continue;
@@ -2084,8 +2084,12 @@ private:
     const ColumnRuns runs = make_column_runs(band.x_clip);
     int field_y0 = band.field_y_begin;
     int field_y1 = field_y0 + (field_y0 < band.field_y_end ? 1 : 0);
-    int control_y0 = grid.field.ring(field_y0).y;
-    int control_y1 = grid.field.ring(field_y1).y;
+    const auto control_ring0 = grid.field.ring(field_y0);
+    auto control_ring1 = control_ring0;
+    if (field_y1 > field_y0)
+      control_ring1 = grid.field.next_ring(control_ring0);
+    int control_y0 = control_ring0.y;
+    int control_y1 = control_ring1.y;
     auto composite_pixels = [&](auto &&transform_pixel, auto &&transform_pair,
                                 auto pair_pixels) {
       constexpr bool PAIR_PIXELS = decltype(pair_pixels)::value;
@@ -2105,7 +2109,8 @@ private:
           control_y0 = control_y1;
           if (field_y1 < grid.field_rows - 1) {
             ++field_y1;
-            control_y1 = grid.field.ring(field_y1).y;
+            control_ring1 = grid.field.next_ring(control_ring1);
+            control_y1 = control_ring1.y;
           }
         }
         // Interpolating outside the populated band silently corrupts pixels.
