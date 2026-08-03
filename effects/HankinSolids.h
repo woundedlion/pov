@@ -249,15 +249,20 @@ private:
    * while still small; unarmed slots alias the star entry. The fragment path
    * stays a single LUT lookup either way.
    * @param scratch Arena receiving mid-blend LUT bakes (frame lifetime).
+   * @details Past the crossfade window the blend resolves to the star entry's
+   * own LUT storage, so armed slots alias it there rather than re-bake a copy:
+   * identical shading, and the draw path drops its per-fragment role select
+   * for the rest of the sweep.
    */
   void resolve_hankin_slot_luts(
       int cycle_frame, BakedPalette (&blended)[NUM_PALETTES],
       const BakedPalette *(&star_by_slot)[NUM_PALETTES],
       const BakedPalette *(&strap_by_slot)[NUM_PALETTES], Arena &scratch) {
     const float w = strap_blend_weight(cycle_frame);
+    const bool blending = w < 1.0f;
     for (int s = 0; s < NUM_PALETTES; ++s) {
       star_by_slot[s] = &palette_bank.bank.entries[palette_idx[s]];
-      if (strap_blend_mask & (1u << s)) {
+      if (blending && (strap_blend_mask & (1u << s))) {
         bake_palette_blend(blended[s], scratch,
                            palette_bank.bank.entries[strap_from[s]],
                            palette_bank.bank.entries[palette_idx[s]], w);
@@ -414,10 +419,6 @@ private:
       split |= star_by_slot[s] != strap_by_slot[s];
     const int star_faces = static_cast<int>(node_faces);
 
-    auto star_shader = [&](const Vector &, Fragment &f) {
-      f.color = shade_mesh_topology(f, topology, topology_faces, star_view,
-                                    SLOT_IDENTITY, params.intensity, opacity);
-    };
     auto split_shader = [&](const Vector &, Fragment &f) {
       const bool is_strap = mesh_face_index(f) >= star_faces;
       const SlotLutView &view = is_strap ? strap_view : star_view;
@@ -461,12 +462,27 @@ private:
 
     {
       HS_PROFILE(hk_mesh_scan);
-      if (split)
+      if (split) {
         Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, split_shader,
                                scratch_arena_a);
-      else
-        Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, star_shader,
-                               scratch_arena_a);
+      } else {
+        // Face-hoisted: the class palette and the intensity/inradius gradient
+        // scale resolve once per face, leaving a multiply, a clamp and one LUT
+        // fetch per fragment.
+        FacePaletteShader fragment_shader;
+        fragment_shader.alpha = opacity;
+        auto select_face = [&](size_t fi, float size) {
+          const int cls = fi < static_cast<size_t>(topology_faces)
+                              ? static_cast<int>(topology[fi])
+                              : 0;
+          fragment_shader.set_palette(star_by_slot[wrap(cls, NUM_PALETTES)]);
+          fragment_shader.scale =
+              size > math::TOLERANCE ? params.intensity / size : 0.0f;
+        };
+        Scan::Mesh::draw_specialized<W, H>(filters, canvas, rotated_mesh,
+                                           fragment_shader, scratch_arena_a,
+                                           nullptr, select_face);
+      }
     }
   }
 
@@ -491,18 +507,18 @@ private:
       MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
     }
 
-    auto fragment_shader = [&](const Vector &, Fragment &f) {
-      float t = hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
-      Color4 c =
-          shading.ramp_for(static_cast<size_t>(mesh_face_index(f))).get(t);
-      c.alpha = 1.0f;
-      f.color = c;
+    FacePaletteShader fragment_shader;
+    auto select_face = [&](size_t fi, float size) {
+      fragment_shader.set_palette(&shading.ramp_for(fi));
+      fragment_shader.scale =
+          size > math::TOLERANCE ? params.intensity / size : 0.0f;
     };
 
     {
       HS_PROFILE(hk_mesh_scan);
-      Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
-                             scratch_arena_a);
+      Scan::Mesh::draw_specialized<W, H>(filters, canvas, rotated_mesh,
+                                         fragment_shader, scratch_arena_a,
+                                         nullptr, select_face);
     }
   }
 
