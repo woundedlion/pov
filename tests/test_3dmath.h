@@ -1158,15 +1158,31 @@ inline void test_gnomonic_roundtrip() {
   HS_EXPECT_COMPLEX(gnomonic(Vector(0, 1, 0)), Complex(0, 0), 1e-4f);
   HS_EXPECT_VEC(inv_gnomonic(Complex(0, 0), 1.0f), Vector(0, 1, 0), 1e-6f);
 
-  // Saturated input → returns the pole, sign-dependent
-  HS_EXPECT_VEC(inv_gnomonic(Complex(STEREO_INF, 0), 1.0f), Vector(0, 1, 0),
+  // Saturated input → the equator point in the direction of z, sign-dependent
+  // (gnomonic's singularity is the equator, not a pole).
+  HS_EXPECT_VEC(inv_gnomonic(Complex(STEREO_INF, 0), 1.0f), Vector(1, 0, 0),
                 1e-3f);
-  HS_EXPECT_VEC(inv_gnomonic(Complex(STEREO_INF, 0), -1.0f), Vector(0, -1, 0),
+  HS_EXPECT_VEC(inv_gnomonic(Complex(STEREO_INF, 0), -1.0f), Vector(-1, 0, 0),
                 1e-3f);
+  HS_EXPECT_VEC(inv_gnomonic(Complex(0, -STEREO_INF), 1.0f), Vector(0, 0, -1),
+                1e-3f);
+  // A magnitude far past the sentinel must not square to infinity.
+  HS_EXPECT_VEC(inv_gnomonic(Complex(3e30f, 4e30f), 1.0f),
+                Vector(0.6f, 0.0f, 0.8f), 1e-3f);
 
   // Near-equator inputs get clamped to STEREO_INF
   Complex zEq = gnomonic(Vector(1.0f, 1e-10f, 0.0f));
   HS_EXPECT_TRUE(std::abs(zEq.re) >= STEREO_INF - 1.0f);
+
+  // Round-trip identity through the singularity: |v.y| below ~2e-4 saturates
+  // the projection, and the inverse must still land on the input.
+  for (float y : {2e-4f, 1e-5f, 1e-9f, 0.0f, -1e-9f, -1e-5f, -2e-4f}) {
+    for (float theta = 0.0f; theta < 2.0f * PI_F; theta += 0.37f) {
+      const Vector v = Vector(cosf(theta), y, sinf(theta)).normalized();
+      const Vector back = inv_gnomonic(gnomonic(v), copysignf(1.0f, y));
+      HS_EXPECT_VEC(back, v, 1e-3f);
+    }
+  }
 
   // The floored divisor keys on the sign bit, so -0.0f projects like the tiny
   // negatives it is the limit of, not like +0.0f.

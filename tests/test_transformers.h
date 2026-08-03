@@ -10,9 +10,10 @@
  *                               1/z map realizes a 180° rotation about x; random
  *                               maps match a double-precision oracle and stay
  *                               unit; the poles map to a/c and b/d.
- *   - gnomonic_mobius_transform: identity round-trips through gnomonic; the -z
- *                               map realizes a 180° rotation about y; an
- *                               equator point with y == -0.0f lands south.
+ *   - gnomonic_mobius_transform: identity round-trips through gnomonic, right
+ *                               through the equatorial singularity; the -z map
+ *                               realizes a 180° rotation about y; an equator
+ *                               point round-trips for either signed zero.
  *   - ripple_transform        : amplitude 0 and center-point degeneracies are
  *                               no-ops; an active ripple rotates on-sphere; the
  *                               prepared-threshold fast-reject band applies
@@ -269,7 +270,8 @@ inline void test_mobius_poles_map_to_coefficient_ratios() {
 
 /**
  * @brief Verifies the identity Mobius map round-trips a point through
- *        gnomonic projection back to itself.
+ *        gnomonic projection back to itself, including across the equatorial
+ *        singularity where the projection saturates to the infinity sentinel.
  */
 inline void test_gnomonic_mobius_identity_roundtrip() {
   MobiusParams id;
@@ -279,6 +281,19 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
   HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
   HS_EXPECT_NEAR(r.y, v.y, 2e-3f);
   HS_EXPECT_NEAR(r.z, v.z, 2e-3f);
+
+  for (float y :
+       {1e-3f, 2e-4f, 1e-5f, 1e-9f, 0.0f, -1e-9f, -1e-5f, -2e-4f, -1e-3f}) {
+    for (float theta = 0.0f; theta < 2.0f * PI_F; theta += 0.31f) {
+      const Vector near_equator =
+          Vector(cosf(theta), y, sinf(theta)).normalized();
+      const Vector back = gnomonic_mobius_transform(near_equator, id);
+      HS_EXPECT_TRUE(finite_vec(back));
+      HS_EXPECT_NEAR(back.x, near_equator.x, 2e-3f);
+      HS_EXPECT_NEAR(back.y, near_equator.y, 2e-3f);
+      HS_EXPECT_NEAR(back.z, near_equator.z, 2e-3f);
+    }
+  }
 }
 
 /**
@@ -304,17 +319,23 @@ inline void test_gnomonic_mobius_known_rotation() {
 }
 
 /**
- * @brief Verifies an equator point with y == -0.0f lands in the southern
- *        hemisphere, matching the tiny negatives it is the limit of.
+ * @brief Verifies an equator point round-trips through the identity map for
+ *        either signed zero.
+ * @details The hemisphere sign has to key on the sign bit: a >= 0 test sends
+ *          y == -0.0f to the divisor sign of +0.0f but the hemisphere sign of a
+ *          tiny negative, which reflects the result 180° instead of returning
+ *          it. The equator is its own antipode's neighbour, so the flip only
+ *          shows as a broken round-trip.
  */
-inline void test_gnomonic_mobius_negative_zero_hemisphere() {
+inline void test_gnomonic_mobius_signed_zero_equator() {
   MobiusParams id;
-  Vector neg_zero = gnomonic_mobius_transform(Vector(1.0f, -0.0f, 0.0f), id);
-  Vector tiny_neg = gnomonic_mobius_transform(Vector(1.0f, -1e-12f, 0.0f), id);
-  Vector pos_zero = gnomonic_mobius_transform(Vector(1.0f, 0.0f, 0.0f), id);
-  HS_EXPECT_TRUE(neg_zero.y < 0.0f);
-  HS_EXPECT_TRUE(tiny_neg.y < 0.0f);
-  HS_EXPECT_TRUE(pos_zero.y > 0.0f);
+  for (float y : {-0.0f, 0.0f, -1e-12f, 1e-12f}) {
+    const Vector v(1.0f, y, 0.0f);
+    const Vector r = gnomonic_mobius_transform(v, id);
+    HS_EXPECT_NEAR(r.x, 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(r.y, 0.0f, 1e-3f);
+    HS_EXPECT_NEAR(r.z, 0.0f, 1e-3f);
+  }
 }
 
 // ============================================================================
@@ -1250,7 +1271,7 @@ inline int run_transformers_tests() {
   test_mobius_poles_map_to_coefficient_ratios();
   test_gnomonic_mobius_identity_roundtrip();
   test_gnomonic_mobius_known_rotation();
-  test_gnomonic_mobius_negative_zero_hemisphere();
+  test_gnomonic_mobius_signed_zero_equator();
   test_ripple_zero_amplitude_is_identity();
   test_ripple_center_point_is_identity();
   test_ripple_active_rotates_on_sphere();
