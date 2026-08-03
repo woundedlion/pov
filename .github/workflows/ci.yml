@@ -903,6 +903,17 @@ jobs:
           python tools/docs_check.py
           python tools/build_pins.py --check
 
+      # An ignore rule is inert against an already-tracked path, so .gitignore
+      # alone cannot keep a session artifact out of the repo.
+      - name: No tracked-but-ignored paths
+        run: |
+          tracked_ignored=$(git ls-files -i -c --exclude-standard)
+          if [ -n "$tracked_ignored" ]; then
+            echo "Tracked paths matched by .gitignore:" >&2
+            echo "$tracked_ignored" >&2
+            exit 1
+          fi
+
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
     # Guards finding 404: the tests/sanitizers jobs run subsets of the suite via
