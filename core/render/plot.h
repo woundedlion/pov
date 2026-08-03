@@ -14,7 +14,8 @@
 #include "color/color.h"
 #include "engine/constants.h"
 #include "render/canvas.h"
-#include "animation/animation.h"
+#include "engine/concepts.h"
+#include "engine/memory.h"
 
 /**
  * @file plot.h
