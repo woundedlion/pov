@@ -352,13 +352,14 @@ private:
   }
 #endif
 
-  static constexpr std::array<PresetEntry<Params>, 6> PRESETS = {{
+  static constexpr std::array<PresetEntry<Params>, 7> PRESETS = {{
       {{0.5f, 1.017f, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f, 0.0f}},
       {{0.5f, 2.793f, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f}},
       {{0.5f, 1.872f, 70.0f, 3.0f, 0.0f, 1.0f, 0.0186f, 0.0f}},
       {{0.274f, 2.988f, 72.0f, 4.417f, 0.0f, 1.0f, 0.0077f, 0.0f}},
       {{0.5f, 0.822f, 128.0f, 5.561f, 0.0f, 4.0f, 0.0405f, 1.0f}},
       {{0.45579f, 1.05f, 144.0f, 4.001f, 0.0f, 2.377f, 0.027086f, 0.0f}},
+      {{0.496f, 0.897f, 144.0f, 3.195f, 0.0f, 7.0696f, 0.0113f, 0.0f}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
@@ -380,7 +381,8 @@ private:
                     preset_in_ranges(PRESETS[2].params) &&
                     preset_in_ranges(PRESETS[3].params) &&
                     preset_in_ranges(PRESETS[4].params) &&
-                    preset_in_ranges(PRESETS[5].params),
+                    preset_in_ranges(PRESETS[5].params) &&
+                    preset_in_ranges(PRESETS[6].params),
                 "ShapeShifter preset is outside a registered slider range");
 
   FastNoiseLite noise;
@@ -388,7 +390,7 @@ private:
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
   BakedPalette baked_sunset;
-  Presets<Params, 6> presets{PRESETS};
+  Presets<Params, 7> presets{PRESETS};
   Params params{};
   float phase = 0.0f;
 };

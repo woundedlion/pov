@@ -3935,6 +3935,16 @@ inline void test_shapeshifter_preset_defaults() {
   HS_EXPECT_EQ(value("Amplitude"), 2.377f);
   HS_EXPECT_EQ(value("Speed"), 0.027086f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
+
+  ss.profile_select_preset(6);
+  HS_EXPECT_EQ(value("Alpha"), 0.496f);
+  HS_EXPECT_EQ(value("Shape"), 0.897f);
+  HS_EXPECT_EQ(value("Count"), 144.0f);
+  HS_EXPECT_EQ(value("Sides"), 3.195f);
+  HS_EXPECT_EQ(value("Function"), 0.0f);
+  HS_EXPECT_EQ(value("Amplitude"), 7.0696f);
+  HS_EXPECT_EQ(value("Speed"), 0.0113f);
+  HS_EXPECT_EQ(value("Opposite"), 0.0f);
 }
 
 /**
