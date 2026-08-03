@@ -1229,6 +1229,8 @@ private:
       return nullptr;
     }
     ensure_tooling_arenas();
+    // Before max_vertex_valence(), the first tooling-scratch use on this path.
+    ToolingOpGuard guard;
     if (hs_wasm::mesh_op_output_over_arena(
             mesh.vertices.size(), mesh.get_face_counts_size(),
             mesh.get_faces_size(), bounds.elements,
@@ -1255,7 +1257,6 @@ private:
       last_mesh_op_result = MeshOpResult::FACE_DEGREE_OVERFLOW;
       return nullptr;
     }
-    ToolingOpGuard guard;
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     return std::make_unique<MeshOpsWrapper>(Solids::finalize_solid(
