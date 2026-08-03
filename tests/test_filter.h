@@ -1988,7 +1988,7 @@ inline void test_feedback_spherical_field_angular_error() {
     const Vector delta = u * (fast_acos(c) * fast_rsqrt(len_sq));
     return TangentError{dot(delta, east), dot(delta, down)};
   };
-  NoiseParams noise;
+  Animation::NoiseParams noise;
   ::Feedback::Style style{};
   style.noise = &noise;
   style.amplitude = 3.99f;
@@ -2191,7 +2191,7 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
-  NoiseParams noise;
+  Animation::NoiseParams noise;
 
   ::Feedback::Style style{};
   style.space_fn = &::Feedback::noise_warp;
@@ -2267,7 +2267,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
   auto run = [&](bool cached) {
     std::vector<std::vector<Pixel>> frames;
     hs_test::StubEffect fx(W, H);
-    NoiseParams np;
+    Animation::NoiseParams np;
     ::Feedback::Style s{};
     s.noise = &np;
     s.amplitude = 3.0f;

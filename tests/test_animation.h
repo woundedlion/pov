@@ -2630,7 +2630,7 @@ inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
  * only on the final frame.
  */
 inline void test_ripple_envelope_and_done_boundary() {
-  RippleParams params;
+  Animation::RippleParams params;
   params.amplitude = 2.0f; // peak captured at construction
   const Vector center(0.0f, 1.0f, 0.0f);
   const int duration = 20;
@@ -2668,7 +2668,7 @@ inline void test_ripple_envelope_and_done_boundary() {
  * params.time each step and, being perpetual, never reports done().
  */
 inline void test_noise_publishes_time_and_is_perpetual() {
-  NoiseParams params;
+  Animation::NoiseParams params;
   Animation::Noise noise(params); // default duration -1
   HS_EXPECT_FALSE(noise.done());
   HS_EXPECT_NEAR(params.time, 0.0f, 1e-6f);

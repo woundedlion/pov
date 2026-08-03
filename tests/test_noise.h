@@ -243,7 +243,7 @@ inline void test_noise2d_golden_grid() {
  *          different one would slip past the existing test_transformers checks.
  */
 inline void test_noise_transform_golden() {
-  NoiseParams p;
+  Animation::NoiseParams p;
   p.amplitude = 0.5f;
   p.scale = 4.0f;
   p.time = 1.0f;

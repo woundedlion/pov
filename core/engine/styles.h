@@ -97,7 +97,7 @@ struct Style {
   int downsample = 4;
 
   // --- Bound state (set by effect at init, NOT part of presets) ---
-  NoiseParams *noise = nullptr;
+  Animation::NoiseParams *noise = nullptr;
 
   // --- Per-frame derived cache (NOT a preset; refreshed by sync_hue) ---
   // cos/sin of the fade-scaled per-frame hue angle plus its cbrt-LMS rotation

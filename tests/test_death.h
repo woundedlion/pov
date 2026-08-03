@@ -1158,7 +1158,7 @@ inline void case_make_basis_nan() {
  */
 inline void case_noise_transform_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
-  NoiseParams p;
+  Animation::NoiseParams p;
   p.amplitude = opaque(0.5f); // active path (skips the zero-amplitude no-op)
   p.scale = opaque(4.0f);
   p.time = opaque(1.0f);

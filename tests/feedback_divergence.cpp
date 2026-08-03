@@ -37,7 +37,7 @@ constexpr int CHANS = W * H * 3;
 struct Run {
   hs_test::StubEffect fx{W, H};
   Feedback::Style style;
-  NoiseParams noise;
+  Animation::NoiseParams noise;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
 

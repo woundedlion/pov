@@ -1785,7 +1785,7 @@ public:
     if (!enabled)
       return;
 
-    const NoiseParams *bound = feedback_style->noise;
+    const Animation::NoiseParams *bound = feedback_style->noise;
     HS_CHECK(!bound || (bound->amplitude == feedback_style->amplitude &&
                         bound->frequency == feedback_style->frequency &&
                         bound->speed == feedback_style->speed &&
@@ -1945,7 +1945,7 @@ private:
                            grid.downsample == CACHE_DOWNSAMPLE &&
                            stock_transform;
 
-    const NoiseParams *noise = feedback_style->noise;
+    const Animation::NoiseParams *noise = feedback_style->noise;
     const WarpKey key{feedback_style->space_fn,
                       noise,
                       feedback_style->amplitude,
@@ -2420,7 +2420,7 @@ private:
    *  transforms only); equal keys make the cached field reusable. */
   struct WarpKey {
     ::Feedback::SpaceFn space_fn;
-    const NoiseParams *noise;
+    const Animation::NoiseParams *noise;
     float amplitude;
     float frequency;
     float speed;

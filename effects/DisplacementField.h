@@ -56,7 +56,8 @@ public:
     ball_colat = persistent_arena.allocate_n<float>(MAX_BALLS);
     ball_reach = persistent_arena.allocate_n<float>(MAX_BALLS);
     ball_scale = persistent_arena.allocate_n<float>(MAX_BALLS);
-    ball_params = persistent_arena.allocate_n<const BumpParams *>(MAX_BALLS);
+    ball_params =
+        persistent_arena.allocate_n<const Animation::BumpParams *>(MAX_BALLS);
     ball_local = persistent_arena.allocate_n<int>(MAX_BALLS);
     shift_pool = persistent_arena.allocate_n<float>(RING_SLOTS * (W + 1));
     hue_pool = persistent_arena.allocate_n<Pixel>(RING_SLOTS * (W + 1));
@@ -625,7 +626,7 @@ private:
       nullptr; /**< MAX_BALLS active-ball support extents (radians): both the reach prefilter bound and the per-ring band bound. */
   float *ball_scale =
       nullptr; /**< MAX_BALLS active-ball LUT feature scales (2/radius). */
-  const BumpParams **ball_params =
+  const Animation::BumpParams **ball_params =
       nullptr; /**< Active-ball params validated and cached once per frame. */
   int *ball_local =
       nullptr; /**< MAX_BALLS scratch: active indices of the balls that can reach the current ring. */
@@ -676,8 +677,8 @@ private:
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
       RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +
                     sizeof(SDF::DistortedRing)) +
-      MAX_BALLS *
-          (3 * sizeof(float) + sizeof(int) + sizeof(const BumpParams *)) +
+      MAX_BALLS * (3 * sizeof(float) + sizeof(int) +
+                   sizeof(const Animation::BumpParams *)) +
       (HUE_TABLE_SIZE + 1) * sizeof(Pixel) +
       MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
       (sizeof(typename decltype(noise_field)::Entity) + sizeof(int));
