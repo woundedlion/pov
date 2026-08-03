@@ -991,8 +991,8 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  */
 inline Complex gnomonic(const Vector &v) {
   // Floor the divisor to ±STEREO_EQUATOR_EPS to avoid div-by-zero at v.y == 0,
-  // then clamp to ±STEREO_INF. A near-equator point clamps to the sentinel,
-  // which inv_gnomonic snaps back to the pole.
+  // then clamp the magnitude to STEREO_INF. A near-equator point clamps to the
+  // sentinel, which inv_gnomonic snaps back to the equator.
   // copysignf, not a >= 0 test: -0.0f must floor negative like the values it
   // is the limit of.
   float div = (std::abs(v.y) < STEREO_EQUATOR_EPS)
@@ -1000,8 +1000,15 @@ inline Complex gnomonic(const Vector &v) {
                   : v.y;
   float gx = v.x / div;
   float gz = v.z / div;
-  gx = hs::clamp(gx, -STEREO_INF, STEREO_INF);
-  gz = hs::clamp(gz, -STEREO_INF, STEREO_INF);
+  // Radial clamp, matching project_div: clamping the components separately
+  // would drag a saturated point towards the nearest diagonal, discarding the
+  // azimuth the inverse reads back.
+  const float magnitude_sq = gx * gx + gz * gz;
+  if (magnitude_sq > STEREO_INF * STEREO_INF) {
+    const float scale = STEREO_INF / sqrtf(magnitude_sq);
+    gx *= scale;
+    gz *= scale;
+  }
   return Complex(gx, gz);
 }
 
@@ -1010,14 +1017,23 @@ inline Complex gnomonic(const Vector &v) {
  * @param z Complex point on the plane.
  * @param original_sign Sign of the y-component (j) of the original vector, used
  * to restore the hemisphere the forward projection collapsed.
- * @return The corresponding point on the unit sphere.
+ * @return The corresponding point on the unit sphere; the plane's infinity is
+ * the equator point in the direction of z, not a pole (the projection ray
+ * flattens into y = 0 as |z| grows).
  */
 inline Vector inv_gnomonic(const Complex &z, float original_sign) {
-  // Clamped-to-infinity → pole, recognized from STEREO_INF_RECOGNIZE like
-  // inv_stereo (margin snaps a Mobius-shrunk sentinel back to the pole).
+  // Clamped-to-infinity → equator, recognized from STEREO_INF_RECOGNIZE (margin
+  // snaps a Mobius-shrunk sentinel back to the limit).
   if (std::abs(z.re) >= STEREO_INF_RECOGNIZE ||
-      std::abs(z.im) >= STEREO_INF_RECOGNIZE)
-    return Vector(0.0f, original_sign, 0.0f);
+      std::abs(z.im) >= STEREO_INF_RECOGNIZE) {
+    // Normalize by the larger component first: squaring a magnitude well past
+    // the sentinel would overflow to infinity and yield a zero vector.
+    const float scale = 1.0f / std::max(std::abs(z.re), std::abs(z.im));
+    const float re = z.re * scale;
+    const float im = z.im * scale;
+    const float inv_len = original_sign / sqrtf(re * re + im * im);
+    return Vector(re * inv_len, 0.0f, im * inv_len);
+  }
   // Project (re, 1, im) back onto unit sphere
   float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
   float inv_len = 1.0f / len;
