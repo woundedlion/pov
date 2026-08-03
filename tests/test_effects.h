@@ -1323,7 +1323,8 @@ struct BZWhiteBox {
   static Pixel shade(const BZ &bz, int seed, const Vector &center,
                      const Vector *nodes, const Grid &grid, int x,
                      const Color4 &ca, const Color4 &cb, const Color4 &cc) {
-    return bz.shade_pixel(seed, center, nodes, grid, x, ca, cb, cc);
+    BZ::FloatRgb fa(ca.color), fb(cb.color), fc(cc.color);
+    return bz.shade_pixel(seed, center, nodes, grid, x, fa, fb, fc);
   }
   static Pixel reference_shade(const BZ &bz, int seed, const Vector &center_rv,
                                const Vector *world_nodes, const Grid &grid,
