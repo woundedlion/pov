@@ -171,6 +171,9 @@ private:
     if (instance) {
       instance->dma_channel.clearInterrupt();
       instance->transferComplete.store(true, std::memory_order_relaxed);
+      // DMA_CINT is a posted write; without this the ISR can return before it
+      // retires and the NVIC re-pends the interrupt it just cleared.
+      asm volatile("dsb" ::: "memory");
     }
   }
 
