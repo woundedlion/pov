@@ -451,7 +451,9 @@ struct MindSplatterWhiteBox {
   template <int W, int H>
   static void draw_particles_replay_reference(MindSplatter<W, H> &ms,
                                               Canvas &canvas) {
+    Plot::g_reference_screen_step = true;
     ms.draw_particles_with(ms.filters, canvas);
+    Plot::g_reference_screen_step = false;
   }
   template <int W, int H>
   static void draw_particles_reference(MindSplatter<W, H> &ms) {
