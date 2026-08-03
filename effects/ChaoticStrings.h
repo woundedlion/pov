@@ -31,7 +31,20 @@ template <int W, int H> class ChaoticStrings : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
   static constexpr int ORIENTATION_SUBSTEPS = 16;
-  static constexpr int MAX_FRAGMENTS = TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
+  static constexpr int MAX_FRAGMENTS = 2 * TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
+
+  /** @brief Compact multiline control point carrying its palette coordinate. */
+  struct TrailVertex {
+    Vector pos;
+    float palette_t;
+
+    operator Fragment() const {
+      Fragment fragment;
+      fragment.pos = pos;
+      fragment.v3 = palette_t;
+      return fragment;
+    }
+  };
 
   /**
    * @brief The single animated body: orientation, rolling trail history, and
@@ -74,8 +87,9 @@ public:
   // Scratch A holds the per-frame vertices buffer and, during the draw call, the
   // Multiline fragment buffer it binds (capacity vertices.size()+2) plus
   // rasterize's own sub-step cache, so the worst case is all three live at once.
-  static constexpr size_t SCRATCH_A_BYTES = 200 * 1024;
-  static_assert(SCRATCH_A_BYTES >= (2 * MAX_FRAGMENTS + 2) * sizeof(Fragment) +
+  static constexpr size_t SCRATCH_A_BYTES = 234 * 1024;
+  static_assert(SCRATCH_A_BYTES >= MAX_FRAGMENTS * sizeof(TrailVertex) +
+                                       (MAX_FRAGMENTS + 2) * sizeof(Fragment) +
                                        Plot::rasterize_scratch_a_bytes<W>(),
                 "scratch arena A must fit the vertices buffer, the "
                 "Multiline-draw fragment buffer and rasterize's sub-step cache "
@@ -156,7 +170,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     ScratchScope scratch_a_guard(scratch_arena_a);
-    ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
+    ArenaVector<TrailVertex> vertices(scratch_arena_a, MAX_FRAGMENTS);
     {
       HS_PROFILE(cs_timeline_step);
       timeline.step(canvas);
@@ -179,23 +193,37 @@ public:
                      });
 
     node->trail.record(node->orientation);
+    const float fill_scale = palette_fill_scale(node->trail.length());
 
     {
       HS_PROFILE(cs_build_vertices);
+      Quaternion previous_q;
+      Vector previous_pos;
+      float previous_t = 0.0f;
+      bool have_previous = false;
       deep_tween(node->trail, [&](const Quaternion &q, float t) {
-        Vector pos =
-            noise_xform.transform(orientation.orient(rotate(node->v, q)));
-        Fragment f;
-        f.pos = normalized_or(pos, Vector(1, 0, 0));
-        f.v3 = t;
+        const Vector pos = warped_position(q);
+        if (have_previous) {
+          const Quaternion mid_q = slerp(previous_q, q, 0.5f);
+          const Vector mid_pos = warped_position(mid_q);
+          if (needs_adaptive_midpoint(previous_pos, mid_pos, pos)) {
+            vertices.push_back({mid_pos, 0.5f * (previous_t + t) * fill_scale});
+          }
+        }
+        TrailVertex f;
+        f.pos = pos;
+        f.palette_t = t * fill_scale;
         vertices.push_back(f);
+        previous_q = q;
+        previous_pos = pos;
+        previous_t = t;
+        have_previous = true;
       });
     }
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      float color_t = frag.v3;
-      frag.color = static_palette.get(color_t);
-      frag.color.alpha *= quintic_kernel(frag.v3) * params.alpha;
+      const float age_t = frag.v3 / fill_scale;
+      frag.color = shade_trail(frag.v3, age_t);
     };
 
     {
@@ -219,6 +247,31 @@ private:
       return duty > 0.0f && u < duty ? u / duty : 1.0f;
     }
   };
+
+  static float palette_fill_scale(size_t trail_length) {
+    return static_cast<float>(trail_length) / TRAIL_LENGTH;
+  }
+
+  Vector warped_position(const Quaternion &q) const {
+    const Vector pos =
+        noise_xform.transform(orientation.orient(rotate(node->v, q)));
+    return normalized_or(pos, Vector(1, 0, 0));
+  }
+
+  static bool needs_adaptive_midpoint(const Vector &a, const Vector &mid,
+                                      const Vector &b) {
+    constexpr float MAX_ERROR = 0.25f * 2.0f * PI_F / W;
+    const Vector geodesic_mid = slerp(a, b, 0.5f);
+    return angle_between(mid, geodesic_mid) > MAX_ERROR;
+  }
+
+  Color4 shade_trail(float palette_t, float age_t) const {
+    Color4 color = static_palette.get(palette_t);
+    if (color.color == Pixel())
+      color.alpha = 0.0f;
+    color.alpha *= quintic_kernel(age_t) * params.alpha;
+    return color;
+  }
 
   FastNoiseLite noise; /**< Noise source for the random walk. */
   Timeline timeline;   /**< Drives all per-frame animations. */
