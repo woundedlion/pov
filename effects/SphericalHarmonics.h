@@ -9,6 +9,14 @@
 #include <cmath>
 #include <utility>
 
+// Unit-test accessor reaching the private morph-chain state and the baked
+// palette the shader reads.
+namespace hs_test {
+namespace effects_tests {
+struct SphericalHarmonicsWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 namespace SHMath {
 /**
  * @brief Factorial of n as a float.
@@ -289,6 +297,8 @@ public:
   }
 
 private:
+  friend struct ::hs_test::effects_tests::SphericalHarmonicsWhiteBox;
+
   /**
    * @brief Ambient-occlusion shaping constants for the draw_frame shader.
    * @details AO_FALLOFF is the field magnitude at which shading saturates,
