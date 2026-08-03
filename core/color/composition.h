@@ -265,6 +265,10 @@ struct FoldModifier {
  * Null tension driver is the deliberate "no pinch" pass-through mode.
  */
 struct PinchModifier {
+  /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
+   */
+  static constexpr bool bounded_output = true;
+
   const float
       *tension; /**< Pinch tension driver; expects roughly -0.9 to 0.9. */
 

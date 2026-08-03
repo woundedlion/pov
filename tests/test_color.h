@@ -1787,6 +1787,8 @@ inline void test_palette_modifiers() {
   HS_EXPECT_LT(pinched, 0.5f);
   // A null tension driver passes through.
   HS_EXPECT_NEAR(PinchModifier(nullptr).modify(0.3f), 0.3f, 1e-5f);
+  // The top endpoint survives the pinch exactly (bounded_output).
+  HS_EXPECT_NEAR(PinchModifier(&tension).modify(1.0f), 1.0f, 1e-5f);
 
   // Fold's negative-reduction guard: a negative coordinate must stay in [0,1]
   // and match an independent triangle-wave reference (abs of the raw fmod).
@@ -2146,15 +2148,15 @@ inline void test_static_palette_composition() {
   static_assert(coord_bounded_output<ReverseModifier>());
   static_assert(coord_bounded_output<MirrorModifier>());
   static_assert(coord_bounded_output<InsetModifier>());
+  static_assert(coord_bounded_output<PinchModifier>());
   static_assert(!coord_bounded_output<ScaleModifier>());
   static_assert(!coord_bounded_output<CycleModifier>());
   static_assert(!coord_bounded_output<BreatheModifier>());
   static_assert(!coord_bounded_output<RippleModifier>());
   static_assert(!coord_bounded_output<NoiseWarpModifier>());
   static_assert(!coord_bounded_output<DriftModifier>());
-  // Pinch re-anchors to floorf(t) and Quantize scales the whole domain, so both
-  // carry an out-of-range coordinate through and stay wrap-compatible.
-  static_assert(!coord_bounded_output<PinchModifier>());
+  // Quantize scales the whole domain, carrying an out-of-range coordinate
+  // through, so it stays wrap-compatible.
   static_assert(!coord_bounded_output<QuantizeModifier>());
 
   // Fold's triangle wave and Inset's clamp confine arbitrary input, so they can
