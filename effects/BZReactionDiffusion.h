@@ -63,6 +63,7 @@ class BZReactionDiffusion
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_center;
+  using Base::refine_render_center;
   using Base::register_param;
   using Base::seed_blobs;
   using Base::seed_face_lut;
@@ -293,7 +294,7 @@ private:
                              const Vector *world_nodes, const Grid &grid, int x,
                              const FloatRgb &ca, const FloatRgb &cb,
                              const FloatRgb &cc) const {
-    int center = refine_center(center_rv, world_nodes, seed);
+    int center = refine_render_center(center_rv, world_nodes, seed);
     Vector spos[RD_K + 1];
     uint16_t sa[RD_K + 1], sb[RD_K + 1], sc[RD_K + 1];
     spos[0] = world_nodes[center];
