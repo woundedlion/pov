@@ -606,9 +606,11 @@ private:
     auto &frame = ledController.backFrame();
     {
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
-      int y = y_base;
-      for (int i = 0; i < PPS; ++i, y += y_step) {
-        frame.packPixel(i, buf[y * w + x_col]);
+      const pov::SegmentMap m{arm_b, y_base, y_step};
+      const int stride = pov::segment_row_stride(m, w);
+      int off = pov::segment_pixel_base(m, x_col, w);
+      for (int i = 0; i < PPS; ++i, off += stride) {
+        frame.packPixel(i, buf[off]);
       }
     }
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);

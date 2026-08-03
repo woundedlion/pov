@@ -31,6 +31,8 @@ using pov::decode_segment_id;
 using pov::segment_clip;
 using pov::segment_id_strap_count;
 using pov::segment_map;
+using pov::segment_pixel_base;
+using pov::segment_row_stride;
 using pov::SegmentClip;
 using pov::SegmentMap;
 using pov::segment_x_col;
@@ -49,6 +51,10 @@ static_assert(segment_map(3, 288, 8).y_base == 107);
 static_assert(segment_id_strap_count(8) == 3);
 static_assert(decode_segment_id(0b010, 8) == 5);
 static_assert(segment_x_col(true, 0, 288) == 144);
+static_assert(segment_pixel_base(segment_map(1, 288, 4), 7, 288) ==
+              143 * 288 + 7);
+static_assert(segment_row_stride(segment_map(1, 288, 4), 288) == -288);
+static_assert(segment_row_stride(segment_map(0, 288, 4), 288) == 288);
 static_assert(segment_clip(segment_map(0, 288, 4), true, 288, 4, 288).x0 == 0);
 static_assert(segment_clip(segment_map(0, 288, 4), true, 288, 4, 288).x1 ==
               144);
@@ -87,6 +93,12 @@ inline void check_tiling(int S, int N, int w, int x) {
     for (int i = 0; i < PPS; ++i) {
       const int y = segment_y(m, i);
       HS_EXPECT_TRUE(y >= 0 && y < ROWS);
+      // The column ISR walks the display buffer by accumulating stride onto
+      // base rather than evaluating segment_y per pixel; pin the two forms
+      // equal so the shipped recurrence is the arithmetic tested here.
+      const int off =
+          segment_pixel_base(m, x_col, w) + i * segment_row_stride(m, w);
+      HS_EXPECT_EQ(off, y * w + x_col);
       // Interior ordering: rows advance by the segment's unit y_step, so a
       // scrambled-but-bijective interior fails here, not just covered-once.
       if (i > 0)

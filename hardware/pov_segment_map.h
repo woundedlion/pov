@@ -109,6 +109,30 @@ constexpr int segment_y(const SegmentMap &m, int i) {
 }
 
 /**
+ * @brief Row-major display-buffer index of this segment's LED 0.
+ * @param m Segment mapping providing y_base.
+ * @param x_col Canvas column this segment samples (from segment_x_col).
+ * @param w Canvas width in columns.
+ * @return Index into a row-major w-wide buffer of the segment's first pixel.
+ */
+constexpr int segment_pixel_base(const SegmentMap &m, int x_col, int w) {
+  return m.y_base * w + x_col;
+}
+
+/**
+ * @brief Row-major display-buffer stride between consecutive segment LEDs.
+ * @param m Segment mapping providing y_step.
+ * @param w Canvas width in columns.
+ * @return Signed index delta per LED; negative for a reversed southern band.
+ * @details segment_pixel_base() plus i strides equals segment_y()'s row times
+ * w plus x_col, so the column ISR walks rows by accumulation without a
+ * per-pixel multiply.
+ */
+constexpr int segment_row_stride(const SegmentMap &m, int w) {
+  return m.y_step * w;
+}
+
+/**
  * @brief Display clip rectangle a segment paints for one half-rev window.
  */
 struct SegmentClip {
