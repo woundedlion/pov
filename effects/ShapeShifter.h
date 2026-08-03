@@ -33,12 +33,8 @@ public:
   static constexpr int NUM_SHAPES = static_cast<int>(ShapeType::STAR) + 1;
   static constexpr int NUM_FUNCTIONS =
       static_cast<int>(PhaseFunction::SQUARE) + 1;
-  /**
-   * @brief Count slider ceiling.
-   * @details The 144 floor holds the preset counts inside the registered range
-   * on canvases shorter than that; preset_in_ranges pins the coupling.
-   */
-  static constexpr int MAX_SHAPES = H > 144 ? H : 144;
+  /** @brief Count slider ceiling. */
+  static constexpr int MAX_SHAPES = 288;
 
   /** @brief Constructs the Plot-only effect on a WxH canvas. */
   HS_COLD_MEMBER ShapeShifter()
@@ -115,7 +111,7 @@ private:
   static constexpr float AMPLITUDE_MIN = 0.1f;
   static constexpr float AMPLITUDE_MAX = 10.0f;
   static constexpr float SPEED_MIN = 0.0f;
-  static constexpr float SPEED_MAX = 0.1f;
+  static constexpr float SPEED_MAX = 0.16f;
   static constexpr int PRESET_FRAMES = 240;
 
   /** @brief Tunable rendering state stored by each preset. */
@@ -367,7 +363,7 @@ private:
   }
 #endif
 
-  static constexpr std::array<PresetEntry<Params>, 7> PRESETS = {{
+  static constexpr std::array<PresetEntry<Params>, 8> PRESETS = {{
       {{1.0f, 1.017f, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f, 0.0f}},
       {{0.5f, 2.793f, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f}},
       {{0.5f, 1.872f, 70.0f, 3.0f, 0.0f, 1.0f, 0.0186f, 0.0f}},
@@ -375,6 +371,7 @@ private:
       {{0.5f, 0.822f, 128.0f, 5.561f, 0.0f, 4.0f, 0.0405f, 1.0f}},
       {{0.45579f, 1.05f, 144.0f, 4.001f, 0.0f, 2.377f, 0.027086f, 0.0f}},
       {{0.496f, 0.897f, 144.0f, 3.195f, 0.0f, 7.0696f, 0.0113f, 0.0f}},
+      {{0.274f, 2.988f, 288.0f, 7.745f, 0.0f, 1.0f, 0.16f, 0.0f}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
@@ -397,7 +394,8 @@ private:
                     preset_in_ranges(PRESETS[3].params) &&
                     preset_in_ranges(PRESETS[4].params) &&
                     preset_in_ranges(PRESETS[5].params) &&
-                    preset_in_ranges(PRESETS[6].params),
+                    preset_in_ranges(PRESETS[6].params) &&
+                    preset_in_ranges(PRESETS[7].params),
                 "ShapeShifter preset is outside a registered slider range");
 
   FastNoiseLite noise;
@@ -405,7 +403,7 @@ private:
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
   BakedPalette baked_sunset;
-  Presets<Params, 7> presets{PRESETS};
+  Presets<Params, 8> presets{PRESETS};
   Params params{};
   float phase = 0.0f;
 };
