@@ -2051,7 +2051,46 @@ struct ChaoticStringsWhiteBox {
     deep_tween(fx.node->trail, [&](const Quaternion &, float) { ++n; });
     return n;
   }
+  static Color4 sample_fire(const CS &fx, float t) {
+    return fx.fire_palette.get(fx.duty_mod.modify(t));
+  }
 };
+
+/** @brief Verifies ChaoticStrings' sole preset and fire-palette duty window. */
+inline void test_chaoticstrings_preset_and_fire_duty_cycle() {
+  reset_effect_globals();
+  using WB = ChaoticStringsWhiteBox;
+  WB::CS fx;
+  fx.init();
+
+  auto value = [&](const char *name) {
+    const auto *def = fx.getParameters().find(name);
+    HS_EXPECT(def != nullptr, "ChaoticStrings parameter is missing");
+    return def ? def->get() : -1.0f;
+  };
+
+  HS_EXPECT_EQ(value("Alpha"), 1.0f);
+  HS_EXPECT_EQ(value("Cycle Dur"), 80.0f);
+  HS_EXPECT_EQ(value("Speed"), 0.235f);
+  HS_EXPECT_EQ(value("Jitter Amp"), 2.88f);
+  HS_EXPECT_EQ(value("Noise Scale"), 0.26974f);
+  HS_EXPECT_EQ(value("Scale Factor"), 84.832001f);
+  HS_EXPECT_EQ(value("Cycle Speed"), 0.672f);
+  HS_EXPECT_EQ(value("Duty Cycle"), 0.5f);
+
+  const Pixel black(0, 0, 0);
+  const Color4 red = WB::sample_fire(fx, 0.20f);
+  const Color4 yellow = WB::sample_fire(fx, 0.39f);
+  HS_EXPECT_GT(red.color.r, red.color.g);
+  HS_EXPECT_GT(red.color.r, red.color.b);
+  HS_EXPECT_GT(yellow.color.g, red.color.g);
+  HS_EXPECT_TRUE(WB::sample_fire(fx, 0.50f).color == black);
+  HS_EXPECT_TRUE(WB::sample_fire(fx, 0.75f).color == black);
+
+  HS_EXPECT_TRUE(fx.updateParameter("Duty Cycle", 0.25f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(WB::sample_fire(fx, 0.30f).color == black);
+}
 
 /**
  * @brief Verifies the scratch-A split's predicted worst case really covers a
@@ -4476,6 +4515,7 @@ inline int run_effects_tests() {
   test_gs_shared_stencil_error_is_bounded();
   test_gs_dissolve_frontier_fades_before_clear();
   test_gs_substep_matches_scalar_reference();
+  test_chaoticstrings_preset_and_fire_duty_cycle();
   test_shapeshifter_preset_defaults();
   test_shapeshifter_slider_selections_render();
   test_hankinsolids_manual_pause_holds_morph();
