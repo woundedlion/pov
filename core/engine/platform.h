@@ -298,7 +298,7 @@ inline void flush_log() { fflush(stdout); }
 #define EVERY_N_MILLIS_I(NAME, N)                                              \
   static hs::EveryNMillis NAME((N));                                           \
   if (NAME)
-#define EVERY_N_MILLIS(N) EVERY_N_MILLIS_I(HS_CONCAT(__every_, __COUNTER__), N)
+#define EVERY_N_MILLIS(N) EVERY_N_MILLIS_I(HS_CONCAT(hs_every_, __COUNTER__), N)
 
 /**
  * @brief Executes the guarded block at most once every N seconds.
