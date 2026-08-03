@@ -597,6 +597,8 @@ struct Telemetry {
       0; /**< Undrained boundary symbol dropped at the next boundary. */
   uint32_t max_coast_halves =
       0; /**< Longest run of half-revs without a snap. */
+  uint32_t master_stalls =
+      0; /**< Master coasts past the signed-safe window, re-seeded. */
 };
 
 // ── Layer 1: the flywheel timebase (spec §4) ────────────────────────────────
@@ -703,6 +705,19 @@ public:
     epoch_cycles += period;
     boundary = opposite(boundary);
     return {true, boundary, epoch_cycles};
+  }
+
+  /**
+   * @brief Whether fold() has stopped being able to report crossings.
+   * @param now Current timestamp, in cycles.
+   * @return True once (now - epoch_cycles) has passed 2^31 cycles.
+   * @details fold() reads that difference as int32 and returns no crossing on a
+   * negative one, so past 2^31 the epoch can never catch up: every later call
+   * sees an even larger difference. Only reachable on a coast that long, since
+   * the fold loop otherwise leaves the difference below one half-rev.
+   */
+  bool fold_stalled(uint32_t now) const {
+    return static_cast<int32_t>(now - epoch_cycles) < 0;
   }
 
   /**
@@ -1350,6 +1365,16 @@ public:
       if (beacon_parser.active())
         ++telemetry_counters.beacons_rejected;
       beacon_parser.reset();
+    }
+
+    // Nothing re-bases the master's epoch — it snaps to no wire symbol — so a
+    // stalled fold is terminal for it. Re-anchor onto the current instant and
+    // count it. Downstream boards instead recover through the gate's ACQUIRE
+    // fallback, which re-bases the epoch on the next symbol.
+    if (is_master_board && fly.fold_stalled(now)) {
+      ++telemetry_counters.master_stalls;
+      fly.seed(now);
+      fly.force_lock();
     }
 
     // Fold every locally-crossed boundary (usually 0 or 1; several after a

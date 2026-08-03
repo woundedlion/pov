@@ -1127,6 +1127,45 @@ inline void test_beacon_late_coast() {
   HS_EXPECT_EQ(run(cfg.W / 4 + 20), 0);
 }
 
+/**
+ * @brief Verifies a master coast past 2^31 cycles is counted and recovered
+ *        rather than wedging the flywheel silently.
+ * @details fold() reads (now - epoch_cycles) as int32 and reports no crossing on
+ *          a negative one, so without the re-anchor the master would never
+ *          cross another boundary and would emit no further boundary symbols —
+ *          with no counter moving to say so.
+ */
+inline void test_master_fold_stall_recovers() {
+  const Config cfg = test_config();
+  const uint32_t period = cfg.cycles_per_half_rev;
+
+  SyncBoard m(cfg);
+  const uint32_t t0 = 1000000u;
+  m.seed(t0, /*is_master=*/true);
+  m.tick(t0 + 2u * period, nullptr);
+  HS_EXPECT_EQ(m.telemetry().master_stalls, 0u);
+  const uint32_t flips_before = m.telemetry().flips;
+  HS_EXPECT_GT(flips_before, 0u);
+
+  // Resume past the int32 horizon. The epoch trails `now` by more than 2^31, so
+  // fold() alone can never catch up again.
+  const uint32_t stalled = t0 + 2u * period + 0x90000000u;
+  Flywheel probe(cfg);
+  probe.seed(t0 + 2u * period);
+  HS_EXPECT_TRUE(probe.fold_stalled(stalled));
+  HS_EXPECT_FALSE(probe.fold(stalled).crossed);
+
+  m.tick(stalled, nullptr);
+  HS_EXPECT_EQ(m.telemetry().master_stalls, 1u);
+
+  // The flywheel is anchored on `stalled` again, so ordinary half-rev wakes
+  // resume crossing boundaries.
+  m.tick(stalled + period, nullptr);
+  m.tick(stalled + 2u * period, nullptr);
+  HS_EXPECT_GT(m.telemetry().flips, flips_before);
+  HS_EXPECT_EQ(m.telemetry().master_stalls, 1u);
+}
+
 // ── Master beacon tail quiet (§6.4) ─────────────────────────────────────────
 
 /**
@@ -2703,6 +2742,7 @@ inline int run_pov_sync_tests() {
   test_emitter();
   test_master_beacon_busy_retry();
   test_beacon_late_coast();
+  test_master_fold_stall_recovers();
   test_beacon_tail_quiet();
   test_master_epoch_train_bounded();
 
