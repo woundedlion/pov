@@ -308,7 +308,10 @@ inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
  * @brief Positions the angle-dependent vertices and writes the final mesh.
  * @tparam MeshT Output mesh type; may optionally provide face_offsets.
  * @param compiled Baked angle-independent topology.
- * @param out_mesh Output mesh, allocated from @p target_arena.
+ * @param out_mesh Output mesh, allocated from @p target_arena. Its topology
+ *   array is retained, not rebuilt, so one classification serves every angle
+ *   re-solve of the same compiled pattern; a mesh reused for a DIFFERENT
+ *   pattern must be cleared first, which the face-count check below enforces.
  * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
  * @param angle Contact angle in radians; domain [0, pi/2]. At ~0 the star points
  *   collapse onto their corners (flat tiling); larger angles push the rays out so
@@ -330,6 +333,11 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
   if constexpr (requires { out_mesh.set_owned(); }) {
     out_mesh.set_owned();
   }
+
+  HS_CHECK(out_mesh.topology.size() == 0 ||
+               out_mesh.topology.size() == compiled.face_counts.size(),
+           "update_hankin: reused out_mesh carries a topology from a different "
+           "compiled pattern (clear it first)");
 
   bool is_flat = std::abs(angle) < math::TOLERANCE;
 
