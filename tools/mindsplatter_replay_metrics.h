@@ -11,6 +11,26 @@
 
 namespace mindsplatter_replay {
 
+/** @brief Quadrant clips each searched frame is scored under. */
+inline constexpr int SEARCH_CLIP_COUNT = 4;
+
+/**
+ * @brief Quadrant clip `index` of a W x H frame.
+ * @param index Quadrant id in [0, SEARCH_CLIP_COUNT): bit 0 selects the right
+ *        half, bit 1 the bottom half.
+ * @return Clip region covering that quadrant.
+ * @details Corpus::peak_clip indexes these, so the generator's search and the
+ * replay derive the rectangle from this one definition.
+ */
+template <int W, int H> constexpr ClipRegion search_clip(int index) {
+  ClipRegion clip;
+  clip.y_start = (index & 2) ? H / 2 : 0;
+  clip.y_end = (index & 2) ? H : H / 2;
+  clip.x_start = (index & 1) ? W / 2 : 0;
+  clip.x_end = (index & 1) ? W : W / 2;
+  return clip;
+}
+
 /** @brief Per-channel difference metrics, written by every comparator. */
 struct ReferenceStats {
   uint64_t framebuffer_hash = 1469598103934665603ull;

@@ -27,6 +27,10 @@ using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
  * framebuffer pixel; added and dropped AA fringe pixels are capped at 0.2%
  * and 0.5% of the frame, with their luminance error capped at five counts per
  * framebuffer pixel and 9,000 for any one fringe pixel.
+ * @details Every area bound is a whole-frame budget, so a clipped pass spends
+ * it over fewer pixels. The per-pixel densities do not scale down with the
+ * region: the peak-workload quadrant carries the frame's densest splats and
+ * measures 2.06 luminance-bias counts per pixel against the frame's 1.42.
  */
 struct VisualGate {
   static constexpr uint32_t PIXELS = WIDTH * HEIGHT;
@@ -41,6 +45,71 @@ struct VisualGate {
   static constexpr uint64_t MAX_COVERAGE_LUMINANCE_ERROR = PIXELS * 5ull;
   static constexpr uint16_t MAX_COVERAGE_LUMINANCE = 9000;
 };
+
+/**
+ * @brief Renders one reference/candidate pass over the effect's current clip
+ *        and gates the difference metrics.
+ * @param effect Restored replay effect; its clip selects the compared region.
+ * @param corpus Golden corpus the candidate is also measured against.
+ * @param reference Scratch buffer holding the reference frame, WIDTH*HEIGHT.
+ * @param label Pass label for the emitted line.
+ * @param whole_frame True when the clip covers the whole frame, where the
+ *        corpus framebuffer hash is a meaningful identity check; the golden is
+ *        recorded unclipped, so a partial pass hashes only its own region.
+ * @return True when every bound holds.
+ */
+bool run_pass(ReplayEffect &effect, const mindsplatter_replay::Corpus &corpus,
+              std::vector<Pixel> &reference, const char *label,
+              bool whole_frame) {
+  mindsplatter_replay::ReferenceStats stats;
+  mindsplatter_replay::FrameStats host_stats;
+  ClipRegion clip;
+  {
+    Canvas canvas(effect);
+    clip = canvas.clip();
+    WhiteBox::draw_particles_replay_reference(effect, canvas);
+    const size_t reference_count = mindsplatter_replay::capture_frame<WIDTH>(
+        canvas.data(), clip, reference.data(), reference.size());
+    mindsplatter_replay::clear_frame(canvas, clip);
+    WhiteBox::draw_particles_candidate(effect, canvas);
+    stats = mindsplatter_replay::compare_frame_reference<WIDTH>(
+        canvas, clip, reference.data(), reference_count);
+    host_stats = mindsplatter_replay::compare_frame<WIDTH>(
+        canvas, clip, corpus.framebuffer, corpus.framebuffer_entries);
+  }
+  effect.advance_display();
+  std::printf(
+      "replay %s clip=[%d,%d)x[%d,%d) hash=%llu expected=%llu changed=%u "
+      "channels=%u max=%u abs=%llu corpus_hash=%llu corpus_changed=%u "
+      "luma_abs=%llu luma_bias=%lld added=%u dropped=%u "
+      "coverage_luma=%llu coverage_max=%u\n",
+      label, clip.x_start, clip.x_end, clip.y_start, clip.y_end,
+      static_cast<unsigned long long>(stats.framebuffer_hash),
+      static_cast<unsigned long long>(stats.expected_hash),
+      stats.changed_pixels, stats.changed_channels, stats.max_channel_error,
+      static_cast<unsigned long long>(stats.total_absolute_error),
+      static_cast<unsigned long long>(host_stats.expected_hash),
+      host_stats.changed_pixels,
+      static_cast<unsigned long long>(host_stats.total_luminance_error),
+      static_cast<long long>(host_stats.luminance_bias),
+      host_stats.added_pixels, host_stats.dropped_pixels,
+      static_cast<unsigned long long>(host_stats.coverage_luminance_error),
+      host_stats.max_coverage_luminance);
+  return stats.changed_pixels <= VisualGate::MAX_CHANGED_PIXELS &&
+         stats.changed_channels <= VisualGate::MAX_CHANGED_CHANNELS &&
+         stats.max_channel_error <= VisualGate::MAX_CHANNEL_ERROR &&
+         stats.total_absolute_error <= VisualGate::MAX_TOTAL_ERROR &&
+         host_stats.total_luminance_error <= VisualGate::MAX_LUMINANCE_ERROR &&
+         host_stats.luminance_bias <= VisualGate::MAX_LUMINANCE_BIAS &&
+         host_stats.luminance_bias >= -VisualGate::MAX_LUMINANCE_BIAS &&
+         host_stats.added_pixels <= VisualGate::MAX_ADDED_PIXELS &&
+         host_stats.dropped_pixels <= VisualGate::MAX_DROPPED_PIXELS &&
+         host_stats.coverage_luminance_error <=
+             VisualGate::MAX_COVERAGE_LUMINANCE_ERROR &&
+         host_stats.max_coverage_luminance <=
+             VisualGate::MAX_COVERAGE_LUMINANCE &&
+         (!whole_frame || host_stats.expected_hash == corpus.framebuffer_hash);
+}
 
 } // namespace
 
@@ -67,54 +136,19 @@ int main() {
   bool accepted = true;
   std::vector<Pixel> reference(static_cast<size_t>(WIDTH) * HEIGHT);
   for (int frame = 0; frame < REPLAY_FRAMES; ++frame) {
-    mindsplatter_replay::ReferenceStats stats;
-    mindsplatter_replay::FrameStats host_stats;
-    {
-      Canvas canvas(effect);
-      const ClipRegion clip = canvas.clip();
-      WhiteBox::draw_particles_replay_reference(effect, canvas);
-      const size_t reference_count = mindsplatter_replay::capture_frame<WIDTH>(
-          canvas.data(), clip, reference.data(), reference.size());
-      mindsplatter_replay::clear_frame(canvas, clip);
-      WhiteBox::draw_particles_candidate(effect, canvas);
-      stats = mindsplatter_replay::compare_frame_reference<WIDTH>(
-          canvas, clip, reference.data(), reference_count);
-      host_stats = mindsplatter_replay::compare_frame<WIDTH>(
-          canvas, clip, corpus.framebuffer, corpus.framebuffer_entries);
-    }
-    effect.advance_display();
-    std::printf(
-        "replay frame=%d hash=%llu expected=%llu changed=%u "
-        "channels=%u max=%u abs=%llu corpus_hash=%llu corpus_changed=%u "
-        "luma_abs=%llu luma_bias=%lld added=%u dropped=%u "
-        "coverage_luma=%llu coverage_max=%u\n",
-        frame + 1, static_cast<unsigned long long>(stats.framebuffer_hash),
-        static_cast<unsigned long long>(stats.expected_hash),
-        stats.changed_pixels, stats.changed_channels, stats.max_channel_error,
-        static_cast<unsigned long long>(stats.total_absolute_error),
-        static_cast<unsigned long long>(host_stats.expected_hash),
-        host_stats.changed_pixels,
-        static_cast<unsigned long long>(host_stats.total_luminance_error),
-        static_cast<long long>(host_stats.luminance_bias),
-        host_stats.added_pixels, host_stats.dropped_pixels,
-        static_cast<unsigned long long>(host_stats.coverage_luminance_error),
-        host_stats.max_coverage_luminance);
-    const bool frame_accepted =
-        stats.changed_pixels <= VisualGate::MAX_CHANGED_PIXELS &&
-        stats.changed_channels <= VisualGate::MAX_CHANGED_CHANNELS &&
-        stats.max_channel_error <= VisualGate::MAX_CHANNEL_ERROR &&
-        stats.total_absolute_error <= VisualGate::MAX_TOTAL_ERROR &&
-        host_stats.total_luminance_error <= VisualGate::MAX_LUMINANCE_ERROR &&
-        host_stats.luminance_bias <= VisualGate::MAX_LUMINANCE_BIAS &&
-        host_stats.luminance_bias >= -VisualGate::MAX_LUMINANCE_BIAS &&
-        host_stats.added_pixels <= VisualGate::MAX_ADDED_PIXELS &&
-        host_stats.dropped_pixels <= VisualGate::MAX_DROPPED_PIXELS &&
-        host_stats.coverage_luminance_error <=
-            VisualGate::MAX_COVERAGE_LUMINANCE_ERROR &&
-        host_stats.max_coverage_luminance <=
-            VisualGate::MAX_COVERAGE_LUMINANCE &&
-        host_stats.expected_hash == corpus.framebuffer_hash;
-    accepted = accepted && frame_accepted;
+    char label[16];
+    std::snprintf(label, sizeof(label), "frame=%d", frame + 1);
+    accepted = run_pass(effect, corpus, reference, label, true) && accepted;
   }
+
+  // The corpus winner was scored under quadrant clips; replay the peak one so
+  // the clip-boundary splat path the search stresses is actually rendered.
+  const ClipRegion peak =
+      mindsplatter_replay::search_clip<WIDTH, HEIGHT>(corpus.peak_clip);
+  effect.set_clip(peak.y_start, peak.y_end, peak.x_start, peak.x_end);
+  accepted =
+      run_pass(effect, corpus, reference, "peak_clip", false) && accepted;
+  effect.set_clip(0, HEIGHT, 0, WIDTH);
+
   return accepted ? 0 : 1;
 }

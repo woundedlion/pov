@@ -4,6 +4,7 @@
  */
 
 #include "core/engine/memory.h"
+#include "tools/mindsplatter_replay_metrics.h"
 #include "tools/mindsplatter_whitebox.h"
 
 #include <cstdint>
@@ -31,20 +32,6 @@ constexpr uint32_t TRAIT_MEASURED_WORST = 1u << 5;
 using ReplayEffect = MindSplatter<WIDTH, HEIGHT>;
 using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
 using Snapshot = WhiteBox::ReplaySnapshot<WIDTH, HEIGHT>;
-
-struct SearchClip {
-  int x0;
-  int x1;
-  int y0;
-  int y1;
-};
-
-constexpr SearchClip SEARCH_CLIPS[] = {
-    {0, WIDTH / 2, 0, HEIGHT / 2},
-    {WIDTH / 2, WIDTH, 0, HEIGHT / 2},
-    {0, WIDTH / 2, HEIGHT / 2, HEIGHT},
-    {WIDTH / 2, WIDTH, HEIGHT / 2, HEIGHT},
-};
 
 struct Workload {
   uint64_t score = 0;
@@ -123,10 +110,11 @@ std::optional<SearchResult> search_corpus() {
       Workload aggregate;
       Workload peak_clip_workload;
       uint8_t peak_clip = 0;
-      for (uint8_t clip_index = 0; clip_index < std::size(SEARCH_CLIPS);
-           ++clip_index) {
-        const SearchClip &clip = SEARCH_CLIPS[clip_index];
-        effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
+      for (uint8_t clip_index = 0;
+           clip_index < mindsplatter_replay::SEARCH_CLIP_COUNT; ++clip_index) {
+        const ClipRegion clip =
+            mindsplatter_replay::search_clip<WIDTH, HEIGHT>(clip_index);
+        effect.set_clip(clip.y_start, clip.y_end, clip.x_start, clip.x_end);
         hs::g_mindsplatter_counts.reset();
         {
           Canvas canvas(effect);
@@ -244,7 +232,8 @@ int main(int argc, char **argv) {
     corpus_hash = fnv1a(corpus_hash, channel >> 8);
   }
 
-  const SearchClip &peak_clip = SEARCH_CLIPS[selected->peak_clip];
+  const ClipRegion peak_clip =
+      mindsplatter_replay::search_clip<WIDTH, HEIGHT>(selected->peak_clip);
   const std::string corpus_id = "heavy_search_v1_p" +
                                 std::to_string(selected->preset) + "_f" +
                                 std::to_string(selected->frame);
@@ -340,8 +329,8 @@ int main(int argc, char **argv) {
       static_cast<unsigned long long>(selected->aggregate.score),
       static_cast<unsigned long long>(selected->aggregate.adaptive_samples),
       static_cast<unsigned long long>(selected->aggregate.long_edges),
-      static_cast<unsigned>(selected->peak_clip), peak_clip.x0, peak_clip.x1,
-      peak_clip.y0, peak_clip.y1,
+      static_cast<unsigned>(selected->peak_clip), peak_clip.x_start,
+      peak_clip.x_end, peak_clip.y_start, peak_clip.y_end,
       static_cast<unsigned long long>(selected->peak_clip_workload.score),
       state.size(), framebuffer.size() * sizeof(uint16_t),
       static_cast<unsigned long long>(corpus_hash));
