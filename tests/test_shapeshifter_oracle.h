@@ -429,11 +429,20 @@ inline void test_amplitude_preserves_sweep_velocity() {
                  0.01f, 1e-6f);
 }
 
-inline void test_shape_alpha_fades_linearly() {
+inline void test_shape_alpha_fades_to_equator() {
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(0, 1), 1.0f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(0, 5), 1.0f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 5), 0.6f, 1e-6f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(4, 5), 0.2f, 1e-6f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(0, 6), 1.0f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(1, 6), 2.0f / 3.0f,
+                 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 6), 1.0f / 3.0f,
+                 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(3, 6), 1.0f / 3.0f,
+                 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(4, 6), 2.0f / 3.0f,
+                 1e-6f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(5, 6), 1.0f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 5), 2.0f / 5.0f,
+                 1e-6f);
 }
 
 inline void test_opposite_halves_direction() {
@@ -499,7 +508,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_candidate_matrix_stays_within_visual_budget();
   test_segment_tiles_reconstruct_full_frame();
   test_amplitude_preserves_sweep_velocity();
-  test_shape_alpha_fades_linearly();
+  test_shape_alpha_fades_to_equator();
   test_opposite_halves_direction();
   test_preset_transition_snaps();
   return fixture.result();

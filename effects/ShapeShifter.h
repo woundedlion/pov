@@ -147,7 +147,16 @@ private:
   }
 
   static constexpr float shape_alpha(int index, int count) {
-    return 1.0f - static_cast<float>(index) / static_cast<float>(count);
+    const int STEPS_TO_EQUATOR = (count - 1) / 2;
+    if (STEPS_TO_EQUATOR == 0)
+      return 1.0f;
+    const int OPPOSITE_INDEX = count - index - 1;
+    const int DISTANCE_FROM_POLE =
+        index < OPPOSITE_INDEX ? index : OPPOSITE_INDEX;
+    const float EQUATOR_ALPHA = 2.0f / static_cast<float>(count);
+    return 1.0f - (1.0f - EQUATOR_ALPHA) *
+                      static_cast<float>(DISTANCE_FROM_POLE) /
+                      static_cast<float>(STEPS_TO_EQUATOR);
   }
 
   /** @brief Advances to the next preset and applies it atomically. */
