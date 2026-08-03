@@ -1884,6 +1884,168 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
 }
 
 // ---------------------------------------------------------------------------
+// MeshFeedback: draw_frame block-ordering coverage
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief White-box accessor for MeshFeedback's style / noise / preset state.
+ * @details Befriended in effects/MeshFeedback.h. draw_frame runs four blocks
+ *          whose ORDER is the contract — the preset switch leads apply_params()
+ *          so the flush reads one preset's scalars, and the flush leads the mesh
+ *          draw so the frame's own wireframe survives it. Reordering them is the
+ *          cheapest possible refactor, changes the image, and is invisible to the
+ *          roster sweeps: the PRESET_FRAMES rotation never fires inside the smoke
+ *          window at all.
+ */
+struct MeshFeedbackWhiteBox {
+  using MF = MeshFeedback<SMALL_W, SMALL_H>;
+
+  static const Feedback::Style &style(const MF &fx) { return fx.style; }
+  static const NoiseParams &noise(const MF &fx) { return fx.noise_params; }
+  static size_t preset_index(const MF &fx) {
+    return fx.presets.current_index();
+  }
+  static int preset_frames(const MF &fx) { return fx.preset_frames; }
+};
+
+/**
+ * @brief Renders MeshFeedback for `frames` frames and copies out the last frame.
+ * @param out Receives the displayed frame, SMALL_W * SMALL_H pixels row-major.
+ * @param frames Number of frames to render.
+ * @param feedback Value written to the Feedback toggle before the first frame.
+ * @details Resets the same globals render_capture() does, so a feedback-on and a
+ *          feedback-off run draw the identical wireframe on the identical frame.
+ */
+inline void meshfeedback_capture(std::vector<Pixel> &out, int frames,
+                                 bool feedback) {
+  reset_effect_globals();
+  GenerativePalette::reset_hue_seed(0);
+  hs::set_mock_time(0, 0);
+
+  MeshFeedbackWhiteBox::MF fx;
+  fx.init();
+  HS_EXPECT_TRUE(fx.updateParameter("Feedback", feedback ? 1.0f : 0.0f) ==
+                 ParamSetResult::APPLIED);
+  for (int f = 0; f < frames; ++f) {
+    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                      static_cast<unsigned long>(f) * FRAME_US);
+    fx.draw_frame();
+    fx.advance_display();
+  }
+  hs::clear_mock_time();
+
+  out.resize(static_cast<size_t>(SMALL_W) * SMALL_H);
+  for (int y = 0; y < SMALL_H; ++y)
+    for (int x = 0; x < SMALL_W; ++x)
+      out[static_cast<size_t>(y) * SMALL_W + x] = fx.get_pixel(x, y);
+}
+
+/**
+ * @brief Verifies the feedback flush never decays the same frame's wireframe.
+ * @details The flush composites the warped previous frame at alpha 1, i.e. it
+ *          OVERWRITES the draw buffer; running it after the mesh draw would
+ *          erase the frame's own wireframe and leave nothing but exponentially
+ *          decaying history. Compares a feedback-on render against a
+ *          feedback-off one of the same frame: with the flush leading, every
+ *          channel of the on-render is at least the off-render's (the wireframe
+ *          is laid over a brighter-or-equal background), and the trails make it
+ *          strictly greater somewhere.
+ */
+inline void test_meshfeedback_flush_precedes_mesh_draw() {
+  // Well past the empty-history early-out, short of the preset rotation.
+  constexpr int FRAMES = 48;
+  std::vector<Pixel> lit, bare;
+  meshfeedback_capture(lit, FRAMES, true);
+  meshfeedback_capture(bare, FRAMES, false);
+
+  int decayed = 0, accumulated = 0;
+  uint64_t bare_energy = 0;
+  for (size_t i = 0; i < lit.size(); ++i) {
+    const Pixel &a = lit[i], &b = bare[i];
+    if (a.r < b.r || a.g < b.g || a.b < b.b)
+      ++decayed;
+    if (a.r > b.r || a.g > b.g || a.b > b.b)
+      ++accumulated;
+    bare_energy += static_cast<uint64_t>(b.r) + b.g + b.b;
+  }
+
+  std::printf("  MeshFeedback flush order: decayed=%d accumulated=%d "
+              "wireframe energy=%llu\n",
+              decayed, accumulated,
+              static_cast<unsigned long long>(bare_energy));
+  // A pair of black frames would agree trivially.
+  HS_EXPECT_GT(bare_energy, 0u);
+  HS_EXPECT_EQ(decayed, 0);
+  HS_EXPECT_GT(accumulated, 0);
+}
+
+/**
+ * @brief Drives the preset rotation and pins the switch-frame noise sync.
+ * @details PRESET_FRAMES is 241, so the rotation is out of reach of every roster
+ *          sweep. Crosses two boundaries and requires the selector to step one
+ *          entry each time, and — the ordering contract — requires the bound
+ *          NoiseParams to already carry the incoming preset's scalars when the
+ *          switch frame ends: apply_params() runs after advance_preset(), so the
+ *          flush that frame reads one preset's fade and noise, not two.
+ */
+inline void test_meshfeedback_preset_rotation_syncs_noise() {
+  using WB = MeshFeedbackWhiteBox;
+  using MF = WB::MF;
+  reset_effect_globals();
+  hs::set_mock_time(0, 0);
+
+  MF fx;
+  fx.init();
+  HS_EXPECT_EQ(WB::preset_index(fx), 0u);
+
+  const auto in_sync = [&fx]() {
+    const Feedback::Style &s = WB::style(fx);
+    const NoiseParams &n = WB::noise(fx);
+    return n.amplitude == s.amplitude && n.frequency == s.frequency &&
+           n.speed == s.speed && n.scale == s.scale;
+  };
+  const auto matches_preset = [&fx](size_t idx) {
+    const Feedback::Style &s = WB::style(fx);
+    const Feedback::Style &p = MF::PRESETS[idx].params;
+    return s.fade == p.fade && s.hue_shift == p.hue_shift &&
+           s.scale == p.scale && s.amplitude == p.amplitude &&
+           s.frequency == p.frequency && s.speed == p.speed &&
+           s.space_fn == p.space_fn && s.color_fn == p.color_fn;
+  };
+
+  int switches = 0, desynced = 0, wrong_preset = 0;
+  for (int f = 1; f <= 2 * MF::PRESET_FRAMES + 1; ++f) {
+    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                      static_cast<unsigned long>(f) * FRAME_US);
+    fx.draw_frame();
+    fx.advance_display();
+
+    const size_t expect_idx =
+        static_cast<size_t>(f / MF::PRESET_FRAMES) % MF::PRESETS.size();
+    if (WB::preset_index(fx) != expect_idx)
+      ++wrong_preset;
+    if (f % MF::PRESET_FRAMES == 0) {
+      ++switches;
+      HS_EXPECT_EQ(WB::preset_frames(fx), 0);
+      // The live style is the incoming preset, and the noise the flush reads
+      // already followed it within this same frame.
+      HS_EXPECT_TRUE(matches_preset(expect_idx));
+      HS_EXPECT_TRUE(in_sync());
+    }
+    if (!in_sync())
+      ++desynced;
+  }
+  hs::clear_mock_time();
+
+  std::printf("  MeshFeedback presets: %d switches, %d desynced frames, "
+              "%d wrong index\n",
+              switches, desynced, wrong_preset);
+  HS_EXPECT_EQ(switches, 2);
+  HS_EXPECT_EQ(wrong_preset, 0);
+  HS_EXPECT_EQ(desynced, 0);
+}
+
+// ---------------------------------------------------------------------------
 // In-code-flagged numeric invariants with no oracle in the smoke harness
 // ---------------------------------------------------------------------------
 
@@ -4871,6 +5033,8 @@ inline int run_effects_tests() {
     test_bz_raster_matches_reference();
     test_dreamballs_preset_cycle_bookkeeping();
     test_dreamballs_respawn_fires_and_honors_pause();
+    test_meshfeedback_flush_precedes_mesh_draw();
+    test_meshfeedback_preset_rotation_syncs_noise();
     CometsWhiteBox::check_paths_close();
     ThrustersWhiteBox::check_warp_endpoints();
     RingShowerWhiteBox::check_radius_endpoints();
