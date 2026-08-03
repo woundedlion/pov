@@ -1376,6 +1376,18 @@ inline void case_scan_clip_out_of_bounds() {
 }
 
 /**
+ * @brief Death case: a scan rejects a canvas that is not its <W, H>.
+ * @details Direct construction exercises the guard independently of the draw
+ *          primitives that call it.
+ */
+inline void case_scan_canvas_dim_mismatch() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, opaque(H + 1));
+  Canvas c(fx);
+  Scan::check_canvas_dims<W, H>(c);
+}
+
+/**
  * @brief Minimal duck-typed mesh: one 2-gon face whose second index (130)
  *        exceeds the TriangularBitset<128> capacity. Shared by both the
  *        face-walk draw() and the extract_edges over-capacity death cases so the
@@ -1743,6 +1755,7 @@ inline const Case *all_cases(int &n) {
       {"set_clip_out_of_bounds", case_set_clip_out_of_bounds},
       {"set_clip_x_out_of_bounds", case_set_clip_x_out_of_bounds},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds},
+      {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},
       {"plot_extract_edges_vertex_over_capacity",
        case_plot_extract_edges_vertex_over_capacity},
@@ -2014,7 +2027,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 92;
+  constexpr int DEATH_CASE_COUNT = 93;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
