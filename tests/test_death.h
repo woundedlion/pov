@@ -1502,6 +1502,9 @@ inline void case_spherical_field_ring_index_oob() {
   const auto ring = layout.ring(opaque(layout.ring_count()));
   if (ring.offset == 42)
     std::printf("x");
+}
+
+/**
  * @brief Death case: a negative feedback fade must trap in sync_hue.
  * @details Style is a public aggregate, so nothing but a slider bound keeps fade
  *          non-negative. logf of a negative yields NaN, the hue matrix carries it
