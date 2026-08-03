@@ -2324,7 +2324,7 @@ The WASM target (`CMakeLists.txt`, `EMSCRIPTEN` branch) configures:
 - Include paths: project root (for `effects/`, `hardware/`) and `core/` (for engine headers)
 - `-sALLOW_MEMORY_GROWTH=1` — WASM heap can grow for large meshes
 - `-sMODULARIZE=1 -sEXPORT_ES6=1` — ES6 module output
-- `-sSTACK_SIZE=8192` — minimal stack (effects use arena allocation, not deep recursion)
+- `-sSTACK_SIZE` — per build type: 8192 for release (minimal; effects use arena allocation, not deep recursion) and 65536 for debug, where `-O0` disables inlining and stack-slot coalescing and inflates frames past the release budget. Each build-type block sets it exactly once and the shared block never does, so the effective value cannot depend on link-line ordering
 - `-O3 -ffast-math -fno-finite-math-only -flto -msimd128` for release, `-O0 -g -sASSERTIONS=1` for debug (`-fno-finite-math-only` must follow `-ffast-math`, which otherwise folds `std::isfinite()` to true and lets the compiler assume no NaN/Inf — the render sink relies on real finite semantics)
 
 The install step also writes `README.md` and `docs/screenshots/` so the daydream repo always serves the same documentation as Holosphere.
