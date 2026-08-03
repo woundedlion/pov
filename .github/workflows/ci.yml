@@ -238,6 +238,64 @@ jobs:
           -R "${{ matrix.test_regex }}"
           -E "^unit_(color_luts|color_luts_check|gamut_lut)$"
 
+  thread-sanitizer:
+    name: Native unit tests (Clang, TSan) / concurrency modules
+    # The canvas and pov_segmented modules are the suite's only genuine
+    # concurrency: a render thread and a display-ISR stand-in trade the Effect
+    # double buffer across the cur/next/prev handoff (core/render/canvas.h), with
+    # the frame pixels themselves passed as plain memory. Every other job runs
+    # them on x86-64, whose strong model masks a broken hand-off; the defect
+    # would first appear in the Cortex-M display ISR, where there is no debugger.
+    # TSan cannot share a binary with ASan, so this is its own job rather than a
+    # flavour of the sanitizers matrix, and it builds only run_tests and runs
+    # only those two modules — no other module spawns a thread.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install Clang + Ninja + ccache
+        run: |
+          sudo apt-get update
+          # Same pinned clang-18 as the plain tests job (see its note).
+          sudo apt-get install -y clang-18 ninja-build ccache
+
+      # Own cache prefix: -fsanitize=thread changes the compile command, so this
+      # object cache must not collide with the other jobs'.
+      - name: Cache ccache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-tsan-${{ github.run_id }}
+          restore-keys: ccache-tsan-
+
+      - name: Configure
+        run: >
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_TSAN=ON
+          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+
+      - name: Build
+        run: cmake --build --preset tests --target run_tests
+
+      - name: ccache stats
+        if: always()
+        run: ccache -sv
+
+      - name: Test
+        # Deep smoke window like the other jobs, so the segmented handoff walks
+        # its full flip cycle. halt_on_error=1 makes the first race fatal, the
+        # fail-fast counterpart of the sanitizers job's -fno-sanitize-recover.
+        # --no-tests=error: a rename that empties this regex is a wiring bug, not
+        # a green run.
+        env:
+          HS_SMOKE_FRAMES: 120
+          TSAN_OPTIONS: halt_on_error=1
+        run: >
+          ctest --preset tests --output-on-failure --no-tests=error
+          -R "^unit_(canvas|pov_segmented)$"
+
   optimized-tests:
     name: Native unit tests (Clang, -O2) / shard ${{ matrix.shard }}
     strategy:
