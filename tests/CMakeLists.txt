@@ -195,6 +195,7 @@ set(_hs_test_modules
     mesh solids
     reaction_graph color palettes easing_waves platform filter plot_scan canvas
     scan mesh_raster transformers noise generators animation effects
+    effects_smoke
     shapeshifter_oracle dma_core hd107s
     dma_controller
     pov_segmented pov_single pov_sync param_marshal wasm_predicates util led
