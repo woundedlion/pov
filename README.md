@@ -400,7 +400,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── three.js/                   Optional vendored Three.js checkout
 ├── vendor/                     Optional self-hosted fonts (CDN fallback)
 ├── node_modules/lil-gui/       Optional local lil-gui (npm install)
-└── package.json
+├── package.json
+└── package-lock.json           Committed dependency pin (the optional trees above are gitignored)
 ```
 
 When the local `three.js/` and `node_modules/lil-gui/` directories are absent (e.g. on the GitHub Pages deploy, and by default), [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) resolves libraries from jsdelivr; `npm run importmap:local` switches it to the vendored copies for offline dev. See [§10.8](#108-vendor-importmap-local-first--cdn-fallback).
