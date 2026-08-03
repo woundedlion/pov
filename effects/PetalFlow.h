@@ -249,10 +249,13 @@ private:
   /**
    * @brief Advances every active ring along rho and draws it.
    * @param canvas Target canvas to render into.
-   * @details Retires rings that pass END_RHO; otherwise draws them.
+   * @details Retires rings that pass END_RHO; otherwise draws them. A sub-LSB
+   * Alpha paints nothing, so rings still advance and retire but are not
+   * rasterized, and the flow resumes in place when Alpha rises.
    */
   void update_and_draw_rings(Canvas &canvas) {
     const float move = move_dist();
+    const bool visible = params.alpha >= MIN_VISIBLE_ALPHA;
     for (int i = 0; i < MAX_RINGS; ++i) {
       if (!rings[i].active)
         continue;
@@ -261,7 +264,8 @@ private:
         rings[i].active = false;
         continue;
       }
-      draw_ring(canvas, rings[i]);
+      if (visible)
+        draw_ring(canvas, rings[i]);
     }
   }
 
@@ -271,7 +275,8 @@ private:
    * @param ring Ring to draw, supplying its rho position and hue.
    * @details Fades the ring by distance from the equator (rho=0), shapes it
    * into petals via a radial wobble, twists it by rho, and projects each sample
-   * onto the sphere. Skipped entirely when its opacity is negligible.
+   * onto the sphere. Skipped entirely once the pole fade has taken its opacity
+   * to ~0; the Alpha slider is gated by the caller.
    */
   void draw_ring(Canvas &canvas, const Ring &ring) {
     float dist = std::abs(ring.rho);

@@ -264,6 +264,10 @@ private:
    */
   void draw_thruster(Canvas &c, const ThrusterContext &ctx, float radius,
                      float opacity) {
+    // A sub-LSB alpha paints nothing; skip rasterizing. Thrusters keep aging in
+    // draw_frame(), so they reappear mid-life when alpha rises.
+    if (params.alpha < MIN_VISIBLE_ALPHA)
+      return;
     HS_PROFILE(th_thruster_draw);
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
     auto fragment_shader = [this, opacity](const Vector &, Fragment &f) {
@@ -282,6 +286,10 @@ private:
    * @param opacity Fade factor in [0, 1]; multiplied by the global alpha param.
    */
   void draw_ring(Canvas &c, float opacity) {
+    // A sub-LSB alpha paints nothing; skip rasterizing. The warp and spin still
+    // advance in draw_frame(), so the ring reappears in place when alpha rises.
+    if (params.alpha < MIN_VISIBLE_ALPHA)
+      return;
     HS_PROFILE(th_ring_draw);
     Basis basis = make_basis(orientation.get(), ring_vec);
 

@@ -130,6 +130,11 @@ public:
 
     node->trail.record(node->orientation);
 
+    // A sub-LSB alpha paints nothing; skip rasterizing. The trail is still
+    // recorded above, so motion resumes when alpha rises.
+    if (params.alpha < MIN_VISIBLE_ALPHA)
+      return;
+
     HS_PROFILE(cm_draw_trail);
     deep_tween(node->trail, [&](const Quaternion &q, float t) {
       auto fragment_shader = [&](const Vector &, Fragment &f) {

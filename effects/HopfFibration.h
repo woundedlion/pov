@@ -145,10 +145,6 @@ private:
   // normalized_or() substitutes its fallback axis there.
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
 
-  // One 8-bit LSB at full-scale color: a shader alpha below this cannot move a
-  // pixel, so such trail segments are skipped.
-  static constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
-
   // Phases accumulate as wrapped fractions of their period ("turns") and scale
   // back to radians at use, keeping the trig arguments bounded. tumble_angle_x
   // also feeds the half-angle fold_base term, so it wraps over 4pi to keep both
