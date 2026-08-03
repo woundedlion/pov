@@ -1,0 +1,29 @@
+<!-- docs-check: tree -->
+```
+├── core/                       Rendering engine
+│   ├── engine/                 Machinery
+│   │   ├── platform.h              Abstraction layer
+│   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope
+│   │   └── ghost.h                 Stale leaf
+│   └── ghosts/                 Stale directory
+├── tools/                      Build tooling
+│   └── *_tests/                Host unit tests
+└── justfile                    Task runner
+```
+
+<!-- docs-check: tree daydream -->
+```
+├── daydream.js                 App entry, in the sibling checkout
+└── tools/                      Standalone tools
+    └── palettes.html           Procedural palette tuner
+```
+
+```
+├── core/                       Undirected trees are prose, not path claims
+└── nowhere.h                   … and elide whatever they like
+```
+
+<!-- docs-check: trees -->
+```
+└── typo.h                      A misspelled directive is an issue
+```

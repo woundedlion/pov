@@ -158,6 +158,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
 ### Holosphere (engine + firmware)
 
+<!-- docs-check: tree -->
 ```
 ├── core/                       Rendering engine
 │   ├── engine/                 Machinery: platform layer, memory, callables, rosters, effect support
@@ -178,7 +179,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   │   ├── transformers.h          Ripple, Noise, Möbius warp geometry transformers
 │   │   ├── styles.h                Feedback::Style named presets + space/color transform functions
 │   │   ├── presets.h               Generic Presets<Params, Size> template
-│   │   └── reaction_graph.h/.cpp   Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
+│   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
 │   ├── math/                   Vector/quaternion math and scalar curves
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
 │   │   ├── rotate.h                Quaternion projection helpers
@@ -318,6 +319,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
 ### daydream (web simulator)
 
+<!-- docs-check: tree daydream -->
 ```
 ├── index.html                  Main simulator page
 ├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects reserved
@@ -342,7 +344,6 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── frame_constants.js          Simulation FPS and the slow-frame threshold derived from it
 ├── driver.js                   Three.js scene: sphere mesh, dots, OrbitControls,
 │                                  axes overlay, picture-in-picture camera, resize
-├── label_format.js             DOM-free label number formatting with symbolic snapping
 ├── geometry.js                 Sphere-pixel position math (pixelToSpherical, etc.)
 ├── state.js                    AppState (pub/sub) + URLSync (query-string mirror)
 ├── gui.js                      lil-gui wrapper used by the main page and tools
