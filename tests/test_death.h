@@ -848,6 +848,35 @@ inline void case_mesh_compile_face_counts_long() {
 }
 
 /**
+ * @brief Death case: MeshOps::compile rejects a face whose span ends past the
+ *        16-bit index range even though its start offset still fits.
+ */
+inline void case_mesh_compile_face_span_over_16bit() {
+  static uint8_t src_buf[256 * 1024];
+  static uint8_t dst_buf[256 * 1024];
+  static uint8_t scratch_buf[1024];
+  Arena src_arena(src_buf, sizeof(src_buf));
+  Arena dst_arena(dst_buf, sizeof(dst_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+
+  // The last triangle starts at 65535 and ends at 65538.
+  constexpr size_t FACES = 21846;
+  PolyMesh mesh;
+  mesh.vertices.bind(src_arena, 3);
+  for (int i = 0; i < 3; ++i)
+    mesh.vertices.push_back(Vector{});
+  mesh.face_counts.bind(src_arena, FACES);
+  mesh.faces.bind(src_arena, FACES * 3);
+  for (size_t f = 0; f < FACES; ++f) {
+    mesh.face_counts.push_back(opaque<uint8_t>(3));
+    for (uint16_t k = 0; k < 3; ++k)
+      mesh.faces.push_back(opaque(k));
+  }
+  MeshState compiled;
+  MeshOps::compile(mesh, compiled, dst_arena, scratch);
+}
+
+/**
  * @brief Death case: update_hankin rejects a reused mesh whose retained
  *        topology was classified from a different compiled pattern.
  * @details The topology array survives an angle re-solve on purpose, so a mesh
@@ -1674,6 +1703,8 @@ inline const Case *all_cases(int &n) {
       {"half_edge_face_counts_long", case_half_edge_face_counts_long},
       {"mesh_compile_face_counts_short", case_mesh_compile_face_counts_short},
       {"mesh_compile_face_counts_long", case_mesh_compile_face_counts_long},
+      {"mesh_compile_face_span_over_16bit",
+       case_mesh_compile_face_span_over_16bit},
       {"update_hankin_stale_topology", case_update_hankin_stale_topology},
       {"mesh_state_set_view_offsets_count_mismatch",
        case_mesh_state_set_view_offsets_count_mismatch},
@@ -1968,7 +1999,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 90;
+  constexpr int DEATH_CASE_COUNT = 91;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
