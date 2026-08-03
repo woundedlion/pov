@@ -561,13 +561,10 @@ inline void test_rotation_applies_final_frame_residual() {
  * freshly-built sub-frame trail. The decisive signature is the OLDEST sub-frame
  * (index 0): with composition it still reflects the pre-frame orientation
  * (identity here). This test touches the global Timeline; Rotation::step never
- * dereferences the canvas, and the global cursor state is reset around it.
+ * dereferences the canvas.
  */
 inline void test_timeline_shared_orientation_composes_motion_blur() {
   using Ori = Orientation<16>;
-  global_timeline_num_events = 0;
-  global_timeline_t = 0;
-
   Ori o; // identity, single frame
   Timeline tl;
   // Two quarter-turn rotations about the same axis, each completing in one frame.
@@ -583,9 +580,6 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
   // Newest reflects both rotations (a half turn): +X -> -X.
   Vector newest = o.orient(X_AXIS, o.length() - 1);
   HS_EXPECT_NEAR(newest.x, -1.0f, 1e-3f);
-
-  global_timeline_num_events = 0;
-  global_timeline_t = 0;
 }
 
 /**
@@ -963,9 +957,6 @@ inline void test_orientation_upsample_then_collapse() {
  */
 inline void test_motion_repeating_does_not_drift() {
   using Ori = Orientation<16>;
-  global_timeline_num_events = 0;
-  global_timeline_t = 0;
-
   constexpr int duration = 40;
   ProceduralPath path;
   // lissajous(.,.,.,0) == +Y, so the identity-start orientation places the head
@@ -998,9 +989,6 @@ inline void test_motion_repeating_does_not_drift() {
     HS_EXPECT_NEAR(angle_between(late_heads[anchor], late_heads[fr]),
                    angle_between(ideal_anchor, ideal_fr), 0.1f);
   }
-
-  global_timeline_num_events = 0;
-  global_timeline_t = 0;
 }
 
 /**
@@ -1018,9 +1006,6 @@ inline void test_motion_repeating_does_not_drift() {
  */
 inline void test_motion_codriven_survives_repeat_seam() {
   using Ori = Orientation<16>;
-  global_timeline_num_events = 0;
-  global_timeline_t = 0;
-
   const int duration = 30;
   ProceduralPath path;
   // A closed great circle: path(0) == path(1) with matching tangent, so Motion's
@@ -1057,9 +1042,6 @@ inline void test_motion_codriven_survives_repeat_seam() {
   // largest legitimate one-frame step but is far below a multi-radian snap.
   HS_EXPECT_LT(max_step, 0.8f);
   HS_EXPECT_GT(total_travel, 5.0f);
-
-  global_timeline_num_events = 0;
-  global_timeline_t = 0;
 }
 
 // ============================================================================
