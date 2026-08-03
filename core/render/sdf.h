@@ -166,11 +166,11 @@ template <> struct sdf_max_spans<DistortedRing> {
 template <> struct sdf_max_spans<FlatDistortedRing> {
   static constexpr size_t value = 2;
 };
-template <> struct sdf_max_spans<Flower> {
-  static constexpr size_t value = 2;
-};
 // emit_cap_interval: a single bounding-cap arc, or a full-scan request.
 template <> struct sdf_max_spans<PlanarPolygon> {
+  static constexpr size_t value = 1;
+};
+template <> struct sdf_max_spans<Flower> {
   static constexpr size_t value = 1;
 };
 template <> struct sdf_max_spans<SphericalPolygon> {
@@ -3899,6 +3899,7 @@ struct Flower {
   Vector antipode;         /**< Antipode of the flower axis (scan origin). */
   float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection
                                         length and azimuth. */
+  float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the flower, -1 its complement. */
   static constexpr bool is_solid =
@@ -3930,6 +3931,8 @@ struct Flower {
     scan_alpha = cb.alpha_angle;
     phi_min = cb.phi_min;
     phi_max = cb.phi_max;
+    cos_cap = cb.cos_radius;
+    sin_cap = cb.sin_radius;
   }
 
   /**
@@ -3942,7 +3945,7 @@ struct Flower {
   }
 
   /**
-   * @brief Emits the annular-band interval(s) for one scanline row.
+   * @brief Emits the bounding-circle interval for one scanline row.
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
    * @tparam OutputIt Sink type invoked as out(float start, float end).
@@ -3952,30 +3955,13 @@ struct Flower {
    * @details A petal tip is the shape's radial extreme and its gradient there
    *   is 1, so the fringe reaches one pixel_width past the tip and the cap pad
    *   covers it — unlike the polygon family, whose extreme sits at a vertex the
-   *   radius meets obliquely.
+   *   radius meets obliquely. The cap is centred on the antipode, where the
+   *   fill sits.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (sign < 0.0f) // the complement wraps every row
-      return false;
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    float cos_phi = TrigLUT<W, H>::cos_phi[y];
-    float sin_phi = TrigLUT<W, H>::sin_phi[y];
-
-    if (scan_R < MIN_HORIZONTAL_PROJ)
-      return false;
-
-    float denom = scan_R * sin_phi;
-    if (std::abs(denom) < INTERVAL_DENOM_EPS)
-      return false;
-
-    float pixel_width = 2.0f * PI_F / W;
-    float cos_limit = cosf(circumradius + pixel_width);
-
-    emit_annular_band<W>(cos_limit, 1.0f, scan_ny, cos_phi, denom, scan_alpha,
-                         out);
-    return true;
+    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, scan_ny, scan_R,
+                                     scan_alpha, y, out);
   }
 
   /**
