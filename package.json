@@ -1,6 +1,10 @@
 {
   "name": "holosphere",
   "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "screenshots": "node scripts/capture_screenshots.mjs",
     "wasm-smoke": "node scripts/wasm_smoke.mjs",

@@ -456,6 +456,13 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
+      # The runtime smoke test instantiates the ES-module glue, so the Node that
+      # runs it is part of the shipped contract — pin it rather than inheriting
+      # whatever the runner image carries.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
+
       - name: Install Ninja + ccache
         run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
 
@@ -575,8 +582,8 @@ jobs:
         # registered effect at every enumerated resolution, so a SIMD-codegen fault, an
         # embind signature mismatch, an 8 KB stack overflow, or an
         # ALLOW_MEMORY_GROWTH detachment regression fails here instead of riding
-        # a green build to deploy. (Node is preinstalled on the runner; the
-        # script has no dependencies.) 120 frames so the shipped module reaches
+        # a green build to deploy. (The script has no dependencies; Node is
+        # pinned above.) 120 frames so the shipped module reaches
         # late-lifecycle events (frame-48 ShapeShifter cut, arena compaction).
         env:
           WASM_SMOKE_FRAMES: 120
@@ -781,8 +788,16 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
-      # Node is preinstalled on the runner; the scripts have no runtime deps
-      # (the freshness gate never launches a browser).
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
+
+      # The scripts have no runtime deps (the freshness gate never launches a
+      # browser), but the Node running them is pinned like every other tool.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ steps.pins.outputs.node }}
+
       - name: Syntax-check the capture script
         run: node --check scripts/capture_screenshots.mjs
 
