@@ -76,14 +76,36 @@ public:
     }
   }
 
+  /**
+   * @brief Walks the ring chain to one ring.
+   * @param ring_index Ring position in [0, ring_count()); O(ring_index).
+   * @details Prefer next_ring() when iterating: an index loop over the chain is
+   * quadratic.
+   */
   constexpr Ring ring(int ring_index) const {
+    HS_CHECK(ring_index >= 0, "SphericalFieldLayout: negative ring index %d",
+             ring_index);
     int offset = 0;
     int y = 0;
     for (int i = 0; i < ring_index; ++i) {
+      HS_CHECK(y < H - 1, "SphericalFieldLayout: ring index %d out of range",
+               ring_index);
       offset += samples_on_ring(y);
       y = next_ring_y(y);
     }
     return {y, samples_on_ring(y), offset};
+  }
+
+  /**
+   * @brief Advances one ring down the chain in constant time.
+   * @param ring Current ring.
+   * @return The next ring; the last ring is its own successor.
+   */
+  constexpr Ring next_ring(const Ring &ring) const {
+    if (ring.y >= H - 1)
+      return ring;
+    const int y = next_ring_y(ring.y);
+    return {y, samples_on_ring(y), ring.offset + ring.samples};
   }
 
   constexpr Coordinates sample_coordinates(const Ring &ring,
@@ -255,10 +277,8 @@ public:
 
   constexpr Row row(float y) const {
     const float bounded_y = hs::clamp(y, 0.0f, static_cast<float>(H - 1));
-    const int lower_index = ring_index_at_or_before(bounded_y);
-    int upper_index = std::min(lower_index + 1, ring_count() - 1);
-    Ring lower = ring(lower_index);
-    Ring upper = ring(upper_index);
+    const Ring lower = ring(ring_index_at_or_before(bounded_y));
+    const Ring upper = next_ring(lower);
     const int height = upper.y - lower.y;
     const float mix =
         height > 0 ? (bounded_y - lower.y) / static_cast<float>(height) : 0.0f;

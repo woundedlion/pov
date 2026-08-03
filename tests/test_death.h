@@ -45,6 +45,7 @@
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "core/mesh/solids.h"
+#include "core/math/spherical_field.h"
 #include "core/mesh/spatial.h"
 #include "core/engine/static_circular_buffer.h"
 #include "core/engine/transformers.h"
@@ -1479,6 +1480,19 @@ inline void case_feedback_downsample_indivisible() {
 }
 
 /**
+ * @brief Death case: a ring index past the last ring must trap.
+ * @details SphericalFieldLayout surface — the chain walk saturates at row H-1
+ *          while the offset keeps accumulating, so an out-of-range index would
+ *          otherwise hand back a Ring pointing past the sample array.
+ */
+inline void case_spherical_field_ring_index_oob() {
+  hs::SphericalFieldLayout<32, 16, 0> layout(4);
+  const auto ring = layout.ring(opaque(layout.ring_count()));
+  if (ring.offset == 42)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: Path::append_segment with zero samples must trap.
  * @details Animation surface — a zero sample count divides by zero in the
  *          t / samples term (easing(0/0) = NaN) and the loop would silently
@@ -1733,6 +1747,7 @@ inline const Case *all_cases(int &n) {
       {"plot_extract_edges_vertex_over_capacity",
        case_plot_extract_edges_vertex_over_capacity},
       {"feedback_downsample_indivisible", case_feedback_downsample_indivisible},
+      {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob},
       {"gradient_no_stops", case_gradient_no_stops},
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
@@ -1999,7 +2014,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 91;
+  constexpr int DEATH_CASE_COUNT = 92;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
