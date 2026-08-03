@@ -550,7 +550,11 @@ private:
   hs::CycleCounter* buffer_wait = nullptr; /**< The effect's *_buffer_wait counter. */
   unsigned long window_start = micros(); /**< Window wall-clock start (µs). */
 #ifdef HS_MINDSPLATTER_REPLAY
+#ifdef HS_MINDSPLATTER_REPLAY_AB
+  mindsplatter_replay::ReferenceStats replay_stats;
+#else
   mindsplatter_replay::FrameStats replay_stats;
+#endif
   ClipRegion replay_clip{};
 #endif
 };

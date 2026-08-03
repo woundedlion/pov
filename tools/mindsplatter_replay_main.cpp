@@ -67,7 +67,7 @@ int main() {
   bool accepted = true;
   std::vector<Pixel> reference(static_cast<size_t>(WIDTH) * HEIGHT);
   for (int frame = 0; frame < REPLAY_FRAMES; ++frame) {
-    mindsplatter_replay::FrameStats stats;
+    mindsplatter_replay::ReferenceStats stats;
     mindsplatter_replay::FrameStats host_stats;
     {
       Canvas canvas(effect);
@@ -85,30 +85,33 @@ int main() {
     effect.advance_display();
     std::printf(
         "replay frame=%d hash=%llu expected=%llu changed=%u "
-        "channels=%u max=%u abs=%llu luma_abs=%llu luma_bias=%lld "
-        "added=%u dropped=%u coverage_luma=%llu coverage_max=%u\n",
+        "channels=%u max=%u abs=%llu corpus_hash=%llu corpus_changed=%u "
+        "luma_abs=%llu luma_bias=%lld added=%u dropped=%u "
+        "coverage_luma=%llu coverage_max=%u\n",
         frame + 1, static_cast<unsigned long long>(stats.framebuffer_hash),
         static_cast<unsigned long long>(stats.expected_hash),
         stats.changed_pixels, stats.changed_channels, stats.max_channel_error,
         static_cast<unsigned long long>(stats.total_absolute_error),
-        static_cast<unsigned long long>(stats.total_luminance_error),
-        static_cast<long long>(stats.luminance_bias), stats.added_pixels,
-        stats.dropped_pixels,
-        static_cast<unsigned long long>(stats.coverage_luminance_error),
-        stats.max_coverage_luminance);
+        static_cast<unsigned long long>(host_stats.expected_hash),
+        host_stats.changed_pixels,
+        static_cast<unsigned long long>(host_stats.total_luminance_error),
+        static_cast<long long>(host_stats.luminance_bias),
+        host_stats.added_pixels, host_stats.dropped_pixels,
+        static_cast<unsigned long long>(host_stats.coverage_luminance_error),
+        host_stats.max_coverage_luminance);
     const bool frame_accepted =
         stats.changed_pixels <= VisualGate::MAX_CHANGED_PIXELS &&
         stats.changed_channels <= VisualGate::MAX_CHANGED_CHANNELS &&
         stats.max_channel_error <= VisualGate::MAX_CHANNEL_ERROR &&
         stats.total_absolute_error <= VisualGate::MAX_TOTAL_ERROR &&
-        stats.total_luminance_error <= VisualGate::MAX_LUMINANCE_ERROR &&
-        stats.luminance_bias <= VisualGate::MAX_LUMINANCE_BIAS &&
-        stats.luminance_bias >= -VisualGate::MAX_LUMINANCE_BIAS &&
-        stats.added_pixels <= VisualGate::MAX_ADDED_PIXELS &&
-        stats.dropped_pixels <= VisualGate::MAX_DROPPED_PIXELS &&
-        stats.coverage_luminance_error <=
+        host_stats.total_luminance_error <= VisualGate::MAX_LUMINANCE_ERROR &&
+        host_stats.luminance_bias <= VisualGate::MAX_LUMINANCE_BIAS &&
+        host_stats.luminance_bias >= -VisualGate::MAX_LUMINANCE_BIAS &&
+        host_stats.added_pixels <= VisualGate::MAX_ADDED_PIXELS &&
+        host_stats.dropped_pixels <= VisualGate::MAX_DROPPED_PIXELS &&
+        host_stats.coverage_luminance_error <=
             VisualGate::MAX_COVERAGE_LUMINANCE_ERROR &&
-        stats.max_coverage_luminance <=
+        host_stats.max_coverage_luminance <=
             VisualGate::MAX_COVERAGE_LUMINANCE &&
         host_stats.expected_hash == corpus.framebuffer_hash;
     accepted = accepted && frame_accepted;

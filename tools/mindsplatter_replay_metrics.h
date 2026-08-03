@@ -11,20 +11,29 @@
 
 namespace mindsplatter_replay {
 
-struct FrameStats {
+/** @brief Per-channel difference metrics, written by every comparator. */
+struct ReferenceStats {
   uint64_t framebuffer_hash = 1469598103934665603ull;
   uint64_t expected_hash = 1469598103934665603ull;
   uint64_t total_absolute_error = 0;
+  uint32_t changed_pixels = 0;
+  uint32_t changed_channels = 0;
+  uint16_t max_channel_error = 0;
+  ClipRegion clip{};
+};
+
+/**
+ * @brief Difference metrics against a golden corpus frame.
+ * @details Adds the luminance and lit-coverage terms, which need the corpus's
+ * expanded sparse framebuffer and so are written only by compare_frame.
+ */
+struct FrameStats : ReferenceStats {
   uint64_t total_luminance_error = 0;
   uint64_t coverage_luminance_error = 0;
   int64_t luminance_bias = 0;
-  uint32_t changed_pixels = 0;
-  uint32_t changed_channels = 0;
   uint32_t added_pixels = 0;
   uint32_t dropped_pixels = 0;
-  uint16_t max_channel_error = 0;
   uint16_t max_coverage_luminance = 0;
-  ClipRegion clip{};
 };
 
 inline uint64_t hash_channel(uint64_t hash, uint16_t channel) {
@@ -128,12 +137,13 @@ size_t capture_frame(const Pixel *pixels, const ClipRegion &clip, Pixel *output,
 }
 
 template <int W>
-FrameStats compare_frame_reference(const Pixel *pixels, const ClipRegion &clip,
-                                   const Pixel *reference,
-                                   size_t reference_count) {
+ReferenceStats compare_frame_reference(const Pixel *pixels,
+                                       const ClipRegion &clip,
+                                       const Pixel *reference,
+                                       size_t reference_count) {
   HS_CHECK(reference_count == frame_pixel_count(clip),
            "MindSplatter replay reference dimensions differ");
-  FrameStats stats;
+  ReferenceStats stats;
   stats.clip = clip;
   size_t reference_index = 0;
   for (int y = clip.y_start; y < clip.y_end; ++y) {
@@ -166,9 +176,9 @@ FrameStats compare_frame_reference(const Pixel *pixels, const ClipRegion &clip,
 }
 
 template <int W>
-FrameStats compare_frame_reference(Canvas &canvas, const ClipRegion &clip,
-                                   const Pixel *reference,
-                                   size_t reference_count) {
+ReferenceStats compare_frame_reference(Canvas &canvas, const ClipRegion &clip,
+                                       const Pixel *reference,
+                                       size_t reference_count) {
   return compare_frame_reference<W>(&canvas(0, 0), clip, reference,
                                     reference_count);
 }
