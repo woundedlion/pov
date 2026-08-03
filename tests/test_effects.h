@@ -760,6 +760,9 @@ struct GSWhiteBox {
 
   static uint16_t to_q16(float v) { return GS::to_q16(v); }
   static float from_q16(uint16_t v) { return GS::from_q16(v); }
+  static Color4 palette_sample(const GS &gs, float t) {
+    return gs.palette.get(t);
+  }
   static void set_params(GS &gs, float feed, float k, float dA, float dB,
                          float dt) {
     gs.params.feed = feed;
@@ -915,6 +918,32 @@ struct GSWhiteBox {
     return error;
   }
 };
+
+/** @brief Pins GS's opaque quarter-sample accumulation to Pixel arithmetic. */
+inline void test_gs_opaque_quarter_accumulation_is_exact() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i)
+    HS_EXPECT_EQ(GSWhiteBox::palette_sample(
+                     gs, static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1))
+                     .alpha,
+                 1.0f);
+
+  uint32_t sum = 0;
+  Pixel accumulated(0, 0, 0);
+  for (uint32_t channel = 0; channel <= 65535u; ++channel) {
+    Pixel sample(static_cast<uint16_t>(channel), 0, 0);
+    accumulated = Pixel(0, 0, 0);
+    sum = 0;
+    for (int i = 0; i < 4; ++i) {
+      accumulated += sample * 0.25f;
+      sum += (channel + 2u) >> 2;
+    }
+    HS_EXPECT_EQ(accumulated.r,
+                 static_cast<uint16_t>(sum > 65535u ? 65535u : sum));
+  }
+}
 
 /**
  * @brief Verifies the Q16 fixed-point round-trip and the documented +0.5
@@ -4687,6 +4716,7 @@ inline int run_effects_tests() {
   test_mindsplatter_hole_kernel_framebuffer_parity();
   test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
+  test_gs_opaque_quarter_accumulation_is_exact();
   test_gs_shared_stencil_error_is_bounded();
   test_gs_dissolve_frontier_fades_before_clear();
   test_gs_substep_matches_scalar_reference();
