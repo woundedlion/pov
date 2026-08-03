@@ -910,7 +910,11 @@ template <typename... M> struct Colors {};
  * @tparam Source Source palette type exposing Color4 get(float) const.
  * @tparam CoordList Coords<> type-list of coordinate modifiers.
  * @tparam ColorList Colors<> type-list of color modifiers.
- * @tparam Wrap Whether to wrap the coordinate before sampling the source.
+ * @tparam Wrap Selects two linked behaviours: whether the coordinate is folded
+ * into [0,1) before the source lookup, and which coordinate the color-modifier
+ * chain receives — the folded post-coord-modifier value when true, the raw
+ * pre-modifier input when false. Flipping it for the folding alone also changes
+ * what every shade() sees.
  * @details Default construct, then bind() (ArenaVector idiom); both chains are
  * inlined by fold expression. get() applies the coord mods to t in order,
  * samples the source (wrapping the coordinate unless Wrap is false), then
@@ -931,7 +935,8 @@ class StaticPalette;
  * @tparam Source Source palette type exposing Color4 get(float) const.
  * @tparam CMods Coordinate modifier types.
  * @tparam XMods Color modifier types.
- * @tparam Wrap Whether to wrap the coordinate before sampling the source.
+ * @tparam Wrap Folds the coordinate before the source lookup, and selects the
+ * coordinate handed to the color chain (folded value, or raw input).
  */
 template <typename Source, typename... CMods, typename... XMods, bool Wrap>
 class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap> {
