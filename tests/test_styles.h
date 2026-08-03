@@ -87,6 +87,10 @@ inline void test_named_presets() {
 
 /**
  * @brief Verifies named presets retain their original per-frame hue rotations.
+ * @details Drives the pinned shift through sync_hue() and recovers the angle
+ *          from the cached cos/sin, so the preset table is compared against what
+ *          the production path actually rotates by rather than against a
+ *          restatement of its formula.
  */
 inline void test_named_presets_preserve_frame_hue() {
   struct Case {
@@ -107,9 +111,41 @@ inline void test_named_presets_preserve_frame_hue() {
       {Feedback::Style::TightWormhole(), 0.07220009f},
       {Feedback::Style::WigglingWormhole(), 0.07220009f},
   };
-  for (const Case &c : cases)
-    HS_EXPECT_NEAR(c.style.hue_shift * -logf(c.style.fade), c.frame_shift,
-                   1e-6f);
+  for (const Case &c : cases) {
+    Feedback::Style s = c.style;
+    s.sync_hue();
+    // The cached angle comes from fast trig, which lands within 2.3e-4 turns
+    // over this table; the bound carries ~4x margin.
+    HS_EXPECT_NEAR(std::atan2(s.hue_sa, s.hue_ca) / (2.0f * PI_F),
+                   c.frame_shift, 1e-3f);
+  }
+}
+
+/**
+ * @brief Pins sync_hue's per-frame rotation to hue_shift turns per e-fold of
+ *        feedback brightness decay.
+ * @details hue_shift is defined as turns of hue rotation per e-fold decrease in
+ *          brightness, so a fade of exp(-n) — which loses exactly n e-folds per
+ *          frame — must rotate by n * hue_shift turns. The expected angle comes
+ *          from that rate and std cos/sin, independent of the production
+ *          expression, so it pins the sign of the log and the hue_shift factor
+ *          that a ratio-only invariant cannot see. Rates avoid half-turn
+ *          multiples, where a sign flip is unobservable.
+ */
+inline void test_sync_hue_rotates_per_efold() {
+  constexpr float HS_TURN_TOL = 2e-3f;
+  const float efolds[] = {0.5f, 1.0f, 2.0f, 3.0f};
+  const float shifts[] = {0.05f, 0.2f, 0.33f};
+  for (float efold : efolds)
+    for (float shift : shifts) {
+      Feedback::Style s{};
+      s.fade = std::exp(-efold);
+      s.hue_shift = shift;
+      s.sync_hue();
+      const float radians = 2.0f * PI_F * efold * shift;
+      HS_EXPECT_NEAR(s.hue_ca, std::cos(radians), HS_TURN_TOL);
+      HS_EXPECT_NEAR(s.hue_sa, std::sin(radians), HS_TURN_TOL);
+    }
 }
 
 // --- lerp -------------------------------------------------------------------
@@ -539,6 +575,7 @@ inline int run_styles_tests() {
 
   test_named_presets();
   test_named_presets_preserve_frame_hue();
+  test_sync_hue_rotates_per_efold();
   test_lerp_scalars_and_snapping();
   test_noise_warp_null_is_identity();
   test_noise_warp_bound_distorts();
