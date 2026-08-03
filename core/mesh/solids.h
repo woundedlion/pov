@@ -243,11 +243,30 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
  * the arena it writes its output into. That costs peak arena, not correctness:
  * every operator binds its output before opening a ScratchScope, and a bump
  * arena never rewinds below a live allocation.
+ *
+ * Each step then rewinds the arena the NEXT step writes into back to the offset
+ * it held when the chain started, reclaiming that step's spent intermediates
+ * (including the ones a composed operator leaves behind in `temp`). The seed
+ * sits below both marks and stays for the life of the chain.
  */
 class SolidBuilder {
   PolyMesh mesh; /**< Mesh being built; updated in place by each operator. */
   Arena *output_arena;  /**< Current output arena (swapped per op). */
   Arena *scratch_arena; /**< Current scratch arena (swapped per op). */
+  size_t output_mark;   /**< output_arena's offset when the chain started. */
+  size_t scratch_mark;  /**< scratch_arena's offset when the chain started. */
+
+  /**
+   * @brief Swaps the arena roles and reclaims the one the next step writes.
+   * @details Every operator returns its output in `output_arena`, so once the
+   * roles swap the live mesh is in `scratch_arena` and everything the other
+   * arena holds above its start mark is a spent intermediate.
+   */
+  void advance() {
+    std::swap(output_arena, scratch_arena);
+    std::swap(output_mark, scratch_mark);
+    output_arena->set_offset(output_mark);
+  }
 
 public:
   /**
@@ -257,7 +276,12 @@ public:
    * @param b Initial scratch arena.
    */
   HS_COLD_MEMBER SolidBuilder(PolyMesh seed, Arena &a, Arena &b)
-      : mesh(std::move(seed)), output_arena(&a), scratch_arena(&b) {}
+      : mesh(std::move(seed)), output_arena(&a), scratch_arena(&b),
+        output_mark(a.get_offset()), scratch_mark(b.get_offset()) {
+    // One arena for both roles would put the live mesh in the arena advance()
+    // rewinds.
+    HS_CHECK(&a != &b, "SolidBuilder: output and scratch must differ");
+  }
 
   /**
    * @brief Applies the dual operator (faces become vertices and vice versa).
@@ -265,7 +289,7 @@ public:
    */
   SolidBuilder &dual() {
     mesh = MeshOps::dual(mesh, *output_arena, *scratch_arena);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -274,7 +298,7 @@ public:
    */
   HS_COLD_MEMBER SolidBuilder &kis() {
     mesh = MeshOps::kis(mesh, *output_arena, *scratch_arena);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -283,7 +307,7 @@ public:
    */
   SolidBuilder &ambo() {
     mesh = MeshOps::ambo(mesh, *output_arena, *scratch_arena);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -297,7 +321,7 @@ public:
    */
   SolidBuilder &truncate(float t = 0.25f) {
     mesh = MeshOps::truncate(mesh, *output_arena, *scratch_arena, t);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -308,7 +332,7 @@ public:
    */
   SolidBuilder &expand(float t = MeshOps::EXPAND_DEFAULT_T) {
     mesh = MeshOps::expand(mesh, *output_arena, *scratch_arena, t);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -318,7 +342,7 @@ public:
    */
   SolidBuilder &chamfer(float t = 0.5f) {
     mesh = MeshOps::chamfer(mesh, *output_arena, *scratch_arena, t);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -329,7 +353,7 @@ public:
    */
   SolidBuilder &snub(float t = 0.5f, float twist = 0.0f) {
     mesh = MeshOps::snub(mesh, *output_arena, *scratch_arena, t, twist);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -339,7 +363,7 @@ public:
    */
   SolidBuilder &gyro() {
     mesh = MeshOps::gyro(mesh, *output_arena, *scratch_arena);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -349,7 +373,7 @@ public:
    */
   SolidBuilder &relax(int iterations = 8) {
     mesh = MeshOps::relax(mesh, *output_arena, *scratch_arena, iterations);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -408,11 +432,11 @@ public:
               static_cast<unsigned long>(std::bit_cast<uint32_t>(v.z)));
     hs::log("RELAX_BAKE_END");
 #endif
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
 #else
     mesh = MeshOps::relax_baked(mesh, *output_arena, bake);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
 #endif
   }
@@ -422,7 +446,7 @@ public:
    */
   SolidBuilder &meta() {
     mesh = MeshOps::meta(mesh, *output_arena, *scratch_arena);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -431,7 +455,7 @@ public:
    */
   SolidBuilder &needle() {
     mesh = MeshOps::needle(mesh, *output_arena, *scratch_arena);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -440,7 +464,7 @@ public:
    */
   SolidBuilder &zip() {
     mesh = MeshOps::zip(mesh, *output_arena, *scratch_arena);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -450,7 +474,7 @@ public:
    */
   SolidBuilder &bevel(float t = 0.25f) {
     mesh = MeshOps::bevel(mesh, *output_arena, *scratch_arena, t);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
   /**
@@ -462,7 +486,7 @@ public:
     // *scratch_arena may hold mesh itself; hankin's ScratchScope marks above
     // the input, so compiling the topology into it leaves the input intact.
     mesh = MeshOps::hankin(mesh, *output_arena, *scratch_arena, angle);
-    std::swap(output_arena, scratch_arena);
+    advance();
     return *this;
   }
 

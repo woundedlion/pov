@@ -637,6 +637,39 @@ inline void test_islamic_recipes_fit_islamicstars_budget() {
     check_high_water_for_recipe(e);
 }
 
+/**
+ * @brief Verifies a chain leaves only its seed and its result resident.
+ * @details Every operator returns its output in the arena the builder is
+ *          writing, so after the role swap the live mesh is in the other one
+ *          and the next step's arena holds nothing but spent intermediates. An
+ *          even-length chain lands its result in `b`, so `a` ends back at the
+ *          offset it held when the chain started — with only the seed below it.
+ */
+inline void test_solid_builder_reclaims_intermediates() {
+  Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+  Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+  PolyMesh seed = Solids::Platonic::tetrahedron(a, b);
+  const size_t a_mark = a.get_offset();
+  const size_t b_mark = b.get_offset();
+
+  PolyMesh out = Solids::SolidBuilder(std::move(seed), a, b)
+                     .truncate(0.25f)
+                     .ambo()
+                     .kis()
+                     .dual()
+                     .ambo()
+                     .kis()
+                     .build();
+
+  check_nonempty(out);
+  check_face_counts_consistent(out);
+  check_indices_in_range(out);
+  check_all_unit_vertices(out, 1e-4f);
+
+  HS_EXPECT_EQ(a.get_offset(), a_mark);
+  HS_EXPECT_GT(b.get_offset(), b_mark);
+}
+
 // ---------------------------------------------------------------------------
 // Persistent-budget regression for the IslamicStars carousel.
 //
@@ -1152,6 +1185,7 @@ inline int run_solids_tests() {
   test_islamic_recipes_are_morph_feasible();
 
   test_islamic_recipes_fit_islamicstars_budget();
+  test_solid_builder_reclaims_intermediates();
   test_islamic_solids_fit_islamicstars_persistent_budget();
 
   test_hankin_solids_fit_hankinsolids_scratch_budget();
