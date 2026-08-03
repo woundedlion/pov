@@ -8,7 +8,7 @@ GEN_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = GEN_DIR.parents[2]
 sys.path.insert(0, str(GEN_DIR))
 
-import board_metadata
+import board_metadata   # noqa: E402
 
 
 class BoardMetadataTests(unittest.TestCase):

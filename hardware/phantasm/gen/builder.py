@@ -164,10 +164,10 @@ class Builder:
     # ---- emit ----
     def dumps(self):
         out = []
-        out.append(f'(kicad_sch')
+        out.append('(kicad_sch')
         out.append(f'\t(version {VERSION})')
-        out.append(f'\t(generator "eeschema")')
-        out.append(f'\t(generator_version "10.0")')
+        out.append('\t(generator "eeschema")')
+        out.append('\t(generator_version "10.0")')
         out.append(f'\t(uuid "{self.uuid}")')
         out.append(f'\t(paper "{self.paper}")')
         out.append('\t(title_block')

@@ -9,9 +9,13 @@
     "screenshots": "node scripts/capture_screenshots.mjs",
     "wasm-smoke": "node scripts/wasm_smoke.mjs",
     "check-roster": "node scripts/check_effect_roster.mjs",
-    "check-screenshots": "node scripts/check_screenshots.mjs"
+    "check-screenshots": "node scripts/check_screenshots.mjs",
+    "lint": "eslint ."
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.8.0",
+    "globals": "17.9.0",
     "playwright": "1.60.0"
   }
 }

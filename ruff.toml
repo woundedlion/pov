@@ -1,0 +1,20 @@
+# Lint config for the repo's Python tooling (scripts/, tools/, hardware/),
+# enforced by the `lint` job in .github/workflows/ci.yml.
+#
+# Defect rules only: pyflakes, the pycodestyle error classes and the pylint
+# error group. No formatter and no stylistic rules -- the tree passes this
+# unmodified, so the gate reports real breakage rather than layout opinions.
+
+[lint]
+select = ["E4", "E7", "E9", "F", "PLE"]
+# Style choices the tree already makes consistently, not defects.
+ignore = ["E702", "E731", "E741"]
+
+[lint.per-file-ignores]
+# PlatformIO exec()s these build hooks with `env` / `projenv` injected as SCons
+# globals, so every use reads as undefined to a static scan.
+"tools/teensy_gate_extra.py" = ["F821"]
+"tools/teensy_isystem.py" = ["F821"]
+"tools/teensy_map.py" = ["F821"]
+"tools/teensy_nano.py" = ["F821"]
+"tools/teensy_pre.py" = ["F821"]
