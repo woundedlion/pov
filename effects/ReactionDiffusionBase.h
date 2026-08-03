@@ -149,6 +149,59 @@ protected:
     return best;
   }
 
+  /** @brief Nodes at each pole packed tighter than the bulk minimum spacing. */
+  static constexpr int POLE_BAND = 4;
+  /**
+   * @brief Minimum nearest-neighbor spacing outside the polar band, as a
+   *        fraction of D_AVG; the lattice measures 0.9038.
+   */
+  static constexpr float BULK_MIN_SPACING_FRAC = 0.903f;
+  /** @brief Half the bulk minimum spacing, squared. */
+  static constexpr float BULK_CERTIFIED_D2 = 0.000333f;
+  /** @brief Half the polar-band minimum spacing, squared. */
+  static constexpr float POLE_CERTIFIED_D2 = 0.00012f;
+  static_assert(BULK_CERTIFIED_D2 <= 0.25f * (BULK_MIN_SPACING_FRAC * D_AVG) *
+                                         (BULK_MIN_SPACING_FRAC * D_AVG),
+                "bulk certificate radius exceeds half the lattice's minimum "
+                "bulk node spacing");
+  // The two nodes closest to each pole sit 2/sqrt(RD_N - 1) apart, so a quarter
+  // of that squared is the polar half-spacing bound.
+  static_assert(POLE_CERTIFIED_D2 <= 1.0f / (RD_N - 1),
+                "polar certificate radius exceeds half the pole-pair spacing");
+
+  /**
+   * @brief Refines a cubemap-LUT seed to the nearest node, skipping the
+   *        six-neighbor walk when the seed is provably already nearest.
+   * @param rv Query direction (unit vector on the sphere).
+   * @param nodes Node positions in the same frame as `rv`, indexed by node id.
+   * @param seed Seed node id from the cubemap LUT.
+   * @return The id of the nearest node among the seed and its neighbors.
+   * @details The certificates are properties of the shared lattice, so either
+   * system may center its render stencil with this. A query lying within half
+   * the distance from the seed to its closest lattice neighbor cannot be nearer
+   * to any other node, so the seed is the argmin by triangle inequality. The
+   * polar band carries its own, smaller certificate because the Fibonacci
+   * lattice packs those nodes far tighter than D_AVG.
+   */
+  HS_O3_FN static int refine_render_center(const Vector &rv,
+                                           const Vector *nodes, int seed) {
+    float best_d2 = dist2(rv, nodes[seed]);
+    float safe_d2 = seed >= POLE_BAND && seed < RD_N - POLE_BAND
+                        ? BULK_CERTIFIED_D2
+                        : POLE_CERTIFIED_D2;
+    if (best_d2 < safe_d2)
+      return seed;
+    int best = seed;
+    for_each_neighbor(seed, [&](int ni) {
+      float d = dist2(rv, nodes[ni]);
+      if (d < best_d2) {
+        best_d2 = d;
+        best = ni;
+      }
+    });
+    return best;
+  }
+
   /**
    * @brief Refines a cubemap-LUT seed to the nearest node and runs the
    *        Wendland C2 kernel walk in one stencil pass.
