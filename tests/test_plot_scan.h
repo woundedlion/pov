@@ -4308,8 +4308,24 @@ inline void test_rasterize_default_sampling_policy_bit_parity() {
 
   const AlphaCapturePipeline implicit_default = capture.template operator()<false>();
   const AlphaCapturePipeline explicit_default = capture.template operator()<true>();
+  hs_test::StubEffect selectable_fx(W, H);
+  AlphaCapturePipeline selectable_default;
+  {
+    Canvas canvas(selectable_fx);
+    auto shader = [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
+    };
+    Plot::rasterize<W, H, true, false, true, true,
+                    Plot::RasterSamplingPolicy::SELECTABLE>(
+        selectable_default, canvas, points, shader,
+        {.planar_basis = &planar_basis,
+         .omit_end = true,
+         .balanced_sampling = false});
+  }
   HS_EXPECT_EQ(implicit_default.plotted.size(), explicit_default.plotted.size());
   HS_EXPECT_EQ(implicit_default.alphas.size(), explicit_default.alphas.size());
+  HS_EXPECT_EQ(implicit_default.plotted.size(), selectable_default.plotted.size());
+  HS_EXPECT_EQ(implicit_default.alphas.size(), selectable_default.alphas.size());
   for (size_t i = 0; i < implicit_default.plotted.size(); ++i) {
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].x),
                  std::bit_cast<uint32_t>(explicit_default.plotted[i].x));
@@ -4319,6 +4335,14 @@ inline void test_rasterize_default_sampling_policy_bit_parity() {
                  std::bit_cast<uint32_t>(explicit_default.plotted[i].z));
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.alphas[i]),
                  std::bit_cast<uint32_t>(explicit_default.alphas[i]));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].x),
+                 std::bit_cast<uint32_t>(selectable_default.plotted[i].x));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].y),
+                 std::bit_cast<uint32_t>(selectable_default.plotted[i].y));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].z),
+                 std::bit_cast<uint32_t>(selectable_default.plotted[i].z));
+    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.alphas[i]),
+                 std::bit_cast<uint32_t>(selectable_default.alphas[i]));
   }
 }
 
@@ -4348,13 +4372,16 @@ inline void test_rasterize_balanced_sampling_scope() {
         f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
       };
       Plot::rasterize<W, H, SinglePass, false, true, true, Policy>(
-          pipeline, canvas, points, shader, {.planar_basis = &basis});
+          pipeline, canvas, points, shader,
+          {.planar_basis = &basis,
+           .balanced_sampling =
+               Policy == Plot::RasterSamplingPolicy::SELECTABLE});
       return pipeline;
     };
     const AlphaCapturePipeline standard =
         capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
     const AlphaCapturePipeline balanced =
-        capture.template operator()<Plot::RasterSamplingPolicy::BALANCED>();
+        capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
     HS_EXPECT_EQ(standard.plotted.size(), balanced.plotted.size());
     HS_EXPECT_EQ(standard.alphas.size(), balanced.alphas.size());
     for (size_t i = 0; i < standard.plotted.size(); ++i) {
@@ -4401,13 +4428,16 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
       f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
     };
     Plot::rasterize<W, H, true, false, true, true, Policy>(
-        pipeline, canvas, points, shader, {.planar_basis = &basis});
+        pipeline, canvas, points, shader,
+        {.planar_basis = &basis,
+         .balanced_sampling =
+             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
     return pipeline;
   };
   const AlphaCapturePipeline standard =
       capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
   const AlphaCapturePipeline balanced =
-      capture.template operator()<Plot::RasterSamplingPolicy::BALANCED>();
+      capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
 
   HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
   HS_EXPECT_GE(balanced.plotted.size() * 5, standard.plotted.size() * 3);
@@ -4472,7 +4502,10 @@ inline void test_rasterize_balanced_star_visual_budget() {
       };
       Plot::rasterize<W, H, true, false, false, false, Policy>(
           sink, canvas, points, shader,
-          {.planar_basis = &planar_basis, .omit_end = true});
+          {.planar_basis = &planar_basis,
+           .omit_end = true,
+           .balanced_sampling =
+               Policy == Plot::RasterSamplingPolicy::SELECTABLE});
     }
     fx.advance_display();
     Frame frame;
@@ -4499,8 +4532,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
         render.template operator()<Plot::RasterSamplingPolicy::DEFAULT>(state,
                                                                         nullptr);
     const Frame balanced =
-        render.template operator()<Plot::RasterSamplingPolicy::BALANCED>(state,
-                                                                         nullptr);
+        render.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>(
+            state, nullptr);
     HS_EXPECT_EQ(standard.backstops, uint32_t{0});
     HS_EXPECT_EQ(balanced.backstops, uint32_t{0});
     const double energy_ratio =
@@ -4547,7 +4580,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
     }};
     for (const ClipRegion &clip : clips) {
       const Frame tile =
-          render.template operator()<Plot::RasterSamplingPolicy::BALANCED>(
+          render.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>(
               state, &clip);
       HS_EXPECT_EQ(tile.backstops, uint32_t{0});
       for (int y = clip.y_start; y < clip.y_end; ++y)
