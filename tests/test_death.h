@@ -1502,6 +1502,17 @@ inline void case_spherical_field_ring_index_oob() {
   const auto ring = layout.ring(opaque(layout.ring_count()));
   if (ring.offset == 42)
     std::printf("x");
+ * @brief Death case: a negative feedback fade must trap in sync_hue.
+ * @details Style is a public aggregate, so nothing but a slider bound keeps fade
+ *          non-negative. logf of a negative yields NaN, the hue matrix carries it
+ *          into every feedback pixel, and float_to_pixel16 clamps NaN to 65535 —
+ *          a white buffer with no other symptom. The guard also catches a NaN
+ *          fade, which compares false against zero.
+ */
+inline void case_feedback_negative_fade() {
+  ::Feedback::Style style = ::Feedback::Style::Smoke();
+  style.fade = opaque(-0.25f); // logf(negative) -> HS_CHECK
+  style.sync_hue();
 }
 
 /**
@@ -1761,6 +1772,7 @@ inline const Case *all_cases(int &n) {
        case_plot_extract_edges_vertex_over_capacity},
       {"feedback_downsample_indivisible", case_feedback_downsample_indivisible},
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob},
+      {"feedback_negative_fade", case_feedback_negative_fade},
       {"gradient_no_stops", case_gradient_no_stops},
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
@@ -2027,7 +2039,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 93;
+  constexpr int DEATH_CASE_COUNT = 94;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
