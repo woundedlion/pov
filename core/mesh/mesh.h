@@ -419,6 +419,30 @@ HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
 }
 
 /**
+ * @brief Trap if a caller-supplied half-edge mesh does not describe @p mesh.
+ * @param he_mesh Prebuilt connectivity handed to an operator's reuse overload.
+ * @param mesh Source mesh the operator reads positions and census from.
+ * @param op Operator name, interpolated into the trap message on failure.
+ * @details The reuse overloads size their output pools from `mesh` and index
+ * `mesh`'s vertices through `he_mesh`, so a pair from two different meshes
+ * overruns both. Runs only on the overload path: the single-shot entries build
+ * their own connectivity and satisfy this by construction.
+ */
+HS_COLD static inline void
+require_matching_half_edges(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
+                            const char *op) {
+  HS_CHECK(he_mesh.faces.size() == mesh.get_face_counts_size() &&
+               he_mesh.half_edges.size() == mesh.get_faces_size(),
+           "MeshOps::%s: half-edge mesh census differs from the source mesh",
+           op);
+  const size_t num_verts = mesh.vertices.size();
+  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+    HS_CHECK(he_mesh.half_edges[i].vertex < num_verts,
+             "MeshOps::%s: half-edge mesh vertex outside the source mesh", op);
+  }
+}
+
+/**
  * @brief Compiles a PolyMesh into a static MeshState.
  * @param src Source dynamic mesh to compile.
  * @param dst Destination MeshState, cleared and populated in place.

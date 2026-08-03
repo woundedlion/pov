@@ -457,6 +457,8 @@ inline void transform_in_place(MeshState &mesh,
 //   - relax -> movements and orbit_start, both per-vertex, in `temp`
 //   - relax_baked -> takes no `temp` arena at all
 // medial additionally holds a per-face dual-position buffer in `temp`.
+// ambo/truncate/expand/chamfer/snub also take a prebuilt HalfEdgeMesh, which
+// may sit in either arena: both scopes mark at the operator's entry offset.
 //
 // MANIFOLD PRECONDITION: dual/ambo/truncate/expand/chamfer/snub/medial require
 // a closed manifold (require_closed_manifold traps otherwise); kis is per-face;
@@ -592,13 +594,16 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target,
 }
 
 /**
- * @brief Ambo operator: truncates vertices to edge midpoints (rectification).
+ * @brief Ambo's body over connectivity the caller already holds.
  * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh and its index scratch.
- * @param temp Arena holding the transient HalfEdgeMesh.
+ * @param temp Arena for the manifold check's scratch.
  * @return Fresh ambo PolyMesh allocated in `target`.
  */
-HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
+                                  const HalfEdgeMesh &he_mesh, Arena &target,
+                                  Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -613,7 +618,6 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
     ScratchScope temp_guard(temp);
     ScratchScope target_guard(target);
 
-    HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, temp, "ambo");
 
     uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
@@ -639,6 +643,35 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
   }
   normalize(out_mesh);
   return out_mesh;
+}
+
+/**
+ * @brief Ambo operator: truncates vertices to edge midpoints (rectification).
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena holding the transient HalfEdgeMesh.
+ * @return Fresh ambo PolyMesh allocated in `target`.
+ */
+HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
+  ScratchScope temp_guard(temp);
+  HalfEdgeMesh he_mesh(temp, mesh);
+  return ambo_impl(mesh, he_mesh, target, temp);
+}
+
+/**
+ * @brief Ambo over a half-edge mesh the caller keeps across calls.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh, built by the caller and reused.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena for the operator's own scratch; @p he_mesh may live in it,
+ *   as the operator only ever rewinds to its entry offset.
+ * @return Fresh ambo PolyMesh allocated in `target`.
+ */
+[[maybe_unused]] HS_COLD static PolyMesh ambo(const PolyMesh &mesh,
+                                              const HalfEdgeMesh &he_mesh,
+                                              Arena &target, Arena &temp) {
+  require_matching_half_edges(he_mesh, mesh, "ambo");
+  return ambo_impl(mesh, he_mesh, target, temp);
 }
 
 /**
@@ -758,28 +791,18 @@ truncate_oriented_cut(const HalfEdgeMesh &he_mesh,
 }
 
 /**
- * @brief Truncate operator: cuts corners off the polyhedron.
+ * @brief Truncate's body over connectivity the caller already holds.
  * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh and its index scratch.
- * @param temp Arena holding the transient HalfEdgeMesh.
- * @param t Truncation depth, the fraction along each edge at which the two cut
- *   points sit, in [0..1]. Each edge `(k1,k2)` yields `k1+(k2-k1)*t` and
- *   `k2+(k1-k2)*t`. For `t<0.5` the cut points stay on their own half; at
- *   exactly `0.5` both reach the midpoint and this short-circuits to `ambo`;
- *   for `t>0.5` the two points cross past each other, producing intentional
- *   self-intersecting cut faces (used by the `*_truncate50d_*` solids). `t`
- *   outside `[0..1]` would place a cut point beyond the edge endpoints, so it
- *   traps per the fail-fast doctrine.
- * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
- *   when t == 0.5).
+ * @param temp Arena for the manifold check's scratch.
+ * @param t Truncation depth, range-checked by the callers and never 0.5 (they
+ *   short-circuit that to ambo).
+ * @return Fresh truncated PolyMesh allocated in `target`.
  */
-HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
-                                 Arena &temp, float t = 0.25f) {
-  HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
-  if (t == 0.5f) {
-    return ambo(mesh, target, temp);
-  }
-
+HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
+                                      const HalfEdgeMesh &he_mesh,
+                                      Arena &target, Arena &temp, float t) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -794,7 +817,6 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
     ScratchScope temp_guard(temp);
     ScratchScope target_guard(target);
 
-    HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, temp, "truncate");
 
     // Per-edge cut-vertex pair; unset = {HE_NONE, HE_NONE}.
@@ -850,24 +872,72 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
   return out_mesh;
 }
 
+/**
+ * @brief Truncate operator: cuts corners off the polyhedron.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena holding the transient HalfEdgeMesh.
+ * @param t Truncation depth, the fraction along each edge at which the two cut
+ *   points sit, in [0..1]. Each edge `(k1,k2)` yields `k1+(k2-k1)*t` and
+ *   `k2+(k1-k2)*t`. For `t<0.5` the cut points stay on their own half; at
+ *   exactly `0.5` both reach the midpoint and this short-circuits to `ambo`;
+ *   for `t>0.5` the two points cross past each other, producing intentional
+ *   self-intersecting cut faces (used by the `*_truncate50d_*` solids). `t`
+ *   outside `[0..1]` would place a cut point beyond the edge endpoints, so it
+ *   traps per the fail-fast doctrine.
+ * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
+ *   when t == 0.5).
+ */
+HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
+                                 Arena &temp, float t = 0.25f) {
+  HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
+  ScratchScope temp_guard(temp);
+  HalfEdgeMesh he_mesh(temp, mesh);
+  if (t == 0.5f)
+    return ambo_impl(mesh, he_mesh, target, temp);
+  return truncate_impl(mesh, he_mesh, target, temp, t);
+}
+
+/**
+ * @brief Truncate over a half-edge mesh the caller keeps across a sweep.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh, built by the caller and reused. The
+ *   truncate topology is the same at every @p t, so one build serves a whole
+ *   parameter sweep.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena for the operator's own scratch; @p he_mesh may live in it,
+ *   as the operator only ever rewinds to its entry offset.
+ * @param t Truncation depth in [0..1]; see the single-shot entry.
+ * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
+ *   when t == 0.5).
+ */
+[[maybe_unused]] HS_COLD static PolyMesh truncate(const PolyMesh &mesh,
+                                                  const HalfEdgeMesh &he_mesh,
+                                                  Arena &target, Arena &temp,
+                                                  float t = 0.25f) {
+  HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
+  require_matching_half_edges(he_mesh, mesh, "truncate");
+  if (t == 0.5f)
+    return ambo_impl(mesh, he_mesh, target, temp);
+  return truncate_impl(mesh, he_mesh, target, temp, t);
+}
+
 /** Default expand/cantellation factor 2-sqrt(2) ~= 0.5857: places new square
  * faces at the canonical gap. */
 static constexpr float EXPAND_DEFAULT_T = 2.0f - 1.414213562373095f;
 
 /**
- * @brief Expand operator: separates faces (e = aa).
+ * @brief Expand's body over connectivity the caller already holds.
  * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh and its index scratch.
- * @param temp Arena holding the transient HalfEdgeMesh.
- * @param t Expansion factor: the fraction each face corner moves toward the
- *   face centroid, in [0..1); at 1 a face's corners all meet at its centroid,
- *   collapsing it, so it traps per the fail-fast doctrine. Default
- *   EXPAND_DEFAULT_T.
+ * @param temp Arena for the manifold check's scratch.
+ * @param t Expansion factor, range-checked by the callers.
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
-HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
-                               float t = EXPAND_DEFAULT_T) {
-  HS_CHECK(t >= 0.0f && t < 1.0f, "expand: t out of [0,1)");
+HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
+                                    const HalfEdgeMesh &he_mesh, Arena &target,
+                                    Arena &temp, float t) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -882,7 +952,6 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
     ScratchScope temp_guard(temp);
     ScratchScope target_guard(target);
 
-    HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, temp, "expand");
     // he->new-vertex map; unset = HE_NONE.
     uint16_t *he_to_vert_idx = target.allocate_n<uint16_t>(I);
@@ -930,18 +999,57 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
 }
 
 /**
- * @brief Chamfer operator: replaces edges with hexagonal faces.
+ * @brief Expand operator: separates faces (e = aa).
  * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena holding the transient HalfEdgeMesh.
+ * @param t Expansion factor: the fraction each face corner moves toward the
+ *   face centroid, in [0..1); at 1 a face's corners all meet at its centroid,
+ *   collapsing it, so it traps per the fail-fast doctrine. Default
+ *   EXPAND_DEFAULT_T.
+ * @return Fresh expanded PolyMesh allocated in `target`.
+ */
+HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
+                               float t = EXPAND_DEFAULT_T) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "expand: t out of [0,1)");
+  ScratchScope temp_guard(temp);
+  HalfEdgeMesh he_mesh(temp, mesh);
+  return expand_impl(mesh, he_mesh, target, temp, t);
+}
+
+/**
+ * @brief Expand over a half-edge mesh the caller keeps across a sweep.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh, built by the caller and reused. The
+ *   expand topology is the same at every @p t, so one build serves a whole
+ *   parameter sweep.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena for the operator's own scratch; @p he_mesh may live in it,
+ *   as the operator only ever rewinds to its entry offset.
+ * @param t Expansion factor in [0..1); see the single-shot entry.
+ * @return Fresh expanded PolyMesh allocated in `target`.
+ */
+[[maybe_unused]] HS_COLD static PolyMesh expand(const PolyMesh &mesh,
+                                                const HalfEdgeMesh &he_mesh,
+                                                Arena &target, Arena &temp,
+                                                float t = EXPAND_DEFAULT_T) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "expand: t out of [0,1)");
+  require_matching_half_edges(he_mesh, mesh, "expand");
+  return expand_impl(mesh, he_mesh, target, temp, t);
+}
+
+/**
+ * @brief Chamfer's body over connectivity the caller already holds.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh.
- * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
- * @param t Thickness factor for the new hexagons, the fraction each face corner
- *   moves toward the face centroid, in [0..1); at 1 a face's corners collapse
- *   to its centroid, so it traps per the fail-fast doctrine.
+ * @param temp Arena holding the operator's index scratch.
+ * @param t Thickness factor for the new hexagons, range-checked by the callers.
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
-HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
-                                Arena &temp, float t = 0.5f) {
-  HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
+HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
+                                     const HalfEdgeMesh &he_mesh, Arena &target,
+                                     Arena &temp, float t) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -954,7 +1062,6 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
 
   {
     ScratchScope temp_guard(temp);
-    HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, temp, "chamfer");
 
     uint16_t *he_to_new_v = temp.allocate_n<uint16_t>(I);
@@ -1002,6 +1109,45 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
   }
   normalize(out_mesh);
   return out_mesh;
+}
+
+/**
+ * @brief Chamfer operator: replaces edges with hexagonal faces.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh.
+ * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
+ * @param t Thickness factor for the new hexagons, the fraction each face corner
+ *   moves toward the face centroid, in [0..1); at 1 a face's corners collapse
+ *   to its centroid, so it traps per the fail-fast doctrine.
+ * @return Fresh chamfered PolyMesh allocated in `target`.
+ */
+HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
+                                Arena &temp, float t = 0.5f) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
+  ScratchScope temp_guard(temp);
+  HalfEdgeMesh he_mesh(temp, mesh);
+  return chamfer_impl(mesh, he_mesh, target, temp, t);
+}
+
+/**
+ * @brief Chamfer over a half-edge mesh the caller keeps across a sweep.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh, built by the caller and reused. The
+ *   chamfer topology is the same at every @p t, so one build serves a whole
+ *   parameter sweep.
+ * @param target Arena receiving the output mesh.
+ * @param temp Arena holding the operator's index scratch; @p he_mesh may live
+ *   in it, as the operator only ever rewinds to its entry offset.
+ * @param t Thickness factor in [0..1); see the single-shot entry.
+ * @return Fresh chamfered PolyMesh allocated in `target`.
+ */
+[[maybe_unused]] HS_COLD static PolyMesh chamfer(const PolyMesh &mesh,
+                                                 const HalfEdgeMesh &he_mesh,
+                                                 Arena &target, Arena &temp,
+                                                 float t = 0.5f) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
+  require_matching_half_edges(he_mesh, mesh, "chamfer");
+  return chamfer_impl(mesh, he_mesh, target, temp, t);
 }
 
 /**
@@ -1190,24 +1336,23 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
 }
 
 /**
- * @brief Snub operator: creates a chiral semi-regular polyhedron.
+ * @brief Snub's body over connectivity the caller already holds.
  * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh.
- * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
- * @param t Inset factor of each face toward its centroid, in [0..1); at 1 a
- *   face's corners collapse to its centroid, so it traps per the fail-fast
- *   doctrine.
- * @param twist Per-face rotation about the face normal, in radians; 0 disables
- *   the twist pass. Unbounded (angles wrap).
+ * @param temp Arena holding the operator's index scratch.
+ * @param t Inset factor of each face toward its centroid, range-checked by the
+ *   callers.
+ * @param twist Per-face rotation about the face normal, in radians.
  * @return Fresh snub PolyMesh allocated in `target`.
  * @details Uses Newell's method for face normals, robust to non-planar faces on
  *   the unit sphere and to collinear vertex triplets. A face with neither a
  *   usable Newell normal nor a usable centroid direction has no twist axis and
  *   skips the twist.
  */
-HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
-                             float t = 0.5f, float twist = 0.0f) {
-  HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
+HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
+                                  const HalfEdgeMesh &he_mesh, Arena &target,
+                                  Arena &temp, float t, float twist) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -1221,7 +1366,6 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
   {
     ScratchScope temp_guard(temp);
 
-    HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, temp, "snub");
     uint16_t *he_to_vert_idx = temp.allocate_n<uint16_t>(I);
     std::fill_n(he_to_vert_idx, I, HE_NONE);
@@ -1287,6 +1431,47 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
   }
   normalize(out_mesh);
   return out_mesh;
+}
+
+/**
+ * @brief Snub operator: creates a chiral semi-regular polyhedron.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param target Arena receiving the output mesh.
+ * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
+ * @param t Inset factor of each face toward its centroid, in [0..1); at 1 a
+ *   face's corners collapse to its centroid, so it traps per the fail-fast
+ *   doctrine.
+ * @param twist Per-face rotation about the face normal, in radians; 0 disables
+ *   the twist pass. Unbounded (angles wrap).
+ * @return Fresh snub PolyMesh allocated in `target`.
+ */
+HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
+                             float t = 0.5f, float twist = 0.0f) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
+  ScratchScope temp_guard(temp);
+  HalfEdgeMesh he_mesh(temp, mesh);
+  return snub_impl(mesh, he_mesh, target, temp, t, twist);
+}
+
+/**
+ * @brief Snub over a half-edge mesh the caller keeps across a sweep.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh, built by the caller and reused. The
+ *   snub topology is the same at every @p t and @p twist, so one build serves a
+ *   whole parameter sweep.
+ * @param target Arena receiving the output mesh.
+ * @param temp Arena holding the operator's index scratch; @p he_mesh may live
+ *   in it, as the operator only ever rewinds to its entry offset.
+ * @param t Inset factor in [0..1); see the single-shot entry.
+ * @param twist Per-face rotation about the face normal, in radians.
+ * @return Fresh snub PolyMesh allocated in `target`.
+ */
+[[maybe_unused]] HS_COLD static PolyMesh
+snub(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
+     Arena &temp, float t = 0.5f, float twist = 0.0f) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
+  require_matching_half_edges(he_mesh, mesh, "snub");
+  return snub_impl(mesh, he_mesh, target, temp, t, twist);
 }
 
 /**
