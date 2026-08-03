@@ -2847,13 +2847,19 @@ inline void test_planar_sampler_from_cull_bit_parity() {
       expect_bits(rebuilt.arc_cumul[i], reused.arc_cumul[i]);
     expect_bits(rebuilt.dist, reused.dist);
     int interval = 0;
+    int position_interval = 0;
     for (float t : {0.0f, 0.17f, 0.51f, 0.88f}) {
       const Plot::SamplePT original = rebuilt.one_pass(t);
       const Plot::SamplePT optimized =
           reused.one_pass_monotonic(t, interval);
+      const Vector position =
+          reused.position_monotonic(t, position_interval);
       expect_bits(original.pos.x, optimized.pos.x);
       expect_bits(original.pos.y, optimized.pos.y);
       expect_bits(original.pos.z, optimized.pos.z);
+      expect_bits(optimized.pos.x, position.x);
+      expect_bits(optimized.pos.y, position.y);
+      expect_bits(optimized.pos.z, position.z);
       expect_bits(original.tan.x, optimized.tan.x);
       expect_bits(original.tan.y, optimized.tan.y);
       expect_bits(original.tan.z, optimized.tan.z);
@@ -4456,6 +4462,40 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
     HS_EXPECT_NEAR(point.length(), 1.0f, 5e-3f);
 }
 
+/** @brief Cadence reuse stays disabled in the polar clamp region. */
+inline void test_rasterize_balanced_cadence_pole_guard() {
+  constexpr int W = 144, H = 72;
+  const Basis basis = basis_from_normal(Y_AXIS);
+  auto near_pole = [&](float azimuth) {
+    const Vector radial =
+        basis.u * cosf(azimuth) + basis.w * sinf(azimuth);
+    return (basis.v * cosf(0.02f) + radial * sinf(0.02f)).normalized();
+  };
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 2);
+  Fragment a, b;
+  a.pos = near_pole(-2.4f);
+  b.pos = near_pole(2.4f);
+  points.push_back(a);
+  points.push_back(b);
+
+  hs_test::StubEffect fx(W, H);
+  AlphaCapturePipeline pipeline;
+  Canvas canvas(fx);
+  Plot::g_planar_full_samples = 0;
+  Plot::g_planar_position_samples = 0;
+  auto shader = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
+  };
+  Plot::rasterize<W, H, true, false, false, false,
+                  Plot::RasterSamplingPolicy::SELECTABLE>(
+      pipeline, canvas, points, shader,
+      {.planar_basis = &basis, .balanced_sampling = true});
+  HS_EXPECT_GT(Plot::g_planar_full_samples, uint32_t{2});
+  HS_EXPECT_EQ(Plot::g_planar_position_samples, uint32_t{0});
+}
+
 /** @brief Balanced planar stars retain connected, energy-stable clipped coverage. */
 inline void test_rasterize_balanced_star_visual_budget() {
   constexpr int W = 144, H = 72;
@@ -4477,6 +4517,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
   struct Frame {
     std::vector<Pixel> pixels;
     uint32_t backstops = 0;
+    uint32_t full_samples = 0;
+    uint32_t position_samples = 0;
   };
 
   auto render = [&]<Plot::RasterSamplingPolicy Policy>(const StarState &state,
@@ -4485,6 +4527,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
     if (clip != nullptr)
       fx.set_clip(clip->y_start, clip->y_end, clip->x_start, clip->x_end);
     hs::g_scan_metrics.reset();
+    Plot::g_planar_full_samples = 0;
+    Plot::g_planar_position_samples = 0;
     {
       ScratchScope sc(plot_arena());
       Fragments points;
@@ -4510,6 +4554,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
     fx.advance_display();
     Frame frame;
     frame.backstops = hs::g_scan_metrics.plot_backstop_hits;
+    frame.full_samples = Plot::g_planar_full_samples;
+    frame.position_samples = Plot::g_planar_position_samples;
     frame.pixels.resize(static_cast<size_t>(W) * H);
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x)
@@ -4527,6 +4573,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
     return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b > 512;
   };
 
+  uint32_t balanced_full_samples = 0;
+  uint32_t balanced_position_samples = 0;
   for (const StarState &state : states) {
     const Frame standard =
         render.template operator()<Plot::RasterSamplingPolicy::DEFAULT>(state,
@@ -4534,6 +4582,10 @@ inline void test_rasterize_balanced_star_visual_budget() {
     const Frame balanced =
         render.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>(
             state, nullptr);
+    HS_EXPECT_EQ(standard.position_samples, uint32_t{0});
+    HS_EXPECT_GT(balanced.position_samples, uint32_t{0});
+    balanced_full_samples += balanced.full_samples;
+    balanced_position_samples += balanced.position_samples;
     HS_EXPECT_EQ(standard.backstops, uint32_t{0});
     HS_EXPECT_EQ(balanced.backstops, uint32_t{0});
     const double energy_ratio =
@@ -4592,6 +4644,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
         }
     }
   }
+  HS_EXPECT_GT(balanced_position_samples * 4,
+               balanced_full_samples + balanced_position_samples);
 }
 
 /** @brief Single-pass geodesics preserve the open-line endpoint contract. */
@@ -4851,6 +4905,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_default_sampling_policy_bit_parity();
   test_rasterize_balanced_sampling_scope();
   test_rasterize_balanced_sampling_density_and_alpha();
+  test_rasterize_balanced_cadence_pole_guard();
   test_rasterize_balanced_star_visual_budget();
   test_rasterize_single_pass_geodesic_endpoints_and_omit_end();
   test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free();

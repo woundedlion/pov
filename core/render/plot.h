@@ -92,6 +92,11 @@ enum class RasterSamplingPolicy { DEFAULT, BALANCED, SELECTABLE };
 /** @brief Balanced-policy target spacing in screen pixels. */
 static constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
 
+#ifdef HS_TEST_BUILD
+inline uint32_t g_planar_full_samples = 0;
+inline uint32_t g_planar_position_samples = 0;
+#endif
+
 /**
  * @brief Parameter delta for the planar strategy's finite-difference tangent.
  * @details The planar (azimuthal) map has no closed-form tangent, so its screen
@@ -368,6 +373,29 @@ struct PlanarEdgeSampler {
         (radial * (scale_rate * radius_rate));
     HS_PLOT_COUNT(normalizations);
     return {position, normalized_or(tangent, Vector())};
+  }
+
+  /** @brief Evaluates only position for an increasing sample sequence. */
+  Vector position_monotonic(float s, int &interval) const {
+    const float p = projection_fraction_monotonic(s, interval);
+    const float x = proj1.first + dx * p;
+    const float y = proj1.second + dy * p;
+    const float r2 = x * x + y * y;
+    if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC)
+      return basis->v;
+
+    const float radius = sqrtf(r2);
+    float sin_radius;
+    float cos_radius;
+    if (radius <= PI_F) {
+      fast_sincosf_0_pi(radius, sin_radius, cos_radius);
+    } else {
+      sin_radius = fast_sinf(radius);
+      cos_radius = fast_cosf(radius);
+    }
+    const Vector radial = (basis->u * x) + (basis->w * y);
+    return (basis->v * cos_radius) +
+           (radial * (sin_radius * (1.0f / radius)));
   }
 
   /**
@@ -1667,9 +1695,12 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       if constexpr (SinglePass && !DerivePlanarArcRegisters &&
                     !InterpolateRegisters && requires {
                       sample.one_pass_monotonic(t, planar_arc_interval);
-                    })
+                    }) {
         result = sample.one_pass_monotonic(t, planar_arc_interval);
-      else if constexpr (SinglePass && requires { sample.one_pass(t); })
+#ifdef HS_TEST_BUILD
+        ++g_planar_full_samples;
+#endif
+      } else if constexpr (SinglePass && requires { sample.one_pass(t); })
         result = sample.one_pass(t);
       else
         result = sample(t);
@@ -1720,6 +1751,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       float current_t = 0.0f;
       float desired_step = first_step;
       float default_desired_step = first_step;
+      float previous_full_step = first_step;
+      Vector previous_full_tangent = smp.tan;
+      bool reuse_step = false;
       if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
         if (balanced_sampling)
           desired_step = std::min(
@@ -1787,8 +1821,41 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         if (current_dist < total_dist) {
           current_t = current_dist / total_dist;
           HS_PLOT_COUNT(sim_samples);
-          smp = adaptive_sample(current_t);
-          default_desired_step = adaptive_step(smp);
+          if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT &&
+                        requires {
+                          sample.position_monotonic(current_t,
+                                                    planar_arc_interval);
+                        }) {
+            if (balanced_sampling && reuse_step) {
+              HS_MSP_STALL_START(position_start);
+              smp.pos = sample.position_monotonic(current_t,
+                                                  planar_arc_interval);
+              HS_MSP_COUNT(adaptive_samples);
+              HS_MSP_STALL_STOP(adaptive_sim, position_start);
+#ifdef HS_TEST_BUILD
+              ++g_planar_position_samples;
+#endif
+              reuse_step = false;
+            } else {
+              smp = adaptive_sample(current_t);
+              default_desired_step = adaptive_step(smp);
+              if (balanced_sampling) {
+                const float sin2 = 1.0f - smp.pos.y * smp.pos.y;
+                reuse_step =
+                    sin2 > 0.12f &&
+                    default_desired_step > base_step * MIN_POLE_SCALE * 2.0f &&
+                    default_desired_step < base_step * 0.9f &&
+                    dot(smp.tan, previous_full_tangent) > 0.995f &&
+                    fabsf(default_desired_step - previous_full_step) <
+                        default_desired_step * 0.1f;
+                previous_full_step = default_desired_step;
+                previous_full_tangent = smp.tan;
+              }
+            }
+          } else {
+            smp = adaptive_sample(current_t);
+            default_desired_step = adaptive_step(smp);
+          }
           desired_step = default_desired_step;
           if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
             if (balanced_sampling)
