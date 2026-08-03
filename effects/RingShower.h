@@ -162,31 +162,6 @@ private:
   }
 
   /**
-   * @brief Bake-time adapter that maps the LUT coordinate from the cos domain
-   *        into the source's angle parameter.
-   * @details Baking through this folds the d -> acos(d)/PI radial mapping into
-   *          the bake (256 acos per spawn, not one per fragment): the fragment
-   *          lookup keys the LUT by the raw dot product via dot_key(d). dot_key
-   *          inverts DotKeyed: u -> d = 1 - 2u, get(u) returns the source at
-   *          acos(d)/PI.
-   */
-  template <typename Source> struct DotKeyed {
-    const Source &source;
-    Color4 get(float u) const {
-      float d = hs::clamp(1.0f - 2.0f * u, -1.0f, 1.0f);
-      return source.get(fast_acos(d) / PI_F);
-    }
-  };
-  template <typename Source>
-  static DotKeyed<Source> dot_keyed(const Source &source) {
-    return DotKeyed<Source>{source};
-  }
-  /// LUT coordinate for cos-value d = dot(X, v); inverse of DotKeyed's mapping.
-  static float dot_key(float d) {
-    return (1.0f - hs::clamp(d, -1.0f, 1.0f)) * 0.5f;
-  }
-
-  /**
    * @brief Reinitializes the first free ring slot with a new orientation, life,
    *        and palette.
    * @details Scans for a slot whose age has reached its life; if none is free,

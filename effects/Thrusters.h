@@ -26,9 +26,7 @@ struct ThrustersWhiteBox;
 template <int W, int H> class Thrusters : public Effect {
 public:
   /**
-   * @brief Constructs the effect, seeding the palette, filters and warp state.
-   * @details The Inigo Quilez cosine palette is color(t) = bias +
-   *          amp*cos(2π(freq*t + phase)).
+   * @brief Constructs the effect, seeding the filters and warp state.
    */
   HS_COLD_MEMBER Thrusters()
       : Effect(W, H,
@@ -36,24 +34,29 @@ public:
                 .full_frame = decltype(filters)::any_crosses_segments,
                 .reads_outside_band = decltype(filters)::any_reads_outside_band,
                 .margin = decltype(filters)::max_segment_margin}),
-        palette(/*bias*/ {0.5f, 0.5f, 0.5f},
-                /*amp*/ {0.5f, 0.5f, 0.5f},
-                /*freq*/ {0.3f, 0.3f, 0.3f},
-                /*phase*/ {0.0f, 0.2f, 0.6f}),
         filters(Filter::Screen::AntiAlias<W, H>()), ring_vec(0.5f, 0.5f, 0.5f),
         amplitude(0), warp_phase(0), t_global(0),
         warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_linear) {}
 
   /**
-   * @brief Registers tunable params and seeds the timeline.
+   * @brief Registers tunable params, bakes the ring palette, and seeds the
+   *        timeline.
    * @details Adds a persistent ring sprite plus a random timer that fires
-   *          thrusters every 16-48 frames.
+   *          thrusters every 16-48 frames. The palette is immutable, so it is
+   *          baked once into a LUT keyed by dot(X, v) (see draw_ring).
    */
   void init() override {
     // Radius 0 and 2 both collapse the ring to a point (ring_vec and its
     // antipode), so the slider stops short of each end.
     register_param("Radius", &params.radius, 0.1f, 1.9f);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+
+    // Inigo Quilez cosine palette: color(t) = bias + amp*cos(2π(freq*t + phase)).
+    palette.bake(persistent_arena,
+                 dot_keyed(ProceduralPalette(/*bias*/ {0.5f, 0.5f, 0.5f},
+                                             /*amp*/ {0.5f, 0.5f, 0.5f},
+                                             /*freq*/ {0.3f, 0.3f, 0.3f},
+                                             /*phase*/ {0.0f, 0.2f, 0.6f})));
 
     ring_vec.normalize();
 
@@ -285,10 +288,10 @@ private:
     auto fragment_shader = [this, opacity](const Vector &v, Fragment &f) {
       // v is the world-space fragment direction (the basis bakes orientation),
       // so banding is anchored to the fixed world X axis: the ring sweeps through
-      // static world-space color bands.
-      float angle = angle_between(X_AXIS, v);
-      f.color = palette.get(angle / PI_F);
-      f.color.alpha *= params.alpha * opacity;
+      // static world-space color bands. v is unit (the rasterizer renormalizes
+      // every shaded position), so dot(X, v) is just v.x; the LUT is baked in
+      // that cos domain (dot_keyed) and the source alpha is a constant 1.
+      f.color = Color4(palette.get_color(dot_key(v.x)), params.alpha * opacity);
     };
 
     const float phase = warp_phase;
@@ -300,7 +303,7 @@ private:
         fragment_shader);
   }
 
-  ProceduralPalette palette; /**< Cosine palette for ring shading. */
+  BakedPalette palette; /**< Ring-shading LUT, keyed by dot(X, v). */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
       filters; /**< Anti-aliasing render pipeline. */
 

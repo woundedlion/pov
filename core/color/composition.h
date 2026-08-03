@@ -1244,6 +1244,37 @@ private:
 };
 
 /**
+ * @brief Bake-time adapter mapping a LUT coordinate from the cos domain into a
+ *        source palette's angle parameter.
+ * @tparam Source Type exposing Color4 get(float) const over t = angle/PI.
+ * @details Baking through this folds the d -> acos(d)/PI radial mapping into the
+ * bake (256 acos per bake, not one per fragment): the fragment lookup keys the
+ * LUT by the raw dot product via dot_key(d). dot_key inverts this mapping:
+ * u -> d = 1 - 2u, get(u) returns the source at acos(d)/PI.
+ */
+template <typename Source> struct DotKeyed {
+  const Source &source;
+  Color4 get(float u) const {
+    float d = hs::clamp(1.0f - 2.0f * u, -1.0f, 1.0f);
+    return source.get(fast_acos(d) / PI_F);
+  }
+};
+
+/**
+ * @brief Wraps a palette source for a DotKeyed bake.
+ * @param source Palette sampled over t = angle/PI; must outlive the bake call.
+ */
+template <typename Source>
+inline DotKeyed<Source> dot_keyed(const Source &source) {
+  return DotKeyed<Source>{source};
+}
+
+/// LUT coordinate for cos-value d = dot(axis, v); inverse of DotKeyed's mapping.
+inline float dot_key(float d) {
+  return (1.0f - hs::clamp(d, -1.0f, 1.0f)) * 0.5f;
+}
+
+/**
  * @brief Resolves a (from, to) baked-LUT pair at one crossfade weight.
  * @param dst Receives the resolved palette (a default-constructed unbaked
  * instance is fine).
