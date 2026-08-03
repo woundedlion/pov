@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import subprocess
 import sys
@@ -442,6 +444,32 @@ class PartCatalogTests(unittest.TestCase):
                 fab.PartCatalogError,
                 "X1: LCSC C999999999 has no catalog entry"):
             fab.validate_part_catalog({"X1": {"lcsc": "C999999999"}})
+
+
+class CommandLineTests(unittest.TestCase):
+    def parse(self, argv):
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(stdout), \
+                contextlib.redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as caught:
+                fab.parse_args(argv)
+        return caught.exception.code, stdout.getvalue() + stderr.getvalue()
+
+    def test_accepts_no_arguments(self):
+        self.assertEqual(vars(fab.parse_args([])), {})
+
+    def test_help_exits_without_running_the_workflow(self):
+        code, text = self.parse(["--help"])
+        self.assertEqual(code, 0)
+        self.assertIn("usage:", text)
+
+    def test_rejects_unknown_option(self):
+        code, text = self.parse(["--refresh"])
+        self.assertEqual(code, 2)
+        self.assertIn("unrecognized arguments: --refresh", text)
+
+    def test_rejects_positional_argument(self):
+        self.assertEqual(self.parse(["board.kicad_pcb"])[0], 2)
 
 
 if __name__ == "__main__":
