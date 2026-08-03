@@ -504,7 +504,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
       dst.face_counts.push_back(narrow_face_count(count));
       // face_offsets is uint16_t (counts half-edges, so bounded by UINT16_MAX
       // not narrow_index's INT16_MAX vertex bound).
-      HS_CHECK(current_offset <= UINT16_MAX,
+      HS_CHECK(current_offset + count <= UINT16_MAX,
                "mesh face_offsets exceeds 16-bit index range");
       dst.face_offsets.push_back(static_cast<uint16_t>(current_offset));
       for (int k = 0; k < count; ++k) {
