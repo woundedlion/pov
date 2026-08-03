@@ -241,9 +241,14 @@ protected:
    * @details duration 0 makes done() true at any t while is_canceled() stays
    * false, so the end reads as a natural completion. Timeline's pin-completion
    * guard exempts cancellation, so a self-terminating animation must end this
-   * way to stay diagnosable when pinned.
+   * way to stay diagnosable when pinned. Clears `repeat` as well: a repeating
+   * animation left done() && repeats() is rewound and re-fires its .then() every
+   * frame, never removed — the zombie repeats()' !canceled guard prevents.
    */
-  void finish() { duration = 0; }
+  void finish() {
+    duration = 0;
+    repeat = false;
+  }
 
   /**
    * @brief Evaluates a wired pause flag.
