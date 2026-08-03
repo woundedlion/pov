@@ -310,7 +310,7 @@ private:
     });
 
     constexpr float INV_SAMPLES = 1.0f / 4.0f;
-    float accum_r = 0, accum_g = 0, accum_b = 0;
+    float mix_a = 0, mix_b = 0, mix_c = 0;
     for (int i = 0; i < 4; ++i) {
       Vector v = grid.at(x, i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
@@ -329,10 +329,13 @@ private:
           species_sum < SPECIES_EMPTY_EPS * Q16_SCALE * tw)
         continue;
       float scale = INV_SAMPLES / std::max(species_sum, Q16_SCALE * tw);
-      accum_r += (ca.r * wa + cb.r * wb + cc.r * wc) * scale;
-      accum_g += (ca.g * wa + cb.g * wb + cc.g * wc) * scale;
-      accum_b += (ca.b * wa + cb.b * wb + cc.b * wc) * scale;
+      mix_a += wa * scale;
+      mix_b += wb * scale;
+      mix_c += wc * scale;
     }
+    float accum_r = ca.r * mix_a + cb.r * mix_b + cc.r * mix_c;
+    float accum_g = ca.g * mix_a + cb.g * mix_b + cc.g * mix_c;
+    float accum_b = ca.b * mix_a + cb.b * mix_b + cc.b * mix_c;
     return Pixel(
         static_cast<uint16_t>(hs::clamp(accum_r + 0.5f, 0.0f, 65535.0f)),
         static_cast<uint16_t>(hs::clamp(accum_g + 0.5f, 0.0f, 65535.0f)),
