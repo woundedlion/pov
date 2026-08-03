@@ -59,7 +59,7 @@ class BZReactionDiffusion
   using Base::from_q16;
   using Base::init_lattice;
   using Base::orient_lattice;
-  using Base::Q16_INV;
+  using Base::Q16_SCALE;
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_center;
@@ -261,64 +261,6 @@ private:
   // ---------------------------------------------------------------------------
 
   /**
-   * @brief Blends three species concentrations into a single pixel.
-   * @param a Species A concentration in [0.0, 1.0].
-   * @param b Species B concentration in [0.0, 1.0].
-   * @param c Species C concentration in [0.0, 1.0].
-   * @param ca Palette color for species A.
-   * @param cb Palette color for species B.
-   * @param cc Palette color for species C.
-   * @return Composited RGB pixel. Requires non-negative @p a, @p b, @p c: the
-   *         blend then normalizes by their sum into a convex combination, which
-   *         keeps each 16-bit channel in [0, 65535] so the cast needs no clamp.
-   * @pre a + b + c >= SPECIES_EMPTY_EPS (the sole caller returns transparent
-   *      below that floor), so the reciprocal is finite.
-   * @details Concentration-weighted average: (ca·a + cb·b + cc·c) / (a + b + c),
-   *          a hue-driven mix that is not concentration-dimmed.
-   */
-  HS_O3_FN static Pixel blend_species(float a, float b, float c,
-                                      const Color4 &ca, const Color4 &cb,
-                                      const Color4 &cc) {
-    float inv = 1.0f / (a + b + c);
-    float r = (ca.color.r * a + cb.color.r * b + cc.color.r * c) * inv;
-    float g = (ca.color.g * a + cb.color.g * b + cc.color.g * c) * inv;
-    float bl = (ca.color.b * a + cb.color.b * b + cc.color.b * c) * inv;
-
-    return Pixel(static_cast<uint16_t>(r + 0.5f),
-                 static_cast<uint16_t>(g + 0.5f),
-                 static_cast<uint16_t>(bl + 0.5f));
-  }
-
-  /**
-   * @brief Turns accumulated kernel weights into a blended pixel color.
-   * @param tw Total Wendland weight over the stencil.
-   * @param wa Weighted sum of species A (Q16) over the stencil.
-   * @param wb Weighted sum of species B (Q16) over the stencil.
-   * @param wc Weighted sum of species C (Q16) over the stencil.
-   * @param ca Palette color for species A.
-   * @param cb Palette color for species B.
-   * @param cc Palette color for species C.
-   * @return Opaque blended Color4, or transparent black if no kernel weight
-   *         accumulates.
-   * @details The tail shared by every sub-sample: normalizes by total weight,
-   *          culls empty walks, and blends the three species.
-   */
-  HS_O3_FN static Color4 finalize_sample(float tw, float wa, float wb, float wc,
-                                         const Color4 &ca, const Color4 &cb,
-                                         const Color4 &cc) {
-    if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
-      return Color4(Pixel(0, 0, 0), 0.0f);
-
-    float inv = Q16_INV / tw;
-    float a = wa * inv, b = wb * inv, c = wc * inv;
-    float total = a + b + c;
-    if (total < SPECIES_EMPTY_EPS)
-      return Color4(Pixel(0, 0, 0), 0.0f);
-    return Color4(blend_species(a, b, c, ca, cb, cc),
-                  hs::clamp(total, 0.0f, 1.0f));
-  }
-
-  /**
    * @brief Hoisted 4× SSAA body for one pixel: refine once, re-weight per sample.
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
    * @param seed Cubemap-LUT seed node id for this pixel (from the vertex shader).
@@ -359,8 +301,8 @@ private:
       ++k;
     });
 
-    constexpr float inv_samples = 1.0f / 4.0f;
-    Pixel accum(0, 0, 0);
+    constexpr float INV_SAMPLES = 1.0f / 4.0f;
+    float accum_r = 0, accum_g = 0, accum_b = 0;
     for (int i = 0; i < 4; ++i) {
       Vector v = grid.at(x, i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
@@ -374,10 +316,19 @@ private:
                                wc += sc[j] * w;
                                tw += w;
                              });
-      Color4 c = finalize_sample(tw, wa, wb, wc, ca, cb, cc);
-      accum += c.color * (c.alpha * inv_samples);
+      float species_sum = wa + wb + wc;
+      if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT ||
+          species_sum < SPECIES_EMPTY_EPS * Q16_SCALE * tw)
+        continue;
+      float scale = INV_SAMPLES / std::max(species_sum, Q16_SCALE * tw);
+      accum_r += (ca.color.r * wa + cb.color.r * wb + cc.color.r * wc) * scale;
+      accum_g += (ca.color.g * wa + cb.color.g * wb + cc.color.g * wc) * scale;
+      accum_b += (ca.color.b * wa + cb.color.b * wb + cc.color.b * wc) * scale;
     }
-    return accum;
+    return Pixel(
+        static_cast<uint16_t>(hs::clamp(accum_r + 0.5f, 0.0f, 65535.0f)),
+        static_cast<uint16_t>(hs::clamp(accum_g + 0.5f, 0.0f, 65535.0f)),
+        static_cast<uint16_t>(hs::clamp(accum_b + 0.5f, 0.0f, 65535.0f)));
   }
 
   /**
