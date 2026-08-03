@@ -40,6 +40,7 @@
 #include "core/engine/generators.h"
 #include "core/render/led.h"
 #include "core/engine/memory.h"
+#include "core/mesh/hankin.h"
 #include "core/mesh/mesh.h"
 #include "core/render/plot.h"
 #include "core/render/scan.h"
@@ -847,6 +848,34 @@ inline void case_mesh_compile_face_counts_long() {
 }
 
 /**
+ * @brief Death case: update_hankin rejects a reused mesh whose retained
+ *        topology was classified from a different compiled pattern.
+ * @details The topology array survives an angle re-solve on purpose, so a mesh
+ *          pointed at a new pattern would otherwise carry class ids that no
+ *          longer match the faces written into it.
+ */
+inline void case_update_hankin_stale_topology() {
+  static uint8_t geom_buf[64 * 1024];
+  static uint8_t scratch_buf[64 * 1024];
+  Arena geom(geom_buf, sizeof(geom_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, geom);
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(cube, compiled, geom, scratch);
+
+  MeshState mesh;
+  const size_t stale = compiled.face_counts.size() - 1;
+  mesh.topology.bind(geom, stale);
+  for (size_t i = 0; i < stale; ++i)
+    mesh.topology.push_back(opaque<uint16_t>(0));
+  MeshOps::update_hankin(compiled, mesh, geom, opaque(0.0f));
+  if (mesh.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a face-offsets span with the wrong length must trap.
  * @details Mesh-borrow surface — the accessors index offsets by face, so an
  *          offsets array that is not one entry per face would read past its end
@@ -1645,6 +1674,7 @@ inline const Case *all_cases(int &n) {
       {"half_edge_face_counts_long", case_half_edge_face_counts_long},
       {"mesh_compile_face_counts_short", case_mesh_compile_face_counts_short},
       {"mesh_compile_face_counts_long", case_mesh_compile_face_counts_long},
+      {"update_hankin_stale_topology", case_update_hankin_stale_topology},
       {"mesh_state_set_view_offsets_count_mismatch",
        case_mesh_state_set_view_offsets_count_mismatch},
       {"mesh_state_set_view_offsets_short_span",
@@ -1938,7 +1968,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 89;
+  constexpr int DEATH_CASE_COUNT = 90;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
