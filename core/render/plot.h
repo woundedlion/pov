@@ -92,17 +92,10 @@ enum class RasterSamplingPolicy { DEFAULT, BALANCED, SELECTABLE };
 /** @brief Balanced-policy target spacing in screen pixels. */
 static constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
 
-/** @brief High-count shape target spacing in screen pixels. */
-static constexpr float DENSE_SCREEN_STEP_PX = 1.37f;
-
-/** @brief Alpha compensation slope for high-count shape spacing. */
-static constexpr float DENSE_SPACING_ALPHA_GAIN = 0.96f;
-
 /** @brief Source-over-aware alpha gain for balanced sample spacing. */
-static inline float balanced_sample_alpha(float alpha, float step_ratio,
-                                          float spacing_gain = 0.88f) {
+static inline float balanced_sample_alpha(float alpha, float step_ratio) {
   const float gain =
-      1.0f + (step_ratio - 1.0f) * (spacing_gain - 0.20f * alpha);
+      1.0f + (step_ratio - 1.0f) * (0.88f - 0.20f * alpha);
   return std::min(1.0f, alpha * gain);
 }
 
@@ -1488,8 +1481,6 @@ struct RasterOptions {
   const Fragment *loop_seam = nullptr;
   /** Enables balanced sampling for a SELECTABLE rasterizer. */
   bool balanced_sampling = false;
-  /** Screen-space spacing used when balanced sampling is enabled. */
-  float balanced_screen_step_px = BALANCED_SCREEN_STEP_PX;
 #ifdef HS_TEST_BUILD
   /** Rebuild a planar sampler after culling instead of reusing cull samples. */
   bool rebuild_planar_sampler = false;
@@ -1569,11 +1560,6 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       SamplingPolicy == RasterSamplingPolicy::BALANCED ||
       (SamplingPolicy == RasterSamplingPolicy::SELECTABLE &&
        opts.balanced_sampling);
-  const float balanced_screen_step_px = opts.balanced_screen_step_px;
-  const float balanced_spacing_gain =
-      balanced_screen_step_px > BALANCED_SCREEN_STEP_PX
-          ? DENSE_SPACING_ALPHA_GAIN
-          : 0.88f;
   auto &pipeline = source_pipeline;
   size_t len = points.size();
   // A degenerate path is not drawn — callers wanting a dot duplicate the vertex,
@@ -1701,11 +1687,6 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 
     // Sub-step length at the segment start (also the first simulation step).
     const float base_step = (2.0f * PI_F) / W;
-    const float balanced_base_cap =
-        base_step *
-        (balanced_screen_step_px > BALANCED_SCREEN_STEP_PX
-             ? balanced_screen_step_px / SCREEN_STEP_PX
-             : 1.0f);
     auto adaptive_step = [&](const SamplePT &value) {
 #ifdef HS_TEST_BUILD
       if (g_reference_screen_step)
@@ -1781,9 +1762,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       bool reuse_step = false;
       if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
         if (balanced_sampling)
-          desired_step =
-              std::min(balanced_base_cap,
-                       first_step * (balanced_screen_step_px / SCREEN_STEP_PX));
+          desired_step = std::min(
+              base_step,
+              first_step * (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
       }
       size_t step_count = 0;
       while (current_dist < total_dist) {
@@ -1823,8 +1804,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
           if (balanced_sampling) {
             const float alpha_scale = desired_step / default_desired_step;
-            f.color.alpha = balanced_sample_alpha(
-                f.color.alpha, alpha_scale, balanced_spacing_gain);
+            f.color.alpha =
+                balanced_sample_alpha(f.color.alpha, alpha_scale);
           }
         }
         HS_PLOT_COUNT(plotted_samples);
@@ -1885,10 +1866,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           desired_step = default_desired_step;
           if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
             if (balanced_sampling)
-              desired_step =
-                  std::min(balanced_base_cap,
-                           default_desired_step *
-                               (balanced_screen_step_px / SCREEN_STEP_PX));
+              desired_step = std::min(
+                  base_step,
+                  default_desired_step *
+                      (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
           }
         }
       }
@@ -1904,8 +1885,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
           if (balanced_sampling) {
             const float alpha_scale = desired_step / default_desired_step;
-            f.color.alpha = balanced_sample_alpha(
-                f.color.alpha, alpha_scale, balanced_spacing_gain);
+            f.color.alpha =
+                balanced_sample_alpha(f.color.alpha, alpha_scale);
           }
         }
         HS_PLOT_COUNT(plotted_samples);

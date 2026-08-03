@@ -325,8 +325,7 @@ private:
   template <typename F>
   __attribute__((noinline)) void
   draw_sampled(Canvas &canvas, size_t capacity, const Basis *planar_basis,
-               bool balanced_sampling, float balanced_screen_step_px,
-               const F &fragment_shader, auto &&fill) {
+               bool balanced_sampling, const F &fragment_shader, auto &&fill) {
     ScratchScope guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, capacity);
@@ -336,8 +335,7 @@ private:
         plot_filters, canvas, points, fragment_shader,
         {.planar_basis = planar_basis,
          .omit_end = true,
-         .balanced_sampling = balanced_sampling,
-         .balanced_screen_step_px = balanced_screen_step_px});
+         .balanced_sampling = balanced_sampling});
   }
 
   /**
@@ -362,9 +360,8 @@ private:
     case ShapeType::PLANAR_POLYGON: {
       Basis planar_basis =
           radius > 1.0f ? Plot::planar_chart_basis(-basis.v) : basis;
-      draw_sampled(canvas, static_cast<size_t>(sides + 2), &planar_basis, false,
-                   Plot::BALANCED_SCREEN_STEP_PX, fragment_shader,
-                   [&](Fragments &points) {
+      draw_sampled(canvas, static_cast<size_t>(sides + 2), &planar_basis,
+                   false, fragment_shader, [&](Fragments &points) {
                      Plot::PlanarPolygon::sample(points, basis, radius, sides,
                                                  shape_phase);
                    });
@@ -372,8 +369,7 @@ private:
     }
     case ShapeType::SPHERICAL_POLYGON:
       draw_sampled(canvas, static_cast<size_t>(sides + 2), nullptr, false,
-                   Plot::BALANCED_SCREEN_STEP_PX, fragment_shader,
-                   [&](Fragments &points) {
+                   fragment_shader, [&](Fragments &points) {
                      Plot::SphericalPolygon::sample(points, basis, radius,
                                                     sides, shape_phase);
                    });
@@ -382,8 +378,7 @@ private:
       Basis planar_basis =
           Plot::planar_chart_basis(get_antipode(basis, radius).first.v);
       draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
-                   false, Plot::BALANCED_SCREEN_STEP_PX, fragment_shader,
-                   [&](Fragments &points) {
+                   false, fragment_shader, [&](Fragments &points) {
                      Plot::Flower::sample(points, basis, radius, sides,
                                           shape_phase);
                    });
@@ -393,10 +388,8 @@ private:
       const auto antipode = get_antipode(basis, radius);
       Basis planar_basis = Plot::planar_chart_basis(antipode.first.v);
       draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
-                   params.count >= 32.0f,
-                   params.count >= 128.0f ? Plot::DENSE_SCREEN_STEP_PX
-                                          : Plot::BALANCED_SCREEN_STEP_PX,
-                   fragment_shader, [&](Fragments &points) {
+                   params.count >= 32.0f, fragment_shader,
+                   [&](Fragments &points) {
                      Plot::Star::sample_positions(points, basis, radius, sides,
                                                   shape_phase);
                    });
