@@ -2054,6 +2054,16 @@ struct ChaoticStringsWhiteBox {
   static Color4 sample_fire(const CS &fx, float t) {
     return fx.fire_palette.get(fx.duty_mod.modify(t));
   }
+  static float palette_fill_scale(size_t trail_length) {
+    return CS::palette_fill_scale(trail_length);
+  }
+  static Color4 shade_trail(const CS &fx, float palette_t, float age_t) {
+    return fx.shade_trail(palette_t, age_t);
+  }
+  static bool needs_adaptive_midpoint(const Vector &a, const Vector &mid,
+                                      const Vector &b) {
+    return CS::needs_adaptive_midpoint(a, mid, b);
+  }
 };
 
 /** @brief Verifies ChaoticStrings' sole preset and fire-palette duty window. */
@@ -2086,10 +2096,31 @@ inline void test_chaoticstrings_preset_and_fire_duty_cycle() {
   HS_EXPECT_GT(yellow.color.g, red.color.g);
   HS_EXPECT_TRUE(WB::sample_fire(fx, 0.50f).color == black);
   HS_EXPECT_TRUE(WB::sample_fire(fx, 0.75f).color == black);
+  const float dark_palette_t = 0.75f / value("Scale Factor");
+  HS_EXPECT_EQ(WB::shade_trail(fx, dark_palette_t, 0.50f).alpha, 0.0f);
 
   HS_EXPECT_TRUE(fx.updateParameter("Duty Cycle", 0.25f) ==
                  ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(WB::sample_fire(fx, 0.30f).color == black);
+
+  HS_EXPECT_EQ(WB::palette_fill_scale(1), 1.0f / WB::CS::TRAIL_LENGTH);
+  HS_EXPECT_EQ(WB::palette_fill_scale(WB::CS::TRAIL_LENGTH / 2),
+               static_cast<float>(WB::CS::TRAIL_LENGTH / 2) /
+                   WB::CS::TRAIL_LENGTH);
+  HS_EXPECT_EQ(WB::palette_fill_scale(WB::CS::TRAIL_LENGTH), 1.0f);
+  const float sample_index = 12.0f;
+  const float short_coord =
+      (sample_index / 32.0f) * WB::palette_fill_scale(32);
+  const float long_coord =
+      (sample_index / 96.0f) * WB::palette_fill_scale(96);
+  HS_EXPECT_NEAR(short_coord, long_coord, 1e-7f);
+
+  const Vector a = X_AXIS;
+  const Vector b = Y_AXIS;
+  HS_EXPECT_FALSE(WB::needs_adaptive_midpoint(a, slerp(a, b, 0.5f), b));
+  HS_EXPECT_TRUE(WB::needs_adaptive_midpoint(a, Z_AXIS, b));
+  HS_EXPECT_EQ(WB::CS::MAX_FRAGMENTS,
+               2 * WB::CS::TRAIL_LENGTH * WB::CS::ORIENTATION_SUBSTEPS);
 }
 
 /**
@@ -2119,8 +2150,10 @@ inline void test_chaoticstrings_scratch_estimate_covers_peak() {
     worst_vertices = std::max(worst_vertices, WB::tween_vertices(fx));
   }
 
-  constexpr size_t PREDICTED = (2 * CS::MAX_FRAGMENTS + 2) * sizeof(Fragment) +
-                               Plot::rasterize_scratch_a_bytes<SMALL_W>();
+  constexpr size_t PREDICTED =
+      CS::MAX_FRAGMENTS * sizeof(typename CS::TrailVertex) +
+      (CS::MAX_FRAGMENTS + 2) * sizeof(Fragment) +
+      Plot::rasterize_scratch_a_bytes<SMALL_W>();
   HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), PREDICTED);
   // The trail fills, so the peak above is a saturated frame and not a warm-up.
   HS_EXPECT_GT(worst_vertices, (size_t)CS::TRAIL_LENGTH);
