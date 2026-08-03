@@ -159,27 +159,36 @@ private:
     return radius_t <= 0.5f ? 2.0f * radius_t : 2.0f * (1.0f - radius_t);
   }
 
+  HS_FLASH_MEMBER void draw_star_pole_cap(Canvas &canvas, const Basis &basis,
+                                          float radius_t, int sides,
+                                          PhaseFunction function) {
+    const float radius = 2.0f * radius_t;
+    const Color4 color = baked_sunset.get(star_palette_position(radius_t));
+    const float cap_alpha =
+        std::min(1.0f, params.alpha * static_cast<float>(sides));
+    auto shader = [&](const Vector &, Fragment &fragment) {
+      fragment.color = color;
+      fragment.color.alpha *= cap_alpha;
+    };
+    const auto cap = get_antipode(basis, radius);
+    constexpr float MIN_CAP_RADIUS = 8.0f / W;
+    if (cap.second < MIN_CAP_RADIUS)
+      Scan::Circle::draw<W, H>(plot_filters, canvas, cap.first, MIN_CAP_RADIUS,
+                               shader);
+    else {
+      const float shape_phase = phase_direction(radius) * params.amplitude *
+                                evaluate(function, radius_t + phase);
+      Scan::Star::draw<W, H>(plot_filters, canvas, cap.first, cap.second, sides,
+                             shader, shape_phase);
+    }
+  }
+
   HS_FLASH_MEMBER void draw_star_pole_caps(Canvas &canvas, const Basis &basis,
                                            int count, int sides,
                                            PhaseFunction function) {
-    auto draw = [&](float radius_t, float radius) {
-      const float shape_phase = phase_direction(radius) * params.amplitude *
-                                evaluate(function, radius_t + phase);
-      const Color4 color = baked_sunset.get(star_palette_position(radius_t));
-      const float cap_alpha =
-          std::min(1.0f, params.alpha * static_cast<float>(sides));
-      auto shader = [&](const Vector &, Fragment &fragment) {
-        fragment.color = color;
-        fragment.color.alpha *= cap_alpha;
-      };
-      const auto cap = get_antipode(basis, radius);
-      Scan::Star::draw<W, H>(plot_filters, canvas, cap.first, cap.second, sides,
-                             shader, shape_phase);
-    };
     const float radius_t = 0.5f / static_cast<float>(count);
-    const float cap_radius = std::max(2.0f * radius_t, 4.0f / W);
-    draw(radius_t, cap_radius);
-    draw(1.0f - radius_t, 2.0f - cap_radius);
+    draw_star_pole_cap(canvas, basis, radius_t, sides, function);
+    draw_star_pole_cap(canvas, basis, 1.0f - radius_t, sides, function);
   }
 
   /** @brief Advances to the next preset and applies it atomically. */
