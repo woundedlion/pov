@@ -12,6 +12,7 @@ emits derived artifacts (all of gen/out/ is gitignored).
 
 kicad-cli is found via $KICAD_CLI, else common install paths, else PATH.
 """
+import argparse
 import csv
 import glob
 import json
@@ -627,6 +628,11 @@ def validate_assembly_metadata(comps, posrows, assembled):
     return metadata
 
 
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    return parser.parse_args(argv)
+
+
 def main():
     print(f"kicad-cli: {KCLI}")
     if not os.path.exists(PCB):
@@ -761,4 +767,5 @@ def main():
 
 
 if __name__ == "__main__":
+    parse_args()
     main()
