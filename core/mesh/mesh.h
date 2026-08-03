@@ -593,6 +593,11 @@ static inline uint32_t fold_face_topology_hash(uint32_t face_hash,
  * neighbor hashes via the half-edge pairing, then sorts and assigns a dense
  * topology id per distinct hash. Traps if the flat face lengths disagree or the
  * half-edge or face count exceeds the 16-bit index range.
+ *
+ * All three arenas may be the same object, unlike MeshOps::compile which
+ * forbids it: the pairing records nest inside the scratch_a scope in LIFO
+ * order, and the topology bind precedes the scratch scope so the rewind cannot
+ * free it.
  */
 template <typename MeshT>
 __attribute__((always_inline)) inline void
