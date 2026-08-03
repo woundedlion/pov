@@ -761,23 +761,26 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Regenerate reaction-graph table and diff numeric tokens
+      - name: Regenerate reaction-graph table and diff the full file
         # core/engine/reaction_graph.cpp is the 92 KB Fibonacci-lattice K-NN table,
         # emitted by scripts/generate_reaction_graph.py (pure Python, no deps).
-        # Re-run the generator and compare only the NUMERIC TOKENS in order: that
-        # is the neighbor-index data that matters, ignoring banner/whitespace. The
-        # table reproduces bit-for-bit only in double precision, so silent drift
-        # (a script edit, a hand-edit of the table, or a node()-formula change that
-        # diverges from the generator) is plausible — this fails loudly on it.
+        # Diff the FULL text, like the color_luts and srgb_decode gates: the
+        # banner, the array names and the declarations gate alongside the
+        # neighbor indices, and the file is excluded from the clang-format job
+        # (it is emitted, not hand-formatted) so nothing else reads them. The
+        # generator LF-pins its stdout and reproduces the committed file
+        # byte-for-byte, so any difference is a real divergence — a script edit,
+        # a hand-edit of the table, or a node()-formula change.
         run: |
           python3 scripts/generate_reaction_graph.py > /tmp/reaction_graph.generated.cpp
-          if ! diff <(grep -oE '[0-9]+' /tmp/reaction_graph.generated.cpp) \
-                    <(grep -oE '[0-9]+' core/engine/reaction_graph.cpp); then
+          if ! diff -u core/engine/reaction_graph.cpp \
+                    /tmp/reaction_graph.generated.cpp > /tmp/reaction_graph.diff; then
+            head -40 /tmp/reaction_graph.diff
             echo "::error::core/engine/reaction_graph.cpp is out of sync with scripts/generate_reaction_graph.py"
             echo "Regenerate with: python scripts/generate_reaction_graph.py > core/engine/reaction_graph.cpp"
             exit 1
           fi
-          echo "Reaction-graph numeric tokens match the generator."
+          echo "Regenerated table matches core/engine/reaction_graph.cpp in full."
 
   gamut-lut-provenance:
     name: Generated gamut LUT matches committed file

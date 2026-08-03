@@ -1,6 +1,6 @@
 # Run tools/gen_gamut_lut.py --check: pins the OKLab matrices and gamut slack
 # mirrored in the generator against core/color/color.h, then regenerates the
-# table and diffs its numeric tokens against the committed core/color/gamut_lut.h.
+# table and diffs it against the committed core/color/gamut_lut.h in full.
 # Skips with SKIP_CODE when Python or numpy is unavailable, or fails outright
 # under REQUIRE_PYTHON (CI, which provisions both).
 # -D args: PYTHON_EXE, GENERATOR, SKIP_CODE, REQUIRE_PYTHON.
