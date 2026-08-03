@@ -288,6 +288,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
 │   ├── screenshot_capture_config.mjs Per-effect capture offsets shared by capture and the CI gate
 │   ├── screenshot_capture_config.test.mjs Node unit test for the capture-offset table
+│   ├── screenshot_resolution.mjs Browser-free resolution descent: picks the first resolution the app honors
+│   ├── screenshot_resolution.test.mjs Node unit test for that descent (fallback, empty list, prefix names)
 │   ├── png_probe.mjs           Dependency-free PNG chunk/CRC/inflate validator behind the gallery gate
 │   ├── png_probe.test.mjs      Node unit test for the PNG validator (corrupt/empty fixtures)
 │   └── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster and decodes (CI)

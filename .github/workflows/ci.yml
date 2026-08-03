@@ -842,13 +842,17 @@ jobs:
     # The docs/screenshots gallery is installed into daydream and served live,
     # but a full headless re-capture per build is far too slow to gate on. This
     # job is the cheap freshness check instead: it (1) syntax-checks the capture
-    # script so it can't silently break, (2) asserts the committed PNG set
-    # matches the HS_EFFECT_LIST roster exactly (every effect has a PNG, no
+    # script and unit-tests the browser-free decisions it makes — the capture
+    # offsets and the resolution descent, which is what keeps a frame from being
+    # saved under a different effect's filename — (2) asserts the committed PNG
+    # set matches the HS_EFFECT_LIST roster exactly (every effect has a PNG, no
     # orphans) — catching roster drift like an added/renamed effect whose
     # screenshot was never captured — and (3) validates each PNG datastream and
-    # its stored dimensions, so a zero-byte or bit-rotted asset cannot ship. It
-    # cannot detect a visually-stale PNG; that still relies on a manual
-    # `npm run screenshots` re-capture.
+    # its stored dimensions, so a zero-byte or bit-rotted asset cannot ship.
+    # KNOWN GAP: nothing here compares PNG pixels to what the effect renders, so
+    # a visually-stale image still relies on a manual `npm run screenshots`
+    # re-capture. Driving the real capture would need a Playwright browser and a
+    # served daydream checkout per build.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -867,9 +871,10 @@ jobs:
       - name: Syntax-check the capture script
         run: node --check scripts/capture_screenshots.mjs
 
-      - name: Capture offsets and the PNG probe are unit-tested
+      - name: Capture offsets, resolution descent and the PNG probe are unit-tested
         run: |
           node --test scripts/screenshot_capture_config.test.mjs \
+                      scripts/screenshot_resolution.test.mjs \
                       scripts/png_probe.test.mjs
 
       - name: Gallery covers every registered effect
