@@ -142,6 +142,7 @@ target_include_directories(mindsplatter_replay PRIVATE ${HS_ROOT} ${HS_ROOT}/cor
 target_compile_options(mindsplatter_replay PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(mindsplatter_replay)
+_hs_sanitize(mindsplatter_replay)
 add_test(NAME unit_mindsplatter_replay COMMAND mindsplatter_replay)
 
 # Opt-in Clang source-based coverage for the main suite binary. Default OFF: the
