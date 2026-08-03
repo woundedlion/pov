@@ -4457,7 +4457,9 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
                      (Plot::BALANCED_SCREEN_STEP_PX / Plot::SCREEN_STEP_PX));
   HS_EXPECT_NEAR(standard.alphas.front(), 0.4f, 1e-6f);
   HS_EXPECT_NEAR(balanced.alphas.front(),
-                 std::min(1.0f, 0.4f * candidate_step / default_step), 1e-6f);
+                 Plot::balanced_sample_alpha(0.4f,
+                                             candidate_step / default_step),
+                 1e-6f);
   for (const Vector &point : balanced.plotted)
     HS_EXPECT_NEAR(point.length(), 1.0f, 5e-3f);
 }
