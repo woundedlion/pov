@@ -75,6 +75,25 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues[0].line, 2)
         self.assertIn("core/platform.h", issues[0].message)
 
+    def test_backticked_firmware_linker_and_board_paths_are_linted(self):
+        text = (FIXTURES / "native_format_paths.txt").read_text(encoding="utf-8")
+        entries = {
+            PurePosixPath("targets"),
+            PurePosixPath("targets/Phantasm"),
+            PurePosixPath("targets/Phantasm/Phantasm.ino"),
+            PurePosixPath("tools"),
+            PurePosixPath("tools/phantasm.ld"),
+            PurePosixPath("hardware"),
+            PurePosixPath("hardware/phantasm"),
+            PurePosixPath("hardware/phantasm/phantasm.kicad_pcb"),
+            PurePosixPath("docs"),
+        }
+        issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries)
+        self.assertEqual([issue.line for issue in issues],
+                         [2, 4, 6, 7, 8, 9, 10, 11, 12, 13])
+        self.assertIn("targets/Phantasm/Ghost.ino", issues[0].message)
+        self.assertIn("tools/ghost.ld", issues[1].message)
+
     def test_absolute_self_repo_blob_links_are_validated(self):
         text = ("[ok](https://github.com/woundedlion/pov/blob/master/docs/real.md)\n"
                 "[bad](https://github.com/woundedlion/pov/blob/master/docs/ghost.md)\n"

@@ -40,9 +40,11 @@ _LINE_FRAGMENT_RE = re.compile(r"^L\d+(?:-L?\d+)?$", re.IGNORECASE)
 # A backticked token is linted as a repo path only when it carries one of these
 # suffixes; anything else in backticks is prose, an identifier, or a command.
 _SOURCE_SUFFIXES = frozenset({
-    ".c", ".cmake", ".cpp", ".css", ".h", ".hpp", ".html", ".ini", ".js",
-    ".json", ".markdown", ".md", ".mjs", ".py", ".sh", ".svg", ".toml", ".ts",
-    ".txt", ".wasm", ".yaml", ".yml",
+    ".c", ".cfg", ".cmake", ".cpp", ".css", ".h", ".hpp", ".html", ".ini",
+    ".ino", ".js", ".json", ".kicad_mod", ".kicad_pcb", ".kicad_pro",
+    ".kicad_sch", ".kicad_sym", ".ld", ".markdown", ".md", ".mjs", ".png",
+    ".py", ".sh", ".svg", ".toml", ".ts", ".txt", ".wasm", ".wrl", ".yaml",
+    ".yml",
 })
 # Optional trailing :line or :line-line, as the ledgers cite source spans.
 _PATH_SPAN_RE = re.compile(r"^([A-Za-z0-9_.][\w.\-/]*)(?::\d+(?:-\d+)?)?$")
