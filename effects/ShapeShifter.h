@@ -155,6 +155,10 @@ private:
                       static_cast<float>(STEPS_TO_EQUATOR);
   }
 
+  static constexpr float star_palette_position(float radius_t) {
+    return radius_t <= 0.5f ? 2.0f * radius_t : 2.0f * (1.0f - radius_t);
+  }
+
   /** @brief Advances to the next preset and applies it atomically. */
   void next_preset() {
     presets.next();
@@ -234,7 +238,9 @@ private:
       }
       const float shape_phase = phase_direction(radius) * params.amplitude *
                                 evaluate(function, radius_t + phase);
-      const Color4 color = baked_sunset.get(radius_t);
+      const float color_position =
+          shape == ShapeType::STAR ? star_palette_position(radius_t) : radius_t;
+      const Color4 color = baked_sunset.get(color_position);
       const float alpha = params.alpha * shape_alpha(i, count);
 
       auto shader = [&](const Vector &, Fragment &fragment) {
@@ -261,7 +267,9 @@ private:
       const float radius = 2.0f * radius_t;
       const float shape_phase = phase_direction(radius) * params.amplitude *
                                 evaluate(function, radius_t + phase);
-      const Color4 color = baked_sunset.get(radius_t);
+      const float color_position =
+          shape == ShapeType::STAR ? star_palette_position(radius_t) : radius_t;
+      const Color4 color = baked_sunset.get(color_position);
       const float alpha = params.alpha * shape_alpha(i, count);
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
