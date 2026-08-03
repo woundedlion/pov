@@ -637,6 +637,11 @@ static inline GeodesicEdgeSpan make_geodesic_edge_span(const Vector &a,
 
 constexpr int PLANAR_SPAN_SAMPLES = 8;
 
+// make_planar_edge_sampler reads the arc-length table straight out of the span's
+// interior samples at stride 2, so the span count must be exactly twice the
+// arc-table count.
+static_assert(PLANAR_SPAN_SAMPLES == 2 * PLANAR_LEN_SAMPLES);
+
 /**
  * @brief Shared per-edge planar setup for the row/column span bounds.
  * @details Projects the edge and samples its chart line through the
