@@ -163,6 +163,10 @@ struct ShapeShifterWhiteBox {
     return effect.phase_direction(radius);
   }
 
+  static float shape_alpha(int index, int count) {
+    return OracleEffect::shape_alpha(index, count);
+  }
+
   static void next_preset(OracleEffect &effect) { effect.next_preset(); }
 };
 
@@ -425,6 +429,13 @@ inline void test_amplitude_preserves_sweep_velocity() {
                  0.01f, 1e-6f);
 }
 
+inline void test_shape_alpha_fades_linearly() {
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(0, 1), 1.0f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(0, 5), 1.0f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 5), 0.6f, 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(4, 5), 0.2f, 1e-6f);
+}
+
 inline void test_opposite_halves_direction() {
   {
     OracleEffect effect;
@@ -488,6 +499,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_candidate_matrix_stays_within_visual_budget();
   test_segment_tiles_reconstruct_full_frame();
   test_amplitude_preserves_sweep_velocity();
+  test_shape_alpha_fades_linearly();
   test_opposite_halves_direction();
   test_preset_transition_snaps();
   return fixture.result();

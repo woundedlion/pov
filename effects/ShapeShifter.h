@@ -146,6 +146,10 @@ private:
     return !params.opposite && radius > 1.0f ? -1.0f : 1.0f;
   }
 
+  static constexpr float shape_alpha(int index, int count) {
+    return 1.0f - static_cast<float>(index) / static_cast<float>(count);
+  }
+
   /** @brief Advances to the next preset and applies it atomically. */
   void next_preset() {
     presets.next();
@@ -173,10 +177,11 @@ private:
       const float shape_phase = phase_direction(radius) * params.amplitude *
                                 evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(radius_t);
+      const float alpha = params.alpha * shape_alpha(i, count);
 
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
-        fragment.color.alpha *= params.alpha;
+        fragment.color.alpha *= alpha;
       };
       dispatch_plot(canvas, basis, shape, radius, sides, shader, shape_phase);
     }
@@ -199,9 +204,10 @@ private:
       const float shape_phase = phase_direction(radius) * params.amplitude *
                                 evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(radius_t);
+      const float alpha = params.alpha * shape_alpha(i, count);
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
-        fragment.color.alpha *= params.alpha;
+        fragment.color.alpha *= alpha;
       };
       dispatch_plot_reference(canvas, basis, shape, radius, sides, shader,
                               shape_phase);
