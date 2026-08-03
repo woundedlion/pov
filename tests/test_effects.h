@@ -1653,9 +1653,23 @@ inline void test_bz_substep_diffuses() {
   HS_EXPECT_GT(spread, 0); // A diffused into at least one empty neighbor
 }
 
-/** @brief Pins the optimized BZ raster against its scalar sampling contract. */
+/**
+ * @brief Pins the optimized BZ raster against its scalar sampling contract.
+ * @details reference_shade composites the four SSAA samples the naive way: it
+ *          normalizes each sample to concentrations, blends the palette into a
+ *          uint16 Pixel, premultiplies by that sample's coverage, and adds the
+ *          result into a uint16 accumulator. shade_pixel fuses the same algebra
+ *          into float species coefficients and quantizes once at the end, so
+ *          the two agree only up to the reference's intermediate rounding:
+ *          four palette-blend roundings weighted by coverages that sum to at
+ *          most 1 (<= 0.5 LSB), four premultiply roundings (<= 2.0 LSB), and
+ *          the single final rounding both paths pay (<= 0.5 LSB). Any channel
+ *          past that 3 LSB envelope is a formula difference, not round-off.
+ */
 inline void test_bz_raster_matches_reference() {
   using WhiteBox = BZWhiteBox;
+  constexpr int MAX_ROUNDING_DRIFT = 3;
+  auto drift = [](uint16_t p, uint16_t q) { return p > q ? p - q : q - p; };
   std::vector<Vector> nodes(WhiteBox::N);
   std::vector<uint16_t> a(WhiteBox::N), b(WhiteBox::N), c(WhiteBox::N);
   for (int i = 0; i < WhiteBox::N; ++i) {
@@ -1685,8 +1699,9 @@ inline void test_bz_raster_matches_reference() {
             bz, seed, center, nodes.data(), grid, x, ca, cb, cc);
         Pixel actual = WhiteBox::shade(bz, seed, center, nodes.data(), grid, x,
                                        ca, cb, cc);
-        if (actual.r != expected.r || actual.g != expected.g ||
-            actual.b != expected.b)
+        if (drift(actual.r, expected.r) > MAX_ROUNDING_DRIFT ||
+            drift(actual.g, expected.g) > MAX_ROUNDING_DRIFT ||
+            drift(actual.b, expected.b) > MAX_ROUNDING_DRIFT)
           ++mismatches;
       }
     }
