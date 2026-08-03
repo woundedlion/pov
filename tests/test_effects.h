@@ -3905,6 +3905,7 @@ inline void test_shapeshifter_preset_defaults() {
     return -1.0f;
   };
 
+  HS_EXPECT_EQ(value("Alpha"), 1.0f);
   HS_EXPECT_EQ(value("Shape"), 1.017f);
   HS_EXPECT_EQ(value("Count"), 74.644997f);
   HS_EXPECT_EQ(value("Sides"), 3.0f);
