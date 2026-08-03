@@ -439,7 +439,11 @@ inline void test_high_count_star_preset_covers_north_pole() {
   const uint64_t reference_pole_energy = row_energy(comparison.reference, 0);
   const uint64_t candidate_pole_energy = row_energy(comparison.candidate, 0);
   size_t uncovered_pole_pixels = 0;
+  size_t reference_covered = 0;
+  size_t candidate_covered = 0;
   for (int x = 0; x < ORACLE_W; ++x) {
+    reference_covered += pixel_has_coverage(comparison.reference.at(x, 0));
+    candidate_covered += pixel_has_coverage(comparison.candidate.at(x, 0));
     if (!pixel_is_bright(comparison.reference.at(x, 0)))
       continue;
     bool covered = false;
@@ -452,6 +456,7 @@ inline void test_high_count_star_preset_covers_north_pole() {
   }
   HS_EXPECT_GT(reference_pole_energy, uint64_t{0});
   HS_EXPECT_GE(candidate_pole_energy * 10, reference_pole_energy * 9);
+  HS_EXPECT_GE(candidate_covered * 100, reference_covered * 98);
   HS_EXPECT_EQ(uncovered_pole_pixels, size_t{0});
 }
 
@@ -500,6 +505,18 @@ inline void test_segment_tiles_reconstruct_full_frame() {
                               {0, ORACLE_H / 2, ORACLE_W / 2, ORACLE_W},
                               {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
                               {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
+  auto expect_tiled = [&](OracleState state) {
+    const OracleFrame full = capture_frame(state, candidate_renderer());
+    OracleFrame tiled;
+    tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
+    for (const OracleClip &clip : clips) {
+      state.clip = clip;
+      copy_clip(tiled, capture_frame(state, candidate_renderer()), clip);
+    }
+    const FrameErrorStats error = compare_buffers(full, tiled);
+    HS_EXPECT_TRUE(error.exact());
+    HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
+  };
   OracleState state;
   state.shape = OracleEffect::ShapeType::STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
@@ -508,16 +525,10 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   state.phase = 0.37f;
   state.alpha = 0.274f;
   state.orientation = Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
-  const OracleFrame full = capture_frame(state, candidate_renderer());
-  OracleFrame tiled;
-  tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
-  for (const OracleClip &clip : clips) {
-    state.clip = clip;
-    copy_clip(tiled, capture_frame(state, candidate_renderer()), clip);
-  }
-  const FrameErrorStats error = compare_buffers(full, tiled);
-  HS_EXPECT_TRUE(error.exact());
-  HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
+  expect_tiled(state);
+  state.phase = 0.125f;
+  state.orientation = make_rotation(X_AXIS, Y_AXIS);
+  expect_tiled(state);
 }
 
 /**

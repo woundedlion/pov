@@ -4496,8 +4496,8 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
     HS_EXPECT_NEAR(point.length(), 1.0f, 5e-3f);
 }
 
-/** @brief Cadence reuse stays disabled in the polar clamp region. */
-inline void test_rasterize_balanced_cadence_pole_guard() {
+/** @brief Balanced sampling keeps default cadence in the polar clamp region. */
+inline void test_rasterize_balanced_pole_guard() {
   constexpr int W = 144, H = 72;
   const Basis basis = basis_from_normal(Y_AXIS);
   auto near_pole = [&](float azimuth) {
@@ -4528,6 +4528,8 @@ inline void test_rasterize_balanced_cadence_pole_guard() {
       {.planar_basis = &basis, .balanced_sampling = true});
   HS_EXPECT_GT(Plot::g_planar_full_samples, uint32_t{2});
   HS_EXPECT_EQ(Plot::g_planar_position_samples, uint32_t{0});
+  for (float alpha : pipeline.alphas)
+    HS_EXPECT_NEAR(alpha, 0.4f, 1e-6f);
 }
 
 /** @brief Balanced planar stars retain connected, energy-stable clipped coverage. */
@@ -4939,7 +4941,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_default_sampling_policy_bit_parity();
   test_rasterize_balanced_sampling_scope();
   test_rasterize_balanced_sampling_density_and_alpha();
-  test_rasterize_balanced_cadence_pole_guard();
+  test_rasterize_balanced_pole_guard();
   test_rasterize_balanced_star_visual_budget();
   test_rasterize_single_pass_geodesic_endpoints_and_omit_end();
   test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free();
