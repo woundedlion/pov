@@ -150,6 +150,17 @@ struct ShapeShifterWhiteBox {
     effect.draw_all(canvas);
   }
 
+  static void render_star_caps(OracleEffect &effect, Canvas &canvas) {
+    effect.plot_filters.prepare(canvas);
+    const Basis basis = make_basis(effect.orientation.get(), X_AXIS);
+    effect.draw_star_pole_caps(
+        canvas, basis,
+        hs::clamp(static_cast<int>(effect.params.count), 1,
+                  OracleEffect::MAX_SHAPES),
+        hs::clamp(static_cast<int>(effect.params.sides), 3, 16),
+        effect.selected_function());
+  }
+
   static float advance_phase(OracleEffect &effect, float speed,
                              float amplitude) {
     effect.phase = 0.0f;
@@ -590,6 +601,39 @@ inline void test_star_pole_caps_fill_star_arms() {
                BRIGHT_ENERGY);
 }
 
+inline void test_star_pole_cap_covers_display_pole() {
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::STAR;
+  state.function = OracleEffect::PhaseFunction::SQUARE;
+  state.count = 4;
+  state.sides = 7;
+  state.phase = 0.0f;
+  state.alpha = 0.274f;
+  state.orientation = make_rotation(X_AXIS, Y_AXIS);
+  const OracleFrame frame = capture_frame(state, candidate_renderer());
+
+  for (int y = 0; y < 6; ++y)
+    for (int x = 0; x < ORACLE_W; ++x)
+      HS_EXPECT_TRUE(pixel_has_coverage(frame.at(x, y)));
+}
+
+inline void test_high_count_star_cap_fills_visible_center() {
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::STAR;
+  state.function = OracleEffect::PhaseFunction::SINE;
+  state.count = 144;
+  state.sides = 7;
+  state.phase = 0.125f;
+  state.alpha = 0.274f;
+  const OracleFrame frame =
+      capture_frame(state, [](OracleEffect &effect, Canvas &canvas) {
+        ShapeShifterWhiteBox::render_star_caps(effect, canvas);
+      });
+  HS_EXPECT_EQ(uncovered_geometric_pole_pixels(frame, X_AXIS, 2.0f), size_t{0});
+  HS_EXPECT_EQ(uncovered_geometric_pole_pixels(frame, -X_AXIS, 2.0f),
+               size_t{0});
+}
+
 inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
                       const OracleClip &clip) {
   for (int y = clip.y0; y < clip.y1; ++y)
@@ -800,6 +844,8 @@ inline int run_shapeshifter_oracle_tests() {
   test_high_count_star_preset_has_no_geometric_pole_hole();
   test_star_pole_caps_fill_innermost_contours();
   test_star_pole_caps_fill_star_arms();
+  test_star_pole_cap_covers_display_pole();
+  test_high_count_star_cap_fills_visible_center();
   test_segment_tiles_reconstruct_full_frame();
   test_star_azimuthal_cull_spans_narrow_columns();
   test_amplitude_preserves_sweep_velocity();
