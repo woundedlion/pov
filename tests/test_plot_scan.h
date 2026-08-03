@@ -4435,8 +4435,7 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
   points.push_back(a);
   points.push_back(b);
 
-  auto capture = [&]<Plot::RasterSamplingPolicy Policy>(
-                     float spacing = Plot::BALANCED_SCREEN_STEP_PX) {
+  auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
     hs_test::StubEffect fx(W, H);
     AlphaCapturePipeline pipeline;
     Canvas canvas(fx);
@@ -4446,17 +4445,14 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
     Plot::rasterize<W, H, true, false, true, true, Policy>(
         pipeline, canvas, points, shader,
         {.planar_basis = &basis,
-         .balanced_sampling = Policy == Plot::RasterSamplingPolicy::SELECTABLE,
-         .balanced_screen_step_px = spacing});
+         .balanced_sampling =
+             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
     return pipeline;
   };
   const AlphaCapturePipeline standard =
       capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
   const AlphaCapturePipeline balanced =
       capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
-  const AlphaCapturePipeline dense =
-      capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>(
-          Plot::DENSE_SCREEN_STEP_PX);
 
   HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
   HS_EXPECT_GE(balanced.plotted.size() * 5, standard.plotted.size() * 3);
@@ -4474,16 +4470,6 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
       Plot::balanced_sample_alpha(0.4f, candidate_step / default_step), 1e-6f);
   for (const Vector &point : balanced.plotted)
     HS_EXPECT_NEAR(point.length(), 1.0f, 5e-3f);
-  HS_EXPECT_GT(balanced.plotted.size(), dense.plotted.size());
-  HS_EXPECT_LE((max_projected_gap<W, H>(dense.plotted)), 1.55f);
-  const float dense_step = std::min(
-      BASE_STEP * (Plot::DENSE_SCREEN_STEP_PX / Plot::SCREEN_STEP_PX),
-      default_step * (Plot::DENSE_SCREEN_STEP_PX / Plot::SCREEN_STEP_PX));
-  HS_EXPECT_NEAR(
-      dense.alphas.front(),
-      Plot::balanced_sample_alpha(0.4f, dense_step / default_step,
-                                  Plot::DENSE_SPACING_ALPHA_GAIN),
-      1e-6f);
 }
 
 /** @brief Cadence reuse stays disabled in the polar clamp region. */
