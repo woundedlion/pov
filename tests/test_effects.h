@@ -798,6 +798,12 @@ struct GSWhiteBox {
       (GS::STABLE_HOLD_SUBSTEPS + GS::EVOLUTION_STEPS_PER_FRAME - 1) /
       GS::EVOLUTION_STEPS_PER_FRAME;
 
+  // refine_render_center's early-out certificates.
+  static constexpr int POLE_BAND = GS::POLE_BAND;
+  static constexpr float BULK_MIN_SPACING_FRAC = GS::BULK_MIN_SPACING_FRAC;
+  static constexpr float BULK_CERTIFIED_D2 = GS::BULK_CERTIFIED_D2;
+  static constexpr float POLE_CERTIFIED_D2 = GS::POLE_CERTIFIED_D2;
+
   static void step(GS &gs, const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
                    uint16_t *nB) {
     // The production substep is float-resident; this seam keeps the tests'
@@ -965,6 +971,74 @@ inline void test_gs_q16_roundtrip() {
     if (GSWhiteBox::to_q16(GSWhiteBox::from_q16((uint16_t)v)) != (uint16_t)v)
       ++bad;
   HS_EXPECT_EQ(bad, 0);
+}
+
+/**
+ * @brief Re-measures the lattice and requires refine_render_center's early-out
+ *        certificates to bound the true minimum node spacing.
+ * @details The early-out returns the seed unwalked whenever the query lies
+ *          within sqrt(safe_d2) of it. That is the nearest node only while
+ *          safe_d2 stays at or under a quarter of the seed's true
+ *          nearest-neighbor distance squared, so BULK_CERTIFIED_D2 /
+ *          POLE_CERTIFIED_D2 / BULK_MIN_SPACING_FRAC / POLE_BAND are all
+ *          hand-measured properties of the generated lattice. The shipped
+ *          static_asserts only cross-check them against each other: a change to
+ *          RD_N, to the generator, or to the index-to-latitude mapping would
+ *          leave every one of them silently wrong and the early-out returning a
+ *          non-nearest node. This recomputes them from node() and fails if the
+ *          shipped constants stop bounding the measurement.
+ *
+ *          The per-node minimum is exact, not sampled: node()'s y is strictly
+ *          decreasing in the index and chord distance is at least |dy|, so
+ *          scanning outward from each index and stopping once |dy| reaches the
+ *          running best cannot skip a closer node.
+ */
+inline void test_gs_render_certificates_bound_lattice() {
+  const int n = GSWhiteBox::N;
+  std::vector<Vector> lattice(static_cast<size_t>(n));
+  for (int i = 0; i < n; ++i)
+    lattice[static_cast<size_t>(i)] = ReactionGraph::node(i);
+
+  const float bulk_floor =
+      GSWhiteBox::BULK_MIN_SPACING_FRAC * ReactionGraph::D_AVG;
+  float bulk_min_d2 = 4.0f; // antipodal chord squared: the loosest possible
+  float pole_min_d2 = 4.0f;
+  int tight_band = 0; // band width the sub-bulk-spacing nodes actually need
+  for (int i = 0; i < n; ++i) {
+    const Vector &p = lattice[static_cast<size_t>(i)];
+    float best = 4.0f;
+    for (int step = -1; step <= 1; step += 2) {
+      for (int j = i + step; j >= 0 && j < n; j += step) {
+        const Vector &q = lattice[static_cast<size_t>(j)];
+        float dy = p.y - q.y;
+        if (dy * dy >= best)
+          break;
+        float dx = p.x - q.x, dz = p.z - q.z;
+        float d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < best)
+          best = d2;
+      }
+    }
+    if (i < GSWhiteBox::POLE_BAND || i >= n - GSWhiteBox::POLE_BAND) {
+      pole_min_d2 = std::min(pole_min_d2, best);
+    } else {
+      bulk_min_d2 = std::min(bulk_min_d2, best);
+    }
+    if (best < bulk_floor * bulk_floor)
+      tight_band = std::max(tight_band, std::min(i, n - 1 - i) + 1);
+  }
+
+  const float bulk_frac = std::sqrt(bulk_min_d2) / ReactionGraph::D_AVG;
+  std::printf("  [info] GS lattice: bulk min spacing %.6f*D_AVG, bulk d2/4 "
+              "%.9f, pole d2/4 %.9f, tight band %d\n",
+              bulk_frac, 0.25f * bulk_min_d2, 0.25f * pole_min_d2, tight_band);
+
+  HS_EXPECT_LE(GSWhiteBox::BULK_MIN_SPACING_FRAC, bulk_frac);
+  HS_EXPECT_LE(GSWhiteBox::BULK_CERTIFIED_D2, 0.25f * bulk_min_d2);
+  HS_EXPECT_LE(GSWhiteBox::POLE_CERTIFIED_D2, 0.25f * pole_min_d2);
+  // Every node packed tighter than the bulk minimum must fall inside the band
+  // that gets the smaller certificate.
+  HS_EXPECT_LE(tight_band, GSWhiteBox::POLE_BAND);
 }
 
 /**
@@ -4748,6 +4822,7 @@ inline int run_effects_tests() {
   test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
   test_gs_opaque_quarter_accumulation_is_exact();
+  test_gs_render_certificates_bound_lattice();
   test_gs_shared_stencil_error_is_bounded();
   test_gs_dissolve_frontier_fades_before_clear();
   test_gs_substep_matches_scalar_reference();
