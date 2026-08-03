@@ -5,6 +5,7 @@
 #pragma once
 
 #include <array>
+#include <limits>
 
 #include "core/math/spherical_field.h"
 #include "tests/test_fixture.h"
@@ -96,6 +97,31 @@ inline void test_longitude_stays_in_ring_at_negative_seam() {
   HS_EXPECT_LT(seam.left, ring.offset + ring.samples);
   HS_EXPECT_GE(seam.right, ring.offset);
   HS_EXPECT_LT(seam.right, ring.offset + ring.samples);
+}
+
+inline void test_longitude_saturates_out_of_domain_input() {
+  constexpr hs::SphericalFieldLayout<64, 33, 0> layout(4);
+  const auto ring = layout.ring(4);
+  // volatile keeps the non-finite inputs out of constant folding, so the cast
+  // runs at runtime where an unclamped NaN would index far outside the ring.
+  volatile float source[]{std::numeric_limits<float>::quiet_NaN(),
+                          std::numeric_limits<float>::infinity(),
+                          -std::numeric_limits<float>::infinity()};
+  for (volatile float &x : source) {
+    const auto seam = layout.longitude(ring, x);
+    HS_EXPECT_EQ(seam.left, ring.offset + ring.samples - 1);
+    HS_EXPECT_EQ(seam.right, ring.offset);
+    HS_EXPECT_EQ(seam.mix, 1.0f);
+  }
+
+  // Finite longitudes wrap exactly however far out of [0, W) they start.
+  const auto expected = layout.longitude(ring, 17.0f);
+  for (float x : {17.0f + 262144.0f, 17.0f - 262144.0f}) {
+    const auto wrapped = layout.longitude(ring, x);
+    HS_EXPECT_EQ(wrapped.left, expected.left);
+    HS_EXPECT_EQ(wrapped.right, expected.right);
+    HS_EXPECT_EQ(wrapped.mix, expected.mix);
+  }
 }
 
 inline void test_populate_band_preserves_other_samples() {
@@ -235,6 +261,7 @@ inline int run_spherical_field_tests() {
   test_metric_spacing_is_uniform();
   test_unequal_rings_have_independent_longitude_mix();
   test_longitude_stays_in_ring_at_negative_seam();
+  test_longitude_saturates_out_of_domain_input();
   test_populate_band_preserves_other_samples();
   test_longitude_filter_tracks_spherical_width();
   test_longitude_filter_and_sampler_wrap_poles();

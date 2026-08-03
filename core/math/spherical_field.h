@@ -285,14 +285,18 @@ public:
    * @brief Locates the samples bracketing a fractional longitude.
    * @param ring Target latitude ring.
    * @param x Longitude in any range; wrapped into [0, W), so both project()'s
-   *   signed x and sample_coordinates()' [0, W) are accepted.
+   *   signed x and sample_coordinates()' [0, W) are accepted. A non-finite x
+   *   saturates to the ring's seam.
    * @return Absolute sample indices (ring.offset applied) and their mix.
    */
   constexpr Longitude longitude(const Ring &ring, float x) const {
     float wrapped_x = std::fmod(x, static_cast<float>(W));
     if (wrapped_x < 0.0f)
       wrapped_x += W;
-    const float position = wrapped_x * ring.samples / W;
+    // fmod turns either infinity into NaN, which then passes the sign test; the
+    // clamp saturates it before the cast, which would otherwise be UB.
+    const float position = hs::clamp(wrapped_x * ring.samples / W, 0.0f,
+                                     static_cast<float>(ring.samples));
     // A tiny negative x rounds wrapped_x up to exactly W, so the truncation
     // would otherwise land one sample past the ring.
     const int left = std::min(static_cast<int>(position), ring.samples - 1);
