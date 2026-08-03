@@ -226,17 +226,19 @@ jobs:
         # generator and instrument no sanitized code, and this job provisions
         # neither python3 nor numpy, so they can only skip. The plain tests job
         # runs them with -DHS_REQUIRE_GENERATORS=ON and the provenance jobs re-run
-        # them standalone. Shard membership is untouched, so the shard-coverage
-        # job still asserts every registered test is claimed by exactly one shard.
-        # --no-tests=error for the same reason as the tests job; every shard keeps
-        # tests outside the -E set.
+        # them standalone. matrix.test_exclude is the *generated_exclude anchor
+        # each shard entry already carries, so the set cannot drift from the one
+        # the matrix declares. Shard membership is untouched, so the
+        # shard-coverage job still asserts every registered test is claimed by
+        # exactly one shard. --no-tests=error for the same reason as the tests
+        # job; every shard keeps tests outside the -E set.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
-          -E "^unit_(color_luts|color_luts_check|gamut_lut)$"
+          -E "${{ matrix.test_exclude }}"
 
   thread-sanitizer:
     name: Native unit tests (Clang, TSan) / concurrency modules
