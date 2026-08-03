@@ -306,10 +306,9 @@ inline void test_edge_reciprocity_high() {
 
 /**
  * @brief Verifies CubemapLUT maps a node's own direction back to that node.
- * @details Looking up a node's own direction should return that node, or at
- *          worst a direct neighbor (cubemap texel quantization can land one cell
- *          over); the overwhelming majority must be exact or an immediate
- *          neighbor.
+ * @details Looking up a node's own direction returns that node, or at worst a
+ *          direct neighbor (cubemap texel quantization can land one cell over).
+ *          No lattice point may land two hops out.
  */
 inline void test_cubemap_lut_roundtrip() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
@@ -339,9 +338,9 @@ inline void test_cubemap_lut_roundtrip() {
   }
   std::printf("  [info] cubemap roundtrip: %d exact, %d neighbor, %d miss\n",
               exact, near, miss);
-  // Seeded at lattice points the LUT misses none; allow at most 5%.
+  // Seeded at lattice points the LUT misses none.
   HS_EXPECT_GT(exact + near, 0);
-  HS_EXPECT_LE(miss, (exact + near) / 20);
+  HS_EXPECT_EQ(miss, 0);
 }
 
 /**
@@ -352,9 +351,9 @@ inline void test_cubemap_lut_roundtrip() {
  *          or a face-boundary miss "because it seeds at the answer." This samples
  *          random unit directions (no lattice point sits exactly there), finds
  *          the true nearest node by an exhaustive O(RD_N) scan, and requires
- *          lookup() to return that node or one of its direct neighbors for the
- *          overwhelming majority — the same one-cell tolerance the round-trip
- *          test allows. The generator is local and the draw-to-float mapping
+ *          lookup() to return that node or one of its direct neighbors for
+ *          every probe — the same one-cell tolerance the round-trip test
+ *          allows. The generator is local and the draw-to-float mapping
  *          explicit, so every platform samples the same point set.
  */
 inline void test_cubemap_lut_offlattice() {
@@ -411,9 +410,9 @@ inline void test_cubemap_lut_offlattice() {
   std::printf(
       "  [info] cubemap off-lattice: %d exact, %d neighbor, %d miss / %d\n",
       exact, near, miss, SAMPLES);
-  // 0 misses across the 400 fixed-seed off-lattice probes; allow at most 5%.
+  // 0 misses across the 400 fixed-seed off-lattice probes.
   HS_EXPECT_GT(exact + near, 0);
-  HS_EXPECT_LE(miss, SAMPLES / 20);
+  HS_EXPECT_EQ(miss, 0);
 }
 
 /**
@@ -426,7 +425,8 @@ inline void test_cubemap_lut_offlattice() {
  *          lookup() drives find_nearest_node through the LUT build and the
  *          always-on HS_CHECK(converged), so a cap exceeded by a future RD_N
  *          bump traps here at the bench. Results are checked against a
- *          brute-force argmin oracle (exact node or a direct neighbor).
+ *          brute-force argmin oracle (exact node or a direct neighbor), at the
+ *          one spot on the sphere where that tolerance is not enough.
  */
 inline void test_cubemap_lut_equatorial() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
@@ -475,8 +475,11 @@ inline void test_cubemap_lut_equatorial() {
   std::printf(
       "  [info] cubemap equatorial: %d exact, %d neighbor, %d miss / %d\n",
       exact, near, miss, LONGITUDES);
+  // Unlike the other two probes this one is not miss-free: the equatorial
+  // longitude circle is where the LUT's texel quantization is coarsest against
+  // the lattice, and 9 of the 720 fixed queries land two hops out.
   HS_EXPECT_GT(exact + near, 0);
-  HS_EXPECT_LE(miss, LONGITUDES / 20);
+  HS_EXPECT_LE(miss, 12);
 }
 
 // ---------------------------------------------------------------------------
