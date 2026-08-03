@@ -143,8 +143,8 @@ inline bool polygon_is_concave(const float *xy, int count) {
 /**
  * @brief Clusters a mesh's faces into congruence classes and bakes the
  *        per-class canonical distance LUTs.
- * @param mesh Compiled mesh; topology must already be populated
- *        (classify_faces_by_topology).
+ * @param mesh Compiled mesh, owned or borrowed mode; topology must already be
+ *        populated (classify_faces_by_topology).
  * @param scratch Scratch arena (rewound before return).
  * @param persistent Arena receiving the bake (records, canonical polygons,
  *        LUTs); same lifetime as the mesh's slot.
@@ -175,8 +175,9 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
+  const uint16_t *topology = mesh.get_topology_data();
   const size_t fi_size = mesh.get_faces_size();
-  HS_CHECK(mesh.topology.size() == F,
+  HS_CHECK(mesh.get_topology_size() == F,
            "build_mesh_class_bake requires classify_faces_by_topology first");
   HS_CHECK(mesh.get_face_offsets_size() == F,
            "build_mesh_class_bake requires one face offset per face");
@@ -241,7 +242,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     }
 
     // Best alignment against every same-topology class rep.
-    const uint16_t topo = mesh.topology[f];
+    const uint16_t topo = topology[f];
     int best_class = -1, best_off = 0;
     bool best_refl = false;
     float best_res_sq = FLT_MAX;
