@@ -82,6 +82,20 @@ __attribute__((always_inline)) inline float pole_lod_slack(int run,
 }
 
 /**
+ * @brief Validates that the canvas is the size the scan was instantiated for.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param canvas Destination canvas.
+ * @details Checked once per draw, not per row or pixel. A narrower canvas
+ * indexes the phi LUT past its rows and plots through a pipeline whose wrap
+ * period disagrees with the framebuffer stride.
+ */
+template <int W, int H>
+HS_NOINLINE_NOCLONE inline void check_canvas_dims(const Canvas &canvas) {
+  HS_CHECK(canvas.width() == W && canvas.height() == H);
+}
+
+/**
  * @brief Processes a single pixel for rasterization: evaluates the shape SDF,
  *        computes anti-aliased coverage, runs the fragment shader, and plots.
  * @tparam W Canvas width in pixels.
@@ -499,6 +513,7 @@ template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn fragment_shader, bool debug_bb = false) {
+  check_canvas_dims<W, H>(canvas);
   bool effective_debug = debug_bb || canvas.debug();
 
   int y_lo, y_hi;
@@ -542,6 +557,7 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                 const Color4 &color, bool debug_bb = false) {
   static_assert(std::remove_cvref_t<decltype(shape)>::is_solid);
 
+  check_canvas_dims<W, H>(canvas);
   bool effective_debug = debug_bb || canvas.debug();
 
   int y_lo, y_hi;
