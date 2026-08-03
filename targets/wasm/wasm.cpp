@@ -147,7 +147,7 @@ struct MeshOpBounds {
 };
 
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
-// was built under and traps via check_live() if a wipe reclaimed its storage.
+// was built under and rejects via wrapper_live() if a wipe reclaimed its storage.
 static uint32_t tooling_generation = 0;
 
 // Set for the duration of one MeshOps entry point. The tooling scratch arenas
@@ -853,7 +853,7 @@ private:
 // ==========================================================================================
 
 /**
- * @brief Why the most recent mesh-producing MeshOps call returned null.
+ * @brief Why the most recent MeshOps call answered null.
  * @details A bare null collapses reasons that demand opposite caller actions —
  *          shrinking the op chain versus calling clearToolingMemory() — so the
  *          reason is recorded here and read back via MeshOps.getLastResult().
@@ -861,7 +861,7 @@ private:
  *          against its values, never by truthiness.
  */
 enum class MeshOpResult {
-  OK,                    /**< The call produced a mesh. */
+  OK,                    /**< The call produced a result. */
   UNKNOWN_NAME,          /**< No registry entry carries that name. */
   CONNECTIVITY_OVERFLOW, /**< A stage would pass the 16-bit element ceiling. */
   FACE_DEGREE_OVERFLOW,  /**< A stage would emit a face past the 8-bit side
@@ -871,9 +871,12 @@ enum class MeshOpResult {
   NON_FINITE_ARG,        /**< An operator argument was NaN or infinite. */
   ANGLE_OUT_OF_DOMAIN,   /**< An angle argument sat outside its operator's
                               domain. */
+  STALE_WRAPPER,         /**< The wrapper's storage was reclaimed by a
+                              clearToolingMemory(). */
 };
 
-// Outcome of the most recent mesh-producing MeshOps call (getLastResult()).
+// Outcome of the most recent MeshOps call that could answer null
+// (getLastResult()).
 static MeshOpResult last_mesh_op_result = MeshOpResult::OK;
 
 /**
@@ -881,14 +884,14 @@ static MeshOpResult last_mesh_op_result = MeshOpResult::OK;
  * @details Named to avoid collision with the MeshOps namespace. Each wrapper's
  *          mesh is built into the tooling arena and records the generation it was
  *          built under, so a wipe via clearToolingMemory() is detected by
- *          check_live().
+ *          wrapper_live().
  */
 struct MeshOpsWrapper {
 private:
   PolyMesh mesh; /**< The wrapped mesh, stored in the tooling arena. */
   /**
    * Generation of the tooling arena this mesh was built into; compared against
-   * the live counter on every use (see check_live()).
+   * the live counter on every use (see wrapper_live()).
    */
   uint32_t generation = tooling_generation;
 
@@ -901,22 +904,30 @@ public:
 
 private:
   /**
-   * @brief Traps if this wrapper outlived a clearToolingMemory() wipe.
-   * @details Its mesh would alias reclaimed arena storage, which release builds
-   *          would otherwise read back as silently wrong geometry. Called at
-   *          every entry point that touches `mesh`.
+   * @brief Reports whether this wrapper outlived a clearToolingMemory() wipe.
+   * @return true while its mesh still owns live arena storage; false — after
+   *         logging and recording STALE_WRAPPER — once a wipe reclaimed it.
+   * @details A stale wrapper's mesh aliases reclaimed arena storage, which
+   *          release builds would otherwise read back as silently wrong
+   *          geometry. Called at every entry point that touches `mesh`, which
+   *          rejects rather than traps: a JS caller holding a wrapper across an
+   *          interleaved clearToolingMemory() is an ordering slip the page can
+   *          recover from, not an engine invariant violation.
    */
-  void check_live() const {
-    HS_CHECK(generation == tooling_generation,
-             "MeshOps wrapper used after clearToolingMemory()");
+  bool wrapper_live() const {
+    if (generation == tooling_generation)
+      return true;
+    hs::log("WASM: MeshOps wrapper used after clearToolingMemory() — ignored");
+    last_mesh_op_result = MeshOpResult::STALE_WRAPPER;
+    return false;
   }
 
 public:
   /**
    * @brief Resets all tooling arenas to empty and invalidates live wrappers.
    * @details Reclaims the storage behind every live wrapper and bumps the
-   *          generation so any wrapper built before this wipe traps on next use
-   *          (check_live). JS-callable.
+   *          generation so any wrapper built before this wipe is rejected on
+   *          next use (wrapper_live). JS-callable.
    *
    *          Despite the name, this does NOT shrink the module's linear memory:
    *          the 16 MB tooling block is retained for the module's lifetime and
@@ -984,10 +995,14 @@ public:
 
   /**
    * @brief Returns the mesh vertices as a JS Float32Array.
-   * @return Float32Array of flattened [x,y,z] triples, copied out of the mesh.
+   * @return Float32Array of flattened [x,y,z] triples, copied out of the mesh,
+   *         or null if a clearToolingMemory() reclaimed this wrapper's storage;
+   *         getLastResult() then reports STALE_WRAPPER.
    */
   val getVertices() const {
-    check_live();
+    last_mesh_op_result = MeshOpResult::OK;
+    if (!wrapper_live())
+      return val::null();
     std::vector<float> data;
     data.reserve(mesh.vertices.size() * 3);
     for (const auto &v : mesh.vertices) {
@@ -1005,9 +1020,13 @@ public:
    *         unflattens the parallel arrays into per-face index lists. Both are
    *         copied out of WASM memory (same tooling-arena lifetime contract as
    *         getVertices()), so they are safe to hold across later mesh ops.
+   *         Null if a clearToolingMemory() reclaimed this wrapper's storage;
+   *         getLastResult() then reports STALE_WRAPPER.
    */
   val getFaces() const {
-    check_live();
+    last_mesh_op_result = MeshOpResult::OK;
+    if (!wrapper_live())
+      return val::null();
     size_t total = 0;
     for (size_t i = 0; i < mesh.get_face_counts_size(); ++i)
       total += mesh.get_face_counts_data()[i];
@@ -1027,8 +1046,9 @@ public:
   /**
    * @brief Classifies faces by topology and returns the per-face codes.
    * @return JS Int32Array of one topology code per face, copied out of the
-   *         mesh's now-populated topology buffer, or null when the mesh is past
-   *         MAX_MESH_CONNECTIVITY_ELEMENTS or its topology block would not fit
+   *         mesh's now-populated topology buffer, or null when this wrapper's
+   *         storage was reclaimed, the mesh is past
+   *         MAX_MESH_CONNECTIVITY_ELEMENTS, or its topology block would not fit
    *         what is left of tooling_arena; getLastResult() names which. Null
    *         rather than an empty array so a caller can tell "no classification"
    *         from "no faces" with a plain truthiness test.
@@ -1042,8 +1062,9 @@ public:
    *          allocation, per that memory-view contract.
    */
   val classifyFaces() {
-    check_live();
     last_mesh_op_result = MeshOpResult::OK;
+    if (!wrapper_live())
+      return val::null();
     if (hs_wasm::tooling_mesh_over_ceiling(
             mesh.vertices.size(), mesh.get_face_counts_size(),
             mesh.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS)) {
@@ -1107,10 +1128,10 @@ private:
    * @param bounds Operator's growth factors (see MESHOP_LIST).
    * @param op Operator to run against this wrapper's mesh.
    * @return Owning pointer to a new wrapper holding the finalized result mesh, or
-   *         null if some stage of this operator would pass
-   *         MAX_MESH_CONNECTIVITY_ELEMENTS or MAX_MESH_FACE_DEGREE, or its output
-   *         would not fit what is left of tooling_arena; getLastResult() names
-   *         which.
+   *         null if this wrapper's storage was reclaimed, some stage of this
+   *         operator would pass MAX_MESH_CONNECTIVITY_ELEMENTS or
+   *         MAX_MESH_FACE_DEGREE, or its output would not fit what is left of
+   *         tooling_arena; getLastResult() names which.
    * @details Captures the shared operator boilerplate: reset both tooling scratch
    *          arenas, run the op into a fresh PolyMesh, finalize it into
    *          tooling_arena, and hand back a new wrapper. An input the operator
@@ -1124,8 +1145,9 @@ private:
    */
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(MeshOpBounds bounds, Op &&op) {
-    check_live();
     last_mesh_op_result = MeshOpResult::OK;
+    if (!wrapper_live())
+      return nullptr;
     if (hs_wasm::mesh_op_expansion_over_ceiling(
             mesh.vertices.size(), mesh.get_face_counts_size(),
             mesh.get_faces_size(), bounds.elements,
@@ -1572,11 +1594,11 @@ public:
   static val getArenaMetrics() { return collect_arena_metrics(); }
 
   /**
-   * @brief Reports why the most recent mesh-producing call returned null.
-   * @return OK when that call produced a mesh, otherwise its rejection reason.
-   * @details Covers fromSolidName, classifyFaces and the operator methods.
-   *          Read it immediately after the null; the next such call overwrites
-   *          it.
+   * @brief Reports why the most recent MeshOps call answered null.
+   * @return OK when that call produced a result, otherwise its rejection reason.
+   * @details Covers fromSolidName, getVertices, getFaces, classifyFaces and the
+   *          operator methods. Read it immediately after the null; the next such
+   *          call overwrites it.
    */
   static MeshOpResult getLastResult() { return last_mesh_op_result; }
 };
@@ -1733,10 +1755,11 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .value("FACE_DEGREE_OVERFLOW", MeshOpResult::FACE_DEGREE_OVERFLOW)
       .value("ARENA_EXHAUSTED", MeshOpResult::ARENA_EXHAUSTED)
       .value("NON_FINITE_ARG", MeshOpResult::NON_FINITE_ARG)
-      .value("ANGLE_OUT_OF_DOMAIN", MeshOpResult::ANGLE_OUT_OF_DOMAIN);
+      .value("ANGLE_OUT_OF_DOMAIN", MeshOpResult::ANGLE_OUT_OF_DOMAIN)
+      .value("STALE_WRAPPER", MeshOpResult::STALE_WRAPPER);
 
   // No public .constructor<>(): all construction goes through fromSolidName so
-  // JS cannot wrap an empty mesh past the operator boundary's check_live().
+  // JS cannot wrap an empty mesh past the operator boundary's wrapper_live().
   class_<MeshOpsWrapper>("MeshOps")
       .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
       .class_function("getLastResult", &MeshOpsWrapper::getLastResult)
