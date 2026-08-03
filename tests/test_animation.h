@@ -2794,6 +2794,66 @@ inline void test_one_shot_timer_ends_by_completion_not_cancel() {
 }
 
 /**
+ * @brief A repeating animation that ends itself through the protected finish().
+ */
+class SelfFinishing : public Animation::AnimationBase<SelfFinishing> {
+public:
+  explicit SelfFinishing(uint32_t at) : AnimationBase(100, true), at(at) {}
+
+  void step(Canvas &canvas) override {
+    AnimationBase::step(canvas);
+    if (t >= at)
+      finish();
+  }
+
+private:
+  uint32_t at; /**< Frame at which the animation ends itself. */
+};
+
+/**
+ * @brief Verifies finish() terminates a repeating animation instead of leaving
+ * it done() && repeats().
+ * @details Timeline rewinds and re-fires the .then() of anything reporting both,
+ * so a repeating animation ending itself would re-fire every frame and never be
+ * removed.
+ */
+inline void test_finish_terminates_a_repeating_animation() {
+  SelfFinishing anim(2);
+  anim.step(fake_canvas());
+  HS_EXPECT_FALSE(anim.done());
+  anim.step(fake_canvas());
+  HS_EXPECT_TRUE(anim.done());
+  HS_EXPECT_FALSE(anim.repeats());
+  HS_EXPECT_FALSE(anim.is_canceled());
+
+  Timeline tl;
+  int fires = 0;
+  tl.add(0, SelfFinishing(2).then([&fires]() { fires++; }));
+  for (int i = 0; i < 6; ++i)
+    tl.step(fake_canvas());
+  HS_EXPECT_EQ(fires, 1);
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+}
+
+/**
+ * @brief Verifies a finished finite parameter animation reports full progress
+ * rather than dividing by the zeroed duration.
+ */
+inline void test_finished_param_animation_progress_is_finite() {
+  class SelfFinishingParam
+      : public Animation::FiniteParamAnimationBase<SelfFinishingParam> {
+  public:
+    SelfFinishingParam() : FiniteParamAnimationBase(100, true) {}
+    void end_now() { finish(); }
+    float progress() const { return normalized_progress(); }
+  } anim;
+  anim.end_now();
+  const float progress = anim.progress();
+  HS_EXPECT_TRUE(std::isfinite(progress));
+  HS_EXPECT_NEAR(progress, 1.0f, 1e-6f);
+}
+
+/**
  * @brief Verifies PeriodicTimer::set_period reschedules the next trigger from
  * now (t + new_period), not from the original schedule.
  * @details Starts at period 5 (next trigger t=5); after one frame the period is
@@ -3015,6 +3075,8 @@ inline int run_animation_tests() {
 
   test_random_timer_fires_within_range();
   test_one_shot_timer_ends_by_completion_not_cancel();
+  test_finish_terminates_a_repeating_animation();
+  test_finished_param_animation_progress_is_finite();
   test_periodic_timer_set_period_reschedules_from_now();
   test_mobiusflow_step_preserves_unit_product();
   test_particle_system_emitter_dispatch();

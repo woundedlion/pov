@@ -30,6 +30,10 @@ protected:
   }
 
   float normalized_progress() const {
+    // finish() zeroes duration; the animation is over, so report full progress
+    // rather than dividing by it.
+    if (this->duration <= 0)
+      return 1.0f;
     return hs::clamp(static_cast<float>(this->t) / this->duration, 0.0f, 1.0f);
   }
 };
