@@ -94,6 +94,35 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("targets/Phantasm/Ghost.ino", issues[0].message)
         self.assertIn("tools/ghost.ld", issues[1].message)
 
+    def test_directed_repository_tree_rows_are_linted(self):
+        text = (FIXTURES / "tree_fence.txt").read_text(encoding="utf-8")
+        entries = {
+            PurePosixPath("core"),
+            PurePosixPath("core/engine"),
+            PurePosixPath("core/engine/platform.h"),
+            PurePosixPath("core/engine/memory.h"),
+            PurePosixPath("core/engine/memory.cpp"),
+            PurePosixPath("tools"),
+            PurePosixPath("tools/docs_check_tests"),
+            PurePosixPath("justfile"),
+        }
+        issues = dc.check_text(PurePosixPath("README.md"), text, entries)
+        self.assertEqual([issue.line for issue in issues], [7, 8, 27])
+        self.assertIn("core/engine/ghost.h", issues[0].message)
+        self.assertIn("core/ghosts", issues[1].message)
+        self.assertIn("unknown docs-check directive 'trees'", issues[2].message)
+
+    def test_tree_row_indented_past_its_parent_is_reported(self):
+        text = ("<!-- docs-check: tree -->\n"
+                "```\n"
+                "├── core/\n"
+                "│   │   ├── platform.h\n"
+                "```\n")
+        issues = dc.check_text(PurePosixPath("README.md"), text,
+                               {PurePosixPath("core")})
+        self.assertEqual(len(issues), 1)
+        self.assertIn("indented past its parent", issues[0].message)
+
     def test_absolute_self_repo_blob_links_are_validated(self):
         text = ("[ok](https://github.com/woundedlion/pov/blob/master/docs/real.md)\n"
                 "[bad](https://github.com/woundedlion/pov/blob/master/docs/ghost.md)\n"

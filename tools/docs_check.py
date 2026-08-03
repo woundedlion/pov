@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Validate fences, links, anchors, and backticked paths in tracked Markdown."""
+"""Validate fences, links, anchors, and path claims in tracked Markdown."""
 
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import posixpath
 import re
 import subprocess
@@ -48,6 +49,19 @@ _SOURCE_SUFFIXES = frozenset({
 })
 # Optional trailing :line or :line-line, as the ledgers cite source spans.
 _PATH_SPAN_RE = re.compile(r"^([A-Za-z0-9_.][\w.\-/]*)(?::\d+(?:-\d+)?)?$")
+
+# Directory trees drawn inside a fence are path claims too, and the largest
+# ones in the docs. The preceding directive says which repository a tree draws:
+# `tree` is this one, rooted at its root, and every name is checked;
+# `tree <checkout>` is a repository this one does not track and nothing here can
+# verify. An HTML comment carries it, so neither GitHub nor Doxygen renders it.
+_DIRECTIVE_RE = re.compile(r"^ {0,3}<!--[ \t]*docs-check:[ \t]*(.*?)[ \t]*-->[ \t]*$")
+_TREE_TAG = "tree"
+_TREE_ROW_RE = re.compile(r"^(?P<indent>(?:│   |    )*)(?:├──|└──) +(?P<rest>\S.*)$")
+_TREE_INDENT = 4
+# A drawn name: a path segment chain, optionally a directory's trailing slash,
+# optionally a glob. Bare ellipsis rows elide a subtree and name nothing.
+_TREE_NAME_RE = re.compile(r"^(?![.…]+/?$)[A-Za-z0-9_.*?][\w.\-*?]*(?:/[\w.\-*?]+)*/?$")
 
 # Path prefixes the docs cite that this repository will never track: locally
 # generated profile reports (gitignored) and the files that live in the sibling
@@ -126,24 +140,46 @@ class VisibleLine:
     spans: tuple[str, ...]
 
 
-def _visible_lines(path: PurePosixPath, text: str) -> tuple[list[VisibleLine], list[Issue]]:
+@dataclass(frozen=True)
+class Fence:
+    tag: str
+    start: int
+    body: tuple[tuple[int, str], ...]
+
+
+def _visible_lines(path: PurePosixPath,
+                   text: str) -> tuple[list[VisibleLine], list[Fence], list[Issue]]:
     visible = []
+    fences = []
     issues = []
-    fence: tuple[str, int] | None = None
+    fence: tuple[str, int, str] | None = None
+    body: list[tuple[int, str]] = []
+    pending = ""
     for line_number, line in enumerate(text.splitlines(), 1):
         if fence:
             if _is_fence_close(line, fence[0]):
+                fences.append(Fence(fence[2], fence[1], tuple(body)))
                 fence = None
+                body = []
+            else:
+                body.append((line_number, line))
             continue
         match = _FENCE_RE.match(line)
         if match and not (match.group(1)[0] == "`" and "`" in match.group(2)):
-            fence = (match.group(1), line_number)
+            fence = (match.group(1), line_number, pending)
+            pending = ""
             continue
+        directive = _DIRECTIVE_RE.match(line)
+        if directive:
+            # A directive carries to the next fence across blank lines only.
+            pending = directive.group(1)
+        elif line.strip():
+            pending = ""
         masked, spans = _scan_code_spans(line)
         visible.append(VisibleLine(line_number, line, masked, tuple(spans)))
     if fence:
         issues.append(Issue(path.as_posix(), fence[1], "unclosed fenced code block"))
-    return visible, issues
+    return visible, fences, issues
 
 
 def _slug(heading: str) -> str:
@@ -359,10 +395,71 @@ def _path_span_issue(source: PurePosixPath, line: int, span: str,
     return Issue(source.as_posix(), line, f"backticked path {candidate!r} does not exist")
 
 
+def _tree_names(rest: str) -> list[str]:
+    """Names one tree row draws: its leading token plus any ` / ` siblings."""
+    tokens = rest.split()
+    if not tokens or not _TREE_NAME_RE.match(tokens[0]):
+        return []
+    names = [tokens[0]]
+    index = 1
+    while (index + 1 < len(tokens) and tokens[index] == "/"
+           and _TREE_NAME_RE.match(tokens[index + 1])):
+        names.append(tokens[index + 1])
+        index += 2
+    return names
+
+
+def _tree_entry_exists(candidate: str, entries: set[PurePosixPath]) -> bool:
+    if candidate.startswith(_UNTRACKED_ALLOWED):
+        return True
+    if "*" in candidate or "?" in candidate:
+        return any(fnmatch.fnmatchcase(entry.as_posix(), candidate)
+                   for entry in entries)
+    return PurePosixPath(candidate) in entries
+
+
+def _tree_issues(source: PurePosixPath, fences: list[Fence],
+                 entries: set[PurePosixPath]) -> list[Issue]:
+    """Reports drawn tree rows that name a path this repository does not track."""
+    issues = []
+    for fence in fences:
+        tag = fence.tag.split()
+        if not tag:
+            continue
+        if tag[0] != _TREE_TAG:
+            issues.append(Issue(source.as_posix(), fence.start,
+                                f"unknown docs-check directive {fence.tag!r}"))
+            continue
+        if len(tag) > 1:
+            continue
+        stack: list[str] = []
+        for line_number, line in fence.body:
+            match = _TREE_ROW_RE.match(line)
+            if not match:
+                continue
+            depth = len(match.group("indent")) // _TREE_INDENT
+            names = _tree_names(match.group("rest"))
+            if not names:
+                continue
+            if depth > len(stack):
+                issues.append(Issue(source.as_posix(), line_number,
+                                    f"tree row {names[0]!r} is indented past its parent"))
+                continue
+            parent = "/".join(stack[:depth])
+            stack[depth:] = [names[0].rstrip("/")]
+            for name in names:
+                candidate = posixpath.join(parent, name.rstrip("/"))
+                if not _tree_entry_exists(candidate, entries):
+                    issues.append(Issue(source.as_posix(), line_number,
+                                        f"tree path {candidate!r} does not exist"))
+    return issues
+
+
 def check_text(source: PurePosixPath, text: str,
                entries: set[PurePosixPath],
                anchors: dict[PurePosixPath, set[str]] | None = None) -> list[Issue]:
-    visible, issues = _visible_lines(source, text)
+    visible, fences, issues = _visible_lines(source, text)
+    issues.extend(_tree_issues(source, fences, entries))
     # The source's own anchors always resolve; cross-document ones need the
     # repository-wide map check_repository builds.
     anchors = dict(anchors or {})
