@@ -2410,6 +2410,72 @@ inline void test_star_sample_unit_length_closed() {
   }
 }
 
+/** @brief Star radius-trig reuse is bit-exact with per-vertex evaluation. */
+inline void test_star_sample_radius_trig_bit_parity() {
+  ScratchScope sc(plot_arena());
+  const Basis b =
+      make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
+
+  for (int sides : {3, 7, 16}) {
+    for (float radius : {0.01f, 0.57f, 1.0f, 1.73f, 1.99f}) {
+      for (float phase : {-7.1f, 0.0f, 2.37f}) {
+        ScratchScope iteration(plot_arena());
+        Fragments actual;
+        Fragments reference;
+        Fragments positions;
+        actual.bind(plot_arena(), sides * 2 + 2);
+        reference.bind(plot_arena(), sides * 2 + 2);
+        positions.bind(plot_arena(), sides * 2 + 2);
+        Plot::Star::sample(actual, b, radius, sides, phase);
+        Plot::Star::sample_positions(positions, b, radius, sides, phase);
+
+        auto res = get_antipode(b, radius);
+        const Basis &work_basis = res.first;
+        const float outer_radius = res.second * (PI_F / 2.0f);
+        const float inner_radius = outer_radius * Plot::STAR_INNER_RATIO;
+        const float angle_step = PI_F / sides;
+        Plot::sample_closed_ring(reference, sides * 2, [&](int i) {
+          const float theta = phase + i * angle_step;
+          const float r = (i % 2 == 0) ? outer_radius : inner_radius;
+          const float sin_r = sinf(r);
+          const float cos_r = cosf(r);
+          const float cos_t = cosf(theta);
+          const float sin_t = sinf(theta);
+          Vector p = (work_basis.v * cos_r) +
+                     (work_basis.u * (cos_t * sin_r)) +
+                     (work_basis.w * (sin_t * sin_r));
+          p.normalize();
+          return p;
+        });
+
+        HS_EXPECT_EQ(actual.size(), reference.size());
+        HS_EXPECT_EQ(actual.size(), positions.size());
+        for (size_t i = 0; i < actual.size(); ++i) {
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.x),
+                       std::bit_cast<uint32_t>(reference[i].pos.x));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.y),
+                       std::bit_cast<uint32_t>(reference[i].pos.y));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.z),
+                       std::bit_cast<uint32_t>(reference[i].pos.z));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].v0),
+                       std::bit_cast<uint32_t>(reference[i].v0));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].v1),
+                       std::bit_cast<uint32_t>(reference[i].v1));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.x),
+                       std::bit_cast<uint32_t>(positions[i].pos.x));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.y),
+                       std::bit_cast<uint32_t>(positions[i].pos.y));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.z),
+                       std::bit_cast<uint32_t>(positions[i].pos.z));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v0), 0u);
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v1), 0u);
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v2), 0u);
+        }
+      }
+    }
+  }
+}
+
 /**
  * @brief Verifies Flower::sample emits 2*sides unit-length vertices plus one
  *        closing fragment matching the first vertex (closed loop), and that the
@@ -2718,6 +2784,82 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   // v0 is v1 normalized by the single-segment total arc: 0 at the start, ~1 end.
   HS_EXPECT_NEAR(v0s.front(), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(v0s.back(), 1.0f, 2e-2f);
+}
+
+/**
+ * @brief Planar compile-time policies preserve positions and default registers.
+ */
+inline void test_rasterize_planar_policy_bit_parity() {
+  constexpr int W = 128, H = 64;
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 16);
+  const Basis shape_basis =
+      make_basis(Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), X_AXIS);
+  constexpr float RADIUS = 0.74f;
+  Plot::Star::sample(points, shape_basis, RADIUS, 7, 1.37f);
+  const Basis planar_basis =
+      Plot::planar_chart_basis(get_antipode(shape_basis, RADIUS).first.v);
+
+  struct Stream {
+    std::vector<Vector> positions;
+    std::vector<std::array<uint32_t, 3>> registers;
+  };
+  auto capture = [&]<bool DerivePlanarArcRegisters,
+                    bool InterpolateRegisters>() {
+    hs_test::StubEffect fx(W, H);
+    CapturePipeline pipeline;
+    Stream stream;
+    auto shader = [&](const Vector &, Fragment &f) {
+      stream.registers.push_back({std::bit_cast<uint32_t>(f.v0),
+                                  std::bit_cast<uint32_t>(f.v1),
+                                  std::bit_cast<uint32_t>(f.v2)});
+    };
+    {
+      Canvas canvas(fx);
+      Plot::rasterize<W, H, true, false, DerivePlanarArcRegisters,
+                      InterpolateRegisters>(
+          pipeline, canvas, points, shader,
+          {.planar_basis = &planar_basis, .omit_end = true});
+    }
+    fx.advance_display();
+    stream.positions = std::move(pipeline.plotted);
+    return stream;
+  };
+
+  const Stream derived = capture.template operator()<true, true>();
+  const Stream source_registers =
+      capture.template operator()<false, true>();
+  const Stream positions_only =
+      capture.template operator()<false, false>();
+  HS_EXPECT_EQ(derived.positions.size(), source_registers.positions.size());
+  HS_EXPECT_EQ(derived.positions.size(), positions_only.positions.size());
+  HS_EXPECT_EQ(derived.registers.size(), source_registers.registers.size());
+  HS_EXPECT_EQ(derived.registers.size(), positions_only.registers.size());
+  size_t derived_differences = 0;
+  size_t source_differences = 0;
+  for (size_t i = 0; i < derived.positions.size(); ++i) {
+    for (const Stream *stream : {&source_registers, &positions_only}) {
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(derived.positions[i].x),
+                   std::bit_cast<uint32_t>(stream->positions[i].x));
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(derived.positions[i].y),
+                   std::bit_cast<uint32_t>(stream->positions[i].y));
+      HS_EXPECT_EQ(std::bit_cast<uint32_t>(derived.positions[i].z),
+                   std::bit_cast<uint32_t>(stream->positions[i].z));
+    }
+    derived_differences +=
+        derived.registers[i][0] != source_registers.registers[i][0] ||
+        derived.registers[i][1] != source_registers.registers[i][1];
+    HS_EXPECT_EQ(derived.registers[i][2], source_registers.registers[i][2]);
+    source_differences += source_registers.registers[i][0] != 0 ||
+                          source_registers.registers[i][1] != 0 ||
+                          source_registers.registers[i][2] != 0;
+    HS_EXPECT_EQ(positions_only.registers[i][0], 0u);
+    HS_EXPECT_EQ(positions_only.registers[i][1], 0u);
+    HS_EXPECT_EQ(positions_only.registers[i][2], 0u);
+  }
+  HS_EXPECT_GT(derived_differences, (size_t)0);
+  HS_EXPECT_GT(source_differences, (size_t)0);
 }
 
 // ============================================================================
@@ -4253,6 +4395,7 @@ inline int run_plot_scan_tests() {
   test_multiline_sample_arclength_param();
 
   test_star_sample_unit_length_closed();
+  test_star_sample_radius_trig_bit_parity();
   test_flower_sample_unit_length_closed();
 
   // rasterize() control-flow coverage. The 2*W steps_cache backstop is a
@@ -4264,6 +4407,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_antipodal_seam_planar_falls_back_geodesic();
   test_rasterize_planar_segment_gap_free_arclength();
   test_rasterize_planar_arc_registers_track_drawn_arc();
+  test_rasterize_planar_policy_bit_parity();
   test_rasterize_cull_follows_filter_orientation();
 
   test_particle_system_draws_active_trails_with_registers();
