@@ -1208,6 +1208,19 @@ Pixel (sRGB 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, h)
 | `gamut_clip_preserve_chroma()` | Maps an out-of-gamut OKLab color back into the sRGB cube by reducing chroma while holding hue and lightness (walk-then-bisect on the chroma scale). The hue-preserving alternative to a per-channel RGB clip. Gated behind an in-gamut test (`oklab_to_linear_rgb_gamut`), so in-gamut colors — the vast majority — pay only the test and skip the search. |
 | `hue_rotate()` | Perceptual hue rotation — rotates the (a,b) chroma plane in OKLab, preserving lightness and chroma. Forward nonlinearity uses `fast_cbrt` (hot per-pixel path); inverse is exact. Out-of-gamut results are chroma-reduced rather than per-channel clipped, which holds hue and stabilizes the feedback loop against saturated-color drift. Used by the feedback `hue_fade` transform and `Flyby`'s displacement-driven hue shift. |
 
+#### The Gamut Boundary Grid
+
+The chroma clip brackets the sRGB boundary from a generated table (`core/color/gamut_lut.h`, emitted by `tools/gen_gamut_lut.py`) indexed by the diamond angle of (b, a) and by L. Each cell stores the minimum and maximum boundary chroma over the region it covers, so the true boundary of every ray in the cell lies inside the stored bracket at any resolution; the per-pixel path walks that bracket in `GAMUT_SCAN_STEPS` and bisects the straddling step `GAMUT_BRACKET_STEPS` times. Grid resolution only sets how wide the bracket starts — the bisection sets how far it is narrowed.
+
+The clip reads the 512 × 256 flash master by default. An effect that clips per pixel can arm a coarser arena copy, which buys read latency alone (RAM rather than QSPI flash):
+
+| Function | Description |
+|---|---|
+| `init_gamut_lut(arena, angle_steps, l_steps)` | Downsamples the flash master into `arena` and points the clip at the copy. Both step counts must divide the master's 512 × 256 (trapped). Costs `gamut_lut_bytes(angle_steps, l_steps)`. Call from the effect's `init()`, after any `configure_arenas()`. |
+| `release_gamut_lut()` | Drops the copy and points the clip back at the flash master. Must run before the storage under the copy is handed out again: `configure_arenas()`, the mesh carousel's compaction, and effects that reset the persistent arena mid-run all call it first. |
+
+`Flyby` and `MeshFeedback` arm a copy; every other effect clips against the flash master.
+
 #### Palette Modifiers
 
 Modifiers compose around any palette source at compile time via
