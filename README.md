@@ -640,6 +640,8 @@ filters.plot(canvas, world_position, color, age, alpha)
 
 The pipeline handles the 3D/2D coordinate mismatch automatically at compile time: if a 3D filter receives a 2D coordinate it lifts it via `pixel_to_vector`; if a 2D filter receives a 3D vector it projects via `vector_to_pixel`.
 
+The tables below are the library surface, deliberately wider than the set of stages the shipping effects instantiate; a stage with no current user is composable inventory, not dead code.
+
 #### World-Space Filters
 
 | Filter | Effect |
