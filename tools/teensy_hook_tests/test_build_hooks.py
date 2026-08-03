@@ -32,6 +32,15 @@ import teensy_gate as tg   # noqa: E402
 
 GATE_SCRIPT = "post:tools/teensy_gate_extra.py"
 
+# Hooks every environment needs: without teensy_pre the sketch is never placed,
+# without teensy_map the size investigations lose their per-symbol source, and
+# without teensy_isystem the vendored warning flood re-enters the ratchet.
+REQUIRED_SCRIPTS = (
+    "pre:tools/teensy_pre.py",
+    "pre:tools/teensy_map.py",
+    "post:tools/teensy_isystem.py",
+)
+
 
 def _abs(*parts):
     """An absolute-looking path with this platform's separator."""
@@ -170,6 +179,40 @@ class TestBudgetedEnvsWireTheGate(unittest.TestCase):
             if GATE_SCRIPT in _option_lines(cfg, f"env:{name}", "extra_scripts"):
                 self.assertIn(name, budgets,
                               f"env '{name}' wires the gate but has no budget entry")
+
+
+class TestRequiredHooksReachEveryEnv(unittest.TestCase):
+    """PlatformIO cannot subtract from an inherited list, so the four envs that
+    skip one hook re-type the whole block by hand. Adding a required hook to
+    [env] therefore reaches only the envs that inherit it, and the four that do
+    not build green without it."""
+
+    def test_every_env_resolves_the_required_hooks(self):
+        cfg = _pio_config()
+        envs = _pio_envs()
+        self.assertTrue(envs, "platformio.ini declares no environments")
+        for name in envs:
+            resolved = _option_lines(cfg, f"env:{name}", "extra_scripts")
+            for script in REQUIRED_SCRIPTS:
+                with self.subTest(env=name, script=script):
+                    self.assertIn(script, resolved,
+                                  f"env '{name}' does not wire {script}")
+
+    def test_base_env_declares_every_required_hook(self):
+        # The [env] block is where a new required hook is added; an entry missing
+        # here would make the assertion above pass vacuously for the inheritors.
+        declared = _option_lines(_pio_config(), "env", "extra_scripts")
+        for script in REQUIRED_SCRIPTS:
+            self.assertIn(script, declared, f"[env] does not declare {script}")
+
+    def test_no_env_wires_a_hook_twice(self):
+        # ${env.extra_scripts} plus a hand-listed copy runs the hook twice, which
+        # double-appends its flags.
+        cfg = _pio_config()
+        for name in _pio_envs():
+            resolved = _option_lines(cfg, f"env:{name}", "extra_scripts")
+            self.assertEqual(len(resolved), len(set(resolved)),
+                             f"env '{name}' lists a hook more than once: {resolved}")
 
 
 class TestSketchSelection(unittest.TestCase):
