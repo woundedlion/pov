@@ -229,6 +229,21 @@ struct Config {
     return 4 * (7 * beacon_pitch_cols + (gap_timeout_cols + 1)) +
            7 * beacon_pitch_cols;
   }
+  /**
+   * @brief Columns a beacon frame occupies from its first pulse to the earliest
+   * instant a boundary burst may follow it.
+   * @return Worst-case pulse span plus the quiet a receiver needs after the last
+   * pulse.
+   * @details The quiet term is acquire_quiet_cols, the wider of the two windows
+   * the tail must clear: gap_timeout_cols terminates the last digit burst, and
+   * acquire_quiet_cols is what makes the following boundary burst read as an
+   * isolated symbol rather than another digit. valid()'s demarcation relation
+   * (acquire_quiet_cols >= beacon_span_cols() / 4) puts it above the gap
+   * timeout for every pitch.
+   */
+  constexpr int32_t beacon_frame_cols() const {
+    return beacon_span_cols() + acquire_quiet_cols;
+  }
 
   /**
    * @brief Boot-time sanity check for the driver's HS_CHECK.
@@ -252,8 +267,10 @@ struct Config {
                beacon_pitch_cycles() - late_censor_cycles() &&
            7 * beacon_pitch_cols + 1 > gate_cols &&
            // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case
-           // beacon span must clear W/4 or no beacon is ever scheduled.
-           beacon_span_cols() < W / 4 &&
+           // frame plus its tail quiet must clear W/4 or no beacon is ever
+           // scheduled. Strict: the slack absorbs the sub-column offset between
+           // the W/4 instant and the tick that schedules the frame.
+           beacon_frame_cols() < W / 4 &&
            // Demarcation: the acquisition timeout must clear the beacon's
            // worst-case per-digit advance, which beacon_span_cols() / 4 bounds.
            // The strict ordering below makes the interdigit timeout larger.
@@ -1684,10 +1701,13 @@ private:
     if (content_tracker.commit_pending)
       return;
     // Bound the beacon start: a masked-ISR coast can land the master anywhere in
-    // [W/4, W/2), but the worst-case frame must finish before HALF — a tail past
-    // the boundary leaves the wire busy when the on-time HALF symbol schedules,
-    // tripping the emitter's overlap trap. Skip a too-late start, mirroring the
-    // boundary symbol's own lateness self-censor.
+    // [W/4, W/2), but the worst-case frame plus the tail quiet the receiver
+    // needs must fit before HALF. A last pulse closer than that to the boundary
+    // is appended to the last digit burst instead of terminating it, so the HALF
+    // symbol is consumed rather than decoded; a tail past the boundary also
+    // leaves the wire busy when the on-time HALF symbol schedules, tripping the
+    // emitter's overlap trap. Skip a too-late start, mirroring the boundary
+    // symbol's own lateness self-censor.
     //
     // A coalesced coast can also jump position from < W/4 straight past the
     // beacon point (and even past HALF) in one wake, leaving beacon_done_this_rev
@@ -1696,7 +1716,7 @@ private:
     // protocol self-heals on the next due beacon (≤ 2 s).
     const int32_t x = fly.position(now);
     if (x < protocol_config.W / 4 ||
-        x + protocol_config.beacon_span_cols() >= protocol_config.W / 2)
+        x + protocol_config.beacon_frame_cols() >= protocol_config.W / 2)
       return;
     const uint32_t rev = content_tracker.rev_in_effect;
     const bool due = (rev % protocol_config.beacon_period_revs) == 1u ||
