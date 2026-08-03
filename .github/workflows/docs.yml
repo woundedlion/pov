@@ -19,7 +19,9 @@ on:
       - 'Doxyfile'
       - 'docs/doxygen-custom.css'
       - 'docs/doxygen-theme.cfg'
+      - 'docs/screenshots/**'
       - 'tools/build_pins.py'
+      - 'tools/docs_images.py'
       - 'justfile'
       - '.github/workflows/docs.yml'
   # Build-only presubmit on PRs touching the same inputs. The deploy job is
@@ -34,7 +36,9 @@ on:
       - 'Doxyfile'
       - 'docs/doxygen-custom.css'
       - 'docs/doxygen-theme.cfg'
+      - 'docs/screenshots/**'
       - 'tools/build_pins.py'
+      - 'tools/docs_images.py'
       - 'justfile'
       - '.github/workflows/docs.yml'
 
@@ -86,6 +90,13 @@ jobs:
 
       - name: Generate docs
         run: mkdir -p build/docs && doxygen Doxyfile
+
+      # Doxygen copies neither the README's screenshot gallery nor any other
+      # repo-relative image into its output, so the published pages reference
+      # files the artifact does not carry. Stage them and fail on any <img>
+      # reference the artifact still cannot resolve.
+      - name: Stage README images and resolve every reference
+        run: python tools/docs_images.py
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
