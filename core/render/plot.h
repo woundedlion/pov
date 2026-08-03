@@ -92,6 +92,13 @@ enum class RasterSamplingPolicy { DEFAULT, BALANCED, SELECTABLE };
 /** @brief Balanced-policy target spacing in screen pixels. */
 static constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
 
+/** @brief Source-over-aware alpha gain for balanced sample spacing. */
+static inline float balanced_sample_alpha(float alpha, float step_ratio) {
+  const float gain =
+      1.0f + (step_ratio - 1.0f) * (0.88f - 0.20f * alpha);
+  return std::min(1.0f, alpha * gain);
+}
+
 #ifdef HS_TEST_BUILD
 inline uint32_t g_planar_full_samples = 0;
 inline uint32_t g_planar_position_samples = 0;
@@ -1798,7 +1805,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
           if (balanced_sampling) {
             const float alpha_scale = desired_step / default_desired_step;
-            f.color.alpha = std::min(1.0f, f.color.alpha * alpha_scale);
+            f.color.alpha =
+                balanced_sample_alpha(f.color.alpha, alpha_scale);
           }
         }
         HS_PLOT_COUNT(plotted_samples);
@@ -1878,7 +1886,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
           if (balanced_sampling) {
             const float alpha_scale = desired_step / default_desired_step;
-            f.color.alpha = std::min(1.0f, f.color.alpha * alpha_scale);
+            f.color.alpha =
+                balanced_sample_alpha(f.color.alpha, alpha_scale);
           }
         }
         HS_PLOT_COUNT(plotted_samples);
