@@ -1799,10 +1799,11 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           }
         } else if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT &&
                              requires { sample.one_pass(current_t); }) {
+          HS_PLOT_COUNT(normalizations);
           if (balanced_sampling) {
-            p = smp.pos;
+            const float norm2 = dot(smp.pos, smp.pos);
+            p = smp.pos * (1.5f - 0.5f * norm2);
           } else {
-            HS_PLOT_COUNT(normalizations);
             p = smp.pos.normalized();
           }
         } else {
