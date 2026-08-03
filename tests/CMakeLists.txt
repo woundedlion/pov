@@ -88,12 +88,40 @@ _hs_warnings(run_tests)
 #     consistent with the engine's always-on fail-fast doctrine.
 option(HS_SANITIZE "Build the unit tests with sanitizers (ASan+UBSan, or UBSan-trap on Windows)" OFF)
 
-# Applies the sanitizer flavour to one target; a no-op when HS_SANITIZE is OFF.
-# Every CTest-registered executable the sanitizers job runs must call this, or it
-# rides that job unsanitized. The stack_measure/arena_measure budget gates are
-# the deliberate exception: ASan redzones and instrumentation inflate the frame
-# sizes and codegen they measure against the device build.
+# ThreadSanitizer. The canvas and pov_segmented modules drive the Effect double
+# buffer from two real threads (a render thread against a display-ISR stand-in),
+# which is the engine's only genuine concurrency; nothing else in the suite would
+# gain from TSan. It cannot share a binary with ASan, so it is a separate option
+# and a separate CI job ("thread-sanitizer" in .github/workflows/ci.yml).
+# Linux/macOS only: clang ships no TSan runtime for the Windows target.
+option(HS_TSAN "Build the unit tests with ThreadSanitizer (excludes HS_SANITIZE)" OFF)
+if(HS_TSAN)
+  if(HS_SANITIZE)
+    message(FATAL_ERROR
+        "HS_TSAN and HS_SANITIZE are mutually exclusive — ASan and TSan cannot "
+        "instrument the same binary. Configure two build directories.")
+  endif()
+  if(WIN32)
+    message(FATAL_ERROR
+        "HS_TSAN: clang ships no ThreadSanitizer runtime for the Windows "
+        "target. Use a Linux or macOS toolchain.")
+  endif()
+  message(STATUS "Unit tests: ThreadSanitizer enabled (HS_TSAN=ON)")
+endif()
+
+# Applies the sanitizer flavour to one target; a no-op when both HS_SANITIZE and
+# HS_TSAN are OFF. Every CTest-registered executable the sanitizers or
+# thread-sanitizer job runs must call this, or it rides that job uninstrumented.
+# The stack_measure/arena_measure budget gates are the deliberate exception:
+# ASan redzones and instrumentation inflate the frame sizes and codegen they
+# measure against the device build.
 function(_hs_sanitize target)
+  if(HS_TSAN)
+    target_compile_options(${target} PRIVATE
+      -fsanitize=thread -fno-omit-frame-pointer -g)
+    target_link_options(${target} PRIVATE -fsanitize=thread)
+    return()
+  endif()
   if(NOT HS_SANITIZE)
     return()
   endif()
@@ -178,7 +206,7 @@ set(_hs_test_modules
 # 620 s sanitized — so a single budget for both builds is either useless plain
 # or red sanitized.
 set(_hs_test_timeout 600)
-if(HS_SANITIZE)
+if(HS_SANITIZE OR HS_TSAN)
   set(_hs_test_timeout 1800)
 endif()
 foreach(_mod IN LISTS _hs_test_modules)
