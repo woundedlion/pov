@@ -3855,7 +3855,11 @@ inline void test_azimuthal_roundtrip_identity() {
     auto rp = Plot::azimuthal_project(s, basis);
     HS_EXPECT_NEAR(rp.first, Px, 2e-2f * (R + 1.0f));
     HS_EXPECT_NEAR(rp.second, Py, 2e-2f * (R + 1.0f));
-    ++inv;
+    // Only a roundtrip clear of the chart's degenerate spots — the center,
+    // where the azimuth is undefined, and the antipodal band — inverts.
+    if (std::hypot(rp.first, rp.second) > math::EPS_GEOMETRIC &&
+        dot(s, basis.v) > -Plot::COS_PLANAR_ANTIPODE)
+      ++inv;
 
     Vector p = az_rand_unit();
     if (dot(p, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
@@ -3887,7 +3891,11 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
     Vector axis = basis.u * std::cos(th) + basis.w * std::sin(th);
     Vector want = basis.v * std::cos(R) + axis * std::sin(R);
     HS_EXPECT_NEAR(angle_between(got, want), 0.0f, 1e-2f);
-    ++n;
+    // The unprojection landed off both poles of the chart, so the oracle
+    // compared a point with a defined azimuth.
+    float got_R = angle_between(got, basis.v);
+    if (got_R > 0.05f && got_R < PI_F - 0.05f)
+      ++n;
   }
   HS_EXPECT_GT(n, 3900);
 }
@@ -3965,20 +3973,26 @@ inline void test_dual_metric_radial_vs_azimuthal() {
         Plot::azimuthal_unproject(Rb * std::cos(th), Rb * std::sin(th), basis);
     HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis), angle_between(a, b),
                    1.2e-2f);
-    ++radial;
+    // The two radii unprojected to a genuine radial edge, not a collapsed one.
+    if (angle_between(a, b) > 0.1f)
+      ++radial;
 
     float a1 = hs::rand_f(-PI_F, PI_F), a2 = a1 + 2.4f;
+    float chord = 0.0f;
     auto bow = [&](float rad) {
       Vector p = Plot::azimuthal_unproject(rad * std::cos(a1),
                                            rad * std::sin(a1), basis);
       Vector q = Plot::azimuthal_unproject(rad * std::cos(a2),
                                            rad * std::sin(a2), basis);
-      return Plot::planar_arc_length(p, q, basis) - angle_between(p, q);
+      chord = angle_between(p, q);
+      return Plot::planar_arc_length(p, q, basis) - chord;
     };
     float lo = bow(1.0f), hi = bow(1.3f);
     HS_EXPECT_GT(lo, 1.5e-2f);
     HS_EXPECT_GT(hi, lo);
-    ++azi;
+    // The azimuthal separation survived the unprojection.
+    if (chord > 0.1f)
+      ++azi;
   }
   HS_EXPECT_GT(radial, 1900);
   HS_EXPECT_GT(azi, 1900);
