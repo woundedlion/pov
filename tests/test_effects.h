@@ -3916,6 +3916,15 @@ inline void test_shapeshifter_preset_defaults() {
   HS_EXPECT_EQ(value("Speed"), 0.0318f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
 
+  const auto *count = ss.getParameters().find("Count");
+  const auto *speed = ss.getParameters().find("Speed");
+  HS_EXPECT(count != nullptr, "ShapeShifter Count parameter is missing");
+  HS_EXPECT(speed != nullptr, "ShapeShifter Speed parameter is missing");
+  if (count)
+    HS_EXPECT_EQ(count->max, 288.0f);
+  if (speed)
+    HS_EXPECT_EQ(speed->max, 0.16f);
+
   ss.profile_select_preset(4);
   HS_EXPECT_EQ(value("Alpha"), 0.5f);
   HS_EXPECT_EQ(value("Shape"), 0.822f);
@@ -3945,6 +3954,16 @@ inline void test_shapeshifter_preset_defaults() {
   HS_EXPECT_EQ(value("Function"), 0.0f);
   HS_EXPECT_EQ(value("Amplitude"), 7.0696f);
   HS_EXPECT_EQ(value("Speed"), 0.0113f);
+  HS_EXPECT_EQ(value("Opposite"), 0.0f);
+
+  ss.profile_select_preset(7);
+  HS_EXPECT_EQ(value("Alpha"), 0.274f);
+  HS_EXPECT_EQ(value("Shape"), 2.988f);
+  HS_EXPECT_EQ(value("Count"), 288.0f);
+  HS_EXPECT_EQ(value("Sides"), 7.745f);
+  HS_EXPECT_EQ(value("Function"), 0.0f);
+  HS_EXPECT_EQ(value("Amplitude"), 1.0f);
+  HS_EXPECT_EQ(value("Speed"), 0.16f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
 }
 
