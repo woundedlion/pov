@@ -392,10 +392,11 @@ struct Breakdown : Base {
   /**
    * @brief Derives the class count from the per-face classes and re-randomizes
    *        the fade order for the next transition.
-   * @param face_classes Per-face class ids (dense [0, k), the same values
-   *        face_offset receives). num_classes is set to max+1, so a caller can
-   *        never mis-declare it. A face class at or past MAX_CLASSES folds into
-   *        rank[0] (face_offset's out-of-range branch).
+   * @param face_classes Per-face palette-slot class ids (dense [0, k), the same
+   *        values face_offset receives). num_classes is set to max+1, so a
+   *        caller can never mis-declare it. Traps past MAX_CLASSES: a slot id
+   *        comes from MeshPaletteBank, whose bank is far smaller, so an
+   *        over-range id means raw topology classes were handed over instead.
    */
   template <typename Classes> void reorder(const Classes &face_classes) {
     int detected = 1;
@@ -404,7 +405,8 @@ struct Breakdown : Base {
       if (c > detected)
         detected = c;
     }
-    num_classes = hs::clamp(detected, 1, MAX_CLASSES);
+    HS_CHECK(detected <= MAX_CLASSES, "Breakdown: class count over rank[]");
+    num_classes = detected;
     for (int i = 0; i < num_classes; ++i)
       rank[i] = static_cast<uint8_t>(i);
     hs::shuffle(rank, rank + num_classes);
