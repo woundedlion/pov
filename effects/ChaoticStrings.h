@@ -62,7 +62,14 @@ public:
                 .margin = decltype(filters)::max_segment_margin}),
         timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([](float) { return Vector(0, 1, 0); }), orientation(),
-        palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
+        fire_palette({{0.00f, CPixel{0x000000}},
+                      {0.18f, CPixel{0x260000}},
+                      {0.40f, CPixel{0xD01000}},
+                      {0.62f, CPixel{0xFF7800}},
+                      {0.78f, CPixel{0xFFE080}},
+                      {0.84f, CPixel{0xFFF8E8}},
+                      {1.00f, CPixel{0x000000}}}),
+        cycle_phase(0.0f), noise_xform(timeline) {}
 
   // Scratch A holds the per-frame vertices buffer and, during the draw call, the
   // Multiline fragment buffer it binds (capacity vertices.size()+2) plus
@@ -102,16 +109,16 @@ public:
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
     new (node) Node();
 
-    static_palette.bind(&palette_variant, &scale_mod, &cycle_mod);
-    palette_variant = Palettes::FIRE_AND_ICE;
+    static_palette.bind(&fire_palette, &scale_mod, &cycle_mod, &duty_mod);
 
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     register_param("Speed", &params.speed, 0.0f, 5.0f);
     register_param("Jitter Amp", &params.jitter_amp, 0.0f, 10.0f);
-    register_param("Noise Freq", &params.noise_freq, 0.01f, 10.0f);
+    register_param("Noise Scale", &params.noise_freq, 0.01f, 10.0f);
     register_param("Scale Factor", &params.scale_factor, 1.0f, 500.0f);
     register_param("Cycle Speed", &params.cycle_speed, 0.0f, 1.0f);
+    register_param("Duty Cycle", &params.duty_cycle, 0.0f, 1.0f);
 
     noise_xform.template_params.amplitude = params.jitter_amp;
     noise_xform.template_params.frequency = params.noise_freq;
@@ -200,6 +207,19 @@ public:
 private:
   friend struct ::hs_test::effects_tests::ChaoticStringsWhiteBox;
 
+  struct DutyCycleModifier {
+    static constexpr bool bounded_output = true;
+    static constexpr bool rebounds_input = true;
+
+    const float *duty_cycle;
+
+    float modify(float t) const {
+      const float u = wrap_t(t);
+      const float duty = hs::clamp(*duty_cycle, 0.0f, 1.0f);
+      return duty > 0.0f && u < duty ? u / duty : 1.0f;
+    }
+  };
+
   FastNoiseLite noise; /**< Noise source for the random walk. */
   Timeline timeline;   /**< Drives all per-frame animations. */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
@@ -211,22 +231,30 @@ private:
    * @brief Live-tunable parameters exposed as sliders.
    */
   struct Params {
-    float alpha = 1.0f;           /**< Overall trail opacity in [0, 1]. */
-    float cycle_duration = 80.0f; /**< Motion cycle duration in frames. */
-    float speed = 0.04f;          /**< Noise field evolution speed. */
-    float jitter_amp = 1.7f;      /**< Noise displacement amplitude. */
-    float noise_freq = 0.32f;     /**< Noise spatial frequency. */
-    float scale_factor = 200.0f;  /**< Palette coordinate scale factor. */
-    float cycle_speed = 0.1f;     /**< Palette cycle phase advance per step. */
-  } params;
+    float alpha;             /**< Overall trail opacity in [0, 1]. */
+    float cycle_duration;    /**< Motion cycle duration in frames. */
+    float speed;             /**< Noise field evolution speed. */
+    float jitter_amp;        /**< Noise displacement amplitude. */
+    float noise_freq;        /**< Noise spatial frequency. */
+    float scale_factor;      /**< Palette coordinate scale factor. */
+    float cycle_speed;       /**< Palette cycle phase advance per step. */
+    float duty_cycle = 0.5f; /**< Lit fraction of each palette cycle. */
+  };
+
+  static constexpr Params PRESET{1.0f,     80.0f,      0.235f, 2.88f,
+                                 0.26974f, 84.832001f, 0.672f};
+  Params params = PRESET;
 
   // Precedes scale_mod, which binds &params.scale_factor at construction.
   ScaleModifier scale_mod{
       &params.scale_factor}; /**< Palette scale coordinate modifier. */
   CycleModifier cycle_mod{
-      &cycle_phase};                 /**< Palette cycle coordinate modifier. */
-  ProceduralPalette palette_variant; /**< Active palette variant. */
-  StaticPalette<ProceduralPalette, Coords<ScaleModifier, CycleModifier>>
+      &cycle_phase}; /**< Palette cycle coordinate modifier. */
+  DutyCycleModifier duty_mod{&params.duty_cycle};
+  Gradient fire_palette;
+  StaticPalette<Gradient,
+                Coords<ScaleModifier, CycleModifier, DutyCycleModifier>,
+                Colors<>, false>
       static_palette; /**< Bound palette sampled per fragment. */
   Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion =
       nullptr; /**< Retained motion handle for live Cycle Dur updates. */
