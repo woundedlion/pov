@@ -521,6 +521,42 @@ inline void test_classify_faces_tetrahedron_uniform_topology() {
 }
 
 /**
+ * @brief Verifies classify_faces_by_topology accepts one arena in all three
+ *        roles, matching the three-arena classification exactly.
+ * @details HankinSolids classifies its bookend mesh with scratch_arena_a passed
+ *          for both scratch parameters and for persistent, so the aliasing is a
+ *          supported contract, not an accident of the current allocation order.
+ */
+inline void test_classify_faces_aliased_arenas() {
+  Arena target(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena one(mesh_arena_c, sizeof(mesh_arena_c));
+
+  PolyMesh tr, tr_aliased;
+  {
+    Arena temp(mesh_arena_b, sizeof(mesh_arena_b));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    tr = MeshOps::truncate(cube, target, temp, 0.25f);
+    tr_aliased = MeshOps::truncate(cube, one, temp, 0.25f);
+  }
+
+  Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
+  Arena scratch_b(mesh_arena_b + sizeof(mesh_arena_b) / 2,
+                  sizeof(mesh_arena_b) / 2);
+  MeshOps::classify_faces_by_topology(tr, scratch_a, scratch_b, target);
+  MeshOps::classify_faces_by_topology(tr_aliased, one, one, one);
+
+  HS_EXPECT_EQ(tr.topology.size(), tr.face_counts.size());
+  HS_EXPECT_EQ(tr_aliased.topology.size(), tr.topology.size());
+  int max_id = 0;
+  for (size_t i = 0; i < tr.topology.size(); ++i) {
+    HS_EXPECT_EQ(tr_aliased.topology[i], tr.topology[i]);
+    max_id = std::max(max_id, static_cast<int>(tr.topology[i]));
+  }
+  HS_EXPECT_EQ(max_id, 1); // 6 octagons + 8 triangles
+}
+
+/**
  * @brief Verifies the classifier separates genuinely distinct face classes.
  * @details truncate(cube) is a mixed-face solid: 6 octagons + 8 triangles. The
  *          cube/tetrahedron tests above are all-equivalent faces, so the
@@ -781,6 +817,7 @@ inline int run_mesh_tests() {
   test_classify_faces_uncompiled_degenerate();
   test_degenerate_edge_records_never_pair();
   test_classify_faces_tetrahedron_uniform_topology();
+  test_classify_faces_aliased_arenas();
   test_classify_faces_truncated_cube_distinct_topology();
   test_classify_faces_roster_hash_collision_free();
 
