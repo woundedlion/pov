@@ -195,6 +195,12 @@ public:
                      });
 
     node->trail.record(node->orientation);
+
+    // A sub-LSB alpha paints nothing; skip building and rasterizing. The trail
+    // is still recorded above, so motion resumes when alpha rises.
+    if (params.alpha < MIN_VISIBLE_ALPHA)
+      return;
+
     const float fill_scale = palette_fill_scale(node->trail.length());
 
     {

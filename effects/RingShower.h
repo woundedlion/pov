@@ -68,11 +68,14 @@ public:
     }
 
     HS_PROFILE(rsh_draw_rings);
+    // A sub-LSB alpha paints nothing; keep aging rings so they resume mid-life
+    // when alpha rises, but skip rasterizing.
+    const bool visible = params.alpha >= MIN_VISIBLE_ALPHA;
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       Ring &ring = rings[i];
       if (ring.expired())
         continue; // free slot
-      {
+      if (visible) {
         HS_PROFILE(rsh_ring_plot);
         draw_ring(canvas, ring.opacity_at(), i);
       }

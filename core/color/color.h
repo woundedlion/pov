@@ -228,6 +228,13 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Pixel &e) {
 }
 
 /**
+ * @brief Alpha below which a fragment cannot move a pixel.
+ * @details One 8-bit LSB at full-scale color. A primitive whose peak alpha falls
+ * under this rasterizes to nothing, so callers gate on it instead of drawing.
+ */
+inline constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
+
+/**
  * @brief Represents a color with a STRAIGHT (non-premultiplied) alpha channel.
  * @details `color` holds the un-premultiplied color, `alpha` its coverage;
  * premultiplication happens once, at the final canvas write (`color * alpha`).
