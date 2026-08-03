@@ -26,6 +26,15 @@
 
 /**
  * @brief The Scan namespace contains area-filling scanline drawing primitives.
+ * @details Pipeline typing follows the per-pixel body. A body that already
+ * calls a type-erased FragmentShaderFn pays one indirect call per pixel
+ * whatever the sink is, so those entry points take the sink as PipelineRef —
+ * either by value or as a PipelineT defaulted to it — and keep the single
+ * instantiation per <W,H> that erasure buys (see the PipelineRef note in
+ * concepts.h). The bodies with no erased call — the constant-color
+ * rasterize_solid and draw_solid family, the fused RingGroup and
+ * DistortedRingStack walks, rasterize_face and Mesh — name PipelineT with no
+ * default, so the caller's sink types the whole body.
  */
 namespace Scan {
 
@@ -74,9 +83,10 @@ inline int pole_lod_run(float sin_phi) {
  * @return Columns consumed: max_run when the probe at x decided the whole
  *         offer (all clear, or a solid interior shaded once and splatted),
  *         else 1.
- * @details The shader and pipeline are type-erased (FragmentShaderFn /
- * PipelineRef) so the scanline instantiates once per <W,H> rather than per
- * shader/pipeline; see the PipelineRef note in concepts.h.
+ * @details The shader is type-erased (FragmentShaderFn) and the pipeline
+ * defaults to the erased PipelineRef, so the scanline instantiates once per
+ * <W,H> rather than per shader/pipeline; a caller holding a typed sink names it
+ * as PipelineT. See the PipelineRef note in concepts.h.
  */
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
