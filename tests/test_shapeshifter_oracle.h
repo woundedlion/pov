@@ -336,53 +336,80 @@ inline bool candidate_covers_neighborhood(const OracleFrame &candidate, int x,
   return false;
 }
 
-inline void test_candidate_matrix_stays_within_visual_budget() {
-  for (const OracleState &state : exhaustive_matrix()) {
-    RenderComparison comparison =
-        compare_renders(state, reference_renderer(), candidate_renderer());
-    const uint64_t reference_energy = frame_energy(comparison.reference);
-    const int64_t energy_delta =
-        static_cast<int64_t>(frame_energy(comparison.candidate)) -
-        static_cast<int64_t>(reference_energy);
-    const double energy_ratio =
-        reference_energy == 0
-            ? 0.0
-            : std::fabs(static_cast<double>(energy_delta)) / reference_energy;
-    if (energy_ratio >= MAX_ENERGY_DRIFT)
-      hs::log("ShapeShifter oracle energy: shape=%u function=%u count=%d "
-              "sides=%d delta=%lld reference=%llu drift=%f",
-              static_cast<unsigned>(state.shape),
-              static_cast<unsigned>(state.function), state.count, state.sides,
-              static_cast<long long>(energy_delta),
-              static_cast<unsigned long long>(reference_energy), energy_ratio);
-    size_t uncovered_bright_pixels = 0;
-    size_t high_error_pixels = 0;
-    for (size_t pixel = 0; pixel < comparison.reference.pixels.size();
-         ++pixel) {
-      const Pixel &a = comparison.reference.pixels[pixel];
-      const Pixel &b = comparison.candidate.pixels[pixel];
-      if (pixel_is_bright(a)) {
-        const int x = static_cast<int>(pixel % ORACLE_W);
-        const int y = static_cast<int>(pixel / ORACLE_W);
-        if (!candidate_covers_neighborhood(comparison.candidate, x, y))
-          ++uncovered_bright_pixels;
-      }
-      const uint32_t max_error = std::max({a.r > b.r ? a.r - b.r : b.r - a.r,
-                                           a.g > b.g ? a.g - b.g : b.g - a.g,
-                                           a.b > b.b ? a.b - b.b : b.b - a.b});
-      if (max_error > HIGH_CHANNEL_ERROR)
-        ++high_error_pixels;
+inline void expect_candidate_within_visual_budget(const OracleState &state) {
+  RenderComparison comparison =
+      compare_renders(state, reference_renderer(), candidate_renderer());
+  const uint64_t reference_energy = frame_energy(comparison.reference);
+  const int64_t energy_delta =
+      static_cast<int64_t>(frame_energy(comparison.candidate)) -
+      static_cast<int64_t>(reference_energy);
+  const double energy_ratio =
+      reference_energy == 0
+          ? 0.0
+          : std::fabs(static_cast<double>(energy_delta)) / reference_energy;
+  if (energy_ratio >= MAX_ENERGY_DRIFT)
+    hs::log("ShapeShifter oracle energy: shape=%u function=%u count=%d "
+            "sides=%d delta=%lld reference=%llu drift=%f",
+            static_cast<unsigned>(state.shape),
+            static_cast<unsigned>(state.function), state.count, state.sides,
+            static_cast<long long>(energy_delta),
+            static_cast<unsigned long long>(reference_energy), energy_ratio);
+  size_t uncovered_bright_pixels = 0;
+  size_t high_error_pixels = 0;
+  for (size_t pixel = 0; pixel < comparison.reference.pixels.size(); ++pixel) {
+    const Pixel &a = comparison.reference.pixels[pixel];
+    const Pixel &b = comparison.candidate.pixels[pixel];
+    if (pixel_is_bright(a)) {
+      const int x = static_cast<int>(pixel % ORACLE_W);
+      const int y = static_cast<int>(pixel / ORACLE_W);
+      if (!candidate_covers_neighborhood(comparison.candidate, x, y))
+        ++uncovered_bright_pixels;
     }
-    HS_EXPECT_LT(comparison.error.mean_absolute_error(),
-                 MAX_MEAN_ABSOLUTE_ERROR);
-    HS_EXPECT_LT(comparison.error.root_mean_squared_error(),
-                 MAX_ROOT_MEAN_SQUARED_ERROR);
-    HS_EXPECT_LT(comparison.error.max_absolute_error, MAX_CHANNEL_ERROR);
-    HS_EXPECT_LT(energy_ratio, MAX_ENERGY_DRIFT);
-    HS_EXPECT_LT(high_error_pixels, MAX_HIGH_ERROR_PIXELS);
-    HS_EXPECT_EQ(uncovered_bright_pixels, size_t{0});
-    HS_EXPECT_EQ(comparison.reference.backstop_hits, uint32_t{0});
-    HS_EXPECT_EQ(comparison.candidate.backstop_hits, uint32_t{0});
+    const uint32_t max_error = std::max({a.r > b.r ? a.r - b.r : b.r - a.r,
+                                         a.g > b.g ? a.g - b.g : b.g - a.g,
+                                         a.b > b.b ? a.b - b.b : b.b - a.b});
+    if (max_error > HIGH_CHANNEL_ERROR)
+      ++high_error_pixels;
+  }
+  HS_EXPECT_LT(comparison.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
+  HS_EXPECT_LT(comparison.error.root_mean_squared_error(),
+               MAX_ROOT_MEAN_SQUARED_ERROR);
+  HS_EXPECT_LT(comparison.error.max_absolute_error, MAX_CHANNEL_ERROR);
+  HS_EXPECT_LT(energy_ratio, MAX_ENERGY_DRIFT);
+  HS_EXPECT_LT(high_error_pixels, MAX_HIGH_ERROR_PIXELS);
+  HS_EXPECT_EQ(uncovered_bright_pixels, size_t{0});
+  HS_EXPECT_EQ(comparison.reference.backstop_hits, uint32_t{0});
+  HS_EXPECT_EQ(comparison.candidate.backstop_hits, uint32_t{0});
+}
+
+inline void test_candidate_matrix_stays_within_visual_budget() {
+  for (const OracleState &state : exhaustive_matrix())
+    expect_candidate_within_visual_budget(state);
+}
+
+inline void test_dense_star_preset_stays_within_visual_budget() {
+  using Function = OracleEffect::PhaseFunction;
+  using Shape = OracleEffect::ShapeType;
+  const std::array<Quaternion, 6> orientations = {{
+      Quaternion(),
+      make_rotation(X_AXIS, Y_AXIS),
+      make_rotation(X_AXIS, -Y_AXIS),
+      make_rotation(X_AXIS, Z_AXIS),
+      Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(),
+      Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
+  }};
+  const std::array<float, 6> phases = {
+      {0.0f, 0.125f, 0.249f, 0.5f, 0.75f, 0.999f}};
+  for (size_t i = 0; i < orientations.size(); ++i) {
+    OracleState state;
+    state.shape = Shape::STAR;
+    state.function = Function::SINE;
+    state.count = 144;
+    state.sides = 7;
+    state.phase = phases[i];
+    state.alpha = 0.274f;
+    state.orientation = orientations[i];
+    expect_candidate_within_visual_budget(state);
   }
 }
 
@@ -426,6 +453,29 @@ inline void expect_segment_tiles_reconstruct_full_frame(Render render) {
 inline void test_segment_tiles_reconstruct_full_frame() {
   expect_segment_tiles_reconstruct_full_frame(reference_renderer());
   expect_segment_tiles_reconstruct_full_frame(candidate_renderer());
+
+  const OracleClip clips[] = {{0, ORACLE_H / 2, 0, ORACLE_W / 2},
+                              {0, ORACLE_H / 2, ORACLE_W / 2, ORACLE_W},
+                              {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
+                              {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::STAR;
+  state.function = OracleEffect::PhaseFunction::SINE;
+  state.count = 144;
+  state.sides = 7;
+  state.phase = 0.37f;
+  state.alpha = 0.274f;
+  state.orientation = Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
+  const OracleFrame full = capture_frame(state, candidate_renderer());
+  OracleFrame tiled;
+  tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
+  for (const OracleClip &clip : clips) {
+    state.clip = clip;
+    copy_clip(tiled, capture_frame(state, candidate_renderer()), clip);
+  }
+  const FrameErrorStats error = compare_buffers(full, tiled);
+  HS_EXPECT_TRUE(error.exact());
+  HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
 }
 
 inline void test_amplitude_preserves_sweep_velocity() {
@@ -439,12 +489,9 @@ inline void test_amplitude_preserves_sweep_velocity() {
 inline void test_shape_alpha_fades_to_equator() {
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(0, 1), 1.0f);
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(0, 6), 1.0f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(1, 6), 2.0f / 3.0f,
-                 1e-6f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 6), 1.0f / 3.0f,
-                 1e-6f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(3, 6), 1.0f / 3.0f,
-                 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(1, 6), 2.0f / 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 6), 1.0f / 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(3, 6), 1.0f / 3.0f, 1e-6f);
   HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(4, 6), 2.0f / 3.0f,
                  1e-6f);
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(5, 6), 1.0f);
@@ -513,6 +560,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_buffer_comparator_statistics();
   test_reference_matrix_is_exact_and_nonblack();
   test_candidate_matrix_stays_within_visual_budget();
+  test_dense_star_preset_stays_within_visual_budget();
   test_segment_tiles_reconstruct_full_frame();
   test_amplitude_preserves_sweep_velocity();
   test_shape_alpha_fades_to_equator();

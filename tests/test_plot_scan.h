@@ -2791,12 +2791,21 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
 
   const float geo = angle_between(a.pos, b.pos);
   const float planar = Plot::planar_arc_length(a.pos, b.pos, basis);
-  // The rendered planar edge bows strictly longer than the geodesic chord...
-  HS_EXPECT_GT(planar, geo);
-  // ...and v1 tracks that rendered arc (start ~0, end ~planar length, > chord).
+  const Plot::PlanarEdgeSampler sampler =
+      Plot::make_planar_edge_sampler(a.pos, b.pos, basis);
+  float rendered = 0.0f;
+  Vector previous = sampler.unproject(0.0f);
+  const Vector mapped_start = previous;
+  for (int i = 1; i <= 32; ++i) {
+    const Vector current = sampler.unproject(static_cast<float>(i) / 32.0f);
+    rendered += angle_between(previous, current);
+    previous = current;
+  }
+  HS_EXPECT_GT(rendered, angle_between(mapped_start, previous));
+  HS_EXPECT_NEAR(rendered, geo, 2e-3f);
+  HS_EXPECT_NEAR(planar, rendered, 2e-3f);
   HS_EXPECT_NEAR(v1s.front(), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(v1s.back(), planar, 2e-2f);
-  HS_EXPECT_GT(v1s.back(), geo);
 
   // v0 is v1 normalized by the single-segment total arc: 0 at the start, ~1 end.
   HS_EXPECT_NEAR(v0s.front(), 0.0f, 1e-3f);
@@ -4426,7 +4435,8 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
   points.push_back(a);
   points.push_back(b);
 
-  auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
+  auto capture = [&]<Plot::RasterSamplingPolicy Policy>(
+                     float spacing = Plot::BALANCED_SCREEN_STEP_PX) {
     hs_test::StubEffect fx(W, H);
     AlphaCapturePipeline pipeline;
     Canvas canvas(fx);
@@ -4436,32 +4446,44 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
     Plot::rasterize<W, H, true, false, true, true, Policy>(
         pipeline, canvas, points, shader,
         {.planar_basis = &basis,
-         .balanced_sampling =
-             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
+         .balanced_sampling = Policy == Plot::RasterSamplingPolicy::SELECTABLE,
+         .balanced_screen_step_px = spacing});
     return pipeline;
   };
   const AlphaCapturePipeline standard =
       capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
   const AlphaCapturePipeline balanced =
       capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
+  const AlphaCapturePipeline dense =
+      capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>(
+          Plot::DENSE_SCREEN_STEP_PX);
 
   HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
   HS_EXPECT_GE(balanced.plotted.size() * 5, standard.plotted.size() * 3);
   HS_EXPECT_LE((max_projected_gap<W, H>(balanced.plotted)), 1.3f);
   const Plot::PlanarEdgeSampler sampler = planar_sampler(a.pos, b.pos, basis);
   const Plot::SamplePT first = sampler.one_pass(0.0f);
-  const float default_step = Plot::screen_step<W, H>(first.pos, first.tan,
-                                                      BASE_STEP);
-  const float candidate_step = std::min(
-      BASE_STEP, default_step *
-                     (Plot::BALANCED_SCREEN_STEP_PX / Plot::SCREEN_STEP_PX));
+  const float default_step =
+      Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP);
+  const float candidate_step =
+      std::min(BASE_STEP, default_step * (Plot::BALANCED_SCREEN_STEP_PX /
+                                          Plot::SCREEN_STEP_PX));
   HS_EXPECT_NEAR(standard.alphas.front(), 0.4f, 1e-6f);
-  HS_EXPECT_NEAR(balanced.alphas.front(),
-                 Plot::balanced_sample_alpha(0.4f,
-                                             candidate_step / default_step),
-                 1e-6f);
+  HS_EXPECT_NEAR(
+      balanced.alphas.front(),
+      Plot::balanced_sample_alpha(0.4f, candidate_step / default_step), 1e-6f);
   for (const Vector &point : balanced.plotted)
     HS_EXPECT_NEAR(point.length(), 1.0f, 5e-3f);
+  HS_EXPECT_GT(balanced.plotted.size(), dense.plotted.size());
+  HS_EXPECT_LE((max_projected_gap<W, H>(dense.plotted)), 1.55f);
+  const float dense_step = std::min(
+      BASE_STEP * (Plot::DENSE_SCREEN_STEP_PX / Plot::SCREEN_STEP_PX),
+      default_step * (Plot::DENSE_SCREEN_STEP_PX / Plot::SCREEN_STEP_PX));
+  HS_EXPECT_NEAR(
+      dense.alphas.front(),
+      Plot::balanced_sample_alpha(0.4f, dense_step / default_step,
+                                  Plot::DENSE_SPACING_ALPHA_GAIN),
+      1e-6f);
 }
 
 /** @brief Cadence reuse stays disabled in the polar clamp region. */
