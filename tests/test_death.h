@@ -18,6 +18,14 @@
  * re-exec itself, the death tests are SKIPPED — EXCEPT under CI (the CI env var
  * is set), where a suite that cannot run is a hard FAILURE rather than a silent
  * green skip.
+ *
+ * Dying by SIGILL alone proves only that SOMETHING trapped: under
+ * -fsanitize-trap=undefined any UB in a case body lowers to the same illegal
+ * instruction, so a case that stopped reaching its guard but tripped UB would
+ * still look green. Each case therefore also pins the guard it must fire.
+ * check_fail() logs "HS_CHECK failed: <file>:<line>: (<cond>) <msg>" and flushes
+ * before trapping, so the child's stdout/stderr is captured to a file and the
+ * parent requires the breadcrumb of that exact guard.
  */
 #pragma once
 
@@ -57,10 +65,11 @@
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
 #include <unistd.h>   // fork / execv / dup2 / close / _exit — shell-free spawn
 #else
-#include <fcntl.h>   // _O_WRONLY for the NUL redirect
-#include <io.h>      // _dup / _dup2 / _sopen_s / _close
-#include <process.h> // _spawnv / _P_WAIT — shell-free child spawn
-#include <share.h>   // _SH_DENYNO
+#include <fcntl.h>    // _O_WRONLY / _O_CREAT / _O_TRUNC for the capture redirect
+#include <io.h>       // _dup / _dup2 / _sopen_s / _close
+#include <process.h>  // _spawnv / _P_WAIT / _getpid — shell-free child spawn
+#include <share.h>    // _SH_DENYNO
+#include <sys/stat.h> // _S_IREAD / _S_IWRITE for the created capture file
 #endif
 
 #if defined(_WIN32)
@@ -1666,6 +1675,10 @@ inline void case_empty_fn_call() {
 struct Case {
   const char *name; /**< Case selector matched against HS_DEATH_CASE. */
   void (*fn)();     /**< The trap-triggering case body to run. */
+  const char *guard_file; /**< Basename check_fail() logs for the guard that
+                               must fire; nothing else counts as a pass. */
+  const char *guard_text; /**< Expected "(condition) message" tail of that
+                               guard's breadcrumb line. */
 };
 
 /**
@@ -1677,111 +1690,294 @@ struct Case {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
-      {"arena_oom", case_arena_oom},
-      {"arena_zero_size_alloc", case_arena_zero_size_alloc},
-      {"arena_bad_alignment", case_arena_bad_alignment},
-      {"arena_set_capacity_below_offset", case_arena_set_capacity_below_offset},
-      {"arena_set_capacity_above_extent", case_arena_set_capacity_above_extent},
-      {"resplit_scratch_not_empty", case_resplit_scratch_not_empty},
-      {"arena_set_offset_overflow", case_arena_set_offset_overflow},
-      {"scratch_scope_non_lifo", case_scratch_scope_non_lifo},
-      {"arena_vector_overflow", case_arena_vector_overflow},
-      {"arena_vector_emplace_overflow", case_arena_vector_emplace_overflow},
-      {"generate_target_is_scratch", case_generate_target_is_scratch},
-      {"normalize_zero", case_normalize_zero},
-      {"normalize_nan", case_normalize_nan},
-      {"solids_index_oob", case_solids_index_oob},
-      {"solids_unknown_name", case_solids_unknown_name},
-      {"circular_buffer_oob", case_circular_buffer_oob},
-      {"circular_buffer_front_empty", case_circular_buffer_front_empty},
+      {"arena_oom", case_arena_oom, "memory.h",
+       "(false) "},
+      {"arena_zero_size_alloc", case_arena_zero_size_alloc, "memory.h",
+       "(size > 0) Arena::allocate: zero-size request"},
+      {"arena_bad_alignment", case_arena_bad_alignment, "memory.h",
+       "(align != 0 && (align & (align - 1)) == 0) "},
+      {"arena_set_capacity_below_offset", case_arena_set_capacity_below_offset,
+       "memory.h",
+       "(offset <= new_capacity) Arena::set_capacity below the live offset "
+       "would strand content"},
+      {"arena_set_capacity_above_extent", case_arena_set_capacity_above_extent,
+       "memory.h",
+       "(new_capacity <= extent) Arena::set_capacity past the backing buffer "
+       "would hand out bytes the arena does not own"},
+      {"resplit_scratch_not_empty", case_resplit_scratch_not_empty,
+       "memory.cpp",
+       "(scratch_arena_a.get_offset() == 0 && scratch_arena_b.get_offset() "
+       "== 0) resplit_arenas: both scratch arenas must be empty"},
+      {"arena_set_offset_overflow", case_arena_set_offset_overflow, "memory.h",
+       "(new_offset <= offset) "},
+      {"scratch_scope_non_lifo", case_scratch_scope_non_lifo, "memory.h",
+       "(arena.get_offset() >= saved_offset) "},
+      {"arena_vector_overflow", case_arena_vector_overflow, "memory.h",
+       "(element_count < element_capacity) ArenaVector exact capacity "
+       "exceeded!"},
+      {"arena_vector_emplace_overflow", case_arena_vector_emplace_overflow,
+       "memory.h",
+       "(element_count < element_capacity) ArenaVector exact capacity "
+       "exceeded!"},
+      {"generate_target_is_scratch", case_generate_target_is_scratch,
+       "generators.h",
+       "(&target != &scratch_arena_a && &target != &scratch_arena_b) "
+       "generate: target must not alias an engine scratch arena"},
+      {"normalize_zero", case_normalize_zero, "3dmath.h",
+       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+      {"normalize_nan", case_normalize_nan, "3dmath.h",
+       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+      {"solids_index_oob", case_solids_index_oob, "solids.h",
+       "(index < static_cast<size_t>(NUM_ENTRIES)) Solids::get_entry: index "
+       "out of range"},
+      {"solids_unknown_name", case_solids_unknown_name, "solids.h",
+       "(entry) Solids::get_by_name: unknown solid name"},
+      {"circular_buffer_oob", case_circular_buffer_oob,
+       "static_circular_buffer.h",
+       "(index < count) StaticCircularBuffer index out of range"},
+      {"circular_buffer_front_empty", case_circular_buffer_front_empty,
+       "static_circular_buffer.h",
+       "(!is_empty()) front() on empty StaticCircularBuffer"},
       {"arena_vector_append_bulk_overflow",
-       case_arena_vector_append_bulk_overflow},
-      {"spatial_knn_over_max", case_spatial_knn_over_max},
-      {"arena_oversubscribed", case_arena_oversubscribed},
-      {"persist_forgot_reset", case_persist_forgot_reset},
-      {"persist_same_arena", case_persist_same_arena},
+       case_arena_vector_append_bulk_overflow, "memory.h",
+       "(count <= element_capacity - element_count) ArenaVector bulk append "
+       "exceeds capacity!"},
+      {"spatial_knn_over_max", case_spatial_knn_over_max, "spatial.h",
+       "(k <= static_cast<size_t>(MAX_K)) KDTree::nearest k exceeds MAX_K"},
+      {"arena_oversubscribed", case_arena_oversubscribed, "memory.cpp",
+       "(false) "},
+      {"persist_forgot_reset", case_persist_forgot_reset, "memory.h",
+       "(persistent.get_offset() <= persistent_offset_at_ctor) Persist: "
+       "restore grew the persistent arena past its construction watermark — "
+       "the caller did not rewind/reset it during the scope, so the restore "
+       "appended a duplicate instead of reconstructing"},
+      {"persist_same_arena", case_persist_same_arena, "memory.h",
+       "(&scratch_arena != &restore_arena) Persist: scratch and persistent "
+       "must be distinct arenas — the dtor's watermark restore assumes the "
+       "backup lives in a different arena than the one it restores into"},
       {"triangular_bitset_unordered_pair",
-       case_triangular_bitset_unordered_pair},
-      {"timeline_handled_relocation", case_timeline_handled_relocation},
+       case_triangular_bitset_unordered_pair, "memory.h",
+       "(small >= 0 && small < large && large < MAX_V) "},
+      {"timeline_handled_relocation", case_timeline_handled_relocation,
+       "timeline.h",
+       "(!handled) "},
       {"timeline_move_into_live_destination",
-       case_timeline_move_into_live_destination},
-      {"timeline_negative_delay", case_timeline_negative_delay},
-      {"finite_param_perpetual_duration",
-       case_finite_param_perpetual_duration},
-      {"timeline_start_overflow", case_timeline_start_overflow},
-      {"timeline_handled_completion", case_timeline_handled_completion},
+       case_timeline_move_into_live_destination, "timeline.h",
+       "(!dst.manager) move_into would leak the destination's live animation"},
+      {"timeline_negative_delay", case_timeline_negative_delay, "timeline.h",
+       "(in_frames >= 0) Timeline delay must be non-negative"},
+      {"finite_param_perpetual_duration", case_finite_param_perpetual_duration,
+       "params.h",
+       "(duration >= 0) finite parameter animation duration must be >= 0"},
+      {"timeline_start_overflow", case_timeline_start_overflow, "timeline.h",
+       "(delay <= UINT32_MAX - global_timeline_t) Timeline start frame "
+       "overflow"},
+      {"timeline_handled_completion", case_timeline_handled_completion,
+       "timeline.h",
+       "(!e.handled || anim->is_canceled()) "},
       {"timeline_pinned_finite_animation",
-       case_timeline_pinned_finite_animation},
+       case_timeline_pinned_finite_animation, "timeline.h",
+       "(!animation.is_finite() || animation.repeats()) pinned animation "
+       "must be infinite or repeating"},
       {"timeline_pinned_add_on_full_timeline",
-       case_timeline_pinned_add_on_full_timeline},
-      {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer},
-      {"timeline_clear_pinned", case_timeline_clear_pinned},
-      {"timeline_clear_during_step", case_timeline_clear_during_step},
-      {"timeline_clear_hook_adds_event", case_timeline_clear_hook_adds_event},
-      {"mesh_carousel_unflipped_slot", case_mesh_carousel_unflipped_slot},
-      {"timeline_double_construct", case_timeline_double_construct},
-      {"effect_double_construct", case_effect_double_construct},
-      {"effect_width_zero", case_effect_width_zero},
-      {"effect_height_zero", case_effect_height_zero},
-      {"effect_width_over_max", case_effect_width_over_max},
-      {"effect_height_over_max", case_effect_height_over_max},
-      {"particle_lifetime_zero", case_particle_lifetime_zero},
-      {"particle_lifetime_nan", case_particle_lifetime_nan},
-      {"particle_lifetime_over_max", case_particle_lifetime_over_max},
-      {"particle_render_zero_lifetime", case_particle_render_zero_lifetime},
+       case_timeline_pinned_add_on_full_timeline, "timeline.h",
+       "(pin == Pin::UNPINNED) Timeline full, dropped a pinned animation"},
+      {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer,
+       "timeline.h",
+       "(!e.handled || anim->is_canceled()) "},
+      {"timeline_clear_pinned", case_timeline_clear_pinned, "timeline.h",
+       "(!global_timeline_events[i].handled) clear() would destroy a pinned "
+       "animation"},
+      {"timeline_clear_during_step", case_timeline_clear_during_step,
+       "timeline.h",
+       "(!stepping) clear() from inside step() would destroy the animation "
+       "whose callback is running"},
+      {"timeline_clear_hook_adds_event", case_timeline_clear_hook_adds_event,
+       "timeline.h",
+       "(global_timeline_num_events == event_count) clear hook added or "
+       "removed timeline events"},
+      {"mesh_carousel_unflipped_slot", case_mesh_carousel_unflipped_slot,
+       "carousel.h",
+       "(slot == front) MeshCarousel segue scheduled before incoming slot "
+       "flip"},
+      {"timeline_double_construct", case_timeline_double_construct,
+       "timeline.h",
+       "(!global_timeline_live) "},
+      {"effect_double_construct", case_effect_double_construct, "canvas.h",
+       "(!s_alive) Effect: a second Effect was constructed while one is "
+       "still alive; buffer_a/buffer_b are shared static storage (one live "
+       "Effect only)"},
+      {"effect_width_zero", case_effect_width_zero, "canvas.h",
+       "(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H) Effect dimensions 0 x "
+       "16 are outside 1..288 x 1..144"},
+      {"effect_height_zero", case_effect_height_zero, "canvas.h",
+       "(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H) Effect dimensions 32 x "
+       "0 are outside 1..288 x 1..144"},
+      {"effect_width_over_max", case_effect_width_over_max, "canvas.h",
+       "(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H) Effect dimensions 289 x "
+       "16 are outside 1..288 x 1..144"},
+      {"effect_height_over_max", case_effect_height_over_max, "canvas.h",
+       "(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H) Effect dimensions 32 x "
+       "145 are outside 1..288 x 1..144"},
+      {"particle_lifetime_zero", case_particle_lifetime_zero, "sprites.h",
+       "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
+       "65535.0f) ParticleSystem max_life must be finite and in [1, 65535]"},
+      {"particle_lifetime_nan", case_particle_lifetime_nan, "sprites.h",
+       "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
+       "65535.0f) ParticleSystem max_life must be finite and in [1, 65535]"},
+      {"particle_lifetime_over_max", case_particle_lifetime_over_max,
+       "sprites.h",
+       "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
+       "65535.0f) ParticleSystem max_life must be finite and in [1, 65535]"},
+      {"particle_render_zero_lifetime", case_particle_render_zero_lifetime,
+       "plot.h",
+       "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
+       "65535.0f) ParticleSystem render max_life must be finite and in [1, "
+       "65535]"},
       {"correction_guard_double_construct",
-       case_correction_guard_double_construct},
-      {"correction_guard_cross_type", case_correction_guard_cross_type},
-      {"mesh_narrow_index", case_mesh_narrow_index},
-      {"medial_aliases_input", case_medial_aliases_input},
-      {"chamfer_collapsed_endpoint", case_chamfer_collapsed_endpoint},
-      {"snub_collapsed_endpoint", case_snub_collapsed_endpoint},
-      {"conway_empty_mesh", case_conway_empty_mesh},
-      {"conway_degenerate_mesh", case_conway_degenerate_mesh},
-      {"conway_target_exhausted", case_conway_target_exhausted},
-      {"half_edge_face_counts_short", case_half_edge_face_counts_short},
-      {"half_edge_face_counts_long", case_half_edge_face_counts_long},
-      {"mesh_compile_face_counts_short", case_mesh_compile_face_counts_short},
-      {"mesh_compile_face_counts_long", case_mesh_compile_face_counts_long},
+       case_correction_guard_double_construct, "led.h",
+       "(correction_guard_depth() == 0) at most one correction guard may be "
+       "live at a time (see contract above)"},
+      {"correction_guard_cross_type", case_correction_guard_cross_type, "led.h",
+       "(correction_guard_depth() == 0) at most one correction guard may be "
+       "live at a time (see contract above)"},
+      {"mesh_narrow_index", case_mesh_narrow_index, "mesh.h",
+       "(i <= static_cast<size_t>(INT16_MAX)) mesh index exceeds int16_t "
+       "topology range (oversized mesh?)"},
+      {"medial_aliases_input", case_medial_aliases_input, "conway.h",
+       "(&mesh != &out_a) medial input mesh must not alias output mesh"},
+      {"chamfer_collapsed_endpoint", case_chamfer_collapsed_endpoint,
+       "conway.h",
+       "(t >= 0.0f && t < 1.0f) chamfer: t out of [0,1)"},
+      {"snub_collapsed_endpoint", case_snub_collapsed_endpoint, "conway.h",
+       "(t >= 0.0f && t < 1.0f) snub: t out of [0,1)"},
+      {"conway_empty_mesh", case_conway_empty_mesh, "memory.h",
+       "(size > 0) Arena::allocate: zero-size request"},
+      {"conway_degenerate_mesh", case_conway_degenerate_mesh, "mesh.h",
+       "(he_mesh.half_edges[i].pair != HE_NONE) MeshOps::truncate requires a "
+       "closed manifold (unpaired half-edge)"},
+      {"conway_target_exhausted", case_conway_target_exhausted, "memory.h",
+       "(false) "},
+      {"half_edge_face_counts_short", case_half_edge_face_counts_short,
+       "mesh.h",
+       "(counted_indices == total_indices) mesh face counts do not span flat "
+       "index length"},
+      {"half_edge_face_counts_long", case_half_edge_face_counts_long, "mesh.h",
+       "(count <= total_indices - counted_indices) mesh face counts exceed "
+       "flat index length"},
+      {"mesh_compile_face_counts_short", case_mesh_compile_face_counts_short,
+       "mesh.h",
+       "(counted_indices == total_indices) mesh face counts do not span flat "
+       "index length"},
+      {"mesh_compile_face_counts_long", case_mesh_compile_face_counts_long,
+       "mesh.h",
+       "(count <= total_indices - counted_indices) mesh face counts exceed "
+       "flat index length"},
       {"mesh_compile_face_span_over_16bit",
-       case_mesh_compile_face_span_over_16bit},
-      {"update_hankin_stale_topology", case_update_hankin_stale_topology},
+       case_mesh_compile_face_span_over_16bit, "mesh.h",
+       "(current_offset + count <= UINT16_MAX) mesh face_offsets exceeds "
+       "16-bit index range"},
+      {"update_hankin_stale_topology", case_update_hankin_stale_topology,
+       "hankin.h",
+       "(out_mesh.topology.size() == 0 || out_mesh.topology.size() == "
+       "compiled.face_counts.size()) update_hankin: reused out_mesh carries "
+       "a topology from a different compiled pattern (clear it first)"},
       {"mesh_state_set_view_offsets_count_mismatch",
-       case_mesh_state_set_view_offsets_count_mismatch},
+       case_mesh_state_set_view_offsets_count_mismatch, "spatial.h",
+       "(face_offsets_span.size() == face_counts_span.size()) "
+       "MeshState::set_view: one face offset per face count required"},
       {"mesh_state_set_view_offsets_short_span",
-       case_mesh_state_set_view_offsets_short_span},
-      {"half_edge_zero_side_face", case_half_edge_zero_side_face},
-      {"half_edge_non_manifold_edge", case_half_edge_non_manifold_edge},
-      {"half_edge_inconsistent_winding", case_half_edge_inconsistent_winding},
-      {"mesh_narrow_face_count", case_mesh_narrow_face_count},
-      {"mesh_require_closed_manifold", case_mesh_require_closed_manifold},
-      {"mesh_require_vertex_manifold", case_mesh_require_vertex_manifold},
-      {"slerp_nan", case_slerp_nan},
-      {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},
-      {"make_rotation_angle_nan", case_make_rotation_angle_nan},
-      {"make_rotation_nonunit", case_make_rotation_nonunit},
-      {"make_basis_nan", case_make_basis_nan},
-      {"noise_transform_nan", case_noise_transform_nan},
-      {"driver_null_speed_src", case_driver_null_speed_src},
-      {"path_append_zero_samples", case_path_append_zero_samples},
-      {"alpha_falloff_null", case_alpha_falloff_null},
-      {"register_param_overflow", case_register_param_overflow},
-      {"set_clip_out_of_bounds", case_set_clip_out_of_bounds},
-      {"set_clip_x_out_of_bounds", case_set_clip_x_out_of_bounds},
-      {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds},
-      {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch},
-      {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},
+       case_mesh_state_set_view_offsets_short_span, "spatial.h",
+       "(static_cast<size_t>(face_offsets_span[last]) + "
+       "face_counts_span[last] == faces_span.size()) MeshState::set_view: "
+       "face offsets do not span faces"},
+      {"half_edge_zero_side_face", case_half_edge_zero_side_face, "mesh.h",
+       "(count > 0) half-edge mesh face has zero sides"},
+      {"half_edge_non_manifold_edge", case_half_edge_non_manifold_edge,
+       "mesh.h",
+       "(j - i <= 2) non-manifold edge: >2 half-edges share an edge"},
+      {"half_edge_inconsistent_winding", case_half_edge_inconsistent_winding,
+       "mesh.h",
+       "(out.half_edges[a].vertex != out.half_edges[b].vertex) half-edge "
+       "mesh faces are inconsistently wound"},
+      {"mesh_narrow_face_count", case_mesh_narrow_face_count, "mesh.h",
+       "(count >= 0 && count <= UINT8_MAX) mesh face side count exceeds "
+       "uint8_t range"},
+      {"mesh_require_closed_manifold", case_mesh_require_closed_manifold,
+       "mesh.h",
+       "(he_mesh.half_edges[i].pair != HE_NONE) MeshOps::death requires a "
+       "closed manifold (unpaired half-edge)"},
+      {"mesh_require_vertex_manifold", case_mesh_require_vertex_manifold,
+       "mesh.h",
+       "(walked == fan_size[origin]) MeshOps::death requires a vertex "
+       "manifold (split vertex fan)"},
+      {"slerp_nan", case_slerp_nan, "3dmath.h",
+       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+      {"make_rotation_vectors_nan", case_make_rotation_vectors_nan, "3dmath.h",
+       "(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ && "
+       "std::abs(dot(to, to) - 1.0f) < math::EPS_UNIT_VEC_SQ) "
+       "make_rotation(from, to): inputs must be unit vectors"},
+      {"make_rotation_angle_nan", case_make_rotation_angle_nan, "3dmath.h",
+       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+      {"make_rotation_nonunit", case_make_rotation_nonunit, "3dmath.h",
+       "(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ && "
+       "std::abs(dot(to, to) - 1.0f) < math::EPS_UNIT_VEC_SQ) "
+       "make_rotation(from, to): inputs must be unit vectors"},
+      {"make_basis_nan", case_make_basis_nan, "3dmath.h",
+       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+      {"noise_transform_nan", case_noise_transform_nan, "3dmath.h",
+       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+      {"driver_null_speed_src", case_driver_null_speed_src, "params.h",
+       "(speed_src != nullptr) Driver: live speed_src is null"},
+      {"path_append_zero_samples", case_path_append_zero_samples, "motion.h",
+       "(samples >= 1) "},
+      {"alpha_falloff_null", case_alpha_falloff_null, "composition.h",
+       "(fn != nullptr) AlphaFalloffShade: falloff function must not be null"},
+      {"register_param_overflow", case_register_param_overflow, "canvas.h",
+       "(parameters.find(name) == nullptr) register_param: duplicate "
+       "parameter name"},
+      {"set_clip_out_of_bounds", case_set_clip_out_of_bounds, "canvas.h",
+       "(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 && x0 <= x1 "
+       "&& x1 <= clip_region.w) set_clip band must be non-inverted and "
+       "within canvas bounds"},
+      {"set_clip_x_out_of_bounds", case_set_clip_x_out_of_bounds, "canvas.h",
+       "(x0 >= 0 && x0 <= x1 && x1 <= clip_region.w) set_clip_x band must be "
+       "non-inverted and within canvas width"},
+      {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds, "scan.h",
+       "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
+       "cr.render_y_end() <= PhiLUT<H>::H_VIRT) "},
+      {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "scan.h",
+       "(canvas.width() == W && canvas.height() == H) "},
+      {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
+       "plot.h",
+       "(large < DEDUP_CAPACITY) "},
       {"plot_extract_edges_vertex_over_capacity",
-       case_plot_extract_edges_vertex_over_capacity},
-      {"feedback_downsample_indivisible", case_feedback_downsample_indivisible},
-      {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob},
-      {"feedback_negative_fade", case_feedback_negative_fade},
-      {"gradient_no_stops", case_gradient_no_stops},
-      {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
-      {"gradient_stops_unsorted", case_gradient_stops_unsorted},
-      {"random_timer_inverted_range", case_random_timer_inverted_range},
-      {"dma_controller_wedged_overrun", case_dma_controller_wedged_overrun},
-      {"empty_fn_call", case_empty_fn_call},
+       case_plot_extract_edges_vertex_over_capacity, "plot.h",
+       "(large < DEDUP_CAPACITY) "},
+      {"feedback_downsample_indivisible", case_feedback_downsample_indivisible,
+       "filter.h",
+       "(downsample > 0 && W % downsample == 0) feedback downsample 5 must "
+       "be > 0 and divide width 32"},
+      {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
+       "spherical_field.h",
+       "(y < H - 1) SphericalFieldLayout: ring index 5 out of range"},
+      {"feedback_negative_fade", case_feedback_negative_fade, "styles.h",
+       "(fade >= 0.0f) Feedback::Style::fade must be >= 0"},
+      {"gradient_no_stops", case_gradient_no_stops, "color.h",
+       "(points.size() > 0) Gradient requires at least one stop"},
+      {"gradient_stop_out_of_range", case_gradient_stop_out_of_range, "color.h",
+       "(stop.first >= 0.0f && stop.first <= 1.0f) Gradient stop position "
+       "out of [0,1]"},
+      {"gradient_stops_unsorted", case_gradient_stops_unsorted, "color.h",
+       "(stop.first >= prevCheck) Gradient stops must be sorted ascending"},
+      {"random_timer_inverted_range", case_random_timer_inverted_range,
+       "timers.h",
+       "(min >= 0 && min <= max) "},
+      {"dma_controller_wedged_overrun", case_dma_controller_wedged_overrun,
+       "test_death.h",
+       "(false) DMA channel wedged"},
+      {"empty_fn_call", case_empty_fn_call, "inplace_function.h",
+       "(vtable != empty) empty hs::inplace_function called"},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
@@ -1821,6 +2017,103 @@ inline void run_child_case(const char *name) {
     }
 }
 
+/** @brief Bytes of child output kept for the guard-identity check. */
+inline constexpr size_t CHILD_OUTPUT_CAP = 4096;
+
+/**
+ * @brief Accessor for the text captured from the most recent child spawn.
+ * @return Pointer to the NUL-terminated capture buffer.
+ */
+inline char *child_output() {
+  static char buf[CHILD_OUTPUT_CAP];
+  return buf;
+}
+
+/**
+ * @brief Path the spawned child's stdout/stderr is redirected to.
+ * @return Stable NUL-terminated path, built once per process.
+ * @details Named from the parent's pid so two test binaries running
+ *          concurrently cannot overwrite each other's capture.
+ */
+inline const char *child_capture_path() {
+  static char path[512];
+  if (path[0] == '\0') {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#if defined(_WIN32)
+    const char *dir = std::getenv("TEMP");
+    if (!dir || dir[0] == '\0')
+      dir = ".";
+    std::snprintf(path, sizeof(path), "%s\\hs_death_%d.out", dir, _getpid());
+#else
+    const char *dir = std::getenv("TMPDIR");
+    if (!dir || dir[0] == '\0')
+      dir = "/tmp";
+    std::snprintf(path, sizeof(path), "%s/hs_death_%d.out", dir,
+                  static_cast<int>(getpid()));
+#endif
+#pragma clang diagnostic pop
+  }
+  return path;
+}
+
+/**
+ * @brief Loads the tail of the capture file into child_output().
+ * @details Keeps the LAST CHILD_OUTPUT_CAP-1 bytes: check_fail() flushes its
+ *          breadcrumb immediately before trapping, so it is the final text a
+ *          trapping child writes.
+ */
+inline void load_child_output() {
+  char *buf = child_output();
+  buf[0] = '\0';
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  std::FILE *f = std::fopen(child_capture_path(), "rb");
+#pragma clang diagnostic pop
+  if (!f)
+    return;
+  if (std::fseek(f, 0, SEEK_END) == 0) {
+    const long size = std::ftell(f);
+    if (size > 0) {
+      const long cap = static_cast<long>(CHILD_OUTPUT_CAP) - 1;
+      const long keep = size < cap ? size : cap;
+      if (std::fseek(f, size - keep, SEEK_SET) == 0)
+        buf[std::fread(buf, 1, static_cast<size_t>(keep), f)] = '\0';
+    }
+  }
+  std::fclose(f);
+}
+
+/**
+ * @brief Tests whether captured child output carries one guard's breadcrumb.
+ * @param out Text captured from the child.
+ * @param file Basename check_fail() logs for the guard's source file.
+ * @param text Expected "(condition) message" tail of the breadcrumb line.
+ * @return True iff some captured line reads
+ *         "HS_CHECK failed: <file>:<line>: <text>...".
+ * @details The line number is skipped rather than pinned, so editing above a
+ *          guard does not churn the table while the guard's identity stays
+ *          exact.
+ */
+inline bool breadcrumb_names_guard(const char *out, const char *file,
+                                   const char *text) {
+  char prefix[128];
+  std::snprintf(prefix, sizeof(prefix), "HS_CHECK failed: %s:", file);
+  const size_t prefix_len = std::strlen(prefix);
+  const size_t text_len = std::strlen(text);
+  for (const char *p = std::strstr(out, prefix); p;
+       p = std::strstr(p + 1, prefix)) {
+    const char *q = p + prefix_len;
+    while (*q >= '0' && *q <= '9')
+      ++q;
+    if (q[0] != ':' || q[1] != ' ')
+      continue;
+    if (std::strncmp(q + 2, text, text_len) == 0)
+      return true;
+  }
+  return false;
+}
+
 /**
  * @brief Sets HS_DEATH_CASE in this process's environment.
  * @param name Case selector to publish; the spawned child inherits it through
@@ -1839,49 +2132,60 @@ inline void set_case_env(const char *name) {
  * @param name Case selector passed to the child via HS_DEATH_CASE.
  * @return The child's raw status (_spawnv() on Windows, fork+execv wait status
  *         on POSIX). -1 on a spawn failure.
- * @details Child stdout/stderr are discarded; only the exit code matters.
+ * @details Child stdout/stderr are redirected to child_capture_path() and the
+ *          tail is loaded into child_output(), so the caller can require the
+ *          HS_CHECK breadcrumb of the guard the case is supposed to fire.
  */
 inline int spawn_child(const char *name) {
   set_case_env(name);
+  const char *capture_path = child_capture_path();
+  // Drop the previous spawn's capture up front: a spawn that fails before the
+  // redirect takes effect must leave an EMPTY capture, never the last child's
+  // breadcrumb, which would read as a pass for this case.
+  child_output()[0] = '\0';
+  std::remove(capture_path);
 #if defined(_WIN32)
   // Shell-free spawn: hand argv straight to the CRT so no cmd.exe parsing can
   // mangle a self_exe() path containing &, %, ^, or quotes. Child stdout/stderr
-  // go to NUL by redirecting fds 1/2 across the synchronous _P_WAIT spawn (the
-  // child inherits the CRT fd table), then the descriptors are restored.
+  // reach the capture file by redirecting fds 1/2 across the synchronous
+  // _P_WAIT spawn (the child inherits the CRT fd table), then the descriptors
+  // are restored.
   std::fflush(stdout);
   std::fflush(stderr);
   int saved_out = _dup(1);
   int saved_err = _dup(2);
-  int devnull = -1;
-  // Redirect to NUL only when both originals were saved: a failed _dup leaves no
-  // way to restore, so skipping the redirect keeps the parent's streams intact
+  int capture = -1;
+  // Redirect only when both originals were saved: a failed _dup leaves no way
+  // to restore, so skipping the redirect keeps the parent's streams intact
   // (a muted parent would silence reporting for every remaining case).
   if (saved_out >= 0 && saved_err >= 0) {
-    _sopen_s(&devnull, "NUL", _O_WRONLY, _SH_DENYNO, 0);
-    if (devnull >= 0) {
-      _dup2(devnull, 1);
-      _dup2(devnull, 2);
+    _sopen_s(&capture, capture_path, _O_WRONLY | _O_CREAT | _O_TRUNC,
+             _SH_DENYNO, _S_IREAD | _S_IWRITE);
+    if (capture >= 0) {
+      _dup2(capture, 1);
+      _dup2(capture, 2);
     }
   }
   const char *argv[] = {self_exe(), nullptr};
   intptr_t rc = _spawnv(_P_WAIT, self_exe(), argv);
-  // devnull is only open when both saves succeeded, so the restore is reached
+  // capture is only open when both saves succeeded, so the restore is reached
   // only with valid descriptors.
-  if (devnull >= 0) {
+  if (capture >= 0) {
     _dup2(saved_out, 1);
     _dup2(saved_err, 2);
-    _close(devnull);
+    _close(capture);
   }
   if (saved_out >= 0)
     _close(saved_out);
   if (saved_err >= 0)
     _close(saved_err);
+  load_child_output();
   return static_cast<int>(rc);
 #else
   // Shell-free spawn: fork and execv the binary directly so no /bin/sh parsing
   // can mangle a self_exe() path containing a quote or shell metacharacter. The
-  // child sends stdout/stderr to /dev/null and execs; the parent waits and
-  // returns the raw wait status that classify_trap() decodes.
+  // child sends stdout/stderr to the capture file and execs; the parent waits
+  // and returns the raw wait status that classify_trap() decodes.
   std::fflush(stdout);
   std::fflush(stderr);
   const char *exe = self_exe();
@@ -1889,12 +2193,12 @@ inline int spawn_child(const char *name) {
   if (pid < 0)
     return -1;
   if (pid == 0) {
-    int devnull = open("/dev/null", O_WRONLY);
-    if (devnull >= 0) {
-      dup2(devnull, 1);
-      dup2(devnull, 2);
-      if (devnull > 2)
-        close(devnull);
+    int capture = open(capture_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (capture >= 0) {
+      dup2(capture, 1);
+      dup2(capture, 2);
+      if (capture > 2)
+        close(capture);
     }
     const char *argv[] = {exe, nullptr};
     execv(exe, const_cast<char *const *>(argv));
@@ -1903,6 +2207,7 @@ inline int spawn_child(const char *name) {
   int status = 0;
   if (waitpid(pid, &status, 0) < 0)
     return -1;
+  load_child_output();
   return status;
 #endif
 }
@@ -2058,14 +2363,36 @@ inline int run_death_tests() {
     return fixture.result();
   }
 
+  // The same sentinel proves the capture channel: without the child's
+  // breadcrumb every per-case guard check below would fail identically and
+  // point at the cases instead of at the broken redirect.
+  if (!breadcrumb_names_guard(child_output(), "test_death.h",
+                              "(false) death-harness trap-shape probe")) {
+    report_unrunnable("cannot capture child output; which guard fired is "
+                      "unverifiable",
+                      0);
+    set_case_env("");
+    return fixture.result();
+  }
+
   for (int i = 0; i < n; ++i) {
     int rc = spawn_child(cs[i].name);
     bool trapped = child_trapped(rc, shape);
+    // Dying is not enough: the child must die at THIS case's guard. Any other
+    // trap — UB lowered to the same illegal instruction, or a guard the case
+    // hits on its way to the one it targets — fails here.
+    bool at_guard = breadcrumb_names_guard(child_output(), cs[i].guard_file,
+                                           cs[i].guard_text);
     HS_EXPECT_TRUE(trapped);
+    HS_EXPECT_TRUE(at_guard);
     std::printf("  [%s] trap fires: %-26s (child rc=%d)\n",
-                trapped ? "ok" : "FAIL", cs[i].name, rc);
+                trapped && at_guard ? "ok" : "FAIL", cs[i].name, rc);
+    if (trapped && !at_guard)
+      std::printf("      expected %s: %s\n      child logged: %s\n",
+                  cs[i].guard_file, cs[i].guard_text, child_output());
   }
 
+  std::remove(child_capture_path());
   set_case_env(""); // leave the env clean for anything that runs after us
   return fixture.result();
 }
