@@ -58,12 +58,15 @@ template <int N, class Transport
           >
 class DMALEDController {
 public:
+  /** @brief SPI clock a default-constructed controller runs at, in Hz. */
+  static constexpr uint32_t DEFAULT_CLOCK_HZ = 12000000;
+
   /**
    * @brief Constructs the controller, optionally overriding the SPI clock.
-   * @param clock SPI clock in Hz forwarded to the transport (default: 12 MHz).
+   * @param clock SPI clock in Hz forwarded to the transport.
    *              The Phantasm driver passes 24 MHz (see pov_segmented.h).
    */
-  explicit DMALEDController(uint32_t clock = 12000000)
+  explicit DMALEDController(uint32_t clock = DEFAULT_CLOCK_HZ)
       : spi(clock), activeBuffer(0), transferCount(0), overrunCount(0) {}
 
   /**

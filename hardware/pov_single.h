@@ -84,6 +84,21 @@ public:
   }
 
 private:
+#if defined(USE_DMA_LEDS)
+  /**
+   * @brief Worst-case duration of one column's LED transfer, in µs.
+   * @details Image frame plus the trailing black frame strobe_columns() appends,
+   * eight clocks per byte at the clock the default-constructed ledController
+   * runs at. Rounded up, so run()'s column-period check never under-counts.
+   */
+  static constexpr unsigned long COLUMN_TRANSFER_US =
+      static_cast<unsigned long>(
+          (static_cast<uint64_t>(HD107SFrame<S>::COMPOSITE_SIZE) * 8u *
+               1000000u +
+           DMALEDController<S>::DEFAULT_CLOCK_HZ - 1) /
+          DMALEDController<S>::DEFAULT_CLOCK_HZ);
+#endif
+
   /**
    * @brief Non-template core of show(): drives the column ISR for the effect's
    * lifetime.
@@ -127,6 +142,15 @@ private:
         (60000000UL + cols_per_min / 2) / cols_per_min;
     HS_CHECK(interval_us >= 1,
              "column interval rounded to 0 µs (RPM/width too high)");
+#if defined(USE_DMA_LEDS)
+    // show_col() discards submitFrame()'s overrun return, and unlike the
+    // segmented driver it has no retry latch and no dark fallback — a dropped
+    // column would freeze the strip on the last accepted frame. Sound only
+    // while one composite transfer fits inside a column period.
+    HS_CHECK(interval_us > COLUMN_TRANSFER_US,
+             "LED transfer outlasts the column period (S, RPM and canvas width "
+             "would overrun the DMA every column)");
+#endif
     HS_CHECK(timer.begin(show_col, interval_us),
              "column IntervalTimer failed to start (no PIT channel)");
 #if defined(USE_DMA_LEDS)
@@ -179,8 +203,8 @@ private:
       frame.packPixel(pov::strip_bottom_led(y, S),
                       slow ? effect->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
-    // Overrun result discarded: at the ~1.3 ms single-board column period a DMA
-    // overrun cannot occur, so no overrun watchdog here.
+    // Overrun result discarded: run() rejects any configuration whose column
+    // period does not clear COLUMN_TRANSFER_US, so no overrun watchdog here.
     (void)ledController.submitFrame(effect->strobe_columns());
 #else
     for (int y = 0; y < S / 2; ++y) {
