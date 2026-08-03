@@ -640,6 +640,49 @@ inline void build_islamic_bake(size_t islamic_idx, Arena &seed_a, Arena &seed_b,
 }
 
 /**
+ * @brief Verifies build_mesh_class_bake clusters a borrowed-mode mesh into the
+ *        same classes as its owned-mode source.
+ * @details MeshOps::transform hands the draw path a mesh whose topology is a
+ *          borrowed view with the owned array dropped, so a direct field read
+ *          would report the mesh as unclassified. Both bakes run with no LUT
+ *          budget: only the clustering is under test.
+ */
+inline void test_class_bake_borrowed_mode() {
+  configure_arenas_default();
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+  constexpr int W = 288;
+  const float pixel_width = 2.0f * PI_F / W;
+
+  const auto islamic = Solids::Collections::get_islamic_solids();
+  PolyMesh poly = islamic[0].generate(seed_a, seed_b);
+  MeshState mesh;
+  MeshOps::compile(poly, mesh, geom, scratch_arena_a);
+  MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
+
+  MeshOps::MeshClassBake owned;
+  MeshOps::build_mesh_class_bake(mesh, seed_a, geom, pixel_width, owned, 0);
+
+  MeshState borrowed;
+  MeshOps::transform(mesh, borrowed, seed_b, [](const Vector &v) { return v; });
+  HS_EXPECT_TRUE(!borrowed.topology.is_bound());
+  HS_EXPECT_EQ(borrowed.get_topology_size(), mesh.get_topology_size());
+
+  MeshOps::MeshClassBake bake;
+  MeshOps::build_mesh_class_bake(borrowed, seed_a, geom, pixel_width, bake, 0);
+
+  HS_EXPECT_EQ(bake.classes.size(), owned.classes.size());
+  HS_EXPECT_EQ(bake.face_recs.size(), owned.face_recs.size());
+  HS_EXPECT_GT(bake.classes.size(), (size_t)0);
+  for (size_t f = 0; f < bake.face_recs.size(); ++f) {
+    HS_EXPECT_EQ(bake.face_recs[f].class_id, owned.face_recs[f].class_id);
+    HS_EXPECT_EQ(bake.face_recs[f].vert_offset, owned.face_recs[f].vert_offset);
+    HS_EXPECT_EQ(bake.face_recs[f].reflected, owned.face_recs[f].reflected);
+  }
+}
+
+/**
  * @brief Verifies the census invariants of the congruence clustering on one
  *        registry mesh.
  * @param islamic_idx Index into the islamic registry.
@@ -1030,6 +1073,7 @@ inline int run_mesh_raster_tests() {
   test_truncated_icosahedron_wireframe_and_fill();
   test_clip_band_matches_full();
   test_class_bake_census_invariants();
+  test_class_bake_borrowed_mode();
   test_class_bake_budget_accounting();
   test_class_lut_render_matches_exact();
   test_class_lut_render_matches_exact_rippled();
