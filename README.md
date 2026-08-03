@@ -1579,7 +1579,7 @@ A burst terminates when the wire stays quiet past the **gap timeout** (4 columns
 | Half-revolution | — | 144 | 62.5 ms | 37,500,000 | one image / one flip interval |
 | Revolution | — | 288 | 125 ms | 75,000,000 | two flips, two boundary symbols |
 
-All bursts are ≪ the 62.5 ms half-rev, so consecutive symbols never overlap.
+All bursts are ≪ the 62.5 ms half-rev, so consecutive symbols never overlap. The table is nominal: cycle counts are the exact rational rounded, while `Config::cycles_per_column()` truncates its division (~2.6 ppm low). Only pitches and thresholds derive from it — flywheel position divides by the exact `cycles_per_half_rev`.
 
 **One-revolution signal map.** Where each symbol lands across a single 125 ms revolution (beacon only on scheduled revolutions):
 
@@ -1661,6 +1661,8 @@ Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial f
 ```
 
 The dark window is identical (K revolutions) on every board because construction can't begin before B+R — only then is the window's start common knowledge regardless of which copy each board heard.  An effect that can't construct inside K revolutions trips `HS_CHECK` (fail-fast).  All boards reseed `hs::random()` with `hs::epoch_seed(effect index)` per effect build (epoch 0 is the identity seed 1337), so each visit gets a fresh stream and the new instance is bit-identical across boards no matter what each board rendered — or whether it even existed — before the epoch.
+
+**Live-takeover join grid.** The epoch commit only aligns a *swap* between running boards; a board with nothing live yet — at boot, or after a reboot — reaches its first constructed effect whenever its own identity arrives, which is later downstream than on the master. It therefore does not take that effect live on arrival: it waits for a ZERO crossing whose revolution-in-effect is a multiple of `join_grid_revs` (4), marked by `TickActions::join_boundary`. The master sits on the same grid, so at boot every board goes live at the *same* crossing with aligned frame counters instead of the master leading by however long downstream identity took; a mid-show rejoin waits ≤ 4 revolutions, well inside the 16-revolution rejoin budget. The grid must divide 64 so a beacon's mod-64 revolution count lands on the master's grid. Where the epoch commit traps on a missing effect, the join is conditional: `EffectHandoff::joinable` also requires the pending build generation to be unconsumed and to match the one the wire advertises, so a visibility lag just joins one grid step later. No join boundary is marked while a commit is pending — the epoch path owns that swap.
 
 **Concurrency & failure modes.** Two ISRs per board, **single-writer** by construction.  The sync-wire RISING ISR is a pure *publisher* — glitch filter, edge count, first-edge timestamp into a small mailbox, nothing else.  The flywheel ISR (waking ~8× per column) is the sole *consumer/owner* of all sync state: it claims terminated bursts, classifies, gates, snaps, flips, and runs epoch scheduling.  The hot path is ~7-of-8 wakes doing one cycle-counter read and a 64-bit position compute (≈1 % CPU at 600 MHz); only a column change packs pixels and submits DMA.
 
