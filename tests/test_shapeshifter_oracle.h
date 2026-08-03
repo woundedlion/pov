@@ -433,8 +433,7 @@ inline void test_high_count_star_preset_stays_within_visual_budget() {
     state.alpha = 0.274f;
     state.orientation = orientations[i];
     expect_candidate_within_visual_budget(
-        state, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT,
-        MAX_STAR_HIGH_ERROR_PIXELS);
+        state, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT, MAX_STAR_HIGH_ERROR_PIXELS);
   }
 }
 
