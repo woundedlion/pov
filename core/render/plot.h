@@ -170,7 +170,15 @@ static inline Vector azimuthal_unproject(float Px, float Py,
     return basis.v;
   float theta = fast_atan2(Py, Px);
   Vector axis = (basis.u * fast_cosf(theta)) + (basis.w * fast_sinf(theta));
-  return (basis.v * fast_cosf(R)) + (axis * fast_sinf(R));
+  float sin_r;
+  float cos_r;
+  if (R <= PI_F) {
+    fast_sincosf_0_pi(R, sin_r, cos_r);
+  } else {
+    sin_r = fast_sinf(R);
+    cos_r = fast_cosf(R);
+  }
+  return (basis.v * cos_r) + (axis * sin_r);
 }
 
 /**
@@ -224,6 +232,7 @@ struct PlanarEdgeSampler {
   float dx;                      /**< Projected chord x-component. */
   float dy;                      /**< Projected chord y-component. */
   const Basis *basis;            /**< Azimuthal-equidistant projection basis. */
+  Vector chart_tangent;          /**< Constant chart-space edge tangent. */
   /** Cumulative on-sphere arc at evenly-spaced PROJECTION samples. */
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
   float dist; /**< The edge's on-sphere length (radians). */
@@ -270,7 +279,6 @@ struct PlanarEdgeSampler {
     const float x = proj1.first + dx * p;
     const float y = proj1.second + dy * p;
     const float r2 = x * x + y * y;
-    const Vector chart_tangent = (basis->u * dx) + (basis->w * dy);
     if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
       HS_PLOT_COUNT(normalizations);
       return {basis->v, normalized_or(chart_tangent, Vector())};
@@ -278,8 +286,14 @@ struct PlanarEdgeSampler {
 
     const float radius = sqrtf(r2);
     const float inv_radius = 1.0f / radius;
-    const float sin_radius = fast_sinf(radius);
-    const float cos_radius = fast_cosf(radius);
+    float sin_radius;
+    float cos_radius;
+    if (radius <= PI_F) {
+      fast_sincosf_0_pi(radius, sin_radius, cos_radius);
+    } else {
+      sin_radius = fast_sinf(radius);
+      cos_radius = fast_cosf(radius);
+    }
     const Vector radial = (basis->u * x) + (basis->w * y);
     const float radial_scale = sin_radius * inv_radius;
     const Vector position =
@@ -313,6 +327,24 @@ struct PlanarEdgeSampler {
   }
 };
 
+/** @brief Builds the reusable arc sampler for one planar edge. */
+static inline PlanarEdgeSampler
+make_planar_edge_sampler(const Vector &a, const Vector &b,
+                         const Basis &planar_basis) {
+  PlanarEdgeSampler sampler;
+  sampler.proj1 = azimuthal_project(a, planar_basis);
+  auto proj2 = azimuthal_project(b, planar_basis);
+  sampler.dx = proj2.first - sampler.proj1.first;
+  sampler.dy = proj2.second - sampler.proj1.second;
+  sampler.basis = &planar_basis;
+  sampler.chart_tangent =
+      (planar_basis.u * sampler.dx) + (planar_basis.w * sampler.dy);
+  planar_arc_cumul(sampler.proj1, sampler.dx, sampler.dy, planar_basis,
+                   sampler.arc_cumul);
+  sampler.dist = sampler.arc_cumul[PLANAR_LEN_SAMPLES];
+  return sampler;
+}
+
 /**
  * @brief Planar interpolation strategy: builds an arc-uniform sampler for one edge.
  * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
@@ -332,15 +364,8 @@ static void
 rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
                           const Basis &planar_basis, bool is_last_segment,
                           ProcessSegmentFn &&process_segment) {
-  PlanarEdgeSampler sampler;
-  sampler.proj1 = azimuthal_project(curr.pos, planar_basis);
-  auto proj2 = azimuthal_project(next.pos, planar_basis);
-  sampler.dx = proj2.first - sampler.proj1.first;
-  sampler.dy = proj2.second - sampler.proj1.second;
-  sampler.basis = &planar_basis;
-  planar_arc_cumul(sampler.proj1, sampler.dx, sampler.dy, planar_basis,
-                   sampler.arc_cumul);
-  sampler.dist = sampler.arc_cumul[PLANAR_LEN_SAMPLES];
+  PlanarEdgeSampler sampler =
+      make_planar_edge_sampler(curr.pos, next.pos, planar_basis);
 
   process_segment(sampler, curr, next, sampler.dist, is_last_segment);
 }
@@ -1330,6 +1355,10 @@ struct RasterOptions {
  *         normalized step cache.
  * @tparam OpenGeodesic Compile out planar, closed-loop, seam and omit-end
  *         support for an open geodesic polyline.
+ * @tparam DerivePlanarArcRegisters Recompute v0/v1 from the rendered planar
+ *         perimeter.
+ * @tparam InterpolateRegisters Interpolate source fragment registers at each
+ *         adaptive sample.
  * @tparam PipelineT Pipeline type.
  * @tparam FragmentShaderT Fragment shader type for direct raster pipelines.
  * @param source_pipeline Render pipeline that plots fragments.
@@ -1343,7 +1372,8 @@ struct RasterOptions {
  */
 HS_O3_BEGIN
 template <int W, int H, bool SinglePass = false, bool OpenGeodesic = false,
-          typename PipelineT = PipelineRef,
+          bool DerivePlanarArcRegisters = true,
+          bool InterpolateRegisters = true, typename PipelineT = PipelineRef,
           typename FragmentShaderT = FragmentShaderFn>
 static void
 rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
@@ -1364,8 +1394,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
                                FragmentShaderFn>)) {
     PipelineRef erased(source_pipeline);
     FragmentShaderFn erased_shader(fragment_shader);
-    rasterize<W, H, SinglePass, OpenGeodesic>(erased, canvas, points,
-                                              erased_shader, opts);
+    rasterize<W, H, SinglePass, OpenGeodesic, DerivePlanarArcRegisters,
+              InterpolateRegisters>(erased, canvas, points, erased_shader,
+                                    opts);
     return;
   }
   HS_PLOT_COUNT(rings);
@@ -1414,8 +1445,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   // PLANAR ARC REGISTERS (v0/v1): under a planar basis the rendered edge bows
   // longer than the geodesic chord, so re-derive v0/v1 from the true rendered
   // arc (`cumul`/`seg_base` track it, `total_arc` normalizes v0). Skipped for
-  // geodesic polylines.
-  const bool override_uv = (planar_basis != nullptr);
+  // geodesic polylines or when DerivePlanarArcRegisters is false.
+  const bool has_planar_basis = (planar_basis != nullptr);
+  const bool override_uv = DerivePlanarArcRegisters && has_planar_basis;
   auto segment_next = [&](size_t i) -> const Fragment & {
     if (loop_seam != nullptr && i + 1 == len)
       return *loop_seam;
@@ -1464,7 +1496,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // force (see the pre-pass above): `d` is the arc drawn so far within this
     // segment, `seg_base` the arc at its start. No-op for geodesic polylines.
     auto set_arc_uv = [&](Fragment &f, float d) {
-      if (!override_uv)
+      if constexpr (!DerivePlanarArcRegisters)
+        return;
+      if (!has_planar_basis)
         return;
       float arc = seg_base + d;
       f.v1 = arc;
@@ -1479,7 +1513,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     if (total_dist < math::EPS_GEOMETRIC) {
       bool should_omit = close_loop || !is_last_segment || omit_end;
       if (!should_omit) {
-        Fragment f_copy = curr;
+        Fragment f_copy;
+        if constexpr (InterpolateRegisters)
+          f_copy = curr;
+        f_copy.pos = curr.pos;
         f_copy.color = Color4(0, 0, 0, 0);
         set_arc_uv(f_copy, 0.0f);
 
@@ -1522,7 +1559,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // arc-length test would undersample into a beaded line.
     if (total_dist <= first_step) {
       HS_PLOT_COUNT(one_dot);
-      Fragment f = curr;
+      Fragment f;
+      if constexpr (InterpolateRegisters)
+        f = curr;
+      f.pos = curr.pos;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, 0.0f);
       HS_PLOT_COUNT(shader_calls);
@@ -1530,7 +1570,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       HS_PLOT_COUNT(plotted_samples);
       pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
       if (!close_loop && is_last_segment && !omit_end) {
-        Fragment fl = next;
+        Fragment fl;
+        if constexpr (InterpolateRegisters)
+          fl = next;
+        fl.pos = next.pos;
         fl.color = Color4(0, 0, 0, 0);
         set_arc_uv(fl, total_dist);
         HS_PLOT_COUNT(shader_calls);
@@ -1566,7 +1609,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         } else {
           p = smp.pos.normalized();
         }
-        Fragment f = Fragment::lerp_registers(curr, next, current_t);
+        Fragment f;
+        if constexpr (InterpolateRegisters)
+          f = Fragment::lerp_registers(curr, next, current_t);
         f.pos = p;
         f.color = Color4(0, 0, 0, 0);
         set_arc_uv(f, current_dist);
@@ -1597,7 +1642,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         }
       }
       if (!close_loop && is_last_segment && !omit_end) {
-        Fragment f = next;
+        Fragment f;
+        if constexpr (InterpolateRegisters)
+          f = next;
+        f.pos = next.pos;
         f.color = Color4(0, 0, 0, 0);
         set_arc_uv(f, total_dist);
         HS_PLOT_COUNT(shader_calls);
@@ -1654,7 +1702,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
       Vector start_pos = sample.pos(0.0f).normalized();
-      Fragment f = Fragment::lerp_registers(curr, next, 0.0f);
+      Fragment f;
+      if constexpr (InterpolateRegisters)
+        f = Fragment::lerp_registers(curr, next, 0.0f);
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, 0.0f);
@@ -1685,7 +1735,9 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
       Vector p = sample.pos(t).normalized();
-      Fragment f = Fragment::lerp_registers(curr, next, t);
+      Fragment f;
+      if constexpr (InterpolateRegisters)
+        f = Fragment::lerp_registers(curr, next, t);
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
       set_arc_uv(f, current_dist);
@@ -1707,7 +1759,10 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   // Emits one shader-run dot for points[k]; the precomputed projection is
   // consumed only when no world stage would lift it back to a world vector.
   auto plot_dot = [&](const Fragment &src, size_t k) {
-    Fragment f = src;
+    Fragment f;
+    if constexpr (InterpolateRegisters)
+      f = src;
+    f.pos = src.pos;
     f.color = Color4(0, 0, 0, 0);
     HS_PLOT_COUNT(shader_calls);
     shade_fragment(src.pos, f);
@@ -1730,11 +1785,15 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
 
     // --- Interpolation Strategy Selection ---
     // Branch-cut guard: the planar projection is singular at the basis antipode,
-    // so a segment with an endpoint there falls back to a geodesic edge. The seam
-    // flag was decided once in the arc pre-pass (so the cached arc metric and the
-    // rendered strategy cannot disagree) and is reused here, before the cull, so
-    // the row-span bound matches the rendered arc shape.
-    const bool antipodal_seam = override_uv && seg_seam_cache[i];
+    // so a segment with an endpoint there falls back to a geodesic edge.
+    bool antipodal_seam = false;
+    if (has_planar_basis) {
+      antipodal_seam =
+          override_uv
+              ? seg_seam_cache[i] != 0
+              : dot(curr.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE ||
+                    dot(next.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE;
+    }
     const bool use_planar = planar_basis && !antipodal_seam;
 
     // Advance the rendered-arc accumulator for EVERY segment (drawn or culled) so
@@ -1768,7 +1827,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     // planar basis), so plot it without building the sampler. A predicate
     // false negative falls through and re-evaluates exactly.
     const bool one_dot =
-        !override_uv &&
+        !has_planar_basis &&
         (edge_visible != nullptr && (edge_visible[i] & EDGE_CLASSIFIED) != 0
              ? (edge_visible[i] & EDGE_ONE_DOT) != 0
              : edge_fits_one_dot<W, H>(curr.pos, next.pos));
@@ -2677,16 +2736,10 @@ struct DistortedRing {
  *       shorter chord polygon.
  */
 struct Star {
-  /**
-   * @brief Samples a star shape.
-   * @param points Output fragment list; num_sides*2+1 fragments are appended.
-   * @param basis Orientation basis.
-   * @param radius Outer radius.
-   * @param num_sides Number of points.
-   * @param phase Rotation phase (radians).
-   */
-  static void sample(Fragments &points, const Basis &basis, float radius,
-                     int num_sides, float phase = 0) {
+private:
+  template <bool EmitRegisters>
+  static void sample_impl(Fragments &points, const Basis &basis, float radius,
+                          int num_sides, float phase) {
     HS_CHECK(num_sides >= 1);
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
@@ -2699,21 +2752,59 @@ struct Star {
     float outer_radius = work_radius * (PI_F / 2.0f);
     float inner_radius = outer_radius * STAR_INNER_RATIO;
     float angle_step = PI_F / num_sides;
+    const float sin_radius[2] = {sinf(outer_radius), sinf(inner_radius)};
+    const float cos_radius[2] = {cosf(outer_radius), cosf(inner_radius)};
 
-    // Alternating outer/inner radius per vertex; everything else is the shared
-    // closed-ring skeleton.
-    sample_closed_ring(points, num_sides * 2, [&](int i) {
+    auto position = [&](int i) {
       float theta = phase + i * angle_step;
-      float r = (i % 2 == 0) ? outer_radius : inner_radius;
-      float sin_r = sinf(r);
-      float cos_r = cosf(r);
+      float sin_r = sin_radius[i & 1];
+      float cos_r = cos_radius[i & 1];
       float cos_t = cosf(theta);
       float sin_t = sinf(theta);
       Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
       HS_PLOT_COUNT(normalizations);
       p.normalize();
       return p;
-    });
+    };
+
+    if constexpr (EmitRegisters) {
+      sample_closed_ring(points, num_sides * 2, position);
+    } else {
+      size_t start_idx = points.size();
+      for (int i = 0; i < num_sides * 2; ++i) {
+        Fragment f;
+        f.pos = position(i);
+        points.push_back(f);
+      }
+      points.push_back(points[start_idx]);
+    }
+  }
+
+public:
+  /**
+   * @brief Samples a star shape.
+   * @param points Output fragment list; num_sides*2+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Outer radius.
+   * @param num_sides Number of points.
+   * @param phase Rotation phase (radians).
+   */
+  static void sample(Fragments &points, const Basis &basis, float radius,
+                     int num_sides, float phase = 0) {
+    sample_impl<true>(points, basis, radius, num_sides, phase);
+  }
+
+  /**
+   * @brief Samples only star positions, leaving fragment registers at defaults.
+   * @param points Output fragment list; num_sides*2+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Outer radius.
+   * @param num_sides Number of points.
+   * @param phase Rotation phase (radians).
+   */
+  static void sample_positions(Fragments &points, const Basis &basis,
+                               float radius, int num_sides, float phase = 0) {
+    sample_impl<false>(points, basis, radius, num_sides, phase);
   }
 
   /**
