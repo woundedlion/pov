@@ -75,7 +75,10 @@ alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
  * @brief Persistent arena: storage that lives for the whole program run.
  * @details Its extent is the whole block: resplit_arenas() grows the persistent
  * boundary into scratch's region (with both scratch arenas empty and rebased
- * afterwards), so the block end is the only true bound on that grow.
+ * afterwards), so the block end is the only true bound on that grow. That makes
+ * set_capacity()'s extent guard vacuous here, so resplit_arenas() is the ONLY
+ * legal caller of set_capacity() on this arena -- it alone re-bases the two
+ * scratch arenas out of the way. A direct call would silently overlap them.
  */
 Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE,
                        GLOBAL_ARENA_SIZE);
