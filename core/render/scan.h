@@ -63,6 +63,25 @@ inline int pole_lod_run(float sin_phi) {
 }
 
 /**
+ * @brief Clearance beyond a walk's own threshold at which one probe vouches for
+ *        a whole pole-LOD block.
+ * @tparam W Canvas width in pixels.
+ * @param run Columns in the block; 1 yields no slack.
+ * @param sin_phi Sine of the row's colatitude.
+ * @return Slack in the same units the walk's distance() reports.
+ * @details Great-circle arc from a block's first column to its last: a block of
+ *          longitude, foreshortened by sin(phi). A probe farther than this from
+ *          the surface cannot change side anywhere in the block. 1.25 covers
+ *          distance() reporting in plane units, which runs slightly wider than
+ *          angular.
+ */
+template <int W>
+__attribute__((always_inline)) inline float pole_lod_slack(int run,
+                                                           float sin_phi) {
+  return static_cast<float>(run - 1) * (2.0f * PI_F / W) * sin_phi * 1.25f;
+}
+
+/**
  * @brief Processes a single pixel for rasterization: evaluates the shape SDF,
  *        computes anti-aliased coverage, runs the fragment shader, and plots.
  * @tparam W Canvas width in pixels.
@@ -102,17 +121,13 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
   constexpr bool solid = std::remove_cvref_t<decltype(shape)>::is_solid;
   float threshold = solid ? pixel_width : 0.0f;
 
-  // The offer spans (max_run - 1) columns of longitude past the probe, so the
-  // surface cannot cross the block when d clears it by that arc (foreshortened
-  // by sin(phi); 1.25 covers distance() reporting in plane units, which runs
-  // slightly wider than angular). Strokes never splat: their coverage varies
-  // inside the band, so only the all-clear case consumes the block.
+  // Strokes never splat: their coverage varies inside the band, so only the
+  // all-clear case consumes the block.
   int span = 1;
   if constexpr (POLE_LOD_ENABLED) {
     if (max_run > 1 && !debug_bb) {
       const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
-      const float block_slack =
-          static_cast<float>(max_run - 1) * pixel_width * sin_phi * 1.25f;
+      const float block_slack = pole_lod_slack<W>(max_run, sin_phi);
       if (d >= threshold + block_slack)
         return max_run;
       if (solid && d <= -pixel_width - block_slack)
@@ -564,13 +579,12 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
 
         // The color is constant, so a block the surface cannot cross is exact
         // whether skipped or splatted at full coverage; edge blocks stay
-        // per-column. Slack as in process_pixel.
+        // per-column.
         int span = 1;
         if constexpr (POLE_LOD_ENABLED) {
           if (max_run > 1) {
             const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
-            const float block_slack =
-                static_cast<float>(max_run - 1) * PIXEL_WIDTH * sin_phi * 1.25f;
+            const float block_slack = pole_lod_slack<W>(max_run, sin_phi);
             if (d >= PIXEL_WIDTH + block_slack)
               return max_run;
             if (d <= -PIXEL_WIDTH - block_slack)
@@ -1572,14 +1586,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     float sp = TrigLUT<W, H>::sin_phi[y];
     float cp = TrigLUT<W, H>::cos_phi[y];
     const int stride = pole_lod_run(sp);
-    // Great-circle angle from a block's first column to its last: a block of
-    // longitude, foreshortened by sin(phi). A probe farther than this from the
-    // surface cannot change side anywhere in the block, so one shade describes
-    // the whole block. 1.25 covers distance() reporting in plane units, which
-    // run slightly wider than angular.
     float block_slack = 0.0f;
     if constexpr (POLE_LOD_ENABLED)
-      block_slack = static_cast<float>(stride - 1) * pixel_width * sp * 1.25f;
+      block_slack = pole_lod_slack<W>(stride, sp);
 
     for (size_t r = 0; r < num_runs; ++r) {
       const int rx2 = runs[r].second;
@@ -2491,8 +2500,7 @@ struct Volume {
             if constexpr (POLE_LOD_ENABLED) {
               if (max_run > 1) {
                 const float sin_phi = sqrtf(std::max(0.0f, 1.0f - p.y * p.y));
-                const float block_slack = static_cast<float>(max_run - 1) *
-                                          (2.0f * PI_F / W) * sin_phi * 1.25f;
+                const float block_slack = pole_lod_slack<W>(max_run, sin_phi);
                 if (closest_d >= aa_width + block_slack)
                   return max_run;
               }
