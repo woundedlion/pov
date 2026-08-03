@@ -286,7 +286,9 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
 │   ├── screenshot_capture_config.mjs Per-effect capture offsets shared by capture and the CI gate
 │   ├── screenshot_capture_config.test.mjs Node unit test for the capture-offset table
-│   └── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster (CI)
+│   ├── png_probe.mjs           Dependency-free PNG chunk/CRC/inflate validator behind the gallery gate
+│   ├── png_probe.test.mjs      Node unit test for the PNG validator (corrupt/empty fixtures)
+│   └── check_screenshots.mjs   Asserts docs/screenshots/ matches the effect roster and decodes (CI)
 ├── tools/                      Firmware gates, device profiling, and asset bakes
 │   ├── build_pins.py           Shared external-tool version pins for CI and `just`
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)

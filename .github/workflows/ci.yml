@@ -769,11 +769,13 @@ jobs:
     # The docs/screenshots gallery is installed into daydream and served live,
     # but a full headless re-capture per build is far too slow to gate on. This
     # job is the cheap freshness check instead: it (1) syntax-checks the capture
-    # script so it can't silently break, and (2) asserts the committed PNG set
+    # script so it can't silently break, (2) asserts the committed PNG set
     # matches the HS_EFFECT_LIST roster exactly (every effect has a PNG, no
     # orphans) — catching roster drift like an added/renamed effect whose
-    # screenshot was never captured. It cannot detect a visually-stale PNG; that
-    # still relies on a manual `npm run screenshots` re-capture.
+    # screenshot was never captured — and (3) validates each PNG datastream and
+    # its stored dimensions, so a zero-byte or bit-rotted asset cannot ship. It
+    # cannot detect a visually-stale PNG; that still relies on a manual
+    # `npm run screenshots` re-capture.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -784,8 +786,10 @@ jobs:
       - name: Syntax-check the capture script
         run: node --check scripts/capture_screenshots.mjs
 
-      - name: Capture offsets resolve deterministically
-        run: node --test scripts/screenshot_capture_config.test.mjs
+      - name: Capture offsets and the PNG probe are unit-tested
+        run: |
+          node --test scripts/screenshot_capture_config.test.mjs \
+                      scripts/png_probe.test.mjs
 
       - name: Gallery covers every registered effect
         run: node scripts/check_screenshots.mjs
