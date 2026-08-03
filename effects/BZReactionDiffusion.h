@@ -107,15 +107,23 @@ public:
     seed_spiral_nuclei();
 
     // Fixed-seed palette: the three species colors never change after init.
-    color_a = palette.get(0.0f);
-    color_b = palette.get(0.5f);
-    color_c = palette.get(1.0f);
+    color_a = FloatRgb(palette.get(0.0f).color);
+    color_b = FloatRgb(palette.get(0.5f).color);
+    color_c = FloatRgb(palette.get(1.0f).color);
   }
 
 private:
   // Test seam: lets the unit tests reach the private Q16 helpers, physics, and
   // params without exposing them to production callers.
   friend struct ::hs_test::effects_tests::BZWhiteBox;
+
+  struct FloatRgb {
+    float r = 0, g = 0, b = 0;
+
+    FloatRgb() = default;
+    explicit FloatRgb(const Pixel &color)
+        : r(color.r), g(color.g), b(color.b) {}
+  };
 
   /**
    * @brief Concentration-sum floor below which a location is treated as empty.
@@ -283,8 +291,8 @@ private:
   template <typename Grid>
   HS_O3_FN Pixel shade_pixel(int seed, const Vector &center_rv,
                              const Vector *world_nodes, const Grid &grid, int x,
-                             const Color4 &ca, const Color4 &cb,
-                             const Color4 &cc) const {
+                             const FloatRgb &ca, const FloatRgb &cb,
+                             const FloatRgb &cc) const {
     int center = refine_center(center_rv, world_nodes, seed);
     Vector spos[RD_K + 1];
     uint16_t sa[RD_K + 1], sb[RD_K + 1], sc[RD_K + 1];
@@ -321,9 +329,9 @@ private:
           species_sum < SPECIES_EMPTY_EPS * Q16_SCALE * tw)
         continue;
       float scale = INV_SAMPLES / std::max(species_sum, Q16_SCALE * tw);
-      accum_r += (ca.color.r * wa + cb.color.r * wb + cc.color.r * wc) * scale;
-      accum_g += (ca.color.g * wa + cb.color.g * wb + cc.color.g * wc) * scale;
-      accum_b += (ca.color.b * wa + cb.color.b * wb + cc.color.b * wc) * scale;
+      accum_r += (ca.r * wa + cb.r * wb + cc.r * wc) * scale;
+      accum_g += (ca.g * wa + cb.g * wb + cc.g * wc) * scale;
+      accum_b += (ca.b * wa + cb.b * wb + cc.b * wc) * scale;
     }
     return Pixel(
         static_cast<uint16_t>(hs::clamp(accum_r + 0.5f, 0.0f, 65535.0f)),
@@ -364,9 +372,9 @@ private:
       world_nodes = orient_lattice();
     }
 
-    const Color4 &ca = color_a;
-    const Color4 &cb = color_b;
-    const Color4 &cc = color_c;
+    const FloatRgb &ca = color_a;
+    const FloatRgb &cb = color_b;
+    const FloatRgb &cc = color_c;
 
     auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
 
@@ -398,8 +406,8 @@ private:
                             BrightnessProfile::DESCENDING,
                             SaturationProfile::VIBRANT, 42};
 
-  /** @brief Per-species palette colors, evaluated once in init(). */
-  Color4 color_a, color_b, color_c;
+  /** @brief Per-species palette channels converted once in init(). */
+  FloatRgb color_a, color_b, color_c;
 
   /** @brief User-tunable Lotka-Volterra and diffusion parameters. */
   struct Params {
