@@ -1760,7 +1760,8 @@ public:
     // OKLCH path below, avoiding both a divide by ~0 and the raw stored key.
     float p = dist < 0.0001f ? 0.0f : hs::clamp((t - start) / dist, 0.0f, 1.0f);
 
-    // Interpolate in OKLCH; stops are pre-converted in update_stops().
+    // Interpolate in OKLCH; stops are pre-converted in update_stops(). Only L
+    // and hue survive -- the interpolated chroma is discarded below.
     OKLCH blended = lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p);
     // Re-derive chroma on the envelope at the interpolated L (see colors_cmax).
     // fast_sinf matches update_stops().
