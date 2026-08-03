@@ -31,13 +31,15 @@ bisection everywhere the set is connected.
 Usage: python tools/gen_gamut_lut.py [output_path]
        python tools/gen_gamut_lut.py --check
 
---check regenerates the table in memory and diffs its numeric tokens against
-the committed header, pins the constants mirrored below against
-core/color/color.h, and round-trips the angle parameterization. Wired as ctest
-unit_gamut_lut and CI gamut-lut-provenance.
+--check regenerates the table in memory and diffs it against the committed
+header in full, pins the constants mirrored below against core/color/color.h,
+and round-trips the angle parameterization. Wired as ctest unit_gamut_lut and
+CI gamut-lut-provenance.
 """
 
 import argparse
+import difflib
+import itertools
 import os
 import re
 import sys
@@ -360,21 +362,29 @@ def check_mirrors(color_h_path):
 
 
 def check_provenance(committed_path):
-    """Diffs a fresh table's numeric tokens against the committed header."""
+    """Diffs a fresh table against the committed header in full.
+
+    Whole text, not numeric tokens: the array names, PROGMEM, the constants,
+    the includes and the doc comments are as much a divergence as a shifted
+    value, and the header is excluded from the clang-format job (it is emitted,
+    not hand-formatted), so this gate is the only thing that reads them.
+    """
     if not os.path.exists(committed_path):
         sys.stderr.write("missing %s\n" % committed_path)
         return False
     with open(committed_path, "r") as f:
         committed = f.read()
 
-    table, _ = build_table()
-    generated = re.findall(r"[0-9]+", render(table))
-    if generated == re.findall(r"[0-9]+", committed):
+    generated = render(build_table()[0])
+    if generated == committed:
         return True
+    diff = difflib.unified_diff(committed.splitlines(True),
+                                generated.splitlines(True),
+                                committed_path, "generated")
+    sys.stderr.writelines(itertools.islice(diff, 40))
     sys.stderr.write(
         "%s is out of sync with tools/gen_gamut_lut.py\n"
-        "Regenerate with: python tools/gen_gamut_lut.py"
-        " && clang-format -i core/color/gamut_lut.h\n" % committed_path)
+        "Regenerate with: python tools/gen_gamut_lut.py\n" % committed_path)
     return False
 
 
