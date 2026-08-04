@@ -9,6 +9,7 @@
 #include "mesh/mesh.h" // For MeshOps
 #include "mesh/hankin.h"
 #include "mesh/conway.h"
+#include "mesh/relax_bakes_generated.h"
 #include <cmath>
 #include <string_view>
 #include <span>
@@ -510,8 +511,6 @@ public:
    */
   HS_COLD_MEMBER PolyMesh build() { return std::move(mesh); }
 };
-
-#include "mesh/relax_bakes_generated.h"
 
 // ==========================================================================================
 // 2. PROCEDURAL GENERATORS
