@@ -492,8 +492,10 @@ constexpr void record_visit(uint8_t *visits, int node) {
  * @param rnd Uniform random 32-bit value (e.g. hs::random()()).
  * @return Index into EDGES of the next leg.
  */
-constexpr int pick_next_edge(int node, int prev_edge, int legs_in_family,
-                             const uint8_t *visits, uint32_t rnd) {
+HS_FLASH_MEMBER constexpr int pick_next_edge(int node, int prev_edge,
+                                             int legs_in_family,
+                                             const uint8_t *visits,
+                                             uint32_t rnd) {
   uint8_t cand[MAX_DEGREE];
   int n = edges_from(node, cand);
   if (n == 1)
