@@ -73,8 +73,8 @@ constexpr int SMALL_H = 20;
  * @details Shared with the arena/stack budget gates (tests/test_fixture.h), so
  * they measure over the window this roster sweep renders. Frame count is a
  * minor cost lever here: the module is dominated by full-resolution software
- * raster (~71 ms/frame at 288x144 x 27 effects), which the QUICK tier skips
- * entirely (see effects_full_suite()).
+ * raster (~71 ms/frame at 288x144, once per HS_EFFECT_LIST entry), which the
+ * QUICK tier skips entirely (see effects_full_suite()).
  */
 using hs_test::smoke_frames;
 
