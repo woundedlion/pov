@@ -2258,10 +2258,13 @@ is Chromium-only — Firefox and Safari ignore the key entirely, so SRI is no
 coverage at all there. The second boundary on every browser is a
 `Content-Security-Policy` meta tag, carried by `index.html` and each of the
 four tool pages, which restricts script loads to `'self'` plus the CDN origins
-that page actually uses. `'unsafe-eval'` is required wherever the WASM engine
-loads: Emscripten's embind builds its invokers with `new Function`, which
-`'wasm-unsafe-eval'` does not permit. `font-src` allows `data:` for the woff2
-lil-gui inlines in its stylesheet.
+that page actually uses. Pages that load the WASM engine need `'wasm-unsafe-eval'`
+for the module instantiation itself, but not the far broader `'unsafe-eval'`:
+the module is linked `-sDYNAMIC_EXECUTION=0 -sEMBIND_AOT=1`, so embind's
+per-binding invokers are emitted into the glue at link time instead of being
+built with `new Function` at module-creation time, and the shipped glue
+generates no code at runtime (asserted by `wasm_smoke.mjs`). `font-src` allows
+`data:` for the woff2 lil-gui inlines in its stylesheet.
 
 A page-specific local import (e.g. `solids.html` referencing `../solids.js`) is added by setting `window.daydreamExtraImports` to a `{ specifier: url }` map before the helper script.
 

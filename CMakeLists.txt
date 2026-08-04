@@ -55,7 +55,16 @@ if(EMSCRIPTEN)
     "-sALLOW_MEMORY_GROWTH=1"
     "-sMODULARIZE=1"
     "-sEXPORT_ES6=1"
-    "-sEXPORT_NAME=createHolosphereModule")
+    "-sEXPORT_NAME=createHolosphereModule"
+    # No runtime code generation, so the pages that load this module need only
+    # 'wasm-unsafe-eval' in their CSP rather than 'unsafe-eval'. embind normally
+    # crafts one invoker per binding with `new Function` during module creation;
+    # DYNAMIC_EXECUTION=0 removes that, and EMBIND_AOT emits the same invokers
+    # into the glue at link time instead. Both are needed: DYNAMIC_EXECUTION=0
+    # alone falls back to a generic reflective invoker roughly 8x slower per
+    # bound call. Cost of EMBIND_AOT is ~5.5 KB of glue and ~2 s of link time.
+    "-sDYNAMIC_EXECUTION=0"
+    "-sEMBIND_AOT=1")
   # -sSTACK_SIZE is deliberately NOT set here: each build type sets it exactly
   # once in its own block below (8 KB release / 64 KB debug). Setting it in this
   # shared block too would make the effective value depend on link-line ordering
