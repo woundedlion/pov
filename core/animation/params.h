@@ -173,6 +173,7 @@ public:
       : AnimationBase(1, true), mutant(mutant), speed(0.0f), wrap(wrap),
         paused(paused), speed_src(speed_src), scale(scale) {
     HS_CHECK(speed_src != nullptr, "Driver: live speed_src is null");
+    HS_CHECK(std::isfinite(scale), "Driver: live speed scale must be finite");
     // On a non-finite initial read keep the 0.0f seed (see step()).
     float s = *speed_src * scale;
     if (std::isfinite(s))
