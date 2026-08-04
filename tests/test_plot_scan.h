@@ -2430,8 +2430,20 @@ inline void test_star_sample_unit_length_closed() {
   }
 }
 
-/** @brief Star radius-trig reuse is bit-exact with per-vertex evaluation. */
-inline void test_star_sample_radius_trig_bit_parity() {
+/**
+ * @brief Star radius-trig reuse reproduces per-vertex evaluation, and the two
+ *        sampling entry points place the same vertices.
+ * @details Positions are compared within float tolerance, not bit-for-bit. Both
+ *   shipping targets build with -ffast-math, under which the compiler contracts
+ *   the hand-written per-vertex reference differently from the hoisted path, and
+ *   even the two instantiations of sample_impl's shared lambda differ by a ULP.
+ *   The tolerance still catches every error the hoist can make — swapped
+ *   inner/outer radii, wrong i&1 parity, a dropped phase — since each moves a
+ *   vertex by orders of magnitude more than rounding. Only the registers
+ *   sample_positions leaves untouched stay an exact comparison: they are exact
+ *   zeros, which no rounding mode perturbs.
+ */
+inline void test_star_sample_radius_trig_parity() {
   ScratchScope sc(plot_arena());
   const Basis b =
       make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
@@ -2470,22 +2482,17 @@ inline void test_star_sample_radius_trig_bit_parity() {
         HS_EXPECT_EQ(actual.size(), reference.size());
         HS_EXPECT_EQ(actual.size(), positions.size());
         for (size_t i = 0; i < actual.size(); ++i) {
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.x),
-                       std::bit_cast<uint32_t>(reference[i].pos.x));
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.y),
-                       std::bit_cast<uint32_t>(reference[i].pos.y));
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.z),
-                       std::bit_cast<uint32_t>(reference[i].pos.z));
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].v0),
-                       std::bit_cast<uint32_t>(reference[i].v0));
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].v1),
-                       std::bit_cast<uint32_t>(reference[i].v1));
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.x),
-                       std::bit_cast<uint32_t>(positions[i].pos.x));
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.y),
-                       std::bit_cast<uint32_t>(positions[i].pos.y));
-          HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual[i].pos.z),
-                       std::bit_cast<uint32_t>(positions[i].pos.z));
+          HS_CONTEXT("star vertex", static_cast<long long>(i));
+          // Separately-written expression tree: tolerance, not bit equality.
+          HS_EXPECT_NEAR(actual[i].pos.x, reference[i].pos.x, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].pos.y, reference[i].pos.y, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].pos.z, reference[i].pos.z, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].v0, reference[i].v0, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].v1, reference[i].v1, 1e-6f);
+          // Two instantiations of one lambda; still separately contracted.
+          HS_EXPECT_NEAR(actual[i].pos.x, positions[i].pos.x, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].pos.y, positions[i].pos.y, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].pos.z, positions[i].pos.z, 1e-6f);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v0), 0u);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v1), 0u);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v2), 0u);
@@ -3319,15 +3326,22 @@ inline void test_particle_system_custom_v2_mapper() {
   int mapper_calls = 0;
   int first_vertices = 0;
   int second_vertices = 0;
+  int unclassified_vertices = 0;
   auto particle_v2 = [&](const StubParticle &p, int) {
     ++mapper_calls;
     return static_cast<float>(p.life) / 100.0f;
   };
+  // Bucket by tolerance, not by ==: the shipping -ffast-math pair may turn the
+  // mapper's division into a reciprocal multiply, and an exact compare would
+  // then silently drop every vertex into neither bucket — failing the counts
+  // below with a diagnostic that blames the vertex walk.
   auto vertex_shader = [&](Fragment &f) {
-    if (f.v2 == 0.25f)
+    if (hs_test::approx(f.v2, 0.25f, 1e-4f))
       ++first_vertices;
-    else if (f.v2 == 0.75f)
+    else if (hs_test::approx(f.v2, 0.75f, 1e-4f))
       ++second_vertices;
+    else
+      ++unclassified_vertices;
   };
   CapturePipeline pipeline;
   {
@@ -3338,6 +3352,7 @@ inline void test_particle_system_custom_v2_mapper() {
   }
 
   HS_EXPECT_EQ(mapper_calls, 2);
+  HS_EXPECT_EQ(unclassified_vertices, 0);
   HS_EXPECT_EQ(first_vertices, 3);
   HS_EXPECT_EQ(second_vertices, 4);
 }
@@ -4908,7 +4923,7 @@ inline int run_plot_scan_tests() {
   test_multiline_sample_arclength_param();
 
   test_star_sample_unit_length_closed();
-  test_star_sample_radius_trig_bit_parity();
+  test_star_sample_radius_trig_parity();
   test_flower_sample_unit_length_closed();
 
   // rasterize() control-flow coverage. The 2*W steps_cache backstop is a
