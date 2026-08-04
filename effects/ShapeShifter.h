@@ -605,7 +605,7 @@ private:
       const auto p1 = Plot::azimuthal_project(b, planar_basis);
       const float dx = p1.first - p0.first;
       const float dy = p1.second - p0.second;
-      const float gap_arc = hypotf(dx, dy) / ANCHOR_INTERVALS;
+      const float gap_arc = sqrtf(dx * dx + dy * dy) / ANCHOR_INTERVALS;
       constexpr float ROWS_PER_RADIAN =
           static_cast<float>(H + hs::H_OFFSET - 1) / PI_F;
 
@@ -645,16 +645,18 @@ private:
       for (int k = 0; k < ANCHOR_INTERVALS; ++k) {
         const float segment_dx = anchors[k + 1].x - anchors[k].x;
         const float segment_dy = anchors[k + 1].y - anchors[k].y;
-        const float length = hypotf(segment_dx, segment_dy);
+        const float length =
+            sqrtf(segment_dx * segment_dx + segment_dy * segment_dy);
         const int samples =
             std::max(1, static_cast<int>(ceilf(length / TARGET_STEP)));
+        const float inv_samples = 1.0f / static_cast<float>(samples);
         const float step_ratio =
-            std::min(TARGET_STEP, length / samples) / Plot::SCREEN_STEP_PX;
+            std::min(TARGET_STEP, length * inv_samples) / Plot::SCREEN_STEP_PX;
         const float sample_alpha = std::min(
             1.0f,
             ALPHA_GAIN * Plot::balanced_sample_alpha(color.alpha, step_ratio));
         for (int sample = 0; sample < samples; ++sample) {
-          const float t = static_cast<float>(sample) / samples;
+          const float t = static_cast<float>(sample) * inv_samples;
           float x = anchors[k].x + segment_dx * t;
           const float y = anchors[k].y + segment_dy * t;
           if (x < 0.0f)
