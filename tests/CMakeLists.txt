@@ -232,6 +232,13 @@ add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
 
+# Pin every test case defined in tests/test_*.h against a call site in the same
+# header. Counts sites rather than assertions, so it catches a dropped case call
+# that a loop-amplified module's assertion floor is too coarse to see.
+add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
+    -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_case_calls.cmake)
+
 # Pin the in-tree patches to vendored FastNoiseLite.h against the patch record
 # in core/vendor/FastNoiseLite_config.h. A version bump that drops them still
 # compiles: the size guard goes inert and the sampler loses selective -O3, both

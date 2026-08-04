@@ -41,7 +41,7 @@ jobs:
         include: &shard_matrix
           - &shard1_entry
             shard: 1
-            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|partition_seam|hankin|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes|vendor_patches|teensy_size_trail)$"
+            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|partition_seam|hankin|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes|case_calls|vendor_patches|teensy_size_trail)$"
             test_exclude: &generated_exclude "^unit_(color_luts|color_luts_check|gamut_lut)$"
           - &shard2_entry
             shard: 2
