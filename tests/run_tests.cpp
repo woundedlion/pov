@@ -107,7 +107,7 @@ constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 548;
 constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
-  X("3dmath", hs_test::math3d::run_3dmath_tests, 28826)                        \
+  X("3dmath", hs_test::math3d::run_3dmath_tests, 30113)                        \
   X("concepts", hs_test::concepts_tests::run_concepts_tests, 43273)            \
   X("memory", hs_test::mem::run_memory_tests, 271)                             \
   X("spatial", hs_test::spatial::run_spatial_tests, 179)                       \
@@ -126,9 +126,9 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("opchain_arena_survey",                                                    \
     hs_test::opchain_arena_survey::run_opchain_arena_survey_tests, 21562)      \
   X("hankin", hs_test::hankin_tests::run_hankin_tests, 1948)                   \
-  X("geometry", hs_test::geometry::run_geometry_tests, 4840)                   \
+  X("geometry", hs_test::geometry::run_geometry_tests, 4847)                   \
   X("spherical_field", hs_test::spherical_field::run_spherical_field_tests,    \
-    231)                                                                       \
+    7027)                                                                      \
   X("mesh", hs_test::mesh_tests::run_mesh_tests, 42756)                        \
   X("solids", hs_test::solids_tests::run_solids_tests, 307007)                 \
   X("reaction_graph", hs_test::reaction_graph_tests::run_reaction_graph_tests, \

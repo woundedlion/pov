@@ -647,6 +647,36 @@ inline void test_orientation_historical_index_accessors() {
   HS_EXPECT_VEC(o.orient(v, 1), rotate(v, q_new), 1e-5f);
 }
 
+/**
+ * @brief Verifies set_at_normalized stores the unit form of a scaled
+ *        quaternion — the input set_at rejects — and leaves its neighbours
+ *        untouched.
+ */
+inline void test_orientation_set_at_normalized() {
+  Orientation<8> o;
+  Quaternion q0 = make_rotation(Vector(1, 0, 0), 0.3f);
+  Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.7f);
+  Quaternion q2 = make_rotation(Vector(0, 0, 1), 1.1f);
+  o.set(q0);
+  o.push(q1);
+  o.push(q2);
+
+  Quaternion unit = make_rotation(Vector(0.6f, 0.0f, 0.8f), 0.9f);
+  o.set_at_normalized(1, unit * 7.5f);
+  HS_EXPECT_NEAR(o.get(1).squared_magnitude(), 1.0f, 1e-6f);
+  HS_EXPECT_QUAT(o.get(1), unit, 1e-6f);
+  HS_EXPECT_QUAT(o.get(0), q0, 1e-6f);
+  HS_EXPECT_QUAT(o.get(2), q2, 1e-6f);
+
+  // An already-unit argument survives the renormalize unchanged.
+  o.set_at_normalized(2, q1);
+  HS_EXPECT_QUAT(o.get(2), q1, 1e-6f);
+
+  const Vector v(0.2f, 0.4f, 0.9f);
+  HS_EXPECT_VEC(o.orient(v, 1), rotate(v, unit), 1e-5f);
+  HS_EXPECT_VEC(o.unorient(v, 1), rotate(v, unit.conjugate()), 1e-5f);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -700,6 +730,7 @@ inline int run_geometry_tests() {
   test_orientation_upsample_noop_if_already_long();
   test_orientation_upsample_clamps_past_capacity();
   test_orientation_historical_index_accessors();
+  test_orientation_set_at_normalized();
 
   return fixture.result();
 }

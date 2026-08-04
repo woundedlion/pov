@@ -144,6 +144,27 @@ inline void test_populate_band_preserves_other_samples() {
   }
 }
 
+inline void test_populate_recurrence_matches_exact_trig() {
+  constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4);
+  static std::array<Vector, layout.sample_count()> values;
+  hs::SphericalField<Vector, 288, 144, 3> field(values.data(), layout);
+  // The incremental rotation walks the whole ring from the meridian, so the
+  // longest ring is where any drift in the recurrence accumulates.
+  field.populate(0, layout.ring_count() - 1,
+                 [](const Vector &v, const auto &) { return v; });
+  for (int i = 0; i < layout.ring_count(); ++i) {
+    const auto ring = layout.ring(i);
+    for (int sample = 0; sample < ring.samples; ++sample) {
+      const Vector &stepped = values[ring.offset + sample];
+      const Vector exact = layout.sample_vector(ring, sample);
+      HS_EXPECT_NEAR(stepped.x, exact.x, 2e-5f);
+      HS_EXPECT_NEAR(stepped.y, exact.y, 2e-5f);
+      HS_EXPECT_NEAR(stepped.z, exact.z, 2e-5f);
+      HS_EXPECT_NEAR(stepped.length(), 1.0f, 2e-5f);
+    }
+  }
+}
+
 inline void test_longitude_filter_tracks_spherical_width() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4, 4, 1, 72);
   HS_EXPECT_EQ(layout.longitude_filter_width(0), 1);
@@ -263,6 +284,7 @@ inline int run_spherical_field_tests() {
   test_longitude_stays_in_ring_at_negative_seam();
   test_longitude_saturates_out_of_domain_input();
   test_populate_band_preserves_other_samples();
+  test_populate_recurrence_matches_exact_trig();
   test_longitude_filter_tracks_spherical_width();
   test_longitude_filter_and_sampler_wrap_poles();
   test_sampler_wraps_south_pole_with_virtual_rows();
