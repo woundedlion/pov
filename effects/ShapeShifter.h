@@ -95,6 +95,10 @@ public:
     phase_cos = persistent_arena.allocate_n<float>(MAX_SHAPES);
     waveform = persistent_arena.allocate_n<float>(MAX_SHAPES);
     folded_draw_indices = persistent_arena.allocate_n<uint16_t>(MAX_SHAPES);
+    planar_star_radius_trig =
+        persistent_arena
+            .allocate_n<Plot::Star<Plot::PlanarProjection>::RadiusTrig>(
+                MAX_SHAPES);
     prepare_count(hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES));
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
                                              hs::rand_int(0, 65536)));
@@ -260,11 +264,18 @@ private:
     }
   };
 
-  /** Maps uniform contour quantiles to sine-weighted latitude density. */
+  /** Maps contour quantiles to the radial/circumferential sampling envelope. */
   HS_COLD_MEMBER static float adaptive_planar_radius_t(float radius_t) {
+    constexpr float DENSITY_FLOOR = 0.5f;
+    constexpr float BREAK_ANGLE = PI_F / 6.0f;
+    constexpr float DENSITY_INTEGRAL = 1.1278247916f;
+    constexpr float BREAK_QUANTILE =
+        DENSITY_FLOOR * BREAK_ANGLE / DENSITY_INTEGRAL;
     const bool far_side = radius_t > 0.5f;
     const float u = 2.0f * folded_radius_t(radius_t);
-    const float theta = acosf(1.0f - u);
+    const float theta = u < BREAK_QUANTILE
+                            ? u * DENSITY_INTEGRAL / DENSITY_FLOOR
+                            : acosf(DENSITY_INTEGRAL * (1.0f - u));
     const float folded = theta / PI_F;
     return far_side ? 1.0f - folded : folded;
   }
@@ -278,6 +289,9 @@ private:
       phase_cos[i] = cosf(2.0f * PI_F * radius_t);
       planar_radius_t[i] =
           adaptive_spacing ? adaptive_planar_radius_t(radius_t) : radius_t;
+      planar_star_radius_trig[i] =
+          Plot::Star<Plot::PlanarProjection>::radius_trig(2.0f *
+                                                          planar_radius_t[i]);
       folded_draw_indices[i] =
           static_cast<uint16_t>(folded_draw_index(count, i));
     }
@@ -334,8 +348,9 @@ private:
     const float radius = 2.0f * geometry_radius_t;
     const auto cap = get_antipode(basis, radius);
     constexpr float MIN_CAP_RADIUS = 8.0f / W;
-    if (cap.second * Plot::STAR_INNER_RATIO >= MIN_CAP_RADIUS)
-      return;
+    constexpr float CAP_EDGE_OVERLAP = 8.0f / W;
+    const float cap_radius = std::max(
+        MIN_CAP_RADIUS, cap.second * Plot::STAR_INNER_RATIO + CAP_EDGE_OVERLAP);
 
     Color4 color = palette.get(palette_radius_t);
     const float cap_alpha = std::min(1.0f, alpha * static_cast<float>(sides));
@@ -343,7 +358,7 @@ private:
     auto shader = [&](const Vector &, Fragment &fragment) {
       fragment.color = color;
     };
-    Scan::Circle::draw<W, H>(plot_filters, canvas, cap.first, MIN_CAP_RADIUS,
+    Scan::Circle::draw<W, H>(plot_filters, canvas, cap.first, cap_radius,
                              shader);
   }
 
@@ -379,6 +394,11 @@ private:
                   static_cast<int>(SIDES_MAX));
     const ShapeType shape = selected_shape();
     const bool planar_star = shape == ShapeType::PLANAR_STAR;
+    if (planar_star && sides != prepared_planar_star_sides) {
+      planar_star_step_trig =
+          Plot::Star<Plot::PlanarProjection>::step_trig(sides);
+      prepared_planar_star_sides = sides;
+    }
     const PhaseFunction function = selected_function();
     prepare_waveform(function, count);
     const Basis basis = make_basis(orientation.get(), X_AXIS);
@@ -461,7 +481,7 @@ private:
       Color4 shaded_color = color;
       shaded_color.alpha *= global_alpha;
       dispatch_plot(canvas, basis, shape, radius, sides, shader, contour_phase,
-                    shaded_color);
+                    shaded_color, i);
     }
     if (planar_star)
       draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
@@ -579,25 +599,28 @@ private:
   }
 
   template <typename F>
-  HS_FLASH_MEMBER void
-  draw_dense_planar_star(Canvas &canvas, const Basis &basis, float radius,
-                         int sides, const Color4 &color,
-                         const F &fragment_shader, float phase) {
-    constexpr int ANCHOR_INTERVALS = 6;
+  HS_FLASH_MEMBER void draw_dense_planar_star(Canvas &canvas,
+                                              const Basis &basis, float radius,
+                                              int sides, const Color4 &color,
+                                              const F &fragment_shader,
+                                              float phase, int contour_index) {
+    constexpr int MAX_ANCHOR_INTERVALS = 6;
+    constexpr float MAX_ANCHOR_ARC = PI_F / 36.0f;
     constexpr float POLE_GUARD_ROWS = 3.0f;
     ScratchScope guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, static_cast<size_t>(sides * 2 + 2));
-    Plot::Star<Plot::PlanarProjection>::sample_positions(points, basis, radius,
-                                                         sides, phase);
+    Plot::Star<Plot::PlanarProjection>::sample_positions(
+        points, basis, radius, sides, phase,
+        planar_star_radius_trig[contour_index], planar_star_step_trig);
 
     Basis planar_basis = basis;
     if (radius > 1.0f)
       planar_basis = Plot::planar_chart_basis(-basis.v);
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
-    constexpr float TARGET_STEP = Plot::BALANCED_SCREEN_STEP_PX;
-    constexpr float ALPHA_GAIN = 1.012f;
+    constexpr float TARGET_STEP = 1.2f;
+    constexpr float ALPHA_GAIN = 1.028f;
     for (int edge = 0; edge < sides * 2; ++edge) {
       const Vector &a = points[edge].pos;
       const Vector &b = points[edge + 1].pos;
@@ -605,21 +628,25 @@ private:
       const auto p1 = Plot::azimuthal_project(b, planar_basis);
       const float dx = p1.first - p0.first;
       const float dy = p1.second - p0.second;
-      const float gap_arc = sqrtf(dx * dx + dy * dy) / ANCHOR_INTERVALS;
+      const float edge_arc = sqrtf(dx * dx + dy * dy);
+      const int anchor_intervals =
+          hs::clamp(static_cast<int>(ceilf(edge_arc / MAX_ANCHOR_ARC)), 1,
+                    MAX_ANCHOR_INTERVALS);
+      const float gap_arc = edge_arc / anchor_intervals;
       constexpr float ROWS_PER_RADIAN =
           static_cast<float>(H + hs::H_OFFSET - 1) / PI_F;
 
-      std::array<PixelCoords, ANCHOR_INTERVALS + 1> anchors;
+      std::array<PixelCoords, MAX_ANCHOR_INTERVALS + 1> anchors;
       float row_lo = static_cast<float>(H);
       float row_hi = 0.0f;
-      for (int k = 0; k <= ANCHOR_INTERVALS; ++k) {
+      for (int k = 0; k <= anchor_intervals; ++k) {
         Vector position;
         if (k == 0)
           position = a;
-        else if (k == ANCHOR_INTERVALS)
+        else if (k == anchor_intervals)
           position = b;
         else {
-          const float t = static_cast<float>(k) / ANCHOR_INTERVALS;
+          const float t = static_cast<float>(k) / anchor_intervals;
           position = Plot::azimuthal_unproject(
               p0.first + dx * t, p0.second + dy * t, planar_basis);
         }
@@ -642,7 +669,7 @@ private:
         continue;
       }
 
-      for (int k = 0; k < ANCHOR_INTERVALS; ++k) {
+      for (int k = 0; k < anchor_intervals; ++k) {
         const float segment_dx = anchors[k + 1].x - anchors[k].x;
         const float segment_dy = anchors[k + 1].y - anchors[k].y;
         const float length =
@@ -695,7 +722,8 @@ private:
   HS_FLASH_MEMBER void
   dispatch_plot(Canvas &canvas, const Basis &basis, ShapeType shape,
                 float radius, int sides, const F &fragment_shader,
-                float shape_phase, const Color4 &shape_color) {
+                float shape_phase, const Color4 &shape_color,
+                int contour_index) {
     HS_PROFILE(ss_plot_dispatch);
     switch (shape) {
     case ShapeType::PLANAR_POLYGON: {
@@ -728,7 +756,7 @@ private:
     case ShapeType::PLANAR_STAR: {
       if (params.count >= 32.0f) {
         draw_dense_planar_star(canvas, basis, radius, sides, shape_color,
-                               fragment_shader, shape_phase);
+                               fragment_shader, shape_phase, contour_index);
         break;
       }
       Basis planar_basis = basis;
@@ -788,7 +816,7 @@ private:
 #endif
 
   static constexpr std::array<PresetEntry<Params>, 9> PRESETS = {{
-      {{ShapeType::PLANAR_STAR, 184.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
+      {{ShapeType::PLANAR_STAR, 208.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
         AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::ADAPTIVE}},
       {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f,
         0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
@@ -839,6 +867,10 @@ private:
   float *phase_cos = nullptr;
   float *waveform = nullptr;
   uint16_t *folded_draw_indices = nullptr;
+  Plot::Star<Plot::PlanarProjection>::RadiusTrig *planar_star_radius_trig =
+      nullptr;
+  Plot::Star<Plot::PlanarProjection>::StepTrig planar_star_step_trig{};
+  int prepared_planar_star_sides = 0;
   int baked_palette_count = 0;
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
   Presets<Params, 9> presets{PRESETS};

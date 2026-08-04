@@ -549,7 +549,7 @@ inline void test_adaptive_star_preset_stays_within_visual_budget() {
   state.function = OracleEffect::PhaseFunction::SINE;
   state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
   state.spacing = OracleEffect::RadiusSpacing::ADAPTIVE;
-  state.count = 184;
+  state.count = 208;
   state.sides = 7;
   state.phase = 0.249f;
   state.alpha = 0.274f;
@@ -588,32 +588,52 @@ inline void test_high_count_star_preset_covers_north_pole() {
   HS_EXPECT_EQ(uncovered_pole_pixels, size_t{0});
 }
 
-inline uint32_t vector_pixel_energy(const OracleFrame &frame,
-                                    const Vector &position) {
-  const PixelCoords projected = vector_to_pixel<ORACLE_W, ORACLE_H>(position);
-  const int x = static_cast<int>(floorf(projected.x + 0.5f)) % ORACLE_W;
-  const int y =
-      hs::clamp(static_cast<int>(floorf(projected.y + 0.5f)), 0, ORACLE_H - 1);
-  const Pixel &pixel = frame.at(x, y);
-  return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b;
+inline uint32_t minimum_energy_around(const OracleFrame &frame,
+                                      const Vector &position, float radius_px) {
+  const PixelCoords center = vector_to_pixel<ORACLE_W, ORACLE_H>(position);
+  uint32_t minimum = UINT32_MAX;
+  for (int y = 0; y < ORACLE_H; ++y) {
+    for (int x = 0; x < ORACLE_W; ++x) {
+      float dx = std::fabs(static_cast<float>(x) - center.x);
+      dx = std::min(dx, static_cast<float>(ORACLE_W) - dx);
+      const float dy = static_cast<float>(y) - center.y;
+      if (dx * dx + dy * dy > radius_px * radius_px)
+        continue;
+      const Pixel &pixel = frame.at(x, y);
+      minimum =
+          std::min(minimum, static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b);
+    }
+  }
+  return minimum;
 }
 
 inline void test_high_count_planar_star_caps_cover_chart_centers() {
+  constexpr uint32_t MIN_CAP_ENERGY = 60000;
+  const std::array<Quaternion, 4> orientations = {{
+      Quaternion(),
+      Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(),
+      Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
+      Quaternion(0.51f, 0.63f, -0.28f, 0.51f).normalized(),
+  }};
   for (const auto [count, spacing] :
        {std::pair{144, OracleEffect::RadiusSpacing::UNIFORM},
-        std::pair{184, OracleEffect::RadiusSpacing::ADAPTIVE}}) {
-    OracleState state;
-    state.shape = OracleEffect::ShapeType::PLANAR_STAR;
-    state.function = OracleEffect::PhaseFunction::SINE;
-    state.spacing = spacing;
-    state.count = count;
-    state.sides = 7;
-    state.phase = 0.125f;
-    state.alpha = 0.274f;
-    state.orientation = Quaternion();
-    const OracleFrame frame = capture_frame(state, candidate_renderer());
-    HS_EXPECT_GT(vector_pixel_energy(frame, X_AXIS), COVERAGE_ENERGY);
-    HS_EXPECT_GT(vector_pixel_energy(frame, -X_AXIS), COVERAGE_ENERGY);
+        std::pair{208, OracleEffect::RadiusSpacing::ADAPTIVE}}) {
+    for (const Quaternion &orientation : orientations) {
+      OracleState state;
+      state.shape = OracleEffect::ShapeType::PLANAR_STAR;
+      state.function = OracleEffect::PhaseFunction::SINE;
+      state.spacing = spacing;
+      state.count = count;
+      state.sides = 7;
+      state.phase = 0.125f;
+      state.alpha = 0.274f;
+      state.orientation = orientation;
+      const OracleFrame frame = capture_frame(state, candidate_renderer());
+      const Vector near = rotate(X_AXIS, orientation);
+      const Vector far = -near;
+      HS_EXPECT_GE(minimum_energy_around(frame, near, 1.5f), MIN_CAP_ENERGY);
+      HS_EXPECT_GE(minimum_energy_around(frame, far, 1.5f), MIN_CAP_ENERGY);
+    }
   }
 }
 
@@ -739,8 +759,10 @@ inline void test_folded_shapes_draw_from_equator_to_both_poles() {
                (std::vector<int>{2, 3, 1, 4, 0}));
 }
 
-inline void test_adaptive_planar_spacing_follows_spherical_circumference() {
-  constexpr int COUNT = 184;
+inline void test_adaptive_planar_spacing_follows_sampling_envelope() {
+  constexpr int COUNT = 208;
+  constexpr float DENSITY_FLOOR = 0.5f;
+  constexpr float DENSITY_INTEGRAL = 1.1278247916f;
   auto mapped = [](int index) {
     const float radius_t =
         (static_cast<float>(index) + 0.5f) / static_cast<float>(COUNT);
@@ -749,9 +771,13 @@ inline void test_adaptive_planar_spacing_follows_spherical_circumference() {
 
   const float equator_equivalent_count =
       1.0f / (mapped(COUNT / 2 - 1) - mapped(COUNT / 2 - 2));
-  HS_EXPECT_NEAR(equator_equivalent_count, COUNT * PI_F / 2.0f, 0.2f);
-  HS_EXPECT_NEAR(equator_equivalent_count, OracleEffect::MAX_SHAPES, 1.1f);
-  HS_EXPECT_NEAR(mapped(0) * PI_F, acosf(1.0f - 1.0f / COUNT), 1e-6f);
+  const float pole_equivalent_count = 1.0f / (mapped(1) - mapped(0));
+  const float density_scale = COUNT * PI_F / (2.0f * DENSITY_INTEGRAL);
+  HS_EXPECT_NEAR(equator_equivalent_count, density_scale, 0.2f);
+  HS_EXPECT_NEAR(equator_equivalent_count, OracleEffect::MAX_SHAPES, 1.8f);
+  HS_EXPECT_NEAR(pole_equivalent_count, density_scale * DENSITY_FLOOR, 0.2f);
+  HS_EXPECT_NEAR(pole_equivalent_count, ORACLE_H, 1.0f);
+  HS_EXPECT_NEAR(mapped(0) * PI_F, 2.0f * DENSITY_INTEGRAL / COUNT, 1e-6f);
 
   for (int index = 0; index < COUNT; ++index) {
     const float radius_t =
@@ -811,7 +837,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_palette_position_mirrors_at_equator();
   test_opposite_halves_direction();
   test_folded_shapes_draw_from_equator_to_both_poles();
-  test_adaptive_planar_spacing_follows_spherical_circumference();
+  test_adaptive_planar_spacing_follows_sampling_envelope();
   test_preset_transition_snaps();
   return fixture.result();
 }
