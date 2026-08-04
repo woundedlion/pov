@@ -4489,7 +4489,9 @@ inline void test_shapeshifter_preset_defaults() {
   if (shape) {
     HS_EXPECT_TRUE(shape->is_enum());
     HS_EXPECT_EQ(std::string_view(shape->export_options[3]),
-                 std::string_view("ShapeType::STAR"));
+                 std::string_view("ShapeType::PLANAR_STAR"));
+    HS_EXPECT_EQ(std::string_view(shape->export_options[4]),
+                 std::string_view("ShapeType::SPHERICAL_STAR"));
   }
   if (falloff) {
     HS_EXPECT_TRUE(falloff->is_enum());
@@ -4499,10 +4501,10 @@ inline void test_shapeshifter_preset_defaults() {
 
   HS_EXPECT_TRUE(ss.updateParameter("Alpha", 0.37f) == ParamSetResult::APPLIED);
 
-  const float expected_shapes[] = {3.0f, 1.0f, 3.0f, 2.0f,
-                                   3.0f, 1.0f, 1.0f, 1.0f};
-  const float expected_falloffs[] = {1.0f, 0.0f, 1.0f, 0.0f,
-                                     1.0f, 0.0f, 0.0f, 0.0f};
+  const float expected_shapes[] = {3.0f, 1.0f, 3.0f, 2.0f, 3.0f,
+                                   1.0f, 1.0f, 1.0f, 2.0f};
+  const float expected_falloffs[] = {1.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+                                     0.0f, 0.0f, 0.0f, 0.0f};
   for (size_t i = 0; i < std::size(expected_shapes); ++i) {
     ss.profile_select_preset(i);
     HS_EXPECT_EQ(value("Alpha"), 0.37f);
@@ -4554,6 +4556,17 @@ inline void test_shapeshifter_preset_defaults() {
   HS_EXPECT_EQ(value("Amplitude"), 7.0696f);
   HS_EXPECT_EQ(value("Speed"), 0.0113f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
+  HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
+
+  ss.profile_select_preset(8);
+  HS_EXPECT_EQ(value("Alpha"), 0.37f);
+  HS_EXPECT_EQ(value("Shape"), 2.0f);
+  HS_EXPECT_EQ(value("Count"), 72.0f);
+  HS_EXPECT_EQ(value("Sides"), 3.0f);
+  HS_EXPECT_EQ(value("Function"), 0.0f);
+  HS_EXPECT_EQ(value("Amplitude"), 1.8721f);
+  HS_EXPECT_EQ(value("Speed"), 0.00752f);
+  HS_EXPECT_EQ(value("Opposite"), 1.0f);
   HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
 }
 

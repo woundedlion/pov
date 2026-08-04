@@ -808,7 +808,7 @@ struct DistanceResult {
 };
 ```
 
-**Curve Plot Path** (`Plot::Line`, `Plot::Multiline`, `Plot::Ring`, `Plot::PlanarPolygon`):
+**Curve Plot Path** (`Plot::Line`, `Plot::Multiline`, `Plot::Ring`, `Plot::Polygon`):
 
 | Register | Meaning |
 |---|---|
@@ -817,7 +817,7 @@ struct DistanceResult {
 | `v2` | Index of the segment's start vertex, interpolated toward the next index across the segment — only the control points land on whole numbers, interior samples are fractional; `Plot::Ring` writes the strided grid index (stride up to W/8), `Plot::Line` has no interior vertices and writes 0 on every sample, and `Plot::Mesh` writes a constant edge index instead |
 | `v3` | Inherited from control-point Fragment (user-defined) |
 
-Plot primitives interpolate registers between control-point Fragments via `Fragment::lerp_registers()`. The vertex shader, if provided, runs once per control point before rasterization. For the always-planar primitives (`Plot::PlanarPolygon`, `Plot::Star`, `Plot::Flower`) the rasterizer re-derives `v0`/`v1` from the rendered azimuthal-equidistant arc — which bows longer than the great-circle chord between vertices — so both stay consistent with the drawn position.
+Plot primitives interpolate registers between control-point Fragments via `Fragment::lerp_registers()`. The vertex shader, if provided, runs once per control point before rasterization. For `Plot::Polygon<Plot::PlanarProjection>`, `Plot::Star<Plot::PlanarProjection>`, and `Plot::Flower`, the rasterizer re-derives `v0`/`v1` from the rendered azimuthal-equidistant arc — which bows longer than the great-circle chord between vertices — so both stay consistent with the drawn position.
 
 **Full-Screen Shader Path** (`Scan::Shader`):
 
@@ -925,7 +925,7 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 - **Emitted alpha changes.** Sparser samples lay down less coverage per unit arc, so each fragment's alpha is scaled by `balanced_sample_alpha()` — gain `1 + (ratio - 1) * (0.88 - 0.20 * alpha)`, saturating at 1, with `ratio` the balanced step over the default step. The gain is source-over aware, shrinking as alpha rises because opaque samples compound less. A balanced draw is not pixel-identical to a default one.
 - **Step evaluation is reused.** Where the walk is locally straight and clear of the poles (tangent dot > 0.995, step change under 10%, step under 0.9 base steps), the next sample recomputes position only and carries the previous step forward, skipping the tangent and the screen-velocity step.
 
-`ShapeShifter` is the sole caller: `SELECTABLE`, on for `Plot::Star` at 32 or more points and off for every other primitive.
+`ShapeShifter` is the sole caller: `SELECTABLE`, on for policy-selected stars at 32 or more contours and off for every other primitive.
 
 #### Plot Primitives
 
@@ -934,10 +934,10 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 | `Plot::Line` | Geodesic line segment between two points |
 | `Plot::Multiline` | Connected line strip from a sequence of fragments |
 | `Plot::Ring` | Circle rasterized as a plotted polyline |
-| `Plot::PlanarPolygon` | Regular N-gon in the tangent plane |
-| `Plot::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
+| `Plot::Polygon<Plot::PlanarProjection>` | Regular N-gon in the tangent plane |
+| `Plot::Polygon<Plot::GeodesicProjection>` | Regular N-gon with geodesic (great-circle) edges |
 | `Plot::DistortedRing` | Ring with per-azimuth radius perturbation via callback |
-| `Plot::Star` | N-pointed star shape (alternating inner/outer radii) |
+| `Plot::Star<Projection>` | N-pointed star with planar or geodesic edges |
 | `Plot::Flower` | N-petal flower shape |
 | `Plot::Mesh` | Wireframe mesh rendering with edge deduplication |
 | `Plot::ParticleSystem` | Particle trail rendering from `QuantizedVectorTrail` history |
