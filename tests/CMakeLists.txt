@@ -262,6 +262,17 @@ add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts.cmake)
 set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
 
+# Host self-tests for the per-commit Teensy size trail (tools/teensy_size_trail.py):
+# the ELF32 section-header parser the pre-commit recorder reads firmware images
+# with, and the regression classifier. Pure stdlib Python — the ci.yml
+# teensy-gate-tests job runs the same file through its unittest discovery.
+add_test(NAME unit_teensy_size_trail COMMAND ${CMAKE_COMMAND}
+    -DPYTHON_EXE=${HS_PYTHON}
+    -DHS_ROOT=${HS_ROOT}
+    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_teensy_size_trail.cmake)
+set_tests_properties(unit_teensy_size_trail PROPERTIES SKIP_RETURN_CODE 77)
+
 # Run the generator's own --check self-validation (monotonicity + sRGB
 # round-trip), which CI ran only as a shell step.
 add_test(NAME unit_color_luts_check COMMAND ${CMAKE_COMMAND}
