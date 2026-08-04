@@ -45,6 +45,8 @@ struct OracleClip {
 struct OracleState {
   OracleEffect::ShapeType shape = OracleEffect::ShapeType::PLANAR_POLYGON;
   OracleEffect::PhaseFunction function = OracleEffect::PhaseFunction::SINE;
+  OracleEffect::AlphaFalloff alpha_falloff =
+      OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
   int count = 7;
   int sides = 5;
   float phase = 0.0f;
@@ -128,13 +130,14 @@ inline FrameErrorStats compare_buffers(const OracleFrame &reference,
 /** @brief Test-only access to ShapeShifter's pinned state and shipping renderer. */
 struct ShapeShifterWhiteBox {
   static void configure(OracleEffect &effect, const OracleState &state) {
-    effect.params.alpha = state.alpha;
-    effect.params.shape = static_cast<float>(state.shape);
+    effect.alpha = state.alpha;
+    effect.params.shape = state.shape;
     effect.params.count = static_cast<float>(state.count);
     effect.params.sides = static_cast<float>(state.sides);
     effect.params.function = static_cast<float>(state.function);
     effect.params.speed = 0.0f;
     effect.params.opposite = state.opposite;
+    effect.params.alpha_falloff = state.alpha_falloff;
     effect.phase = state.phase;
     effect.orientation.set(state.orientation);
     effect.set_clip(state.clip.y0, state.clip.y1, state.clip.x0, state.clip.x1);
@@ -165,8 +168,9 @@ struct ShapeShifterWhiteBox {
     return effect.phase_direction(radius);
   }
 
-  static float shape_alpha(int index, int count) {
-    return OracleEffect::shape_alpha(index, count);
+  static float shape_alpha(OracleEffect::AlphaFalloff falloff, int index,
+                           int count) {
+    return OracleEffect::shape_alpha(falloff, index, count);
   }
 
   static void next_preset(OracleEffect &effect) { effect.next_preset(); }
@@ -271,6 +275,9 @@ inline std::array<OracleState, 16> exhaustive_matrix() {
     for (int function = 0; function < 4; ++function) {
       OracleState state;
       state.shape = shapes[shape];
+      state.alpha_falloff = state.shape == Shape::STAR
+                                ? OracleEffect::AlphaFalloff::TOWARD_EQUATOR
+                                : OracleEffect::AlphaFalloff::CONSTANT_HALF;
       state.function = functions[function];
       state.count = counts[function];
       state.sides = sides[shape];
@@ -612,14 +619,32 @@ inline void test_amplitude_preserves_sweep_velocity() {
 }
 
 inline void test_shape_alpha_fades_to_equator() {
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(0, 1), 1.0f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(0, 6), 1.0f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(1, 6), 2.0f / 3.0f, 1e-6f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 6), 1.0f / 3.0f, 1e-6f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(3, 6), 1.0f / 3.0f, 1e-6f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(4, 6), 2.0f / 3.0f, 1e-6f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(5, 6), 1.0f);
-  HS_EXPECT_NEAR(ShapeShifterWhiteBox::shape_alpha(2, 5), 2.0f / 5.0f, 1e-6f);
+  using Falloff = OracleEffect::AlphaFalloff;
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 0, 1),
+               1.0f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 0, 6),
+               1.0f);
+  HS_EXPECT_NEAR(
+      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 1, 6),
+      2.0f / 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(
+      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 2, 6),
+      1.0f / 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(
+      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 3, 6),
+      1.0f / 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(
+      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 4, 6),
+      2.0f / 3.0f, 1e-6f);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 5, 6),
+               1.0f);
+  HS_EXPECT_NEAR(
+      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 2, 5),
+      2.0f / 5.0f, 1e-6f);
+  for (int index = 0; index < 6; ++index)
+    HS_EXPECT_EQ(
+        ShapeShifterWhiteBox::shape_alpha(Falloff::CONSTANT_HALF, index, 6),
+        0.5f);
 }
 
 inline void test_opposite_halves_direction() {
@@ -656,6 +681,8 @@ inline void test_preset_transition_snaps() {
   {
     OracleEffect effect;
     effect.init();
+    HS_EXPECT_TRUE(effect.updateParameter("Alpha", 0.42f) ==
+                   ParamSetResult::APPLIED);
     ShapeShifterWhiteBox::next_preset(effect);
 
     auto value = [&](const char *name) {
@@ -666,14 +693,15 @@ inline void test_preset_transition_snaps() {
       return -1.0f;
     };
 
-    HS_EXPECT_EQ(value("Alpha"), 1.0f);
-    HS_EXPECT_EQ(value("Shape"), 1.017f);
+    HS_EXPECT_EQ(value("Alpha"), 0.42f);
+    HS_EXPECT_EQ(value("Shape"), 1.0f);
     HS_EXPECT_EQ(value("Count"), 74.644997f);
     HS_EXPECT_EQ(value("Sides"), 3.0f);
     HS_EXPECT_EQ(value("Function"), 0.0f);
     HS_EXPECT_EQ(value("Amplitude"), 1.0f);
     HS_EXPECT_EQ(value("Speed"), 0.0318f);
     HS_EXPECT_EQ(value("Opposite"), 0.0f);
+    HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
   }
   Timeline().clear();
 }

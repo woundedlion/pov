@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <variant>
 #include <atomic>
+#include <type_traits>
 #include <utility>
 #include "engine/constants.h"
 #include "color/color.h"
@@ -295,8 +296,15 @@ public:
    * @brief Defines a runtime-adjustable parameter.
    */
   struct ParamDef {
+    /** @brief Type-erased storage for an enum parameter. */
+    struct EnumTarget {
+      void *ptr;
+      float (*get)(const void *);
+      void (*set)(void *, float);
+    };
+
     const char *name; /**< Parameter name. */
-    std::variant<float *, bool *>
+    std::variant<float *, bool *, EnumTarget>
         target;    /**< Type-safe pointer to the variable. */
     float min = 0; /**< Minimum value (for floats). */
     float max = 1; /**< Maximum value (for floats). */
@@ -308,8 +316,10 @@ public:
     const char *const *options = nullptr; /**< Option labels for an enumerated
                                param (GUI dropdown), or null for a plain param.
                                Must outlive the effect (string literals). */
-    int option_count = 0; /**< Number of option labels; > 0 marks an enum whose
-                               float target holds the selected index. */
+    int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
+    bool preset = true;   /**< Whether preset exports include this parameter. */
+    const char *const *export_options =
+        nullptr; /**< C++ enum literals indexed like options, or null. */
 
     /**
      * @brief Read the current value as float (bool maps to 0/1).
@@ -317,12 +327,14 @@ public:
      */
     float get() const {
       return std::visit(
-          [](auto *p) -> float {
-            using T = std::remove_pointer_t<decltype(p)>;
-            if constexpr (std::is_same_v<T, bool>)
-              return *p ? 1.0f : 0.0f;
+          [](const auto &target) -> float {
+            using T = std::remove_cvref_t<decltype(target)>;
+            if constexpr (std::is_same_v<T, bool *>)
+              return *target ? 1.0f : 0.0f;
+            else if constexpr (std::is_same_v<T, float *>)
+              return *target;
             else
-              return *p;
+              return target.get(target.ptr);
           },
           target);
     }
@@ -337,12 +349,14 @@ public:
      */
     void set(float v) {
       std::visit(
-          [v](auto *p) {
-            using T = std::remove_pointer_t<decltype(p)>;
-            if constexpr (std::is_same_v<T, bool>)
-              *p = (v > 0.5f);
+          [v](auto &target) {
+            using T = std::remove_cvref_t<decltype(target)>;
+            if constexpr (std::is_same_v<T, bool *>)
+              *target = (v > 0.5f);
+            else if constexpr (std::is_same_v<T, float *>)
+              *target = v;
             else
-              *p = v;
+              target.set(target.ptr, v);
           },
           target);
     }
@@ -505,6 +519,13 @@ protected:
     def->readonly = true;
   }
 
+  /** @brief Excludes a global parameter from preset exports. */
+  void mark_global(const char *name) {
+    auto *def = parameters.find(name);
+    HS_CHECK(def, "mark_global: unknown parameter name");
+    def->preset = false;
+  }
+
   /**
    * @brief Registers a floating-point parameter.
    * @param name The name to expose.
@@ -549,6 +570,46 @@ protected:
   }
 
   /**
+   * @brief Registers a typed enum parameter, rendered by the GUI as a dropdown.
+   * @tparam Enum Enum type stored by the target.
+   * @param name The name to expose.
+   * @param ptr Pointer to the enum variable.
+   * @param options GUI labels indexed by the enum's underlying value.
+   * @param export_options C++ enum literals indexed like @p options.
+   * @param option_count Number of labels and literals.
+   */
+  template <typename Enum>
+    requires std::is_enum_v<Enum>
+  void register_param(const char *name, Enum *ptr, const char *const *options,
+                      const char *const *export_options, int option_count) {
+    HS_CHECK(options != nullptr && option_count > 0,
+             "register_param: enum needs at least one option");
+    HS_CHECK(parameters.count < parameters.elements.size(),
+             "register_param: exceeded ParamList capacity");
+    HS_CHECK(parameters.find(name) == nullptr,
+             "register_param: duplicate parameter name");
+    const float value =
+        static_cast<float>(static_cast<std::underlying_type_t<Enum>>(*ptr));
+    HS_CHECK(value >= 0.0f && value < static_cast<float>(option_count),
+             "register_param: default enum outside option range");
+    typename ParamDef::EnumTarget target{
+        ptr,
+        [](const void *value_ptr) {
+          return static_cast<float>(static_cast<std::underlying_type_t<Enum>>(
+              *static_cast<const Enum *>(value_ptr)));
+        },
+        [](void *value_ptr, float value) {
+          *static_cast<Enum *>(value_ptr) = static_cast<Enum>(
+              static_cast<std::underlying_type_t<Enum>>(value));
+        }};
+    auto &def = parameters.elements[parameters.count++];
+    def = {name, target, 0.0f, static_cast<float>(option_count - 1)};
+    def.options = options;
+    def.option_count = option_count;
+    def.export_options = export_options;
+  }
+
+  /**
    * @brief Registers a boolean parameter.
    * @param name The name to expose.
    * @param ptr Pointer to the bool variable; registration never mutates the
@@ -582,6 +643,17 @@ protected:
    */
   HS_COLD_MEMBER void register_animated_param(const char *name, bool *ptr) {
     register_param(name, ptr);
+    parameters.elements[parameters.count - 1].animated = true;
+  }
+
+  /** @brief Registers a typed enum param and flags it animation-driven. */
+  template <typename Enum>
+    requires std::is_enum_v<Enum>
+  HS_COLD_MEMBER void register_animated_param(const char *name, Enum *ptr,
+                                              const char *const *options,
+                                              const char *const *export_options,
+                                              int option_count) {
+    register_param(name, ptr, options, export_options, option_count);
     parameters.elements[parameters.count - 1].animated = true;
   }
 

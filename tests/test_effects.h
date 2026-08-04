@@ -4457,8 +4457,8 @@ inline void test_shapeshifter_preset_defaults() {
     return -1.0f;
   };
 
-  HS_EXPECT_EQ(value("Alpha"), 0.274f);
-  HS_EXPECT_EQ(value("Shape"), 2.988f);
+  HS_EXPECT_EQ(value("Alpha"), 1.0f);
+  HS_EXPECT_EQ(value("Shape"), 3.0f);
   HS_EXPECT_EQ(value("Count"), 144.0f);
   HS_EXPECT_EQ(value("Sides"), 7.745f);
   HS_EXPECT_EQ(value("Function"),
@@ -4467,56 +4467,94 @@ inline void test_shapeshifter_preset_defaults() {
   HS_EXPECT_EQ(value("Amplitude"), 1.0f);
   HS_EXPECT_EQ(value("Speed"), 0.016f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
+  HS_EXPECT_EQ(value("Alpha Falloff"), 1.0f);
 
+  const auto *alpha = ss.getParameters().find("Alpha");
+  const auto *shape = ss.getParameters().find("Shape");
+  const auto *falloff = ss.getParameters().find("Alpha Falloff");
   const auto *count = ss.getParameters().find("Count");
   const auto *speed = ss.getParameters().find("Speed");
+  HS_EXPECT(alpha != nullptr, "ShapeShifter Alpha parameter is missing");
+  HS_EXPECT(shape != nullptr, "ShapeShifter Shape parameter is missing");
+  HS_EXPECT(falloff != nullptr,
+            "ShapeShifter Alpha Falloff parameter is missing");
   HS_EXPECT(count != nullptr, "ShapeShifter Count parameter is missing");
   HS_EXPECT(speed != nullptr, "ShapeShifter Speed parameter is missing");
   if (count)
     HS_EXPECT_EQ(count->max, 288.0f);
   if (speed)
     HS_EXPECT_EQ(speed->max, 0.16f);
+  if (alpha)
+    HS_EXPECT_FALSE(alpha->preset);
+  if (shape) {
+    HS_EXPECT_TRUE(shape->is_enum());
+    HS_EXPECT_EQ(std::string_view(shape->export_options[3]),
+                 std::string_view("ShapeType::STAR"));
+  }
+  if (falloff) {
+    HS_EXPECT_TRUE(falloff->is_enum());
+    HS_EXPECT_EQ(std::string_view(falloff->export_options[1]),
+                 std::string_view("AlphaFalloff::TOWARD_EQUATOR"));
+  }
+
+  HS_EXPECT_TRUE(ss.updateParameter("Alpha", 0.37f) == ParamSetResult::APPLIED);
+
+  const float expected_shapes[] = {3.0f, 1.0f, 3.0f, 2.0f,
+                                   3.0f, 1.0f, 1.0f, 1.0f};
+  const float expected_falloffs[] = {1.0f, 0.0f, 1.0f, 0.0f,
+                                     1.0f, 0.0f, 0.0f, 0.0f};
+  for (size_t i = 0; i < std::size(expected_shapes); ++i) {
+    ss.profile_select_preset(i);
+    HS_EXPECT_EQ(value("Alpha"), 0.37f);
+    HS_EXPECT_EQ(value("Shape"), expected_shapes[i]);
+    HS_EXPECT_EQ(value("Alpha Falloff"), expected_falloffs[i]);
+    HS_EXPECT_EQ(value("Shape") == 3.0f, value("Alpha Falloff") == 1.0f);
+  }
 
   ss.profile_select_preset(4);
-  HS_EXPECT_EQ(value("Alpha"), 0.274f);
-  HS_EXPECT_EQ(value("Shape"), 2.988f);
+  HS_EXPECT_EQ(value("Alpha"), 0.37f);
+  HS_EXPECT_EQ(value("Shape"), 3.0f);
   HS_EXPECT_EQ(value("Count"), 72.0f);
   HS_EXPECT_EQ(value("Sides"), 4.417f);
   HS_EXPECT_EQ(value("Function"), 0.0f);
   HS_EXPECT_EQ(value("Amplitude"), 1.0f);
   HS_EXPECT_EQ(value("Speed"), 0.0077f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
+  HS_EXPECT_EQ(value("Alpha Falloff"), 1.0f);
   HS_EXPECT_TRUE(ss.animations_paused());
 
   ss.profile_select_preset(5);
-  HS_EXPECT_EQ(value("Alpha"), 0.5f);
-  HS_EXPECT_EQ(value("Shape"), 0.822f);
+  HS_EXPECT_EQ(value("Alpha"), 0.37f);
+  HS_EXPECT_EQ(value("Shape"), 1.0f);
   HS_EXPECT_EQ(value("Count"), 128.0f);
   HS_EXPECT_EQ(value("Sides"), 5.561f);
   HS_EXPECT_EQ(value("Function"), 0.0f);
   HS_EXPECT_EQ(value("Amplitude"), 4.0f);
   HS_EXPECT_EQ(value("Speed"), 0.0405f);
   HS_EXPECT_EQ(value("Opposite"), 1.0f);
+  HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
 
   ss.profile_select_preset(6);
-  HS_EXPECT_EQ(value("Alpha"), 0.45579f);
-  HS_EXPECT_EQ(value("Shape"), 1.05f);
+  HS_EXPECT_EQ(value("Alpha"), 0.37f);
+  HS_EXPECT_EQ(value("Shape"), 1.0f);
   HS_EXPECT_EQ(value("Count"), 144.0f);
   HS_EXPECT_EQ(value("Sides"), 4.001f);
   HS_EXPECT_EQ(value("Function"), 0.0f);
   HS_EXPECT_EQ(value("Amplitude"), 2.377f);
   HS_EXPECT_EQ(value("Speed"), 0.027086f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
+  HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
 
   ss.profile_select_preset(7);
-  HS_EXPECT_EQ(value("Alpha"), 0.496f);
-  HS_EXPECT_EQ(value("Shape"), 0.897f);
+  HS_EXPECT_EQ(value("Alpha"), 0.37f);
+  HS_EXPECT_EQ(value("Shape"), 1.0f);
   HS_EXPECT_EQ(value("Count"), 144.0f);
   HS_EXPECT_EQ(value("Sides"), 3.195f);
   HS_EXPECT_EQ(value("Function"), 0.0f);
   HS_EXPECT_EQ(value("Amplitude"), 7.0696f);
   HS_EXPECT_EQ(value("Speed"), 0.0113f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
+  HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
 }
 
 /**
