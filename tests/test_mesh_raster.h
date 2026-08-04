@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Functional output tests for mesh rasterization — the backbone of the
  * Conway/Hankin/IslamicStars effect family. These draw a known Platonic solid

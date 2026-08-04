@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Native soak for the OpLeg graph walk (docs/conway_morph_spec.md §7.8):
  * runs the real HankinSolids frame loop across enough legs to visit every

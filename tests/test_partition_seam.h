@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Partition-op rasterizer seam calibration (docs/opchain_morph_spec.md §9 gate
  * 6). Measures, at the shipping canvas size, the framebuffer delta a `kis` or

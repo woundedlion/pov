@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * @file pov_segment_map.h
  * @brief Pure segment-ID and index arithmetic for the segmented POV driver.

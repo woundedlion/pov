@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Host unit tests for the Phantasm synchronization core (hardware/pov_sync.h)
  * — the spec §12 test plan (docs/phantasm_frame_sync_spec.md).

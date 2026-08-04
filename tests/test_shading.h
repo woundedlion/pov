@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Direct unit tests for core/render/shading.h — the Fragment register carrier
  * (lerp across pos/v0-v3/age/size/color), the edge-distance and topology-slot

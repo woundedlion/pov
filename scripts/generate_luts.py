@@ -98,7 +98,7 @@ def render(out, fwd, rev):
     out.write("/*\n")
     out.write(" * Required Notice: Copyright 2025 Gabriel Levy."
               " All rights reserved.\n")
-    out.write(" * Licensed under the Polyform Noncommercial License 1.0.0\n")
+    out.write(" * Licensed under the PolyForm Noncommercial License 1.0.0\n")
     out.write(" */\n")
     out.write("#pragma once\n")
     out.write('#include "engine/platform.h"\n')

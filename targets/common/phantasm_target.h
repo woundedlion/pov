@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Target boilerplate shared by the Phantasm-class sketches (targets/Phantasm,
  * targets/Profile): output-path selection, rotor/canvas geometry, the
