@@ -487,8 +487,14 @@ inline void test_classify_faces_uncompiled_degenerate() {
   m.faces.push_back(1);
 
   MeshOps::classify_faces_by_topology(m, scratch_a, scratch_b, geom);
-  HS_EXPECT_EQ(m.topology.size(), m.face_counts.size());
-  HS_EXPECT_TRUE(m.topology[0] >= 0);
+  HS_EXPECT_SIZE_OR_RETURN(m.topology, m.face_counts.size());
+  // The triangle still classifies: it lands in its own class rather than being
+  // merged with the degenerate 2-gon, and the two ids stay dense.
+  HS_EXPECT_NE(m.topology[0], m.topology[1]);
+  HS_EXPECT_EQ(std::min(m.topology[0], m.topology[1]),
+               static_cast<uint16_t>(0));
+  HS_EXPECT_EQ(std::max(m.topology[0], m.topology[1]),
+               static_cast<uint16_t>(1));
 }
 
 /** @brief Verifies the degenerate sentinel cannot collide with a real edge. */
