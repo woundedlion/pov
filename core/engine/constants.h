@@ -220,6 +220,7 @@ struct ClipRegion {
    * @param len2 Second arc length in columns.
    * @param w Cylinder width in columns.
    * @return True if the arcs share at least one column.
+   * @pre w > 0; the modular reduction has no zero guard.
    */
   static bool arcs_overlap(int s1, int len1, int s2, int len2, int w) {
     if (len1 >= w || len2 >= w)
