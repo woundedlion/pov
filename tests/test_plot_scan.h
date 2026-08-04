@@ -4389,9 +4389,16 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
     HS_EXPECT_NEAR(single[i], cached[i], 1e-4f);
 }
 
-/** @brief The explicit default sampling policy is bit-identical to the API default. */
-inline void test_rasterize_default_sampling_policy_bit_parity() {
+/**
+ * @brief The explicit default sampling policy matches the API default.
+ * @details Naming DEFAULT explicitly instantiates the same rasterize, so that
+ * pair stays a bit comparison. SELECTABLE with balanced_sampling off is a
+ * distinct instantiation of the same expressions, which -ffast-math
+ * reassociates in its own inlining context, so it is held to POLICY_TOL.
+ */
+inline void test_rasterize_default_sampling_policy_parity() {
   constexpr int W = 128, H = 64;
+  constexpr float POLICY_TOL = 1e-4f;
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 18);
@@ -4461,14 +4468,14 @@ inline void test_rasterize_default_sampling_policy_bit_parity() {
                  std::bit_cast<uint32_t>(explicit_default.plotted[i].z));
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.alphas[i]),
                  std::bit_cast<uint32_t>(explicit_default.alphas[i]));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].x),
-                 std::bit_cast<uint32_t>(selectable_default.plotted[i].x));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].y),
-                 std::bit_cast<uint32_t>(selectable_default.plotted[i].y));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].z),
-                 std::bit_cast<uint32_t>(selectable_default.plotted[i].z));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.alphas[i]),
-                 std::bit_cast<uint32_t>(selectable_default.alphas[i]));
+    HS_EXPECT_NEAR(implicit_default.plotted[i].x,
+                   selectable_default.plotted[i].x, POLICY_TOL);
+    HS_EXPECT_NEAR(implicit_default.plotted[i].y,
+                   selectable_default.plotted[i].y, POLICY_TOL);
+    HS_EXPECT_NEAR(implicit_default.plotted[i].z,
+                   selectable_default.plotted[i].z, POLICY_TOL);
+    HS_EXPECT_NEAR(implicit_default.alphas[i], selectable_default.alphas[i],
+                   POLICY_TOL);
   }
 }
 
@@ -5026,7 +5033,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_single_pass_planar_matches_two_pass();
   test_rasterize_single_pass_closed_loop_matches_two_pass();
   test_rasterize_single_pass_balances_terminal_interval();
-  test_rasterize_default_sampling_policy_bit_parity();
+  test_rasterize_default_sampling_policy_parity();
   test_rasterize_balanced_sampling_scope();
   test_rasterize_balanced_sampling_density_and_alpha();
   test_rasterize_balanced_pole_guard();
