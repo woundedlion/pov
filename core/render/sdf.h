@@ -1909,6 +1909,8 @@ template <typename Shape> struct AngularRepeat {
   Vector axis, u,
       w; /**< Rotation axis and the derived perpendicular plane (u, w). */
   int repetitions; /**< Number of copies around the axis. */
+  float sector;    /**< Angular width of one sector, 2*PI / repetitions. */
+  float reciprocal_sector; /**< 1 / sector, for the per-pixel fold. */
   static constexpr bool is_solid =
       Shape::is_solid; /**< Matches the child's solidity. */
 
@@ -1922,7 +1924,9 @@ template <typename Shape> struct AngularRepeat {
    * @param ax Rotation axis (unit length).
    */
   AngularRepeat(const Shape &s, int reps, const Vector &ax)
-      : shape(s), axis(ax), repetitions(reps) {
+      : shape(s), axis(ax), repetitions(reps),
+        sector(2 * PI_F / static_cast<float>(reps)),
+        reciprocal_sector(static_cast<float>(reps) / (2 * PI_F)) {
     HS_CHECK(reps > 0);
     HS_CHECK(fabsf(ax.length() - 1.0f) < 1e-3f);
     // Derive perpendicular plane via Gram-Schmidt
@@ -1947,15 +1951,19 @@ template <typename Shape> struct AngularRepeat {
   /**
    * @brief Row bounds for the repeated shape.
    * @tparam H Canvas height in rows.
-   * @return The child's band for a Y-axis fold; the full canvas otherwise.
+   * @return The child's band for a Y-axis fold, or when the child culls; the
+   *         full canvas otherwise.
    */
   template <int H> Bounds get_vertical_bounds() const {
+    Bounds child = shape.template get_vertical_bounds<H>();
+    if (child.y_min > child.y_max)
+      return child;
     // Only a Y-axis fold (axis.y near ±1) preserves latitude; any other axis
     // sweeps latitudes the child never occupies, so its band cannot bound the
     // copies and every row must be scanned.
     if (fabsf(axis.y) < 1.0f - TOLERANCE)
       return {0, H - 1};
-    return shape.template get_vertical_bounds<H>();
+    return child;
   }
 
   /**
@@ -1995,8 +2003,8 @@ template <typename Shape> struct AngularRepeat {
     if (theta < 0)
       theta += 2 * PI_F;
 
-    float sector = (2 * PI_F) / repetitions;
-    float folded_theta = fmodf(theta + sector / 2.0f, sector) - sector / 2.0f;
+    float folded_theta =
+        centered_sector_angle(theta, sector, reciprocal_sector);
 
     // Reconstruct folded local coordinates (preserving axis component)
     float r = sqrtf(local_u * local_u + local_w * local_w);
