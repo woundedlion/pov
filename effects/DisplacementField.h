@@ -312,7 +312,7 @@ private:
         bool precompute_hue_table = false;
         float hue_domain = 0.0f;
         bool cyclic_hue_table = false;
-        uint64_t hue_table_valid[2];
+        uint64_t hue_table_valid[2] = {0, 0};
         if (use_hue_table) {
           int visible_samples = 0;
           int x_begin = 0;
@@ -333,9 +333,6 @@ private:
           if (precompute_hue_table) {
             HS_PROFILE(df_hue_table_prep);
             prepare_hue_table(hue_base, hue_domain);
-          } else {
-            hue_table_valid[0] = 0;
-            hue_table_valid[1] = 0;
           }
         }
         Pixel zero_hue;
