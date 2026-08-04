@@ -3,6 +3,11 @@
 # wrap any flash+capture in hs_device_acquire / hs_device_release
 # (profile_one.sh does).
 #
+# Host: Windows + Git Bash. Board enumeration shells out to the PlatformIO
+# loader's teensy_ports.exe and matches COMn names; anywhere else it comes back
+# empty and every session falls back to the single portless, bench-wide lock —
+# still correct, but serialised across all attached boards.
+#
 # The lock is host-global, NOT repo-local: a device is one physical board on
 # one COM port, while concurrent sessions each work from their own worktree
 # with their own build/. A lock under build/ would hand every worktree its own
