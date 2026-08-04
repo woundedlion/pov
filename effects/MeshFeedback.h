@@ -126,8 +126,7 @@ public:
     edges.bind(persistent_arena, mesh.faces.size() / 2);
     Plot::Mesh::extract_edges(mesh, edges);
 
-    ProceduralPalette palette(Palettes::PEACH_POP);
-    mesh_shade = palette.get(0.0f);
+    mesh_shade = Palettes::PEACH_POP.get(0.0f);
 
     register_animated_param("Fade", &style.fade, FADE_MIN, FADE_MAX);
     register_animated_param("Distort Amp", &style.amplitude, AMP_MIN, AMP_MAX);
@@ -224,7 +223,7 @@ private:
   Orientation<> orientation;
   Timeline timeline;
 
-  Color4 mesh_shade;
+  Color4 mesh_shade; /**< Wireframe shade; sampled once in init(). */
 
   // The single, fixed solid; built once in init() and never recompiled.
   MeshState mesh;
