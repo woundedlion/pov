@@ -87,6 +87,16 @@ __attribute__((always_inline)) inline float quintic_kernel(float t) {
 }
 
 /**
+ * @brief Cubic interpolation kernel (smoothstep).
+ * @param t Interpolation factor (clamped to 0.0 - 1.0).
+ * @return The interpolated value: t^2 * (3 - 2t).
+ */
+__attribute__((always_inline)) inline float cubic_kernel(float t) {
+  t = hs::clamp(t, 0.0f, 1.0f);
+  return t * t * (3.0f - 2.0f * t);
+}
+
+/**
  * @brief Stable hash of an index and seed to a float in [0, 1).
  * @param i Index to hash.
  * @param seed Stream selector; different seeds give independent hashes.

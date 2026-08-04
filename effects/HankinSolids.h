@@ -220,9 +220,8 @@ private:
       return 0.0f;
     if (cycle_frame >= STRAP_BLEND_FRAMES)
       return 1.0f;
-    const float u = static_cast<float>(cycle_frame) /
-                    static_cast<float>(STRAP_BLEND_FRAMES);
-    return u * u * (3.0f - 2.0f * u);
+    return cubic_kernel(static_cast<float>(cycle_frame) /
+                        static_cast<float>(STRAP_BLEND_FRAMES));
   }
 
   /**
@@ -238,9 +237,8 @@ private:
       return 0.0f;
     if (frames_away >= SHAPE_FRAMES)
       return 1.0f;
-    const float u =
-        static_cast<float>(frames_away) / static_cast<float>(SHAPE_FRAMES);
-    return u * u * (3.0f - 2.0f * u);
+    return cubic_kernel(static_cast<float>(frames_away) /
+                        static_cast<float>(SHAPE_FRAMES));
   }
 
   /**

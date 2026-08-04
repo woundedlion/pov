@@ -948,9 +948,8 @@ public:
     const int from_end = duration - frame;
     if (from_end >= win)
       return 0.0f;
-    const float u =
-        static_cast<float>(win - from_end) / static_cast<float>(win);
-    return u * u * (3.0f - 2.0f * u);
+    return cubic_kernel(static_cast<float>(win - from_end) /
+                        static_cast<float>(win));
   }
 
   /**
@@ -1632,8 +1631,7 @@ private:
       return 0.0f;
     if (p >= OUT)
       return 1.0f;
-    float u = (p - IN) / (OUT - IN);
-    return u * u * (3.0f - 2.0f * u);
+    return cubic_kernel((p - IN) / (OUT - IN));
   }
 
   // always_inline, not a plain helper: an out-of-line copy inherits no cold
