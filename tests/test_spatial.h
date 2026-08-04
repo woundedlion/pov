@@ -228,7 +228,10 @@ inline void test_kdtree_duplicates_and_max_k() {
     HS_EXPECT_TRUE(r[i].d_sq >= prev - 1e-6f);
     prev = r[i].d_sq;
     HS_EXPECT_TRUE(std::fabs(r[i].d_sq - all_d2[i]) < 1e-5f);
-    HS_EXPECT_VEC(r[i].point, pts[r[i].original_index], 1e-6f);
+    const size_t oi = r[i].original_index;
+    HS_EXPECT_LT(oi, (size_t)8);
+    if (oi < 8)
+      HS_EXPECT_VEC(r[i].point, pts[oi], 1e-6f);
     HS_EXPECT_TRUE(std::fabs(distance_squared(r[i].point, query) - r[i].d_sq) <
                    1e-5f);
   }
@@ -288,7 +291,10 @@ inline void test_kdtree_k_nearest_brute_force_random() {
       HS_EXPECT_TRUE(r[i].d_sq >= prev - 1e-5f); // sorted nearest-first
       prev = r[i].d_sq;
       HS_EXPECT_TRUE(std::fabs(r[i].d_sq - all_d2[i]) < 1e-4f);
-      HS_EXPECT_VEC(r[i].point, pts[r[i].original_index], 1e-6f);
+      const size_t oi = r[i].original_index;
+      HS_EXPECT_LT(oi, (size_t)N);
+      if (oi < (size_t)N)
+        HS_EXPECT_VEC(r[i].point, pts[oi], 1e-6f);
       HS_EXPECT_TRUE(std::fabs(distance_squared(r[i].point, q) - r[i].d_sq) <
                      1e-4f);
     }
