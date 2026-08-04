@@ -2374,7 +2374,10 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
   static int16_t lut_data[64 * 64];
   SDF::ClassLut lut;
   SDF::build_canonical_distance_lut(canon, n_verts, 64, lut_data, lut);
+  // Cell diagonal of the 64x64 grid over this star's box, ~0.023. Pinned from
+  // above because the sweep tolerance below is a multiple of it.
   HS_EXPECT_GT(lut.safe_dist, 0.0f);
+  HS_EXPECT_LT(lut.safe_dist, 0.03f);
 
   // Congruent copy: rotate the sphere, then reindex. A cyclic shift by cyc
   // maps canonical vertex k to copy index (n - cyc + k) % n; the mirror family
