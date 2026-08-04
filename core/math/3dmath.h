@@ -159,7 +159,8 @@ struct Spherical {
 
   float theta; /**< Azimuthal angle from +x toward +z (atan2 convention; the
                     (theta, phi) ctor stores any value unchecked). */
-  float phi;   /**< Polar angle (usually co-latitude). */
+  float phi;   /**< Co-latitude from +y, in [0, pi] (0 at +y, pi at -y); the
+                    (theta, phi) ctor stores any value unchecked. */
 };
 
 /**
@@ -720,9 +721,7 @@ struct Quaternion {
    * @brief Calculates the magnitude (length) of the quaternion.
    * @return The magnitude.
    */
-  [[nodiscard]] float magnitude() const {
-    return sqrtf(r * r + v.x * v.x + v.y * v.y + v.z * v.z);
-  }
+  [[nodiscard]] float magnitude() const { return sqrtf(squared_magnitude()); }
 
   /**
    * @brief Normalizes the quaternion in place (scales to unit magnitude).
@@ -1269,7 +1268,9 @@ constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
  *      quaternion's vector part to zero; at `theta = pi` the scalar part is also
  *      ~0, so the magnitude falls below `normalized()`'s epsilon and it traps.
  *      Callers that may produce a degenerate axis must guard it (e.g. via
- *      `normalized_or`) first.
+ *      `normalized_or`) first. A non-unit axis is not an error either: the
+ *      trailing `normalized()` rescales `(cos(theta/2), sin(theta/2) * axis)` as
+ *      a pair, so the realized rotation angle is not `theta`.
  */
 inline Quaternion make_rotation(const Vector &axis, float theta) {
   return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalized();
