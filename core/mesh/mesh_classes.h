@@ -37,6 +37,8 @@ inline constexpr uint8_t NO_CLASS = 0xFF;
 /** Congruence-class capacity per mesh (census max over the registry is 24;
  *  overflow degrades the excess faces to NO_CLASS, it never traps). */
 inline constexpr int MAX_CONGRUENCE_CLASSES = 32;
+static_assert(MAX_CONGRUENCE_CLASSES < NO_CLASS,
+              "class ids must fit uint8_t without aliasing NO_CLASS");
 /** Procrustes RMS residual (pixels) under which two faces are congruent. */
 inline constexpr float CONGRUENCE_EPS_PX = 0.25f;
 /** Target LUT cell diagonal in pixels: the sign-unsafe fallback band is one
@@ -66,6 +68,9 @@ struct FaceClassRec {
       vert_offset; /**< Cyclic offset aligning mesh vertex order to canonical. */
   uint8_t reflected; /**< Non-zero for the mirror family. */
 };
+
+static_assert(SDF::FaceScratchBuffer::MAX_VERTS <= UINT8_MAX,
+              "FaceClassRec::vert_offset must hold any face vertex index");
 
 /**
  * @brief One congruence class: canonical shape + optional distance LUT.
