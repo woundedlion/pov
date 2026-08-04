@@ -353,13 +353,14 @@ HS_O3_FN bool pole_wrap(int &col, int &row) {
 
 /**
  * @brief Calculates a point on the Fibonacci spiral on the unit sphere.
- * @param n The total number of points in the spiral.
+ * @param n The total number of points in the spiral (must be positive).
  * @param eps The epsilon offset for the spiral.
  * @param i The index of the point to calculate.
  * @return The point on the unit sphere.
  * @note Setup-time generator; exact trig is intentional (not a per-pixel path).
  */
 inline Vector fib_spiral(int n, float eps, int i) {
+  HS_CHECK(n > 0, "fib_spiral: n must be positive");
   // Clamp before acosf: float rounding can push the argument past -1 → NaN.
   float phi = acosf(hs::clamp(1.0f - (2.0f * (static_cast<float>(i) + eps)) /
                                          static_cast<float>(n),
