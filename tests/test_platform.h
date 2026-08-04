@@ -28,10 +28,10 @@
 #include <string>
 #include <vector>
 #if defined(_WIN32)
-#include <io.h>      // _dup / _dup2 / _close / _fileno
-#include <process.h> // _getpid
+#include <fcntl.h> // _O_BINARY
+#include <io.h>    // _pipe / _dup / _dup2 / _close / _read
 #else
-#include <unistd.h> // dup / dup2 / close / getpid
+#include <unistd.h> // pipe / dup / dup2 / close / read
 #endif
 
 namespace hs_test {
@@ -263,64 +263,85 @@ inline void test_beatsin16_golden() {
   hs::clear_mock_time();
 }
 
+// The fd primitives below differ from POSIX only by the Windows underscore
+// prefix; _pipe additionally takes a buffer size and a text/binary mode.
+inline int fd_pipe(int fds[2]) {
+#if defined(_WIN32)
+  return _pipe(fds, 4096, _O_BINARY);
+#else
+  return pipe(fds);
+#endif
+}
+
+inline int fd_dup(int fd) {
+#if defined(_WIN32)
+  return _dup(fd);
+#else
+  return dup(fd);
+#endif
+}
+
+inline void fd_dup2(int from, int to) {
+#if defined(_WIN32)
+  _dup2(from, to);
+#else
+  dup2(from, to);
+#endif
+}
+
+inline void fd_close(int fd) {
+#if defined(_WIN32)
+  _close(fd);
+#else
+  close(fd);
+#endif
+}
+
+inline long fd_read(int fd, char *buf, size_t n) {
+#if defined(_WIN32)
+  return _read(fd, buf, static_cast<unsigned int>(n));
+#else
+  return static_cast<long>(read(fd, buf, n));
+#endif
+}
+
 /**
  * @brief Verifies Serial.printf expands its varargs (Arduino behaviour) rather
  *        than emitting the raw format string.
+ * @details SerialMock writes to C stdout, so the only way to observe it is to
+ *          swap fd 1. The capture target is a pipe rather than a scratch file so
+ *          the test needs no writable directory; the message is orders of
+ *          magnitude below the pipe buffer, so the write cannot block.
  */
 inline void test_serial_printf_formats_varargs() {
-  // SerialMock writes to C stdout, so redirect fd 1 to a file to capture it
-  // (same fd-swap idiom as test_death.h's spawn muting).
-  // Unique per-process name so concurrent runs don't collide on a shared CWD.
-  char path[64];
-#if defined(_WIN32)
-  std::snprintf(path, sizeof(path), "serial_printf_capture_%d.tmp", _getpid());
-#else
-  std::snprintf(path, sizeof(path), "serial_printf_capture_%d.tmp", getpid());
-#endif
+  int fds[2] = {-1, -1};
   std::fflush(stdout);
-#if defined(_WIN32)
-  int saved_out = _dup(1);
-  std::FILE *cap = nullptr;
-  fopen_s(&cap, path, "w+");
-#else
-  int saved_out = dup(1);
-  std::FILE *cap = std::fopen(path, "w+");
-#endif
-  HS_EXPECT(cap != nullptr && saved_out >= 0, "capture file opened");
-  if (cap == nullptr || saved_out < 0) {
-    if (cap != nullptr) {
-      std::fclose(cap);
-      std::remove(path);
-    }
-    if (saved_out >= 0) {
-#if defined(_WIN32)
-      _close(saved_out);
-#else
-      close(saved_out);
-#endif
+  int made = fd_pipe(fds);
+  int saved_out = made == 0 ? fd_dup(1) : -1;
+  HS_EXPECT(made == 0 && saved_out >= 0, "capture pipe opened");
+  if (made != 0 || saved_out < 0) {
+    if (made == 0) {
+      fd_close(fds[0]);
+      fd_close(fds[1]);
     }
     return;
   }
-#if defined(_WIN32)
-  _dup2(_fileno(cap), 1);
-#else
-  dup2(fileno(cap), 1);
-#endif
+  fd_dup2(fds[1], 1);
   Serial.printf("req %u / cap %u", 12u, 48u);
   std::fflush(stdout);
-#if defined(_WIN32)
-  _dup2(saved_out, 1);
-  _close(saved_out);
-#else
-  dup2(saved_out, 1);
-  close(saved_out);
-#endif
-  std::rewind(cap);
+  fd_dup2(saved_out, 1);
+  fd_close(saved_out);
+  fd_close(fds[1]); // last write end; the read below now sees EOF
   char buf[64] = {0};
-  size_t n = std::fread(buf, 1, sizeof(buf) - 1, cap);
+  size_t n = 0;
+  for (;;) {
+    long got = fd_read(fds[0], buf + n, sizeof(buf) - 1 - n);
+    if (got <= 0)
+      break;
+    n += static_cast<size_t>(got);
+  }
   buf[n] = '\0';
-  std::fclose(cap);
-  std::remove(path);
+  fd_close(fds[0]);
   HS_EXPECT(std::string(buf) == std::string("req 12 / cap 48"),
             "printf expands args");
 }
