@@ -24,6 +24,11 @@ namespace hs_test {
 namespace canvas_tests {
 
 enum class TestMode { NONE, WARP, SPARKLE };
+enum class TestModeI8 : int8_t { NONE, WARP, SPARKLE };
+enum class TestModeU8 : uint8_t { NONE, WARP, SPARKLE };
+enum class TestModeI16 : int16_t { NONE, WARP, SPARKLE };
+enum class TestModeU16 : uint16_t { NONE, WARP, SPARKLE };
+enum class TestModeU32 : uint32_t { NONE, WARP, SPARKLE };
 
 /**
  * @brief Minimal concrete Effect for exercising the base-class machinery.
@@ -84,7 +89,8 @@ struct TestEffect : public Effect {
                 int count) {
     register_param(n, p, options, count);
   }
-  void add_typed_enum(const char *n, TestMode *p, const char *const *options,
+  template <typename Enum>
+  void add_typed_enum(const char *n, Enum *p, const char *const *options,
                       const char *const *export_options, int count) {
     register_param(n, p, options, export_options, count);
   }
@@ -729,8 +735,7 @@ inline void test_update_parameter_by_name() {
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
   fx.add_bool("Flag", &fx.flag, false);
 
-  HS_EXPECT_TRUE(fx.updateParameter("Speed", 7.25f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(fx.updateParameter("Speed", 7.25f) == ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
   // Bool target uses a 0.5 threshold.
@@ -832,6 +837,34 @@ inline void test_typed_enum_and_global_param_metadata() {
   HS_EXPECT_TRUE(fx.updateParameter("Mode", 1.8f) == ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(mode == TestMode::SPARKLE);
   HS_EXPECT_EQ(mode_def->get(), 2.0f);
+}
+
+/** @brief Verifies every supported enum storage width round-trips. */
+inline void test_typed_enum_storage_widths() {
+  TestEffect fx(4, 4);
+  static const char *const MODES[] = {"None", "Warp", "Sparkle"};
+  static const char *const EXPORT_MODES[] = {"NONE", "WARP", "SPARKLE"};
+  TestModeI8 i8 = TestModeI8::NONE;
+  TestModeU8 u8 = TestModeU8::NONE;
+  TestModeI16 i16 = TestModeI16::NONE;
+  TestModeU16 u16 = TestModeU16::NONE;
+  TestModeU32 u32 = TestModeU32::NONE;
+
+  fx.add_typed_enum("I8", &i8, MODES, EXPORT_MODES, 3);
+  fx.add_typed_enum("U8", &u8, MODES, EXPORT_MODES, 3);
+  fx.add_typed_enum("I16", &i16, MODES, EXPORT_MODES, 3);
+  fx.add_typed_enum("U16", &u16, MODES, EXPORT_MODES, 3);
+  fx.add_typed_enum("U32", &u32, MODES, EXPORT_MODES, 3);
+
+  for (const char *name : {"I8", "U8", "I16", "U16", "U32"}) {
+    HS_EXPECT_TRUE(fx.updateParameter(name, 2.0f) == ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(fx.getParameters().find(name)->get(), 2.0f);
+  }
+  HS_EXPECT_TRUE(i8 == TestModeI8::SPARKLE);
+  HS_EXPECT_TRUE(u8 == TestModeU8::SPARKLE);
+  HS_EXPECT_TRUE(i16 == TestModeI16::SPARKLE);
+  HS_EXPECT_TRUE(u16 == TestModeU16::SPARKLE);
+  HS_EXPECT_TRUE(u32 == TestModeU32::SPARKLE);
 }
 
 /**
@@ -996,6 +1029,7 @@ inline int run_canvas_tests() {
   test_update_parameter_rejects_readonly();
   test_register_and_update_enum_param();
   test_typed_enum_and_global_param_metadata();
+  test_typed_enum_storage_widths();
   test_paramlist_fills_to_capacity();
   test_clip_setters();
   test_effect_config_margin();
