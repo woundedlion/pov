@@ -45,9 +45,9 @@
 namespace hs_test {
 namespace opchain_probe_tests {
 
-inline uint8_t probe_a_buf[768 * 1024];       /**< Op output arena. */
-inline uint8_t probe_b_buf[768 * 1024];       /**< Op scratch arena. */
-inline uint8_t probe_seed_buf[512 * 1024];    /**< Held seed arena. */
+inline uint8_t probe_a_buf[768 * 1024];           /**< Op output arena. */
+inline uint8_t probe_b_buf[768 * 1024];           /**< Op scratch arena. */
+inline uint8_t probe_seed_buf[512 * 1024];        /**< Held seed arena. */
 inline SDF::FaceScratchBuffer probe_face_scratch; /**< Face setup scratch. */
 
 /** Canvas rows the shipping mesh raster uses; SDF::Face's cull decision is
@@ -265,9 +265,9 @@ inline void test_chamfer_sweep_holds_topology() {
     float min_outward = 1e9f;
     float min_normal_dot = 1e9f;
     for (int s = 0; s < SAMPLES; ++s) {
-      const float t = ConwayGraph::T_EPS +
-                      (CHAMFER_T_STAR - ConwayGraph::T_EPS) *
-                          (static_cast<float>(s) / (SAMPLES - 1));
+      const float t =
+          ConwayGraph::T_EPS + (CHAMFER_T_STAR - ConwayGraph::T_EPS) *
+                                   (static_cast<float>(s) / (SAMPLES - 1));
       ScratchScope fa(a);
       ScratchScope fb(b);
       PolyMesh swept = MeshOps::chamfer(seed, a, b, t);
@@ -298,8 +298,8 @@ inline void test_chamfer_sweep_holds_topology() {
         const int n = swept.face_counts[f];
         for (int k = 0; k < n; ++k)
           c = c + swept.vertices[swept.faces[off[f] + k]];
-        const float len = std::sqrt(dot(normal[f], normal[f])) *
-                          std::sqrt(dot(c, c));
+        const float len =
+            std::sqrt(dot(normal[f], normal[f])) * std::sqrt(dot(c, c));
         if (len > 0.0f)
           min_outward = std::min(min_outward, dot(normal[f], c) / len);
       }
@@ -312,9 +312,8 @@ inline void test_chamfer_sweep_holds_topology() {
           const float la = std::sqrt(dot(prev_normal[f], prev_normal[f]));
           const float lb = std::sqrt(dot(normal[f], normal[f]));
           if (la > 0.0f && lb > 0.0f)
-            min_normal_dot =
-                std::min(min_normal_dot, dot(prev_normal[f], normal[f]) /
-                                             (la * lb));
+            min_normal_dot = std::min(
+                min_normal_dot, dot(prev_normal[f], normal[f]) / (la * lb));
         }
       }
       prev_vertices.assign(swept.vertices.data(),
@@ -685,8 +684,8 @@ inline void test_chamfer_birth_epsilon() {
     std::printf("  [chamfer-eps] %s: births clear the SDF cull at t>=%.2e "
                 "(T_EPS=%.3f culls %zu of %zu; compile keeps %zu of %zu)\n",
                 site.name, static_cast<double>(hi),
-                static_cast<double>(ConwayGraph::T_EPS), at_eps,
-                raw_faces - F, cf_eps, raw_faces);
+                static_cast<double>(ConwayGraph::T_EPS), at_eps, raw_faces - F,
+                cf_eps, raw_faces);
   }
 }
 
@@ -699,10 +698,10 @@ inline void test_chamfer_birth_epsilon() {
 
 /** @brief One pure-inflate build chain, lowered to primitive steps. */
 struct ChainSite {
-  const char *name;      /**< Registry entry the chain mirrors. */
-  uint8_t seed;          /**< simple_registry index. */
-  const OpStep *steps;   /**< Lowered primitive chain. */
-  size_t count;          /**< Number of steps. */
+  const char *name;    /**< Registry entry the chain mirrors. */
+  uint8_t seed;        /**< simple_registry index. */
+  const OpStep *steps; /**< Lowered primitive chain. */
+  size_t count;        /**< Number of steps. */
 };
 
 using Solids::IslamicStarPatterns::D2R;
@@ -720,18 +719,19 @@ static_assert(std::string_view(Solids::simple_registry[SEED_CUBE].name) ==
 static_assert(
     std::string_view(Solids::simple_registry[SEED_RHOMBICUBOCTAHEDRON].name) ==
     "rhombicuboctahedron");
-static_assert(
-    std::string_view(Solids::simple_registry[SEED_TRUNCATED_ICOSAHEDRON].name) ==
-    "truncatedIcosahedron");
 static_assert(std::string_view(
-                  Solids::simple_registry[SEED_TRUNCATED_ICOSIDODECAHEDRON]
-                      .name) == "truncatedIcosidodecahedron");
+                  Solids::simple_registry[SEED_TRUNCATED_ICOSAHEDRON].name) ==
+              "truncatedIcosahedron");
+static_assert(
+    std::string_view(Solids::simple_registry[SEED_TRUNCATED_ICOSIDODECAHEDRON]
+                         .name) == "truncatedIcosidodecahedron");
 
 inline constexpr OpStep CHAIN_DODECA_HK62_AMBO_HK62[] = {
     {Op::HANKIN, 62.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 62.0f * D2R}};
 inline constexpr OpStep CHAIN_DODECA_HK35_AMBO_HK62_AMBO_RELAX_HK42[] = {
-    {Op::HANKIN, 35.0f * D2R}, {Op::AMBO},   {Op::HANKIN, 62.0f * D2R},
-    {Op::AMBO},                {Op::RELAX, 100.0f}, {Op::HANKIN, 42.0f * D2R}};
+    {Op::HANKIN, 35.0f * D2R}, {Op::AMBO},
+    {Op::HANKIN, 62.0f * D2R}, {Op::AMBO},
+    {Op::RELAX, 100.0f},       {Op::HANKIN, 42.0f * D2R}};
 inline constexpr OpStep CHAIN_DODECA_HK54_AMBO_HK72[] = {
     {Op::HANKIN, 54.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 72.0f * D2R}};
 inline constexpr OpStep CHAIN_OCTA_HK17_AMBO_HK73[] = {
