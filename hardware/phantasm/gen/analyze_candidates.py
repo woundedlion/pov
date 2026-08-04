@@ -76,17 +76,17 @@ def blocks(root, kind):
 
 
 def net_of(b):
-    value = sexp._val(b, "net", [])
+    value = sexp.val(b, "net", [])
     return str(value[0]).rsplit("/", 1)[-1] if value else None
 
 
 def field(b, name):
-    value = sexp._val(b, name, [])
+    value = sexp.val(b, name, [])
     return str(value[0]) if value else None
 
 
 def xy(b, tag):
-    value = sexp._val(b, tag, [])
+    value = sexp.val(b, tag, [])
     try:
         return float(value[0]), float(value[1])
     except (IndexError, TypeError, ValueError):
