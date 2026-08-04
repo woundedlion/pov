@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file conway_graph.h
+ * @brief ConwayGraph: the transition table and pure walk helpers behind
+ *        animated Conway-operator morphs.
+ */
+
 #include <cstdint>
 #include <string_view>
 

@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file SphericalHarmonics.h
+ * @brief Real spherical harmonics painted on the unit sphere, continuously
+ *        morphing between modes.
+ */
+
 #include "core/engine/engine.h"
 #include <cmath>
 #include <utility>

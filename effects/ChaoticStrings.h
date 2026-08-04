@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file ChaoticStrings.h
+ * @brief Undulating string of orientation trails drawn as an anti-aliased
+ *        multiline.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor reaching the private node so a test can count the vertices

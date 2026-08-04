@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file Comets.h
+ * @brief Comet heads tracing spherical Lissajous curves, dragging fading
+ *        trails.
+ */
+
 #include <array>
 #include "core/engine/engine.h"
 

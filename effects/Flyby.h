@@ -5,6 +5,11 @@
  */
 #pragma once
 
+/**
+ * @file Flyby.h
+ * @brief Stereographic fly-through of a noise-warped Cartesian grid.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor for the noise-time and trig-phase wrap invariants.

@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file styles.h
+ * @brief Feedback::Style: presets bundling the feedback filter's spatial and
+ *        color transforms with their scalar parameters.
+ */
+
 #include "engine/transformers.h"
 #include "color/color.h"
 

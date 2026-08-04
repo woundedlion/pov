@@ -4,6 +4,11 @@
  */
 #pragma once
 
+/**
+ * @file static_circular_buffer.h
+ * @brief StaticCircularBuffer: fixed-capacity, allocation-free ring buffer.
+ */
+
 #include <array>
 #include <cstddef>
 #include <cstdint>

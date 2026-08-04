@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file util.h
+ * @brief Numeric utilities: modular wrapping, shortest angular distance, and
+ *        change-gated application.
+ */
+
 // platform.h first: on device it defines NDEBUG, which must be set before
 // <cassert> expands the assert macro, or assert-stripping depends on a prior TU
 // having pulled in platform.h.

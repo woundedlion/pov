@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file palettes.h
+ * @brief The named procedural palettes, plus MeshPaletteBank, the palette
+ *        bank the mesh effects share.
+ */
+
 #include <algorithm>
 #include <array>
 

@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file Dynamo.h
+ * @brief A snaking strand of trailing nodes under palettes that sweep in via
+ *        angular color wipes.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor reaching palette_boundaries to stage the overlapping-wipe

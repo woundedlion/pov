@@ -3,10 +3,17 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 
-// Fibonacci lattice K-NN graph. The neighbors[] table (reaction_graph.cpp) is
-// emitted by scripts/generate_reaction_graph.py; node() below MUST stay in
-// lockstep with that generator's lattice math (CI: reaction-graph-provenance).
 #pragma once
+
+/**
+ * @file reaction_graph.h
+ * @brief Fibonacci lattice K-NN graph shared by the reaction-diffusion effects.
+ *
+ * The neighbors[] table (reaction_graph.cpp) is emitted by
+ * scripts/generate_reaction_graph.py; node() below MUST stay in lockstep with
+ * that generator's lattice math (CI: reaction-graph-provenance).
+ */
+
 #include "engine/platform.h"
 #include "math/3dmath.h"
 #include "engine/memory.h"

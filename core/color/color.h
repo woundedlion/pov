@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file color.h
+ * @brief Pixel and Color4, the linear-light color types, with blending, sRGB
+ *        conversion and the palette core.
+ */
+
 #include <algorithm>
 #include <array>
 #include <cmath>

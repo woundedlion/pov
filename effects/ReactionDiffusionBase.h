@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file ReactionDiffusionBase.h
+ * @brief CRTP base carrying the scaffolding the spherical reaction-diffusion
+ *        effects share.
+ */
+
 #include "core/engine/engine.h"
 
 /**

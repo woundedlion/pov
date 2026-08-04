@@ -3,6 +3,13 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+
+/**
+ * @file geometry.h
+ * @brief Sphere/canvas mapping, the axis constants, and the spherical geometry
+ *        helpers.
+ */
+
 #include <cmath>
 #include <algorithm>
 #include <array>

@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file memory.h
+ * @brief Arena allocator, the engine's global arena budget, and the
+ *        containers built on top of it.
+ */
+
 // platform.h defines NDEBUG on device; include before <cassert> so assert
 // stripping does not depend on include order.
 #include "engine/platform.h"

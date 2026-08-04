@@ -7,6 +7,12 @@
 
 #pragma once
 
+/**
+ * @file easing.h
+ * @brief Easing curves from easings.net; unclamped unless the math needs a
+ *        guard.
+ */
+
 #include <cmath>
 #include "math/3dmath.h"
 

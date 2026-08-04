@@ -6,13 +6,16 @@
 
 #include "mesh/mesh.h"
 
-/*
- * Hankin (polygons-in-contact) star-and-rosette pattern generation on a
- * spherical mesh. Each edge of the input mesh contributes a midpoint, and from
- * every corner two "contact" rays leave the edge midpoints at a fixed contact
- * angle; where neighbouring rays meet they form the star points whose position
- * varies with the angle. compile_hankin() bakes the angle-independent topology
- * once; update_hankin() then recomputes only the angle-dependent vertices.
+/**
+ * @file hankin.h
+ * @brief Hankin (polygons-in-contact) star-and-rosette pattern generation on a
+ *        spherical mesh.
+ *
+ * Each edge of the input mesh contributes a midpoint, and from every corner two
+ * "contact" rays leave the edge midpoints at a fixed contact angle; where
+ * neighbouring rays meet they form the star points whose position varies with
+ * the angle. compile_hankin() bakes the angle-independent topology once;
+ * update_hankin() then recomputes only the angle-dependent vertices.
  */
 
 /**

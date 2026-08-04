@@ -4,20 +4,22 @@
  */
 
 #pragma once
-// ---------------------------------------------------------------------------
-// hs::inplace_function — heap-free, inline-storage callable for the host/WASM
-// build, behind Fn<Sig,Cap> (see platform.h); modeled on SG14
-// stdext::inplace_function.
-//
-// The buffer is fixed at Capacity bytes: a closure that overflows it is a hard
-// *compile error*, not a silent heap allocation. Because Capacity counts bytes, a
-// pointer-capturing closure is wider on the 64-bit host than on the 32-bit device;
-// callsites pick a fixed Cap with headroom for the wider host closure (see
-// SpriteFn in concepts.h).
-//
-// Included only from platform.h's non-ARDUINO branch, after hs::check_fail is
-// declared.
-// ---------------------------------------------------------------------------
+
+/**
+ * @file inplace_function.h
+ * @brief hs::inplace_function — heap-free, inline-storage callable for the
+ *        host/WASM build, behind Fn<Sig,Cap> (see platform.h); modeled on SG14
+ *        stdext::inplace_function.
+ *
+ * The buffer is fixed at Capacity bytes: a closure that overflows it is a hard
+ * *compile error*, not a silent heap allocation. Because Capacity counts bytes,
+ * a pointer-capturing closure is wider on the 64-bit host than on the 32-bit
+ * device; callsites pick a fixed Cap with headroom for the wider host closure
+ * (see SpriteFn in concepts.h).
+ *
+ * Included only from platform.h's non-ARDUINO branch, after hs::check_fail is
+ * declared.
+ */
 
 #include <cstddef>
 #include <new>

@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file Voronoi.h
+ * @brief Spherical Voronoi: animated sites shaded by nearest-site distance,
+ *        with edge sharpening and optional cell borders.
+ */
+
 #include "core/engine/engine.h"
 #include "core/mesh/spatial.h"
 

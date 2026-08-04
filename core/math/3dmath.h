@@ -4,6 +4,13 @@
  */
 #pragma once
 
+/**
+ * @file 3dmath.h
+ * @brief Core math primitives: Vector, Quaternion and Complex, the geometric
+ *        epsilons, and the stereographic, gnomonic and Mobius maps built on
+ *        them.
+ */
+
 #include <cmath>
 #include <cfloat>
 #include <cstddef>

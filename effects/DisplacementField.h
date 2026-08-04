@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file DisplacementField.h
+ * @brief Stack of soft-stroked rings displaced by a noise and falling-ball
+ *        displacement-field stack.
+ */
+
 #include "core/engine/engine.h"
 
 namespace hs_test {

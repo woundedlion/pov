@@ -3,6 +3,13 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+
+/**
+ * @file rotate.h
+ * @brief Angle wrapping helpers and Projection, the map from canvas pixels to
+ *        sphere directions.
+ */
+
 #include <cmath>
 #include <cstdint>
 #include "math/3dmath.h"

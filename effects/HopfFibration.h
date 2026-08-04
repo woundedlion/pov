@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file HopfFibration.h
+ * @brief Animated Hopf fibration: S2 base points lifted to S3 fibers, tumbled
+ *        in 4D and stereographically projected.
+ */
+
 #include "core/engine/engine.h"
 #include <array>
 

@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file spherical_field.h
+ * @brief SphericalFieldLayout and SphericalField: allocation-free fields of
+ *        latitude rings over the sphere.
+ */
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>

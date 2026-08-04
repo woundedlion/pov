@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file RingSpin.h
+ * @brief Spinning great-circle rings that wander the sphere behind motion-blur
+ *        trails.
+ */
+
 #include <array>
 #include <new> // std::launder
 #include "core/engine/engine.h"

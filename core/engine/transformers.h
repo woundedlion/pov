@@ -4,6 +4,13 @@
  */
 #pragma once
 
+/**
+ * @file transformers.h
+ * @brief TransformerPool and its Transformer, FieldTransformer and
+ *        OrientTransformer specializations: animation-driven warp and field
+ *        composition.
+ */
+
 #include "math/3dmath.h"
 #include "engine/concepts.h"
 #include <new>

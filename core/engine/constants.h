@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file constants.h
+ * @brief Engine-wide compile-time constants: canvas bounds, star geometry,
+ *        pole-LOD tuning, and ClipRegion.
+ */
+
 #include "engine/platform.h" // CANVAS_W/CANVAS_H
 
 /**

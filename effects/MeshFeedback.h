@@ -5,6 +5,11 @@
  */
 #pragma once
 
+/**
+ * @file MeshFeedback.h
+ * @brief Feedback filter over a fixed icosahedron wireframe.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor reaching the private style/noise/preset bookkeeping; the

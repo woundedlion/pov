@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file DreamBalls.h
+ * @brief Orbiting copies of a polyhedral wireframe, cycling through solid
+ *        presets.
+ */
+
 #include "core/engine/engine.h"
 
 #include <array>

@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file platform.h
+ * @brief Platform layer: canvas dimensions, the always-on HS_CHECK trap, PRNG,
+ *        logging, timing, and the device/host split.
+ */
+
 /** @brief Canvas width in pixels (override via -DCANVAS_W). */
 #ifndef CANVAS_W
 #define CANVAS_W 288

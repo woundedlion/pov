@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file solids.h
+ * @brief The Platonic, Archimedean and Catalan solid registry and the
+ *        SolidBuilder that generates them.
+ */
+
 #include <array>
 #include "math/geometry.h"
 #include "mesh/mesh.h" // For MeshOps
