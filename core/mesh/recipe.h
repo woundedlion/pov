@@ -47,9 +47,15 @@ inline bool is_morphable_step(const OpStep &step) {
   case Op::KIS:
   case Op::DUAL:
     return true;
-  default:
+  case Op::EXPAND:
+  case Op::BEVEL:
+  case Op::GYRO:
+  case Op::META:
+  case Op::NEEDLE:
+  case Op::ZIP:
     return false;
   }
+  return false;
 }
 
 /**
