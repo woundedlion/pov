@@ -562,12 +562,7 @@ public:
       log_arena_vector_grow(element_capacity * sizeof(T), element_capacity,
                             exact_capacity);
     if (exact_capacity > 0) {
-      // Trap an exact_capacity * sizeof(T) overflow that would wrap to a small
-      // byte count and slip past Arena::allocate's bounds check.
-      HS_CHECK(exact_capacity <= SIZE_MAX / sizeof(T),
-               "ArenaVector capacity * sizeof(T) overflows size_t!");
-      elements = static_cast<T *>(
-          arena.allocate(exact_capacity * sizeof(T), alignof(T)));
+      elements = arena.allocate_n<T>(exact_capacity);
     } else {
       elements = nullptr;
     }
