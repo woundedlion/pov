@@ -706,6 +706,13 @@ struct TopoHashTable {
   bool used[TOPO_HASH_SLOTS] = {};
   int n = 0; /**< Occupied slots. */
 
+  /** @brief Empties the table so a repeated module run starts clean. */
+  void clear() {
+    for (int i = 0; i < TOPO_HASH_SLOTS; ++i)
+      used[i] = false;
+    n = 0;
+  }
+
   /** @brief Records one (classifier hash, reference key) pair. */
   void insert(uint32_t hash, uint64_t key) {
     HS_EXPECT_TRUE(n < TOPO_HASH_SLOTS);
@@ -749,6 +756,8 @@ inline void test_classify_faces_roster_hash_collision_free() {
   static uint32_t face_hashes[MAX_SWEEP_FACES];
   static uint64_t face_keys[MAX_SWEEP_FACES];
   static uint64_t folded_keys[MAX_SWEEP_FACES];
+  pre_fold.clear();
+  folded.clear();
   int swept_meshes = 0;
   int classified_meshes = 0;
 
