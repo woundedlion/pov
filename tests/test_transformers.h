@@ -36,7 +36,8 @@
  *                               center and at the footprint edge, peaking
  *                               between (antisymmetric, exactly 0 outside the
  *                               fast reject); the lifecycle envelope scales the
- *                               footprint.
+ *                               footprint; a parameter sweep keeps |field|
+ *                               within field_bound().
  *   - DominantFieldAccumulator: nothing added reports 0; a lone field passes
  *                               through exactly and repeats neither stack nor
  *                               shift; the strongest of a mixed overlap
@@ -1331,6 +1332,55 @@ inline void test_bump_field_envelope_gates() {
   HS_EXPECT_NEAR(bump_field(v, p), 0.0f, 1e-7f);
 }
 
+/**
+ * @brief Sweeps footprint, envelope, gain, cap centre and stack axis to verify
+ *        |bump_field| never exceeds field_bound().
+ * @details field_bound() sizes the displacement culls, so a bump that pushes
+ *          past its bound is culled while still displacing — the same safety
+ *          role noise_product_field's bound is swept for. The 49,152 samples
+ *          report through violation counters rather than per-sample assertions,
+ *          which would swamp the module's assertion floor.
+ */
+inline void test_bump_field_bound_is_conservative() {
+  hs::random().seed(20260803);
+  auto random_unit = []() {
+    for (;;) {
+      const Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                     hs::rand_f(-1.0f, 1.0f));
+      if (r.length() > 0.1f)
+        return r.normalized();
+    }
+  };
+
+  float worst_ratio = 0.0f;
+  int nonfinite = 0;
+  int over_bound = 0;
+  for (int trial = 0; trial < 96; ++trial) {
+    Animation::BumpParams p;
+    p.center = random_unit();
+    p.axis = random_unit();
+    p.radius = hs::rand_f(0.0f, 1.2f);
+    p.envelope = hs::rand_f(0.0f, 1.0f);
+    // Well past the Ball Amp slider's 0.8 ceiling, into the saturating regime.
+    p.amplitude = hs::rand_f(0.0f, 3.0f);
+    p.sync();
+    const float bound = p.field_bound();
+
+    for (int i = 0; i < 512; ++i) {
+      const float f = bump_field(random_unit(), p);
+      nonfinite += !std::isfinite(f);
+      over_bound += std::fabs(f) > bound;
+      if (bound > 0.001f)
+        worst_ratio = std::max(worst_ratio, std::fabs(f) / bound);
+    }
+  }
+  HS_EXPECT_EQ(nonfinite, 0);
+  HS_EXPECT_EQ(over_bound, 0);
+  // The sweep must approach the bound, otherwise it would pass on a field that
+  // never leaves zero.
+  HS_EXPECT_GT(worst_ratio, 0.5f);
+}
+
 // ============================================================================
 // noise_product_field — two-octave product parity; amplitude short-circuit;
 // field_bound stays conservative across the parameter space
@@ -1553,6 +1603,7 @@ inline int run_transformers_tests() {
   test_bump_field_round_bulge_along_ring();
   test_bump_field_precomputed_y_parity();
   test_bump_field_envelope_gates();
+  test_bump_field_bound_is_conservative();
   test_noise_product_field_parity();
   test_noise_product_field_bound_is_conservative();
   test_ball_drop_traverses_and_reclaims();
