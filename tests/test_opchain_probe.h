@@ -979,8 +979,8 @@ inline void test_build_chain_provenance_ambiguity() {
                   static_cast<double>(total > prev_faces ? min_ratio : 1.0f));
       // The prefix identity must also be the geometric nearest, or the
       // newborn-class inheritance is reading the wrong departed face.
-      HS_EXPECT_TRUE(max_prefix_offset * max_prefix_offset < TOL_SQ ||
-                     leg_misidentified > 0);
+      HS_EXPECT_EQ(leg_misidentified, static_cast<size_t>(0));
+      HS_EXPECT_LT(max_prefix_offset * max_prefix_offset, TOL_SQ);
     }
   }
   std::printf("  [prov] %zu prefix legs, %zu full-correspondence legs, %zu "

@@ -123,7 +123,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
     39)                                                                        \
   X("conway_soak", hs_test::conway_soak_tests::run_conway_soak_tests, 56)      \
   X("opchain_probe", hs_test::opchain_probe_tests::run_opchain_probe_tests,    \
-    496265)                                                                    \
+    496306)                                                                    \
   X("opchain_arena_survey",                                                    \
     hs_test::opchain_arena_survey::run_opchain_arena_survey_tests, 21562)      \
   X("hankin", hs_test::hankin_tests::run_hankin_tests, 1948)                   \
