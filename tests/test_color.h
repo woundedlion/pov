@@ -1163,7 +1163,7 @@ inline void test_gradient_get_clamps_out_of_range() {
 
 /**
  * @brief Verifies a first stop at pos>0 flat-fills the LUT prefix with its color.
- * @details The constructor fills entries[0..firstStop] with the first stop's
+ * @details The constructor fills entries[0..first_stop] with the first stop's
  *          color, so a gradient whose first stop sits at 0.25 returns that color
  *          for all t in [0, 0.25]; only past the stop do the flanks interpolate.
  */
