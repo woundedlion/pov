@@ -125,11 +125,14 @@ protected:
   }
 
   /**
-   * @brief Refines a cubemap-LUT seed to the genuine nearest node.
+   * @brief Refines a cubemap-LUT seed by argmin over the seed and its one-ring.
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
    * @param seed Seed node id from the cubemap LUT.
-   * @return The id of the nearest node among the seed and its neighbors.
+   * @return The id of the closest node among the seed and its direct neighbors.
+   * That is the true nearest node whenever the seed is that node or adjacent to
+   * it, which is all the cubemap LUT promises; the two-hop equatorial seeds it
+   * tolerates (tests/test_reaction_graph.h) stay unrecovered.
    * @details Off the render path: both systems center their stencils with
    * refine_render_center. This unconditional walk is the independent oracle
    * tests/test_effects.h measures that certified early-out against, so leave it
