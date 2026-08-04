@@ -2532,8 +2532,8 @@ inline void test_star_continuous_matches_standard_near_side() {
     continuous.bind(plot_arena(), 16);
     Plot::Star<Plot::PlanarProjection>::sample(standard, basis, radius, 7,
                                                0.37f);
-    Plot::Star<Plot::PlanarProjection>::sample_continuous(
-        continuous, basis, radius, 7, 0.37f);
+    Plot::Star<Plot::PlanarProjection>::sample_continuous(continuous, basis,
+                                                          radius, 7, 0.37f);
     HS_EXPECT_EQ(standard.size(), continuous.size());
     for (size_t i = 0; i < standard.size(); ++i) {
       HS_EXPECT_NEAR(standard[i].pos.x, continuous[i].pos.x, NEAR_SIDE_TOL);
