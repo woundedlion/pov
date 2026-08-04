@@ -108,14 +108,16 @@ public:
     // scope inside the per-pixel loop, filter.h counts blended pixels.
     HS_PROFILE(vo_shade);
 
+    // Below any unit-vector dot product, so it doubles as the "no candidate"
+    // marker the top-2 scan hands to shade().
+    constexpr float NO_DOT = -2.0f;
+
     // Resolves the final color from the already-identified nearest pair: the
-    // nearest site index i0 and its dot d0 (the larger), and — when a second
-    // neighbor exists — the second site index i1 and its dot d1.
-    auto shade = [&](uint16_t i0, float d0, bool has_second, uint16_t i1,
-                     float d1) -> Color4 {
+    // nearest site index i0 and its dot d0 (the larger), and the second site
+    // index i1 and its dot d1. d1 == NO_DOT means the block had one candidate.
+    auto shade = [&](uint16_t i0, float d0, uint16_t i1, float d1) -> Color4 {
       const Site &best_site = sites_buffer[i0];
-      float max_dot1 = d0;
-      float max_dot2 = has_second ? d1 : -2.0f;
+      const bool has_second = d1 > NO_DOT;
 
       Color4 c = best_site.color;
 
@@ -123,7 +125,7 @@ public:
       // nearest/second-nearest gaps, shrinking the cross-cell blend band.
       if (has_second && params.sharpness > 0.0f) {
         const Site &sec_site = sites_buffer[i1];
-        float diff = max_dot1 - max_dot2;
+        float diff = d0 - d1;
         float factor = std::min(1.0f, diff * params.sharpness);
         factor = quintic_kernel(factor);
         float t = 0.5f + 0.5f * factor;
@@ -135,10 +137,10 @@ public:
       // Borders — driven entirely by the "Border Thick" slider: a thickness of
       // 0 disables them (and skips the two acosf calls below), any positive
       // value paints the seam between the nearest two sites. d0 is the nearest,
-      // so max_dot1 >= max_dot2 → dist1 <= dist2 and the cell gap is non-negative.
+      // so d0 >= d1 → dist1 <= dist2 and the cell gap is non-negative.
       if (params.border_thickness > 0.0f && has_second) {
-        float dist1 = acosf(hs::clamp(max_dot1, -1.0f, 1.0f));
-        float dist2 = acosf(hs::clamp(max_dot2, -1.0f, 1.0f));
+        float dist1 = acosf(hs::clamp(d0, -1.0f, 1.0f));
+        float dist2 = acosf(hs::clamp(d1, -1.0f, 1.0f));
         if (dist2 - dist1 < params.border_thickness) {
           // Paint the seam black. The Scan sink writes color*alpha, so an
           // alpha-0 fragment collapses to (0,0,0) regardless of its RGB.
@@ -176,9 +178,11 @@ public:
 
     // Voronoi cell pixel size falls as ~1/sqrt(num_sites) (smallest near the
     // poles, where rows crowd), so a fixed block eventually straddles more than
-    // one cell and misses small cells. Shrink the block toward the cell's
-    // vertical pixel extent (rows map uniformly over [0,π]), floored at the
-    // extent MAX_SITES would give at this H.
+    // one cell and misses small cells. Shrink the block with the site count,
+    // floored at the edge MAX_SITES would give at this H. Rows map uniformly
+    // over [0,π], so an equal-area cell spans sqrt(4π/n)·H/π rows and this edge
+    // is deliberately 1/sqrt(π) ≈ 0.56 of that: a block sized to the full cell
+    // extent straddles neighbours and starts dropping small cells.
     const float cell_px =
         (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites_buffer.size()));
     const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
@@ -244,7 +248,7 @@ public:
         const CandSet &cs = cands[(x - gx0) / B];
 
         Vector p = pixel_to_vector<W, H>(x, y);
-        float d0 = -2.0f, d1 = -2.0f;
+        float d0 = NO_DOT, d1 = NO_DOT;
         uint8_t b0 = 0, b1 = 0;
         for (uint8_t i = 0; i < cs.n; ++i) {
           float d = dot(p, cs.pos[i]);
@@ -258,9 +262,7 @@ public:
             b1 = i;
           }
         }
-        Color4 sample = (cs.n >= 2)
-                            ? shade(cs.idx[b0], d0, true, cs.idx[b1], d1)
-                            : shade(cs.idx[b0], d0, false, cs.idx[b0], d0);
+        Color4 sample = shade(cs.idx[b0], d0, cs.idx[b1], d1);
         canvas(x, y) = sample.color * sample.alpha;
       }
     }
@@ -298,8 +300,9 @@ private:
   static constexpr int COHERENCE_BLOCK_MIN = std::max(
       1, static_cast<int>((2.0 * H / static_cast<double>(PI_F)) /
                           ceil_sqrt(MAX_SITES))); /**< Smallest adaptive block
-      edge: the cell pixel extent at MAX_SITES, so the densest site count a
-      resolution can reach still gets a block no wider than one cell. A fixed
+      edge: the render path's edge formula evaluated at MAX_SITES, so the
+      densest site count a resolution can reach still gets a block narrower
+      than one cell (that formula is ~0.56 of the cell extent). A fixed
       floor would straddle whole cells at short H (H=20 puts every cell inside a
       pixel row). */
   static_assert(COHERENCE_BLOCK_MIN <= COHERENCE_BLOCK,
