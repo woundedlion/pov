@@ -555,9 +555,14 @@ public:
 
   /**
    * @brief Live-updates the per-frame movement speed (e.g. from a GUI slider).
-   * @param new_speed The new per-frame movement speed.
+   * @param new_speed The new per-frame movement speed; a non-finite value is
+   *   ignored, keeping the last good speed (it would poison v and direction
+   *   permanently).
    */
-  void set_speed(float new_speed) { options.speed = new_speed; }
+  void set_speed(float new_speed) {
+    if (std::isfinite(new_speed))
+      options.speed = new_speed;
+  }
 
   /**
    * @brief Accesses the associated Orientation.
