@@ -63,6 +63,7 @@
 #include "engine/memory.h"
 
 #include <atomic>
+#include <cstring>
 #include <type_traits>
 
 #ifdef HS_PROFILE_ENABLE
@@ -349,7 +350,7 @@ public:
         static_assert(
             std::has_unique_object_representations_v<pov::sync::Telemetry>,
             "Telemetry must be padding-free");
-        if (memcmp(&tm, &last_tm, sizeof tm) != 0) {
+        if (std::memcmp(&tm, &last_tm, sizeof tm) != 0) {
           // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
           // formatter (~5 KB ITCM); these counters are all %lu.
           hs::log(
