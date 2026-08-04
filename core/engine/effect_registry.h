@@ -4,8 +4,7 @@
  *
  * Self-registering effect factory. Each effect header calls
  * REGISTER_EFFECT(ClassName) which appends to a global registry
- * at static-init time, eliminating the hand-maintained list in
- * targets/wasm/wasm.cpp.
+ * at static-init time.
  *
  * Active on the WASM build and the native test build (HS_TEST_BUILD): the
  * latter uses the registry as an anti-drift oracle (tests/test_effects.h)
