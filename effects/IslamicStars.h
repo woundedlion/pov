@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file IslamicStars.h
+ * @brief Sequence of Islamic-geometry polyhedra, built op by op and morphed
+ *        one into the next.
+ */
+
 #include "core/animation/animation.h"
 #include "core/engine/engine.h"
 #include "core/mesh/recipe.h"

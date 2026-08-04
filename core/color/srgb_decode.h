@@ -3,6 +3,13 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
 #pragma once
+
+/**
+ * @file srgb_decode.h
+ * @brief Split-region linear16 to sRGB8 decode over the generated bucket
+ *        tables.
+ */
+
 #include "color/srgb_decode_lut.h"
 #include "engine/platform.h"
 #include <array>

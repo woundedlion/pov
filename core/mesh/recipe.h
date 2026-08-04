@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file recipe.h
+ * @brief Lowering and replay of Solids::Recipe op chains, plus the leg-kind
+ *        coverage rules the morph animation depends on.
+ */
+
 #include <cstddef>
 #include <cstdint>
 

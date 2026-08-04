@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file BZReactionDiffusion.h
+ * @brief Belousov-Zhabotinsky reaction-diffusion on a Fibonacci lattice
+ *        sphere.
+ */
+
 #include <algorithm>
 #include <cstring>
 #include "core/engine/engine.h"

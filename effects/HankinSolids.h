@@ -5,6 +5,11 @@
  */
 #pragma once
 
+/**
+ * @file HankinSolids.h
+ * @brief Hankin interlace patterns over Platonic and Archimedean solids.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor reaching the private graph-walk state (current node, held

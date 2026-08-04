@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file waves.h
+ * @brief Waveform generators: sine, triangle and square oscillators over a
+ *        range.
+ */
+
 #include "math/3dmath.h"
 #include <cmath>
 #include "engine/util.h"

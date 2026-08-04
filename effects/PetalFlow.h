@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file PetalFlow.h
+ * @brief Concentric rings advanced along a log-radial path and shaped into
+ *        flowing petals.
+ */
+
 #include <cmath>
 #include <algorithm>
 #include "core/engine/engine.h"

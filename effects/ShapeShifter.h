@@ -5,6 +5,11 @@
  */
 #pragma once
 
+/**
+ * @file ShapeShifter.h
+ * @brief Phase-modulated concentric shapes drawn across the sphere.
+ */
+
 #include "core/engine/engine.h"
 
 #ifdef HS_TEST_BUILD

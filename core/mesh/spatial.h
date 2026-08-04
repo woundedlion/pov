@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file spatial.h
+ * @brief KDTree and the nearest-point query structures the mesh and effect
+ *        code build on.
+ */
+
 #include <cstdint>
 #include "math/3dmath.h"
 #include <algorithm>

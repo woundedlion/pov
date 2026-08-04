@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file generators.h
+ * @brief hs::generate: the arena lifecycle wrapper every procedural-geometry
+ *        build runs through.
+ */
+
 #include "engine/memory.h"
 
 namespace hs {

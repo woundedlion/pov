@@ -2,6 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
  * permission.
+ *
+ * @file effects_legacy.h
+ * @brief Legacy effects written before this engine, plus the timers,
+ *        oscillators and color sequences they share.
  */
 #include "render/canvas.h"
 #include "math/rotate.h"

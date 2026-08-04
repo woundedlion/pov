@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file Raymarch.h
+ * @brief Twisted-torus SDFs ray-marched at every vertex of a disdyakis
+ *        dodecahedron.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor reaching the private torus proportions and the constexpr

@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file MindSplatter.h
+ * @brief Particles sprayed from cube-vertex emitters toward octahedron-vertex
+ *        attractors through a Mobius warp.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor for emitter and hole-kernel invariants.

@@ -4,6 +4,11 @@
  */
 #pragma once
 
+/**
+ * @file conway.h
+ * @brief Conway polyhedron operators and the mesh utilities they share.
+ */
+
 #include <bit>
 #include "math/geometry.h"
 #include "mesh/mesh.h"

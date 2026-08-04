@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file presets.h
+ * @brief PresetEntry and Presets: fixed, cyclic tables of effect parameter
+ *        presets.
+ */
+
 #include <array>
 #include <cstddef>
 #include <span>

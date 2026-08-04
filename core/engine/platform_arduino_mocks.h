@@ -4,8 +4,13 @@
  */
 #pragma once
 
-// Emulates the Arduino/FastLED API surface off-device. Included from the
-// host/sim branch of engine/platform.h, which supplies hs::random/hs::millis.
+/**
+ * @file platform_arduino_mocks.h
+ * @brief Emulates the Arduino/FastLED API surface off-device.
+ *
+ * Included from the host/sim branch of engine/platform.h, which supplies
+ * hs::random/hs::millis.
+ */
 
 #include <cstdarg>
 #include <cstdint>

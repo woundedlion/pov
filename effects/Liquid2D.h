@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file Liquid2D.h
+ * @brief Full-sphere liquid of domain-warped noise over a breathing generative
+ *        palette.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor for the noise-time and trig-phase wrap invariants.

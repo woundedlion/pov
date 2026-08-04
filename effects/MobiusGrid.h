@@ -4,6 +4,13 @@
  * permission.
  */
 #pragma once
+
+/**
+ * @file MobiusGrid.h
+ * @brief Rotating sphere of latitude rings and longitude lines warped through
+ *        a Mobius transform.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor for the conformal-radius pole branch and the

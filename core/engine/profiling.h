@@ -4,9 +4,14 @@
  */
 #pragma once
 
-// Profiling and metrics layer: scan/probe counters and the cycle-counting
-// instrumentation. Included from the end of engine/platform.h, which supplies
-// HS_OS_CYCLES and hs::log.
+/**
+ * @file profiling.h
+ * @brief Profiling and metrics layer: scan/probe counters and the
+ *        cycle-counting instrumentation.
+ *
+ * Included from the end of engine/platform.h, which supplies HS_OS_CYCLES and
+ * hs::log.
+ */
 
 #include <cstdint>
 #include <cstring>

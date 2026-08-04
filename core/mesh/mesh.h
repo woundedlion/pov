@@ -4,6 +4,12 @@
  */
 #pragma once
 
+/**
+ * @file mesh.h
+ * @brief MeshState and the half-edge mesh representation the renderer and the
+ *        mesh operators are written against.
+ */
+
 #include "engine/concepts.h"
 #include "math/3dmath.h"
 #include "mesh/spatial.h"

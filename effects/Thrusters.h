@@ -4,6 +4,13 @@
  * permission.
  */
 #pragma once
+
+/**
+ * @file Thrusters.h
+ * @brief Rotating distorted ring that periodically fires, spawning opposed
+ *        expanding rings.
+ */
+
 #include "core/engine/engine.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that

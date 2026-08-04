@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file GnomonicStars.h
+ * @brief Polygon stars scattered over a Fibonacci spiral and warped by an
+ *        evolving Mobius transform.
+ */
+
 #include "core/engine/engine.h"
 
 // Unit-test accessor reaching the private pixel-pitch constant the star sizes

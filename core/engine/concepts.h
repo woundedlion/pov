@@ -4,6 +4,14 @@
  */
 
 #pragma once
+
+/**
+ * @file concepts.h
+ * @brief Callable wrappers (FunctionRef, StoredFunctionRef) and the shader,
+ *        trail and sprite callback aliases the render pipeline is written
+ *        against.
+ */
+
 #include <concepts>
 #include <cstddef>     // std::nullptr_t
 #include <memory>      // std::addressof

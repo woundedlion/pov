@@ -5,6 +5,11 @@
  */
 #pragma once
 
+/**
+ * @file GSReactionDiffusion.h
+ * @brief Gray-Scott reaction-diffusion on a Fibonacci lattice sphere.
+ */
+
 #include <array>
 #include <cmath>
 #include <utility>
