@@ -658,10 +658,12 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
            math::EPS_UNIT_QUAT_SQ);
   Vector v = rotate(normal, orientation).normalized();
   // rotate preserves dot, so least_parallel_axis(normal) picks the same body
-  // axis as the rotated frame; rotate it into the frame for the cross.
-  Vector ref = rotate(least_parallel_axis(normal), orientation).normalized();
+  // axis as the rotated frame; rotate it into the frame for the cross. Only its
+  // direction matters, the cross below is normalized.
+  Vector ref = rotate(least_parallel_axis(normal), orientation);
   Vector u = cross(v, ref).normalized();
-  Vector w = cross(v, u).normalized();
+  // v and u are orthonormal, so the cross is unit by construction.
+  Vector w = cross(v, u);
   return {u, v, w};
 }
 
