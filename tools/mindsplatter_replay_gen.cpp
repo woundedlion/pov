@@ -65,6 +65,8 @@ struct GoldenPixel {
   uint16_t g;
   uint16_t b;
 };
+static_assert(static_cast<size_t>(WIDTH) * HEIGHT <= 65536,
+              "GoldenPixel::index is uint16_t");
 
 uint64_t fnv1a(uint64_t hash, uint8_t byte) {
   return (hash ^ byte) * 1099511628211ull;
