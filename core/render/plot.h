@@ -7,6 +7,8 @@
 #include <type_traits>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <array>
 #include <concepts>
 #include "math/geometry.h"
