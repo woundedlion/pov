@@ -48,8 +48,7 @@ public:
   void init() override {
     transformer.init_storage(persistent_arena);
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
-    spiral_cache = static_cast<Vector *>(persistent_arena.allocate(
-        MAX_POINTS * sizeof(Vector), alignof(Vector)));
+    spiral_cache = persistent_arena.allocate_n<Vector>(MAX_POINTS);
 
     register_param("Points", &params.points, 100.0f, 2000.0f);
     register_param("Radius", &params.star_radius, 0.7f * RADIUS_PX,
