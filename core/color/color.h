@@ -1329,55 +1329,55 @@ public:
   Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
     HS_CHECK(points.size() > 0, "Gradient requires at least one stop");
 
-    float prevCheck = -1.0f;
+    float prev_check = -1.0f;
     for (const auto &stop : points) {
       HS_CHECK(stop.first >= 0.0f && stop.first <= 1.0f,
                "Gradient stop position out of [0,1]");
-      HS_CHECK(stop.first >= prevCheck,
+      HS_CHECK(stop.first >= prev_check,
                "Gradient stops must be sorted ascending");
-      prevCheck = stop.first;
+      prev_check = stop.first;
     }
 
     auto it = points.begin();
-    float prevPos = it->first;
-    CPixel prevColor = it->second;
+    float prev_pos = it->first;
+    CPixel prev_color = it->second;
 
     // Flat fills bake through the same OKLCH path as the segment endpoints, so
     // a flat region matches its adjacent segment at the shared stop.
-    int firstStop = static_cast<int>(prevPos * 255.0f + 0.5f);
-    Pixel prevSolid =
-        oklch_to_pixel(srgb_to_oklch(prevColor.r, prevColor.g, prevColor.b));
-    for (int i = 0; i <= firstStop; i++)
-      entries[i] = prevSolid;
+    int first_stop = static_cast<int>(prev_pos * 255.0f + 0.5f);
+    Pixel prev_solid =
+        oklch_to_pixel(srgb_to_oklch(prev_color.r, prev_color.g, prev_color.b));
+    for (int i = 0; i <= first_stop; i++)
+      entries[i] = prev_solid;
 
     it++;
     while (it != points.end()) {
-      float nextPos = it->first;
-      CPixel nextColor = it->second;
+      float next_pos = it->first;
+      CPixel next_color = it->second;
 
-      int start = static_cast<int>(prevPos * 255.0f + 0.5f);
-      int end = static_cast<int>(nextPos * 255.0f + 0.5f);
+      int start = static_cast<int>(prev_pos * 255.0f + 0.5f);
+      int end = static_cast<int>(next_pos * 255.0f + 0.5f);
 
       // end == start (two stops quantizing to the same index) is the intended
       // "hard stop" — an abrupt color boundary, not a dropped stop.
       if (end > start) {
-        OKLCH a = srgb_to_oklch(prevColor.r, prevColor.g, prevColor.b);
-        OKLCH b = srgb_to_oklch(nextColor.r, nextColor.g, nextColor.b);
+        OKLCH a = srgb_to_oklch(prev_color.r, prev_color.g, prev_color.b);
+        OKLCH b = srgb_to_oklch(next_color.r, next_color.g, next_color.b);
         for (int i = start; i < end; i++) {
           float t = static_cast<float>(i - start) / (end - start);
           entries[i] = oklch_to_pixel(lerp_oklch(a, b, t));
         }
       }
-      prevPos = nextPos;
-      prevColor = nextColor;
+      prev_pos = next_pos;
+      prev_color = next_color;
       it++;
     }
 
-    int lastStop = static_cast<int>(prevPos * 255.0f + 0.5f);
-    Pixel lastSolid =
-        oklch_to_pixel(srgb_to_oklch(prevColor.r, prevColor.g, prevColor.b));
-    for (int i = lastStop; i < 256; i++)
-      entries[i] = lastSolid;
+    int last_stop = static_cast<int>(prev_pos * 255.0f + 0.5f);
+    Pixel last_solid =
+        oklch_to_pixel(srgb_to_oklch(prev_color.r, prev_color.g, prev_color.b));
+    for (int i = last_stop; i < 256; i++)
+      entries[i] = last_solid;
   }
 
   /**

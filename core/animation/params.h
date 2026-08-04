@@ -384,13 +384,13 @@ public:
     FiniteParamAnimationBase::step(canvas);
     float progress = normalized_progress();
     // Floor rings at 0 so the divisor rings + 1 stays >= 1; a non-finite or -1
-    // rings would make logPeriod inf and poison a/d.
+    // rings would make log_period inf and poison a/d.
     float rings = num_rings;
     if (!std::isfinite(rings) || rings < 0.0f)
       rings = 0.0f;
-    float logPeriod = 5.0f / (rings + 1);
-    float flowParam = progress * logPeriod;
-    float scale = expf(flowParam);
+    float log_period = 5.0f / (rings + 1);
+    float flow_param = progress * log_period;
+    float scale = expf(flow_param);
     float s = sqrtf(scale);
     // Clamp lines to >= 1 before dividing (the slider bottoms out at 0 → 2π/0);
     // a non-finite lines falls back to 1.

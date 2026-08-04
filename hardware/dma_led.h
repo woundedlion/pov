@@ -62,7 +62,7 @@ public:
    */
   TeensySPIDMA(uint32_t clock = 12000000, uint8_t order = MSBFIRST,
                uint8_t mode = SPI_MODE0)
-      : transferComplete(true), spiSettings(clock, order, mode) {}
+      : transfer_complete(true), spi_settings(clock, order, mode) {}
 
   /**
    * @brief Initializes SPI and DMA hardware. Must be called from setup(),
@@ -80,7 +80,7 @@ public:
     instance = this;
 
     SPI.begin();
-    SPI.beginTransaction(spiSettings);
+    SPI.beginTransaction(spi_settings);
 
     LPSPI4_DER |= LPSPI_DER_TDDE; // TX DMA request
     // RXMSK discards received frames: nothing drains the RX FIFO, so without it
@@ -99,7 +99,7 @@ public:
     dma_channel.triggerAtHardwareEvent(DMAMUX_SOURCE_LPSPI4_TX);
     dma_channel.disableOnCompletion();
     dma_channel.interruptAtCompletion();
-    dma_channel.attachInterrupt(dmaISR);
+    dma_channel.attachInterrupt(dma_isr);
   }
 
   /**
@@ -113,14 +113,14 @@ public:
   void transmitAsync(const uint8_t *data, size_t len) {
     // Trap rather than spin on an in-flight transfer: this runs in the column
     // ISR, where spinning would deadlock — the DMA-completion ISR that marks
-    // transferComplete true cannot preempt an equal/lower-priority ISR.
-    if (!transferComplete.load(std::memory_order_relaxed)) {
+    // transfer_complete true cannot preempt an equal/lower-priority ISR.
+    if (!transfer_complete.load(std::memory_order_relaxed)) {
       hs::log("FATAL: transmitAsync entered with a transfer still in flight — "
               "submitFrame() must guard with isComplete()");
       __builtin_trap();
     }
-    transferComplete.store(false, std::memory_order_relaxed);
-    transferStartUs = micros();
+    transfer_complete.store(false, std::memory_order_relaxed);
+    transfer_start_us = micros();
     dma_channel.sourceBuffer(data, len);
     dma_channel.enable();
   }
@@ -130,7 +130,7 @@ public:
    * @return true once the in-flight transfer's completion ISR has fired.
    */
   bool isComplete() const {
-    return transferComplete.load(std::memory_order_relaxed);
+    return transfer_complete.load(std::memory_order_relaxed);
   }
 
   /**
@@ -141,9 +141,10 @@ public:
    *          Only fires while submitFrame() is being called.
    */
   void checkStaleTransfer() {
-    if (transferComplete.load(std::memory_order_relaxed))
+    if (transfer_complete.load(std::memory_order_relaxed))
       return;
-    if (dma::transfer_stale(transferStartUs, micros(), TRANSFER_WATCHDOG_US)) {
+    if (dma::transfer_stale(transfer_start_us, micros(),
+                            TRANSFER_WATCHDOG_US)) {
       hs::log("FATAL: DMA channel wedged — in-flight transfer outlived the "
               "watchdog on the overrun-drop path; completion ISR never fired");
       __builtin_trap();
@@ -167,10 +168,10 @@ private:
    * @brief DMA completion ISR: clears the interrupt and marks the transfer done.
    * @details Dispatched via the singleton instance; runs in interrupt context.
    */
-  static void FASTRUN dmaISR() {
+  static void FASTRUN dma_isr() {
     if (instance) {
       instance->dma_channel.clearInterrupt();
-      instance->transferComplete.store(true, std::memory_order_relaxed);
+      instance->transfer_complete.store(true, std::memory_order_relaxed);
       // DMA_CINT is a posted write; without this the ISR can return before it
       // retires and the NVIC re-pends the interrupt it just cleared.
       asm volatile("dsb" ::: "memory");
@@ -186,16 +187,16 @@ private:
    *          suffices. Does NOT order the buffer for the DMA engine — the
    *          caller's arm_dcache_flush() before transmitAsync() does that.
    */
-  std::atomic<bool> transferComplete;
+  std::atomic<bool> transfer_complete;
   /**
    * @brief micros() at which the in-flight transfer was enabled.
    * @details Touched only in column-ISR context (transmitAsync /
    *          checkStaleTransfer), never the completion ISR, so a plain scalar is
-   *          correct. Only meaningful while transferComplete is false.
+   *          correct. Only meaningful while transfer_complete is false.
    */
-  unsigned long transferStartUs = 0;
+  unsigned long transfer_start_us = 0;
   SPISettings
-      spiSettings; /**< Cached SPI clock/bit-order/mode for this driver. */
+      spi_settings; /**< Cached SPI clock/bit-order/mode for this driver. */
 
   /**
    * @brief Single-init guard set once on the first (setup-time) init() call.
@@ -209,7 +210,7 @@ private:
    *        TeensySPIDMA per image; init() traps on a second instance.
    * @details Written once from setup() before any ISR uses it, then read from
    *          the completion ISR — race-free under the single-observer model (see
-   *          transferComplete).
+   *          transfer_complete).
    */
   static TeensySPIDMA *instance;
 };
