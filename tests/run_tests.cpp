@@ -112,7 +112,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("memory", hs_test::mem::run_memory_tests, 271)                             \
   X("spatial", hs_test::spatial::run_spatial_tests, 179)                       \
   X("scb", hs_test::scb::run_static_circular_buffer_tests, 197)                \
-  X("sdf", hs_test::sdf::run_sdf_tests, 271681)                                \
+  X("sdf", hs_test::sdf::run_sdf_tests, 271679)                                \
   X("conway", hs_test::conway_tests::run_conway_tests, 5982)                   \
   X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests,       \
     1656015)                                                                   \
@@ -138,10 +138,10 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("easing_waves", hs_test::easing_waves_tests::run_easing_waves_tests, 6080) \
   X("platform", hs_test::platform_tests::run_platform_tests, 201119)           \
   X("profiling", hs_test::profiling_tests::run_profiling_tests, 163)           \
-  X("filter", hs_test::filter_tests::run_filter_tests, 10297)                  \
-  X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests, 9109889)       \
+  X("filter", hs_test::filter_tests::run_filter_tests, 10296)                  \
+  X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests, 9109888)       \
   X("canvas", hs_test::canvas_tests::run_canvas_tests, 487)                    \
-  X("scan", hs_test::scan_tests::run_scan_tests, 189869)                       \
+  X("scan", hs_test::scan_tests::run_scan_tests, 189868)                       \
   X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests, 2793)    \
   X("transformers", hs_test::transformers_tests::run_transformers_tests, 1296) \
   X("noise", hs_test::noise_tests::run_noise_tests, 201)                       \

@@ -931,7 +931,8 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   // Same geometry as `thick_line` but standalone, for the contrast check.
   SDF::Line thick_solo(Vector(1, 0, 0), Vector(0, 0, 1), thick);
 
-  HS_EXPECT_FALSE((SDF::Union<SDF::Line, SDF::Line>::is_solid));
+  static_assert(!SDF::Union<SDF::Line, SDF::Line>::is_solid,
+                "a Union of strokes is not solid");
 
   // Point at geodesic distance 0.025 (half the thin thickness) north of the
   // thin arc, projecting to azimuth 45 deg (well inside the arc).
@@ -1040,7 +1041,7 @@ inline void test_stroke_aa_is_monotone_ramp() {
   // the centerline grows with the offset, so the signed distance crosses 0 at
   // the surface and the alpha should fall 1 -> 0.
   const int N = 12;
-  float prev = 2.0f;
+  float prev = 1.0f;
   bool saw_one = false, saw_zero = false, saw_mid = false;
   for (int i = 0; i < N; ++i) {
     float delta = (thickness * 1.4f) * i / (N - 1); // 0 .. 1.4*thickness
