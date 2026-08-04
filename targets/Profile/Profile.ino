@@ -560,12 +560,13 @@ private:
 };
 
 // The replay wrapper also carries framebuffer comparison counters.
-static constexpr size_t MAX_EFFECT_HEAP_BYTES = HS_PHANTASM_EFFECT_HEAP_BYTES +
 #ifdef HS_MINDSPLATTER_REPLAY
-                                                192;
+static constexpr size_t PROFILE_WRAPPER_BYTES = 192;
 #else
-                                                64;
+static constexpr size_t PROFILE_WRAPPER_BYTES = 64;
 #endif
+static constexpr size_t MAX_EFFECT_HEAP_BYTES =
+    HS_PHANTASM_EFFECT_HEAP_BYTES + PROFILE_WRAPPER_BYTES;
 
 #ifdef HS_PROFILE_PRESET
 template <typename E> void select_profile_preset(E &effect) {
