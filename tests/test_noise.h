@@ -30,12 +30,8 @@ inline void expect_noise_grid(const float (&golden)[N], SampleFn sample,
                               const char *label) {
   for (size_t i = 0; i < N; ++i) {
     const float actual = sample(i);
-    const bool ok = approx(actual, golden[i], 1e-5f);
     HS_CONTEXT(label, static_cast<long long>(i));
     HS_EXPECT_NEAR(actual, golden[i], 1e-5f);
-    // One diverged sample means the whole grid diverged; stop after the first.
-    if (!ok)
-      return;
   }
 }
 
