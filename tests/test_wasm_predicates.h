@@ -18,7 +18,10 @@
 namespace hs_test {
 namespace wasm_predicates_tests {
 
-inline void check_pole_lod_clamp() {
+/**
+ * @brief Exercises the near-pole LOD aggressiveness clamp, NaN included.
+ */
+inline void test_pole_lod_clamp() {
   HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(-1.0f), 0.0f);
   HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(1.5f), 1.5f);
   HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(1e9f),
@@ -29,7 +32,7 @@ inline void check_pole_lod_clamp() {
 /**
  * @brief Exercises clip_bounds_valid across in-range, edge, and malformed bands.
  */
-inline void check_clip_bounds() {
+inline void test_clip_bounds() {
   constexpr int W = 96, H = 20;
 
   // A typical sub-canvas band is accepted.
@@ -56,7 +59,7 @@ inline void check_clip_bounds() {
 /**
  * @brief Exercises clamp_relax_iterations across negative, in-range, and over.
  */
-inline void check_relax_clamp() {
+inline void test_relax_clamp() {
   constexpr int MAX = 1000;
 
   // In-range counts pass through unchanged.
@@ -74,7 +77,7 @@ inline void check_relax_clamp() {
 /**
  * @brief Exercises the [0,1] operator-fraction range check and clamp.
  */
-inline void check_unit_fraction_clamp() {
+inline void test_unit_fraction_clamp() {
   // In-range fractions, including the boundaries, pass through unchanged.
   HS_EXPECT_TRUE(!hs_wasm::unit_fraction_out_of_range(0.0f));
   HS_EXPECT_TRUE(!hs_wasm::unit_fraction_out_of_range(0.5f));
@@ -96,7 +99,7 @@ inline void check_unit_fraction_clamp() {
 /**
  * @brief Exercises the [0,1) operator-fraction range check and clamp.
  */
-inline void check_half_open_fraction_clamp() {
+inline void test_half_open_fraction_clamp() {
   // 1 is outside a half-open domain, unlike the inclusive clamp's.
   HS_EXPECT_TRUE(!hs_wasm::half_open_fraction_out_of_range(0.0f));
   HS_EXPECT_TRUE(!hs_wasm::half_open_fraction_out_of_range(0.5f));
@@ -124,7 +127,7 @@ inline void check_half_open_fraction_clamp() {
 /**
  * @brief Exercises the per-operator tooling mesh-size ceiling.
  */
-inline void check_tooling_mesh_ceiling() {
+inline void test_tooling_mesh_ceiling() {
   constexpr size_t MAX = 65536;
 
   // A mesh at the ceiling on every count is still accepted.
@@ -141,7 +144,7 @@ inline void check_tooling_mesh_ceiling() {
 /**
  * @brief Exercises the per-operator expansion ceiling.
  */
-inline void check_mesh_op_expansion_ceiling() {
+inline void test_mesh_op_expansion_ceiling() {
   constexpr size_t MAX = 65535; // the engine's 16-bit connectivity range
 
   HS_EXPECT_EQ(hs_wasm::mesh_largest_element_count(8, 6, 24), 24u);
@@ -184,7 +187,7 @@ inline void check_mesh_op_expansion_ceiling() {
 /**
  * @brief Exercises the tooling-arena room check for an operator's output.
  */
-inline void check_mesh_op_arena_room() {
+inline void test_mesh_op_arena_room() {
   constexpr size_t CAP = 8 * 1024 * 1024;
   constexpr size_t PER = 16;
 
@@ -215,7 +218,7 @@ inline void check_mesh_op_arena_room() {
 /**
  * @brief Exercises the mesh measurements the face-degree guard reads.
  */
-inline void check_mesh_degree_measurements() {
+inline void test_mesh_degree_measurements() {
   // A cube: six quads, eight vertices of valence 3.
   const uint8_t cube_counts[6] = {4, 4, 4, 4, 4, 4};
   const uint16_t cube_faces[24] = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 5, 4,
@@ -249,7 +252,7 @@ inline void check_mesh_degree_measurements() {
 /**
  * @brief Exercises the per-operator face-degree overflow check.
  */
-inline void check_mesh_op_face_degree() {
+inline void test_mesh_op_face_degree() {
   constexpr size_t MAX = 255; // PolyMesh's uint8_t per-face side count
 
   // A cube is inside every operator's degree bound.
@@ -286,7 +289,7 @@ inline void check_mesh_op_face_degree() {
 /**
  * @brief Exercises the Hankin contact-angle domain check.
  */
-inline void check_hankin_angle_domain() {
+inline void test_hankin_angle_domain() {
   constexpr float MAX = 1.5707963f; // pi/2
   constexpr float FIFTY_FOUR_DEG = 0.9424778f;
 
@@ -305,7 +308,7 @@ inline void check_hankin_angle_domain() {
 /**
  * @brief Exercises the bakeLut gradient-shape range check and clamp.
  */
-inline void check_gradient_shape_clamp() {
+inline void test_gradient_shape_clamp() {
   constexpr int LO = 0, HI = 3; // STRAIGHT .. FALLOFF
 
   // In-range shapes pass through untouched and read as in range.
@@ -324,7 +327,7 @@ inline void check_gradient_shape_clamp() {
 /**
  * @brief Exercises the bakeLut HSV-key range check and [0,255] clamp.
  */
-inline void check_hsv_key_clamp() {
+inline void test_hsv_key_clamp() {
   // In-range keys, including the boundaries, pass through unchanged.
   HS_EXPECT_TRUE(!hs_wasm::hsv_key_out_of_range(0));
   HS_EXPECT_TRUE(!hs_wasm::hsv_key_out_of_range(255));
@@ -345,19 +348,19 @@ inline void check_hsv_key_clamp() {
  */
 inline int run_wasm_predicates_tests() {
   hs_test::ModuleFixture fixture("wasm_predicates");
-  check_pole_lod_clamp();
-  check_clip_bounds();
-  check_relax_clamp();
-  check_unit_fraction_clamp();
-  check_half_open_fraction_clamp();
-  check_tooling_mesh_ceiling();
-  check_mesh_op_expansion_ceiling();
-  check_mesh_op_arena_room();
-  check_mesh_degree_measurements();
-  check_mesh_op_face_degree();
-  check_hankin_angle_domain();
-  check_gradient_shape_clamp();
-  check_hsv_key_clamp();
+  test_pole_lod_clamp();
+  test_clip_bounds();
+  test_relax_clamp();
+  test_unit_fraction_clamp();
+  test_half_open_fraction_clamp();
+  test_tooling_mesh_ceiling();
+  test_mesh_op_expansion_ceiling();
+  test_mesh_op_arena_room();
+  test_mesh_degree_measurements();
+  test_mesh_op_face_degree();
+  test_hankin_angle_domain();
+  test_gradient_shape_clamp();
+  test_hsv_key_clamp();
   return fixture.result();
 }
 
