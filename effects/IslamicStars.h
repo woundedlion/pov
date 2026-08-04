@@ -157,7 +157,9 @@ private:
    * scratch_b for persistent; generated whole shapes retain the wider scratch_b.
    * Each split's persistent is the device-arena remainder and both scratch
    * arenas are hard-capped at their device sizes. Needle's measured peak is
-   * 131,770 / 70,228 / 96,600 bytes. */
+   * 131,770 / 70,228 / 96,600 bytes against the bridge split's 132,608 /
+   * 75,776 / 96,768: persistent is the binding arena at 168 bytes spare, so a
+   * new persistent mesh field on a bridge shape must be paid for here. */
   static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 116 * 1024;      // 118,784
   static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 129 * 1024 + 512; // 132,608
   static constexpr size_t SPLIT_SCRATCH_B_DEFAULT = 74 * 1024;       // 75,776
