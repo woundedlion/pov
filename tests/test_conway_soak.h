@@ -220,9 +220,10 @@ inline void test_full_graph_walk_soak() {
     }
   };
 
-  // Post-compaction persistent offset per (node, held platonic seed); 0 =
-  // state not yet seen.
+  // Post-compaction persistent offset per (node, held platonic seed), with a
+  // separate seen flag so a zero offset still arms the drift check.
   size_t post_offset[ConwayGraph::NUM_NODES][ConwayGraph::ICOSAHEDRON + 1] = {};
+  bool post_seen[ConwayGraph::NUM_NODES][ConwayGraph::ICOSAHEDRON + 1] = {};
 
   int prev_node = HankinWalkProbe::node(fx);
   mark(prev_node);
@@ -262,7 +263,8 @@ inline void test_full_graph_walk_soak() {
       continue;
 
     const size_t off = persistent_arena.get_offset();
-    if (post_offset[node][sid] == 0) {
+    if (!post_seen[node][sid]) {
+      post_seen[node][sid] = true;
       post_offset[node][sid] = off;
     } else {
       if (off != post_offset[node][sid])
