@@ -1700,6 +1700,42 @@ struct BZWhiteBox {
     }
     return nearest;
   }
+  struct CenterError {
+    int pixels = 0;
+    int refined_seeds = 0;
+    int center_mismatches = 0;
+  };
+
+  /**
+   * @brief Sweeps a <W,H> frame of cubemap-LUT seeds and compares the certified
+   *        render-center early-out against the unconditional argmin walk.
+   * @details Mirrors GSWhiteBox::shared_shader_error's center check. The seeds
+   *          come from seed_face_lut, the way render() draws them, so a
+   *          quantized seed that is not already the nearest node actually
+   *          reaches the walk; refined_seeds counts those.
+   */
+  template <int W, int H> static CenterError render_center_error(BZ &bz) {
+    ScratchScope guard(scratch_arena_a);
+    Vector *world_nodes = bz.orient_lattice();
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    CenterError error;
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        Fragment frag;
+        frag.pos = pixel_to_vector<W, H>(x, y);
+        bz.seed_face_lut(frag);
+        int seed = static_cast<int>(frag.v0);
+        int reference = BZ::refine_center(frag.pos, world_nodes, seed);
+        if (reference != seed)
+          ++error.refined_seeds;
+        if (BZ::refine_render_center(frag.pos, world_nodes, seed) != reference)
+          ++error.center_mismatches;
+        ++error.pixels;
+      }
+    }
+    return error;
+  }
   static Pixel shade(const BZ &bz, int seed, const Vector &center,
                      const Vector *nodes, const Grid &grid, int x,
                      const Color4 &ca, const Color4 &cb, const Color4 &cc) {
@@ -2017,6 +2053,34 @@ inline void test_bz_raster_matches_reference() {
   }
   mismatches += compare();
   HS_EXPECT_EQ(mismatches, 0);
+}
+
+/**
+ * @brief Requires BZ's certified render-center early-out to agree with the
+ *        unconditional argmin on production-resolution, LUT-seeded pixels.
+ * @details shade_pixel centers its stencil with refine_render_center, which
+ *          returns the seed unwalked inside BULK_CERTIFIED_D2 /
+ *          POLE_CERTIFIED_D2. Only a cubemap-LUT seed — what render()'s vertex
+ *          shader produces — can be a non-nearest node, so a sweep seeded from
+ *          an exact argmin cannot tell the two refiners apart at all. A few
+ *          frames of the orientation random walk move the lattice off its
+ *          initial alignment first. refined_seeds must be nonzero or the
+ *          comparison passed without ever exercising the walk.
+ */
+inline void test_bz_render_center_matches_reference() {
+  hs_test::reset_globals();
+  BZWhiteBox::BZ bz;
+  bz.init();
+  for (int frame = 0; frame < 4; ++frame) {
+    bz.draw_frame();
+    bz.advance_display();
+  }
+  auto error = BZWhiteBox::render_center_error<DEFAULT_W, DEFAULT_H>(bz);
+  std::printf("BZ render centers: pixels=%d refined_seeds=%d mismatches=%d\n",
+              error.pixels, error.refined_seeds, error.center_mismatches);
+  HS_EXPECT_EQ(error.pixels, DEFAULT_W * DEFAULT_H);
+  HS_EXPECT_GT(error.refined_seeds, 0);
+  HS_EXPECT_EQ(error.center_mismatches, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -5386,6 +5450,7 @@ inline int run_effects_tests() {
     test_bz_perturb_state_draw_count_pinned();
     test_bz_substep_diffuses();
     test_bz_raster_matches_reference();
+    test_bz_render_center_matches_reference();
     test_dreamballs_preset_cycle_bookkeeping();
     test_dreamballs_respawn_fires_and_honors_pause();
     test_meshfeedback_flush_precedes_mesh_draw();
