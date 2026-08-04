@@ -19,11 +19,11 @@
 /**
  * @brief The Golden Ratio constant (Phi).
  */
-static constexpr float PHI = 1.6180339887498948482045868343656f;
+inline constexpr float PHI = 1.6180339887498948482045868343656f;
 /**
  * @brief The inverse of the Golden Ratio (1/Phi).
  */
-static constexpr float INV_PHI = 1 / PHI;
+inline constexpr float INV_PHI = 1 / PHI;
 /**
  * @brief Named tolerances for floating-point geometry comparisons.
  *
@@ -43,30 +43,30 @@ static constexpr float INV_PHI = 1 / PHI;
  *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack (0.02f)
  */
 namespace math {
-static constexpr float TOLERANCE = 1e-4f;
-static constexpr float EPS_GEOMETRIC = 1e-5f;
-static constexpr float EPS_LEN_SQ = 1e-6f;
-static constexpr float EPS_POLE_SIN = 1e-6f;
-static constexpr float EPS_CROSS_SQ = 1e-8f;
-static constexpr float EPS_NORMAL_SQ = 1e-9f;
-static constexpr float EPS_NORMALIZE_SQ = 1e-12f;
-static constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
-static constexpr float EPS_UNIT_VEC_SQ = 0.02f;
+inline constexpr float TOLERANCE = 1e-4f;
+inline constexpr float EPS_GEOMETRIC = 1e-5f;
+inline constexpr float EPS_LEN_SQ = 1e-6f;
+inline constexpr float EPS_POLE_SIN = 1e-6f;
+inline constexpr float EPS_CROSS_SQ = 1e-8f;
+inline constexpr float EPS_NORMAL_SQ = 1e-9f;
+inline constexpr float EPS_NORMALIZE_SQ = 1e-12f;
+inline constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
+inline constexpr float EPS_UNIT_VEC_SQ = 0.02f;
 /**
  * @brief Cosine above which a vector is treated as parallel to a reference axis.
  * @details Above this callers pick an alternate axis to avoid a near-zero
  * (degenerate) cross when building a frame. Switches only near-parallel (~0.8°).
  */
-static constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
+inline constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
 } // namespace math
 /**
  * @brief Global alias for math::TOLERANCE.
  */
-static constexpr float TOLERANCE = math::TOLERANCE;
+inline constexpr float TOLERANCE = math::TOLERANCE;
 /**
  * @brief Floating-point representation of PI.
  */
-static constexpr float PI_F = static_cast<float>(PI);
+inline constexpr float PI_F = static_cast<float>(PI);
 
 /**
  * @brief Quintic interpolation kernel (smootherstep).
@@ -758,7 +758,7 @@ struct Quaternion {
  * projection that hits a singularity emits this magnitude, and every inverse
  * projection recognizes it (see the two thresholds below).
  */
-static constexpr float STEREO_INF = 1e4f;
+inline constexpr float STEREO_INF = 1e4f;
 
 /**
  * @brief |z| at/above which inv_stereo() treats its input as the infinity
@@ -767,7 +767,7 @@ static constexpr float STEREO_INF = 1e4f;
  * sentinel toward (not past) zero, so the inverse needs margin below the emitted
  * magnitude to still snap it back to the pole. (Squared to avoid a sqrt.)
  */
-static constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
+inline constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
 
 /**
  * @brief Soft-limit for a stereographic coordinate fed (times a pattern
@@ -778,7 +778,7 @@ static constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
  * the reduction error to ~5e-4 rad in the pole cap; non-pole coordinates
  * (|z| ~ O(10)) never reach it.
  */
-static constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
+inline constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
 
 /**
  * @brief 1 - v.y below which stereo() is inside the north-pole cap and emits the
@@ -789,7 +789,7 @@ static constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
  * v.y in [0.5, 1], and its smallest nonzero value (2^-24) still quotients to
  * ~5.8e3, so only a v.y that rounds to (or past) 1 lands inside the cap.
  */
-static constexpr float STEREO_POLE_EPS = 2.0f / (STEREO_INF * STEREO_INF);
+inline constexpr float STEREO_POLE_EPS = 2.0f / (STEREO_INF * STEREO_INF);
 
 /**
  * @brief Squared magnitude below which mobius_transform treats a homogeneous
@@ -797,21 +797,21 @@ static constexpr float STEREO_POLE_EPS = 2.0f / (STEREO_INF * STEREO_INF);
  * infinity. Tighter than math::EPS_LEN_SQ so only a pair essentially exactly
  * zero loses its direction.
  */
-static constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
+inline constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
 
 /**
  * @brief Radius (a length, not squared) in the (x,z) plane below which the
  * north-pole azimuth is treated as undefined, so stereo() falls back to the
  * +real axis instead of scaling a near-zero direction.
  */
-static constexpr float STEREO_AZIMUTH_EPS = 1e-12f;
+inline constexpr float STEREO_AZIMUTH_EPS = 1e-12f;
 
 /**
  * @brief |v.y| (a length) at or below which gnomonic() floors the projection
  * divisor to avoid div-by-zero at the equator, clamping the result to the
  * sentinel. Unrelated to the coincidentally-equal math::EPS_NORMAL_SQ.
  */
-static constexpr float STEREO_EQUATOR_EPS = 1e-9f;
+inline constexpr float STEREO_EQUATOR_EPS = 1e-9f;
 
 /**
  * @brief Represents a Complex number.
