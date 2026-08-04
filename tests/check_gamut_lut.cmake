@@ -5,6 +5,11 @@
 # under REQUIRE_PYTHON (CI, which provisions both).
 # -D args: PYTHON_EXE, GENERATOR, SKIP_CODE, REQUIRE_PYTHON.
 
+# Script mode inherits no policies from the project, so every policy would
+# otherwise default to OLD, and the cmake_language(EXIT) below is a 3.29
+# feature. Matches the top-level CMakeLists.
+cmake_minimum_required(VERSION 3.29)
+
 if(NOT PYTHON_EXE OR NOT EXISTS "${PYTHON_EXE}")
   if(REQUIRE_PYTHON)
     message(FATAL_ERROR "gamut_lut pin: no Python interpreter, and HS_REQUIRE_GENERATORS is ON")
