@@ -564,8 +564,10 @@ jobs:
 
       - name: Configure + build WASM (compile check)
         # The build is teed for the warning gate below (2>&1: em++ warnings are on
-        # stderr). pipefail (GitHub's default bash) keeps a build failure fatal
-        # rather than masking it behind tee.
+        # stderr). An explicit `shell: bash` is what enables pipefail — GitHub's
+        # implicit shell is `bash -e {0}`, under which tee's status 0 masks a
+        # failed build.
+        shell: bash
         run: |
           # Create a throwaway daydream checkout so the install() rules are active
           # (DAYDREAM_DIR is resolved at configure time and must already exist).
@@ -581,6 +583,8 @@ jobs:
         # Compile-only (no run); reuses the emsdk + ccache provisioned above.
         # HS_WASM_DEV_BINDINGS=ON rides this build so the dev-only bindings
         # (MeshOps::getMaxBounds) compile somewhere; no other preset enables them.
+        # `shell: bash` for pipefail, as above.
+        shell: bash
         run: |
           cmake --preset wasm-debug -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install" \
             -DHS_WASM_DEV_BINDINGS=ON
@@ -1321,14 +1325,16 @@ jobs:
         # runner; the removal is what keeps the job cold if a build-objects cache
         # restore is ever added here.
         # -v echoes the compiler invocations; warnings go to stderr, so 2>&1 folds
-        # them into the captured log. pipefail (GitHub's default bash) makes a
-        # build failure fail the step rather than masking it behind tee.
+        # them into the captured log. An explicit `shell: bash` is what enables
+        # pipefail — GitHub's implicit shell is `bash -e {0}`, under which tee's
+        # status 0 masks a failed build.
         # Same environment set as teensy-size: profile/profile_o3 are the only
         # builds that compile targets/Profile/Profile.ino and the HS_PROFILE
         # paths in shared render code, so omitting them left that surface with
         # no warning coverage at either optimization level.
         # The ratchet re-checks coldness from the log, so a cache reaching this
         # build fails the job instead of silently shrinking the warning surface.
+        shell: bash
         run: |
           rm -rf .pio/build_cache .pio/build
           pio run -e holosphere -e holosphere_dma -e phantasm -e phantasm8 -e profile -e profile_o3 -v 2>&1 \
