@@ -331,7 +331,7 @@ def check_angle_roundtrip():
 
 def check_mirrors(color_h_path):
     """Diffs the mirrored OKLab matrices and gamut epsilon against color.h."""
-    with open(color_h_path, "r") as f:
+    with open(color_h_path, "r", encoding="utf-8") as f:
         text = f.read()
 
     ok = True
@@ -372,7 +372,7 @@ def check_provenance(committed_path):
     if not os.path.exists(committed_path):
         sys.stderr.write("missing %s\n" % committed_path)
         return False
-    with open(committed_path, "r") as f:
+    with open(committed_path, "r", encoding="utf-8") as f:
         committed = f.read()
 
     generated = render(build_table()[0])
@@ -412,7 +412,7 @@ def main():
     if not check_angle_roundtrip():
         sys.exit(1)
     table, worst_width = build_table()
-    with open(args.output_path, "w", newline="\n") as f:
+    with open(args.output_path, "w", encoding="utf-8", newline="\n") as f:
         f.write(render(table))
     sys.stderr.write(
         "wrote %s (%d x %d cells, %d entries)\n"
