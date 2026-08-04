@@ -4581,7 +4581,7 @@ inline void test_shapeshifter_preset_defaults() {
   if (spacing) {
     HS_EXPECT_TRUE(spacing->is_enum());
     HS_EXPECT_EQ(std::string_view(spacing->export_options[1]),
-                 std::string_view("RadiusSpacing::ADAPTIVE"));
+                 std::string_view("RadiusSpacing::SCREEN_BALANCED"));
   }
 
   HS_EXPECT_TRUE(ss.updateParameter("Alpha", 0.37f) == ParamSetResult::APPLIED);

@@ -184,8 +184,8 @@ struct ShapeShifterWhiteBox {
     return OracleEffect::alpha_falloff_at(falloff, radius_t, count);
   }
 
-  static float adaptive_planar_radius_t(float radius_t) {
-    return OracleEffect::adaptive_planar_radius_t(radius_t);
+  static float screen_balanced_radius_t(float radius_t) {
+    return OracleEffect::screen_balanced_radius_t(radius_t);
   }
 
   static std::vector<int> folded_draw_order(int count) {
@@ -485,6 +485,27 @@ inline void test_star_projection_policies_render_different_edges() {
                size_t{100});
 }
 
+inline void test_screen_balanced_spacing_is_opt_in_for_every_shape() {
+  using Shape = OracleEffect::ShapeType;
+  constexpr std::array<Shape, 5> SHAPES = {
+      Shape::PLANAR_POLYGON, Shape::SPHERICAL_POLYGON, Shape::FLOWER,
+      Shape::PLANAR_STAR, Shape::SPHERICAL_STAR};
+  for (Shape shape : SHAPES) {
+    OracleState state;
+    state.shape = shape;
+    state.function = OracleEffect::PhaseFunction::TRIANGLE;
+    state.count = 17;
+    state.sides = 7;
+    state.phase = 0.23f;
+    state.orientation = Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
+    const OracleFrame uniform = capture_frame(state, candidate_renderer());
+    state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
+    const OracleFrame balanced = capture_frame(state, candidate_renderer());
+    HS_EXPECT_GT(compare_buffers(uniform, balanced).different_pixels,
+                 size_t{100});
+  }
+}
+
 inline void test_star_options_and_shipping_presets_are_planar() {
   using Falloff = OracleEffect::AlphaFalloff;
   using Shape = OracleEffect::ShapeType;
@@ -498,16 +519,17 @@ inline void test_star_options_and_shipping_presets_are_planar() {
                              "ShapeType::PLANAR_STAR") == 0);
   HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_export_option(4),
                              "ShapeType::SPHERICAL_STAR") == 0);
-  HS_EXPECT_TRUE(
-      std::strcmp(ShapeShifterWhiteBox::spacing_option(1), "Adaptive") == 0);
+  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::spacing_option(1),
+                             "Screen Balanced") == 0);
   HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::spacing_export_option(1),
-                             "RadiusSpacing::ADAPTIVE") == 0);
+                             "RadiusSpacing::SCREEN_BALANCED") == 0);
   for (size_t index : {size_t{0}, size_t{2}, size_t{4}}) {
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_shape(index), Shape::PLANAR_STAR);
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_alpha_falloff(index),
                  Falloff::TOWARD_EQUATOR);
   }
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_spacing(0), Spacing::ADAPTIVE);
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_spacing(0),
+               Spacing::SCREEN_BALANCED);
   for (size_t index = 1; index < 9; ++index)
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_spacing(index), Spacing::UNIFORM);
   for (size_t index :
@@ -543,12 +565,12 @@ inline void test_high_count_star_preset_stays_within_visual_budget() {
   }
 }
 
-inline void test_adaptive_star_preset_stays_within_visual_budget() {
+inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
   state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
-  state.spacing = OracleEffect::RadiusSpacing::ADAPTIVE;
+  state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
   state.count = 208;
   state.sides = 7;
   state.phase = 0.249f;
@@ -617,7 +639,7 @@ inline void test_high_count_planar_star_caps_cover_chart_centers() {
   }};
   for (const auto [count, spacing] :
        {std::pair{144, OracleEffect::RadiusSpacing::UNIFORM},
-        std::pair{208, OracleEffect::RadiusSpacing::ADAPTIVE}}) {
+        std::pair{208, OracleEffect::RadiusSpacing::SCREEN_BALANCED}}) {
     for (const Quaternion &orientation : orientations) {
       OracleState state;
       state.shape = OracleEffect::ShapeType::PLANAR_STAR;
@@ -759,14 +781,14 @@ inline void test_folded_shapes_draw_from_equator_to_both_poles() {
                (std::vector<int>{2, 3, 1, 4, 0}));
 }
 
-inline void test_adaptive_planar_spacing_follows_sampling_envelope() {
+inline void test_screen_balanced_spacing_follows_sampling_envelope() {
   constexpr int COUNT = 208;
   constexpr float DENSITY_FLOOR = 0.5f;
   constexpr float DENSITY_INTEGRAL = 1.1278247916f;
   auto mapped = [](int index) {
     const float radius_t =
         (static_cast<float>(index) + 0.5f) / static_cast<float>(COUNT);
-    return ShapeShifterWhiteBox::adaptive_planar_radius_t(radius_t);
+    return ShapeShifterWhiteBox::screen_balanced_radius_t(radius_t);
   };
 
   const float equator_equivalent_count =
@@ -784,8 +806,8 @@ inline void test_adaptive_planar_spacing_follows_sampling_envelope() {
         (static_cast<float>(index) + 0.5f) / static_cast<float>(COUNT);
     const float opposite_radius_t = 1.0f - radius_t;
     HS_EXPECT_NEAR(
-        ShapeShifterWhiteBox::adaptive_planar_radius_t(radius_t) +
-            ShapeShifterWhiteBox::adaptive_planar_radius_t(opposite_radius_t),
+        ShapeShifterWhiteBox::screen_balanced_radius_t(radius_t) +
+            ShapeShifterWhiteBox::screen_balanced_radius_t(opposite_radius_t),
         1.0f, 1e-6f);
   }
 }
@@ -826,9 +848,10 @@ inline int run_shapeshifter_oracle_tests() {
   test_reference_matrix_is_exact_and_nonblack();
   test_candidate_matrix_stays_within_visual_budget();
   test_star_projection_policies_render_different_edges();
+  test_screen_balanced_spacing_is_opt_in_for_every_shape();
   test_star_options_and_shipping_presets_are_planar();
   test_high_count_star_preset_stays_within_visual_budget();
-  test_adaptive_star_preset_stays_within_visual_budget();
+  test_screen_balanced_star_preset_stays_within_visual_budget();
   test_high_count_star_preset_covers_north_pole();
   test_high_count_planar_star_caps_cover_chart_centers();
   test_high_count_spherical_star_contours_reach_display_north();
@@ -837,7 +860,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_palette_position_mirrors_at_equator();
   test_opposite_halves_direction();
   test_folded_shapes_draw_from_equator_to_both_poles();
-  test_adaptive_planar_spacing_follows_sampling_envelope();
+  test_screen_balanced_spacing_follows_sampling_envelope();
   test_preset_transition_snaps();
   return fixture.result();
 }

@@ -45,7 +45,7 @@ public:
   enum class AlphaFalloff : uint8_t { CONSTANT_HALF, TOWARD_EQUATOR };
 
   /** @brief Radial distributions available to presets. */
-  enum class RadiusSpacing : uint8_t { UNIFORM, ADAPTIVE };
+  enum class RadiusSpacing : uint8_t { UNIFORM, SCREEN_BALANCED };
 
   static constexpr int NUM_SHAPES =
       static_cast<int>(ShapeType::SPHERICAL_STAR) + 1;
@@ -54,7 +54,7 @@ public:
   static constexpr int NUM_ALPHA_FALLOFFS =
       static_cast<int>(AlphaFalloff::TOWARD_EQUATOR) + 1;
   static constexpr int NUM_RADIUS_SPACINGS =
-      static_cast<int>(RadiusSpacing::ADAPTIVE) + 1;
+      static_cast<int>(RadiusSpacing::SCREEN_BALANCED) + 1;
   /** @brief Count slider ceiling. */
   static constexpr int MAX_SHAPES = 288;
 
@@ -90,7 +90,7 @@ public:
     register_animated_param("Spacing", &params.spacing, SPACING_OPTIONS,
                             SPACING_EXPORT_OPTIONS, NUM_RADIUS_SPACINGS);
 
-    planar_radius_t = persistent_arena.allocate_n<float>(MAX_SHAPES);
+    spaced_radius_t = persistent_arena.allocate_n<float>(MAX_SHAPES);
     phase_sin = persistent_arena.allocate_n<float>(MAX_SHAPES);
     phase_cos = persistent_arena.allocate_n<float>(MAX_SHAPES);
     waveform = persistent_arena.allocate_n<float>(MAX_SHAPES);
@@ -167,9 +167,10 @@ private:
                                                           "Toward Equator"};
   static constexpr const char *ALPHA_FALLOFF_EXPORT_OPTIONS[] = {
       "AlphaFalloff::CONSTANT_HALF", "AlphaFalloff::TOWARD_EQUATOR"};
-  static constexpr const char *SPACING_OPTIONS[] = {"Uniform", "Adaptive"};
+  static constexpr const char *SPACING_OPTIONS[] = {"Uniform",
+                                                    "Screen Balanced"};
   static constexpr const char *SPACING_EXPORT_OPTIONS[] = {
-      "RadiusSpacing::UNIFORM", "RadiusSpacing::ADAPTIVE"};
+      "RadiusSpacing::UNIFORM", "RadiusSpacing::SCREEN_BALANCED"};
 
   /** @brief Tunable rendering state stored by each preset. */
   struct Params {
@@ -264,8 +265,8 @@ private:
     }
   };
 
-  /** Maps contour quantiles to the radial/circumferential sampling envelope. */
-  HS_COLD_MEMBER static float adaptive_planar_radius_t(float radius_t) {
+  /** Maps contour quantiles to the screen-space sampling envelope. */
+  HS_COLD_MEMBER static float screen_balanced_radius_t(float radius_t) {
     constexpr float DENSITY_FLOOR = 0.5f;
     constexpr float BREAK_ANGLE = PI_F / 6.0f;
     constexpr float DENSITY_INTEGRAL = 1.1278247916f;
@@ -281,17 +282,18 @@ private:
   }
 
   HS_COLD_MEMBER void prepare_count(int count) {
-    const bool adaptive_spacing = params.spacing == RadiusSpacing::ADAPTIVE;
+    const bool screen_balanced =
+        params.spacing == RadiusSpacing::SCREEN_BALANCED;
     for (int i = 0; i < count; ++i) {
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       phase_sin[i] = sinf(2.0f * PI_F * radius_t);
       phase_cos[i] = cosf(2.0f * PI_F * radius_t);
-      planar_radius_t[i] =
-          adaptive_spacing ? adaptive_planar_radius_t(radius_t) : radius_t;
+      spaced_radius_t[i] =
+          screen_balanced ? screen_balanced_radius_t(radius_t) : radius_t;
       planar_star_radius_trig[i] =
           Plot::Star<Plot::PlanarProjection>::radius_trig(2.0f *
-                                                          planar_radius_t[i]);
+                                                          spaced_radius_t[i]);
       folded_draw_indices[i] =
           static_cast<uint16_t>(folded_draw_index(count, i));
     }
@@ -367,9 +369,9 @@ private:
                                                   int sides,
                                                   const BakedPalette &palette) {
     const float radius_t = 0.5f / static_cast<float>(count);
-    draw_planar_star_pole_cap(canvas, basis, planar_radius_t[0], radius_t,
+    draw_planar_star_pole_cap(canvas, basis, spaced_radius_t[0], radius_t,
                               sides, palette);
-    draw_planar_star_pole_cap(canvas, basis, planar_radius_t[count - 1],
+    draw_planar_star_pole_cap(canvas, basis, spaced_radius_t[count - 1],
                               1.0f - radius_t, sides, palette);
   }
 
@@ -446,8 +448,7 @@ private:
       if (continuous_star || starts_pair)
         pair_color = palette.get(radius_t);
       const Color4 color = pair_color;
-      const float geometry_radius_t =
-          planar_star ? planar_radius_t[i] : radius_t;
+      const float geometry_radius_t = spaced_radius_t[i];
       const float radius = 2.0f * geometry_radius_t;
       if (planar_star) {
         constexpr float AA_PAD = 2.0f * PI_F / W;
@@ -507,8 +508,7 @@ private:
           continuous_star ? count - ordinal - 1 : folded_draw_indices[ordinal];
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-      const float geometry_radius_t =
-          shape == ShapeType::PLANAR_STAR ? planar_radius_t[i] : radius_t;
+      const float geometry_radius_t = spaced_radius_t[i];
       const float radius = 2.0f * geometry_radius_t;
       const float direction = continuous_star ? star_phase_direction(radius)
                                               : phase_direction(radius);
@@ -817,7 +817,7 @@ private:
 
   static constexpr std::array<PresetEntry<Params>, 9> PRESETS = {{
       {{ShapeType::PLANAR_STAR, 208.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
-        AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::ADAPTIVE}},
+        AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::SCREEN_BALANCED}},
       {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f,
         0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
       {{ShapeType::PLANAR_STAR, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f,
@@ -862,7 +862,7 @@ private:
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
   BakedPalette baked_constant;
   BakedPalette baked_toward_equator;
-  float *planar_radius_t = nullptr;
+  float *spaced_radius_t = nullptr;
   float *phase_sin = nullptr;
   float *phase_cos = nullptr;
   float *waveform = nullptr;
