@@ -57,15 +57,41 @@ async function main() {
 
   const { default: createHolosphereModule } = await import(pathToFileURL(jsPath));
 
+  // The tool pages' CSP grants 'wasm-unsafe-eval' but not 'unsafe-eval', which
+  // holds only while the glue generates no code at runtime. Module creation is
+  // where embind would craft its invokers with `new Function`, so count any
+  // Function construction or invocation across it; the assertion is below, once
+  // the counter is restored. A build that lost -sDYNAMIC_EXECUTION=0 /
+  // -sEMBIND_AOT=1 fails here instead of throwing CSP errors in the browser.
+  const RealFunction = globalThis.Function;
+  let dynamicExecCalls = 0;
+  globalThis.Function = new Proxy(RealFunction, {
+    construct: (t, args, nt) => { dynamicExecCalls++; return Reflect.construct(t, args, nt); },
+    apply: (t, self, args) => { dynamicExecCalls++; return Reflect.apply(t, self, args); },
+  });
+
   // Surface engine-side hs::log output and any abort() so a trap is visible in
   // the CI log rather than a bare non-zero exit.
-  const Module = await createHolosphereModule({
-    print: (s) => console.log(`[wasm] ${s}`),
-    printErr: (s) => console.error(`[wasm:err] ${s}`),
-  });
+  let Module;
+  try {
+    Module = await createHolosphereModule({
+      print: (s) => console.log(`[wasm] ${s}`),
+      printErr: (s) => console.error(`[wasm:err] ${s}`),
+    });
+  } finally {
+    globalThis.Function = RealFunction;
+  }
 
   let failures = 0;
   const fail = (msg) => { console.error(`  FAIL: ${msg}`); failures++; };
+
+  if (dynamicExecCalls > 0) {
+    fail(`module creation generated code ${dynamicExecCalls} time(s) — the glue ` +
+      `needs 'unsafe-eval', which the tool pages' CSP does not grant. Check the ` +
+      `-sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 link options.`);
+  } else {
+    console.log('CSP: module creation generated no code (no eval / new Function)');
+  }
 
   // Run-wide: at least one pixel somewhere in the sweep must be non-zero. A
   // single effect legitimately renders black, but an all-zero sweep means the
