@@ -357,33 +357,21 @@ public:
 
     // Collapse each distinct Orientation exactly once, before any animation steps
     // it: collapsing per-animation would discard the sub-frame motion-blur history
-    // a sharing animation already built this frame. Track the already-collapsed
-    // ids in a fixed-size stack scratch set.
-    const void *collapsed_ids[MAX_EVENTS];
-    int collapsed_n = 0;
+    // a sharing animation already built this frame. The earliest eligible event
+    // holding an id collapses it; later events sharing that id find it upstream.
     for (int i = 0; i < active_cnt; ++i) {
-      auto &e = global_timeline_events[i];
-      if (event_paused(e))
-        continue;
-      if (global_timeline_t < e.start)
-        continue;
-      IAnimation *anim = e.animation();
-      if (!anim)
-        continue;
-      const void *id = anim->orientation_id();
+      const void *id = event_orientation_id(global_timeline_events[i]);
       if (!id)
         continue;
       bool already_collapsed = false;
-      for (int j = 0; j < collapsed_n; ++j) {
-        if (collapsed_ids[j] == id) {
+      for (int j = 0; j < i; ++j) {
+        if (event_orientation_id(global_timeline_events[j]) == id) {
           already_collapsed = true;
           break;
         }
       }
-      if (!already_collapsed) {
-        anim->collapse_orientation();
-        collapsed_ids[collapsed_n++] = id;
-      }
+      if (!already_collapsed)
+        global_timeline_events[i].animation()->collapse_orientation();
     }
 
     for (int i = 0; i < active_cnt; ++i) {
@@ -489,6 +477,14 @@ public:
 private:
   static bool event_paused(const TimelineEvent &event) {
     return event.paused && *event.paused;
+  }
+
+  /// Orientation id of an event due to step this frame, nullptr otherwise.
+  static const void *event_orientation_id(TimelineEvent &event) {
+    if (event_paused(event) || global_timeline_t < event.start)
+      return nullptr;
+    IAnimation *anim = event.animation();
+    return anim ? anim->orientation_id() : nullptr;
   }
 
   /**
