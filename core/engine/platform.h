@@ -203,6 +203,10 @@ inline constexpr int H_OFFSET = 3;
 #define FLASHMEM
 #endif
 
+#ifndef FASTRUN
+#define FASTRUN
+#endif
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/bind.h>
@@ -278,7 +282,7 @@ inline void flush_log() { fflush(stdout); }
  */
 #define HS_CONCAT_INNER(a, b) a##b
 /**
- * @brief Pastes two tokens, expanding macros such as __LINE__ first.
+ * @brief Pastes two tokens, expanding macros such as __COUNTER__ first.
  * @param a Left token.
  * @param b Right token.
  */
