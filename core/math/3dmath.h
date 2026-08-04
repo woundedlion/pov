@@ -227,8 +227,9 @@ struct Vector {
    *   value compares; do not rely on it for ordering or container keys.
    */
   bool operator==(const Vector &v) const {
-    return std::abs(x - v.x) <= TOLERANCE && std::abs(y - v.y) <= TOLERANCE &&
-           std::abs(z - v.z) <= TOLERANCE;
+    return std::abs(x - v.x) <= math::TOLERANCE &&
+           std::abs(y - v.y) <= math::TOLERANCE &&
+           std::abs(z - v.z) <= math::TOLERANCE;
   }
 
   /**
@@ -641,7 +642,7 @@ struct Quaternion {
    *   rotation equality: `q` and `-q` are the same rotation but compare unequal.
    */
   bool operator==(const Quaternion &q) const {
-    return std::abs(q.r - r) <= TOLERANCE && q.v == v;
+    return std::abs(q.r - r) <= math::TOLERANCE && q.v == v;
   }
 
   /**
@@ -1309,13 +1310,13 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
 
   // Antiparallel (180°): seed the cross with least_parallel_axis(from) so the
   // axis we normalize through stays well-conditioned.
-  if (d < -1.0f + TOLERANCE) {
+  if (d < -1.0f + math::TOLERANCE) {
     Vector axis = cross(least_parallel_axis(from), from);
     axis.normalize();
     return make_rotation(axis, PI_F);
   }
 
-  if (d > 1.0f - TOLERANCE) {
+  if (d > 1.0f - math::TOLERANCE) {
     return Quaternion(1, 0, 0, 0); // Identity
   }
 
@@ -1554,7 +1555,7 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
     d = -d;
   }
 
-  if (d > (1 - TOLERANCE)) {
+  if (d > 1.0f - math::TOLERANCE) {
     Quaternion r = p + t * (q - p);
     return r.normalized();
   }
