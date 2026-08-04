@@ -6,6 +6,11 @@
 # silently flashing old code — see the validation notes in the skill). On a
 # marker/header mismatch it wipes the env build dir and retries once.
 #
+# Host: Windows + Git Bash. The flash and the ELF attestation shell out to the
+# PlatformIO loader's .exe tools through cygpath, and device_lock.sh enumerates
+# boards by COM name; on any other host the run fails at the flash step and the
+# per-board lock degrades to one bench-wide lock.
+#
 # Takes a per-board device lock (tools/device_lock.sh) around the whole
 # build+flash+capture, so concurrent agents run on different boards, and queue
 # instead of clobbering when every board is busy. HS_DEVICE_WAIT=<s> to queue
