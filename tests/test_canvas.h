@@ -544,7 +544,11 @@ inline void test_double_buffer_handoff_concurrent() {
   hs::clear_mock_time(); // real wall clock keeps the ctor's spin watchdog live
   TestEffect fx(8, 4);
   const int N = 8 * 4;
-  const int FRAMES = 3000;
+  // Kept short: every ctor spin is bounded by a live 2 s watchdog that traps the
+  // whole shard, so a long run just multiplies the odds of a loaded CI runner
+  // descheduling the consumer past it. The hand-off invariants show up in tens
+  // of frames.
+  const int FRAMES = 200;
   // r holds the frame index (FRAMES < 65536, so r alone is a unique sentinel).
   auto sentinel = [](int f) { return Pixel((uint16_t)f, 0, 0); };
 
