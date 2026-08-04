@@ -334,7 +334,7 @@ private:
     const float radius = 2.0f * geometry_radius_t;
     const auto cap = get_antipode(basis, radius);
     constexpr float MIN_CAP_RADIUS = 8.0f / W;
-    if (cap.second >= MIN_CAP_RADIUS)
+    if (cap.second * Plot::STAR_INNER_RATIO >= MIN_CAP_RADIUS)
       return;
 
     Color4 color = palette.get(palette_radius_t);
