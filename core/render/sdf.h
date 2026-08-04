@@ -2366,6 +2366,10 @@ struct Face {
       : build_height(height), build_width(clip ? clip->w : 0),
         full_width(true) {
 
+    count = indices.size();
+    HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
+             "Face: vertex count must be in (0, MAX_VERTS]");
+
     // Early vertical exit: a face whose latitude band (plus AA margin) maps to
     // an empty row range can never be rasterized.
     const bool phi_culled = [&] {
@@ -2377,10 +2381,6 @@ struct Face {
       y_max = 0;
       return;
     }
-
-    count = indices.size();
-    HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
-             "Face: vertex count must be in (0, MAX_VERTS]");
 
     {
       HS_PROFILE_DEEP(face_project);
