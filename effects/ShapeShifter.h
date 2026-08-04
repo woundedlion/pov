@@ -370,7 +370,7 @@ private:
    * @param fill Callable that samples the primitive into the bound fragments.
    */
   template <typename F>
-  __attribute__((noinline)) void
+  HS_NOINLINE_NOCLONE void
   draw_sampled(Canvas &canvas, size_t capacity, const Basis *planar_basis,
                bool balanced_sampling, const F &fragment_shader, auto &&fill) {
     ScratchScope guard(scratch_arena_a);
@@ -501,6 +501,9 @@ private:
    * @param sides Polygon side, flower petal, or star point count.
    * @param fragment_shader Per-fragment shader.
    * @param shape_phase Primitive rotation in radians.
+   * @details Cold (flash): the five-way switch instantiates a sampler lambda
+   * per shape, so its body stays out of ITCM even though it runs once per
+   * shape (up to MAX_SHAPES per frame); the hot work is inside Plot::rasterize.
    */
   template <typename F>
   HS_FLASH_MEMBER void
