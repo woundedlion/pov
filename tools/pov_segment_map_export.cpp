@@ -100,6 +100,7 @@ void emit_x_cols(int w, const char *tail) {
 int main() {
   std::printf("{\n");
   std::printf("  \"source\": \"hardware/pov_segment_map.h\",\n");
+  std::printf("  \"generator\": \"tools/pov_segment_map_export.cpp\",\n");
   std::printf("  \"configs\": [\n");
   for (int c = 0; c < CONFIG_COUNT; c++)
     emit_config(CONFIGS[c], c == CONFIG_COUNT - 1 ? "" : ",");
