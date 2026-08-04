@@ -893,10 +893,9 @@ inline void test_warped_volume_bounding_distance_never_over_estimates() {
   };
 
   int violations = 0;
-  uint32_t rs = 0x5eed1337u;
-  const auto next = [&rs]() {
-    rs = rs * 1664525u + 1013904223u;
-    return static_cast<double>(rs >> 8) / 16777216.0;
+  hs::Pcg32 rng(0x5eed1337u);
+  const auto next = [&rng]() {
+    return static_cast<double>(rand_uniform(rng, 0.0f, 1.0f));
   };
 
   for (const Case &c : cases) {
@@ -921,9 +920,11 @@ inline void test_warped_volume_bounding_distance_never_over_estimates() {
             static_cast<float>(rr * std::sin(ph) + c.A * std::sin(c.n * t)),
             static_cast<float>(X * std::sin(t)));
       } else {
-        p = Vector(static_cast<float>((next() * 2 - 1) * reach),
-                   static_cast<float>((next() * 2 - 1) * reach),
-                   static_cast<float>((next() * 2 - 1) * reach));
+        const double px = (next() * 2 - 1) * reach;
+        const double py = (next() * 2 - 1) * reach;
+        const double pz = (next() * 2 - 1) * reach;
+        p = Vector(static_cast<float>(px), static_cast<float>(py),
+                   static_cast<float>(pz));
       }
 
       const double bd = wv.bounding_distance(p);
