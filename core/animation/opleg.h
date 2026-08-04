@@ -304,7 +304,8 @@ public:
     HS_CHECK(spec.settle_frames >= 0 && edge.settle == (spec.settle_frames > 0),
              "OpLeg: settle frames disagree with the edge");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-             handoff.prev_faces > 0);
+                 handoff.prev_faces > 0,
+             "OpLeg: edge sweep leg has an incomplete palette handoff");
     Transients &tr = bind_transients(arena);
 
     MeshOps::clone(seed, tr.seed, arena);
@@ -364,7 +365,8 @@ public:
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-             handoff.prev_faces > 0);
+                 handoff.prev_faces > 0,
+             "OpLeg: param sweep leg has an incomplete palette handoff");
     Transients &tr = bind_transients(arena);
 
     // Borrowed seed: the swept op reads the caller's live mesh each frame
@@ -440,7 +442,8 @@ public:
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-             handoff.prev_faces > 0);
+                 handoff.prev_faces > 0,
+             "OpLeg: hankin sweep leg has an incomplete palette handoff");
     Transients &tr = bind_transients(arena);
 
     // No seed clone: the compiled hankin topology carries the base vertices
@@ -538,7 +541,8 @@ public:
     HS_CHECK(spec.bake || spec.iterations >= 1,
              "OpLeg: relax leg needs a positive iteration count");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-             handoff.prev_faces > 0);
+                 handoff.prev_faces > 0,
+             "OpLeg: relax leg has an incomplete palette handoff");
     Transients &tr = bind_transients(arena);
 
     // relax_at slerps out of the seed vertices every frame, so the seed stays
@@ -611,7 +615,8 @@ public:
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-             handoff.prev_faces > 0);
+                 handoff.prev_faces > 0,
+             "OpLeg: medial leg has an incomplete palette handoff");
     Transients &tr = bind_transients(arena);
 
     tr.kind = LegKind::MEDIAL_SLERP;
@@ -706,7 +711,8 @@ public:
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(spec.to_positions, "OpLeg: reconcile leg carries no endpoints");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-             handoff.prev_faces > 0);
+                 handoff.prev_faces > 0,
+             "OpLeg: reconcile leg has an incomplete palette handoff");
     Transients &tr = bind_transients(arena);
 
     tr.kind = LegKind::MEDIAL_SLERP;
@@ -780,7 +786,8 @@ public:
         draw_fn(draw) {
     HS_CHECK(spec.gate_frames >= 1, "OpLeg needs a positive gate length");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-             handoff.prev_faces > 0);
+                 handoff.prev_faces > 0,
+             "OpLeg: gated swap leg has an incomplete palette handoff");
     Transients &tr = bind_transients(arena);
 
     MeshOps::clone(seed, tr.seed, arena);
@@ -1204,7 +1211,8 @@ private:
     MeshOps::classify_faces_by_topology(tr.seed, scratch_arena_a,
                                         scratch_arena_b, arena);
     tr.seed_topo = std::move(tr.seed.topology);
-    HS_CHECK(tr.seed_topo.size() == tr.seed.face_counts.size());
+    HS_CHECK(tr.seed_topo.size() == tr.seed.face_counts.size(),
+             "OpLeg: gated seed classification is not one class per face");
     HS_CHECK(handoff.prev_faces == tr.seed.face_counts.size(),
              "OpLeg: gated swap departs from a mesh that is not its seed");
 
@@ -1212,7 +1220,8 @@ private:
     MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                         scratch_arena_b, arena);
     tr.topo = std::move(arrival.topology);
-    HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+    HS_CHECK(tr.topo.size() == arrival.face_counts.size(),
+             "OpLeg: gated arrival classification is not one class per face");
 
     // Provenance across the swap: the children inherit their parent face's
     // (kis) or nearest orbit face's (dual) palette — colour locality.
@@ -1826,7 +1835,8 @@ private:
       } else if (f < handoff.prev_faces) {
         from = handoff.prev_face_palette[f];
       }
-      HS_CHECK(from < PALETTES && to < PALETTES);
+      HS_CHECK(from < PALETTES && to < PALETTES,
+               "OpLeg: crossfade ramp endpoint outside the palette bank");
       from_palette[f] = from;
 
       tr.face_ramp.push_back(intern_palette_ramp(tr, from, to));
