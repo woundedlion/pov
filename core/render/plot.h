@@ -304,6 +304,54 @@ struct PlanarEdgeSampler {
   }
 
   /**
+   * @brief Unprojects the chart line at PROJECTION fraction p, carrying the
+   *        analytic tangent when `WithTangent`.
+   * @tparam WithTangent Also derive and normalize the tangent; the position-only
+   *         instantiation discards the rate terms before they are computed.
+   * @details always_inline so the position-only callers pay for neither the
+   * discarded tangent nor a call.
+   */
+  template <bool WithTangent>
+  __attribute__((always_inline)) SamplePT sample_at(float p) const {
+    const float x = proj1.first + dx * p;
+    const float y = proj1.second + dy * p;
+    const float r2 = x * x + y * y;
+    if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
+      if constexpr (!WithTangent)
+        return {basis->v, Vector()};
+      HS_PLOT_COUNT(normalizations);
+      return {basis->v, normalized_or(chart_tangent, Vector())};
+    }
+
+    const float radius = sqrtf(r2);
+    const float inv_radius = 1.0f / radius;
+    float sin_radius;
+    float cos_radius;
+    if (radius <= PI_F) {
+      fast_sincosf_0_pi(radius, sin_radius, cos_radius);
+    } else {
+      sin_radius = fast_sinf(radius);
+      cos_radius = fast_cosf(radius);
+    }
+    const Vector radial = (basis->u * x) + (basis->w * y);
+    const float radial_scale = sin_radius * inv_radius;
+    const Vector position =
+        (basis->v * cos_radius) + (radial * radial_scale);
+    if constexpr (!WithTangent)
+      return {position, Vector()};
+
+    const float radius_rate = (x * dx + y * dy) * inv_radius;
+    const float scale_rate =
+        (radius * cos_radius - sin_radius) * inv_radius * inv_radius;
+    const Vector tangent =
+        (basis->v * (-sin_radius * radius_rate)) +
+        (chart_tangent * radial_scale) +
+        (radial * (scale_rate * radius_rate));
+    HS_PLOT_COUNT(normalizations);
+    return {position, normalized_or(tangent, Vector())};
+  }
+
+  /**
    * @brief Position at arc fraction s in [0,1].
    * @details Inverts the piecewise-linear cumulative-arc table to a projection
    * parameter, then unprojects. A short scan over PLANAR_LEN_SAMPLES floats —
@@ -315,99 +363,17 @@ struct PlanarEdgeSampler {
 
   /** @brief Evaluates position and analytic tangent without a second unproject. */
   SamplePT one_pass(float s) const {
-    const float p = projection_fraction(s);
-    const float x = proj1.first + dx * p;
-    const float y = proj1.second + dy * p;
-    const float r2 = x * x + y * y;
-    if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
-      HS_PLOT_COUNT(normalizations);
-      return {basis->v, normalized_or(chart_tangent, Vector())};
-    }
-
-    const float radius = sqrtf(r2);
-    const float inv_radius = 1.0f / radius;
-    float sin_radius;
-    float cos_radius;
-    if (radius <= PI_F) {
-      fast_sincosf_0_pi(radius, sin_radius, cos_radius);
-    } else {
-      sin_radius = fast_sinf(radius);
-      cos_radius = fast_cosf(radius);
-    }
-    const Vector radial = (basis->u * x) + (basis->w * y);
-    const float radial_scale = sin_radius * inv_radius;
-    const Vector position =
-        (basis->v * cos_radius) + (radial * radial_scale);
-
-    const float radius_rate = (x * dx + y * dy) * inv_radius;
-    const float scale_rate =
-        (radius * cos_radius - sin_radius) * inv_radius * inv_radius;
-    const Vector tangent =
-        (basis->v * (-sin_radius * radius_rate)) +
-        (chart_tangent * radial_scale) +
-        (radial * (scale_rate * radius_rate));
-    HS_PLOT_COUNT(normalizations);
-    return {position, normalized_or(tangent, Vector())};
+    return sample_at<true>(projection_fraction(s));
   }
 
   /** @brief Evaluates an increasing sequence without rescanning arc intervals. */
   SamplePT one_pass_monotonic(float s, int &interval) const {
-    const float p = projection_fraction_monotonic(s, interval);
-    const float x = proj1.first + dx * p;
-    const float y = proj1.second + dy * p;
-    const float r2 = x * x + y * y;
-    if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
-      HS_PLOT_COUNT(normalizations);
-      return {basis->v, normalized_or(chart_tangent, Vector())};
-    }
-
-    const float radius = sqrtf(r2);
-    const float inv_radius = 1.0f / radius;
-    float sin_radius;
-    float cos_radius;
-    if (radius <= PI_F) {
-      fast_sincosf_0_pi(radius, sin_radius, cos_radius);
-    } else {
-      sin_radius = fast_sinf(radius);
-      cos_radius = fast_cosf(radius);
-    }
-    const Vector radial = (basis->u * x) + (basis->w * y);
-    const float radial_scale = sin_radius * inv_radius;
-    const Vector position =
-        (basis->v * cos_radius) + (radial * radial_scale);
-
-    const float radius_rate = (x * dx + y * dy) * inv_radius;
-    const float scale_rate =
-        (radius * cos_radius - sin_radius) * inv_radius * inv_radius;
-    const Vector tangent =
-        (basis->v * (-sin_radius * radius_rate)) +
-        (chart_tangent * radial_scale) +
-        (radial * (scale_rate * radius_rate));
-    HS_PLOT_COUNT(normalizations);
-    return {position, normalized_or(tangent, Vector())};
+    return sample_at<true>(projection_fraction_monotonic(s, interval));
   }
 
   /** @brief Evaluates only position for an increasing sample sequence. */
   Vector position_monotonic(float s, int &interval) const {
-    const float p = projection_fraction_monotonic(s, interval);
-    const float x = proj1.first + dx * p;
-    const float y = proj1.second + dy * p;
-    const float r2 = x * x + y * y;
-    if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC)
-      return basis->v;
-
-    const float radius = sqrtf(r2);
-    float sin_radius;
-    float cos_radius;
-    if (radius <= PI_F) {
-      fast_sincosf_0_pi(radius, sin_radius, cos_radius);
-    } else {
-      sin_radius = fast_sinf(radius);
-      cos_radius = fast_cosf(radius);
-    }
-    const Vector radial = (basis->u * x) + (basis->w * y);
-    return (basis->v * cos_radius) +
-           (radial * (sin_radius * (1.0f / radius)));
+    return sample_at<false>(projection_fraction_monotonic(s, interval)).pos;
   }
 
   /**
