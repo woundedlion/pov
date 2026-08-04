@@ -302,7 +302,10 @@ private:
    * @param canvas Target canvas to plot into.
    * @param age Trail age fed to the Trails filter (0 = newest).
    * @details The head node is a single half-alpha point; each following node is
-   *          a half-alpha line back to its predecessor.
+   *          a half-alpha line back to its predecessor. Trails buffers these
+   *          points and the same-frame flush() re-emits them at t = 0, so the
+   *          live strand composites twice: once here at half alpha, once at
+   *          color()'s full alpha.
    */
   void draw_nodes(Canvas &canvas, float age) {
     for (size_t i = 0; i < NUM_NODES; ++i) {
