@@ -3992,10 +3992,13 @@ inline void test_dual_metric_radial_vs_azimuthal() {
 }
 
 /**
- * @brief planar_arc_cumul is monotone and totals planar_arc_length.
+ * @brief planar_arc_cumul is monotone and totals what the rasterizer walks.
  * @details Locks the table shared by the rasterizer's pre-pass and per-segment
- *          accumulator: it starts at 0, rises strictly, and its last entry is
- *          exactly planar_arc_length, so both consumers sum identical lengths.
+ *          accumulator: it starts at 0, rises strictly, and totals what the
+ *          span-based edge sampler independently accumulates from its cached
+ *          interior points, so both consumers sum identical lengths. The total
+ *          is also bounded below by the geodesic angle, which no amount of
+ *          agreement between the two paths would give.
  */
 inline void test_planar_arc_cumul_monotone_and_endpoints() {
   hs::random().seed(0xF00D);
@@ -4021,8 +4024,24 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     HS_EXPECT_NEAR(cumul[0], 0.0f, 1e-6f);
     for (int k = 1; k <= Plot::PLANAR_LEN_SAMPLES; ++k)
       HS_EXPECT_GT(cumul[k], cumul[k - 1]);
-    HS_EXPECT_NEAR(cumul[Plot::PLANAR_LEN_SAMPLES],
-                   Plot::planar_arc_length(a, b, basis), 1e-6f);
+    // The per-segment sampler rebuilds the table from the cull span's cached
+    // interior points — a second implementation, not a second call to this one
+    // — and the pre-pass takes planar_arc_length. All three must total the
+    // same length.
+    const Plot::PlanarEdgeSpan span = Plot::make_planar_edge_span(a, b, basis);
+    const Vector span_end = Plot::azimuthal_unproject(
+        span.p1.first + span.dX, span.p1.second + span.dY, basis);
+    const Plot::PlanarEdgeSampler sampler =
+        Plot::make_planar_edge_sampler(span, span_end, basis);
+    HS_EXPECT_NEAR(cumul[Plot::PLANAR_LEN_SAMPLES], sampler.dist, 1e-5f);
+    HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis), sampler.dist, 1e-5f);
+    // Spherical triangle inequality against the endpoints the table actually
+    // joins: a total that dropped, duplicated, or mis-scaled a chord violates
+    // it. No agreement between the accumulators can supply this.
+    const Vector chart_start =
+        Plot::azimuthal_unproject(p1.first, p1.second, basis);
+    HS_EXPECT_GE(cumul[Plot::PLANAR_LEN_SAMPLES],
+                 angle_between(chart_start, span_end) - 1e-4f);
     ++checked;
   }
   HS_EXPECT_GT(checked, 1500);

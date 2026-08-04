@@ -1902,6 +1902,16 @@ inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
     HS_EXPECT_NEAR(term.face_phase(touch + f, o, f), 1.0f, 1e-5f);
     HS_EXPECT_NEAR(term.face_phase(1.0f, o, f), 1.0f, 1e-5f);
     HS_EXPECT_NEAR(term.face_phase(0.0f, o, f), 0.0f, 1e-5f);
+    // Independent of the phase algebra: a clamped monotone ramp over the whole
+    // transition, so no sampled phase can back up or leave [0, 1].
+    float prev = 0.0f;
+    for (int i = 0; i <= 40; ++i) {
+      const float ph = term.face_phase(i / 40.0f, o, f);
+      HS_EXPECT_GE(ph, prev - 1e-5f);
+      HS_EXPECT_GE(ph, 0.0f);
+      HS_EXPECT_LE(ph, 1.0f);
+      prev = ph;
+    }
   }
   carousel.schedule_segue(tl, carousel.front_index(),
                            [](Canvas &, float) {}, 8, 2);
@@ -2052,6 +2062,29 @@ inline void test_breakdown_fades_classes_sequentially() {
     HS_EXPECT_NEAR(bd.face_phase(Segue::Breakdown::BLACK_DWELL, o), 0.0f,
                    1e-5f);
     HS_EXPECT_NEAR(bd.face_phase(0.0f, o), 0.0f, 1e-6f);
+  }
+
+  // Independent of the band algebra: every class is a clamped monotone ramp,
+  // and at any phase a later-ranked class is never behind an earlier one — the
+  // staggered order is what makes this a breakdown rather than a crossfade.
+  for (int step = 0; step <= 40; ++step) {
+    const float t = step / 40.0f;
+    // Rank n-1 owns the earliest window, so descending rank never fades later.
+    float prev_phase = 1.0f;
+    for (int r = n - 1; r >= 0; --r) {
+      int cls = -1;
+      for (int c = 0; c < n; ++c)
+        if (bd.rank[c] == r)
+          cls = c;
+      HS_EXPECT_GE(cls, 0);
+      if (cls < 0)
+        continue;
+      const float ph = bd.face_phase(t, bd.face_offset(any, 0, cls));
+      HS_EXPECT_GE(ph, 0.0f);
+      HS_EXPECT_LE(ph, 1.0f);
+      HS_EXPECT_LE(ph, prev_phase + 1e-5f);
+      prev_phase = ph;
+    }
   }
 }
 

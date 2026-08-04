@@ -1813,12 +1813,24 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
   }
   fx.advance_display();
 
+  float first_offset = 0.0f;
+  bool offsets_vary = false;
   for (int y = 1; y < DOWNSAMPLE; ++y) {
     const auto expected =
         expected_feedback_source_row<W, H>(y, DOWNSAMPLE, style);
     const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
     HS_EXPECT_NEAR(sampled_y, expected[0], 0.02f);
+    const float offset = sampled_y - static_cast<float>(y);
+    if (y == 1)
+      first_offset = offset;
+    else if (std::abs(offset - first_offset) > 1e-3f)
+      offsets_vary = true;
   }
+  // Independent of the reference row: the claim is that each cap row evaluates
+  // the warp at its OWN latitude, so a collapse onto one shared control row —
+  // which the reference would follow if it were derived the same way — shows up
+  // as an identical displacement on every cap row.
+  HS_EXPECT_TRUE(offsets_vary);
 }
 
 /**

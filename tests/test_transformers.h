@@ -1434,18 +1434,29 @@ inline void test_noise_product_field_parity() {
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0),
                             Vector(0.4f, 0.6f, 0.7f).normalized()};
+  constexpr size_t NUM_SAMPLES = sizeof(samples) / sizeof(samples[0]);
   float total = 0.0f;
-  for (const Vector &v : samples) {
+  float base[NUM_SAMPLES] = {};
+  for (size_t i = 0; i < NUM_SAMPLES; ++i) {
+    const Vector &v = samples[i];
     float n1 = p.noise.GetNoise(v.x * p.scale1, v.y * p.scale1,
                                 v.z * p.scale1 + p.time);
     float n2 = p.noise.GetNoise(
         v.x * p.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
         v.y * p.scale2, v.z * p.scale2 + p.time);
     float expected = p.amplitude * n1 * n2;
-    HS_EXPECT_NEAR(noise_product_field(v, p), expected, 1e-6f);
+    base[i] = noise_product_field(v, p);
+    HS_EXPECT_NEAR(base[i], expected, 1e-6f);
     total += std::fabs(expected);
   }
   HS_EXPECT_GT(total, 1e-5f);
+
+  // Independent of the octave formula: amplitude scales the field linearly and
+  // its sign mirrors it, so amplitude cannot leak into where the noise is
+  // sampled.
+  p.amplitude = -0.5f;
+  for (size_t i = 0; i < NUM_SAMPLES; ++i)
+    HS_EXPECT_NEAR(noise_product_field(samples[i], p), -2.0f * base[i], 1e-6f);
 
   p.amplitude = 0.0f;
   HS_EXPECT_NEAR(noise_product_field(samples[0], p), 0.0f, 1e-7f);
