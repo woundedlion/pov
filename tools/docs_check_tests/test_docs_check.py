@@ -143,7 +143,7 @@ class TestDocumentationChecker(unittest.TestCase):
             (root / "untracked.md").write_text("[bad](missing.txt)\n", encoding="utf-8")
             subprocess.run(["git", "-C", str(root), "add", "README.md", "target.txt"],
                            check=True)
-            markdown, issues = dc.check_repository(root)
+            markdown, issues, _ = dc.check_repository(root)
         self.assertEqual(markdown, [PurePosixPath("README.md")])
         self.assertEqual(issues, [])
 
@@ -162,11 +162,27 @@ class TestDocumentationChecker(unittest.TestCase):
                 "git", "-C", str(root), "add", "README.md",
                 "docs/CODE_REVIEW.md", "tools/real.py",
             ], check=True)
-            markdown, issues = dc.check_repository(root)
+            markdown, issues, _ = dc.check_repository(root)
         self.assertEqual(markdown, [PurePosixPath("README.md")])
         self.assertEqual(len(issues), 1)
         self.assertEqual(issues[0].path, "README.md")
         self.assertIn("tools/readme_missing.py", issues[0].message)
+
+    def test_stale_untracked_allowances_are_named(self):
+        entries = {PurePosixPath("tools"), PurePosixPath("tools/solids.html")}
+        stale = dict(item.split(" ", 1) for item in
+                     dc._stale_allowances(entries, {"docs/profiles/"}))
+        self.assertEqual(stale["tools/solids.html"], "(now tracked)")
+        self.assertEqual(stale["scripts/run-tests.mjs"], "(uncited)")
+        self.assertNotIn("docs/profiles/", stale)
+
+    def test_cited_untracked_allowance_is_recorded(self):
+        used: set[str] = set()
+        issue = dc._path_span_issue(PurePosixPath("README.md"), 1,
+                                    "docs/profiles/dreamballs.md",
+                                    {PurePosixPath("docs")}, used)
+        self.assertIsNone(issue)
+        self.assertEqual(used, {"docs/profiles/"})
 
     def test_repository_without_markdown_fails(self):
         with tempfile.TemporaryDirectory() as directory:
