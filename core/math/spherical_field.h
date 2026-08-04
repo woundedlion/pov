@@ -24,29 +24,53 @@ namespace hs {
  */
 template <int W, int H, int HOffset = H_OFFSET> class SphericalFieldLayout {
 public:
+  /**
+   * @brief One latitude ring.
+   * @details y is its row, samples its periodic longitude count, and offset the
+   * index of its first sample in the field's contiguous storage.
+   */
   struct Ring {
     int y;
     int samples;
     int offset;
   };
 
+  /**
+   * @brief A fractional latitude bracketed by two rings.
+   * @details mix is the weight of upper, in [0, 1].
+   */
   struct Row {
     Ring lower;
     Ring upper;
     float mix;
   };
 
+  /**
+   * @brief A fractional longitude bracketed by two absolute sample indices.
+   * @details mix is the weight of right, in [0, 1).
+   */
   struct Longitude {
     int left;
     int right;
     float mix;
   };
 
+  /** @brief Field coordinates: longitude x in [0, W), latitude row y. */
   struct Coordinates {
     float x;
     float y;
   };
 
+  /**
+   * @brief Builds the ring chain over the rendered domain.
+   * @param spacing Latitude rows between consecutive rings; must be > 0.
+   * @param north_infill Leading rows given one ring each at full longitude
+   *   resolution.
+   * @param south_infill Trailing rows given one ring each at full longitude
+   *   resolution.
+   * @param equator_samples Longitude samples on the widest ring; 0 derives the
+   *   count from spacing.
+   */
   constexpr explicit SphericalFieldLayout(int spacing, int north_infill = 0,
                                           int south_infill = 0,
                                           int equator_samples = 0)
@@ -60,6 +84,7 @@ public:
    *  south pole. */
   static constexpr int POLE_COUNT = HOffset == 0 ? 2 : 1;
 
+  /** @brief Rings in the chain, counting both endpoint rows. */
   constexpr int ring_count() const {
     int count = 1;
     for (int y = 0; y < H - 1; ++count)
@@ -67,6 +92,7 @@ public:
     return count;
   }
 
+  /** @brief Samples across every ring, i.e. the storage a field needs. */
   constexpr int sample_count() const {
     int count = 0;
     for (int y = 0;; y = next_ring_y(y)) {
@@ -108,6 +134,12 @@ public:
     return {y, samples_on_ring(y), ring.offset + ring.samples};
   }
 
+  /**
+   * @brief Field coordinates of one sample on a ring.
+   * @param ring Target latitude ring.
+   * @param sample_index Sample position in [0, ring.samples).
+   * @return Coordinates with x in [0, W) and y at the ring's row.
+   */
   constexpr Coordinates sample_coordinates(const Ring &ring,
                                            int sample_index) const {
     return {static_cast<float>(sample_index * W) / ring.samples,
@@ -275,6 +307,11 @@ public:
         });
   }
 
+  /**
+   * @brief Brackets a fractional latitude between two rings.
+   * @param y Latitude row, clamped to [0, H-1].
+   * @details Walks the ring chain; O(ring index).
+   */
   constexpr Row row(float y) const {
     const float bounded_y = hs::clamp(y, 0.0f, static_cast<float>(H - 1));
     const Ring lower = ring(ring_index_at_or_before(bounded_y));
@@ -285,6 +322,10 @@ public:
     return {lower, upper, mix};
   }
 
+  /**
+   * @brief Index of the last ring whose row is at or above y.
+   * @param y Latitude row, clamped to [0, H-1].
+   */
   constexpr int ring_index_at_or_before(float y) const {
     const float bounded_y = hs::clamp(y, 0.0f, static_cast<float>(H - 1));
     int index = 0;
@@ -296,6 +337,11 @@ public:
     return index;
   }
 
+  /**
+   * @brief Index of the first ring whose row is at or below y, saturating at
+   * the last ring.
+   * @param y Latitude row, clamped to [0, H-1].
+   */
   constexpr int ring_index_at_or_after(float y) const {
     const int lower = ring_index_at_or_before(y);
     return ring(lower).y < y ? std::min(lower + 1, ring_count() - 1) : lower;
@@ -348,6 +394,8 @@ private:
                : (2 * (H + HOffset - 1) + spacing / 2) / spacing;
   }
 
+  /** @brief sin(phi) at row y, as a Taylor series because sinf is not
+   *  constexpr. */
   static constexpr float latitude_sine(int y) {
     float phi = (static_cast<float>(y) * PI_F) / (H + HOffset - 1);
     if (phi > PI_F * 0.5f)
