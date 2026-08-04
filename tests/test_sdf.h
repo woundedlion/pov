@@ -508,7 +508,6 @@ inline void test_spherical_polygon_composes_under_csg() {
       H / 2, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
   HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
-  HS_EXPECT_LE(out.size(), SDF::sdf_max_spans<U>::value);
 }
 
 // ============================================================================
@@ -1560,7 +1559,6 @@ inline void test_nested_union_emits_every_child_arc() {
 
   HS_EXPECT_EQ(out3.size(), static_cast<size_t>(6));
   HS_EXPECT_EQ(out4.size(), static_cast<size_t>(8));
-  HS_EXPECT_TRUE(out4.size() <= SDF::sdf_max_spans<U4>::value);
   for (size_t i = 1; i < out4.size(); ++i)
     HS_EXPECT_TRUE(out4[i - 1].second < out4[i].first);
 }

@@ -1484,7 +1484,6 @@ inline void test_raw_geodesic_edge_gate_parity() {
       {H / 2, H, W / 2, W}, {24, 120, 250, W},    {0, H, 40, 112},
   };
   int raw_count = 0;
-  int fallback_count = 0;
   for (const auto &bounds : clips) {
     cr.y_start = bounds[0];
     cr.y_end = bounds[1];
@@ -1511,9 +1510,7 @@ inline void test_raw_geodesic_edge_gate_parity() {
       const float angle = hs::rand_f(0.03f, PI_F - 0.03f);
       const Vector q = (p * cosf(angle) + tangent * sinf(angle)).normalized();
       const auto result = run(cr, p, q);
-      if (result == Plot::RawGeodesicGateResult::EXACT_FALLBACK)
-        ++fallback_count;
-      else
+      if (result != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
         ++raw_count;
     }
 
@@ -1530,9 +1527,7 @@ inline void test_raw_geodesic_edge_gate_parity() {
       tangent = tangent.normalized();
       const Vector q = (p * cosf(0.08f) + tangent * sinf(0.08f)).normalized();
       const auto result = run(cr, p, q);
-      if (result == Plot::RawGeodesicGateResult::EXACT_FALLBACK)
-        ++fallback_count;
-      else
+      if (result != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
         ++raw_count;
     }
 
@@ -1540,15 +1535,13 @@ inline void test_raw_geodesic_edge_gate_parity() {
     for (float angle : guarded_angles) {
       for (float end_angle : {angle, PI_F - angle}) {
         const auto result = run(cr, a, arc(end_angle, Z_AXIS));
-        if (result == Plot::RawGeodesicGateResult::EXACT_FALLBACK)
-          ++fallback_count;
-        else
+        if (result != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
           ++raw_count;
       }
     }
   }
+  // 31248 pairs are gated above.
   HS_EXPECT_GT(raw_count, 25000);
-  HS_EXPECT_LT(fallback_count, 7000);
 }
 
 /**

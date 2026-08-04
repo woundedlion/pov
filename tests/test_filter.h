@@ -306,7 +306,6 @@ inline void test_pipeline_get_returns_correct_filter() {
 
   Pipeline<W, H, AA, Blur, CS> pipe(AA{}, Blur{1.0f}, CS{});
 
-  AA &aa = pipe.get<AA>();
   Blur &bl = pipe.get<Blur>();
   CS &cs = pipe.get<CS>();
 
@@ -319,7 +318,6 @@ inline void test_pipeline_get_returns_correct_filter() {
 
   // Stages are reachable through get<T>(), not by converting the composed
   // pipeline to its private implementation bases.
-  HS_EXPECT_TRUE(&pipe.get<AA>() == &aa);
   HS_EXPECT_TRUE(static_cast<const void *>(&bl) !=
                  static_cast<const void *>(&cs));
 

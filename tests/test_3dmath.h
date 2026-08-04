@@ -224,8 +224,6 @@ inline void test_fast_acos() {
 
   for (int i = 0; i <= 32; ++i) {
     float x = -1.0f + (i / 16.0f);
-    if (x > 1.0f)
-      x = 1.0f;
     HS_EXPECT_NEAR(fast_acos(x), std::acos(x), 2e-4f);
   }
 
