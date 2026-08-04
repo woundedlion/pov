@@ -26,7 +26,10 @@ export async function loadEffectRoster() {
   const body = block[1]
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '');
-  const names = [...body.matchAll(/X\((\w+)\)/g)].map(m => m[1]);
+  // Tolerate whitespace inside the parens: a reformat to `X( Foo )` must not drop
+  // rows here, because the same spelling drops them from loadRegisteredEffects too
+  // and the cross-check would agree on the truncated roster.
+  const names = [...body.matchAll(/X\(\s*(\w+)\s*\)/g)].map(m => m[1]);
   if (names.length === 0) throw new Error('HS_EFFECT_LIST parsed to zero effects');
   return names;
 }
@@ -50,7 +53,7 @@ export async function loadRegisteredEffects() {
     const stripped = src
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/[^\n]*/g, '');
-    for (const m of stripped.matchAll(/REGISTER_EFFECT\((\w+)\)/g))
+    for (const m of stripped.matchAll(/REGISTER_EFFECT\(\s*(\w+)\s*\)/g))
       names.add(m[1]);
   }
   return [...names];
