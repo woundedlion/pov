@@ -71,25 +71,22 @@ public:
 
   /**
    * @brief Advances to the next entry, wrapping past the end.
-   * @details Records the outgoing index in prev_idx before advancing, and logs
-   *          the incoming index (profiling correlates serial output with the
-   *          active preset).
+   * @details Records the outgoing index in prev_idx before advancing.
    */
   void next() {
     prev_idx = current_idx;
     current_idx = (current_idx + 1) % Size;
-    hs::log("Preset: %u/%u", (unsigned)current_idx, (unsigned)Size);
+    log_selection();
   }
 
   /**
    * @brief Steps back to the previous entry, wrapping past the front.
-   * @details Records the outgoing index in prev_idx before stepping back, and
-   *          logs the incoming index like next().
+   * @details Records the outgoing index in prev_idx before stepping back.
    */
   void prev() {
     prev_idx = current_idx;
     current_idx = (current_idx - 1 + Size) % Size;
-    hs::log("Preset: %u/%u", (unsigned)current_idx, (unsigned)Size);
+    log_selection();
   }
 
   /**
@@ -124,6 +121,18 @@ public:
   const Params &prev_get() const { return entries[prev_idx].params; }
 
 private:
+  /**
+   * @brief Emits the capture marker `parse_profile.py` attributes frames to.
+   * @details Profile builds only: a 256-byte stack format plus a blocking
+   * Serial.println on device is not something every Presets user should pay per
+   * advance. Counts from 1 so the printed pair reads as "which of how many".
+   */
+  void log_selection() const {
+#ifdef HS_PROFILE_ENABLE
+    hs::log("Preset: %u/%u", (unsigned)(current_idx + 1), (unsigned)Size);
+#endif
+  }
+
   std::array<Entry, Size> entries; /**< The backing store of preset entries. */
   size_t current_idx = 0; /**< Index of the currently selected entry. */
   size_t prev_idx =
