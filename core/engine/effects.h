@@ -158,10 +158,32 @@ constexpr bool hs_in_phantasm_effect_list(const char *name) {
 #undef HS_PHANTASM_NAME_MATCH
 }
 
+/**
+ * @brief Occurrences of `name` in HS_PHANTASM_EFFECT_LIST.
+ * @param name Effect class name to count.
+ */
+constexpr int hs_phantasm_effect_list_count(const char *name) {
+#define HS_PHANTASM_NAME_COUNT(cls) +(hs_effect_name_eq(name, #cls) ? 1 : 0)
+  return 0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_COUNT);
+#undef HS_PHANTASM_NAME_COUNT
+}
+
+/** @brief True when no HS_PHANTASM_EFFECT_LIST name appears twice. */
+constexpr bool hs_phantasm_effect_list_is_distinct() {
+#define HS_PHANTASM_NAME_ONCE(cls) &&(hs_phantasm_effect_list_count(#cls) == 1)
+  return true HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_ONCE);
+#undef HS_PHANTASM_NAME_ONCE
+}
+
 // Drift guard: an effect added to (or removed from) HS_EFFECT_LIST must also be
 // deliberately added to or excluded from the Phantasm playlist above. The count
 // pins the cardinality; the name scans pin *which* two are missing, so swapping
-// one exclusion for another cannot ride green.
+// one exclusion for another cannot ride green. Distinctness closes the last
+// hole: a duplicated entry paired with an omission holds the count and passes
+// both exclusion scans while an effect silently drops off the playlist.
+static_assert(hs_phantasm_effect_list_is_distinct(),
+              "HS_PHANTASM_EFFECT_LIST names an effect twice — the duplicate "
+              "is masking an omitted effect");
 static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 2,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
               "(full roster minus Dynamo and Thrusters)");
