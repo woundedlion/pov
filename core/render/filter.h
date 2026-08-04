@@ -1140,6 +1140,9 @@ public:
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
+   * @details A point seeded here is still live for this frame's flush(), which
+   * re-emits it at t = 0. Fresh samples therefore composite twice per frame:
+   * once at the caller's color/alpha, once at the trailFn's.
    */
   template <typename PassFnT>
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
