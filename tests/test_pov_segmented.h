@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Host unit tests for the segmented-POV index math (hardware/pov_segment_map.h,
  * the pure arithmetic the Arduino-only pov_segmented.h driver derives its ISR

@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Emits the segment->canvas mapping hardware/pov_segment_map.h derives, as JSON
  * on stdout: for every (S, N) config the simulator's cross-check sweeps, each

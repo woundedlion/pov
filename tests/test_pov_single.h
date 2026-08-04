@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Host unit tests for the single-board POV index math (hardware/pov_single_map.h,
  * the pure arithmetic the Arduino-only pov_single.h driver derives its show_col()

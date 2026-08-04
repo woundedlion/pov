@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/engine/generators.h — the generate() wrapper that scopes the two
  * global scratch arenas around a procedural-geometry callback. Verifies the

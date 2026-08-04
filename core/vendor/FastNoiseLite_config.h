@@ -1,4 +1,9 @@
-// FastNoiseLite configuration for Holosphere.
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+// FastNoiseLite configuration for Holosphere. First-party: the only file in
+// core/vendor/ that is not upstream.
 //
 // PATCH RECORD — FastNoiseLite.h is upstream 1.1.1 plus four in-tree edits,
 // none of which fails to compile if a version bump drops it. They are pinned by

@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Pre-flight measurements for the OpChainMorph pure-inflate roster
  * (docs/opchain_morph_spec.md sections 2, 2.4, 8.3).

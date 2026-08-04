@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/render/led.h — the correction-guard RAII happy path: a
  * normal scope exit must balance correction_guard_depth() back to 0 and leave

@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Boundary color-continuity tests for the OpLeg transition design
  * (docs/conway_morph_spec.md §7.6): every mesh swap at a leg or cycle boundary

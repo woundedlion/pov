@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Searches (sides, rho, phi) for near-polar faces whose AA fringe the constant
  * azimuth pad clips, to seed the polar regression case. Not a CTest.
