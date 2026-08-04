@@ -552,6 +552,48 @@ inline void test_vector_normalize() {
 }
 
 // ============================================================================
+// Snorm3
+// ============================================================================
+
+/**
+ * @brief Pins Snorm3's documented round-trip accuracy: per-component error
+ *        within 1/65534, chord error within ~2.6e-5, endpoint codes exact, and
+ *        out-of-domain components saturated rather than wrapped.
+ */
+inline void test_snorm3_roundtrip_bound() {
+  // The +1e-7f absorbs the rounding of the decode multiply, which can carry a
+  // worst-case quantization by up to one relative ulp past the exact 1/65534.
+  constexpr float COMPONENT_BOUND = 1.0f / 65534.0f + 1e-7f;
+  constexpr float CHORD_BOUND = 2.65e-5f;
+
+  const Snorm3 endpoints = Snorm3::encode(Vector(1, 0, -1));
+  HS_EXPECT_EQ(endpoints.x, 32767);
+  HS_EXPECT_EQ(endpoints.y, 0);
+  HS_EXPECT_EQ(endpoints.z, -32767);
+  HS_EXPECT_VEC(endpoints.decode(), Vector(1, 0, -1), COMPONENT_BOUND);
+
+  const Snorm3 saturated = Snorm3::encode(Vector(4.0f, -9.0f, 1.0f + 1e-3f));
+  HS_EXPECT_EQ(saturated.x, 32767);
+  HS_EXPECT_EQ(saturated.y, -32767);
+  HS_EXPECT_EQ(saturated.z, 32767);
+
+  hs::Pcg32 rng(20260803u);
+  for (int i = 0; i < 256; ++i) {
+    const Vector v = normalized_or(Vector(rand_uniform(rng, -1.0f, 1.0f),
+                                          rand_uniform(rng, -1.0f, 1.0f),
+                                          rand_uniform(rng, -1.0f, 1.0f)),
+                                   Vector(1, 0, 0));
+    const Vector decoded = Snorm3::encode(v).decode();
+    HS_EXPECT_LE(std::abs(decoded.x - v.x), COMPONENT_BOUND);
+    HS_EXPECT_LE(std::abs(decoded.y - v.y), COMPONENT_BOUND);
+    HS_EXPECT_LE(std::abs(decoded.z - v.z), COMPONENT_BOUND);
+    HS_EXPECT_LE(distance_between(decoded, v), CHORD_BOUND);
+    // Near-unit, not unit: callers that need exact length must renormalize.
+    HS_EXPECT_NEAR(decoded.length(), 1.0f, CHORD_BOUND);
+  }
+}
+
+// ============================================================================
 // Vector — free functions (dot, cross, distance, angle_between)
 // ============================================================================
 
@@ -1341,6 +1383,7 @@ inline int run_3dmath_tests() {
   test_vector_arithmetic();
   test_vector_length();
   test_vector_normalize();
+  test_snorm3_roundtrip_bound();
 
   test_dot_cross();
   test_distance();
