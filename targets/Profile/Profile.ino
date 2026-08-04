@@ -183,8 +183,8 @@ public:
     if (!buffer_wait)
       buffer_wait = hs::CycleCounter::find_suffix("_buffer_wait");
     const uint64_t bw1 = buffer_wait ? buffer_wait->cycles : 0;
-    const unsigned long wait_us = (unsigned long)(
-        (bw1 - bw0) / hs::CycleCounter::CYCLES_PER_US);
+    const unsigned long wait_us =
+        (unsigned long)((bw1 - bw0) / hs::CycleCounter::CYCLES_PER_US);
     const unsigned long render = dt > wait_us ? dt - wait_us : 0;
     // One compact line per frame (the full counter tree still dumps per
     // window — per-frame log_all would perturb the frames it measures).
@@ -196,16 +196,21 @@ public:
     drain_probe_breakdown();
 #endif
     render_sum += render;
-    if (render > render_max) render_max = render;
+    if (render > render_max)
+      render_max = render;
     wall_sum += dt;
-    if (dt < wall_min) wall_min = dt;
-    if (dt > wall_max) wall_max = dt;
+    if (dt < wall_min)
+      wall_min = dt;
+    if (dt > wall_max)
+      wall_max = dt;
     ++total_frames;
-    if (++window_frames == WINDOW_FRAMES) dump();
+    if (++window_frames == WINDOW_FRAMES)
+      dump();
   }
 
 private:
-  static constexpr int WINDOW_FRAMES = HS_PROFILE_WINDOW; /**< Frames per readout window. */
+  static constexpr int WINDOW_FRAMES =
+      HS_PROFILE_WINDOW; /**< Frames per readout window. */
 
 #ifdef HS_MINDSPLATTER_REPLAY
   using ReplayWhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
@@ -225,8 +230,7 @@ private:
             "changed=%lu channels=%lu max=%u abs=%s",
             replay_stats.clip.x_start, replay_stats.clip.x_end,
             replay_stats.clip.y_start, replay_stats.clip.y_end,
-            hs::u64_dec(replay_stats.framebuffer_hash, actual),
-            EXPECTED_LABEL,
+            hs::u64_dec(replay_stats.framebuffer_hash, actual), EXPECTED_LABEL,
             hs::u64_dec(replay_stats.expected_hash, expected),
             (unsigned long)replay_stats.changed_pixels,
             (unsigned long)replay_stats.changed_channels,
@@ -239,13 +243,12 @@ private:
     const unsigned long now = micros();
     hs::log("=== profile %s [%dx%d] frames %lu-%lu window=%lu us ===",
             HS_PROFILE_STR(HS_PROFILE_TARGET), W, H,
-            total_frames - window_frames + 1, total_frames,
-            now - window_start);
+            total_frames - window_frames + 1, total_frames, now - window_start);
     hs::log("frame wall us: min=%lu avg=%lu max=%lu sum=%lu (%d frames)",
             wall_min, wall_sum / WINDOW_FRAMES, wall_max, wall_sum,
             WINDOW_FRAMES);
-    hs::log("frame render us: avg=%lu max=%lu",
-            render_sum / WINDOW_FRAMES, render_max);
+    hs::log("frame render us: avg=%lu max=%lu", render_sum / WINDOW_FRAMES,
+            render_max);
     dump_isr_stats(now - window_start);
     hs::CycleCounter::log_all();
 #ifdef HS_SCAN_METRICS
@@ -337,15 +340,19 @@ private:
 #ifdef HS_SCAN_METRICS
   /** @brief 64-bit window accumulators for the per-pixel scan counters. */
   struct ScanTotals {
-    uint64_t tested = 0;    /**< Face::distance probes. */
-    uint64_t culled = 0;    /**< Probes rejected by the back-face / radius guards. */
-    uint64_t exact = 0;     /**< Probes taking a full evaluation (convex + sector + walk). */
-    uint64_t convex = 0;    /**< Full evaluations on the convex half-plane path. */
-    uint64_t sector = 0;    /**< Full evaluations on the concave sector walk. */
-    uint64_t lut = 0;       /**< Probes served by the class-LUT bilinear fetch. */
-    uint64_t cand = 0;      /**< Pixels passing the scan's d < pixel_width test. */
-    uint64_t backstop = 0;  /**< plot() steps_cache capacity-backstop trips. */
-    void reset() { tested = culled = exact = convex = sector = lut = cand = backstop = 0; }
+    uint64_t tested = 0; /**< Face::distance probes. */
+    uint64_t culled =
+        0; /**< Probes rejected by the back-face / radius guards. */
+    uint64_t exact =
+        0; /**< Probes taking a full evaluation (convex + sector + walk). */
+    uint64_t convex = 0; /**< Full evaluations on the convex half-plane path. */
+    uint64_t sector = 0; /**< Full evaluations on the concave sector walk. */
+    uint64_t lut = 0;    /**< Probes served by the class-LUT bilinear fetch. */
+    uint64_t cand = 0;   /**< Pixels passing the scan's d < pixel_width test. */
+    uint64_t backstop = 0; /**< plot() steps_cache capacity-backstop trips. */
+    void reset() {
+      tested = culled = exact = convex = sector = lut = cand = backstop = 0;
+    }
   };
 
   /**
@@ -392,18 +399,17 @@ private:
 #ifdef HS_PLOT_COUNTS
   static void dump_plot_counts() {
     const hs::PlotCounts &t = hs::g_plot_counts;
-    hs::log("plot counts: r=%lu,e=%lu,p=%lu,g=%lu,d=%lu,o=%lu,t=%lu,c=%lu,"
-            "s=%lu,y=%lu,u=%lu,a=%lu,n=%lu,h=%lu,x=%lu,k=%lu,b=%lu",
-            (unsigned long)t.rings, (unsigned long)t.edges,
-            (unsigned long)t.planar, (unsigned long)t.geodesic,
-            (unsigned long)t.degenerate, (unsigned long)t.one_dot,
-            (unsigned long)t.cull_tests, (unsigned long)t.culled,
-            (unsigned long)t.sim_samples, (unsigned long)t.replay_samples,
-            (unsigned long)t.planar_unprojects,
-            (unsigned long)t.planar_arc_samples,
-            (unsigned long)t.normalizations, (unsigned long)t.shader_calls,
-            (unsigned long)t.plotted_samples, (unsigned long)t.steps_peak,
-            (unsigned long)t.backstops);
+    hs::log(
+        "plot counts: r=%lu,e=%lu,p=%lu,g=%lu,d=%lu,o=%lu,t=%lu,c=%lu,"
+        "s=%lu,y=%lu,u=%lu,a=%lu,n=%lu,h=%lu,x=%lu,k=%lu,b=%lu",
+        (unsigned long)t.rings, (unsigned long)t.edges, (unsigned long)t.planar,
+        (unsigned long)t.geodesic, (unsigned long)t.degenerate,
+        (unsigned long)t.one_dot, (unsigned long)t.cull_tests,
+        (unsigned long)t.culled, (unsigned long)t.sim_samples,
+        (unsigned long)t.replay_samples, (unsigned long)t.planar_unprojects,
+        (unsigned long)t.planar_arc_samples, (unsigned long)t.normalizations,
+        (unsigned long)t.shader_calls, (unsigned long)t.plotted_samples,
+        (unsigned long)t.steps_peak, (unsigned long)t.backstops);
     hs::g_plot_counts.reset();
   }
 #endif
@@ -540,14 +546,18 @@ private:
   ProbeTotals probe_totals; /**< This window's drained probe buckets. */
 #endif
 
-  unsigned long total_frames = 0;  /**< Frames since this effect instance began. */
+  unsigned long total_frames =
+      0; /**< Frames since this effect instance began. */
   unsigned long window_frames = 0; /**< Frames in the current readout window. */
-  unsigned long wall_sum = 0;      /**< Summed draw_frame wall time this window (µs). */
-  unsigned long wall_min = ~0ul;   /**< Fastest draw_frame this window (µs). */
-  unsigned long wall_max = 0;      /**< Slowest draw_frame this window (µs). */
-  unsigned long render_sum = 0;    /**< Summed render (wall − sync wait) this window (µs). */
-  unsigned long render_max = 0;    /**< Slowest render this window (µs). */
-  hs::CycleCounter* buffer_wait = nullptr; /**< The effect's *_buffer_wait counter. */
+  unsigned long wall_sum =
+      0; /**< Summed draw_frame wall time this window (µs). */
+  unsigned long wall_min = ~0ul; /**< Fastest draw_frame this window (µs). */
+  unsigned long wall_max = 0;    /**< Slowest draw_frame this window (µs). */
+  unsigned long render_sum =
+      0; /**< Summed render (wall − sync wait) this window (µs). */
+  unsigned long render_max = 0; /**< Slowest render this window (µs). */
+  hs::CycleCounter *buffer_wait =
+      nullptr; /**< The effect's *_buffer_wait counter. */
   unsigned long window_start = micros(); /**< Window wall-clock start (µs). */
 #ifdef HS_MINDSPLATTER_REPLAY
 #ifdef HS_MINDSPLATTER_REPLAY_AB
@@ -570,16 +580,17 @@ static constexpr size_t MAX_EFFECT_HEAP_BYTES =
 
 #ifdef HS_PROFILE_PRESET
 template <typename E> void select_profile_preset(E &effect) {
-  static_assert(requires(E &e) { e.profile_select_preset(size_t{}); },
-                "HS_PROFILE_PRESET target does not support preset selection");
+  static_assert(
+      requires(E &e) { e.profile_select_preset(size_t{}); },
+      "HS_PROFILE_PRESET target does not support preset selection");
   effect.profile_select_preset(static_cast<size_t>(HS_PROFILE_PRESET));
 }
 #endif
 
 Effect *construct_profiled() {
   using Target = ProfiledEffect<CANVAS_W, CANVAS_H>;
-  auto *e = static_cast<Target *>(
-      construct_effect<Target, MAX_EFFECT_HEAP_BYTES>());
+  auto *e =
+      static_cast<Target *>(construct_effect<Target, MAX_EFFECT_HEAP_BYTES>());
 #ifdef HS_PROFILE_PRESET
   select_profile_preset(*e);
 #endif

@@ -41,7 +41,8 @@ constexpr int DEFAULT_H = 144;
  */
 struct FieldCoverage {
   bool range_distinguishing = false; /**< Some param has min != max. */
-  bool flags_distinguishing = false; /**< Some param has animated != readonly. */
+  bool flags_distinguishing =
+      false; /**< Some param has animated != readonly. */
 };
 
 /**

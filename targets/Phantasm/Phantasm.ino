@@ -28,17 +28,16 @@ namespace {
 // playlist order, identical on every board (spec §6.1).
 #define HS_FACTORY_ONE(name) &construct_effect<name<CANVAS_W, CANVAS_H>>,
 const POV::EffectFactory EFFECT_FACTORIES[] = {
-  HS_PHANTASM_EFFECT_LIST(HS_FACTORY_ONE)
-};
+    HS_PHANTASM_EFFECT_LIST(HS_FACTORY_ONE)};
 #undef HS_FACTORY_ONE
 
 // Every input to the sync protocol config is a compile-time constant on this
 // board, so reject an inconsistent protocol at the build instead of the boot.
 // run_show()'s runtime HS_CHECK still guards any non-constexpr instantiation.
-static_assert(
-    pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, HS_PHANTASM_EFFECT_COUNT)
-        .valid(),
-    "Phantasm pov::sync::Config invariants violated");
+static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W,
+                                         HS_PHANTASM_EFFECT_COUNT)
+                  .valid(),
+              "Phantasm pov::sync::Config invariants violated");
 } // namespace
 
 FLASHMEM void setup() {

@@ -251,8 +251,7 @@ inline void test_mobius_matches_double_precision_oracle() {
 
     Vector got = mobius_transform(v, p);
     nonfinite += !finite_vec(got);
-    worst_unit_err =
-        std::max(worst_unit_err, std::fabs(got.length() - 1.0f));
+    worst_unit_err = std::max(worst_unit_err, std::fabs(got.length() - 1.0f));
     if (1.0f - v.y < STEREO_POLE_EPS)
       continue;
     Vector want = oracle(v, p);
@@ -1182,9 +1181,9 @@ inline void test_dominant_field_strongest_wins_without_stacking() {
   acc.add(3.0f);
   acc.add(1.0f);
   const float blended = acc.value();
-  HS_EXPECT_LT(blended, 3.0f);          // not the plain max
-  HS_EXPECT_GT(blended, 2.0f);          // but far nearer the strong field
-  HS_EXPECT_LT(blended, 4.0f);          // and never the sum
+  HS_EXPECT_LT(blended, 3.0f); // not the plain max
+  HS_EXPECT_GT(blended, 2.0f); // but far nearer the strong field
+  HS_EXPECT_LT(blended, 4.0f); // and never the sum
   HS_EXPECT_GT(blended, 1.0f);
 
   DominantFieldAccumulator lopsided;

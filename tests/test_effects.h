@@ -2260,7 +2260,9 @@ struct MeshFeedbackWhiteBox {
   using MF = MeshFeedback<SMALL_W, SMALL_H>;
 
   static const Feedback::Style &style(const MF &fx) { return fx.style; }
-  static const Animation::NoiseParams &noise(const MF &fx) { return fx.noise_params; }
+  static const Animation::NoiseParams &noise(const MF &fx) {
+    return fx.noise_params;
+  }
   static size_t preset_index(const MF &fx) {
     return fx.presets.current_index();
   }
