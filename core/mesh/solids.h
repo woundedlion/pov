@@ -21,8 +21,14 @@ static constexpr float SQRT2 = 1.414213562373095f;
 static constexpr float TRIBONACCI_CONST = 1.839286755214161f;
 /** Snub-cube truncation parameter. */
 static constexpr float T_SNUB_CUBE = 1.0f / (1.0f + TRIBONACCI_CONST);
+/** Snub-cube twist. */
+static constexpr float SNUB_CUBE_TWIST = 0.28f;
 /** Truncated-dodecahedron/icosahedron truncation parameter. */
 static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
+/** Truncated-cube/cuboctahedron truncation parameter. */
+static constexpr float T_TRUNC_CUBE = 1.0f / (2.0f + SQRT2);
+/** Truncated tetra/octa/icosahedron truncation parameter. */
+static constexpr float T_TRUNC_THIRD = 1.0f / 3.0f;
 
 namespace Solids {
 
@@ -564,7 +570,7 @@ using namespace Platonic;
  * @return The truncated tetrahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedTetrahedron(Arena &a, Arena &b) {
-  return SolidBuilder(tetrahedron(a, b), a, b).truncate(1.0f / 3.0f).build();
+  return SolidBuilder(tetrahedron(a, b), a, b).truncate(T_TRUNC_THIRD).build();
 }
 /**
  * @brief Builds a cuboctahedron.
@@ -582,7 +588,7 @@ FLASHMEM static PolyMesh cuboctahedron(Arena &a, Arena &b) {
  * @return The truncated cube mesh.
  */
 FLASHMEM static PolyMesh truncatedCube(Arena &a, Arena &b) {
-  return SolidBuilder(cube(a, b), a, b).truncate(1.0f / (2.0f + SQRT2)).build();
+  return SolidBuilder(cube(a, b), a, b).truncate(T_TRUNC_CUBE).build();
 }
 /**
  * @brief Builds a truncated octahedron.
@@ -591,7 +597,7 @@ FLASHMEM static PolyMesh truncatedCube(Arena &a, Arena &b) {
  * @return The truncated octahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedOctahedron(Arena &a, Arena &b) {
-  return SolidBuilder(octahedron(a, b), a, b).truncate(1.0f / 3.0f).build();
+  return SolidBuilder(octahedron(a, b), a, b).truncate(T_TRUNC_THIRD).build();
 }
 /**
  * @brief Builds a rhombicuboctahedron.
@@ -609,10 +615,7 @@ FLASHMEM static PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
  * @return The truncated cuboctahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedCuboctahedron(Arena &a, Arena &b) {
-  return SolidBuilder(cube(a, b), a, b)
-      .bevel(1.0f / (2.0f + SQRT2))
-      .relax(50)
-      .build();
+  return SolidBuilder(cube(a, b), a, b).bevel(T_TRUNC_CUBE).relax(50).build();
 }
 /**
  * @brief Builds a snub cube.
@@ -622,7 +625,7 @@ FLASHMEM static PolyMesh truncatedCuboctahedron(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh snubCube(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
-      .snub(T_SNUB_CUBE, 0.28f)
+      .snub(T_SNUB_CUBE, SNUB_CUBE_TWIST)
       .relax(50)
       .build();
 }
@@ -651,7 +654,7 @@ FLASHMEM static PolyMesh truncatedDodecahedron(Arena &a, Arena &b) {
  * @return The truncated icosahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedIcosahedron(Arena &a, Arena &b) {
-  return SolidBuilder(icosahedron(a, b), a, b).truncate(1.0f / 3.0f).build();
+  return SolidBuilder(icosahedron(a, b), a, b).truncate(T_TRUNC_THIRD).build();
 }
 /**
  * @brief Builds a rhombicosidodecahedron.
@@ -670,7 +673,7 @@ FLASHMEM static PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
  */
 FLASHMEM static PolyMesh truncatedIcosidodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
-      .bevel(1.0f / (2.0f + PHI))
+      .bevel(T_TRUNC_ICOS)
       .relax_baked(RelaxBakes::truncated_icosidodecahedron_converged)
       .build();
 }

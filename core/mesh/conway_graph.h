@@ -163,7 +163,7 @@ inline constexpr int SWEEP_FRAMES = 48;
 inline constexpr int SETTLE_FRAMES = 12;
 
 /** Snub-cube twist (matches the registry chain). */
-inline constexpr float SNUB_CUBE_TWIST = 0.28f;
+inline constexpr float SNUB_CUBE_TWIST = ::SNUB_CUBE_TWIST;
 /** Snub-dodecahedron cosmetic sweep twist; registry uses 0 (tuned from
  * renders). */
 inline constexpr float SNUB_DODECAHEDRON_TWIST = 0.0f;
@@ -181,9 +181,9 @@ inline constexpr float TWIST_JITTERBUG_ICOSA = -0.38813952f;
 inline constexpr float TWIST_JITTERBUG_OCTA = -PI_F / 3.0f;
 
 /** Truncation parameter of the truncated cube. */
-inline constexpr float T_TRUNC_CUBE = 1.0f / (2.0f + SQRT2);
+inline constexpr float T_TRUNC_CUBE = ::T_TRUNC_CUBE;
 /** Truncation parameter of the truncated tetra/octa/icosahedron. */
-inline constexpr float T_TRUNC_THIRD = 1.0f / 3.0f;
+inline constexpr float T_TRUNC_THIRD = ::T_TRUNC_THIRD;
 
 /**
  * @brief One bidirectional graph edge: a single operator sweep on one seed.
