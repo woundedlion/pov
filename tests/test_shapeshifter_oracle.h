@@ -599,17 +599,22 @@ inline uint32_t vector_pixel_energy(const OracleFrame &frame,
 }
 
 inline void test_high_count_planar_star_caps_cover_chart_centers() {
-  OracleState state;
-  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
-  state.function = OracleEffect::PhaseFunction::SINE;
-  state.count = 144;
-  state.sides = 7;
-  state.phase = 0.125f;
-  state.alpha = 0.274f;
-  state.orientation = Quaternion();
-  const OracleFrame frame = capture_frame(state, candidate_renderer());
-  HS_EXPECT_GT(vector_pixel_energy(frame, X_AXIS), COVERAGE_ENERGY);
-  HS_EXPECT_GT(vector_pixel_energy(frame, -X_AXIS), COVERAGE_ENERGY);
+  for (const auto [count, spacing] :
+       {std::pair{144, OracleEffect::RadiusSpacing::UNIFORM},
+        std::pair{184, OracleEffect::RadiusSpacing::ADAPTIVE}}) {
+    OracleState state;
+    state.shape = OracleEffect::ShapeType::PLANAR_STAR;
+    state.function = OracleEffect::PhaseFunction::SINE;
+    state.spacing = spacing;
+    state.count = count;
+    state.sides = 7;
+    state.phase = 0.125f;
+    state.alpha = 0.274f;
+    state.orientation = Quaternion();
+    const OracleFrame frame = capture_frame(state, candidate_renderer());
+    HS_EXPECT_GT(vector_pixel_energy(frame, X_AXIS), COVERAGE_ENERGY);
+    HS_EXPECT_GT(vector_pixel_energy(frame, -X_AXIS), COVERAGE_ENERGY);
+  }
 }
 
 inline int first_covered_north_row(const OracleFrame &frame) {
