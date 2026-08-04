@@ -32,16 +32,32 @@ constexpr int DEFAULT_W = 288;
 constexpr int DEFAULT_H = 144;
 
 /**
+ * @brief Tracks whether the roster can distinguish a transposed ParamView pair.
+ * @details ParamView is a nine-field aggregate built by positional
+ *   initialization, with min/max adjacent and animated/readonly adjacent. The
+ *   per-field assertions below only catch a swap when some param actually has
+ *   min != max (or animated != readonly), so the roster's ability to catch one
+ *   is asserted rather than assumed.
+ */
+struct FieldCoverage {
+  bool range_distinguishing = false; /**< Some param has min != max. */
+  bool flags_distinguishing = false; /**< Some param has animated != readonly. */
+};
+
+/**
  * @brief Marshals one effect through the WASM bridge and asserts the definition
  *        and value streams stay consistent with the source params.
  * @tparam E Effect template, instantiated at the test canvas size DEFAULT_W x DEFAULT_H.
  * @param unnamed Effect name (unused; kept for call-site symmetry with the
  *        HS_EFFECT_LIST macro expansion).
- * @details Checks equal length, index-aligned name/value/type, and a
- *          write-by-name that round-trips to the same index without disturbing
+ * @param coverage In/out tally of whether the roster supplies a param that can
+ *        distinguish a transposed field pair.
+ * @details Checks equal length, index-aligned name/value/type/range/flags, and
+ *          a write-by-name that round-trips to the same index without disturbing
  *          order. This is the core correctness check per effect.
  */
-template <template <int, int> class E> inline bool check_one(const char *) {
+template <template <int, int> class E>
+inline bool check_one(const char *, FieldCoverage &coverage) {
   reset_globals();
 
   E<DEFAULT_W, DEFAULT_H> effect;
@@ -70,6 +86,12 @@ template <template <int, int> class E> inline bool check_one(const char *) {
     HS_EXPECT_EQ(views[i].value, values[i]);
     HS_EXPECT_EQ(views[i].is_bool, def.is_bool());
     HS_EXPECT_EQ(views[i].value, def.get());
+    HS_EXPECT_EQ(views[i].min, def.min);
+    HS_EXPECT_EQ(views[i].max, def.max);
+    HS_EXPECT_EQ(views[i].animated, def.animated);
+    HS_EXPECT_EQ(views[i].readonly, def.readonly);
+    coverage.range_distinguishing |= def.min != def.max;
+    coverage.flags_distinguishing |= def.animated != def.readonly;
     HS_EXPECT_TRUE(views[i].options == def.options);
     HS_EXPECT_EQ(views[i].option_count, def.option_count);
     // An enum's current value is always a valid option index.
@@ -247,14 +269,21 @@ inline int run_param_marshal_tests() {
   // Tally how many effects exercised the by-name round-trip; it is skipped for
   // effects with no editable float param. Surface the split and fail if zero.
   int rt_covered = 0, rt_total = 0;
+  FieldCoverage coverage;
 #define HS_PARAM_ONE(name)                                                     \
   do {                                                                         \
     ++rt_total;                                                                \
-    if (check_one<name>(#name))                                                \
+    if (check_one<name>(#name, coverage))                                      \
       ++rt_covered;                                                            \
   } while (0);
   HS_EFFECT_LIST(HS_PARAM_ONE)
 #undef HS_PARAM_ONE
+  HS_EXPECT(coverage.range_distinguishing,
+            "no roster param has min != max — a transposed min/max pair in "
+            "ParamView would ride green");
+  HS_EXPECT(coverage.flags_distinguishing,
+            "no roster param has animated != readonly — a transposed "
+            "animated/readonly pair in ParamView would ride green");
   std::printf("  param-marshal by-name round-trip exercised on %d/%d effects "
               "(%d skipped: no editable float param)\n",
               rt_covered, rt_total, rt_total - rt_covered);
