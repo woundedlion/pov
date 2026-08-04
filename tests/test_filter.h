@@ -50,6 +50,14 @@
 namespace hs_test {
 namespace filter_tests {
 
+// This module is only ever linked into the offset-0 run_tests driver, so the
+// pole cases below assert unconditionally rather than hiding behind a runtime
+// offset check that could never fire. The device offset compiles in its own TU
+// (tests/test_h_offset_renorm.h), which carries the offset-3 pole coverage.
+static_assert(hs::H_OFFSET == 0,
+              "test_filter.h assumes row H-1 is the south pole; the device "
+              "offset belongs in tests/test_h_offset_renorm.h");
+
 /** @brief True iff Pipeline P carries filter T as one of its stages. */
 template <typename T, typename P> struct pipeline_contains : std::false_type {};
 template <typename T, int W, int H, typename Head, typename... Tail>
@@ -1478,36 +1486,34 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
  *          collapse is host/WASM-only; the device's last row is mid-latitude.
  */
 inline void test_feedback_south_pole_uses_single_physical_sample() {
-  if constexpr (hs::H_OFFSET == 0) {
-    constexpr int W = 32, H = 16;
-    constexpr Pixel POLE(12000, 30000, 50000);
-    hs_test::StubEffect fx(W, H);
+  constexpr int W = 32, H = 16;
+  constexpr Pixel POLE(12000, 30000, 50000);
+  hs_test::StubEffect fx(W, H);
 
-    ::Feedback::Style style{};
-    style.noise = nullptr; // unbound noise_warp is the identity
-    style.fade = 1.0f;
-    style.downsample = 4;
-    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
-        Filter::Pixel::Feedback<W, H>(style)};
-    auto trail = [](float, float, float) {
-      return Color4(Pixel(0, 0, 0), 0.0f);
-    };
+  ::Feedback::Style style{};
+  style.noise = nullptr; // unbound noise_warp is the identity
+  style.fade = 1.0f;
+  style.downsample = 4;
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) {
+    return Color4(Pixel(0, 0, 0), 0.0f);
+  };
 
-    {
-      Canvas c(fx);
-      c(W / 3, H - 1) = POLE;
-    }
-    fx.advance_display();
-    {
-      Canvas c(fx);
-      pipe.flush(c, ScreenTrailFn(trail), 1.0f);
-    }
-    fx.advance_display();
-
-    expect_pole_row_collapsed(fx, W, H - 1, POLE);
-    for (int x = 0; x < W; ++x)
-      HS_EXPECT_TRUE(px_black(fx.get_pixel(x, H - 2)));
+  {
+    Canvas c(fx);
+    c(W / 3, H - 1) = POLE;
   }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  expect_pole_row_collapsed(fx, W, H - 1, POLE);
+  for (int x = 0; x < W; ++x)
+    HS_EXPECT_TRUE(px_black(fx.get_pixel(x, H - 2)));
 }
 
 /**
@@ -1568,10 +1574,8 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
 
   expect_reconstructed(1);
   expect_stripe(4);
-  if constexpr (hs::H_OFFSET == 0) {
-    expect_reconstructed(H - 2);
-    expect_stripe(H - 5);
-  }
+  expect_reconstructed(H - 2);
+  expect_stripe(H - 5);
 }
 
 /**
