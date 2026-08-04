@@ -4189,7 +4189,9 @@ struct Line {
 static_assert(SDFShape<Ring>);
 static_assert(SDFShape<DistortedRing>);
 static_assert(SDFShape<FlatDistortedRing>);
+static_assert(SDFShape<Face>);
 static_assert(SDFShape<PlanarPolygon>);
+static_assert(SDFShape<SphericalPolygon>);
 static_assert(SDFShape<Star>);
 static_assert(SDFShape<Flower>);
 static_assert(SDFShape<Line>);
