@@ -23,7 +23,7 @@
 #include "tests/test_3dmath.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
-#include "tools/mindsplatter_whitebox.h"
+#include "tests/mindsplatter_whitebox.h"
 
 #include <algorithm>
 #include <array>

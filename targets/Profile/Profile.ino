@@ -69,9 +69,9 @@
 #include "../common/phantasm_target.h"
 
 #ifdef HS_MINDSPLATTER_REPLAY
-#include "effects/mindsplatter_replay_corpus.h"
-#include "tools/mindsplatter_whitebox.h"
-#include "tools/mindsplatter_replay_metrics.h"
+#include "tests/mindsplatter_replay_corpus.h"
+#include "tests/mindsplatter_whitebox.h"
+#include "tests/mindsplatter_replay_metrics.h"
 #ifndef HS_MINDSPLATTER_REPLAY_CORPUS
 #define HS_MINDSPLATTER_REPLAY_CORPUS HEAVY_SEARCH_V1
 #endif
