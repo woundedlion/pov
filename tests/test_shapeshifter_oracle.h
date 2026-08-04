@@ -549,7 +549,7 @@ inline void test_adaptive_star_preset_stays_within_visual_budget() {
   state.function = OracleEffect::PhaseFunction::SINE;
   state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
   state.spacing = OracleEffect::RadiusSpacing::ADAPTIVE;
-  state.count = 172;
+  state.count = 184;
   state.sides = 7;
   state.phase = 0.249f;
   state.alpha = 0.274f;
@@ -734,19 +734,19 @@ inline void test_folded_shapes_draw_from_equator_to_both_poles() {
                (std::vector<int>{2, 3, 1, 4, 0}));
 }
 
-inline void test_adaptive_planar_spacing_matches_pole_and_equator_targets() {
-  constexpr int COUNT = 180;
+inline void test_adaptive_planar_spacing_follows_spherical_circumference() {
+  constexpr int COUNT = 184;
   auto mapped = [](int index) {
     const float radius_t =
         (static_cast<float>(index) + 0.5f) / static_cast<float>(COUNT);
     return ShapeShifterWhiteBox::adaptive_planar_radius_t(radius_t);
   };
 
-  const float pole_equivalent_count = 1.0f / (mapped(1) - mapped(0));
   const float equator_equivalent_count =
       1.0f / (mapped(COUNT / 2 - 1) - mapped(COUNT / 2 - 2));
-  HS_EXPECT_NEAR(pole_equivalent_count, 72.0f, 0.5f);
-  HS_EXPECT_NEAR(equator_equivalent_count, 288.0f, 0.2f);
+  HS_EXPECT_NEAR(equator_equivalent_count, COUNT * PI_F / 2.0f, 0.2f);
+  HS_EXPECT_NEAR(equator_equivalent_count, OracleEffect::MAX_SHAPES, 1.1f);
+  HS_EXPECT_NEAR(mapped(0) * PI_F, acosf(1.0f - 1.0f / COUNT), 1e-6f);
 
   for (int index = 0; index < COUNT; ++index) {
     const float radius_t =
@@ -806,7 +806,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_palette_position_mirrors_at_equator();
   test_opposite_halves_direction();
   test_folded_shapes_draw_from_equator_to_both_poles();
-  test_adaptive_planar_spacing_matches_pole_and_equator_targets();
+  test_adaptive_planar_spacing_follows_spherical_circumference();
   test_preset_transition_snaps();
   return fixture.result();
 }

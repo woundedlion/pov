@@ -2957,26 +2957,36 @@ private:
     const float sin_radius[2] = {sinf(outer_radius), sinf(inner_radius)};
     const float cos_radius[2] = {cosf(outer_radius), cosf(inner_radius)};
 
-    auto position = [&](int i) {
-      float theta = phase + i * angle_step;
-      float sin_r = sin_radius[i & 1];
-      float cos_r = cos_radius[i & 1];
-      float cos_t = cosf(theta);
-      float sin_t = sinf(theta);
-      Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
-      HS_PLOT_COUNT(normalizations);
-      p.normalize();
-      return p;
-    };
-
     if constexpr (EmitRegisters) {
+      auto position = [&](int i) {
+        float theta = phase + i * angle_step;
+        float sin_r = sin_radius[i & 1];
+        float cos_r = cos_radius[i & 1];
+        float cos_t = cosf(theta);
+        float sin_t = sinf(theta);
+        Vector p =
+            (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+        HS_PLOT_COUNT(normalizations);
+        p.normalize();
+        return p;
+      };
       sample_closed_ring(points, num_sides * 2, position);
     } else {
       size_t start_idx = points.size();
+      const float cos_step = cosf(angle_step);
+      const float sin_step = sinf(angle_step);
+      float cos_theta = cosf(phase);
+      float sin_theta = sinf(phase);
       for (int i = 0; i < num_sides * 2; ++i) {
         Fragment f;
-        f.pos = position(i);
+        const float sin_r = sin_radius[i & 1];
+        const float cos_r = cos_radius[i & 1];
+        f.pos = (v * cos_r) + (u * (cos_theta * sin_r)) +
+                (w * (sin_theta * sin_r));
         points.push_back(f);
+        const float next_cos = cos_theta * cos_step - sin_theta * sin_step;
+        sin_theta = sin_theta * cos_step + cos_theta * sin_step;
+        cos_theta = next_cos;
       }
       points.push_back(points[start_idx]);
     }

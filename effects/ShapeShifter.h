@@ -91,6 +91,9 @@ public:
                             SPACING_EXPORT_OPTIONS, NUM_RADIUS_SPACINGS);
 
     planar_radius_t = persistent_arena.allocate_n<float>(MAX_SHAPES);
+    phase_sin = persistent_arena.allocate_n<float>(MAX_SHAPES);
+    phase_cos = persistent_arena.allocate_n<float>(MAX_SHAPES);
+    waveform = persistent_arena.allocate_n<float>(MAX_SHAPES);
     folded_draw_indices = persistent_arena.allocate_n<uint16_t>(MAX_SHAPES);
     prepare_count(hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES));
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
@@ -257,18 +260,11 @@ private:
     }
   };
 
-  /** Maps uniform contour quantiles to a 0.4..1.6x latitude density. */
+  /** Maps uniform contour quantiles to sine-weighted latitude density. */
   HS_COLD_MEMBER static float adaptive_planar_radius_t(float radius_t) {
     const bool far_side = radius_t > 0.5f;
     const float u = 2.0f * folded_radius_t(radius_t);
-    float theta = u * (PI_F / 2.0f);
-    for (int iteration = 0; iteration < 4; ++iteration) {
-      const float residual =
-          (2.0f / PI_F) * (theta - 0.3f * sinf(2.0f * theta)) - u;
-      const float derivative =
-          (2.0f / PI_F) * (1.0f - 0.6f * cosf(2.0f * theta));
-      theta = hs::clamp(theta - residual / derivative, 0.0f, PI_F / 2.0f);
-    }
+    const float theta = acosf(1.0f - u);
     const float folded = theta / PI_F;
     return far_side ? 1.0f - folded : folded;
   }
@@ -278,6 +274,8 @@ private:
     for (int i = 0; i < count; ++i) {
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+      phase_sin[i] = sinf(2.0f * PI_F * radius_t);
+      phase_cos[i] = cosf(2.0f * PI_F * radius_t);
       planar_radius_t[i] =
           adaptive_spacing ? adaptive_planar_radius_t(radius_t) : radius_t;
       folded_draw_indices[i] =
@@ -304,6 +302,23 @@ private:
     }
     baked_palette_count = count;
     prepared_spacing = params.spacing;
+  }
+
+  HS_FLASH_MEMBER void prepare_waveform(PhaseFunction function, int count) {
+    if (function == PhaseFunction::SINE) {
+      const float phase_angle = 2.0f * PI_F * phase;
+      const float phase_sine = sinf(phase_angle);
+      const float phase_cosine = cosf(phase_angle);
+      for (int i = 0; i < count; ++i)
+        waveform[i] = phase_sin[i] * phase_cosine + phase_cos[i] * phase_sine;
+      return;
+    }
+
+    for (int i = 0; i < count; ++i) {
+      const float radius_t =
+          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+      waveform[i] = evaluate(function, radius_t + phase);
+    }
   }
 
   const BakedPalette &selected_palette() const {
@@ -365,6 +380,7 @@ private:
     const ShapeType shape = selected_shape();
     const bool planar_star = shape == ShapeType::PLANAR_STAR;
     const PhaseFunction function = selected_function();
+    prepare_waveform(function, count);
     const Basis basis = make_basis(orientation.get(), X_AXIS);
     const ClipRegion &clip = canvas.clip();
     const bool full_width_clip = clip.x_start == 0 && clip.x_end == clip.w;
@@ -437,8 +453,7 @@ private:
       }
       const float direction = continuous_star ? star_phase_direction(radius)
                                               : phase_direction(radius);
-      const float contour_phase =
-          direction * params.amplitude * evaluate(function, radius_t + phase);
+      const float contour_phase = direction * params.amplitude * waveform[i];
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
         fragment.color.alpha *= global_alpha;
@@ -583,7 +598,6 @@ private:
     const ClipRegion::XClip x_clip = clip.x_clip();
     constexpr float TARGET_STEP = Plot::BALANCED_SCREEN_STEP_PX;
     constexpr float ALPHA_GAIN = 1.012f;
-
     for (int edge = 0; edge < sides * 2; ++edge) {
       const Vector &a = points[edge].pos;
       const Vector &b = points[edge + 1].pos;
@@ -606,9 +620,8 @@ private:
           position = b;
         else {
           const float t = static_cast<float>(k) / ANCHOR_INTERVALS;
-          position = Plot::azimuthal_unproject(p0.first + dx * t,
-                                               p0.second + dy * t, planar_basis)
-                         .normalized();
+          position = Plot::azimuthal_unproject(
+              p0.first + dx * t, p0.second + dy * t, planar_basis);
         }
         anchors[k] = vector_to_pixel<W, H>(position);
         if (k > 0) {
@@ -773,7 +786,7 @@ private:
 #endif
 
   static constexpr std::array<PresetEntry<Params>, 9> PRESETS = {{
-      {{ShapeType::PLANAR_STAR, 172.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
+      {{ShapeType::PLANAR_STAR, 184.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
         AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::ADAPTIVE}},
       {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f,
         0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
@@ -820,6 +833,9 @@ private:
   BakedPalette baked_constant;
   BakedPalette baked_toward_equator;
   float *planar_radius_t = nullptr;
+  float *phase_sin = nullptr;
+  float *phase_cos = nullptr;
+  float *waveform = nullptr;
   uint16_t *folded_draw_indices = nullptr;
   int baked_palette_count = 0;
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
