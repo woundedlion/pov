@@ -627,11 +627,11 @@ inline Vector lissajous(float m1, float m2, float a, float t) {
 }
 
 /**
- * @brief An orthonormal basis { u, v, w }.
+ * @brief An orthonormal basis { u, v, w } whose *middle* axis is the normal:
+ * `v` is the normal, and `u`, `w` span the plane perpendicular to it.
  */
 struct Basis {
-  Vector u, v,
-      w; /**< Orthonormal axes; v is the normal, u and w span the plane. */
+  Vector u, v, w;
 };
 
 /**
