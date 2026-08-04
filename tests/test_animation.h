@@ -1729,6 +1729,72 @@ inline void test_dissolve_segue_reseeds_per_frame_and_transition() {
 }
 
 /**
+ * @brief Verifies Segue::Dissolve schedules the two meshes co-resident for the
+ *        whole fade window: its negative overlap selects the full window, so
+ *        every frame of the transition has both halves of the mask pair
+ *        drawing.
+ * @details A sequential schedule would leave the complement's edges unlit for
+ *          the entire transition — a half-black sphere, not a dissolve.
+ */
+inline void test_dissolve_segue_overlaps_the_full_fade_window() {
+  Timeline tl;
+  const int dur = 10, window = 3; // fade = min(window, dur/2) = window
+  MeshCarousel<Segue::Dissolve> carousel;
+  bool drew_out = false, drew_in = false;
+  int co_resident = 0;
+  int next_delay = carousel.schedule_segue(
+      tl, carousel.front_index(), [&](Canvas &, float) { drew_out = true; },
+      dur, window);
+  HS_EXPECT_EQ(next_delay, dur - window);
+
+  for (int i = 0; i < next_delay; ++i) {
+    drew_out = drew_in = false;
+    tl.step(fake_canvas());
+    co_resident += drew_out && drew_in;
+  }
+  HS_EXPECT_EQ(co_resident, 0);
+
+  carousel.schedule_segue(tl, carousel.front_index(),
+                          [&](Canvas &, float) { drew_in = true; }, dur,
+                          window);
+  for (int i = 0; i < dur; ++i) {
+    drew_out = drew_in = false;
+    tl.step(fake_canvas());
+    co_resident += drew_out && drew_in;
+  }
+  HS_EXPECT_EQ(co_resident, window);
+}
+
+/**
+ * @brief Verifies Breakdown's degenerate-input guards: a single-class mesh
+ * fades as one unit instead of dividing by a zero rank span, an out-of-range
+ * class id resolves through rank[0] rather than reading past the array, and
+ * face_phase saturates outside a class's window.
+ */
+inline void test_breakdown_guards_degenerate_class_inputs() {
+  Segue::Breakdown bd; // default: one class, no reorder() yet
+  const Vector any(0.0f, 1.0f, 0.0f);
+  HS_EXPECT_EQ(bd.num_classes, 1);
+  HS_EXPECT_NEAR(bd.face_offset(any, 0, 0), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(bd.face_offset(any, 0, 5), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(bd.face_phase(0.0f, 0.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(bd.face_phase(1.0f, 0.0f), 1.0f, 1e-6f);
+
+  hs::random().seed(11u);
+  const std::vector<uint8_t> face_classes{0, 1, 2};
+  bd.reorder(face_classes);
+  HS_EXPECT_EQ(bd.num_classes, 3);
+  const float class0 = bd.face_offset(any, 0, 0);
+  HS_EXPECT_NEAR(bd.face_offset(any, 0, -1), class0, 1e-6f);
+  HS_EXPECT_NEAR(bd.face_offset(any, 0, bd.num_classes), class0, 1e-6f);
+  for (int c = 0; c < bd.num_classes; ++c) {
+    const float o = bd.face_offset(any, 0, c);
+    HS_EXPECT_NEAR(bd.face_phase(0.0f, o), 0.0f, 1e-6f);
+    HS_EXPECT_NEAR(bd.face_phase(1.0f, o), 1.0f, 1e-6f);
+  }
+}
+
+/**
  * @brief Verifies the Base shading hooks are identities: full opacity and
  * coverage, unmodified edge distance and color, never culled.
  */
@@ -3124,6 +3190,7 @@ inline int run_animation_tests() {
   test_sequential_segue_never_overlaps_sprites();
   test_dissolve_segue_masks_partition_keys();
   test_dissolve_segue_reseeds_per_frame_and_transition();
+  test_dissolve_segue_overlaps_the_full_fade_window();
   test_segue_base_hooks_are_identity();
   test_segue_visible_gate_culls_only_dark_phases();
   test_iris_bloom_fill_contracts_to_face_centers();
@@ -3136,6 +3203,7 @@ inline int run_animation_tests() {
   test_shockwave_orders_by_distance_from_origin();
   test_per_face_segues_satisfy_draw_contract();
   test_breakdown_fades_classes_sequentially();
+  test_breakdown_guards_degenerate_class_inputs();
   test_spin_flip_warp_is_rigid();
   test_gold_convergence_grades_to_gold();
 
