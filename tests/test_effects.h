@@ -1078,7 +1078,7 @@ struct GSWhiteBox {
     gs.params.dt = dt;
   }
   static int dissolve_frame(const GS &gs) {
-    return gs.transition.dissolve_substeps;
+    return gs.transition.dissolve_frames;
   }
   static const uint16_t *b_field(const GS &gs) { return gs.state.B; }
   static const uint16_t *a_field(const GS &gs) { return gs.state.A; }
@@ -1094,15 +1094,9 @@ struct GSWhiteBox {
     gs.state.B[i] = b;
   }
   static constexpr float DISSOLVE_FADE_FRACTION = GS::DISSOLVE_FADE_FRACTION;
-  static constexpr int DISSOLVE_FRAMES =
-      (GS::DISSOLVE_SUBSTEPS + GS::EVOLUTION_STEPS_PER_FRAME - 1) /
-      GS::EVOLUTION_STEPS_PER_FRAME;
-  static constexpr int MIN_GROW_FRAMES =
-      (GS::MIN_GROW_SUBSTEPS + GS::EVOLUTION_STEPS_PER_FRAME - 1) /
-      GS::EVOLUTION_STEPS_PER_FRAME;
-  static constexpr int STABLE_HOLD_FRAMES =
-      (GS::STABLE_HOLD_SUBSTEPS + GS::EVOLUTION_STEPS_PER_FRAME - 1) /
-      GS::EVOLUTION_STEPS_PER_FRAME;
+  static constexpr int DISSOLVE_FRAMES = GS::DISSOLVE_FRAMES;
+  static constexpr int MIN_GROW_FRAMES = GS::MIN_GROW_FRAMES;
+  static constexpr int STABLE_HOLD_FRAMES = GS::STABLE_HOLD_FRAMES;
 
   // refine_render_center's early-out certificates.
   static constexpr int POLE_BAND = GS::POLE_BAND;
