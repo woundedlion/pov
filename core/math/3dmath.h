@@ -70,6 +70,11 @@ inline constexpr float TOLERANCE = math::TOLERANCE;
  * @brief Floating-point representation of PI.
  */
 inline constexpr float PI_F = static_cast<float>(PI);
+/**
+ * @brief A full turn in radians (2π).
+ * @details Suffixed _F because Arduino's wiring.h defines TWO_PI as a macro.
+ */
+inline constexpr float TWO_PI_F = 2.0f * PI_F;
 
 /**
  * @brief Quintic interpolation kernel (smootherstep).

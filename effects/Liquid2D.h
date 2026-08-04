@@ -126,7 +126,6 @@ public:
     // dt is the live Time Speed slider, not (t - prev): the Driver adds that speed
     // each step so it IS this frame's advance, and differencing across the wrap
     // seam would spike.
-    constexpr float TWO_PI_F = 2.0f * PI_F;
     float dt = params.time_speed;
     sin_phase = fmodf(sin_phase + dt, TWO_PI_F);
     cos_phase = fmodf(cos_phase + 0.8f * dt, TWO_PI_F);
