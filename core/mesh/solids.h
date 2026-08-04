@@ -819,6 +819,15 @@ namespace IslamicStarPatterns {
 /** Degrees-to-radians conversion factor. */
 static constexpr float D2R = PI_F / 180.0f;
 
+/** Truncation depth of the `*_truncate5d_*` recipes: a dimensionless edge
+ * fraction short of the ambo pinch at t = 0.5. The `5d` in those names is the
+ * degree slot of the parameter sweep that found the value, not a unit of it. */
+static constexpr float TRUNCATE_T_NEAR = 0.0872664601f;
+/** Truncation depth of the `*_truncate50d_*` recipes: a dimensionless edge
+ * fraction past the ambo pinch, where the cut faces self-intersect by design.
+ * The `50d` in those names is a sweep slot, not a unit of the value. */
+static constexpr float TRUNCATE_T_FAR = 0.87266463f;
+
 /**
  * @brief Builds the truncatedIcosahedron_hk58_chamfer63 star pattern.
  * @param a Output arena for the result and even pipeline stages.
@@ -893,7 +902,7 @@ FLASHMEM static PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
 FLASHMEM static PolyMesh
 truncatedIcosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncatedIcosidodecahedron(a, b), a, b)
-      .truncate(50.0f * D2R)
+      .truncate(TRUNCATE_T_FAR)
       .ambo()
       .dual()
       .build();
@@ -907,7 +916,7 @@ truncatedIcosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
 FLASHMEM static PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
                                                                 Arena &b) {
   return SolidBuilder(Archimedean::icosidodecahedron(a, b), a, b)
-      .truncate(5.0f * D2R)
+      .truncate(TRUNCATE_T_NEAR)
       .ambo()
       .dual()
       .build();
@@ -921,7 +930,7 @@ FLASHMEM static PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
 FLASHMEM static PolyMesh snubDodecahedron_truncate5d_ambo_dual(Arena &a,
                                                                Arena &b) {
   return SolidBuilder(Archimedean::snubDodecahedron(a, b), a, b)
-      .truncate(5.0f * D2R)
+      .truncate(TRUNCATE_T_NEAR)
       .ambo()
       .dual()
       .build();
@@ -1003,7 +1012,7 @@ FLASHMEM static PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
 FLASHMEM static PolyMesh truncatedIcosahedron_truncate50d_ambo_dual(Arena &a,
                                                                     Arena &b) {
   return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
-      .truncate(50.0f * D2R)
+      .truncate(TRUNCATE_T_FAR)
       .ambo()
       .dual()
       .build();
@@ -1416,7 +1425,9 @@ inline constexpr Recipe DODECAHEDRON_HK72_AMBO_DUAL_HK20_RECIPE = {
 
 /** Step table for icosidodecahedron_truncate5d_ambo_dual. */
 inline constexpr OpStep ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS[] = {
-    {Op::TRUNCATE, 5.0f * IslamicStarPatterns::D2R}, {Op::AMBO}, {Op::DUAL}};
+    {Op::TRUNCATE, IslamicStarPatterns::TRUNCATE_T_NEAR},
+    {Op::AMBO},
+    {Op::DUAL}};
 /** Recipe mirror of IslamicStarPatterns::icosidodecahedron_truncate5d_ambo_dual. */
 inline constexpr Recipe ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE = {
     SEED_ICOSIDODECAHEDRON, ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS,
@@ -1425,7 +1436,9 @@ inline constexpr Recipe ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE = {
 
 /** Step table for snubDodecahedron_truncate5d_ambo_dual. */
 inline constexpr OpStep SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS[] = {
-    {Op::TRUNCATE, 5.0f * IslamicStarPatterns::D2R}, {Op::AMBO}, {Op::DUAL}};
+    {Op::TRUNCATE, IslamicStarPatterns::TRUNCATE_T_NEAR},
+    {Op::AMBO},
+    {Op::DUAL}};
 /** Recipe mirror of IslamicStarPatterns::snubDodecahedron_truncate5d_ambo_dual. */
 inline constexpr Recipe SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE = {
     SEED_SNUB_DODECAHEDRON, SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS,
@@ -1583,7 +1596,7 @@ inline constexpr Recipe DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_RECIPE = {
 /** Step table for truncatedIcosidodecahedron_truncate50d_ambo_dual. */
 inline constexpr OpStep
     TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[] = {
-        {Op::TRUNCATE, 50.0f * IslamicStarPatterns::D2R},
+        {Op::TRUNCATE, IslamicStarPatterns::TRUNCATE_T_FAR},
         {Op::AMBO},
         {Op::DUAL}};
 /**
@@ -1610,7 +1623,9 @@ inline constexpr Recipe TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_RECIPE = {
 
 /** Step table for truncatedIcosahedron_truncate50d_ambo_dual. */
 inline constexpr OpStep TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[] = {
-    {Op::TRUNCATE, 50.0f * IslamicStarPatterns::D2R}, {Op::AMBO}, {Op::DUAL}};
+    {Op::TRUNCATE, IslamicStarPatterns::TRUNCATE_T_FAR},
+    {Op::AMBO},
+    {Op::DUAL}};
 /**
  * Recipe mirror of
  * IslamicStarPatterns::truncatedIcosahedron_truncate50d_ambo_dual.

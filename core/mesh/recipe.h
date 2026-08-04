@@ -27,7 +27,7 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * the derived per-arrival floor (min(T_EPS, arrival * T_EPS_TRUNCATE_FRAC))
  * rather than clamping both endpoints to T_EPS. Above 0.5 is a far-side leg: it
  * sweeps through the ambo pinch on the constant-topology truncate branch (the
- * two truncate50d recipes arrive at 50 deg = 0.873), up to
+ * two truncate50d recipes arrive at 0.873), up to
  * T_EPS_TRUNCATE_FAR_MAX; behaviour in [T_EPS_TRUNCATE_MIN, 0.5] is unchanged.
  * CHAMFER is characterized up to CHAMFER_T_MAX. KIS and DUAL run as gated swaps
  * (docs/opchain_morph_spec.md, section 3.3). EXPAND has a leg kind but no

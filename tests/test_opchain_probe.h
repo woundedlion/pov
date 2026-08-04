@@ -484,7 +484,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
 // ---------------------------------------------------------------------------
 // Far-side truncate sweep (opchain_morph_spec section 5.1): the two
 // truncatedIcos{ahedron,idodecahedron}_truncate50d_ambo_dual recipes truncate
-// at 50 deg = 0.873, PAST the ambo pinch (t = 0.5). truncate emits a constant
+// at t = 0.873, PAST the ambo pinch (t = 0.5). truncate emits a constant
 // topology (2E vertices, F+V faces, 3I indices) for every t != 0.5; only the
 // exact-0.5 short-circuit differs (returns ambo, V vertices). A far-side leg
 // births on the near side (small t), sweeps through 0.5 with the pinch guard
@@ -507,9 +507,9 @@ inline constexpr TruncateSite FAR_TRUNCATE_SITES[] = {
     {"truncatedIcosidodecahedron_truncate50d_ambo_dual", probe_ticosidodeca},
 };
 
-/** Arrival parameter of the two truncate50d recipes: 50 deg past the pinch. */
+/** Arrival parameter of the two truncate50d recipes: 0.873, past the pinch. */
 inline constexpr float TRUNCATE50D_T_STAR =
-    50.0f * Solids::IslamicStarPatterns::D2R;
+    Solids::IslamicStarPatterns::TRUNCATE_T_FAR;
 /** Below this t, the truncate cut faces do not yet self-intersect, so positive
  * area still holds and can be asserted. Above the pinch (0.5) it cannot. */
 inline constexpr float FAR_SIDE_NEAR_LIMIT = 0.49f;
