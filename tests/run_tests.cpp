@@ -44,6 +44,7 @@
 #include "tests/test_effects.h"
 #include "tests/test_effects_smoke.h"
 #include "tests/test_shapeshifter_oracle.h"
+#include "tests/test_shapeshifter_tiles.h"
 #include "tests/test_dma_core.h"
 #include "tests/test_hd107s_frame.h"
 #include "tests/test_dma_controller.h"
@@ -157,6 +158,8 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
   X("shapeshifter_oracle",                                                     \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 109)    \
+  X("shapeshifter_tiles",                                                      \
+    hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests, 46)       \
   X("dma_core", hs_test::dma_core::run_dma_core_tests, 12)                     \
   X("hd107s", hs_test::hd107s_tests::run_hd107s_tests, 280)                    \
   X("dma_controller", hs_test::dma_controller::run_dma_controller_tests, 67)   \
