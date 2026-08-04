@@ -2882,9 +2882,19 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   HS_EXPECT_NEAR(v0s.back(), 1.0f, 2e-2f);
 }
 
-/** @brief Cull-sample reuse rebuilds the planar sampler bit for bit. */
-inline void test_planar_sampler_from_cull_bit_parity() {
+/**
+ * @brief Cull-sample reuse rebuilds the same planar sampler as a fresh build.
+ * @details Both overloads evaluate identical expressions on identical inputs
+ * (the reuse path's stride-2 read of the cull span's eighth points IS the
+ * rebuild path's quarter points), so they agree bit for bit under IEEE. The
+ * shipping -ffast-math pair reassociates each overload in its own inlining
+ * context, which moves the shared unproject/angle chains, so PARITY_TOL is the
+ * asserted contract; a wrong sample index or a dropped endpoint moves these
+ * registers by ~0.1 rad.
+ */
+inline void test_planar_sampler_from_cull_parity() {
   constexpr int W = 128;
+  constexpr float PARITY_TOL = 1e-4f;
   hs::random().seed(0xC0115A9u);
   for (int trial = 0; trial < 400; ++trial) {
     Vector normal(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
@@ -2907,34 +2917,34 @@ inline void test_planar_sampler_from_cull_bit_parity() {
     const Plot::PlanarEdgeSampler reused =
         Plot::make_planar_edge_sampler(span, end, basis);
 
-    auto expect_bits = [](float lhs, float rhs) {
-      HS_EXPECT_EQ(std::bit_cast<uint32_t>(lhs), std::bit_cast<uint32_t>(rhs));
+    auto expect_parity = [](float lhs, float rhs) {
+      HS_EXPECT_NEAR(lhs, rhs, PARITY_TOL);
     };
-    expect_bits(rebuilt.proj1.first, reused.proj1.first);
-    expect_bits(rebuilt.proj1.second, reused.proj1.second);
-    expect_bits(rebuilt.dx, reused.dx);
-    expect_bits(rebuilt.dy, reused.dy);
-    expect_bits(rebuilt.chart_tangent.x, reused.chart_tangent.x);
-    expect_bits(rebuilt.chart_tangent.y, reused.chart_tangent.y);
-    expect_bits(rebuilt.chart_tangent.z, reused.chart_tangent.z);
+    expect_parity(rebuilt.proj1.first, reused.proj1.first);
+    expect_parity(rebuilt.proj1.second, reused.proj1.second);
+    expect_parity(rebuilt.dx, reused.dx);
+    expect_parity(rebuilt.dy, reused.dy);
+    expect_parity(rebuilt.chart_tangent.x, reused.chart_tangent.x);
+    expect_parity(rebuilt.chart_tangent.y, reused.chart_tangent.y);
+    expect_parity(rebuilt.chart_tangent.z, reused.chart_tangent.z);
     for (size_t i = 0; i < rebuilt.arc_cumul.size(); ++i)
-      expect_bits(rebuilt.arc_cumul[i], reused.arc_cumul[i]);
-    expect_bits(rebuilt.dist, reused.dist);
+      expect_parity(rebuilt.arc_cumul[i], reused.arc_cumul[i]);
+    expect_parity(rebuilt.dist, reused.dist);
     int interval = 0;
     int position_interval = 0;
     for (float t : {0.0f, 0.17f, 0.51f, 0.88f}) {
       const Plot::SamplePT original = rebuilt.one_pass(t);
       const Plot::SamplePT optimized = reused.one_pass_monotonic(t, interval);
       const Vector position = reused.position_monotonic(t, position_interval);
-      expect_bits(original.pos.x, optimized.pos.x);
-      expect_bits(original.pos.y, optimized.pos.y);
-      expect_bits(original.pos.z, optimized.pos.z);
-      expect_bits(optimized.pos.x, position.x);
-      expect_bits(optimized.pos.y, position.y);
-      expect_bits(optimized.pos.z, position.z);
-      expect_bits(original.tan.x, optimized.tan.x);
-      expect_bits(original.tan.y, optimized.tan.y);
-      expect_bits(original.tan.z, optimized.tan.z);
+      expect_parity(original.pos.x, optimized.pos.x);
+      expect_parity(original.pos.y, optimized.pos.y);
+      expect_parity(original.pos.z, optimized.pos.z);
+      expect_parity(optimized.pos.x, position.x);
+      expect_parity(optimized.pos.y, position.y);
+      expect_parity(optimized.pos.z, position.z);
+      expect_parity(original.tan.x, optimized.tan.x);
+      expect_parity(original.tan.y, optimized.tan.y);
+      expect_parity(original.tan.z, optimized.tan.z);
     }
   }
 }
@@ -5001,7 +5011,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_antipodal_seam_planar_falls_back_geodesic();
   test_rasterize_planar_segment_gap_free_arclength();
   test_rasterize_planar_arc_registers_track_drawn_arc();
-  test_planar_sampler_from_cull_bit_parity();
+  test_planar_sampler_from_cull_parity();
   test_rasterize_planar_policy_bit_parity();
   test_rasterize_cull_follows_filter_orientation();
 
