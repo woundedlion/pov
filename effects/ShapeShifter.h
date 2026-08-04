@@ -30,9 +30,14 @@ public:
   /** @brief Waveforms available through the Function slider. */
   enum class PhaseFunction { SINE, TRIANGLE, SAWTOOTH, SQUARE };
 
+  /** @brief Per-shape alpha functions available to presets. */
+  enum class AlphaFalloff { CONSTANT_HALF, TOWARD_EQUATOR };
+
   static constexpr int NUM_SHAPES = static_cast<int>(ShapeType::STAR) + 1;
   static constexpr int NUM_FUNCTIONS =
       static_cast<int>(PhaseFunction::SQUARE) + 1;
+  static constexpr int NUM_ALPHA_FALLOFFS =
+      static_cast<int>(AlphaFalloff::TOWARD_EQUATOR) + 1;
   /** @brief Count slider ceiling. */
   static constexpr int MAX_SHAPES = 288;
 
@@ -49,9 +54,10 @@ public:
   void init() override {
     params = presets.get();
 
-    register_animated_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
-    register_animated_param("Shape", &params.shape, 0.0f,
-                            static_cast<float>(NUM_SHAPES - 1));
+    register_animated_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
+    mark_global("Alpha");
+    register_animated_param("Shape", &params.shape, SHAPE_OPTIONS,
+                            SHAPE_EXPORT_OPTIONS, NUM_SHAPES);
     register_animated_param("Count", &params.count, 1.0f,
                             static_cast<float>(MAX_SHAPES));
     register_animated_param("Sides", &params.sides, SIDES_MIN, SIDES_MAX);
@@ -61,6 +67,9 @@ public:
                             AMPLITUDE_MAX);
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
     register_animated_param("Opposite", &params.opposite);
+    register_animated_param("Alpha Falloff", &params.alpha_falloff,
+                            ALPHA_FALLOFF_OPTIONS, ALPHA_FALLOFF_EXPORT_OPTIONS,
+                            NUM_ALPHA_FALLOFFS);
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
@@ -114,24 +123,34 @@ private:
   static constexpr float SPEED_MAX = 0.16f;
   static constexpr int PRESET_FRAMES = 240;
 
+  static constexpr const char *SHAPE_OPTIONS[] = {
+      "Planar Polygon", "Spherical Polygon", "Flower", "Star"};
+  static constexpr const char *SHAPE_EXPORT_OPTIONS[] = {
+      "ShapeType::PLANAR_POLYGON", "ShapeType::SPHERICAL_POLYGON",
+      "ShapeType::FLOWER", "ShapeType::STAR"};
+  static constexpr const char *ALPHA_FALLOFF_OPTIONS[] = {"Constant 0.5",
+                                                          "Toward Equator"};
+  static constexpr const char *ALPHA_FALLOFF_EXPORT_OPTIONS[] = {
+      "AlphaFalloff::CONSTANT_HALF", "AlphaFalloff::TOWARD_EQUATOR"};
+
   /** @brief Tunable rendering state stored by each preset. */
   struct Params {
-    float alpha;
-    float shape;
+    ShapeType shape;
     float count;
     float sides;
     float function;
     float amplitude;
     float speed;
     bool opposite;
+    AlphaFalloff alpha_falloff;
 
     constexpr Params() = default;
-    constexpr Params(float alpha, float shape, float count, float sides,
-                     float function, float amplitude, float speed,
-                     float opposite)
-        : alpha(alpha), shape(shape), count(count), sides(sides),
-          function(function), amplitude(amplitude), speed(speed),
-          opposite(opposite >= 0.5f) {}
+    constexpr Params(ShapeType shape, float count, float sides, float function,
+                     float amplitude, float speed, float opposite,
+                     AlphaFalloff alpha_falloff)
+        : shape(shape), count(count), sides(sides), function(function),
+          amplitude(amplitude), speed(speed), opposite(opposite >= 0.5f),
+          alpha_falloff(alpha_falloff) {}
   };
 
   void advance_phase() {
@@ -146,7 +165,10 @@ private:
     return params.opposite && radius > 1.0f ? -1.0f : 1.0f;
   }
 
-  static constexpr float shape_alpha(int index, int count) {
+  static constexpr float shape_alpha(AlphaFalloff falloff, int index,
+                                     int count) {
+    if (falloff == AlphaFalloff::CONSTANT_HALF)
+      return 0.5f;
     const int STEPS_TO_EQUATOR = (count - 1) / 2;
     if (STEPS_TO_EQUATOR == 0)
       return 1.0f;
@@ -245,14 +267,15 @@ private:
       const float shape_phase =
           direction * params.amplitude * evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(radius_t);
-      const float alpha = params.alpha * shape_alpha(i, count);
+      const float shape_alpha_value =
+          alpha * shape_alpha(params.alpha_falloff, i, count);
 
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
-        fragment.color.alpha *= alpha;
+        fragment.color.alpha *= shape_alpha_value;
       };
       Color4 shaded_color = color;
-      shaded_color.alpha *= alpha;
+      shaded_color.alpha *= shape_alpha_value;
       dispatch_plot(canvas, basis, shape, radius, sides, shader, shape_phase,
                     shaded_color);
     }
@@ -278,10 +301,11 @@ private:
       const float shape_phase =
           direction * params.amplitude * evaluate(function, radius_t + phase);
       const Color4 color = baked_sunset.get(radius_t);
-      const float alpha = params.alpha * shape_alpha(i, count);
+      const float shape_alpha_value =
+          alpha * shape_alpha(params.alpha_falloff, i, count);
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
-        fragment.color.alpha *= alpha;
+        fragment.color.alpha *= shape_alpha_value;
       };
       dispatch_plot_reference(canvas, basis, shape, radius, sides, shader,
                               shape_phase);
@@ -289,12 +313,8 @@ private:
   }
 #endif
 
-  /** @brief Returns the nearest valid Shape slider selection. */
-  ShapeType selected_shape() const {
-    const int selected =
-        hs::clamp(static_cast<int>(params.shape + 0.5f), 0, NUM_SHAPES - 1);
-    return static_cast<ShapeType>(selected);
-  }
+  /** @brief Returns the selected Plot primitive. */
+  ShapeType selected_shape() const { return params.shape; }
 
   /** @brief Returns the nearest valid Function slider selection. */
   PhaseFunction selected_function() const {
@@ -556,20 +576,27 @@ private:
 #endif
 
   static constexpr std::array<PresetEntry<Params>, 8> PRESETS = {{
-      {{0.274f, 2.988f, 144.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f}},
-      {{1.0f, 1.017f, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f, 0.0f}},
-      {{0.5f, 2.793f, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f}},
-      {{0.5f, 1.872f, 70.0f, 3.0f, 0.0f, 1.0f, 0.0186f, 0.0f}},
-      {{0.274f, 2.988f, 72.0f, 4.417f, 0.0f, 1.0f, 0.0077f, 0.0f}},
-      {{0.5f, 0.822f, 128.0f, 5.561f, 0.0f, 4.0f, 0.0405f, 1.0f}},
-      {{0.45579f, 1.05f, 144.0f, 4.001f, 0.0f, 2.377f, 0.027086f, 0.0f}},
-      {{0.496f, 0.897f, 144.0f, 3.195f, 0.0f, 7.0696f, 0.0113f, 0.0f}},
+      {{ShapeType::STAR, 144.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
+        AlphaFalloff::TOWARD_EQUATOR}},
+      {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f,
+        0.0f, AlphaFalloff::CONSTANT_HALF}},
+      {{ShapeType::STAR, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f,
+        AlphaFalloff::TOWARD_EQUATOR}},
+      {{ShapeType::FLOWER, 70.0f, 3.0f, 0.0f, 1.0f, 0.0186f, 0.0f,
+        AlphaFalloff::CONSTANT_HALF}},
+      {{ShapeType::STAR, 72.0f, 4.417f, 0.0f, 1.0f, 0.0077f, 0.0f,
+        AlphaFalloff::TOWARD_EQUATOR}},
+      {{ShapeType::SPHERICAL_POLYGON, 128.0f, 5.561f, 0.0f, 4.0f, 0.0405f, 1.0f,
+        AlphaFalloff::CONSTANT_HALF}},
+      {{ShapeType::SPHERICAL_POLYGON, 144.0f, 4.001f, 0.0f, 2.377f, 0.027086f,
+        0.0f, AlphaFalloff::CONSTANT_HALF}},
+      {{ShapeType::SPHERICAL_POLYGON, 144.0f, 3.195f, 0.0f, 7.0696f, 0.0113f,
+        0.0f, AlphaFalloff::CONSTANT_HALF}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
-    return preset.alpha >= ALPHA_MIN && preset.alpha <= ALPHA_MAX &&
-           preset.shape >= 0.0f &&
-           preset.shape <= static_cast<float>(NUM_SHAPES - 1) &&
+    return static_cast<int>(preset.shape) >= 0 &&
+           static_cast<int>(preset.shape) < NUM_SHAPES &&
            preset.count >= 1.0f &&
            preset.count <= static_cast<float>(MAX_SHAPES) &&
            preset.sides >= SIDES_MIN && preset.sides <= SIDES_MAX &&
@@ -577,7 +604,9 @@ private:
            preset.function <= static_cast<float>(NUM_FUNCTIONS - 1) &&
            preset.amplitude >= AMPLITUDE_MIN &&
            preset.amplitude <= AMPLITUDE_MAX && preset.speed >= SPEED_MIN &&
-           preset.speed <= SPEED_MAX;
+           preset.speed <= SPEED_MAX &&
+           static_cast<int>(preset.alpha_falloff) >= 0 &&
+           static_cast<int>(preset.alpha_falloff) < NUM_ALPHA_FALLOFFS;
   }
 
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
@@ -590,6 +619,7 @@ private:
   BakedPalette baked_sunset;
   Presets<Params, 8> presets{PRESETS};
   Params params{};
+  float alpha = 1.0f;
   float phase = 0.0f;
 };
 

@@ -23,12 +23,15 @@
 namespace hs_test {
 namespace canvas_tests {
 
+enum class TestMode { NONE, WARP, SPARKLE };
+
 /**
  * @brief Minimal concrete Effect for exercising the base-class machinery.
  * @details Exposes the protected hooks (register_param / persist_pixels) needed
  * by the tests.
  */
 struct TestEffect : public Effect {
+  using Effect::mark_global;
   using Effect::mark_readonly;
 
   float speed = 1.5f; /**< Sample float param backing store. */
@@ -80,6 +83,10 @@ struct TestEffect : public Effect {
   void add_enum(const char *n, float *p, const char *const *options,
                 int count) {
     register_param(n, p, options, count);
+  }
+  void add_typed_enum(const char *n, TestMode *p, const char *const *options,
+                      const char *const *export_options, int count) {
+    register_param(n, p, options, export_options, count);
   }
 };
 
@@ -802,6 +809,31 @@ inline void test_register_and_update_enum_param() {
   HS_EXPECT_FALSE(fx.getParameters().find("Speed")->is_enum());
 }
 
+/** @brief Verifies typed enums and preset-export metadata round-trip. */
+inline void test_typed_enum_and_global_param_metadata() {
+  TestEffect fx(4, 4);
+  static const char *const MODES[] = {"None", "Warp", "Sparkle"};
+  static const char *const EXPORT_MODES[] = {"TestMode::NONE", "TestMode::WARP",
+                                             "TestMode::SPARKLE"};
+  TestMode mode = TestMode::WARP;
+  fx.add_typed_enum("Mode", &mode, MODES, EXPORT_MODES, 3);
+  fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
+  fx.mark_global("Speed");
+
+  const auto *mode_def = fx.getParameters().find("Mode");
+  const auto *speed_def = fx.getParameters().find("Speed");
+  HS_EXPECT_TRUE(mode_def != nullptr);
+  HS_EXPECT_TRUE(speed_def != nullptr);
+  HS_EXPECT_EQ(mode_def->get(), 1.0f);
+  HS_EXPECT_TRUE(mode_def->export_options == EXPORT_MODES);
+  HS_EXPECT_TRUE(mode_def->preset);
+  HS_EXPECT_FALSE(speed_def->preset);
+
+  HS_EXPECT_TRUE(fx.updateParameter("Mode", 1.8f) == ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(mode == TestMode::SPARKLE);
+  HS_EXPECT_EQ(mode_def->get(), 2.0f);
+}
+
 /**
  * @brief Verifies ParamList holds its full capacity of registered params.
  */
@@ -963,6 +995,7 @@ inline int run_canvas_tests() {
   test_update_parameter_by_name();
   test_update_parameter_rejects_readonly();
   test_register_and_update_enum_param();
+  test_typed_enum_and_global_param_metadata();
   test_paramlist_fills_to_capacity();
   test_clip_setters();
   test_effect_config_margin();

@@ -764,10 +764,17 @@ public:
           for (int k = 0; k < v.option_count; ++k)
             opts.set(k, val(v.options[k]));
           entry.set("options", opts);
+          if (v.export_options != nullptr) {
+            val export_opts = val::array();
+            for (int k = 0; k < v.option_count; ++k)
+              export_opts.set(k, val(v.export_options[k]));
+            entry.set("exportOptions", export_opts);
+          }
         }
       }
       entry.set("animated", val(v.animated));
       entry.set("readonly", val(v.readonly));
+      entry.set("preset", val(v.preset));
       result.set(i++, entry);
     }
     return result;

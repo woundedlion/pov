@@ -33,7 +33,7 @@ constexpr int DEFAULT_H = 144;
 
 /**
  * @brief Tracks whether the roster can distinguish a transposed ParamView pair.
- * @details ParamView is a nine-field aggregate built by positional
+ * @details ParamView is an eleven-field aggregate built by positional
  *   initialization, with min/max adjacent and animated/readonly adjacent. The
  *   per-field assertions below only catch a swap when some param actually has
  *   min != max (or animated != readonly), so the roster's ability to catch one
@@ -90,10 +90,12 @@ inline bool check_one(const char *, FieldCoverage &coverage) {
     HS_EXPECT_EQ(views[i].max, def.max);
     HS_EXPECT_EQ(views[i].animated, def.animated);
     HS_EXPECT_EQ(views[i].readonly, def.readonly);
+    HS_EXPECT_EQ(views[i].preset, def.preset);
     coverage.range_distinguishing |= def.min != def.max;
     coverage.flags_distinguishing |= def.animated != def.readonly;
     HS_EXPECT_TRUE(views[i].options == def.options);
     HS_EXPECT_EQ(views[i].option_count, def.option_count);
+    HS_EXPECT_TRUE(views[i].export_options == def.export_options);
     // An enum's current value is always a valid option index.
     if (def.option_count > 0) {
       HS_EXPECT_GE(views[i].value, 0.0f);
