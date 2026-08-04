@@ -78,8 +78,8 @@ private:
 };
 
 /** @brief History of Orientation states. */
-template <typename OrientationType, int CAPACITY>
-using OrientationTrail = Trail<OrientationType, CAPACITY>;
+template <typename OrientationType, int CAP>
+using OrientationTrail = Trail<OrientationType, CAP>;
 
 /** @brief History of world-space Vector positions. */
 template <int CAP> using VectorTrail = Trail<Vector, CAP>;
@@ -175,14 +175,13 @@ template <int CAP> void tween(const Orientation<CAP> &o, TweenFn callback) {
 
 /**
  * @brief Helper to iterate over a VectorTrail's historical frames.
- * @tparam CAPACITY Trail capacity.
+ * @tparam CAP Trail capacity.
  * @param trail The trail to iterate.
  * @param callback The function to call for each frame: `void(const Vector&,
  * float t)`.
  */
-template <int CAPACITY>
-void tween(const Animation::VectorTrail<CAPACITY> &trail,
-           VectorTweenFn callback) {
+template <int CAP>
+void tween(const Animation::VectorTrail<CAP> &trail, VectorTweenFn callback) {
   size_t len = trail.length();
   if (len == 0)
     return;
@@ -196,14 +195,14 @@ void tween(const Animation::VectorTrail<CAPACITY> &trail,
 
 /**
  * @brief Helper to iterate over a QuantizedVectorTrail's historical frames.
- * @tparam CAPACITY Trail capacity.
+ * @tparam CAP Trail capacity.
  * @param trail The trail to iterate.
  * @param callback The function to call for each frame: `void(const Vector&,
  * float t)`. Forwards to the member tween, which walks the ring directly
  * instead of re-deriving each index.
  */
-template <int CAPACITY>
-void tween(const Animation::QuantizedVectorTrail<CAPACITY> &trail,
+template <int CAP>
+void tween(const Animation::QuantizedVectorTrail<CAP> &trail,
            VectorTweenFn callback) {
   trail.tween(callback);
 }
