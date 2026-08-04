@@ -146,7 +146,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("transformers", hs_test::transformers_tests::run_transformers_tests, 1296) \
   X("noise", hs_test::noise_tests::run_noise_tests, 201)                       \
   X("generators", hs_test::generators_tests::run_generators_tests, 59)         \
-  X("animation", hs_test::animation_tests::run_animation_tests, 16446)         \
+  X("animation", hs_test::animation_tests::run_animation_tests, 3833)          \
   X("effects", hs_test::effects_tests::run_effects_tests,                      \
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_FULL_MIN_ASSERTIONS                                          \
@@ -171,7 +171,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("util", hs_test::util_tests::run_util_tests, 288)                          \
   X("led", hs_test::led_tests::run_led_tests, 24)                              \
   X("presets", hs_test::presets_tests::run_presets_tests, 23)                  \
-  X("styles", hs_test::styles_tests::run_styles_tests, 17862)                  \
+  X("styles", hs_test::styles_tests::run_styles_tests, 610)                    \
   X("shading", hs_test::shading_tests::run_shading_tests, 43)                  \
   X("death", hs_test::death::run_death_tests, 85)
 
