@@ -101,7 +101,69 @@ public:
                     48, 160, [this](Canvas &) { rotate(); }, true));
   }
 
+  /**
+   * @brief Renders one frame.
+   * @details Syncs the live trail length, steps the timeline, advances the
+   *          strand by the accumulated whole steps, plots it, then flushes the
+   *          filter pipeline through color().
+   */
+  void draw_frame() override {
+    Canvas canvas(*this);
+
+    // Push the live "Trail Len" slider into the Trails filter, capped to what
+    // the ring can hold for the current emission rate.
+    filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().set_lifetime(
+        hs::clamp((int)params.trail_length, 1, trail_length_ceiling()));
+
+    {
+      HS_PROFILE(dy_timeline_step);
+      timeline.step(canvas);
+    }
+
+    // Collapse finished wipes (FIFO) before their boundaries are read below.
+    reap_completed_wipes();
+
+    // color() walks palette_boundaries and reads baked_palettes[i] and [i+1];
+    // paired push (color_wipe) and pop (reap) keep palettes one ahead of the
+    // boundaries. Guard that pairing once here before the per-pixel band walk.
+    HS_CHECK(palettes.size() == palette_boundaries.size() + 1);
+
+    // Carry the fractional part of |speed| across frames so |speed| < 1 still
+    // advances the strand instead of truncating to zero.
+    const float effective_speed = params.speed * speed_direction;
+    speed_accumulator += std::abs(effective_speed);
+    const int steps = static_cast<int>(speed_accumulator);
+    speed_accumulator -= static_cast<float>(steps);
+    emitted_points = 0;
+    {
+      HS_PROFILE(dy_draw_nodes);
+      if (steps == 0) {
+        // Re-emit the strand in place; otherwise a Trail Len of 1 blanks it on
+        // zero-step frames and sub-unit speeds flicker.
+        draw_nodes(canvas, 0.0f);
+      } else {
+        for (int i = steps - 1; i >= 0; --i) {
+          pull(effective_speed);
+          draw_nodes(canvas, static_cast<float>(i) / steps);
+        }
+      }
+    }
+    emission_points = emitted_points / (steps > 0 ? steps : 1);
+
+    // The Trails filter replays each buffered point with t = its age fraction;
+    // feeding that as color()'s palette parameter fades the trail along the
+    // palette with age (newest t=0, oldest t=1) rather than just dimming.
+    {
+      HS_PROFILE(dy_filter_flush);
+      filters.flush(
+          canvas, [this](const Vector &v, float t) { return color(v, t); },
+          1.0f);
+    }
+  }
+
 private:
+  friend struct ::hs_test::effects_tests::DynamoWhiteBox;
+
   /**
    * @brief Flips travel direction via a private sign.
    * @details Toggles speed_direction so animation never overwrites the "Speed"
@@ -232,70 +294,6 @@ private:
 
     return baked_palettes[0].get(t);
   }
-
-public:
-  /**
-   * @brief Renders one frame.
-   * @details Syncs the live trail length, steps the timeline, advances the
-   *          strand by the accumulated whole steps, plots it, then flushes the
-   *          filter pipeline through color().
-   */
-  void draw_frame() override {
-    Canvas canvas(*this);
-
-    // Push the live "Trail Len" slider into the Trails filter, capped to what
-    // the ring can hold for the current emission rate.
-    filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().set_lifetime(
-        hs::clamp((int)params.trail_length, 1, trail_length_ceiling()));
-
-    {
-      HS_PROFILE(dy_timeline_step);
-      timeline.step(canvas);
-    }
-
-    // Collapse finished wipes (FIFO) before their boundaries are read below.
-    reap_completed_wipes();
-
-    // color() walks palette_boundaries and reads baked_palettes[i] and [i+1];
-    // paired push (color_wipe) and pop (reap) keep palettes one ahead of the
-    // boundaries. Guard that pairing once here before the per-pixel band walk.
-    HS_CHECK(palettes.size() == palette_boundaries.size() + 1);
-
-    // Carry the fractional part of |speed| across frames so |speed| < 1 still
-    // advances the strand instead of truncating to zero.
-    const float effective_speed = params.speed * speed_direction;
-    speed_accumulator += std::abs(effective_speed);
-    const int steps = static_cast<int>(speed_accumulator);
-    speed_accumulator -= static_cast<float>(steps);
-    emitted_points = 0;
-    {
-      HS_PROFILE(dy_draw_nodes);
-      if (steps == 0) {
-        // Re-emit the strand in place; otherwise a Trail Len of 1 blanks it on
-        // zero-step frames and sub-unit speeds flicker.
-        draw_nodes(canvas, 0.0f);
-      } else {
-        for (int i = steps - 1; i >= 0; --i) {
-          pull(effective_speed);
-          draw_nodes(canvas, static_cast<float>(i) / steps);
-        }
-      }
-    }
-    emission_points = emitted_points / (steps > 0 ? steps : 1);
-
-    // The Trails filter replays each buffered point with t = its age fraction;
-    // feeding that as color()'s palette parameter fades the trail along the
-    // palette with age (newest t=0, oldest t=1) rather than just dimming.
-    {
-      HS_PROFILE(dy_filter_flush);
-      filters.flush(
-          canvas, [this](const Vector &v, float t) { return color(v, t); },
-          1.0f);
-    }
-  }
-
-private:
-  friend struct ::hs_test::effects_tests::DynamoWhiteBox;
 
   /**
    * @brief Plots the strand for this sub-step.
