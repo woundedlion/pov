@@ -104,7 +104,7 @@ async function main() {
   // effect reporting false is legitimate, an all-false sweep is not.
   let strobing = 0;
 
-  // Enumerated from the module (generated from HS_WASM_RESOLUTIONS) so a new
+  // Enumerated from the module (generated from HS_RESOLUTIONS) so a new
   // resolution gets coverage without editing this file.
   const RESOLUTIONS = Module.HolosphereEngine.getSupportedResolutions();
   if (!RESOLUTIONS || RESOLUTIONS.length === 0) {

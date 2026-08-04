@@ -7,11 +7,11 @@
 
 #include <emscripten/bind.h>
 #include <emscripten/stack.h>
-#include "engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
+#include "core/engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
 #include "core/engine/effect_registry.h"
 #include "core/color/palettes.h" // HS_PROCEDURAL_PALETTE_LIST — named-palette export
-#include "engine/platform.h"
-#include "mesh/solids.h"
+#include "core/engine/platform.h"
+#include "core/mesh/solids.h"
 #include "targets/wasm/param_marshal.h"   // pure, host-tested param marshaling
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <algorithm> // std::fill_n — blank-frame clear in drawFrame
@@ -190,7 +190,8 @@ static void ensure_tooling_arenas() {
     return;
   const size_t total = TOOLING_ARENA_BYTES + 2 * TOOLING_SCRATCH_BYTES;
   uint8_t *block = static_cast<uint8_t *>(std::malloc(total));
-  HS_CHECK(block != nullptr); // 16 MB tooling block — fail-fast on OOM
+  HS_CHECK(block != nullptr,
+           "tooling arena block allocation of %zu bytes failed", total);
   tooling_arena.rebind(block, TOOLING_ARENA_BYTES);
   tooling_scratch_a.rebind(block + TOOLING_ARENA_BYTES, TOOLING_SCRATCH_BYTES);
   tooling_scratch_b.rebind(block + TOOLING_ARENA_BYTES + TOOLING_SCRATCH_BYTES,
@@ -284,25 +285,24 @@ const FactoryEntry *find_factory_entry(std::string_view name) {
 }
 
 // ---------------------------------------------------------------------------
-// The (W,H) resolutions the WASM factory can build. Aliased to the registry's
-// HS_RESOLUTIONS (core/engine/effect_registry.h) so the runtime dispatch here and the
-// per-resolution fill functions the registry generates share one list and
-// cannot drift: a resolution the registry can build is dispatchable here with no
-// second edit. setResolution()/setEffect()/getEffectSizes() all expand this via
-// the X-macro below. A new resolution is one edit, in HS_RESOLUTIONS (the effect
-// templates must also be instantiable at that <W,H>).
+// The (W,H) resolutions the WASM factory can build are the registry's
+// HS_RESOLUTIONS rows (core/engine/effect_registry.h), so the runtime dispatch
+// here and the per-resolution fill functions the registry generates share one
+// list and cannot drift: a resolution the registry can build is dispatchable
+// here with no second edit. setResolution()/setEffect()/getEffectSizes() all
+// expand it via the X-macro below. A new resolution is one edit, in
+// HS_RESOLUTIONS (the effect templates must also be instantiable at that
+// <W,H>).
 // ---------------------------------------------------------------------------
-#define HS_WASM_RESOLUTIONS(X) HS_RESOLUTIONS(X)
 
 // Pin every resolution row to the MAX_W×MAX_H pixel-buffer bound.
 #define X(W, H)                                                                \
-  static_assert(                                                               \
-      (W) <= MAX_W && (H) <= MAX_H,                                            \
-      "HS_WASM_RESOLUTIONS row exceeds the MAX_W×MAX_H pixel buffer");
-HS_WASM_RESOLUTIONS(X)
+  static_assert((W) <= MAX_W && (H) <= MAX_H,                                  \
+                "HS_RESOLUTIONS row exceeds the MAX_W×MAX_H pixel buffer");
+HS_RESOLUTIONS(X)
 #undef X
 
-/** @brief One HS_WASM_RESOLUTIONS row as runtime values. */
+/** @brief One HS_RESOLUTIONS row as runtime values. */
 struct WasmResolution {
   int w; /**< Canvas width in pixels. */
   int h; /**< Canvas height in pixels. */
@@ -312,11 +312,11 @@ struct WasmResolution {
 // naming a preset that HS_RESOLUTIONS may later drop.
 static constexpr WasmResolution WASM_RESOLUTIONS[] = {
 #define X(W, H) {(W), (H)},
-    HS_WASM_RESOLUTIONS(X)
+    HS_RESOLUTIONS(X)
 #undef X
 };
 static_assert(std::size(WASM_RESOLUTIONS) > 0,
-              "HS_WASM_RESOLUTIONS must carry a row to bootstrap on");
+              "HS_RESOLUTIONS must carry a row to bootstrap on");
 
 // The registered effect names, in HS_EFFECT_LIST order. Only the first is used
 // (the constructor's bootstrap), for the same reason as WASM_RESOLUTIONS.
@@ -329,7 +329,7 @@ static_assert(std::size(WASM_EFFECT_NAMES) == HS_EFFECT_COUNT,
               "HS_EFFECT_LIST and HS_EFFECT_COUNT must agree");
 
 /**
- * @brief Invokes f.operator()<W,H>() for the single HS_WASM_RESOLUTIONS row
+ * @brief Invokes f.operator()<W,H>() for the single HS_RESOLUTIONS row
  *        matching the runtime (w,h).
  * @tparam F Type of the templated callable.
  * @param w Runtime canvas width in pixels to match against the row list.
@@ -348,7 +348,7 @@ template <typename F> static bool dispatch_resolution(int w, int h, F &&f) {
     f.template operator()<(W), (H)>();                                         \
     return true;                                                               \
   }
-  HS_WASM_RESOLUTIONS(X)
+  HS_RESOLUTIONS(X)
 #undef X
   return false;
 }
@@ -357,7 +357,7 @@ template <typename F> static bool dispatch_resolution(int w, int h, F &&f) {
  * @brief Reports whether (w,h) is a resolution the factory can build.
  * @param w Candidate canvas width in pixels.
  * @param h Candidate canvas height in pixels.
- * @return true iff (w,h) is one of the HS_WASM_RESOLUTIONS rows.
+ * @return true iff (w,h) is one of the HS_RESOLUTIONS rows.
  */
 static bool wasm_resolution_supported(int w, int h) {
   return dispatch_resolution(w, h, []<int W, int H>() {});
@@ -741,8 +741,10 @@ public:
       return val::array();
 
     val result = val::array();
-    // Single source of order shared with getParamValues() (param_marshal.h), so
-    // the value stream cannot index-drift from these definitions.
+    // Both streams walk the effect's registered ParamList in order
+    // (param_marshal.h); the definitions and getParamValues() agree only
+    // because that list is fixed after init, with getParamGeneration() covering
+    // replacement of the effect itself.
     hs_wasm::collect_param_views(*current_effect, param_views);
 
     int i = 0;
@@ -791,17 +793,20 @@ public:
    *          no heap growth that could detach other outstanding views.
    */
   val getParamValues() {
+    // The no-reallocation contract both paths ride on: the ctor reserved
+    // MAX_PARAMS and clear() retains that capacity, which also keeps the
+    // zero-length view's backing pointer valid.
+    HS_CHECK(param_values.capacity() >= MAX_PARAMS,
+             "param_values capacity %zu below the reserved %zu",
+             param_values.capacity(), MAX_PARAMS);
     if (!current_effect) {
       // Empty Float32Array (not a JS Array) so callers get a consistent typed
-      // view whether or not an effect is set. The zero-length view still needs a
-      // valid backing pointer, which holds only because the ctor reserved
-      // MAX_PARAMS and clear() retains that capacity.
-      HS_CHECK(param_values.capacity() >= MAX_PARAMS);
+      // view whether or not an effect is set.
       param_values.clear();
       return val(typed_memory_view(param_values.size(), param_values.data()));
     }
 
-    // Same order as getParameterDefinitions(); clear retains MAX_PARAMS capacity.
+    // Same order as getParameterDefinitions().
     hs_wasm::fill_param_values(*current_effect, param_values);
     return val(typed_memory_view(param_values.size(), param_values.data()));
   }
@@ -882,7 +887,7 @@ public:
   /**
    * @brief Enumerates the resolutions the factory can build.
    * @return JS array of [W, H] pairs, generated from the same
-   *         HS_WASM_RESOLUTIONS list that setResolution()/getEffectSizes()
+   *         HS_RESOLUTIONS list that setResolution()/getEffectSizes()
    *         dispatch through.
    * @details Callers (e.g. the CI smoke test) can enumerate this instead of
    *          hand-mirroring the list, so the supported set can never silently
@@ -898,7 +903,7 @@ public:
     pair.set(1, (H));                                                          \
     out.set(i++, pair);                                                        \
   }
-    HS_WASM_RESOLUTIONS(X)
+    HS_RESOLUTIONS(X)
 #undef X
     return out;
   }
@@ -1557,7 +1562,7 @@ public:
     case Solids::Op::ZIP:
       return "zip";
     }
-    __builtin_unreachable();
+    HS_CHECK(false, "unhandled Solids::Op %d in op_name", static_cast<int>(op));
   }
 
   /**
