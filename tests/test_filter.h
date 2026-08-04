@@ -2136,8 +2136,6 @@ inline void test_feedback_spherical_field_angular_error() {
 
 /** @brief Displaces longitude alone, alternating a near-half-turn against a
  * small opposing step so adjacent controls straddle the seam correction. */
-/** @brief Displaces longitude alone, alternating a near-half-turn against a
- * small opposing step so adjacent controls straddle the seam correction. */
 inline Vector opposed_seam_warp(const Vector &v, const ::Feedback::Style &) {
   const Spherical s(v);
   const int band =
