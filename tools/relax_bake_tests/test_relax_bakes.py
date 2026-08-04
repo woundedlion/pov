@@ -96,7 +96,8 @@ class EmitHeader(unittest.TestCase):
         dump, out = make_dump("foo_bar", 100, [(0x11, 0x22, 0x33)], 0xC0FFEE)
         bakes = relax_bakes.parse_dump(dump)
         header = relax_bakes.emit_header(bakes)
-        self.assertIn("namespace RelaxBakes {", header)
+        self.assertIn("namespace Solids {\nnamespace RelaxBakes {", header)
+        self.assertIn('#include "mesh/conway.h"', header)
         self.assertIn("inline const uint32_t foo_bar_bits[] PROGMEM = {", header)
         self.assertIn('.name = "foo_bar", .vertex_bits = foo_bar_bits,', header)
         self.assertIn(

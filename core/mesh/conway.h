@@ -5,6 +5,7 @@
 #pragma once
 
 #include <bit>
+#include "math/geometry.h"
 #include "mesh/mesh.h"
 
 /**
