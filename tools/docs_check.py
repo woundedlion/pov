@@ -87,6 +87,27 @@ _UNTRACKED_ALLOWED = (
 _MARKDOWN_EXCLUDED = frozenset({PurePosixPath("docs/CODE_REVIEW.md")})
 
 
+def _untracked_allowance(candidate: str, used: set[str] | None) -> bool:
+    """Reports whether an _UNTRACKED_ALLOWED prefix exempts candidate, recording it."""
+    for prefix in _UNTRACKED_ALLOWED:
+        if candidate.startswith(prefix):
+            if used is not None:
+                used.add(prefix)
+            return True
+    return False
+
+
+def _stale_allowances(entries: set[PurePosixPath], used: set[str]) -> list[str]:
+    """Names _UNTRACKED_ALLOWED entries the exemption no longer buys anything for."""
+    stale = []
+    for prefix in _UNTRACKED_ALLOWED:
+        if PurePosixPath(prefix.rstrip("/")) in entries:
+            stale.append(f"{prefix} (now tracked)")
+        elif prefix not in used:
+            stale.append(f"{prefix} (uncited)")
+    return stale
+
+
 def _normalize_label(label: str) -> str:
     return " ".join(label.split()).casefold()
 
@@ -373,7 +394,8 @@ def _link_issue(source: PurePosixPath, line: int, target: str,
 
 
 def _path_span_issue(source: PurePosixPath, line: int, span: str,
-                     entries: set[PurePosixPath]) -> Issue | None:
+                     entries: set[PurePosixPath],
+                     used: set[str] | None = None) -> Issue | None:
     """Reports a backticked repo path that no tracked file matches."""
     match = _PATH_SPAN_RE.match(span)
     if not match:
@@ -381,7 +403,7 @@ def _path_span_issue(source: PurePosixPath, line: int, span: str,
     candidate = match.group(1)
     if "/" not in candidate or PurePosixPath(candidate).suffix not in _SOURCE_SUFFIXES:
         return None
-    if candidate.startswith(_UNTRACKED_ALLOWED):
+    if _untracked_allowance(candidate, used):
         return None
     # Scope to paths rooted at a real tracked directory, so references to build
     # output, external checkouts, and illustrative paths stay out of the gate.
@@ -409,8 +431,9 @@ def _tree_names(rest: str) -> list[str]:
     return names
 
 
-def _tree_entry_exists(candidate: str, entries: set[PurePosixPath]) -> bool:
-    if candidate.startswith(_UNTRACKED_ALLOWED):
+def _tree_entry_exists(candidate: str, entries: set[PurePosixPath],
+                       used: set[str] | None = None) -> bool:
+    if _untracked_allowance(candidate, used):
         return True
     if "*" in candidate or "?" in candidate:
         return any(fnmatch.fnmatchcase(entry.as_posix(), candidate)
@@ -419,7 +442,8 @@ def _tree_entry_exists(candidate: str, entries: set[PurePosixPath]) -> bool:
 
 
 def _tree_issues(source: PurePosixPath, fences: list[Fence],
-                 entries: set[PurePosixPath]) -> list[Issue]:
+                 entries: set[PurePosixPath],
+                 used: set[str] | None = None) -> list[Issue]:
     """Reports drawn tree rows that name a path this repository does not track."""
     issues = []
     for fence in fences:
@@ -449,7 +473,7 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
             stack[depth:] = [names[0].rstrip("/")]
             for name in names:
                 candidate = posixpath.join(parent, name.rstrip("/"))
-                if not _tree_entry_exists(candidate, entries):
+                if not _tree_entry_exists(candidate, entries, used):
                     issues.append(Issue(source.as_posix(), line_number,
                                         f"tree path {candidate!r} does not exist"))
     return issues
@@ -457,9 +481,10 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
 
 def check_text(source: PurePosixPath, text: str,
                entries: set[PurePosixPath],
-               anchors: dict[PurePosixPath, set[str]] | None = None) -> list[Issue]:
+               anchors: dict[PurePosixPath, set[str]] | None = None,
+               used: set[str] | None = None) -> list[Issue]:
     visible, fences, issues = _visible_lines(source, text)
-    issues.extend(_tree_issues(source, fences, entries))
+    issues.extend(_tree_issues(source, fences, entries, used))
     # The source's own anchors always resolve; cross-document ones need the
     # repository-wide map check_repository builds.
     anchors = dict(anchors or {})
@@ -469,7 +494,7 @@ def check_text(source: PurePosixPath, text: str,
     body_lines = []
     for line in visible:
         for span in line.spans:
-            issue = _path_span_issue(source, line.number, span, entries)
+            issue = _path_span_issue(source, line.number, span, entries, used)
             if issue:
                 issues.append(issue)
         match = _REFERENCE_DEFINITION_RE.match(line.masked)
@@ -515,9 +540,11 @@ def _tracked_entries(root: Path) -> tuple[list[PurePosixPath], set[PurePosixPath
     return markdown, entries
 
 
-def check_repository(root: Path) -> tuple[list[PurePosixPath], list[Issue]]:
+def check_repository(
+        root: Path) -> tuple[list[PurePosixPath], list[Issue], list[str]]:
     markdown, entries = _tracked_entries(root)
     issues = []
+    used: set[str] = set()
     sources: dict[PurePosixPath, str] = {}
     for relative in markdown:
         path = root.joinpath(*relative.parts)
@@ -531,8 +558,8 @@ def check_repository(root: Path) -> tuple[list[PurePosixPath], list[Issue]]:
     anchors = {relative: _anchors(_visible_lines(relative, text)[0])
                for relative, text in sources.items()}
     for relative, text in sources.items():
-        issues.extend(check_text(relative, text, entries, anchors))
-    return markdown, sorted(issues)
+        issues.extend(check_text(relative, text, entries, anchors, used))
+    return markdown, sorted(issues), _stale_allowances(entries, used)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -542,10 +569,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        markdown, issues = check_repository(args.root.resolve())
+        markdown, issues, stale = check_repository(args.root.resolve())
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         print(f"[docs-check] tooling error: {error}", file=sys.stderr)
         return 2
+    # Warning only: dropping the last citation of an exempt path improves the
+    # tree and must not red the build for whoever lands that commit.
+    if markdown and stale:
+        print("::warning::_UNTRACKED_ALLOWED in tools/docs_check.py is stale - "
+              f"drop these entries: {', '.join(stale)}")
     if issues:
         for issue in issues:
             print(issue)
