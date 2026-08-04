@@ -383,9 +383,13 @@ private:
  * @tparam AnimT The animation class (e.g., Animation::BallDrop).
  * @tparam FieldFunc The static function evaluating one entity's field.
  * @tparam CAPACITY Max number of active fields.
- * @details The scalar counterpart of Transformer: entities superpose by
- * summation instead of composing as warps, so a caller can feed the summed
- * field into a displacement path (e.g. a DistortedRing shift LUT).
+ * @details The scalar counterpart of Transformer: entities compose as scalars
+ * instead of as warps, so a caller can feed the composed field into a
+ * displacement path (e.g. a DistortedRing shift LUT). field() offers
+ * superposition by summation; a caller whose entities must not stack composes
+ * its own way over active_count()/active_params() (see
+ * DominantFieldAccumulator). field_bound() bounds either composition, since the
+ * dominant blend never exceeds the largest contribution in magnitude.
  */
 template <typename ParamsT, typename AnimT,
           float (*FieldFunc)(const Vector &, const ParamsT &),

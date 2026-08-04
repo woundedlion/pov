@@ -437,30 +437,17 @@ private:
               .color;
   }
 
-  Pixel sample_hue_table(float amount, float domain, bool cyclic) const {
-    float t = amount / domain;
-    t = cyclic ? wrap_t(t) : hs::clamp(t, 0.0f, 1.0f);
-    float x = t * HUE_TABLE_SIZE;
-    if (x >= HUE_TABLE_SIZE)
-      return hue_table[HUE_TABLE_SIZE];
-    int i = static_cast<int>(x);
-    return hue_table[i].lerp16(hue_table[i + 1], frac_to_q16(x - i));
-  }
-
-  Pixel sample_hue_table_cached(float amount, float domain, bool cyclic,
-                                const HueRotateBase &base, uint64_t *valid) {
-    auto ensure = [&](int index) {
-      const uint64_t bit = uint64_t{1} << (index & 63);
-      uint64_t &word = valid[index >> 6];
-      if (!(word & bit)) {
-        hue_table[index] =
-            hue_rotate(base,
-                       domain * (static_cast<float>(index) / HUE_TABLE_SIZE))
-                .color;
-        word |= bit;
-      }
-    };
-
+  /**
+   * @brief Interpolates the hue table at a displacement amount.
+   * @param amount Displacement magnitude to map onto the hue turn.
+   * @param domain Displacement magnitude spanning one full hue turn.
+   * @param cyclic Whether amounts past the domain wrap instead of clamping.
+   * @param ensure Called with every knot index read, before the read.
+   * @return The interpolated hue-rotated ring color.
+   */
+  template <typename Ensure>
+  Pixel sample_hue_table_with(float amount, float domain, bool cyclic,
+                              Ensure ensure) const {
     float t = amount / domain;
     t = cyclic ? wrap_t(t) : hs::clamp(t, 0.0f, 1.0f);
     float x = t * HUE_TABLE_SIZE;
@@ -472,6 +459,28 @@ private:
     ensure(i);
     ensure(i + 1);
     return hue_table[i].lerp16(hue_table[i + 1], frac_to_q16(x - i));
+  }
+
+  /** @brief Samples a hue table already fully baked by prepare_hue_table(). */
+  Pixel sample_hue_table(float amount, float domain, bool cyclic) const {
+    return sample_hue_table_with(amount, domain, cyclic, [](int) {});
+  }
+
+  /** @brief Samples the hue table, baking only the knots it reads and marking
+   * them in the `valid` bitset. */
+  Pixel sample_hue_table_cached(float amount, float domain, bool cyclic,
+                                const HueRotateBase &base, uint64_t *valid) {
+    return sample_hue_table_with(amount, domain, cyclic, [&](int index) {
+      const uint64_t bit = uint64_t{1} << (index & 63);
+      uint64_t &word = valid[index >> 6];
+      if (!(word & bit)) {
+        hue_table[index] =
+            hue_rotate(base,
+                       domain * (static_cast<float>(index) / HUE_TABLE_SIZE))
+                .color;
+        word |= bit;
+      }
+    });
   }
 
   /**
@@ -486,8 +495,8 @@ private:
 
   /**
    * @brief Spawns one falling ball with a random meridian, footprint, and
-   * speed drawn from the Speed Min/Max sliders; dropped safely if the pool is
-   * full.
+   * speed drawn from the Speed Min/Max sliders; dropped safely if the ball
+   * pool or the timeline is full.
    */
   HS_COLD_MEMBER void spawn_ball() {
     balls.template_params.radius =
@@ -534,11 +543,16 @@ private:
   Timeline timeline;
   Pipeline<W, H> filters;
 
-  // Near the timeline's 64-event budget: each in-flight ball is one event, so
-  // at high Ball Rate x slow Speed the spawner saturates here and drops spawns
-  // safely instead of overflowing the shared event buffer.
+  // Each in-flight ball is one timeline event, so at high Ball Rate x slow
+  // Speed the spawner saturates the pool and drops spawns safely instead of
+  // starving the effect's own events.
   static constexpr int MAX_BALLS =
       56; /**< Concurrent falling-ball pool slots. */
+  static constexpr int RESERVED_EVENTS =
+      6; /**< Non-ball timeline events: pinned noise field, ring Sprite, orientation RandomWalk, palette PeriodicTimer, one master-gain Transition, one palette ColorWipe. */
+  static_assert(MAX_BALLS + RESERVED_EVENTS <= Timeline::MAX_EVENTS,
+                "DisplacementField: a full ball pool plus the effect's own "
+                "events exceeds the shared timeline budget");
   static constexpr int BALL_PHASE_FRAMES =
       900; /**< Ball-phase spawning window (~15 s); balls keep coming the whole window. */
   static constexpr float BALL_RATE_FPS =
