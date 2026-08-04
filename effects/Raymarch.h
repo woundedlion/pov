@@ -69,7 +69,6 @@ public:
     // spin_phase / palette_phase are effect-owned accumulators wrapped to [0,1)
     // each step, so the trig argument never grows. spin_phase is scaled to
     // radians by *2pi where consumed.
-    constexpr float TWO_PI_F = 2.0f * PI_F;
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
                                       1.5f / (60.0f * TWO_PI_F), true));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
@@ -140,7 +139,6 @@ private:
    */
   void draw_fn(Canvas &canvas) {
     HS_PROFILE(rm_shader_draw);
-    constexpr float TWO_PI_F = 2.0f * PI_F;
 
     int twist_n = static_cast<int>(params.twist + 0.5f);
     int max_steps = static_cast<int>(params.max_steps + 0.5f);

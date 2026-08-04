@@ -79,7 +79,7 @@ static constexpr float TURN_EPS_SQ = 1e-12f;
  *  @param w Canvas width in columns.
  *  @return Half-width pad added to each end of an azimuth interval. */
 constexpr float face_azimuth_pad(int w) {
-  return 1.25f * (2.0f * PI_F / static_cast<float>(w));
+  return 1.25f * (TWO_PI_F / static_cast<float>(w));
 }
 
 // Scanline interval protocol. get_horizontal_intervals returns true when the
@@ -338,10 +338,10 @@ merge_intervals(StaticCircularBuffer<std::pair<float, float>, N> &merged,
  * input (e.g. a Ring radius > 2 driving center_phi ± target_angle past range).
  */
 inline float clamp_phi(float x) {
-  x = fabsf(x);              // cos(-x) = cos(x): fold negatives
-  x = fmodf(x, 2.0f * PI_F); // 2π-periodic -> [0, 2π)
+  x = fabsf(x);           // cos(-x) = cos(x): fold negatives
+  x = fmodf(x, TWO_PI_F); // 2π-periodic -> [0, 2π)
   if (x > PI_F)
-    x = 2.0f * PI_F - x; // reflect (π, 2π) across the south pole -> (0, π)
+    x = TWO_PI_F - x; // reflect (π, 2π) across the south pole -> (0, π)
   return x;
 }
 
@@ -557,7 +557,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
   // fast_acos: ~1.3e-4 rad peak error ≈ 0.006 px at W=288, far under the
   // floor/ceil pad below. Matches the Ring/DistortedRing scanline path.
   float d_alpha = fast_acos(C_min);
-  float scale = W / (2.0f * PI_F);
+  float scale = W / TWO_PI_F;
   float x1 = floorf((alpha_angle - d_alpha) * scale);
   float x2 = ceilf((alpha_angle + d_alpha) * scale);
   out(x1, x2);
@@ -691,15 +691,15 @@ inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
                            angle_max))
     return;
 
-  float scale = W / (2.0f * PI_F);
-  float safe_threshold = 2.0f * PI_F / W;
+  float scale = W / TWO_PI_F;
+  float safe_threshold = TWO_PI_F / W;
 
   if (angle_min <= safe_threshold) {
     out(floorf((alpha_angle - angle_max) * scale),
         ceilf((alpha_angle + angle_max) * scale));
   } else if (angle_max >= PI_F - safe_threshold) {
     out(floorf((alpha_angle + angle_min) * scale),
-        ceilf((alpha_angle + 2 * PI_F - angle_min) * scale));
+        ceilf((alpha_angle + TWO_PI_F - angle_min) * scale));
   } else {
     out(floorf((alpha_angle - angle_max) * scale),
         ceilf((alpha_angle - angle_min) * scale));
@@ -871,9 +871,9 @@ struct Ring {
       float dot_w = dot(p, w);
       float azimuth = fast_atan2(dot_w, dot_u);
       if (azimuth < 0)
-        azimuth += 2 * PI_F;
+        azimuth += TWO_PI_F;
       azimuth += phase;
-      t = wrap_t(azimuth / (2 * PI_F));
+      t = wrap_t(azimuth / TWO_PI_F);
     }
 
     res = DistanceResult(dist - thickness, t, dist, 0.0f, thickness);
@@ -1067,9 +1067,9 @@ struct DistortedRing {
     float dot_w = dot(p, w);
     float azimuth = fast_atan2(dot_w, dot_u);
     if (azimuth < 0)
-      azimuth += 2 * PI_F;
+      azimuth += TWO_PI_F;
 
-    float t_norm = wrap_t((azimuth + phase) / (2 * PI_F));
+    float t_norm = wrap_t((azimuth + phase) / TWO_PI_F);
 
     float dist;
     if (knots)
@@ -1155,7 +1155,7 @@ private:
     // chunk and its neighbours can hold a within-reach curve point; a pixel
     // whose polar offset clears all three knot ranges by more than thickness
     // skips the segment search (most band pixels, in a displaced ring).
-    const float chunk_u = (2.0f * PI_F / PREFILTER_CHUNKS) * sin_polar;
+    const float chunk_u = (TWO_PI_F / PREFILTER_CHUNKS) * sin_polar;
     if (chunk_u >= thickness) {
       int c = static_cast<int>(t_norm * PREFILTER_CHUNKS);
       if (c >= PREFILTER_CHUNKS)
@@ -1174,7 +1174,7 @@ private:
     if (j >= lut_n) // t_norm * lut_n can round up to lut_n at the seam
       j = lut_n - 1;
     float f = x - j;
-    const float cell_u = (2.0f * PI_F / lut_n) * sin_polar;
+    const float cell_u = (TWO_PI_F / lut_n) * sin_polar;
     const float cell_u2 = cell_u * cell_u;
 
     // Chart v of knot m relative to the pixel (pixel at the origin).
@@ -1281,8 +1281,8 @@ struct FlatDistortedRing : private DistortedRing {
     if constexpr (ComputeUVs) {
       float azimuth = fast_atan2(dot(p, w), dot(p, u));
       if (azimuth < 0)
-        azimuth += 2 * PI_F;
-      t_norm = wrap_t((azimuth + phase) / (2 * PI_F));
+        azimuth += TWO_PI_F;
+      t_norm = wrap_t((azimuth + phase) / TWO_PI_F);
     }
 
     float dist = std::abs(polar - target_angle);
@@ -1476,7 +1476,7 @@ template <typename A, typename B> struct SmoothUnion {
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
     float pad_px =
         sin_phi > INTERVAL_DENOM_EPS
-            ? std::min(k * W / (2 * PI_F) / sin_phi, static_cast<float>(W))
+            ? std::min(k * W / TWO_PI_F / sin_phi, static_cast<float>(W))
             : static_cast<float>(W);
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
@@ -1922,8 +1922,8 @@ template <typename Shape> struct AngularRepeat {
    */
   AngularRepeat(const Shape &s, int reps, const Vector &ax)
       : shape(s), axis(ax), repetitions(reps),
-        sector(2 * PI_F / static_cast<float>(reps)),
-        reciprocal_sector(static_cast<float>(reps) / (2 * PI_F)) {
+        sector(TWO_PI_F / static_cast<float>(reps)),
+        reciprocal_sector(static_cast<float>(reps) / TWO_PI_F) {
     HS_CHECK(reps > 0);
     HS_CHECK(fabsf(ax.length() - 1.0f) < 1e-3f);
     // Derive perpendicular plane via Gram-Schmidt
@@ -1998,7 +1998,7 @@ template <typename Shape> struct AngularRepeat {
     // Fold angle in the u-w plane
     float theta = fast_atan2(local_w, local_u);
     if (theta < 0)
-      theta += 2 * PI_F;
+      theta += TWO_PI_F;
 
     float folded_theta =
         centered_sector_angle(theta, sector, reciprocal_sector);
@@ -2499,8 +2499,8 @@ struct Face {
     for (const auto &iv : intervals) {
       // Mirrors get_horizontal_intervals' radians->column mapping, so the cull
       // matches the emitted columns exactly.
-      int a = static_cast<int>(floorf((iv.first - pw) * Wd / (2.0f * PI_F)));
-      int b = static_cast<int>(ceilf((iv.second + pw) * Wd / (2.0f * PI_F)));
+      int a = static_cast<int>(floorf((iv.first - pw) * Wd / TWO_PI_F));
+      int b = static_cast<int>(ceilf((iv.second + pw) * Wd / TWO_PI_F));
       int len = b - a;
       if (len <= 0)
         continue;
@@ -2882,7 +2882,7 @@ struct Face {
       const Vector &v = scratch.verts_3d[i];
       float theta = fast_atan2(v.z, v.x);
       if (theta < 0)
-        theta += 2 * PI_F;
+        theta += TWO_PI_F;
       scratch.thetas[i] = theta;
     }
   }
@@ -2914,7 +2914,7 @@ struct Face {
     float gap_start = 0;
     for (int i = 0; i < count; ++i) {
       float next = (i + 1 < count) ? scratch.thetas[i + 1]
-                                   : (scratch.thetas[0] + 2 * PI_F);
+                                   : (scratch.thetas[0] + TWO_PI_F);
       float diff = next - scratch.thetas[i];
       if (diff > max_gap) {
         max_gap = diff;
@@ -2925,10 +2925,10 @@ struct Face {
     int interval_count = 0;
     if (max_gap > PI_F) {
       full_width = false;
-      float start_t = fmodf(gap_start + max_gap, 2 * PI_F);
+      float start_t = fmodf(gap_start + max_gap, TWO_PI_F);
       // fmodf can leave start_t at ~2*PI instead of ~0, producing a degenerate
       // [~2*PI, 2*PI] sliver below; snap to 0.
-      if (start_t > 2 * PI_F - 1e-4f)
+      if (start_t > TWO_PI_F - 1e-4f)
         start_t = 0.0f;
       float end_t = gap_start;
 
@@ -2936,7 +2936,7 @@ struct Face {
         scratch.intervals[interval_count++] = {start_t, end_t};
       } else {
         scratch.intervals[interval_count++] = {0.0f, end_t};
-        scratch.intervals[interval_count++] = {start_t, 2 * PI_F};
+        scratch.intervals[interval_count++] = {start_t, TWO_PI_F};
       }
     } else {
       full_width = true;
@@ -3228,8 +3228,8 @@ struct Face {
       pad *= (0.5f * PI_F) / sin_phi;
     }
     for (const auto &iv : intervals) {
-      float f_x1 = (iv.first - pad) * W / (2 * PI_F);
-      float f_x2 = (iv.second + pad) * W / (2 * PI_F);
+      float f_x1 = (iv.first - pad) * W / TWO_PI_F;
+      float f_x2 = (iv.second + pad) * W / TWO_PI_F;
       out(floorf(f_x1), ceilf(f_x2));
     }
     return true;
@@ -3517,8 +3517,8 @@ struct PlanarPolygon {
         sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(circumradius > 0.0f); // t = polar / circumradius
-    sector = 2.0f * PI_F / sides;
-    reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
+    sector = TWO_PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     apothem = circumradius * cosf(PI_F / sides);
 
     CapBounds cb = cap_bounds(basis.v, circumradius, invert);
@@ -3578,7 +3578,7 @@ struct PlanarPolygon {
     float dot_w = dot(p, basis.w);
     float azimuth = fast_atan2(dot_w, dot_u);
     if (azimuth < 0)
-      azimuth += 2 * PI_F;
+      azimuth += TWO_PI_F;
     azimuth += phase;
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
@@ -3631,8 +3631,8 @@ struct SphericalPolygon {
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // t = polar / circumradius
-    sector = 2.0f * PI_F / sides;
-    reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
+    sector = TWO_PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     circumradius = radius * (PI_F / 2.0f);
 
     // Build canonical edge: between vertices at azimuth ±π/n from
@@ -3718,7 +3718,7 @@ struct SphericalPolygon {
     float dot_w = dot(p, basis.w);
     float azimuth = fast_atan2(dot_w, dot_u);
     if (azimuth < 0)
-      azimuth += 2 * PI_F;
+      azimuth += TWO_PI_F;
     azimuth += phase;
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
@@ -3748,7 +3748,7 @@ struct SphericalPolygon {
     float dot_w = dot(p, basis.w);
     float azimuth = fast_atan2(dot_w, dot_u);
     if (azimuth < 0)
-      azimuth += 2 * PI_F;
+      azimuth += TWO_PI_F;
     azimuth += phase;
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
@@ -3793,8 +3793,8 @@ struct Star {
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // zero radius -> zero-length edge normal (NaN)
-    sector = 2.0f * PI_F / sides;
-    reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
+    sector = TWO_PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     float outer_radius = radius * (PI_F / 2.0f);
     float inner_radius = outer_radius * STAR_INNER_RATIO;
     float angle_step = PI_F / sides;
@@ -3867,7 +3867,7 @@ struct Star {
     float dot_w = dot(p, basis.w);
     float azimuth = fast_atan2(dot_w, dot_u);
     if (azimuth < 0)
-      azimuth += 2 * PI_F;
+      azimuth += TWO_PI_F;
 
     azimuth += phase;
 
@@ -3882,7 +3882,7 @@ struct Star {
 
     float t = 0.0f;
     if constexpr (ComputeUVs)
-      t = wrap_t(azimuth / (2 * PI_F));
+      t = wrap_t(azimuth / TWO_PI_F);
     res =
         DistanceResult(sign * -dist_to_edge, t, scan_dist, 0.0f, circumradius);
   }
@@ -3923,8 +3923,8 @@ struct Flower {
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3);
     HS_CHECK(radius > 0.0f); // t = scan_dist / circumradius
-    sector = 2.0f * PI_F / sides;
-    reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
+    sector = TWO_PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     float outer = radius * (PI_F / 2.0f);
     apothem = PI_F - outer;
     circumradius = outer;
@@ -3986,7 +3986,7 @@ struct Flower {
     float dot_w = dot(p, basis.w);
     float azimuth = fast_atan2(dot_w, dot_u);
     if (azimuth < 0)
-      azimuth += 2 * PI_F;
+      azimuth += TWO_PI_F;
     azimuth += phase;
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
@@ -4260,7 +4260,7 @@ struct Torus {
    */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
-    frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / (2.0f * PI_F);
+    frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / TWO_PI_F;
     frag.v1 = n.x;
     frag.v2 = n.y;
     frag.v3 = n.z;
@@ -4680,7 +4680,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
-    frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / (2.0f * PI_F);
+    frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / TWO_PI_F;
     frag.v1 = n.x;
     frag.v2 = n.y;
     frag.v3 = n.z;
