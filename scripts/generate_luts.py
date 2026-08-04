@@ -38,6 +38,7 @@ never pass silently. A clang-format whose major version differs from the one CI
 pins also warns: the reflow differences would land as a whole-header diff.
 """
 
+import argparse
 import os
 import re
 import shutil
@@ -206,9 +207,13 @@ def check(fwd, rev):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--check", action="store_true",
+                        help="run the table self-test only; emit no header")
+    args = parser.parse_args()
     fwd = srgb_to_linear_lut()
     rev = linear_to_srgb_lut()
-    if "--check" in sys.argv[1:]:
+    if args.check:
         sys.exit(1 if check(fwd, rev) else 0)
     if check(fwd, rev):
         sys.stderr.write("generate_luts: self-test failed; refusing to emit\n")
