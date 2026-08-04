@@ -173,6 +173,24 @@ struct ShapeShifterWhiteBox {
     return OracleEffect::shape_alpha(falloff, index, count);
   }
 
+  static int shape_count() { return OracleEffect::NUM_SHAPES; }
+
+  static const char *shape_option(int index) {
+    return OracleEffect::SHAPE_OPTIONS[index];
+  }
+
+  static const char *shape_export_option(int index) {
+    return OracleEffect::SHAPE_EXPORT_OPTIONS[index];
+  }
+
+  static OracleEffect::ShapeType preset_shape(size_t index) {
+    return OracleEffect::PRESETS[index].params.shape;
+  }
+
+  static OracleEffect::AlphaFalloff preset_alpha_falloff(size_t index) {
+    return OracleEffect::PRESETS[index].params.alpha_falloff;
+  }
+
   static void next_preset(OracleEffect &effect) { effect.next_preset(); }
 };
 
@@ -255,31 +273,35 @@ inline uint64_t row_energy(const OracleFrame &frame, int y) {
   return energy;
 }
 
-inline std::array<OracleState, 16> exhaustive_matrix() {
+inline std::array<OracleState, 20> exhaustive_matrix() {
   using Function = OracleEffect::PhaseFunction;
   using Shape = OracleEffect::ShapeType;
   const Shape shapes[] = {Shape::PLANAR_POLYGON, Shape::SPHERICAL_POLYGON,
-                          Shape::FLOWER, Shape::STAR};
+                          Shape::FLOWER, Shape::PLANAR_STAR,
+                          Shape::SPHERICAL_STAR};
   const Function functions[] = {Function::SINE, Function::TRIANGLE,
                                 Function::SAWTOOTH, Function::SQUARE};
   const int counts[] = {1, 2, 7, 75};
-  const int sides[] = {3, 5, 9, 16};
+  const int sides[] = {3, 5, 9, 16, 7};
   const float phases[] = {0.0f, 0.249f, 0.5f, 0.999f};
   const Quaternion orientations[] = {
       Quaternion(), make_rotation(X_AXIS, Y_AXIS),
       make_rotation(X_AXIS, -Y_AXIS), make_rotation(X_AXIS, Z_AXIS)};
 
-  std::array<OracleState, 16> matrix;
+  std::array<OracleState, 20> matrix;
   size_t index = 0;
-  for (int shape = 0; shape < 4; ++shape)
+  for (int shape = 0; shape < 5; ++shape)
     for (int function = 0; function < 4; ++function) {
       OracleState state;
       state.shape = shapes[shape];
-      state.alpha_falloff = state.shape == Shape::STAR
-                                ? OracleEffect::AlphaFalloff::TOWARD_EQUATOR
-                                : OracleEffect::AlphaFalloff::CONSTANT_HALF;
+      const bool star = state.shape == Shape::PLANAR_STAR ||
+                        state.shape == Shape::SPHERICAL_STAR;
+      state.alpha_falloff = star ? OracleEffect::AlphaFalloff::TOWARD_EQUATOR
+                                 : OracleEffect::AlphaFalloff::CONSTANT_HALF;
       state.function = functions[function];
-      state.count = counts[function];
+      state.count = state.shape == Shape::SPHERICAL_STAR
+                        ? std::min(counts[function], 7)
+                        : counts[function];
       state.sides = sides[shape];
       state.phase = phases[function];
       state.orientation = orientations[(shape + function) % 4];
@@ -405,12 +427,52 @@ inline void expect_candidate_within_visual_budget(
 inline void test_candidate_matrix_stays_within_visual_budget() {
   for (const OracleState &state : exhaustive_matrix()) {
     const size_t max_high_error_pixels =
-        state.shape == OracleEffect::ShapeType::STAR
+        state.shape == OracleEffect::ShapeType::PLANAR_STAR ||
+                state.shape == OracleEffect::ShapeType::SPHERICAL_STAR
             ? MAX_STAR_HIGH_ERROR_PIXELS
             : MAX_HIGH_ERROR_PIXELS;
     expect_candidate_within_visual_budget(state, MAX_ENERGY_DRIFT,
                                           max_high_error_pixels);
   }
+}
+
+inline void test_star_projection_policies_render_different_edges() {
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
+  state.function = OracleEffect::PhaseFunction::SQUARE;
+  state.count = 3;
+  state.sides = 5;
+  state.phase = 0.17f;
+  state.orientation =
+      Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
+  const OracleFrame planar = capture_frame(state, candidate_renderer());
+  state.shape = OracleEffect::ShapeType::SPHERICAL_STAR;
+  const OracleFrame spherical = capture_frame(state, candidate_renderer());
+  HS_EXPECT_GT(compare_buffers(planar, spherical).different_pixels,
+               size_t{100});
+}
+
+inline void test_star_options_and_shipping_presets_are_planar() {
+  using Falloff = OracleEffect::AlphaFalloff;
+  using Shape = OracleEffect::ShapeType;
+  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_count(), 5);
+  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_option(3),
+                             "Planar Star") == 0);
+  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_option(4),
+                             "Spherical Star") == 0);
+  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_export_option(3),
+                             "ShapeType::PLANAR_STAR") == 0);
+  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_export_option(4),
+                             "ShapeType::SPHERICAL_STAR") == 0);
+  for (size_t index : {size_t{0}, size_t{2}, size_t{4}}) {
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_shape(index), Shape::PLANAR_STAR);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_alpha_falloff(index),
+                 Falloff::TOWARD_EQUATOR);
+  }
+  for (size_t index : {size_t{1}, size_t{3}, size_t{5}, size_t{6}, size_t{7},
+                       size_t{8}})
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_alpha_falloff(index),
+                 Falloff::CONSTANT_HALF);
 }
 
 inline void test_high_count_star_preset_stays_within_visual_budget() {
@@ -428,7 +490,7 @@ inline void test_high_count_star_preset_stays_within_visual_budget() {
       {0.0f, 0.125f, 0.249f, 0.5f, 0.75f, 0.999f}};
   for (size_t i = 0; i < orientations.size(); ++i) {
     OracleState state;
-    state.shape = Shape::STAR;
+    state.shape = Shape::PLANAR_STAR;
     state.function = Function::SINE;
     state.count = 144;
     state.sides = 7;
@@ -442,7 +504,7 @@ inline void test_high_count_star_preset_stays_within_visual_budget() {
 
 inline void test_high_count_star_preset_covers_north_pole() {
   OracleState state;
-  state.shape = OracleEffect::ShapeType::STAR;
+  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
   state.count = 144;
   state.sides = 7;
@@ -481,7 +543,7 @@ inline int first_covered_north_row(const OracleFrame &frame) {
 inline void test_high_count_star_contours_reach_display_north() {
   for (float phase : {0.0f, 0.125f, 0.249f, 0.5f, 0.75f, 0.999f}) {
     OracleState state;
-    state.shape = OracleEffect::ShapeType::STAR;
+    state.shape = OracleEffect::ShapeType::PLANAR_STAR;
     state.function = OracleEffect::PhaseFunction::SINE;
     state.count = 144;
     state.sides = 7;
@@ -509,8 +571,8 @@ inline void expect_segment_tiles_reconstruct_full_frame(Render render) {
                               {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
   const auto matrix = exhaustive_matrix();
 
-  for (int shape = 0; shape < 4; ++shape) {
-    OracleState full_state = matrix[shape * 4 + shape];
+  for (int shape = 0; shape < 5; ++shape) {
+    OracleState full_state = matrix[shape * 4 + shape % 4];
     full_state.orientation = Quaternion();
     OracleFrame full = capture_frame(full_state, render);
     OracleFrame tiled;
@@ -551,7 +613,7 @@ inline void test_segment_tiles_reconstruct_full_frame() {
     HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
   };
   OracleState state;
-  state.shape = OracleEffect::ShapeType::STAR;
+  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
   state.count = 144;
   state.sides = 7;
@@ -587,7 +649,7 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
 
   for (size_t i = 0; i < orientations.size(); ++i) {
     OracleState state;
-    state.shape = OracleEffect::ShapeType::STAR;
+    state.shape = OracleEffect::ShapeType::PLANAR_STAR;
     state.function = OracleEffect::PhaseFunction::SINE;
     state.count = 144;
     state.sides = 7;
@@ -665,7 +727,7 @@ inline void test_opposite_halves_direction() {
   Timeline().clear();
 
   OracleState state;
-  state.shape = OracleEffect::ShapeType::STAR;
+  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.function = OracleEffect::PhaseFunction::SAWTOOTH;
   state.count = 6;
   state.sides = 7;
@@ -711,6 +773,8 @@ inline int run_shapeshifter_oracle_tests() {
   test_buffer_comparator_statistics();
   test_reference_matrix_is_exact_and_nonblack();
   test_candidate_matrix_stays_within_visual_budget();
+  test_star_projection_policies_render_different_edges();
+  test_star_options_and_shipping_presets_are_planar();
   test_high_count_star_preset_stays_within_visual_budget();
   test_high_count_star_preset_covers_north_pole();
   test_high_count_star_contours_reach_display_north();

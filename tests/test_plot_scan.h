@@ -18,7 +18,8 @@
  *   - Plot::DistortedRing::sample : angle-addition identity (LUT) matches
  *                                   direct cos/sin within tolerance.
  *   - Plot::Multiline::sample   : arc-length parameterization, v0 in [0,1].
- *   - Plot::Star::sample / Flower::sample : unit-length, closed loop.
+ *   - Plot::Star<Plot::PlanarProjection>::sample / Flower::sample : unit-length,
+ *     closed loop.
  *   - PlanarEdgeSampler::one_pass : analytic tangent vs the forward-difference
  *                                 operator(), and tangency/forwardness.
  *   - rasterize<SinglePass=true> : gap-free planar and geodesic edges,
@@ -2387,7 +2388,7 @@ inline void test_multiline_sample_arclength_param() {
 }
 
 // ============================================================================
-// Plot::Star::sample / Plot::Flower::sample
+// Plot::Star<Plot::PlanarProjection>::sample / Plot::Flower::sample
 // ============================================================================
 
 /**
@@ -2407,7 +2408,7 @@ inline void test_star_sample_unit_length_closed() {
   points.bind(plot_arena(), sides * 2 + 2);
 
   Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
-  Plot::Star::sample(points, b, 0.5f, sides, 0.0f);
+  Plot::Star<Plot::PlanarProjection>::sample(points, b, 0.5f, sides, 0.0f);
 
   // 2*sides vertices + 1 close fragment.
   HS_EXPECT_EQ(points.size(), (size_t)(sides * 2 + 1));
@@ -2458,8 +2459,10 @@ inline void test_star_sample_radius_trig_parity() {
         actual.bind(plot_arena(), sides * 2 + 2);
         reference.bind(plot_arena(), sides * 2 + 2);
         positions.bind(plot_arena(), sides * 2 + 2);
-        Plot::Star::sample(actual, b, radius, sides, phase);
-        Plot::Star::sample_positions(positions, b, radius, sides, phase);
+        Plot::Star<Plot::PlanarProjection>::sample(actual, b, radius, sides,
+                                                   phase);
+        Plot::Star<Plot::PlanarProjection>::sample_positions(
+            positions, b, radius, sides, phase);
 
         auto res = get_antipode(b, radius);
         const Basis &work_basis = res.first;
@@ -2513,8 +2516,10 @@ inline void test_star_continuous_matches_standard_near_side() {
     Fragments continuous;
     standard.bind(plot_arena(), 16);
     continuous.bind(plot_arena(), 16);
-    Plot::Star::sample(standard, basis, radius, 7, 0.37f);
-    Plot::Star::sample_continuous(continuous, basis, radius, 7, 0.37f);
+    Plot::Star<Plot::PlanarProjection>::sample(standard, basis, radius, 7,
+                                               0.37f);
+    Plot::Star<Plot::PlanarProjection>::sample_continuous(
+        continuous, basis, radius, 7, 0.37f);
     HS_EXPECT_EQ(standard.size(), continuous.size());
     for (size_t i = 0; i < standard.size(); ++i)
       HS_EXPECT_LT(angle_between(standard[i].pos, continuous[i].pos), 1e-5f);
@@ -2531,9 +2536,12 @@ inline void test_star_continuous_crosses_equator() {
   below.bind(plot_arena(), 16);
   seam.bind(plot_arena(), 16);
   above.bind(plot_arena(), 16);
-  Plot::Star::sample_continuous_positions(below, basis, 0.9999f, 7, 0.37f);
-  Plot::Star::sample_continuous_positions(seam, basis, 1.0f, 7, 0.37f);
-  Plot::Star::sample_continuous_positions(above, basis, 1.0001f, 7, 0.37f);
+  Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
+      below, basis, 0.9999f, 7, 0.37f);
+  Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
+      seam, basis, 1.0f, 7, 0.37f);
+  Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
+      above, basis, 1.0001f, 7, 0.37f);
   HS_EXPECT_EQ(below.size(), seam.size());
   HS_EXPECT_EQ(above.size(), seam.size());
   for (size_t i = 0; i < seam.size(); ++i) {
@@ -2549,7 +2557,8 @@ inline void test_star_continuous_collapses_at_antipode() {
       make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
   Fragments points;
   points.bind(plot_arena(), 16);
-  Plot::Star::sample_continuous_positions(points, basis, 2.0f, 7, 0.37f);
+  Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
+      points, basis, 2.0f, 7, 0.37f);
   for (const Fragment &point : points)
     HS_EXPECT_LT(angle_between(point.pos, -basis.v), 0.001f);
 }
@@ -2804,8 +2813,8 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
  *        not the geodesic chord: v1 rises monotonically to the planar arc length
  *        (strictly longer than the endpoints' great-circle distance) and v0 spans
  *        0..1 over that same arc. Locks in the rasterizer's arc-register
- *        re-derivation for the always-planar primitives (PlanarPolygon / Star /
- *        Flower), which the sample()-level tests cannot observe.
+ *        re-derivation for planar-policy polygons and stars plus Flower, which
+ *        the sample()-level tests cannot observe.
  */
 inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   constexpr int W = 128, H = 64;
@@ -2941,7 +2950,8 @@ inline void test_rasterize_planar_policy_bit_parity() {
   const Basis shape_basis =
       make_basis(Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), X_AXIS);
   constexpr float RADIUS = 0.74f;
-  Plot::Star::sample(points, shape_basis, RADIUS, 7, 1.37f);
+  Plot::Star<Plot::PlanarProjection>::sample(points, shape_basis, RADIUS, 7,
+                                             1.37f);
   const Basis planar_basis =
       Plot::planar_chart_basis(get_antipode(shape_basis, RADIUS).first.v);
 
@@ -4390,7 +4400,8 @@ inline void test_rasterize_default_sampling_policy_bit_parity() {
   const Basis shape_basis =
       make_basis(Quaternion(0.91f, -0.17f, 0.31f, 0.21f).normalized(), X_AXIS);
   constexpr float RADIUS = 0.83f;
-  Plot::Star::sample(points, shape_basis, RADIUS, 8, 0.73f);
+  Plot::Star<Plot::PlanarProjection>::sample(points, shape_basis, RADIUS, 8,
+                                             0.73f);
   const Basis planar_basis =
       Plot::planar_chart_basis(get_antipode(shape_basis, RADIUS).first.v);
 
@@ -4648,8 +4659,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
       Fragments points;
       points.bind(plot_arena(), static_cast<size_t>(state.sides * 2 + 2));
       const Basis basis = make_basis(state.orientation, X_AXIS);
-      Plot::Star::sample_positions(points, basis, state.radius, state.sides,
-                                   state.phase);
+      Plot::Star<Plot::PlanarProjection>::sample_positions(
+          points, basis, state.radius, state.sides, state.phase);
       const Basis planar_basis =
           Plot::planar_chart_basis(get_antipode(basis, state.radius).first.v);
       Filter::Screen::DirectAntiAliasSink<W, H> sink;

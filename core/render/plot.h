@@ -2684,19 +2684,42 @@ struct Ring {
 };
 
 /**
- * @brief Planar Polygon.
- * Registers:
- *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians) — cumulative rendered planar arc
- *  v2: Vertex index
+ * @brief Azimuthal-equidistant edge projection policy.
  * @note Always renders with PLANAR (azimuthal-equidistant) edges, which bow
  *       LONGER than the great-circle chord. The rasterizer re-derives v0/v1 from
  *       that true rendered arc, so both track the drawn position rather than the
  *       shorter chord polygon.
  */
-struct PlanarPolygon {
+struct PlanarProjection {
+  static const Basis *edge_basis(const Basis &basis, float radius,
+                                 Basis &storage) {
+    storage = radius > 1.0f ? planar_chart_basis(-basis.v) : basis;
+    return &storage;
+  }
+
+  static void finish_polygon_sample(Fragments &, size_t) {}
+};
+
+/** @brief Great-circle edge projection. */
+struct GeodesicProjection {
+  static const Basis *edge_basis(const Basis &, float, Basis &) {
+    return nullptr;
+  }
+
+  static void finish_polygon_sample(Fragments &points, size_t start_idx) {
+    float cumulative_length = 0.0f;
+    for (size_t i = start_idx; i < points.size(); ++i) {
+      if (i > start_idx)
+        cumulative_length += angle_between(points[i - 1].pos, points[i].pos);
+      points[i].v1 = cumulative_length;
+    }
+  }
+};
+
+/** @brief Polygon with projection-selected edges. */
+template <typename Projection> struct Polygon {
   /**
-   * @brief Samples a planar polygon.
+   * @brief Samples a polygon.
    * @param points Output fragment list; num_sides+1 fragments are appended.
    * @param basis Orientation basis.
    * @param radius Polygon radius.
@@ -2706,11 +2729,13 @@ struct PlanarPolygon {
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
     HS_CHECK(num_sides >= 1);
+    const size_t start_idx = points.size();
     Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
+    Projection::finish_polygon_sample(points, start_idx);
   }
 
   /**
-   * @brief Draws a planar polygon.
+   * @brief Draws a polygon.
    * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
@@ -2726,102 +2751,21 @@ struct PlanarPolygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    // Far-field radii (> 1) need the planar chart centered on the opposite pole,
-    // else the azimuthal projection bows the polygon edges. radius <= 1 keeps the
-    // supplied chart unchanged.
-    Basis planar_basis = basis;
-    if (radius > 1.0f) {
-      planar_basis = planar_chart_basis(-basis.v);
-    }
+    Basis projection_basis;
+    const Basis *edge_basis =
+        Projection::edge_basis(basis, radius, projection_basis);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides + 2),
                           .omit_end = true,
-                          .planar_basis = &planar_basis},
+                          .planar_basis = edge_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
   }
 
   /**
-   * @brief Draws a planar polygon without a vertex shader.
-   * @tparam W,H Rasterization resolution.
-   * @param pipeline Render pipeline.
-   * @param canvas Target canvas.
-   * @param basis Orientation basis.
-   * @param radius Polygon radius.
-   * @param num_sides Number of sides.
-   * @param fragment_shader Shader function.
-   * @param phase Rotation phase.
-   */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int num_sides,
-                   FragmentShaderFn fragment_shader, float phase = 0) {
-    draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
-               phase);
-  }
-};
-
-/**
- * @brief Spherical Polygon (Geodesic edges).
- * Registers:
- *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians)
- *  v2: Vertex index
- */
-struct SphericalPolygon {
-  /**
-   * @brief Samples a spherical polygon.
-   * @param points Output fragment list; num_sides+1 fragments are appended.
-   * @param basis Orientation basis.
-   * @param radius Polygon radius.
-   * @param num_sides Number of sides.
-   * @param phase Rotation phase (radians).
-   */
-  static void sample(Fragments &points, const Basis &basis, float radius,
-                     int num_sides, float phase = 0) {
-    HS_CHECK(num_sides >= 1);
-    size_t start_idx = points.size();
-    Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
-
-    // v1 = true geodesic chord length; Ring::sample already wrote v0/v2.
-    float cumulative_length = 0.0f;
-    for (size_t i = start_idx; i < points.size(); ++i) {
-      if (i > start_idx) {
-        cumulative_length += angle_between(points[i - 1].pos, points[i].pos);
-      }
-      points[i].v1 = cumulative_length;
-    }
-  }
-
-  /**
-   * @brief Draws a spherical polygon.
-   * @tparam W,H Rasterization resolution.
-   * @param pipeline Render pipeline.
-   * @param canvas Target canvas.
-   * @param basis Orientation basis.
-   * @param radius Polygon radius.
-   * @param num_sides Number of sides.
-   * @param fragment_shader Shader function.
-   * @param vertex_shader Optional vertex shader.
-   * @param phase Rotation phase.
-   */
-  template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int num_sides,
-                   FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader, float phase = 0) {
-    draw_fragments<W, H>(
-        pipeline, canvas, vertex_shader, fragment_shader,
-        {.capacity = static_cast<size_t>(num_sides + 2), .omit_end = true},
-        [&](Fragments &points) {
-          sample(points, basis, radius, num_sides, phase);
-        });
-  }
-
-  /**
-   * @brief Draws a spherical polygon without a vertex shader.
+   * @brief Draws a polygon without a vertex shader.
    * @tparam W,H Rasterization resolution.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
@@ -3016,17 +2960,13 @@ struct DistortedRing {
 };
 
 /**
- * @brief Star shape.
+ * @brief Star shape with projection-selected edges.
  * Registers:
  *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians) — cumulative rendered planar arc
+ *  v1: Arc Length (radians)
  *  v2: Vertex index
- * @note Always renders with PLANAR (azimuthal-equidistant) edges, which bow
- *       LONGER than the great-circle chord. The rasterizer re-derives v0/v1 from
- *       that true rendered arc, so both track the drawn position rather than the
- *       shorter chord polygon.
  */
-struct Star {
+template <typename Projection> struct Star {
 private:
   template <bool EmitRegisters>
   static void sample_impl(Fragments &points, const Basis &basis, float radius,
@@ -3168,13 +3108,14 @@ public:
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    Basis planar_basis =
-        planar_chart_basis(get_antipode(basis, radius).first.v);
+    Basis projection_basis;
+    const Basis *edge_basis =
+        Projection::edge_basis(basis, radius, projection_basis);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
                           .omit_end = true,
-                          .planar_basis = &planar_basis},
+                          .planar_basis = edge_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
@@ -3186,14 +3127,14 @@ public:
                               const Basis &basis, float radius, int num_sides,
                               FragmentShaderFn fragment_shader,
                               float phase = 0) {
-    Basis planar_basis = basis;
-    if (radius > 1.0f)
-      planar_basis = planar_chart_basis(-basis.v);
+    Basis projection_basis;
+    const Basis *edge_basis =
+        Projection::edge_basis(basis, radius, projection_basis);
 
     draw_fragments<W, H>(pipeline, canvas, {}, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
                           .omit_end = true,
-                          .planar_basis = &planar_basis},
+                          .planar_basis = edge_basis},
                          [&](Fragments &points) {
                            sample_continuous(points, basis, radius, num_sides,
                                              phase);

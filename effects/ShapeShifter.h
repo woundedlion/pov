@@ -25,7 +25,13 @@ struct ShapeShifterWhiteBox;
 template <int W, int H> class ShapeShifter : public Effect {
 public:
   /** @brief Plot primitives available through the Shape slider. */
-  enum class ShapeType { PLANAR_POLYGON, SPHERICAL_POLYGON, FLOWER, STAR };
+  enum class ShapeType {
+    PLANAR_POLYGON,
+    SPHERICAL_POLYGON,
+    FLOWER,
+    PLANAR_STAR,
+    SPHERICAL_STAR
+  };
 
   /** @brief Waveforms available through the Function slider. */
   enum class PhaseFunction { SINE, TRIANGLE, SAWTOOTH, SQUARE };
@@ -33,7 +39,8 @@ public:
   /** @brief Per-shape alpha functions available to presets. */
   enum class AlphaFalloff { CONSTANT_HALF, TOWARD_EQUATOR };
 
-  static constexpr int NUM_SHAPES = static_cast<int>(ShapeType::STAR) + 1;
+  static constexpr int NUM_SHAPES =
+      static_cast<int>(ShapeType::SPHERICAL_STAR) + 1;
   static constexpr int NUM_FUNCTIONS =
       static_cast<int>(PhaseFunction::SQUARE) + 1;
   static constexpr int NUM_ALPHA_FALLOFFS =
@@ -124,10 +131,12 @@ private:
   static constexpr int PRESET_FRAMES = 240;
 
   static constexpr const char *SHAPE_OPTIONS[] = {
-      "Planar Polygon", "Spherical Polygon", "Flower", "Star"};
+      "Planar Polygon", "Spherical Polygon", "Flower", "Planar Star",
+      "Spherical Star"};
   static constexpr const char *SHAPE_EXPORT_OPTIONS[] = {
       "ShapeType::PLANAR_POLYGON", "ShapeType::SPHERICAL_POLYGON",
-      "ShapeType::FLOWER", "ShapeType::STAR"};
+      "ShapeType::FLOWER", "ShapeType::PLANAR_STAR",
+      "ShapeType::SPHERICAL_STAR"};
   static constexpr const char *ALPHA_FALLOFF_OPTIONS[] = {"Constant 0.5",
                                                           "Toward Equator"};
   static constexpr const char *ALPHA_FALLOFF_EXPORT_OPTIONS[] = {
@@ -165,6 +174,11 @@ private:
     return params.opposite && radius > 1.0f ? -1.0f : 1.0f;
   }
 
+  static constexpr bool is_star(ShapeType shape) {
+    return shape == ShapeType::PLANAR_STAR ||
+           shape == ShapeType::SPHERICAL_STAR;
+  }
+
   static constexpr float shape_alpha(AlphaFalloff falloff, int index,
                                      int count) {
     if (falloff == AlphaFalloff::CONSTANT_HALF)
@@ -198,14 +212,15 @@ private:
         hs::clamp(static_cast<int>(params.sides), static_cast<int>(SIDES_MIN),
                   static_cast<int>(SIDES_MAX));
     const ShapeType shape = selected_shape();
+    const bool planar_star = shape == ShapeType::PLANAR_STAR;
     const PhaseFunction function = selected_function();
     const Basis basis = make_basis(orientation.get(), X_AXIS);
     const ClipRegion &clip = canvas.clip();
     const bool full_width_clip = clip.x_start == 0 && clip.x_end == clip.w;
-    const float near_cap_beta = shape == ShapeType::STAR
+    const float near_cap_beta = planar_star
                                     ? acosf(hs::clamp(basis.v.y, -1.0f, 1.0f))
                                     : 0.0f;
-    const float far_cap_beta = shape == ShapeType::STAR
+    const float far_cap_beta = planar_star
                                    ? acosf(hs::clamp(-basis.v.y, -1.0f, 1.0f))
                                    : 0.0f;
     float cap_half_width = 0.0f;
@@ -213,7 +228,7 @@ private:
     float far_cap_distance = 0.0f;
     float near_cap_sin_beta = 0.0f;
     float far_cap_sin_beta = 0.0f;
-    if (shape == ShapeType::STAR && !full_width_clip) {
+    if (planar_star && !full_width_clip) {
       const float width_px = static_cast<float>(clip.x_end - clip.x_start);
       cap_half_width =
           (width_px * 0.5f + clip.margin + 1.0f) * (2.0f * PI_F) / clip.w;
@@ -236,7 +251,7 @@ private:
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       const float radius = 2.0f * radius_t;
-      if (shape == ShapeType::STAR) {
+      if (planar_star) {
         constexpr float AA_PAD = 2.0f * PI_F / W;
         const bool far_side = radius > 1.0f;
         const float half_angle =
@@ -261,7 +276,7 @@ private:
         if (!visible)
           continue;
       }
-      const float direction = shape == ShapeType::STAR
+      const float direction = is_star(shape)
                                   ? star_phase_direction(radius)
                                   : phase_direction(radius);
       const float shape_phase =
@@ -295,7 +310,7 @@ private:
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       const float radius = 2.0f * radius_t;
-      const float direction = shape == ShapeType::STAR
+      const float direction = is_star(shape)
                                   ? star_phase_direction(radius)
                                   : phase_direction(radius);
       const float shape_phase =
@@ -370,11 +385,10 @@ private:
          .balanced_sampling = balanced_sampling});
   }
 
-  /** @brief Draws one planar edge through the exact adaptive rasterizer. */
   template <typename F>
   HS_FLASH_MEMBER void
-  draw_star_edge_exact(Canvas &canvas, const Vector &a, const Vector &b,
-                       const Basis &planar_basis, const F &fragment_shader) {
+  draw_planar_star_edge(Canvas &canvas, const Vector &a, const Vector &b,
+                        const Basis &planar_basis, const F &fragment_shader) {
     draw_sampled(canvas, 2, &planar_basis, true, fragment_shader,
                  [&](Fragments &points) {
                    Fragment point;
@@ -385,18 +399,17 @@ private:
                  });
   }
 
-  /** @brief Draws dense Star edges from exact screen-space curve anchors. */
   template <typename F>
-  HS_FLASH_MEMBER void
-  draw_dense_star(Canvas &canvas, const Basis &basis, float radius, int sides,
-                  const Color4 &color, const F &fragment_shader, float phase) {
-    constexpr int ANCHOR_INTERVALS = 8;
+  HS_FLASH_MEMBER void draw_dense_planar_star(
+      Canvas &canvas, const Basis &basis, float radius, int sides,
+      const Color4 &color, const F &fragment_shader, float phase) {
+    constexpr int ANCHOR_INTERVALS = 16;
     constexpr float POLE_GUARD_ROWS = 3.0f;
     ScratchScope guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, static_cast<size_t>(sides * 2 + 2));
-    Plot::Star::sample_continuous_positions(points, basis, radius, sides,
-                                            phase);
+    Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
+        points, basis, radius, sides, phase);
 
     Basis planar_basis = basis;
     if (radius > 1.0f)
@@ -404,7 +417,7 @@ private:
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
     constexpr float TARGET_STEP = Plot::BALANCED_SCREEN_STEP_PX;
-    constexpr float ANCHOR_ALPHA_GAIN = 1.012f;
+    constexpr float ALPHA_GAIN = 1.003f;
 
     for (int edge = 0; edge < sides * 2; ++edge) {
       const Vector &a = points[edge].pos;
@@ -413,7 +426,7 @@ private:
       const auto p1 = Plot::azimuthal_project(b, planar_basis);
       const float dx = p1.first - p0.first;
       const float dy = p1.second - p0.second;
-      const float gap_arc = sqrtf(dx * dx + dy * dy) / ANCHOR_INTERVALS;
+      const float gap_arc = hypotf(dx, dy) / ANCHOR_INTERVALS;
       constexpr float ROWS_PER_RADIAN =
           static_cast<float>(H + hs::H_OFFSET - 1) / PI_F;
 
@@ -421,20 +434,14 @@ private:
       float row_lo = static_cast<float>(H);
       float row_hi = 0.0f;
       for (int k = 0; k <= ANCHOR_INTERVALS; ++k) {
-        Vector position;
-        if (k == 0)
-          position = a;
-        else if (k == ANCHOR_INTERVALS)
-          position = b;
-        else {
-          const float t = static_cast<float>(k) / ANCHOR_INTERVALS;
-          position = Plot::azimuthal_unproject(p0.first + dx * t,
-                                               p0.second + dy * t, planar_basis)
-                         .normalized();
-        }
+        const float t = static_cast<float>(k) / ANCHOR_INTERVALS;
+        const Vector position =
+            Plot::azimuthal_unproject(p0.first + dx * t, p0.second + dy * t,
+                                      planar_basis)
+                .normalized();
         anchors[k] = vector_to_pixel<W, H>(position);
         if (k > 0) {
-          float delta = anchors[k].x - anchors[k - 1].x;
+          const float delta = anchors[k].x - anchors[k - 1].x;
           if (delta > W * 0.5f)
             anchors[k].x -= W;
           else if (delta < -W * 0.5f)
@@ -447,7 +454,7 @@ private:
       const float row_margin = gap_arc * ROWS_PER_RADIAN + 1.0f;
       if (row_lo - row_margin < POLE_GUARD_ROWS ||
           row_hi + row_margin > H - 1.0f - POLE_GUARD_ROWS) {
-        draw_star_edge_exact(canvas, a, b, planar_basis, fragment_shader);
+        draw_planar_star_edge(canvas, a, b, planar_basis, fragment_shader);
         continue;
       }
 
@@ -460,8 +467,8 @@ private:
         const float step_ratio =
             std::min(TARGET_STEP, length / samples) / Plot::SCREEN_STEP_PX;
         const float sample_alpha =
-            std::min(1.0f, ANCHOR_ALPHA_GAIN * Plot::balanced_sample_alpha(
-                                                   color.alpha, step_ratio));
+            std::min(1.0f, ALPHA_GAIN * Plot::balanced_sample_alpha(
+                                            color.alpha, step_ratio));
         for (int sample = 0; sample < samples; ++sample) {
           const float t = static_cast<float>(sample) / samples;
           float x = anchors[k].x + segment_dx * t;
@@ -507,16 +514,16 @@ private:
           radius > 1.0f ? Plot::planar_chart_basis(-basis.v) : basis;
       draw_sampled(canvas, static_cast<size_t>(sides + 2), &planar_basis, false,
                    fragment_shader, [&](Fragments &points) {
-                     Plot::PlanarPolygon::sample(points, basis, radius, sides,
-                                                 shape_phase);
+                     Plot::Polygon<Plot::PlanarProjection>::sample(
+                         points, basis, radius, sides, shape_phase);
                    });
       break;
     }
     case ShapeType::SPHERICAL_POLYGON:
       draw_sampled(canvas, static_cast<size_t>(sides + 2), nullptr, false,
                    fragment_shader, [&](Fragments &points) {
-                     Plot::SphericalPolygon::sample(points, basis, radius,
-                                                    sides, shape_phase);
+                     Plot::Polygon<Plot::GeodesicProjection>::sample(
+                         points, basis, radius, sides, shape_phase);
                    });
       break;
     case ShapeType::FLOWER: {
@@ -529,10 +536,10 @@ private:
                    });
       break;
     }
-    case ShapeType::STAR: {
+    case ShapeType::PLANAR_STAR: {
       if (params.count >= 32.0f) {
-        draw_dense_star(canvas, basis, radius, sides, shape_color,
-                        fragment_shader, shape_phase);
+        draw_dense_planar_star(canvas, basis, radius, sides, shape_color,
+                               fragment_shader, shape_phase);
         break;
       }
       Basis planar_basis = basis;
@@ -541,11 +548,21 @@ private:
       draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
                    params.count >= 32.0f, fragment_shader,
                    [&](Fragments &points) {
-                     Plot::Star::sample_continuous_positions(
-                         points, basis, radius, sides, shape_phase);
+                     Plot::Star<Plot::PlanarProjection>::
+                         sample_continuous_positions(points, basis, radius,
+                                                     sides, shape_phase);
                    });
       break;
     }
+    case ShapeType::SPHERICAL_STAR:
+      draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), nullptr,
+                   params.count >= 32.0f, fragment_shader,
+                   [&](Fragments &points) {
+                     Plot::Star<Plot::GeodesicProjection>::
+                         sample_continuous_positions(points, basis, radius,
+                                                     sides, shape_phase);
+                   });
+      break;
     }
   }
 
@@ -556,35 +573,43 @@ private:
                                const F &fragment_shader, float shape_phase) {
     switch (shape) {
     case ShapeType::PLANAR_POLYGON:
-      Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, radius,
-                                      sides, fragment_shader, shape_phase);
+      Plot::Polygon<Plot::PlanarProjection>::draw<W, H>(
+          plot_filters, canvas, basis, radius, sides, fragment_shader,
+          shape_phase);
       break;
     case ShapeType::SPHERICAL_POLYGON:
-      Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, radius,
-                                         sides, fragment_shader, shape_phase);
+      Plot::Polygon<Plot::GeodesicProjection>::draw<W, H>(
+          plot_filters, canvas, basis, radius, sides, fragment_shader,
+          shape_phase);
       break;
     case ShapeType::FLOWER:
       Plot::Flower::draw<W, H>(plot_filters, canvas, basis, radius, sides,
                                fragment_shader, {}, shape_phase);
       break;
-    case ShapeType::STAR:
-      Plot::Star::draw_continuous<W, H>(plot_filters, canvas, basis, radius,
-                                        sides, fragment_shader, shape_phase);
+    case ShapeType::PLANAR_STAR:
+      Plot::Star<Plot::PlanarProjection>::draw_continuous<W, H>(
+          plot_filters, canvas, basis, radius, sides, fragment_shader,
+          shape_phase);
+      break;
+    case ShapeType::SPHERICAL_STAR:
+      Plot::Star<Plot::GeodesicProjection>::draw_continuous<W, H>(
+          plot_filters, canvas, basis, radius, sides, fragment_shader,
+          shape_phase);
       break;
     }
   }
 #endif
 
-  static constexpr std::array<PresetEntry<Params>, 8> PRESETS = {{
-      {{ShapeType::STAR, 144.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
+  static constexpr std::array<PresetEntry<Params>, 9> PRESETS = {{
+      {{ShapeType::PLANAR_STAR, 144.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
         AlphaFalloff::TOWARD_EQUATOR}},
       {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f,
         0.0f, AlphaFalloff::CONSTANT_HALF}},
-      {{ShapeType::STAR, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f,
+      {{ShapeType::PLANAR_STAR, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f,
         AlphaFalloff::TOWARD_EQUATOR}},
       {{ShapeType::FLOWER, 70.0f, 3.0f, 0.0f, 1.0f, 0.0186f, 0.0f,
         AlphaFalloff::CONSTANT_HALF}},
-      {{ShapeType::STAR, 72.0f, 4.417f, 0.0f, 1.0f, 0.0077f, 0.0f,
+      {{ShapeType::PLANAR_STAR, 72.0f, 4.417f, 0.0f, 1.0f, 0.0077f, 0.0f,
         AlphaFalloff::TOWARD_EQUATOR}},
       {{ShapeType::SPHERICAL_POLYGON, 128.0f, 5.561f, 0.0f, 4.0f, 0.0405f, 1.0f,
         AlphaFalloff::CONSTANT_HALF}},
@@ -592,6 +617,8 @@ private:
         0.0f, AlphaFalloff::CONSTANT_HALF}},
       {{ShapeType::SPHERICAL_POLYGON, 144.0f, 3.195f, 0.0f, 7.0696f, 0.0113f,
         0.0f, AlphaFalloff::CONSTANT_HALF}},
+      {{ShapeType::FLOWER, 72.0f, 3.0f, 0.0f, 1.8721f, 0.00752f, 1.0f,
+        AlphaFalloff::CONSTANT_HALF}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
@@ -617,7 +644,7 @@ private:
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
   BakedPalette baked_sunset;
-  Presets<Params, 8> presets{PRESETS};
+  Presets<Params, 9> presets{PRESETS};
   Params params{};
   float alpha = 1.0f;
   float phase = 0.0f;
