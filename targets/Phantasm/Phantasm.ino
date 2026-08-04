@@ -26,7 +26,7 @@ namespace {
 // Generated from the Phantasm playlist roster (HS_PHANTASM_EFFECT_LIST — the
 // full HS_EFFECT_LIST minus the low-res-only effects); the table order IS the
 // playlist order, identical on every board (spec §6.1).
-#define HS_FACTORY_ONE(name) &construct_effect<name<288, 144>>,
+#define HS_FACTORY_ONE(name) &construct_effect<name<CANVAS_W, CANVAS_H>>,
 const POV::EffectFactory EFFECT_FACTORIES[] = {
   HS_PHANTASM_EFFECT_LIST(HS_FACTORY_ONE)
 };
