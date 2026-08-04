@@ -174,10 +174,13 @@ inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
  * unconditionally, as the minimal-fragment scan path requires.
  */
 struct FacePaletteShader {
-  const BakedPalette *palette = nullptr;
   float scale = 1.0f;
   float alpha = 1.0f;
 
+  /**
+   * @brief Sets the face's palette; the only way to populate it.
+   * @param value Baked palette, which must be non-null.
+   */
   void set_palette(const BakedPalette *value) {
     HS_CHECK(value != nullptr, "FacePaletteShader requires a palette");
     palette = value;
@@ -188,6 +191,9 @@ struct FacePaletteShader {
     frag.color.color = palette->get_color_unit(t);
     frag.color.alpha = alpha;
   }
+
+private:
+  const BakedPalette *palette = nullptr;
 };
 
 /**
