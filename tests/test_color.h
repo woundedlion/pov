@@ -2251,7 +2251,7 @@ inline void test_static_palette_composition() {
  * @return Constant falloff factor 0.5.
  * @details Must be a plain function pointer to bind to AlphaFalloffShade.
  */
-inline float test_half_falloff(float) { return 0.5f; }
+inline float half_falloff(float) { return 0.5f; }
 
 /**
  * @brief Verifies each modifier composed via StaticPalette produces its remap.
@@ -2305,7 +2305,7 @@ inline void test_palette_wrappers() {
   HS_EXPECT_NEAR(tv.get(0.5f).alpha, 1.0f, 1e-3f); // middle -> opaque
 
   // AlphaFalloffShade scales alpha by the falloff function.
-  AlphaFalloffShade afs(test_half_falloff);
+  AlphaFalloffShade afs(half_falloff);
   StaticPalette<Gradient, Coords<>, Colors<AlphaFalloffShade>, /*Wrap=*/false>
       afp;
   afp.bind(&grad, &afs);
