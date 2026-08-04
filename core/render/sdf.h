@@ -352,27 +352,23 @@ struct PhiBand {
 };
 
 /**
- * @brief Folds a `center ± half-angle` colatitude band into clamped [0, π].
- * @param center_phi Band-center colatitude (radians).
- * @param target_angle Half-width of the band (radians).
- * @return {phi_min, phi_max}: the band's folded extent. An edge that runs past
- * a pole pins that side to the pole (0 or π); a fully in-range band returns its
- * folded endpoints.
- * @details Single source for the Ring/DistortedRing get_vertical_bounds
- * latitude fold so the two cannot drift apart.
+ * @brief Exact colatitude extent of the circle of angular radius
+ * `target_angle` about an axis at colatitude `center_phi`.
+ * @param center_phi Axis colatitude in [0, π] (radians).
+ * @param target_angle Angular radius of the circle (radians, any sign or
+ * magnitude).
+ * @return {phi_min, phi_max}: the tight band the circle occupies.
+ * @details On the circle cos φ = cos(center_phi)cos(target_angle) −
+ * sin(center_phi)sin(target_angle)cos ψ, so cos φ sweeps exactly
+ * [cos(center_phi + target_angle), cos(center_phi − target_angle)] and the two
+ * folded endpoints are its extremes; min/max orders them for a target_angle
+ * outside [0, π]. Single source for the Ring/DistortedRing
+ * get_vertical_bounds latitude fold so the two cannot drift apart.
  */
 inline PhiBand clamp_phi_band(float center_phi, float target_angle) {
-  float a1 = center_phi - target_angle;
-  float a2 = center_phi + target_angle;
-  float p1 = clamp_phi(a1);
-  float p2 = clamp_phi(a2);
-  float phi_min = 0, phi_max = PI_F;
-
-  if (a1 > 0)
-    phi_min = std::min(p1, p2);
-  if (a2 < PI_F)
-    phi_max = std::max(p1, p2);
-  return {phi_min, phi_max};
+  float p1 = clamp_phi(center_phi - target_angle);
+  float p2 = clamp_phi(center_phi + target_angle);
+  return {std::min(p1, p2), std::max(p1, p2)};
 }
 /**
  * @brief Vertical scanline bounds (inclusive min/max row index).

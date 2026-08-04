@@ -27,6 +27,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -78,6 +79,62 @@ inline void test_clamp_phi_full_range() {
   HS_EXPECT_NEAR(SDF::clamp_phi(3.0f * PI_F), PI_F, 1e-5f);
   // -1.5π folds to 0.5π.
   HS_EXPECT_NEAR(SDF::clamp_phi(-1.5f * PI_F), 0.5f * PI_F, 1e-5f);
+}
+
+/**
+ * @brief Verifies clamp_phi_band reports the exact colatitude extent of the
+ *        circle it bounds, against a brute-force sweep of that circle.
+ * @details The extremes sit at psi = 0 and psi = π, both sampled exactly, so
+ *   the sweep is an exact oracle rather than an approximation.
+ */
+inline void test_clamp_phi_band_matches_circle_extent() {
+  constexpr int SAMPLES = 512;
+  auto circle_extent = [](float c, float t) {
+    float lo = PI_F, hi = 0.0f;
+    for (int i = 0; i < SAMPLES; ++i) {
+      float psi = TWO_PI_F * i / SAMPLES;
+      float y =
+          std::cos(t) * std::cos(c) - std::sin(t) * std::sin(c) * std::cos(psi);
+      float phi = std::acos(std::max(-1.0f, std::min(1.0f, y)));
+      lo = std::min(lo, phi);
+      hi = std::max(hi, phi);
+    }
+    return std::pair<float, float>(lo, hi);
+  };
+
+  const float centers[] = {0.0f, 0.2f, 0.9f, 1.5f, 2.4f, 3.0f, PI_F};
+  // Past π and negative: a complement-radius ring and a mirrored one still
+  // trace a real circle, so the band must order its folded endpoints.
+  const float radii[] = {0.0f, 0.1f, 0.5f, 1.0f, 2.0f, 2.5f, PI_F, 4.0f, -0.7f};
+  for (int ci = 0; ci < static_cast<int>(std::size(centers)); ++ci) {
+    for (int ti = 0; ti < static_cast<int>(std::size(radii)); ++ti) {
+      HS_CONTEXT("center/radius index", ci, ti);
+      const float c = centers[ci];
+      const float t = radii[ti];
+      SDF::PhiBand band = SDF::clamp_phi_band(c, t);
+      auto expected = circle_extent(c, t);
+      HS_EXPECT_NEAR(band.phi_min, expected.first, 1e-4f);
+      HS_EXPECT_NEAR(band.phi_max, expected.second, 1e-4f);
+      HS_EXPECT_LE(band.phi_min, band.phi_max);
+      HS_EXPECT_GE(band.phi_min, 0.0f);
+      HS_EXPECT_LE(band.phi_max, PI_F);
+    }
+  }
+}
+
+/**
+ * @brief Verifies the two degenerate poses report their real band rather than
+ *        opening to a pole: a pole-axis circle collapses to one latitude, and a
+ *        circle whose far edge runs past the south pole reflects back.
+ */
+inline void test_clamp_phi_band_pole_crossing_poses() {
+  SDF::PhiBand pole_axis = SDF::clamp_phi_band(0.0f, 0.5f);
+  HS_EXPECT_NEAR(pole_axis.phi_min, 0.5f, 1e-5f);
+  HS_EXPECT_NEAR(pole_axis.phi_max, 0.5f, 1e-5f);
+
+  SDF::PhiBand wrapped = SDF::clamp_phi_band(3.0f, 2.5f);
+  HS_EXPECT_NEAR(wrapped.phi_min, 0.5f, 1e-5f);
+  HS_EXPECT_NEAR(wrapped.phi_max, TWO_PI_F - 5.5f, 1e-5f);
 }
 
 /** @brief Verifies the reciprocal sector fold matches the general wrap path. */
@@ -1146,7 +1203,7 @@ inline void test_subtract_empty_b_passes_a_through_verbatim() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{50.0f, 60.0f}, {0.0f, 10.0f}}; // unsorted
-  std::vector<P> b_ivs = {};                              // empty → passthrough
+  std::vector<P> b_ivs = {}; // empty → passthrough
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
 
@@ -1811,6 +1868,23 @@ inline void test_cull_covers_interior_over_orientation_grid() {
 }
 
 /**
+ * @brief Verifies a pole-axis ring's row band skips the pole rows its stroke
+ *        never reaches, while still covering every interior pixel.
+ * @details A ring about +Y is the worst case for a loose latitude band: its
+ *   axis has no horizontal projection, so every row inside the band is
+ *   full-width scanned.
+ */
+inline void test_pole_axis_ring_bounds_skip_pole_rows() {
+  constexpr int W = 96, H = 48;
+  SDF::Ring ring(equator_basis(), /*radius=*/0.6f, /*thickness=*/0.25f);
+
+  auto bounds = ring.get_vertical_bounds<H>();
+  HS_EXPECT_GT(bounds.y_min, 0);
+  HS_EXPECT_LT(bounds.y_max, H - 1);
+  expect_cull_covers_interior<W, H>(ring, "pole-axis ring");
+}
+
+/**
  * @brief Verifies the Intersection interval cull covers every interior pixel of
  *        a real leaf pair.
  * @details The seam-split normalization and the merge sweep are otherwise driven
@@ -2002,8 +2076,8 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
     asymmetric[k] =
         0.075f + 0.1f * sinf(6.0f * PI_F * (k % ASYM_LUT_N) / ASYM_LUT_N);
   Basis basis = make_basis(Quaternion(), Vector(0.3f, 1.0f, 0.2f));
-  SDF::DistortedRing asymmetric_ring(basis, 0.6f, 0.08f, asymmetric,
-                                     ASYM_LUT_N, 0.0f);
+  SDF::DistortedRing asymmetric_ring(basis, 0.6f, 0.08f, asymmetric, ASYM_LUT_N,
+                                     0.0f);
   expect_cull_covers_interior<W, H>(asymmetric_ring, "asymmetric ring");
 }
 
@@ -2109,8 +2183,8 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
   verts[0] = Vector(0, pole_y, 0);
   for (int i = 1; i < N_VERTS; ++i) {
     const float a = pole_y * 0.55f * static_cast<float>(i - 2);
-    verts[i] = Vector(sinf(rho) * cosf(a), pole_y * cosf(rho),
-                      sinf(rho) * sinf(a));
+    verts[i] =
+        Vector(sinf(rho) * cosf(a), pole_y * cosf(rho), sinf(rho) * sinf(a));
   }
   for (int i = 0; i < N_VERTS; ++i)
     idx[i] = static_cast<uint16_t>(i);
@@ -2151,9 +2225,9 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
       }
       // Dead band around Scan::MIN_ALPHA: an alpha that rounds the shade to
       // black is neither required nor forbidden.
-      const float alpha =
-          d <= -pixel_width ? 1.0f
-                            : quintic_kernel(0.5f - d / (2.0f * pixel_width));
+      const float alpha = d <= -pixel_width
+                              ? 1.0f
+                              : quintic_kernel(0.5f - d / (2.0f * pixel_width));
       if (alpha > 0.05f) {
         ++painted;
         HS_EXPECT_TRUE(lit);
@@ -2508,6 +2582,8 @@ inline int run_sdf_tests() {
   test_clamp_phi_negative_reflects();
   test_clamp_phi_above_pi_reflects();
   test_clamp_phi_full_range();
+  test_clamp_phi_band_matches_circle_extent();
+  test_clamp_phi_band_pole_crossing_poses();
   test_centered_sector_angle_matches_wrap();
 
   test_ring_on_centerline();
@@ -2593,6 +2669,7 @@ inline int run_sdf_tests() {
   test_warped_volume_bounding_distance_never_over_estimates();
 
   test_cull_covers_interior_over_orientation_grid();
+  test_pole_axis_ring_bounds_skip_pole_rows();
   test_intersection_cull_covers_interior_over_polygon_pairs();
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_line_arc_bulge_cull_covers_interior();
