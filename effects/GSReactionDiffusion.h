@@ -147,16 +147,18 @@ private:
   static constexpr int NUM_SEED_CLUSTERS = 30;
   /** @brief Physics work performed per frame at the original 8 fps cadence. */
   static constexpr int BASELINE_STEPS_PER_FRAME = 16;
-  /** @brief Substeps the dissolve takes to convert every node back to rest. */
-  static constexpr int DISSOLVE_SUBSTEPS = 64 * BASELINE_STEPS_PER_FRAME;
+  /** @brief Rendered frames the dissolve takes to convert every node back to
+   * rest; 6.4 s at the 16 fps cadence. */
+  static constexpr int DISSOLVE_FRAMES = 103;
   /**
-   * @brief Substeps a fresh reaction runs before the stabilization detector arms.
+   * @brief Rendered frames a fresh reaction runs before the stabilization
+   * detector arms; 9.6 s at the 16 fps cadence.
    * @details A young field has only NUM_SEED_CLUSTERS active sites, so its mean
    * |dB| sits under MEAN_DB_STABLE and would read as stalled at birth.
    */
-  static constexpr int MIN_GROW_SUBSTEPS = 96 * BASELINE_STEPS_PER_FRAME;
-  /** @brief Consecutive sub-floor substeps that count as stabilized. */
-  static constexpr int STABLE_HOLD_SUBSTEPS = 24 * BASELINE_STEPS_PER_FRAME;
+  static constexpr int MIN_GROW_FRAMES = 154;
+  /** @brief Consecutive sub-floor frames that count as stabilized. */
+  static constexpr int STABLE_HOLD_FRAMES = 39;
   /** @brief Fraction of the dissolve spent fading a node before conversion. */
   static constexpr float DISSOLVE_FADE_FRACTION = 1.0f / 16.0f;
   /**
@@ -167,7 +169,7 @@ private:
    * Q16 chatter, so a floor-hugging threshold is what the reaction has truly
    * stopped at — but measured, that costs 328 frames (20 s at 16 fps) before the
    * default reaction turns over, and tightening the frame gates does not help:
-   * the detector binds, not MIN_GROW_SUBSTEPS. This fires at ~222 baseline
+   * the detector binds, not MIN_GROW_FRAMES. This fires at ~222 baseline
    * frames instead, while the form is still refining slightly, trading the last
    * of the settling for a watchable cadence. A reaction that dies out floors
    * far below this and reseeds.
@@ -226,9 +228,9 @@ private:
    * @brief Fades nodes approaching the dissolve frontier, then holds them at
    * rest.
    * @param phase Dissolve progress in [0, 1]; the cleared fraction.
-   * @details The band ahead of the frontier eases A/B toward rest over eight
-   * rendered frames. The swept set is re-cleared every frame because B is
-   * autocatalytic and otherwise refills from its neighbors.
+   * @details The band ahead of the frontier eases A/B toward rest over
+   * DISSOLVE_FADE_FRACTION of the window. The swept set is re-cleared every
+   * frame because B is autocatalytic and otherwise refills from its neighbors.
    */
   void convert_below(float phase) {
     for (int i = 0; i < RD_N; i++) {
@@ -253,9 +255,9 @@ private:
    * feed/k are the user's and are left alone.
    */
   HS_COLD_MEMBER void start_reaction() {
-    transition.dissolve_substeps = -1;
-    transition.grow_substeps = 0;
-    transition.stable_substeps = 0;
+    transition.dissolve_frames = -1;
+    transition.grow_frames = 0;
+    transition.stable_frames = 0;
     seed_blobs(state.B, NUM_SEED_CLUSTERS);
   }
 
@@ -263,7 +265,7 @@ private:
    * @brief Starts a dissolve at a fresh node ordering.
    */
   void begin_dissolve() {
-    transition.dissolve_substeps = 0;
+    transition.dissolve_frames = 0;
     transition.dissolve_seed = static_cast<uint32_t>(hs::random()());
   }
 
@@ -291,17 +293,17 @@ private:
    * @param mean_db Mean per-node |dB| between the frame's start and end states.
    *        Substep motion that cancels over the frame reads as zero.
    * @details Dissolves when the user edits the reaction, or once the field has
-   * stalled for STABLE_HOLD_SUBSTEPS. Edits mid-dissolve are absorbed by the
+   * stalled for STABLE_HOLD_FRAMES. Edits mid-dissolve are absorbed by the
    * in-flight one, which reseeds into whatever the constants read at its end.
    */
   void advance_transition(float mean_db) {
-    if (transition.dissolve_substeps >= 0) {
-      transition.dissolve_substeps += EVOLUTION_STEPS_PER_FRAME;
-      convert_below(static_cast<float>(transition.dissolve_substeps) /
-                    DISSOLVE_SUBSTEPS);
+    if (transition.dissolve_frames >= 0) {
+      transition.dissolve_frames++;
+      convert_below(static_cast<float>(transition.dissolve_frames) /
+                    DISSOLVE_FRAMES);
       // Latch edits made mid-dissolve; this dissolve already covers them.
       reaction_edited();
-      if (transition.dissolve_substeps >= DISSOLVE_SUBSTEPS)
+      if (transition.dissolve_frames >= DISSOLVE_FRAMES)
         start_reaction();
       return;
     }
@@ -309,18 +311,16 @@ private:
       begin_dissolve();
       return;
     }
-    transition.grow_substeps += EVOLUTION_STEPS_PER_FRAME;
-    if (transition.grow_substeps < MIN_GROW_SUBSTEPS)
+    transition.grow_frames++;
+    if (transition.grow_frames < MIN_GROW_FRAMES)
       return;
     // Per-frame |dB| scales with the timestep, so the floor tracks Speed.
     const float floor_db = MEAN_DB_STABLE * (params.dt * (1.0f / DEFAULT_DT)) *
                            (static_cast<float>(EVOLUTION_STEPS_PER_FRAME) /
                             BASELINE_STEPS_PER_FRAME);
-    transition.stable_substeps =
-        mean_db < floor_db
-            ? transition.stable_substeps + EVOLUTION_STEPS_PER_FRAME
-            : 0;
-    if (transition.stable_substeps >= STABLE_HOLD_SUBSTEPS)
+    transition.stable_frames =
+        mean_db < floor_db ? transition.stable_frames + 1 : 0;
+    if (transition.stable_frames >= STABLE_HOLD_FRAMES)
       begin_dissolve();
   }
 
@@ -567,9 +567,9 @@ private:
    *        progress.
    */
   struct {
-    int grow_substeps = 0;      /**< Substeps since this reaction was seeded. */
-    int stable_substeps = 0;    /**< Consecutive sub-floor substeps. */
-    int dissolve_substeps = -1; /**< Dissolve progress; -1 when inactive. */
+    int grow_frames = 0;        /**< Frames since this reaction was seeded. */
+    int stable_frames = 0;      /**< Consecutive sub-floor frames. */
+    int dissolve_frames = -1;   /**< Dissolve progress; -1 when inactive. */
     uint32_t dissolve_seed = 0; /**< Per-transition node-order hash seed. */
     /** Reaction constants as of the last frame; reaction_edited() latches them
      *  to spot a user edit, seeded from params in init() so frame 1 is
