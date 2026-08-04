@@ -6,6 +6,7 @@
 #pragma once
 
 #include <array>
+#include <new> // std::launder
 #include "core/engine/engine.h"
 
 // Unit-test accessor for the live ring-count pool-bound invariant.
@@ -123,7 +124,6 @@ public:
         Basis bases[SUB_CAP];
         Color4 colors[SUB_CAP];
         alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
-        auto *shapes = reinterpret_cast<SDF::Ring *>(shape_mem);
         int slots = 0;
         constexpr float pixel_w = 2.0f * PI_F / W;
         for (int j = 0; j < count; ++j) {
@@ -144,12 +144,14 @@ public:
               ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
               params.thickness;
           bases[slots] = make_basis(qs[j], ring.normal);
-          new (&shapes[slots]) SDF::Ring(bases[slots], 1.0f, th);
+          ::new (shape_mem + slots * sizeof(SDF::Ring))
+              SDF::Ring(bases[slots], 1.0f, th);
           colors[slots] = c;
           ++slots;
         }
         if (slots == 0)
           return;
+        auto *shapes = std::launder(reinterpret_cast<SDF::Ring *>(shape_mem));
 
         HS_PROFILE(rs_ring_scan);
         Scan::RingGroup::draw<W, H>(
