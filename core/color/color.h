@@ -8,6 +8,8 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <initializer_list>
+#include <utility>
 
 #include "engine/platform.h"
 #include "math/3dmath.h"
