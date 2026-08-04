@@ -80,7 +80,7 @@ struct TimelineEvent {
     dst.start = start;
     // Clears a stale flag: destroy() leaves handled set on a canceled pinned
     // event, and this slot may be recycling one.
-    dst.handled = handled;
+    dst.handled = false;
     dst.paused = paused;
     dst.manager = manager;
     if (manager) {
