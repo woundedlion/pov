@@ -114,8 +114,8 @@ public:
 
     // Wrap the noise-time accumulator so the float ULP never swallows the
     // increment and freezes the warp; OpenSimplex2 is aperiodic so the wrap pops
-    // the field once per period (far apart at TIME_PERIOD).
-    accumulated_time = fmodf(accumulated_time, TIME_PERIOD);
+    // the field once per period (far apart at STEREO_NOISE_TIME_PERIOD).
+    accumulated_time = fmodf(accumulated_time, STEREO_NOISE_TIME_PERIOD);
     float t = accumulated_time;
     // dt is the live Time Speed slider, not (t - prev): the Driver adds that speed
     // each step so it IS this frame's advance, and differencing across the wrap
@@ -302,9 +302,8 @@ private:
       }
     }
   };
-  static constexpr float TIME_PERIOD = 65536.0f;
-  float accumulated_time =
-      0.0f; /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
+  float accumulated_time = 0.0f; /**< Noise-time axis, wrapped to
+                                    STEREO_NOISE_TIME_PERIOD. */
   float cycle_phase = 0.0f; /**< Wrapped to [0, 2pi) each frame for breathe. */
   float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's +t term. */
   float cos_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's 0.8*t term. */

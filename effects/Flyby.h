@@ -27,7 +27,7 @@ struct FlybyWhiteBox;
 template <int W, int H> class Flyby : public Effect {
 public:
   // Gamut boundary bracket grid this effect buys from the persistent arena
-  // (131,072 B). Only the 3,072 B palette bake shares the partition, so the
+  // (131,072 B). Only the 2,052 B palette bake shares the partition, so the
   // resolution is set by what the refinement wants rather than by the budget.
   static constexpr int GAMUT_ANGLE_STEPS = 256;
   static constexpr int GAMUT_L_STEPS = 128;
@@ -113,8 +113,8 @@ public:
 
     // Wrap the noise-time accumulator so the float ULP never swallows the
     // increment and freezes the warp; OpenSimplex2 is aperiodic so the wrap pops
-    // the field once per period (far apart at TIME_PERIOD).
-    noise_time = fmodf(noise_time + params.speed, TIME_PERIOD);
+    // the field once per period (far apart at STEREO_NOISE_TIME_PERIOD).
+    noise_time = fmodf(noise_time + params.speed, STEREO_NOISE_TIME_PERIOD);
     // Wrap the trig phases to 2pi so fast_sinf/fast_cosf keep precise range
     // reduction; each tracks its own coefficient (sin +t, cos -drift*t).
     constexpr float TWO_PI_F = 2.0f * PI_F;
@@ -181,18 +181,11 @@ private:
     return fast_sinf(pu + sin_phase) * fast_cosf(pv - drift_phase);
   }
 
-  /**
-   * @brief Wrap period for the noise-time accumulator (see draw_frame).
-   * @details Large enough that warp pops are far apart, small enough that the
-   *          float ULP never swallows the per-frame Speed increment.
-   */
-  static constexpr float TIME_PERIOD = 65536.0f;
-
   Timeline timeline;
   Orientation<> orientation;
   FastNoiseLite noise;
-  float noise_time =
-      0.0f; /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
+  float noise_time = 0.0f;  /**< Noise-time axis, wrapped to
+                               STEREO_NOISE_TIME_PERIOD. */
   float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): the pattern's +t term. */
   float drift_phase = 0.0f; /**< Wrapped to [0, 2pi): pattern's drift*t term. */
   float drift =
@@ -268,7 +261,8 @@ private:
 
   Presets<Params, 5> presets{PRESETS};
 
-  Params params;
+  Params params =
+      PRESETS[0].params; /**< Live params; init() reloads from presets. */
 
   // init() buys the gamut bracket grid and the palette LUT from the persistent
   // arena. Effect keeps the default arena split, so the total must fit the
