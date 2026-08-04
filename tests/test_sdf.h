@@ -1519,11 +1519,35 @@ inline void test_smooth_union_blends_inside_band() {
  *   take the soft falloff path, two solids the hard 1-px silhouette path.
  */
 inline void test_smooth_union_solidity_follows_children() {
-  static_assert(!SDF::SmoothUnion<SDF::Ring, SDF::Ring>::is_solid,
+  static_assert(!SDF::SmoothUnion<SDF::Line, SDF::Line>::is_solid,
                 "two strokes -> falloff path");
   static_assert(
       SDF::SmoothUnion<SDF::PlanarPolygon, SDF::PlanarPolygon>::is_solid,
       "two solids -> silhouette path");
+}
+
+/**
+ * @brief Verifies the blendability trait tracks which shapes clamp to the far
+ *   sentinel, and that a combinator blends only when every child does.
+ * @details Ring, DistortedRing, FlatDistortedRing and Face report dist = 100
+ *   outside their reject band, so both children read the sentinel across the
+ *   weld and SmoothUnion collapses to Union; SmoothUnion static_asserts the
+ *   trait to reject those instantiations at compile time.
+ */
+inline void test_sentinel_clampers_are_not_blendable() {
+  static_assert(!SDF::blends_smoothly<SDF::Ring>);
+  static_assert(!SDF::blends_smoothly<SDF::DistortedRing>);
+  static_assert(!SDF::blends_smoothly<SDF::FlatDistortedRing>);
+  static_assert(!SDF::blends_smoothly<SDF::Face>);
+  static_assert(SDF::blends_smoothly<SDF::Line>);
+  static_assert(SDF::blends_smoothly<SDF::PlanarPolygon>);
+  static_assert(SDF::blends_smoothly<SDF::SphericalPolygon>);
+  static_assert(SDF::blends_smoothly<SDF::Star>);
+  static_assert(SDF::blends_smoothly<SDF::Flower>);
+  static_assert(!SDF::blends_smoothly<SDF::Union<SDF::Line, SDF::Ring>>);
+  static_assert(SDF::blends_smoothly<SDF::Union<SDF::Line, SDF::Line>>);
+  static_assert(!SDF::blends_smoothly<SDF::AngularRepeat<SDF::Ring>>);
+  static_assert(SDF::blends_smoothly<SDF::AngularRepeat<SDF::Line>>);
 }
 
 /**
@@ -2655,6 +2679,7 @@ inline int run_sdf_tests() {
   test_smooth_union_matches_union_far_from_boundary();
   test_smooth_union_blends_inside_band();
   test_smooth_union_solidity_follows_children();
+  test_sentinel_clampers_are_not_blendable();
 
   test_union_merges_overlapping_intervals();
   test_union_seam_straddle_merges_overlapping_intervals();
