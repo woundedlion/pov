@@ -2512,8 +2512,15 @@ inline void test_star_sample_radius_trig_parity() {
   }
 }
 
-/** @brief Continuous Star levels preserve the standard near-side geometry. */
+/**
+ * @brief Continuous Star levels preserve the standard near-side geometry.
+ * @details Compared componentwise rather than through angle_between: an
+ * acos-derived angle between two near-parallel unit vectors bottoms out around
+ * 3.5e-4 rad, so no radian bound below that can distinguish agreement from
+ * one-ULP noise in the normalizing divide.
+ */
 inline void test_star_continuous_matches_standard_near_side() {
+  constexpr float NEAR_SIDE_TOL = 1e-5f;
   ScratchScope sc(plot_arena());
   const Basis basis =
       make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
@@ -2528,8 +2535,11 @@ inline void test_star_continuous_matches_standard_near_side() {
     Plot::Star<Plot::PlanarProjection>::sample_continuous(
         continuous, basis, radius, 7, 0.37f);
     HS_EXPECT_EQ(standard.size(), continuous.size());
-    for (size_t i = 0; i < standard.size(); ++i)
-      HS_EXPECT_LT(angle_between(standard[i].pos, continuous[i].pos), 1e-5f);
+    for (size_t i = 0; i < standard.size(); ++i) {
+      HS_EXPECT_NEAR(standard[i].pos.x, continuous[i].pos.x, NEAR_SIDE_TOL);
+      HS_EXPECT_NEAR(standard[i].pos.y, continuous[i].pos.y, NEAR_SIDE_TOL);
+      HS_EXPECT_NEAR(standard[i].pos.z, continuous[i].pos.z, NEAR_SIDE_TOL);
+    }
   }
 }
 
