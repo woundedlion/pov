@@ -6,7 +6,8 @@
 
 #include "engine/memory.h"
 
-namespace hs_detail {
+namespace hs {
+namespace detail {
 /**
  * @brief Returns the shared generate() nesting-depth counter.
  * @return Reference to the process-wide recursion depth (starts at 0).
@@ -19,7 +20,8 @@ inline int &generate_depth() {
   static int depth = 0;
   return depth;
 }
-} // namespace hs_detail
+} // namespace detail
+} // namespace hs
 
 constexpr int MAX_GENERATE_DEPTH = 16;
 
@@ -47,7 +49,7 @@ template <typename GenerateFn, typename... Args>
 HS_COLD_MEMBER auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
   HS_CHECK(&target != &scratch_arena_a && &target != &scratch_arena_b,
            "generate: target must not alias an engine scratch arena");
-  int &depth = hs_detail::generate_depth();
+  int &depth = hs::detail::generate_depth();
   if (depth == 0) {
     scratch_arena_a.reset();
     scratch_arena_b.reset();
