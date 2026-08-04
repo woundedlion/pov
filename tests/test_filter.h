@@ -1322,22 +1322,15 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
     }
   }
 
-  uint32_t state = 0x6d2b79f5u;
-  auto random_u32 = [&]() {
-    state = state * 1664525u + 1013904223u;
-    return state;
-  };
-  auto random_unit = [&]() {
-    return static_cast<float>(random_u32() >> 8) * (1.0f / 16777216.0f);
-  };
+  hs::Pcg32 rng(0x6d2b79f5u);
+  auto random_unit = [&rng]() { return rand_uniform(rng, 0.0f, 1.0f); };
   for (int i = 0; i < 512; ++i) {
     const float x = -W + random_unit() * (3.0f * W - 0.002f);
     const float y = -1.1f + random_unit() * (H + 1.2f);
-    samples.push_back({x, y,
-                       Pixel(static_cast<uint16_t>(random_u32()),
-                             static_cast<uint16_t>(random_u32()),
-                             static_cast<uint16_t>(random_u32())),
-                       random_unit() * 1.25f});
+    const uint16_t r = static_cast<uint16_t>(rng());
+    const uint16_t g = static_cast<uint16_t>(rng());
+    const uint16_t b = static_cast<uint16_t>(rng());
+    samples.push_back({x, y, Pixel(r, g, b), random_unit() * 1.25f});
   }
 
   struct ClipCase {
