@@ -37,7 +37,7 @@ public:
   static constexpr int PALETTES = BakedPaletteBank::N;
   /** Distinct (from, to) ramp pairs a leg may carry — the full pair space, so
    * no leg can overflow the table. Bounds the per-frame blended-LUT scratch
-   * (PAIRS x 3 KB in scratch_arena_b); only the pairs a leg actually uses are
+   * (PAIRS x 2 KB in scratch_arena_b); only the pairs a leg actually uses are
    * allocated, so the ceiling costs nothing until a leg needs it. */
   static constexpr int MAX_BLEND_PAIRS = PALETTES * PALETTES;
 
