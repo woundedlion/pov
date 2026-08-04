@@ -1,0 +1,41 @@
+#!/bin/sh
+# Holosphere post-commit hook — append the pre-commit Teensy size capture to the
+# local per-commit size trail.
+#
+# The trail lives at $(git rev-parse --git-common-dir)/teensy-size-trail.tsv:
+# LOCAL ONLY, never committed, shared by every worktree of the repo, and gone on
+# a fresh clone. Query it with:
+#     python tools/teensy_size_trail.py show --last 20
+#     python tools/teensy_size_trail.py regressions --region itcm
+#
+# The commit already exists when this runs, so nothing here may fail: every path
+# exits 0. No pending record (doc-only commit, Teensy gate skipped, no
+# PlatformIO) is the normal quiet case.
+
+COMMON="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
+[ -n "$COMMON" ] || exit 0
+PENDING="$COMMON/teensy-size-trail.pending.json"
+[ -f "$PENDING" ] || exit 0
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+TRAIL="$ROOT/tools/teensy_size_trail.py"
+if [ ! -f "$TRAIL" ]; then
+  rm -f "$PENDING"
+  exit 0
+fi
+
+# `command -v python3` is not enough on Windows: the App Execution Alias stub
+# resolves and then refuses to run. Probe with --version.
+PY=
+for c in ${HS_PYTHON:-} python3 python; do
+  if "$c" --version >/dev/null 2>&1; then PY="$c"; break; fi
+done
+if [ -z "$PY" ]; then
+  rm -f "$PENDING"
+  exit 0
+fi
+
+"$PY" "$TRAIL" commit --pending "$PENDING" --trail "$COMMON/teensy-size-trail.tsv" \
+  || echo "[post-commit] size trail not updated — continuing."
+rm -f "$PENDING"
+exit 0

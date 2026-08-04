@@ -173,6 +173,22 @@ if [ -n "$TEENSY" ] && [ -z "$HS_SKIP_TEENSY" ]; then
       exit 1
     fi
     echo "[pre-commit] Teensy gate passed."
+    # Capture the linked images' section sizes into a pending record; the
+    # post-commit hook stamps it with the sha and appends it to the local size
+    # trail. Advisory: any failure prints and the commit proceeds.
+    hs_size_trail_python() {
+      for c in ${HS_PYTHON:-} python3 python; do
+        if "$c" --version >/dev/null 2>&1; then echo "$c"; return 0; fi
+      done
+      return 1
+    }
+    if PY="$(hs_size_trail_python)"; then
+      if ! "$PY" tools/teensy_size_trail.py record --build-dir .pio/build; then
+        echo "[pre-commit] size trail not recorded (see warning above) — continuing."
+      fi
+    else
+      echo "[pre-commit] no working python — skipping size trail record."
+    fi
   else
     echo "[pre-commit] PlatformIO (pio) not found — skipping Teensy gate (CI enforces it)."
   fi
