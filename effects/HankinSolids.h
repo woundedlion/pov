@@ -122,6 +122,9 @@ private:
   /** Largest hankin mesh face count (star faces plus the rosette/strap faces
    * born inside them); guarded by an HS_CHECK in resolve_host_faces. */
   static constexpr size_t MAX_HANKIN_FACES = 256;
+  /** Frames in one interlace-angle sweep; the cycle-relative frame constants
+   * below are windows carved out of it. */
+  static constexpr int HANKIN_SWEEP_FRAMES = 64;
   /** Frames over which the terminal rosette sliver fades out. Below about a
    * pixel wide the rosette is anti-aliasing only, so fading it uncovers
    * nothing — but it removes the one-frame snap as the last sliver and the
@@ -130,17 +133,17 @@ private:
   /** Frames over which a face is shaped into (or out of) the neighbor it
    * collapses onto, at each of the three collapse points: the strap birth and
    * close at the sweep's ends, and the star close at its midpoint. Deliberately
-   * short against the 64-frame sweep — the shaping exists only to take the edge
-   * off those transitions, so the great majority of the animation paints every
-   * face in its own color. */
+   * short against HANKIN_SWEEP_FRAMES — the shaping exists only to take the
+   * edge off those transitions, so the great majority of the animation paints
+   * every face in its own color. */
   static constexpr int SHAPE_FRAMES = 6;
   /** star_rim_palette sentinel: no rosette resolved for this star face yet. */
   static constexpr uint8_t NO_RIM = 0xFF;
-  /** Strap-crossfade window: frames of the 64-frame hankin sweep over which a
-   * reborn strap slot glides from its previous color to the fresh target. The
-   * sweep opens quadratically — straps reach visibility around frame 3-7 and
-   * about half their peak area by frame 20 — so the turnover completes while
-   * the straps are still small, and well before the closing bookend needs the
+  /** Strap-crossfade window: frames of the hankin sweep over which a reborn
+   * strap slot glides from its previous color to the fresh target. The sweep
+   * opens quadratically — straps reach visibility around frame 3-7 and about
+   * half their peak area by frame 20 — so the turnover completes while the
+   * straps are still small, and well before the closing bookend needs the
    * landed assignment displayed verbatim. */
   static constexpr int STRAP_BLEND_FRAMES = 20;
 
@@ -592,13 +595,12 @@ private:
    * @note resolve_host_faces must have run for this cycle's mesh.
    */
   HS_COLD_MEMBER void start_hankin_cycle() {
-    constexpr int DURATION = 64;
     hankin_cycle_frame = 0;
     timeline.add_pausable(
         2,
         Animation::Mutation(params.hankin_angle,
-                            sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f), DURATION,
-                            ease_linear, false)
+                            sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
+                            HANKIN_SWEEP_FRAMES, ease_linear, false)
             .then([this]() {
               // Bookend-in: the sweep's final sample lands ~0.002
               // rad off the flat p_corner branch; force exact 0 so
@@ -647,8 +649,8 @@ private:
               // Every weight is exactly 0 at its collapse and 1 beyond the
               // window, so the body of the sweep draws every face in its
               // own color.
-              const int to_close = DURATION - cycle_frame;
-              const int from_mid = cycle_frame - DURATION / 2;
+              const int to_close = HANKIN_SWEEP_FRAMES - cycle_frame;
+              const int from_mid = cycle_frame - HANKIN_SWEEP_FRAMES / 2;
               draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot, opacity,
                         shape_weight(cycle_frame), shape_weight(to_close),
                         hs::clamp(static_cast<float>(to_close) /
@@ -656,7 +658,7 @@ private:
                                   0.0f, 1.0f),
                         shape_weight(from_mid < 0 ? -from_mid : from_mid));
             },
-            DURATION + 1, 0, ease_linear, 0, ease_linear),
+            HANKIN_SWEEP_FRAMES + 1, 0, ease_linear, 0, ease_linear),
         &anims_paused);
   }
 
