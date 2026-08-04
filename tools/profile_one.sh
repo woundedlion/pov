@@ -37,7 +37,20 @@
 # generic Plot counters; neither image is valid for timing comparisons.
 set -eo pipefail
 . "$(dirname "$0")/device_lock.sh"
+# Without this, a short/split argument list makes `shift 4` fail and set -e
+# aborts with no message.
+[ $# -ge 4 ] || {
+  echo "usage: profile_one.sh <Effect> <profile|profile_o3> <seconds> <window> [extra flags...]" >&2
+  exit 1
+}
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
+for n in "$SECONDS_ARG" "$WINDOW"; do
+  case $n in
+    ''|*[!0-9]*)
+      echo "seconds and window must be integers: '$SECONDS_ARG' '$WINDOW'" >&2
+      exit 1;;
+  esac
+done
 EXTRA="$*"
 PROFILE_PRESET=$(printf '%s\n' "$EXTRA" |
   sed -nE 's/.*-D[[:space:]]*HS_PROFILE_PRESET=([0-9]+).*/\1/p')
