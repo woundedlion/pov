@@ -17,9 +17,8 @@
  */
 #pragma once
 
-#include <algorithm> // for std::min
-#include <cmath>     // for std::sqrt
-#include <cstdio>    // for std::printf
+#include <cmath>  // for std::sqrt
+#include <cstdio> // for std::printf
 
 #include "core/engine/reaction_graph.h"
 #include "tests/test_3dmath.h" // for HS_EXPECT_VEC
@@ -59,7 +58,7 @@ static inline float chord2(const Vector &a, const Vector &b) {
  *          generator's contract.
  */
 inline void test_nodes_on_unit_sphere() {
-  for (int i = 0; i < RD_N; i += 17) {
+  for (int i = 0; i < RD_N; ++i) {
     Vector v = node(i);
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
   }
@@ -74,14 +73,27 @@ inline void test_nodes_on_unit_sphere() {
  *          collapses adjacent indices onto the same point.
  */
 inline void test_node_deterministic_and_distinct() {
-  // Frozen golden: the double-folded Fibonacci-lattice point for index 1234,
-  // cast to float32 (host/device agree to the cast per the provenance contract).
+  // Frozen goldens: double-folded Fibonacci-lattice points cast to float32
+  // (host/device agree to the cast per the provenance contract). radius*i — the
+  // sensitivity of x/z to a theta error — peaks at i = 3*(RD_N-1)/4, and RD_N-2
+  // is the largest theta (~18400 rad) on a non-degenerate radius; a float32 fold
+  // moves all three by more than the tolerance.
   HS_EXPECT_VEC(node(1234), Vector(-0.416881472f, 0.678604007f, 0.604736686f),
                 1e-6f);
-  // Cap the sample budget at RD_N-1 so node(i+1) never reads past [0, RD_N).
-  const int samples = std::min(500, RD_N - 1);
-  for (int i = 0; i < samples; ++i) {
-    HS_EXPECT_GT(chord2(node(i), node(i + 1)), 0.0f);
+  HS_EXPECT_VEC(node(5759),
+                Vector(-0.0421082303f, -0.499934882f, -0.865038753f), 1e-6f);
+  HS_EXPECT_VEC(node(RD_N - 2),
+                Vector(-0.00214281073f, -0.999739528f, -0.0227209534f), 1e-6f);
+  // prev holds node(i) as computed one iteration earlier, so every index is
+  // evaluated twice from separate call sites. The walk stops at RD_N-1 so
+  // node(i+1) never reads past [0, RD_N).
+  Vector prev = node(0);
+  for (int i = 0; i < RD_N - 1; ++i) {
+    Vector cur = node(i);
+    HS_EXPECT_VEC(cur, prev, 0.0f);
+    Vector next = node(i + 1);
+    HS_EXPECT_GT(chord2(cur, next), 0.0f);
+    prev = next;
   }
 }
 
@@ -229,7 +241,7 @@ inline void test_degree_is_exactly_rd_k() {
 inline void test_neighbors_are_local() {
   // ~11 deg upper bound for a listed neighbor → chord^2 < 0.037.
   const float MAX_CHORD2 = 0.037f;
-  for (int i = 0; i < RD_N; i += 7) {
+  for (int i = 0; i < RD_N; ++i) {
     Vector p = node(i);
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
@@ -243,17 +255,18 @@ inline void test_neighbors_are_local() {
 
 /**
  * @brief Verifies each listed neighbor is far closer than a far-side reference.
- * @details Compares each neighbor's chord distance against an opposite-hemisphere
- *          reference point, which must be strictly larger. node(RD_N-1-i)'s y is
- *          negated (opposite hemisphere) but its longitude is an unrelated
- *          golden-angle value, not -theta, so it is a far point, not the exact
- *          geometric antipode of node(i) — and a far reference is all this test
- *          needs.
+ * @details Compares each neighbor's chord distance against a reference half the
+ *          lattice away in index, which must be strictly larger. node()'s y is
+ *          affine in the index, so an RD_N/2 index offset — wrapped or not —
+ *          shifts latitude by a full quarter sphere (|dy| ~ 1, chord^2 >= 1) for
+ *          every i. The reference is therefore far-side on latitude alone,
+ *          rather than relying on two unrelated golden-angle longitudes landing
+ *          apart, which they do not near the equator.
  */
 inline void test_neighbors_closer_than_far_point() {
-  for (int i = 0; i < RD_N; i += 13) {
+  for (int i = 0; i < RD_N; ++i) {
     Vector p = node(i);
-    int far_point = RD_N - 1 - i;
+    int far_point = (i + RD_N / 2) % RD_N;
     float far2 = chord2(p, node(far_point));
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
