@@ -15,6 +15,13 @@
 
 /**
  * @brief A fixed-size circular buffer optimized for stability.
+ * @tparam T Element type. All N backing slots hold live objects from
+ * construction onward, so T must be default-constructible. push_front/push_back
+ * assign into a slot and so additionally require copy/move assignment;
+ * emplace_front/emplace_back construct in place and require only that T be
+ * constructible from the forwarded arguments, so they are the path for a
+ * non-assignable T.
+ * @tparam N Capacity in elements; must be >= 1.
  * @details
  * - No dynamic memory allocation (prevents heap fragmentation).
  * - "Delete Oldest" strategy on overflow (never stops processing) — overflow is a
@@ -201,13 +208,11 @@ public:
 
   /**
    * @brief Empties the buffer for reuse.
-   * @details Advances head/count to empty and resets head == tail == 0; backing
-   * slots stay live (no per-element destructor runs).
+   * @details Resets head == tail == count == 0, so a caller indexing raw
+   * &buf[0] linearly starts at 0; backing slots stay live (no per-element
+   * destructor runs).
    */
-  void clear() {
-    // Reset to head == tail == 0 so a caller indexing raw &buf[0] linearly starts at 0.
-    head = tail = count = 0;
-  }
+  void clear() { head = tail = count = 0; }
 
   /**
    * @brief Returns the front (oldest) element.
