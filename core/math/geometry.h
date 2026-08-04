@@ -8,7 +8,6 @@
 #include <array>
 #include <utility>
 #include "engine/platform.h"
-#include "engine/constants.h"
 #include "math/3dmath.h"
 #include "engine/util.h" // for fast_wrap()
 

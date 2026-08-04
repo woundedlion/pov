@@ -5,7 +5,6 @@
 #pragma once
 
 #include <array>
-#include <cassert>
 
 #include "engine/platform.h"
 #include "engine/memory.h"

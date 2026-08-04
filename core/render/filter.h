@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include <tuple>
 #include <utility>
 #include <type_traits>
 #include <cmath>
@@ -16,7 +15,6 @@
 #include "math/geometry.h"
 #include "math/spherical_field.h"
 #include "color/color.h"
-#include "engine/static_circular_buffer.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
 #include "engine/memory.h"

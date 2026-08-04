@@ -10,7 +10,6 @@
 #include <cmath>
 #include <cstdint>
 #include <new>
-#include <numeric>
 #include <cfloat>
 #include <span>
 #include <type_traits>
