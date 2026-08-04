@@ -8,6 +8,11 @@
 //     GenNoiseSingle overloads)
 //   - HS_O3_FN on SingleOpenSimplex2 (selective -O3, docs/selective_o3_spec.md)
 //
+// HS_O3_FN comes from engine/platform.h below, so the vendored header is no
+// longer a standalone drop-in: a version bump has to re-apply the patches
+// against this file rather than swap FastNoiseLite.h in isolation.
+#pragma once
+
 // This macro hard-routes GenNoiseSingle straight to OpenSimplex2 (bypassing the
 // per-noise-type switch) and skips the 3D warp-transform setup. It does not
 // itself remove the Cellular/Perlin/Value/OpenSimplex2S, fractal, or domain-warp
@@ -16,4 +21,4 @@
 // Remove this define to re-enable the full FastNoiseLite feature set.
 #define FASTNOISELITE_ONLY_OPENSIMPLEX2
 
-#include "../engine/platform.h"
+#include "engine/platform.h"
