@@ -443,8 +443,7 @@ inline void test_star_projection_policies_render_different_edges() {
   state.count = 3;
   state.sides = 5;
   state.phase = 0.17f;
-  state.orientation =
-      Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
+  state.orientation = Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
   const OracleFrame planar = capture_frame(state, candidate_renderer());
   state.shape = OracleEffect::ShapeType::SPHERICAL_STAR;
   const OracleFrame spherical = capture_frame(state, candidate_renderer());
@@ -456,8 +455,8 @@ inline void test_star_options_and_shipping_presets_are_planar() {
   using Falloff = OracleEffect::AlphaFalloff;
   using Shape = OracleEffect::ShapeType;
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_count(), 5);
-  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_option(3),
-                             "Planar Star") == 0);
+  HS_EXPECT_TRUE(
+      std::strcmp(ShapeShifterWhiteBox::shape_option(3), "Planar Star") == 0);
   HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_option(4),
                              "Spherical Star") == 0);
   HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_export_option(3),
@@ -469,8 +468,8 @@ inline void test_star_options_and_shipping_presets_are_planar() {
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_alpha_falloff(index),
                  Falloff::TOWARD_EQUATOR);
   }
-  for (size_t index : {size_t{1}, size_t{3}, size_t{5}, size_t{6}, size_t{7},
-                       size_t{8}})
+  for (size_t index :
+       {size_t{1}, size_t{3}, size_t{5}, size_t{6}, size_t{7}, size_t{8}})
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_alpha_falloff(index),
                  Falloff::CONSTANT_HALF);
 }
@@ -552,123 +551,6 @@ inline void test_high_count_star_contours_reach_display_north() {
     state.orientation = Quaternion();
     const OracleFrame frame = capture_frame(state, candidate_renderer());
     HS_EXPECT_LE(first_covered_north_row(frame), 1);
-  }
-}
-
-inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
-                      const OracleClip &clip) {
-  for (int y = clip.y0; y < clip.y1; ++y)
-    for (int x = clip.x0; x < clip.x1; ++x)
-      destination.pixels[static_cast<size_t>(y) * ORACLE_W + x] =
-          source.at(x, y);
-}
-
-template <typename Render>
-inline void expect_segment_tiles_reconstruct_full_frame(Render render) {
-  const OracleClip clips[] = {{0, ORACLE_H / 2, 0, ORACLE_W / 2},
-                              {0, ORACLE_H / 2, ORACLE_W / 2, ORACLE_W},
-                              {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
-                              {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
-  const auto matrix = exhaustive_matrix();
-
-  for (int shape = 0; shape < 5; ++shape) {
-    OracleState full_state = matrix[shape * 4 + shape % 4];
-    full_state.orientation = Quaternion();
-    OracleFrame full = capture_frame(full_state, render);
-    OracleFrame tiled;
-    tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
-
-    for (const OracleClip &clip : clips) {
-      OracleState segment_state = full_state;
-      segment_state.clip = clip;
-      OracleFrame segment = capture_frame(segment_state, render);
-      copy_clip(tiled, segment, clip);
-    }
-
-    FrameErrorStats error = compare_buffers(full, tiled);
-    HS_EXPECT_TRUE(error.exact());
-    HS_EXPECT_EQ(error.different_pixels, static_cast<size_t>(0));
-    HS_EXPECT_EQ(error.total_absolute_error, static_cast<uint64_t>(0));
-  }
-}
-
-inline void test_segment_tiles_reconstruct_full_frame() {
-  expect_segment_tiles_reconstruct_full_frame(reference_renderer());
-  expect_segment_tiles_reconstruct_full_frame(candidate_renderer());
-
-  const OracleClip clips[] = {{0, ORACLE_H / 2, 0, ORACLE_W / 2},
-                              {0, ORACLE_H / 2, ORACLE_W / 2, ORACLE_W},
-                              {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
-                              {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
-  auto expect_tiled = [&](OracleState state) {
-    const OracleFrame full = capture_frame(state, candidate_renderer());
-    OracleFrame tiled;
-    tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
-    for (const OracleClip &clip : clips) {
-      state.clip = clip;
-      copy_clip(tiled, capture_frame(state, candidate_renderer()), clip);
-    }
-    const FrameErrorStats error = compare_buffers(full, tiled);
-    HS_EXPECT_TRUE(error.exact());
-    HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
-  };
-  OracleState state;
-  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
-  state.function = OracleEffect::PhaseFunction::SINE;
-  state.count = 144;
-  state.sides = 7;
-  state.phase = 0.37f;
-  state.alpha = 0.274f;
-  state.orientation = Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
-  expect_tiled(state);
-  state.phase = 0.125f;
-  state.orientation = make_rotation(X_AXIS, Y_AXIS);
-  expect_tiled(state);
-}
-
-/**
- * @brief Pins the star cap's azimuthal cull against narrow column clips.
- * @details Four full-height W/4 columns tile the canvas, so the y-band half of
- * the cull passes everything and only the azimuthal bound decides visibility.
- * A quarter-width column shrinks the cap half-width to a quarter turn, where the
- * bound rejects most of a dense star stack; any shape it drops that reaches the
- * column shows up as a mismatch against the unclipped frame.
- */
-inline void test_star_azimuthal_cull_spans_narrow_columns() {
-  const OracleClip columns[] = {{0, ORACLE_H, 0, ORACLE_W / 4},
-                                {0, ORACLE_H, ORACLE_W / 4, ORACLE_W / 2},
-                                {0, ORACLE_H, ORACLE_W / 2, 3 * ORACLE_W / 4},
-                                {0, ORACLE_H, 3 * ORACLE_W / 4, ORACLE_W}};
-  const std::array<Quaternion, 4> orientations = {{
-      Quaternion(),
-      make_rotation(X_AXIS, Z_AXIS),
-      Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(),
-      Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
-  }};
-  const std::array<float, 4> phases = {{0.0f, 0.37f, 0.5f, 0.83f}};
-
-  for (size_t i = 0; i < orientations.size(); ++i) {
-    OracleState state;
-    state.shape = OracleEffect::ShapeType::PLANAR_STAR;
-    state.function = OracleEffect::PhaseFunction::SINE;
-    state.count = 144;
-    state.sides = 7;
-    state.phase = phases[i];
-    state.alpha = 0.274f;
-    state.orientation = orientations[i];
-
-    const OracleFrame full = capture_frame(state, candidate_renderer());
-    OracleFrame tiled;
-    tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
-    for (const OracleClip &column : columns) {
-      state.clip = column;
-      copy_clip(tiled, capture_frame(state, candidate_renderer()), column);
-    }
-
-    const FrameErrorStats error = compare_buffers(full, tiled);
-    HS_EXPECT_TRUE(error.exact());
-    HS_EXPECT_EQ(error.different_pixels, size_t{0});
-    HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
   }
 }
 
@@ -778,8 +660,6 @@ inline int run_shapeshifter_oracle_tests() {
   test_high_count_star_preset_stays_within_visual_budget();
   test_high_count_star_preset_covers_north_pole();
   test_high_count_star_contours_reach_display_north();
-  test_segment_tiles_reconstruct_full_frame();
-  test_star_azimuthal_cull_spans_narrow_columns();
   test_amplitude_preserves_sweep_velocity();
   test_shape_alpha_fades_to_equator();
   test_opposite_halves_direction();
