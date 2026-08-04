@@ -1036,12 +1036,18 @@ inline void test_stereo_roundtrip() {
 
   // Inside the pole cap (denom < STEREO_POLE_EPS) the sentinel preserves the
   // (x,z) azimuth at magnitude STEREO_INF rather than collapsing onto +real.
-  Vector nearPole(0.006f, 0.99998f, 0.0021f); // |xz| small, denom ≈ 2e-5
-  Complex zCap = stereo(nearPole.normalized());
+  // At this scale the unit vector's y rounds to 1, so denom is exactly zero.
+  Vector nearPole = Vector(6e-5f, 1.0f, 2.1e-5f).normalized();
+  Complex zCap = stereo(nearPole);
   HS_EXPECT_NEAR(std::sqrt(zCap.re * zCap.re + zCap.im * zCap.im), STEREO_INF,
                  1.0f);
   HS_EXPECT_NEAR(std::atan2(zCap.im, zCap.re),
                  std::atan2(nearPole.z, nearPole.x), 1e-3f);
+
+  // The cap boundary is the crossover where the raw quotient would reach the
+  // sentinel, not a step: outside it the projection stays below STEREO_INF.
+  Complex zOut = stereo(Vector(0.006f, 0.99998f, 0.0021f).normalized());
+  HS_EXPECT_LT(std::sqrt(zOut.re * zOut.re + zOut.im * zOut.im), STEREO_INF);
 
   // Large complex magnitude maps back to north pole.
   Vector pole = inv_stereo(Complex(STEREO_INF, 0));
