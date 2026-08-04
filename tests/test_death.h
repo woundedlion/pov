@@ -45,6 +45,7 @@
 #include "core/color/color.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
+#include "core/engine/effect_registry.h"
 #include "core/engine/generators.h"
 #include "core/render/led.h"
 #include "core/engine/memory.h"
@@ -58,6 +59,7 @@
 #include "core/engine/static_circular_buffer.h"
 #include "core/engine/transformers.h"
 #include "hardware/dma_led_controller.h"
+#include "hardware/pov_sync.h"
 
 #if !defined(_WIN32)
 #include <csignal>    // SIGILL — the expected trap signal
@@ -180,6 +182,18 @@ inline void case_arena_set_capacity_above_extent() {
 }
 
 /**
+ * @brief Death case: rebinding to a capacity past the buffer extent must trap.
+ * @details Memory surface — the extent is the ceiling every later set_capacity()
+ *          grow is bounded by, so a rebind that starts above it would authorize
+ *          allocations past the backing buffer from the first call on.
+ */
+inline void case_arena_rebind_capacity_over_extent() {
+  static uint8_t buf[64];
+  Arena a(buf, sizeof(buf));
+  a.rebind(buf, opaque<size_t>(128), opaque<size_t>(64)); // -> HS_CHECK
+}
+
+/**
  * @brief Death case: a mid-run resplit with live scratch content must trap.
  * @details Config surface — resplit_arenas rebases both scratch arenas, and a
  *          ScratchScope saved at offset 0 restores to 0 either way, so live
@@ -267,6 +281,33 @@ inline void case_generate_target_is_scratch() {
   int r = generate(scratch_arena_a, [](Arena &, Arena &, Arena &) {
     return 0;
   }); // target aliases scratch_arena_a -> HS_CHECK
+  if (r == 42)
+    std::printf("x");
+}
+
+/**
+ * @brief Recursive generator body: each level calls generate() once more.
+ * @param target Arena forwarded to the next generate().
+ * @param remaining Levels of nesting still to open; stops at 0.
+ * @return Always 0.
+ */
+inline int nested_generate(Arena &target, Arena &, Arena &, int remaining) {
+  if (remaining <= 0)
+    return 0;
+  return generate(target, nested_generate, remaining - 1);
+}
+
+/**
+ * @brief Death case: nesting generate() past MAX_GENERATE_DEPTH must trap.
+ * @details Generator surface — every level stacks two ScratchScopes on a fixed
+ *          scratch budget, so runaway reentrancy is capped at the wrapper rather
+ *          than left to exhaust the arenas. The outermost call opens depth 1, so
+ *          MAX_GENERATE_DEPTH further levels reach depth MAX_GENERATE_DEPTH + 1.
+ */
+inline void case_generate_recursion_too_deep() {
+  configure_arenas_default();
+  int r =
+      generate(persistent_arena, nested_generate, opaque(MAX_GENERATE_DEPTH));
   if (r == 42)
     std::printf("x");
 }
@@ -1206,6 +1247,66 @@ inline void case_driver_null_speed_src() {
 }
 
 /**
+ * @brief Death case: a second TransformerPool::init_storage() must trap.
+ * @details Transformer surface — a re-init would hand the pool a second block
+ *          while spawned animations still hold Params references into the first,
+ *          and would silently double-charge the persistent arena.
+ */
+inline void case_transformer_pool_init_storage_twice() {
+  configure_arenas_default();
+  Timeline tl;
+  RippleTransformer<2> rt(tl);
+  rt.init_storage(persistent_arena);
+  rt.init_storage(persistent_arena); // entities already set -> HS_CHECK
+}
+
+/**
+ * @brief Death case: spawning before init_storage() must trap.
+ * @details Transformer surface — the slot scan indexes the entity block, so a
+ *          spawn on an un-initialized pool would dereference null instead of
+ *          reporting the missed init() wiring.
+ */
+inline void case_transformer_pool_spawn_before_init() {
+  Timeline tl;
+  RippleTransformer<2> rt(tl);
+  Animation::Ripple *p = rt.spawn(0, Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
+  if (p == reinterpret_cast<Animation::Ripple *>(0x1))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: an out-of-range active index must trap.
+ * @details Transformer surface — active_params() indexes the compact active list,
+ *          which is shorter than CAPACITY, so an index taken from the slot domain
+ *          (or from a stale count) would read a dead slot as if it were live.
+ */
+inline void case_transformer_pool_active_index_oob() {
+  configure_arenas_default();
+  Timeline tl;
+  RippleTransformer<2> rt(tl);
+  rt.init_storage(persistent_arena);
+  const Animation::RippleParams &p = rt.active_params(opaque(0)); // -> HS_CHECK
+  if (p.amplitude == 42.0f)
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: reclaimed storage landing at a new address must trap.
+ * @details Transformer surface — spawned animations hold Params references into
+ *          the slots, so the post-reset replay must re-land the blocks exactly
+ *          where init_storage() put them. Here the arena is NOT reset first, so
+ *          the replay appends past the originals and every live reference would
+ *          be left pointing at abandoned bytes.
+ */
+inline void case_transformer_pool_reclaim_storage_moved() {
+  configure_arenas_default();
+  Timeline tl;
+  RippleTransformer<2> rt(tl);
+  rt.init_storage(persistent_arena);
+  rt.reclaim_storage(persistent_arena); // blocks land elsewhere -> HS_CHECK
+}
+
+/**
  * @brief Concrete Effect for the canvas death cases.
  * @details Defaults to 32x16 and exposes register_param via reg.
  */
@@ -1670,6 +1771,34 @@ inline void case_empty_fn_call() {
 }
 
 /**
+ * @brief Death case: registering two effects under one name must trap.
+ * @details Registry surface — the name keys the factory lookup and the
+ *          HS_EFFECT_LIST anti-drift oracle, so a duplicate (an effect header
+ *          pulled into two translation units) would leave a shadowed entry that
+ *          can never be selected. The append-time guard traps at static-init.
+ */
+inline void case_effect_registry_duplicate_name() {
+  EffectRegistration reg{};
+  reg.name = "DeathDuplicate";
+  EffectRegistry::add(reg);
+  EffectRegistry::add(reg); // name already present -> HS_CHECK
+}
+
+/**
+ * @brief Death case: a Flywheel period of zero must trap at construction.
+ * @details POV-sync surface — position() divides the int32 elapsed window by the
+ *          period, so a zero divides by zero and an over-large one voids the
+ *          signed-safe coast window; the constructor rejects both before the
+ *          driver ever schedules a column.
+ */
+inline void case_flywheel_period_zero() {
+  pov::sync::Config cfg;
+  cfg.cycles_per_half_rev = opaque<uint32_t>(0);
+  pov::sync::Flywheel fw(cfg); // period 0 -> HS_CHECK
+  (void)fw;
+}
+
+/**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
@@ -1704,6 +1833,10 @@ inline const Case *all_cases(int &n) {
        "memory.h",
        "(new_capacity <= extent) Arena::set_capacity past the backing buffer "
        "would hand out bytes the arena does not own"},
+      {"arena_rebind_capacity_over_extent",
+       case_arena_rebind_capacity_over_extent, "memory.h",
+       "(new_capacity <= buffer_extent) Arena::rebind capacity exceeds its "
+       "backing buffer"},
       {"resplit_scratch_not_empty", case_resplit_scratch_not_empty,
        "memory.cpp",
        "(scratch_arena_a.get_offset() == 0 && scratch_arena_b.get_offset() "
@@ -1723,6 +1856,9 @@ inline const Case *all_cases(int &n) {
        "generators.h",
        "(&target != &scratch_arena_a && &target != &scratch_arena_b) "
        "generate: target must not alias an engine scratch arena"},
+      {"generate_recursion_too_deep", case_generate_recursion_too_deep,
+       "generators.h",
+       "(depth <= MAX_GENERATE_DEPTH) generate: recursion too deep"},
       {"normalize_zero", case_normalize_zero, "3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) "},
       {"normalize_nan", case_normalize_nan, "3dmath.h",
@@ -1803,6 +1939,20 @@ inline const Case *all_cases(int &n) {
       {"timeline_double_construct", case_timeline_double_construct,
        "timeline.h",
        "(!global_timeline_live) "},
+      {"transformer_pool_init_storage_twice",
+       case_transformer_pool_init_storage_twice, "transformers.h",
+       "(!entities) TransformerPool: init_storage() called twice"},
+      {"transformer_pool_spawn_before_init",
+       case_transformer_pool_spawn_before_init, "transformers.h",
+       "(entities) TransformerPool: call init_storage() before spawn"},
+      {"transformer_pool_active_index_oob",
+       case_transformer_pool_active_index_oob, "transformers.h",
+       "(k >= 0 && k < active_slot_count) TransformerPool: active index out of "
+       "range"},
+      {"transformer_pool_reclaim_storage_moved",
+       case_transformer_pool_reclaim_storage_moved, "transformers.h",
+       "(e == entities && s == active_slots) TransformerPool: reclaimed "
+       "storage moved"},
       {"effect_double_construct", case_effect_double_construct, "canvas.h",
        "(!s_alive) Effect: a second Effect was constructed while one is "
        "still alive; buffer_a/buffer_b are shared static storage (one live "
@@ -1978,6 +2128,14 @@ inline const Case *all_cases(int &n) {
        "(false) DMA channel wedged"},
       {"empty_fn_call", case_empty_fn_call, "inplace_function.h",
        "(vtable != empty) empty hs::inplace_function called"},
+      {"effect_registry_duplicate_name", case_effect_registry_duplicate_name,
+       "effect_registry.h",
+       "(existing.name != reg.name) effect header included by more than one "
+       "translation unit: effects/DeathDuplicate.h"},
+      {"flywheel_period_zero", case_flywheel_period_zero, "pov_sync.h",
+       "(p > 0 && p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS) "
+       "Flywheel: cycles_per_half_rev outside the range position()'s int32 "
+       "elapsed window holds for MIN_SAFE_HALF_REVS of coast"},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
@@ -2348,7 +2506,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 94;
+  constexpr int DEATH_CASE_COUNT = 102;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
