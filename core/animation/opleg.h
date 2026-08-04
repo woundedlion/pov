@@ -340,6 +340,7 @@ public:
     init_conway(handoff, bookend, arena, edge.settle,
                 ConwayGraph::is_jitterbug_edge(edge),
                 /*bridge_provenance=*/false);
+    seal_transients();
   }
 
   /**
@@ -415,6 +416,7 @@ public:
 
     init_conway(handoff, bookend, arena, /*settle=*/false,
                 /*jitterbug=*/false, spec.bridge_provenance);
+    seal_transients();
   }
 
   /**
@@ -511,6 +513,7 @@ public:
       build_palette_mapping(tr, arrival, handoff, bookend, arena,
                             start_centroid, survivors);
     }
+    seal_transients();
   }
 
   /**
@@ -584,6 +587,7 @@ public:
       build_palette_mapping(tr, arrival, handoff, bookend, arena,
                             start_centroid, tr.seed_faces);
     }
+    seal_transients();
   }
 
   /**
@@ -678,6 +682,7 @@ public:
       build_palette_mapping(tr, med, handoff, bookend, arena, start_centroid,
                             tr.seed_faces);
     }
+    seal_transients();
   }
 
   /**
@@ -758,6 +763,7 @@ public:
       build_palette_mapping(tr, arrival, handoff, bookend, arena,
                             start_centroid, tr.seed_faces);
     }
+    seal_transients();
   }
 
   /**
@@ -800,6 +806,7 @@ public:
     tr.bank = handoff.bank;
 
     init_gated(handoff, bookend, arena);
+    seal_transients();
   }
 
   /**
@@ -1858,7 +1865,7 @@ private:
   }
 
   /**
-   * @brief Allocates the leg's Transients and stamps what check_alive() tests.
+   * @brief Allocates the leg's Transients.
    * @param arena Leg arena backing the leg's state.
    * @return The fresh Transients.
    */
@@ -1872,6 +1879,12 @@ private:
 #endif
     return *buf;
   }
+
+  /**
+   * @brief Stamps the watermark check_alive() tests past the leg's last
+   * allocation; called at the end of every constructor.
+   */
+  void seal_transients() { live_end = leg_arena->get_offset(); }
 
   /**
    * @brief Traps if the leg arena was reclaimed while the leg is still live.
