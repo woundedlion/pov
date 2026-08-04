@@ -2310,10 +2310,10 @@ inline PolyMesh probe_dodeca_hk72_ambo(Arena &a, Arena &b) {
       .build();
 }
 inline PolyMesh probe_icosidodeca_trunc5_ambo(Arena &a, Arena &b) {
-  using Solids::IslamicStarPatterns::D2R;
+  using Solids::IslamicStarPatterns::TRUNCATE_T_NEAR;
   return Solids::SolidBuilder(Solids::Archimedean::icosidodecahedron(a, b), a,
                               b)
-      .truncate(5.0f * D2R)
+      .truncate(TRUNCATE_T_NEAR)
       .ambo()
       .build();
 }
@@ -3357,6 +3357,7 @@ inline void test_opleg_edge_leg_crossfade() {
 inline void test_unsweepable_recipe_steps_are_gated() {
   using Solids::Op;
   using Solids::IslamicStarPatterns::D2R;
+  using Solids::IslamicStarPatterns::TRUNCATE_T_FAR;
 
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.33f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::SNUB, 0.5f}));
@@ -3368,10 +3369,10 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   // (opchain_morph_spec 5.1).
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.001f}));
-  // 50 deg = 0.873 is a far-side arrival past the ambo pinch: now a real
-  // sweeping leg (opchain_morph_spec 5.1), not a clamped clean-swap. A
-  // fully-crossed t == 1 stays blocked (cut faces collapse).
-  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 50.0f * D2R}));
+  // 0.873 is a far-side arrival past the ambo pinch: now a real sweeping leg
+  // (opchain_morph_spec 5.1), not a clamped clean-swap. A fully-crossed t == 1
+  // stays blocked (cut faces collapse).
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, TRUNCATE_T_FAR}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 1.0f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::KIS}));

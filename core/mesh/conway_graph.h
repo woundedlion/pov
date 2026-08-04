@@ -135,7 +135,7 @@ inline constexpr float T_EPS_TRUNCATE_FRAC = 0.2f;
  * (arrival * T_EPS_TRUNCATE_FRAC) stays a valid positive-area truncate. */
 inline constexpr float T_EPS_TRUNCATE_MIN = 0.002f;
 /** Upper truncate clamp for a far-side leg (arrival > 0.5, e.g. the two
- * truncate50d recipes at 50 deg = 0.873): stops just below t = 1, where every
+ * truncate50d recipes at t = 0.873): stops just below t = 1, where every
  * cut point reaches the opposite endpoint and the cut faces collapse. A
  * far-side leg sweeps through the ambo pinch on the constant-topology truncate
  * branch instead of clean-swapping to ambo; the ambo-equivalent leg (arrival
