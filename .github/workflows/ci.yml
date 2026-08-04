@@ -118,7 +118,7 @@ jobs:
           cmake --build --preset tests
           --target perf_bench_Os perf_bench_O3 srgb_decode_gen
 
-      # Reverse-direction roster guard (finding 596): every module in the
+      # Reverse-direction roster guard: every module in the
       # run_tests roster must map to a unit_<name> CTest registration, else it
       # runs in no ctest test and is silently uncovered. (The forward direction
       # already fails — an unknown argv module exits run_tests with status 2.)
@@ -174,7 +174,7 @@ jobs:
       fail-fast: false
       matrix:
         # Same shard partition as the tests job — referenced by anchor, not
-        # re-typed, so the jobs cannot drift (finding 404).
+        # re-typed, so the jobs cannot drift.
         include: *shard_matrix
     # The native suite is the only build where the arena guards compile in
     # (device/WASM strip them), so ASan+UBSan here is the sole automated cover
@@ -966,8 +966,8 @@ jobs:
 
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
-    # Guards finding 404: the tests/sanitizers jobs run subsets of the suite via
-    # the shard regexes. A module registered in CMake but absent from every shard
+    # The tests/sanitizers jobs run subsets of the suite via the shard regexes.
+    # A module registered in CMake but absent from every shard
     # would run in no Linux/sanitizer job and silently lose that coverage. List
     # the registered tests and assert each matches exactly one shard regex — the
     # SAME anchored scalars the matrices use, so this check cannot drift from them.
