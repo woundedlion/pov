@@ -1295,11 +1295,13 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
   float max_velocity_error = 0.0f;
   double max_angle_error = 0.0;
   float max_norm_drift = 0.0f;
+  int color_seed_mismatches = 0;
+  int life_mismatches = 0;
   for (size_t i = 0; i < reference.active(); ++i) {
     const auto &a = reference.pool[i];
     const auto &b = specialized.pool[i];
-    HS_EXPECT_EQ(a.color_seed, b.color_seed);
-    HS_EXPECT_EQ(a.life, b.life);
+    color_seed_mismatches += a.color_seed != b.color_seed;
+    life_mismatches += a.life != b.life;
     max_position_error = std::max(max_position_error,
                                   max_component_delta(a.position, b.position));
     max_velocity_error = std::max(max_velocity_error,
@@ -1319,6 +1321,8 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
   // again, so the angle cannot exceed twice that.
   constexpr float COMPONENT_BOUND = 2e-7f;
   const double angle_bound = 2.0 * std::sqrt(3.0) * COMPONENT_BOUND;
+  HS_EXPECT_EQ(color_seed_mismatches, 0);
+  HS_EXPECT_EQ(life_mismatches, 0);
   HS_EXPECT_LE(max_position_error, COMPONENT_BOUND);
   HS_EXPECT_LE(max_velocity_error, COMPONENT_BOUND);
   HS_EXPECT_LE(max_angle_error, angle_bound);
@@ -1420,14 +1424,16 @@ inline void test_particle_system_signed_axis_trajectory() {
   float max_velocity_error = 0.0f;
   float max_angle_error = 0.0f;
   float max_norm_drift = 0.0f;
+  int active_mismatches = 0;
+  int color_seed_mismatches = 0;
   for (int step = 0; step < STEPS; ++step) {
     reference.step(fake_canvas());
     specialized.step(fake_canvas());
-    HS_EXPECT_EQ(reference.active(), specialized.active());
+    active_mismatches += reference.active() != specialized.active();
     for (size_t i = 0; i < reference.active(); ++i) {
       const auto &a = reference.pool[i];
       const auto &b = specialized.pool[i];
-      HS_EXPECT_EQ(a.color_seed, b.color_seed);
+      color_seed_mismatches += a.color_seed != b.color_seed;
       max_position_error = std::max(
           max_position_error, max_component_delta(a.position, b.position));
       max_velocity_error = std::max(
@@ -1442,6 +1448,8 @@ inline void test_particle_system_signed_axis_trajectory() {
               "angle=%.9g norm=%.9g\n",
               STEPS, reference.active(), max_position_error, max_velocity_error,
               max_angle_error, max_norm_drift);
+  HS_EXPECT_EQ(active_mismatches, 0);
+  HS_EXPECT_EQ(color_seed_mismatches, 0);
   HS_EXPECT_LE(max_position_error, 1e-5f);
   HS_EXPECT_LE(max_velocity_error, 1e-5f);
   HS_EXPECT_LE(max_angle_error, 1e-3f);
@@ -1673,7 +1681,11 @@ inline void test_sequential_segue_never_overlaps_sprites() {
  *        incoming share tracks the phase.
  * @details The partition is what caps a two-mesh transition at one mesh's scan
  *          cost, so a mask pair that double-covered or dropped pixels would
- *          both corrupt the image and double the frame.
+ *          both corrupt the image and double the frame. Each phase's 2048
+ *          pixels report through one violation counter rather than per-pixel
+ *          assertions: per-pixel HS_EXPECTs would put ~10k assertions into the
+ *          module's floor and leave the floor gate blind to every other case in
+ *          the module being deleted.
  */
 inline void test_dissolve_segue_masks_partition_the_canvas() {
   constexpr int W = 64, H = 32;
@@ -1681,12 +1693,14 @@ inline void test_dissolve_segue_masks_partition_the_canvas() {
   for (float phase : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
     auto masks = dissolve.mask_pair(phase, 7u);
     int owned_in = 0;
+    int both_or_neither = 0;
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
         bool a = masks.incoming.owns(x, y), b = masks.outgoing.owns(x, y);
-        HS_EXPECT_TRUE(a != b);
+        both_or_neither += a == b;
         owned_in += a ? 1 : 0;
       }
+    HS_EXPECT_EQ(both_or_neither, 0);
     // Hash spread is not perfectly uniform, so allow a few percent of slack.
     float share = static_cast<float>(owned_in) / (W * H);
     HS_EXPECT_NEAR(share, phase, 0.05f);
