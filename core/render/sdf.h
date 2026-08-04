@@ -216,6 +216,32 @@ template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
       sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
 };
 
+/** True when a shape's distance() reports a usable signed distance outside its
+ * surface, which is what SmoothUnion's weld term needs. Ring, DistortedRing,
+ * FlatDistortedRing and Face instead clamp to the far sentinel (dist = 100)
+ * past their reject band. A combinator blends only if every child does; an
+ * unrecognized shape is assumed to. */
+template <typename T> inline constexpr bool blends_smoothly = true;
+template <> inline constexpr bool blends_smoothly<Ring> = false;
+template <> inline constexpr bool blends_smoothly<DistortedRing> = false;
+template <> inline constexpr bool blends_smoothly<FlatDistortedRing> = false;
+template <> inline constexpr bool blends_smoothly<Face> = false;
+template <typename Shape>
+inline constexpr bool blends_smoothly<AngularRepeat<Shape>> =
+    blends_smoothly<Shape>;
+template <typename A, typename B>
+inline constexpr bool blends_smoothly<Union<A, B>> =
+    blends_smoothly<A> && blends_smoothly<B>;
+template <typename A, typename B>
+inline constexpr bool blends_smoothly<SmoothUnion<A, B>> =
+    blends_smoothly<A> && blends_smoothly<B>;
+template <typename A, typename B>
+inline constexpr bool blends_smoothly<Intersection<A, B>> =
+    blends_smoothly<A> && blends_smoothly<B>;
+template <typename A, typename B>
+inline constexpr bool blends_smoothly<Subtract<A, B>> =
+    blends_smoothly<A> && blends_smoothly<B>;
+
 /**
  * @brief Append a scanline interval, trapping on overflow.
  * @tparam N Buffer capacity (deduced); supports both the per-shape and the
@@ -1422,6 +1448,10 @@ template <typename A, typename B> struct SmoothUnion {
           2 * INTERVAL_SPAN_CAP,
       "nested CSG smooth-union exceeds MergedIntervalBuffer capacity; "
       "flatten the union or raise INTERVAL_SPAN_CAP");
+  static_assert(blends_smoothly<A> && blends_smoothly<B>,
+                "CSG SmoothUnion children must report a signed distance "
+                "outside their surface; a far-sentinel clamper welds to "
+                "nothing, making this identical to Union");
 
   /**
    * @brief Builds a smooth union of two child shapes.
