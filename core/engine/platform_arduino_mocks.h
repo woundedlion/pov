@@ -600,5 +600,3 @@ inline uint8_t triwave8(uint8_t in) {
   }
   return in << 1;
 }
-
-#define FASTRUN
