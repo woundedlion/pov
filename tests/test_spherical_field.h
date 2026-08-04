@@ -91,7 +91,7 @@ inline void test_unequal_rings_have_independent_longitude_mix() {
 inline void test_longitude_stays_in_ring_at_negative_seam() {
   constexpr hs::SphericalFieldLayout<64, 33, 0> layout(4);
   const auto ring = layout.ring(4);
-  // A tiny negative x rounds up to exactly W once the seam offset is added.
+  // A tiny negative x wraps to the top of the domain.
   const auto seam = layout.longitude(ring, -1e-8f);
   HS_EXPECT_GE(seam.left, ring.offset);
   HS_EXPECT_LT(seam.left, ring.offset + ring.samples);

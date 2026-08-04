@@ -252,12 +252,9 @@ struct FoldModifier {
     float shift = phase ? *phase : 0.0f;
     float scaled = (t * folds) + shift;
 
-    // Triangle wave. fmodf keeps the dividend's sign, so reduce into [0, 2)
-    // first — negative scaled would otherwise fold above 1.
-    float m = fmodf(scaled, 2.0f);
-    if (m < 0.0f)
-      m += 2.0f;
-    return fabsf(m - 1.0f);
+    // Triangle wave over a [0, 2) reduction: a negative scaled would otherwise
+    // fold above 1.
+    return fabsf(wrap(scaled, 2.0f) - 1.0f);
   }
 };
 

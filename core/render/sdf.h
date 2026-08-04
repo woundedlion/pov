@@ -283,10 +283,8 @@ inline void normalize_intervals_to_range(
       push_interval(dst, 0.0f, Wf);
       continue;
     }
-    float s = fmodf(src[i].first, Wf);
-    if (s < 0.0f)
-      s += Wf;
-    float e = s + len;
+    const float s = wrap(src[i].first, Wf);
+    const float e = s + len;
     if (e <= Wf) {
       push_interval(dst, s, e);
     } else {
