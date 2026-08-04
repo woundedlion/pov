@@ -2938,7 +2938,45 @@ struct DistortedRing {
  *  v2: Vertex index
  */
 template <typename Projection> struct Star {
+public:
+  /** @brief Sine/cosine values shared by every vertex at one radius. */
+  struct RadiusTrig {
+    float sine[2];
+    float cosine[2];
+  };
+
+  /** @brief Sine/cosine values shared by every angular step. */
+  struct StepTrig {
+    float sine;
+    float cosine;
+  };
+
 private:
+  static void sample_positions_impl(Fragments &points, const Basis &work_basis,
+                                    int num_sides, float phase,
+                                    const RadiusTrig &radius_trig,
+                                    const StepTrig &step_trig) {
+    const Vector &v = work_basis.v;
+    const Vector &u = work_basis.u;
+    const Vector &w = work_basis.w;
+    const size_t start_idx = points.size();
+    float cos_theta = cosf(phase);
+    float sin_theta = sinf(phase);
+    for (int i = 0; i < num_sides * 2; ++i) {
+      Fragment f;
+      const float sin_r = radius_trig.sine[i & 1];
+      const float cos_r = radius_trig.cosine[i & 1];
+      f.pos =
+          (v * cos_r) + (u * (cos_theta * sin_r)) + (w * (sin_theta * sin_r));
+      points.push_back(f);
+      const float next_cos =
+          cos_theta * step_trig.cosine - sin_theta * step_trig.sine;
+      sin_theta = sin_theta * step_trig.cosine + cos_theta * step_trig.sine;
+      cos_theta = next_cos;
+    }
+    points.push_back(points[start_idx]);
+  }
+
   template <bool EmitRegisters>
   static void sample_impl(Fragments &points, const Basis &basis, float radius,
                           int num_sides, float phase) {
@@ -2972,23 +3010,13 @@ private:
       };
       sample_closed_ring(points, num_sides * 2, position);
     } else {
-      size_t start_idx = points.size();
-      const float cos_step = cosf(angle_step);
-      const float sin_step = sinf(angle_step);
-      float cos_theta = cosf(phase);
-      float sin_theta = sinf(phase);
-      for (int i = 0; i < num_sides * 2; ++i) {
-        Fragment f;
-        const float sin_r = sin_radius[i & 1];
-        const float cos_r = cos_radius[i & 1];
-        f.pos = (v * cos_r) + (u * (cos_theta * sin_r)) +
-                (w * (sin_theta * sin_r));
-        points.push_back(f);
-        const float next_cos = cos_theta * cos_step - sin_theta * sin_step;
-        sin_theta = sin_theta * cos_step + cos_theta * sin_step;
-        cos_theta = next_cos;
-      }
-      points.push_back(points[start_idx]);
+      const RadiusTrig radius_trig = {
+          {sin_radius[0], sin_radius[1]},
+          {cos_radius[0], cos_radius[1]},
+      };
+      const StepTrig step_trig = {sinf(angle_step), cosf(angle_step)};
+      sample_positions_impl(points, work_basis, num_sides, phase, radius_trig,
+                            step_trig);
     }
   }
 
@@ -3033,6 +3061,21 @@ private:
   }
 
 public:
+  /** @brief Computes reusable radius trigonometry for position-only sampling. */
+  static RadiusTrig radius_trig(float radius) {
+    const float work_radius = radius > 1.0f ? 2.0f - radius : radius;
+    const float outer_radius = work_radius * (PI_F / 2.0f);
+    const float inner_radius = outer_radius * STAR_INNER_RATIO;
+    return {{sinf(outer_radius), sinf(inner_radius)},
+            {cosf(outer_radius), cosf(inner_radius)}};
+  }
+
+  /** @brief Computes reusable angular-step trigonometry for a side count. */
+  static StepTrig step_trig(int num_sides) {
+    const float angle_step = PI_F / num_sides;
+    return {sinf(angle_step), cosf(angle_step)};
+  }
+
   /**
    * @brief Samples a star shape.
    * @param points Output fragment list; num_sides*2+1 fragments are appended.
@@ -3057,6 +3100,17 @@ public:
   static void sample_positions(Fragments &points, const Basis &basis,
                                float radius, int num_sides, float phase = 0) {
     sample_impl<false>(points, basis, radius, num_sides, phase);
+  }
+
+  /** @brief Samples positions with caller-cached trigonometric values. */
+  static void sample_positions(Fragments &points, const Basis &basis,
+                               float radius, int num_sides, float phase,
+                               const RadiusTrig &radius_trig,
+                               const StepTrig &step_trig) {
+    HS_CHECK(num_sides >= 1);
+    const Basis work_basis = get_antipode(basis, radius).first;
+    sample_positions_impl(points, work_basis, num_sides, phase, radius_trig,
+                          step_trig);
   }
 
   /** @brief Samples Star levels that continue to the opposite pole. */

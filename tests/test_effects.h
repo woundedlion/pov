@@ -4520,7 +4520,7 @@ inline void test_shapeshifter_preset_defaults() {
 
   HS_EXPECT_EQ(value("Alpha"), 1.0f);
   HS_EXPECT_EQ(value("Shape"), 3.0f);
-  HS_EXPECT_EQ(value("Count"), 184.0f);
+  HS_EXPECT_EQ(value("Count"), 208.0f);
   HS_EXPECT_EQ(value("Spacing"), 1.0f);
   HS_EXPECT_EQ(value("Sides"), 7.745f);
   HS_EXPECT_EQ(value("Function"),

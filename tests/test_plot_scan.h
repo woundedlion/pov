@@ -2463,13 +2463,19 @@ inline void test_star_sample_radius_trig_parity() {
         Fragments actual;
         Fragments reference;
         Fragments positions;
+        Fragments cached_positions;
         actual.bind(plot_arena(), sides * 2 + 2);
         reference.bind(plot_arena(), sides * 2 + 2);
         positions.bind(plot_arena(), sides * 2 + 2);
+        cached_positions.bind(plot_arena(), sides * 2 + 2);
         Plot::Star<Plot::PlanarProjection>::sample(actual, b, radius, sides,
                                                    phase);
         Plot::Star<Plot::PlanarProjection>::sample_positions(
             positions, b, radius, sides, phase);
+        Plot::Star<Plot::PlanarProjection>::sample_positions(
+            cached_positions, b, radius, sides, phase,
+            Plot::Star<Plot::PlanarProjection>::radius_trig(radius),
+            Plot::Star<Plot::PlanarProjection>::step_trig(sides));
 
         auto res = get_antipode(b, radius);
         const Basis &work_basis = res.first;
@@ -2491,6 +2497,7 @@ inline void test_star_sample_radius_trig_parity() {
 
         HS_EXPECT_EQ(actual.size(), reference.size());
         HS_EXPECT_EQ(actual.size(), positions.size());
+        HS_EXPECT_EQ(positions.size(), cached_positions.size());
         for (size_t i = 0; i < actual.size(); ++i) {
           HS_CONTEXT("star vertex", static_cast<long long>(i));
           // Separately-written expression tree: tolerance, not bit equality.
@@ -2503,6 +2510,12 @@ inline void test_star_sample_radius_trig_parity() {
           HS_EXPECT_NEAR(actual[i].pos.x, positions[i].pos.x, 1e-6f);
           HS_EXPECT_NEAR(actual[i].pos.y, positions[i].pos.y, 1e-6f);
           HS_EXPECT_NEAR(actual[i].pos.z, positions[i].pos.z, 1e-6f);
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.x),
+                       std::bit_cast<uint32_t>(cached_positions[i].pos.x));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.y),
+                       std::bit_cast<uint32_t>(cached_positions[i].pos.y));
+          HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.z),
+                       std::bit_cast<uint32_t>(cached_positions[i].pos.z));
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v0), 0u);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v1), 0u);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v2), 0u);
