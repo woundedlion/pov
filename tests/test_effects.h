@@ -4520,7 +4520,8 @@ inline void test_shapeshifter_preset_defaults() {
 
   HS_EXPECT_EQ(value("Alpha"), 1.0f);
   HS_EXPECT_EQ(value("Shape"), 3.0f);
-  HS_EXPECT_EQ(value("Count"), 144.0f);
+  HS_EXPECT_EQ(value("Count"), 172.0f);
+  HS_EXPECT_EQ(value("Spacing"), 1.0f);
   HS_EXPECT_EQ(value("Sides"), 7.745f);
   HS_EXPECT_EQ(value("Function"),
                static_cast<float>(
@@ -4530,15 +4531,33 @@ inline void test_shapeshifter_preset_defaults() {
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
   HS_EXPECT_EQ(value("Alpha Falloff"), 1.0f);
 
+  const char *expected_export_order[] = {
+      "Shape", "Count",    "Sides",         "Function", "Amplitude",
+      "Speed", "Opposite", "Alpha Falloff", "Spacing"};
+  size_t export_index = 0;
+  for (const auto &def : ss.getParameters()) {
+    if (!def.preset)
+      continue;
+    HS_EXPECT(export_index < std::size(expected_export_order),
+              "ShapeShifter exports an unexpected parameter");
+    if (export_index < std::size(expected_export_order))
+      HS_EXPECT_EQ(std::string_view(def.name),
+                   std::string_view(expected_export_order[export_index]));
+    ++export_index;
+  }
+  HS_EXPECT_EQ(export_index, std::size(expected_export_order));
+
   const auto *alpha = ss.getParameters().find("Alpha");
   const auto *shape = ss.getParameters().find("Shape");
   const auto *falloff = ss.getParameters().find("Alpha Falloff");
+  const auto *spacing = ss.getParameters().find("Spacing");
   const auto *count = ss.getParameters().find("Count");
   const auto *speed = ss.getParameters().find("Speed");
   HS_EXPECT(alpha != nullptr, "ShapeShifter Alpha parameter is missing");
   HS_EXPECT(shape != nullptr, "ShapeShifter Shape parameter is missing");
   HS_EXPECT(falloff != nullptr,
             "ShapeShifter Alpha Falloff parameter is missing");
+  HS_EXPECT(spacing != nullptr, "ShapeShifter Spacing parameter is missing");
   HS_EXPECT(count != nullptr, "ShapeShifter Count parameter is missing");
   HS_EXPECT(speed != nullptr, "ShapeShifter Speed parameter is missing");
   if (count)
@@ -4558,6 +4577,11 @@ inline void test_shapeshifter_preset_defaults() {
     HS_EXPECT_TRUE(falloff->is_enum());
     HS_EXPECT_EQ(std::string_view(falloff->export_options[1]),
                  std::string_view("AlphaFalloff::TOWARD_EQUATOR"));
+  }
+  if (spacing) {
+    HS_EXPECT_TRUE(spacing->is_enum());
+    HS_EXPECT_EQ(std::string_view(spacing->export_options[1]),
+                 std::string_view("RadiusSpacing::ADAPTIVE"));
   }
 
   HS_EXPECT_TRUE(ss.updateParameter("Alpha", 0.37f) == ParamSetResult::APPLIED);
