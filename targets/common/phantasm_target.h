@@ -4,8 +4,8 @@
  *
  * Target boilerplate shared by the Phantasm-class sketches (targets/Phantasm,
  * targets/Profile): output-path selection, rotor/canvas geometry, the
- * POVSegmented alias and its LED-controller definition, and the effect
- * construction sequence.
+ * POVSegmented alias and its LED-controller definition, the boot sequence, and
+ * the effect construction sequence.
  *
  * Include it FIRST from the sketch — it selects the LED transport before
  * pulling in led.h — and from exactly ONE translation unit per image, since
@@ -49,6 +49,26 @@ HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 
 namespace {
 POV *g_pov; // g_ prefix: a bare `pov` collides with hardware `namespace pov`
+
+/**
+ * @brief Brings up USB serial, first step of setup().
+ * @details The baud rate is inert on Teensy USB-CDC and only initializes
+ * Serial; the delay lets enumeration settle so early output isn't lost.
+ */
+FLASHMEM void boot_serial() {
+  Serial.begin(9600);
+  delay(1000);
+}
+
+/**
+ * @brief Allocates the segmented POV driver into g_pov.
+ * @details nothrow new + HS_CHECK: a thrown bad_alloc has no handler on Teensy,
+ * so fail-fast at the allocation site rather than null-deref in run_show().
+ */
+FLASHMEM void create_pov() {
+  g_pov = new (std::nothrow) POV();
+  HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
+}
 
 /**
  * @brief Builds one playlist entry's effect: LUTs, arenas, construction, init.
