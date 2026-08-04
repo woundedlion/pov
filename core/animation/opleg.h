@@ -35,10 +35,12 @@ namespace Animation {
 class OpLeg : public AnimationBase<OpLeg> {
 public:
   static constexpr int PALETTES = BakedPaletteBank::N;
-  /** Distinct (from, to) ramp pairs a leg may carry — the full pair space, so
-   * no leg can overflow the table. Bounds the per-frame blended-LUT scratch
-   * (PAIRS x 2 KB in scratch_arena_b); only the pairs a leg actually uses are
-   * allocated, so the ceiling costs nothing until a leg needs it. */
+  /** Capacity of the intern table: the full (from, to) pair space, so
+   * interning can never overflow it. It is not the per-frame ceiling — each
+   * distinct non-identity pair bakes a BakedPalette::required_arena_bytes()
+   * LUT into scratch_arena_b every frame, so that arena's capacity (16 KB by
+   * default, i.e. ~8 pairs) bounds a leg well below this constant.
+   * build_palette_mapping checks a leg's table against it. */
   static constexpr int MAX_BLEND_PAIRS = PALETTES * PALETTES;
 
   /** Leg kind, dispatched once at construction by the chosen constructor. */
@@ -1840,6 +1842,19 @@ private:
       tr.face_ramp.push_back(intern_palette_ramp(tr, from, to));
     }
     tr.landing.blend_pairs = tr.num_ramps;
+
+    // finish_frame's per-frame peak: the ramp array plus one baked LUT per
+    // non-identity pair. Necessary condition only — the compiled mesh shares
+    // the arena — but it traps the pair count here instead of mid-frame.
+    int blended = 0;
+    for (int r = 0; r < tr.num_ramps; ++r)
+      if (tr.ramp_from[r] != tr.ramp_to[r])
+        ++blended;
+    HS_CHECK(static_cast<size_t>(tr.num_ramps) * sizeof(BakedPalette) +
+                     static_cast<size_t>(blended) *
+                         BakedPalette::required_arena_bytes() <=
+                 scratch_arena_b.get_capacity(),
+             "OpLeg: blended palette LUTs exceed scratch_arena_b");
   }
 
   /**
