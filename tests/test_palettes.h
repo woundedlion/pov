@@ -190,7 +190,8 @@ inline void test_mesh_palette_bank_shuffle_is_permutation() {
   for (int v : idx) {
     HS_EXPECT_GE(v, 0);
     HS_EXPECT_LT(v, MeshPaletteBank::N);
-    seen[v]++;
+    if (v >= 0 && v < MeshPaletteBank::N)
+      seen[v]++;
   }
   for (int count : seen)
     HS_EXPECT_EQ(count, 1);

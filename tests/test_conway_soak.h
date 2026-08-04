@@ -222,7 +222,7 @@ inline void test_full_graph_walk_soak() {
 
   // Post-compaction persistent offset per (node, held platonic seed); 0 =
   // state not yet seen.
-  size_t post_offset[ConwayGraph::NUM_NODES][5] = {};
+  size_t post_offset[ConwayGraph::NUM_NODES][ConwayGraph::ICOSAHEDRON + 1] = {};
 
   int prev_node = HankinWalkProbe::node(fx);
   mark(prev_node);
@@ -255,7 +255,12 @@ inline void test_full_graph_walk_soak() {
     mark(node);
 
     const int sid = HankinWalkProbe::seed_identity(fx);
-    HS_EXPECT_TRUE(ConwayGraph::is_platonic(sid));
+    // is_platonic carries no lower bound, and sid indexes post_offset.
+    const bool sid_ok = sid >= 0 && ConwayGraph::is_platonic(sid);
+    HS_EXPECT_TRUE(sid_ok);
+    if (!sid_ok || node < 0 || node >= ConwayGraph::NUM_NODES)
+      continue;
+
     const size_t off = persistent_arena.get_offset();
     if (post_offset[node][sid] == 0) {
       post_offset[node][sid] = off;
