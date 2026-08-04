@@ -260,7 +260,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │
 ├── targets/                    Per-target entry points
 │   ├── common/
-│   │   └── phantasm_target.h   Shared Phantasm-class boilerplate — LED transport, geometry, effect construction
+│   │   └── phantasm_target.h   Shared Phantasm-class boilerplate — LED transport, geometry, boot, effect construction
 │   ├── Holosphere/
 │   │   └── Holosphere.ino      Holosphere entry — NUM_PIXELS=40, RPM=480
 │   ├── Phantasm/

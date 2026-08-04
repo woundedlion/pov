@@ -621,8 +621,7 @@ static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1).valid(),
 } // namespace
 
 FLASHMEM void setup() {
-  Serial.begin(9600); // baud inert on Teensy USB-CDC; initializes Serial only
-  delay(1000);        // USB-CDC enumeration settle so early output isn't lost
+  boot_serial();
   hs::log("profile harness: effect=%s config=%s segments=%d rpm=%u f_cpu=%lu",
           HS_PROFILE_STR(HS_PROFILE_TARGET),
           HS_PROFILE_STR(HS_PROFILE_CONFIG_TAG), NUM_SEGMENTS, RPM,
@@ -631,8 +630,7 @@ FLASHMEM void setup() {
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
   hs::enable_mindsplatter_stall_counters();
 #endif
-  g_pov = new (std::nothrow) POV();
-  HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
+  create_pov();
 }
 
 void loop() {

@@ -42,12 +42,8 @@ static_assert(
 } // namespace
 
 FLASHMEM void setup() {
-  Serial.begin(9600); // baud inert on Teensy USB-CDC; initializes Serial only
-  delay(1000);        // USB-CDC enumeration settle so early output isn't lost
-  // nothrow new + HS_CHECK: a thrown bad_alloc has no handler on Teensy, so
-  // fail-fast at the allocation site rather than null-deref in run_show().
-  g_pov = new (std::nothrow) POV();
-  HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
+  boot_serial();
+  create_pov();
 }
 
 void loop() {
