@@ -156,6 +156,81 @@ inline void test_boundary_energy_independent_of_x_fraction() {
   }
 }
 
+/** @brief Rotation about +Y: preserves latitude, shifts longitude. */
+inline constexpr float LONGITUDE_WARP_ANGLE = 0.6f;
+inline Vector longitude_rotation_warp(const Vector &v,
+                                      const ::Feedback::Style &) {
+  const float c = std::cos(LONGITUDE_WARP_ANGLE);
+  const float s = std::sin(LONGITUDE_WARP_ANGLE);
+  return Vector(c * v.x - s * v.z, v.y, s * v.x + c * v.z);
+}
+
+/**
+ * @brief Verifies the feedback compositor drives the bottom row as a
+ *        mid-latitude ring, not as a pole, at the device offset.
+ * @details A rotation about +Y moves a mid-latitude ring by its angle and
+ *          leaves a pole fixed. On the host (H_OFFSET == 0) row H-1 IS the
+ *          south pole, so the compositor pins its warp origin and the row
+ *          cannot move; test_filter.h covers that collapse. With the device
+ *          offset the LED ring stops short of the pole, so the same row has to
+ *          carry the full longitude shift. Nothing else compiles the feedback
+ *          pole path at this offset.
+ */
+inline void test_feedback_bottom_row_rotates_in_longitude() {
+  constexpr Pixel BRIGHT(12000, 30000, 50000);
+  constexpr int SRC_X = W / 3;
+  hs_test::StubEffect fx(W, H);
+
+  ::Feedback::Style style{};
+  style.space_fn = &longitude_rotation_warp;
+  style.noise = nullptr;
+  style.fade = 1.0f;
+  style.downsample = 4;
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  {
+    Canvas c(fx);
+    c(SRC_X, H - 1) = BRIGHT;
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  // The premise: the bottom row is off the pole at this offset.
+  using LUT = TrigLUT<W, H>;
+  HS_EXPECT_GT(LUT::sin_phi[H - 1], 0.1f);
+
+  // Brightness centroid of the row, unwrapped around the source column so the
+  // seam cannot split it.
+  double mass = 0.0, moment = 0.0;
+  int lit_columns = 0;
+  for (int x = 0; x < W; ++x) {
+    const double b = fx.get_pixel(x, H - 1).b;
+    if (b > BRIGHT.b / 4)
+      ++lit_columns;
+    double dx = x - static_cast<double>(SRC_X);
+    if (dx > W * 0.5)
+      dx -= W;
+    else if (dx < -W * 0.5)
+      dx += W;
+    mass += b;
+    moment += b * dx;
+  }
+  HS_EXPECT_GT(mass, static_cast<double>(BRIGHT.b) * 0.5);
+  // A collapsed pole row would light every column at the sample's value.
+  HS_EXPECT_GT(lit_columns, 0);
+  HS_EXPECT_LT(lit_columns, W);
+  // The row carried the warp's full longitude shift.
+  const double expected =
+      -static_cast<double>(LONGITUDE_WARP_ANGLE) * W / (2.0 * PI_F);
+  HS_EXPECT_NEAR(moment / mass, expected, 0.5);
+}
+
 /**
  * @brief Runs the H_OFFSET renorm module.
  * @return The module's failure count.
@@ -166,6 +241,7 @@ inline int run_h_offset_renorm_tests() {
   test_energy_conserved_through_clip_boundary();
   test_boundary_row_splits_two_columns_and_conserves();
   test_boundary_energy_independent_of_x_fraction();
+  test_feedback_bottom_row_rotates_in_longitude();
   pole_wrap_tests::run_pole_wrap_cases();
   return fixture.result();
 }
