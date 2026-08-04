@@ -576,7 +576,7 @@ template <typename E> void select_profile_preset(E &effect) {
 #endif
 
 Effect *construct_profiled() {
-  using Target = ProfiledEffect<288, 144>;
+  using Target = ProfiledEffect<CANVAS_W, CANVAS_H>;
   auto *e = static_cast<Target *>(
       construct_effect<Target, MAX_EFFECT_HEAP_BYTES>());
 #ifdef HS_PROFILE_PRESET
