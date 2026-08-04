@@ -64,7 +64,7 @@ public:
                                        Plot::rasterize_scratch_a_bytes<W>(),
                 "scratch arena A must fit a curve's fragment buffer and "
                 "rasterize's sub-step cache at once");
-  using MobiusEntity = typename MobiusWarpTransformer<1>::Entity;
+  using MobiusEntity = typename MobiusWarpCircularTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
       alignof(int) + BakedPalette::required_arena_bytes();
