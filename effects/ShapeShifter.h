@@ -30,7 +30,7 @@ struct ShapeShifterWhiteBox;
 template <int W, int H> class ShapeShifter : public Effect {
 public:
   /** @brief Plot primitives available through the Shape slider. */
-  enum class ShapeType {
+  enum class ShapeType : uint8_t {
     PLANAR_POLYGON,
     SPHERICAL_POLYGON,
     FLOWER,
@@ -39,10 +39,13 @@ public:
   };
 
   /** @brief Waveforms available through the Function slider. */
-  enum class PhaseFunction { SINE, TRIANGLE, SAWTOOTH, SQUARE };
+  enum class PhaseFunction : uint8_t { SINE, TRIANGLE, SAWTOOTH, SQUARE };
 
   /** @brief Per-shape alpha functions available to presets. */
-  enum class AlphaFalloff { CONSTANT_HALF, TOWARD_EQUATOR };
+  enum class AlphaFalloff : uint8_t { CONSTANT_HALF, TOWARD_EQUATOR };
+
+  /** @brief Radial distributions available to presets. */
+  enum class RadiusSpacing : uint8_t { UNIFORM, ADAPTIVE };
 
   static constexpr int NUM_SHAPES =
       static_cast<int>(ShapeType::SPHERICAL_STAR) + 1;
@@ -50,6 +53,8 @@ public:
       static_cast<int>(PhaseFunction::SQUARE) + 1;
   static constexpr int NUM_ALPHA_FALLOFFS =
       static_cast<int>(AlphaFalloff::TOWARD_EQUATOR) + 1;
+  static constexpr int NUM_RADIUS_SPACINGS =
+      static_cast<int>(RadiusSpacing::ADAPTIVE) + 1;
   /** @brief Count slider ceiling. */
   static constexpr int MAX_SHAPES = 288;
 
@@ -82,8 +87,12 @@ public:
     register_animated_param("Alpha Falloff", &params.alpha_falloff,
                             ALPHA_FALLOFF_OPTIONS, ALPHA_FALLOFF_EXPORT_OPTIONS,
                             NUM_ALPHA_FALLOFFS);
+    register_animated_param("Spacing", &params.spacing, SPACING_OPTIONS,
+                            SPACING_EXPORT_OPTIONS, NUM_RADIUS_SPACINGS);
 
-    baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
+    planar_radius_t = persistent_arena.allocate_n<float>(MAX_SHAPES);
+    folded_draw_indices = persistent_arena.allocate_n<uint16_t>(MAX_SHAPES);
+    prepare_count(hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES));
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
                                              hs::rand_int(0, 65536)));
     timeline.add_pausable(
@@ -114,6 +123,11 @@ public:
              "ShapeShifter profile preset index out of range");
     setAnimationsPaused(true);
     params = PRESETS[index].params;
+#ifdef HS_PROFILE_SHAPESHIFTER_COUNT
+    static_assert(HS_PROFILE_SHAPESHIFTER_COUNT >= 1 &&
+                  HS_PROFILE_SHAPESHIFTER_COUNT <= MAX_SHAPES);
+    params.count = static_cast<float>(HS_PROFILE_SHAPESHIFTER_COUNT);
+#endif
     phase = 0.0f;
     hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
             static_cast<unsigned>(PRESETS.size()));
@@ -146,6 +160,9 @@ private:
                                                           "Toward Equator"};
   static constexpr const char *ALPHA_FALLOFF_EXPORT_OPTIONS[] = {
       "AlphaFalloff::CONSTANT_HALF", "AlphaFalloff::TOWARD_EQUATOR"};
+  static constexpr const char *SPACING_OPTIONS[] = {"Uniform", "Adaptive"};
+  static constexpr const char *SPACING_EXPORT_OPTIONS[] = {
+      "RadiusSpacing::UNIFORM", "RadiusSpacing::ADAPTIVE"};
 
   /** @brief Tunable rendering state stored by each preset. */
   struct Params {
@@ -157,14 +174,15 @@ private:
     float speed;
     bool opposite;
     AlphaFalloff alpha_falloff;
+    RadiusSpacing spacing;
 
     constexpr Params() = default;
     constexpr Params(ShapeType shape, float count, float sides, float function,
                      float amplitude, float speed, float opposite,
-                     AlphaFalloff alpha_falloff)
+                     AlphaFalloff alpha_falloff, RadiusSpacing spacing)
         : shape(shape), count(count), sides(sides), function(function),
           amplitude(amplitude), speed(speed), opposite(opposite >= 0.5f),
-          alpha_falloff(alpha_falloff) {}
+          alpha_falloff(alpha_falloff), spacing(spacing) {}
   };
 
   void advance_phase() {
@@ -177,6 +195,10 @@ private:
 
   float star_phase_direction(float radius) const {
     return params.opposite && radius > 1.0f ? -1.0f : 1.0f;
+  }
+
+  static constexpr float folded_radius_t(float radius_t) {
+    return radius_t <= 0.5f ? radius_t : 1.0f - radius_t;
   }
 
   static constexpr float shape_alpha(AlphaFalloff falloff, int index,
@@ -195,24 +217,116 @@ private:
                       static_cast<float>(STEPS_TO_EQUATOR);
   }
 
-  static constexpr float star_palette_position(float radius_t) {
-    return radius_t <= 0.5f ? 2.0f * radius_t : 2.0f * (1.0f - radius_t);
+  static constexpr float palette_position(float radius_t) {
+    return 2.0f * folded_radius_t(radius_t);
   }
 
-  HS_FLASH_MEMBER void draw_planar_star_pole_cap(Canvas &canvas,
-                                                 const Basis &basis,
-                                                 float radius_t, int sides) {
-    const float radius = 2.0f * radius_t;
+  static constexpr int folded_draw_index(int count, int ordinal) {
+    if ((count & 1) != 0) {
+      if (ordinal == 0)
+        return count / 2;
+      const int offset = (ordinal + 1) / 2;
+      return (ordinal & 1) != 0 ? count / 2 + offset : count / 2 - offset;
+    }
+    const int offset = ordinal / 2;
+    return (ordinal & 1) == 0 ? count / 2 + offset : (count - 1) / 2 - offset;
+  }
+
+  static float alpha_falloff_at(AlphaFalloff falloff, float radius_t,
+                                int count) {
+    if (falloff == AlphaFalloff::CONSTANT_HALF)
+      return 0.5f;
+    const int steps_to_equator = (count - 1) / 2;
+    if (steps_to_equator == 0)
+      return 1.0f;
+    const float distance_from_pole =
+        hs::clamp(folded_radius_t(radius_t) * static_cast<float>(count) - 0.5f,
+                  0.0f, static_cast<float>(steps_to_equator));
+    const float equator_alpha = 2.0f / static_cast<float>(count);
+    return 1.0f - (1.0f - equator_alpha) * distance_from_pole /
+                      static_cast<float>(steps_to_equator);
+  }
+
+  struct AlphaFalloffModifier {
+    AlphaFalloff falloff;
+    int count;
+
+    Color4 shade(Color4 color, float radius_t) const {
+      color.alpha *= alpha_falloff_at(falloff, radius_t, count);
+      return color;
+    }
+  };
+
+  /** Maps uniform contour quantiles to a 0.4..1.6x latitude density. */
+  HS_COLD_MEMBER static float adaptive_planar_radius_t(float radius_t) {
+    const bool far_side = radius_t > 0.5f;
+    const float u = 2.0f * folded_radius_t(radius_t);
+    float theta = u * (PI_F / 2.0f);
+    for (int iteration = 0; iteration < 4; ++iteration) {
+      const float residual =
+          (2.0f / PI_F) * (theta - 0.3f * sinf(2.0f * theta)) - u;
+      const float derivative =
+          (2.0f / PI_F) * (1.0f - 0.6f * cosf(2.0f * theta));
+      theta = hs::clamp(theta - residual / derivative, 0.0f, PI_F / 2.0f);
+    }
+    const float folded = theta / PI_F;
+    return far_side ? 1.0f - folded : folded;
+  }
+
+  HS_COLD_MEMBER void prepare_count(int count) {
+    const bool adaptive_spacing = params.spacing == RadiusSpacing::ADAPTIVE;
+    for (int i = 0; i < count; ++i) {
+      const float radius_t =
+          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+      planar_radius_t[i] =
+          adaptive_spacing ? adaptive_planar_radius_t(radius_t) : radius_t;
+      folded_draw_indices[i] =
+          static_cast<uint16_t>(folded_draw_index(count, i));
+    }
+
+    MirrorModifier mirror;
+    AlphaFalloffModifier constant{AlphaFalloff::CONSTANT_HALF, count};
+    AlphaFalloffModifier toward_equator{AlphaFalloff::TOWARD_EQUATOR, count};
+    StaticPalette<ProceduralPalette, Coords<MirrorModifier>,
+                  Colors<AlphaFalloffModifier>, false>
+        constant_source;
+    StaticPalette<ProceduralPalette, Coords<MirrorModifier>,
+                  Colors<AlphaFalloffModifier>, false>
+        toward_equator_source;
+    constant_source.bind(&Palettes::RICH_SUNSET, &mirror, &constant);
+    toward_equator_source.bind(&Palettes::RICH_SUNSET, &mirror,
+                               &toward_equator);
+    if (baked_palette_count == 0) {
+      baked_constant.bake(persistent_arena, constant_source);
+      baked_toward_equator.bake(persistent_arena, toward_equator_source);
+    } else {
+      baked_toward_equator.rebake(toward_equator_source);
+    }
+    baked_palette_count = count;
+    prepared_spacing = params.spacing;
+  }
+
+  const BakedPalette &selected_palette() const {
+    return params.alpha_falloff == AlphaFalloff::TOWARD_EQUATOR
+               ? baked_toward_equator
+               : baked_constant;
+  }
+
+  HS_FLASH_MEMBER void
+  draw_planar_star_pole_cap(Canvas &canvas, const Basis &basis,
+                            float geometry_radius_t, float palette_radius_t,
+                            int sides, const BakedPalette &palette) {
+    const float radius = 2.0f * geometry_radius_t;
     const auto cap = get_antipode(basis, radius);
     constexpr float MIN_CAP_RADIUS = 8.0f / W;
     if (cap.second >= MIN_CAP_RADIUS)
       return;
 
-    const Color4 color = baked_sunset.get(star_palette_position(radius_t));
+    Color4 color = palette.get(palette_radius_t);
     const float cap_alpha = std::min(1.0f, alpha * static_cast<float>(sides));
+    color.alpha = cap_alpha;
     auto shader = [&](const Vector &, Fragment &fragment) {
       fragment.color = color;
-      fragment.color.alpha *= cap_alpha;
     };
     Scan::Circle::draw<W, H>(plot_filters, canvas, cap.first, MIN_CAP_RADIUS,
                              shader);
@@ -220,10 +334,13 @@ private:
 
   HS_FLASH_MEMBER void draw_planar_star_pole_caps(Canvas &canvas,
                                                   const Basis &basis, int count,
-                                                  int sides) {
+                                                  int sides,
+                                                  const BakedPalette &palette) {
     const float radius_t = 0.5f / static_cast<float>(count);
-    draw_planar_star_pole_cap(canvas, basis, radius_t, sides);
-    draw_planar_star_pole_cap(canvas, basis, 1.0f - radius_t, sides);
+    draw_planar_star_pole_cap(canvas, basis, planar_radius_t[0], radius_t,
+                              sides, palette);
+    draw_planar_star_pole_cap(canvas, basis, planar_radius_t[count - 1],
+                              1.0f - radius_t, sides, palette);
   }
 
   /** @brief Advances to the next preset and applies it atomically. */
@@ -233,12 +350,15 @@ private:
   }
 
   /**
-   * @brief Draws the selected shape at equally spaced midpoint radii.
+   * @brief Draws the selected number of midpoint-sampled contours.
    * @param canvas Target canvas.
    */
   void draw_all(Canvas &canvas) {
     HS_PROFILE(ss_draw_all);
     const int count = hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES);
+    if (count != baked_palette_count || params.spacing != prepared_spacing)
+      prepare_count(count);
+    const BakedPalette &palette = selected_palette();
     const int sides =
         hs::clamp(static_cast<int>(params.sides), static_cast<int>(SIDES_MIN),
                   static_cast<int>(SIDES_MAX));
@@ -276,10 +396,23 @@ private:
       far_cap_sin_beta = sinf(far_cap_beta);
     }
 
-    for (int i = count - 1; i >= 0; --i) {
+    Color4 pair_color;
+    const float global_alpha = alpha;
+    const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
+    for (int ordinal = 0; ordinal < count; ++ordinal) {
+      const int i =
+          continuous_star ? count - ordinal - 1 : folded_draw_indices[ordinal];
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-      const float radius = 2.0f * radius_t;
+      const bool starts_pair = (count & 1) != 0
+                                   ? ordinal == 0 || (ordinal & 1) != 0
+                                   : (ordinal & 1) == 0;
+      if (continuous_star || starts_pair)
+        pair_color = palette.get(radius_t);
+      const Color4 color = pair_color;
+      const float geometry_radius_t =
+          planar_star ? planar_radius_t[i] : radius_t;
+      const float radius = 2.0f * geometry_radius_t;
       if (planar_star) {
         constexpr float AA_PAD = 2.0f * PI_F / W;
         const bool far_side = radius > 1.0f;
@@ -302,64 +435,60 @@ private:
         if (!visible)
           continue;
       }
-      const float direction = shape == ShapeType::SPHERICAL_STAR
-                                  ? star_phase_direction(radius)
-                                  : phase_direction(radius);
-      const float shape_phase =
+      const float direction = continuous_star ? star_phase_direction(radius)
+                                              : phase_direction(radius);
+      const float contour_phase =
           direction * params.amplitude * evaluate(function, radius_t + phase);
-      const float color_position =
-          planar_star ? star_palette_position(radius_t) : radius_t;
-      const Color4 color = baked_sunset.get(color_position);
-      const float shape_alpha_value =
-          alpha * shape_alpha(params.alpha_falloff, i, count);
-
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
-        fragment.color.alpha *= shape_alpha_value;
+        fragment.color.alpha *= global_alpha;
       };
       Color4 shaded_color = color;
-      shaded_color.alpha *= shape_alpha_value;
-      dispatch_plot(canvas, basis, shape, radius, sides, shader, shape_phase,
+      shaded_color.alpha *= global_alpha;
+      dispatch_plot(canvas, basis, shape, radius, sides, shader, contour_phase,
                     shaded_color);
     }
     if (planar_star)
-      draw_planar_star_pole_caps(canvas, basis, count, sides);
+      draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
   }
 
 #ifdef HS_TEST_BUILD
   void draw_all_reference(Canvas &canvas) {
     const int count = hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES);
+    if (count != baked_palette_count || params.spacing != prepared_spacing)
+      prepare_count(count);
+    const BakedPalette &palette = selected_palette();
     const int sides =
         hs::clamp(static_cast<int>(params.sides), static_cast<int>(SIDES_MIN),
                   static_cast<int>(SIDES_MAX));
     const ShapeType shape = selected_shape();
     const PhaseFunction function = selected_function();
     const Basis basis = make_basis(orientation.get(), X_AXIS);
+    const float global_alpha = alpha;
 
-    for (int i = count - 1; i >= 0; --i) {
+    const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
+    for (int ordinal = 0; ordinal < count; ++ordinal) {
+      const int i =
+          continuous_star ? count - ordinal - 1 : folded_draw_indices[ordinal];
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-      const float radius = 2.0f * radius_t;
-      const float direction = shape == ShapeType::SPHERICAL_STAR
-                                  ? star_phase_direction(radius)
-                                  : phase_direction(radius);
-      const float shape_phase =
+      const float geometry_radius_t =
+          shape == ShapeType::PLANAR_STAR ? planar_radius_t[i] : radius_t;
+      const float radius = 2.0f * geometry_radius_t;
+      const float direction = continuous_star ? star_phase_direction(radius)
+                                              : phase_direction(radius);
+      const float contour_phase =
           direction * params.amplitude * evaluate(function, radius_t + phase);
-      const float color_position = shape == ShapeType::PLANAR_STAR
-                                       ? star_palette_position(radius_t)
-                                       : radius_t;
-      const Color4 color = baked_sunset.get(color_position);
-      const float shape_alpha_value =
-          alpha * shape_alpha(params.alpha_falloff, i, count);
+      const Color4 color = palette.get(radius_t);
       auto shader = [&](const Vector &, Fragment &fragment) {
         fragment.color = color;
-        fragment.color.alpha *= shape_alpha_value;
+        fragment.color.alpha *= global_alpha;
       };
       dispatch_plot_reference(canvas, basis, shape, radius, sides, shader,
-                              shape_phase);
+                              contour_phase);
     }
     if (shape == ShapeType::PLANAR_STAR)
-      draw_planar_star_pole_caps(canvas, basis, count, sides);
+      draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
   }
 #endif
 
@@ -439,7 +568,7 @@ private:
   draw_dense_planar_star(Canvas &canvas, const Basis &basis, float radius,
                          int sides, const Color4 &color,
                          const F &fragment_shader, float phase) {
-    constexpr int ANCHOR_INTERVALS = 8;
+    constexpr int ANCHOR_INTERVALS = 6;
     constexpr float POLE_GUARD_ROWS = 3.0f;
     ScratchScope guard(scratch_arena_a);
     Fragments points;
@@ -644,24 +773,24 @@ private:
 #endif
 
   static constexpr std::array<PresetEntry<Params>, 9> PRESETS = {{
-      {{ShapeType::PLANAR_STAR, 144.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
-        AlphaFalloff::TOWARD_EQUATOR}},
+      {{ShapeType::PLANAR_STAR, 172.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
+        AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::ADAPTIVE}},
       {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f,
-        0.0f, AlphaFalloff::CONSTANT_HALF}},
+        0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
       {{ShapeType::PLANAR_STAR, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f,
-        AlphaFalloff::TOWARD_EQUATOR}},
+        AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM}},
       {{ShapeType::FLOWER, 70.0f, 3.0f, 0.0f, 1.0f, 0.0186f, 0.0f,
-        AlphaFalloff::CONSTANT_HALF}},
+        AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
       {{ShapeType::PLANAR_STAR, 72.0f, 4.417f, 0.0f, 1.0f, 0.0077f, 0.0f,
-        AlphaFalloff::TOWARD_EQUATOR}},
+        AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM}},
       {{ShapeType::SPHERICAL_POLYGON, 128.0f, 5.561f, 0.0f, 4.0f, 0.0405f, 1.0f,
-        AlphaFalloff::CONSTANT_HALF}},
+        AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
       {{ShapeType::SPHERICAL_POLYGON, 144.0f, 4.001f, 0.0f, 2.377f, 0.027086f,
-        0.0f, AlphaFalloff::CONSTANT_HALF}},
+        0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
       {{ShapeType::SPHERICAL_POLYGON, 144.0f, 3.195f, 0.0f, 7.0696f, 0.0113f,
-        0.0f, AlphaFalloff::CONSTANT_HALF}},
+        0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
       {{ShapeType::FLOWER, 72.0f, 3.0f, 0.0f, 1.8721f, 0.00752f, 1.0f,
-        AlphaFalloff::CONSTANT_HALF}},
+        AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
@@ -676,7 +805,9 @@ private:
            preset.amplitude <= AMPLITUDE_MAX && preset.speed >= SPEED_MIN &&
            preset.speed <= SPEED_MAX &&
            static_cast<int>(preset.alpha_falloff) >= 0 &&
-           static_cast<int>(preset.alpha_falloff) < NUM_ALPHA_FALLOFFS;
+           static_cast<int>(preset.alpha_falloff) < NUM_ALPHA_FALLOFFS &&
+           static_cast<int>(preset.spacing) >= 0 &&
+           static_cast<int>(preset.spacing) < NUM_RADIUS_SPACINGS;
   }
 
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
@@ -686,7 +817,12 @@ private:
   Orientation<> orientation;
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
-  BakedPalette baked_sunset;
+  BakedPalette baked_constant;
+  BakedPalette baked_toward_equator;
+  float *planar_radius_t = nullptr;
+  uint16_t *folded_draw_indices = nullptr;
+  int baked_palette_count = 0;
+  RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
   Presets<Params, 9> presets{PRESETS};
   Params params{};
   float alpha = 1.0f;
