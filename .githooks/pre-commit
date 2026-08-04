@@ -79,7 +79,7 @@ HS_CLANG_FORMAT_MAJOR=18
 if [ -z "$HS_SKIP_FORMAT" ]; then
   FORMAT="$(printf '%s\n' "$CHANGED" \
     | grep -E '\.(h|hpp|cpp|cc|inl)$' \
-    | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$|(^|/)effects/mindsplatter_replay_corpus\.h$' || true)"
+    | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' || true)"
   if [ -n "$FORMAT" ]; then
     CF="${CLANG_FORMAT:-clang-format}"
     if command -v "$CF" >/dev/null 2>&1; then

@@ -4,9 +4,9 @@
  */
 
 #include "core/engine/memory.h"
-#include "effects/mindsplatter_replay_corpus.h"
-#include "tools/mindsplatter_whitebox.h"
-#include "tools/mindsplatter_replay_metrics.h"
+#include "tests/mindsplatter_replay_corpus.h"
+#include "tests/mindsplatter_whitebox.h"
+#include "tests/mindsplatter_replay_metrics.h"
 
 #include <cstdio>
 #include <span>

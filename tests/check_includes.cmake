@@ -34,6 +34,9 @@ endif()
 set(NON_MODULE_HEADERS
   aa_audit.h
   mesh_test_util.h
+  mindsplatter_replay_corpus.h
+  mindsplatter_replay_metrics.h
+  mindsplatter_whitebox.h
   test_fixture.h
   test_harness.h
   test_h_offset_renorm.h

@@ -1144,7 +1144,7 @@ jobs:
           # core/vendor/ and the four generated sources excluded (they are
           # emitted by their generators, not hand-formatted).
           git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' \
-            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$|(^|/)effects/mindsplatter_replay_corpus\.h$' \
+            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/engine/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
             > /tmp/format-all.txt
           grep -vxF -f /tmp/format-baseline.txt /tmp/format-all.txt > /tmp/format-files.txt || true
 
