@@ -24,7 +24,8 @@ HS_DEFINE_POV_SINGLE_LED_CONTROLLER(NUM_PIXELS, RPM);
 #endif
 
 namespace {
-POVDisplay<NUM_PIXELS, RPM> *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
+POVDisplay<NUM_PIXELS, RPM> *
+    g_pov; // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
 }
 
 void setup() {
