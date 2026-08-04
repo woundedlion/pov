@@ -334,7 +334,7 @@ public:
    * chain that re-arms itself must budget against this count, not against the
    * post-compaction one.
    */
-  int remaining() const { return MAX_EVENTS - global_timeline_num_events; }
+  static int remaining() { return MAX_EVENTS - global_timeline_num_events; }
 
   /**
    * @brief Advances the timeline by one frame, stepping all active or starting
