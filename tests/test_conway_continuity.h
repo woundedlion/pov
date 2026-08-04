@@ -11,6 +11,8 @@
  *   - Bookend angle pin: driving HankinSolids to a hankin-cycle end forces the
  *     interlace angle of the final drawn frame to exactly 0 (the flat p_corner
  *     branch), where the sweep's own last sample lands ~0.002 rad off flat.
+ *   - Cycle joins: across several sprite -> sweep -> morph-leg handoffs no
+ *     frame renders empty, so a one-frame scheduling gap turns the suite red.
  *   - Bookend swaps (per node, one solid per symmetry family): update_hankin
  *     at angle 0 emits first-F star faces whose boundary vertices lie on the
  *     base face's boundary; an in-memory framebuffer diff of the two renders
@@ -246,6 +248,54 @@ inline void test_bookend_angle_pin() {
   HS_EXPECT_LT(a[pin - 1], 0.05f);
   for (int i = pin; i < pin + 40; ++i)
     HS_EXPECT_EQ(a[i], 0.0f);
+}
+
+/**
+ * @brief Drives HankinSolids across several cycle joins and asserts no frame
+ *        renders empty.
+ * @details The cycle hands the canvas from the hankin sprite to the interlace
+ *          sweep and on to the morph leg, on schedules whose frame arithmetic
+ *          only lines up by construction. The effect does not persist pixels,
+ *          so a one-frame scheduling gap draws nothing and reads back as an
+ *          all-black frame; the mesh otherwise tiles the whole sphere, so every
+ *          frame lights the great majority of the canvas.
+ */
+inline void test_no_empty_frame_across_cycle_joins() {
+  reset_globals();
+  constexpr int CW = 96, CH = 20;
+  HankinSolids<CW, CH> fx;
+  fx.init();
+
+  // Two full cycles and change: a 64-frame hankin sweep plus a <= 60-frame
+  // morph leg, so both joins are crossed more than once.
+  constexpr int FRAMES = 300;
+  int empty_frames = 0;
+  int first_empty = -1;
+  size_t min_lit = static_cast<size_t>(CW) * CH;
+  for (int f = 0; f < FRAMES; ++f) {
+    fx.draw_frame();
+    fx.advance_display();
+    size_t lit = 0;
+    for (int y = 0; y < CH; ++y)
+      for (int x = 0; x < CW; ++x) {
+        const Pixel &p = fx.get_pixel(x, y);
+        if (p.r || p.g || p.b)
+          ++lit;
+      }
+    if (lit < min_lit)
+      min_lit = lit;
+    if (lit == 0) {
+      ++empty_frames;
+      if (first_empty < 0)
+        first_empty = f;
+    }
+  }
+  std::printf("  [cycle-join] %d frames, min lit px=%zu, empty=%d (first %d)\n",
+              FRAMES, min_lit, empty_frames, first_empty);
+  HS_EXPECT_EQ(empty_frames, 0);
+  // Well under the steady-state coverage, so only a near-total dropout trips
+  // it — a sliver-thin frame is as much a broken join as a black one.
+  HS_EXPECT_GT(min_lit, static_cast<size_t>(CW) * CH / 8);
 }
 
 // ---------------------------------------------------------------------------
@@ -2030,6 +2080,7 @@ inline int run_conway_continuity_tests() {
   hs_test::ModuleFixture fixture("conway_continuity");
 
   test_bookend_angle_pin();
+  test_no_empty_frame_across_cycle_joins();
   test_bookend_swaps_per_family();
   test_palette_carry_across_arrivals();
 
