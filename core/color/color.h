@@ -1445,6 +1445,16 @@ public:
   }
 
   /**
+   * @brief The three (h,s,v) key triples a profile-driven construction resolves
+   *        to, in stop order a, b, c.
+   */
+  struct HsvKeys {
+    uint8_t h1, s1, v1;
+    uint8_t h2, s2, v2;
+    uint8_t h3, s3, v3;
+  };
+
+  /**
    * @brief Builds a 3-key palette from a base hue, harmony, and profiles.
    * @param gradient_shape Shape/distribution of colors across the domain.
    * @param harmony_type Harmony rule deriving the two companion hues.
@@ -1465,6 +1475,33 @@ public:
                     SaturationProfile sat_profile = SaturationProfile::MID,
                     int manual_seed = -1)
       : gradient_shape(gradient_shape) {
+    const HsvKeys k =
+        resolve_hsv_keys(harmony_type, profile, sat_profile, manual_seed);
+    // The resolved (h,s,v) integers are reinterpreted as OKLCH coordinates, not
+    // redrawn, so the global RNG stream stays unperturbed.
+    a = author_key(k.h1, k.s1, k.v1);
+    b = author_key(k.h2, k.s2, k.v2);
+    c = author_key(k.h3, k.s3, k.v3);
+
+    update_stops();
+  }
+
+  /**
+   * @brief Resolves the profile-driven key triples the profile constructor
+   *        authors its keys from.
+   * @param harmony_type Harmony rule deriving the two companion hues.
+   * @param profile Brightness profile across the domain.
+   * @param sat_profile Saturation profile.
+   * @param manual_seed Base hue in [0, 255] when >= 0, else -1 to auto-seed.
+   * @return The nine resolved HSV components.
+   * @details Same draw order and RNG contract as the profile constructor, which
+   *          delegates here: manual_seed < 0 reads and advances the global hue
+   *          cursor and takes every draw from the global RNG.
+   */
+  HS_COLD_MEMBER static HsvKeys resolve_hsv_keys(HarmonyType harmony_type,
+                                                 BrightnessProfile profile,
+                                                 SaturationProfile sat_profile,
+                                                 int manual_seed) {
     uint8_t palette_hue;
     if (manual_seed >= 0) {
       palette_hue = static_cast<uint8_t>(manual_seed);
@@ -1525,13 +1562,7 @@ public:
       break;
     }
 
-    // The (h,s,v) integer draws above are reinterpreted as OKLCH coordinates,
-    // not redrawn, so the global RNG stream stays unperturbed.
-    a = author_key(h1, s1, v1);
-    b = author_key(h2, s2, v2);
-    c = author_key(h3, s3, v3);
-
-    update_stops();
+    return {h1, s1, v1, h2, s2, v2, h3, s3, v3};
   }
 
   /**

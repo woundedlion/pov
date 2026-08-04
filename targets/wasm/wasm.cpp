@@ -2010,6 +2010,73 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
              return out;
            }));
 
+  // GenerativePalette's seeded profile resolution (palette_math.js
+  // GenerativePalette's constructor, calcHues and seededRandInt). Returns the
+  // nine HSV key components the engine's profile constructor authors its keys
+  // from, so the JS mirror is checked against the engine rather than a golden.
+  // Feed them straight back into PaletteOps.bakeLut for the matching gradient.
+  //
+  // The seed is clamped into [0,255] rather than passed through: a negative
+  // seed would send every draw to the global RNG and advance the shared hue
+  // cursor, so this export can never perturb a live render stream.
+  function(
+      "generative_palette_hsv_keys",
+      optional_override([](int harmony, int brightness, int sat,
+                           int seed) -> val {
+        // The JS caller passes each enum by its integer value; pin the mappings
+        // so a reorder in color.h can't silently remap profiles.
+        static_assert(static_cast<int>(HarmonyType::TRIADIC) == 0 &&
+                          static_cast<int>(HarmonyType::SPLIT_COMPLEMENTARY) ==
+                              1 &&
+                          static_cast<int>(HarmonyType::COMPLEMENTARY) == 2 &&
+                          static_cast<int>(HarmonyType::ANALOGOUS) == 3,
+                      "HarmonyType integer values are part of the JS ABI");
+        static_assert(
+            static_cast<int>(BrightnessProfile::ASCENDING) == 0 &&
+                static_cast<int>(BrightnessProfile::DESCENDING) == 1 &&
+                static_cast<int>(BrightnessProfile::FLAT) == 2 &&
+                static_cast<int>(BrightnessProfile::BELL) == 3 &&
+                static_cast<int>(BrightnessProfile::CUP) == 4,
+            "BrightnessProfile integer values are part of the JS ABI");
+        static_assert(
+            static_cast<int>(SaturationProfile::PASTEL) == 0 &&
+                static_cast<int>(SaturationProfile::MID) == 1 &&
+                static_cast<int>(SaturationProfile::VIBRANT) == 2,
+            "SaturationProfile integer values are part of the JS ABI");
+        // Out-of-range indices are UB when cast into the enum; fold to the first
+        // enumerator and log rather than trap at the JS boundary.
+        auto pick = [](int index, int count, const char *name) -> int {
+          if (index < 0 || index >= count) {
+            hs::log("WASM: generative_palette_hsv_keys %s %d out of range — "
+                    "using 0",
+                    name, index);
+            return 0;
+          }
+          return index;
+        };
+        harmony = pick(harmony, 4, "harmony");
+        brightness = pick(brightness, 5, "brightness");
+        sat = pick(sat, 3, "sat");
+        if (hs_wasm::hsv_key_out_of_range(seed))
+          hs::log("WASM: generative_palette_hsv_keys seed out of [0,255] — "
+                  "clamped");
+        GenerativePalette::HsvKeys k = GenerativePalette::resolve_hsv_keys(
+            static_cast<HarmonyType>(harmony),
+            static_cast<BrightnessProfile>(brightness),
+            static_cast<SaturationProfile>(sat), hs_wasm::clamp_hsv_key(seed));
+        val o = val::object();
+        o.set("h1", static_cast<int>(k.h1));
+        o.set("s1", static_cast<int>(k.s1));
+        o.set("v1", static_cast<int>(k.v1));
+        o.set("h2", static_cast<int>(k.h2));
+        o.set("s2", static_cast<int>(k.s2));
+        o.set("v2", static_cast<int>(k.v2));
+        o.set("h3", static_cast<int>(k.h3));
+        o.set("s3", static_cast<int>(k.s3));
+        o.set("v3", static_cast<int>(k.v3));
+        return o;
+      }));
+
   // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
   function("lissajous",
            optional_override([](float m1, float m2, float a, float t) -> val {
