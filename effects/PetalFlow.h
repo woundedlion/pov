@@ -309,9 +309,13 @@ private:
         float final_theta = theta + twist_angle;
 
         // Inverse stereographic projection of the planar point at
-        // (radius R=exp(rho + wobble), angle final_theta) onto the unit sphere.
-        // exp(rho + wobble) factors into the per-ring exp(rho) and the cached,
-        // geometry-static exp(wobble) in exp_shift.
+        // (radius R=exp(rho + wobble), angle final_theta) onto the unit sphere,
+        // poles on +/-Z; core's inv_stereo() is +/-Y-poled and is deliberately
+        // not reused. exp(rho + wobble) factors into the per-ring exp(rho) and
+        // the cached, geometry-static exp(wobble) in exp_shift. No pole guard:
+        // the opacity cull above caps |rho| below FADE_START_RHO + FADE_WIDTH,
+        // so R < exp(3.5 + PETAL_DEPTH) ~= 60 and denom = 1 + R^2 ~= 3.6e3,
+        // far from overflow.
         float R = exp_rho * exp_shift[i];
 
         float r2 = R * R;
