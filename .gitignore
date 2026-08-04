@@ -12,7 +12,9 @@
 CMakeUserPresets.json
 
 # Dependencies / generated
-/node_modules/
+# node_modules is un-anchored (as in daydream) so a stray install under tests/
+# or tools/ is never committed.
+node_modules/
 /.doxygen-awesome/
 # Machine-local Doxygen config the justfile 'docs' recipe feeds to doxygen
 # (analogous to CMakeUserPresets.json / .doxygen-awesome above).
