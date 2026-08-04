@@ -551,17 +551,16 @@ private:
     std::array<int, NUM_PALETTES> palette_slots;
     MeshPaletteBank::shuffle_indices(palette_slots);
 
-    int idx = solid_idx;
     // A recipe whose lowered chain contains a step no leg kind covers falls
     // back to today's whole-generate path, seed solid and all.
-    const Solids::Recipe *recipe = solids[idx].recipe;
+    const Solids::Recipe *recipe = solids[solid_idx].recipe;
     if (recipe) {
       build_step_count = Solids::expand_to_primitives(*recipe, build_step_chain,
                                                       MAX_BUILD_STEPS);
       for (size_t k = 0; k < build_step_count; ++k) {
         if (!Solids::is_morphable_step(build_step_chain[k])) {
           hs::log("IslamicStars: %s has an unsweepable step, generating whole",
-                  solids[idx].name);
+                  solids[solid_idx].name);
           recipe = nullptr;
           build_step_count = 0;
           break;
@@ -615,7 +614,7 @@ private:
         MeshOps::compile(build_seed, carousel.slot(back), target,
                          scratch_arena_a);
       } else {
-        PolyMesh mesh = solids[idx].generate(a, b);
+        PolyMesh mesh = solids[solid_idx].generate(a, b);
         carousel.slot(back).clear();
         MeshOps::compile(mesh, carousel.slot(back), target, scratch_arena_a);
       }
