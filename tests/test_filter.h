@@ -615,7 +615,7 @@ inline void test_chromatic_shift_fanout() {
     Pixel c;     /**< Emitted colour. */
     float alpha; /**< Emitted alpha. */
   };
-  Tap taps[8];
+  Tap taps[8]{};
   int count = 0;
   Pixel src(100, 150, 200);
   cs.plot(10.0f, 5.0f, src, 0.0f, 1.0f,
@@ -909,7 +909,7 @@ inline void test_world_vertex_replicate_fanout_and_age() {
   std::array<Vector, N> verts = {X_AXIS, Y_AXIS, Z_AXIS};
   Filter::World::VertexReplicate<N> vr(verts);
 
-  Tap3D taps[N];
+  Tap3D taps[N]{};
   int n = 0;
   vr.plot(X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
           [&](const Vector &v, const Pixel &c, float age, float a) {
