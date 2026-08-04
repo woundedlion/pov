@@ -2116,6 +2116,39 @@ inline void test_ring_sample_unit_length_and_progress() {
 }
 
 /**
+ * @brief Reconstructs a ring's W control vertices with libm cos/sin, bypassing
+ *        the TrigLUT angle-addition identity Plot::Ring builds them from.
+ * @param b Ring basis, as handed to Plot::Ring::sample.
+ * @param radius Ring radius in the same [0,1] polar units as sample().
+ * @param phase Angular offset added to every step.
+ * @param W Number of control vertices (the close vertex is not emitted).
+ * @return The W expected unit positions, in sample order.
+ */
+inline std::vector<Vector> ring_vertices_direct(const Basis &b, float radius,
+                                                float phase, int W) {
+  auto res = get_antipode(b, radius);
+  const Basis &wb = res.first;
+  const float theta_eq = res.second * (PI_F / 2.0f);
+  const float r_val = sinf(theta_eq);
+  const float d_val = cosf(theta_eq);
+  const float step = 2.0f * PI_F / W;
+
+  std::vector<Vector> expected;
+  expected.reserve(static_cast<size_t>(W));
+  for (int i = 0; i < W; ++i) {
+    const float t = i * step + phase;
+    const Vector u_temp = (wb.u * cosf(t)) + (wb.w * sinf(t));
+    expected.push_back(((wb.v * d_val) + (u_temp * r_val)).normalized());
+  }
+  return expected;
+}
+
+/** @brief sin of a ring's polar radius: the arc-length scale of its v1. */
+inline float ring_arc_scale(const Basis &b, float radius) {
+  return sinf(get_antipode(b, radius).second * (PI_F / 2.0f));
+}
+
+/**
  * @brief Verifies Ring::sample<W,H> built from the TrigLUT angle-addition
  *        identity matches a direct cos/sin(theta+phase) construction of the same
  *        ring, in both position and the analytic arc-length register.
@@ -2137,24 +2170,17 @@ inline void test_ring_sample_lut_matches_direct() {
 
   HS_EXPECT_EQ(points.size(), (size_t)(W + 1));
 
-  auto res = get_antipode(b, radius);
-  const Basis &wb = res.first;
-  float wr = res.second;
-  const float theta_eq = wr * (PI_F / 2.0f);
-  const float r_val = sinf(theta_eq);
-  const float d_val = cosf(theta_eq);
+  const std::vector<Vector> expected =
+      ring_vertices_direct(b, radius, phase, W);
+  const float r_val = ring_arc_scale(b, radius);
   const float step = 2.0f * PI_F / W;
 
   for (int i = 0; i < W; ++i) {
-    float theta = i * step;
-    float t = theta + phase;
-    Vector u_temp = (wb.u * cosf(t)) + (wb.w * sinf(t));
-    Vector expected = ((wb.v * d_val) + (u_temp * r_val)).normalized();
-    HS_EXPECT_NEAR(points[i].pos.x, expected.x, 2e-3f);
-    HS_EXPECT_NEAR(points[i].pos.y, expected.y, 2e-3f);
-    HS_EXPECT_NEAR(points[i].pos.z, expected.z, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.x, expected[i].x, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.y, expected[i].y, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.z, expected[i].z, 2e-3f);
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
-    HS_EXPECT_NEAR(points[i].v1, theta * r_val, 2e-3f);
+    HS_EXPECT_NEAR(points[i].v1, i * step * r_val, 2e-3f);
   }
 
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
@@ -2307,24 +2333,12 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
 
   HS_EXPECT_EQ(points.size(), (size_t)(W + 1));
 
-  // Reconstruct the ring directly (no LUT) and compare.
-  auto res = get_antipode(b, radius);
-  const Basis &wb = res.first;
-  float wr = res.second;
-  const float theta_eq = wr * (PI_F / 2.0f);
-  const float r_val = sinf(theta_eq);
-  const float d_val = cosf(theta_eq);
-  const float step = 2.0f * PI_F / W;
-
+  const std::vector<Vector> expected =
+      ring_vertices_direct(b, radius, phase, W);
   for (int i = 0; i < W; ++i) {
-    float theta = i * step;
-    float t = theta + phase;
-    Vector u_temp = (wb.u * cosf(t)) + (wb.w * sinf(t));
-    Vector expected = ((wb.v * d_val) + (u_temp * r_val)).normalized();
-
-    HS_EXPECT_NEAR(points[i].pos.x, expected.x, 2e-3f);
-    HS_EXPECT_NEAR(points[i].pos.y, expected.y, 2e-3f);
-    HS_EXPECT_NEAR(points[i].pos.z, expected.z, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.x, expected[i].x, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.y, expected[i].y, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.z, expected[i].z, 2e-3f);
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
 }
@@ -3447,6 +3461,65 @@ inline void test_particle_system_direct_trail_materialization_output_parity() {
   }
 }
 
+/** @brief Reference-lit and mismatching pixel counts over a canvas rectangle. */
+struct BandDiff {
+  int lit = 0;  /**< Reference pixels lit inside the rectangle. */
+  int diff = 0; /**< Pixels differing from the reference. */
+};
+
+/**
+ * @brief Compares a rendered frame against a reference over [y0,y1) x [x0,x1).
+ * @tparam W Canvas width, the row stride of @p ref.
+ * @param fx Effect holding the frame under test (already advance_display'd).
+ * @param ref Full-canvas reference pixels.
+ */
+template <int W>
+inline BandDiff band_diff(const hs_test::StubEffect &fx,
+                          const std::vector<Pixel> &ref, int y0, int y1, int x0,
+                          int x1) {
+  BandDiff out;
+  for (int y = y0; y < y1; ++y)
+    for (int x = x0; x < x1; ++x) {
+      const Pixel &p = fx.get_pixel(x, y);
+      const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+      if (r.r | r.g | r.b)
+        ++out.lit;
+      if (p.r != r.r || p.g != r.g || p.b != r.b)
+        ++out.diff;
+    }
+  return out;
+}
+
+/**
+ * @brief Renders a system full-canvas through one combined vertex shader: the
+ *        reference the band-clipped parity checks diff against.
+ */
+template <int W, int H, typename Shade, typename Combined>
+inline std::vector<Pixel> particle_reference_frame(StubSystem &sys, Shade shade,
+                                                   Combined combined) {
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> filters;
+  {
+    Canvas c(fx);
+    Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
+  }
+  fx.advance_display();
+  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  return ref;
+}
+
+/** @brief Clip bands the 96x48 ParticleSystem parity sweeps run, as
+ * {y0, y1, x0, x1}. */
+inline constexpr int PARTICLE_PARITY_BANDS[4][4] = {
+    {0, 24, 0, 48},   // quadrant; margin wraps rs past the seam
+    {12, 36, 48, 96}, // opposite half
+    {0, 48, 20, 70},  // interior wedge
+    {30, 48, 0, 96},  // y-only clip (XClip inactive)
+};
+
 /**
  * @brief Deferred trail shader: bit-identical in-band pixels to an undeferred
  *        combined shader, skipped whole for trails whose every edge is culled,
@@ -3503,20 +3576,8 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
     f.v3 *= 0.5f;
   };
 
-  // Reference: full canvas, combined shader.
-  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
-  {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> filters;
-    {
-      Canvas c(fx);
-      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
-    }
-    fx.advance_display();
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
-  }
+  const std::vector<Pixel> ref =
+      particle_reference_frame<W, H>(sys, shade, combined);
 
   // Clipped, split shaders: in-band pixels identical; trail 1 never shaded.
   {
@@ -3529,18 +3590,9 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
                                        deferred_pass);
     }
     fx.advance_display();
-    int lit = 0, diff = 0;
-    for (int y = 0; y < H; ++y)
-      for (int x = band_x0; x < band_x1; ++x) {
-        Pixel p = fx.get_pixel(x, y);
-        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-        if (r.r | r.g | r.b)
-          ++lit;
-        if (p.r != r.r || p.g != r.g || p.b != r.b)
-          ++diff;
-      }
-    HS_EXPECT_GT(lit, 0);
-    HS_EXPECT_EQ(diff, 0);
+    const BandDiff d = band_diff<W>(fx, ref, 0, H, band_x0, band_x1);
+    HS_EXPECT_GT(d.lit, 0);
+    HS_EXPECT_EQ(d.diff, 0);
     HS_EXPECT_GT(deferred_calls[0], 0); // crossing trail: deferred pass ran
     HS_EXPECT_EQ(deferred_calls[1], 0); // fully-culled trail: skipped whole
     HS_EXPECT_EQ(orig_mismatches, 0);
@@ -3557,15 +3609,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
                                        deferred_pass);
     }
     fx.advance_display();
-    int diff = 0;
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x) {
-        Pixel p = fx.get_pixel(x, y);
-        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-        if (p.r != r.r || p.g != r.g || p.b != r.b)
-          ++diff;
-      }
-    HS_EXPECT_EQ(diff, 0);
+    HS_EXPECT_EQ((band_diff<W>(fx, ref, 0, H, 0, W).diff), 0);
     HS_EXPECT_GT(deferred_calls[0], 0);
     HS_EXPECT_GT(deferred_calls[1], 0);
     HS_EXPECT_EQ(orig_mismatches, 0);
@@ -3628,28 +3672,10 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
     f.v3 *= 0.7f;
   };
 
-  // Reference: full canvas, combined shader.
-  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
-  {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> filters;
-    {
-      Canvas c(fx);
-      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
-    }
-    fx.advance_display();
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
-  }
+  const std::vector<Pixel> ref =
+      particle_reference_frame<W, H>(sys, shade, combined);
 
-  const int bands[][4] = {
-      {0, 24, 0, 48},   // quadrant; margin wraps rs past the seam
-      {12, 36, 48, 96}, // opposite half
-      {0, 48, 20, 70},  // interior wedge
-      {30, 48, 0, 96},  // y-only clip (XClip inactive)
-  };
-  for (const auto &bd : bands) {
+  for (const auto &bd : PARTICLE_PARITY_BANDS) {
     // The non-deferred path must use the same precomputed gate bits.
     {
       hs_test::StubEffect fx(W, H);
@@ -3660,15 +3686,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
         Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
       }
       fx.advance_display();
-      int diff = 0;
-      for (int y = bd[0]; y < bd[1]; ++y)
-        for (int x = bd[2]; x < bd[3]; ++x) {
-          const Pixel &p = fx.get_pixel(x, y);
-          const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-          if (p.r != r.r || p.g != r.g || p.b != r.b)
-            ++diff;
-        }
-      HS_EXPECT_EQ(diff, 0);
+      HS_EXPECT_EQ((band_diff<W>(fx, ref, bd[0], bd[1], bd[2], bd[3]).diff), 0);
     }
 
     hs_test::StubEffect fx(W, H);
@@ -3680,18 +3698,9 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
                                        deferred_pass);
     }
     fx.advance_display();
-    int lit = 0, diff = 0;
-    for (int y = bd[0]; y < bd[1]; ++y)
-      for (int x = bd[2]; x < bd[3]; ++x) {
-        Pixel p = fx.get_pixel(x, y);
-        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-        if (r.r | r.g | r.b)
-          ++lit;
-        if (p.r != r.r || p.g != r.g || p.b != r.b)
-          ++diff;
-      }
-    HS_EXPECT_GT(lit, 20);
-    HS_EXPECT_EQ(diff, 0);
+    const BandDiff d = band_diff<W>(fx, ref, bd[0], bd[1], bd[2], bd[3]);
+    HS_EXPECT_GT(d.lit, 20);
+    HS_EXPECT_EQ(d.diff, 0);
   }
 }
 
@@ -3740,27 +3749,10 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
     f.v3 *= 0.7f;
   };
 
-  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
-  {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> filters;
-    {
-      Canvas c(fx);
-      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
-    }
-    fx.advance_display();
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
-  }
+  const std::vector<Pixel> ref =
+      particle_reference_frame<W, H>(sys, shade, combined);
 
-  const int bands[][4] = {
-      {0, 24, 0, 48},
-      {12, 36, 48, 96},
-      {0, 48, 20, 70},
-      {30, 48, 0, 96},
-  };
-  for (const auto &bd : bands) {
+  for (const auto &bd : PARTICLE_PARITY_BANDS) {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
     Pipeline<W, H> filters;
@@ -3770,18 +3762,9 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
                                        deferred_pass);
     }
     fx.advance_display();
-    int lit = 0, diff = 0;
-    for (int y = bd[0]; y < bd[1]; ++y)
-      for (int x = bd[2]; x < bd[3]; ++x) {
-        Pixel p = fx.get_pixel(x, y);
-        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-        if (r.r | r.g | r.b)
-          ++lit;
-        if (p.r != r.r || p.g != r.g || p.b != r.b)
-          ++diff;
-      }
-    HS_EXPECT_GT(lit, 10);
-    HS_EXPECT_EQ(diff, 0);
+    const BandDiff d = band_diff<W>(fx, ref, bd[0], bd[1], bd[2], bd[3]);
+    HS_EXPECT_GT(d.lit, 10);
+    HS_EXPECT_EQ(d.diff, 0);
   }
 }
 
