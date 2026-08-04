@@ -10,7 +10,6 @@
 #include <cstring>
 #include <cassert>
 #include <algorithm>
-#include <variant>
 #include <atomic>
 #include <type_traits>
 #include <utility>
@@ -48,7 +47,8 @@ struct EffectConfig {
   bool strobe = false;  /**< POV column strobe (Effect::strobe_columns). */
   bool persist = false; /**< Copy previous frame forward (persists_pixels). */
   bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
-  bool reads_outside_band = false; /**< Clear pixels outside the display band. */
+  bool reads_outside_band =
+      false; /**< Clear pixels outside the display band. */
   /**
    * @brief Render-bound expansion the effect's filters need, in pixels
    *        (ClipRegion::margin). Raised to the ClipRegion default when lower.
@@ -296,47 +296,70 @@ public:
    * @brief Defines a runtime-adjustable parameter.
    */
   struct ParamDef {
-    /** @brief Type-erased storage for an enum parameter. */
-    struct EnumTarget {
-      void *ptr;
-      float (*get)(const void *);
-      void (*set)(void *, float);
+    /** @brief Runtime representation of the parameter target. */
+    enum class TargetType : uint8_t {
+      FLOAT,
+      BOOL,
+      ENUM_I8,
+      ENUM_U8,
+      ENUM_I16,
+      ENUM_U16,
+      ENUM_I32,
+      ENUM_U32,
     };
 
     const char *name = nullptr; /**< Parameter name. */
-    std::variant<float *, bool *, EnumTarget>
-        target;    /**< Type-safe pointer to the variable. */
-    float min = 0; /**< Minimum value (for floats). */
-    float max = 1; /**< Maximum value (for floats). */
-    bool animated =
-        false; /**< True if an animation drives this member; the GUI
-                               surfaces these as auto-pausing sliders. */
-    bool readonly = false; /**< True if this is engine-written telemetry; the
-                               GUI shows it live but disables editing. */
+    void *target = nullptr;     /**< Pointer to the target variable. */
     const char *const *options = nullptr; /**< Option labels for an enumerated
                                param (GUI dropdown), or null for a plain param.
                                Must outlive the effect (string literals). */
-    int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
-    bool preset = true;   /**< Whether preset exports include this parameter. */
     const char *const *export_options =
-        nullptr; /**< C++ enum literals indexed like options, or null. */
+        nullptr;   /**< C++ enum literals indexed like options, or null. */
+    float min = 0; /**< Minimum value (for floats). */
+    float max = 1; /**< Maximum value (for floats). */
+    int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
+    TargetType target_type = TargetType::FLOAT; /**< Target storage format. */
+    bool animated = false; /**< True if an animation drives this member; the GUI
+                               surfaces these as auto-pausing sliders. */
+    bool readonly = false; /**< True if this is engine-written telemetry; the
+                               GUI shows it live but disables editing. */
+    bool preset = true; /**< Whether preset exports include this parameter. */
+
+    template <typename Integer> float get_integer() const {
+      Integer value;
+      std::memcpy(&value, target, sizeof(value));
+      return static_cast<float>(value);
+    }
+
+    template <typename Integer> void set_integer(float value) {
+      const Integer stored = static_cast<Integer>(value);
+      std::memcpy(target, &stored, sizeof(stored));
+    }
 
     /**
      * @brief Read the current value as float (bool maps to 0/1).
      * @return The target's value as a float; a bool target yields 1.0 or 0.0.
      */
     float get() const {
-      return std::visit(
-          [](const auto &target) -> float {
-            using T = std::remove_cvref_t<decltype(target)>;
-            if constexpr (std::is_same_v<T, bool *>)
-              return *target ? 1.0f : 0.0f;
-            else if constexpr (std::is_same_v<T, float *>)
-              return *target;
-            else
-              return target.get(target.ptr);
-          },
-          target);
+      switch (target_type) {
+      case TargetType::FLOAT:
+        return *static_cast<const float *>(target);
+      case TargetType::BOOL:
+        return *static_cast<const bool *>(target) ? 1.0f : 0.0f;
+      case TargetType::ENUM_I8:
+        return get_integer<int8_t>();
+      case TargetType::ENUM_U8:
+        return get_integer<uint8_t>();
+      case TargetType::ENUM_I16:
+        return get_integer<int16_t>();
+      case TargetType::ENUM_U16:
+        return get_integer<uint16_t>();
+      case TargetType::ENUM_I32:
+        return get_integer<int32_t>();
+      case TargetType::ENUM_U32:
+        return get_integer<uint32_t>();
+      }
+      __builtin_unreachable();
     }
 
     /**
@@ -348,24 +371,34 @@ public:
      * from ParamList::find().
      */
     void set(float v) {
-      std::visit(
-          [v](auto &target) {
-            using T = std::remove_cvref_t<decltype(target)>;
-            if constexpr (std::is_same_v<T, bool *>)
-              *target = (v > 0.5f);
-            else if constexpr (std::is_same_v<T, float *>)
-              *target = v;
-            else
-              target.set(target.ptr, v);
-          },
-          target);
+      switch (target_type) {
+      case TargetType::FLOAT:
+        *static_cast<float *>(target) = v;
+        return;
+      case TargetType::BOOL:
+        *static_cast<bool *>(target) = v > 0.5f;
+        return;
+      case TargetType::ENUM_I8:
+        return set_integer<int8_t>(v);
+      case TargetType::ENUM_U8:
+        return set_integer<uint8_t>(v);
+      case TargetType::ENUM_I16:
+        return set_integer<int16_t>(v);
+      case TargetType::ENUM_U16:
+        return set_integer<uint16_t>(v);
+      case TargetType::ENUM_I32:
+        return set_integer<int32_t>(v);
+      case TargetType::ENUM_U32:
+        return set_integer<uint32_t>(v);
+      }
+      __builtin_unreachable();
     }
 
     /**
      * @brief Check if this parameter targets a bool.
      * @return True if the target is a bool pointer, false if a float pointer.
      */
-    bool is_bool() const { return std::holds_alternative<bool *>(target); }
+    bool is_bool() const { return target_type == TargetType::BOOL; }
 
     /**
      * @brief Check if this parameter is enumerated (renders as a dropdown).
@@ -373,6 +406,8 @@ public:
      */
     bool is_enum() const { return option_count > 0; }
   };
+  static_assert(sizeof(void *) != 4 || sizeof(ParamDef) == 32,
+                "ParamDef must keep its 32-bit device footprint");
 
   /**
    * @brief Fixed-capacity registry of an effect's runtime parameters.
@@ -549,7 +584,12 @@ protected:
     // updateParameter clamps).
     HS_CHECK(*ptr >= min && *ptr <= max,
              "register_param: default *ptr outside [min,max]");
-    parameters.elements[parameters.count++] = {name, ptr, min, max};
+    auto &def = parameters.elements[parameters.count++];
+    def = {};
+    def.name = name;
+    def.target = ptr;
+    def.min = min;
+    def.max = max;
   }
 
   /**
@@ -592,21 +632,29 @@ protected:
         static_cast<float>(static_cast<std::underlying_type_t<Enum>>(*ptr));
     HS_CHECK(value >= 0.0f && value < static_cast<float>(option_count),
              "register_param: default enum outside option range");
-    typename ParamDef::EnumTarget target{
-        ptr,
-        [](const void *value_ptr) {
-          return static_cast<float>(static_cast<std::underlying_type_t<Enum>>(
-              *static_cast<const Enum *>(value_ptr)));
-        },
-        [](void *value_ptr, float value) {
-          *static_cast<Enum *>(value_ptr) = static_cast<Enum>(
-              static_cast<std::underlying_type_t<Enum>>(value));
-        }};
+    using Underlying = std::underlying_type_t<Enum>;
+    static_assert(sizeof(Underlying) <= sizeof(uint32_t),
+                  "register_param: enum underlying type exceeds 32 bits");
+    constexpr auto TARGET_TYPE = [] {
+      if constexpr (sizeof(Underlying) == sizeof(uint8_t))
+        return std::is_signed_v<Underlying> ? ParamDef::TargetType::ENUM_I8
+                                            : ParamDef::TargetType::ENUM_U8;
+      if constexpr (sizeof(Underlying) == sizeof(uint16_t))
+        return std::is_signed_v<Underlying> ? ParamDef::TargetType::ENUM_I16
+                                            : ParamDef::TargetType::ENUM_U16;
+      return std::is_signed_v<Underlying> ? ParamDef::TargetType::ENUM_I32
+                                          : ParamDef::TargetType::ENUM_U32;
+    }();
     auto &def = parameters.elements[parameters.count++];
-    def = {name, target, 0.0f, static_cast<float>(option_count - 1)};
+    def = {};
+    def.name = name;
+    def.target = ptr;
+    def.min = 0.0f;
+    def.max = static_cast<float>(option_count - 1);
     def.options = options;
     def.option_count = option_count;
     def.export_options = export_options;
+    def.target_type = TARGET_TYPE;
   }
 
   /**
@@ -621,7 +669,12 @@ protected:
     // Duplicate name guard, see the float overload.
     HS_CHECK(parameters.find(name) == nullptr,
              "register_param: duplicate parameter name");
-    parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f};
+    auto &def = parameters.elements[parameters.count++];
+    def = {};
+    def.name = name;
+    def.target = ptr;
+    def.max = 1.0f;
+    def.target_type = ParamDef::TargetType::BOOL;
   }
 
   /**
