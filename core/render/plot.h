@@ -2811,9 +2811,12 @@ struct DistortedRing {
    * @param radius Base radius.
    * @param angle Angular position around the ring (radians).
    * @return Normalized unit sphere point on the distorted ring.
-   * @details Mirrors sample() exactly (at phase 0) so the returned point lands
+   * @details Same geometry as sample() at phase 0, so the returned point lands
    * on the drawn ring; any divergence would detach callers' sampled points from
-   * the visible ring off Radius=1.
+   * the visible ring off Radius=1. Computed with direct cosf/sinf where
+   * sample() uses TrigLUT angle addition, so the two agree in exact arithmetic
+   * but are not bit-identical. There is no phase parameter: a ring drawn with a
+   * non-zero phase is rotated away from the returned point.
    */
   static Vector fn_point(ScalarFn shift_fn, const Basis &basis, float radius,
                          float angle) {
