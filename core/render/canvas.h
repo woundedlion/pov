@@ -303,7 +303,7 @@ public:
       void (*set)(void *, float);
     };
 
-    const char *name; /**< Parameter name. */
+    const char *name = nullptr; /**< Parameter name. */
     std::variant<float *, bool *, EnumTarget>
         target;    /**< Type-safe pointer to the variable. */
     float min = 0; /**< Minimum value (for floats). */
