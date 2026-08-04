@@ -847,7 +847,10 @@ public:
   /** @brief Moves the hole center to a new unit vector. */
   void set_origin(const Vector &new_origin) { origin = new_origin; }
 
-  /** @brief Changes the hole's angular radius in radians. */
+  /**
+   * @brief Changes the hole's angular radius in radians.
+   * @param new_radius Angular radius; values <= 0 disable the hole.
+   */
   void set_radius(float new_radius) { radius = new_radius; }
   /**
    * @brief Attenuates points near the hole center, leaving others unchanged.
@@ -863,7 +866,7 @@ public:
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     float d = angle_between(v, origin);
-    if (d > radius)
+    if (d >= radius)
       pass(v, color, age, alpha);
     else {
       float t = d / radius;
