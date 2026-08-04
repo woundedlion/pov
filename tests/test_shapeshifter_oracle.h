@@ -531,6 +531,30 @@ inline void test_high_count_star_preset_covers_north_pole() {
   HS_EXPECT_EQ(uncovered_pole_pixels, size_t{0});
 }
 
+inline uint32_t vector_pixel_energy(const OracleFrame &frame,
+                                    const Vector &position) {
+  const PixelCoords projected = vector_to_pixel<ORACLE_W, ORACLE_H>(position);
+  const int x = static_cast<int>(floorf(projected.x + 0.5f)) % ORACLE_W;
+  const int y =
+      hs::clamp(static_cast<int>(floorf(projected.y + 0.5f)), 0, ORACLE_H - 1);
+  const Pixel &pixel = frame.at(x, y);
+  return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b;
+}
+
+inline void test_high_count_planar_star_caps_cover_chart_centers() {
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
+  state.function = OracleEffect::PhaseFunction::SINE;
+  state.count = 144;
+  state.sides = 7;
+  state.phase = 0.125f;
+  state.alpha = 0.274f;
+  state.orientation = Quaternion();
+  const OracleFrame frame = capture_frame(state, candidate_renderer());
+  HS_EXPECT_GT(vector_pixel_energy(frame, X_AXIS), COVERAGE_ENERGY);
+  HS_EXPECT_GT(vector_pixel_energy(frame, -X_AXIS), COVERAGE_ENERGY);
+}
+
 inline int first_covered_north_row(const OracleFrame &frame) {
   for (int y = 0; y < 32; ++y)
     for (int x = 0; x < ORACLE_W; ++x)
@@ -539,10 +563,10 @@ inline int first_covered_north_row(const OracleFrame &frame) {
   return 32;
 }
 
-inline void test_high_count_star_contours_reach_display_north() {
+inline void test_high_count_spherical_star_contours_reach_display_north() {
   for (float phase : {0.0f, 0.125f, 0.249f, 0.5f, 0.75f, 0.999f}) {
     OracleState state;
-    state.shape = OracleEffect::ShapeType::PLANAR_STAR;
+    state.shape = OracleEffect::ShapeType::SPHERICAL_STAR;
     state.function = OracleEffect::PhaseFunction::SINE;
     state.count = 144;
     state.sides = 7;
@@ -659,7 +683,8 @@ inline int run_shapeshifter_oracle_tests() {
   test_star_options_and_shipping_presets_are_planar();
   test_high_count_star_preset_stays_within_visual_budget();
   test_high_count_star_preset_covers_north_pole();
-  test_high_count_star_contours_reach_display_north();
+  test_high_count_planar_star_caps_cover_chart_centers();
+  test_high_count_spherical_star_contours_reach_display_north();
   test_amplitude_preserves_sweep_velocity();
   test_shape_alpha_fades_to_equator();
   test_opposite_halves_direction();

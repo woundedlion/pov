@@ -179,11 +179,6 @@ private:
     return params.opposite && radius > 1.0f ? -1.0f : 1.0f;
   }
 
-  static constexpr bool is_star(ShapeType shape) {
-    return shape == ShapeType::PLANAR_STAR ||
-           shape == ShapeType::SPHERICAL_STAR;
-  }
-
   static constexpr float shape_alpha(AlphaFalloff falloff, int index,
                                      int count) {
     if (falloff == AlphaFalloff::CONSTANT_HALF)
@@ -198,6 +193,37 @@ private:
     return 1.0f - (1.0f - EQUATOR_ALPHA) *
                       static_cast<float>(DISTANCE_FROM_POLE) /
                       static_cast<float>(STEPS_TO_EQUATOR);
+  }
+
+  static constexpr float star_palette_position(float radius_t) {
+    return radius_t <= 0.5f ? 2.0f * radius_t : 2.0f * (1.0f - radius_t);
+  }
+
+  HS_FLASH_MEMBER void draw_planar_star_pole_cap(Canvas &canvas,
+                                                 const Basis &basis,
+                                                 float radius_t, int sides) {
+    const float radius = 2.0f * radius_t;
+    const auto cap = get_antipode(basis, radius);
+    constexpr float MIN_CAP_RADIUS = 8.0f / W;
+    if (cap.second >= MIN_CAP_RADIUS)
+      return;
+
+    const Color4 color = baked_sunset.get(star_palette_position(radius_t));
+    const float cap_alpha = std::min(1.0f, alpha * static_cast<float>(sides));
+    auto shader = [&](const Vector &, Fragment &fragment) {
+      fragment.color = color;
+      fragment.color.alpha *= cap_alpha;
+    };
+    Scan::Circle::draw<W, H>(plot_filters, canvas, cap.first, MIN_CAP_RADIUS,
+                             shader);
+  }
+
+  HS_FLASH_MEMBER void draw_planar_star_pole_caps(Canvas &canvas,
+                                                  const Basis &basis, int count,
+                                                  int sides) {
+    const float radius_t = 0.5f / static_cast<float>(count);
+    draw_planar_star_pole_cap(canvas, basis, radius_t, sides);
+    draw_planar_star_pole_cap(canvas, basis, 1.0f - radius_t, sides);
   }
 
   /** @brief Advances to the next preset and applies it atomically. */
@@ -222,12 +248,10 @@ private:
     const Basis basis = make_basis(orientation.get(), X_AXIS);
     const ClipRegion &clip = canvas.clip();
     const bool full_width_clip = clip.x_start == 0 && clip.x_end == clip.w;
-    const float near_cap_beta = planar_star
-                                    ? acosf(hs::clamp(basis.v.y, -1.0f, 1.0f))
-                                    : 0.0f;
-    const float far_cap_beta = planar_star
-                                   ? acosf(hs::clamp(-basis.v.y, -1.0f, 1.0f))
-                                   : 0.0f;
+    const float near_cap_beta =
+        planar_star ? acosf(hs::clamp(basis.v.y, -1.0f, 1.0f)) : 0.0f;
+    const float far_cap_beta =
+        planar_star ? acosf(hs::clamp(-basis.v.y, -1.0f, 1.0f)) : 0.0f;
     float cap_half_width = 0.0f;
     float near_cap_distance = 0.0f;
     float far_cap_distance = 0.0f;
@@ -259,11 +283,8 @@ private:
       if (planar_star) {
         constexpr float AA_PAD = 2.0f * PI_F / W;
         const bool far_side = radius > 1.0f;
-        const float half_angle =
-            (far_side ? (2.0f - radius) *
-                            (PI_F - Plot::STAR_INNER_RATIO * (PI_F / 2.0f))
-                      : radius * (PI_F / 2.0f)) +
-            AA_PAD;
+        const float cap_radius = far_side ? 2.0f - radius : radius;
+        const float half_angle = cap_radius * (PI_F / 2.0f) + AA_PAD;
         const float t2 = std::min(half_angle, PI_F);
         const float beta = far_side ? far_cap_beta : near_cap_beta;
         const float phi_lo = std::max(beta - t2, 0.0f);
@@ -281,12 +302,14 @@ private:
         if (!visible)
           continue;
       }
-      const float direction = is_star(shape)
+      const float direction = shape == ShapeType::SPHERICAL_STAR
                                   ? star_phase_direction(radius)
                                   : phase_direction(radius);
       const float shape_phase =
           direction * params.amplitude * evaluate(function, radius_t + phase);
-      const Color4 color = baked_sunset.get(radius_t);
+      const float color_position =
+          planar_star ? star_palette_position(radius_t) : radius_t;
+      const Color4 color = baked_sunset.get(color_position);
       const float shape_alpha_value =
           alpha * shape_alpha(params.alpha_falloff, i, count);
 
@@ -299,6 +322,8 @@ private:
       dispatch_plot(canvas, basis, shape, radius, sides, shader, shape_phase,
                     shaded_color);
     }
+    if (planar_star)
+      draw_planar_star_pole_caps(canvas, basis, count, sides);
   }
 
 #ifdef HS_TEST_BUILD
@@ -315,12 +340,15 @@ private:
       const float radius_t =
           (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
       const float radius = 2.0f * radius_t;
-      const float direction = is_star(shape)
+      const float direction = shape == ShapeType::SPHERICAL_STAR
                                   ? star_phase_direction(radius)
                                   : phase_direction(radius);
       const float shape_phase =
           direction * params.amplitude * evaluate(function, radius_t + phase);
-      const Color4 color = baked_sunset.get(radius_t);
+      const float color_position = shape == ShapeType::PLANAR_STAR
+                                       ? star_palette_position(radius_t)
+                                       : radius_t;
+      const Color4 color = baked_sunset.get(color_position);
       const float shape_alpha_value =
           alpha * shape_alpha(params.alpha_falloff, i, count);
       auto shader = [&](const Vector &, Fragment &fragment) {
@@ -330,6 +358,8 @@ private:
       dispatch_plot_reference(canvas, basis, shape, radius, sides, shader,
                               shape_phase);
     }
+    if (shape == ShapeType::PLANAR_STAR)
+      draw_planar_star_pole_caps(canvas, basis, count, sides);
   }
 #endif
 
@@ -405,16 +435,17 @@ private:
   }
 
   template <typename F>
-  HS_FLASH_MEMBER void draw_dense_planar_star(
-      Canvas &canvas, const Basis &basis, float radius, int sides,
-      const Color4 &color, const F &fragment_shader, float phase) {
-    constexpr int ANCHOR_INTERVALS = 16;
+  HS_FLASH_MEMBER void
+  draw_dense_planar_star(Canvas &canvas, const Basis &basis, float radius,
+                         int sides, const Color4 &color,
+                         const F &fragment_shader, float phase) {
+    constexpr int ANCHOR_INTERVALS = 8;
     constexpr float POLE_GUARD_ROWS = 3.0f;
     ScratchScope guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, static_cast<size_t>(sides * 2 + 2));
-    Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
-        points, basis, radius, sides, phase);
+    Plot::Star<Plot::PlanarProjection>::sample_positions(points, basis, radius,
+                                                         sides, phase);
 
     Basis planar_basis = basis;
     if (radius > 1.0f)
@@ -422,7 +453,7 @@ private:
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
     constexpr float TARGET_STEP = Plot::BALANCED_SCREEN_STEP_PX;
-    constexpr float ALPHA_GAIN = 1.003f;
+    constexpr float ALPHA_GAIN = 1.012f;
 
     for (int edge = 0; edge < sides * 2; ++edge) {
       const Vector &a = points[edge].pos;
@@ -439,11 +470,17 @@ private:
       float row_lo = static_cast<float>(H);
       float row_hi = 0.0f;
       for (int k = 0; k <= ANCHOR_INTERVALS; ++k) {
-        const float t = static_cast<float>(k) / ANCHOR_INTERVALS;
-        const Vector position =
-            Plot::azimuthal_unproject(p0.first + dx * t, p0.second + dy * t,
-                                      planar_basis)
-                .normalized();
+        Vector position;
+        if (k == 0)
+          position = a;
+        else if (k == ANCHOR_INTERVALS)
+          position = b;
+        else {
+          const float t = static_cast<float>(k) / ANCHOR_INTERVALS;
+          position = Plot::azimuthal_unproject(p0.first + dx * t,
+                                               p0.second + dy * t, planar_basis)
+                         .normalized();
+        }
         anchors[k] = vector_to_pixel<W, H>(position);
         if (k > 0) {
           const float delta = anchors[k].x - anchors[k - 1].x;
@@ -471,9 +508,9 @@ private:
             std::max(1, static_cast<int>(ceilf(length / TARGET_STEP)));
         const float step_ratio =
             std::min(TARGET_STEP, length / samples) / Plot::SCREEN_STEP_PX;
-        const float sample_alpha =
-            std::min(1.0f, ALPHA_GAIN * Plot::balanced_sample_alpha(
-                                            color.alpha, step_ratio));
+        const float sample_alpha = std::min(
+            1.0f,
+            ALPHA_GAIN * Plot::balanced_sample_alpha(color.alpha, step_ratio));
         for (int sample = 0; sample < samples; ++sample) {
           const float t = static_cast<float>(sample) / samples;
           float x = anchors[k].x + segment_dx * t;
@@ -556,20 +593,18 @@ private:
       draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
                    params.count >= 32.0f, fragment_shader,
                    [&](Fragments &points) {
-                     Plot::Star<Plot::PlanarProjection>::
-                         sample_continuous_positions(points, basis, radius,
-                                                     sides, shape_phase);
+                     Plot::Star<Plot::PlanarProjection>::sample_positions(
+                         points, basis, radius, sides, shape_phase);
                    });
       break;
     }
     case ShapeType::SPHERICAL_STAR:
-      draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), nullptr,
-                   params.count >= 32.0f, fragment_shader,
-                   [&](Fragments &points) {
-                     Plot::Star<Plot::GeodesicProjection>::
-                         sample_continuous_positions(points, basis, radius,
-                                                     sides, shape_phase);
-                   });
+      draw_sampled(
+          canvas, static_cast<size_t>(sides * 2 + 2), nullptr,
+          params.count >= 32.0f, fragment_shader, [&](Fragments &points) {
+            Plot::Star<Plot::GeodesicProjection>::sample_continuous_positions(
+                points, basis, radius, sides, shape_phase);
+          });
       break;
     }
   }
@@ -595,7 +630,7 @@ private:
                                fragment_shader, {}, shape_phase);
       break;
     case ShapeType::PLANAR_STAR:
-      Plot::Star<Plot::PlanarProjection>::draw_continuous<W, H>(
+      Plot::Star<Plot::PlanarProjection>::draw<W, H>(
           plot_filters, canvas, basis, radius, sides, fragment_shader,
           shape_phase);
       break;
