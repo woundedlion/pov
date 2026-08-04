@@ -58,6 +58,11 @@ inline Vector melt_warp(const Vector &v, const Style &s);
  * @param fade Per-frame scalar fade multiplier in [0, 1].
  * @param s Style supplying the precomputed hue rotation.
  * @return Faded and hue-rotated pixel.
+ * @details The feedback filter matches this function by address rather than
+ * calling it: it hoists the per-frame matrix prescale out of the pixel loop and
+ * calls hue_fade_apply / hue_fade_apply2 directly (and drops to a plain
+ * multiply when the rotation is identity). Editing this body alone therefore
+ * changes nothing that renders — the shared math is in hue_fade_apply.
  */
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s);
 
@@ -101,7 +106,8 @@ struct Style {
 
   // --- Per-frame derived cache (NOT a preset; refreshed by sync_hue) ---
   // cos/sin of the fade-scaled per-frame hue angle plus its cbrt-LMS rotation
-  // matrix, read by hue_fade. Defaults to identity until the first sync_hue().
+  // matrix, read by hue_fade and by the filter's per-frame prescale. Defaults
+  // to identity until the first sync_hue().
   float hue_ca = 1.0f;
   float hue_sa = 0.0f;
   float hue_k[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
