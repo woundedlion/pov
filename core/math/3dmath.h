@@ -782,9 +782,14 @@ static constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
 
 /**
  * @brief 1 - v.y below which stereo() is inside the north-pole cap and emits the
- * sentinel magnitude instead of the raw (and numerically explosive) quotient.
+ * sentinel magnitude instead of the raw quotient.
+ * @details The crossover, not a guard band: on the unit sphere
+ * |stereo(v)| = sqrt((1 + v.y) / (1 - v.y)) reaches STEREO_INF exactly here, so
+ * the cap continues the projection instead of stepping. 1 - v.y is exact for
+ * v.y in [0.5, 1], and its smallest nonzero value (2^-24) still quotients to
+ * ~5.8e3, so only a v.y that rounds to (or past) 1 lands inside the cap.
  */
-static constexpr float STEREO_POLE_EPS = 1e-4f;
+static constexpr float STEREO_POLE_EPS = 2.0f / (STEREO_INF * STEREO_INF);
 
 /**
  * @brief Squared magnitude below which mobius_transform treats a homogeneous
