@@ -2502,6 +2502,58 @@ inline void test_star_sample_radius_trig_parity() {
   }
 }
 
+/** @brief Continuous Star levels preserve the standard near-side geometry. */
+inline void test_star_continuous_matches_standard_near_side() {
+  ScratchScope sc(plot_arena());
+  const Basis basis =
+      make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
+  for (float radius : {0.0f, 0.31f, 0.87f, 1.0f}) {
+    ScratchScope iteration(plot_arena());
+    Fragments standard;
+    Fragments continuous;
+    standard.bind(plot_arena(), 16);
+    continuous.bind(plot_arena(), 16);
+    Plot::Star::sample(standard, basis, radius, 7, 0.37f);
+    Plot::Star::sample_continuous(continuous, basis, radius, 7, 0.37f);
+    HS_EXPECT_EQ(standard.size(), continuous.size());
+    for (size_t i = 0; i < standard.size(); ++i)
+      HS_EXPECT_LT(angle_between(standard[i].pos, continuous[i].pos), 1e-5f);
+  }
+}
+
+/** @brief Continuous Star vertices do not jump at the equatorial level. */
+inline void test_star_continuous_crosses_equator() {
+  ScratchScope sc(plot_arena());
+  const Basis basis = make_basis(Quaternion(), X_AXIS);
+  Fragments below;
+  Fragments seam;
+  Fragments above;
+  below.bind(plot_arena(), 16);
+  seam.bind(plot_arena(), 16);
+  above.bind(plot_arena(), 16);
+  Plot::Star::sample_continuous_positions(below, basis, 0.9999f, 7, 0.37f);
+  Plot::Star::sample_continuous_positions(seam, basis, 1.0f, 7, 0.37f);
+  Plot::Star::sample_continuous_positions(above, basis, 1.0001f, 7, 0.37f);
+  HS_EXPECT_EQ(below.size(), seam.size());
+  HS_EXPECT_EQ(above.size(), seam.size());
+  for (size_t i = 0; i < seam.size(); ++i) {
+    HS_EXPECT_LT(angle_between(below[i].pos, seam[i].pos), 0.001f);
+    HS_EXPECT_LT(angle_between(seam[i].pos, above[i].pos), 0.001f);
+  }
+}
+
+/** @brief The final continuous Star level collapses to the opposite pole. */
+inline void test_star_continuous_collapses_at_antipode() {
+  ScratchScope sc(plot_arena());
+  const Basis basis =
+      make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
+  Fragments points;
+  points.bind(plot_arena(), 16);
+  Plot::Star::sample_continuous_positions(points, basis, 2.0f, 7, 0.37f);
+  for (const Fragment &point : points)
+    HS_EXPECT_LT(angle_between(point.pos, -basis.v), 0.001f);
+}
+
 /**
  * @brief Verifies Flower::sample emits 2*sides unit-length vertices plus one
  *        closing fragment matching the first vertex (closed loop), and that the
@@ -4924,6 +4976,9 @@ inline int run_plot_scan_tests() {
 
   test_star_sample_unit_length_closed();
   test_star_sample_radius_trig_parity();
+  test_star_continuous_matches_standard_near_side();
+  test_star_continuous_crosses_equator();
+  test_star_continuous_collapses_at_antipode();
   test_flower_sample_unit_length_closed();
 
   // rasterize() control-flow coverage. The 2*W steps_cache backstop is a

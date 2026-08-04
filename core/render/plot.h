@@ -3071,6 +3071,46 @@ private:
     }
   }
 
+  template <bool EmitRegisters>
+  static void sample_continuous_impl(Fragments &points, const Basis &basis,
+                                     float radius, int num_sides, float phase) {
+    HS_CHECK(num_sides >= 1);
+    HS_CHECK(radius >= 0.0f && radius <= 2.0f);
+
+    const float outer_radius = radius * (PI_F / 2.0f);
+    const float inner_radius =
+        radius <= 1.0f
+            ? outer_radius * STAR_INNER_RATIO
+            : STAR_INNER_RATIO * (PI_F / 2.0f) +
+                  (radius - 1.0f) * (PI_F - STAR_INNER_RATIO * (PI_F / 2.0f));
+    const float angle_step = PI_F / num_sides;
+    const float sin_radius[2] = {sinf(outer_radius), sinf(inner_radius)};
+    const float cos_radius[2] = {cosf(outer_radius), cosf(inner_radius)};
+
+    auto position = [&](int i) {
+      const float theta = phase + i * angle_step;
+      const float sin_r = sin_radius[i & 1];
+      const float cos_r = cos_radius[i & 1];
+      Vector p = (basis.v * cos_r) + (basis.u * (cosf(theta) * sin_r)) +
+                 (basis.w * (sinf(theta) * sin_r));
+      HS_PLOT_COUNT(normalizations);
+      p.normalize();
+      return p;
+    };
+
+    if constexpr (EmitRegisters) {
+      sample_closed_ring(points, num_sides * 2, position);
+    } else {
+      const size_t start_idx = points.size();
+      for (int i = 0; i < num_sides * 2; ++i) {
+        Fragment f;
+        f.pos = position(i);
+        points.push_back(f);
+      }
+      points.push_back(points[start_idx]);
+    }
+  }
+
 public:
   /**
    * @brief Samples a star shape.
@@ -3096,6 +3136,19 @@ public:
   static void sample_positions(Fragments &points, const Basis &basis,
                                float radius, int num_sides, float phase = 0) {
     sample_impl<false>(points, basis, radius, num_sides, phase);
+  }
+
+  /** @brief Samples Star levels that continue to the opposite pole. */
+  static void sample_continuous(Fragments &points, const Basis &basis,
+                                float radius, int num_sides, float phase = 0) {
+    sample_continuous_impl<true>(points, basis, radius, num_sides, phase);
+  }
+
+  /** @brief Samples Star levels that remain continuous across the equator. */
+  static void sample_continuous_positions(Fragments &points, const Basis &basis,
+                                          float radius, int num_sides,
+                                          float phase = 0) {
+    sample_continuous_impl<false>(points, basis, radius, num_sides, phase);
   }
 
   /**
@@ -3124,6 +3177,26 @@ public:
                           .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
+                         });
+  }
+
+  /** @brief Draws a Star level that continues across the equator. */
+  template <int W, int H>
+  static void draw_continuous(PipelineRef pipeline, Canvas &canvas,
+                              const Basis &basis, float radius, int num_sides,
+                              FragmentShaderFn fragment_shader,
+                              float phase = 0) {
+    Basis planar_basis = basis;
+    if (radius > 1.0f)
+      planar_basis = planar_chart_basis(-basis.v);
+
+    draw_fragments<W, H>(pipeline, canvas, {}, fragment_shader,
+                         {.capacity = static_cast<size_t>(num_sides * 2 + 2),
+                          .omit_end = true,
+                          .planar_basis = &planar_basis},
+                         [&](Fragments &points) {
+                           sample_continuous(points, basis, radius, num_sides,
+                                             phase);
                          });
   }
 
