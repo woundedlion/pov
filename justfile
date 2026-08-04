@@ -128,15 +128,15 @@ teensy-gate-test:
 # shared render code) and captures to build/prof/<effect>_ship_deep.log instead,
 # leaving the roster log untouched.
 profile effect="DisplacementField" seconds="150" deep="0":
-    HS_PROFILE_DEEP={{deep}} bash tools/profile_one.sh {{effect}} profile {{seconds}} 32
+    HS_PROFILE_DEEP="{{deep}}" bash tools/profile_one.sh "{{effect}}" profile "{{seconds}}" 32
 
 # Repeated physics-free render of the frozen production-resolution corpus.
 profile-mindsplatter-replay env="profile" seconds="150":
-    bash tools/profile_one.sh MindSplatter {{env}} {{seconds}} 32 -D HS_MINDSPLATTER_REPLAY
+    bash tools/profile_one.sh MindSplatter "{{env}}" "{{seconds}}" 32 -D HS_MINDSPLATTER_REPLAY
 
 # Same-device candidate/reference visual comparison; timing includes both.
 profile-mindsplatter-replay-ab env="profile" seconds="150":
-    bash tools/profile_one.sh MindSplatter {{env}} {{seconds}} 32 -D HS_MINDSPLATTER_REPLAY -D HS_MINDSPLATTER_REPLAY_AB
+    bash tools/profile_one.sh MindSplatter "{{env}}" "{{seconds}}" 32 -D HS_MINDSPLATTER_REPLAY -D HS_MINDSPLATTER_REPLAY_AB
 
 # Regenerate the PHANTASM PCB outputs into hardware/phantasm/gen/out/ (all
 # gitignored) from the COMMITTED board. It never re-runs the schematic/PCB
