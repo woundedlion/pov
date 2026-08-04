@@ -1575,6 +1575,48 @@ inline void test_generative_palette_seeded_profiles_reproducible() {
 }
 
 /**
+ * @brief Verifies resolve_hsv_keys returns the keys the profile constructor
+ *        authors from.
+ * @details The tooling bridge reads the resolved keys through resolve_hsv_keys
+ *          and re-bakes them via from_hsv_keys, so the two paths must agree for
+ *          every profile combination and gradient shape.
+ */
+inline void test_generative_palette_resolve_hsv_keys_matches_ctor() {
+  struct Combo {
+    GradientShape shape;
+    HarmonyType harmony;
+    SaturationProfile sat;
+    BrightnessProfile bright;
+  };
+  const Combo combos[] = {
+      {GradientShape::STRAIGHT, HarmonyType::ANALOGOUS, SaturationProfile::MID,
+       BrightnessProfile::BELL},
+      {GradientShape::CIRCULAR, HarmonyType::COMPLEMENTARY,
+       SaturationProfile::VIBRANT, BrightnessProfile::ASCENDING},
+      {GradientShape::VIGNETTE, HarmonyType::TRIADIC, SaturationProfile::PASTEL,
+       BrightnessProfile::DESCENDING},
+      {GradientShape::FALLOFF, HarmonyType::SPLIT_COMPLEMENTARY,
+       SaturationProfile::MID, BrightnessProfile::CUP},
+  };
+  for (const Combo &combo : combos) {
+    const int seed = 91;
+    GenerativePalette::HsvKeys k = GenerativePalette::resolve_hsv_keys(
+        combo.harmony, combo.bright, combo.sat, seed);
+    GenerativePalette from_profiles(combo.shape, combo.harmony, combo.bright,
+                                    combo.sat, seed);
+    GenerativePalette from_keys = GenerativePalette::from_hsv_keys(
+        combo.shape, k.h1, k.s1, k.v1, k.h2, k.s2, k.v2, k.h3, k.s3, k.v3);
+    for (int i = 0; i <= 8; ++i) {
+      float t = i / 8.0f;
+      Color4 a = from_profiles.get(t), b = from_keys.get(t);
+      HS_EXPECT_EQ(a.color.r, b.color.r);
+      HS_EXPECT_EQ(a.color.g, b.color.g);
+      HS_EXPECT_EQ(a.color.b, b.color.b);
+    }
+  }
+}
+
+/**
  * @brief Verifies GenerativePalette is deterministic for a manual seed.
  * @details With a manual seed and rand-free profiles (FLAT/VIBRANT/TRIADIC use
  *          no RNG) the palette is fully deterministic.
@@ -2362,6 +2404,7 @@ inline int run_color_tests() {
   test_mutating_palette_blends_endpoints();
   test_generative_palette_deterministic();
   test_generative_palette_seeded_profiles_reproducible();
+  test_generative_palette_resolve_hsv_keys_matches_ctor();
   test_generative_palette_auto_seed_advances();
   test_generative_palette_snapshot_lerp();
   test_generative_palette_lerp_coherent_hue_path();
