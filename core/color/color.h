@@ -1395,11 +1395,6 @@ public:
         1.0f);
   }
 
-  /**
-   * @brief Destroys the gradient (LUT is an inline member; nothing to free).
-   */
-  ~Gradient() {}
-
 private:
   Pixel entries[256];
 };
