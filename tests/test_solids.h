@@ -987,8 +987,9 @@ inline void test_recipes_match_generators_bitwise() {
       ++checked;
     }
   }
-  // Guards against a vacuous pass if the recipe pointers are dropped.
-  HS_EXPECT_TRUE(checked >= 2);
+  // Guards against a vacuous pass if the recipe pointers are dropped. Recipes
+  // are carried by the Islamic registry alone.
+  HS_EXPECT_EQ(checked, Solids::Collections::get_islamic_solids().size());
 }
 
 /**
