@@ -282,38 +282,38 @@ inline void test_tweenable_concept() {
 }
 
 /**
- * @brief Pins PixelMask's partition contract: two masks with the same
- *        threshold/salt and opposite invert own every pixel exactly once, the
+ * @brief Pins DissolveMask's partition contract: two masks with the same
+ *        threshold/salt and opposite invert own every key exactly once, the
  *        endpoints are total, and the owned fraction tracks the threshold.
  */
-inline void test_pixel_mask_partition() {
-  constexpr int W = 288, H = 144;
+inline void test_dissolve_mask_partition() {
+  constexpr int KA = 288, KB = 144;
   const uint32_t salt = 0x1234ABCDu;
 
-  PixelMask incoming{65536u / 4u, salt, false};
-  PixelMask outgoing{65536u / 4u, salt, true};
+  DissolveMask incoming{65536u / 4u, salt, false};
+  DissolveMask outgoing{65536u / 4u, salt, true};
   int owned_in = 0;
-  for (int y = 0; y < H; ++y) {
-    for (int x = 0; x < W; ++x) {
-      HS_EXPECT_TRUE(incoming.owns(x, y) != outgoing.owns(x, y));
-      owned_in += incoming.owns(x, y) ? 1 : 0;
+  for (int b = 0; b < KB; ++b) {
+    for (int a = 0; a < KA; ++a) {
+      HS_EXPECT_TRUE(incoming.owns(a, b) != outgoing.owns(a, b));
+      owned_in += incoming.owns(a, b) ? 1 : 0;
     }
   }
   // 25% coverage within 2% absolute (hash uniformity, not exactness).
-  float frac = static_cast<float>(owned_in) / (W * H);
+  float frac = static_cast<float>(owned_in) / (KA * KB);
   HS_EXPECT_TRUE(frac > 0.23f && frac < 0.27f);
 
-  PixelMask none{0u, salt, false};
-  PixelMask all{65536u, salt, false};
-  for (int y = 0; y < H; y += 7) {
-    for (int x = 0; x < W; x += 7) {
-      HS_EXPECT_FALSE(none.owns(x, y));
-      HS_EXPECT_TRUE(all.owns(x, y));
+  DissolveMask none{0u, salt, false};
+  DissolveMask all{65536u, salt, false};
+  for (int b = 0; b < KB; b += 7) {
+    for (int a = 0; a < KA; a += 7) {
+      HS_EXPECT_FALSE(none.owns(a, b));
+      HS_EXPECT_TRUE(all.owns(a, b));
     }
   }
 
   // Deterministic: same inputs, same ownership (sim/device parity surface).
-  PixelMask replay{65536u / 4u, salt, false};
+  DissolveMask replay{65536u / 4u, salt, false};
   HS_EXPECT_TRUE(incoming.owns(17, 42) == replay.owns(17, 42));
 }
 
@@ -331,7 +331,7 @@ inline int run_concepts_tests() {
   test_callable_return_constraints();
   test_fn_copy_move_empty();
   test_tweenable_concept();
-  test_pixel_mask_partition();
+  test_dissolve_mask_partition();
 
   return fixture.result();
 }

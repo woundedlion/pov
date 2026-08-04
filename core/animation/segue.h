@@ -40,7 +40,7 @@
  *                                                 front
  *   void   reorder(face_classes)     — re-derive the per-transition class
  *                                      ordering (Segue::NeedsClasses)
- *   MaskPair mask_pair(phase, frame) — complementary pixel masks the effect
+ *   MaskPair mask_pair(phase, frame) — complementary edge masks the effect
  *                                      hands its two draws (Segue::Masked)
  *
  * A policy defining face_offset must define face_phase; face_fade_frac is
@@ -463,15 +463,15 @@ struct GoldConvergence : Base {
 /**
  * @brief Stochastic ownership dissolve: each wireframe edge shows exactly one
  * of the two meshes, with the owned fraction tracking the phase.
- * @details The two draws receive complementary PixelMasks (same threshold and
- * salt, opposite invert), so together they rasterize each edge once — a
+ * @details The two draws receive complementary DissolveMasks (same threshold
+ * and salt, opposite invert), so together they rasterize each edge once — a
  * two-mesh transition costs one wireframe's draw per frame instead of two,
  * which is what keeps heavy-pair crossfades inside one display window. Owned
  * edges draw at full opacity; the dissolve percept is the spatial mix ratio,
  * blurred by POV persistence. The salt folds a frame counter into the
  * per-transition seed so the pattern re-rolls every frame (temporal dither).
  * Unlike the other policies this one partitions rasterizer work (see
- * PixelMask) rather than fragments in the shader; effects pass the masks to
+ * DissolveMask) rather than fragments in the shader; effects pass the masks to
  * Plot::Mesh::draw's edge-list overload themselves. Only that path takes a
  * mask, so a solid-mesh pair cannot dissolve.
  */
@@ -485,14 +485,14 @@ struct Dissolve : Base {
    * @brief The two halves of one frame's ownership split.
    */
   struct MaskPair {
-    PixelMask incoming; /**< Mask the incoming mesh's draw takes. */
-    PixelMask outgoing; /**< Its complement, for the outgoing mesh's draw. */
+    DissolveMask incoming; /**< Mask the incoming mesh's draw takes. */
+    DissolveMask outgoing; /**< Its complement, for the outgoing mesh's draw. */
   };
 
   /**
    * @brief Builds both halves of one frame's ownership split.
    * @param phase Transition phase in [0, 1]; the incoming mesh owns this
-   *        fraction of the pixels, the outgoing mesh the complement.
+   *        fraction of the edges, the outgoing mesh the complement.
    * @param frame Monotonic frame counter (temporal dither; never wall time).
    * @return The complementary pair.
    * @details The masks partition only when they share a threshold, and
@@ -504,10 +504,10 @@ struct Dissolve : Base {
     const uint32_t thr =
         static_cast<uint32_t>(hs::clamp(phase, 0.0f, 1.0f) * 65536.0f);
     const uint32_t salt = frame * 0x9E3779B9u ^ seed;
-    return {PixelMask{thr, salt, false}, PixelMask{thr, salt, true}};
+    return {DissolveMask{thr, salt, false}, DissolveMask{thr, salt, true}};
   }
   /** @brief Overlapping schedule, fixed at the full fade window: the two masks
-   * partition the pixels only while both meshes are on the timeline, so a
+   * partition the edges only while both meshes are on the timeline, so a
    * shorter overlap would leave the complement unlit (the masks keep the cost
    * at one mesh). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
