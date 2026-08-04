@@ -1227,7 +1227,7 @@ inline void test_mesh_dissolve_masks_partition_edges() {
   Segue::Dissolve dissolve;
   dissolve.retarget(Y_AXIS);
 
-  auto drawn_set = [&](const PixelMask &mask) {
+  auto drawn_set = [&](const DissolveMask &mask) {
     std::vector<bool> seen(num_edges, false);
     auto shade = [&](const Vector &, Fragment &f) {
       const int ei = static_cast<int>(f.v2);

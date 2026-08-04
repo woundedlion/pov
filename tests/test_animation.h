@@ -1676,33 +1676,33 @@ inline void test_sequential_segue_never_overlaps_sprites() {
 }
 
 /**
- * @brief Verifies Segue::Dissolve's complementary masks partition the canvas:
- *        every pixel is owned by exactly one of the two meshes, and the
+ * @brief Verifies Segue::Dissolve's complementary masks partition the key
+ *        domain: every key is owned by exactly one of the two meshes, and the
  *        incoming share tracks the phase.
  * @details The partition is what caps a two-mesh transition at one mesh's scan
- *          cost, so a mask pair that double-covered or dropped pixels would
+ *          cost, so a mask pair that double-covered or dropped keys would
  *          both corrupt the image and double the frame. Each phase's 2048
- *          pixels report through one violation counter rather than per-pixel
- *          assertions: per-pixel HS_EXPECTs would put ~10k assertions into the
+ *          keys report through one violation counter rather than per-key
+ *          assertions: per-key HS_EXPECTs would put ~10k assertions into the
  *          module's floor and leave the floor gate blind to every other case in
  *          the module being deleted.
  */
-inline void test_dissolve_segue_masks_partition_the_canvas() {
-  constexpr int W = 64, H = 32;
+inline void test_dissolve_segue_masks_partition_keys() {
+  constexpr int KA = 64, KB = 32;
   Segue::Dissolve dissolve;
   for (float phase : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
     auto masks = dissolve.mask_pair(phase, 7u);
     int owned_in = 0;
     int both_or_neither = 0;
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x) {
-        bool a = masks.incoming.owns(x, y), b = masks.outgoing.owns(x, y);
+    for (int kb = 0; kb < KB; ++kb)
+      for (int ka = 0; ka < KA; ++ka) {
+        bool a = masks.incoming.owns(ka, kb), b = masks.outgoing.owns(ka, kb);
         both_or_neither += a == b;
         owned_in += a ? 1 : 0;
       }
     HS_EXPECT_EQ(both_or_neither, 0);
     // Hash spread is not perfectly uniform, so allow a few percent of slack.
-    float share = static_cast<float>(owned_in) / (W * H);
+    float share = static_cast<float>(owned_in) / (KA * KB);
     HS_EXPECT_NEAR(share, phase, 0.05f);
   }
 }
@@ -3122,7 +3122,7 @@ inline int run_animation_tests() {
   test_crossfade_segue_clamps_fade_to_half_duration();
   test_crossfade_segue_overlap_is_configurable();
   test_sequential_segue_never_overlaps_sprites();
-  test_dissolve_segue_masks_partition_the_canvas();
+  test_dissolve_segue_masks_partition_keys();
   test_dissolve_segue_reseeds_per_frame_and_transition();
   test_segue_base_hooks_are_identity();
   test_segue_visible_gate_culls_only_dark_phases();

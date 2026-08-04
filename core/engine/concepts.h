@@ -230,7 +230,8 @@ using CullEdgePredRef =
 
 /**
  * @brief Deterministic ownership mask for dissolve transitions.
- * @details The wireframe path (Plot::Mesh::draw's edge-list overload) keys
+ * @details Ownership is hashed from an integer key pair, not from a pixel
+ * coordinate. The wireframe path (Plot::Mesh::draw's edge-list overload) keys
  * owns() on an edge's endpoint indices and skips an unowned edge before any of
  * its geometry work; no solid-mesh scan consumes a mask. Two draws with the same threshold/salt
  * and opposite `invert` partition the domain exactly (every element owned by
@@ -238,14 +239,20 @@ using CullEdgePredRef =
  * rasterize cost per frame. The salt must derive from frame counters/seeds,
  * never wall time: the mask is part of the sim/device parity surface.
  */
-struct PixelMask {
+struct DissolveMask {
   uint32_t threshold; /**< Owned fraction in [0, 65536]. */
   uint32_t salt;      /**< Per-frame/per-transition hash salt. */
-  bool invert; /**< True owns the complement (pixels at/above threshold). */
+  bool invert; /**< True owns the complement (elements at/above threshold). */
 
-  bool owns(int x, int y) const {
-    uint32_t h = static_cast<uint32_t>(x) * 0x9E3779B1u ^
-                 static_cast<uint32_t>(y) * 0x85EBCA77u ^ salt;
+  /**
+   * @brief Ownership of the element identified by the key pair (a, b).
+   * @param a,b Key components; order-sensitive. The only consumer passes an
+   *        edge's endpoint indices, emitting each edge once with one
+   *        orientation.
+   */
+  bool owns(int a, int b) const {
+    uint32_t h = static_cast<uint32_t>(a) * 0x9E3779B1u ^
+                 static_cast<uint32_t>(b) * 0x85EBCA77u ^ salt;
     h *= 0x27D4EB2Fu;
     h ^= h >> 15;
     return ((h & 0xFFFFu) < threshold) != invert;

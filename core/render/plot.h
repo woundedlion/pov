@@ -3828,16 +3828,16 @@ struct Mesh {
    * @param edges Precomputed unique edge list.
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader.
-   * @param mask Optional dissolve ownership mask (see PixelMask), keyed on the
-   *        edge's endpoint indices; an unowned edge is skipped before any of
-   *        its geometry work, so two complementary masks split one wireframe's
-   *        cost across the two meshes of a transition.
+   * @param mask Optional dissolve ownership mask (see DissolveMask), keyed on
+   *        the edge's endpoint indices; an unowned edge is skipped before any
+   *        of its geometry work, so two complementary masks split one
+   *        wireframe's cost across the two meshes of a transition.
    */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void
   draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
        const ArenaVector<Edge> &edges, FragmentShaderFn fragment_shader,
-       VertexShaderRef vertex_shader = {}, const PixelMask *mask = nullptr) {
+       VertexShaderRef vertex_shader = {}, const DissolveMask *mask = nullptr) {
     for (size_t ei = 0; ei < edges.size(); ++ei) {
       if (mask && !mask->owns(edges[ei].u, edges[ei].v))
         continue;
