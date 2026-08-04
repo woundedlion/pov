@@ -1080,7 +1080,9 @@ private:
  * @brief Pre-baked 256-entry color/alpha LUT allocated in an arena.
  * @details Stores parallel Pixel and Q16-alpha tables with lerp
  * interpolation. Not a Palette subclass — call get(t) directly for
- * zero-overhead lookups.
+ * zero-overhead lookups. A copy is a non-owning handle onto the source's
+ * arena storage: rebake() through any copy writes into every alias. Use
+ * clone_from() for an independent LUT.
  */
 class BakedPalette {
 public:
@@ -1293,7 +1295,9 @@ inline float dot_key(float d) {
  * @param w Blend weight.
  * @details Weights at or beyond an endpoint alias that endpoint's LUT storage
  * (bitwise-exact, no allocation), so crossfade boundaries are exact by
- * construction; only 0 < w < 1 bakes a blended LUT into the arena.
+ * construction; only 0 < w < 1 bakes a blended LUT into the arena. @p dst is
+ * therefore read-only afterwards — rebaking it would overwrite the endpoint it
+ * aliases.
  */
 inline void bake_palette_blend(BakedPalette &dst, Arena &arena,
                                const BakedPalette &from, const BakedPalette &to,
