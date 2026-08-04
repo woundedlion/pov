@@ -2119,7 +2119,7 @@ inline const Case *all_cases(int &n) {
        "(stop.first >= 0.0f && stop.first <= 1.0f) Gradient stop position "
        "out of [0,1]"},
       {"gradient_stops_unsorted", case_gradient_stops_unsorted, "color.h",
-       "(stop.first >= prevCheck) Gradient stops must be sorted ascending"},
+       "(stop.first >= prev_check) Gradient stops must be sorted ascending"},
       {"random_timer_inverted_range", case_random_timer_inverted_range,
        "timers.h",
        "(min >= 0 && min <= max) "},
