@@ -87,10 +87,16 @@ inline void test_centered_sector_angle_matches_wrap() {
     float sector = 2.0f * PI_F / sides;
     float reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
     for (float angle : angles) {
+      const float folded =
+          SDF::centered_sector_angle(angle, sector, reciprocal_sector);
       float expected = wrap(angle + sector * 0.5f, sector) - sector * 0.5f;
-      HS_EXPECT_NEAR(
-          SDF::centered_sector_angle(angle, sector, reciprocal_sector),
-          expected, 1e-5f);
+      HS_EXPECT_NEAR(folded, expected, 1e-5f);
+      // Independent of both folds: the result lands in the centered sector and
+      // differs from the input by a whole number of sectors.
+      HS_EXPECT_LE(folded, sector * 0.5f + 1e-5f);
+      HS_EXPECT_GE(folded, -sector * 0.5f - 1e-5f);
+      const float turns = (angle - folded) / sector;
+      HS_EXPECT_NEAR(turns, std::round(turns), 1e-4f);
     }
   }
 }
@@ -1437,6 +1443,10 @@ inline void test_smooth_union_blends_inside_band() {
   HS_EXPECT_NEAR(soft, std::min(dA, dB) - m, 1e-4f);
   HS_EXPECT_LT(soft, std::min(dA, dB) - 1e-4f);
   HS_EXPECT_NEAR(std::min(dA, dB) - soft, m, 1e-4f);
+  // Independent of the cubic: the smooth min never rises above the hard min,
+  // and k/6 is the deepest it can dip below it anywhere.
+  HS_EXPECT_LE(soft, std::min(dA, dB) + 1e-5f);
+  HS_EXPECT_GE(soft, std::min(dA, dB) - k * (1.0f / 6.0f) - 1e-5f);
 
   // Outside the band the blend vanishes and collapses to the hard min.
   Vector q = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
@@ -1586,6 +1596,10 @@ inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
   HS_EXPECT_NEAR(out[0].first, -10.0f - pad, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 12.0f + pad, 1e-4f);
+  // Independent of the pad formula: the weld must cover both raw spans and
+  // widen past their union in both directions.
+  HS_EXPECT_LT(out[0].first, -10.0f);
+  HS_EXPECT_GT(out[0].second, 12.0f);
 }
 
 /**

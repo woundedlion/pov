@@ -622,6 +622,12 @@ struct FaceTopoRecord {
 /**
  * @brief Recomputes a face's canonical key and asks the classifier for its base
  *        topology hash.
+ * @details The interior angle uses the classifier's own formulation (unnormalized
+ *   edge dot over the length product, fast_acos, rounded to whole degrees) on
+ *   purpose: a normalize-first variant lands on the other side of a degree
+ *   boundary on relaxed meshes, which would split classes the classifier merges
+ *   without either result being wrong. The key's identity, the neighbour
+ *   canonicalization and the class partition stay independent.
  */
 inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
                                        const uint16_t *idx, int count) {
@@ -636,9 +642,13 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
       const Vector &prev = mesh.vertices[idx[(k - 1 + count) % count]];
       const Vector &curr = mesh.vertices[idx[k]];
       const Vector &next = mesh.vertices[idx[(k + 1) % count]];
-      Vector v1 = (prev - curr).normalized();
-      Vector v2 = (next - curr).normalized();
-      rec.angles[k] = (int)std::round(angle_between(v1, v2) * 180.0f / PI_F);
+      const Vector e1 = prev - curr;
+      const Vector e2 = next - curr;
+      const float m1 = dot(e1, e1), m2 = dot(e2, e2);
+      float ang = 0.0f;
+      if (m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ)
+        ang = fast_acos(hs::clamp(dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f));
+      rec.angles[k] = static_cast<int>(std::round(ang * 180.0f / PI_F));
     }
     std::sort(rec.angles, rec.angles + count);
   }
@@ -671,6 +681,8 @@ inline uint64_t topo_key_id(const FaceTopoRecord &rec) {
   return fnv1a64(rec.angles, sizeof(rec.angles[0]) * rec.count, h);
 }
 
+/** Upper bound on the dense topology ids one roster solid can carry. */
+inline constexpr int MAX_TOPO_CLASSES = 256;
 /** Slots in the collision sweep's hash table; a power of two. */
 inline constexpr int TOPO_HASH_SLOTS = 8192;
 /** Faces the collision sweep holds per mesh. */
@@ -717,13 +729,22 @@ struct TopoHashTable {
  *          class. Builds every roster solid and sweeps the pre-fold hash
  *          (count + sorted angles) and the neighbour-folded hash the topology
  *          ids are actually derived from, asserting each maps to one key.
+ *
+ *          The reference fold above is not the classifier, so it is also run
+ *          against the real classify_faces_by_topology output: within each mesh
+ *          the production ids and the reference keys must induce the SAME
+ *          partition of faces, in both directions. Agreement between the hash
+ *          primitives alone would survive a classifier that wired its stages
+ *          up differently or skipped the fold entirely.
  */
 inline void test_classify_faces_roster_hash_collision_free() {
   static TopoHashTable pre_fold;
   static TopoHashTable folded;
   static uint32_t face_hashes[MAX_SWEEP_FACES];
   static uint64_t face_keys[MAX_SWEEP_FACES];
+  static uint64_t folded_keys[MAX_SWEEP_FACES];
   int swept_meshes = 0;
+  int classified_meshes = 0;
 
   for (std::span<const Solids::Entry> reg : Solids::all_registries()) {
     for (const Solids::Entry &entry : reg) {
@@ -769,17 +790,63 @@ inline void test_classify_faces_roster_hash_collision_free() {
           neighbor_keys[n_neighbors++] = face_keys[neighbor];
         }
         std::sort(neighbor_keys, neighbor_keys + n_neighbors);
+        folded_keys[f] =
+            fnv1a64(neighbor_keys, sizeof(neighbor_keys[0]) * n_neighbors,
+                    face_keys[f]);
         folded.insert(
             MeshOps::fold_face_topology_hash(face_hashes[f], neighbor_acc),
-            fnv1a64(neighbor_keys, sizeof(neighbor_keys[0]) * n_neighbors,
-                    face_keys[f]));
+            folded_keys[f]);
         he_off += count;
       }
       ++swept_meshes;
+
+      // Run the real classifier and require it to induce the same partition.
+      // `c` held only the half-edge mesh, which is dead now, so it backs the
+      // classifier scratch; topology grows into `a`, where the mesh lives.
+      Arena scratch_a(mesh_arena_c, sizeof(mesh_arena_c) / 2);
+      Arena scratch_b(mesh_arena_c + sizeof(mesh_arena_c) / 2,
+                      sizeof(mesh_arena_c) / 2);
+      MeshOps::classify_faces_by_topology(mesh, scratch_a, scratch_b, a);
+      HS_EXPECT_SIZE_OR_RETURN(mesh.topology, F);
+
+      // Dense ids, so a per-id slot table is enough for one direction; the
+      // class count is small, so the reverse direction is a linear scan.
+      uint64_t id_key[MAX_TOPO_CLASSES];
+      bool id_used[MAX_TOPO_CLASSES] = {};
+      int classes = 0;
+      for (size_t f = 0; f < F; ++f) {
+        const int id = mesh.topology[f];
+        HS_CONTEXT(entry.name, static_cast<long long>(f));
+        HS_EXPECT_TRUE(id >= 0 && id < MAX_TOPO_CLASSES);
+        if (id < 0 || id >= MAX_TOPO_CLASSES)
+          continue;
+        if (!id_used[id]) {
+          id_used[id] = true;
+          id_key[id] = folded_keys[f];
+          ++classes;
+          continue;
+        }
+        // Same production class must mean the same reference topology.
+        HS_EXPECT_EQ(id_key[id], folded_keys[f]);
+      }
+      for (size_t f = 0; f < F; ++f) {
+        HS_CONTEXT(entry.name, static_cast<long long>(f));
+        int matching = -1;
+        for (int id = 0; id < MAX_TOPO_CLASSES; ++id)
+          if (id_used[id] && id_key[id] == folded_keys[f]) {
+            matching = id;
+            break;
+          }
+        // Same reference topology must mean the same production class.
+        HS_EXPECT_EQ(matching, static_cast<int>(mesh.topology[f]));
+      }
+      HS_EXPECT_GT(classes, 0);
+      ++classified_meshes;
     }
   }
 
   HS_EXPECT_EQ(swept_meshes, Solids::NUM_ENTRIES);
+  HS_EXPECT_EQ(classified_meshes, swept_meshes);
   HS_EXPECT_TRUE(pre_fold.n > 0 && folded.n > 0);
 }
 
