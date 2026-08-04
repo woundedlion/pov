@@ -214,8 +214,9 @@ already has.
 `Pixel::ChromaticShift` declares `segment_margin = 3` (its +1/+2/+3 column taps
 leave the plotted position) and stays `crosses_segments = false` — 3 columns of
 padding, not a full-canvas render. `MeshFeedback` is unbounded and skips this
-tier. No roster effect uses a margin-declaring filter today, so every effect's
-clip margin is 1.
+tier. The only margin-declaring filters a roster effect uses today are the
+±1 splatters (`Screen::AntiAlias`, `Screen::DirectAntiAliasSink`), which the
+ClipRegion default already covers, so every effect's clip margin is 1.
 
 ---
 
@@ -274,8 +275,8 @@ Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
   override) and the `Pipeline::any_crosses_segments` OR-fold — `true` for the
   MeshFeedback stack, `false` for a non-stateful stack and a `Screen::Trails`
   stack — so a future filter addition can't silently regress the gate. Also pins
-  `segment_margin` (`ChromaticShift == 3`, everything else 0) and the
-  `max_segment_margin` max-fold.
+  `segment_margin` (`ChromaticShift == 3`, the ±1 splatters 1, everything else
+  0) and the `max_segment_margin` max-fold.
 - **Margin wiring** (`test_effect_config_margin`, test_canvas.h): asserts
   `EffectConfig::margin` reaches `ClipRegion::margin` and that a fold of 0 does
   not shrink it below the default. `smoke_one` asserts the roster's clip margin

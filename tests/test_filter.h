@@ -209,15 +209,17 @@ inline void test_crosses_segments_trait_and_fold() {
 
   // segment_margin: the render-bound padding a stage's off-position taps need.
   HS_EXPECT_EQ((Filter::Pixel::ChromaticShift<W>::segment_margin), 3);
-  HS_EXPECT_EQ((Filter::Screen::AntiAlias<W, H>::segment_margin), 0);
+  HS_EXPECT_EQ((Filter::Screen::AntiAlias<W, H>::segment_margin), 1);
+  HS_EXPECT_EQ((Filter::Screen::Blur<W, H>::segment_margin), 1);
+  HS_EXPECT_EQ((Filter::Screen::DirectAntiAliasSink<W, H>::segment_margin), 1);
   HS_EXPECT_EQ((Filter::World::Orient::segment_margin), 0);
   HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::segment_margin), 0);
 
   // max_segment_margin fold: empty pipeline, plain stack, and the max over a
   // chain carrying ChromaticShift as head and as tail.
   HS_EXPECT_EQ((Pipeline<W, H>::max_segment_margin), 0);
-  HS_EXPECT_EQ((PlainStack::max_segment_margin), 0);
-  HS_EXPECT_EQ((MeshStack::max_segment_margin), 0);
+  HS_EXPECT_EQ((PlainStack::max_segment_margin), 1);
+  HS_EXPECT_EQ((MeshStack::max_segment_margin), 1);
   HS_EXPECT_EQ(
       (Pipeline<W, H, Filter::Pixel::ChromaticShift<W>>::max_segment_margin),
       3);

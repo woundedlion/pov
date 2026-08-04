@@ -1280,6 +1280,8 @@ namespace Screen {
 HS_O3_BEGIN
 template <int W, int H> class AntiAlias : public Is2D {
 public:
+  static constexpr int segment_margin = 1;
+
   /**
    * @brief Splats a sub-pixel sample across its four nearest pixel neighbors.
    * @tparam PassFnT Downstream 2D callback type.
@@ -1360,7 +1362,8 @@ template <int W, int H> class DirectAntiAliasSink : public Is2D {
 public:
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_reads_outside_band = false;
-  static constexpr int max_segment_margin = 0;
+  static constexpr int segment_margin = 1;
+  static constexpr int max_segment_margin = segment_margin;
   static constexpr bool has_world_cull = false;
   static constexpr bool has_world_stage = false;
   static constexpr bool direct_raster_path = true;
@@ -1658,6 +1661,8 @@ private:
  */
 template <int W, int H> class Blur : public Is2D {
 public:
+  static constexpr int segment_margin = 1;
+
   /**
    * @brief Constructs a blur with the given initial strength.
    * @param factor Blur strength in [0, 1] (0 = identity, 1 = full Gaussian).
