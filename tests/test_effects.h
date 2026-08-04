@@ -4289,18 +4289,18 @@ inline void test_mindsplatter_emit_phase_wrapped() {
 struct FlybyWhiteBox {
   using FB = Flyby<DEFAULT_W, DEFAULT_H>;
   static float noise_time(const FB &fb) { return fb.noise_time; }
-  static float time_period() { return FB::TIME_PERIOD; }
   static float sin_phase(const FB &fb) { return fb.sin_phase; }
   static float drift_phase(const FB &fb) { return fb.drift_phase; }
 };
 
 /**
- * @brief Verifies Flyby's noise-time stays in [0, TIME_PERIOD) and both trig
- *        phases stay in [0, 2pi) across frames.
- * @details draw_frame wraps noise_time by fmodf(., TIME_PERIOD) and sin/drift
- *          phase by fmodf(., 2pi); a dropped wrap freezes the field (ULP) or
- *          bands fast_sinf range reduction. The preset Lerp drives Speed (and
- *          Drift scales the cos phase), so the accumulators must stay bounded.
+ * @brief Verifies Flyby's noise-time stays in [0, STEREO_NOISE_TIME_PERIOD)
+ *        and both trig phases stay in [0, 2pi) across frames.
+ * @details draw_frame wraps noise_time by fmodf(., STEREO_NOISE_TIME_PERIOD)
+ *          and sin/drift phase by fmodf(., 2pi); a dropped wrap freezes the
+ *          field (ULP) or bands fast_sinf range reduction. The preset Lerp
+ *          drives Speed (and Drift scales the cos phase), so the accumulators
+ *          must stay bounded.
  */
 inline void test_flyby_phase_wrapped() {
   using WB = FlybyWhiteBox;
@@ -4309,7 +4309,7 @@ inline void test_flyby_phase_wrapped() {
   WB::FB fb;
   fb.init();
 
-  const float period = WB::time_period();
+  const float period = STEREO_NOISE_TIME_PERIOD;
   const float two_pi = 2.0f * PI_F;
   const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
   for (int f = 0; f < frames; ++f) {
@@ -4336,7 +4336,6 @@ inline void test_flyby_phase_wrapped() {
  */
 struct Liquid2DWhiteBox {
   using L2 = Liquid2D<DEFAULT_W, DEFAULT_H>;
-  static float time_period() { return L2::TIME_PERIOD; }
   static float accumulated_time(const L2 &l2) { return l2.accumulated_time; }
   static float sin_phase(const L2 &l2) { return l2.sin_phase; }
   static float cos_phase(const L2 &l2) { return l2.cos_phase; }
@@ -4353,12 +4352,13 @@ struct Liquid2DWhiteBox {
 };
 
 /**
- * @brief Verifies Liquid2D's noise-time stays in [0, TIME_PERIOD) and all three
- *        trig phases stay in [0, 2pi) once wrapped.
- * @details draw_frame wraps accumulated_time by fmodf(., TIME_PERIOD) and the
- *          sin/cos/cycle phases by fmodf(., 2pi); a dropped wrap freezes the
- *          field (ULP) or bands fast_sinf range reduction. Seeding every
- *          accumulator past its ceiling makes a removed fmodf fail on frame 0.
+ * @brief Verifies Liquid2D's noise-time stays in [0, STEREO_NOISE_TIME_PERIOD)
+ *        and all three trig phases stay in [0, 2pi) once wrapped.
+ * @details draw_frame wraps accumulated_time by
+ *          fmodf(., STEREO_NOISE_TIME_PERIOD) and the sin/cos/cycle phases by
+ *          fmodf(., 2pi); a dropped wrap freezes the field (ULP) or bands
+ *          fast_sinf range reduction. Seeding every accumulator past its
+ *          ceiling makes a removed fmodf fail on frame 0.
  */
 inline void test_liquid2d_phase_wrapped() {
   using WB = Liquid2DWhiteBox;
@@ -4367,7 +4367,7 @@ inline void test_liquid2d_phase_wrapped() {
   WB::L2 l2;
   l2.init();
 
-  const float period = WB::time_period();
+  const float period = STEREO_NOISE_TIME_PERIOD;
   const float two_pi = 2.0f * PI_F;
   WB::seed_accumulators(l2, period * 4.0f);
 
