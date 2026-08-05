@@ -135,10 +135,9 @@ inline void test_filter_trait_inheritance() {
                 "Feedback keeps history");
   static_assert(has_cull_edge<Filter::World::Orient>);
   static_assert(has_cull_edge<Filter::World::Replicate<W>>);
-  using Ordered =
-      Pipeline<W, H, Filter::World::Replicate<W>,
-               Filter::Screen::AntiAlias<W, H>,
-               Filter::Pixel::ChromaticShift<W>>;
+  using Ordered = Pipeline<W, H, Filter::World::Replicate<W>,
+                           Filter::Screen::AntiAlias<W, H>,
+                           Filter::Pixel::ChromaticShift<W>>;
   static_assert(sizeof(Ordered) > 0,
                 "World/Screen/Pixel domain order must compile");
 }
@@ -202,8 +201,9 @@ inline void test_crosses_segments_trait_and_fold() {
   // Compile-time form.
   static_assert(MeshStack::any_crosses_segments,
                 "MeshFeedback pipeline must render full-frame per worker");
-  static_assert(MeshStack::crosses_segments == MeshStack::any_crosses_segments,
-                "Pipeline::crosses_segments must answer the fold, not the head");
+  static_assert(
+      MeshStack::crosses_segments == MeshStack::any_crosses_segments,
+      "Pipeline::crosses_segments must answer the fold, not the head");
   static_assert(!PlainStack::any_crosses_segments,
                 "non-stateful pipeline must keep the segment clipping win");
 
@@ -285,10 +285,8 @@ inline void test_history_domain_folds() {
 inline void test_pipeline_sink_is_2d() {
   HS_EXPECT_TRUE((Pipeline<32, 32>::is_2d));
   HS_EXPECT_FALSE((Pipeline<32, 32>::is_terminal));
-  using Terminal =
-      Pipeline<32, 32, Filter::Pixel::Feedback<32, 32>>;
-  using NonTerminal =
-      Pipeline<32, 32, Filter::Screen::AntiAlias<32, 32>>;
+  using Terminal = Pipeline<32, 32, Filter::Pixel::Feedback<32, 32>>;
+  using NonTerminal = Pipeline<32, 32, Filter::Screen::AntiAlias<32, 32>>;
   static_assert(Terminal::is_terminal);
   static_assert(!NonTerminal::is_terminal);
 }
@@ -1489,9 +1487,7 @@ inline void test_feedback_south_pole_uses_single_physical_sample() {
   style.downsample = 4;
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  auto trail = [](float, float, float) {
-    return Color4(Pixel(0, 0, 0), 0.0f);
-  };
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   {
     Canvas c(fx);
@@ -2605,7 +2601,7 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   trails.set_lifetime(100);
   trails.plot(p2, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
   trails.plot(p3, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
-  HS_EXPECT_EQ(trails.size(), (size_t)Cap);          // [p0, p1, p2, p3] — full
+  HS_EXPECT_EQ(trails.size(), (size_t)Cap); // [p0, p1, p2, p3] — full
 
   int live_drawn = 0;
   bool saw_p0 = false;
@@ -2651,7 +2647,8 @@ inline void test_screen_trails_store_emit_decay() {
   Filter::Screen::Trails<MAXP> trails(/*lifetime=*/3);
   trails.init_storage(arena);
 
-  hs_test::StubEffect fx(W, 8); // flush takes a Canvas& (unused by Screen::Trails)
+  hs_test::StubEffect fx(W,
+                         8); // flush takes a Canvas& (unused by Screen::Trails)
   Canvas c(fx);
 
   // age=1 (0<age<lifetime): forwarded this frame AND stored. The forward
