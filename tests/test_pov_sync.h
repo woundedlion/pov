@@ -1126,10 +1126,11 @@ inline void test_master_beacon_busy_retry() {
  *        not queue a beacon whose tail overruns HALF and trips the emitter's
  *        wire-busy trap on the on-time HALF symbol.
  * @details Drives a master across the beacon-due revolution, resuming its first
- *          post-ZERO tick at a chosen column to model the coast. A start at
- *          W/4 schedules and fully emits the frame before HALF; a start past
- *          the beacon-frame bound is censored — no pulses in the beacon window
- *          and no trap at HALF.
+ *          post-ZERO tick at a chosen column to model the coast. The bound is
+ *          sized from the payload actually encoded, so the window spans many
+ *          columns: the last admissible start emits fully before HALF, one
+ *          column later is censored — no pulses in the beacon window and no
+ *          trap at HALF.
  */
 inline void test_beacon_late_coast() {
   const Config cfg = test_config();
@@ -1154,21 +1155,38 @@ inline void test_beacon_late_coast() {
 
     int pulses = 0;
     for (int32_t c = resume_col; c <= 150; ++c) {
-      const TickActions a =
-          m.tick(epoch1 + static_cast<uint32_t>(c) * COL, nullptr);
+      // Round the column instant up: cycles_per_column() truncates, so a whole
+      // multiple of it lands a column short past ~column 100.
+      const uint32_t at =
+          epoch1 + static_cast<uint32_t>(
+                       (static_cast<uint64_t>(c) * period + 143u) / 144u);
+      const TickActions a = m.tick(at, nullptr);
       if (a.pulse && c >= cfg.W / 4 && c < cfg.W / 2)
         ++pulses;
     }
     return pulses;
   };
 
+  // The rev-1 beacon of effect 0 — the payload the coast above carries.
+  uint8_t digits[5];
+  encode_beacon_digits(0, 1, digits);
+  int32_t digit_sum = 0;
+  for (int i = 0; i < 5; ++i)
+    digit_sum += digits[i];
+  const int32_t last_start = cfg.W / 2 - cfg.beacon_frame_cols(digit_sum) - 1;
+  // Sizing the bound from the payload rather than the all-sevens worst case is
+  // what keeps the window more than one column wide.
+  HS_EXPECT_GT(last_start, cfg.W / 4);
+
   // On-time at the beacon point: the frame schedules and emits fully (proves
   // the beacon is due so the late-start contrast below is meaningful).
   HS_EXPECT_GT(run(cfg.W / 4), 0);
+  // The last admissible start still emits.
+  HS_EXPECT_GT(run(last_start), 0);
   // Late start past the safe bound: censored — no beacon pulses, and the HALF
   // crossing at column 144 schedules without tripping the wire-busy trap (a
   // trap would __builtin_trap the whole suite).
-  HS_EXPECT_EQ(run(cfg.W / 4 + 20), 0);
+  HS_EXPECT_EQ(run(last_start + 1), 0);
 }
 
 /**
@@ -1217,12 +1235,12 @@ inline void test_master_fold_stall_recovers() {
  *        window between the frame's last pulse and the HALF boundary burst.
  * @details Sweeps every column of [W/4, W/2) a masked-ISR coast can resume on,
  *          at the 64-effect roster cap with the widest digit pattern the codec
- *          can encode, and requires each emitted frame's tail to clear
- *          acquire_quiet_cycles before the HALF burst. A closer tail is folded
- *          into the last digit burst by the receiver's gap timeout, consuming
- *          the boundary symbol instead of decoding it. Ticks run at the device's
- *          T0/OVERSAMPLE pacing so the HALF symbol clears its own lateness
- *          censor.
+ *          can encode and again with a narrow one, and requires each emitted
+ *          frame's tail to clear acquire_quiet_cycles before the HALF burst. A
+ *          closer tail is folded into the last digit burst by the receiver's
+ *          gap timeout, consuming the boundary symbol instead of decoding it.
+ *          Ticks run at the device's T0/OVERSAMPLE pacing so the HALF symbol
+ *          clears its own lateness censor.
  */
 inline void test_beacon_tail_quiet() {
   Config cfg = test_config(64);
@@ -1235,20 +1253,22 @@ inline void test_beacon_tail_quiet() {
   const uint32_t step = COL / 8u;
 
   // Resume the master's first post-ZERO tick of the beacon-due revolution at
-  // `resume_col`; return the beacon pulse count and report the cycles between
-  // the frame's last pulse and the first pulse of the HALF burst.
-  auto run = [&](int32_t resume_col, uint32_t *tail_gap) -> int {
+  // `resume_col`, carrying the (index, rev) payload; return the beacon pulse
+  // count and report the cycles between the frame's last pulse and the first
+  // pulse of the HALF burst.
+  auto run = [&](int32_t resume_col, int32_t index, uint32_t rev,
+                 uint32_t *tail_gap) -> int {
     SyncBoard m(cfg);
     const uint32_t t0 = 1000000u;
     m.seed(t0, /*is_master=*/true);
     const uint32_t epoch1 = t0 + 2u * period;
     m.tick(epoch1, nullptr);
     // Drain the ZERO symbol's remaining pulses (columns 2, 4) so the emitter is
-    // idle before the coast, then dial in the worst-case beacon payload.
+    // idle before the coast, then dial in the beacon payload.
     m.tick(epoch1 + 2u * COL, nullptr);
     m.tick(epoch1 + 4u * COL, nullptr);
-    content_mut(m).effect_index = 63;
-    content_mut(m).rev_in_effect = 63;
+    content_mut(m).effect_index = index;
+    content_mut(m).rev_in_effect = rev;
 
     const uint32_t half_at = epoch1 + period;
     int pulses = 0;
@@ -1268,16 +1288,26 @@ inline void test_beacon_tail_quiet() {
     return pulses;
   };
 
-  int emitted = 0;
+  // Revolution 63 of index 63 drives all four data digits to 7 — the widest
+  // frame a full roster can encode.
+  int widest = 0;
+  int narrow = 0;
   for (int32_t c = cfg.W / 4; c < cfg.W / 2; ++c) {
     uint32_t gap = 0;
-    if (run(c, &gap) == 0)
-      continue;
-    ++emitted;
-    HS_EXPECT_GE(gap, cfg.acquire_quiet_cycles());
+    if (run(c, 63, 63, &gap) > 0) {
+      ++widest;
+      HS_EXPECT_GE(gap, cfg.acquire_quiet_cycles());
+    }
+    gap = 0;
+    if (run(c, 0, 1, &gap) > 0) {
+      ++narrow;
+      HS_EXPECT_GE(gap, cfg.acquire_quiet_cycles());
+    }
   }
   // Non-vacuity: the on-time beacon point is still admitted.
-  HS_EXPECT_GT(emitted, 0);
+  HS_EXPECT_GT(widest, 0);
+  // A short payload buys back start columns the worst-case bound censors.
+  HS_EXPECT_GT(narrow, widest);
 }
 
 // ── Master EPOCH train window (§6.3.1) ──────────────────────────────────────
