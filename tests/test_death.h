@@ -65,12 +65,12 @@
 #include <csignal>    // SIGILL — the expected trap signal
 #include <fcntl.h>    // open / O_WRONLY for the /dev/null redirect
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
-#include <unistd.h>   // fork / execv / dup2 / close / _exit — shell-free spawn
+#include <unistd.h> // fork / execv / dup2 / close / _exit — shell-free spawn
 #else
-#include <fcntl.h>    // _O_WRONLY / _O_CREAT / _O_TRUNC for the capture redirect
-#include <io.h>       // _dup / _dup2 / _sopen_s / _close
-#include <process.h>  // _spawnv / _P_WAIT / _getpid — shell-free child spawn
-#include <share.h>    // _SH_DENYNO
+#include <fcntl.h>   // _O_WRONLY / _O_CREAT / _O_TRUNC for the capture redirect
+#include <io.h>      // _dup / _dup2 / _sopen_s / _close
+#include <process.h> // _spawnv / _P_WAIT / _getpid — shell-free child spawn
+#include <share.h>   // _SH_DENYNO
 #include <sys/stat.h> // _S_IREAD / _S_IWRITE for the created capture file
 #endif
 
@@ -84,8 +84,8 @@
  *          children we intentionally crash. kernel32 is linked by default for a
  *          Windows-Clang console build.
  */
-extern "C" __declspec(dllimport) unsigned int __stdcall
-SetErrorMode(unsigned int uMode);
+extern "C" __declspec(dllimport) unsigned int __stdcall SetErrorMode(
+    unsigned int uMode);
 #endif
 
 namespace hs_test {
@@ -627,7 +627,9 @@ inline void case_timeline_pinned_add_on_full_timeline() {
   float sink = 0.0f;
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
-  tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, /*repeat=*/true),
+  tl.add_get(0,
+             Animation::PeriodicTimer(
+                 1, [](Canvas &) {}, /*repeat=*/true),
              opaque(Timeline::Pin::PINNED));
 }
 
@@ -1802,8 +1804,8 @@ inline void case_flywheel_period_zero() {
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
-  const char *name; /**< Case selector matched against HS_DEATH_CASE. */
-  void (*fn)();     /**< The trap-triggering case body to run. */
+  const char *name;       /**< Case selector matched against HS_DEATH_CASE. */
+  void (*fn)();           /**< The trap-triggering case body to run. */
   const char *guard_file; /**< Basename check_fail() logs for the guard that
                                must fire; nothing else counts as a pass. */
   const char *guard_text; /**< Expected "(condition) message" tail of that
@@ -1819,8 +1821,7 @@ struct Case {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
-      {"arena_oom", case_arena_oom, "memory.h",
-       "(false) "},
+      {"arena_oom", case_arena_oom, "memory.h", "(false) "},
       {"arena_zero_size_alloc", case_arena_zero_size_alloc, "memory.h",
        "(size > 0) Arena::allocate: zero-size request"},
       {"arena_bad_alignment", case_arena_bad_alignment, "memory.h",
@@ -1895,8 +1896,7 @@ inline const Case *all_cases(int &n) {
        case_triangular_bitset_unordered_pair, "memory.h",
        "(small >= 0 && small < large && large < MAX_V) "},
       {"timeline_handled_relocation", case_timeline_handled_relocation,
-       "timeline.h",
-       "(!handled) "},
+       "timeline.h", "(!handled) "},
       {"timeline_move_into_live_destination",
        case_timeline_move_into_live_destination, "timeline.h",
        "(!dst.manager) move_into would leak the destination's live animation"},
@@ -1909,8 +1909,7 @@ inline const Case *all_cases(int &n) {
        "(delay <= UINT32_MAX - global_timeline_t) Timeline start frame "
        "overflow"},
       {"timeline_handled_completion", case_timeline_handled_completion,
-       "timeline.h",
-       "(!e.handled || anim->is_canceled()) "},
+       "timeline.h", "(!e.handled || anim->is_canceled()) "},
       {"timeline_pinned_finite_animation",
        case_timeline_pinned_finite_animation, "timeline.h",
        "(!animation.is_finite() || animation.repeats()) pinned animation "
@@ -1919,8 +1918,7 @@ inline const Case *all_cases(int &n) {
        case_timeline_pinned_add_on_full_timeline, "timeline.h",
        "(pin == Pin::UNPINNED) Timeline full, dropped a pinned animation"},
       {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer,
-       "timeline.h",
-       "(!e.handled || anim->is_canceled()) "},
+       "timeline.h", "(!e.handled || anim->is_canceled()) "},
       {"timeline_clear_pinned", case_timeline_clear_pinned, "timeline.h",
        "(!global_timeline_events[i].handled) clear() would destroy a pinned "
        "animation"},
@@ -1937,8 +1935,7 @@ inline const Case *all_cases(int &n) {
        "(slot == front) MeshCarousel segue scheduled before incoming slot "
        "flip"},
       {"timeline_double_construct", case_timeline_double_construct,
-       "timeline.h",
-       "(!global_timeline_live) "},
+       "timeline.h", "(!global_timeline_live) "},
       {"transformer_pool_init_storage_twice",
        case_transformer_pool_init_storage_twice, "transformers.h",
        "(!entities) TransformerPool: init_storage() called twice"},
@@ -1997,8 +1994,7 @@ inline const Case *all_cases(int &n) {
       {"medial_aliases_input", case_medial_aliases_input, "conway.h",
        "(&mesh != &out_a) medial input mesh must not alias output mesh"},
       {"chamfer_collapsed_endpoint", case_chamfer_collapsed_endpoint,
-       "conway.h",
-       "(t >= 0.0f && t < 1.0f) chamfer: t out of [0,1)"},
+       "conway.h", "(t >= 0.0f && t < 1.0f) chamfer: t out of [0,1)"},
       {"snub_collapsed_endpoint", case_snub_collapsed_endpoint, "conway.h",
        "(t >= 0.0f && t < 1.0f) snub: t out of [0,1)"},
       {"conway_empty_mesh", case_conway_empty_mesh, "memory.h",
@@ -2044,8 +2040,7 @@ inline const Case *all_cases(int &n) {
       {"half_edge_zero_side_face", case_half_edge_zero_side_face, "mesh.h",
        "(count > 0) half-edge mesh face has zero sides"},
       {"half_edge_non_manifold_edge", case_half_edge_non_manifold_edge,
-       "mesh.h",
-       "(j - i <= 2) non-manifold edge: >2 half-edges share an edge"},
+       "mesh.h", "(j - i <= 2) non-manifold edge: >2 half-edges share an edge"},
       {"half_edge_inconsistent_winding", case_half_edge_inconsistent_winding,
        "mesh.h",
        "(out.half_edges[a].vertex != out.half_edges[b].vertex) half-edge "
@@ -2099,8 +2094,7 @@ inline const Case *all_cases(int &n) {
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "scan.h",
        "(canvas.width() == W && canvas.height() == H) "},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity,
-       "plot.h",
-       "(large < DEDUP_CAPACITY) "},
+       "plot.h", "(large < DEDUP_CAPACITY) "},
       {"plot_extract_edges_vertex_over_capacity",
        case_plot_extract_edges_vertex_over_capacity, "plot.h",
        "(large < DEDUP_CAPACITY) "},
@@ -2121,11 +2115,9 @@ inline const Case *all_cases(int &n) {
       {"gradient_stops_unsorted", case_gradient_stops_unsorted, "color.h",
        "(stop.first >= prev_check) Gradient stops must be sorted ascending"},
       {"random_timer_inverted_range", case_random_timer_inverted_range,
-       "timers.h",
-       "(min >= 0 && min <= max) "},
+       "timers.h", "(min >= 0 && min <= max) "},
       {"dma_controller_wedged_overrun", case_dma_controller_wedged_overrun,
-       "test_death.h",
-       "(false) DMA channel wedged"},
+       "test_death.h", "(false) DMA channel wedged"},
       {"empty_fn_call", case_empty_fn_call, "inplace_function.h",
        "(vtable != empty) empty hs::inplace_function called"},
       {"effect_registry_duplicate_name", case_effect_registry_duplicate_name,
