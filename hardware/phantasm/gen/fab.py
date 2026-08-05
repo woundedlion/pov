@@ -220,6 +220,10 @@ def run(args, check=True, **kw):
     except subprocess.CalledProcessError as exc:
         sys.stderr.write(exc.stderr or "")
         raise
+    except FileNotFoundError as exc:
+        raise SystemExit(
+            f"kicad-cli not found: {args[0]}; install KiCad, put kicad-cli on "
+            "PATH, or set KICAD_CLI to its full path") from exc
 
 
 class DesignRuleError(ValueError):
