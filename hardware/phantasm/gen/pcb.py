@@ -83,6 +83,31 @@ def mounting_holes(L):
             "H3": (L - d, d), "H4": (L - d, PCB_W - d)}
 
 
+def keepout_rects(L):
+    """All-copper keepout square (screw head) around each mounting hole, as
+    ref -> (min x, min y, max x, max y)."""
+    kr = MOUNTING_KEEPOUT_RADIUS
+    return {ref: (x - kr, y - kr, x + kr, y + kr)
+            for ref, (x, y) in mounting_holes(L).items()}
+
+
+def _boxes_overlap(a, b, tol=1e-6):
+    return (a[0] < b[2] - tol and a[2] > b[0] + tol
+            and a[1] < b[3] - tol and a[3] > b[1] + tol)
+
+
+def keepout_clashes(place, pad_bxs, L):
+    """Refs whose copper lands inside a mounting-hole keepout, as "REF/HOLE"."""
+    keepouts = keepout_rects(L)
+    out = []
+    for ref, (x, y, rot) in sorted(place.items()):
+        mnx, mny, mxx, mxy = _rot_bb(pad_bxs[ref], rot)
+        box = (x + mnx, y + mny, x + mxx, y + mxy)
+        out += [f"{ref}/{hole}" for hole in sorted(keepouts)
+                if _boxes_overlap(box, keepouts[hole])]
+    return out
+
+
 def build_nets(nlroot):
     pad_net = {}            # (ref, pad) -> netname
     names = []
@@ -475,22 +500,32 @@ QUILTER_FIXED = {
 }
 
 
-def _stack(refs, bxs, x0, edge, gap, place):
-    """Place `refs` as a column stacked along Y at left edge x0 (rot 0). Returns
-    (column right-edge x, total stacked height)."""
-    y = 0.0
+def _column_height(refs, bxs, gap):
+    """Y extent of a rot-0 column of `refs` separated by `gap`."""
+    heights = [_rot_bb(bxs[r], 0)[3] - _rot_bb(bxs[r], 0)[1] for r in refs]
+    return sum(heights) + gap * max(0, len(heights) - 1)
+
+
+def _stack(refs, bxs, x0, edge, gap, place, y0=0.0):
+    """Place `refs` as a column stacked along Y from y0 at left edge x0 (rot 0).
+    Returns (column right-edge x, total stacked height)."""
+    y = y0
     w = 0.0
     for ref in refs:
         rb = _rot_bb(bxs[ref], 0)
         place[ref] = (round(edge + x0 - rb[0], 3), round(edge + y - rb[1], 3), 0)
         y += (rb[3] - rb[1]) + gap
         w = max(w, rb[2] - rb[0])
-    return x0 + w, y - gap
+    return x0 + w, y - gap - y0
 
 
 def pack(bxs, width, edge=1.0, gap=1.2):
     """Connectors pinned to the ends + skyline (bottom-left-fill) interior pack.
-    Board WIDTH is fixed; minimise LENGTH. Returns ({ref:(x,y,rot)}, length mm)."""
+    Board WIDTH is fixed; minimise LENGTH. Returns ({ref:(x,y,rot)}, length mm).
+
+    The hub-end mounting-hole keepouts sit at a fixed x, so they seed the skyline;
+    the far-end pair follows the length, so it is reserved as tail length past the
+    rightmost part instead. Either way no part lands under a screw head."""
     usable = width - 2 * edge
     hub = [r for r in HUB_CONNS if r in bxs]
     far = [r for r in FAR_CONNS if r in bxs]
@@ -538,10 +573,20 @@ def pack(bxs, width, edge=1.0, gap=1.2):
                 merged.append(seg)
         return merged
 
+    # 0) hub-end screw heads: block their squares before anything is placed
+    kr = MOUNTING_KEEPOUT_RADIUS
+    for cy in (MOUNTING_HOLE_INSET, width - MOUNTING_HOLE_INSET):
+        yb = max(0.0, cy - kr - edge)
+        yt = min(usable, cy + kr - edge)
+        if yt > yb:
+            sky = reserve(yb, 2 * kr, yt - yb, MOUNTING_HOLE_INSET - kr - edge)
+
     # 1) hub connectors: column at the left edge; reserve it so the interior packs right
     if hub:
-        hubw, hubh = _stack(hub, bxs, 0.0, edge, gap, place)
-        sky = reserve(0.0, hubw + gap, hubh + gap, 0.0)
+        hubh = _column_height(hub, bxs, gap) + gap
+        x0, y0 = best_pos(hubh) or (free_x(0.0, hubh), 0.0)
+        hubw, _ = _stack(hub, bxs, x0, edge, gap, place, y0)
+        sky = reserve(y0, hubw + gap, hubh, 0.0)
 
     # 2) interior parts: Teensy + SMD + jumpers, bottom-left skyline pack
     interior = sorted((r for r in bxs if r not in pinned),
@@ -575,12 +620,17 @@ def pack(bxs, width, edge=1.0, gap=1.2):
     #    gap to the usable width so the last pad keeps board-edge clearance.
     right = max(s[2] for s in sky)
     if far:
-        sumh = sum(_rot_bb(bxs[r], 0)[3] - _rot_bb(bxs[r], 0)[1] for r in far)
+        sumh = _column_height(far, bxs, 0.0)
         fgap = gap
         if len(far) > 1:
             fgap = max(0.6, min(gap, (usable - sumh) / (len(far) - 1)))
         right, _ = _stack(far, bxs, right + gap, edge, fgap, place)
-    return place, round(edge + right + edge, 2)
+
+    # 4) length: enough tail for the far-end screw heads to clear every part
+    extent = max((x + _rot_bb(bxs[ref], rot)[2] for ref, (x, _, rot) in place.items()),
+                 default=edge + right)
+    tail = max(edge, MOUNTING_HOLE_INSET + MOUNTING_KEEPOUT_RADIUS)
+    return place, math.ceil((extent + tail) * 100 - 1e-9) / 100
 
 
 def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
@@ -638,6 +688,10 @@ def main(unplaced=False, force=False):
         OUTFILE = PCB_FILE
         NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm (width <=35mm, R-MECH-6); '
                 'shelf-packed draft, route in Pcbnew')
+
+    clashes = keepout_clashes(PLACE, pad_bxs, L)
+    if clashes:
+        sys.exit("ERROR pads inside a mounting-hole keepout: " + ", ".join(clashes))
 
     HOLES = mounting_holes(L)
     teensy_model_path = "${KIPRJMOD}/../phantasm.pretty/Teensy4.0.wrl" if unplaced else \
@@ -708,8 +762,7 @@ def main(unplaced=False, force=False):
                      f'(xy 0 0) (xy {fmt(L)} 0) '
                      f'(xy {fmt(L)} {fmt(PCB_W)}) (xy 0 {fmt(PCB_W)})))')
         lines.append('\t)')
-    for ref, (x, y) in HOLES.items():
-        r = MOUNTING_KEEPOUT_RADIUS
+    for ref, (kx0, ky0, kx1, ky1) in keepout_rects(L).items():
         lines.append('\t(zone')
         lines.append('\t\t(net 0)')
         lines.append('\t\t(net_name "")')
@@ -725,8 +778,8 @@ def main(unplaced=False, force=False):
         lines.append('\t\t(placement (enabled no) (sheetname ""))')
         lines.append('\t\t(fill (thermal_gap 0.3) (thermal_bridge_width 0.3))')
         lines.append('\t\t(polygon (pts '
-                     f'(xy {fmt(x-r)} {fmt(y-r)}) (xy {fmt(x+r)} {fmt(y-r)}) '
-                     f'(xy {fmt(x+r)} {fmt(y+r)}) (xy {fmt(x-r)} {fmt(y+r)})))')
+                     f'(xy {fmt(kx0)} {fmt(ky0)}) (xy {fmt(kx1)} {fmt(ky0)}) '
+                     f'(xy {fmt(kx1)} {fmt(ky1)}) (xy {fmt(kx0)} {fmt(ky1)})))')
         lines.append('\t)')
     esc_note = NOTE.replace("\\", "\\\\").replace('"', '\\"')
     lines.append(f'\t(gr_text "{esc_note}"'

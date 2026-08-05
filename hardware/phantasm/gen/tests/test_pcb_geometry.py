@@ -21,5 +21,41 @@ class FootprintBoundsTests(unittest.TestCase):
             self.assertAlmostEqual(actual, expected)
 
 
+class MountingKeepoutTests(unittest.TestCase):
+    """Nothing may be packed onto a mounting hole: the screw head sits there."""
+
+    BOXES = {
+        "J1": (-1.8, -3.0, 1.8, 3.0),
+        "J4": (-1.8, -2.0, 1.8, 2.0),
+        "J2": (-1.8, -4.3, 1.8, 4.3),
+        "J3A": (-1.8, -4.3, 1.8, 4.3),
+        "J3B": (-1.8, -4.3, 1.8, 4.3),
+        "U_MCU": (-24.2, -9.5, 24.2, 9.5),
+        "C_IN": (-1.5, -0.8, 1.5, 0.8),
+        "R1": (-1.5, -0.8, 1.5, 0.8),
+    }
+
+    def test_pack_places_every_part_clear_of_every_hole(self):
+        place, length = pcb.pack(dict(self.BOXES), pcb.PCB_W)
+        self.assertEqual(sorted(place), sorted(self.BOXES))
+        self.assertEqual(pcb.keepout_clashes(place, self.BOXES, length), [])
+
+    def test_packed_length_reserves_a_tail_for_the_far_holes(self):
+        place, length = pcb.pack(dict(self.BOXES), pcb.PCB_W)
+        extent = max(x + pcb._rot_bb(self.BOXES[ref], rot)[2]
+                     for ref, (x, _, rot) in place.items())
+        self.assertGreaterEqual(length - extent,
+                                pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_RADIUS)
+
+    def test_clash_report_names_the_hole(self):
+        place = {"J1": (pcb.MOUNTING_HOLE_INSET, pcb.MOUNTING_HOLE_INSET, 0)}
+        self.assertEqual(pcb.keepout_clashes(place, self.BOXES, 40.0), ["J1/H1"])
+
+    def test_a_part_flush_with_the_keepout_edge_is_not_a_clash(self):
+        edge = pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_RADIUS
+        place = {"C_IN": (edge + 1.5, pcb.MOUNTING_HOLE_INSET, 0)}
+        self.assertEqual(pcb.keepout_clashes(place, self.BOXES, 40.0), [])
+
+
 if __name__ == "__main__":
     unittest.main()
