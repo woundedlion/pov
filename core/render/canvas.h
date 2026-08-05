@@ -16,6 +16,9 @@
 #include "engine/constants.h"
 #include "color/color.h"
 #include <array>
+#ifdef HS_TEST_BUILD
+#include <cstdlib>
+#endif
 
 /**
  * @file canvas.h
@@ -980,9 +983,14 @@ private:
     HS_PROFILE(canvas_buffer_wait);
     if (effect.buffer_free())
       return;
+#ifdef HS_TEST_BUILD
+    const unsigned long WATCHDOG_US = buffer_free_watchdog_us();
+#else
+    constexpr unsigned long WATCHDOG_US = BUFFER_FREE_WATCHDOG_US;
+#endif
     const unsigned long wait_start = micros();
     while (!effect.buffer_free()) {
-      HS_CHECK(micros() - wait_start < BUFFER_FREE_WATCHDOG_US,
+      HS_CHECK(micros() - wait_start < WATCHDOG_US,
                "buffer_free watchdog timeout — display ISR stalled");
 #ifdef HS_TEST_BUILD
       s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
@@ -1041,6 +1049,34 @@ private:
    *  revolution is tens-to-hundreds of ms even at low RPM; 2 s is well above
    *  that, so only a genuinely stalled display ISR trips it. */
   static constexpr unsigned long BUFFER_FREE_WATCHDOG_US = 2000000UL;
+
+#ifdef HS_TEST_BUILD
+  /**
+   * @brief Test-only watchdog bound, overridable via HS_BUFFER_FREE_WATCHDOG_US.
+   * @return The bound in µs; BUFFER_FREE_WATCHDOG_US unless the environment
+   *         supplies a positive override.
+   * @details The watchdog is a trap, so tripping it kills the whole test
+   *          process rather than failing one test; a sanitizer job whose
+   *          threads deschedule past the shipping bound raises it here. Read
+   *          once per process, outside the spin loop.
+   */
+  static unsigned long buffer_free_watchdog_us() {
+    static const unsigned long RESOLVED = [] {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+      const char *e = std::getenv("HS_BUFFER_FREE_WATCHDOG_US");
+#pragma clang diagnostic pop
+      if (e) {
+        const unsigned long v = std::strtoul(e, nullptr, 10);
+        if (v > 0)
+          return v;
+      }
+      return BUFFER_FREE_WATCHDOG_US;
+    }();
+    return RESOLVED;
+  }
+#endif
+
   Effect &effect; /**< Reference to the owning Effect instance. */
 #ifdef HS_TEST_BUILD
   inline static std::atomic<unsigned long> s_buffer_free_spins{0};
