@@ -396,6 +396,64 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
 }
 
 /**
+ * @brief Emit the shell expand and snub share: a shrunk face per source face,
+ *   a face per source-vertex orbit, then a caller-shaped face group per edge.
+ * @tparam CornerFactory Callable (size_t face_index, const Vector &centroid)
+ *   returning that face's corner position function for emit_shrunk_face; the
+ *   returned callable must own the per-face state it needs.
+ * @tparam EdgeFn Callable (const uint16_t *he_to_vert_idx, uint16_t he_idx,
+ *   const HalfEdge &he) appending one undirected edge's faces.
+ * @param mesh Source mesh supplying the vertex positions.
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param out_mesh Destination mesh; its pools are bound by the caller.
+ * @param scratch Arena for the index buffers, LIFO-restored on return. Expand
+ *   draws them from its target arena and snub from its temp arena, so which
+ *   arena feeds them is the caller's to pick.
+ * @param V Source vertex count.
+ * @param I Source half-edge/index count.
+ * @param corner_factory Builds a face's corner position function.
+ * @param edge_fn Appends one edge's faces.
+ * @details The three passes run in this order for both operators, and every
+ *   output vertex and face index depends on it.
+ */
+template <typename CornerFactory, typename EdgeFn>
+inline void
+emit_expanded_shell(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh,
+                    PolyMesh &out_mesh, Arena &scratch, size_t V, size_t I,
+                    CornerFactory &&corner_factory, EdgeFn &&edge_fn) {
+  ScratchScope scratch_guard(scratch);
+
+  // he->new-vertex map; unset = HE_NONE.
+  uint16_t *he_to_vert_idx = scratch.allocate_n<uint16_t>(I);
+  std::fill_n(he_to_vert_idx, I, HE_NONE);
+  uint16_t *orbit_buf = scratch.allocate_n<uint16_t>(I);
+  bool *visited_verts = scratch.allocate_n<bool>(V);
+  bool *visited_edges = scratch.allocate_n<bool>(I);
+
+  for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
+    int count;
+    Vector centroid = face_centroid(he_mesh, mesh, fi, count);
+    emit_shrunk_face(
+        he_mesh, out_mesh, he_mesh.faces[fi].half_edge, count,
+        corner_factory(fi, centroid),
+        [&](uint16_t he_idx, uint16_t idx) { he_to_vert_idx[he_idx] = idx; });
+  }
+
+  // Orbit and edge faces are emitted regardless of primary-face
+  // well-formedness (unlike the shrunk primary face above).
+  emit_vertex_orbit_faces<'N'>(
+      he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/true,
+      [&](uint16_t idx) {
+        return he_to_vert_idx[he_mesh.half_edges[idx].prev];
+      });
+
+  for_each_edge(he_mesh, visited_edges, I,
+                [&](uint16_t he_idx, const HalfEdge &he) {
+                  edge_fn(he_to_vert_idx, he_idx, he);
+                });
+}
+
+/**
  * @brief Copies a mesh's topology (as views) and vertices into a target mesh,
  *   applying each transformer to every vertex in order.
  * @tparam Transformers Types of the vertex transformers (possibly none).
@@ -959,49 +1017,25 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
 
   {
     ScratchScope temp_guard(temp);
-    ScratchScope target_guard(target);
-
     require_closed_manifold(he_mesh, temp, "expand");
-    // he->new-vertex map; unset = HE_NONE.
-    uint16_t *he_to_vert_idx = target.allocate_n<uint16_t>(I);
-    std::fill_n(he_to_vert_idx, I, HE_NONE);
 
-    bool *visited_verts = target.allocate_n<bool>(V);
-
-    bool *visited_edges = target.allocate_n<bool>(I);
-
-    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
-
-    for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
-      int count;
-      Vector centroid = face_centroid(he_mesh, mesh, fi, count);
-      uint16_t start = he_mesh.faces[fi].half_edge;
-      emit_shrunk_face(
-          he_mesh, out_mesh, start, count,
-          [&](uint16_t he_idx) {
+    emit_expanded_shell(
+        mesh, he_mesh, out_mesh, target, V, I,
+        [&](size_t, const Vector &centroid) {
+          return [&mesh, &he_mesh, centroid, t](uint16_t he_idx) {
             Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
             return v + (centroid - v) * t;
-          },
-          [&](uint16_t he_idx, uint16_t idx) { he_to_vert_idx[he_idx] = idx; });
-    }
-
-    emit_vertex_orbit_faces<'N'>(
-        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/true,
-        [&](uint16_t idx) {
-          return he_to_vert_idx[he_mesh.half_edges[idx].prev];
+          };
+        },
+        [&](const uint16_t *he_to_vert_idx, uint16_t he_idx,
+            const HalfEdge &he) {
+          out_mesh.face_counts.push_back(4);
+          out_mesh.faces.push_back(he_to_vert_idx[he.prev]);
+          out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
+          out_mesh.faces.push_back(
+              he_to_vert_idx[he_mesh.half_edges[he.pair].prev]);
+          out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
         });
-
-    // Edge and orbit faces are emitted regardless of primary-face
-    // well-formedness (unlike the shrunk primary face above).
-    for_each_edge(he_mesh, visited_edges, I,
-                  [&](uint16_t he_idx, const HalfEdge &he) {
-                    out_mesh.face_counts.push_back(4);
-                    out_mesh.faces.push_back(he_to_vert_idx[he.prev]);
-                    out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
-                    out_mesh.faces.push_back(
-                        he_to_vert_idx[he_mesh.half_edges[he.pair].prev]);
-                    out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
-                  });
   }
   normalize(out_mesh);
   return out_mesh;
@@ -1374,36 +1408,28 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
 
   {
     ScratchScope temp_guard(temp);
-
     require_closed_manifold(he_mesh, temp, "snub");
-    uint16_t *he_to_vert_idx = temp.allocate_n<uint16_t>(I);
-    std::fill_n(he_to_vert_idx, I, HE_NONE);
 
-    uint16_t *orbit_buf = temp.allocate_n<uint16_t>(I);
+    emit_expanded_shell(
+        mesh, he_mesh, out_mesh, temp, V, I,
+        [&](size_t fi, const Vector &centroid) {
+          // Newell's method face normal — robust for sphere-projected faces.
+          Vector normal_raw = face_normal(he_mesh, mesh, fi);
+          Vector normal(0, 0, 0);
+          if (dot(normal_raw, normal_raw) > math::EPS_NORMAL_SQ) {
+            normal = normal_raw.normalized();
+          } else if (dot(centroid, centroid) > math::EPS_LEN_SQ) {
+            normal = centroid.normalized();
+          }
 
-    for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
-      int count;
-      Vector centroid = face_centroid(he_mesh, mesh, fi, count);
-      uint16_t start = he_mesh.faces[fi].half_edge;
+          // A zero axis makes make_rotation trap near theta = pi.
+          const bool do_twist = twist != 0.0f && dot(normal, normal) > 0.0f;
+          Quaternion twist_q;
+          if (do_twist)
+            twist_q = make_rotation(normal, twist);
 
-      // Newell's method face normal — robust for sphere-projected faces.
-      Vector normal_raw = face_normal(he_mesh, mesh, fi);
-      Vector normal(0, 0, 0);
-      if (dot(normal_raw, normal_raw) > math::EPS_NORMAL_SQ) {
-        normal = normal_raw.normalized();
-      } else if (dot(centroid, centroid) > math::EPS_LEN_SQ) {
-        normal = centroid.normalized();
-      }
-
-      // A zero axis makes make_rotation trap near theta = pi.
-      const bool do_twist = twist != 0.0f && dot(normal, normal) > 0.0f;
-      Quaternion twist_q;
-      if (do_twist)
-        twist_q = make_rotation(normal, twist);
-
-      emit_shrunk_face(
-          he_mesh, out_mesh, start, count,
-          [&](uint16_t he_idx) {
+          return [&mesh, &he_mesh, centroid, t, do_twist,
+                  twist_q](uint16_t he_idx) {
             Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
             Vector new_v = v + (centroid - v) * t;
             if (do_twist) {
@@ -1411,32 +1437,21 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
               new_v = centroid + rotate(local, twist_q);
             }
             return new_v;
-          },
-          [&](uint16_t he_idx, uint16_t idx) { he_to_vert_idx[he_idx] = idx; });
-    }
+          };
+        },
+        [&](const uint16_t *he_to_vert_idx, uint16_t he_idx,
+            const HalfEdge &he) {
+          out_mesh.face_counts.push_back(3);
+          out_mesh.faces.push_back(he_to_vert_idx[he.prev]);
+          out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
+          out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
 
-    bool *visited_verts = temp.allocate_n<bool>(V);
-    emit_vertex_orbit_faces<'N'>(
-        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/true,
-        [&](uint16_t idx) {
-          return he_to_vert_idx[he_mesh.half_edges[idx].prev];
+          out_mesh.face_counts.push_back(3);
+          out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
+          out_mesh.faces.push_back(
+              he_to_vert_idx[he_mesh.half_edges[he.pair].prev]);
+          out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
         });
-
-    bool *visited_edges = temp.allocate_n<bool>(I);
-
-    for_each_edge(he_mesh, visited_edges, I,
-                  [&](uint16_t he_idx, const HalfEdge &he) {
-                    out_mesh.face_counts.push_back(3);
-                    out_mesh.faces.push_back(he_to_vert_idx[he.prev]);
-                    out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
-                    out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
-
-                    out_mesh.face_counts.push_back(3);
-                    out_mesh.faces.push_back(he_to_vert_idx[he.pair]);
-                    out_mesh.faces.push_back(
-                        he_to_vert_idx[he_mesh.half_edges[he.pair].prev]);
-                    out_mesh.faces.push_back(he_to_vert_idx[he_idx]);
-                  });
   }
   normalize(out_mesh);
   return out_mesh;
