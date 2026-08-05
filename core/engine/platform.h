@@ -283,7 +283,6 @@ inline constexpr int H_OFFSET = 3;
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#include <emscripten/bind.h>
 #endif
 
 #include <cstdint>
