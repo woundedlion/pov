@@ -457,8 +457,9 @@ public:
 
   template <typename Populate>
   void populate(int ring_begin, int ring_end, Populate &&populate_sample) {
-    for (int ring_index = ring_begin; ring_index <= ring_end; ++ring_index) {
-      const Ring ring = layout.ring(ring_index);
+    Ring ring = layout.ring(ring_begin);
+    for (int ring_index = ring_begin; ring_index <= ring_end;
+         ++ring_index, ring = layout.next_ring(ring)) {
       const Vector meridian = layout.sample_vector(ring, 0);
       const float theta_step = 2.0f * PI_F / ring.samples;
       const float step_cos = cosf(theta_step);
