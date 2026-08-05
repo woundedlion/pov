@@ -497,7 +497,7 @@ inline void test_seed_clears_mailbox() {
 }
 
 /**
- * @brief Verifies build requests reset across seeds and reconstruction.
+ * @brief Verifies build requests reset across seeds and reconfiguration.
  */
 inline void test_build_request_reset() {
   const Config cfg = test_config();
@@ -512,7 +512,7 @@ inline void test_build_request_reset() {
   HS_EXPECT_EQ(board.build_word(), 0u);
 
   const Config replacement = test_config(3);
-  board.reconstruct(replacement);
+  board.configure(replacement);
   HS_EXPECT_EQ(board.config().effect_count, 3);
   HS_EXPECT_EQ(board.build_word(), 0u);
 
