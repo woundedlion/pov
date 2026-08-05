@@ -511,6 +511,11 @@ template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn fragment_shader, bool debug_bb = false) {
+  static_assert(SDF::ScanShape<std::remove_cvref_t<decltype(shape)>, W, H>,
+                "Scan::rasterize shape must expose is_solid, "
+                "get_vertical_bounds<H>(), get_horizontal_intervals<W, H>() "
+                "and distance<ComputeUVs>()");
+
   check_canvas_dims<W, H>(canvas);
   bool effective_debug = debug_bb || canvas.debug();
 

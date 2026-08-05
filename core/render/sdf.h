@@ -499,6 +499,30 @@ concept SDFShape = requires {
 };
 
 /**
+ * @brief The scan rasterizer's leaf contract: SDFShape plus the three methods
+ * Scan::rasterize drives — vertical bounds, per-row horizontal intervals and a
+ * distance evaluator.
+ * @tparam T Candidate shape type.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @details Asserted by Scan::rasterize so a shape missing one of the three
+ * fails at the rasterizer boundary rather than inside scan_region. The CSG
+ * combinators stay on SDFShape: a child can be driven through another render
+ * path (or, in tests, exercise the interval sweep alone) and carry only
+ * is_solid.
+ */
+template <typename T, int W, int H>
+concept ScanShape =
+    SDFShape<T> && requires(const T &s, const Vector &p, DistanceResult &r,
+                            void (*out)(float, float)) {
+      { s.template get_vertical_bounds<H>() } -> std::convertible_to<Bounds>;
+      {
+        s.template get_horizontal_intervals<W, H>(0, out)
+      } -> std::convertible_to<bool>;
+      s.template distance<true>(p, r);
+    };
+
+/**
  * @brief Axis components plus its scan-plane projection: XZ-projection length
  * R_val and azimuth alpha_angle.
  */
