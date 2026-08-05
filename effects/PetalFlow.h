@@ -50,7 +50,7 @@ public:
    */
   void init() override {
     register_param("Twist", &params.twist_factor, 0.0f, 5.0f);
-    register_param("Speed", &params.speed, 0.0f, 20.0f);
+    register_param("Speed", &params.speed, 0.0f, SPEED_MAX);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Density", &params.density, 0.5f, DENSITY_MAX);
 
@@ -84,7 +84,7 @@ private:
   friend struct ::hs_test::effects_tests::PetalFlowWhiteBox;
 
   static constexpr int MAX_RINGS =
-      64; /**< Maximum number of concurrent rings. */
+      65; /**< Maximum number of concurrent rings. */
   static constexpr float START_RHO =
       -3.75f; /**< Rho at which rings are spawned (path start). */
   static constexpr float END_RHO =
@@ -93,23 +93,30 @@ private:
       0.3f; /**< Base inter-ring spacing in rho units, before the Density scaling. */
   static constexpr float DENSITY_MAX =
       2.5f; /**< Density slider maximum; sets the tightest live spacing, SPACING / DENSITY_MAX. */
-  /**
-   * @brief Rings the path carries at the tightest spacing.
-   * @details One per whole gap across the path, plus the ring sitting on the
-   * path start, plus the one spawned before the oldest crosses END_RHO.
-   */
-  static constexpr int RINGS_ON_PATH =
-      static_cast<int>((END_RHO - START_RHO) * DENSITY_MAX / SPACING) + 2;
-  static_assert(MAX_RINGS >= RINGS_ON_PATH,
-                "PetalFlow ring pool is smaller than the path carries at "
-                "maximum Density; raise MAX_RINGS or retune SPACING/END_RHO/"
-                "START_RHO/DENSITY_MAX");
+  static constexpr float SPEED_MAX =
+      20.0f; /**< Speed slider maximum; sets the longest per-frame travel. */
   /**
    * @brief Rho advanced per frame per unit of the Speed slider.
    * @details Converts the unitless Speed control to per-frame motion along the
    * path.
    */
   static constexpr float RHO_PER_SPEED = SPACING / 32.0f;
+  /**
+   * @brief Peak concurrent rings, at the tightest spacing and the fastest flow.
+   * @details check_spawn() runs before retirement and emits one ring per gap the
+   * frame's travel opens, so the newest ring can sit a whole frame of travel
+   * below START_RHO while the oldest still sits on END_RHO. Rings hold exactly
+   * one gap apart, so the peak is one per whole gap across that span plus the
+   * ring closing it.
+   */
+  static constexpr int RINGS_ON_PATH =
+      static_cast<int>((END_RHO - START_RHO + SPEED_MAX * RHO_PER_SPEED) *
+                       DENSITY_MAX / SPACING) +
+      1;
+  static_assert(MAX_RINGS >= RINGS_ON_PATH,
+                "PetalFlow ring pool is smaller than the path carries at "
+                "maximum Speed x Density; raise MAX_RINGS or retune SPACING/"
+                "END_RHO/START_RHO/DENSITY_MAX/SPEED_MAX");
   static constexpr float FADE_START_RHO =
       2.5f; /**< |rho| at which the pole fade begins. */
   /**
@@ -241,8 +248,7 @@ private:
    * @param initial_rho Position along the path at which to place the ring, in
    * rho units.
    * @details Assigns the next hue and advances the hue cursor. No-op if all
-   * slots are in use: the MAX_RINGS pool can saturate at high Speed×Density, and
-   * the dropped spawn is an accepted transient (a missed ring is invisible).
+   * slots are in use, which RINGS_ON_PATH sizes the pool to prevent.
    */
   HS_COLD_MEMBER void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {
