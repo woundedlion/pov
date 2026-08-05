@@ -161,7 +161,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("shapeshifter_tiles",                                                      \
     hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests, 46)       \
   X("dma_core", hs_test::dma_core::run_dma_core_tests, 12)                     \
-  X("hd107s", hs_test::hd107s_tests::run_hd107s_tests, 280)                    \
+  X("hd107s", hs_test::hd107s_tests::run_hd107s_tests, 288)                    \
   X("dma_controller", hs_test::dma_controller::run_dma_controller_tests, 67)   \
   X("pov_segmented", hs_test::pov_segmented_tests::run_pov_segmented_tests,    \
     263165)                                                                    \

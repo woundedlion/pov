@@ -97,7 +97,7 @@ inline void test_fresh_frame_skeleton() {
 
 /**
  * @brief Exercises correct(): zero pass-through, exact unity identity at full
- * scale, and monotonic brightness scaling (0 zeroes the channel).
+ * scale, and exact brightness scaling at half and zero.
  */
 inline void test_correct_pipeline() {
   reset_correction();
@@ -117,11 +117,13 @@ inline void test_correct_pipeline() {
   HS_EXPECT_EQ(g, 65535u);
   HS_EXPECT_EQ(b, 65535u);
 
+  // factor(128) is 129, so each channel is (65535*129)>>8.
   Frame::setBrightness(128);
-  uint32_t half = 65535;
-  uint32_t dummy = 0;
-  f.correct(half, dummy, dummy);
-  HS_EXPECT_LT(half, 65535u);
+  uint32_t hr = 65535, hg = 65535, hb = 65535;
+  f.correct(hr, hg, hb);
+  HS_EXPECT_EQ(hr, 33023u);
+  HS_EXPECT_EQ(hg, 33023u);
+  HS_EXPECT_EQ(hb, 33023u);
 
   Frame::setBrightness(0);
   uint32_t off = 65535;
@@ -217,6 +219,29 @@ inline void test_packpixel_wire_order() {
 }
 
 /**
+ * @brief Verifies packPixel()'s wire bytes under the shipped factor set at
+ * non-unity brightness.
+ * @details Full-scale white through correction 255,176,240, temperature
+ * 255,147,41 and brightness 128 leaves linear (33023, 13199, 5100), which
+ * linear_to_srgb8 encodes as R=188, G=124, B=79.
+ */
+inline void test_packpixel_shipped_brightness() {
+  Frame::setCorrection(255, 176, 240);
+  Frame::setTemperature(255, 147, 41);
+  Frame::setBrightness(128);
+  Frame f;
+
+  const Pixel white(CRGB(255, 255, 255));
+  f.packPixel(3, white);
+  HS_EXPECT_EQ(pixel(f, 3)[0], 0xFF);
+  HS_EXPECT_EQ(pixel(f, 3)[1], 79);  // B
+  HS_EXPECT_EQ(pixel(f, 3)[2], 124); // G
+  HS_EXPECT_EQ(pixel(f, 3)[3], 188); // R
+
+  reset_correction();
+}
+
+/**
  * @brief Runs the full hd107s_frame test suite.
  * @return The module's failure count from end_module().
  */
@@ -227,6 +252,7 @@ inline int run_hd107s_tests() {
   test_correct_pipeline();
   test_correct_multifactor();
   test_packpixel_wire_order();
+  test_packpixel_shipped_brightness();
   reset_correction(); // leave shared static state clean for any later module
   return fixture.result();
 }
