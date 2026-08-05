@@ -211,26 +211,6 @@ private:
     return radius_t <= 0.5f ? radius_t : 1.0f - radius_t;
   }
 
-  static constexpr float shape_alpha(AlphaFalloff falloff, int index,
-                                     int count) {
-    if (falloff == AlphaFalloff::CONSTANT_HALF)
-      return 0.5f;
-    const int STEPS_TO_EQUATOR = (count - 1) / 2;
-    if (STEPS_TO_EQUATOR == 0)
-      return 1.0f;
-    const int OPPOSITE_INDEX = count - index - 1;
-    const int DISTANCE_FROM_POLE =
-        index < OPPOSITE_INDEX ? index : OPPOSITE_INDEX;
-    const float EQUATOR_ALPHA = 2.0f / static_cast<float>(count);
-    return 1.0f - (1.0f - EQUATOR_ALPHA) *
-                      static_cast<float>(DISTANCE_FROM_POLE) /
-                      static_cast<float>(STEPS_TO_EQUATOR);
-  }
-
-  static constexpr float palette_position(float radius_t) {
-    return 2.0f * folded_radius_t(radius_t);
-  }
-
   static constexpr int folded_draw_index(int count, int ordinal) {
     if ((count & 1) != 0) {
       if (ordinal == 0)
