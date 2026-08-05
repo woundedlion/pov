@@ -177,7 +177,8 @@ inline void reset_effect_globals() {
  * @param name Effect name used in the [ok] / diagnostic output.
  * @details Verifies the effect constructs, init's, renders smoke_frames()
  * frames, and reads back every pixel without tripping an assert/OOB/hang, and
- * that get_pixel is a stable pure accessor. Runs the dead-slider lint once on
+ * that get_pixel still aliases the displayed buffer once another frame has been
+ * rendered and flipped in. Runs the dead-slider lint once on
  * the <SMALL_W,SMALL_H> pass, which both depth tiers execute.
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
@@ -213,9 +214,6 @@ inline void smoke_one(const char *name) {
   };
   const uint64_t acc = sum_buffer();
 
-  // get_pixel is a pure accessor: re-reading the same frame yields the same sum.
-  HS_EXPECT_EQ(acc, sum_buffer());
-
   if (acc > 0)
     ++g_nonblack_effects;
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
@@ -230,6 +228,20 @@ inline void smoke_one(const char *name) {
                   name, frames, W, H);
     HS_EXPECT(acc > 0, "effect must produce non-black output");
   }
+
+  // The display read-back paths index display_buffer() directly (see
+  // overrides_get_pixel), so get_pixel must still be its row-major view after
+  // the flip advance_display performs.
+  effect.draw_frame();
+  effect.advance_display();
+  const Pixel *displayed = effect.display_buffer();
+  int unaliased = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      if (&effect.get_pixel(x, y) != displayed + y * W + x)
+        ++unaliased;
+  HS_EXPECT(unaliased == 0,
+            "get_pixel must read the displayed buffer at the row-major offset");
 
   // The parameter lints are resolution-independent; run them once, on the pass
   // both depth tiers execute.
