@@ -857,7 +857,6 @@ private:
       Persist<MeshPaletteBank> pp(palette_bank, scratch_arena_b,
                                   persistent_arena);
       Persist<PolyMesh> ps(seed_base, scratch_arena_a, persistent_arena);
-      release_gamut_lut();
       persistent_arena.reset();
     }
 

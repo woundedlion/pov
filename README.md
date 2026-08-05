@@ -1236,7 +1236,7 @@ The clip reads the 512 × 256 flash master by default. An effect that clips per 
 | Function | Description |
 |---|---|
 | `init_gamut_lut(arena, angle_steps, l_steps)` | Downsamples the flash master into `arena` and points the clip at the copy. Both step counts must divide the master's 512 × 256 (trapped). Costs `gamut_lut_bytes(angle_steps, l_steps)`. Call from the effect's `init()`, after any `configure_arenas()`. |
-| `release_gamut_lut()` | Drops the copy and points the clip back at the flash master. Must run before the storage under the copy is handed out again: `configure_arenas()`, the mesh carousel's compaction, and effects that reset the persistent arena mid-run all call it first. |
+| `release_gamut_lut()` | Drops the copy and points the clip back at the flash master. Must run before the storage under the copy is handed out again: `configure_arenas()` and the mesh carousel's compaction both call it first. |
 
 `Flyby` and `MeshFeedback` arm a copy; every other effect clips against the flash master.
 
