@@ -23,7 +23,12 @@ namespace hd107s_tests {
 
 constexpr int N = 40; // small strip: END_FRAME_BYTES=4, COMPOSITE=336 bytes
 
+// Shipping Phantasm segment: TOTAL_PIXELS 288 over NUM_SEGMENTS 4. First size
+// whose ceil(N/16) end frame clears the 4-byte pad, so END_FRAME_BYTES=8.
+constexpr int PHANTASM_PPS = 72;
+
 using Frame = HD107SFrame<N>;
+using PhantasmFrame = HD107SFrame<PHANTASM_PPS>;
 
 /**
  * @brief Returns a pointer to pixel i's 4-byte wire record in the image frame.
@@ -61,6 +66,28 @@ inline void test_layout_constants() {
   HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(f.data() + Frame::BUFFER_SIZE) %
                    alignof(uint32_t),
                0u);
+}
+
+/**
+ * @brief Verifies the layout constants at the shipping Phantasm segment size.
+ * @details N=40 and the dma_controller module's N=8 both land on the 4-byte
+ * end-frame floor, so a ceil-div slip that only shows past the first
+ * multiple-of-4 boundary stays invisible. 72 pixels is the size the device
+ * actually instantiates and the first one whose end frame is 8 bytes.
+ */
+inline void test_layout_constants_phantasm() {
+  HS_EXPECT_EQ(PhantasmFrame::END_FRAME_BYTES, 8);
+  HS_EXPECT_EQ(PhantasmFrame::BUFFER_SIZE,
+               4 + PHANTASM_PPS * 4 + PhantasmFrame::END_FRAME_BYTES);
+  HS_EXPECT_EQ(PhantasmFrame::COMPOSITE_SIZE, PhantasmFrame::BUFFER_SIZE * 2);
+
+  PhantasmFrame f;
+  HS_EXPECT_EQ(static_cast<int>(f.size()), PhantasmFrame::BUFFER_SIZE);
+  HS_EXPECT_EQ(static_cast<int>(f.sizeWithBg()), PhantasmFrame::COMPOSITE_SIZE);
+  HS_EXPECT_EQ(
+      reinterpret_cast<uintptr_t>(f.data() + PhantasmFrame::BUFFER_SIZE) %
+          alignof(uint32_t),
+      0u);
 }
 
 /**
@@ -248,6 +275,7 @@ inline void test_packpixel_shipped_brightness() {
 inline int run_hd107s_tests() {
   hs_test::ModuleFixture fixture("hd107s");
   test_layout_constants();
+  test_layout_constants_phantasm();
   test_fresh_frame_skeleton();
   test_correct_pipeline();
   test_correct_multifactor();
