@@ -192,6 +192,33 @@ inline void check_euler_genus0(const PolyMesh &m) {
 }
 
 /**
+ * @brief Asserts two meshes agree bit for bit.
+ * @param a First mesh.
+ * @param b Second mesh.
+ * @details Vertices compare exactly: callers pair paths that run the same
+ *          arithmetic in the same emission order, so anything short of equality
+ *          is a divergence.
+ */
+inline void check_meshes_identical(const PolyMesh &a, const PolyMesh &b) {
+  HS_EXPECT_EQ(a.vertices.size(), b.vertices.size());
+  HS_EXPECT_EQ(a.face_counts.size(), b.face_counts.size());
+  HS_EXPECT_EQ(a.faces.size(), b.faces.size());
+  if (a.vertices.size() != b.vertices.size() ||
+      a.face_counts.size() != b.face_counts.size() ||
+      a.faces.size() != b.faces.size())
+    return;
+  for (size_t i = 0; i < a.vertices.size(); ++i) {
+    HS_EXPECT_EQ(a.vertices[i].x, b.vertices[i].x);
+    HS_EXPECT_EQ(a.vertices[i].y, b.vertices[i].y);
+    HS_EXPECT_EQ(a.vertices[i].z, b.vertices[i].z);
+  }
+  for (size_t i = 0; i < a.face_counts.size(); ++i)
+    HS_EXPECT_EQ(a.face_counts[i], b.face_counts[i]);
+  for (size_t i = 0; i < a.faces.size(); ++i)
+    HS_EXPECT_EQ(a.faces[i], b.faces[i]);
+}
+
+/**
  * @brief Histogram of vertex degree (incident faces) → number of such vertices.
  * @param m Mesh to inspect.
  * @details In a closed manifold a vertex's incident-face count equals its edge
@@ -445,9 +472,12 @@ inline void test_truncate_cube_has_truncated_topology() {
 }
 
 /**
- * @brief Verifies truncate(t = 0.5) reproduces ambo() topology.
+ * @brief Verifies truncate(t = 0.5) reproduces ambo() exactly.
  * @details At t = 0.5 the truncation midpoints coincide, collapsing to 12
- *          vertices and 14 faces — the cuboctahedron ambo() also produces.
+ *          vertices and 14 faces — the cuboctahedron ambo() also produces. The
+ *          short-circuit hands the same seed and connectivity to ambo's body,
+ *          so the two results agree bit for bit, not merely in count: a
+ *          reordered, rescaled or backwards-wound stand-in fails here.
  */
 inline void test_truncate_t_half_is_ambo() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
@@ -460,6 +490,8 @@ inline void test_truncate_t_half_is_ambo() {
   // Match topology of ambo()
   HS_EXPECT_EQ(tr.vertices.size(), (size_t)12);
   HS_EXPECT_EQ(tr.face_counts.size(), (size_t)14);
+
+  check_meshes_identical(tr, MeshOps::ambo(cube1, target, temp));
 }
 
 /**
@@ -1189,33 +1221,6 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
 // ---------------------------------------------------------------------------
 // Prebuilt half-edge reuse
 // ---------------------------------------------------------------------------
-
-/**
- * @brief Asserts two meshes agree bit for bit.
- * @param a First mesh.
- * @param b Second mesh.
- * @details Vertices compare exactly: the reuse overloads run the same
- *          arithmetic in the same order, so anything short of equality is a
- *          divergence.
- */
-inline void check_meshes_identical(const PolyMesh &a, const PolyMesh &b) {
-  HS_EXPECT_EQ(a.vertices.size(), b.vertices.size());
-  HS_EXPECT_EQ(a.face_counts.size(), b.face_counts.size());
-  HS_EXPECT_EQ(a.faces.size(), b.faces.size());
-  if (a.vertices.size() != b.vertices.size() ||
-      a.face_counts.size() != b.face_counts.size() ||
-      a.faces.size() != b.faces.size())
-    return;
-  for (size_t i = 0; i < a.vertices.size(); ++i) {
-    HS_EXPECT_EQ(a.vertices[i].x, b.vertices[i].x);
-    HS_EXPECT_EQ(a.vertices[i].y, b.vertices[i].y);
-    HS_EXPECT_EQ(a.vertices[i].z, b.vertices[i].z);
-  }
-  for (size_t i = 0; i < a.face_counts.size(); ++i)
-    HS_EXPECT_EQ(a.face_counts[i], b.face_counts[i]);
-  for (size_t i = 0; i < a.faces.size(); ++i)
-    HS_EXPECT_EQ(a.faces[i], b.faces[i]);
-}
 
 /**
  * @brief Verifies the parameterized operators match their single-shot entries
