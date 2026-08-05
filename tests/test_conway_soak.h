@@ -123,6 +123,10 @@ struct HankinWalkProbe {
   static float strap_open_fade(const HankinSolids<W, H> &fx, int cycle_frame) {
     return fx.shape_weight(cycle_frame);
   }
+  /** @brief Interlace-angle sweep length, in sprite frames. */
+  template <int W, int H> static int sweep_frames(const HankinSolids<W, H> &) {
+    return HankinSolids<W, H>::HANKIN_SWEEP_FRAMES;
+  }
   /** @brief Terminal-sliver fade window length, in sprite frames. */
   template <int W, int H>
   static int strap_terminal_frames(const HankinSolids<W, H> &) {
