@@ -1229,7 +1229,16 @@ struct TickActions {
    * (spec §6.1).
    */
   bool dark = false;
-  bool flip = false; /**< Call advance_display() on the live effect. */
+  /**
+   * @brief Call advance_display() on the live effect.
+   * @details One bool for the whole tick: a wake folding N boundaries runs the
+   * flip gate N times — counters and the epoch/join schedule stay exact — but
+   * advances the display once, so N windows consume one queued frame and an
+   * even N leaves the frame clipped for the opposite arm half (spec §5.1).
+   * N > 1 needs a wake gap past one half-revolution, out of reach on the
+   * shipped DMA path.
+   */
+  bool flip = false;
   /**
    * @brief The last flip this tick crossed ZERO.
    * @details A tick that folds several boundaries reports only the final one,
