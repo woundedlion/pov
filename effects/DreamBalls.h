@@ -64,9 +64,16 @@ public:
     mobius_gen.init_storage(persistent_arena);
     setup_presets();
 
+    blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
     std::span<PresetEntry<Params>> entries = preset_manager.get_entries();
-    for (auto &entry : entries) {
-      entry.params.palette = &palette;
+    entries[0].params.palette = &blood_stream_falloff;
+    entries[1].params.palette = &blood_stream_falloff;
+    entries[2].params.palette = &Palettes::RICH_SUNSET;
+    entries[3].params.palette = &Palettes::LAVENDER_LAKE;
+    entries[4].params.palette = &Palettes::CORAL_BLUE;
+    for (const auto &entry : entries) {
+      HS_CHECK(entry.params.palette,
+               "DreamBalls preset table left a null palette unpatched");
     }
 
     params = preset_manager.get();
@@ -227,8 +234,13 @@ private:
    *         init(). */
   Segue::Crossfade crossfade;
 
-  GenerativePalette palette{GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
-                            BrightnessProfile::CUP};
+  ProceduralPalette blood_stream_palette = Palettes::BLOOD_STREAM;
+  AlphaFalloffShade blood_stream_fade{[](float t) { return 1.0f - t; }};
+  StaticPalette<ProceduralPalette, Coords<>, Colors<AlphaFalloffShade>,
+                /*Wrap=*/false>
+      blood_stream_composition;
+  PaletteFacade<decltype(blood_stream_composition)> blood_stream_falloff{
+      &blood_stream_composition};
 
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f, nullptr, 0.7f}},
