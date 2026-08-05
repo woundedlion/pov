@@ -53,7 +53,7 @@ public:
     register_param("Diffuse", &params.diffuse, 0.0f, 1.0f);
     register_param("Specular", &params.specular, 0.0f, 1.5f);
     register_param("Fresnel", &params.fresnel, 0.0f, 1.0f);
-    register_param("Twist", &params.twist, 0.0f, 8.0f);
+    register_param("Twist", &params.twist, TWIST_OPTIONS, NUM_TWISTS);
     register_param("AA Width", &params.aa_mult, 0.1f, 1.5f);
 
     build_points();
@@ -89,6 +89,11 @@ private:
 
   /** Vertex-array capacity; the disdyakis dodecahedron has 26. */
   static constexpr int MAX_POINTS = 32;
+
+  /** Twist-count labels; the option index IS the twist count draw_fn reads. */
+  static constexpr const char *TWIST_OPTIONS[] = {"0", "1", "2", "3", "4",
+                                                  "5", "6", "7", "8"};
+  static constexpr int NUM_TWISTS = static_cast<int>(std::size(TWIST_OPTIONS));
 
   // Torus proportions at scale 1: VIS_K is the visible outer ring radius,
   // UNIT_BOUNDS the bounding-sphere radius (bigger, may overlap a neighbour —
