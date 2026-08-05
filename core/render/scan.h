@@ -313,10 +313,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   // |A|+|B|+2 == 2*INTERVAL_SPAN_CAP+2. norm holds one seam-split per span, so 2x.
   ScratchScope scratch(scratch_arena_b);
   static constexpr size_t TOP_SPAN_CAP = 2 * SDF::INTERVAL_SPAN_CAP + 2;
-  using IntervalBuf =
-      StaticCircularBuffer<std::pair<float, float>, TOP_SPAN_CAP>;
-  using NormBuf =
-      StaticCircularBuffer<std::pair<float, float>, 2 * TOP_SPAN_CAP>;
+  using IntervalBuf = StaticCircularBuffer<SDF::Interval, TOP_SPAN_CAP>;
+  using NormBuf = StaticCircularBuffer<SDF::Interval, 2 * TOP_SPAN_CAP>;
   static_assert(IntervalBuf::CAPACITY >= SDF::MergedIntervalBuffer::CAPACITY,
                 "scan_region intervals must hold the largest top-level CSG "
                 "emission (Subtract/Intersection: |A|+|B|+2)");
@@ -1126,8 +1124,8 @@ struct RingGroup {
     const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
     const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
     const auto xc = cr.x_clip();
-    StaticCircularBuffer<std::pair<float, float>, 4> intervals;
-    StaticCircularBuffer<std::pair<float, float>, 8> norm;
+    StaticCircularBuffer<SDF::Interval, 4> intervals;
+    StaticCircularBuffer<SDF::Interval, 8> norm;
     int active[MAX_RINGS];
     int n_active = 0;
 
@@ -1467,7 +1465,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 
     // Face emits <= 2 spans; each wraps into <= 2 pieces, each clip-split into
     // <= 2 runs.
-    StaticCircularBuffer<std::pair<float, float>, 4> intervals;
+    StaticCircularBuffer<SDF::Interval, 4> intervals;
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
@@ -1501,7 +1499,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       if (full_row) {
         add_run(0, W);
       } else {
-        StaticCircularBuffer<std::pair<float, float>, 8> norm;
+        StaticCircularBuffer<SDF::Interval, 8> norm;
         coalesce_spans<W>(intervals, norm);
         for (const auto &run : norm)
           add_run(static_cast<int>(run.first), static_cast<int>(run.second));
