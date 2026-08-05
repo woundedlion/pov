@@ -42,6 +42,9 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
   static_assert(!Segue::PerFace<SegueT> ||
                     !Segue::SHADOWS_FRAGMENT_HOOKS<SegueT>,
                 "a per-face segue's draw path never calls fill/grade");
+  static_assert(Segue::Schedulable<SegueT>,
+                "a segue's schedule() must take (timeline, draw_fn, duration, "
+                "window, paused)");
 
 public:
   /**
@@ -106,14 +109,16 @@ public:
    * phase (opacity for Segue::Crossfade).
    * @param duration Total frames the mesh is on screen.
    * @param window Transition window length in frames, segue-interpreted.
+   * @param paused Optional event-level pause gate handed to the scheduled
+   * sprite; null leaves the transition unpausable.
    * @return Frames after which the effect should begin the next transition.
    */
   int schedule_segue(Timeline &timeline, int slot, SpriteFn draw_fn,
-                     int duration, int window) {
+                     int duration, int window, const bool *paused = nullptr) {
     HS_CHECK(slot == front,
              "MeshCarousel segue scheduled before incoming slot flip");
-    return segue_policy.schedule(timeline, std::move(draw_fn), duration,
-                                 window);
+    return segue_policy.schedule(timeline, std::move(draw_fn), duration, window,
+                                 paused);
   }
 
   /**

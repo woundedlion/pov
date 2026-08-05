@@ -2110,7 +2110,9 @@ concept PerFaceSegueDrawable = requires(const SegueT &s, const Vector &c) {
  * either alongside face_offset would drop it silently. The NeedsClasses and
  * Masked assertions pin the two contracts an effect must honour: losing
  * Breakdown's reorder degrades it to a uniform fade, losing Dissolve's
- * mask_pair doubles the frame's rasterizer work.
+ * mask_pair doubles the frame's rasterizer work. The Schedulable assertions
+ * pin every policy against the scheduling signature the carousel calls,
+ * including the pause gate a shorter override would hide.
  */
 inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(PerFaceSegueDrawable<Segue::TerminatorSweep>);
@@ -2127,6 +2129,16 @@ inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(!Segue::NeedsClasses<Segue::TerminatorSweep>);
   static_assert(Segue::Masked<Segue::Dissolve>);
   static_assert(!Segue::Masked<Segue::Crossfade>);
+  static_assert(Segue::Schedulable<Segue::Base>);
+  static_assert(Segue::Schedulable<Segue::Crossfade>);
+  static_assert(Segue::Schedulable<Segue::IrisBloom>);
+  static_assert(Segue::Schedulable<Segue::Lace>);
+  static_assert(Segue::Schedulable<Segue::TerminatorSweep>);
+  static_assert(Segue::Schedulable<Segue::Shockwave>);
+  static_assert(Segue::Schedulable<Segue::Breakdown>);
+  static_assert(Segue::Schedulable<Segue::SpinFlip>);
+  static_assert(Segue::Schedulable<Segue::GoldConvergence>);
+  static_assert(Segue::Schedulable<Segue::Dissolve>);
 
   HS_EXPECT_NEAR(Segue::Base().face_fade_frac(3), 1.0f, 1e-6f);
 }

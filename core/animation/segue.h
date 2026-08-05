@@ -97,11 +97,13 @@ inline int schedule_faded_sprite(Timeline &timeline, SpriteFn draw_fn,
  * @param duration Total frames the mesh is on screen.
  * @param window Requested transition window in frames; clamped to duration/2
  * so the in/out windows never collide.
+ * @param paused Optional event-level pause gate.
  * @return duration — the next transition starts as this sprite ends.
  */
 inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
-                               int duration, int window) {
-  schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
+                               int duration, int window,
+                               const bool *paused = nullptr) {
+  schedule_faded_sprite(timeline, std::move(draw_fn), duration, window, paused);
   return duration;
 }
 
@@ -157,9 +159,12 @@ inline bool fades_to_black(float phase) { return phase > 0.005f; }
  */
 struct Base {
   /** @brief Default scheduling: one sequential sprite (see
-   * schedule_sequential). */
-  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
-    return schedule_sequential(timeline, std::move(draw_fn), duration, window);
+   * schedule_sequential). @p paused is the optional event-level pause gate
+   * every policy's schedule() takes and forwards. */
+  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
+               const bool *paused = nullptr) {
+    return schedule_sequential(timeline, std::move(draw_fn), duration, window,
+                               paused);
   }
   /** @brief Whether drawing at this phase can produce visible output. The
    * identity policy never culls; only a policy whose shading actually vanishes
@@ -188,6 +193,18 @@ struct Base {
    */
   float face_fade_frac(int) const { return 1.0f; }
 };
+
+/** @brief Whether a policy's schedule() hook takes the full argument set,
+ * including the trailing pause gate the carousel forwards. A policy shadowing
+ * schedule() with a shorter signature hides Base's and is rejected here rather
+ * than silently losing the gate. */
+template <typename S>
+concept Schedulable =
+    requires(S &s, Timeline &timeline, SpriteFn draw_fn, const bool *paused) {
+      {
+        s.schedule(timeline, std::move(draw_fn), 0, 0, paused)
+      } -> std::same_as<int>;
+    };
 
 /** @brief Whether a policy defines the per-face hook set. */
 template <typename S>
@@ -308,9 +325,10 @@ struct TerminatorSweep : Base {
       12.0f; /**< Longest per-face fade length, in frames. */
   uint32_t fade_seed = 0x9e3779b9u; /**< Per-transition seed for the per-face
                                        fade hash; rolled by retarget(). */
-  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
-    int fade =
-        schedule_faded_sprite(timeline, std::move(draw_fn), duration, window);
+  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
+               const bool *paused = nullptr) {
+    int fade = schedule_faded_sprite(timeline, std::move(draw_fn), duration,
+                                     window, paused);
     inv_window = 1.0f / static_cast<float>(std::max(fade, 1));
     return duration;
   }
@@ -510,9 +528,10 @@ struct Dissolve : Base {
    * partition the edges only while both meshes are on the timeline, so a
    * shorter overlap would leave the complement unlit (the masks keep the cost
    * at one mesh). */
-  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
+  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
+               const bool *paused = nullptr) {
     return schedule_overlapped(timeline, std::move(draw_fn), duration, window,
-                               -1);
+                               -1, paused);
   }
 };
 
