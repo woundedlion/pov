@@ -692,9 +692,10 @@ previous one cannot:
    first is lockstep.
 2. **Absolute index on the beacon (§6.4):** a board that *does* miss every
    repeat — or that booted late, or rebooted mid-show — corrects at the next
-   beacon, ≤16 revs (~2 s) later, instead of staying on the wrong effect for up
-   to 120 s. No board ever *assumes* index 0; the "all boot together at 0"
-   assumption is gone. (A beacon-corrected joiner starts the effect's history
+   beacon *pair* (§6.3.4), normally the rev-1/rev-2 post-commit beacons ~250 ms
+   later, instead of staying on the wrong effect for up to 120 s. No board ever
+   *assumes* index 0; the "all boot together at 0" assumption is gone. (A
+   beacon-corrected joiner starts the effect's history
    fresh mid-flight — stateless and stateful alike, since there is no frame
    fast-forward; full coherence restores at the next epoch.)
 3. **Fail-dark, not fail-wrong:** until a board has established the index from
@@ -702,6 +703,21 @@ previous one cannot:
    be established the segment stays dark — with the wire hard by construction
    (§9), that is the correct terminal fail-state, and it is visible at a glance
    rather than subtly wrong.
+4. **Confirmation before a mid-show index change:** the position-weighted
+   checksum catches any single mis-counted digit, but not a *shift* — a stray
+   burst in the quiet ahead of digit 0 pushes the frame along by one digit, and
+   exactly one of the eight intruder values re-satisfies the weighted sum, so
+   p = 1/8 of such shifts decode as a valid *and wrong* `(index, rev)`.
+   Applying one would tear down a healthy effect and display the wrong one
+   until the next beacon — a fail-*wrong* window. So a board that already knows
+   its index requires **two consecutive beacons naming the same new index**
+   before it changes; a beacon agreeing with the displayed index clears any
+   pending candidate, as does a commit. The join path (no identity yet) stays
+   single-frame: a dark board has nothing to fail wrong with, and the §9.1
+   rejoin budget is unchanged. Cost: beacons ride revolutions 1..R of a fresh
+   effect (§6.4), so a board that missed the whole epoch train is corrected one
+   revolution (288 col, 125 ms) later than before; only if it also loses that
+   post-commit train is the confirming frame a further beacon gap away.
 
 ### 6.4 The index beacon — a data symbol off the boundary
 
@@ -739,7 +755,8 @@ separated *in time* on the same wire.
   post-commit index immediately). Suppressed while a commit is pending: a
   beacon there would broadcast the outgoing index to joiners.
 - **Consumers:** a LOCKED board cross-checks `(effect, rev)` — a mismatched
-  index corrects a missed epoch (§6.3.2, triggering a rebuild and a §6.5
+  index, once a second consecutive beacon confirms it (§6.3.4), corrects a
+  missed epoch (§6.3.2, triggering a rebuild and a §6.5
   grid-aligned rejoin); a mismatched rev is recorded as telemetry (§6.2) and
   resyncs the schedule counter by the signed mod-64 difference (content `t`
   is untouched — the §6.2 no-retro-correct rule applies to frames, not the
@@ -887,7 +904,7 @@ Invariants:
 | 1 spurious symbol | count alphabet discards (even count) or §5.3 gate rejects | identity check no-ops it | epoch refractory + gate guard it |
 | Late-emitted symbol (master masked) | master self-censors (§5.2); residual rejected by gate (§5.3) | crossing flips on time regardless | unaffected |
 | 1 board renders slow (drops a frame) | — | shows prior frame 1 period | stateless: heals next frame (or next beacon, §6.4); stateful: heals next epoch |
-| 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by next beacon ≤16 revs (~2 s) |
+| 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by the second agreeing beacon (§6.3.4) — the rev-1/rev-2 post-commit pair, ~250 ms |
 | Board reboots mid-show | ACQUIRE: hard-snaps to first valid symbol | flips resume on first accepted boundary | black until index from beacon (≤2 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
 | Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes on current effect (epoch never arrives); ACQUIRE boards stay dark |
 | Master dead | downstream flywheels free-run at T0, precess on own crystal (same as "sync wire dead" — master is just the symbol source) | crossing still flips 2/rev (no re-snap) | playlist freezes on current effect |
@@ -919,7 +936,7 @@ hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected |
 | Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (R rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | effectively never — needs a 2-coincident-error burst *during* a ~2 s ACQUIRE window, or a firmware bug; the fallback bounds it either way |
 | Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | display 144 col; `t`: ≤4,608 col via beacon (stateless) / ≤276,480 col via epoch (stateful) | ≈0 within budget; watched by the overrun/`ft` telemetry |
-| Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | ≤4,608 col (~2 s, next beacon) | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
+| Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤4,608 col (~2 s): phase ≤144 col, index at next beacon, rejoins at the correct effect on the §6.5 grid | per external reboot event |
 | Firmware invariant violation (init > K, flywheel stall) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
 | Sync wire / master dead | uniform slow smear ~1 col per 10–20 s; playlist freezes; arithmetic stays valid (§4.1 rebase) | physical repair | out of scope — hard line by construction |
@@ -993,11 +1010,13 @@ strictly cleaner, not weaker.
    Inherent to position-from-time (a snap re-bases the epoch to the
    first-edge timestamp and position is always "time since epoch"), required
    under count decoding, and it removes the visible seam under chronic drift.
-5. **Epoch robustness — SHIPPED: three stacked mechanisms (§6.3/§6.4).**
+5. **Epoch robustness — SHIPPED: four stacked mechanisms (§6.3/§6.4).**
    R repeats made idempotent by the §6.1 refractory window; absolute effect
    index + revolution count on the mid-rev beacon (≤2 s correction for any
    missed epoch or late-booting board); fail-dark in ACQUIRE rather than
-   assume index 0. Repeats are lockstep-safe: every heard copy counts down
+   assume index 0; two agreeing beacons before a mid-show index change, so a
+   frame-shifted beacon cannot fail *wrong*. Repeats are lockstep-safe: every
+   heard copy counts down
    to the same absolute B+R+K boundary (§6.3.1). Shipped constants: R = 3,
    beacon period 16 revs, refractory window 16 revs, construction window
    K = 2 revs (HS_CHECK-trapped; confirm against the slowest measured effect
@@ -1084,7 +1103,10 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
 - **Beacon:** corrupt single digits, the checksum, and the digit count; assert
   every corrupted frame is dropped whole (no partial application) and that a
   rebooted board joins at the correct `(effect, rev)` from the next good
-  beacon (display from the next §6.5 grid boundary). Assert the rev
+  beacon (display from the next §6.5 grid boundary). Assert a frame-shifted
+  beacon that still passes the checksum leaves a live board's index untouched,
+  and that two consecutive beacons naming the same new index do change it
+  (§6.3.4). Assert the rev
   cross-check resyncs a slipped schedule counter within one beacon period
   (flagged in telemetry) and that the following epoch — taken via a repeat
   copy, the path that depends on j-inference — commits in lockstep.
