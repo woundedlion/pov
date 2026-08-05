@@ -365,17 +365,23 @@ static bool wasm_resolution_supported(int w, int h) {
 
 /**
  * @brief Outcome of a HolosphereEngine::setClip() call.
- * @details A single bool merged NO_EFFECT — the ordinary state after an init or
- *          setResolution that carried no effect name — with INVALID_BOUNDS, so a
- *          caller that faults on rejection had to fault on both. Exposed to JS
- *          as the Module.ClipSetResult embind enum; compare against its values,
- *          never by truthiness (every enum value is a truthy object).
+ * @details Each outcome wants a different caller response, so they are separate
+ *          enumerators rather than one bool: NO_EFFECT is the ordinary state
+ *          after an init or setResolution that carried no effect name, while
+ *          INVALID_BOUNDS is a caller bug. APPLIED and FULL_FRAME_KEPT are both
+ *          successes, but only APPLIED means the band is in force — a segment
+ *          pool needs the two apart to tell parallel speedup from N workers each
+ *          computing the same full frame. Exposed to JS as the
+ *          Module.ClipSetResult embind enum; compare against its values, never
+ *          by truthiness (every enum value is a truthy object).
  */
 enum class ClipSetResult {
-  APPLIED,        /**< Band installed, or deliberately kept full-canvas for an
-                       Effect::needs_full_frame() effect. */
-  NO_EFFECT,      /**< No effect is installed to receive the clip. */
-  INVALID_BOUNDS, /**< Bounds malformed or out of range for the resolution. */
+  APPLIED,         /**< Band installed; rendering is narrowed to it. */
+  NO_EFFECT,       /**< No effect is installed to receive the clip. */
+  INVALID_BOUNDS,  /**< Bounds malformed or out of range for the resolution. */
+  FULL_FRAME_KEPT, /**< Bounds accepted but ignored: the effect reports
+                        Effect::needs_full_frame(), so the clip stays at the
+                        full canvas. */
 };
 
 // True while a HolosphereEngine is constructed-but-not-deleted. The engine is a
@@ -553,14 +559,16 @@ public:
    * @param x1 Exclusive right column, with x0 <= x1 <= pixel_width.
    * @param y0 Inclusive top row of the clip band in [0, pixel_height].
    * @param y1 Exclusive bottom row of the clip band, with y0 <= y1 <= pixel_height.
-   * @return APPLIED if the bounds were accepted (band applied, OR intentionally
-   *         kept full-canvas for a full-frame stateful effect), otherwise the
-   *         rejection reason: NO_EFFECT (no effect is set to receive the clip)
-   *         or INVALID_BOUNDS (malformed/out of range, then ignored). Exposed to
-   *         JS as the Module.ClipSetResult embind enum; compare against its
-   *         values, never by truthiness. NO_EFFECT is the ordinary answer
-   *         between a resolution change and the setEffect that follows it, so a
-   *         caller that faults on a rejection must fault on INVALID_BOUNDS only.
+   * @return APPLIED if the band was installed, FULL_FRAME_KEPT if the bounds
+   *         were accepted but the effect reports Effect::needs_full_frame() and
+   *         so keeps the full-canvas clip, otherwise the rejection reason:
+   *         NO_EFFECT (no effect is set to receive the clip) or INVALID_BOUNDS
+   *         (malformed/out of range, then ignored). Exposed to JS as the
+   *         Module.ClipSetResult embind enum; compare against its values, never
+   *         by truthiness. Both APPLIED and FULL_FRAME_KEPT are successes.
+   *         NO_EFFECT is the ordinary answer between a resolution change and the
+   *         setEffect that follows it, so a caller that faults on a rejection
+   *         must fault on INVALID_BOUNDS only.
    * @details Args are x-pair-first to match the (x, y) convention: embind binds
    *          positionally, so a y-first order would let a transposed JS call pass
    *          the range check and silently clip the wrong axis. Rejects malformed
@@ -586,7 +594,7 @@ public:
     // (a band-clipped worker has stale cv.prev outside its band, so trails seam);
     // keep the full clip. See docs/segmented_stateful_effects_spec.md.
     if (current_effect->needs_full_frame())
-      return ClipSetResult::APPLIED;
+      return ClipSetResult::FULL_FRAME_KEPT;
     current_effect->set_clip(y0, y1, x0, x1);
     return ClipSetResult::APPLIED;
   }
@@ -1809,7 +1817,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   enum_<ClipSetResult>("ClipSetResult")
       .value("APPLIED", ClipSetResult::APPLIED)
       .value("NO_EFFECT", ClipSetResult::NO_EFFECT)
-      .value("INVALID_BOUNDS", ClipSetResult::INVALID_BOUNDS);
+      .value("INVALID_BOUNDS", ClipSetResult::INVALID_BOUNDS)
+      .value("FULL_FRAME_KEPT", ClipSetResult::FULL_FRAME_KEPT);
 
   class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
