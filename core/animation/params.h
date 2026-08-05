@@ -367,7 +367,7 @@ private:
       to_palette;        /**< Stable target palette. */
   EasingFn easing_fn;    /**< Easing curve. */
   bool captured = false; /**< Whether from_snap was taken on the first step. */
-  const bool *paused; /**< Optional pause gate; freezes the wipe when set and
+  const bool *paused;    /**< Optional pause gate; freezes the wipe when set and
                           true. Null = always runs. */
 };
 
