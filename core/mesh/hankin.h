@@ -127,10 +127,11 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
 
+  // Unbind, not clear(): a reused CompiledHankin's bindings may name blocks its
+  // arena has already reclaimed.
+  compiled = CompiledHankin();
+
   if (borrow_base_vertices) {
-    // Unbind, not clear(): a reused CompiledHankin's binding may name a block
-    // its arena has already reclaimed.
-    compiled.base_vertices = {};
     compiled.corner_src = mesh.vertices.data();
   } else {
     compiled.base_vertices.bind(target_arena, V);
