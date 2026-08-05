@@ -29,6 +29,7 @@
  */
 #pragma once
 
+#include <bit>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -816,6 +817,104 @@ inline void case_conway_target_exhausted() {
   PolyMesh mesh;
   build_solid<Solids::Tetrahedron>(mesh, source);
   MeshOps::truncate(mesh, target, temp, opaque(0.25f));
+}
+
+/** @brief Vertex-bit payload words a tetrahedron bake needs (3 per vertex). */
+inline constexpr size_t TETRAHEDRON_BAKE_WORDS = 3 * 4;
+
+/**
+ * @brief Builds a tetrahedron plus a relax bake that matches it exactly.
+ * @param mesh Mesh to populate.
+ * @param arena Arena backing the mesh arrays.
+ * @param bits Payload storage, TETRAHEDRON_BAKE_WORDS words, filled with the
+ *        mesh's own vertex bits; must outlive the relax_baked() call.
+ * @return Bake relax_baked() accepts until the caller perturbs one field.
+ * @details relax_baked does not check source positions, so the source mesh's
+ *          own vertices are a legal payload.
+ */
+inline MeshOps::RelaxBake
+build_matching_relax_bake(PolyMesh &mesh, Arena &arena, uint32_t *bits) {
+  build_solid<Solids::Tetrahedron>(mesh, arena);
+  uint32_t output_hash = MeshOps::FNV1A_BASIS;
+  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+    const Vector &v = mesh.vertices[i];
+    bits[3 * i] = std::bit_cast<uint32_t>(v.x);
+    bits[3 * i + 1] = std::bit_cast<uint32_t>(v.y);
+    bits[3 * i + 2] = std::bit_cast<uint32_t>(v.z);
+    for (size_t k = 0; k < 3; ++k)
+      output_hash = MeshOps::fnv1a_step(output_hash, bits[3 * i + k]);
+  }
+  MeshOps::RelaxBake bake{};
+  bake.name = "death_tetrahedron";
+  bake.vertex_bits = bits;
+  bake.vertex_count = static_cast<uint16_t>(mesh.vertices.size());
+  bake.face_count = static_cast<uint16_t>(mesh.get_face_counts_size());
+  bake.index_count = static_cast<uint16_t>(mesh.get_faces_size());
+  bake.iterations = 0;
+  bake.topology_hash = MeshOps::relax_topology_hash(mesh);
+  bake.output_hash = output_hash;
+  return bake;
+}
+
+/**
+ * @brief Death case: relax_baked rejects a bake whose vertex count differs from
+ *        the source mesh.
+ * @details Baked-payload surface — the dimension check is what stops a payload
+ *          baked against different geometry from being read past its end.
+ */
+inline void case_relax_baked_dimension_mismatch() {
+  static uint8_t source_buf[4096];
+  static uint8_t target_buf[4096];
+  Arena source(source_buf, sizeof(source_buf));
+  Arena target(target_buf, sizeof(target_buf));
+  uint32_t bits[TETRAHEDRON_BAKE_WORDS];
+  PolyMesh mesh;
+  MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
+  bake.vertex_count = opaque<uint16_t>(bake.vertex_count + 1);
+  PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
+  if (out.vertices.size() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: relax_baked rejects a bake whose topology hash differs.
+ * @details Baked-payload surface — dimensions alone do not pin connectivity, so
+ *          this check is what stops a bake replaying onto a mesh of the same
+ *          size but different face wiring.
+ */
+inline void case_relax_baked_topology_mismatch() {
+  static uint8_t source_buf[4096];
+  static uint8_t target_buf[4096];
+  Arena source(source_buf, sizeof(source_buf));
+  Arena target(target_buf, sizeof(target_buf));
+  uint32_t bits[TETRAHEDRON_BAKE_WORDS];
+  PolyMesh mesh;
+  MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
+  bake.topology_hash = opaque(bake.topology_hash ^ 1u);
+  PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
+  if (out.vertices.size() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: relax_baked rejects a payload whose re-hash differs from
+ *        the bake's output hash.
+ * @details Baked-payload surface — the only check covering the vertex words
+ *          themselves, so a corrupt or truncated flash payload stops here
+ *          rather than shipping as geometry.
+ */
+inline void case_relax_baked_output_hash_mismatch() {
+  static uint8_t source_buf[4096];
+  static uint8_t target_buf[4096];
+  Arena source(source_buf, sizeof(source_buf));
+  Arena target(target_buf, sizeof(target_buf));
+  uint32_t bits[TETRAHEDRON_BAKE_WORDS];
+  PolyMesh mesh;
+  MeshOps::RelaxBake bake = build_matching_relax_bake(mesh, source, bits);
+  bake.output_hash = opaque(bake.output_hash ^ 1u);
+  PolyMesh out = MeshOps::relax_baked(mesh, target, bake);
+  if (out.vertices.size() == opaque<size_t>(0x7fff))
+    std::printf("x");
 }
 
 /**
@@ -2004,6 +2103,17 @@ inline const Case *all_cases(int &n) {
        "closed manifold (unpaired half-edge)"},
       {"conway_target_exhausted", case_conway_target_exhausted, "memory.h",
        "(false) "},
+      {"relax_baked_dimension_mismatch", case_relax_baked_dimension_mismatch,
+       "conway.h",
+       "(V == bake.vertex_count && F == bake.face_count && I == "
+       "bake.index_count) relax_baked: source dimensions differ"},
+      {"relax_baked_topology_mismatch", case_relax_baked_topology_mismatch,
+       "conway.h",
+       "(relax_topology_hash(mesh) == bake.topology_hash) relax_baked: source "
+       "topology differs"},
+      {"relax_baked_output_hash_mismatch",
+       case_relax_baked_output_hash_mismatch, "conway.h",
+       "(output_hash == bake.output_hash) relax_baked: output hash differs"},
       {"half_edge_face_counts_short", case_half_edge_face_counts_short,
        "mesh.h",
        "(counted_indices == total_indices) mesh face counts do not span flat "
@@ -2498,7 +2608,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 102;
+  constexpr int DEATH_CASE_COUNT = 105;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
