@@ -603,6 +603,9 @@ struct RippleParams {
   /** @brief Cached cos(angle) upper fast-reject bound. */
   float cos_threshold_max = -1.0f;
 
+  /** @brief Carries a TransformerPool::prepare_frame() hook (sync()). */
+  static constexpr bool NEEDS_PREPARE = true;
+
   /**
    * @brief Ricker wavelet half-width, floored so the distance normalization
    * never divides by zero.
@@ -706,6 +709,9 @@ struct NoiseParams {
   mutable FastNoiseLite noise; /**< Backing generator; mutable for lazy
                                   init/updates. */
 
+  /** @brief Carries TransformerPool::prepare_frame() hooks. */
+  static constexpr bool NEEDS_PREPARE = true;
+
   /**
    * @brief Constructs noise params with an OpenSimplex2 generator.
    */
@@ -774,6 +780,9 @@ struct BumpParams {
       0.0f; /**< Footprint scale in [0, 1], animated by BallDrop. */
   float cos_radius =
       1.0f; /**< Cached cos(radius * envelope) fast-reject bound. */
+
+  /** @brief Carries TransformerPool::prepare_frame() hooks. */
+  static constexpr bool NEEDS_PREPARE = true;
 
   /**
    * @brief Refreshes the effective-radius fast-reject bound.
@@ -871,6 +880,9 @@ struct NoiseProductParams {
 
   /** @brief Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
   static constexpr float OCTAVE2_OFFSET = 50.0f;
+
+  /** @brief Carries a TransformerPool::prepare_frame() hook (refresh_from()). */
+  static constexpr bool NEEDS_PREPARE = true;
 
   /**
    * @brief Constructs params with an OpenSimplex2 generator at frequency 1.

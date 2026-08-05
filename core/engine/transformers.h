@@ -19,6 +19,17 @@
 #include "animation/animation.h"
 
 /**
+ * @brief A params type's declared prepare-hook intent, false when undeclared.
+ * @tparam T Candidate params type.
+ */
+template <typename T> constexpr bool declared_needs_prepare() {
+  if constexpr (requires { T::NEEDS_PREPARE; })
+    return T::NEEDS_PREPARE;
+  else
+    return false;
+}
+
+/**
  * @brief Fixed-capacity pool of animation-driven parameter entities.
  * @tparam ParamsT The configuration struct (e.g., RippleParams, MobiusParams).
  * @tparam AnimT The animation class (e.g., Animation::Ripple).
@@ -44,6 +55,24 @@ public:
                 "TransformerPool placement-news CAPACITY entities into the "
                 "arena and never destroys them, so ParamsT must own no state "
                 "outside its slot.");
+
+  /** @brief Whether ParamsT exposes prepare_frame()'s live-config hook. */
+  static constexpr bool HAS_REFRESH_FROM =
+      requires(ParamsT &p, ParamsT &t) { p.refresh_from(t); };
+  /** @brief Whether ParamsT exposes prepare_frame()'s derived-state hook. */
+  static constexpr bool HAS_SYNC = requires(ParamsT &p) { p.sync(); };
+
+  static_assert(
+      requires { ParamsT::NEEDS_PREPARE; },
+      "ParamsT must declare `static constexpr bool NEEDS_PREPARE`: true if it "
+      "carries prepare_frame() hooks (refresh_from()/sync()), false if it "
+      "needs neither.");
+  static_assert(
+      declared_needs_prepare<ParamsT>() == (HAS_REFRESH_FROM || HAS_SYNC),
+      "ParamsT::NEEDS_PREPARE disagrees with the hooks ParamsT exposes. "
+      "prepare_frame() finds its hooks by detection, so a renamed hook or a "
+      "drifted signature would leave the entity unrefreshed with no other "
+      "signal.");
 
   ParamsT
       template_params; /**< Template params copied into each new entity on spawn. */
@@ -305,11 +334,11 @@ public:
     for (int k = 0; k < active_slot_count; ++k) {
       Entity &e = entities[active_slots[k]];
       // Pull live-tunable config from template_params into the spawned entity.
-      if constexpr (requires { e.params.refresh_from(template_params); }) {
+      if constexpr (HAS_REFRESH_FROM) {
         e.params.refresh_from(template_params);
       }
       // Refresh derived state after copying live values.
-      if constexpr (requires { e.params.sync(); }) {
+      if constexpr (HAS_SYNC) {
         e.params.sync();
       }
     }
