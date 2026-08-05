@@ -1049,7 +1049,6 @@ jobs:
         core/engine/effect_registry.h
         core/mesh/hankin.h
         core/render/canvas.h
-        core/render/plot.h
         effects/BZReactionDiffusion.h
         effects/RingSpin.h
         tests/test_animation.h

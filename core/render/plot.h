@@ -100,8 +100,7 @@ static constexpr float BALANCED_POLE_GUARD_SCALE = 2.0f;
 
 /** @brief Source-over-aware alpha gain for balanced sample spacing. */
 static inline float balanced_sample_alpha(float alpha, float step_ratio) {
-  const float gain =
-      1.0f + (step_ratio - 1.0f) * (0.88f - 0.20f * alpha);
+  const float gain = 1.0f + (step_ratio - 1.0f) * (0.88f - 0.20f * alpha);
   return std::min(1.0f, alpha * gain);
 }
 
@@ -271,9 +270,8 @@ struct PlanarEdgeSampler {
     const float seg = arc_cumul[k + 1] - arc_cumul[k];
     const float frac =
         seg > math::EPS_GEOMETRIC ? (target - arc_cumul[k]) / seg : 0.0f;
-    return std::min(1.0f, std::max(0.0f,
-                                   (static_cast<float>(k) + frac) /
-                                       PLANAR_LEN_SAMPLES));
+    return std::min(1.0f, std::max(0.0f, (static_cast<float>(k) + frac) /
+                                             PLANAR_LEN_SAMPLES));
   }
 
   /** @brief Maps increasing arc fractions without rescanning prior intervals. */
@@ -285,12 +283,10 @@ struct PlanarEdgeSampler {
            arc_cumul[interval + 1] < target)
       ++interval;
     const float seg = arc_cumul[interval + 1] - arc_cumul[interval];
-    const float frac = seg > math::EPS_GEOMETRIC
-                           ? (target - arc_cumul[interval]) / seg
-                           : 0.0f;
-    return std::min(1.0f,
-                    std::max(0.0f, (static_cast<float>(interval) + frac) /
-                                       PLANAR_LEN_SAMPLES));
+    const float frac =
+        seg > math::EPS_GEOMETRIC ? (target - arc_cumul[interval]) / seg : 0.0f;
+    return std::min(1.0f, std::max(0.0f, (static_cast<float>(interval) + frac) /
+                                             PLANAR_LEN_SAMPLES));
   }
 
   /**
@@ -335,18 +331,16 @@ struct PlanarEdgeSampler {
     }
     const Vector radial = (basis->u * x) + (basis->w * y);
     const float radial_scale = sin_radius * inv_radius;
-    const Vector position =
-        (basis->v * cos_radius) + (radial * radial_scale);
+    const Vector position = (basis->v * cos_radius) + (radial * radial_scale);
     if constexpr (!WithTangent)
       return {position, Vector()};
 
     const float radius_rate = (x * dx + y * dy) * inv_radius;
     const float scale_rate =
         (radius * cos_radius - sin_radius) * inv_radius * inv_radius;
-    const Vector tangent =
-        (basis->v * (-sin_radius * radius_rate)) +
-        (chart_tangent * radial_scale) +
-        (radial * (scale_rate * radius_rate));
+    const Vector tangent = (basis->v * (-sin_radius * radius_rate)) +
+                           (chart_tangent * radial_scale) +
+                           (radial * (scale_rate * radius_rate));
     HS_PLOT_COUNT(normalizations);
     return {position, normalized_or(tangent, Vector())};
   }
@@ -357,9 +351,7 @@ struct PlanarEdgeSampler {
    * parameter, then unprojects. A short scan over PLANAR_LEN_SAMPLES floats —
    * no trig.
    */
-  Vector pos(float s) const {
-    return unproject(projection_fraction(s));
-  }
+  Vector pos(float s) const { return unproject(projection_fraction(s)); }
 
   /** @brief Evaluates position and analytic tangent without a second unproject. */
   SamplePT one_pass(float s) const {
@@ -1068,8 +1060,7 @@ raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
 template <int W>
 static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
                                    const PlanarEdgeSpan &es, int &col_s,
-                                   int &col_len,
-                                   Vector *end_sample = nullptr) {
+                                   int &col_len, Vector *end_sample = nullptr) {
   const float ca = vector_to_theta<W>(a);
   float s_f, len_f;
 
@@ -1093,8 +1084,8 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
     };
     for (const Vector &s : es.interior)
       step(s);
-    Vector end = azimuthal_unproject(es.p1.first + es.dX,
-                                     es.p1.second + es.dY, planar_basis);
+    Vector end = azimuthal_unproject(es.p1.first + es.dX, es.p1.second + es.dY,
+                                     planar_basis);
     if (end_sample != nullptr)
       *end_sample = end;
     step(end);
@@ -1203,8 +1194,7 @@ static inline float screen_step_reference(const Vector &pos, const Vector &tan,
   const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
   const float inv_sin = fast_rsqrt(sin2);
   const float dphi_ds = -tan.y * inv_sin;
-  const float dlon_ds =
-      (pos.x * tan.z - pos.z * tan.x) * inv_sin * inv_sin;
+  const float dlon_ds = (pos.x * tan.z - pos.z * tan.x) * inv_sin * inv_sin;
   const float vx = KX * dlon_ds;
   const float vy = KY * dphi_ds;
   const float speed2 = std::max(vx * vx + vy * vy, 1e-12f);
@@ -1380,8 +1370,7 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
     }
     // Planar: both span bounds share one projection + chart-line sample set.
     const PlanarEdgeSpan ps = make_planar_edge_span(ea, eb, *bp);
-    return planar_edge_visible_in_clip<W, H>(cr, xc, band_len, ea, eb, *bp,
-                                              ps);
+    return planar_edge_visible_in_clip<W, H>(cr, xc, band_len, ea, eb, *bp, ps);
   };
   if constexpr (requires { pipeline.could_intersect_clip(a, b, pb, pred); }) {
     return pipeline.could_intersect_clip(a, b, pb, pred);
@@ -1407,9 +1396,8 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
  * for its per-segment arc/seam caches, where count is the segment count.
  */
 template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
-  constexpr size_t STEPS = 2 * static_cast<size_t>(W) > 64
-                               ? 2 * static_cast<size_t>(W)
-                               : 64;
+  constexpr size_t STEPS =
+      2 * static_cast<size_t>(W) > 64 ? 2 * static_cast<size_t>(W) : 64;
   return STEPS * sizeof(float);
 }
 
@@ -1496,14 +1484,14 @@ struct RasterOptions {
  */
 HS_O3_BEGIN
 template <int W, int H, bool SinglePass = false, bool OpenGeodesic = false,
-           bool DerivePlanarArcRegisters = true,
-           bool InterpolateRegisters = true,
-           RasterSamplingPolicy SamplingPolicy = RasterSamplingPolicy::DEFAULT,
-           typename PipelineT = PipelineRef,
-           typename FragmentShaderT = FragmentShaderFn>
-static void
-rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
-          FragmentShaderT fragment_shader, const RasterOptions &opts = {}) {
+          bool DerivePlanarArcRegisters = true,
+          bool InterpolateRegisters = true,
+          RasterSamplingPolicy SamplingPolicy = RasterSamplingPolicy::DEFAULT,
+          typename PipelineT = PipelineRef,
+          typename FragmentShaderT = FragmentShaderFn>
+static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
+                      const Fragments &points, FragmentShaderT fragment_shader,
+                      const RasterOptions &opts = {}) {
   if constexpr (OpenGeodesic)
     assert(!opts.close_loop && opts.planar_basis == nullptr && !opts.omit_end &&
            opts.loop_seam == nullptr);
@@ -1521,8 +1509,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
     PipelineRef erased(source_pipeline);
     FragmentShaderFn erased_shader(fragment_shader);
     rasterize<W, H, SinglePass, OpenGeodesic, DerivePlanarArcRegisters,
-               InterpolateRegisters, SamplingPolicy>(erased, canvas, points,
-                                                      erased_shader, opts);
+              InterpolateRegisters, SamplingPolicy>(erased, canvas, points,
+                                                    erased_shader, opts);
     return;
   }
   HS_PLOT_COUNT(rings);
@@ -1669,9 +1657,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           base_step * MIN_POLE_SCALE * BALANCED_POLE_GUARD_SCALE;
       return default_step <= POLE_GUARD
                  ? default_step
-                 : std::min(base_step,
-                            default_step *
-                                (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
+                 : std::min(base_step, default_step * (BALANCED_SCREEN_STEP_PX /
+                                                       SCREEN_STEP_PX));
     };
     auto adaptive_step = [&](const SamplePT &value) {
 #ifdef HS_TEST_BUILD
@@ -1789,8 +1776,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
           if (balanced_sampling) {
             const float alpha_scale = desired_step / default_desired_step;
-            f.color.alpha =
-                balanced_sample_alpha(f.color.alpha, alpha_scale);
+            f.color.alpha = balanced_sample_alpha(f.color.alpha, alpha_scale);
           }
         }
         HS_PLOT_COUNT(plotted_samples);
@@ -1820,8 +1806,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
                         }) {
             if (balanced_sampling && reuse_step) {
               HS_MSP_STALL_START(position_start);
-              smp.pos = sample.position_monotonic(current_t,
-                                                  planar_arc_interval);
+              smp.pos =
+                  sample.position_monotonic(current_t, planar_arc_interval);
               HS_MSP_COUNT(adaptive_samples);
               HS_MSP_STALL_STOP(adaptive_sim, position_start);
 #ifdef HS_TEST_BUILD
@@ -1835,9 +1821,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
                 const float sin2 = 1.0f - smp.pos.y * smp.pos.y;
                 reuse_step =
                     sin2 > 0.12f &&
-                    default_desired_step >
-                        base_step * MIN_POLE_SCALE *
-                            BALANCED_POLE_GUARD_SCALE &&
+                    default_desired_step > base_step * MIN_POLE_SCALE *
+                                               BALANCED_POLE_GUARD_SCALE &&
                     default_desired_step < base_step * 0.9f &&
                     dot(smp.tan, previous_full_tangent) > 0.995f &&
                     fabsf(default_desired_step - previous_full_step) <
@@ -1869,8 +1854,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         if constexpr (SamplingPolicy != RasterSamplingPolicy::DEFAULT) {
           if (balanced_sampling) {
             const float alpha_scale = desired_step / default_desired_step;
-            f.color.alpha =
-                balanced_sample_alpha(f.color.alpha, alpha_scale);
+            f.color.alpha = balanced_sample_alpha(f.color.alpha, alpha_scale);
           }
         }
         HS_PLOT_COUNT(plotted_samples);
@@ -2094,8 +2078,7 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           sampler = make_planar_edge_sampler(planar_cull_span, planar_cull_end,
                                              *planar_basis);
         } else {
-          sampler =
-              make_planar_edge_sampler(curr.pos, next.pos, *planar_basis);
+          sampler = make_planar_edge_sampler(curr.pos, next.pos, *planar_basis);
         }
         process_segment(sampler, curr, next, sampler.dist, is_last_segment);
       } else {
@@ -2372,14 +2355,13 @@ struct Multiline {
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, bool closed = false) {
     Fragment loop_seam;
-    draw_fragments<W, H>(
-        pipeline, canvas, vertex_shader, fragment_shader,
-        {.capacity = vertices.size() + 1,
-         .close_loop = closed,
-         .loop_seam = closed ? &loop_seam : nullptr},
-        [&](Fragments &points) {
-          loop_seam = sample(points, vertices, closed);
-        });
+    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
+                         {.capacity = vertices.size() + 1,
+                          .close_loop = closed,
+                          .loop_seam = closed ? &loop_seam : nullptr},
+                         [&](Fragments &points) {
+                           loop_seam = sample(points, vertices, closed);
+                         });
   }
 
   /**
@@ -3002,8 +2984,7 @@ private:
         float cos_r = cos_radius[i & 1];
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
-        Vector p =
-            (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+        Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
         HS_PLOT_COUNT(normalizations);
         p.normalize();
         return p;
@@ -3462,8 +3443,9 @@ static inline void count_particle_exact_gate_fallback() {
  */
 struct TrailGatePrologue {
   const float *rows; /**< Per-point screen rows, one per trail point. */
-  const float *cols; /**< Per-point screen columns, null when x-clip inactive. */
-  bool rejected;     /**< The whole trail is provably outside the clip. */
+  const float
+      *cols;     /**< Per-point screen columns, null when x-clip inactive. */
+  bool rejected; /**< The whole trail is provably outside the clip. */
 };
 
 /**
@@ -3952,10 +3934,9 @@ struct ParticleSystem {
    *        index.
    */
   template <int W, int H, bool HoistableCull, bool FuseVertex,
-            bool SinglePassRaster,
-            typename PipelineT, typename SystemT, typename FragmentShaderT,
-            typename VertexShaderFn, typename DeferredShaderT,
-            typename ParticleV2Fn>
+            bool SinglePassRaster, typename PipelineT, typename SystemT,
+            typename FragmentShaderT, typename VertexShaderFn,
+            typename DeferredShaderT, typename ParticleV2Fn>
   static void
   draw_impl(PipelineT &pipeline, Canvas &canvas, const SystemT &system,
             FragmentShaderT fragment_shader, VertexShaderFn vertex_shader,
@@ -4024,10 +4005,8 @@ struct ParticleSystem {
             hs::g_mindsplatter_stalls.history_vertex);
 #endif
         p.history.tween([&](const Vector &v, float t) {
-          trail.emplace_back(Fragment{.pos = v,
-                                      .v0 = t,
-                                      .v2 = v2,
-                                      .v3 = particle_life});
+          trail.emplace_back(
+              Fragment{.pos = v, .v0 = t, .v2 = v2, .v3 = particle_life});
           if constexpr (FuseVertex)
             vertex_shader(trail.back());
           if (has_deferred_shader)
@@ -4153,11 +4132,11 @@ struct ParticleSystem {
       }
       {
         HS_PROFILE(plot_ps_raster);
-        rasterize<W, H, SinglePassRaster, true>(
-            pipeline, canvas, trail, fragment_shader,
-            {.edge_visible = vis,
-             .point_rows = dot_rows,
-             .point_cols = dot_cols});
+        rasterize<W, H, SinglePassRaster, true>(pipeline, canvas, trail,
+                                                fragment_shader,
+                                                {.edge_visible = vis,
+                                                 .point_rows = dot_rows,
+                                                 .point_cols = dot_cols});
       }
     }
   }
@@ -4204,8 +4183,7 @@ struct ParticleSystem {
    * @param particle_v2 Optional particle-to-v2 mapper.
    */
   template <int W, int H, bool SinglePassRaster = false, typename PipelineT,
-            typename FragmentShaderT,
-            typename VertexShaderFn,
+            typename FragmentShaderT, typename VertexShaderFn,
             typename DeferredShaderT = DeferredShaderRef,
             typename ParticleV2Fn = std::nullptr_t>
   static void draw_fused_vertex(PipelineT &pipeline, Canvas &canvas,
@@ -4216,9 +4194,8 @@ struct ParticleSystem {
                                 ParticleV2Fn particle_v2 = nullptr) {
     if constexpr (pipeline_direct_raster_path<PipelineT>()) {
       draw_impl<W, H, pipeline_hoistable_cull<PipelineT>(), true,
-                SinglePassRaster>(
-          pipeline, canvas, system, fragment_shader, vertex_shader,
-          deferred_shader, particle_v2);
+                SinglePassRaster>(pipeline, canvas, system, fragment_shader,
+                                  vertex_shader, deferred_shader, particle_v2);
     } else {
       PipelineRef erased(pipeline);
       FragmentShaderFn erased_shader(fragment_shader);
