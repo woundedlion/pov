@@ -872,6 +872,87 @@ inline void test_world_orient_motion_blur_sweep_ages() {
 }
 
 /**
+ * @brief Verifies Orient's clip-cull re-emits the edge under the same tween
+ *        rotations plot() applies, short-circuits on the first hit, rotates a
+ *        planar basis alongside the endpoints, and keeps an edge the bound
+ *        orientation carries into the band.
+ * @details The rotation moves latitude, so culling by the un-rotated endpoints
+ *          would drop geometry the orientation sweeps into a segment band.
+ */
+inline void test_world_orient_cull_edge_mirrors_plot() {
+  static_assert(has_cull_edge<Filter::World::Orient>);
+  Orientation<> ori; // identity, 1 frame
+  ori.push(make_rotation(Y_AXIS, PI_F / 4));
+  ori.push(make_rotation(Y_AXIS, PI_F / 2)); // now 3 frames
+  const Filter::World::Orient orient(ori);
+
+  Vector seen[2];
+  int n = 0;
+  bool hit =
+      orient.cull_edge(X_AXIS, X_AXIS, nullptr,
+                       [&](const Vector &a, const Vector &, const Basis *) {
+                         if (n < 2)
+                           seen[n] = a;
+                         ++n;
+                         return false;
+                       });
+  HS_EXPECT_FALSE(hit);
+  // tween skips index 0, so the sweep is frames 1 and 2 — the same copies plot()
+  // draws.
+  HS_EXPECT_EQ(n, 2);
+  for (int i = 0; i < 2; ++i) {
+    Vector expected = rotate(X_AXIS, ori.get(i + 1));
+    HS_EXPECT_NEAR(seen[i].x, expected.x, 1e-4f);
+    HS_EXPECT_NEAR(seen[i].y, expected.y, 1e-4f);
+    HS_EXPECT_NEAR(seen[i].z, expected.z, 1e-4f);
+  }
+
+  n = 0;
+  hit = orient.cull_edge(X_AXIS, X_AXIS, nullptr,
+                         [&](const Vector &, const Vector &, const Basis *) {
+                           ++n;
+                           return true;
+                         });
+  HS_EXPECT_TRUE(hit);
+  HS_EXPECT_EQ(n, 1);
+
+  // A planar edge rotates its basis alongside the endpoints.
+  const Basis pb{X_AXIS, Y_AXIS, Z_AXIS};
+  Vector normals[2];
+  n = 0;
+  orient.cull_edge(X_AXIS, X_AXIS, &pb,
+                   [&](const Vector &, const Vector &, const Basis *bp) {
+                     if (bp && n < 2)
+                       normals[n] = bp->v;
+                     ++n;
+                     return false;
+                   });
+  HS_EXPECT_EQ(n, 2);
+  for (int i = 0; i < 2; ++i) {
+    Vector expected = rotate(Y_AXIS, ori.get(i + 1));
+    HS_EXPECT_NEAR(normals[i].x, expected.x, 1e-4f);
+    HS_EXPECT_NEAR(normals[i].y, expected.y, 1e-4f);
+    HS_EXPECT_NEAR(normals[i].z, expected.z, 1e-4f);
+  }
+
+  // An edge that sits outside a polar band until the orientation rotates it in:
+  // the band predicate rejects the source endpoints, plot() lands the point
+  // inside, and the cull must therefore keep the edge.
+  Orientation<> tilt(make_rotation(Z_AXIS, PI_F / 2));
+  Filter::World::Orient tilted(tilt);
+  auto in_polar_band = [](const Vector &a, const Vector &b, const Basis *) {
+    return std::fabs(a.y) > 0.9f && std::fabs(b.y) > 0.9f;
+  };
+  HS_EXPECT_FALSE(in_polar_band(X_AXIS, X_AXIS, nullptr));
+  Vector plotted{};
+  tilted.plot(
+      X_AXIS, Pixel(1, 1, 1), 0.0f, 1.0f,
+      [&](const Vector &v, const Pixel &, float, float) { plotted = v; });
+  HS_EXPECT_GT(std::fabs(plotted.y), 0.9f);
+  HS_EXPECT_TRUE(tilted.cull_edge(X_AXIS, X_AXIS, nullptr, in_polar_band));
+}
+
+/**
  * @brief Verifies OrientSlice picks an orientation from a list by the point's
  *        projection onto an axis, then rotates by it.
  * @details With two distinct orientations a point near +axis selects the last,
@@ -912,6 +993,109 @@ inline void test_world_orient_slice_selects_by_projection() {
   HS_EXPECT_NEAR(pass.x, near_pos.x, 1e-6f);
   HS_EXPECT_NEAR(pass.y, near_pos.y, 1e-6f);
   HS_EXPECT_NEAR(pass.z, near_pos.z, 1e-6f);
+}
+
+/**
+ * @brief Verifies OrientSlice's clip-cull bounds the edge over every candidate
+ *        slice, short-circuits on the first hit, rotates a planar basis, passes
+ *        through when disabled or empty, and keeps an edge the selected slice
+ *        carries into the band.
+ * @details The endpoints can fall in different slices, so the cull spans all
+ *          candidates instead of replicating plot()'s per-point selector.
+ */
+inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
+  static_assert(has_cull_edge<Filter::World::OrientSlice>);
+  Orientation<> oris[2];
+  oris[0].set(make_rotation(X_AXIS, PI_F / 2)); // leaves +X where it is
+  oris[1].set(make_rotation(Z_AXIS, PI_F / 2));
+  std::span<const Orientation<>> span(oris, 2);
+  Filter::World::OrientSlice slice(span, Y_AXIS);
+
+  Vector seen[2];
+  int n = 0;
+  bool hit =
+      slice.cull_edge(X_AXIS, X_AXIS, nullptr,
+                      [&](const Vector &a, const Vector &, const Basis *) {
+                        if (n < 2)
+                          seen[n] = a;
+                        ++n;
+                        return false;
+                      });
+  HS_EXPECT_FALSE(hit);
+  // One single-frame tween step per candidate slice.
+  HS_EXPECT_EQ(n, 2);
+  for (int i = 0; i < 2; ++i) {
+    Vector expected = rotate(X_AXIS, oris[i].get());
+    HS_EXPECT_NEAR(seen[i].x, expected.x, 1e-4f);
+    HS_EXPECT_NEAR(seen[i].y, expected.y, 1e-4f);
+    HS_EXPECT_NEAR(seen[i].z, expected.z, 1e-4f);
+  }
+
+  n = 0;
+  hit = slice.cull_edge(X_AXIS, X_AXIS, nullptr,
+                        [&](const Vector &, const Vector &, const Basis *) {
+                          ++n;
+                          return true;
+                        });
+  HS_EXPECT_TRUE(hit);
+  HS_EXPECT_EQ(n, 1);
+
+  // A planar edge rotates its basis alongside the endpoints, per candidate.
+  const Basis pb{X_AXIS, Y_AXIS, Z_AXIS};
+  Vector normals[2];
+  n = 0;
+  slice.cull_edge(X_AXIS, X_AXIS, &pb,
+                  [&](const Vector &, const Vector &, const Basis *bp) {
+                    if (bp && n < 2)
+                      normals[n] = bp->v;
+                    ++n;
+                    return false;
+                  });
+  HS_EXPECT_EQ(n, 2);
+  for (int i = 0; i < 2; ++i) {
+    Vector expected = rotate(Y_AXIS, oris[i].get());
+    HS_EXPECT_NEAR(normals[i].x, expected.x, 1e-4f);
+    HS_EXPECT_NEAR(normals[i].y, expected.y, 1e-4f);
+    HS_EXPECT_NEAR(normals[i].z, expected.z, 1e-4f);
+  }
+
+  // A probe near +Y selects the Z rotation, which swings it onto the |x| band:
+  // the band predicate rejects the source endpoints, plot() lands the point
+  // inside, and the cull must therefore keep the edge.
+  const Vector probe = Vector(0.15f, 0.98f, 0.0f).normalized();
+  auto in_x_band = [](const Vector &a, const Vector &b, const Basis *) {
+    return std::fabs(a.x) > 0.9f && std::fabs(b.x) > 0.9f;
+  };
+  HS_EXPECT_FALSE(in_x_band(probe, probe, nullptr));
+  Vector plotted{};
+  slice.plot(
+      probe, Pixel(1, 1, 1), 0.0f, 1.0f,
+      [&](const Vector &v, const Pixel &, float, float) { plotted = v; });
+  HS_EXPECT_GT(std::fabs(plotted.x), 0.9f);
+  HS_EXPECT_TRUE(slice.cull_edge(probe, probe, nullptr, in_x_band));
+
+  // Disabled -> the edge reaches the tail once, unrotated.
+  Vector passed{};
+  auto record_once = [&](const Vector &a, const Vector &, const Basis *) {
+    passed = a;
+    ++n;
+    return false;
+  };
+  slice.enabled = false;
+  n = 0;
+  slice.cull_edge(X_AXIS, X_AXIS, nullptr, record_once);
+  HS_EXPECT_EQ(n, 1);
+  HS_EXPECT_NEAR(passed.x, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(passed.y, 0.0f, 1e-6f);
+
+  // An empty candidate list is the same passthrough.
+  Filter::World::OrientSlice empty(std::span<const Orientation<>>{}, Y_AXIS);
+  n = 0;
+  passed = Vector();
+  empty.cull_edge(X_AXIS, X_AXIS, nullptr, record_once);
+  HS_EXPECT_EQ(n, 1);
+  HS_EXPECT_NEAR(passed.x, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(passed.z, 0.0f, 1e-6f);
 }
 
 /**
@@ -1014,6 +1198,131 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
     HS_EXPECT_NEAR(normals[i].y, verts[i].y, 1e-4f);
     HS_EXPECT_NEAR(normals[i].z, verts[i].z, 1e-4f);
   }
+}
+
+/**
+ * @brief Verifies Pipeline::could_intersect_clip walks the whole stage chain:
+ *        each world stage's cull_edge feeds the next, a stage without one
+ *        forwards the edge unchanged, and the sink runs the predicate.
+ * @details Composition order is what makes the bound sound — the tail stage sees
+ *          the head's rotated copies, so an edge only the composed transform
+ *          moves into the band survives the cull.
+ */
+inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
+  constexpr int W = 32, H = 16;
+  const Quaternion q = make_rotation(X_AXIS, PI_F / 2);
+  Orientation<> ori(q); // one frame -> a single tween step
+  Pipeline<W, H, Filter::World::Orient, Filter::World::Replicate<W>> pipe(ori,
+                                                                          2);
+
+  // Head image, then the tail's second Y-axis copy of that image.
+  const Vector head_a = rotate(Y_AXIS, q);
+  const Vector head_b = rotate(Z_AXIS, q);
+  const Quaternion step = make_rotation(Y_AXIS, PI_F);
+  const Vector tail_a = rotate(head_a, step).normalized();
+  const Vector tail_b = rotate(head_b, step).normalized();
+
+  Vector seen_a[2], seen_b[2];
+  int n = 0;
+  bool hit = pipe.could_intersect_clip(
+      Y_AXIS, Z_AXIS, nullptr,
+      [&](const Vector &a, const Vector &b, const Basis *) {
+        if (n < 2) {
+          seen_a[n] = a;
+          seen_b[n] = b;
+        }
+        ++n;
+        return false;
+      });
+  HS_EXPECT_FALSE(hit);
+  // Orient's one tween step x Replicate's two copies.
+  HS_EXPECT_EQ(n, 2);
+  HS_EXPECT_NEAR(seen_a[0].x, head_a.x, 1e-4f);
+  HS_EXPECT_NEAR(seen_a[0].y, head_a.y, 1e-4f);
+  HS_EXPECT_NEAR(seen_a[0].z, head_a.z, 1e-4f);
+  HS_EXPECT_NEAR(seen_b[0].x, head_b.x, 1e-4f);
+  HS_EXPECT_NEAR(seen_b[0].y, head_b.y, 1e-4f);
+  HS_EXPECT_NEAR(seen_b[0].z, head_b.z, 1e-4f);
+  HS_EXPECT_NEAR(seen_a[1].x, tail_a.x, 1e-4f);
+  HS_EXPECT_NEAR(seen_a[1].y, tail_a.y, 1e-4f);
+  HS_EXPECT_NEAR(seen_a[1].z, tail_a.z, 1e-4f);
+  HS_EXPECT_NEAR(seen_b[1].x, tail_b.x, 1e-4f);
+  HS_EXPECT_NEAR(seen_b[1].y, tail_b.y, 1e-4f);
+  HS_EXPECT_NEAR(seen_b[1].z, tail_b.z, 1e-4f);
+
+  // Only the composed transform reaches this target: neither the source
+  // geometry nor the head-only image does, so a chain that stopped forwarding
+  // after the head would cull an edge the renderer draws inside the band.
+  auto near_target = [&](const Vector &a, const Vector &, const Basis *) {
+    return distance_between(a, tail_a) < 1e-3f;
+  };
+  HS_EXPECT_FALSE(near_target(Y_AXIS, Z_AXIS, nullptr));
+  HS_EXPECT_FALSE(near_target(head_a, head_b, nullptr));
+  HS_EXPECT_TRUE(
+      pipe.could_intersect_clip(Y_AXIS, Z_AXIS, nullptr, near_target));
+
+  // First hit short-circuits the whole chain.
+  n = 0;
+  hit = pipe.could_intersect_clip(
+      Y_AXIS, Z_AXIS, nullptr,
+      [&](const Vector &, const Vector &, const Basis *) {
+        ++n;
+        return true;
+      });
+  HS_EXPECT_TRUE(hit);
+  HS_EXPECT_EQ(n, 1);
+
+  // A stage without cull_edge forwards the edge unchanged, so the head's
+  // rotated copy still reaches the sink.
+  Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>> plain(
+      ori);
+  Vector plain_a{};
+  n = 0;
+  plain.could_intersect_clip(
+      Y_AXIS, Z_AXIS, nullptr,
+      [&](const Vector &a, const Vector &, const Basis *) {
+        plain_a = a;
+        ++n;
+        return false;
+      });
+  HS_EXPECT_EQ(n, 1);
+  HS_EXPECT_NEAR(plain_a.x, head_a.x, 1e-4f);
+  HS_EXPECT_NEAR(plain_a.y, head_a.y, 1e-4f);
+  HS_EXPECT_NEAR(plain_a.z, head_a.z, 1e-4f);
+
+  // The filter-free sink is the terminal: it runs the predicate on the edge it
+  // was handed and answers with it.
+  Pipeline<W, H> sink;
+  Vector sink_a{};
+  n = 0;
+  hit = sink.could_intersect_clip(
+      Y_AXIS, Z_AXIS, nullptr,
+      [&](const Vector &a, const Vector &, const Basis *) {
+        sink_a = a;
+        ++n;
+        return true;
+      });
+  HS_EXPECT_TRUE(hit);
+  HS_EXPECT_EQ(n, 1);
+  HS_EXPECT_NEAR(sink_a.y, 1.0f, 1e-6f);
+
+  // The planar basis rides the same chain.
+  const Basis pb{X_AXIS, Y_AXIS, Z_AXIS};
+  Vector tail_normal{};
+  n = 0;
+  pipe.could_intersect_clip(
+      Y_AXIS, Z_AXIS, &pb,
+      [&](const Vector &, const Vector &, const Basis *bp) {
+        if (bp)
+          tail_normal = bp->v;
+        ++n;
+        return false;
+      });
+  HS_EXPECT_EQ(n, 2);
+  const Vector expected_normal = rotate(rotate(Y_AXIS, q), step);
+  HS_EXPECT_NEAR(tail_normal.x, expected_normal.x, 1e-4f);
+  HS_EXPECT_NEAR(tail_normal.y, expected_normal.y, 1e-4f);
+  HS_EXPECT_NEAR(tail_normal.z, expected_normal.z, 1e-4f);
 }
 
 /**
@@ -3023,9 +3332,12 @@ inline int run_filter_tests() {
   test_world_hole_setters();
   test_world_orient_rotates_and_offsets_age();
   test_world_orient_motion_blur_sweep_ages();
+  test_world_orient_cull_edge_mirrors_plot();
   test_world_orient_slice_selects_by_projection();
+  test_world_orient_slice_cull_edge_bounds_all_slices();
   test_world_vertex_replicate_fanout_and_age();
   test_world_vertex_replicate_cull_edge_mirrors_plot();
+  test_pipeline_could_intersect_clip_forwards_through_stages();
   test_world_mobius_identity_and_transform();
 
   test_pipeline_sink_2d_plot_blends_wraps_clips();
