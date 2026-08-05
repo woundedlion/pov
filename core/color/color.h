@@ -1715,6 +1715,11 @@ public:
    */
   Snapshot snapshot() const { return {a, b, c}; }
 
+  /** @brief Returns whether the palette mirrors around t = 0.5. */
+  bool mirrors_domain() const {
+    return gradient_shape == GradientShape::CIRCULAR;
+  }
+
   /**
    * @brief Sets this palette's keys to the OKLCH interpolation of two palettes.
    * @param from Source palette at amount == 0.

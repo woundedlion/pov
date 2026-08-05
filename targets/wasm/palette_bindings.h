@@ -57,6 +57,7 @@ struct PaletteOps {
    *         sampled at t = i/255. Aliases the module-lifetime palette_lut buffer
    *         (same memory-view contract as getPixels): read it before the next
    *         bakeLut call on any PaletteOps, which overwrites the buffer in place.
+   *         Circular palettes copy the lower half in reverse for exact symmetry.
    */
   val bakeLut(int gradientShape, int h1, int s1, int v1, int h2, int s2, int v2,
               int h3, int s3, int v3) {
@@ -91,11 +92,19 @@ struct PaletteOps {
         u8(h2), u8(s2), u8(v2), u8(h3), u8(s3), u8(v3));
     if (clamped)
       hs::log("WASM: bakeLut hsv key out of [0,255] — clamped");
-    for (int i = 0; i < 256; ++i) {
+    const bool mirrors = pal.mirrors_domain();
+    const int sample_count = mirrors ? 128 : 256;
+    for (int i = 0; i < sample_count; ++i) {
       CRGB c = static_cast<CRGB>(pal.get(i / 255.0f));
       palette_lut[3 * i + 0] = c.r;
       palette_lut[3 * i + 1] = c.g;
       palette_lut[3 * i + 2] = c.b;
+      if (mirrors) {
+        const int mirror = 255 - i;
+        palette_lut[3 * mirror + 0] = c.r;
+        palette_lut[3 * mirror + 1] = c.g;
+        palette_lut[3 * mirror + 2] = c.b;
+      }
     }
     return val(typed_memory_view(PALETTE_LUT_BYTES, palette_lut));
   }
