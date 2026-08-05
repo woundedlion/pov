@@ -8,7 +8,8 @@
  *   - compile_hankin builds base_vertices, static_vertices, instructions,
  *     dynamic_instructions, and face arrays consistently.
  *   - update_hankin populates an output PolyMesh for both flat (angle=0)
- *     and twisted (angle≠0) configurations.
+ *     and twisted (angle≠0) configurations, and re-solves into a reused output
+ *     mesh without consuming further arena bytes.
  *   - one-shot MeshOps::hankin convenience wrapper produces a valid mesh.
  *   - the far-star guard keeps star points local at a resonance angle where
  *     contact planes go near-parallel.
@@ -410,6 +411,39 @@ inline void test_update_hankin_populates_output_mesh() {
   check_indices_in_range(out);
 }
 
+/**
+ * @brief Verifies the documented steady state: re-solving into an already-sized
+ *        output mesh against the same arena consumes no further arena bytes.
+ * @details HankinSolids re-solves the angle every frame against a persistent
+ *   arena, so a per-call allocation here grows that arena without bound.
+ */
+inline void test_update_hankin_reuse_allocates_nothing() {
+  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(cube, compiled, target, temp);
+
+  PolyMesh out;
+  MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.4f);
+  const size_t offset_after_first = target.get_offset();
+
+  MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.7f);
+  HS_EXPECT_EQ(target.get_offset(), offset_after_first);
+
+  // Flat takes the short-circuit branch but binds the same sizes.
+  MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.0f);
+  HS_EXPECT_EQ(target.get_offset(), offset_after_first);
+
+  HS_EXPECT_EQ(out.vertices.size(), compiled.static_vertices.size() +
+                                        compiled.dynamic_instructions.size());
+  check_face_counts_consistent(out);
+  check_indices_in_range(out);
+}
+
 // ---------------------------------------------------------------------------
 // hankin() one-shot wrapper
 // ---------------------------------------------------------------------------
@@ -769,6 +803,7 @@ inline int run_hankin_tests() {
   test_update_hankin_flat_collapses_to_corners();
   test_update_hankin_degenerate_edge_collapses_to_corner();
   test_update_hankin_populates_output_mesh();
+  test_update_hankin_reuse_allocates_nothing();
 
   test_hankin_one_shot_produces_valid_mesh();
   test_hankin_flat_and_twisted_differ();
