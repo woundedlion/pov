@@ -94,6 +94,16 @@ inline void test_named_procedural_palette_endpoints() {
   HS_EXPECT_EQ(pp0.color.g, 28156);
   HS_EXPECT_EQ(pp0.color.b, 0);
 
+  Color4 cb0 = Palettes::CORAL_BLUE.get(0.0f);
+  Color4 cb1 = Palettes::CORAL_BLUE.get(1.0f);
+  HS_EXPECT_EQ(cb0.color.r, 42854);
+  HS_EXPECT_EQ(cb0.color.g, 13737);
+  HS_EXPECT_EQ(cb0.color.b, 8572);
+  HS_EXPECT_EQ(cb1.color.r, 1343);
+  HS_EXPECT_EQ(cb1.color.g, 1158);
+  HS_EXPECT_EQ(cb1.color.b, 7717);
+  HS_EXPECT_NEAR(cb0.alpha, 1.0f, 1e-6f);
+
   constexpr auto mesh_sources = MeshPaletteBank::sources();
   HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::POPPED_PEACH);
 
