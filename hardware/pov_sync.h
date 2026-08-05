@@ -1410,6 +1410,10 @@ public:
       ++telemetry_counters.master_stalls;
       fly.seed(now);
       fly.force_lock();
+      // The re-seed stamps ZERO regardless of the pre-stall identity, so the
+      // dedup state no longer describes the flywheel. Left standing, a
+      // last_flipped of HALF swallows the first crossing after recovery.
+      gate = FlipGate{};
     }
 
     // Fold every locally-crossed boundary (usually 0 or 1; several after a
