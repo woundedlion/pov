@@ -563,8 +563,8 @@ inline void test_truncate_t_over_half_crossed_cuts() {
   check_indices_in_range(tr);
   check_all_unit_vertices(tr, 1e-3f); // on-sphere implies finite
 
-  HS_EXPECT_EQ(tr.vertices.size(), (size_t)24);    // 2 * E
-  HS_EXPECT_EQ(tr.face_counts.size(), (size_t)14); // F + V
+  HS_EXPECT_EQ(tr.vertices.size(), (size_t)24); // 2 * E
+  HS_EXPECT_SIZE_OR_RETURN(tr.face_counts, 14); // F + V
   HS_EXPECT_EQ(tr.faces.size(), (size_t)(6 * 8 + 8 * 3));
 
   // Each primary face is doubled to count*2 = 8 sides; the 8 vertex faces are 3.
@@ -1041,7 +1041,7 @@ inline void test_snub_twist_rotates_primary_faces() {
       twisted.push_back(s1.vertices[i]);
   }
 
-  HS_EXPECT_EQ(base.size(), twisted.size());
+  HS_EXPECT_SIZE_OR_RETURN(twisted, base.size());
 
   for (const auto &ids : primary_faces) {
     const int sides = static_cast<int>(ids.size());
@@ -1101,7 +1101,7 @@ inline void test_transform_applies_translation_chain() {
   auto shift = [](const Vector &v) { return v + Vector(1, 0, 0); };
   MeshOps::transform(src, dst, dst_arena, scale, shift);
 
-  HS_EXPECT_EQ(dst.vertices.size(), src.vertices.size());
+  HS_EXPECT_SIZE_OR_RETURN(dst.vertices, src.vertices.size());
   for (size_t i = 0; i < src.vertices.size(); ++i) {
     Vector expected = src.vertices[i] * 2.0f + Vector(1, 0, 0);
     HS_EXPECT_NEAR(dst.vertices[i].x, expected.x, 1e-5f);

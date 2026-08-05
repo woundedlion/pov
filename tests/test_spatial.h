@@ -63,7 +63,7 @@ inline void test_kdtree_single_point() {
   HS_EXPECT_NE(tree.root_index, -1);
 
   auto r = tree.nearest(Vector(0, 0, 0), 1);
-  HS_EXPECT_EQ(r.size(), (size_t)1);
+  HS_EXPECT_SIZE_OR_RETURN(r, 1);
   HS_EXPECT_VEC(r[0].point, Vector(3, 4, 5), 1e-6f);
   HS_EXPECT_EQ(r[0].original_index, (uint16_t)0);
 }
@@ -87,17 +87,17 @@ inline void test_kdtree_nearest_known_set() {
   KDTree tree(arena, sp);
 
   auto r1 = tree.nearest(Vector(0.1f, 0.1f, 0.1f), 1);
-  HS_EXPECT_EQ(r1.size(), (size_t)1);
+  HS_EXPECT_SIZE_OR_RETURN(r1, 1);
   HS_EXPECT_VEC(r1[0].point, Vector(0, 0, 0), 1e-6f);
   HS_EXPECT_EQ(r1[0].original_index, (uint16_t)0);
 
   auto r2 = tree.nearest(Vector(10.1f, 0, 0), 1);
-  HS_EXPECT_EQ(r2.size(), (size_t)1);
+  HS_EXPECT_SIZE_OR_RETURN(r2, 1);
   HS_EXPECT_VEC(r2[0].point, Vector(10, 0, 0), 1e-6f);
   HS_EXPECT_EQ(r2[0].original_index, (uint16_t)1);
 
   auto r3 = tree.nearest(Vector(5, 5, 5), 1);
-  HS_EXPECT_EQ(r3.size(), (size_t)1);
+  HS_EXPECT_SIZE_OR_RETURN(r3, 1);
   HS_EXPECT_VEC(r3[0].point, Vector(5, 5, 5), 1e-6f);
   HS_EXPECT_EQ(r3[0].original_index, (uint16_t)4);
 }
@@ -119,7 +119,7 @@ inline void test_kdtree_k_nearest_sorted() {
   KDTree tree(arena, sp);
 
   auto r = tree.nearest(Vector(0, 0, 0), 3);
-  HS_EXPECT_EQ(r.size(), (size_t)3);
+  HS_EXPECT_SIZE_OR_RETURN(r, 3);
   HS_EXPECT_VEC(r[0].point, Vector(0, 0, 0), 1e-6f);
   HS_EXPECT_VEC(r[1].point, Vector(1, 0, 0), 1e-6f);
   HS_EXPECT_VEC(r[2].point, Vector(2, 0, 0), 1e-6f);
@@ -181,7 +181,7 @@ inline void test_kdtree_matches_brute_force() {
   }
 
   auto r = tree.nearest(query, 1);
-  HS_EXPECT_EQ(r.size(), (size_t)1);
+  HS_EXPECT_SIZE_OR_RETURN(r, 1);
   HS_EXPECT_EQ((int)r[0].original_index, best_i);
   HS_EXPECT_VEC(r[0].point, pts[best_i], 1e-6f);
 }
@@ -215,7 +215,7 @@ inline void test_kdtree_duplicates_and_max_k() {
   const Vector query(1, 1, 1);     // lands on the coincident cluster
 
   auto r = tree.nearest(query, K);
-  HS_EXPECT_EQ(r.size(), (size_t)K);
+  HS_EXPECT_SIZE_OR_RETURN(r, K);
 
   float all_d2[8];
   for (int i = 0; i < 8; ++i)
@@ -279,7 +279,7 @@ inline void test_kdtree_k_nearest_brute_force_random() {
 
   for (const Vector &q : queries) {
     auto r = tree.nearest(q, K);
-    HS_EXPECT_EQ(r.size(), (size_t)K);
+    HS_EXPECT_SIZE_OR_RETURN(r, K);
 
     float all_d2[N];
     for (int i = 0; i < N; ++i)
@@ -359,7 +359,7 @@ inline void test_meshstate_clone_deep_copies() {
   HS_EXPECT_EQ(dst.faces[1], (uint16_t)1);
   HS_EXPECT_EQ(dst.faces[2], (uint16_t)2);
 
-  HS_EXPECT_EQ(dst.topology.size(), (size_t)1);
+  HS_EXPECT_SIZE_OR_RETURN(dst.topology, 1);
   HS_EXPECT_EQ(dst.topology[0], (uint16_t)7);
 
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
