@@ -27,6 +27,7 @@
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "core/mesh/solids.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -44,15 +45,6 @@ inline uint8_t mr_seed_a[256 * 1024];
 inline uint8_t mr_seed_b[256 * 1024];
 inline uint8_t mr_geom[256 * 1024];
 inline uint8_t mr_scratch[256 * 1024];
-
-/**
- * @brief Tests whether a pixel is fully black.
- * @param p Pixel to inspect.
- * @return True when all of the pixel's RGB channels are zero.
- */
-inline bool is_black(const Pixel &p) {
-  return p.r == 0 && p.g == 0 && p.b == 0;
-}
 
 /**
  * @brief Fragment shader that paints a fixed near-white.
@@ -92,22 +84,6 @@ inline bool lit_near(const hs_test::StubEffect &fx, float px, float py, int r) {
     }
   }
   return false;
-}
-
-/**
- * @brief Counts the non-black pixels across the whole canvas.
- * @tparam W Canvas width in pixels.
- * @tparam H Canvas height in pixels.
- * @param fx Effect whose canvas is scanned.
- * @return Number of lit (non-black) pixels.
- */
-template <int W, int H> inline size_t count_lit(const hs_test::StubEffect &fx) {
-  size_t lit = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      if (!is_black(fx.get_pixel(x, y)))
-        ++lit;
-  return lit;
 }
 
 /**
@@ -187,7 +163,7 @@ inline void test_wireframe_draws_every_edge() {
     HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 3)));
   }
 
-  const size_t lit = count_lit<W, H>(fx);
+  const size_t lit = count_lit_region<W, H>(fx);
   HS_EXPECT_GT(lit, (size_t)0);
   HS_EXPECT_LT(lit, (size_t)(W * H) / 2);
 }
@@ -282,7 +258,7 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
       Plot::Mesh::draw<W, H>(pipe, c, poly, white);
     }
     wire.advance_display();
-    wire_lit = count_lit<W, H>(wire);
+    wire_lit = count_lit_region<W, H>(wire);
   }
 
   // Compile to a MeshState; the solid scan path needs face_offsets.
@@ -314,7 +290,7 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   }
 
   // (b) The fill covers far more than the wireframe.
-  const size_t fill_lit = count_lit<W, H>(fx);
+  const size_t fill_lit = count_lit_region<W, H>(fx);
   HS_EXPECT_GT(fill_lit, wire_lit * 4);
 
   // A closed convex solid tiles the whole sphere: every pixel center lands in
@@ -480,7 +456,7 @@ inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
   }
 
   const size_t total = static_cast<size_t>(W) * H;
-  const size_t fill_lit = count_lit<W, H>(fx);
+  const size_t fill_lit = count_lit_region<W, H>(fx);
   HS_EXPECT_EQ(fill_lit, total);
 }
 

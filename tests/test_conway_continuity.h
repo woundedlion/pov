@@ -800,10 +800,7 @@ inline Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
   size_t off = 0;
   for (size_t i = 0; i < fi; ++i)
     off += m.face_counts[i];
-  Vector c(0.0f, 0.0f, 0.0f);
-  for (int k = 0; k < m.face_counts[fi]; ++k)
-    c = c + m.vertices[m.faces[off + k]];
-  return c.normalized();
+  return face_centroid_unit(m, off, m.face_counts[fi]);
 }
 
 /**

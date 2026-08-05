@@ -43,6 +43,7 @@
 
 #include "core/render/filter.h"
 #include "core/render/canvas.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include <vector>
@@ -1374,41 +1375,6 @@ inline void test_world_mobius_identity_and_transform() {
 // ============================================================================
 
 /**
- * @brief Tests whether a pixel is exactly black (all channels zero).
- * @param p Pixel to test.
- * @return True when r, g, and b are all zero.
- */
-inline bool px_black(const Pixel &p) {
-  return p.r == 0 && p.g == 0 && p.b == 0;
-}
-
-/**
- * @brief Tests whether a pixel matches the given RGB triple exactly.
- * @param p Pixel to test.
- * @param r Expected red channel value.
- * @param g Expected green channel value.
- * @param b Expected blue channel value.
- * @return True when every channel equals its expected value.
- */
-inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
-  return p.r == r && p.g == g && p.b == b;
-}
-
-/**
- * @brief Counts the non-black pixels in the effect's framebuffer.
- * @param fx Effect whose framebuffer is scanned.
- * @return Number of lit (non-black) pixels.
- */
-inline size_t count_lit(const hs_test::StubEffect &fx) {
-  size_t n = 0;
-  for (int y = 0; y < fx.height(); ++y)
-    for (int x = 0; x < fx.width(); ++x)
-      if (!px_black(fx.get_pixel(x, y)))
-        ++n;
-  return n;
-}
-
-/**
  * @brief Verifies the bare 2D sink: int + float overloads, exact (alpha=1)
  *        write, x-wrap, and clip.
  */
@@ -1444,7 +1410,7 @@ inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
     pipe.plot(c, 8, 3, Pixel(0, 500, 0), 0.0f, 1.0f); // row 3 inside band
   }
   fx2.advance_display();
-  HS_EXPECT_TRUE(px_black(fx2.get_pixel(8, 6)));
+  HS_EXPECT_TRUE(is_black(fx2.get_pixel(8, 6)));
   HS_EXPECT_TRUE(pix_eq(fx2.get_pixel(8, 3), 0, 500, 0));
 }
 
@@ -1465,7 +1431,7 @@ inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
 
   // Exactly one pixel lit, carrying the source colour, at the coordinate
   // vector_to_pixel predicts.
-  HS_EXPECT_EQ(count_lit(fx), (size_t)1);
+  HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)1);
   PixelCoords pc = vector_to_pixel<W, H>(v);
   int ex = fast_wrap(static_cast<int>(std::round(pc.x)), W);
   int ey = static_cast<int>(std::round(pc.y));
@@ -1490,7 +1456,7 @@ inline void test_pipeline_world_replicate_fans_out() {
       pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
     }
     fx.advance_display();
-    HS_EXPECT_EQ(count_lit(fx), (size_t)2);
+    HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)2);
   }
 
   pipe.get<Filter::World::Replicate<W>>().set_count(3);
@@ -1501,7 +1467,7 @@ inline void test_pipeline_world_replicate_fans_out() {
       pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
     }
     fx.advance_display();
-    HS_EXPECT_EQ(count_lit(fx), (size_t)3);
+    HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)3);
   }
 
   pipe.get<Filter::World::Replicate<W>>().set_count(0);
@@ -1512,7 +1478,7 @@ inline void test_pipeline_world_replicate_fans_out() {
       pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
     }
     fx.advance_display();
-    HS_EXPECT_EQ(count_lit(fx), (size_t)1);
+    HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)1);
   }
 }
 
@@ -1537,11 +1503,11 @@ inline void test_pipeline_2d_into_3d_head_roundtrips() {
   fx.advance_display();
 
   // One pixel lit, within a pixel of the input after the trig round-trip.
-  HS_EXPECT_EQ(count_lit(fx), (size_t)1);
+  HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)1);
   bool near_input = false;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
-      if (!px_black(fx.get_pixel(x, y)))
+      if (!is_black(fx.get_pixel(x, y)))
         near_input |= (std::abs(x - px) <= 1 && std::abs(y - py) <= 1);
   HS_EXPECT_TRUE(near_input);
 }
@@ -1560,7 +1526,7 @@ inline void test_pipeline_screen_antialias_routes_to_sink() {
     pipe.plot(c, 10.0f, 5.0f, Pixel(50000, 0, 25000), 0.0f, 1.0f);
   }
   fx.advance_display();
-  HS_EXPECT_EQ(count_lit(fx), (size_t)1);
+  HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)1);
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(10, 5), 50000, 0, 25000));
 }
 
@@ -1719,10 +1685,10 @@ inline void test_feedback_flush_blends_prev_frame() {
   // original brightness. A row far from the band stays black (identity warp,
   // no spill that far).
   const Pixel &band = fx.get_pixel(W / 2, 8);
-  HS_EXPECT_FALSE(px_black(band));
+  HS_EXPECT_FALSE(is_black(band));
   HS_EXPECT_GT((int)band.r, 30000);
   HS_EXPECT_LT((int)band.r, 40000);
-  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 0)));
+  HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 0)));
 
   // Disabled feedback short-circuits flush: a fresh frame stays black.
   pipe.get<Filter::Pixel::Feedback<W, H>>().set_enabled(false);
@@ -1731,7 +1697,7 @@ inline void test_feedback_flush_blends_prev_frame() {
     pipe.flush(c, ScreenTrailFn(trail), 1.0f);
   }
   fx.advance_display();
-  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 8)));
+  HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 8)));
 }
 
 /**
@@ -1797,7 +1763,7 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
 
   expect_pole_row_collapsed(fx, W, 0, POLE);
   for (int x = 0; x < W; ++x)
-    HS_EXPECT_TRUE(px_black(fx.get_pixel(x, 1)));
+    HS_EXPECT_TRUE(is_black(fx.get_pixel(x, 1)));
 }
 
 /**
@@ -1831,7 +1797,7 @@ inline void test_feedback_south_pole_uses_single_physical_sample() {
 
   expect_pole_row_collapsed(fx, W, H - 1, POLE);
   for (int x = 0; x < W; ++x)
-    HS_EXPECT_TRUE(px_black(fx.get_pixel(x, H - 2)));
+    HS_EXPECT_TRUE(is_black(fx.get_pixel(x, H - 2)));
 }
 
 /**
@@ -1934,11 +1900,11 @@ inline void test_feedback_flush_respects_clip() {
   fx.advance_display();
 
   // Inside the band: carried over and faded.
-  HS_EXPECT_FALSE(px_black(fx.get_pixel(W / 2, 9)));
+  HS_EXPECT_FALSE(is_black(fx.get_pixel(W / 2, 9)));
   // Outside the render band: untouched despite the prev frame being lit there.
-  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 0)));
-  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 5)));
-  HS_EXPECT_TRUE(px_black(fx.get_pixel(W / 2, 15)));
+  HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 0)));
+  HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 5)));
+  HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 15)));
 }
 
 /**

@@ -18,6 +18,7 @@
 #include "core/render/filter.h"
 #include "core/render/canvas.h"
 #include "core/math/geometry.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -25,15 +26,6 @@
 
 namespace hs_test {
 namespace scan_tests {
-
-/**
- * @brief Tests whether a pixel is fully unwritten (cleared-frame black).
- * @param p Pixel to inspect.
- * @return True when all RGB channels are zero.
- */
-inline bool is_black(const Pixel &p) {
-  return p.r == 0 && p.g == 0 && p.b == 0;
-}
 
 // ============================================================================
 // Scan::Shader::draw — full-sphere per-pixel shader
@@ -1092,22 +1084,6 @@ template <int W> inline bool row_has_lit(const hs_test::StubEffect &fx, int y) {
 }
 
 /**
- * @brief Counts the lit pixels on the canvas.
- * @tparam W Canvas width in pixels.
- * @tparam H Canvas height in pixels.
- * @param fx Effect whose canvas is sampled.
- * @return Number of non-black pixels.
- */
-template <int W, int H> inline int count_lit(const hs_test::StubEffect &fx) {
-  int lit = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      if (!is_black(fx.get_pixel(x, y)))
-        ++lit;
-  return lit;
-}
-
-/**
  * @brief Placement oracle for a filled cap: the pole the shape is centred on is
  *        lit, the opposite pole stays dark, and the lit area matches the
  *        shape's angular extent.
@@ -1143,7 +1119,7 @@ inline void expect_filled_cap(const hs_test::StubEffect &fx, bool cap_north,
 
   const float rows_per_radian = static_cast<float>(H) / PI_F;
   const float slack_rows = 3.0f;
-  const int lit = count_lit<W, H>(fx);
+  const int lit = static_cast<int>(count_lit_region<W, H>(fx));
   HS_EXPECT_GE(lit,
                static_cast<int>(W * (r_min * rows_per_radian - slack_rows)));
   HS_EXPECT_LE(lit,

@@ -77,11 +77,8 @@ inline void face_centroids(const PolyMesh &m, std::vector<Vector> &out) {
   out.assign(m.face_counts.size(), Vector(0, 0, 0));
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
-    Vector c(0, 0, 0);
     const int n = m.face_counts[f];
-    for (int k = 0; k < n; ++k)
-      c = c + m.vertices[m.faces[off + k]];
-    out[f] = c.normalized();
+    out[f] = face_centroid_unit(m, off, n);
     off += n;
   }
 }

@@ -17,6 +17,7 @@
 #include <thread>
 
 #include "core/render/canvas.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -95,18 +96,6 @@ struct TestEffect : public Effect {
     register_param(n, p, options, export_options, count);
   }
 };
-
-/**
- * @brief Tests whether a pixel has exactly the given channel values.
- * @param p Pixel to inspect.
- * @param r Expected red channel value.
- * @param g Expected green channel value.
- * @param b Expected blue channel value.
- * @return True if all three channels match exactly.
- */
-inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
-  return p.r == r && p.g == g && p.b == b;
-}
 
 // ============================================================================
 // Construction

@@ -2624,11 +2624,8 @@ inline void test_opleg_medial_leg_smoke() {
     for (size_t f = 0; f < prev_faces; ++f) {
       pal[f] = static_cast<uint8_t>(
           wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
-      Vector c(0.0f, 0.0f, 0.0f);
       const int n = ambo_p.face_counts[f];
-      for (int j = 0; j < n; ++j)
-        c = c + ambo_p.vertices[ambo_p.faces[off + j]];
-      centroid[f] = c.normalized();
+      centroid[f] = face_centroid_unit(ambo_p, off, n);
       off += n;
     }
 
@@ -3018,11 +3015,8 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
   for (size_t f = 0; f < prev_faces; ++f) {
     prev_pal[f] = static_cast<uint8_t>(
         slots[wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
-    Vector c(0.0f, 0.0f, 0.0f);
     const int n = seed.face_counts[f];
-    for (int j = 0; j < n; ++j)
-      c = c + seed.vertices[seed.faces[off + j]];
-    prev_centroid[f] = c.normalized();
+    prev_centroid[f] = face_centroid_unit(seed, off, n);
     off += n;
   }
 
@@ -3525,11 +3519,8 @@ inline ChainPeaks replay_build_chain(const char *name,
       {
         size_t off = 0;
         for (size_t f = 0; f < prev_faces; ++f) {
-          Vector c(0.0f, 0.0f, 0.0f);
           const int n = cur.face_counts[f];
-          for (int j = 0; j < n; ++j)
-            c = c + cur.vertices[cur.faces[off + j]];
-          prev_centroid[f] = c.normalized();
+          prev_centroid[f] = face_centroid_unit(cur, off, n);
           off += n;
         }
       }
