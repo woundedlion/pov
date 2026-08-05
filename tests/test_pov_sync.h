@@ -2481,6 +2481,7 @@ inline void test_epoch_same_tick_burst_fold() {
 //   EMI, rejected cases               → test_sim_emi, test_sim_forged_burst
 //   EMI, accepted (binding) case      → test_budget_emi_accepted_seam
 //   mis-snap / corrupted timebase     → test_budget_corrupted_timebase
+//   mis-snap forged during ACQUIRE    → test_budget_acquire_mis_snap
 //   dropped render                    → not simulable here: frame pacing
 //                                       lives in the device's Canvas
 //                                       buffer_free() gate; the epoch-bounded
@@ -2601,9 +2602,9 @@ inline void test_budget_corrupted_timebase() {
   Sim sim(cfg, 4, ppm);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Park at rev 10 (≡ 2 mod the beacon period) so the ACQUIRE window stays
-  // clear of beacon trains: an isolated first digit could re-poison an
-  // ACQUIRE board (the §9.1 forged-during-ACQUIRE sub-case) and double the
-  // recovery — real but timing-dependent; this test pins the common path.
+  // clear of beacon trains: this test pins the common path, and the train's
+  // isolated first digit — which re-poisons an ACQUIRE board — is
+  // test_budget_acquire_mis_snap.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return s.boards[0].board.content().rev_in_effect == 10; },
       16.0));
@@ -2650,6 +2651,68 @@ inline void test_budget_corrupted_timebase() {
   sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
   for (int i = 1; i < 4; ++i)
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
+}
+
+/**
+ * @brief Verifies the §9.1 mis-snap row's forged-during-ACQUIRE sub-case: a
+ *        board rebooted moments before a scheduled beacon train hard-snaps to
+ *        the train's first digit, landing W/4 from the truth, and the
+ *        R-rejection fallback still returns it to sub-column phase inside the
+ *        row's ~750-column budget.
+ * @details The head digit is preceded by wire silence exactly as a boundary
+ *          symbol is, so the quiet-before guard cannot filter it and its
+ *          1-pulse count reads as a HALF. Every real symbol then lands far from
+ *          the broken predictions and is held as a suspect, counted only after
+ *          the interdigit window: R rejections at half-rev pace, then ACQUIRE
+ *          and a clean re-snap.
+ */
+inline void test_budget_acquire_mis_snap() {
+  const Config cfg = test_config();
+  const int32_t ppm[4] = {0, 20, -20, 10};
+  Sim sim(cfg, 4, ppm);
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
+  // Master beacons ride rev ≡ 1 (mod 8); the train starts at x = W/4 = 72.
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) { return s.boards[0].board.content().rev_in_effect == 9; },
+      16.0));
+  // Reboot 12 columns before the train and past the rev's ZERO burst, so the
+  // first wire event the fresh board meets is the train's head digit.
+  sim.run_until([](Sim &s) { return s.board_pos(0) == 60; }, 1.1);
+  SimBoard &b2 = sim.boards[2];
+  b2.board.seed(Sim::local_now(b2, sim.g), false);
+  b2.handoff.adopt(nullptr, 0);
+  b2.handoff.clear_pending();
+  b2.seen_gen = 0;
+  b2.have_pending = false;
+  b2.live = false;
+  b2.live_index = -1;
+  b2.t = 0;
+  b2.trapped = false;
+  HS_EXPECT_TRUE(b2.board.lock() == LockState::ACQUIRE);
+
+  // The head digit captures it: locked on a beacon digit, a quarter turn out.
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) { return s.boards[2].board.lock() == LockState::LOCKED; },
+      0.5));
+  const uint64_t snap_g = sim.g;
+  HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
+
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return s.boards[2].board.lock() == LockState::LOCKED &&
+               circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
+      },
+      3.0));
+  const int32_t recovery_cols = static_cast<int32_t>((sim.g - snap_g) / COL);
+  HS_EXPECT_GE(recovery_cols, 500); // the full R-rejection path, not a re-snap
+  HS_EXPECT_LE(recovery_cols, 750); // §9.1 mis-snap row
+  // Exactly one mis-snap, one fallback, and one clean re-snap since the reboot.
+  HS_EXPECT_EQ(b2.board.telemetry().lock_transitions, 3u);
+  HS_EXPECT_GE(b2.board.telemetry().symbols_rejected_gate,
+               static_cast<uint32_t>(cfg.reject_fallback));
+  HS_EXPECT_FALSE(b2.trapped);
+  // Fail-dark throughout: never live on an effect the master is not showing.
+  HS_EXPECT_TRUE(!b2.live || b2.live_index == sim.boards[0].live_index);
 }
 
 /**
@@ -2809,6 +2872,7 @@ inline int run_pov_sync_tests() {
   test_budget_lost_symbol();
   test_budget_emi_accepted_seam();
   test_budget_corrupted_timebase();
+  test_budget_acquire_mis_snap();
   test_budget_beacon_corruption();
   test_budget_wire_dead();
 
