@@ -18,17 +18,19 @@
 inline constexpr float STAR_INNER_RATIO = 0.382f;
 
 /**
- * @brief Maximum horizontal resolution (width) for effects.
+ * @brief Maximum horizontal resolution (width) for effects, from CANVAS_W.
+ * @details Sizes the shared framebuffers (Effect::buffer_a/buffer_b) and bounds
+ *          the Effect constructor, so a target that renders one small canvas
+ *          reserves only what it draws (-DCANVAS_W/-DCANVAS_H per env). Builds
+ *          that instantiate several resolutions — host tests, WASM, Phantasm —
+ *          keep the 288x144 default, which bounds every one of them.
  */
-inline constexpr int MAX_W = 288;
+inline constexpr int MAX_W = CANVAS_W;
 
 /**
- * @brief Maximum vertical resolution (height) for effects.
+ * @brief Maximum vertical resolution (height) for effects, from CANVAS_H.
  */
-inline constexpr int MAX_H = 144;
-
-static_assert(CANVAS_W <= MAX_W && CANVAS_H <= MAX_H,
-              "CANVAS_W/CANVAS_H must fit within MAX_W/MAX_H");
+inline constexpr int MAX_H = CANVAS_H;
 
 /**
  * @brief Longest column run a single shade may be splatted across.
