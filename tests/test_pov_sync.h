@@ -1416,6 +1416,37 @@ inline void test_master_fold_stall_recovers() {
   HS_EXPECT_EQ(m.telemetry().master_stalls, 1u);
 }
 
+/**
+ * @brief Verifies the first boundary crossed after a fold-stall recovery still
+ *        flips.
+ * @details The re-anchor stamps ZERO whatever the pre-stall identity was, so a
+ *          master whose last flip was HALF meets that same identity again on the
+ *          next crossing; a stale dedup state would drop that flip silently.
+ */
+inline void test_master_fold_stall_recovery_flips() {
+  const Config cfg = test_config();
+  const uint32_t period = cfg.cycles_per_half_rev;
+
+  SyncBoard m(cfg);
+  const uint32_t t0 = 1000000u;
+  m.seed(t0, /*is_master=*/true);
+  // A single fold leaves HALF as the last flipped boundary — the identity the
+  // re-seed's ZERO reproduces on the very next crossing.
+  m.tick(t0 + period, nullptr);
+  const uint32_t flips_before = m.telemetry().flips;
+  HS_EXPECT_EQ(flips_before, 1u);
+
+  const uint32_t stalled = t0 + period + 0x90000000u;
+  m.tick(stalled, nullptr);
+  HS_EXPECT_EQ(m.telemetry().master_stalls, 1u);
+  // The re-anchor lands the epoch on `stalled`, so nothing crosses on that tick.
+  HS_EXPECT_EQ(m.telemetry().flips, flips_before);
+
+  const TickActions a = m.tick(stalled + period, nullptr);
+  HS_EXPECT_TRUE(a.flip);
+  HS_EXPECT_EQ(m.telemetry().flips, flips_before + 1u);
+}
+
 // ── Master beacon tail quiet (§6.4) ─────────────────────────────────────────
 
 /**
@@ -3072,6 +3103,7 @@ inline int run_pov_sync_tests() {
   test_master_beacon_busy_retry();
   test_beacon_late_coast();
   test_master_fold_stall_recovers();
+  test_master_fold_stall_recovery_flips();
   test_beacon_tail_quiet();
   test_master_epoch_train_bounded();
 
