@@ -163,7 +163,7 @@ struct Style {
    * on flush when a bound NoiseParams has drifted from these scalars, so any
    * write to them (slider, preset switch, lerp) must be followed by a call.
    */
-  void sync_noise() const {
+  void sync_noise() {
     if (!noise)
       return;
     noise->amplitude = amplitude;
