@@ -1624,9 +1624,11 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         f.v0 = arc / total_arc;
     };
     // The degenerate and fast paths plot curr.pos/next.pos directly (original
-    // sampled vertices, already unit), without the DRAWING PHASE renormalize that
-    // corrects sample().pos's ~0.04% drift. Precondition: callers pass unit
-    // fragment positions.
+    // sampled vertices), without the DRAWING PHASE renormalize that corrects
+    // sample().pos's ~0.04% drift. Precondition: callers pass unit fragment
+    // positions; the ~4e-6 an angle-addition vertex recurrence
+    // (Star::sample_positions) leaves is two orders inside that drift and is
+    // plotted as-is.
     // Degenerate (coincident endpoints): plot at most a single dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool should_omit = close_loop || !is_last_segment || omit_end;
@@ -3067,6 +3069,9 @@ public:
    * @param radius Outer radius.
    * @param num_sides Number of points.
    * @param phase Rotation phase (radians).
+   * @note Steps the vertex angle by an angle-addition recurrence and skips the
+   *   per-vertex normalize sample() does; positions come back off-unit by
+   *   ~4e-6, inside what rasterize()'s fast paths plot verbatim.
    */
   static void sample_positions(Fragments &points, const Basis &basis,
                                float radius, int num_sides, float phase = 0) {
