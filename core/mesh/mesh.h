@@ -287,8 +287,7 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
       int count = counts[fi];
 
       // A zero-count face emits no half-edges yet still gets its half_edge set
-      // below, mis-linking it to the next face. Only count==0 traps: compile()
-      // accepts 1-/2-side degenerate faces and strips them downstream.
+      // below, mis-linking it to the next face.
       HS_CHECK(count > 0, "half-edge mesh face has zero sides");
 
       out.faces.emplace_back();
