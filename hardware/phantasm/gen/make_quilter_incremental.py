@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import shutil
+from fnmatch import fnmatch
 from pathlib import Path
 
 
@@ -19,19 +20,41 @@ FILES = (
     "sym-lib-table",
 )
 
+# Paths under the snapshot that carry no routing payload and so are never
+# hashed: the manifest cannot cover itself, the README is prose, and the rest
+# are KiCad's per-user lock/autosave/backup droppings plus editor scratch,
+# all of which .gitignore already keeps out of the tree. Every other file the
+# snapshot directory holds must appear in the manifest.
+UNMANAGED = (
+    "SHA256SUMS.txt",
+    "README.md",
+    "*.lck",
+    "*.bak",
+    "*-bak",
+    "*.kicad_prl",
+    "fp-info-cache",
+    ".history",
+)
+
 
 def snapshot_digest(path: Path) -> str:
     data = path.read_bytes().replace(b"\r\n", b"\n")
     return hashlib.sha256(data).hexdigest()
 
 
+def is_unmanaged(path: Path) -> bool:
+    return any(fnmatch(part, pattern) for part in path.parts for pattern in UNMANAGED)
+
+
 def snapshot_paths(root: Path) -> list[Path]:
-    paths = [Path(name) for name in FILES]
-    paths.extend(
+    found = {
         path.relative_to(root)
-        for path in sorted((root / "phantasm.pretty").rglob("*"))
-        if path.is_file()
-    )
+        for path in root.rglob("*")
+        if path.is_file() and not is_unmanaged(path.relative_to(root))
+    }
+    # Manifest order: the project files first, then everything else sorted.
+    paths = [Path(name) for name in FILES if Path(name) in found]
+    paths.extend(sorted(found.difference(paths)))
     return paths
 
 
@@ -44,8 +67,8 @@ def verify_snapshot(root: Path = OUTPUT) -> None:
 
     actual_paths = snapshot_paths(root)
     if set(expected) != set(actual_paths):
-        missing = sorted(str(path) for path in set(actual_paths) - set(expected))
-        extra = sorted(str(path) for path in set(expected) - set(actual_paths))
+        missing = sorted(str(path) for path in set(expected) - set(actual_paths))
+        extra = sorted(str(path) for path in set(actual_paths) - set(expected))
         raise RuntimeError(f"snapshot manifest mismatch: missing={missing}, extra={extra}")
 
     for path in actual_paths:

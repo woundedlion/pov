@@ -21,14 +21,57 @@ class SnapshotTests(unittest.TestCase):
     def test_committed_snapshot_matches_manifest(self):
         make_quilter_incremental.verify_snapshot()
 
-    def test_unmanifested_footprint_is_rejected(self):
+    def copy_snapshot(self, temp_dir):
+        snapshot = Path(temp_dir) / "snapshot"
+        shutil.copytree(make_quilter_incremental.OUTPUT, snapshot)
+        return snapshot
+
+    def assert_mismatch(self, snapshot, missing, extra):
+        with self.assertRaises(RuntimeError) as caught:
+            make_quilter_incremental.verify_snapshot(snapshot)
+        self.assertEqual(
+            str(caught.exception),
+            f"snapshot manifest mismatch: missing={missing}, extra={extra}",
+        )
+
+    def test_unmanifested_footprint_is_reported_as_extra(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            snapshot = Path(temp_dir) / "snapshot"
-            shutil.copytree(make_quilter_incremental.OUTPUT, snapshot)
+            snapshot = self.copy_snapshot(temp_dir)
             (snapshot / "phantasm.pretty" / "stale.kicad_mod").write_text(
                 "stale", encoding="utf-8")
-            with self.assertRaisesRegex(RuntimeError, "snapshot manifest mismatch"):
-                make_quilter_incremental.verify_snapshot(snapshot)
+            self.assert_mismatch(
+                snapshot, [], [str(Path("phantasm.pretty/stale.kicad_mod"))])
+
+    def test_unmanifested_top_level_file_is_reported_as_extra(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            snapshot = self.copy_snapshot(temp_dir)
+            (snapshot / "phantasm.kicad_dru").write_text("stray", encoding="utf-8")
+            self.assert_mismatch(snapshot, [], ["phantasm.kicad_dru"])
+
+    def test_deleted_project_file_is_reported_as_missing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            snapshot = self.copy_snapshot(temp_dir)
+            (snapshot / "sym-lib-table").unlink()
+            self.assert_mismatch(snapshot, ["sym-lib-table"], [])
+
+    def test_unmanaged_files_are_not_verified(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            snapshot = self.copy_snapshot(temp_dir)
+            (snapshot / "phantasm.kicad_prl").write_text("local", encoding="utf-8")
+            (snapshot / "phantasm.kicad_pcb-bak").write_text("backup", encoding="utf-8")
+            (snapshot / "phantasm.pretty" / "fp-info-cache").write_text(
+                "cache", encoding="utf-8")
+            make_quilter_incremental.verify_snapshot(snapshot)
+
+    def test_manifest_regenerates_byte_identically(self):
+        manifest = make_quilter_incremental.OUTPUT / "SHA256SUMS.txt"
+        rebuilt = "\n".join(
+            f"{make_quilter_incremental.snapshot_digest(make_quilter_incremental.OUTPUT / path)}"
+            f"  {path.as_posix()}"
+            for path in make_quilter_incremental.snapshot_paths(
+                make_quilter_incremental.OUTPUT)
+        )
+        self.assertEqual(manifest.read_text(encoding="utf-8"), rebuilt + "\n")
 
 
 if __name__ == "__main__":
