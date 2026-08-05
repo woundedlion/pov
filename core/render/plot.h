@@ -2448,6 +2448,29 @@ template <int W> static inline int ring_lut_stride(float r_val) {
   return std::max(1, static_cast<int>(inv));
 }
 
+/** @brief Antipode-folded working basis and the ring's colatitude trig. */
+struct RingFrame {
+  Basis basis;
+  float theta_eq;  ///< Ring colatitude (radians).
+  float sin_theta; ///< Tangent-plane radius of the ring.
+  float cos_theta; ///< Ring offset along the pole axis.
+};
+
+/**
+ * @brief Resolves the frame of a radius-(0-2) ring drawn on `basis`.
+ * @param basis Orientation basis.
+ * @param radius Angular radius (0-2).
+ * @details Folds radius > 1 to the antipode, then derives the colatitude and
+ * its sine/cosine. Every ring-family sampler and DistortedRing::fn_point
+ * resolve their frame here; a divergence would detach sampled points from the
+ * visible ring.
+ */
+inline RingFrame ring_frame(const Basis &basis, float radius) {
+  auto res = get_antipode(basis, radius);
+  const float theta_eq = res.second * (PI_F / 2.0f);
+  return {res.first, theta_eq, sinf(theta_eq), cosf(theta_eq)};
+}
+
 /**
  * @brief Ring primitives.
  * Registers:
@@ -2471,17 +2494,12 @@ struct Ring {
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_samples, float phase = 0) {
     HS_CHECK(num_samples >= 1);
-    auto res = get_antipode(basis, radius);
-    const Basis &work_basis = res.first;
-    float work_radius = res.second;
-
-    const Vector &v = work_basis.v;
-    const Vector &u = work_basis.u;
-    const Vector &w = work_basis.w;
-
-    const float theta_eq = work_radius * (PI_F / 2.0f);
-    const float r_val = sinf(theta_eq);
-    const float d_val = cosf(theta_eq);
+    const RingFrame frame = ring_frame(basis, radius);
+    const Vector &v = frame.basis.v;
+    const Vector &u = frame.basis.u;
+    const Vector &w = frame.basis.w;
+    const float r_val = frame.sin_theta;
+    const float d_val = frame.cos_theta;
 
     const float step = 2.0f * PI_F / num_samples;
 
@@ -2536,17 +2554,12 @@ struct Ring {
   template <int W, int H>
   static void sample(Fragments &points, const Basis &basis, float radius,
                      float phase = 0) {
-    auto res = get_antipode(basis, radius);
-    const Basis &work_basis = res.first;
-    float work_radius = res.second;
-
-    const Vector &v = work_basis.v;
-    const Vector &u = work_basis.u;
-    const Vector &w = work_basis.w;
-
-    const float theta_eq = work_radius * (PI_F / 2.0f);
-    const float r_val = sinf(theta_eq);
-    const float d_val = cosf(theta_eq);
+    const RingFrame frame = ring_frame(basis, radius);
+    const Vector &v = frame.basis.v;
+    const Vector &u = frame.basis.u;
+    const Vector &w = frame.basis.w;
+    const float r_val = frame.sin_theta;
+    const float d_val = frame.cos_theta;
 
     const float step = 2.0f * PI_F / W;
     const int stride = ring_lut_stride<W>(r_val);
@@ -2790,16 +2803,12 @@ struct DistortedRing {
    */
   static Vector fn_point(ScalarFn shift_fn, const Basis &basis, float radius,
                          float angle) {
-    auto res = get_antipode(basis, radius);
-    const Basis &work_basis = res.first;
-    float work_radius = res.second;
+    const RingFrame frame = ring_frame(basis, radius);
+    const Vector &v = frame.basis.v;
+    const Vector &u = frame.basis.u;
+    const Vector &w = frame.basis.w;
 
-    const Vector &v = work_basis.v;
-    const Vector &u = work_basis.u;
-    const Vector &w = work_basis.w;
-
-    const float theta_eq = work_radius * (PI_F / 2.0f);
-    const float polar = theta_eq + shift_fn(angle / (2.0f * PI_F));
+    const float polar = frame.theta_eq + shift_fn(angle / (2.0f * PI_F));
     Vector u_temp = (u * cosf(angle)) + (w * sinf(angle));
     HS_PLOT_COUNT(normalizations);
     return ((v * cosf(polar)) + (u_temp * sinf(polar))).normalized();
@@ -2817,17 +2826,12 @@ struct DistortedRing {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      ScalarFn shift_fn, float phase = 0) {
-    auto res = get_antipode(basis, radius);
-    const Basis &work_basis = res.first;
-    float work_radius = res.second;
-
-    const Vector &v = work_basis.v;
-    const Vector &u = work_basis.u;
-    const Vector &w = work_basis.w;
-
-    const float theta_eq = work_radius * (PI_F / 2.0f);
-    const float r_val = sinf(theta_eq);
-    const float d_val = cosf(theta_eq);
+    const RingFrame frame = ring_frame(basis, radius);
+    const Vector &v = frame.basis.v;
+    const Vector &u = frame.basis.u;
+    const Vector &w = frame.basis.w;
+    const float r_val = frame.sin_theta;
+    const float d_val = frame.cos_theta;
 
     const int num_samples = W;
     const float step = 2.0f * PI_F / num_samples;
@@ -2951,19 +2955,15 @@ private:
   static void sample_impl(Fragments &points, const Basis &basis, float radius,
                           int num_sides, float phase) {
     HS_CHECK(num_sides >= 1);
-    auto res = get_antipode(basis, radius);
-    const Basis &work_basis = res.first;
-    float work_radius = res.second;
+    const RingFrame frame = ring_frame(basis, radius);
+    const Vector &v = frame.basis.v;
+    const Vector &u = frame.basis.u;
+    const Vector &w = frame.basis.w;
 
-    const Vector &v = work_basis.v;
-    const Vector &u = work_basis.u;
-    const Vector &w = work_basis.w;
-
-    float outer_radius = work_radius * (PI_F / 2.0f);
-    float inner_radius = outer_radius * STAR_INNER_RATIO;
+    float inner_radius = frame.theta_eq * STAR_INNER_RATIO;
     float angle_step = PI_F / num_sides;
-    const float sin_radius[2] = {sinf(outer_radius), sinf(inner_radius)};
-    const float cos_radius[2] = {cosf(outer_radius), cosf(inner_radius)};
+    const float sin_radius[2] = {frame.sin_theta, sinf(inner_radius)};
+    const float cos_radius[2] = {frame.cos_theta, cosf(inner_radius)};
 
     if constexpr (EmitRegisters) {
       auto position = [&](int i) {
@@ -2984,7 +2984,7 @@ private:
           {cos_radius[0], cos_radius[1]},
       };
       const StepTrig step_trig = {sinf(angle_step), cosf(angle_step)};
-      sample_positions_impl(points, work_basis, num_sides, phase, radius_trig,
+      sample_positions_impl(points, frame.basis, num_sides, phase, radius_trig,
                             step_trig);
     }
   }
@@ -3188,16 +3188,12 @@ struct Flower {
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
     HS_CHECK(num_sides >= 1);
-    auto res = get_antipode(basis, radius);
-    const Basis &work_basis = res.first;
-    float work_radius = res.second;
+    const RingFrame frame = ring_frame(basis, radius);
+    const Vector &v = frame.basis.v;
+    const Vector &u = frame.basis.u;
+    const Vector &w = frame.basis.w;
 
-    const Vector &v = work_basis.v;
-    const Vector &u = work_basis.u;
-    const Vector &w = work_basis.w;
-
-    float desired_outer_radius = work_radius * (PI_F / 2.0f);
-    float apothem = PI_F - desired_outer_radius;
+    float apothem = PI_F - frame.theta_eq;
     float safe_apothem = std::min(apothem, PI_F - 1e-4f);
     float angle_step = PI_F / num_sides;
     const float sin_r = sinf(safe_apothem);
