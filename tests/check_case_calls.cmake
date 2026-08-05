@@ -1,7 +1,9 @@
-# Require every test case defined in tests/test_*.h to be referenced somewhere
-# else in the same header. Cases are invoked by hand-written calls from the
-# module's run_*_tests(), so dropping a call leaves a definition that still
-# compiles. The per-module assertion floor in run_tests.cpp catches that only
+# Require every test case defined in a tests/*.h header to be referenced
+# somewhere else: in the same header for module cases, or anywhere under tests/
+# for the shared assertion helpers, which are defined in one header and called
+# from others. Cases are invoked by hand-written calls from the module's
+# run_*_tests(), so dropping a call leaves a definition that still compiles.
+# The per-module assertion floor in run_tests.cpp catches that only
 # when the lost assertions outweigh the noise: a loop-amplified module runs
 # millions of assertions across a few hundred sites, so a concurrent edit that
 # widens a sweep can lift the module back over its floor. This check counts
@@ -19,7 +21,19 @@
 
 cmake_minimum_required(VERSION 3.29)
 
-file(GLOB _headers "${TESTS_DIR}/test_*.h")
+file(GLOB _headers "${TESTS_DIR}/*.h")
+
+# Whole-tree code text, used as the fallback reference scope for cross-header
+# calls. Comments are stripped: the helper headers are named in prose by several
+# modules, which would otherwise read as call sites.
+set(_corpus "")
+foreach(_hdr IN LISTS _headers)
+  file(READ "${_hdr}" _hdr_text)
+  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" _hdr_text
+    "${_hdr_text}")
+  string(REGEX REPLACE "//[^\n]*" "" _hdr_text "${_hdr_text}")
+  string(APPEND _corpus "${_hdr_text}")
+endforeach()
 
 set(_uncalled "")
 set(_sites 0)
@@ -44,6 +58,11 @@ foreach(_hdr IN LISTS _headers)
     math(EXPR _sites "${_sites} + 1")
     string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs "${_text}")
     list(LENGTH _refs _nref)
+    if(_nref LESS 2)
+      string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs
+        "${_corpus}")
+      list(LENGTH _refs _nref)
+    endif()
     if(_nref LESS 2)
       list(APPEND _uncalled "${_name}:${_case}")
     endif()
