@@ -556,6 +556,21 @@ inline void transform_in_place(MeshState &mesh,
  * @note Traps on a zero-length vertex; guard centroid-derived inputs with
  *   normalized_or (e.g. a centrally-symmetric face centroid; see kis/dual).
  */
+/**
+ * @brief Blended corner position, falling back to the source vertex when the
+ *   blend collapses to the origin.
+ * @param blended Centroid-blended corner.
+ * @param v Source vertex to fall back to.
+ * @return @p blended, or @p v when @p blended is shorter than the normalize
+ *   epsilon.
+ * @note Unlike normalized_or, this leaves the length alone: the operator's
+ *   trailing normalize(out_mesh) unitizes every corner anyway.
+ */
+__attribute__((always_inline)) inline Vector corner_or(const Vector &blended,
+                                                       const Vector &v) {
+  return dot(blended, blended) < math::EPS_NORMALIZE_SQ ? v : blended;
+}
+
 template <typename MeshT> static void normalize(MeshT &mesh) {
   for (auto &v : mesh.vertices) {
     v.normalize();
@@ -1033,7 +1048,7 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
         [&](size_t, const Vector &centroid) {
           return [&mesh, &he_mesh, centroid, t](uint16_t he_idx) {
             Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
-            return normalized_or(v + (centroid - v) * t, v);
+            return corner_or(v + (centroid - v) * t, v);
           };
         },
         [&](const uint16_t *he_to_vert_idx, uint16_t he_idx,
@@ -1135,7 +1150,7 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
             uint16_t vi =
                 he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
             Vector v = mesh.vertices[vi];
-            return normalized_or(v + (centroid - v) * t, v);
+            return corner_or(v + (centroid - v) * t, v);
           },
           [&](uint16_t he_idx, uint16_t idx) { he_to_new_v[he_idx] = idx; });
     }
@@ -1445,7 +1460,7 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
               Vector local = new_v - centroid;
               new_v = centroid + rotate(local, twist_q);
             }
-            return normalized_or(new_v, v);
+            return corner_or(new_v, v);
           };
         },
         [&](const uint16_t *he_to_vert_idx, uint16_t he_idx,
