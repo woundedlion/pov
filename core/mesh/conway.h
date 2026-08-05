@@ -1033,7 +1033,7 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
         [&](size_t, const Vector &centroid) {
           return [&mesh, &he_mesh, centroid, t](uint16_t he_idx) {
             Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
-            return v + (centroid - v) * t;
+            return normalized_or(v + (centroid - v) * t, v);
           };
         },
         [&](const uint16_t *he_to_vert_idx, uint16_t he_idx,
@@ -1135,7 +1135,7 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
             uint16_t vi =
                 he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
             Vector v = mesh.vertices[vi];
-            return v + (centroid - v) * t;
+            return normalized_or(v + (centroid - v) * t, v);
           },
           [&](uint16_t he_idx, uint16_t idx) { he_to_new_v[he_idx] = idx; });
     }
@@ -1445,7 +1445,7 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
               Vector local = new_v - centroid;
               new_v = centroid + rotate(local, twist_q);
             }
-            return new_v;
+            return normalized_or(new_v, v);
           };
         },
         [&](const uint16_t *he_to_vert_idx, uint16_t he_idx,
