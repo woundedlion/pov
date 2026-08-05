@@ -248,21 +248,60 @@ inline std::map<int, int> face_type_histogram(const PolyMesh &m) {
 }
 
 /**
- * @brief Runs every primitive Conway operator on one seed and checks Euler.
+ * @brief Runs every primitive Conway operator on one seed and checks Euler plus
+ *        the operator's element census.
  * @tparam Solid Platonic seed solid (e.g. Solids::Cube) to build and operate on.
- * @details Asserts each operator's result is a closed genus-0 manifold.
+ * @details Asserts each operator's result is a closed genus-0 manifold carrying
+ *          the vertex / face / index counts its emitters derive from the seed's
+ *          (V, E, F):
+ *            dual     F,      V,      2E
+ *            kis      V+F,    2E,     6E
+ *            ambo     E,      V+F,    4E
+ *            truncate 2E,     V+F,    6E
+ *            expand   2E,     V+F+E,  8E
+ *            chamfer  V+2E,   F+E,    8E
+ *            snub     2E,     V+F+2E, 10E
+ *            gyro     V+F+2E, 2E,     10E
+ *            meta     V+F+E,  4E,     12E
+ *            needle   V+F,    2E,     6E
+ *            zip      2E,     V+F,    6E
+ *            bevel    4E,     V+F+E,  12E
+ *          The compositions follow from their primitives: gyro = d(snub),
+ *          meta = k(d(a)), needle = k(d), zip = d(k), bevel = t(a).
+ *          A shrunk primary face carries its source face's side count and an
+ *          orbit face its source vertex's degree, so most histograms are
+ *          seed-dependent; VDEG/FDEG pin only the degree an operator makes
+ *          uniform whatever the seed (0 leaves that histogram unpinned).
  *          Templated on the seed so one body covers triangle-, quad-, and
  *          pentagon-faced Platonic solids. Each op gets a fresh target/temp
  *          pair with the seed rebuilt into temp, mirroring the per-op tests.
  */
 template <typename Solid> inline void check_euler_for_seed() {
-#define HS_EULER_OP(CALL)                                                      \
+  const int V = Solid::NUM_VERTS;
+  const int F = Solid::NUM_FACES;
+  const int E = static_cast<int>(Solid::faces.size()) / 2;
+
+#define HS_EULER_OP(CALL, EXP_V, EXP_F, EXP_I, VDEG, FDEG)                     \
   do {                                                                         \
     Arena target(conway_target_buf, sizeof(conway_target_buf));                \
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));                      \
     PolyMesh seed;                                                             \
     build_solid<Solid>(seed, temp);                                            \
-    check_euler_genus0(MeshOps::CALL);                                         \
+    PolyMesh out = MeshOps::CALL;                                              \
+    check_euler_genus0(out);                                                   \
+    HS_EXPECT_EQ((int)out.vertices.size(), (EXP_V));                           \
+    HS_EXPECT_EQ((int)out.face_counts.size(), (EXP_F));                        \
+    HS_EXPECT_EQ((int)out.faces.size(), (EXP_I));                              \
+    if constexpr ((VDEG) != 0) {                                               \
+      std::map<int, int> vdeg = vertex_degree_histogram(out);                  \
+      HS_EXPECT_EQ(vdeg.size(), (size_t)1);                                    \
+      HS_EXPECT_EQ(vdeg[VDEG], (EXP_V));                                       \
+    }                                                                          \
+    if constexpr ((FDEG) != 0) {                                               \
+      std::map<int, int> fdeg = face_type_histogram(out);                      \
+      HS_EXPECT_EQ(fdeg.size(), (size_t)1);                                    \
+      HS_EXPECT_EQ(fdeg[FDEG], (EXP_F));                                       \
+    }                                                                          \
   } while (0)
 
   {
@@ -270,26 +309,31 @@ template <typename Solid> inline void check_euler_for_seed() {
     PolyMesh seed;
     build_solid<Solid>(seed, arena);
     check_euler_genus0(seed);
+    HS_EXPECT_EQ((int)seed.vertices.size(), V);
+    HS_EXPECT_EQ((int)seed.face_counts.size(), F);
   }
-  HS_EULER_OP(dual(seed, target, temp));
-  HS_EULER_OP(kis(seed, target, temp));
-  HS_EULER_OP(ambo(seed, target, temp));
-  HS_EULER_OP(truncate(seed, target, temp));
-  HS_EULER_OP(expand(seed, target, temp));
-  HS_EULER_OP(chamfer(seed, target, temp));
-  HS_EULER_OP(snub(seed, target, temp));
-  HS_EULER_OP(gyro(seed, target, temp));
-  HS_EULER_OP(meta(seed, target, temp));
-  HS_EULER_OP(needle(seed, target, temp));
-  HS_EULER_OP(zip(seed, target, temp));
-  HS_EULER_OP(bevel(seed, target, temp));
+  HS_EULER_OP(dual(seed, target, temp), F, V, 2 * E, 0, 0);
+  HS_EULER_OP(kis(seed, target, temp), V + F, 2 * E, 6 * E, 0, 3);
+  HS_EULER_OP(ambo(seed, target, temp), E, V + F, 4 * E, 4, 0);
+  HS_EULER_OP(truncate(seed, target, temp), 2 * E, V + F, 6 * E, 3, 0);
+  HS_EULER_OP(expand(seed, target, temp), 2 * E, V + F + E, 8 * E, 4, 0);
+  HS_EULER_OP(chamfer(seed, target, temp), V + 2 * E, F + E, 8 * E, 0, 0);
+  HS_EULER_OP(snub(seed, target, temp), 2 * E, V + F + 2 * E, 10 * E, 5, 0);
+  HS_EULER_OP(gyro(seed, target, temp), V + F + 2 * E, 2 * E, 10 * E, 0, 5);
+  HS_EULER_OP(meta(seed, target, temp), V + F + E, 4 * E, 12 * E, 0, 3);
+  HS_EULER_OP(needle(seed, target, temp), V + F, 2 * E, 6 * E, 0, 3);
+  HS_EULER_OP(zip(seed, target, temp), 2 * E, V + F, 6 * E, 3, 0);
+  HS_EULER_OP(bevel(seed, target, temp), 4 * E, V + F + E, 12 * E, 3, 0);
 #undef HS_EULER_OP
 }
 
 /**
- * @brief Verifies every Conway operator preserves the Euler characteristic.
+ * @brief Verifies every Conway operator's element census and Euler
+ *        characteristic.
  * @details Exercises check_euler_for_seed across triangle-, quad-, and
- *          pentagon-faced Platonic seeds.
+ *          pentagon-faced Platonic seeds, so an operator that is right on quads
+ *          and wrong on pentagons is caught by its counts, not only by a broken
+ *          manifold.
  */
 inline void test_conway_ops_preserve_euler_characteristic() {
   check_euler_for_seed<Solids::Tetrahedron>();
