@@ -1605,7 +1605,12 @@ private:
         handle_beacon_burst(s);
         return;
       }
-      beacon_parser.reset(); // isolated burst: any partial frame is stale
+      // A train's first digit is isolated exactly as a boundary symbol is, so
+      // before lock the burst must reach both paths or no frame started here
+      // ever completes. Discarding the stale partial first makes it the head of
+      // a fresh frame: a hard snap can never share a burst with a completion.
+      beacon_parser.reset();
+      handle_beacon_burst(s);
     }
 
     const Symbol sym = classify_count(s.count);

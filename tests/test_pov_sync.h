@@ -974,6 +974,62 @@ inline void test_acquire_quiet_before_guard() {
   HS_EXPECT_EQ(quiet.flywheel().position(iso), cfg.W / 2);
 }
 
+/**
+ * @brief Verifies a board still in ACQUIRE decodes a whole beacon train and
+ *        adopts (effect, rev) from it (§6.4), instead of waiting for lock.
+ * @details A train's first digit is preceded by the same wire silence a
+ *          boundary symbol is, so the quiet-before guard routes it to the
+ *          symbol path; withholding it from the parser would leave every frame
+ *          begun in ACQUIRE one digit short forever. The head of the beacon for
+ *          effect 9 is a 2-pulse burst — an even count, no symbol — so the
+ *          board stays in ACQUIRE across the train, and the frame still
+ *          completes. The isolated burst starts a fresh frame, so it can never
+ *          both complete a frame and hard-snap: the closing symbol below snaps
+ *          on a clean timebase with the beacon identity intact.
+ */
+inline void test_acquire_beacon_train_joins() {
+  const Config cfg = test_config(16);
+  const uint32_t col = cfg.cycles_per_column();
+  SyncBoard board(cfg);
+  board.seed(1000u, /*is_master=*/false);
+  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
+  HS_EXPECT_FALSE(board.content().identity_known);
+
+  // A full train from column 40 on, spaced exactly as schedule_beacon does.
+  uint8_t d[5];
+  encode_beacon_digits(9, 5, d);
+  HS_EXPECT_EQ(static_cast<int>(d[0]) + 1, 2); // head: no valid symbol count
+  uint32_t f = 1000u + 40u * col;
+  for (int i = 0; i < 5; ++i) {
+    const uint32_t span = static_cast<uint32_t>(d[i]) * col;
+    const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
+    board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+               &s);
+    f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
+  }
+  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
+  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 0u);
+  HS_EXPECT_TRUE(board.content().identity_known);
+  HS_EXPECT_EQ(board.content().effect_index, 9);
+  HS_EXPECT_EQ(board.content().rev_in_effect, 5u);
+  // The head reached the symbol path too, and was discarded there on its count.
+  HS_EXPECT_EQ(board.telemetry().symbols_discarded_invalid, 1u);
+  HS_EXPECT_EQ(board.telemetry().symbols_accepted, 0u);
+  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
+
+  // The boundary path is untouched: the next isolated symbol still hard-snaps.
+  const uint32_t z = f + cfg.acquire_quiet_cycles();
+  const uint32_t zspan = 2u * static_cast<uint32_t>(cfg.pulse_pitch_cols) * col;
+  const BurstSnapshot zero{3, z, z + zspan};
+  board.tick(z + zspan + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+             &zero);
+  HS_EXPECT_TRUE(board.lock() == LockState::LOCKED);
+  HS_EXPECT_EQ(board.telemetry().symbols_accepted, 1u);
+  HS_EXPECT_EQ(board.flywheel().position(z), 0);
+  HS_EXPECT_EQ(board.content().effect_index, 9);
+  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
+}
+
 // ── Master emission self-censor (§5.2) ──────────────────────────────────────
 
 /**
@@ -2892,6 +2948,7 @@ inline int run_pov_sync_tests() {
   test_snap_gate();
   test_suspect_timeout_acquire_uncounted();
   test_acquire_quiet_before_guard();
+  test_acquire_beacon_train_joins();
   test_emitter();
   test_master_beacon_busy_retry();
   test_beacon_late_coast();

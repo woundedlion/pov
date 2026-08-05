@@ -545,7 +545,12 @@ simulation, not the original design):
   (half a revolution apart); beacon digits follow each other within ~12
   columns — so a digit train cannot capture a just-rebooted board mid-frame.
   (The train's *first* digit can still be mistaken once; the §9.1 mis-snap
-  row bounds the recovery.)
+  row bounds the recovery.) The isolated burst is *also* fed to the beacon
+  parser, as the head of a fresh frame — a train's first digit is isolated by
+  exactly this test, so withholding it would leave every frame that starts in
+  ACQUIRE one digit short and make §6.4's joining adoption reachable only
+  after locking. Four more digits must follow, so no burst ever both completes
+  a frame and hard-snaps.
 - **Suspect bursts:** in LOCKED, a lone valid-count burst far (> G) from
   every predicted boundary cannot be told apart, at decode time, from a
   beacon's first digit — so it is fed to the beacon parser *and* held as a
