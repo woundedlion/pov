@@ -888,11 +888,20 @@ jobs:
       - name: Syntax-check the capture script
         run: node --check scripts/capture_screenshots.mjs
 
-      - name: Capture offsets, resolution descent and the PNG probe are unit-tested
+      # Discovered by glob, not enumerated, so a newly added scripts/*.test.mjs
+      # runs here without a workflow edit. The floor is the wiring pin for the
+      # other direction: a file deleted or renamed out of the pattern (or a glob
+      # that silently matches nothing) fails instead of running fewer tests.
+      - name: Every scripts/*.test.mjs unit test runs
         run: |
-          node --test scripts/screenshot_capture_config.test.mjs \
-                      scripts/screenshot_resolution.test.mjs \
-                      scripts/png_probe.test.mjs
+          shopt -s nullglob
+          tests=(scripts/*.test.mjs)
+          if [ "${#tests[@]}" -lt 3 ]; then
+            echo "::error::expected at least 3 scripts/*.test.mjs files, found ${#tests[@]}: ${tests[*]}"
+            exit 1
+          fi
+          echo "Running ${#tests[@]} script test file(s): ${tests[*]}"
+          node --test "${tests[@]}"
 
       - name: Gallery covers every registered effect
         run: node scripts/check_screenshots.mjs
