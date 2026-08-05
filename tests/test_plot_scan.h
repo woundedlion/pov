@@ -4403,6 +4403,70 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
 }
 
 /**
+ * @brief Exhausting the sub-step budget coarsens a segment in both rasterizer
+ *        paths, and truncates it in neither.
+ * @details The two-pass replay stretches its cached steps over the whole edge,
+ *          so the single-pass emitter must reach the far endpoint too instead
+ *          of stopping mid-edge. Driven by lowering the budget rather than by
+ *          constructing a pathological edge: the taken branch is the same one,
+ *          and the emitted spacing is comparable between the paths.
+ */
+inline void test_rasterize_step_budget_backstop_finishes_segment() {
+  constexpr int W = 128, H = 64;
+  constexpr float BASE_STEP = (2.0f * PI_F) / W;
+  constexpr size_t BUDGET = 16;
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 2);
+
+  // Equatorial quarter turn: ~36 sub-steps at the equatorial cadence, well past
+  // the lowered budget.
+  Fragment a, b;
+  a.pos = Vector(1.0f, 0.0f, 0.0f);
+  b.pos = Vector(0.0f, 0.0f, 1.0f);
+  points.push_back(a);
+  points.push_back(b);
+
+  struct Capture {
+    std::vector<Vector> plotted;
+    uint32_t backstops = 0;
+  };
+  auto draw = [&](bool single_pass) {
+    hs_test::StubEffect fx(W, H);
+    CapturePipeline pipeline;
+    hs::g_scan_metrics.reset();
+    {
+      Canvas canvas(fx);
+      if (single_pass)
+        Plot::rasterize<W, H, true>(pipeline, canvas, points, noop_shader);
+      else
+        Plot::rasterize<W, H, false>(pipeline, canvas, points, noop_shader);
+    }
+    fx.advance_display();
+    return Capture{pipeline.plotted, hs::g_scan_metrics.plot_backstop_hits};
+  };
+
+  Plot::g_step_budget_override = BUDGET;
+  const Capture single = draw(true);
+  const Capture cached = draw(false);
+  Plot::g_step_budget_override = 0;
+
+  HS_EXPECT_EQ(single.backstops, uint32_t{1});
+  HS_EXPECT_EQ(cached.backstops, uint32_t{1});
+
+  // Both endpoints drawn, no hole in between, and the emitted count still bound
+  // by the budget rather than by the unstretched cadence.
+  HS_EXPECT_NEAR(angle_between(single.plotted.front(), a.pos), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(angle_between(single.plotted.back(), b.pos), 0.0f, 1e-3f);
+  const float single_gap = max_consecutive_gap(single.plotted, /*wrap=*/false);
+  const float cached_gap = max_consecutive_gap(cached.plotted, /*wrap=*/false);
+  HS_EXPECT_LE(single_gap, 2.5f * BASE_STEP);
+  HS_EXPECT_LE(single_gap, 1.25f * cached_gap);
+  HS_EXPECT_LE(single.plotted.size(), 2 * BUDGET);
+  HS_EXPECT_GT(single.plotted.size(), BUDGET);
+}
+
+/**
  * @brief The explicit default sampling policy matches the API default.
  * @details Naming DEFAULT explicitly instantiates the same rasterize, so that
  * pair stays a bit comparison. SELECTABLE with balanced_sampling off is a
@@ -5022,9 +5086,7 @@ inline int run_plot_scan_tests() {
   test_star_continuous_collapses_at_antipode();
   test_flower_sample_unit_length_closed();
 
-  // rasterize() control-flow coverage. The 2*W steps_cache backstop is a
-  // defensive path unreachable through any realistic single segment, so it is
-  // not asserted here.
+  // rasterize() control-flow coverage.
   test_rasterize_subpixel_open_segment_plots_both_endpoints();
   test_rasterize_open_segment_gap_free();
   test_rasterize_closed_loop_gap_free_no_dup();
@@ -5058,6 +5120,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_single_pass_planar_matches_two_pass();
   test_rasterize_single_pass_closed_loop_matches_two_pass();
   test_rasterize_single_pass_balances_terminal_interval();
+  test_rasterize_step_budget_backstop_finishes_segment();
   test_rasterize_default_sampling_policy_parity();
   test_rasterize_balanced_sampling_scope();
   test_rasterize_balanced_sampling_density_and_alpha();
