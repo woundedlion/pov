@@ -12,7 +12,8 @@
 #include "core/color/palettes.h" // HS_PROCEDURAL_PALETTE_LIST — named-palette export
 #include "core/engine/platform.h"
 #include "core/mesh/solids.h"
-#include "targets/wasm/param_marshal.h"   // pure, host-tested param marshaling
+#include "targets/wasm/mesh_op_bounds.h" // pure, host-tested operator roster
+#include "targets/wasm/param_marshal.h"  // pure, host-tested param marshaling
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <algorithm> // std::fill_n — blank-frame clear in drawFrame
 #include <string_view>
@@ -138,21 +139,6 @@ static_assert(sizeof(Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
 // and narrow_face_count traps past this, so an operator that would emit a wider
 // face must be rejected at the JS boundary.
 static constexpr size_t MAX_MESH_FACE_DEGREE = UINT8_MAX;
-
-/**
- * @brief How far one mesh operator grows its input, for the boundary guards.
- * @details Every field is a multiple of an input measurement that some stage of
- *          the operator reaches; see MESHOP_LIST for the per-operator values and
- *          where they come from. `elements` must be nonzero. A zero degree or
- *          valence means the operator emits nothing of that kind; a zero
- *          `valence` additionally skips the valence scan, the one measurement
- *          that costs a pass over the flat index list.
- */
-struct MeshOpBounds {
-  size_t elements;    /**< Multiple of the largest input element count. */
-  size_t face_degree; /**< Multiple of the widest input face's side count. */
-  size_t valence;     /**< Multiple of the highest input vertex valence. */
-};
 
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
 // was built under and rejects via wrapper_live() if a wipe reclaimed its storage.
@@ -1238,7 +1224,7 @@ private:
    *          mesh per chained wrapper until clearToolingMemory().
    */
   template <typename Op>
-  std::unique_ptr<MeshOpsWrapper> apply(MeshOpBounds bounds, Op &&op) {
+  std::unique_ptr<MeshOpsWrapper> apply(hs_wasm::MeshOpBounds bounds, Op &&op) {
     last_mesh_op_result = MeshOpResult::OK;
     if (!wrapper_live())
       return nullptr;
@@ -1374,63 +1360,8 @@ public:
                  });                                                           \
   }
 
-  /**
- * @brief Single source of truth for the Conway/Goldberg operator roster and each
- *        operator's growth factors.
- * @param _OP0  Macro applied to each zero-argument operator.
- * @param _OP1U Macro applied to each [0,1]-fraction operator.
- * @param _OP1H Macro applied to each [0,1)-fraction operator.
- * @details Expanded twice: with MESHOP_0/MESHOP_1U/MESHOP_1H to generate the
- *          wrapper methods (below), and with MESHOP_BIND to generate the embind
- *          .function() bindings (in EMSCRIPTEN_BINDINGS), so an operator cannot
- *          be added to one site and silently left unreachable from the other.
- *          Each fraction operator's macro matches the domain its always-on
- *          engine trap asserts: truncate and bevel accept 1 and use _OP1U;
- *          chamfer and expand assert t < 1 and use _OP1H. relax, hankin,
- *          and snub have bespoke signatures/validation (snub takes two float
- *          controls, and clamps its inset to [0,1) for the same trap), so their
- *          wrapper methods are hand-written; their names
- *          live in MESHOP_IRREGULAR_LIST below and their bindings expand from
- *          it, so a new irregular op is bound the moment it joins the list.
- *
- *          The trailing arguments are the operator's MeshOpBounds, in order.
- *
- *          `elements` is the largest multiple of the input's biggest element count
- *          that any of its intermediate or output stages reaches. Read off the
- *          output bindings in core/mesh/conway.h with I as the input flat index
- *          count — dual I, ambo 2I, kis/truncate 3I, expand/chamfer 4I, snub 5I —
- *          and multiplied through for the compositions: gyro = d(snub) 5I,
- *          needle = k(d) 3I, zip = d(k) 3I, meta = k(d(a)) 6I, bevel = t(a) 6I.
- *          Every stage's vertex and face count stays under its operator's index
- *          expansion, so one factor bounds all three counts.
- *
- *          `degree` and `valence` are the multiples that reach narrow_face_count,
- *          from the three emitters: emit_shrunk_face and emit_primary_faces widen
- *          a face to verts_per_side x its side count (1 for ambo/expand/chamfer/
- *          snub, 2 for truncate), emit_vertex_orbit_faces emits one face per
- *          vertex at its valence, and Hankin doubles both (star faces 2x a face's
- *          sides, rosettes 2x a valence). kis emits only triangles, so it needs
- *          neither measurement. Compositions inherit their widest stage: needle's
- *          dual stage is valence-wide, zip's is 2x valence (its kis stage doubles
- *          valence first), meta's and gyro's ambo/snub stages are 1x both, and
- *          bevel's truncate stage doubles what its ambo stage already widened.
- *
- *          Irregular ops pass theirs at their own apply() call: relax {1, 1, 0}
- *          (topology preserving), hankin {4, 2, 2}, snub {5, 1, 1}.
- */
-  // clang-format off
-#define MESHOP_LIST(_OP0, _OP1U, _OP1H)                                         \
-  _OP0(kis, 3, 0, 0) _OP0(ambo, 2, 1, 1) _OP0(gyro, 5, 1, 1)                    \
-  _OP0(dual, 1, 0, 1) _OP0(meta, 6, 1, 1) _OP0(needle, 3, 0, 1)                 \
-  _OP0(zip, 3, 1, 2)                                                            \
-  _OP1U(truncate, 3, 2, 1) _OP1U(bevel, 6, 2, 2)                                \
-  _OP1H(chamfer, 4, 1, 0) _OP1H(expand, 4, 1, 1)
-// clang-format on
-
-// Irregular ops: hand-written wrapper methods (custom signatures/validation),
-// enumerated here so their embind bindings expand from one list.
-#define MESHOP_IRREGULAR_LIST(_) _(relax) _(hankin) _(snub)
-
+  // The roster and its growth factors live in targets/wasm/mesh_op_bounds.h,
+  // where a host test measures the real operators against them.
   MESHOP_LIST(MESHOP_0, MESHOP_1U, MESHOP_1H)
 
 #undef MESHOP_0
@@ -1461,7 +1392,7 @@ public:
       hs::log("WASM: MeshOps::relax clamped %d iterations to %d", iterations,
               clamped);
     iterations = clamped;
-    return apply({1, 1, 0},
+    return apply(hs_wasm::RELAX_BOUNDS,
                  [iterations](const PolyMesh &m, Arena &a, Arena &b) {
                    return MeshOps::relax(m, a, b, iterations);
                  });
@@ -1495,9 +1426,10 @@ public:
       last_mesh_op_result = MeshOpResult::ANGLE_OUT_OF_DOMAIN;
       return nullptr;
     }
-    return apply({4, 2, 2}, [radians](const PolyMesh &m, Arena &a, Arena &b) {
-      return MeshOps::hankin(m, a, b, radians);
-    });
+    return apply(hs_wasm::HANKIN_BOUNDS,
+                 [radians](const PolyMesh &m, Arena &a, Arena &b) {
+                   return MeshOps::hankin(m, a, b, radians);
+                 });
   }
 
   /**
@@ -1519,9 +1451,10 @@ public:
     if (hs_wasm::half_open_fraction_out_of_range(t))
       hs::log("WASM: MeshOps::snub clamped t=%g to [0,1)", t);
     float ct = hs_wasm::clamp_half_open_fraction(t);
-    return apply({5, 1, 1}, [ct, twist](const PolyMesh &m, Arena &a, Arena &b) {
-      return MeshOps::snub(m, a, b, ct, twist);
-    });
+    return apply(hs_wasm::SNUB_BOUNDS,
+                 [ct, twist](const PolyMesh &m, Arena &a, Arena &b) {
+                   return MeshOps::snub(m, a, b, ct, twist);
+                 });
   }
   /**
    * @brief Lists all available solids for the editor's solid picker.
@@ -1882,8 +1815,6 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
           MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
               MESHOP_IRREGULAR_LIST(MESHOP_BIND);
 #undef MESHOP_BIND
-#undef MESHOP_IRREGULAR_LIST
-#undef MESHOP_LIST
 
   class_<PaletteOps>("PaletteOps")
       .constructor<>()
