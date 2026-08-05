@@ -455,7 +455,7 @@ static inline float planar_arc_length(const Vector &a, const Vector &b,
  * @details Antipodal endpoints leave cross(v1, v2) ~= 0 (infinitely many
  * connecting geodesics), so normalizing it yields a garbage axis. Cross v with
  * whichever world axis is least parallel to it and normalize for a well-defined
- * rotation axis. Shared by rasterize_geodesic_strategy and Line::sample.
+ * rotation axis.
  */
 static inline Vector stable_perpendicular_axis(const Vector &v) {
   HS_PLOT_COUNT(normalizations);
@@ -510,55 +510,8 @@ struct GeodesicEdgeSampler {
 };
 
 /**
- * @brief Geodesic interpolation strategy: builds a great-circle sampler for one edge.
- * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
- * @param curr Start fragment of the edge.
- * @param next End fragment of the edge.
- * @param is_last_segment True if this is the final edge of the polyline.
- * @param process_segment Receives the arc-length sampler, endpoints, on-sphere
- *                        length (radians), and the last-segment flag.
- * @details Picks a stable perpendicular axis when cross(v1, v2) is too short to
- * pole the arc, and slerps along the great circle; a coincident-endpoint edge
- * collapses to a constant sampler.
- */
-HS_O3_BEGIN
-template <typename ProcessSegmentFn>
-static void rasterize_geodesic_strategy(const Fragment &curr,
-                                        const Fragment &next,
-                                        bool is_last_segment,
-                                        ProcessSegmentFn &&process_segment) {
-  HS_MSP_STALL_START(edge_setup_start);
-  Vector v1 = curr.pos;
-  Vector v2 = next.pos;
-  float total_dist = angle_between(v1, v2);
-
-  if (total_dist < EPS_GEODESIC_SEGMENT) {
-    HS_PLOT_COUNT(degenerate);
-    HS_MSP_STALL_STOP(edge_setup, edge_setup_start);
-    process_segment(DegenerateEdgeSampler{v1}, curr, next, total_dist,
-                    is_last_segment);
-  } else {
-    Vector axis;
-    Vector pole = cross(v1, v2);
-    float pole_len_sq = dot(pole, pole);
-    if (pole_len_sq < EPS_ARC_POLE_SQ) {
-      axis = stable_perpendicular_axis(v1);
-    } else {
-      HS_PLOT_COUNT(normalizations);
-      axis = pole * (1.0f / sqrtf(pole_len_sq));
-    }
-
-    const GeodesicEdgeSampler sampler{v1, cross(axis, v1), total_dist};
-    HS_MSP_STALL_STOP(edge_setup, edge_setup_start);
-    process_segment(sampler, curr, next, total_dist, is_last_segment);
-  }
-}
-HS_O3_END
-
-/**
- * @brief Shared per-edge geodesic setup for the row/column span bounds.
- * @details axis mirrors rasterize_geodesic_strategy's slerp-axis selection;
- *          have_axis is false on an edge the renderer collapses to a dot, which
+ * @brief Shared per-edge geodesic setup: arc length and slerp axis.
+ * @details have_axis is false on an edge the renderer collapses to a dot, which
  *          has no arc to pole.
  */
 struct GeodesicEdgeSpan {
@@ -572,9 +525,13 @@ struct GeodesicEdgeSpan {
  * @brief Computes the shared geodesic edge setup once per edge.
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
+ * @details The single slerp-axis decision every geodesic path builds on: the
+ * renderer's sampler, Line::sample's presampled polyline, and the row/column
+ * span bounds that cull them all resolve the same axis from it. always_inline
+ * so the per-edge setup costs no call on the rasterizer's hot path.
  */
-static inline GeodesicEdgeSpan make_geodesic_edge_span(const Vector &a,
-                                                       const Vector &b) {
+static __attribute__((always_inline)) inline GeodesicEdgeSpan
+make_geodesic_edge_span(const Vector &a, const Vector &b) {
   GeodesicEdgeSpan es;
   es.total = angle_between(a, b);
   if (es.total < EPS_GEODESIC_SEGMENT) {
@@ -595,6 +552,40 @@ static inline GeodesicEdgeSpan make_geodesic_edge_span(const Vector &a,
   es.have_axis = true;
   return es;
 }
+
+/**
+ * @brief Geodesic interpolation strategy: builds a great-circle sampler for one edge.
+ * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
+ * @param curr Start fragment of the edge.
+ * @param next End fragment of the edge.
+ * @param is_last_segment True if this is the final edge of the polyline.
+ * @param process_segment Receives the arc-length sampler, endpoints, on-sphere
+ *                        length (radians), and the last-segment flag.
+ * @details Slerps about the axis make_geodesic_edge_span resolves; a
+ * coincident-endpoint edge collapses to a constant sampler.
+ */
+HS_O3_BEGIN
+template <typename ProcessSegmentFn>
+static void rasterize_geodesic_strategy(const Fragment &curr,
+                                        const Fragment &next,
+                                        bool is_last_segment,
+                                        ProcessSegmentFn &&process_segment) {
+  HS_MSP_STALL_START(edge_setup_start);
+  Vector v1 = curr.pos;
+  const GeodesicEdgeSpan es = make_geodesic_edge_span(v1, next.pos);
+
+  if (!es.have_axis) {
+    HS_PLOT_COUNT(degenerate);
+    HS_MSP_STALL_STOP(edge_setup, edge_setup_start);
+    process_segment(DegenerateEdgeSampler{v1}, curr, next, es.total,
+                    is_last_segment);
+  } else {
+    const GeodesicEdgeSampler sampler{v1, cross(es.axis, v1), es.total};
+    HS_MSP_STALL_STOP(edge_setup, edge_setup_start);
+    process_segment(sampler, curr, next, es.total, is_last_segment);
+  }
+}
+HS_O3_END
 
 constexpr int PLANAR_SPAN_SAMPLES = 8;
 
@@ -813,9 +804,8 @@ finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
  * is the exact sweep. Antipodal symmetry (λ(-p) = λ(p) + π) makes every
  * half-circle sweep exactly W/2 and shorter arcs less, so the span is always
  * the endpoints' short-way separation — the direction only disambiguates the
- * near-antipodal boundary, where short-way is float noise. Axis selection
- * mirrors rasterize_geodesic_strategy and the column mapping is the renderer's
- * vector_to_theta.
+ * near-antipodal boundary, where short-way is float noise. The column mapping
+ * is the renderer's vector_to_theta.
  */
 template <int W>
 static inline bool geodesic_col_span_cols(float ca, float cb, const Vector &a,
@@ -2181,10 +2171,8 @@ struct Line {
     if (density < 1)
       density = 1;
 
-    float angle = angle_between(f1.pos, f2.pos);
-    // Same coincident-endpoint threshold as rasterize_geodesic_strategy: below
-    // it the slerp axis is unstable, so collapse to a dot.
-    if (angle < EPS_GEODESIC_SEGMENT) {
+    const GeodesicEdgeSpan es = make_geodesic_edge_span(f1.pos, f2.pos);
+    if (!es.have_axis) {
       Fragment f = f1;
       f.v0 = f.v1 = f.v2 = 0.0f;
       points.push_back(f);
@@ -2192,19 +2180,8 @@ struct Line {
       return;
     }
 
-    Vector axis;
-    Vector pole = cross(f1.pos, f2.pos);
-    float pole_len_sq = dot(pole, pole);
-    if (pole_len_sq < EPS_ARC_POLE_SQ) {
-      axis = stable_perpendicular_axis(f1.pos);
-    } else {
-      HS_PLOT_COUNT(normalizations);
-      axis = pole * (1.0f / sqrtf(pole_len_sq));
-    }
-    // Same orthonormal-basis parameterization the rasterizer samples this arc
-    // with (rasterize_geodesic_strategy), so the presampled polyline and the
-    // drawn points come from identical math.
-    Vector perp = cross(axis, f1.pos);
+    const float angle = es.total;
+    Vector perp = cross(es.axis, f1.pos);
 
     for (int i = 0; i <= density; ++i) {
       float t = static_cast<float>(i) / density;
