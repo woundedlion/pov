@@ -146,7 +146,7 @@ public:
 
       Vector v_local = rotate(node->v, q);
       Vector v_final = orientation.orient(v_local);
-      HS_PROFILE(cm_point_scan);
+      HS_PROFILE_DEEP(cm_point_scan);
       Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
                               fragment_shader, params.debug_bb);
     });
