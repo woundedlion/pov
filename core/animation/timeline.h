@@ -359,19 +359,37 @@ public:
     // it: collapsing per-animation would discard the sub-frame motion-blur history
     // a sharing animation already built this frame. The earliest eligible event
     // holding an id collapses it; later events sharing that id find it upstream.
+    // Collapsed ids are cached, so the virtual orientation_id() runs once per
+    // event rather than once per pair. Past MAX_COLLAPSE_IDS distinct
+    // Orientations the cache stops growing and a miss rescans the earlier
+    // events, which decides identically (an id is cached iff it was collapsed,
+    // and the first event holding an id always collapses it).
+    const void *collapsed_ids[MAX_COLLAPSE_IDS];
+    int collapsed_cnt = 0;
     for (int i = 0; i < active_cnt; ++i) {
       const void *id = event_orientation_id(global_timeline_events[i]);
       if (!id)
         continue;
       bool already_collapsed = false;
-      for (int j = 0; j < i; ++j) {
-        if (event_orientation_id(global_timeline_events[j]) == id) {
+      for (int j = 0; j < collapsed_cnt; ++j) {
+        if (collapsed_ids[j] == id) {
           already_collapsed = true;
           break;
         }
       }
-      if (!already_collapsed)
-        global_timeline_events[i].animation()->collapse_orientation();
+      if (!already_collapsed && collapsed_cnt == MAX_COLLAPSE_IDS) {
+        for (int j = 0; j < i; ++j) {
+          if (event_orientation_id(global_timeline_events[j]) == id) {
+            already_collapsed = true;
+            break;
+          }
+        }
+      }
+      if (already_collapsed)
+        continue;
+      if (collapsed_cnt < MAX_COLLAPSE_IDS)
+        collapsed_ids[collapsed_cnt++] = id;
+      global_timeline_events[i].animation()->collapse_orientation();
     }
 
     for (int i = 0; i < active_cnt; ++i) {
@@ -473,6 +491,15 @@ public:
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 
   static constexpr int MAX_CLEAR_HOOKS = 4; /**< clear_hooks capacity. */
+
+  /**
+   * @brief Distinct Orientation ids step()'s collapse pass caches per frame.
+   * @details Sized well above the handful of Orientations an effect binds, and
+   * far below MAX_EVENTS: the cache is a step() stack array, and step() sits on
+   * the deepest render chain of every timeline-driven effect. Exceeding it costs
+   * a rescan, not a wrong collapse.
+   */
+  static constexpr int MAX_COLLAPSE_IDS = 16;
 
 private:
   static bool event_paused(const TimelineEvent &event) {
