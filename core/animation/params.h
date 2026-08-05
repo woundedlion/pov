@@ -603,7 +603,7 @@ struct RippleParams {
   /** @brief Cached cos(angle) upper fast-reject bound. */
   float cos_threshold_max = -1.0f;
 
-  /** @brief Carries a TransformerPool::prepare_frame() hook (sync()). */
+  /** @brief Carries TransformerPool::prepare_frame() hooks. */
   static constexpr bool NEEDS_PREPARE = true;
 
   /**
@@ -630,6 +630,20 @@ struct RippleParams {
     float d_max = hs::clamp(phase + hw * 2.0f, 0.0f, PI_F);
     cos_threshold_min = cosf(d_min);
     cos_threshold_max = cosf(d_max);
+  }
+
+  /**
+   * @brief Refreshes live-tunable config from a template snapshot.
+   * @param t Template params carrying the current slider values.
+   * @details Copies only the shape fields, so a live edit reaches a ripple
+   * already in flight. `amplitude` is excluded: Ripple captures it as the peak
+   * at construction and publishes the enveloped value every step, so copying it
+   * would overwrite the envelope. prepare_frame() invokes this before sync(),
+   * which rebuilds the reject bounds a new `thickness` moves.
+   */
+  void refresh_from(const RippleParams &t) {
+    decay = t.decay;
+    thickness = t.thickness;
   }
 };
 
