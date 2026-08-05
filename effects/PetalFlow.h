@@ -127,6 +127,15 @@ private:
       0.6f; /**< Petal wobble depth in rho units. */
   static constexpr int NUM_SAMPLES =
       W / 2; /**< Angular samples drawn per ring. */
+  // draw_ring stages one ring's NUM_SAMPLES fragments in scratch_a at a time,
+  // alongside rasterize's own sub-step cache. The effect keeps the default arena
+  // split, so a resolution bump or an added Fragment register should fail to
+  // compile, not overflow.
+  static_assert(NUM_SAMPLES * sizeof(Fragment) +
+                        Plot::rasterize_scratch_a_bytes<W>() <=
+                    DEFAULT_SCRATCH_A_SIZE,
+                "PetalFlow ring staging exceeds the default scratch_a budget; "
+                "retune NUM_SAMPLES or carve a larger scratch arena");
 
   /**
    * @brief One ring on the flow.
