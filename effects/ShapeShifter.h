@@ -883,6 +883,18 @@ private:
   Params params{};
   float alpha = 1.0f;
   float phase = 0.0f;
+
+  // init() allocates the six MAX_SHAPES-sized contour tables and prepare_count()
+  // bakes both alpha-falloff palette LUTs from the persistent arena. Effect
+  // keeps the default arena split, so the total must fit the device persistent
+  // partition.
+  static constexpr size_t FOOTPRINT_BYTES =
+      MAX_SHAPES * (4 * sizeof(float) + sizeof(uint16_t) +
+                    sizeof(Plot::Star<Plot::PlanarProjection>::RadiusTrig)) +
+      2 * BakedPalette::required_arena_bytes();
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+                "ShapeShifter persistent footprint exceeds the default "
+                "partition; retune MAX_SHAPES or carve arenas");
 };
 
 #include "core/engine/effect_registry.h"
