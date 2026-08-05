@@ -1795,9 +1795,15 @@ inline void test_strap_crossfade_seed_swept() {
  * boundary shimmer), in 16-bit channel counts. */
 constexpr int STRAP_OPEN_HARD = 8000;
 
-/** First interlace angle a hankin cycle draws (sin_wave(0, pi/2, 1, 0) at
- * progress 1/64); see start_hankin_cycle. */
-constexpr float STRAP_OPEN_ANGLE = 0.0037819f;
+/** Interlace angle the hankin sweep drives at `cycle_frame`: the production
+ * Mutation's wave sampled at that frame's normalized progress over the sweep
+ * (see start_hankin_cycle). */
+template <int W, int H>
+inline float sweep_angle(const HankinSolids<W, H> &fx, int cycle_frame) {
+  const float progress = static_cast<float>(cycle_frame) /
+                         conway_soak_tests::HankinWalkProbe::sweep_frames(fx);
+  return sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f)(ease_linear(progress));
+}
 
 /** Hard-recolor pixel count between two captured frames. */
 inline int hard_recolor_count(const std::vector<Pixel> &a,
@@ -1857,6 +1863,8 @@ inline void test_strap_open_fade() {
   // whose full-coverage artifact is big enough to pin.
   constexpr int MAX_ARRIVALS = 12;
   constexpr int MIN_POP_FULL = 400;
+  // First frame the sweep draws: the straps are born as thin slivers here.
+  const float open_angle = sweep_angle(fx, 1);
   float fade = 0.0f;
   int pop_full = 0, pop_faded = 0;
   std::vector<Pixel> bookend, full, faded;
@@ -1871,9 +1879,9 @@ inline void test_strap_open_fade() {
     HS_EXPECT_LT(guard, 400);
 
     fade = Probe::strap_open_fade(fx, 1);
-    capture_opening(fx, 0.0f, 1.0f, bookend);          // straps zero-area
-    capture_opening(fx, STRAP_OPEN_ANGLE, 1.0f, full); // pre-fix: full coverage
-    capture_opening(fx, STRAP_OPEN_ANGLE, fade, faded); // fix: faded coverage
+    capture_opening(fx, 0.0f, 1.0f, bookend);     // straps zero-area
+    capture_opening(fx, open_angle, 1.0f, full);  // pre-fix: full coverage
+    capture_opening(fx, open_angle, fade, faded); // fix: faded coverage
     pop_full = hard_recolor_count(bookend, full);
     pop_faded = hard_recolor_count(bookend, faded);
     if (pop_full > MIN_POP_FULL)
@@ -1932,7 +1940,7 @@ inline void test_strap_close_dissolve() {
 
   // Frame adjacent to the closing bookend: the sweep is a full sine period, so
   // it samples the same angle as the opening's first strap frame.
-  const int duration = 64, cf = 63;
+  const int duration = Probe::sweep_frames(fx), cf = duration - 1;
   const float close_blend = Probe::strap_open_fade(fx, duration - cf);
   const float term = hs::clamp(static_cast<float>(duration - cf) /
                                    Probe::strap_terminal_frames(fx),
@@ -1940,11 +1948,11 @@ inline void test_strap_close_dissolve() {
   HS_EXPECT_LT(close_blend, 0.2f);
   HS_EXPECT_LT(term, 1.0f);
 
+  const float close_angle = sweep_angle(fx, cf);
   std::vector<Pixel> bookend, last_plain, last_shaped;
   capture_opening(fx, 0.0f, 1.0f, bookend, 1.0f, 1.0f, cf);
-  capture_opening(fx, STRAP_OPEN_ANGLE, 1.0f, last_plain, 1.0f, 1.0f, cf);
-  capture_opening(fx, STRAP_OPEN_ANGLE, 1.0f, last_shaped, close_blend, term,
-                  cf);
+  capture_opening(fx, close_angle, 1.0f, last_plain, 1.0f, 1.0f, cf);
+  capture_opening(fx, close_angle, 1.0f, last_shaped, close_blend, term, cf);
 
   const long long e_plain = frame_energy(last_plain, bookend);
   const long long e_shaped = frame_energy(last_shaped, bookend);
@@ -1955,10 +1963,6 @@ inline void test_strap_close_dissolve() {
   HS_EXPECT_GT(e_plain, 1000000);
   HS_EXPECT_LT(e_shaped, e_plain * 3 / 4);
 }
-
-/** Interlace angle one frame either side of the sweep's midpoint, where the
- * star face has closed to a last sliver (sin_wave at progress 31/64). */
-constexpr float STAR_CLOSE_ANGLE = 1.56701f;
 
 /**
  * @brief Pins the mid-sweep star dissolve: the star's last sliver carries the
@@ -2007,18 +2011,20 @@ inline void test_star_midpoint_dissolve() {
   }
   HS_EXPECT_TRUE(has_distinct_rim());
 
-  const int duration = 64, mid = duration / 2, cf = mid - 1;
+  const int duration = Probe::sweep_frames(fx), mid = duration / 2,
+            cf = mid - 1;
   const float star_blend = Probe::strap_open_fade(fx, mid - cf);
   HS_EXPECT_GT(star_blend, 0.0f);
   HS_EXPECT_LT(star_blend, 1.0f);
 
+  // The sweep is symmetric about its midpoint, so the frame either side of it
+  // draws this same angle, with the star closed to a last sliver.
+  const float star_angle = sweep_angle(fx, cf);
   std::vector<Pixel> sliver_plain, sliver_shaped, sliver_target;
-  capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, sliver_plain, 1.0f, 1.0f, cf,
-                  1.0f);
-  capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, sliver_shaped, 1.0f, 1.0f, cf,
+  capture_opening(fx, star_angle, 1.0f, sliver_plain, 1.0f, 1.0f, cf, 1.0f);
+  capture_opening(fx, star_angle, 1.0f, sliver_shaped, 1.0f, 1.0f, cf,
                   star_blend);
-  capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, sliver_target, 1.0f, 1.0f, cf,
-                  0.0f);
+  capture_opening(fx, star_angle, 1.0f, sliver_target, 1.0f, 1.0f, cf, 0.0f);
 
   // Only star fragments are shaped, so the pixels where the two renders differ
   // are exactly the star's. Score against the fully resolved rim target: the
@@ -2053,8 +2059,8 @@ inline void test_star_midpoint_dissolve() {
   // it reopens rather than snapping to its own color.
   const int reopen_cf = mid + 1;
   std::vector<Pixel> reopen_shaped;
-  capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, reopen_shaped, 1.0f, 1.0f,
-                  reopen_cf, star_blend);
+  capture_opening(fx, star_angle, 1.0f, reopen_shaped, 1.0f, 1.0f, reopen_cf,
+                  star_blend);
   size_t reopen_px = 0;
   for (size_t i = 0; i < reopen_shaped.size(); ++i)
     if (reopen_shaped[i].r != sliver_plain[i].r ||
