@@ -264,6 +264,8 @@ struct FoldModifier {
  * edges.
  *
  * Null tension driver is the deliberate "no pinch" pass-through mode.
+ * @details A bound driver costs a powf per sample; suited to bake-time sampling
+ * (BakedPalette::rebake) rather than tight per-pixel loops.
  */
 struct PinchModifier {
   /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
