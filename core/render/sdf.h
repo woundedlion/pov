@@ -1540,18 +1540,21 @@ template <typename A, typename B> struct SmoothUnion {
             ? std::min(k * W / TWO_PI_F / sin_phi, static_cast<float>(W))
             : static_cast<float>(W);
 
+    // One child fell back to full width: the whole row needs the full scan, so
+    // the merged buffer is discarded and B need not be evaluated. The weld
+    // still blends both children through distance() on every scanned pixel.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
           push_interval(merged, start - pad_px, end + pad_px);
         });
+    if (!has_a)
+      return false;
 
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
           push_interval(merged, start - pad_px, end + pad_px);
         });
-
-    // If either child falls back to full-width, so must the blend.
-    if (!has_a || !has_b)
+    if (!has_b)
       return false;
 
     if (merged.is_empty())
