@@ -608,6 +608,31 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
 }
 
 /**
+ * @brief Verifies every distinct Orientation is still collapsed exactly once
+ * when the distinct count exceeds step()'s id cache and the pass falls back to
+ * rescanning the earlier events.
+ * @details Each Orientation carries a two-frame history into the frame, so a
+ * collapse leaves the +90 pose as the oldest sub-frame (+X -> +Y) while a
+ * skipped one leaves the identity it started at (+X stays +X).
+ */
+inline void test_timeline_collapse_past_id_cache() {
+  constexpr int N = Timeline::MAX_COLLAPSE_IDS + 2;
+  Orientation<16> orientations[N];
+  Timeline tl;
+  for (int i = 0; i < N; ++i) {
+    orientations[i].push(make_rotation(Z_AXIS, PI_F / 2));
+    tl.add(0, Animation::Rotation<288, 16>(orientations[i], Z_AXIS, PI_F / 2, 1,
+                                           ease_linear));
+  }
+  tl.step(fake_canvas());
+
+  for (int i = 0; i < N; ++i) {
+    Vector oldest = orientations[i].orient(X_AXIS, 0);
+    HS_EXPECT_NEAR(oldest.y, 1.0f, 1e-3f);
+  }
+}
+
+/**
  * @brief Verifies Timeline schedules events by start frame and removes
  * completed one-shots so later events can run after earlier ones finish.
  * @details An event added with in_frames > 0 stays dormant until t reaches its
@@ -3220,6 +3245,7 @@ inline int run_animation_tests() {
   test_rotation_accumulates_subthreshold_deltas();
   test_rotation_applies_final_frame_residual();
   test_timeline_shared_orientation_composes_motion_blur();
+  test_timeline_collapse_past_id_cache();
   test_timeline_sequences_events_by_start_frame();
   test_timeline_pausable_event_uses_active_time();
   test_timeline_accepts_maximum_start_frame();
