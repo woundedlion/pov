@@ -1101,9 +1101,10 @@ inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Verifies face_centroid reports a quad and a bounded centroid.
+ * @brief Verifies face_centroid reports a quad and face 0's vertex mean.
  * @details Builds a HalfEdgeMesh over the cube and checks face 0 has 4 sides
- *          and a centroid magnitude bounded by 1 (mean of unit vectors).
+ *          and a centroid matching the mean of that face's vertices
+ *          componentwise.
  */
 inline void test_face_centroid_for_cube_top_face() {
   Arena arena(conway_target_buf, sizeof(conway_target_buf));
@@ -1114,8 +1115,13 @@ inline void test_face_centroid_for_cube_top_face() {
   int count = 0;
   Vector c = MeshOps::face_centroid(he, cube, 0, count);
   HS_EXPECT_EQ(count, 4);
-  // Centroid magnitude is bounded by 1 (mean of unit vectors).
-  HS_EXPECT_TRUE(c.length() <= 1.0f + 1e-4f);
+  // Each half-edge stores its head vertex, so the loop walk sums face 0's
+  // vertices rotated by one against the flat-index order of the reference;
+  // the tolerance covers that reassociation.
+  Vector expected = face_centroid_pos(cube, 0, 4);
+  HS_EXPECT_NEAR(c.x, expected.x, 1e-6f);
+  HS_EXPECT_NEAR(c.y, expected.y, 1e-6f);
+  HS_EXPECT_NEAR(c.z, expected.z, 1e-6f);
 }
 
 // ---------------------------------------------------------------------------
