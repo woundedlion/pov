@@ -12,7 +12,8 @@
   // 32 KiB bank the arena cut freed was spent on ITCM -O3
   // promotions (see docs/itcm_ledger.md). These figures move with every code
   // landing AND with the pinned toolchain; re-measure rather than trusting them
-  // verbatim. Holosphere RAM2 is 518,272 B; Phantasm RAM2 is 519,552 B.
+  // verbatim. Holosphere RAM2 is 44,160 B (its framebuffers are sized to the
+  // 96x20 canvas via -DCANVAS_W/-DCANVAS_H); Phantasm RAM2 is 520,064 B.
   //
   // Symbol names are the REAL linkage names from `readelf -s` (§7.4): the arena is
   // file-scope static, so it mangles to `_ZL18global_arena_block` (NOT the source
@@ -23,13 +24,12 @@
 
   "holosphere": {
     "regions": {
-      // Holosphere runs RingSpin at 96x20; these ceilings retain wide FLASH and
-      // RAM1 headroom. RAM2 remains close to the hardware wall.
+      // Holosphere runs RingSpin at 96x20 and sizes its framebuffers to that
+      // canvas, so every region retains wide headroom.
       "flash": { "max_bytes": 1900000 },
       "ram1":  { "max_bytes": 490000, "free_min_bytes": 32768 },
-      // OCRAM is structurally full: 518,272 B used, 6,016 B free. max_bytes is
-      // the hardware wall, so free_min_bytes is the binding constraint — 4 KiB
-      // for the allocator and boot overhead, leaving 1,920 B of growth room.
+      // OCRAM: 44,160 B used, 480,128 B free. max_bytes is the hardware wall;
+      // free_min_bytes reserves 4 KiB for the allocator and boot overhead.
       "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },
     "symbols": {

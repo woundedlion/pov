@@ -227,10 +227,11 @@ that — see the board note below). They differ in output path and design resolu
 > is a single image to build and budget; the "288×144" is the assembled virtual display, not one
 > board's output.
 
-> **Static footprints are *mostly* shared, but RAM2 is not identical.** The framebuffers
-> ([memory.cpp](../core/engine/memory.cpp)) and the arena are sized by compile-time constants
-> (`MAX_W=288`, `MAX_H=144`, `GLOBAL_ARENA_SIZE=298 KiB`), **not** by virtual resolution — so both
-> allocate the same two 243 KiB buffers in OCRAM and the same 298 KiB arena in DTCM. But Phantasm's
+> **Static footprints are *mostly* shared, but RAM2 is not identical.** The arena
+> (`GLOBAL_ARENA_SIZE=298 KiB`) is the same 298 KiB in DTCM on both. The framebuffers
+> ([memory.cpp](../core/engine/memory.cpp)) are sized by `MAX_W`/`MAX_H`, which each env sets via
+> `CANVAS_W`/`CANVAS_H`: Phantasm keeps the 288×144 default (two 243 KiB buffers in OCRAM),
+> Holosphere overrides to its 96×20 canvas (two 11,520 B buffers). And Phantasm's
 > `USE_DMA_LEDS` path adds an OCRAM consumer Holosphere lacks: the double-buffered
 > `DMAMEM DMALEDController` eDMA TX frame buffers ([pov_segmented.h](../hardware/pov_segmented.h)),
 > where Holosphere's FastLED path uses a non-`DMAMEM` `CRGB leds[]`. So the targets diverge in
@@ -546,13 +547,13 @@ Two current calibration constraints:
   RAM1 budget. The layout check (§7.4 #1) pins it in DTCM *and* near 298 KiB. Note `dtcm_free_min_bytes`
   can step by a whole **32 KiB** when ITCM crosses a FlexRAM bank boundary (§4.1 FlexRAM note) — a
   jump in the floor, not smooth drift; the gate still fires correctly, it's just lumpy.
-- **OCRAM headroom is structurally small, not a free parameter.** The two static framebuffers are
-  **497,664 B of OCRAM's 524,288 B** — leaving only ~**26 KiB** for the timeline event buffer
-  (`global_timeline_events`, `TIMELINE_MAX_EVENTS=64` — small, ~a few KiB) and all `new`/`malloc`
-  (the driver objects; Phantasm's `DMALEDController` TX buffers also sit here). The known consumers
-  are small, but the margin is thin enough that the gate's value is real. Holosphere uses
-  518,272 B with 6,016 B free; Phantasm uses 519,552 B with 4,736 B free. The buffers are fixed at
-  `MAX_W*MAX_H`, so the only give is the heap.
+- **OCRAM headroom follows the canvas size.** The two static framebuffers are `MAX_W*MAX_H`
+  pixels, and `MAX_W`/`MAX_H` come from each env's `CANVAS_W`/`CANVAS_H`. At Phantasm's 288×144
+  they are **497,664 B of OCRAM's 524,288 B** — leaving only ~**26 KiB** for the timeline event
+  buffer (`global_timeline_events`, `TIMELINE_MAX_EVENTS=64` — small, ~a few KiB) and all
+  `new`/`malloc` (the driver objects; Phantasm's `DMALEDController` TX buffers also sit here), so
+  Phantasm uses 520,064 B with 4,224 B free and the gate's value there is real. Holosphere
+  overrides the canvas to 96×20 and uses 44,160 B with 480,128 B free.
 
 **Enforcement: absolute ceilings only** *(decided)*. The gate hard-fails if any region exceeds its
 cap — catching "won't fit / no room to flash" and the layout invariants (§7.4). A per-build
@@ -872,11 +873,11 @@ All five prior open questions have been decided; the spec body reflects them.
   `build_src_filter` must default-exclude and re-add only the wanted TUs or it sweeps in
   `targets/wasm/`, the CMake `build*/` trees, `.pio/`, etc. Mitigate with the Phase-0 spike (§6)
   that asserts each env compiles exactly its `.ino` + the two `core/engine/*.cpp` and nothing else.
-- **OCRAM is structurally tight (4,736–6,016 B free in the current images).** Not a tuning
-  knob — the buffers are fixed at `MAX_W*MAX_H`. The value is
+- **OCRAM is structurally tight on Phantasm (4,224 B free).** The buffers are `MAX_W*MAX_H`, and
+  Phantasm's canvas *is* 288×144, so there is nothing to trim there. The value is
   the **layout invariant** keeping those buffers in OCRAM (`dma_tx_buffer: OCRAM`) plus the
-  recorded as-built margin (§8). A future OCRAM consumer, or a bump to `MAX_W`/`MAX_H`, is the real
-  risk the `ram2` ceiling + layout check must catch (§7.4 #2, §8).
+  recorded as-built margin (§8). A future OCRAM consumer, or a canvas bump on either image, is the
+  real risk the `ram2` ceiling + layout check must catch (§7.4 #2, §8).
 - **Build-option drift between VMicro and PlatformIO defeats the size numbers.** If CI compiles at
   a different optimization level / USB type / `f_cpu` than the menu options used to flash, "fits in
   CI" ≠ "fits on the bench." Mitigate by pinning those options in `platformio.ini` to the captured
