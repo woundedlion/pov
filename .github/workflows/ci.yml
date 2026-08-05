@@ -1289,11 +1289,73 @@ jobs:
     # building, so every first-party TU recompiles and emits its warnings.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      # Escape hatch for a deliberate baseline addition: one normalized warning
+      # per line, added in the same commit as the baseline entry it approves, so
+      # the exemption is visible in that commit's diff. Empty in steady state —
+      # the baseline is empty and meant to stay that way, and --update-baseline
+      # rewrites the file wholesale, so without this the ratchet could be
+      # reset by one commit with nothing reporting it.
+      WARNING_BASELINE_ALLOW_ADD: ""
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          # The growth check below reads the baseline out of HEAD^1. On a
+          # pull_request run HEAD is the merge ref, so HEAD^1 is the base branch
+          # and the comparison spans the whole PR.
+          fetch-depth: 2
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
         with:
           python-version: '3.12'
+
+      - name: Assert the warning baseline did not grow
+        run: |
+          BF=tools/teensy_warning_baseline.txt
+
+          # Baseline members: blank and #-comment lines dropped, same as
+          # load_baseline() in tools/teensy_warnings.py. Warning text contains
+          # spaces and punctuation, so every comparison below is byte-ordered
+          # (LC_ALL=C) and line-oriented — never word-split.
+          entries() {
+            sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+              | grep -v -e '^#' -e '^$' | LC_ALL=C sort -u
+          }
+
+          # An unreachable previous copy (orphan/initial commit, a clone
+          # shallower than this job asks for, or a parent predating the file)
+          # warns and skips rather than redding an otherwise-fine build.
+          if ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
+            echo "::warning::HEAD has no reachable parent — warning-baseline growth check skipped"
+            exit 0
+          fi
+          if ! git show "$PREV:$BF" > /tmp/warn-prev-raw.txt 2>/dev/null; then
+            echo "::warning::$BF absent in $PREV — warning-baseline growth check skipped"
+            exit 0
+          fi
+
+          entries < /tmp/warn-prev-raw.txt > /tmp/warn-prev.txt
+          if [ -f "$BF" ]; then
+            entries < "$BF" > /tmp/warn-now.txt
+          else
+            : > /tmp/warn-now.txt          # deleting the file empties the baseline: a shrink
+          fi
+          printf '%s\n' "$WARNING_BASELINE_ALLOW_ADD" | entries > /tmp/warn-allow.txt
+          comm -13 /tmp/warn-prev.txt /tmp/warn-now.txt > /tmp/warn-added.txt
+
+          comm -23 /tmp/warn-added.txt /tmp/warn-allow.txt > /tmp/warn-unapproved.txt
+          if [ -s /tmp/warn-unapproved.txt ]; then
+            while IFS= read -r w; do
+              echo "::error file=$BF::\"$w\" was added to the warning baseline (fix: silence the warning, or approve the addition by listing it in WARNING_BASELINE_ALLOW_ADD in .github/workflows/ci.yml in this commit)"
+            done < /tmp/warn-unapproved.txt
+            exit 1
+          fi
+
+          comm -13 /tmp/warn-added.txt /tmp/warn-allow.txt > /tmp/warn-unused.txt
+          while IFS= read -r w; do
+            echo "::warning::WARNING_BASELINE_ALLOW_ADD is stale — \"$w\" approves no addition in this commit"
+          done < /tmp/warn-unused.txt
+          echo "warning baseline: $(wc -l < /tmp/warn-now.txt) entries, $(wc -l < /tmp/warn-added.txt) approved addition(s) against $PREV."
+
       # Toolchain cache is safe to share with teensy-size (it only holds the
       # downloaded compiler/framework, not built objects). The build-objects
       # cache is deliberately NOT restored here.

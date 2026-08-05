@@ -452,6 +452,14 @@ warnings.
 - **Updating the baseline is a reviewed act.** A `--update-baseline` script regenerates the file;
   it lands in the same PR as the change that legitimately alters the warning set, so the diff is
   visible in review (same discipline as the LUT/reaction-graph provenance gates).
+- **Growth is machine-checked, not review-checked.** `--update-baseline` rewrites the file
+  wholesale, so review is the only thing standing between a rebaseline commit and an erased
+  ratchet. The `teensy-warnings` job therefore diffs the baseline against its copy in `HEAD^1`
+  (the base branch on a `pull_request` run) and fails on any added entry that the same commit does
+  not list in the job's `WARNING_BASELINE_ALLOW_ADD` env var — one normalized warning per line, so
+  each exemption appears in the diff that introduces it. Removals are free (a fix should never red
+  the tree), a stale allow-list entry warns, and an unreachable previous copy warns and skips.
+  Same mechanism as the `FORMAT_BASELINE` / `FORMAT_BASELINE_ALLOW_ADD` pair in the same workflow.
 - **Current enforcement:** the cold `teensy-warnings` CI job fails on any warning not
   present in `tools/teensy_warning_baseline.txt`; the current baseline contains no warnings.
 
