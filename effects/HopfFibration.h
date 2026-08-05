@@ -280,7 +280,6 @@ private:
     const ClipRegion &cr = canvas.clip();
     const bool clip_active = !cr.is_full();
     const ClipRegion::XClip xc = cr.x_clip();
-    const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
 
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const auto &trail = trails[i];
@@ -313,8 +312,7 @@ private:
       const uint8_t *edge_visible = nullptr;
       if (clip_active) {
         HS_PROFILE(hf_trail_gate);
-        if (!Plot::gate_trail_edges<W, H>(trail_pipeline, cr, xc, band_len,
-                                          points, bits))
+        if (!Plot::gate_trail_edges<W, H>(trail_pipeline, cr, xc, points, bits))
           continue;
         edge_visible = bits;
       }

@@ -1014,7 +1014,7 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
     cr.x_start = bd[2];
     cr.x_end = bd[3];
     const auto xc = cr.x_clip();
-    const int band_len = xc.wrap ? xc.re - xc.rs + TW : xc.re - xc.rs;
+    const int band_len = xc.length(TW);
 
     for (int trial = 0; trial < 2000; ++trial) {
       Vector a = rand_unit();
@@ -1045,8 +1045,8 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
         b = rand_unit();
       }
 
-      const bool got = Plot::edge_visible_in_clip<TW, TH>(
-          sink, cr, xc, band_len, a, b, nullptr);
+      const bool got =
+          Plot::edge_visible_in_clip<TW, TH>(sink, cr, xc, a, b, nullptr);
       const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
       float row_lo, row_hi;
       Plot::geodesic_row_span<TH>(a, b, es, row_lo, row_hi);
@@ -1080,8 +1080,8 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
           dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
         continue;
 
-      const bool got = Plot::edge_visible_in_clip<TW, TH>(
-          sink, cr, xc, band_len, a, b, &basis);
+      const bool got =
+          Plot::edge_visible_in_clip<TW, TH>(sink, cr, xc, a, b, &basis);
       const Plot::PlanarEdgeSpan ps = Plot::make_planar_edge_span(a, b, basis);
       float row_lo, row_hi;
       Plot::planar_row_span<TH>(a, b, ps, row_lo, row_hi);
@@ -1429,13 +1429,12 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
     cr.x_start = x0;
     cr.x_end = x0 + 96;
     const auto xc = cr.x_clip();
-    const int band_len = xc.wrap ? xc.re - xc.rs + TW : xc.re - xc.rs;
 
     uint8_t bits[2];
     const bool any =
-        Plot::gate_trail_edges<TW, TH>(pipeline, cr, xc, band_len, trail, bits);
-    const bool want = Plot::edge_visible_in_clip<TW, TH>(
-        pipeline, cr, xc, band_len, a, b, nullptr);
+        Plot::gate_trail_edges<TW, TH>(pipeline, cr, xc, trail, bits);
+    const bool want =
+        Plot::edge_visible_in_clip<TW, TH>(pipeline, cr, xc, a, b, nullptr);
     HS_EXPECT_EQ(any, want);
     HS_EXPECT_EQ(bits[0] != 0, want);
   }
@@ -1447,8 +1446,8 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
 inline void test_raw_geodesic_edge_gate_parity() {
   constexpr int W = 288, H = 144;
   auto exact_gate = [](const ClipRegion &cr, const ClipRegion::XClip &xc,
-                       int band_len, float ra, float rb, float ca, float cb,
-                       const Vector &a, const Vector &b) {
+                       float ra, float rb, float ca, float cb, const Vector &a,
+                       const Vector &b) {
     const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
     float row_lo, row_hi;
     Plot::geodesic_row_span_rows<H>(ra, rb, a, b, es, row_lo, row_hi);
@@ -1458,18 +1457,17 @@ inline void test_raw_geodesic_edge_gate_parity() {
       return true;
     int col_s, col_len;
     return !Plot::geodesic_col_span_cols<W>(ca, cb, a, es, col_s, col_len) ||
-           ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+           ClipRegion::arcs_overlap(xc.rs, xc.length(W), col_s, col_len, W);
   };
   auto run = [&](const ClipRegion &cr, const Vector &a, const Vector &b) {
     const auto xc = cr.x_clip();
-    const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
     const float ra = Plot::y_to_screen_row<H>(a.y);
     const float rb = Plot::y_to_screen_row<H>(b.y);
     const float ca = vector_to_theta<W>(a);
     const float cb = vector_to_theta<W>(b);
-    const bool exact = exact_gate(cr, xc, band_len, ra, rb, ca, cb, a, b);
-    const auto raw = Plot::raw_geodesic_edge_gate<W, H>(cr, xc, band_len, ra,
-                                                        rb, ca, cb, a, b);
+    const bool exact = exact_gate(cr, xc, ra, rb, ca, cb, a, b);
+    const auto raw =
+        Plot::raw_geodesic_edge_gate<W, H>(cr, xc, ra, rb, ca, cb, a, b);
     if (raw != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
       HS_EXPECT_EQ(raw == Plot::RawGeodesicGateResult::VISIBLE, exact);
     return raw;
@@ -1688,7 +1686,6 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
     cr.x_start = bounds[2];
     cr.x_end = bounds[3];
     const auto xc = cr.x_clip();
-    const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
     const auto cartesian = Plot::make_cartesian_quadrant_clip<W, H>(cr);
 
     for (int trial = 0; trial < 1000; ++trial) {
@@ -1726,8 +1723,7 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
         ++meridian_rejects;
       for (size_t e = 0; e + 1 < trail.size(); ++e) {
         const bool visible = Plot::edge_visible_in_clip<W, H>(
-            pipeline, cr, xc, band_len, trail[e].pos, trail[e + 1].pos,
-            nullptr);
+            pipeline, cr, xc, trail[e].pos, trail[e + 1].pos, nullptr);
         HS_EXPECT_FALSE(visible);
       }
     }
@@ -1776,7 +1772,6 @@ inline void test_gate_trail_edges_matches_edge_visible() {
     cr.x_start = bd[2];
     cr.x_end = bd[3];
     const auto xc = cr.x_clip();
-    const int band_len = xc.wrap ? xc.re - xc.rs + TW : xc.re - xc.rs;
 
     for (int trial = 0; trial < 500; ++trial) {
       ScratchScope sc(plot_arena());
@@ -1796,12 +1791,11 @@ inline void test_gate_trail_edges_matches_edge_visible() {
       }
 
       uint8_t bits[40];
-      const bool any = Plot::gate_trail_edges<TW, TH>(pipeline, cr, xc,
-                                                      band_len, trail, bits);
+      const bool any =
+          Plot::gate_trail_edges<TW, TH>(pipeline, cr, xc, trail, bits);
       for (size_t e = 0; e + 1 < n; ++e) {
         const bool want = Plot::edge_visible_in_clip<TW, TH>(
-            pipeline, cr, xc, band_len, trail[e].pos, trail[e + 1].pos,
-            nullptr);
+            pipeline, cr, xc, trail[e].pos, trail[e + 1].pos, nullptr);
         if (any) {
           HS_EXPECT_TRUE((bits[e] != 0) == want);
         } else {
@@ -1880,12 +1874,10 @@ inline void test_rasterize_gate_bits_pixel_parity() {
         if (use_bits) {
           const ClipRegion &cr = fx.clip();
           const auto xc = cr.x_clip();
-          const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
           // A whole-trail reject renders nothing; the inline-gate reference
           // paints nothing for it too (per-edge conservativeness), so the
           // buffers still compare equal.
-          if (!Plot::gate_trail_edges<W, H>(filters, cr, xc, band_len, pts,
-                                            bits))
+          if (!Plot::gate_trail_edges<W, H>(filters, cr, xc, pts, bits))
             return;
           vis = bits;
         }
@@ -4993,12 +4985,10 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
     sink.prepare(canvas);
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
-    const int band_len =
-        x_clip.wrap ? x_clip.re - x_clip.rs + W : x_clip.re - x_clip.rs;
     std::array<uint8_t, control_pixels.size() - 1> bits{};
     const uint8_t *visible = nullptr;
     if (!clip.is_full()) {
-      if (!Plot::gate_trail_edges<W, H>(sink, clip, x_clip, band_len, points,
+      if (!Plot::gate_trail_edges<W, H>(sink, clip, x_clip, points,
                                         bits.data()))
         return;
       visible = bits.data();
