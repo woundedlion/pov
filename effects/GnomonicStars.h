@@ -38,11 +38,7 @@ public:
    *          Möbius transformer to the timeline.
    */
   HS_COLD_MEMBER GnomonicStars()
-      : Effect(W, H,
-               {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments,
-                .reads_outside_band = decltype(filters)::any_reads_outside_band,
-                .margin = decltype(filters)::max_segment_margin}),
+      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         orientation(), timeline(), transformer(timeline) {}
 
   /**

@@ -61,11 +61,7 @@ public:
   /** @brief Constructs the Plot-only effect on a WxH canvas. */
   HS_COLD_MEMBER ShapeShifter()
       : Effect(W, H,
-               {.strobe = true,
-                .full_frame = decltype(plot_filters)::any_crosses_segments,
-                .reads_outside_band =
-                    decltype(plot_filters)::any_reads_outside_band,
-                .margin = decltype(plot_filters)::max_segment_margin}) {}
+               pipeline_config<decltype(plot_filters)>({.strobe = true})) {}
 
   /** @brief Loads the initial preset and registers its fields as GUI sliders. */
   void init() override {

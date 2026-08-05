@@ -63,11 +63,7 @@ public:
    * @brief Constructs the effect at the W x H canvas resolution.
    */
   HS_COLD_MEMBER RingSpin()
-      : Effect(W, H,
-               {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments,
-                .reads_outside_band = decltype(filters)::any_reads_outside_band,
-                .margin = decltype(filters)::max_segment_margin}) {}
+      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})) {}
 
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
@@ -203,7 +199,7 @@ private:
   struct Params {
     float alpha = 0.5f;     /**< Global trail opacity multiplier in [0, 1]. */
     float thickness = 0.8f; /**< Ring line thickness multiplier (unitless). */
-    bool debug_bb = false; /**< Whether to draw each ring's bounding box. */
+    bool debug_bb = false;  /**< Whether to draw each ring's bounding box. */
   } params;
 
   // init() allocates the ring pool (each ring carries its TRAIL_LENGTH trail)

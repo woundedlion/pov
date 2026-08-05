@@ -50,11 +50,7 @@ public:
    *          the rasterized lines.
    */
   HS_COLD_MEMBER MobiusGrid()
-      : Effect(W, H,
-               {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments,
-                .reads_outside_band = decltype(filters)::any_reads_outside_band,
-                .margin = decltype(filters)::max_segment_margin}),
+      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                 BrightnessProfile::FLAT),
         next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,

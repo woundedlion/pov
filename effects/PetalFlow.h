@@ -37,11 +37,7 @@ public:
    * @brief Constructs the effect, wiring up palette and orientation filters.
    */
   HS_COLD_MEMBER PetalFlow()
-      : Effect(W, H,
-               {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments,
-                .reads_outside_band = decltype(filters)::any_reads_outside_band,
-                .margin = decltype(filters)::max_segment_margin}),
+      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         palette({0.029f, 0.029f, 0.029f}, {0.500f, 0.500f, 0.500f},
                 {0.461f, 0.461f, 0.461f}, {0.539f, 0.701f, 0.809f}),
         orientation(), filters(Filter::World::Orient(orientation),

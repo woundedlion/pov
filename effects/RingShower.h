@@ -36,11 +36,7 @@ public:
    * @brief Constructs the effect at the templated canvas dimensions.
    */
   HS_COLD_MEMBER RingShower()
-      : Effect(W, H,
-               {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments,
-                .reads_outside_band = decltype(filters)::any_reads_outside_band,
-                .margin = decltype(filters)::max_segment_margin}),
+      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters(Filter::Screen::AntiAlias<W, H>()) {}
 
   /**

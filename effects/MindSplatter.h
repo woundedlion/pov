@@ -34,11 +34,7 @@ public:
    * @brief Constructs the effect, seeding the preset table and filters.
    */
   HS_COLD_MEMBER MindSplatter()
-      : Effect(W, H,
-               {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments,
-                .reads_outside_band = decltype(filters)::any_reads_outside_band,
-                .margin = decltype(filters)::max_segment_margin}),
+      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         presets{PRESETS}, particle_system() {}
 
   /**
