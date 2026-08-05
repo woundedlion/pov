@@ -449,8 +449,11 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       }
       ++degraded_classes;
     }
+    // Local until accepted: the persistent class must never hold a descriptor
+    // pointing at the scratch staging buffer.
+    SDF::ClassLut lut;
     SDF::build_canonical_distance_lut(cls.canon_xy, cls.n_verts, n, staging,
-                                      cls.lut);
+                                      lut);
 
     // Predicted hit share: fraction of cells inside the cull disk whose four
     // corners are sign-pure and beyond the interpolation guard, weighted by
@@ -464,13 +467,13 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     }
     float max_dist = sqrtf(circ) + SDF::BOUNDS_MARGIN_WIDE;
     float max_dist_sq = max_dist * max_dist;
-    float step_x = (2.0f * cls.lut.Rx) / (n - 1);
-    float step_y = (2.0f * cls.lut.Ry) / (n - 1);
+    float step_x = (2.0f * lut.Rx) / (n - 1);
+    float step_y = (2.0f * lut.Ry) / (n - 1);
     int in_disk = 0, safe = 0;
     for (int gy = 0; gy + 1 < n; ++gy) {
-      float ccy = (cls.lut.cy - cls.lut.Ry) + (gy + 0.5f) * step_y;
+      float ccy = (lut.cy - lut.Ry) + (gy + 0.5f) * step_y;
       for (int gx = 0; gx + 1 < n; ++gx) {
-        float ccx = (cls.lut.cx - cls.lut.Rx) + (gx + 0.5f) * step_x;
+        float ccx = (lut.cx - lut.Rx) + (gx + 0.5f) * step_x;
         if (ccx * ccx + ccy * ccy > max_dist_sq)
           continue;
         ++in_disk;
@@ -481,7 +484,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
                          (q00 > 0) == (q11 > 0);
         int min_q = std::min(
             {std::abs(q00), std::abs(q10), std::abs(q01), std::abs(q11)});
-        if (same_sign && min_q * cls.lut.dequant > cls.lut.safe_dist)
+        if (same_sign && min_q * lut.dequant > lut.safe_dist)
           ++safe;
       }
     }
@@ -491,7 +494,6 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     // anyway — keep the exact path instead of a LUT that rarely fires.
     if (safe_frac < MIN_CLASS_HIT_SHARE) {
       ++lowq_classes;
-      cls.lut = SDF::ClassLut();
       continue;
     }
 
@@ -500,7 +502,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     int16_t *data =
         static_cast<int16_t *>(persistent.allocate(bytes, alignof(int16_t)));
     std::copy(staging, staging + static_cast<size_t>(n) * n, data);
-    cls.lut.data = data;
+    lut.data = data;
+    cls.lut = lut;
     out.luts_built++;
     out.lut_faces += cls.members;
     hit_share_acc += cls.members * safe_frac;
