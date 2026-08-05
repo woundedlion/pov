@@ -169,6 +169,9 @@ public:
 
   /**
    * @brief Maps a unit vector back to fractional field coordinates.
+   * @note Derives `theta`/`phi` with the approximate `fast_atan2`/`fast_acos`,
+   *   so the coordinates are sub-sample inexact and vector → coordinates →
+   *   vector does not bit-exactly invert the exact-trig `sample_vector()`.
    * @param value Unit vector on the sphere.
    * @return Coordinates with x in [-W/2, W/2] and y in [0, H + HOffset - 1].
    *   x is signed because Spherical::theta is atan2's [-pi, pi], unlike
