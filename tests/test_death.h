@@ -1767,6 +1767,24 @@ inline void case_alpha_falloff_null() {
 }
 
 /**
+ * @brief Death case: rebaking an endpoint-aliasing blend result must trap.
+ * @details Color surface — bake_palette_blend's w <= 0 fast path hands @c dst
+ *          the @c from endpoint's LUT storage rather than baking a copy, so a
+ *          rebake through @c dst would silently rewrite the endpoint every
+ *          other consumer samples.
+ */
+inline void case_baked_palette_rebake_aliased() {
+  static uint8_t buf[4 * BakedPalette::required_arena_bytes()];
+  Arena a(buf, sizeof(buf));
+  SolidColorPalette src(Color4(Pixel(255, 0, 0), 1.0f));
+  BakedPalette from, to, dst;
+  from.bake(a, src);
+  to.bake(a, src);
+  bake_palette_blend(dst, a, from, to, opaque(0.0f)); // dst aliases from
+  dst.rebake(src);                                    // -> HS_CHECK
+}
+
+/**
  * @brief Death case: a Gradient built from an empty stop list must trap.
  * @details Color surface — with no stops the 256-entry LUT keeps its
  *          value-initialized state, so every lookup returns black. The
@@ -2336,6 +2354,9 @@ inline const Case *all_cases(int &n) {
        "(samples >= 1) "},
       {"alpha_falloff_null", case_alpha_falloff_null, "composition.h",
        "(fn != nullptr) AlphaFalloffShade: falloff function must not be null"},
+      {"baked_palette_rebake_aliased", case_baked_palette_rebake_aliased,
+       "composition.h",
+       "(!aliased) BakedPalette::rebake through an aliasing handle"},
       {"register_param_overflow", case_register_param_overflow, "canvas.h",
        "(parameters.find(name) == nullptr) register_param: duplicate "
        "parameter name"},
@@ -2782,7 +2803,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 115;
+  constexpr int DEATH_CASE_COUNT = 116;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
