@@ -1890,6 +1890,78 @@ inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
   return interior;
 }
 
+/**
+ * @brief Asserts no pixel the AA band would shade is dropped by the cull.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Shape SDF shape type providing the cull and distance interface.
+ * @param shape Shape under test.
+ * @param label Caller-identifying label; every failure here reports it plus the
+ *   pixel, since __func__ names this shared helper for all of them.
+ * @return Count of paintable pixels (dist < pixel_width) found.
+ * @details The stricter sibling of expect_cull_covers_interior: the shade path
+ *   returns early only at dist >= pixel_width, so every pixel under that
+ *   threshold carries non-zero coverage and dropping one steps the fringe to
+ *   zero mid-ramp.
+ */
+template <int W, int H, typename Shape>
+inline int expect_cull_covers_fringe(const Shape &shape, const char *label) {
+  HS_CONTEXT(label);
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
+  std::vector<uint8_t> visited;
+  cull_visited<W, H>(shape, visited);
+
+  const float *cos_theta =
+      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
+  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+  const float pixel_width = 2.0f * PI_F / W;
+  int paintable = 0;
+  for (int y = 0; y < H; ++y) {
+    float sp = TrigLUT<W, H>::sin_phi[y];
+    float cp = TrigLUT<W, H>::cos_phi[y];
+    for (int x = 0; x < W; ++x) {
+      Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      if (SDF::distance_of(shape, p).dist < pixel_width) {
+        ++paintable;
+        HS_CONTEXT("paintable px", x, y);
+        HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
+      }
+    }
+  }
+  HS_EXPECT_GT(paintable, 0);
+  return paintable;
+}
+
+/**
+ * @brief Verifies the Star / PlanarPolygon cull covers the whole AA fringe.
+ * @details Both fold a sector onto one edge and read a shallow radial gradient
+ *   at the tips (|nx| = 0.309 at 5 star points, cos(PI/sides) at a polygon
+ *   vertex), which without the circumscribed-disc clamp in distance() ramps
+ *   coverage well past the one-pixel cap pad and steps it to zero there. The
+ *   grid spans pole, equator and oblique axes at sub-pixel through
+ *   near-hemisphere radii.
+ */
+inline void test_star_polygon_cull_covers_aa_fringe() {
+  constexpr int W = 96, H = 48;
+  const Vector axes[] = {Vector(0, 1, 0), Vector(1, 0, 0),
+                         Vector(0.3f, -0.8f, 0.5f)};
+  int total = 0;
+  for (const Vector &axis : axes) {
+    Basis basis = make_basis(Quaternion(), axis);
+    for (float radius : {0.03f, 0.3f, 0.9f}) {
+      for (int sides : {5, 8}) {
+        SDF::Star star(basis, radius, sides, 0.0f);
+        total += expect_cull_covers_fringe<W, H>(star, "star");
+
+        SDF::PlanarPolygon poly(basis, radius * (PI_F / 2.0f), sides, 0.0f);
+        total += expect_cull_covers_fringe<W, H>(poly, "planar polygon");
+      }
+    }
+  }
+  HS_EXPECT_GT(total, 1000);
+}
+
 /** @brief Verifies the interval cull covers every interior pixel across an orientation/radius grid. */
 inline void test_cull_covers_interior_over_orientation_grid() {
   constexpr int W = 96, H = 48;
@@ -2735,6 +2807,7 @@ inline int run_sdf_tests() {
   test_ring_pole_wrap_cull_covers_interior();
   test_distorted_ring_cull_covers_interior_high_freq();
   test_face_cull_covers_aa_fringe();
+  test_star_polygon_cull_covers_aa_fringe();
   test_face_pole_vertex_matches_full_scan();
   test_face_distance_matches_exact_oracle();
   test_face_class_lut_matches_oracle();
