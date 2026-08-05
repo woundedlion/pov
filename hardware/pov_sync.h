@@ -220,20 +220,26 @@ struct Config {
     return col_cycles(beacon_interdigit_timeout_cols);
   }
   /**
+   * @brief Beacon frame span (first to last pulse) for one payload, in columns.
+   * @param digit_sum Sum of the five base-8 digits (0–35).
+   * @return Columns the frame's pulses span.
+   * @details Mirrors schedule_beacon's per-digit advance: each digit burst
+   * spans digit pitches, and four inter-burst gaps of gap_timeout_cols + 1
+   * separate the five bursts.
+   */
+  constexpr int32_t beacon_span_cols(int32_t digit_sum) const {
+    return digit_sum * beacon_pitch_cols + 4 * (gap_timeout_cols + 1);
+  }
+  /**
    * @brief Worst-case beacon frame span (first to last pulse), in columns.
    * @return Columns spanned by five base-8 digit bursts of value 7.
-   * @details Mirrors schedule_beacon's per-digit advance: four (7-pulse +
-   * inter-burst gap) steps plus the final burst's 7-pulse span.
    */
-  constexpr int32_t beacon_span_cols() const {
-    return 4 * (7 * beacon_pitch_cols + (gap_timeout_cols + 1)) +
-           7 * beacon_pitch_cols;
-  }
+  constexpr int32_t beacon_span_cols() const { return beacon_span_cols(35); }
   /**
    * @brief Columns a beacon frame occupies from its first pulse to the earliest
    * instant a boundary burst may follow it.
-   * @return Worst-case pulse span plus the quiet a receiver needs after the last
-   * pulse.
+   * @param digit_sum Sum of the five base-8 digits (0–35).
+   * @return Pulse span plus the quiet a receiver needs after the last pulse.
    * @details The quiet term is acquire_quiet_cols, the wider of the two windows
    * the tail must clear: gap_timeout_cols terminates the last digit burst, and
    * acquire_quiet_cols is what makes the following boundary burst read as an
@@ -241,9 +247,14 @@ struct Config {
    * (acquire_quiet_cols >= beacon_span_cols() / 4) puts it above the gap
    * timeout for every pitch.
    */
-  constexpr int32_t beacon_frame_cols() const {
-    return beacon_span_cols() + acquire_quiet_cols;
+  constexpr int32_t beacon_frame_cols(int32_t digit_sum) const {
+    return beacon_span_cols(digit_sum) + acquire_quiet_cols;
   }
+  /**
+   * @brief Worst-case columns a beacon frame occupies.
+   * @return beacon_frame_cols() for the widest encodable payload.
+   */
+  constexpr int32_t beacon_frame_cols() const { return beacon_frame_cols(35); }
 
   /**
    * @brief Boot-time sanity check for the driver's HS_CHECK.
@@ -1725,23 +1736,13 @@ private:
     // index, and a board joining off it would adopt stale identity.
     if (content_tracker.commit_pending)
       return;
-    // Bound the beacon start: a masked-ISR coast can land the master anywhere in
-    // [W/4, W/2), but the worst-case frame plus the tail quiet the receiver
-    // needs must fit before HALF. A last pulse closer than that to the boundary
-    // is appended to the last digit burst instead of terminating it, so the HALF
-    // symbol is consumed rather than decoded; a tail past the boundary also
-    // leaves the wire busy when the on-time HALF symbol schedules, tripping the
-    // emitter's overlap trap. Skip a too-late start, mirroring the boundary
-    // symbol's own lateness self-censor.
-    //
-    // A coalesced coast can also jump position from < W/4 straight past the
-    // beacon point (and even past HALF) in one wake, leaving beacon_done_this_rev
-    // unset while current_boundary() has already advanced — so this revolution
-    // emits no beacon. That is an accepted skip, not a missed-emission bug: the
+    // A coalesced coast can jump position from < W/4 straight past the beacon
+    // point (and even past HALF) in one wake, leaving beacon_done_this_rev unset
+    // while current_boundary() has already advanced — so this revolution emits
+    // no beacon. That is an accepted skip, not a missed-emission bug: the
     // protocol self-heals on the next due beacon (≤ 2 s).
     const int32_t x = fly.position(now);
-    if (x < protocol_config.W / 4 ||
-        x + protocol_config.beacon_frame_cols() >= protocol_config.W / 2)
+    if (x < protocol_config.W / 4)
       return;
     const uint32_t rev = content_tracker.rev_in_effect;
     const bool due = (rev % protocol_config.beacon_period_revs) == 1u ||
@@ -1751,6 +1752,20 @@ private:
       return;
     uint8_t digits[5];
     encode_beacon_digits(content_tracker.effect_index, rev, digits);
+    // Bound the beacon start: a masked-ISR coast can land the master anywhere in
+    // [W/4, W/2), but this payload's frame plus the tail quiet the receiver
+    // needs must fit before HALF. A last pulse closer than that to the boundary
+    // is appended to the last digit burst instead of terminating it, so the HALF
+    // symbol is consumed rather than decoded; a tail past the boundary also
+    // leaves the wire busy when the on-time HALF symbol schedules, tripping the
+    // emitter's overlap trap. Skip a too-late start, mirroring the boundary
+    // symbol's own lateness self-censor.
+    int32_t digit_sum = 0;
+    for (int i = 0; i < 5; ++i)
+      digit_sum += digits[i];
+    if (x + protocol_config.beacon_frame_cols(digit_sum) >=
+        protocol_config.W / 2)
+      return;
     if (emitter.schedule_beacon(digits, now, protocol_config))
       beacon_done_this_rev = true;
     else if (!beacon_busy_counted_this_rev) {
