@@ -190,7 +190,10 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
  *   composite methods, so the replay matches the generator functions exactly.
  * @param a Output arena for even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
- * @return The rebuilt PolyMesh.
+ * @return The rebuilt PolyMesh, backed by `a` for an odd `recipe.count` and by
+ *   `b` for an even one (each step swaps the arenas; a composite counts as one
+ *   step). A zero-step recipe returns the seed, in whichever arena its
+ *   generator left it.
  */
 [[maybe_unused]] FLASHMEM static PolyMesh build_recipe(const Recipe &recipe,
                                                        Arena &a, Arena &b) {
@@ -210,7 +213,10 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
  * @param count Number of steps.
  * @param a Output arena for even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
- * @return The rebuilt PolyMesh.
+ * @return The rebuilt PolyMesh, backed by `a` for an odd `count` and by `b`
+ *   for an even one; lowering can flip that parity against the authored chain
+ *   (a one-step BEVEL lowers to two steps). A zero `count` returns the seed,
+ *   in whichever arena its generator left it.
  */
 FLASHMEM static PolyMesh build_steps(uint8_t seed, const OpStep *steps,
                                      size_t count, Arena &a, Arena &b) {
