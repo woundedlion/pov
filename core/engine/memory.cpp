@@ -4,9 +4,7 @@
  */
 
 #include "engine/memory.h"
-#include "animation/animation.h"
 #include "color/color.h"
-#include "render/canvas.h"
 #ifdef ARDUINO
 #include <exception>
 #endif
@@ -65,9 +63,9 @@ const std::terminate_handler s_fail_fast_terminate = std::set_terminate([] {
  * first allocation needs no leading padding; configure_arenas() likewise aligns
  * the inter-arena boundaries. Carries NO DMAMEM: the arena is hot render memory,
  * so on the device it lands in .bss/DTCM, the Cortex-M7's fastest zero-wait RAM.
- * The statics below (buffer_a/buffer_b, ~243 KiB each, and the timeline events)
- * carry DMAMEM to place them in OCRAM instead — neither is a DMA source or
- * target; DTCM simply has no room for them.
+ * The framebuffers (buffer_a/buffer_b, ~243 KiB each) and the timeline events in
+ * static_storage.cpp carry DMAMEM to place them in OCRAM instead — neither is a
+ * DMA source or target; DTCM simply has no room for them.
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
@@ -185,41 +183,3 @@ FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
   scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);
   scratch_arena_b.rebind(global_arena_block + bases.b, scratch_b);
 }
-
-// The large static buffers below are defined here, not next to their
-// declarations: memory.cpp is the one TU compiled into every target, so
-// co-locating them with the arena block keeps every DMAMEM/large-static placement
-// decision in one file the linker map points at. Look here, not in animation.h /
-// effect.h, for where the storage actually lands.
-
-/** @brief Shared event array backing every Timeline instance. */
-DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
-/**
- * @brief Single live-Timeline guard.
- * @details The event array above is shared by every Timeline instance, so the
- * "only one alive" invariant is one global flag.
- */
-bool global_timeline_live = false;
-/**
- * @brief Shared singleton playhead cursor into global_timeline_events.
- * @details Free global so every Timeline instance reads/writes the same cursor
- * (see animation.h).
- */
-uint32_t global_timeline_t = 0;
-/**
- * @brief Shared singleton event count for global_timeline_events.
- * @details Free global so every Timeline instance reads/writes the same count
- * (see animation.h).
- */
-int global_timeline_num_events = 0;
-/**
- * @brief Monotonic count of animations rejected because the timeline was full.
- * @details Never reset, including across Timeline instances (see animation.h).
- */
-uint32_t global_timeline_dropped = 0;
-/** @brief Front pixel buffer for the double-buffered effect framebuffer. */
-DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];
-/** @brief Back pixel buffer for the double-buffered effect framebuffer. */
-DMAMEM Pixel Effect::buffer_b[MAX_W * MAX_H];
-/** @brief Single-live-Effect guard for the shared buffer_a/buffer_b (see Effect). */
-bool Effect::s_alive = false;

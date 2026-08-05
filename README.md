@@ -173,6 +173,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>
+│   │   ├── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   │   ├── generators.h            Universal generate() wrapper for procedural geometry
 │   │   ├── util.h                  wrap(), fast_wrap(), shortest_distance, apply_if_changed
@@ -2386,7 +2387,7 @@ cmake --build  --preset wasm-release-install    # build + install into ../daydre
 Use `wasm-debug` for an unoptimized build with assertions (`-sASSERTIONS=1`). Build outputs go to `build/<preset>/`. The `justfile` provides cross-platform shortcuts that forward to these presets: `just build` (release), `just build-debug`, and `just install` (release + install into `../daydream`). `just smoke` rebuilds and then drives the shipped module through [`scripts/wasm_smoke.mjs`](https://github.com/woundedlion/pov/blob/master/scripts/wasm_smoke.mjs) under Node — the same runtime gate CI's `wasm` job runs, so a release build is never shipped un-exercised.
 
 The WASM target (`CMakeLists.txt`, `EMSCRIPTEN` branch) configures:
-- Source paths: `targets/wasm/wasm.cpp`, `core/engine/memory.cpp`, `core/engine/reaction_graph.cpp`
+- Source paths: `targets/wasm/wasm.cpp`, `core/engine/memory.cpp`, `core/engine/static_storage.cpp`, `core/engine/reaction_graph.cpp`
 - Include paths: project root (for `effects/`, `hardware/`) and `core/` (for engine headers)
 - `-sALLOW_MEMORY_GROWTH=1` — WASM heap can grow for large meshes
 - `-sMODULARIZE=1 -sEXPORT_ES6=1` — ES6 module output
