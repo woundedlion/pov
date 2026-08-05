@@ -1622,8 +1622,8 @@ inline void test_generative_palette_resolve_hsv_keys_matches_ctor() {
 }
 
 /**
- * @brief Verifies a circular palette traverses hue around the loop while its
- *        three-key brightness profile spans the full domain.
+ * @brief Verifies a circular palette mirrors its full color path around the
+ *        domain center.
  */
 inline void test_generative_palette_circular_brightness_domain() {
   constexpr float TOL = 3e-4f;
@@ -1678,12 +1678,18 @@ inline void test_generative_palette_circular_brightness_domain() {
   GenerativePalette hue_loop = GenerativePalette::from_hsv_keys(
       GradientShape::CIRCULAR, 17, 180, 255, 93, 180, 255, 181, 180, 255);
   const float h1 = pixel_to_oklch(hue_loop.get(0.0f).color).h;
-  const float h2 = pixel_to_oklch(hue_loop.get(1.0f / 3.0f).color).h;
-  const float h3 = pixel_to_oklch(hue_loop.get(2.0f / 3.0f).color).h;
-  const float h4 = pixel_to_oklch(hue_loop.get(1.0f).color).h;
+  const float h2 = pixel_to_oklch(hue_loop.get(0.25f).color).h;
+  const float h3 = pixel_to_oklch(hue_loop.get(0.5f).color).h;
   HS_EXPECT_TRUE(std::fabs(wrap_angle_pi(h2 - h1)) > 1.0f);
   HS_EXPECT_TRUE(std::fabs(wrap_angle_pi(h3 - h2)) > 1.0f);
-  HS_EXPECT_NEAR(wrap_angle_pi(h4 - h1), 0.0f, 2e-3f);
+  for (int i = 0; i <= 128; ++i) {
+    const float t = i / 256.0f;
+    const Pixel left = hue_loop.get(t).color;
+    const Pixel right = hue_loop.get(1.0f - t).color;
+    HS_EXPECT_NEAR(left.r, right.r, 1);
+    HS_EXPECT_NEAR(left.g, right.g, 1);
+    HS_EXPECT_NEAR(left.b, right.b, 1);
+  }
 }
 
 /**

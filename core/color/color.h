@@ -1681,9 +1681,11 @@ public:
       size = 3;
       break;
     case GradientShape::CIRCULAR:
-      shape = {0, 1.0f / 3.0f, 2.0f / 3.0f, 1.0f};
-      colors = {a, b, c, a};
-      size = 4;
+      shape = {0, 0.25f, 0.5f};
+      colors = {a, c, b};
+      colors[1].h = colors[0].h + wrap_angle_pi(colors[1].h - colors[0].h);
+      colors[2].h = colors[1].h + (b.h - c.h);
+      size = 3;
       break;
     case GradientShape::FALLOFF:
       shape = {0, 0.33f, 0.66f, 0.9f, 1.0f};
@@ -1704,11 +1706,6 @@ public:
       colors_cmax[i] = (colors_oklch[i].C >= OKLCH_ACHROMATIC_C && env > 1e-3f)
                            ? colors_oklch[i].C / env
                            : 0.0f;
-    }
-    if (gradient_shape == GradientShape::CIRCULAR) {
-      const float direction =
-          colors_oklch[1].h >= colors_oklch[0].h ? 1.0f : -1.0f;
-      colors_oklch[3].h = colors_oklch[0].h + direction * 2.0f * PI_F;
     }
   }
 
@@ -1787,6 +1784,8 @@ public:
     // Clamp first: a t < shape[0] matches no segment and falls through to the
     // size-2 fallback below, returning the wrong stop (a discontinuity at t=0).
     t = hs::clamp(t, 0.0f, 1.0f);
+    if (gradient_shape == GradientShape::CIRCULAR)
+      t = std::min(t, 1.0f - t);
     int seg = -1;
     for (int i = 0; i < size - 1; ++i) {
       if (t >= shape[i] && t < shape[i + 1]) {
@@ -1804,6 +1803,8 @@ public:
     // Zero-width segment: pin to the left stop (p=0) and render it through the
     // OKLCH path below, avoiding both a divide by ~0 and the raw stored key.
     float p = dist < 0.0001f ? 0.0f : hs::clamp((t - start) / dist, 0.0f, 1.0f);
+    if (gradient_shape == GradientShape::CIRCULAR)
+      p = 0.5f - 0.5f * fast_cosf(PI_F * p);
 
     const OKLCH &left = colors_oklch[seg];
     const OKLCH &right = colors_oklch[seg + 1];
@@ -1821,25 +1822,10 @@ public:
                       (colors_oklch[seg + 1].L - colors_oklch[seg].L) * p,
                   0.0f, 1.0f),
         0.0f, hue};
-    if (gradient_shape == GradientShape::CIRCULAR) {
-      static constexpr uint8_t LIGHTNESS_KEYS[5] = {0, 2, 1, 2, 0};
-      const float lightness_pos = t * 4.0f;
-      const int lightness_seg = std::min(static_cast<int>(lightness_pos), 3);
-      const float lightness_p = lightness_pos - lightness_seg;
-      const float lightness_mix = 0.5f - 0.5f * fast_cosf(PI_F * lightness_p);
-      const float lightness_a = colors_oklch[LIGHTNESS_KEYS[lightness_seg]].L;
-      const float lightness_b =
-          colors_oklch[LIGHTNESS_KEYS[lightness_seg + 1]].L;
-      blended.L = lightness_a + (lightness_b - lightness_a) * lightness_mix;
-      if (t == 1.0f)
-        blended.h = colors_oklch[0].h;
-    }
     // Re-derive chroma on the envelope at the interpolated L (see colors_cmax).
     // fast_sinf matches update_stops().
     float cmax =
         colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
-    if (gradient_shape == GradientShape::CIRCULAR && t == 1.0f)
-      cmax = colors_cmax[0];
     // Floor at 0: a small negative from fast_sinf would flip hue 180° in oklch_to_oklab.
     blended.C = std::max(0.0f, cmax * fast_sinf(PI_F * blended.L));
     // Hue torsion: drift hue with lightness, centered at L=0.5.
