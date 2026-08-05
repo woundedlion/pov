@@ -346,8 +346,9 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
 
   // Star points are computed straight into the output: nothing reads them back
   // across calls, so the compiled topology holds no vertex scratch of its own.
-  out_mesh.vertices.bind(target_arena, compiled.static_vertices.size() +
-                                           compiled.dynamic_instructions.size());
+  out_mesh.vertices.bind(target_arena,
+                         compiled.static_vertices.size() +
+                             compiled.dynamic_instructions.size());
   out_mesh.vertices.append_bulk(compiled.static_vertices.data(),
                                 compiled.static_vertices.size());
 
