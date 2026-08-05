@@ -62,19 +62,19 @@ CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 # Verify staged C++ matches the committed .clang-format. Scoped to first-party
 # sources: core/vendor/ and the generated color_luts.h / gamut_lut.h /
 # reaction_graph.cpp / mindsplatter_replay_corpus.h are excluded. Checks the
-# working-tree file (same partial-staging caveat as the
-# suite above). Skipped if clang-format is absent (a contributor without it still
-# commits — CI's clang-format job gates the whole tracked tree) or via
-# HS_SKIP_FORMAT=1. Ordered ahead of the HS_SKIP_TESTS opt-out: that flag stands
-# down the test and Teensy gates only, never this check.
+# working-tree file (same partial-staging caveat as the suite above). Ordered
+# ahead of the HS_SKIP_TESTS opt-out: that flag stands down the test and Teensy
+# gates only, never this check. HS_SKIP_FORMAT=1 is the one escape hatch.
 #
-# clang-format reflows code between LLVM majors, so a binary of a different major
-# than the CI job's disagrees in BOTH directions: it rejects code the gate accepts
-# and accepts code the gate rejects. Its verdict is therefore ADVISORY — reported,
-# never blocking — so a contributor without clang-format-$HS_CLANG_FORMAT_MAJOR
-# still commits. Only a matching major (or an unparseable --version, assumed to be
-# a wrapper for the pinned binary) blocks. Set CLANG_FORMAT to override the binary
-# (the ci.yml jobs pass clang-format-18 the same way).
+# BLOCKING, and unconditionally so: an unformatted staged file fails the commit,
+# and so does being unable to judge one. clang-format reflows code between LLVM
+# majors, so a binary of a different major than CI's disagrees in both
+# directions — its verdict cannot be trusted either way. A missing or
+# wrong-major binary therefore fails too, rather than waving the commit through
+# on no evidence. Install the pinned version (pip install
+# clang-format==18.1.8) or point CLANG_FORMAT at a clang-format-$HS_CLANG_FORMAT_MAJOR
+# binary (the ci.yml jobs pass it the same way). An unparseable --version is
+# assumed to be a wrapper for the pinned binary and is trusted.
 HS_CLANG_FORMAT_MAJOR=18
 if [ -z "$HS_SKIP_FORMAT" ]; then
   FORMAT="$(printf '%s\n' "$CHANGED" \
@@ -85,12 +85,12 @@ if [ -z "$HS_SKIP_FORMAT" ]; then
     if command -v "$CF" >/dev/null 2>&1; then
       cf_version="$("$CF" --version 2>/dev/null | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
       echo "[pre-commit] Checking clang-format on staged first-party C++ ($CF ${cf_version:-unknown})..."
-      advisory=
       if [ -n "$cf_version" ] && [ "$cf_version" != "$HS_CLANG_FORMAT_MAJOR" ]; then
-        advisory=1
-        echo "[pre-commit] clang-format $cf_version differs from CI's clang-format-$HS_CLANG_FORMAT_MAJOR;"
-        echo "[pre-commit] it reflows differently, so its verdict is advisory and does not block."
-        echo "[pre-commit] (point CLANG_FORMAT at a clang-format-$HS_CLANG_FORMAT_MAJOR binary to enforce the gate)"
+        echo "[pre-commit] clang-format $cf_version differs from CI's clang-format-$HS_CLANG_FORMAT_MAJOR."
+        echo "[pre-commit] Majors reflow differently, so this binary cannot judge the gate."
+        echo "[pre-commit] (pip install clang-format==18.1.8, or point CLANG_FORMAT at a"
+        echo "[pre-commit]  clang-format-$HS_CLANG_FORMAT_MAJOR binary; bypass once with HS_SKIP_FORMAT=1)"
+        exit 1
       fi
       unformatted=
       for f in $FORMAT; do
@@ -98,18 +98,17 @@ if [ -z "$HS_SKIP_FORMAT" ]; then
         "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1 \
           || unformatted="$unformatted $f"
       done
-      if [ -n "$unformatted" ] && [ -n "$advisory" ]; then
-        echo "[pre-commit] clang-format $cf_version reports unformatted files:$unformatted"
-        echo "[pre-commit] (advisory only — confirm with clang-format-$HS_CLANG_FORMAT_MAJOR before reformatting)"
-      elif [ -n "$unformatted" ]; then
+      if [ -n "$unformatted" ]; then
         echo "[pre-commit] clang-format found unformatted files:$unformatted"
         echo "[pre-commit] (fix with: $CF -i$unformatted, or bypass once with HS_SKIP_FORMAT=1 / --no-verify)"
         exit 1
-      else
-        echo "[pre-commit] clang-format clean."
       fi
+      echo "[pre-commit] clang-format clean."
     else
-      echo "[pre-commit] $CF not found — skipping format check (install it to enable)."
+      echo "[pre-commit] $CF not found, so the format gate cannot run."
+      echo "[pre-commit] (pip install clang-format==18.1.8, or set CLANG_FORMAT;"
+      echo "[pre-commit]  bypass once with HS_SKIP_FORMAT=1)"
+      exit 1
     fi
   fi
 fi
