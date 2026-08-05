@@ -167,7 +167,9 @@ inline void test_populate_recurrence_matches_exact_trig() {
 
 inline void test_longitude_filter_tracks_spherical_width() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4, 4, 1, 72);
-  HS_EXPECT_EQ(layout.longitude_filter_width(0), 1);
+  // Every longitude of the pole row lands on one point, so it saturates at the
+  // widest odd footprint 288 columns admit.
+  HS_EXPECT_EQ(layout.longitude_filter_width(0), 287);
   HS_EXPECT_EQ(layout.longitude_filter_width(1), 47);
   HS_EXPECT_EQ(layout.longitude_filter_width(2), 25);
   HS_EXPECT_EQ(layout.longitude_filter_width(3), 17);
