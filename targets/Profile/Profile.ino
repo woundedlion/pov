@@ -628,7 +628,8 @@ void log_reset_cause() {
           (srsr & SRC_SRSR_TEMPSENSE_RST_B) ? " tempsense" : "");
 }
 
-static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1).valid(),
+static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1).valid() ==
+                  nullptr,
               "Profile pov::sync::Config invariants violated");
 } // namespace
 

@@ -36,7 +36,7 @@ const POV::EffectFactory EFFECT_FACTORIES[] = {
 // run_show()'s runtime HS_CHECK still guards any non-constexpr instantiation.
 static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W,
                                          HS_PHANTASM_EFFECT_COUNT)
-                  .valid(),
+                      .valid() == nullptr,
               "Phantasm pov::sync::Config invariants violated");
 } // namespace
 

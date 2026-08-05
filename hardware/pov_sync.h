@@ -271,60 +271,100 @@ struct Config {
 
   /**
    * @brief Boot-time sanity check for the driver's HS_CHECK.
-   * @return True if every protocol constant is self-consistent.
+   * @return nullptr if every protocol constant is self-consistent, otherwise a
+   * literal naming the first relation that failed.
    * @details gate_cols < W/4 is what lets the gate's distance check subsume the
-   * boundary-identity check; see Flywheel::snap.
+   * boundary-identity check; see Flywheel::snap. Relations are tested in an
+   * order that makes each one's preconditions (nonzero divisors, non-negative
+   * casts) already established.
    */
-  constexpr bool valid() const {
-    return W > 0 && W % 2 == 0 && cycles_per_half_rev > 0 && gate_cols > 0 &&
-           gate_cols < W / 4 && reject_fallback > 0 &&
-           glitch_filter_cycles > 0 && pulse_pitch_cols > 0 &&
-           gap_timeout_cols > pulse_pitch_cols && beacon_pitch_cols > 0 &&
-           gap_timeout_cols > beacon_pitch_cols &&
-           // Both pitches must clear the glitch filter. A pulse may be emitted
-           // up to late_censor_cycles() late, compressing its gap to the next
-           // on-time pulse; a filter wider than what remains swallows every
-           // pulse after the first, so the burst decodes as Symbol::HALF — the
-           // miscount the odd-only alphabet exists to prevent.
-           glitch_filter_cycles < pulse_pitch_cycles() - late_censor_cycles() &&
-           glitch_filter_cycles <
-               beacon_pitch_cycles() - late_censor_cycles() &&
-           7 * beacon_pitch_cols + 1 > gate_cols &&
-           // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case
-           // frame plus its tail quiet must clear W/4 or no beacon is ever
-           // scheduled. Strict: the slack absorbs the sub-column offset between
-           // the W/4 instant and the tick that schedules the frame.
-           beacon_frame_cols() < W / 4 &&
-           // Demarcation: the acquisition timeout must clear the beacon's
-           // worst-case per-digit advance, which beacon_span_cols() / 4 bounds.
-           // The strict ordering below makes the interdigit timeout larger.
-           acquire_quiet_cols >= beacon_span_cols() / 4 &&
-           // Stale-frame window order: tick()'s poll-path reset must be the
-           // tighter one, so a truncated train drops on wire silence rather
-           // than waiting for the next burst to reach BeaconParser::feed.
-           acquire_quiet_cols < beacon_interdigit_timeout_cols &&
-           effect_count > 0 && effect_count <= 64 && commit_revs > 0 &&
-           // Gate epoch_repeats >= 0 first: a negative value casts to a huge
-           // uint32_t and wraps the refractory bound below.
-           epoch_repeats >= 0 &&
-           refractory_revs >
-               commit_revs + static_cast<uint32_t>(epoch_repeats) &&
-           revs_per_effect > refractory_revs &&
-           beacon_period_revs > commit_revs &&
-           // Beacon rev resync recovers a slip only in (-32, +32), so keep the
-           // period below the half-window.
-           beacon_period_revs < 32 &&
-           // §9.1 rejoin budget: cap the achieved bound, not the cadence alone
-           // — the commit window's beacon blackout and the join grid are part
-           // of what a rejoiner waits through.
-           rejoin_bound_revs() <= rejoin_budget_revs && join_grid_revs > 0 &&
-           (64u % join_grid_revs) == 0 &&
-           // schedule_beacon's "is-due" check reads (now - start_cycles) as
-           // int32, so the worst-case span (5 digits of value 7) must clear 2^31.
-           5u * (7u * beacon_pitch_cycles() +
-                 static_cast<uint32_t>(gap_timeout_cols + 1) *
-                     cycles_per_column()) <
-               static_cast<uint32_t>(INT32_MAX);
+  constexpr const char *valid() const {
+    if (!(W > 0))
+      return "W > 0";
+    if (!(W % 2 == 0))
+      return "W even";
+    if (!(cycles_per_half_rev > 0))
+      return "cycles_per_half_rev > 0";
+    if (!(gate_cols > 0))
+      return "gate_cols > 0";
+    if (!(gate_cols < W / 4))
+      return "gate_cols < W/4";
+    if (!(reject_fallback > 0))
+      return "reject_fallback > 0";
+    if (!(glitch_filter_cycles > 0))
+      return "glitch_filter_cycles > 0";
+    if (!(pulse_pitch_cols > 0))
+      return "pulse_pitch_cols > 0";
+    if (!(gap_timeout_cols > pulse_pitch_cols))
+      return "gap_timeout_cols > pulse_pitch_cols";
+    if (!(beacon_pitch_cols > 0))
+      return "beacon_pitch_cols > 0";
+    if (!(gap_timeout_cols > beacon_pitch_cols))
+      return "gap_timeout_cols > beacon_pitch_cols";
+    // Both pitches must clear the glitch filter. A pulse may be emitted up to
+    // late_censor_cycles() late, compressing its gap to the next on-time pulse;
+    // a filter wider than what remains swallows every pulse after the first, so
+    // the burst decodes as Symbol::HALF — the miscount the odd-only alphabet
+    // exists to prevent.
+    if (!(glitch_filter_cycles < pulse_pitch_cycles() - late_censor_cycles()))
+      return "glitch_filter_cycles < pulse_pitch - late_censor";
+    if (!(glitch_filter_cycles < beacon_pitch_cycles() - late_censor_cycles()))
+      return "glitch_filter_cycles < beacon_pitch - late_censor";
+    if (!(7 * beacon_pitch_cols + 1 > gate_cols))
+      return "7*beacon_pitch_cols + 1 > gate_cols";
+    // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case frame
+    // plus its tail quiet must clear W/4 or no beacon is ever scheduled.
+    // Strict: the slack absorbs the sub-column offset between the W/4 instant
+    // and the tick that schedules the frame.
+    if (!(beacon_frame_cols() < W / 4))
+      return "beacon_frame_cols() < W/4";
+    // Demarcation: the acquisition timeout must clear the beacon's worst-case
+    // per-digit advance, which beacon_span_cols() / 4 bounds. The strict
+    // ordering below makes the interdigit timeout larger.
+    if (!(acquire_quiet_cols >= beacon_span_cols() / 4))
+      return "acquire_quiet_cols >= beacon_span_cols()/4";
+    // Stale-frame window order: tick()'s poll-path reset must be the tighter
+    // one, so a truncated train drops on wire silence rather than waiting for
+    // the next burst to reach BeaconParser::feed.
+    if (!(acquire_quiet_cols < beacon_interdigit_timeout_cols))
+      return "acquire_quiet_cols < beacon_interdigit_timeout_cols";
+    if (!(effect_count > 0))
+      return "effect_count > 0";
+    if (!(effect_count <= 64))
+      return "effect_count <= 64";
+    if (!(commit_revs > 0))
+      return "commit_revs > 0";
+    // Gate epoch_repeats >= 0 first: a negative value casts to a huge uint32_t
+    // and wraps the refractory bound below.
+    if (!(epoch_repeats >= 0))
+      return "epoch_repeats >= 0";
+    if (!(refractory_revs > commit_revs + static_cast<uint32_t>(epoch_repeats)))
+      return "refractory_revs > commit_revs + epoch_repeats";
+    if (!(revs_per_effect > refractory_revs))
+      return "revs_per_effect > refractory_revs";
+    if (!(beacon_period_revs > commit_revs))
+      return "beacon_period_revs > commit_revs";
+    // Beacon rev resync recovers a slip only in (-32, +32), so keep the period
+    // below the half-window.
+    if (!(beacon_period_revs < 32))
+      return "beacon_period_revs < 32";
+    // §9.1 rejoin budget: cap the achieved bound, not the cadence alone — the
+    // commit window's beacon blackout and the join grid are part of what a
+    // rejoiner waits through.
+    if (!(rejoin_bound_revs() <= rejoin_budget_revs))
+      return "rejoin_bound_revs() <= rejoin_budget_revs";
+    if (!(join_grid_revs > 0))
+      return "join_grid_revs > 0";
+    if (!((64u % join_grid_revs) == 0))
+      return "join_grid_revs divides 64";
+    // schedule_beacon's "is-due" check reads (now - start_cycles) as int32, so
+    // the worst-case span (5 digits of value 7) must clear 2^31.
+    if (!(5u * (7u * beacon_pitch_cycles() +
+                static_cast<uint32_t>(gap_timeout_cols + 1) *
+                    cycles_per_column()) <
+          static_cast<uint32_t>(INT32_MAX)))
+      return "worst-case beacon span < INT32_MAX";
+    return nullptr;
   }
 };
 
