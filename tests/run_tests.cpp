@@ -126,7 +126,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
     496306)                                                                    \
   X("opchain_arena_survey",                                                    \
     hs_test::opchain_arena_survey::run_opchain_arena_survey_tests, 21562)      \
-  X("hankin", hs_test::hankin_tests::run_hankin_tests, 1948)                   \
+  X("hankin", hs_test::hankin_tests::run_hankin_tests, 2048)                   \
   X("geometry", hs_test::geometry::run_geometry_tests, 4847)                   \
   X("spherical_field", hs_test::spherical_field::run_spherical_field_tests,    \
     7027)                                                                      \
