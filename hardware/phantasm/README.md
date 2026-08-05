@@ -43,16 +43,18 @@ Both checks run via `kicad-cli` (KiCad 10.0):
   `lib_symbol_mismatch` notices for embedded copies of stock/custom symbols;
   the exported connectivity is verified separately below.
 - **Netlist matches the electrical specification** — exported with
-  `kicad-cli sch export netlist` and checked against the exact named-net
-  partition in `gen/check.py`, keyed on `(ref, pin)` so a connector or IC pinout
-  permutation fails. The required connections are realized with the correct members
+  `kicad-cli sch export netlist` and checked against the named-net table in
+  `gen/check.py`: every net in the table must match member-for-member, keyed on
+  `(ref, pin)` so a connector or IC pinout permutation fails. A named net outside
+  the table is reported as a `NOTE` and does not fail the gate.
+  The required connections are realized with the correct members
   (logic feed `J1 → F1 → Q_REV → FB → +5V_LOGIC`;
   series terminations `U1 out → R → J2`/bus; the pin-3 divider node ties Teensy D3,
   `U1` ch-C input, `R1`/`R2`/`C_SYNC`; ID0/ID1/ID2 straps; `MASTER_EN`; shield).
 - **PCB geometry DRC: clean** (`kicad-cli pcb drc`): zero error-severity
   violations and zero unconnected pads.
 - **Standard-cost via gate:** `gen/fab.py` rejects a routed board containing a
-  via smaller than 0.45 mm with a drill smaller than 0.20 mm.
+  via smaller than 0.45 mm or a drill smaller than 0.20 mm.
 - **Schematic parity gate:** `gen/fab.py` runs `kicad-cli pcb drc
   --schematic-parity` and rejects any board/schematic difference outside
   `KNOWN_PARITY_ITEMS` (mounting holes, jumper BOM attributes, the Teensy
