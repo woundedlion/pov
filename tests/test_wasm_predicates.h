@@ -3,15 +3,23 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Host unit tests for the WASM boundary predicates
- * (targets/wasm/wasm_predicates.h). These checks gate untyped integers crossing
- * the embind boundary before they reach engine code that would trap (clip
- * bounds) or run unbounded (relax iterations). They compile only under
- * Emscripten inside wasm.cpp, so the pure predicates are extracted and exercised
- * here without the toolchain.
+ * (targets/wasm/wasm_predicates.h) and the mesh-operator growth factors those
+ * predicates are fed (targets/wasm/mesh_op_bounds.h). These checks gate untyped
+ * integers crossing the embind boundary before they reach engine code that would
+ * trap (clip bounds) or run unbounded (relax iterations). They compile only
+ * under Emscripten inside wasm.cpp, so the pure predicates are extracted and
+ * exercised here without the toolchain; the growth factors are measured against
+ * the real operators.
  */
 #pragma once
 
+#include <algorithm>
+#include <cstdint>
+#include <iterator>
+#include "core/mesh/solids.h" // pulls in the MeshOps operators the probes call
+#include "targets/wasm/mesh_op_bounds.h"
 #include "targets/wasm/wasm_predicates.h"
+#include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -286,6 +294,144 @@ inline void test_mesh_op_face_degree() {
   HS_EXPECT_TRUE(!hs_wasm::mesh_op_face_degree_overflows(MAX, 3, 1, 1, MAX));
 }
 
+// ---------------------------------------------------------------------------
+// The declared growth factors against the real operators
+// ---------------------------------------------------------------------------
+
+/** @brief Arena backing a probe's input solid; outlives the operator run. */
+inline uint8_t mesh_op_input_buf[64 * 1024];
+/** @brief Arena receiving a probed operator's output mesh. */
+inline uint8_t mesh_op_target_buf[256 * 1024];
+/** @brief Arena holding a probed operator's intermediate stages. */
+inline uint8_t mesh_op_temp_buf[256 * 1024];
+
+/** @brief One roster operator bound to a concrete call. */
+struct MeshOpProbe {
+  const char *name; /**< Roster name, matched against MESHOP_BOUNDS. */
+  PolyMesh (*run)(const PolyMesh &, Arena &, Arena &); /**< Operator call. */
+};
+
+// Fraction arguments avoid the topology-degenerate ends of each domain:
+// truncate at 0.5 aliases to ambo, and the [0,1) operators trap at 1.
+inline const MeshOpProbe MESH_OP_PROBES[] = {
+    {"kis", [](const PolyMesh &m, Arena &a,
+               Arena &b) { return MeshOps::kis(m, a, b); }},
+    {"ambo", [](const PolyMesh &m, Arena &a,
+                Arena &b) { return MeshOps::ambo(m, a, b); }},
+    {"gyro", [](const PolyMesh &m, Arena &a,
+                Arena &b) { return MeshOps::gyro(m, a, b); }},
+    {"dual", [](const PolyMesh &m, Arena &a,
+                Arena &b) { return MeshOps::dual(m, a, b); }},
+    {"meta", [](const PolyMesh &m, Arena &a,
+                Arena &b) { return MeshOps::meta(m, a, b); }},
+    {"needle", [](const PolyMesh &m, Arena &a,
+                  Arena &b) { return MeshOps::needle(m, a, b); }},
+    {"zip", [](const PolyMesh &m, Arena &a,
+               Arena &b) { return MeshOps::zip(m, a, b); }},
+    {"truncate", [](const PolyMesh &m, Arena &a,
+                    Arena &b) { return MeshOps::truncate(m, a, b, 0.25f); }},
+    {"bevel", [](const PolyMesh &m, Arena &a,
+                 Arena &b) { return MeshOps::bevel(m, a, b, 0.25f); }},
+    {"chamfer", [](const PolyMesh &m, Arena &a,
+                   Arena &b) { return MeshOps::chamfer(m, a, b, 0.5f); }},
+    {"expand", [](const PolyMesh &m, Arena &a,
+                  Arena &b) { return MeshOps::expand(m, a, b, 0.5f); }},
+    {"relax", [](const PolyMesh &m, Arena &a,
+                 Arena &b) { return MeshOps::relax(m, a, b, 2); }},
+    {"hankin", [](const PolyMesh &m, Arena &a,
+                  Arena &b) { return MeshOps::hankin(m, a, b, 0.5f); }},
+    {"snub", [](const PolyMesh &m, Arena &a, Arena &b) {
+       return MeshOps::snub(m, a, b, 0.5f, 0.0f);
+     }}};
+
+// Widest face an operator emits at a side count fixed by its construction
+// rather than by the input (kis triangles, gyro pentagons, chamfer hexagons).
+// Those cannot scale into the 8-bit side count, so no growth factor covers them.
+inline constexpr size_t FIXED_EMITTER_DEGREE = 6;
+
+/**
+ * @brief Runs one operator and checks its real growth against its declared
+ *        factors.
+ * @param probe Operator to run.
+ * @param in Input mesh, allocated from an arena neither @p target nor @p temp.
+ * @param target Arena receiving the output mesh; reset here.
+ * @param temp Arena for the operator's intermediates; reset here.
+ * @details A declared factor below the real expansion is the dangerous
+ *          direction: the boundary guard then admits a mesh whose operator
+ *          reaches build_half_edge_mesh's or narrow_face_count's always-on
+ *          HS_CHECK and takes the module down.
+ */
+inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
+                                 Arena &target, Arena &temp) {
+  const hs_wasm::MeshOpBoundsEntry *row =
+      hs_wasm::find_mesh_op_bounds(probe.name);
+  HS_EXPECT_TRUE(row != nullptr);
+  if (row == nullptr)
+    return;
+
+  uint32_t incidence[64] = {};
+  HS_EXPECT_LE(in.vertices.size(), std::size(incidence));
+  const size_t in_elements = hs_wasm::mesh_largest_element_count(
+      in.vertices.size(), in.get_face_counts_size(), in.get_faces_size());
+  const size_t in_degree = hs_wasm::mesh_max_face_degree(
+      in.get_face_counts_data(), in.get_face_counts_size());
+  const size_t in_valence = hs_wasm::mesh_max_vertex_valence(
+      in.get_faces_data(), in.get_faces_size(), incidence, in.vertices.size());
+
+  target.reset();
+  temp.reset();
+  const PolyMesh out = probe.run(in, target, temp);
+
+  const size_t out_elements = hs_wasm::mesh_largest_element_count(
+      out.vertices.size(), out.get_face_counts_size(), out.get_faces_size());
+  const size_t out_degree = hs_wasm::mesh_max_face_degree(
+      out.get_face_counts_data(), out.get_face_counts_size());
+
+  HS_EXPECT_GT(out_elements, 0u);
+  HS_EXPECT_LE(out_elements, row->bounds.elements * in_elements);
+  HS_EXPECT_LE(out_degree, std::max({FIXED_EMITTER_DEGREE,
+                                     row->bounds.face_degree * in_degree,
+                                     row->bounds.valence * in_valence}));
+}
+
+/**
+ * @brief Runs every roster operator against one solid.
+ * @tparam Solid Solids::* descriptor to build the input from.
+ * @param input Arena the input solid is rebuilt in.
+ * @param target Arena receiving each operator's output.
+ * @param temp Arena for each operator's intermediates.
+ */
+template <typename Solid>
+inline void probe_solid_growth(Arena &input, Arena &target, Arena &temp) {
+  input.reset();
+  PolyMesh in;
+  build_solid<Solid>(in, input);
+  for (const MeshOpProbe &probe : MESH_OP_PROBES)
+    check_mesh_op_growth(probe, in, target, temp);
+}
+
+/**
+ * @brief Measures every roster operator's growth on solids of differing face
+ *        degree and vertex valence.
+ */
+inline void test_mesh_op_growth_factors() {
+  Arena input(mesh_op_input_buf, sizeof(mesh_op_input_buf));
+  Arena target(mesh_op_target_buf, sizeof(mesh_op_target_buf));
+  Arena temp(mesh_op_temp_buf, sizeof(mesh_op_temp_buf));
+
+  // An operator on the roster with no probe here would ship an unmeasured
+  // factor.
+  HS_EXPECT_EQ(std::size(MESH_OP_PROBES), hs_wasm::MESHOP_BOUNDS_COUNT);
+
+  // Face degree and vertex valence differ across these five (3/3, 4/3, 3/4,
+  // 3/5, 5/3), so a factor keyed to the wrong measurement cannot pass on all.
+  probe_solid_growth<Solids::Tetrahedron>(input, target, temp);
+  probe_solid_growth<Solids::Cube>(input, target, temp);
+  probe_solid_growth<Solids::Octahedron>(input, target, temp);
+  probe_solid_growth<Solids::Icosahedron>(input, target, temp);
+  probe_solid_growth<Solids::Dodecahedron>(input, target, temp);
+}
+
 /**
  * @brief Exercises the Hankin contact-angle domain check.
  */
@@ -358,6 +504,7 @@ inline int run_wasm_predicates_tests() {
   test_mesh_op_arena_room();
   test_mesh_degree_measurements();
   test_mesh_op_face_degree();
+  test_mesh_op_growth_factors();
   test_hankin_angle_domain();
   test_gradient_shape_clamp();
   test_hsv_key_clamp();
