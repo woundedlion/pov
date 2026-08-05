@@ -58,6 +58,7 @@ endfunction()
 add_executable(run_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
   ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 
 # HS_TEST_BUILD widens the test-only inline/arena budgets (the 64-bit host
@@ -153,6 +154,7 @@ _hs_sanitize(run_tests)
 add_executable(mindsplatter_replay_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/tools/mindsplatter_replay_gen.cpp
   ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(mindsplatter_replay_gen PRIVATE
   HS_TEST_BUILD HS_PROFILE_MINDSPLATTER_COUNTS)
@@ -164,6 +166,7 @@ _hs_warnings(mindsplatter_replay_gen)
 add_executable(mindsplatter_replay
   ${HS_ROOT}/tools/mindsplatter_replay_main.cpp
   ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(mindsplatter_replay PRIVATE HS_TEST_BUILD)
 target_include_directories(mindsplatter_replay PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
@@ -330,6 +333,7 @@ add_test(NAME unit_pov_segment_map_golden COMMAND ${CMAKE_COMMAND}
 add_executable(fastmath_clamp_check
   ${CMAKE_CURRENT_SOURCE_DIR}/fastmath_clamp_check.cpp
   ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(fastmath_clamp_check PRIVATE HS_TEST_BUILD)
 target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
@@ -353,7 +357,9 @@ add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 # rewires SolidBuilder::relax_baked() globally, which the normal run_tests build
 # needs in its load-the-bits form.
 add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
-  ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(relax_bake_verify PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_VERIFY)
 # IEEE float semantics whatever the build's global flags are: the committed
 # payload is a host-IEEE-captured constant, and live fast-math arithmetic does
@@ -369,7 +375,9 @@ add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
 # change that breaks generation is caught in CI; run it to regenerate:
 #   relax_bake_gen | python tools/relax_bakes.py emit --stdin
 add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp
-  ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(relax_bake_gen PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_EXTRACT)
 # Same IEEE pin as the verifier above: the two halves must share float semantics
 # or generation emits payloads the gate rejects.
@@ -390,6 +398,7 @@ _hs_warnings(relax_bake_gen)
 add_executable(h_offset_renorm_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
   ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_BUILD HS_TEST_H_OFFSET=3)
 target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
@@ -406,6 +415,7 @@ add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 add_executable(stack_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/stack_measure.cpp
   ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(stack_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
@@ -421,6 +431,7 @@ add_test(NAME unit_stack_budget COMMAND stack_measure)
 add_executable(arena_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
   ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(arena_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(arena_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
@@ -439,7 +450,9 @@ foreach(_opt Os O3)
   endif()
   add_executable(perf_bench_${_opt} ${_perf_exclude}
     ${CMAKE_CURRENT_SOURCE_DIR}/perf_bench.cpp
-    ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
+    ${HS_ROOT}/core/engine/memory.cpp
+    ${HS_ROOT}/core/engine/static_storage.cpp
+    ${HS_ROOT}/core/engine/reaction_graph.cpp)
   target_compile_definitions(perf_bench_${_opt} PRIVATE HS_TEST_BUILD)
   target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
   target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)
@@ -455,7 +468,9 @@ endforeach()
 foreach(_aa audit search)
   add_executable(aa_${_aa}
     ${CMAKE_CURRENT_SOURCE_DIR}/aa_${_aa}_main.cpp
-    ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
+    ${HS_ROOT}/core/engine/memory.cpp
+    ${HS_ROOT}/core/engine/static_storage.cpp
+    ${HS_ROOT}/core/engine/reaction_graph.cpp)
   target_compile_definitions(aa_${_aa} PRIVATE HS_TEST_BUILD HS_AA_AUDIT)
   target_include_directories(aa_${_aa} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
   target_compile_options(aa_${_aa} PRIVATE -O2 -ffast-math -fno-finite-math-only)
@@ -468,7 +483,8 @@ endforeach()
 # in the default build as a compile guard against bit-rot.
 add_executable(feedback_divergence
   ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence.cpp
-  ${HS_ROOT}/core/engine/memory.cpp)
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp)
 target_compile_definitions(feedback_divergence PRIVATE HS_TEST_BUILD)
 target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(feedback_divergence PRIVATE -O2 -ffast-math -fno-finite-math-only)

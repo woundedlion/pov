@@ -35,6 +35,7 @@ if(EMSCRIPTEN)
   add_executable(${TARGET_NAME}
     targets/wasm/wasm.cpp
     core/engine/memory.cpp
+    core/engine/static_storage.cpp
     core/engine/reaction_graph.cpp)
 
   target_include_directories(${TARGET_NAME} PRIVATE

@@ -229,7 +229,7 @@ that — see the board note below). They differ in output path and design resolu
 
 > **Static footprints are *mostly* shared, but RAM2 is not identical.** The arena
 > (`GLOBAL_ARENA_SIZE=298 KiB`) is the same 298 KiB in DTCM on both. The framebuffers
-> ([memory.cpp](../core/engine/memory.cpp)) are sized by `MAX_W`/`MAX_H`, which each env sets via
+> ([static_storage.cpp](../core/engine/static_storage.cpp)) are sized by `MAX_W`/`MAX_H`, which each env sets via
 > `CANVAS_W`/`CANVAS_H`: Phantasm keeps the 288×144 default (two 243 KiB buffers in OCRAM),
 > Holosphere overrides to its 96×20 canvas (two 11,520 B buffers). And Phantasm's
 > `USE_DMA_LEDS` path adds an OCRAM consumer Holosphere lacks: the double-buffered
@@ -245,7 +245,7 @@ targets/
 ├── Holosphere/Holosphere.ino   ← env:holosphere (budgeted) + env:holosphere_dma (compile profile)
 ├── Phantasm/Phantasm.ino       ← env:phantasm (budgeted N=4) + env:phantasm8 (compile profile)
 └── wasm/…                       ← untouched (CMake/Emscripten)
-core/engine/ memory.cpp, reaction_graph.cpp, *.h   ← shared engine sources
+core/engine/ memory.cpp, static_storage.cpp, reaction_graph.cpp, *.h   ← shared engine sources
 hardware/    *.h                                   ← header-only, on include path
 ```
 
@@ -254,7 +254,7 @@ Key decisions:
 - **Keep `.ino`, don't convert to `.cpp`.** PlatformIO compiles `.ino` (it runs the same
   prototype-injection preprocessing Arduino does). Converting to `.cpp` would diverge from the
   Arduino sketch workflow and risk auto-prototype differences. The `.ino` stays canonical.
-- **`core/engine/memory.cpp` and `core/engine/reaction_graph.cpp` are real translation units** (the WASM build
+- **`core/engine/memory.cpp`, `core/engine/static_storage.cpp` and `core/engine/reaction_graph.cpp` are real translation units** (the WASM build
   lists them explicitly in `CMakeLists.txt`). They must be added to the firmware build's source
   set — via `build_src_filter` including `core/engine/*.cpp`, or by treating `core/` as a private
   library. The rest of `core/` and all of `hardware/` are header-only and reached via `-I`.
@@ -321,10 +321,11 @@ extra_scripts =
     post:tools/teensy_gate_extra.py
 # src_dir is the repo root, so the filter must START by excluding everything and
 # then add back ONLY the wanted TUs — otherwise targets/wasm/, build*/ , .pio/,
-# obj/, out/ etc. get swept in. Both targets compile the two real core TUs:
+# obj/, out/ etc. get swept in. Both targets compile the three real core TUs:
 build_src_filter =
     -<*>
     +<core/engine/memory.cpp>
+    +<core/engine/static_storage.cpp>
     +<core/engine/reaction_graph.cpp>
 
 [env:holosphere]
