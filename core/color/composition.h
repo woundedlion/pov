@@ -1103,7 +1103,8 @@ private:
  * interpolation. Not a Palette subclass — call get(t) directly for
  * zero-overhead lookups. A copy is a non-owning handle onto the source's
  * arena storage: rebake() through any copy writes into every alias. Use
- * clone_from() for an independent LUT.
+ * clone_from() for an independent LUT. A handle marked by mark_aliased()
+ * refuses rebake() outright.
  */
 class BakedPalette {
 public:
@@ -1133,6 +1134,7 @@ public:
   HS_COLD_MEMBER void bake(Arena &arena, const Source &source) {
     colors = arena.allocate_n<Pixel>(LUT_SIZE);
     alpha_q16 = arena.allocate_n<uint16_t>(LUT_SIZE);
+    aliased = false;
     rebake(source);
   }
 
@@ -1151,6 +1153,7 @@ public:
     }
     HS_CHECK(colors != nullptr && alpha_q16 != nullptr,
              "BakedPalette::rebake before bake()");
+    HS_CHECK(!aliased, "BakedPalette::rebake through an aliasing handle");
     for (int i = 0; i < LUT_SIZE; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
       const Color4 sample = source.get(t);
@@ -1174,6 +1177,7 @@ public:
              "BakedPalette::bake_blend before bake()");
     colors = arena.allocate_n<Pixel>(LUT_SIZE);
     alpha_q16 = arena.allocate_n<uint16_t>(LUT_SIZE);
+    aliased = false;
     // Clamp before the cast: w < 0 or NaN is float->int UB, and a NaN weight
     // would otherwise reach every entry's alpha.
     const float wc = hs::clamp(w, 0.0f, 1.0f);
@@ -1231,9 +1235,17 @@ public:
              "BakedPalette::clone_from before src bake()");
     colors = arena.allocate_n<Pixel>(LUT_SIZE);
     alpha_q16 = arena.allocate_n<uint16_t>(LUT_SIZE);
+    aliased = false;
     memcpy(colors, src.colors, LUT_SIZE * sizeof(Pixel));
     memcpy(alpha_q16, src.alpha_q16, LUT_SIZE * sizeof(uint16_t));
   }
+
+  /**
+   * @brief Marks this handle as a non-owning view onto another palette's LUT.
+   * @details rebake() traps afterwards; bake(), bake_blend() and clone_from()
+   * clear the mark by giving the handle storage of its own.
+   */
+  void mark_aliased() { aliased = true; }
 
 private:
   static __attribute__((always_inline)) uint16_t lerp_q16(uint16_t a,
@@ -1273,6 +1285,7 @@ private:
   }
   Pixel *colors = nullptr;
   uint16_t *alpha_q16 = nullptr;
+  bool aliased = false;
 };
 
 /**
@@ -1317,18 +1330,21 @@ inline float dot_key(float d) {
  * @details Weights at or beyond an endpoint alias that endpoint's LUT storage
  * (bitwise-exact, no allocation), so crossfade boundaries are exact by
  * construction; only 0 < w < 1 bakes a blended LUT into the arena. @p dst is
- * therefore read-only afterwards — rebaking it would overwrite the endpoint it
- * aliases.
+ * therefore read-only on the endpoint paths — it is marked aliased there, so a
+ * rebake that would overwrite the shared endpoint LUT traps instead.
  */
 inline void bake_palette_blend(BakedPalette &dst, Arena &arena,
                                const BakedPalette &from, const BakedPalette &to,
                                float w) {
-  if (w <= 0.0f)
+  if (w <= 0.0f) {
     dst = from;
-  else if (w >= 1.0f)
+    dst.mark_aliased();
+  } else if (w >= 1.0f) {
     dst = to;
-  else
+    dst.mark_aliased();
+  } else {
     dst.bake_blend(arena, from, to, w);
+  }
 }
 
 /**
