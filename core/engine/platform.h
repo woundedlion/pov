@@ -128,6 +128,68 @@ inline Pcg32 &random() {
 inline bool debug = false;
 } // namespace hs
 
+// ---------------------------------------------------------------------------
+// HS_O3_BEGIN / HS_O3_END: compile the enclosed function definitions at -O3 on
+// the -Os device image (selective optimization; docs/selective_o3_spec.md).
+// Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
+// -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
+// The fast-math flags are restated because GCC 11's optimize pragma rebuilds
+// optimization flags from defaults, dropping command-line -ffast-math /
+// -fno-finite-math-only for the region (fixed in GCC 12; harmless to restate).
+// HS_O3_FN is the shared single-function attribute and backs HS_COLD_MEMBER.
+//
+// no-unroll-loops is NOT the lever here; -funswitch-loops is. GCC 15 unswitches
+// the region's per-pixel loops on their invariant branches (e.g. the feedback
+// compositor's pair_on flag), emitting TWO copies of the body where GCC 11 kept
+// one. Only one copy ever runs, so it buys no speed and costs pure size: the
+// feedback composite lambda doubles 6,356 -> 11,588 B and Phantasm's ITCM goes
+// 188,088 -> 200,520 B, overflowing FlexRAM. Disabling it restores GCC 11's
+// shape at full -O3 across the roster; measured on the real image, not guessed.
+// ---------------------------------------------------------------------------
+#if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) &&            \
+    defined(__OPTIMIZE_SIZE__)
+#define HS_O3_BEGIN                                                            \
+  _Pragma("GCC push_options") _Pragma(                                         \
+      "GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\", \"no-unswitch-loops\")")
+#define HS_O3_END _Pragma("GCC pop_options")
+#define HS_O3_FN                                                               \
+  __attribute__((optimize("O3", "fast-math", "no-finite-math-only",            \
+                          "no-unswitch-loops")))
+#else
+#define HS_O3_BEGIN
+#define HS_O3_END
+#define HS_O3_FN
+#endif
+
+// ---------------------------------------------------------------------------
+// HS_COLD: keep a setup-only function off the fast ITCM banks. FLASHMEM routes it
+// to FLASH; noinline collapses per-call-site inline copies and noclone blocks the
+// .constprop/.isra IPA clones (which drop the section attribute and land in ITCM
+// regardless). Apply ONLY to internal-linkage (`static`) free functions on cold
+// paths (mesh/solid construction): a section attribute on a COMDAT (inline/template
+// member) function is a section-type conflict. Off-device it degrades to a no-op.
+// HS_FLASH_MEMBER is the COMDAT-safe variant for inline/template member
+// functions: GCC's `cold` attribute supplies a unique .text.unlikely.* section,
+// and tools/phantasm.ld routes that section to FLASH. HS_COLD_MEMBER names the
+// setup-only use; HS_FLASH_MEMBER also supports explicitly measured code
+// placement. On the -Os device image both use HS_O3_FN.
+//
+// Defined ahead of the platform branches so the trap/logging routines below can
+// carry HS_FLASH_MEMBER. HS_COLD's FLASHMEM expands at the use site, after both
+// branches have supplied it.
+// ---------------------------------------------------------------------------
+#if defined(__GNUC__) && !defined(__clang__)
+#define HS_COLD FLASHMEM __attribute__((noinline, noclone))
+#define HS_FLASH_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
+#define HS_COLD_MEMBER HS_FLASH_MEMBER
+#define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
+#else
+#define HS_COLD FLASHMEM
+#define HS_FLASH_MEMBER
+#define HS_COLD_MEMBER
+#define HS_NOINLINE_NOCLONE __attribute__((noinline))
+#endif
+
 #ifdef ARDUINO
 #ifndef NDEBUG
 #define NDEBUG // Strip assert() to avoid linking newlib's __assert_func → fprintf
@@ -145,8 +207,9 @@ namespace hs {
  *          integer-only vsniprintf, which keeps newlib's float formatter out of
  *          ITCM — the device never logs a float.
  */
-inline void log(const char *msg, ...) __attribute__((format(printf, 1, 2)));
-inline void log(const char *msg, ...) {
+HS_FLASH_MEMBER inline void log(const char *msg, ...)
+    __attribute__((format(printf, 1, 2)));
+HS_FLASH_MEMBER inline void log(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
   char buf[256];
@@ -427,76 +490,18 @@ inline unsigned long micros() { return hs::micros(); }
 #endif
 
 // ---------------------------------------------------------------------------
-// HS_O3_BEGIN / HS_O3_END: compile the enclosed function definitions at -O3 on
-// the -Os device image (selective optimization; docs/selective_o3_spec.md).
-// Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
-// -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
-// The fast-math flags are restated because GCC 11's optimize pragma rebuilds
-// optimization flags from defaults, dropping command-line -ffast-math /
-// -fno-finite-math-only for the region (fixed in GCC 12; harmless to restate).
-// HS_O3_FN is the shared single-function attribute and backs HS_COLD_MEMBER.
-//
-// no-unroll-loops is NOT the lever here; -funswitch-loops is. GCC 15 unswitches
-// the region's per-pixel loops on their invariant branches (e.g. the feedback
-// compositor's pair_on flag), emitting TWO copies of the body where GCC 11 kept
-// one. Only one copy ever runs, so it buys no speed and costs pure size: the
-// feedback composite lambda doubles 6,356 -> 11,588 B and Phantasm's ITCM goes
-// 188,088 -> 200,520 B, overflowing FlexRAM. Disabling it restores GCC 11's
-// shape at full -O3 across the roster; measured on the real image, not guessed.
-// ---------------------------------------------------------------------------
-#if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) &&            \
-    defined(__OPTIMIZE_SIZE__)
-#define HS_O3_BEGIN                                                            \
-  _Pragma("GCC push_options") _Pragma(                                         \
-      "GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\", \"no-unswitch-loops\")")
-#define HS_O3_END _Pragma("GCC pop_options")
-#define HS_O3_FN                                                               \
-  __attribute__((optimize("O3", "fast-math", "no-finite-math-only",            \
-                          "no-unswitch-loops")))
-#else
-#define HS_O3_BEGIN
-#define HS_O3_END
-#define HS_O3_FN
-#endif
-
-// ---------------------------------------------------------------------------
-// HS_COLD: keep a setup-only function off the fast ITCM banks. FLASHMEM routes it
-// to FLASH; noinline collapses per-call-site inline copies and noclone blocks the
-// .constprop/.isra IPA clones (which drop the section attribute and land in ITCM
-// regardless). Apply ONLY to internal-linkage (`static`) free functions on cold
-// paths (mesh/solid construction): a section attribute on a COMDAT (inline/template
-// member) function is a section-type conflict. Off-device it degrades to a no-op.
-// HS_FLASH_MEMBER is the COMDAT-safe variant for inline/template member
-// functions: GCC's `cold` attribute supplies a unique .text.unlikely.* section,
-// and tools/phantasm.ld routes that section to FLASH. HS_COLD_MEMBER names the
-// setup-only use; HS_FLASH_MEMBER also supports explicitly measured code
-// placement. On the -Os device image both use HS_O3_FN.
-// ---------------------------------------------------------------------------
-#if defined(__GNUC__) && !defined(__clang__)
-#define HS_COLD FLASHMEM __attribute__((noinline, noclone))
-#define HS_FLASH_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
-#define HS_COLD_MEMBER HS_FLASH_MEMBER
-#define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
-#else
-#define HS_COLD FLASHMEM
-#define HS_FLASH_MEMBER
-#define HS_COLD_MEMBER
-#define HS_NOINLINE_NOCLONE __attribute__((noinline))
-#endif
-
-// ---------------------------------------------------------------------------
 // Platform-agnostic hs:: helpers (defined once; hs::random() is defined above,
 // ahead of both platform branches).
 // ---------------------------------------------------------------------------
 namespace hs {
 
 // Defined later in this header; forward-declared so the helpers below can HS_CHECK.
-[[noreturn]] inline void check_fail(const char *file, int line,
-                                    const char *cond, const char *fmt, ...)
+[[noreturn]] HS_FLASH_MEMBER inline void
+check_fail(const char *file, int line, const char *cond, const char *fmt, ...)
     __attribute__((format(printf, 4, 5)));
 // No-message overload (HS_CHECK(cond) with no varargs); see definition below.
-[[noreturn]] inline void check_fail(const char *file, int line,
-                                    const char *cond);
+[[noreturn]] HS_FLASH_MEMBER inline void check_fail(const char *file, int line,
+                                                    const char *cond);
 
 /**
  * @brief Maps a raw RNG draw in [0, max] onto the half-open interval [0.0, 1.0).
@@ -594,8 +599,8 @@ template <typename It> inline void shuffle(It first, It last) {
  *          buffer (no heap) so it is safe to call from a corrupted-arena / OOM
  *          context. Never returns.
  */
-[[noreturn]] inline void check_fail(const char *file, int line,
-                                    const char *cond, const char *fmt, ...) {
+[[noreturn]] HS_FLASH_MEMBER inline void
+check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   char msg[256];
   va_list args;
   va_start(args, fmt);
@@ -627,8 +632,8 @@ template <typename It> inline void shuffle(It first, It last) {
 // HS_CHECK(cond) with no message. Delegates with an empty formatted message
 // ("%s", "") rather than passing a literal "" as the format, so no zero-length
 // format string ever reaches the printf-format check (gcc -Wformat-zero-length).
-[[noreturn]] inline void check_fail(const char *file, int line,
-                                    const char *cond) {
+[[noreturn]] HS_FLASH_MEMBER inline void check_fail(const char *file, int line,
+                                                    const char *cond) {
   check_fail(file, line, cond, "%s", "");
 }
 
