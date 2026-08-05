@@ -2160,7 +2160,7 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
  */
 struct DreamBallsWhiteBox {
   using DB = DreamBalls<SMALL_W, SMALL_H>;
-  static constexpr int PRESETS = 4;
+  static constexpr int PRESETS = 5;
 
   static int active_bake(const DB &db) { return db.active_bake; }
   static int last_preset_idx(const DB &db) { return db.last_preset_idx; }
@@ -2175,6 +2175,9 @@ struct DreamBallsWhiteBox {
   static const char *preset_name(const DB &db, int idx) {
     return db.preset_manager.get_entries()[idx].params.solid_name;
   }
+  static const DB::Params &preset_params(const DB &db, int idx) {
+    return db.preset_manager.get_entries()[idx].params;
+  }
   static const char *live_solid(const DB &db) { return db.params.solid_name; }
   static float &num_copies(DB &db) { return db.params.num_copies; }
 };
@@ -2182,9 +2185,10 @@ struct DreamBallsWhiteBox {
 /**
  * @brief Drives spawn_sprite across a full preset cycle and asserts the bake-slot
  *        ping-pong, the modulo preset advance, and the reseed-on-change guard.
- * @details Drives the advance without the 288-frame wait, following the same
+ * @details Drives the advance without the 320-frame wait, following the same
  *          selector progression the periodic callback uses: each step calls
- *          Presets::next() then re-spawns, so the active preset walks step % 4.
+ *          Presets::next() then re-spawns, so the active preset walks modulo
+ *          the preset count.
  *          Each spawn must flip the bake slot (so a fading-out sprite keeps its
  *          own LUT) and, when the preset actually changes, reseed params to the
  *          new entry. A re-spawn of the SAME preset must instead hold params
@@ -2203,11 +2207,19 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_EQ(WB::active_bake(db), 1);
   HS_EXPECT_EQ(WB::live_solid(db), WB::preset_name(db, 0));
 
+  const auto &snub_cube = WB::preset_params(db, WB::PRESETS - 1);
+  HS_EXPECT_EQ(std::strcmp(snub_cube.solid_name, "snubCube"), 0);
+  HS_EXPECT_NEAR(snub_cube.num_copies, 4.534f, 1e-6f);
+  HS_EXPECT_NEAR(snub_cube.offset_radius, 0.153f, 1e-6f);
+  HS_EXPECT_NEAR(snub_cube.offset_speed, 2.025f, 1e-6f);
+  HS_EXPECT_NEAR(snub_cube.warp_scale, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(snub_cube.alpha, 0.3f, 1e-6f);
+
   // Not-paused advance chain: each step advances the selector then re-spawns, so
-  // the preset is step % 4. Drive a full cycle plus a wrap; the bake slot must
-  // ping-pong every spawn and params must reseed to the new index each step.
+  // the preset is step modulo the preset count. Drive two full cycles; the bake
+  // slot must ping-pong and params must reseed to the new index each step.
   int expect_bake = WB::active_bake(db); // 1
-  for (int step = 1; step <= 8; ++step) {
+  for (int step = 1; step <= 2 * WB::PRESETS; ++step) {
     WB::advance(db);
     expect_bake ^= 1;
     const int safe = step % WB::PRESETS;

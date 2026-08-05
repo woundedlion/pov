@@ -25,7 +25,7 @@ struct DreamBallsWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Orbiting copies of a polyhedral wireframe, cycling through four
+ * @brief Orbiting copies of a polyhedral wireframe, cycling through five
  *        solid presets.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -64,17 +64,9 @@ public:
     mobius_gen.init_storage(persistent_arena);
     setup_presets();
 
-    // Bind before any preset bakes through it.
-    blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
-    // Spelled out: the patches below must land in the table, not in a copy.
     std::span<PresetEntry<Params>> entries = preset_manager.get_entries();
-    entries[0].params.palette = &blood_stream_falloff;
-    entries[1].params.palette = &blood_stream_falloff;
-    entries[2].params.palette = &Palettes::RICH_SUNSET;
-    entries[3].params.palette = &Palettes::LAVENDER_LAKE;
-    for (const auto &entry : entries) {
-      HS_CHECK(entry.params.palette,
-               "DreamBalls preset table left a null palette unpatched");
+    for (auto &entry : entries) {
+      entry.params.palette = &palette;
     }
 
     params = preset_manager.get();
@@ -125,6 +117,7 @@ private:
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float WARP_MIN = 0.0f, WARP_MAX = 5.0f;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
+  static constexpr size_t PRESET_COUNT = 5;
 
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
@@ -156,7 +149,7 @@ private:
         edges; /**< Unique edge list (topology is static). */
   };
 
-  std::array<PresetData, 4> loaded_presets;
+  std::array<PresetData, PRESET_COUNT> loaded_presets;
 
   /**
    * @brief One preset's baked geometry element counts.
@@ -166,19 +159,26 @@ private:
     size_t face_slots; /**< Flattened face-index slots, i.e. 2*E. */
     size_t faces;      /**< Face count. */
   };
-  /** Counts of the four Archimedean solids named in the preset table, in that
+  /** Counts of the five Archimedean solids named in the preset table, in that
       table's order; setup_presets() re-checks every bake against them. */
-  static constexpr std::array<GeometryCounts, 4> PRESET_GEOMETRY = {
-      {{24, 96, 26}, {60, 240, 62}, {48, 144, 26}, {30, 120, 32}}};
+  static constexpr std::array<GeometryCounts, PRESET_COUNT> PRESET_GEOMETRY = {
+      {{24, 96, 26},
+       {60, 240, 62},
+       {48, 144, 26},
+       {30, 120, 32},
+       {24, 120, 38}}};
   static constexpr size_t PRESET_VERTICES =
       PRESET_GEOMETRY[0].vertices + PRESET_GEOMETRY[1].vertices +
-      PRESET_GEOMETRY[2].vertices + PRESET_GEOMETRY[3].vertices;
+      PRESET_GEOMETRY[2].vertices + PRESET_GEOMETRY[3].vertices +
+      PRESET_GEOMETRY[4].vertices;
   static constexpr size_t PRESET_FACE_SLOTS =
       PRESET_GEOMETRY[0].face_slots + PRESET_GEOMETRY[1].face_slots +
-      PRESET_GEOMETRY[2].face_slots + PRESET_GEOMETRY[3].face_slots;
+      PRESET_GEOMETRY[2].face_slots + PRESET_GEOMETRY[3].face_slots +
+      PRESET_GEOMETRY[4].face_slots;
   static constexpr size_t PRESET_FACES =
       PRESET_GEOMETRY[0].faces + PRESET_GEOMETRY[1].faces +
-      PRESET_GEOMETRY[2].faces + PRESET_GEOMETRY[3].faces;
+      PRESET_GEOMETRY[2].faces + PRESET_GEOMETRY[3].faces +
+      PRESET_GEOMETRY[4].faces;
 
   FastNoiseLite noise;
   Timeline timeline;
@@ -205,7 +205,7 @@ private:
   BakedPalette baked_palettes[2];
   // Persistent allocations: two ping-ponged palette LUTs plus every preset's
   // baked vertices, faces, face counts, tangent frames, and unique edge list.
-  // All four presets are baked at init and live for the effect's whole life.
+  // All five presets are baked at init and live for the effect's whole life.
   static constexpr size_t FOOTPRINT_BYTES =
       2 * BakedPalette::required_arena_bytes() +
       PRESET_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
@@ -227,23 +227,15 @@ private:
    *         init(). */
   Segue::Crossfade crossfade;
 
-  ProceduralPalette blood_stream_palette = Palettes::BLOOD_STREAM;
-  AlphaFalloffShade blood_stream_fade{[](float t) { return 1.0f - t; }};
-  /**
-   * @brief Composition of the BLOOD_STREAM palette under the alpha falloff shade.
-   * @details Wrap=false: the falloff curve owns the [0,1] domain, so no wrap.
-   */
-  StaticPalette<ProceduralPalette, Coords<>, Colors<AlphaFalloffShade>,
-                /*Wrap=*/false>
-      blood_stream_composition;
-  PaletteFacade<decltype(blood_stream_composition)> blood_stream_falloff{
-      &blood_stream_composition};
+  GenerativePalette palette{GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
+                            BrightnessProfile::CUP};
 
-  static constexpr std::array<PresetEntry<Params>, 4> PRESETS = {{
+  static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f, nullptr, 0.7f}},
       {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f, nullptr, 0.7f}},
       {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f, nullptr, 0.3f}},
       {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f, nullptr, 0.3f}},
+      {{"snubCube", 4.534f, 0.153f, 2.025f, 0.0f, nullptr, 0.3f}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &p) {
@@ -258,7 +250,7 @@ private:
                 "a DreamBalls preset drives a param outside its registered "
                 "slider range; widen the range to accommodate the preset");
 
-  Presets<Params, 4> preset_manager{PRESETS};
+  Presets<Params, PRESET_COUNT> preset_manager{PRESETS};
 
   /**
    * @brief Generates each preset's solid and bakes its geometry into the
