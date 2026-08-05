@@ -1081,11 +1081,8 @@ private:
 
 /**
  * @brief Manages 3D world-space trails.
- * @details Its Screen:: namesake is not the same filter in another domain — it
- * gates seeding on alpha where this one seeds regardless, evicts at capacity by
- * moving the last live point into slot 0 where this one drops the ring's
- * logical head, and overrides crosses_segments to false where this one keeps
- * the fail-safe has_history default.
+ * @details Not the same filter as its Screen:: namesake in another domain;
+ * Screen::Trails documents where the two diverge.
  */
 template <int Capacity> class Trails : public Is3DWithHistory {
 public:
@@ -1625,9 +1622,6 @@ public:
     float ttl = static_cast<float>(lifetime) - age;
     if (ttl > 0.0f && points) {
       if (num_pixels == MAX_PIXELS) {
-        // At capacity: O(1) drop of slot 0. Both trail domains may evict a point
-        // of arbitrary age after swap-removal compacts an expired mid-buffer
-        // slot; per-point ttl fade absorbs the transient.
         num_pixels--;
         points[0] = points[num_pixels];
       }
