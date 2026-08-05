@@ -6,6 +6,9 @@ in the GUI, so this heal must run as the LAST step before any Quilter upload --
 for either the placed board (phantasm.kicad_pro) or the unplaced board
 (unplaced/phantasm_unplaced.kicad_pro). Idempotent; safe to run anytime.
 
+Hash-manifested snapshot directories -- those carrying SHA256SUMS.txt -- are skipped;
+rewriting one breaks its manifest.
+
     python gen/heal_clearance.py
 """
 import glob
@@ -17,10 +20,16 @@ from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+def is_manifested(path):
+    """True when path sits in a directory whose contents are hash-manifested."""
+    return os.path.exists(os.path.join(os.path.dirname(path), "SHA256SUMS.txt"))
+
+
 def project_files():
-    return glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
+    candidates = glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
         + glob.glob(os.path.join(OUT, "unplaced", "phantasm*.kicad_pro")) \
         + glob.glob(os.path.join(OUT, "quilter_incremental", "phantasm*.kicad_pro"))
+    return [p for p in candidates if not is_manifested(p)]
 
 
 def heal_project(p):
