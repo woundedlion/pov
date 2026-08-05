@@ -24,6 +24,13 @@ does not achieve that — PlatformIO ignores an empty sysenvvar and falls back t
 platformio.ini's `build_cache_dir` — so the capture must DELETE `.pio/build_cache`
 and `.pio/build` first. The capture audit below enforces coldness from the log
 itself rather than trusting the caller to have done so.
+
+Coldness is audited per environment SECTION of the log, so the set of sections
+must itself be checked: a `pio run` that dies in its first environment prints one
+banner and the rest are simply absent, which would otherwise read as one cold
+environment and PASS. The expected set is every `[env:<name>]` in platformio.ini
+— the same list a bare `pio run` builds — so a new environment raises the bar
+with no second place to edit. `--env` narrows it for a deliberate subset build.
 """
 
 from __future__ import annotations
@@ -67,6 +74,10 @@ _SRC_FILTER_RE = re.compile(
 
 # One src-filter term: `+<path>` includes, `-<path>` excludes.
 _SRC_FILTER_TERM_RE = re.compile(r"([+-])<([^>]*)>")
+
+# A PlatformIO environment declaration in platformio.ini. `[env]` (the shared
+# base section) is not one, hence the mandatory `:<name>`.
+_INI_ENV_RE = re.compile(r"^\s*\[env:([^\]\s]+)\]\s*$", re.MULTILINE)
 
 # SCons object-cache hit:  Retrieved `.pio/build/x/src/core/engine/memory.cpp.o' from cache
 _CACHE_HIT_RE = re.compile(r"^\s*Retrieved\s+[`'\"](.+?)['\"]\s+from cache\s*$")
@@ -310,6 +321,21 @@ def audit_capture(build_log: str) -> CaptureAudit:
     )
 
 
+def declared_environments(ini_path: str | Path) -> tuple[str, ...]:
+    """Every environment platformio.ini defines, in file order."""
+    path = Path(ini_path)
+    if not path.exists():
+        raise CaptureError(
+            f"'{ini_path}' does not exist, so the set of environments the build "
+            f"was expected to cover is unknown; pass --env explicitly")
+    envs = tuple(_INI_ENV_RE.findall(path.read_text(encoding="utf-8")))
+    if not envs:
+        raise CaptureError(
+            f"'{ini_path}' declares no [env:<name>] section, so the set of "
+            f"environments the build was expected to cover is unknown")
+    return envs
+
+
 def load_baseline(path: str | Path) -> set[str]:
     """Read the committed baseline set (ignoring blank and #-comment lines)."""
     text = Path(path).read_text(encoding="utf-8") if Path(path).exists() else ""
@@ -333,6 +359,11 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Teensy warning-baseline ratchet.")
     p.add_argument("--build-log", required=True, help="compiler output of a COLD build")
     p.add_argument("--baseline", default="tools/teensy_warning_baseline.txt")
+    p.add_argument("--env", action="append", metavar="NAME",
+                   help="environment the capture was expected to cover; "
+                        "repeatable. Defaults to every [env:<name>] in "
+                        "--platformio-ini")
+    p.add_argument("--platformio-ini", default="platformio.ini")
     p.add_argument("--update-baseline", action="store_true",
                    help="rewrite the baseline from this build's warning set")
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
@@ -350,6 +381,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         audit = audit_capture(build_log)
+        expected = tuple(args.env) if args.env else declared_environments(
+            args.platformio_ini)
     except CaptureError as exc:
         print(f"{prefix}[teensy-warnings] FAIL - {exc} ({args.build_log}).")
         return 1
@@ -358,6 +391,14 @@ def main(argv: list[str] | None = None) -> int:
               f"in {args.build_log}: this is not a `pio run` capture, so the "
               f"expected first-party translation-unit set cannot be derived and a "
               f"partially cached build would read as green.")
+        return 1
+    absent = [e for e in expected if e not in {a.name for a in audit.envs}]
+    if absent:
+        print(f"{prefix}[teensy-warnings] FAIL - {len(absent)} of {len(expected)} "
+              f"expected environment(s) have no section in {args.build_log}: "
+              f"{', '.join(absent)}. The build stopped early (or never started "
+              f"them), so their warnings are absent and the remaining "
+              f"environment(s) cannot vouch for them.")
         return 1
     if audit.missing:
         print(f"{prefix}[teensy-warnings] FAIL - the capture is not cold: "

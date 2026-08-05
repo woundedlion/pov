@@ -610,14 +610,24 @@ class TestWarningRatchet(unittest.TestCase):
         })
 
 
-def _run_ratchet(log_text, *extra):
-    """Run the ratchet over `log_text` against an empty baseline; return its exit."""
+def _run_ratchet(log_text, *extra, envs=None):
+    """Run the ratchet over `log_text` against an empty baseline; return its exit.
+
+    `envs` is the environment set the build was asked to produce, written to a
+    throwaway platformio.ini. It defaults to the environments `log_text` itself
+    contains, which isolates a test from the repo's real environment list.
+    """
     with tempfile.TemporaryDirectory() as d:
         log = Path(d) / "build.log"
         log.write_text(log_text, encoding="utf-8")
         base = Path(d) / "baseline.txt"
         base.write_text("", encoding="utf-8")
-        return tw.main(["--build-log", str(log), "--baseline", str(base), *extra])
+        if envs is None:
+            envs = [s.name for s in tw.parse_env_sections(log_text)]
+        ini = Path(d) / "platformio.ini"
+        ini.write_text("".join(f"[env:{e}]\n" for e in envs), encoding="utf-8")
+        return tw.main(["--build-log", str(log), "--baseline", str(base),
+                        "--platformio-ini", str(ini), *extra])
 
 
 def _banner(env, *sources):
@@ -815,6 +825,65 @@ class TestColdCaptureAudit(unittest.TestCase):
         # Regenerating from a partial build would silently drop warnings.
         log = self._log(("phantasm",), self.TUS[2:], cached=self.TUS[:2])
         self.assertEqual(_run_ratchet(log, "--update-baseline"), 1)
+
+
+class TestExpectedEnvironmentSet(unittest.TestCase):
+    """The audited environments must be the ones the build was asked to produce.
+
+    Sections come from banners, so a `pio run` over six environments that dies in
+    the first prints ONE banner: the other five are absent rather than short, and
+    the per-environment coldness audit has nothing to complain about.
+    """
+
+    TU = "core/engine/memory.cpp"
+    CI_ENVS = ("holosphere", "holosphere_dma", "phantasm", "phantasm8",
+               "profile", "profile_o3")
+
+    def _cold_env(self, env):
+        return (_banner(env, self.TU) + "\n"
+                + f"arm-none-eabi-g++ -o .pio/build/{env}/src/{self.TU}.o -c "
+                  f"-std=gnu++20 -O3 -I. -Icore {self.TU}\n")
+
+    def test_truncated_run_fails(self):
+        self.assertEqual(
+            _run_ratchet(self._cold_env(self.CI_ENVS[0]), envs=self.CI_ENVS), 1)
+
+    def test_truncated_run_diagnostic_names_the_absent_environments(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(_run_ratchet(self._cold_env(self.CI_ENVS[0]),
+                                          "--github", envs=self.CI_ENVS), 1)
+        out = buf.getvalue()
+        self.assertIn("::error::", out)
+        self.assertIn("5 of 6 expected environment(s)", out)
+        for env in self.CI_ENVS[1:]:
+            self.assertIn(env, out)
+
+    def test_every_expected_environment_present_passes(self):
+        log = "".join(self._cold_env(e) for e in self.CI_ENVS)
+        self.assertEqual(_run_ratchet(log, envs=self.CI_ENVS), 0)
+
+    def test_env_flag_narrows_the_expectation(self):
+        # A deliberate subset build states its own set instead of platformio.ini's.
+        self.assertEqual(
+            _run_ratchet(self._cold_env(self.CI_ENVS[0]), "--env", self.CI_ENVS[0],
+                         envs=self.CI_ENVS), 0)
+
+    def test_expectation_is_read_from_the_repo_platformio_ini(self):
+        envs = tw.declared_environments(TOOLS.parent / "platformio.ini")
+        self.assertNotIn("env", envs)          # the shared [env] base section
+        self.assertLessEqual({"holosphere", "phantasm", "profile"}, set(envs))
+
+    def test_missing_platformio_ini_fails_rather_than_skipping_the_check(self):
+        with self.assertRaises(tw.CaptureError):
+            tw.declared_environments(TOOLS / "no_such_platformio.ini")
+
+    def test_ini_without_environments_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            ini = Path(d) / "platformio.ini"
+            ini.write_text("[platformio]\nsrc_dir = .\n[env]\n", encoding="utf-8")
+            with self.assertRaises(tw.CaptureError):
+                tw.declared_environments(ini)
 
 
 class TestRealColdVersusWarmCapture(unittest.TestCase):
