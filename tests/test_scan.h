@@ -551,9 +551,12 @@ inline void test_distorted_ring_stack_matches_sequential() {
         if (!is_black(a))
           ++lit;
         HS_EXPECT_EQ(is_black(a), is_black(b));
-        HS_EXPECT_NEAR(static_cast<int>(a.r), static_cast<int>(b.r), CHANNEL_TOL);
-        HS_EXPECT_NEAR(static_cast<int>(a.g), static_cast<int>(b.g), CHANNEL_TOL);
-        HS_EXPECT_NEAR(static_cast<int>(a.b), static_cast<int>(b.b), CHANNEL_TOL);
+        HS_EXPECT_NEAR(static_cast<int>(a.r), static_cast<int>(b.r),
+                       CHANNEL_TOL);
+        HS_EXPECT_NEAR(static_cast<int>(a.g), static_cast<int>(b.g),
+                       CHANNEL_TOL);
+        HS_EXPECT_NEAR(static_cast<int>(a.b), static_cast<int>(b.b),
+                       CHANNEL_TOL);
       }
     }
     // Guard against both paths drawing nothing.
@@ -730,7 +733,7 @@ inline void test_scan_region_clip_arc_matches_predicate() {
   constexpr int W = 96, H = 20;
   const int y = 10;
 
-  auto run = [&](ClipRegion::XClip xc, bool handled, int (&counts)[W]) {
+  auto run = [&](ClipRegion::XClip xc, bool handled, int(&counts)[W]) {
     for (int i = 0; i < W; ++i)
       counts[i] = 0;
     Scan::scan_region<W, H>(
@@ -1088,62 +1091,105 @@ template <int W> inline bool row_has_lit(const hs_test::StubEffect &fx, int y) {
 }
 
 /**
+ * @brief Counts the lit pixels on the canvas.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param fx Effect whose canvas is sampled.
+ * @return Number of non-black pixels.
+ */
+template <int W, int H> inline int count_lit(const hs_test::StubEffect &fx) {
+  int lit = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      if (!is_black(fx.get_pixel(x, y)))
+        ++lit;
+  return lit;
+}
+
+/**
  * @brief Placement oracle for a filled cap: the pole the shape is centred on is
- *        lit and the opposite pole stays dark.
+ *        lit, the opposite pole stays dark, and the lit area matches the
+ *        shape's angular extent.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @param fx Effect whose canvas was drawn into.
  * @param cap_north True if the shape caps the +Y pole (row 0); false if it caps
  *        the -Y pole (row H-1). Star/PlanarPolygon centre on basis.v (north);
  *        Flower centres on its antipode -basis.v (south).
+ * @param r_min Angular radius of the largest cap inscribed in the shape (the
+ *        shape's smallest boundary radius, radians).
+ * @param r_max Angular radius of the cap circumscribing the shape (radians).
  * @details Drawn to actual pixels — the placement, not just distance()/cull
  *          coverage. With an angular radius well under PI/2 the far pole sits
- *          outside the fill, so a projection sign flip (wrong hemisphere) or a
- *          collapsed fill is caught here where a bare draw-without-asserting is
- *          not.
+ *          outside the fill, so a projection sign flip (wrong hemisphere) is
+ *          caught here where a bare draw-without-asserting is not.
+ *
+ *          Rows are uniform in polar angle, so a pole cap of angular radius r
+ *          lights W*H*r/PI pixels and the shape's own count falls between its
+ *          inscribed and circumscribed caps. The slack is 3 rows either way:
+ *          half a row of quantization plus the antialiased fringe, a ~1 pixel
+ *          band along a perimeter of at most a couple of canvas widths. A fill
+ *          collapsed to a handful of pixels falls under the floor; a flooded
+ *          hemisphere (W*H/2) sits over the ceiling for every radius here.
  */
 template <int W, int H>
-inline void expect_filled_cap(const hs_test::StubEffect &fx, bool cap_north) {
+inline void expect_filled_cap(const hs_test::StubEffect &fx, bool cap_north,
+                              float r_min, float r_max) {
   const int near_row = cap_north ? 0 : H - 1;
   const int far_row = cap_north ? H - 1 : 0;
   HS_EXPECT_TRUE((row_has_lit<W>(fx, near_row)));
   HS_EXPECT_FALSE((row_has_lit<W>(fx, far_row)));
+
+  const float rows_per_radian = static_cast<float>(H) / PI_F;
+  const float slack_rows = 3.0f;
+  const int lit = count_lit<W, H>(fx);
+  HS_EXPECT_GE(lit,
+               static_cast<int>(W * (r_min * rows_per_radian - slack_rows)));
+  HS_EXPECT_LE(lit,
+               static_cast<int>(W * (r_max * rows_per_radian + slack_rows)));
 }
 
 /** @brief Verifies a filled Star caps the basis.v (+Y) pole and not the other. */
 inline void test_star_pixel_placement() {
   constexpr int W = 96, H = 64;
+  constexpr float RADIUS = 0.6f;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
     Basis basis = make_basis(Quaternion(), Y_AXIS);
-    Scan::Star::draw<W, H, false>(pipe, c, basis, /*radius=*/0.6f, /*sides=*/5,
-                                  [](const Vector &, Fragment &f) {
-                                    f.color = Color4(Pixel(60000, 60000, 60000),
-                                                     1.0f);
-                                  });
+    Scan::Star::draw<W, H, false>(
+        pipe, c, basis, RADIUS, /*sides=*/5, [](const Vector &, Fragment &f) {
+          f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+        });
   }
   fx.advance_display();
-  expect_filled_cap<W, H>(fx, /*cap_north=*/true);
+  // Tips at the circumradius, notches at STAR_INNER_RATIO of it.
+  const float r_max = RADIUS * (PI_F / 2.0f);
+  expect_filled_cap<W, H>(fx, /*cap_north=*/true, r_max * STAR_INNER_RATIO,
+                          r_max);
 }
 
 /** @brief Verifies a filled PlanarPolygon caps the basis.v (+Y) pole, not the other. */
 inline void test_planar_polygon_pixel_placement() {
   constexpr int W = 96, H = 64;
+  constexpr float RADIUS = 0.6f;
+  constexpr int SIDES = 6;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
     Basis basis = make_basis(Quaternion(), Y_AXIS);
     Scan::PlanarPolygon::draw<W, H, false>(
-        pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
-        [](const Vector &, Fragment &f) {
+        pipe, c, basis, RADIUS, SIDES, [](const Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         });
   }
   fx.advance_display();
-  expect_filled_cap<W, H>(fx, /*cap_north=*/true);
+  // Vertices at the circumradius, edge midpoints at the apothem.
+  const float r_max = RADIUS * (PI_F / 2.0f);
+  expect_filled_cap<W, H>(fx, /*cap_north=*/true, r_max * cosf(PI_F / SIDES),
+                          r_max);
 }
 
 /**
@@ -1154,19 +1200,24 @@ inline void test_planar_polygon_pixel_placement() {
  */
 inline void test_flower_pixel_placement() {
   constexpr int W = 96, H = 64;
+  constexpr float RADIUS = 0.6f;
+  constexpr int SIDES = 6;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
     Basis basis = make_basis(Quaternion(), Y_AXIS);
     Scan::Flower::draw<W, H, false>(
-        pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
-        [](const Vector &, Fragment &f) {
+        pipe, c, basis, RADIUS, SIDES, [](const Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         });
   }
   fx.advance_display();
-  expect_filled_cap<W, H>(fx, /*cap_north=*/false);
+  // Petal boundary (PI - r) * cos(local) == PI - r_max: the tip at local 0,
+  // narrowest at the sector edge.
+  const float r_max = RADIUS * (PI_F / 2.0f);
+  const float r_min = PI_F - (PI_F - r_max) / cosf(PI_F / SIDES);
+  expect_filled_cap<W, H>(fx, /*cap_north=*/false, r_min, r_max);
 }
 
 enum class SolidShape { PLANAR_POLYGON, SPHERICAL_POLYGON, FLOWER, STAR };
