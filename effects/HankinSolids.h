@@ -297,7 +297,9 @@ private:
     strap_blend_mask = 0;
     for (int s = 0; s < NUM_PALETTES; ++s)
       strap_from[s] = palette_idx[s];
-    for (size_t f = node_faces; f < hankin_mesh.topology.size(); ++f) {
+    // host_face_palette is filled only over the compiled face range.
+    const size_t faces = compiled_hankin.face_counts.size();
+    for (size_t f = node_faces; f < faces; ++f) {
       const int slot = MeshPaletteBank::slot_of(hankin_mesh.topology[f]);
       if (strap_blend_mask & (1u << slot))
         continue;
