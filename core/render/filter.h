@@ -2394,16 +2394,16 @@ private:
    */
   static bool any_pixel_lit(const Canvas &cv) {
     const auto &clip = cv.clip();
-    const auto x_clip = clip.x_clip();
+    const ColumnRuns runs = make_column_runs(clip.x_clip());
     const ::Pixel *previous = cv.prev_data();
     for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
-      const int row = y * W;
-      for (int x = 0; x < W; ++x) {
-        if (x_clip.active && x_clip.clipped(x))
-          continue;
-        const ::Pixel pixel = previous[row + x];
-        if (pixel.r | pixel.g | pixel.b)
-          return true;
+      const ::Pixel *row = previous + y * W;
+      for (int i = 0; i < runs.count; ++i) {
+        for (int x = runs.items[i].begin; x < runs.items[i].end; ++x) {
+          const ::Pixel pixel = row[x];
+          if (pixel.r | pixel.g | pixel.b)
+            return true;
+        }
       }
     }
     return false;
