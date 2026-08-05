@@ -54,6 +54,7 @@
 #include "core/mesh/mesh.h"
 #include "core/render/plot.h"
 #include "core/render/scan.h"
+#include "core/render/sdf.h"
 #include "core/mesh/solids.h"
 #include "core/math/spherical_field.h"
 #include "core/mesh/spatial.h"
@@ -1900,6 +1901,140 @@ inline void case_flywheel_period_zero() {
 }
 
 /**
+ * @brief Death case: a virtual height of one row must trap in the phi mapping.
+ * @details Geometry surface — the row-to-angle scale divides by (h_virt - 1),
+ *          so a single-row canvas would map every row to a non-finite phi.
+ */
+inline void case_y_to_phi_degenerate_height() {
+  float phi = y_to_phi_virtual(opaque(0.0f), opaque(1)); // divisor 0 -> trap
+  if (phi == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: reading an orientation frame past the history must trap.
+ * @details Geometry surface — the motion-blur history is a fixed array whose
+ *          live prefix is num_frames long, so an index past it would read a
+ *          stale or never-written quaternion instead of failing.
+ */
+inline void case_orientation_frame_index_oob() {
+  Orientation<> orientation; // constructed with one frame
+  const Quaternion &q = orientation.get(opaque(3));
+  if (q.r == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: make_basis with a non-unit quaternion must trap.
+ * @details Geometry surface — the rotation assumes a unit quaternion, so a
+ *          finite but over-long one would scale and shear the frame rather than
+ *          rotate it; the guard fires before the axes are built.
+ */
+inline void case_make_basis_nonunit_quaternion() {
+  Quaternion q(opaque(2.0f), opaque(0.0f), opaque(0.0f), opaque(0.0f));
+  Vector normal{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
+  Basis b = make_basis(q, normal); // |q| = 2 -> HS_CHECK
+  if (b.u.x == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a polygon with fewer than three sides must trap.
+ * @details SDF surface — the sector fold divides a full turn by the side count,
+ *          so a 2-gon has no interior for the distance to be measured against.
+ */
+inline void case_sdf_polygon_side_count() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  SDF::PlanarPolygon poly(b, opaque(0.5f), opaque(2), opaque(0.0f));
+  if (poly.apothem == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: an angular repeat around a non-unit axis must trap.
+ * @details SDF surface — the sector fold rotates the query point about the
+ *          axis, so a non-unit one scales every folded copy off the sphere.
+ */
+inline void case_sdf_angular_repeat_nonunit_axis() {
+  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  SDF::Ring ring(b, opaque(1.0f), opaque(0.1f));
+  Vector axis{opaque(0.0f), opaque(2.0f), opaque(0.0f)};
+  SDF::AngularRepeat<SDF::Ring> rep(ring, opaque(4), axis); // non-unit -> trap
+  if (rep.sector == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a twist warp around a zero-radius torus must trap.
+ * @details SDF warp surface — the Lipschitz bound scales by 2/R, so a zero
+ *          major radius hands the rasterizer a non-finite step bound.
+ */
+inline void case_sdf_twist_zero_major_radius() {
+  SDF::Warp::Twist tw(opaque(2), opaque(0.1f), opaque(0.0f)); // R = 0 -> trap
+  if (tw.two_over_r == opaque(42.0f))
+    std::printf("x");
+}
+
+/** @brief Draw callback for the OpLeg construction death cases; never runs. */
+inline void death_opleg_draw(Canvas &, MeshState &,
+                             const Animation::OpLeg::Shading &) {}
+
+/**
+ * @brief Death case: an edge-sweep leg without a graph edge must trap.
+ * @details OpLeg surface — the constructor reads the edge's operator and settle
+ *          flag on its first line, so a null edge is a null dereference.
+ */
+inline void case_opleg_edge_sweep_no_edge() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(seed, Animation::OpLeg::EdgeSweepSpec{}, arena,
+                       death_opleg_draw, handoff); // null edge -> HS_CHECK
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a leg with a non-positive sweep length must trap.
+ * @details OpLeg surface — the per-frame sweep parameter divides by the frame
+ *          count, and a zero-frame leg would also complete before drawing.
+ */
+inline void case_opleg_zero_sweep_frames() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                       .sweep_frames = opaque(0)},
+      arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a leg built without a palette handoff must trap.
+ * @details OpLeg surface — the departed node's per-face palette keys every
+ *          blend ramp the leg bakes, so an absent bank leaves the whole
+ *          crossfade unresolvable rather than merely uncolored.
+ */
+inline void case_opleg_incomplete_palette_handoff() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff; // no bank, no per-face palette
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                       .sweep_frames = opaque(1)},
+      arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
@@ -2238,6 +2373,28 @@ inline const Case *all_cases(int &n) {
        "(p > 0 && p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS) "
        "Flywheel: cycles_per_half_rev outside the range position()'s int32 "
        "elapsed window holds for MIN_SAFE_HALF_REVS of coast"},
+      {"y_to_phi_degenerate_height", case_y_to_phi_degenerate_height,
+       "geometry.h", "(h_virt > 1) y_to_phi_virtual: h_virt must be > 1"},
+      {"orientation_frame_index_oob", case_orientation_frame_index_oob,
+       "geometry.h", "(i >= 0 && i < num_frames) "},
+      {"make_basis_nonunit_quaternion", case_make_basis_nonunit_quaternion,
+       "geometry.h",
+       "(std::abs(orientation.squared_magnitude() - 1.0f) < "
+       "math::EPS_UNIT_QUAT_SQ) "},
+      {"sdf_polygon_side_count", case_sdf_polygon_side_count, "sdf.h",
+       "(sides >= 3) "},
+      {"sdf_angular_repeat_nonunit_axis", case_sdf_angular_repeat_nonunit_axis,
+       "sdf.h", "(fabsf(ax.length() - 1.0f) < 1e-3f) "},
+      {"sdf_twist_zero_major_radius", case_sdf_twist_zero_major_radius, "sdf.h",
+       "(R > 0.0f) "},
+      {"opleg_edge_sweep_no_edge", case_opleg_edge_sweep_no_edge, "opleg.h",
+       "(spec.edge) OpLeg: edge sweep carries no graph edge"},
+      {"opleg_zero_sweep_frames", case_opleg_zero_sweep_frames, "opleg.h",
+       "(spec.sweep_frames >= 1) OpLeg needs a positive sweep length"},
+      {"opleg_incomplete_palette_handoff",
+       case_opleg_incomplete_palette_handoff, "opleg.h",
+       "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
+       "OpLeg: param sweep leg has an incomplete palette handoff"},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
@@ -2608,7 +2765,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 105;
+  constexpr int DEATH_CASE_COUNT = 114;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
