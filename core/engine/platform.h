@@ -172,7 +172,10 @@ inline bool debug = false;
 // functions: GCC's `cold` attribute supplies a unique .text.unlikely.* section,
 // and tools/phantasm.ld routes that section to FLASH. HS_COLD_MEMBER names the
 // setup-only use; HS_FLASH_MEMBER also supports explicitly measured code
-// placement. On the -Os device image both use HS_O3_FN.
+// placement. On the -Os device image both use HS_O3_FN. HS_FLASH_INLINE is the
+// variant for a free function declared `inline`, which GCC's -Wattributes
+// rejects the noinline on; `cold` alone still supplies the .text.unlikely.*
+// section, and a variadic [[noreturn]] body is not an inline candidate anyway.
 //
 // Defined ahead of the platform branches so the trap/logging routines below can
 // carry HS_FLASH_MEMBER. HS_COLD's FLASHMEM expands at the use site, after both
@@ -181,11 +184,13 @@ inline bool debug = false;
 #if defined(__GNUC__) && !defined(__clang__)
 #define HS_COLD FLASHMEM __attribute__((noinline, noclone))
 #define HS_FLASH_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
+#define HS_FLASH_INLINE HS_O3_FN __attribute__((cold, noclone))
 #define HS_COLD_MEMBER HS_FLASH_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
 #else
 #define HS_COLD FLASHMEM
 #define HS_FLASH_MEMBER
+#define HS_FLASH_INLINE
 #define HS_COLD_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline))
 #endif
@@ -207,9 +212,9 @@ namespace hs {
  *          integer-only vsniprintf, which keeps newlib's float formatter out of
  *          ITCM — the device never logs a float.
  */
-HS_FLASH_MEMBER inline void log(const char *msg, ...)
+HS_FLASH_INLINE inline void log(const char *msg, ...)
     __attribute__((format(printf, 1, 2)));
-HS_FLASH_MEMBER inline void log(const char *msg, ...) {
+HS_FLASH_INLINE inline void log(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
   char buf[256];
@@ -496,11 +501,11 @@ inline unsigned long micros() { return hs::micros(); }
 namespace hs {
 
 // Defined later in this header; forward-declared so the helpers below can HS_CHECK.
-[[noreturn]] HS_FLASH_MEMBER inline void
+[[noreturn]] HS_FLASH_INLINE inline void
 check_fail(const char *file, int line, const char *cond, const char *fmt, ...)
     __attribute__((format(printf, 4, 5)));
 // No-message overload (HS_CHECK(cond) with no varargs); see definition below.
-[[noreturn]] HS_FLASH_MEMBER inline void check_fail(const char *file, int line,
+[[noreturn]] HS_FLASH_INLINE inline void check_fail(const char *file, int line,
                                                     const char *cond);
 
 /**
@@ -599,7 +604,7 @@ template <typename It> inline void shuffle(It first, It last) {
  *          buffer (no heap) so it is safe to call from a corrupted-arena / OOM
  *          context. Never returns.
  */
-[[noreturn]] HS_FLASH_MEMBER inline void
+[[noreturn]] HS_FLASH_INLINE inline void
 check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   char msg[256];
   va_list args;
@@ -632,7 +637,7 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
 // HS_CHECK(cond) with no message. Delegates with an empty formatted message
 // ("%s", "") rather than passing a literal "" as the format, so no zero-length
 // format string ever reaches the printf-format check (gcc -Wformat-zero-length).
-[[noreturn]] HS_FLASH_MEMBER inline void check_fail(const char *file, int line,
+[[noreturn]] HS_FLASH_INLINE inline void check_fail(const char *file, int line,
                                                     const char *cond) {
   check_fail(file, line, cond, "%s", "");
 }
