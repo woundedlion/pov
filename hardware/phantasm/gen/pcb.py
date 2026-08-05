@@ -26,6 +26,7 @@ QUILTER_LENGTH = 58.28
 TEENSY_LIBRARY_REASON = (
     "The committed, routed phantasm.kicad_pcb resolves its Teensy pads\n"
     "  against this library file.")
+TEENSY_LIBID = "phantasm:Teensy4.0"
 MOUNTING_HOLE_FOOTPRINT = "MountingHole:MountingHole_2.7mm_M2.5"
 MOUNTING_KEEPOUT_RADIUS = 2.7
 MOUNTING_HOLE_INSET = 3.5
@@ -113,8 +114,13 @@ def build_paths(nlroot):
 
 # ---------------------------------------------------------------- components
 def schematic_components():
-    """Return ordered unique component records, skipping power and flag symbols."""
-    root = sexp.parse(open(SCH, encoding="utf-8").read())[0]
+    """Return ordered unique component records, skipping power and flag symbols.
+
+    The Teensy carries no Footprint field; every other symbol must, or its part
+    would be embedded as the generated Teensy land.
+    """
+    with open(SCH, encoding="utf-8") as f:
+        root = sexp.parse(f.read())[0]
     seen = {}
     order = []
     for c in root:
@@ -133,7 +139,13 @@ def schematic_components():
             continue
         if ref not in seen:
             dnp = sexp.val(c, "dnp", [sexp.Sym("no")])[0] == "yes"
-            seen[ref] = (ref, fp or "", val or "", dnp)
+            if not fp:
+                libid = str(sexp.val(c, "lib_id", [""])[0])
+                if libid != TEENSY_LIBID:
+                    sys.exit(f"ERROR {ref} ({libid or 'no lib_id'}) has an empty "
+                             "Footprint property; set one in Eeschema")
+                fp = TEENSY_LIBID
+            seen[ref] = (ref, fp, val or "", dnp)
             order.append(ref)
     return [seen[r] for r in order]
 
@@ -259,7 +271,7 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           dnp=False, hide_reference=False,
           teensy_model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl",
           consumed=None):
-    node = teensy_footprint(teensy_model_path) if libid in ("", "phantasm:Teensy4.0") else \
+    node = teensy_footprint(teensy_model_path) if libid == TEENSY_LIBID else \
         sexp.parse(sexp.dumps(load_mod(libid)))[0]  # deep copy via round-trip
     refresh_uuids(node)
     if ref == "D_BUS":
@@ -267,8 +279,7 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
     if ref in ("D_BUS", "JP_ID2"):
         move_silk_graphics_to_fab(node)
     set_pad_orientations(node, rot)
-    fid = libid if libid else "phantasm:Teensy4.0"
-    node[1] = fid
+    node[1] = libid
     # strip lib-file-only headers
     node[:] = [c for c in node if not (isinstance(c, list) and c and
                c[0] in ("version", "generator", "generator_version", "tedit"))]
@@ -602,7 +613,7 @@ def main(unplaced=False, force=False):
     bxs = {}
     pad_bxs = {}
     for ref, (_, fp, _, _) in comps.items():
-        node = teensy_footprint() if fp in ("", "phantasm:Teensy4.0") else load_mod(fp)
+        node = teensy_footprint() if fp == TEENSY_LIBID else load_mod(fp)
         bxs[ref] = fp_bbox(node)
         pad_bxs[ref] = fp_bbox(node, pads_only=True)
     if unplaced:
