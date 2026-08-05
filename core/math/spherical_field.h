@@ -54,7 +54,8 @@ public:
 
   /**
    * @brief A fractional longitude bracketed by two absolute sample indices.
-   * @details mix is the weight of right, in [0, 1).
+   * @details mix is the weight of right, in [0, 1]; it reaches exactly 1 at the
+   *   seam, where left is clamped to the ring's last sample.
    */
   struct Longitude {
     int left;
