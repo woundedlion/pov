@@ -1915,7 +1915,7 @@ Polyline rings drift pole-to-pole through an inverse stereographic projection, e
 
 #### DreamBalls
 
-Draws twisting wireframe knotted structures derived from Archimedean solids. Mesh vertices are displaced along per-vertex tangent frames to create orbiting knot patterns, and a Möbius warp is applied to the geometry. Multiple copies orbit simultaneously while the whole structure tumbles under a slow Languid random-walk view orientation punctuated by periodic full-sphere spins. Four presets cycle every 320 frames, each carrying its own solid (rhombicuboctahedron, rhombicosidodecahedron, truncated cuboctahedron, icosidodecahedron), palette, and displacement settings; the outgoing sprite fades out before the incoming one fades in, so exactly one mesh renders per frame.
+Draws twisting wireframe knotted structures derived from Archimedean solids. Mesh vertices are displaced along per-vertex tangent frames to create orbiting knot patterns, and a Möbius warp is applied to the geometry. Multiple copies orbit simultaneously while the whole structure tumbles under a slow Languid random-walk view orientation punctuated by periodic full-sphere spins. Five presets cycle every 320 frames, each carrying its own solid (rhombicuboctahedron, rhombicosidodecahedron, truncated cuboctahedron, icosidodecahedron, snub cube) and displacement settings under a circular analogous generative palette with a cup brightness profile; the outgoing sprite fades out before the incoming one fades in, so exactly one mesh renders per frame.
 
 **Parameters**: Copies (number of knot copies), Radius (displacement), Speed (orbit speed), Warp (Möbius warp scale), Alpha
 
