@@ -142,7 +142,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("solids", 34, hs_test::solids_tests::run_solids_tests, 307007)             \
   X("reaction_graph", 14,                                                      \
     hs_test::reaction_graph_tests::run_reaction_graph_tests, 983)              \
-  X("color", 72, hs_test::color_tests::run_color_tests, 408926)                \
+  X("color", 74, hs_test::color_tests::run_color_tests, 408926)                \
   X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 95)            \
   X("easing_waves", 9, hs_test::easing_waves_tests::run_easing_waves_tests,    \
     6080)                                                                      \

@@ -497,6 +497,14 @@ static_assert(
                              const Lerpable &&, int, EasingFn>,
     "Lerp must REJECT a temporary target (would dangle)");
 
+static_assert(std::is_constructible_v<Animation::ColorWipe, GenerativePalette &,
+                                      const GenerativePalette &, int, EasingFn>,
+              "ColorWipe must accept an effect-owned target palette");
+static_assert(
+    !std::is_constructible_v<Animation::ColorWipe, GenerativePalette &,
+                             GenerativePalette &&, int, EasingFn>,
+    "ColorWipe must REJECT a temporary target palette (would dangle)");
+
 static_assert(std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
                                       const float &, const float &, int>,
               "MobiusFlow must accept lvalue (effect-owned) scalars");
@@ -2680,14 +2688,10 @@ inline void test_colorwipe_reaches_target_keys() {
 
   wipe.step(fake_canvas()); // t == duration: amount == 1 -> exact target keys
   HS_EXPECT_TRUE(wipe.done());
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.r),
-               static_cast<int>(target.a.r));
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.g),
-               static_cast<int>(target.a.g));
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().b.b),
-               static_cast<int>(target.b.b));
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().c.r),
-               static_cast<int>(target.c.r));
+  HS_EXPECT_NEAR(from.snapshot().a.L, target.a.L, 1e-6f);
+  HS_EXPECT_NEAR(from.snapshot().a.C, target.a.C, 1e-6f);
+  HS_EXPECT_NEAR(from.snapshot().b.h, target.b.h, 1e-6f);
+  HS_EXPECT_NEAR(from.snapshot().c.L, target.c.L, 1e-6f);
 }
 
 /**
@@ -2709,15 +2713,14 @@ inline void test_colorwipe_snapshots_on_first_step() {
                       CPixel(200, 200, 200));
 
   wipe.step(fake_canvas()); // t=1: amount 0.25, snapshot captured here
-  HS_EXPECT_GT(static_cast<int>(from.snapshot().a.r),
-               static_cast<int>(srgb_to_linear(200)));
+  const float source_l = pixel_to_oklch(Pixel(CPixel(200, 200, 200))).L;
+  HS_EXPECT_GT(from.snapshot().a.L, source_l);
 }
 
 /**
  * @brief Verifies a slow wipe resolves a new key level on essentially every
  *        frame.
- * @details 16-bit linear keys carry far more levels than the 240 an 8-bit sRGB
- *          channel spans over this range, so a 600-frame fade never plateaus.
+ * @details Canonical float OKLCH keys resolve every step of a 600-frame fade.
  */
 inline void test_colorwipe_slow_fade_resolves_every_frame() {
   GenerativePalette from =
@@ -2728,10 +2731,10 @@ inline void test_colorwipe_slow_fade_resolves_every_frame() {
   Animation::ColorWipe wipe(from, to, duration, ease_linear);
 
   int advanced = 0;
-  int prev = -1;
+  float prev = -1.0f;
   for (int i = 0; i < duration; ++i) {
     wipe.step(fake_canvas());
-    int cur = static_cast<int>(from.snapshot().a.r);
+    float cur = from.snapshot().a.L;
     if (i > 0 && cur != prev)
       ++advanced;
     prev = cur;
@@ -2750,21 +2753,20 @@ inline void test_colorwipe_paused_holds_keys() {
   GenerativePalette to = make_palette(
       CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
   GenerativePalette::Snapshot target = to.snapshot();
-  const int start_r = static_cast<int>(from.snapshot().a.r);
+  const float start_l = from.snapshot().a.L;
 
   const int duration = 4;
   Animation::ColorWipe wipe(from, to, duration, ease_linear, &paused);
   for (int i = 0; i < duration; ++i)
     wipe.step(fake_canvas());
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.r), start_r);
+  HS_EXPECT_NEAR(from.snapshot().a.L, start_l, 1e-6f);
   HS_EXPECT_FALSE(wipe.done());
 
   paused = false;
   for (int i = 0; i < duration; ++i)
     wipe.step(fake_canvas());
   HS_EXPECT_TRUE(wipe.done());
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.r),
-               static_cast<int>(target.a.r));
+  HS_EXPECT_NEAR(from.snapshot().a.L, target.a.L, 1e-6f);
 }
 
 // ============================================================================

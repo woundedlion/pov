@@ -315,3 +315,7 @@ static_assert(
     "A concrete animation type exceeds the TimelineEvent inline-storage "
     "budget (on the 32-bit WASM/device build MAX_ANIM_SIZE is the "
     "112-byte device budget); shrink the type or raise the budget.");
+#if defined(__wasm32__)
+static_assert(sizeof(Animation::ColorWipe) == 104,
+              "ColorWipe's target-reference layout changed on wasm32");
+#endif
