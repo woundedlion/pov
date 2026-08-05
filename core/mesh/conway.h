@@ -531,6 +531,15 @@ inline void transform_in_place(MeshState &mesh,
 // a closed manifold (require_closed_manifold traps otherwise); kis is per-face;
 // relax tolerates a boundary mesh (partial relaxation).
 //
+// DEGENERATE FACES (< 3 sides) have two policies. kis, relax and relax_baked
+// read `face_counts` directly and trap by name at the offending face. The
+// connectivity-driven operators (dual/ambo/truncate/expand/chamfer/snub/medial)
+// walk half-edge loops through the shared emitters, which drop a sub-triangular
+// face and carry on; test_conway_ops_drop_degenerate_primary_faces pins that
+// graceful degradation, so do not turn the drop into a trap. A dropped face
+// leaves a boundary hole, so a later operator in a chain reports a generic
+// "unpaired half-edge" instead of naming the bad face.
+//
 // COMPOSITION POLARITY: every operator, primitive or composed, returns its
 // output in `target`. A composition alternates the ping-pong once per
 // primitive step, so an even-length composition (gyro/needle/zip/bevel)
