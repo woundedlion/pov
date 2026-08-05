@@ -97,16 +97,24 @@ constexpr float face_azimuth_pad(int w) {
  *  static_asserts there. */
 inline constexpr size_t INTERVAL_SPAN_CAP = 32;
 
+/** A scanline span [first, second) in fractional column units. An aggregate, so
+ *  a span buffer's slots are left uninitialized when the buffer is constructed;
+ *  std::pair's default constructor value-initializes every slot, which the
+ *  per-draw and per-row buffers below would pay on every construction. */
+struct Interval {
+  float first;  /**< Span start column. */
+  float second; /**< Span end column. */
+};
+
 /** Per-row scanline interval buffer for a single shape. Fixed capacity,
  *  accumulate-only. */
-using IntervalBuffer =
-    StaticCircularBuffer<std::pair<float, float>, INTERVAL_SPAN_CAP>;
+using IntervalBuffer = StaticCircularBuffer<Interval, INTERVAL_SPAN_CAP>;
 
 /** Per-row accumulator for a binary CSG op that merges BOTH children's spans
  *  into one buffer (Union/SmoothUnion). Each child can contribute up to
  *  INTERVAL_SPAN_CAP spans, so the union accumulator is sized to hold both. */
 using MergedIntervalBuffer =
-    StaticCircularBuffer<std::pair<float, float>, 2 * INTERVAL_SPAN_CAP>;
+    StaticCircularBuffer<Interval, 2 * INTERVAL_SPAN_CAP>;
 
 /**
  * @brief Places a per-row CSG span buffer in a guarded scratch arena.
@@ -258,8 +266,8 @@ inline constexpr bool blends_smoothly<Subtract<A, B>> =
  * site.
  */
 template <size_t N>
-inline void push_interval(StaticCircularBuffer<std::pair<float, float>, N> &buf,
-                          float start, float end) {
+inline void push_interval(StaticCircularBuffer<Interval, N> &buf, float start,
+                          float end) {
   HS_CHECK(!buf.is_full(), "SDF scanline interval buffer overflow in one row");
   buf.push_back({start, end});
 }
@@ -271,8 +279,7 @@ inline void push_interval(StaticCircularBuffer<std::pair<float, float>, N> &buf,
  * avoids the per-access modulo. Shared by merge_intervals and Subtract.
  */
 template <size_t N>
-inline void
-sort_intervals_by_start(StaticCircularBuffer<std::pair<float, float>, N> &buf) {
+inline void sort_intervals_by_start(StaticCircularBuffer<Interval, N> &buf) {
   HS_CHECK(buf.is_linear(),
            "sort_intervals_by_start: raw linear indexing requires head==0");
   auto *data = &buf[0];
@@ -300,9 +307,9 @@ sort_intervals_by_start(StaticCircularBuffer<std::pair<float, float>, N> &buf) {
  * common in-[0,W) case this copies through unchanged.
  */
 template <int W, size_t N, size_t M>
-inline void normalize_intervals_to_range(
-    const StaticCircularBuffer<std::pair<float, float>, N> &src,
-    StaticCircularBuffer<std::pair<float, float>, M> &dst) {
+inline void
+normalize_intervals_to_range(const StaticCircularBuffer<Interval, N> &src,
+                             StaticCircularBuffer<Interval, M> &dst) {
   constexpr float Wf = static_cast<float>(W);
   for (size_t i = 0; i < src.size(); ++i) {
     float len = src[i].second - src[i].first;
@@ -334,9 +341,8 @@ inline void normalize_intervals_to_range(
  * Templated on the output sink so it inlines at -O3.
  */
 template <size_t N, typename OutputIt>
-inline void
-merge_intervals(StaticCircularBuffer<std::pair<float, float>, N> &merged,
-                OutputIt out) {
+inline void merge_intervals(StaticCircularBuffer<Interval, N> &merged,
+                            OutputIt out) {
   sort_intervals_by_start(merged);
   HS_CHECK(merged.is_linear(),
            "merge_intervals: raw linear indexing requires head==0");
@@ -1641,8 +1647,7 @@ template <typename A, typename B> struct Subtract {
       constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
       static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP,
                     "post-seam-split span count exceeds norm buffer capacity");
-      using NormBuffer =
-          StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP>;
+      using NormBuffer = StaticCircularBuffer<Interval, SEAM_SPLIT_CAP>;
       NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
       normalize_intervals_to_range<W>(intervals_a, norm_a);
       for (size_t i = 0; i < norm_a.size(); ++i)
@@ -1685,8 +1690,7 @@ template <typename A, typename B> struct Subtract {
     static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
                       2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,
                   "post-seam-split span count exceeds norm buffer capacity");
-    using NormBuffer =
-        StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP>;
+    using NormBuffer = StaticCircularBuffer<Interval, SEAM_SPLIT_CAP>;
     NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
     NormBuffer &norm_b = scratch_spans<NormBuffer>(scratch);
     normalize_intervals_to_range<W>(intervals_a, norm_a);
@@ -1868,8 +1872,7 @@ template <typename A, typename B> struct Intersection {
     static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
                       2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,
                   "post-seam-split span count exceeds norm buffer capacity");
-    using NormBuffer =
-        StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP>;
+    using NormBuffer = StaticCircularBuffer<Interval, SEAM_SPLIT_CAP>;
     NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
     NormBuffer &norm_b = scratch_spans<NormBuffer>(scratch);
     normalize_intervals_to_range<W>(intervals_a, norm_a);
