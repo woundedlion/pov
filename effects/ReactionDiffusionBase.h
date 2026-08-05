@@ -141,9 +141,7 @@ protected:
    * tolerates (tests/test_reaction_graph.h) stay unrecovered.
    * @details Off the render path: both systems center their stencils with
    * refine_render_center. This unconditional walk is the independent oracle
-   * tests/test_effects.h measures that certified early-out against, so leave it
-   * a plain argmin — optimizing it forfeits the independence, deleting it
-   * forfeits the check.
+   * tests/test_effects.h measures that certified early-out against.
    */
   HS_O3_FN static int refine_center(const Vector &rv, const Vector *nodes,
                                     int seed) {
@@ -223,15 +221,10 @@ protected:
    * every node inside the support radius.
    * @details Off the render path: its only caller is GSReactionDiffusion's
    * interpolate_b, itself a tests/test_effects.h oracle. It stands as the
-   * per-sample reference the shared-stencil shaders are bounded against.
-   *
-   * The CubemapLUT quantizes the query direction to a face cell, so its seed
-   * can be a not-quite-nearest node; centering the kernel on the genuine
-   * nearest node removes that quantization bias. The seed stencil's squared
-   * distances are computed once, tracking the argmin: when the seed is already
-   * nearest (the common case — a LUT cell is finer than a lattice cell) they
-   * feed the kernel weights directly; otherwise the kernel re-walks the refined
-   * center's stencil.
+   * per-sample reference the shared-stencil shaders are bounded against. The
+   * seed stencil's squared distances are computed once while tracking the
+   * argmin: when the seed is already nearest they feed the kernel weights
+   * directly; otherwise the kernel re-walks the refined center's stencil.
    */
   template <typename OnWeight>
   HS_O3_FN static void refine_and_accumulate(const Vector &rv,
