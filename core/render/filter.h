@@ -1729,7 +1729,10 @@ public:
   template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    int cx = fast_wrap(static_cast<int>(std::round(x)), W);
+    int xi = static_cast<int>(std::round(x));
+    // fast_wrap corrects only a single ±W offset, so xi must land in [-W, 2W).
+    assert(xi >= -W && xi < 2 * W);
+    int cx = fast_wrap(xi, W);
     int cy = static_cast<int>(std::round(y));
 
     float inv = 1.0f;
@@ -2559,7 +2562,10 @@ public:
     b_col.r = 0;
     b_col.g = 0;
 
-    int xi = fast_wrap(static_cast<int>(std::round(x)), W);
+    int xi = static_cast<int>(std::round(x));
+    // fast_wrap corrects only a single ±W offset, so xi must land in [-W, 2W).
+    assert(xi >= -W && xi < 2 * W);
+    xi = fast_wrap(xi, W);
     pass(static_cast<float>(fast_wrap(xi + 1, W)), y, r_col, age, alpha);
     pass(static_cast<float>(fast_wrap(xi + 2, W)), y, g_col, age, alpha);
     pass(static_cast<float>(fast_wrap(xi + 3, W)), y, b_col, age, alpha);
