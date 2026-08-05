@@ -52,17 +52,24 @@ public:
    * @param quantized If true, every stepped value is floored, so the ramp is an
    * integer staircase rather than a smooth sweep.
    * @param repeat If true, the transition repeats indefinitely.
+   * @param paused Optional pause gate; null = always runs.
    */
   Transition(float &mutant, float to, int duration, EasingFn easing_fn,
-             bool quantized = false, bool repeat = false)
+             bool quantized = false, bool repeat = false,
+             const bool *paused = nullptr)
       : FiniteParamAnimationBase(duration, repeat), mutant(mutant), from(0.0f),
-        to(to), easing_fn(std::move(easing_fn)), quantized(quantized) {}
+        to(to), easing_fn(std::move(easing_fn)), quantized(quantized),
+        paused(paused) {}
 
   /**
    * @brief Performs one step of the transition.
    * @param canvas The canvas buffer (forwarded to the base step).
+   * @details Freezes while a wired pause flag is set (see Mutation::step); the
+   * start snapshot is taken on the first unpaused step.
    */
   void step(Canvas &canvas) override {
+    if (is_paused(paused))
+      return;
     // Snapshot the start once, on the first step. A repeating Transition rewinds
     // to t==0 with mutant == to, so re-snapshotting would freeze from = to.
     if (!captured) {
@@ -86,6 +93,8 @@ private:
   EasingFn easing_fn;    /**< Easing curve. */
   bool quantized;        /**< Floors every stepped value. */
   bool captured = false; /**< True once `from` has been snapshotted. */
+  const bool *paused; /**< Optional pause gate; freezes the transition when set
+                          and true. Null = always runs. */
 };
 
 /**
@@ -315,19 +324,25 @@ public:
    * @param to_palette The GenerativePalette to interpolate toward.
    * @param duration The duration in frames.
    * @param easing_fn The easing function.
+   * @param paused Optional pause gate; null = always runs.
    */
   ColorWipe(GenerativePalette &from_palette,
             const GenerativePalette &to_palette, int duration,
-            EasingFn easing_fn)
+            EasingFn easing_fn, const bool *paused = nullptr)
       : FiniteParamAnimationBase(duration, false), cur_palette(from_palette),
-        to_snap(to_palette.snapshot()), easing_fn(std::move(easing_fn)) {}
+        to_snap(to_palette.snapshot()), easing_fn(std::move(easing_fn)),
+        paused(paused) {}
 
   /**
    * @brief Steps the animation, blending the palette's colors based on the time
    * factor.
    * @param canvas The canvas buffer (forwarded to the base step).
+   * @details Freezes while a wired pause flag is set (see Mutation::step); the
+   * start snapshot is taken on the first unpaused step.
    */
   void step(Canvas &canvas) override {
+    if (is_paused(paused))
+      return;
     // Snapshot the start palette once, on the first step (see Transition::step).
     if (!captured) {
       from_snap = cur_palette.get().snapshot();
@@ -345,6 +360,8 @@ private:
   GenerativePalette::Snapshot to_snap; /**< Snapshot of target colors. */
   EasingFn easing_fn;                  /**< Easing curve. */
   bool captured = false; /**< Whether from_snap was taken on the first step. */
+  const bool *paused; /**< Optional pause gate; freezes the wipe when set and
+                          true. Null = always runs. */
 };
 
 /**
