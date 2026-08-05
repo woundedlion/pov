@@ -277,6 +277,62 @@ inline void test_sampler_wraps_south_pole_with_virtual_rows() {
   HS_EXPECT_EQ(sample, 3200 + 7 + W / 2);
 }
 
+// Drives the generic sampler with the RGB sampler's own load and blend, so the
+// two agree only if they share one pole-tap policy.
+template <int W, int H, int HOffset>
+inline void
+generic_sample_rgb(const hs::SphericalFieldLayout<W, H, HOffset> &layout,
+                   const Rgb *source, const Rgb *poles, float x, float y,
+                   float &r, float &g, float &b) {
+  const Rgb outside;
+  layout.sample_bilinear(
+      x, y, poles, outside,
+      [source](int sample_x, int sample_y) {
+        return source[sample_y * W + sample_x];
+      },
+      [&](const Rgb &p00, const Rgb &p10, const Rgb &p01, const Rgb &p11,
+          float fx, float fy) {
+        const float w00 = (1.0f - fx) * (1.0f - fy);
+        const float w10 = fx * (1.0f - fy);
+        const float w01 = (1.0f - fx) * fy;
+        const float w11 = fx * fy;
+        r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
+        g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
+        b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
+      });
+}
+
+template <int HOffset, int PoleCount>
+inline void expect_rgb_sampler_matches_generic() {
+  constexpr int W = 64;
+  constexpr int H = 34;
+  constexpr hs::SphericalFieldLayout<W, H, HOffset> layout(4, 4, 1, W / 4);
+  static_assert(decltype(layout)::POLE_COUNT == PoleCount);
+  std::array<Rgb, W * H> rgb{};
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      rgb[y * W + x] = Rgb(y * 100 + x, y * 100 + x + 1, y * 100 + x + 2);
+  const Rgb poles[]{Rgb(-1, -2, -3), Rgb(7000, 7001, 7002)};
+
+  for (int step = -4; step <= 2 * (H + HOffset); ++step) {
+    const float y = step * 0.5f;
+    for (const float x : {-0.5f, 0.0f, 7.25f, W - 0.5f, W + 0.75f}) {
+      float r, g, b;
+      layout.sample_bilinear_rgb(rgb.data(), poles, x, y, r, g, b);
+      float er, eg, eb;
+      generic_sample_rgb(layout, rgb.data(), poles, x, y, er, eg, eb);
+      HS_EXPECT_NEAR(r, er, 1e-3f);
+      HS_EXPECT_NEAR(g, eg, 1e-3f);
+      HS_EXPECT_NEAR(b, eb, 1e-3f);
+    }
+  }
+}
+
+inline void test_rgb_sampler_matches_generic_sampler() {
+  expect_rgb_sampler_matches_generic<0, 2>();
+  expect_rgb_sampler_matches_generic<3, 1>();
+}
+
 inline int run_spherical_field_tests() {
   hs_test::ModuleFixture fixture("spherical_field");
   test_constexpr_layout_counts();
@@ -291,6 +347,7 @@ inline int run_spherical_field_tests() {
   test_longitude_filter_and_sampler_wrap_poles();
   test_sampler_wraps_south_pole_with_virtual_rows();
   test_sampler_collapses_south_pole_without_virtual_rows();
+  test_rgb_sampler_matches_generic_sampler();
   return fixture.result();
 }
 

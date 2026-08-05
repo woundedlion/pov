@@ -263,28 +263,16 @@ public:
     x0 = ::fast_wrap(x0, W);
     const int x1 = x0 + 1 < W ? x0 + 1 : 0;
 
-    // Row H-1 is the south pole only when HOffset is 0; it then leaves the
-    // direct-load band so the pole substitution reaches it.
-    constexpr int LAST_DIRECT_ROW = POLE_COUNT == 2 ? H - 3 : H - 2;
-    if (y0 > 0 && y0 <= LAST_DIRECT_ROW) {
+    if (in_direct_band(y0)) {
       return std::forward<Combine>(combine)(load(x0, y0), load(x1, y0),
                                             load(x0, y0 + 1), load(x1, y0 + 1),
                                             fx, fy);
     }
-
-    auto tap = [&](int sample_x, int sample_y) {
-      if (!wrap_sample(sample_x, sample_y))
-        return outside;
-      if (sample_y == 0)
-        return poles[0];
-      if constexpr (POLE_COUNT == 2) {
-        if (sample_y == H - 1)
-          return poles[1];
-      }
-      return load(sample_x, sample_y);
-    };
     return std::forward<Combine>(combine)(
-        tap(x0, y0), tap(x1, y0), tap(x0, y0 + 1), tap(x1, y0 + 1), fx, fy);
+        pole_tap(x0, y0, poles, outside, load),
+        pole_tap(x1, y0, poles, outside, load),
+        pole_tap(x0, y0 + 1, poles, outside, load),
+        pole_tap(x1, y0 + 1, poles, outside, load), fx, fy);
   }
 
   /**
@@ -302,22 +290,24 @@ public:
   __attribute__((always_inline)) void
   sample_bilinear_rgb(const Pixel *source, const Pixel *poles, float x, float y,
                       float &r, float &g, float &b) const {
-    static constexpr Pixel OUTSIDE{};
-    sample_bilinear(
-        x, y, poles, OUTSIDE,
-        [source](int sample_x, int sample_y) {
-          return source[sample_y * W + sample_x];
-        },
-        [&](const Pixel &p00, const Pixel &p10, const Pixel &p01,
-            const Pixel &p11, float fx, float fy) {
-          const float w00 = (1.0f - fx) * (1.0f - fy);
-          const float w10 = fx * (1.0f - fy);
-          const float w01 = (1.0f - fx) * fy;
-          const float w11 = fx * fy;
-          r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
-          g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
-          b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
-        });
+    const float floor_x = std::floor(x);
+    const float floor_y = std::floor(y);
+    int x0 = static_cast<int>(floor_x);
+    const int y0 = static_cast<int>(floor_y);
+    const float fx = x - floor_x;
+    const float fy = y - floor_y;
+
+    x0 = ::fast_wrap(x0, W);
+    const int x1 = x0 + 1 < W ? x0 + 1 : 0;
+
+    if (!in_direct_band(y0)) {
+      sample_bilinear_rgb_poles(source, poles, x0, x1, y0, fx, fy, r, g, b);
+      return;
+    }
+    const int row = y0 * W;
+    const int next_row = row + W;
+    combine_rgb(source[row + x0], source[row + x1], source[next_row + x0],
+                source[next_row + x1], fx, fy, r, g, b);
   }
 
   /**
@@ -398,6 +388,79 @@ public:
 
 private:
   static_assert(W > 0 && H > 1 && H + HOffset > 1);
+
+  /**
+   * @brief Last row whose bilinear footprint loads directly.
+   * @details Row H-1 is the south pole only when HOffset is 0; it then leaves
+   * the direct-load band so the pole substitution reaches it.
+   */
+  static constexpr int LAST_DIRECT_ROW = POLE_COUNT == 2 ? H - 3 : H - 2;
+
+  /** @brief True when row y0's bilinear footprint needs no seam or pole
+   *  substitution. */
+  static constexpr bool in_direct_band(int y0) {
+    return y0 > 0 && y0 <= LAST_DIRECT_ROW;
+  }
+
+  /**
+   * @brief One topology-correct tap for a footprint outside the direct band.
+   * @param sample_x Lattice column, before seam reflection.
+   * @param sample_y Lattice row, before pole reflection.
+   * @param poles POLE_COUNT shared pole-row values.
+   * @param outside Value for a coordinate the rendered domain has no sample
+   *   for.
+   * @param load Loads an in-domain, non-pole lattice sample.
+   */
+  template <typename Value, typename Load>
+  __attribute__((always_inline)) Value pole_tap(int sample_x, int sample_y,
+                                                const Value *poles,
+                                                const Value &outside,
+                                                Load &&load) const {
+    if (!wrap_sample(sample_x, sample_y))
+      return outside;
+    if (sample_y == 0)
+      return poles[0];
+    if constexpr (POLE_COUNT == 2) {
+      if (sample_y == H - 1)
+        return poles[1];
+    }
+    return load(sample_x, sample_y);
+  }
+
+  /** @brief Bilinearly blends four taps into unclamped float channels. */
+  template <typename Pixel>
+  __attribute__((always_inline)) static void
+  combine_rgb(const Pixel &p00, const Pixel &p10, const Pixel &p01,
+              const Pixel &p11, float fx, float fy, float &r, float &g,
+              float &b) {
+    const float w00 = (1.0f - fx) * (1.0f - fy);
+    const float w10 = fx * (1.0f - fy);
+    const float w01 = (1.0f - fx) * fy;
+    const float w11 = fx * fy;
+    r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
+    g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
+    b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
+  }
+
+  /**
+   * @brief sample_bilinear_rgb()'s footprint outside the direct band.
+   * @details Kept out of line so the direct band, which every row but the two
+   * pole rows takes, inlines into the caller's per-pixel loop.
+   */
+  template <typename Pixel>
+  HS_NOINLINE_NOCLONE void
+  sample_bilinear_rgb_poles(const Pixel *source, const Pixel *poles, int x0,
+                            int x1, int y0, float fx, float fy, float &r,
+                            float &g, float &b) const {
+    static constexpr Pixel OUTSIDE{};
+    auto load = [source](int sample_x, int sample_y) {
+      return source[sample_y * W + sample_x];
+    };
+    combine_rgb(pole_tap(x0, y0, poles, OUTSIDE, load),
+                pole_tap(x1, y0, poles, OUTSIDE, load),
+                pole_tap(x0, y0 + 1, poles, OUTSIDE, load),
+                pole_tap(x1, y0 + 1, poles, OUTSIDE, load), fx, fy, r, g, b);
+  }
 
   constexpr int maximum_longitude_samples() const {
     return equator_samples > 0
