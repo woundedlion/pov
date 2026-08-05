@@ -1877,6 +1877,7 @@ inline void test_mesh_clip_cut_separates_band() {
     cr.x_start = bd[2];
     cr.x_end = bd[3];
     const auto xc = cr.x_clip();
+    const Plot::ClipCutBounds cb = Plot::make_clip_cut_bounds<TW, TH>(cr, xc);
 
     for (int trial = 0; trial < 300; ++trial) {
       ScratchScope sc(plot_arena());
@@ -1889,8 +1890,7 @@ inline void test_mesh_clip_cut_separates_band() {
         continue;
 
       float ts[Plot::GEODESIC_CLIP_MAX_SPLITS];
-      const int n =
-          Plot::geodesic_clip_splits<TW, TH>(fa.pos, fb.pos, es, cr, xc, ts);
+      const int n = Plot::geodesic_clip_splits(fa.pos, fb.pos, es, cb, ts);
       cuts += n;
 
       const Vector perp = cross(es.axis, fa.pos);
