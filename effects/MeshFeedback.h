@@ -12,9 +12,7 @@
 
 #include "core/engine/engine.h"
 
-// Unit-test accessor reaching the private style/noise/preset bookkeeping; the
-// smoke harness renders ~120 frames, short of the PRESET_FRAMES rotation, so
-// the switch frame is only reachable through a dedicated sweep.
+// Unit-test accessor reaching the private style/noise/preset bookkeeping.
 namespace hs_test {
 namespace effects_tests {
 struct MeshFeedbackWhiteBox;

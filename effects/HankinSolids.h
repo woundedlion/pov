@@ -428,17 +428,8 @@ private:
       const SlotLutView &view = is_strap ? strap_view : star_view;
       f.color = shade_mesh_topology(f, topology, topology_faces, view,
                                     SLOT_IDENTITY, params.intensity, opacity);
-      // Every collapse is the same operation: cross-fade this face's ramp onto
-      // the ramp of the face taking its place, sampled at the same edge
-      // distance so center travels to center and edge to edge. A rosette is
-      // born inside a star face and closes back onto it; a star is filled by
-      // the rosettes inside it. Pulling toward the counterpart's edge color
-      // alone would flatten the collapsing face onto a single color instead.
-      // A rosette's counterpart is the same star face at both ends -- it is
-      // born inside it and closes back onto it -- so the ramp cross-fade is
-      // symmetric across the sweep. The coverage fade below is a separate
-      // concern: it only matters while the face is sub-pixel, where the ramp
-      // cross-fade has nothing to bite on.
+      // Cross-fade this face's ramp onto the ramp of the face taking its
+      // place, sampled at the same edge distance.
       const int fi = mesh_face_index(f);
       const float counterpart_blend =
           is_strap ? (strap_open_fade < strap_close_blend ? strap_open_fade
@@ -453,11 +444,7 @@ private:
         other.alpha = f.color.alpha;
         f.color = other.lerp(f.color, counterpart_blend);
       }
-      // Coverage fades, at each end of the strap's life. A newborn rosette is
-      // sub-pixel inside a star interior whose pixels sit mid-ramp, so no ramp
-      // position matches and only coverage closes the gap; the last sliver of a
-      // closing one is anti-aliasing only, so fading it uncovers nothing but
-      // removes the one-frame snap as it and the boundary it holds off go.
+      // Coverage fades at each end of the strap's life.
       if (is_strap && fade_straps)
         f.color.alpha *= strap_open_fade;
       if (is_strap && close_straps)

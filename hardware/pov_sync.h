@@ -549,12 +549,8 @@ public:
    * @param gap_timeout_cycles Quiet time that terminates a burst, in cycles.
    * @param[out] out Burst snapshot, written only when true is returned.
    * @return True if a burst had terminated and was claimed.
-   * @details The single consumer primitive: it recomputes completion from the
-   * same `count` it then clears, so a split burst_complete()+claim() can never
-   * fold a freshly-arrived first edge into the terminated burst and then zero
-   * it. The edge ISR still must not run between the test and the reset; the
-   * device brackets this call in IRQ-off exactly as it did the split pair, but
-   * the window can no longer be opened by an undisciplined caller.
+   * @details The edge ISR must not run between the completion test and the
+   * reset; the device brackets this call in IRQ-off.
    * `now` is sampled before the bracket opens, so an edge landing in between
    * leaves `last_cycles` ahead of it; the signed re-check rejects that wrapped
    * modular difference instead of claiming a burst still in flight.
@@ -574,21 +570,16 @@ public:
    * quiet longer than the filter window.
    * @param now Current timestamp, in cycles.
    * @param glitch_filter_cycles Filter window, in cycles.
-   * @details The prior accepted edge only suppresses an EMI spike within
-   * glitch_filter_cycles of it; any later edge is accepted regardless, so
-   * dropping the reference here is behaviourally identical for glitch
-   * suppression. Its purpose is to keep `now - prior_cycles` bounded:
-   * `prior_cycles` otherwise persists indefinitely, and after ~7.16 s of wire
-   * silence the cycle counter wraps, making that modular difference
-   * pseudo-random — with p ≈ glitch/2³² it lands inside the reject window and
-   * falsely rejects a real edge. The flywheel poll calls this every column, so
-   * a stale reference is cleared within one column of silence, long before the
-   * counter can wrap. Must run under the same single-writer discipline as
-   * claim() (it writes have_prior, which the edge ISR also writes); that
-   * concurrency is enforced by the device's IRQ-off discipline and is not
-   * exercised by the host tests (no concurrent ISR there). `now` is sampled
-   * before the bracket opens, so the signed re-check rejects the wrapped
-   * modular difference an edge accepted in between would produce.
+   * @details Keeps `now - prior_cycles` bounded: `prior_cycles` otherwise
+   * persists indefinitely, and after ~7.16 s of wire silence the cycle counter
+   * wraps, making that modular difference pseudo-random — with p ≈ glitch/2³²
+   * it lands inside the reject window and falsely rejects a real edge. The
+   * flywheel poll calls this every column, so a stale reference is cleared
+   * within one column of silence, long before the counter can wrap. Must run
+   * under the same single-writer discipline as claim(): it writes have_prior,
+   * which the edge ISR also writes. `now` is sampled before the bracket opens,
+   * so the signed re-check rejects the wrapped modular difference an edge
+   * accepted in between would produce.
    */
   void age_prior(uint32_t now, uint32_t glitch_filter_cycles) {
     if (have_prior && (now - prior_cycles) >= glitch_filter_cycles &&
@@ -597,8 +588,8 @@ public:
   }
 
 private:
-  // burst_complete()+claim() are the split consumer path try_claim() fused;
-  // kept private behind a test friend so production cannot reintroduce the race.
+  // Split consumer path, kept private behind a test friend so production takes
+  // only the unsplittable try_claim().
   friend struct ::hs_test::pov_sync_tests::EdgeMailboxTestAccess;
 
   /**
@@ -1711,7 +1702,7 @@ private:
     halves_since_snap = 0;
     // MUST precede on_epoch_symbol: a ZERO_EPOCH folds rev_in_effect here so the
     // j-inference below reads the post-fold rev (§6.3.1). Deduped against the
-    // later fold-loop apply_flip. See test_epoch_same_tick_burst_fold.
+    // later fold-loop apply_flip.
     apply_flip(b, a);
     if (sym == Symbol::ZERO_EPOCH && content_tracker.identity_known) {
       if (content_tracker.on_epoch_symbol(protocol_config)) {

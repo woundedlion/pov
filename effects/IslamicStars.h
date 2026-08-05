@@ -1037,8 +1037,8 @@ private:
 
     // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
     // is dead once the handoff centroids above are snapshotted, so drop it here
-    // rather than carrying a full ambo copy through the medial leg's whole render
-    // life -- the persistent spike that kept the needle over budget.
+    // rather than carrying a full ambo copy through the medial leg's whole
+    // render life.
     dual_bridge_ambo_faces = dual_bridge_ambo.face_counts.size();
     dual_bridge_ambo = PolyMesh();
 
