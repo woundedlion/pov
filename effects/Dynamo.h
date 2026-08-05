@@ -82,6 +82,7 @@ public:
     register_param("Speed", &params.speed, -10.0f, 10.0f);
     register_param("Gap", &params.gap, 1.0f, GAP_MAX);
     register_param("Trail Len", &params.trail_length, 1.0f, 100.0f);
+    register_readonly_param("Trail Cap", &params.trail_ceiling, 1.0f, 255.0f);
     register_param("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
 
     for (size_t i = 0; i < NUM_NODES; ++i) {
@@ -113,9 +114,12 @@ public:
     Canvas canvas(*this);
 
     // Push the live "Trail Len" slider into the Trails filter, capped to what
-    // the ring can hold for the current emission rate.
+    // the ring can hold for the current emission rate. The cap is published as
+    // read-only telemetry so the GUI can show why a long trail renders short.
+    const int ceiling = trail_length_ceiling();
+    params.trail_ceiling = static_cast<float>(ceiling);
     filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().set_lifetime(
-        hs::clamp((int)params.trail_length, 1, trail_length_ceiling()));
+        hs::clamp((int)params.trail_length, 1, ceiling));
 
     {
       HS_PROFILE(dy_timeline_step);
@@ -487,12 +491,15 @@ private:
 
   /**
    * @brief Live slider-backed parameters for the effect.
+   * @details trail_ceiling is engine-written (read-only); the rest are sliders.
    */
   struct Params {
     float speed = 2.0f;          /**< Strand travel speed. */
     float gap = 5.0f;            /**< Target spacing between adjacent nodes. */
     float trail_length = 8.0f;   /**< Active trail length. */
     float wipe_duration = 20.0f; /**< Color-wipe transition duration. */
+    /** Longest trail the ring can hold, in frames (engine-written). */
+    float trail_ceiling = 255.0f;
   } params;
 
   // Precedes filters, whose constructor reads params.trail_length.
