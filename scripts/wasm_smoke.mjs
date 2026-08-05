@@ -497,6 +497,10 @@ async function main() {
               Module.ParamSetResult.APPLIED) {
             fail(`state-seam: manual animated write on ${name}.${manual.name} failed`);
           }
+          if (engine.getAnimationsPaused() !== true) {
+            fail(`state-seam: an animated write on ${name}.${manual.name} left ` +
+              'getAnimationsPaused() false — the implicit pause is unreadable');
+          }
           const held = animatedValues();
           for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
           const stillHeld = animatedValues();
@@ -515,11 +519,19 @@ async function main() {
           if (anyMoved(reloadedHeld, animatedValues())) {
             fail(`state-seam: setEffect("${name}") lost the paused state`);
           }
+          if (engine.getAnimationsPaused() !== true) {
+            fail(`state-seam: setEffect("${name}") left getAnimationsPaused() false ` +
+              'while the effect was still frozen');
+          }
 
           engine.setAnimationsPaused(false);
           for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
           if (!anyMoved(reloadedHeld, animatedValues())) {
             fail(`state-seam: setAnimationsPaused(false) on ${name} did not resume animation`);
+          }
+          if (engine.getAnimationsPaused() !== false) {
+            fail(`state-seam: setAnimationsPaused(false) on ${name} left ` +
+              'getAnimationsPaused() true');
           }
           console.log(`  state-seam: paramGeneration + setAnimationsPaused freeze/resume on ${name} OK`);
           pauseTested = true;

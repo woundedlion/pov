@@ -691,6 +691,12 @@ public:
    *         parameter's registered [min,max] — APPLIED does NOT imply the
    *         stored value equals the requested one. A consumer that needs the
    *         effective value should read it back via getParamValues().
+   * @details An APPLIED write to an *animated* param engages the engine's
+   *          animation pause, exactly as setAnimationsPaused(true) would: the
+   *          value the caller just set would otherwise be overwritten by the
+   *          animation on the next frame. The pause is retained across
+   *          setEffect(), so a caller mirroring it must read it back through
+   *          getAnimationsPaused() rather than track it separately.
    */
   ParamSetResult setParameter(const std::string &name, float value) {
     if (!current_effect)
@@ -707,13 +713,24 @@ public:
    * @brief Pauses or resumes the current effect's parameter animations.
    * @param paused true to pause animations, false to resume.
    * @details Retained across effect and resolution changes and applied to the
-   *          next effect when no effect is currently loaded.
+   *          next effect when no effect is currently loaded. setParameter()
+   *          engages the same pause on an animated write, so this is not the
+   *          only writer.
    */
   void setAnimationsPaused(bool paused) {
     animations_paused = paused;
     if (current_effect)
       current_effect->setAnimationsPaused(paused);
   }
+
+  /**
+   * @brief Reports whether the engine's parameter animations are paused.
+   * @return true while animations are frozen.
+   * @details The state setAnimationsPaused() writes and an animated
+   *          setParameter() write engages, so a caller reads the rule here
+   *          instead of re-implementing it.
+   */
+  bool getAnimationsPaused() const { return animations_paused; }
 
   /**
    * @brief Sets near-pole azimuthal shading decimation.
@@ -1769,6 +1786,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getBufferLength", &HolosphereEngine::getBufferLength)
       .function("setParameter", &HolosphereEngine::setParameter)
       .function("setAnimationsPaused", &HolosphereEngine::setAnimationsPaused)
+      .function("getAnimationsPaused", &HolosphereEngine::getAnimationsPaused)
       .function("setPoleLod", &HolosphereEngine::setPoleLod)
       .function("getPoleLod", &HolosphereEngine::getPoleLod)
       .function("getParameterDefinitions",
