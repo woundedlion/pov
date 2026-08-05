@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
@@ -88,6 +89,36 @@ class AnalyzeTests(unittest.TestCase):
                                          "(size 0.4) (drill 0.15)")
 
         self.assertEqual(self.analyze_source(source)["small_vias"], 1)
+
+
+class ResolveKicadCliTests(unittest.TestCase):
+    def test_absolute_install_path_is_used_as_is(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cli = Path(directory) / "kicad-cli"
+            cli.touch()
+
+            with mock.patch.object(analyze_candidates, "KCLI", str(cli)):
+                self.assertEqual(analyze_candidates.resolve_kicad_cli(), str(cli))
+
+    def test_bare_name_resolves_through_path(self):
+        with mock.patch.object(analyze_candidates, "KCLI", "kicad-cli"), \
+                mock.patch.object(analyze_candidates.shutil, "which",
+                                  return_value="/opt/homebrew/bin/kicad-cli") as which:
+            self.assertEqual(analyze_candidates.resolve_kicad_cli(),
+                             "/opt/homebrew/bin/kicad-cli")
+        which.assert_called_once_with("kicad-cli")
+
+    def test_unresolvable_name_is_none(self):
+        with mock.patch.object(analyze_candidates, "KCLI", "kicad-cli"), \
+                mock.patch.object(analyze_candidates.shutil, "which",
+                                  return_value=None):
+            self.assertIsNone(analyze_candidates.resolve_kicad_cli())
+
+    def test_drc_gate_reports_missing_only_when_unresolvable(self):
+        with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
+                               return_value=None):
+            self.assertEqual(analyze_candidates.run_drc("board.kicad_pcb")["status"],
+                             analyze_candidates.DRC_MISSING)
 
 
 if __name__ == "__main__":

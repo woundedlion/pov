@@ -33,6 +33,7 @@ import glob
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -114,6 +115,17 @@ def no_drc(status):
     return dict(status=status, errors=0, unconnected=0, by_type=Counter())
 
 
+def resolve_kicad_cli():
+    """Return a runnable kicad-cli, or None if it can't be found.
+
+    find_kicad_cli() yields either an absolute install path or the bare name
+    "kicad-cli" for a PATH install (Homebrew/flatpak/snap/~/.local/bin), so the
+    bare name has to be resolved through PATH rather than the filesystem."""
+    if not KCLI:
+        return None
+    return KCLI if os.path.exists(KCLI) else shutil.which(KCLI)
+
+
 def run_drc(pcb_path):
     """Run kicad-cli DRC; return dict(status, errors, unconnected, by_type Counter).
 
@@ -122,14 +134,15 @@ def run_drc(pcb_path):
     must branch on status rather than read them as a clean result. Errors are
     bucketed by rule so refill-fixable zone artifacts are distinguishable from real
     shorts/crossings."""
-    if not KCLI or not os.path.exists(KCLI):
+    cli = resolve_kicad_cli()
+    if not cli:
         return no_drc(DRC_MISSING)
     # Unique report per call + returncode check: a shared fixed path lets a
     # kicad-cli early-exit leave a stale neighbor's report to be misattributed.
     fd, rpt = tempfile.mkstemp(suffix=".rpt", prefix="cand_drc_")
     os.close(fd)
     try:
-        r = subprocess.run([KCLI, "pcb", "drc", "--severity-error", pcb_path, "-o", rpt],
+        r = subprocess.run([cli, "pcb", "drc", "--severity-error", pcb_path, "-o", rpt],
                            capture_output=True, timeout=120, check=False)
         if r.returncode != 0:
             return no_drc(DRC_FAILED)
