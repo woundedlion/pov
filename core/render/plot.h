@@ -1185,6 +1185,9 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
 #ifdef HS_TEST_BUILD
 inline bool g_reference_screen_step = false;
 
+/** @brief Caps rasterize()'s per-segment sub-step budget; 0 leaves it alone. */
+inline size_t g_step_budget_override = 0;
+
 template <int W, int H>
 static inline float screen_step_reference(const Vector &pos, const Vector &tan,
                                           float base_step) {
@@ -1557,6 +1560,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // backstop. SinglePass emits as it goes and takes max_cache only as that
   // backstop, so it never binds the storage.
   size_t max_cache = rasterize_scratch_a_bytes<W>() / sizeof(float);
+#ifdef HS_TEST_BUILD
+  if (g_step_budget_override != 0 && g_step_budget_override < max_cache)
+    max_cache = g_step_budget_override;
+#endif
   if constexpr (!SinglePass)
     steps_cache.bind(scratch_arena_a, max_cache);
 
@@ -1738,6 +1745,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           desired_step = balanced_step(first_step);
       }
       size_t step_count = 0;
+      float backstop_stretch = 1.0f;
       while (current_dist < total_dist) {
         Vector p;
         if constexpr (OpenGeodesic) {
@@ -1783,9 +1791,15 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
 
         if (++step_count >= max_cache) {
-          HS_PLOT_COUNT(backstops);
-          HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
-          break;
+          // Stretch factor matches the two-pass replay's; the hard stop below
+          // bounds the extra steps it can cost.
+          if (backstop_stretch == 1.0f) {
+            HS_PLOT_COUNT(backstops);
+            HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
+            backstop_stretch = total_dist / current_dist;
+          } else if (step_count >= 2 * max_cache) {
+            break;
+          }
         }
         HS_PLOT_MAX(steps_peak, step_count);
         float remaining = total_dist - current_dist;
@@ -1840,6 +1854,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
             if (balanced_sampling)
               desired_step = balanced_step(default_desired_step);
           }
+          desired_step *= backstop_stretch;
         }
       }
       if (!close_loop && is_last_segment && !omit_end) {
