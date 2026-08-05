@@ -2178,6 +2178,9 @@ struct DreamBallsWhiteBox {
   static const DB::Params &preset_params(const DB &db, int idx) {
     return db.preset_manager.get_entries()[idx].params;
   }
+  static const Palette *blood_stream_falloff(const DB &db) {
+    return &db.blood_stream_falloff;
+  }
   static const char *live_solid(const DB &db) { return db.params.solid_name; }
   static float &num_copies(DB &db) { return db.params.num_copies; }
 };
@@ -2214,6 +2217,14 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(snub_cube.offset_speed, 2.025f, 1e-6f);
   HS_EXPECT_NEAR(snub_cube.warp_scale, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(snub_cube.alpha, 0.3f, 1e-6f);
+
+  HS_EXPECT_TRUE(WB::preset_params(db, 0).palette ==
+                 WB::blood_stream_falloff(db));
+  HS_EXPECT_TRUE(WB::preset_params(db, 1).palette ==
+                 WB::blood_stream_falloff(db));
+  HS_EXPECT_TRUE(WB::preset_params(db, 2).palette == &Palettes::RICH_SUNSET);
+  HS_EXPECT_TRUE(WB::preset_params(db, 3).palette == &Palettes::LAVENDER_LAKE);
+  HS_EXPECT_TRUE(WB::preset_params(db, 4).palette == &Palettes::CORAL_BLUE);
 
   // Not-paused advance chain: each step advances the selector then re-spawns, so
   // the preset is step modulo the preset count. Drive two full cycles; the bake
