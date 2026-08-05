@@ -446,6 +446,25 @@ struct InsetModifier {
   }
 };
 
+/**
+ * @brief Folds the coordinate into [0,1) mid-chain.
+ * @details Placed between a `requires_wrap` modifier and a `bounded_output`
+ * tail, it absorbs the out-of-range coordinate the tail would otherwise carry
+ * through, so the composition can use Wrap=false and keep the tail's 1.0
+ * endpoint ("scroll the palette, then mirror it").
+ */
+struct WrapModifier {
+  /** @brief The fold confines any input, in range or not, to [0,1). */
+  static constexpr bool rebounds_input = true;
+
+  /**
+   * @brief Folds the coordinate into the unit domain.
+   * @param t Input coordinate.
+   * @return t folded into [0, 1).
+   */
+  float modify(float t) const { return wrap_t(t); }
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 // Color Modifiers — reshape the sample after the source lookup.
 ///////////////////////////////////////////////////////////////////////////////
@@ -949,12 +968,13 @@ class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap> {
                 "source would be sampled out of range and the palette would "
                 "freeze at its endpoint. Use Wrap=true, or follow it with a "
                 "modifier that re-bounds arbitrary input (rebounds_input, e.g. "
-                "FoldModifier/InsetModifier).");
+                "WrapModifier/FoldModifier/InsetModifier).");
   static_assert(!Wrap || !coord_chain_bounded_tail<CMods...>(),
                 "Wrap=true with a bounded final coordinate modifier "
                 "(bounded_output, e.g. MirrorModifier/InsetModifier): wrap_t "
                 "folds its 1.0 output to 0.0, destroying the top endpoint. "
-                "Use Wrap=false.");
+                "Use Wrap=false; if an earlier modifier leaves [0,1], insert a "
+                "WrapModifier ahead of the bounded tail.");
 
 public:
   static constexpr bool WRAPS_COORDINATE = Wrap;

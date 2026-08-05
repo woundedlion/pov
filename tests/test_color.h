@@ -2211,6 +2211,9 @@ inline void test_static_palette_composition() {
   // [0,1] and pass an out-of-range coordinate through.
   static_assert(coord_rebounds_input<FoldModifier>());
   static_assert(coord_rebounds_input<InsetModifier>());
+  static_assert(coord_rebounds_input<WrapModifier>());
+  // WrapModifier's fold stops short of 1.0, so it is not a bounded tail.
+  static_assert(!coord_bounded_output<WrapModifier>());
   static_assert(!coord_rebounds_input<ReverseModifier>());
   static_assert(!coord_rebounds_input<MirrorModifier>());
   static_assert(!coord_rebounds_input<ScaleModifier>());
@@ -2223,6 +2226,8 @@ inline void test_static_palette_composition() {
   static_assert(!coord_chain_leaves_unit<ScaleModifier, FoldModifier>());
   static_assert(coord_chain_leaves_unit<ScaleModifier, ReverseModifier>());
   static_assert(coord_chain_leaves_unit<CycleModifier, MirrorModifier>());
+  static_assert(
+      !coord_chain_leaves_unit<CycleModifier, WrapModifier, MirrorModifier>());
   static_assert(coord_chain_leaves_unit<InsetModifier, CycleModifier>());
   static_assert(!coord_chain_bounded_tail<>());
   static_assert(!coord_chain_bounded_tail<MirrorModifier, CycleModifier>());
@@ -2242,6 +2247,20 @@ inline void test_static_palette_composition() {
   StaticPalette<Gradient, Coords<ScaleModifier, CycleModifier>> sp2;
   sp2.bind(&grad, &scale, &cycle);
   HS_EXPECT_EQ(sp2.get(0.2f).color.r, grad.get(0.5f).color.r);
+
+  // Scroll then mirror: a WrapModifier between the two absorbs the cycle's
+  // out-of-range coordinate, so Wrap=false can keep the mirror's 1.0 peak.
+  float quarter = 0.25f;
+  CycleModifier quarter_cycle(&quarter);
+  WrapModifier fold_unit;
+  StaticPalette<Gradient, Coords<CycleModifier, WrapModifier, MirrorModifier>,
+                Colors<>, /*Wrap=*/false>
+      scrolled_mirror;
+  scrolled_mirror.bind(&grad, &quarter_cycle, &fold_unit, &mirror);
+  // 0.9375 -> 1.1875 -> 0.1875 -> 0.375.
+  HS_EXPECT_EQ(scrolled_mirror.get(0.9375f).color.r, grad.get(0.375f).color.r);
+  // 0.25 -> 0.5 -> 0.5 -> the mirror's peak, which reaches the last stop.
+  HS_EXPECT_EQ(scrolled_mirror.get(0.25f).color.r, grad.get(1.0f).color.r);
 
   EdgeAlphaShade edge_alpha;
   StaticPalette<Gradient, Coords<CycleModifier>, Colors<EdgeAlphaShade>>

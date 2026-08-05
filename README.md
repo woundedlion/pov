@@ -1243,9 +1243,11 @@ range; set it `false` for bounded remaps that must reach the source endpoints.
 Both directions are `static_assert`ed: an unbounded modifier rejects
 `Wrap=false`, and a bounded final modifier rejects `Wrap=true` (wrapping would
 fold its 1.0 output to 0.0 and destroy the top endpoint). Only a modifier that
-re-bounds *arbitrary* input (`FoldModifier`'s triangle wave, `InsetModifier`'s
-clamp) clears an unbounded predecessor; `ReverseModifier` and `MirrorModifier`
-are bounded on `[0,1]` but pass an out-of-range coordinate straight through.
+re-bounds *arbitrary* input (`WrapModifier`'s fold, `FoldModifier`'s triangle
+wave, `InsetModifier`'s clamp) clears an unbounded predecessor; `ReverseModifier`
+and `MirrorModifier` are bounded on `[0,1]` but pass an out-of-range coordinate
+straight through — chaining one after a cycling modifier needs a `WrapModifier`
+between them and `Wrap=false`.
 
 Coordinate modifiers (`modify(float) -> float`):
 
@@ -1261,6 +1263,7 @@ Coordinate modifiers (`modify(float) -> float`):
 | `ReverseModifier` | Mirrors the lookup parameter (1.0 - t) |
 | `MirrorModifier` | Maps [0,1] to [0,1,0] for a seamless symmetric loop |
 | `InsetModifier` | Compresses the source domain into an inset window, clamping outside |
+| `WrapModifier` | Folds the lookup parameter into `[0,1)` mid-chain, so a bounded modifier can follow a cycling one |
 | `NoiseWarpModifier` | Displaces the lookup parameter with smooth value noise — the aperiodic counterpart to `RippleModifier` |
 | `DriftModifier` | Meanders the whole palette along a per-frame noise walk (wanders, hesitates, reverses) |
 
