@@ -71,7 +71,7 @@ public:
   void init() override {
     params = presets.get();
 
-    register_animated_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
+    register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
     mark_global("Alpha");
     register_animated_param("Shape", &params.shape, SHAPE_OPTIONS,
                             SHAPE_EXPORT_OPTIONS, NUM_SHAPES);
