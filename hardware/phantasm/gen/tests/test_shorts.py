@@ -4,7 +4,10 @@ Run:  python -m unittest discover -s hardware/phantasm/gen/tests
 Every case is a synthetic .kicad_sch fragment, plus one regression case over the
 committed schematic, so the gate is proven to fire AND proven not to cry wolf.
 """
+import contextlib
+import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -47,7 +50,7 @@ def power(lib_id, x, y, rot=0):
 
 
 def build(symbols=(), wires=(), labels=(), global_labels=(),
-          hierarchical_labels=(), junctions=()):
+          hierarchical_labels=(), junctions=(), sheets=()):
     """Parse a minimal schematic holding exactly the given geometry."""
     out = ["(kicad_sch (version 20250114) (paper \"A3\")", "(lib_symbols"]
     for lib_id in sorted({s["lib_id"] for s in symbols}):
@@ -63,6 +66,8 @@ def build(symbols=(), wires=(), labels=(), global_labels=(),
         out.append(f'(hierarchical_label "{text}" (at {p[0]} {p[1]} 0))')
     for p in junctions:
         out.append(f"(junction (at {p[0]} {p[1]}))")
+    for name in sheets:
+        out.append(f'(sheet (at 0 0) (property "Sheetname" "{name}" (at 0 0 0)))')
     for s in symbols:
         out.append(f'(symbol (lib_id "{s["lib_id"]}") '
                    f'(at {s["x"]} {s["y"]} {s["rot"]})')
@@ -130,14 +135,62 @@ class PowerFlagTests(unittest.TestCase):
             '(symbol (at 1 2)) (wire (pts (xy 1 2))) (junction (at 1)))'
         )[0]
 
-        self.assertEqual(shorts.analyze(root), ([], []))
+        self.assertEqual(shorts.geometry(root), ({}, [], []))
+
+
+class EmptyScanTests(unittest.TestCase):
+    """An empty scan is a broken input, never a clean bill of health."""
+
+    def test_empty_schematic_fails(self):
+        with self.assertRaises(ValueError):
+            shorts.analyze(sexp.parse("(kicad_sch)")[0])
+
+    def test_geometry_without_names_fails(self):
+        with self.assertRaises(ValueError):
+            shorts.analyze(build(wires=[((100, 100), (110, 100))]))
+
+    def test_names_without_wires_fail(self):
+        with self.assertRaises(ValueError):
+            shorts.analyze(build(labels=[((100, 100), "GND")]))
+
+    def test_main_exits_nonzero_on_an_empty_schematic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "empty.kicad_sch"
+            path.write_text("(kicad_sch)", encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertNotEqual(shorts.main(["shorts.py", str(path)]), 0)
+
+
+class HierarchicalSheetTests(unittest.TestCase):
+    """The scans never descend, so a sheet must hard-fail rather than read clean."""
+
+    def test_sheet_fails_even_when_the_top_level_is_clean(self):
+        with self.assertRaises(ValueError):
+            shorts.analyze(build(
+                symbols=[power("power:GND", 100, 100)],
+                wires=[((100, 100), (110, 100))],
+                sheets=["power"]))
 
 
 class CommittedSchematicTests(unittest.TestCase):
-    def test_committed_schematic_has_no_conflicts(self):
+    def setUp(self):
         path = REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_sch"
-        root = sexp.parse(path.read_text(encoding="utf-8"))[0]
-        self.assertEqual(shorts.analyze(root)[0], [])
+        self.root = sexp.parse(path.read_text(encoding="utf-8"))[0]
+
+    def test_committed_schematic_scan_is_non_trivial(self):
+        """Pins the geometry a passing run must have seen, so a scan that finds
+        nothing cannot masquerade as a clean schematic."""
+        named, wires, junctions = shorts.geometry(self.root)
+
+        self.assertEqual(len(named), 73)
+        self.assertEqual(len(wires), 81)
+        self.assertEqual(len(junctions), 9)
+
+    def test_committed_schematic_has_no_conflicts(self):
+        conflicts, bridges = shorts.analyze(self.root)
+
+        self.assertEqual(conflicts, [])
+        self.assertEqual(len(bridges), 6)
 
 
 if __name__ == "__main__":

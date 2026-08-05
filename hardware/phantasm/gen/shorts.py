@@ -59,12 +59,42 @@ def named_points(root):
     return named
 
 
+def geometry(root):
+    """Scan the top level; return (named points, wire spans, junction points).
+
+    Malformed elements are skipped. Raises ValueError on a hierarchical sheet:
+    the scan never descends, so a sheet's contents would be invisible.
+    """
+    if F(root, "sheet"):
+        raise ValueError("hierarchical sheet present: this checker scans the top "
+                         "level only and would miss everything inside it")
+    named = named_points(root)
+    wires = []
+    for c in F(root, "wire"):
+        xy = [R((p[1], p[2])) for p in sexp.val(c, "pts", [])
+              if isinstance(p, list) and len(p) >= 3 and p[0] == "xy"]
+        if len(xy) >= 2:
+            wires.append((xy[0], xy[1]))
+    # junction dots explicitly connect crossing/T wires that only touch mid-span.
+    junctions = [R(at) for c in F(root, "junction")
+                 if len(at := sexp.val(c, "at", [])) >= 2]
+    return named, wires, junctions
+
+
 def analyze(root):
     """Union-find over the geometry; return (conflicts, bridges).
 
     conflicts: [(sorted real net names, [(net, point), ...])] per merged group.
     bridges:   human-readable description of every point landing mid-span.
+
+    Raises ValueError if the schematic yields no named points or no wires -- an
+    empty scan is a broken input, not a clean result.
     """
+    named, wires, junctions = geometry(root)
+    if not named or not wires:
+        raise ValueError(f"nothing to analyze: {len(named)} named points, "
+                         f"{len(wires)} wires")
+
     parent = {}
 
     def find(p):
@@ -78,17 +108,6 @@ def analyze(root):
         ra, rb = find(a), find(b)
         if ra != rb:
             parent[ra] = rb
-
-    named = named_points(root)
-    wires = []
-    for c in F(root, "wire"):
-        xy = [R((p[1], p[2])) for p in sexp.val(c, "pts", [])
-              if isinstance(p, list) and len(p) >= 3 and p[0] == "xy"]
-        if len(xy) >= 2:
-            wires.append((xy[0], xy[1]))
-    # junction dots explicitly connect crossing/T wires that only touch mid-span.
-    junctions = [R(at) for c in F(root, "junction")
-                 if len(at := sexp.val(c, "at", [])) >= 2]
 
     allpts = set(named) | set(junctions)
     for a, b in wires:
@@ -121,7 +140,12 @@ def analyze(root):
 
 def main(argv):
     path = argv[1] if len(argv) > 1 else DEFAULT_SCH
-    conflicts, bridges = analyze(sexp.parse(open(path, encoding="utf-8").read())[0])
+    try:
+        conflicts, bridges = analyze(
+            sexp.parse(open(path, encoding="utf-8").read())[0])
+    except ValueError as e:
+        print(f"{path}: {e}", file=sys.stderr)
+        return 2
     print("=== suspect bridging edges (touching 2 named pts) ===")
     for reason in bridges:
         print("  ", reason)
