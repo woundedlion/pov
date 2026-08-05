@@ -311,12 +311,21 @@ private:
       GradientShape::CIRCULAR, HarmonyType::COMPLEMENTARY,
       BrightnessProfile::FLAT, SaturationProfile::MID};
   BakedPalette baked_palette;
+  /**
+   * @brief Per-emitter spawn hue seed in [0, 1).
+   * @details Advanced by INV_PHI * 0.1 on every emitter tick, including ticks
+   *          whose spawn is dropped at pool capacity, so the hue sweep tracks
+   *          elapsed time rather than surviving spawn count.
+   */
   std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
   /**
    * @brief Per-emitter accumulated emission angle (radians, wrapped to
    *        [0, 2pi)).
    * @details Driven by integrating Ang Spd each emission, so a live speed
-   *          change alters the emission rate going forward only.
+   *          change alters the emission rate going forward only. Advanced on
+   *          every emitter tick, including ticks whose spawn is dropped at pool
+   *          capacity: the spray angle is a function of elapsed time, so the
+   *          saturated pool thins the fan instead of freezing its direction.
    */
   std::array<float, EmitSolid::NUM_VERTS> emit_phases;
   /**
