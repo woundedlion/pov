@@ -440,7 +440,10 @@ warnings.
   `Processing <env> (...)` banner in the captured log, and fails unless every one of them appears as
   a compiler invocation in that same environment's section. A partially cached build therefore fails
   loudly instead of passing on a shrunken warning set, and the expectation follows a new TU or a new
-  environment automatically — there is no count to keep in sync.
+  environment automatically — there is no count to keep in sync. The environments themselves are
+  audited the same way: the expected set is every `[env:<name>]` in `platformio.ini` (what the job's
+  bare `pio run` builds), so a run that dies partway leaves the environments it never reached without
+  a section and fails, instead of passing on the one environment that did run.
 - **`effects_legacy.h` warnings will be in the baseline.** It is review-excluded but in *build*
   scope (`Holosphere.ino` includes it, §5), so whatever it warns under arm-gcc lands in the
   committed first-party baseline. That's correct (the firmware does compile it); just don't be
