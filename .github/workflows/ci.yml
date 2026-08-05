@@ -673,18 +673,34 @@ jobs:
         # The daydream deploy gate consumes the provenance set (.wasm, .js, .sha,
         # .wasm.sha256, .toolchain) this install writes, but nothing previously
         # verified the install rules actually produce them. Run the install target
-        # and assert the set exists and the recorded hashes verify (the same
-        # sha256 check the gate runs) so a broken provenance step fails here, not
-        # at deploy.
+        # and assert every installed artifact exists and the recorded hashes
+        # verify (the same sha256 check the gate runs) so a broken provenance step
+        # fails here, not at deploy. The file list is every install() rule in
+        # CMakeLists.txt; the gallery is a directory install, checked below.
         run: |
           cmake --build --preset wasm-release-install
           dd="${{ runner.temp }}/daydream-install"
-          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain; do
+          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain README.md pov_segment_map.json; do
             if [ ! -f "$dd/$f" ]; then
-              echo "::error::install did not produce $f — the deploy gate depends on it"
+              echo "::error::install did not produce $f — a consumer in the daydream checkout depends on it"
               exit 1
             fi
           done
+          # The gallery install wipes the destination first, so a broken source
+          # path deletes the live gallery and installs nothing. Assert the
+          # mirrored set is non-empty and as large as the checkout's (the
+          # per-name roster match is the screenshot-freshness job's gate).
+          repo_shots=$(find docs/screenshots -maxdepth 1 -name '*.png' | wc -l)
+          installed_shots=$(find "$dd/docs/screenshots" -maxdepth 1 -name '*.png' 2>/dev/null | wc -l)
+          if [ "$repo_shots" -eq 0 ]; then
+            echo "::error::docs/screenshots holds no PNGs in this checkout — the gallery check proves nothing"
+            exit 1
+          fi
+          if [ "$installed_shots" -ne "$repo_shots" ]; then
+            echo "::error::installed gallery holds $installed_shots PNGs, the checkout holds $repo_shots"
+            exit 1
+          fi
+          echo "Gallery mirrored: $installed_shots screenshots."
           # A clean CI checkout must record a bare 40-hex SHA (no -dirty marker).
           if grep -q -- '-dirty' "$dd/holosphere_wasm.sha"; then
             echo "::error::engine .sha recorded as -dirty on a clean CI checkout"

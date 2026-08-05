@@ -147,7 +147,17 @@ if(EMSCRIPTEN)
     # the engine checkout it pins, so a stale copy there fails too.
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/hardware/pov_segment_map.json"
             DESTINATION "${DAYDREAM_DIR}")
-    install(CODE "file(REMOVE_RECURSE \"${DAYDREAM_DIR}/docs/screenshots\")")
+    # The gallery is mirrored, not merged: the destination is wiped first so a
+    # screenshot dropped from the engine stops being served. install(DIRECTORY)
+    # installs nothing for an absent or empty source, which would leave the wipe
+    # standing as a silent deletion of the live gallery — so the source is
+    # checked at install time, immediately before the wipe.
+    install(CODE "
+      file(GLOB HS_SCREENSHOTS \"${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/*.png\")
+      if(NOT HS_SCREENSHOTS)
+        message(FATAL_ERROR \"No PNGs under ${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots; refusing to wipe ${DAYDREAM_DIR}/docs/screenshots\")
+      endif()
+      file(REMOVE_RECURSE \"${DAYDREAM_DIR}/docs/screenshots\")")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots")
 
