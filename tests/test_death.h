@@ -1731,6 +1731,18 @@ inline void case_feedback_negative_fade() {
 }
 
 /**
+ * @brief Death case: an infinite feedback fade must trap in sync_hue.
+ * @details A comparison against zero admits +INFINITY, whose -logf is -inf; the
+ *          turn-to-cos/sin reduction of an infinite angle is NaN, which spreads
+ *          through all nine hue matrix entries and whitens every feedback pixel.
+ */
+inline void case_feedback_infinite_fade() {
+  ::Feedback::Style style = ::Feedback::Style::Smoke();
+  style.fade = opaque(std::numeric_limits<float>::infinity());
+  style.sync_hue();
+}
+
+/**
  * @brief Death case: Path::append_segment with zero samples must trap.
  * @details Animation surface — a zero sample count divides by zero in the
  *          t / samples term (easing(0/0) = NaN) and the loop would silently
@@ -2351,7 +2363,11 @@ inline const Case *all_cases(int &n) {
        "spherical_field.h",
        "(y < H - 1) SphericalFieldLayout: ring index 5 out of range"},
       {"feedback_negative_fade", case_feedback_negative_fade, "styles.h",
-       "(fade >= 0.0f) Feedback::Style::fade must be >= 0"},
+       "(std::isfinite(fade) && fade >= 0.0f) Feedback::Style::fade must be "
+       "finite and >= 0"},
+      {"feedback_infinite_fade", case_feedback_infinite_fade, "styles.h",
+       "(std::isfinite(fade) && fade >= 0.0f) Feedback::Style::fade must be "
+       "finite and >= 0"},
       {"gradient_no_stops", case_gradient_no_stops, "color.h",
        "(points.size() > 0) Gradient requires at least one stop"},
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range, "color.h",
@@ -2765,7 +2781,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 114;
+  constexpr int DEATH_CASE_COUNT = 115;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a

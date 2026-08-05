@@ -149,7 +149,8 @@ struct Style {
    * feedback pixel, which clamps to white.
    */
   void sync_hue() {
-    HS_CHECK(fade >= 0.0f, "Feedback::Style::fade must be >= 0");
+    HS_CHECK(std::isfinite(fade) && fade >= 0.0f,
+             "Feedback::Style::fade must be finite and >= 0");
     float frame_shift = fade == 0.0f ? 0.0f : hue_shift * -logf(fade);
     turn_to_unit_cos_sin(frame_shift, hue_ca, hue_sa);
     hue_rotate_lms_matrix(hue_ca, hue_sa, hue_k);
