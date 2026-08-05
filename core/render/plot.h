@@ -139,6 +139,22 @@ static constexpr int COL_PAD = 2;
 static constexpr int COL_FOOTPRINT = COL_PAD + 1;
 
 /**
+ * @brief Columns outside the render band a clip cut is placed at.
+ * @details A piece ending exactly on the band edge still overlaps it once
+ * finish_col_span widens the span by COL_FOOTPRINT, so a cut there would leave
+ * the outside piece visible and buy nothing. One column past that footprint
+ * also absorbs the fast-trig error in the cut.
+ */
+static constexpr int CLIP_CUT_COL_PAD = COL_FOOTPRINT + 1;
+
+/**
+ * @brief Rows outside the render band a clip cut is placed at.
+ * @details could_intersect_y takes the band edge itself as an intersection, and
+ * the row map's fast-trig round trip moves a cut by a fraction of a row.
+ */
+static constexpr int CLIP_CUT_ROW_PAD = 1;
+
+/**
  * @brief Apply an optional per-control-point vertex shader to every fragment.
  * @tparam FragmentsT Fragment container type.
  * @param vertex_shader Vertex shader to run on each fragment; no-op if null.
@@ -871,6 +887,125 @@ static inline bool geodesic_col_span(const Vector &a, const Vector &b,
                                      int &col_len) {
   return geodesic_col_span_cols<W>(vector_to_theta<W>(a), vector_to_theta<W>(b),
                                    a, es, col_s, col_len);
+}
+
+/**
+ * @brief Most arc fractions a clip band can cut one geodesic edge at.
+ * @details Two meridians met once each, two latitude circles met twice each.
+ */
+static constexpr int GEODESIC_CLIP_MAX_SPLITS = 6;
+
+/**
+ * @brief Arc fractions where a geodesic edge crosses the clip band's row and
+ *        column boundaries.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param es Shared setup from make_geodesic_edge_span(a, b); must have an axis.
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param ts Output, up to GEODESIC_CLIP_MAX_SPLITS fractions in (0, 1),
+ *        ascending and separated enough that no piece is degenerate.
+ * @return Number of fractions written.
+ * @details Cutting the edge here and gating the pieces replaces a uniform chop:
+ * every piece then lies wholly inside or wholly outside the band. The
+ * boundaries are the RENDER band's, already widened by the clip margin to cover
+ * filter reach; the only spacing added on top is the cull's own footprint
+ * (CLIP_CUT_COL_PAD, CLIP_CUT_ROW_PAD), without which the outside piece lands
+ * inside the span pad and is kept anyway.
+ *
+ * Both solves run against pos(ang) = a·cos(ang) + cross(axis, a)·sin(ang), the
+ * arc the renderer walks, over the same boundary directions the projection
+ * reads (TrigLUT). A boundary meridian's half-plane, direction d in the (x, z)
+ * plane, is met where the cross with d vanishes and the dot is positive: one
+ * atan2, resolved to the sign the half-plane wants. Longitude is globally
+ * monotone along the circle and one edge sweeps at most half a revolution
+ * (geodesic_col_span_cols), so a meridian is met at most once; the near-
+ * horizontal arc pole that same bound refuses is skipped here too. A boundary
+ * row is a latitude, and y(ang) folds to R·cos(ang − delta), so its two
+ * crossings come from one acos.
+ *
+ * The solve's fast trig puts a cut within a small fraction of a pixel of the
+ * boundary. That is harmless in either direction: each piece is gated by the
+ * exact span of the arc between its own endpoints, so a mis-sided cut draws a
+ * piece rather than dropping one.
+ */
+template <int W, int H>
+static inline int geodesic_clip_splits(const Vector &a,
+                                       const GeodesicEdgeSpan &es,
+                                       const ClipRegion &cr,
+                                       const ClipRegion::XClip &xc, float *ts) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
+  const Vector perp = cross(es.axis, a);
+  float angs[GEODESIC_CLIP_MAX_SPLITS];
+  int found = 0;
+
+  // Roots repeat every turn and the edge sweeps at most half of one, so each
+  // candidate has a single representative in [0, 2pi).
+  const auto keep = [&](float ang) {
+    if (ang < 0.0f)
+      ang += 2.0f * PI_F;
+    else if (ang >= 2.0f * PI_F)
+      ang -= 2.0f * PI_F;
+    if (ang > 0.0f && ang < es.total)
+      angs[found++] = ang;
+  };
+
+  if (xc.active && std::abs(es.axis.y) >= AXIS_Y_EPS) {
+    for (const int col : {xc.rs - CLIP_CUT_COL_PAD, xc.re + CLIP_CUT_COL_PAD}) {
+      const int c = ((col % W) + W) % W;
+      const float dx = TrigLUT<W, H>::cos_theta(c);
+      const float dz = TrigLUT<W, H>::sin_theta[c];
+      const float cross_a = a.x * dz - a.z * dx;
+      const float cross_p = perp.x * dz - perp.z * dx;
+      const float dot_a = a.x * dx + a.z * dz;
+      const float dot_p = perp.x * dx + perp.z * dz;
+      // sin, cos at the root are (-cross_a, cross_p) up to a positive scale, so
+      // the half-plane's sign test needs no second trig call.
+      const float ang = fast_atan2(-cross_a, cross_p);
+      keep(dot_a * cross_p - dot_p * cross_a < 0.0f ? ang + PI_F : ang);
+    }
+  }
+
+  if (cr.render_y_start() > 0 || cr.render_y_end() < cr.h) {
+    const float radius2 = a.y * a.y + perp.y * perp.y;
+    if (radius2 > 0.0f) {
+      const float radius = sqrtf(radius2);
+      const float delta = fast_atan2(perp.y, a.y);
+      for (const int row : {cr.render_y_start() - CLIP_CUT_ROW_PAD,
+                            cr.render_y_end() + CLIP_CUT_ROW_PAD}) {
+        const float target =
+            TrigLUT<W, H>::cos_phi[hs::clamp(row, 0, H_VIRT - 1)] / radius;
+        if (target < -1.0f || target > 1.0f)
+          continue;
+        const float half = fast_acos(target);
+        keep(delta - half);
+        keep(delta + half);
+      }
+    }
+  }
+
+  for (int i = 1; i < found; ++i) {
+    const float key = angs[i];
+    int j = i - 1;
+    for (; j >= 0 && angs[j] > key; --j)
+      angs[j + 1] = angs[j];
+    angs[j + 1] = key;
+  }
+
+  // A piece shorter than the renderer's own collapse threshold would draw as a
+  // dot, so fold coincident cuts (and cuts sitting on an endpoint) away.
+  int n = 0;
+  float last = 0.0f;
+  for (int i = 0; i < found; ++i) {
+    if (angs[i] - last < EPS_GEODESIC_SEGMENT ||
+        es.total - angs[i] < EPS_GEODESIC_SEGMENT)
+      continue;
+    last = angs[i];
+    ts[n++] = angs[i] / es.total;
+  }
+  return n;
 }
 
 /**
@@ -2159,6 +2294,40 @@ inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
  */
 struct Line {
   /**
+   * @brief One fragment at arc fraction t on a geodesic edge.
+   * @param f1 Start fragment.
+   * @param f2 End fragment.
+   * @param es Shared setup from make_geodesic_edge_span(f1.pos, f2.pos); must
+   *        have an axis.
+   * @param perp cross(es.axis, f1.pos), the arc's start tangent direction.
+   * @param t Arc fraction in [0, 1]; the endpoints reproduce f1/f2 exactly.
+   * @return The interpolated fragment, registers included.
+   */
+  static Fragment sample_point(const Fragment &f1, const Fragment &f2,
+                               const GeodesicEdgeSpan &es, const Vector &perp,
+                               float t) {
+    Fragment f = Fragment::lerp(f1, f2, t);
+    if (t <= 0.0f)
+      f.pos = f1.pos;
+    else if (t >= 1.0f)
+      f.pos = f2.pos;
+    else {
+      // fast trig's 0.17% error breaks c^2+s^2==1, so renormalize: callers
+      // (vector_to_pixel's acos) require a unit position.
+      float s, c;
+      fast_sincosf_0_pi(es.total * t, s, c);
+      Vector p = (f1.pos * c) + (perp * s);
+      HS_PLOT_COUNT(normalizations);
+      f.pos = p * fast_rsqrt(dot(p, p));
+    }
+
+    f.v0 = t;
+    f.v1 = es.total * t;
+    f.v2 = 0.0f;
+    return f;
+  }
+
+  /**
    * @brief Samples a geodesic line between two points.
    * @param points Output fragment list; density+1 fragments are appended.
    * @param f1 Start fragment.
@@ -2180,33 +2349,10 @@ struct Line {
       return;
     }
 
-    const float angle = es.total;
-    Vector perp = cross(es.axis, f1.pos);
-
-    for (int i = 0; i <= density; ++i) {
-      float t = static_cast<float>(i) / density;
-
-      Fragment f = Fragment::lerp(f1, f2, t);
-      if (i == 0)
-        f.pos = f1.pos;
-      else if (i == density)
-        f.pos = f2.pos;
-      else {
-        // fast trig's 0.17% error breaks c^2+s^2==1, so renormalize: callers
-        // (vector_to_pixel's acos) require a unit position.
-        float ang = angle * t;
-        float s, c;
-        fast_sincosf_0_pi(ang, s, c);
-        Vector p = (f1.pos * c) + (perp * s);
-        HS_PLOT_COUNT(normalizations);
-        f.pos = p * fast_rsqrt(dot(p, p));
-      }
-
-      f.v0 = t;
-      f.v1 = angle * t;
-      f.v2 = 0.0f;
-      points.push_back(f);
-    }
+    const Vector perp = cross(es.axis, f1.pos);
+    for (int i = 0; i <= density; ++i)
+      points.push_back(
+          sample_point(f1, f2, es, perp, static_cast<float>(i) / density));
   }
 
   /**
@@ -3638,10 +3784,10 @@ struct Mesh {
   static constexpr int DEDUP_CAPACITY = 128;
 
   /**
-   * @brief Sub-segments each wireframe edge is pre-chopped into before the
-   *        adaptive rasterizer runs.
+   * @brief Fragments one wireframe edge can produce: its two endpoints plus a
+   *        cut at every clip-band boundary it crosses.
    */
-  static constexpr int EDGE_PRESAMPLE_DENSITY = 10;
+  static constexpr int EDGE_MAX_POINTS = GEODESIC_CLIP_MAX_SPLITS + 2;
 
   /**
    * @brief Sample, shade, and rasterize one wireframe edge.
@@ -3655,9 +3801,15 @@ struct Mesh {
    *            cold OOB/capacity traps before delegating here).
    * @param edge_index Value written to each fragment's v2 register.
    * @param fragment_shader Shader function.
-   * @param vertex_shader Optional vertex shader.
+   * @param vertex_shader Optional vertex shader; displaces the edge's two
+   *        endpoints, which then bound one geodesic — it does not deform the
+   *        edge's interior.
    * @details Shared body for both draw() overloads (face-walk and precomputed
    * edge list); keeping it in one place is why the two paths stay bit-identical.
+   * The adaptive rasterizer already walks the true great-circle arc, so the edge
+   * is handed over whole; under a clip it is cut at the band's boundaries
+   * (geodesic_clip_splits) so the outside pieces cost nothing past their gate
+   * verdict.
    */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void draw_edge(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
@@ -3673,11 +3825,7 @@ struct Mesh {
     const bool clip_active = !cr.is_full();
     const ClipRegion::XClip xc = cr.x_clip();
 
-    // Every sub-segment below lies on the u->v great circle (Line::sample
-    // rotates about that arc's axis, and make_geodesic_edge_span resolves an
-    // antipodal pair to the same axis), so the whole edge's span bounds the
-    // chopped polyline and a reject here skips the presample too. A vertex
-    // shader may move the samples off that circle, so it opts out.
+    // A vertex shader moves the endpoints after this test, so it opts out.
     if constexpr (pipeline_hoistable_cull<PipelineT>()) {
       if (clip_active && !vertex_shader &&
           !edge_visible_in_clip<W, H>(pipeline, cr, xc, fu.pos, fv.pos,
@@ -3687,30 +3835,42 @@ struct Mesh {
 
     ScratchScope edge_guard(scratch_arena_a);
     Fragments points;
-    points.bind(scratch_arena_a, EDGE_PRESAMPLE_DENSITY + 1);
-    {
-      HS_PROFILE_DEEP(plot_edge_presample);
-      Line::sample(points, fu, fv, EDGE_PRESAMPLE_DENSITY);
+    points.bind(scratch_arena_a, EDGE_MAX_POINTS);
 
-      if (vertex_shader) {
-        for (auto &p : points) {
-          p.v2 = static_cast<float>(edge_index); // Edge Index
-          vertex_shader(p);
-        }
-      } else {
-        for (auto &p : points) {
-          p.v2 = static_cast<float>(edge_index);
-        }
-      }
+    const GeodesicEdgeSpan es = make_geodesic_edge_span(fu.pos, fv.pos);
+    bool split = false;
+    if constexpr (pipeline_hoistable_cull<PipelineT>())
+      split = clip_active && !vertex_shader && es.have_axis;
+
+    if (split) {
+      float ts[GEODESIC_CLIP_MAX_SPLITS];
+      const int cuts = geodesic_clip_splits<W, H>(fu.pos, es, cr, xc, ts);
+      const Vector perp = cross(es.axis, fu.pos);
+      points.push_back(Line::sample_point(fu, fv, es, perp, 0.0f));
+      for (int i = 0; i < cuts; ++i)
+        points.push_back(Line::sample_point(fu, fv, es, perp, ts[i]));
+      points.push_back(Line::sample_point(fu, fv, es, perp, 1.0f));
+    } else {
+      Line::sample(points, fu, fv);
+    }
+
+    for (auto &p : points)
+      p.v2 = static_cast<float>(edge_index); // Edge Index
+    if (vertex_shader) {
+      vertex_shader(points[0]);
+      vertex_shader(points.back());
     }
 
     if constexpr (pipeline_hoistable_cull<PipelineT>()) {
       if (clip_active) {
-        uint8_t bits[EDGE_PRESAMPLE_DENSITY];
-        HS_CHECK(points.size() >= 2 &&
-                 points.size() - 1 <= EDGE_PRESAMPLE_DENSITY);
-        if (!gate_trail_edges<W, H>(pipeline, cr, xc, points, bits))
+        uint8_t bits[EDGE_MAX_POINTS - 1];
+        HS_CHECK(points.size() >= 2 && points.size() <= EDGE_MAX_POINTS);
+        if (points.size() == 2 && !vertex_shader) {
+          // Uncut, unshaded: the whole-edge test above already ran on it.
+          bits[0] = EDGE_VISIBLE;
+        } else if (!gate_trail_edges<W, H>(pipeline, cr, xc, points, bits)) {
           return;
+        }
         rasterize<W, H>(pipeline, canvas, points, fragment_shader,
                         {.edge_visible = bits});
         return;

@@ -1106,12 +1106,18 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
 
 /**
  * @brief End-to-end conservativeness of the wireframe edge gate: a
- *        quadrant/wedge-clipped Plot::Mesh::draw is pixel-identical to the
- *        full render inside the display band.
- * @details Covers the whole-edge reject that runs before the presample and the
- *          hoisted per-sub-segment bits that replace rasterize's own cull.
- *          Random orientations put edges across both poles and the seam; a
- *          reject false-negative drops in-band pixels and breaks the compare.
+ *        quadrant/wedge-clipped Plot::Mesh::draw reproduces the full render's
+ *        strokes inside the display band.
+ * @details Covers the whole-edge reject and the per-piece bits that replace
+ *          rasterize's own cull. Random orientations put edges across both
+ *          poles and the seam; an over-cull drops a whole stroke, which shows
+ *          as a long run of unlit pixels along a row.
+ *
+ *          The clipped render cuts each edge at the band, so its adaptive walk
+ *          restarts there and the two renders sample the same arcs at different
+ *          sub-pixel phases. Coverage therefore differs on the antialiased
+ *          fringe of a stroke, in isolated pixels — the budgets below sit well
+ *          under the measured spread and far under one stroke's width.
  */
 inline void test_mesh_edge_gate_pixel_parity() {
   constexpr int W = 96, H = 48;
@@ -1147,7 +1153,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
   hs::random().seed(0x5EED);
   const int clips[4][4] = {
       {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}, {0, H, 0, 8}};
-  int lit_total = 0;
+  int lit_total = 0, coverage_total = 0;
 
   MeshState posed;
   posed.vertices.bind(ga, mesh.vertices.size());
@@ -1188,20 +1194,31 @@ inline void test_mesh_edge_gate_pixel_parity() {
       fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
       render(fx);
       fx.advance_display();
-      int diff = 0;
-      for (int y = cl[0]; y < cl[1]; ++y)
+      int worst_run = 0;
+      for (int y = cl[0]; y < cl[1]; ++y) {
+        int run = 0;
         for (int x = cl[2]; x < cl[3]; ++x) {
           Pixel p = fx.get_pixel(x, y);
           const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-          if (r.r | r.g | r.b)
+          const bool ref_lit = (r.r | r.g | r.b) != 0;
+          const bool got_lit = (p.r | p.g | p.b) != 0;
+          if (ref_lit)
             ++lit_total;
-          if (p.r != r.r || p.g != r.g || p.b != r.b)
-            ++diff;
+          if (ref_lit != got_lit)
+            ++coverage_total;
+          run = (ref_lit && !got_lit) ? run + 1 : 0;
+          worst_run = std::max(worst_run, run);
         }
-      HS_EXPECT_EQ(diff, 0);
+      }
+      // An over-cull removes a whole stroke, leaving a long unlit run; phase
+      // moves isolated fringe pixels. Measured worst run is 2.
+      HS_EXPECT_LE(worst_run, 3);
     }
   }
   HS_EXPECT_GT(lit_total, 200);
+  // Measured 3.0% of the reference's lit pixels; dropping one edge in seven
+  // costs an order of magnitude more.
+  HS_EXPECT_LE(coverage_total * 8, lit_total);
 }
 
 /**
@@ -1813,6 +1830,106 @@ inline void test_gate_trail_edges_matches_edge_visible() {
   HS_EXPECT_GT(rejects, 20);
   HS_EXPECT_GT(visible, 1000);
   HS_EXPECT_GT(culled, 1000);
+}
+
+/**
+ * @brief Cutting a wireframe edge at the clip band separates it exactly: every
+ *        arc point the render region would show sits in a piece the gate keeps.
+ * @details The cut is what replaced the uniform sub-segment chop, so this is
+ *          its conservativeness proof. Sweeps the rendered great circle of
+ *          random edges against bands covering both seam topologies: a sample
+ *          whose plotted pixel falls in the render region must belong to a kept
+ *          piece. Kept and culled piece counts are floored too, so a cut that
+ *          stops separating the band (or stops cutting at all) cannot pass by
+ *          keeping everything.
+ */
+inline void test_mesh_clip_cut_separates_band() {
+  constexpr int TW = 288, TH = 144;
+  constexpr int SWEEP = 128;
+  Pipeline<TW, TH, Filter::Screen::AntiAlias<TW, TH>> pipeline{
+      Filter::Screen::AntiAlias<TW, TH>()};
+  auto rand_unit = [] {
+    for (;;) {
+      const float rx = hs::rand_f(-1, 1);
+      const float ry = hs::rand_f(-1, 1);
+      const float rz = hs::rand_f(-1, 1);
+      Vector r(rx, ry, rz);
+      if (r.length() > 0.1f)
+        return r.normalized();
+    }
+  };
+  hs::random().seed(0xC07);
+
+  const int bands[][4] = {
+      {0, 72, 0, 144},
+      {36, 108, 144, 288},
+      {0, 144, 60, 200},
+      {40, 100, 2, 30},
+  };
+  int cuts = 0, kept = 0, culled = 0;
+  long shown_arc = 0, drawn_arc = 0;
+  for (const auto &bd : bands) {
+    ClipRegion cr;
+    cr.w = TW;
+    cr.h = TH;
+    cr.y_start = bd[0];
+    cr.y_end = bd[1];
+    cr.x_start = bd[2];
+    cr.x_end = bd[3];
+    const auto xc = cr.x_clip();
+
+    for (int trial = 0; trial < 300; ++trial) {
+      ScratchScope sc(plot_arena());
+      Fragment fa, fb;
+      fa.pos = rand_unit();
+      fb.pos = rand_unit();
+      const Plot::GeodesicEdgeSpan es =
+          Plot::make_geodesic_edge_span(fa.pos, fb.pos);
+      if (!es.have_axis)
+        continue;
+
+      float ts[Plot::GEODESIC_CLIP_MAX_SPLITS];
+      const int n = Plot::geodesic_clip_splits<TW, TH>(fa.pos, es, cr, xc, ts);
+      cuts += n;
+
+      const Vector perp = cross(es.axis, fa.pos);
+      Fragments points;
+      points.bind(plot_arena(), Plot::Mesh::EDGE_MAX_POINTS);
+      points.push_back(Plot::Line::sample_point(fa, fb, es, perp, 0.0f));
+      for (int i = 0; i < n; ++i)
+        points.push_back(Plot::Line::sample_point(fa, fb, es, perp, ts[i]));
+      points.push_back(Plot::Line::sample_point(fa, fb, es, perp, 1.0f));
+
+      uint8_t bits[Plot::Mesh::EDGE_MAX_POINTS - 1];
+      Plot::gate_trail_edges<TW, TH>(pipeline, cr, xc, points, bits);
+      for (int i = 0; i <= n; ++i)
+        (bits[i] != 0 ? kept : culled)++;
+
+      for (int s = 0; s <= SWEEP; ++s) {
+        const float t = static_cast<float>(s) / SWEEP;
+        const Vector p = Plot::Line::sample_point(fa, fb, es, perp, t).pos;
+        const PixelCoords px = vector_to_pixel<TW, TH>(p);
+        const bool shown = cr.contains_x(static_cast<int>(px.x)) &&
+                           cr.contains_y(static_cast<int>(px.y));
+        int piece = 0;
+        while (piece < n && t > ts[piece])
+          ++piece;
+        const bool drawn = bits[piece] != 0;
+        if (shown)
+          HS_EXPECT_TRUE(drawn);
+        shown_arc += shown ? 1 : 0;
+        drawn_arc += drawn ? 1 : 0;
+      }
+    }
+  }
+  HS_EXPECT_GT(cuts, 400);
+  HS_EXPECT_GT(kept, 400);
+  HS_EXPECT_GT(culled, 400);
+  // Tightness, the half the gate cannot supply on its own: it keeps any piece
+  // straddling the band edge, so a cut that stops separating shows only as
+  // drawn arc past what the region shows. Measured 1.08x; dropping the cut
+  // entirely gives 1.96x and cutting inside the band 1.76x.
+  HS_EXPECT_LT(drawn_arc * 2, shown_arc * 3);
 }
 
 /**
@@ -5072,6 +5189,7 @@ inline int run_plot_scan_tests() {
   test_cartesian_quadrant_gate_classification();
   test_cartesian_quadrant_gate_is_conservative();
   test_gate_trail_edges_matches_edge_visible();
+  test_mesh_clip_cut_separates_band();
   test_rasterize_gate_bits_pixel_parity();
   test_screen_step_matches_analytic_unclamped();
   test_edge_fits_one_dot_is_conservative();
