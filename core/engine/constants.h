@@ -154,9 +154,10 @@ struct ClipRegion {
    * @param x Column index, in pixels.
    * @return True when x lies within the cylindrical render band.
    * @details A render band spanning >= w columns (display width + both margins)
-   *          covers everything; a band whose ends coincide (rs == re) is a
-   *          full-width wrap; otherwise the band may cross the seam, so test as
-   *          a wrapped interval.
+   *          covers everything; past that test the band is a proper sub-arc, so
+   *          ends that coincide (rs == re) mean zero width and cover nothing;
+   *          otherwise the band may cross the seam, so test as a wrapped
+   *          interval.
    */
   bool contains_x(int x) const {
     if ((x_end - x_start) + 2 * margin >= w)
@@ -164,24 +165,23 @@ struct ClipRegion {
     int rs = render_x_start();
     int re = render_x_end();
     if (rs == re)
-      return true; // margin expansion wrapped to full width
+      return false; // empty band
     return (rs < re) ? (x >= rs && x < re) : (x >= rs || x < re);
   }
 
   /**
    * @brief Precomputed cylindrical x-clip predicate built once per draw, then queried per fragment.
-   * @details The full-coverage case (display width + both margins >= w) and the
-   *          wrap-to-full case (rs == re) both fold into `active == false`, so hot
-   *          loops can't accidentally blank a full segment by treating rs == re as
-   *          an empty band.
+   * @details The full-coverage case (display width + both margins >= w) folds
+   *          into `active == false`, so hot loops skip the test entirely. A
+   *          zero-width band leaves `active` set with rs == re and wrap false,
+   *          which clips every column.
    */
   struct XClip {
     int rs = 0; /**< Render band start column, in pixels, in [0, w). */
     int re =
         0; /**< Render band end column (exclusive), in pixels, in [0, w). */
-    bool active =
-        false; /**< False => no x clipping (full width or wrapped to full). */
-    bool wrap = false; /**< Band crosses the seam (rs > re). */
+    bool active = false; /**< False => no x clipping (full coverage). */
+    bool wrap = false;   /**< Band crosses the seam (rs > re). */
 
     /**
      * @brief Tests whether a fragment column falls outside the render band.
@@ -197,13 +197,13 @@ struct ClipRegion {
 
   /**
    * @brief Builds the precomputed cylindrical x-clip predicate for this region.
-   * @return An XClip whose `active` flag is false for full-width or wrap-to-full bands.
+   * @return An XClip whose `active` flag is false for full-coverage bands.
    */
   XClip x_clip() const {
     XClip c;
     c.rs = render_x_start();
     c.re = render_x_end();
-    c.active = (x_end - x_start) + 2 * margin < w && c.rs != c.re;
+    c.active = (x_end - x_start) + 2 * margin < w;
     c.wrap = c.rs > c.re;
     return c;
   }

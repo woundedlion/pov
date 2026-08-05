@@ -409,10 +409,11 @@ inline void expect_xclip_parity(const ClipRegion &cr) {
  * @brief Exercises the cylindrical x-clip predicates (render_x_*, contains_x,
  *        x_clip/XClip) across every documented band topology.
  * @details Covers a non-wrapping sub-band, a partial seam-crossing band
- *          (rs > re), the wrap-to-full fold (rs == re forcing active == false),
- *          an over-wrap band whose display width plus both margins exceeds w
- *          (must read as full coverage, not a thin wrap sliver), and the
- *          explicit full-width band (x_end - x_start >= w). Each case checks the
+ *          (rs > re), the exact wrap to full width (rs == re with the coverage
+ *          test forcing active == false), an over-wrap band whose display width
+ *          plus both margins exceeds w (must read as full coverage, not a thin
+ *          wrap sliver), the explicit full-width band (x_end - x_start >= w),
+ *          and the empty band (rs == re with zero width). Each case checks the
  *          XClip flags and membership at the band edges, then asserts
  *          contains_x()/XClip parity over all columns. Uses the hardware-like
  *          w = 96 so a small margin exercises a real seam cross.
@@ -467,16 +468,16 @@ inline void test_clip_x_band_topologies() {
     expect_xclip_parity(cr);
   }
 
-  // 3) Wrap-to-full fold: [10,50) with margin 28 makes both edges land on the
-  //    same column (rs == re == 78), so the margin expansion has wrapped to
-  //    cover the full width and XClip must deactivate rather than read as empty.
+  // 3) Exact wrap to full width: [10,50) with margin 28 spans exactly w
+  //    columns, so both edges land on the same column (rs == re == 78). The
+  //    full-coverage test deactivates the clip before the coincident ends read
+  //    as an empty band.
   {
     ClipRegion cr = make(10, 50, 28);
     HS_EXPECT_EQ(cr.render_x_start(), 78);
     HS_EXPECT_EQ(cr.render_x_end(), 78);
     const ClipRegion::XClip xc = cr.x_clip();
-    HS_EXPECT_FALSE(
-        xc.active); // rs == re folds to "no clipping", not empty band
+    HS_EXPECT_FALSE(xc.active);
     HS_EXPECT_TRUE(cr.contains_x(0));
     HS_EXPECT_TRUE(cr.contains_x(78));
     HS_EXPECT_TRUE(cr.contains_x(95));
@@ -511,6 +512,22 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_TRUE(cr.contains_x(90)); // gap, but reached from both margins
     expect_xclip_parity(cr);
   }
+
+  // 6) Empty band: a zero-width display band with no margin covers no column, so
+  //    the coincident ends must clip everything rather than fold to full width.
+  {
+    ClipRegion cr = make(30, 30, 0);
+    HS_EXPECT_EQ(cr.render_x_start(), 30);
+    HS_EXPECT_EQ(cr.render_x_end(), 30);
+    const ClipRegion::XClip xc = cr.x_clip();
+    HS_EXPECT_TRUE(xc.active);
+    HS_EXPECT_FALSE(xc.wrap);
+    HS_EXPECT_FALSE(cr.contains_x(0));
+    HS_EXPECT_FALSE(cr.contains_x(29));
+    HS_EXPECT_FALSE(cr.contains_x(30));
+    HS_EXPECT_FALSE(cr.contains_x(W - 1));
+    expect_xclip_parity(cr);
+  }
 }
 
 /**
@@ -538,7 +555,7 @@ inline void test_clip_x_wrap_matches_modulo() {
     const int rs = ref_start(cr.x_start, cr.margin, cr.w);
     const int re = ref_end(cr.x_end, cr.margin, cr.w);
     if (rs == re)
-      return true;
+      return false; // sub-arc with coincident ends: zero width
     return (rs < re) ? (x >= rs && x < re) : (x >= rs || x < re);
   };
 
