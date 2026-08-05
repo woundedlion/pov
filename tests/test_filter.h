@@ -273,6 +273,14 @@ inline void test_history_domain_folds() {
   HS_EXPECT_TRUE(
       (Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
                 Filter::Pixel::Feedback<W, H>>::any_2d_history));
+
+  // The direct sink publishes the same folds, so its flush() overloads reject a
+  // wrong-domain call exactly as the Pipeline it replaces does.
+  using Direct = Filter::Screen::DirectAntiAliasSink<W, H>;
+  HS_EXPECT_FALSE(Direct::any_2d_history);
+  HS_EXPECT_FALSE(Direct::any_3d_history);
+  HS_EXPECT_FALSE(Direct::any_2d_trail_history);
+  HS_EXPECT_FALSE(Direct::any_terminal_history);
 }
 
 // ============================================================================
