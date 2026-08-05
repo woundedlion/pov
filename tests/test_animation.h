@@ -226,6 +226,32 @@ inline void test_transition_repeat_retraverses_each_cycle() {
   HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
 }
 
+/**
+ * @brief Verifies a wired pause flag freezes a Transition: neither the timer
+ * nor the bound float advances, and `from` is snapshotted on the first unpaused
+ * step so a slider edit made while paused is honored.
+ */
+inline void test_transition_paused_holds_value() {
+  bool paused = true;
+  float v = 0.0f;
+  const int duration = 4;
+  Animation::Transition tr(v, 10.0f, duration, ease_linear, /*quantized=*/false,
+                           /*repeat=*/false, &paused);
+  for (int i = 0; i < duration; ++i)
+    tr.step(fake_canvas());
+  HS_EXPECT_NEAR(v, 0.0f, 1e-5f);
+  HS_EXPECT_FALSE(tr.done());
+
+  v = 6.0f; // edited while paused; becomes the ramp's start
+  paused = false;
+  tr.step(fake_canvas());
+  HS_EXPECT_NEAR(v, 7.0f, 1e-3f);
+  for (int i = 1; i < duration; ++i)
+    tr.step(fake_canvas());
+  HS_EXPECT_TRUE(tr.done());
+  HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
+}
+
 // ============================================================================
 // Mutation
 // ============================================================================
@@ -2676,6 +2702,34 @@ inline void test_colorwipe_slow_fade_resolves_every_frame() {
   HS_EXPECT_GT(advanced, 400);
 }
 
+/**
+ * @brief Verifies a wired pause flag freezes a ColorWipe: the source keys hold
+ * and the timer does not advance while paused.
+ */
+inline void test_colorwipe_paused_holds_keys() {
+  bool paused = true;
+  GenerativePalette from =
+      make_palette(CPixel(10, 10, 10), CPixel(10, 10, 10), CPixel(10, 10, 10));
+  GenerativePalette to = make_palette(
+      CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
+  GenerativePalette::Snapshot target = to.snapshot();
+  const int start_r = static_cast<int>(from.snapshot().a.r);
+
+  const int duration = 4;
+  Animation::ColorWipe wipe(from, to, duration, ease_linear, &paused);
+  for (int i = 0; i < duration; ++i)
+    wipe.step(fake_canvas());
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.r), start_r);
+  HS_EXPECT_FALSE(wipe.done());
+
+  paused = false;
+  for (int i = 0; i < duration; ++i)
+    wipe.step(fake_canvas());
+  HS_EXPECT_TRUE(wipe.done());
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.r),
+               static_cast<int>(target.a.r));
+}
+
 // ============================================================================
 // Mobius warps (b-coefficient drivers)
 // ----------------------------------------------------------------------------
@@ -3134,6 +3188,7 @@ inline int run_animation_tests() {
   test_transition_duration_zero_no_divide_by_zero();
   test_transition_quantized_floors_result();
   test_transition_repeat_retraverses_each_cycle();
+  test_transition_paused_holds_value();
 
   test_mutation_applies_function_of_eased_time();
   test_mutation_duration_zero_finite();
@@ -3223,6 +3278,7 @@ inline int run_animation_tests() {
   test_colorwipe_reaches_target_keys();
   test_colorwipe_snapshots_on_first_step();
   test_colorwipe_slow_fade_resolves_every_frame();
+  test_colorwipe_paused_holds_keys();
 
   test_mobiuswarp_closes_at_completion();
   test_mobiuswarp_bind_scale_reads_live();

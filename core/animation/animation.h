@@ -254,8 +254,9 @@ protected:
    * @brief Evaluates a wired pause flag.
    * @param flag Optional pointer to an effect's pause bool (may be null).
    * @return True when a non-null flag points to a set bool.
-   * @details Shared gate for the pausable animations (Mutation/Driver/Lerp/Sprite)
-   * so pause semantics live in one place.
+   * @details Shared gate for the pausable animations
+   * (Transition/Mutation/Driver/Lerp/ColorWipe/Sprite) so pause semantics live
+   * in one place.
    */
   static bool is_paused(const bool *flag) { return flag && *flag; }
 
