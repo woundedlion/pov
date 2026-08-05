@@ -109,7 +109,7 @@ if(EMSCRIPTEN)
   # Optional dev-only WASM bindings (off by default, so a normal build is
   # unchanged). Enables MeshOps::getMaxBounds() — a roster measurement tool for
   # sizing MAX_VERTS-style constants, with no UI/runtime consumer (see
-  # HS_WASM_DEV_BINDINGS in targets/wasm/wasm.cpp). Enable with:
+  # HS_WASM_DEV_BINDINGS in targets/wasm/mesh_ops_bindings.h). Enable with:
   #   cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=ON
   option(HS_WASM_DEV_BINDINGS "Re-export dev-only WASM bindings (getMaxBounds)" OFF)
   if(HS_WASM_DEV_BINDINGS)

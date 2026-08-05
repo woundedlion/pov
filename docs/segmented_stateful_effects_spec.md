@@ -4,7 +4,8 @@
 for making history-reading pixel effects (today only `MeshFeedback`, via the
 `Pixel::Feedback` filter) render correctly under segmented mode, without
 dropping pixels, while non-stateful effects keep the full clipping win. The
-seam is the WASM driver boundary (`targets/wasm/wasm.cpp` `setClip`) and the
+seam is the WASM driver boundary (`targets/wasm/engine_bindings.h` `setClip`)
+and the
 device driver (`hardware/pov_segmented.h` `clip_to_segment`), plus two
 compile-time filter traits. Both drivers gate on `Effect::needs_full_frame()`;
 the device additionally excludes `persists_pixels()` effects (§2).*
@@ -168,7 +169,7 @@ forgets the field is caught.
 
 ### 4.3 Honor it at the driver boundary (the only behavioral change)
 
-In `targets/wasm/wasm.cpp` `setClip` (wasm.cpp:477): if
+In `targets/wasm/engine_bindings.h` `setClip`: if
 `currentEffect->needs_full_frame()`, leave the clip at the full canvas
 (optionally record the requested band for telemetry) and return; otherwise
 apply the band as today.
@@ -193,7 +194,7 @@ full frame; only the slice differs — matching the device exactly.
 frame across workers" holds only because per-worker frame inputs are already
 deterministic: animations are *frame-stepped*, not wall-clock-stepped
 (`AnimationBase::step` counts frames, `core/animation/animation.h:165`;
-`drawFrame()` advances exactly one, `targets/wasm/wasm.cpp:505` — the
+`drawFrame()` advances exactly one, `targets/wasm/engine_bindings.h` — the
 `elapsed` timing is telemetry and never feeds
 animation), the RNG is fixed-seed (`hs::Pcg32(1337)`), and params are
 broadcast to every worker. The same invariant non-stateful segmented effects
@@ -238,7 +239,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 | `core/render/filter.h` traits | add `crosses_segments = has_history` to the trait bases; `false` on `Screen::Trails`; add a **new** recursive `any_crosses_segments` OR-fold to `Pipeline` + a `false` base case in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
 | `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor; `margin` config field applied to `ClipRegion::margin` through `set_margin`, widen-only |
 | each filtered effect's constructor | pass `.full_frame = decltype(filters)::any_crosses_segments` and `.margin = decltype(filters)::max_segment_margin` in the `Effect` base initializer |
-| `targets/wasm/wasm.cpp` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
+| `targets/wasm/engine_bindings.h` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
 | flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
 | `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |
 | `segment_worker.js` slicing | **none** |

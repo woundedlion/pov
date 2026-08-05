@@ -270,7 +270,12 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── Profile/
 │   │   └── Profile.ino         Single-effect HS_PROFILE harness on segment 0 of the segmented rig
 │   └── wasm/
-│       ├── wasm.cpp            Emscripten bindings — HolosphereEngine JS class
+│       ├── wasm.cpp            Emscripten binding TU — includes the binding headers below
+│       ├── engine_bindings.h   Render bridge — HolosphereEngine JS class, resolution/effect dispatch
+│       ├── mesh_ops_bindings.h Mesh editor bridge — MeshOps JS class, tooling arenas, Conway/Goldberg operators
+│       ├── palette_bindings.h  Palette bridge — PaletteOps JS class, generative palette LUT bake
+│       ├── math_exports.h      Free color/palette/geometry exports the JS tool ports cross-check against
+│       ├── arena_metrics.h     Arena metrics report shared by the render and mesh editor bridges
 │       ├── param_marshal.h     Pure parameter definition/value marshaling, single ordering source (host-testable)
 │       └── wasm_predicates.h   Pure embind boundary validation/clamping predicates (host-testable)
 │

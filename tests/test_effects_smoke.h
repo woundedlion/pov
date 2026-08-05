@@ -36,7 +36,8 @@ inline int run_effects_smoke_tests() {
   hs_test::ModuleFixture fixture("effects_smoke");
 
   // SSOT anti-drift guard, mirroring the WASM startup check
-  // (targets/wasm/wasm.cpp): the self-registering effect count (each header's
+  // (targets/wasm/engine_bindings.h): the self-registering effect count (each
+  // header's
   // REGISTER_EFFECT) must equal the static HS_EFFECT_LIST roster, or an effect
   // present in one and missing from the other silently drops smoke coverage
   // below. Active because the test build defines HS_TEST_BUILD (see
