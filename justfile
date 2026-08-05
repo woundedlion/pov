@@ -89,9 +89,10 @@ _doxyfile-local:
     copy /y Doxyfile Doxyfile.local
     type docs\doxygen-theme.cfg >> Doxyfile.local
 
-# WASM release build + install the module into ../daydream.
-install:
-    cmake --preset wasm-release
+# WASM release build + install the module into ../daydream. Gated on `smoke`
+# (which builds first), so the module and provenance triple written into the
+# simulator tree are always the ones the runtime gate just exercised.
+install: smoke
     cmake --build --preset wasm-release-install
 
 # Teensy 4 shipping-image gates + compile profiles (CI parity for a VMicro developer).

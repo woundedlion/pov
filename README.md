@@ -2392,7 +2392,7 @@ cmake --build  --preset wasm-release            # build holosphere_wasm.{js,wasm
 cmake --build  --preset wasm-release-install    # build + install into ../daydream/
 ```
 
-Use `wasm-debug` for an unoptimized build with assertions (`-sASSERTIONS=1`). Build outputs go to `build/<preset>/`. The `justfile` provides cross-platform shortcuts that forward to these presets: `just build` (release), `just build-debug`, and `just install` (release + install into `../daydream`). `just smoke` rebuilds and then drives the shipped module through [`scripts/wasm_smoke.mjs`](https://github.com/woundedlion/pov/blob/master/scripts/wasm_smoke.mjs) under Node — the same runtime gate CI's `wasm` job runs, so a release build is never shipped un-exercised.
+Use `wasm-debug` for an unoptimized build with assertions (`-sASSERTIONS=1`). Build outputs go to `build/<preset>/`. The `justfile` provides cross-platform shortcuts that forward to these presets: `just build` (release), `just build-debug`, and `just install` (smoke + install into `../daydream`). `just smoke` rebuilds and then drives the shipped module through [`scripts/wasm_smoke.mjs`](https://github.com/woundedlion/pov/blob/master/scripts/wasm_smoke.mjs) under Node — the same runtime gate CI's `wasm` job runs. The recipe graph is `install → smoke → build`, so the module and provenance markers written into daydream are exactly the ones the runtime gate exercised and a release build is never shipped un-exercised.
 
 The WASM target (`CMakeLists.txt`, `EMSCRIPTEN` branch) configures:
 - Source paths: `targets/wasm/wasm.cpp`, `core/engine/memory.cpp`, `core/engine/static_storage.cpp`, `core/engine/reaction_graph.cpp`
