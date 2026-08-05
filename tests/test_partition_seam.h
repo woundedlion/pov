@@ -110,10 +110,10 @@ inline int lum(const Pixel &p) { return static_cast<int>(p.g); }
  * @brief Statistics of one before/after capture pair.
  */
 struct SeamStats {
-  size_t lit_a = 0;   /**< Non-black pixels in the first capture. */
-  size_t lit_b = 0;   /**< Non-black pixels in the second capture. */
-  size_t full_a = 0;  /**< Pixels at full fill in the first capture. */
-  size_t changed = 0; /**< Pixels differing by more than DELTA_THRESH. */
+  size_t lit_a = 0;          /**< Non-black pixels in the first capture. */
+  size_t lit_b = 0;          /**< Non-black pixels in the second capture. */
+  size_t full_a = 0;         /**< Pixels at full fill in the first capture. */
+  size_t changed = 0;        /**< Pixels differing by more than DELTA_THRESH. */
   size_t changed_clean = 0;  /**< Changed, and full-fill before (new dark). */
   size_t changed_edge = 0;   /**< Changed, and already dark before. */
   size_t changed_near_v = 0; /**< Changed, within VERT_RADIUS of a parent
@@ -295,12 +295,16 @@ inline SeamStats compare(const std::vector<Pixel> &a,
  * unreachable at this canvas size: the swap's irreducible coverage delta is a
  * 2-4 px band along the child edges, 6.6-15.3 % of the canvas, so the bound is
  * on the changed fraction, the whole-frame energy and the deepest pixel
- * instead. The changed-fraction cap adds two percentage points to the widest
- * measured swap, enough for rounding drift without accepting a doubled band. */
-constexpr double MAX_MEASURED_CHANGED_FRAC = 0.1533;
+ * instead. Each swap is capped at its own measured fraction plus two
+ * percentage points, enough for rounding drift without accepting a widened
+ * band. */
 constexpr double CHANGED_FRAC_MARGIN = 0.02;
-constexpr double MAX_CHANGED_FRAC =
-    MAX_MEASURED_CHANGED_FRAC + CHANGED_FRAC_MARGIN;
+constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
+constexpr double MEASURED_CHANGED_FRAC_KIS_CUBE = 0.1019;
+constexpr double MEASURED_CHANGED_FRAC_KIS_DODECA = 0.1448;
+constexpr double MEASURED_CHANGED_FRAC_DUAL_ICOSA = 0.1217;
+constexpr double MEASURED_CHANGED_FRAC_DUAL_CUBE = 0.0662;
+constexpr double MEASURED_CHANGED_FRAC_DUAL_DODECA = 0.1217;
 constexpr double MAX_ABS_ENERGY = 0.02;
 
 /** Deepest pixel measured over the six calibration swaps, the same under
@@ -313,9 +317,14 @@ constexpr float MAX_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA + PIXEL_DELTA_MARGIN;
 
 /**
  * @brief Asserts one swap's statistics against the gated-swap envelope.
+ * @param st Statistics of the swap.
+ * @param measured_changed_frac The swap's calibrated changed fraction; its cap
+ *        is that plus CHANGED_FRAC_MARGIN.
  */
-inline void expect_within_envelope(const SeamStats &st) {
-  HS_EXPECT_LE(st.changed / (double(PS_W) * PS_H), MAX_CHANGED_FRAC);
+inline void expect_within_envelope(const SeamStats &st,
+                                   double measured_changed_frac) {
+  HS_EXPECT_LE(st.changed / (double(PS_W) * PS_H),
+               measured_changed_frac + CHANGED_FRAC_MARGIN);
   HS_EXPECT_LE(st.abs_energy, MAX_ABS_ENERGY);
   HS_EXPECT_LE(st.max_dark, MAX_PIXEL_DELTA);
   HS_EXPECT_LE(st.max_bright, MAX_PIXEL_DELTA);
@@ -341,8 +350,8 @@ inline void report(const char *tag, const SeamStats &st) {
               100.0 * st.abs_energy);
   std::printf("      clean interior: mean |d| %.1f%% max %.1f%%; existing "
               "edge: mean |d| %.1f%% max %.1f%%\n",
-              100.0 * st.mean_clean, 100.0 * st.max_clean,
-              100.0 * st.mean_edge, 100.0 * st.max_edge);
+              100.0 * st.mean_clean, 100.0 * st.max_clean, 100.0 * st.mean_edge,
+              100.0 * st.max_edge);
   if (st.changed_near_v || st.mean_far > 0.0)
     std::printf("      near parent vertex (<=%d px): %zu changed, mean |d| "
                 "%.1f%% vs %.1f%% elsewhere\n",
@@ -357,7 +366,8 @@ inline void report(const char *tag, const SeamStats &st) {
 /**
  * @brief CRC-32 of a byte range, PNG polynomial.
  */
-inline uint32_t png_crc(const uint8_t *p, size_t n, uint32_t crc = 0xFFFFFFFFu) {
+inline uint32_t png_crc(const uint8_t *p, size_t n,
+                        uint32_t crc = 0xFFFFFFFFu) {
   for (size_t i = 0; i < n; ++i) {
     crc ^= p[i];
     for (int k = 0; k < 8; ++k)
@@ -490,8 +500,10 @@ inline std::vector<Vector> vertex_list(const PolyMesh &m) {
  * @brief Measures the flat-shaded delta of `kis` on one seed.
  * @tparam Solid Seed solid descriptor.
  * @param name Tag for the report and PNG names.
+ * @param measured_changed_frac This swap's calibrated changed fraction.
  */
-template <typename Solid> inline void measure_kis(const char *name) {
+template <typename Solid>
+inline void measure_kis(const char *name, double measured_changed_frac) {
   Arena geom(ps_geom_buf, sizeof(ps_geom_buf));
   Arena temp(ps_temp_buf, sizeof(ps_temp_buf));
   Arena aux(ps_aux_buf, sizeof(ps_aux_buf));
@@ -531,15 +543,17 @@ template <typename Solid> inline void measure_kis(const char *name) {
   HS_EXPECT_GT(st.changed, (size_t)0);
   HS_EXPECT_GT(st.energy, 0.0);
   HS_EXPECT_GT(st.max_dark, st.max_bright);
-  expect_within_envelope(st);
+  expect_within_envelope(st, measured_changed_frac);
 }
 
 /**
  * @brief Measures the flat-shaded delta of `dual` on one seed.
  * @tparam Solid Seed solid descriptor.
  * @param name Tag for the report and PNG names.
+ * @param measured_changed_frac This swap's calibrated changed fraction.
  */
-template <typename Solid> inline void measure_dual(const char *name) {
+template <typename Solid>
+inline void measure_dual(const char *name, double measured_changed_frac) {
   Arena geom(ps_geom_buf, sizeof(ps_geom_buf));
   Arena temp(ps_temp_buf, sizeof(ps_temp_buf));
   Arena aux(ps_aux_buf, sizeof(ps_aux_buf));
@@ -569,7 +583,7 @@ template <typename Solid> inline void measure_dual(const char *name) {
   dump_png(png, diff_image(a, b));
 
   HS_EXPECT_GT(st.changed, (size_t)0);
-  expect_within_envelope(st);
+  expect_within_envelope(st, measured_changed_frac);
 }
 
 /**
@@ -623,13 +637,14 @@ template <typename Solid> inline void measure_gradient(const char *name) {
 inline void test_partition_seam_calibration() {
   std::printf("  [gate6] canvas %dx%d, flat fill, threshold %.1f%% of full\n",
               PS_W, PS_H, 100.0 * DELTA_THRESH / FILL);
-  measure_kis<Solids::Icosahedron>("icosa");
-  measure_kis<Solids::Cube>("cube");
-  measure_kis<Solids::Dodecahedron>("dodeca");
+  measure_kis<Solids::Icosahedron>("icosa", MEASURED_CHANGED_FRAC_KIS_ICOSA);
+  measure_kis<Solids::Cube>("cube", MEASURED_CHANGED_FRAC_KIS_CUBE);
+  measure_kis<Solids::Dodecahedron>("dodeca", MEASURED_CHANGED_FRAC_KIS_DODECA);
 
-  measure_dual<Solids::Icosahedron>("icosa");
-  measure_dual<Solids::Cube>("cube");
-  measure_dual<Solids::Dodecahedron>("dodeca");
+  measure_dual<Solids::Icosahedron>("icosa", MEASURED_CHANGED_FRAC_DUAL_ICOSA);
+  measure_dual<Solids::Cube>("cube", MEASURED_CHANGED_FRAC_DUAL_CUBE);
+  measure_dual<Solids::Dodecahedron>("dodeca",
+                                     MEASURED_CHANGED_FRAC_DUAL_DODECA);
 
   if (seam_dump_dir())
     measure_gradient<Solids::Dodecahedron>("dodeca");
