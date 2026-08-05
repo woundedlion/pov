@@ -4748,7 +4748,7 @@ inline void test_shapeshifter_slider_selections_render() {
  *          win. Cross-segment today: MeshFeedback (Pixel::Feedback) and the
  *          World::Trails effect Dynamo. This pins the gate end to
  *          end on constructed effects — the WASM driver reads exactly this query
- *          (targets/wasm/wasm.cpp setClip). See
+ *          (targets/wasm/engine_bindings.h setClip). See
  *          docs/segmented_stateful_effects_spec.md.
  */
 inline void test_needs_full_frame_gate() {

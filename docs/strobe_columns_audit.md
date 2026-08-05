@@ -1,7 +1,7 @@
 # `strobe_columns()` audit (historical)
 
 > **Historical audit (June 2026; renderer follow-up implemented).** Holosphere exposes the active
-> flag through [`HolosphereEngine::strobeColumns`](../targets/wasm/wasm.cpp),
+> flag through [`HolosphereEngine::strobeColumns`](../targets/wasm/engine_bindings.h),
 > [`daydream.js`](../../daydream/daydream.js) forwards it after effect changes, and
 > [`driver.js`](../../daydream/driver.js) fills inter-column gaps only for persistent columns.
 
@@ -85,7 +85,7 @@ accumulation effects persist (`false`) while sparse or full-frame "crisp" effect
 ## Simulator behavior (implemented)
 
 The WASM engine exposes the active effect's flag through
-[`HolosphereEngine::strobeColumns`](../targets/wasm/wasm.cpp). Daydream reads it in
+[`HolosphereEngine::strobeColumns`](../targets/wasm/engine_bindings.h). Daydream reads it in
 [`daydream.js`](../../daydream/daydream.js) and passes it to the renderer in
 [`driver.js`](../../daydream/driver.js).
 

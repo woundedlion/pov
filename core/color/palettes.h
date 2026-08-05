@@ -23,9 +23,9 @@
  * @param X Macro applied as X(name, A, B, C, D), where each coefficient vec3 is
  *          a parenthesized triple unpacked by HS_PALETTE_VEC3.
  * @details Expanded here to declare the Palettes:: instances, and in
- *          targets/wasm/wasm.cpp to export name + coefficients, so the browser
- *          tool's mirror of this table is checked against the same literals the
- *          engine compiles.
+ *          targets/wasm/math_exports.h to export name + coefficients, so the
+ *          browser tool's mirror of this table is checked against the same
+ *          literals the engine compiles.
  */
 #define HS_PROCEDURAL_PALETTE_LIST(X)                                          \
   X(DARK_RAINBOW, (0.367f, 0.367f, 0.367f), (0.500f, 0.500f, 0.500f),          \
