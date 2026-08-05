@@ -55,6 +55,7 @@
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "core/render/sdf.h"
+#include "core/render/sdf_volume.h"
 #include "core/mesh/solids.h"
 #include "core/math/spherical_field.h"
 #include "core/mesh/spatial.h"
