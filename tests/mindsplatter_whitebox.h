@@ -448,12 +448,23 @@ struct MindSplatterWhiteBox {
   static void draw_particles_candidate(MindSplatter<W, H> &ms, Canvas &canvas) {
     ms.draw_particles(canvas);
   }
+  /** @brief Enables reference screen stepping, restoring the prior value. */
+  struct ReferenceScreenStepScope {
+    const bool previous = Plot::g_reference_screen_step;
+
+    ReferenceScreenStepScope() { Plot::g_reference_screen_step = true; }
+    ~ReferenceScreenStepScope() { Plot::g_reference_screen_step = previous; }
+
+    ReferenceScreenStepScope(const ReferenceScreenStepScope &) = delete;
+    ReferenceScreenStepScope &
+    operator=(const ReferenceScreenStepScope &) = delete;
+  };
+
   template <int W, int H>
   static void draw_particles_replay_reference(MindSplatter<W, H> &ms,
                                               Canvas &canvas) {
-    Plot::g_reference_screen_step = true;
+    const ReferenceScreenStepScope scope;
     ms.draw_particles_with(ms.filters, canvas);
-    Plot::g_reference_screen_step = false;
   }
   template <int W, int H>
   static void draw_particles_reference(MindSplatter<W, H> &ms) {
