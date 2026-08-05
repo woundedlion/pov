@@ -10,6 +10,11 @@
 # It sees definitions of the form `void test_*(` / `void check_*(` at the start
 # of a line (optionally `inline`/`static`), which is how every case in the tree
 # is written; a case removed together with its definition is left to code review.
+#
+# Comment spans are stripped before both the definition scan and the reference
+# count: the tree cross-references case names in prose, and an unstripped
+# `@details` mention would supply the second reference the real call no longer
+# does.
 # -D args: TESTS_DIR (path to tests/).
 
 cmake_minimum_required(VERSION 3.29)
@@ -21,6 +26,12 @@ set(_sites 0)
 foreach(_hdr IN LISTS _headers)
   file(READ "${_hdr}" _text)
   get_filename_component(_name "${_hdr}" NAME)
+  # Blank string bodies, then drop block and line comment spans. Strings go
+  # first so a `//` or `/*` inside a message cannot open a comment span; the
+  # blanked body is bounded by its own line, an over-eager comment span is not.
+  string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
+  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
+  string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
   string(REGEX MATCHALL "\n[ \t]*(inline )?(static )?void (test|check)_[A-Za-z0-9_]+\\("
     _defs "${_text}")
   set(_seen "")
