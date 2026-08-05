@@ -177,13 +177,8 @@ private:
    * @return Product of two sinusoids in [-1, 1] forming the grid pattern.
    */
   float sample(const Complex &w) const {
-    // Near the pole |w| -> STEREO_INF, so w*pattern_freq can reach ~2e5 where
-    // fast_sinf range reduction bands; clamp the (pole-attenuated) argument.
-    float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
-                         STEREO_PATTERN_ARG_LIMIT);
-    float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
-                         STEREO_PATTERN_ARG_LIMIT);
-    return fast_sinf(pu + sin_phase) * fast_cosf(pv - drift_phase);
+    Complex p = stereo_pattern_args(w, params.pattern_freq);
+    return fast_sinf(p.re + sin_phase) * fast_cosf(p.im - drift_phase);
   }
 
   Timeline timeline;
