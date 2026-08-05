@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -235,16 +236,20 @@ struct ShapeShifterWhiteBox {
     return OracleEffect::SPACING_EXPORT_OPTIONS[index];
   }
 
+  static const OracleEffect::Params &preset_params(size_t index) {
+    return OracleEffect::PRESETS[index].params;
+  }
+
   static OracleEffect::ShapeType preset_shape(size_t index) {
-    return OracleEffect::PRESETS[index].params.shape;
+    return preset_params(index).shape;
   }
 
   static OracleEffect::AlphaFalloff preset_alpha_falloff(size_t index) {
-    return OracleEffect::PRESETS[index].params.alpha_falloff;
+    return preset_params(index).alpha_falloff;
   }
 
   static OracleEffect::RadiusSpacing preset_spacing(size_t index) {
-    return OracleEffect::PRESETS[index].params.spacing;
+    return preset_params(index).spacing;
   }
 
   static void next_preset(OracleEffect &effect) { effect.next_preset(); }
@@ -862,16 +867,22 @@ inline void test_preset_transition_snaps() {
       return -1.0f;
     };
 
+    auto option_index = [](auto field) {
+      return static_cast<float>(
+          static_cast<std::underlying_type_t<decltype(field)>>(field));
+    };
+    const auto &preset = ShapeShifterWhiteBox::preset_params(1);
+
     HS_EXPECT_EQ(value("Alpha"), 0.42f);
-    HS_EXPECT_EQ(value("Shape"), 1.0f);
-    HS_EXPECT_EQ(value("Count"), 74.644997f);
-    HS_EXPECT_EQ(value("Spacing"), 0.0f);
-    HS_EXPECT_EQ(value("Sides"), 3.0f);
-    HS_EXPECT_EQ(value("Function"), 0.0f);
-    HS_EXPECT_EQ(value("Amplitude"), 1.0f);
-    HS_EXPECT_EQ(value("Speed"), 0.0318f);
-    HS_EXPECT_EQ(value("Opposite"), 0.0f);
-    HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
+    HS_EXPECT_EQ(value("Shape"), option_index(preset.shape));
+    HS_EXPECT_EQ(value("Count"), preset.count);
+    HS_EXPECT_EQ(value("Spacing"), option_index(preset.spacing));
+    HS_EXPECT_EQ(value("Sides"), preset.sides);
+    HS_EXPECT_EQ(value("Function"), option_index(preset.function));
+    HS_EXPECT_EQ(value("Amplitude"), preset.amplitude);
+    HS_EXPECT_EQ(value("Speed"), preset.speed);
+    HS_EXPECT_EQ(value("Opposite"), preset.opposite ? 1.0f : 0.0f);
+    HS_EXPECT_EQ(value("Alpha Falloff"), option_index(preset.alpha_falloff));
   }
   Timeline().clear();
 }
