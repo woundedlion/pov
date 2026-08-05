@@ -33,8 +33,9 @@ Usage: python tools/gen_gamut_lut.py [output_path]
 
 --check regenerates the table in memory and diffs it against the committed
 header in full, pins the constants mirrored below against core/color/color.h,
-and round-trips the angle parameterization. Wired as ctest unit_gamut_lut and
-CI gamut-lut-provenance.
+pins the mirrored diamond angle against core/math/3dmath.h, and round-trips the
+angle parameterization. Wired as ctest unit_gamut_lut and CI
+gamut-lut-provenance.
 """
 
 import argparse
@@ -319,14 +320,128 @@ def _function_body(text, signature):
 NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 
 
+def _split_paren(text):
+    """Splits `text`, which opens with '(', into the parenthesized part and the
+    remainder."""
+    depth = 0
+    for i, ch in enumerate(text):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return text[1:i], text[i + 1:]
+    raise ValueError("unbalanced parentheses in %r" % text)
+
+
+def _cpp_expr_to_python(expr, names):
+    """Rewrites one C++ float expression into the equivalent Python source.
+
+    Covers the grammar the mirrored helpers are written in: arithmetic over the
+    named locals, float literal suffixes, std::fabs and nested ternaries. Any
+    other call or identifier raises ValueError rather than being guessed at.
+    """
+    expr = expr.strip()
+    depth = 0
+    q = -1
+    for i, ch in enumerate(expr):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == "?" and depth == 0:
+            q = i
+            break
+    if q >= 0:
+        depth = 0
+        level = 0
+        colon = -1
+        for i in range(q + 1, len(expr)):
+            ch = expr[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            elif depth == 0 and ch == "?":
+                level += 1
+            elif depth == 0 and ch == ":":
+                if level == 0:
+                    colon = i
+                    break
+                level -= 1
+        if colon < 0:
+            raise ValueError("unpaired ternary in %r" % expr)
+        return "(%s) if (%s) else (%s)" % (
+            _cpp_expr_to_python(expr[q + 1:colon], names),
+            _cpp_expr_to_python(expr[:q], names),
+            _cpp_expr_to_python(expr[colon + 1:], names))
+
+    expr = expr.replace("std::fabs", "abs")
+    expr = re.sub(r"(?<=[0-9.])f\b", "", expr)
+    tokens = re.findall(r"\d[\w.]*|[A-Za-z_][\w:]*", expr)
+    unknown = [n for n in tokens if not n[0].isdigit() and n not in names]
+    if unknown:
+        raise ValueError("unsupported identifiers %s in %r" % (unknown, expr))
+    return expr
+
+
+def _cpp_float_fn(body, params):
+    """Compiles a straight-line C++ float function body into a callable.
+
+    Accepts float locals, brace-less single-statement ifs and returns -- the
+    shape the mirrored helpers are written in. Anything else raises ValueError,
+    so a rewrite on the C++ side surfaces as a parse failure rather than as a
+    silently stale mirror.
+    """
+    text = re.sub(r"//[^\n]*", " ", body).strip().lstrip("{")
+    text = " ".join(text.split())
+    names = set(params) | {"abs"}
+    program = []
+    while text:
+        conds = []
+        while re.match(r"if\s*\(", text):
+            cond, text = _split_paren(text[text.index("("):])
+            conds.append(compile(_cpp_expr_to_python(cond, names),
+                                 "<cpp>", "eval"))
+            text = text.lstrip()
+        stmt, _, text = text.partition(";")
+        stmt = stmt.strip()
+        text = text.strip()
+        ret = re.match(r"^return\s+(.+)$", stmt)
+        decl = re.match(r"^(?:const\s+)?float\s+(\w+)\s*=\s*(.+)$", stmt)
+        if ret:
+            target, source = None, ret.group(1)
+        elif decl:
+            target, source = decl.group(1), decl.group(2)
+        else:
+            raise ValueError("unsupported statement %r" % stmt)
+        code = compile(_cpp_expr_to_python(source, names), "<cpp>", "eval")
+        program.append((conds, target, code))
+        if target is not None:
+            names.add(target)
+
+    def call(*args):
+        env = {"abs": abs}
+        env.update(zip(params, args))
+        for conds, target, code in program:
+            if not all(eval(c, env) for c in conds):
+                continue
+            if target is None:
+                return eval(code, env)
+            env[target] = eval(code, env)
+        raise ValueError("control fell off the end of the parsed body")
+
+    return call
+
+
 def check_angle_roundtrip():
-    """Pins diamond_direction() as the inverse of the diamond angle.
+    """Pins diamond_direction() as the inverse of diamond_angle() above.
 
     Every cell of the table is filled along a direction from
-    diamond_direction(), and every runtime lookup indexes it by
-    diamond_angle(b, a). A re-parameterization on either side that is not
-    mirrored on the other leaves the table intact but mis-indexed, which the
-    numeric-token diff of --check cannot see.
+    diamond_direction(), and every runtime lookup indexes it by the diamond
+    angle. Both sides live here, so this catches only a half-applied edit to
+    this file; the C++ the runtime actually calls is pinned separately by
+    check_mirrors().
     """
     n = ANGLE_STEPS * SUBSAMPLES
     t = np.arange(n) * (4.0 / n)
@@ -340,8 +455,50 @@ def check_angle_roundtrip():
     return False
 
 
-def check_mirrors(color_h_path):
-    """Diffs the mirrored OKLab matrices and gamut epsilon against color.h."""
+def check_diamond_angle_mirror(math_h_path):
+    """Diffs the mirrored diamond angle against 3dmath.h's definition.
+
+    Parses the C++ into a callable and sweeps it against the mirror, so a
+    re-parameterization on the side every runtime cell lookup indexes by fails
+    here instead of silently re-indexing the whole table.
+    """
+    with open(math_h_path, "r", encoding="utf-8") as f:
+        text = f.read()
+    try:
+        sig = re.search(r"inline float diamond_angle\(([^)]*)\)", text)
+        if sig is None:
+            raise ValueError("no float diamond_angle(...) declaration")
+        params = tuple(p.split()[-1] for p in sig.group(1).split(","))
+        if params != ("y", "x"):
+            raise ValueError("parameters are %s, not ('y', 'x')" % (params,))
+        cpp = _cpp_float_fn(_function_body(text, "inline float diamond_angle("),
+                            params)
+    except ValueError as exc:
+        sys.stderr.write("could not parse 3dmath.h diamond_angle(): %s\n"
+                         "  re-derive the mirror above from that definition\n"
+                         % exc)
+        return False
+
+    theta = np.arange(721) * (2.0 * np.pi / 721.0)
+    # Three radii to cover the scale invariance, plus the degenerate origin and
+    # a point inside the 1e-20 guard.
+    x = np.concatenate([r * np.cos(theta) for r in (1e-3, 1.0, 7.5)]
+                       + [np.array([0.0, 1e-30, -1e-30])])
+    y = np.concatenate([r * np.sin(theta) for r in (1e-3, 1.0, 7.5)]
+                       + [np.array([0.0, -1e-30, 1e-30])])
+    mirror = diamond_angle(y, x)
+    err = max(abs(cpp(float(yi), float(xi)) - float(mi))
+              for xi, yi, mi in zip(x, y, mirror))
+    if err <= 1e-12:
+        return True
+    sys.stderr.write("diamond_angle() mirror drift against 3dmath.h"
+                     " (worst error %g)\n" % err)
+    return False
+
+
+def check_mirrors(color_h_path, math_h_path):
+    """Diffs the mirrored OKLab matrices and gamut epsilon against color.h, and
+    the mirrored diamond angle against 3dmath.h."""
     with open(color_h_path, "r", encoding="utf-8") as f:
         text = f.read()
 
@@ -369,7 +526,7 @@ def check_mirrors(color_h_path):
         sys.stderr.write("gamut slack drift\n  color.h: %r %r\n  here:    %r %r\n"
                          % (lo, one + eps, GAMUT_LO, GAMUT_HI))
         ok = False
-    return ok
+    return check_diamond_angle_mirror(math_h_path) and ok
 
 
 def check_provenance(committed_path):
@@ -411,12 +568,13 @@ def main():
     parser.add_argument(
         "--check", action="store_true",
         help="diff a fresh table against the header and pin the mirrored"
-             " constants against color.h instead of writing")
+             " constants against color.h and 3dmath.h instead of writing")
     args = parser.parse_args()
 
     if args.check:
         ok = check_angle_roundtrip()
-        ok = check_mirrors(os.path.join(root, "core", "color", "color.h")) and ok
+        ok = check_mirrors(os.path.join(root, "core", "color", "color.h"),
+                           os.path.join(root, "core", "math", "3dmath.h")) and ok
         ok = check_provenance(args.output_path) and ok
         sys.exit(0 if ok else 1)
 

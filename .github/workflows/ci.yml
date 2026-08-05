@@ -811,7 +811,7 @@ jobs:
       - name: Install numpy
         run: pip install 'numpy==2.4.3'   # the generator's only dependency; pinned like platformio
 
-      - name: Check gamut LUT provenance and color.h mirrors
+      - name: Check gamut LUT provenance and the color.h/3dmath.h mirrors
         # ctest unit_gamut_lut runs the same --check inside the sharded unit-test
         # job (which provisions numpy and sets -DHS_REQUIRE_GENERATORS=ON, so it
         # cannot skip); this job runs it standalone, independent of that build.
