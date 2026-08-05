@@ -1147,6 +1147,8 @@ public:
    * @details Entry i samples t = i / (LUT_SIZE - 1), so the last entry lands on
    * t = 1 exactly. A composition with Wrap=true folds that sample back to 0 and
    * collapses its last entry onto its first — bake such sources with Wrap=false.
+   * Sources whose mirrors_domain() returns true sample the first half and copy
+   * it in reverse so the quantized LUT remains exactly palindromic.
    */
   template <typename Source> HS_COLD_MEMBER void rebake(const Source &source) {
     if constexpr (requires { Source::WRAPS_COORDINATE; }) {
@@ -1156,11 +1158,21 @@ public:
     HS_CHECK(colors != nullptr && alpha_q16 != nullptr,
              "BakedPalette::rebake before bake()");
     HS_CHECK(!aliased, "BakedPalette::rebake through an aliasing handle");
-    for (int i = 0; i < LUT_SIZE; ++i) {
+    bool mirrors = false;
+    if constexpr (requires { source.mirrors_domain(); })
+      mirrors = source.mirrors_domain();
+    const int sample_count = mirrors ? LUT_SIZE / 2 : LUT_SIZE;
+    for (int i = 0; i < sample_count; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
       const Color4 sample = source.get(t);
       colors[i] = sample.color;
       alpha_q16[i] = frac_to_q16(sample.alpha);
+    }
+    if (mirrors) {
+      for (int i = 0; i < sample_count; ++i) {
+        colors[LUT_SIZE - 1 - i] = colors[i];
+        alpha_q16[LUT_SIZE - 1 - i] = alpha_q16[i];
+      }
     }
   }
 
