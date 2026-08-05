@@ -197,15 +197,6 @@ struct ShapeShifterWhiteBox {
     return effect.phase_direction(radius);
   }
 
-  static float shape_alpha(OracleEffect::AlphaFalloff falloff, int index,
-                           int count) {
-    return OracleEffect::shape_alpha(falloff, index, count);
-  }
-
-  static float palette_position(float radius_t) {
-    return OracleEffect::palette_position(radius_t);
-  }
-
   static float alpha_falloff_at(OracleEffect::AlphaFalloff falloff,
                                 float radius_t, int count) {
     return OracleEffect::alpha_falloff_at(falloff, radius_t, count);
@@ -736,43 +727,50 @@ inline void test_amplitude_preserves_sweep_velocity() {
                  0.01f, 1e-6f);
 }
 
-inline void test_shape_alpha_fades_to_equator() {
+/** @brief Contour midpoint the render path samples the baked palette at. */
+inline float midpoint_radius_t(int index, int count) {
+  return (static_cast<float>(index) + 0.5f) / static_cast<float>(count);
+}
+
+/** @brief Discrete per-contour alpha ramp, in index space. */
+inline float midpoint_alpha_reference(int index, int count) {
+  const int steps_to_equator = (count - 1) / 2;
+  if (steps_to_equator == 0)
+    return 1.0f;
+  const int opposite_index = count - index - 1;
+  const int distance_from_pole =
+      index < opposite_index ? index : opposite_index;
+  const float equator_alpha = 2.0f / static_cast<float>(count);
+  return 1.0f - (1.0f - equator_alpha) *
+                    static_cast<float>(distance_from_pole) /
+                    static_cast<float>(steps_to_equator);
+}
+
+inline void test_alpha_falloff_fades_to_equator() {
   using Falloff = OracleEffect::AlphaFalloff;
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 0, 1),
-               1.0f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 0, 6),
-               1.0f);
-  HS_EXPECT_NEAR(
-      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 1, 6),
-      2.0f / 3.0f, 1e-6f);
-  HS_EXPECT_NEAR(
-      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 2, 6),
-      1.0f / 3.0f, 1e-6f);
-  HS_EXPECT_NEAR(
-      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 3, 6),
-      1.0f / 3.0f, 1e-6f);
-  HS_EXPECT_NEAR(
-      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 4, 6),
-      2.0f / 3.0f, 1e-6f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 5, 6),
-               1.0f);
-  HS_EXPECT_NEAR(
-      ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR, 2, 5),
-      2.0f / 5.0f, 1e-6f);
+  auto toward_equator = [](int index, int count) {
+    return ShapeShifterWhiteBox::alpha_falloff_at(
+        Falloff::TOWARD_EQUATOR, midpoint_radius_t(index, count), count);
+  };
+  HS_EXPECT_EQ(toward_equator(0, 1), 1.0f);
+  HS_EXPECT_NEAR(toward_equator(0, 6), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(toward_equator(1, 6), 2.0f / 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(toward_equator(2, 6), 1.0f / 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(toward_equator(3, 6), 1.0f / 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(toward_equator(4, 6), 2.0f / 3.0f, 1e-6f);
+  HS_EXPECT_NEAR(toward_equator(5, 6), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(toward_equator(2, 5), 2.0f / 5.0f, 1e-6f);
   for (int index = 0; index < 6; ++index)
-    HS_EXPECT_EQ(
-        ShapeShifterWhiteBox::shape_alpha(Falloff::CONSTANT_HALF, index, 6),
-        0.5f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::alpha_falloff_at(
+                     Falloff::CONSTANT_HALF, midpoint_radius_t(index, 6), 6),
+                 0.5f);
 
   for (int count = 1; count <= OracleEffect::MAX_SHAPES; ++count) {
     for (int index = 0; index < count; ++index) {
-      const float radius_t =
-          (static_cast<float>(index) + 0.5f) / static_cast<float>(count);
+      const float radius_t = midpoint_radius_t(index, count);
       HS_EXPECT_NEAR(ShapeShifterWhiteBox::alpha_falloff_at(
                          Falloff::TOWARD_EQUATOR, radius_t, count),
-                     ShapeShifterWhiteBox::shape_alpha(Falloff::TOWARD_EQUATOR,
-                                                       index, count),
-                     1e-6f);
+                     midpoint_alpha_reference(index, count), 1e-6f);
       HS_EXPECT_EQ(ShapeShifterWhiteBox::alpha_falloff_at(
                        Falloff::CONSTANT_HALF, radius_t, count),
                    0.5f);
@@ -808,14 +806,6 @@ inline void test_opposite_halves_direction() {
   const OracleFrame checked = capture_frame(state, candidate_renderer());
   HS_EXPECT_GT(compare_buffers(unchecked, checked).different_pixels,
                static_cast<size_t>(0));
-}
-
-inline void test_palette_position_mirrors_at_equator() {
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::palette_position(0.0f), 0.0f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::palette_position(0.25f), 0.5f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::palette_position(0.5f), 1.0f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::palette_position(0.75f), 0.5f);
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::palette_position(1.0f), 0.0f);
 }
 
 inline void test_folded_shapes_draw_from_equator_to_both_poles() {
@@ -900,8 +890,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_high_count_planar_star_caps_cover_chart_centers();
   test_high_count_spherical_star_contours_reach_display_north();
   test_amplitude_preserves_sweep_velocity();
-  test_shape_alpha_fades_to_equator();
-  test_palette_position_mirrors_at_equator();
+  test_alpha_falloff_fades_to_equator();
   test_opposite_halves_direction();
   test_folded_shapes_draw_from_equator_to_both_poles();
   test_screen_balanced_spacing_follows_sampling_envelope();
