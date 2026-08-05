@@ -205,6 +205,37 @@ inline void test_ring_just_outside_band() {
   HS_EXPECT_TRUE(r.dist > 50.0f);
 }
 
+/**
+ * @brief Verifies a small-radius ring thick enough to break the linearized
+ *        centerline distance still reports the exact geodesic distance,
+ *        symmetric about the centerline.
+ */
+inline void test_ring_small_radius_distance_symmetric() {
+  const float RADIUS = 0.04f;
+  const float THICKNESS = 0.05f;
+  Basis b = equator_basis();
+  SDF::Ring ring(b, RADIUS, THICKNESS);
+  float target = RADIUS * (PI_F / 2.0f);
+
+  // Ring axis is +Y, so a point at polar angle a off the axis is
+  // (sin a, cos a, 0).
+  auto at_polar = [](float a) {
+    return Vector(std::sin(a), std::cos(a), 0.0f);
+  };
+
+  for (float off : {-0.9f, -0.4f, 0.4f, 0.9f}) {
+    float delta = off * THICKNESS;
+    auto r = SDF::distance_of(ring, at_polar(target + delta));
+    HS_EXPECT_NEAR(r.raw_dist, std::abs(delta), 1e-4f);
+    HS_EXPECT_NEAR(r.dist, std::abs(delta) - THICKNESS, 1e-4f);
+  }
+
+  // The AA ramp reads the same either side of the centerline.
+  float d_in = dot(at_polar(target - 0.9f * THICKNESS), b.v);
+  float d_out = dot(at_polar(target + 0.9f * THICKNESS), b.v);
+  HS_EXPECT_NEAR(ring.stroke_alpha(d_in), ring.stroke_alpha(d_out), 1e-4f);
+}
+
 // ============================================================================
 // DistortedRing  (per-azimuth centerline shift)
 // ============================================================================
@@ -2614,6 +2645,7 @@ inline int run_sdf_tests() {
   test_ring_inside_band();
   test_ring_outside_band_returns_sentinel();
   test_ring_just_outside_band();
+  test_ring_small_radius_distance_symmetric();
 
   test_distorted_ring_constant_shift_moves_centerline();
   test_distorted_ring_sin_shift_varies_by_azimuth();

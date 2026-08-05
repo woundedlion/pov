@@ -44,6 +44,9 @@ static constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
 static constexpr float INTERVAL_DENOM_EPS = 1e-6f;
 /** Threshold for near-pole ring approximation safety. */
 static constexpr float POLE_SAFE_MARGIN = 0.05f;
+/** Ring thickness ceiling as a fraction of tan(target_angle) for the
+ *  linearized centerline distance; bounds its relative error at half this. */
+static constexpr float RING_LINEARIZE_TAN_FRAC = 0.1f;
 /** Pole-on-boundary tolerance, as a fraction of a face's 2D circumradius. */
 static constexpr float POLE_BOUNDARY_TOL = 1e-3f;
 /** Inner/outer radius ratio for star shapes. */
@@ -776,8 +779,10 @@ struct Ring {
     cos_min = cosf(ang_max);
     cos_target = cosf(target_angle);
 
-    bool safe_approx = (target_angle > POLE_SAFE_MARGIN &&
-                        target_angle < PI_F - POLE_SAFE_MARGIN);
+    bool safe_approx =
+        (target_angle > POLE_SAFE_MARGIN &&
+         target_angle < PI_F - POLE_SAFE_MARGIN &&
+         thickness < RING_LINEARIZE_TAN_FRAC * std::abs(tanf(target_angle)));
     inv_sin_target = safe_approx ? (1.0f / sinf(target_angle)) : 0.0f;
 
     r_val = ap.R_val;
