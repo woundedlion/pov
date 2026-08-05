@@ -3340,6 +3340,7 @@ inline void test_displacement_field_clip_tiles_full() {
                         {DEFAULT_W / 2, DEFAULT_W, DEFAULT_H / 2, DEFAULT_H}};
   const int frames = 60;
 
+  size_t lit = 0, sampled_pixels = 0;
   auto fold_region = [&](bool clip, const Quad &q) -> uint64_t {
     reset_effect_globals();
     GenerativePalette::reset_hue_seed(0);
@@ -3357,6 +3358,11 @@ inline void test_displacement_field_clip_tiles_full() {
       for (int y = q.y0; y < q.y1; ++y)
         for (int x = q.x0; x < q.x1; ++x) {
           const Pixel p = fx.get_pixel(x, y);
+          if (!clip) {
+            if (p.r | p.g | p.b)
+              ++lit;
+            ++sampled_pixels;
+          }
           for (uint16_t c : {p.r, p.g, p.b}) {
             fold ^= c & 0xFF;
             fold *= 1099511628211ull; // FNV-1a prime
@@ -3371,6 +3377,14 @@ inline void test_displacement_field_clip_tiles_full() {
 
   for (const Quad &q : quads)
     HS_EXPECT_EQ(fold_region(false, q), fold_region(true, q));
+
+  // Two all-black folds agree, so the comparison above only means something
+  // once the quadrants have produced output.
+  if (lit == 0)
+    std::printf("  CLIP-TILE DARK DisplacementField no lit pixel over %zu "
+                "sampled pixels\n",
+                sampled_pixels);
+  HS_EXPECT(lit > 0, "clip tiling must compare a lit render");
 }
 
 /** @brief Every MindSplatter palette rebuild stays exactly opaque. */
@@ -4988,6 +5002,7 @@ inline void test_voronoi_segment_render_matches_full_frame() {
   const Band bands[] = {
       {0, 100, 0, H}, {100, W, 0, H}, {0, W, 50, H}, {37, 205, 11, 93}};
 
+  size_t lit = 0, compared_pixels = 0;
   for (const Band &b : bands) {
     const std::vector<Pixel> banded = render(b.x0, b.x1, b.y0, b.y1);
     HS_EXPECT_EQ(banded.size(),
@@ -4995,15 +5010,26 @@ inline void test_voronoi_segment_render_matches_full_frame() {
     size_t different = 0;
     size_t i = 0;
     for (int y = b.y0; y < b.y1; ++y)
-      for (int x = b.x0; x < b.x1; ++x, ++i)
-        if (banded[i] != full[static_cast<size_t>(y) * W + x])
+      for (int x = b.x0; x < b.x1; ++x, ++i) {
+        const Pixel &reference = full[static_cast<size_t>(y) * W + x];
+        if (banded[i] != reference)
           ++different;
+        if (reference.r | reference.g | reference.b)
+          ++lit;
+      }
+    compared_pixels += banded.size();
     if (different)
       std::printf("  VORONOI SEAM band x[%d,%d) y[%d,%d): %zu of %zu pixels "
                   "differ from the full-canvas render\n",
                   b.x0, b.x1, b.y0, b.y1, different, banded.size());
     HS_EXPECT_EQ(different, static_cast<size_t>(0));
   }
+  // Two all-black renders agree pixel for pixel, so the comparison above only
+  // means something once the bands have produced output.
+  if (lit == 0)
+    std::printf("  VORONOI DARK no lit pixel over %zu compared pixels\n",
+                compared_pixels);
+  HS_EXPECT(lit > 0, "segment parity must compare a lit render");
 }
 
 /**
