@@ -54,6 +54,7 @@ INLINE_SCAN = (
     ROOT / ".github/workflows/docs.yml",
     ROOT / "justfile",
     ROOT / "scripts/generate_luts.py",
+    ROOT / ".githooks/pre-commit",
 )
 
 # (pattern, pin name, expected form of the pin value). The pattern's single
@@ -68,6 +69,7 @@ INLINE_USES = (
     (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0]),
     (r"EXPECTED_CLANG_FORMAT_MAJOR = (\d+)", "clang-format",
      lambda v: v.split(".")[0]),
+    (r"HS_CLANG_FORMAT_MAJOR=(\d+)", "clang-format", lambda v: v.split(".")[0]),
     (r"Install Doxygen ([\w.]+) ", "doxygen", lambda v: v),
     (r"/Release_(\w+)/", "doxygen", lambda v: v.replace(".", "_")),
     (r"\bdoxygen-([\w.]+)\.linux", "doxygen", lambda v: v),
