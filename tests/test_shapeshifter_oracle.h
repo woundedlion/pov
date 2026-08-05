@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <utility>
 #include <vector>
 
@@ -24,13 +25,39 @@ constexpr int ORACLE_H = 144;
 constexpr uint32_t BRIGHT_ENERGY = 12288;
 constexpr uint32_t COVERAGE_ENERGY = 512;
 constexpr uint32_t HIGH_CHANNEL_ERROR = 4096;
-constexpr double MAX_MEAN_ABSOLUTE_ERROR = 350.0;
-constexpr double MAX_ROOT_MEAN_SQUARED_ERROR = 1250.0;
-constexpr uint32_t MAX_CHANNEL_ERROR = 32768;
-constexpr double MAX_ENERGY_DRIFT = 0.006;
-constexpr double MAX_HIGH_COUNT_STAR_ENERGY_DRIFT = 0.013;
-constexpr size_t MAX_HIGH_ERROR_PIXELS = 1600;
-constexpr size_t MAX_STAR_HIGH_ERROR_PIXELS = 1800;
+
+/** Candidate-vs-reference visual budget. Every bound is the maximum measured
+ * over the oracle matrix and the high-count star presets times a headroom
+ * factor, and every case prints achieved-vs-budget. Whole-frame statistics
+ * average over the entire canvas and take the tight factor; the worst single
+ * pixel is a discrete extremum that hops to a neighbouring edge pixel when the
+ * rounding shifts, so it takes the loose one. Mean, RMS and the star high-error
+ * count peak on the square-wave planar star at count=75; the worst pixel and
+ * the non-star high-error count on the square-wave flower at count=75. */
+constexpr double WHOLE_FRAME_HEADROOM = 1.2;
+constexpr double WORST_PIXEL_HEADROOM = 1.5;
+constexpr double MEASURED_MEAN_ABSOLUTE_ERROR = 279.1;
+constexpr double MEASURED_ROOT_MEAN_SQUARED_ERROR = 947.7;
+constexpr uint32_t MEASURED_CHANNEL_ERROR = 15768;
+constexpr double MEASURED_ENERGY_DRIFT = 0.00397;
+constexpr double MEASURED_HIGH_COUNT_STAR_ENERGY_DRIFT = 0.0120;
+constexpr size_t MEASURED_HIGH_ERROR_PIXELS = 452;
+constexpr size_t MEASURED_STAR_HIGH_ERROR_PIXELS = 1456;
+
+constexpr double MAX_MEAN_ABSOLUTE_ERROR =
+    MEASURED_MEAN_ABSOLUTE_ERROR * WHOLE_FRAME_HEADROOM;
+constexpr double MAX_ROOT_MEAN_SQUARED_ERROR =
+    MEASURED_ROOT_MEAN_SQUARED_ERROR * WHOLE_FRAME_HEADROOM;
+constexpr uint32_t MAX_CHANNEL_ERROR =
+    static_cast<uint32_t>(MEASURED_CHANNEL_ERROR * WORST_PIXEL_HEADROOM);
+constexpr double MAX_ENERGY_DRIFT =
+    MEASURED_ENERGY_DRIFT * WHOLE_FRAME_HEADROOM;
+constexpr double MAX_HIGH_COUNT_STAR_ENERGY_DRIFT =
+    MEASURED_HIGH_COUNT_STAR_ENERGY_DRIFT * WHOLE_FRAME_HEADROOM;
+constexpr size_t MAX_HIGH_ERROR_PIXELS =
+    static_cast<size_t>(MEASURED_HIGH_ERROR_PIXELS * WHOLE_FRAME_HEADROOM);
+constexpr size_t MAX_STAR_HIGH_ERROR_PIXELS =
+    static_cast<size_t>(MEASURED_STAR_HIGH_ERROR_PIXELS * WHOLE_FRAME_HEADROOM);
 using OracleEffect = ShapeShifter<ORACLE_W, ORACLE_H>;
 
 /** @brief Display bounds used by one oracle render. */
@@ -199,6 +226,10 @@ struct ShapeShifterWhiteBox {
 
   static const char *shape_option(int index) {
     return OracleEffect::SHAPE_OPTIONS[index];
+  }
+
+  static const char *function_option(int index) {
+    return OracleEffect::FUNCTION_OPTIONS[index];
   }
 
   static const char *shape_export_option(int index) {
@@ -410,6 +441,24 @@ inline bool candidate_covers_neighborhood(const OracleFrame &candidate, int x,
   return false;
 }
 
+/** @brief Prints one case's achieved statistics against its budget. */
+inline void report_visual_budget(const OracleState &state,
+                                 const FrameErrorStats &error,
+                                 double energy_ratio, size_t high_error_pixels,
+                                 double max_energy_drift,
+                                 size_t max_high_error_pixels) {
+  std::printf(
+      "  [%s %s count=%d sides=%d] MAE %.1f/%.1f; RMSE %.1f/%.1f; max channel "
+      "%u/%u; energy drift %.3f%%/%.3f%%; high-error px %zu/%zu\n",
+      ShapeShifterWhiteBox::shape_option(static_cast<int>(state.shape)),
+      ShapeShifterWhiteBox::function_option(static_cast<int>(state.function)),
+      state.count, state.sides, error.mean_absolute_error(),
+      MAX_MEAN_ABSOLUTE_ERROR, error.root_mean_squared_error(),
+      MAX_ROOT_MEAN_SQUARED_ERROR, error.max_absolute_error, MAX_CHANNEL_ERROR,
+      100.0 * energy_ratio, 100.0 * max_energy_drift, high_error_pixels,
+      max_high_error_pixels);
+}
+
 inline void expect_candidate_within_visual_budget(
     const OracleState &state, double max_energy_drift = MAX_ENERGY_DRIFT,
     size_t max_high_error_pixels = MAX_HIGH_ERROR_PIXELS) {
@@ -423,13 +472,6 @@ inline void expect_candidate_within_visual_budget(
       reference_energy == 0
           ? 0.0
           : std::fabs(static_cast<double>(energy_delta)) / reference_energy;
-  if (energy_ratio >= max_energy_drift)
-    hs::log("ShapeShifter oracle energy: shape=%u function=%u count=%d "
-            "sides=%d delta=%lld reference=%llu drift=%f",
-            static_cast<unsigned>(state.shape),
-            static_cast<unsigned>(state.function), state.count, state.sides,
-            static_cast<long long>(energy_delta),
-            static_cast<unsigned long long>(reference_energy), energy_ratio);
   size_t uncovered_bright_pixels = 0;
   size_t high_error_pixels = 0;
   for (size_t pixel = 0; pixel < comparison.reference.pixels.size(); ++pixel) {
@@ -447,6 +489,8 @@ inline void expect_candidate_within_visual_budget(
     if (max_error > HIGH_CHANNEL_ERROR)
       ++high_error_pixels;
   }
+  report_visual_budget(state, comparison.error, energy_ratio, high_error_pixels,
+                       max_energy_drift, max_high_error_pixels);
   HS_EXPECT_LT(comparison.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
   HS_EXPECT_LT(comparison.error.root_mean_squared_error(),
                MAX_ROOT_MEAN_SQUARED_ERROR);
