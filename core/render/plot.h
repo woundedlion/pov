@@ -1530,6 +1530,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
            "precomputed edge visibility is geodesic-only");
   HS_CHECK(loop_seam == nullptr || close_loop,
            "a raster seam fragment requires a closed loop");
+  HS_CHECK((point_rows == nullptr) == (point_cols == nullptr),
+           "hoisted point projections take both rows and columns");
 
   size_t count = close_loop ? len : len - 1;
   HS_PLOT_ADD(edges, count);
