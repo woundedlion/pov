@@ -226,10 +226,12 @@ add_test(NAME unit_module_roster
 # Pin run_tests.cpp's per-module include block against the roster, catching an
 # include left behind after a module is removed (which compiles silently), and
 # every tests/test_*.h on disk against that include block, catching a test file
-# nothing ever compiles.
+# nothing ever compiles. The exempt list is pinned too: an entry must still be
+# included from tests/ or tools/.
 add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+    -DTOOLS_DIR=${HS_ROOT}/tools
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
 
 # Pin every test case defined in tests/test_*.h against a call site in the same
