@@ -66,11 +66,16 @@ public:
 
     // Bind before any preset bakes through it.
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
-    auto entries = preset_manager.get_entries();
+    // Spelled out: the patches below must land in the table, not in a copy.
+    std::span<PresetEntry<Params>> entries = preset_manager.get_entries();
     entries[0].params.palette = &blood_stream_falloff;
     entries[1].params.palette = &blood_stream_falloff;
     entries[2].params.palette = &Palettes::RICH_SUNSET;
     entries[3].params.palette = &Palettes::LAVENDER_LAKE;
+    for (const auto &entry : entries) {
+      HS_CHECK(entry.params.palette,
+               "DreamBalls preset table left a null palette unpatched");
+    }
 
     params = preset_manager.get();
     baked_palettes[0].bake(persistent_arena, *params.palette);
