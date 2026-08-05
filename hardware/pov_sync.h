@@ -37,7 +37,6 @@
 #include <atomic>
 #include <cassert>
 #include <cstdint>
-#include <new>
 
 #include "core/engine/platform.h" // HS_CHECK used in Flywheel's constructor guard
 
@@ -1319,13 +1318,34 @@ public:
       : protocol_config(cfg), fly(cfg) {}
 
   /**
-   * @brief Reconstructs the board for a new protocol configuration.
+   * @brief Reinitializes the board for a new protocol configuration.
    * @param cfg Protocol configuration.
-   * @warning Call only before attaching the board's interrupts.
+   * @details Restores every member to its post-construction value; seed() must
+   * still follow to establish the timebase.
+   * @warning Call only before attaching the board's interrupts: the state is
+   * ISR-owned under the spec §8 single-writer model.
    */
-  HS_COLD_MEMBER void reconstruct(const Config &cfg) {
-    this->~SyncBoard();
-    ::new (static_cast<void *>(this)) SyncBoard(cfg);
+  HS_COLD_MEMBER void configure(const Config &cfg) {
+    protocol_config = cfg;
+    fly = Flywheel(cfg);
+    gate = FlipGate{};
+    content_tracker = ContentTracker{};
+    beacon_parser = BeaconParser{};
+    emitter = SymbolEmitter{};
+    edge_mailbox = EdgeMailbox{};
+    telemetry_counters = Telemetry{};
+    is_master_board = false;
+    last_rendered_x = -1;
+    halves_since_snap = 0;
+    have_prev_burst = false;
+    prev_burst_end = 0;
+    suspect_pending = false;
+    suspect_last_cycles = 0;
+    epoch_emits_left = 0;
+    beacon_done_this_rev = false;
+    beacon_busy_counted_this_rev = false;
+    build_gen = 0;
+    build_request_word.store(0, std::memory_order_relaxed);
   }
 
   /**

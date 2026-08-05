@@ -249,7 +249,7 @@ public:
     const char *const bad_invariant = cfg.valid();
     HS_CHECK(bad_invariant == nullptr, "pov::sync::Config invariant: %s",
              bad_invariant);
-    sync.reconstruct(cfg);
+    sync.configure(cfg);
 
     const bool master = (segment_id == 0);
     // Level before direction: the GPIO data register resets to 0 and MASTER_EN
