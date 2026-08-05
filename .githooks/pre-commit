@@ -93,11 +93,15 @@ if [ -z "$HS_SKIP_FORMAT" ]; then
         exit 1
       fi
       unformatted=
-      for f in $FORMAT; do
+      # Heredoc, not a pipe: the loop must accumulate in this shell. IFS= read -r
+      # keeps a path containing whitespace or backslashes intact.
+      while IFS= read -r f; do
         [ -f "$f" ] || continue     # deleted/renamed-away path: nothing to check
         "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1 \
           || unformatted="$unformatted $f"
-      done
+      done <<EOF
+$FORMAT
+EOF
       if [ -n "$unformatted" ]; then
         echo "[pre-commit] clang-format found unformatted files:$unformatted"
         echo "[pre-commit] (fix with: $CF -i$unformatted, or bypass once with HS_SKIP_FORMAT=1 / --no-verify)"

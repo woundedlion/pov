@@ -1145,11 +1145,11 @@ jobs:
           printf '%s\n' "$FORMAT_BASELINE_ALLOW_ADD" | sed '/^[[:space:]]*$/d' | sort -u > /tmp/baseline-allow.txt
           comm -13 /tmp/baseline-prev.txt /tmp/baseline-now.txt > /tmp/baseline-added.txt
 
-          unapproved=$(comm -23 /tmp/baseline-added.txt /tmp/baseline-allow.txt)
-          if [ -n "$unapproved" ]; then
-            for f in $unapproved; do
+          comm -23 /tmp/baseline-added.txt /tmp/baseline-allow.txt > /tmp/baseline-unapproved.txt
+          if [ -s /tmp/baseline-unapproved.txt ]; then
+            while IFS= read -r f; do
               echo "::error file=$WF::$f was added to FORMAT_BASELINE (fix: clang-format -i $f, or approve the addition by listing it in FORMAT_BASELINE_ALLOW_ADD in this commit)"
-            done
+            done < /tmp/baseline-unapproved.txt
             exit 1
           fi
 
@@ -1184,17 +1184,17 @@ jobs:
           fi
 
           rc=0
-          unformatted=
+          : > /tmp/format-unformatted.txt
           while IFS= read -r f; do
             if ! "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1; then
-              unformatted="$unformatted $f"
+              printf '%s\n' "$f" >> /tmp/format-unformatted.txt
               "$CF" --style=file "$f" | diff -u "$f" - || true
             fi
           done < /tmp/format-files.txt
-          if [ -n "$unformatted" ]; then
-            for f in $unformatted; do
+          if [ -s /tmp/format-unformatted.txt ]; then
+            while IFS= read -r f; do
               echo "::error file=$f::not formatted per .clang-format (fix: clang-format -i $f)"
-            done
+            done < /tmp/format-unformatted.txt
             rc=1
           fi
 
