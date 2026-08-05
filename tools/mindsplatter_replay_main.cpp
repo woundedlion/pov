@@ -21,12 +21,23 @@ using ReplayEffect = MindSplatter<WIDTH, HEIGHT>;
 using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
 
 /**
- * @brief Production-corpus visual bounds for single-pass sample phasing.
- * @details At most 18.1% of pixels and 17.3% of channels may differ. Mean
- * absolute error is capped at 73 channel counts and 61 luminance counts per
- * framebuffer pixel; added and dropped AA fringe pixels are capped at 0.2%
- * and 0.5% of the frame, with their luminance error capped at five counts per
- * framebuffer pixel and 9,000 for any one fringe pixel.
+ * @brief Visual bounds for the two replay oracles.
+ * @details The reference terms bound single-pass sample phasing: the candidate
+ * against a reference render produced by the same binary. Measured over the
+ * corpus frame, 3,325 changed pixels (8.0%), 6,477 changed channels (5.2%),
+ * peak channel error 77, total absolute error 21,801 (0.18 counts per
+ * channel). Counts are budgeted at twice the measurement, the error
+ * magnitudes at roughly five times, the phasing delta being the part that
+ * moves with floating-point contraction.
+ * @details The corpus terms bound the candidate against a golden recorded by
+ * the generic-reference renderer, which differs by construction across a third
+ * of the frame. Measured: 13,602 changed pixels (32.8%), 32,577 changed
+ * channels (26.2%), peak channel error 13,799, total absolute error 5,994,146
+ * (48.2 counts per channel), luminance error 1,850,744 (44.6 counts per pixel),
+ * bias -59,060 (1.42 per pixel), 25 added and 66 dropped fringe pixels,
+ * coverage error 2,919 with a 2,320 peak. Area and magnitude terms carry 1.5x,
+ * the single-pixel peak 2x, covering the drift between the compiler recorded
+ * in the corpus header and the one running the replay.
  * @details Every area bound is a whole-frame budget, so a clipped pass spends
  * it over fewer pixels. The per-pixel densities do not scale down with the
  * region: the peak-workload quadrant carries the frame's densest splats and
@@ -34,16 +45,35 @@ using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
  */
 struct VisualGate {
   static constexpr uint32_t PIXELS = WIDTH * HEIGHT;
-  static constexpr uint32_t MAX_CHANGED_PIXELS = PIXELS * 181 / 1000;
-  static constexpr uint32_t MAX_CHANGED_CHANNELS = PIXELS * 3 * 173 / 1000;
-  static constexpr uint16_t MAX_CHANNEL_ERROR = 14000;
-  static constexpr uint64_t MAX_TOTAL_ERROR = PIXELS * 3ull * 73;
+  static constexpr uint32_t MAX_CHANGED_PIXELS = PIXELS * 16 / 100;
+  static constexpr uint32_t MAX_CHANGED_CHANNELS = PIXELS * 3 * 11 / 100;
+  static constexpr uint16_t MAX_CHANNEL_ERROR = 400;
+  static constexpr uint64_t MAX_TOTAL_ERROR = PIXELS * 3ull;
+  static constexpr uint32_t MAX_CORPUS_CHANGED_PIXELS = PIXELS * 50 / 100;
+  static constexpr uint32_t MAX_CORPUS_CHANGED_CHANNELS = PIXELS * 3 * 40 / 100;
+  static constexpr uint16_t MAX_CORPUS_CHANNEL_ERROR = 28000;
+  static constexpr uint64_t MAX_CORPUS_TOTAL_ERROR = PIXELS * 3ull * 72;
   static constexpr uint64_t MAX_LUMINANCE_ERROR = PIXELS * 61ull;
   static constexpr int64_t MAX_LUMINANCE_BIAS = PIXELS * 2ll;
   static constexpr uint32_t MAX_ADDED_PIXELS = PIXELS * 2 / 1000;
   static constexpr uint32_t MAX_DROPPED_PIXELS = PIXELS * 5 / 1000;
   static constexpr uint64_t MAX_COVERAGE_LUMINANCE_ERROR = PIXELS * 5ull;
   static constexpr uint16_t MAX_COVERAGE_LUMINANCE = 9000;
+};
+
+/** @brief Collects budget checks for one pass, naming each that fails. */
+struct GateReport {
+  const char *label;
+  bool accepted = true;
+
+  void check(const char *name, uint64_t achieved, uint64_t budget) {
+    if (achieved <= budget)
+      return;
+    std::printf("replay %s over budget %s=%llu limit=%llu\n", label, name,
+                static_cast<unsigned long long>(achieved),
+                static_cast<unsigned long long>(budget));
+    accepted = false;
+  }
 };
 
 /**
@@ -54,8 +84,9 @@ struct VisualGate {
  * @param reference Scratch buffer holding the reference frame, WIDTH*HEIGHT.
  * @param label Pass label for the emitted line.
  * @param whole_frame True when the clip covers the whole frame, where the
- *        corpus framebuffer hash is a meaningful identity check; the golden is
- *        recorded unclipped, so a partial pass hashes only its own region.
+ *        corpus's expanded pixels can be rehashed against the recorded hash to
+ *        confirm the corpus itself is intact; the golden is recorded unclipped,
+ *        so a partial pass rehashes only its own region.
  * @return True when every bound holds.
  */
 bool run_pass(ReplayEffect &effect, const mindsplatter_replay::Corpus &corpus,
@@ -80,35 +111,62 @@ bool run_pass(ReplayEffect &effect, const mindsplatter_replay::Corpus &corpus,
   effect.advance_display();
   std::printf(
       "replay %s clip=[%d,%d)x[%d,%d) hash=%llu expected=%llu changed=%u "
-      "channels=%u max=%u abs=%llu corpus_hash=%llu corpus_changed=%u "
-      "luma_abs=%llu luma_bias=%lld added=%u dropped=%u "
-      "coverage_luma=%llu coverage_max=%u\n",
+      "channels=%u max=%u abs=%llu corpus_pixels_hash=%llu corpus_changed=%u "
+      "corpus_channels=%u corpus_max=%u corpus_abs=%llu luma_abs=%llu "
+      "luma_bias=%lld added=%u dropped=%u coverage_luma=%llu "
+      "coverage_max=%u\n",
       label, clip.x_start, clip.x_end, clip.y_start, clip.y_end,
       static_cast<unsigned long long>(stats.framebuffer_hash),
       static_cast<unsigned long long>(stats.expected_hash),
       stats.changed_pixels, stats.changed_channels, stats.max_channel_error,
       static_cast<unsigned long long>(stats.total_absolute_error),
       static_cast<unsigned long long>(host_stats.expected_hash),
-      host_stats.changed_pixels,
+      host_stats.changed_pixels, host_stats.changed_channels,
+      host_stats.max_channel_error,
+      static_cast<unsigned long long>(host_stats.total_absolute_error),
       static_cast<unsigned long long>(host_stats.total_luminance_error),
       static_cast<long long>(host_stats.luminance_bias),
       host_stats.added_pixels, host_stats.dropped_pixels,
       static_cast<unsigned long long>(host_stats.coverage_luminance_error),
       host_stats.max_coverage_luminance);
-  return stats.changed_pixels <= VisualGate::MAX_CHANGED_PIXELS &&
-         stats.changed_channels <= VisualGate::MAX_CHANGED_CHANNELS &&
-         stats.max_channel_error <= VisualGate::MAX_CHANNEL_ERROR &&
-         stats.total_absolute_error <= VisualGate::MAX_TOTAL_ERROR &&
-         host_stats.total_luminance_error <= VisualGate::MAX_LUMINANCE_ERROR &&
-         host_stats.luminance_bias <= VisualGate::MAX_LUMINANCE_BIAS &&
-         host_stats.luminance_bias >= -VisualGate::MAX_LUMINANCE_BIAS &&
-         host_stats.added_pixels <= VisualGate::MAX_ADDED_PIXELS &&
-         host_stats.dropped_pixels <= VisualGate::MAX_DROPPED_PIXELS &&
-         host_stats.coverage_luminance_error <=
-             VisualGate::MAX_COVERAGE_LUMINANCE_ERROR &&
-         host_stats.max_coverage_luminance <=
-             VisualGate::MAX_COVERAGE_LUMINANCE &&
-         (!whole_frame || host_stats.expected_hash == corpus.framebuffer_hash);
+
+  GateReport gate{label};
+  gate.check("changed", stats.changed_pixels, VisualGate::MAX_CHANGED_PIXELS);
+  gate.check("channels", stats.changed_channels,
+             VisualGate::MAX_CHANGED_CHANNELS);
+  gate.check("max", stats.max_channel_error, VisualGate::MAX_CHANNEL_ERROR);
+  gate.check("abs", stats.total_absolute_error, VisualGate::MAX_TOTAL_ERROR);
+  gate.check("corpus_changed", host_stats.changed_pixels,
+             VisualGate::MAX_CORPUS_CHANGED_PIXELS);
+  gate.check("corpus_channels", host_stats.changed_channels,
+             VisualGate::MAX_CORPUS_CHANGED_CHANNELS);
+  gate.check("corpus_max", host_stats.max_channel_error,
+             VisualGate::MAX_CORPUS_CHANNEL_ERROR);
+  gate.check("corpus_abs", host_stats.total_absolute_error,
+             VisualGate::MAX_CORPUS_TOTAL_ERROR);
+  gate.check("luma_abs", host_stats.total_luminance_error,
+             VisualGate::MAX_LUMINANCE_ERROR);
+  gate.check("luma_bias_abs",
+             static_cast<uint64_t>(host_stats.luminance_bias < 0
+                                       ? -host_stats.luminance_bias
+                                       : host_stats.luminance_bias),
+             VisualGate::MAX_LUMINANCE_BIAS);
+  gate.check("added", host_stats.added_pixels, VisualGate::MAX_ADDED_PIXELS);
+  gate.check("dropped", host_stats.dropped_pixels,
+             VisualGate::MAX_DROPPED_PIXELS);
+  gate.check("coverage_luma", host_stats.coverage_luminance_error,
+             VisualGate::MAX_COVERAGE_LUMINANCE_ERROR);
+  gate.check("coverage_max", host_stats.max_coverage_luminance,
+             VisualGate::MAX_COVERAGE_LUMINANCE);
+  if (whole_frame && host_stats.expected_hash != corpus.framebuffer_hash) {
+    std::printf("replay %s corpus integrity failed: expanded=%llu "
+                "recorded=%llu\n",
+                label,
+                static_cast<unsigned long long>(host_stats.expected_hash),
+                static_cast<unsigned long long>(corpus.framebuffer_hash));
+    gate.accepted = false;
+  }
+  return gate.accepted;
 }
 
 } // namespace
