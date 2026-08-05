@@ -38,48 +38,12 @@ inline uint8_t
     conway_temp_buf[256 * 1024]; /**< Comfortable budget for cube-scale ops. */
 
 // build_solid(), check_all_unit_vertices(), check_face_counts_consistent(),
-// and check_indices_in_range() live in tests/mesh_test_util.h.
+// check_indices_in_range(), face_newell_normal(), and face_centroid_pos() live
+// in tests/mesh_test_util.h.
 
 // ---------------------------------------------------------------------------
 // Structural invariants
 // ---------------------------------------------------------------------------
-
-/**
- * @brief Computes a face normal via Newell's method.
- * @param m Mesh owning the vertices and face-index array.
- * @param face_idx_offset Offset into m.faces where this face's indices begin.
- * @param count Number of vertices (sides) in the face.
- * @return Unnormalised normal vector for the face.
- * @details Newell's method is robust for non-planar faces (e.g. curved faces
- *          on the unit sphere) where a simple cross product would be ambiguous.
- */
-inline Vector face_newell_normal(const PolyMesh &m, size_t face_idx_offset,
-                                 int count) {
-  Vector n(0, 0, 0);
-  for (int k = 0; k < count; ++k) {
-    const Vector &curr = m.vertices[m.faces[face_idx_offset + k]];
-    const Vector &next = m.vertices[m.faces[face_idx_offset + (k + 1) % count]];
-    n.x += (curr.y - next.y) * (curr.z + next.z);
-    n.y += (curr.z - next.z) * (curr.x + next.x);
-    n.z += (curr.x - next.x) * (curr.y + next.y);
-  }
-  return n;
-}
-
-/**
- * @brief Computes the unweighted centroid of a face's vertex positions.
- * @param m Mesh owning the vertices and face-index array.
- * @param face_idx_offset Offset into m.faces where this face's indices begin.
- * @param count Number of vertices (sides) in the face.
- * @return Arithmetic mean of the face's vertex positions.
- */
-inline Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
-                                int count) {
-  Vector c(0, 0, 0);
-  for (int k = 0; k < count; ++k)
-    c = c + m.vertices[m.faces[face_idx_offset + k]];
-  return c * (1.0f / static_cast<float>(count));
-}
 
 /**
  * @brief Counts faces whose winding produces an inward-pointing normal.

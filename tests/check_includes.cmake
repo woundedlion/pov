@@ -41,6 +41,7 @@ set(NON_MODULE_HEADERS
   mindsplatter_replay_corpus.h
   mindsplatter_replay_metrics.h
   mindsplatter_whitebox.h
+  pixel_test_util.h
   test_fixture.h
   test_harness.h
   test_h_offset_renorm.h

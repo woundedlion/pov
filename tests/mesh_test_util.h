@@ -74,4 +74,58 @@ inline void check_indices_in_range(const PolyMesh &m) {
     HS_EXPECT_TRUE(m.faces[i] < V);
 }
 
+/**
+ * @brief Computes a face normal via Newell's method.
+ * @param m Mesh owning the vertices and face-index array.
+ * @param face_idx_offset Offset into m.faces where this face's indices begin.
+ * @param count Number of vertices (sides) in the face.
+ * @return Unnormalised normal vector for the face; its magnitude is twice the
+ *         planar face area.
+ * @details Newell's method is robust for non-planar faces (e.g. curved faces
+ *          on the unit sphere) where a simple cross product would be ambiguous.
+ */
+inline Vector face_newell_normal(const PolyMesh &m, size_t face_idx_offset,
+                                 int count) {
+  Vector n(0, 0, 0);
+  for (int k = 0; k < count; ++k) {
+    const Vector &curr = m.vertices[m.faces[face_idx_offset + k]];
+    const Vector &next = m.vertices[m.faces[face_idx_offset + (k + 1) % count]];
+    n.x += (curr.y - next.y) * (curr.z + next.z);
+    n.y += (curr.z - next.z) * (curr.x + next.x);
+    n.z += (curr.x - next.x) * (curr.y + next.y);
+  }
+  return n;
+}
+
+/**
+ * @brief Computes the unweighted centroid of a face's vertex positions.
+ * @param m Mesh owning the vertices and face-index array.
+ * @param face_idx_offset Offset into m.faces where this face's indices begin.
+ * @param count Number of vertices (sides) in the face.
+ * @return Arithmetic mean of the face's vertex positions.
+ */
+inline Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
+                                int count) {
+  Vector c(0, 0, 0);
+  for (int k = 0; k < count; ++k)
+    c = c + m.vertices[m.faces[face_idx_offset + k]];
+  return c * (1.0f / static_cast<float>(count));
+}
+
+/**
+ * @brief Projects a face's vertex-average centroid onto the unit sphere.
+ * @param m Mesh owning the vertices and face-index array.
+ * @param face_idx_offset Offset into m.faces where this face's indices begin.
+ * @param count Number of vertices (sides) in the face.
+ * @return Normalised centroid direction; the vertex sum is normalised directly,
+ *         so the division by count of face_centroid_pos() is skipped.
+ */
+inline Vector face_centroid_unit(const PolyMesh &m, size_t face_idx_offset,
+                                 int count) {
+  Vector c(0.0f, 0.0f, 0.0f);
+  for (int k = 0; k < count; ++k)
+    c = c + m.vertices[m.faces[face_idx_offset + k]];
+  return c.normalized();
+}
+
 } // namespace hs_test
