@@ -464,7 +464,10 @@ public:
    *          must likewise re-apply setClip() after a successful setResolution():
    *          a prior clip was expressed in the old resolution's pixel bounds and
    *          is not rescaled here, so it must be recomputed for the new
-   *          dimensions.
+   *          dimensions. An outstanding getPixels() view is left aliasing live
+   *          memory at the previous resolution's length rather than detached, so
+   *          it must be re-fetched and its length compared against
+   *          getBufferLength().
    */
   bool setResolution(int w, int h) {
     if (w == pixel_width && h == pixel_height)
@@ -663,14 +666,15 @@ public:
    * @return Typed memory view over the active resolution's R,G,B pixels within
    *         the stable MAX_W*MAX_H*3 backing buffer.
    * @details WASM memory-view contract: the returned view aliases WASM linear
-   *          memory, it is NOT a copy. With ALLOW_MEMORY_GROWTH=1, any subsequent
-   *          heap growth detaches the underlying ArrayBuffer and leaves this view
-   *          zero-length (buffer.byteLength === 0). Callers MUST re-fetch the
-   *          view after anything that may allocate (resolution/effect change) and
-   *          may only cache it across frames while guarding for detachment. The
-   *          backing vector is pre-sized once and never reallocated, so the only
-   *          possible detachment source is heap growth elsewhere.
-   *          daydream.js::refreshPixelView mirrors this expectation.
+   *          memory, it is NOT a copy, and two independent events invalidate it.
+   *          With ALLOW_MEMORY_GROWTH=1, any subsequent heap growth detaches the
+   *          underlying ArrayBuffer and leaves this view zero-length
+   *          (buffer.byteLength === 0). A successful setResolution() detaches
+   *          nothing — the backing vector is pre-sized once and never
+   *          reallocated — but moves the active prefix this view spans, so an
+   *          outstanding view keeps aliasing live memory at the wrong length. A
+   *          caller caching the view across frames MUST therefore test both:
+   *          buffer.byteLength !== 0 and length === getBufferLength().
    */
   val getPixels() {
     return val(typed_memory_view(pixel_width * pixel_height * CHANNELS,
@@ -681,6 +685,9 @@ public:
    * @brief Returns the length of the active pixel buffer view.
    * @return Number of uint16 elements in the active view (pixel_width *
    *         pixel_height * 3, three channels per pixel).
+   * @details The staleness test for a cached getPixels() view: a resolution
+   *          change moves this length without detaching the view, so a held view
+   *          whose length differs describes a prior resolution.
    */
   int getBufferLength() const { return pixel_width * pixel_height * CHANNELS; }
 

@@ -2119,8 +2119,8 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 | `setResolution(w, h)` → `bool` | Switch active resolution (96×20 or 288×144); returns `false` on an unsupported size |
 | `setEffect(name)` → `bool` | Instantiate a new effect by string name; resets all arenas to defaults; returns `false` on an unknown name |
 | `drawFrame()` | Advance one frame and copy pixels to the output buffer |
-| `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory |
-| `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view |
+| `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory, spanning the active resolution's prefix of the fixed backing buffer |
+| `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view, and the staleness test for a cached one: a `setResolution` moves this length without detaching the outstanding view |
 | `setParameter(name, value)` → `ParamSetResult` | Update a live effect parameter; returns `Module.ParamSetResult.APPLIED` on success, else the rejection reason (`NO_EFFECT`, `UNKNOWN_PARAM`, `READONLY`, or `NON_FINITE`). Compare against the enum values — never by truthiness. An `APPLIED` float may still have been clamped to the param's `[min, max]`; read the effective value back via `getParamValues()` |
 | `setAnimationsPaused(paused)` | Freeze/resume the current effect's animation drivers (the GUI "Pause Animation" toggle) |
 | `setPoleLod(aggressiveness)` | Set near-pole azimuthal shading decimation (the GUI "Pole LOD" slider, `[0, 2]`); non-finite and negative inputs clamp to 0, and the value saturates at 8. The setting is a module-global, so it reaches only the engine instance it was called on — a segmented pool needs it re-sent to every worker (§10.7) |
@@ -2153,14 +2153,29 @@ dotMesh.instanceColor =
 // → instanced dot-mesh per-instance colors → WebGL renderer
 ```
 
-The view aliases WASM linear memory and is **not** bound once: with
-`ALLOW_MEMORY_GROWTH` (e.g. the lazy 16 MB MeshOps allocation) any later heap
-growth detaches the `ArrayBuffer` and leaves the cached view zero-length. Re-fetch
-it after anything that may allocate — a resolution/effect change, and defensively
-each frame — rebinding `instanceColor` to a fresh `getPixels()` view when the old
-one has detached (`wasmPixels.byteLength === 0`), mirroring `daydream.js`'s
-`refreshPixelView`. Copying the snippet without this guard ships a latent
-black-frame-after-growth bug.
+The view aliases WASM linear memory and is **not** bound once. Two independent
+events invalidate it, and a cached view must be tested for both:
+
+- **Heap growth** — with `ALLOW_MEMORY_GROWTH` (e.g. the lazy 16 MB MeshOps
+  allocation) any later growth detaches the `ArrayBuffer` and leaves the cached
+  view zero-length (`wasmPixels.buffer.byteLength === 0`).
+- **A resolution change** — the backing buffer is pre-sized to `MAX_W × MAX_H`
+  and never reallocated (§10.10), so `setResolution` detaches nothing. It moves
+  the *active prefix* instead: the cached view stays live at the previous
+  resolution's length, and a 96×20 view left bound to a 288×144 dot mesh renders
+  the frame wrong rather than throwing. Only a length check catches it.
+
+```js
+if (wasmPixels.buffer.byteLength === 0 ||
+    wasmPixels.length !== wasmEngine.getBufferLength()) {
+  wasmPixels = wasmEngine.getPixels();
+  dotMesh.instanceColor =
+      new THREE.InstancedBufferAttribute(wasmPixels, 3, /*normalized=*/ true);
+}
+```
+
+Run that check defensively each frame. A detachment-only guard ships a latent
+wrong-resolution-view bug the moment a preset is switched.
 
 ### 10.3 The Three.js Renderer (`driver.js`)
 
