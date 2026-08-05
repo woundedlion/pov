@@ -78,8 +78,8 @@ public:
     register_animated_param("Count", &params.count, 1.0f,
                             static_cast<float>(MAX_SHAPES));
     register_animated_param("Sides", &params.sides, SIDES_MIN, SIDES_MAX);
-    register_animated_param("Function", &params.function, 0.0f,
-                            static_cast<float>(NUM_FUNCTIONS - 1));
+    register_animated_param("Function", &params.function, FUNCTION_OPTIONS,
+                            FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
     register_animated_param("Amplitude", &params.amplitude, AMPLITUDE_MIN,
                             AMPLITUDE_MAX);
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
@@ -163,6 +163,11 @@ private:
       "ShapeType::PLANAR_POLYGON", "ShapeType::SPHERICAL_POLYGON",
       "ShapeType::FLOWER", "ShapeType::PLANAR_STAR",
       "ShapeType::SPHERICAL_STAR"};
+  static constexpr const char *FUNCTION_OPTIONS[] = {"Sine", "Triangle",
+                                                     "Sawtooth", "Square"};
+  static constexpr const char *FUNCTION_EXPORT_OPTIONS[] = {
+      "PhaseFunction::SINE", "PhaseFunction::TRIANGLE",
+      "PhaseFunction::SAWTOOTH", "PhaseFunction::SQUARE"};
   static constexpr const char *ALPHA_FALLOFF_OPTIONS[] = {"Constant 0.5",
                                                           "Toward Equator"};
   static constexpr const char *ALPHA_FALLOFF_EXPORT_OPTIONS[] = {
@@ -177,7 +182,7 @@ private:
     ShapeType shape;
     float count;
     float sides;
-    float function;
+    PhaseFunction function;
     float amplitude;
     float speed;
     bool opposite;
@@ -185,9 +190,10 @@ private:
     RadiusSpacing spacing;
 
     constexpr Params() = default;
-    constexpr Params(ShapeType shape, float count, float sides, float function,
-                     float amplitude, float speed, float opposite,
-                     AlphaFalloff alpha_falloff, RadiusSpacing spacing)
+    constexpr Params(ShapeType shape, float count, float sides,
+                     PhaseFunction function, float amplitude, float speed,
+                     float opposite, AlphaFalloff alpha_falloff,
+                     RadiusSpacing spacing)
         : shape(shape), count(count), sides(sides), function(function),
           amplitude(amplitude), speed(speed), opposite(opposite >= 0.5f),
           alpha_falloff(alpha_falloff), spacing(spacing) {}
@@ -530,12 +536,8 @@ private:
   /** @brief Returns the selected Plot primitive. */
   ShapeType selected_shape() const { return params.shape; }
 
-  /** @brief Returns the nearest valid Function slider selection. */
-  PhaseFunction selected_function() const {
-    const int selected = hs::clamp(static_cast<int>(params.function + 0.5f), 0,
-                                   NUM_FUNCTIONS - 1);
-    return static_cast<PhaseFunction>(selected);
-  }
+  /** @brief Returns the selected phase waveform. */
+  PhaseFunction selected_function() const { return params.function; }
 
   /**
    * @brief Samples a phase waveform.
@@ -816,24 +818,28 @@ private:
 #endif
 
   static constexpr std::array<PresetEntry<Params>, 9> PRESETS = {{
-      {{ShapeType::PLANAR_STAR, 208.0f, 7.745f, 0.0f, 1.0f, 0.016f, 0.0f,
-        AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::SCREEN_BALANCED}},
-      {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, 0.0f, 1.0f, 0.0318f,
+      {{ShapeType::PLANAR_STAR, 208.0f, 7.745f, PhaseFunction::SINE, 1.0f,
+        0.016f, 0.0f, AlphaFalloff::TOWARD_EQUATOR,
+        RadiusSpacing::SCREEN_BALANCED}},
+      {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, PhaseFunction::SINE,
+        1.0f, 0.0318f, 0.0f, AlphaFalloff::CONSTANT_HALF,
+        RadiusSpacing::UNIFORM}},
+      {{ShapeType::PLANAR_STAR, 43.327999f, 6.562f, PhaseFunction::SINE, 1.0f,
+        0.0142f, 0.0f, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM}},
+      {{ShapeType::FLOWER, 70.0f, 3.0f, PhaseFunction::SINE, 1.0f, 0.0186f,
         0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
-      {{ShapeType::PLANAR_STAR, 43.327999f, 6.562f, 0.0f, 1.0f, 0.0142f, 0.0f,
-        AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM}},
-      {{ShapeType::FLOWER, 70.0f, 3.0f, 0.0f, 1.0f, 0.0186f, 0.0f,
-        AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
-      {{ShapeType::PLANAR_STAR, 72.0f, 4.417f, 0.0f, 1.0f, 0.0077f, 0.0f,
-        AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM}},
-      {{ShapeType::SPHERICAL_POLYGON, 128.0f, 5.561f, 0.0f, 4.0f, 0.0405f, 1.0f,
-        AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
-      {{ShapeType::SPHERICAL_POLYGON, 144.0f, 4.001f, 0.0f, 2.377f, 0.027086f,
-        0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
-      {{ShapeType::SPHERICAL_POLYGON, 144.0f, 3.195f, 0.0f, 7.0696f, 0.0113f,
-        0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
-      {{ShapeType::FLOWER, 72.0f, 3.0f, 0.0f, 1.8721f, 0.00752f, 1.0f,
-        AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
+      {{ShapeType::PLANAR_STAR, 72.0f, 4.417f, PhaseFunction::SINE, 1.0f,
+        0.0077f, 0.0f, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM}},
+      {{ShapeType::SPHERICAL_POLYGON, 128.0f, 5.561f, PhaseFunction::SINE, 4.0f,
+        0.0405f, 1.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
+      {{ShapeType::SPHERICAL_POLYGON, 144.0f, 4.001f, PhaseFunction::SINE,
+        2.377f, 0.027086f, 0.0f, AlphaFalloff::CONSTANT_HALF,
+        RadiusSpacing::UNIFORM}},
+      {{ShapeType::SPHERICAL_POLYGON, 144.0f, 3.195f, PhaseFunction::SINE,
+        7.0696f, 0.0113f, 0.0f, AlphaFalloff::CONSTANT_HALF,
+        RadiusSpacing::UNIFORM}},
+      {{ShapeType::FLOWER, 72.0f, 3.0f, PhaseFunction::SINE, 1.8721f, 0.00752f,
+        1.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &preset) {
@@ -842,8 +848,8 @@ private:
            preset.count >= 1.0f &&
            preset.count <= static_cast<float>(MAX_SHAPES) &&
            preset.sides >= SIDES_MIN && preset.sides <= SIDES_MAX &&
-           preset.function >= 0.0f &&
-           preset.function <= static_cast<float>(NUM_FUNCTIONS - 1) &&
+           static_cast<int>(preset.function) >= 0 &&
+           static_cast<int>(preset.function) < NUM_FUNCTIONS &&
            preset.amplitude >= AMPLITUDE_MIN &&
            preset.amplitude <= AMPLITUDE_MAX && preset.speed >= SPEED_MIN &&
            preset.speed <= SPEED_MAX &&
