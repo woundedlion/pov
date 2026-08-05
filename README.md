@@ -361,8 +361,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │                                  ticker, segmented spawn epoch, and teardown
 ├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
 ├── effect_gui.js               Effect panel lifecycle: build, mount, value sync, Export, teardown
-├── effect_sequencing.js        DOM-free effect/resolution apply-order and skew-guard rules
-├── param_sync.js               DOM-free "should this slider adopt the engine value?" rule
+├── effect_sequencing.js        DOM-free effect/resolution apply-order and preset rules
+├── param_sync.js               DOM-free param-stream rules: slider adopt/coerce and skew guards
 ├── pixel_view.js               DOM-free zero-copy pixel-view detach/re-fetch contract
 ├── frame_constants.js          Simulation FPS and the slow-frame threshold derived from it
 ├── driver.js                   Three.js scene: sphere mesh, dots, OrbitControls,
