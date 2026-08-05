@@ -1622,6 +1622,111 @@ inline void test_generative_palette_resolve_hsv_keys_matches_ctor() {
 }
 
 /**
+ * @brief Verifies a circular palette traverses hue around the loop while its
+ *        three-key brightness profile spans the full domain.
+ */
+inline void test_generative_palette_circular_brightness_domain() {
+  constexpr float TOL = 3e-4f;
+  auto lightness = [](const GenerativePalette &palette, float t) {
+    return pixel_to_oklch(palette.get(t).color).L;
+  };
+  auto expected_key_lightness = [](uint8_t hue, uint8_t value) {
+    return pixel_to_oklch(GenerativePalette::author_key(hue, 100, value)).L;
+  };
+  auto check_profile = [&](uint8_t v1, uint8_t v2, uint8_t v3) {
+    GenerativePalette palette = GenerativePalette::from_hsv_keys(
+        GradientShape::CIRCULAR, 17, 100, v1, 93, 100, v2, 181, 100, v3);
+    const float l1 = expected_key_lightness(17, v1);
+    const float l2 = expected_key_lightness(93, v2);
+    const float l3 = expected_key_lightness(181, v3);
+
+    HS_EXPECT_NEAR(lightness(palette, 0.0f), l1, TOL);
+    HS_EXPECT_NEAR(lightness(palette, 0.125f), 0.5f * (l1 + l3), TOL);
+    HS_EXPECT_NEAR(lightness(palette, 0.25f), l3, TOL);
+    HS_EXPECT_NEAR(lightness(palette, 0.375f), 0.5f * (l3 + l2), TOL);
+    HS_EXPECT_NEAR(lightness(palette, 0.5f), l2, TOL);
+    HS_EXPECT_NEAR(lightness(palette, 0.625f), 0.5f * (l2 + l3), TOL);
+    HS_EXPECT_NEAR(lightness(palette, 0.75f), l3, TOL);
+    HS_EXPECT_NEAR(lightness(palette, 0.875f), 0.5f * (l3 + l1), TOL);
+    HS_EXPECT_NEAR(lightness(palette, 1.0f), l1, TOL);
+    for (int i = 0; i <= 16; ++i) {
+      const float t = i / 32.0f;
+      HS_EXPECT_NEAR(lightness(palette, t), lightness(palette, 1.0f - t), TOL);
+    }
+
+    const Pixel first = palette.get(0.0f).color;
+    const Pixel last = palette.get(1.0f).color;
+    HS_EXPECT_EQ(first.r, last.r);
+    HS_EXPECT_EQ(first.g, last.g);
+    HS_EXPECT_EQ(first.b, last.b);
+
+    constexpr float DT = 1.0f / 1024.0f;
+    HS_EXPECT_NEAR(lightness(palette, DT), lightness(palette, 0.0f), TOL);
+    HS_EXPECT_NEAR(lightness(palette, 0.5f - DT), lightness(palette, 0.5f),
+                   TOL);
+    HS_EXPECT_NEAR(lightness(palette, 0.5f + DT), lightness(palette, 0.5f),
+                   TOL);
+    HS_EXPECT_NEAR(lightness(palette, 1.0f - DT), lightness(palette, 1.0f),
+                   TOL);
+  };
+
+  check_profile(230, 70, 230);
+  check_profile(70, 230, 70);
+  check_profile(255, 255, 255);
+  check_profile(40, 140, 240);
+
+  GenerativePalette hue_loop = GenerativePalette::from_hsv_keys(
+      GradientShape::CIRCULAR, 17, 180, 255, 93, 180, 255, 181, 180, 255);
+  const float h1 = pixel_to_oklch(hue_loop.get(0.0f).color).h;
+  const float h2 = pixel_to_oklch(hue_loop.get(1.0f / 3.0f).color).h;
+  const float h3 = pixel_to_oklch(hue_loop.get(2.0f / 3.0f).color).h;
+  const float h4 = pixel_to_oklch(hue_loop.get(1.0f).color).h;
+  HS_EXPECT_TRUE(std::fabs(wrap_angle_pi(h2 - h1)) > 1.0f);
+  HS_EXPECT_TRUE(std::fabs(wrap_angle_pi(h3 - h2)) > 1.0f);
+  HS_EXPECT_NEAR(wrap_angle_pi(h4 - h1), 0.0f, 2e-3f);
+}
+
+/**
+ * @brief Verifies complementary palettes vary continuously across every base
+ *        hue despite their exact half-turn key separation.
+ */
+inline void test_generative_palette_complementary_hue_sweep_continuous() {
+  auto authored_delta = [](uint8_t delta) {
+    return GenerativePalette::from_hsv_keys(GradientShape::CIRCULAR, 0, 180,
+                                            255, delta, 180, 255, 0, 180, 255)
+        .snapshot()
+        .b.h;
+  };
+  constexpr float HUE_STEP = 2.0f * PI_F / 256.0f;
+  HS_EXPECT_NEAR(authored_delta(127), 127 * HUE_STEP, 1e-6f);
+  HS_EXPECT_NEAR(authored_delta(128), 128 * HUE_STEP, 1e-6f);
+  HS_EXPECT_NEAR(authored_delta(129), -127 * HUE_STEP, 1e-6f);
+
+  int max_channel_step = 0;
+  for (int hue = 0; hue < 256; ++hue) {
+    const uint8_t h1 = static_cast<uint8_t>(hue);
+    const uint8_t h2 = static_cast<uint8_t>(hue + 128);
+    const uint8_t next_h1 = static_cast<uint8_t>(hue + 1);
+    const uint8_t next_h2 = static_cast<uint8_t>(hue + 129);
+    GenerativePalette current = GenerativePalette::from_hsv_keys(
+        GradientShape::CIRCULAR, h1, 255, 255, h2, 255, 255, h1, 255, 255);
+    GenerativePalette next = GenerativePalette::from_hsv_keys(
+        GradientShape::CIRCULAR, next_h1, 255, 255, next_h2, 255, 255, next_h1,
+        255, 255);
+    for (int i = 0; i < 256; ++i) {
+      const Pixel a = current.get(i / 255.0f).color;
+      const Pixel b = next.get(i / 255.0f).color;
+      max_channel_step =
+          std::max(max_channel_step,
+                   std::max(std::abs(static_cast<int>(a.r) - b.r),
+                            std::max(std::abs(static_cast<int>(a.g) - b.g),
+                                     std::abs(static_cast<int>(a.b) - b.b))));
+    }
+  }
+  HS_EXPECT_LT(max_channel_step, 3000);
+}
+
+/**
  * @brief Verifies GenerativePalette is deterministic for a manual seed.
  * @details With a manual seed and rand-free profiles (FLAT/VIBRANT/TRIADIC use
  *          no RNG) the palette is fully deterministic.
@@ -2429,6 +2534,8 @@ inline int run_color_tests() {
   test_generative_palette_deterministic();
   test_generative_palette_seeded_profiles_reproducible();
   test_generative_palette_resolve_hsv_keys_matches_ctor();
+  test_generative_palette_circular_brightness_domain();
+  test_generative_palette_complementary_hue_sweep_continuous();
   test_generative_palette_auto_seed_advances();
   test_generative_palette_snapshot_lerp();
   test_generative_palette_lerp_coherent_hue_path();

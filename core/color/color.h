@@ -1413,6 +1413,12 @@ private:
  */
 class GenerativePalette : public Palette {
 public:
+  /** @brief Three canonical OKLCH palette keys. */
+  struct Snapshot {
+    OKLCH a, b, c;
+  };
+  static_assert(sizeof(Snapshot) == 36);
+
   /**
    * @brief Default-constructs a straight, analogous, flat-brightness palette.
    */
@@ -1447,9 +1453,14 @@ public:
                                    const Pixel &ka, const Pixel &kb,
                                    const Pixel &kc)
       : gradient_shape(gradient_shape) {
-    a = ka;
-    b = kb;
-    c = kc;
+    OKLCH key_a = pixel_to_oklch(ka);
+    OKLCH key_b = pixel_to_oklch(kb);
+    OKLCH key_c = pixel_to_oklch(kc);
+    key_b.h = key_a.h + wrap_angle_pi(key_b.h - key_a.h);
+    key_c.h = key_b.h + wrap_angle_pi(key_c.h - key_b.h);
+    a = key_a;
+    b = key_b;
+    c = key_c;
     update_stops();
   }
 
@@ -1486,11 +1497,11 @@ public:
       : gradient_shape(gradient_shape) {
     const HsvKeys k =
         resolve_hsv_keys(harmony_type, profile, sat_profile, manual_seed);
-    // The resolved (h,s,v) integers are reinterpreted as OKLCH coordinates, not
-    // redrawn, so the global RNG stream stays unperturbed.
-    a = author_key(k.h1, k.s1, k.v1);
-    b = author_key(k.h2, k.s2, k.v2);
-    c = author_key(k.h3, k.s3, k.v3);
+    const Snapshot keys = canonical_hsv_keys(k.h1, k.s1, k.v1, k.h2, k.s2, k.v2,
+                                             k.h3, k.s3, k.v3);
+    a = keys.a;
+    b = keys.b;
+    c = keys.c;
 
     update_stops();
   }
@@ -1597,8 +1608,8 @@ public:
                                          uint8_t h1, uint8_t s1, uint8_t v1,
                                          uint8_t h2, uint8_t s2, uint8_t v2,
                                          uint8_t h3, uint8_t s3, uint8_t v3) {
-    return GenerativePalette(gradient_shape, author_key(h1, s1, v1),
-                             author_key(h2, s2, v2), author_key(h3, s3, v3));
+    return GenerativePalette(
+        gradient_shape, canonical_hsv_keys(h1, s1, v1, h2, s2, v2, h3, s3, v3));
   }
 
   // Peak OKLCH chroma at mid-lightness; the saturation profile scales it and a
@@ -1658,8 +1669,8 @@ public:
    * OKLCH forms for get(). Call after any change to a/b/c or gradient_shape.
    */
   HS_COLD_MEMBER void update_stops() {
-    const Pixel vignette_color(0, 0, 0);
-    std::array<Pixel, MAX_STOPS> colors;
+    const OKLCH vignette_color{0.0f, 0.0f, 0.0f};
+    std::array<OKLCH, MAX_STOPS> colors;
     switch (gradient_shape) {
     case GradientShape::VIGNETTE:
       shape = {0, 0.1f, 0.5f, 0.9f, 1.0f};
@@ -1672,7 +1683,7 @@ public:
       size = 3;
       break;
     case GradientShape::CIRCULAR:
-      shape = {0, 0.33f, 0.66f, 1.0f};
+      shape = {0, 1.0f / 3.0f, 2.0f / 3.0f, 1.0f};
       colors = {a, b, c, a};
       size = 4;
       break;
@@ -1685,7 +1696,7 @@ public:
       HS_CHECK(false, "GenerativePalette: unknown gradient_shape");
     }
     for (int i = 0; i < size; ++i) {
-      colors_oklch[i] = pixel_to_oklch(colors[i]);
+      colors_oklch[i] = colors[i];
       // Recover the stop's chroma ceiling cmax = C / sin(pi*L) so get() can
       // re-apply the envelope at the interpolated L (fast_sinf matches get()).
       // env -> 0 at L near 0/1 forces cmax = 0. A near-gray stop carries no
@@ -1696,14 +1707,12 @@ public:
                            ? colors_oklch[i].C / env
                            : 0.0f;
     }
+    if (gradient_shape == GradientShape::CIRCULAR) {
+      const float direction =
+          colors_oklch[1].h >= colors_oklch[0].h ? 1.0f : -1.0f;
+      colors_oklch[3].h = colors_oklch[0].h + direction * 2.0f * PI_F;
+    }
   }
-
-  /**
-   * @brief Lightweight snapshot of just the 3 color keys (18 bytes).
-   */
-  struct Snapshot {
-    Pixel a, b, c;
-  };
 
   /**
    * @brief Captures the current three color keys.
@@ -1740,31 +1749,33 @@ public:
     // Clamp: an extrapolated amount overshoots into an invalid OKLCH (L > 1
     // or C past gamut).
     amount = hs::clamp(amount, 0.0f, 1.0f);
-    const OKLCH fk[3] = {pixel_to_oklch(from.a), pixel_to_oklch(from.b),
-                         pixel_to_oklch(from.c)};
-    const OKLCH tk[3] = {pixel_to_oklch(to.a), pixel_to_oklch(to.b),
-                         pixel_to_oklch(to.c)};
-    Pixel *keys[3] = {&a, &b, &c};
+    const OKLCH fk[3] = {from.a, from.b, from.c};
+    const OKLCH tk[3] = {to.a, to.b, to.c};
+    OKLCH *keys[3] = {&a, &b, &c};
     bool chromatic = true;
     for (int i = 0; i < 3; ++i)
       chromatic = chromatic && fk[i].C >= OKLCH_ACHROMATIC_C &&
                   tk[i].C >= OKLCH_ACHROMATIC_C;
     if (chromatic) {
-      float d0 = wrap_angle_pi(tk[0].h - fk[0].h);
+      const float d0 = wrap_angle_pi(tk[0].h - fk[0].h);
       for (int i = 0; i < 3; ++i) {
-        float d =
+        const float d =
             i == 0
                 ? d0
                 : d0 + wrap_angle_pi((tk[i].h - tk[0].h) - (fk[i].h - fk[0].h));
-        OKLCH k = {
+        *keys[i] = {
             hs::clamp(fk[i].L + (tk[i].L - fk[i].L) * amount, 0.0f, 1.0f),
             std::max(0.0f, fk[i].C + (tk[i].C - fk[i].C) * amount),
             fk[i].h + d * amount};
-        *keys[i] = oklch_to_pixel(k);
       }
     } else {
-      for (int i = 0; i < 3; ++i)
-        *keys[i] = oklch_to_pixel(lerp_oklch(fk[i], tk[i], amount));
+      for (int i = 0; i < 3; ++i) {
+        const float d = wrap_angle_pi(tk[i].h - fk[i].h);
+        *keys[i] = {
+            hs::clamp(fk[i].L + (tk[i].L - fk[i].L) * amount, 0.0f, 1.0f),
+            std::max(0.0f, fk[i].C + (tk[i].C - fk[i].C) * amount),
+            fk[i].h + d * amount};
+      }
     }
     update_stops();
   }
@@ -1796,13 +1807,41 @@ public:
     // OKLCH path below, avoiding both a divide by ~0 and the raw stored key.
     float p = dist < 0.0001f ? 0.0f : hs::clamp((t - start) / dist, 0.0f, 1.0f);
 
-    // Interpolate in OKLCH; stops are pre-converted in update_stops(). Only L
-    // and hue survive -- the interpolated chroma is discarded below.
-    OKLCH blended = lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p);
+    const OKLCH &left = colors_oklch[seg];
+    const OKLCH &right = colors_oklch[seg + 1];
+    float hue;
+    if (left.C < OKLCH_ACHROMATIC_C && right.C < OKLCH_ACHROMATIC_C)
+      hue = 0.0f;
+    else if (left.C < OKLCH_ACHROMATIC_C)
+      hue = right.h;
+    else if (right.C < OKLCH_ACHROMATIC_C)
+      hue = left.h;
+    else
+      hue = left.h + (right.h - left.h) * p;
+    OKLCH blended = {
+        hs::clamp(colors_oklch[seg].L +
+                      (colors_oklch[seg + 1].L - colors_oklch[seg].L) * p,
+                  0.0f, 1.0f),
+        0.0f, hue};
+    if (gradient_shape == GradientShape::CIRCULAR) {
+      static constexpr uint8_t LIGHTNESS_KEYS[5] = {0, 2, 1, 2, 0};
+      const float lightness_pos = t * 4.0f;
+      const int lightness_seg = std::min(static_cast<int>(lightness_pos), 3);
+      const float lightness_p = lightness_pos - lightness_seg;
+      const float lightness_mix = 0.5f - 0.5f * fast_cosf(PI_F * lightness_p);
+      const float lightness_a = colors_oklch[LIGHTNESS_KEYS[lightness_seg]].L;
+      const float lightness_b =
+          colors_oklch[LIGHTNESS_KEYS[lightness_seg + 1]].L;
+      blended.L = lightness_a + (lightness_b - lightness_a) * lightness_mix;
+      if (t == 1.0f)
+        blended.h = colors_oklch[0].h;
+    }
     // Re-derive chroma on the envelope at the interpolated L (see colors_cmax).
     // fast_sinf matches update_stops().
     float cmax =
         colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
+    if (gradient_shape == GradientShape::CIRCULAR && t == 1.0f)
+      cmax = colors_cmax[0];
     // Floor at 0: a small negative from fast_sinf would flip hue 180° in oklch_to_oklab.
     blended.C = std::max(0.0f, cmax * fast_sinf(PI_F * blended.L));
     // Hue torsion: drift hue with lightness, centered at L=0.5.
@@ -1826,6 +1865,28 @@ public:
   static void reset_hue_seed(uint8_t seed = 0) { g_hue_seed = seed; }
 
 private:
+  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape,
+                                   const Snapshot &keys)
+      : gradient_shape(gradient_shape), a(keys.a), b(keys.b), c(keys.c) {
+    update_stops();
+  }
+
+  static int authored_hue_delta(uint8_t from, uint8_t to) {
+    int delta = static_cast<uint8_t>(to - from);
+    return delta > HUE_WHEEL / 2 ? delta - HUE_WHEEL : delta;
+  }
+
+  static Snapshot canonical_hsv_keys(uint8_t h1, uint8_t s1, uint8_t v1,
+                                     uint8_t h2, uint8_t s2, uint8_t v2,
+                                     uint8_t h3, uint8_t s3, uint8_t v3) {
+    OKLCH key_a = key_oklch(h1, s1, v1);
+    OKLCH key_b = key_oklch(h2, s2, v2);
+    OKLCH key_c = key_oklch(h3, s3, v3);
+    key_b.h = key_a.h + authored_hue_delta(h1, h2) * (2.0f * PI_F / 256.0f);
+    key_c.h = key_b.h + authored_hue_delta(h2, h3) * (2.0f * PI_F / 256.0f);
+    return {key_a, key_b, key_c};
+  }
+
   /**
    * @brief Wraps an integer hue into [0,255], correct for negative inputs.
    * @param hue Hue value to wrap; may be negative.
@@ -1905,7 +1966,7 @@ private:
   }
 
   GradientShape gradient_shape;
-  Pixel a, b, c;
+  OKLCH a, b, c;
 
   // Static cursor shared across instances: each auto-seeded construction
   // (manual_seed < 0) reads and advances it for a distinct base hue. Non-atomic;
