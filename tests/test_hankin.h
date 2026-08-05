@@ -702,6 +702,52 @@ inline void test_compiled_hankin_clear() {
   HS_EXPECT_EQ(compiled.faces.size(), (size_t)0);
 }
 
+/**
+ * @brief Verifies a CompiledHankin can be recompiled after its target arena was
+ *        reset, in both owned-corner and borrowed-corner modes.
+ * @details A reset bumps the arena generation, so any vector still holding its
+ *          pre-reset binding trips ArenaVector::bind()'s stale-binding assert in
+ *          a debug build.
+ */
+inline void test_compile_hankin_recompiles_after_arena_reset() {
+  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(cube, compiled, target, temp);
+  const size_t statics = compiled.static_vertices.size();
+  const size_t dynamics = compiled.dynamic_instructions.size();
+  const size_t face_count = compiled.face_counts.size();
+  const size_t index_count = compiled.faces.size();
+
+  target.reset();
+  MeshOps::compile_hankin(cube, compiled, target, temp);
+  HS_EXPECT_EQ(compiled.base_vertices.size(), cube.vertices.size());
+  HS_EXPECT_EQ(compiled.static_vertices.size(), statics);
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), dynamics);
+  HS_EXPECT_EQ(compiled.face_counts.size(), face_count);
+  HS_EXPECT_EQ(compiled.faces.size(), index_count);
+  HS_EXPECT_TRUE(compiled.corner_src == compiled.base_vertices.data());
+
+  target.reset();
+  MeshOps::compile_hankin(cube, compiled, target, temp,
+                          /*borrow_base_vertices=*/true);
+  HS_EXPECT_EQ(compiled.base_vertices.size(), (size_t)0);
+  HS_EXPECT_EQ(compiled.static_vertices.size(), statics);
+  HS_EXPECT_EQ(compiled.dynamic_instructions.size(), dynamics);
+  HS_EXPECT_EQ(compiled.face_counts.size(), face_count);
+  HS_EXPECT_EQ(compiled.faces.size(), index_count);
+  HS_EXPECT_TRUE(compiled.corner_src == cube.vertices.data());
+
+  PolyMesh out;
+  MeshOps::update_hankin(compiled, out, temp, 0.4f);
+  check_face_counts_consistent(out);
+  check_indices_in_range(out);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -734,6 +780,7 @@ inline int run_hankin_tests() {
 
   test_compiled_hankin_clone_deep_copies();
   test_compiled_hankin_clear();
+  test_compile_hankin_recompiles_after_arena_reset();
 
   return fixture.result();
 }
