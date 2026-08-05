@@ -894,14 +894,61 @@ static inline bool geodesic_col_span(const Vector &a, const Vector &b,
 static constexpr int GEODESIC_CLIP_MAX_SPLITS = 6;
 
 /**
+ * @brief The clip band's cut boundaries, in the terms the arc solve reads them.
+ */
+struct ClipCutBounds {
+  float col_x[2]; /**< Boundary meridian directions, x component. */
+  float col_z[2]; /**< Boundary meridian directions, z component. */
+  float row_y[2]; /**< Boundary latitudes, as cos(phi). */
+  bool cols;      /**< Column boundaries cut (x clipping is active). */
+  bool rows;      /**< Row boundaries cut (band shorter than the canvas). */
+};
+
+/**
+ * @brief Resolves the clip band's cut boundaries for a whole draw.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @return Boundary geometry to hand every geodesic_clip_splits call under
+ *         @p cr.
+ * @details The band is fixed for a draw, so its boundary directions and
+ * latitudes resolve once rather than per edge.
+ */
+template <int W, int H>
+static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
+                                                 const ClipRegion::XClip &xc) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
+
+  ClipCutBounds cb{};
+  cb.cols = xc.active;
+  cb.rows = cr.render_y_start() > 0 || cr.render_y_end() < cr.h;
+
+  if (cb.cols) {
+    const int cols[2] = {xc.rs - CLIP_CUT_COL_PAD, xc.re + CLIP_CUT_COL_PAD};
+    for (int i = 0; i < 2; ++i) {
+      const int c = ((cols[i] % W) + W) % W;
+      cb.col_x[i] = TrigLUT<W, H>::cos_theta(c);
+      cb.col_z[i] = TrigLUT<W, H>::sin_theta[c];
+    }
+  }
+  if (cb.rows) {
+    const int rows[2] = {cr.render_y_start() - CLIP_CUT_ROW_PAD,
+                         cr.render_y_end() + CLIP_CUT_ROW_PAD};
+    for (int i = 0; i < 2; ++i)
+      cb.row_y[i] = TrigLUT<W, H>::cos_phi[hs::clamp(rows[i], 0, H_VIRT - 1)];
+  }
+  return cb;
+}
+
+/**
  * @brief Arc fractions where a geodesic edge crosses the clip band's row and
  *        column boundaries.
- * @tparam W,H Rasterization resolution (pixel grid).
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
  * @param es Shared setup from make_geodesic_edge_span(a, b); must have an axis.
- * @param cr Active clip region.
- * @param xc Precomputed x-clip predicate for @p cr.
+ * @param cb Clip-band boundaries from make_clip_cut_bounds.
  * @param ts Output, up to GEODESIC_CLIP_MAX_SPLITS fractions in (0, 1),
  *        ascending and separated enough that no piece is degenerate.
  * @return Number of fractions written.
@@ -928,14 +975,9 @@ static constexpr int GEODESIC_CLIP_MAX_SPLITS = 6;
  * exact span of the arc between its own endpoints, so a mis-sided cut draws a
  * piece rather than dropping one.
  */
-template <int W, int H>
 static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
                                        const GeodesicEdgeSpan &es,
-                                       const ClipRegion &cr,
-                                       const ClipRegion::XClip &xc, float *ts) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  if (!TrigLUT<W, H>::initialized)
-    TrigLUT<W, H>::init();
+                                       const ClipCutBounds &cb, float *ts) {
   const Vector perp = cross(es.axis, a);
   float angs[GEODESIC_CLIP_MAX_SPLITS];
   int found = 0;
@@ -951,11 +993,10 @@ static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
       angs[found++] = ang;
   };
 
-  if (xc.active && std::abs(es.axis.y) >= AXIS_Y_EPS) {
-    for (const int col : {xc.rs - CLIP_CUT_COL_PAD, xc.re + CLIP_CUT_COL_PAD}) {
-      const int c = ((col % W) + W) % W;
-      const float dx = TrigLUT<W, H>::cos_theta(c);
-      const float dz = TrigLUT<W, H>::sin_theta[c];
+  if (cb.cols && std::abs(es.axis.y) >= AXIS_Y_EPS) {
+    for (int i = 0; i < 2; ++i) {
+      const float dx = cb.col_x[i];
+      const float dz = cb.col_z[i];
       const float cross_a = a.x * dz - a.z * dx;
       const float cross_b = b.x * dz - b.z * dx;
       // The cross runs sinusoidally in the arc angle, so over the at-most-half
@@ -974,7 +1015,7 @@ static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
     }
   }
 
-  if (cr.render_y_start() > 0 || cr.render_y_end() < cr.h) {
+  if (cb.rows) {
     const float radius2 = a.y * a.y + perp.y * perp.y;
     if (radius2 > 0.0f) {
       const float radius = sqrtf(radius2);
@@ -987,9 +1028,8 @@ static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
         y_hi = radius;
       if (delta + PI_F < es.total)
         y_lo = -radius;
-      for (const int row : {cr.render_y_start() - CLIP_CUT_ROW_PAD,
-                            cr.render_y_end() + CLIP_CUT_ROW_PAD}) {
-        const float y = TrigLUT<W, H>::cos_phi[hs::clamp(row, 0, H_VIRT - 1)];
+      for (int i = 0; i < 2; ++i) {
+        const float y = cb.row_y[i];
         if (y < y_lo || y > y_hi)
           continue;
         const float half = fast_acos(hs::clamp(y / radius, -1.0f, 1.0f));
@@ -3816,6 +3856,7 @@ struct Mesh {
    * @param u,v Endpoint vertex indices (assumed in bounds — the callers run the
    *            cold OOB/capacity traps before delegating here).
    * @param edge_index Value written to each fragment's v2 register.
+   * @param cb Clip-band cut boundaries, resolved once by the calling draw().
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader; displaces the edge's two
    *        endpoints, which then bound one geodesic — it does not deform the
@@ -3829,7 +3870,7 @@ struct Mesh {
    */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
   static void draw_edge(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
-                        int u, int v, int edge_index,
+                        int u, int v, int edge_index, const ClipCutBounds &cb,
                         FragmentShaderFn fragment_shader,
                         VertexShaderRef vertex_shader) {
     Fragment fu;
@@ -3860,8 +3901,7 @@ struct Mesh {
 
     if (split) {
       float ts[GEODESIC_CLIP_MAX_SPLITS];
-      const int cuts =
-          geodesic_clip_splits<W, H>(fu.pos, fv.pos, es, cr, xc, ts);
+      const int cuts = geodesic_clip_splits(fu.pos, fv.pos, es, cb, ts);
       const Vector perp = cross(es.axis, fu.pos);
       points.push_back(Line::sample_point(fu, fv, es, perp, 0.0f));
       for (int i = 0; i < cuts; ++i)
@@ -3969,14 +4009,17 @@ struct Mesh {
                                  alignof(TriangularBitset<DEDUP_CAPACITY>)))
                         TriangularBitset<DEDUP_CAPACITY>();
 
+    const ClipRegion &cr = canvas.clip();
+    const ClipCutBounds cb = make_clip_cut_bounds<W, H>(cr, cr.x_clip());
+
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
       // mesh.vertices[] only asserts in bounds (stripped on device), so guard the
       // per-edge setup boundary here. u,v come from uint16_t face data (non-
       // negative), so max(u,v) in bounds implies both endpoints are valid.
       HS_CHECK(static_cast<size_t>(std::max(u, v)) < mesh.vertices.size());
 
-      draw_edge<W, H>(pipeline, canvas, mesh, u, v, edge_index, fragment_shader,
-                      vertex_shader);
+      draw_edge<W, H>(pipeline, canvas, mesh, u, v, edge_index, cb,
+                      fragment_shader, vertex_shader);
 
       edge_index++;
     });
@@ -4048,6 +4091,9 @@ struct Mesh {
   draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
        const ArenaVector<Edge> &edges, FragmentShaderFn fragment_shader,
        VertexShaderRef vertex_shader = {}, const DissolveMask *mask = nullptr) {
+    const ClipRegion &cr = canvas.clip();
+    const ClipCutBounds cb = make_clip_cut_bounds<W, H>(cr, cr.x_clip());
+
     for (size_t ei = 0; ei < edges.size(); ++ei) {
       if (mask && !mask->owns(edges[ei].u, edges[ei].v))
         continue;
@@ -4058,7 +4104,7 @@ struct Mesh {
                edges[ei].v < mesh.vertices.size());
 
       draw_edge<W, H>(pipeline, canvas, mesh, edges[ei].u, edges[ei].v,
-                      static_cast<int>(ei), fragment_shader, vertex_shader);
+                      static_cast<int>(ei), cb, fragment_shader, vertex_shader);
     }
   }
 };
