@@ -82,10 +82,11 @@ HS_COLD_MEMBER inline Vector node(int i) {
  * @details neighbors[i][k] is the node index of the k-th nearest neighbor of node
  *          i, always a valid index in [0, RD_N): the RD_N=7680 lattice yields a
  *          full RD_K-neighbor ring. Total size 92160 bytes
- *          (RD_N × RD_K × 2B). PROGMEM is a no-op on the supported flat-address
- *          targets, where direct `neighbors[i][k]` subscripting works.
+ *          (RD_N × RD_K × 2B). The flash placement is a no-op on the supported
+ *          flat-address targets, where direct `neighbors[i][k]` subscripting
+ *          works.
  */
-extern PROGMEM const int16_t neighbors[RD_N][RD_K];
+extern HS_PROGMEM_UNIQUE(neighbors) const int16_t neighbors[RD_N][RD_K];
 
 // ---------------------------------------------------------------------------
 // CubemapLUT: O(1) direction → nearest Fibonacci node lookup (no runtime trig)

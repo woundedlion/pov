@@ -48,7 +48,7 @@ inline constexpr size_t gamut_lut_bytes(int angle_steps, int l_steps) {
 
 /** @brief Flash-resident master; index [(l * ANGLE_STEPS + angle) * 2], min
  *  first then max. */
-inline const uint16_t GAMUT_LUT[GAMUT_LUT_ENTRIES] PROGMEM = {
+inline const uint16_t GAMUT_LUT[GAMUT_LUT_ENTRIES] HS_PROGMEM_UNIQUE(GAMUT_LUT) = {
     11485, 14029, 11389, 13921, 11296, 13820, 11207, 13728, 11122, 13645, 11043,
     13573, 10969, 13514, 10903, 13471, 10846, 13445, 10798, 13459, 10762, 13506,
     10739, 13581, 10731, 13532, 10731, 13048, 10741, 12616, 10319, 12180, 9722,

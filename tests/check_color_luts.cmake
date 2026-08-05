@@ -1,7 +1,7 @@
 # Regenerate core/color/color_luts.h via scripts/generate_luts.py and compare the
-# FULL text against the committed file, so array names, element types, PROGMEM,
-# the include and value signs gate alongside the numbers. Counterpart of the
-# lut-provenance job in .github/workflows/ci.yml.
+# FULL text against the committed file, so array names, element types, the
+# flash-section marker, the include and value signs gate alongside the numbers.
+# Counterpart of the lut-provenance job in .github/workflows/ci.yml.
 # Skips with SKIP_CODE when no Python is available, or fails outright under
 # REQUIRE_PYTHON (CI, which provisions the interpreter).
 # -D args: PYTHON_EXE, GENERATOR, COMMITTED, GENERATED, SKIP_CODE, REQUIRE_PYTHON.
