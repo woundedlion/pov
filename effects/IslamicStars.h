@@ -606,8 +606,8 @@ private:
     device_persistent_budget = DEVICE_GLOBAL_ARENA_SIZE - split_a - split_b;
     resplit_arenas(GLOBAL_ARENA_SIZE - split_a - split_b, split_a, split_b);
 
-    generate(persistent_arena, [&](Arena &target, Arena &a,
-                                   Arena &b) HS_COLD_MEMBER {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a,
+                                       Arena &b) HS_COLD_MEMBER {
       if (recipe) {
         // The build starts from the recipe's seed solid; the chain is swept
         // on screen leg by leg. The seed is also held as the first leg's
@@ -797,7 +797,7 @@ private:
     // the previous leg landed on to its new class target over the leg.
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
-      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
         build_next_seed =
             Solids::finalize_solid(clean_endpoint(step, a, b), target);
       });
@@ -992,7 +992,7 @@ private:
    */
   HS_COLD_MEMBER void schedule_dual_bridge() {
     ++dual_bridges_built;
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       dual_bridge_ambo =
           Solids::finalize_solid(MeshOps::ambo(build_seed, a, b), target);
     });
@@ -1162,7 +1162,7 @@ private:
    */
   template <typename Then>
   HS_COLD_MEMBER void schedule_macro_truncate(const char *log, Then &&then) {
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       build_next_seed = Solids::finalize_solid(
           MeshOps::truncate(build_seed, a, b, MACRO_TRUNCATE_T), target);
     });

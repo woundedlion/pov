@@ -3456,7 +3456,7 @@ inline ChainPeaks replay_build_chain(const char *name,
     // slot, exactly as spawn_shape prepares them.
     PolyMesh cur;
     MeshState seed_slot;
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       cur = Solids::finalize_solid(
           Solids::simple_registry[recipe.seed].generate(a, b), target);
       MeshOps::compile(cur, seed_slot, target, a);
@@ -3555,7 +3555,7 @@ inline ChainPeaks replay_build_chain(const char *name,
       const bool hankin_step = steps[k].op == Solids::Op::HANKIN;
       OpLeg::BookendClasses bookend;
       if (!hankin_step) {
-        generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+        hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
           PolyMesh nx;
           switch (steps[k].op) {
           case Solids::Op::AMBO:

@@ -269,7 +269,7 @@ private:
       const auto &p = entry.params;
       auto &data = loaded_presets[preset_idx];
 
-      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
         // Build the raw solid into scratch; only the deep copy below, bound to
         // the persistent target, outlives this generate() call.
         PolyMesh m =

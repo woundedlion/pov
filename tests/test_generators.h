@@ -46,7 +46,7 @@ inline void test_generate_lifecycle_and_forwarding() {
   size_t a_offset_in_fn = 999, b_offset_in_fn = 999;
   int captured_arg = 0;
 
-  int result = generate(
+  int result = hs::generate(
       target,
       [&](Arena &t, Arena &a, Arena &b, int arg) {
         seen_target = &t;
@@ -86,7 +86,7 @@ inline void test_generate_lifecycle_and_forwarding() {
 inline void test_generate_nested_target_persists() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
-  (void)generate(
+  (void)hs::generate(
       target,
       [](Arena &t, Arena &a, Arena &, int n) {
         a.allocate(100);
@@ -97,7 +97,7 @@ inline void test_generate_nested_target_persists() {
       3);
   HS_EXPECT_EQ(target.get_offset(), (size_t)48);
 
-  (void)generate(
+  (void)hs::generate(
       target,
       [](Arena &t, Arena &, Arena &b, int n) {
         b.allocate(200);
@@ -126,14 +126,14 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
   size_t inner_start_offset = 999;
   uint8_t outer_value_after_inner = 0;
 
-  (void)generate(
+  (void)hs::generate(
       target,
       [&](Arena &t, Arena &a, Arena &, int) {
         uint8_t *outer = static_cast<uint8_t *>(a.allocate(64));
         outer[0] = 0xAB;
         const size_t outer_offset_before_inner = a.get_offset();
 
-        (void)generate(
+        (void)hs::generate(
             t,
             [&](Arena &, Arena &ia, Arena &, int) {
               inner_start_offset = ia.get_offset();
@@ -187,7 +187,7 @@ inline int gen_deep_level(Arena &t, Arena &a, Arena &b, int level,
   const size_t b_after = b.get_offset();
 
   if (level + 1 < max_level)
-    (void)generate(t, gen_deep_level, level + 1, max_level);
+    (void)hs::generate(t, gen_deep_level, level + 1, max_level);
 
   HS_EXPECT_EQ(a.get_offset(), a_after);
   HS_EXPECT_EQ(b.get_offset(), b_after);
@@ -211,7 +211,7 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
   for (int i = 0; i < DEEP_LEVELS; ++i)
     g_deep_a_entry[i] = 999;
 
-  (void)generate(target, gen_deep_level, 0, DEEP_LEVELS);
+  (void)hs::generate(target, gen_deep_level, 0, DEEP_LEVELS);
 
   HS_EXPECT_EQ(g_deep_a_entry[0], (size_t)0);
   for (int level = 1; level < DEEP_LEVELS; ++level)

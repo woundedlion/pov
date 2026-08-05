@@ -27,7 +27,6 @@ inline int &generate_depth() {
   return depth;
 }
 } // namespace detail
-} // namespace hs
 
 constexpr int MAX_GENERATE_DEPTH = 16;
 
@@ -55,7 +54,7 @@ template <typename GenerateFn, typename... Args>
 HS_COLD_MEMBER auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
   HS_CHECK(&target != &scratch_arena_a && &target != &scratch_arena_b,
            "generate: target must not alias an engine scratch arena");
-  int &depth = hs::detail::generate_depth();
+  int &depth = detail::generate_depth();
   if (depth == 0) {
     scratch_arena_a.reset();
     scratch_arena_b.reset();
@@ -77,3 +76,5 @@ HS_COLD_MEMBER auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
   return fn(target, scratch_arena_a, scratch_arena_b,
             std::forward<Args>(args)...);
 }
+
+} // namespace hs

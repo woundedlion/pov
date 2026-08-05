@@ -1408,14 +1408,16 @@ SolidBuilder(dodecahedron(a, b), a, b)
 `generators.h` provides a single universal generation wrapper that manages arena lifecycle for all procedural geometry creation:
 
 ```cpp
+namespace hs {
 template <typename GenerateFn, typename... Args>
 auto generate(Arena &target, GenerateFn &&fn, Args &&...args);
+}
 ```
 
 It resets and scopes both scratch arenas, then invokes `fn(target, scratch_a, scratch_b, args...)`. Direct registry lookups and effect geometry creation go through this wrapper for a deterministic arena lifecycle:
 
 ```cpp
-auto mesh = generate(persistent_arena, Solids::get_by_name, std::string_view("icosahedron"));
+auto mesh = hs::generate(persistent_arena, Solids::get_by_name, std::string_view("icosahedron"));
 ```
 
 One deliberate exception: `SolidBuilder`'s fluent Conway chain (`solids.h`) owns its own two-arena ping-pong, swapping the scratch arenas between operators, so it manages arena lifecycle directly rather than through `generate()`.

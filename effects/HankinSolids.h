@@ -71,7 +71,7 @@ public:
     // The walk starts at the tetrahedron with the registry seed; every family
     // seed is later derived from it (bridge ADOPTs), which is what lets a
     // reverse bridge regenerate the registry tetrahedron frame-exactly.
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       seed_base =
           Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), target);
     });
@@ -80,7 +80,7 @@ public:
     ConwayGraph::record_visit(node_visits, node);
 
     MeshPaletteBank::shuffle_indices(palette_idx);
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
       compiled_hankin = CompiledHankin();
       MeshOps::compile_hankin(seed_base, compiled_hankin, target, a);
       hankin_mesh.clear();
@@ -684,7 +684,7 @@ private:
       // Ambo crossover: ambo(dual(seed)) == ambo(seed), so the swap is
       // pixel-invisible at the displayed t = 0.5 form.
       HS_CHECK(node == CUBOCTAHEDRON || node == ICOSIDODECAHEDRON);
-      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
         seed_base =
             Solids::finalize_solid(MeshOps::dual(seed_base, a, b), target);
       });
@@ -693,7 +693,7 @@ private:
       // Reverse family bridge: the held octa/icosa was derived from the
       // registry tetrahedron, so regenerating that tetrahedron is frame-exact.
       HS_CHECK(node == OCTAHEDRON || node == ICOSAHEDRON);
-      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
         seed_base =
             Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), target);
       });
@@ -789,7 +789,7 @@ private:
     // Build the arrived base mesh from the held seed and compile the hankin
     // pattern from that mesh — never a registry regenerate, so bridge
     // arrivals keep the orientation the walk produced.
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh base = node_mesh_at(e, arrived_at_to, a, b);
       if (e.reseed == Reseed::ADOPT && is_platonic(arrived)) {
         if (arrived_at_to) {
