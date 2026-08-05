@@ -1044,29 +1044,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      # PRE-EXISTING DRIFT. These files do not match .clang-format under
-      # clang-format-18. Gating them would make this job red on arrival, so they
-      # are excluded; every OTHER tracked source, and every newly added file, is
-      # gated. Shrink this list with `clang-format -i`; growing it fails the
-      # growth check below unless the same commit approves the path in
-      # FORMAT_BASELINE_ALLOW_ADD.
+      # Paths exempt from the format gate. EMPTY, and meant to stay that way:
+      # every tracked first-party source matches .clang-format under
+      # clang-format-18. An entry here is a hole in the gate, so adding one
+      # fails the growth check below unless the same commit approves the path in
+      # FORMAT_BASELINE_ALLOW_ADD. Keep the block scalar even while empty — the
+      # growth check reads this key out of the previous commit and warns itself
+      # off when it cannot find it.
       FORMAT_BASELINE: |
-        core/engine/effect_registry.h
-        core/mesh/hankin.h
-        core/render/canvas.h
-        effects/BZReactionDiffusion.h
-        effects/RingSpin.h
-        tests/test_animation.h
-        tests/test_canvas.h
-        tests/test_conway_morph.h
-        tests/test_death.h
-        tests/test_filter.h
-        tests/test_opchain_arena_survey.h
-        tests/test_opchain_probe.h
-        tests/test_partition_seam.h
-        tests/test_scan.h
-        tests/test_sdf.h
-        tests/test_spatial.h
       # Escape hatch for a deliberate FORMAT_BASELINE addition: one path per
       # line, added in the same commit as the baseline entry it approves, so the
       # exemption is visible in that commit's diff. Empty in steady state.

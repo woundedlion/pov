@@ -67,14 +67,13 @@ inline void test_islamic_registry_arena_survey() {
     over += fits ? 0 : 1;
     worst_a = std::max(worst_a, p.scratch_a);
     worst_b = std::max(worst_b, p.scratch_b);
-    std::printf("  [survey] %-56s F=%-5zu legs=%zu persistent=%7zu %s%-7zu  "
-                "scratch a=%7zu b=%7zu%s\n",
-                rows[i].name, p.faces, p.legs, p.persistent,
-                fits ? "under " : "OVER +",
-                fits ? ISLAMIC_PERSISTENT_BUDGET - p.persistent
-                     : p.persistent - ISLAMIC_PERSISTENT_BUDGET,
-                p.scratch_a, p.scratch_b,
-                p.supported ? "" : "  (unsweepable step)");
+    std::printf(
+        "  [survey] %-56s F=%-5zu legs=%zu persistent=%7zu %s%-7zu  "
+        "scratch a=%7zu b=%7zu%s\n",
+        rows[i].name, p.faces, p.legs, p.persistent, fits ? "under " : "OVER +",
+        fits ? ISLAMIC_PERSISTENT_BUDGET - p.persistent
+             : p.persistent - ISLAMIC_PERSISTENT_BUDGET,
+        p.scratch_a, p.scratch_b, p.supported ? "" : "  (unsweepable step)");
   }
   std::printf("  [survey] %zu of %zu entries fit; worst scratch a=%zu / %zu, "
               "b=%zu / %zu\n",
