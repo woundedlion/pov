@@ -1999,15 +1999,12 @@ private:
                            stock_transform;
 
     const Animation::NoiseParams *noise = feedback_style->noise;
-    const WarpKey key{feedback_style->space_fn,
-                      noise,
-                      feedback_style->amplitude,
-                      feedback_style->frequency,
-                      feedback_style->speed,
-                      feedback_style->scale,
-                      noise ? noise->time * noise->speed : 0.0f,
-                      band.field_y_begin,
-                      band.field_y_end};
+    const WarpKey key{
+        feedback_style->space_fn,  noise,
+        noise_config_hash(noise),  feedback_style->amplitude,
+        feedback_style->frequency, feedback_style->speed,
+        feedback_style->scale,     noise ? noise->time * noise->speed : 0.0f,
+        band.field_y_begin,        band.field_y_end};
 
     if (!cacheable) {
       const int cells = grid.field_rows * grid.columns;
@@ -2474,11 +2471,30 @@ public:
   static constexpr size_t STORAGE_BYTES = 2 * CACHE_CELLS * sizeof(int16_t);
 
 private:
+  /**
+   * @brief FNV-1a over the bound noise generator's configuration.
+   * @details Seed, noise type and fractal settings feed the warp field but are
+   * mirrored neither in Style nor behind an accessor, so the generator's object
+   * representation is the only handle on them. Constant while the config is.
+   */
+  static uint32_t noise_config_hash(const Animation::NoiseParams *noise) {
+    static_assert(std::is_trivially_copyable_v<FastNoiseLite>,
+                  "hashing FastNoiseLite's bytes requires a trivial layout");
+    if (!noise)
+      return 0;
+    const auto *bytes = reinterpret_cast<const unsigned char *>(&noise->noise);
+    uint32_t hash = 2166136261u;
+    for (size_t i = 0; i < sizeof(FastNoiseLite); ++i)
+      hash = (hash ^ bytes[i]) * 16777619u;
+    return hash;
+  }
+
   /** @brief Inputs the coarse warp field is a pure function of (stock
    *  transforms only); equal keys make the cached field reusable. */
   struct WarpKey {
     ::Feedback::SpaceFn space_fn;
     const Animation::NoiseParams *noise;
+    uint32_t noise_config;
     float amplitude;
     float frequency;
     float speed;

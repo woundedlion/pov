@@ -2280,16 +2280,19 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
  *        exactly what an uncached one does, frame for frame.
  * @details Drives a cached and an uncached pipeline through identical frames:
  *          a static style (later frames hit the cache), a key-field mutation
- *          (amplitude), advancing noise time under nonzero speed (key changes
- *          every frame), and a mid-run init_storage() re-allocation (the
- *          effect's post-compaction path). Every frame must match the
- *          uncached reference pixel-exactly — reuse serves the same int16
- *          deltas the populate pass would have written.
+ *          (amplitude), a generator seed change that no Style scalar mirrors,
+ *          advancing noise time under nonzero speed (key changes every frame),
+ *          and a mid-run init_storage() re-allocation (the effect's
+ *          post-compaction path). Every frame must match the uncached reference
+ *          pixel-exactly — reuse serves the same int16 deltas the populate pass
+ *          would have written.
  */
 inline void test_feedback_warp_cache_matches_uncached() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
   constexpr int FRAMES = 8;
-  constexpr int CLIP_BEGIN[FRAMES] = {20, 36, 24, 40, 28, 20, 36, 24};
+  // Frames 3 and 4 share a band, so frame 4's seed change is the only key
+  // difference between them and lands on a populated cache entry.
+  constexpr int CLIP_BEGIN[FRAMES] = {20, 36, 24, 40, 40, 20, 36, 24};
 
   // Only one Effect may be alive at a time (shared static buffers), so the
   // two pipelines run sequentially over recorded frames.
@@ -2327,6 +2330,8 @@ inline void test_feedback_warp_cache_matches_uncached() {
       fx.set_clip(CLIP_BEGIN[frame], CLIP_BEGIN[frame] + 8, 0, W);
       if (frame == 3)
         s.amplitude = 4.5f; // key change: repopulate
+      if (frame == 4)
+        np.noise.SetSeed(4242); // generator-only change: repopulate
       if (frame == 5)
         s.speed = 1.0f;         // time-varying: miss every frame
       if (frame == 6 && cached) // post-compaction re-allocation
