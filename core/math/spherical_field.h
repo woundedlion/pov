@@ -182,13 +182,15 @@ public:
   /**
    * @brief Returns an odd longitude footprint with equatorial pixel width.
    * @param y Latitude row in the rendered domain.
+   * @return Odd width; pole rows, where every longitude collapses onto one
+   *   point, saturate to the widest odd footprint the row admits.
    */
   int longitude_filter_width(int y) const {
+    const int maximum_odd_width = (W & 1) ? W : W - 1;
     const float sine = latitude_sine(y);
     if (sine < 1.0f / W)
-      return 1;
+      return maximum_odd_width;
     int width = static_cast<int>(ceilf(1.0f / sine)) | 1;
-    const int maximum_odd_width = (W & 1) ? W : W - 1;
     return hs::clamp(width, 1, maximum_odd_width);
   }
 

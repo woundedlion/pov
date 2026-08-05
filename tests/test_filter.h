@@ -1789,6 +1789,12 @@ expected_feedback_source_row(int y, int downsample,
     const float mix = static_cast<float>(x - x0) / downsample;
     source[x] = hs::lerp(control_y(x0), control_y(x1), mix);
   }
+  // The render only longitude-filters the dense infill rows.
+  const bool north_infill = y > 0 && y < downsample;
+  const bool south_infill =
+      hs::H_OFFSET == 0 && y >= H - downsample && y < H - 1;
+  if (!north_infill && !south_infill)
+    return source;
   layout.template reconstruct_longitude_row<FloatRowAccumulator>(
       source.data(), y, [&](int x, float value) { reconstructed[x] = value; });
   return reconstructed;
