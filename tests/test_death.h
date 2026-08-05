@@ -280,7 +280,7 @@ inline void case_arena_vector_emplace_overflow() {
  */
 inline void case_generate_target_is_scratch() {
   configure_arenas_default();
-  int r = generate(scratch_arena_a, [](Arena &, Arena &, Arena &) {
+  int r = hs::generate(scratch_arena_a, [](Arena &, Arena &, Arena &) {
     return 0;
   }); // target aliases scratch_arena_a -> HS_CHECK
   if (r == 42)
@@ -296,7 +296,7 @@ inline void case_generate_target_is_scratch() {
 inline int nested_generate(Arena &target, Arena &, Arena &, int remaining) {
   if (remaining <= 0)
     return 0;
-  return generate(target, nested_generate, remaining - 1);
+  return hs::generate(target, nested_generate, remaining - 1);
 }
 
 /**
@@ -308,8 +308,8 @@ inline int nested_generate(Arena &target, Arena &, Arena &, int remaining) {
  */
 inline void case_generate_recursion_too_deep() {
   configure_arenas_default();
-  int r =
-      generate(persistent_arena, nested_generate, opaque(MAX_GENERATE_DEPTH));
+  int r = hs::generate(persistent_arena, nested_generate,
+                       opaque(hs::MAX_GENERATE_DEPTH));
   if (r == 42)
     std::printf("x");
 }

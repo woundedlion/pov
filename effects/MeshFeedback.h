@@ -115,8 +115,8 @@ public:
     apply_params();
 
     {
-      PolyMesh poly =
-          generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      PolyMesh poly = hs::generate(
+          persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
             return Solids::finalize_solid(Solids::Platonic::icosahedron(a, b),
                                           target);
           });

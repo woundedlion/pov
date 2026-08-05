@@ -5032,14 +5032,14 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
 
     // The effect's held graph-walk seed; dodecahedron is the largest Platonic.
     PolyMesh seed;
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       seed =
           Solids::finalize_solid(Solids::Platonic::dodecahedron(a, b), target);
     });
 
     MeshState mesh;
     CompiledHankin hankin;
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh base = Solids::finalize_solid(solids[idx].generate(a, b), a);
       hankin = CompiledHankin();
       MeshOps::compile_hankin(base, hankin, target, a);
