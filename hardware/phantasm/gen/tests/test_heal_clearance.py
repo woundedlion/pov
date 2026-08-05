@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import sys
 import tempfile
 import unittest
@@ -29,6 +30,29 @@ class MainTests(unittest.TestCase):
                 with contextlib.redirect_stderr(stderr):
                     self.assertEqual(heal_clearance.main(), 1)
         self.assertIn("cannot process phantasm.kicad_pro", stderr.getvalue())
+
+    def test_manifested_snapshot_is_left_untouched(self):
+        zeroed = json.dumps(
+            {"board": {"design_settings": {"rules": {"min_clearance": 0}}}})
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "phantasm.kicad_pro").write_text(zeroed, encoding="utf-8")
+            snapshot = root / "quilter_incremental"
+            snapshot.mkdir()
+            protected = snapshot / "phantasm.kicad_pro"
+            protected.write_text(zeroed, encoding="utf-8")
+            (snapshot / "SHA256SUMS.txt").write_text("", encoding="utf-8")
+
+            with mock.patch.object(heal_clearance, "OUT", temp_dir):
+                self.assertEqual(
+                    heal_clearance.project_files(), [str(root / "phantasm.kicad_pro")])
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(heal_clearance.main(), 0)
+
+            self.assertEqual(protected.read_text(encoding="utf-8"), zeroed)
+            healed = json.loads((root / "phantasm.kicad_pro").read_text(encoding="utf-8"))
+            self.assertGreater(
+                healed["board"]["design_settings"]["rules"]["min_clearance"], 0)
 
 
 if __name__ == "__main__":
