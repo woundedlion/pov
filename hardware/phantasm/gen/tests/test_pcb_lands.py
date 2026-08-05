@@ -1,5 +1,7 @@
 import sys
+import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 GEN_DIR = Path(__file__).resolve().parent.parent
@@ -23,6 +25,22 @@ CHIP_MOD = """(footprint "R_chip"
 \t\t(layers "F.Cu" "F.Mask" "F.Paste") (uuid "a"))
 \t(pad "2" smd roundrect (at 0.825 0) (size 0.8 0.95)
 \t\t(layers "F.Cu" "F.Mask" "F.Paste") (uuid "b"))
+)"""
+
+SCH_TEENSY = """(kicad_sch
+\t(symbol (lib_id "phantasm:Teensy4.0")
+\t\t(property "Reference" "U_MCU")
+\t\t(property "Value" "Teensy4.0")
+\t\t(property "Footprint" "")
+\t)
+)"""
+
+SCH_BLANK_PASSIVE = """(kicad_sch
+\t(symbol (lib_id "Device:R")
+\t\t(property "Reference" "R1")
+\t\t(property "Value" "10k")
+\t\t(property "Footprint" "")
+\t)
 )"""
 
 
@@ -88,6 +106,31 @@ class TeensyLibraryTests(unittest.TestCase):
         library = sexp.parse(TEENSY_LIBRARY.read_text(encoding="utf-8"))[0]
 
         self.assertEqual(pad_lands(pcb.teensy_footprint()), pad_lands(library))
+
+
+class SchematicFootprintTests(unittest.TestCase):
+    """A blank Footprint field is the Teensy's marker, so any other symbol that
+    loses one would be embedded as the 37x19 mm through-hole Teensy land."""
+
+    def components(self, text):
+        path = Path(self.enterContext(tempfile.TemporaryDirectory())) / "s.kicad_sch"
+        path.write_text(text, encoding="utf-8")
+        self.enterContext(unittest.mock.patch.object(pcb, "SCH", str(path)))
+        return pcb.schematic_components()
+
+    def test_blank_footprint_resolves_to_the_teensy(self):
+        self.assertEqual(self.components(SCH_TEENSY),
+                         [("U_MCU", pcb.TEENSY_LIBID, "Teensy4.0", False)])
+
+    def test_blank_footprint_on_another_symbol_is_rejected(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.components(SCH_BLANK_PASSIVE)
+        self.assertIn("R1", str(caught.exception))
+        self.assertIn("Device:R", str(caught.exception))
+
+    def test_committed_schematic_names_every_footprint(self):
+        for ref, fp, _, _ in pcb.schematic_components():
+            self.assertTrue(fp, ref)
 
 
 if __name__ == "__main__":
