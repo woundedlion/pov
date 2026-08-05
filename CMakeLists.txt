@@ -193,8 +193,16 @@ if(EMSCRIPTEN)
         # gate already passes to `sha256sum -c`.
         # Written only alongside the .sha so the provenance set is never half-written
         # (a .wasm.sha256 without a .sha is a partial set the deploy gate rejects).
-        # Git stores the generated glue and provenance files as LF on every host.
+        # Git stores the generated glue and provenance files as LF on every host,
+        # and emcc emits CRLF glue on Windows. file(CONFIGURE ... NEWLINE_STYLE LF)
+        # is the only writer that lands LF on every host — file(WRITE)/file(APPEND)
+        # open in text mode and re-expand LF to CRLF there — but it also expands
+        # @VAR@ tokens, and the hash below is taken over its output. Escaping every
+        # literal @ through a variable that expands back to @ makes that expansion
+        # an identity, so glue bytes reach the hash exactly as emitted.
+        set(HS_AT \"@\")
         file(READ \"${DAYDREAM_DIR}/${TARGET_NAME}.js\" HS_GLUE_CONTENT)
+        string(REPLACE \"@\" \"@HS_AT@\" HS_GLUE_CONTENT \"\${HS_GLUE_CONTENT}\")
         file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.js\"
              CONTENT \"\${HS_GLUE_CONTENT}\" @ONLY NEWLINE_STYLE LF)
         file(SHA256 \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm\" HS_WASM_SHA256)
