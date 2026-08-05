@@ -184,14 +184,9 @@ private:
    * @return Pattern value in [-1, 1], modulated by params.complexity.
    */
   float sample(const Complex &w, float sin_phase, float cos_phase) const {
-    // Near the pole |w| -> STEREO_INF, so w*pattern_freq can reach ~2e5 where
-    // fast_sinf range reduction bands; clamp the (pole-attenuated) argument.
-    float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
-                         STEREO_PATTERN_ARG_LIMIT);
-    float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
-                         STEREO_PATTERN_ARG_LIMIT);
-    return fast_sinf(pu + params.complexity * fast_sinf(pv + sin_phase)) *
-           fast_cosf(pv + params.complexity * fast_cosf(pu - cos_phase));
+    Complex p = stereo_pattern_args(w, params.pattern_freq);
+    return fast_sinf(p.re + params.complexity * fast_sinf(p.im + sin_phase)) *
+           fast_cosf(p.im + params.complexity * fast_cosf(p.re - cos_phase));
   }
 
   /**

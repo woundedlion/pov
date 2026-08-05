@@ -721,6 +721,23 @@ inline float pole_normalize_pattern(float pattern, float r_sq,
 }
 
 /**
+ * @brief Scales a warped stereographic coordinate into bounded trig arguments.
+ * @param w Warped stereographic coordinate.
+ * @param pattern_freq Spatial frequency multiplier.
+ * @return Frequency-scaled components clamped to ±STEREO_PATTERN_ARG_LIMIT.
+ * @details Near the pole |w| -> STEREO_INF, so w*pattern_freq can reach ~2e5
+ * where fast_sinf range reduction bands; the clamp keeps both components inside
+ * the accurate range. Shared by the stereo pattern effects (Flyby/Liquid2D) so
+ * the bound stays identical across them.
+ */
+inline Complex stereo_pattern_args(const Complex &w, float pattern_freq) {
+  return Complex(hs::clamp(w.re * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
+                           STEREO_PATTERN_ARG_LIMIT),
+                 hs::clamp(w.im * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
+                           STEREO_PATTERN_ARG_LIMIT));
+}
+
+/**
  * @brief Applies noise-based displacement in stereographic space.
  * @param z Stereographic coordinate to warp.
  * @param r_sq Pre-computed |z|² (z.re² + z.im²).
