@@ -292,8 +292,13 @@ jobs:
         # fail-fast counterpart of the sanitizers job's -fno-sanitize-recover.
         # --no-tests=error: a rename that empties this regex is a wiring bug, not
         # a green run.
+        # HS_BUFFER_FREE_WATCHDOG_US: the canvas ctor's spin watchdog is a trap,
+        # so a runner deschedule past it kills the shard instead of failing a
+        # test. TSan's slowdown on a 2-vCPU runner makes that reachable at the
+        # 2 s default; 30 s still catches a genuinely stalled hand-off.
         env:
           HS_SMOKE_FRAMES: 120
+          HS_BUFFER_FREE_WATCHDOG_US: 30000000
           TSAN_OPTIONS: halt_on_error=1
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
