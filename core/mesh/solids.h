@@ -181,10 +181,14 @@ struct Dodecahedron {
 /**
  * @brief Compile-time consistency check for a hardcoded solid's tables.
  * @tparam StaticMeshT Type exposing constexpr vertices/face_counts/faces arrays.
- * @return True iff the tables form a closed unit-sphere polyhedron.
+ * @return True iff the tables describe a closed orientable surface whose
+ * vertices all lie on the unit sphere.
  * @details Checks that face_counts spans the flat face list exactly, every face
- * index addresses a listed vertex, Euler's formula holds for E = sum/2, and
- * every vertex is unit length. Compares squared lengths so the whole check is
+ * index addresses a listed vertex, no directed edge repeats and every directed
+ * edge has its reverse (so each undirected edge joins exactly two faces in
+ * opposite orientation, making E = sum/2), Euler's formula holds, and every
+ * vertex is unit length. Face planarity, convexity and non-self-intersection
+ * are not checked. Compares squared lengths so the whole check is
  * constant-evaluable.
  */
 template <typename StaticMeshT> constexpr bool solid_tables_consistent() {
@@ -197,6 +201,26 @@ template <typename StaticMeshT> constexpr bool solid_tables_consistent() {
   for (int index : StaticMeshT::faces)
     if (index < 0 || static_cast<size_t>(index) >= StaticMeshT::vertices.size())
       return false;
+
+  // Directed edge incidence; the V*V scratch keeps the pass O(indices + V^2).
+  constexpr size_t V = StaticMeshT::vertices.size();
+  std::array<bool, V * V> used = {};
+  size_t base = 0;
+  for (uint8_t count : StaticMeshT::face_counts) {
+    for (uint8_t i = 0; i < count; ++i) {
+      const size_t a = static_cast<size_t>(StaticMeshT::faces[base + i]);
+      const size_t b = static_cast<size_t>(
+          StaticMeshT::faces[base + (i + 1 == count ? 0 : i + 1)]);
+      if (a == b || used[a * V + b])
+        return false;
+      used[a * V + b] = true;
+    }
+    base += count;
+  }
+  for (size_t a = 0; a < V; ++a)
+    for (size_t b = 0; b < a; ++b)
+      if (used[a * V + b] != used[b * V + a])
+        return false;
 
   // V - E + F == 2, in a form free of unsigned wrap.
   if (StaticMeshT::vertices.size() + StaticMeshT::face_counts.size() !=
