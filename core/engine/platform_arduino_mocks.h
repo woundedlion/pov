@@ -201,6 +201,12 @@ enum FastLEDCheck {
   Candle
 };
 
+/** @brief Mock LED chipset selector for addLeds template arguments. */
+enum LEDType { WS2801 };
+/** @brief Mock LED color-order selector for addLeds template arguments. */
+enum ColorOrder { RGB };
+#define DATA_RATE_MHZ(x) (x)
+
 /**
  * @brief Mock implementation of the FastLED controller for simulation.
  * @details The simulator renders into its own framebuffer rather than driving
@@ -224,13 +230,16 @@ struct FastLEDMock {
   void setTemperature(int temperature) { last_temperature = temperature; }
   /**
    * @brief Registers an LED strip (no-op on host).
-   * @tparam T LED chipset type.
-   * @tparam P1 First chipset template parameter.
-   * @tparam P2 Second chipset template parameter.
-   * @tparam P3 Third chipset template parameter.
-   * @tparam P4 Fourth chipset template parameter.
+   * @tparam CHIPSET LED chipset selector.
+   * @tparam DATA_PIN Data pin number.
+   * @tparam CLOCK_PIN Clock pin number.
+   * @tparam RGB_ORDER Channel order the chipset expects.
+   * @tparam SPI_DATA_RATE SPI clock rate in Hz.
+   * @details The parameter kinds mirror FastLED's SPI overload, whose chipset
+   *          and order arguments are enumerators rather than types.
    */
-  template <typename T, int P1, int P2, int P3, int P4>
+  template <LEDType CHIPSET, uint8_t DATA_PIN, uint8_t CLOCK_PIN,
+            ColorOrder RGB_ORDER, uint32_t SPI_DATA_RATE>
   void addLeds(CRGB *, int) {}
   /**
    * @brief Pushes the framebuffer to the strip (no-op on host).
@@ -242,12 +251,6 @@ struct FastLEDMock {
   void showColor(const CRGB &) {}
 };
 inline FastLEDMock FastLED;
-
-/** @brief Mock LED chipset selector for addLeds template arguments. */
-enum LEDType { WS2801 };
-/** @brief Mock LED color-order selector for addLeds template arguments. */
-enum ColorOrder { RGB };
-#define DATA_RATE_MHZ(x) (x)
 
 // --- Mock Arduino Functions ---
 // Global scope mirrors Arduino/FastLED, which expose random()/map() as free
