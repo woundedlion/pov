@@ -1785,7 +1785,8 @@ public:
    * @param max_revs Maximum revolutions to advance before giving up.
    * @return True if @p pred returned true within the budget, false on timeout.
    */
-  template <typename Pred> bool run_until(Pred pred, double max_revs) {
+  template <typename Pred>
+  [[nodiscard]] bool run_until(Pred pred, double max_revs) {
     const uint64_t until =
         g + static_cast<uint64_t>(max_revs * 2 * cfg.cycles_per_half_rev);
     while (g < until) {
@@ -1994,7 +1995,8 @@ inline void test_sim_boot_and_phase() {
     sim.run_revs(4.0);
     // Sample at a stable point: master mid-first-half (~x=72), where every
     // board's ZERO flip for this rev has long settled.
-    sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+    HS_EXPECT_TRUE(
+        sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
     HS_EXPECT_LE(sim.max_phase_err(), 2);
     for (int i = 0; i < 4; ++i) {
       const uint64_t df = sim.boards[i].flips - flips_before[i];
@@ -2031,7 +2033,8 @@ inline void test_sim_eight_board_boot_and_phase() {
   HS_EXPECT_TRUE(boot_join(sim, cfg));
 
   sim.run_revs(8.0);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   for (size_t i = 1; i < sim.boards.size(); ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
@@ -2096,7 +2099,8 @@ inline void test_sim_epoch_commit() {
   }
   // Post-epoch: full content coherence (index AND t) including the master.
   sim.run_revs(3.0);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   for (int i = 1; i < 4; ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, 1);
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
@@ -2196,7 +2200,8 @@ inline void test_sim_masked_windows() {
   }
 
   sim.run_revs(30.0);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
 
   // Truncated bursts were discarded (count telemetry), never accepted as
   // the wrong boundary: phase stays sub-column-ish and content equal.
@@ -2261,7 +2266,8 @@ inline void test_sim_emi() {
   std::sort(sim.emi.begin(), sim.emi.end());
 
   sim.run_revs(42.0);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
 
   const Telemetry &tm1 = sim.boards[1].board.telemetry();
   HS_EXPECT_GT(tm1.symbols_rejected_gate, 20u); // isolated EMI all rejected
@@ -2300,7 +2306,8 @@ inline void test_sim_drops_and_missed_epoch() {
   sim.run_revs(5.0);
   HS_EXPECT_GE(sim.boards[1].board.telemetry().max_coast_halves, 4u);
   HS_EXPECT_TRUE(sim.boards[1].board.lock() == LockState::LOCKED);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_LE(sim.max_phase_err(), 2);
 
   // Missed epoch: board 3 loses its wire for the entire EPOCH train (the
@@ -2372,7 +2379,8 @@ inline void test_sim_reboot() {
       sim.run_until([](Sim &s) { return s.boards[2].live; },
                     double(cfg.beacon_period_revs + cfg.join_grid_revs) + 4));
   HS_EXPECT_EQ(b2.live_index, sim.boards[0].live_index);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_LE(sim.max_phase_err(), 2);
 }
 
@@ -2412,7 +2420,8 @@ inline void test_sim_forged_burst() {
   const uint64_t df = sim.boards[1].flips - flips_before;
   HS_EXPECT_GE(df, 7u);
   HS_EXPECT_LE(df, 9u);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
 
@@ -2460,7 +2469,8 @@ inline void test_sim_epoch_repeat_lockstep() {
       HS_EXPECT_FALSE(sim.boards[i].trapped);
     }
     sim.run_revs(2.0);
-    sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+    HS_EXPECT_TRUE(
+        sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
     for (int i = 1; i < 4; ++i)
       HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
   };
@@ -2563,7 +2573,8 @@ inline void test_sim_rev_resync() {
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   sim.run_revs(2.0);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   for (int i = 1; i < 4; ++i)
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
 }
@@ -2603,7 +2614,8 @@ inline void test_sim_rev_wrap_within_effect() {
   // rev_in_effect at rev 64 and would break phase / frame-counter lockstep here.
   bool crossed_seam = false;
   for (;;) {
-    sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+    HS_EXPECT_TRUE(
+        sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
     const uint32_t rev = sim.boards[0].board.content().rev_in_effect;
     HS_EXPECT_LE(sim.max_phase_err(), 2);
     for (int i = 0; i < 4; ++i) {
@@ -2638,7 +2650,8 @@ inline void test_sim_rev_wrap_within_effect() {
         return true;
       },
       double(cfg.revs_per_effect) + 8));
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   for (int i = 1; i < 4; ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
@@ -2776,7 +2789,8 @@ inline void test_budget_lost_symbol() {
   const int32_t ppm[4] = {0, 40, -40, 25}; // worst-case datasheet spread
   Sim sim(cfg, 4, ppm);
   sim.run_revs(6.0);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
 
   // Deafen board 1 for exactly one half-rev, aligned mid-half: it misses
   // exactly one boundary symbol (the HALF, 104 columns ahead).
@@ -2810,7 +2824,8 @@ inline void test_budget_emi_accepted_seam() {
   Sim sim(cfg, 2, ppm);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
 
   // The master HALF boundary is 104 columns ahead. Censor the real symbol
   // for board 1 and forge an edge 3 columns early: isolated, valid count,
@@ -2833,7 +2848,8 @@ inline void test_budget_emi_accepted_seam() {
   HS_EXPECT_TRUE(sim.boards[1].board.lock() == LockState::LOCKED);
   // Layers 2/3 unharmed: the forged HALF's flip deduped against the
   // crossing, so content stayed equal.
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
 
@@ -2899,7 +2915,8 @@ inline void test_budget_corrupted_timebase() {
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   sim.run_revs(2.0);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   for (int i = 1; i < 4; ++i)
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
 }
@@ -2928,7 +2945,8 @@ inline void test_budget_acquire_mis_snap() {
       16.0));
   // Reboot 12 columns before the train and past the rev's ZERO burst, so the
   // first wire event the fresh board meets is the train's head digit.
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 60; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 60; }, 1.1));
   SimBoard &b2 = sim.boards[2];
   b2.board.seed(Sim::local_now(b2, sim.g), false);
   b2.handoff.adopt(nullptr, 0);
@@ -3007,7 +3025,8 @@ inline void test_budget_beacon_corruption() {
       },
       double(cfg.beacon_period_revs) + 1));
   HS_EXPECT_EQ(sim.boards[1].live_index, sim.boards[0].live_index);
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
 }
@@ -3034,7 +3053,8 @@ inline void test_budget_wire_dead() {
   // Cut the wire at a quiet point (mid-half, no beacon this rev) so no
   // burst is in flight: a half-received burst would register one truncated-
   // count artifact, which is the lost-symbol row's case, not this one.
-  sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1);
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1));
 
   for (int i = 1; i < 3; ++i) {
     sim.boards[i].drop_from = sim.g;
