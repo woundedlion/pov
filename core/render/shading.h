@@ -4,9 +4,13 @@
  */
 #pragma once
 
+// platform.h defines NDEBUG on device; include before <cassert> so assert
+// stripping does not depend on include order.
+#include "engine/platform.h"
+#include <cassert>
+
 #include <array>
 
-#include "engine/platform.h"
 #include "engine/memory.h"
 #include "engine/util.h"
 #include "math/3dmath.h"
@@ -170,7 +174,8 @@ inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
  * face (Scan::Mesh's face-setup hook), leaving a multiply, a clamp and one LUT
  * fetch per fragment. `scale` multiplies the inward edge depth `-v1`, so a
  * caller working from a face size passes the reciprocal. Writes frag.color
- * unconditionally, as the minimal-fragment scan path requires.
+ * unconditionally, as the minimal-fragment scan path requires. set_palette()
+ * must run before the first fragment; operator() debug-asserts it.
  */
 struct FacePaletteShader {
   float scale = 1.0f;
@@ -186,6 +191,7 @@ struct FacePaletteShader {
   }
 
   void operator()(const Vector &, Fragment &frag) const {
+    assert(palette != nullptr);
     float t = hs::clamp(-frag.v1 * scale, 0.0f, 1.0f);
     frag.color.color = palette->get_color_unit(t);
     frag.color.alpha = alpha;
