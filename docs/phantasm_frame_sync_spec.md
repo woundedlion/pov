@@ -427,6 +427,20 @@ drifted slightly → the symbol still flips on time; a dropped *symbol* → the
 flywheel crossing still flips (and is the normal trigger anyway); only losing
 both in one half-rev glitches, self-healing next half-rev.
 
+**Multi-boundary folds (bound, not a mode).** `tick()` folds *every* locally
+crossed boundary and runs `try_flip` per crossing, so the flip counter and the
+epoch/join schedule stay exact — but `TickActions::flip` is one bool, so the
+driver calls `advance_display` once and N windows consume a single queued frame
+(the board's content `t` then trails its peers by N−1 until the next epoch).
+`TickActions::zero_crossing` names the **final** crossing, so the published
+window half always describes the window actually open; what an even N breaks is
+the *clip*, since the frame taken live was drawn one window ahead for the
+opposite half — that window shows the previous frame over half the segment, and
+it self-corrects at the next boundary. Reaching N > 1 requires the flywheel ISR
+to miss a wake by more than a half-revolution (62.5 ms); on the shipped DMA path
+(M ≈ 0, §9.1) that is out of reach, and a board coasting on dropped *symbols*
+still wakes on schedule and folds one boundary per wake.
+
 ### 5.2 Self-describing boundary symbols (C) — pulse-count encoding (FINAL)
 
 Master codes the boundary into the sync symbol so each one names its boundary

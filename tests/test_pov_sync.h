@@ -523,6 +523,9 @@ inline void test_build_request_reset() {
  * @brief Verifies a tick folding several boundaries reports the FINAL one:
  *        TickActions::zero_crossing names the boundary that opened the display
  *        window now in effect, which the driver publishes as the window half.
+ * @details Also pins the §5.1 fold bound: the gate runs once per crossing so the
+ *          flip counter and the coast telemetry see all N, while `flip` stays a
+ *          single bool — N windows consume one advance_display().
  */
 inline void test_multi_boundary_tick_window() {
   const Config cfg = test_config();
@@ -536,6 +539,8 @@ inline void test_multi_boundary_tick_window() {
   HS_EXPECT_TRUE(a.flip);
   HS_EXPECT_FALSE(a.zero_crossing);
   HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::HALF);
+  HS_EXPECT_EQ(board.telemetry().flips, 3u);
+  HS_EXPECT_EQ(board.telemetry().max_coast_halves, 3u);
 
   // The next boundary is a ZERO, and it is reported.
   const TickActions z =
@@ -543,6 +548,17 @@ inline void test_multi_boundary_tick_window() {
   HS_EXPECT_TRUE(z.flip);
   HS_EXPECT_TRUE(z.zero_crossing);
   HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::ZERO);
+  HS_EXPECT_EQ(board.telemetry().flips, 4u);
+
+  // An even fold returns to the half it started from: HALF then ZERO reports
+  // the ZERO, so the published window half still names the open window.
+  const TickActions e =
+      board.tick(1000u + 6u * cfg.cycles_per_half_rev + 10u, nullptr);
+  HS_EXPECT_TRUE(e.flip);
+  HS_EXPECT_TRUE(e.zero_crossing);
+  HS_EXPECT_TRUE(board.flywheel().current_boundary() == Boundary::ZERO);
+  HS_EXPECT_EQ(board.telemetry().flips, 6u);
+  HS_EXPECT_EQ(board.telemetry().max_coast_halves, 6u);
 }
 
 /**
