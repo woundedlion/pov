@@ -916,6 +916,50 @@ inline void test_suspect_timeout_acquire_uncounted() {
   HS_EXPECT_EQ(board.telemetry().symbols_rejected_gate, rejected);
 }
 
+/**
+ * @brief Verifies the §5.3 quiet-before guard: an ACQUIRE board hard-snaps only
+ *        on a burst preceded by t_QB of wire silence, so a beacon digit train
+ *        cannot capture a just-rebooted board mid-frame.
+ * @details The head of the beacon for effect index 8 is a 2-pulse burst — an
+ *          even count, no symbol — and its second digit is a single pulse, a
+ *          valid HALF count 5 columns behind it. Without the guard that digit
+ *          is a hard snap to a phase 5 columns off a beacon's mid-frame
+ *          position. The same burst after t_QB of silence is the positive
+ *          control: it snaps, so the assertion below is the gap, not the burst.
+ */
+inline void test_acquire_quiet_before_guard() {
+  const Config cfg = test_config();
+  const uint32_t col = cfg.cycles_per_column();
+  const uint32_t head = 1000u + 40u * col;
+  const BurstSnapshot digit0{2, head, head + col};
+
+  SyncBoard board(cfg);
+  board.seed(1000u, /*is_master=*/false);
+  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
+  board.tick(head + col + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+             &digit0);
+  // The next digit, spaced exactly as schedule_beacon spaces them.
+  const uint32_t d1 =
+      head + col + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
+  const BurstSnapshot digit1{1, d1, d1};
+  board.tick(d1 + static_cast<uint32_t>(cfg.gap_timeout_cols) * col, &digit1);
+  HS_EXPECT_TRUE(board.lock() == LockState::ACQUIRE);
+  HS_EXPECT_EQ(board.telemetry().symbols_accepted, 0u);
+  HS_EXPECT_EQ(board.telemetry().lock_transitions, 0u);
+
+  SyncBoard quiet(cfg);
+  quiet.seed(1000u, /*is_master=*/false);
+  quiet.tick(head + col + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+             &digit0);
+  const uint32_t iso = head + col + cfg.acquire_quiet_cycles();
+  const BurstSnapshot isolated{1, iso, iso};
+  quiet.tick(iso + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+             &isolated);
+  HS_EXPECT_TRUE(quiet.lock() == LockState::LOCKED);
+  HS_EXPECT_EQ(quiet.telemetry().symbols_accepted, 1u);
+  HS_EXPECT_EQ(quiet.flywheel().position(iso), cfg.W / 2);
+}
+
 // ── Master emission self-censor (§5.2) ──────────────────────────────────────
 
 /**
@@ -2739,6 +2783,7 @@ inline int run_pov_sync_tests() {
   test_flywheel_position();
   test_snap_gate();
   test_suspect_timeout_acquire_uncounted();
+  test_acquire_quiet_before_guard();
   test_emitter();
   test_master_beacon_busy_retry();
   test_beacon_late_coast();
