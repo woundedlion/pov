@@ -293,14 +293,13 @@ inline void test_line_sample_antipodal_stable_axis() {
 }
 
 /**
- * @brief Antipodal endpoints one ULP apart in length still pick a stable axis at
- *        every geodesic site: Line::sample, make_geodesic_edge_span, and the
- *        rasterizer's own edge setup.
+ * @brief Antipodal endpoints one ULP apart in length still pick a stable axis
+ *        through make_geodesic_edge_span, the setup every geodesic site shares.
  * @details acos' derivative diverges at ±1, so a single-ULP perturbation of the
  *          normalized dot moves angle_between off π by ~5e-4 rad — several times
- *          any angular tolerance the sites could name, while cross(a, b) stays
+ *          any angular tolerance the setup could name, while cross(a, b) stays
  *          exactly zero. Selecting the axis from |cross|² instead keeps the
- *          three sites agreeing with each other and with the geometry.
+ *          sampled arc agreeing with the geometry.
  *          The miss here comes out of correctly-rounded mul/div/sqrt alone —
  *          dot is exactly -1 while sqrt(m1·m2) rounds to 1 + 2^-23 — so it holds
  *          on every target regardless of FMA contraction or fast-math
