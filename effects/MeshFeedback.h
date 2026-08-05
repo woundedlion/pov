@@ -37,13 +37,12 @@ public:
   static constexpr int PRESET_FRAMES = 241;
 
   // Gamut boundary bracket grid this effect buys from the persistent arena
-  // (131,072 B, leaving ~124 KiB of the partition free). Resolution sets only
-  // how wide the bracket starts, and the per-pixel refinement narrows it by a
-  // factor of 32, so this trades arena bytes against refinement steps rather
-  // than against accuracy: the next step up in either axis doubles the cost to
-  // save well under one step.
-  static constexpr int GAMUT_ANGLE_STEPS = 256;
-  static constexpr int GAMUT_L_STEPS = 128;
+  // (131,072 B, leaving ~124 KiB of the partition free). The flash master's own
+  // resolution, so the copy is verbatim and buys only the RAM read latency;
+  // coarsening it here would widen the starting bracket past what the per-pixel
+  // refinement narrows back.
+  static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
+  static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
 
   static constexpr float FADE_MIN = 0.0f, FADE_MAX = 0.99f;
   static constexpr float AMP_MIN = 0.0f, AMP_MAX = 30.0f;
