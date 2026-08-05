@@ -285,20 +285,26 @@ async function main() {
       if (effectNames.length === 0) {
         fail(`write-seam: no effects at ${w}x${h}`);
       } else {
-        // setClip through embind: an in-range full-canvas band is APPLIED; a
-        // negative, over-extent, or inverted band reports INVALID_BOUNDS, never
-        // traps. The range check precedes the needs_full_frame branch, so both
-        // outcomes are deterministic regardless of the effect. INVALID_BOUNDS
-        // must stay distinct from NO_EFFECT — the pool faults on the former and
-        // must not fault on the latter — so pin the roster too.
+        // setClip through embind: an in-range full-canvas band succeeds as
+        // APPLIED, or as FULL_FRAME_KEPT when the effect reports
+        // needs_full_frame(); effectNames[0] is not pinned to either, so accept
+        // both. A negative, over-extent, or inverted band reports
+        // INVALID_BOUNDS, never traps. The range check precedes the
+        // needs_full_frame branch, so the rejection is deterministic regardless
+        // of the effect. INVALID_BOUNDS must stay distinct from NO_EFFECT — the
+        // pool faults on the former and must not fault on the latter — so pin
+        // the roster too.
         const C = Module.ClipSetResult;
-        for (const outcome of ['APPLIED', 'NO_EFFECT', 'INVALID_BOUNDS']) {
+        for (const outcome of ['APPLIED', 'NO_EFFECT', 'INVALID_BOUNDS', 'FULL_FRAME_KEPT']) {
           if (!C || !C[outcome]) fail(`Module.ClipSetResult.${outcome} is not bound`);
         }
         if (!engine.setEffect(effectNames[0])) {
           fail(`write-seam: setEffect("${effectNames[0]}") failed`);
         } else {
-          if (engine.setClip(0, w, 0, h) !== C.APPLIED) fail('write-seam: setClip in-range full canvas rejected');
+          const full = engine.setClip(0, w, 0, h);
+          if (full !== C.APPLIED && full !== C.FULL_FRAME_KEPT) {
+            fail('write-seam: setClip in-range full canvas rejected');
+          }
           for (const [what, bounds] of [
             ['a negative bound', [-1, w, 0, h]],
             ['x1 past the canvas width', [0, w + 1, 0, h]],
