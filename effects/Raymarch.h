@@ -12,6 +12,7 @@
  */
 
 #include "core/engine/engine.h"
+#include "core/render/sdf_volume.h"
 
 // Unit-test accessor reaching the private torus proportions and the constexpr
 // square root behind UNIT_BOUNDS, so a test can pin the cull sphere against the

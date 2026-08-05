@@ -212,6 +212,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pix
 │   │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
+│   │   ├── sdf_volume.h            3D volumetric SDF shapes + domain warps for Scan::Volume
 │   │   ├── shading.h               Fragment + mesh-topology shading helpers, null shaders
 │   │   └── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
 │   ├── animation/              Timeline scheduler + the animation type families
@@ -857,10 +858,17 @@ The `process_pixel` function applies anti-aliasing based on shape type:
 | `SDF::Flower` | Inverted star (N-petal flower shape from the antipodal perspective) |
 | `SDF::Line` | Geodesic line segment between two sphere-surface points |
 | `SDF::Face` | Planar polygon face (used for mesh rendering) |
-| `SDF::Torus` | 3D volumetric torus SDF with configurable major/minor radii (Cartesian ray-space, not a 2D sphere-surface shape) |
-| `SDF::Warp::Twist` | Domain warp composed with a volumetric SDF via `SDF::WarpedVolume<Shape, Warp>` — e.g. `WarpedVolume<Torus, Warp::Twist>` twists a torus by oscillating Y around the ring azimuth, with an analytic Lipschitz bound for safe sphere-tracing (used by Raymarch) |
 
 The table covers the effect-facing shapes. `sdf.h` also holds internal specializations that only the matching `scan.h` wrapper constructs — `SDF::FlatDistortedRing`, an undisplaced `DistortedRing` with an exact polar centerline distance, is instantiated by `Scan::DistortedRing::draw_flat` and never named by an effect.
+
+#### Volumetric Shapes (`sdf_volume.h`)
+
+The 3D family marched by `Scan::Volume` lives in its own header. It shares the `SDF` namespace but not the scanline contract above: these shapes return a plain `float` distance in Cartesian ray-space, have no vertical bounds or horizontal intervals, and are reached only from the march loop. `sdf.h` does not include `sdf_volume.h`, so an effect that draws only 2D shapes never parses or instantiates it.
+
+| Shape | Description |
+|---|---|
+| `SDF::Torus` | 3D volumetric torus SDF with configurable major/minor radii (Cartesian ray-space, not a 2D sphere-surface shape) |
+| `SDF::Warp::Twist` | Domain warp composed with a volumetric SDF via `SDF::WarpedVolume<Shape, Warp>` — e.g. `WarpedVolume<Torus, Warp::Twist>` twists a torus by oscillating Y around the ring azimuth, with an analytic Lipschitz bound for safe sphere-tracing (used by Raymarch) |
 
 #### CSG Operations (`sdf.h`)
 

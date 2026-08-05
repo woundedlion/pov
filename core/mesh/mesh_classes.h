@@ -30,6 +30,84 @@
  * Clustering is never depended on: an unassigned face (NO_CLASS), a class
  * without a LUT, or a degenerate alignment all degrade to the exact path.
  */
+namespace SDF {
+
+/**
+ * @brief Bakes the signed point-to-polygon distance field of a canonical
+ *        centered 2D polygon into an int16 grid.
+ * @param poly_xy Centered polygon vertices, x/y pairs.
+ * @param count Vertex count (>= 3).
+ * @param n Grid resolution per axis (>= 2).
+ * @param out Storage for n*n quantized samples.
+ * @param lut Receives the domain/quantization parameters, with data = out.
+ * @details Exact per-edge walk with crossing-test sign, over the bounding box
+ * + BOUNDS_MARGIN_WIDE. Quantization scale is the box diameter (an upper bound
+ * on any in-box distance: the polygon meets its own bounding box), giving a
+ * step of ~1e-5 plane units — far below the interpolation bound.
+ */
+inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
+                                         int16_t *out, ClassLut &lut) {
+  float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
+  float bb_min_y = FLT_MAX, bb_max_y = -FLT_MAX;
+  for (int i = 0; i < count; ++i) {
+    float vx = poly_xy[2 * i], vy = poly_xy[2 * i + 1];
+    bb_min_x = std::min(bb_min_x, vx);
+    bb_max_x = std::max(bb_max_x, vx);
+    bb_min_y = std::min(bb_min_y, vy);
+    bb_max_y = std::max(bb_max_y, vy);
+  }
+  lut.cx = (bb_min_x + bb_max_x) * 0.5f;
+  lut.cy = (bb_min_y + bb_max_y) * 0.5f;
+  lut.Rx = std::max((bb_max_x - bb_min_x) * 0.5f + BOUNDS_MARGIN_WIDE, 0.01f);
+  lut.Ry = std::max((bb_max_y - bb_min_y) * 0.5f + BOUNDS_MARGIN_WIDE, 0.01f);
+  lut.n = n;
+  lut.inv_step_x = (n - 1) / (2.0f * lut.Rx);
+  lut.inv_step_y = (n - 1) / (2.0f * lut.Ry);
+  float step_x = (2.0f * lut.Rx) / (n - 1);
+  float step_y = (2.0f * lut.Ry) / (n - 1);
+  // The plane SDF is 1-Lipschitz, so a zero anywhere in a cell puts every
+  // corner within one cell diagonal of it; a min corner magnitude above the
+  // diagonal guarantees a sign-pure cell (safe to interpolate).
+  lut.safe_dist = sqrtf(step_x * step_x + step_y * step_y);
+  float dmax = 2.0f * sqrtf(lut.Rx * lut.Rx + lut.Ry * lut.Ry);
+  lut.dequant = dmax / 32767.0f;
+  float quant = 32767.0f / dmax;
+
+  for (int gy = 0; gy < n; ++gy) {
+    float qy = (lut.cy - lut.Ry) + gy * step_y;
+    for (int gx = 0; gx < n; ++gx) {
+      float qx = (lut.cx - lut.Rx) + gx * step_x;
+      float d_sq = FLT_MAX;
+      bool inside = false;
+      for (int i = 0; i < count; ++i) {
+        float vx = poly_xy[2 * i], vy = poly_xy[2 * i + 1];
+        int i2 = (i + 1 == count) ? 0 : i + 1;
+        float ex = poly_xy[2 * i2] - vx, ey = poly_xy[2 * i2 + 1] - vy;
+        float len_sq = ex * ex + ey * ey;
+        float wx = qx - vx, wy = qy - vy;
+        float t = len_sq > 1e-12f
+                      ? hs::clamp((wx * ex + wy * ey) / len_sq, 0.0f, 1.0f)
+                      : 0.0f;
+        float bx = wx - ex * t, by = wy - ey * t;
+        float dsq = bx * bx + by * by;
+        if (dsq < d_sq)
+          d_sq = dsq;
+        if ((vy > qy) != (poly_xy[2 * i2 + 1] > qy)) {
+          float ix = vx + (qy - vy) * ex / ey;
+          if (qx < ix)
+            inside = !inside;
+        }
+      }
+      float d = (inside ? -1.0f : 1.0f) * sqrtf(d_sq);
+      out[gy * n + gx] =
+          static_cast<int16_t>(hs::clamp(d * quant, -32767.0f, 32767.0f));
+    }
+  }
+  lut.data = out;
+}
+
+} // namespace SDF
+
 namespace MeshOps {
 
 /** Sentinel class id: face keeps the per-face exact path. */
