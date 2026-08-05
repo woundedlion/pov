@@ -898,6 +898,7 @@ static constexpr int GEODESIC_CLIP_MAX_SPLITS = 6;
  *        column boundaries.
  * @tparam W,H Rasterization resolution (pixel grid).
  * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
  * @param es Shared setup from make_geodesic_edge_span(a, b); must have an axis.
  * @param cr Active clip region.
  * @param xc Precomputed x-clip predicate for @p cr.
@@ -928,7 +929,7 @@ static constexpr int GEODESIC_CLIP_MAX_SPLITS = 6;
  * piece rather than dropping one.
  */
 template <int W, int H>
-static inline int geodesic_clip_splits(const Vector &a,
+static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
                                        const GeodesicEdgeSpan &es,
                                        const ClipRegion &cr,
                                        const ClipRegion::XClip &xc, float *ts) {
@@ -956,6 +957,13 @@ static inline int geodesic_clip_splits(const Vector &a,
       const float dx = TrigLUT<W, H>::cos_theta(c);
       const float dz = TrigLUT<W, H>::sin_theta[c];
       const float cross_a = a.x * dz - a.z * dx;
+      const float cross_b = b.x * dz - b.z * dx;
+      // The cross runs sinusoidally in the arc angle, so over the at-most-half
+      // turn the edge sweeps it has one root; equal end signs put that root
+      // outside the arc, and the two roots an exactly antipodal edge could hold
+      // sit on its endpoints, which keep() drops.
+      if ((cross_a < 0.0f) == (cross_b < 0.0f))
+        continue;
       const float cross_p = perp.x * dz - perp.z * dx;
       const float dot_a = a.x * dx + a.z * dz;
       const float dot_p = perp.x * dx + perp.z * dz;
@@ -971,13 +979,20 @@ static inline int geodesic_clip_splits(const Vector &a,
     if (radius2 > 0.0f) {
       const float radius = sqrtf(radius2);
       const float delta = fast_atan2(perp.y, a.y);
+      // y folds to radius*cos(ang - delta), so the endpoints bound the arc
+      // except where an extremum angle falls inside it.
+      float y_lo = std::min(a.y, b.y);
+      float y_hi = std::max(a.y, b.y);
+      if (delta > 0.0f && delta < es.total)
+        y_hi = radius;
+      if (delta + PI_F < es.total)
+        y_lo = -radius;
       for (const int row : {cr.render_y_start() - CLIP_CUT_ROW_PAD,
                             cr.render_y_end() + CLIP_CUT_ROW_PAD}) {
-        const float target =
-            TrigLUT<W, H>::cos_phi[hs::clamp(row, 0, H_VIRT - 1)] / radius;
-        if (target < -1.0f || target > 1.0f)
+        const float y = TrigLUT<W, H>::cos_phi[hs::clamp(row, 0, H_VIRT - 1)];
+        if (y < y_lo || y > y_hi)
           continue;
-        const float half = fast_acos(target);
+        const float half = fast_acos(hs::clamp(y / radius, -1.0f, 1.0f));
         keep(delta - half);
         keep(delta + half);
       }
@@ -3845,7 +3860,8 @@ struct Mesh {
 
     if (split) {
       float ts[GEODESIC_CLIP_MAX_SPLITS];
-      const int cuts = geodesic_clip_splits<W, H>(fu.pos, es, cr, xc, ts);
+      const int cuts =
+          geodesic_clip_splits<W, H>(fu.pos, fv.pos, es, cr, xc, ts);
       const Vector perp = cross(es.axis, fu.pos);
       points.push_back(Line::sample_point(fu, fv, es, perp, 0.0f));
       for (int i = 0; i < cuts; ++i)
