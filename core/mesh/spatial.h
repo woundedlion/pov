@@ -482,6 +482,30 @@ struct MeshState {
   }
 
   /**
+   * @brief Reports whether every face offset is the running sum of the face
+   *   counts before it.
+   * @param face_counts_span Per-face vertex counts.
+   * @param face_offsets_span Per-face start offsets into the flat faces list;
+   *   must be one entry per face count.
+   * @return True when offset[i] equals counts[0] + ... + counts[i-1] for every
+   *   face.
+   * @details Exact equality at each index, which also establishes that the
+   *   offsets are non-decreasing and that no two face spans overlap. Endpoint
+   *   agreement alone does not: interior offsets can be scrambled while the
+   *   first and last still line up.
+   */
+  static bool offsets_are_prefix_sum(ArenaSpan<uint8_t> face_counts_span,
+                                     ArenaSpan<uint16_t> face_offsets_span) {
+    size_t running = 0;
+    for (size_t i = 0; i < face_counts_span.size(); ++i) {
+      if (static_cast<size_t>(face_offsets_span[i]) != running)
+        return false;
+      running += face_counts_span[i];
+    }
+    return true;
+  }
+
+  /**
    * @brief Switches to borrowed mode: drops the owned face_counts/faces/
    *   face_offsets/topology arrays so they cannot shadow the views, then points
    *   the four views at the given spans.
@@ -495,7 +519,10 @@ struct MeshState {
    * @details Traps on inconsistent spans: a present offsets array must be one
    *   entry per face, and its last offset plus that face's count must cover the
    *   whole flat faces list. With no offsets the counts must sum to the flat
-   *   faces length. A present topology array must be one entry per face.
+   *   faces length. A present topology array must be one entry per face. The
+   *   interior offsets are audited against the prefix sum under HS_TEST_CHECK
+   *   only: this runs per frame from MeshOps::transform, so the device pays
+   *   nothing for the O(F) walk.
    */
   void set_view(ArenaSpan<uint8_t> face_counts_span,
                 ArenaSpan<uint16_t> faces_span,
@@ -509,6 +536,10 @@ struct MeshState {
                        face_counts_span[last] ==
                    faces_span.size(),
                "MeshState::set_view: face offsets do not span faces");
+      HS_TEST_CHECK(
+          offsets_are_prefix_sum(face_counts_span, face_offsets_span),
+          "MeshState::set_view: face offsets are not the prefix sum of the "
+          "face counts");
     } else {
       size_t counted = 0;
       for (size_t i = 0; i < face_counts_span.size(); ++i)

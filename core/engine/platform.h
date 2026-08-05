@@ -6,8 +6,9 @@
 
 /**
  * @file platform.h
- * @brief Platform layer: canvas dimensions, the always-on HS_CHECK trap, PRNG,
- *        logging, timing, and the device/host split.
+ * @brief Platform layer: canvas dimensions, the always-on HS_CHECK trap and its
+ *        test-build-only HS_TEST_CHECK companion, PRNG, logging, timing, and the
+ *        device/host split.
  */
 
 /** @brief Canvas width in pixels (override via -DCANVAS_W). */
@@ -35,6 +36,27 @@
     if (!(cond))                                                               \
       ::hs::check_fail(__FILE__, __LINE__, #cond __VA_OPT__(, ) __VA_ARGS__);  \
   } while (0)
+
+/**
+ * @brief Structural audit that traps in the native test build and expands to
+ *        nothing everywhere else.
+ * @param cond Condition that must hold; the macro traps when it is false.
+ * @param ... Optional printf-style format string and arguments for the message.
+ * @details Gated on HS_TEST_BUILD, which only the tests/ executables define, so
+ *          the Teensy image and the WASM/sim build never evaluate the condition
+ *          — the gate is the build, not NDEBUG (the device defines NDEBUG for an
+ *          unrelated reason, and a debug WASM build would still pay the cost).
+ *          That makes it the one place an O(n) audit may guard a per-frame seam.
+ *          Use it ONLY where a host test can reach the violation; a seam whose
+ *          violation the device itself could hit — arena OOM, container growth,
+ *          capacity and bounds guards — stays HS_CHECK, which is deliberately
+ *          not stripped from the optimized device build.
+ */
+#ifdef HS_TEST_BUILD
+#define HS_TEST_CHECK(cond, ...) HS_CHECK(cond __VA_OPT__(, ) __VA_ARGS__)
+#else
+#define HS_TEST_CHECK(cond, ...) ((void)0)
+#endif
 
 #include <type_traits>
 #include <cstdint>
