@@ -173,8 +173,6 @@ inline void apply_vertex_shader(VertexShaderRef vertex_shader,
 }
 
 // --- Strategy Helpers ---
-// Core rasterization logic for 3D lines and curves adapts step size based on
-// screen-space density to avoid aliasing.
 
 /**
  * @brief Forward azimuthal-equidistant projection of a sphere point to the plane.
@@ -1548,7 +1546,7 @@ struct RasterOptions {
   /**
    * Optional precomputed Tier-3 edge flags, one byte per segment-loop edge.
    * Bit 0 is visibility. Bits 1 and 2 optionally retain one-dot and
-   * classification-known; legacy 0/1 visibility arrays remain valid.
+   * classification-known; a plain 0/1 visibility array remains valid.
    * Geodesic polylines only: a planar polyline's per-edge basis depends on
    * rasterize()'s seam pre-pass.
    */
@@ -2015,8 +2013,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
 
         // Backstop: a pathological segment could exceed the 2*W cache. Stop
         // subdividing and let the normalized replay stretch the cached steps
-        // over the rest of the segment (coarser sampling on an extreme arc is
-        // fine).
+        // over the rest of the segment.
         if (steps_cache.size() >= steps_cache.capacity()) {
           HS_PLOT_COUNT(backstops);
           HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
@@ -2436,8 +2433,7 @@ struct Multiline {
     }
 
     if (total_len < math::EPS_GEOMETRIC) {
-      // Avoid divide-by-zero on a degenerate path; v0 collapses toward 0, but the
-      // path is geometrically a point so the lost progress parameter is moot.
+      // Avoid divide-by-zero on a degenerate path.
       total_len = 1.0f;
     }
 
