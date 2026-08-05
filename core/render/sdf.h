@@ -426,9 +426,9 @@ struct Bounds {
  * | DistortedRing / FlatDistortedRing | displaced-centerline dist - thickness | azimuth turns in [0,1), phase applied | unsigned distance to the displaced centerline | thickness |
  * | Line              | segment dist - thickness   | 0                | unsigned angular distance to the arc segment | thickness |
  * | Face              | signed edge distance (gnomonic plane units; see Face::distance) | 0 | = dist | inradius |
- * | PlanarPolygon     | sign * (polar*cos(local) - apothem) | polar / circumradius | polar angle from center | apothem |
+ * | PlanarPolygon     | sign * max(polar*cos(local) - apothem, polar - circumradius) | polar / circumradius | polar angle from center | apothem |
  * | SphericalPolygon  | sign * angular distance to the nearest great-circle edge | polar / circumradius | polar angle from center | circumradius |
- * | Star              | sign * folded edge half-plane distance | azimuth turns in [0,1), phase applied | polar angle from center | circumradius |
+ * | Star              | sign * max(folded edge half-plane distance, scan_dist - circumradius) | azimuth turns in [0,1), phase applied | polar angle from center | circumradius |
  * | Flower            | sign * -(polar*cos(local) - apothem) | scan_dist / circumradius | scan distance from the antipode | circumradius |
  *
  * Combinators forward a child's registers: Union/Intersection keep the
@@ -3579,10 +3579,9 @@ struct PlanarPolygon {
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false requests a full scan.
-   * @details Covers the polygon body, but not the full AA fringe at vertices.
-   *   The radial gradient there is cos(PI/sides), so the fringe reaches
-   *   pixel_width/cos(PI/sides) beyond the vertex while the cap pads one
-   *   pixel_width.
+   * @details Covers the polygon body and its whole AA fringe: distance()
+   *   clamps against the circumscribed disc, so nothing past circumradius +
+   *   pixel_width shades.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -3594,12 +3593,15 @@ struct PlanarPolygon {
    * @brief Signed distance to the planar polygon edge, writing into res.
    * @tparam ComputeUVs When true, also computes the normalized radial t.
    * @param p Point on sphere (normalized).
-   * @param res Output result; dist = polar*cos(local) - apothem, raw_dist =
-   *        polar angle from center, t = polar/circumradius when ComputeUVs.
+   * @param res Output result; dist = polar*cos(local) - apothem clamped below
+   *        by polar - circumradius, raw_dist = polar angle from center, t =
+   *        polar/circumradius when ComputeUVs.
    * @note The `polar*cos(local)` form under-estimates the true distance near
-   *       the sector corners (gradient < 1 there), like the tangent-plane
-   *       caveat on the public distance() above; for scanline shading, not a
-   *       march-safe metric.
+   *       the sector corners (gradient cos(PI/sides) there), like the
+   *       tangent-plane caveat on the public distance() above; for scanline
+   *       shading, not a march-safe metric. Past a vertex the circumscribed-disc
+   *       distance `polar - circumradius` is the tighter bound; both are lower
+   *       bounds of the true distance, so the max of the two is too.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -3614,7 +3616,8 @@ struct PlanarPolygon {
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
-    float dist_edge = polar * fast_cosf(local) - apothem;
+    float dist_edge =
+        std::max(polar * fast_cosf(local) - apothem, polar - circumradius);
     float t_val = 0.0f;
     if constexpr (ComputeUVs)
       t_val = polar / circumradius;
@@ -3869,11 +3872,9 @@ struct Star {
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false requests a full scan.
-   * @details Covers the star body, not the AA fringe at the point tips.
-   *   distance() folds each sector onto one edge half-plane, whose radial
-   *   gradient at a tip is |nx| (0.309 at 5 points, 0.220 at 8), so the ramp
-   *   there spans pixel_width/|nx| radians of cap radius while the emitted
-   *   interval pads one pixel_width.
+   * @details Covers the star body and its whole AA fringe: distance() clamps
+   *   against the circumscribed disc, so nothing past circumradius +
+   *   pixel_width shades.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -3890,6 +3891,11 @@ struct Star {
    * @param res Output result; dist = signed distance to the nearest point edge,
    *        raw_dist = polar distance from center, t = normalized azimuth when
    *        ComputeUVs (0 otherwise).
+   * @note Folding a sector onto one edge half-plane gives a radial gradient of
+   *       |nx| at a tip (0.309 at 5 points, 0.220 at 8), which reads a fringe
+   *       several pixels past the tip. The circumscribed-disc distance
+   *       `scan_dist - circumradius` is the tighter bound out there; both are
+   *       lower bounds of the true distance, so the max of the two is too.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -3909,13 +3915,13 @@ struct Star {
     float px = scan_dist * fast_cosf(local_azimuth);
     float py = scan_dist * fast_sinf(local_azimuth);
 
-    float dist_to_edge = px * nx + py * ny + plane_d;
+    float dist_edge =
+        std::max(-(px * nx + py * ny + plane_d), scan_dist - circumradius);
 
     float t = 0.0f;
     if constexpr (ComputeUVs)
       t = wrap_t(azimuth / TWO_PI_F);
-    res =
-        DistanceResult(sign * -dist_to_edge, t, scan_dist, 0.0f, circumradius);
+    res = DistanceResult(sign * dist_edge, t, scan_dist, 0.0f, circumradius);
   }
 };
 
@@ -3990,9 +3996,8 @@ struct Flower {
    * @return True if the row was handled; false requests a full scan.
    * @details A petal tip is the shape's radial extreme and its gradient there
    *   is 1, so the fringe reaches one pixel_width past the tip and the cap pad
-   *   covers it — unlike the polygon family, whose extreme sits at a vertex the
-   *   radius meets obliquely. The cap is centred on the antipode, where the
-   *   fill sits.
+   *   covers it with no disc clamp. The cap is centred on the antipode, where
+   *   the fill sits.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
