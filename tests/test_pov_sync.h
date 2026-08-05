@@ -692,6 +692,108 @@ inline void test_beacon_partial_frame_ages_out() {
 }
 
 /**
+ * @brief Verifies the §6.3.4 confirmation rule: a live board changes effect
+ *        index only after two consecutive beacons name the same one.
+ * @details The position-weighted checksum provably catches any single
+ *          mis-counted digit, but not a *shift*: a stray burst in the quiet
+ *          ahead of digit 0 pushes the frame along one place, and exactly one
+ *          of the eight intruder values re-satisfies the weighted sum (p =
+ *          1/8), so the tuple decodes valid and wrong. Applied unconfirmed it
+ *          would tear down a healthy effect and display the wrong one — the
+ *          fail-wrong window §6.3.3 rules out. Frames here are fed straight at
+ *          the board one per half-revolution, in the mid-half quiet where the
+ *          §6.4 demarcation routes bursts to the beacon parser.
+ */
+inline void test_beacon_shift_needs_confirmation() {
+  const Config cfg = test_config();
+  const uint32_t col = cfg.cycles_per_column();
+  SyncBoard board(cfg);
+  board.seed(1000u, /*is_master=*/false);
+  flywheel_mut(board).force_lock();
+  content_mut(board).identity_known = true;
+  content_mut(board).effect_index = 1;
+  content_mut(board).rev_in_effect = 5;
+
+  // Half-rev k's frame starts at column 40: far from both boundaries, and the
+  // whole frame lands inside the half-rev. Fold the intervening crossings
+  // before the digits go in, so a frame's rev digits match the board's count.
+  int half_rev = 0;
+  auto open_frame = [&]() {
+    const uint32_t t =
+        1000u + static_cast<uint32_t>(half_rev++) * cfg.cycles_per_half_rev +
+        40u * col;
+    board.tick(t, nullptr);
+    return t;
+  };
+  auto feed_digits = [&](uint32_t start, const uint8_t d[5]) {
+    uint32_t f = start;
+    for (int i = 0; i < 5; ++i) {
+      const uint32_t span = static_cast<uint32_t>(d[i]) * col;
+      const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
+      board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+                 &s);
+      f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
+    }
+  };
+  auto feed_frame = [&](int32_t index) {
+    const uint32_t start = open_frame();
+    uint8_t d[5];
+    encode_beacon_digits(index, board.content().rev_in_effect, d);
+    feed_digits(start, d);
+  };
+
+  // The shift: [emi, d0, d1, d2, d3] with the real d3 read as the checksum.
+  const uint32_t shift_start = open_frame();
+  uint8_t truth[5];
+  encode_beacon_digits(1, board.content().rev_in_effect, truth);
+  int passing = 0;
+  uint8_t shifted[5] = {};
+  for (uint8_t emi = 0; emi < 8; ++emi) {
+    const uint8_t s[5] = {emi, truth[0], truth[1], truth[2], truth[3]};
+    if (((1u * s[0] + 2u * s[1] + 3u * s[2] + 4u * s[3]) & 7u) != s[4])
+      continue;
+    ++passing;
+    for (int i = 0; i < 5; ++i)
+      shifted[i] = s[i];
+  }
+  HS_EXPECT_EQ(passing, 1); // p = 1/8, exactly one intruder value
+  const int32_t shifted_index =
+      (shifted[0] * 8 + shifted[1]) % cfg.effect_count;
+  HS_EXPECT_TRUE(shifted_index != board.content().effect_index);
+
+  // A lone shifted frame decodes but must not change what is displayed.
+  feed_digits(shift_start, shifted);
+  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
+  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 0u);
+  HS_EXPECT_EQ(board.content().effect_index, 1);
+  HS_EXPECT_EQ(board.telemetry().beacon_index_corrections, 0u);
+  HS_EXPECT_EQ(board.build_word(), 0u); // no rebuild published
+
+  // A good frame agreeing with the displayed index clears the candidate.
+  feed_frame(1);
+  HS_EXPECT_EQ(board.content().effect_index, 1);
+
+  // Two frames naming *different* indices confirm nothing either.
+  feed_frame(3);
+  HS_EXPECT_EQ(board.content().effect_index, 1);
+  feed_frame(2);
+  HS_EXPECT_EQ(board.content().effect_index, 1);
+  HS_EXPECT_EQ(board.telemetry().beacon_index_corrections, 0u);
+
+  // The second agreeing frame applies: index adopted, rebuild published.
+  feed_frame(2);
+  HS_EXPECT_EQ(board.content().effect_index, 2);
+  HS_EXPECT_EQ(board.telemetry().beacon_index_corrections, 1u);
+  HS_EXPECT_EQ(SyncBoard::build_index_of(board.build_word()), 2);
+  HS_EXPECT_EQ(SyncBoard::build_gen_of(board.build_word()), 1u);
+  // The whole scenario rode the beacon path: nothing reached the snap gate.
+  HS_EXPECT_EQ(board.telemetry().beacons_ok, 5u);
+  HS_EXPECT_EQ(board.telemetry().symbols_accepted, 0u);
+  HS_EXPECT_EQ(board.telemetry().beacon_rev_mismatches, 0u);
+  HS_EXPECT_TRUE(board.lock() == LockState::LOCKED);
+}
+
+/**
  * @brief Verifies the §6.4 rev cross-check fold (beacon_rev_resync_delta)
  *        resolves the 63↔0 mod-64 seam.
  * @details Production effects span 960 revs and the sim configs span 40, so
@@ -2943,6 +3045,7 @@ inline int run_pov_sync_tests() {
   test_multi_boundary_tick_window();
   test_beacon_codec();
   test_beacon_partial_frame_ages_out();
+  test_beacon_shift_needs_confirmation();
   test_rev_resync_fold();
   test_flywheel_position();
   test_snap_gate();

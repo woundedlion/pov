@@ -1306,6 +1306,7 @@ public:
     epoch_emits_left = 0;
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
+    beacon_index_candidate = -1;
     build_gen = 0;
     build_request_word.store(0, std::memory_order_relaxed);
     if (is_master) {
@@ -1540,9 +1541,12 @@ private:
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
     if (content_tracker.identity_known) {
-      if (content_tracker.on_zero_crossing(protocol_config))
+      if (content_tracker.on_zero_crossing(protocol_config)) {
         a.commit = true; // B+R+K reached; driver swaps in the pending effect
-      else if (content_tracker.construction_opens(protocol_config))
+        // The displayed index just changed; any half-confirmed beacon candidate
+        // predates it and can no longer confirm (spec §6.3.4).
+        beacon_index_candidate = -1;
+      } else if (content_tracker.construction_opens(protocol_config))
         // Last K revolutions: construct the next effect now.
         publish_build((content_tracker.effect_index + 1) %
                       protocol_config.effect_count);
@@ -1674,22 +1678,34 @@ private:
       // construction-open to commit, the precondition the commit-time HS_CHECK
       // relies on. The next post-commit beacon re-verifies the index.
     } else if (idx != content_tracker.effect_index) {
+      // A shifted frame passes the checksum with p = 1/8, so a live board takes
+      // two consecutive beacons naming the same index before tearing down a
+      // healthy effect (spec §6.3.4). The join path above stays single-frame.
+      if (idx != beacon_index_candidate) {
+        beacon_index_candidate = idx;
+        return;
+      }
+      beacon_index_candidate = -1;
       // Missed epoch (all repeats): correct within ≤16 revs (spec §6.3.2).
       content_tracker.effect_index = idx;
       content_tracker.rev_in_effect = f.rev_count;
       ++telemetry_counters.beacon_index_corrections;
       publish_build(idx);
-    } else if (f.rev_count != (content_tracker.rev_in_effect & 63u)) {
-      // The schedule counter slipped against the master's; left alone it skews
-      // every later epoch commit by mis-inferred j. Resync via the signed
-      // mod-64 difference, which recovers any slip under 32 revolutions.
-      ++telemetry_counters.beacon_rev_mismatches;
-      const int32_t d =
-          beacon_rev_resync_delta(f.rev_count, content_tracker.rev_in_effect);
-      const int64_t fixed =
-          static_cast<int64_t>(content_tracker.rev_in_effect) + d;
-      content_tracker.rev_in_effect =
-          fixed >= 0 ? static_cast<uint32_t>(fixed) : f.rev_count;
+    } else {
+      beacon_index_candidate = -1;
+      if (f.rev_count != (content_tracker.rev_in_effect & 63u)) {
+        // The schedule counter slipped against the master's; left alone it
+        // skews every later epoch commit by mis-inferred j. Resync via the
+        // signed mod-64 difference, which recovers any slip under 32
+        // revolutions.
+        ++telemetry_counters.beacon_rev_mismatches;
+        const int32_t d =
+            beacon_rev_resync_delta(f.rev_count, content_tracker.rev_in_effect);
+        const int64_t fixed =
+            static_cast<int64_t>(content_tracker.rev_in_effect) + d;
+        content_tracker.rev_in_effect =
+            fixed >= 0 ? static_cast<uint32_t>(fixed) : f.rev_count;
+      }
     }
   }
 
@@ -1826,6 +1842,8 @@ private:
       0; /**< ZERO boundaries left in the EPOCH train. */
   bool beacon_done_this_rev = false;
   bool beacon_busy_counted_this_rev = false;
+  int32_t beacon_index_candidate =
+      -1; /**< Index a lone beacon named, awaiting confirmation (§6.3.4). */
   uint32_t build_gen = 0;
   static_assert(std::atomic<uint32_t>::is_always_lock_free);
   std::atomic<uint32_t> build_request_word{
