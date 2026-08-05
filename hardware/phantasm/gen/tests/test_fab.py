@@ -476,6 +476,26 @@ class PartCatalogTests(unittest.TestCase):
             fab.validate_part_catalog({"X1": {"lcsc": "C999999999"}})
 
 
+class CommandRunTests(unittest.TestCase):
+    def invoke(self, error):
+        def fake_run(*args, **kw):
+            raise error
+
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout), \
+                unittest.mock.patch.object(subprocess, "run", fake_run):
+            with self.assertRaises(SystemExit) as caught:
+                fab.run(["kicad-cli", "version"])
+        return str(caught.exception.code)
+
+    def test_missing_binary_reports_a_one_line_diagnostic(self):
+        message = self.invoke(
+            FileNotFoundError(2, "No such file or directory"))
+        self.assertEqual(message.splitlines(), [message])
+        self.assertIn("kicad-cli", message)
+        self.assertIn("KICAD_CLI", message)
+
+
 class CommandLineTests(unittest.TestCase):
     def parse(self, argv):
         stdout, stderr = io.StringIO(), io.StringIO()
