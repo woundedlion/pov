@@ -940,6 +940,9 @@ inline void test_transformer_slots_released_by_timeline_clear() {
  */
 struct OrderParams {
   int order = 0; /**< Composition tag written by TagAnim at spawn. */
+
+  /** @brief No derived state, so no TransformerPool::prepare_frame() hooks. */
+  static constexpr bool NEEDS_PREPARE = false;
 };
 
 /**
@@ -1004,6 +1007,9 @@ inline void test_transformer_recycled_slot_composes_in_spawn_order() {
  */
 struct FieldTestParams {
   float value = 0.0f; /**< Contribution written by FieldTagAnim at spawn. */
+
+  /** @brief No derived state, so no TransformerPool::prepare_frame() hooks. */
+  static constexpr bool NEEDS_PREPARE = false;
 
   /**
    * @brief Upper bound on |field_test_field| for this entity.
