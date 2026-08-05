@@ -34,11 +34,13 @@ inline void build_solid(PolyMesh &mesh, Arena &arena) {
 }
 
 /**
- * @brief Verifies every vertex lies on the unit sphere to within tol.
+ * @brief Verifies the mesh has vertices and that every one lies on the unit
+ *        sphere to within tol.
  * @param m Mesh whose vertices are checked.
  * @param tol Absolute tolerance on the deviation of each vertex length from 1.0.
  */
 inline void check_all_unit_vertices(const PolyMesh &m, float tol) {
+  HS_EXPECT_TRUE(m.vertices.size() > 0);
   for (size_t i = 0; i < m.vertices.size(); ++i) {
     float len = m.vertices[i].length();
     HS_EXPECT_NEAR(len, 1.0f, tol);
@@ -49,9 +51,10 @@ inline void check_all_unit_vertices(const PolyMesh &m, float tol) {
  * @brief Verifies the sum of face_counts equals the flat face-index array length.
  * @param m Mesh whose face_counts and faces arrays are checked.
  * @details Σ face_counts must equal m.faces.size() for the flat index layout to
- *          be self-consistent.
+ *          be self-consistent. The mesh must carry at least one face.
  */
 inline void check_face_counts_consistent(const PolyMesh &m) {
+  HS_EXPECT_TRUE(m.face_counts.size() > 0);
   size_t total = 0;
   for (size_t i = 0; i < m.face_counts.size(); ++i)
     total += m.face_counts[i];
@@ -62,8 +65,10 @@ inline void check_face_counts_consistent(const PolyMesh &m) {
  * @brief Verifies every face index references a valid vertex.
  * @param m Mesh whose face indices are checked against the vertex count.
  * @details Each entry of m.faces must be strictly less than m.vertices.size().
+ *          The index array must be non-empty.
  */
 inline void check_indices_in_range(const PolyMesh &m) {
+  HS_EXPECT_TRUE(m.faces.size() > 0);
   size_t V = m.vertices.size();
   for (size_t i = 0; i < m.faces.size(); ++i)
     HS_EXPECT_TRUE(m.faces[i] < V);
