@@ -1267,7 +1267,7 @@ Coordinate modifiers (`modify(float) -> float`):
 | `BreatheModifier` | Oscillates the lookup parameter with a sinusoidal "breathing" envelope |
 | `RippleModifier` | Applies a wavelet distortion to the lookup parameter |
 | `FoldModifier` | Folds the parameter space (mirror at edges) to create ping-pong patterns |
-| `PinchModifier` | Non-linearly warps the lookup parameter toward a focal point |
+| `PinchModifier` | Non-linearly warps the lookup parameter toward a focal point; the per-sample `powf` suits bake-time sampling |
 | `QuantizeModifier` | Posterizes the palette into discrete bands |
 | `ScaleModifier` | Scales and offsets the lookup parameter |
 | `ReverseModifier` | Mirrors the lookup parameter (1.0 - t) |
