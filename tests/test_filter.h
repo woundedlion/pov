@@ -722,8 +722,8 @@ struct Tap3D {
 
 /**
  * @brief Verifies Hole masks a spherical cap: outside the radius the point
- *        passes through untouched; inside, the colour is scaled by
- *        quintic_kernel(d/r) so the very center is fully extinguished.
+ *        passes through untouched; inside, alpha is scaled by
+ *        quintic_kernel(d/r) and the very center emits nothing at all.
  */
 inline void test_world_hole_masks_cap() {
   Filter::World::Hole hole(Vector(0, 1, 0),
@@ -744,19 +744,27 @@ inline void test_world_hole_masks_cap() {
   HS_EXPECT_NEAR(got.alpha, 0.8f, 1e-6f);
   HS_EXPECT_NEAR(got.v.y, -1.0f, 1e-6f);
 
-  // Exact center: d=0 -> quintic_kernel(0)=0 -> color fully masked to black.
+  // Exact center: d=0 -> quintic_kernel(0)=0 -> the tap is dropped, so a fully
+  // masked point cannot composite opaque black over the destination.
+  n = 0;
   hole.plot(Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f,
-            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
-  HS_EXPECT_EQ((int)got.c.r, 0);
-  HS_EXPECT_EQ((int)got.c.g, 0);
-  HS_EXPECT_EQ((int)got.c.b, 0);
+            [&](const Vector &, const Pixel &, float, float) { ++n; });
+  HS_EXPECT_EQ(n, 0);
 
-  // Half-radius (d = 0.25 rad): scaled by quintic_kernel(0.5) = 0.5.
+  // Half-radius (d = 0.25 rad): alpha scaled by quintic_kernel(0.5) = 0.5,
+  // colour untouched.
   Vector half(sinf(0.25f), cosf(0.25f), 0.0f); // 0.25 rad from +Y
+  n = 0;
   hole.plot(half, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
-            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
-  HS_EXPECT_NEAR_REL((float)got.c.r, 5000.0f, 0.01f);
-  HS_EXPECT_NEAR_REL((float)got.c.g, 10000.0f, 0.005f);
+            [&](const Vector &, const Pixel &c, float, float a) {
+              got.c = c;
+              got.alpha = a;
+              ++n;
+            });
+  HS_EXPECT_EQ(n, 1);
+  HS_EXPECT_EQ((int)got.c.r, 10000);
+  HS_EXPECT_EQ((int)got.c.g, 20000);
+  HS_EXPECT_NEAR_REL(got.alpha, 0.5f, 0.01f);
 }
 
 /**
@@ -768,35 +776,39 @@ inline void test_world_hole_setters() {
 
   // At the initial center the point is fully masked (quintic_kernel(0) = 0).
   Tap3D got{};
-  hole.plot(center, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
-            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
-  HS_EXPECT_EQ((int)got.c.r, 0);
-  HS_EXPECT_EQ((int)got.c.g, 0);
+  int n = 0;
+  auto capture = [&](const Vector &, const Pixel &c, float, float a) {
+    got.c = c;
+    got.alpha = a;
+    ++n;
+  };
+  hole.plot(center, Pixel(10000, 20000, 30000), 0.0f, 1.0f, capture);
+  HS_EXPECT_EQ(n, 0);
 
   // The old center now lies well outside -> verbatim passthrough.
   center = Vector(0, -1, 0);
   hole.set_origin(center);
-  hole.plot(Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f,
-            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
+  hole.plot(Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f, capture);
+  HS_EXPECT_EQ(n, 1);
   HS_EXPECT_EQ((int)got.c.r, 10000);
   HS_EXPECT_EQ((int)got.c.g, 20000);
+  HS_EXPECT_NEAR(got.alpha, 1.0f, 1e-6f);
 
-  // The new center is masked to black, confirming the mask followed the origin.
-  hole.plot(center, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
-            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
-  HS_EXPECT_EQ((int)got.c.r, 0);
-  HS_EXPECT_EQ((int)got.c.g, 0);
+  // The new center emits nothing, confirming the mask followed the origin.
+  hole.plot(center, Pixel(10000, 20000, 30000), 0.0f, 1.0f, capture);
+  HS_EXPECT_EQ(n, 1);
 
   Vector quarter(sinf(0.25f), -cosf(0.25f), 0.0f);
   hole.set_radius(0.1f);
-  hole.plot(quarter, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
-            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
-  HS_EXPECT_EQ((int)got.c.r, 10000);
+  hole.plot(quarter, Pixel(10000, 20000, 30000), 0.0f, 1.0f, capture);
+  HS_EXPECT_EQ(n, 2);
+  HS_EXPECT_NEAR(got.alpha, 1.0f, 1e-6f);
 
   hole.set_radius(0.5f);
-  hole.plot(quarter, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
-            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
-  HS_EXPECT_NEAR((float)got.c.r, 5000.0f, 50.0f);
+  hole.plot(quarter, Pixel(10000, 20000, 30000), 0.0f, 1.0f, capture);
+  HS_EXPECT_EQ(n, 3);
+  HS_EXPECT_EQ((int)got.c.r, 10000);
+  HS_EXPECT_NEAR(got.alpha, 0.5f, 0.005f);
 }
 
 /**

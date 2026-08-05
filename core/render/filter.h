@@ -853,9 +853,10 @@ public:
   /**
    * @brief Attenuates points near the hole center, leaving others unchanged.
    * @param v World-space point to test.
-   * @param color Source color; scaled by a quintic falloff inside the radius.
+   * @param color Source color, forwarded unchanged.
    * @param age Temporal age channel (frames), forwarded unchanged.
-   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param alpha Blend alpha in [0, 1]; scaled by a quintic falloff inside the
+   * radius, and the tap is dropped entirely once the falloff reaches zero.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
@@ -867,8 +868,9 @@ public:
     if (d >= radius)
       pass(v, color, age, alpha);
     else {
-      float t = d / radius;
-      pass(v, color * quintic_kernel(t), age, alpha);
+      float mask = quintic_kernel(d / radius);
+      if (mask > 1e-8f)
+        pass(v, color, age, alpha * mask);
     }
   }
 
