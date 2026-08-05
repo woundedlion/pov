@@ -15,11 +15,11 @@ import fab  # noqa: E402
 
 
 class ViaGeometryTests(unittest.TestCase):
-    def validate_source(self, source):
+    def validate_source(self, source, min_vias=1):
         with tempfile.TemporaryDirectory() as directory:
             pcb = Path(directory) / "test.kicad_pcb"
             pcb.write_text(source, encoding="utf-8")
-            return fab.validate_via_geometry(pcb)
+            return fab.validate_via_geometry(pcb, min_vias=min_vias)
 
     def validate(self, size, drill):
         return self.validate_source(
@@ -54,6 +54,17 @@ class ViaGeometryTests(unittest.TestCase):
                 "0.03 mm copper spacing is below 0.15 mm"):
             self.validate_source(source)
 
+    def test_rejects_board_without_vias(self):
+        with self.assertRaisesRegex(
+                fab.ViaGeometryError,
+                r"board lists 0 vias, fewer than the 100"):
+            self.validate_source("(kicad_pcb)",
+                                 min_vias=fab.MIN_BOARD_VIAS)
+
+    def test_committed_board_meets_the_via_floor(self):
+        self.assertGreaterEqual(fab.validate_via_geometry(fab.PCB),
+                                fab.MIN_BOARD_VIAS)
+
 
 class ZoneGeometryTests(unittest.TestCase):
     def validate(self, min_thickness, thermal_gap, bridge_width="0.1016"):
@@ -65,7 +76,7 @@ class ZoneGeometryTests(unittest.TestCase):
                 f'(fill yes (thermal_gap {thermal_gap}) '
                 f'(thermal_bridge_width {bridge_width}))))',
                 encoding="utf-8")
-            return fab.validate_zone_geometry(pcb)
+            return fab.validate_zone_geometry(pcb, min_pours=1)
 
     def test_accepts_process_floor_fill(self):
         self.assertEqual(self.validate("0.1016", "0.1016"), 1)
@@ -88,14 +99,33 @@ class ZoneGeometryTests(unittest.TestCase):
                 "GND_IN1: thermal_bridge_width 0.05 mm is below 0.1016 mm"):
             self.validate("0.1016", "0.1016", "0.05")
 
-    def test_ignores_keepout_zones(self):
+    def keepout_count(self, net_node):
         with tempfile.TemporaryDirectory() as directory:
             pcb = Path(directory) / "test.kicad_pcb"
             pcb.write_text(
-                '(kicad_pcb (zone (name "H1 screw head") '
+                f'(kicad_pcb (zone {net_node}(name "H1 screw head") '
                 '(min_thickness 0.0254) (keepout (tracks not_allowed))))',
                 encoding="utf-8")
-            self.assertEqual(fab.validate_zone_geometry(pcb), 0)
+            return fab.validate_zone_geometry(pcb, min_pours=0)
+
+    def test_ignores_keepout_zones(self):
+        self.assertEqual(self.keepout_count(""), 0)
+
+    def test_ignores_keepout_zones_carrying_a_net(self):
+        self.assertEqual(self.keepout_count('(net 0) (net_name "") '), 0)
+
+    def test_rejects_board_without_copper_pours(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pcb = Path(directory) / "test.kicad_pcb"
+            pcb.write_text("(kicad_pcb)", encoding="utf-8")
+            with self.assertRaisesRegex(
+                    fab.ZoneGeometryError,
+                    r"board lists 0 copper pours, fewer than the 2"):
+                fab.validate_zone_geometry(pcb)
+
+    def test_committed_board_pours_the_reference_planes(self):
+        self.assertEqual(fab.validate_zone_geometry(fab.PCB),
+                         fab.MIN_COPPER_POURS)
 
 
 class PlotOriginTests(unittest.TestCase):
