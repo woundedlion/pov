@@ -54,6 +54,10 @@ MIN_VIA_COPPER_SPACING_MM = 0.15
 # min_clearance. Applies to pour fill features as well as tracks.
 MIN_ZONE_FEATURE_MM = RULE_MINIMUMS["min_clearance"]
 ZONE_FILL_FEATURES = ("thermal_gap", "thermal_bridge_width")
+# Floors on what a routed board holds: the committed board carries 100 vias
+# (gen/board_metadata.py) and pours the In1/In2 reference planes.
+MIN_BOARD_VIAS = 100
+MIN_COPPER_POURS = 2
 
 # Parity items KiCad reports on a board that IS in sync with the schematic:
 # the mounting holes have no symbol, the ID/shield jumpers are excluded from
@@ -443,7 +447,7 @@ def validate_plot_origin(pcb_path):
     return origin
 
 
-def validate_via_geometry(pcb_path):
+def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS):
     try:
         with open(pcb_path, encoding="utf-8") as fh:
             root = sexp.parse(fh.read())[0]
@@ -452,6 +456,11 @@ def validate_via_geometry(pcb_path):
 
     diagnostics = []
     vias = F(root, "via")
+    if len(vias) < min_vias:
+        diagnostics.append(
+            f"board lists {len(vias)} vias, fewer than the {min_vias} the "
+            "routed board carries; re-measure with gen/board_metadata.py "
+            "after promoting a re-route")
     valid_vias = []
     for index, via in enumerate(vias, 1):
         at = sexp.val(via, "at", [])
@@ -498,7 +507,7 @@ def validate_via_geometry(pcb_path):
     return len(vias)
 
 
-def validate_zone_geometry(pcb_path):
+def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS):
     """Gate copper-pour fill features at the fab's minimum feature size.
 
     KiCad DRC never flags these: thermal reliefs are same-net geometry, so a
@@ -513,8 +522,13 @@ def validate_zone_geometry(pcb_path):
         raise ZoneGeometryError(f"cannot read PCB zones: {pcb_path}") from exc
 
     diagnostics = []
-    # Only net-bearing zones pour copper; the rest are keepouts.
-    zones = [zone for zone in F(root, "zone") if F(zone, "net")]
+    # A rule area carries a keepout node and pours no copper. Its net is not
+    # the discriminator: gen/pcb.py writes keepouts with (net 0).
+    zones = [zone for zone in F(root, "zone") if not F(zone, "keepout")]
+    if len(zones) < min_pours:
+        diagnostics.append(
+            f"board lists {len(zones)} copper pours, fewer than the "
+            f"{min_pours} reference planes the design pours")
     for index, zone in enumerate(zones, 1):
         name = sexp.val(zone, "name", [])
         label = name[0] if name else f"index {index}"
