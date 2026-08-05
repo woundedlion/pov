@@ -152,11 +152,13 @@ inline void test_correct_pipeline() {
   HS_EXPECT_EQ(hg, 33023u);
   HS_EXPECT_EQ(hb, 33023u);
 
+  // factor(0) is 0, so every channel zeroes regardless of input.
   Frame::setBrightness(0);
-  uint32_t off = 65535;
-  uint32_t z2 = 65535, z3 = 65535;
-  f.correct(off, z2, z3);
-  HS_EXPECT_EQ(off, 0u);
+  uint32_t zr = 65535, zg = 65535, zb = 65535;
+  f.correct(zr, zg, zb);
+  HS_EXPECT_EQ(zr, 0u);
+  HS_EXPECT_EQ(zg, 0u);
+  HS_EXPECT_EQ(zb, 0u);
   reset_correction();
 }
 
