@@ -238,8 +238,14 @@ public:
 
   /**
    * @brief Builds the half-edge connectivity from a PolyMesh.
-   * @param arena Arena supplying storage for the half-edge arrays.
+   * @param arena Arena supplying storage for the half-edge arrays and the
+   * transient edge-pairing records.
    * @param mesh Source mesh whose owned vertices/face_counts/faces are read.
+   * @details Retains 2F + 10I bytes and peaks a further 6I bytes of pairing
+   * records, LIFO-rewound before the constructor returns (F faces, I flat face
+   * indices). At the roster's largest shape (F = 362, I = 2160) that is 22324 B
+   * retained over a 12960 B transient; the 16-bit index guard caps I at 65535,
+   * so the transient never exceeds 384 KB.
    */
   explicit HalfEdgeMesh(Arena &arena, const PolyMesh &mesh) {
     build_half_edge_mesh(*this, arena, mesh.vertices.size(),
@@ -250,7 +256,8 @@ public:
 
   /**
    * @brief Builds the half-edge connectivity from a MeshState.
-   * @param arena Arena supplying storage for the half-edge arrays.
+   * @param arena Arena supplying storage for the half-edge arrays and the
+   * transient edge-pairing records; same footprint as the PolyMesh constructor.
    * @param mesh Source mesh; vertices are owned but face connectivity may be borrowed.
    * @details MeshState's vertices are always owned, but its face connectivity
    * (face counts/indices) may be borrowed (view spans); route it through the
