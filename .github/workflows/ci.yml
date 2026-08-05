@@ -962,9 +962,20 @@ jobs:
       - name: Install ruff
         run: pip install 'ruff==0.14.4'   # pinned like clang-format; bump deliberately
 
-      # Config in ruff.toml. Ruff honours .gitignore, so build trees are skipped.
+      # Config in ruff.toml. Ruff honours .gitignore, so build trees are skipped
+      # -- and an over-broad ignore or exclude would empty the target set while
+      # `ruff check` still exits 0. --show-files is ruff's own discovery pass, so
+      # the count below is exactly the set the check runs on; --statistics counts
+      # violations instead and reads as empty on a clean tree.
       - name: Lint Python
-        run: ruff check --no-cache --output-format=github .
+        run: |
+          ruff check --no-cache --show-files . > /tmp/ruff-files.txt
+          if [ ! -s /tmp/ruff-files.txt ]; then
+            echo "::error::no files selected — the ruff.toml exclude list or a .gitignore rule is broken"
+            exit 1
+          fi
+          ruff check --no-cache --output-format=github .
+          echo "ruff clean: $(wc -l < /tmp/ruff-files.txt) files linted."
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
