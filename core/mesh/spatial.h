@@ -78,6 +78,9 @@ public:
    * const_cast read-only vertex arrays.
    * @details Allocates one node per point in the arena. The scratch index array
    * is scoped to a ScratchScope so its arena offset rewinds once build() returns.
+   * Retains N * sizeof(KDNode) bytes and peaks a further N * sizeof(int) over
+   * that (N points): 8000 B retained over a 1600 B transient at Voronoi's
+   * MAX_SITES = 400, and at most 128 KB transient at MAX_POINTS.
    */
   HS_COLD_MEMBER KDTree(Arena &arena, std::span<const Vector> points) {
     if (points.empty())
