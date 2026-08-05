@@ -246,7 +246,9 @@ public:
     // preset cycle in a single capture.
     cfg.revs_per_effect = HS_PROFILE_EPOCH_REVS;
 #endif
-    HS_CHECK(cfg.valid(), "pov::sync::Config invariants");
+    const char *const bad_invariant = cfg.valid();
+    HS_CHECK(bad_invariant == nullptr, "pov::sync::Config invariant: %s",
+             bad_invariant);
     sync.reconstruct(cfg);
 
     const bool master = (segment_id == 0);
