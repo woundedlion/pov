@@ -1889,7 +1889,8 @@ inline void test_mesh_clip_cut_separates_band() {
         continue;
 
       float ts[Plot::GEODESIC_CLIP_MAX_SPLITS];
-      const int n = Plot::geodesic_clip_splits<TW, TH>(fa.pos, es, cr, xc, ts);
+      const int n =
+          Plot::geodesic_clip_splits<TW, TH>(fa.pos, fb.pos, es, cr, xc, ts);
       cuts += n;
 
       const Vector perp = cross(es.axis, fa.pos);
