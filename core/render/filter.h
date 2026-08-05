@@ -1370,6 +1370,10 @@ public:
   static constexpr bool any_reads_outside_band = false;
   static constexpr int segment_margin = 1;
   static constexpr int max_segment_margin = segment_margin;
+  static constexpr bool any_2d_history = false;
+  static constexpr bool any_3d_history = false;
+  static constexpr bool any_2d_trail_history = false;
+  static constexpr bool any_terminal_history = false;
   static constexpr bool has_world_cull = false;
   static constexpr bool has_world_stage = false;
   static constexpr bool direct_raster_path = true;
@@ -1483,10 +1487,33 @@ public:
     plot(cv, p.x, p.y, c, age, alpha);
   }
 
-  /** @brief Stateless screen flush no-op. */
-  void flush(Canvas &, const ScreenTrailFn &, float) {}
-  /** @brief Stateless world flush no-op. */
-  void flush(Canvas &, const WorldTrailFn &, float) {}
+  /**
+   * @brief Trail flush (nothing to flush).
+   * @tparam TrailFn ScreenTrailFn or WorldTrailFn.
+   * @return Never returns; instantiation is a hard error.
+   * @details Dependent-false guard matching the filterless Pipeline: this sink
+   * carries no history, so the call would emit nothing.
+   */
+  template <typename TrailFn> void flush(Canvas &, const TrailFn &, float) {
+    static_assert(
+        !sizeof(TrailFn *),
+        "Wrong flush() domain: DirectAntiAliasSink has no filter stages, so "
+        "it carries no history and this overload emits nothing. Drop the "
+        "flush() call, or use a Pipeline carrying the history stage it was "
+        "meant for.");
+  }
+  /**
+   * @brief Terminal-stage flush (nothing to flush).
+   * @tparam T Unused; carries the dependent-false guard.
+   * @return Never returns; instantiation is a hard error.
+   */
+  template <typename T = void> void flush(Canvas &, float) {
+    static_assert(
+        !sizeof(T *),
+        "Wrong flush() domain: DirectAntiAliasSink has no filter stages, so "
+        "it has no terminal stage and this overload emits nothing. Drop the "
+        "flush() call, or use a Pipeline carrying Pixel::Feedback.");
+  }
 
   /** @brief Terminal clip-cull predicate forwarding. */
   template <typename Pred>
