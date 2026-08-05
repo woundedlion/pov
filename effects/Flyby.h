@@ -32,10 +32,11 @@ struct FlybyWhiteBox;
 template <int W, int H> class Flyby : public Effect {
 public:
   // Gamut boundary bracket grid this effect buys from the persistent arena
-  // (131,072 B). Only the 2,052 B palette bake shares the partition, so the
-  // resolution is set by what the refinement wants rather than by the budget.
-  static constexpr int GAMUT_ANGLE_STEPS = 256;
-  static constexpr int GAMUT_L_STEPS = 128;
+  // (131,072 B; only the 2,052 B palette bake shares the partition). The flash
+  // master's own resolution, so the copy is verbatim and buys only the RAM read
+  // latency.
+  static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
+  static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
 
   /**
    * @brief Constructs the effect at W x H and disables pixel persistence.

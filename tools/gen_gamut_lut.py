@@ -48,13 +48,24 @@ import numpy as np
 
 # Flash master resolution. init_gamut_lut() downsamples by integer factors, so
 # these bound the finest grid any effect can request.
-ANGLE_STEPS = 512
-L_STEPS = 256
+#
+# Resolution only sets how wide the bracket the per-pixel path refines starts,
+# so it buys accuracy, not reach. Worst first-exit deficit over the color
+# suite's sweep, against that suite's 5e-3 bound:
+#   512x256 0.00132 | 256x128 0.00139 | 128x64 0.00235
+#   128x32  0.00291 | 64x64 0.00347 | 64x32 0.00360 | 32x16 0.00530
+# The deficit is not what binds. From 128x32 down the bracket is wide enough
+# that the four-step walk strides over a disconnected in-gamut interval and
+# lands past the first exit, oversaturating by up to 0.03 chroma. This grid
+# keeps two steps of margin on that, at a quarter of 512x256's flash.
+ANGLE_STEPS = 256
+L_STEPS = 128
 # 65535 / 0.5: OKLab chroma inside sRGB stays below 0.5, so this spends the full
 # uint16 range on the live domain at ~7.6e-6 resolution.
 SCALE = 131070.0
-# Sub-samples per cell per axis, closed at both ends.
-SUBSAMPLES = 8
+# Sub-samples per cell per axis, closed at both ends. Set so the sub-sample
+# spacing, not the cell size, bounds how far a cell extreme can be missed.
+SUBSAMPLES = 16
 # Absolute chroma slack widening the bracket before quantization, covering the
 # residual between the sub-sampled cell extremes and the true continuous ones.
 GUARD = 1e-4

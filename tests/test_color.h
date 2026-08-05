@@ -646,8 +646,8 @@ inline void test_gamut_master_clip_lands_on_first_exit() {
 }
 
 // Grid MeshFeedback arms, and the one the bounds below are measured at.
-inline constexpr int TEST_GAMUT_ANGLE_STEPS = 256;
-inline constexpr int TEST_GAMUT_L_STEPS = 128;
+inline constexpr int TEST_GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
+inline constexpr int TEST_GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
 
 /**
  * @brief Verifies the bracket table plus in-bracket refinement lands on the
@@ -727,10 +727,11 @@ inline void test_gamut_lut_clip_lands_on_first_exit() {
  *          start from a lower bound that is already out of gamut.
  */
 inline void test_gamut_lut_downsample_preserves_bracket() {
-  const int A = TEST_GAMUT_ANGLE_STEPS, NL = TEST_GAMUT_L_STEPS;
+  // Half the master on both axes: the merge is what is under test, and the grid
+  // the effects arm is the master's own, which merges nothing.
+  constexpr int A = GAMUT_LUT_ANGLE_STEPS / 2, NL = GAMUT_LUT_L_STEPS / 2;
   const int sa = GAMUT_LUT_ANGLE_STEPS / A, sl = GAMUT_LUT_L_STEPS / NL;
-  alignas(uint16_t) static uint8_t
-      lut_buf[gamut_lut_bytes(TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
+  alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(A, NL)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
   init_gamut_lut(lut_arena, A, NL);
   HS_EXPECT_TRUE(g_gamut_lut.angle_steps == A);
@@ -1207,16 +1208,20 @@ inline void test_gradient_three_stops_interior_and_flanks() {
   Color4 mid = grad.get(0.5f);
   HS_EXPECT_GT(mid.color.g, mid.color.r);
   HS_EXPECT_GT(mid.color.g, mid.color.b);
+  // A flank between two saturated stops leaves the gamut, and the clip's
+  // residual under-saturation pulls the result a few LSB off the cube face, so
+  // the absent channel is near zero rather than zero. Measured max is 3.
+  constexpr uint16_t ABSENT = 16;
   // First flank (red->green): both red and green present, blue absent.
   Color4 f1 = grad.get(0.25f);
   HS_EXPECT_GT(f1.color.r, 0);
   HS_EXPECT_GT(f1.color.g, 0);
-  HS_EXPECT_EQ(f1.color.b, 0);
+  HS_EXPECT_LT(f1.color.b, ABSENT);
   // Second flank (green->blue): green and blue present, red absent.
   Color4 f2 = grad.get(0.75f);
   HS_EXPECT_GT(f2.color.g, 0);
   HS_EXPECT_GT(f2.color.b, 0);
-  HS_EXPECT_EQ(f2.color.r, 0);
+  HS_EXPECT_LT(f2.color.r, ABSENT);
 }
 
 /**
