@@ -1528,6 +1528,10 @@ template <int W> inline constexpr size_t rasterize_scratch_a_bytes() {
 /**
  * @brief Optional rasterize() behaviors beyond the plain open geodesic
  * polyline; every field defaults to that common case.
+ * @details Taken BY VALUE, never by const reference: a reference escapes the
+ * aggregate's address, so every call site materializes it and no field reaches
+ * the callee as a constant. Owned by the callee, IPA-SRA splits it back into
+ * scalar arguments — worth 1,376 B of ITCM on the device image.
  */
 struct RasterOptions {
   /** Also draw the last→first edge. */
@@ -1604,7 +1608,8 @@ struct RasterOptions {
  *                        non-null (the per-pixel call sites below do not guard
  *                        it, and operator()'s null assert is stripped under
  *                        NDEBUG on-device).
- * @param opts Optional loop/projection/culling behaviors (see RasterOptions).
+ * @param opts Optional loop/projection/culling behaviors; taken by value (see
+ *             RasterOptions).
  */
 HS_O3_BEGIN
 template <int W, int H, bool SinglePass = false, bool OpenGeodesic = false,
@@ -1615,7 +1620,7 @@ template <int W, int H, bool SinglePass = false, bool OpenGeodesic = false,
           typename FragmentShaderT = FragmentShaderFn>
 static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderT fragment_shader,
-                      const RasterOptions &opts = {}) {
+                      RasterOptions opts = {}) {
   if constexpr (OpenGeodesic)
     assert(!opts.close_loop && opts.planar_basis == nullptr && !opts.omit_end &&
            opts.loop_seam == nullptr);
