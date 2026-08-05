@@ -1928,10 +1928,10 @@ inline void test_opleg_hankin_sweep_smoke() {
   for (size_t f = 0; f < dodeca.face_counts.size(); ++f)
     pal[f] = static_cast<uint8_t>(f % Animation::OpLeg::PALETTES);
 
-  Animation::OpLeg::PaletteHandoff handoff{
-      .bank = &bank.bank,
-      .prev_face_palette = pal,
-      .prev_faces = dodeca.face_counts.size()};
+  Animation::OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
+                                           .prev_face_palette = pal,
+                                           .prev_faces =
+                                               dodeca.face_counts.size()};
 
   // Per-frame motion bound: growing star points out from their corners keeps
   // every step small and unimodal. Re-solving the contact-plane intersection
@@ -1965,13 +1965,12 @@ inline void test_opleg_hankin_sweep_smoke() {
 
   using Solids::IslamicStarPatterns::D2R;
   constexpr int SWEEP = 8;
-  Animation::OpLeg anim(
-      dodeca,
-      Animation::OpLeg::HankinSweepSpec{
-          .theta_start = Animation::OpLeg::THETA_EPS,
-          .theta_end = 62.0f * D2R,
-          .sweep_frames = SWEEP},
-      leg, cb, handoff);
+  Animation::OpLeg anim(dodeca,
+                        Animation::OpLeg::HankinSweepSpec{
+                            .theta_start = Animation::OpLeg::THETA_EPS,
+                            .theta_end = 62.0f * D2R,
+                            .sweep_frames = SWEEP},
+                        leg, cb, handoff);
 
   // 12 star faces (the base-face-order prefix) + 20 rosette faces.
   const Animation::OpLeg::Landing &landing = anim.landing();
@@ -2779,11 +2778,11 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     // Leg 2: the medial slerp, departed from ambo(P). Crossfading handoffs,
     // as IslamicStars drives the bridge; the seeded RNG keeps the per-leg
     // target shuffles deterministic here.
-    OpLeg::PaletteHandoff handoff2{
-        .bank = &bank.bank,
-        .prev_face_palette = pal2.data(),
-        .prev_faces = nf,
-        .correspondence = OpLeg::FaceCorrespondence::IDENTITY};
+    OpLeg::PaletteHandoff handoff2{.bank = &bank.bank,
+                                   .prev_face_palette = pal2.data(),
+                                   .prev_faces = nf,
+                                   .correspondence =
+                                       OpLeg::FaceCorrespondence::IDENTITY};
     OpLeg leg2(P, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff2);
     const OpLeg::Landing &landing2 = leg2.landing();
     HS_EXPECT_EQ(landing2.faces, nf);
@@ -2834,11 +2833,11 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const size_t DF = D.face_counts.size();
     HS_EXPECT_EQ(DF, nf - PF);
 
-    OpLeg::PaletteHandoff handoff3{
-        .bank = &bank.bank,
-        .prev_face_palette = pal3.data(),
-        .prev_faces = nf,
-        .correspondence = OpLeg::FaceCorrespondence::DUAL_CLOSING};
+    OpLeg::PaletteHandoff handoff3{.bank = &bank.bank,
+                                   .prev_face_palette = pal3.data(),
+                                   .prev_faces = nf,
+                                   .correspondence =
+                                       OpLeg::FaceCorrespondence::DUAL_CLOSING};
     OpLeg::BookendClasses bookend3{.topology = D.topology.data(), .faces = DF};
     OpLeg leg3(D,
                OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
