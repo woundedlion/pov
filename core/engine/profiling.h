@@ -457,6 +457,22 @@ private:
   friend struct CycleScope;
 
   /**
+   * @brief Reports whether another counter with entries shares @p node's name.
+   * @param node Counter being logged.
+   * @return True when a second registered counter carries the same label.
+   * @details A HS_PROFILE scope inside a function template registers one counter
+   *          per instantiation, all under the macro's label, so the report would
+   *          otherwise show several identical rows each covering a fraction of
+   *          the label's cycles.
+   */
+  static bool duplicate_name(const CycleCounter *node) {
+    for (auto *c = head; c; c = c->next)
+      if (c != node && c->count && strcmp(c->name, node->name) == 0)
+        return true;
+    return false;
+  }
+
+  /**
    * @brief Recursively logs one counter node and its children as a tree.
    * @param node Counter node to log.
    * @param depth Tree depth; drives indentation.
@@ -464,7 +480,9 @@ private:
    *          (or 100% for a root), and cycles are converted to microseconds via
    *          CYCLES_PER_US. A mixed_parent node carries a MIXED-PARENT tag: its
    *          cycles include entries made from callers other than the parent it
-   *          is printed under.
+   *          is printed under. A node sharing its name with another registered
+   *          counter carries a DUPLICATE-NAME tag: its row accounts for only one
+   *          of them.
    */
   static void log_node(const CycleCounter *node, int depth) {
     if (!node->count)
@@ -478,9 +496,10 @@ private:
     int name_w = 22 - indent;
     if (name_w < 1)
       name_w = 1;
-    hs::log("%*s%-*s %s us (%lu%%)  %lu calls  %s cyc%s", indent, "", name_w,
+    hs::log("%*s%-*s %s us (%lu%%)  %lu calls  %s cyc%s%s", indent, "", name_w,
             node->name, us, (unsigned long)pct, (unsigned long)node->count, cyc,
-            node->mixed_parent ? "  MIXED-PARENT" : "");
+            node->mixed_parent ? "  MIXED-PARENT" : "",
+            duplicate_name(node) ? "  DUPLICATE-NAME" : "");
     for (auto *c = head; c; c = c->next)
       if (c->parent == node)
         log_node(c, depth + 1);
