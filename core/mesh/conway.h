@@ -1512,12 +1512,19 @@ HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
  * da).
  * @param mesh Source mesh.
  * @param target Arena receiving the output mesh.
- * @param temp Ping-pong scratch arena for the intermediate steps.
+ * @param temp Ping-pong scratch arena for the intermediate steps; must not
+ *   alias @p target, which is rewound to its entry offset mid-composition.
  * @return Composed PolyMesh allocated in `target` (see COMPOSITION POLARITY at
  *   the top of the operator block).
  */
 HS_COLD static PolyMesh meta(const PolyMesh &mesh, Arena &target, Arena &temp) {
-  return kis(dual(ambo(mesh, target, temp), temp, target), target, temp);
+  HS_CHECK(&target != &temp, "meta: target and temp must differ");
+  const size_t target_mark = target.get_offset();
+  // The join is self-contained in `temp`, so ambo's stage in `target` is dead
+  // before kis binds its output over it.
+  const PolyMesh joined = dual(ambo(mesh, target, temp), temp, target);
+  target.set_offset(target_mark);
+  return kis(joined, target, temp);
 }
 
 /**
