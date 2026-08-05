@@ -110,11 +110,11 @@ def render(out, fwd, rev):
     # layout: when clang-format is present it repacks each row to the column
     # limit, so these values never reach committed output. They are chosen to
     # keep the no-clang-format fallback readable (~one terminal line per row).
-    emit_array(out, f"inline const uint16_t srgb_to_linear_lut[{SRGB_LEVELS}] PROGMEM",
+    emit_array(out, f"inline const uint16_t srgb_to_linear_lut[{SRGB_LEVELS}] HS_PROGMEM_UNIQUE(srgb_to_linear_lut)",
                fwd, 11)
     out.write("\n")
     out.write("// Linear (0-65535) -> sRGB (0-255)\n")
-    emit_array(out, f"inline const uint8_t linear_to_srgb_lut[{LINEAR_LEVELS}] PROGMEM",
+    emit_array(out, f"inline const uint8_t linear_to_srgb_lut[{LINEAR_LEVELS}] HS_PROGMEM_UNIQUE(linear_to_srgb_lut)",
                rev, 15)
 
 

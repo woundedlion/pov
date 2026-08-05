@@ -374,8 +374,6 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa);
  */
 inline Color4 hue_rotate(const Color4 &c, float amount);
 
-// Load-bearing position: hoisting this into the top include block, ahead of
-// gamut_lut.h, hangs MeshFeedback during init on the Teensy build.
 #include "color/color_luts.h"
 
 inline uint16_t srgb_to_linear(uint8_t srgb) {

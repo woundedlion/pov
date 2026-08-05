@@ -303,7 +303,7 @@ inline constexpr size_t gamut_lut_bytes(int angle_steps, int l_steps) {{
 
 /** @brief Flash-resident master; index [(l * ANGLE_STEPS + angle) * 2], min
  *  first then max. */
-inline const uint16_t GAMUT_LUT[GAMUT_LUT_ENTRIES] PROGMEM = {{
+inline const uint16_t GAMUT_LUT[GAMUT_LUT_ENTRIES] HS_PROGMEM_UNIQUE(GAMUT_LUT) = {{
 {body}
 }};
 """
@@ -532,10 +532,11 @@ def check_mirrors(color_h_path, math_h_path):
 def check_provenance(committed_path):
     """Diffs a fresh table against the committed header in full.
 
-    Whole text, not numeric tokens: the array names, PROGMEM, the constants,
-    the includes and the doc comments are as much a divergence as a shifted
-    value, and the header is excluded from the clang-format job (it is emitted,
-    not hand-formatted), so this gate is the only thing that reads them.
+    Whole text, not numeric tokens: the array names, the flash-section marker,
+    the constants, the includes and the doc comments are as much a divergence
+    as a shifted value, and the header is excluded from the clang-format job
+    (it is emitted, not hand-formatted), so this gate is the only thing that
+    reads them.
     """
     if not os.path.exists(committed_path):
         sys.stderr.write("missing %s\n" % committed_path)

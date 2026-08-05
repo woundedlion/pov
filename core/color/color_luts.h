@@ -8,7 +8,8 @@
 // sRGB transfer-function LUTs for color conversion.
 
 // sRGB (0-255) -> Linear (0-65535)
-inline const uint16_t srgb_to_linear_lut[256] PROGMEM = {
+inline const uint16_t srgb_to_linear_lut[256] HS_PROGMEM_UNIQUE(
+    srgb_to_linear_lut) = {
     0,     20,    40,    60,    80,    99,    119,   139,   159,   179,   199,
     219,   241,   264,   288,   313,   340,   367,   396,   427,   458,   491,
     526,   562,   599,   637,   677,   718,   761,   805,   851,   898,   947,
@@ -36,7 +37,8 @@ inline const uint16_t srgb_to_linear_lut[256] PROGMEM = {
 };
 
 // Linear (0-65535) -> sRGB (0-255)
-inline const uint8_t linear_to_srgb_lut[65536] PROGMEM = {
+inline const uint8_t linear_to_srgb_lut[65536] HS_PROGMEM_UNIQUE(
+    linear_to_srgb_lut) = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   1,   1,   1,
     1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
     2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   2,

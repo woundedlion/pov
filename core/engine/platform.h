@@ -195,6 +195,24 @@ inline bool debug = false;
 #define HS_NOINLINE_NOCLONE __attribute__((noinline))
 #endif
 
+// ---------------------------------------------------------------------------
+// HS_PROGMEM_UNIQUE: flash placement for a table defined in a header. Use this,
+// never PROGMEM, for any COMDAT (inline/template) table.
+//
+// Teensy's PROGMEM is the single fixed section ".progmem", so every inline
+// PROGMEM variable in a translation unit lands in one section inside one COMDAT
+// group, signed by whichever symbol sits at offset 0. Two translation units that
+// pick the same signature make ld discard a whole group: the other tables in it
+// go too, their weak references resolve to address 0, and the first read faults
+// with no linker diagnostic. A per-variable section name gives each table its
+// own group, so tables dedupe individually. tools/phantasm.ld globs `.progmem*`.
+// ---------------------------------------------------------------------------
+#ifdef ARDUINO
+#define HS_PROGMEM_UNIQUE(name) __attribute__((section(".progmem." #name)))
+#else
+#define HS_PROGMEM_UNIQUE(name)
+#endif
+
 #ifdef ARDUINO
 #ifndef NDEBUG
 #define NDEBUG // Strip assert() to avoid linking newlib's __assert_func → fprintf

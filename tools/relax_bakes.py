@@ -102,7 +102,7 @@ def emit_header(bakes: list[dict]) -> str:
     for bake in bakes:
         name = bake["name"]
         words = bake["bits"]
-        lines.append(f"inline const uint32_t {name}_bits[] PROGMEM = {{")
+        lines.append(f"inline const uint32_t {name}_bits[] HS_PROGMEM_UNIQUE({name}_bits) = {{")
         for start in range(0, len(words), 8):
             chunk = ", ".join(f"0x{w:08x}u" for w in words[start:start + 8])
             lines.append(f"    {chunk},")
