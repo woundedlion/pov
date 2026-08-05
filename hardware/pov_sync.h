@@ -143,21 +143,19 @@ struct Config {
    * SAME crossing with frame counters aligned, instead of master leading by
    * however long downstream identity took. Must divide 64 so a beacon's
    * mod-64 revolution count lands on the same grid as the master's true
-   * count. Mid-show rejoins wait ≤ grid revolutions (well inside the ~2 s
-   * rejoin budget, spec §9.1).
+   * count. Mid-show rejoins wait ≤ grid revolutions past the beacon that named
+   * their effect (spec §9.1, a term of rejoin_bound_revs()).
    */
   uint32_t join_grid_revs = 4;
 
   /**
-   * @brief Rejoin budget: the most revolutions a mid-show board may wait to
-   * hear its identity beacon (spec §9.1).
-   * @details A board that joins just after a beacon waits up to
-   * beacon_period_revs revs for the next one, so the beacon cadence must not
-   * exceed this budget — enforced in valid() rather than left to prose.
-   * Expressed in revolutions so the bound is rotation-rate independent; the
-   * spec's "~2 s" reading is this budget at the nominal 480 RPM (16 revs).
+   * @brief Rejoin budget: the most revolutions a mid-show board may wait to go
+   * live on the right effect (spec §9.1).
+   * @details The ceiling on rejoin_bound_revs(), enforced in valid() rather
+   * than left to prose. Expressed in revolutions so the bound is rotation-rate
+   * independent; 25 revolutions is ~3.1 s at the nominal 480 RPM.
    */
-  uint32_t rejoin_budget_revs = 16;
+  uint32_t rejoin_budget_revs = 25;
 
   /**
    * @brief Cycles per column of rotation.
@@ -257,6 +255,21 @@ struct Config {
   constexpr int32_t beacon_frame_cols() const { return beacon_frame_cols(35); }
 
   /**
+   * @brief Worst-case revolutions from a mid-show join to going live on the
+   * right effect (spec §9.1).
+   * @return Widest beacon-to-beacon gap plus the join-grid wait.
+   * @details Beacons are suppressed for the whole commit window, so the widest
+   * gap between two beacons is one cadence plus that window (epoch_repeats
+   * announce revolutions + commit_revs), not the cadence alone; a board that
+   * joins just after a beacon waits that gap, then up to join_grid_revs more
+   * for the next live-takeover boundary. Requires epoch_repeats >= 0.
+   */
+  constexpr uint32_t rejoin_bound_revs() const {
+    return beacon_period_revs + join_grid_revs +
+           static_cast<uint32_t>(epoch_repeats) + commit_revs;
+  }
+
+  /**
    * @brief Boot-time sanity check for the driver's HS_CHECK.
    * @return True if every protocol constant is self-consistent.
    * @details gate_cols < W/4 is what lets the gate's distance check subsume the
@@ -301,9 +314,10 @@ struct Config {
            // Beacon rev resync recovers a slip only in (-32, +32), so keep the
            // period below the half-window.
            beacon_period_revs < 32 &&
-           // §9.1 rejoin budget: a joiner waits up to beacon_period_revs revs
-           // for the next identity, so cap the cadence at the budget.
-           beacon_period_revs <= rejoin_budget_revs && join_grid_revs > 0 &&
+           // §9.1 rejoin budget: cap the achieved bound, not the cadence alone
+           // — the commit window's beacon blackout and the join grid are part
+           // of what a rejoiner waits through.
+           rejoin_bound_revs() <= rejoin_budget_revs && join_grid_revs > 0 &&
            (64u % join_grid_revs) == 0 &&
            // schedule_beacon's "is-due" check reads (now - start_cycles) as
            // int32, so the worst-case span (5 digits of value 7) must clear 2^31.
@@ -886,7 +900,7 @@ constexpr int32_t beacon_rev_resync_delta(uint32_t beacon_rev_count,
 /**
  * @brief Assembles data bursts into beacon frames. Integrity by rejection
  * (spec §6.4): any out-of-range digit, stale partial frame, or checksum
- * mismatch drops the whole frame — the next beacon is ≤ 2 s away.
+ * mismatch drops the whole frame — the next beacon is one cadence away.
  */
 class BeaconParser {
 public:
@@ -1740,7 +1754,7 @@ private:
     // point (and even past HALF) in one wake, leaving beacon_done_this_rev unset
     // while current_boundary() has already advanced — so this revolution emits
     // no beacon. That is an accepted skip, not a missed-emission bug: the
-    // protocol self-heals on the next due beacon (≤ 2 s).
+    // protocol self-heals on the next due beacon, within rejoin_bound_revs().
     const int32_t x = fly.position(now);
     if (x < protocol_config.W / 4)
       return;

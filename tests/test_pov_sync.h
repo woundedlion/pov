@@ -119,16 +119,30 @@ inline void test_helpers() {
   bp.beacon_period_revs = 31;
   HS_EXPECT_TRUE(bp.valid());
 
-  // §9.1 rejoin budget: the beacon cadence must not exceed the budget, so a
-  // board joining just after a beacon hears its identity within it. Boundary is
-  // inclusive (period == budget accepted, period > budget rejected). Probed at
-  // beacon_period_revs <= 17, where the resync half-window bound stays slack.
+  // §9.1 rejoin budget: what must fit is the achieved bound — the widest
+  // beacon-to-beacon gap (a cadence plus the commit window's blackout) plus the
+  // join-grid wait — not the cadence alone. Boundary is inclusive.
   Config rb = test_config();
-  rb.rejoin_budget_revs = 16;
-  rb.beacon_period_revs = 16;
+  HS_EXPECT_EQ(rb.rejoin_bound_revs(),
+               rb.beacon_period_revs + rb.join_grid_revs +
+                   static_cast<uint32_t>(rb.epoch_repeats) + rb.commit_revs);
+  rb.rejoin_budget_revs = rb.rejoin_bound_revs();
   HS_EXPECT_TRUE(rb.valid());
-  rb.beacon_period_revs = 17;
+  --rb.rejoin_budget_revs;
   HS_EXPECT_FALSE(rb.valid());
+  // Every term moves the bound: a 16-rev cadence does not fit a 16-rev budget,
+  // and the commit window and join grid each push it out further.
+  Config rc = test_config();
+  rc.rejoin_budget_revs = 16;
+  rc.beacon_period_revs = 16;
+  HS_EXPECT_FALSE(rc.valid());
+  rc.rejoin_budget_revs = rc.rejoin_bound_revs();
+  HS_EXPECT_TRUE(rc.valid());
+  ++rc.commit_revs;
+  HS_EXPECT_FALSE(rc.valid());
+  --rc.commit_revs;
+  rc.join_grid_revs = 8;
+  HS_EXPECT_FALSE(rc.valid());
 
   // Demarcation: a wire timeout below the beacon's worst-case per-digit advance
   // splits a real digit train into isolated boundary symbols.
@@ -1247,7 +1261,7 @@ inline void test_beacon_tail_quiet() {
   // Revolution 63 is beacon-due at this cadence, so all four data digits reach
   // 7 — the widest frame index 63 of a full roster can encode.
   cfg.beacon_period_revs = 31;
-  cfg.rejoin_budget_revs = 31;
+  cfg.rejoin_budget_revs = cfg.rejoin_bound_revs();
   HS_EXPECT_TRUE(cfg.valid());
   const uint32_t period = cfg.cycles_per_half_rev;
   const uint32_t step = COL / 8u;
@@ -2144,9 +2158,10 @@ inline void test_sim_reboot() {
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return s.boards[2].board.lock() == LockState::LOCKED; },
       1.5));
-  // Identity from the next beacon, display from the next join-grid
-  // boundary — comfortably inside the ~2 s budget at ship cadence; never a
-  // wrong frame in between (dark throughout).
+  // Identity from the next beacon, display from the next join-grid boundary.
+  // This reboot lands clear of the commit window, so the deadline is the
+  // blackout-free part of rejoin_bound_revs(); never a wrong frame in between
+  // (dark throughout).
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[2].live; },
                     double(cfg.beacon_period_revs + cfg.join_grid_revs) + 4));
