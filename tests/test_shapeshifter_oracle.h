@@ -135,7 +135,7 @@ struct ShapeShifterWhiteBox {
     effect.params.shape = state.shape;
     effect.params.count = static_cast<float>(state.count);
     effect.params.sides = static_cast<float>(state.sides);
-    effect.params.function = static_cast<float>(state.function);
+    effect.params.function = state.function;
     effect.params.speed = 0.0f;
     effect.params.opposite = state.opposite;
     effect.params.alpha_falloff = state.alpha_falloff;
