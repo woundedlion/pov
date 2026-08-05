@@ -57,6 +57,26 @@ struct EffectConfig {
 };
 
 /**
+ * @brief Folds a filter pipeline's compile-time segment traits into an
+ *        EffectConfig.
+ * @tparam PipelineT Filter pipeline or sink exposing `any_crosses_segments`,
+ *         `any_reads_outside_band`, and `max_segment_margin`.
+ * @param base Config carrying the effect's own flags (strobe, persist).
+ * @return @p base with full_frame, reads_outside_band, and margin taken from
+ *         the pipeline's traits.
+ * @details The single definition of the fold: an effect that stacks a filter
+ *          crossing segment boundaries gets the full-frame render without
+ *          restating the three traits at its base initializer.
+ */
+template <typename PipelineT>
+constexpr EffectConfig pipeline_config(EffectConfig base = {}) {
+  base.full_frame = PipelineT::any_crosses_segments;
+  base.reads_outside_band = PipelineT::any_reads_outside_band;
+  base.margin = PipelineT::max_segment_margin;
+  return base;
+}
+
+/**
  * @brief Base class for all visual effects.
  * @details Manages double buffering, persistence, and provides an interface for
  * drawing a frame.

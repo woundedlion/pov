@@ -36,12 +36,7 @@ public:
    * @brief Constructs the effect at the templated render dimensions.
    */
   HS_COLD_MEMBER Raymarch()
-      : Effect(
-            W, H,
-            {.strobe = true,
-             .full_frame = decltype(pipeline)::any_crosses_segments,
-             .reads_outside_band = decltype(pipeline)::any_reads_outside_band,
-             .margin = decltype(pipeline)::max_segment_margin}) {}
+      : Effect(W, H, pipeline_config<decltype(pipeline)>({.strobe = true})) {}
 
   /**
    * @brief Registers tunable params, builds the disdyakis-dodecahedron vertex

@@ -36,11 +36,7 @@ public:
    * @brief Constructs the effect, seeding the filters and warp state.
    */
   HS_COLD_MEMBER Thrusters()
-      : Effect(W, H,
-               {.strobe = true,
-                .full_frame = decltype(filters)::any_crosses_segments,
-                .reads_outside_band = decltype(filters)::any_reads_outside_band,
-                .margin = decltype(filters)::max_segment_margin}),
+      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters(Filter::Screen::AntiAlias<W, H>()), ring_vec(0.5f, 0.5f, 0.5f),
         amplitude(0), warp_phase(0), t_global(0),
         warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_linear) {}
