@@ -282,7 +282,8 @@ private:
    * when dot(identity, adj) < 0): re-flipping would jump between the w*a and
    * w*(2pi - a) partial rotations when a walk's total angle crosses pi.
    */
-  void update_camera(float wander) {
+  // Per-frame, not per-pixel: the inlined slerps are too big for ITCM.
+  HS_COLD_MEMBER void update_camera(float wander) {
     Quaternion q = inner_walk.get();
     if (dot(q, inner_adj) < 0.0f)
       q = -q;
@@ -419,7 +420,7 @@ private:
      * @param b Destination params (t = 1).
      * @param t Blend factor in [0, 1].
      */
-    void lerp(const Params &a, const Params &b, float t) {
+    HS_COLD_MEMBER void lerp(const Params &a, const Params &b, float t) {
       for (auto f : FIELDS)
         this->*f = hs::lerp(a.*f, b.*f, t);
     }
@@ -433,7 +434,8 @@ private:
      * own equal time slice, so they transition one after another rather than
      * all at once.
      */
-    void lerp_staggered(const Params &a, const Params &b, float t) {
+    HS_COLD_MEMBER void lerp_staggered(const Params &a, const Params &b,
+                                       float t) {
       int active = 0;
       for (auto f : FIELDS)
         if (a.*f != b.*f)
@@ -483,7 +485,7 @@ private:
      * @param b Destination blend state (t = 1).
      * @param t Blend factor in [0, 1].
      */
-    void lerp(const Blend &a, const Blend &b, float t) {
+    HS_COLD_MEMBER void lerp(const Blend &a, const Blend &b, float t) {
       if (staggered)
         params.lerp_staggered(a.params, b.params, t);
       else
@@ -559,12 +561,14 @@ private:
   // lens_mix, hue_shift, value_fade) must sit exactly on 0 or 1 whenever the
   // matching per-pixel skip is intended: Animation::Lerp lands bit-exactly
   // only on those endpoints, and a near-0 value un-latches the skip for good.
-  static constexpr std::array<PresetEntry<Params>, 7> PRESETS = {{
-      // Wandering lensed liquid: mild, then deep cross-coupling.
+  static constexpr std::array<PresetEntry<Params>, 8> PRESETS = {{
+      // Wandering lensed liquid: mild, deep, then fine-grained cross-coupling.
       {{3.0f, 0.5f, 0.5f, 5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
         0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
       {{3.0f, 0.5f, 0.5f, 1.2f, 0.05f, 3.0f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
         0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
+      {{3.0f, 1.479f, 0.5f, 14.528f, 0.1f, 0.5f, 0.0f, 0.8f, 1.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
       // Spinning grid fly-throughs.
       {{47.752f, 11.55f, 0.3f, 2.7f, 0.586f, 0.0f, 1.0f, 0.7f, 1.55f,
         ORBIT_SPIN_RATE, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.097f, 1.0f}},
@@ -583,8 +587,9 @@ private:
                 "range exposes the presets, it does not clamp them)");
 
   /** @brief Per-preset choreography, consumed on entry; the cross-family
-   *  boundaries (rows 1 and 6) blend parallel. */
-  static constexpr std::array<Choreo, 7> CHOREO = {{
+   *  boundaries (rows 2 and 7) blend parallel. */
+  static constexpr std::array<Choreo, 8> CHOREO = {{
+      {30, 90, 60, true},
       {30, 90, 60, true},
       {30, 90, 480, false},
       {0, 0, 480, false},
@@ -596,7 +601,7 @@ private:
   static_assert(CHOREO.size() == PRESETS.size(),
                 "CHOREO must carry one entry per preset");
 
-  Presets<Params, 7> presets{PRESETS};
+  Presets<Params, 8> presets{PRESETS};
 
   Blend blend{PRESETS[0].params}; /**< Live params; init() reloads from
                                      presets. */
