@@ -43,6 +43,7 @@ set(NON_MODULE_HEADERS
   mindsplatter_whitebox.h
   pixel_test_util.h
   test_fixture.h
+  test_generative_palette.h
   test_harness.h
   test_h_offset_renorm.h
   test_pole_wrap.h)
