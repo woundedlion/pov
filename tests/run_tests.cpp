@@ -142,7 +142,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("solids", 34, hs_test::solids_tests::run_solids_tests, 307007)             \
   X("reaction_graph", 14,                                                      \
     hs_test::reaction_graph_tests::run_reaction_graph_tests, 983)              \
-  X("color", 74, hs_test::color_tests::run_color_tests, 409691)                \
+  X("color", 64, hs_test::color_tests::run_color_tests, 409691)                \
   X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 102)           \
   X("easing_waves", 9, hs_test::easing_waves_tests::run_easing_waves_tests,    \
     6080)                                                                      \
@@ -181,7 +181,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 716;
   X("pov_sync", 46, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
   X("param_marshal", 2, hs_test::param_marshal_tests::run_param_marshal_tests, \
     1158)                                                                      \
-  X("wasm_predicates", 15,                                                     \
+  X("wasm_predicates", 13,                                                     \
     hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 128)            \
   X("util", 7, hs_test::util_tests::run_util_tests, 288)                       \
   X("led", 6, hs_test::led_tests::run_led_tests, 24)                           \
