@@ -340,8 +340,8 @@ public:
    *          *copies* the typed_memory_view into a fresh JS array (it does not
    *          alias WASM memory), so the result is safe to hold across later
    *          calls — but if this is ever changed to return the view directly
-   *          (as getPixels/bakeLut do), it MUST then be read before the next
-   *          allocation, per that memory-view contract.
+   *          (as getPixels and palette compilation do), it MUST be read before
+   *          the next allocation, per that memory-view contract.
    */
   val classifyFaces() {
     last_mesh_op_result = MeshOpResult::OK;

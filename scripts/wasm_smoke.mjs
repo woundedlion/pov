@@ -1017,7 +1017,7 @@ async function main() {
   }
 
   // ── Color / palette / geometry exports ──────────────────────────────────────
-  // These free functions and PaletteOps.bakeLut back the JS tool ports but are
+  // These free functions and PaletteOps recipe compilation back the JS tools but are
   // never touched by the engine loop above; pin numeric behavior so a
   // transposed-arg or wrong-target binding fails here instead of shipping green.
   console.log('\nColor / palette / geometry:');
@@ -1161,21 +1161,40 @@ async function main() {
     }
   }
 
-  // PaletteOps.bakeLut: 256*3 sRGB bytes; a two-key gradient must vary end to end.
+  // PaletteOps V2: 256*3 sRGB bytes and engine-authored diagnostics.
   {
     const po = new Module.PaletteOps();
     try {
-      const lut = po.bakeLut(0, 0, 255, 255, 160, 255, 255, 160, 255, 255);
-      if (!lut || lut.length !== 256 * 3) {
-        fail(`bakeLut length ${lut && lut.length}, expected ${256 * 3}`);
-      } else if (lut[0] === lut[765] && lut[1] === lut[766] && lut[2] === lut[767]) {
-        fail(`bakeLut gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
+      const recipe = {
+        schemaVersion: 2, domain: 0, easing: 1, colorPath: 0,
+        hue: {
+          mode: 0, harmony: 5, direction: 0, baseTurns: 0,
+          spreadTurns: 0.07, sweepTurns: 1, customTurns: [0, 0, 0],
+        },
+        lightness: { curve: 1, center: 0.52, range: 0.72, custom: [0, 0, 0] },
+        chroma: {
+          curve: 0, basis: 0, center: 0.62, range: 0,
+          headroom: 0.94, custom: [0, 0, 0],
+        },
+        hueTorsion: 0, falloffStart: 0.9,
+      };
+      const result = po.inspectV2(recipe);
+      const lut = result.lut;
+      if (result.status.code !== 0) {
+        fail(`compileAndBakeV2 returned status ${result.status.code}`);
       }
+      if (!lut || lut.length !== 256 * 3) {
+        fail(`compileAndBakeV2 LUT length ${lut && lut.length}, expected ${256 * 3}`);
+      } else if (lut[0] === lut[765] && lut[1] === lut[766] && lut[2] === lut[767]) {
+        fail(`compileAndBakeV2 gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
+      }
+      if (!result.diagnostics || result.diagnostics.length !== 256 * 6)
+        fail(`inspectV2 diagnostics length ${result.diagnostics?.length}, expected ${256 * 6}`);
     } finally {
       po.delete();
     }
   }
-  console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, bakeLut OK');
+  console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, palette V2 OK');
 
   if (failures > 0) {
     console.error(`\nwasm_smoke: ${failures} failure(s)`);

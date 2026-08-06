@@ -441,31 +441,137 @@ inline auto blend_alpha(float a) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-/**
- * @brief Defines types of color harmonies for generative palettes.
- */
-enum class HarmonyType {
-  TRIADIC,
-  SPLIT_COMPLEMENTARY,
+enum class HueMode : uint8_t { HARMONY, SWEEP, CUSTOM };
+
+enum class PaletteHarmony : uint8_t {
+  MONOCHROMATIC,
+  ANALOGOUS,
+  ACCENTED_ANALOGOUS,
   COMPLEMENTARY,
-  ANALOGOUS
+  SPLIT_COMPLEMENTARY,
+  TRIADIC,
 };
 
-/**
- * @brief Defines the visual shape or distribution of colors across the palette
- * domain.
- */
-enum class GradientShape { STRAIGHT, CIRCULAR, VIGNETTE, FALLOFF };
+enum class HueDirection : uint8_t { SHORTEST, CLOCKWISE, COUNTERCLOCKWISE };
 
-/**
- * @brief Defines the overall brightness profile across the palette domain.
- */
-enum class BrightnessProfile { ASCENDING, DESCENDING, FLAT, BELL, CUP };
+enum class AxisCurve : uint8_t {
+  CONSTANT,
+  ASCENDING,
+  DESCENDING,
+  BELL,
+  CUP,
+  CUSTOM,
+};
 
-/**
- * @brief Defines the saturation profile.
- */
-enum class SaturationProfile { PASTEL, MID, VIBRANT };
+enum class ChromaBasis : uint8_t { LOCAL_GAMUT, PATH_MINIMUM, ABSOLUTE };
+
+enum class ColorPath : uint8_t { OKLCH_ARC, OKLAB_CARTESIAN };
+
+enum class PaletteDomain : uint8_t {
+  STRAIGHT,
+  MIRROR,
+  VIGNETTE,
+  FALLOFF,
+  LOOP,
+};
+
+enum class SegmentEase : uint8_t { LINEAR, COSINE, SMOOTHSTEP };
+
+struct HueControls {
+  HueMode mode = HueMode::HARMONY;
+  PaletteHarmony harmony = PaletteHarmony::ANALOGOUS;
+  HueDirection direction = HueDirection::SHORTEST;
+  float base_turns = 0.0f;
+  float spread_turns = 0.07f;
+  float sweep_turns = 1.0f;
+  std::array<float, 3> custom_turns{};
+};
+
+struct AxisControls {
+  AxisCurve curve = AxisCurve::CONSTANT;
+  float center = 0.62f;
+  float range = 0.0f;
+  std::array<float, 3> custom{};
+};
+
+struct ChromaControls {
+  AxisCurve curve = AxisCurve::CONSTANT;
+  ChromaBasis basis = ChromaBasis::LOCAL_GAMUT;
+  float center = 0.62f;
+  float range = 0.0f;
+  float headroom = 0.94f;
+  std::array<float, 3> custom{};
+};
+
+struct PaletteRecipe {
+  static constexpr uint8_t SCHEMA_VERSION = 2;
+
+  uint8_t schema_version = SCHEMA_VERSION;
+  PaletteDomain domain = PaletteDomain::STRAIGHT;
+  SegmentEase easing = SegmentEase::COSINE;
+  ColorPath color_path = ColorPath::OKLCH_ARC;
+  HueControls hue;
+  AxisControls lightness;
+  ChromaControls chroma;
+  float hue_torsion = 0.0f;
+  float falloff_start = 0.90f;
+};
+
+enum class PaletteCompileCode : uint8_t {
+  OK,
+  INVALID_SCHEMA,
+  NON_FINITE,
+  INVALID_ENUM,
+  HUE_LIMIT,
+  NON_INTEGER_LOOP_SWEEP,
+  INVALID_FALLOFF_START,
+  INCOMPATIBLE_OPTIONS,
+};
+
+enum class PaletteRecipeField : uint8_t {
+  NONE = 0,
+  PALETTE_DOMAIN = 1,
+  EASING = 2,
+  COLOR_PATH = 3,
+  HUE_MODE = 4,
+  HARMONY = 5,
+  HUE_DIRECTION = 6,
+  BASE_TURNS = 7,
+  SPREAD_TURNS = 8,
+  SWEEP_TURNS = 9,
+  CUSTOM_TURNS_0 = 10,
+  CUSTOM_TURNS_1 = 11,
+  CUSTOM_TURNS_2 = 12,
+  LIGHTNESS_CURVE = 13,
+  LIGHTNESS_CENTER = 14,
+  LIGHTNESS_RANGE = 15,
+  LIGHTNESS_CUSTOM_0 = 16,
+  LIGHTNESS_CUSTOM_1 = 17,
+  LIGHTNESS_CUSTOM_2 = 18,
+  CHROMA_CURVE = 19,
+  CHROMA_BASIS = 20,
+  CHROMA_CENTER = 21,
+  CHROMA_RANGE = 22,
+  CHROMA_CUSTOM_0 = 23,
+  CHROMA_CUSTOM_1 = 24,
+  CHROMA_CUSTOM_2 = 25,
+  CHROMA_HEADROOM = 26,
+  HUE_TORSION = 27,
+  FALLOFF_START = 28,
+  SCHEMA_VERSION = 29,
+};
+
+struct PaletteAdjustments {
+  uint64_t wrapped_fields = 0;
+  uint64_t clamped_fields = 0;
+  uint64_t canonicalized_fields = 0;
+};
+
+struct PaletteCompileStatus {
+  PaletteCompileCode code = PaletteCompileCode::OK;
+  PaletteRecipeField field = PaletteRecipeField::NONE;
+  PaletteAdjustments adjustments;
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -878,58 +984,49 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
 }
 
 /**
- * @brief Maps an out-of-gamut OKLab color into the sRGB cube by reducing chroma,
- * holding hue and lightness fixed (Ottosson's preserve-chroma projection).
- * @param lab Source color, assumed out of gamut (callers gate on
- * linear_rgb_in_gamut); L is clamped to [0,1] internally.
- * @return An OKLab color with the same L and hue but chroma scaled down until it
- * is just inside the display cube.
- * @details The answer is exactly min(C, C_max(hue, L)), and C_max is a static
- * property of the sRGB gamut. One cell read brackets C_max and
- * gamut_bracket_refine narrows the bracket. A chroma at or below the cell
- * minimum is returned as-is only once it tests in gamut; a cell minimum that
- * over-reads its region drops the search onto the whole ray instead. The grid
- * is the only implementation and always points at a table, so this needs no
- * fallback.
+ * @brief Returns the first sRGB gamut-boundary chroma at an OKLCH coordinate.
+ * @param L OKLab lightness, clamped to [0,1].
+ * @param h Hue in radians.
+ * @return The first-exit chroma minus the shared numerical margin.
  */
-HS_O3_FN __attribute__((noinline)) inline OKLab
-gamut_clip_preserve_chroma(OKLab lab) {
+HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
+                                                                 float h) {
   const GamutLut &lut = g_gamut_lut;
+  L = hs::clamp(L, 0.0f, 1.0f);
+  if (L == 0.0f || L == 1.0f)
+    return 0.0f;
 
-  // The u=0 achromatic floor is in gamut only for L in [0,1]; an out-of-range L
-  // would leave even the floor out of gamut and return a non-gamut color.
-  lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
-  const float c_sq = lab.a * lab.a + lab.b * lab.b;
-  // Below this the color is achromatic past 16-bit output precision, and the
-  // reciprocal square root would overflow.
-  if (!(c_sq > 1e-12f))
-    return {lab.L, 0.0f, 0.0f};
-
-  int ai = static_cast<int>(diamond_angle(lab.b, lab.a) * lut.angle_scale);
-  int li = static_cast<int>(lab.L * lut.l_scale);
+  const float a = cosf(h);
+  const float b = sinf(h);
+  int ai = static_cast<int>(diamond_angle(b, a) * lut.angle_scale);
+  int li = static_cast<int>(L * lut.l_scale);
   ai = hs::clamp(ai, 0, lut.angle_steps - 1);
   li = hs::clamp(li, 0, lut.l_steps - 1);
   const uint16_t *cell = &lut.table[(li * lut.angle_steps + ai) * 2];
-
   const float c_lo = static_cast<float>(cell[0]) * GAMUT_LUT_INV_SCALE;
-  const float inv_c = fast_rsqrt(c_sq);
+  const float c_hi = static_cast<float>(cell[1]) * GAMUT_LUT_INV_SCALE;
+  const float boundary = gamut_bracket_refine(L, a, b, c_lo, c_hi);
+  return std::max(0.0f, boundary - GAMUT_CLIP_MARGIN);
+}
 
-  float u;
-  if (c_sq <= c_lo * c_lo) {
-    float r, g, b;
-    oklab_to_linear_rgb(lab, r, g, b);
-    if (linear_rgb_in_gamut(r, g, b))
-      return lab;
-    u = gamut_bracket_refine(lab.L, lab.a, lab.b, 0.0f, 1.0f);
-  } else {
-    const float c_hi = static_cast<float>(cell[1]) * GAMUT_LUT_INV_SCALE;
-    const float hi = std::min(1.0f, c_hi * inv_c);
-    u = gamut_bracket_refine(lab.L, lab.a, lab.b, c_lo * inv_c, hi);
-  }
-  u -= GAMUT_CLIP_MARGIN * inv_c;
-  if (u < 0.0f)
-    u = 0.0f;
-  return {lab.L, lab.a * u, lab.b * u};
+/**
+ * @brief Reduces OKLab chroma to the first sRGB gamut boundary.
+ * @param lab Source color; lightness is clamped to [0,1].
+ * @return The source color or its fixed-lightness, fixed-hue projection.
+ */
+HS_O3_FN __attribute__((noinline)) inline OKLab
+gamut_clip_preserve_chroma(OKLab lab) {
+  lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
+  const float c_sq = lab.a * lab.a + lab.b * lab.b;
+  if (!(c_sq > 1e-12f))
+    return {lab.L, 0.0f, 0.0f};
+
+  const float C = sqrtf(c_sq);
+  const float C_MAX = gamut_max_chroma(lab.L, atan2f(lab.b, lab.a));
+  if (C <= C_MAX)
+    return lab;
+  const float scale = C_MAX / C;
+  return {lab.L, lab.a * scale, lab.b * scale};
 }
 
 /**
@@ -1405,582 +1502,7 @@ private:
   Pixel entries[256];
 };
 
-/**
- * @brief A palette that generates colors based on defined harmony and
- * brightness profiles.
- */
-class GenerativePalette : public Palette {
-public:
-  /** @brief Three canonical OKLCH palette keys. */
-  struct Snapshot {
-    OKLCH a, b, c;
-  };
-  static_assert(sizeof(Snapshot) == 36);
-
-  /**
-   * @brief Default-constructs a straight, analogous, flat-brightness palette.
-   */
-  HS_COLD_MEMBER GenerativePalette()
-      : GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
-                          BrightnessProfile::FLAT) {}
-
-  /**
-   * @brief Builds a palette from three pre-authored sRGB key colors.
-   * @param gradient_shape Shape/distribution of colors across the domain.
-   * @param ka First key color (stop a).
-   * @param kb Second key color (stop b).
-   * @param kc Third key color (stop c).
-   * @details RNG-free: the keys are supplied directly rather than sampled from
-   *          profiles.
-   */
-  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape,
-                                   const CPixel &ka, const CPixel &kb,
-                                   const CPixel &kc)
-      : GenerativePalette(gradient_shape, Pixel(ka), Pixel(kb), Pixel(kc)) {}
-
-  /**
-   * @brief Builds a palette from three pre-authored 16-bit linear key colors.
-   * @param gradient_shape Shape/distribution of colors across the domain.
-   * @param ka First key color (stop a).
-   * @param kb Second key color (stop b).
-   * @param kc Third key color (stop c).
-   * @details RNG-free: the keys are supplied directly rather than sampled from
-   *          profiles.
-   */
-  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape,
-                                   const Pixel &ka, const Pixel &kb,
-                                   const Pixel &kc)
-      : gradient_shape(gradient_shape) {
-    OKLCH key_a = pixel_to_oklch(ka);
-    OKLCH key_b = pixel_to_oklch(kb);
-    OKLCH key_c = pixel_to_oklch(kc);
-    key_b.h = key_a.h + wrap_angle_pi(key_b.h - key_a.h);
-    key_c.h = key_b.h + wrap_angle_pi(key_c.h - key_b.h);
-    a = key_a;
-    b = key_b;
-    c = key_c;
-    update_stops();
-  }
-
-  /**
-   * @brief The three (h,s,v) key triples a profile-driven construction resolves
-   *        to, in stop order a, b, c.
-   */
-  struct HsvKeys {
-    uint8_t h1, s1, v1;
-    uint8_t h2, s2, v2;
-    uint8_t h3, s3, v3;
-  };
-
-  /**
-   * @brief Builds a 3-key palette from a base hue, harmony, and profiles.
-   * @param gradient_shape Shape/distribution of colors across the domain.
-   * @param harmony_type Harmony rule deriving the two companion hues.
-   * @param profile Brightness profile across the domain.
-   * @param sat_profile Saturation profile; defaults to MID.
-   * @param manual_seed Base hue in [0, 255] when >= 0, else -1 to auto-seed.
-   *        Supplying it is the opt-out from the shared `g_hue_seed` cursor: the
-   *        global is then neither read nor advanced, giving an instance-local,
-   *        deterministic base hue.
-   * @details The base hue comes from manual_seed when >= 0, else from the global
-   * golden-ratio hue cursor (which is then advanced). With manual_seed >= 0 the
-   * harmony jitter and the saturation/brightness draws are hashed from the seed
-   * too, so the whole palette reproduces regardless of global RNG position.
-   */
-  HS_COLD_MEMBER
-  GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type,
-                    BrightnessProfile profile,
-                    SaturationProfile sat_profile = SaturationProfile::MID,
-                    int manual_seed = -1)
-      : gradient_shape(gradient_shape) {
-    const HsvKeys k =
-        resolve_hsv_keys(harmony_type, profile, sat_profile, manual_seed);
-    const Snapshot keys = canonical_hsv_keys(k.h1, k.s1, k.v1, k.h2, k.s2, k.v2,
-                                             k.h3, k.s3, k.v3);
-    a = keys.a;
-    b = keys.b;
-    c = keys.c;
-
-    update_stops();
-  }
-
-  /**
-   * @brief Resolves the profile-driven key triples the profile constructor
-   *        authors its keys from.
-   * @param harmony_type Harmony rule deriving the two companion hues.
-   * @param profile Brightness profile across the domain.
-   * @param sat_profile Saturation profile.
-   * @param manual_seed Base hue in [0, 255] when >= 0, else -1 to auto-seed.
-   * @return The nine resolved HSV components.
-   * @details Same draw order and RNG contract as the profile constructor, which
-   *          delegates here: manual_seed < 0 reads and advances the global hue
-   *          cursor and takes every draw from the global RNG.
-   */
-  HS_COLD_MEMBER static HsvKeys resolve_hsv_keys(HarmonyType harmony_type,
-                                                 BrightnessProfile profile,
-                                                 SaturationProfile sat_profile,
-                                                 int manual_seed) {
-    uint8_t palette_hue;
-    if (manual_seed >= 0) {
-      palette_hue = static_cast<uint8_t>(manual_seed);
-    } else {
-      palette_hue = g_hue_seed;
-      // Weyl recurrence mod 256, step 157 (= trunc(INV_PHI*255)): 157 is coprime
-      // with 256 so the cursor visits every residue; rounding to 158 short-cycles.
-      g_hue_seed =
-          static_cast<uint8_t>((static_cast<uint32_t>(g_hue_seed) +
-                                static_cast<uint32_t>(INV_PHI * 255.0f)) %
-                               256);
-    }
-
-    uint8_t h1 = palette_hue;
-    uint8_t h2, h3;
-
-    calc_hues(h1, h2, h3, harmony_type, manual_seed);
-
-    uint8_t s1 = 0, s2 = 0, s3 = 0;
-    switch (sat_profile) {
-    case SaturationProfile::PASTEL:
-      s1 = s2 = s3 = 100;
-      break;
-    case SaturationProfile::MID:
-      s1 = seeded_rand_int(manual_seed, 4, 153, 204);
-      s2 = seeded_rand_int(manual_seed, 5, 153, 204);
-      s3 = seeded_rand_int(manual_seed, 6, 153, 204);
-      break;
-    case SaturationProfile::VIBRANT:
-      s1 = s2 = s3 = 255;
-      break;
-    }
-
-    uint8_t v1 = 0, v2 = 0, v3 = 0;
-    switch (profile) {
-    case BrightnessProfile::ASCENDING:
-      v1 = seeded_rand_int(manual_seed, 7, 25, 76);
-      v2 = seeded_rand_int(manual_seed, 8, 127, 178);
-      v3 = seeded_rand_int(manual_seed, 9, 204, 256);
-      break;
-    case BrightnessProfile::DESCENDING:
-      v1 = seeded_rand_int(manual_seed, 7, 204, 256);
-      v2 = seeded_rand_int(manual_seed, 8, 127, 178);
-      v3 = seeded_rand_int(manual_seed, 9, 25, 76);
-      break;
-    case BrightnessProfile::FLAT:
-      v1 = v2 = v3 = 255;
-      break;
-    case BrightnessProfile::BELL:
-      v1 = seeded_rand_int(manual_seed, 7, 51, 127);
-      v2 = seeded_rand_int(manual_seed, 8, 178, 256);
-      v3 = v1;
-      break;
-    case BrightnessProfile::CUP:
-      v1 = seeded_rand_int(manual_seed, 7, 178, 256);
-      v2 = seeded_rand_int(manual_seed, 8, 51, 127);
-      v3 = v1;
-      break;
-    }
-
-    return {h1, s1, v1, h2, s2, v2, h3, s3, v3};
-  }
-
-  /**
-   * @brief Builds a palette from three explicit, fully-resolved HSV key triples
-   *        with NO RNG draws.
-   * @param gradient_shape Shape/distribution of colors across the domain.
-   * @param h1 First key hue in [0,255].
-   * @param s1 First key saturation in [0,255].
-   * @param v1 First key value in [0,255].
-   * @param h2 Second key hue in [0,255].
-   * @param s2 Second key saturation in [0,255].
-   * @param v2 Second key value in [0,255].
-   * @param h3 Third key hue in [0,255].
-   * @param s3 Third key saturation in [0,255].
-   * @param v3 Third key value in [0,255].
-   * @return A palette whose keys are the OKLCH-authored (h,s,v) triples.
-   * @details Mirrors the profile constructor's key authoring and stop layout,
-   *          but takes (h,s,v) as parameters instead of sampling the global RNG.
-   *          Entry point for the daydream palette tool's WASM bridge (PaletteOps),
-   *          which owns its own randomization and asks only for the color math.
-   */
-  static GenerativePalette from_hsv_keys(GradientShape gradient_shape,
-                                         uint8_t h1, uint8_t s1, uint8_t v1,
-                                         uint8_t h2, uint8_t s2, uint8_t v2,
-                                         uint8_t h3, uint8_t s3, uint8_t v3) {
-    return GenerativePalette(
-        gradient_shape, canonical_hsv_keys(h1, s1, v1, h2, s2, v2, h3, s3, v3));
-  }
-
-  // Peak OKLCH chroma at mid-lightness; the saturation profile scales it and a
-  // sin(pi*L) envelope (key_oklch / get()) tapers it toward the lightness extremes.
-  static constexpr float CHROMA_PEAK = 0.23f;
-
-  // Hue torsion: radians of hue rotation per unit lightness, applied in get() as
-  // h += HUE_TORSION * (L - 0.5), so shadows and highlights shift along the ramp.
-  static constexpr float HUE_TORSION = 0.35f;
-
-  // 8-bit hue wheel: harmony companion hues are fractions of the 256-value ring.
-  static constexpr int HUE_WHEEL = 256;
-  static constexpr int HUE_TRIADIC = HUE_WHEEL / 3;    // 1/3 turn (85)
-  static constexpr int HUE_COMPLEMENT = HUE_WHEEL / 2; // 1/2 turn (128)
-
-  // Perceptual lightness band a key's HSV value maps into: L = LIGHTNESS_FLOOR +
-  // (val/255) * LIGHTNESS_SPAN, i.e. [0.12, 0.67] — below L=1 where the sRGB
-  // gamut starves of chroma (see key_oklch).
-  static constexpr float LIGHTNESS_FLOOR = 0.12f;
-  static constexpr float LIGHTNESS_SPAN = 0.55f;
-
-  /**
-   * @brief OKLCH coordinates for one HSV-authored key. Single source of truth
-   *        for the perceptual key placement.
-   * @param hue Key hue in [0,255]; reinterpreted as an OKLCH hue angle.
-   * @param sat Key saturation in [0,255]; scaled into OKLCH chroma.
-   * @param val Key value in [0,255]; mapped into a perceptual lightness band.
-   * @return The key's OKLCH coordinates (before the gamut-mapped sRGB bake).
-   */
-  static OKLCH key_oklch(uint8_t hue, uint8_t sat, uint8_t val) {
-    // Even perceptual hue spacing: integer harmony offsets become true OKLCH-hue
-    // offsets (triadic is a real 120deg).
-    float h = (hue / 256.0f) * (2.0f * PI_F);
-    float L = LIGHTNESS_FLOOR + (val / 255.0f) * LIGHTNESS_SPAN;
-    // Chroma co-varies with lightness via a sin(pi*L) envelope; get() re-applies
-    // the same envelope at the interpolated L.
-    float C = (sat / 255.0f) * CHROMA_PEAK * fast_sinf(PI_F * L);
-    return {L, C, h};
-  }
-
-  /**
-   * @brief Authors one key: OKLCH placement baked to a gamut-mapped 16-bit
-   *        linear Pixel.
-   * @param hue Key hue in [0,255].
-   * @param sat Key saturation in [0,255].
-   * @param val Key value in [0,255].
-   * @return The authored key as a 16-bit linear Pixel.
-   */
-  HS_COLD_MEMBER static Pixel author_key(uint8_t hue, uint8_t sat,
-                                         uint8_t val) {
-    return oklch_to_pixel(key_oklch(hue, sat, val));
-  }
-
-  /**
-   * @brief Rebuilds stop positions/colors for the current gradient_shape.
-   * @details Derives the stops from the three keys a/b/c, then caches their
-   * OKLCH forms for get(). Call after any change to a/b/c or gradient_shape.
-   */
-  HS_COLD_MEMBER void update_stops() {
-    const OKLCH vignette_color{0.0f, 0.0f, 0.0f};
-    std::array<OKLCH, MAX_STOPS> colors;
-    switch (gradient_shape) {
-    case GradientShape::VIGNETTE:
-      shape = {0, 0.1f, 0.5f, 0.9f, 1.0f};
-      colors = {vignette_color, a, b, c, vignette_color};
-      size = 5;
-      break;
-    case GradientShape::STRAIGHT:
-      shape = {0, 0.5f, 1.0f};
-      colors = {a, b, c};
-      size = 3;
-      break;
-    case GradientShape::CIRCULAR:
-      shape = {0, 0.25f, 0.5f};
-      colors = {a, c, b};
-      colors[1].h = colors[0].h + wrap_angle_pi(colors[1].h - colors[0].h);
-      colors[2].h = colors[1].h + (b.h - c.h);
-      size = 3;
-      break;
-    case GradientShape::FALLOFF:
-      shape = {0, 0.33f, 0.66f, 0.9f, 1.0f};
-      colors = {a, b, c, vignette_color, vignette_color};
-      size = 5;
-      break;
-    default:
-      HS_CHECK(false, "GenerativePalette: unknown gradient_shape");
-    }
-    for (int i = 0; i < size; ++i) {
-      colors_oklch[i] = colors[i];
-      // Recover the stop's chroma ceiling cmax = C / sin(pi*L) so get() can
-      // re-apply the envelope at the interpolated L (fast_sinf matches get()).
-      // env -> 0 at L near 0/1 forces cmax = 0. A near-gray stop carries no
-      // meaningful hue; zero its cmax so get()'s envelope + hue torsion can't
-      // bloom a tint into midtone grays.
-      float env = fast_sinf(PI_F * colors_oklch[i].L);
-      colors_cmax[i] = (colors_oklch[i].C >= OKLCH_ACHROMATIC_C && env > 1e-3f)
-                           ? colors_oklch[i].C / env
-                           : 0.0f;
-    }
-  }
-
-  /**
-   * @brief Captures the current three color keys.
-   * @return A Snapshot of keys a, b, c.
-   */
-  Snapshot snapshot() const { return {a, b, c}; }
-
-  /** @brief Returns whether the palette mirrors around t = 0.5. */
-  bool mirrors_domain() const {
-    return gradient_shape == GradientShape::CIRCULAR;
-  }
-
-  /**
-   * @brief Sets this palette's keys to the OKLCH interpolation of two palettes.
-   * @param from Source palette at amount == 0.
-   * @param to Source palette at amount == 1.
-   * @param amount Blend weight.
-   */
-  void lerp(const GenerativePalette &from, const GenerativePalette &to,
-            float amount) {
-    lerp(from.snapshot(), to.snapshot(), amount);
-  }
-
-  /**
-   * @brief Sets keys to the OKLCH interpolation of two snapshots.
-   * @param from Source snapshot at amount == 0.
-   * @param to Source snapshot at amount == 1.
-   * @param amount Blend weight.
-   * @details Key hues travel coherent arcs: key a takes its shortest arc and
-   * b/c rotate with it while their offsets from a morph along their own
-   * shortest arcs. Independent per-key shortest arcs can counter-rotate,
-   * sweeping adjacent stops past a half-turn mid-fade, where get()'s
-   * shortest-arc segment lerp flips direction — a one-frame hue pop. Falls
-   * back to per-key arcs when any key is near-gray (no meaningful hue).
-   * Rebuilds the stops after interpolating.
-   */
-  HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to,
-                           float amount) {
-    // Clamp: an extrapolated amount overshoots into an invalid OKLCH (L > 1
-    // or C past gamut).
-    amount = hs::clamp(amount, 0.0f, 1.0f);
-    const OKLCH fk[3] = {from.a, from.b, from.c};
-    const OKLCH tk[3] = {to.a, to.b, to.c};
-    OKLCH *keys[3] = {&a, &b, &c};
-    bool chromatic = true;
-    for (int i = 0; i < 3; ++i)
-      chromatic = chromatic && fk[i].C >= OKLCH_ACHROMATIC_C &&
-                  tk[i].C >= OKLCH_ACHROMATIC_C;
-    if (chromatic) {
-      const float d0 = wrap_angle_pi(tk[0].h - fk[0].h);
-      for (int i = 0; i < 3; ++i) {
-        const float d =
-            i == 0
-                ? d0
-                : d0 + wrap_angle_pi((tk[i].h - tk[0].h) - (fk[i].h - fk[0].h));
-        *keys[i] = {
-            hs::clamp(fk[i].L + (tk[i].L - fk[i].L) * amount, 0.0f, 1.0f),
-            std::max(0.0f, fk[i].C + (tk[i].C - fk[i].C) * amount),
-            fk[i].h + d * amount};
-      }
-    } else {
-      for (int i = 0; i < 3; ++i) {
-        const float d = wrap_angle_pi(tk[i].h - fk[i].h);
-        *keys[i] = {
-            hs::clamp(fk[i].L + (tk[i].L - fk[i].L) * amount, 0.0f, 1.0f),
-            std::max(0.0f, fk[i].C + (tk[i].C - fk[i].C) * amount),
-            fk[i].h + d * amount};
-      }
-    }
-    update_stops();
-  }
-
-  /**
-   * @brief Samples the generated palette at a coordinate.
-   * @param t Lookup coordinate; clamped to [0, 1] (NaN folds to 1.0).
-   * @return The color at t (alpha 1.0).
-   */
-  Color4 get(float t) const override {
-    // Clamp first: a t < shape[0] matches no segment and falls through to the
-    // size-2 fallback below, returning the wrong stop (a discontinuity at t=0).
-    t = hs::clamp(t, 0.0f, 1.0f);
-    if (gradient_shape == GradientShape::CIRCULAR)
-      t = std::min(t, 1.0f - t);
-    int seg = -1;
-    for (int i = 0; i < size - 1; ++i) {
-      if (t >= shape[i] && t < shape[i + 1]) {
-        seg = i;
-        break;
-      }
-    }
-    if (seg < 0)
-      seg = size - 2;
-
-    float start = shape[seg];
-    float end = shape[seg + 1];
-
-    float dist = end - start;
-    // Zero-width segment: pin to the left stop (p=0) and render it through the
-    // OKLCH path below, avoiding both a divide by ~0 and the raw stored key.
-    float p = dist < 0.0001f ? 0.0f : hs::clamp((t - start) / dist, 0.0f, 1.0f);
-    if (gradient_shape == GradientShape::CIRCULAR)
-      p = 0.5f - 0.5f * fast_cosf(PI_F * p);
-
-    const OKLCH &left = colors_oklch[seg];
-    const OKLCH &right = colors_oklch[seg + 1];
-    float hue;
-    if (left.C < OKLCH_ACHROMATIC_C && right.C < OKLCH_ACHROMATIC_C)
-      hue = 0.0f;
-    else if (left.C < OKLCH_ACHROMATIC_C)
-      hue = right.h;
-    else if (right.C < OKLCH_ACHROMATIC_C)
-      hue = left.h;
-    else
-      hue = left.h + (right.h - left.h) * p;
-    OKLCH blended = {
-        hs::clamp(colors_oklch[seg].L +
-                      (colors_oklch[seg + 1].L - colors_oklch[seg].L) * p,
-                  0.0f, 1.0f),
-        0.0f, hue};
-    // Re-derive chroma on the envelope at the interpolated L (see colors_cmax).
-    // fast_sinf matches update_stops().
-    float cmax =
-        colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
-    // Floor at 0: a small negative from fast_sinf would flip hue 180° in oklch_to_oklab.
-    blended.C = std::max(0.0f, cmax * fast_sinf(PI_F * blended.L));
-    // Hue torsion: drift hue with lightness, centered at L=0.5.
-    blended.h += HUE_TORSION * (blended.L - 0.5f);
-    return Color4(oklch_to_pixel(blended), 1.0f);
-  }
-
-  /**
-   * @brief Trivial constexpr destructor.
-   */
-  constexpr ~GenerativePalette() {}
-
-  /**
-   * @brief Pins the global generative-hue cursor.
-   * @param seed Hue value in [0, 255] to set the cursor to; defaults to 0.
-   * @details Auto-seeded palettes draw their base hue from `g_hue_seed` and
-   * advance it (golden-ratio step); deliberately stateful, never reset in
-   * production. The test harness calls this to restore identical global state
-   * before re-rendering an effect.
-   */
-  static void reset_hue_seed(uint8_t seed = 0) { g_hue_seed = seed; }
-
-private:
-  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape,
-                                   const Snapshot &keys)
-      : gradient_shape(gradient_shape), a(keys.a), b(keys.b), c(keys.c) {
-    update_stops();
-  }
-
-  static int authored_hue_delta(uint8_t from, uint8_t to) {
-    int delta = static_cast<uint8_t>(to - from);
-    return delta > HUE_WHEEL / 2 ? delta - HUE_WHEEL : delta;
-  }
-
-  static Snapshot canonical_hsv_keys(uint8_t h1, uint8_t s1, uint8_t v1,
-                                     uint8_t h2, uint8_t s2, uint8_t v2,
-                                     uint8_t h3, uint8_t s3, uint8_t v3) {
-    OKLCH key_a = key_oklch(h1, s1, v1);
-    OKLCH key_b = key_oklch(h2, s2, v2);
-    OKLCH key_c = key_oklch(h3, s3, v3);
-    key_b.h = key_a.h + authored_hue_delta(h1, h2) * (2.0f * PI_F / 256.0f);
-    key_c.h = key_b.h + authored_hue_delta(h2, h3) * (2.0f * PI_F / 256.0f);
-    return {key_a, key_b, key_c};
-  }
-
-  /**
-   * @brief Wraps an integer hue into [0,255], correct for negative inputs.
-   * @param hue Hue value to wrap; may be negative.
-   * @return The hue reduced to [0, 255].
-   */
-  static uint8_t wrap_hue(int hue) { return (hue % 256 + 256) % 256; }
-
-  /**
-   * @brief Setup-time integer draw in [min, max), seed-hashed when pinned.
-   * @param manual_seed Palette seed; < 0 draws from the global RNG instead.
-   * @param site Draw-site index; must be distinct per call site.
-   * @param min Lower bound, inclusive.
-   * @param max Upper bound, exclusive.
-   * @return The drawn value, matching hs::rand_int's range contract.
-   * @details A pinned seed makes every construction draw reproducible without
-   * reading or advancing the global cursor, so an unrelated draw between two
-   * identically-parameterized constructions cannot shift the palette. The site
-   * index is spread by the golden-ratio constant before hashing: seed and site
-   * are both small, and hash01 mixes them with XOR, so raw indices would alias
-   * neighbouring seeds.
-   */
-  HS_COLD_MEMBER static int seeded_rand_int(int manual_seed, uint32_t site,
-                                            int min, int max) {
-    if (manual_seed < 0) {
-      return hs::rand_int(min, max);
-    }
-    if (max <= min) {
-      return min;
-    }
-    const float u =
-        hash01(static_cast<uint32_t>(manual_seed), site * 0x9E3779B9u);
-    return min + static_cast<int>(u * static_cast<float>(max - min));
-  }
-
-  /**
-   * @brief Derives the two companion hues from base hue h1 per a harmony.
-   * @param h1 Base hue in [0, 255].
-   * @param h2 Out: first companion hue.
-   * @param h3 Out: second companion hue.
-   * @param harmony_type Harmony rule selecting the offsets.
-   * @param manual_seed Palette seed forwarded to the jitter draws; < 0 draws
-   *        from the global RNG.
-   * @details Some harmonies add jitter, so output is not pure unless seeded.
-   */
-  HS_COLD_MEMBER static void calc_hues(uint8_t h1, uint8_t &h2, uint8_t &h3,
-                                       HarmonyType harmony_type,
-                                       int manual_seed) {
-    const int h1_int = h1;
-    switch (harmony_type) {
-    case HarmonyType::TRIADIC:
-      h2 = wrap_hue(h1_int + HUE_TRIADIC);
-      h3 = wrap_hue(h1_int + 2 * HUE_TRIADIC);
-      break;
-    case HarmonyType::SPLIT_COMPLEMENTARY: {
-      const int complement = wrap_hue(h1_int + HUE_COMPLEMENT);
-      const int offset = 21;
-      h2 = wrap_hue(complement - offset);
-      h3 = wrap_hue(complement + offset);
-      break;
-    }
-    case HarmonyType::COMPLEMENTARY: {
-      h2 = wrap_hue(h1_int + HUE_COMPLEMENT);
-      const int offset = seeded_rand_int(manual_seed, 0, -7, 8);
-      h3 = wrap_hue(h1_int + offset);
-      break;
-    }
-    case HarmonyType::ANALOGOUS:
-    default: {
-      const int dir = (seeded_rand_int(manual_seed, 1, 0, 2) == 0) ? 1 : -1;
-      const int offset1 = dir * seeded_rand_int(manual_seed, 2, 11, 22);
-      h2 = wrap_hue(h1_int + offset1);
-      const int offset2 = dir * seeded_rand_int(manual_seed, 3, 11, 22);
-      h3 = wrap_hue(h2 + offset2);
-      break;
-    }
-    }
-  }
-
-  GradientShape gradient_shape;
-  OKLCH a, b, c;
-
-  // Static cursor shared across instances: each auto-seeded construction
-  // (manual_seed < 0) reads and advances it for a distinct base hue. Non-atomic;
-  // palette construction is single-threaded.
-  static inline uint8_t g_hue_seed = 0;
-
-  // Single capacity bound for the parallel per-stop arrays below; `size` (set
-  // only by update_stops) selects the live prefix shared by all of them.
-  static constexpr int MAX_STOPS = 5;
-  std::array<float, MAX_STOPS> shape;
-  /**
-   * @brief OKLCH forms of `colors`, cached by update_stops().
-   * @details Lets the per-sample get() hot path skip the linear->OKLCH
-   * conversion (6 cbrtf + 2 atan2f per stop).
-   */
-  std::array<OKLCH, MAX_STOPS> colors_oklch;
-  /**
-   * @brief Per-stop chroma ceiling, cached by update_stops().
-   * @details Each stop's chroma is authored as C = cmax * sin(pi*L) (see
-   * key_oklch). Caching cmax = C/sin(pi*L) lets get() re-apply the envelope at
-   * the interpolated L, keeping midpoints on the sin curve, not a chord.
-   */
-  std::array<float, MAX_STOPS> colors_cmax{};
-  int size = 0;
-};
+#include "color/generative_palette.h"
 
 /**
  * @brief A palette defined by a mathematical cosine wave function.

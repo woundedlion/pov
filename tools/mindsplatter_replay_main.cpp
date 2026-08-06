@@ -174,7 +174,6 @@ bool run_pass(ReplayEffect &effect, const mindsplatter_replay::Corpus &corpus,
 int main() {
   const auto &corpus = mindsplatter_replay::HEAVY_SEARCH_V1;
   hs::random().seed(1337u);
-  GenerativePalette::reset_hue_seed(0);
   configure_arenas_default();
   ReplayEffect effect;
   effect.init();

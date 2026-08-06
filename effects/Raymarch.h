@@ -212,9 +212,9 @@ private:
       nn_angle; // per-vertex nearest-neighbour gap (rad)
   Timeline timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
-  GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
-                            BrightnessProfile::BELL, SaturationProfile::VIBRANT,
-                            219};
+  GenerativePalette palette{PaletteRecipes::profile(
+      PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY, AxisCurve::BELL,
+      PaletteRecipes::hue_turns(219), 0.86f)};
   BakedPalette baked_palette;
 
   /**

@@ -259,7 +259,6 @@ struct ShapeShifterWhiteBox {
 template <typename Render>
 inline OracleFrame capture_frame(const OracleState &state, Render &&render) {
   reset_globals();
-  GenerativePalette::reset_hue_seed(0);
   hs::set_mock_time(0, 0);
   hs::g_scan_metrics.reset();
 

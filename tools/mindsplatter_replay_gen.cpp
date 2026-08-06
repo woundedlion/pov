@@ -91,7 +91,6 @@ std::optional<SearchResult> search_corpus() {
     Workload preset_peak;
     uint16_t preset_peak_frame = 0;
     uint8_t preset_peak_clip = 0;
-    GenerativePalette::reset_hue_seed(0);
     hs::random().seed(SEARCH_SEED);
     hs::set_mock_time(0, 0);
     configure_arenas_default();
@@ -201,7 +200,6 @@ int main(int argc, char **argv) {
 
   const std::vector<unsigned char> state =
       WhiteBox::serialize_render(selected->snapshot);
-  GenerativePalette::reset_hue_seed(0);
   hs::random().seed(SEARCH_SEED);
   configure_arenas_default();
   ReplayEffect effect;
