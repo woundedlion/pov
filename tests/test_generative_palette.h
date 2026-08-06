@@ -25,6 +25,8 @@ inline void test_generative_palette_recipe_validation() {
   input.hue.spread_turns = 0.5f;
   input.lightness.range = -0.2f;
   input.falloff_start = 0.75f;
+  input.input.offset = 0.8f;
+  input.input.span = 0.5f;
 
   GenerativePalette output;
   PaletteRecipe canonical;
@@ -36,6 +38,8 @@ inline void test_generative_palette_recipe_validation() {
   HS_EXPECT_NEAR(canonical.hue.spread_turns, 0.25f, 1e-6f);
   HS_EXPECT_NEAR(canonical.lightness.range, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(canonical.falloff_start, 0.90f, 1e-6f);
+  HS_EXPECT_NEAR(canonical.input.offset, 0.8f, 1e-6f);
+  HS_EXPECT_NEAR(canonical.input.span, 0.2f, 1e-6f);
   HS_EXPECT_TRUE(status.adjustments.wrapped_fields != 0);
   HS_EXPECT_TRUE(status.adjustments.clamped_fields != 0);
   HS_EXPECT_TRUE(status.adjustments.canonicalized_fields != 0);
@@ -51,6 +55,31 @@ inline void test_generative_palette_recipe_validation() {
   HS_EXPECT_EQ(std::memcmp(&before, &after, sizeof(before)), 0);
   HS_EXPECT_EQ(
       std::memcmp(&canonical_before, &canonical, sizeof(canonical_before)), 0);
+}
+
+inline void test_generative_palette_input_window() {
+  PaletteRecipe recipe =
+      PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
+                              AxisCurve::BELL, 0.17f, 0.86f);
+  const GenerativePalette full(recipe);
+
+  recipe.input.offset = 0.2f;
+  recipe.input.span = 0.4f;
+  const GenerativePalette windowed(recipe);
+  HS_EXPECT_NEAR(windowed.palette_input_offset(), 0.2f, 1e-6f);
+  HS_EXPECT_NEAR(windowed.palette_input_span(), 0.4f, 1e-6f);
+  for (int i = 0; i <= 16; ++i) {
+    const float t = i / 16.0f;
+    const Pixel actual = windowed.get(t).color;
+    const Pixel expected = full.get(0.2f + 0.4f * t).color;
+    HS_EXPECT_EQ(actual.r, expected.r);
+    HS_EXPECT_EQ(actual.g, expected.g);
+    HS_EXPECT_EQ(actual.b, expected.b);
+  }
+
+  recipe.domain = PaletteDomain::MIRROR;
+  const GenerativePalette cropped_mirror(recipe);
+  HS_EXPECT_FALSE(cropped_mirror.mirrors_domain());
 }
 
 inline void test_generative_palette_resolves_axes_and_harmony() {

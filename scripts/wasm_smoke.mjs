@@ -1166,7 +1166,8 @@ async function main() {
     const po = new Module.PaletteOps();
     try {
       const recipe = {
-        schemaVersion: 2, domain: 0, easing: 1, colorPath: 0,
+        schemaVersion: 2, input: { offset: 0, span: 1 },
+        domain: 0, easing: 1, colorPath: 0,
         hue: {
           mode: 0, harmony: 5, direction: 0, baseTurns: 0,
           spreadTurns: 0.07, sweepTurns: 1, customTurns: [0, 0, 0],
@@ -1179,7 +1180,7 @@ async function main() {
         hueTorsion: 0, falloffStart: 0.9,
       };
       const result = po.inspectV2(recipe);
-      const lut = result.lut;
+      const lut = Uint8Array.from(result.lut ?? []);
       if (result.status.code !== 0) {
         fail(`compileAndBakeV2 returned status ${result.status.code}`);
       }
@@ -1190,6 +1191,20 @@ async function main() {
       }
       if (!result.diagnostics || result.diagnostics.length !== 256 * 6)
         fail(`inspectV2 diagnostics length ${result.diagnostics?.length}, expected ${256 * 6}`);
+
+      recipe.input = { offset: 0.2, span: 0.4 };
+      const windowed = po.compileAndBakeV2(recipe);
+      const windowedLut = Uint8Array.from(windowed.lut ?? []);
+      const sourceEndpoints = [51, 153];
+      for (const [destination, source] of [[0, sourceEndpoints[0]], [255, sourceEndpoints[1]]]) {
+        for (let channel = 0; channel < 3; ++channel) {
+          if (windowedLut[destination * 3 + channel] !== lut[source * 3 + channel])
+            fail(`palette input window endpoint ${destination}, channel ${channel} did not map to source ${source}`);
+        }
+      }
+      if (Math.abs(windowed.canonicalRecipe.input.offset - 0.2) > 1e-6 ||
+          Math.abs(windowed.canonicalRecipe.input.span - 0.4) > 1e-6)
+        fail(`palette input window was not preserved by canonicalization`);
     } finally {
       po.delete();
     }
