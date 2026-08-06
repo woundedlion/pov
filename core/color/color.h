@@ -503,10 +503,16 @@ struct ChromaControls {
   std::array<float, 3> custom{};
 };
 
+struct PaletteInputWindow {
+  float offset = 0.0f;
+  float span = 1.0f;
+};
+
 struct PaletteRecipe {
   static constexpr uint8_t SCHEMA_VERSION = 2;
 
   uint8_t schema_version = SCHEMA_VERSION;
+  PaletteInputWindow input;
   PaletteDomain domain = PaletteDomain::STRAIGHT;
   SegmentEase easing = SegmentEase::COSINE;
   ColorPath color_path = ColorPath::OKLCH_ARC;
@@ -559,6 +565,8 @@ enum class PaletteRecipeField : uint8_t {
   HUE_TORSION = 27,
   FALLOFF_START = 28,
   SCHEMA_VERSION = 29,
+  INPUT_OFFSET = 30,
+  INPUT_SPAN = 31,
 };
 
 struct PaletteAdjustments {

@@ -53,6 +53,9 @@ private:
     recipe.schema_version = schema_version == PaletteRecipe::SCHEMA_VERSION
                                 ? PaletteRecipe::SCHEMA_VERSION
                                 : 0;
+    const val recipe_input = input["input"];
+    recipe.input.offset = recipe_input["offset"].as<float>();
+    recipe.input.span = recipe_input["span"].as<float>();
     if (!decode_enum(input, "domain", static_cast<int>(PaletteDomain::LOOP),
                      recipe.domain, PaletteRecipeField::PALETTE_DOMAIN,
                      status) ||
@@ -112,6 +115,10 @@ private:
   }
 
   static val encode_recipe(const PaletteRecipe &recipe) {
+    val recipe_input = val::object();
+    recipe_input.set("offset", recipe.input.offset);
+    recipe_input.set("span", recipe.input.span);
+
     val hue = val::object();
     hue.set("mode", static_cast<int>(recipe.hue.mode));
     hue.set("harmony", static_cast<int>(recipe.hue.harmony));
@@ -137,6 +144,7 @@ private:
 
     val output = val::object();
     output.set("schemaVersion", recipe.schema_version);
+    output.set("input", recipe_input);
     output.set("domain", static_cast<int>(recipe.domain));
     output.set("easing", static_cast<int>(recipe.easing));
     output.set("colorPath", static_cast<int>(recipe.color_path));

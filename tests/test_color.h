@@ -2146,6 +2146,7 @@ inline int run_color_tests() {
   test_mutating_palette_blends_endpoints();
   test_generative_palette_deterministic();
   test_generative_palette_recipe_validation();
+  test_generative_palette_input_window();
   test_generative_palette_resolves_axes_and_harmony();
   test_generative_palette_local_gamut_stays_in_gamut();
   test_generative_palette_domain_invariants();

@@ -73,9 +73,17 @@ public:
   SegmentEase segment_easing() const { return easing; }
   float palette_headroom() const { return headroom; }
   float palette_hue_torsion() const { return hue_torsion; }
+  float palette_input_offset() const { return input_offset; }
+  float palette_input_span() const { return input_span; }
 
-  bool mirrors_domain() const { return domain == PaletteDomain::MIRROR; }
-  bool loops_domain() const { return domain == PaletteDomain::LOOP; }
+  bool mirrors_domain() const {
+    return domain == PaletteDomain::MIRROR && input_offset == 0.0f &&
+           input_span == 1.0f;
+  }
+  bool loops_domain() const {
+    return domain == PaletteDomain::LOOP && input_offset == 0.0f &&
+           input_span == 1.0f;
+  }
 
   Diagnostic diagnose(float t) const {
     const Evaluated value = evaluate(t);
@@ -297,7 +305,10 @@ private:
            finite(recipe.hue_torsion, PaletteRecipeField::HUE_TORSION,
                   status) &&
            finite(recipe.falloff_start, PaletteRecipeField::FALLOFF_START,
-                  status);
+                  status) &&
+           finite(recipe.input.offset, PaletteRecipeField::INPUT_OFFSET,
+                  status) &&
+           finite(recipe.input.span, PaletteRecipeField::INPUT_SPAN, status);
   }
 
   static bool canonicalize(const PaletteRecipe &input, PaletteRecipe &canonical,
@@ -310,6 +321,10 @@ private:
       return false;
 
     PaletteRecipe recipe = input;
+    clamp_field(recipe.input.offset, 0.0f, 1.0f,
+                PaletteRecipeField::INPUT_OFFSET, status);
+    clamp_field(recipe.input.span, 0.0f, 1.0f - recipe.input.offset,
+                PaletteRecipeField::INPUT_SPAN, status);
     const float wrapped_base =
         recipe.hue.base_turns - floorf(recipe.hue.base_turns);
     if (wrapped_base != recipe.hue.base_turns) {
@@ -566,6 +581,8 @@ private:
     b = {lightness[1], chroma[1], hues[1] * 2.0f * PI_F};
     c = {lightness[2], chroma[2], hues[2] * 2.0f * PI_F};
     closing_hue *= 2.0f * PI_F;
+    input_offset = recipe.input.offset;
+    input_span = recipe.input.span;
     domain = recipe.domain;
     easing = recipe.easing;
     color_path = recipe.color_path;
@@ -601,6 +618,7 @@ private:
 
   Segment select_segment(float t) const {
     t = hs::clamp(t, 0.0f, 1.0f);
+    t = input_offset + t * input_span;
     if (domain == PaletteDomain::LOOP && t == 1.0f)
       t = 0.0f;
     if (domain == PaletteDomain::MIRROR)
@@ -774,6 +792,8 @@ private:
   float headroom = 0.94f;
   float hue_torsion = 0.0f;
   float falloff_start = 0.90f;
+  float input_offset = 0.0f;
+  float input_span = 1.0f;
   PaletteDomain domain = PaletteDomain::STRAIGHT;
   SegmentEase easing = SegmentEase::COSINE;
   ColorPath color_path = ColorPath::OKLCH_ARC;
