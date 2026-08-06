@@ -51,10 +51,12 @@ public:
    */
   HS_COLD_MEMBER MobiusGrid()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
-        palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
-                BrightnessProfile::FLAT),
-        next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
-                     BrightnessProfile::FLAT),
+        palette(PaletteRecipes::random_profile(
+            PaletteDomain::MIRROR, PaletteHarmony::SPLIT_COMPLEMENTARY,
+            AxisCurve::CONSTANT)),
+        next_palette(PaletteRecipes::random_profile(
+            PaletteDomain::MIRROR, PaletteHarmony::SPLIT_COMPLEMENTARY,
+            AxisCurve::CONSTANT)),
         mobius_gen(timeline),
         filters(NorthHole(Y_AXIS, 1.2f), SouthHole(-Y_AXIS, 1.2f),
                 Filter::World::Orient(orientation),
@@ -205,9 +207,9 @@ private:
    *        it.
    */
   void wipe_palette() {
-    next_palette = GenerativePalette(GradientShape::CIRCULAR,
-                                     HarmonyType::SPLIT_COMPLEMENTARY,
-                                     BrightnessProfile::FLAT);
+    next_palette = GenerativePalette{PaletteRecipes::random_profile(
+        PaletteDomain::MIRROR, PaletteHarmony::SPLIT_COMPLEMENTARY,
+        AxisCurve::CONSTANT)};
     timeline.add(0, Animation::ColorWipe(palette, next_palette, WIPE_FRAMES,
                                          ease_linear));
     wipe_frames_remaining = WIPE_FRAMES;

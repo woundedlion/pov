@@ -1,0 +1,184 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+#pragma once
+
+inline void test_generative_palette_deterministic() {
+  const PaletteRecipe recipe = PaletteRecipes::profile(
+      PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::BELL,
+      PaletteRecipes::hue_turns(77), 0.86f);
+  const GenerativePalette first(recipe);
+  const GenerativePalette second(recipe);
+  for (int i = 0; i < 256; ++i) {
+    const Pixel a = first.get(i / 255.0f).color;
+    const Pixel b = second.get(i / 255.0f).color;
+    HS_EXPECT_EQ(a.r, b.r);
+    HS_EXPECT_EQ(a.g, b.g);
+    HS_EXPECT_EQ(a.b, b.b);
+  }
+}
+
+inline void test_generative_palette_recipe_validation() {
+  PaletteRecipe input;
+  input.hue.base_turns = 1.25f;
+  input.hue.spread_turns = 0.5f;
+  input.lightness.range = -0.2f;
+  input.falloff_start = 0.75f;
+
+  GenerativePalette output;
+  PaletteRecipe canonical;
+  PaletteCompileStatus status;
+  HS_EXPECT_TRUE(
+      GenerativePalette::try_compile(input, output, canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::OK);
+  HS_EXPECT_NEAR(canonical.hue.base_turns, 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(canonical.hue.spread_turns, 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(canonical.lightness.range, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(canonical.falloff_start, 0.90f, 1e-6f);
+  HS_EXPECT_TRUE(status.adjustments.wrapped_fields != 0);
+  HS_EXPECT_TRUE(status.adjustments.clamped_fields != 0);
+  HS_EXPECT_TRUE(status.adjustments.canonicalized_fields != 0);
+
+  const GenerativePalette::Snapshot before = output.snapshot();
+  const PaletteRecipe canonical_before = canonical;
+  input.lightness.center = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_FALSE(
+      GenerativePalette::try_compile(input, output, canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::NON_FINITE);
+  HS_EXPECT_EQ(status.field, PaletteRecipeField::LIGHTNESS_CENTER);
+  const GenerativePalette::Snapshot after = output.snapshot();
+  HS_EXPECT_EQ(std::memcmp(&before, &after, sizeof(before)), 0);
+  HS_EXPECT_EQ(
+      std::memcmp(&canonical_before, &canonical, sizeof(canonical_before)), 0);
+}
+
+inline void test_generative_palette_resolves_axes_and_harmony() {
+  PaletteRecipe recipe = PaletteRecipes::profile(PaletteDomain::STRAIGHT,
+                                                 PaletteHarmony::COMPLEMENTARY,
+                                                 AxisCurve::ASCENDING, 0.0f);
+  recipe.lightness.center = 0.5f;
+  recipe.lightness.range = 0.6f;
+  const GenerativePalette palette(recipe);
+  const auto keys = palette.snapshot();
+
+  HS_EXPECT_NEAR(keys.a.L, 0.2f, 1e-6f);
+  HS_EXPECT_NEAR(keys.b.L, 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(keys.c.L, 0.8f, 1e-6f);
+  HS_EXPECT_NEAR(keys.b.h - keys.a.h, PI_F, 1e-5f);
+  HS_EXPECT_NEAR(keys.c.h - keys.b.h, -PI_F, 1e-5f);
+}
+
+inline void test_generative_palette_local_gamut_stays_in_gamut() {
+  PaletteRecipe recipe =
+      PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
+                              AxisCurve::BELL, 0.17f, 0.86f);
+  recipe.lightness.center = 0.52f;
+  recipe.lightness.range = 0.72f;
+  const GenerativePalette palette(recipe);
+  for (int i = 0; i < 256; ++i) {
+    const auto diagnostic = palette.diagnose(i / 255.0f);
+    HS_EXPECT_FALSE(diagnostic.fallback_mapped);
+    HS_EXPECT_TRUE(diagnostic.C <= diagnostic.C_max + 1e-5f);
+  }
+}
+
+inline void test_generative_palette_domain_invariants() {
+  const GenerativePalette mirror(
+      PaletteRecipes::profile(PaletteDomain::MIRROR, PaletteHarmony::ANALOGOUS,
+                              AxisCurve::BELL, 0.31f));
+  alignas(std::max_align_t)
+      uint8_t storage[BakedPalette::required_arena_bytes()];
+  Arena arena(storage, sizeof(storage));
+  BakedPalette baked;
+  baked.bake(arena, mirror);
+  for (int i = 0; i < 128; ++i) {
+    const Pixel left = baked.get(i / 255.0f).color;
+    const Pixel right = baked.get((255 - i) / 255.0f).color;
+    HS_EXPECT_EQ(left.r, right.r);
+    HS_EXPECT_EQ(left.g, right.g);
+    HS_EXPECT_EQ(left.b, right.b);
+  }
+
+  const GenerativePalette loop(PaletteRecipes::isolight_spectral_loop(0.13f));
+  arena.reset();
+  baked.bake(arena, loop);
+  const Color4 first = baked.get(0.0f);
+  const Color4 last = baked.get(1.0f);
+  HS_EXPECT_EQ(first.color.r, last.color.r);
+  HS_EXPECT_EQ(first.color.g, last.color.g);
+  HS_EXPECT_EQ(first.color.b, last.color.b);
+  HS_EXPECT_EQ(first.alpha, last.alpha);
+}
+
+inline void test_generative_palette_snapshot_lerp() {
+  GenerativePalette from(PaletteRecipes::balanced_analogous(0.0f));
+  const GenerativePalette to(PaletteRecipes::balanced_analogous(0.75f));
+  const auto first = from.snapshot();
+  const auto last = to.snapshot();
+
+  from.lerp(first, last, 0.5f);
+  const auto middle = from.snapshot();
+  HS_EXPECT_NEAR(middle.a.L, 0.5f * (first.a.L + last.a.L), 1e-6f);
+  HS_EXPECT_NEAR(middle.a.q, 0.5f * (first.a.q + last.a.q), 1e-6f);
+
+  from.lerp(first, last, 1.0f);
+  const GenerativePalette::Snapshot target = from.snapshot();
+  HS_EXPECT_EQ(std::memcmp(&target, &last, sizeof(last)), 0);
+}
+
+inline void test_generative_palette_cartesian_path_neutralizes_midpoint() {
+  PaletteRecipe arc_recipe = PaletteRecipes::profile(
+      PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY,
+      AxisCurve::CONSTANT, 0.0f, 0.72f);
+  PaletteRecipe cartesian_recipe = arc_recipe;
+  cartesian_recipe.color_path = ColorPath::OKLAB_CARTESIAN;
+  const GenerativePalette arc(arc_recipe);
+  const GenerativePalette cartesian(cartesian_recipe);
+  HS_EXPECT_TRUE(cartesian.diagnose(0.25f).C < arc.diagnose(0.25f).C);
+}
+
+inline void test_generative_palette_rejects_unavailable_path_minimum() {
+  PaletteRecipe input;
+  input.chroma.basis = ChromaBasis::PATH_MINIMUM;
+  GenerativePalette output;
+  PaletteRecipe canonical;
+  PaletteCompileStatus status;
+  HS_EXPECT_FALSE(
+      GenerativePalette::try_compile(input, output, canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::INCOMPATIBLE_OPTIONS);
+  HS_EXPECT_EQ(status.field, PaletteRecipeField::CHROMA_BASIS);
+}
+
+inline void test_generative_palette_get_clamps_out_of_range() {
+  const GenerativePalette palette(PaletteRecipes::balanced_analogous(0.2f));
+  const Pixel low = palette.get(-1.0f).color;
+  const Pixel first = palette.get(0.0f).color;
+  const Pixel high = palette.get(2.0f).color;
+  const Pixel last = palette.get(1.0f).color;
+  HS_EXPECT_EQ(low.r, first.r);
+  HS_EXPECT_EQ(low.g, first.g);
+  HS_EXPECT_EQ(low.b, first.b);
+  HS_EXPECT_EQ(high.r, last.r);
+  HS_EXPECT_EQ(high.g, last.g);
+  HS_EXPECT_EQ(high.b, last.b);
+}
+
+inline void test_mobius_longitude_singularity_saturates_to_endpoint() {
+  const float z = 1.0f;
+  const float R = std::sqrt((1.0f + z) / (1.0f - z));
+  HS_EXPECT_TRUE(std::isinf(R));
+
+  const float t = (std::log(R) + 2.5f) / 5.0f;
+  const float wrapped = wrap(t, 1.0f);
+  HS_EXPECT_TRUE(std::isnan(wrapped));
+
+  const GenerativePalette palette(
+      PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
+                              AxisCurve::CONSTANT, 0.0f, 0.86f));
+  const Color4 endpoint = palette.get(1.0f);
+  const Color4 singular = palette.get(wrapped);
+  HS_EXPECT_EQ(singular.color.r, endpoint.color.r);
+  HS_EXPECT_EQ(singular.color.g, endpoint.color.g);
+  HS_EXPECT_EQ(singular.color.b, endpoint.color.b);
+}

@@ -77,10 +77,11 @@ public:
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
                                            ease_linear, true));
 
-    palette.bake(persistent_arena,
-                 GenerativePalette{
-                     GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
-                     BrightnessProfile::FLAT, SaturationProfile::MID, 42});
+    palette.bake(
+        persistent_arena,
+        GenerativePalette{PaletteRecipes::profile(
+            PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
+            AxisCurve::CONSTANT, PaletteRecipes::hue_turns(42))});
     // The shader's hue_rotate clips per pixel, so the RAM copy pays for itself
     // over reading the flash master.
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);

@@ -50,8 +50,9 @@ public:
    *        initial palette and every color-wipe palette.
    */
   static GenerativePalette make_palette() {
-    return GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS,
-                             BrightnessProfile::ASCENDING);
+    return GenerativePalette{PaletteRecipes::random_profile(
+        PaletteDomain::VIGNETTE, PaletteHarmony::ANALOGOUS,
+        AxisCurve::ASCENDING)};
   }
 
   /**

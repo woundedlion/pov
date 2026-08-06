@@ -412,9 +412,9 @@ private:
   } state;
 
   /** @brief Triadic generative palette mapping species concentration to color. */
-  GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::TRIADIC,
-                            BrightnessProfile::DESCENDING,
-                            SaturationProfile::VIBRANT, 42};
+  GenerativePalette palette{PaletteRecipes::profile(
+      PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::DESCENDING,
+      PaletteRecipes::hue_turns(42), 0.86f)};
 
   /** @brief Per-species palette channels converted once in init(). */
   FloatRgb color_a, color_b, color_c;

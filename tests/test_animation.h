@@ -2664,7 +2664,8 @@ inline void test_meshcarousel_compact_drop_all_frees_both_slots() {
  * @return A STRAIGHT-gradient palette over the supplied keys.
  */
 inline GenerativePalette make_palette(CPixel ka, CPixel kb, CPixel kc) {
-  return GenerativePalette(GradientShape::STRAIGHT, ka, kb, kc);
+  return GenerativePalette(
+      PaletteRecipes::from_colors(PaletteDomain::STRAIGHT, ka, kb, kc));
 }
 
 /**

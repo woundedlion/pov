@@ -215,9 +215,9 @@ private:
     // second wipe would clobber the next_palette the live one still references.
     if (wipe_frames_remaining > 0)
       return;
-    next_palette =
-        GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
-                          BrightnessProfile::ASCENDING);
+    next_palette = GenerativePalette{PaletteRecipes::random_profile(
+        PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
+        AxisCurve::ASCENDING)};
     timeline.add(0, Animation::ColorWipe(palette, next_palette, WIPE_FRAMES,
                                          ease_linear));
     wipe_frames_remaining = WIPE_FRAMES;

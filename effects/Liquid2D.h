@@ -82,9 +82,9 @@ public:
         0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f, false));
 
     palette.bake(persistent_arena,
-                 GenerativePalette{
-                     GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
-                     BrightnessProfile::CUP, SaturationProfile::VIBRANT, 75});
+                 GenerativePalette{PaletteRecipes::profile(
+                     PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY,
+                     AxisCurve::CUP, PaletteRecipes::hue_turns(75), 0.86f)});
     static_palette.bind(&palette, &breathe_mod);
 
     // Cycle presets every 3-5 seconds via a 2 second lerp.

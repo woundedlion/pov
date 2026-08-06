@@ -307,9 +307,9 @@ private:
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> filters;
   ParticleSystem particle_system;
-  GenerativePalette base_palette{
-      GradientShape::CIRCULAR, HarmonyType::COMPLEMENTARY,
-      BrightnessProfile::FLAT, SaturationProfile::MID};
+  GenerativePalette base_palette{PaletteRecipes::random_profile(
+      PaletteDomain::MIRROR, PaletteHarmony::COMPLEMENTARY,
+      AxisCurve::CONSTANT)};
   BakedPalette baked_palette;
   /**
    * @brief Per-emitter spawn hue seed in [0, 1).

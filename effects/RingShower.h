@@ -164,8 +164,8 @@ private:
    *          distinct palette.
    */
   static GenerativePalette make_palette() {
-    return GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
-                             BrightnessProfile::FLAT);
+    return GenerativePalette{PaletteRecipes::random_profile(
+        PaletteDomain::MIRROR, PaletteHarmony::ANALOGOUS, AxisCurve::CONSTANT)};
   }
 
   /**
