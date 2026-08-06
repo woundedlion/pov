@@ -20,13 +20,11 @@
 #include "effects/DisplacementField.h"
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
-#include "effects/Flyby.h"
 #include "effects/GnomonicStars.h"
 #include "effects/GSReactionDiffusion.h"
 #include "effects/HankinSolids.h"
 #include "effects/HopfFibration.h"
 #include "effects/IslamicStars.h"
-#include "effects/Liquid2D.h"
 #include "effects/MeshFeedback.h"
 #include "effects/MindSplatter.h"
 #include "effects/MobiusGrid.h"
@@ -34,6 +32,7 @@
 #include "effects/Raymarch.h"
 #include "effects/RingShower.h"
 #include "effects/RingSpin.h"
+#include "effects/ShaderBall.h"
 #include "effects/ShapeShifter.h"
 #include "effects/SphericalHarmonics.h"
 #include "effects/Thrusters.h"
@@ -61,13 +60,11 @@
   X(DisplacementField)                                                         \
   X(DreamBalls)                                                                \
   X(Dynamo)                                                                    \
-  X(Flyby)                                                                     \
   X(GnomonicStars)                                                             \
   X(GSReactionDiffusion)                                                       \
   X(HankinSolids)                                                              \
   X(HopfFibration)                                                             \
   X(IslamicStars)                                                              \
-  X(Liquid2D)                                                                  \
   X(MeshFeedback)                                                              \
   X(MindSplatter)                                                              \
   X(MobiusGrid)                                                                \
@@ -75,6 +72,7 @@
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
+  X(ShaderBall)                                                                \
   X(ShapeShifter)                                                              \
   X(SphericalHarmonics)                                                        \
   X(Thrusters)                                                                 \
@@ -95,13 +93,11 @@
   X(Comets)                                                                    \
   X(DisplacementField)                                                         \
   X(DreamBalls)                                                                \
-  X(Flyby)                                                                     \
   X(GnomonicStars)                                                             \
   X(GSReactionDiffusion)                                                       \
   X(HankinSolids)                                                              \
   X(HopfFibration)                                                             \
   X(IslamicStars)                                                              \
-  X(Liquid2D)                                                                  \
   X(MeshFeedback)                                                              \
   X(MindSplatter)                                                              \
   X(MobiusGrid)                                                                \
@@ -109,6 +105,7 @@
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
+  X(ShaderBall)                                                                \
   X(ShapeShifter)                                                              \
   X(SphericalHarmonics)                                                        \
   X(Voronoi)

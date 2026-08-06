@@ -697,7 +697,7 @@ struct StereoWarpResult {
  * @details Stereographic projection sends the far pole to infinity, so |z|²
  * grows without bound near it; this falloff is 1 at the projection origin and
  * decays toward 0 with distance, taming that singularity. Shared by
- * stereo_noise_warp and the stereo pattern effects (Flyby/Liquid2D) so the
+ * stereo_noise_warp and the stereo pattern effect (ShaderBall) so the
  * falloff stays identical across warp and shading.
  */
 inline float pole_attenuation(float r_sq, float pole_fade) {
@@ -712,8 +712,8 @@ inline float pole_attenuation(float r_sq, float pole_fade) {
  * @param r_sq Pre-computed |z|² driving the pole fade.
  * @param pole_fade Attenuation radius (larger = wider fade zone).
  * @return Pole-attenuated value normalized to [0, 1].
- * @details Shared by the stereo pattern effects (Flyby/Liquid2D) so the
- * attenuation and normalization stay identical across them.
+ * @details Shared with the stereo pattern effect (ShaderBall) so the
+ * attenuation and normalization stay identical with the warp's.
  */
 inline float pole_normalize_pattern(float pattern, float r_sq,
                                     float pole_fade) {
@@ -727,8 +727,7 @@ inline float pole_normalize_pattern(float pattern, float r_sq,
  * @return Frequency-scaled components clamped to ±STEREO_PATTERN_ARG_LIMIT.
  * @details Near the pole |w| -> STEREO_INF, so w*pattern_freq can reach ~2e5
  * where fast_sinf range reduction bands; the clamp keeps both components inside
- * the accurate range. Shared by the stereo pattern effects (Flyby/Liquid2D) so
- * the bound stays identical across them.
+ * the accurate range. Used by the stereo pattern effect (ShaderBall).
  */
 inline Complex stereo_pattern_args(const Complex &w, float pattern_freq) {
   return Complex(hs::clamp(w.re * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,

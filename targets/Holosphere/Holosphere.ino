@@ -59,8 +59,7 @@ FLASHMEM static void run_show_sequence() {
   pov->show<GnomonicStars<288, 144>>(120); //60
   pov->show<HankinSolids<288, 144>>(120); // 85
   pov->show<PetalFlow<288, 144>>(120); //35
-  pov->show<Liquid2D<288, 144>>(120);  //85
-  pov->show<Flyby<288, 144>>(120); // 85
+  pov->show<ShaderBall<288, 144>>(120); // 85
   pov->show<Test<288, 144>>(120); // 60
   pov->show<SphericalHarmonics<288, 144>>(120);  //49
   pov->show<Comets<288, 144>>(120); //53
