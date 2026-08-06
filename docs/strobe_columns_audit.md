@@ -36,12 +36,10 @@ column blanks to black after it is shown rather than persisting into the next.
 | DisplacementField | `true` |
 | DreamBalls | `true` |
 | Dynamo | `true` |
-| Flyby | `true` |
 | GnomonicStars | `true` |
 | HankinSolids | `true` |
 | HopfFibration | `true` |
 | IslamicStars | `true` |
-| Liquid2D | `true` |
 | MeshFeedback | `true` |
 | MindSplatter | `true` |
 | MobiusGrid | `true` |
@@ -52,6 +50,7 @@ column blanks to black after it is shown rather than persisting into the next.
 | &nbsp;&nbsp;└ GSReactionDiffusion | `true` (inherited) |
 | RingShower | `true` |
 | RingSpin | `true` |
+| ShaderBall | `true` |
 | ShapeShifter | `true` |
 | SphericalHarmonics | `true` |
 | Thrusters | `true` |

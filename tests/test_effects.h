@@ -4316,110 +4316,81 @@ inline void test_mindsplatter_emit_phase_wrapped() {
 }
 
 /**
- * @brief White-box accessor for Flyby's noise-time and trig-phase accumulators
- *        (befriended in effects/Flyby.h).
+ * @brief White-box accessor for ShaderBall's accumulators, lens, and pattern
+ *        formula (befriended in effects/ShaderBall.h).
  */
-struct FlybyWhiteBox {
-  using FB = Flyby<DEFAULT_W, DEFAULT_H>;
-  static float noise_time(const FB &fb) { return fb.noise_time; }
-  static float sin_phase(const FB &fb) { return fb.sin_phase; }
-  static float drift_phase(const FB &fb) { return fb.drift_phase; }
-};
-
-/**
- * @brief Verifies Flyby's noise-time stays in [0, STEREO_NOISE_TIME_PERIOD)
- *        and both trig phases stay in [0, 2pi) across frames.
- * @details draw_frame wraps noise_time by fmodf(., STEREO_NOISE_TIME_PERIOD)
- *          and sin/drift phase by fmodf(., 2pi); a dropped wrap freezes the
- *          field (ULP) or bands fast_sinf range reduction. The preset Lerp
- *          drives Speed (and Drift scales the cos phase), so the accumulators
- *          must stay bounded.
- */
-inline void test_flyby_phase_wrapped() {
-  using WB = FlybyWhiteBox;
-  reset_effect_globals();
-  hs::set_mock_time(0, 0);
-  WB::FB fb;
-  fb.init();
-
-  const float period = STEREO_NOISE_TIME_PERIOD;
-  const float two_pi = 2.0f * PI_F;
-  const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
-  for (int f = 0; f < frames; ++f) {
-    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                      static_cast<unsigned long>(f) * FRAME_US);
-    fb.draw_frame();
-    fb.advance_display();
-    const float nt = WB::noise_time(fb);
-    HS_EXPECT_GE(nt, 0.0f);
-    HS_EXPECT_LT(nt, period);
-    const float sp = WB::sin_phase(fb);
-    HS_EXPECT_GE(sp, 0.0f);
-    HS_EXPECT_LT(sp, two_pi);
-    const float dp = WB::drift_phase(fb);
-    HS_EXPECT_GE(dp, 0.0f);
-    HS_EXPECT_LT(dp, two_pi);
-  }
-  hs::clear_mock_time();
-}
-
-/**
- * @brief White-box accessor for Liquid2D's noise-time and trig-phase
- *        accumulators (befriended in effects/Liquid2D.h).
- */
-struct Liquid2DWhiteBox {
-  using L2 = Liquid2D<DEFAULT_W, DEFAULT_H>;
-  static float accumulated_time(const L2 &l2) { return l2.accumulated_time; }
-  static float sin_phase(const L2 &l2) { return l2.sin_phase; }
-  static float cos_phase(const L2 &l2) { return l2.cos_phase; }
-  static float cycle_phase(const L2 &l2) { return l2.cycle_phase; }
-  static void seed_accumulators(L2 &l2, float v) {
-    l2.accumulated_time = v;
-    l2.sin_phase = v;
-    l2.cos_phase = v;
-    l2.cycle_phase = v;
+struct ShaderBallWhiteBox {
+  using SB = ShaderBall<DEFAULT_W, DEFAULT_H>;
+  using Params = SB::Params;
+  static float noise_time(const SB &sb) { return sb.noise_time; }
+  static float sin_phase(const SB &sb) { return sb.sin_phase; }
+  static float phase2(const SB &sb) { return sb.phase2; }
+  static float spin_phase(const SB &sb) { return sb.spin_phase; }
+  static float cycle_phase(const SB &sb) { return sb.cycle_phase; }
+  static void seed_accumulators(SB &sb, float v) {
+    sb.noise_time = v;
+    sb.sin_phase = v;
+    sb.phase2 = v;
+    sb.spin_phase = v;
+    sb.cycle_phase = v;
   }
   static Vector glitch_lens(const Vector &v) {
-    return L2::apply_glitch_lens(v);
+    return SB::apply_glitch_lens(v);
   }
+  static Vector nlerp_dir(const Vector &a, const Vector &b, float t) {
+    return SB::nlerp_dir(a, b, t);
+  }
+  static float sample_pattern(const Complex &p, float complexity, float direct1,
+                              float direct2, float sin_phase, float phase2) {
+    return SB::sample_pattern(p, complexity, direct1, direct2, sin_phase,
+                              phase2);
+  }
+  static const std::array<PresetEntry<Params>, 7> &presets() {
+    return SB::PRESETS;
+  }
+  static bool choreo_staggered(size_t i) { return SB::CHOREO[i].staggered; }
 };
 
 /**
- * @brief Verifies Liquid2D's noise-time stays in [0, STEREO_NOISE_TIME_PERIOD)
- *        and all three trig phases stay in [0, 2pi) once wrapped.
- * @details draw_frame wraps accumulated_time by
- *          fmodf(., STEREO_NOISE_TIME_PERIOD) and the sin/cos/cycle phases by
- *          fmodf(., 2pi); a dropped wrap freezes the field (ULP) or bands
- *          fast_sinf range reduction. Seeding every accumulator past its
- *          ceiling makes a removed fmodf fail on frame 0.
+ * @brief Verifies ShaderBall's noise-time stays in [0,
+ *        STEREO_NOISE_TIME_PERIOD) and all four trig phases stay in [0, 2pi)
+ *        once wrapped.
+ * @details draw_frame wraps noise_time by fmodf(., STEREO_NOISE_TIME_PERIOD)
+ *          and the sin/phase2/spin/cycle phases by fmodf(., 2pi); a dropped
+ *          wrap freezes the field (ULP) or bands fast_sinf range reduction.
+ *          Seeding every accumulator past its ceiling makes a removed fmodf
+ *          fail on frame 0.
  */
-inline void test_liquid2d_phase_wrapped() {
-  using WB = Liquid2DWhiteBox;
+inline void test_shaderball_phase_wrapped() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
   hs::set_mock_time(0, 0);
-  WB::L2 l2;
-  l2.init();
+  WB::SB sb;
+  sb.init();
 
   const float period = STEREO_NOISE_TIME_PERIOD;
   const float two_pi = 2.0f * PI_F;
-  WB::seed_accumulators(l2, period * 4.0f);
+  WB::seed_accumulators(sb, period * 4.0f);
 
   const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
   for (int f = 0; f < frames; ++f) {
     hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
                       static_cast<unsigned long>(f) * FRAME_US);
-    l2.draw_frame();
-    l2.advance_display();
-    const float at = WB::accumulated_time(l2);
-    HS_EXPECT_GE(at, 0.0f);
-    HS_EXPECT_LT(at, period);
-    const float sp = WB::sin_phase(l2);
+    sb.draw_frame();
+    sb.advance_display();
+    const float nt = WB::noise_time(sb);
+    HS_EXPECT_GE(nt, 0.0f);
+    HS_EXPECT_LT(nt, period);
+    const float sp = WB::sin_phase(sb);
     HS_EXPECT_GE(sp, 0.0f);
     HS_EXPECT_LT(sp, two_pi);
-    const float cp = WB::cos_phase(l2);
-    HS_EXPECT_GE(cp, 0.0f);
-    HS_EXPECT_LT(cp, two_pi);
-    const float cyp = WB::cycle_phase(l2);
+    const float p2 = WB::phase2(sb);
+    HS_EXPECT_GE(p2, 0.0f);
+    HS_EXPECT_LT(p2, two_pi);
+    const float spn = WB::spin_phase(sb);
+    HS_EXPECT_GE(spn, 0.0f);
+    HS_EXPECT_LT(spn, two_pi);
+    const float cyp = WB::cycle_phase(sb);
     HS_EXPECT_GE(cyp, 0.0f);
     HS_EXPECT_LT(cyp, two_pi);
   }
@@ -4427,15 +4398,18 @@ inline void test_liquid2d_phase_wrapped() {
 }
 
 /**
- * @brief Verifies Liquid2D::apply_glitch_lens maps unit directions to unit
- *        directions and returns the pole axis on its near-axis guard branch.
+ * @brief Verifies ShaderBall::apply_glitch_lens maps unit directions to unit
+ *        directions and returns the pole axis on its near-axis guard branch,
+ *        and pins nlerp_dir's collapsed-blend fallback.
  * @details The lens is a hand-derived degree-3 rational sphere automorphism on
  *          the live per-pixel path; the positive-frame-sum smoke harness cannot
  *          catch a sign/coefficient slip, so pin |lens(v)| == 1 across a spread
- *          of directions plus the R^2 < 1e-6 pole return.
+ *          of directions plus the R^2 < 1e-6 pole return. nlerp_dir must fall
+ *          back to its target endpoint when antipodal endpoints collapse the
+ *          blend vector.
  */
-inline void test_liquid2d_glitch_lens_unit_norm() {
-  using WB = Liquid2DWhiteBox;
+inline void test_shaderball_glitch_lens_unit_norm() {
+  using WB = ShaderBallWhiteBox;
   const Vector dirs[] = {Vector(1, 0, 0),
                          Vector(0, 0, 1),
                          Vector(-1, 0, 0),
@@ -4454,6 +4428,77 @@ inline void test_liquid2d_glitch_lens_unit_norm() {
   HS_EXPECT_NEAR(pole.x, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(pole.y, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(pole.z, 0.0f, 1e-6f);
+
+  // Antipodal endpoints at the midpoint collapse the blend vector; the guard
+  // returns the target endpoint instead of normalizing a zero vector.
+  Vector fallback = WB::nlerp_dir(Vector(1, 0, 0), Vector(-1, 0, 0), 0.5f);
+  HS_EXPECT_NEAR(fallback.x, -1.0f, 1e-6f);
+  HS_EXPECT_NEAR(fallback.y, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(fallback.z, 0.0f, 1e-6f);
+  Vector mid = WB::nlerp_dir(Vector(1, 0, 0), Vector(0, 1, 0), 0.25f);
+  HS_EXPECT_NEAR(mid.length(), 1.0f, 1e-6f);
+}
+
+/**
+ * @brief Pins the generalized pattern formula against both classic closed
+ *        forms and asserts gate params re-latch bit-exactly after preset
+ *        blends.
+ * @details sample_pattern at (c, s) = (complexity, 0) must equal the
+ *          cross-coupled liquid form and at (0, 1) the separable grid form,
+ *          bit for bit — the equivalence the merged effect rests on. The
+ *          per-pixel skip branches stay latched only if Animation::Lerp lands
+ *          gate params exactly on their 0/1 endpoints, so drive each preset
+ *          blend to t = 1 through ease_in_out_sin and compare bit-exactly.
+ */
+inline void test_shaderball_formula_reduction() {
+  using WB = ShaderBallWhiteBox;
+  const float args[] = {-6.0f, -2.5f, -0.7f, 0.0f, 0.9f, 3.1f, 5.8f};
+  const float phases[] = {0.0f, 0.8f, 2.4f, 4.9f};
+  const float complexities[] = {0.5f, 1.7f, 3.0f};
+  for (float re : args) {
+    for (float im : args) {
+      const Complex p(re, im);
+      for (float p1 : phases) {
+        for (float p2 : phases) {
+          for (float c : complexities) {
+            const float liquid = fast_sinf(re + c * fast_sinf(im + p1)) *
+                                 fast_cosf(im + c * fast_cosf(re - p2));
+            HS_EXPECT_EQ(WB::sample_pattern(p, c, 0.0f, 0.0f, p1, p2), liquid);
+          }
+          const float grid = fast_sinf(re + p1) * fast_cosf(im - p2);
+          HS_EXPECT_EQ(WB::sample_pattern(p, 0.0f, p1, p2, p1, p2), grid);
+        }
+      }
+    }
+  }
+
+  // Gate-latch: every blend must land each gate field bit-exactly on its
+  // target so the frame-constant skips re-latch after transitions.
+  const auto &presets = WB::presets();
+  const size_t n = presets.size();
+  for (size_t i = 0; i < n; ++i) {
+    const WB::Params &from = presets[i].params;
+    const WB::Params &to = presets[(i + 1) % n].params;
+    WB::Params live = from;
+    constexpr int STEPS = 48;
+    for (int s = 1; s <= STEPS; ++s) {
+      const float t = ease_in_out_sin(static_cast<float>(s) / STEPS);
+      if (WB::choreo_staggered(i))
+        live.lerp_staggered(from, to, t);
+      else
+        live.lerp(from, to, t);
+    }
+    // Latching only matters where a skip branch gates: targets sitting
+    // exactly on a 0/1 endpoint.
+    const float gate_pairs[][2] = {
+        {live.complexity, to.complexity}, {live.phase_direct, to.phase_direct},
+        {live.wander, to.wander},         {live.lens_mix, to.lens_mix},
+        {live.hue_shift, to.hue_shift},   {live.value_fade, to.value_fade}};
+    for (const auto &g : gate_pairs) {
+      if (g[1] == 0.0f || g[1] == 1.0f)
+        HS_EXPECT_EQ(g[0], g[1]);
+    }
+  }
 }
 
 /**
@@ -5534,9 +5579,9 @@ inline int run_effects_tests() {
     test_displacement_field_zero_hue_scale_is_exact();
     test_displacement_field_clip_tiles_full();
     test_mindsplatter_emit_phase_wrapped();
-    test_flyby_phase_wrapped();
-    test_liquid2d_phase_wrapped();
-    test_liquid2d_glitch_lens_unit_norm();
+    test_shaderball_phase_wrapped();
+    test_shaderball_glitch_lens_unit_norm();
+    test_shaderball_formula_reduction();
     test_mobiusgrid_conformal_and_counter_rotation();
     test_ringspin_pool_clamped();
     test_hankinsolids_arena_budget_covers_every_solid();

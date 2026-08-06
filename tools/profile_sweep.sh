@@ -91,7 +91,6 @@ g2_ship)
   run Voronoi profile 70 32
   ;;
 g3_ship)
-  run Liquid2D profile 70 16
   run ShapeShifter profile 70 16
   run MindSplatter profile 110 16
   run HankinSolids profile 210 16 "-D HS_PROFILE_ORDERED_CYCLE -D HS_PROFILE_EPOCH_REVS=1920"
@@ -100,7 +99,9 @@ g3_ship)
 g4_ship)
   run Comets profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
   run MeshFeedback profile 420 16 "-D HS_PROFILE_EPOCH_REVS=3400"
-  run Flyby profile 310 16 "-D HS_PROFILE_EPOCH_REVS=2560"
+  # Full choreography cycle is ~3000-3100 frames (two dwelled staggered blends
+  # plus five 480-frame parallel blends), so the epoch must reach past it.
+  run ShaderBall profile 400 16 "-D HS_PROFILE_EPOCH_REVS=3300"
   run IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"
   run DreamBalls profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   ;;
