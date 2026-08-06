@@ -4345,9 +4345,7 @@ struct ShaderBallWhiteBox {
     return SB::sample_pattern(p, complexity, direct1, direct2, sin_phase,
                               phase2);
   }
-  static const std::array<PresetEntry<Params>, 7> &presets() {
-    return SB::PRESETS;
-  }
+  static const auto &presets() { return SB::PRESETS; }
   static bool choreo_staggered(size_t i) { return SB::CHOREO[i].staggered; }
 };
 
