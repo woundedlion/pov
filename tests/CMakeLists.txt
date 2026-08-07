@@ -163,6 +163,15 @@ target_compile_options(mindsplatter_replay_gen PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(mindsplatter_replay_gen)
 
+add_executable(mindsplatter_palette_gen EXCLUDE_FROM_ALL
+  ${HS_ROOT}/tools/mindsplatter_palette_gen.cpp
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
+target_compile_definitions(mindsplatter_palette_gen PRIVATE HS_TEST_BUILD)
+target_include_directories(mindsplatter_palette_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+_hs_warnings(mindsplatter_palette_gen)
+
 add_executable(mindsplatter_replay
   ${HS_ROOT}/tools/mindsplatter_replay_main.cpp
   ${HS_ROOT}/core/engine/memory.cpp

@@ -22,7 +22,7 @@ struct MindSplatterWhiteBox {
   using MS = MindSplatter<288, 144>;
 
   static constexpr uint32_t REPLAY_MAGIC = 0x3152534du;
-  static constexpr uint16_t REPLAY_VERSION = 1;
+  static constexpr uint16_t REPLAY_VERSION = 2;
 
   template <typename T>
   using ObjectBytes = std::array<unsigned char, sizeof(T)>;
@@ -40,8 +40,6 @@ struct MindSplatterWhiteBox {
     ObjectBytes<PresetState> presets{};
     ObjectBytes<Orientation<>> orientation{};
     ObjectBytes<MobiusParams> mobius{};
-    std::array<Color4, BakedPalette::LUT_SIZE> palette{};
-    std::array<float, EffectType::EmitSolid::NUM_VERTS> emitter_hues{};
     std::array<float, EffectType::EmitSolid::NUM_VERTS> emit_phases{};
     ClipRegion clip{};
     float friction = 0.0f;
@@ -77,7 +75,6 @@ struct MindSplatterWhiteBox {
 
     std::vector<unsigned char> bytes;
     bytes.reserve(24 + sizeof(Orientation<>) + sizeof(MobiusParams) +
-                  BakedPalette::LUT_SIZE * 10 +
                   snapshot.particles.size() * sizeof(Particle));
     append_u32(bytes, REPLAY_MAGIC);
     append_u16(bytes, REPLAY_VERSION);
@@ -88,17 +85,8 @@ struct MindSplatterWhiteBox {
     append_u16(bytes, static_cast<uint16_t>(sizeof(MobiusParams)));
     append_u16(bytes, static_cast<uint16_t>(snapshot.particles.size()));
     append_u16(bytes, snapshot.max_life);
-    append_u16(bytes, BakedPalette::LUT_SIZE);
     append_object<Orientation<>>(bytes, snapshot.orientation);
     append_object<MobiusParams>(bytes, snapshot.mobius);
-    for (const Color4 &entry : snapshot.palette) {
-      append_u16(bytes, entry.color.r);
-      append_u16(bytes, entry.color.g);
-      append_u16(bytes, entry.color.b);
-      uint32_t alpha;
-      std::memcpy(&alpha, &entry.alpha, sizeof(alpha));
-      append_u32(bytes, alpha);
-    }
     for (const ObjectBytes<Particle> &particle : snapshot.particles)
       append_object<Particle>(bytes, particle);
     return bytes;
@@ -171,12 +159,6 @@ struct MindSplatterWhiteBox {
     snapshot.presets = object_bytes(ms.presets);
     snapshot.orientation = object_bytes(ms.orientation);
     snapshot.mobius = object_bytes(ms.mobius);
-    for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
-      const float t = static_cast<float>(i) /
-                      static_cast<float>(BakedPalette::LUT_SIZE - 1);
-      snapshot.palette[i] = ms.baked_palette.get(t);
-    }
-    snapshot.emitter_hues = ms.emitter_hues;
     snapshot.emit_phases = ms.emit_phases;
     snapshot.clip = ms.clip();
     snapshot.friction = ms.particle_system.friction;
@@ -200,7 +182,6 @@ struct MindSplatterWhiteBox {
     restore_object(ms.presets, snapshot.presets);
     restore_object(ms.orientation, snapshot.orientation);
     restore_object(ms.mobius, snapshot.mobius);
-    ms.emitter_hues = snapshot.emitter_hues;
     ms.emit_phases = snapshot.emit_phases;
     ms.set_clip(snapshot.clip.y_start, snapshot.clip.y_end,
                 snapshot.clip.x_start, snapshot.clip.x_end);
@@ -216,16 +197,6 @@ struct MindSplatterWhiteBox {
       ms.particle_system.spawn(Vector(), Vector(), 0);
       restore_object(ms.particle_system.pool[i], bytes);
     }
-
-    struct PaletteSource {
-      const std::array<Color4, BakedPalette::LUT_SIZE> &entries;
-      Color4 get(float t) const {
-        const float scaled = t * static_cast<float>(BakedPalette::LUT_SIZE - 1);
-        const int i = static_cast<int>(scaled + 0.5f);
-        return entries[hs::clamp(i, 0, BakedPalette::LUT_SIZE - 1)];
-      }
-    };
-    ms.baked_palette.rebake(PaletteSource{snapshot.palette});
   }
 
   template <int W, int H>
@@ -248,21 +219,11 @@ struct MindSplatterWhiteBox {
              "MindSplatter replay Mobius layout differs");
     const uint16_t particle_count = reader.read_u16();
     const uint16_t max_life = reader.read_u16();
-    HS_CHECK(reader.read_u16() == BakedPalette::LUT_SIZE,
-             "MindSplatter replay palette layout differs");
     HS_CHECK(ms.particle_system.active() == 0);
     HS_CHECK(particle_count <= ms.particle_system.pool.capacity());
 
     restore_object(ms.orientation, reader.read_object<Orientation<>>());
     restore_object(ms.mobius, reader.read_object<MobiusParams>());
-    std::array<Color4, BakedPalette::LUT_SIZE> palette;
-    for (Color4 &entry : palette) {
-      entry.color.r = reader.read_u16();
-      entry.color.g = reader.read_u16();
-      entry.color.b = reader.read_u16();
-      const uint32_t alpha = reader.read_u32();
-      std::memcpy(&entry.alpha, &alpha, sizeof(entry.alpha));
-    }
     ms.particle_system.max_life = max_life;
     for (uint16_t i = 0; i < particle_count; ++i) {
       ms.particle_system.spawn(Vector(), Vector(), 0);
@@ -271,15 +232,6 @@ struct MindSplatterWhiteBox {
     }
     HS_CHECK(reader.empty(), "MindSplatter replay corpus has trailing bytes");
 
-    struct PaletteSource {
-      const std::array<Color4, BakedPalette::LUT_SIZE> &entries;
-      Color4 get(float t) const {
-        const float scaled = t * static_cast<float>(BakedPalette::LUT_SIZE - 1);
-        const int i = static_cast<int>(scaled + 0.5f);
-        return entries[hs::clamp(i, 0, BakedPalette::LUT_SIZE - 1)];
-      }
-    };
-    ms.baked_palette.rebake(PaletteSource{palette});
     ms.params.active_count = static_cast<float>(particle_count);
     return particle_count;
   }
@@ -317,27 +269,18 @@ struct MindSplatterWhiteBox {
         a.params != b.params || a.presets != b.presets ||
         a.orientation != b.orientation || a.mobius != b.mobius)
       return false;
-    if (std::memcmp(a.emitter_hues.data(), b.emitter_hues.data(),
-                    sizeof(a.emitter_hues)) != 0 ||
-        std::memcmp(a.emit_phases.data(), b.emit_phases.data(),
+    if (std::memcmp(a.emit_phases.data(), b.emit_phases.data(),
                     sizeof(a.emit_phases)) != 0 ||
         std::memcmp(&a.clip, &b.clip, sizeof(a.clip)) != 0 ||
         std::memcmp(&a.friction, &b.friction, sizeof(a.friction)) != 0 ||
         std::memcmp(&a.gravity, &b.gravity, sizeof(a.gravity)) != 0 ||
         a.max_life != b.max_life)
       return false;
-    for (size_t i = 0; i < a.palette.size(); ++i) {
-      if (a.palette[i].color != b.palette[i].color ||
-          std::memcmp(&a.palette[i].alpha, &b.palette[i].alpha,
-                      sizeof(a.palette[i].alpha)) != 0)
-        return false;
-    }
     return true;
   }
 
   static size_t num_emitters() { return MS::EmitSolid::NUM_VERTS; }
   static float emit_phase(const MS &ms, size_t i) { return ms.emit_phases[i]; }
-  static float hue(const MS &ms, size_t i) { return ms.emitter_hues[i]; }
   static float event_horizon() { return MS::EVENT_HORIZON; }
   static float hole_alpha(const Vector &p) {
     return MS::octahedral_hole_alpha(p, fast_cosf(MS::EVENT_HORIZON));
@@ -366,18 +309,10 @@ struct MindSplatterWhiteBox {
   static float normalized_color_seed(uint16_t seed) {
     return MS::normalize_color_seed(seed);
   }
-  static float wrapped_color_t(float progress, float seed) {
-    return MS::wrap_color_t(progress, seed);
-  }
   static constexpr int trail_length() { return MS::TRAIL_LEN; }
   template <int W, int H>
   static void use_reference_orientation(MindSplatter<W, H> &ms, bool enabled) {
     ms.reference_orientation = enabled;
-  }
-  template <int W, int H>
-  static void use_reference_color_seed_lookup(MindSplatter<W, H> &ms,
-                                              bool enabled) {
-    ms.reference_color_seed_lookup = enabled;
   }
   template <int W, int H>
   static void use_reference_vertex_pass(MindSplatter<W, H> &ms, bool enabled) {
@@ -393,24 +328,25 @@ struct MindSplatterWhiteBox {
     ms.reference_palette_alpha = enabled;
   }
   template <int W, int H>
-  static bool palette_is_opaque(const MindSplatter<W, H> &ms) {
-    for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
-      const float t = static_cast<float>(i) /
-                      static_cast<float>(BakedPalette::LUT_SIZE - 1);
-      if (ms.baked_palette.get(t).alpha != 1.0f)
-        return false;
-    }
+  static bool palette_is_opaque(const MindSplatter<W, H> &) {
     return true;
   }
   template <int W, int H>
   static std::array<Pixel, BakedPalette::LUT_SIZE>
   palette_colors(const MindSplatter<W, H> &ms) {
+    (void)ms;
     std::array<Pixel, BakedPalette::LUT_SIZE> colors;
     for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
-      const float t = static_cast<float>(i) /
-                      static_cast<float>(BakedPalette::LUT_SIZE - 1);
-      colors[i] = ms.baked_palette.get(t).color;
+      colors[i] = MINDSPLATTER_PALETTES[0][i];
     }
+    return colors;
+  }
+  template <int W, int H>
+  static auto trail_palette(const MindSplatter<W, H> &ms, uint16_t seed) {
+    (void)ms;
+    std::array<Pixel, MINDSPLATTER_PALETTE_LUT_SIZE> colors;
+    for (int i = 0; i < MINDSPLATTER_PALETTE_LUT_SIZE; ++i)
+      colors[i] = MINDSPLATTER_PALETTES[seed >> 8][i];
     return colors;
   }
   template <int W, int H> static void next_preset(MindSplatter<W, H> &ms) {
@@ -432,6 +368,12 @@ struct MindSplatterWhiteBox {
   template <int W, int H>
   static uint16_t active_particles(const MindSplatter<W, H> &ms) {
     return ms.particle_system.active();
+  }
+  template <int W, int H>
+  static uint16_t particle_color_seed(const MindSplatter<W, H> &ms,
+                                      size_t index) {
+    HS_CHECK(index < ms.particle_system.active());
+    return ms.particle_system.pool[index].color_seed;
   }
   template <int W, int H>
   static void draw_particles(MindSplatter<W, H> &ms, float opacity = 1.0f) {
