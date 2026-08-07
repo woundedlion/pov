@@ -11,6 +11,7 @@
  *        looks from one continuous parameter space.
  */
 
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
 // Unit-test accessor for the wrap invariants, lens, and pattern formula.
@@ -107,12 +108,10 @@ public:
     timeline.add(0, Animation::Driver(cycle_phase, &blend.params.cycle_speed,
                                       1.0f, false));
 
-    bank[0].bake(persistent_arena, GenerativePalette{liquid_palette_recipe()});
-    bank[1].bake(
-        persistent_arena,
-        GenerativePalette{PaletteRecipes::profile(
-            PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
-            AxisCurve::CONSTANT, PaletteRecipes::hue_turns(42))});
+    bank[0].bake(persistent_arena,
+                 GenerativePalette{EffectPaletteRecipes::shader_ball_liquid()});
+    bank[1].bake(persistent_arena,
+                 GenerativePalette{EffectPaletteRecipes::shader_ball_flyby()});
     // The shader's hue_rotate clips per pixel, so the RAM copy pays for itself
     // over reading the flash master.
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
@@ -198,22 +197,6 @@ public:
 private:
   // Test seam: reaches the accumulators, lens, and pattern formula.
   friend struct ::hs_test::effects_tests::ShaderBallWhiteBox;
-
-  static PaletteRecipe liquid_palette_recipe() {
-    constexpr float BASE_TURNS = 0.2933125f;
-    PaletteRecipe recipe;
-    recipe.domain = PaletteDomain::STRAIGHT;
-    recipe.hue.mode = HueMode::CUSTOM;
-    recipe.hue.custom_turns[0] = BASE_TURNS;
-    recipe.hue.custom_turns[1] = BASE_TURNS + 0.5f;
-    recipe.hue.custom_turns[2] = BASE_TURNS;
-    recipe.lightness.curve = AxisCurve::CUSTOM;
-    recipe.lightness.custom[0] = 0.8798438f;
-    recipe.lightness.custom[1] = 0.1623438f;
-    recipe.lightness.custom[2] = 0.8798438f;
-    recipe.chroma.center = 0.8871875f;
-    return recipe;
-  }
 
   /**
    * @brief Evaluates the generalized sinusoidal pattern at a bounded point.

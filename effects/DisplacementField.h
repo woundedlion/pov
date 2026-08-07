@@ -11,6 +11,7 @@
  *        displacement-field stack.
  */
 
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
 namespace hs_test {
@@ -491,8 +492,8 @@ private:
    * palette.
    */
   static GenerativePalette make_palette() {
-    return GenerativePalette{PaletteRecipes::random_profile(
-        PaletteDomain::MIRROR, PaletteHarmony::ANALOGOUS, AxisCurve::CONSTANT)};
+    return GenerativePalette{EffectPaletteRecipes::displacement_field(
+        EffectPaletteRecipes::random_base_turns())};
   }
 
   /**

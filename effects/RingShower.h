@@ -11,6 +11,7 @@
  *        then recycle their slot.
  */
 
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that
@@ -164,8 +165,8 @@ private:
    *          distinct palette.
    */
   static GenerativePalette make_palette() {
-    return GenerativePalette{PaletteRecipes::random_profile(
-        PaletteDomain::MIRROR, PaletteHarmony::ANALOGOUS, AxisCurve::CONSTANT)};
+    return GenerativePalette{EffectPaletteRecipes::displacement_field(
+        EffectPaletteRecipes::random_base_turns())};
   }
 
   /**

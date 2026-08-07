@@ -11,6 +11,7 @@
  *        a Mobius transform.
  */
 
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
 // Unit-test accessor for the conformal-radius pole branch and the
@@ -51,9 +52,8 @@ public:
    */
   HS_COLD_MEMBER MobiusGrid()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
-        palette(PaletteRecipes::random_profile(
-            PaletteDomain::MIRROR, PaletteHarmony::SPLIT_COMPLEMENTARY,
-            AxisCurve::CONSTANT)),
+        palette(EffectPaletteRecipes::mobius_grid(
+            EffectPaletteRecipes::random_base_turns())),
         mobius_gen(timeline),
         filters(NorthHole(Y_AXIS, 1.2f), SouthHole(-Y_AXIS, 1.2f),
                 Filter::World::Orient(orientation),
@@ -205,11 +205,10 @@ private:
    */
   void wipe_palette() {
     palette_start = palette.snapshot();
-    palette_target = GenerativePalette{PaletteRecipes::random_profile(
-                                           PaletteDomain::MIRROR,
-                                           PaletteHarmony::SPLIT_COMPLEMENTARY,
-                                           AxisCurve::CONSTANT)}
-                         .snapshot();
+    palette_target =
+        GenerativePalette{EffectPaletteRecipes::mobius_grid(
+                              EffectPaletteRecipes::random_base_turns())}
+            .snapshot();
     timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target,
                                          WIPE_FRAMES, ease_linear));
     wipe_frames_remaining = WIPE_FRAMES;

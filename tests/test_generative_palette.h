@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <cstring>
+
 inline void test_generative_palette_deterministic() {
   const PaletteRecipe recipe = PaletteRecipes::profile(
       PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::BELL,
@@ -17,6 +19,21 @@ inline void test_generative_palette_deterministic() {
     HS_EXPECT_EQ(a.g, b.g);
     HS_EXPECT_EQ(a.b, b.b);
   }
+}
+
+inline void test_effect_palette_recipe_roster() {
+  const auto presets = EffectPaletteRecipes::presets();
+  HS_EXPECT_EQ(presets.size(), size_t{9});
+  HS_EXPECT_EQ(std::strcmp(presets[0].name, "BZReactionDiffusion"), 0);
+  HS_EXPECT_EQ(std::strcmp(presets[2].name, "DisplacementField / RingShower"),
+               0);
+  HS_EXPECT_EQ(std::strcmp(presets[8].name, "ShaderBall Flyby"), 0);
+  HS_EXPECT_FALSE(presets[0].random_hue);
+  HS_EXPECT_TRUE(presets[1].random_hue);
+  HS_EXPECT_NEAR(presets[1].recipe.hue.base_turns,
+                 PaletteRecipes::hue_turns(42), 1e-6f);
+  HS_EXPECT_EQ(presets[0].recipe.hue.mode, HueMode::CUSTOM);
+  HS_EXPECT_EQ(presets[7].recipe.lightness.curve, AxisCurve::CUSTOM);
 }
 
 inline void test_generative_palette_recipe_validation() {

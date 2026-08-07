@@ -12,6 +12,7 @@
 #include <emscripten/bind.h>
 
 #include "core/color/color.h"
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/platform.h"
 
 using namespace emscripten;
@@ -26,6 +27,19 @@ struct PaletteOps {
   val compileAndBakeV4(const val &input) { return compile(input, false); }
 
   val inspectV4(const val &input) { return compile(input, true); }
+
+  val effectPresetsV4() {
+    val output = val::array();
+    int index = 0;
+    for (const auto &preset : EffectPaletteRecipes::presets()) {
+      val entry = val::object();
+      entry.set("name", std::string(preset.name));
+      entry.set("randomHue", preset.random_hue);
+      entry.set("recipe", encode_recipe(preset.recipe));
+      output.set(index++, entry);
+    }
+    return output;
+  }
 
 private:
   template <typename Enum>
@@ -254,5 +268,6 @@ static void bind_palette_ops() {
   class_<PaletteOps>("PaletteOps")
       .constructor<>()
       .function("compileAndBakeV4", &PaletteOps::compileAndBakeV4)
-      .function("inspectV4", &PaletteOps::inspectV4);
+      .function("inspectV4", &PaletteOps::inspectV4)
+      .function("effectPresetsV4", &PaletteOps::effectPresetsV4);
 }

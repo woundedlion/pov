@@ -19,6 +19,7 @@
 #include <limits>
 
 #include "core/color/color.h"
+#include "core/color/effect_palette_recipes.h"
 #include "core/color/srgb_decode.h"
 #include "core/engine/util.h"
 #include "tests/test_fixture.h"
@@ -2168,6 +2169,7 @@ inline int run_color_tests() {
   test_procedural_palette_cosine();
   test_mutating_palette_blends_endpoints();
   test_generative_palette_deterministic();
+  test_effect_palette_recipe_roster();
   test_generative_palette_recipe_validation();
   test_generative_palette_input_window();
   test_generative_palette_resolves_axes_and_harmony();
