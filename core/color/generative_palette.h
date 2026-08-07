@@ -115,14 +115,8 @@ public:
   float palette_input_span() const { return input_span; }
   uint8_t palette_key_count() const { return key_count; }
 
-  bool mirrors_domain() const {
-    return domain == PaletteDomain::MIRROR && input_offset == 0.0f &&
-           input_span == 1.0f;
-  }
-  bool loops_domain() const {
-    return domain == PaletteDomain::LOOP && input_offset == 0.0f &&
-           input_span == 1.0f;
-  }
+  bool mirrors_domain() const { return domain == PaletteDomain::MIRROR; }
+  bool loops_domain() const { return domain == PaletteDomain::LOOP; }
 
   Diagnostic diagnose(float t) const {
     const Evaluated value = evaluate(t);
@@ -231,10 +225,10 @@ private:
   struct Segment {
     ControlKey left;
     ControlKey right;
-    bool left_visible;
-    bool right_visible;
+    ControlKey envelope;
+    float visibility;
     float progress;
-    float domain_position;
+    float relationship_position;
   };
 
   struct Evaluated {
@@ -849,131 +843,111 @@ private:
     return progress;
   }
 
-  HS_COLD_MEMBER Segment select_segment(float t) const {
-    t = hs::clamp(t, 0.0f, 1.0f);
-    t = input_offset + t * input_span;
-    if (domain == PaletteDomain::LOOP && t == 1.0f)
-      t = 0.0f;
-    if (domain == PaletteDomain::MIRROR)
-      t = std::min(t, 1.0f - t);
-
-    float domain_position = t;
-    switch (domain) {
-    case PaletteDomain::STRAIGHT:
-    case PaletteDomain::LOOP:
-      break;
-    case PaletteDomain::MIRROR:
-      domain_position = t * 2.0f;
-      break;
-    case PaletteDomain::VIGNETTE:
-      domain_position = hs::clamp((t - 0.1f) * 1.25f, 0.0f, 1.0f);
-      break;
-    case PaletteDomain::FALLOFF:
-      domain_position = hs::clamp(t * 1.5f, 0.0f, 1.0f);
-      break;
-    }
-
-    ControlKey stops[PALETTE_MAX_KEYS + 2] = {};
-    bool visible[PALETTE_MAX_KEYS + 2] = {};
-    float positions[PALETTE_MAX_KEYS + 2] = {};
-    int count = 0;
-    const ControlKey black{0.0f, 0.0f, 0.0f};
-
-    switch (domain) {
-    case PaletteDomain::STRAIGHT:
-      for (int i = 0; i < key_count; ++i) {
-        stops[i] = keys[i];
-        visible[i] = true;
-        positions[i] = i / float(key_count - 1);
-      }
-      count = key_count;
-      break;
-    case PaletteDomain::MIRROR:
-      for (int i = 0; i < key_count; ++i) {
-        stops[i] = keys[i];
-        visible[i] = true;
-        positions[i] = 0.5f * i / float(key_count - 1);
-      }
-      count = key_count;
-      break;
-    case PaletteDomain::VIGNETTE:
-      stops[0] = black;
-      positions[0] = 0.0f;
-      for (int i = 0; i < key_count; ++i) {
-        stops[i + 1] = keys[i];
-        visible[i + 1] = true;
-        positions[i + 1] = 0.1f + 0.8f * i / float(key_count - 1);
-      }
-      stops[key_count + 1] = black;
-      positions[key_count + 1] = 1.0f;
-      count = key_count + 2;
-      break;
-    case PaletteDomain::FALLOFF:
-      for (int i = 0; i < key_count; ++i) {
-        stops[i] = keys[i];
-        visible[i] = true;
-        positions[i] = (2.0f / 3.0f) * i / float(key_count - 1);
-      }
-      stops[key_count] = black;
-      stops[key_count + 1] = black;
-      positions[key_count] = falloff_start;
-      positions[key_count + 1] = 1.0f;
-      count = key_count + 2;
-      break;
-    case PaletteDomain::LOOP:
-      for (int i = 0; i < key_count; ++i) {
-        stops[i] = keys[i];
-        visible[i] = true;
-        positions[i] = i / float(key_count);
-      }
-      stops[key_count] = {keys[0].L, keys[0].chroma, closing_hue};
-      visible[key_count] = true;
-      positions[key_count] = 1.0f;
-      count = key_count + 1;
-      break;
-    }
-
-    int index = count - 2;
-    for (int i = 0; i < count - 1; ++i) {
-      if (t >= positions[i] && t < positions[i + 1]) {
-        index = i;
-        break;
-      }
-    }
-    const float width = positions[index + 1] - positions[index];
-    const float progress =
-        width > 0.0f ? apply_easing(hs::clamp((t - positions[index]) / width,
-                                              0.0f, 1.0f))
-                     : 0.0f;
-    return {stops[index],       stops[index + 1], visible[index],
-            visible[index + 1], progress,         domain_position};
+  float window_position(float position) const {
+    return input_offset + hs::clamp(position, 0.0f, 1.0f) * input_span;
   }
 
-  HS_COLD_MEMBER ControlKey sample_envelope(float t) const {
-    t = hs::clamp(t, 0.0f, 1.0f);
-    if (domain == PaletteDomain::LOOP && t == 1.0f)
-      t = 0.0f;
+  HS_COLD_MEMBER Segment select_base_segment(float position) const {
+    position = hs::clamp(position, 0.0f, 1.0f);
+    const float scaled = position * (key_count - 1);
+    const int left =
+        std::min(static_cast<int>(scaled), static_cast<int>(key_count) - 2);
+    const int right = left + 1;
+    const float progress = apply_easing(scaled - left);
+    return {keys[left], keys[right], sample_envelope(position),
+            1.0f,       progress,    position};
+  }
 
-    const float scale =
-        domain == PaletteDomain::LOOP ? key_count : key_count - 1;
-    const float scaled = t * scale;
+  HS_COLD_MEMBER float sample_hue(float position) const {
+    const Segment segment = select_base_segment(position);
+    return segment.left.h +
+           (segment.right.h - segment.left.h) * segment.progress;
+  }
+
+  HS_COLD_MEMBER Segment select_segment(float t) const {
+    t = hs::clamp(t, 0.0f, 1.0f);
+
+    if (domain == PaletteDomain::LOOP) {
+      const float main_end = (key_count - 1.0f) / key_count;
+      const float relationship = window_position(1.0f - fabsf(2.0f * t - 1.0f));
+      if (t < main_end) {
+        Segment segment = select_base_segment(window_position(t / main_end));
+        segment.relationship_position = relationship;
+        return segment;
+      }
+
+      const float progress = apply_easing((t - main_end) / (1.0f - main_end));
+      const float start_position = window_position(0.0f);
+      const float end_position = window_position(1.0f);
+      const ControlKey start = sample_envelope(start_position);
+      const ControlKey end = sample_envelope(end_position);
+      const ControlKey envelope{
+          end.L + (start.L - end.L) * progress,
+          end.chroma + (start.chroma - end.chroma) * progress, 0.0f};
+      const float winding = closing_hue - keys[0].h;
+      const ControlKey left{0.0f, 0.0f, sample_hue(end_position)};
+      const ControlKey right{0.0f, 0.0f, sample_hue(start_position) + winding};
+      return {left, right, envelope, 1.0f, progress, relationship};
+    }
+
+    float position = t;
+    float visibility = 1.0f;
+    switch (domain) {
+    case PaletteDomain::STRAIGHT:
+      break;
+    case PaletteDomain::MIRROR:
+      position = 2.0f * std::min(t, 1.0f - t);
+      break;
+    case PaletteDomain::VIGNETTE:
+      if (t < 0.1f) {
+        position = 0.0f;
+        visibility = apply_easing(t * 10.0f);
+      } else if (t > 0.9f) {
+        position = 1.0f;
+        visibility = 1.0f - apply_easing((t - 0.9f) * 10.0f);
+      } else {
+        position = (t - 0.1f) * 1.25f;
+      }
+      break;
+    case PaletteDomain::FALLOFF:
+      if (t <= 2.0f / 3.0f) {
+        position = t * 1.5f;
+      } else {
+        position = 1.0f;
+        if (t < falloff_start)
+          visibility = 1.0f - apply_easing((t - 2.0f / 3.0f) /
+                                           (falloff_start - 2.0f / 3.0f));
+        else
+          visibility = 0.0f;
+      }
+      break;
+    case PaletteDomain::LOOP:
+      break;
+    }
+
+    Segment segment = select_base_segment(window_position(position));
+    segment.visibility = visibility;
+    return segment;
+  }
+
+  HS_COLD_MEMBER ControlKey sample_envelope(float position) const {
+    position = hs::clamp(position, 0.0f, 1.0f);
+    const float scaled = position * (key_count - 1);
     const int left =
         std::min(static_cast<int>(scaled), static_cast<int>(key_count) - 1);
-    const int right = domain == PaletteDomain::LOOP
-                          ? (left + 1) % key_count
-                          : std::min(left + 1, static_cast<int>(key_count) - 1);
+    const int right = std::min(left + 1, static_cast<int>(key_count) - 1);
     const float progress = apply_easing(scaled - floorf(scaled));
     const float lightness =
         lightness_axis.curve == AxisCurve::CUSTOM
             ? keys[left].L + (keys[right].L - keys[left].L) * progress
             : evaluate_axis(lightness_axis.low, lightness_axis.high,
-                            lightness_axis.curve, t);
+                            lightness_axis.curve, position);
     const float chroma =
         chroma_axis.curve == AxisCurve::CUSTOM
             ? keys[left].chroma +
                   (keys[right].chroma - keys[left].chroma) * progress
             : evaluate_axis(chroma_axis.low, chroma_axis.high,
-                            chroma_axis.curve, t);
+                            chroma_axis.curve, position);
     return {lightness, chroma, 0.0f};
   }
 
@@ -1047,14 +1021,10 @@ private:
   }
 
   HS_COLD_MEMBER Evaluated evaluate(float t) const {
-    const float output_position = hs::clamp(t, 0.0f, 1.0f);
     const Segment segment = select_segment(t);
-    const ControlKey envelope = sample_envelope(output_position);
+    const ControlKey envelope = segment.envelope;
     const float progress = segment.progress;
-    const float left_visibility = segment.left_visible ? 1.0f : 0.0f;
-    const float right_visibility = segment.right_visible ? 1.0f : 0.0f;
-    const float visibility =
-        left_visibility + (right_visibility - left_visibility) * progress;
+    const float visibility = segment.visibility;
     const float L = envelope.L * visibility;
     const float control = envelope.chroma * visibility;
     const bool chromatic = chroma_basis == ChromaBasis::LOCAL_GAMUT
@@ -1063,11 +1033,8 @@ private:
 
     PathEvaluation path;
     if (complementary_harmony) {
-      float relationship_position = segment.domain_position;
-      if (domain == PaletteDomain::LOOP)
-        relationship_position =
-            1.0f - fabsf(2.0f * relationship_position - 1.0f);
-      relationship_position = apply_easing(relationship_position);
+      const float relationship_position =
+          apply_easing(segment.relationship_position);
 
       if (color_path == ColorPath::OKLAB_CARTESIAN) {
         const ControlKey first{L, control, keys[0].h};
@@ -1080,19 +1047,13 @@ private:
                                  relationship_position);
       }
     } else if (color_path == ColorPath::OKLAB_CARTESIAN) {
-      const ControlKey left_key{envelope.L * left_visibility,
-                                envelope.chroma * left_visibility,
-                                segment.left.h};
-      const ControlKey right_key{envelope.L * right_visibility,
-                                 envelope.chroma * right_visibility,
-                                 segment.right.h};
-      path = evaluate_cartesian_path(
-          left_key, chromatic && segment.left_visible, right_key,
-          chromatic && segment.right_visible, progress, control);
+      const ControlKey left_key{L, control, segment.left.h};
+      const ControlKey right_key{L, control, segment.right.h};
+      path = evaluate_cartesian_path(left_key, chromatic, right_key, chromatic,
+                                     progress, control);
     } else {
-      path = evaluate_arc_path(
-          L, control, segment.left.h, chromatic && segment.left_visible,
-          segment.right.h, chromatic && segment.right_visible, progress);
+      path = evaluate_arc_path(L, control, segment.left.h, chromatic,
+                               segment.right.h, chromatic, progress);
     }
     return finish_evaluation(path);
   }
