@@ -561,14 +561,16 @@ private:
   // lens_mix, hue_shift, value_fade) must sit exactly on 0 or 1 whenever the
   // matching per-pixel skip is intended: Animation::Lerp lands bit-exactly
   // only on those endpoints, and a near-0 value un-latches the skip for good.
-  static constexpr std::array<PresetEntry<Params>, 8> PRESETS = {{
-      // Wandering lensed liquid: mild, deep, then fine-grained cross-coupling.
+  static constexpr std::array<PresetEntry<Params>, 9> PRESETS = {{
+      // Wandering liquid: mild, deep, then fine-grained cross-coupling.
       {{3.0f, 0.5f, 0.5f, 5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
         0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
       {{3.0f, 0.5f, 0.5f, 1.2f, 0.05f, 3.0f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
         0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
       {{3.0f, 1.479f, 0.5f, 14.528f, 0.1f, 0.5f, 0.0f, 0.8f, 1.0f, 0.0f, 1.0f,
         1.0f, 0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
+      {{3.0f, 0.0f, 0.5f, 15.763f, 0.1f, 2.950552f, 0.0f, 0.8f, 1.0f, 0.0f,
+        1.0f, 0.0f, 0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
       // Spinning grid fly-throughs.
       {{47.752f, 11.55f, 0.3f, 2.7f, 0.586f, 0.0f, 1.0f, 0.7f, 1.55f,
         ORBIT_SPIN_RATE, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.097f, 1.0f}},
@@ -587,8 +589,9 @@ private:
                 "range exposes the presets, it does not clamp them)");
 
   /** @brief Per-preset choreography, consumed on entry; the cross-family
-   *  boundaries (rows 2 and 7) blend parallel. */
-  static constexpr std::array<Choreo, 8> CHOREO = {{
+   *  boundaries (rows 3 and 8) blend parallel. */
+  static constexpr std::array<Choreo, 9> CHOREO = {{
+      {30, 90, 60, true},
       {30, 90, 60, true},
       {30, 90, 60, true},
       {30, 90, 480, false},
@@ -601,7 +604,7 @@ private:
   static_assert(CHOREO.size() == PRESETS.size(),
                 "CHOREO must carry one entry per preset");
 
-  Presets<Params, 8> presets{PRESETS};
+  Presets<Params, 9> presets{PRESETS};
 
   Blend blend{PRESETS[0].params}; /**< Live params; init() reloads from
                                      presets. */

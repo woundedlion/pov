@@ -4436,6 +4436,18 @@ inline void test_shaderball_glitch_lens_unit_norm() {
   HS_EXPECT_NEAR(mid.length(), 1.0f, 1e-6f);
 }
 
+/** @brief Pins ShaderBall's fine-grained unlensed liquid preset. */
+inline void test_shaderball_preset_roster() {
+  using WB = ShaderBallWhiteBox;
+  constexpr WB::Params EXPECTED{3.0f, 0.0f,  0.5f,  15.763f, 0.1f, 2.950552f,
+                                0.0f, 0.8f,  1.0f,  0.0f,    1.0f, 0.0f,
+                                0.0f, 0.15f, 0.05f, 0.0f,    0.0f};
+  const auto &presets = WB::presets();
+  HS_EXPECT_EQ(presets.size(), size_t(9));
+  for (auto field : WB::Params::FIELDS)
+    HS_EXPECT_EQ(presets[3].params.*field, EXPECTED.*field);
+}
+
 /**
  * @brief Pins the generalized pattern formula against both classic closed
  *        forms and asserts gate params re-latch bit-exactly after preset
@@ -5580,6 +5592,7 @@ inline int run_effects_tests() {
     test_shaderball_palettes();
     test_shaderball_phase_wrapped();
     test_shaderball_glitch_lens_unit_norm();
+    test_shaderball_preset_roster();
     test_shaderball_formula_reduction();
     test_mobiusgrid_conformal_and_counter_rotation();
     test_ringspin_pool_clamped();
