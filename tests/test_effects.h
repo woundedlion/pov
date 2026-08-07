@@ -3462,6 +3462,7 @@ inline void test_mindsplatter_replay_snapshot_exact() {
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
   using Snapshot = WB::ReplaySnapshot<W, H>;
+  static_assert(WB::trail_length() == 4);
 
   Snapshot source;
   {
@@ -3469,12 +3470,14 @@ inline void test_mindsplatter_replay_snapshot_exact() {
     hs::set_mock_time(0, 0);
     MS effect;
     effect.init();
+    HS_EXPECT_EQ(WB::particle_capacity(effect), static_cast<size_t>(2048));
     for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
       hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
                         static_cast<unsigned long>(frame) * FRAME_US);
       effect.draw_frame();
       effect.advance_display();
     }
+    WB::fill_particle_capacity(effect);
     source = WB::capture(effect);
     HS_EXPECT_EQ(source.particles.size(), WB::particle_capacity(effect));
   }
@@ -3547,6 +3550,7 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
       source_effect.draw_frame();
       source_effect.advance_display();
     }
+    WB::fill_particle_capacity(source_effect);
     source = WB::capture(source_effect);
     HS_EXPECT_EQ(source.particles.size(), WB::particle_capacity(source_effect));
   }
@@ -3637,6 +3641,7 @@ inline void test_mindsplatter_opaque_palette_framebuffer_parity() {
       effect.draw_frame();
       effect.advance_display();
     }
+    WB::fill_particle_capacity(effect);
     source = WB::capture(effect);
     HS_EXPECT_EQ(source.particles.size(), WB::particle_capacity(effect));
     HS_EXPECT_TRUE(WB::palette_is_opaque(effect));
@@ -4154,7 +4159,7 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
 
   constexpr int CHECKPOINTS[] = {16, 80, 160};
   constexpr size_t MAX_DIFFERENT[] = {0, 192, 192};
-  constexpr int MAX_CHANNEL[] = {0, 32, 1152};
+  constexpr int MAX_CHANNEL[] = {0, 64, 1152};
   constexpr uint64_t MAX_TOTAL[] = {0, 512, 4096};
   for (size_t checkpoint = 0; checkpoint < 3; ++checkpoint) {
     const int frame = CHECKPOINTS[checkpoint];

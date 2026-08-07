@@ -373,6 +373,18 @@ struct MindSplatterWhiteBox {
     return ms.particle_system.active();
   }
   template <int W, int H>
+  static void fill_particle_capacity(MindSplatter<W, H> &ms) {
+    const size_t source_count = ms.particle_system.active();
+    HS_CHECK(source_count > 0);
+    while (ms.particle_system.active() < ms.particle_system.pool.capacity()) {
+      const size_t destination = ms.particle_system.active();
+      const auto source = ms.particle_system.pool[destination % source_count];
+      ms.particle_system.spawn(Vector(), Vector(), 0);
+      ms.particle_system.pool[destination] = source;
+    }
+    ms.params.active_count = static_cast<float>(ms.particle_system.active());
+  }
+  template <int W, int H>
   static uint16_t particle_color_seed(const MindSplatter<W, H> &ms,
                                       size_t index) {
     HS_CHECK(index < ms.particle_system.active());

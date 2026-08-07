@@ -113,17 +113,17 @@ private:
   friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
 
   /** @brief Per-particle trail length (feeds the pool footprint below). */
-  static constexpr int TRAIL_LEN = 23;
+  static constexpr int TRAIL_LEN = 4;
 
   /**
    * @brief Fixed particle pool capacity.
    * @details Footprint is host/device-identical (fixed-width trail storage:
-   *          snorm16 entries, uint32_t ring indices): 180 B/particle × 1088 =
-   *          ~191 KiB of the 298 KiB device arena. init()'s static_assert
+   *          snorm16 entries, uint32_t ring indices): 64 B/particle × 2048 =
+   *          128 KiB of the 298 KiB device arena. init()'s static_assert
    *          enforces the budget at compile time against the real device arena
    *          literal.
    */
-  static constexpr int NUM_PARTICLES = 1088;
+  static constexpr int NUM_PARTICLES = 2048;
 
   typedef Solids::Cube EmitSolid;
   typedef Solids::Octahedron AttractSolid;
