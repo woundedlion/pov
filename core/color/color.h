@@ -479,8 +479,7 @@ enum class PaletteDomain : uint8_t {
 
 enum class SegmentEase : uint8_t { LINEAR, COSINE, SMOOTHSTEP };
 
-static constexpr uint8_t PALETTE_MIN_KEYS = 2;
-static constexpr uint8_t PALETTE_MAX_KEYS = 6;
+static constexpr uint8_t PALETTE_MAX_KEYS = 4;
 
 struct HueControls {
   HueMode mode = HueMode::HARMONY;
@@ -514,10 +513,9 @@ struct PaletteInputWindow {
 };
 
 struct PaletteRecipe {
-  static constexpr uint8_t SCHEMA_VERSION = 3;
+  static constexpr uint8_t SCHEMA_VERSION = 4;
 
   uint8_t schema_version = SCHEMA_VERSION;
-  uint8_t key_count = 3;
   PaletteInputWindow input;
   PaletteDomain domain = PaletteDomain::STRAIGHT;
   SegmentEase easing = SegmentEase::COSINE;
@@ -532,7 +530,6 @@ struct PaletteRecipe {
 enum class PaletteCompileCode : uint8_t {
   OK,
   INVALID_SCHEMA,
-  INVALID_KEY_COUNT,
   NON_FINITE,
   INVALID_ENUM,
   HUE_LIMIT,
@@ -543,47 +540,40 @@ enum class PaletteCompileCode : uint8_t {
 
 enum class PaletteRecipeField : uint8_t {
   NONE = 0,
-  KEY_COUNT = 1,
-  PALETTE_DOMAIN = 2,
-  EASING = 3,
-  COLOR_PATH = 4,
-  HUE_MODE = 5,
-  HARMONY = 6,
-  HUE_DIRECTION = 7,
-  BASE_TURNS = 8,
-  SPREAD_TURNS = 9,
-  SWEEP_TURNS = 10,
-  CUSTOM_TURNS_0 = 11,
-  CUSTOM_TURNS_1 = 12,
-  CUSTOM_TURNS_2 = 13,
-  CUSTOM_TURNS_3 = 14,
-  CUSTOM_TURNS_4 = 15,
-  CUSTOM_TURNS_5 = 16,
-  LIGHTNESS_CURVE = 17,
-  LIGHTNESS_CENTER = 18,
-  LIGHTNESS_RANGE = 19,
-  LIGHTNESS_CUSTOM_0 = 20,
-  LIGHTNESS_CUSTOM_1 = 21,
-  LIGHTNESS_CUSTOM_2 = 22,
-  LIGHTNESS_CUSTOM_3 = 23,
-  LIGHTNESS_CUSTOM_4 = 24,
-  LIGHTNESS_CUSTOM_5 = 25,
-  CHROMA_CURVE = 26,
-  CHROMA_BASIS = 27,
-  CHROMA_CENTER = 28,
-  CHROMA_RANGE = 29,
-  CHROMA_CUSTOM_0 = 30,
-  CHROMA_CUSTOM_1 = 31,
-  CHROMA_CUSTOM_2 = 32,
-  CHROMA_CUSTOM_3 = 33,
-  CHROMA_CUSTOM_4 = 34,
-  CHROMA_CUSTOM_5 = 35,
-  CHROMA_HEADROOM = 36,
-  HUE_TORSION = 37,
-  FALLOFF_START = 38,
-  SCHEMA_VERSION = 39,
-  INPUT_OFFSET = 40,
-  INPUT_SPAN = 41,
+  PALETTE_DOMAIN = 1,
+  EASING = 2,
+  COLOR_PATH = 3,
+  HUE_MODE = 4,
+  HARMONY = 5,
+  HUE_DIRECTION = 6,
+  BASE_TURNS = 7,
+  SPREAD_TURNS = 8,
+  SWEEP_TURNS = 9,
+  CUSTOM_TURNS_0 = 10,
+  CUSTOM_TURNS_1 = 11,
+  CUSTOM_TURNS_2 = 12,
+  CUSTOM_TURNS_3 = 13,
+  LIGHTNESS_CURVE = 14,
+  LIGHTNESS_CENTER = 15,
+  LIGHTNESS_RANGE = 16,
+  LIGHTNESS_CUSTOM_0 = 17,
+  LIGHTNESS_CUSTOM_1 = 18,
+  LIGHTNESS_CUSTOM_2 = 19,
+  LIGHTNESS_CUSTOM_3 = 20,
+  CHROMA_CURVE = 21,
+  CHROMA_BASIS = 22,
+  CHROMA_CENTER = 23,
+  CHROMA_RANGE = 24,
+  CHROMA_CUSTOM_0 = 25,
+  CHROMA_CUSTOM_1 = 26,
+  CHROMA_CUSTOM_2 = 27,
+  CHROMA_CUSTOM_3 = 28,
+  CHROMA_HEADROOM = 29,
+  HUE_TORSION = 30,
+  FALLOFF_START = 31,
+  SCHEMA_VERSION = 32,
+  INPUT_OFFSET = 33,
+  INPUT_SPAN = 34,
 };
 
 struct PaletteAdjustments {

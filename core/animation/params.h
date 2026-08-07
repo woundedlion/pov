@@ -312,62 +312,59 @@ private:
 };
 
 /**
- * @brief An animation that smoothly interpolates a GenerativePalette toward a
- * target palette.
+ * @brief Interpolates a GenerativePalette between caller-owned snapshots.
  */
 class ColorWipe : public FiniteParamAnimationBase<ColorWipe> {
 public:
   /**
    * @brief Constructs a ColorWipe animation.
-   * @param from_palette The GenerativePalette to animate (snapshotted on the
-   * first step(), mirroring Transition).
-   * @param to_palette The GenerativePalette to interpolate toward.
+   * @param palette The GenerativePalette to animate.
+   * @param start Caller-owned starting snapshot.
+   * @param target Caller-owned target snapshot.
    * @param duration The duration in frames.
    * @param easing_fn The easing function.
    * @param paused Optional pause gate; null = always runs.
-   * @details to_palette must outlive the animation and remain unchanged until
-   *          it completes.
+   * @details start and target must outlive the animation and remain unchanged
+   *          until it completes.
    */
-  ColorWipe(GenerativePalette &from_palette,
-            const GenerativePalette &to_palette, int duration,
+  ColorWipe(GenerativePalette &palette,
+            const GenerativePalette::Snapshot &start,
+            const GenerativePalette::Snapshot &target, int duration,
             EasingFn easing_fn, const bool *paused = nullptr)
-      : FiniteParamAnimationBase(duration, false), cur_palette(from_palette),
-        to_palette(to_palette), easing_fn(std::move(easing_fn)),
+      : FiniteParamAnimationBase(duration, false), palette(palette),
+        start(start), target(target), easing_fn(std::move(easing_fn)),
         paused(paused) {}
 
-  ColorWipe(GenerativePalette &, GenerativePalette &&, int, EasingFn,
+  ColorWipe(GenerativePalette &, GenerativePalette::Snapshot &&,
+            const GenerativePalette::Snapshot &, int, EasingFn,
+            const bool * = nullptr) = delete;
+  ColorWipe(GenerativePalette &, const GenerativePalette::Snapshot &,
+            GenerativePalette::Snapshot &&, int, EasingFn,
             const bool * = nullptr) = delete;
 
   /**
    * @brief Steps the animation, blending the palette's colors based on the time
    * factor.
    * @param canvas The canvas buffer (forwarded to the base step).
-   * @details Freezes while a wired pause flag is set (see Mutation::step); the
-   * start snapshot is taken on the first unpaused step.
+   * @details Freezes while a wired pause flag is set (see Mutation::step).
    */
   void step(Canvas &canvas) override {
     if (is_paused(paused))
       return;
-    // Snapshot the start palette once, on the first step (see Transition::step).
-    if (!captured) {
-      from_snap = cur_palette.get().snapshot();
-      captured = true;
-    }
     FiniteParamAnimationBase::step(canvas);
     float amount = normalized_progress();
-    cur_palette.get().lerp(from_snap, to_palette.get().snapshot(),
-                           easing_fn(amount));
+    palette.get().lerp(start.get(), target.get(), easing_fn(amount));
   }
 
 private:
-  GenerativePalette::Snapshot from_snap{}; /**< Snapshot of starting colors. */
   std::reference_wrapper<GenerativePalette>
-      cur_palette; /**< The palette being animated. */
-  std::reference_wrapper<const GenerativePalette>
-      to_palette;        /**< Stable target palette. */
-  EasingFn easing_fn;    /**< Easing curve. */
-  bool captured = false; /**< Whether from_snap was taken on the first step. */
-  const bool *paused;    /**< Optional pause gate; freezes the wipe when set and
+      palette; /**< The palette being animated. */
+  std::reference_wrapper<const GenerativePalette::Snapshot>
+      start; /**< Stable starting state. */
+  std::reference_wrapper<const GenerativePalette::Snapshot>
+      target;         /**< Stable target state. */
+  EasingFn easing_fn; /**< Easing curve. */
+  const bool *paused; /**< Optional pause gate; freezes the wipe when set and
                           true. Null = always runs. */
 };
 
