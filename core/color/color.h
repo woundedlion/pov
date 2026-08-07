@@ -477,6 +477,9 @@ enum class PaletteDomain : uint8_t {
 
 enum class SegmentEase : uint8_t { LINEAR, COSINE, SMOOTHSTEP };
 
+static constexpr uint8_t PALETTE_MIN_KEYS = 3;
+static constexpr uint8_t PALETTE_MAX_KEYS = 6;
+
 struct HueControls {
   HueMode mode = HueMode::HARMONY;
   PaletteHarmony harmony = PaletteHarmony::ANALOGOUS;
@@ -484,14 +487,14 @@ struct HueControls {
   float base_turns = 0.0f;
   float spread_turns = 0.07f;
   float sweep_turns = 1.0f;
-  std::array<float, 3> custom_turns{};
+  std::array<float, PALETTE_MAX_KEYS> custom_turns{};
 };
 
 struct AxisControls {
   AxisCurve curve = AxisCurve::CONSTANT;
   float center = 0.62f;
   float range = 0.0f;
-  std::array<float, 3> custom{};
+  std::array<float, PALETTE_MAX_KEYS> custom{};
 };
 
 struct ChromaControls {
@@ -500,7 +503,7 @@ struct ChromaControls {
   float center = 0.62f;
   float range = 0.0f;
   float headroom = 0.94f;
-  std::array<float, 3> custom{};
+  std::array<float, PALETTE_MAX_KEYS> custom{};
 };
 
 struct PaletteInputWindow {
@@ -509,9 +512,10 @@ struct PaletteInputWindow {
 };
 
 struct PaletteRecipe {
-  static constexpr uint8_t SCHEMA_VERSION = 2;
+  static constexpr uint8_t SCHEMA_VERSION = 3;
 
   uint8_t schema_version = SCHEMA_VERSION;
+  uint8_t key_count = 3;
   PaletteInputWindow input;
   PaletteDomain domain = PaletteDomain::STRAIGHT;
   SegmentEase easing = SegmentEase::COSINE;
@@ -526,6 +530,7 @@ struct PaletteRecipe {
 enum class PaletteCompileCode : uint8_t {
   OK,
   INVALID_SCHEMA,
+  INVALID_KEY_COUNT,
   NON_FINITE,
   INVALID_ENUM,
   HUE_LIMIT,
@@ -536,37 +541,47 @@ enum class PaletteCompileCode : uint8_t {
 
 enum class PaletteRecipeField : uint8_t {
   NONE = 0,
-  PALETTE_DOMAIN = 1,
-  EASING = 2,
-  COLOR_PATH = 3,
-  HUE_MODE = 4,
-  HARMONY = 5,
-  HUE_DIRECTION = 6,
-  BASE_TURNS = 7,
-  SPREAD_TURNS = 8,
-  SWEEP_TURNS = 9,
-  CUSTOM_TURNS_0 = 10,
-  CUSTOM_TURNS_1 = 11,
-  CUSTOM_TURNS_2 = 12,
-  LIGHTNESS_CURVE = 13,
-  LIGHTNESS_CENTER = 14,
-  LIGHTNESS_RANGE = 15,
-  LIGHTNESS_CUSTOM_0 = 16,
-  LIGHTNESS_CUSTOM_1 = 17,
-  LIGHTNESS_CUSTOM_2 = 18,
-  CHROMA_CURVE = 19,
-  CHROMA_BASIS = 20,
-  CHROMA_CENTER = 21,
-  CHROMA_RANGE = 22,
-  CHROMA_CUSTOM_0 = 23,
-  CHROMA_CUSTOM_1 = 24,
-  CHROMA_CUSTOM_2 = 25,
-  CHROMA_HEADROOM = 26,
-  HUE_TORSION = 27,
-  FALLOFF_START = 28,
-  SCHEMA_VERSION = 29,
-  INPUT_OFFSET = 30,
-  INPUT_SPAN = 31,
+  KEY_COUNT = 1,
+  PALETTE_DOMAIN = 2,
+  EASING = 3,
+  COLOR_PATH = 4,
+  HUE_MODE = 5,
+  HARMONY = 6,
+  HUE_DIRECTION = 7,
+  BASE_TURNS = 8,
+  SPREAD_TURNS = 9,
+  SWEEP_TURNS = 10,
+  CUSTOM_TURNS_0 = 11,
+  CUSTOM_TURNS_1 = 12,
+  CUSTOM_TURNS_2 = 13,
+  CUSTOM_TURNS_3 = 14,
+  CUSTOM_TURNS_4 = 15,
+  CUSTOM_TURNS_5 = 16,
+  LIGHTNESS_CURVE = 17,
+  LIGHTNESS_CENTER = 18,
+  LIGHTNESS_RANGE = 19,
+  LIGHTNESS_CUSTOM_0 = 20,
+  LIGHTNESS_CUSTOM_1 = 21,
+  LIGHTNESS_CUSTOM_2 = 22,
+  LIGHTNESS_CUSTOM_3 = 23,
+  LIGHTNESS_CUSTOM_4 = 24,
+  LIGHTNESS_CUSTOM_5 = 25,
+  CHROMA_CURVE = 26,
+  CHROMA_BASIS = 27,
+  CHROMA_CENTER = 28,
+  CHROMA_RANGE = 29,
+  CHROMA_CUSTOM_0 = 30,
+  CHROMA_CUSTOM_1 = 31,
+  CHROMA_CUSTOM_2 = 32,
+  CHROMA_CUSTOM_3 = 33,
+  CHROMA_CUSTOM_4 = 34,
+  CHROMA_CUSTOM_5 = 35,
+  CHROMA_HEADROOM = 36,
+  HUE_TORSION = 37,
+  FALLOFF_START = 38,
+  SCHEMA_VERSION = 39,
+  INPUT_OFFSET = 40,
+  INPUT_SPAN = 41,
 };
 
 struct PaletteAdjustments {

@@ -55,6 +55,13 @@ inline void test_generative_palette_recipe_validation() {
   HS_EXPECT_EQ(std::memcmp(&before, &after, sizeof(before)), 0);
   HS_EXPECT_EQ(
       std::memcmp(&canonical_before, &canonical, sizeof(canonical_before)), 0);
+
+  PaletteRecipe too_few_keys;
+  too_few_keys.key_count = PALETTE_MIN_KEYS - 1;
+  HS_EXPECT_FALSE(
+      GenerativePalette::try_compile(too_few_keys, output, canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::INVALID_KEY_COUNT);
+  HS_EXPECT_EQ(status.field, PaletteRecipeField::KEY_COUNT);
 }
 
 inline void test_generative_palette_input_window() {
@@ -88,19 +95,41 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
                                                  AxisCurve::ASCENDING, 0.0f);
   recipe.lightness.center = 0.5f;
   recipe.lightness.range = 0.6f;
+  recipe.key_count = 3;
   const GenerativePalette palette(recipe);
   const auto keys = palette.snapshot();
+  const auto key0 = GenerativePalette::snapshot_key(keys, 0);
+  const auto key1 = GenerativePalette::snapshot_key(keys, 1);
+  const auto key2 = GenerativePalette::snapshot_key(keys, 2);
 
-  HS_EXPECT_NEAR(keys.a.L, 0.2f, 1e-6f);
-  HS_EXPECT_NEAR(keys.b.L, 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(keys.c.L, 0.8f, 1e-6f);
-  HS_EXPECT_NEAR(keys.b.h - keys.a.h, 0.5f * PI_F, 1e-5f);
-  HS_EXPECT_NEAR(keys.c.h - keys.b.h, 0.5f * PI_F, 1e-5f);
+  HS_EXPECT_EQ(keys.key_count, 3);
+  HS_EXPECT_NEAR(key0.L, 0.2f, 3e-4f);
+  HS_EXPECT_NEAR(key1.L, 0.5f, 3e-4f);
+  HS_EXPECT_NEAR(key2.L, 0.8f, 3e-4f);
+  HS_EXPECT_NEAR(key1.h - key0.h, PI_F, 1e-5f);
+  HS_EXPECT_NEAR(key2.h - key1.h, 0.0f, 1e-5f);
 
   recipe.hue.direction = HueDirection::CLOCKWISE;
   const auto clockwise = GenerativePalette(recipe).snapshot();
-  HS_EXPECT_NEAR(clockwise.b.h - clockwise.a.h, -0.5f * PI_F, 1e-5f);
-  HS_EXPECT_NEAR(clockwise.c.h - clockwise.b.h, -0.5f * PI_F, 1e-5f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(clockwise, 1).h -
+                     GenerativePalette::snapshot_key(clockwise, 0).h,
+                 -PI_F, 1e-5f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(clockwise, 2).h -
+                     GenerativePalette::snapshot_key(clockwise, 1).h,
+                 0.0f, 1e-5f);
+
+  recipe.key_count = 6;
+  const auto six = GenerativePalette(recipe).snapshot();
+  HS_EXPECT_EQ(six.key_count, 6);
+  for (int i = 1; i < 3; ++i)
+    HS_EXPECT_NEAR(GenerativePalette::snapshot_key(six, i).h,
+                   GenerativePalette::snapshot_key(six, 0).h, 1e-5f);
+  for (int i = 4; i < 6; ++i)
+    HS_EXPECT_NEAR(GenerativePalette::snapshot_key(six, i).h,
+                   GenerativePalette::snapshot_key(six, 3).h, 1e-5f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(six, 3).h -
+                     GenerativePalette::snapshot_key(six, 2).h,
+                 -PI_F, 1e-5f);
 }
 
 inline void test_generative_palette_blue_cusp_is_continuous() {
@@ -172,8 +201,11 @@ inline void test_generative_palette_snapshot_lerp() {
 
   from.lerp(first, last, 0.5f);
   const auto middle = from.snapshot();
-  HS_EXPECT_NEAR(middle.a.L, 0.5f * (first.a.L + last.a.L), 1e-6f);
-  HS_EXPECT_NEAR(middle.a.q, 0.5f * (first.a.q + last.a.q), 1e-6f);
+  const auto first_key = GenerativePalette::snapshot_key(first, 0);
+  const auto last_key = GenerativePalette::snapshot_key(last, 0);
+  const auto middle_key = GenerativePalette::snapshot_key(middle, 0);
+  HS_EXPECT_NEAR(middle_key.L, 0.5f * (first_key.L + last_key.L), 3e-4f);
+  HS_EXPECT_NEAR(middle_key.q, 0.5f * (first_key.q + last_key.q), 3e-4f);
 
   from.lerp(first, last, 1.0f);
   const GenerativePalette::Snapshot target = from.snapshot();

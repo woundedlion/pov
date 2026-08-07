@@ -2657,7 +2657,7 @@ inline void test_meshcarousel_compact_drop_all_frees_both_slots() {
 // ============================================================================
 
 /**
- * @brief Builds a fixed three-key palette with no RNG draws.
+ * @brief Builds a deterministic palette with no RNG draws.
  * @param ka First key color.
  * @param kb Second key color.
  * @param kc Third key color.
@@ -2689,10 +2689,14 @@ inline void test_colorwipe_reaches_target_keys() {
 
   wipe.step(fake_canvas()); // t == duration: amount == 1 -> exact target keys
   HS_EXPECT_TRUE(wipe.done());
-  HS_EXPECT_NEAR(from.snapshot().a.L, target.a.L, 1e-6f);
-  HS_EXPECT_NEAR(from.snapshot().a.C, target.a.C, 1e-6f);
-  HS_EXPECT_NEAR(from.snapshot().b.h, target.b.h, 1e-6f);
-  HS_EXPECT_NEAR(from.snapshot().c.L, target.c.L, 1e-6f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L,
+                 GenerativePalette::snapshot_key(target, 0).L, 1e-6f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).C,
+                 GenerativePalette::snapshot_key(target, 0).C, 1e-6f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 1).h,
+                 GenerativePalette::snapshot_key(target, 1).h, 1e-6f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 2).L,
+                 GenerativePalette::snapshot_key(target, 2).L, 1e-6f);
 }
 
 /**
@@ -2715,7 +2719,7 @@ inline void test_colorwipe_snapshots_on_first_step() {
 
   wipe.step(fake_canvas()); // t=1: amount 0.25, snapshot captured here
   const float source_l = pixel_to_oklch(Pixel(CPixel(200, 200, 200))).L;
-  HS_EXPECT_GT(from.snapshot().a.L, source_l);
+  HS_EXPECT_GT(GenerativePalette::snapshot_key(from.snapshot(), 0).L, source_l);
 }
 
 /**
@@ -2735,7 +2739,7 @@ inline void test_colorwipe_slow_fade_resolves_every_frame() {
   float prev = -1.0f;
   for (int i = 0; i < duration; ++i) {
     wipe.step(fake_canvas());
-    float cur = from.snapshot().a.L;
+    float cur = GenerativePalette::snapshot_key(from.snapshot(), 0).L;
     if (i > 0 && cur != prev)
       ++advanced;
     prev = cur;
@@ -2754,20 +2758,22 @@ inline void test_colorwipe_paused_holds_keys() {
   GenerativePalette to = make_palette(
       CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
   GenerativePalette::Snapshot target = to.snapshot();
-  const float start_l = from.snapshot().a.L;
+  const float start_l = GenerativePalette::snapshot_key(from.snapshot(), 0).L;
 
   const int duration = 4;
   Animation::ColorWipe wipe(from, to, duration, ease_linear, &paused);
   for (int i = 0; i < duration; ++i)
     wipe.step(fake_canvas());
-  HS_EXPECT_NEAR(from.snapshot().a.L, start_l, 1e-6f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L, start_l,
+                 1e-6f);
   HS_EXPECT_FALSE(wipe.done());
 
   paused = false;
   for (int i = 0; i < duration; ++i)
     wipe.step(fake_canvas());
   HS_EXPECT_TRUE(wipe.done());
-  HS_EXPECT_NEAR(from.snapshot().a.L, target.a.L, 1e-6f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L,
+                 GenerativePalette::snapshot_key(target, 0).L, 1e-6f);
 }
 
 // ============================================================================
