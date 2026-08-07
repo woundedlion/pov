@@ -4282,6 +4282,9 @@ struct ShaderBallWhiteBox {
   static float phase2(const SB &sb) { return sb.phase2; }
   static float spin_phase(const SB &sb) { return sb.spin_phase; }
   static float cycle_phase(const SB &sb) { return sb.cycle_phase; }
+  static Pixel palette_color(const SB &sb, int bank, float t) {
+    return sb.bank[bank].get(t).color;
+  }
   static void seed_accumulators(SB &sb, float v) {
     sb.noise_time = v;
     sb.sin_phase = v;
@@ -4303,6 +4306,46 @@ struct ShaderBallWhiteBox {
   static const auto &presets() { return SB::PRESETS; }
   static bool choreo_staggered(size_t i) { return SB::CHOREO[i].staggered; }
 };
+
+/** @brief Pins ShaderBall's two palette banks to their authored color ramps. */
+inline void test_shaderball_palettes() {
+  using WB = ShaderBallWhiteBox;
+  static const Pixel LIQUID[] = {
+      {12689, 11497, 0}, {5377, 12037, 0}, {0, 11760, 2309}, {0, 9388, 5832},
+      {0, 7491, 7423},   {0, 5871, 8421},  {0, 4377, 9800},  {0, 2350, 16095},
+      {2102, 0, 19729},  {0, 2264, 16699}, {0, 4347, 10000}, {0, 5843, 8612},
+      {0, 7456, 7665},   {0, 9335, 6216},  {2, 11646, 3108}, {4188, 12506, 0},
+      {11605, 11917, 0},
+  };
+  static const Pixel FLYBY[] = {
+      {42417, 13691, 848},   {34481, 16826, 2},     {26160, 20017, 17},
+      {17371, 23153, 1958},  {9534, 25710, 5663},   {3428, 27347, 11260},
+      {4, 27680, 18625},     {0, 26595, 26299},     {1, 25428, 34494},
+      {5, 24880, 38332},     {875, 24072, 41536},   {2293, 23134, 44088},
+      {3986, 22148, 46212},  {5927, 21134, 47839},  {8090, 20112, 48915},
+      {10445, 19101, 49403}, {12962, 18116, 49288},
+  };
+
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  int liquid_max_error = 0;
+  int flyby_max_error = 0;
+  for (int i = 0; i <= 16; ++i) {
+    const Pixel liquid = WB::palette_color(sb, 0, i / 16.0f);
+    const Pixel flyby = WB::palette_color(sb, 1, i / 16.0f);
+    liquid_max_error =
+        std::max({liquid_max_error, abs(int(liquid.r) - int(LIQUID[i].r)),
+                  abs(int(liquid.g) - int(LIQUID[i].g)),
+                  abs(int(liquid.b) - int(LIQUID[i].b))});
+    flyby_max_error =
+        std::max({flyby_max_error, abs(int(flyby.r) - int(FLYBY[i].r)),
+                  abs(int(flyby.g) - int(FLYBY[i].g)),
+                  abs(int(flyby.b) - int(FLYBY[i].b))});
+  }
+  HS_EXPECT_LE(liquid_max_error, 16);
+  HS_EXPECT_EQ(flyby_max_error, 0);
+}
 
 /**
  * @brief Verifies ShaderBall's noise-time stays in [0,
@@ -5533,6 +5576,7 @@ inline int run_effects_tests() {
     test_displacement_field_zero_hue_scale_is_exact();
     test_displacement_field_clip_tiles_full();
     test_mindsplatter_emit_phase_wrapped();
+    test_shaderball_palettes();
     test_shaderball_phase_wrapped();
     test_shaderball_glitch_lens_unit_norm();
     test_shaderball_formula_reduction();
