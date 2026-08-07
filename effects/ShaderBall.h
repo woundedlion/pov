@@ -107,8 +107,15 @@ public:
     timeline.add(0, Animation::Driver(cycle_phase, &blend.params.cycle_speed,
                                       1.0f, false));
 
-    bank[0].bake(persistent_arena, GenerativePalette{liquid_palette_recipe()});
-    bank[1].bake(persistent_arena, GenerativePalette{flyby_palette_recipe()});
+    bank[0].bake(persistent_arena,
+                 GenerativePalette{PaletteRecipes::profile(
+                     PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY,
+                     AxisCurve::CUP, PaletteRecipes::hue_turns(75), 0.86f)});
+    bank[1].bake(
+        persistent_arena,
+        GenerativePalette{PaletteRecipes::profile(
+            PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
+            AxisCurve::CONSTANT, PaletteRecipes::hue_turns(42))});
     // The shader's hue_rotate clips per pixel, so the RAM copy pays for itself
     // over reading the flash master.
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
@@ -194,29 +201,6 @@ public:
 private:
   // Test seam: reaches the accumulators, lens, and pattern formula.
   friend struct ::hs_test::effects_tests::ShaderBallWhiteBox;
-
-  static PaletteRecipe keyed_palette_recipe(OKLCH a, OKLCH b, OKLCH c) {
-    PaletteRecipe recipe =
-        PaletteRecipes::from_oklch_keys(PaletteDomain::STRAIGHT, a, b, c);
-    recipe.easing = SegmentEase::LINEAR;
-    recipe.hue_torsion = 0.35f;
-    return recipe;
-  }
-
-  static PaletteRecipe liquid_palette_recipe() {
-    constexpr float first_hue = 1.84077704f;
-    return keyed_palette_recipe(
-        {0.547058821f, 0.227458909f, first_hue},
-        // Select the positive direction for the complementary half-turn.
-        {0.331372559f, 0.198203623f, first_hue + PI_F - 1e-6f},
-        {0.547058821f, 0.227458909f, 1.91440821f});
-  }
-
-  static PaletteRecipe flyby_palette_recipe() {
-    return keyed_palette_recipe({0.670000017f, 0.144203618f, 1.03083515f},
-                                {0.670000017f, 0.124046139f, 3.65701032f},
-                                {0.670000017f, 0.123270847f, 4.68784523f});
-  }
 
   /**
    * @brief Evaluates the generalized sinusoidal pattern at a bounded point.
