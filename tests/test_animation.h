@@ -1252,21 +1252,21 @@ inline void test_particle_system_spawn_initializes_and_steps() {
 inline void test_particle_system_sparse_trail_sampling() {
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
-  Animation::ParticleSystem<32, 1, 4, 8, 8, false, 6> ps;
+  Animation::ParticleSystem<32, 1, 8, 8, 8, false, 3> ps;
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/30.0f);
   ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
 
   ps.step(fake_canvas());
   HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)1);
-  for (int i = 0; i < 5; ++i)
+  for (int i = 0; i < 2; ++i)
     ps.step(fake_canvas());
   HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)1);
 
   ps.step(fake_canvas());
   HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)2);
-  for (int i = 0; i < 12; ++i)
+  for (int i = 0; i < 18; ++i)
     ps.step(fake_canvas());
-  HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)4);
+  HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)8);
 }
 
 /**
