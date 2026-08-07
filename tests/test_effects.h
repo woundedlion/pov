@@ -4160,7 +4160,7 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
   constexpr int CHECKPOINTS[] = {16, 80, 160};
   constexpr size_t MAX_DIFFERENT[] = {0, 192, 192};
   constexpr int MAX_CHANNEL[] = {0, 64, 1152};
-  constexpr uint64_t MAX_TOTAL[] = {0, 512, 4096};
+  constexpr uint64_t MAX_TOTAL[] = {0, 1024, 4096};
   for (size_t checkpoint = 0; checkpoint < 3; ++checkpoint) {
     const int frame = CHECKPOINTS[checkpoint];
     const size_t offset = static_cast<size_t>(frame - 1) * W * H;

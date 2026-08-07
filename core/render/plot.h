@@ -4118,6 +4118,12 @@ struct Mesh {
  *  v3: Normalized TTL
  */
 struct ParticleSystem {
+  template <typename SystemT> static consteval int trail_sample_stride() {
+    if constexpr (requires { SystemT::TRAIL_SAMPLE_STRIDE; })
+      return SystemT::TRAIL_SAMPLE_STRIDE;
+    return 1;
+  }
+
   /**
    * @brief Draws each active particle's history as a rasterized trail.
    * @tparam W,H Rasterization resolution.
@@ -4181,6 +4187,16 @@ struct ParticleSystem {
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
       const size_t trail_len = p.history.length();
+      constexpr int sample_stride = trail_sample_stride<SystemT>();
+      const bool append_live_tip = [&] {
+        if constexpr (sample_stride == 1) {
+          return false;
+        } else {
+          const uint16_t age = system.max_life - p.life;
+          return (age - 1) % sample_stride != 0;
+        }
+      }();
+      const size_t point_count = trail_len + (append_live_tip ? 1 : 0);
       HS_MSP_COUNT(resident_particles);
       if (p.life == 0)
         HS_MSP_COUNT(draining_histories);
@@ -4191,7 +4207,7 @@ struct ParticleSystem {
         else
           HS_MSP_COUNT(partial_histories);
       }
-      if (p.life == 0 || trail_len < 2)
+      if (p.life == 0 || point_count < 2)
         continue;
       const float v2 = [&] {
         if constexpr (std::is_same_v<ParticleV2Fn, std::nullptr_t>)
@@ -4202,18 +4218,18 @@ struct ParticleSystem {
       const float particle_life = static_cast<float>(p.life) * inv_max_life;
       ScratchScope trail_guard(scratch_arena_a);
       Fragments trail;
-      trail.bind(scratch_arena_a, trail_len);
+      trail.bind(scratch_arena_a, point_count);
       // Original (pre-shader) positions, kept for the deferred pass.
       ArenaVector<Vector> orig;
       if (has_deferred_shader)
-        orig.bind(scratch_arena_a, trail_len);
+        orig.bind(scratch_arena_a, point_count);
       {
         HS_PROFILE(plot_ps_tween);
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
         hs::DwtStallBatch history_batch(
             hs::g_mindsplatter_stalls.history_vertex);
 #endif
-        p.history.tween([&](const Vector &v, float t) {
+        auto emit = [&](const Vector &v, float t) {
           trail.emplace_back(
               Fragment{.pos = v, .v0 = t, .v2 = v2, .v3 = particle_life});
           if constexpr (FuseVertex)
@@ -4223,7 +4239,16 @@ struct ParticleSystem {
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
           history_batch.step();
 #endif
-        });
+        };
+        if constexpr (sample_stride == 1) {
+          p.history.tween(emit);
+        } else {
+          const float denominator = static_cast<float>(point_count - 1);
+          for (size_t j = 0; j < trail_len; ++j)
+            emit(p.history.get(j), static_cast<float>(j) / denominator);
+          if (append_live_tip)
+            emit(p.position, 1.0f);
+        }
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
         history_batch.finish();
 #endif
@@ -4339,11 +4364,11 @@ struct ParticleSystem {
       }
       {
         HS_PROFILE(plot_ps_raster);
-        rasterize<W, H, SinglePassRaster, true>(pipeline, canvas, trail,
-                                                fragment_shader,
-                                                {.edge_visible = vis,
-                                                 .point_rows = dot_rows,
-                                                 .point_cols = dot_cols});
+        rasterize<W, H, SinglePassRaster && sample_stride == 1, true>(
+            pipeline, canvas, trail, fragment_shader,
+            {.edge_visible = vis,
+             .point_rows = dot_rows,
+             .point_cols = dot_cols});
       }
     }
   }

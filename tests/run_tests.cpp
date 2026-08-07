@@ -149,7 +149,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("platform", 16, hs_test::platform_tests::run_platform_tests, 201119)       \
   X("profiling", 10, hs_test::profiling_tests::run_profiling_tests, 163)       \
   X("filter", 62, hs_test::filter_tests::run_filter_tests, 10296)              \
-  X("plot_scan", 77, hs_test::plot_scan_tests::run_plot_scan_tests, 9109888)   \
+  X("plot_scan", 78, hs_test::plot_scan_tests::run_plot_scan_tests, 9109888)   \
   X("canvas", 28, hs_test::canvas_tests::run_canvas_tests, 487)                \
   X("scan", 31, hs_test::scan_tests::run_scan_tests, 189868)                   \
   X("mesh_raster", 17, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
@@ -158,7 +158,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
     1296)                                                                      \
   X("noise", 3, hs_test::noise_tests::run_noise_tests, 201)                    \
   X("generators", 4, hs_test::generators_tests::run_generators_tests, 59)      \
-  X("animation", 105, hs_test::animation_tests::run_animation_tests, 3833)     \
+  X("animation", 106, hs_test::animation_tests::run_animation_tests, 3833)     \
   X("effects", 80, hs_test::effects_tests::run_effects_tests,                  \
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_FULL_MIN_ASSERTIONS                                          \

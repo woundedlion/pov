@@ -236,18 +236,24 @@ apply_signed_axis_attractor(uint16_t &life, Vector &velocity, const Vector &pos,
  * @tparam ATTRACTOR_CAP Maximum number of attractors.
  * @tparam SIGNED_AXIS_ATTRACTORS Enable paired unit signed-axis attractor
  *        algebra.
+ * @tparam TRAIL_SAMPLE_STRIDE Frames between stored trail anchors.
  */
 template <int W, int CAPACITY, int TRAIL_LEN = 8, int EMITTER_CAP = 8,
-          int ATTRACTOR_CAP = 8, bool SIGNED_AXIS_ATTRACTORS = false>
+          int ATTRACTOR_CAP = 8, bool SIGNED_AXIS_ATTRACTORS = false,
+          int TRAIL_SAMPLE_STRIDE_ = 1>
 class ParticleSystem
     : public AnimationBase<
           ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
-                         SIGNED_AXIS_ATTRACTORS>> {
+                         SIGNED_AXIS_ATTRACTORS, TRAIL_SAMPLE_STRIDE_>> {
 public:
   static_assert(CAPACITY <= 65535,
                 "active_count is uint16_t; CAPACITY must fit in it");
   static_assert(!SIGNED_AXIS_ATTRACTORS || ATTRACTOR_CAP == 6,
                 "paired signed-axis physics requires six attractors");
+  static_assert(TRAIL_SAMPLE_STRIDE_ >= 1,
+                "trail sample stride must be positive");
+
+  static constexpr int TRAIL_SAMPLE_STRIDE = TRAIL_SAMPLE_STRIDE_;
 
   ArenaVector<Particle<TRAIL_LEN>> pool; /**< Backing pool of particles. */
 
@@ -276,8 +282,9 @@ public:
    * @brief Constructs an indefinite, non-repeating particle system.
    */
   ParticleSystem()
-      : AnimationBase<ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP,
-                                     ATTRACTOR_CAP, SIGNED_AXIS_ATTRACTORS>>(
+      : AnimationBase<
+            ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
+                           SIGNED_AXIS_ATTRACTORS, TRAIL_SAMPLE_STRIDE_>>(
             -1, false) {}
 
   /**
@@ -378,9 +385,9 @@ public:
    * swap-removing any that died (compacting the live prefix of the pool).
    */
   void step(Canvas &canvas) override {
-    AnimationBase<
-        ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
-                       SIGNED_AXIS_ATTRACTORS>>::step(canvas);
+    AnimationBase<ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP,
+                                 ATTRACTOR_CAP, SIGNED_AXIS_ATTRACTORS,
+                                 TRAIL_SAMPLE_STRIDE_>>::step(canvas);
 
     {
       if constexpr (SIGNED_AXIS_ATTRACTORS) {
@@ -608,7 +615,12 @@ private:
     }
 
     if (active) {
-      p.history.record(p.position);
+      const uint16_t age = max_life - p.life;
+      if constexpr (TRAIL_SAMPLE_STRIDE_ == 1) {
+        p.history.record(p.position);
+      } else if ((age - 1) % TRAIL_SAMPLE_STRIDE_ == 0) {
+        p.history.record(p.position);
+      }
     } else {
       if (p.history.length() > 0) {
         p.history.expire();

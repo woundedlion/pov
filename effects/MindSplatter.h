@@ -115,6 +115,9 @@ private:
   /** @brief Per-particle trail length (feeds the pool footprint below). */
   static constexpr int TRAIL_LEN = 4;
 
+  /** @brief Frames between stored trail anchors. */
+  static constexpr int TRAIL_SAMPLE_STRIDE = 6;
+
   /**
    * @brief Fixed particle pool capacity.
    * @details Footprint is host/device-identical (fixed-width trail storage:
@@ -128,9 +131,9 @@ private:
   typedef Solids::Cube EmitSolid;
   typedef Solids::Octahedron AttractSolid;
 
-  typedef Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN,
-                                    EmitSolid::NUM_VERTS,
-                                    AttractSolid::NUM_VERTS, true>
+  typedef Animation::ParticleSystem<
+      W, NUM_PARTICLES, TRAIL_LEN, EmitSolid::NUM_VERTS,
+      AttractSolid::NUM_VERTS, true, TRAIL_SAMPLE_STRIDE>
       ParticleSystem;
 
   /**

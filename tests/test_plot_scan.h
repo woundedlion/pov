@@ -3306,6 +3306,23 @@ capture_particle_vertices(const StubParticle &particle) {
   return vertices;
 }
 
+/** @brief Captures control points emitted by an initialized particle system. */
+template <typename SystemT>
+inline std::vector<Fragment>
+capture_particle_system_vertices(const SystemT &system) {
+  constexpr int W = 96, H = 48;
+  hs_test::StubEffect fx(W, H);
+  std::vector<Fragment> vertices;
+  CapturePipeline pipe;
+  auto vertex_shader = [&](Fragment &f) { vertices.push_back(f); };
+  {
+    Canvas c(fx);
+    Plot::ParticleSystem::draw<W, H>(pipe, c, system, noop_shader,
+                                     vertex_shader);
+  }
+  return vertices;
+}
+
 /** @brief Builds a quantized particle trail with deterministic spherical
  * points. */
 inline StubParticle make_particle_trail(int samples) {
@@ -3502,6 +3519,36 @@ inline void test_particle_system_direct_trail_materialization_registers() {
       HS_EXPECT_EQ(vertices[i].v3, 60.0f * (1.0f / 100.0f));
     }
   }
+}
+
+/** @brief Sparse histories draw the exact live position between anchor frames. */
+inline void test_particle_system_sparse_history_live_tip() {
+  static uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<96, 1, 4, 8, 8, false, 6> system;
+  system.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f,
+              /*max_life=*/100.0f);
+  system.spawn(Vector(0, 0, 1), Vector(0, 0, 0), 0);
+
+  auto &particle = system.pool[0];
+  particle.history.record(Vector(1, 0, 0));
+  particle.history.record(Vector(0, 1, 0));
+  particle.position = Vector(0, 0, 1);
+  particle.life = 50;
+
+  std::vector<Fragment> vertices = capture_particle_system_vertices(system);
+  HS_EXPECT_EQ(vertices.size(), (size_t)3);
+  HS_EXPECT_EQ(vertices[0].v0, 0.0f);
+  HS_EXPECT_EQ(vertices[1].v0, 0.5f);
+  HS_EXPECT_EQ(vertices[2].v0, 1.0f);
+  HS_EXPECT_EQ(vertices[2].pos.x, particle.position.x);
+  HS_EXPECT_EQ(vertices[2].pos.y, particle.position.y);
+  HS_EXPECT_EQ(vertices[2].pos.z, particle.position.z);
+
+  particle.life = 51;
+  vertices = capture_particle_system_vertices(system);
+  HS_EXPECT_EQ(vertices.size(), (size_t)2);
+  HS_EXPECT_EQ(vertices.back().v0, 1.0f);
 }
 
 /**
@@ -5226,6 +5273,7 @@ inline int run_plot_scan_tests() {
   test_particle_system_empty_zero_lifetime_is_noop();
   test_particle_system_skips_unrenderable_trails();
   test_particle_system_direct_trail_materialization_registers();
+  test_particle_system_sparse_history_live_tip();
   test_particle_system_v0_zero_at_oldest_sample();
   test_particle_system_custom_v2_mapper();
   test_particle_system_direct_trail_materialization_output_parity();
