@@ -54,9 +54,6 @@ public:
         palette(PaletteRecipes::random_profile(
             PaletteDomain::MIRROR, PaletteHarmony::SPLIT_COMPLEMENTARY,
             AxisCurve::CONSTANT)),
-        next_palette(PaletteRecipes::random_profile(
-            PaletteDomain::MIRROR, PaletteHarmony::SPLIT_COMPLEMENTARY,
-            AxisCurve::CONSTANT)),
         mobius_gen(timeline),
         filters(NorthHole(Y_AXIS, 1.2f), SouthHole(-Y_AXIS, 1.2f),
                 Filter::World::Orient(orientation),
@@ -207,11 +204,14 @@ private:
    *        it.
    */
   void wipe_palette() {
-    next_palette = GenerativePalette{PaletteRecipes::random_profile(
-        PaletteDomain::MIRROR, PaletteHarmony::SPLIT_COMPLEMENTARY,
-        AxisCurve::CONSTANT)};
-    timeline.add(0, Animation::ColorWipe(palette, next_palette, WIPE_FRAMES,
-                                         ease_linear));
+    palette_start = palette.snapshot();
+    palette_target = GenerativePalette{PaletteRecipes::random_profile(
+                                           PaletteDomain::MIRROR,
+                                           PaletteHarmony::SPLIT_COMPLEMENTARY,
+                                           AxisCurve::CONSTANT)}
+                         .snapshot();
+    timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target,
+                                         WIPE_FRAMES, ease_linear));
     wipe_frames_remaining = WIPE_FRAMES;
     wipe_pending = true;
   }
@@ -355,10 +355,11 @@ private:
       120; /**< Frames between palette rollovers. */
   static_assert(WIPE_PERIOD > WIPE_FRAMES,
                 "MobiusGrid: a rollover firing mid-wipe would clobber the "
-                "next_palette the live ColorWipe still references");
+                "snapshots the live ColorWipe still references");
 
-  GenerativePalette palette;      /**< Currently displayed palette. */
-  GenerativePalette next_palette; /**< Palette being cross-faded toward. */
+  GenerativePalette palette; /**< Currently displayed palette. */
+  GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
+  GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
   BakedPalette
       baked_palette; /**< LUT-baked copy of `palette` the shaders sample. */
   int wipe_frames_remaining =

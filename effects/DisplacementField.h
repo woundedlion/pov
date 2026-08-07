@@ -47,7 +47,7 @@ public:
   HS_COLD_MEMBER DisplacementField()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         balls(timeline), noise_field(timeline), palette(make_palette()),
-        next_palette(make_palette()), normal(X_AXIS) {}
+        normal(X_AXIS) {}
 
   /**
    * @brief Allocates the bake LUTs, registers params, seeds the noise field,
@@ -536,8 +536,9 @@ private:
    * @brief Rolls the palette toward a freshly generated one via a ColorWipe.
    */
   void roll_palette() {
-    next_palette = make_palette();
-    timeline.add(0, Animation::ColorWipe(palette, next_palette,
+    palette_start = palette.snapshot();
+    palette_target = make_palette().snapshot();
+    timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target,
                                          PALETTE_WIPE_FRAMES, ease_linear));
   }
 
@@ -573,8 +574,8 @@ private:
 
   GenerativePalette
       palette; /**< Active palette (mutated by an in-flight ColorWipe). */
-  GenerativePalette
-      next_palette; /**< Target palette the current wipe fades toward. */
+  GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
+  GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
   Vector normal;
   Orientation<> orientation;
 
@@ -599,7 +600,7 @@ private:
   // PALETTE_WIPE_FRAMES + 1 frames.
   static_assert(PALETTE_CYCLE_FRAMES > PALETTE_WIPE_FRAMES + 1,
                 "DisplacementField: a rollover firing mid-wipe would clobber "
-                "the next_palette the live ColorWipe still references");
+                "the snapshots the live ColorWipe still references");
   static constexpr float COLOR_SPIN_RATE =
       0.0015f; /**< Palette spin across the stack, in turns per frame. */
   static constexpr float LUT_SAMPLES_PER_UNIT =

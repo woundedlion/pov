@@ -56,33 +56,27 @@ inline void test_generative_palette_recipe_validation() {
   HS_EXPECT_EQ(
       std::memcmp(&canonical_before, &canonical, sizeof(canonical_before)), 0);
 
-  PaletteRecipe too_few_keys;
-  too_few_keys.key_count = PALETTE_MIN_KEYS - 1;
-  HS_EXPECT_FALSE(
-      GenerativePalette::try_compile(too_few_keys, output, canonical, status));
-  HS_EXPECT_EQ(status.code, PaletteCompileCode::INVALID_KEY_COUNT);
-  HS_EXPECT_EQ(status.field, PaletteRecipeField::KEY_COUNT);
-
-  PaletteRecipe two_key_complementary;
-  two_key_complementary.key_count = 2;
-  two_key_complementary.hue.harmony = PaletteHarmony::COMPLEMENTARY;
-  HS_EXPECT_TRUE(GenerativePalette::try_compile(two_key_complementary, output,
-                                                canonical, status));
-  HS_EXPECT_EQ(output.palette_key_count(), 2);
-
-  two_key_complementary.hue.harmony = PaletteHarmony::TRIADIC;
-  HS_EXPECT_FALSE(GenerativePalette::try_compile(two_key_complementary, output,
-                                                 canonical, status));
-  HS_EXPECT_EQ(status.code, PaletteCompileCode::INCOMPATIBLE_OPTIONS);
-  HS_EXPECT_EQ(status.field, PaletteRecipeField::KEY_COUNT);
-
-  PaletteRecipe three_key_square;
-  three_key_square.key_count = 3;
-  three_key_square.hue.harmony = PaletteHarmony::SQUARE;
-  HS_EXPECT_FALSE(GenerativePalette::try_compile(three_key_square, output,
-                                                 canonical, status));
-  HS_EXPECT_EQ(status.code, PaletteCompileCode::INCOMPATIBLE_OPTIONS);
-  HS_EXPECT_EQ(status.field, PaletteRecipeField::KEY_COUNT);
+  struct RelationshipCount {
+    PaletteHarmony harmony;
+    uint8_t count;
+  };
+  constexpr RelationshipCount relationships[] = {
+      {PaletteHarmony::MONOCHROMATIC, 2},
+      {PaletteHarmony::ANALOGOUS, 3},
+      {PaletteHarmony::ACCENTED_ANALOGOUS, 4},
+      {PaletteHarmony::COMPLEMENTARY, 2},
+      {PaletteHarmony::SPLIT_COMPLEMENTARY, 3},
+      {PaletteHarmony::TRIADIC, 3},
+      {PaletteHarmony::TETRADIC, 4},
+      {PaletteHarmony::SQUARE, 4},
+  };
+  for (const auto relationship : relationships) {
+    PaletteRecipe derived;
+    derived.hue.harmony = relationship.harmony;
+    HS_EXPECT_TRUE(
+        GenerativePalette::try_compile(derived, output, canonical, status));
+    HS_EXPECT_EQ(output.palette_key_count(), relationship.count);
+  }
 }
 
 inline void test_generative_palette_input_window() {
@@ -127,38 +121,28 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
                                                  AxisCurve::ASCENDING, 0.0f);
   recipe.lightness.center = 0.5f;
   recipe.lightness.range = 0.6f;
-  recipe.key_count = 3;
   const GenerativePalette palette(recipe);
   const auto keys = palette.snapshot();
   const auto key0 = GenerativePalette::snapshot_key(keys, 0);
   const auto key1 = GenerativePalette::snapshot_key(keys, 1);
-  const auto key2 = GenerativePalette::snapshot_key(keys, 2);
 
-  HS_EXPECT_EQ(keys.key_count, 3);
+  HS_EXPECT_EQ(keys.key_count, 2);
   HS_EXPECT_NEAR(key0.L, 0.2f, 3e-4f);
-  HS_EXPECT_NEAR(key1.L, 0.5f, 3e-4f);
-  HS_EXPECT_NEAR(key2.L, 0.8f, 3e-4f);
-  HS_EXPECT_NEAR(key1.h - key0.h, 0.5f * PI_F, 1e-5f);
-  HS_EXPECT_NEAR(key2.h - key1.h, 0.5f * PI_F, 1e-5f);
+  HS_EXPECT_NEAR(key1.L, 0.8f, 3e-4f);
+  HS_EXPECT_NEAR(key1.h - key0.h, PI_F, 1e-5f);
+
+  recipe.lightness.curve = AxisCurve::BELL;
+  const GenerativePalette bell(recipe);
+  HS_EXPECT_NEAR(bell.diagnose(0.0f).L, 0.2f, 1e-5f);
+  HS_EXPECT_NEAR(bell.diagnose(0.5f).L, 0.8f, 1e-5f);
+  HS_EXPECT_NEAR(bell.diagnose(1.0f).L, 0.2f, 1e-5f);
 
   recipe.hue.direction = HueDirection::CLOCKWISE;
   const auto clockwise = GenerativePalette(recipe).snapshot();
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(clockwise, 1).h -
                      GenerativePalette::snapshot_key(clockwise, 0).h,
-                 -0.5f * PI_F, 1e-5f);
-  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(clockwise, 2).h -
-                     GenerativePalette::snapshot_key(clockwise, 1).h,
-                 -0.5f * PI_F, 1e-5f);
+                 -PI_F, 1e-5f);
 
-  recipe.key_count = 6;
-  const auto six = GenerativePalette(recipe).snapshot();
-  HS_EXPECT_EQ(six.key_count, 6);
-  for (int i = 1; i < 6; ++i)
-    HS_EXPECT_NEAR(GenerativePalette::snapshot_key(six, i).h -
-                       GenerativePalette::snapshot_key(six, i - 1).h,
-                   -PI_F / 5.0f, 1e-5f);
-
-  recipe.key_count = 4;
   recipe.hue.direction = HueDirection::COUNTERCLOCKWISE;
   recipe.hue.harmony = PaletteHarmony::TETRADIC;
   recipe.hue.spread_turns = 1.0f / 6.0f;
@@ -180,7 +164,6 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
 
 inline void test_generative_palette_blue_cusp_is_continuous() {
   PaletteRecipe recipe;
-  recipe.key_count = 6;
   recipe.hue.mode = HueMode::SWEEP;
   recipe.hue.base_turns = 98.0f / 256.0f;
   recipe.hue.sweep_turns = 1.0f;
@@ -268,7 +251,6 @@ inline void test_generative_palette_cartesian_path_neutralizes_midpoint() {
   PaletteRecipe arc_recipe = PaletteRecipes::profile(
       PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY,
       AxisCurve::CONSTANT, 0.0f, 0.72f);
-  arc_recipe.key_count = 6;
   PaletteRecipe cartesian_recipe = arc_recipe;
   cartesian_recipe.color_path = ColorPath::OKLAB_CARTESIAN;
   const GenerativePalette arc(arc_recipe);

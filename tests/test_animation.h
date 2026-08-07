@@ -497,13 +497,22 @@ static_assert(
                              const Lerpable &&, int, EasingFn>,
     "Lerp must REJECT a temporary target (would dangle)");
 
-static_assert(std::is_constructible_v<Animation::ColorWipe, GenerativePalette &,
-                                      const GenerativePalette &, int, EasingFn>,
-              "ColorWipe must accept an effect-owned target palette");
+static_assert(
+    std::is_constructible_v<Animation::ColorWipe, GenerativePalette &,
+                            const GenerativePalette::Snapshot &,
+                            const GenerativePalette::Snapshot &, int, EasingFn>,
+    "ColorWipe must accept effect-owned snapshots");
 static_assert(
     !std::is_constructible_v<Animation::ColorWipe, GenerativePalette &,
-                             GenerativePalette &&, int, EasingFn>,
-    "ColorWipe must REJECT a temporary target palette (would dangle)");
+                             GenerativePalette::Snapshot &&,
+                             const GenerativePalette::Snapshot &, int,
+                             EasingFn>,
+    "ColorWipe must REJECT a temporary start snapshot (would dangle)");
+static_assert(
+    !std::is_constructible_v<Animation::ColorWipe, GenerativePalette &,
+                             const GenerativePalette::Snapshot &,
+                             GenerativePalette::Snapshot &&, int, EasingFn>,
+    "ColorWipe must REJECT a temporary target snapshot (would dangle)");
 
 static_assert(std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
                                       const float &, const float &, int>,
@@ -2651,8 +2660,7 @@ inline void test_meshcarousel_compact_drop_all_frees_both_slots() {
 // ============================================================================
 // ColorWipe
 // ----------------------------------------------------------------------------
-// Snapshots the source palette's keys on the first step (mirroring Transition),
-// then OKLCH-lerps them toward the target snapshot. The three RNG-free key
+// OKLCH-lerps between caller-owned snapshots. The three RNG-free key
 // constructors keep these palettes deterministic.
 // ============================================================================
 
@@ -2677,10 +2685,11 @@ inline void test_colorwipe_reaches_target_keys() {
       make_palette(CPixel(10, 20, 30), CPixel(40, 50, 60), CPixel(70, 80, 90));
   GenerativePalette to =
       make_palette(CPixel(200, 0, 0), CPixel(0, 200, 0), CPixel(0, 0, 200));
+  const GenerativePalette::Snapshot start = from.snapshot();
   GenerativePalette::Snapshot target = to.snapshot();
 
   const int duration = 6;
-  Animation::ColorWipe wipe(from, to, duration, ease_linear);
+  Animation::ColorWipe wipe(from, start, target, duration, ease_linear);
   HS_EXPECT_FALSE(wipe.done());
 
   for (int i = 0; i < duration - 1; ++i)
@@ -2700,26 +2709,26 @@ inline void test_colorwipe_reaches_target_keys() {
 }
 
 /**
- * @brief Verifies the start keys are snapshotted on the first step, not at
- * construction: editing the source palette before the first step is honored.
+ * @brief Verifies the wipe reads its explicit start snapshot rather than the
+ * subject's current value.
  */
-inline void test_colorwipe_snapshots_on_first_step() {
+inline void test_colorwipe_uses_owned_start_snapshot() {
   GenerativePalette from =
       make_palette(CPixel(10, 10, 10), CPixel(10, 10, 10), CPixel(10, 10, 10));
   GenerativePalette to = make_palette(
       CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
+  const GenerativePalette::Snapshot start = from.snapshot();
+  const GenerativePalette::Snapshot target = to.snapshot();
   const int duration = 4;
-  Animation::ColorWipe wipe(from, to, duration, ease_linear);
+  Animation::ColorWipe wipe(from, start, target, duration, ease_linear);
 
-  // Edit the source after construction but before the first step: the snapshot
-  // taken on the first step must capture THIS value, so the midpoint sits
-  // between 200 and 250, not between 10 and 250.
   from = make_palette(CPixel(200, 200, 200), CPixel(200, 200, 200),
                       CPixel(200, 200, 200));
 
-  wipe.step(fake_canvas()); // t=1: amount 0.25, snapshot captured here
-  const float source_l = pixel_to_oklch(Pixel(CPixel(200, 200, 200))).L;
-  HS_EXPECT_GT(GenerativePalette::snapshot_key(from.snapshot(), 0).L, source_l);
+  wipe.step(fake_canvas());
+  const float modified_l = pixel_to_oklch(Pixel(CPixel(200, 200, 200))).L;
+  HS_EXPECT_LT(GenerativePalette::snapshot_key(from.snapshot(), 0).L,
+               modified_l);
 }
 
 /**
@@ -2732,8 +2741,10 @@ inline void test_colorwipe_slow_fade_resolves_every_frame() {
       make_palette(CPixel(10, 10, 10), CPixel(10, 10, 10), CPixel(10, 10, 10));
   GenerativePalette to = make_palette(
       CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
+  const GenerativePalette::Snapshot start = from.snapshot();
+  const GenerativePalette::Snapshot target = to.snapshot();
   const int duration = 600;
-  Animation::ColorWipe wipe(from, to, duration, ease_linear);
+  Animation::ColorWipe wipe(from, start, target, duration, ease_linear);
 
   int advanced = 0;
   float prev = -1.0f;
@@ -2757,11 +2768,13 @@ inline void test_colorwipe_paused_holds_keys() {
       make_palette(CPixel(10, 10, 10), CPixel(10, 10, 10), CPixel(10, 10, 10));
   GenerativePalette to = make_palette(
       CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
+  const GenerativePalette::Snapshot start = from.snapshot();
   GenerativePalette::Snapshot target = to.snapshot();
   const float start_l = GenerativePalette::snapshot_key(from.snapshot(), 0).L;
 
   const int duration = 4;
-  Animation::ColorWipe wipe(from, to, duration, ease_linear, &paused);
+  Animation::ColorWipe wipe(from, start, target, duration, ease_linear,
+                            &paused);
   for (int i = 0; i < duration; ++i)
     wipe.step(fake_canvas());
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L, start_l,
@@ -3323,7 +3336,7 @@ inline int run_animation_tests() {
   test_meshcarousel_compact_drop_all_frees_both_slots();
 
   test_colorwipe_reaches_target_keys();
-  test_colorwipe_snapshots_on_first_step();
+  test_colorwipe_uses_owned_start_snapshot();
   test_colorwipe_slow_fade_resolves_every_frame();
   test_colorwipe_paused_holds_keys();
 

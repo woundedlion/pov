@@ -23,9 +23,9 @@ static float palette_diagnostics[PALETTE_DIAGNOSTIC_FLOATS];
 static uint8_t palette_fallback[256];
 
 struct PaletteOps {
-  val compileAndBakeV3(const val &input) { return compile(input, false); }
+  val compileAndBakeV4(const val &input) { return compile(input, false); }
 
-  val inspectV3(const val &input) { return compile(input, true); }
+  val inspectV4(const val &input) { return compile(input, true); }
 
 private:
   template <typename Enum>
@@ -54,7 +54,6 @@ private:
     recipe.schema_version = schema_version == PaletteRecipe::SCHEMA_VERSION
                                 ? PaletteRecipe::SCHEMA_VERSION
                                 : 0;
-    recipe.key_count = static_cast<uint8_t>(input["keyCount"].as<int>());
     const val recipe_input = input["input"];
     recipe.input.offset = recipe_input["offset"].as<float>();
     recipe.input.span = recipe_input["span"].as<float>();
@@ -147,7 +146,6 @@ private:
 
     val output = val::object();
     output.set("schemaVersion", recipe.schema_version);
-    output.set("keyCount", recipe.key_count);
     output.set("input", recipe_input);
     output.set("domain", static_cast<int>(recipe.domain));
     output.set("easing", static_cast<int>(recipe.easing));
@@ -255,6 +253,6 @@ private:
 static void bind_palette_ops() {
   class_<PaletteOps>("PaletteOps")
       .constructor<>()
-      .function("compileAndBakeV3", &PaletteOps::compileAndBakeV3)
-      .function("inspectV3", &PaletteOps::inspectV3);
+      .function("compileAndBakeV4", &PaletteOps::compileAndBakeV4)
+      .function("inspectV4", &PaletteOps::inspectV4);
 }
