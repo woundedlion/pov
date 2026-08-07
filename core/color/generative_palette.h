@@ -193,9 +193,10 @@ private:
   struct Segment {
     ControlKey left;
     ControlKey right;
-    bool left_chromatic;
-    bool right_chromatic;
+    bool left_visible;
+    bool right_visible;
     float progress;
+    float domain_position;
   };
 
   struct Evaluated {
@@ -206,6 +207,13 @@ private:
     float h_path;
     float h_final;
     bool fallback_mapped;
+  };
+
+  struct PathEvaluation {
+    OKLab lab;
+    float q;
+    float h_path;
+    float h_final;
   };
 
   static constexpr float MAX_SWEEP_TURNS = 16.0f;
@@ -265,7 +273,7 @@ private:
     if (!enum_in_range(recipe.hue.mode, HueMode::CUSTOM))
       return fail(status, PaletteCompileCode::INVALID_ENUM,
                   PaletteRecipeField::HUE_MODE);
-    if (!enum_in_range(recipe.hue.harmony, PaletteHarmony::TRIADIC))
+    if (!enum_in_range(recipe.hue.harmony, PaletteHarmony::SQUARE))
       return fail(status, PaletteCompileCode::INVALID_ENUM,
                   PaletteRecipeField::HARMONY);
     if (!enum_in_range(recipe.hue.direction, HueDirection::COUNTERCLOCKWISE))
@@ -281,6 +289,25 @@ private:
       return fail(status, PaletteCompileCode::INVALID_ENUM,
                   PaletteRecipeField::CHROMA_BASIS);
     return true;
+  }
+
+  static uint8_t minimum_key_count(const PaletteRecipe &recipe) {
+    if (recipe.hue.mode != HueMode::HARMONY)
+      return PALETTE_MIN_KEYS;
+    switch (recipe.hue.harmony) {
+    case PaletteHarmony::ACCENTED_ANALOGOUS:
+    case PaletteHarmony::SPLIT_COMPLEMENTARY:
+    case PaletteHarmony::TRIADIC:
+      return 3;
+    case PaletteHarmony::TETRADIC:
+    case PaletteHarmony::SQUARE:
+      return 4;
+    case PaletteHarmony::MONOCHROMATIC:
+    case PaletteHarmony::ANALOGOUS:
+    case PaletteHarmony::COMPLEMENTARY:
+      return PALETTE_MIN_KEYS;
+    }
+    return PALETTE_MIN_KEYS;
   }
 
   static bool validate_finite(const PaletteRecipe &recipe,
@@ -351,6 +378,9 @@ private:
                   PaletteRecipeField::KEY_COUNT);
     if (!validate_enums(input, status) || !validate_finite(input, status))
       return false;
+    if (input.key_count < minimum_key_count(input))
+      return fail(status, PaletteCompileCode::INCOMPATIBLE_OPTIONS,
+                  PaletteRecipeField::KEY_COUNT);
 
     PaletteRecipe recipe = input;
     clamp_field(recipe.input.offset, 0.0f, 1.0f,
@@ -531,7 +561,7 @@ private:
     const float spread = recipe.hue.spread_turns;
     const float orientation =
         recipe.hue.direction == HueDirection::CLOCKWISE ? -1.0f : 1.0f;
-    float relationship[3] = {};
+    float relationship[4] = {};
     uint8_t relationship_count = 3;
     switch (recipe.hue.harmony) {
     case PaletteHarmony::MONOCHROMATIC:
@@ -563,19 +593,38 @@ private:
       relationship[1] = base + orientation / 3.0f;
       relationship[2] = base + orientation * 2.0f / 3.0f;
       break;
+    case PaletteHarmony::TETRADIC:
+      relationship[0] = base;
+      relationship[1] = base + orientation * spread;
+      relationship[2] = base + orientation * 0.5f;
+      relationship[3] = base + orientation * (0.5f + spread);
+      relationship_count = 4;
+      break;
+    case PaletteHarmony::SQUARE:
+      relationship[0] = base;
+      relationship[1] = base + orientation * 0.25f;
+      relationship[2] = base + orientation * 0.5f;
+      relationship[3] = base + orientation * 0.75f;
+      relationship_count = 4;
+      break;
     }
 
-    float raw[PALETTE_MAX_KEYS] = {};
+    for (int i = 1; i < relationship_count; ++i)
+      relationship[i] = relationship[i - 1] +
+                        directed_delta(relationship[i] - relationship[i - 1],
+                                       recipe.hue.direction);
+
     for (int i = 0; i < recipe.key_count; ++i) {
-      const int relationship_index =
-          std::min((2 * i + 1) * relationship_count / (2 * recipe.key_count),
-                   static_cast<int>(relationship_count) - 1);
-      raw[i] = relationship[relationship_index];
+      const float position = i / float(recipe.key_count - 1);
+      const float scaled = position * (relationship_count - 1);
+      const int left = std::min(static_cast<int>(scaled),
+                                static_cast<int>(relationship_count) - 1);
+      const int right =
+          std::min(left + 1, static_cast<int>(relationship_count) - 1);
+      const float amount = scaled - left;
+      hues[i] = relationship[left] +
+                (relationship[right] - relationship[left]) * amount;
     }
-    hues[0] = raw[0];
-    for (int i = 1; i < recipe.key_count; ++i)
-      hues[i] = hues[i - 1] +
-                directed_delta(raw[i] - raw[i - 1], recipe.hue.direction);
   }
 
   HS_COLD_MEMBER static void resolve_hues(const PaletteRecipe &recipe,
@@ -633,6 +682,8 @@ private:
     domain = recipe.domain;
     easing = recipe.easing;
     color_path = recipe.color_path;
+    complementary_harmony = recipe.hue.mode == HueMode::HARMONY &&
+                            recipe.hue.harmony == PaletteHarmony::COMPLEMENTARY;
     chroma_basis = recipe.chroma.basis;
     headroom = recipe.chroma.headroom;
     hue_torsion = recipe.hue_torsion;
@@ -718,8 +769,24 @@ private:
     if (domain == PaletteDomain::MIRROR)
       t = std::min(t, 1.0f - t);
 
+    float domain_position = t;
+    switch (domain) {
+    case PaletteDomain::STRAIGHT:
+    case PaletteDomain::LOOP:
+      break;
+    case PaletteDomain::MIRROR:
+      domain_position = t * 2.0f;
+      break;
+    case PaletteDomain::VIGNETTE:
+      domain_position = hs::clamp((t - 0.1f) * 1.25f, 0.0f, 1.0f);
+      break;
+    case PaletteDomain::FALLOFF:
+      domain_position = hs::clamp(t * 1.5f, 0.0f, 1.0f);
+      break;
+    }
+
     ControlKey stops[PALETTE_MAX_KEYS + 2] = {};
-    bool chromatic[PALETTE_MAX_KEYS + 2] = {};
+    bool visible[PALETTE_MAX_KEYS + 2] = {};
     float positions[PALETTE_MAX_KEYS + 2] = {};
     int count = 0;
     const ControlKey black{0.0f, 0.0f, 0.0f};
@@ -728,6 +795,7 @@ private:
     case PaletteDomain::STRAIGHT:
       for (int i = 0; i < key_count; ++i) {
         stops[i] = keys[i];
+        visible[i] = true;
         positions[i] = i / float(key_count - 1);
       }
       count = key_count;
@@ -735,6 +803,7 @@ private:
     case PaletteDomain::MIRROR:
       for (int i = 0; i < key_count; ++i) {
         stops[i] = keys[i];
+        visible[i] = true;
         positions[i] = 0.5f * i / float(key_count - 1);
       }
       count = key_count;
@@ -744,6 +813,7 @@ private:
       positions[0] = 0.0f;
       for (int i = 0; i < key_count; ++i) {
         stops[i + 1] = keys[i];
+        visible[i + 1] = true;
         positions[i + 1] = 0.1f + 0.8f * i / float(key_count - 1);
       }
       stops[key_count + 1] = black;
@@ -753,6 +823,7 @@ private:
     case PaletteDomain::FALLOFF:
       for (int i = 0; i < key_count; ++i) {
         stops[i] = keys[i];
+        visible[i] = true;
         positions[i] = (2.0f / 3.0f) * i / float(key_count - 1);
       }
       stops[key_count] = black;
@@ -764,22 +835,14 @@ private:
     case PaletteDomain::LOOP:
       for (int i = 0; i < key_count; ++i) {
         stops[i] = keys[i];
+        visible[i] = true;
         positions[i] = i / float(key_count);
       }
       stops[key_count] = {keys[0].L, keys[0].chroma, closing_hue};
+      visible[key_count] = true;
       positions[key_count] = 1.0f;
       count = key_count + 1;
       break;
-    }
-
-    for (int i = 0; i < count; ++i)
-      chromatic[i] = is_chromatic(stops[i]);
-    if (domain == PaletteDomain::VIGNETTE) {
-      chromatic[0] = false;
-      chromatic[key_count + 1] = false;
-    } else if (domain == PaletteDomain::FALLOFF) {
-      chromatic[key_count] = false;
-      chromatic[key_count + 1] = false;
     }
 
     int index = count - 2;
@@ -794,8 +857,28 @@ private:
         width > 0.0f ? apply_easing(hs::clamp((t - positions[index]) / width,
                                               0.0f, 1.0f))
                      : 0.0f;
-    return {stops[index], stops[index + 1], chromatic[index],
-            chromatic[index + 1], progress};
+    return {stops[index],       stops[index + 1], visible[index],
+            visible[index + 1], progress,         domain_position};
+  }
+
+  HS_COLD_MEMBER ControlKey sample_envelope(float t) const {
+    t = hs::clamp(t, 0.0f, 1.0f);
+    if (domain == PaletteDomain::LOOP && t == 1.0f)
+      t = 0.0f;
+
+    const float scale =
+        domain == PaletteDomain::LOOP ? key_count : key_count - 1;
+    const float scaled = t * scale;
+    const int left =
+        std::min(static_cast<int>(scaled), static_cast<int>(key_count) - 1);
+    const int right = domain == PaletteDomain::LOOP
+                          ? (left + 1) % key_count
+                          : std::min(left + 1, static_cast<int>(key_count) - 1);
+    const float progress = apply_easing(scaled - floorf(scaled));
+    return {keys[left].L + (keys[right].L - keys[left].L) * progress,
+            keys[left].chroma +
+                (keys[right].chroma - keys[left].chroma) * progress,
+            0.0f};
   }
 
   HS_COLD_MEMBER float realized_chroma(const ControlKey &key,
@@ -813,63 +896,109 @@ private:
     return {key.L, chromatic ? realized_chroma(key, h_final) : 0.0f, h_final};
   }
 
-  HS_COLD_MEMBER Evaluated evaluate(float t) const {
-    const Segment segment = select_segment(t);
-    const float progress = segment.progress;
-    const float control =
-        segment.left.chroma +
-        (segment.right.chroma - segment.left.chroma) * progress;
-
-    OKLab lab;
-    float h_path;
-    float h_final;
-    float q;
-    if (color_path == ColorPath::OKLAB_CARTESIAN) {
-      const OKLab left =
-          oklch_to_oklab(resolve_key(segment.left, segment.left_chromatic));
-      const OKLab right =
-          oklch_to_oklab(resolve_key(segment.right, segment.right_chromatic));
-      lab = {left.L + (right.L - left.L) * progress,
-             left.a + (right.a - left.a) * progress,
-             left.b + (right.b - left.b) * progress};
-      const OKLCH lch = oklab_to_oklch(lab);
-      h_path = lch.C >= OKLCH_ACHROMATIC_C ? lch.h : 0.0f;
-      h_final = h_path;
-      const float boundary = gamut_continuous_chroma(lch.L, h_final);
-      q = boundary > 0.0f ? lch.C / boundary : control;
-    } else {
-      const float L =
-          segment.left.L + (segment.right.L - segment.left.L) * progress;
-      if (segment.left_chromatic && segment.right_chromatic)
-        h_path = segment.left.h + (segment.right.h - segment.left.h) * progress;
-      else if (segment.left_chromatic)
-        h_path = segment.left.h;
-      else if (segment.right_chromatic)
-        h_path = segment.right.h;
-      else
-        h_path = 0.0f;
-      h_final = h_path + hue_torsion * (L - 0.5f);
-      const float boundary = gamut_continuous_chroma(L, h_final);
-      const float C = chroma_basis == ChromaBasis::LOCAL_GAMUT
-                          ? std::min(control, headroom) * boundary
-                          : std::max(0.0f, control);
-      lab = oklch_to_oklab({L, C, h_final});
-      q = chroma_basis == ChromaBasis::LOCAL_GAMUT
-              ? control
-              : (boundary > 0.0f ? C / boundary : 0.0f);
-    }
-
+  HS_COLD_MEMBER PathEvaluation
+  evaluate_cartesian_path(const ControlKey &left_key, bool left_chromatic,
+                          const ControlKey &right_key, bool right_chromatic,
+                          float progress, float control) const {
+    const OKLab left = oklch_to_oklab(resolve_key(left_key, left_chromatic));
+    const OKLab right = oklch_to_oklab(resolve_key(right_key, right_chromatic));
+    const OKLab lab{left.L + (right.L - left.L) * progress,
+                    left.a + (right.a - left.a) * progress,
+                    left.b + (right.b - left.b) * progress};
     const OKLCH lch = oklab_to_oklch(lab);
+    const float h_path = lch.C >= OKLCH_ACHROMATIC_C ? lch.h : 0.0f;
+    const float boundary = gamut_continuous_chroma(lch.L, h_path);
+    const float q = boundary > 0.0f ? lch.C / boundary : control;
+    return {lab, q, h_path, h_path};
+  }
+
+  HS_COLD_MEMBER PathEvaluation
+  evaluate_arc_path(float L, float control, float left_h, bool left_chromatic,
+                    float right_h, bool right_chromatic, float progress) const {
+    float h_path;
+    if (left_chromatic && right_chromatic)
+      h_path = left_h + (right_h - left_h) * progress;
+    else if (left_chromatic)
+      h_path = left_h;
+    else if (right_chromatic)
+      h_path = right_h;
+    else
+      h_path = 0.0f;
+
+    const float h_final = h_path + hue_torsion * (L - 0.5f);
+    const float boundary = gamut_continuous_chroma(L, h_final);
+    const float C = chroma_basis == ChromaBasis::LOCAL_GAMUT
+                        ? std::min(control, headroom) * boundary
+                        : std::max(0.0f, control);
+    const float q = chroma_basis == ChromaBasis::LOCAL_GAMUT
+                        ? control
+                        : (boundary > 0.0f ? C / boundary : 0.0f);
+    return {oklch_to_oklab({L, C, h_final}), q, h_path, h_final};
+  }
+
+  HS_COLD_MEMBER Evaluated finish_evaluation(const PathEvaluation &path) const {
+    const OKLCH lch = oklab_to_oklch(path.lab);
     float r, g, blue;
-    oklab_to_linear_rgb(lab, r, g, blue);
-    const float boundary = gamut_continuous_chroma(lch.L, h_final);
-    return {lab,
+    oklab_to_linear_rgb(path.lab, r, g, blue);
+    const float boundary = gamut_continuous_chroma(lch.L, path.h_final);
+    return {path.lab,
             lch.C,
-            q,
+            path.q,
             boundary,
-            h_path,
-            h_final,
+            path.h_path,
+            path.h_final,
             !linear_rgb_in_gamut(r, g, blue)};
+  }
+
+  HS_COLD_MEMBER Evaluated evaluate(float t) const {
+    const float output_position = hs::clamp(t, 0.0f, 1.0f);
+    const Segment segment = select_segment(t);
+    const ControlKey envelope = sample_envelope(output_position);
+    const float progress = segment.progress;
+    const float left_visibility = segment.left_visible ? 1.0f : 0.0f;
+    const float right_visibility = segment.right_visible ? 1.0f : 0.0f;
+    const float visibility =
+        left_visibility + (right_visibility - left_visibility) * progress;
+    const float L = envelope.L * visibility;
+    const float control = envelope.chroma * visibility;
+    const bool chromatic = chroma_basis == ChromaBasis::LOCAL_GAMUT
+                               ? control > 0.0f
+                               : control >= OKLCH_ACHROMATIC_C;
+
+    PathEvaluation path;
+    if (complementary_harmony) {
+      float relationship_position = segment.domain_position;
+      if (domain == PaletteDomain::LOOP)
+        relationship_position =
+            1.0f - fabsf(2.0f * relationship_position - 1.0f);
+      relationship_position = apply_easing(relationship_position);
+
+      if (color_path == ColorPath::OKLAB_CARTESIAN) {
+        const ControlKey first{L, control, keys[0].h};
+        const ControlKey opposite{L, control, keys[key_count - 1].h};
+        path = evaluate_cartesian_path(first, chromatic, opposite, chromatic,
+                                       relationship_position, control);
+      } else {
+        path = evaluate_arc_path(L, control, keys[0].h, chromatic,
+                                 keys[key_count - 1].h, chromatic,
+                                 relationship_position);
+      }
+    } else if (color_path == ColorPath::OKLAB_CARTESIAN) {
+      const ControlKey left_key{envelope.L * left_visibility,
+                                envelope.chroma * left_visibility,
+                                segment.left.h};
+      const ControlKey right_key{envelope.L * right_visibility,
+                                 envelope.chroma * right_visibility,
+                                 segment.right.h};
+      path = evaluate_cartesian_path(
+          left_key, chromatic && segment.left_visible, right_key,
+          chromatic && segment.right_visible, progress, control);
+    } else {
+      path = evaluate_arc_path(
+          L, control, segment.left.h, chromatic && segment.left_visible,
+          segment.right.h, chromatic && segment.right_visible, progress);
+    }
+    return finish_evaluation(path);
   }
 
   std::array<ControlKey, PALETTE_MAX_KEYS> keys{};
@@ -884,6 +1013,7 @@ private:
   SegmentEase easing = SegmentEase::COSINE;
   ColorPath color_path = ColorPath::OKLCH_ARC;
   ChromaBasis chroma_basis = ChromaBasis::LOCAL_GAMUT;
+  bool complementary_harmony = false;
 };
 
 static_assert(sizeof(GenerativePalette) <= 160);

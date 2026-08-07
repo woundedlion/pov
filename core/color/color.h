@@ -450,6 +450,8 @@ enum class PaletteHarmony : uint8_t {
   COMPLEMENTARY,
   SPLIT_COMPLEMENTARY,
   TRIADIC,
+  TETRADIC,
+  SQUARE,
 };
 
 enum class HueDirection : uint8_t { SHORTEST, CLOCKWISE, COUNTERCLOCKWISE };
@@ -477,7 +479,7 @@ enum class PaletteDomain : uint8_t {
 
 enum class SegmentEase : uint8_t { LINEAR, COSINE, SMOOTHSTEP };
 
-static constexpr uint8_t PALETTE_MIN_KEYS = 3;
+static constexpr uint8_t PALETTE_MIN_KEYS = 2;
 static constexpr uint8_t PALETTE_MAX_KEYS = 6;
 
 struct HueControls {
@@ -1033,17 +1035,16 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
 }
 
 /**
- * @brief Returns a continuous, in-gamut chroma envelope at an OKLCH coordinate.
+ * @brief Samples a continuous, conservative gamut envelope.
  * @param L OKLab lightness, clamped to [0,1].
  * @param h Hue in radians.
  * @return A conservative chroma boundary that varies continuously in L and hue.
- * @details Intended for relative-chroma color generation. Exact clipping uses
- * gamut_max_chroma(), whose first-exit boundary can jump where an RGB channel
- * briefly leaves and re-enters the gamut along a fixed-lightness ray.
+ * @details Exact clipping uses gamut_max_chroma(); relative-chroma palette
+ * generation uses the hue-smoothed wrapper below.
  */
 // Bake-time only (relative-chroma palette generation); the per-pixel clip
 // stays on gamut_max_chroma.
-HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
+HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
   const GamutLut &lut = g_gamut_lut;
   L = hs::clamp(L, 0.0f, 1.0f);
   if (L == 0.0f || L == 1.0f)
@@ -1078,9 +1079,28 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
   const float v10 = vertex_minimum(0, 1);
   const float v01 = vertex_minimum(1, 0);
   const float v11 = vertex_minimum(1, 1);
-  const float low = v00 + (v10 - v00) * af;
-  const float high = v01 + (v11 - v01) * af;
-  return low + (high - low) * lf;
+  const float angle_blend = af * af * (3.0f - 2.0f * af);
+  const float lightness_blend = lf * lf * (3.0f - 2.0f * lf);
+  const float low = v00 + (v10 - v00) * angle_blend;
+  const float high = v01 + (v11 - v01) * angle_blend;
+  return low + (high - low) * lightness_blend;
+}
+
+/**
+ * @brief Returns a hue-smoothed, in-gamut chroma envelope.
+ * @details The filtered value is capped by the center sample, so smoothing can
+ * only move a color farther inside the gamut.
+ */
+HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
+  constexpr float HUE_STEP = PI_F / 40.0f;
+  const float center = gamut_continuous_chroma_sample(L, h);
+  const float smoothed =
+      (gamut_continuous_chroma_sample(L, h - 2.0f * HUE_STEP) +
+       2.0f * gamut_continuous_chroma_sample(L, h - HUE_STEP) + 4.0f * center +
+       2.0f * gamut_continuous_chroma_sample(L, h + HUE_STEP) +
+       gamut_continuous_chroma_sample(L, h + 2.0f * HUE_STEP)) *
+      0.1f;
+  return std::min(center, smoothed);
 }
 
 /**
