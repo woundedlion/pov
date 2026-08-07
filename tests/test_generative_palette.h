@@ -102,9 +102,15 @@ inline void test_generative_palette_input_window() {
   recipe.lightness.curve = AxisCurve::ASCENDING;
   recipe.lightness.center = 0.5f;
   recipe.lightness.range = 0.6f;
+  PaletteRecipe full_envelope_recipe = recipe;
+  full_envelope_recipe.input.offset = 0.0f;
+  full_envelope_recipe.input.span = 1.0f;
+  const GenerativePalette full_envelope(full_envelope_recipe);
   const GenerativePalette windowed_envelope(recipe);
-  HS_EXPECT_NEAR(windowed_envelope.diagnose(0.0f).L, 0.2f, 1e-5f);
-  HS_EXPECT_NEAR(windowed_envelope.diagnose(1.0f).L, 0.8f, 1e-5f);
+  HS_EXPECT_NEAR(windowed_envelope.diagnose(0.0f).L,
+                 full_envelope.diagnose(0.2f).L, 1e-5f);
+  HS_EXPECT_NEAR(windowed_envelope.diagnose(1.0f).L,
+                 full_envelope.diagnose(0.6f).L, 1e-5f);
   HS_EXPECT_NEAR(windowed_envelope.diagnose(0.0f).h_path,
                  full.diagnose(0.2f).h_path, 1e-5f);
   HS_EXPECT_NEAR(windowed_envelope.diagnose(1.0f).h_path,
@@ -112,7 +118,56 @@ inline void test_generative_palette_input_window() {
 
   recipe.domain = PaletteDomain::MIRROR;
   const GenerativePalette cropped_mirror(recipe);
-  HS_EXPECT_FALSE(cropped_mirror.mirrors_domain());
+  HS_EXPECT_TRUE(cropped_mirror.mirrors_domain());
+  for (int i = 0; i <= 16; ++i) {
+    const Pixel left = cropped_mirror.get(i / 32.0f).color;
+    const Pixel right = cropped_mirror.get(1.0f - i / 32.0f).color;
+    HS_EXPECT_EQ(left.r, right.r);
+    HS_EXPECT_EQ(left.g, right.g);
+    HS_EXPECT_EQ(left.b, right.b);
+  }
+  const Pixel window_end = windowed_envelope.get(1.0f).color;
+  const Pixel mirror_middle = cropped_mirror.get(0.5f).color;
+  HS_EXPECT_EQ(mirror_middle.r, window_end.r);
+  HS_EXPECT_EQ(mirror_middle.g, window_end.g);
+  HS_EXPECT_EQ(mirror_middle.b, window_end.b);
+
+  recipe.domain = PaletteDomain::VIGNETTE;
+  const GenerativePalette cropped_vignette(recipe);
+  HS_EXPECT_EQ(cropped_vignette.get(0.0f).color.r, 0);
+  HS_EXPECT_EQ(cropped_vignette.get(0.0f).color.g, 0);
+  HS_EXPECT_EQ(cropped_vignette.get(0.0f).color.b, 0);
+  HS_EXPECT_EQ(cropped_vignette.get(1.0f).color.r, 0);
+  HS_EXPECT_EQ(cropped_vignette.get(1.0f).color.g, 0);
+  HS_EXPECT_EQ(cropped_vignette.get(1.0f).color.b, 0);
+  const Pixel window_middle = windowed_envelope.get(0.5f).color;
+  const Pixel vignette_middle = cropped_vignette.get(0.5f).color;
+  HS_EXPECT_EQ(vignette_middle.r, window_middle.r);
+  HS_EXPECT_EQ(vignette_middle.g, window_middle.g);
+  HS_EXPECT_EQ(vignette_middle.b, window_middle.b);
+
+  recipe.domain = PaletteDomain::FALLOFF;
+  const GenerativePalette cropped_falloff(recipe);
+  HS_EXPECT_EQ(cropped_falloff.get(1.0f).color.r, 0);
+  HS_EXPECT_EQ(cropped_falloff.get(1.0f).color.g, 0);
+  HS_EXPECT_EQ(cropped_falloff.get(1.0f).color.b, 0);
+  const Pixel falloff_color_end = cropped_falloff.get(2.0f / 3.0f).color;
+  HS_EXPECT_EQ(falloff_color_end.r, window_end.r);
+  HS_EXPECT_EQ(falloff_color_end.g, window_end.g);
+  HS_EXPECT_EQ(falloff_color_end.b, window_end.b);
+
+  recipe.domain = PaletteDomain::LOOP;
+  const GenerativePalette cropped_loop(recipe);
+  HS_EXPECT_TRUE(cropped_loop.loops_domain());
+  const Pixel loop_first = cropped_loop.get(0.0f).color;
+  const Pixel loop_last = cropped_loop.get(1.0f).color;
+  HS_EXPECT_EQ(loop_first.r, loop_last.r);
+  HS_EXPECT_EQ(loop_first.g, loop_last.g);
+  HS_EXPECT_EQ(loop_first.b, loop_last.b);
+  const Pixel loop_color_end = cropped_loop.get(2.0f / 3.0f).color;
+  HS_EXPECT_EQ(loop_color_end.r, window_end.r);
+  HS_EXPECT_EQ(loop_color_end.g, window_end.g);
+  HS_EXPECT_EQ(loop_color_end.b, window_end.b);
 }
 
 inline void test_generative_palette_resolves_axes_and_harmony() {
