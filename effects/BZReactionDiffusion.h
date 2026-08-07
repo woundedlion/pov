@@ -411,10 +411,11 @@ private:
     uint16_t *A = nullptr, *B = nullptr, *C = nullptr;
   } state;
 
-  /** @brief Triadic generative palette mapping species concentration to color. */
-  GenerativePalette palette{PaletteRecipes::profile(
-      PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::DESCENDING,
-      PaletteRecipes::hue_turns(42), 0.86f)};
+  /** @brief Legacy species colors expressed as an explicit generative recipe. */
+  GenerativePalette palette{PaletteRecipes::from_oklch_keys(
+      PaletteDomain::STRAIGHT, pixel_to_oklch(Pixel(36844, 10770, 3)),
+      pixel_to_oklch(Pixel(0, 8112, 5753)),
+      pixel_to_oklch(Pixel(2059, 0, 9668)))};
 
   /** @brief Per-species palette channels converted once in init(). */
   FloatRgb color_a, color_b, color_c;

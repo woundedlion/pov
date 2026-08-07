@@ -1667,6 +1667,9 @@ struct BZWhiteBox {
   using Grid = Scan::Shader::SsaaGrid<SMALL_W, SMALL_H>;
   static constexpr int N = BZ::RD_N;
 
+  static Pixel palette_color(const BZ &bz, float t) {
+    return bz.palette.get(t).color;
+  }
   static uint16_t to_q16(float v) { return BZ::to_q16(v); }
   static float from_q16(uint16_t v) { return BZ::from_q16(v); }
   static void set_params(BZ &bz, float alpha, float D, float dt) {
@@ -1801,6 +1804,14 @@ struct BZWhiteBox {
     return accum;
   }
 };
+
+/** @brief Pins the three legacy BZ species colors. */
+inline void test_bz_legacy_palette() {
+  BZWhiteBox::BZ bz;
+  HS_EXPECT_TRUE(BZWhiteBox::palette_color(bz, 0.0f) == Pixel(36844, 10770, 3));
+  HS_EXPECT_TRUE(BZWhiteBox::palette_color(bz, 0.5f) == Pixel(0, 8112, 5753));
+  HS_EXPECT_TRUE(BZWhiteBox::palette_color(bz, 1.0f) == Pixel(2059, 0, 9668));
+}
 
 /**
  * @brief Verifies the Q16 fixed-point round-trip and the +0.5 rounding/clamp
@@ -5493,6 +5504,7 @@ inline int run_effects_tests() {
     test_gs_reaction_corner_stays_bounded();
     test_gs_dissolve_clears_and_reseeds();
     test_gs_reaction_edit_starts_dissolve();
+    test_bz_legacy_palette();
     test_bz_q16_roundtrip();
     test_bz_min_diffusion_step_survives_quantization();
     test_bz_advance_species_signs_and_clamp();
