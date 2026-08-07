@@ -121,12 +121,12 @@ private:
   /**
    * @brief Fixed particle pool capacity.
    * @details Footprint is host/device-identical (fixed-width trail storage:
-   *          snorm16 entries, uint32_t ring indices): 88 B/particle × 2048 =
-   *          176 KiB of the 298 KiB device arena. init()'s static_assert
+   *          snorm16 entries, uint32_t ring indices): 88 B/particle × 1672 =
+   *          143.7 KiB of the 298 KiB device arena. init()'s static_assert
    *          enforces the budget at compile time against the real device arena
    *          literal.
    */
-  static constexpr int NUM_PARTICLES = 2048;
+  static constexpr int NUM_PARTICLES = 1672;
 
   typedef Solids::Cube EmitSolid;
   typedef Solids::Octahedron AttractSolid;

@@ -3470,7 +3470,7 @@ inline void test_mindsplatter_replay_snapshot_exact() {
     hs::set_mock_time(0, 0);
     MS effect;
     effect.init();
-    HS_EXPECT_EQ(WB::particle_capacity(effect), static_cast<size_t>(2048));
+    HS_EXPECT_EQ(WB::particle_capacity(effect), static_cast<size_t>(1672));
     for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
       hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
                         static_cast<unsigned long>(frame) * FRAME_US);
