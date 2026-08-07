@@ -1248,6 +1248,27 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   HS_EXPECT_GT(static_cast<int>(ps.pool[0].history_length()), 0);
 }
 
+/** @brief Verifies sparse trails retain anchors at the configured cadence. */
+inline void test_particle_system_sparse_trail_sampling() {
+  static uint8_t buf[256 * 1024];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 1, 4, 8, 8, false, 6> ps;
+  ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/30.0f);
+  ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)1);
+  for (int i = 0; i < 5; ++i)
+    ps.step(fake_canvas());
+  HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)1);
+
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)2);
+  for (int i = 0; i < 12; ++i)
+    ps.step(fake_canvas());
+  HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)4);
+}
+
 /**
  * @brief Pins the attractor kill check at its radius boundary, not just at
  * distance 0.
@@ -3287,6 +3308,7 @@ inline int run_animation_tests() {
   test_particle_system_spawn_and_capacity_guard();
   test_particle_system_lifetime_boundaries();
   test_particle_system_spawn_initializes_and_steps();
+  test_particle_system_sparse_trail_sampling();
   test_particle_system_expires_after_life_and_trail_drain();
   test_particle_system_attractor_kills_within_radius();
   test_particle_system_attractor_kill_radius_boundary();
