@@ -1041,8 +1041,9 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
  * gamut_max_chroma(), whose first-exit boundary can jump where an RGB channel
  * briefly leaves and re-enters the gamut along a fixed-lightness ray.
  */
-HS_O3_FN __attribute__((noinline)) inline float
-gamut_continuous_chroma(float L, float h) {
+// Bake-time only (relative-chroma palette generation); the per-pixel clip
+// stays on gamut_max_chroma.
+HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
   const GamutLut &lut = g_gamut_lut;
   L = hs::clamp(L, 0.0f, 1.0f);
   if (L == 0.0f || L == 1.0f)
