@@ -1018,6 +1018,56 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
 }
 
 /**
+ * @brief Returns a continuous, in-gamut chroma envelope at an OKLCH coordinate.
+ * @param L OKLab lightness, clamped to [0,1].
+ * @param h Hue in radians.
+ * @return A conservative chroma boundary that varies continuously in L and hue.
+ * @details Intended for relative-chroma color generation. Exact clipping uses
+ * gamut_max_chroma(), whose first-exit boundary can jump where an RGB channel
+ * briefly leaves and re-enters the gamut along a fixed-lightness ray.
+ */
+HS_O3_FN __attribute__((noinline)) inline float
+gamut_continuous_chroma(float L, float h) {
+  const GamutLut &lut = g_gamut_lut;
+  L = hs::clamp(L, 0.0f, 1.0f);
+  if (L == 0.0f || L == 1.0f)
+    return 0.0f;
+
+  const float angle = diamond_angle(sinf(h), cosf(h)) * lut.angle_scale;
+  const float lightness = L * lut.l_scale;
+  const int ai = hs::clamp(static_cast<int>(angle), 0, lut.angle_steps - 1);
+  const int li = hs::clamp(static_cast<int>(lightness), 0, lut.l_steps - 1);
+  const float af = angle - floorf(angle);
+  const float lf = lightness - floorf(lightness);
+
+  const int angles[3] = {(ai + lut.angle_steps - 1) % lut.angle_steps, ai,
+                         (ai + 1) % lut.angle_steps};
+  const int lightnesses[3] = {std::max(li - 1, 0), li,
+                              std::min(li + 1, lut.l_steps - 1)};
+  const auto read_cell_minimum = [&](int l, int a) {
+    return static_cast<float>(lut.table[(l * lut.angle_steps + a) * 2]) *
+           GAMUT_LUT_INV_SCALE;
+  };
+
+  float cell_minima[3][3];
+  for (int l = 0; l < 3; ++l)
+    for (int a = 0; a < 3; ++a)
+      cell_minima[l][a] = read_cell_minimum(lightnesses[l], angles[a]);
+
+  const auto vertex_minimum = [&](int l, int a) {
+    return std::min(std::min(cell_minima[l][a], cell_minima[l][a + 1]),
+                    std::min(cell_minima[l + 1][a], cell_minima[l + 1][a + 1]));
+  };
+  const float v00 = vertex_minimum(0, 0);
+  const float v10 = vertex_minimum(0, 1);
+  const float v01 = vertex_minimum(1, 0);
+  const float v11 = vertex_minimum(1, 1);
+  const float low = v00 + (v10 - v00) * af;
+  const float high = v01 + (v11 - v01) * af;
+  return low + (high - low) * lf;
+}
+
+/**
  * @brief Reduces OKLab chroma to the first sRGB gamut boundary.
  * @param lab Source color; lightness is clamped to [0,1].
  * @return The source color or its fixed-lightness, fixed-hue projection.

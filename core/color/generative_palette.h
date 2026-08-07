@@ -431,7 +431,8 @@ private:
 
   static float wrap01(float value) { return value - floorf(value); }
 
-  static float directed_delta(float delta, HueDirection direction) {
+  HS_COLD_MEMBER static float directed_delta(float delta,
+                                             HueDirection direction) {
     const float wrapped = wrap01(delta);
     switch (direction) {
     case HueDirection::SHORTEST:
@@ -448,7 +449,8 @@ private:
     return 0.0f;
   }
 
-  static void resolve_axis(const AxisControls &controls, float out[3]) {
+  HS_COLD_MEMBER static void resolve_axis(const AxisControls &controls,
+                                          float out[3]) {
     const float low =
         hs::clamp(controls.center - controls.range * 0.5f, 0.0f, 1.0f);
     const float high =
@@ -483,7 +485,8 @@ private:
     }
   }
 
-  static void resolve_axis(const ChromaControls &controls, float out[3]) {
+  HS_COLD_MEMBER static void resolve_axis(const ChromaControls &controls,
+                                          float out[3]) {
     AxisControls axis;
     axis.curve = controls.curve;
     axis.center = controls.center;
@@ -493,38 +496,41 @@ private:
     resolve_axis(axis, out);
   }
 
-  static void resolve_harmony(const PaletteRecipe &recipe, float hues[3]) {
+  HS_COLD_MEMBER static void resolve_harmony(const PaletteRecipe &recipe,
+                                             float hues[3]) {
     const float base = recipe.hue.base_turns;
     const float spread = recipe.hue.spread_turns;
+    const float orientation =
+        recipe.hue.direction == HueDirection::CLOCKWISE ? -1.0f : 1.0f;
     float raw[3] = {};
     switch (recipe.hue.harmony) {
     case PaletteHarmony::MONOCHROMATIC:
       raw[0] = raw[1] = raw[2] = base;
       break;
     case PaletteHarmony::ANALOGOUS:
-      raw[0] = base - spread;
+      raw[0] = base - orientation * spread;
       raw[1] = base;
-      raw[2] = base + spread;
+      raw[2] = base + orientation * spread;
       break;
     case PaletteHarmony::ACCENTED_ANALOGOUS:
-      raw[0] = base - spread;
-      raw[1] = base + spread;
-      raw[2] = base + 0.5f;
+      raw[0] = base - orientation * spread;
+      raw[1] = base + orientation * spread;
+      raw[2] = base + orientation * 0.5f;
       break;
     case PaletteHarmony::COMPLEMENTARY:
       raw[0] = base;
-      raw[1] = base + 0.5f;
-      raw[2] = base;
+      raw[1] = base + orientation * 0.25f;
+      raw[2] = base + orientation * 0.5f;
       break;
     case PaletteHarmony::SPLIT_COMPLEMENTARY:
       raw[0] = base;
-      raw[1] = base + 0.5f - spread;
-      raw[2] = base + 0.5f + spread;
+      raw[1] = base + orientation * (0.5f - spread);
+      raw[2] = base + orientation * (0.5f + spread);
       break;
     case PaletteHarmony::TRIADIC:
       raw[0] = base;
-      raw[1] = base + 1.0f / 3.0f;
-      raw[2] = base + 2.0f / 3.0f;
+      raw[1] = base + orientation / 3.0f;
+      raw[2] = base + orientation * 2.0f / 3.0f;
       break;
     }
     hues[0] = raw[0];
@@ -533,8 +539,8 @@ private:
                 directed_delta(raw[i] - raw[i - 1], recipe.hue.direction);
   }
 
-  static void resolve_hues(const PaletteRecipe &recipe, float hues[3],
-                           float &closing_hue) {
+  HS_COLD_MEMBER static void resolve_hues(const PaletteRecipe &recipe,
+                                          float hues[3], float &closing_hue) {
     if (recipe.hue.mode == HueMode::HARMONY) {
       resolve_harmony(recipe, hues);
     } else if (recipe.hue.mode == HueMode::SWEEP) {
@@ -569,7 +575,7 @@ private:
         hues[2] + directed_delta(first_raw - last_raw, recipe.hue.direction);
   }
 
-  void initialize(const PaletteRecipe &recipe) {
+  HS_COLD_MEMBER void initialize(const PaletteRecipe &recipe) {
     float lightness[3];
     float chroma[3];
     float hues[3];
@@ -716,7 +722,8 @@ private:
 
   float realized_chroma(const ControlKey &key, float h_final) const {
     if (chroma_basis == ChromaBasis::LOCAL_GAMUT)
-      return std::min(key.q, headroom) * gamut_max_chroma(key.L, h_final);
+      return std::min(key.q, headroom) *
+             gamut_continuous_chroma(key.L, h_final);
     return std::max(0.0f, key.C);
   }
 
@@ -748,7 +755,7 @@ private:
       const OKLCH lch = oklab_to_oklch(lab);
       h_path = lch.C >= OKLCH_ACHROMATIC_C ? lch.h : 0.0f;
       h_final = h_path;
-      const float boundary = gamut_max_chroma(lch.L, h_final);
+      const float boundary = gamut_continuous_chroma(lch.L, h_final);
       q = boundary > 0.0f ? lch.C / boundary : control;
     } else {
       const float L =
@@ -762,7 +769,7 @@ private:
       else
         h_path = 0.0f;
       h_final = h_path + hue_torsion * (L - 0.5f);
-      const float boundary = gamut_max_chroma(L, h_final);
+      const float boundary = gamut_continuous_chroma(L, h_final);
       const float C = chroma_basis == ChromaBasis::LOCAL_GAMUT
                           ? std::min(control, headroom) * boundary
                           : std::max(0.0f, control);
@@ -775,7 +782,7 @@ private:
     const OKLCH lch = oklab_to_oklch(lab);
     float r, g, blue;
     oklab_to_linear_rgb(lab, r, g, blue);
-    const float boundary = gamut_max_chroma(lch.L, h_final);
+    const float boundary = gamut_continuous_chroma(lch.L, h_final);
     return {lab,
             lch.C,
             q,
