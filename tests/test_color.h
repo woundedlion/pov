@@ -645,6 +645,28 @@ inline void test_gamut_master_clip_lands_on_first_exit() {
   HS_EXPECT_LE(worst_oversat, 0.0f);
 }
 
+inline void test_gamut_continuous_chroma_is_smooth_and_in_gamut() {
+  for (int il = 1; il < 100; ++il) {
+    const float L = il / 100.0f;
+    for (int ih = 0; ih < 720; ++ih) {
+      const float h = 2.0f * PI_F * ih / 720.0f;
+      const float C = gamut_continuous_chroma(L, h);
+      float r, g, b;
+      oklab_to_linear_rgb(oklch_to_oklab({L, C, h}), r, g, b);
+      HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
+    }
+  }
+
+  const float L = 0.43f;
+  float previous = gamut_continuous_chroma(L, 4.58f);
+  for (int i = 1; i <= 1000; ++i) {
+    const float h = 4.58f + 0.06f * i / 1000.0f;
+    const float current = gamut_continuous_chroma(L, h);
+    HS_EXPECT_LT(fabsf(current - previous), 5e-4f);
+    previous = current;
+  }
+}
+
 // Grid MeshFeedback arms, and the one the bounds below are measured at.
 inline constexpr int TEST_GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
 inline constexpr int TEST_GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
@@ -2106,6 +2128,7 @@ inline int run_color_tests() {
   test_oklch_to_pixel_saturates_and_preserves_in_gamut();
   test_gamut_clip_preserves_hue();
   test_gamut_master_clip_lands_on_first_exit();
+  test_gamut_continuous_chroma_is_smooth_and_in_gamut();
   test_gamut_lut_clip_lands_on_first_exit();
   test_gamut_lut_downsample_preserves_bracket();
   test_gamut_lut_release_and_passthrough();
@@ -2148,6 +2171,7 @@ inline int run_color_tests() {
   test_generative_palette_recipe_validation();
   test_generative_palette_input_window();
   test_generative_palette_resolves_axes_and_harmony();
+  test_generative_palette_blue_cusp_is_continuous();
   test_generative_palette_local_gamut_stays_in_gamut();
   test_generative_palette_domain_invariants();
   test_generative_palette_snapshot_lerp();

@@ -94,8 +94,32 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
   HS_EXPECT_NEAR(keys.a.L, 0.2f, 1e-6f);
   HS_EXPECT_NEAR(keys.b.L, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(keys.c.L, 0.8f, 1e-6f);
-  HS_EXPECT_NEAR(keys.b.h - keys.a.h, PI_F, 1e-5f);
-  HS_EXPECT_NEAR(keys.c.h - keys.b.h, -PI_F, 1e-5f);
+  HS_EXPECT_NEAR(keys.b.h - keys.a.h, 0.5f * PI_F, 1e-5f);
+  HS_EXPECT_NEAR(keys.c.h - keys.b.h, 0.5f * PI_F, 1e-5f);
+
+  recipe.hue.direction = HueDirection::CLOCKWISE;
+  const auto clockwise = GenerativePalette(recipe).snapshot();
+  HS_EXPECT_NEAR(clockwise.b.h - clockwise.a.h, -0.5f * PI_F, 1e-5f);
+  HS_EXPECT_NEAR(clockwise.c.h - clockwise.b.h, -0.5f * PI_F, 1e-5f);
+}
+
+inline void test_generative_palette_blue_cusp_is_continuous() {
+  PaletteRecipe recipe;
+  recipe.domain = PaletteDomain::VIGNETTE;
+  recipe.hue.base_turns = 200.0f / 256.0f;
+  recipe.hue.harmony = PaletteHarmony::ANALOGOUS;
+  recipe.chroma.center = 1.0f;
+  recipe.chroma.headroom = 1.0f;
+  recipe.lightness.center = 0.43f;
+  const GenerativePalette palette(recipe);
+
+  auto previous = palette.diagnose(0.20f);
+  for (int i = 1; i <= 1000; ++i) {
+    const auto current = palette.diagnose(0.20f + 0.12f * i / 1000.0f);
+    HS_EXPECT_LT(fabsf(current.C - previous.C), 5e-4f);
+    HS_EXPECT_FALSE(current.fallback_mapped);
+    previous = current;
+  }
 }
 
 inline void test_generative_palette_local_gamut_stays_in_gamut() {
