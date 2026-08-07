@@ -62,12 +62,33 @@ inline void test_generative_palette_recipe_validation() {
       GenerativePalette::try_compile(too_few_keys, output, canonical, status));
   HS_EXPECT_EQ(status.code, PaletteCompileCode::INVALID_KEY_COUNT);
   HS_EXPECT_EQ(status.field, PaletteRecipeField::KEY_COUNT);
+
+  PaletteRecipe two_key_complementary;
+  two_key_complementary.key_count = 2;
+  two_key_complementary.hue.harmony = PaletteHarmony::COMPLEMENTARY;
+  HS_EXPECT_TRUE(GenerativePalette::try_compile(two_key_complementary, output,
+                                                canonical, status));
+  HS_EXPECT_EQ(output.palette_key_count(), 2);
+
+  two_key_complementary.hue.harmony = PaletteHarmony::TRIADIC;
+  HS_EXPECT_FALSE(GenerativePalette::try_compile(two_key_complementary, output,
+                                                 canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::INCOMPATIBLE_OPTIONS);
+  HS_EXPECT_EQ(status.field, PaletteRecipeField::KEY_COUNT);
+
+  PaletteRecipe three_key_square;
+  three_key_square.key_count = 3;
+  three_key_square.hue.harmony = PaletteHarmony::SQUARE;
+  HS_EXPECT_FALSE(GenerativePalette::try_compile(three_key_square, output,
+                                                 canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::INCOMPATIBLE_OPTIONS);
+  HS_EXPECT_EQ(status.field, PaletteRecipeField::KEY_COUNT);
 }
 
 inline void test_generative_palette_input_window() {
   PaletteRecipe recipe =
       PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
-                              AxisCurve::BELL, 0.17f, 0.86f);
+                              AxisCurve::CONSTANT, 0.17f, 0.86f);
   const GenerativePalette full(recipe);
 
   recipe.input.offset = 0.2f;
@@ -83,6 +104,17 @@ inline void test_generative_palette_input_window() {
     HS_EXPECT_EQ(actual.g, expected.g);
     HS_EXPECT_EQ(actual.b, expected.b);
   }
+
+  recipe.lightness.curve = AxisCurve::ASCENDING;
+  recipe.lightness.center = 0.5f;
+  recipe.lightness.range = 0.6f;
+  const GenerativePalette windowed_envelope(recipe);
+  HS_EXPECT_NEAR(windowed_envelope.diagnose(0.0f).L, 0.2f, 1e-5f);
+  HS_EXPECT_NEAR(windowed_envelope.diagnose(1.0f).L, 0.8f, 1e-5f);
+  HS_EXPECT_NEAR(windowed_envelope.diagnose(0.0f).h_path,
+                 full.diagnose(0.2f).h_path, 1e-5f);
+  HS_EXPECT_NEAR(windowed_envelope.diagnose(1.0f).h_path,
+                 full.diagnose(0.6f).h_path, 1e-5f);
 
   recipe.domain = PaletteDomain::MIRROR;
   const GenerativePalette cropped_mirror(recipe);
@@ -106,49 +138,69 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
   HS_EXPECT_NEAR(key0.L, 0.2f, 3e-4f);
   HS_EXPECT_NEAR(key1.L, 0.5f, 3e-4f);
   HS_EXPECT_NEAR(key2.L, 0.8f, 3e-4f);
-  HS_EXPECT_NEAR(key1.h - key0.h, PI_F, 1e-5f);
-  HS_EXPECT_NEAR(key2.h - key1.h, 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(key1.h - key0.h, 0.5f * PI_F, 1e-5f);
+  HS_EXPECT_NEAR(key2.h - key1.h, 0.5f * PI_F, 1e-5f);
 
   recipe.hue.direction = HueDirection::CLOCKWISE;
   const auto clockwise = GenerativePalette(recipe).snapshot();
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(clockwise, 1).h -
                      GenerativePalette::snapshot_key(clockwise, 0).h,
-                 -PI_F, 1e-5f);
+                 -0.5f * PI_F, 1e-5f);
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(clockwise, 2).h -
                      GenerativePalette::snapshot_key(clockwise, 1).h,
-                 0.0f, 1e-5f);
+                 -0.5f * PI_F, 1e-5f);
 
   recipe.key_count = 6;
   const auto six = GenerativePalette(recipe).snapshot();
   HS_EXPECT_EQ(six.key_count, 6);
-  for (int i = 1; i < 3; ++i)
-    HS_EXPECT_NEAR(GenerativePalette::snapshot_key(six, i).h,
-                   GenerativePalette::snapshot_key(six, 0).h, 1e-5f);
-  for (int i = 4; i < 6; ++i)
-    HS_EXPECT_NEAR(GenerativePalette::snapshot_key(six, i).h,
-                   GenerativePalette::snapshot_key(six, 3).h, 1e-5f);
-  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(six, 3).h -
-                     GenerativePalette::snapshot_key(six, 2).h,
-                 -PI_F, 1e-5f);
+  for (int i = 1; i < 6; ++i)
+    HS_EXPECT_NEAR(GenerativePalette::snapshot_key(six, i).h -
+                       GenerativePalette::snapshot_key(six, i - 1).h,
+                   -PI_F / 5.0f, 1e-5f);
+
+  recipe.key_count = 4;
+  recipe.hue.direction = HueDirection::COUNTERCLOCKWISE;
+  recipe.hue.harmony = PaletteHarmony::TETRADIC;
+  recipe.hue.spread_turns = 1.0f / 6.0f;
+  const auto tetradic = GenerativePalette(recipe).snapshot();
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(tetradic, 1).h -
+                     GenerativePalette::snapshot_key(tetradic, 0).h,
+                 PI_F / 3.0f, 1e-5f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(tetradic, 2).h -
+                     GenerativePalette::snapshot_key(tetradic, 0).h,
+                 PI_F, 1e-5f);
+
+  recipe.hue.harmony = PaletteHarmony::SQUARE;
+  const auto square = GenerativePalette(recipe).snapshot();
+  for (int i = 1; i < 4; ++i)
+    HS_EXPECT_NEAR(GenerativePalette::snapshot_key(square, i).h -
+                       GenerativePalette::snapshot_key(square, i - 1).h,
+                   0.5f * PI_F, 1e-5f);
 }
 
 inline void test_generative_palette_blue_cusp_is_continuous() {
   PaletteRecipe recipe;
-  recipe.domain = PaletteDomain::VIGNETTE;
-  recipe.hue.base_turns = 200.0f / 256.0f;
-  recipe.hue.harmony = PaletteHarmony::ANALOGOUS;
+  recipe.key_count = 6;
+  recipe.hue.mode = HueMode::SWEEP;
+  recipe.hue.base_turns = 98.0f / 256.0f;
+  recipe.hue.sweep_turns = 1.0f;
   recipe.chroma.center = 1.0f;
   recipe.chroma.headroom = 1.0f;
-  recipe.lightness.center = 0.43f;
+  recipe.lightness.curve = AxisCurve::ASCENDING;
+  recipe.lightness.center = 0.495f;
+  recipe.lightness.range = 0.41f;
   const GenerativePalette palette(recipe);
 
-  auto previous = palette.diagnose(0.20f);
-  for (int i = 1; i <= 1000; ++i) {
-    const auto current = palette.diagnose(0.20f + 0.12f * i / 1000.0f);
-    HS_EXPECT_LT(fabsf(current.C - previous.C), 5e-4f);
+  auto previous = palette.diagnose(0.0f);
+  float largest_chroma_step = 0.0f;
+  for (int i = 1; i < 256; ++i) {
+    const auto current = palette.diagnose(i / 255.0f);
+    largest_chroma_step =
+        std::max(largest_chroma_step, fabsf(current.C - previous.C));
     HS_EXPECT_FALSE(current.fallback_mapped);
     previous = current;
   }
+  HS_EXPECT_LT(largest_chroma_step, 0.04f);
 }
 
 inline void test_generative_palette_local_gamut_stays_in_gamut() {
@@ -216,11 +268,18 @@ inline void test_generative_palette_cartesian_path_neutralizes_midpoint() {
   PaletteRecipe arc_recipe = PaletteRecipes::profile(
       PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY,
       AxisCurve::CONSTANT, 0.0f, 0.72f);
+  arc_recipe.key_count = 6;
   PaletteRecipe cartesian_recipe = arc_recipe;
   cartesian_recipe.color_path = ColorPath::OKLAB_CARTESIAN;
   const GenerativePalette arc(arc_recipe);
   const GenerativePalette cartesian(cartesian_recipe);
   HS_EXPECT_TRUE(cartesian.diagnose(0.25f).C < arc.diagnose(0.25f).C);
+  HS_EXPECT_TRUE(cartesian.diagnose(0.25f).C <
+                 cartesian.diagnose(0.0f).C * 0.8f);
+  HS_EXPECT_TRUE(cartesian.diagnose(0.5f).C <
+                 cartesian.diagnose(0.0f).C * 0.4f);
+  HS_EXPECT_TRUE(cartesian.diagnose(0.75f).C <
+                 cartesian.diagnose(1.0f).C * 0.8f);
 }
 
 inline void test_generative_palette_rejects_unavailable_path_minimum() {

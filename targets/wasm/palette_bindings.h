@@ -71,7 +71,7 @@ private:
     const val hue = input["hue"];
     if (!decode_enum(hue, "mode", static_cast<int>(HueMode::CUSTOM),
                      recipe.hue.mode, PaletteRecipeField::HUE_MODE, status) ||
-        !decode_enum(hue, "harmony", static_cast<int>(PaletteHarmony::TRIADIC),
+        !decode_enum(hue, "harmony", static_cast<int>(PaletteHarmony::SQUARE),
                      recipe.hue.harmony, PaletteRecipeField::HARMONY, status) ||
         !decode_enum(
             hue, "direction", static_cast<int>(HueDirection::COUNTERCLOCKWISE),
