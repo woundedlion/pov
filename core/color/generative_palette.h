@@ -180,7 +180,7 @@ public:
       keys[i] = {};
   }
 
-  Color4 get(float t) const override {
+  HS_COLD_MEMBER Color4 get(float t) const override {
     const LinRGB rgb = oklab_to_linear_rgb_gamut(evaluate(t).lab);
     return Color4(Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
                         float_to_pixel16(rgb.b)),
@@ -241,9 +241,9 @@ private:
            fail(status, PaletteCompileCode::NON_FINITE, field);
   }
 
-  static void clamp_field(float &value, float low, float high,
-                          PaletteRecipeField field,
-                          PaletteCompileStatus &status) {
+  HS_COLD_MEMBER static void clamp_field(float &value, float low, float high,
+                                         PaletteRecipeField field,
+                                         PaletteCompileStatus &status) {
     const float clamped = hs::clamp(value, low, high);
     if (clamped != value) {
       value = clamped;
@@ -338,8 +338,9 @@ private:
            finite(recipe.input.span, PaletteRecipeField::INPUT_SPAN, status);
   }
 
-  static bool canonicalize(const PaletteRecipe &input, PaletteRecipe &canonical,
-                           PaletteCompileStatus &status) {
+  HS_COLD_MEMBER static bool canonicalize(const PaletteRecipe &input,
+                                          PaletteRecipe &canonical,
+                                          PaletteCompileStatus &status) {
     status = {};
     if (input.schema_version != PaletteRecipe::SCHEMA_VERSION)
       return fail(status, PaletteCompileCode::INVALID_SCHEMA,
@@ -709,7 +710,7 @@ private:
     return progress;
   }
 
-  Segment select_segment(float t) const {
+  HS_COLD_MEMBER Segment select_segment(float t) const {
     t = hs::clamp(t, 0.0f, 1.0f);
     t = input_offset + t * input_span;
     if (domain == PaletteDomain::LOOP && t == 1.0f)
@@ -797,20 +798,22 @@ private:
             chromatic[index + 1], progress};
   }
 
-  float realized_chroma(const ControlKey &key, float h_final) const {
+  HS_COLD_MEMBER float realized_chroma(const ControlKey &key,
+                                       float h_final) const {
     if (chroma_basis == ChromaBasis::LOCAL_GAMUT)
       return std::min(key.q, headroom) *
              gamut_continuous_chroma(key.L, h_final);
     return std::max(0.0f, key.C);
   }
 
-  OKLCH resolve_key(const ControlKey &key, bool chromatic) const {
+  HS_COLD_MEMBER OKLCH resolve_key(const ControlKey &key,
+                                   bool chromatic) const {
     const float h_path = chromatic ? key.h : 0.0f;
     const float h_final = h_path + hue_torsion * (key.L - 0.5f);
     return {key.L, chromatic ? realized_chroma(key, h_final) : 0.0f, h_final};
   }
 
-  Evaluated evaluate(float t) const {
+  HS_COLD_MEMBER Evaluated evaluate(float t) const {
     const Segment segment = select_segment(t);
     const float progress = segment.progress;
     const float control =
@@ -918,10 +921,10 @@ inline PaletteRecipe profile(PaletteDomain domain, PaletteHarmony harmony,
   return recipe;
 }
 
-inline PaletteRecipe random_profile(PaletteDomain domain,
-                                    PaletteHarmony harmony,
-                                    AxisCurve lightness_curve,
-                                    float chroma = 0.62f) {
+HS_FLASH_MEMBER inline PaletteRecipe random_profile(PaletteDomain domain,
+                                                    PaletteHarmony harmony,
+                                                    AxisCurve lightness_curve,
+                                                    float chroma = 0.62f) {
   return profile(domain, harmony, lightness_curve,
                  hue_turns(static_cast<uint32_t>(hs::rand_int(0, 256))),
                  chroma);
