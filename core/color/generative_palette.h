@@ -7,7 +7,7 @@
 #include "color/color.h"
 
 /**
- * @brief A compiled three-key perceptual palette.
+ * @brief A compiled perceptual palette.
  */
 class GenerativePalette : public Palette {
 public:
@@ -26,7 +26,14 @@ public:
   };
 
   struct Snapshot {
-    ControlKey a, b, c;
+    /** Compact owned state that keeps palette animations inside their budget. */
+    struct Key {
+      std::array<uint8_t, 7> bytes{};
+    };
+
+    std::array<Key, PALETTE_MAX_KEYS> keys;
+    uint8_t key_count;
+    uint8_t reserved = 0;
   };
 
   struct Diagnostic {
@@ -39,7 +46,7 @@ public:
     bool fallback_mapped;
   };
 
-  static_assert(sizeof(Snapshot) == 36);
+  static_assert(sizeof(Snapshot) == 44);
 
   HS_COLD_MEMBER GenerativePalette() { initialize(PaletteRecipe{}); }
 
@@ -65,7 +72,18 @@ public:
     return true;
   }
 
-  Snapshot snapshot() const { return {a, b, c}; }
+  Snapshot snapshot() const {
+    Snapshot result{};
+    result.key_count = key_count;
+    for (int i = 0; i < key_count; ++i)
+      result.keys[i] = encode_snapshot_key(keys[i]);
+    return result;
+  }
+
+  static ControlKey snapshot_key(const Snapshot &snapshot, int index) {
+    return decode_snapshot_key(snapshot.keys[hs::clamp(
+        index, 0, static_cast<int>(snapshot.key_count) - 1)]);
+  }
 
   PaletteDomain palette_domain() const { return domain; }
   ChromaBasis palette_chroma_basis() const { return chroma_basis; }
@@ -75,6 +93,7 @@ public:
   float palette_hue_torsion() const { return hue_torsion; }
   float palette_input_offset() const { return input_offset; }
   float palette_input_span() const { return input_span; }
+  uint8_t palette_key_count() const { return key_count; }
 
   bool mirrors_domain() const {
     return domain == PaletteDomain::MIRROR && input_offset == 0.0f &&
@@ -93,8 +112,8 @@ public:
   }
 
   OKLCH resolved_oklch_key(int index) const {
-    const ControlKey keys[3] = {a, b, c};
-    const ControlKey &key = keys[hs::clamp(index, 0, 2)];
+    const ControlKey &key =
+        keys[hs::clamp(index, 0, static_cast<int>(key_count) - 1)];
     const float h_final = key.h + hue_torsion * (key.L - 0.5f);
     return {key.L, realized_chroma(key, h_final), h_final};
   }
@@ -116,11 +135,16 @@ public:
       return;
     }
 
-    const ControlKey from_keys[3] = {from.a, from.b, from.c};
-    const ControlKey to_keys[3] = {to.a, to.b, to.c};
-    ControlKey *out[3] = {&a, &b, &c};
+    key_count = std::max(from.key_count, to.key_count);
+    std::array<ControlKey, PALETTE_MAX_KEYS> from_keys{};
+    std::array<ControlKey, PALETTE_MAX_KEYS> to_keys{};
+    for (int i = 0; i < key_count; ++i) {
+      const float position = key_count > 1 ? i / float(key_count - 1) : 0.0f;
+      from_keys[i] = sample_snapshot(from, position);
+      to_keys[i] = sample_snapshot(to, position);
+    }
     int anchor = -1;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < key_count; ++i) {
       if (is_chromatic(from_keys[i]) && is_chromatic(to_keys[i])) {
         anchor = i;
         break;
@@ -130,7 +154,7 @@ public:
     const float anchor_delta =
         anchor >= 0 ? wrap_angle_pi(to_keys[anchor].h - from_keys[anchor].h)
                     : 0.0f;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < key_count; ++i) {
       const bool from_chromatic = is_chromatic(from_keys[i]);
       const bool to_chromatic = is_chromatic(to_keys[i]);
       float hue = 0.0f;
@@ -147,11 +171,13 @@ public:
       } else if (to_chromatic) {
         hue = to_keys[i].h;
       }
-      *out[i] = {from_keys[i].L + (to_keys[i].L - from_keys[i].L) * amount,
+      keys[i] = {from_keys[i].L + (to_keys[i].L - from_keys[i].L) * amount,
                  from_keys[i].chroma +
                      (to_keys[i].chroma - from_keys[i].chroma) * amount,
                  hue};
     }
+    for (int i = key_count; i < PALETTE_MAX_KEYS; ++i)
+      keys[i] = {};
   }
 
   Color4 get(float t) const override {
@@ -188,6 +214,7 @@ private:
   static constexpr float MAX_ABSOLUTE_CHROMA = 1.0f;
   static constexpr float MAX_ABS_TORSION = 4.0f * PI_F;
   static constexpr float SWEEP_INTEGER_EPS = 1e-6f;
+  static constexpr float SNAPSHOT_AXIS_STEPS = 4095.0f;
 
   HS_COLD_MEMBER GenerativePalette(Unchecked, const PaletteRecipe &recipe) {
     initialize(recipe);
@@ -265,7 +292,7 @@ private:
         !finite(recipe.hue.sweep_turns, PaletteRecipeField::SWEEP_TURNS,
                 status))
       return false;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
       if (!finite(
               recipe.hue.custom_turns[i],
               static_cast<PaletteRecipeField>(
@@ -278,7 +305,7 @@ private:
         !finite(recipe.lightness.range, PaletteRecipeField::LIGHTNESS_RANGE,
                 status))
       return false;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
       if (!finite(
               recipe.lightness.custom[i],
               static_cast<PaletteRecipeField>(
@@ -291,7 +318,7 @@ private:
                 status) ||
         !finite(recipe.chroma.range, PaletteRecipeField::CHROMA_RANGE, status))
       return false;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
       if (!finite(
               recipe.chroma.custom[i],
               static_cast<PaletteRecipeField>(
@@ -317,6 +344,10 @@ private:
     if (input.schema_version != PaletteRecipe::SCHEMA_VERSION)
       return fail(status, PaletteCompileCode::INVALID_SCHEMA,
                   PaletteRecipeField::SCHEMA_VERSION);
+    if (input.key_count < PALETTE_MIN_KEYS ||
+        input.key_count > PALETTE_MAX_KEYS)
+      return fail(status, PaletteCompileCode::INVALID_KEY_COUNT,
+                  PaletteRecipeField::KEY_COUNT);
     if (!validate_enums(input, status) || !validate_finite(input, status))
       return false;
 
@@ -338,7 +369,7 @@ private:
       return fail(status, PaletteCompileCode::HUE_LIMIT,
                   PaletteRecipeField::SWEEP_TURNS);
 
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
       if (fabsf(recipe.hue.custom_turns[i]) > MAX_CUSTOM_ABS_INPUT)
         return fail(
             status, PaletteCompileCode::HUE_LIMIT,
@@ -347,27 +378,27 @@ private:
     }
     const float custom_offset = floorf(recipe.hue.custom_turns[0]);
     if (custom_offset != 0.0f) {
-      for (int i = 0; i < 3; ++i) {
+      for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
         recipe.hue.custom_turns[i] -= custom_offset;
         status.adjustments.canonicalized_fields |=
             field_bit(static_cast<PaletteRecipeField>(
                 static_cast<uint8_t>(PaletteRecipeField::CUSTOM_TURNS_0) + i));
       }
     }
-    if (fabsf(recipe.hue.custom_turns[1] - recipe.hue.custom_turns[0]) >
-        MAX_CUSTOM_DELTA)
-      return fail(status, PaletteCompileCode::HUE_LIMIT,
-                  PaletteRecipeField::CUSTOM_TURNS_1);
-    if (fabsf(recipe.hue.custom_turns[2] - recipe.hue.custom_turns[1]) >
-        MAX_CUSTOM_DELTA)
-      return fail(status, PaletteCompileCode::HUE_LIMIT,
-                  PaletteRecipeField::CUSTOM_TURNS_2);
+    for (int i = 1; i < recipe.key_count; ++i) {
+      if (fabsf(recipe.hue.custom_turns[i] - recipe.hue.custom_turns[i - 1]) >
+          MAX_CUSTOM_DELTA)
+        return fail(
+            status, PaletteCompileCode::HUE_LIMIT,
+            static_cast<PaletteRecipeField>(
+                static_cast<uint8_t>(PaletteRecipeField::CUSTOM_TURNS_0) + i));
+    }
 
     clamp_field(recipe.lightness.center, 0.0f, 1.0f,
                 PaletteRecipeField::LIGHTNESS_CENTER, status);
     clamp_field(recipe.lightness.range, 0.0f, 1.0f,
                 PaletteRecipeField::LIGHTNESS_RANGE, status);
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
       clamp_field(
           recipe.lightness.custom[i], 0.0f, 1.0f,
           static_cast<PaletteRecipeField>(
@@ -382,7 +413,7 @@ private:
                 PaletteRecipeField::CHROMA_CENTER, status);
     clamp_field(recipe.chroma.range, 0.0f, chroma_max,
                 PaletteRecipeField::CHROMA_RANGE, status);
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
       clamp_field(
           recipe.chroma.custom[i], 0.0f, chroma_max,
           static_cast<PaletteRecipeField>(
@@ -450,97 +481,105 @@ private:
   }
 
   HS_COLD_MEMBER static void resolve_axis(const AxisControls &controls,
-                                          float out[3]) {
+                                          uint8_t count,
+                                          float out[PALETTE_MAX_KEYS]) {
     const float low =
         hs::clamp(controls.center - controls.range * 0.5f, 0.0f, 1.0f);
     const float high =
         hs::clamp(controls.center + controls.range * 0.5f, 0.0f, 1.0f);
-    switch (controls.curve) {
-    case AxisCurve::CONSTANT:
-      out[0] = out[1] = out[2] = controls.center;
-      break;
-    case AxisCurve::ASCENDING:
-      out[0] = low;
-      out[1] = controls.center;
-      out[2] = high;
-      break;
-    case AxisCurve::DESCENDING:
-      out[0] = high;
-      out[1] = controls.center;
-      out[2] = low;
-      break;
-    case AxisCurve::BELL:
-      out[0] = out[2] = low;
-      out[1] = high;
-      break;
-    case AxisCurve::CUP:
-      out[0] = out[2] = high;
-      out[1] = low;
-      break;
-    case AxisCurve::CUSTOM:
-      out[0] = controls.custom[0];
-      out[1] = controls.custom[1];
-      out[2] = controls.custom[2];
-      break;
+    for (int i = 0; i < count; ++i) {
+      const float position = i / float(count - 1);
+      switch (controls.curve) {
+      case AxisCurve::CONSTANT:
+        out[i] = controls.center;
+        break;
+      case AxisCurve::ASCENDING:
+        out[i] = low + (high - low) * position;
+        break;
+      case AxisCurve::DESCENDING:
+        out[i] = high + (low - high) * position;
+        break;
+      case AxisCurve::BELL:
+        out[i] = low + (high - low) * (1.0f - fabsf(position * 2.0f - 1.0f));
+        break;
+      case AxisCurve::CUP:
+        out[i] = high - (high - low) * (1.0f - fabsf(position * 2.0f - 1.0f));
+        break;
+      case AxisCurve::CUSTOM:
+        out[i] = controls.custom[i];
+        break;
+      }
     }
   }
 
   HS_COLD_MEMBER static void resolve_axis(const ChromaControls &controls,
-                                          float out[3]) {
+                                          uint8_t count,
+                                          float out[PALETTE_MAX_KEYS]) {
     AxisControls axis;
     axis.curve = controls.curve;
     axis.center = controls.center;
     axis.range = controls.range;
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
       axis.custom[i] = controls.custom[i];
-    resolve_axis(axis, out);
+    resolve_axis(axis, count, out);
   }
 
   HS_COLD_MEMBER static void resolve_harmony(const PaletteRecipe &recipe,
-                                             float hues[3]) {
+                                             float hues[PALETTE_MAX_KEYS]) {
     const float base = recipe.hue.base_turns;
     const float spread = recipe.hue.spread_turns;
     const float orientation =
         recipe.hue.direction == HueDirection::CLOCKWISE ? -1.0f : 1.0f;
-    float raw[3] = {};
+    float relationship[3] = {};
+    uint8_t relationship_count = 3;
     switch (recipe.hue.harmony) {
     case PaletteHarmony::MONOCHROMATIC:
-      raw[0] = raw[1] = raw[2] = base;
+      relationship[0] = base;
+      relationship_count = 1;
       break;
     case PaletteHarmony::ANALOGOUS:
-      raw[0] = base - orientation * spread;
-      raw[1] = base;
-      raw[2] = base + orientation * spread;
+      relationship[0] = base - orientation * spread;
+      relationship[1] = base;
+      relationship[2] = base + orientation * spread;
       break;
     case PaletteHarmony::ACCENTED_ANALOGOUS:
-      raw[0] = base - orientation * spread;
-      raw[1] = base + orientation * spread;
-      raw[2] = base + orientation * 0.5f;
+      relationship[0] = base - orientation * spread;
+      relationship[1] = base + orientation * spread;
+      relationship[2] = base + orientation * 0.5f;
       break;
     case PaletteHarmony::COMPLEMENTARY:
-      raw[0] = base;
-      raw[1] = base + orientation * 0.25f;
-      raw[2] = base + orientation * 0.5f;
+      relationship[0] = base;
+      relationship[1] = base + orientation * 0.5f;
+      relationship_count = 2;
       break;
     case PaletteHarmony::SPLIT_COMPLEMENTARY:
-      raw[0] = base;
-      raw[1] = base + orientation * (0.5f - spread);
-      raw[2] = base + orientation * (0.5f + spread);
+      relationship[0] = base;
+      relationship[1] = base + orientation * (0.5f - spread);
+      relationship[2] = base + orientation * (0.5f + spread);
       break;
     case PaletteHarmony::TRIADIC:
-      raw[0] = base;
-      raw[1] = base + orientation / 3.0f;
-      raw[2] = base + orientation * 2.0f / 3.0f;
+      relationship[0] = base;
+      relationship[1] = base + orientation / 3.0f;
+      relationship[2] = base + orientation * 2.0f / 3.0f;
       break;
     }
+
+    float raw[PALETTE_MAX_KEYS] = {};
+    for (int i = 0; i < recipe.key_count; ++i) {
+      const int relationship_index =
+          std::min((2 * i + 1) * relationship_count / (2 * recipe.key_count),
+                   static_cast<int>(relationship_count) - 1);
+      raw[i] = relationship[relationship_index];
+    }
     hues[0] = raw[0];
-    for (int i = 1; i < 3; ++i)
+    for (int i = 1; i < recipe.key_count; ++i)
       hues[i] = hues[i - 1] +
                 directed_delta(raw[i] - raw[i - 1], recipe.hue.direction);
   }
 
   HS_COLD_MEMBER static void resolve_hues(const PaletteRecipe &recipe,
-                                          float hues[3], float &closing_hue) {
+                                          float hues[PALETTE_MAX_KEYS],
+                                          float &closing_hue) {
     if (recipe.hue.mode == HueMode::HARMONY) {
       resolve_harmony(recipe, hues);
     } else if (recipe.hue.mode == HueMode::SWEEP) {
@@ -550,42 +589,43 @@ private:
       else if (recipe.hue.direction == HueDirection::COUNTERCLOCKWISE)
         sweep = fabsf(sweep);
       if (recipe.domain == PaletteDomain::LOOP) {
-        hues[0] = recipe.hue.base_turns;
-        hues[1] = hues[0] + sweep / 3.0f;
-        hues[2] = hues[0] + 2.0f * sweep / 3.0f;
+        for (int i = 0; i < recipe.key_count; ++i)
+          hues[i] = recipe.hue.base_turns +
+                    sweep * i / static_cast<float>(recipe.key_count);
         closing_hue = hues[0] + sweep;
         return;
       }
-      hues[0] = recipe.hue.base_turns;
-      hues[1] = hues[0] + sweep * 0.5f;
-      hues[2] = hues[0] + sweep;
+      for (int i = 0; i < recipe.key_count; ++i)
+        hues[i] = recipe.hue.base_turns +
+                  sweep * i / static_cast<float>(recipe.key_count - 1);
     } else {
-      hues[0] = recipe.hue.custom_turns[0];
-      hues[1] = recipe.hue.custom_turns[1];
-      hues[2] = recipe.hue.custom_turns[2];
+      for (int i = 0; i < recipe.key_count; ++i)
+        hues[i] = recipe.hue.custom_turns[i];
     }
 
     const float first_raw = recipe.hue.mode == HueMode::CUSTOM
                                 ? recipe.hue.custom_turns[0]
                                 : hues[0];
     const float last_raw = recipe.hue.mode == HueMode::CUSTOM
-                               ? recipe.hue.custom_turns[2]
-                               : hues[2];
-    closing_hue =
-        hues[2] + directed_delta(first_raw - last_raw, recipe.hue.direction);
+                               ? recipe.hue.custom_turns[recipe.key_count - 1]
+                               : hues[recipe.key_count - 1];
+    closing_hue = hues[recipe.key_count - 1] +
+                  directed_delta(first_raw - last_raw, recipe.hue.direction);
   }
 
   HS_COLD_MEMBER void initialize(const PaletteRecipe &recipe) {
-    float lightness[3];
-    float chroma[3];
-    float hues[3];
-    resolve_axis(recipe.lightness, lightness);
-    resolve_axis(recipe.chroma, chroma);
+    float lightness[PALETTE_MAX_KEYS];
+    float chroma[PALETTE_MAX_KEYS];
+    float hues[PALETTE_MAX_KEYS];
+    key_count = recipe.key_count;
+    resolve_axis(recipe.lightness, key_count, lightness);
+    resolve_axis(recipe.chroma, key_count, chroma);
     resolve_hues(recipe, hues, closing_hue);
 
-    a = {lightness[0], chroma[0], hues[0] * 2.0f * PI_F};
-    b = {lightness[1], chroma[1], hues[1] * 2.0f * PI_F};
-    c = {lightness[2], chroma[2], hues[2] * 2.0f * PI_F};
+    for (int i = 0; i < key_count; ++i)
+      keys[i] = {lightness[i], chroma[i], hues[i] * 2.0f * PI_F};
+    for (int i = key_count; i < PALETTE_MAX_KEYS; ++i)
+      keys[i] = {};
     closing_hue *= 2.0f * PI_F;
     input_offset = recipe.input.offset;
     input_span = recipe.input.span;
@@ -599,9 +639,56 @@ private:
   }
 
   void assign(const Snapshot &snapshot) {
-    a = snapshot.a;
-    b = snapshot.b;
-    c = snapshot.c;
+    key_count = snapshot.key_count;
+    for (int i = 0; i < key_count; ++i)
+      keys[i] = decode_snapshot_key(snapshot.keys[i]);
+    for (int i = key_count; i < PALETTE_MAX_KEYS; ++i)
+      keys[i] = {};
+  }
+
+  static ControlKey sample_snapshot(const Snapshot &snapshot, float position) {
+    const float scaled = position * (snapshot.key_count - 1);
+    const int left_index = std::min(static_cast<int>(scaled),
+                                    static_cast<int>(snapshot.key_count) - 1);
+    const int right_index =
+        std::min(left_index + 1, static_cast<int>(snapshot.key_count) - 1);
+    const float amount = scaled - left_index;
+    const ControlKey left = decode_snapshot_key(snapshot.keys[left_index]);
+    const ControlKey right = decode_snapshot_key(snapshot.keys[right_index]);
+    return {left.L + (right.L - left.L) * amount,
+            left.chroma + (right.chroma - left.chroma) * amount,
+            left.h + (right.h - left.h) * amount};
+  }
+
+  static Snapshot::Key encode_snapshot_key(const ControlKey &key) {
+    Snapshot::Key result{};
+    const uint32_t lightness = static_cast<uint32_t>(
+        roundf(hs::clamp(key.L, 0.0f, 1.0f) * SNAPSHOT_AXIS_STEPS));
+    const uint32_t chroma = static_cast<uint32_t>(
+        roundf(hs::clamp(key.chroma, 0.0f, 1.0f) * SNAPSHOT_AXIS_STEPS));
+    const uint32_t axes = lightness | (chroma << 12);
+    result.bytes[0] = static_cast<uint8_t>(axes);
+    result.bytes[1] = static_cast<uint8_t>(axes >> 8);
+    result.bytes[2] = static_cast<uint8_t>(axes >> 16);
+    uint32_t hue_bits;
+    std::memcpy(&hue_bits, &key.h, sizeof(hue_bits));
+    for (int i = 0; i < 4; ++i)
+      result.bytes[i + 3] = static_cast<uint8_t>(hue_bits >> (8 * i));
+    return result;
+  }
+
+  static ControlKey decode_snapshot_key(const Snapshot::Key &key) {
+    const uint32_t axes = uint32_t{key.bytes[0]} |
+                          (uint32_t{key.bytes[1]} << 8) |
+                          (uint32_t{key.bytes[2]} << 16);
+    const float lightness = (axes & 0xFFFu) * (1.0f / SNAPSHOT_AXIS_STEPS);
+    const float chroma = ((axes >> 12) & 0xFFFu) * (1.0f / SNAPSHOT_AXIS_STEPS);
+    uint32_t hue_bits = 0;
+    for (int i = 0; i < 4; ++i)
+      hue_bits |= uint32_t{key.bytes[i + 3]} << (8 * i);
+    float hue;
+    std::memcpy(&hue, &hue_bits, sizeof(hue));
+    return {lightness, chroma, hue};
   }
 
   bool is_chromatic(const ControlKey &key) const {
@@ -630,67 +717,57 @@ private:
     if (domain == PaletteDomain::MIRROR)
       t = std::min(t, 1.0f - t);
 
-    ControlKey stops[5] = {};
-    bool chromatic[5] = {};
-    float positions[5] = {};
+    ControlKey stops[PALETTE_MAX_KEYS + 2] = {};
+    bool chromatic[PALETTE_MAX_KEYS + 2] = {};
+    float positions[PALETTE_MAX_KEYS + 2] = {};
     int count = 0;
     const ControlKey black{0.0f, 0.0f, 0.0f};
 
     switch (domain) {
     case PaletteDomain::STRAIGHT:
-      stops[0] = a;
-      stops[1] = b;
-      stops[2] = c;
-      positions[0] = 0.0f;
-      positions[1] = 0.5f;
-      positions[2] = 1.0f;
-      count = 3;
+      for (int i = 0; i < key_count; ++i) {
+        stops[i] = keys[i];
+        positions[i] = i / float(key_count - 1);
+      }
+      count = key_count;
       break;
     case PaletteDomain::MIRROR:
-      stops[0] = a;
-      stops[1] = b;
-      stops[2] = c;
-      positions[0] = 0.0f;
-      positions[1] = 0.25f;
-      positions[2] = 0.5f;
-      count = 3;
+      for (int i = 0; i < key_count; ++i) {
+        stops[i] = keys[i];
+        positions[i] = 0.5f * i / float(key_count - 1);
+      }
+      count = key_count;
       break;
     case PaletteDomain::VIGNETTE:
       stops[0] = black;
-      stops[1] = a;
-      stops[2] = b;
-      stops[3] = c;
-      stops[4] = black;
       positions[0] = 0.0f;
-      positions[1] = 0.1f;
-      positions[2] = 0.5f;
-      positions[3] = 0.9f;
-      positions[4] = 1.0f;
-      count = 5;
+      for (int i = 0; i < key_count; ++i) {
+        stops[i + 1] = keys[i];
+        positions[i + 1] = 0.1f + 0.8f * i / float(key_count - 1);
+      }
+      stops[key_count + 1] = black;
+      positions[key_count + 1] = 1.0f;
+      count = key_count + 2;
       break;
     case PaletteDomain::FALLOFF:
-      stops[0] = a;
-      stops[1] = b;
-      stops[2] = c;
-      stops[3] = black;
-      stops[4] = black;
-      positions[0] = 0.0f;
-      positions[1] = 1.0f / 3.0f;
-      positions[2] = 2.0f / 3.0f;
-      positions[3] = falloff_start;
-      positions[4] = 1.0f;
-      count = 5;
+      for (int i = 0; i < key_count; ++i) {
+        stops[i] = keys[i];
+        positions[i] = (2.0f / 3.0f) * i / float(key_count - 1);
+      }
+      stops[key_count] = black;
+      stops[key_count + 1] = black;
+      positions[key_count] = falloff_start;
+      positions[key_count + 1] = 1.0f;
+      count = key_count + 2;
       break;
     case PaletteDomain::LOOP:
-      stops[0] = a;
-      stops[1] = b;
-      stops[2] = c;
-      stops[3] = {a.L, a.chroma, closing_hue};
-      positions[0] = 0.0f;
-      positions[1] = 1.0f / 3.0f;
-      positions[2] = 2.0f / 3.0f;
-      positions[3] = 1.0f;
-      count = 4;
+      for (int i = 0; i < key_count; ++i) {
+        stops[i] = keys[i];
+        positions[i] = i / float(key_count);
+      }
+      stops[key_count] = {keys[0].L, keys[0].chroma, closing_hue};
+      positions[key_count] = 1.0f;
+      count = key_count + 1;
       break;
     }
 
@@ -698,10 +775,10 @@ private:
       chromatic[i] = is_chromatic(stops[i]);
     if (domain == PaletteDomain::VIGNETTE) {
       chromatic[0] = false;
-      chromatic[4] = false;
+      chromatic[key_count + 1] = false;
     } else if (domain == PaletteDomain::FALLOFF) {
-      chromatic[3] = false;
-      chromatic[4] = false;
+      chromatic[key_count] = false;
+      chromatic[key_count + 1] = false;
     }
 
     int index = count - 2;
@@ -792,9 +869,8 @@ private:
             !linear_rgb_in_gamut(r, g, blue)};
   }
 
-  ControlKey a{};
-  ControlKey b{};
-  ControlKey c{};
+  std::array<ControlKey, PALETTE_MAX_KEYS> keys{};
+  uint8_t key_count = 3;
   float closing_hue = 0.0f;
   float headroom = 0.94f;
   float hue_torsion = 0.0f;
@@ -856,6 +932,7 @@ inline PaletteRecipe from_oklch_keys(PaletteDomain domain, OKLCH a, OKLCH b,
   b.h = a.h + wrap_angle_pi(b.h - a.h);
   c.h = b.h + wrap_angle_pi(c.h - b.h);
   PaletteRecipe recipe;
+  recipe.key_count = 3;
   recipe.domain = domain;
   recipe.hue.mode = HueMode::CUSTOM;
   recipe.hue.custom_turns[0] = a.h / (2.0f * PI_F);

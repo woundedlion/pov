@@ -23,9 +23,9 @@ static float palette_diagnostics[PALETTE_DIAGNOSTIC_FLOATS];
 static uint8_t palette_fallback[256];
 
 struct PaletteOps {
-  val compileAndBakeV2(const val &input) { return compile(input, false); }
+  val compileAndBakeV3(const val &input) { return compile(input, false); }
 
-  val inspectV2(const val &input) { return compile(input, true); }
+  val inspectV3(const val &input) { return compile(input, true); }
 
 private:
   template <typename Enum>
@@ -42,8 +42,9 @@ private:
     return true;
   }
 
-  static void decode_float3(const val &input, std::array<float, 3> &output) {
-    for (int i = 0; i < 3; ++i)
+  static void decode_key_values(const val &input,
+                                std::array<float, PALETTE_MAX_KEYS> &output) {
+    for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
       output[i] = input[i].as<float>();
   }
 
@@ -53,6 +54,7 @@ private:
     recipe.schema_version = schema_version == PaletteRecipe::SCHEMA_VERSION
                                 ? PaletteRecipe::SCHEMA_VERSION
                                 : 0;
+    recipe.key_count = static_cast<uint8_t>(input["keyCount"].as<int>());
     const val recipe_input = input["input"];
     recipe.input.offset = recipe_input["offset"].as<float>();
     recipe.input.span = recipe_input["span"].as<float>();
@@ -78,7 +80,7 @@ private:
     recipe.hue.base_turns = hue["baseTurns"].as<float>();
     recipe.hue.spread_turns = hue["spreadTurns"].as<float>();
     recipe.hue.sweep_turns = hue["sweepTurns"].as<float>();
-    decode_float3(hue["customTurns"], recipe.hue.custom_turns);
+    decode_key_values(hue["customTurns"], recipe.hue.custom_turns);
 
     const val lightness = input["lightness"];
     if (!decode_enum(lightness, "curve", static_cast<int>(AxisCurve::CUSTOM),
@@ -87,7 +89,7 @@ private:
       return false;
     recipe.lightness.center = lightness["center"].as<float>();
     recipe.lightness.range = lightness["range"].as<float>();
-    decode_float3(lightness["custom"], recipe.lightness.custom);
+    decode_key_values(lightness["custom"], recipe.lightness.custom);
 
     const val chroma = input["chroma"];
     if (!decode_enum(chroma, "curve", static_cast<int>(AxisCurve::CUSTOM),
@@ -100,16 +102,17 @@ private:
     recipe.chroma.center = chroma["center"].as<float>();
     recipe.chroma.range = chroma["range"].as<float>();
     recipe.chroma.headroom = chroma["headroom"].as<float>();
-    decode_float3(chroma["custom"], recipe.chroma.custom);
+    decode_key_values(chroma["custom"], recipe.chroma.custom);
 
     recipe.hue_torsion = input["hueTorsion"].as<float>();
     recipe.falloff_start = input["falloffStart"].as<float>();
     return true;
   }
 
-  static val encode_float3(const std::array<float, 3> &input) {
+  static val
+  encode_key_values(const std::array<float, PALETTE_MAX_KEYS> &input) {
     val output = val::array();
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
       output.set(i, input[i]);
     return output;
   }
@@ -126,13 +129,13 @@ private:
     hue.set("baseTurns", recipe.hue.base_turns);
     hue.set("spreadTurns", recipe.hue.spread_turns);
     hue.set("sweepTurns", recipe.hue.sweep_turns);
-    hue.set("customTurns", encode_float3(recipe.hue.custom_turns));
+    hue.set("customTurns", encode_key_values(recipe.hue.custom_turns));
 
     val lightness = val::object();
     lightness.set("curve", static_cast<int>(recipe.lightness.curve));
     lightness.set("center", recipe.lightness.center);
     lightness.set("range", recipe.lightness.range);
-    lightness.set("custom", encode_float3(recipe.lightness.custom));
+    lightness.set("custom", encode_key_values(recipe.lightness.custom));
 
     val chroma = val::object();
     chroma.set("curve", static_cast<int>(recipe.chroma.curve));
@@ -140,10 +143,11 @@ private:
     chroma.set("center", recipe.chroma.center);
     chroma.set("range", recipe.chroma.range);
     chroma.set("headroom", recipe.chroma.headroom);
-    chroma.set("custom", encode_float3(recipe.chroma.custom));
+    chroma.set("custom", encode_key_values(recipe.chroma.custom));
 
     val output = val::object();
     output.set("schemaVersion", recipe.schema_version);
+    output.set("keyCount", recipe.key_count);
     output.set("input", recipe_input);
     output.set("domain", static_cast<int>(recipe.domain));
     output.set("easing", static_cast<int>(recipe.easing));
@@ -251,6 +255,6 @@ private:
 static void bind_palette_ops() {
   class_<PaletteOps>("PaletteOps")
       .constructor<>()
-      .function("compileAndBakeV2", &PaletteOps::compileAndBakeV2)
-      .function("inspectV2", &PaletteOps::inspectV2);
+      .function("compileAndBakeV3", &PaletteOps::compileAndBakeV3)
+      .function("inspectV3", &PaletteOps::inspectV3);
 }

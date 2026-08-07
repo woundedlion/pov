@@ -1161,39 +1161,39 @@ async function main() {
     }
   }
 
-  // PaletteOps V2: 256*3 sRGB bytes and engine-authored diagnostics.
+  // PaletteOps V3: 256*3 sRGB bytes and engine-authored diagnostics.
   {
     const po = new Module.PaletteOps();
     try {
       const recipe = {
-        schemaVersion: 2, input: { offset: 0, span: 1 },
+        schemaVersion: 3, keyCount: 3, input: { offset: 0, span: 1 },
         domain: 0, easing: 1, colorPath: 0,
         hue: {
           mode: 0, harmony: 5, direction: 0, baseTurns: 0,
-          spreadTurns: 0.07, sweepTurns: 1, customTurns: [0, 0, 0],
+          spreadTurns: 0.07, sweepTurns: 1, customTurns: [0, 0, 0, 0, 0, 0],
         },
-        lightness: { curve: 1, center: 0.52, range: 0.72, custom: [0, 0, 0] },
+        lightness: { curve: 1, center: 0.52, range: 0.72, custom: [0, 0, 0, 0, 0, 0] },
         chroma: {
           curve: 0, basis: 0, center: 0.62, range: 0,
-          headroom: 0.94, custom: [0, 0, 0],
+          headroom: 0.94, custom: [0, 0, 0, 0, 0, 0],
         },
         hueTorsion: 0, falloffStart: 0.9,
       };
-      const result = po.inspectV2(recipe);
+      const result = po.inspectV3(recipe);
       const lut = Uint8Array.from(result.lut ?? []);
       if (result.status.code !== 0) {
-        fail(`compileAndBakeV2 returned status ${result.status.code}`);
+        fail(`compileAndBakeV3 returned status ${result.status.code}`);
       }
       if (!lut || lut.length !== 256 * 3) {
-        fail(`compileAndBakeV2 LUT length ${lut && lut.length}, expected ${256 * 3}`);
+        fail(`compileAndBakeV3 LUT length ${lut && lut.length}, expected ${256 * 3}`);
       } else if (lut[0] === lut[765] && lut[1] === lut[766] && lut[2] === lut[767]) {
-        fail(`compileAndBakeV2 gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
+        fail(`compileAndBakeV3 gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
       }
       if (!result.diagnostics || result.diagnostics.length !== 256 * 6)
-        fail(`inspectV2 diagnostics length ${result.diagnostics?.length}, expected ${256 * 6}`);
+        fail(`inspectV3 diagnostics length ${result.diagnostics?.length}, expected ${256 * 6}`);
 
       recipe.input = { offset: 0.2, span: 0.4 };
-      const windowed = po.compileAndBakeV2(recipe);
+      const windowed = po.compileAndBakeV3(recipe);
       const windowedLut = Uint8Array.from(windowed.lut ?? []);
       const sourceEndpoints = [51, 153];
       for (const [destination, source] of [[0, sourceEndpoints[0]], [255, sourceEndpoints[1]]]) {
@@ -1209,7 +1209,7 @@ async function main() {
       po.delete();
     }
   }
-  console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, palette V2 OK');
+  console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, palette V3 OK');
 
   if (failures > 0) {
     console.error(`\nwasm_smoke: ${failures} failure(s)`);
