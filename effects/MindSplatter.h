@@ -12,6 +12,7 @@
  */
 
 #include "core/engine/engine.h"
+#include "effects/mindsplatter_palettes.h"
 
 // Unit-test accessor for emitter and hole-kernel invariants.
 namespace hs_test {
@@ -79,7 +80,6 @@ public:
     timeline.add_pausable(0, preset_timer, &anims_paused);
 
     build_particle_system();
-    baked_palette.bake(persistent_arena, base_palette);
     schedule_warp();
   }
 
@@ -250,15 +250,6 @@ private:
     return static_cast<float>(seed) / 65535.0f;
   }
 
-  __attribute__((always_inline)) static float wrap_color_t(float progress,
-                                                           float seed) {
-    float t = progress + seed;
-    if (t >= 1.0f)
-      t -= 1.0f;
-    // The reachable 2.0f endpoint subtracts to 1.0f and folds to zero.
-    return t >= 1.0f ? 0.0f : t;
-  }
-
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
   static constexpr bool preset_in_ranges(const Params &p) {
@@ -307,17 +298,6 @@ private:
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> filters;
   ParticleSystem particle_system;
-  GenerativePalette base_palette{PaletteRecipes::random_profile(
-      PaletteDomain::MIRROR, PaletteHarmony::COMPLEMENTARY,
-      AxisCurve::CONSTANT)};
-  BakedPalette baked_palette;
-  /**
-   * @brief Per-emitter spawn hue seed in [0, 1).
-   * @details Advanced by INV_PHI * 0.1 on every emitter tick, including ticks
-   *          whose spawn is dropped at pool capacity, so the hue sweep tracks
-   *          elapsed time rather than surviving spawn count.
-   */
-  std::array<float, EmitSolid::NUM_VERTS> emitter_hues;
   /**
    * @brief Per-emitter accumulated emission angle (radians, wrapped to
    *        [0, 2pi)).
@@ -341,13 +321,21 @@ private:
   float warp_scale = 0.6f; /**< Magnitude of each warp animation. */
 #ifdef HS_TEST_BUILD
   bool reference_orientation = false;
-  bool reference_color_seed_lookup = false;
   bool reference_vertex_pass = false;
   bool reference_hole_kernel = false;
   bool reference_palette_alpha = false;
 #endif
 
   Params params;
+
+  __attribute__((always_inline)) static Pixel
+  sample_trail_palette(const Pixel *colors, float t) {
+    const float index =
+        t * static_cast<float>(MINDSPLATTER_PALETTE_LUT_SIZE - 1);
+    if (index <= 0.0f)
+      return colors[0];
+    return lut_sample_pixel(colors, MINDSPLATTER_PALETTE_LUT_SIZE, index);
+  }
 
   /**
    * @brief Builds the particle system.
@@ -365,10 +353,6 @@ private:
                                     ATTRACTOR_KILL_RADIUS, EVENT_HORIZON);
     }
 
-    for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
-      emitter_hues[i] = hs::rand_f();
-    }
-
     emit_phases.fill(0.0f);
 
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
@@ -383,11 +367,9 @@ private:
         Vector vel = (basis.u * fast_cosf(angle) + basis.w * fast_sinf(angle)) *
                      params.initial_speed;
 
-        emitter_hues[i] = fmodf(emitter_hues[i] + INV_PHI * 0.1f, 1.0f);
-
         if (particle_system.active() < particle_system.pool.capacity()) {
-          uint16_t seed_u16 = static_cast<uint16_t>(emitter_hues[i] * 65535.0f);
-          particle_system.spawn(EmitSolid::vertices[i], vel, seed_u16);
+          const uint16_t color_seed = static_cast<uint16_t>(hs::random()());
+          particle_system.spawn(EmitSolid::vertices[i], vel, color_seed);
         }
       });
     }
@@ -395,8 +377,8 @@ private:
 
   /**
    * @brief Renders all particles through the Mobius warp, dimming each fragment
-   *        by the attractor event-horizon kernels and coloring from the baked
-   *        palette.
+   *        by the attractor event-horizon kernels and coloring from its
+   *        per-particle flash palette.
    * @param canvas Target canvas to draw the particle system into.
    * @param opacity Global opacity multiplier in [0, 1] applied to each fragment.
    */
@@ -412,6 +394,7 @@ private:
 
     const float cos_event_horizon = fast_cosf(EVENT_HORIZON);
     const RotationMatrix rotation(orientation.get());
+    const Pixel *trail_palette = nullptr;
 
     // Position pass: Mobius warp + orientation (decides cullability).
     auto vertex_shader = [&](Fragment &f) {
@@ -444,45 +427,24 @@ private:
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       float alpha = std::min(f.v0, f.v3);
-      float t_shifted;
-#ifdef HS_TEST_BUILD
-      if (reference_color_seed_lookup) {
-        size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
-        if (particle_system.active())
-          p_idx = std::min<size_t>(p_idx, particle_system.active() - 1);
-        const float seed_f =
-            normalize_color_seed(particle_system.pool[p_idx].color_seed);
-        t_shifted = wrap_t(f.v0 + seed_f);
-      } else {
-        t_shifted = wrap_color_t(f.v0, f.v2);
-      }
-#else
-      t_shifted = wrap_color_t(f.v0, f.v2);
-#endif
-      if (t_shifted <= 0.0f || t_shifted >= 1.0f)
+      if (f.v0 <= 0.0f || f.v0 >= 1.0f)
         HS_MSP_COUNT(palette_endpoints);
       else
         HS_MSP_COUNT(palette_interpolated);
 #ifdef HS_TEST_BUILD
       if (reference_palette_alpha) {
-        Color4 c = baked_palette.get(t_shifted);
-        c.alpha = c.alpha * alpha * alpha * opacity;
-        f.color = c;
+        f.color = Color4(sample_trail_palette(trail_palette, f.v0),
+                         alpha * alpha * opacity);
         return;
       }
 #endif
-      f.color = Color4(baked_palette.get_color_unit(t_shifted),
+      f.color = Color4(sample_trail_palette(trail_palette, f.v0),
                        alpha * alpha * opacity);
     };
 
-    auto particle_v2 = [&](const auto &p, int i) {
-#ifdef HS_TEST_BUILD
-      if (reference_color_seed_lookup)
-        return static_cast<float>(i);
-#else
-      (void)i;
-#endif
-      return normalize_color_seed(p.color_seed);
+    auto prepare_trail_palette = [&](const auto &p, int) {
+      trail_palette = MINDSPLATTER_PALETTES[p.color_seed >> 8];
+      return 0.0f;
     };
 
     HS_CHECK(particle_system.active() <= particle_system.pool.capacity(),
@@ -493,7 +455,7 @@ private:
       if (reference_vertex_pass) {
         Plot::ParticleSystem::draw<W, H>(sink, canvas, particle_system,
                                          fragment_shader, vertex_shader,
-                                         hole_shader, particle_v2);
+                                         hole_shader, prepare_trail_palette);
         return;
       }
 #endif
@@ -501,11 +463,11 @@ private:
       if constexpr (std::same_as<std::remove_cvref_t<Sink>, DirectSink>) {
         Plot::ParticleSystem::draw_fused_vertex<W, H, true>(
             sink, canvas, particle_system, fragment_shader, vertex_shader,
-            hole_shader, particle_v2);
+            hole_shader, prepare_trail_palette);
       } else {
         Plot::ParticleSystem::draw_fused_vertex<W, H>(
             sink, canvas, particle_system, fragment_shader, vertex_shader,
-            hole_shader, particle_v2);
+            hole_shader, prepare_trail_palette);
       }
     }
   }
