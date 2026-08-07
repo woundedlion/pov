@@ -11,6 +11,7 @@
  *        dodecahedron.
  */
 
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 #include "core/render/sdf_volume.h"
 
@@ -212,9 +213,7 @@ private:
       nn_angle; // per-vertex nearest-neighbour gap (rad)
   Timeline timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
-  GenerativePalette palette{PaletteRecipes::profile(
-      PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY, AxisCurve::BELL,
-      PaletteRecipes::hue_turns(219), 0.86f)};
+  GenerativePalette palette{EffectPaletteRecipes::raymarch()};
   BakedPalette baked_palette;
 
   /**

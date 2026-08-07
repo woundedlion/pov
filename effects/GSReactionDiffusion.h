@@ -13,6 +13,7 @@
 #include <array>
 #include <cmath>
 #include <utility>
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
@@ -126,9 +127,7 @@ public:
 
     palette.bake(
         persistent_arena,
-        GenerativePalette{PaletteRecipes::profile(
-            PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
-            AxisCurve::ASCENDING, PaletteRecipes::hue_turns(160), 0.50f)});
+        GenerativePalette{EffectPaletteRecipes::gs_reaction_diffusion()});
 
     cube_lut.build(persistent_arena);
     init_lattice();

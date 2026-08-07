@@ -11,6 +11,7 @@
  *        angular color wipes.
  */
 
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
 // Unit-test accessor reaching palette_boundaries to stage the overlapping-wipe
@@ -50,9 +51,8 @@ public:
    *        initial palette and every color-wipe palette.
    */
   static GenerativePalette make_palette() {
-    return GenerativePalette{PaletteRecipes::random_profile(
-        PaletteDomain::VIGNETTE, PaletteHarmony::ANALOGOUS,
-        AxisCurve::ASCENDING)};
+    return GenerativePalette{EffectPaletteRecipes::dynamo(
+        EffectPaletteRecipes::random_base_turns())};
   }
 
   /**

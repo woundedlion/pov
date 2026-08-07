@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
@@ -412,10 +413,7 @@ private:
   } state;
 
   /** @brief Legacy species colors expressed as an explicit generative recipe. */
-  GenerativePalette palette{PaletteRecipes::from_oklch_keys(
-      PaletteDomain::STRAIGHT, pixel_to_oklch(Pixel(36844, 10770, 3)),
-      pixel_to_oklch(Pixel(0, 8112, 5753)),
-      pixel_to_oklch(Pixel(2059, 0, 9668)))};
+  GenerativePalette palette{EffectPaletteRecipes::bz_reaction_diffusion()};
 
   /** @brief Per-species palette channels converted once in init(). */
   FloatRgb color_a, color_b, color_c;
