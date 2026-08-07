@@ -308,6 +308,7 @@ private:
    *          saturated pool thins the fan instead of freezing its direction.
    */
   std::array<float, EmitSolid::NUM_VERTS> emit_phases;
+  uint8_t palette_sequence = 0;
   /**
    * @brief Per-emitter tangent-plane basis, built once in init().
    * @details Each basis depends only on its fixed emitter axis, so it is cached
@@ -340,7 +341,7 @@ private:
   /**
    * @brief Builds the particle system.
    * @details Inits the pool, places attractors on the octahedron vertices,
-   *          seeds emitter hues/phases, and installs an emitter at each cube
+   *          resets emission state, and installs an emitter at each cube
    *          vertex. Single-shot: the arena has no per-allocation free, so
    *          ParticleSystem::init traps on a second call.
    */
@@ -354,6 +355,7 @@ private:
     }
 
     emit_phases.fill(0.0f);
+    palette_sequence = 0;
 
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
       emitter_basis[i] = make_basis(Quaternion(), EmitSolid::vertices[i]);
@@ -367,8 +369,9 @@ private:
         Vector vel = (basis.u * fast_cosf(angle) + basis.w * fast_sinf(angle)) *
                      params.initial_speed;
 
+        const uint16_t color_seed = static_cast<uint16_t>(palette_sequence++)
+                                    << 8;
         if (particle_system.active() < particle_system.pool.capacity()) {
-          const uint16_t color_seed = static_cast<uint16_t>(hs::random()());
           particle_system.spawn(EmitSolid::vertices[i], vel, color_seed);
         }
       });
@@ -426,20 +429,21 @@ private:
     };
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
-      float alpha = std::min(f.v0, f.v3);
+      const float alpha = std::max(0.0f, std::min(f.v0, f.v3));
+      const float palette_t = 1.0f - f.v0;
       if (f.v0 <= 0.0f || f.v0 >= 1.0f)
         HS_MSP_COUNT(palette_endpoints);
       else
         HS_MSP_COUNT(palette_interpolated);
 #ifdef HS_TEST_BUILD
       if (reference_palette_alpha) {
-        f.color = Color4(sample_trail_palette(trail_palette, f.v0),
-                         alpha * alpha * opacity);
+        f.color = Color4(sample_trail_palette(trail_palette, palette_t),
+                         alpha * opacity);
         return;
       }
 #endif
-      f.color = Color4(sample_trail_palette(trail_palette, f.v0),
-                       alpha * alpha * opacity);
+      f.color = Color4(sample_trail_palette(trail_palette, palette_t),
+                       alpha * opacity);
     };
 
     auto prepare_trail_palette = [&](const auto &p, int) {

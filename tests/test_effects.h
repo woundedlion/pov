@@ -3879,8 +3879,8 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
   HS_EXPECT_LE(total_channel_error, static_cast<uint64_t>(128));
 }
 
-/** @brief Particle hue seeds select distinct full trail gradients. */
-inline void test_mindsplatter_particle_gradients_vary_by_seed() {
+/** @brief Particle hue seeds advance in deterministic emission order. */
+inline void test_mindsplatter_particle_gradients_follow_emission_order() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;
   reset_effect_globals();
@@ -3893,12 +3893,9 @@ inline void test_mindsplatter_particle_gradients_vary_by_seed() {
   HS_EXPECT_NE(second.front(), second.back());
   WB::step_physics(effect);
   HS_EXPECT_EQ(WB::active_particles(effect), WB::num_emitters());
-  bool saw_distinct_seed = false;
-  const uint16_t first_seed = WB::particle_color_seed(effect, 0);
-  for (size_t i = 1; i < WB::active_particles(effect); ++i)
-    saw_distinct_seed =
-        saw_distinct_seed || WB::particle_color_seed(effect, i) != first_seed;
-  HS_EXPECT_TRUE(saw_distinct_seed);
+  for (size_t i = 0; i < WB::active_particles(effect); ++i)
+    HS_EXPECT_EQ(WB::particle_color_seed(effect, i),
+                 static_cast<uint16_t>(i << 8));
 }
 
 /** @brief Fusing the vertex pass into trail materialization is pixel exact. */
@@ -5458,7 +5455,7 @@ inline int run_effects_tests() {
   test_mindsplatter_normalized_color_seed_boundaries();
   test_mindsplatter_rotation_matrix_equivalence();
   test_mindsplatter_rotation_matrix_framebuffer_error();
-  test_mindsplatter_particle_gradients_vary_by_seed();
+  test_mindsplatter_particle_gradients_follow_emission_order();
   test_mindsplatter_fused_vertex_framebuffer_parity();
   test_mindsplatter_hole_kernel_framebuffer_parity();
   test_mindsplatter_clip_clear_display_parity();

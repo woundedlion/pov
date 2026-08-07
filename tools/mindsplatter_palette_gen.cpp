@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
          "// clang-format off\n"
          "inline const Pixel MINDSPLATTER_PALETTES"
          "[MINDSPLATTER_PALETTE_COUNT][MINDSPLATTER_PALETTE_LUT_SIZE] "
-         "PROGMEM = {\n";
+         "HS_PROGMEM_UNIQUE(MINDSPLATTER_PALETTES) = {\n";
 
   for (int hue = 0; hue < PALETTE_COUNT; ++hue) {
     const PaletteRecipe recipe =
