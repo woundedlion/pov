@@ -24,7 +24,7 @@ constexpr int SEARCH_FRAME_STRIDE = 8;
 constexpr unsigned long FRAME_MS = 16;
 constexpr unsigned long FRAME_US = 16000;
 constexpr uint32_t SEARCH_SEED = 1337;
-constexpr const char *SOURCE_REVISION = "msp-heavy-search-v1";
+constexpr const char *SOURCE_REVISION = "msp-heavy-search-v2";
 constexpr uint32_t TRAIT_SATURATED = 1u << 0;
 constexpr uint32_t TRAIT_LONG_EDGE = 1u << 3;
 constexpr uint32_t TRAIT_MEASURED_WORST = 1u << 5;
@@ -108,6 +108,7 @@ std::optional<SearchResult> search_corpus() {
           (frame - FIRST_SEARCH_FRAME) % SEARCH_FRAME_STRIDE != 0)
         continue;
 
+      WhiteBox::fill_particle_capacity(effect);
       Workload aggregate;
       Workload peak_clip_workload;
       uint8_t peak_clip = 0;
