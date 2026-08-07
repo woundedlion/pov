@@ -41,6 +41,7 @@ struct MindSplatterWhiteBox {
     ObjectBytes<Orientation<>> orientation{};
     ObjectBytes<MobiusParams> mobius{};
     std::array<float, EffectType::EmitSolid::NUM_VERTS> emit_phases{};
+    uint8_t palette_sequence = 0;
     ClipRegion clip{};
     float friction = 0.0f;
     float gravity = 0.0f;
@@ -160,6 +161,7 @@ struct MindSplatterWhiteBox {
     snapshot.orientation = object_bytes(ms.orientation);
     snapshot.mobius = object_bytes(ms.mobius);
     snapshot.emit_phases = ms.emit_phases;
+    snapshot.palette_sequence = ms.palette_sequence;
     snapshot.clip = ms.clip();
     snapshot.friction = ms.particle_system.friction;
     snapshot.gravity = ms.particle_system.gravity;
@@ -183,6 +185,7 @@ struct MindSplatterWhiteBox {
     restore_object(ms.orientation, snapshot.orientation);
     restore_object(ms.mobius, snapshot.mobius);
     ms.emit_phases = snapshot.emit_phases;
+    ms.palette_sequence = snapshot.palette_sequence;
     ms.set_clip(snapshot.clip.y_start, snapshot.clip.y_end,
                 snapshot.clip.x_start, snapshot.clip.x_end);
     ms.set_margin(snapshot.clip.margin);
@@ -274,7 +277,7 @@ struct MindSplatterWhiteBox {
         std::memcmp(&a.clip, &b.clip, sizeof(a.clip)) != 0 ||
         std::memcmp(&a.friction, &b.friction, sizeof(a.friction)) != 0 ||
         std::memcmp(&a.gravity, &b.gravity, sizeof(a.gravity)) != 0 ||
-        a.max_life != b.max_life)
+        a.max_life != b.max_life || a.palette_sequence != b.palette_sequence)
       return false;
     return true;
   }

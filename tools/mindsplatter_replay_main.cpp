@@ -24,10 +24,10 @@ using WhiteBox = hs_test::effects_tests::MindSplatterWhiteBox;
  * @brief Visual bounds for the two replay oracles.
  * @details The reference terms bound single-pass sample phasing: the candidate
  * against a reference render produced by the same binary. Measured over the
- * corpus frame, 1,523 changed pixels (3.7%), 2,227 changed channels (1.8%),
- * peak channel error 992, total absolute error 4,342 (0.035 counts per
- * channel). Counts retain at least 4x headroom, aggregate error 28x, and the
- * isolated overlap-order peak 2x.
+ * corpus frame, 2,954 changed pixels (7.1%), 5,718 changed channels (4.6%),
+ * peak channel error 273, total absolute error 23,009 (0.18 counts per
+ * channel). Counts retain at least 2x headroom, aggregate error 5x, and the
+ * isolated overlap-order peak 7x.
  * @details The corpus terms bound the candidate against a golden recorded by
  * the generic-reference renderer, which differs by construction across a third
  * of the frame. Measured: 13,602 changed pixels (32.8%), 32,577 changed
