@@ -3442,8 +3442,8 @@ inline void test_mindsplatter_opaque_palette_invariant() {
       HS_EXPECT_EQ(rebuilt_colors, expected_colors);
     expected_colors = rebuilt_colors;
     have_expected = true;
-    for (int preset = 0; preset < 4; ++preset) {
-      HS_EXPECT_EQ(WB::preset_index(effect), static_cast<size_t>(preset));
+    for (size_t preset = 0; preset < WB::preset_count(effect); ++preset) {
+      HS_EXPECT_EQ(WB::preset_index(effect), preset);
       HS_EXPECT_TRUE(WB::palette_is_opaque(effect));
       HS_EXPECT_EQ(WB::palette_colors(effect), rebuilt_colors);
       WB::next_preset(effect);
@@ -4448,7 +4448,7 @@ inline void test_shaderball_preset_roster() {
                                 0.0f, 0.8f,  1.0f,  0.0f,    1.0f, 0.0f,
                                 0.0f, 0.15f, 0.05f, 0.0f,    0.0f};
   const auto &presets = WB::presets();
-  HS_EXPECT_EQ(presets.size(), size_t(9));
+  HS_EXPECT_EQ(presets.size(), size_t(11));
   for (auto field : WB::Params::FIELDS)
     HS_EXPECT_EQ(presets[3].params.*field, EXPECTED.*field);
 }

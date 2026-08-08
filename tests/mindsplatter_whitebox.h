@@ -360,6 +360,10 @@ struct MindSplatterWhiteBox {
     return ms.presets.current_index();
   }
   template <int W, int H>
+  static size_t preset_count(const MindSplatter<W, H> &ms) {
+    return ms.PRESETS.size();
+  }
+  template <int W, int H>
   static void use_reference_signed_axis_physics(MindSplatter<W, H> &ms,
                                                 bool enabled) {
     ms.particle_system.reference_signed_axis_physics = enabled;
