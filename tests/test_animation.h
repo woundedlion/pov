@@ -1671,6 +1671,36 @@ inline void test_timeline_pause_redraws_held_sprite() {
   HS_EXPECT_NEAR(opacity.back(), 1.0f, 1e-6f);
 }
 
+/**
+ * @brief Verifies a Sprite paused before its first step draws at the envelope
+ * plateau instead of the zero end of its fade-in ramp.
+ * @details The pause holds t at 0, so reporting the ramp there would multiply
+ * the consumer's draw to nothing for the whole pause; the effect roster is
+ * paused before init() by the WASM load path.
+ */
+inline void test_sprite_paused_before_first_step_holds_plateau() {
+  Timeline timeline;
+  bool paused = true;
+  std::vector<float> opacity;
+  timeline.add_pausable(
+      0,
+      Animation::Sprite(
+          [&](Canvas &, float value) { opacity.push_back(value); }, 16, 8,
+          ease_linear, 8, ease_linear),
+      &paused);
+
+  for (int i = 0; i < 4; ++i)
+    timeline.step(fake_canvas());
+  HS_EXPECT_SIZE_OR_RETURN(opacity, 4);
+  for (float value : opacity)
+    HS_EXPECT_NEAR(value, 1.0f, 1e-6f);
+
+  // Released, the sprite still runs its fade-in from the start.
+  paused = false;
+  timeline.step(fake_canvas());
+  HS_EXPECT_NEAR(opacity.back(), 0.125f, 1e-6f);
+}
+
 // ============================================================================
 // MeshCarousel segues
 // ============================================================================
@@ -3356,6 +3386,7 @@ inline int run_animation_tests() {
   test_sprite_overlapping_fades_stay_continuous();
   test_sprite_paused_holds_frame();
   test_timeline_pause_redraws_held_sprite();
+  test_sprite_paused_before_first_step_holds_plateau();
 
   test_crossfade_segue_schedules_overlapping_sprite();
   test_crossfade_segue_clamps_fade_to_half_duration();

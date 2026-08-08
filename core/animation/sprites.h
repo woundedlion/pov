@@ -94,8 +94,20 @@ public:
     draw_frame(canvas);
   }
 
-  /** @brief Draws the current envelope without advancing its timer. */
-  void step_paused(Canvas &canvas) override { draw_frame(canvas); }
+  /**
+   * @brief Draws the current envelope without advancing its timer; a sprite
+   * paused before its first step holds the plateau.
+   * @details t stays 0 for the whole pause, and that is the zero end of a
+   * fade-in ramp: reporting it would multiply the consumer's draw to nothing
+   * until the pause lifts.
+   */
+  void step_paused(Canvas &canvas) override {
+    if (t == 0) {
+      draw_fn(canvas, 1.0f);
+      return;
+    }
+    draw_frame(canvas);
+  }
 
 private:
   void draw_frame(Canvas &canvas) {
