@@ -4496,12 +4496,18 @@ inline void test_shaderball_preset_roster() {
   constexpr WB::Params EXPECTED{3.0f,  0.0f,  0.5f,  15.763f, 0.1f, 2.950552f,
                                 0.0f,  0.8f,  1.0f,  0.0f,    1.0f, 0.0f,
                                 0.02f, 0.15f, 0.05f, 0.0f,    0.0f};
+  constexpr WB::Params NEW_PRESET{0.1f,   13.47f, 0.5f,   3.28f,       0.1f,
+                                  2.463f, 0.0f,   0.8f,   1.209f,      0.03725f,
+                                  0.252f, 0.066f, 0.022f, 0.19710001f, 0.02f,
+                                  0.011f, 0.0f};
   const auto &presets = WB::presets();
-  HS_EXPECT_EQ(presets.size(), size_t(11));
-  for (auto field : WB::Params::FIELDS)
+  HS_EXPECT_EQ(presets.size(), size_t(12));
+  for (auto field : WB::Params::FIELDS) {
     HS_EXPECT_EQ(presets[3].params.*field, EXPECTED.*field);
-  for (const auto &preset : presets)
-    HS_EXPECT_EQ(preset.params.palette_pos, 0.02f);
+    HS_EXPECT_EQ(presets[4].params.*field, NEW_PRESET.*field);
+  }
+  for (size_t i = 0; i < presets.size(); ++i)
+    HS_EXPECT_EQ(presets[i].params.palette_pos, i == 4 ? 0.022f : 0.02f);
 }
 
 /**
