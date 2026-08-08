@@ -1030,8 +1030,20 @@ jobs:
       - name: Install Node dev dependencies
         run: npm ci --no-audit --no-fund
 
+      # Config in eslint.config.mjs. Same hazard as the ruff step above: an
+      # over-broad `ignores` empties the target set while `eslint .` still exits
+      # 0, so count the files the run actually reported on. The second invocation
+      # is the one whose output a failure is read from.
       - name: Lint JavaScript
-        run: npx eslint .
+        run: |
+          npx eslint . --format json > /tmp/eslint-report.json || true
+          count=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/eslint-report.json','utf8')).length")
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no files selected — the eslint.config.mjs ignores list is broken"
+            exit 1
+          fi
+          npx eslint .
+          echo "eslint clean: $count files linted."
 
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)

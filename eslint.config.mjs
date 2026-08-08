@@ -9,6 +9,10 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
+  // eslint reads no .gitignore, and a wasm build tree holds the emitted
+  // emscripten .js glue. Without this, `npm run lint` lints generated code
+  // locally while CI (a fresh checkout, no build tree) does not.
+  { ignores: ['build*/**'] },
   js.configs.recommended,
   {
     files: ['**/*.mjs'],
