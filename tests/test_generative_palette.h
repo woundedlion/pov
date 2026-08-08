@@ -323,6 +323,22 @@ inline void test_generative_palette_snapshot_lerp() {
   HS_EXPECT_EQ(std::memcmp(&target, &last, sizeof(last)), 0);
 }
 
+inline void test_generative_palette_lerp_target_aliases_this() {
+  const GenerativePalette from(PaletteRecipes::balanced_analogous(0.0f));
+  const GenerativePalette to(PaletteRecipes::balanced_analogous(0.25f));
+  GenerativePalette expected;
+  expected.lerp(from, to, 0.25f);
+  GenerativePalette aliased = to;
+  aliased.lerp(from, aliased, 0.25f);
+  for (int i = 0; i <= 16; ++i) {
+    const Pixel landed = aliased.get(i / 16.0f).color;
+    const Pixel reference = expected.get(i / 16.0f).color;
+    HS_EXPECT_EQ(landed.r, reference.r);
+    HS_EXPECT_EQ(landed.g, reference.g);
+    HS_EXPECT_EQ(landed.b, reference.b);
+  }
+}
+
 inline void test_generative_palette_snapshot_lerp_closes_loop() {
   GenerativePalette morph(PaletteRecipes::isolight_spectral_loop(0.13f));
   const GenerativePalette target(PaletteRecipes::isolight_spectral_loop(0.37f));
