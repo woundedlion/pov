@@ -813,8 +813,9 @@ HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
 // re-conversion rounds a channel a part in a million past the gate.
 inline constexpr float GAMUT_CLIP_MARGIN = 2e-5f;
 
-// Chroma below which an OKLCH color has no usable hue angle and is handled as
-// gray. Every path that classifies a color as achromatic tests against this.
+// Chroma below which an OKLCH color has no usable hue angle and is treated as
+// gray by the hue-carrying paths (interpolation, palette keys). The gamut clip
+// keeps its own, far tighter divide guard.
 inline constexpr float OKLCH_ACHROMATIC_C = 1e-4f;
 
 /**
@@ -1117,6 +1118,7 @@ HS_O3_FN __attribute__((noinline)) inline OKLab
 gamut_clip_preserve_chroma(OKLab lab) {
   lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
   const float c_sq = lab.a * lab.a + lab.b * lab.b;
+  // divide guard on the hue direction, not the OKLCH_ACHROMATIC_C classifier
   if (!(c_sq > 1e-12f))
     return {lab.L, 0.0f, 0.0f};
 
