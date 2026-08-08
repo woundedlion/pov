@@ -4287,6 +4287,14 @@ struct ShaderBallWhiteBox {
   static float phase2(const SB &sb) { return sb.phase2; }
   static float spin_phase(const SB &sb) { return sb.spin_phase; }
   static float cycle_phase(const SB &sb) { return sb.cycle_phase; }
+  static Quaternion inner_camera(const SB &sb) { return sb.cam_inner_conj; }
+  static Quaternion outer_camera(const SB &sb) { return sb.cam_outer_conj; }
+  static void set_walks(SB &sb, const Quaternion &inner,
+                        const Quaternion &outer) {
+    sb.inner_walk.set(inner);
+    sb.outer_walk.set(outer);
+  }
+  static void update_camera(SB &sb, float wander) { sb.update_camera(wander); }
   static Pixel palette_color(const SB &sb, int bank, float t) {
     return sb.bank[bank].get(t).color;
   }
@@ -4397,6 +4405,47 @@ inline void test_shaderball_phase_wrapped() {
     HS_EXPECT_LT(cyp, two_pi);
   }
   hs::clear_mock_time();
+}
+
+/** @brief Bounds partial-wander camera motion through full turns and gain
+ * changes. */
+inline void test_shaderball_partial_wander_continuous() {
+  using WB = ShaderBallWhiteBox;
+  constexpr float WALK_STEP = 0.02f;
+  constexpr float WANDER = 0.605f;
+  constexpr float MAX_CAMERA_STEP = WALK_STEP * WANDER + 1e-4f;
+  WB::SB sb;
+  Quaternion prev_inner;
+  Quaternion prev_outer;
+
+  for (int frame = 0; frame < 400; ++frame) {
+    const float angle = static_cast<float>(frame) * WALK_STEP;
+    WB::set_walks(sb, make_rotation(Y_AXIS, angle),
+                  make_rotation(X_AXIS, angle));
+    WB::update_camera(sb, WANDER);
+    const Quaternion inner = WB::inner_camera(sb);
+    const Quaternion outer = WB::outer_camera(sb);
+    if (frame > 0) {
+      const float inner_step =
+          2.0f *
+          acosf(hs::clamp(std::fabs(dot(prev_inner, inner)), 0.0f, 1.0f));
+      const float outer_step =
+          2.0f *
+          acosf(hs::clamp(std::fabs(dot(prev_outer, outer)), 0.0f, 1.0f));
+      HS_EXPECT_LE(inner_step, MAX_CAMERA_STEP);
+      HS_EXPECT_LE(outer_step, MAX_CAMERA_STEP);
+    }
+    prev_inner = inner;
+    prev_outer = outer;
+  }
+
+  for (float wander : {0.0f, 0.2f, WANDER, 0.8f, 1.0f}) {
+    WB::update_camera(sb, wander);
+    HS_EXPECT_NEAR(std::fabs(dot(prev_inner, WB::inner_camera(sb))), 1.0f,
+                   1e-6f);
+    HS_EXPECT_NEAR(std::fabs(dot(prev_outer, WB::outer_camera(sb))), 1.0f,
+                   1e-6f);
+  }
 }
 
 /**
@@ -5596,6 +5645,7 @@ inline int run_effects_tests() {
     test_mindsplatter_emit_phase_wrapped();
     test_shaderball_palettes();
     test_shaderball_phase_wrapped();
+    test_shaderball_partial_wander_continuous();
     test_shaderball_glitch_lens_unit_norm();
     test_shaderball_preset_roster();
     test_shaderball_formula_reduction();
