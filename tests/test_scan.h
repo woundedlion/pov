@@ -681,7 +681,7 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
           for (int i = 0; i < run; ++i) {
             const int x = wx + i;
             if (x >= 0 && x < W)
-              block[static_cast<size_t>(x)] = x / lod_stride;
+              block[static_cast<size_t>(x)] = wx / lod_stride;
           }
           // Every offer lies inside one canvas-anchored block, and a
           // multi-column offer starts on its block boundary.
