@@ -762,8 +762,7 @@ private:
       if (radius > 1.0f)
         planar_basis = Plot::planar_chart_basis(-basis.v);
       draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
-                   params.count >= 32.0f, fragment_shader,
-                   [&](Fragments &points) {
+                   false, fragment_shader, [&](Fragments &points) {
                      Plot::Star<Plot::PlanarProjection>::sample_positions(
                          points, basis, radius, sides, shape_phase);
                    });
