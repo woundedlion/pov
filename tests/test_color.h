@@ -2186,6 +2186,7 @@ inline int run_color_tests() {
   test_palette_cycler_key_morph_cycle();
   test_palette_cycler_heterogeneous_crossfade();
   test_palette_cycler_pause_and_static();
+  test_shader_ball_palette_sets_morph_compatible();
   test_palette_modifiers();
   test_noise_warp_modifier();
   test_drift_modifier();

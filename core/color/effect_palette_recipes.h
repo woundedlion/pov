@@ -75,6 +75,32 @@ HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby() {
       AxisCurve::CONSTANT, PaletteRecipes::hue_turns(42));
 }
 
+/** @brief Liquid-recipe variants for the ShaderBall palette cycle: the same
+ *  key geometry rotated to distinct base hues, so every adjacent pair
+ *  key-morphs (see test_shader_ball_palette_sets_morph_compatible). */
+HS_FLASH_MEMBER inline std::array<PaletteRecipe, 3> shader_ball_liquid_set() {
+  constexpr float ROTATIONS[3] = {0.0f, 0.37f, 0.71f};
+  std::array<PaletteRecipe, 3> set{};
+  for (int i = 0; i < 3; ++i) {
+    set[i] = shader_ball_liquid();
+    for (float &turns : set[i].hue.custom_turns)
+      turns += ROTATIONS[i];
+  }
+  return set;
+}
+
+/** @brief Flyby-recipe variants for the ShaderBall palette cycle: the same
+ *  split-complementary profile at distinct base hues. */
+HS_FLASH_MEMBER inline std::array<PaletteRecipe, 3> shader_ball_flyby_set() {
+  return {shader_ball_flyby(),
+          PaletteRecipes::profile(
+              PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
+              AxisCurve::CONSTANT, PaletteRecipes::hue_turns(137)),
+          PaletteRecipes::profile(
+              PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
+              AxisCurve::CONSTANT, PaletteRecipes::hue_turns(233))};
+}
+
 struct Preset {
   const char *name;
   bool random_hue;
