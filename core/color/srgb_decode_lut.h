@@ -8,7 +8,6 @@
 // Do not edit.
 // Two-region split-decode of linear16->sRGB8: 16-wide low [0,4096), 128-wide high.
 // Entry: low byte = base output, high byte = step point.
-inline constexpr int SRGB_DECODE_VSPLIT = 4096;
 // clang-format off
 inline constexpr uint16_t srgb_decode_low_src[256] HS_PROGMEM_UNIQUE(srgb_decode_low_src) = {
     0x0a00, 0x0e01, 0x1002, 0x0202, 0x0603, 0x0a04, 0x0e05, 0x1006, 0x0206, 0x0607, 0x0a08, 0x0d09,

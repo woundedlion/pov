@@ -16,9 +16,11 @@
 #include <cstdint>
 #include <iterator>
 
-// Bucket geometry of the split-decode, shared with the generator of record
-// (scripts/generate_srgb_decode.cpp, which includes this header): the low
-// region is 1<<LOW_SHIFT wide, the high region 1<<HIGH_SHIFT.
+// Bucket geometry of the split-decode, authored here and read by the generator
+// of record (scripts/generate_srgb_decode.cpp, which includes this header): the
+// low region is 1<<LOW_SHIFT wide below VSPLIT, the high region 1<<HIGH_SHIFT
+// above it. Retuning any of the three requires regenerating srgb_decode_lut.h.
+inline constexpr int SRGB_DECODE_VSPLIT = 4096;
 inline constexpr int SRGB_DECODE_LOW_SHIFT = 4;
 inline constexpr int SRGB_DECODE_HIGH_SHIFT = 7;
 inline constexpr int SRGB_DECODE_LOW_MASK = (1 << SRGB_DECODE_LOW_SHIFT) - 1;
