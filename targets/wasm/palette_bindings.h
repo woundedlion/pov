@@ -4,6 +4,11 @@
  *
  * @file palette_bindings.h
  * @brief Versioned GenerativePalette recipe bridge.
+ *
+ * Decodes a JS recipe object into a PaletteRecipe, compiles it through
+ * GenerativePalette::try_compile() and bakes the 256-entry LUT (plus, for
+ * inspectV4, per-sample diagnostics) into the module-global buffers below, which
+ * cross back as typed memory views. Included only by targets/wasm/wasm.cpp.
  */
 #pragma once
 
@@ -21,15 +26,41 @@ using namespace emscripten;
 
 static constexpr size_t PALETTE_LUT_BYTES = 256 * 3;
 static constexpr size_t PALETTE_DIAGNOSTIC_FLOATS = 256 * 6;
+// Bake targets for every PaletteOps instance and call, handed to JS as views
+// over WASM linear memory rather than copies. See the memory-view contract on
+// compile().
 static uint8_t palette_lut[PALETTE_LUT_BYTES];
 static float palette_diagnostics[PALETTE_DIAGNOSTIC_FLOATS];
 static uint8_t palette_fallback[256];
 
+/**
+ * @brief JS-facing V4 palette-recipe compiler.
+ * @details Carries no per-instance state; the bake targets are module-global.
+ */
 struct PaletteOps {
+  /**
+   * @brief Compiles a recipe and bakes its LUT.
+   * @param input JS recipe object in the schema effectPresetsV4() emits.
+   * @return {status} alone when the recipe is rejected, else {status,
+   *         canonicalRecipe, lut}. See compile() for the memory-view contract
+   *         the lut view rides on.
+   */
   val compileAndBakeV4(const val &input) { return compile(input, false); }
 
+  /**
+   * @brief Compiles a recipe and bakes per-sample diagnostics with its LUT.
+   * @param input JS recipe object in the schema effectPresetsV4() emits.
+   * @return compileAndBakeV4()'s object plus diagnostics (256 x {L, C, q, C_max,
+   *         h_path, h_final}) and fallback (one gamut-mapping flag per sample),
+   *         under the same memory-view contract.
+   */
   val inspectV4(const val &input) { return compile(input, true); }
 
+  /**
+   * @brief Publishes every effect-owned palette recipe.
+   * @return JS array of {name, randomHue, recipe}, each recipe in the schema
+   *         compileAndBakeV4() and inspectV4() accept.
+   */
   val effectPresetsV4() {
     val output = val::array();
     int index = 0;
@@ -68,6 +99,12 @@ private:
     return true;
   }
 
+  /**
+   * @brief Decodes one PALETTE_MAX_KEYS custom-key array.
+   * @param input JS array; a missing element decodes to NaN, which
+   *        GenerativePalette::try_compile() rejects as NON_FINITE.
+   * @param output Key array to fill.
+   */
   static void decode_key_values(const val &input,
                                 std::array<float, PALETTE_MAX_KEYS> &output) {
     for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
@@ -93,6 +130,17 @@ private:
     return false;
   }
 
+  /**
+   * @brief Decodes a JS recipe object into a PaletteRecipe.
+   * @param input JS recipe object.
+   * @param recipe Recipe to fill; partially written when the decode fails.
+   * @param status Status written on rejection.
+   * @return True when every block and enum decoded.
+   * @details A schemaVersion other than PaletteRecipe::SCHEMA_VERSION is passed
+   *          through as 0 for try_compile() to reject. Leaf scalars are not
+   *          checked here: a missing one decodes to NaN and try_compile()'s
+   *          finite validation names the field.
+   */
   static bool decode_recipe(const val &input, PaletteRecipe &recipe,
                             PaletteCompileStatus &status) {
     if (!block_present(input, PaletteRecipeField::NONE, status))
@@ -169,6 +217,11 @@ private:
     return true;
   }
 
+  /**
+   * @brief Encodes one custom-key array as a JS array.
+   * @param input Key array to encode.
+   * @return JS array of PALETTE_MAX_KEYS numbers.
+   */
   static val
   encode_key_values(const std::array<float, PALETTE_MAX_KEYS> &input) {
     val output = val::array();
@@ -177,6 +230,11 @@ private:
     return output;
   }
 
+  /**
+   * @brief Encodes a PaletteRecipe as the JS object decode_recipe() accepts.
+   * @param recipe Recipe to encode.
+   * @return JS recipe object; enums cross as their integer values.
+   */
   static val encode_recipe(const PaletteRecipe &recipe) {
     val recipe_input = val::object();
     recipe_input.set("offset", recipe.input.offset);
@@ -219,6 +277,13 @@ private:
     return output;
   }
 
+  /**
+   * @brief Encodes a compile status as a JS object.
+   * @param status Status to encode.
+   * @return {code, field, wrappedFields, clampedFields, canonicalizedFields};
+   *         the three adjustment masks cross as doubles, being 64-bit bitsets
+   *         keyed by PaletteRecipeField.
+   */
   static val encode_status(const PaletteCompileStatus &status) {
     val output = val::object();
     output.set("code", static_cast<int>(status.code));
@@ -232,6 +297,13 @@ private:
     return output;
   }
 
+  /**
+   * @brief Samples the palette once into the bake buffers.
+   * @param index LUT slot to write.
+   * @param palette Compiled palette to sample.
+   * @param t Domain position to sample at.
+   * @param inspect Also record the diagnostic and gamut-fallback flag.
+   */
   static void store_sample(int index, const GenerativePalette &palette, float t,
                            bool inspect) {
     const CRGB color = static_cast<CRGB>(palette.get(t));
@@ -252,6 +324,12 @@ private:
     palette_fallback[index] = diagnostic.fallback_mapped ? 1 : 0;
   }
 
+  /**
+   * @brief Duplicates one baked sample into another slot.
+   * @param destination Slot to overwrite.
+   * @param source Slot to copy from.
+   * @param inspect Also copy the diagnostic and gamut-fallback flag.
+   */
   static void copy_sample(int destination, int source, bool inspect) {
     for (int channel = 0; channel < 3; ++channel)
       palette_lut[destination * 3 + channel] =
@@ -264,6 +342,14 @@ private:
     palette_fallback[destination] = palette_fallback[source];
   }
 
+  /**
+   * @brief Fills all 256 LUT slots from a compiled palette.
+   * @param palette Compiled palette to sample.
+   * @param inspect Also fill the diagnostic and gamut-fallback buffers.
+   * @details A mirroring domain samples the first half and reflects it, a
+   *          looping domain samples 255 and repeats slot 0 at 255, so both seams
+   *          are exact rather than left to sampling round-off.
+   */
   static void bake(const GenerativePalette &palette, bool inspect) {
     int sample_count = 256;
     if (palette.mirrors_domain())
@@ -281,6 +367,22 @@ private:
     }
   }
 
+  /**
+   * @brief Decodes, compiles and bakes one recipe.
+   * @param input JS recipe object.
+   * @param inspect Emit the diagnostics and fallback views alongside the lut.
+   * @return {status} alone on rejection, else {status, canonicalRecipe, lut}
+   *         plus {diagnostics, fallback} when @p inspect.
+   * @details WASM memory-view contract: lut, diagnostics and fallback alias
+   *          module-global WASM linear memory, they are NOT copies, and two
+   *          events invalidate them. The next compileAndBakeV4()/inspectV4()
+   *          call on any PaletteOps instance rebakes the same buffers in place,
+   *          so an outstanding view silently reports the newer palette. With
+   *          ALLOW_MEMORY_GROWTH=1, any subsequent heap growth detaches the
+   *          underlying ArrayBuffer and leaves the view zero-length
+   *          (buffer.byteLength === 0). A caller must therefore read or copy a
+   *          view before its next call into the module.
+   */
   static val compile(const val &input, bool inspect) {
     PaletteRecipe recipe;
     PaletteCompileStatus status;
@@ -311,6 +413,11 @@ private:
   }
 };
 
+/**
+ * @brief Registers PaletteOps with embind.
+ * @details Bound as instance methods: the JS palette tool and the two-repo
+ *          parity tests call through a constructed PaletteOps.
+ */
 static void bind_palette_ops() {
   class_<PaletteOps>("PaletteOps")
       .constructor<>()
