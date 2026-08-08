@@ -21,7 +21,7 @@
 #include <cstdio> // for std::printf
 
 #include "core/engine/reaction_graph.h"
-#include "tests/test_3dmath.h" // for HS_EXPECT_VEC
+#include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

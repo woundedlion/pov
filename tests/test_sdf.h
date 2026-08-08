@@ -23,7 +23,7 @@
 #include "core/mesh/mesh_classes.h"
 #include "core/render/scan.h"
 #include "core/math/geometry.h"
-#include "tests/test_3dmath.h"
+#include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -36,7 +36,7 @@
 namespace hs_test {
 namespace sdf {
 
-using hs_test::math3d::approx_vec;
+using hs_test::approx_vec;
 
 /**
  * @brief Builds the canonical equator-facing basis: v = +Y, u = +X, w = +Z.
