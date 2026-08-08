@@ -52,10 +52,6 @@ __vm/
 __pycache__/
 *.pyc
 
-# On-device profiles are point-in-time snapshots (regenerate with `just profile
-# <Effect>`); tracked design record is docs/selective_o3_spec.md.
-docs/profiles/
-
 # Code-review working documents are session artifacts, not repo content.
 docs/CODE_REVIEW.md
 docs/PROJECT_ASSESSMENT.md

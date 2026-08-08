@@ -63,9 +63,8 @@ _TREE_INDENT = 4
 # optionally a glob. Bare ellipsis rows elide a subtree and name nothing.
 _TREE_NAME_RE = re.compile(r"^(?![.…]+/?$)[A-Za-z0-9_.*?][\w.\-*?]*(?:/[\w.\-*?]+)*/?$")
 
-# Path prefixes the docs cite that this repository will never track: locally
-# generated profile reports (gitignored) and the files that live in the sibling
-# daydream repository, where the same paths are real.
+# Path prefixes the docs cite that this repository will never track: the files
+# that live in the sibling daydream repository, where the same paths are real.
 _SELF_REPO_HOSTS = frozenset({"github.com", "www.github.com"})
 # The README is installed into the sibling daydream checkout, where relative
 # paths break, so it cites this repository through absolute GitHub URLs. They
@@ -76,7 +75,6 @@ _SELF_REPO_PATH_RE = re.compile(
 _UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",
     ".github/workflows/js-tests.yml",
-    "docs/profiles/",
     "scripts/require-tests.mjs",
     "scripts/run-tests.mjs",
     "tests/solid_codegen.test.js",

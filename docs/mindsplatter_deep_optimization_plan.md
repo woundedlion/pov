@@ -524,7 +524,7 @@ is a deterministic maximum at or below 55 ms; the effort should continue toward
 - `core/animation/sprites.h`
 - `core/color/composition.h`
 - `tests/test_effects.h`
-- `docs/profiles/shipping/profile_mindsplatter_teensy_2026-07-27.md`
+- `docs/profiles/shipping/profile_mindsplatter_teensy_2026-08-07.md`
 - `docs/mindsplatter_optimization.md`
 - `docs/MINDSPLATTER_PARTICLE_SCALING_ANALYSIS.md`
 - `build/prof/mindsplatter_ship.log`
