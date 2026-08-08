@@ -1375,7 +1375,7 @@ The mesh system is split across nine files:
 |---|---|
 | `MeshOps::compile` | Convert a `PolyMesh` to the flat-array `MeshState` format used by the renderer |
 | `MeshOps::clone` | Arena-safe deep copy |
-| `MeshOps::classify_faces_by_topology` | Group faces by vertex count and neighbor topology for palette assignment |
+| `MeshOps::classify_faces_by_topology` | Group faces by vertex count, sorted whole-degree-rounded interior angles, and neighbor topology for palette assignment. The angle vector is the discriminator that separates faces of equal side count, so a solid whose interior angles straddle a rounding boundary classifies differently either side of it |
 
 #### Conway Operators (`conway.h`)
 
