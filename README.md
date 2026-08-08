@@ -2075,7 +2075,7 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 Stereographic-projection shader (extends `Effect` directly) spanning 12 liquid domain-warp and grid fly-through presets from one continuous parameter space. Every look axis — Y-spin vs. dual random-walk wander, glitch-lens blend, pattern cross-coupling vs. direct phase feed, palette-bank position, breathe depth, hue shift, value fade — is a preset-lerped float, so the choreography morphs between any two looks (including mixed ones) without a discrete pop. Uses `Scan::Shader::draw` for full-screen pixel shading over a two-slot baked generative palette bank.
 
-**Teensy full-cycle profile**: shipping peaks at 67.33 ms with two of 12 presets spilling; global O3 lowers the peak to 61.28 ms with zero spills ([shipping](docs/profiles/shipping/profile_shaderball_teensy_2026-08-08.md), [global O3](docs/profiles/O3/profile_shaderball_teensy_2026-08-08.md)).
+**Teensy full-cycle profile**: shipping peaks at 94.38 ms with four of 12 presets spilling; global O3 lowers the peak to 86.69 ms with three presets spilling ([shipping](docs/profiles/shipping/profile_shaderball_teensy_2026-08-08.md), [global O3](docs/profiles/O3/profile_shaderball_teensy_2026-08-08.md)).
 
 **Parameters**: Warp Scale, Warp Strength, Warp Time, Pattern Freq, Speed, Complexity, Phase Direct, Drift, Pole Fade, Spin Rate, Wander, Lens Mix, Palette, Breathe Depth, Cycle Speed, Hue Shift, Value Fade
 
