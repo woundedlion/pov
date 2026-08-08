@@ -271,8 +271,7 @@ out of scope).
 Landed as `core/mesh/mesh_classes.h` (clustering + bake) with the hybrid branch in
 `SDF::Face::distance`, the per-frame alignment bound by `Scan::Mesh::draw`,
 and per-slot bakes in IslamicStars (rebaked unconditionally after every
-`compact_keep_front`). Deviations from the design above, all forced by
-measurement:
+`compact_keep_front`). Deviations from the design above:
 
 - **§6 is wrong about WASM**: the WASM release build uses the device
   298 KiB `GLOBAL_ARENA_SIZE` (the 8 MiB figure is `HS_TEST_BUILD` only), so
@@ -300,6 +299,11 @@ measurement:
   by the rippled render A/B, whose delta envelope now equals the static one
   (max 4% FS at a deliberately steep distance-encoding shader; was 43% FS as
   coverage cracks, then 26% FS as gradient shift at a 6-diagonal cap).
+- **§10's class-count trap did not ship.** `MAX_CONGRUENCE_CLASSES` is 32
+  (not the 255 the u8 id allows), and faces past the cap degrade to
+  `NO_CLASS` instead of trapping: the per-face exact path is always correct,
+  so an overflow costs speed, not correctness. Census max over the registry
+  is 24.
 
 Gate outcomes:
 
