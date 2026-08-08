@@ -103,9 +103,12 @@ public:
   }
 
   static ControlKey snapshot_key(const Snapshot &snapshot, int index) {
-    index = hs::clamp(index, 0, static_cast<int>(snapshot.key_count) - 1);
+    const int last = static_cast<int>(snapshot.key_count) - 1;
+    if (last < 0)
+      return {};
+    index = hs::clamp(index, 0, last);
     ControlKey key = decode_snapshot_key(snapshot.keys[index]);
-    const float position = index / float(snapshot.key_count - 1);
+    const float position = last > 0 ? index / float(last) : 0.0f;
     if (snapshot.lightness_curve != AxisCurve::CUSTOM)
       key.L = evaluate_axis(snapshot.lightness_low, snapshot.lightness_high,
                             snapshot.lightness_curve, position);
@@ -136,9 +139,12 @@ public:
   }
 
   OKLCH resolved_oklch_key(int index) const {
-    index = hs::clamp(index, 0, static_cast<int>(key_count) - 1);
+    const int last = static_cast<int>(key_count) - 1;
+    if (last < 0)
+      return {};
+    index = hs::clamp(index, 0, last);
     ControlKey key = keys[index];
-    const float position = index / float(key_count - 1);
+    const float position = last > 0 ? index / float(last) : 0.0f;
     if (lightness_axis.curve != AxisCurve::CUSTOM)
       key.L = evaluate_axis(lightness_axis.low, lightness_axis.high,
                             lightness_axis.curve, position);
