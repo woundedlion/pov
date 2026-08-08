@@ -2986,8 +2986,10 @@ inline void test_ripple_envelope_and_done_boundary() {
 }
 
 /**
- * @brief Verifies the Noise animation publishes its frame counter as
- * params.time each step and, being perpetual, never reports done().
+ * @brief Verifies the Noise animation integrates speed into params.time each
+ * step and, being perpetual, never reports done().
+ * @details The integral makes a mid-run speed edit continuous: the phase carries
+ * on from where it was instead of being rescaled by the whole elapsed run.
  */
 inline void test_noise_publishes_time_and_is_perpetual() {
   Animation::NoiseParams params;
@@ -3000,6 +3002,10 @@ inline void test_noise_publishes_time_and_is_perpetual() {
     HS_EXPECT_NEAR(params.time, static_cast<float>(i), 1e-6f);
     HS_EXPECT_FALSE(noise.done());
   }
+
+  params.speed = 0.25f;
+  noise.step(fake_canvas());
+  HS_EXPECT_NEAR(params.time, 5.25f, 1e-6f);
 }
 
 /**
