@@ -154,6 +154,28 @@ class LockBreak(unittest.TestCase):
         self.assertTrue(self.d.is_dir())
         self.assertIn("token=fresh", (self.d / "info").read_text())
 
+    def test_a_peer_claiming_during_the_put_back_is_not_nested_into(self):
+        # The window between "is the slot free?" and the restoring move: a peer
+        # that claims it there must get its lock back intact, with no scratch
+        # directory left inside it for the next debugger to find.
+        self._claim("fresh")
+        mark = self.root / "seen"
+        prelude = (
+            'MARK="%s"; D="%s"; MVN=0; '
+            'mv() { MVN=$((MVN+1)); '
+            '[ "$MVN" = 2 ] && { mkdir -p "$D"; echo token=peer > "$D/info"; }; '
+            'command mv "$@"; }; '
+            '_hs_lock_field() { '
+            'if [ "$2" = token ] && [ ! -e "$MARK" ]; then : > "$MARK"; '
+            'echo stale; return; fi; '
+            'sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1; };'
+            % (mark, self.d))
+        self.assertFalse(break_lock(self.d, prelude))
+        self.assertTrue(self.d.is_dir())
+        self.assertEqual([p.name for p in self.d.iterdir()], ["info"])
+        self.assertEqual(sorted(p.name for p in self.root.iterdir()),
+                         ["lock.d", "seen"])
+
     def test_break_leaves_no_scratch_directory_behind(self):
         self._claim("stale")
         self.assertTrue(break_lock(self.d))

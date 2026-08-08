@@ -131,7 +131,10 @@ _hs_break_lock() {
   broken="$d.breaking.$$-$RANDOM"
   mv "$d" "$broken" 2>/dev/null || return 1
   if [ "$(_hs_lock_field "$broken" token)" != "$token" ]; then
-    [ -e "$d" ] || mv "$broken" "$d" 2>/dev/null
+    # mkdir is the arbiter of the put-back, not an -e test: a peer that claims
+    # the slot in the window between the test and the move wins it, and `mv`
+    # would then nest the scratch directory inside that peer's live lock.
+    mkdir "$d" 2>/dev/null && mv "$broken/info" "$d/info" 2>/dev/null
     rm -rf "$broken"
     return 1
   fi
