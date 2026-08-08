@@ -102,12 +102,21 @@ async function main() {
     throw e;
   }
 
-  // Run-wide: at least one pixel somewhere in the sweep must be non-zero. A
-  // single effect legitimately renders black, but an all-zero sweep means the
-  // draw path or the framebuffer view is dead — which the length check below
-  // cannot see. Scanning stops once the flag is set, so this costs one partial
-  // buffer walk for the whole run.
-  let litPixel = false;
+  // Per-effect-per-resolution darkness: an effect whose draw path regresses to
+  // an all-zero framebuffer is invisible to a run-wide "something lit" flag,
+  // and the length checks below cannot see it either. Keys are "Name@WxH".
+  const darkEffects = new Set();
+  const sweptEffects = new Set();
+
+  // RingShower expands its rings from zero radius and lights around frame 24,
+  // so a short window is black by design; tests/test_effects.h carries the same
+  // exemption. The per-load RNG reseed moves that by a few frames, so the set
+  // is pinned exactly only outside the ambiguous band — inside it, an
+  // unexpected dark effect still fails but a lit RingShower does not.
+  const DARK_EXEMPT = 'RingShower';
+  const DARK_BAND = [24, 48];
+  const expectedDark = FRAMES_PER_EFFECT < DARK_BAND[0]
+    ? 'exempt-dark' : FRAMES_PER_EFFECT >= DARK_BAND[1] ? 'lit' : 'either';
 
   // Run-wide counter for the per-frame telemetry the simulator reads: a single
   // effect reporting false is legitimate, an all-false sweep is not.
@@ -141,6 +150,7 @@ async function main() {
       console.log(`\n${w}x${h}: ${names.length} effects`);
 
       for (const name of names) {
+        sweptEffects.add(name);
         if (!engine.setEffect(name)) {
           fail(`setEffect("${name}") returned false at ${w}x${h}`);
           continue;
@@ -168,11 +178,11 @@ async function main() {
           strobing++;
         }
 
-        if (!litPixel) {
-          for (let i = 0; i < px.length; i++) {
-            if (px[i] !== 0) { litPixel = true; break; }
-          }
+        let lit = false;
+        for (let i = 0; i < px.length; i++) {
+          if (px[i] !== 0) { lit = true; break; }
         }
+        if (!lit) darkEffects.add(`${name}@${w}x${h}`);
 
         // Assert no arena was overrun rendering this effect; the module reports
         // each region's high-water mark and capacity.
@@ -266,10 +276,31 @@ async function main() {
       }
     }
 
-    if (!litPixel) {
-      fail('every effect at every resolution produced an all-zero framebuffer — ' +
-        'the render path or getPixels() is not writing pixels');
+    // The exemption is only meaningful while it names a live roster entry;
+    // a rename would otherwise silently drop the pin (tests/test_effects.h
+    // makes the same check a static_assert).
+    if (!sweptEffects.has(DARK_EXEMPT)) {
+      fail(`the all-black exemption names "${DARK_EXEMPT}", which is not in the ` +
+        `rendered roster — the exemption is stale`);
     }
+    const wantDark = new Set(expectedDark === 'exempt-dark'
+      ? RESOLUTIONS.map(([w, h]) => `${DARK_EXEMPT}@${w}x${h}`) : []);
+    for (const key of darkEffects) {
+      if (wantDark.has(key)) continue;
+      if (expectedDark === 'either' && key.startsWith(`${DARK_EXEMPT}@`)) continue;
+      fail(`${key}: every pixel is zero after ${FRAMES_PER_EFFECT} frame(s) — ` +
+        `its draw path or the framebuffer view is dead`);
+    }
+    for (const key of wantDark) {
+      if (!darkEffects.has(key)) {
+        fail(`${key}: lit after ${FRAMES_PER_EFFECT} frame(s), but the all-black ` +
+          `exemption still claims it is dark`);
+      }
+    }
+    console.log(`\nall-black: ${darkEffects.size} of ${sweptEffects.size * RESOLUTIONS.length} ` +
+      `effect/resolution passes rendered no lit pixel` +
+      (darkEffects.size ? ` (${[...darkEffects].sort().join(', ')})` : ''));
+
     if (strobing === 0) {
       fail('strobeColumns() reported false for every effect — the whole roster ' +
         'declares strobe = false, or the binding is dead');
