@@ -519,10 +519,13 @@ jobs:
         # transitions the default 8-frame local run never reaches.
         # HS_EFFECTS_FULL=1: run the effects module's full-resolution tier here
         # too (see the tests job note); this job runs the whole suite unsharded.
+        # --no-tests=error: bare ctest exits 0 on an empty test list, and a
+        # configure-time regression in the toolchain file's Windows branch —
+        # what this job exists to cover — is exactly what would empty it.
         env:
           HS_SMOKE_FRAMES: 120
           HS_EFFECTS_FULL: 1
-        run: ctest --preset tests --output-on-failure
+        run: ctest --preset tests --output-on-failure --no-tests=error
 
   wasm:
     name: WASM build (Emscripten)
