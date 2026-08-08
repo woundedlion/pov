@@ -164,8 +164,10 @@ private:
   static constexpr float DISSOLVE_FADE_FRACTION = 1.0f / 16.0f;
   /**
    * @brief Mean per-node |dB| per frame below which the field counts as
-   * settled, at DEFAULT_DT; the detector scales it by params.dt / DEFAULT_DT so
-   * the 30x Speed range does not move the stabilization point.
+   * settled, at DEFAULT_DT and BASELINE_STEPS_PER_FRAME; the detector rescales
+   * it by params.dt / DEFAULT_DT and by EVOLUTION_STEPS_PER_FRAME /
+   * BASELINE_STEPS_PER_FRAME, so neither the 30x Speed range nor the frame's
+   * physics budget moves the stabilization point.
    * @details Deliberately loose. A converged field floors at 1.1e-6..4.0e-6 of
    * Q16 chatter, so a floor-hugging threshold is what the reaction has truly
    * stopped at — but measured, that costs 328 frames (20 s at 16 fps) before the
