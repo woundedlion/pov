@@ -415,7 +415,7 @@ def _fmt_delta(value: int) -> str:
 def render_show(rows: list[TrailRow], last: int | None = None) -> str:
     """Render the trail with per-row deltas, oldest first."""
     deltas = compute_deltas(rows)
-    if last:
+    if last and last > 0:
         deltas = deltas[-last:]
     if not deltas:
         return "(trail empty)"
@@ -433,6 +433,12 @@ def render_show(rows: list[TrailRow], last: int | None = None) -> str:
 
 
 def cmd_show(args) -> int:
+    # Unvalidated, a negative --last reaches deltas[-last:] and silently drops
+    # the OLDEST |N| rows instead of keeping the newest N.
+    if args.last is not None and args.last < 1:
+        print(f"[size-trail] --last must be >= 1 (got {args.last})",
+              file=sys.stderr)
+        return 2
     trail = Path(args.trail) if args.trail else default_trail()
     rows = read_trail(trail)
     if not rows:
