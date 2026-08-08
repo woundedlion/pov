@@ -626,6 +626,9 @@ protected:
    * @param options Array of option labels indexed by the target's value; must
    *   outlive the effect (string literals).
    * @param option_count Number of labels; the value range is [0, option_count-1].
+   * @details Preset exports write the selected index as a numeric literal — a
+   * float target names no enum type. Use the Enum* overload to export C++
+   * enumerators instead.
    */
   void register_param(const char *name, float *ptr, const char *const *options,
                       int option_count) {
