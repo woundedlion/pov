@@ -4282,6 +4282,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
 struct ShaderBallWhiteBox {
   using SB = ShaderBall<DEFAULT_W, DEFAULT_H>;
   using Params = SB::Params;
+  using PatternSample = SB::PatternSample;
   static float noise_time(const SB &sb) { return sb.noise_time; }
   static float sin_phase(const SB &sb) { return sb.sin_phase; }
   static float phase2(const SB &sb) { return sb.phase2; }
@@ -4308,8 +4309,15 @@ struct ShaderBallWhiteBox {
   static Vector glitch_lens(const Vector &v) {
     return SB::apply_glitch_lens(v);
   }
-  static Vector nlerp_dir(const Vector &a, const Vector &b, float t) {
-    return SB::nlerp_dir(a, b, t);
+  static PatternSample blend_lens_samples(const PatternSample &direct,
+                                          const PatternSample &lensed,
+                                          float mix) {
+    return SB::blend_lens_samples(direct, lensed, mix);
+  }
+  static Params staggered_lerp(const Params &from, const Params &to, float t) {
+    Params result = from;
+    result.lerp_staggered(from, to, t);
+    return result;
   }
   static float sample_pattern(const Complex &p, float complexity, float direct1,
                               float direct2, float sin_phase, float phase2) {
@@ -4450,14 +4458,11 @@ inline void test_shaderball_partial_wander_continuous() {
 
 /**
  * @brief Verifies ShaderBall::apply_glitch_lens maps unit directions to unit
- *        directions and returns the pole axis on its near-axis guard branch,
- *        and pins nlerp_dir's collapsed-blend fallback.
+ *        directions and returns the pole axis on its near-axis guard branch.
  * @details The lens is a hand-derived degree-3 rational sphere automorphism on
  *          the live per-pixel path; the positive-frame-sum smoke harness cannot
  *          catch a sign/coefficient slip, so pin |lens(v)| == 1 across a spread
- *          of directions plus the R^2 < 1e-6 pole return. nlerp_dir must fall
- *          back to its target endpoint when antipodal endpoints collapse the
- *          blend vector.
+ *          of directions plus the R^2 < 1e-6 pole return.
  */
 inline void test_shaderball_glitch_lens_unit_norm() {
   using WB = ShaderBallWhiteBox;
@@ -4479,15 +4484,41 @@ inline void test_shaderball_glitch_lens_unit_norm() {
   HS_EXPECT_NEAR(pole.x, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(pole.y, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(pole.z, 0.0f, 1e-6f);
+}
 
-  // Antipodal endpoints at the midpoint collapse the blend vector; the guard
-  // returns the target endpoint instead of normalizing a zero vector.
-  Vector fallback = WB::nlerp_dir(Vector(1, 0, 0), Vector(-1, 0, 0), 0.5f);
-  HS_EXPECT_NEAR(fallback.x, -1.0f, 1e-6f);
-  HS_EXPECT_NEAR(fallback.y, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(fallback.z, 0.0f, 1e-6f);
-  Vector mid = WB::nlerp_dir(Vector(1, 0, 0), Vector(0, 1, 0), 0.25f);
-  HS_EXPECT_NEAR(mid.length(), 1.0f, 1e-6f);
+/** @brief Keeps Lens Mix linear through its former midpoint singularity. */
+inline void test_shaderball_lens_mix_continuous() {
+  using WB = ShaderBallWhiteBox;
+  const WB::PatternSample direct{0.15f, 0.2f};
+  const WB::PatternSample lensed{0.85f, 1.0f};
+  const auto before = WB::blend_lens_samples(direct, lensed, 0.499f);
+  const auto middle = WB::blend_lens_samples(direct, lensed, 0.5f);
+  const auto after = WB::blend_lens_samples(direct, lensed, 0.501f);
+  HS_EXPECT_NEAR(middle.value - before.value, after.value - middle.value,
+                 1e-6f);
+  HS_EXPECT_NEAR(middle.displacement - before.displacement,
+                 after.displacement - middle.displacement, 1e-6f);
+  const auto start = WB::blend_lens_samples(direct, lensed, 0.0f);
+  const auto end = WB::blend_lens_samples(direct, lensed, 1.0f);
+  HS_EXPECT_EQ(start.value, direct.value);
+  HS_EXPECT_EQ(start.displacement, direct.displacement);
+  HS_EXPECT_EQ(end.value, lensed.value);
+  HS_EXPECT_EQ(end.displacement, lensed.displacement);
+}
+
+/** @brief Gives every staggered parameter slice zero endpoint velocity. */
+inline void test_shaderball_staggered_lerp_eased() {
+  using WB = ShaderBallWhiteBox;
+  WB::Params from = WB::presets()[0].params;
+  WB::Params to = from;
+  to.warp_scale = 10.0f;
+  to.warp_strength = 10.0f;
+  constexpr float EPSILON = 1e-3f;
+  const WB::Params before = WB::staggered_lerp(from, to, 0.5f - EPSILON);
+  const WB::Params middle = WB::staggered_lerp(from, to, 0.5f);
+  const WB::Params after = WB::staggered_lerp(from, to, 0.5f + EPSILON);
+  HS_EXPECT_LT(middle.warp_scale - before.warp_scale, 1e-3f);
+  HS_EXPECT_LT(after.warp_strength - middle.warp_strength, 1e-3f);
 }
 
 /** @brief Pins ShaderBall's fine-grained unlensed liquid preset. */
@@ -5655,6 +5686,8 @@ inline int run_effects_tests() {
     test_shaderball_phase_wrapped();
     test_shaderball_partial_wander_continuous();
     test_shaderball_glitch_lens_unit_norm();
+    test_shaderball_lens_mix_continuous();
+    test_shaderball_staggered_lerp_eased();
     test_shaderball_preset_roster();
     test_shaderball_formula_reduction();
     test_mobiusgrid_conformal_and_counter_rotation();
