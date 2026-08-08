@@ -420,8 +420,15 @@ inline void flush_log() { fflush(stdout); }
 /**
  * @brief Executes the guarded block at most once every N seconds.
  * @param N Interval in seconds.
+ * @details Same two-token shape and naming scheme as EVERY_N_MILLIS. See
+ * hs::EveryNSeconds for the timing semantics, which are whole-second quantized
+ * rather than a millisecond throttle.
  */
-#define EVERY_N_SECONDS(N) EVERY_N_MILLIS((N) * 1000UL)
+#define EVERY_N_SECONDS_I(NAME, N)                                             \
+  static hs::EveryNSeconds NAME((N));                                          \
+  if (NAME)
+#define EVERY_N_SECONDS(N)                                                     \
+  EVERY_N_SECONDS_I(HS_CONCAT(hs_every_, __COUNTER__), N)
 /**
  * @brief Executes the guarded block at most once every N milliseconds (alias).
  * @param N Interval in milliseconds.
@@ -476,6 +483,42 @@ private:
   unsigned long last;
   uint32_t
       period; // 32-bit: matches the device wrap; caps the interval at ~49.7 days.
+};
+
+/**
+ * @brief Host throttle backing EVERY_N_SECONDS, mirroring FastLED's
+ *        CEveryNSeconds.
+ * @details Stamps and compares in whole seconds (FastLED's `seconds()`, i.e.
+ * `millis() / 1000`), not milliseconds: a throttle constructed part-way through
+ * a second first fires that fraction of a second short of a full period, which
+ * is what the device does. `last` is never reset across effect switches
+ * (function-local `static`).
+ */
+class EveryNSeconds {
+public:
+  explicit EveryNSeconds(unsigned long interval_s)
+      : last(now_seconds()), period(static_cast<uint32_t>(interval_s)) {}
+
+  /** @brief True at most once per `period` s; stamps the trigger when it fires. */
+  bool ready() {
+    const uint32_t now = now_seconds();
+    if (now - last >= period) {
+      last = now;
+      return true;
+    }
+    return false;
+  }
+
+  /** @brief Contextual-bool form so `if (obj)` reads as the throttle gate. */
+  explicit operator bool() { return ready(); }
+
+private:
+  static uint32_t now_seconds() {
+    return static_cast<uint32_t>(millis()) / 1000U;
+  }
+
+  uint32_t last;
+  uint32_t period;
 };
 /**
  * @brief Returns microseconds since an arbitrary epoch (host micros()).
