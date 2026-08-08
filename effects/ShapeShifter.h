@@ -357,7 +357,7 @@ private:
   }
 
   /** @brief Advances to the next preset and applies it atomically. */
-  void next_preset() {
+  HS_COLD_MEMBER void next_preset() {
     presets.next();
     presets.apply(params);
   }

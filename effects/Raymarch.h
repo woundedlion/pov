@@ -126,7 +126,7 @@ private:
    *          (reclaimed on scope exit) via the shared HS_COLD builder, so draw_fn
    *          can size every torus to its own local gap.
    */
-  void build_points() {
+  HS_COLD_MEMBER void build_points() {
     ScratchScope a_guard(scratch_arena_a);
     ScratchScope b_guard(scratch_arena_b);
     active_count = Solids::build_vertex_directions(
