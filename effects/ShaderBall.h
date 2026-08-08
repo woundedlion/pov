@@ -108,20 +108,14 @@ public:
     timeline.add(0, Animation::Driver(cycle_phase, &blend.params.cycle_speed,
                                       1.0f, false));
 
-    const auto liquid_recipes = EffectPaletteRecipes::shader_ball_liquid_set();
-    const auto flyby_recipes = EffectPaletteRecipes::shader_ball_flyby_set();
-    for (int i = 0; i < PALETTE_SET_SIZE; ++i) {
-      liquid_palettes[i] = GenerativePalette{liquid_recipes[i]};
-      flyby_palettes[i] = GenerativePalette{flyby_recipes[i]};
-      liquid_entries[i] = liquid_palettes[i];
-      flyby_entries[i] = flyby_palettes[i];
-    }
-    cyclers[0].init(persistent_arena, liquid_entries.data(), PALETTE_SET_SIZE,
-                    PALETTE_DWELL_FRAMES, PALETTE_FADE_FRAMES, ease_in_out_sin,
-                    &anims_paused);
-    cyclers[1].init(persistent_arena, flyby_entries.data(), PALETTE_SET_SIZE,
-                    PALETTE_DWELL_FRAMES, PALETTE_FADE_FRAMES, ease_in_out_sin,
-                    &anims_paused);
+    cyclers[0].init_generated(persistent_arena, next_liquid_palette,
+                              &liquid_rotation, PALETTE_DWELL_FRAMES,
+                              PALETTE_FADE_FRAMES, ease_in_out_sin,
+                              &anims_paused);
+    cyclers[1].init_generated(persistent_arena, next_flyby_palette,
+                              &flyby_rotation, PALETTE_DWELL_FRAMES,
+                              PALETTE_FADE_FRAMES, ease_in_out_sin,
+                              &anims_paused);
     // The shader's hue_rotate clips per pixel, so the RAM copy pays for itself
     // over reading the flash master.
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
@@ -417,19 +411,42 @@ private:
   float cycle_phase = 0.0f; /**< Wrapped to [0, 2pi) each frame for breathe. */
 
   static constexpr int PALETTE_COUNT = 2;
-  static constexpr int PALETTE_SET_SIZE = 3;
   /** @brief Zero dwell: the palette shifts continuously, fade after fade. */
   static constexpr int PALETTE_DWELL_FRAMES = 0;
   /** @brief Frames each palette fade spans. */
   static constexpr int PALETTE_FADE_FRAMES = 600;
-  std::array<GenerativePalette, PALETTE_SET_SIZE>
-      liquid_palettes; /**< Cycled sources for slot 0. */
-  std::array<GenerativePalette, PALETTE_SET_SIZE>
-      flyby_palettes; /**< Cycled sources for slot 1. */
-  std::array<PaletteCycler::Entry, PALETTE_SET_SIZE> liquid_entries;
-  std::array<PaletteCycler::Entry, PALETTE_SET_SIZE> flyby_entries;
+  /** @brief Hue-rotation step per palette leg, in turns. The golden-ratio
+   *  conjugate never repeats and equidistributes over the hue circle. */
+  static constexpr float GOLDEN_HUE_STEP = 0.618034f;
+
+  /** @brief Advances a slot's stored rotation by the golden step; sequence 0
+   *  returns the authored starting rotation unchanged. */
+  static float golden_rotation(void *context, uint32_t sequence) {
+    float &rotation = *static_cast<float *>(context);
+    if (sequence > 0)
+      rotation = wrap_t(rotation + GOLDEN_HUE_STEP);
+    return rotation;
+  }
+
+  /** @brief PaletteCycler provider: the liquid recipe on a golden hue walk. */
+  static void next_liquid_palette(void *context, uint32_t sequence,
+                                  GenerativePalette &out) {
+    out = GenerativePalette{EffectPaletteRecipes::shader_ball_liquid_at(
+        golden_rotation(context, sequence))};
+  }
+
+  /** @brief PaletteCycler provider: the flyby profile on a golden hue walk. */
+  static void next_flyby_palette(void *context, uint32_t sequence,
+                                 GenerativePalette &out) {
+    out = GenerativePalette{EffectPaletteRecipes::shader_ball_flyby_at(
+        golden_rotation(context, sequence))};
+  }
+
+  float liquid_rotation = 0.0f; /**< Slot 0 hue walk position, turns. */
+  /** @brief Slot 1 hue walk position, turns; starts on the authored flyby hue. */
+  float flyby_rotation = PaletteRecipes::hue_turns(42);
   std::array<PaletteCycler, PALETTE_COUNT>
-      cyclers; /**< Per-slot palette cycles: liquid set, flyby set. */
+      cyclers; /**< Per-slot palette cycles: liquid walk, flyby walk. */
 
   /** @brief Base spatial frequency of the warp generator; the `Warp Scale`
    *  slider multiplies it. */
@@ -683,7 +700,7 @@ private:
   // fit the device persistent partition.
   static constexpr size_t FOOTPRINT_BYTES =
       gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
-      PALETTE_COUNT * PaletteCycler::required_arena_bytes();
+      PALETTE_COUNT * PaletteCycler::generated_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "ShaderBall persistent footprint exceeds the default "
                 "partition; coarsen the gamut grid or carve arenas");

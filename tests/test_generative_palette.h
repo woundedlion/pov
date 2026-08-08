@@ -645,19 +645,72 @@ inline void test_palette_cycler_pause_and_static() {
   HS_EXPECT_TRUE(cycler.fading());
 }
 
-inline void test_shader_ball_palette_sets_morph_compatible() {
-  const auto liquid = EffectPaletteRecipes::shader_ball_liquid_set();
-  const auto flyby = EffectPaletteRecipes::shader_ball_flyby_set();
-  const auto expect_cycle = [](const auto &recipes) {
-    std::array<GenerativePalette, 3> palettes;
-    for (size_t i = 0; i < recipes.size(); ++i)
-      palettes[i] = GenerativePalette(recipes[i]);
-    for (size_t i = 0; i < palettes.size(); ++i)
-      HS_EXPECT_TRUE(
-          palettes[i].morph_compatible(palettes[(i + 1) % palettes.size()]));
-  };
-  expect_cycle(liquid);
-  expect_cycle(flyby);
+inline void test_shader_ball_palette_rotations_morph_compatible() {
+  constexpr float GOLDEN_STEP = 0.618034f;
+  float rotation = 0.0f;
+  GenerativePalette liquid_prev(
+      EffectPaletteRecipes::shader_ball_liquid_at(0.0f));
+  GenerativePalette flyby_prev(
+      EffectPaletteRecipes::shader_ball_flyby_at(0.0f));
+  for (int i = 0; i < 24; ++i) {
+    rotation = wrap_t(rotation + GOLDEN_STEP);
+    GenerativePalette liquid(
+        EffectPaletteRecipes::shader_ball_liquid_at(rotation));
+    GenerativePalette flyby(
+        EffectPaletteRecipes::shader_ball_flyby_at(rotation));
+    HS_EXPECT_TRUE(liquid_prev.morph_compatible(liquid));
+    HS_EXPECT_TRUE(flyby_prev.morph_compatible(flyby));
+    liquid_prev = liquid;
+    flyby_prev = flyby;
+  }
+}
+
+namespace {
+
+/** @brief Deterministic PaletteCycler provider walking analogous base hues. */
+inline void scripted_next_palette(void *context, uint32_t sequence,
+                                  GenerativePalette &out) {
+  ++*static_cast<int *>(context);
+  out = GenerativePalette(
+      PaletteRecipes::balanced_analogous(0.1f + 0.2f * sequence));
+}
+
+} // namespace
+
+inline void test_palette_cycler_generated_cycle() {
+  alignas(std::max_align_t) static uint8_t
+      buf[PaletteCycler::generated_arena_bytes() +
+          3 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+
+  int provider_calls = 0;
+  PaletteCycler cycler;
+  cycler.init_generated(arena, scripted_next_palette, &provider_calls, 0, 2);
+  HS_EXPECT_EQ(provider_calls, 2);
+
+  BakedPalette ref;
+  ref.bake(arena, GenerativePalette(PaletteRecipes::balanced_analogous(0.1f)));
+  expect_baked_equal(cycler.palette(), ref);
+
+  cycler.step();
+  HS_EXPECT_TRUE(cycler.fading());
+
+  cycler.step();
+  GenerativePalette mid;
+  mid.lerp(GenerativePalette(PaletteRecipes::balanced_analogous(0.1f)),
+           GenerativePalette(PaletteRecipes::balanced_analogous(0.3f)), 0.5f);
+  BakedPalette expected;
+  expected.bake(arena, mid);
+  expect_baked_equal(cycler.palette(), expected);
+
+  cycler.step();
+  HS_EXPECT_FALSE(cycler.fading());
+  HS_EXPECT_EQ(provider_calls, 3);
+  ref.rebake(GenerativePalette(PaletteRecipes::balanced_analogous(0.3f)));
+  expect_baked_equal(cycler.palette(), ref);
+
+  cycler.step();
+  HS_EXPECT_TRUE(cycler.fading());
 }
 
 inline void test_palette_cycler_zero_dwell_chains_fades() {
