@@ -930,8 +930,8 @@ jobs:
         run: |
           shopt -s nullglob
           tests=(scripts/*.test.mjs)
-          if [ "${#tests[@]}" -lt 3 ]; then
-            echo "::error::expected at least 3 scripts/*.test.mjs files, found ${#tests[@]}: ${tests[*]}"
+          if [ "${#tests[@]}" -lt 4 ]; then
+            echo "::error::expected at least 4 scripts/*.test.mjs files, found ${#tests[@]}: ${tests[*]}"
             exit 1
           fi
           echo "Running ${#tests[@]} script test file(s): ${tests[*]}"
