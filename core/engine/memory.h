@@ -607,6 +607,9 @@ public:
            "ArenaVector::bind() on a stale binding: clear the handle before "
            "resetting or changing its arena");
 #endif
+    // The generation assert above misses a rewind, which leaves the reuse path
+    // below handing back bytes the arena has already reissued.
+    check_alive();
     // Same arena, still live, and big enough → reuse the block in place.
     if (bound && element_capacity >= exact_capacity) {
       element_count = 0;
