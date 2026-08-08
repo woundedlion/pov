@@ -27,7 +27,7 @@ struct ShaderBallWhiteBox;
  * @tparam H Canvas height in pixels.
  * @details Projects a noise-warped sinusoidal pattern through stereographic
  * space. Every look axis — camera spin vs. random-walk wander, glitch-lens
- * blend, pattern cross-coupling vs. direct phase feed, palette slot, breathe
+ * blend, liquid vs. grid pattern mix, palette slot, breathe
  * depth, hue shift, value fade — is a continuous preset-lerped float, so the
  * preset timeline morphs between any two looks without a discrete pop.
  */
@@ -76,8 +76,8 @@ public:
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
     register_animated_param("Complexity", &params.complexity, COMPLEXITY_MIN,
                             COMPLEXITY_MAX);
-    register_animated_param("Phase Direct", &params.phase_direct,
-                            PHASE_DIRECT_MIN, PHASE_DIRECT_MAX);
+    register_animated_param("Pattern Mix", &params.pattern_mix, PATTERN_MIX_MIN,
+                            PATTERN_MIX_MAX);
     register_animated_param("Drift", &params.phase2_rate, PHASE2_RATE_MIN,
                             PHASE2_RATE_MAX);
     register_animated_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN,
@@ -145,9 +145,9 @@ public:
 
     const Params &P = blend.params;
     // Wrap the noise-time accumulator so the float ULP never swallows the
-    // increment and freezes the warp; OpenSimplex2 is aperiodic so the wrap pops
-    // the field once per period (far apart at STEREO_NOISE_TIME_PERIOD).
-    noise_time = fmodf(noise_time + P.speed, STEREO_NOISE_TIME_PERIOD);
+    // increment and freezes the warp; sample_wrapped_warp crossfades its seam.
+    noise_time = fmodf(noise_time + P.speed * P.warp_time_scale,
+                       STEREO_NOISE_TIME_PERIOD);
     // Wrap the trig phases to 2pi so fast_sinf/fast_cosf keep precise range
     // reduction.
     sin_phase = fmodf(sin_phase + P.speed, TWO_PI_F);
@@ -164,9 +164,7 @@ public:
 
     // Frame-constant hoists; the per-pixel skip branches below all test these,
     // so the branch predictor makes the skips nearly free.
-    const float warp_time = noise_time * P.warp_time_scale;
-    const float direct1 = P.phase_direct * sin_phase;
-    const float direct2 = P.phase_direct * phase2;
+    const float warp_time = noise_time;
     const float breathe_offset = fast_sinf(cycle_phase) * P.breathe_depth;
     const int pal_lo =
         std::min(static_cast<int>(P.palette_pos), PALETTE_COUNT - 1);
@@ -176,11 +174,11 @@ public:
       Complex z = stereo(rotate(sv, cam_inner_conj));
       float r_sq = z.re * z.re + z.im * z.im;
       auto [w, displacement] =
-          stereo_noise_warp(z, r_sq, warp_noise, P.warp_scale, P.warp_strength,
-                            P.pole_fade, warp_time);
+          sample_wrapped_warp(z, r_sq, warp_noise, P.warp_scale,
+                              P.warp_strength, P.pole_fade, warp_time);
       float pattern =
           sample_pattern(stereo_pattern_args(w, P.pattern_freq), P.complexity,
-                         direct1, direct2, sin_phase, phase2);
+                         P.pattern_mix, sin_phase, phase2);
       return {pole_normalize_pattern(pattern, r_sq, P.pole_fade), displacement};
     };
 
@@ -235,28 +233,51 @@ private:
             hs::lerp(direct.displacement, lensed.displacement, mix)};
   }
 
+  static StereoWarpResult sample_wrapped_warp(const Complex &z, float r_sq,
+                                              const FastNoiseLite &noise,
+                                              float scale, float strength,
+                                              float pole_fade, float time) {
+    const StereoWarpResult current =
+        stereo_noise_warp(z, r_sq, noise, scale, strength, pole_fade, time);
+    const float blend_start = STEREO_NOISE_TIME_PERIOD - NOISE_WRAP_BLEND;
+    if (time <= blend_start)
+      return current;
+    const float mix = ease_in_out_sin((time - blend_start) / NOISE_WRAP_BLEND);
+    const StereoWarpResult next =
+        stereo_noise_warp(z, r_sq, noise, scale, strength, pole_fade,
+                          time - STEREO_NOISE_TIME_PERIOD);
+    return {{hs::lerp(current.coords.re, next.coords.re, mix),
+             hs::lerp(current.coords.im, next.coords.im, mix)},
+            hs::lerp(current.displacement, next.displacement, mix)};
+  }
+
   /**
    * @brief Evaluates the generalized sinusoidal pattern at a bounded point.
    * @param p Frequency-scaled, bounded pattern arguments.
    * @param complexity Cross-coupling depth c.
-   * @param direct1 Pre-multiplied direct phase feed s * sin_phase.
-   * @param direct2 Pre-multiplied direct phase feed s * phase2.
+   * @param pattern_mix Blend from coupled liquid to separable grid pattern.
    * @param sin_phase Wrapped +t phase in [0, 2pi).
    * @param phase2 Wrapped drift phase in [0, 2pi).
-   * @return sin(p.re + c*sin(p.im + phase1) + s*phase1)
-   *         * cos(p.im + c*cos(p.re - phase2) - s*phase2) in [-1, 1].
-   * @details Exact superset of both classic forms: c != 0, s = 0 is the
-   * cross-coupled liquid pattern; c = 0, s = 1 is the separable grid pattern.
+   * @return Blend of coupled-liquid and separable-grid values in [-1, 1].
+   * @details c != 0, s = 0 is the cross-coupled liquid pattern; c = 0, s = 1
+   * is the separable grid pattern.
    */
-  static float sample_pattern(const Complex &p, float complexity, float direct1,
-                              float direct2, float sin_phase, float phase2) {
-    float re = p.re + direct1;
-    float im = p.im - direct2;
+  static float sample_pattern(const Complex &p, float complexity,
+                              float pattern_mix, float sin_phase,
+                              float phase2) {
+    float re = p.re;
+    float im = p.im;
     if (complexity != 0.0f) {
       re += complexity * fast_sinf(p.im + sin_phase);
       im += complexity * fast_cosf(p.re - phase2);
     }
-    return fast_sinf(re) * fast_cosf(im);
+    const float coupled = fast_sinf(re) * fast_cosf(im);
+    if (pattern_mix == 0.0f)
+      return coupled;
+    const float direct = fast_sinf(p.re + sin_phase) * fast_cosf(p.im - phase2);
+    if (pattern_mix == 1.0f)
+      return direct;
+    return hs::lerp(coupled, direct, pattern_mix);
   }
 
   /**
@@ -388,7 +409,7 @@ private:
   Quaternion cam_inner_conj;  /**< Per-frame inverse of the inner camera. */
   Quaternion cam_outer_conj;  /**< Per-frame inverse of the outer camera. */
 
-  float noise_time = 0.0f;  /**< Noise-time axis, wrapped to
+  float noise_time = 0.0f;  /**< Integrated noise-time axis, wrapped to
                                STEREO_NOISE_TIME_PERIOD. */
   float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): the pattern's +t term. */
   float phase2 = 0.0f;      /**< Wrapped to [0, 2pi): pattern's drift term. */
@@ -416,6 +437,8 @@ private:
   /** @brief Largest float below 1.0; keeps palette coordinates off the Wrap
    *  fold. */
   static constexpr float ONE_BELOW_UNIT = 0x1.fffffep-1f;
+  /** @brief Noise-time span used to crossfade through the accumulator wrap. */
+  static constexpr float NOISE_WRAP_BLEND = 1024.0f;
 
   /**
    * @brief Tunable warp/pattern/camera/color state, one snapshot per preset.
@@ -427,7 +450,7 @@ private:
     float pattern_freq;
     float speed;
     float complexity;
-    float phase_direct;
+    float pattern_mix;
     float phase2_rate;
     float pole_fade;
     float spin_rate;
@@ -488,7 +511,7 @@ private:
     static constexpr std::array<float Params::*, N> FIELDS = {
         &Params::warp_scale,   &Params::warp_strength, &Params::warp_time_scale,
         &Params::pattern_freq, &Params::speed,         &Params::complexity,
-        &Params::phase_direct, &Params::phase2_rate,   &Params::pole_fade,
+        &Params::pattern_mix,  &Params::phase2_rate,   &Params::pole_fade,
         &Params::spin_rate,    &Params::wander,        &Params::lens_mix,
         &Params::palette_pos,  &Params::breathe_depth, &Params::cycle_speed,
         &Params::hue_shift,    &Params::value_fade};
@@ -537,7 +560,7 @@ private:
   static constexpr float PATTERN_FREQ_MIN = 1.0f, PATTERN_FREQ_MAX = 20.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float COMPLEXITY_MIN = 0.0f, COMPLEXITY_MAX = 3.0f;
-  static constexpr float PHASE_DIRECT_MIN = 0.0f, PHASE_DIRECT_MAX = 1.0f;
+  static constexpr float PATTERN_MIX_MIN = 0.0f, PATTERN_MIX_MAX = 1.0f;
   static constexpr float PHASE2_RATE_MIN = 0.0f, PHASE2_RATE_MAX = 2.0f;
   static constexpr float POLE_FADE_MIN = 1.0f, POLE_FADE_MAX = 20.0f;
   static constexpr float SPIN_RATE_MIN = 0.0f, SPIN_RATE_MAX = 0.05f;
@@ -567,9 +590,8 @@ private:
            p.pattern_freq >= PATTERN_FREQ_MIN &&
            p.pattern_freq <= PATTERN_FREQ_MAX && p.speed >= SPEED_MIN &&
            p.speed <= SPEED_MAX && p.complexity >= COMPLEXITY_MIN &&
-           p.complexity <= COMPLEXITY_MAX &&
-           p.phase_direct >= PHASE_DIRECT_MIN &&
-           p.phase_direct <= PHASE_DIRECT_MAX &&
+           p.complexity <= COMPLEXITY_MAX && p.pattern_mix >= PATTERN_MIX_MIN &&
+           p.pattern_mix <= PATTERN_MIX_MAX &&
            p.phase2_rate >= PHASE2_RATE_MIN &&
            p.phase2_rate <= PHASE2_RATE_MAX && p.pole_fade >= POLE_FADE_MIN &&
            p.pole_fade <= POLE_FADE_MAX && p.spin_rate >= SPIN_RATE_MIN &&
@@ -584,9 +606,9 @@ private:
   }
 
   // Field order per row: warp_scale, warp_strength, warp_time_scale,
-  // pattern_freq, speed, complexity, phase_direct, phase2_rate, pole_fade,
+  // pattern_freq, speed, complexity, pattern_mix, phase2_rate, pole_fade,
   // spin_rate, wander, lens_mix, palette_pos, breathe_depth, cycle_speed,
-  // hue_shift, value_fade. Gate params (complexity, phase_direct, wander,
+  // hue_shift, value_fade. Gate params (complexity, pattern_mix, wander,
   // lens_mix, hue_shift, value_fade) must sit exactly on 0 or 1 whenever the
   // matching per-pixel skip is intended: Animation::Lerp lands bit-exactly
   // only on those endpoints, and a near-0 value un-latches the skip for good.
