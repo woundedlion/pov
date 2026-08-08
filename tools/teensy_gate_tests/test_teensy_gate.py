@@ -953,11 +953,13 @@ class TestRealVerboseCapture(unittest.TestCase):
 
 
 class TestRealCapture(unittest.TestCase):
-    """Parse REAL arm-gcc 11.3.1 output from a fitting Holosphere build (§9.1).
+    """Parse REAL toolchain output from the two shipping images (§9.1).
 
     These exercise the toolchain quirks the synthetic fixtures can't: teensy_size
     on stderr, readelf printing large sizes in HEX (0x4a800), and the arena's real
-    _ZL-mangled internal-linkage name. Captured by the Phase-0 spike.
+    _ZL-mangled internal-linkage name. Captured from `pio run -e holosphere
+    -e phantasm` on the toolchain platformio.ini pins, so holosphere is the
+    96x20 canvas the env ships.
     """
 
     @unittest.skipUnless((REAL_DIR / "holosphere_readelf_syms.txt").exists(),
