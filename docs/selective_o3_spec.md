@@ -44,7 +44,7 @@ speed up to buy it:
 | Effect | Cadence -Os → -O3 | Hot scope (profile counter) |
 |---|---|---|
 | MeshFeedback | 8 → 16 fps | feedback flush (`mf_feedback_flush`) |
-| Flyby | 8↔16 → steady 16 fps | shader (`fly_shader_draw`) |
+| ShaderBall | 8↔16 → steady 16 fps | shader (`sb_shader_draw`) |
 | Voronoi | 8 → 16 fps | per-pixel KD walk (`vo_shade`) |
 | DreamBalls | 5.3 → 8 fps (P0) | wireframe raster (`db_mesh_plot`) |
 | HopfFibration | 8↔16 jitter → steady 16 | trail raster |
@@ -53,8 +53,13 @@ speed up to buy it:
 | RingSpin | 8 → **16 fps locked** (fused tip, 2026-07-15) | fused ring-group raster (`rs_ring_scan`) |
 | DisplacementField | 8 → 16 fps, whole cycle (fused tip, 2026-07-15) | fused stack scan (`df_fused_scan`) |
 
+ShaderBall is the shader effect the R4 region serves; the -Os and -O3 figures
+recorded for it here and in §7 were captured on `Flyby` and `Liquid2D`, the two
+effects it subsumes and whose sample loops it carries
+(`docs/shaderball_spec.md`).
+
 Effects already at 16 fps at -Os (Comets, PetalFlow, RingShower, Thrusters,
-MobiusGrid, ChaoticStrings, GnomonicStars, SphericalHarmonics, Liquid2D) gain
+MobiusGrid, ChaoticStrings, GnomonicStars, SphericalHarmonics) gain
 **nothing user-visible** from -O3 — their savings fall into `*_buffer_wait`
 idle. Raymarch, MindSplatter, Dynamo, BZ/GS stay 8 fps even at full -O3. **Do
 not spend ITCM on code that only serves these effects.** (They may still benefit
@@ -276,8 +281,8 @@ see its bullet.
   caller — wrapping it makes it option-carrying, which may stop that inlining
   (a §4.2 #3 seam) until the caller loop joins a matching-options region (R3).
 
-Serves: every tier-crossing effect except Flyby and Voronoi (which bypass the
-pipeline sink). **Do not** wrap the recursive `Pipeline<W,H,Head,Tail...>` node
+Serves: every tier-crossing effect except ShaderBall and Voronoi (which bypass
+the pipeline sink). **Do not** wrap the recursive `Pipeline<W,H,Head,Tail...>` node
 (`filter.h:281–309`) in R1 — it instantiates per-effect; its per-pixel body is
 a thin router that the profiles do not flag. Revisit only with measurements.
 
@@ -354,16 +359,16 @@ plus most 16-fps effects incidentally.
 ### R4 — shader compositors (`core/render/scan.h`)
 
 - `Scan::Shader::draw`, closure-shader variant (`scan.h:954`) — instantiates
-  per-effect (`ShaderFn` is the effect's lambda: Flyby `Flyby.h:110–125`,
-  Liquid2D `Liquid2D.h:132`). Wrapping the definition covers both; the effect
-  lambdas inline into the O3 loop and inherit it.
+  per-effect (`ShaderFn` is the effect's lambda: `ShaderBall::draw`'s
+  stereographic shader). Wrapping the definition covers it; the effect lambda
+  inlines into the O3 loop and inherits it.
 - `Scan::Shader::draw`, split fragment/vertex variant (`scan.h:1017`) — shared
   per `<W,H,SAMPLES>` (type-erased shaders; BZ/GS). BZ/GS cross no tier.
   **Default: leave this overload at -Os**; promote it only if the map diff
   shows it sharing sections with the closure variant or costing ~nothing.
 
-Serves: Flyby (tier crosser). Liquid2D rides along (1.14×, no tier — fine,
-it's the same instantiation site).
+Serves: ShaderBall (tier crosser) — one instantiation site covering both its
+liquid and fly-through preset families.
 
 ### R5 — feedback/trails flush (`core/render/filter.h`)
 
@@ -449,7 +454,7 @@ usual worktree + FF integrator workflow, one region per commit.
 3. Land §6 (gate extension + first calibration).
 4. Capture -Os sentinel profiles on the base commit if the
    sentinel-baselines figures no longer match the tree (`just profile
-   MeshFeedback|Flyby|Voronoi|DreamBalls|IslamicStars|RingSpin` — RingSpin
+   MeshFeedback|ShaderBall|Voronoi|DreamBalls|IslamicStars|RingSpin` — RingSpin
    included: it is R1's primary sentinel).
 
 **Phase 1 — macros.** Add the §4.1 block to `platform.h`. Verify the
@@ -478,9 +483,9 @@ and the plan must be re-checked against the §3 budget before Phase 2 starts.
    (§4.2 #6) before concluding the region is free.
 3. **Speed**: `just profile <sentinel>` for the region's tier-crossing
    sentinel(s) (R1: RingSpin or DreamBalls; R2: IslamicStars; R3: DreamBalls;
-   R4: Flyby; R5: MeshFeedback; R6: Voronoi). Compare the hot-scope figure and
-   cadence against the sentinel-baselines table below (distilled from the
-   historical shipping/O3 reports).
+   R4: ShaderBall; R5: MeshFeedback; R6: Voronoi). Compare the hot-scope
+   figure and cadence against the sentinel-baselines table below (distilled
+   from the historical shipping/O3 reports).
 4. **Decide**: keep if it buys a cadence tier, or closes **≥ half the remaining
    gap** between the -Os baseline and the -O3 ceiling figure for a
    tier-crossing sentinel's hot scope (see the baselines table below), at
@@ -588,12 +593,15 @@ distilled here as the durable referent.
 Hot-scope render time per frame, shipping `-Os` vs the global `-O3` ceiling
 (the full reports carry the window/cadence detail). RingSpin and
 DisplacementField figures are from their 2026-07-15 **fused-tip** recaptures
-(`56d8c854` / `7d50b672`); the rest are 2026-07-14:
+(`56d8c854` / `7d50b672`); the rest are 2026-07-14. R4's row was captured on
+`Flyby` and its `fly_shader_draw` scope; ShaderBall carries that sample loop
+under `sb_shader_draw`, and its tracked shipping/-O3 pair is in
+`docs/profiles/`:
 
 | Sentinel | Hot scope | -Os | -O3 ceiling | Cadence -Os → -O3 |
 |---|---|---|---|---|
 | MeshFeedback | `mf_feedback_flush` (light morph) | 97.9 ms | 48.0 ms | 8 → 16 fps |
-| Flyby | `fly_shader_draw` (expensive regime) | 77.0 ms | 42.4 ms | 8↔16 → 16 fps |
+| ShaderBall | `fly_shader_draw` (expensive regime) | 77.0 ms | 42.4 ms | 8↔16 → 16 fps |
 | Voronoi | `vo_shade` | 76.9 ms | 57.2 ms | 8 → 16 fps |
 | DreamBalls | `db_mesh_plot` (P0, 18 copies) | 145.3 ms | 91.4 ms | 5.3 → 8 fps |
 | IslamicStars | `scan_mesh_raster` | 60.3 ms | 43.4 ms | 8 → 16 fps (mid shapes) |
