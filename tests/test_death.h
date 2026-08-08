@@ -2112,12 +2112,12 @@ inline const Case *all_cases(int &n) {
       {"scratch_scope_non_lifo", case_scratch_scope_non_lifo, "memory.h",
        "(arena.get_offset() >= saved_offset) "},
       {"arena_vector_overflow", case_arena_vector_overflow, "memory.h",
-       "(element_count < element_capacity) ArenaVector exact capacity "
-       "exceeded!"},
+       "(element_count < element_capacity) ArenaVector push_back exact "
+       "capacity exceeded!"},
       {"arena_vector_emplace_overflow", case_arena_vector_emplace_overflow,
        "memory.h",
-       "(element_count < element_capacity) ArenaVector exact capacity "
-       "exceeded!"},
+       "(element_count < element_capacity) ArenaVector emplace_back exact "
+       "capacity exceeded!"},
       {"generate_target_is_scratch", case_generate_target_is_scratch,
        "generators.h",
        "(&target != &scratch_arena_a && &target != &scratch_arena_b) "
