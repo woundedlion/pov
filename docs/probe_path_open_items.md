@@ -80,10 +80,12 @@ azimuth-interval construction, not the pad. Same zero-holes verdict.
 **Task C — audit regenerated; one fix landed.** The snapshot table below is not
 comparable to a fresh run (different classifier basis, not image drift).
 `gamut_channel_exit`, the snapshot's top-ranked row, is **unreachable in
-MeshFeedback**: it is called only from `gamut_clip_analytic`, taken only when the
-LUT is disarmed, and `init_gamut_lut`'s one caller repo-wide is
-`MeshFeedback.h:129`. `gamut_bracket_refine` was the confirmed-hot row and went
-48 -> 16 `vmrs`.
+MeshFeedback**. That analytic per-channel exit was the fallback taken when no
+boundary grid was armed; the clip path no longer has one. `gamut_max_chroma`
+(`core/color/color.h`) always indexes `g_gamut_lut`, which defaults to the
+full-resolution flash master, and `init_gamut_lut` only swaps in a lower-latency
+arena copy — `MeshFeedback::init` and `ShaderBall::init` each arm one.
+`gamut_bracket_refine` was the confirmed-hot row and went 48 -> 16 `vmrs`.
 
 ---
 
