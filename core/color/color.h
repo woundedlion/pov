@@ -285,7 +285,10 @@ struct Color4 {
    * @param other Target color at t == 1.
    * @param t Blend weight; clamped to [0, 1].
    * @return The interpolated color.
-   * @details t clamped to [0,1] so out-of-range t saturates at an endpoint
+   * @details Alpha is straight, not premultiplied: color and alpha interpolate
+   * independently, so a fully transparent endpoint still contributes its RGB to
+   * the blend. Endpoints intended to fade out must carry the color they fade
+   * towards. t clamped to [0,1] so out-of-range t saturates at an endpoint
    * rather than letting alpha extrapolate while color stays clamped.
    */
   Color4 lerp(const Color4 &other, float t) const {
