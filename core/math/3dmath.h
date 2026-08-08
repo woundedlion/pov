@@ -665,6 +665,13 @@ struct Quaternion {
   }
 
   /**
+   * @brief Inequality comparison using tolerance.
+   * @param q The quaternion to compare.
+   * @return True if any component differs by more than TOLERANCE.
+   */
+  bool operator!=(const Quaternion &q) const { return !(*this == q); }
+
+  /**
    * @brief Quaternion multiplication compound assignment.
    * @param q The quaternion to multiply by.
    * @return Reference to this quaternion.
