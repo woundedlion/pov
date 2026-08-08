@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <emscripten/bind.h>
+#include <limits>
+#include <type_traits>
 
 #include "core/color/color.h"
 #include "core/color/effect_palette_recipes.h"
@@ -42,12 +44,22 @@ struct PaletteOps {
   }
 
 private:
+  /**
+   * @brief Decodes one enum field, rejecting anything the underlying type
+   *        cannot hold. Each enum's own bound belongs to
+   *        GenerativePalette::try_compile().
+   */
   template <typename Enum>
-  static bool decode_enum(const val &object, const char *name, int last,
-                          Enum &output, PaletteRecipeField field,
+  static bool decode_enum(const val &object, const char *name, Enum &output,
+                          PaletteRecipeField field,
                           PaletteCompileStatus &status) {
+    using Underlying = std::underlying_type_t<Enum>;
+    static_assert(std::is_unsigned<Underlying>::value,
+                  "recipe enums must have an unsigned underlying type");
+    constexpr int LAST =
+        static_cast<int>(std::numeric_limits<Underlying>::max());
     const int value = object[name].as<int>();
-    if (value < 0 || value > last) {
+    if (value < 0 || value > LAST) {
       status.code = PaletteCompileCode::INVALID_ENUM;
       status.field = field;
       return false;
@@ -71,24 +83,21 @@ private:
     const val recipe_input = input["input"];
     recipe.input.offset = recipe_input["offset"].as<float>();
     recipe.input.span = recipe_input["span"].as<float>();
-    if (!decode_enum(input, "domain", static_cast<int>(PaletteDomain::LOOP),
-                     recipe.domain, PaletteRecipeField::PALETTE_DOMAIN,
+    if (!decode_enum(input, "domain", recipe.domain,
+                     PaletteRecipeField::PALETTE_DOMAIN, status) ||
+        !decode_enum(input, "easing", recipe.easing, PaletteRecipeField::EASING,
                      status) ||
-        !decode_enum(input, "easing", static_cast<int>(SegmentEase::SMOOTHSTEP),
-                     recipe.easing, PaletteRecipeField::EASING, status) ||
-        !decode_enum(input, "colorPath",
-                     static_cast<int>(ColorPath::OKLAB_CARTESIAN),
-                     recipe.color_path, PaletteRecipeField::COLOR_PATH, status))
+        !decode_enum(input, "colorPath", recipe.color_path,
+                     PaletteRecipeField::COLOR_PATH, status))
       return false;
 
     const val hue = input["hue"];
-    if (!decode_enum(hue, "mode", static_cast<int>(HueMode::CUSTOM),
-                     recipe.hue.mode, PaletteRecipeField::HUE_MODE, status) ||
-        !decode_enum(hue, "harmony", static_cast<int>(PaletteHarmony::SQUARE),
-                     recipe.hue.harmony, PaletteRecipeField::HARMONY, status) ||
-        !decode_enum(
-            hue, "direction", static_cast<int>(HueDirection::COUNTERCLOCKWISE),
-            recipe.hue.direction, PaletteRecipeField::HUE_DIRECTION, status))
+    if (!decode_enum(hue, "mode", recipe.hue.mode, PaletteRecipeField::HUE_MODE,
+                     status) ||
+        !decode_enum(hue, "harmony", recipe.hue.harmony,
+                     PaletteRecipeField::HARMONY, status) ||
+        !decode_enum(hue, "direction", recipe.hue.direction,
+                     PaletteRecipeField::HUE_DIRECTION, status))
       return false;
     recipe.hue.base_turns = hue["baseTurns"].as<float>();
     recipe.hue.spread_turns = hue["spreadTurns"].as<float>();
@@ -96,8 +105,7 @@ private:
     decode_key_values(hue["customTurns"], recipe.hue.custom_turns);
 
     const val lightness = input["lightness"];
-    if (!decode_enum(lightness, "curve", static_cast<int>(AxisCurve::CUSTOM),
-                     recipe.lightness.curve,
+    if (!decode_enum(lightness, "curve", recipe.lightness.curve,
                      PaletteRecipeField::LIGHTNESS_CURVE, status))
       return false;
     recipe.lightness.center = lightness["center"].as<float>();
@@ -105,12 +113,10 @@ private:
     decode_key_values(lightness["custom"], recipe.lightness.custom);
 
     const val chroma = input["chroma"];
-    if (!decode_enum(chroma, "curve", static_cast<int>(AxisCurve::CUSTOM),
-                     recipe.chroma.curve, PaletteRecipeField::CHROMA_CURVE,
-                     status) ||
-        !decode_enum(chroma, "basis", static_cast<int>(ChromaBasis::ABSOLUTE),
-                     recipe.chroma.basis, PaletteRecipeField::CHROMA_BASIS,
-                     status))
+    if (!decode_enum(chroma, "curve", recipe.chroma.curve,
+                     PaletteRecipeField::CHROMA_CURVE, status) ||
+        !decode_enum(chroma, "basis", recipe.chroma.basis,
+                     PaletteRecipeField::CHROMA_BASIS, status))
       return false;
     recipe.chroma.center = chroma["center"].as<float>();
     recipe.chroma.range = chroma["range"].as<float>();
