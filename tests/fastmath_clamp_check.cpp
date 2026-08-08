@@ -20,13 +20,12 @@ int main() {
               "-fno-finite-math-only) ===\n",
               hs_test::stats().passed, failed);
   // Floor against silent drift: a gutted test body would otherwise stay green.
-  // The case list itself is shared with test_color.h via HS_FASTMATH_CLAMP_TESTS,
-  // so a new clamp test extends this pass automatically. Bump when adding cases.
-  constexpr int MIN_ASSERTIONS = 26;
-  if (total < MIN_ASSERTIONS) {
+  // The case list and its floor are shared with test_color.h, so a new clamp
+  // test extends this pass automatically.
+  if (total < FASTMATH_CLAMP_MIN_ASSERTIONS) {
     std::printf("=== fastmath_clamp: only %d assertions ran, expected >= %d "
                 "(a check was dropped) ===\n",
-                total, MIN_ASSERTIONS);
+                total, FASTMATH_CLAMP_MIN_ASSERTIONS);
     return 1;
   }
   return failed ? 1 : 0;
