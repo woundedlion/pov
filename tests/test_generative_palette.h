@@ -644,3 +644,18 @@ inline void test_palette_cycler_pause_and_static() {
   cycler.step();
   HS_EXPECT_TRUE(cycler.fading());
 }
+
+inline void test_shader_ball_palette_sets_morph_compatible() {
+  const auto liquid = EffectPaletteRecipes::shader_ball_liquid_set();
+  const auto flyby = EffectPaletteRecipes::shader_ball_flyby_set();
+  const auto expect_cycle = [](const auto &recipes) {
+    std::array<GenerativePalette, 3> palettes;
+    for (size_t i = 0; i < recipes.size(); ++i)
+      palettes[i] = GenerativePalette(recipes[i]);
+    for (size_t i = 0; i < palettes.size(); ++i)
+      HS_EXPECT_TRUE(
+          palettes[i].morph_compatible(palettes[(i + 1) % palettes.size()]));
+  };
+  expect_cycle(liquid);
+  expect_cycle(flyby);
+}
