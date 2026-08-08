@@ -59,7 +59,8 @@ public:
 
     register_animated_param("Friction", &params.friction, 0.5f, 1.0f);
     register_animated_param("Well Str", &params.well_strength, 0.0f, 20.0f);
-    register_animated_param("Init Spd", &params.initial_speed, 0.0f, 0.1f);
+    register_animated_param("Init Spd", &params.initial_speed,
+                            INITIAL_SPEED_MIN, INITIAL_SPEED_MAX);
     register_animated_param("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
     register_readonly_param("Particles", &params.active_count, 0.0f,
                             (float)NUM_PARTICLES);
@@ -144,7 +145,7 @@ private:
   struct Params {
     float friction = 0.85f;     /**< Velocity retention per step in [0.5, 1]. */
     float well_strength = 1.0f; /**< Attractor pull strength in [0, 20]. */
-    float initial_speed = 0.025f; /**< Spawn speed in [0, 0.1] (units/step). */
+    float initial_speed = 0.025f; /**< Spawn speed in [0, 0.5] (units/step). */
     float angular_speed =
         0.2f;                  /**< Emission phase rate in [0, 1] (rad/emit). */
     float active_count = 0.0f; /**< Live particle count (engine-written). */
@@ -172,7 +173,7 @@ private:
 
   static constexpr float FRICTION_MIN = 0.5f, FRICTION_MAX = 1.0f;
   static constexpr float WELL_STRENGTH_MIN = 0.0f, WELL_STRENGTH_MAX = 20.0f;
-  static constexpr float INITIAL_SPEED_MIN = 0.0f, INITIAL_SPEED_MAX = 0.1f;
+  static constexpr float INITIAL_SPEED_MIN = 0.0f, INITIAL_SPEED_MAX = 0.5f;
   static constexpr float ANGULAR_SPEED_MIN = 0.0f, ANGULAR_SPEED_MAX = 1.0f;
   static constexpr float EVENT_HORIZON = 0.2f;
   static constexpr float GRAVITY = 0.001f;
