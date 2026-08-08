@@ -211,15 +211,17 @@ inline void case_resplit_scratch_not_empty() {
 }
 
 /**
- * @brief Death case: rewinding the arena past its capacity must trap.
- * @details Memory surface — set_offset is the one seam that can break the
- *          offset <= capacity invariant the no-wrap bounds math in allocate()
- *          depends on, so an out-of-range rewind traps at the source.
+ * @brief Death case: moving the arena offset forward must trap.
+ * @details Memory surface — set_offset only ever rewinds. A forward move stays
+ *          inside capacity yet hands back bytes already reclaimed, so the guard
+ *          is monotone decrease, not a capacity bound.
  */
-inline void case_arena_set_offset_overflow() {
+inline void case_arena_set_offset_forward() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
-  a.set_offset(opaque<size_t>(sizeof(buf) + 1)); // > capacity -> HS_CHECK
+  a.allocate(opaque<size_t>(8), opaque<size_t>(1));
+  a.set_offset(opaque<size_t>(0));
+  a.set_offset(opaque<size_t>(4)); // forward, still under capacity -> HS_CHECK
 }
 
 /**
@@ -2107,7 +2109,7 @@ inline const Case *all_cases(int &n) {
        "memory.cpp",
        "(scratch_arena_a.get_offset() == 0 && scratch_arena_b.get_offset() "
        "== 0) resplit_arenas: both scratch arenas must be empty"},
-      {"arena_set_offset_overflow", case_arena_set_offset_overflow, "memory.h",
+      {"arena_set_offset_forward", case_arena_set_offset_forward, "memory.h",
        "(new_offset <= offset) "},
       {"scratch_scope_non_lifo", case_scratch_scope_non_lifo, "memory.h",
        "(arena.get_offset() >= saved_offset) "},
