@@ -419,11 +419,16 @@ struct CycleCounter {
     count = 0;
   }
 
-  /** @brief Logs every root counter (no parent) and its subtree as a tree. */
+  /**
+   * @brief Logs every root counter and its subtree as a tree.
+   * @details reset() zeroes counts but keeps the latched parent edges, so a
+   *          counter whose parent saw no entries this run is logged as a root
+   *          rather than dropped with the parent it is no longer reached from.
+   */
   static void log_all() {
     hs::log("--- Cycle Counters ---");
     for (auto *c = head; c; c = c->next)
-      if (!c->parent && c->count)
+      if (c->count && (!c->parent || !c->parent->count))
         log_node(c, 0);
   }
 
