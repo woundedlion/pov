@@ -1603,7 +1603,9 @@ private:
   Pixel entries[256];
 };
 
+#define HS_COLOR_INTERNAL
 #include "color/generative_palette.h"
+#undef HS_COLOR_INTERNAL
 
 /**
  * @brief A palette defined by a mathematical cosine wave function.

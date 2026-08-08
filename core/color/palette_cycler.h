@@ -5,7 +5,6 @@
 #pragma once
 
 #include "color/color.h"
-#include "color/generative_palette.h"
 
 /**
  * @file palette_cycler.h

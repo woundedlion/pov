@@ -4,7 +4,17 @@
  */
 #pragma once
 
-#include "color/color.h"
+#ifndef HS_COLOR_INTERNAL
+#error internal fragment of color.h; include "color/color.h" instead
+#endif
+
+/**
+ * @file generative_palette.h
+ * @brief The recipe-compiled palette core of color.h: PaletteRecipe
+ *        canonicalization, GenerativePalette and the stock recipes.
+ *
+ * Included by color.h before the composition layer.
+ */
 
 /**
  * @brief A compiled perceptual palette.
