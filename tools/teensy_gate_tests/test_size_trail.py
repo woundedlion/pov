@@ -13,11 +13,15 @@ tested here rather than against a firmware binary:
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """
 
+import os
 import struct
+import subprocess
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
@@ -160,6 +164,59 @@ class Collect(unittest.TestCase):
     def test_no_elf_at_all_yields_nothing(self):
         self.assertEqual(tst.collect(self.root, ("phantasm",),
                                      warn=self.warnings.append), {})
+
+
+SHA = "d" * 40
+
+
+class Backfill(unittest.TestCase):
+    """`backfill` attributes sizes to the commit that produced them. `pio run`'s
+    status cannot: it is non-zero for an over-budget commit that linked fine. The
+    ELF mtime is the discriminator — a link restamps it, a failed compile leaves
+    the previous commit's ELF untouched."""
+
+    def _backfill(self, *, relink):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            worktree = root / "wt"
+            worktree.mkdir()
+            elf = root / "build" / "holosphere" / tst.ELF_NAME
+            elf.parent.mkdir(parents=True)
+            elf.write_bytes(make_elf(FIRMWARE))
+            stale = os.stat(elf).st_mtime_ns - 10**9
+            os.utime(elf, ns=(stale, stale))
+            trail = root / "trail.tsv"
+
+            def fake_pio(cmd, **kwargs):
+                if relink:
+                    # A link rewrites the ELF byte-identically when every object
+                    # came from the cache; only its mtime moves.
+                    elf.write_bytes(make_elf(FIRMWARE))
+                return subprocess.CompletedProcess(cmd, 0)
+
+            args = types.SimpleNamespace(
+                worktree=str(worktree), trail=str(trail), env=["holosphere"],
+                build_dir=str(root / "build"), rev_range="a..b")
+            with mock.patch.object(tst, "_git", return_value=SHA), \
+                 mock.patch.object(
+                     tst, "head_stamp",
+                     return_value=(SHA, "2026-08-03T00:00:00-07:00", "s")), \
+                 mock.patch.object(tst.subprocess, "run", side_effect=fake_pio):
+                rc = tst.cmd_backfill(args)
+            return rc, tst.read_trail(trail)
+
+    def test_unrelinked_env_is_not_recorded_with_the_previous_elf(self):
+        rc, rows = self._backfill(relink=False)
+        self.assertEqual(rc, 0)
+        self.assertEqual(rows, [])
+
+    def test_identical_relink_is_still_recorded(self):
+        rc, rows = self._backfill(relink=True)
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].sha, SHA)
+        self.assertEqual(rows[0].sizes,
+                         tst.regions_from_sections(FIRMWARE))
 
 
 def _row(sha, env, subject="s", date="2026-08-03T00:00:00-07:00", **sizes):

@@ -447,15 +447,26 @@ def cmd_regressions(args) -> int:
     return 0
 
 
+def _elf_stamp(build_dir: Path, env: str) -> int | None:
+    """mtime of an environment's linked ELF in ns, or None when it is absent."""
+    try:
+        return (build_dir / env / ELF_NAME).stat().st_mtime_ns
+    except OSError:
+        return None
+
+
 def cmd_backfill(args) -> int:
     """Build each commit of a rev-range in a worktree and record its sizes.
 
     SLOW: one full three-image firmware link per commit (minutes each).
 
     `pio run` exits non-zero when a commit fails the size gate, but the ELF is
-    LINKED BEFORE the gate runs — so the ELF is read whatever pio's status,
-    otherwise exactly the over-budget commits worth trailing are the ones
-    dropped.
+    LINKED BEFORE the gate runs, so pio's status cannot separate an over-budget
+    commit (worth trailing) from one that never compiled. The ELF mtime can: a
+    relink always restamps it — a full object-cache hit still links — while a
+    failed compile never reaches the linker and leaves the previous commit's
+    ELF in place. An environment whose ELF did not change is skipped, never
+    recorded under this commit's sha.
     """
     worktree = Path(args.worktree)
     if not worktree.is_dir():
@@ -487,12 +498,21 @@ def cmd_backfill(args) -> int:
         pio = ["pio", "run", "-d", str(worktree)]
         for env in todo:
             pio += ["-e", env]
+        before = {env: _elf_stamp(build_dir, env) for env in todo}
         try:
             subprocess.run(pio, check=False)
         except OSError as exc:
             print(f"[size-trail] pio not runnable ({exc})", file=sys.stderr)
             return 2
-        found = collect(build_dir, tuple(todo),
+        linked = [env for env in todo
+                  if _elf_stamp(build_dir, env) != before[env]]
+        for env in todo:
+            if env not in linked:
+                print(f"[size-trail] {sha[:8]}: '{env}' ELF not relinked - "
+                      f"build failed; skipping.", file=sys.stderr)
+        if not linked:
+            continue
+        found = collect(build_dir, tuple(linked),
                         warn=lambda m: print(f"[size-trail] {sha[:8]}: {m}",
                                              file=sys.stderr))
         if not found:
