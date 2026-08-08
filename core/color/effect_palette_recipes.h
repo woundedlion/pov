@@ -6,7 +6,7 @@
 
 #include <array>
 
-#include "core/color/generative_palette.h"
+#include "core/color/color.h"
 
 namespace EffectPaletteRecipes {
 
