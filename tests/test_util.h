@@ -74,6 +74,13 @@ inline void test_wrap_int() {
     int w = wrap(i, 6);
     HS_EXPECT_TRUE(w >= 0 && w < 6);
   }
+  // A non-positive modulus returns x rather than dividing: [0, m) is empty and
+  // INT_MIN % -1 would overflow.
+  HS_EXPECT_EQ(wrap(7, 0), 7);
+  HS_EXPECT_EQ(wrap(7, -3), 7);
+  HS_EXPECT_EQ(wrap(-7, -3), -7);
+  HS_EXPECT_EQ(wrap(std::numeric_limits<int>::min(), -1),
+               std::numeric_limits<int>::min());
 }
 
 // --- wrap(mixed int/float) --------------------------------------------------
