@@ -837,7 +837,17 @@ stereo_noise_warp(const Complex &z, float r_sq, const FastNoiseLite &noise,
   return {Complex(z.re + dx, z.im + dy), sqrtf(dx * dx + dy * dy)};
 }
 
-/** @brief Computes the bump profile from prepared local cap geometry. */
+/**
+ * @brief Computes the bump profile from prepared local cap geometry.
+ * @param params Bump field geometry and gain.
+ * @param r_eff Envelope-scaled footprint radius.
+ * @param d Angular distance from the cap center, < @p r_eff.
+ * @param y Signed polar offset from the cap center, |y| <= @p d.
+ * @return The signed polar displacement (radians).
+ * @details Both bounds are required: past |y| = r_eff the drape term's sine
+ * turns negative while the depth term does too, so the profile grows with |y|
+ * instead of decaying and overruns BumpParams::field_bound().
+ */
 inline float bump_field_profile(const Animation::BumpParams &params,
                                 float r_eff, float d, float y) {
   float abs_y = std::fabs(y);
@@ -873,8 +883,13 @@ bump_cap_hit(const Vector &v, const Animation::BumpParams &params, float &r_eff,
  * @brief Evaluates a bump using a caller-provided signed ring offset.
  * @param v Sample point (unit vector).
  * @param params Bump field geometry and gain.
- * @param y Signed polar offset from the bump center about the stack axis.
+ * @param y Signed polar offset of @p v from the bump center about
+ * params.axis — the same quantity bump_field() derives itself, so it must agree
+ * with @p v; |y| never exceeds the angular distance between them.
  * @return The signed polar displacement (radians).
+ * @details For callers that already hold the offset (a ring stack sharing the
+ * bump axis). A @p y disagreeing with @p v breaks bump_field_profile()'s bound
+ * and with it BumpParams::field_bound().
  */
 inline float bump_field_with_y(const Vector &v,
                                const Animation::BumpParams &params, float y) {
