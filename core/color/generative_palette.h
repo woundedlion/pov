@@ -704,52 +704,54 @@ private:
     const float spread = recipe.hue.spread_turns;
     const float orientation =
         recipe.hue.direction == HueDirection::CLOCKWISE ? -1.0f : 1.0f;
+    // Offsets, not absolute hues: differencing base-shifted hues rounds a
+    // half-turn step to either side of directed_delta's SHORTEST tie.
     float relationship[4] = {};
     uint8_t relationship_count = 3;
     switch (recipe.hue.harmony) {
     case PaletteHarmony::MONOCHROMATIC:
-      relationship[0] = base;
+      relationship[0] = 0.0f;
       relationship_count = 1;
       break;
     case PaletteHarmony::ANALOGOUS:
-      relationship[0] = base - orientation * spread;
-      relationship[1] = base;
-      relationship[2] = base + orientation * spread;
+      relationship[0] = -orientation * spread;
+      relationship[1] = 0.0f;
+      relationship[2] = orientation * spread;
       break;
     case PaletteHarmony::ACCENTED_ANALOGOUS:
-      relationship[0] = base - orientation * spread;
-      relationship[1] = base;
-      relationship[2] = base + orientation * spread;
-      relationship[3] = base + orientation * 0.5f;
+      relationship[0] = -orientation * spread;
+      relationship[1] = 0.0f;
+      relationship[2] = orientation * spread;
+      relationship[3] = orientation * 0.5f;
       relationship_count = 4;
       break;
     case PaletteHarmony::COMPLEMENTARY:
-      relationship[0] = base;
-      relationship[1] = base + orientation * 0.5f;
+      relationship[0] = 0.0f;
+      relationship[1] = orientation * 0.5f;
       relationship_count = 2;
       break;
     case PaletteHarmony::SPLIT_COMPLEMENTARY:
-      relationship[0] = base;
-      relationship[1] = base + orientation * (0.5f - spread);
-      relationship[2] = base + orientation * (0.5f + spread);
+      relationship[0] = 0.0f;
+      relationship[1] = orientation * (0.5f - spread);
+      relationship[2] = orientation * (0.5f + spread);
       break;
     case PaletteHarmony::TRIADIC:
-      relationship[0] = base;
-      relationship[1] = base + orientation / 3.0f;
-      relationship[2] = base + orientation * 2.0f / 3.0f;
+      relationship[0] = 0.0f;
+      relationship[1] = orientation / 3.0f;
+      relationship[2] = orientation * 2.0f / 3.0f;
       break;
     case PaletteHarmony::TETRADIC:
-      relationship[0] = base;
-      relationship[1] = base + orientation * spread;
-      relationship[2] = base + orientation * 0.5f;
-      relationship[3] = base + orientation * (0.5f + spread);
+      relationship[0] = 0.0f;
+      relationship[1] = orientation * spread;
+      relationship[2] = orientation * 0.5f;
+      relationship[3] = orientation * (0.5f + spread);
       relationship_count = 4;
       break;
     case PaletteHarmony::SQUARE:
-      relationship[0] = base;
-      relationship[1] = base + orientation * 0.25f;
-      relationship[2] = base + orientation * 0.5f;
-      relationship[3] = base + orientation * 0.75f;
+      relationship[0] = 0.0f;
+      relationship[1] = orientation * 0.25f;
+      relationship[2] = orientation * 0.5f;
+      relationship[3] = orientation * 0.75f;
       relationship_count = 4;
       break;
     }
@@ -758,6 +760,8 @@ private:
       relationship[i] = relationship[i - 1] +
                         directed_delta(relationship[i] - relationship[i - 1],
                                        recipe.hue.direction);
+    for (int i = 0; i < relationship_count; ++i)
+      relationship[i] += base;
 
     const uint8_t key_count = control_key_count(recipe);
     for (int i = 0; i < key_count; ++i) {
