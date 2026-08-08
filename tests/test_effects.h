@@ -4742,7 +4742,17 @@ inline void test_ringspin_pool_clamped() {
   }
 }
 
-/** @brief Verifies ShapeShifter's initial preset and slider contract. */
+/**
+ * @brief Verifies ShapeShifter's slider contract and preset-row invariants.
+ * @details A preset row is authored artistic data that is retuned freely, so its
+ *          magnitudes (count, sides, amplitude, speed) are not pinned: a golden
+ *          copy of them reds on every intentional retune and reports nothing. The
+ *          invariants a retune must not break are pinned instead — every value
+ *          inside the range register_param bound it to, the structural selections
+ *          each row draws, the non-preset Alpha slider surviving a selection, the
+ *          shape/falloff pairing, and every row landing on a distinct parameter
+ *          vector.
+ */
 inline void test_shapeshifter_preset_defaults() {
   reset_effect_globals();
   ShapeShifter<DEFAULT_W, DEFAULT_H> ss;
@@ -4756,16 +4766,30 @@ inline void test_shapeshifter_preset_defaults() {
     return -1.0f;
   };
 
-  HS_EXPECT_EQ(value("Alpha"), 1.0f);
+  // register_param traps on a default outside its range, but a preset row is
+  // assigned straight into params and never passes through it.
+  auto expect_in_range = [&](const char *label) {
+    HS_CONTEXT(label);
+    for (const auto &def : ss.getParameters()) {
+      HS_CONTEXT(def.name);
+      const float v = def.get();
+      HS_EXPECT_TRUE(std::isfinite(v));
+      HS_EXPECT_GE(v, def.min);
+      HS_EXPECT_LE(v, def.max);
+      if (def.option_count > 0) {
+        HS_EXPECT_EQ(v, std::floor(v));
+        HS_EXPECT_LT(v, static_cast<float>(def.option_count));
+      }
+    }
+  };
+
+  expect_in_range("boot state");
+  HS_EXPECT_EQ(value("Alpha"), 1.0f); // boots fully opaque
   HS_EXPECT_EQ(value("Shape"), 3.0f);
-  HS_EXPECT_EQ(value("Count"), 208.0f);
   HS_EXPECT_EQ(value("Spacing"), 1.0f);
-  HS_EXPECT_EQ(value("Sides"), 7.745f);
   HS_EXPECT_EQ(value("Function"),
                static_cast<float>(
                    ShapeShifter<DEFAULT_W, DEFAULT_H>::PhaseFunction::SINE));
-  HS_EXPECT_EQ(value("Amplitude"), 1.0f);
-  HS_EXPECT_EQ(value("Speed"), 0.016f);
   HS_EXPECT_EQ(value("Opposite"), 0.0f);
   HS_EXPECT_EQ(value("Alpha Falloff"), 1.0f);
 
@@ -4824,73 +4848,39 @@ inline void test_shapeshifter_preset_defaults() {
 
   HS_EXPECT_TRUE(ss.updateParameter("Alpha", 0.37f) == ParamSetResult::APPLIED);
 
+  // Structural selections: which primitive and falloff each row draws. These
+  // pin the index -> row mapping the profile reports are keyed by; the
+  // magnitudes each row sets are deliberately left free.
   const float expected_shapes[] = {3.0f, 1.0f, 3.0f, 2.0f, 3.0f,
                                    1.0f, 1.0f, 1.0f, 2.0f};
   const float expected_falloffs[] = {1.0f, 0.0f, 1.0f, 0.0f, 1.0f,
                                      0.0f, 0.0f, 0.0f, 0.0f};
+  std::vector<std::vector<float>> rows;
   for (size_t i = 0; i < std::size(expected_shapes); ++i) {
+    HS_CONTEXT("preset", static_cast<int>(i));
     ss.profile_select_preset(i);
-    HS_EXPECT_EQ(value("Alpha"), 0.37f);
+    expect_in_range("preset row");
+    HS_EXPECT_EQ(value("Alpha"), 0.37f); // a preset never writes a non-preset
+    HS_EXPECT_TRUE(ss.animations_paused());
     HS_EXPECT_EQ(value("Shape"), expected_shapes[i]);
     HS_EXPECT_EQ(value("Alpha Falloff"), expected_falloffs[i]);
     HS_EXPECT_EQ(value("Shape") == 3.0f, value("Alpha Falloff") == 1.0f);
+
+    std::vector<float> row;
+    for (const auto &def : ss.getParameters())
+      if (def.preset)
+        row.push_back(def.get());
+    rows.push_back(row);
   }
 
-  ss.profile_select_preset(4);
-  HS_EXPECT_EQ(value("Alpha"), 0.37f);
-  HS_EXPECT_EQ(value("Shape"), 3.0f);
-  HS_EXPECT_EQ(value("Count"), 72.0f);
-  HS_EXPECT_EQ(value("Sides"), 4.417f);
-  HS_EXPECT_EQ(value("Function"), 0.0f);
-  HS_EXPECT_EQ(value("Amplitude"), 1.0f);
-  HS_EXPECT_EQ(value("Speed"), 0.0077f);
-  HS_EXPECT_EQ(value("Opposite"), 0.0f);
-  HS_EXPECT_EQ(value("Alpha Falloff"), 1.0f);
-  HS_EXPECT_TRUE(ss.animations_paused());
-
-  ss.profile_select_preset(5);
-  HS_EXPECT_EQ(value("Alpha"), 0.37f);
-  HS_EXPECT_EQ(value("Shape"), 1.0f);
-  HS_EXPECT_EQ(value("Count"), 128.0f);
-  HS_EXPECT_EQ(value("Sides"), 5.561f);
-  HS_EXPECT_EQ(value("Function"), 0.0f);
-  HS_EXPECT_EQ(value("Amplitude"), 4.0f);
-  HS_EXPECT_EQ(value("Speed"), 0.0405f);
-  HS_EXPECT_EQ(value("Opposite"), 1.0f);
-  HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
-
-  ss.profile_select_preset(6);
-  HS_EXPECT_EQ(value("Alpha"), 0.37f);
-  HS_EXPECT_EQ(value("Shape"), 1.0f);
-  HS_EXPECT_EQ(value("Count"), 144.0f);
-  HS_EXPECT_EQ(value("Sides"), 4.001f);
-  HS_EXPECT_EQ(value("Function"), 0.0f);
-  HS_EXPECT_EQ(value("Amplitude"), 2.377f);
-  HS_EXPECT_EQ(value("Speed"), 0.027086f);
-  HS_EXPECT_EQ(value("Opposite"), 0.0f);
-  HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
-
-  ss.profile_select_preset(7);
-  HS_EXPECT_EQ(value("Alpha"), 0.37f);
-  HS_EXPECT_EQ(value("Shape"), 1.0f);
-  HS_EXPECT_EQ(value("Count"), 144.0f);
-  HS_EXPECT_EQ(value("Sides"), 3.195f);
-  HS_EXPECT_EQ(value("Function"), 0.0f);
-  HS_EXPECT_EQ(value("Amplitude"), 7.0696f);
-  HS_EXPECT_EQ(value("Speed"), 0.0113f);
-  HS_EXPECT_EQ(value("Opposite"), 0.0f);
-  HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
-
-  ss.profile_select_preset(8);
-  HS_EXPECT_EQ(value("Alpha"), 0.37f);
-  HS_EXPECT_EQ(value("Shape"), 2.0f);
-  HS_EXPECT_EQ(value("Count"), 72.0f);
-  HS_EXPECT_EQ(value("Sides"), 3.0f);
-  HS_EXPECT_EQ(value("Function"), 0.0f);
-  HS_EXPECT_EQ(value("Amplitude"), 1.8721f);
-  HS_EXPECT_EQ(value("Speed"), 0.00752f);
-  HS_EXPECT_EQ(value("Opposite"), 1.0f);
-  HS_EXPECT_EQ(value("Alpha Falloff"), 0.0f);
+  // Two rows that collapse onto the same parameter vector are one preset the
+  // cycle visits twice, which no range or selection check above would show.
+  for (size_t i = 0; i < rows.size(); ++i)
+    for (size_t j = i + 1; j < rows.size(); ++j) {
+      HS_CONTEXT("preset pair", static_cast<int>(i), static_cast<int>(j));
+      HS_EXPECT(rows[i] != rows[j],
+                "each ShapeShifter preset must be distinct");
+    }
 }
 
 /**
