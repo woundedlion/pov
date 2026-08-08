@@ -55,6 +55,9 @@ public:
   struct Diagnostic {
     float L;
     float C;
+    /** Gamut-relative chroma: the authored control under a gamut-relative
+     *  basis, otherwise the realized C / C_max. Same meaning on every color
+     *  path. */
     float q;
     float C_max;
     float h_path;
@@ -1065,6 +1068,13 @@ private:
     return std::max(0.0f, key.C);
   }
 
+  HS_COLD_MEMBER float diagnostic_q(float C, float boundary,
+                                    float control) const {
+    if (chroma_basis == ChromaBasis::LOCAL_GAMUT)
+      return control;
+    return boundary > 0.0f ? C / boundary : control;
+  }
+
   HS_COLD_MEMBER OKLCH resolve_key(const ControlKey &key,
                                    bool chromatic) const {
     const float h_path = chromatic ? key.h : 0.0f;
@@ -1084,8 +1094,8 @@ private:
     const OKLCH lch = oklab_to_oklch(lab);
     const float h_path = lch.C >= OKLCH_ACHROMATIC_C ? lch.h : 0.0f;
     const float boundary = gamut_continuous_chroma(lch.L, h_path);
-    const float q = boundary > 0.0f ? lch.C / boundary : control;
-    return {lab, q, h_path, h_path, boundary};
+    return {lab, diagnostic_q(lch.C, boundary, control), h_path, h_path,
+            boundary};
   }
 
   HS_COLD_MEMBER PathEvaluation
@@ -1106,10 +1116,8 @@ private:
     const float C = chroma_basis == ChromaBasis::LOCAL_GAMUT
                         ? std::min(control, headroom) * boundary
                         : std::max(0.0f, control);
-    const float q = chroma_basis == ChromaBasis::LOCAL_GAMUT
-                        ? control
-                        : (boundary > 0.0f ? C / boundary : 0.0f);
-    return {oklch_to_oklab({L, C, h_final}), q, h_path, h_final, boundary};
+    return {oklch_to_oklab({L, C, h_final}), diagnostic_q(C, boundary, control),
+            h_path, h_final, boundary};
   }
 
   HS_COLD_MEMBER Evaluated finish_evaluation(const PathEvaluation &path) const {
