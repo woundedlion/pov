@@ -19,35 +19,12 @@
 
 #include "core/color/color.h"
 #include "core/color/palettes.h"
+#include "tests/color_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
 namespace palettes_tests {
-
-/**
- * @brief Converts a realized Pixel color back to OKLCH for hue inspection.
- * @param c The color to convert.
- * @return The OKLCH of c (via the exact forward transform).
- */
-inline OKLCH color_to_oklch(const Color4 &c) {
-  float r = c.color.r / 65535.0f, g = c.color.g / 65535.0f,
-        b = c.color.b / 65535.0f;
-  return oklab_to_oklch(linear_rgb_to_oklab(r, g, b));
-}
-
-/**
- * @brief Wraps a hue difference into (-PI, PI] for circular comparison.
- * @param dh Raw hue difference in radians.
- * @return The equivalent difference in (-PI, PI].
- */
-inline float wrap_hue(float dh) {
-  while (dh > PI_F)
-    dh -= 2.0f * PI_F;
-  while (dh < -PI_F)
-    dh += 2.0f * PI_F;
-  return dh;
-}
 
 /**
  * @brief Pins named ProceduralPalette endpoints against golden 16-bit colors.
@@ -136,18 +113,18 @@ inline void test_named_procedural_palette_endpoints() {
  *          contract the named generative palettes rely on.
  */
 inline void test_named_palette_hue_short_arc() {
-  OKLCH a = color_to_oklch(Palettes::UNDERSEA.get(0.0f));
-  OKLCH b = color_to_oklch(Palettes::UNDERSEA.get(1.0f));
+  OKLCH a = pixel_to_oklch(Palettes::UNDERSEA.get(0.0f).color);
+  OKLCH b = pixel_to_oklch(Palettes::UNDERSEA.get(1.0f).color);
   // Precondition: endpoints really do straddle the seam (numeric gap > PI).
   HS_EXPECT_GT(std::fabs(b.h - a.h), PI_F);
 
   OKLCH mid = lerp_oklch(a, b, 0.5f);
   // The short-arc midpoint is the circular average of the two hues.
-  float short_mid = a.h + 0.5f * wrap_hue(b.h - a.h);
-  HS_EXPECT_NEAR(wrap_hue(mid.h - short_mid), 0.0f, 1e-3f);
+  float short_mid = a.h + 0.5f * wrap_hue_delta(b.h - a.h);
+  HS_EXPECT_NEAR(wrap_hue_delta(mid.h - short_mid), 0.0f, 1e-3f);
   // ...and it is NOT the naive through-zero average.
   float naive_mid = 0.5f * (a.h + b.h);
-  HS_EXPECT_GT(std::fabs(wrap_hue(mid.h - naive_mid)), 1.0f);
+  HS_EXPECT_GT(std::fabs(wrap_hue_delta(mid.h - naive_mid)), 1.0f);
 }
 
 /**
