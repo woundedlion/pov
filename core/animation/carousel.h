@@ -161,6 +161,9 @@ public:
    * sequential segue the outgoing sprite has finished by the time the next
    * transition is scheduled. Callers that regenerate both slots before the next
    * draw reclaim a whole MeshState over compact_keep_front.
+   * @note The front index is left as it was and now names an empty slot, so a
+   * caller that regenerates only one slot must set_front() to it; otherwise
+   * current() renders nothing.
    */
   template <typename AfterReset> void compact_drop_all(AfterReset after_reset) {
     slots[0] = MeshState();
