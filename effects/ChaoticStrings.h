@@ -139,7 +139,6 @@ public:
     noise_xform.template_params.amplitude = params.jitter_amp;
     noise_xform.template_params.frequency = params.noise_freq;
     noise_xform.template_params.speed = params.speed;
-    noise_xform.template_params.sync();
 
     // m2 * domain = 5 * 2*PI: path.f(1) == path.f(0), so the curve closes.
     static constexpr LissajousParams PATH_CONFIG{12.0f, 5.0f, 0, 2 * PI_F};
