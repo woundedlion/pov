@@ -72,7 +72,8 @@ public:
    * @param entry_list Caller-owned entry array; must outlive the cycler.
    * @param count Number of entries in [1, MAX_ENTRIES]; 1 shows a static
    * palette.
-   * @param dwell_frames Frames to hold each entry before fading, >= 1.
+   * @param dwell_frames Frames to hold each entry before fading; 0 chains
+   * fades back to back for a continuously shifting palette.
    * @param fade_frames Frames each fade spans, >= 1.
    * @param easing_fn Optional easing over fade progress; null is linear.
    * @param paused_flag Optional pause gate; freezes step() while set and true.
@@ -83,8 +84,8 @@ public:
                            const bool *paused_flag = nullptr) {
     HS_CHECK(entry_list != nullptr && count >= 1 && count <= MAX_ENTRIES,
              "PaletteCycler entry count must be in [1, MAX_ENTRIES]");
-    HS_CHECK(dwell_frames >= 1 && fade_frames >= 1,
-             "PaletteCycler dwell and fade must be at least one frame");
+    HS_CHECK(dwell_frames >= 0 && fade_frames >= 1,
+             "PaletteCycler dwell must be >= 0 and fade >= 1 frames");
     for (int i = 0; i < count; ++i)
       HS_CHECK(entry_list[i].source != nullptr ||
                    entry_list[i].baked != nullptr,
