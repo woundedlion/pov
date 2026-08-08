@@ -273,8 +273,11 @@ add_test(NAME unit_vendor_patches COMMAND ${CMAKE_COMMAND}
 option(HS_REQUIRE_GENERATORS
     "Fail (rather than skip) the generated-artifact gates when python3/numpy is missing" OFF)
 
+# NO_CACHE: a cached NOTFOUND would outlive installing an interpreter and leave
+# the four gates below permanently skipped, which a green run does not show.
+find_program(HS_PYTHON NAMES python3 python NO_CACHE)
+
 # Pin core/color/color_luts.h against its generator.
-find_program(HS_PYTHON NAMES python3 python)
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DGENERATOR=${HS_ROOT}/scripts/generate_luts.py
