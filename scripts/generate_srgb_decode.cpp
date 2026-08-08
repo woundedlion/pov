@@ -98,8 +98,6 @@ int main(int argc, char **argv) {
                1 << SRGB_DECODE_HIGH_SHIFT);
   std::fprintf(f,
                "// Entry: low byte = base output, high byte = step point.\n");
-  std::fprintf(f, "inline constexpr int SRGB_DECODE_VSPLIT = %d;\n",
-               SRGB_DECODE_VSPLIT);
   auto emit = [&](const char *name, const uint16_t *t, int n) {
     std::fprintf(f, "// clang-format off\n");
     std::fprintf(f,

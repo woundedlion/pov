@@ -871,7 +871,7 @@ jobs:
           cmake --build --preset tests --target srgb_decode_gen
 
       - name: Regenerate the decode tables and diff the full header
-        # Diff the FULL text: the banner, the SRGB_DECODE_VSPLIT constant, the
+        # Diff the FULL text: the banner, the recorded bucket geometry, the
         # array names and the flash-section marker gate alongside the numbers. The
         # generator is deterministic integer work over linear_to_srgb_lut, so any
         # difference is a real divergence — a hand-edit of the table, a
