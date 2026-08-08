@@ -70,8 +70,8 @@ inline float wrap_t(float t) {
  * @param m The modulo base.
  * @return The wrapped value in the range [0, m), or x when m == 0.
  * @details A zero modulus SIGFPEs on the host while the Cortex-M7 SDIV returns
- *          x; return x to match the device, mirroring the m == 0 guards in
- *          map()/addmod8().
+ *          x; return x to match the device, mirroring the m == 0 guard in
+ *          map().
  */
 inline int wrap(int x, int m) {
   if (m == 0)

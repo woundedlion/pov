@@ -159,6 +159,28 @@ inline void test_map_degenerate_range() {
 }
 
 /**
+ * @brief Verifies addmod8 reduces the 8-bit-wrapped sum, as FastLED does.
+ * @details FastLED subtracts m repeatedly from the uint8_t sum, so a sum past
+ *          255 wraps before the reduction. Its m == 0 loop never terminates on
+ *          the device; the host returns the wrapped sum.
+ */
+inline void test_addmod8_wraps_before_reducing() {
+  HS_EXPECT_EQ(addmod8(10, 20, 16), 14); // no wrap: 30 % 16
+  HS_EXPECT_EQ(addmod8(200, 100, 7), 2); // wraps to 44, then 44 % 7
+  HS_EXPECT_EQ(addmod8(255, 1, 16), 0);  // wraps to 0
+  HS_EXPECT_EQ(addmod8(250, 10, 0), 4);  // m == 0 -> wrapped sum
+  for (int a = 0; a <= 255; ++a) {
+    for (int b = 0; b <= 255; ++b) {
+      uint8_t ref = static_cast<uint8_t>(a + b);
+      while (ref >= 7)
+        ref -= 7;
+      HS_EXPECT_EQ(addmod8(static_cast<uint8_t>(a), static_cast<uint8_t>(b), 7),
+                   ref);
+    }
+  }
+}
+
+/**
  * @brief Verifies random()/random8() do not divide by zero on a degenerate
  *        range and that a normal range stays in bounds.
  * @details Two cases with different provenance:
@@ -502,6 +524,7 @@ inline int run_platform_tests() {
   test_scale_golden();
   test_map8_fastled_semantics();
   test_map_degenerate_range();
+  test_addmod8_wraps_before_reducing();
   test_random_degenerate_range();
   test_rand_f_half_open();
   test_epoch_seed();
