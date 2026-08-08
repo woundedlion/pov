@@ -53,37 +53,23 @@ HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
                                  PaletteRecipes::hue_turns(219), 0.86f);
 }
 
+/** @brief The liquid recipe at an arbitrary hue rotation; every rotation is
+ *  morph-compatible with every other
+ *  (see test_shader_ball_palette_rotations_morph_compatible). */
+HS_FLASH_MEMBER inline PaletteRecipe
+shader_ball_liquid_at(float rotation_turns) {
+  constexpr float BASE_TURNS = 0.9348811f;
+  return PaletteRecipes::balanced_analogous(BASE_TURNS + rotation_turns);
+}
+
 HS_FLASH_MEMBER inline PaletteRecipe shader_ball_liquid() {
-  constexpr float BASE_TURNS = 0.2933125f;
-  PaletteRecipe recipe;
-  recipe.domain = PaletteDomain::STRAIGHT;
-  recipe.hue.mode = HueMode::CUSTOM;
-  recipe.hue.custom_turns[0] = BASE_TURNS;
-  recipe.hue.custom_turns[1] = BASE_TURNS + 0.5f;
-  recipe.hue.custom_turns[2] = BASE_TURNS;
-  recipe.lightness.curve = AxisCurve::CUSTOM;
-  recipe.lightness.custom[0] = 0.8798438f;
-  recipe.lightness.custom[1] = 0.1623438f;
-  recipe.lightness.custom[2] = 0.8798438f;
-  recipe.chroma.center = 0.8871875f;
-  return recipe;
+  return shader_ball_liquid_at(0.0f);
 }
 
 HS_FLASH_MEMBER inline PaletteRecipe shader_ball_flyby() {
   return PaletteRecipes::profile(
       PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
       AxisCurve::CONSTANT, PaletteRecipes::hue_turns(42));
-}
-
-/** @brief The liquid recipe with its key geometry rotated by @p rotation_turns;
- *  every rotation is morph-compatible with every other
- *  (see test_shader_ball_palette_rotations_morph_compatible). */
-HS_FLASH_MEMBER inline PaletteRecipe
-shader_ball_liquid_at(float rotation_turns) {
-  PaletteRecipe recipe = shader_ball_liquid();
-  for (float &turns : recipe.hue.custom_turns)
-    turns += rotation_turns;
-  return recipe;
 }
 
 /** @brief The flyby split-complementary profile at an arbitrary base hue. */
