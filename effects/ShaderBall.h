@@ -245,6 +245,9 @@ private:
   static float sample_pattern(const Complex &p, float complexity,
                               float pattern_mix, float sin_phase,
                               float phase2) {
+    if (pattern_mix == 1.0f)
+      return fast_sinf(p.re + sin_phase) * fast_cosf(p.im - phase2);
+
     float re = p.re;
     float im = p.im;
     if (complexity != 0.0f) {
@@ -255,8 +258,6 @@ private:
     if (pattern_mix == 0.0f)
       return coupled;
     const float direct = fast_sinf(p.re + sin_phase) * fast_cosf(p.im - phase2);
-    if (pattern_mix == 1.0f)
-      return direct;
     return hs::lerp(coupled, direct, pattern_mix);
   }
 
@@ -590,7 +591,7 @@ private:
   // lens_mix, hue_shift, value_fade) must sit exactly on 0 or 1 whenever the
   // matching per-pixel skip is intended: Animation::Lerp lands bit-exactly
   // only on those endpoints, and a near-0 value un-latches the skip for good.
-  static constexpr std::array<PresetEntry<Params>, 12> PRESETS = {{
+  static constexpr std::array<PresetEntry<Params>, 13> PRESETS = {{
       // Wandering liquid: mild, deep, then fine-grained cross-coupling.
       {{3.0f, 0.5f, 0.5f, 5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
         0.15f, 0.05f, 0.0f, 0.0f}},
@@ -601,7 +602,10 @@ private:
       {{3.0f, 0.0f, 0.5f, 15.763f, 0.1f, 2.950552f, 0.0f, 0.8f, 1.0f, 0.0f,
         1.0f, 0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
       {{0.1f, 13.47f, 0.5f, 3.28f, 0.1f, 2.463f, 0.0f, 0.8f, 1.209f, 0.03725f,
-        0.252f, 0.066f, 0.19710001f, 0.02f, 0.011f, 0.0f}},
+        0.252f, 0.0f, 0.19710001f, 0.02f, 0.011f, 0.0f}},
+      {{1.8421826f, 5.377862f, 0.5f, 15.972f, 0.1f, 2.7558982f, 0.536f, 0.8f,
+        1.0834427f, 0.014871964f, 0.70136297f, 0.0f, 0.16880456f, 0.038022578f,
+        0.004391721f, 0.0f}},
       // Spinning grid fly-throughs.
       {{47.752f, 11.55f, 0.3f, 2.7f, 0.586f, 0.0f, 1.0f, 0.7f, 1.55f,
         ORBIT_SPIN_RATE, 0.0f, 0.0f, 0.0f, 0.0f, 0.097f, 1.0f}},
@@ -627,8 +631,8 @@ private:
                 "range exposes the presets, it does not clamp them)");
 
   /** @brief Per-preset choreography, consumed on entry; the cross-family
-   *  boundaries (rows 3 and 11) blend parallel. */
-  static constexpr std::array<Choreo, 12> CHOREO = {{
+   *  boundaries (rows 3 and 12) blend parallel. */
+  static constexpr std::array<Choreo, 13> CHOREO = {{
       {30, 90, 60, true},
       {30, 90, 60, true},
       {30, 90, 60, true},
@@ -641,11 +645,12 @@ private:
       {0, 0, 480, false},
       {0, 0, 480, false},
       {0, 0, 480, false},
+      {0, 0, 480, false},
   }};
   static_assert(CHOREO.size() == PRESETS.size(),
                 "CHOREO must carry one entry per preset");
 
-  Presets<Params, 12> presets{PRESETS};
+  Presets<Params, 13> presets{PRESETS};
 
   Blend blend{PRESETS[0].params}; /**< Live params; init() reloads from
                                      presets. */

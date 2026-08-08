@@ -4656,13 +4656,19 @@ inline void test_shaderball_preset_roster() {
                                 0.0f,  0.8f,  1.0f, 0.0f,    1.0f, 0.0f,
                                 0.15f, 0.05f, 0.0f, 0.0f};
   constexpr WB::Params NEW_PRESET{
-      0.1f,   13.47f,   0.5f,   3.28f,  0.1f,        2.463f, 0.0f,   0.8f,
-      1.209f, 0.03725f, 0.252f, 0.066f, 0.19710001f, 0.02f,  0.011f, 0.0f};
+      0.1f,   13.47f,   0.5f,   3.28f, 0.1f,        2.463f, 0.0f,   0.8f,
+      1.209f, 0.03725f, 0.252f, 0.0f,  0.19710001f, 0.02f,  0.011f, 0.0f};
+  constexpr WB::Params MIXED_PRESET{
+      1.8421826f,  5.377862f,    0.5f,         15.972f,
+      0.1f,        2.7558982f,   0.536f,       0.8f,
+      1.0834427f,  0.014871964f, 0.70136297f,  0.0f,
+      0.16880456f, 0.038022578f, 0.004391721f, 0.0f};
   const auto &presets = WB::presets();
-  HS_EXPECT_EQ(presets.size(), size_t(12));
+  HS_EXPECT_EQ(presets.size(), size_t(13));
   for (auto field : WB::Params::FIELDS) {
     HS_EXPECT_EQ(presets[3].params.*field, EXPECTED.*field);
     HS_EXPECT_EQ(presets[4].params.*field, NEW_PRESET.*field);
+    HS_EXPECT_EQ(presets[5].params.*field, MIXED_PRESET.*field);
   }
 }
 
