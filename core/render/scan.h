@@ -309,7 +309,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   // chain. Per-call bump scope; norm is cleared per row below.
   //
   // intervals holds a top-level shape's full per-row emission. The widest top
-  // node is Subtract/Intersection with both children at INTERVAL_SPAN_CAP:
+  // node is Intersection with both children at INTERVAL_SPAN_CAP:
   // |A|+|B|+2 == 2*INTERVAL_SPAN_CAP+2. norm holds one seam-split per span, so 2x.
   ScratchScope scratch(scratch_arena_b);
   static constexpr size_t TOP_SPAN_CAP = 2 * SDF::INTERVAL_SPAN_CAP + 2;
@@ -317,7 +317,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   using NormBuf = StaticCircularBuffer<SDF::Interval, 2 * TOP_SPAN_CAP>;
   static_assert(IntervalBuf::CAPACITY >= SDF::MergedIntervalBuffer::CAPACITY,
                 "scan_region intervals must hold the largest top-level CSG "
-                "emission (Subtract/Intersection: |A|+|B|+2)");
+                "emission (Intersection: |A|+|B|+2)");
   static_assert(NormBuf::CAPACITY == 2 * IntervalBuf::CAPACITY,
                 "norm must hold 2 spans per input interval (seam split)");
   auto &intervals =

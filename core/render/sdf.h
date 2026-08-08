@@ -218,13 +218,10 @@ template <typename A, typename B> struct sdf_max_spans<Intersection<A, B>> {
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
 };
-// Subtract seam-splits each child into a [0, W) frame before differencing; each
-// child grows by at most one (norm_a <= |A|+1, norm_b <= |B|+1). The set
-// difference splits an A span once per enclosed (disjoint) B span, so the
-// output is bounded by |norm_a| + |norm_b| = |A| + |B| + 2.
+// Subtract emits the minuend seam-split into a [0, W) frame; only one span
+// straddles θ=0 in a row, so the count grows by at most one.
 template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
-  static constexpr size_t value =
-      sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
+  static constexpr size_t value = sdf_max_spans<A>::value + 1;
 };
 
 /** True when a shape's distance() reports a usable signed distance outside its
@@ -1614,12 +1611,11 @@ template <typename A, typename B> struct Subtract {
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Subtract children must be SDF shapes (is_solid)");
-  // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP)
-  // before differencing, so a child that could emit more spans must be rejected
-  // at compile time rather than trapping in push_interval at runtime.
-  static_assert(sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP &&
-                    sdf_max_spans<B>::value <= INTERVAL_SPAN_CAP,
-                "nested CSG Subtract child exceeds IntervalBuffer capacity; "
+  // The minuend is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP)
+  // before the seam split, so a minuend that could emit more spans must be
+  // rejected at compile time rather than trapping in push_interval at runtime.
+  static_assert(sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP,
+                "nested CSG Subtract minuend exceeds IntervalBuffer capacity; "
                 "flatten the nesting or raise INTERVAL_SPAN_CAP");
 
   /**
@@ -1639,20 +1635,19 @@ template <typename A, typename B> struct Subtract {
   }
 
   /**
-   * @brief Emits A's intervals with B's overlapping intervals removed.
+   * @brief Emits the minuend's intervals, seam-split into [0, W).
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
    * @tparam OutputIt Sink type invoked as out(float start, float end).
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
-   * @return True if the row was handled; false requests a full scan whenever A
-   *         or B falls back (B's fallback cannot be treated as full coverage).
+   * @return True if the row was handled; false requests a full scan when A
+   *         falls back.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     ScratchScope scratch(scratch_arena_b);
     IntervalBuffer &intervals_a = scratch_spans<IntervalBuffer>(scratch);
-    IntervalBuffer &intervals_b = scratch_spans<IntervalBuffer>(scratch);
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
@@ -1665,107 +1660,22 @@ template <typename A, typename B> struct Subtract {
     if (intervals_a.is_empty())
       return true;
 
-    // A stroke subtrahend's edge-bands can coalesce into one chord spanning the
-    // stroke's hollow interior; subtracting that would carve A's interior. So
-    // for a non-solid B, emit A's spans (seam-split into [0, W)) and let
-    // per-pixel max(A, -B) carve exactly the stroke band — with no horizontal
-    // culling, so Subtract<solid, stroke> pays full A-coverage shading.
-    if constexpr (!B::is_solid) {
-      constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
-      static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP,
-                    "post-seam-split span count exceeds norm buffer capacity");
-      using NormBuffer = StaticCircularBuffer<Interval, SEAM_SPLIT_CAP>;
-      NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
-      normalize_intervals_to_range<W>(intervals_a, norm_a);
-      for (size_t i = 0; i < norm_a.size(); ++i)
-        out(norm_a[i].first, norm_a[i].second);
-      return true;
-    }
-
-    bool has_b = b.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) {
-          push_interval(intervals_b, start, end);
-        });
-
-    // B's fallback means "no intervals produced", not "covers the row": without
-    // B's intervals the set difference is undefined, so request a full-row scan
-    // and let per-pixel max(A, -B) handle it. Emitting nothing would erase A.
-    if (!has_b)
-      return false;
-
-    // B produced no intervals: it removes nothing, so pass A through raw.
-    if (intervals_b.is_empty()) {
-      for (size_t i = 0; i < intervals_a.size(); ++i)
-        out(intervals_a[i].first, intervals_a[i].second);
-      return true;
-    }
-
-    // Normalize both children into [0, W) (seam-split) before differencing: a
-    // band straddling θ=0 can be emitted by A and B in different wrap frames,
-    // and the raw-coordinate disjointness test below would then miss the
-    // overlap and under-carve at the seam. Seam-splitting at most doubles each
-    // child's span count, so the buffers are sized 2x.
-    //
-    // Output bound: the set difference splits an A span once per enclosed B
-    // span (B spans disjoint), so at most |norm_a| + |norm_b| spans. Only one
-    // span per child straddles θ=0 in a row, so the real maximum is
-    // sdf_max_spans<A> + sdf_max_spans<B> + 2; reaching even
-    // 2*INTERVAL_SPAN_CAP would require both children to emit INTERVAL_SPAN_CAP
-    // disjoint arcs in a single row, which no SDF shape does. push_interval
-    // traps (fail-fast) if that ever holds.
+    // A child's spans bound its coverage rather than matching it: a polygon or
+    // star emits its circumscribed cap, and every cap row is padded a pixel
+    // wide for AA. Differencing those bounds would cull columns B does not
+    // cover — a star's notches, the carve-edge AA fringe — and a stroke B's
+    // edge-bands can coalesce into one chord spanning its hollow interior. So
+    // emit A's spans (seam-split into [0, W)) and let per-pixel max(A, -B)
+    // carve exactly B, with no horizontal culling: Subtract pays full
+    // A-coverage shading.
     constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
-    static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
-                      2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,
+    static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP,
                   "post-seam-split span count exceeds norm buffer capacity");
     using NormBuffer = StaticCircularBuffer<Interval, SEAM_SPLIT_CAP>;
     NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
-    NormBuffer &norm_b = scratch_spans<NormBuffer>(scratch);
     normalize_intervals_to_range<W>(intervals_a, norm_a);
-    normalize_intervals_to_range<W>(intervals_b, norm_b);
-
-    // The set-difference loop and scan_region's coalescer both require
-    // start-sorted intervals; the seam split above can reorder them.
-    sort_intervals_by_start(norm_a);
-    sort_intervals_by_start(norm_b);
-
-    // Set difference: for each A interval, subtract all overlapping B
-    // intervals.
-    for (size_t ai = 0; ai < norm_a.size(); ++ai) {
-      float cur_start = norm_a[ai].first;
-      float cur_end = norm_a[ai].second;
-
-      for (size_t bi = 0; bi < norm_b.size(); ++bi) {
-        float bs = norm_b[bi].first;
-        float be = norm_b[bi].second;
-
-        // No overlap
-        if (be <= cur_start || bs >= cur_end)
-          continue;
-
-        // B covers the left portion: emit nothing, shrink from left
-        if (bs <= cur_start) {
-          cur_start = be;
-          if (cur_start >= cur_end)
-            break;
-          continue;
-        }
-
-        // B covers the right portion: shrink from right
-        if (be >= cur_end) {
-          cur_end = bs;
-          if (cur_start >= cur_end)
-            break;
-          continue;
-        }
-
-        // B splits A: emit left piece, continue with right piece
-        out(cur_start, bs);
-        cur_start = be;
-      }
-
-      if (cur_start < cur_end)
-        out(cur_start, cur_end);
-    }
+    for (size_t i = 0; i < norm_a.size(); ++i)
+      out(norm_a[i].first, norm_a[i].second);
     return true;
   }
 
