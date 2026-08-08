@@ -2191,6 +2191,7 @@ inline int run_color_tests() {
   test_generative_palette_local_gamut_stays_in_gamut();
   test_generative_palette_domain_invariants();
   test_generative_palette_snapshot_lerp();
+  test_generative_palette_snapshot_lerp_closes_loop();
   test_generative_palette_cartesian_path_neutralizes_midpoint();
   test_generative_palette_rejects_unavailable_path_minimum();
   test_generative_palette_morph_compatible();

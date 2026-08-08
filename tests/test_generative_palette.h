@@ -323,6 +323,19 @@ inline void test_generative_palette_snapshot_lerp() {
   HS_EXPECT_EQ(std::memcmp(&target, &last, sizeof(last)), 0);
 }
 
+inline void test_generative_palette_snapshot_lerp_closes_loop() {
+  GenerativePalette morph(PaletteRecipes::isolight_spectral_loop(0.13f));
+  const GenerativePalette target(PaletteRecipes::isolight_spectral_loop(0.37f));
+  morph.lerp(morph.snapshot(), target.snapshot(), 1.0f);
+  for (int i = 0; i <= 16; ++i) {
+    const Pixel landed = morph.get(i / 16.0f).color;
+    const Pixel expected = target.get(i / 16.0f).color;
+    HS_EXPECT_EQ(landed.r, expected.r);
+    HS_EXPECT_EQ(landed.g, expected.g);
+    HS_EXPECT_EQ(landed.b, expected.b);
+  }
+}
+
 inline void test_generative_palette_cartesian_path_neutralizes_midpoint() {
   PaletteRecipe arc_recipe = PaletteRecipes::profile(
       PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY,

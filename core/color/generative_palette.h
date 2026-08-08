@@ -202,18 +202,38 @@ public:
         keys[0].h + closing_from + (closing_to - closing_from) * amount;
   }
 
+  /**
+   * @brief Morphs this palette's keys between two snapshots.
+   * @param from Source keys (amount = 0).
+   * @param to Target keys (amount = 1).
+   * @param amount Blend amount; clamped to [0, 1].
+   * @details Keeps this palette's evaluation policy. Snapshots carry no
+   * closing hue, so a LOOP domain keeps its own closing travel, re-anchored to
+   * the morphed first key.
+   */
   HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to,
                            float amount) {
     amount = hs::clamp(amount, 0.0f, 1.0f);
-    if (amount == 0.0f) {
+    const float closing_travel = closing_hue - keys[0].h;
+    if (amount == 0.0f)
       assign(from);
-      return;
-    }
-    if (amount == 1.0f) {
+    else if (amount == 1.0f)
       assign(to);
-      return;
-    }
+    else
+      lerp_keys(from, to, amount);
+    closing_hue = keys[0].h + closing_travel;
+  }
 
+  HS_COLD_MEMBER Color4 get(float t) const override {
+    const LinRGB rgb = oklab_to_linear_rgb_gamut(evaluate_path(t).lab);
+    return Color4(Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
+                        float_to_pixel16(rgb.b)),
+                  1.0f);
+  }
+
+private:
+  HS_COLD_MEMBER void lerp_keys(const Snapshot &from, const Snapshot &to,
+                                float amount) {
     // Mixed axis curves morph through CUSTOM: the per-key samples below carry
     // each side's own curve, while a non-CUSTOM curve would ignore them and
     // evaluate the lerped low/high — wrong for the CUSTOM side, and a pop at
@@ -276,14 +296,6 @@ public:
       keys[i] = {};
   }
 
-  HS_COLD_MEMBER Color4 get(float t) const override {
-    const LinRGB rgb = oklab_to_linear_rgb_gamut(evaluate_path(t).lab);
-    return Color4(Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
-                        float_to_pixel16(rgb.b)),
-                  1.0f);
-  }
-
-private:
   struct Unchecked {};
 
   struct Segment {
