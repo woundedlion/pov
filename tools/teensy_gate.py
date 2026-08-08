@@ -147,6 +147,12 @@ _NON_ALLOC_SECTIONS = (
     ".symtab", ".strtab", ".shstrtab", ".stab",
 )
 
+# `size -A` prefaces its rows with a `<file> :` header. The file is the ELF path
+# as invoked, so it commonly starts with '.' (`.pio/build/<env>/firmware.elf`)
+# and would otherwise read as a malformed section row. No section row ends in
+# ':', so the trailing colon identifies the header without matching real rows.
+_SIZE_A_FILE_HEADER_RE = re.compile(r"^\S+\s*:$")
+
 
 class SizeAFormatError(ValueError):
     pass
@@ -156,7 +162,8 @@ def fallback_sizes_from_size_a(text: str) -> dict[str, dict[str, int]]:
     """Validate `size -A` output and synthesize Teensy budget regions."""
     malformed = [line.strip() for line in text.splitlines()
                  if line.strip().startswith(".")
-                 and not _SIZE_A_RE.match(line.strip())]
+                 and not _SIZE_A_RE.match(line.strip())
+                 and not _SIZE_A_FILE_HEADER_RE.match(line.strip())]
     if malformed:
         raise SizeAFormatError(
             f"malformed section row {malformed[0]!r}")
