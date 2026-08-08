@@ -18,8 +18,9 @@
  */
 namespace MeshOps {
 
-// `narrow_index` (the trapping size_t -> uint16_t topology-index cast) lives in
-// mesh.h so the Conway and Hankin operators share a single guarded narrowing.
+// `narrow_index` (the trapping size_t -> uint16_t topology-index cast) and
+// `vertex_orbit` live in mesh.h so the Conway and Hankin operators share one
+// guarded narrowing and one orbit walk.
 
 HS_O3_BEGIN
 
@@ -142,43 +143,6 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
     he_idx = he.next;
   } while (he_idx != HE_NONE && he_idx != start);
   return n;
-}
-
-/**
- * @brief Walk all half-edges orbiting a vertex, invoking visitor(curr_idx) for
- *   each.
- * @tparam OrbitMode Traversal direction: 'P' = prev->pair; 'N' = pair->next.
- * @tparam VisitorFn Callable accepting the current half-edge index (uint16_t).
- * @param he_mesh Half-edge connectivity to walk.
- * @param start_idx Half-edge index at which the orbit begins.
- * @param visitor Invoked once per visited half-edge with its index.
- */
-template <char OrbitMode, typename VisitorFn>
-inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
-                         VisitorFn &&visitor) {
-  uint16_t curr_idx = start_idx;
-  int count = 0;
-  // Anti-hang guard: a corrupt/non-manifold half-edge graph would otherwise
-  // spin forever.
-  const int max_orbit = static_cast<int>(he_mesh.half_edges.size());
-  do {
-    HS_CHECK(count < max_orbit, "vertex_orbit: corrupt orbit");
-    const HalfEdge &curr_he = he_mesh.half_edges[curr_idx];
-    visitor(curr_idx);
-    count++;
-
-    if constexpr (OrbitMode == 'P') {
-      // prev->pair orbit
-      if (he_mesh.half_edges[curr_he.prev].pair == HE_NONE)
-        break;
-      curr_idx = he_mesh.half_edges[curr_he.prev].pair;
-    } else {
-      // pair->next orbit
-      if (curr_he.pair == HE_NONE)
-        break;
-      curr_idx = he_mesh.half_edges[curr_he.pair].next;
-    }
-  } while (curr_idx != HE_NONE && curr_idx != start_idx);
 }
 
 /**
