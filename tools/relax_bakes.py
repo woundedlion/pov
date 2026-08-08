@@ -25,6 +25,14 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSET = ROOT / "core/mesh/relax_bakes_generated.h"
 
 
+def unterminated_block(meta: dict, words: list[int]) -> ValueError:
+    """Error for a bake the harness died inside; dropping it emits a short asset."""
+    return ValueError(
+        f"{meta['name']}: unterminated block ({len(words)} of "
+        f"{3 * meta['vertices']} words, no RELAX_BAKE_END)"
+    )
+
+
 def parse_dump(text: str) -> list[dict]:
     """Parse RELAX_BAKE blocks into per-name payloads (first-seen order)."""
     bakes: dict[str, dict] = {}
@@ -36,6 +44,8 @@ def parse_dump(text: str) -> list[dict]:
         if not parts:
             continue
         if parts[0] == "RELAX_BAKE_BEGIN":
+            if meta is not None:
+                raise unterminated_block(meta, words)
             name, iterations, v, f, i, topo, out = parts[1:8]
             meta = {
                 "name": name,
@@ -67,13 +77,8 @@ def parse_dump(text: str) -> list[dict]:
             elif existing["bits"] != meta["bits"]:
                 raise ValueError(f"{meta['name']}: nondeterministic duplicate")
             meta = None
-    # A harness that died mid-block leaves an unterminated bake; dropping it
-    # would emit a short asset under a success report.
     if meta is not None:
-        raise ValueError(
-            f"{meta['name']}: unterminated block ({len(words)} of "
-            f"{3 * meta['vertices']} words, no RELAX_BAKE_END)"
-        )
+        raise unterminated_block(meta, words)
     if not order:
         raise ValueError("no RELAX_BAKE blocks found in dump")
     return [bakes[name] for name in order]
