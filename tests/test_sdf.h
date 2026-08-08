@@ -1127,9 +1127,9 @@ inline void test_subtract_keeps_minuend_size_when_b_wins() {
 namespace sdf_subtract_detail {
 /**
  * @brief Mock SDF shape that emits a fixed (possibly unsorted, multi-) interval list.
- * @details Exercises Subtract's scanline set-difference independently of any real
+ * @details Exercises the CSG scanline interval paths independently of any real
  *   shape. Minimal surface: only is_solid and get_horizontal_intervals are
- *   touched by Subtract's ctor + interval path.
+ *   touched by a combinator's ctor + interval path.
  */
 struct MockIntervalShape {
   const std::vector<std::pair<float, float>>
@@ -1199,14 +1199,16 @@ struct MockEmitThenFullWidthShape {
 } // namespace sdf_subtract_detail
 
 /**
- * @brief Verifies UNSORTED, multi-piece B intervals still yield the correct set difference.
- * @details The set-difference sweep walks both children in start order, so it
- *   sorts the seam-split lists itself before differencing them.
+ * @brief Verifies a solid B's spans never carve the minuend's scanline emission.
+ * @details A child's spans BOUND its coverage (a polygon or star emits its
+ *   circumscribed cap, padded a pixel for AA), so differencing them would cull
+ *   columns B does not cover. Every subtrahend is carved per pixel by
+ *   max(A, -B) instead, leaving A's spans intact whatever B emits.
  */
-inline void test_subtract_unsorted_b_yields_set_difference() {
+inline void test_subtract_solid_b_leaves_the_minuend_uncarved() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
-  std::vector<P> a_ivs = {{0.0f, 100.0f}};
+  std::vector<P> a_ivs = {{0.0f, 40.0f}, {60.0f, 100.0f}};
   std::vector<P> b_ivs = {{60.0f, 70.0f}, {20.0f, 30.0f}}; // unsorted, multi
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
@@ -1216,14 +1218,55 @@ inline void test_subtract_unsorted_b_yields_set_difference() {
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
 
-  // [0,100] - {[20,30],[60,70]} = [0,20],[30,60],[70,100].
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(3));
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
   HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[0].second, 20.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].first, 30.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].second, 60.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[2].first, 70.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[2].second, 100.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 40.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].first, 60.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].second, 100.0f, 1e-4f);
+}
+
+/**
+ * @brief Verifies a star notch inside the subtrahend's bounding cap still gets scanned.
+ * @details Star emits its circumscribed disc as one span, so carving that span
+ *   out of the polygon would drop every column between the star's points -- all
+ *   of them inside the difference -- plus the carve-edge AA fringe. The notch
+ *   point below is outside the star, inside the polygon, and inside the
+ *   difference, so its column must lie in an emitted span.
+ */
+inline void test_subtract_star_notch_columns_survive_the_carve() {
+  using P = std::pair<float, float>;
+  constexpr int W = 256, H = 128;
+  // Axis +Z puts the shared center at column W/4, clear of the theta=0 seam.
+  const Basis b{Vector(1, 0, 0), Vector(0, 0, 1), Vector(0, 1, 0)};
+  constexpr float outer = 0.5f;              // star tip radius (radians)
+  SDF::PlanarPolygon poly(b, 0.7f, 5, 0.0f); // apothem 0.566 > outer
+  SDF::Star star(b, outer / (PI_F / 2.0f), 5, 0.0f);
+  SDF::Subtract<SDF::PlanarPolygon, SDF::Star> s(poly, star);
+
+  // Half a sector off a tip, just short of the tip radius: a notch.
+  const float polar = 0.9f * outer, az = PI_F / 5.0f;
+  Vector p = (b.v * std::cos(polar) +
+              (b.u * std::cos(az) + b.w * std::sin(az)) * std::sin(polar))
+                 .normalized();
+  HS_EXPECT_TRUE(SDF::distance_of(star, p).dist > 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(poly, p).dist < 0.0f);
+  HS_EXPECT_TRUE(SDF::distance_of(s, p).dist < 0.0f);
+
+  float phi = std::acos(hs::clamp(p.y, -1.0f, 1.0f));
+  int y = static_cast<int>(phi * (H + hs::H_OFFSET - 1) / PI_F + 0.5f);
+  float theta = std::atan2(p.z, p.x);
+  if (theta < 0.0f)
+    theta += TWO_PI_F;
+  const float col = theta * W / TWO_PI_F;
+
+  std::vector<P> out;
+  bool ok = s.get_horizontal_intervals<W, H>(
+      y, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+  bool covered = false;
+  for (const auto &iv : out)
+    covered = covered || (col >= iv.first && col <= iv.second);
+  HS_EXPECT_TRUE(covered);
 }
 
 /**
@@ -1251,13 +1294,12 @@ inline void test_subtract_empty_b_passes_a_through_verbatim() {
 }
 
 /**
- * @brief Verifies that when B cannot produce intervals, Subtract requests a full-row scan.
- * @details B returning false means Subtract cannot compute the set difference, so
- *   it must return false — like Union/SmoothUnion — letting scan_region evaluate
- *   distance()=max(A,-B) per pixel. Returning true while emitting nothing would
- *   make scan_region SKIP the row and silently erase all of A.
+ * @brief Verifies a subtrahend that cannot produce intervals costs the minuend nothing.
+ * @details Subtract never consults B's intervals, so B's fallback neither widens
+ *   the row to a full scan nor erases A: the row is handled with A's own spans
+ *   and scan_region evaluates distance()=max(A,-B) inside them.
  */
-inline void test_subtract_full_width_b_requests_full_row_scan() {
+inline void test_subtract_full_width_b_still_emits_the_minuend() {
   using P = std::pair<float, float>;
   using MockA = sdf_subtract_detail::MockIntervalShape;
   using MockB = sdf_subtract_detail::MockFullWidthShape;
@@ -1269,18 +1311,19 @@ inline void test_subtract_full_width_b_requests_full_row_scan() {
   std::vector<P> out;
   bool ok = s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(!ok);
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(0));
+  HS_EXPECT_TRUE(ok);
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
+  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 100.0f, 1e-4f);
 }
 
 /**
- * @brief Verifies a B band straddling θ=0 in a different wrap frame still carves A.
- * @details A emits the seam band as [-10, 10]; B emits the SAME physical band as
- *   [W-10, W+10]. A raw-coordinate disjointness test sees no overlap and leaves A
- *   uncarved (under-carve at the seam). After normalizing both into [0, W) the
- *   bands coincide and the difference is empty.
+ * @brief Verifies a minuend band straddling θ=0 is emitted seam-split into [0, W).
+ * @details A emits the seam band in a negative wrap frame as [-10, 10]. The
+ *   emission is normalized into [0, W), so the band reaches the sink as its two
+ *   in-frame pieces rather than as a span the consumer must wrap itself.
  */
-inline void test_subtract_seam_straddle_carves_across_wrap_frames() {
+inline void test_subtract_seam_straddle_splits_the_minuend_into_frame() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{-10.0f, 10.0f}};  // seam band, negative frame
@@ -1292,18 +1335,21 @@ inline void test_subtract_seam_straddle_carves_across_wrap_frames() {
   bool ok = s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
-  // Both normalize to {[246,256],[0,10]}; A - B is empty.
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(0));
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+  HS_EXPECT_NEAR(out[0].first, 246.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 256.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].first, 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[1].second, 10.0f, 1e-4f);
 }
 
 /**
  * @brief Verifies a many-arc seam-straddling Subtract stays within the span-count bound.
- * @details normalize_intervals_to_range seam-splits each child into [0, W); a span
- *   crossing θ=0 becomes two, so the norm buffers are sized 2x. push_interval traps
+ * @details normalize_intervals_to_range seam-splits the minuend into [0, W); a span
+ *   crossing θ=0 becomes two, so the norm buffer is sized 2x. push_interval traps
  *   (fail-fast) if the post-split count exceeds that cap. Drive A with many disjoint
- *   arcs — several straddling the seam in a wrapped frame so they split — and a few
- *   carving B arcs, then assert the result is valid (in [0, W), start-sorted) and
- *   that no trap fired (reaching this line at all).
+ *   arcs — two straddling the seam in a wrapped frame so they split — and B with arcs
+ *   overlapping two of them, then assert every arc survives in [0, W) and that no
+ *   trap fired (reaching this line at all).
  */
 inline void test_subtract_many_arc_seam_split_within_bound() {
   using P = std::pair<float, float>;
@@ -1326,15 +1372,18 @@ inline void test_subtract_many_arc_seam_split_within_bound() {
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
 
-  // Every emitted span is a valid in-frame arc, start-sorted. Reaching here
-  // means push_interval never trapped.
-  HS_EXPECT_TRUE(!out.empty());
+  // Twelve arcs, two of them split at the seam. Reaching here means
+  // push_interval never trapped.
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(14));
   for (size_t i = 0; i < out.size(); ++i) {
     HS_EXPECT_TRUE(out[i].first >= 0.0f && out[i].second <= W);
     HS_EXPECT_TRUE(out[i].first < out[i].second);
-    if (i > 0)
-      HS_EXPECT_TRUE(out[i].first >= out[i - 1].first);
   }
+  // The arcs B overlaps come through whole.
+  HS_EXPECT_NEAR(out[5].first, 40.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[5].second, 50.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[9].first, 120.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[9].second, 130.0f, 1e-4f);
 }
 
 // ============================================================================
@@ -2770,10 +2819,11 @@ inline int run_sdf_tests() {
   test_subtract_inside_a_outside_b_remains_inside();
   test_subtract_inside_both_becomes_outside();
   test_subtract_keeps_minuend_size_when_b_wins();
-  test_subtract_unsorted_b_yields_set_difference();
+  test_subtract_solid_b_leaves_the_minuend_uncarved();
+  test_subtract_star_notch_columns_survive_the_carve();
   test_subtract_empty_b_passes_a_through_verbatim();
-  test_subtract_full_width_b_requests_full_row_scan();
-  test_subtract_seam_straddle_carves_across_wrap_frames();
+  test_subtract_full_width_b_still_emits_the_minuend();
+  test_subtract_seam_straddle_splits_the_minuend_into_frame();
   test_subtract_many_arc_seam_split_within_bound();
 
   test_intersection_requires_both_inside();
