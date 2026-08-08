@@ -744,6 +744,7 @@ HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
  * @return Fresh ambo PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
+  HS_CHECK(&target != &temp, "ambo: target and temp must differ");
   ScratchScope temp_guard(temp);
   HalfEdgeMesh he_mesh(temp, mesh);
   return ambo_impl(mesh, he_mesh, target, temp);
@@ -982,6 +983,7 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
 HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
                                  Arena &temp, float t = 0.25f) {
   HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
+  HS_CHECK(&target != &temp, "truncate: target and temp must differ");
   ScratchScope temp_guard(temp);
   HalfEdgeMesh he_mesh(temp, mesh);
   if (t == 0.5f)
@@ -1079,6 +1081,7 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
 HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
                                float t = EXPAND_DEFAULT_T) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "expand: t out of [0,1)");
+  HS_CHECK(&target != &temp, "expand: target and temp must differ");
   ScratchScope temp_guard(temp);
   HalfEdgeMesh he_mesh(temp, mesh);
   return expand_impl(mesh, he_mesh, target, temp, t);
@@ -1191,6 +1194,7 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
 HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
                                 Arena &temp, float t = 0.5f) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
+  HS_CHECK(&target != &temp, "chamfer: target and temp must differ");
   ScratchScope temp_guard(temp);
   HalfEdgeMesh he_mesh(temp, mesh);
   return chamfer_impl(mesh, he_mesh, target, temp, t);
@@ -1496,6 +1500,7 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
 HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
                              float t = 0.5f, float twist = 0.0f) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
+  HS_CHECK(&target != &temp, "snub: target and temp must differ");
   ScratchScope temp_guard(temp);
   HalfEdgeMesh he_mesh(temp, mesh);
   return snub_impl(mesh, he_mesh, target, temp, t, twist);
