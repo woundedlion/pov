@@ -135,15 +135,20 @@ def dumps(node, indent=0):
     return pad + _atom(node)
 
 
+def quote(s):
+    """Render `s` as a quoted s-expression atom, escaping per ESCAPE_ENCODE."""
+    esc = "".join(
+        "\\" + ESCAPE_ENCODE[c] if c in ESCAPE_ENCODE else c
+        for c in s
+    )
+    return '"' + esc + '"'
+
+
 def _atom(x):
     if isinstance(x, Sym):
         return str(x)
     if isinstance(x, str):
-        esc = "".join(
-            "\\" + ESCAPE_ENCODE[c] if c in ESCAPE_ENCODE else c
-            for c in x
-        )
-        return '"' + esc + '"'
+        return quote(x)
     return str(x)
 
 

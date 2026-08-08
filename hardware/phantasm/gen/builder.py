@@ -169,9 +169,9 @@ class Builder:
         out.append('\t(generator "eeschema")')
         out.append('\t(generator_version "10.0")')
         out.append(f'\t(uuid "{self.uuid}")')
-        out.append(f'\t(paper "{self.paper}")')
+        out.append(f'\t(paper {sexp.quote(self.paper)})')
         out.append('\t(title_block')
-        out.append(f'\t\t(title "{self.title}")')
+        out.append(f'\t\t(title {sexp.quote(self.title)})')
         out.append('\t\t(rev "A")')
         out.append('\t)')
         # lib_symbols
@@ -197,15 +197,14 @@ class Builder:
         # labels
         for (p, text, angle) in self.labels:
             just = "left" if angle in (0, 90) else "right"
-            out.append(f'\t(label "{text}"')
+            out.append(f'\t(label {sexp.quote(text)}')
             out.append(f'\t\t(at {fmt(p[0])} {fmt(p[1])} {angle})')
             out.append(f'\t\t(effects (font (size 1.27 1.27)) (justify {just} bottom))')
             out.append(f'\t\t(uuid "{uid()}")')
             out.append('\t)')
         # text notes (block headers)
         for (p, s, size) in self.texts:
-            esc = s.replace("\\", "\\\\").replace('"', '\\"')
-            out.append(f'\t(text "{esc}"')
+            out.append(f'\t(text {sexp.quote(s)}')
             out.append(f'\t\t(at {fmt(p[0])} {fmt(p[1])} 0)')
             out.append(f'\t\t(effects (font (size {size} {size}) (bold yes)) (justify left bottom))')
             out.append(f'\t\t(uuid "{uid()}")')
@@ -223,7 +222,7 @@ class Builder:
     def _dump_symbol(self, s):
         L = []
         L.append('\t(symbol')
-        L.append(f'\t\t(lib_id "{s.lib_id}")')
+        L.append(f'\t\t(lib_id {sexp.quote(s.lib_id)})')
         rot = s.rot
         L.append(f'\t\t(at {fmt(s.x)} {fmt(s.y)} {rot})')
         if s.mirror:
@@ -245,14 +244,14 @@ class Builder:
             L += _prop(k, v, s.x, s.y, hide=True)
         # pin uuids
         for num in self._unit_pins[s.lib_id].get(s.unit, {}):
-            L.append(f'\t\t(pin "{num}" (uuid "{uid()}"))')
+            L.append(f'\t\t(pin {sexp.quote(num)} (uuid "{uid()}"))')
         for num in self._unit_pins[s.lib_id].get(0, {}):
-            L.append(f'\t\t(pin "{num}" (uuid "{uid()}"))')
+            L.append(f'\t\t(pin {sexp.quote(num)} (uuid "{uid()}"))')
         # instances
         L.append('\t\t(instances')
         L.append('\t\t\t(project "phantasm"')
         L.append(f'\t\t\t\t(path "/{self.uuid}"')
-        L.append(f'\t\t\t\t\t(reference "{s.ref}") (unit {s.unit})')
+        L.append(f'\t\t\t\t\t(reference {sexp.quote(s.ref)}) (unit {s.unit})')
         L.append('\t\t\t\t)')
         L.append('\t\t\t)')
         L.append('\t\t)')
@@ -261,8 +260,7 @@ class Builder:
 
 
 def _prop(name, value, x, y, hide=False, angle=0):
-    v = value.replace('\\', '\\\\').replace('"', '\\"')
-    out = [f'\t\t(property "{name}" "{v}"',
+    out = [f'\t\t(property {sexp.quote(name)} {sexp.quote(value)}',
            f'\t\t\t(at {fmt(x)} {fmt(y)} {angle})',
            '\t\t\t(effects (font (size 1.27 1.27))' + (' (hide yes)' if hide else '') + ')',
            '\t\t)']
