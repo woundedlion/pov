@@ -552,7 +552,7 @@ is a deterministic maximum at or below 55 ms; the effort should continue toward
 - `tests/test_effects.h`
 - `docs/profiles/shipping/profile_mindsplatter_teensy_2026-08-07.md`
 - `docs/mindsplatter_optimization.md`
-- `docs/MINDSPLATTER_PARTICLE_SCALING_ANALYSIS.md`
+- `docs/mindsplatter_particle_scaling_analysis.md`
 - `build/prof/mindsplatter_ship.log`
 - `build/prof/mindsplatter_ship_gate_breakdown_deep.log`
 - `build/prof/mindsplatter_ship_raster_peak_counts.log`
