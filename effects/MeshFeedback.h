@@ -107,6 +107,7 @@ public:
     // Configure the noise type before apply_params(): it calls sync_noise(),
     // which would otherwise propagate the default noise type on the first frame.
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    noise_params.noise.SetSeed(hs::rand_int(0, 65536));
     noise_params.sync();
 
     style = presets.get();
@@ -142,8 +143,7 @@ public:
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
 
     timeline.add(0, Animation::Noise(noise_params));
-    timeline.add(
-        0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise_params.noise));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, walk_noise));
   }
 
   /**
@@ -217,6 +217,10 @@ private:
   bool feedback_enabled = true;
   int preset_frames = 0;
   Animation::NoiseParams noise_params;
+  // Dedicated walk generator: RandomWalk's ctor takes exclusive control of its
+  // frequency and seed, and noise_params.sync() runs every frame off the
+  // "Distort Freq" slider.
+  FastNoiseLite walk_noise;
 
   Orientation<> orientation;
   Timeline timeline;
