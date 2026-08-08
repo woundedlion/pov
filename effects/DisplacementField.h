@@ -377,6 +377,9 @@ private:
               cos_a = next_cos;
             }
           } else {
+            // hlut stays stale here (uninitialised arena bytes on the first
+            // bake); the pad_chunks widening of `visible` above is what keeps a
+            // rasterized pixel from ever sampling a culled chunk's columns.
             for (; x < x_end; ++x) {
               // DistortedRing's constructor scans every knot, including
               // skipped cells; leaving them stale perturbs its shift bounds.
