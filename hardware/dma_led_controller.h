@@ -133,7 +133,7 @@ public:
    * @brief Sets the global brightness applied to every packed pixel.
    * @param brightness Global brightness scale in [0, 255].
    */
-  void setBrightness(uint8_t brightness) {
+  static void setBrightness(uint8_t brightness) {
     HD107SFrame<N>::setBrightness(brightness);
   }
 
@@ -143,7 +143,7 @@ public:
    * @param g Green temperature gain in [0, 255].
    * @param b Blue temperature gain in [0, 255].
    */
-  void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
+  static void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
     HD107SFrame<N>::setTemperature(r, g, b);
   }
 
@@ -153,7 +153,7 @@ public:
    * @param g Green correction gain in [0, 255].
    * @param b Blue correction gain in [0, 255].
    */
-  void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
+  static void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
     HD107SFrame<N>::setCorrection(r, g, b);
   }
 
