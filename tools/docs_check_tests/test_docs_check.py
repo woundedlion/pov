@@ -171,18 +171,18 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_stale_untracked_allowances_are_named(self):
         entries = {PurePosixPath("tools"), PurePosixPath("tools/solids.html")}
         stale = dict(item.split(" ", 1) for item in
-                     dc._stale_allowances(entries, {"docs/profiles/"}))
+                     dc._stale_allowances(entries, {"scripts/run-tests.mjs"}))
         self.assertEqual(stale["tools/solids.html"], "(now tracked)")
-        self.assertEqual(stale["scripts/run-tests.mjs"], "(uncited)")
-        self.assertNotIn("docs/profiles/", stale)
+        self.assertEqual(stale["tools/solid_codegen.js"], "(uncited)")
+        self.assertNotIn("scripts/run-tests.mjs", stale)
 
     def test_cited_untracked_allowance_is_recorded(self):
         used: set[str] = set()
         issue = dc._path_span_issue(PurePosixPath("README.md"), 1,
-                                    "docs/profiles/dreamballs.md",
-                                    {PurePosixPath("docs")}, used)
+                                    "scripts/run-tests.mjs",
+                                    {PurePosixPath("scripts")}, used)
         self.assertIsNone(issue)
-        self.assertEqual(used, {"docs/profiles/"})
+        self.assertEqual(used, {"scripts/run-tests.mjs"})
 
     def test_repository_without_markdown_fails(self):
         with tempfile.TemporaryDirectory() as directory:
