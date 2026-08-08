@@ -26,9 +26,10 @@ final sections remain valid as evidence.
 
 Every timing figure here — the 60.93 ms peak, the per-preset edge and raster
 tables, the 55 ms deterministic gate and the 8-12 ms target — is scoped to that
-older configuration and is superseded. This repository does not track
-`docs/profiles/`, so no tracked report holds a current capture; recapture on
-device rather than reusing a number from here.
+older configuration and is superseded. The current capture of the shipping
+configuration is `docs/profiles/shipping/profile_mindsplatter_teensy_2026-08-07.md`,
+paired with `docs/profiles/O3/profile_mindsplatter_teensy_2026-08-07.md`; take
+numbers from there or recapture on device, never from this document.
 `docs/mindsplatter_optimization.md` holds the earlier execution strategy and
 its own experiment history.
 
