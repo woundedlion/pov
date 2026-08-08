@@ -277,30 +277,16 @@ private:
   /**
    * @brief Applies a trig-free glitch lens to a sphere direction.
    * @param v Unit direction vector on the sphere.
-   * @return Transformed direction after mirror, squish, and triple-theta steps;
-   * returns the up vector when near the lens axis (R^2 < 1e-6).
+   * @return Direction under the stereographic cubic map z -> z^3.
    */
-  static Vector apply_glitch_lens(Vector v) {
-    if (v.y < 0.0f) {
-      v.y = -v.y;
-      v.z = -v.z;
-    }
-
-    float x2 = v.x * v.x;
-    float z2 = v.z * v.z;
-    float R2 = x2 + z2;
-
-    // Pole guard: on the rotation axis (x≈z≈0) the lens map divides by R², so
-    // return the pole direction directly.
-    constexpr float MIN_AXIS_RADIUS2 = 1e-6f;
-    if (R2 < MIN_AXIS_RADIUS2)
-      return Vector(0.0f, 1.0f, 0.0f);
-
-    float inv_R2 = 1.0f / R2;
-    float y2 = 2.0f * v.y;
-
-    return Vector(y2 * v.x * (4.0f * x2 * inv_R2 - 3.0f), y2 * v.y - 1.0f,
-                  y2 * v.z * (3.0f - 4.0f * z2 * inv_R2));
+  static Vector apply_glitch_lens(const Vector &v) {
+    const float x2 = v.x * v.x;
+    const float y2 = v.y * v.y;
+    const float z2 = v.z * v.z;
+    const float inverse_denominator = 1.0f / (1.0f + 3.0f * y2);
+    return Vector(v.x * (x2 - 3.0f * z2) * inverse_denominator,
+                  v.y * (3.0f + y2) * inverse_denominator,
+                  v.z * (3.0f * x2 - z2) * inverse_denominator);
   }
 
   /**
