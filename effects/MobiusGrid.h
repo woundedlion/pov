@@ -203,7 +203,7 @@ private:
    * @brief Generates a fresh palette and schedules a 60-frame cross-fade into
    *        it.
    */
-  void wipe_palette() {
+  HS_COLD_MEMBER void wipe_palette() {
     palette_start = palette.snapshot();
     palette_target =
         GenerativePalette{EffectPaletteRecipes::mobius_grid(
