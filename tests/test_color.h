@@ -534,6 +534,18 @@ inline void test_gamut_clip_preserves_hue() {
   }
 }
 
+/** @brief Keeps direction and angular gamut-boundary lookups equivalent. */
+inline void test_gamut_direction_lookup_matches_angle() {
+  for (int il = 1; il < 16; ++il) {
+    const float L = il / 16.0f;
+    for (int ih = 0; ih < 64; ++ih) {
+      const float h = TWO_PI_F * ih / 64.0f;
+      HS_EXPECT_EQ(gamut_max_chroma(L, cosf(h), sinf(h)),
+                   gamut_max_chroma(L, h));
+    }
+  }
+}
+
 /**
  * @brief Linear-RGB triple of an OKLab color in double precision.
  * @param L Lightness.
@@ -2128,6 +2140,7 @@ inline int run_color_tests() {
   test_lerp_oklch_extrapolation_clamped();
   test_oklch_to_pixel_saturates_and_preserves_in_gamut();
   test_gamut_clip_preserves_hue();
+  test_gamut_direction_lookup_matches_angle();
   test_gamut_master_clip_lands_on_first_exit();
   test_gamut_continuous_chroma_is_smooth_and_in_gamut();
   test_gamut_lut_clip_lands_on_first_exit();

@@ -999,20 +999,19 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
 }
 
 /**
- * @brief Returns the first sRGB gamut-boundary chroma at an OKLCH coordinate.
+ * @brief Returns the first sRGB gamut-boundary chroma along a hue direction.
  * @param L OKLab lightness, clamped to [0,1].
- * @param h Hue in radians.
+ * @param a Unit OKLab a coordinate of the hue direction.
+ * @param b Unit OKLab b coordinate of the hue direction.
  * @return The first-exit chroma minus the shared numerical margin.
  */
-HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
-                                                                 float h) {
+HS_O3_FN __attribute__((noinline)) inline float
+gamut_max_chroma(float L, float a, float b) {
   const GamutLut &lut = g_gamut_lut;
   L = hs::clamp(L, 0.0f, 1.0f);
   if (L == 0.0f || L == 1.0f)
     return 0.0f;
 
-  const float a = cosf(h);
-  const float b = sinf(h);
   int ai = static_cast<int>(diamond_angle(b, a) * lut.angle_scale);
   int li = static_cast<int>(L * lut.l_scale);
   ai = hs::clamp(ai, 0, lut.angle_steps - 1);
@@ -1022,6 +1021,17 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
   const float c_hi = static_cast<float>(cell[1]) * GAMUT_LUT_INV_SCALE;
   const float boundary = gamut_bracket_refine(L, a, b, c_lo, c_hi);
   return std::max(0.0f, boundary - GAMUT_CLIP_MARGIN);
+}
+
+/**
+ * @brief Returns the first sRGB gamut-boundary chroma at an OKLCH coordinate.
+ * @param L OKLab lightness, clamped to [0,1].
+ * @param h Hue in radians.
+ * @return The first-exit chroma minus the shared numerical margin.
+ */
+HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
+                                                                 float h) {
+  return gamut_max_chroma(L, cosf(h), sinf(h));
 }
 
 /**
@@ -1106,10 +1116,12 @@ gamut_clip_preserve_chroma(OKLab lab) {
     return {lab.L, 0.0f, 0.0f};
 
   const float C = sqrtf(c_sq);
-  const float C_MAX = gamut_max_chroma(lab.L, atan2f(lab.b, lab.a));
+  const float inverse_C = 1.0f / C;
+  const float C_MAX =
+      gamut_max_chroma(lab.L, lab.a * inverse_C, lab.b * inverse_C);
   if (C <= C_MAX)
     return lab;
-  const float scale = C_MAX / C;
+  const float scale = C_MAX * inverse_C;
   return {lab.L, lab.a * scale, lab.b * scale};
 }
 
