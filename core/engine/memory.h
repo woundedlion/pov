@@ -468,7 +468,7 @@ private:
 #ifndef NDEBUG
     other.source_arena = nullptr;
     other.birth_generation = 0;
-    other.rebind_generation = 0;
+    // rebind_generation stays: spans snapshotted it and still view live data.
 #endif
   }
 
