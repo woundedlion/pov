@@ -46,7 +46,7 @@ public:
    * @brief Constructs the driver, initializing the LED strip and hardware-
    * specific optimizations (correction, temperature, brightness).
    * @details Seeds FastLED's legacy LCG to 1337; modern effects draw from the
-   * separate hs::random() mt19937(1337) reproduced by the simulator.
+   * separate hs::random() Pcg32(1337) reproduced by the simulator.
    */
   POVDisplay() {
     randomSeed(
