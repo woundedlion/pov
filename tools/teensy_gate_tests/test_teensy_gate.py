@@ -983,10 +983,35 @@ class TestRealCapture(unittest.TestCase):
     @unittest.skipUnless((REAL_DIR / "phantasm_readelf_syms.txt").exists(),
                          "real captures not present")
     def test_real_phantasm_dma_tx_buffer_is_in_ocram(self):
+        # Spelled from the budget, so a linkage-name drift between the shipped
+        # budget and the captured ELF fails here instead of passing on a name
+        # only this test still knows.
+        name = BUDGETS["phantasm"]["symbols"]["dma_tx_buffer"]["name"]
         syms = tg.parse_readelf_symbols((REAL_DIR / "phantasm_readelf_syms.txt").read_text())
-        led = next(s for s in syms
-                   if s.name == "_ZN12POVSegmentedILi288ELi4ELi480EE14ledController_E")
+        led = next(s for s in syms if s.name == name)
         self.assertEqual(led.region, "OCRAM")
+
+    @unittest.skipUnless((REAL_DIR / "phantasm_teensy_size.txt").exists(),
+                         "real captures not present")
+    def test_real_phantasm_build_passes_the_calibrated_gate(self):
+        sizes = tg.parse_teensy_size((REAL_DIR / "phantasm_teensy_size.txt").read_text())
+        syms = tg.parse_readelf_symbols((REAL_DIR / "phantasm_readelf_syms.txt").read_text())
+        secs = tg.parse_readelf_sections((REAL_DIR / "phantasm_readelf_secs.txt").read_text())
+        result = tg.evaluate("phantasm", BUDGETS["phantasm"], sizes, syms, secs)
+        self.assertTrue(result.passed, msg=_codes(result))
+        # The bank-derived ITCM ceiling is phantasm-only and unmeasurable from
+        # `size -A`; a capture without the code component would pass every other
+        # check while leaving that branch unexercised.
+        self.assertIn("code", sizes["ram1"]["components"])
+
+    @unittest.skipUnless((REAL_DIR / "phantasm_readelf_secs.txt").exists(),
+                         "real captures not present")
+    def test_real_phantasm_exception_index_is_routed_to_flash(self):
+        # tools/phantasm.ld keeps .ARM.exidx out of the FlexRAM banks; in ITCM it
+        # would consume the headroom the derived code ceiling hands out.
+        secs = tg.parse_readelf_sections((REAL_DIR / "phantasm_readelf_secs.txt").read_text())
+        addr = next(a for name, a in secs.values() if name == ".ARM.exidx")
+        self.assertEqual(tg.region_for_address(addr), "FLASH")
 
 
 class TestSizeAFallback(unittest.TestCase):
