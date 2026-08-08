@@ -197,6 +197,12 @@ inline void test_longitude_filter_and_sampler_wrap_poles() {
   HS_EXPECT_GT(filtered[0], 0);
   HS_EXPECT_EQ(filtered[W / 2], 0);
 
+  // Every longitude of the pole row is one point, so the row reconstructs flat.
+  layout.reconstruct_longitude_row<IntAccumulator>(
+      source.data(), 0, [&](int x, int value) { filtered[x] = value; });
+  for (int x = 0; x < W; ++x)
+    HS_EXPECT_EQ(filtered[x], 1100 / W);
+
   const int scalar_poles[]{-1};
   const int sample = layout.sample_bilinear(
       7.0f, -1.0f, scalar_poles, 0, [](int x, int y) { return y * 100 + x; },

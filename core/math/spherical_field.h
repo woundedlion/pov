@@ -205,13 +205,25 @@ public:
    * @param source Dense row containing W values.
    * @param y Latitude row controlling the longitude footprint.
    * @param emit Receives each destination column and filtered value.
+   * @note A footprint that spans the whole row emits the row mean, constant in
+   *   longitude. The odd-width sliding window would otherwise drop one column
+   *   per output and leave a pole row rippling with the source.
    */
   template <typename Accumulator, typename Value, typename Emit>
   void reconstruct_longitude_row(const Value *source, int y,
                                  Emit &&emit) const {
     const int width = longitude_filter_width(y);
-    const int radius = width / 2;
     Accumulator accumulator;
+    if (width >= W - 1) {
+      for (int x = 0; x < W; ++x)
+        accumulator.add(source[x]);
+      const auto mean = accumulator.average(W);
+      for (int x = 0; x < W; ++x)
+        emit(x, mean);
+      return;
+    }
+
+    const int radius = width / 2;
     for (int dx = -radius; dx <= radius; ++dx) {
       int x = dx;
       if (x < 0)
