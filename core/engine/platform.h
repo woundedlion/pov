@@ -774,7 +774,10 @@ namespace hs {
 // The clamp NaN->hi contract below is load-bearing for engine-wide float->int
 // domain safety: Spherical, vector_to_pixel, blend_alpha, Gradient::get and every
 // palette lookup feed a possibly-NaN value through clamp as a saturating guard
-// before a float->int cast. -ffinite-math-only (implied by a bare -ffast-math)
+// before a float->int cast. In Spherical and vector_to_pixel the guard covers the
+// latitude channel only; fast_atan2 carries a NaN through the azimuth unclamped,
+// so those two still require a finite input vector from the caller.
+// -ffinite-math-only (implied by a bare -ffast-math)
 // lets the compiler assume no NaN/Inf and fold the guard away, reintroducing the
 // cast UB engine-wide; the WASM build keeps the contract by re-applying
 // -fno-finite-math-only after -ffast-math (see CMakeLists.txt). The #error below
