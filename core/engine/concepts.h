@@ -148,7 +148,10 @@ public:
    * @details This overload also binds rvalues (temporary lambdas), so the
    * immediate-use borrow `take_callback([](...){ ... })` keeps working — the whole
    * purpose of a function_ref-style type. StoredFunctionRef refuses temporaries
-   * for callables kept past the call.
+   * for callables kept past the call. A `mutable` temporary lambda binds to
+   * neither overload — the non-const one takes an lvalue, this one needs a
+   * const-invocable callable — and reports only "no matching function"; drop the
+   * `mutable` or pass a named lvalue.
    */
   template <typename Callable>
     requires std::is_invocable_r_v<Ret, const Callable &, Args...> &&
