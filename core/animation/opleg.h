@@ -963,7 +963,7 @@ public:
 
   /**
    * @brief Trailing blend over the default TRAILING_BLEND_FRAMES window (the
-   * build legs and the gate); the BlendWeightFn form.
+   * build legs); the BlendWeightFn form.
    * @param frame 1-based leg frame (1..duration).
    * @param duration Whole leg length in frames (sweep plus settle).
    * @details Holds the inherited source palette through most of the leg, then
@@ -1290,7 +1290,11 @@ private:
     // Colour holds at the departed palettes across the swap and most of the
     // gate, so the children open in the colour already painted where they land,
     // and converges to the arrival targets only over the final frames.
-    finish_frame(canvas, mesh, trailing_blend(frame, duration), seed_side);
+    finish_frame(
+        canvas, mesh,
+        trailing_blend(frame, duration,
+                       std::min(TRAILING_BLEND_FRAMES, tr.sweep_frames)),
+        seed_side);
   }
 
   /**
