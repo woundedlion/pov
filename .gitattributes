@@ -1,5 +1,9 @@
 .githooks/** text eol=lf
 
+# Shell scripts, for the same reason: a CRLF `#!/bin/bash` shebang is not an
+# interpreter path any shell resolves.
+*.sh text eol=lf
+
 # Generated tables. Their generators emit LF on every host, so pin the checked-in
 # bytes to LF regardless of core.autocrlf.
 core/color/color_luts.h text eol=lf
