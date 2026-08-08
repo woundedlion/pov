@@ -590,6 +590,17 @@ def validate_budgets(budgets: object) -> dict:
     return budgets
 
 
+def read_capture(path: str | Path) -> str:
+    """Read captured toolchain output, replacing undecodable bytes.
+
+    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream.
+    A strict decode would raise out of main() and replace the gate's exit-code
+    contract with a traceback; the substituted bytes cannot reach a size figure,
+    which the parsers match as ASCII.
+    """
+    return Path(path).read_text(encoding="utf-8", errors="replace")
+
+
 def load_budgets(path: str | Path) -> dict:
     """Load tools/teensy_budgets.json, tolerating // and /* */ comments."""
     raw = Path(path).read_text(encoding="utf-8")
@@ -655,12 +666,11 @@ def main(argv: list[str] | None = None) -> int:
 
     used_size_a_fallback = False
     if args.teensy_size:
-        sizes = parse_teensy_size(Path(args.teensy_size).read_text(encoding="utf-8"))
+        sizes = parse_teensy_size(read_capture(args.teensy_size))
     elif args.size_a:
         used_size_a_fallback = True
         try:
-            sizes = fallback_sizes_from_size_a(
-                Path(args.size_a).read_text(encoding="utf-8"))
+            sizes = fallback_sizes_from_size_a(read_capture(args.size_a))
         except SizeAFormatError as exc:
             print(f"::error::teensy-gate: invalid `size -A` output ({exc}). "
                   f"This is a tooling/format error, not a size-budget "
@@ -676,8 +686,8 @@ def main(argv: list[str] | None = None) -> int:
               f"size-budget violation — re-run with --teensy-size.")
         return 2
 
-    symbols = parse_readelf_symbols(Path(args.readelf_syms).read_text(encoding="utf-8"))
-    sections = (parse_readelf_sections(Path(args.readelf_secs).read_text(encoding="utf-8"))
+    symbols = parse_readelf_symbols(read_capture(args.readelf_syms))
+    sections = (parse_readelf_sections(read_capture(args.readelf_secs))
                 if args.readelf_secs else {})
 
     result = evaluate(args.env, budgets[args.env], sizes, symbols, sections)

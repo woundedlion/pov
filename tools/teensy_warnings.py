@@ -336,6 +336,17 @@ def declared_environments(ini_path: str | Path) -> tuple[str, ...]:
     return envs
 
 
+def read_build_log(path: str | Path) -> str:
+    """Read a captured build log, replacing undecodable bytes.
+
+    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream.
+    A strict decode would raise out of main() and replace the ratchet's
+    exit-code contract with a traceback; the warning fingerprints this module
+    matches are ASCII, so a substituted byte cannot alter the set.
+    """
+    return Path(path).read_text(encoding="utf-8", errors="replace")
+
+
 def load_baseline(path: str | Path) -> set[str]:
     """Read the committed baseline set (ignoring blank and #-comment lines)."""
     text = Path(path).read_text(encoding="utf-8") if Path(path).exists() else ""
@@ -369,7 +380,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
     args = p.parse_args(argv)
 
-    build_log = Path(args.build_log).read_text(encoding="utf-8")
+    build_log = read_build_log(args.build_log)
     prefix = "::error::" if args.github else ""
     compiles = count_first_party_compiles(build_log)
     if compiles == 0:
