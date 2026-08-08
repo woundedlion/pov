@@ -346,9 +346,10 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
 ### daydream (web simulator)
 
-<!-- docs-check: tree daydream -->
+<!-- docs-check: tree daydream exhaustive -->
 ```
 ├── index.html                  Main simulator page
+├── site_manifest.txt           Repo-relative path list deploy.yml publishes to Pages
 ├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects reserved
 ├── vendor-importmap.js         Local-first / CDN-fallback importmap helper
 ├── holosphere_wasm.js          Installed from Holosphere's WASM build
@@ -356,6 +357,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── holosphere_wasm.sha         Engine commit + tree state the module was built from
 ├── holosphere_wasm.wasm.sha256 `sha256sum -c` manifest over the installed .wasm and .js — verified by the deploy gate
 ├── holosphere_wasm.toolchain   emsdk + clang versions that built the module
+├── holosphere_wasm.d.ts        Hand-written declarations for the installed glue — what the typecheck sees
 ├── pov_segment_map.json        Firmware segment→canvas golden, installed from Holosphere — read by the segment cross-check
 ├── README.md                   Installed from Holosphere (this file)
 ├── docs/screenshots/           Installed from Holosphere
@@ -378,6 +380,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── sidebar.js                  Effect list + sort + keyboard navigation
 ├── sidebar_logic.js            DOM-free sidebar sort, keyboard-index and scroll-arrow math
 ├── recorder.js                 MediaRecorder pipeline (mp4 / webm), sim-synced
+├── global_stats_view.js        Single-engine stats bar: frame draw duration and per-arena usage
 ├── segment_controller.js       Orchestrates the segmented-POV worker pool:
 │                                  dispatch, generation fence, and compositing
 ├── segment_worker.js           Web Worker that hosts one WASM instance per
@@ -399,23 +402,32 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── color.js                sRGB ↔ linear math mirroring the engine's transfer function
 │   ├── cpp_format.js           C++ float-literal formatter shared by the code generators
 │   ├── export_params.js        Formatter behind the GUI's Export action
+│   ├── flyout.js               Button-controlled flyout with outside-click and Escape dismissal
+│   ├── kb_format.js            Dependency-free kilobyte formatter shared by the stat readouts
 │   ├── lissajous_math.js       Pure Lissajous curve math from lissajous.html
 │   ├── mobius_transforms.js    Pure Möbius coefficient presets from mobius.html
 │   ├── page_lifecycle.js       Animation-frame recompute coalescer + bfcache-aware teardown hook
+│   ├── palette_canvas.js       Gradient-strip and RGB-wave canvas painters for palettes.html
 │   ├── palette_controls.js     DOM-free zoom history and locked-slider delta capping for palettes.html
 │   ├── palette_math.js         ProceduralPalette / GenerativePalette mirror + the PaletteOps bridge
 │   ├── solid_codegen.js        Op dispatch, codegen, and op-chain sequencing for solids.html
+│   ├── solid_op_rows.js        DOM construction for one op-chain row of solids.html
 │   ├── solid_registry_codegen.js  Registry-paste emitter: the solids.h Entry, OpStep table, Recipe, and (when solids.h declares none) the seed's SEED_* constant
+│   ├── solid_render.js         Scene construction for solids.html: faces, vertices, edges, normals, index labels
 │   ├── tailwind.css            Prebuilt utility classes the four tool pages use, served same-origin
 │   └── tools.css               Shared design tokens and control styling for the tool pages
 │
 ├── scripts/
+│   ├── count-assertions.mjs    NODE_OPTIONS shim counting each test file's node:assert calls
 │   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
+│   ├── report-cases.mjs        node:test reporter tallying per-file case and skip counts
 │   ├── require-tests.mjs       `pretest` guard: fails below the committed test-file floor
 │   └── run-tests.mjs           `test` script: runs the suite, gates the total it reports
 │
 ├── tests/                      Node unit tests (`npm test`)
 ├── tsconfig.json               checkJs settings for the worker-protocol module set
+├── .githooks/                  pre-push mirror of the JS unit suite, and a reference-transaction guard keeping master fast-forward-only
+├── .github/workflows/          deploy.yml (engine gate → Pages), js-tests.yml / js-unit-suite.yml (npm test)
 │
 ├── three.js/                   Optional vendored Three.js checkout
 ├── vendor/                     Optional self-hosted fonts (CDN fallback)
