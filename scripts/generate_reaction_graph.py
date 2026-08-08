@@ -132,6 +132,11 @@ def build_neighbors():
 
 
 def main():
+    if RD_N <= RD_K:
+        raise RuntimeError(
+            f"RD_N ({RD_N}) must exceed RD_K ({RD_K}): a node has only RD_N-1 "
+            "possible neighbors, and a short row would be zero-padded to the "
+            "C++ array bound instead of failing to compile")
     if RD_N > 32767:
         raise RuntimeError(
             f"RD_N ({RD_N}) exceeds INT16_MAX (32767): node index must fit "
