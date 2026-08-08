@@ -1173,10 +1173,11 @@ and then edit any control without the preset being a separate locked mode.
 
 ## 14. Browser tool redesign
 
-The browser implementation is the Daydream page `tools/palettes.html` and its
-existing companion modules `palette_controls.js`, `palette_math.js`, and
-`palette_canvas.js`. Reorganize its generative tab into the following sections.
-The procedural tab and its named-palette gallery remain behaviorally unchanged.
+The browser implementation is the page `daydream/tools/palettes.html` in the
+sibling daydream checkout and its companion modules `palette_controls.js`,
+`palette_math.js`, and `palette_canvas.js`. Reorganize its generative tab into
+the following sections. The procedural tab and its named-palette gallery remain
+behaviorally unchanged.
 
 ### 14.1 Hue
 
@@ -1376,17 +1377,17 @@ recipe export containing `schema_version` and the canonical fields; importing
 unknown versions or enum values reports the shared validation error and changes
 no current state. Legacy mode retains its existing constructor export.
 
-Implementation responsibilities are:
+Implementation responsibilities are, all paths in the daydream checkout:
 
 | File | V2 responsibility |
 |---|---|
-| `tools/palettes.html` | Semantic markup, responsive groups, thin event wiring, status/transition controls, and accessibility. |
-| `tools/palette_controls.js` | Default state, reducer/actions, control metadata, conditional visibility, canonical-result application, and transition captures. |
-| `tools/palette_math.js` | WASM adapters, immediate buffer copies, LUT sampling, and canonical C++/JSON serialization; no V2 color algorithm. |
-| `tools/palette_canvas.js` | LUT strip rendering and the dual-axis diagnostic graph, markers, legend, hit testing, and seam status inputs. |
-| `tests/palette_controls.test.js` | Reducer determinism, visibility, adjustment/error mapping, revision rejection, and immutable captures. |
-| `tests/palette_math.test.js` | Buffer-alias copying, result decoding, LUT endpoints, and exact canonical exports using a fake bridge. |
-| `tests/palette_canvas.test.js` | Overlay scales, fallback/key markers, hit testing, and loop seam rendering. |
+| `daydream/tools/palettes.html` | Semantic markup, responsive groups, thin event wiring, status/transition controls, and accessibility. |
+| `daydream/tools/palette_controls.js` | Default state, reducer/actions, control metadata, conditional visibility, canonical-result application, and transition captures. |
+| `daydream/tools/palette_math.js` | WASM adapters, immediate buffer copies, LUT sampling, and canonical C++/JSON serialization; no V2 color algorithm. |
+| `daydream/tools/palette_canvas.js` | LUT strip rendering and the dual-axis diagnostic graph, markers, legend, hit testing, and seam status inputs. |
+| `daydream/tests/palette_controls.test.js` | Reducer determinism, visibility, adjustment/error mapping, revision rejection, and immutable captures. |
+| `daydream/tests/palette_math.test.js` | Buffer-alias copying, result decoding, LUT endpoints, and exact canonical exports using a fake bridge. |
+| `daydream/tests/palette_canvas.test.js` | Overlay scales, fallback/key markers, hit testing, and loop seam rendering. |
 
 Add one browser smoke test that switches among Procedural, V2 Recipe, and
 Legacy Profiles; exercises keyboard access and a validation error; verifies a
@@ -1512,7 +1513,7 @@ to reproduce the preview.
 ### Phase 4 - WASM and palette tool
 
 - Add the versioned compile, inspect, generate, and transition-frame bridges.
-- Update Daydream `tools/palettes.html` and the three companion palette modules
+- Update `daydream/tools/palettes.html` and the three companion palette modules
   according to section 14, while preserving Procedural and Legacy Profiles.
 - Add reducer/adapter/canvas tests, the browser smoke test, and JS/WASM parity
   tests over the full option matrix.

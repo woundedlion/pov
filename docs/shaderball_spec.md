@@ -409,7 +409,7 @@ superset should net out negative, but measure, don't assume.
 Holosphere:
 
 - `effects/ShaderBall.h` new (`git mv effects/Flyby.h` to keep history on
-  the closer parent); delete `effects/Liquid2D.h`.
+  the closer parent); Liquid2D's header deleted.
 - `core/engine/effects.h`: both `#include`s → one; both `X()` rows → one, at
   the case-insensitive-alphabetical slot (after RingSpin, before
   ShapeShifter) in **both** HS_EFFECT_LIST and HS_PHANTASM_EFFECT_LIST;
@@ -446,8 +446,8 @@ daydream (separate repo, land via worktree + FF):
 - daydream's `README.md` is the Holosphere README mirror — the same gallery
   cards and prose references above must land there too (mirror-accumulator
   flow).
-- `tests/engine_contract_wasm.test.js` needs no edit (verified: it names no
-  effect).
+- `daydream/tests/engine_contract_wasm.test.js` needs no edit (verified: it
+  names no effect).
 - Screenshot order: land rename → install wasm → fix favorites →
   `just screenshots` from the main tree (Playwright lives only there).
 
