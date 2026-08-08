@@ -404,8 +404,12 @@ def _link_issue(source: PurePosixPath, line: int, target: str,
         if cleaned.startswith("#"):
             return _anchor_issue(source, line, target, source, anchors)
         return None
+    # A target above the root can never resolve on GitHub, whatever a local
+    # checkout layout happens to put there.
     if resolved == PurePosixPath("..") or resolved.as_posix().startswith("../"):
-        return None
+        return Issue(source.as_posix(), line,
+                     f"link target {target!r} escapes the repository root "
+                     f"(resolved to {resolved.as_posix()!r})")
     if resolved not in entries:
         return Issue(source.as_posix(), line,
                      f"missing repo-relative link target {target!r} "

@@ -260,7 +260,8 @@ Key decisions:
   library. The rest of `core/` and all of `hardware/` are header-only and reached via `-I`.
 - **`effects_legacy.h` is in scope here even though it's excluded from code review.**
   `Holosphere.ino` includes it, so the firmware image must compile it. (The review-scope
-  exclusion in [`daydream/prompts/analysis.txt`](../../daydream/prompts/analysis.txt) is about *quality grading*, not *buildability*.)
+  exclusion in the sibling checkout's untracked `daydream/prompts/analysis.txt` is about
+  *quality grading*, not *buildability*.)
 - **Same board, different flags.** All six environments set `board = teensy40`. Phantasm adds
   `build_flags += -D USE_DMA_LEDS`; `phantasm8` also sets `PHANTASM_NUM_SEGMENTS=8`, while
   `holosphere_dma` enables the single-board DMA branch. The DMA define mirrors the guarded define the `.ino` already sets
