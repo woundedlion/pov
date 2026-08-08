@@ -581,10 +581,10 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher speed)
-    // float can't represent consecutive frames and the phase freezes; this
-    // animation is perpetual (duration == -1).
-    float time = t * speed;
+    // Accepted limit: past phase_time == 2^24 float can't represent consecutive
+    // steps and the phase freezes; this animation is perpetual (duration == -1).
+    phase_time += speed;
+    float time = phase_time;
     float s = scale;
 
     // Use prime-ish number ratios for frequencies to minimize repetition cycle
@@ -607,6 +607,7 @@ private:
   float scale;       /**< Magnitude of the per-channel modulation. */
   MobiusParams base; /**< Baseline params captured at construction. */
   uint32_t seed;     /**< Seed for the per-channel phase offsets. */
+  float phase_time = 0.0f; /**< Accumulated modulation phase (radians). */
 };
 
 /**
