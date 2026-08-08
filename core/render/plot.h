@@ -98,6 +98,18 @@ static constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
 /** @brief Pole-floor multiple below which balanced sampling keeps exact cadence. */
 static constexpr float BALANCED_POLE_GUARD_SCALE = 2.0f;
 
+/** @brief Minimum sin²φ for balanced step reuse; √0.12 ≈ 7 × MIN_SIN_PHI. */
+static constexpr float BALANCED_REUSE_MIN_SIN2 = 0.12f;
+
+/** @brief Step-reuse ceiling, as a fraction of base_step. */
+static constexpr float BALANCED_REUSE_MAX_STEP_SCALE = 0.9f;
+
+/** @brief Minimum tangent dot between consecutive full samples to reuse a step. */
+static constexpr float BALANCED_REUSE_MIN_TANGENT_DOT = 0.995f;
+
+/** @brief Maximum relative step change, against the new step, to reuse a step. */
+static constexpr float BALANCED_REUSE_STEP_TOLERANCE = 0.1f;
+
 /** @brief Source-over-aware alpha gain for balanced sample spacing. */
 static inline float balanced_sample_alpha(float alpha, float step_ratio) {
   const float gain = 1.0f + (step_ratio - 1.0f) * (0.88f - 0.20f * alpha);
@@ -2019,13 +2031,15 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
               if (balanced_sampling) {
                 const float sin2 = 1.0f - smp.pos.y * smp.pos.y;
                 reuse_step =
-                    sin2 > 0.12f &&
+                    sin2 > BALANCED_REUSE_MIN_SIN2 &&
                     default_desired_step > base_step * MIN_POLE_SCALE *
                                                BALANCED_POLE_GUARD_SCALE &&
-                    default_desired_step < base_step * 0.9f &&
-                    dot(smp.tan, previous_full_tangent) > 0.995f &&
+                    default_desired_step <
+                        base_step * BALANCED_REUSE_MAX_STEP_SCALE &&
+                    dot(smp.tan, previous_full_tangent) >
+                        BALANCED_REUSE_MIN_TANGENT_DOT &&
                     fabsf(default_desired_step - previous_full_step) <
-                        default_desired_step * 0.1f;
+                        default_desired_step * BALANCED_REUSE_STEP_TOLERANCE;
                 previous_full_step = default_desired_step;
                 previous_full_tangent = smp.tan;
               }
