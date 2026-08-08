@@ -128,8 +128,8 @@ Design rules to keep them from interfering:
 - **No shared generated dirs.** Add `/.pio/` to `.gitignore` alongside the existing `__vm/`
   entry. PlatformIO never writes into `__vm/` and VMicro never writes into `.pio/`.
 - **Include-path parity.** The historical VMicro configuration capture put **`core/`, `effects/`,
-  and `hardware/`** on the include path (vcxproj `IncludePath`, §4.1) — note `effects/`, which README
-  §11's "`../../core;../../hardware`" omits. `platformio.ini` reproduces all three via
+  and `hardware/`** on the include path (vcxproj `IncludePath`, §4.1), which README §11's
+  "`../../core;../../effects;../../hardware`" hint matches. `platformio.ini` reproduces all three via
   `build_flags = -I core -I effects -I hardware`, so a file that compiles under one resolves the
   same headers under the other.
 - **Library parity.** Both depend on `FastLED` (+ `SPI`, bundled with the core). PlatformIO
@@ -201,7 +201,7 @@ is breached), but explains why that floor can move in 32 KiB increments rather t
    the BARE `effects.h` / `effects_legacy.h` / `pov_single.h` includes in the `.ino`. `-I effects` is
    retained to mirror the captured VMicro `../../effects` setting (vcxproj line 67) and guard a
    future bare-name include, but the current tree does not require it (§6). README §11's include-dir
-   hint is updated to add `../../effects` for VMicro parity regardless.
+   hint carries `../../effects` for VMicro parity regardless.
 
 > **Scope of the capture.** Only **Holosphere** had a tracked VMicro/VS configuration to read;
 > **Phantasm had none**. The table above therefore records Holosphere's historical config;
