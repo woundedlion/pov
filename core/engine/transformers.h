@@ -135,6 +135,10 @@ public:
       new (&entities[i]) Entity();
     active_slots = arena.allocate_n<int>(CAPACITY);
     active_slot_count = 0;
+#ifndef NDEBUG
+    source_arena = &arena;
+    birth_generation = arena.get_generation();
+#endif
     if (!clear_hook_registered) {
       timeline.add_clear_hook(this, [](void *self) {
         static_cast<TransformerPool *>(self)->release_all();
@@ -153,6 +157,7 @@ public:
   HS_COLD_MEMBER void release_all() {
     HS_CHECK(entities,
              "TransformerPool: call init_storage() before release_all");
+    check_storage_alive();
     for (int i = 0; i < CAPACITY; ++i)
       entities[i].active = false;
     active_slot_count = 0;
@@ -174,6 +179,12 @@ public:
     int *s = arena.allocate_n<int>(CAPACITY);
     HS_CHECK(e == entities && s == active_slots,
              "TransformerPool: reclaimed storage moved");
+#ifndef NDEBUG
+    assert(source_arena == &arena &&
+           "TransformerPool::reclaim_storage() on a different arena than "
+           "init_storage() allocated from");
+    birth_generation = arena.get_generation();
+#endif
   }
 
   /**
@@ -251,6 +262,36 @@ private:
   bool clear_hook_registered =
       false; /**< Whether init_storage() registered the timeline clear hook. */
 
+#ifndef NDEBUG
+  Arena *source_arena =
+      nullptr; /**< Arena the slots were allocated from, for the debug stamp. */
+  uint32_t birth_generation =
+      0; /**< Arena generation at the last init_storage()/reclaim_storage(). */
+
+  /**
+   * @brief Debug-only use-after-free check on the pool's arena blocks.
+   * @details Asserts if the arena was reset or rebound after init_storage() —
+   * the slots then alias reissued bytes — or rewound below either block. The
+   * raw slot pointers stay non-null through both, so nothing else detects it.
+   */
+  void check_storage_alive() const {
+    if (source_arena && source_arena->get_generation() != birth_generation) {
+      assert(false && "TransformerPool use-after-free!");
+    }
+    if (source_arena &&
+        (!source_arena->covers(entities, CAPACITY * sizeof(Entity)) ||
+         !source_arena->covers(active_slots, CAPACITY * sizeof(int)))) {
+      assert(false &&
+             "TransformerPool use-after-free (arena rewound below block)!");
+    }
+  }
+#else
+  /**
+   * @brief No-op use-after-free check in release builds.
+   */
+  void check_storage_alive() const {}
+#endif
+
   /**
    * @brief Appends a slot index to active_slots in spawn order.
    * @param idx Slot index to insert; appended at the end so composition order
@@ -286,6 +327,7 @@ private:
   template <typename... Args>
   AnimT *spawn_impl(Timeline::Pin pin, int in_frames, Args &&...args) {
     HS_CHECK(entities, "TransformerPool: call init_storage() before spawn");
+    check_storage_alive();
     // Linear scan for a free slot (cold path).
     for (int idx = 0; idx < CAPACITY; ++idx) {
       Entity &e = entities[idx];
@@ -353,6 +395,7 @@ public:
    * NOT required when there are no active entities or when params are unchanged.
    */
   void prepare_frame() {
+    check_storage_alive();
     for (int k = 0; k < active_slot_count; ++k) {
       Entity &e = entities[active_slots[k]];
       // Pull live-tunable config from template_params into the spawned entity.
