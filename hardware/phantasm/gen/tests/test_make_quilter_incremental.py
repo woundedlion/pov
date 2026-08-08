@@ -63,6 +63,26 @@ class SnapshotTests(unittest.TestCase):
                 "cache", encoding="utf-8")
             make_quilter_incremental.verify_snapshot(snapshot)
 
+    def test_committed_snapshot_holds_no_strays(self):
+        make_quilter_incremental.require_no_strays(make_quilter_incremental.OUTPUT)
+
+    def test_stray_is_rejected_instead_of_adopted(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            snapshot = self.copy_snapshot(temp_dir)
+            (snapshot / "phantasm.kicad_dru").write_text("stray", encoding="utf-8")
+            with self.assertRaises(RuntimeError) as caught:
+                make_quilter_incremental.require_no_strays(snapshot)
+            self.assertEqual(
+                str(caught.exception),
+                "snapshot holds files this run does not write: phantasm.kicad_dru",
+            )
+
+    def test_unmanaged_stray_is_accepted(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            snapshot = self.copy_snapshot(temp_dir)
+            (snapshot / "phantasm.kicad_prl").write_text("local", encoding="utf-8")
+            make_quilter_incremental.require_no_strays(snapshot)
+
     def test_manifest_regenerates_byte_identically(self):
         manifest = make_quilter_incremental.OUTPUT / "SHA256SUMS.txt"
         rebuilt = "\n".join(
