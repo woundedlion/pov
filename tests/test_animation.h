@@ -773,9 +773,11 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
 inline void test_timeline_cancel_removes_repeating_animation() {
   Timeline tl;
   float v = -1.0f;
-  auto *h = tl.add_get(0, Animation::Mutation(
-                              v, [](float e) { return e; }, 2, ease_linear,
-                              /*repeat=*/true));
+  auto *h = tl.add_get(0,
+                       Animation::Mutation(
+                           v, [](float e) { return e; }, 2, ease_linear,
+                           /*repeat=*/true),
+                       Timeline::Pin::PINNED);
   tl.step(fake_canvas());
   tl.step(fake_canvas()); // completes a cycle, rewinds, and stays (repeating)
   HS_EXPECT_EQ(global_timeline_num_events, 1);

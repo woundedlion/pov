@@ -248,7 +248,7 @@ public:
    * @param in_frames The number of frames to delay before starting; 0 and 1 both
    * start on the next step(), and every existing schedule is tuned to that.
    * @param animation The animation object.
-   * @param pin Pin::PINNED (default): the caller intends to RETAIN this pointer
+   * @param pin Pin::PINNED: the caller intends to RETAIN this pointer
    * across frames, so the event is marked handled and step()'s compaction traps
    * (move_into) rather than relocating it out from under the cached pointer.
    * Such a retained handle is only safe when the animation is infinite and added
@@ -261,7 +261,7 @@ public:
    * @return Typed pointer to the inline-stored animation, or nullptr if full.
    */
   template <typename A>
-  A *add_get(int in_frames, A animation, Pin pin = Pin::PINNED,
+  A *add_get(int in_frames, A animation, Pin pin,
              const bool *paused = nullptr) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
@@ -455,7 +455,7 @@ public:
 
     // Move new events (added during callbacks) to fill the gap left by
     //    completed ones. A pinned event spawned inside a callback would trap in
-    //    move_into here; callback-spawners use pin=false, so this is safe.
+    //    move_into here; callback-spawners pass Pin::UNPINNED, so this is safe.
     HS_CHECK(global_timeline_num_events >= active_cnt,
              "callback shrank the timeline mid-step; "
              "new_vals_count would go negative");

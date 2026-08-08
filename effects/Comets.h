@@ -93,16 +93,20 @@ public:
     // Motion + cycle timer are infinite and added before any finite animation,
     // so the timeline never relocates them and the retained handles stay valid.
     motion = timeline.add_get(
-        0, Animation::Motion<W, 16>(node->orientation, path,
-                                    (int)params.cycle_duration, true));
-    cycle_timer = timeline.add_get(0, Animation::PeriodicTimer(
-                                          2 * (int)params.cycle_duration,
-                                          [this](Canvas &) {
-                                            functions.next();
-                                            update_path();
-                                            update_palette();
-                                          },
-                                          true));
+        0,
+        Animation::Motion<W, 16>(node->orientation, path,
+                                 (int)params.cycle_duration, true),
+        Timeline::Pin::PINNED);
+    cycle_timer = timeline.add_get(0,
+                                   Animation::PeriodicTimer(
+                                       2 * (int)params.cycle_duration,
+                                       [this](Canvas &) {
+                                         functions.next();
+                                         update_path();
+                                         update_palette();
+                                       },
+                                       true),
+                                   Timeline::Pin::PINNED);
   }
 
   /**
