@@ -371,6 +371,14 @@ private:
       "KD-tree + coarse-grid cells; raise SCRATCH_A_BYTES or lower MAX_SITES / "
       "coarsen COHERENCE_BLOCK");
 
+  // init() binds the MAX_SITES sites buffer from the persistent arena, which
+  // configure_arenas() sizes as the global arena less SCRATCH_A_BYTES.
+  static constexpr size_t FOOTPRINT_BYTES =
+      size_t(MAX_SITES) * sizeof(Site) + alignof(Site);
+  static_assert(FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
+                "Voronoi persistent footprint exceeds its device partition; "
+                "lower MAX_SITES or shrink SCRATCH_A_BYTES");
+
   int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
                                    refill, no realloc) when the slider changes. */
   ArenaVector<Site> sites_buffer; /**< Active Voronoi sites for the frame. */

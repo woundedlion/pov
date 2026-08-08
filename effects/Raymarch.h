@@ -216,6 +216,13 @@ private:
   GenerativePalette palette{EffectPaletteRecipes::raymarch()};
   BakedPalette baked_palette;
 
+  // init() bakes one palette LUT into the persistent arena. Effect keeps the
+  // default arena split, so the total must fit the device persistent partition.
+  static constexpr size_t FOOTPRINT_BYTES =
+      BakedPalette::required_arena_bytes();
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+                "Raymarch persistent footprint exceeds the default partition");
+
   /**
    * @brief Tunable shader and animation parameters exposed via register_param.
    */
