@@ -579,24 +579,25 @@ public:
 
   /**
    * @brief Applies relax smoothing passes to the mesh.
-   * @param iterations Number of smoothing passes; floored at 0 and clamped to
-   *        MAX_RELAX_ITERATIONS.
+   * @param iterations Number of smoothing passes, truncated toward zero;
+   *        floored at 0 and clamped to MAX_RELAX_ITERATIONS.
    * @return Owning pointer to a new wrapper holding the relaxed mesh.
-   * @details Explicit (not a MESHOP_* macro) because its int iteration count
-   *          crosses the JS boundary unbounded: relax(1e9) would freeze the main
-   *          thread for billions of passes, so the count is clamped rather than
-   *          trusted.
+   * @details Explicit (not a MESHOP_* macro) because its iteration count crosses
+   *          the JS boundary unbounded: relax(1e9) would freeze the main thread
+   *          for billions of passes, so the count is clamped rather than
+   *          trusted. Bound as a double, not an i32, so a request past INT32_MAX
+   *          saturates at the cap instead of wrapping negative and flooring at
+   *          0.
    */
-  std::unique_ptr<MeshOpsWrapper> relax(int iterations) {
-    int clamped =
+  std::unique_ptr<MeshOpsWrapper> relax(double iterations) {
+    const int clamped =
         hs_wasm::clamp_relax_iterations(iterations, MAX_RELAX_ITERATIONS);
-    if (clamped != iterations)
-      hs::log("WASM: MeshOps::relax clamped %d iterations to %d", iterations,
+    if (static_cast<double>(clamped) != iterations)
+      hs::log("WASM: MeshOps::relax clamped %g iterations to %d", iterations,
               clamped);
-    iterations = clamped;
     return apply(hs_wasm::RELAX_BOUNDS,
-                 [iterations](const PolyMesh &m, Arena &a, Arena &b) {
-                   return MeshOps::relax(m, a, b, iterations);
+                 [clamped](const PolyMesh &m, Arena &a, Arena &b) {
+                   return MeshOps::relax(m, a, b, clamped);
                  });
   }
 

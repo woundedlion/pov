@@ -80,6 +80,18 @@ inline void test_relax_clamp() {
   // Over-large counts clamp to the cap (relax(1e9) would freeze the thread).
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(MAX + 1, MAX), MAX);
   HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(1000000000, MAX), MAX);
+  // Counts past the 32-bit range saturate at the cap rather than wrapping
+  // negative and flooring at 0, which is what an i32 parameter would do.
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(2147483648.0, MAX), MAX);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(4294967296.0, MAX), MAX);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(1e300, MAX), MAX);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(INFINITY, MAX), MAX);
+
+  // Fractional counts truncate toward zero; NaN floors at 0.
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(2.7, MAX), 2);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(0.5, MAX), 0);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(NAN, MAX), 0);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(-INFINITY, MAX), 0);
 }
 
 /**
