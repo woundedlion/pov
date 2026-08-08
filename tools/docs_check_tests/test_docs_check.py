@@ -112,6 +112,88 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("core/ghosts", issues[1].message)
         self.assertIn("unknown docs-check directive 'trees'", issues[2].message)
 
+    def test_exhaustive_tree_reports_tracked_paths_without_a_row(self):
+        text = ("<!-- docs-check: tree exhaustive -->\n"
+                "```\n"
+                "├── core/                       Engine\n"
+                "│   └── engine/                 Machinery\n"
+                "│       └── platform.h          Abstraction layer\n"
+                "├── docs/                       Design specs\n"
+                "└── justfile                    Task runner\n"
+                "```\n")
+        entries = {
+            PurePosixPath("core"),
+            PurePosixPath("core/engine"),
+            PurePosixPath("core/engine/platform.h"),
+            PurePosixPath("core/engine/util.h"),
+            PurePosixPath("core/math"),
+            PurePosixPath("docs"),
+            PurePosixPath("docs/spec.md"),
+            PurePosixPath("justfile"),
+            PurePosixPath("ruff.toml"),
+        }
+        issues = dc.check_text(PurePosixPath("README.md"), text, entries)
+        # docs/ names no child, so its subtree is elided rather than enumerated.
+        self.assertEqual([issue.message for issue in issues], [
+            "tree omits tracked path 'core/engine/util.h'",
+            "tree omits tracked path 'core/math'",
+            "tree omits tracked path 'ruff.toml'",
+        ])
+        self.assertEqual({issue.line for issue in issues}, {2})
+
+    def test_unmapped_paths_are_exempt_from_the_exhaustive_diff(self):
+        text = ("<!-- docs-check: tree exhaustive -->\n"
+                "```\n"
+                "└── justfile                    Task runner\n"
+                "```\n")
+        entries = {
+            PurePosixPath(".gitignore"),
+            PurePosixPath("README.md"),
+            PurePosixPath("justfile"),
+            PurePosixPath("tests"),
+            PurePosixPath("tests/run_tests.cpp"),
+        }
+        issues = dc.check_text(PurePosixPath("README.md"), text, entries)
+        self.assertEqual([issue.message for issue in issues],
+                         ["tree omits tracked path 'tests'"])
+
+    def test_checkout_tree_is_validated_against_the_supplied_root(self):
+        text = ("<!-- docs-check: tree daydream -->\n"
+                "```\n"
+                "├── daydream.js                 App entry\n"
+                "├── ghost.js                    Stale row\n"
+                "└── three.js/                   Optional vendored checkout\n"
+                "```\n")
+        checkouts = {"daydream": {PurePosixPath("daydream.js")}}
+        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
+                               checkouts=checkouts)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].line, 4)
+        self.assertIn("ghost.js", issues[0].message)
+
+    def test_checkout_tree_without_a_root_is_recorded_as_skipped(self):
+        text = ("<!-- docs-check: tree daydream -->\n"
+                "```\n"
+                "└── ghost.js                    Stale row\n"
+                "```\n")
+        skipped: set[str] = set()
+        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
+                               skipped=skipped)
+        self.assertEqual(issues, [])
+        self.assertEqual(skipped, {"daydream"})
+
+    def test_multi_word_tree_tag_is_parsed_or_reported(self):
+        self.assertEqual(dc._tree_directive("tree"),
+                         dc.TreeDirective("", False))
+        self.assertEqual(dc._tree_directive("tree exhaustive"),
+                         dc.TreeDirective("", True))
+        self.assertEqual(dc._tree_directive("tree daydream"),
+                         dc.TreeDirective("daydream", False))
+        self.assertEqual(dc._tree_directive("tree daydream exhaustive"),
+                         dc.TreeDirective("daydream", True))
+        self.assertIsNone(dc._tree_directive("tree daydream extra"))
+        self.assertIsNone(dc._tree_directive("trees"))
+
     def test_tree_row_indented_past_its_parent_is_reported(self):
         text = ("<!-- docs-check: tree -->\n"
                 "```\n"
