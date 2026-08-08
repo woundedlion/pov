@@ -4314,10 +4314,9 @@ struct ShaderBallWhiteBox {
   static Vector glitch_lens(const Vector &v) {
     return SB::apply_glitch_lens(v);
   }
-  static PatternSample blend_lens_samples(const PatternSample &direct,
-                                          const PatternSample &lensed,
-                                          float mix) {
-    return SB::blend_lens_samples(direct, lensed, mix);
+  static float lens_threshold(const Vector &v) { return SB::lens_threshold(v); }
+  static Vector lens_direction(const Vector &v, float mix) {
+    return SB::lens_direction(v, mix);
   }
   static StereoWarpResult wrapped_warp(const SB &sb, const Complex &z,
                                        float time) {
@@ -4569,24 +4568,38 @@ inline void test_shaderball_glitch_lens_unit_norm() {
   HS_EXPECT_NEAR(forward.z, backward.z, 1e-6f);
 }
 
-/** @brief Keeps Lens Mix linear through its former midpoint singularity. */
-inline void test_shaderball_lens_mix_continuous() {
+/** @brief Keeps the Lens Mix dissolve stable, monotonic, and well distributed. */
+inline void test_shaderball_lens_mix_dissolve() {
   using WB = ShaderBallWhiteBox;
-  const WB::PatternSample direct{0.15f, 0.2f};
-  const WB::PatternSample lensed{0.85f, 1.0f};
-  const auto before = WB::blend_lens_samples(direct, lensed, 0.499f);
-  const auto middle = WB::blend_lens_samples(direct, lensed, 0.5f);
-  const auto after = WB::blend_lens_samples(direct, lensed, 0.501f);
-  HS_EXPECT_NEAR(middle.value - before.value, after.value - middle.value,
-                 1e-6f);
-  HS_EXPECT_NEAR(middle.displacement - before.displacement,
-                 after.displacement - middle.displacement, 1e-6f);
-  const auto start = WB::blend_lens_samples(direct, lensed, 0.0f);
-  const auto end = WB::blend_lens_samples(direct, lensed, 1.0f);
-  HS_EXPECT_EQ(start.value, direct.value);
-  HS_EXPECT_EQ(start.displacement, direct.displacement);
-  HS_EXPECT_EQ(end.value, lensed.value);
-  HS_EXPECT_EQ(end.displacement, lensed.displacement);
+  constexpr int SAMPLES = 4096;
+  int quarter = 0;
+  int three_quarters = 0;
+  for (int i = 0; i < SAMPLES; ++i) {
+    const float y = -1.0f + 2.0f * (i + 0.5f) / SAMPLES;
+    const float radius = sqrtf(1.0f - y * y);
+    const float angle = i * 2.39996323f;
+    const Vector v(radius * cosf(angle), y, radius * sinf(angle));
+    const float threshold = WB::lens_threshold(v);
+    HS_EXPECT_GE(threshold, 0.0f);
+    HS_EXPECT_LT(threshold, 1.0f);
+    HS_EXPECT_EQ(threshold, WB::lens_threshold(v));
+    quarter += threshold < 0.25f;
+    three_quarters += threshold < 0.75f;
+  }
+  HS_EXPECT_LE(quarter, three_quarters);
+  HS_EXPECT_NEAR(quarter, SAMPLES / 4, SAMPLES / 25);
+  HS_EXPECT_NEAR(three_quarters, 3 * SAMPLES / 4, SAMPLES / 25);
+
+  const Vector v = Vector(1.0f, 2.0f, 3.0f).normalized();
+  const Vector direct = WB::lens_direction(v, 0.0f);
+  const Vector lensed = WB::lens_direction(v, 1.0f);
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(direct.x), std::bit_cast<uint32_t>(v.x));
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(direct.y), std::bit_cast<uint32_t>(v.y));
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(direct.z), std::bit_cast<uint32_t>(v.z));
+  const Vector expected = WB::glitch_lens(v);
+  HS_EXPECT_NEAR(lensed.x, expected.x, 1e-7f);
+  HS_EXPECT_NEAR(lensed.y, expected.y, 1e-7f);
+  HS_EXPECT_NEAR(lensed.z, expected.z, 1e-7f);
 }
 
 /** @brief Gives every staggered parameter slice zero endpoint velocity. */
@@ -5773,7 +5786,7 @@ inline int run_effects_tests() {
     test_shaderball_phase_wrapped();
     test_shaderball_partial_wander_continuous();
     test_shaderball_glitch_lens_unit_norm();
-    test_shaderball_lens_mix_continuous();
+    test_shaderball_lens_mix_dissolve();
     test_shaderball_staggered_lerp_eased();
     test_shaderball_preset_roster();
     test_mobiusgrid_conformal_and_counter_rotation();

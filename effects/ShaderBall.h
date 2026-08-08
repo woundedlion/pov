@@ -14,6 +14,8 @@
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 
+#include <bit>
+
 // Unit-test accessor for the wrap invariants, lens, and pattern formula.
 namespace hs_test {
 namespace effects_tests {
@@ -178,19 +180,8 @@ public:
 
     auto shader = [&](const Vector &v) -> Color4 {
       Vector rv = rotate(v, cam_outer_conj);
-      PatternSample lens_sample;
-      if (P.lens_mix == 0.0f) {
-        lens_sample = sample_direction(rv);
-      } else {
-        Vector g = apply_glitch_lens(rv);
-        if (P.lens_mix == 1.0f) {
-          lens_sample = sample_direction(g);
-        } else {
-          const PatternSample direct = sample_direction(rv);
-          const PatternSample lensed = sample_direction(g);
-          lens_sample = blend_lens_samples(direct, lensed, P.lens_mix);
-        }
-      }
+      PatternSample lens_sample =
+          sample_direction(lens_direction(rv, P.lens_mix));
       float value = lens_sample.value;
       // The Wrap lookup below folds an exact 1.0 onto the palette's other end.
       value = std::min(value, ONE_BELOW_UNIT);
@@ -220,11 +211,19 @@ private:
     float displacement;
   };
 
-  static PatternSample blend_lens_samples(const PatternSample &direct,
-                                          const PatternSample &lensed,
-                                          float mix) {
-    return {hs::lerp(direct.value, lensed.value, mix),
-            hs::lerp(direct.displacement, lensed.displacement, mix)};
+  static float lens_threshold(const Vector &v) {
+    uint32_t key = std::bit_cast<uint32_t>(v.x);
+    key ^= std::bit_cast<uint32_t>(v.y) * 0x9e3779b9u;
+    key ^= std::bit_cast<uint32_t>(v.z) * 0x85ebca6bu;
+    return hash01(key, 0xc2b2ae35u);
+  }
+
+  static Vector lens_direction(const Vector &v, float mix) {
+    if (mix == 0.0f)
+      return v;
+    if (mix == 1.0f || lens_threshold(v) < mix)
+      return apply_glitch_lens(v);
+    return v;
   }
 
   static StereoWarpResult sample_wrapped_warp(const Complex &z, float r_sq,
