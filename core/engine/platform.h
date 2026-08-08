@@ -668,8 +668,8 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   EM_ASM({ console.error(UTF8ToString($0)); }, buf);
 #else
   hs::log("HS_CHECK failed: %s:%d: (%s) %s", base, line, cond, msg);
-  hs::flush_log();
 #endif
+  hs::flush_log();
   __builtin_trap();
 }
 
