@@ -6,7 +6,7 @@ display window. Global O3 is a compiler ceiling, not a shippable roster image.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](profile_shaderball_teensy_2026-08-07.md)§ ● | stereographic closure shader | 🔴 89.21 (3)<br>🟢 56.69 (9) | 🔴 1437/1593 (90%)<br>🟢 0/3335 (0%) | 2026-08-07 23:22 |
+| [ShaderBall](profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🟢 61.28 (12) | 🟢 0/6368 (0%) | 2026-08-08 10:23 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-04.md)§ ● | adaptive planar-star raster | 🟢 59.47 (9) | 🟢 0/2368 (0%) | 2026-08-04 11:09 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-03.md) ● | integer opaque SSAA raster + sim | 🟢 56.68 | 🟢 0/2048 (0%) | 2026-08-03 00:31 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.90 | 🟢 0/2048 (0%) | 2026-08-03 00:36 |
@@ -18,4 +18,4 @@ nine hold 16 fps.
 ShaderBall spans 12 presets and MindSplatter spans eight; each report folds its
 initial unlabeled frames into preset 1.
 
-**● refreshed 2026-08-07.**
+**● refreshed 2026-08-08.**

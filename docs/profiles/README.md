@@ -46,7 +46,7 @@ peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-07.md)§ ● | stereographic closure shader | 🔴 97.93 (5)<br>🟢 61.23 (7) | 🔴 1501/2549 (59%)<br>🟢 0/2315 (0%) | 2026-08-07 23:12 |
+| [ShaderBall](shipping/profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🔴 67.33 (2)<br>🟢 61.73 (10) | 🔴 536/1138 (47%)<br>🟢 0/4686 (0%) | 2026-08-08 10:23 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
@@ -75,29 +75,28 @@ directly. Size deltas are O3 minus shipping.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShaderBall](O3/profile_shaderball_teensy_2026-08-07.md)§ ● | stereographic closure shader | 🔴 97.93 (5)<br>🟢 61.23 (7) | 🔴 89.21 (3)<br>🟢 56.69 (9) | 🔴 1501/2549 (59%)<br>🟢 0/2315 (0%) | 🔴 1437/1593 (90%)<br>🟢 0/3335 (0%) | +29,376 B | +26,592 B | ship 2026-08-07 23:12<br>O3 2026-08-07 23:22 |
+| [ShaderBall](O3/profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🔴 67.33 (2)<br>🟢 61.73 (10) | 🟢 61.28 (12) | 🔴 536/1138 (47%)<br>🟢 0/4686 (0%) | 🟢 0/6368 (0%) | +24,872 B | +22,192 B | ship 2026-08-08 10:23<br>O3 2026-08-08 10:23 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-04.md)§ ● | adaptive planar-star raster | 🟢 57.66 (9) | 🟢 59.47 (9) | 🟢 0/2368 (0%) | 🟢 0/2368 (0%) | +30,088 B | +25,456 B | ship 2026-08-04 11:06<br>O3 2026-08-04 11:09 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-03.md) ● | integer opaque SSAA raster + sim | 🟢 55.71 | 🟢 56.68 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,528 B | +16,432 B | ship 2026-08-03 00:27<br>O3 2026-08-03 00:31 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
 | [MindSplatter](O3/profile_mindsplatter_teensy_2026-08-07.md)§ ● | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 38.78 (8) | 🟢 0/1728 (0%) | 🟢 0/1728 (0%) | +21,464 B | +18,832 B | ship 2026-08-07 23:03<br>O3 2026-08-07 23:02 |
 | [ChaoticStrings](O3/profile_chaoticstrings_teensy_2026-08-02.md) ● | adaptive vertex build | 🟢 24.85 | 🟢 22.16 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +28,456 B | +20,688 B | ship 2026-08-02 22:21<br>O3 2026-08-02 22:23 |
 
-**● refreshed 2026-08-07.**
+**● refreshed 2026-08-08.**
 
 ## What the roster looks like
 
 **Twenty of the twenty-one effects spill nothing** in their current shipping
-captures. ShaderBall is the exception: five of its 12 shipping presets spill,
-with 1501/2549 frames (59%) in the red bucket.
+captures. ShaderBall is the exception: two of its 12 shipping presets spill,
+with 536/1138 frames (47%) in the red bucket.
 
 **MindSplatter completes all eight presets at 16 fps.** The shipping cycle has
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
 38.78 ms peak while adding 21,464 B of flash and 18,832 B of ITCM.
 
 **ShaderBall exposes the merged 12-preset stereographic workload.** Shipping
-peaks at 97.93 ms with five red presets. Global O3 lowers the peak to 89.21 ms
-and leaves three red presets, at a cost of 29,376 B of flash and 26,592 B of
-ITCM.
+peaks at 67.33 ms with two red presets. Global O3 lowers the peak to 61.28 ms
+with zero spills, at a cost of 24,872 B of flash and 22,192 B of ITCM.
 
 **MeshFeedback is green on all 12 styles** — 0/6688 at a 57.70 ms peak
 (SlowDust), worst hold Smoke at 48.86 ms of flush. `feedback_composite` is 67%

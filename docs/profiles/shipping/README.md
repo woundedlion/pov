@@ -6,7 +6,7 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](profile_shaderball_teensy_2026-08-07.md)§ ● | stereographic closure shader | 🔴 97.93 (5)<br>🟢 61.23 (7) | 🔴 1501/2549 (59%)<br>🟢 0/2315 (0%) | 2026-08-07 23:12 |
+| [ShaderBall](profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🔴 67.33 (2)<br>🟢 61.73 (10) | 🔴 536/1138 (47%)<br>🟢 0/4686 (0%) | 2026-08-08 10:23 |
 | [DisplacementField](profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
 | [HopfFibration](profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-04.md)§ ● | adaptive planar-star raster | 🟢 57.66 (9) | 🟢 0/2368 (0%) | 2026-08-04 11:06 |
@@ -33,4 +33,4 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 ShaderBall spans 12 presets and MindSplatter spans eight; each report folds its
 initial unlabeled frames into preset 1.
 
-**● refreshed 2026-08-07.**
+**● refreshed 2026-08-08.**
