@@ -75,7 +75,8 @@ public:
    * @brief Builds the tree from a span of points using arena storage.
    * @param arena Arena used for node storage and temporary index sorting.
    * @param points Source points; std::span<const Vector> so callers need not
-   * const_cast read-only vertex arrays.
+   * const_cast read-only vertex arrays. Every coordinate must be finite (traps
+   * via HS_CHECK otherwise).
    * @details Allocates one node per point in the arena. The scratch index array
    * is scoped to a ScratchScope so its arena offset rewinds once build() returns.
    * Retains N * sizeof(KDNode) bytes and peaks a further N * sizeof(int) over
@@ -96,8 +97,14 @@ public:
     // returns.
     ScratchScope scratch(arena);
     int *indices = arena.allocate_n<int>(count);
-    for (size_t i = 0; i < count; ++i)
+    for (size_t i = 0; i < count; ++i) {
+      // A NaN coordinate compares equivalent to every value, which breaks the
+      // strict weak ordering build()'s comparator owes std::nth_element.
+      HS_CHECK(std::isfinite(points[i].x) && std::isfinite(points[i].y) &&
+                   std::isfinite(points[i].z),
+               "KDTree source point is not finite");
       indices[i] = (int)i;
+    }
 
     root_index = build(points, indices, count, 0);
   }
