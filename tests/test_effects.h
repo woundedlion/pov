@@ -4398,24 +4398,29 @@ struct ShaderBallWhiteBox {
   static bool choreo_staggered(size_t i) { return SB::CHOREO[i].staggered; }
 };
 
-/** @brief Pins ShaderBall's two palette banks to their authored color ramps. */
+/**
+ * @brief Pins ShaderBall's two palette banks to their authored color ramps.
+ * @details Samples at t = i/15: LUT_SIZE - 1 is 15 * 17, so every sample lands
+ *          on a baked entry and reads the authored ramp rather than the
+ *          interpolation of two entries around it.
+ */
 inline void test_shaderball_palettes() {
   using WB = ShaderBallWhiteBox;
   static const Pixel LIQUID[] = {
-      {52278, 47400, 4693}, {41711, 45307, 4285}, {16089, 39877, 3277},
-      {2497, 25985, 12298}, {1214, 11978, 12052}, {458, 4367, 7496},
-      {114, 1105, 5222},    {289, 105, 3110},     {262, 58, 1746},
-      {289, 105, 3110},     {114, 1105, 5222},    {458, 4367, 7496},
-      {1214, 11978, 12052}, {2497, 25985, 12298}, {16089, 39877, 3277},
-      {41711, 45307, 4285}, {52278, 47400, 4693},
+      {52285, 47430, 4206}, {40255, 45093, 3961}, {12087, 39066, 3392},
+      {2154, 22749, 13311}, {886, 9452, 10996},   {350, 2982, 6327},
+      {173, 367, 5686},     {287, 80, 2111},      {287, 80, 2111},
+      {173, 367, 5686},     {350, 2982, 6327},    {886, 9452, 10996},
+      {2154, 22749, 13311}, {12087, 39066, 3392}, {40255, 45093, 3961},
+      {52285, 47430, 4206},
   };
   static const Pixel FLYBY[] = {
-      {27665, 12491, 5004}, {26107, 13089, 4988}, {22348, 14539, 4937},
-      {17104, 16554, 5025}, {8807, 19749, 5403},  {6005, 19765, 13106},
-      {5867, 19103, 18146}, {5827, 18663, 21339}, {5827, 18490, 22555},
-      {5828, 18430, 22969}, {5834, 18251, 24205}, {5841, 17949, 26302},
-      {5808, 17498, 29546}, {5704, 16838, 34445}, {5980, 15943, 39922},
-      {7165, 15269, 41314}, {7665, 15033, 41563},
+      {27665, 12491, 5004}, {25929, 13160, 4970}, {21739, 14774, 4933},
+      {15815, 17050, 5068}, {6594, 20420, 6844},  {5944, 19511, 15067},
+      {5818, 18911, 19629}, {5825, 18541, 22198}, {5836, 18470, 22666},
+      {5839, 18335, 23604}, {5828, 18067, 25513}, {5823, 17636, 28537},
+      {5693, 16993, 33397}, {5868, 16064, 39391}, {7096, 15300, 41293},
+      {7665, 15033, 41563},
   };
 
   reset_effect_globals();
@@ -4423,9 +4428,9 @@ inline void test_shaderball_palettes() {
   sb.init();
   int liquid_max_error = 0;
   int flyby_max_error = 0;
-  for (int i = 0; i <= 16; ++i) {
-    const Pixel liquid = WB::palette_color(sb, 0, i / 16.0f);
-    const Pixel flyby = WB::palette_color(sb, 1, i / 16.0f);
+  for (int i = 0; i <= 15; ++i) {
+    const Pixel liquid = WB::palette_color(sb, 0, i / 15.0f);
+    const Pixel flyby = WB::palette_color(sb, 1, i / 15.0f);
     liquid_max_error =
         std::max({liquid_max_error, abs(int(liquid.r) - int(LIQUID[i].r)),
                   abs(int(liquid.g) - int(LIQUID[i].g)),
