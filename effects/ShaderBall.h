@@ -277,16 +277,22 @@ private:
   /**
    * @brief Applies a trig-free glitch lens to a sphere direction.
    * @param v Unit direction vector on the sphere.
-   * @return Direction under the stereographic cubic map z -> z^3.
+   * @return Direction after latitude doubling and azimuth tripling; returns
+   * the up vector near the lens axis.
    */
   static Vector apply_glitch_lens(const Vector &v) {
     const float x2 = v.x * v.x;
-    const float y2 = v.y * v.y;
     const float z2 = v.z * v.z;
-    const float inverse_denominator = 1.0f / (1.0f + 3.0f * y2);
-    return Vector(v.x * (x2 - 3.0f * z2) * inverse_denominator,
-                  v.y * (3.0f + y2) * inverse_denominator,
-                  v.z * (3.0f * x2 - z2) * inverse_denominator);
+    const float radius2 = x2 + z2;
+    constexpr float MIN_AXIS_RADIUS2 = 1e-6f;
+    if (radius2 < MIN_AXIS_RADIUS2)
+      return Vector(0.0f, 1.0f, 0.0f);
+
+    const float inverse_radius2 = 1.0f / radius2;
+    const float double_y = 2.0f * v.y;
+    return Vector(double_y * v.x * (4.0f * x2 * inverse_radius2 - 3.0f),
+                  2.0f * v.y * v.y - 1.0f,
+                  double_y * v.z * (3.0f - 4.0f * z2 * inverse_radius2));
   }
 
   /**

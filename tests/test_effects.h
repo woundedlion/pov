@@ -4526,11 +4526,9 @@ inline void test_shaderball_partial_wander_continuous() {
 
 /**
  * @brief Verifies ShaderBall::apply_glitch_lens maps unit directions to unit
- *        directions without collapsing its equator.
- * @details The lens is a hand-derived degree-3 rational sphere map on
- *          the live per-pixel path; the positive-frame-sum smoke harness cannot
- *          catch a sign/coefficient slip, so pin |lens(v)| == 1 across a spread
- *          of directions plus the equator and both poles.
+ *        directions and stays smooth through its equatorial fold.
+ * @details Pins |lens(v)| == 1 across a spread of directions, its doubled-
+ *          latitude topology, and matching one-sided derivatives at the fold.
  */
 inline void test_shaderball_glitch_lens_unit_norm() {
   using WB = ShaderBallWhiteBox;
@@ -4548,18 +4546,27 @@ inline void test_shaderball_glitch_lens_unit_norm() {
   }
 
   const Vector equator_x = WB::glitch_lens(Vector(1, 0, 0));
-  HS_EXPECT_NEAR(equator_x.x, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(equator_x.y, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(equator_x.x, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(equator_x.y, -1.0f, 1e-6f);
   HS_EXPECT_NEAR(equator_x.z, 0.0f, 1e-6f);
-  const Vector equator_z = WB::glitch_lens(Vector(0, 0, 1));
-  HS_EXPECT_NEAR(equator_z.x, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(equator_z.y, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(equator_z.z, -1.0f, 1e-6f);
 
   const Vector north = WB::glitch_lens(Vector(0, 1, 0));
   HS_EXPECT_NEAR(north.y, 1.0f, 1e-6f);
   const Vector south = WB::glitch_lens(Vector(0, -1, 0));
-  HS_EXPECT_NEAR(south.y, -1.0f, 1e-6f);
+  HS_EXPECT_NEAR(south.y, 1.0f, 1e-6f);
+
+  constexpr float EPSILON = 1e-4f;
+  const float radial = sqrtf(1.0f - EPSILON * EPSILON);
+  const Vector center = WB::glitch_lens(Vector(0.8f, 0.0f, 0.6f));
+  const Vector above =
+      WB::glitch_lens(Vector(0.8f * radial, EPSILON, 0.6f * radial));
+  const Vector below =
+      WB::glitch_lens(Vector(0.8f * radial, -EPSILON, 0.6f * radial));
+  const Vector forward = above - center;
+  const Vector backward = center - below;
+  HS_EXPECT_NEAR(forward.x, backward.x, 1e-6f);
+  HS_EXPECT_NEAR(forward.y, backward.y, 1e-6f);
+  HS_EXPECT_NEAR(forward.z, backward.z, 1e-6f);
 }
 
 /** @brief Keeps Lens Mix linear through its former midpoint singularity. */
