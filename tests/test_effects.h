@@ -4493,13 +4493,15 @@ inline void test_shaderball_glitch_lens_unit_norm() {
 /** @brief Pins ShaderBall's fine-grained unlensed liquid preset. */
 inline void test_shaderball_preset_roster() {
   using WB = ShaderBallWhiteBox;
-  constexpr WB::Params EXPECTED{3.0f, 0.0f,  0.5f,  15.763f, 0.1f, 2.950552f,
-                                0.0f, 0.8f,  1.0f,  0.0f,    1.0f, 0.0f,
-                                0.0f, 0.15f, 0.05f, 0.0f,    0.0f};
+  constexpr WB::Params EXPECTED{3.0f,  0.0f,  0.5f,  15.763f, 0.1f, 2.950552f,
+                                0.0f,  0.8f,  1.0f,  0.0f,    1.0f, 0.0f,
+                                0.02f, 0.15f, 0.05f, 0.0f,    0.0f};
   const auto &presets = WB::presets();
   HS_EXPECT_EQ(presets.size(), size_t(11));
   for (auto field : WB::Params::FIELDS)
     HS_EXPECT_EQ(presets[3].params.*field, EXPECTED.*field);
+  for (const auto &preset : presets)
+    HS_EXPECT_EQ(preset.params.palette_pos, 0.02f);
 }
 
 /**
