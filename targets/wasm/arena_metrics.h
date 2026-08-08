@@ -22,7 +22,8 @@ using namespace emscripten;
  * @param name Key the entry is stored under.
  * @param arena Arena to measure.
  */
-static void add_arena_metrics(val &metrics, const char *name, Arena &arena) {
+static void add_arena_metrics(val &metrics, const char *name,
+                              const Arena &arena) {
   val m = val::object();
   m.set("usage", arena.get_offset());
   m.set("high_water_mark", arena.get_high_water_mark());
