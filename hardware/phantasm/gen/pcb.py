@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
-FP_DIR = fab.find_kicad_data_dir("footprints", "KICAD_FOOTPRINT_DIR")
+FP_DIR = sexp.find_kicad_data_dir("footprints", "KICAD_FOOTPRINT_DIR")
 KCLI = fab.find_kicad_cli()
 PCB_W = 32.0  # board width (mm); within the R-MECH-6 cap (<=35), trimmed to part extent
 QUILTER_LENGTH = 58.28
