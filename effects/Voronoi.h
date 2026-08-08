@@ -55,7 +55,7 @@ public:
   void init() override {
     // Persistent holds the sites buffer; scratch_arena_a holds the per-frame
     // KD-tree (positions + nodes + build indices).
-    configure_arenas(GLOBAL_ARENA_SIZE - 64 * 1024, 64 * 1024, 0);
+    configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     register_param("Num Sites", &params.num_sites, 1.0f,
                    static_cast<float>(MAX_SITES));
@@ -367,11 +367,11 @@ private:
            : CELLS_BYTES + CAND_ROW_BYTES);
   static_assert(
       SCRATCH_HIGH_WATER <= SCRATCH_A_BYTES,
-      "Voronoi scratch_arena_a budget (64 KB) too small for MAX_SITES "
-      "positions + KD-tree + coarse-grid cells; raise the reserve in "
-      "init() or lower MAX_SITES / coarsen COHERENCE_BLOCK");
+      "Voronoi scratch_arena_a budget too small for MAX_SITES positions + "
+      "KD-tree + coarse-grid cells; raise SCRATCH_A_BYTES or lower MAX_SITES / "
+      "coarsen COHERENCE_BLOCK");
 
-  int current_num_sites = 0;      /**< Count currently seeded; re-seeds (clear +
+  int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
                                    refill, no realloc) when the slider changes. */
   ArenaVector<Site> sites_buffer; /**< Active Voronoi sites for the frame. */
 
