@@ -385,7 +385,9 @@ private:
    *          timelines; alpha is the overall opacity multiplier.
    */
   struct Params {
-    float num_rings = 0.0f; /**< Animated latitude-ring count. */
+    /** Animated latitude-ring count; the default is the ring Mutation's opening
+     * sample, so a pause held from before init() still draws a grid. */
+    float num_rings = 12.0f;
     float num_lines = 0.0f; /**< Animated longitude-line count. */
     float alpha = 0.2f;     /**< Overall opacity multiplier in [0, 1]. */
   } params;

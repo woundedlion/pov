@@ -572,6 +572,65 @@ inline void clip_clear_parity_one(const char *name) {
   hs::clear_mock_time();
 }
 
+/** @brief Frames rendered per effect by the paused-render sweep. */
+constexpr int PAUSED_FRAMES = 4;
+
+/**
+ * @brief Renders one effect with animations paused from before init() and
+ *        requires the frame to light up.
+ * @tparam E Effect class template, instantiated as E<W, H>.
+ * @tparam W Render width in pixels.
+ * @tparam H Render height in pixels.
+ * @param name Effect name used in the diagnostic output.
+ * @details Mirrors the WASM load path (targets/wasm/engine_bindings.h), which
+ * applies the retained pause before init() and re-engages it on every APPLIED
+ * write to an animated param: every pausable event an effect schedules in init()
+ * is then held at its first frame for as long as the user leaves the pause on.
+ * A pause is not a reason to render nothing — ambient motion keeps running and
+ * the sphere must stay lit.
+ */
+template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
+inline void paused_render_one(const char *name) {
+  reset_effect_globals();
+
+  E<W, H> effect;
+  effect.setAnimationsPaused(true);
+  effect.init();
+  HS_EXPECT_TRUE(effect.animations_paused());
+  for (int f = 0; f < PAUSED_FRAMES; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+
+  uint64_t acc = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &p = effect.get_pixel(x, y);
+      acc += static_cast<uint64_t>(p.r) + p.g + p.b;
+    }
+
+  if (!effect_may_be_dark(name, PAUSED_FRAMES)) {
+    if (acc == 0)
+      std::printf("  PAUSED-BLANK %-20s produced no lit pixel over %d paused "
+                  "frames @ %dx%d\n",
+                  name, PAUSED_FRAMES, W, H);
+    HS_EXPECT(acc > 0, "effect must produce non-black output while paused");
+  }
+}
+
+/**
+ * @brief Roster sweep: every registered effect renders lit while paused.
+ * @details The pause reaches an effect through whatever it schedules on the
+ * timeline, so the gate belongs on the whole roster rather than on the one
+ * effect a pause blanked.
+ */
+inline void test_every_effect_renders_while_paused() {
+  std::printf("  -- paused render, %d frames --\n", PAUSED_FRAMES);
+#define HS_PAUSED_ONE(name) paused_render_one<name>(#name);
+  HS_EFFECT_LIST(HS_PAUSED_ONE)
+#undef HS_PAUSED_ONE
+}
+
 /**
  * @brief Verifies SHMath::decode_lm yields a valid spherical-harmonic order for every flat index.
  * @details Requires l = floor(sqrt(idx)) and m in [-l, l], with idx == l*l + l +
@@ -5729,6 +5788,7 @@ inline int run_effects_tests() {
   test_shaderball_warp_time_wrap_continuous();
   test_shaderball_pattern_mix_wrap_continuous();
   test_shaderball_formula_reduction();
+  test_every_effect_renders_while_paused();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The QUICK tier
   // (default, local pre-commit) skips the block below entirely, so a green local
