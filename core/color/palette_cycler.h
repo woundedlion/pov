@@ -41,6 +41,12 @@ public:
         : source(&palette), generative(&palette) {}
     Entry(const Palette &palette) : source(&palette) {}
     Entry(const BakedPalette &palette) : baked(&palette) {}
+
+    // Borrow contract: the referenced palette is sampled every fade, so it must
+    // outlive the cycler; these deleted overloads reject a temporary.
+    Entry(const GenerativePalette &&) = delete;
+    Entry(const Palette &&) = delete;
+    Entry(const BakedPalette &&) = delete;
   };
 
   /** @brief Arena bytes for the display LUT; always consumed by init(). */
