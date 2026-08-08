@@ -38,14 +38,18 @@ def on_seg(p, a, b):
 
 
 def named_points(root):
-    """point -> net name, from labels and power symbols."""
+    """point -> set of net names, from labels and power symbols.
+
+    Names at one coordinate accumulate; a point carrying two different ones is a
+    short on its own, with no wire between them.
+    """
     named = {}
     for kind in ("label", "global_label", "hierarchical_label"):
         for c in F(root, kind):
             at = sexp.val(c, "at", [])
             if len(c) < 2 or len(at) < 2:
                 continue
-            named[R(at)] = c[1]
+            named.setdefault(R(at), set()).add(c[1])
     for c in F(root, "symbol"):
         lib_id = sexp.val(c, "lib_id", [])
         at = sexp.val(c, "at", [])
@@ -55,7 +59,7 @@ def named_points(root):
         if lib.startswith("power:") or "phantasm:+" in lib:
             value = prop(c, "Value")
             if value is not None:
-                named[R(at)] = value
+                named.setdefault(R(at), set()).add(value)
     return named
 
 
@@ -122,18 +126,20 @@ def analyze(root):
         # endpoint landing mid-span (a T-junction), or an explicit junction dot.
         for p in allpts:
             if p != a and p != b and on_seg(p, a, b):
-                tag = f"label/power {named[p]}" if p in named else "junction"
+                tag = (f"label/power {'+'.join(sorted(named[p]))}"
+                       if p in named else "junction")
                 union(p, a)
                 bridges.append(f"{tag} on wire {a}-{b}")
 
     groups = {}
-    for p, net in named.items():
-        groups.setdefault(find(p), set()).add(net)
+    for p, nets in named.items():
+        groups.setdefault(find(p), set()).update(nets)
     conflicts = []
     for g, nets in groups.items():
         real = sorted(nets - {FLAG_NET})
         if len(real) > 1:
-            members = sorted((net, p) for p, net in named.items() if find(p) == g)
+            members = sorted((net, p) for p, ns in named.items() if find(p) == g
+                             for net in ns)
             conflicts.append((real, members))
     return conflicts, bridges
 

@@ -138,6 +138,55 @@ class PowerFlagTests(unittest.TestCase):
         self.assertEqual(shorts.geometry(root), ({}, [], []))
 
 
+class StackedNameTests(unittest.TestCase):
+    """Two names at one coordinate are a short with no wire between them."""
+
+    def test_stacked_labels_fail(self):
+        found = conflicts(
+            labels=[((100, 100), "GND"), ((100, 100), "+5V")],
+            wires=[((100, 100), (110, 100))])
+
+        self.assertEqual([nets for nets, _ in found], [["+5V", "GND"]])
+        self.assertEqual(found[0][1],
+                         [("+5V", (100.0, 100.0)), ("GND", (100.0, 100.0))])
+
+    def test_label_stacked_on_a_power_symbol_fails(self):
+        found = conflicts(
+            symbols=[power("power:GND", 100, 100)],
+            labels=[((100, 100), "+5V")],
+            wires=[((100, 100), (110, 100))])
+
+        self.assertEqual([nets for nets, _ in found], [["+5V", "GND"]])
+
+    def test_stacked_label_pulls_its_whole_wire_group_in(self):
+        """The second name at the point joins the group the point already had."""
+        found = conflicts(
+            symbols=[power("power:GND", 100, 100)],
+            labels=[((120, 100), "+5V")],
+            wires=[((100, 100), (120, 100))],
+            global_labels=[((100, 100), "VBUS")])
+
+        self.assertEqual([nets for nets, _ in found], [["+5V", "GND", "VBUS"]])
+
+    def test_stacked_duplicate_of_the_same_net_passes(self):
+        self.assertEqual(conflicts(
+            labels=[((100, 100), "GND"), ((100, 100), "GND")],
+            wires=[((100, 100), (110, 100))]), [])
+
+    def test_flag_stacked_on_a_rail_passes(self):
+        self.assertEqual(conflicts(
+            symbols=[power("power:GND", 100, 100),
+                     power("power:PWR_FLAG", 100, 100)],
+            wires=[((100, 100), (110, 100))]), [])
+
+    def test_named_points_keeps_every_name(self):
+        named = shorts.named_points(build(
+            labels=[((100, 100), "GND"), ((100, 100), "+5V")],
+            wires=[((100, 100), (110, 100))]))
+
+        self.assertEqual(named, {(100.0, 100.0): {"GND", "+5V"}})
+
+
 class EmptyScanTests(unittest.TestCase):
     """An empty scan is a broken input, never a clean bill of health."""
 
