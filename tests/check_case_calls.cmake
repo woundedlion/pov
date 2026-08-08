@@ -33,6 +33,7 @@ file(GLOB _headers "${TESTS_DIR}/*.h")
 # Same contract as the roster's second column: the number is exact, not a floor.
 set(HELPER_CASE_COUNTS
   "aa_audit.h=0"
+  "color_test_util.h=0"
   "mesh_test_util.h=3"
   "mindsplatter_replay_corpus.h=0"
   "mindsplatter_replay_metrics.h=0"

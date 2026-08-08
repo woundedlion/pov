@@ -22,6 +22,7 @@
 #include "core/color/effect_palette_recipes.h"
 #include "core/color/srgb_decode.h"
 #include "core/engine/util.h"
+#include "tests/color_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_generative_palette.h"
 #include "tests/test_harness.h"
@@ -488,19 +489,6 @@ inline void test_oklch_to_pixel_saturates_and_preserves_in_gamut() {
 // ============================================================================
 // Chroma-reduction gamut mapping
 // ============================================================================
-
-/**
- * @brief Wraps a hue difference into (-PI, PI] for circular comparison.
- * @param dh Raw hue difference in radians.
- * @return The equivalent difference in (-PI, PI].
- */
-inline float wrap_hue_delta(float dh) {
-  while (dh > PI_F)
-    dh -= 2.0f * PI_F;
-  while (dh < -PI_F)
-    dh += 2.0f * PI_F;
-  return dh;
-}
 
 /**
  * @brief Verifies the chroma-reduction map holds hue and lightness in-gamut.
