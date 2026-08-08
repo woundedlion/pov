@@ -56,15 +56,24 @@ HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
 /** @brief The liquid recipe at an arbitrary hue rotation; every rotation is
  *  morph-compatible with every other
  *  (see test_shader_ball_palette_rotations_morph_compatible).
- *  @details Mirrored so the shader's wrapped palette coordinate crosses the
- *  1 -> 0 seam without a hard line; descending lightness mirrors into the
- *  bright-dark-bright swing that carries the pattern's contrast. */
+ *  @details Palindromic keys: hue travels a half turn out to the complement
+ *  and back while lightness dives bright-dark-bright, so the shader's wrapped
+ *  palette coordinate crosses the 1 -> 0 seam without a hard line. */
 HS_FLASH_MEMBER inline PaletteRecipe
 shader_ball_liquid_at(float rotation_turns) {
-  constexpr float BASE_TURNS = 0.9348811f;
-  return PaletteRecipes::profile(
-      PaletteDomain::MIRROR, PaletteHarmony::ANALOGOUS, AxisCurve::DESCENDING,
-      BASE_TURNS + rotation_turns, 0.72f);
+  constexpr float BASE_TURNS = 0.2933125f;
+  PaletteRecipe recipe;
+  recipe.domain = PaletteDomain::STRAIGHT;
+  recipe.hue.mode = HueMode::CUSTOM;
+  recipe.hue.custom_turns[0] = BASE_TURNS + rotation_turns;
+  recipe.hue.custom_turns[1] = BASE_TURNS + rotation_turns + 0.5f;
+  recipe.hue.custom_turns[2] = BASE_TURNS + rotation_turns;
+  recipe.lightness.curve = AxisCurve::CUSTOM;
+  recipe.lightness.custom[0] = 0.8798438f;
+  recipe.lightness.custom[1] = 0.1623438f;
+  recipe.lightness.custom[2] = 0.8798438f;
+  recipe.chroma.center = 0.8871875f;
+  return recipe;
 }
 
 HS_FLASH_MEMBER inline PaletteRecipe shader_ball_liquid() {
