@@ -54,9 +54,15 @@ public:
     return 2 * BakedPalette::required_arena_bytes();
   }
 
+  /** @brief Extra arena bytes consumed when any adjacent pair key-morphs. */
+  static constexpr size_t morph_arena_bytes() {
+    return sizeof(GenerativePalette) + alignof(GenerativePalette);
+  }
+
   /** @brief Worst-case arena bytes init() can consume. */
   static constexpr size_t required_arena_bytes() {
-    return display_arena_bytes() + crossfade_arena_bytes();
+    return display_arena_bytes() + crossfade_arena_bytes() +
+           morph_arena_bytes();
   }
 
   /**
@@ -112,6 +118,10 @@ public:
       bake_entry(fade_from, arena, entries[0]);
       bake_entry(fade_to, arena, entries[0]);
     }
+    if (key_morph_mask != 0)
+      morph = new (
+          arena.allocate(sizeof(GenerativePalette), alignof(GenerativePalette)))
+          GenerativePalette();
   }
 
   /**
@@ -142,9 +152,9 @@ public:
     const float progress = static_cast<float>(frame) / static_cast<float>(fade);
     const float w = easing != nullptr ? easing(progress) : progress;
     if ((key_morph_mask & (1u << current)) != 0) {
-      morph.lerp(*entries[current].generative,
-                 *entries[next_of(current)].generative, w);
-      display.rebake(morph);
+      morph->lerp(*entries[current].generative,
+                  *entries[next_of(current)].generative, w);
+      display.rebake(*morph);
     } else {
       display.rebake_crossfade(fade_from, fade_to, w);
     }
@@ -196,10 +206,12 @@ private:
   }
 
   const Entry *entries = nullptr; /**< Caller-owned entry array. */
-  BakedPalette display;    /**< The LUT handed to shaders via palette(). */
-  BakedPalette fade_from;  /**< Crossfade w = 0 endpoint scratch. */
-  BakedPalette fade_to;    /**< Crossfade w = 1 endpoint scratch. */
-  GenerativePalette morph; /**< Key-morph scratch rebaked into the display. */
+  BakedPalette display;   /**< The LUT handed to shaders via palette(). */
+  BakedPalette fade_from; /**< Crossfade w = 0 endpoint scratch. */
+  BakedPalette fade_to;   /**< Crossfade w = 1 endpoint scratch. */
+  /** @brief Arena-owned key-morph scratch rebaked into the display; allocated
+   *  by init() only when some pair key-morphs. */
+  GenerativePalette *morph = nullptr;
   float (*easing)(float) = nullptr; /**< Fade easing; null = linear. */
   const bool *paused = nullptr; /**< Optional pause gate; null = always runs. */
   int entry_count = 0;
