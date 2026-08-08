@@ -309,6 +309,11 @@ struct Config {
       return "glitch_filter_cycles < pulse_pitch - late_censor";
     if (!(glitch_filter_cycles < beacon_pitch_cycles() - late_censor_cycles()))
       return "glitch_filter_cycles < beacon_pitch - late_censor";
+    // Demarcation headroom: a beacon frame starts at W/4, so its last pulse
+    // comes within W/4 - beacon_span_cols() of the HALF boundary. A gate radius
+    // above that separation makes handle_burst() claim beacon digits as
+    // boundary symbols and snap on them; the frame and quiet clauses below keep
+    // 7*beacon_pitch_cols — the widest single digit burst — under it.
     if (!(7 * beacon_pitch_cols + 1 > gate_cols))
       return "7*beacon_pitch_cols + 1 > gate_cols";
     // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case frame
