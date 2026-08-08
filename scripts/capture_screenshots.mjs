@@ -22,7 +22,7 @@ import {
 import { descendToHonoredResolution } from './screenshot_resolution.mjs';
 
 // Number('') is 0 (finite), so blank/whitespace is rejected explicitly.
-function numEnv(name, def) {
+async function numEnv(name, def) {
   const raw = process.env[name];
   if (raw === undefined) return def;
   const v = Number(raw);
@@ -31,14 +31,17 @@ function numEnv(name, def) {
   console.error(`capture_screenshots: ERROR — ${name} must be a finite, non-negative number.`);
   console.error(`Received: ${JSON.stringify(raw)}`);
   console.error('========================================================');
-  process.exit(2);
+  process.exitCode = 2;
+  // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
+  await new Promise((resolve) => process.stderr.write('', resolve));
+  process.exit();
 }
 
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
 const OUT_DIR = join(REPO_ROOT, 'docs', 'screenshots');
-const WAIT_MS = numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS);
+const WAIT_MS = await numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS);
 const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
-const BLANK_FLOOR = numEnv('BLANK_FLOOR', 0.0005);
+const BLANK_FLOOR = await numEnv('BLANK_FLOOR', 0.0005);
 
 const { chromium } = await import('playwright');
 
