@@ -110,11 +110,11 @@ enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB, CHAMFER };
  * @details ADOPT on a bridge row replaces the family seed with the arrived
  * solid at forward completion; ADOPT on an ambo-chain row (seed_solid is
  * cuboctahedron/icosidodecahedron) means the leg seed is derived as
- * ambo(held platonic seed) at construction (see SeedFix::DERIVE_AMBO).
- * DUAL_SWAP marks the ambo-crossover rows; the actual swap is decided at leg
- * start by seed_fix_at_start against the held seed identity.
+ * ambo(held platonic seed) at construction (see SeedFix::DERIVE_AMBO). The
+ * ambo-crossover dual swap is not tabled: seed_fix_at_start decides it at leg
+ * start against the held seed identity.
  */
-enum class Reseed : uint8_t { NONE, ADOPT, DUAL_SWAP };
+enum class Reseed : uint8_t { NONE, ADOPT };
 
 /** Sweep parameter clamp: legs run inside [T_EPS, t_end], and truncate legs
  * additionally stay below 0.5 - T_EPS_AMBO (the ambo short-circuit changes
@@ -235,7 +235,7 @@ inline constexpr EdgeSpec EDGES[] = {
     {TRUNCATED_OCTAHEDRON, CUBOCTAHEDRON, OCTAHEDRON, MorphOp::TRUNCATE,
      T_TRUNC_THIRD, 0.5f, 0.0f, 0.0f, false, Reseed::NONE, false},
     {OCTAHEDRON, CUBOCTAHEDRON, OCTAHEDRON, MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f,
-     0.0f, false, Reseed::DUAL_SWAP, false},
+     0.0f, false, Reseed::NONE, false},
 
     // Icosahedral family (seed: dodecahedron, icosahedron)
     {DODECAHEDRON, TRUNCATED_DODECAHEDRON, DODECAHEDRON, MorphOp::TRUNCATE,
@@ -249,7 +249,7 @@ inline constexpr EdgeSpec EDGES[] = {
     {TRUNCATED_ICOSAHEDRON, ICOSIDODECAHEDRON, ICOSAHEDRON, MorphOp::TRUNCATE,
      T_TRUNC_THIRD, 0.5f, 0.0f, 0.0f, false, Reseed::NONE, false},
     {ICOSAHEDRON, ICOSIDODECAHEDRON, ICOSAHEDRON, MorphOp::TRUNCATE, 0.0f, 0.5f,
-     0.0f, 0.0f, false, Reseed::DUAL_SWAP, false},
+     0.0f, 0.0f, false, Reseed::NONE, false},
     {DODECAHEDRON, RHOMBICOSIDODECAHEDRON, DODECAHEDRON, MorphOp::EXPAND, 0.0f,
      MeshOps::EXPAND_DEFAULT_T, 0.0f, 0.0f, true, Reseed::NONE, false},
     {DODECAHEDRON, SNUB_DODECAHEDRON, DODECAHEDRON, MorphOp::SNUB, 0.0f, 0.5f,
