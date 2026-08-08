@@ -6,13 +6,13 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🔴 63.05 (1)<br>🟢 61.81 (11) | 🔴 3/960 (0.3%)<br>🟢 0/5408 (0%) | 2026-08-08 11:43 |
 | [DisplacementField](profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
 | [HopfFibration](profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-04.md)§ ● | adaptive planar-star raster | 🟢 57.66 (9) | 🟢 0/2368 (0%) | 2026-08-04 11:06 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
 | [IslamicStars](profile_islamicstars_teensy_2026-07-28.md)§ | per-face SDF + opchain build legs | 🟢 56.91 (24) | 🟢 0/3328 (0%) | 2026-07-28 17:34 |
 | [RingSpin](profile_ringspin_teensy_2026-07-25.md) | fused ring-group raster | 🟢 56.47 | 🟢 0/1088 (0%) | 2026-07-26 11:44 |
+| [ShaderBall](profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🟢 55.97 (13) | 🟢 0/6368 (0%) | 2026-08-08 14:35 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-03.md) ● | integer opaque SSAA raster + sim | 🟢 55.71 | 🟢 0/2048 (0%) | 2026-08-03 00:27 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-05.md)§ | wireframe raster | 🟢 44.88 (5) | 🟢 0/3408 (0%) | 2026-08-05 13:10 |
 | [Raymarch](profile_raymarch_teensy_2026-07-25.md) | volume ray-march | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
@@ -30,7 +30,7 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 
 § ShapeShifter spans nine presets; its initial unlabeled frames and later
 `Preset: 1/9` frames are one adaptive 208-count planar-star bucket.
-ShaderBall spans 12 presets and MindSplatter spans eight; each report folds its
+ShaderBall spans 13 presets and MindSplatter spans eight; each report folds its
 initial unlabeled frames into preset 1.
 
 **● refreshed 2026-08-08.**

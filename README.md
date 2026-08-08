@@ -2073,9 +2073,9 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### ShaderBall
 
-Stereographic-projection shader (extends `Effect` directly) spanning 12 liquid domain-warp and grid fly-through presets from one continuous parameter space. Every look axis — Y-spin vs. dual random-walk wander, glitch-lens strength, pattern cross-coupling vs. direct phase feed, breathe depth, hue shift, and value fade — is a preset-lerped float, so the choreography morphs between any two looks without a discrete pop. Lens transitions interpolate direct and fully lensed stereographic coordinates before one warp/pattern sample. `Scan::Shader::draw` shades through one continuously cycling liquid palette.
+Stereographic-projection shader (extends `Effect` directly) spanning 13 liquid domain-warp, mixed-pattern, and grid fly-through presets from one continuous parameter space. Every look axis — Y-spin vs. dual random-walk wander, glitch-lens strength, pattern cross-coupling vs. direct phase feed, breathe depth, hue shift, and value fade — is a preset-lerped float, so the choreography morphs between any two looks without a discrete pop. Lens transitions interpolate direct and fully lensed stereographic coordinates before one warp/pattern sample. `Scan::Shader::draw` shades through one continuously cycling liquid palette.
 
-**Teensy full-cycle profile**: shipping peaks at 63.05 ms with 3/6,368 frames spilling; global O3 holds all 12 presets at 16 fps with a 56.42 ms peak ([shipping](docs/profiles/shipping/profile_shaderball_teensy_2026-08-08.md), [global O3](docs/profiles/O3/profile_shaderball_teensy_2026-08-08.md)).
+**Teensy full-cycle profile**: shipping holds all 13 presets at 16 fps with a 55.97 ms peak and 0/6,368 frames spilling; global O3 peaks at 50.16 ms ([shipping](docs/profiles/shipping/profile_shaderball_teensy_2026-08-08.md), [global O3](docs/profiles/O3/profile_shaderball_teensy_2026-08-08.md)).
 
 **Parameters**: Warp Scale, Warp Strength, Warp Time, Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Pole Fade, Spin Rate, Wander, Lens Mix, Breathe Depth, Cycle Speed, Hue Shift, Value Fade
 
