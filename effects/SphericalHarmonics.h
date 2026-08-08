@@ -342,6 +342,14 @@ private:
   Pipeline<W, H> filters;     /**< Post-process filter pipeline. */
   BakedPalette baked_palette; /**< Precomputed color LUT for the shader. */
 
+  // init() bakes one palette LUT into the persistent arena. Effect keeps the
+  // default arena split, so the total must fit the device persistent partition.
+  static constexpr size_t FOOTPRINT_BYTES =
+      BakedPalette::required_arena_bytes();
+  static_assert(
+      FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+      "SphericalHarmonics persistent footprint exceeds the default partition");
+
   // Highest harmonic degree the morph visits. Modes are flat-indexed
   // idx = l*l + l + m, so degrees [0, MAX_DEGREE] occupy idx [0, MAX_MODE_IDX].
   // The seed and the roll bound below derive from MAX_DEGREE so they cannot

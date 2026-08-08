@@ -315,6 +315,14 @@ private:
   }
 
   BakedPalette palette; /**< Ring-shading LUT, keyed by dot(X, v). */
+
+  // init() bakes one palette LUT into the persistent arena. Effect keeps the
+  // default arena split, so the total must fit the device persistent partition.
+  static constexpr size_t FOOTPRINT_BYTES =
+      BakedPalette::required_arena_bytes();
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+                "Thrusters persistent footprint exceeds the default partition");
+
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
       filters; /**< Anti-aliasing render pipeline. */
 
