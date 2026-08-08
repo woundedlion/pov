@@ -75,12 +75,10 @@ public:
 
     noise_field.template_params.noise.SetSeed(hs::rand_int(0, 65536));
 
-    // One pixel of azimuth in ring-space.
-    const float px = 2.0f * PI_F / W;
-
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Rings", &params.num_rings, 1.0f, 72.0f);
-    register_param("Thickness", &params.thickness, 0.4f * px, 6.0f * px);
+    register_param("Thickness", &params.thickness, 0.4f * THICKNESS_PX,
+                   6.0f * THICKNESS_PX);
     register_param("Ball Amp", &params.ball_amp, 0.0f, 0.8f);
     register_param("Noise Amp", &params.noise_amp, 0.0f, 0.8f);
     register_param("Scale 1", &params.scale1, 0.5f, 4.0f);
@@ -610,6 +608,9 @@ private:
       8.0f; /**< Bake columns per feature-space unit of ring circumference. */
   static constexpr int LUT_MIN_SAMPLES =
       16; /**< Bake-column floor for tiny/low-scale rings. */
+  static constexpr float THICKNESS_PX =
+      2.0f * PI_F / W; /**< One pixel of azimuth in ring-space; the Thickness
+                            slider range is authored in multiples of it. */
   static constexpr int HUE_TABLE_SIZE =
       64; /**< Hue-turn interpolation cells per ring. */
   static constexpr int BAKE_CHUNKS =
@@ -687,6 +688,11 @@ private:
     float ball_speed_max =
         0.85f; /**< Fastest fall (pole-to-pole traversals per second). */
   } params;
+
+  static_assert(Params{}.thickness >= 0.4f * THICKNESS_PX &&
+                    Params{}.thickness <= 6.0f * THICKNESS_PX,
+                "DisplacementField Thickness default falls outside its "
+                "W-scaled slider range at this build resolution");
 
   // init() allocates the per-slot bake pools, the ball prefilter scratch, the
   // hue table, the ring shapes, and both transformer pools from the persistent
