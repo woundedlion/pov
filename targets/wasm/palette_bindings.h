@@ -74,13 +74,36 @@ private:
       output[i] = input[i].as<float>();
   }
 
+  /**
+   * @brief Rejects a nested recipe block the caller left out.
+   * @param block Value read off the recipe object.
+   * @param field Field id reported for a missing block.
+   * @param status Status written on rejection.
+   * @return True when @p block can be indexed.
+   * @details Indexing undefined or null throws a JS TypeError out through the
+   *          binding instead of returning a status; every other type yields
+   *          undefined leaves, which GenerativePalette's own validation rejects.
+   */
+  static bool block_present(const val &block, PaletteRecipeField field,
+                            PaletteCompileStatus &status) {
+    if (!block.isUndefined() && !block.isNull())
+      return true;
+    status.code = PaletteCompileCode::INVALID_SCHEMA;
+    status.field = field;
+    return false;
+  }
+
   static bool decode_recipe(const val &input, PaletteRecipe &recipe,
                             PaletteCompileStatus &status) {
+    if (!block_present(input, PaletteRecipeField::NONE, status))
+      return false;
     const int schema_version = input["schemaVersion"].as<int>();
     recipe.schema_version = schema_version == PaletteRecipe::SCHEMA_VERSION
                                 ? PaletteRecipe::SCHEMA_VERSION
                                 : 0;
     const val recipe_input = input["input"];
+    if (!block_present(recipe_input, PaletteRecipeField::INPUT_OFFSET, status))
+      return false;
     recipe.input.offset = recipe_input["offset"].as<float>();
     recipe.input.span = recipe_input["span"].as<float>();
     if (!decode_enum(input, "domain", recipe.domain,
@@ -92,6 +115,8 @@ private:
       return false;
 
     const val hue = input["hue"];
+    if (!block_present(hue, PaletteRecipeField::HUE_MODE, status))
+      return false;
     if (!decode_enum(hue, "mode", recipe.hue.mode, PaletteRecipeField::HUE_MODE,
                      status) ||
         !decode_enum(hue, "harmony", recipe.hue.harmony,
@@ -102,17 +127,29 @@ private:
     recipe.hue.base_turns = hue["baseTurns"].as<float>();
     recipe.hue.spread_turns = hue["spreadTurns"].as<float>();
     recipe.hue.sweep_turns = hue["sweepTurns"].as<float>();
-    decode_key_values(hue["customTurns"], recipe.hue.custom_turns);
+    const val custom_turns = hue["customTurns"];
+    if (!block_present(custom_turns, PaletteRecipeField::CUSTOM_TURNS_0,
+                       status))
+      return false;
+    decode_key_values(custom_turns, recipe.hue.custom_turns);
 
     const val lightness = input["lightness"];
+    if (!block_present(lightness, PaletteRecipeField::LIGHTNESS_CURVE, status))
+      return false;
     if (!decode_enum(lightness, "curve", recipe.lightness.curve,
                      PaletteRecipeField::LIGHTNESS_CURVE, status))
       return false;
     recipe.lightness.center = lightness["center"].as<float>();
     recipe.lightness.range = lightness["range"].as<float>();
-    decode_key_values(lightness["custom"], recipe.lightness.custom);
+    const val lightness_custom = lightness["custom"];
+    if (!block_present(lightness_custom, PaletteRecipeField::LIGHTNESS_CUSTOM_0,
+                       status))
+      return false;
+    decode_key_values(lightness_custom, recipe.lightness.custom);
 
     const val chroma = input["chroma"];
+    if (!block_present(chroma, PaletteRecipeField::CHROMA_CURVE, status))
+      return false;
     if (!decode_enum(chroma, "curve", recipe.chroma.curve,
                      PaletteRecipeField::CHROMA_CURVE, status) ||
         !decode_enum(chroma, "basis", recipe.chroma.basis,
@@ -121,7 +158,11 @@ private:
     recipe.chroma.center = chroma["center"].as<float>();
     recipe.chroma.range = chroma["range"].as<float>();
     recipe.chroma.headroom = chroma["headroom"].as<float>();
-    decode_key_values(chroma["custom"], recipe.chroma.custom);
+    const val chroma_custom = chroma["custom"];
+    if (!block_present(chroma_custom, PaletteRecipeField::CHROMA_CUSTOM_0,
+                       status))
+      return false;
+    decode_key_values(chroma_custom, recipe.chroma.custom);
 
     recipe.hue_torsion = input["hueTorsion"].as<float>();
     recipe.falloff_start = input["falloffStart"].as<float>();
