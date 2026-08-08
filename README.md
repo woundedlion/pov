@@ -1865,7 +1865,7 @@ Visualizes the Hopf fibration — a map from S³ to S². Points on S² (the base
 
 #### IslamicStars
 
-Procedurally generates Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.), with topology classes folded modulo the six-slot `MeshPaletteBank` so a mesh carrying more than six classes aliases two distinct classes onto one color. Shapes carrying a recipe are built on screen op by op: the seed solid segues in, then one animated leg per lowered Conway step (ambo, truncate, snub, chamfer, dual, relax) sweeps it into the finished pattern. Each shape then holds still, ripple waves distort the geometry, and it segues out into the next.
+Procedurally generates Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.), with topology classes folded modulo the six-slot `MeshPaletteBank` so a mesh carrying more than six classes aliases two distinct classes onto one color. Shapes carrying a recipe are built on screen op by op: the seed solid segues in, then the lowered Conway chain (hankin, ambo, truncate, snub, chamfer, relax, kis, dual) sweeps it into the finished pattern. Most lowered steps are one animated leg, but the smooth bridges are not: a dual is a three-leg bridge (truncate to ambo, medial slerp, truncate down to the dual), a trailing dual + kis pair — a needle — spans both steps as a five-leg macro (truncate, dual bridge, reconcile onto the authored mesh), and a standalone kis runs eight legs (dual bridge, truncate, dual bridge, reconcile). Each shape then holds still, ripple waves distort the geometry, and it segues out into the next.
 
 **Parameters**: Face Fade Lo, Face Fade Hi, Burst, Ripp Amp, Ripp Decay, Ripp Dur, Trans Speed
 
@@ -2015,7 +2015,7 @@ Particles spray from emitters at the eight cube vertices — each sweeping its o
 
 **Teensy full-cycle profile**: all eight presets hold 16 fps; shipping peaks at 38.95 ms with 0/1728 spills, and global O3 peaks at 38.78 ms with 0/1728 spills ([shipping](docs/profiles/shipping/profile_mindsplatter_teensy_2026-08-07.md), [global O3](docs/profiles/O3/profile_mindsplatter_teensy_2026-08-07.md)).
 
-**Parameters**: Friction, Well Str, Init Spd, Ang Spd, Particles
+**Parameters**: Friction, Well Str, Init Spd, Ang Spd, Warp, Particles
 
 </td></tr></table>
 
