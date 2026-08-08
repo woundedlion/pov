@@ -405,6 +405,10 @@ async function main() {
           console.log('  write-seam: no readonly param in the roster; READONLY untested');
         }
       }
+      // The clamp probe picks its target by range, not by animation, and an
+      // APPLIED write to an animated param latches the engine-wide pause, which
+      // survives setEffect. Clear it so the state seam below starts unpaused.
+      engine.setAnimationsPaused(false);
     }
 
     // ── Embind state seam: getParamGeneration / setAnimationsPaused ───────────
