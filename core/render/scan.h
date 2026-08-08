@@ -722,7 +722,9 @@ struct DistortedRing {
                    float radius, float thickness, const float *knots, int lut_n,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false, bool suppress_pole_fill = false) {
-    SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n, phase);
+    SDF::KnotPrefilter prefilter;
+    SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n, phase,
+                             prefilter);
     shape.suppress_pole_fill = suppress_pole_fill;
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);

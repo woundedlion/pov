@@ -308,7 +308,9 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
   auto check = [&](const Basis &basis, float radius) {
     constexpr float thickness = 0.08f;
     SDF::FlatDistortedRing flat(basis, radius, thickness);
-    SDF::DistortedRing polyline(basis, radius, thickness, knots, LUT_N, 0.0f);
+    SDF::KnotPrefilter pf;
+    SDF::DistortedRing polyline(basis, radius, thickness, knots, LUT_N, 0.0f,
+                                pf);
     const float target = radius * (PI_F / 2.0f);
     const float azimuths[] = {0.0f, 1e-5f, PI_F / 2.0f, PI_F,
                               2.0f * PI_F - 1e-5f};
@@ -355,7 +357,8 @@ template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
   float knots[LUT_N + 1];
   for (int k = 0; k <= LUT_N; ++k)
     knots[k] = amp * std::sin(2.0f * PI_F * harmonic * (k % LUT_N) / LUT_N);
-  SDF::DistortedRing ring(b, radius, thickness, knots, LUT_N, 0.0f);
+  SDF::KnotPrefilter pf;
+  SDF::DistortedRing ring(b, radius, thickness, knots, LUT_N, 0.0f, pf);
 
   const float target = radius * (PI_F / 2.0f);
   auto on_sphere = [&](float t, float dv) {
@@ -412,7 +415,8 @@ inline void test_distorted_ring_knot_extrema_tighten_band() {
   float knots[LUT_N + 1] = {0.18f, 0.12f, 0.04f, -0.01f, -0.03f,
                             0.02f, 0.09f, 0.16f, 0.18f};
   Basis basis = equator_basis();
-  SDF::DistortedRing ring(basis, RADIUS, THICKNESS, knots, LUT_N, 0.0f);
+  SDF::KnotPrefilter pf;
+  SDF::DistortedRing ring(basis, RADIUS, THICKNESS, knots, LUT_N, 0.0f, pf);
 
   HS_EXPECT_NEAR(ring.max_distortion, 0.18f, 1e-6f);
   HS_EXPECT_NEAR(ring.max_thickness, 0.23f, 1e-6f);
@@ -2243,8 +2247,9 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
       float knots[LUT_N + 1];
       for (int k = 0; k <= LUT_N; ++k)
         knots[k] = shift(static_cast<float>(k % LUT_N) / LUT_N);
+      SDF::KnotPrefilter poly_pf;
       SDF::DistortedRing poly(basis, /*radius=*/0.6f, /*thickness=*/0.12f,
-                              knots, LUT_N, /*phase=*/0.0f);
+                              knots, LUT_N, /*phase=*/0.0f, poly_pf);
       expect_cull_covers_interior<W, H>(poly, "distorted polygon");
     }
   }
@@ -2255,8 +2260,9 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
     asymmetric[k] =
         0.075f + 0.1f * sinf(6.0f * PI_F * (k % ASYM_LUT_N) / ASYM_LUT_N);
   Basis basis = make_basis(Quaternion(), Vector(0.3f, 1.0f, 0.2f));
+  SDF::KnotPrefilter asymmetric_pf;
   SDF::DistortedRing asymmetric_ring(basis, 0.6f, 0.08f, asymmetric, ASYM_LUT_N,
-                                     0.0f);
+                                     0.0f, asymmetric_pf);
   expect_cull_covers_interior<W, H>(asymmetric_ring, "asymmetric ring");
 }
 
