@@ -778,7 +778,7 @@ struct Ring {
   float cos_max, cos_min, cos_target,
       inv_sin_target; /**< Precomputed band trig. */
 
-  float r_val; /**< Horizontal projection length of the axis (for full-row
+  float r_val;       /**< Horizontal projection length of the axis (for full-row
                          check). */
   float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
   static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
