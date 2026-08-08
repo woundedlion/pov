@@ -139,9 +139,62 @@ public:
     return {key.L, realized_chroma(key, h_final), h_final};
   }
 
-  void lerp(const GenerativePalette &from, const GenerativePalette &to,
-            float amount) {
+  /**
+   * @brief True when this palette and @p other can be key-morphed by lerp().
+   * @details Requires identical evaluation policy — domain, easing, color
+   * path, chroma basis, complementary evaluation, key count, headroom,
+   * torsion, falloff, input window — and matching per-segment hue winding
+   * classes (including the loop close), so interpolated keys never cross a
+   * whole-turn ambiguity. Incompatible palettes must transition through a
+   * baked crossfade (BakedPalette::rebake_crossfade) instead.
+   */
+  bool morph_compatible(const GenerativePalette &other) const {
+    if (domain != other.domain || easing != other.easing ||
+        color_path != other.color_path || chroma_basis != other.chroma_basis ||
+        complementary_harmony != other.complementary_harmony ||
+        key_count != other.key_count || headroom != other.headroom ||
+        hue_torsion != other.hue_torsion ||
+        falloff_start != other.falloff_start ||
+        input_offset != other.input_offset || input_span != other.input_span)
+      return false;
+    for (int i = 1; i < key_count; ++i) {
+      if (winding_class(keys[i].h - keys[i - 1].h) !=
+          winding_class(other.keys[i].h - other.keys[i - 1].h))
+        return false;
+    }
+    if (domain == PaletteDomain::LOOP &&
+        winding_class(closing_hue - keys[key_count - 1].h) !=
+            winding_class(other.closing_hue - other.keys[key_count - 1].h))
+      return false;
+    return true;
+  }
+
+  /**
+   * @brief Morphs this palette between two morph-compatible palettes.
+   * @param from Source palette (amount = 0).
+   * @param to Target palette (amount = 1).
+   * @param amount Blend amount; clamped to [0, 1].
+   * @details Adopts @p from's evaluation policy, snapshot-lerps the keys, and
+   * interpolates the loop-closing hue delta, which snapshots do not carry.
+   * Callers gate on morph_compatible().
+   */
+  HS_COLD_MEMBER void lerp(const GenerativePalette &from,
+                           const GenerativePalette &to, float amount) {
+    amount = hs::clamp(amount, 0.0f, 1.0f);
+    if (amount == 0.0f) {
+      *this = from;
+      return;
+    }
+    if (amount == 1.0f) {
+      *this = to;
+      return;
+    }
+    const float closing_from = from.closing_hue - from.keys[0].h;
+    const float closing_to = to.closing_hue - to.keys[0].h;
+    *this = from;
     lerp(from.snapshot(), to.snapshot(), amount);
+    closing_hue =
+        keys[0].h + closing_from + (closing_to - closing_from) * amount;
   }
 
   HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to,
@@ -156,16 +209,22 @@ public:
       return;
     }
 
+    // Mixed axis curves morph through CUSTOM: the per-key samples below carry
+    // each side's own curve, while a non-CUSTOM curve would ignore them and
+    // evaluate the lerped low/high — wrong for the CUSTOM side, and a pop at
+    // the endpoint copy.
     lightness_axis = {
         from.lightness_low + (to.lightness_low - from.lightness_low) * amount,
         from.lightness_high +
             (to.lightness_high - from.lightness_high) * amount,
-        from.lightness_curve,
+        from.lightness_curve == to.lightness_curve ? from.lightness_curve
+                                                   : AxisCurve::CUSTOM,
     };
     chroma_axis = {
         from.chroma_low + (to.chroma_low - from.chroma_low) * amount,
         from.chroma_high + (to.chroma_high - from.chroma_high) * amount,
-        from.chroma_curve,
+        from.chroma_curve == to.chroma_curve ? from.chroma_curve
+                                             : AxisCurve::CUSTOM,
     };
     key_count = std::max(from.key_count, to.key_count);
     std::array<ControlKey, PALETTE_MAX_KEYS> from_keys{};
@@ -564,6 +623,18 @@ private:
   }
 
   static float wrap01(float value) { return value - floorf(value); }
+
+  /**
+   * @brief Signed whole-turn class of a hue delta in radians.
+   * @details Wrapped delta at exactly half a turn classes as counterclockwise,
+   * matching the canonical principal-delta tie rule.
+   */
+  static int winding_class(float delta) {
+    const float turns = delta * (1.0f / (2.0f * PI_F));
+    const float wrapped = wrap01(turns);
+    const float principal = wrapped <= 0.5f ? wrapped : wrapped - 1.0f;
+    return static_cast<int>(roundf(turns - principal));
+  }
 
   HS_COLD_MEMBER static float directed_delta(float delta,
                                              HueDirection direction) {

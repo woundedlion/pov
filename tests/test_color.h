@@ -2180,6 +2180,9 @@ inline int run_color_tests() {
   test_generative_palette_snapshot_lerp();
   test_generative_palette_cartesian_path_neutralizes_midpoint();
   test_generative_palette_rejects_unavailable_path_minimum();
+  test_generative_palette_morph_compatible();
+  test_generative_palette_lerp_mixed_curves_continuous();
+  test_generative_palette_lerp_interpolates_loop_seam();
   test_palette_modifiers();
   test_noise_warp_modifier();
   test_drift_modifier();

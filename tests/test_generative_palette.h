@@ -439,3 +439,74 @@ inline void test_baked_palette_rebake_crossfade() {
   out.rebake_crossfade(from, to, std::numeric_limits<float>::quiet_NaN());
   expect_baked_equal(out, to);
 }
+
+inline void test_generative_palette_morph_compatible() {
+  const GenerativePalette a(PaletteRecipes::balanced_analogous(0.0f));
+  const GenerativePalette b(PaletteRecipes::balanced_analogous(0.75f));
+  HS_EXPECT_TRUE(a.morph_compatible(b));
+  HS_EXPECT_TRUE(b.morph_compatible(a));
+
+  const GenerativePalette mirrored(PaletteRecipes::harmony(
+      PaletteDomain::MIRROR, PaletteHarmony::ANALOGOUS, 0.0f));
+  HS_EXPECT_FALSE(a.morph_compatible(mirrored));
+
+  const GenerativePalette two_keys(PaletteRecipes::harmony(
+      PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY, 0.0f));
+  HS_EXPECT_FALSE(a.morph_compatible(two_keys));
+
+  PaletteRecipe tight = PaletteRecipes::balanced_analogous(0.0f);
+  tight.chroma.headroom = 0.8f;
+  HS_EXPECT_FALSE(a.morph_compatible(GenerativePalette(tight)));
+
+  const GenerativePalette loop_one(
+      PaletteRecipes::isolight_spectral_loop(0.0f));
+  const GenerativePalette loop_shifted(
+      PaletteRecipes::isolight_spectral_loop(0.4f));
+  HS_EXPECT_TRUE(loop_one.morph_compatible(loop_shifted));
+  PaletteRecipe two_turn = PaletteRecipes::isolight_spectral_loop(0.0f);
+  two_turn.hue.sweep_turns = 2.0f;
+  HS_EXPECT_FALSE(loop_one.morph_compatible(GenerativePalette(two_turn)));
+}
+
+inline void test_generative_palette_lerp_mixed_curves_continuous() {
+  const GenerativePalette from(PaletteRecipes::balanced_analogous(0.1f));
+  PaletteRecipe custom_recipe = PaletteRecipes::balanced_analogous(0.1f);
+  custom_recipe.lightness.curve = AxisCurve::CUSTOM;
+  custom_recipe.lightness.custom[0] = 0.9f;
+  custom_recipe.lightness.custom[1] = 0.2f;
+  custom_recipe.lightness.custom[2] = 0.9f;
+  const GenerativePalette to(custom_recipe);
+
+  alignas(std::max_align_t) static uint8_t
+      buf[4 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+  BakedPalette from_lut;
+  from_lut.bake(arena, from);
+  BakedPalette to_lut;
+  to_lut.bake(arena, to);
+  BakedPalette morph_lut;
+  morph_lut.bake(arena, from);
+
+  GenerativePalette morph;
+  morph.lerp(from, to, 0.999f);
+  morph_lut.rebake(morph);
+  expect_baked_near(morph_lut, to_lut, 2500);
+
+  morph.lerp(from, to, 0.001f);
+  morph_lut.rebake(morph);
+  expect_baked_near(morph_lut, from_lut, 2500);
+}
+
+inline void test_generative_palette_lerp_interpolates_loop_seam() {
+  const GenerativePalette a(PaletteRecipes::isolight_spectral_loop(0.0f));
+  const GenerativePalette b(PaletteRecipes::isolight_spectral_loop(0.4f));
+  GenerativePalette morph;
+  for (const float amount : {0.25f, 0.5f, 0.75f}) {
+    morph.lerp(a, b, amount);
+    const Pixel seam = morph.get(1.0f).color;
+    const Pixel start = morph.get(0.0f).color;
+    HS_EXPECT_TRUE(std::abs(int(seam.r) - int(start.r)) <= 220);
+    HS_EXPECT_TRUE(std::abs(int(seam.g) - int(start.g)) <= 220);
+    HS_EXPECT_TRUE(std::abs(int(seam.b) - int(start.b)) <= 220);
+  }
+}
