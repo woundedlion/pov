@@ -174,19 +174,23 @@ struct Twist {
     return sin_ntheta_inv(p, s).sin_n;
   }
 
-  /** @brief sin(twist*theta) with the reciprocal radius that seeded it. */
+  /** @brief sin(twist*theta) with the Lipschitz argument that seeded it. */
   struct SinInv {
-    float sin_n; /**< sin(twist * theta). */
-    float inv_s; /**< 1/s; 2/R where the recurrence degenerates. */
+    float sin_n;         /**< sin(twist * theta). */
+    float lipschitz_arg; /**< 1/s; 2/R where the recurrence degenerates. Only
+                            valid as a lipschitz()/lipschitz_inv() argument —
+                            correct_normal_inv() marks the axis with 0 instead
+                            and would read 2/R as a finite radius. */
   };
 
   /**
-   * @brief sin(n*theta) and the reciprocal 1/s from the same recurrence seed.
+   * @brief sin(n*theta) and the Lipschitz argument from one recurrence seed.
    * @param p Query point.
    * @param s Precomputed context (radial distance in the XZ plane).
    * @return sin(twist * theta) and 1/s, the latter feeding lipschitz().
-   * @details On the degenerate axis inv_s carries 2/R, the value the Lipschitz
-   * clamp would select there anyway, so no caller needs a second branch.
+   * @details On the degenerate axis lipschitz_arg carries 2/R, the value the
+   * Lipschitz clamp would select there anyway, so no caller needs a second
+   * branch.
    */
   SinInv sin_ntheta_inv(const Vector &p, Ctx s) const {
     if (twist == 0 || s < TOLERANCE)
@@ -453,7 +457,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
       const Vector warped(p.x, p.y - warp.amplitude * h.sin_n, p.z);
       float d = base.distance(warped);
       if (d > 0.0f)
-        d *= warp.lipschitz_inv(h.inv_s);
+        d *= warp.lipschitz_inv(h.lipschitz_arg);
       return d;
     } else {
       const float bd = base.distance(p) - warp.bounding_inflation();
