@@ -85,6 +85,13 @@ class ParseDump(unittest.TestCase):
         with self.assertRaises(ValueError):
             relax_bakes.parse_dump(good + "\n" + head)
 
+    def test_rejects_unterminated_block_before_the_next_begin(self):
+        a, _ = make_dump("a", 8, [(1, 1, 1)], 0x1)
+        b, _ = make_dump("b", 8, [(2, 2, 2)], 0x2)
+        head = a.split("RELAX_BAKE_END")[0].rstrip()
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump(head + "\n" + b)
+
     def test_rejects_dump_starting_mid_block(self):
         dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
         with self.assertRaises(ValueError):
