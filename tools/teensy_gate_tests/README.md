@@ -25,6 +25,10 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `real/verbose_build_log.txt` | Verbatim `pio run -v` compiler invocations — first-party then third-party, Windows then Linux-CI — for the warning ratchet's capture-evidence guard. The Windows home directory is rewritten to `C:\Users\dev`; nothing else is edited. |
 | `real/cold_env_section.txt` | Verbatim `holosphere` section of a `pio run -v` with `.pio/build_cache` deleted: PlatformIO's banner (the `build_src_filter` the expectation is derived from) plus all three first-party compiles. |
 | `real/warm_env_section.txt` | The same section from the next run, reusing that cache: two `Retrieved … from cache` lines in place of the core compiles. The ratchet must fail on it. |
+| `real/phantasm_teensy_size.txt` | Verbatim `teensy_size` for `[env:phantasm]` — the calibrated region totals the end-to-end `evaluate()` test runs against. |
+| `real/phantasm_readelf_syms.txt` | `readelf -sW` rows for the layout symbols `tools/teensy_budgets.json` names, excerpted verbatim from the full table (the whole dump is ~600 KB). |
+| `real/phantasm_readelf_secs.txt` | Verbatim `readelf -SW`; also pins `.ARM.exidx` to flash, where `tools/phantasm.ld` routes it. |
+| `real/phantasm_size_a.txt` | Verbatim `size -A` for the fallback bucketing path. |
 
 ## ⚠ These are synthetic-but-realistic, not hardware-captured (yet)
 

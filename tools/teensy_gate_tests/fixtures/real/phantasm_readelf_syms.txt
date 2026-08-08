@@ -1,11 +1,8 @@
 
-Symbol table '.symtab' contains 5089 entries:
+Symbol table '.symtab' contains 7331 entries:
    Num:    Value  Size Type    Bind   Vis      Ndx Name
-  2508: 200071e0 0x4a800 OBJECT  LOCAL  DEFAULT    8 _ZL18global_arena_block
-  2656: 2027c880  8192 OBJECT  LOCAL  DEFAULT    9 txbuffer
-  2663: 2027b880  4096 OBJECT  LOCAL  DEFAULT    9 rx_buffer
-  3942: 20200000  8192 OBJECT  GLOBAL DEFAULT    9 global_timeline_events
-  4592: 20202000 0x3cc00 OBJECT  GLOBAL DEFAULT    9 _ZN6Effect8buffer_bE
-  4831: 60003dc0 92160 OBJECT  GLOBAL DEFAULT    3 _ZN13ReactionGraph9neighborsE
-  4878: 2023ec00 0x3cc00 OBJECT  GLOBAL DEFAULT    9 _ZN6Effect8buffer_aE
-  4783: 2027b800  1280 OBJECT  GLOBAL DEFAULT    9 _ZN12POVSegmentedILi288ELi4ELi480EE14ledController_E
+    65: 200010e0 0x4a800 OBJECT  LOCAL  DEFAULT    7 _ZL18global_arena_block
+  6142: 2027ba00  1280 OBJECT  GLOBAL DEFAULT    8 _ZN12POVSegmentedILi288ELi4ELi480EE13ledControllerE
+  6592: 20200000 0x3cc00 OBJECT  GLOBAL DEFAULT    8 _ZN6Effect8buffer_bE
+  6958: 60029df0 92160 OBJECT  GLOBAL DEFAULT    3 _ZN13ReactionGraph9neighborsE
+  7026: 2023cc00 0x3cc00 OBJECT  GLOBAL DEFAULT    8 _ZN6Effect8buffer_aE
