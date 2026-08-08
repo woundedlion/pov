@@ -22,7 +22,7 @@ struct ShaderBallWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Stereographic shader effect over a two-slot generative palette bank.
+ * @brief Stereographic shader effect over a two-slot bank of palette cyclers.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Projects a noise-warped sinusoidal pattern through stereographic
@@ -108,10 +108,20 @@ public:
     timeline.add(0, Animation::Driver(cycle_phase, &blend.params.cycle_speed,
                                       1.0f, false));
 
-    bank[0].bake(persistent_arena,
-                 GenerativePalette{EffectPaletteRecipes::shader_ball_liquid()});
-    bank[1].bake(persistent_arena,
-                 GenerativePalette{EffectPaletteRecipes::shader_ball_flyby()});
+    const auto liquid_recipes = EffectPaletteRecipes::shader_ball_liquid_set();
+    const auto flyby_recipes = EffectPaletteRecipes::shader_ball_flyby_set();
+    for (int i = 0; i < PALETTE_SET_SIZE; ++i) {
+      liquid_palettes[i] = GenerativePalette{liquid_recipes[i]};
+      flyby_palettes[i] = GenerativePalette{flyby_recipes[i]};
+      liquid_entries[i] = liquid_palettes[i];
+      flyby_entries[i] = flyby_palettes[i];
+    }
+    cyclers[0].init(persistent_arena, liquid_entries.data(), PALETTE_SET_SIZE,
+                    PALETTE_DWELL_FRAMES, PALETTE_FADE_FRAMES, ease_in_out_sin,
+                    &anims_paused);
+    cyclers[1].init(persistent_arena, flyby_entries.data(), PALETTE_SET_SIZE,
+                    PALETTE_DWELL_FRAMES, PALETTE_FADE_FRAMES, ease_in_out_sin,
+                    &anims_paused);
     // The shader's hue_rotate clips per pixel, so the RAM copy pays for itself
     // over reading the flash master.
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
@@ -149,6 +159,9 @@ public:
 
     update_camera(P.wander);
 
+    cyclers[0].step();
+    cyclers[1].step();
+
     // Frame-constant hoists; the per-pixel skip branches below all test these,
     // so the branch predictor makes the skips nearly free.
     const float warp_time = noise_time * P.warp_time_scale;
@@ -178,10 +191,10 @@ public:
       // The Wrap lookup below folds an exact 1.0 onto the palette's other end.
       value = std::min(value, ONE_BELOW_UNIT);
       float u = wrap_t(value + breathe_offset);
-      Color4 c =
-          pal_frac == 0.0f
-              ? bank[pal_lo].get(u)
-              : bank[pal_lo].get(u).lerp(bank[pal_lo + 1].get(u), pal_frac);
+      Color4 c = pal_frac == 0.0f
+                     ? cyclers[pal_lo].palette().get(u)
+                     : cyclers[pal_lo].palette().get(u).lerp(
+                           cyclers[pal_lo + 1].palette().get(u), pal_frac);
       c.alpha *= (1.0f - value * P.value_fade);
       if (P.hue_shift != 0.0f)
         c = hue_rotate(c, -displacement * P.hue_shift);
@@ -377,8 +390,19 @@ private:
   float cycle_phase = 0.0f; /**< Wrapped to [0, 2pi) each frame for breathe. */
 
   static constexpr int PALETTE_COUNT = 2;
-  std::array<BakedPalette, PALETTE_COUNT>
-      bank; /**< 16-bit LUTs baked from the generative recipes. */
+  static constexpr int PALETTE_SET_SIZE = 3;
+  /** @brief Frames each cycler dwells on a palette between fades. */
+  static constexpr int PALETTE_DWELL_FRAMES = 900;
+  /** @brief Frames each palette fade spans. */
+  static constexpr int PALETTE_FADE_FRAMES = 300;
+  std::array<GenerativePalette, PALETTE_SET_SIZE>
+      liquid_palettes; /**< Cycled sources for slot 0. */
+  std::array<GenerativePalette, PALETTE_SET_SIZE>
+      flyby_palettes; /**< Cycled sources for slot 1. */
+  std::array<PaletteCycler::Entry, PALETTE_SET_SIZE> liquid_entries;
+  std::array<PaletteCycler::Entry, PALETTE_SET_SIZE> flyby_entries;
+  std::array<PaletteCycler, PALETTE_COUNT>
+      cyclers; /**< Per-slot palette cycles: liquid set, flyby set. */
 
   /** @brief Base spatial frequency of the warp generator; the `Warp Scale`
    *  slider multiplies it. */
@@ -633,7 +657,7 @@ private:
   // fit the device persistent partition.
   static constexpr size_t FOOTPRINT_BYTES =
       gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
-      PALETTE_COUNT * BakedPalette::required_arena_bytes();
+      PALETTE_COUNT * PaletteCycler::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "ShaderBall persistent footprint exceeds the default "
                 "partition; coarsen the gamut grid or carve arenas");
