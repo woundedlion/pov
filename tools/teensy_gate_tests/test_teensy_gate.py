@@ -1061,19 +1061,45 @@ class TestSizeAFallback(unittest.TestCase):
                 self.assertIn("invalid `size -A` output", out)
                 self.assertIn("tooling/format error", out)
 
+    @unittest.skipUnless((REAL_DIR / "holosphere_size_a.txt").exists(),
+                         "real captures not present")
+    def test_real_size_a_captures_parse_through_the_fallback(self):
+        # Real `arm-none-eabi-size -A` output opens with a `<path> :` header whose
+        # path starts with '.'; the synthetic fixtures' header does not, so only a
+        # real capture proves the fallback is reachable at all.
+        for name in ("holosphere_size_a.txt", "phantasm_size_a.txt"):
+            with self.subTest(capture=name):
+                sizes = tg.fallback_sizes_from_size_a(
+                    (REAL_DIR / name).read_text(encoding="utf-8"))
+                self.assertEqual(set(sizes), {"flash", "ram1", "ram2"})
+                for region, measured in sizes.items():
+                    self.assertGreater(measured["used"], 0, msg=region)
+
+    @unittest.skipUnless((REAL_DIR / "holosphere_size_a.txt").exists(),
+                         "real captures not present")
+    def test_real_holosphere_capture_reaches_an_advisory_verdict(self):
+        rc, out = self._run_main(
+            "--size-a",
+            (REAL_DIR / "holosphere_size_a.txt").read_text(encoding="utf-8"),
+            (REAL_DIR / "holosphere_readelf_syms.txt").read_text(encoding="utf-8"),
+            "holosphere")
+        self.assertEqual(rc, tg.EXIT_UNCALIBRATED_PASS, msg=out)
+        self.assertIn("PASS", out)
+        self.assertIn("ADVISORY", out)
+
     def _run_main_size_a(self, size_a_text, syms_fixture, env):
-        return self._run_main("--size-a", size_a_text, syms_fixture, env)
+        return self._run_main("--size-a", size_a_text, _read(syms_fixture), env)
 
     def _run_main_teensy_size(self, teensy_size_fixture, syms_fixture, env):
         return self._run_main("--teensy-size", _read(teensy_size_fixture),
-                              syms_fixture, env)
+                              _read(syms_fixture), env)
 
-    def _run_main(self, sizes_flag, sizes_text, syms_fixture, env):
+    def _run_main(self, sizes_flag, sizes_text, syms_text, env):
         with tempfile.TemporaryDirectory() as d:
             sizes = Path(d) / "sizes.txt"
             sizes.write_text(sizes_text, encoding="utf-8")
             syms = Path(d) / "syms.txt"
-            syms.write_text(_read(syms_fixture), encoding="utf-8")
+            syms.write_text(syms_text, encoding="utf-8")
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 rc = tg.main([
