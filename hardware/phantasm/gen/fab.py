@@ -167,12 +167,6 @@ PART_BY_LCSC = {
 }
 
 
-def _kicad_version_key(path):
-    """(major, minor) of a KiCad install path; (0, 0) if unversioned."""
-    m = re.search(r"KiCad[\\/](\d+)\.(\d+)", path)
-    return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
-
-
 def find_kicad_cli():
     env = os.environ.get("KICAD_CLI")
     if env and os.path.exists(env):
@@ -187,26 +181,8 @@ def find_kicad_cli():
     for p in pats:
         hits = glob.glob(p)
         if hits:
-            return max(hits, key=_kicad_version_key)   # newest version
+            return max(hits, key=sexp.kicad_version_key)   # newest version
     return "kicad-cli"                 # assume on PATH
-
-
-def find_kicad_data_dir(kind, env_name):
-    env = os.environ.get(env_name)
-    if env and os.path.isdir(env):
-        return env
-    pats = [
-        fr"C:\Program Files\KiCad\*\share\kicad\{kind}",
-        fr"C:\Program Files (x86)\KiCad\*\share\kicad\{kind}",
-        f"/Applications/KiCad/KiCad.app/Contents/SharedSupport/{kind}",
-        f"/usr/share/kicad/{kind}",
-        f"/usr/local/share/kicad/{kind}",
-    ]
-    for pattern in pats:
-        hits = glob.glob(pattern)
-        if hits:
-            return max(hits, key=_kicad_version_key)
-    return kind
 
 
 KCLI = find_kicad_cli()

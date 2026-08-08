@@ -8,28 +8,33 @@ import glob
 import os
 import re
 
-# Stock KiCad symbol libraries. Override with env KICAD_SYMBOL_DIR if installed
-# elsewhere or on a newer/older KiCad version.
-def find_symbol_dir():
-    env = os.environ.get("KICAD_SYMBOL_DIR")
+def kicad_version_key(path):
+    """(major, minor) of a KiCad install path; (0, 0) if unversioned."""
+    m = re.search(r"KiCad[\\/](\d+)\.(\d+)", path)
+    return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+
+
+# Stock KiCad data directories (symbols, footprints, 3dmodels). Override with
+# the matching env var if installed elsewhere or on a newer/older KiCad version.
+def find_kicad_data_dir(kind, env_name):
+    env = os.environ.get(env_name)
     if env and os.path.isdir(env):
         return env
     patterns = [
-        r"C:\Program Files\KiCad\*\share\kicad\symbols",
-        r"C:\Program Files (x86)\KiCad\*\share\kicad\symbols",
-        "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols",
-        "/usr/share/kicad/symbols",
-        "/usr/local/share/kicad/symbols",
+        fr"C:\Program Files\KiCad\*\share\kicad\{kind}",
+        fr"C:\Program Files (x86)\KiCad\*\share\kicad\{kind}",
+        f"/Applications/KiCad/KiCad.app/Contents/SharedSupport/{kind}",
+        f"/usr/share/kicad/{kind}",
+        f"/usr/local/share/kicad/{kind}",
     ]
     for pattern in patterns:
         hits = glob.glob(pattern)
         if hits:
-            return max(hits, key=lambda path: tuple(
-                int(part) for part in re.findall(r"\d+", path)))
-    return "symbols"
+            return max(hits, key=kicad_version_key)   # newest version
+    return kind
 
 
-KICAD_SHARE = find_symbol_dir()
+KICAD_SHARE = find_kicad_data_dir("symbols", "KICAD_SYMBOL_DIR")
 
 
 # ---------- tokenizer / parser ----------
