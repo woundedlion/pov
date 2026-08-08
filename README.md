@@ -437,7 +437,7 @@ Three build targets share a common engine:
 │  │ Holosphere/  │   │  Effects → Canvas → Filter Pipeline          │    │
 │  │  .ino        │   │      → SDF/Plot → Pixel Buffer               │    │
 │  │              │   │                                              │    │
-│  │ Phantasm/    │   │  effects/  (24 visual algorithms)            │    │
+│  │ Phantasm/    │   │  effects/  (23 visual algorithms)            │    │
 │  │  .ino        │   │                                              │    │
 │  │              │   ├──────────────────────────────────────────────┤    │
 │  │ wasm/        │   │          hardware/  (Drivers)                │    │
@@ -1795,7 +1795,7 @@ An effect passes construction-time flags to its base as `Effect(W, H, {.strobe =
 
 All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for RingShower, Dynamo and Thrusters.
 
-The effect registry and tests carry the full 23-effect roster. The simulator sidebar exposes the curated subset for its active resolution (§10.5), omitting three effects at 288×144 and five at 96×20. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) is a 21-effect subset of the full roster, excluding the two Holosphere-96×20-only effects, Dynamo and Thrusters.
+The effect registry and tests carry the full 23-effect roster. The simulator sidebar exposes the curated subset for its active resolution (§10.5), omitting three effects at 288×144 and five at 96×20. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) is a 21-effect subset of the full roster, excluding the two Holosphere-96×20-only effects, Dynamo and Thrusters. Full-cycle Teensy measurements for the firmware playlist are indexed in the [on-device effect profiles](docs/profiles/README.md).
 
 ### Core Effects (Modern Engine)
 
@@ -1987,7 +1987,9 @@ A fixed icosahedron's wireframe rendered with `Plot::Mesh`, given a noise-distor
 
 #### MindSplatter
 
-Particles spray from emitters at the eight cube vertices — each sweeping its own tangent-plane emission angle — and fall toward attractor wells at the six octahedron vertices, where an event-horizon kernel around each signed axis punches them out as holes. A random walk tumbles the view, periodic Möbius warp bursts distort the whole field, and a preset timer lerps friction, well strength and speeds between four presets.
+Particles spray from emitters at the eight cube vertices — each sweeping its own tangent-plane emission angle — and fall toward attractor wells at the six octahedron vertices, where an event-horizon kernel around each signed axis punches them out as holes. A random walk tumbles the view, periodic Möbius warp bursts distort the whole field, and a preset timer lerps friction, well strength and speeds between eight presets.
+
+**Teensy full-cycle profile**: all eight presets hold 16 fps; shipping peaks at 38.95 ms with 0/1728 spills, and global O3 peaks at 38.78 ms with 0/1728 spills ([shipping](docs/profiles/shipping/profile_mindsplatter_teensy_2026-08-07.md), [global O3](docs/profiles/O3/profile_mindsplatter_teensy_2026-08-07.md)).
 
 **Parameters**: Friction, Well Str, Init Spd, Ang Spd, Particles
 
@@ -2047,7 +2049,9 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### ShaderBall
 
-Stereographic-projection shader (extends `Effect` directly) spanning liquid domain-warp and grid fly-through looks from one continuous parameter space. Every look axis — Y-spin vs. dual random-walk wander, glitch-lens blend, pattern cross-coupling vs. direct phase feed, palette-bank position, breathe depth, hue shift, value fade — is a preset-lerped float, so the choreography morphs between any two looks (including mixed ones) without a discrete pop. Uses `Scan::Shader::draw` for full-screen pixel shading over a two-slot baked generative palette bank.
+Stereographic-projection shader (extends `Effect` directly) spanning 12 liquid domain-warp and grid fly-through presets from one continuous parameter space. Every look axis — Y-spin vs. dual random-walk wander, glitch-lens blend, pattern cross-coupling vs. direct phase feed, palette-bank position, breathe depth, hue shift, value fade — is a preset-lerped float, so the choreography morphs between any two looks (including mixed ones) without a discrete pop. Uses `Scan::Shader::draw` for full-screen pixel shading over a two-slot baked generative palette bank.
+
+**Teensy full-cycle profile**: shipping peaks at 97.93 ms with five of 12 presets spilling; global O3 lowers the peak to 89.21 ms with three presets spilling ([shipping](docs/profiles/shipping/profile_shaderball_teensy_2026-08-07.md), [global O3](docs/profiles/O3/profile_shaderball_teensy_2026-08-07.md)).
 
 **Parameters**: Warp Scale, Warp Strength, Warp Time, Pattern Freq, Speed, Complexity, Phase Direct, Drift, Pole Fade, Spin Rate, Wander, Lens Mix, Palette, Breathe Depth, Cycle Speed, Hue Shift, Value Fade
 
