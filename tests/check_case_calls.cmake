@@ -14,8 +14,10 @@
 # It sees definitions of the form `void test_*(` / `void check_*(` at the start
 # of a line (optionally `inline`/`static`), which is how every case in the tree
 # is written. A module's header is the one defining the run_*_tests() entry point
-# its roster row names, so headers outside the roster are call-checked but not
-# counted.
+# its roster row names. Headers no roster row reaches — helper headers included
+# mid-module, and entry points only a standalone tool binary runs — are pinned by
+# HELPER_CASE_COUNTS below instead, so every header on disk is counted by exactly
+# one pin and a case deleted together with its call is always visible somewhere.
 #
 # Comment spans are stripped before both the definition scan and the reference
 # count: the tree cross-references case names in prose, and an unstripped
@@ -26,6 +28,21 @@
 cmake_minimum_required(VERSION 3.29)
 
 file(GLOB _headers "${TESTS_DIR}/*.h")
+
+# Exact case-site count of every header the run_tests.cpp roster does not reach.
+# Same contract as the roster's second column: the number is exact, not a floor.
+set(HELPER_CASE_COUNTS
+  "aa_audit.h=0"
+  "mesh_test_util.h=3"
+  "mindsplatter_replay_corpus.h=0"
+  "mindsplatter_replay_metrics.h=0"
+  "mindsplatter_whitebox.h=0"
+  "pixel_test_util.h=0"
+  "test_fixture.h=0"
+  "test_generative_palette.h=25"
+  "test_h_offset_renorm.h=5"
+  "test_harness.h=0"
+  "test_pole_wrap.h=3")
 
 # Whole-tree code text, used as the fallback reference scope for cross-header
 # calls. Comments are stripped: the helper headers are named in prose by several
@@ -44,6 +61,8 @@ set(_sites 0)
 set(_entry_fns "")   # run_*_tests() each header defines, if any
 set(_entry_files "") # its header name, index-aligned with _entry_fns
 set(_entry_counts "") # its case-site count, index-aligned with _entry_fns
+set(_all_files "")    # every header name
+set(_all_counts "")   # its case-site count, index-aligned with _all_files
 foreach(_hdr IN LISTS _headers)
   file(READ "${_hdr}" _text)
   get_filename_component(_name "${_hdr}" NAME)
@@ -76,6 +95,8 @@ foreach(_hdr IN LISTS _headers)
       list(APPEND _uncalled "${_name}:${_case}")
     endif()
   endforeach()
+  list(APPEND _all_files "${_name}")
+  list(APPEND _all_counts "${_count}")
   string(REGEX MATCH "\n[ \t]*(inline )?(static )?int run_[A-Za-z0-9_]+_tests\\("
     _entry "${_text}")
   if(_entry)
@@ -120,6 +141,7 @@ if(NOT _nheads EQUAL _nrows)
 endif()
 
 set(_drift "")
+set(_roster_files "") # headers a roster row pins, so the rest need a helper pin
 foreach(_row IN LISTS _rows)
   string(REGEX REPLACE "^X\\(\"([A-Za-z0-9_]+)\".*" "\\1" _mod "${_row}")
   string(REGEX REPLACE "^X\\(\"[A-Za-z0-9_]+\",[ \t\r\n\\\\]*([0-9]+),.*" "\\1"
@@ -133,23 +155,57 @@ foreach(_row IN LISTS _rows)
   endif()
   list(GET _entry_counts ${_idx} _found)
   list(GET _entry_files ${_idx} _file)
+  list(APPEND _roster_files "${_file}")
   if(NOT _pinned EQUAL _found)
     list(APPEND _drift
       "${_mod} (${_file}): expected ${_pinned}, found ${_found}")
   endif()
 endforeach()
 
+# Everything the roster does not reach is pinned by HELPER_CASE_COUNTS.
+set(_unpinned "")
+set(_index 0)
+foreach(_file IN LISTS _all_files)
+  list(GET _all_counts ${_index} _found)
+  math(EXPR _index "${_index} + 1")
+  if(_file IN_LIST _roster_files)
+    continue()
+  endif()
+  set(_pinned "")
+  foreach(_entry IN LISTS HELPER_CASE_COUNTS)
+    if(_entry MATCHES "^${_file}=([0-9]+)$")
+      set(_pinned "${CMAKE_MATCH_1}")
+    endif()
+  endforeach()
+  if(_pinned STREQUAL "")
+    list(APPEND _unpinned "${_file}")
+  elseif(NOT _pinned EQUAL _found)
+    list(APPEND _drift "${_file}: expected ${_pinned}, found ${_found}")
+  endif()
+endforeach()
+
+if(_unpinned)
+  string(REPLACE ";" ", " _unpinned_list "${_unpinned}")
+  message(FATAL_ERROR
+    "test header no case-site pin covers: ${_unpinned_list}. A header no roster "
+    "row reaches must be listed in HELPER_CASE_COUNTS in "
+    "tests/check_case_calls.cmake with its exact case count, or a case deleted "
+    "together with its call leaves no trace.")
+endif()
+
 if(_drift)
   string(REPLACE ";" "; " _drift_list "${_drift}")
   message(FATAL_ERROR
     "case-site count drift: ${_drift_list}. The second column of each "
-    "HS_TEST_MODULE_LIST row in tests/run_tests.cpp is the exact number of "
-    "`void test_*(`/`void check_*(` definitions in that module's header. If you "
-    "added or intentionally removed cases, set the column to the 'found' value "
+    "HS_TEST_MODULE_LIST row in tests/run_tests.cpp — and the HELPER_CASE_COUNTS "
+    "entry in this script for every header outside the roster — is the exact "
+    "number of `void test_*(`/`void check_*(` definitions in that header. If you "
+    "added or intentionally removed cases, set the pin to the 'found' value "
     "above; otherwise a case was deleted — restore it.")
 endif()
 
+list(LENGTH HELPER_CASE_COUNTS _nhelpers)
 message(STATUS
   "test case call pin: all ${_sites} case definitions across the tests "
-  "directory are called, and ${_nrows} roster modules match their case-site "
-  "counts")
+  "directory are called, and ${_nrows} roster modules plus ${_nhelpers} "
+  "off-roster headers match their case-site counts")
