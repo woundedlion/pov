@@ -924,8 +924,8 @@ inline constexpr int GAMUT_BRACKET_STEPS = 3;
  * @param L Lightness held fixed along the ray.
  * @param a OKLab a of the input, unnormalized; the ray is u * (a, b).
  * @param b OKLab b of the input, unnormalized.
- * @param lo Scale known to be at or below the boundary.
- * @param hi Scale at or above it, already capped at the input's own scale.
+ * @param lo Bracket lower bound; probed, not assumed to be in gamut.
+ * @param hi Bracket upper bound; probed, and returned only if it is in gamut.
  * @return The refined scale, in gamut by construction.
  * @details With l_cbrt = L + A*u and (L + X*u)^3 expanded in u, every linear-RGB
  * channel is a cubic in u whose four coefficients depend only on L and the hue
