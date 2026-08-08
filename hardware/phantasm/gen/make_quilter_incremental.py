@@ -58,6 +58,23 @@ def snapshot_paths(root: Path) -> list[Path]:
     return paths
 
 
+def require_no_strays(root: Path) -> None:
+    """Reject managed files a snapshot holds that this run does not rewrite.
+
+    Hashing them would adopt them into the manifest, and verify_snapshot() would
+    then demand them forever.
+    """
+    written = {Path(name) for name in FILES}
+    strays = sorted(
+        str(path) for path in snapshot_paths(root)
+        if path not in written and path.parts[0] != "phantasm.pretty"
+    )
+    if strays:
+        raise RuntimeError(
+            "snapshot holds files this run does not write: " + ", ".join(strays)
+        )
+
+
 def verify_snapshot(root: Path = OUTPUT) -> None:
     manifest = root / "SHA256SUMS.txt"
     expected = {}
@@ -105,6 +122,7 @@ def make_snapshot() -> None:
     require_incremental_input(board, schematic)
 
     OUTPUT.mkdir(parents=True, exist_ok=True)
+    require_no_strays(OUTPUT)
     for name in FILES:
         shutil.copy2(PROJECT / name, OUTPUT / name)
     footprint_output = OUTPUT / "phantasm.pretty"
