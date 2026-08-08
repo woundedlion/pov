@@ -655,7 +655,7 @@ public:
     check_alive();
     check_bound();
     HS_CHECK(element_count < element_capacity,
-             "ArenaVector exact capacity exceeded!");
+             "ArenaVector push_back exact capacity exceeded!");
     new (&elements[element_count]) T(value);
     element_count++;
   }
@@ -695,7 +695,7 @@ public:
     check_alive();
     check_bound();
     HS_CHECK(element_count < element_capacity,
-             "ArenaVector exact capacity exceeded!");
+             "ArenaVector emplace_back exact capacity exceeded!");
     T *ptr = new (&elements[element_count]) T(std::forward<Args>(args)...);
     element_count++;
     return *ptr;
