@@ -318,5 +318,8 @@ private:
   int current = 0;            /**< Entry dwelt on or faded away from. */
   uint8_t key_morph_mask = 0; /**< Bit i: entry i fades to its successor by
                                  key morph rather than LUT crossfade. */
+  static_assert(MAX_ENTRIES <= 8 * static_cast<int>(sizeof(key_morph_mask)),
+                "key_morph_mask needs one bit per entry; widen it alongside "
+                "MAX_ENTRIES");
   bool fade_active = false;
 };
