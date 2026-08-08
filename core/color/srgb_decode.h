@@ -28,6 +28,14 @@ inline constexpr int SRGB_DECODE_LOW_N =
 inline constexpr int SRGB_DECODE_HIGH_N =
     (65536 - SRGB_DECODE_VSPLIT) >> SRGB_DECODE_HIGH_SHIFT;
 
+// A split that is not a whole number of buckets leaves the tail of a region
+// unrepresented, and linear_to_srgb8 indexes one element past the table.
+static_assert(SRGB_DECODE_VSPLIT % (1 << SRGB_DECODE_LOW_SHIFT) == 0,
+              "SRGB_DECODE_VSPLIT must be a multiple of the low-region width");
+static_assert(
+    (65536 - SRGB_DECODE_VSPLIT) % (1 << SRGB_DECODE_HIGH_SHIFT) == 0,
+    "the high region must span a whole number of high-region buckets");
+
 // A committed table generated under different shifts would otherwise be copied
 // out of bounds below.
 static_assert(std::size(srgb_decode_low_src) == SRGB_DECODE_LOW_N,
