@@ -397,10 +397,10 @@ private:
 
   static constexpr int PALETTE_COUNT = 2;
   static constexpr int PALETTE_SET_SIZE = 3;
-  /** @brief Frames each cycler dwells on a palette between fades. */
-  static constexpr int PALETTE_DWELL_FRAMES = 900;
+  /** @brief Zero dwell: the palette shifts continuously, fade after fade. */
+  static constexpr int PALETTE_DWELL_FRAMES = 0;
   /** @brief Frames each palette fade spans. */
-  static constexpr int PALETTE_FADE_FRAMES = 300;
+  static constexpr int PALETTE_FADE_FRAMES = 600;
   std::array<GenerativePalette, PALETTE_SET_SIZE>
       liquid_palettes; /**< Cycled sources for slot 0. */
   std::array<GenerativePalette, PALETTE_SET_SIZE>
