@@ -133,13 +133,13 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("opchain_probe", 8, hs_test::opchain_probe_tests::run_opchain_probe_tests, \
     496306)                                                                    \
   X("opchain_arena_survey", 1,                                                 \
-    hs_test::opchain_arena_survey::run_opchain_arena_survey_tests, 21562)      \
+    hs_test::opchain_arena_survey::run_opchain_arena_survey_tests, 20363)      \
   X("hankin", 19, hs_test::hankin_tests::run_hankin_tests, 2048)               \
   X("geometry", 35, hs_test::geometry::run_geometry_tests, 4847)               \
   X("spherical_field", 13,                                                     \
     hs_test::spherical_field::run_spherical_field_tests, 7027)                 \
   X("mesh", 22, hs_test::mesh_tests::run_mesh_tests, 42756)                    \
-  X("solids", 34, hs_test::solids_tests::run_solids_tests, 307007)             \
+  X("solids", 34, hs_test::solids_tests::run_solids_tests, 298990)             \
   X("reaction_graph", 14,                                                      \
     hs_test::reaction_graph_tests::run_reaction_graph_tests, 983)              \
   X("color", 65, hs_test::color_tests::run_color_tests, 409691)                \

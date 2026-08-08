@@ -872,22 +872,6 @@ FLASHMEM static PolyMesh truncatedIcosahedron_hk58_chamfer63(Arena &a,
       .build();
 }
 /**
- * @brief Builds the truncatedIcosahedron_ambo_relax100_hk54_needle star
- * pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
- * @return The resulting star-pattern mesh.
- */
-FLASHMEM static PolyMesh
-truncatedIcosahedron_ambo_relax100_hk54_needle(Arena &a, Arena &b) {
-  return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
-      .ambo()
-      .relax_baked(RelaxBakes::truncated_icosahedron_ambo_converged)
-      .hankin(54.0f * D2R)
-      .needle()
-      .build();
-}
-/**
  * @brief Builds the dodecahedron_hk62_ambo_hk62 star pattern.
  * @param a Output arena for the result and even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
@@ -1487,7 +1471,9 @@ inline constexpr Recipe DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE = {
     static_cast<uint8_t>(
         std::size(DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS))};
 
-/** Step table for truncatedIcosahedron_ambo_relax100_hk54_needle. */
+/** Step table for the ambo/relax100/hk54/needle recipe: not in
+ * islamic_registry (dropped for fringe defect), kept as the reconcile tests'
+ * canonical needle-ending recipe. */
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_STEPS[] = {
         {Op::AMBO},
@@ -1495,10 +1481,6 @@ inline constexpr OpStep
          .bake = &RelaxBakes::truncated_icosahedron_ambo_converged},
         {Op::HANKIN, 54.0f * IslamicStarPatterns::D2R},
         {Op::NEEDLE}};
-/**
- * Recipe mirror of
- * IslamicStarPatterns::truncatedIcosahedron_ambo_relax100_hk54_needle.
- */
 inline constexpr Recipe TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_RECIPE =
     {SEED_TRUNCATED_ICOSAHEDRON,
      TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_STEPS,
@@ -1685,10 +1667,6 @@ inline constexpr Recipe ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE = {
  * @brief Registry of Islamic star-pattern solids.
  */
 inline constexpr Entry islamic_registry[] = {
-    {"truncatedIcosahedron_ambo_relax100_hk54_needle",
-     IslamicStarPatterns::truncatedIcosahedron_ambo_relax100_hk54_needle,
-     Category::Complex,
-     &TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_RECIPE},
     {"dodecahedron_hk62_ambo_hk62",
      IslamicStarPatterns::dodecahedron_hk62_ambo_hk62, Category::Complex,
      &DODECAHEDRON_HK62_AMBO_HK62_RECIPE},
@@ -1784,7 +1762,7 @@ static_assert(std::string_view(simple_registry[PLATONIC_COUNT].name) ==
               "PLATONIC_COUNT must start the Archimedean run");
 
 inline constexpr size_t CATALAN_COUNT = 13;
-inline constexpr size_t ISLAMIC_COUNT = 24;
+inline constexpr size_t ISLAMIC_COUNT = 23;
 static_assert(CATALAN_COUNT == std::size(catalan_registry),
               "catalan_registry size changed; update CATALAN_COUNT and the "
               "README registry table");
