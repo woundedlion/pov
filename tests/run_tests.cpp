@@ -159,7 +159,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("noise", 3, hs_test::noise_tests::run_noise_tests, 201)                    \
   X("generators", 4, hs_test::generators_tests::run_generators_tests, 59)      \
   X("animation", 106, hs_test::animation_tests::run_animation_tests, 3833)     \
-  X("effects", 80, hs_test::effects_tests::run_effects_tests,                  \
+  X("effects", 81, hs_test::effects_tests::run_effects_tests,                  \
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_FULL_MIN_ASSERTIONS                                          \
         : EFFECTS_QUICK_MIN_ASSERTIONS)                                        \
