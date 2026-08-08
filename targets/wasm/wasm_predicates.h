@@ -58,19 +58,21 @@ inline bool clip_bounds_valid(int x0, int x1, int y0, int y1, int width,
 
 /**
  * @brief Clamps a relax iteration count into [0, max_iterations].
- * @param iterations Requested pass count from the JS boundary.
+ * @param iterations Requested pass count from the JS boundary, as a double.
  * @param max_iterations Inclusive upper bound.
  * @return The clamped count.
  * @details relax(1e9) would freeze the main thread for billions of passes, so
- *          the unbounded JS count is clamped rather than trusted. Negative
- *          requests floor at 0.
+ *          the unbounded JS count is clamped rather than trusted. Negative and
+ *          NaN requests floor at 0. The count is taken as a double because a JS
+ *          number past INT32_MAX wraps negative through an i32 parameter and
+ *          would floor at 0 instead of saturating at the cap.
  */
-inline int clamp_relax_iterations(int iterations, int max_iterations) {
-  if (iterations < 0)
+inline int clamp_relax_iterations(double iterations, int max_iterations) {
+  if (!(iterations > 0.0))
     return 0;
-  if (iterations > max_iterations)
+  if (iterations > static_cast<double>(max_iterations))
     return max_iterations;
-  return iterations;
+  return static_cast<int>(iterations);
 }
 
 /**
