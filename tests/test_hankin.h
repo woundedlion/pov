@@ -601,6 +601,9 @@ inline void test_update_hankin_resonance_star_points_stay_local() {
     }
     off += n;
   }
+  HS_EXPECT_TRUE(!edges.empty());
+  if (edges.empty())
+    return;
   std::sort(edges.begin(), edges.end());
   float median = edges[edges.size() / 2];
   float max = edges.back();
