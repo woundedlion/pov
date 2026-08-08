@@ -1161,12 +1161,12 @@ async function main() {
     }
   }
 
-  // PaletteOps V3: 256*3 sRGB bytes and engine-authored diagnostics.
+  // PaletteOps V4: 256*3 sRGB bytes and engine-authored diagnostics.
   {
     const po = new Module.PaletteOps();
     try {
       const recipe = {
-        schemaVersion: 3, keyCount: 3, input: { offset: 0, span: 1 },
+        schemaVersion: 4, keyCount: 3, input: { offset: 0, span: 1 },
         domain: 0, easing: 1, colorPath: 0,
         hue: {
           mode: 0, harmony: 5, direction: 0, baseTurns: 0,
@@ -1179,21 +1179,21 @@ async function main() {
         },
         hueTorsion: 0, falloffStart: 0.9,
       };
-      const result = po.inspectV3(recipe);
+      const result = po.inspectV4(recipe);
       const lut = Uint8Array.from(result.lut ?? []);
       if (result.status.code !== 0) {
-        fail(`compileAndBakeV3 returned status ${result.status.code}`);
+        fail(`compileAndBakeV4 returned status ${result.status.code}`);
       }
       if (!lut || lut.length !== 256 * 3) {
-        fail(`compileAndBakeV3 LUT length ${lut && lut.length}, expected ${256 * 3}`);
+        fail(`compileAndBakeV4 LUT length ${lut && lut.length}, expected ${256 * 3}`);
       } else if (lut[0] === lut[765] && lut[1] === lut[766] && lut[2] === lut[767]) {
-        fail(`compileAndBakeV3 gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
+        fail(`compileAndBakeV4 gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
       }
       if (!result.diagnostics || result.diagnostics.length !== 256 * 6)
-        fail(`inspectV3 diagnostics length ${result.diagnostics?.length}, expected ${256 * 6}`);
+        fail(`inspectV4 diagnostics length ${result.diagnostics?.length}, expected ${256 * 6}`);
 
       recipe.input = { offset: 0.2, span: 0.4 };
-      const windowed = po.compileAndBakeV3(recipe);
+      const windowed = po.compileAndBakeV4(recipe);
       const windowedLut = Uint8Array.from(windowed.lut ?? []);
       const sourceEndpoints = [51, 153];
       for (const [destination, source] of [[0, sourceEndpoints[0]], [255, sourceEndpoints[1]]]) {
@@ -1209,7 +1209,7 @@ async function main() {
       po.delete();
     }
   }
-  console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, palette V3 OK');
+  console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, palette V4 OK');
 
   if (failures > 0) {
     console.error(`\nwasm_smoke: ${failures} failure(s)`);
