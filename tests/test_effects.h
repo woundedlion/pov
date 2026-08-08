@@ -4296,7 +4296,7 @@ struct ShaderBallWhiteBox {
   }
   static void update_camera(SB &sb, float wander) { sb.update_camera(wander); }
   static Pixel palette_color(const SB &sb, int bank, float t) {
-    return sb.bank[bank].get(t).color;
+    return sb.cyclers[bank].palette().get(t).color;
   }
   static void seed_accumulators(SB &sb, float v) {
     sb.noise_time = v;
