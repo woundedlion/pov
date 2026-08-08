@@ -6,7 +6,7 @@ render time; spilled counts frames above the 62.5 ms display window. Cyclers
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [ShaderBall](profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🔴 94.38 (4)<br>🟢 61.80 (8) | 🔴 1456/1641 (89%)<br>🟢 0/3271 (0%) | 2026-08-08 10:52 |
+| [ShaderBall](profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🔴 63.05 (1)<br>🟢 61.81 (11) | 🔴 3/960 (0.3%)<br>🟢 0/5408 (0%) | 2026-08-08 11:43 |
 | [DisplacementField](profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
 | [HopfFibration](profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-04.md)§ ● | adaptive planar-star raster | 🟢 57.66 (9) | 🟢 0/2368 (0%) | 2026-08-04 11:06 |
