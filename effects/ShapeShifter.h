@@ -362,11 +362,19 @@ private:
     presets.apply(params);
   }
 
+  /**
+   * @brief Schedules the current preset's fade sprite and the timer that
+   * advances to the next one.
+   * @details The pause holds the preset fully opaque rather than at the frozen
+   * fade level: a paused sprite redraws its envelope without advancing it, and
+   * the engine applies a retained pause before init(), where the fade-in
+   * envelope is still 0.
+   */
   void schedule_preset() {
     const int next_delay = presets.schedule_segue(
         timeline,
         [this](Canvas &, float phase) {
-          preset_opacity = presets.segue().opacity(phase);
+          preset_opacity = anims_paused ? 1.0f : presets.segue().opacity(phase);
         },
         PRESET_FRAMES, PRESET_SEGUE_FRAMES / 2, &anims_paused);
     timeline.add_pausable(next_delay,
