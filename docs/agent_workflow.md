@@ -54,16 +54,20 @@ Invoke the `code-style` skill first and obey it. Terse factual comments only —
 no narration, no justifying correct code, no history, no finding/ticket
 references. `core/render/sdf.h`, `core/color/color.h`, and generated tables
 carry whole-file clang-format drift against local clang-format v22: hand-format
-your own lines, wrap generated tables in `// clang-format off/on`, and commit
-with `HS_SKIP_FORMAT=1`; **never** run `clang-format -i` on an existing file. No
-`Co-Authored-By` line.
+your own lines and wrap generated tables in `// clang-format off/on`; **never**
+run `clang-format -i` on an existing file. The pre-commit format gate is live
+and blocks unconditionally — it already self-disables when the local
+clang-format is not v18, so never bypass it with `HS_SKIP_FORMAT=1` or
+`--no-verify`. No `Co-Authored-By` line.
 
 ---
 
 ## 4. Gates after every commit
 
 - `export EMSDK=C:/work/emsdk; cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF;
-  cmake --build --preset tests -j 8; ctest --preset tests` → **59/59**
+  cmake --build --preset tests -j 8; ctest --preset tests` → **every registered
+  test passes, zero failures** (report the count you saw; it grows as tests
+  land, so a fixed number is not the criterion)
 - `pio run -e phantasm` → `[teensy-gate] phantasm: PASS`, and report RAM1
   `code`, RAM1 `variables` (DTCM), FLASH `data`, **and the per-commit delta of
   each**.
