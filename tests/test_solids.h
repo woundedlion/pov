@@ -198,6 +198,9 @@ inline void test_islamic_solids_have_no_sliver_edges() {
       }
       off += n;
     }
+    HS_EXPECT_TRUE(!edges.empty());
+    if (edges.empty())
+      continue;
     std::sort(edges.begin(), edges.end());
     float median = edges[edges.size() / 2];
     float max = edges.back();
