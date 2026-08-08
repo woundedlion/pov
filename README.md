@@ -1470,15 +1470,15 @@ One deliberate exception: `SolidBuilder`'s fluent Conway chain (`solids.h`) owns
 `Presets<Params, Size>` is a generic template for managing parameter presets. It stores a fixed-size array of `PresetEntry<Params>` (each containing only a `Params` struct — no name field) and provides cyclic navigation. It interpolates nothing itself: it tracks the entry active before the last move, and the caller drives the crossfade with an `Animation::Lerp` from `prev_get()` to `get()` (the `Params` type supplies the `lerp()` the animation calls).
 
 ```cpp
-Presets<MeshFeedbackParams, 4> presets = {{
+Presets<Feedback::Style, 12> presets = {{
     {{{0.95f, 1.2f, ...}}},
     {{{0.88f, 0.5f, ...}}},
     ...
 }};
 presets.next();  // advance to next preset
-presets.apply(current_params);  // copy current preset into live params
+presets.apply(style);  // copy current preset into live params
 // or crossfade into it over 48 frames instead of snapping:
-timeline.add(0, Animation::Lerp(current_params, presets.prev_get(), presets.get(), 48, ease_linear));
+timeline.add(0, Animation::Lerp(style, presets.prev_get(), presets.get(), 48, ease_linear));
 ```
 
 ### 7.10 Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
