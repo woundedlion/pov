@@ -999,6 +999,46 @@ extern Arena scratch_arena_b;
 extern Arena persistent_arena;
 
 /**
+ * @brief Self-registering callback run before arena storage is handed out
+ *        again.
+ * @details A global that caches a pointer into an arena declares one static
+ * instance next to itself and drops the pointer from the callback, instead of
+ * the allocator naming every such owner. The registry head is
+ * constant-initialized, so registration during static init is order-independent;
+ * the list is intrusive, so it needs no storage of its own.
+ */
+struct ArenaResetHook {
+  using Handler = void (*)(); /**< Callback signature. */
+
+  Handler handler;      /**< Callback invoked by run_all(). */
+  ArenaResetHook *next; /**< Next link in the intrusive registry list. */
+
+  /**
+   * @brief Registers @p h with the global hook list.
+   * @param h Callback that drops the owner's pointer into arena storage.
+   */
+  explicit ArenaResetHook(Handler h) : handler(h), next(head) { head = this; }
+
+  /** @brief Deleted copy constructor: a copy would double-link the registry. */
+  ArenaResetHook(const ArenaResetHook &) = delete;
+  /**
+   * @brief Deleted copy assignment (non-copyable).
+   * @return Reference to this (never invoked).
+   */
+  ArenaResetHook &operator=(const ArenaResetHook &) = delete;
+
+  /** @brief Runs every registered hook. */
+  HS_COLD_MEMBER static void run_all() {
+    for (const ArenaResetHook *h = head; h; h = h->next)
+      h->handler();
+  }
+
+private:
+  static inline ArenaResetHook *head =
+      nullptr; /**< Head of the intrusive registry list. */
+};
+
+/**
  * @brief Repartitions the global arena budget across the three arenas.
  * @param persistent Bytes to assign to the persistent arena.
  * @param scratch_a Bytes to assign to scratch arena A.

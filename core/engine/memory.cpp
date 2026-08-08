@@ -4,7 +4,6 @@
  */
 
 #include "engine/memory.h"
-#include "color/color.h"
 #ifdef ARDUINO
 #include <exception>
 #endif
@@ -139,13 +138,13 @@ HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
  * @details Called once at init() so an effect can tune the split to the device
  * budget; split_bases() aligns the boundaries and enforces the budget.
  *
- * Also disarms the gamut boundary grid: it is an arena-resident copy, and this
- * is the one place the storage under it is handed out again. Owners re-arm from
+ * Runs the ArenaResetHook list first: this is one of the two places the storage
+ * under an arena-resident global is handed out again. Owners re-arm from
  * init(), which every swap path runs after this.
  */
 FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
                                size_t scratch_b) {
-  release_gamut_lut();
+  ArenaResetHook::run_all();
   const ScratchBases bases =
       split_bases("configure_arenas", persistent, scratch_a, scratch_b);
   persistent_arena.rebind(global_arena_block, persistent, GLOBAL_ARENA_SIZE);
