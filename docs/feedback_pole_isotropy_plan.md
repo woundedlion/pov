@@ -177,11 +177,13 @@ serve as the *test oracle* instead (see below).
    composite trades 3 branches/cell for 1 mult/pixel; sampler hot path
    unchanged. Verify: host cycle A/B of `mf_feedback_flush`, then
    `just profile MeshFeedback` on device — strict per-phase GREEN (every frame
-   of every phase, all 8 presets). Confirm the HS_O3 region still covers the
-   edited code and byte-audit the ITCM delta (ledger is 2,072 B under ceiling).
-7. **Visual sweep** of all 8 presets, special attention to Melting/Swirling
-   (`melt_warp` is pole-directed by design; D2 newly lets the drip cross the
-   north pole — confirm it reads as intended, not as a new artifact).
+   of every phase, every preset in `MeshFeedback::PRESETS`). Confirm the HS_O3
+   region still covers the edited code and byte-audit the ITCM delta (ledger is
+   2,072 B under ceiling).
+7. **Visual sweep** of every preset, special attention to `MeltingHi` and
+   `MeltingLo` (`melt_warp` is pole-directed by design; D2 newly lets the drip
+   cross the north pole — confirm it reads as intended, not as a new
+   artifact).
 
 ## Watch items
 
@@ -199,7 +201,8 @@ serve as the *test oracle* instead (see below).
 ## Measured outcome — D1 rejected (2026-07-23)
 
 D1 was implemented as specified and measured against the current path. It is a
-large regression for 5 of the 8 shipped presets and must not land.
+large regression for 5 of the 8 presets it was measured against, and must not
+land.
 
 ### The flaw
 
@@ -223,6 +226,14 @@ the exact oracle. Reported as mean/max angular error in radians per latitude
 band. (Probe kept in the saved patch.)
 
 ### North cap (rows 1–3), mean angular sample error
+
+Measured against the 8-style roster of the day (`SlowTwist, Churn, Smoke,
+Frozen, Shatter, Drift, Melting, Swirling`); the shipped roster is the 12 styles
+in `core/engine/styles.h`. The **amplitude** column is what the verdict turns
+on, not the names: the linearization fails once `|δ| = amplitude · 0.05`
+approaches φ at the cap. On the shipped roster only `Smoke` (0.51) sits in the
+regime D1 improves — the other eleven run 1.56 to 11.25, i.e. at or past the
+amplitudes that break here.
 
 | preset | amplitude | current | D1 tangent | |
 |---|---|---|---|---|
@@ -250,7 +261,7 @@ SlowTwist's cap error only 0.4082 → 0.3561.
 - **R1 is real but narrow.** The current path's cap error is worst for the
   *weak* presets (Smoke 0.0335, Churn 0.0194) and near-perfect for the strong
   ones. Any fix should target the low-amplitude regime, not the representation
-  as a whole.
+  as a whole — on the shipped roster that is `Smoke` alone.
 - **D2 (pole-crossing taps) is untestable on its own.** The equirect encoder
   folds a pole crossing into a longitude jump plus a positive Δφ, so `by < 0`
   only ever arises from interpolation undershoot. D2 becomes reachable only
