@@ -425,6 +425,7 @@ jobs:
     # -DHS_COVERAGE=ON (tests/CMakeLists.txt) instruments run_tests only, and the
     # gating jobs above stay uninstrumented.
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
