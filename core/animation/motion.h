@@ -533,7 +533,11 @@ public:
    * @brief Constructs a RandomWalk animation.
    * @param orientation The Orientation object to update.
    * @param v_start The starting direction vector.
-   * @param noise External noise generator (caller owns lifetime).
+   * @param noise External noise generator (caller owns lifetime). The walk
+   *   takes exclusive control of its type, frequency, and seed; a generator
+   *   shared with another owner that re-configures it (e.g. an
+   *   Animation::NoiseParams whose sync() runs every frame) overrides
+   *   `options.noise_scale`. set_noise_scale() re-asserts it.
    * @param options Configuration options.
    * @param seed Noise seed; 0 selects a random seed.
    */
@@ -562,6 +566,20 @@ public:
   void set_speed(float new_speed) {
     if (std::isfinite(new_speed))
       options.speed = new_speed;
+  }
+
+  /**
+   * @brief Sets the noise frequency and pushes it to the bound generator.
+   * @param new_scale The new spatial frequency; a non-finite value is ignored
+   *   (it would poison every noise sample).
+   * @details Also the way to re-assert the frequency on a generator shared with
+   *   another owner.
+   */
+  void set_noise_scale(float new_scale) {
+    if (!std::isfinite(new_scale))
+      return;
+    options.noise_scale = new_scale;
+    noise_generator.get().SetFrequency(new_scale);
   }
 
   /**
