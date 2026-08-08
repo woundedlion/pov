@@ -586,13 +586,15 @@ public:
   /**
    * @brief Binds the vector to an arena, allocating its backing block.
    * @param arena Arena to allocate from.
-   * @param exact_capacity Element count to reserve.
-   * @details If already bound with sufficient capacity, resets size for reuse.
+   * @param min_capacity Minimum element count to reserve.
+   * @details If already bound with at least that capacity, resets size for reuse
+   * and keeps the larger prior capacity, so capacity() and the push_back
+   * overflow guard report the block actually held rather than this request.
    * A grow against the same arena/generation reallocates a fresh block and
    * abandons the old one until the next reset; a stale binding (arena reset or
    * a different arena) trips a debug-only contract assert.
    */
-  void bind(Arena &arena, size_t exact_capacity) {
+  void bind(Arena &arena, size_t min_capacity) {
     static_assert(
         std::is_trivially_destructible_v<T> || is_arena_inplace_fn<T>::value,
         "ArenaVector never runs element destructors, so T must own no "
@@ -611,7 +613,7 @@ public:
     // below handing back bytes the arena has already reissued.
     check_alive();
     // Same arena, still live, and big enough → reuse the block in place.
-    if (bound && element_capacity >= exact_capacity) {
+    if (bound && element_capacity >= min_capacity) {
       element_count = 0;
 #ifndef NDEBUG
       // Reuse dangles any span snapshotted before this point; bump so its
@@ -624,14 +626,14 @@ public:
     // fresh. A grow leaks the old block until the next arena reset/compaction.
     if (bound)
       log_arena_vector_grow(element_capacity * sizeof(T), element_capacity,
-                            exact_capacity);
-    if (exact_capacity > 0) {
-      elements = arena.allocate_n<T>(exact_capacity);
+                            min_capacity);
+    if (min_capacity > 0) {
+      elements = arena.allocate_n<T>(min_capacity);
     } else {
       elements = nullptr;
     }
     element_count = 0;
-    element_capacity = exact_capacity;
+    element_capacity = min_capacity;
     bound = true;
 #ifndef NDEBUG
     source_arena = &arena;
