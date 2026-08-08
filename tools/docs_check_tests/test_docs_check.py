@@ -240,6 +240,15 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues[0].line, 2)
         self.assertIn("docs/ghost.md", issues[0].message)
 
+    def test_links_above_the_repository_root_are_reported(self):
+        text = ("[sibling](../../daydream/daydream.js)\n"
+                "[parent](../README.md)\n")
+        entries = {PurePosixPath("README.md")}
+        issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].line, 1)
+        self.assertIn("escapes the repository root", issues[0].message)
+
     def test_only_git_tracked_markdown_is_checked(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

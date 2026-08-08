@@ -7,7 +7,7 @@
 [same page](#valid-fixture)
 [external](https://example.com/missing.md)
 [mail](mailto:docs@example.com)
-[sibling checkout](../../daydream/daydream.js)
+[sibling checkout](https://github.com/woundedlion/daydream/blob/master/daydream.js)
 `[inline code](ignored.md)`
 
 [guide]: <target file.md#details>

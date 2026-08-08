@@ -2,8 +2,10 @@
 
 > **Historical audit (June 2026; renderer follow-up implemented).** Holosphere exposes the active
 > flag through [`HolosphereEngine::strobeColumns`](../targets/wasm/engine_bindings.h),
-> [`daydream.js`](../../daydream/daydream.js) forwards it after effect changes, and
-> [`driver.js`](../../daydream/driver.js) fills inter-column gaps only for persistent columns.
+> [`daydream.js`](https://github.com/woundedlion/daydream/blob/master/daydream.js) forwards it
+> after effect changes, and
+> [`driver.js`](https://github.com/woundedlion/daydream/blob/master/driver.js) fills
+> inter-column gaps only for persistent columns.
 
 `strobe_columns()` (formerly `show_bg()`) is a **POV-display control**, read only
 on the hardware column-draw path ([pov_single.h](../hardware/pov_single.h),
@@ -85,8 +87,8 @@ accumulation effects persist (`false`) while sparse or full-frame "crisp" effect
 
 The WASM engine exposes the active effect's flag through
 [`HolosphereEngine::strobeColumns`](../targets/wasm/engine_bindings.h). Daydream reads it in
-[`daydream.js`](../../daydream/daydream.js) and passes it to the renderer in
-[`driver.js`](../../daydream/driver.js).
+[`daydream.js`](https://github.com/woundedlion/daydream/blob/master/daydream.js) and passes it to
+the renderer in [`driver.js`](https://github.com/woundedlion/daydream/blob/master/driver.js).
 
 - **`strobe == true`:** the renderer keeps discrete round dots and dark horizontal gaps.
 - **`strobe == false`:** the renderer extends each dot in the sweep direction with the
