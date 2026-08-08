@@ -217,6 +217,10 @@ private:
   // by op between the fade-in and the still hold. Null-recipe entries never
   // touch any of it.
   bool build_active = false; /**< Legs draw; the sprite draw_fn is muted. */
+  /** Entry the resident shape was spawned from; must outlive its build (the
+   * registries are static). The build chain reads its recipe rather than
+   * re-indexing a registry, so a spawn is not tied to a registry slot. */
+  const Solids::Entry *build_entry = nullptr;
   Solids::OpStep
       build_step_chain[MAX_BUILD_STEPS];      /**< Lowered primitive chain. */
   size_t build_step_count = 0;                /**< Lowered step count. */
@@ -243,7 +247,8 @@ private:
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces = 0; /**< Length of build_from_pal. */
   int dual_bridges_built = 0;  /**< DUAL bridges scheduled (test coverage). */
-  int build_macro_sweep_frames = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
+  int build_macro_sweep_frames =
+      SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
   int build_reconcile_frames =
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
@@ -542,10 +547,7 @@ private:
   }
 
   /**
-   * @brief Advances to the next solid, generates it into the carousel's back
-   *        slot with a freshly shuffled palette, makes it the front, schedules
-   *        the segue and the shape's mid-display ripple burst, and queues the
-   *        next spawn_shape call.
+   * @brief Advances to the next registry solid and spawns it.
    */
   HS_COLD_MEMBER void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
@@ -554,6 +556,18 @@ private:
 #else
     solid_idx = (solid_idx + 1) % solids.size();
 #endif
+    spawn_entry(solids[solid_idx]);
+  }
+
+  /**
+   * @brief Generates @p entry into the carousel's back slot with a freshly
+   *        shuffled palette, makes it the front, schedules the segue and the
+   *        shape's mid-display ripple burst, and queues the next spawn_shape
+   *        call.
+   * @param entry Solid spawned; its recipe, if any, drives the build chain.
+   */
+  HS_COLD_MEMBER void spawn_entry(const Solids::Entry &entry) {
+    build_entry = &entry;
     int back = 1 - carousel.front_index();
     // The spawned mesh's shuffled palette order, consumed by class ordinal.
     std::array<int, NUM_PALETTES> palette_slots;
@@ -561,14 +575,14 @@ private:
 
     // A recipe whose lowered chain contains a step no leg kind covers falls
     // back to today's whole-generate path, seed solid and all.
-    const Solids::Recipe *recipe = solids[solid_idx].recipe;
+    const Solids::Recipe *recipe = entry.recipe;
     if (recipe) {
       build_step_count = Solids::expand_to_primitives(*recipe, build_step_chain,
                                                       MAX_BUILD_STEPS);
       for (size_t k = 0; k < build_step_count; ++k) {
         if (!Solids::is_morphable_step(build_step_chain[k])) {
           hs::log("IslamicStars: %s has an unsweepable step, generating whole",
-                  solids[solid_idx].name);
+                  entry.name);
           recipe = nullptr;
           build_step_count = 0;
           break;
@@ -622,7 +636,7 @@ private:
         MeshOps::compile(build_seed, carousel.slot(back), target,
                          scratch_arena_a);
       } else {
-        PolyMesh mesh = solids[solid_idx].generate(a, b);
+        PolyMesh mesh = entry.generate(a, b);
         carousel.slot(back).clear();
         MeshOps::compile(mesh, carousel.slot(back), target, scratch_arena_a);
       }
@@ -744,7 +758,6 @@ private:
     // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
     // A recipe shape spawns holding its seed, so these are the seed's counts;
     // finish_build logs the finished solid's, which are what it rasterizes.
-    const auto &entry = solids[solid_idx];
     const MeshState &spawned = carousel.current();
     hs::log("Spawning Shape: %s (V=%d, E=%d, F=%d, I=%d)%s", entry.name,
             (int)spawned.vertices.size(), (int)(spawned.faces.size() / 2),
@@ -1287,8 +1300,7 @@ private:
    * false for a dtd macro (authored = kis(X)).
    */
   HS_COLD_MEMBER void schedule_reconcile(size_t x_prefix, bool kis_of_dual) {
-    const uint8_t seed =
-        Solids::Collections::get_islamic_solids()[solid_idx].recipe->seed;
+    const uint8_t seed = build_entry->recipe->seed;
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
@@ -1447,8 +1459,7 @@ private:
              "IslamicStars: compiled face count differs from the leg landing");
     build_active = false;
 
-    hs::log("Built Shape: %s (V=%d, E=%d, F=%d, I=%d)",
-            Solids::Collections::get_islamic_solids()[solid_idx].name,
+    hs::log("Built Shape: %s (V=%d, E=%d, F=%d, I=%d)", build_entry->name,
             (int)slot.vertices.size(), (int)(slot.faces.size() / 2),
             (int)slot.face_counts.size(), (int)slot.faces.size());
   }
