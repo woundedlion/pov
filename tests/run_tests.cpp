@@ -95,8 +95,8 @@ struct TestModule {
 //
 // Every value is MEASURED, as the minimum over the configurations that can move
 // a module's count: the smoke window (HS_SMOKE_FRAMES), Debug -O0 against
-// RelWithDebInfo -O2, and the NDEBUG-gated cases in test_memory.h (7
-// assertions, so memory's floor sits 7 under its Debug count). Adding cases
+// RelWithDebInfo -O2, and the NDEBUG-gated cases in test_memory.h (13
+// assertions, so memory's floor sits 13 under its Debug count). Adding cases
 // raises a module's count and leaves its floor valid; lower a floor only after
 // deliberately removing or cheapening a case. 0 leaves a module unfloored.
 // death's floor covers its whole-suite skip exits because end_module exempts a
@@ -118,7 +118,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", 47, hs_test::math3d::run_3dmath_tests, 30113)                    \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
-  X("memory", 41, hs_test::mem::run_memory_tests, 271)                         \
+  X("memory", 42, hs_test::mem::run_memory_tests, 271)                         \
   X("spatial", 18, hs_test::spatial::run_spatial_tests, 179)                   \
   X("scb", 40, hs_test::scb::run_static_circular_buffer_tests, 197)            \
   X("sdf", 89, hs_test::sdf::run_sdf_tests, 272481)                            \
