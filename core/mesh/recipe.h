@@ -65,6 +65,52 @@ inline bool is_morphable_step(const OpStep &step) {
 }
 
 /**
+ * @brief Number of primitive steps a recipe lowers to.
+ * @param recipe Recipe to measure.
+ * @return Step count expand_to_primitives() would write, so a caller's buffer
+ *   can be sized at compile time.
+ */
+inline constexpr size_t lowered_step_count(const Recipe &recipe) {
+  size_t n = 0;
+  for (size_t i = 0; i < recipe.count; ++i) {
+    switch (recipe.steps[i].op) {
+    case Op::META:
+      n += 3;
+      break;
+    case Op::GYRO:
+    case Op::NEEDLE:
+    case Op::ZIP:
+    case Op::BEVEL:
+      n += 2;
+      break;
+    default:
+      n += 1;
+      break;
+    }
+  }
+  return n;
+}
+
+/**
+ * @brief Longest lowered chain over a registry.
+ * @tparam N Registry length.
+ * @param entries Registry to scan; recipe-less entries contribute nothing.
+ * @return Worst-case lowered step count, 0 when no entry carries a recipe.
+ */
+template <size_t N>
+inline constexpr size_t max_lowered_step_count(const Entry (&entries)[N]) {
+  size_t worst = 0;
+  for (const Entry &entry : entries) {
+    if (!entry.recipe)
+      continue;
+    const size_t n = lowered_step_count(*entry.recipe);
+    if (n > worst)
+      worst = n;
+  }
+  return worst;
+}
+
+/**
  * @brief Lowers a recipe's authored steps to the eight primitives plus AMBO.
  * @param recipe Recipe whose authored steps are lowered.
  * @param out Output buffer receiving the lowered steps.

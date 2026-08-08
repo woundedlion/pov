@@ -168,6 +168,10 @@ private:
   static constexpr size_t SPLIT_SCRATCH_B_BUILD = 72 * 1024;         // 73,728
   static constexpr size_t SPLIT_SCRATCH_B_BRIDGE = 74 * 1024;        // 75,776
   static constexpr size_t MAX_BUILD_STEPS = 8; /**< Lowered-primitive cap. */
+  static_assert(Solids::max_lowered_step_count(Solids::islamic_registry) <=
+                    MAX_BUILD_STEPS,
+                "IslamicStars: build_step_chain must hold the longest lowered "
+                "islamic_registry recipe");
   /** Build-chain mesh face cap. Bounds the scratch handoff arrays only; the
    * persistent budget is what actually limits which recipes ship. */
   static constexpr size_t MAX_BUILD_FACES = 1152;
