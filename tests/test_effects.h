@@ -4288,6 +4288,11 @@ struct ShaderBallWhiteBox {
   static float phase2(const SB &sb) { return sb.phase2; }
   static float spin_phase(const SB &sb) { return sb.spin_phase; }
   static float cycle_phase(const SB &sb) { return sb.cycle_phase; }
+  static float warp_sample_time(const SB &sb) { return sb.noise_time; }
+  static void set_warp_motion(SB &sb, float speed, float time_scale) {
+    sb.blend.params.speed = speed;
+    sb.blend.params.warp_time_scale = time_scale;
+  }
   static Quaternion inner_camera(const SB &sb) { return sb.cam_inner_conj; }
   static Quaternion outer_camera(const SB &sb) { return sb.cam_outer_conj; }
   static void set_walks(SB &sb, const Quaternion &inner,
@@ -4314,15 +4319,21 @@ struct ShaderBallWhiteBox {
                                           float mix) {
     return SB::blend_lens_samples(direct, lensed, mix);
   }
+  static StereoWarpResult wrapped_warp(const SB &sb, const Complex &z,
+                                       float time) {
+    const float r_sq = z.re * z.re + z.im * z.im;
+    return SB::sample_wrapped_warp(z, r_sq, sb.warp_noise, 1.0f, 1.0f, 5.0f,
+                                   time);
+  }
   static Params staggered_lerp(const Params &from, const Params &to, float t) {
     Params result = from;
     result.lerp_staggered(from, to, t);
     return result;
   }
-  static float sample_pattern(const Complex &p, float complexity, float direct1,
-                              float direct2, float sin_phase, float phase2) {
-    return SB::sample_pattern(p, complexity, direct1, direct2, sin_phase,
-                              phase2);
+  static float sample_pattern(const Complex &p, float complexity,
+                              float pattern_mix, float sin_phase,
+                              float phase2) {
+    return SB::sample_pattern(p, complexity, pattern_mix, sin_phase, phase2);
   }
   static const auto &presets() { return SB::PRESETS; }
   static bool choreo_staggered(size_t i) { return SB::CHOREO[i].staggered; }
@@ -4413,6 +4424,63 @@ inline void test_shaderball_phase_wrapped() {
     HS_EXPECT_LT(cyp, two_pi);
   }
   hs::clear_mock_time();
+}
+
+/** @brief Keeps Warp Time edits incremental at large accumulated times. */
+inline void test_shaderball_warp_time_lerp_continuous() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  sb.setAnimationsPaused(true);
+  WB::seed_accumulators(sb, 8192.0f);
+  WB::set_warp_motion(sb, 0.1f, 0.5f);
+  sb.draw_frame();
+  sb.advance_display();
+  const float before = WB::warp_sample_time(sb);
+  WB::set_warp_motion(sb, 0.1f, 0.3f);
+  sb.draw_frame();
+  sb.advance_display();
+  const float after = WB::warp_sample_time(sb);
+  HS_EXPECT_NEAR(after - before, 0.03f, 1e-3f);
+}
+
+/** @brief Crossfades the aperiodic warp field through its time wrap. */
+inline void test_shaderball_warp_time_wrap_continuous() {
+  using WB = ShaderBallWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  constexpr float EPSILON = 0.125f;
+  const Complex z(0.3f, -0.7f);
+  const StereoWarpResult before =
+      WB::wrapped_warp(sb, z, STEREO_NOISE_TIME_PERIOD - EPSILON);
+  const StereoWarpResult after = WB::wrapped_warp(sb, z, EPSILON);
+  HS_EXPECT_NEAR(before.coords.re, after.coords.re, 0.02f);
+  HS_EXPECT_NEAR(before.coords.im, after.coords.im, 0.02f);
+  HS_EXPECT_NEAR(before.displacement, after.displacement, 0.02f);
+}
+
+/** @brief Keeps fractional Pattern Mix continuous through phase wraps. */
+inline void test_shaderball_pattern_mix_wrap_continuous() {
+  using WB = ShaderBallWhiteBox;
+  constexpr float MIX = 0.504f;
+  constexpr float EPSILON = 1e-4f;
+  constexpr float PHASE = 1.2f;
+  const Complex p(0.7f, -1.1f);
+  const float before_sin =
+      WB::sample_pattern(p, 3.0f, MIX, TWO_PI_F - EPSILON, PHASE);
+  const float after_sin = WB::sample_pattern(p, 3.0f, MIX, EPSILON, PHASE);
+  HS_EXPECT_NEAR(before_sin, after_sin, 1e-3f);
+
+  const float before_drift =
+      WB::sample_pattern(p, 3.0f, MIX, PHASE, TWO_PI_F - EPSILON);
+  const float after_drift = WB::sample_pattern(p, 3.0f, MIX, PHASE, EPSILON);
+  HS_EXPECT_NEAR(before_drift, after_drift, 1e-3f);
+
+  const float liquid = WB::sample_pattern(p, 3.0f, 0.0f, PHASE, PHASE);
+  const float grid = WB::sample_pattern(p, 3.0f, 1.0f, PHASE, PHASE);
+  HS_EXPECT_GT(std::fabs(liquid - grid), 0.1f);
 }
 
 /** @brief Bounds partial-wander camera motion through full turns and gain
@@ -4565,10 +4633,10 @@ inline void test_shaderball_formula_reduction() {
           for (float c : complexities) {
             const float liquid = fast_sinf(re + c * fast_sinf(im + p1)) *
                                  fast_cosf(im + c * fast_cosf(re - p2));
-            HS_EXPECT_EQ(WB::sample_pattern(p, c, 0.0f, 0.0f, p1, p2), liquid);
+            HS_EXPECT_EQ(WB::sample_pattern(p, c, 0.0f, p1, p2), liquid);
           }
           const float grid = fast_sinf(re + p1) * fast_cosf(im - p2);
-          HS_EXPECT_EQ(WB::sample_pattern(p, 0.0f, p1, p2, p1, p2), grid);
+          HS_EXPECT_EQ(WB::sample_pattern(p, 0.0f, 1.0f, p1, p2), grid);
         }
       }
     }
@@ -4593,7 +4661,7 @@ inline void test_shaderball_formula_reduction() {
     // Latching only matters where a skip branch gates: targets sitting
     // exactly on a 0/1 endpoint.
     const float gate_pairs[][2] = {
-        {live.complexity, to.complexity}, {live.phase_direct, to.phase_direct},
+        {live.complexity, to.complexity}, {live.pattern_mix, to.pattern_mix},
         {live.wander, to.wander},         {live.lens_mix, to.lens_mix},
         {live.hue_shift, to.hue_shift},   {live.value_fade, to.value_fade}};
     for (const auto &g : gate_pairs) {
@@ -5629,6 +5697,10 @@ inline int run_effects_tests() {
   test_shapeshifter_preset_defaults();
   test_shapeshifter_slider_selections_render();
   test_hankinsolids_manual_pause_holds_morph();
+  test_shaderball_warp_time_lerp_continuous();
+  test_shaderball_warp_time_wrap_continuous();
+  test_shaderball_pattern_mix_wrap_continuous();
+  test_shaderball_formula_reduction();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The QUICK tier
   // (default, local pre-commit) skips the block below entirely, so a green local
@@ -5689,7 +5761,6 @@ inline int run_effects_tests() {
     test_shaderball_lens_mix_continuous();
     test_shaderball_staggered_lerp_eased();
     test_shaderball_preset_roster();
-    test_shaderball_formula_reduction();
     test_mobiusgrid_conformal_and_counter_rotation();
     test_ringspin_pool_clamped();
     test_hankinsolids_arena_budget_covers_every_solid();
