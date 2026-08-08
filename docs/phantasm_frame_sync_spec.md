@@ -795,7 +795,7 @@ dark until the same crossing — typically revolution 4, ~0.5 s after power-on
 — and starts frame 0 together. The grid length divides 64, so a
 beacon-joined board's mod-64 revolution count lands on the same grid as the
 master's true count; a mid-show rejoiner waits ≤ 4 revolutions (500 ms),
-well inside the §9.1 ~2 s rejoin budget.
+well inside the §9.1 25-revolution (~3.1 s) rejoin budget.
 
 ---
 
@@ -941,7 +941,11 @@ Constants: gate G = 4 col, fallback R = 4 rejections, construction window
 K = 2 revs (commit at B+R+K, §6.1), beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
-4,608 col = 16 revs = 2 s; 276,480 col = 960 revs = 120 s.
+4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; 276,480 col = 960 revs
+= 120 s. The rejoin budget is 25 revs, not the 16-rev beacon cadence: beacons
+are suppressed for the whole commit window, so the widest beacon-to-beacon gap
+is 16 + 3 (EPOCH announce revs) + K = 21 revs, and a joiner then waits up to the
+4-rev join grid. `Config::valid()` enforces that bound.
 
 | Failure mode | Worst-case artifact | Worst-case recovery | Expected frequency |
 |---|---|---|---|
@@ -951,7 +955,7 @@ hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
 | Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (R rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | effectively never — needs a 2-coincident-error burst *during* a ~2 s ACQUIRE window, or a firmware bug; the fallback bounds it either way |
 | Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | display 144 col; `t`: ≤4,608 col via beacon (stateless) / ≤276,480 col via epoch (stateful) | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
-| Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤4,608 col (~2 s): phase ≤144 col, index at next beacon, rejoins at the correct effect on the §6.5 grid | per external reboot event |
+| Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel stall) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
 | Sync wire / master dead | uniform slow smear ~1 col per 10–20 s; playlist freezes; arithmetic stays valid (§4.1 rebase) | physical repair | out of scope — hard line by construction |
 
