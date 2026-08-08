@@ -912,10 +912,16 @@ inline Complex project_div(const Complex &num, const Complex &den) {
   float denom = den.re * den.re + den.im * den.im;
   float num_mag = num.re * num.re + num.im * num.im;
   if (num_mag >= denom * (STEREO_INF * STEREO_INF)) {
-    if (num_mag == 0.0f)
+    // Normalize by the larger component first: a numerator squared far above
+    // the sentinel overflows to infinity and one far below it underflows to
+    // zero, and either collapses the direction onto the origin.
+    const float peak = std::max(std::abs(num.re), std::abs(num.im));
+    if (peak == 0.0f)
       return Complex(0, 0);
-    float scale = STEREO_INF / sqrtf(num_mag);
-    return Complex(num.re * scale, num.im * scale);
+    const float re = num.re / peak;
+    const float im = num.im / peak;
+    const float scale = STEREO_INF / sqrtf(re * re + im * im);
+    return Complex(re * scale, im * scale);
   }
   return Complex((num.re * den.re + num.im * den.im) / denom,
                  (num.im * den.re - num.re * den.im) / denom);
