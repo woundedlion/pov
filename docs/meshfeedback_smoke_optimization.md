@@ -11,6 +11,14 @@ margin is 0.64 ms on the worst frame, which clears it but thinly.
 
 Measured 2026-07-17 (baseline) through 2026-07-19 (final), 300 s captures,
 window 16, `HS_PROFILE_EPOCH_REVS=2900`, full 8-style cycle, validated.
+
+Every figure here is against the 8-style roster those captures ran:
+`SlowTwist, Melting, Swirling, Churn, Smoke, Frozen, Shatter, Drift`. The
+shipped roster is the 12 styles in `core/engine/styles.h`, of which only `Smoke`
+carries a name from that set, so a fresh capture is not comparable frame for
+frame. What carries forward is the lever inventory and each lever's measured
+cost, not the absolute milliseconds.
+
 Reproduce:
 
 ```
