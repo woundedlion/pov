@@ -406,17 +406,20 @@ inline void test_meshstate_move_invalidates_source() {
 
 /**
  * @brief Verifies the unified accessors fall through to the external view.
- * @details When the owned face_counts vector is empty but face_counts_view is
- *          set, accessors read from the external view.
+ * @details When the owned face_counts vector is unbound but a borrowed view is
+ *          installed, accessors read from the external view.
  */
 inline void test_meshstate_view_fallback() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   ArenaVector<uint8_t> owner(arena, 2);
   owner.push_back(3);
   owner.push_back(4);
+  ArenaVector<uint16_t> face_owner(arena, 7);
+  for (uint16_t i = 0; i < 7; ++i)
+    face_owner.push_back(i);
 
   MeshState m;
-  m.face_counts_view = ArenaSpan<uint8_t>(owner);
+  m.set_view(ArenaSpan<uint8_t>(owner), ArenaSpan<uint16_t>(face_owner), {});
 
   HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)2);
   HS_EXPECT_EQ(m.get_face_counts_data()[0], (uint8_t)3);

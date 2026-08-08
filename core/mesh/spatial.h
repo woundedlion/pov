@@ -294,15 +294,6 @@ struct MeshState {
                    ids from classify_faces_by_topology; either empty or one
                    dense 16-bit-bounded id per face. */
 
-  ArenaSpan<uint8_t>
-      face_counts_view; /**< Borrowed face-counts view, populated by MeshOps::transform. */
-  ArenaSpan<uint16_t>
-      faces_view; /**< Borrowed faces view, populated by MeshOps::transform. */
-  ArenaSpan<uint16_t>
-      face_offsets_view; /**< Borrowed face-offsets view, populated by MeshOps::transform. */
-  ArenaSpan<uint16_t>
-      topology_view; /**< Borrowed per-face topology view, populated by MeshOps::transform. */
-
   /**
    * @brief Constructs an empty, unbound mesh.
    */
@@ -559,4 +550,16 @@ struct MeshState {
     face_offsets_view = face_offsets_span;
     topology_view = topology_span;
   }
+
+private:
+  // Private so set_view() stays the only way to enter borrowed mode: its
+  // consistency traps are what downstream fi + fo[f] indexing rests on.
+  ArenaSpan<uint8_t>
+      face_counts_view; /**< Borrowed face-counts view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t>
+      faces_view; /**< Borrowed faces view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t>
+      face_offsets_view; /**< Borrowed face-offsets view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t>
+      topology_view; /**< Borrowed per-face topology view, populated by MeshOps::transform. */
 };
