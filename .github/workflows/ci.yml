@@ -130,8 +130,16 @@ jobs:
       # Runs once, on shard 1, against the binary just built above.
       - name: Assert run_tests roster is registered in CTest
         if: matrix.shard == 1
+        # An explicit `shell: bash` is what enables pipefail — GitHub's implicit
+        # shell is `bash -e {0}`, under which sort's status 0 masks a crashed
+        # lister and the empty roster below passes the check vacuously.
+        shell: bash
         run: |
           roster=$(build/tests/tests/run_tests --list | sed -n 's/^  //p' | sort)
+          if [ -z "$roster" ]; then
+            echo "::error::'run_tests --list' produced no modules — output format changed?"
+            exit 1
+          fi
           registered=$(ctest --preset tests -N \
             | sed -n 's/.*[[:space:]]unit_\([A-Za-z0-9_]*\)$/\1/p' | sort)
           missing=$(comm -23 <(printf '%s\n' "$roster") <(printf '%s\n' "$registered"))
