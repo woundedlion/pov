@@ -361,6 +361,15 @@ class Rendering(unittest.TestCase):
         self.assertIn("empty", tst.render_show([]))
         self.assertIn("no growth", tst.render_regressions([]))
 
+    def test_negative_last_keeps_every_row_instead_of_dropping_the_oldest(self):
+        rows = [_row("1" * 40, "phantasm", itcm=100),
+                _row("2" * 40, "phantasm", itcm=140)]
+        self.assertIn("1" * 8, tst.render_show(rows, last=-1))
+
+    def test_show_rejects_a_last_below_one(self):
+        args = tst.build_parser().parse_args(["show", "--last", "-5"])
+        self.assertEqual(tst.cmd_show(args), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
