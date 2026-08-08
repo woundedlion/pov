@@ -39,6 +39,9 @@ template <int W, int H> class Comets : public Effect {
 public:
   static constexpr int TRAIL_LENGTH =
       115; /**< Number of past orientations retained in the comet trail. */
+  static constexpr int ORIENTATION_SUBSTEPS =
+      16; /**< Interpolation slots per Orientation, shared by the recorded trail
+               and Motion. */
 
   /**
    * @brief Comet head state: world orientation, recorded trail, and body axis.
@@ -47,9 +50,9 @@ public:
    *          body axis).
    */
   struct Node {
-    Orientation<16>
+    Orientation<ORIENTATION_SUBSTEPS>
         orientation; /**< Current world orientation of the comet head. */
-    Animation::OrientationTrail<Orientation<16>, TRAIL_LENGTH>
+    Animation::OrientationTrail<Orientation<ORIENTATION_SUBSTEPS>, TRAIL_LENGTH>
         trail; /**< Recorded trail of past orientations. */
     Vector v;  /**< Local direction vector drawn as the comet body axis. */
 
@@ -94,8 +97,8 @@ public:
     // so the timeline never relocates them and the retained handles stay valid.
     motion = timeline.add_get(
         0,
-        Animation::Motion<W, 16>(node->orientation, path,
-                                 (int)params.cycle_duration, true),
+        Animation::Motion<W, ORIENTATION_SUBSTEPS>(
+            node->orientation, path, (int)params.cycle_duration, true),
         Timeline::Pin::PINNED);
     cycle_timer = timeline.add_get(0,
                                    Animation::PeriodicTimer(
@@ -278,7 +281,7 @@ private:
   Node *node = nullptr; /**< Arena-allocated comet head state. */
   GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
   GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
-  Animation::Motion<W, 16> *motion =
+  Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion =
       nullptr; /**< Handle to the infinite Motion driving the head along `path`. */
   Animation::PeriodicTimer *cycle_timer =
       nullptr; /**< Handle to the timer that rolls path/palette over. */
