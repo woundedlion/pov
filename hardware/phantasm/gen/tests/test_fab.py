@@ -1,11 +1,13 @@
 import contextlib
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 import unittest.mock
+import zipfile
 from pathlib import Path
 
 GEN = Path(__file__).resolve().parent.parent
@@ -520,6 +522,27 @@ class CommandLineTests(unittest.TestCase):
 
     def test_rejects_positional_argument(self):
         self.assertEqual(self.parse(["board.kicad_pcb"])[0], 2)
+
+
+class ZipMemberTests(unittest.TestCase):
+    def build(self, mtime):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "phantasm-F_Cu.gtl"
+            source.write_text("G04 gerber*\n", encoding="utf-8")
+            os.utime(source, (mtime, mtime))
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr(fab.zip_member(source.name), source.read_bytes())
+            return buffer.getvalue()
+
+    def test_archive_is_independent_of_source_mtime(self):
+        self.assertEqual(self.build(315532800), self.build(1700000000))
+
+    def test_member_carries_no_host_metadata(self):
+        info = fab.zip_member("phantasm-F_Cu.gtl")
+        self.assertEqual(info.date_time, (1980, 1, 1, 0, 0, 0))
+        self.assertEqual(info.create_system, 3)
+        self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
 
 
 if __name__ == "__main__":

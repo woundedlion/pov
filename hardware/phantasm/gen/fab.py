@@ -42,6 +42,19 @@ GERBER_LAYERS = ("F.Cu,In1.Cu,In2.Cu,B.Cu,F.SilkS,B.SilkS,"
 ZIP_EXT = {".gtl", ".g1", ".g2", ".gbl", ".gto", ".gbo", ".gts", ".gbs",
            ".gtp", ".gbp", ".gm1", ".drl", ".gbrjob"}
 
+
+def zip_member(name):
+    """Zip entry with fixed metadata, so an unchanged board rezips byte-identically.
+
+    Source mtimes, host permissions and the packing platform all vary between
+    runs; none of them belong in the fab package.
+    """
+    info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.create_system = 3
+    info.external_attr = 0o644 << 16
+    return info
+
 # Assembly policy: JLC reflows only top-side SMD. Exclude hand-soldered
 # through-hole (connectors, electrolytic, Teensy), solder jumpers, and DNP.
 EXCLUDE_FP_SUBSTR = ("PinHeader", "JST_", "SolderJumper", "CP_Radial")
@@ -753,7 +766,8 @@ def main():
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(os.listdir(JLC)):
             if os.path.splitext(f)[1].lower() in ZIP_EXT:
-                z.write(os.path.join(JLC, f), f)
+                with open(os.path.join(JLC, f), "rb") as fh:
+                    z.writestr(zip_member(f), fh.read())
 
     print(f"\nDone. {len(assembled)} assembled SMD parts; "
           f"{len(groups)} BOM lines.")
