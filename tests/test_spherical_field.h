@@ -47,6 +47,14 @@ inline void test_constexpr_layout_counts() {
   HS_EXPECT_EQ(DEVICE.ring(DEVICE.ring_count() - 1).samples, 5);
   HS_EXPECT_EQ(FEEDBACK.ring(0).samples, 72);
   HS_EXPECT_EQ(FEEDBACK.ring(FEEDBACK.ring_count() - 1).samples, 72);
+
+  // A spacing past 4*(H+HOffset-1) rounds the derived longitude count to zero.
+  constexpr hs::SphericalFieldLayout<288, 144, 3> SPARSE(4096);
+  static_assert(SPARSE.ring_count() == 2);
+  static_assert(SPARSE.sample_count() == 2);
+  HS_EXPECT_EQ(SPARSE.ring(0).samples, 1);
+  HS_EXPECT_EQ(SPARSE.longitude(SPARSE.ring(1), 287.9f).left,
+               SPARSE.ring(1).offset);
 }
 
 inline void test_offsets_are_contiguous() {

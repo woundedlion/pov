@@ -463,9 +463,11 @@ private:
   }
 
   constexpr int maximum_longitude_samples() const {
+    // A spacing past 4*(H+HOffset-1) rounds the derived count to zero, which
+    // longitude() would turn into a read one sample before the ring.
     return equator_samples > 0
                ? equator_samples
-               : (2 * (H + HOffset - 1) + spacing / 2) / spacing;
+               : std::max((2 * (H + HOffset - 1) + spacing / 2) / spacing, 1);
   }
 
   /** @brief sin(phi) at row y, as a Taylor series because sinf is not
