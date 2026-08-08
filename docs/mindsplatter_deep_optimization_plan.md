@@ -1,13 +1,40 @@
 # MindSplatter deep optimization plan
 
-**Status: PLAN (2026-08-01).** This supersedes the execution strategy in
-`docs/mindsplatter_optimization.md` without erasing that document's experiment
-history. The next optimization effort targets a durable 8-12 ms reduction, not
-another marginal improvement near the display deadline.
+**Status: CLOSED.** Two phases landed and the workload the rest is sized
+against no longer ships.
+
+Landed from this plan:
+
+- Phase 0.2, the production-resolution deterministic replay target:
+  `tools/mindsplatter_replay_gen.cpp` and `tools/mindsplatter_replay_main.cpp`
+  replay 288 x 144 through the whitebox seam against two oracles with measured
+  channel-error bounds.
+- Phase 2, single-pass geodesic rasterization: `rasterize`'s `SinglePass` path
+  in `core/render/plot.h`, which MindSplatter's raster instantiation takes.
+- Phase 7's workload scaling, taken ahead of the 55 ms gate it was made
+  conditional on. The pool was raised toward 2,048 and then capped at the
+  profiled 1,672; the 23-sample trail became 8 anchors at a 3-frame stride,
+  which is this document's "2,048 particles with approximately 10 retained
+  samples" direction reached at a different capacity.
+
+`effects/MindSplatter.h` therefore runs **1,672 particles**, **8 trail anchors
+at a 3-frame stride** plus the live tip, and **eight presets**. Phases 3-6 were
+not executed; every phase below rests on the pre-single-pass, 1,088-particle
+23-sample profile and must be re-derived against the shipping configuration
+before any of it is reopened. Its experiment history and the dead ends in the
+final sections remain valid as evidence.
+
+Every timing figure here — the 60.93 ms peak, the per-preset edge and raster
+tables, the 55 ms deterministic gate and the 8-12 ms target — is scoped to that
+older configuration and is superseded. This repository does not track
+`docs/profiles/`, so no tracked report holds a current capture; recapture on
+device rather than reusing a number from here.
+`docs/mindsplatter_optimization.md` holds the earlier execution strategy and
+its own experiment history.
 
 Target: Teensy 4.0, i.MX RT1062 Cortex-M7 at 600 MHz  
-Effect configuration: 288 x 144, segmented POV driver, 1,088 particles,
-23-sample quantized trails, four presets
+Configuration the figures below were measured at: 288 x 144, segmented POV
+driver, 1,088 particles, 23-sample quantized trails, four presets
 
 ## Decision
 
@@ -108,7 +135,7 @@ scratch/cache context across all edges of a trail.
 
 ## Performance and correctness targets
 
-For the current 1,088-particle, 23-sample effect:
+Set against the 1,088-particle, 23-sample configuration:
 
 - deterministic device replay maximum: **at most 55.0 ms**;
 - repeated live-capture maximum: **below 58.5 ms**;
@@ -119,12 +146,9 @@ For the current 1,088-particle, 23-sample effect:
 - DTCM stack reserve at least 12 KiB;
 - OCRAM reserve at least 4 KiB.
 
-Preserve particle count, trail length, blend order, palette behavior, hole
-behavior, and anti-alias coverage unless an approximation passes a separately
-defined image-error gate.
-
-Do not increase particle count until the current look clears the deterministic
-55 ms gate.
+Preserve blend order, palette behavior, hole behavior, and anti-alias coverage
+unless an approximation passes a separately defined image-error gate. Particle
+count and trail length are set by Phase 7, not by these targets.
 
 ## Phase 0 - establish a current deterministic baseline
 
@@ -436,10 +460,11 @@ A realistic remaining gain is 0.3-0.8 ms.
 
 ## Phase 7 - optional workload scaling
 
-Do not begin this phase until the current look has a deterministic peak at or
-below 55 ms.
+Executed, ahead of the 55 ms precondition below: the shipping pool is 1,672
+particles with 8 anchors at a 3-frame stride.
 
-The present architecture cannot store 2,048 particles with 23 history samples:
+The architecture this was written against cannot store 2,048 particles with 23
+history samples:
 the pool alone would require about 360 KiB against a roughly 266 KiB persistent
 budget. Raising capacity also does not guarantee 2,048 residents because the
 current eight emitters and lifetime naturally top out around 1,448 including

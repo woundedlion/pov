@@ -1,8 +1,12 @@
 # Brief: generalized hot-path LUT compression
 
-**Status: OPEN brief.** Find the next hot-path LUT worth compressing, if any.
-§2 is the screen — most LUTs are not candidates, and a rigorously-measured
-negative is the expected outcome.
+**Status: OPEN brief, narrowed.** Find the next hot-path LUT worth compressing,
+if any. §2 is the screen — most LUTs are not candidates, and a
+rigorously-measured negative is the expected outcome. The only large table left,
+`GAMUT_LUT`, already runs downsampled out of the DTCM arena, and
+`docs/meshfeedback_smoke_optimization.md` measured its clip path latency-bound
+rather than flop-bound and closed that effect without touching it — so prove a
+thrash exists before compressing anything.
 
 You are continuing a line of work that just landed on `c:\work\Holosphere`
 (Holosphere / Phantasm POV renderer, C++20, Teensy 4.0 @ 600 MHz Cortex-M7).
@@ -89,7 +93,7 @@ If nulling the table barely moves the scope, it wasn't thrashing — stop.
 | table | where | size | hot? | first read |
 |---|---|--:|---|---|
 | `linear_to_srgb_lut` | color_luts.h | 64 KB | per-pixel (pack) | **DONE** — the template |
-| `GAMUT_LUT` | gamut_lut.h | **512 KB flash** (512×256×2, uint16) | gamut-clip effects | **Most promising, but already downsampled at runtime** — `init_gamut_lut` downsamples the flash master into an arena LUT (`g_gamut_lut`), so the *runtime* footprint is far smaller and depends on the downsample factor. Investigate the runtime working set and whether the gamut-clip path (`color.h:881`) thrashes; the flash master is cold (init only). |
+| `GAMUT_LUT` | gamut_lut.h | **512 KB flash** (512×256×2, uint16) | gamut-clip effects | **Already downsampled, and already in the fastest memory** — `init_gamut_lut` downsamples the flash master into an arena LUT (`g_gamut_lut`), and `persistent_arena` lands in DTCM on device (`core/engine/memory.cpp`), so no placement is faster and only the working set is open. The clip path is `gamut_clip_preserve_chroma` (`core/color/color.h`), a bracket-refine over one cell read, not a scattered per-pixel scan; the flash master is cold (init only). |
 | trig / "pixel→vector" | `TrigLUT` (geometry.h, plot.h) | `sin_theta`/`cos_theta[W=288]`, `sin_phi[H_VIRT]` ≈ 1–2 KB each | per-pixel in the scan (`Vector p(sp*cos_theta[x], cp, sp*sin_theta[x])`) | Hot but **small** — likely resident, likely NOT a thrash candidate. This is the "pixel→vector" path. **Measure before assuming** — but expect it fits L1 and compressing it only adds compute. |
 | `srgb_to_linear_lut` | color_luts.h | 512 B (256×uint16) | per-pixel where used | **Skip** — fits L1 trivially. |
 | SDF congruence-class LUT | `build_canonical_distance_lut`, sdf.h/scan.h | per-shape, staged | per-probe | Deforming-effect-hostile (see `project_congruence_class_lut_landed` memory) — facility only; do not re-wire. Likely not a compression target. |
@@ -107,10 +111,12 @@ compression.**
 
 ## 4. The hard constraint: DTCM is nearly full
 
-After the sRGB decode, **DTCM has only ~2.6 KB free** (10 banks = 327,680 B;
-312,704 B variables + 12,288 B stack). The arena owns the rest and is sized for
-GSReactionDiffusion (~298 KB, ~7 KB global margin) — so you **cannot** shave the
-arena without GS optimization (its `static_assert` refuses it). So:
+Measured just after the sRGB decode landed, **DTCM had only ~2.6 KB free**
+(10 banks = 327,680 B; 312,704 B variables + 12,288 B stack); re-read both this
+and the ITCM figure below off your own `pio run -e phantasm` link. The arena
+owns the rest and is sized for GSReactionDiffusion (~298 KB, ~7 KB global
+margin) — so you **cannot** shave the arena without GS optimization (its
+`static_assert` refuses it). So:
 
 - A new DTCM-resident table must fit ~2.6 KB, **or** you must first free DTCM
   (shrink another table, or GS work — out of scope unless the win justifies it).

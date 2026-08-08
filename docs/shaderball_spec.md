@@ -1,6 +1,10 @@
 # ShaderBall — unifying Liquid2D and Flyby
 
-**Status: DRAFT — design spec, no code yet.**
+**Status: LANDED.** `effects/ShaderBall.h` ships, `Liquid2D` and `Flyby` are
+gone from every roster, and the effect carries 12 presets. §5's lens blend is
+superseded by the shipped one; where this spec and the code disagree, the code
+is the source of truth. §11 is the executed roster checklist, kept as the record
+of every oracle a roster change touches.
 
 Merge `Liquid2D` and `Flyby` into a single stereographic shader effect,
 `ShaderBall`, whose presets span both effects' looks and the mixed looks
@@ -157,17 +161,24 @@ Three continuous controls replace the discrete camera modality:
   default seed, making the warp field deterministic; Liquid2D-mapped preset
   `warp_scale` values are doubled to compensate for the 0.02 → 0.01 base
   frequency (`(z·k)·0.02 ≡ (z·2k)·0.01` bit-for-bit — a ×2 is float-exact).
-- **`lens_mix`** — glitch-lens blend in [0, 1]:
-  `sv = normalize(rv + lens_mix · (glitch(rv) − rv))` with the shortcut
-  `lens_mix == 0 → rv`, `lens_mix == 1 → glitch(rv)`. The nlerp degenerates
-  when the blend vector approaches zero (near-antipodal endpoints); guard on
-  the **squared magnitude** of the blend vector (`< 1e-12` → fall back to
-  `glitch(rv)`), never on an acos-derived angle (per the angular-guard
-  invariant). The lens's own `R² < 1e-6` pole guard and hemisphere fold move
-  unchanged from Liquid2D, as does the unit-norm white-box test.
+- **`lens_mix`** — glitch-lens blend in [0, 1], with the shortcuts
+  `lens_mix == 0 → rv`, `lens_mix == 1 → glitch(rv)`. The direction-space
+  blend `sv = normalize(rv + lens_mix · (glitch(rv) − rv))` specified here is
+  **superseded**: `glitch(v) = −v` has exactly two solutions, `(0, 0, ±1)`,
+  where the blended direction flips by 180° at `lens_mix = 0.5`, and the
+  field is badly distorted across roughly `lens_mix ∈ [0.4, 0.6]`. A
+  squared-magnitude guard removes the NaN but not the flip, so the guard is
+  not a fix. The shipped blend works in **sample space**: sample the pattern
+  once on `rv` and once on `glitch(rv)` and lerp the two `PatternSample`s
+  (`blend_lens_samples` in `effects/ShaderBall.h`, which is the source of
+  truth for the blend). It is linear in `lens_mix` through the former
+  midpoint and costs a second pattern evaluation across the open interval,
+  which is the cost §9 budgets.
 
-`apply_glitch_lens` moves verbatim from Liquid2D into ShaderBall (it stays
-effect-local; nothing else uses it).
+`apply_glitch_lens` is effect-local; nothing else uses it. It ships as a
+closed-form rational map with no hemisphere fold and no pole guard — its
+denominator `1 + 3y²` is at least 1, so the map is finite everywhere on the
+sphere and needs neither.
 
 ## 6. Color
 
@@ -237,8 +248,8 @@ every other preset param already works.
 
 ### Preset bank
 
-Seven presets: L0–L1 and F0–F4 mapped into the superset via the table above
-(unlisted fields take the other family's neutral value), with one mapping
+Seven mapped presets: L0–L1 and F0–F4 carried into the superset via the table
+above (unlisted fields take the other family's neutral value), with one mapping
 adjustment: Liquid2D `warp_scale` values are **doubled** (1.5 → 3.0) to
 compensate for the unified warp generator's 0.01 base frequency (§5).
 
@@ -453,12 +464,11 @@ daydream (separate repo, land via worktree + FF):
 4. daydream favorites + screenshots.
 5. Curate 2–3 new mixed-family presets; retire any that read as redundant.
 
-## 13. Open questions
+## 13. Curation decisions
 
-- Preset count/curation: keep all 7 mapped presets, or drop near-duplicates
-  (L0 vs F2 are both mild mid-scale looks) once mixed presets exist?
-- Should `phase2_rate` regain a live (non-preset) slider alongside its
-  preset value, preserving Flyby's Drift interactivity? Costs one extra
-  registered param; defer until missed.
-- `spin_rate` upper range (0.05 rad/frame ≈ 3× Flyby) is a guess at a
-  tasteful ceiling; tune against the display.
+- Preset count: 12 — five wandering-liquid, five spinning-grid, and two
+  mixed (grid look on the liquid palette).
+- `phase2_rate` ships preset-driven as the animated **Drift** param over
+  [0, 2]. No extra live-only slider was added; pause plus slider takeover is
+  the live control.
+- `spin_rate`'s ceiling ships at the proposed 0.05 rad/frame (≈ 3× Flyby).
