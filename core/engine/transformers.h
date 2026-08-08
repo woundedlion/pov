@@ -201,6 +201,8 @@ public:
    * @details pin=false: the returned pointer is transient (used at the call
    * site, not retained across frames). These animations are often finite and
    * are compacted normally; pinning them would trap on routine completion.
+   * The pool claims the animation's single then() slot to recycle the entity,
+   * so the caller must not attach one (Animation::then() traps on a second).
    */
   template <typename... Args> AnimT *spawn(int in_frames, Args &&...args) {
     return spawn_impl(Timeline::Pin::UNPINNED, in_frames,
@@ -221,6 +223,9 @@ public:
    * added before any finite timeline event, so compaction never shifts it: the
    * standard retained-handle contract (see Timeline::add_get). If that invariant
    * is ever broken, step()'s compaction traps loudly instead of dangling it.
+   * The pool claims the animation's single then() slot to recycle the entity,
+   * so the retained handle must not attach one (Animation::then() traps on a
+   * second).
    */
   template <typename... Args>
   AnimT *spawn_pinned(int in_frames, Args &&...args) {
