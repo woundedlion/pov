@@ -570,16 +570,17 @@ inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
  * @param a First addend.
  * @param b Second addend.
  * @param m Modulus.
- * @return (a + b) mod m, or (a + b) when m == 0.
- * @details Zero modulus SIGFPEs on the host while the Cortex-M7 returns the
- *          unreduced sum (UDIV-by-zero yields a 0 quotient, so the remainder
- *          reduces to a + b; same CCR.DIV_0_TRP dependence as map()). Match the
- *          device rather than crashing only in the simulator.
+ * @return The 8-bit-wrapped sum reduced mod m, or that sum when m == 0.
+ * @details FastLED reduces the uint8_t-wrapped sum by repeated subtraction, so
+ *          a sum past 255 wraps before the reduction: addmod8(200, 100, 7) is
+ *          44 % 7, not 300 % 7. Its m == 0 loop subtracts zero forever on the
+ *          device; the host returns the wrapped sum instead of hanging.
  */
 inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) {
+  uint8_t s = static_cast<uint8_t>(a + b);
   if (m == 0)
-    return static_cast<uint8_t>(a + b);
-  return (a + b) % m;
+    return s;
+  return static_cast<uint8_t>(s % m);
 }
 
 /**
