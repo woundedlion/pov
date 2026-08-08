@@ -1,10 +1,30 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
+ *
+ * Unit tests for core/color/generative_palette.h and
+ * core/color/palette_cycler.h. Included by tests/test_color.h, whose
+ * run_color_tests() calls these cases and whose roster row counts them.
  */
 #pragma once
 
+#include <array>
+#include <cmath>
+#include <cstddef>
 #include <cstring>
+#include <limits>
+
+#include "core/color/color.h"
+#include "core/color/composition.h"
+#include "core/color/effect_palette_recipes.h"
+#include "core/color/generative_palette.h"
+#include "core/color/palette_cycler.h"
+#include "core/engine/memory.h"
+#include "tests/test_fixture.h"
+#include "tests/test_harness.h"
+
+namespace hs_test {
+namespace color_tests {
 
 inline void test_generative_palette_deterministic() {
   const PaletteRecipe recipe = PaletteRecipes::profile(
@@ -802,3 +822,6 @@ inline void test_palette_cycler_zero_dwell_chains_fades() {
   cycler.step();
   HS_EXPECT_TRUE(cycler.fading());
 }
+
+} // namespace color_tests
+} // namespace hs_test
