@@ -294,8 +294,11 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
 /**
  * @brief Projects a unit vector to its pixel column (azimuth only).
  * @tparam W The width.
- * @param v Unit vector on the sphere; only its x/z azimuth is read.
- * @return The `x` pixel coordinate in `[0, W)` (strictly excludes W).
+ * @param v Unit vector on the sphere; only its x/z azimuth is read. Must be
+ *   finite: `fast_atan2` has no NaN guard, and neither wrap branch fires on the
+ *   NaN it propagates.
+ * @return The `x` pixel coordinate in `[0, W)` (strictly excludes W); NaN for a
+ *   non-finite `v`.
  */
 template <int W>
 __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
@@ -321,7 +324,8 @@ __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
  * @return The 2D PixelCoords. The `y` field is a float in `[0, H_VIRT-1]` but at
  *   the south pole can land a hair *above* `H_VIRT-1` (float round-trip), while
  *   `x` is in `[0, W)` (strictly excludes W); a caller indexing a row/column
- *   buffer must floor (not round) first.
+ *   buffer must floor (not round) first. Only `y` carries the clamp's NaN->hi
+ *   guard: a non-finite `v` saturates `y` to the south pole and leaves `x` NaN.
  */
 template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
   // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
