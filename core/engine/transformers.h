@@ -159,6 +159,8 @@ public:
    * only rewinds the offset, so live entities carry through.
    */
   HS_COLD_MEMBER void reclaim_storage(Arena &arena) {
+    HS_CHECK(entities,
+             "TransformerPool: call init_storage() before reclaim_storage");
     Entity *e = arena.allocate_n<Entity>(CAPACITY);
     int *s = arena.allocate_n<int>(CAPACITY);
     HS_CHECK(e == entities && s == active_slots,
