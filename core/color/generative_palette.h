@@ -194,10 +194,13 @@ public:
       *this = to;
       return;
     }
+    // Read both endpoints before the assignment: either may alias *this.
+    const Snapshot from_keys = from.snapshot();
+    const Snapshot to_keys = to.snapshot();
     const float closing_from = from.closing_hue - from.keys[0].h;
     const float closing_to = to.closing_hue - to.keys[0].h;
     *this = from;
-    lerp(from.snapshot(), to.snapshot(), amount);
+    lerp(from_keys, to_keys, amount);
     closing_hue =
         keys[0].h + closing_from + (closing_to - closing_from) * amount;
   }
