@@ -644,8 +644,13 @@ inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
     TrigLUT<W, H>::init();
   // Column 1 of the theta LUT is one pixel of azimuth, so the cap pad is an
   // angle addition rather than a per-row cosf.
-  float cos_padded = cos_cap * TrigLUT<W, H>::cos_theta(1) -
-                     sin_cap * TrigLUT<W, H>::sin_theta[1];
+  const float cos_pad = TrigLUT<W, H>::cos_theta(1);
+  // A cap padded past pi covers the sphere; cos turns back up there, so the
+  // addition would report a cap tighter than the shape.
+  const float cos_padded =
+      cos_cap <= -cos_pad
+          ? -1.0f
+          : cos_cap * cos_pad - sin_cap * TrigLUT<W, H>::sin_theta[1];
   return emit_cap_interval<W>(cos_padded, ny, R_val, alpha_angle,
                               TrigLUT<W, H>::cos_phi[y],
                               TrigLUT<W, H>::sin_phi[y], out);
