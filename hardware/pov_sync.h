@@ -1335,6 +1335,7 @@ public:
     epoch_emits_left = 0;
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
+    beacon_index_candidate = -1;
     build_gen = 0;
     build_request_word.store(0, std::memory_order_relaxed);
   }
