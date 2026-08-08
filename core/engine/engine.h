@@ -37,6 +37,7 @@
 #include "engine/reaction_graph.h"
 #include "engine/concepts.h"
 #include "color/color.h"
+#include "color/palette_cycler.h"
 #include "animation/animation.h"
 #include "engine/transformers.h"
 
