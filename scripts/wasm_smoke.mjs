@@ -55,42 +55,51 @@ async function main() {
     return;
   }
 
-  const { default: createHolosphereModule } = await import(pathToFileURL(jsPath));
+  let failures = 0;
+  const fail = (msg) => { console.error(`  FAIL: ${msg}`); failures++; };
 
   // The tool pages' CSP grants 'wasm-unsafe-eval' but not 'unsafe-eval', which
-  // holds only while the glue generates no code at runtime. Module creation is
-  // where embind would craft its invokers with `new Function`, so count any
-  // Function construction or invocation across it; the assertion is below, once
-  // the counter is restored. A build that lost -sDYNAMIC_EXECUTION=0 /
-  // -sEMBIND_AOT=1 fails here instead of throwing CSP errors in the browser.
+  // holds only while the glue generates no code at runtime — so the probe spans
+  // the whole run, not just module creation: it is armed before the glue's own
+  // module evaluation and stays armed across every engine, MeshOps and free-
+  // function call below (restored, and asserted, at the end of main). Both
+  // routes to a code generator are counted: `Function` as constructor or
+  // callee, and `eval` — replacing the global binding turns any glue `eval(s)`
+  // into an indirect call through this proxy. A build that lost
+  // -sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 fails here instead of throwing CSP
+  // errors in the browser.
   const RealFunction = globalThis.Function;
+  const realEval = globalThis.eval;
   let dynamicExecCalls = 0;
+  let firstDynamicExec = null;
+  const noteDynamicExec = (what) => {
+    dynamicExecCalls++;
+    firstDynamicExec ??= `${what}\n${new Error().stack}`;
+  };
   globalThis.Function = new Proxy(RealFunction, {
-    construct: (t, args, nt) => { dynamicExecCalls++; return Reflect.construct(t, args, nt); },
-    apply: (t, self, args) => { dynamicExecCalls++; return Reflect.apply(t, self, args); },
+    construct: (t, args, nt) => { noteDynamicExec('new Function()'); return Reflect.construct(t, args, nt); },
+    apply: (t, self, args) => { noteDynamicExec('Function()'); return Reflect.apply(t, self, args); },
   });
+  globalThis.eval = new Proxy(realEval, {
+    apply: (t, self, args) => { noteDynamicExec('eval()'); return Reflect.apply(t, self, args); },
+  });
+  const disarmDynamicExecProbe = () => {
+    globalThis.Function = RealFunction;
+    globalThis.eval = realEval;
+  };
 
-  // Surface engine-side hs::log output and any abort() so a trap is visible in
-  // the CI log rather than a bare non-zero exit.
   let Module;
   try {
+    const { default: createHolosphereModule } = await import(pathToFileURL(jsPath));
+    // Surface engine-side hs::log output and any abort() so a trap is visible in
+    // the CI log rather than a bare non-zero exit.
     Module = await createHolosphereModule({
       print: (s) => console.log(`[wasm] ${s}`),
       printErr: (s) => console.error(`[wasm:err] ${s}`),
     });
-  } finally {
-    globalThis.Function = RealFunction;
-  }
-
-  let failures = 0;
-  const fail = (msg) => { console.error(`  FAIL: ${msg}`); failures++; };
-
-  if (dynamicExecCalls > 0) {
-    fail(`module creation generated code ${dynamicExecCalls} time(s) — the glue ` +
-      `needs 'unsafe-eval', which the tool pages' CSP does not grant. Check the ` +
-      `-sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 link options.`);
-  } else {
-    console.log('CSP: module creation generated no code (no eval / new Function)');
+  } catch (e) {
+    disarmDynamicExecProbe();
+    throw e;
   }
 
   // Run-wide: at least one pixel somewhere in the sweep must be non-zero. A
@@ -1214,6 +1223,15 @@ async function main() {
     }
   }
   console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, palette V4 OK');
+
+  disarmDynamicExecProbe();
+  if (dynamicExecCalls > 0) {
+    fail(`the glue generated code ${dynamicExecCalls} time(s) — it needs ` +
+      `'unsafe-eval', which the tool pages' CSP does not grant. Check the ` +
+      `-sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 link options. First site:\n${firstDynamicExec}`);
+  } else {
+    console.log('\nCSP: the glue generated no code across the whole run (no eval / new Function)');
+  }
 
   if (failures > 0) {
     console.error(`\nwasm_smoke: ${failures} failure(s)`);
