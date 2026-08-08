@@ -2201,7 +2201,7 @@ __attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
 struct Face {
   Vector center; /**< Normalized face centroid (projection axis). */
   Vector basis_v, basis_u, basis_w; /**< Local tangent frame (v = center). */
-  int count;                        /**< Vertex/edge count. */
+  int count;                        /**< Vertex/edge count; 0 if culled. */
   float size = 0.0f;        /**< Inradius metric for AA normalization. */
   float radius = 0.0f;      /**< Circumradius in the 2D projection. */
   float max_dist = 0.0f;    /**< Cull radius (circumradius plus margin). */
@@ -2306,6 +2306,7 @@ struct Face {
       return compute_phi_extent(vertices, indices, h_virt, height);
     }();
     if (phi_culled) {
+      count = 0;
       y_min = 1;
       y_max = 0;
       return;
@@ -2329,6 +2330,7 @@ struct Face {
         area2 +=
             poly_2d[i].x * poly_2d[i + 1].y - poly_2d[i + 1].x * poly_2d[i].y;
       if (fabsf(area2) < COLLAPSED_AREA_RATIO * radius * radius) {
+        count = 0;
         y_min = 1;
         y_max = 0;
         return;
@@ -2349,6 +2351,7 @@ struct Face {
     // describe, so the circumcircle guard must clear first. The row half stays
     // below, where the bounds are exact.
     if (clip && !pole_within_circumcircle() && clip_rejects_azimuth(*clip)) {
+      count = 0;
       y_min = 1;
       y_max = 0;
       return;
@@ -2379,6 +2382,7 @@ struct Face {
     // the scan would draw, so a face disjoint from the clip band yields no
     // in-band pixel.
     if (clip && clip_rejects(*clip)) {
+      count = 0;
       y_min = 1;
       y_max = 0;
       return;
