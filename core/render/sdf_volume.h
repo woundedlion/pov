@@ -271,7 +271,9 @@ struct Twist {
   /**
    * @brief Analytical Lipschitz constant of the warp at a point.
    * @param s Precomputed context (radial distance in the XZ plane).
-   * @return The exact operator norm of the warp Jacobian (>= 1).
+   * @return Operator norm of the warp Jacobian (>= 1), with the radial factor
+   * clamped at 1/max(s, R/2) — inside the ring hole this under-reports the
+   * true norm.
    */
   float lipschitz(const Vector & /*p*/, Ctx s) const {
     return lipschitz(1.0f / std::max(s, R * 0.5f));
@@ -280,7 +282,8 @@ struct Twist {
   /**
    * @brief Analytical Lipschitz constant from an already-computed 1/s.
    * @param inv_s Reciprocal of the XZ radius, from sin_ntheta_inv().
-   * @return The exact operator norm of the warp Jacobian (>= 1).
+   * @return Operator norm of the warp Jacobian (>= 1), with the radial factor
+   * clamped as described below.
    * @details The warp Jacobian is the shear I - e_y·gᵀ with e_y ⊥ g and
    * |g| = γ; its operator norm (largest singular value) is γ/2 + √(1 + γ²/4).
    * γ uses |twist·amplitude| so the bound stays conservative regardless of
