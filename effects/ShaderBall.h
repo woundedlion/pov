@@ -525,6 +525,8 @@ private:
 
   /** @brief Y-spin rate reproducing the classic 300-frame grid orbit. */
   static constexpr float ORBIT_SPIN_RATE = TWO_PI_F / 300.0f;
+  /** @brief High-contrast, liquid-biased palette blend used by every preset. */
+  static constexpr float PRESET_PALETTE_POS = 0.02f;
 
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
@@ -563,31 +565,35 @@ private:
   static constexpr std::array<PresetEntry<Params>, 11> PRESETS = {{
       // Wandering liquid: mild, deep, then fine-grained cross-coupling.
       {{3.0f, 0.5f, 0.5f, 5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
-        0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
+        PRESET_PALETTE_POS, 0.15f, 0.05f, 0.0f, 0.0f}},
       {{3.0f, 0.5f, 0.5f, 1.2f, 0.05f, 3.0f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
-        0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
+        PRESET_PALETTE_POS, 0.15f, 0.05f, 0.0f, 0.0f}},
       {{3.0f, 1.479f, 0.5f, 14.528f, 0.1f, 0.5f, 0.0f, 0.8f, 1.0f, 0.0f, 1.0f,
-        1.0f, 0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
+        1.0f, PRESET_PALETTE_POS, 0.15f, 0.05f, 0.0f, 0.0f}},
       {{3.0f, 0.0f, 0.5f, 15.763f, 0.1f, 2.950552f, 0.0f, 0.8f, 1.0f, 0.0f,
-        1.0f, 0.0f, 0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
+        1.0f, 0.0f, PRESET_PALETTE_POS, 0.15f, 0.05f, 0.0f, 0.0f}},
       // Spinning grid fly-throughs.
       {{47.752f, 11.55f, 0.3f, 2.7f, 0.586f, 0.0f, 1.0f, 0.7f, 1.55f,
-        ORBIT_SPIN_RATE, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.097f, 1.0f}},
+        ORBIT_SPIN_RATE, 0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.097f,
+        1.0f}},
       {{0.1f, 0.87f, 0.3f, 14.262f, 0.586f, 0.0f, 1.0f, 0.7f, 3.527f,
-        ORBIT_SPIN_RATE, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.097f, 1.0f}},
+        ORBIT_SPIN_RATE, 0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.097f,
+        1.0f}},
       {{1.5f, 0.5f, 0.3f, 8.0f, 0.30f, 0.0f, 1.0f, 0.7f, 2.0f, ORBIT_SPIN_RATE,
-        0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.15f, 1.0f}},
+        0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.15f, 1.0f}},
       {{47.752f, 2.55f, 0.3f, 7.878f, 0.562f, 0.0f, 1.0f, 0.7f, 2.843f,
-        ORBIT_SPIN_RATE, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}},
+        ORBIT_SPIN_RATE, 0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.0f,
+        1.0f}},
       {{100.0f, 8.67f, 0.3f, 1.0f, 0.586f, 0.0f, 1.0f, 0.7f, 3.432f,
-        ORBIT_SPIN_RATE, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.636f, 1.0f}},
+        ORBIT_SPIN_RATE, 0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.636f,
+        1.0f}},
       // Grid look, liquid palette.
       {{50.749298f, 30.0f, 0.4699f, 1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f,
-        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, 0.0f, 0.25410002f,
-        0.00015458837f, 0.201f, 0.847f}},
+        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, PRESET_PALETTE_POS,
+        0.25410002f, 0.00015458837f, 0.201f, 0.847f}},
       {{38.761299f, 30.0f, 0.4699f, 1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f,
-        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, 0.0f, 0.25410002f,
-        0.00015458837f, 0.201f, 0.847f}},
+        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, PRESET_PALETTE_POS,
+        0.25410002f, 0.00015458837f, 0.201f, 0.847f}},
   }};
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
                 "a ShaderBall preset drives a param outside its registered "
