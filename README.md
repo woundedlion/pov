@@ -2099,9 +2099,9 @@ A stack of evenly spaced soft-stroked rings (`Scan::DistortedRing`) sharing one 
 
 #### ShapeShifter
 
-Concentric polygon, star, or flower outlines drawn exclusively through the `Plot` rasterizer. The rings are evenly spaced across the full sphere radius, and a selectable animated waveform offsets each ring's phase to twist the stack back and forth while a global random walk reorients the stack. A periodic timer steps through the presets, each one snapping the whole parameter set to a fresh arrangement of spherical polygons, flowers, or stars.
+Concentric polygon, star, or flower outlines drawn exclusively through the `Plot` rasterizer. The rings span the full sphere radius under a selectable spacing law — **Spacing** is either uniform steps in radius or screen-balanced, which redistributes the rings away from the poles (subject to a density floor) so their on-screen spacing stays even — and **Alpha Falloff** picks each ring's alpha profile: a flat half, or full at the poles fading toward the equator. A selectable animated waveform offsets each ring's phase to twist the stack back and forth while a global random walk reorients the stack. A periodic timer steps through the presets, each one snapping the whole parameter set to a fresh arrangement of spherical polygons, flowers, or stars.
 
-**Parameters**: Alpha, Shape, Count, Sides, Function, Amplitude, Speed, Opposite
+**Parameters**: Alpha, Shape, Count, Sides, Function, Amplitude, Speed, Opposite, Alpha Falloff, Spacing
 
 </td></tr></table>
 
