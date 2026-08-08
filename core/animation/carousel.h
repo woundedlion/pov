@@ -148,7 +148,7 @@ public:
     int back = 1 - front;
     slots[back] = MeshState();
     Persist<MeshState> p(slots[front], scratch_arena_b, persistent_arena);
-    release_gamut_lut();
+    ArenaResetHook::run_all();
     persistent_arena.reset();
     after_reset(persistent_arena);
   }
@@ -165,7 +165,7 @@ public:
   template <typename AfterReset> void compact_drop_all(AfterReset after_reset) {
     slots[0] = MeshState();
     slots[1] = MeshState();
-    release_gamut_lut();
+    ArenaResetHook::run_all();
     persistent_arena.reset();
     after_reset(persistent_arena);
   }

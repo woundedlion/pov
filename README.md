@@ -1163,6 +1163,13 @@ Effects that need more scratch memory can repartition at init time:
 configure_arenas(234 * 1024, 32 * 1024, 32 * 1024);  // 234 + 32 + 32 = 298 KiB
 ```
 
+A global that caches a pointer into arena storage registers an `ArenaResetHook` beside itself, and drops the pointer from the callback. `configure_arenas()` and the mesh carousel's compaction run the whole list before handing the storage out again, so the owner never has to be named by the allocator:
+
+```cpp
+inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
+inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
+```
+
 `ScratchScope` provides stack-like RAII lifetime:
 
 ```cpp
@@ -1258,7 +1265,7 @@ The clip reads the 512 × 256 flash master by default. An effect that clips per 
 | Function | Description |
 |---|---|
 | `init_gamut_lut(arena, angle_steps, l_steps)` | Downsamples the flash master into `arena` and points the clip at the copy. Both step counts must divide the master's 512 × 256 (trapped). Costs `gamut_lut_bytes(angle_steps, l_steps)`. Call from the effect's `init()`, after any `configure_arenas()`. |
-| `release_gamut_lut()` | Drops the copy and points the clip back at the flash master. Must run before the storage under the copy is handed out again: `configure_arenas()` and the mesh carousel's compaction both call it first. |
+| `release_gamut_lut()` | Drops the copy and points the clip back at the flash master. Registered as an `ArenaResetHook`, so `configure_arenas()` and the mesh carousel's compaction both run it before handing the storage out again. |
 
 `ShaderBall` and `MeshFeedback` arm a copy; every other effect clips against the flash master.
 

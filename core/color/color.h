@@ -901,6 +901,11 @@ HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
  */
 inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
 
+/**
+ * @brief Registration that makes every arena hand-out drop the copy.
+ */
+inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
+
 // Equal steps the stored bracket is walked in, looking for the first one that
 // leaves the gamut. A walk rather than a straight bisection because the gate's
 // tolerance lets the in-gamut set along a ray break into pieces: bisecting a
