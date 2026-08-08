@@ -1213,6 +1213,57 @@ public:
   }
 
   /**
+   * @brief Refills this LUT with a verbatim copy of another baked LUT.
+   * @param src Source palette; must be baked and must not alias this storage.
+   */
+  HS_COLD_MEMBER void rebake_copy(const BakedPalette &src) {
+    HS_CHECK(colors != nullptr && alpha_q16 != nullptr,
+             "BakedPalette::rebake_copy before bake()");
+    HS_CHECK(!aliased, "BakedPalette::rebake_copy through an aliasing handle");
+    HS_CHECK(src.colors != nullptr && src.alpha_q16 != nullptr,
+             "BakedPalette::rebake_copy before src bake()");
+    HS_CHECK(src.colors != colors, "BakedPalette::rebake_copy from itself");
+    memcpy(colors, src.colors, LUT_SIZE * sizeof(Pixel));
+    memcpy(alpha_q16, src.alpha_q16, LUT_SIZE * sizeof(uint16_t));
+  }
+
+  /**
+   * @brief Refills this LUT with the w-blend of two baked palettes, without
+   * allocating.
+   * @param from The w = 0 endpoint; must be baked.
+   * @param to The w = 1 endpoint; must be baked.
+   * @param w Blend weight; clamped to [0, 1] (NaN folds to 1).
+   * @details At w <= 0 or w >= 1 the endpoint LUT is copied verbatim, so
+   * crossfade boundaries are bit-exact. Neither endpoint may alias this LUT's
+   * storage; the endpoints may alias each other.
+   */
+  HS_COLD_MEMBER void rebake_crossfade(const BakedPalette &from,
+                                       const BakedPalette &to, float w) {
+    const float wc = hs::clamp(w, 0.0f, 1.0f);
+    if (wc == 0.0f) {
+      rebake_copy(from);
+      return;
+    }
+    if (wc == 1.0f) {
+      rebake_copy(to);
+      return;
+    }
+    HS_CHECK(colors != nullptr && alpha_q16 != nullptr,
+             "BakedPalette::rebake_crossfade before bake()");
+    HS_CHECK(!aliased,
+             "BakedPalette::rebake_crossfade through an aliasing handle");
+    HS_CHECK(from.colors && from.alpha_q16 && to.colors && to.alpha_q16,
+             "BakedPalette::rebake_crossfade before endpoint bake()");
+    HS_CHECK(from.colors != colors && to.colors != colors,
+             "BakedPalette::rebake_crossfade endpoint aliases the output");
+    const uint16_t weight = frac_to_q16(wc);
+    for (int i = 0; i < LUT_SIZE; ++i) {
+      colors[i] = from.colors[i].lerp16(to.colors[i], weight);
+      alpha_q16[i] = lerp_q16(from.alpha_q16[i], to.alpha_q16[i], weight);
+    }
+  }
+
+  /**
    * @brief Fast lookup with linear interpolation between adjacent entries.
    * @param t Lookup coordinate; clamped to [0, 1] (NaN folds to the last entry).
    * @return The interpolated color.

@@ -2164,6 +2164,7 @@ inline int run_color_tests() {
   test_baked_palette_color_sampler_matches_get();
   test_baked_palette_clone_from_matches_source();
   test_bake_palette_blend_nan_weight_stays_finite();
+  test_baked_palette_rebake_crossfade();
   test_step_wipe_rebake_skips_arming_then_decrements();
 
   test_procedural_palette_cosine();

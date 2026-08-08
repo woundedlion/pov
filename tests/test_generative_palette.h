@@ -380,3 +380,62 @@ inline void test_mobius_longitude_singularity_saturates_to_endpoint() {
   HS_EXPECT_EQ(singular.color.g, endpoint.color.g);
   HS_EXPECT_EQ(singular.color.b, endpoint.color.b);
 }
+
+namespace {
+
+/** @brief Asserts two baked LUTs agree at every sample point. */
+inline void expect_baked_equal(const BakedPalette &a, const BakedPalette &b) {
+  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+    const float t = i / 255.0f;
+    const Color4 ca = a.get(t);
+    const Color4 cb = b.get(t);
+    HS_EXPECT_EQ(ca.color.r, cb.color.r);
+    HS_EXPECT_EQ(ca.color.g, cb.color.g);
+    HS_EXPECT_EQ(ca.color.b, cb.color.b);
+    HS_EXPECT_EQ(ca.alpha, cb.alpha);
+  }
+}
+
+/** @brief Asserts two baked LUTs agree within a channel tolerance. */
+inline void expect_baked_near(const BakedPalette &a, const BakedPalette &b,
+                              int tolerance) {
+  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+    const float t = i / 255.0f;
+    const Pixel pa = a.get(t).color;
+    const Pixel pb = b.get(t).color;
+    HS_EXPECT_TRUE(std::abs(int(pa.r) - int(pb.r)) <= tolerance);
+    HS_EXPECT_TRUE(std::abs(int(pa.g) - int(pb.g)) <= tolerance);
+    HS_EXPECT_TRUE(std::abs(int(pa.b) - int(pb.b)) <= tolerance);
+  }
+}
+
+} // namespace
+
+inline void test_baked_palette_rebake_crossfade() {
+  Gradient ramp{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+  Gradient warm{{0.0f, CPixel(200u, 40u, 10u)}, {1.0f, CPixel(20u, 80u, 220u)}};
+
+  alignas(std::max_align_t) static uint8_t
+      buf[4 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+
+  BakedPalette from;
+  from.bake(arena, ramp);
+  BakedPalette to;
+  to.bake(arena, warm);
+  BakedPalette out;
+  out.bake(arena, ramp);
+
+  out.rebake_crossfade(from, to, 0.0f);
+  expect_baked_equal(out, from);
+  out.rebake_crossfade(from, to, 1.0f);
+  expect_baked_equal(out, to);
+
+  BakedPalette expected;
+  expected.bake_blend(arena, from, to, 0.37f);
+  out.rebake_crossfade(from, to, 0.37f);
+  expect_baked_equal(out, expected);
+
+  out.rebake_crossfade(from, to, std::numeric_limits<float>::quiet_NaN());
+  expect_baked_equal(out, to);
+}
