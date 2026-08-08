@@ -557,7 +557,7 @@ private:
   // lens_mix, hue_shift, value_fade) must sit exactly on 0 or 1 whenever the
   // matching per-pixel skip is intended: Animation::Lerp lands bit-exactly
   // only on those endpoints, and a near-0 value un-latches the skip for good.
-  static constexpr std::array<PresetEntry<Params>, 9> PRESETS = {{
+  static constexpr std::array<PresetEntry<Params>, 11> PRESETS = {{
       // Wandering liquid: mild, deep, then fine-grained cross-coupling.
       {{3.0f, 0.5f, 0.5f, 5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
         0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
@@ -578,6 +578,13 @@ private:
         ORBIT_SPIN_RATE, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}},
       {{100.0f, 8.67f, 0.3f, 1.0f, 0.586f, 0.0f, 1.0f, 0.7f, 3.432f,
         ORBIT_SPIN_RATE, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.636f, 1.0f}},
+      // Grid look, liquid palette.
+      {{50.749298f, 30.0f, 0.4699f, 1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f,
+        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, 0.0f, 0.25410002f,
+        0.00015458837f, 0.201f, 0.847f}},
+      {{38.761299f, 30.0f, 0.4699f, 1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f,
+        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, 0.0f, 0.25410002f,
+        0.00015458837f, 0.201f, 0.847f}},
   }};
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
                 "a ShaderBall preset drives a param outside its registered "
@@ -586,7 +593,7 @@ private:
 
   /** @brief Per-preset choreography, consumed on entry; the cross-family
    *  boundaries (rows 3 and 8) blend parallel. */
-  static constexpr std::array<Choreo, 9> CHOREO = {{
+  static constexpr std::array<Choreo, 11> CHOREO = {{
       {30, 90, 60, true},
       {30, 90, 60, true},
       {30, 90, 60, true},
@@ -596,11 +603,13 @@ private:
       {0, 0, 480, false},
       {0, 0, 480, false},
       {0, 0, 480, false},
+      {0, 0, 480, false},
+      {0, 0, 480, false},
   }};
   static_assert(CHOREO.size() == PRESETS.size(),
                 "CHOREO must carry one entry per preset");
 
-  Presets<Params, 9> presets{PRESETS};
+  Presets<Params, 11> presets{PRESETS};
 
   Blend blend{PRESETS[0].params}; /**< Live params; init() reloads from
                                      presets. */

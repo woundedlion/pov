@@ -62,6 +62,8 @@ public:
     register_animated_param("Init Spd", &params.initial_speed,
                             INITIAL_SPEED_MIN, INITIAL_SPEED_MAX);
     register_animated_param("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
+    register_animated_param("Warp", &params.warp_scale, WARP_SCALE_MIN,
+                            WARP_SCALE_MAX);
     register_readonly_param("Particles", &params.active_count, 0.0f,
                             (float)NUM_PARTICLES);
 
@@ -148,6 +150,7 @@ private:
     float initial_speed = 0.025f; /**< Spawn speed in [0, 0.5] (units/step). */
     float angular_speed =
         0.2f;                  /**< Emission phase rate in [0, 1] (rad/emit). */
+    float warp_scale = 0.6f;   /**< Mobius warp magnitude in [0, 5]. */
     float active_count = 0.0f; /**< Live particle count (engine-written). */
 
     /**
@@ -159,7 +162,7 @@ private:
     void lerp(const Params &start, const Params &target, float t) {
       // Trips if the field set changes, so a new preset float can't silently go
       // un-interpolated (engine-written active_count is excluded on purpose).
-      static_assert(sizeof(Params) == 5 * sizeof(float),
+      static_assert(sizeof(Params) == 6 * sizeof(float),
                     "MindSplatter::Params field set changed — update lerp");
       friction = start.friction + (target.friction - start.friction) * t;
       well_strength = start.well_strength +
@@ -168,6 +171,8 @@ private:
                       (target.initial_speed - start.initial_speed) * t;
       angular_speed = start.angular_speed +
                       (target.angular_speed - start.angular_speed) * t;
+      warp_scale =
+          start.warp_scale + (target.warp_scale - start.warp_scale) * t;
     }
   };
 
@@ -175,6 +180,7 @@ private:
   static constexpr float WELL_STRENGTH_MIN = 0.0f, WELL_STRENGTH_MAX = 20.0f;
   static constexpr float INITIAL_SPEED_MIN = 0.0f, INITIAL_SPEED_MAX = 0.5f;
   static constexpr float ANGULAR_SPEED_MIN = 0.0f, ANGULAR_SPEED_MAX = 1.0f;
+  static constexpr float WARP_SCALE_MIN = 0.0f, WARP_SCALE_MAX = 5.0f;
   static constexpr float EVENT_HORIZON = 0.2f;
   static constexpr float GRAVITY = 0.001f;
   static constexpr float PARTICLE_LIFETIME_FRAMES = 160.0f;
@@ -263,21 +269,22 @@ private:
            p.initial_speed >= INITIAL_SPEED_MIN &&
            p.initial_speed <= INITIAL_SPEED_MAX &&
            p.angular_speed >= ANGULAR_SPEED_MIN &&
-           p.angular_speed <= ANGULAR_SPEED_MAX;
+           p.angular_speed <= ANGULAR_SPEED_MAX &&
+           p.warp_scale >= WARP_SCALE_MIN && p.warp_scale <= WARP_SCALE_MAX;
   }
 
   // well_strength is pre-scaled by the preset's own friction because the
   // integrator applies v <- friction*v + impulse, dragging velocity before the
   // attractor impulse.
-  static constexpr std::array<PresetEntry<Params>, 4> PRESETS{{
+  static constexpr std::array<PresetEntry<Params>, 8> PRESETS{{
       {{.friction = 0.85f,
         .well_strength = 0.85f,
         .initial_speed = 0.025f,
         .angular_speed = 0.2f}},
-      {{.friction = 0.85f,
-        .well_strength = 0.85f,
-        .initial_speed = 0.025f,
-        .angular_speed = 0.52f}},
+      {{.friction = 1.0f,
+        .well_strength = 9.06f,
+        .initial_speed = 0.5f,
+        .angular_speed = 0.069f}},
       {{.friction = 0.9645f,
         .well_strength = 16.280001f,
         .initial_speed = 0.1f,
@@ -286,16 +293,38 @@ private:
         .well_strength = 1.74f,
         .initial_speed = 0.1f,
         .angular_speed = 1.0f}},
+      {{.friction = 1.0f,
+        .well_strength = 4.6f,
+        .initial_speed = 0.5f,
+        .angular_speed = 0.055f,
+        .warp_scale = 0.0f}},
+      {{.friction = 1.0f,
+        .well_strength = 15.32f,
+        .initial_speed = 0.5f,
+        .angular_speed = 0.361f}},
+      {{.friction = 0.7465f,
+        .well_strength = 1.54f,
+        .initial_speed = 0.5f,
+        .angular_speed = 0.164f}},
+      {{.friction = 1.0f,
+        .well_strength = 4.6f,
+        .initial_speed = 0.5f,
+        .angular_speed = 0.164f,
+        .warp_scale = 0.0f}},
   }};
   static_assert(preset_in_ranges(PRESETS[0].params) &&
                     preset_in_ranges(PRESETS[1].params) &&
                     preset_in_ranges(PRESETS[2].params) &&
-                    preset_in_ranges(PRESETS[3].params),
+                    preset_in_ranges(PRESETS[3].params) &&
+                    preset_in_ranges(PRESETS[4].params) &&
+                    preset_in_ranges(PRESETS[5].params) &&
+                    preset_in_ranges(PRESETS[6].params) &&
+                    preset_in_ranges(PRESETS[7].params),
                 "a MindSplatter preset drives a param outside its registered "
                 "slider range; widen the range to accommodate the preset (the "
                 "range exposes the presets, it does not clamp them)");
 
-  Presets<Params, 4> presets;
+  Presets<Params, 8> presets;
 
   Orientation<> orientation;
   FastNoiseLite noise;
@@ -322,8 +351,7 @@ private:
    */
   std::array<Basis, EmitSolid::NUM_VERTS> emitter_basis;
 
-  MobiusParams mobius;     /**< Current Mobius warp parameters. */
-  float warp_scale = 0.6f; /**< Magnitude of each warp animation. */
+  MobiusParams mobius; /**< Current Mobius warp parameters. */
 #ifdef HS_TEST_BUILD
   bool reference_orientation = false;
   bool reference_vertex_pass = false;
@@ -493,7 +521,8 @@ private:
    * @brief Runs one Mobius warp animation, then re-arms the timer for the next.
    */
   void perform_warp() {
-    auto warp = Animation::MobiusWarp(mobius, warp_scale, 160, false);
+    auto warp = Animation::MobiusWarp(mobius, params.warp_scale, 160, false);
+    warp.bind_scale(params.warp_scale);
     warp.then([this]() { schedule_warp(); });
     timeline.add(0, warp);
   }
