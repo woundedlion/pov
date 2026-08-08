@@ -349,7 +349,6 @@ private:
   bool reference_orientation = false;
   bool reference_vertex_pass = false;
   bool reference_hole_kernel = false;
-  bool reference_palette_alpha = false;
 #endif
 
   Params params;
@@ -460,13 +459,6 @@ private:
         HS_MSP_COUNT(palette_endpoints);
       else
         HS_MSP_COUNT(palette_interpolated);
-#ifdef HS_TEST_BUILD
-      if (reference_palette_alpha) {
-        f.color = Color4(sample_trail_palette(trail_palette, palette_t),
-                         alpha * opacity);
-        return;
-      }
-#endif
       f.color = Color4(sample_trail_palette(trail_palette, palette_t),
                        alpha * opacity);
     };

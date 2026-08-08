@@ -3485,32 +3485,6 @@ inline void test_displacement_field_clip_tiles_full() {
   HS_EXPECT(lit > 0, "clip tiling must compare a lit render");
 }
 
-/** @brief Every MindSplatter palette rebuild stays exactly opaque. */
-inline void test_mindsplatter_opaque_palette_invariant() {
-  using MS = MindSplatter<SMALL_W, SMALL_H>;
-  using WB = MindSplatterWhiteBox;
-  std::array<Pixel, BakedPalette::LUT_SIZE> expected_colors{};
-  bool have_expected = false;
-  for (uint8_t seed : {0u, 1u, 63u, 127u, 191u, 255u}) {
-    reset_effect_globals();
-    hs::random().seed(seed);
-    MS effect;
-    effect.init();
-    const auto rebuilt_colors = WB::palette_colors(effect);
-    if (have_expected)
-      HS_EXPECT_EQ(rebuilt_colors, expected_colors);
-    expected_colors = rebuilt_colors;
-    have_expected = true;
-    for (size_t preset = 0; preset < WB::preset_count(effect); ++preset) {
-      HS_EXPECT_EQ(WB::preset_index(effect), preset);
-      HS_EXPECT_TRUE(WB::palette_is_opaque(effect));
-      HS_EXPECT_EQ(WB::palette_colors(effect), rebuilt_colors);
-      WB::next_preset(effect);
-    }
-    HS_EXPECT_EQ(WB::preset_index(effect), static_cast<size_t>(0));
-  }
-}
-
 /**
  * @brief Replays one frozen saturated state with exact particle and frame output.
  */
@@ -3677,64 +3651,6 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
     HS_EXPECT_LE(coverage_differences, static_cast<size_t>(1));
   }
   hs::clear_mock_time();
-}
-
-/** @brief Opaque-LUT shading matches the generic path in a saturated quadrant. */
-inline void test_mindsplatter_opaque_palette_framebuffer_parity() {
-  constexpr int W = SMALL_W;
-  constexpr int H = SMALL_H;
-  constexpr int WARMUP_FRAMES = 160;
-  using MS = MindSplatter<W, H>;
-  using WB = MindSplatterWhiteBox;
-  using Snapshot = WB::ReplaySnapshot<W, H>;
-
-  Snapshot source;
-  {
-    reset_effect_globals();
-    hs::set_mock_time(0, 0);
-    MS effect;
-    effect.init();
-    for (int frame = 0; frame < WARMUP_FRAMES; ++frame) {
-      hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
-                        static_cast<unsigned long>(frame) * FRAME_US);
-      effect.draw_frame();
-      effect.advance_display();
-    }
-    WB::fill_particle_capacity(effect);
-    source = WB::capture(effect);
-    HS_EXPECT_EQ(source.particles.size(), WB::particle_capacity(effect));
-    HS_EXPECT_TRUE(WB::palette_is_opaque(effect));
-  }
-
-  auto render = [&](bool reference) {
-    reset_effect_globals();
-    hs::set_mock_time(WARMUP_FRAMES * FRAME_MS, WARMUP_FRAMES * FRAME_US);
-    MS effect;
-    effect.init();
-    WB::restore(effect, source);
-    effect.set_clip(0, H / 2, 0, W / 2);
-    WB::use_reference_palette_alpha(effect, reference);
-    WB::draw_particles(effect, 0.37f);
-    effect.advance_display();
-    std::vector<Pixel> quadrant;
-    quadrant.reserve(static_cast<size_t>(W / 2) * (H / 2));
-    for (int y = 0; y < H / 2; ++y)
-      for (int x = 0; x < W / 2; ++x)
-        quadrant.push_back(effect.get_pixel(x, y));
-    return quadrant;
-  };
-
-  const std::vector<Pixel> reference = render(true);
-  const std::vector<Pixel> opaque = render(false);
-  hs::clear_mock_time();
-  HS_EXPECT_EQ(reference.size(), opaque.size());
-  size_t lit_pixels = 0;
-  for (size_t i = 0; i < reference.size(); ++i) {
-    HS_EXPECT_EQ(reference[i], opaque[i]);
-    if (reference[i].r | reference[i].g | reference[i].b)
-      ++lit_pixels;
-  }
-  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
 }
 
 /** @brief Pins normalized color seeds bit-exactly. */
@@ -5790,10 +5706,8 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
 
-  test_mindsplatter_opaque_palette_invariant();
   test_mindsplatter_replay_snapshot_exact();
   test_mindsplatter_saturated_quadrant_sink_parity();
-  test_mindsplatter_opaque_palette_framebuffer_parity();
   test_mindsplatter_octahedral_hole_alpha_equivalence();
   test_mindsplatter_normalized_color_seed_boundaries();
   test_mindsplatter_rotation_matrix_equivalence();

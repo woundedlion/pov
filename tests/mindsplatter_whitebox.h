@@ -326,25 +326,6 @@ struct MindSplatterWhiteBox {
     ms.reference_hole_kernel = enabled;
   }
   template <int W, int H>
-  static void use_reference_palette_alpha(MindSplatter<W, H> &ms,
-                                          bool enabled) {
-    ms.reference_palette_alpha = enabled;
-  }
-  template <int W, int H>
-  static bool palette_is_opaque(const MindSplatter<W, H> &) {
-    return true;
-  }
-  template <int W, int H>
-  static std::array<Pixel, BakedPalette::LUT_SIZE>
-  palette_colors(const MindSplatter<W, H> &ms) {
-    (void)ms;
-    std::array<Pixel, BakedPalette::LUT_SIZE> colors;
-    for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
-      colors[i] = MINDSPLATTER_PALETTES[0][i];
-    }
-    return colors;
-  }
-  template <int W, int H>
   static auto trail_palette(const MindSplatter<W, H> &ms, uint16_t seed) {
     (void)ms;
     std::array<Pixel, MINDSPLATTER_PALETTE_LUT_SIZE> colors;
