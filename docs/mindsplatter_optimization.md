@@ -837,7 +837,7 @@ Do not spend another device cycle on these without new evidence:
 - `core/render/plot.h`
 - `core/render/filter.h`
 - `core/color/composition.h`
-- `docs/MINDSPLATTER_PARTICLE_SCALING_ANALYSIS.md`
+- `docs/mindsplatter_particle_scaling_analysis.md`
 - 2026-07-25 shipping and O3 profile captures (no longer tracked)
 - `build/prof/mindsplatter_ship.log`
 - `build/prof/mindsplatter_o3.log`
