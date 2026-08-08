@@ -171,6 +171,30 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues[0].line, 4)
         self.assertIn("ghost.js", issues[0].message)
 
+    def test_exhaustive_checkout_tree_diffs_against_the_checkout(self):
+        text = ("<!-- docs-check: tree daydream exhaustive -->\n"
+                "```\n"
+                "├── daydream.js                 App entry\n"
+                "├── tools/                      Standalone geometry tools\n"
+                "│   └── color.js                sRGB math\n"
+                "└── three.js/                   Optional vendored checkout\n"
+                "```\n")
+        checkouts = {"daydream": {
+            PurePosixPath("daydream.js"),
+            PurePosixPath("gui.js"),
+            PurePosixPath("tools"),
+            PurePosixPath("tools/color.js"),
+            PurePosixPath("tools/slider.js"),
+        }}
+        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
+                               checkouts=checkouts)
+        # three.js/ is gitignored in the checkout, so no row backs it there.
+        self.assertEqual([issue.message for issue in issues], [
+            "tree omits tracked path 'gui.js'",
+            "tree omits tracked path 'tools/slider.js'",
+        ])
+        self.assertEqual({issue.line for issue in issues}, {2})
+
     def test_checkout_tree_without_a_root_is_recorded_as_skipped(self):
         text = ("<!-- docs-check: tree daydream -->\n"
                 "```\n"
