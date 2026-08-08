@@ -423,8 +423,8 @@ public:
    * @brief Constructs a hankin-sweep leg: bakes the angle-independent hankin
    * topology once, computes the arrival classification, and builds the palette
    * mappings.
-   * @param seed Base mesh the hankin pattern sweeps on; read only here, never
-   * cloned into the leg arena.
+   * @param seed Base mesh the hankin pattern sweeps on; never cloned into the
+   * leg arena, so it must outlive the leg and must not move.
    * @param spec Contact-angle endpoints and frame count.
    * @param arena Leg arena backing the compiled hankin topology and hoisted
    * state.
@@ -450,9 +450,9 @@ public:
              "OpLeg: hankin sweep leg has an incomplete palette handoff");
     Transients &tr = bind_transients(arena);
 
-    // No seed clone: the compiled hankin topology carries the base vertices
-    // and every per-frame read goes through it, so the seed is needed only
-    // inside this constructor.
+    // No seed clone: the compiled hankin topology borrows the seed's vertices,
+    // so the seed must outlive the leg and must not move; hankin_at reads them
+    // every frame.
     tr.seed_faces = seed.face_counts.size();
     tr.kind = LegKind::HANKIN_SWEEP;
     tr.sweep_frames = spec.sweep_frames;
