@@ -1022,9 +1022,24 @@ class TestSizeAFallback(unittest.TestCase):
 
     def test_free_headroom_is_0x80000_minus_used(self):
         sizes = tg.fallback_sizes_from_size_a(_read("good_size_a.txt"))
-        expected_ram1 = 0xf320 + 0x2a00 + 0x1a00 + 0x53c00
+        # ITCM 0xf320 + 0x2a00 occupies three whole FlexRAM banks; DTCM is the
+        # raw 0x1a00 + 0x53c00.
+        expected_ram1 = 3 * tg.FLEXRAM_BANK_BYTES + 0x1a00 + 0x53c00
+        self.assertEqual(sizes["ram1"]["used"], expected_ram1)
         self.assertEqual(sizes["ram1"]["free"], 0x80000 - expected_ram1)
         self.assertEqual(sizes["ram2"]["free"], 0x80000 - 0x79900)
+
+    def test_itcm_is_charged_by_whole_flexram_banks(self):
+        # phantasm.ld rounds .text.itcm up to a bank before DTCM gets the rest,
+        # so one byte over a boundary costs a whole bank of RAM1 headroom.
+        under = tg.fallback_sizes_from_size_a(
+            _size_a(tg.FLEXRAM_BANK_BYTES, 0x40000, 0x70000, 0x20000))
+        over = tg.fallback_sizes_from_size_a(
+            _size_a(tg.FLEXRAM_BANK_BYTES + 1, 0x40000, 0x70000, 0x20000))
+        self.assertEqual(under["ram1"]["used"],
+                         tg.FLEXRAM_BANK_BYTES + 0x40000)
+        self.assertEqual(over["ram1"]["used"],
+                         under["ram1"]["used"] + tg.FLEXRAM_BANK_BYTES)
 
     def test_main_size_a_fallback_passes_a_fitting_build(self):
         rc, out = self._run_main_size_a(
