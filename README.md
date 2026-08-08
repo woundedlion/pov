@@ -297,6 +297,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── generate_reaction_graph.py K-NN lattice generator of record (emits core/engine/reaction_graph.cpp)
 │   ├── generate_srgb_decode.cpp Split-decode generator of record (emits core/color/srgb_decode_lut.h)
 │   ├── effect_roster.mjs       Shared HS_EFFECT_LIST / REGISTER_EFFECT parser for the roster tools
+│   ├── effect_roster.test.mjs  Node unit test for both roster parsers
 │   ├── check_effect_roster.mjs Cross-checks HS_EFFECT_LIST against the REGISTER_EFFECT calls (CI)
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
 │   ├── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
