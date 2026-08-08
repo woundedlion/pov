@@ -510,3 +510,137 @@ inline void test_generative_palette_lerp_interpolates_loop_seam() {
     HS_EXPECT_TRUE(std::abs(int(seam.b) - int(start.b)) <= 220);
   }
 }
+
+inline void test_palette_cycler_key_morph_cycle() {
+  const GenerativePalette first(PaletteRecipes::balanced_analogous(0.05f));
+  const GenerativePalette second(PaletteRecipes::balanced_analogous(0.62f));
+  const std::array<PaletteCycler::Entry, 2> entries = {{first, second}};
+
+  alignas(std::max_align_t) static uint8_t
+      cycler_buf[PaletteCycler::required_arena_bytes()];
+  Arena cycler_arena(cycler_buf, sizeof(cycler_buf));
+  alignas(std::max_align_t) static uint8_t
+      ref_buf[2 * BakedPalette::required_arena_bytes()];
+  Arena ref_arena(ref_buf, sizeof(ref_buf));
+
+  PaletteCycler cycler;
+  cycler.init(cycler_arena, entries.data(), entries.size(), 3, 4);
+
+  BakedPalette ref;
+  ref.bake(ref_arena, first);
+  expect_baked_equal(cycler.palette(), ref);
+  HS_EXPECT_EQ(cycler.current_index(), 0);
+
+  cycler.step();
+  cycler.step();
+  expect_baked_equal(cycler.palette(), ref);
+  HS_EXPECT_FALSE(cycler.fading());
+
+  cycler.step();
+  HS_EXPECT_TRUE(cycler.fading());
+  expect_baked_equal(cycler.palette(), ref);
+
+  cycler.step();
+  GenerativePalette expected_morph;
+  expected_morph.lerp(first, second, 0.25f);
+  BakedPalette expected;
+  expected.bake(ref_arena, expected_morph);
+  expect_baked_equal(cycler.palette(), expected);
+
+  cycler.step();
+  cycler.step();
+  cycler.step();
+  HS_EXPECT_FALSE(cycler.fading());
+  HS_EXPECT_EQ(cycler.current_index(), 1);
+  ref.rebake(second);
+  expect_baked_equal(cycler.palette(), ref);
+
+  for (int i = 0; i < 7; ++i)
+    cycler.step();
+  HS_EXPECT_FALSE(cycler.fading());
+  HS_EXPECT_EQ(cycler.current_index(), 0);
+  ref.rebake(first);
+  expect_baked_equal(cycler.palette(), ref);
+}
+
+inline void test_palette_cycler_heterogeneous_crossfade() {
+  Gradient ramp{{0.0f, CPixel(10u, 250u, 60u)}, {1.0f, CPixel(250u, 10u, 60u)}};
+  SolidColorPalette solid(Color4(Pixel(9000, 21000, 43000), 1.0f));
+  const GenerativePalette generative(PaletteRecipes::balanced_analogous(0.3f));
+
+  alignas(std::max_align_t) static uint8_t
+      buf[8 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+
+  BakedPalette prebaked;
+  prebaked.bake(arena, solid);
+
+  const std::array<PaletteCycler::Entry, 3> entries = {
+      {ramp, prebaked, generative}};
+
+  PaletteCycler cycler;
+  cycler.init(arena, entries.data(), entries.size(), 1, 2);
+
+  BakedPalette ramp_lut;
+  ramp_lut.bake(arena, ramp);
+  expect_baked_equal(cycler.palette(), ramp_lut);
+
+  cycler.step();
+  HS_EXPECT_TRUE(cycler.fading());
+  cycler.step();
+  BakedPalette expected;
+  expected.bake(arena, ramp);
+  expected.rebake_crossfade(ramp_lut, prebaked, 0.5f);
+  expect_baked_equal(cycler.palette(), expected);
+
+  cycler.step();
+  HS_EXPECT_FALSE(cycler.fading());
+  HS_EXPECT_EQ(cycler.current_index(), 1);
+  expect_baked_equal(cycler.palette(), prebaked);
+
+  cycler.step();
+  cycler.step();
+  cycler.step();
+  HS_EXPECT_EQ(cycler.current_index(), 2);
+  BakedPalette generative_lut;
+  generative_lut.bake(arena, generative);
+  expect_baked_equal(cycler.palette(), generative_lut);
+
+  cycler.step();
+  cycler.step();
+  cycler.step();
+  HS_EXPECT_EQ(cycler.current_index(), 0);
+  expect_baked_equal(cycler.palette(), ramp_lut);
+}
+
+inline void test_palette_cycler_pause_and_static() {
+  Gradient ramp{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+
+  alignas(std::max_align_t) static uint8_t
+      buf[6 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+
+  const std::array<PaletteCycler::Entry, 1> single = {{ramp}};
+  PaletteCycler static_cycler;
+  static_cycler.init(arena, single.data(), single.size(), 1, 1);
+  BakedPalette ref;
+  ref.bake(arena, ramp);
+  for (int i = 0; i < 5; ++i)
+    static_cycler.step();
+  HS_EXPECT_FALSE(static_cycler.fading());
+  expect_baked_equal(static_cycler.palette(), ref);
+
+  const GenerativePalette a(PaletteRecipes::balanced_analogous(0.1f));
+  const GenerativePalette b(PaletteRecipes::balanced_analogous(0.6f));
+  const std::array<PaletteCycler::Entry, 2> pair = {{a, b}};
+  bool paused = true;
+  PaletteCycler cycler;
+  cycler.init(arena, pair.data(), pair.size(), 1, 2, nullptr, &paused);
+  for (int i = 0; i < 5; ++i)
+    cycler.step();
+  HS_EXPECT_FALSE(cycler.fading());
+  HS_EXPECT_EQ(cycler.current_index(), 0);
+  paused = false;
+  cycler.step();
+  HS_EXPECT_TRUE(cycler.fading());
+}

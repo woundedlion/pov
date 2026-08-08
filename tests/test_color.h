@@ -2183,6 +2183,9 @@ inline int run_color_tests() {
   test_generative_palette_morph_compatible();
   test_generative_palette_lerp_mixed_curves_continuous();
   test_generative_palette_lerp_interpolates_loop_seam();
+  test_palette_cycler_key_morph_cycle();
+  test_palette_cycler_heterogeneous_crossfade();
+  test_palette_cycler_pause_and_static();
   test_palette_modifiers();
   test_noise_warp_modifier();
   test_drift_modifier();
