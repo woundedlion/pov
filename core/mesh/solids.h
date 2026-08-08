@@ -276,10 +276,12 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
  * as `target` (COMPOSITION POLARITY in conway.h), so after each step the mesh
  * sits in `scratch_arena` and the next step writes into the other arena.
  *
- * Callers build the seed into `a`, so the first operator reads its input from
- * the arena it writes its output into. That costs peak arena, not correctness:
- * every operator binds its output before opening a ScratchScope, and a bump
- * arena never rewinds below a live allocation.
+ * The seed may sit in either arena: a base solid builds into `a`, while a
+ * nested chain leaves its result in whichever arena its last step wrote. So the
+ * first operator may read its input from the arena it writes its output into.
+ * That costs peak arena, not correctness: every operator binds its output before
+ * opening a ScratchScope, and a bump arena never rewinds below a live
+ * allocation.
  *
  * Each step then rewinds the arena the NEXT step writes into back to the offset
  * it held when the chain started, reclaiming that step's spent intermediates
