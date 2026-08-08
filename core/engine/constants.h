@@ -236,15 +236,22 @@ struct ClipRegion {
    * @param len2 Second arc length in columns.
    * @param w Cylinder width in columns.
    * @return True if the arcs share at least one column.
-   * @pre w > 0; the modular reduction has no zero guard.
+   * @pre w > 0 and both starts in [0, w), as every caller's column mapping
+   *      guarantees. The seam-relative offset is then in (-w, w), so one
+   *      conditional add wraps it instead of a `%`; this runs per geodesic edge
+   *      and per face azimuth interval, where a runtime modulo costs a hardware
+   *      divide.
    */
   static bool arcs_overlap(int s1, int len1, int s2, int len2, int w) {
     if (len1 >= w || len2 >= w)
       return true;
     if (len1 <= 0 || len2 <= 0)
       return false;
+    HS_TEST_CHECK(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w);
     auto covers = [w](int s, int len, int p) {
-      const int d = ((p - s) % w + w) % w;
+      int d = p - s;
+      if (d < 0)
+        d += w;
       return d < len;
     };
     return covers(s1, len1, s2) || covers(s2, len2, s1);
