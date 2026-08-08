@@ -2102,6 +2102,81 @@ inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
 }
 
 /**
+ * @brief Verifies the Subtract interval cull covers every interior pixel of a
+ *        real leaf pair.
+ * @details The rest of the Subtract suite drives mock span lists, which stand in
+ *   for coverage exactly; a real leaf emits its circumscribed cap padded a pixel
+ *   for AA, so its spans only bound it. Subtract answers that by emitting the
+ *   minuend's spans and carving per pixel, and this sweeps the whole canvas to
+ *   pin that no pixel the carve leaves solid falls outside them. A star
+ *   subtrahend is the hostile case: its cap covers the notches the difference
+ *   keeps. The last pose centers both on +X, so the minuend's spans straddle
+ *   theta = 0.
+ */
+inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
+  constexpr int W = 96, H = 48;
+  using Poly = SDF::PlanarPolygon;
+  using Star = SDF::Star;
+
+  struct Pose {
+    Vector axis_a, axis_b;
+    float radius_a; /**< Polygon circumradius in radians. */
+    float radius_b; /**< Star tip radius, normalized (x PI/2 for radians). */
+  };
+  const Pose poses[] = {
+      {Vector(0, 0, 1), Vector(0.2f, 0.1f, 1.0f), 0.9f, 0.35f},
+      {Vector(0, 1, 0), Vector(0.2f, 1.0f, -0.1f), 0.8f, 0.3f},
+      {Vector(-0.4f, 0.6f, 0.7f), Vector(-0.3f, 0.65f, 0.7f), 1.0f, 0.4f},
+      {Vector(1, 0, 0), Vector(1.0f, 0.1f, 0.15f), 0.9f, 0.35f},
+  };
+
+  for (const Pose &pose : poses) {
+    Basis basis_a = make_basis(Quaternion(), pose.axis_a);
+    Basis basis_b = make_basis(Quaternion(), pose.axis_b);
+    Poly poly(basis_a, pose.radius_a, /*sides=*/6, 0.0f);
+    Star star(basis_b, pose.radius_b, /*sides=*/5, 0.4f);
+
+    SDF::Subtract<Poly, Star> carved(poly, star);
+    expect_cull_covers_interior<W, H>(carved, "subtract leaf pair");
+  }
+}
+
+/**
+ * @brief Verifies the SmoothUnion interval cull covers every interior pixel of a
+ *        real leaf pair.
+ * @details The weld bulges the surface outside both children, so the cull rests
+ *   entirely on the k pad — and the pad is an equatorial column count divided by
+ *   sin(phi), which the mock span lists exercise only at fixed rows. Real leaves
+ *   put the weld at every latitude the poses reach. The last pose centers both
+ *   on +X so the padded spans straddle theta = 0.
+ */
+inline void test_smooth_union_cull_covers_interior_over_leaf_pairs() {
+  constexpr int W = 96, H = 48;
+  using Poly = SDF::PlanarPolygon;
+
+  struct Pose {
+    Vector axis_a, axis_b;
+    float radius_a, radius_b;
+  };
+  const Pose poses[] = {
+      {Vector(0, 0, 1), Vector(0.6f, 0.2f, 1.0f), 0.5f, 0.4f},
+      {Vector(0, 1, 0), Vector(0.5f, 1.0f, -0.2f), 0.45f, 0.35f},
+      {Vector(-0.4f, 0.6f, 0.7f), Vector(0.1f, 0.9f, 0.4f), 0.6f, 0.5f},
+      {Vector(1, 0, 0), Vector(1.0f, 0.35f, 0.2f), 0.5f, 0.4f},
+  };
+
+  for (const Pose &pose : poses) {
+    Basis basis_a = make_basis(Quaternion(), pose.axis_a);
+    Basis basis_b = make_basis(Quaternion(), pose.axis_b);
+    Poly poly_a(basis_a, pose.radius_a, /*sides=*/6, 0.0f);
+    Poly poly_b(basis_b, pose.radius_b, /*sides=*/5, 0.4f);
+
+    SDF::SmoothUnion<Poly, Poly> welded(poly_a, poly_b, /*k=*/0.15f);
+    expect_cull_covers_interior<W, H>(welded, "smooth union leaf pair");
+  }
+}
+
+/**
  * @brief Verifies AngularRepeat around a non-Y axis culls in the full canvas, covering all copies.
  * @details A non-Y axis sweeps the folded copies through latitudes the un-repeated
  *   child never occupies, so the child's vertical band no longer bounds them.
@@ -2859,6 +2934,8 @@ inline int run_sdf_tests() {
   test_cull_covers_interior_over_orientation_grid();
   test_pole_axis_ring_bounds_skip_pole_rows();
   test_intersection_cull_covers_interior_over_polygon_pairs();
+  test_subtract_cull_covers_interior_over_leaf_pairs();
+  test_smooth_union_cull_covers_interior_over_leaf_pairs();
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_line_arc_bulge_cull_covers_interior();
   test_line_antipodal_cull_covers_interior();
