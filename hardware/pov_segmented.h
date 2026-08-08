@@ -358,7 +358,7 @@ public:
           hs::log(
               "sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu bdrop=%lu "
               "bbusy=%lu sdrop=%lu bok=%lu brej=%lu fix=%lu rmis=%lu "
-              "lock=%lu flip=%lu coast=%lu epi=%lu",
+              "lock=%lu flip=%lu coast=%lu stall=%lu epi=%lu",
               (unsigned long)tm.symbols_accepted,
               (unsigned long)tm.symbols_rejected_gate,
               (unsigned long)tm.symbols_discarded_invalid,
@@ -371,6 +371,7 @@ public:
               (unsigned long)tm.beacon_rev_mismatches,
               (unsigned long)tm.lock_transitions, (unsigned long)tm.flips,
               (unsigned long)tm.max_coast_halves,
+              (unsigned long)tm.master_stalls,
               (unsigned long)tm.epochs_refractory_ignored);
           last_tm = tm;
         }
