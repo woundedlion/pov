@@ -335,11 +335,14 @@ public:
         start(start), target(target), easing_fn(std::move(easing_fn)),
         paused(paused) {}
 
-  ColorWipe(GenerativePalette &, GenerativePalette::Snapshot &&,
+  ColorWipe(GenerativePalette &, const GenerativePalette::Snapshot &&,
             const GenerativePalette::Snapshot &, int, EasingFn,
             const bool * = nullptr) = delete;
   ColorWipe(GenerativePalette &, const GenerativePalette::Snapshot &,
-            GenerativePalette::Snapshot &&, int, EasingFn,
+            const GenerativePalette::Snapshot &&, int, EasingFn,
+            const bool * = nullptr) = delete;
+  ColorWipe(GenerativePalette &, const GenerativePalette::Snapshot &&,
+            const GenerativePalette::Snapshot &&, int, EasingFn,
             const bool * = nullptr) = delete;
 
   /**
