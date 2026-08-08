@@ -1333,11 +1333,9 @@ inline Vector least_parallel_axis(const Vector &v) {
  * @param from The source vector (must be unit vector).
  * @param to The destination vector (must be unit vector).
  * @return The resulting unit rotation quaternion.
- * @details Near-parallel inputs (d > 1 - TOLERANCE, shortest arc < ~0.81°) snap
- * to identity rather than dividing through a near-zero cross, so sub-0.81°
- * rotations are silently lost — a caller needing exact tiny rotations must not
- * use this overload. The antiparallel case (d < -1 + TOLERANCE) synthesizes a
- * stable perpendicular axis and rotates by π.
+ * @details Half-vector form q = (1 + d, cross(from, to)) normalized, exact down
+ * to arbitrarily small angles. The antiparallel case (d < -1 + TOLERANCE)
+ * synthesizes a stable perpendicular axis and rotates by π.
  */
 inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   HS_CHECK(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ &&
@@ -1353,13 +1351,8 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
     return make_rotation(axis, PI_F);
   }
 
-  if (d > 1.0f - math::TOLERANCE) {
-    return Quaternion(1, 0, 0, 0); // Identity
-  }
-
-  auto axis = cross(from, to).normalized();
-  float angle = fast_acos(d);
-  return make_rotation(axis, angle);
+  // |q|² = 2 + 2d, held away from zero by the antiparallel branch above.
+  return Quaternion(1.0f + d, cross(from, to)).normalized();
 }
 
 /**
