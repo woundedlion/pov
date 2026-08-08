@@ -271,31 +271,32 @@ private:
 
   /**
    * @brief Rebuilds the per-frame camera quaternions from walks, spin, wander.
-   * @param wander Random-walk mix in [0, 1]; 0 = fixed spin camera, 1 = full
-   * walk contribution.
-   * @details Keeps sign-adjusted copies of the walk quaternions (flipped
-   * whenever dot(prev, curr) < 0) and slerps them unflipped (long_way exactly
-   * when dot(identity, adj) < 0): re-flipping would jump between the w*a and
-   * w*(2pi - a) partial rotations when a walk's total angle crosses pi.
+   * @param wander Random-walk motion gain in [0, 1]; 0 freezes the walk camera,
+   * 1 applies its full per-frame motion.
+   * @details Integrates a fraction of each walk's incremental rotation. This
+   * keeps partial wander continuous through every full turn and while the
+   * wander amount changes.
    */
   // Per-frame, not per-pixel: the inlined slerps are too big for ITCM.
   HS_COLD_MEMBER void update_camera(float wander) {
-    Quaternion q = inner_walk.get();
-    if (dot(q, inner_adj) < 0.0f)
-      q = -q;
-    inner_adj = q;
-    q = outer_walk.get();
-    if (dot(q, outer_adj) < 0.0f)
-      q = -q;
-    outer_adj = q;
-    Quaternion inner_mix =
-        slerp(Quaternion(), inner_adj, wander, inner_adj.r < 0.0f);
-    Quaternion outer_mix =
-        slerp(Quaternion(), outer_adj, wander, outer_adj.r < 0.0f);
+    const Quaternion inner = inner_walk.get();
+    const Quaternion inner_delta = inner * inner_walk_prev.conjugate();
+    inner_wander =
+        (slerp(Quaternion(), inner_delta.normalized(), wander) * inner_wander)
+            .normalized();
+    inner_walk_prev = inner;
+
+    const Quaternion outer = outer_walk.get();
+    const Quaternion outer_delta = outer * outer_walk_prev.conjugate();
+    outer_wander =
+        (slerp(Quaternion(), outer_delta.normalized(), wander) * outer_wander)
+            .normalized();
+    outer_walk_prev = outer;
+
     cam_inner_conj =
-        (make_rotation(Y_AXIS, spin_phase) * base_orientation * inner_mix)
+        (make_rotation(Y_AXIS, spin_phase) * base_orientation * inner_wander)
             .conjugate();
-    cam_outer_conj = outer_mix.conjugate();
+    cam_outer_conj = outer_wander.conjugate();
   }
 
   /**
@@ -361,10 +362,12 @@ private:
   /** @brief Fixed camera pre-rotation under the Y spin. */
   Quaternion base_orientation =
       make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
-  Quaternion inner_adj; /**< Sign-adjusted copy of the inner walk quaternion. */
-  Quaternion outer_adj; /**< Sign-adjusted copy of the outer walk quaternion. */
-  Quaternion cam_inner_conj; /**< Per-frame inverse of the inner camera. */
-  Quaternion cam_outer_conj; /**< Per-frame inverse of the outer camera. */
+  Quaternion inner_walk_prev; /**< Previous inner walk orientation. */
+  Quaternion outer_walk_prev; /**< Previous outer walk orientation. */
+  Quaternion inner_wander;    /**< Integrated inner walk camera. */
+  Quaternion outer_wander;    /**< Integrated outer walk camera. */
+  Quaternion cam_inner_conj;  /**< Per-frame inverse of the inner camera. */
+  Quaternion cam_outer_conj;  /**< Per-frame inverse of the outer camera. */
 
   float noise_time = 0.0f;  /**< Noise-time axis, wrapped to
                                STEREO_NOISE_TIME_PERIOD. */
