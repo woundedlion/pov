@@ -1113,15 +1113,18 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
-          # The growth check below reads this file out of HEAD^1. On a
-          # pull_request run HEAD is the merge ref, so HEAD^1 is the base branch
-          # and the comparison spans the whole PR.
-          fetch-depth: 2
+          # The growth check below reads this file out of the commit the run
+          # builds on, which on a push is github.event.before — arbitrarily far
+          # back in a multi-commit push, so fetch the whole history rather than
+          # guess a depth.
+          fetch-depth: 0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
 
       - name: Assert FORMAT_BASELINE did not grow
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           WF=.github/workflows/ci.yml
 
@@ -1143,10 +1146,22 @@ jobs:
             '
           }
 
-          # An unreachable previous copy (orphan/initial commit, a clone
-          # shallower than this job asks for, or a parent predating this job)
-          # warns and skips rather than redding an otherwise-fine build.
-          if ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
+          # On a push, compare against the commit the branch had BEFORE it: a
+          # push lands several commits at once, and HEAD^1 is then the push's own
+          # penultimate commit, so an addition made in any earlier commit of the
+          # same push is already present on both sides and invisible. PUSH_BEFORE
+          # is empty on a pull_request run (where HEAD^1 is the base branch and
+          # the comparison spans the whole PR), all-zeros on a freshly created
+          # ref, and unreachable after a force-push; every one of those fails to
+          # peel and falls back to HEAD^1.
+          PREV=
+          if [ -n "$PUSH_BEFORE" ]; then
+            PREV=$(git rev-parse --verify --quiet "$PUSH_BEFORE^{commit}") || PREV=
+          fi
+          # An unreachable previous copy (orphan/initial commit, or a parent
+          # predating this job) warns and skips rather than redding an
+          # otherwise-fine build.
+          if [ -z "$PREV" ] && ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
             echo "::warning::HEAD has no reachable parent — FORMAT_BASELINE growth check skipped"
             exit 0
           fi
@@ -1354,15 +1369,18 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
-          # The growth check below reads the baseline out of HEAD^1. On a
-          # pull_request run HEAD is the merge ref, so HEAD^1 is the base branch
-          # and the comparison spans the whole PR.
-          fetch-depth: 2
+          # The growth check below reads the baseline out of the commit the run
+          # builds on, which on a push is github.event.before — arbitrarily far
+          # back in a multi-commit push, so fetch the whole history rather than
+          # guess a depth.
+          fetch-depth: 0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
         with:
           python-version: '3.12'
 
       - name: Assert the warning baseline did not grow
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           BF=tools/teensy_warning_baseline.txt
 
@@ -1375,10 +1393,22 @@ jobs:
               | grep -v -e '^#' -e '^$' | LC_ALL=C sort -u
           }
 
-          # An unreachable previous copy (orphan/initial commit, a clone
-          # shallower than this job asks for, or a parent predating the file)
-          # warns and skips rather than redding an otherwise-fine build.
-          if ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
+          # On a push, compare against the commit the branch had BEFORE it: a
+          # push lands several commits at once, and HEAD^1 is then the push's own
+          # penultimate commit, so an addition made in any earlier commit of the
+          # same push is already present on both sides and invisible. PUSH_BEFORE
+          # is empty on a pull_request run (where HEAD^1 is the base branch and
+          # the comparison spans the whole PR), all-zeros on a freshly created
+          # ref, and unreachable after a force-push; every one of those fails to
+          # peel and falls back to HEAD^1.
+          PREV=
+          if [ -n "$PUSH_BEFORE" ]; then
+            PREV=$(git rev-parse --verify --quiet "$PUSH_BEFORE^{commit}") || PREV=
+          fi
+          # An unreachable previous copy (orphan/initial commit, or a parent
+          # predating the file) warns and skips rather than redding an
+          # otherwise-fine build.
+          if [ -z "$PREV" ] && ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
             echo "::warning::HEAD has no reachable parent — warning-baseline growth check skipped"
             exit 0
           fi
