@@ -2054,7 +2054,8 @@ inline void test_cull_covers_interior_over_orientation_grid() {
  */
 inline void test_pole_axis_ring_bounds_skip_pole_rows() {
   constexpr int W = 96, H = 48;
-  SDF::Ring ring(equator_basis(), /*radius=*/0.6f, /*thickness=*/0.25f);
+  Basis basis = equator_basis();
+  SDF::Ring ring(basis, /*radius=*/0.6f, /*thickness=*/0.25f);
 
   auto bounds = ring.get_vertical_bounds<H>();
   HS_EXPECT_GT(bounds.y_min, 0);

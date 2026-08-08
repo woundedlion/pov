@@ -765,7 +765,8 @@ inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
  * @details Register semantics: the DistanceResult table (stroke row: Ring).
  */
 struct Ring {
-  const Basis &basis; /**< Orientation frame (v = ring axis). */
+  const Basis &basis; /**< Orientation frame (v = ring axis); retained by
+                         reference, so it must outlive the shape. */
   float radius;       /**< Ring radius as a fraction of the hemisphere. */
   float thickness;    /**< Half-width of the stroke (radians). */
   float phase;        /**< Azimuth phase offset (radians). */
@@ -784,7 +785,8 @@ struct Ring {
 
   /**
    * @brief Builds a ring from its basis, radius, thickness, and phase.
-   * @param b Orientation frame (v = ring axis).
+   * @param b Orientation frame (v = ring axis); retained by reference, so it
+   *          must outlive the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).
@@ -815,6 +817,13 @@ struct Ring {
     r_val = ap.R_val;
     alpha_angle = ap.alpha_angle;
   }
+
+  /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The ring retains its basis by reference, so binding a temporary
+   * would leave every later read of basis dangling.
+   */
+  Ring(const Basis &&, float, float, float = 0) = delete;
 
   /**
    * @brief Maps the ring's latitude band to its inclusive scanline row range.
@@ -940,7 +949,8 @@ struct Ring {
  * DistortedRing).
  */
 struct DistortedRing {
-  const Basis &basis; /**< Orientation frame (v = ring axis). */
+  const Basis &basis; /**< Orientation frame (v = ring axis); retained by
+                         reference, so it must outlive the shape. */
   float radius;       /**< Ring radius as a fraction of the hemisphere. */
   float thickness;    /**< Half-width of the stroke (radians). */
   ScalarFn shift_fn;  /**< Per-azimuth centerline shift, t in [0,1) -> radians;
@@ -969,7 +979,8 @@ struct DistortedRing {
 
   /**
    * @brief Builds a distorted ring with a per-azimuth centerline shift.
-   * @param b Orientation frame (v = ring axis).
+   * @param b Orientation frame (v = ring axis); retained by reference, so it
+   *          must outlive the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param sf Per-azimuth centerline shift function, t in [0,1) -> radians.
@@ -1002,8 +1013,16 @@ struct DistortedRing {
   }
 
   /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The ring retains its basis by reference, so binding a temporary
+   * would leave every later read of basis dangling.
+   */
+  DistortedRing(const Basis &&, float, float, ScalarFn, float, float) = delete;
+
+  /**
    * @brief Builds a distorted ring whose centerline is a shift-knot polyline.
-   * @param b Orientation frame (v = ring axis).
+   * @param b Orientation frame (v = ring axis); retained by reference, so it
+   *          must outlive the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param kn n + 1 centerline shifts (radians), one per equal azimuth cell,
@@ -1049,6 +1068,14 @@ struct DistortedRing {
     cos_max_limit = cosf(ang_min);
     cos_min_limit = cosf(ang_max);
   }
+
+  /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The ring retains its basis by reference, so binding a temporary
+   * would leave every later read of basis dangling.
+   */
+  DistortedRing(const Basis &&, float, float, const float *, int,
+                float) = delete;
 
   /**
    * @brief Maps the distorted ring's widened latitude band to its row range.
@@ -1307,13 +1334,21 @@ struct FlatDistortedRing : private DistortedRing {
 
   /**
    * @brief Builds an undisplaced ring using exact polar centerline distance.
-   * @param b Orientation frame (v = ring axis).
+   * @param b Orientation frame (v = ring axis); retained by reference, so it
+   *          must outlive the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).
    */
   FlatDistortedRing(const Basis &b, float r, float th, float ph = 0.0f)
       : DistortedRing(b, r, th, ScalarFn{}, 0.0f, ph) {}
+
+  /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The ring retains its basis by reference, so binding a temporary
+   * would leave every later read of basis dangling.
+   */
+  FlatDistortedRing(const Basis &&, float, float, float = 0.0f) = delete;
 
   /**
    * @brief Computes signed distance to the undisplaced ring, writing into res.
@@ -3384,7 +3419,8 @@ struct Face {
  * @details Register semantics: the DistanceResult table (row: PlanarPolygon).
  */
 struct PlanarPolygon {
-  const Basis &basis; /**< Orientation frame (v = polygon axis). */
+  const Basis &basis; /**< Orientation frame (v = polygon axis); retained by
+                         reference, so it must outlive the shape. */
   float circumradius; /**< Angular radius from center to vertex (radians). */
   int sides;          /**< Number of polygon sides. */
   float phase;        /**< Azimuth phase offset (radians). */
@@ -3402,7 +3438,8 @@ struct PlanarPolygon {
   /**
    * @brief Builds a planar polygon from its basis, circumradius, side count,
    * phase.
-   * @param b Orientation frame (v = polygon axis).
+   * @param b Orientation frame (v = polygon axis); retained by reference and
+   *          read by every distance() call, so it must outlive the shape.
    * @param cr Angular circumradius of the polygon (radians).
    * @param s Number of polygon sides (must be >= 3).
    * @param ph Azimuth phase offset (radians).
@@ -3427,6 +3464,13 @@ struct PlanarPolygon {
     cos_cap = cb.cos_radius;
     sin_cap = cb.sin_radius;
   }
+
+  /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The polygon retains its basis by reference and reads it in every
+   * distance() call, so binding a temporary would leave those reads dangling.
+   */
+  PlanarPolygon(const Basis &&, float, int, float, bool = false) = delete;
 
   /**
    * @brief Maps the polygon's latitude band to its inclusive row range.
@@ -3500,7 +3544,8 @@ struct PlanarPolygon {
  * Register semantics: the DistanceResult table (row: SphericalPolygon).
  */
 struct SphericalPolygon {
-  const Basis &basis;      /**< Orientation frame (v = polygon axis). */
+  const Basis &basis;      /**< Orientation frame (v = polygon axis); retained
+                              by reference, so it must outlive the shape. */
   int sides;               /**< Number of polygon sides. */
   float phase;             /**< Azimuth phase offset (radians). */
   float sector;            /**< Angular width of one polygon sector. */
@@ -3519,7 +3564,8 @@ struct SphericalPolygon {
   /**
    * @brief Builds a spherical polygon from its basis, radius, side count,
    * phase.
-   * @param b Orientation frame (v = polygon axis).
+   * @param b Orientation frame (v = polygon axis); retained by reference and
+   *          read by every distance() call, so it must outlive the shape.
    * @param radius Polygon radius as a fraction of the hemisphere.
    * @param s Number of polygon sides (must be >= 3).
    * @param ph Azimuth phase offset (radians).
@@ -3573,6 +3619,13 @@ struct SphericalPolygon {
     cos_cap = cb.cos_radius;
     sin_cap = cb.sin_radius;
   }
+
+  /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The polygon retains its basis by reference and reads it in every
+   * distance() call, so binding a temporary would leave those reads dangling.
+   */
+  SphericalPolygon(const Basis &&, float, int, float, bool = false) = delete;
 
   /**
    * @brief Maps the polygon's latitude band to its inclusive row range.
@@ -3662,7 +3715,8 @@ struct SphericalPolygon {
  * @details Register semantics: the DistanceResult table (row: Star).
  */
 struct Star {
-  const Basis &basis;      /**< Orientation frame (v = star axis). */
+  const Basis &basis;      /**< Orientation frame (v = star axis); retained by
+                              reference, so it must outlive the shape. */
   int sides;               /**< Number of star points. */
   float phase;             /**< Azimuth phase offset (radians). */
   float sector;            /**< Angular width of one star sector. */
@@ -3682,7 +3736,8 @@ struct Star {
 
   /**
    * @brief Builds a star from its basis, radius, point count, and phase.
-   * @param b Orientation frame (v = star axis).
+   * @param b Orientation frame (v = star axis); retained by reference and read
+   *          by every distance() call, so it must outlive the shape.
    * @param radius Outer radius as a fraction of the hemisphere.
    * @param s Number of star points (must be >= 3).
    * @param ph Azimuth phase offset (radians).
@@ -3720,6 +3775,13 @@ struct Star {
     cos_cap = cb.cos_radius;
     sin_cap = cb.sin_radius;
   }
+
+  /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The star retains its basis by reference and reads it in every
+   * distance() call, so binding a temporary would leave those reads dangling.
+   */
+  Star(const Basis &&, float, int, float, bool = false) = delete;
 
   /**
    * @brief Maps the star's latitude band to its inclusive row range.
@@ -3796,7 +3858,8 @@ struct Star {
  * @details Register semantics: the DistanceResult table (row: Flower).
  */
 struct Flower {
-  const Basis &basis;      /**< Orientation frame (v = flower axis). */
+  const Basis &basis;      /**< Orientation frame (v = flower axis); retained by
+                              reference, so it must outlive the shape. */
   int sides;               /**< Number of petals. */
   float phase;             /**< Azimuth phase offset (radians). */
   float sector;            /**< Angular width of one flower sector. */
@@ -3815,7 +3878,8 @@ struct Flower {
 
   /**
    * @brief Builds a flower from its basis, radius, petal count, and phase.
-   * @param b Orientation frame (v = flower axis).
+   * @param b Orientation frame (v = flower axis); retained by reference and
+   *          read by every distance() call, so it must outlive the shape.
    * @param radius Outer radius as a fraction of the hemisphere.
    * @param s Number of petals (must be >= 3).
    * @param ph Azimuth phase offset (radians).
@@ -3842,6 +3906,13 @@ struct Flower {
     cos_cap = cb.cos_radius;
     sin_cap = cb.sin_radius;
   }
+
+  /**
+   * @brief Deleted constructor from a temporary Basis.
+   * @details The flower retains its basis by reference and reads it in every
+   * distance() call, so binding a temporary would leave those reads dangling.
+   */
+  Flower(const Basis &&, float, int, float, bool = false) = delete;
 
   /**
    * @brief Maps the flower's latitude band to its inclusive row range.
