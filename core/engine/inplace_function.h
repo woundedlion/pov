@@ -32,7 +32,10 @@ namespace hs {
 // pointers/ints/floats/small PODs (max align == a pointer), so pointer alignment
 // keeps the object to one pointer of overhead instead of rounding every Fn up to
 // 16 B and inflating Fn-bearing animation types past TimelineEvent::MAX_ANIM_SIZE.
-// A rare over-aligned capture trips the alignof(D) <= Alignment static_assert below.
+// A rare over-aligned capture trips the alignof(D) <= Alignment static_assert
+// below — and the threshold is target-dependent, mirroring the Capacity skew:
+// alignof(void *) is 8 on the 64-bit host but 4 on wasm32, so a capture wanting
+// 8-byte alignment (double, int64_t) compiles natively and fails only in WASM.
 template <typename Signature, size_t Capacity = 16,
           size_t Alignment = alignof(void *)>
 class inplace_function; // primary template intentionally undefined
