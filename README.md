@@ -2314,10 +2314,12 @@ the app imports directly. Relative sub-imports inside those modules bypass the
 import map, so the exact package-version pin is the primary defense; the
 available SRI entries are additional partial coverage. Import-map `integrity`
 is Chromium-only — Firefox and Safari ignore the key entirely, so SRI is no
-coverage at all there. The second boundary on every browser is a
-`Content-Security-Policy` meta tag, carried by `index.html` and each of the
-four tool pages, which restricts script loads to `'self'` plus the CDN origins
-that page actually uses. Pages that load the WASM engine need `'wasm-unsafe-eval'`
+coverage at all there. A `Content-Security-Policy` meta tag, carried by
+`index.html` and each of the four tool pages, bounds this on every browser
+by origin: script loads are restricted to `'self'` plus the CDN origins that
+page actually uses. It is an origin boundary, not an XSS one — every page
+carries `'unsafe-inline'`, required by the four tool pages' inline module
+blocks and by the import map `vendor-importmap.js` injects. Pages that load the WASM engine need `'wasm-unsafe-eval'`
 for the module instantiation itself, but not the far broader `'unsafe-eval'`:
 the module is linked `-sDYNAMIC_EXECUTION=0 -sEMBIND_AOT=1`, so embind's
 per-binding invokers are emitted into the glue at link time instead of being
