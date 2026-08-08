@@ -255,22 +255,18 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
         continue;
       visited_verts[origin_idx] = true;
 
-      uint16_t curr_idx = he_start_idx;
-      uint16_t start_orbit = curr_idx;
       int count = 0;
 
-      do {
-        const HalfEdge &curr_he = he_mesh.half_edges[curr_idx];
-        HS_CHECK(count < (int)(2 * I), "Hankin rosette winding overflow");
+      vertex_orbit<'N'>(he_mesh, he_start_idx, [&](uint16_t curr_idx) {
+        HS_CHECK(count + 2 <= (int)(2 * I), "Hankin rosette winding overflow");
         face_indices[count++] = he_to_midpoint_idx[curr_idx];
-        // Closed manifold: pair is always valid, so the orbit closes back on
-        // start_orbit and never hits HE_NONE.
-        uint16_t next_edge_idx = he_mesh.half_edges[curr_he.pair].next;
-        HS_CHECK(count < (int)(2 * I), "Hankin rosette winding overflow");
+        // Closed manifold: pair is always valid, so this is the orbit's next
+        // half-edge and never HE_NONE.
+        const uint16_t next_edge_idx =
+            he_mesh.half_edges[he_mesh.half_edges[curr_idx].pair].next;
         face_indices[count++] = narrow_index(compiled.static_offset +
                                              he_to_dynamic_idx[next_edge_idx]);
-        curr_idx = next_edge_idx;
-      } while (curr_idx != start_orbit);
+      });
 
       // count = 2 * vertex degree. Degree-2 is legal (hankin-of-hankin walks
       // its own degree-2 midpoints -> quad rosette); only degree < 2

@@ -377,6 +377,43 @@ inline uint8_t narrow_face_count(int count) {
 }
 
 /**
+ * @brief Walk all half-edges orbiting a vertex, invoking visitor(curr_idx) for
+ *   each.
+ * @tparam OrbitMode Traversal direction: 'P' = prev->pair; 'N' = pair->next.
+ * @tparam VisitorFn Callable accepting the current half-edge index (uint16_t).
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param start_idx Half-edge index at which the orbit begins.
+ * @param visitor Invoked once per visited half-edge with its index.
+ */
+template <char OrbitMode, typename VisitorFn>
+inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
+                         VisitorFn &&visitor) {
+  uint16_t curr_idx = start_idx;
+  int count = 0;
+  // Anti-hang guard: a corrupt/non-manifold half-edge graph would otherwise
+  // spin forever.
+  const int max_orbit = static_cast<int>(he_mesh.half_edges.size());
+  do {
+    HS_CHECK(count < max_orbit, "vertex_orbit: corrupt orbit");
+    const HalfEdge &curr_he = he_mesh.half_edges[curr_idx];
+    visitor(curr_idx);
+    count++;
+
+    if constexpr (OrbitMode == 'P') {
+      // prev->pair orbit
+      if (he_mesh.half_edges[curr_he.prev].pair == HE_NONE)
+        break;
+      curr_idx = he_mesh.half_edges[curr_he.prev].pair;
+    } else {
+      // pair->next orbit
+      if (curr_he.pair == HE_NONE)
+        break;
+      curr_idx = he_mesh.half_edges[curr_he.pair].next;
+    }
+  } while (curr_idx != HE_NONE && curr_idx != start_idx);
+}
+
+/**
  * @brief Trap if the mesh has a boundary (any unpaired half-edge) or a vertex
  * whose incident half-edges split into more than one fan.
  * @param he_mesh Half-edge connectivity to validate.
