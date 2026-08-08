@@ -174,6 +174,21 @@ template <int S, int N, int RPM> class POVSegmented {
    */
   static constexpr uint32_t SPI_CLOCK_HZ = 24000000;
 
+  /**
+   * @brief Worst-case duration of one column's LED transfer, in µs.
+   * @details Image frame plus the trailing black frame strobe_columns() appends,
+   * eight clocks per byte at SPI_CLOCK_HZ.
+   */
+  static constexpr float COLUMN_TRANSFER_US =
+      float(HD107SFrame<PPS>::COMPOSITE_SIZE) * 8.0f * 1000000.0f /
+      float(SPI_CLOCK_HZ);
+
+  // A transfer wider than the column period overruns every column; the submit
+  // gate absorbs the drops, so it surfaces as a dim image, not as a fault.
+  static_assert(COLUMN_TRANSFER_US < COLUMN_US,
+                "LED transfer outlasts the column period (S, N, RPM and "
+                "SPI_CLOCK_HZ overrun the DMA every column)");
+
 public:
   /** @brief Foreground effect constructor: builds, arena-configures, and
    *  init()s one roster entry, ready to draw its first frame. */
