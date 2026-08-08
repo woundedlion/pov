@@ -323,6 +323,8 @@ public:
         // per-visit stream locally, regardless of boot/join history — a board
         // wrong about the index is already building the wrong effect.
         const int32_t effect_index = pov::sync::SyncBoard::build_index_of(bw);
+        HS_CHECK(effect_index >= 0 && effect_index < effect_count,
+                 "sync published an out-of-roster effect index");
         hs::random().seed(hs::epoch_seed(static_cast<uint32_t>(effect_index)));
         cur = effect_factories[effect_index]();
         HS_CHECK(cur->height() == ROWS,
