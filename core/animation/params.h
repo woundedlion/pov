@@ -625,8 +625,10 @@ struct RippleParams {
   /** @brief Cached cos(angle) upper fast-reject bound. */
   float cos_threshold_max = -1.0f;
 
-  /** @brief Carries TransformerPool::prepare_frame() hooks. */
-  static constexpr bool NEEDS_PREPARE = true;
+  /** @brief Carries prepare_frame()'s refresh_from() hook. */
+  static constexpr bool NEEDS_REFRESH_FROM = true;
+  /** @brief Carries prepare_frame()'s sync() hook. */
+  static constexpr bool NEEDS_SYNC = true;
 
   /**
    * @brief Ricker wavelet half-width, floored so the distance normalization
@@ -745,8 +747,10 @@ struct NoiseParams {
   mutable FastNoiseLite noise; /**< Backing generator; mutable for lazy
                                   init/updates. */
 
-  /** @brief Carries TransformerPool::prepare_frame() hooks. */
-  static constexpr bool NEEDS_PREPARE = true;
+  /** @brief Carries prepare_frame()'s refresh_from() hook. */
+  static constexpr bool NEEDS_REFRESH_FROM = true;
+  /** @brief Carries prepare_frame()'s sync() hook. */
+  static constexpr bool NEEDS_SYNC = true;
 
   /**
    * @brief Constructs noise params with an OpenSimplex2 generator.
@@ -816,8 +820,10 @@ struct BumpParams {
   float cos_radius =
       1.0f; /**< Cached cos(radius * envelope) fast-reject bound. */
 
-  /** @brief Carries TransformerPool::prepare_frame() hooks. */
-  static constexpr bool NEEDS_PREPARE = true;
+  /** @brief Carries prepare_frame()'s refresh_from() hook. */
+  static constexpr bool NEEDS_REFRESH_FROM = true;
+  /** @brief Carries prepare_frame()'s sync() hook. */
+  static constexpr bool NEEDS_SYNC = true;
 
   /**
    * @brief Refreshes the effective-radius fast-reject bound.
@@ -916,8 +922,10 @@ struct NoiseProductParams {
   /** @brief Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
   static constexpr float OCTAVE2_OFFSET = 50.0f;
 
-  /** @brief Carries a TransformerPool::prepare_frame() hook (refresh_from()). */
-  static constexpr bool NEEDS_PREPARE = true;
+  /** @brief Carries prepare_frame()'s refresh_from() hook. */
+  static constexpr bool NEEDS_REFRESH_FROM = true;
+  /** @brief No derived state, so no prepare_frame() sync() hook. */
+  static constexpr bool NEEDS_SYNC = false;
 
   /**
    * @brief Constructs params with an OpenSimplex2 generator at frequency 1.

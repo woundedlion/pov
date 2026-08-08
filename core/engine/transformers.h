@@ -19,12 +19,24 @@
 #include "animation/animation.h"
 
 /**
- * @brief A params type's declared prepare-hook intent, false when undeclared.
+ * @brief A params type's declared refresh_from-hook intent, false when
+ *        undeclared.
  * @tparam T Candidate params type.
  */
-template <typename T> constexpr bool declared_needs_prepare() {
-  if constexpr (requires { T::NEEDS_PREPARE; })
-    return T::NEEDS_PREPARE;
+template <typename T> constexpr bool declared_needs_refresh_from() {
+  if constexpr (requires { T::NEEDS_REFRESH_FROM; })
+    return T::NEEDS_REFRESH_FROM;
+  else
+    return false;
+}
+
+/**
+ * @brief A params type's declared sync-hook intent, false when undeclared.
+ * @tparam T Candidate params type.
+ */
+template <typename T> constexpr bool declared_needs_sync() {
+  if constexpr (requires { T::NEEDS_SYNC; })
+    return T::NEEDS_SYNC;
   else
     return false;
 }
@@ -63,16 +75,26 @@ public:
   static constexpr bool HAS_SYNC = requires(ParamsT &p) { p.sync(); };
 
   static_assert(
-      requires { ParamsT::NEEDS_PREPARE; },
-      "ParamsT must declare `static constexpr bool NEEDS_PREPARE`: true if it "
-      "carries prepare_frame() hooks (refresh_from()/sync()), false if it "
-      "needs neither.");
+      requires { ParamsT::NEEDS_REFRESH_FROM; },
+      "ParamsT must declare `static constexpr bool NEEDS_REFRESH_FROM`: true "
+      "if it carries prepare_frame()'s refresh_from() hook, false if it does "
+      "not.");
   static_assert(
-      declared_needs_prepare<ParamsT>() == (HAS_REFRESH_FROM || HAS_SYNC),
-      "ParamsT::NEEDS_PREPARE disagrees with the hooks ParamsT exposes. "
-      "prepare_frame() finds its hooks by detection, so a renamed hook or a "
-      "drifted signature would leave the entity unrefreshed with no other "
-      "signal.");
+      requires { ParamsT::NEEDS_SYNC; },
+      "ParamsT must declare `static constexpr bool NEEDS_SYNC`: true if it "
+      "carries prepare_frame()'s sync() hook, false if it does not.");
+  static_assert(
+      declared_needs_refresh_from<ParamsT>() == HAS_REFRESH_FROM,
+      "ParamsT::NEEDS_REFRESH_FROM disagrees with whether ParamsT exposes "
+      "refresh_from(). prepare_frame() finds each hook by detection "
+      "independently, so a renamed hook or a drifted signature would leave the "
+      "entity unrefreshed with no other signal.");
+  static_assert(
+      declared_needs_sync<ParamsT>() == HAS_SYNC,
+      "ParamsT::NEEDS_SYNC disagrees with whether ParamsT exposes sync(). "
+      "prepare_frame() finds each hook by detection independently, so a "
+      "renamed hook or a drifted signature would leave the entity's derived "
+      "state stale with no other signal.");
 
   ParamsT
       template_params; /**< Template params copied into each new entity on spawn. */
