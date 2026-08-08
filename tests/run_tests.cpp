@@ -147,7 +147,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("easing_waves", 9, hs_test::easing_waves_tests::run_easing_waves_tests,    \
     6080)                                                                      \
   X("platform", 18, hs_test::platform_tests::run_platform_tests, 201119)       \
-  X("profiling", 10, hs_test::profiling_tests::run_profiling_tests, 163)       \
+  X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \
   X("filter", 62, hs_test::filter_tests::run_filter_tests, 10296)              \
   X("plot_scan", 78, hs_test::plot_scan_tests::run_plot_scan_tests, 9109888)   \
   X("canvas", 28, hs_test::canvas_tests::run_canvas_tests, 487)                \

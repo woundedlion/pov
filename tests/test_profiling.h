@@ -384,6 +384,32 @@ inline void test_log_all_reports_tree() {
   HS_EXPECT_TRUE(std::strstr(report, "--- Cycle Counters ---") != nullptr);
 }
 
+/**
+ * @brief Verifies a counter whose latched parent records nothing in the next
+ *        run is still reported, as a root, rather than dropped with it.
+ */
+inline void test_reset_does_not_orphan_subtree() {
+  static hs::CycleCounter absent("prof_orphan_parent");
+  static hs::CycleCounter kept("prof_orphan_child");
+  {
+    hs::CycleScope sa(absent);
+    hs::CycleScope sk(kept);
+  }
+  hs::CycleCounter::reset_all();
+  kept.cycles = 600;
+  kept.count = 1;
+
+  char report[4096];
+  if (!capture_log_all(report, sizeof(report))) {
+    HS_EXPECT(false, "log_all capture set up");
+    return;
+  }
+  HS_EXPECT_EQ(kept.parent, &absent);
+  HS_EXPECT_EQ(absent.count, 0u);
+  HS_EXPECT_TRUE(std::strstr(report, "prof_orphan_child") != nullptr);
+  HS_EXPECT_TRUE(std::strstr(report, "prof_orphan_parent") == nullptr);
+}
+
 // --- IsrCycleStats ----------------------------------------------------------
 
 /**
@@ -427,6 +453,7 @@ inline int run_profiling_tests() {
   test_second_caller_flags_mixed_parent();
   test_mutual_nesting_keeps_a_root();
   test_log_all_reports_tree();
+  test_reset_does_not_orphan_subtree();
   test_isr_cycle_stats();
 
   return fixture.result();
