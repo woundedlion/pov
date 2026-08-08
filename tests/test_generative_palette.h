@@ -659,3 +659,41 @@ inline void test_shader_ball_palette_sets_morph_compatible() {
   expect_cycle(liquid);
   expect_cycle(flyby);
 }
+
+inline void test_palette_cycler_zero_dwell_chains_fades() {
+  const GenerativePalette a(PaletteRecipes::balanced_analogous(0.2f));
+  const GenerativePalette b(PaletteRecipes::balanced_analogous(0.7f));
+  const std::array<PaletteCycler::Entry, 2> pair = {{a, b}};
+
+  alignas(std::max_align_t) static uint8_t
+      buf[PaletteCycler::required_arena_bytes() +
+          2 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+
+  PaletteCycler cycler;
+  cycler.init(arena, pair.data(), pair.size(), 0, 2);
+
+  BakedPalette ref;
+  ref.bake(arena, a);
+  expect_baked_equal(cycler.palette(), ref);
+  HS_EXPECT_FALSE(cycler.fading());
+
+  cycler.step();
+  HS_EXPECT_TRUE(cycler.fading());
+
+  cycler.step();
+  GenerativePalette mid;
+  mid.lerp(a, b, 0.5f);
+  BakedPalette expected;
+  expected.bake(arena, mid);
+  expect_baked_equal(cycler.palette(), expected);
+
+  cycler.step();
+  HS_EXPECT_FALSE(cycler.fading());
+  HS_EXPECT_EQ(cycler.current_index(), 1);
+  ref.rebake(b);
+  expect_baked_equal(cycler.palette(), ref);
+
+  cycler.step();
+  HS_EXPECT_TRUE(cycler.fading());
+}
