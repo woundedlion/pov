@@ -1223,7 +1223,9 @@ struct OpStep {
   /**
    * @brief t / contact angle (radians) / RELAX iterations.
    * @details Unread on a RELAX step carrying a `bake`; such steps leave it at
-   * zero rather than naming a count the replay never runs.
+   * zero rather than naming a count the replay never runs. A bake-less RELAX
+   * step must name at least one iteration: the zero default would replay as a
+   * normalize-only pass-through, so apply_step traps on it.
    */
   float param = 0.0f;
   float twist = 0.0f; /**< SNUB face rotation, radians. */

@@ -193,10 +193,13 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
     builder.hankin(step.param);
     break;
   case Op::RELAX:
-    if (step.bake)
+    if (step.bake) {
       builder.relax_baked(*step.bake);
-    else
+    } else {
+      HS_CHECK(step.param >= 1.0f,
+               "apply_step: bake-less RELAX step has no iteration count");
       builder.relax(static_cast<int>(step.param));
+    }
     break;
   case Op::KIS:
     builder.kis();
