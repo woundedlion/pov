@@ -338,6 +338,11 @@ private:
         // Completion callback captures `this` + the slot index (both stable) to
         // deactivate the slot and drop it from the active list.
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
+        // The slot composes from here on, possibly before any prepare_frame(),
+        // so derive its cached state from the fields the constructor seeded.
+        if constexpr (HAS_SYNC) {
+          e.params.sync();
+        }
         AnimT *p = timeline.add_get(in_frames, std::move(anim), pin);
         if (p) {
           // A non-pinned spawn keeps no retained handle, so the slot is reclaimed
