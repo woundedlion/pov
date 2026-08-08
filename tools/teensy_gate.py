@@ -51,6 +51,10 @@ MEMORY_MAP: tuple[tuple[str, int, int], ...] = (
     ("FLASH", 0x60000000, 0x60200000),  # 2 MiB T4.0 flash
 )
 
+#: FlexRAM allocation granule. The 512 KiB of RAM1 is split ITCM/DTCM in whole
+#: banks of this size, so ITCM code always occupies a bank-rounded footprint.
+FLEXRAM_BANK_BYTES = 0x8000
+
 
 def region_for_address(addr: int) -> str:
     """Bucket a load address into a Teensy 4 memory region, or 'OTHER'."""
@@ -189,7 +193,11 @@ def fallback_sizes_from_size_a(text: str) -> dict[str, dict[str, int]]:
         raise SizeAFormatError(
             "missing positive Teensy memory bucket(s): " + ", ".join(missing))
 
-    ram1 = totals["ITCM"] + totals["DTCM"]
+    # FlexRAM hands ITCM whole 32 KiB banks (tools/phantasm.ld: _itcm_block_count
+    # rounds .text.itcm up to a bank, and DTCM gets the rest), so the raw
+    # section total under-counts RAM1 by up to one bank short of 32 KiB.
+    itcm = -(-totals["ITCM"] // FLEXRAM_BANK_BYTES) * FLEXRAM_BANK_BYTES
+    ram1 = itcm + totals["DTCM"]
     return {
         "flash": {"used": totals["FLASH"], "free": 0},
         "ram1": {"used": ram1, "free": 0x80000 - ram1},
