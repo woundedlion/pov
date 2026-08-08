@@ -66,6 +66,13 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      # build_pins.py selects the theme commit this job publishes, and
+      # docs_images.py resolves the artifact's images. Pin their interpreter as
+      # the ci.yml jobs do rather than taking the image's default python.
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
       # Pin Doxygen to an exact release binary (apt's version trails and lacks
       # newer config tags this Doxyfile uses). Graphviz comes from the pinned
       # image. This matches the version used to validate the docs locally.
