@@ -1,8 +1,20 @@
 # Brief: IslamicStars — remaining optimization levers
 
-**Status: OPEN brief.** The remaining IslamicStars levers, sized against the one
-solid that misses the 62.5 ms display window. §8 records what is measured dead;
-do not re-attempt it.
+**Status: OPEN brief, retargeted.** The remaining IslamicStars levers, sized
+against the one solid that misses the 62.5 ms display window. §8 records what is
+measured dead; do not re-attempt it.
+
+TASK C is closed. The framebuffer↔LUT cache thrash it was built around is gone:
+the pack no longer reads the 64 KB `linear_to_srgb_lut` but decodes through the
+bit-exact 1.5 KB DTCM split-decode in `core/color/srgb_decode.h`, and that took
+the worst shape's *steady* render red → green
+(`docs/lut_compression_next.md` §1). What remains open is TASK A, TASK B,
+TASK D, and TASK E — the ripple burst of TASK E is the miss that survives.
+
+Every measurement below is the `5b1cbdb7` capture, taken before the
+split-decode. Treat the render, pack, and ISR figures as the shape of the
+problem, not as the shipping image's numbers, and recapture before sizing a
+lever from them.
 
 You are picking up performance work on `c:\work\Holosphere` (Holosphere /
 Phantasm POV renderer, C++20, Teensy 4.0 @ 600 MHz Cortex-M7). Assume none of
@@ -19,9 +31,11 @@ display window. Everything below is sized against that solid.
 Worktree and landing discipline, shared-device access, style, and the
 per-commit gates: `docs/agent_workflow.md`.
 
-**ITCM budget: 189,416 B of 196,608, headroom 7,192 B.** This has vetoed changes
-before. If a high-value change is blocked by the ceiling, the owner has
-pre-authorized trading away low-value `HS_O3` regions. Measured de-O3 yields
+**ITCM budget at `5b1cbdb7`: 189,416 B of 196,608, headroom 7,192 B.** Read the
+current number off your own `pio run -e phantasm` link; the ceiling is fixed but
+the headroom moves with every landing. This has vetoed changes before. If a
+high-value change is blocked by the ceiling, the owner has pre-authorized
+trading away low-value `HS_O3` regions. Measured de-O3 yields
 (per-file, by deleting that file's `HS_O3_FN` tokens):
 
 | file | frees | impact |
@@ -228,7 +242,20 @@ individually (~2 cyc) but worth a look given the trip count.
 
 ---
 
-## 5. TASK C — ISR prep and processing (the biggest unexamined lever)
+## 5. TASK C — ISR prep and processing (CLOSED)
+
+The lever this task named was the pack's L1 thrash, and the sRGB split-decode
+took it. `hardware/hd107s_frame.h` packs through `linear_to_srgb8`, the
+1.5 KB two-region DTCM table, instead of the 64 KB flash LUT. Measured
+`isr_pack` cost went 17,102 → 5,830 cyc/col against a 3,047 cyc/col no-LUT
+floor (`docs/lut_compression_next.md` §1), so about 2,800 cyc/col of the
+original 14,000 of LUT-attributable cost is left to win, and the render bleed
+that came with the thrash went with it. C1 and the LUT leg of C4 are spent.
+The framebuffer-side levers in C4 remain, sized against that residual rather
+than against the ~15 ms ceiling below.
+
+The figures in this section are the pre-split-decode capture and are kept
+because they are the measurement that identified the interaction.
 
 **10.35 ms/frame, 8.32% of CPU** (`isr_wake`, which contains the other two —
 do not sum them). Cutting it raises the foreground render budget directly: at
@@ -266,10 +293,11 @@ alone flip the shape; see TASK E.)
 (startup.c:317) and the LUT is cheap when it stays resident (const-read: 2,438
 cyc for all 216 lookups). Its cost is *eviction* by the framebuffer, not flash
 access latency — a prefetch buffer cannot fix an L1 capacity conflict. The fix
-must shrink one stream's cache footprint so they stop evicting each other:
-reduce the framebuffer read amplification (column ring / column-major, C4) or
-shrink the 64 KB LUT (a smaller LUT + interpolation breaks the thrash but is not
-bit-exact — a colour-quality trade to weigh).
+had to shrink one stream's cache footprint so they stop evicting each other, and
+the LUT stream is the one that was shrunk: a bit-exact 64 KB → 1.5 KB
+split-decode resident in DTCM, with no interpolation and no colour-quality
+trade. The framebuffer read amplification (column ring / column-major, C4) is
+the stream still open.
 
 Prior framing kept below for context; the split above supersedes the
 "~240 cyc/pixel, likely OCRAM latency" guess.
@@ -322,14 +350,13 @@ ISR cost scales with display cadence, not with effect cost: at 8 fps a frame is
 roughly constant, and the percentage figures move as render time moves. Quote
 ISR cost in **µs/window or CPU%**, and state which frame length you measured at.
 
-### C4 — footprint-reducing levers that break the C1 thrash
+### C4 — framebuffer-side footprint levers
 
-The C1 split shows the target is the framebuffer↔LUT cache interaction (68% of
-the pack, plus ~6.8 ms of bled render). Any lever that shrinks one stream's L1
-footprint recovers part of it. The const-read/no-LUT toggles remove a stream
-*entirely* (100%); the structural levers below remove a fraction, so expect a
-fraction of the ~15 ms combined ceiling — but even half is large. None
-exhausted:
+The LUT stream is already out of L1, so the ~15 ms combined ceiling quoted from
+the C1 split is spent and only the framebuffer stream is left. These levers
+shrink its read amplification and are sized against the ~2,800 cyc/col that the
+shipped pack still carries over its no-LUT floor, so they are small; measure
+before building either. Neither is exhausted:
 
 - **Column ring / batch pack.** Consecutive ISR fires pack adjacent columns, and
   each 32 B line holds ~5.33 consecutive-x pixels of a row. Packing K adjacent

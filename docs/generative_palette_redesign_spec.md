@@ -1,6 +1,12 @@
 # GenerativePalette v2 - Design Spec
 
-Status: **PROPOSED**
+Status: **IMPLEMENTED.** The recipe path ships in
+`core/color/generative_palette.h` (`PaletteRecipe`, `try_compile`,
+gamut-relative chroma, hue torsion, `ChromaBasis::PATH_MINIMUM`), the versioned
+bridge in `targets/wasm/palette_bindings.h`, and the recipe UI in the daydream
+palette tool. The §16 legacy constructors and their `HarmonyType` /
+`BrightnessProfile` / `SaturationProfile` enums are removed, so §16 and §17
+describe a completed migration, not remaining work.
 
 ## 1. Summary
 
