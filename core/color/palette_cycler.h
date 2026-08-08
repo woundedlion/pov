@@ -105,6 +105,11 @@ public:
                "PaletteCycler entry references no palette");
     entries = entry_list;
     entry_count = count;
+    provider = nullptr;
+    provider_context = nullptr;
+    from_slot = nullptr;
+    to_slot = nullptr;
+    next_sequence = 0;
     dwell = dwell_frames;
     fade = fade_frames;
     easing = easing_fn;

@@ -715,6 +715,25 @@ inline void test_palette_cycler_generated_cycle() {
 
   cycler.step();
   HS_EXPECT_TRUE(cycler.fading());
+
+  // Re-initializing in entry mode must drop the generated-cycle state.
+  const GenerativePalette first(PaletteRecipes::balanced_analogous(0.4f));
+  const GenerativePalette second(PaletteRecipes::balanced_analogous(0.9f));
+  const std::array<PaletteCycler::Entry, 2> pair = {{first, second}};
+  alignas(std::max_align_t) static uint8_t
+      reinit_buf[PaletteCycler::required_arena_bytes() +
+                 BakedPalette::required_arena_bytes()];
+  Arena reinit_arena(reinit_buf, sizeof(reinit_buf));
+  cycler.init(reinit_arena, pair.data(), pair.size(), 0, 2);
+
+  cycler.step();
+  cycler.step();
+  GenerativePalette blended;
+  blended.lerp(first, second, 0.5f);
+  BakedPalette blended_lut;
+  blended_lut.bake(reinit_arena, blended);
+  expect_baked_equal(cycler.palette(), blended_lut);
+  HS_EXPECT_EQ(provider_calls, 3);
 }
 
 inline void test_palette_cycler_zero_dwell_chains_fades() {
