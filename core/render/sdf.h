@@ -3174,6 +3174,8 @@ struct Face {
 #endif
     float pad = face_azimuth_pad(W);
     if (pole_touch) {
+      if (!TrigLUT<W, H>::initialized)
+        TrigLUT<W, H>::init();
       const float sin_phi = TrigLUT<W, H>::sin_phi[y];
       if (sin_phi <= pad)
         return false;
