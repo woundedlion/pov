@@ -469,6 +469,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
     alignas(SDF::DistortedRing) unsigned char
         mem[N_RINGS * sizeof(SDF::DistortedRing)];
     auto *shapes = reinterpret_cast<SDF::DistortedRing *>(mem);
+    SDF::KnotPrefilter prefilters[N_RINGS];
     int8_t slot_by_ring[N_RINGS];
     Color4 slot_color[N_RINGS];
     int n_slots = 0;
@@ -477,8 +478,9 @@ inline void test_distorted_ring_stack_matches_sequential() {
         slot_by_ring[i] = -1;
         continue;
       }
-      new (&shapes[n_slots]) SDF::DistortedRing(basis, ring_radius(i), ths[i],
-                                                knots[i], LUT_N, 0.0f);
+      new (&shapes[n_slots])
+          SDF::DistortedRing(basis, ring_radius(i), ths[i], knots[i], LUT_N,
+                             0.0f, prefilters[n_slots]);
       slot_color[n_slots] = colors[i];
       slot_by_ring[i] = static_cast<int8_t>(n_slots);
       ++n_slots;

@@ -69,6 +69,7 @@ public:
     slot_by_ring = persistent_arena.allocate_n<int8_t>(RING_SLOTS);
     shapes_raw = persistent_arena.allocate(
         RING_SLOTS * sizeof(SDF::DistortedRing), alignof(SDF::DistortedRing));
+    prefilters = persistent_arena.allocate_n<SDF::KnotPrefilter>(RING_SLOTS);
     balls.init_storage(persistent_arena);
     noise_field.init_storage(persistent_arena);
 
@@ -392,8 +393,9 @@ private:
         hlut[lut_n] = hlut[0];
       }
 
-      ::new (static_cast<void *>(shapes + n_slots)) SDF::DistortedRing(
-          basis, radius, params.thickness, slut, lut_n, 0.0f);
+      ::new (static_cast<void *>(shapes + n_slots))
+          SDF::DistortedRing(basis, radius, params.thickness, slut, lut_n, 0.0f,
+                             prefilters[n_slots]);
       slot_lut_n[n_slots] = lut_n;
       slot_frag_alpha[n_slots] = ring_color.alpha * opacity * params.alpha;
       slot_by_ring[i] = static_cast<int8_t>(n_slots);
@@ -633,6 +635,8 @@ private:
       nullptr; /**< Ring index -> slot, -1 for culled rings; rebuilt per frame. */
   void *shapes_raw =
       nullptr; /**< Raw storage for RING_SLOTS placement-built SDF::DistortedRing shapes. */
+  SDF::KnotPrefilter *prefilters =
+      nullptr; /**< RING_SLOTS knot prefilters, one per shape slot. */
   Pixel *hue_table =
       nullptr; /**< HUE_TABLE_SIZE + 1 dynamic or cyclic hue samples for the current ring. */
   float *ball_colat =
@@ -691,7 +695,7 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
       RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +
-                    sizeof(SDF::DistortedRing)) +
+                    sizeof(SDF::DistortedRing) + sizeof(SDF::KnotPrefilter)) +
       MAX_BALLS * (3 * sizeof(float) + sizeof(int) +
                    sizeof(const Animation::BumpParams *)) +
       (HUE_TABLE_SIZE + 1) * sizeof(Pixel) +

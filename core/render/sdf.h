@@ -778,7 +778,7 @@ struct Ring {
   float cos_max, cos_min, cos_target,
       inv_sin_target; /**< Precomputed band trig. */
 
-  float r_val;       /**< Horizontal projection length of the axis (for full-row
+  float r_val; /**< Horizontal projection length of the axis (for full-row
                          check). */
   float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
   static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
@@ -944,6 +944,17 @@ struct Ring {
 };
 
 /**
+ * @brief Per-azimuth-chunk knot ranges backing DistortedRing's knot prefilter.
+ * @details Caller-owned, so the callback and undisplaced modes carry none of
+ * it. One instance per knot-mode ring; must outlive the shape.
+ */
+struct KnotPrefilter {
+  static constexpr int CHUNKS = 32; /**< Azimuth chunks in the prefilter. */
+  float lo[CHUNKS];                 /**< Min knot per azimuth chunk. */
+  float hi[CHUNKS];                 /**< Max knot per azimuth chunk. */
+};
+
+/**
  * @brief Calculates signed distance to a distorted ring.
  * @details Register semantics: the DistanceResult table (stroke row:
  * DistortedRing).
@@ -959,6 +970,8 @@ struct DistortedRing {
       nullptr;   /**< Optional lut_n + 1 shift knots (entry lut_n repeats entry
                     0); selects exact polyline distance. */
   int lut_n = 0; /**< Knot cell count when knots is set. */
+  const KnotPrefilter *prefilter =
+      nullptr;          /**< Caller-owned chunk ranges over knots. */
   float max_distortion; /**< Maximum magnitude of the shift (radians). */
   float phase;          /**< Azimuth phase offset (radians). */
 
@@ -1032,32 +1045,35 @@ struct DistortedRing {
    *           full stroke width with no slope approximation.
    * @param n Number of knot cells; at least 1.
    * @param ph Azimuth phase offset (radians).
+   * @param pf Prefilter storage filled here; must outlive the shape.
    */
   DistortedRing(const Basis &b, float r, float th, const float *kn, int n,
-                float ph)
+                float ph, KnotPrefilter &pf)
       : DistortedRing(b, r, th, ScalarFn{}, 0.0f, ph) {
     knots = kn;
     lut_n = n;
+    prefilter = &pf;
     float min_shift = kn[0];
     float max_shift = kn[0];
     // Per-chunk knot ranges for the per-pixel prefilter. A segment registers
     // its endpoints in every chunk its azimuth extent touches (a straddling
     // segment spans two), so the polyline inside a chunk never leaves
-    // [chunk_lo, chunk_hi].
-    for (int c = 0; c < PREFILTER_CHUNKS; ++c) {
-      chunk_lo[c] = 1e9f;
-      chunk_hi[c] = -1e9f;
+    // [pf.lo, pf.hi].
+    for (int c = 0; c < KnotPrefilter::CHUNKS; ++c) {
+      pf.lo[c] = 1e9f;
+      pf.hi[c] = -1e9f;
     }
     for (int k = 0; k < n; ++k) {
       float lo = std::min(kn[k], kn[k + 1]);
       float hi = std::max(kn[k], kn[k + 1]);
       min_shift = std::min(min_shift, lo);
       max_shift = std::max(max_shift, hi);
-      int c1 = k * PREFILTER_CHUNKS / n;
-      int c2 = std::min((k + 1) * PREFILTER_CHUNKS / n, PREFILTER_CHUNKS - 1);
+      int c1 = k * KnotPrefilter::CHUNKS / n;
+      int c2 = std::min((k + 1) * KnotPrefilter::CHUNKS / n,
+                        KnotPrefilter::CHUNKS - 1);
       for (int c = c1; c <= c2; ++c) {
-        chunk_lo[c] = std::min(chunk_lo[c], lo);
-        chunk_hi[c] = std::max(chunk_hi[c], hi);
+        pf.lo[c] = std::min(pf.lo[c], lo);
+        pf.hi[c] = std::max(pf.hi[c], hi);
       }
     }
 
@@ -1198,16 +1214,9 @@ struct DistortedRing {
                 poles. */
 
 private:
-  static constexpr int PREFILTER_CHUNKS =
-      32; /**< Azimuth chunks in the knot-range prefilter. */
   static constexpr int MAX_SEARCH_CELLS =
       64; /**< Outward search budget per side; only near-pole chart compression
              approaches it. */
-
-  float chunk_lo[PREFILTER_CHUNKS]; /**< Min knot per azimuth chunk (knot mode).
-                                     */
-  float chunk_hi[PREFILTER_CHUNKS]; /**< Max knot per azimuth chunk (knot mode).
-                                     */
 
   /**
    * @brief Distance from a pixel to the knot polyline.
@@ -1236,15 +1245,17 @@ private:
     // chunk and its neighbours can hold a within-reach curve point; a pixel
     // whose polar offset clears all three knot ranges by more than thickness
     // skips the segment search (most band pixels, in a displaced ring).
-    const float chunk_u = (TWO_PI_F / PREFILTER_CHUNKS) * sin_polar;
+    constexpr int CHUNKS = KnotPrefilter::CHUNKS;
+    const float chunk_u = (TWO_PI_F / CHUNKS) * sin_polar;
     if (chunk_u >= thickness) {
-      int c = static_cast<int>(t_norm * PREFILTER_CHUNKS);
-      if (c >= PREFILTER_CHUNKS)
-        c = PREFILTER_CHUNKS - 1;
-      int cl = c == 0 ? PREFILTER_CHUNKS - 1 : c - 1;
-      int cr = c == PREFILTER_CHUNKS - 1 ? 0 : c + 1;
-      float lo = std::min(chunk_lo[cl], std::min(chunk_lo[c], chunk_lo[cr]));
-      float hi = std::max(chunk_hi[cl], std::max(chunk_hi[c], chunk_hi[cr]));
+      const KnotPrefilter &pf = *prefilter;
+      int c = static_cast<int>(t_norm * CHUNKS);
+      if (c >= CHUNKS)
+        c = CHUNKS - 1;
+      int cl = c == 0 ? CHUNKS - 1 : c - 1;
+      int cr = c == CHUNKS - 1 ? 0 : c + 1;
+      float lo = std::min(pf.lo[cl], std::min(pf.lo[c], pf.lo[cr]));
+      float hi = std::max(pf.hi[cl], std::max(pf.hi[c], pf.hi[cr]));
       float gap = std::max(base + lo, -(base + hi));
       if (gap > thickness)
         return gap;
