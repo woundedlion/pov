@@ -21,7 +21,7 @@
 #include "core/render/sdf_volume.h"
 #include "core/engine/memory.h"
 #include "hardware/pov_segment_map.h"
-#include "tests/test_3dmath.h"
+#include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/mindsplatter_whitebox.h"

@@ -14,14 +14,14 @@
 #include <cmath>
 #include <cstdint>
 #include "core/mesh/spatial.h"
-#include "tests/test_3dmath.h" // re-uses approx_vec / HS_EXPECT_VEC
+#include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
 namespace spatial {
 
-using hs_test::math3d::approx_vec;
+using hs_test::approx_vec;
 
 // Module-scope scratch buffer; each test re-bases the bump pointer by
 // constructing a fresh Arena over it at entry. Do NOT retain an ArenaVector or

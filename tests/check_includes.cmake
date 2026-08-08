@@ -46,7 +46,8 @@ set(NON_MODULE_HEADERS
   test_generative_palette.h
   test_harness.h
   test_h_offset_renorm.h
-  test_pole_wrap.h)
+  test_pole_wrap.h
+  vec_test_util.h)
 
 file(GLOB_RECURSE _headers RELATIVE "${TESTS_DIR}"
   "${TESTS_DIR}/*.h"

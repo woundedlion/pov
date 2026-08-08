@@ -42,7 +42,8 @@ set(HELPER_CASE_COUNTS
   "test_generative_palette.h=25"
   "test_h_offset_renorm.h=5"
   "test_harness.h=0"
-  "test_pole_wrap.h=3")
+  "test_pole_wrap.h=3"
+  "vec_test_util.h=0")
 
 # Whole-tree code text, used as the fallback reference scope for cross-header
 # calls. Comments are stripped: the helper headers are named in prose by several

@@ -17,7 +17,7 @@
 #pragma once
 
 #include "core/math/geometry.h"
-#include "tests/test_3dmath.h"
+#include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/test_pole_wrap.h"
@@ -25,8 +25,8 @@
 namespace hs_test {
 namespace geometry {
 
-using hs_test::math3d::approx_vec;
-using hs_test::math3d::approx_quat;
+using hs_test::approx_vec;
+using hs_test::approx_quat;
 
 // ============================================================================
 // Axis constants
