@@ -143,10 +143,12 @@ public:
    * @brief True when this palette and @p other can be key-morphed by lerp().
    * @details Requires identical evaluation policy — domain, easing, color
    * path, chroma basis, complementary evaluation, key count, headroom,
-   * torsion, falloff, input window — and matching per-segment hue winding
-   * classes (including the loop close), so interpolated keys never cross a
-   * whole-turn ambiguity. Incompatible palettes must transition through a
-   * baked crossfade (BakedPalette::rebake_crossfade) instead.
+   * torsion, falloff, input window — plus corresponding segment hue deltas
+   * within half a turn of each other, so an interpolated arc never crosses a
+   * whole-turn ambiguity or collapses through zero. A loop additionally
+   * requires the same integer closing travel, or its seam breaks mid-morph.
+   * Incompatible palettes must transition through a baked crossfade
+   * (BakedPalette::rebake_crossfade) instead.
    */
   bool morph_compatible(const GenerativePalette &other) const {
     if (domain != other.domain || easing != other.easing ||
@@ -158,14 +160,17 @@ public:
         input_offset != other.input_offset || input_span != other.input_span)
       return false;
     for (int i = 1; i < key_count; ++i) {
-      if (winding_class(keys[i].h - keys[i - 1].h) !=
-          winding_class(other.keys[i].h - other.keys[i - 1].h))
+      if (fabsf((keys[i].h - keys[i - 1].h) -
+                (other.keys[i].h - other.keys[i - 1].h)) >= PI_F)
         return false;
     }
-    if (domain == PaletteDomain::LOOP &&
-        winding_class(closing_hue - keys[key_count - 1].h) !=
-            winding_class(other.closing_hue - other.keys[key_count - 1].h))
-      return false;
+    if (domain == PaletteDomain::LOOP) {
+      if (fabsf((closing_hue - keys[key_count - 1].h) -
+                (other.closing_hue - other.keys[key_count - 1].h)) >= PI_F)
+        return false;
+      if (loop_turns() != other.loop_turns())
+        return false;
+    }
     return true;
   }
 
@@ -624,16 +629,10 @@ private:
 
   static float wrap01(float value) { return value - floorf(value); }
 
-  /**
-   * @brief Signed whole-turn class of a hue delta in radians.
-   * @details Wrapped delta at exactly half a turn classes as counterclockwise,
-   * matching the canonical principal-delta tie rule.
-   */
-  static int winding_class(float delta) {
-    const float turns = delta * (1.0f / (2.0f * PI_F));
-    const float wrapped = wrap01(turns);
-    const float principal = wrapped <= 0.5f ? wrapped : wrapped - 1.0f;
-    return static_cast<int>(roundf(turns - principal));
+  /** @brief Whole turns of a loop's closing travel from the first key. */
+  int loop_turns() const {
+    return static_cast<int>(
+        roundf((closing_hue - keys[0].h) * (1.0f / (2.0f * PI_F))));
   }
 
   HS_COLD_MEMBER static float directed_delta(float delta,
