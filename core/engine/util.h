@@ -68,13 +68,14 @@ inline float wrap_t(float t) {
  * @brief Wraps an integer value around a modulo base (m).
  * @param x The value to wrap.
  * @param m The modulo base.
- * @return The wrapped value in the range [0, m), or x when m == 0.
+ * @return The wrapped value in the range [0, m), or x when m <= 0.
  * @details A zero modulus SIGFPEs on the host while the Cortex-M7 SDIV returns
  *          x; return x to match the device, mirroring the m == 0 guard in
- *          map().
+ *          map(). A negative modulus takes the same exit: `x % m` cannot land
+ *          in [0, m), and `INT_MIN % -1` is signed-overflow UB.
  */
 inline int wrap(int x, int m) {
-  if (m == 0)
+  if (m <= 0)
     return x;
   int r = x % m;
   return r < 0 ? r + m : r;
