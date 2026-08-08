@@ -16,10 +16,13 @@ on:
 permissions:
   contents: read
 
-# Cancel superseded runs on the same ref to save CI minutes.
+# Cancel superseded PR runs on the same ref to save CI minutes. Master pushes
+# queue instead: back-to-back landings share refs/heads/master, and cancelling
+# leaves the earlier commit with a cancelled — neither green nor visibly red —
+# verdict.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests:
