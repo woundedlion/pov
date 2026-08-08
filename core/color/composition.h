@@ -606,13 +606,15 @@ struct ChromaPulseShade {
   const float *phase;
   float depth;
   /**
-   * @brief Per-instance memo of the frame's chroma scale.
+   * @brief Per-instance memo of fast_sinf(*phase).
    * @details *phase is frame-constant, so the sine is recomputed once per
-   * frame, not per sample. mutable so const shade() can update the memo.
+   * frame, not per sample. depth is applied outside the memo, so a live depth
+   * change lands on a frozen phase. mutable so const shade() can update the
+   * memo.
    */
   mutable float cached_phase = 0.0f;
-  mutable float cached_scale = 1.0f; /**< Memoized scale at cached_phase. */
-  mutable bool primed = false; /**< Whether the memo has been populated. */
+  mutable float cached_sin = 0.0f; /**< Memoized sine at cached_phase. */
+  mutable bool primed = false;     /**< Whether the memo has been populated. */
 
   /**
    * @brief Constructs with a mandatory phase driver and pulse depth.
@@ -638,13 +640,14 @@ struct ChromaPulseShade {
     (void)t;
     if (!primed || *phase != cached_phase) {
       cached_phase = *phase;
-      cached_scale = 1.0f + depth * fast_sinf(cached_phase);
+      cached_sin = fast_sinf(cached_phase);
       primed = true;
     }
+    const float scale = 1.0f + depth * cached_sin;
     LinRGB rgb = pixel_to_linrgb(c.color);
     OKLab lab = linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
-    lab.a *= cached_scale;
-    lab.b *= cached_scale;
+    lab.a *= scale;
+    lab.b *= scale;
     oklab_to_linear_rgb_gamut(lab, rgb.r, rgb.g, rgb.b);
     c.color = Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
                     float_to_pixel16(rgb.b));
