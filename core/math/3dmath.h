@@ -930,8 +930,10 @@ inline Complex project_div(const Complex &num, const Complex &den) {
 struct MobiusParams {
   Complex a, b, c, d; /**< The four transform coefficients. */
 
-  /** @brief No derived state, so no TransformerPool::prepare_frame() hooks. */
-  static constexpr bool NEEDS_PREPARE = false;
+  /** @brief No live-config hook for TransformerPool::prepare_frame(). */
+  static constexpr bool NEEDS_REFRESH_FROM = false;
+  /** @brief No derived state, so no prepare_frame() sync() hook. */
+  static constexpr bool NEEDS_SYNC = false;
 
   /**
    * @brief Default constructor producing the identity transform (a=d=1, b=c=0).
