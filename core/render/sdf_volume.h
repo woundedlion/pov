@@ -121,7 +121,11 @@ struct Twist {
    *        The harmonic recurrence counts up from 1, so a negative count yields
    *        the first harmonic while the Lipschitz bound describes the requested
    *        one.
-   * @param displacement Vertical displacement magnitude.
+   * @param displacement Vertical displacement magnitude; must be >= 0. A
+   *        negative one makes bounding_inflation() tighten the bound rather
+   *        than relax it, so a sphere trace steps through the surface, and the
+   *        amplitude < TOLERANCE tests take a no-warp branch that apply()
+   *        contradicts.
    * @param major_radius Major radius; must be > 0. The Lipschitz bound scales
    *        by 2/R, so R == 0 yields a non-finite bound on the XZ axis. Guarded
    *        at the cold construction site, not per-call.
@@ -132,6 +136,7 @@ struct Twist {
         twist_amp_abs(fabsf(twist_amp)), two_over_r(2.0f / major_radius) {
     HS_CHECK(R > 0.0f);
     HS_CHECK(twist >= 0);
+    HS_CHECK(amplitude >= 0.0f);
   }
 
   /** @brief Precomputed context: s = sqrtf(x² + z²), shared across
