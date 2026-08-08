@@ -153,8 +153,10 @@ public:
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
     motion = timeline.add_get(
-        0, Animation::Motion<W, ORIENTATION_SUBSTEPS>(
-               node->orientation, path, (int)params.cycle_duration, true));
+        0,
+        Animation::Motion<W, ORIENTATION_SUBSTEPS>(
+            node->orientation, path, (int)params.cycle_duration, true),
+        Timeline::Pin::PINNED);
 
     timeline.add(0, Animation::Driver(cycle_phase, &palette_speed, 1.0f));
 
