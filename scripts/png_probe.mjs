@@ -4,9 +4,14 @@
 import { inflateSync } from 'node:zlib';
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const VALID_DEPTHS = new Set([1, 2, 4, 8, 16]);
-// PNG color type -> samples per pixel (types 1 and 5 do not exist).
-const CHANNELS = [1, undefined, 3, 1, 2, undefined, 4];
+// PNG color type -> legal bit depths and samples per pixel (1 and 5 do not exist).
+const COLOR_TYPES = new Map([
+  [0, { depths: [1, 2, 4, 8, 16], channels: 1 }],
+  [2, { depths: [8, 16], channels: 3 }],
+  [3, { depths: [1, 2, 4, 8], channels: 1 }],
+  [4, { depths: [8, 16], channels: 2 }],
+  [6, { depths: [8, 16], channels: 4 }],
+]);
 
 const CRC_TABLE = new Uint32Array(256);
 for (let n = 0; n < 256; n++) {
@@ -28,11 +33,12 @@ function readHeader(data) {
   const height = data.readUInt32BE(4);
   const depth = data[8];
   const colorType = data[9];
-  const channels = CHANNELS[colorType];
+  const spec = COLOR_TYPES.get(colorType);
   if (width === 0 || height === 0) throw new Error('IHDR declares a zero dimension');
-  if (!VALID_DEPTHS.has(depth)) throw new Error(`IHDR bit depth ${depth} is not a PNG bit depth`);
-  if (channels === undefined) throw new Error(`IHDR color type ${colorType} is not a PNG color type`);
-  return { width, height, depth, channels, interlace: data[12] };
+  if (spec === undefined) throw new Error(`IHDR color type ${colorType} is not a PNG color type`);
+  if (!spec.depths.includes(depth))
+    throw new Error(`IHDR bit depth ${depth} is not legal for color type ${colorType}`);
+  return { width, height, depth, colorType, channels: spec.channels, interlace: data[12] };
 }
 
 /**
@@ -48,6 +54,7 @@ export function inspectPng(bytes) {
   let offset = SIGNATURE.length;
   let header = null;
   let ended = false;
+  let palette = false;
   const pixelChunks = [];
   while (!ended) {
     if (offset === bytes.length) throw new Error('no IEND chunk');
@@ -63,6 +70,8 @@ export function inspectPng(bytes) {
     if (type === 'IHDR') {
       if (header !== null) throw new Error('duplicate IHDR chunk');
       header = readHeader(data);
+    } else if (type === 'PLTE') {
+      palette = true;
     } else if (type === 'IDAT') {
       pixelChunks.push(data);
     } else if (type === 'IEND') {
@@ -72,6 +81,7 @@ export function inspectPng(bytes) {
   }
   if (offset !== bytes.length) throw new Error('trailing bytes after IEND');
   if (pixelChunks.length === 0) throw new Error('no IDAT pixel data');
+  if (header.colorType === 3 && !palette) throw new Error('palette image has no PLTE chunk');
 
   let raw;
   try {

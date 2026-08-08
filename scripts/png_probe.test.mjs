@@ -31,20 +31,27 @@ function chunk(type, data) {
   return Buffer.concat([head, data, crc]);
 }
 
-// Minimal 8-bit RGBA image with every scanline filtered as None.
-function makePng(width, height) {
+// Image with the given header pairing, every scanline filtered as None; `extra`
+// chunks are placed between IHDR and IDAT.
+function makeTypedPng(width, height, depth, colorType, channels, extra = []) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8;
-  ihdr[9] = 6;
-  const raw = Buffer.alloc(height * (1 + width * 4));
+  ihdr[8] = depth;
+  ihdr[9] = colorType;
+  const raw = Buffer.alloc(height * (1 + Math.ceil(width * channels * depth / 8)));
   return Buffer.concat([
     SIGNATURE,
     chunk('IHDR', ihdr),
+    ...extra,
     chunk('IDAT', deflateSync(raw)),
     chunk('IEND', Buffer.alloc(0)),
   ]);
+}
+
+// Minimal 8-bit RGBA image.
+function makePng(width, height) {
+  return makeTypedPng(width, height, 8, 6, 4);
 }
 
 test('a well-formed PNG reports its declared dimensions', () => {
@@ -107,6 +114,26 @@ test('appended trailing bytes are rejected', () => {
 
 test('a zero dimension in the header is rejected', () => {
   assert.throws(() => inspectPng(makePng(0, 3)), /zero dimension/);
+});
+
+test('a color type that does not exist is rejected', () => {
+  assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 5, 1)),
+    /color type 5 is not a PNG color type/);
+});
+
+test('a bit depth illegal for its color type is rejected', () => {
+  assert.throws(() => inspectPng(makeTypedPng(4, 2, 4, 6, 4)),
+    /bit depth 4 is not legal for color type 6/);
+});
+
+test('a palette image with no PLTE chunk is rejected', () => {
+  assert.throws(() => inspectPng(makeTypedPng(4, 2, 8, 3, 1)),
+    /palette image has no PLTE chunk/);
+});
+
+test('a palette image reports its dimensions once PLTE is present', () => {
+  const png = makeTypedPng(4, 2, 8, 3, 1, [chunk('PLTE', Buffer.alloc(3))]);
+  assert.deepEqual(inspectPng(png), { width: 4, height: 2 });
 });
 
 test('every committed gallery PNG decodes at the stored size', async () => {
