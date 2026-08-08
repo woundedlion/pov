@@ -512,6 +512,39 @@ inline void test_crgb_colorcode_constructor() {
 }
 
 /**
+ * @brief Verifies the EVERY_N_SECONDS throttle quantizes to whole seconds like
+ *        FastLED's CEveryNSeconds, while EVERY_N_MILLIS stays exact.
+ * @details FastLED stamps and compares `millis() / 1000`, so a throttle
+ *          constructed part-way through a second first fires that fraction
+ *          short of a full period.
+ */
+inline void test_every_n_seconds_quantizes() {
+  hs::set_mock_time(9500, 9500000);
+  hs::EveryNSeconds every_ten_s(10);
+  hs::EveryNMillis every_ten_thousand_ms(10000);
+
+  hs::set_mock_time(18999, 18999000);
+  HS_EXPECT_FALSE(every_ten_s.ready());
+
+  // Second 19 minus the construction stamp of second 9 is a full period, 9.5 s
+  // of wall clock after construction.
+  hs::set_mock_time(19000, 19000000);
+  HS_EXPECT_TRUE(every_ten_s.ready());
+  HS_EXPECT_FALSE(every_ten_thousand_ms.ready());
+
+  hs::set_mock_time(19500, 19500000);
+  HS_EXPECT_TRUE(every_ten_thousand_ms.ready());
+
+  // Re-stamped at second 19, so the next fire is second 29.
+  hs::set_mock_time(28999, 28999000);
+  HS_EXPECT_FALSE(every_ten_s.ready());
+  hs::set_mock_time(29000, 29000000);
+  HS_EXPECT_TRUE(every_ten_s.ready());
+
+  hs::clear_mock_time();
+}
+
+/**
  * @brief Runs every platform-mock test under the "platform" module scope.
  * @return The module's failure count.
  */
@@ -535,6 +568,7 @@ inline int run_platform_tests() {
   test_beatsin8_faithful();
   test_beatsin16_golden();
   test_serial_printf_formats_varargs();
+  test_every_n_seconds_quantizes();
 
   return fixture.result();
 }
