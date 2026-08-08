@@ -56,12 +56,15 @@ using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
  * (fail-safe). `segment_margin`: how many pixels the stage's output can land
  * away from the plotted position, i.e. how far the render bounds must be padded
  * past the display band for a segment worker to still write the stage's taps.
+ * `is_pipeline`: the type is a whole pipeline rather than a stage, so it may not
+ * be listed inside a `Pipeline<>`.
  * A stage overrides any of these by redeclaring it.
  */
 template <bool Is2d, bool HasHistory> struct FilterTraits {
   static constexpr int domain_rank = Is2d ? 1 : 0;
   static constexpr bool is_2d = Is2d;
   static constexpr bool has_history = HasHistory;
+  static constexpr bool is_pipeline = false;
   static constexpr bool is_terminal = false;
   static constexpr bool terminal_replaces = false;
   static constexpr bool emits_nonunit_world = false;
@@ -79,6 +82,17 @@ using Is3D = FilterTraits<false, false>;
 using Is2DWithHistory = FilterTraits<true, true>;
 /** @brief Trait indicating a 3D filter that maintains state/history. */
 using Is3DWithHistory = FilterTraits<false, true>;
+
+/**
+ * @brief Trait base for a screen-space sink that stands in for a whole Pipeline
+ * instead of running as a stage inside one.
+ * @details Keeps the stage vocabulary the Pipeline folds read, so a sink handed
+ * to `Pipeline<>` still reaches the ordering asserts and is rejected there by
+ * `is_pipeline` rather than deep inside plot() overload resolution.
+ */
+struct IsPipelineSink : FilterTraits<true, false> {
+  static constexpr bool is_pipeline = true;
+};
 
 /**
  * @brief Recursive template pipeline for processing render commands.
@@ -115,6 +129,7 @@ HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr int domain_rank = 2;
   static constexpr bool is_2d = true;
+  static constexpr bool is_pipeline = true;
   static constexpr bool is_terminal = false;
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_reads_outside_band = false;
@@ -281,6 +296,7 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
 
   static constexpr int domain_rank = Head::domain_rank;
   static constexpr bool is_2d = Head::is_2d;
+  static constexpr bool is_pipeline = true;
   static constexpr bool is_terminal = Head::is_terminal || Next::is_terminal;
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
@@ -460,6 +476,13 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
     else
       return forward(a, b, planar_basis);
   }
+
+  static_assert(
+      !Head::is_pipeline,
+      "Not a filter stage: this type is a whole pipeline (a nested Pipeline, or "
+      "a direct sink such as Screen::DirectAntiAliasSink) — it writes the "
+      "Canvas itself and takes no downstream `pass` callback. Use it on its "
+      "own, or list the stage it replaces (Screen::AntiAlias).");
 
   static_assert(
       !Head::has_history || Head::is_2d ||
@@ -1361,7 +1384,7 @@ HS_O3_END
  * once per sample.
  */
 HS_O3_BEGIN
-template <int W, int H> class DirectAntiAliasSink : public Is2D {
+template <int W, int H> class DirectAntiAliasSink : public IsPipelineSink {
 public:
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_reads_outside_band = false;

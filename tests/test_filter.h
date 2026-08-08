@@ -9,7 +9,7 @@
  *
  * Coverage:
  *   - Filter traits Is2D / Is3D / Is2DWithHistory / Is3DWithHistory
- *     (is_2d / has_history members)
+ *     (is_2d / has_history members) and IsPipelineSink (is_pipeline)
  *   - Trait inheritance on representative filters (AntiAlias, Blur,
  *     ChromaticShift, World::Replicate, World::Trails, Screen::Trails,
  *     Pixel::Feedback)
@@ -128,6 +128,15 @@ inline void test_filter_trait_inheritance() {
   HS_EXPECT_TRUE((Filter::World::Trails<16>::has_history));
   HS_EXPECT_TRUE((Filter::Screen::Trails<>::is_2d));
   HS_EXPECT_TRUE((Filter::Screen::Trails<>::has_history));
+
+  // is_pipeline separates a stage from a whole pipeline: the Pipeline's stage
+  // check reads it to reject a sink handed to it as a filter.
+  HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::is_pipeline));
+  HS_EXPECT_FALSE((Filter::World::Replicate<W>::is_pipeline));
+  HS_EXPECT_TRUE((Filter::Screen::DirectAntiAliasSink<W, H>::is_pipeline));
+  HS_EXPECT_TRUE((Pipeline<W, H>::is_pipeline));
+  HS_EXPECT_TRUE(
+      (Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>::is_pipeline));
 
   // Static-assert form (compile-time).
   static_assert(Filter::Screen::AntiAlias<W, H>::is_2d, "AntiAlias is 2D");
