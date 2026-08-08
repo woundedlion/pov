@@ -554,6 +554,10 @@ public:
    * @note A single-frame source (`num_frames == 1`, the common post-`set()`/
    * `collapse()` state) upsamples to a flat smear of that one frame; real motion
    * blur requires >=2 pushed frames.
+   * @note Resampling is uniform in source index, so a trail whose frames were
+   * pushed at a varying rate keeps that non-uniformity: the motion-blur streak
+   * stays dense over the slow stretches and sparse over the fast ones rather
+   * than spreading evenly along the arc.
    */
   void upsample(int count) {
     HS_CHECK(count >= 1);
