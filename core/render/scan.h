@@ -73,7 +73,9 @@ inline int pole_lod_run(float sin_phi) {
  *          longitude, foreshortened by sin(phi). A probe farther than this from
  *          the surface cannot change side anywhere in the block. 1.25 covers
  *          distance() reporting in plane units, which runs slightly wider than
- *          angular.
+ *          angular; a walk whose plane stretches further (a gnomonic
+ *          projection stretches by 1 + r^2) scales the result by its own
+ *          factor.
  */
 template <int W>
 __attribute__((always_inline)) inline float pole_lod_slack(int run,
@@ -1595,6 +1597,10 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const float reject_rad = pixel_width * 1.0002f;
   const float reject_dsq = reject_rad * reject_rad;
 
+  // distance() reports gnomonic-plane units, which stretch an angular step by
+  // up to 1 + r^2; max_dist bounds r over every probe the cull admits.
+  [[maybe_unused]] const float plane_stretch = 1.0f + shape.max_dist_sq;
+
   HS_PROFILE_DEEP(raster_scan);
   for (int y = y_lo; y <= y_hi; ++y) {
     if (per_row) {
@@ -1607,7 +1613,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     const int stride = pole_lod_run(sp);
     float block_slack = 0.0f;
     if constexpr (POLE_LOD_ENABLED)
-      block_slack = pole_lod_slack<W>(stride, sp);
+      block_slack = pole_lod_slack<W>(stride, sp) * plane_stretch;
 
     for (size_t r = 0; r < num_runs; ++r) {
       const int rx2 = runs[r].second;
