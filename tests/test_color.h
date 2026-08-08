@@ -23,6 +23,7 @@
 #include "core/color/srgb_decode.h"
 #include "core/engine/util.h"
 #include "tests/test_fixture.h"
+#include "tests/test_generative_palette.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
