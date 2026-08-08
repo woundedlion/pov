@@ -192,13 +192,26 @@ struct DwtStallBucket {
   uint64_t lsu = 0;
   uint64_t exc = 0;
   uint32_t batches = 0;
+  uint32_t wrapped = 0;
 
-  /** @brief Adds one interval whose 8-bit event counters cannot wrap. */
+  /**
+   * @brief Adds one interval to the bucket.
+   * @param start Sample taken at the interval's start.
+   * @details The three event counters are 8-bit and each advances at most once
+   *          per cycle, so their deltas are unambiguous only for an interval
+   *          shorter than 256 cycles. A longer interval still accumulates —
+   *          truncated, hence understated — and is tallied in `wrapped`, since
+   *          nothing enforces the bound on callers that add() directly rather
+   *          than through DwtStallBatch.
+   */
   void add(const DwtStallSample &start) {
-    cycles += static_cast<uint32_t>(ARM_DWT_CYCCNT - start.cycles);
+    const uint32_t span = ARM_DWT_CYCCNT - start.cycles;
+    cycles += span;
     cpi += static_cast<uint8_t>(dwt_cpi_counter() - start.cpi);
     lsu += static_cast<uint8_t>(dwt_lsu_counter() - start.lsu);
     exc += static_cast<uint8_t>(dwt_exc_counter() - start.exc);
+    if (span >= 256)
+      ++wrapped;
     ++batches;
   }
 

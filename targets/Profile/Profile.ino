@@ -458,6 +458,10 @@ private:
             stage, (unsigned long)b.batches, hs::u64_dec(b.cycles, c0),
             hs::u64_dec(b.cpi, c1), hs::u64_dec(b.lsu, c2),
             hs::u64_dec(b.exc, c3));
+    if (b.wrapped)
+      hs::log("msp stall aliased: stage=%s intervals=%lu/%lu ran 256+ cycles; "
+              "cpi/lsu/exc understated",
+              stage, (unsigned long)b.wrapped, (unsigned long)b.batches);
   }
 
   static void dump_mindsplatter_stalls() {
