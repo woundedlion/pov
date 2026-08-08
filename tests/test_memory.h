@@ -8,7 +8,7 @@
  * The always-on HS_CHECK traps are driven (in forked child processes) by the
  * death harness in tests/test_death.h — case_arena_oom (allocate past
  * capacity), case_arena_zero_size_alloc, case_arena_bad_alignment,
- * case_arena_set_offset_overflow (rewind past capacity),
+ * case_arena_set_offset_forward (a set_offset that is not a rewind),
  * case_arena_set_capacity_below_offset, case_arena_vector_overflow /
  * _emplace_overflow / _append_bulk_overflow (fixed-capacity push),
  * case_persist_same_arena, case_arena_oversubscribed, and
