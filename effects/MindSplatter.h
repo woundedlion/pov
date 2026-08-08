@@ -312,14 +312,7 @@ private:
         .angular_speed = 0.164f,
         .warp_scale = 0.0f}},
   }};
-  static_assert(preset_in_ranges(PRESETS[0].params) &&
-                    preset_in_ranges(PRESETS[1].params) &&
-                    preset_in_ranges(PRESETS[2].params) &&
-                    preset_in_ranges(PRESETS[3].params) &&
-                    preset_in_ranges(PRESETS[4].params) &&
-                    preset_in_ranges(PRESETS[5].params) &&
-                    preset_in_ranges(PRESETS[6].params) &&
-                    preset_in_ranges(PRESETS[7].params),
+  static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
                 "a MindSplatter preset drives a param outside its registered "
                 "slider range; widen the range to accommodate the preset (the "
                 "range exposes the presets, it does not clamp them)");
