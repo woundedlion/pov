@@ -623,9 +623,11 @@ struct RippleParams {
   float decay{5.0};       /**< Spatial decay rate. */
   float thickness{1.0f};  /**< Thickness of the ripple. */
 
-  /** @brief Cached cos(angle) lower fast-reject bound. */
+  /** @brief Cached cos(d_min), the nearest ring edge: the LARGER of the two
+   * cosines, so it is the fast-reject band's upper cutoff. */
   float cos_threshold_min = 1.0f;
-  /** @brief Cached cos(angle) upper fast-reject bound. */
+  /** @brief Cached cos(d_max), the farthest ring edge: the smaller cosine, so
+   * it is the fast-reject band's lower cutoff. */
   float cos_threshold_max = -1.0f;
 
   /** @brief Carries prepare_frame()'s refresh_from() hook. */
