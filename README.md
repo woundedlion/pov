@@ -158,7 +158,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
 ### Holosphere (engine + firmware)
 
-<!-- docs-check: tree -->
+<!-- docs-check: tree exhaustive -->
 ```
 ├── core/                       Rendering engine
 │   ├── engine/                 Machinery: platform layer, memory, callables, rosters, effect support
@@ -205,6 +205,9 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   │   ├── srgb_decode.h           Branchless linear16 → sRGB8 encode from DTCM split tables
 │   │   ├── srgb_decode_lut.h       Generated split-decode tables behind srgb_decode.h
 │   │   ├── gamut_lut.h             Generated sRGB gamut-boundary chroma table for OKLab clipping
+│   │   ├── generative_palette.h    GenerativePalette + PaletteRecipe harmony/profile compilation
+│   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
+│   │   ├── effect_palette_recipes.h Per-effect authored PaletteRecipe constructors
 │   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
 │   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
@@ -273,6 +276,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │       ├── wasm.cpp            Emscripten binding TU — includes the binding headers below
 │       ├── engine_bindings.h   Render bridge — HolosphereEngine JS class, resolution/effect dispatch
 │       ├── mesh_ops_bindings.h Mesh editor bridge — MeshOps JS class, tooling arenas, Conway/Goldberg operators
+│       ├── mesh_op_bounds.h    Pure mesh-operator roster + growth factors behind the MeshOps guards (host-testable)
 │       ├── palette_bindings.h  Palette bridge — PaletteOps JS class, generative palette LUT bake
 │       ├── math_exports.h      Free color/palette/geometry exports the JS tool ports cross-check against
 │       ├── arena_metrics.h     Arena metrics report shared by the render and mesh editor bridges
@@ -310,7 +314,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
 │   ├── teensy_size_table.py    `just teensy-size` wrapper: builds every env + prints the region table
 │   ├── teensy_size_trail.py    Per-commit firmware size trail: ELF section parser, recorder, regression report
-│   ├── teensy_warnings.py      Warning-hygiene ratchet against teensy_warning_baseline.txt
+│   ├── teensy_warnings.py / teensy_warning_baseline.txt  Warning-hygiene ratchet + its baseline
 │   ├── teensy_pre.py / teensy_isystem.py / teensy_map.py / teensy_nano.py  PlatformIO build hooks
 │   ├── phantasm.ld             Phantasm linker script (memory-region layout)
 │   ├── profile_one.sh / profile_sweep.sh  On-device HS_PROFILE flash + capture runs
@@ -321,6 +325,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── pov_segment_map_export.cpp  Generator for the committed segment-map golden
 │   ├── relax_bakes.py / relax_bake_harness.cpp  Relaxed-mesh bake generator of record
 │   ├── gen_gamut_lut.py        sRGB gamut-boundary generator of record (emits core/color/gamut_lut.h)
+│   ├── mindsplatter_palette_gen.cpp  MindSplatter palette-LUT bank generator of record
 │   ├── mindsplatter_replay_gen.cpp  Golden-corpus generator of record (emits tests/mindsplatter_replay_corpus.h)
 │   ├── mindsplatter_replay_main.cpp  Replay comparator over that corpus (its fixtures live under tests/)
 │   ├── docs_check.py           Markdown fence/link/anchor/path validator (CI)

@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import functools
 import posixpath
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
@@ -51,12 +53,16 @@ _SOURCE_SUFFIXES = frozenset({
 _PATH_SPAN_RE = re.compile(r"^([A-Za-z0-9_.][\w.\-/]*)(?::\d+(?:-\d+)?)?$")
 
 # Directory trees drawn inside a fence are path claims too, and the largest
-# ones in the docs. The preceding directive says which repository a tree draws:
-# `tree` is this one, rooted at its root, and every name is checked;
-# `tree <checkout>` is a repository this one does not track and nothing here can
-# verify. An HTML comment carries it, so neither GitHub nor Doxygen renders it.
+# ones in the docs. The preceding directive says which repository a tree draws
+# and how completely: `tree [<checkout>] [exhaustive]`. Bare `tree` is this
+# repository, rooted at its root; `tree <checkout>` is a sibling repository,
+# validated only when --checkout supplies its path. `exhaustive` adds the
+# reverse direction — every tracked path under a drawn directory must have a
+# row. An HTML comment carries the directive, so neither GitHub nor Doxygen
+# renders it.
 _DIRECTIVE_RE = re.compile(r"^ {0,3}<!--[ \t]*docs-check:[ \t]*(.*?)[ \t]*-->[ \t]*$")
 _TREE_TAG = "tree"
+_TREE_EXHAUSTIVE = "exhaustive"
 _TREE_ROW_RE = re.compile(r"^(?P<indent>(?:│   |    )*)(?:├──|└──) +(?P<rest>\S.*)$")
 _TREE_INDENT = 4
 # A drawn name: a path segment chain, optionally a directory's trailing slash,
@@ -83,6 +89,22 @@ _UNTRACKED_ALLOWED = (
 )
 
 _MARKDOWN_EXCLUDED = frozenset({PurePosixPath("docs/CODE_REVIEW.md")})
+
+# Tracked paths an exhaustive tree deliberately leaves without a row: VCS
+# metadata, the map's own document, and the test tree the map draws as one
+# summary row plus its shared fixtures. A trailing slash covers a subtree.
+_TREE_UNMAPPED = (
+    ".gitattributes",
+    ".gitignore",
+    "README.md",
+    "hardware/phantasm/.gitignore",
+    "tests/",
+)
+
+# Rows a checkout's own repository gitignores, keyed by the directive's name.
+_CHECKOUT_UNTRACKED_ALLOWED = {
+    "daydream": ("node_modules/", "three.js/", "vendor/"),
+}
 
 
 def _untracked_allowance(candidate: str, used: set[str] | None) -> bool:
@@ -430,8 +452,8 @@ def _tree_names(rest: str) -> list[str]:
 
 
 def _tree_entry_exists(candidate: str, entries: set[PurePosixPath],
-                       used: set[str] | None = None) -> bool:
-    if _untracked_allowance(candidate, used):
+                       allowed: Callable[[str], bool]) -> bool:
+    if allowed(candidate):
         return True
     if "*" in candidate or "?" in candidate:
         return any(fnmatch.fnmatchcase(entry.as_posix(), candidate)
@@ -439,50 +461,143 @@ def _tree_entry_exists(candidate: str, entries: set[PurePosixPath],
     return PurePosixPath(candidate) in entries
 
 
+@dataclass(frozen=True)
+class TreeDirective:
+    checkout: str
+    exhaustive: bool
+
+
+def _tree_directive(tag: str) -> TreeDirective | None:
+    """Parses `tree [<checkout>] [exhaustive]`; None when the tag is not one."""
+    tokens = tag.split()
+    if not tokens or tokens[0] != _TREE_TAG:
+        return None
+    rest = tokens[1:]
+    exhaustive = bool(rest) and rest[-1] == _TREE_EXHAUSTIVE
+    if exhaustive:
+        rest = rest[:-1]
+    if len(rest) > 1:
+        return None
+    return TreeDirective(rest[0] if rest else "", exhaustive)
+
+
+def _checkout_allowance(candidate: str, prefixes: tuple[str, ...]) -> bool:
+    return any(candidate == prefix.rstrip("/") or candidate.startswith(prefix)
+               for prefix in prefixes)
+
+
+def _tree_rows(source: PurePosixPath,
+               fence: Fence) -> tuple[list[tuple[int, str]], list[Issue]]:
+    """Resolves a fence's rows to (line, repo-relative path) pairs."""
+    rows = []
+    issues = []
+    stack: list[str] = []
+    for line_number, line in fence.body:
+        match = _TREE_ROW_RE.match(line)
+        if not match:
+            continue
+        depth = len(match.group("indent")) // _TREE_INDENT
+        names = _tree_names(match.group("rest"))
+        if not names:
+            continue
+        if depth > len(stack):
+            issues.append(Issue(source.as_posix(), line_number,
+                                f"tree row {names[0]!r} is indented past its parent"))
+            continue
+        parent = "/".join(stack[:depth])
+        stack[depth:] = [names[0].rstrip("/")]
+        rows.extend((line_number, posixpath.join(parent, name.rstrip("/")))
+                    for name in names)
+    return rows, issues
+
+
+def _tree_omissions(source: PurePosixPath, fence: Fence,
+                    rows: list[tuple[int, str]],
+                    entries: set[PurePosixPath]) -> list[Issue]:
+    """Reports tracked paths under a drawn directory that no row names.
+
+    A directory whose rows name none of its children is a summary row and its
+    subtree is elided; one that names any child must name them all.
+    """
+    drawn = {""}
+    for _, path in rows:
+        drawn.add(path)
+        drawn.update(parent.as_posix() for parent in PurePosixPath(path).parents
+                     if parent != PurePosixPath("."))
+    globs = tuple(path for path in drawn if "*" in path or "?" in path)
+
+    def is_drawn(candidate: str) -> bool:
+        return candidate in drawn or any(
+            fnmatch.fnmatchcase(candidate, pattern) for pattern in globs)
+
+    children: dict[str, set[str]] = {}
+    for entry in entries:
+        parent = entry.parent.as_posix()
+        children.setdefault("" if parent == "." else parent, set()).add(
+            entry.as_posix())
+
+    omitted: set[str] = set()
+    for directory in drawn:
+        siblings = children.get(directory, ())
+        if not any(is_drawn(child) for child in siblings):
+            continue
+        omitted.update(child for child in siblings
+                       if not is_drawn(child) and not _tree_unmapped(child))
+    return [Issue(source.as_posix(), fence.start,
+                  f"tree omits tracked path {path!r}") for path in sorted(omitted)]
+
+
+def _tree_unmapped(candidate: str) -> bool:
+    return any(candidate == prefix or candidate.startswith(prefix)
+               for prefix in _TREE_UNMAPPED)
+
+
 def _tree_issues(source: PurePosixPath, fences: list[Fence],
                  entries: set[PurePosixPath],
-                 used: set[str] | None = None) -> list[Issue]:
-    """Reports drawn tree rows that name a path this repository does not track."""
+                 used: set[str] | None = None,
+                 checkouts: dict[str, set[PurePosixPath]] | None = None,
+                 skipped: set[str] | None = None) -> list[Issue]:
+    """Reports drawn tree rows that name a path the drawn repository lacks."""
     issues = []
     for fence in fences:
-        tag = fence.tag.split()
-        if not tag:
+        if not fence.tag.split():
             continue
-        if tag[0] != _TREE_TAG:
+        directive = _tree_directive(fence.tag)
+        if directive is None:
             issues.append(Issue(source.as_posix(), fence.start,
                                 f"unknown docs-check directive {fence.tag!r}"))
             continue
-        if len(tag) > 1:
-            continue
-        stack: list[str] = []
-        for line_number, line in fence.body:
-            match = _TREE_ROW_RE.match(line)
-            if not match:
+        if directive.checkout:
+            target = (checkouts or {}).get(directive.checkout)
+            if target is None:
+                if skipped is not None:
+                    skipped.add(directive.checkout)
                 continue
-            depth = len(match.group("indent")) // _TREE_INDENT
-            names = _tree_names(match.group("rest"))
-            if not names:
-                continue
-            if depth > len(stack):
-                issues.append(Issue(source.as_posix(), line_number,
-                                    f"tree row {names[0]!r} is indented past its parent"))
-                continue
-            parent = "/".join(stack[:depth])
-            stack[depth:] = [names[0].rstrip("/")]
-            for name in names:
-                candidate = posixpath.join(parent, name.rstrip("/"))
-                if not _tree_entry_exists(candidate, entries, used):
-                    issues.append(Issue(source.as_posix(), line_number,
-                                        f"tree path {candidate!r} does not exist"))
+            prefixes = _CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ())
+            allowed = functools.partial(_checkout_allowance, prefixes=prefixes)
+        else:
+            target = entries
+            allowed = functools.partial(_untracked_allowance, used=used)
+        rows, row_issues = _tree_rows(source, fence)
+        issues.extend(row_issues)
+        issues.extend(
+            Issue(source.as_posix(), line_number,
+                  f"tree path {candidate!r} does not exist")
+            for line_number, candidate in rows
+            if not _tree_entry_exists(candidate, target, allowed))
+        if directive.exhaustive:
+            issues.extend(_tree_omissions(source, fence, rows, target))
     return issues
 
 
 def check_text(source: PurePosixPath, text: str,
                entries: set[PurePosixPath],
                anchors: dict[PurePosixPath, set[str]] | None = None,
-               used: set[str] | None = None) -> list[Issue]:
+               used: set[str] | None = None,
+               checkouts: dict[str, set[PurePosixPath]] | None = None,
+               skipped: set[str] | None = None) -> list[Issue]:
     visible, fences, issues = _visible_lines(source, text)
-    issues.extend(_tree_issues(source, fences, entries, used))
+    issues.extend(_tree_issues(source, fences, entries, used, checkouts, skipped))
     # The source's own anchors always resolve; cross-document ones need the
     # repository-wide map check_repository builds.
     anchors = dict(anchors or {})
@@ -539,8 +654,12 @@ def _tracked_entries(root: Path) -> tuple[list[PurePosixPath], set[PurePosixPath
 
 
 def check_repository(
-        root: Path) -> tuple[list[PurePosixPath], list[Issue], list[str]]:
+        root: Path, checkout_roots: dict[str, Path] | None = None,
+        skipped: set[str] | None = None
+) -> tuple[list[PurePosixPath], list[Issue], list[str]]:
     markdown, entries = _tracked_entries(root)
+    checkouts = {name: _tracked_entries(path)[1]
+                 for name, path in (checkout_roots or {}).items()}
     issues = []
     used: set[str] = set()
     sources: dict[PurePosixPath, str] = {}
@@ -556,7 +675,8 @@ def check_repository(
     anchors = {relative: _anchors(_visible_lines(relative, text)[0])
                for relative, text in sources.items()}
     for relative, text in sources.items():
-        issues.extend(check_text(relative, text, entries, anchors, used))
+        issues.extend(check_text(relative, text, entries, anchors, used,
+                                 checkouts, skipped))
     return markdown, sorted(issues), _stale_allowances(entries, used)
 
 
@@ -564,13 +684,29 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Check tracked Markdown fences and repository links.")
     parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument(
+        "--checkout", action="append", default=[], metavar="NAME=PATH",
+        help="root of a sibling checkout a `tree <NAME>` fence draws; "
+             "fences naming a checkout given no path are skipped")
     args = parser.parse_args(argv)
 
+    checkout_roots = {}
+    for option in args.checkout:
+        name, separator, path = option.partition("=")
+        if not separator or not name or not path:
+            parser.error(f"--checkout expects NAME=PATH, got {option!r}")
+        checkout_roots[name] = Path(path).resolve()
+
+    skipped: set[str] = set()
     try:
-        markdown, issues, stale = check_repository(args.root.resolve())
+        markdown, issues, stale = check_repository(
+            args.root.resolve(), checkout_roots, skipped)
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         print(f"[docs-check] tooling error: {error}", file=sys.stderr)
         return 2
+    if skipped:
+        print(f"[docs-check] tree fences not validated - no --checkout root for: "
+              f"{', '.join(sorted(skipped))}")
     # Warning only: dropping the last citation of an exempt path improves the
     # tree and must not red the build for whoever lands that commit.
     if markdown and stale:
