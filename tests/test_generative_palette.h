@@ -33,7 +33,9 @@ inline void test_effect_palette_recipe_roster() {
   HS_EXPECT_NEAR(presets[1].recipe.hue.base_turns,
                  PaletteRecipes::hue_turns(42), 1e-6f);
   HS_EXPECT_EQ(presets[0].recipe.hue.mode, HueMode::CUSTOM);
-  HS_EXPECT_EQ(presets[7].recipe.lightness.curve, AxisCurve::CUSTOM);
+  HS_EXPECT_EQ(presets[7].recipe.hue.harmony, PaletteHarmony::ANALOGOUS);
+  HS_EXPECT_EQ(presets[7].recipe.lightness.curve, AxisCurve::CONSTANT);
+  HS_EXPECT_NEAR(presets[7].recipe.hue.base_turns, 0.9348811f, 1e-6f);
 }
 
 inline void test_generative_palette_recipe_validation() {
