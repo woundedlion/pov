@@ -4360,8 +4360,8 @@ struct ShaderBallWhiteBox {
     sb.outer_walk.set(outer);
   }
   static void update_camera(SB &sb, float wander) { sb.update_camera(wander); }
-  static Pixel palette_color(const SB &sb, int bank, float t) {
-    return sb.cyclers[bank].palette().get(t).color;
+  static Pixel palette_color(const SB &sb, float t) {
+    return sb.palette_cycler.palette().get(t).color;
   }
   static void seed_accumulators(SB &sb, float v) {
     sb.noise_time = v;
@@ -4373,10 +4373,9 @@ struct ShaderBallWhiteBox {
   static Vector glitch_lens(const Vector &v) {
     return SB::apply_glitch_lens(v);
   }
-  static PatternSample blend_lens_samples(const PatternSample &direct,
-                                          const PatternSample &lensed,
-                                          float mix) {
-    return SB::blend_lens_samples(direct, lensed, mix);
+  static Complex blend_lens_coords(const Complex &direct, const Complex &lensed,
+                                   float mix) {
+    return SB::blend_lens_coords(direct, lensed, mix);
   }
   static StereoWarpResult wrapped_warp(const SB &sb, const Complex &z,
                                        float time) {
@@ -4399,7 +4398,7 @@ struct ShaderBallWhiteBox {
 };
 
 /**
- * @brief Pins ShaderBall's two palette banks to their authored color ramps.
+ * @brief Pins ShaderBall's cycling palette to its authored liquid ramp.
  * @details Samples at t = i/15: LUT_SIZE - 1 is 15 * 17, so every sample lands
  *          on a baked entry and reads the authored ramp rather than the
  *          interpolation of two entries around it.
@@ -4414,34 +4413,18 @@ inline void test_shaderball_palettes() {
       {2154, 22749, 13311}, {12087, 39066, 3392}, {40255, 45093, 3961},
       {52285, 47430, 4206},
   };
-  static const Pixel FLYBY[] = {
-      {27665, 12491, 5004}, {25929, 13160, 4970}, {21739, 14774, 4933},
-      {15815, 17050, 5068}, {6594, 20420, 6844},  {5944, 19511, 15067},
-      {5818, 18911, 19629}, {5825, 18541, 22198}, {5836, 18470, 22666},
-      {5839, 18335, 23604}, {5828, 18067, 25513}, {5823, 17636, 28537},
-      {5693, 16993, 33397}, {5868, 16064, 39391}, {7096, 15300, 41293},
-      {7665, 15033, 41563},
-  };
-
   reset_effect_globals();
   WB::SB sb;
   sb.init();
   int liquid_max_error = 0;
-  int flyby_max_error = 0;
   for (int i = 0; i <= 15; ++i) {
-    const Pixel liquid = WB::palette_color(sb, 0, i / 15.0f);
-    const Pixel flyby = WB::palette_color(sb, 1, i / 15.0f);
+    const Pixel liquid = WB::palette_color(sb, i / 15.0f);
     liquid_max_error =
         std::max({liquid_max_error, abs(int(liquid.r) - int(LIQUID[i].r)),
                   abs(int(liquid.g) - int(LIQUID[i].g)),
                   abs(int(liquid.b) - int(LIQUID[i].b))});
-    flyby_max_error =
-        std::max({flyby_max_error, abs(int(flyby.r) - int(FLYBY[i].r)),
-                  abs(int(flyby.g) - int(FLYBY[i].g)),
-                  abs(int(flyby.b) - int(FLYBY[i].b))});
   }
   HS_EXPECT_LE(liquid_max_error, 1024);
-  HS_EXPECT_EQ(flyby_max_error, 0);
 }
 
 /**
@@ -4633,24 +4616,22 @@ inline void test_shaderball_glitch_lens_unit_norm() {
   HS_EXPECT_NEAR(forward.z, backward.z, 1e-6f);
 }
 
-/** @brief Keeps Lens Mix linear through its former midpoint singularity. */
+/** @brief Keeps the projected lens morph linear through its midpoint. */
 inline void test_shaderball_lens_mix_continuous() {
   using WB = ShaderBallWhiteBox;
-  const WB::PatternSample direct{0.15f, 0.2f};
-  const WB::PatternSample lensed{0.85f, 1.0f};
-  const auto before = WB::blend_lens_samples(direct, lensed, 0.499f);
-  const auto middle = WB::blend_lens_samples(direct, lensed, 0.5f);
-  const auto after = WB::blend_lens_samples(direct, lensed, 0.501f);
-  HS_EXPECT_NEAR(middle.value - before.value, after.value - middle.value,
-                 1e-6f);
-  HS_EXPECT_NEAR(middle.displacement - before.displacement,
-                 after.displacement - middle.displacement, 1e-6f);
-  const auto start = WB::blend_lens_samples(direct, lensed, 0.0f);
-  const auto end = WB::blend_lens_samples(direct, lensed, 1.0f);
-  HS_EXPECT_EQ(start.value, direct.value);
-  HS_EXPECT_EQ(start.displacement, direct.displacement);
-  HS_EXPECT_EQ(end.value, lensed.value);
-  HS_EXPECT_EQ(end.displacement, lensed.displacement);
+  const Complex direct(0.15f, 0.2f);
+  const Complex lensed(0.85f, 1.0f);
+  const Complex before = WB::blend_lens_coords(direct, lensed, 0.499f);
+  const Complex middle = WB::blend_lens_coords(direct, lensed, 0.5f);
+  const Complex after = WB::blend_lens_coords(direct, lensed, 0.501f);
+  HS_EXPECT_NEAR(middle.re - before.re, after.re - middle.re, 1e-6f);
+  HS_EXPECT_NEAR(middle.im - before.im, after.im - middle.im, 1e-6f);
+  const Complex start = WB::blend_lens_coords(direct, lensed, 0.0f);
+  const Complex end = WB::blend_lens_coords(direct, lensed, 1.0f);
+  HS_EXPECT_EQ(start.re, direct.re);
+  HS_EXPECT_EQ(start.im, direct.im);
+  HS_EXPECT_EQ(end.re, lensed.re);
+  HS_EXPECT_EQ(end.im, lensed.im);
 }
 
 /** @brief Gives every staggered parameter slice zero endpoint velocity. */
@@ -4671,21 +4652,18 @@ inline void test_shaderball_staggered_lerp_eased() {
 /** @brief Pins ShaderBall's fine-grained unlensed liquid preset. */
 inline void test_shaderball_preset_roster() {
   using WB = ShaderBallWhiteBox;
-  constexpr WB::Params EXPECTED{3.0f,  0.0f,  0.5f,  15.763f, 0.1f, 2.950552f,
-                                0.0f,  0.8f,  1.0f,  0.0f,    1.0f, 0.0f,
-                                0.02f, 0.15f, 0.05f, 0.0f,    0.0f};
-  constexpr WB::Params NEW_PRESET{0.1f,   13.47f, 0.5f,   3.28f,       0.1f,
-                                  2.463f, 0.0f,   0.8f,   1.209f,      0.03725f,
-                                  0.252f, 0.066f, 0.022f, 0.19710001f, 0.02f,
-                                  0.011f, 0.0f};
+  constexpr WB::Params EXPECTED{3.0f,  0.0f,  0.5f, 15.763f, 0.1f, 2.950552f,
+                                0.0f,  0.8f,  1.0f, 0.0f,    1.0f, 0.0f,
+                                0.15f, 0.05f, 0.0f, 0.0f};
+  constexpr WB::Params NEW_PRESET{
+      0.1f,   13.47f,   0.5f,   3.28f,  0.1f,        2.463f, 0.0f,   0.8f,
+      1.209f, 0.03725f, 0.252f, 0.066f, 0.19710001f, 0.02f,  0.011f, 0.0f};
   const auto &presets = WB::presets();
   HS_EXPECT_EQ(presets.size(), size_t(12));
   for (auto field : WB::Params::FIELDS) {
     HS_EXPECT_EQ(presets[3].params.*field, EXPECTED.*field);
     HS_EXPECT_EQ(presets[4].params.*field, NEW_PRESET.*field);
   }
-  for (size_t i = 0; i < presets.size(); ++i)
-    HS_EXPECT_EQ(presets[i].params.palette_pos, i == 4 ? 0.022f : 0.02f);
 }
 
 /**

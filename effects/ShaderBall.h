@@ -22,13 +22,13 @@ struct ShaderBallWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Stereographic shader effect over a two-slot bank of palette cyclers.
+ * @brief Stereographic shader effect over a continuously cycling palette.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Projects a noise-warped sinusoidal pattern through stereographic
  * space. Every look axis — camera spin vs. random-walk wander, glitch-lens
- * blend, liquid vs. grid pattern mix, palette slot, breathe
- * depth, hue shift, value fade — is a continuous preset-lerped float, so the
+ * blend, liquid vs. grid pattern mix, breathe depth, hue shift, value fade —
+ * is a continuous preset-lerped float, so the
  * preset timeline morphs between any two looks without a discrete pop.
  */
 template <int W, int H> class ShaderBall : public Effect {
@@ -87,8 +87,6 @@ public:
     register_animated_param("Wander", &params.wander, WANDER_MIN, WANDER_MAX);
     register_animated_param("Lens Mix", &params.lens_mix, LENS_MIX_MIN,
                             LENS_MIX_MAX);
-    register_animated_param("Palette", &params.palette_pos, PALETTE_POS_MIN,
-                            PALETTE_POS_MAX);
     register_animated_param("Breathe Depth", &params.breathe_depth, BREATHE_MIN,
                             BREATHE_MAX);
     register_animated_param("Cycle Speed", &params.cycle_speed, CYCLE_SPEED_MIN,
@@ -108,14 +106,10 @@ public:
     timeline.add(0, Animation::Driver(cycle_phase, &blend.params.cycle_speed,
                                       1.0f, false));
 
-    cyclers[0].init_generated(persistent_arena, next_liquid_palette,
-                              &liquid_rotation, PALETTE_DWELL_FRAMES,
-                              PALETTE_FADE_FRAMES, ease_in_out_sin,
-                              &anims_paused);
-    cyclers[1].init_generated(persistent_arena, next_flyby_palette,
-                              &flyby_rotation, PALETTE_DWELL_FRAMES,
-                              PALETTE_FADE_FRAMES, ease_in_out_sin,
-                              &anims_paused);
+    palette_cycler.init_generated(persistent_arena, next_liquid_palette,
+                                  &liquid_rotation, PALETTE_DWELL_FRAMES,
+                                  PALETTE_FADE_FRAMES, ease_in_out_sin,
+                                  &anims_paused);
     // The shader's hue_rotate clips per pixel, so the RAM copy pays for itself
     // over reading the flash master.
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
@@ -128,7 +122,7 @@ public:
    * @details Steps the timeline, maintains the wrapped accumulators, rebuilds
    * the per-frame camera quaternions, then shades every pixel: outer orient,
    * lens blend, inner orient, stereographic warp, pattern sample, pole
-   * normalize, palette-bank lookup with breathe, value fade, hue shift.
+   * normalize, palette lookup with breathe, value fade, hue shift.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -153,19 +147,14 @@ public:
 
     update_camera(P.wander);
 
-    cyclers[0].step();
-    cyclers[1].step();
+    palette_cycler.step();
 
     // Frame-constant hoists; the per-pixel skip branches below all test these,
     // so the branch predictor makes the skips nearly free.
     const float warp_time = noise_time;
     const float breathe_offset = fast_sinf(cycle_phase) * P.breathe_depth;
-    const int pal_lo =
-        std::min(static_cast<int>(P.palette_pos), PALETTE_COUNT - 1);
-    const float pal_frac = P.palette_pos - static_cast<float>(pal_lo);
 
-    auto sample_direction = [&](const Vector &sv) -> PatternSample {
-      Complex z = stereo(rotate(sv, cam_inner_conj));
+    auto sample_projected = [&](const Complex &z) -> PatternSample {
       float r_sq = z.re * z.re + z.im * z.im;
       auto [w, displacement] =
           sample_wrapped_warp(z, r_sq, warp_noise, P.warp_scale,
@@ -178,27 +167,25 @@ public:
 
     auto shader = [&](const Vector &v) -> Color4 {
       Vector rv = rotate(v, cam_outer_conj);
-      PatternSample lens_sample;
+      Complex z;
       if (P.lens_mix == 0.0f) {
-        lens_sample = sample_direction(rv);
+        z = stereo(rotate(rv, cam_inner_conj));
       } else {
-        Vector g = apply_glitch_lens(rv);
+        const Vector g = apply_glitch_lens(rv);
         if (P.lens_mix == 1.0f) {
-          lens_sample = sample_direction(g);
+          z = stereo(rotate(g, cam_inner_conj));
         } else {
-          const PatternSample direct = sample_direction(rv);
-          const PatternSample lensed = sample_direction(g);
-          lens_sample = blend_lens_samples(direct, lensed, P.lens_mix);
+          const Complex direct = stereo(rotate(rv, cam_inner_conj));
+          const Complex lensed = stereo(rotate(g, cam_inner_conj));
+          z = blend_lens_coords(direct, lensed, P.lens_mix);
         }
       }
+      const PatternSample lens_sample = sample_projected(z);
       float value = lens_sample.value;
       // The Wrap lookup below folds an exact 1.0 onto the palette's other end.
       value = std::min(value, ONE_BELOW_UNIT);
       float u = wrap_t(value + breathe_offset);
-      Color4 c = pal_frac == 0.0f
-                     ? cyclers[pal_lo].palette().get(u)
-                     : cyclers[pal_lo].palette().get(u).lerp(
-                           cyclers[pal_lo + 1].palette().get(u), pal_frac);
+      Color4 c = palette_cycler.palette().get(u);
       c.alpha *= (1.0f - value * P.value_fade);
       if (P.hue_shift != 0.0f)
         c = hue_rotate(c, -lens_sample.displacement * P.hue_shift);
@@ -220,11 +207,10 @@ private:
     float displacement;
   };
 
-  static PatternSample blend_lens_samples(const PatternSample &direct,
-                                          const PatternSample &lensed,
-                                          float mix) {
-    return {hs::lerp(direct.value, lensed.value, mix),
-            hs::lerp(direct.displacement, lensed.displacement, mix)};
+  static Complex blend_lens_coords(const Complex &direct, const Complex &lensed,
+                                   float mix) {
+    return {hs::lerp(direct.re, lensed.re, mix),
+            hs::lerp(direct.im, lensed.im, mix)};
   }
 
   static StereoWarpResult sample_wrapped_warp(const Complex &z, float r_sq,
@@ -402,7 +388,6 @@ private:
   float spin_phase = 0.0f;  /**< Wrapped to [0, 2pi): Y-spin angle. */
   float cycle_phase = 0.0f; /**< Wrapped to [0, 2pi) each frame for breathe. */
 
-  static constexpr int PALETTE_COUNT = 2;
   /** @brief Zero dwell: the palette shifts continuously, fade after fade. */
   static constexpr int PALETTE_DWELL_FRAMES = 0;
   /** @brief Frames each palette fade spans. */
@@ -427,18 +412,8 @@ private:
         golden_rotation(context, sequence))};
   }
 
-  /** @brief PaletteCycler provider: the flyby profile on a golden hue walk. */
-  static void next_flyby_palette(void *context, uint32_t sequence,
-                                 GenerativePalette &out) {
-    out = GenerativePalette{EffectPaletteRecipes::shader_ball_flyby_at(
-        golden_rotation(context, sequence))};
-  }
-
-  float liquid_rotation = 0.0f; /**< Slot 0 hue walk position, turns. */
-  /** @brief Slot 1 hue walk position, turns; starts on the authored flyby hue. */
-  float flyby_rotation = PaletteRecipes::hue_turns(42);
-  std::array<PaletteCycler, PALETTE_COUNT>
-      cyclers; /**< Per-slot palette cycles: liquid walk, flyby walk. */
+  float liquid_rotation = 0.0f; /**< Hue walk position, turns. */
+  PaletteCycler palette_cycler;
 
   /** @brief Base spatial frequency of the warp generator; the `Warp Scale`
    *  slider multiplies it. */
@@ -465,13 +440,12 @@ private:
     float spin_rate;
     float wander;
     float lens_mix;
-    float palette_pos;
     float breathe_depth;
     float cycle_speed;
     float hue_shift;
     float value_fade;
 
-    static constexpr int N = 17;
+    static constexpr int N = 16;
 
     /**
      * @brief Interpolates every field in parallel from a to b.
@@ -518,12 +492,14 @@ private:
 
     /** @brief Field table both lerps walk, so neither can drop a member. */
     static constexpr std::array<float Params::*, N> FIELDS = {
-        &Params::warp_scale,   &Params::warp_strength, &Params::warp_time_scale,
-        &Params::pattern_freq, &Params::speed,         &Params::complexity,
-        &Params::pattern_mix,  &Params::phase2_rate,   &Params::pole_fade,
-        &Params::spin_rate,    &Params::wander,        &Params::lens_mix,
-        &Params::palette_pos,  &Params::breathe_depth, &Params::cycle_speed,
-        &Params::hue_shift,    &Params::value_fade};
+        &Params::warp_scale,      &Params::warp_strength,
+        &Params::warp_time_scale, &Params::pattern_freq,
+        &Params::speed,           &Params::complexity,
+        &Params::pattern_mix,     &Params::phase2_rate,
+        &Params::pole_fade,       &Params::spin_rate,
+        &Params::wander,          &Params::lens_mix,
+        &Params::breathe_depth,   &Params::cycle_speed,
+        &Params::hue_shift,       &Params::value_fade};
   };
   // Trips if the field set changes, so FIELDS and the bare-float preset rows
   // can't silently fall out of sync with Params.
@@ -575,9 +551,6 @@ private:
   static constexpr float SPIN_RATE_MIN = 0.0f, SPIN_RATE_MAX = 0.05f;
   static constexpr float WANDER_MIN = 0.0f, WANDER_MAX = 1.0f;
   static constexpr float LENS_MIX_MIN = 0.0f, LENS_MIX_MAX = 1.0f;
-  static constexpr float PALETTE_POS_MIN = 0.0f;
-  static constexpr float PALETTE_POS_MAX =
-      static_cast<float>(PALETTE_COUNT - 1);
   static constexpr float BREATHE_MIN = 0.0f, BREATHE_MAX = 0.3f;
   static constexpr float CYCLE_SPEED_MIN = 0.0f, CYCLE_SPEED_MAX = 1.0f;
   static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 1.0f;
@@ -585,9 +558,6 @@ private:
 
   /** @brief Y-spin rate reproducing the classic 300-frame grid orbit. */
   static constexpr float ORBIT_SPIN_RATE = TWO_PI_F / 300.0f;
-  /** @brief High-contrast, liquid-biased palette blend used by every preset. */
-  static constexpr float PRESET_PALETTE_POS = 0.02f;
-
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
   static constexpr bool preset_in_ranges(const Params &p) {
@@ -606,8 +576,7 @@ private:
            p.pole_fade <= POLE_FADE_MAX && p.spin_rate >= SPIN_RATE_MIN &&
            p.spin_rate <= SPIN_RATE_MAX && p.wander >= WANDER_MIN &&
            p.wander <= WANDER_MAX && p.lens_mix >= LENS_MIX_MIN &&
-           p.lens_mix <= LENS_MIX_MAX && p.palette_pos >= PALETTE_POS_MIN &&
-           p.palette_pos <= PALETTE_POS_MAX && p.breathe_depth >= BREATHE_MIN &&
+           p.lens_mix <= LENS_MIX_MAX && p.breathe_depth >= BREATHE_MIN &&
            p.breathe_depth <= BREATHE_MAX && p.cycle_speed >= CYCLE_SPEED_MIN &&
            p.cycle_speed <= CYCLE_SPEED_MAX && p.hue_shift >= HUE_SHIFT_MIN &&
            p.hue_shift <= HUE_SHIFT_MAX && p.value_fade >= VALUE_FADE_MIN &&
@@ -616,7 +585,7 @@ private:
 
   // Field order per row: warp_scale, warp_strength, warp_time_scale,
   // pattern_freq, speed, complexity, pattern_mix, phase2_rate, pole_fade,
-  // spin_rate, wander, lens_mix, palette_pos, breathe_depth, cycle_speed,
+  // spin_rate, wander, lens_mix, breathe_depth, cycle_speed,
   // hue_shift, value_fade. Gate params (complexity, pattern_mix, wander,
   // lens_mix, hue_shift, value_fade) must sit exactly on 0 or 1 whenever the
   // matching per-pixel skip is intended: Animation::Lerp lands bit-exactly
@@ -624,37 +593,33 @@ private:
   static constexpr std::array<PresetEntry<Params>, 12> PRESETS = {{
       // Wandering liquid: mild, deep, then fine-grained cross-coupling.
       {{3.0f, 0.5f, 0.5f, 5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
-        PRESET_PALETTE_POS, 0.15f, 0.05f, 0.0f, 0.0f}},
+        0.15f, 0.05f, 0.0f, 0.0f}},
       {{3.0f, 0.5f, 0.5f, 1.2f, 0.05f, 3.0f, 0.0f, 0.8f, 1.4f, 0.0f, 1.0f, 1.0f,
-        PRESET_PALETTE_POS, 0.15f, 0.05f, 0.0f, 0.0f}},
+        0.15f, 0.05f, 0.0f, 0.0f}},
       {{3.0f, 1.479f, 0.5f, 14.528f, 0.1f, 0.5f, 0.0f, 0.8f, 1.0f, 0.0f, 1.0f,
-        1.0f, PRESET_PALETTE_POS, 0.15f, 0.05f, 0.0f, 0.0f}},
+        1.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
       {{3.0f, 0.0f, 0.5f, 15.763f, 0.1f, 2.950552f, 0.0f, 0.8f, 1.0f, 0.0f,
-        1.0f, 0.0f, PRESET_PALETTE_POS, 0.15f, 0.05f, 0.0f, 0.0f}},
+        1.0f, 0.0f, 0.15f, 0.05f, 0.0f, 0.0f}},
       {{0.1f, 13.47f, 0.5f, 3.28f, 0.1f, 2.463f, 0.0f, 0.8f, 1.209f, 0.03725f,
-        0.252f, 0.066f, 0.022f, 0.19710001f, 0.02f, 0.011f, 0.0f}},
+        0.252f, 0.066f, 0.19710001f, 0.02f, 0.011f, 0.0f}},
       // Spinning grid fly-throughs.
       {{47.752f, 11.55f, 0.3f, 2.7f, 0.586f, 0.0f, 1.0f, 0.7f, 1.55f,
-        ORBIT_SPIN_RATE, 0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.097f,
-        1.0f}},
+        ORBIT_SPIN_RATE, 0.0f, 0.0f, 0.0f, 0.0f, 0.097f, 1.0f}},
       {{0.1f, 0.87f, 0.3f, 14.262f, 0.586f, 0.0f, 1.0f, 0.7f, 3.527f,
-        ORBIT_SPIN_RATE, 0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.097f,
-        1.0f}},
+        ORBIT_SPIN_RATE, 0.0f, 0.0f, 0.0f, 0.0f, 0.097f, 1.0f}},
       {{1.5f, 0.5f, 0.3f, 8.0f, 0.30f, 0.0f, 1.0f, 0.7f, 2.0f, ORBIT_SPIN_RATE,
-        0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.15f, 1.0f}},
+        0.0f, 0.0f, 0.0f, 0.0f, 0.15f, 1.0f}},
       {{47.752f, 2.55f, 0.3f, 7.878f, 0.562f, 0.0f, 1.0f, 0.7f, 2.843f,
-        ORBIT_SPIN_RATE, 0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.0f,
-        1.0f}},
+        ORBIT_SPIN_RATE, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}},
       {{100.0f, 8.67f, 0.3f, 1.0f, 0.586f, 0.0f, 1.0f, 0.7f, 3.432f,
-        ORBIT_SPIN_RATE, 0.0f, 0.0f, PRESET_PALETTE_POS, 0.0f, 0.0f, 0.636f,
-        1.0f}},
+        ORBIT_SPIN_RATE, 0.0f, 0.0f, 0.0f, 0.0f, 0.636f, 1.0f}},
       // Grid look, liquid palette.
       {{50.749298f, 30.0f, 0.4699f, 1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f,
-        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, PRESET_PALETTE_POS,
-        0.25410002f, 0.00015458837f, 0.201f, 0.847f}},
+        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, 0.25410002f,
+        0.00015458837f, 0.201f, 0.847f}},
       {{38.761299f, 30.0f, 0.4699f, 1.0f, 0.075f, 0.009122372f, 1.0f, 1.146f,
-        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, PRESET_PALETTE_POS,
-        0.25410002f, 0.00015458837f, 0.201f, 0.847f}},
+        1.5482996f, 0.020879198f, 0.0030917525f, 0.0f, 0.25410002f,
+        0.00015458837f, 0.201f, 0.847f}},
   }};
   static_assert(all_presets_in_ranges(PRESETS, preset_in_ranges),
                 "a ShaderBall preset drives a param outside its registered "
@@ -687,12 +652,12 @@ private:
   Blend blend_from; /**< Blend start snapshot owned across the Lerp. */
   Blend blend_to;   /**< Blend target snapshot owned across the Lerp. */
 
-  // init() buys the gamut bracket grid and the palette-bank LUTs from the
+  // init() buys the gamut bracket grid and palette cycler from the
   // persistent arena. Effect keeps the default arena split, so the total must
   // fit the device persistent partition.
   static constexpr size_t FOOTPRINT_BYTES =
       gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
-      PALETTE_COUNT * PaletteCycler::generated_arena_bytes();
+      PaletteCycler::generated_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "ShaderBall persistent footprint exceeds the default "
                 "partition; coarsen the gamut grid or carve arenas");
