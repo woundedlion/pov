@@ -65,6 +65,19 @@ public:
            morph_arena_bytes();
   }
 
+  /** @brief Arena bytes init_generated() consumes. */
+  static constexpr size_t generated_arena_bytes() {
+    return display_arena_bytes() + 3 * morph_arena_bytes();
+  }
+
+  /**
+   * @brief Fills @p out with palette number @p sequence of a generated cycle.
+   * @details Successive palettes must be morph-compatible; the cycler
+   * fail-fast checks each retarget.
+   */
+  using NextPaletteFn = void (*)(void *context, uint32_t sequence,
+                                 GenerativePalette &out);
+
   /**
    * @brief Allocates the display LUT and enters the first entry's dwell.
    * @param arena Arena the display (and, if any pair needs a LUT crossfade,
@@ -120,9 +133,53 @@ public:
       bake_entry(fade_to, arena, entries[0]);
     }
     if (key_morph_mask != 0)
-      morph = new (
-          arena.allocate(sizeof(GenerativePalette), alignof(GenerativePalette)))
-          GenerativePalette();
+      morph = allocate_palette(arena);
+  }
+
+  /**
+   * @brief Allocates the display LUT and enters a provider-generated cycle.
+   * @param arena Arena the display, morph scratch, and two palette slots are
+   * allocated from.
+   * @param next_fn Fills palette number `sequence`; called with 0 and 1 here,
+   * then once per completed fade. Successors must be morph-compatible.
+   * @param context Opaque state forwarded to @p next_fn; caller-owned.
+   * @param dwell_frames Frames to hold each palette before fading; 0 chains
+   * fades back to back.
+   * @param fade_frames Frames each fade spans, >= 1.
+   * @param easing_fn Optional easing over fade progress; null is linear.
+   * @param paused_flag Optional pause gate; freezes step() while set and true.
+   */
+  HS_COLD_MEMBER void init_generated(Arena &arena, NextPaletteFn next_fn,
+                                     void *context, int dwell_frames,
+                                     int fade_frames,
+                                     float (*easing_fn)(float) = nullptr,
+                                     const bool *paused_flag = nullptr) {
+    HS_CHECK(next_fn != nullptr,
+             "PaletteCycler generated cycle needs a provider");
+    HS_CHECK(dwell_frames >= 0 && fade_frames >= 1,
+             "PaletteCycler dwell must be >= 0 and fade >= 1 frames");
+    entries = nullptr;
+    entry_count = 0;
+    key_morph_mask = 0;
+    provider = next_fn;
+    provider_context = context;
+    dwell = dwell_frames;
+    fade = fade_frames;
+    easing = easing_fn;
+    paused = paused_flag;
+    current = 0;
+    frame = 0;
+    fade_active = false;
+    next_sequence = 2;
+
+    from_slot = allocate_palette(arena);
+    to_slot = allocate_palette(arena);
+    morph = allocate_palette(arena);
+    provider(provider_context, 0, *from_slot);
+    provider(provider_context, 1, *to_slot);
+    HS_CHECK(from_slot->morph_compatible(*to_slot),
+             "PaletteCycler generated palettes must be morph-compatible");
+    display.bake(arena, *from_slot);
   }
 
   /**
@@ -132,27 +189,29 @@ public:
    * is bit-exact regardless of easing endpoint behavior.
    */
   HS_COLD_MEMBER void step() {
-    if ((paused != nullptr && *paused) || entry_count < 2)
+    if ((paused != nullptr && *paused) ||
+        (provider == nullptr && entry_count < 2))
       return;
     ++frame;
     if (!fade_active) {
       if (frame >= dwell) {
-        begin_fade();
+        if (provider == nullptr)
+          begin_fade();
         fade_active = true;
         frame = 0;
       }
       return;
     }
     if (frame >= fade) {
-      bake_entry_into_display(entries[next_of(current)]);
-      current = next_of(current);
-      fade_active = false;
-      frame = 0;
+      finish_fade();
       return;
     }
     const float progress = static_cast<float>(frame) / static_cast<float>(fade);
     const float w = easing != nullptr ? easing(progress) : progress;
-    if ((key_morph_mask & (1u << current)) != 0) {
+    if (provider != nullptr) {
+      morph->lerp(*from_slot, *to_slot, w);
+      display.rebake(*morph);
+    } else if ((key_morph_mask & (1u << current)) != 0) {
       morph->lerp(*entries[current].generative,
                   *entries[next_of(current)].generative, w);
       display.rebake(*morph);
@@ -173,6 +232,28 @@ public:
 private:
   int next_of(int index) const {
     return index + 1 == entry_count ? 0 : index + 1;
+  }
+
+  HS_COLD_MEMBER static GenerativePalette *allocate_palette(Arena &arena) {
+    return new (arena.allocate(sizeof(GenerativePalette),
+                               alignof(GenerativePalette))) GenerativePalette();
+  }
+
+  HS_COLD_MEMBER void finish_fade() {
+    if (provider != nullptr) {
+      display.rebake(*to_slot);
+      GenerativePalette *retired = from_slot;
+      from_slot = to_slot;
+      to_slot = retired;
+      provider(provider_context, next_sequence++, *to_slot);
+      HS_CHECK(from_slot->morph_compatible(*to_slot),
+               "PaletteCycler generated palette breaks morph compatibility");
+    } else {
+      bake_entry_into_display(entries[next_of(current)]);
+      current = next_of(current);
+    }
+    fade_active = false;
+    frame = 0;
   }
 
   HS_COLD_MEMBER static void bake_entry(BakedPalette &lut, Arena &arena,
@@ -213,6 +294,11 @@ private:
   /** @brief Arena-owned key-morph scratch rebaked into the display; allocated
    *  by init() only when some pair key-morphs. */
   GenerativePalette *morph = nullptr;
+  NextPaletteFn provider = nullptr; /**< Generated-cycle palette source. */
+  void *provider_context = nullptr; /**< Caller state handed to the provider. */
+  GenerativePalette *from_slot = nullptr; /**< Generated fade w = 0 endpoint. */
+  GenerativePalette *to_slot = nullptr;   /**< Generated fade w = 1 endpoint. */
+  uint32_t next_sequence = 0; /**< Sequence number of the next provider call. */
   float (*easing)(float) = nullptr; /**< Fade easing; null = linear. */
   const bool *paused = nullptr; /**< Optional pause gate; null = always runs. */
   int entry_count = 0;
