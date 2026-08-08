@@ -253,6 +253,21 @@ struct ShapeShifterWhiteBox {
   }
 
   static void next_preset(OracleEffect &effect) { effect.next_preset(); }
+
+  static void step_timeline(OracleEffect &effect, Canvas &canvas) {
+    effect.timeline.step(canvas);
+  }
+
+  static float preset_opacity(const OracleEffect &effect) {
+    return effect.preset_opacity;
+  }
+
+  static size_t preset_index(const OracleEffect &effect) {
+    return effect.presets.current_index();
+  }
+
+  static int preset_frames() { return OracleEffect::PRESET_FRAMES; }
+  static int preset_segue_frames() { return OracleEffect::PRESET_SEGUE_FRAMES; }
 };
 
 /** @brief Captures one renderer callable from a fresh deterministic effect. */
@@ -886,6 +901,41 @@ inline void test_preset_transition_snaps() {
   Timeline().clear();
 }
 
+/** @brief Pins ShapeShifter's eight-frame fade-out and fade-in preset seam. */
+inline void test_preset_transition_fades_through_black_in_16_frames() {
+  {
+    OracleEffect effect;
+    effect.init();
+    Canvas canvas(effect);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_segue_frames(), 16);
+
+    for (int frame = 0; frame < ShapeShifterWhiteBox::preset_frames() - 8;
+         ++frame)
+      ShapeShifterWhiteBox::step_timeline(effect, canvas);
+    HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 1.0f, 1e-6f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
+
+    for (int frame = 0; frame < 7; ++frame)
+      ShapeShifterWhiteBox::step_timeline(effect, canvas);
+    HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 0.125f, 1e-6f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{0});
+
+    ShapeShifterWhiteBox::step_timeline(effect, canvas);
+    HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 0.0f, 1e-6f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
+
+    ShapeShifterWhiteBox::step_timeline(effect, canvas);
+    HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 0.125f, 1e-6f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
+
+    for (int frame = 0; frame < 7; ++frame)
+      ShapeShifterWhiteBox::step_timeline(effect, canvas);
+    HS_EXPECT_NEAR(ShapeShifterWhiteBox::preset_opacity(effect), 1.0f, 1e-6f);
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
+  }
+  Timeline().clear();
+}
+
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
   test_buffer_comparator_statistics();
@@ -905,6 +955,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_folded_shapes_draw_from_equator_to_both_poles();
   test_screen_balanced_spacing_follows_sampling_envelope();
   test_preset_transition_snaps();
+  test_preset_transition_fades_through_black_in_16_frames();
   return fixture.result();
 }
 

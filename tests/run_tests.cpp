@@ -158,7 +158,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
     1296)                                                                      \
   X("noise", 3, hs_test::noise_tests::run_noise_tests, 201)                    \
   X("generators", 4, hs_test::generators_tests::run_generators_tests, 59)      \
-  X("animation", 106, hs_test::animation_tests::run_animation_tests, 3833)     \
+  X("animation", 107, hs_test::animation_tests::run_animation_tests, 3838)     \
   X("effects", 86, hs_test::effects_tests::run_effects_tests,                  \
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_FULL_MIN_ASSERTIONS                                          \
@@ -167,8 +167,8 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
-  X("shapeshifter_oracle", 17,                                                 \
-    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 109)    \
+  X("shapeshifter_oracle", 18,                                                 \
+    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 120)    \
   X("shapeshifter_tiles", 2,                                                   \
     hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests, 46)       \
   X("dma_core", 4, hs_test::dma_core::run_dma_core_tests, 12)                  \
