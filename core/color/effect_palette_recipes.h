@@ -55,11 +55,16 @@ HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
 
 /** @brief The liquid recipe at an arbitrary hue rotation; every rotation is
  *  morph-compatible with every other
- *  (see test_shader_ball_palette_rotations_morph_compatible). */
+ *  (see test_shader_ball_palette_rotations_morph_compatible).
+ *  @details Mirrored so the shader's wrapped palette coordinate crosses the
+ *  1 -> 0 seam without a hard line; descending lightness mirrors into the
+ *  bright-dark-bright swing that carries the pattern's contrast. */
 HS_FLASH_MEMBER inline PaletteRecipe
 shader_ball_liquid_at(float rotation_turns) {
   constexpr float BASE_TURNS = 0.9348811f;
-  return PaletteRecipes::balanced_analogous(BASE_TURNS + rotation_turns);
+  return PaletteRecipes::profile(
+      PaletteDomain::MIRROR, PaletteHarmony::ANALOGOUS, AxisCurve::DESCENDING,
+      BASE_TURNS + rotation_turns, 0.72f);
 }
 
 HS_FLASH_MEMBER inline PaletteRecipe shader_ball_liquid() {
