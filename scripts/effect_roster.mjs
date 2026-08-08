@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-export async function loadEffectRoster() {
-  const src = await readFile(join(REPO_ROOT, 'core', 'engine', 'effects.h'), 'utf8');
+// Extracts the X() rows from core/engine/effects.h source text.
+export function parseEffectRoster(src) {
   // Capture the macro body by following its backslash line-continuations rather
   // than relying on a blank line terminating the block (which a reformat could
   // remove). The body runs from `#define HS_EFFECT_LIST(X)` through the last
@@ -27,11 +27,16 @@ export async function loadEffectRoster() {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '');
   // Tolerate whitespace inside the parens: a reformat to `X( Foo )` must not drop
-  // rows here, because the same spelling drops them from loadRegisteredEffects too
+  // rows here, because the same spelling drops them from parseRegisteredEffects too
   // and the cross-check would agree on the truncated roster.
   const names = [...body.matchAll(/X\(\s*(\w+)\s*\)/g)].map(m => m[1]);
   if (names.length === 0) throw new Error('HS_EFFECT_LIST parsed to zero effects');
   return names;
+}
+
+export async function loadEffectRoster() {
+  return parseEffectRoster(
+    await readFile(join(REPO_ROOT, 'core', 'engine', 'effects.h'), 'utf8'));
 }
 
 // The self-registering effect set, read straight from the headers on disk: every
@@ -42,19 +47,23 @@ export async function loadEffectRoster() {
 // #included from core/engine/effects.h is absent from both the registry and the count.
 // The REGISTER_EFFECT *macro definition* lives in core/engine/effect_registry.h (not
 // effects/), so globbing effects/*.h captures only call sites.
+// Extracts the REGISTER_EFFECT call sites from one header's source text.
+export function parseRegisteredEffects(src) {
+  // Strip comments first so a commented-out REGISTER_EFFECT row is not counted
+  // (mirrors parseEffectRoster's handling of the X-macro list).
+  const stripped = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
+  return [...stripped.matchAll(/REGISTER_EFFECT\(\s*(\w+)\s*\)/g)].map(m => m[1]);
+}
+
 export async function loadRegisteredEffects() {
   const dir = join(REPO_ROOT, 'effects');
   const headers = (await readdir(dir)).filter(f => f.endsWith('.h'));
   const names = new Set();
   for (const f of headers) {
-    const src = await readFile(join(dir, f), 'utf8');
-    // Strip comments first so a commented-out REGISTER_EFFECT row is not counted
-    // (mirrors loadEffectRoster's handling of the X-macro list).
-    const stripped = src
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\/\/[^\n]*/g, '');
-    for (const m of stripped.matchAll(/REGISTER_EFFECT\(\s*(\w+)\s*\)/g))
-      names.add(m[1]);
+    for (const name of parseRegisteredEffects(await readFile(join(dir, f), 'utf8')))
+      names.add(name);
   }
   return [...names];
 }
