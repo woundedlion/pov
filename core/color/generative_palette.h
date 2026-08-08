@@ -119,7 +119,7 @@ public:
   bool loops_domain() const { return domain == PaletteDomain::LOOP; }
 
   Diagnostic diagnose(float t) const {
-    const Evaluated value = evaluate(t);
+    const Evaluated value = finish_evaluation(evaluate_path(t));
     return {value.lab.L,          value.C,      value.q,
             value.C_max,          value.h_path, value.h_final,
             value.fallback_mapped};
@@ -277,7 +277,7 @@ public:
   }
 
   HS_COLD_MEMBER Color4 get(float t) const override {
-    const LinRGB rgb = oklab_to_linear_rgb_gamut(evaluate(t).lab);
+    const LinRGB rgb = oklab_to_linear_rgb_gamut(evaluate_path(t).lab);
     return Color4(Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
                         float_to_pixel16(rgb.b)),
                   1.0f);
@@ -310,6 +310,7 @@ private:
     float q;
     float h_path;
     float h_final;
+    float C_max;
   };
 
   struct AxisState {
@@ -1049,7 +1050,7 @@ private:
     const float h_path = lch.C >= OKLCH_ACHROMATIC_C ? lch.h : 0.0f;
     const float boundary = gamut_continuous_chroma(lch.L, h_path);
     const float q = boundary > 0.0f ? lch.C / boundary : control;
-    return {lab, q, h_path, h_path};
+    return {lab, q, h_path, h_path, boundary};
   }
 
   HS_COLD_MEMBER PathEvaluation
@@ -1073,24 +1074,23 @@ private:
     const float q = chroma_basis == ChromaBasis::LOCAL_GAMUT
                         ? control
                         : (boundary > 0.0f ? C / boundary : 0.0f);
-    return {oklch_to_oklab({L, C, h_final}), q, h_path, h_final};
+    return {oklch_to_oklab({L, C, h_final}), q, h_path, h_final, boundary};
   }
 
   HS_COLD_MEMBER Evaluated finish_evaluation(const PathEvaluation &path) const {
     const OKLCH lch = oklab_to_oklch(path.lab);
     float r, g, blue;
     oklab_to_linear_rgb(path.lab, r, g, blue);
-    const float boundary = gamut_continuous_chroma(lch.L, path.h_final);
     return {path.lab,
             lch.C,
             path.q,
-            boundary,
+            path.C_max,
             path.h_path,
             path.h_final,
             !linear_rgb_in_gamut(r, g, blue)};
   }
 
-  HS_COLD_MEMBER Evaluated evaluate(float t) const {
+  HS_COLD_MEMBER PathEvaluation evaluate_path(float t) const {
     const Segment segment = select_segment(t);
     const ControlKey envelope = segment.envelope;
     const float progress = segment.progress;
@@ -1125,7 +1125,7 @@ private:
       path = evaluate_arc_path(L, control, segment.left.h, chromatic,
                                segment.right.h, chromatic, progress);
     }
-    return finish_evaluation(path);
+    return path;
   }
 
   std::array<ControlKey, PALETTE_MAX_KEYS> keys{};
