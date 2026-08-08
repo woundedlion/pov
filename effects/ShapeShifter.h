@@ -98,11 +98,8 @@ public:
     prepare_count(hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES));
     timeline.add(0, Animation::RandomWalk<W>(orientation, X_AXIS, noise, {},
                                              hs::rand_int(0, 65536)));
-    timeline.add_pausable(
-        0,
-        Animation::PeriodicTimer(
-            PRESET_FRAMES, [this](Canvas &) { next_preset(); }, true),
-        &anims_paused);
+    presets.segue().overlap = 0;
+    schedule_preset();
   }
 
   /** @brief Advances the waveform and draws the full radial shape stack. */
@@ -151,6 +148,7 @@ private:
   static constexpr float SPEED_MIN = 0.0f;
   static constexpr float SPEED_MAX = 0.16f;
   static constexpr int PRESET_FRAMES = 240;
+  static constexpr int PRESET_SEGUE_FRAMES = 16;
 
   static constexpr const char *SHAPE_OPTIONS[] = {
       "Planar Polygon", "Spherical Polygon", "Flower", "Planar Star",
@@ -337,7 +335,8 @@ private:
         MIN_CAP_RADIUS, cap.second * Plot::STAR_INNER_RATIO + CAP_EDGE_OVERLAP);
 
     Color4 color = palette.get(palette_radius_t);
-    const float cap_alpha = std::min(1.0f, alpha * static_cast<float>(sides));
+    const float cap_alpha =
+        std::min(1.0f, alpha * static_cast<float>(sides)) * preset_opacity;
     color.alpha = cap_alpha;
     auto shader = [&](const Vector &, Fragment &fragment) {
       fragment.color = color;
@@ -361,6 +360,24 @@ private:
   void next_preset() {
     presets.next();
     presets.apply(params);
+  }
+
+  void schedule_preset() {
+    const int next_delay = presets.schedule_segue(
+        timeline,
+        [this](Canvas &, float phase) {
+          preset_opacity = presets.segue().opacity(phase);
+        },
+        PRESET_FRAMES, PRESET_SEGUE_FRAMES / 2, &anims_paused);
+    timeline.add_pausable(next_delay,
+                          Animation::PeriodicTimer(
+                              0,
+                              [this](Canvas &) {
+                                next_preset();
+                                schedule_preset();
+                              },
+                              false),
+                          &anims_paused);
   }
 
   /**
@@ -417,7 +434,7 @@ private:
     }
 
     Color4 pair_color;
-    const float global_alpha = alpha;
+    const float global_alpha = alpha * preset_opacity;
     const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
     for (int ordinal = 0; ordinal < count; ++ordinal) {
       const int i =
@@ -482,7 +499,7 @@ private:
     const ShapeType shape = selected_shape();
     const PhaseFunction function = selected_function();
     const Basis basis = make_basis(orientation.get(), X_AXIS);
-    const float global_alpha = alpha;
+    const float global_alpha = alpha * preset_opacity;
 
     const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
     for (int ordinal = 0; ordinal < count; ++ordinal) {
@@ -855,9 +872,10 @@ private:
   int prepared_planar_star_sides = 0;
   int baked_palette_count = 0;
   RadiusSpacing prepared_spacing = RadiusSpacing::UNIFORM;
-  Presets<Params, 9> presets{PRESETS};
+  Presets<Params, 9, Segue::Crossfade> presets{PRESETS};
   Params params{};
   float alpha = 1.0f;
+  float preset_opacity = 1.0f;
   float phase = 0.0f;
 
   // init() allocates the six MAX_SHAPES-sized contour tables and prepare_count()
