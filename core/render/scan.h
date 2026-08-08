@@ -2000,7 +2000,6 @@ struct Shader {
    * center) from per-sub-sample evaluation (fragment_shader, SAMPLES×).
    *
    * @note SAMPLES defaults to 1 (no SSAA), matching the single-callback overload.
-   * Every call site passes SAMPLES explicitly.
    */
   template <int W, int H, int SAMPLES = 1>
   static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
