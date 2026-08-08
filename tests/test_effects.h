@@ -495,6 +495,14 @@ inline void determinism_one(const char *name) {
 
 /** @brief Frames per segment in the clip-clear parity sweep. */
 constexpr int PARITY_FRAMES = 16;
+/**
+ * @brief Frames per segment for an effect that is still allowed to be dark at
+ *        PARITY_FRAMES.
+ * @details Comparing two all-black renders always agrees, so a slow-starting
+ *          effect gets a sweep long enough to leave effect_may_be_dark()'s
+ *          window instead of a pass that means nothing.
+ */
+constexpr int PARITY_FRAMES_SLOW = 64;
 /** @brief Arm segments walked by the clip-clear parity sweep. */
 constexpr int PARITY_SEGMENTS = 4;
 
@@ -513,6 +521,9 @@ constexpr int PARITY_SEGMENTS = 4;
 template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
 inline void clip_clear_parity_one(const char *name) {
   constexpr int S = H * 2;
+  const int frames = effect_may_be_dark(name, PARITY_FRAMES)
+                         ? PARITY_FRAMES_SLOW
+                         : PARITY_FRAMES;
 
   auto render = [&](int segment_id, bool full_clear) {
     reset_effect_globals();
@@ -523,7 +534,7 @@ inline void clip_clear_parity_one(const char *name) {
     effect.force_full_buffer_clear = full_clear;
     const pov::SegmentMap map =
         pov::segment_map(segment_id, S, PARITY_SEGMENTS);
-    for (int f = 0; f < PARITY_FRAMES; ++f) {
+    for (int f = 0; f < frames; ++f) {
       const pov::SegmentClip clip =
           pov::segment_clip(map, (f & 1) == 0, S, PARITY_SEGMENTS, W);
       effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
@@ -561,14 +572,16 @@ inline void clip_clear_parity_one(const char *name) {
   }
   // Two all-black renders agree pixel for pixel, so the comparison above only
   // means something once the sweep has produced output. Sparse effects can miss
-  // a single arm segment, so the requirement spans the whole sweep.
-  if (!effect_may_be_dark(name, PARITY_FRAMES)) {
-    if (lit == 0)
-      std::printf("  CLIP-CLEAR DARK %-20s no lit pixel over %zu displayed "
-                  "pixels\n",
-                  name, displayed_pixels);
-    HS_EXPECT(lit > 0, "clip-clear parity must compare a lit render");
-  }
+  // a single arm segment, so the requirement spans the whole sweep, and the
+  // sweep length is chosen so no effect is still exempt at it — an exemption
+  // here would make every assertion above vacuous.
+  HS_EXPECT(!effect_may_be_dark(name, frames),
+            "clip-clear parity must run past the all-black exemption window");
+  if (lit == 0)
+    std::printf("  CLIP-CLEAR DARK %-20s no lit pixel over %zu displayed "
+                "pixels\n",
+                name, displayed_pixels);
+  HS_EXPECT(lit > 0, "clip-clear parity must compare a lit render");
   hs::clear_mock_time();
 }
 
