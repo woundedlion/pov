@@ -1576,7 +1576,7 @@ for (int i = 0; i < PPS; ++i, y += y_step) {
 }
 ```
 
-**Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the current display window (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board shares the same deterministic random seed (`Pcg32(1337)` in `platform.h`), so identical effect sequences produce identical canvases.
+**Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the current display window (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board reseeds the shared `Pcg32` with `hs::epoch_seed(effect index)` at every effect build (epoch 0 is the identity seed `1337` in `platform.h`), so a board's canvas depends only on the beacon-synchronized index — a mid-show joiner renders bit-identically to boards that have been up for hours.
 
 | Parameter | Value (qualified N=4 default unless noted) |
 |---|---|
