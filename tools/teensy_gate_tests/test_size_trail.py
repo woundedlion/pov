@@ -285,6 +285,28 @@ class RegressionClassifier(unittest.TestCase):
                           for r in tst.find_regressions(rows, region="itcm")],
                          [("itcm", 40)])
 
+    def test_rows_across_a_utc_offset_change_order_by_instant(self):
+        # A DST fall-back: 01:30-07:00 (08:30Z) precedes 01:15-08:00 (09:15Z),
+        # but the raw strings sort the other way and blame the shrink.
+        rows = [_row("1" * 40, "phantasm", date="2026-11-01T01:30:00-07:00",
+                     itcm=100),
+                _row("2" * 40, "phantasm", date="2026-11-01T01:15:00-08:00",
+                     itcm=140, subject="grew")]
+        deltas = tst.compute_deltas(rows)
+        self.assertEqual([d.row.sha[0] for d in deltas], ["1", "2"])
+        self.assertEqual(deltas[1].changes["itcm"], 40)
+        self.assertEqual([(r.sha[0], r.delta)
+                          for r in tst.find_regressions(rows, region="itcm")],
+                         [("2", 40)])
+
+    def test_unparseable_date_sorts_oldest_without_raising(self):
+        rows = [_row("1" * 40, "phantasm", date="not-a-date", itcm=100),
+                _row("2" * 40, "phantasm", date="2026-08-01T00:00:00-07:00",
+                     itcm=140)]
+        deltas = tst.compute_deltas(rows)
+        self.assertEqual([d.row.sha[0] for d in deltas], ["1", "2"])
+        self.assertEqual(deltas[1].changes["itcm"], 40)
+
     def test_first_row_of_an_environment_is_never_a_regression(self):
         found = tst.find_regressions([_row("1" * 40, "phantasm", itcm=195696)])
         self.assertEqual(found, [])

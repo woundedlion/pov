@@ -37,6 +37,7 @@ import struct
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -226,15 +227,32 @@ class Delta:
         return not self.changes
 
 
+#: Sort key for an unparseable committer date: oldest, so one bad row cannot
+#: displace the real ordering around it.
+_UNDATED = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def instant(date: str) -> datetime:
+    """The absolute instant of a trail row's ISO-8601 committer date."""
+    try:
+        parsed = datetime.fromisoformat(date)
+    except ValueError:
+        return _UNDATED
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 def compute_deltas(rows: list[TrailRow]) -> list[Delta]:
     """Annotate trail rows with per-region deltas, comparing within an env.
 
     Rows are ordered by committer date, not append order: `backfill` appends
     commits older than everything the hooks already recorded, and comparing
-    those in append order reports every delta backwards. The sort is stable, so
-    same-date rows keep append order.
+    those in append order reports every delta backwards. Ordering on the raw
+    `%cI` string would compare local wall clocks, so rows recorded under two
+    UTC offsets (a DST shift, a travelling committer) can invert a delta pair
+    and blame the commit that shrank; sort on the parsed instant instead. The
+    sort is stable, so same-instant rows keep append order.
     """
-    rows = sorted(rows, key=lambda r: r.date)
+    rows = sorted(rows, key=lambda r: instant(r.date))
     previous: dict[str, TrailRow] = {}
     out: list[Delta] = []
     for row in rows:
