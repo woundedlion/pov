@@ -5478,7 +5478,31 @@ struct IslamicBuildProbe {
     return IS::SPLIT_SCRATCH_B_BRIDGE;
   }
   static constexpr int sprite_fade_frames() { return IS::SPRITE_FADE_FRAMES; }
+  /**
+   * @brief Spawns @p entry out of band, whatever the registry cycle is on.
+   * @details Clears the timeline first: the pending scheduled spawn and the
+   * outgoing shape's sprite would otherwise run against the injected shape.
+   */
+  template <int W, int H>
+  static void spawn_entry(IslamicStars<W, H> &e, const Solids::Entry &entry) {
+    e.timeline.clear();
+    e.spawn_entry(entry);
+  }
 };
+
+/** Whole-solid generator of the needle-ending recipe. */
+inline PolyMesh generate_needle_recipe_solid(Arena &a, Arena &b) {
+  return Solids::build_recipe(
+      Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_RECIPE, a, b);
+}
+
+/** The needle-ending recipe as a spawnable entry. It is not in
+ * islamic_registry, so the arena gate below builds it from the recipe constant
+ * rather than finding it in the roster. */
+inline constexpr Solids::Entry NEEDLE_ENTRY = {
+    "truncatedIcosahedron_ambo_relax100_hk54_needle",
+    generate_needle_recipe_solid, Solids::Category::Complex,
+    &Solids::TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_RECIPE};
 
 /**
  * @brief Verifies the first recipe seed uses the Sprite envelope's 16-frame
@@ -5575,8 +5599,9 @@ inline void test_islamicstars_recipe_build_smoke() {
 }
 
 /**
- * @brief Drives IslamicStars through every registry entry, pinning the
- *        persistent arena against the effect's own budget.
+ * @brief Drives IslamicStars through every registry entry and then through the
+ *        needle recipe, pinning the persistent arena against the effect's own
+ *        budget.
  * @details The per-chain gate measures a build in isolation, which misses what
  *          the effect actually holds: a build follows whatever shape preceded
  *          it, and the roster's heaviest entry is 1082 faces. Cycling the whole
@@ -5584,19 +5609,12 @@ inline void test_islamicstars_recipe_build_smoke() {
  *          predecessor. Rendered small — the peak is mesh-driven, not
  *          canvas-driven — because the gate is about memory, not pixels. An
  *          Arena overrun traps, so an OOM fails this test by killing the run.
+ *          The needle is the heaviest smooth-bridge shape and sets the
+ *          scratch_a-heavy split, so it is measured separately.
  */
 inline void test_islamicstars_roster_cycle_fits_budget() {
   reset_effect_globals();
-  // Production resolution, not device: the swept+compiled+draw scratch peak a
-  // build leg reaches is mesh-driven and resolution-independent, but the effect
-  // ships at 288x144, so the gate holds the real geometry. Trans Speed 8
-  // compresses each stage so the whole roster cycles in ~1200 frames without
-  // dropping any leg (never lower the resolution: that would shrink the peak).
-  IslamicStars<288, 144> effect;
-  IslamicBuildProbe::set_trans_speed(effect, 8.0f);
-  effect.init();
-
-  // Per-shape arena split (IslamicStars::spawn_shape): smooth kis/needle
+  // Per-shape arena split (IslamicStars::spawn_entry): smooth kis/needle
   // bridge shapes use 129.5 KB / 74 KB scratch; ordinary recipe builds use
   // 116 KB / 72 KB; non-recipe generation retains 116 KB / 74 KB. On host the
   // scratch arenas are the exact device sizes and hard-capped, so an over-budget
@@ -5604,90 +5622,123 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   // its own split. Persistent is host-inflated (soft), so it is checked per
   // frame against the effect's live per-shape device budget; host pointer
   // inflation makes the resident offset an upper bound on the device figure.
-  auto solids = Solids::Collections::get_islamic_solids();
-  const int entries = static_cast<int>(solids.size());
-  int needle_idx = -1;
-  for (int i = 0; i < entries; ++i)
-    if (std::strstr(solids[i].name, "needle"))
-      needle_idx = i;
-  HS_EXPECT_GE(needle_idx, 0);
+  // A resplit rebases each scratch high-water, so every peak below is the
+  // measured shape's own.
+  {
+    // Production resolution, not device: the swept+compiled+draw scratch peak a
+    // build leg reaches is mesh-driven and resolution-independent, but the
+    // effect ships at 288x144, so the gate holds the real geometry. Trans Speed
+    // 8 compresses each stage so the whole roster cycles in ~1200 frames
+    // without dropping any leg (never lower the resolution: that would shrink
+    // the peak).
+    IslamicStars<288, 144> effect;
+    IslamicBuildProbe::set_trans_speed(effect, 8.0f);
+    effect.init();
 
-  constexpr int MAX_FRAMES = 20000;
-  size_t a_peak = 0, b_peak = 0, persist_peak = 0;
-  size_t na_peak = 0, nb_peak = 0, np_peak = 0; // needle-only peaks
-  size_t worst_p = 0, worst_p_budget = 0;
-  int worst_p_idx = -1; // shape at the worst persistent/budget ratio
-  int frames = 0, shapes = 0, builds = 0;
-  bool was_building = false;
-  int last = IslamicBuildProbe::solid_idx(effect);
-  while (frames < MAX_FRAMES && shapes <= entries) {
-    effect.draw_frame();
-    effect.advance_display();
-    ++frames;
-    const int cur = IslamicBuildProbe::solid_idx(effect);
-    // Palette variety of each finished build: distinct landed palettes on the
-    // shape the real leg chain just landed.
-    const bool building = IslamicBuildProbe::build_active(effect);
-    if (was_building && !building) {
-      const int front = IslamicBuildProbe::front_slot(effect);
-      const uint8_t *pal = IslamicBuildProbe::slot_palette(effect, front);
-      const size_t nf = IslamicBuildProbe::slot_faces(effect, front);
-      bool seen[MeshPaletteBank::N] = {};
-      int distinct = 0;
-      for (size_t f = 0; f < nf; ++f)
-        if (pal[f] < MeshPaletteBank::N && !seen[pal[f]]) {
-          seen[pal[f]] = true;
-          ++distinct;
-        }
-      std::printf("  [built] %s: %d/%d palettes on %zu faces\n",
-                  (cur >= 0 && cur < entries) ? solids[cur].name : "?",
-                  distinct, MeshPaletteBank::N, nf);
+    auto solids = Solids::Collections::get_islamic_solids();
+    const int entries = static_cast<int>(solids.size());
+    constexpr int MAX_FRAMES = 20000;
+    size_t a_peak = 0, b_peak = 0, persist_peak = 0;
+    size_t worst_p = 0, worst_p_budget = 0;
+    int worst_p_idx = -1; // shape at the worst persistent/budget ratio
+    int frames = 0, shapes = 0, builds = 0;
+    bool was_building = false;
+    int last = IslamicBuildProbe::solid_idx(effect);
+    while (frames < MAX_FRAMES && shapes <= entries) {
+      effect.draw_frame();
+      effect.advance_display();
+      ++frames;
+      const int cur = IslamicBuildProbe::solid_idx(effect);
+      // Palette variety of each finished build: distinct landed palettes on the
+      // shape the real leg chain just landed.
+      const bool building = IslamicBuildProbe::build_active(effect);
+      if (was_building && !building) {
+        const int front = IslamicBuildProbe::front_slot(effect);
+        const uint8_t *pal = IslamicBuildProbe::slot_palette(effect, front);
+        const size_t nf = IslamicBuildProbe::slot_faces(effect, front);
+        bool seen[MeshPaletteBank::N] = {};
+        int distinct = 0;
+        for (size_t f = 0; f < nf; ++f)
+          if (pal[f] < MeshPaletteBank::N && !seen[pal[f]]) {
+            seen[pal[f]] = true;
+            ++distinct;
+          }
+        std::printf("  [built] %s: %d/%d palettes on %zu faces\n",
+                    (cur >= 0 && cur < entries) ? solids[cur].name : "?",
+                    distinct, MeshPaletteBank::N, nf);
+      }
+      was_building = building;
+      const size_t p = persistent_arena.get_offset();
+      const size_t p_budget = IslamicBuildProbe::persistent_budget(effect);
+      a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
+      b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
+      persist_peak = std::max(persist_peak, p);
+      if (p > worst_p) { // report the tightest persistent fit, not the raw max
+        worst_p = p;
+        worst_p_budget = p_budget;
+        worst_p_idx = cur;
+      }
+      // Per-shape persistent budget (device figure); scratch is trap-enforced.
+      HS_EXPECT_LE(p, p_budget);
+      if (building)
+        ++builds;
+      if (cur != last) {
+        last = cur;
+        ++shapes;
+      }
     }
-    was_building = building;
-    const size_t p = persistent_arena.get_offset();
-    const size_t a = scratch_arena_a.get_high_water_mark();
-    const size_t b = scratch_arena_b.get_high_water_mark();
-    const size_t p_budget = IslamicBuildProbe::persistent_budget(effect);
-    a_peak = std::max(a_peak, a);
-    b_peak = std::max(b_peak, b);
-    persist_peak = std::max(persist_peak, p);
-    if (p > worst_p) { // report the tightest persistent fit, not the raw max
-      worst_p = p;
-      worst_p_budget = p_budget;
-      worst_p_idx = cur;
-    }
-    if (cur == needle_idx) {
-      na_peak = std::max(na_peak, a);
-      nb_peak = std::max(nb_peak, b);
-      np_peak = std::max(np_peak, p);
-    }
-    // Per-shape persistent budget (device figure); scratch is trap-enforced.
-    HS_EXPECT_LE(p, p_budget);
-    if (building)
-      ++builds;
-    if (cur != last) {
-      last = cur;
-      ++shapes;
-    }
+
+    const char *worst_name = (worst_p_idx >= 0 && worst_p_idx < entries)
+                                 ? solids[worst_p_idx].name
+                                 : "?";
+    std::printf(
+        "  [roster] %d shapes over %d frames, %d build frames: scratch_a "
+        "peak=%zu B, scratch_b peak=%zu B, persistent peak=%zu B; tightest "
+        "persistent %zu/%zu at %s\n",
+        shapes, frames, builds, a_peak, b_peak, persist_peak, worst_p,
+        worst_p_budget, worst_name);
+    HS_EXPECT_GT(shapes, entries - 1);
+    HS_EXPECT_GT(builds, 0);
   }
 
-  const char *worst_name = (worst_p_idx >= 0 && worst_p_idx < entries)
-                               ? solids[worst_p_idx].name
-                               : "?";
-  std::printf(
-      "  [roster] %d shapes over %d frames, %d build frames: scratch_a "
-      "peak=%zu B, scratch_b peak=%zu B, persistent peak=%zu B; tightest "
-      "persistent %zu/%zu at %s\n",
-      shapes, frames, builds, a_peak, b_peak, persist_peak, worst_p,
-      worst_p_budget, worst_name);
-  std::printf("  [roster] needle smooth-path peaks: scratch_a=%zu/%zu "
+  // The needle build. Trans Speed 2, not the roster's 8: a compressed stage can
+  // drop the closing bridge leg before it runs, which is the peak.
+  reset_effect_globals();
+  size_t na_peak = 0, nb_peak = 0, np_peak = 0;
+  int needle_frames = 0;
+  bool needle_built = false;
+  {
+    constexpr int NEEDLE_MAX_FRAMES = 4000;
+    IslamicStars<288, 144> effect;
+    IslamicBuildProbe::set_trans_speed(effect, 2.0f);
+    effect.init();
+    IslamicBuildProbe::spawn_entry(effect, NEEDLE_ENTRY);
+    bool was_building = false;
+    while (needle_frames < NEEDLE_MAX_FRAMES) {
+      effect.draw_frame();
+      effect.advance_display();
+      ++needle_frames;
+      const bool building = IslamicBuildProbe::build_active(effect);
+      const size_t p = persistent_arena.get_offset();
+      na_peak = std::max(na_peak, scratch_arena_a.get_high_water_mark());
+      nb_peak = std::max(nb_peak, scratch_arena_b.get_high_water_mark());
+      np_peak = std::max(np_peak, p);
+      HS_EXPECT_LE(p, IslamicBuildProbe::persistent_budget(effect));
+      if (building)
+        was_building = true;
+      else if (was_building) {
+        needle_built = true;
+        break;
+      }
+    }
+  }
+  std::printf("  [needle] smooth-path peaks over %d frames: scratch_a=%zu/%zu "
               "scratch_b=%zu/%zu persistent=%zu/%zu\n",
-              na_peak, IslamicBuildProbe::bridge_scratch_a(), nb_peak,
-              IslamicBuildProbe::bridge_scratch_b(), np_peak,
+              needle_frames, na_peak, IslamicBuildProbe::bridge_scratch_a(),
+              nb_peak, IslamicBuildProbe::bridge_scratch_b(), np_peak,
               DEVICE_GLOBAL_ARENA_SIZE - IslamicBuildProbe::bridge_scratch_a() -
                   IslamicBuildProbe::bridge_scratch_b());
-  HS_EXPECT_GT(shapes, entries - 1);
-  HS_EXPECT_GT(builds, 0);
+  HS_EXPECT_TRUE(needle_built);
   // needle actually reached its scratch_a-heavy split (proves the smooth path
   // ran, not a silently-dropped build).
   HS_EXPECT_GT(na_peak, 120u * 1024u);
@@ -5700,8 +5751,9 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
  * @details The roster gate at Trans Speed 8 compresses each build so far that a
  *          heavy shape's closing dual leg can be dropped before it runs; this
  *          drives at a modest speed so every bridge leg runs in full. Five
- *          registry recipes carry a DUAL (a needle, two gyros, a kis-gyro, and
- *          a truncate50d_ambo_dual). The bridge's leg 3 rebuilds the medial for
+ *          bridges are reached in registry order: a gyro, a gyro-kis dt macro,
+ *          then a kis-gyro whose dtd macro bridges twice before its own gyro
+ *          bridges again. The bridge's leg 3 rebuilds the medial for
  *          its handoff centroids, whose scratch must not co-reside with the
  *          leg's own arrival mesh -- an over-budget leg traps in the host arena.
  */
