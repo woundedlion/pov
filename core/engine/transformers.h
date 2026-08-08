@@ -148,22 +148,6 @@ public:
   }
 
   /**
-   * @brief Frees every slot without touching the timeline.
-   * @details Slots are normally reclaimed by each animation's completion
-   * callback; Timeline::clear() destroys events without running those, so it
-   * calls this instead (registered by init_storage()). Spawning past CAPACITY
-   * would otherwise return nullptr forever.
-   */
-  HS_COLD_MEMBER void release_all() {
-    HS_CHECK(entities,
-             "TransformerPool: call init_storage() before release_all");
-    check_storage_alive();
-    for (int i = 0; i < CAPACITY; ++i)
-      entities[i].active = false;
-    active_slot_count = 0;
-  }
-
-  /**
    * @brief Re-claims the pool's storage after its arena was reset, preserving
    * live entities.
    * @param arena The arena init_storage() allocated from, freshly reset.
@@ -291,6 +275,24 @@ private:
    */
   void check_storage_alive() const {}
 #endif
+
+  /**
+   * @brief Frees every slot without touching the timeline.
+   * @details Reachable only through the clear hook init_storage() registers:
+   * slots are normally reclaimed by each animation's completion callback, and
+   * Timeline::clear() destroys events without running those, so spawning past
+   * CAPACITY would otherwise return nullptr forever. Freeing slots while their
+   * animations are still live would hand a recycled slot's ParamsT to a second
+   * entity and let the stale completion callback deactivate it.
+   */
+  HS_COLD_MEMBER void release_all() {
+    HS_CHECK(entities,
+             "TransformerPool: call init_storage() before release_all");
+    check_storage_alive();
+    for (int i = 0; i < CAPACITY; ++i)
+      entities[i].active = false;
+    active_slot_count = 0;
+  }
 
   /**
    * @brief Appends a slot index to active_slots in spawn order.
