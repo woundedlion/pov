@@ -1004,6 +1004,7 @@ inline void test_recipe_lowered_replay_matches_authored() {
       Solids::OpStep lowered[MAX_LOWERED_STEPS];
       size_t n =
           Solids::expand_to_primitives(*e.recipe, lowered, MAX_LOWERED_STEPS);
+      HS_EXPECT_EQ(n, Solids::lowered_step_count(*e.recipe));
       Arena geom1(solids_geom_a, sizeof(solids_geom_a));
       PolyMesh authored;
       {

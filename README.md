@@ -1359,7 +1359,7 @@ The mesh system is split across nine files:
 - **`mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
 - **`conway.h`** — Conway mesh operators and vertex transformations
 - **`conway_graph.h`** — Constexpr 23-edge morph graph over the 18 simple-registry solids: per-edge operator/seed/reseed specs, bridge-aware walk weighting, and the closed `ORDERED_TOUR`
-- **`recipe.h`** — Lowers an authored recipe to primitive steps (`expand_to_primitives`), replays either form through `SolidBuilder` (`build_recipe`, `build_steps`), and decides which lowered steps a morph leg can sweep (`is_morphable_step`)
+- **`recipe.h`** — Lowers an authored recipe to primitive steps (`expand_to_primitives`), sizes that lowering at compile time (`lowered_step_count`, `max_lowered_step_count`), replays either form through `SolidBuilder` (`build_recipe`, `build_steps`), and decides which lowered steps a morph leg can sweep (`is_morphable_step`)
 - **`hankin.h`** — Hankin pattern compilation and dynamic update
 - **`mesh_classes.h`** — Congruence-class clustering plus one canonical distance-LUT bake per class, allocated by descending face count under an 18 KB per-mesh budget
 - **`spatial.h`** — `MeshState` (flat-array renderer format) and `KDTree`
