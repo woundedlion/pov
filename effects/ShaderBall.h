@@ -172,13 +172,7 @@ public:
         std::min(static_cast<int>(P.palette_pos), PALETTE_COUNT - 1);
     const float pal_frac = P.palette_pos - static_cast<float>(pal_lo);
 
-    auto shader = [&](const Vector &v) -> Color4 {
-      Vector rv = rotate(v, cam_outer_conj);
-      Vector sv = rv;
-      if (P.lens_mix != 0.0f) {
-        Vector g = apply_glitch_lens(rv);
-        sv = P.lens_mix == 1.0f ? g : nlerp_dir(rv, g, P.lens_mix);
-      }
+    auto sample_direction = [&](const Vector &sv) -> PatternSample {
       Complex z = stereo(rotate(sv, cam_inner_conj));
       float r_sq = z.re * z.re + z.im * z.im;
       auto [w, displacement] =
@@ -187,7 +181,25 @@ public:
       float pattern =
           sample_pattern(stereo_pattern_args(w, P.pattern_freq), P.complexity,
                          direct1, direct2, sin_phase, phase2);
-      float value = pole_normalize_pattern(pattern, r_sq, P.pole_fade);
+      return {pole_normalize_pattern(pattern, r_sq, P.pole_fade), displacement};
+    };
+
+    auto shader = [&](const Vector &v) -> Color4 {
+      Vector rv = rotate(v, cam_outer_conj);
+      PatternSample lens_sample;
+      if (P.lens_mix == 0.0f) {
+        lens_sample = sample_direction(rv);
+      } else {
+        Vector g = apply_glitch_lens(rv);
+        if (P.lens_mix == 1.0f) {
+          lens_sample = sample_direction(g);
+        } else {
+          const PatternSample direct = sample_direction(rv);
+          const PatternSample lensed = sample_direction(g);
+          lens_sample = blend_lens_samples(direct, lensed, P.lens_mix);
+        }
+      }
+      float value = lens_sample.value;
       // The Wrap lookup below folds an exact 1.0 onto the palette's other end.
       value = std::min(value, ONE_BELOW_UNIT);
       float u = wrap_t(value + breathe_offset);
@@ -197,7 +209,7 @@ public:
                            cyclers[pal_lo + 1].palette().get(u), pal_frac);
       c.alpha *= (1.0f - value * P.value_fade);
       if (P.hue_shift != 0.0f)
-        c = hue_rotate(c, -displacement * P.hue_shift);
+        c = hue_rotate(c, -lens_sample.displacement * P.hue_shift);
       return c;
     };
 
@@ -210,6 +222,18 @@ public:
 private:
   // Test seam: reaches the accumulators, lens, and pattern formula.
   friend struct ::hs_test::effects_tests::ShaderBallWhiteBox;
+
+  struct PatternSample {
+    float value;
+    float displacement;
+  };
+
+  static PatternSample blend_lens_samples(const PatternSample &direct,
+                                          const PatternSample &lensed,
+                                          float mix) {
+    return {hs::lerp(direct.value, lensed.value, mix),
+            hs::lerp(direct.displacement, lensed.displacement, mix)};
+  }
 
   /**
    * @brief Evaluates the generalized sinusoidal pattern at a bounded point.
@@ -262,24 +286,6 @@ private:
 
     return Vector(y2 * v.x * (4.0f * x2 * inv_R2 - 3.0f), y2 * v.y - 1.0f,
                   y2 * v.z * (3.0f - 4.0f * z2 * inv_R2));
-  }
-
-  /**
-   * @brief Normalized linear blend between two unit directions.
-   * @param a Blend source (t = 0), unit length.
-   * @param b Blend target (t = 1), unit length.
-   * @param t Blend factor in (0, 1).
-   * @return Unit direction along the chord from a to b.
-   * @details Guards on the squared magnitude of the blend vector (never an
-   * acos-derived angle): near-antipodal endpoints collapse it to zero, in
-   * which case the target direction is returned.
-   */
-  static Vector nlerp_dir(const Vector &a, const Vector &b, float t) {
-    Vector m = a + (b - a) * t;
-    float m_sq = dot(m, m);
-    if (m_sq < LENS_BLEND_MIN_SQ)
-      return b;
-    return m / sqrtf(m_sq);
   }
 
   /**
@@ -410,8 +416,6 @@ private:
   /** @brief Largest float below 1.0; keeps palette coordinates off the Wrap
    *  fold. */
   static constexpr float ONE_BELOW_UNIT = 0x1.fffffep-1f;
-  /** @brief Squared-magnitude floor for the lens nlerp blend vector. */
-  static constexpr float LENS_BLEND_MIN_SQ = 1e-12f;
 
   /**
    * @brief Tunable warp/pattern/camera/color state, one snapshot per preset.
@@ -475,7 +479,7 @@ private:
         // exact at t = 1, so every slot's slice reaches exactly 1 and gate
         // params land bit-exactly on their endpoints.
         float tl = hs::clamp(t * active - slot, 0.0f, 1.0f);
-        this->*f = hs::lerp(a.*f, b.*f, tl);
+        this->*f = hs::lerp(a.*f, b.*f, ease_in_out_sin(tl));
         ++slot;
       }
     }
