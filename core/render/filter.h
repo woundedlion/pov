@@ -1996,12 +1996,11 @@ private:
                            stock_transform;
 
     const Animation::NoiseParams *noise = feedback_style->noise;
-    const WarpKey key{
-        feedback_style->space_fn,  noise,
-        noise_config_hash(noise),  feedback_style->amplitude,
-        feedback_style->frequency, feedback_style->speed,
-        feedback_style->scale,     noise ? noise->time * noise->speed : 0.0f,
-        band.field_y_begin,        band.field_y_end};
+    const WarpKey key{feedback_style->space_fn,  noise,
+                      noise_config_hash(noise),  feedback_style->amplitude,
+                      feedback_style->frequency, feedback_style->speed,
+                      feedback_style->scale,     noise ? noise->time : 0.0f,
+                      band.field_y_begin,        band.field_y_end};
 
     if (!cacheable) {
       const int cells = grid.field_rows * grid.columns;

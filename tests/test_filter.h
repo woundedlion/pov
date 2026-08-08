@@ -2625,7 +2625,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
         for (int x = 0; x < W; ++x)
           frames.back().push_back(fx.get_pixel(x, y));
 
-      np.time += 1.0f;
+      np.time += np.speed; // mirrors Animation::Noise
     }
     return frames;
   };

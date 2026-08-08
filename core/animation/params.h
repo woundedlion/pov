@@ -773,16 +773,14 @@ struct NoiseParams {
 };
 
 /**
- * @brief Animates noise parameters by updating time.
+ * @brief Animates noise parameters by integrating their time axis.
  */
 class Noise : public AnimationBase<Noise> {
 public:
   /**
    * @brief Constructs a Noise animation.
    * @param params Reference to the NoiseParams to animate.
-   * @param duration Duration in frames (-1 for indefinite). Use -1: this
-   *   repeats, so a finite duration rewinds t each cycle and snaps params.time
-   *   backward.
+   * @param duration Duration in frames (-1 for indefinite).
    */
   Noise(NoiseParams &params, int duration = -1)
       : AnimationBase(duration, true), params(params) {}
@@ -793,9 +791,10 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher speed)
-    // float can't represent consecutive frames and the noise time axis freezes.
-    params.get().time = static_cast<float>(t);
+    // Accepted limit: past time == 2^24 (~77 h at 60 fps and speed 1, sooner at
+    // higher speed) float can't represent consecutive steps and the noise time
+    // axis freezes.
+    params.get().time += params.get().speed;
   }
 
 private:

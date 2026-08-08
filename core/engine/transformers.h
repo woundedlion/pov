@@ -633,7 +633,7 @@ HS_O3_FN inline Vector ripple_transform(const Vector &v,
 /**
  * @brief Slides a point along the sphere surface by a 3D-noise field.
  * @param v The unit vector to transform.
- * @param params Noise field, scale, amplitude, speed and time.
+ * @param params Noise field, scale, amplitude and time.
  * @return The displaced unit vector.
  * @details Samples three decorrelated noise channels (each offset by 100/200 on
  * all three axes) to
@@ -647,7 +647,7 @@ inline Vector noise_transform(const Vector &v,
     return v;
 
   float scale = params.scale;
-  float time_val = params.time * params.speed;
+  float time_val = params.time;
 
   // ny/nz read the same field as nx under a constant spatial translation
   // (100/200 on every axis). The channels decorrelate because that translation
