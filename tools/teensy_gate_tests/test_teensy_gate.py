@@ -1153,6 +1153,50 @@ class TestSizeAFallback(unittest.TestCase):
             return rc, buf.getvalue()
 
 
+class TestNonUtf8Captures(unittest.TestCase):
+    """Both gates answer by exit code, and a decode error has none.
+
+    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream,
+    so a capture that is not valid UTF-8 must still produce a verdict.
+    """
+
+    # RIGHT SINGLE QUOTATION MARK in cp1252; not a valid UTF-8 sequence.
+    CP1252 = b"don\x92t"
+
+    def test_gate_reads_a_capture_with_a_cp1252_byte(self):
+        with tempfile.TemporaryDirectory() as d:
+            sizes = Path(d) / "sizes.txt"
+            sizes.write_bytes(_read("good_teensy_size.txt").encode("utf-8")
+                              + b"note: " + self.CP1252 + b" care\n")
+            syms = Path(d) / "syms.txt"
+            syms.write_bytes(_read("good_readelf_syms.txt").encode("utf-8"))
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = tg.main(["--env", "holosphere",
+                              "--budgets", str(TOOLS / "teensy_budgets.json"),
+                              "--teensy-size", str(sizes),
+                              "--readelf-syms", str(syms)])
+            self.assertEqual(rc, 0, msg=buf.getvalue())
+
+    def test_ratchet_reads_a_build_log_with_a_cp1252_byte(self):
+        log_text = (_banner("phantasm", "core/engine/memory.cpp") + "\n"
+                    "arm-none-eabi-g++ -o .pio/build/phantasm/core/engine/"
+                    "memory.cpp.o -c core/engine/memory.cpp\n")
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "build.log"
+            log.write_bytes(log_text.encode("utf-8")
+                            + b"note: " + self.CP1252 + b" care\n")
+            base = Path(d) / "baseline.txt"
+            base.write_text("", encoding="utf-8")
+            ini = Path(d) / "platformio.ini"
+            ini.write_text("[env:phantasm]\n", encoding="utf-8")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = tw.main(["--build-log", str(log), "--baseline", str(base),
+                              "--platformio-ini", str(ini)])
+            self.assertEqual(rc, 0, msg=buf.getvalue())
+
+
 class TestStripJsoncComments(unittest.TestCase):
     """The bespoke JSONC comment stripper guarding the budgets file."""
 
