@@ -974,7 +974,7 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 | `Plot::DistortedRing` | Ring with per-azimuth radius perturbation via callback |
 | `Plot::Star<Projection>` | N-pointed star with planar or geodesic edges |
 | `Plot::Flower` | N-petal flower shape |
-| `Plot::Mesh` | Wireframe mesh rendering with edge deduplication |
+| `Plot::Mesh` | Wireframe mesh rendering with edge deduplication. The dedup bitset holds `DEDUP_CAPACITY = 128` vertices; a larger mesh traps as its faces are walked — at setup for `extract_edges()`, but every frame at render time for `draw()`. Conway operators pass 128 vertices within two or three ops, so a wireframe fed from an `OpLeg` chain must keep its vertex count under the cap |
 | `Plot::ParticleSystem` | Particle trail rendering from `QuantizedVectorTrail` history |
 
 ### 7.3 The Animation System (`animation.h`)
