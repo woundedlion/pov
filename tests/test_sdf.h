@@ -27,6 +27,7 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <cfloat>
 #include <cmath>
 #include <cstring>
 #include <iterator>

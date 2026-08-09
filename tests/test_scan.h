@@ -22,6 +22,7 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <cfloat>
 #include <vector>
 
 namespace hs_test {
