@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstring>
 #include <initializer_list>
+#include <tuple>
 #include <utility>
 
 #include "engine/platform.h"
