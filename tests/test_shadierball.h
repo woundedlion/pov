@@ -150,10 +150,9 @@ inline void test_shadierball_twin_wave_formula() {
  * @details Every lens maps unit directions to unit directions; the twist
  *          preserves latitude and fixes the equator; the kaleidoscope folds
  *          all azimuths into one half-sector wedge and fixes the azimuth-free
- *          poles; Lens::NONE and the
- *          lens_mix endpoints reduce to the plain projections; a fractional
- *          mix stays linear through its midpoint; and the full pipeline lands
- *          every value in [0, 1].
+ *          poles; Lens::NONE and the lens_mix endpoints reduce to the plain
+ *          projections; fractional mixes equal lerp(direct, lensed, mix)
+ *          exactly; and the full pipeline lands every value in [0, 1].
  */
 inline void test_shadierball_lens_projection() {
   using WB = ShadierBallWhiteBox;
@@ -215,11 +214,12 @@ inline void test_shadierball_lens_projection() {
   HS_EXPECT_EQ(mix_full.re, lensed.re);
   HS_EXPECT_EQ(mix_full.im, lensed.im);
 
-  const Complex before = WB::project(v, STEREO, WB::Lens::GLITCH, 0.499f);
-  const Complex middle = WB::project(v, STEREO, WB::Lens::GLITCH, 0.5f);
-  const Complex after = WB::project(v, STEREO, WB::Lens::GLITCH, 0.501f);
-  HS_EXPECT_NEAR(middle.re - before.re, after.re - middle.re, 1e-5f);
-  HS_EXPECT_NEAR(middle.im - before.im, after.im - middle.im, 1e-5f);
+  const float mixes[] = {0.25f, 0.5f, 0.75f};
+  for (float m : mixes) {
+    const Complex mixed = WB::project(v, STEREO, WB::Lens::GLITCH, m);
+    HS_EXPECT_EQ(mixed.re, hs::lerp(direct.re, lensed.re, m));
+    HS_EXPECT_EQ(mixed.im, hs::lerp(direct.im, lensed.im, m));
+  }
 
   const WB::WaveState wave{0.8f, 0.5f, fast_cosf(0.5f), fast_sinf(0.5f)};
   for (const Vector &d : dirs) {
