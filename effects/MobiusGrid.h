@@ -262,7 +262,6 @@ private:
         Vector transformed = mobius_gen.transform(m_fragments[k].pos);
         Fragment &f = m_fragments[k];
         f.pos = normalized_or(rotate(transformed, q), Vector(1, 0, 0));
-        f.v0 = (n > 1) ? (float)k / (n - 1) : 0.0f;
         f.v1 = 0.0f;
         f.v2 = 0.0f;
       }
