@@ -913,11 +913,6 @@ private:
         draw_conway_mesh(c, m, sh);
       }};
 
-  Orientation<> orientation; /**< Current camera orientation. */
-  FastNoiseLite noise;       /**< Noise source driving the orientation walk. */
-  Timeline timeline;         /**< Schedules sweeps, sprites, and morphs. */
-  Pipeline<W, H> filters;    /**< Per-pixel filter pipeline applied on draw. */
-
   /**
    * @brief User-adjustable rendering parameters.
    */
@@ -925,6 +920,13 @@ private:
     float intensity = 1.2f;           /**< Edge-distance shading gain. */
     float hankin_angle = PI_F / 4.0f; /**< Interlace angle in radians. */
   } params;
+
+  // orientation, noise, and the angle the sweep Mutation points at are borrowed
+  // by timeline-resident animations, so they outlive the Timeline.
+  Orientation<> orientation; /**< Current camera orientation. */
+  FastNoiseLite noise;       /**< Noise source driving the orientation walk. */
+  Timeline timeline;         /**< Schedules sweeps, sprites, and morphs. */
+  Pipeline<W, H> filters;    /**< Per-pixel filter pipeline applied on draw. */
 };
 
 #include "core/engine/effect_registry.h"

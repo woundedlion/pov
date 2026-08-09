@@ -366,6 +366,20 @@ private:
   bool wipe_pending =
       false; /**< Wipe armed this frame; it first steps next frame. */
   /**
+   * @brief User-tunable parameters.
+   * @details num_rings/num_lines are animated counts driven by the Mutation
+   *          timelines; alpha is the overall opacity multiplier. Declared before
+   *          `timeline` so the counts outlive the Mutations that point here.
+   */
+  struct Params {
+    /** Animated latitude-ring count; the default is the ring Mutation's opening
+     * sample, so a pause held from before init() still draws a grid. */
+    float num_rings = 12.0f;
+    float num_lines = 0.0f; /**< Animated longitude-line count. */
+    float alpha = 0.2f;     /**< Overall opacity multiplier in [0, 1]. */
+  } params;
+
+  /**
    * @brief Spinning render orientation.
    * @details Declared before `timeline` so it outlives the Rotation that points
    * here, which ~Timeline clears on teardown.
@@ -378,19 +392,6 @@ private:
   Pipeline<W, H, NorthHole, SouthHole, Filter::World::Orient,
            Filter::Screen::AntiAlias<W, H>>
       filters;
-
-  /**
-   * @brief User-tunable parameters.
-   * @details num_rings/num_lines are animated counts driven by the Mutation
-   *          timelines; alpha is the overall opacity multiplier.
-   */
-  struct Params {
-    /** Animated latitude-ring count; the default is the ring Mutation's opening
-     * sample, so a pause held from before init() still draws a grid. */
-    float num_rings = 12.0f;
-    float num_lines = 0.0f; /**< Animated longitude-line count. */
-    float alpha = 0.2f;     /**< Overall opacity multiplier in [0, 1]. */
-  } params;
 };
 
 #include "core/engine/effect_registry.h"

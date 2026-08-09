@@ -319,8 +319,12 @@ private:
 
   Presets<Params, 8> presets;
 
+  // orientation/noise/mobius/params are borrowed by timeline-resident
+  // animations, so they are declared here to outlive the Timeline.
   Orientation<> orientation;
   FastNoiseLite noise;
+  MobiusParams mobius; /**< Current Mobius warp parameters. */
+  Params params;
   Timeline timeline;
   Filter::Screen::DirectAntiAliasSink<W, H> filters;
   ParticleSystem particle_system;
@@ -344,14 +348,11 @@ private:
    */
   std::array<Basis, EmitSolid::NUM_VERTS> emitter_basis;
 
-  MobiusParams mobius; /**< Current Mobius warp parameters. */
 #ifdef HS_TEST_BUILD
   bool reference_orientation = false;
   bool reference_vertex_pass = false;
   bool reference_hole_kernel = false;
 #endif
-
-  Params params;
 
   __attribute__((always_inline)) static Pixel
   sample_trail_palette(const Pixel *colors, float t) {

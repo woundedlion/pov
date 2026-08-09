@@ -174,6 +174,21 @@ private:
   float cx = 1.0f, sx = 0.0f, cy = 1.0f, sy = 0.0f, fold_base = 0.0f;
   float flow_rad = 0.0f, ty_rad = 0.0f;
 
+  /**
+   * @brief User-tunable parameters controlling fiber motion and shading.
+   */
+  struct Params {
+    float flow_speed = 10.0f;  /**< Flow phase advance rate, in tuning units. */
+    float tumble_speed = 2.0f; /**< 4D tumble rate, in tuning units. */
+    float folding = 0.2f;      /**< Fold modulation depth, dimensionless. */
+    float twist =
+        4.0f; /**< Twist applied to azimuth per fold, dimensionless. */
+    float alpha = 1.0f; /**< Global trail opacity multiplier in [0, 1]. */
+  } params;
+
+  // orientation and the phase accumulators above are borrowed by
+  // timeline-resident animations, as are the params speeds the Drivers point
+  // at, so all of them are declared before the Timeline to outlive it.
   Orientation<> orientation;
   Timeline timeline;
   BakedPalette baked_sunset;
@@ -347,18 +362,6 @@ private:
       }
     }
   }
-
-  /**
-   * @brief User-tunable parameters controlling fiber motion and shading.
-   */
-  struct Params {
-    float flow_speed = 10.0f;  /**< Flow phase advance rate, in tuning units. */
-    float tumble_speed = 2.0f; /**< 4D tumble rate, in tuning units. */
-    float folding = 0.2f;      /**< Fold modulation depth, dimensionless. */
-    float twist =
-        4.0f; /**< Twist applied to azimuth per fold, dimensionless. */
-    float alpha = 1.0f; /**< Global trail opacity multiplier in [0, 1]. */
-  } params;
 };
 
 #include "core/engine/effect_registry.h"

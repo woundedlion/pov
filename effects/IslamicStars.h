@@ -182,11 +182,15 @@ private:
   static_assert(2 * BURST_MAX <= RIPPLE_POOL_SIZE,
                 "IslamicStars: ripple pool must hold two overlapping bursts");
 
+  // orientation and noise are borrowed by the timeline-resident RandomWalk, so
+  // they are declared before the Timeline to outlive it; ripple_gen must stay
+  // after it, since a TransformerPool drops its clear hook through the
+  // reference it holds.
   Orientation<> orientation;
+  FastNoiseLite noise;
   Timeline timeline;
   Pipeline<W, H> filters;
   RippleTransformer<RIPPLE_POOL_SIZE> ripple_gen;
-  FastNoiseLite noise;
   // Effective per-shape stage lengths after the Trans Speed divisor, written by
   // spawn_shape and read by the deferred ripple() callback.
   int ripple_dur_eff = 80;
