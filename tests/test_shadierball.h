@@ -32,7 +32,7 @@ struct ShadierBallWhiteBox {
   using Function = SDB::Function;
   using Projection = SDB::Projection;
   using Lens = SDB::Lens;
-  using TwinWaveState = SDB::TwinWaveState;
+  using WaveState = SDB::WaveState;
   using Sample = SDB::Sample;
   static constexpr int FADE_FRAMES = SDB::PALETTE_FADE_FRAMES;
   static constexpr uint32_t HUE_STEP = SDB::HUE_STEP;
@@ -51,13 +51,16 @@ struct ShadierBallWhiteBox {
     return SDB::project_point(v, projection);
   }
   static Vector glitch_lens(const Vector &v) { return SDB::glitch_lens(v); }
+  static Vector apply_lens(const Vector &v, Lens lens) {
+    return SDB::apply_lens(v, lens);
+  }
   static float sample_function(Function function, const Complex &p,
-                               const TwinWaveState &wave) {
+                               const WaveState &wave) {
     return SDB::sample_function(function, p, wave);
   }
   static Sample sample_pipeline(const Vector &v, Function function,
                                 Projection projection, Lens lens,
-                                const TwinWaveState &wave, float pattern_freq,
+                                const WaveState &wave, float pattern_freq,
                                 float pole_fade, float lens_mix) {
     return SDB::sample_pipeline(v, {function, projection, lens}, wave,
                                 pattern_freq, pole_fade, lens_mix);
@@ -118,8 +121,9 @@ inline void test_shadierball_twin_wave_formula() {
       const Complex p(re, im);
       for (float ph : phases) {
         for (float angle : angles) {
-          const WB::TwinWaveState wave{ph, fast_cosf(angle), fast_sinf(angle)};
-          const float rotated = re * wave.wave_cos + im * wave.wave_sin;
+          const WB::WaveState wave{ph, angle, fast_cosf(angle),
+                                   fast_sinf(angle)};
+          const float rotated = re * wave.angle_cos + im * wave.angle_sin;
           const float expected =
               0.5f * (fast_sinf(re + ph) + fast_sinf(rotated + ph));
           HS_EXPECT_EQ(WB::sample_function(WB::Function::TWIN_WAVE, p, wave),
@@ -130,7 +134,7 @@ inline void test_shadierball_twin_wave_formula() {
   }
 
   // Zero rotation collapses the pair onto one wave exactly.
-  const WB::TwinWaveState aligned{1.1f, 1.0f, 0.0f};
+  const WB::WaveState aligned{1.1f, 0.0f, 1.0f, 0.0f};
   HS_EXPECT_EQ(WB::sample_function(WB::Function::TWIN_WAVE,
                                    Complex(0.7f, -1.1f), aligned),
                fast_sinf(0.7f + 1.1f));
@@ -138,10 +142,12 @@ inline void test_shadierball_twin_wave_formula() {
 
 /**
  * @brief Verifies lens-slot dispatch through the stereographic projection.
- * @details The glitch lens maps unit directions to unit directions; Lens::NONE
- *          and the lens_mix endpoints reduce to the plain projections; a
- *          fractional mix stays linear through its midpoint; and the full
- *          pipeline lands every value in [0, 1].
+ * @details Every lens maps unit directions to unit directions; the twist
+ *          preserves latitude and fixes the equator; the kaleidoscope folds
+ *          all azimuths into one half-sector wedge; Lens::NONE and the
+ *          lens_mix endpoints reduce to the plain projections; a fractional
+ *          mix stays linear through its midpoint; and the full pipeline lands
+ *          every value in [0, 1].
  */
 inline void test_shadierball_lens_projection() {
   using WB = ShadierBallWhiteBox;
@@ -157,6 +163,29 @@ inline void test_shadierball_lens_projection() {
   for (const Vector &v : dirs) {
     HS_EXPECT_NEAR(WB::glitch_lens(v).length(), 1.0f, 1e-3f);
   }
+
+  // The twist lens preserves latitude and turns the poles most; the
+  // kaleidoscope folds every azimuth into one half-sector wedge. Both keep
+  // unit norm.
+  constexpr float SECTOR_HALF = PI_F / 6.0f;
+  for (const Vector &d : dirs) {
+    const Vector twisted = WB::apply_lens(d, WB::Lens::TWIST);
+    // fast_sinf/fast_cosf are not exactly unit-amplitude, so the trig-built
+    // lenses carry ~2e-3 of norm error by construction.
+    HS_EXPECT_NEAR(twisted.length(), 1.0f, 4e-3f);
+    HS_EXPECT_EQ(twisted.y, d.y);
+    const Vector folded = WB::apply_lens(d, WB::Lens::KALEIDOSCOPE);
+    HS_EXPECT_NEAR(folded.length(), 1.0f, 4e-3f);
+    HS_EXPECT_EQ(folded.y, d.y);
+    const float folded_azimuth = fast_atan2(folded.z, folded.x);
+    // fast_atan2 and the fold's fast trig each carry ~4e-3 rad of error.
+    HS_EXPECT_GE(folded_azimuth, -1e-2f);
+    HS_EXPECT_LE(folded_azimuth, SECTOR_HALF + 1e-2f);
+  }
+  const Vector equator(1, 0, 0);
+  const Vector untwisted = WB::apply_lens(equator, WB::Lens::TWIST);
+  HS_EXPECT_NEAR(untwisted.x, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(untwisted.z, 0.0f, 1e-6f);
 
   const Vector v(0.6f, 0.48f, 0.64f);
   constexpr WB::Projection STEREO = WB::Projection::STEREOGRAPHIC;
@@ -178,7 +207,7 @@ inline void test_shadierball_lens_projection() {
   HS_EXPECT_NEAR(middle.re - before.re, after.re - middle.re, 1e-5f);
   HS_EXPECT_NEAR(middle.im - before.im, after.im - middle.im, 1e-5f);
 
-  const WB::TwinWaveState wave{0.8f, fast_cosf(0.5f), fast_sinf(0.5f)};
+  const WB::WaveState wave{0.8f, 0.5f, fast_cosf(0.5f), fast_sinf(0.5f)};
   for (const Vector &d : dirs) {
     const float value =
         WB::sample_pipeline(d, WB::Function::TWIN_WAVE, STEREO,
@@ -239,7 +268,7 @@ inline void test_shadierball_projection_maps() {
     }
   }
 
-  const WB::TwinWaveState wave{0.8f, fast_cosf(0.5f), fast_sinf(0.5f)};
+  const WB::WaveState wave{0.8f, 0.5f, fast_cosf(0.5f), fast_sinf(0.5f)};
   const WB::Projection projections[] = {WB::Projection::EQUIRECTANGULAR,
                                         WB::Projection::STEREOGRAPHIC,
                                         WB::Projection::GNOMONIC};
@@ -251,6 +280,74 @@ inline void test_shadierball_projection_maps() {
               .value;
       HS_EXPECT_GE(value, 0.0f);
       HS_EXPECT_LE(value, 1.0f);
+    }
+  }
+}
+
+/**
+ * @brief Pins the rings, spiral, and grid function bodies to their closed
+ *        forms.
+ * @details Each body must match its formula bit for bit; rings must ignore the
+ *          rotation state; the spiral's integer arm count must keep the
+ *          azimuth seam continuous; and the pipeline lands every value in
+ *          [0, 1] for every function and lens.
+ */
+inline void test_shadierball_field_functions() {
+  using WB = ShadierBallWhiteBox;
+  const float args[] = {-6.0f, -2.5f, -0.7f, 0.0f, 0.9f, 3.1f, 5.8f};
+  const WB::WaveState wave{0.9f, 0.7f, fast_cosf(0.7f), fast_sinf(0.7f)};
+  const WB::WaveState spun{0.9f, 2.3f, fast_cosf(2.3f), fast_sinf(2.3f)};
+  for (float re : args) {
+    for (float im : args) {
+      const Complex p(re, im);
+      const float radius = sqrtf(re * re + im * im);
+
+      HS_EXPECT_EQ(WB::sample_function(WB::Function::RINGS, p, wave),
+                   fast_sinf(radius - wave.phase));
+      HS_EXPECT_EQ(WB::sample_function(WB::Function::RINGS, p, wave),
+                   WB::sample_function(WB::Function::RINGS, p, spun));
+
+      const float azimuth = fast_atan2(im, re);
+      HS_EXPECT_EQ(
+          WB::sample_function(WB::Function::SPIRAL, p, wave),
+          fast_sinf(radius - 3.0f * (azimuth + wave.angle) - wave.phase));
+
+      const float a = re * wave.angle_cos + im * wave.angle_sin;
+      const float b = -re * wave.angle_sin + im * wave.angle_cos;
+      HS_EXPECT_EQ(WB::sample_function(WB::Function::GRID, p, wave),
+                   fast_sinf(a + wave.phase) * fast_cosf(b - wave.phase));
+    }
+  }
+
+  // Spiral azimuth seam: the +-pi wrap differs by 3 whole turns, so the value
+  // is continuous across it.
+  constexpr float EPSILON = 1e-4f;
+  const float radius = 2.0f;
+  const Complex above(radius * fast_cosf(PI_F - EPSILON),
+                      radius * fast_sinf(PI_F - EPSILON));
+  const Complex below(radius * fast_cosf(PI_F + EPSILON),
+                      radius * fast_sinf(PI_F + EPSILON));
+  HS_EXPECT_NEAR(WB::sample_function(WB::Function::SPIRAL, above, wave),
+                 WB::sample_function(WB::Function::SPIRAL, below, wave), 5e-2f);
+
+  const Vector dirs[] = {Vector(1, 0, 0), Vector(1, 1, 1).normalized(),
+                         Vector(0.2f, -0.9f, 0.4f).normalized(),
+                         Vector(-0.7f, 0.1f, 0.7f).normalized()};
+  const WB::Function functions[] = {WB::Function::TWIN_WAVE,
+                                    WB::Function::RINGS, WB::Function::SPIRAL,
+                                    WB::Function::GRID};
+  const WB::Lens lenses[] = {WB::Lens::NONE, WB::Lens::GLITCH, WB::Lens::TWIST,
+                             WB::Lens::KALEIDOSCOPE};
+  for (WB::Function function : functions) {
+    for (WB::Lens lens : lenses) {
+      for (const Vector &d : dirs) {
+        const float value =
+            WB::sample_pipeline(d, function, WB::Projection::STEREOGRAPHIC,
+                                lens, wave, 6.0f, 2.0f, 1.0f)
+                .value;
+        HS_EXPECT_GE(value, 0.0f);
+        HS_EXPECT_LE(value, 1.0f);
+      }
     }
   }
 }
@@ -303,6 +400,7 @@ inline int run_shadierball_tests() {
   test_shadierball_twin_wave_formula();
   test_shadierball_lens_projection();
   test_shadierball_projection_maps();
+  test_shadierball_field_functions();
   test_shadierball_palette_walk();
   return fixture.result();
 }

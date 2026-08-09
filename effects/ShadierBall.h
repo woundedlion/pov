@@ -71,7 +71,7 @@ public:
    * @brief Advances the wave phases and shades every pixel for one frame.
    * @details Wraps the phase accumulators, steps the palette walk, hoists the
    * frame-constant slot tags and wave state, then shades every pixel: lens,
-   * stereographic projection, pattern function, pole normalize, palette.
+   * projection, pattern function, pole normalize, palette.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -86,8 +86,8 @@ public:
     // Frame-constant hoists; the per-pixel slot switches test these copies, so
     // the branch predictor makes the dispatch nearly free.
     const Slots slots = active.slots;
-    const TwinWaveState wave{phase, fast_cosf(wave_angle),
-                             fast_sinf(wave_angle)};
+    const WaveState wave{phase, wave_angle, fast_cosf(wave_angle),
+                         fast_sinf(wave_angle)};
     const float pattern_freq = P.pattern_freq;
     const float pole_fade = P.pole_fade;
     const float lens_mix = P.lens_mix;
@@ -108,11 +108,11 @@ private:
   friend struct ::hs_test::shadierball_tests::ShadierBallWhiteBox;
 
   /** @brief Pattern-field slot tag; one body per enumerator. */
-  enum class Function : uint8_t { TWIN_WAVE };
+  enum class Function : uint8_t { TWIN_WAVE, RINGS, SPIRAL, GRID };
   /** @brief Sphere-to-plane projection slot tag. */
   enum class Projection : uint8_t { EQUIRECTANGULAR, STEREOGRAPHIC, GNOMONIC };
   /** @brief Sphere-lens slot tag applied before projection. */
-  enum class Lens : uint8_t { NONE, GLITCH };
+  enum class Lens : uint8_t { NONE, GLITCH, TWIST, KALEIDOSCOPE };
 
   /** @brief Slot tags one preset selects. */
   struct Slots {
@@ -136,11 +136,12 @@ private:
     Params params;
   };
 
-  /** @brief Frame-constant state of the twin-wave function. */
-  struct TwinWaveState {
-    float phase;    /**< Shared travel phase of both waves. */
-    float wave_cos; /**< Cosine of the second wave's rotation angle. */
-    float wave_sin; /**< Sine of the second wave's rotation angle. */
+  /** @brief Frame-constant travel and rotation state every function reads. */
+  struct WaveState {
+    float phase;     /**< Travel phase in [0, 2pi). */
+    float angle;     /**< Rotation angle in [0, 2pi). */
+    float angle_cos; /**< Cosine of the rotation angle. */
+    float angle_sin; /**< Sine of the rotation angle. */
   };
 
   /** @brief Inter-stage record the function stage hands the palette stage. */
@@ -150,7 +151,7 @@ private:
 
   /** @brief Full per-pixel pipeline: lens, projection, function, normalize. */
   static Sample sample_pipeline(const Vector &v, const Slots &slots,
-                                const TwinWaveState &wave, float pattern_freq,
+                                const WaveState &wave, float pattern_freq,
                                 float pole_fade, float lens_mix) {
     const Complex z = project(v, slots.projection, slots.lens, lens_mix);
     const float r_sq = z.re * z.re + z.im * z.im;
@@ -162,21 +163,57 @@ private:
   /** @brief Lens dispatch and projection to the pattern plane. */
   static Complex project(const Vector &v, Projection projection, Lens lens,
                          float lens_mix) {
+    if (lens == Lens::NONE || lens_mix == 0.0f)
+      return project_point(v, projection);
+    const Complex lensed = project_point(apply_lens(v, lens), projection);
+    if (lens_mix == 1.0f)
+      return lensed;
+    const Complex direct = project_point(v, projection);
+    return {hs::lerp(direct.re, lensed.re, lens_mix),
+            hs::lerp(direct.im, lensed.im, lens_mix)};
+  }
+
+  /** @brief Lens-slot dispatch on a frame-constant tag. */
+  static Vector apply_lens(const Vector &v, Lens lens) {
     switch (lens) {
     case Lens::NONE:
-      return project_point(v, projection);
-    case Lens::GLITCH: {
-      if (lens_mix == 0.0f)
-        return project_point(v, projection);
-      const Complex lensed = project_point(glitch_lens(v), projection);
-      if (lens_mix == 1.0f)
-        return lensed;
-      const Complex direct = project_point(v, projection);
-      return {hs::lerp(direct.re, lensed.re, lens_mix),
-              hs::lerp(direct.im, lensed.im, lens_mix)};
-    }
+      return v;
+    case Lens::GLITCH:
+      return glitch_lens(v);
+    case Lens::TWIST:
+      return twist_lens(v);
+    case Lens::KALEIDOSCOPE:
+      return kaleidoscope_lens(v);
     }
     __builtin_unreachable();
+  }
+
+  /**
+   * @brief Azimuthal twist: rotates (x, z) about Y by TWIST_RATE * y.
+   * @param v Unit direction vector on the sphere.
+   * @return Twisted unit direction; the equator is fixed, the poles turn most.
+   */
+  static Vector twist_lens(const Vector &v) {
+    const float angle = TWIST_RATE * v.y;
+    const float c = fast_cosf(angle);
+    const float s = fast_sinf(angle);
+    return Vector(v.x * c - v.z * s, v.y, v.x * s + v.z * c);
+  }
+
+  /**
+   * @brief Kaleidoscope: mirror-folds the azimuth into one half-sector wedge.
+   * @param v Unit direction vector on the sphere.
+   * @return Folded unit direction; the pattern repeats mirrored
+   * 2 * KALEIDOSCOPE_SECTORS times around the Y axis.
+   */
+  static Vector kaleidoscope_lens(const Vector &v) {
+    constexpr float SECTOR = TWO_PI_F / KALEIDOSCOPE_SECTORS;
+    const float radius = sqrtf(v.x * v.x + v.z * v.z);
+    float azimuth = fmodf(fast_atan2(v.z, v.x) + PI_F, SECTOR);
+    if (azimuth > 0.5f * SECTOR)
+      azimuth = SECTOR - azimuth;
+    return Vector(radius * fast_cosf(azimuth), v.y,
+                  radius * fast_sinf(azimuth));
   }
 
   /** @brief Projection-slot dispatch: unit direction to plane coordinates. */
@@ -218,10 +255,16 @@ private:
 
   /** @brief Function-slot dispatch on a frame-constant tag. */
   static float sample_function(Function function, const Complex &p,
-                               const TwinWaveState &wave) {
+                               const WaveState &wave) {
     switch (function) {
     case Function::TWIN_WAVE:
       return twin_wave(p, wave);
+    case Function::RINGS:
+      return rings(p, wave);
+    case Function::SPIRAL:
+      return spiral(p, wave);
+    case Function::GRID:
+      return grid(p, wave);
     }
     __builtin_unreachable();
   }
@@ -232,10 +275,46 @@ private:
    * @param wave Frame-constant phase and rotation of the pair.
    * @return Mean of the two waves in [-1, 1].
    */
-  static float twin_wave(const Complex &p, const TwinWaveState &wave) {
-    const float rotated = p.re * wave.wave_cos + p.im * wave.wave_sin;
+  static float twin_wave(const Complex &p, const WaveState &wave) {
+    const float rotated = p.re * wave.angle_cos + p.im * wave.angle_sin;
     return 0.5f *
            (fast_sinf(p.re + wave.phase) + fast_sinf(rotated + wave.phase));
+  }
+
+  /**
+   * @brief Concentric rings traveling outward from the projection origin.
+   * @param p Frequency-scaled, bounded pattern arguments.
+   * @param wave Frame-constant travel phase; the rotation state is unused.
+   * @return Ring value in [-1, 1].
+   */
+  static float rings(const Complex &p, const WaveState &wave) {
+    return fast_sinf(sqrtf(p.re * p.re + p.im * p.im) - wave.phase);
+  }
+
+  /**
+   * @brief Rotating SPIRAL_ARMS-armed spiral about the projection origin.
+   * @param p Frequency-scaled, bounded pattern arguments.
+   * @param wave Frame-constant travel phase and arm rotation angle.
+   * @return Spiral value in [-1, 1]; integer arm count keeps the azimuth
+   * seam continuous.
+   */
+  static float spiral(const Complex &p, const WaveState &wave) {
+    const float radius = sqrtf(p.re * p.re + p.im * p.im);
+    const float azimuth = fast_atan2(p.im, p.re);
+    return fast_sinf(radius - SPIRAL_ARMS * (azimuth + wave.angle) -
+                     wave.phase);
+  }
+
+  /**
+   * @brief Multiplicative grid lattice rotated by the spin angle.
+   * @param p Frequency-scaled, bounded pattern arguments.
+   * @param wave Frame-constant travel phase and lattice rotation.
+   * @return Lattice value in [-1, 1].
+   */
+  static float grid(const Complex &p, const WaveState &wave) {
+    const float a = p.re * wave.angle_cos + p.im * wave.angle_sin;
+    const float b = -p.re * wave.angle_sin + p.im * wave.angle_cos;
+    return fast_sinf(a + wave.phase) * fast_cosf(b - wave.phase);
   }
 
   /**
@@ -284,10 +363,18 @@ private:
 
   /** @brief |v.y| floor for the gnomonic division. */
   static constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
+  /** @brief Spiral arm count; integral, so the azimuth seam stays continuous. */
+  static constexpr float SPIRAL_ARMS = 3.0f;
+  /** @brief Twist-lens rotation per unit of latitude height, radians. */
+  static constexpr float TWIST_RATE = 3.0f;
+  /** @brief Kaleidoscope sector count around the Y axis. */
+  static constexpr float KALEIDOSCOPE_SECTORS = 6.0f;
 
-  static constexpr const char *FUNCTION_OPTIONS[] = {"Twin Wave"};
+  static constexpr const char *FUNCTION_OPTIONS[] = {"Twin Wave", "Rings",
+                                                     "Spiral", "Grid"};
   static constexpr const char *FUNCTION_EXPORT_OPTIONS[] = {
-      "Function::TWIN_WAVE"};
+      "Function::TWIN_WAVE", "Function::RINGS", "Function::SPIRAL",
+      "Function::GRID"};
   static constexpr int NUM_FUNCTIONS =
       static_cast<int>(std::size(FUNCTION_OPTIONS));
   static constexpr const char *PROJECTION_OPTIONS[] = {
@@ -297,9 +384,10 @@ private:
       "Projection::GNOMONIC"};
   static constexpr int NUM_PROJECTIONS =
       static_cast<int>(std::size(PROJECTION_OPTIONS));
-  static constexpr const char *LENS_OPTIONS[] = {"None", "Glitch"};
-  static constexpr const char *LENS_EXPORT_OPTIONS[] = {"Lens::NONE",
-                                                        "Lens::GLITCH"};
+  static constexpr const char *LENS_OPTIONS[] = {"None", "Glitch", "Twist",
+                                                 "Kaleidoscope"};
+  static constexpr const char *LENS_EXPORT_OPTIONS[] = {
+      "Lens::NONE", "Lens::GLITCH", "Lens::TWIST", "Lens::KALEIDOSCOPE"};
   static constexpr int NUM_LENSES = static_cast<int>(std::size(LENS_OPTIONS));
 
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.5f;
