@@ -228,13 +228,13 @@ public:
 
     Serial.print("[Phantasm] Segment ");
     Serial.print(segment_id);
-    Serial.print(arm_b ? " arm-B" : " arm-A");
-    Serial.print(y_step < 0 ? " (-y, reversed)" : " (+y)");
+    Serial.print(segment.arm_b ? " arm-B" : " arm-A");
+    Serial.print(segment.y_step < 0 ? " (-y, reversed)" : " (+y)");
     Serial.print(segment_id == 0 ? " MASTER" : "");
     Serial.print(" | y_base=");
-    Serial.print(y_base);
+    Serial.print(segment.y_base);
     Serial.print(" y_step=");
-    Serial.print(y_step);
+    Serial.print(segment.y_step);
     Serial.print(" pixels=");
     Serial.println(PPS);
   }
@@ -482,12 +482,7 @@ private:
    * @details IDs [0, N/2) map to arm A and [N/2, N) map to arm B. Each arm's
    * northern bands advance in +y; its southern bands advance in -y.
    */
-  void configure_segment() {
-    const pov::SegmentMap m = pov::segment_map(segment_id, S, N);
-    arm_b = m.arm_b;
-    y_base = m.y_base;
-    y_step = m.y_step;
-  }
+  void configure_segment() { segment = pov::segment_map(segment_id, S, N); }
 
   /**
    * @brief Clip @p e to this segment's quadrant for the upcoming display window.
@@ -501,8 +496,8 @@ private:
   static void clip_to_segment(Effect *e, bool arm_a_left) {
     if (e->needs_full_frame() || e->persists_pixels())
       return;
-    const pov::SegmentMap m{arm_b, y_base, y_step};
-    const pov::SegmentClip c = pov::segment_clip(m, arm_a_left, S, N, CANVAS_W);
+    const pov::SegmentClip c =
+        pov::segment_clip(segment, arm_a_left, S, N, CANVAS_W);
     e->set_clip(c.y0, c.y1, c.x0, c.x1);
   }
 
@@ -621,7 +616,7 @@ private:
    */
   [[nodiscard]] HS_O3_FN static FASTRUN bool render_column(Effect *e, int x) {
     const int w = e->width();
-    const int x_col = pov::segment_x_col(arm_b, x, w);
+    const int x_col = pov::segment_x_col(segment.arm_b, x, w);
 
     // ISR fast path: index the display buffer directly, dropping PPS per-pixel
     // virtual get_pixel() dispatches. No effect on this path overrides get_pixel.
@@ -630,9 +625,8 @@ private:
     auto &frame = ledController.backFrame();
     {
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
-      const pov::SegmentMap m{arm_b, y_base, y_step};
-      const int stride = pov::segment_row_stride(m, w);
-      int off = pov::segment_pixel_base(m, x_col, w);
+      const int stride = pov::segment_row_stride(segment, w);
+      int off = pov::segment_pixel_base(segment, x_col, w);
       for (int i = 0; i < PPS; ++i, off += stride) {
         frame.packPixel(i, buf[off]);
       }
@@ -703,10 +697,7 @@ private:
 
   static int
       segment_id; /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
-  static bool arm_b; /**< True if this segment lives on arm B (x + W/2). */
-  static int y_base; /**< Canvas row of this segment's LED 0.      */
-  static int
-      y_step; /**< Row stride per LED: +1 north band or -1 reversed south band. */
+  static pov::SegmentMap segment; /**< Precomputed canvas mapping. */
 #if defined(USE_DMA_LEDS)
   static DMALEDController<PPS>
       ledController; /**< DMA SPI LED controller for the segment strip. */
@@ -735,11 +726,8 @@ pov::SyncPulseGate POVSegmented<S, N, RPM>::sync_pulse;
 
 template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::segment_id = 0;
 
-template <int S, int N, int RPM> bool POVSegmented<S, N, RPM>::arm_b = false;
-
-template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_base = 0;
-
-template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_step = 1;
+template <int S, int N, int RPM>
+pov::SegmentMap POVSegmented<S, N, RPM>::segment{false, 0, 1};
 
 #if defined(USE_DMA_LEDS)
 // ledController has no out-of-line definition: DMAMEM survives only on an
