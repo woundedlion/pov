@@ -511,6 +511,16 @@ inline void test_generative_palette_morph_compatible() {
   tight.chroma.headroom = 0.8f;
   HS_EXPECT_FALSE(a.morph_compatible(GenerativePalette(tight)));
 
+  PaletteRecipe mixed_lightness = PaletteRecipes::balanced_analogous(0.75f);
+  mixed_lightness.lightness.curve = AxisCurve::ASCENDING;
+  mixed_lightness.lightness.range = 0.4f;
+  HS_EXPECT_FALSE(a.morph_compatible(GenerativePalette(mixed_lightness)));
+
+  PaletteRecipe mixed_chroma = PaletteRecipes::balanced_analogous(0.75f);
+  mixed_chroma.chroma.curve = AxisCurve::DESCENDING;
+  mixed_chroma.chroma.range = 0.4f;
+  HS_EXPECT_FALSE(a.morph_compatible(GenerativePalette(mixed_chroma)));
+
   const GenerativePalette loop_one(
       PaletteRecipes::isolight_spectral_loop(0.0f));
   const GenerativePalette loop_shifted(
