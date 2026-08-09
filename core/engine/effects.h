@@ -82,7 +82,9 @@
 
 /**
  * @brief Phantasm (288x144) playlist: HS_EFFECT_LIST minus the low-res-only
- *        effects (Dynamo, Thrusters — Holosphere 96x20 only).
+ *        effects (Dynamo, Thrusters — Holosphere 96x20 only) and ShadierBall
+ *        (excluded while it grows; its 288x144 shader instantiation does not
+ *        fit the remaining ITCM budget — see docs/itcm_ledger.md).
  * @param X Function-like macro applied to each effect type name in the playlist.
  * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
  *   consumes this; the registry, tests, and gallery stay on the full roster.
@@ -108,7 +110,6 @@
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
   X(ShaderBall)                                                                \
-  X(ShadierBall)                                                               \
   X(ShapeShifter)                                                              \
   X(SphericalHarmonics)                                                        \
   X(Voronoi)
@@ -183,20 +184,22 @@ constexpr bool hs_phantasm_effect_list_is_distinct() {
 
 // Drift guard: an effect added to (or removed from) HS_EFFECT_LIST must also be
 // deliberately added to or excluded from the Phantasm playlist above. The count
-// pins the cardinality; the name scans pin *which* two are missing, so swapping
-// one exclusion for another cannot ride green. Distinctness closes the last
-// hole: a duplicated entry paired with an omission holds the count and passes
-// both exclusion scans while an effect silently drops off the playlist.
+// pins the cardinality; the name scans pin *which* three are missing, so
+// swapping one exclusion for another cannot ride green. Distinctness closes the
+// last hole: a duplicated entry paired with an omission holds the count and
+// passes both exclusion scans while an effect silently drops off the playlist.
 static_assert(hs_phantasm_effect_list_is_distinct(),
               "HS_PHANTASM_EFFECT_LIST names an effect twice — the duplicate "
               "is masking an omitted effect");
-static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 2,
+static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 3,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus Dynamo and Thrusters)");
-static_assert(hs_in_effect_list("Dynamo") && hs_in_effect_list("Thrusters"),
+              "(full roster minus Dynamo, Thrusters, and ShadierBall)");
+static_assert(hs_in_effect_list("Dynamo") && hs_in_effect_list("Thrusters") &&
+                  hs_in_effect_list("ShadierBall"),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
 static_assert(!hs_in_phantasm_effect_list("Dynamo") &&
-                  !hs_in_phantasm_effect_list("Thrusters"),
+                  !hs_in_phantasm_effect_list("Thrusters") &&
+                  !hs_in_phantasm_effect_list("ShadierBall"),
               "HS_PHANTASM_EFFECT_LIST must exclude Dynamo and Thrusters "
-              "(Holosphere 96x20 only)");
+              "(Holosphere 96x20 only) and ShadierBall (ITCM budget)");
