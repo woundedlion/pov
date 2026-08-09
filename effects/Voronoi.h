@@ -379,7 +379,7 @@ private:
                 "Voronoi persistent footprint exceeds its device partition; "
                 "lower MAX_SITES or shrink SCRATCH_A_BYTES");
 
-  int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
+  int current_num_sites = 0;      /**< Count currently seeded; re-seeds (clear +
                                    refill, no realloc) when the slider changes. */
   ArenaVector<Site> sites_buffer; /**< Active Voronoi sites for the frame. */
 
