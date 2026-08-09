@@ -231,6 +231,24 @@ inline void test_shadierball_lens_projection() {
   }
 }
 
+/** @brief Verifies Pole Fade also attenuates alpha perceptually to the pole. */
+inline void test_shadierball_pole_fade_alpha() {
+  using WB = ShadierBallWhiteBox;
+  const WB::WaveState wave{0.8f, 0.5f, fast_cosf(0.5f), fast_sinf(0.5f)};
+  constexpr float POLE_FADE = 2.0f;
+
+  const auto sample_at = [&](const Vector &v) {
+    return WB::sample_pipeline(v, WB::Function::TWIN_WAVE,
+                               WB::Projection::STEREOGRAPHIC, WB::Lens::NONE,
+                               wave, 6.0f, POLE_FADE, 0.0f);
+  };
+
+  HS_EXPECT_EQ(sample_at(Vector(0, -1, 0)).alpha, 1.0f);
+  HS_EXPECT_NEAR(sample_at(inv_stereo(Complex(POLE_FADE, 0))).alpha, 0.25f,
+                 1e-6f);
+  HS_EXPECT_NEAR(sample_at(Vector(0, 1, 0)).alpha, 0.0f, 1e-12f);
+}
+
 /**
  * @brief Pins the projection-slot dispatch and each map's closed form.
  * @details STEREOGRAPHIC must equal stereo() bit for bit; EQUIRECTANGULAR must
@@ -489,6 +507,7 @@ inline int run_shadierball_tests() {
   test_shadierball_phase_wrapped();
   test_shadierball_twin_wave_formula();
   test_shadierball_lens_projection();
+  test_shadierball_pole_fade_alpha();
   test_shadierball_projection_maps();
   test_shadierball_field_functions();
   test_shadierball_wander_camera();

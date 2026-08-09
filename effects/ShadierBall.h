@@ -109,7 +109,9 @@ public:
     auto shader = [&](const Vector &v) -> Color4 {
       const Sample s = sample_pipeline(rotate(v, view_conj), slots, wave,
                                        pattern_freq, pole_fade, lens_mix);
-      return palette_cycler.palette().get(s.value);
+      Color4 color = palette_cycler.palette().get(s.value);
+      color.alpha *= s.alpha;
+      return color;
     };
     {
       HS_PROFILE(sdb_shader_draw);
@@ -162,6 +164,7 @@ private:
   /** @brief Inter-stage record the function stage hands the palette stage. */
   struct Sample {
     float value; /**< Pole-normalized pattern value in [0, 1]. */
+    float alpha; /**< Perceptually compensated pole opacity in [0, 1]. */
   };
 
   /** @brief Full per-pixel pipeline: lens, projection, function, normalize. */
@@ -172,7 +175,8 @@ private:
     const float r_sq = z.re * z.re + z.im * z.im;
     const float pattern = sample_function(
         slots.function, stereo_pattern_args(z, pattern_freq), wave);
-    return {pole_normalize_pattern(pattern, r_sq, pole_fade)};
+    const float pole_weight = pole_attenuation(r_sq, pole_fade);
+    return {(pattern * pole_weight + 1.0f) * 0.5f, pole_weight * pole_weight};
   }
 
   /** @brief Lens dispatch and projection to the pattern plane. */
