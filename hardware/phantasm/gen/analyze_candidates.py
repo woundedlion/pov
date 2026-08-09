@@ -40,6 +40,7 @@ import tempfile
 from collections import Counter
 
 import sexp
+from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
 from fab import find_kicad_cli
 from kicad_common import F
 
@@ -57,8 +58,8 @@ REFILL_FIXABLE = {"clearance", "hole_clearance"}
 DRC_OK = "ok"
 DRC_MISSING = "tool-missing"
 DRC_FAILED = "failed"
-MIN_STANDARD_VIA_DIAMETER_MM = 0.45
-MIN_STANDARD_VIA_DRILL_MM = 0.20
+MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
+MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
 
 # Fast / critical nets for the 24 MHz SPI + sync (post-relabel source-side names
 # DATA_SRC/CLK_SRC/SYNC_SRC are pre-terminator stubs -- included as fast too).
