@@ -1,10 +1,1293 @@
 # ShaderBall — unifying Liquid2D and Flyby
 
-**Status: LANDED.** `effects/ShaderBall.h` ships, `Liquid2D` and `Flyby` are
-gone from every roster, and the effect carries 15 presets. §5's lens blend is
-superseded by the shipped one; where this spec and the code disagree, the code
-is the source of truth. §11 is the executed roster checklist, kept as the record
-of every oracle a roster change touches.
+**Status: LANDED; NORTH-STAR REVISION IN DESIGN.** `effects/ShaderBall.h`
+ships, `Liquid2D` and `Flyby` are gone from every roster, and the effect carries
+15 presets. Section 0 records the shipped pipeline and the north-star
+ShadierBall contract. Sections 1–13 preserve the original ShaderBall merge
+design and migration record; they are historical where they disagree with
+Section 0 or the code. Section 11 remains the executed roster checklist.
+
+## 0. North star: authored field pipeline, pullback renderer
+
+The north star is an authored effect pipeline, not the textual order of a
+per-pixel shader. It should read the way an artist constructs the result:
+
+```text
+source animation → sample → warp → project → surface lens → colorize
+                 → outer camera → viewer
+```
+
+The outer camera is last. The stack's implementation may traverse spatial and
+deformation stages backward to answer a pixel lookup, but that traversal does
+not redefine their authored order.
+
+The fixed, typed stack must express every current ShaderBall preset without
+turning ShaderBall into one opaque function slot. It must also retain
+ShadierBall's additional functions, projections, and lenses. Continuous
+parameters morph inside a topology; discrete slot tags choose the topology.
+
+### 0.1 Status quo: both effects are pullback samplers
+
+`Scan::Shader::draw` does not receive generated geometry or a forward-projected
+sample. For each output pixel it supplies a world/view-space unit direction and
+expects the final `Color4`. ShaderBall and ShadierBall therefore ask, "which
+source coordinate and material land at this view direction?"
+
+For shipped ShaderBall, let `O` be the outer camera, `P` the current member
+named `cam_inner`, `L` the glitch lens, and `project` the stereographic map. Its
+exact spatial lookup is:
+
+```text
+outer_local = O⁻¹(view)
+direct      = project(P⁻¹(outer_local))
+lensed      = project(P⁻¹(L(outer_local)))
+z           = lerp(direct, lensed, lens_mix)
+```
+
+It then evaluates:
+
+```text
+r_sq        = |z|²
+(w, disp)   = noise_warp(z, r_sq)
+field       = coupled_direct_function(w)
+value       = pole_normalize(field, r_sq)
+color       = colorize(value, disp)
+```
+
+The direct and lensed branches rejoin in projected-coordinate space, so warp,
+function, value shaping, and colorization run once. This is the shipped lens
+blend; the historical dual-pattern-sample description in §5 is superseded.
+
+ShadierBall performs the subset:
+
+```text
+outer_local = O⁻¹(view)
+z           = project_lens_blend(outer_local)
+field       = selected_function(z)
+pole_weight = pole_attenuation(|z|², pole_fade)
+value       = (field * pole_weight + 1) / 2
+coverage    = pole_weight²
+color       = generated_palette(value)
+color.alpha *= coverage
+```
+
+Its existing wander is consequently the outer camera. It is not an arbitrary
+pre-lens animation that may be moved elsewhere when the framework grows.
+ShadierBall currently applies this radial weighting and alpha coverage to all
+three projection slots, including its bounded folded equirectangular map. That
+is shipped behavior even though the helper is named `pole_attenuation` and the
+policy is geometrically motivated only by stereographic projection.
+
+### 0.2 Authored order and lookup order
+
+The authored stack describes field construction:
+
+1. **Source animation** advances the source function's phase and orientation.
+2. **Sample** evaluates the source function in its native domain.
+3. **Warp** deforms that sampled field and emits deformation metadata.
+4. **Project** maps the deformed field onto the sphere in an animated projection
+   frame.
+5. **Surface lens** distorts the projected spherical field.
+6. **Colorize** converts the material sample and metadata into color and alpha.
+7. **Outer camera** places the finished colored sphere in the viewer's frame.
+
+As field operators, the authored composition is:
+
+```text
+Scene = OuterCamera ∘ Colorize ∘ SurfaceLens ∘ Project ∘ Warp
+        ∘ Sample ∘ SourceAnimation
+```
+
+The hot loop evaluates a pullback of that composition:
+
+```text
+view lookup
+  → inverse outer camera
+  → surface-lens lookup
+  → inverse animated projection frame
+  → sphere-to-source projection lookup
+  → warp lookup
+  → source-animation lookup
+  → sample
+  → colorize
+```
+
+Equivalently, for one view direction:
+
+```text
+surface_dir = OuterCamera.lookup(view)
+projected   = SurfaceLens.lookup_then_project(surface_dir)
+source      = Warp.lookup(projected)
+material    = Sample(SourceAnimation.state, source)
+color       = Colorize(material)
+```
+
+Warp and projection therefore appear before `sample` in code even though they
+appear after it in authored order. A warp is represented by its pullback map:
+given a destination coordinate, return the source coordinate to sample. A
+projection likewise maps a sphere lookup direction back to a source-domain
+coordinate. The renderer never needs to forward-splat a dense intermediate
+field.
+
+Colorization is pointwise over the material sample and its carried metadata.
+It is evaluated after the lookups have found that material, even though the
+authored colored sphere is subsequently placed by the outer camera.
+
+### 0.3 Retire the overloaded term "inner camera"
+
+The proposed first phase, **source animation**, is not the current ShaderBall
+member `cam_inner`. Source animation owns pattern travel, the independent second
+pattern phase, and ShadierBall's function angle. It changes the field before it
+is sampled.
+
+The current `cam_inner` instead animates the frame in which the source field is
+projected onto the sphere. In authored order it belongs to **Project**, inside
+the surface lens and outer camera. In lookup order its inverse runs inside each
+lens branch immediately before `project()`.
+
+The north-star responsibility names are therefore:
+
+- `SourceAnimation`: pre-sample clocks and source-domain orientation;
+- `ProjectionFrame`: fixed alignment, spin, and optional projection-local
+  wander represented today by `cam_inner`; and
+- `OuterCamera`: the final authored sphere placement represented by
+  `cam_outer` and by ShadierBall's current camera.
+
+This vocabulary preserves the status quo while preventing "inner" from meaning
+both source animation and a sphere-space camera.
+
+These are phase labels, not a mandate for three new engine classes. Existing
+`Timeline`, `Animation`, `Orientation`, and transformer facilities own the
+corresponding state wherever their contracts fit.
+
+### 0.4 Frame phasing
+
+Every frame has one mutable preparation pass followed by an immutable lookup
+pass:
+
+1. **Choreography:** advance dwell/blend events, produce live continuous
+   parameters, and latch completed discrete slot transitions.
+2. **Source clocks:** integrate phase accumulators from those live rates and
+   wrap each accumulator in its native domain.
+3. **Spatial motion:** advance continuously running walks and prepare the
+   `ProjectionFrame` and `OuterCamera` transforms.
+4. **Resources:** step palette generation and prepare frame-constant noise,
+   trigonometric, and transition state.
+5. **Snapshot:** copy slot tags and hot values into an immutable `FrameState`.
+6. **Pixels:** execute pullback lookups and pointwise sampling/colorization
+   without mutating effect state.
+
+Rates belong to presets; phase positions belong to the running effect. A preset
+blend lerps rates and amounts, never accumulator positions. Entering a preset
+changes velocity without resetting phase. Random walks likewise continue while
+their gain is zero, so restoring gain does not cold-start a trajectory.
+
+Manual parameter takeover pauses preset choreography. Source clocks and spatial
+walks continue unless a future control explicitly freezes the whole effect.
+Palette-resource pause is colorizer-specific for parity: ShaderBall's liquid
+`PaletteCycler` pauses on `anims_paused`, while ShadierBall's generated-triadic
+cycler intentionally continues. The north star preserves those two policies;
+unifying them later would be an explicit visual migration, not an architectural
+cleanup.
+
+### 0.5 Clock ownership
+
+Named clocks replace ShadierBall's current assumption that every function can
+share one travel phase and one angle:
+
+| Clock | Domain | Owner | Current use |
+|---|---:|---|---|
+| `source_primary` | 2π | Source animation | both effects' main travel phase |
+| `source_secondary` | 2π | Source animation | ShaderBall's independent drift phase |
+| `source_angle` | 2π | Source animation | ShadierBall twin-wave/grid/spiral rotation |
+| `source_noise_time` | basis-defined period | Source animation | noise-contour evolution and native wrap crossfade |
+| `lens_noise_time` | basis-defined period | Surface lens | tangent-noise evolution and native wrap crossfade |
+| `warp_time` | `STEREO_NOISE_TIME_PERIOD` | Warp | ShaderBall noise warp |
+| `warp_outer_phase` | 1 turn | Outer planar warp | non-legacy warp animation |
+| `warp_inner_phase` | 1 turn | Inner planar warp | non-legacy warp animation |
+| `projection_spin` | 2π | Project | ShaderBall Y spin in the projection frame |
+| `breathe_phase` | 2π | Colorize | ShaderBall breathe coordinate |
+| palette resource state | provider-defined | Colorize resource | palette sequence, provider hue, and fade/dwell progress |
+
+Slots consume only the clocks they declare. An unused clock may continue to
+advance so a later transition into its consumer remains phase-continuous.
+Every animated noise consumer names its clock and native period explicitly;
+there is no implicit reuse of a `2π` source clock as a noise time axis.
+`TANGENT_NOISE` owns `lens_noise_time`; it uses the selected basis's native
+period and the same end-of-period crossfade rule as other non-periodic noise.
+Its rate is stored in turns/frame, its position is captured in `FrameState`,
+and a dual transition forks and hands it off under the rules below. It may
+alias another noise clock only when both the clock identity and complete
+`NoiseResourceKey` are explicitly identical.
+`source_angle` and `projection_spin` are deliberately distinct: the first
+rotates a field in its native domain; the second changes how that field is
+framed on the sphere. The new per-stage warp phases do not replace legacy
+`warp_time`: that accumulator retains its native wrap crossfade for ShaderBall
+parity. `breathe_phase` is likewise independent of palette
+generation: ShaderBall's breathe rate is preset-controlled, while both effects'
+palette providers and fade timelines advance on their own schedules and obey
+their own pause policy.
+
+### 0.6 Typed phase contracts
+
+The authored phases exchange material meaning, but they do not each require a
+new engine type. Most boundaries remain ordinary local values. The minimum
+named records are:
+
+```text
+FrameState       { slots, live params, source phases, prepared transforms,
+                   const resource bindings }
+TransitionRuntime { mutable from/to clocks, orientations, mix, blend_mode }
+TransitionFrame   { FrameState from, FrameState to, mix, blend_mode }
+ProjectedLookup  { coords, region_id, component_id, boundary_flags,
+                   fade_edge_distance, value_weight, flags }
+StereoWarpResult { coords, displacement }       // existing
+PlanarWarpResult { coords, net_delta, deformation, path_length, flags }
+MaterialSample   { value, coverage, net_delta, deformation, path_length }
+```
+
+The pullback lookup path is:
+
+1. `OuterCamera`: view direction → outer-local direction.
+2. `SurfaceLens`: outer-local direction → active lookup branches.
+3. `ProjectionFrame`: each branch → projection-local direction.
+4. `Projection` kernel: each direction → complete branch `ProjectedLookup`.
+5. Projection-specific surface-lens join:
+   `join(ProjectedLookup a, ProjectedLookup b, mix) → ProjectedLookup`.
+6. Post-join projection policy: recompute only scalar facts proven to be
+   functions of joined coordinates.
+7. `WarpProgram`: outer planar lookup, then inner planar lookup → source
+   coordinate plus deformation metadata.
+8. `Coordinate conditioning`: prepare bounded function arguments.
+9. `Function`: source coordinate plus phases from `FrameState` → signed value.
+10. `SignalWeight` + `ValueTransfer` + `CoveragePolicy`: signed value plus
+    projection metadata → value and coverage.
+11. `Colorizer`: value, coverage, and deformation metadata → `Color4`.
+
+`coords` are pattern-plane coordinates, not necessarily a single continuous
+Euclidean chart. `region_id` identifies the computational sector or
+polyhedral face used by the formula; `component_id` identifies a connected
+planar source component; `boundary_flags` identifies relevant `GLUED`, `CUT`,
+`PERIODIC`, and `SINGULAR` ownership conditions; and `flags` records
+projection-specific parity state. `fade_edge_distance` is distance to the
+nearest fade-eligible `CUT` or `SINGULAR` boundary, never merely the nearest
+glued edge. Projection-specific join logic owns any additional per-edge data it
+needs. Region
+identity alone neither proves nor disproves join compatibility. `value_weight`
+is a finite projection-policy output in `[0, 1]`, not universal geometry.
+`fade_edge_distance` is finite and nonnegative. Projection validation rejects
+results outside either contract; Coverage does not silently clamp an invalid
+projection result. All legacy ShadierBall slots initially
+derive it from the joined coordinate's radius to preserve shipped output; new
+bounded projections default it to 1 unless their own specification says
+otherwise. Coverage does not belong to Projection: the same stereographic map
+feeds both effects, but only ShadierBall squares the weight into alpha.
+ShaderBall stereographic parity requires `r_sq = |joined.coords|²`, with that
+same post-join radius feeding both noise-warp attenuation and `value_weight`.
+Branch weights must never be interpolated in place of this finalization step.
+
+Topology is never reconstructed from joined `Complex` coordinates. The
+projection-specific join validates compatibility, interpolates coordinates,
+and merges or selects region, component, boundary, parity, and fade-distance
+metadata under that projection's exact rules. A fade distance may interpolate
+only when both branches refer to the same boundary; otherwise the join is
+incompatible. Post-join recomputation is limited to coordinate-derived scalars
+such as stereographic `r_sq` and its radial weight.
+
+The hot loop keeps the original `ProjectedLookup` beside `PlanarWarpResult`
+rather than copying projection metadata through the warp program. Projection
+metadata remains available until the value stage; warp-local flags may add fold
+or singularity facts but never rewrite the originating projection region,
+component, or edge. Coverage reaches final alpha, while `net_delta`,
+`deformation`, and `path_length` reach deformation-aware colorizers. A stage
+reports its displacement before coordinate-addition rounding. The program
+accumulates those stage deltas rather than recovering them by subtracting large
+rounded coordinates. With legacy stereographic noise as the sole stage,
+`deformation` is the existing helper's directly computed displacement scalar;
+the liquid colorizer consumes that scalar without recomputing
+`length(final_coords - original_coords)`. `MaterialSample` is an effect-local
+merged shape, not a general engine type.
+
+There are two clock models, selected by transition topology:
+
+- A stable-topology parameter morph has one live state. Continuous rates lerp,
+  and one authoritative clock integrates the resulting live rate, matching
+  ShaderBall today. Clock positions never lerp.
+- A dual-lookup discrete transition forks both endpoint clock positions from
+  the authoritative state at transition start. Each branch advances at its own
+  endpoint rate while both complete lookups render. At exact mix 1 the
+  destination branch's positions become authoritative.
+
+Spatial state follows the same distinction. A stable-topology morph integrates
+one projection and outer orientation using the live lerped gains. A dual lookup
+forks `inner_wander` and `outer_wander` orientations at transition start. The
+underlying shadow `RandomWalk` animations still step exactly once and publish
+one inner and one outer delta per frame; each endpoint integrates those shared
+deltas with its own fixed endpoint gain. At exact mix 1 the destination
+orientations become authoritative. A transform owner that cannot provide two
+independently advanced endpoint states is not transition-admissible and the
+discrete change snaps.
+
+For the second model, mutable effect-local `TransitionRuntime` owns the forked
+endpoint clock positions and integrated orientations that advance between
+frames. Frame preparation derives an immutable `TransitionFrame` containing
+complete `from` and `to` `FrameState` snapshots: slot tags, continuous params,
+prepared clock values/transforms, and const resource bindings. Mutable resource
+owners live outside both runtime branches and snapshots. Preset constants do
+not drift underneath the transition. Each distinct mutable resource owner steps
+exactly once per frame;
+aliased endpoint bindings must not double-step the same `PaletteCycler`, noise
+state, or animation. `mix` has exact 0 and 1 endpoints. The destination becomes
+the sole active state only at exact 1, after which the source can be released.
+Manual takeover edits the destination/live state and pauses choreography; it
+does not partially rewrite the captured source endpoint.
+
+### 0.7 Slots, parameters, and transitions
+
+The north-star discrete slots are:
+
+- `Function`: twin wave, rings, spiral, grid, and ShaderBall's coupled/direct
+  field, plus noise contour and primitive lattice;
+- `WarpProgram`: two fixed planar stages selected from the catalog in §0.7.1;
+- `Projection`: equirectangular, stereographic, gnomonic, Bonne, Peirce
+  quincuncial, and Airocean (Dymaxion);
+- `SurfaceLens`: none, glitch, twist, kaleidoscope, Möbius, and tangent noise;
+- `SignalWeight`: none or projection weight;
+- `ValueTransfer`: linear, ridge, iso-contour, or smooth bands;
+- `CoveragePolicy`: opaque, projection-weight squared, value cutout, or edge
+  fade; and
+- `Colorizer`: generated triadic, ShaderBall liquid, and deformation ink.
+
+Value policy owns distinctions projection cannot express. Given raw field
+`f` in `[-1, 1]` and projection-supplied weight `w`, first compute
+`s = clamp((f * signal_weight + 1) / 2, 0, 1)`, where `signal_weight` is `w`
+for `PROJECTION` and 1 for `NONE`. Then apply one transfer:
+
+```text
+LINEAR:        value = s
+RIDGE:         value = 1 - abs(2*s - 1)
+ISO_CONTOUR:   value = 1 - smoothstep(width, 2*width, abs(s - level))
+SMOOTH_BANDS:  value = 0.5 - 0.5*cos(2*pi*(band_count*s + band_phase))
+```
+
+`width` has a positive floor, `band_count` is a positive integer, and all
+outputs clamp to `[0, 1]`. Coverage is then:
+
+```text
+OPAQUE:                     coverage = 1
+PROJECTION_WEIGHT_SQUARED:  coverage = w²
+VALUE_CUTOUT:               coverage = smoothstep(threshold-softness,
+                                                  threshold+softness, value)
+EDGE_FADE:                  coverage = smoothstep(0, edge_width,
+                                                  fade_edge_distance)
+```
+
+`softness` and `edge_width` have positive floors. ShaderBall maps exactly to
+`PROJECTION + LINEAR + OPAQUE`; current ShadierBall maps to
+`PROJECTION + LINEAR + PROJECTION_WEIGHT_SQUARED` for every legacy projection.
+The former `UNWEIGHTED` behavior is `NONE + LINEAR + OPAQUE`. New bounded
+projections normally supply `w = 1` unless an explicit edge treatment says
+otherwise.
+
+#### 0.7.1 Fixed projected-domain warp program
+
+The projected-domain vocabulary is a fixed two-stage program, not an arbitrary
+node graph. In authored order the stages are:
+
+```text
+source -> inner planar warp -> outer planar warp -> projection
+```
+
+The pullback shader evaluates the inverse order:
+
+```text
+ProjectedLookup.coords -> outer.lookup -> inner.lookup -> source function
+```
+
+`outer` is nearest Projection and `inner` is nearest Sample. Each position owns
+one `WarpStageSpec { kind, basis, envelope, params, phase_rate, seed,
+resource_id }`. Cost tier is derived from the selected kernels, bases,
+integrators, wrap state, and transition shape; presets cannot self-declare a
+cheaper tier. A zero amplitude is exact identity and bypasses all noise,
+gradient, integration, and trigonometric work. Presets intending the fast path
+store exact zero.
+
+`resource_id` names an owner whose immutable `NoiseResourceKey` includes every
+generator configuration field: basis/kernel type, seed, generator frequency
+convention, channel offsets, octave/stencil version, and any mutable library
+setting. Stage coordinate scale and clock value remain sample inputs only when
+the kernel never pushes them into the generator object. Two stages or transition
+endpoints may share an owner only when their complete keys match; otherwise they
+require distinct simultaneously prepared owners. Alias compatibility, owner
+count, and arena/flash cost are part of schema validation and transition
+admission. No branch may call a configuration setter that clobbers another
+branch's prepared resource.
+
+The visual pipeline has compile-time `MAX_NOISE_RESOURCES = 8`, stored in a
+fixed effect-owned array with no heap fallback. This covers the admitted maximum
+of four distinct keyed owners per endpoint—outer warp, inner warp, noise source,
+and tangent-noise lens—across a dual transition. Random-walk generators remain
+separate dedicated owners and do not consume these slots. Before transition
+capture, candidate validation deduplicates the union of endpoint keys and
+rejects or snaps when it exceeds eight. All eight owner objects, bindings, and
+any basis-specific state count toward RAM1/persistent-arena admission even when
+the curated preset set normally uses fewer.
+
+The effect-local results are:
+
+```text
+PlanarWarpStageResult { coords, delta, deformation, path_length, flags }
+PlanarWarpResult      { coords, net_delta, deformation, path_length, flags }
+```
+
+For original coordinate `p0`, evaluate `p1 = outer.lookup(p0)` and
+`p2 = inner.lookup(p1)`. The final result has `coords = p2`,
+`net_delta = outer.delta + inner.delta`, and the sum of both stage path lengths.
+Each `delta` is computed before adding it to that stage's input, so it is not
+recovered by subtracting rounded coordinates. Normally `deformation` is
+`length(net_delta)`; sole-stage `LEGACY_STEREO_NOISE` instead copies the
+existing helper's directly computed displacement scalar exactly. A direct
+map's stage path is `length(delta)`; an integrated flow reports the sum of its
+integration-segment lengths. Projection metadata remains the original
+finalized post-lens `ProjectedLookup` beside this result.
+
+The admitted stage catalog is deliberately orthogonal:
+
+| Stage | Pullback definition | Continuous controls | Tier |
+|---|---|---|---|
+| `NONE` | identity | none | T0 |
+| `LEGACY_STEREO_NOISE` | exact shipped `stereo_noise_warp`, consuming the shared post-join stereographic radial weight and wrapped legacy time | existing scale, strength, time scale | T1 |
+| `AFFINE_FRAME` | `q = inverse(M) * (p - translation)` using a prepared nonsingular inverse | translation, rotation, log-scale x/y, bounded shear | T0 |
+| `WAVE_SHEAR` | `q = p + A*sin(k*dot(d,p)+phase)*J*d` for unit `d` | amplitude, frequency, field angle, phase rate | T0 |
+| `VORTEX` | rotate `p-center` by `2*pi*turns/(1+(r/radius)^2)` | center, radius, turns, center orbit/rate | T0/T1 |
+| `VECTOR_NOISE` | add two decorrelated noise channels, then rotate the displacement vector | amplitude, scale, vector angle, time rate, envelope | T1/T2 |
+| `CURL_FLOW` | integrate `dq/dtau = D*J*grad(N(q,t))`, `tau` in `[0,1]`, where `J(x,y)=(-y,x)` | signed flow distance `D`, scale, time rate, envelope | T2/T3 |
+| `MIRROR_TILE` | rotate/offset, apply continuous triangular folds on x/y, rotate back | cell x/y, rotation, offset | T0 |
+| `POLAR_CHART` | map to scaled radius and integral-harmonic angle; logarithmic mode uses `log(max(r, epsilon))` | radial scale, phases; positive integral harmonic and linear/log mode are discrete | T1 |
+
+New controls use these closed ranges; writes outside them are rejected rather
+than silently clamped into a different schema:
+
+| Family | Normative ranges |
+|---|---|
+| affine | translation components `[-4,4]`, scale `[1/4,4]`, shear `[-3/4,3/4]`, wrapped rotation |
+| wave shear | amplitude `[-4,4]`, angular frequency `[0,64]`, wrapped field angle/phase |
+| vortex | center components `[-4,4]`, radius `[1/64,8]`, turns `[-4,4]` |
+| vector noise | amplitude `[0,4]`, scale `[1/64,64]`, time rate `[-1/64,1/64]` turns/frame |
+| curl flow | signed distance `[-4,4]`, scale `[1/64,16]`, time rate `[-1/64,1/64]` turns/frame plus the stability inequality below |
+| mirror tile | cell dimensions `[1/64,8]`, offsets wrapped to their cells, wrapped rotation |
+| polar chart | radial scale `[1/64,16]`, fixed radius floor `1/4096`, harmonic integer `[1,16]`, wrapped phases |
+| noise contour | scale `[1/64,64]`, contrast `[0,8]`, time rate `[-1/64,1/64]` turns/frame |
+| primitive lattice | cell scale `[1/64,8]`, shape blend `[0,1]`, softness `[1/1024,1/4]`, radius `[1/64, 1/2-softness]` in normalized cell units |
+| value/coverage | levels and thresholds `[0,1]`, widths/softness `[1/1024,1/2]`, band count integer `[1,32]`, wrapped phase |
+| deformation ink | gains `[-4,4]`, normalization denominators `[1/1024,32]`, wrapped direction phase |
+
+Möbius parameters use a normalized coefficient scale no greater than 8 and
+must satisfy a documented positive lower bound on `abs(a*d-b*c)` before that
+slot is admitted. Their projective gauge is canonical: divide by positive
+Frobenius norm, then rotate the common complex phase so the fixed-order
+largest-magnitude coefficient is positive real; ties use coefficient order.
+Coefficient lerp is forbidden. A one-lookup Möbius morph follows the prepared
+matrix-group curve `M(t) = M0 * exp(t * log(inverse(M0) * M1))` under one fixed
+logarithm branch and is admitted only when the complete curve preserves the
+determinant and coordinate bounds. A branch change or failed proof uses the
+dual-output transition or snap. Tangent-noise lens amplitude is `[0,4]`,
+coordinate scale is `[1/64,64]`, and time rate uses the same range as planar
+noise.
+
+Every kernel input and intermediate must remain finite with each planar
+component no larger than `WARP_COORD_LIMIT = 65536`. Every scaled FastNoiseLite
+lattice coordinate, including central-difference offsets, must remain within
+`NOISE_LATTICE_LIMIT = 2^20` before `floor`/integer conversion. Schema admission
+proves these bounds from projection extent, stage order, and parameter ranges;
+final source conditioning cannot repair an unsafe intermediate. No implicit
+per-pixel saturation is allowed. A tuple whose bound cannot be proven is
+invalid.
+
+Each scalar basis publishes a conservative gradient bound `G` in its native
+coordinates. Curl with `n` integration intervals must satisfy
+`scale * abs(D) * G / n <= 1/2`, and every predicted intermediate must also
+remain inside `WARP_COORD_LIMIT`. This is an admission constraint in addition
+to the slider ranges, not an adaptive runtime step reduction.
+
+Transition admission covers the whole continuous path, not merely its two
+valid endpoints. For every `t` in `[0,1]`, it proves the applicable determinant,
+curl stability, warp-coordinate, and noise-lattice bounds. Curl uses the
+conservative analytic bound
+`max(scale0, scale1) * max(abs(D0), abs(D1)) * G / n <= 1/2` for a two-endpoint
+morph, plus the path's coordinate bound. Operator-specific interval bounds
+cover the remaining controls. If a continuous proof is unavailable, the
+change is topology-incompatible and must use admitted dual output or snap.
+
+`AFFINE_FRAME` controls are authored as forward field placement, while frame
+preparation stores the inverse pullback. Scale interpolates in log space with a
+positive floor. A singular or orientation-flipping affine endpoint is invalid.
+`WAVE_SHEAR` fixes polarization perpendicular to field direction, making its
+Jacobian determinant exactly 1 for every amplitude and frequency; a folding
+wave displacement would be a different topology and is not implicit here.
+Fold counts, polar harmonic, polar mode, noise basis, integrator, envelope,
+`band_count`, and stage kind are discrete topology.
+
+Noise stages select one fixed basis:
+
+| Basis | Definition | Purpose |
+|---|---|---|
+| `SIMPLEX` | one OpenSimplex2 octave | broad smooth motion and the lowest-cost noise path |
+| `FBM3` | three OpenSimplex2 octaves with fixed lacunarity 2, gain 1/2, and normalization by `1 + 1/2 + 1/4` | multiscale turbulence |
+| `RIDGED3` | normalized three-octave `1-abs(noise)` spectrum with the same fixed octave weights | filament and ridge structure |
+
+Channel offsets, derivative stencil, octave constants, and normalization are
+kernel constants rather than sliders. Cellular is unavailable in the normal
+firmware: `FASTNOISELITE_ONLY_OPENSIMPLEX2` makes runtime `SetNoiseType`
+selection continue to sample Simplex. A future cellular basis is admitted only
+by either removing that restriction build-wide with full ELF/cycle validation
+or adding a standalone cellular kernel/type. Compiling incompatible
+FastNoiseLite class definitions in different translation units is forbidden.
+`VECTOR_NOISE` is a compressible displacement; `CURL_FLOW` is the
+divergence-free field family and is not an alias for it.
+
+Every basis publishes a canonical scalar range, but vector-noise channels also
+have an exact zero-DC contract. Signed Simplex/FBM channels use their normalized
+signed form. The nonnegative ridged basis forms each vector component
+from a normalized difference of two decorrelated samples of the same basis,
+so changing basis cannot add a constant translation. The resulting component
+range is `[-1,1]`; fixed offsets and scale factors are part of the oracle.
+Scalar sources use their own documented remap and need not share this vector
+channel construction. Curl may consume the raw scalar basis because its
+gradient removes a constant offset.
+
+`CURL_FLOW` uses one signed flow-distance control over a fixed unit integration
+interval; separate amplitude and integration length would be mathematically
+redundant. Its discrete integrator tier is one Euler step, two midpoint steps,
+or four midpoint steps. Step count and gradient stencil never degrade at
+runtime. The chosen stencil spacing and basis time period are fixed in the
+kernel's oracle. Every animated noise basis is mathematically time-periodic or
+crossfades its native time-wrap seam; resetting a float accumulator alone is
+not acceptable.
+
+All new animated bases use the 3D sampling convention
+`GetNoise(scale*x, scale*y, native_time)`; they do not switch silently between
+2D and 3D overloads. Curl uses a central-difference gradient in scaled noise
+coordinates with fixed `h = 1/64`:
+
+```text
+dNdx = (N(s*x+h, s*y, t) - N(s*x-h, s*y, t)) / (2*h)
+dNdy = (N(s*x, s*y+h, t) - N(s*x, s*y-h, t)) / (2*h)
+```
+
+One gradient therefore costs four scalar-basis evaluations. One Euler interval
+uses one gradient. Each midpoint interval uses two gradients, so the two- and
+four-interval midpoint modes use four and eight gradients respectively.
+`SIMPLEX` costs one base `GetNoise` call per scalar basis; `FBM3` and `RIDGED3`
+cost three. `VECTOR_NOISE` costs two scalar bases for signed Simplex/FBM and
+four scalar bases for paired-difference ridged channels. A time-wrap crossfade
+multiplies the affected basis calls by two at its peak. Two stages add their
+costs; a full-output transition adds both complete endpoint costs.
+
+A constexpr estimator records worst-case base `GetNoise` calls for every
+schema, including source and lens noise. Tier is derived from that count plus
+non-noise kernel flags. Synthetic device captures force time-wrap crossfade and
+every admitted dual-endpoint pair; ordinary preset sweeps are insufficient.
+
+Every non-legacy stage selects one envelope evaluated from the original
+`ProjectedLookup`:
+
+- `FLAT`: unit amplitude;
+- `PROJECTION_WEIGHT`: multiply by the original `value_weight`; or
+- `EDGE_FADE`: multiply by a clamped ramp from the original
+  `fade_edge_distance`.
+
+Progressive warp coordinates never move the projection pole or cut policy.
+Warp-local folds and singularities append flags to `PlanarWarpResult`; they do
+not replace projection region/component/edge metadata.
+
+Stereographic `pole_fade` has one owner: the shared `StereoRadialPolicy` in
+projection/value parameters. After the lens join it computes `value_weight`
+from `r_sq`. `LEGACY_STEREO_NOISE` consumes that exact weight for displacement
+attenuation; it has no independent pole-fade parameter. If the existing helper
+signature is retained during parity work, both calls receive the same
+frame-snapshot policy value by construction.
+
+The initial source vocabulary adds two pure planar functions:
+
+| Source | Definition | Controls |
+|---|---|---|
+| `NOISE_CONTOUR` | selected scalar noise basis remapped to `[-1,1]` | basis, scale, time rate, contrast |
+| `PRIMITIVE_LATTICE` | repeated signed circle/box distance shaped to `[-1,1]` | circle/box blend, cell scale, radius, softness |
+
+These source definitions are normative. For `NOISE_CONTOUR`, let
+`n = clamp(N_basis(scale*x, scale*y, source_noise_time), -1, 1)`. Its output is
+`n * (1 + contrast) / (1 + contrast*abs(n))`; this is exactly linear when
+`contrast == 0`, remains odd, preserves `-1`, `0`, and `1`, and stays in the
+declared range.
+
+For `PRIMITIVE_LATTICE`, each axis uses the half-open repeated coordinate
+`u = fract(cell_scale*p + 1/2) - 1/2`, so `u` lies in `[-1/2, 1/2)`. With one
+shared half-extent/radius `r`, define:
+
+```text
+d_circle = length(u) - r
+b = abs(u) - (r, r)
+d_square = length(max(b, 0)) + min(max(b.x, b.y), 0)
+d = lerp(d_circle, d_square, shape_blend)
+value = 1 - 2*smoothstep(-softness, softness, d)
+```
+
+`shape_blend` is defined only on `[0,1]`; the square uses equal x/y half-
+dimensions. The range `r <= 1/2-softness` keeps the softened primitive within
+its cell. The half-open ownership rule and the even SDFs give identical values
+on neighboring cell seams; derivative parity may flip and is reported by the
+source trait rather than claimed smooth.
+
+Every source declares Cartesian-axis use, x/y periods or nonperiodicity,
+rotation equivariance, polar-angle compatibility, and argument-conditioning
+policy. `POLAR_CHART` is admitted only when the consuming source is periodic on
+its angular axis and the integral harmonic lands its seam on an exact source
+period.
+
+The added sphere-space lenses reuse existing kernels where their direction is
+valid: `MOBIUS` uses `mobius_transform` explicitly as a pullback, and
+`TANGENT_NOISE` uses the tangent-projected sphere-noise kernel with direct
+preset-owned params. One persistent lens does not justify a capacity-one pool.
+Ripple/burst lenses use `TransformerPool` only when they actually spawn and
+reclaim independent animated entities.
+
+`DEFORMATION_INK` exposes warp structure using an existing palette resource:
+
+```text
+d = clamp(deformation / max(displacement_norm, epsilon), 0, 1)
+l = clamp(path_length / max(path_norm, epsilon), 0, 1)
+direction_term = 0 when length(net_delta) < epsilon,
+                 otherwise direction_gain*cos(
+                     atan2(net_delta.im, net_delta.re) - direction_phase)
+u = wrap(value + displacement_gain*d + path_gain*l + direction_term)
+color = selected_palette(u)
+color.alpha *= coverage
+```
+
+The normalization denominators are positive preset controls. Undefined
+zero-displacement direction contributes no color shift. Otherwise cosine makes
+the direction term periodic at the angular seam; scalar wrapping alone would
+not.
+
+Composition rules are:
+
+- field evaluation always uses the progressively warped coordinate;
+- projection weight and edge fade always use the original `ProjectedLookup`;
+- `LEGACY_STEREO_NOISE` is stereographic-only, must reproduce its sole-stage
+  path exactly, and is not paired with another stage in a parity preset;
+- a same-stage continuous morph evaluates once with live parameters only after
+  whole-path transition admission proves every intermediate valid; valid
+  endpoints alone are insufficient;
+- a discrete stage change may blend stage outputs and run unchanged downstream
+  work once only when stage topology, fold/singularity schema, projection glue,
+  source periods, metadata semantics, and measured cost are compatible;
+- "unchanged downstream" means the complete downstream `FrameState` slice is
+  branch-identical: slot tags, continuous params, clock values and rates,
+  transforms, resource bindings, source, value/coverage policy, and colorizer.
+  An operator-specific early join with unequal downstream state requires a
+  separately proven commutation rule; otherwise both branches remain separate
+  through their last differing consumer and normally blend rendered output;
+- such an early join uses `coords = lerp(q_from, q_to, mix)` and
+  `stage_path = lerp(path_from, path_to, mix)`; warp flags must be identical for
+  that pixel because flags never interpolate. The unchanged stage then runs,
+  total path is the sum of joined and unchanged stage paths, and final
+  `net_delta` is the sum of the joined stage's interpolated pre-rounding delta
+  and the unchanged stage delta. `deformation` follows the normal
+  `length(net_delta)` rule; the legacy scalar exception is never an early-join
+  case. A flag mismatch uses full-output fallback or snap;
+- otherwise the admitted full-output fallback or exact snap applies; and
+- if an outer-stage blend would cross an incompatible boundary consumed by the
+  unchanged inner stage, the early join is not compatible.
+
+Projection/warp/source compatibility is an explicit admitted table, not their
+Cartesian product. Analytic stages require finite conditioned coordinates.
+Noise across a `GLUED` edge is safe only when the field is equivariant under
+that edge's coordinate-frame transform; the default is unproven. `CUT` and
+disconnected components never coordinate-join. `MIRROR_TILE` reports derivative
+parity flips. `POLAR_CHART` reports its origin singularity. Curl across a
+reflected face requires explicit handedness correction because `J*grad` changes
+parity. Conditioning runs after the complete warp program, and no NaN/Inf may
+reach a source.
+
+Cost tiers are admission hints, not substitutes for measurement:
+
+| Tier | Typical work | Admission policy |
+|---|---|---|
+| T0 | affine, mirror, wave shear, simple vortex | normally eligible for holds and compatible stage blends |
+| T1 | legacy/vector simplex noise, polar chart, Möbius lens | measure every endpoint |
+| T2 | three-octave noise, simple curl derivative, tangent noise | curated holds; transition pairs explicitly admitted |
+| T3 | four-step integrated curl or two expensive stages | opt-in only after full device, memory, and ELF admission |
+
+Each kernel ships with a double-precision oracle, exact identity test, finite
+fuzzing over declared bounds, deterministic seed/phase/time-wrap tests,
+composition-order and deformation-accounting tests, seam-neighbor tests,
+compatibility-table tests, exact transition endpoints, and full device/ELF/
+arena gates. Curl additionally proves gradient and integration output against a
+double-precision reference. Diagnostic visual presets cover mirror-through-
+vortex, vector-noise lattice, curl-flow grid, periodic polar source, and Möbius
+over unwarped contours.
+
+Out of scope are arbitrary graphs or equations, more than two planar stages,
+bytecode or per-pixel type erasure, buffered feedback or previous-frame
+advection, automatic Jacobians/lighting, silent octave or integrator reduction,
+and implementing the entire catalog in one landing. Each kernel lands and is
+admitted independently.
+
+`ProjectionFrame` and `OuterCamera` are fixed positions, not responsibilities
+of a function or lens. ShaderBall presets bind the same `wander` amount to
+projection-local and outer walks for parity; separate gains may be exposed later
+without changing phase order.
+
+Topology controls never register GUI/deep-link writes directly against active
+slot tags. They bind to an effect-local `RequestedConfig` shadow plus a dirty
+set. At the next frame boundary the effect constructs one complete candidate
+schema, validates all cross-field compatibility and resources, consults
+transition admission, captures the active source state, and then either begins
+the transition, commits an exact snap, or rejects the request without modifying
+live state. Preset selection and deep-link import call the same whole-schema
+apply path; they do not simulate an atomic change through sequential writes to
+active fields. Continuous parameter writes may retain the existing direct
+registered-pointer path only when they cannot invalidate the active schema.
+
+Continuous parameters are grouped by their consuming phase. Presets store the
+union required by compiled slots, while the GUI exposes parameters relevant to
+the active topology. ShaderBall's `complexity` and `pattern_mix` remain inputs
+to one coupled/direct function slot. Liquid and grid are not separate enums, so
+current ShaderBall transitions stay within one topology.
+
+Continuous angular parameters use canonical storage plus shortest-arc
+interpolation with exact endpoint landing. An unwrapped accumulator may instead
+be retained as the authoritative state and wrapped only in the immutable frame
+value. Ordinary scalar `hs::lerp` across a periodic boundary is not valid.
+
+Slot validity is explicit rather than assumed from the Cartesian product. The
+compiled admission table covers projection, both warp stages, source traits,
+value/coverage requirements, lens join, resource tier, and transition edge.
+At minimum, `NONE` is valid for every projection and
+`LEGACY_STEREO_NOISE` is valid only for stereographic projection. The shipped
+warp consumes stereographic radial attenuation and must not be silently applied
+to Bonne, Peirce, Airocean, folded equirectangular, or gnomonic coordinates.
+Preset tables are validated at compile time where possible; invalid GUI
+combinations are rejected without changing the live state.
+
+Enum values never lerp. A topology-changing transition blends at the earliest
+boundary proven compatible:
+
+- compatible lens branches may join in projected-coordinate space only when a
+  projection-specific `join_compatible(a, b)` predicate proves that the
+  straight coordinate interpolation does not cross a cut, singular boundary,
+  incompatible orientation/parity frame, or disconnected component;
+- functions over the same projected and warped coordinate contract may blend
+  signed material values;
+- compatible colorizers may use the premultiplied rendered-output blend defined
+  below; and
+- incompatible topologies fall back to a rendered-output crossfade of two full
+  lookups.
+
+Every transition and early join has direct exact endpoint branches before any
+second lookup or blend math: `mix == 0` evaluates and returns only the source;
+`mix == 1` evaluates and returns only the destination. This preserves bit-exact
+endpoint color, avoids premultiply/unpremultiply round trips, and prevents an
+unused expensive branch from running. Tests pin both output and kernel/noise
+call counts at zero and one.
+
+The fallback can cost two shader evaluations during a transition. It is a
+correctness rule, not permission to ignore the frame budget. A full-output
+transition is admitted only when the measured worst-case cost of both endpoints
+plus blend overhead fits the device frame window and their persistent resources
+fit simultaneously. Automated choreography may contain only admitted edges.
+An incompatible GUI slot change whose pair is not admitted performs an exact
+single-frame snap to the destination; it never overruns the budget or
+substitutes coordinate interpolation. Lower cadence/resolution or a cached-
+endpoint approximation requires its own future specification and is not an
+implicit fallback. Frequent or long transitions should prefer continuous
+amounts inside a stable topology.
+
+Legacy ShadierBall behavior is explicitly grandfathered: equirectangular,
+stereographic, and `SHADIERBALL_GNOMONIC_LEGACY` use
+`LEGACY_PROJECTED_LERP`, which unconditionally interpolates the direct and
+lensed planar coordinates exactly as shipped, ignoring fold and hemisphere
+metadata. Strict `join_compatible` applies to new projections. Tightening a
+legacy join later is a visual migration with new golden tests, not parity work.
+
+Rendered-output crossfade is defined in premultiplied linear color, even though
+the shader API returns straight-alpha `Color4`. Given endpoints `(rgb0, a0)` and
+`(rgb1, a1)`, blend `rgb0*a0` with `rgb1*a1` and blend alpha with the same mix;
+if the result must return through `Color4`, unpremultiply when alpha is nonzero
+so `Scan::Shader::draw`'s final premultiplication reconstructs the blended
+output. A zero-alpha result uses zero RGB. Straight independent `Color4::lerp`
+is not the fallback. Tests include unequal-alpha and exact endpoint cases.
+
+### 0.8 Projection family contract
+
+Every projection's mathematical kernel implements the cartographic forward
+lookup required by the pullback renderer:
+
+```text
+projection-local Vector -> Complex
+```
+
+This is the existing `stereo()`/`gnomonic()` convention: `Complex.re` and
+`Complex.im` are planar x/y coordinates. Bonne and Airocean do not require
+complex-number algebra, but `Complex` remains the engine's established compact
+2D coordinate type. The projection slot wraps the coordinate only when it must
+attach topology information:
+
+```text
+Vector -> Complex                         // pure projection kernel
+Vector -> ProjectedLookup{coords, ...}    // slot result with metadata
+```
+
+"Forward" here means sphere to pattern plane. It does not contradict the
+inverse rendering order: the shader has already pulled the output pixel back
+through `OuterCamera`, `SurfaceLens`, and `ProjectionFrame` before making this
+lookup. A projection need not provide plane-to-sphere inversion for rendering,
+although a host reference may provide it for round-trip tests.
+
+Each slot declares orthogonal topology traits rather than one lossy topology
+enum: bounded/unbounded extent, periodic axes, fold/many-to-one behavior,
+intentional cuts or interruptions, computational regions, connected source
+components, and region orientation/parity. It must also define deterministic
+ownership and classification of exact boundaries.
+
+Projection kernels return their exact native unit-sphere coordinates: radius
+or semimajor axis 1, native origin and offsets, x positive in the documented
+eastward direction, and y in the documented northward direction. There is no
+implicit normalization from an approximate or parameter-dependent full-map
+extent. Existing projections retain their exact shipped coordinate scales; new
+projection host oracles compare these native coordinates before any artistic
+scaling. If comparable visual scale is desired, an explicit continuous
+projection-coordinate scale is applied after the kernel and stored in the
+preset. `pattern_freq` and coordinate conditioning follow that explicit scale
+and any warp.
+
+The projection roster is:
+
+| Slot | Topology traits | Required controls | Boundary policy |
+|---|---|---|---|
+| `EQUIRECTANGULAR` | bounded, folded, many-to-one | central meridian, legacy radial fade | preserve the shipped absolute-azimuth fold, pole collapse, and radial value/alpha policy; a conventional periodic longitude chart is a distinct future layout |
+| `STEREOGRAPHIC` | unbounded, one component, singular pole | pole fade | preserve exact shipped mapping and radial attenuation |
+| `GNOMONIC` | unbounded, antipodally folded, equator singularity | hemisphere policy, legacy radial fade | preserve the private ShadierBall kernel's exact divisor floor, component behavior, and radial value/alpha policy |
+| `BONNE` | bounded, one component with antimeridian cut | signed standard parallel, central meridian | expose the cut through metadata; projection weight defaults to 1 |
+| `PEIRCE_QUINCUNCIAL` | bounded, folded/tiled layout with oriented sectors | layout, central meridian, optional layout scroll | identify sectors/tiles, parity, and edges deterministically |
+| `AIROCEAN` | bounded, interrupted polyhedral, multiple oriented regions | net orientation, central meridian | distinguish face/subface regions from connected components and interruption edges |
+
+The shipped ShadierBall gnomonic kernel is not the core `gnomonic()` helper.
+For parity it is provisionally named `SHADIERBALL_GNOMONIC_LEGACY`: it floors
+the one shared signed `y` divisor to magnitude `1e-3`, divides both planar
+components by that value, and performs no subsequent radial-sentinel clamp.
+Replacing it with core `gnomonic()`, whose signed floor and radial sentinel
+policy differ, is a separately reviewed visual migration.
+
+Coordinate conditioning is part of the projection/source compatibility
+contract, not an incidental helper call. All three legacy ShadierBall
+projections multiply projected/warped components by `pattern_freq` and clamp
+each function argument to `[-4096, +4096]`, preserving the shipped
+`stereo_pattern_args()` behavior and fast-trig range bound. Each new projection
+must declare its conditioning policy; it may reuse that bound, prove a tighter
+native bound, or supply a different tested adapter.
+
+#### Bonne
+
+The Bonne slot is the spherical equal-area Bonne projection. Its
+`standard_parallel` is signed and satisfies
+`epsilon <= abs(standard_parallel) <= 90 degrees`; zero is invalid rather than
+an implicit change to another projection. The reference preset value is
+`+45 degrees`. `+/-90 degrees` are the corresponding Werner limits. Changing
+the magnitude while staying on one side of zero is continuous. A sign change
+or any transition through zero uses the incompatible-topology color crossfade.
+
+The central meridian is a continuous angular control. The antimeridian cut is
+intentional source topology, not numerical fallout; samples on it use a fixed
+half-open ownership rule so neighboring pixels cannot flicker between sides.
+
+#### Peirce quincuncial
+
+The Peirce slot is the spherical conformal quincuncial projection. Its complete
+world layouts are `DIAMOND`, `SQUARE`, `HORIZONTAL`, and `VERTICAL`; optional
+hemisphere-only layouts may be added without creating new projection slots.
+`SQUARE` is the reference layout because it exposes the quincuncial tiling
+directly. Layout is discrete. Central meridian is continuous, while lateral
+scroll is available only to layouts that define it.
+
+The projection maps one hemisphere to the central square/diamond and divides
+the other among the surrounding regions. Those folds are region boundaries.
+The complete square or diamond tile is one connected planar component.
+Reflected sectors receive distinct `region_id` and orientation/parity flags,
+not fictitious disconnected chart IDs. Its projection-specific join predicate
+may cross a `GLUED` or periodic sector edge when the coordinate frames agree;
+crossing a cut, singularity, or incompatible reflection uses the full-output
+premultiplied fallback.
+
+Only the sphere-to-plane form is required in the device shader. This makes the
+forward-only spherical reference implementation sufficient for rendering;
+absence of a plane-to-sphere inverse is not a framework gap.
+
+#### Dymaxion / Airocean
+
+The canonical algorithmic identity is `AIROCEAN`; the artist-facing name may be
+"Dymaxion / Airocean." This avoids treating every historical Dymaxion-like
+icosahedral net as interchangeable. The slot follows the mathematically
+specified Gray/PROJ Airocean map, including its fixed ocean-oriented cuts and
+the subfaces used around Australia and Japan. A generic 20-face icosahedral
+gnomonic map is not conformant.
+
+`HORIZONTAL` and `VERTICAL` net orientations are discrete layouts. The shader
+selects one face/subface, evaluates its local map, then places it in the fixed
+net. Exact shared edges use a stable face-priority rule.
+`fade_edge_distance` measures distance to the nearest fade-eligible
+interruption or singular boundary, allowing value and coverage policy to
+distinguish an intentional cut from a smooth interior. Planar source functions
+still receive conditioned coordinates only; they do not inspect projection
+metadata.
+
+`region_id` records the selected face/subface, while `component_id` and the
+per-edge `GLUED`/`CUT` classification describe the unfolded net. A face change
+across a glued edge is not automatically incompatible; interpolation that
+crosses a cut, singular boundary, or disconnected component is invalid because
+it traverses unrelated source space. The projection-specific compatibility
+predicate decides this from both branch results. All transitions between
+Airocean and another projection use the general full-output fallback.
+
+#### Projection transitions, validation, and budget
+
+Projection enum values and discrete layouts never interpolate coordinates.
+Cross-projection transitions render both complete lookups and blend final
+rendered output with the premultiplied-linear rule from §0.7 when that endpoint
+pair passes transition admission; otherwise the change snaps exactly. Continuous
+parameters may interpolate in one lookup while the topology and boundary schema
+remain stable. Dynamic per-pixel region ownership may change as a central
+meridian or other continuous parameter moves; the interpolated map resolves the
+crossing with its deterministic boundary rule. A discrete layout, cut graph, or
+projection change uses the full-output fallback.
+
+Each projection must ship with:
+
+- host oracles against an authoritative double-precision spherical reference;
+- named landmark, extent, central-meridian, and layout-orientation vectors;
+- exact seam/face-edge tie-break tests plus finite-output fuzzing over the
+  sphere;
+- lens compatibility tests at region, glued-edge, and cut boundaries; and
+- Teensy flash, ITCM, frame-cycle, and transition-cycle measurements.
+
+The specification does not choose analytic code, approximation, or lookup
+tables in advance. That choice follows error and device-budget measurement.
+No new projection may silently degrade to another formula to meet budget.
+
+Authoritative references:
+
+- [PROJ: Bonne](https://proj.org/en/stable/operations/projections/bonne.html)
+- [PROJ: Peirce Quincuncial](https://proj.org/en/stable/operations/projections/peirce_q.html)
+- [PROJ: Airocean](https://proj.org/en/stable/operations/projections/airocean.html)
+- [PROJ Airocean reference implementation](https://github.com/OSGeo/PROJ/blob/master/src/projections/airocean.cpp)
+
+### 0.9 Parity boundary and delivery
+
+ShadierBall replaces ShaderBall only when every preset hold and adjacent
+transition preserves:
+
+- the authored phase order, with outer camera last;
+- source clocks, projection-frame alignment/spin, and both running walks;
+- coordinate-space glitch-lens joining before one downstream warp/sample;
+- post-join radial policy, legacy coordinate conditioning, and the sole-stage
+  `LEGACY_STEREO_NOISE` path's exact wrapped time, warped coordinate,
+  displacement magnitude, and colorizer input;
+- the coupled/direct source function and its continuous parameters;
+- liquid colorizer behavior: palette walk, breathe, value fade, hue rotation,
+  wrap, and gamut handling;
+- ShadierBall's projection-derived alpha coverage;
+- colorizer-specific palette pause, choreography, premultiplied transition,
+  and exact endpoint semantics; and
+- device memory, ITCM, and full-cycle timing gates.
+
+Parity is decided by a reproducible capture protocol, not visual inspection:
+
+1. Build the shipped ShaderBall reference and candidate with recorded commits,
+   identical optimization/target flags, fixed FastNoise and random-walk seeds,
+   identical initial clocks/orientations, palette provider sequence, pause
+   state, and preset index.
+2. Drive the exact 15-preset choreography by frame number. Capture every hold,
+   every adjacent transition including preset 15 back to 1, exact endpoints,
+   and frames spanning phase, noise-time, and palette-cycle wrap boundaries.
+3. At named landmark directions and a deterministic full-frame sample set,
+   compare white-box projected coordinates, post-join radius/weight, warped
+   coordinates, net delta/path length, function value, coverage, and final
+   color. Also
+   compare the complete rendered premultiplied `Pixel` frame.
+4. Slot tags, preset/choreography indices, clock-wrap events, pause behavior,
+   and transition endpoint landing are exact. Final 16-bit linear rendered
+   channels may differ by at most one LSB and pre-write alpha by at most
+   `1/65535`; non-finite values, persistent phase displacement, or errors that
+   accumulate across cycles fail regardless of per-frame tolerance.
+5. Any approved visual migration—such as replacing the private gnomonic
+   kernel or tightening a legacy lens join—is removed from the parity set and
+   receives its own before/after oracle, approval, and golden baseline.
+
+The capture corpus and comparison report are retained beside the device profile
+used for retirement so the gate can be rerun from the recorded configuration.
+
+Delivery is phased:
+
+1. **Contract:** introduce source, warp, project, surface, color, and outer-view
+   boundaries, including projection topology metadata, without changing either
+   effect's output. Pin both authored order and pullback order in tests.
+2. **Fixed-topology parity:** add ShaderBall's missing source clocks, projection
+   frame, warp, coupled/direct function, colorizer, and choreography to
+   ShadierBall. Port the presets unchanged.
+3. **Admitted slot transitions:** add compatible-boundary blends, measured
+   full-output fallbacks for endpoint pairs that fit, and exact snap for pairs
+   that do not.
+4. **Retirement gate:** compare every hold and transition, run device profile
+   and size gates, and remove ShaderBall only when ShadierBall is the sole
+   implementation of the same behavior.
+
+Projection expansion is a parallel track after phase 1. Bonne, Peirce
+quincuncial, and Airocean land independently, one projection at a time, only
+after their own oracle, seam, and device-budget gates pass. They consume the
+same projection contract and transition fallback, but they do not block
+fixed-topology ShaderBall parity or retirement.
+
+This separates the load-bearing authored phase model from combinatorial slot
+transitions. ShaderBall parity does not depend on solving every cross-projection
+or cross-lens morph first.
+
+### 0.10 Integration with existing engine architecture
+
+The north star is assembled from existing engine mechanisms. A phase name is a
+pipeline responsibility, not a request for a base class, virtual interface, or
+manager object. Integration follows this ownership table:
+
+| Responsibility | Existing owner | Integration decision |
+|---|---|---|
+| preset selection and continuous morphs | `Presets<>`, `Timeline`, `Animation::Lerp` | reuse unchanged; discrete slots use an admitted dual lookup or exact snap |
+| source, warp, spin, and color clocks | `Timeline` and existing `Animation` parameter drivers | reuse when the rate contract fits; keep explicit native-period integration for compound rates |
+| projection and outer frames | `Orientation` and quaternion helpers | use `unorient()`/prepared conjugates directly in the pullback; do not add camera classes |
+| animated sphere-space warps | `Transformer<>` and existing aliases such as `NoiseTransformer` and `MobiusWarpTransformer` | reuse when the effect needs spawned, composable animated entities |
+| scalar fields on the sphere | `FieldTransformer<>` | reuse only for sources that are actually sums/compositions of spherical scalar fields |
+| projection math | existing pure functions such as `stereo()` and the legacy private gnomonic kernel | extend the pure-function family; projection dispatch remains frame-constant |
+| projected-plane warp | fixed effect-local `WarpProgram` over pure kernels such as `stereo_noise_warp()` | evaluate outer then inner; do not force `Complex` deformation through the `Vector -> Vector` transformer contract |
+| source sampling | pure functions selected by the current function switch | retain; no generator object or per-pixel type erasure |
+| palette motion and color lookup | `PaletteCycler`, palette recipes, and color utilities | retain separate persistent owners for liquid and generated-triadic state |
+| procedural geometry construction | `hs::generate()` | not part of this shader pipeline |
+
+#### Animation and frame preparation
+
+`Timeline::step()` remains the sole timeline/event step. Existing
+`Animation::Driver` is appropriate for a clock whose increment is one live
+parameter times a constant. It is not a general expression driver: ShaderBall
+clocks such as `speed * phase2_rate` and `speed * warp_time_scale`, and clocks
+with periods other than `[0, 1)`, remain explicit accumulator updates in frame
+preparation. They are wrapped in their native domains immediately afterward.
+No `ClockBank`, `SourceAnimator`, or parallel scheduler is introduced merely to
+move those few additions out of `draw_frame()`.
+
+The required order aligns with current transformer lifecycle rules:
+
+```text
+Timeline::step(canvas)
+  -> update/wrap explicit accumulators
+  -> TransformerPool::prepare_frame() for pools whose params changed
+  -> prepare Orientation conjugates and immutable frame locals
+  -> Scan::Shader::draw(...)
+```
+
+The per-pixel lambda reads only prepared state. It never advances an animation,
+calls `prepare_frame()`, mutates an `Orientation`, or allocates.
+
+#### Resource ownership
+
+Liquid and generated-triadic palette motion have two persistent
+`PaletteCycler` owners outside `FrameState`, `TransitionRuntime`, and
+`TransitionFrame`. This is
+required because a cycler owns mutable provider sequence, fade/dwell counters,
+generated palette slots, and display LUT state, and its pause binding is fixed
+at initialization. The liquid owner binds `anims_paused`; the generated-triadic
+owner does not. Every initialized owner receives exactly one step invocation in
+the resource phase of every frame, even while no active endpoint references it;
+its own pause policy may make that invocation a no-op. Aliased endpoint bindings
+are deduplicated by owner identity, so no owner steps twice.
+
+Frame snapshots carry only a resource identity and a const binding to the
+owner's prepared palette/LUT. They never copy a `PaletteCycler`, mutable palette
+storage, or gamut table. Non-owning `BakedPalette` copies do not create resource
+independence and cannot stand in for two owners during a crossfade.
+
+The persistent-memory gate includes at least both owners'
+`generated_arena_bytes()` requirements, the ShaderBall gamut LUT, alignment,
+and every other effect allocation that remains live concurrently. If those
+resources do not fit, liquid/generated-triadic crossfade is not admitted and
+the discrete change snaps under §0.7.
+
+#### Where transformers fit
+
+`Transformer<>` is specifically a fixed-capacity pool of independently spawned
+animations whose hot path composes `Vector -> Vector` transforms in spawn
+order. That is a direct fit for animated spherical surface distortion. An
+effect may route a surface-lens slot to an existing transformer, for example a
+Mobius or noise transformer, and the lookup renderer applies that transform
+before projection.
+
+Reuse does not erase pullback direction. `Transformer<>` itself only promises
+function composition; it does not label a function as forward or inverse. When
+bound into this shader, every supplied function is explicitly a destination-to-
+source lookup map. Spawn order is consequently lookup composition order. For a
+bijective authored transform, its inverse parameters/function must be supplied;
+for a fold such as kaleidoscope, the lookup map is the effect definition because
+there is no unique forward inverse. Existing transformer aliases may be reused
+only when their mathematical direction matches that contract.
+
+It is not automatically the right wrapper for every named Warp or Lens phase:
+
+- fixed glitch, twist, and kaleidoscope lens slots remain direct pure
+  `Vector -> Vector` functions unless they acquire spawned-entity semantics;
+- `ProjectionFrame` and `OuterCamera` use `Orientation` directly because each
+  is one persistent frame, not a pool of temporary warps; and
+- stereographic noise warp remains a projected-plane operation returning both
+  `Complex` coordinates and displacement. Adapting it through
+  `Transformer<>` would change its domain, discard metadata, or add a
+  sphere-plane round trip.
+
+`FieldTransformer<>` has the same selective rule. It is appropriate when a
+source is genuinely composed from multiple animated scalar fields evaluated on
+the sphere. The current planar twin-wave, rings, spiral, grid, and
+coupled/direct functions are one selected function each, so they remain inline
+samplers rather than one-entity transformer pools.
+
+#### Typed operator family
+
+Architectural coherence comes from repeating the existing transformer pattern,
+not from forcing every stage behind one interface. The engine already separates
+an animation-owned parameter entity from the pure hot-path kernel that consumes
+it. Preserve that split across domains:
+
+| Operator kind | Mathematical shape | Shader role | Composition |
+|---|---|---|---|
+| spherical transformer | `Vector -> Vector` | surface lens / sphere-space lookup warp | existing `Transformer<>`, in lookup order |
+| planar transformer | `Complex -> Complex` | one stage of the fixed projected-domain lookup program | direct pure kernel; optional sibling pool only if spawned entities are later required |
+| projection kernel | `Vector -> Complex` | sphere-to-pattern-plane coordinate map | one selected pure map, not a transformer pool |
+| projection slot | `Vector -> ProjectedLookup` | coordinate plus topology metadata | wraps one kernel; does not form a transform pool |
+| planar source function | `Complex -> float` | pattern sampling | one selected pure function |
+| spherical field | `Vector -> float` | scalar source/displacement field | existing `FieldTransformer<>` when multiple entities must reduce together |
+| colorizer | material values -> `Color4` | terminal shading | one selected pure function/resource owner |
+
+The common convention is:
+
+```text
+prepared Params + immutable input -> pure result
+```
+
+Animation changes `Params` before drawing; it does not live inside the sampling
+call. Actual dispatch stays as frame-constant enum switches or compile-time
+calls, but that does not require every arm to inline into the pixel closure. The
+signatures above describe contracts, not stored function pointers or virtual
+methods.
+
+#### Hot-code placement and device admission
+
+Only measured small kernels inline into the per-pixel closure. Ordinary
+out-of-line code still occupies ITCM on Teensy, so every large projection,
+noise, color, and transition leaf has an explicit placement admission:
+measured shared ITCM, or `FLASHMEM`/equivalent XIP placement. Flash-resident
+leaves report both cold-cache and steady-cache call-path cycles; they are not
+assumed free merely because they save ITCM. An on-device A/B measurement may
+promote a leaf only when total cycles improve and the full roster still fits.
+Blanket `always_inline`/`HS_O3_FN` expansion of every slot arm is forbidden: a
+frame-constant switch makes prediction cheap but does not remove inactive-arm
+code from the instantiated closure.
+
+The latest documented baselines are tight but are not current admission data.
+The ShaderBall profile at `17fbf726` records a 53.99 ms render peak in a
+62.5 ms window, but covers only the then-current 13 presets, not today's 15.
+The Phantasm ledger at `053ecefc` records 194,880 of 196,608 ITCM bytes occupied
+after ShadierBall's exclusion, leaving 1,728 bytes. See the
+[ShaderBall Teensy profile](profiles/shipping/profile_shaderball_teensy_2026-08-08.md)
+and [ITCM ledger](itcm_ledger.md). They establish risk, not admission. Before
+implementation decisions rely on either number, regenerate a 15-preset profile
+and full-roster ELF ledger and record the commit, build flags, roster, hardware,
+and capture coverage beside the result.
+
+Run a full-roster ELF/ITCM gate and on-device cycle profile after each
+fixed-topology integration stage, each large kernel, and each new projection—not
+only at the final retirement gate. A dedicated comparison build may alternate
+the two implementations, but the merged replacement must pass the full shipping
+roster ELF gate in ShaderBall's slot before removal. Transition admission uses
+measured peak endpoint costs, not average frame time or curated-preset
+intuition.
+
+`TransformerPool<ParamsT, AnimT, CAPACITY>` remains the shared lifecycle base
+for cases with independently spawned parameter entities. Its design already
+supports sibling evaluation policies: `Transformer<>` folds vectors, while
+`FieldTransformer<>` reduces scalar fields. If projected-domain warps later need
+the same spawn/reclaim/composition behavior, the coherent extension is a
+`PlaneTransformer<>` sibling derived from `TransformerPool`, not a generalized
+render graph and not a conversion of plane coordinates back through the sphere.
+
+That extension is deferred until independently spawned entity lifecycle is
+required. The fixed two-stage `PlanarWarpProgram` is effect-local direct
+dispatch and calls kernels such as `stereo_noise_warp()` itself. Two
+preset-selected positions do not justify a transformer pool: creating two
+capacity-one pools would add lifecycle and indirection without adding behavior.
+
+A future `PlaneTransformer<>` must settle its reduction contract before it is
+introduced: transform order, whether downstream metadata represents net
+displacement or accumulated path length, and whether each transform evaluates
+attenuation against the original projection lookup or the progressively warped
+coordinate. Those choices affect rendered output and cannot be hidden in a
+generic template default.
+
+Projection deliberately does not derive from `TransformerPool`. Its kernel
+changes domain from `Vector` to `Complex`, has no identity element in the target
+type, and is selected once per lookup rather than composed as a sequence of
+animated entities. The slot-level wrapper adds `ProjectedLookup` metadata only
+where topology needs it. Projection follows the same pure-kernel/animated-
+params convention while remaining a distinct typed map. Projection-specific
+continuous parameters are ordinary preset values prepared by
+`Timeline`/`Animation::Lerp`; changing the map or layout remains a discrete slot
+transition.
+
+Likewise, animated sampling means that `Timeline` advances source phases and
+other sampler parameters before the frame snapshot. The sampler itself remains
+a pure `Complex -> float` evaluation. Call it a source or field function in
+code and documentation; calling it a generator would collide with
+`hs::generate()`'s established procedural-geometry meaning.
+
+#### Why `generate()` is not animated sampling
+
+The engine's `hs::generate()` is a cold procedural-geometry wrapper. It resets
+and scopes the shared scratch arenas and writes persistent generated output.
+Calling it from a per-frame or per-pixel source sampler would violate both its
+lifecycle and the shader's immutable hot-loop contract. It remains useful only
+if a projection or colorizer needs a setup-time baked table; the resulting
+table is then an immutable resource read by the shader.
+
+FastNoiseLite is a noise generator in the ordinary sense, but it is not the
+`generators.h` architecture. It remains effect- or params-owned state. Owners
+must stay exclusive when configuration methods mutate the generator, matching
+the existing RandomWalk and ShaderBall rule.
+
+#### Abstraction threshold
+
+The first integration keeps slot dispatch and orchestration effect-local and
+reuses core math/helpers. It adds no virtual phase hierarchy, generic render
+graph, stored `FunctionRef` chain, or generalized transformer domain. A shared
+engine abstraction is justified only after at least two independent effects
+need the same contract and the extracted form preserves hot-path inlining,
+metadata, lifecycle ownership, and measured device cost.
+
+The immediate architectural delta is therefore deliberately small:
+
+1. one `ProjectedLookup` record for nontrivial projection topology;
+2. pure projection functions and their frame-constant switch dispatch;
+3. effect-local signal-weight, value-transfer, and coverage dispatch preserving
+   the two shipped alpha behaviors;
+4. effect-local mutable `TransitionRuntime` plus immutable
+   `FrameState`/`TransitionFrame` snapshots, containing const bindings rather
+   than copied resource owners; and
+5. adapters to existing transformers only for actual sphere-space animated
+   compositions.
+
+## Historical ShaderBall merge design
 
 Merge `Liquid2D` and `Flyby` into a single stereographic shader effect,
 `ShaderBall`, whose presets span both effects' looks and the mixed looks
