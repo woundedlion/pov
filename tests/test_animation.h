@@ -821,6 +821,42 @@ inline void test_timeline_cancel_fires_post_callback() {
 }
 
 /**
+ * @brief Verifies cancel() on a paused event removes it and fires .then().
+ * @details step_paused() never advances the animation, so cancellation is a
+ * paused event's only route to done(); the paused branch must still complete
+ * it, or the slot survives every paused frame and the callback never runs.
+ */
+inline void test_timeline_cancel_while_paused_removes_event() {
+  Timeline tl;
+  bool paused = false;
+  float v = -1.0f;
+  int thens = 0;
+  auto *h = tl.add_get(0,
+                       Animation::Mutation(
+                           v, [](float e) { return e; }, 4, ease_linear,
+                           /*repeat=*/true)
+                           .then([&]() { thens++; }),
+                       Timeline::Pin::PINNED, &paused);
+  tl.step(fake_canvas()); // starts while unpaused
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
+
+  paused = true;
+  tl.step(fake_canvas()); // paused hold keeps the event
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
+  HS_EXPECT_EQ(thens, 0);
+
+  h->cancel();
+  tl.step(fake_canvas()); // canceled while paused: removed, .then() fires
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+  HS_EXPECT_EQ(thens, 1);
+
+  // Removal is final: no further callbacks from later paused frames.
+  for (int i = 0; i < 3; ++i)
+    tl.step(fake_canvas());
+  HS_EXPECT_EQ(thens, 1);
+}
+
+/**
  * @brief Verifies step() compacts the event array when a non-repeating event is
  * removed, and relocated survivors keep stepping from their new positions.
  * @details Later survivors are relocated (move_into) into the freed slots. The
@@ -3362,6 +3398,7 @@ inline int run_animation_tests() {
   test_timeline_repeating_animation_rewinds_each_cycle();
   test_timeline_cancel_removes_repeating_animation();
   test_timeline_cancel_fires_post_callback();
+  test_timeline_cancel_while_paused_removes_event();
   test_timeline_compaction_preserves_later_events();
   test_timeline_then_chains_follow_up_event();
   test_repeating_timer_fires_then_each_cycle();
