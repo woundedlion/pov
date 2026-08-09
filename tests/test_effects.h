@@ -4703,7 +4703,7 @@ inline void test_shaderball_preset_roster() {
       1.0834427f,  0.014871964f, 0.70136297f,  0.0f,
       0.16880456f, 0.038022578f, 0.004391721f, 0.0f};
   const auto &presets = WB::presets();
-  HS_EXPECT_EQ(presets.size(), size_t(13));
+  HS_EXPECT_EQ(presets.size(), size_t(15));
   for (auto field : WB::Params::FIELDS) {
     HS_EXPECT_EQ(presets[3].params.*field, EXPECTED.*field);
     HS_EXPECT_EQ(presets[4].params.*field, NEW_PRESET.*field);

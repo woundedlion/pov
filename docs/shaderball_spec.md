@@ -1,7 +1,7 @@
 # ShaderBall — unifying Liquid2D and Flyby
 
 **Status: LANDED.** `effects/ShaderBall.h` ships, `Liquid2D` and `Flyby` are
-gone from every roster, and the effect carries 12 presets. §5's lens blend is
+gone from every roster, and the effect carries 15 presets. §5's lens blend is
 superseded by the shipped one; where this spec and the code disagree, the code
 is the source of truth. §11 is the executed roster checklist, kept as the record
 of every oracle a roster change touches.
