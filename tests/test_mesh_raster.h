@@ -609,6 +609,8 @@ inline void build_islamic_bake(size_t islamic_idx, Arena &seed_a, Arena &seed_b,
   constexpr int W = 288;
   const auto islamic = Solids::Collections::get_islamic_solids();
   HS_EXPECT_TRUE(islamic_idx < islamic.size());
+  if (islamic_idx >= islamic.size())
+    return;
   PolyMesh poly = islamic[islamic_idx].generate(seed_a, seed_b);
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
   MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
