@@ -297,6 +297,8 @@ public:
    * @param r Out: interpolated red channel.
    * @param g Out: interpolated green channel.
    * @param b Out: interpolated blue channel.
+   * @note Out-of-domain taps are black; use sample_bilinear() to supply a
+   *   different outside value.
    */
   template <typename Pixel>
   __attribute__((always_inline)) void
