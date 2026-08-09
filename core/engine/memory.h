@@ -124,7 +124,7 @@ public:
     if (padding > capacity - offset || size > capacity - offset - padding) {
       hs::log("[OOM] Arena: req %zu, offset %zu, pad %zu / cap %zu", size,
               offset, padding, capacity);
-      HS_CHECK(false);
+      HS_CHECK(false, "Arena::allocate: out of memory");
     }
     offset += padding;
     void *ptr = buffer + offset;
