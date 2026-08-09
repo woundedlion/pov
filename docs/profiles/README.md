@@ -47,9 +47,9 @@ peak.
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-07-28.md) | fused ring-stack raster | 🟢 58.71 | 🟢 0/1088 (0%) | 2026-07-28 17:41 |
+| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
-| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-04.md)§ ● | adaptive planar-star raster | 🟢 57.66 (9) | 🟢 0/2368 (0%) | 2026-08-04 11:06 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-07-28.md)§ | per-face SDF + opchain build legs | 🟢 56.91 (24) | 🟢 0/3328 (0%) | 2026-07-28 17:34 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-07-25.md) | fused ring-group raster (row-local walk) | 🟢 56.47 | 🟢 0/1088 (0%) | 2026-07-26 11:44 |
 | [ShaderBall](shipping/profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🟢 53.99 (13) | 🟢 0/6368 (0%) | 2026-08-08 17:12 |
@@ -75,7 +75,7 @@ directly. Size deltas are O3 minus shipping.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-04.md)§ ● | adaptive planar-star raster | 🟢 57.66 (9) | 🟢 59.47 (9) | 🟢 0/2368 (0%) | 🟢 0/2368 (0%) | +30,088 B | +25,456 B | ship 2026-08-04 11:06<br>O3 2026-08-04 11:09 |
+| [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [ShaderBall](O3/profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🟢 53.99 (13) | 🟢 50.20 (13) | 🟢 0/6368 (0%) | 🟢 0/6368 (0%) | +28,480 B | +26,320 B | ship 2026-08-08 17:12<br>O3 2026-08-08 17:20 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-03.md) ● | integer opaque SSAA raster + sim | 🟢 55.71 | 🟢 56.68 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,528 B | +16,432 B | ship 2026-08-03 00:27<br>O3 2026-08-03 00:31 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
@@ -133,5 +133,7 @@ changes.
 **ShapeShifter is green across all nine presets.** Its adaptive 208-contour
 planar star reaches approximately 290-count density at the equator while
 maintaining approximately 145-count density at the poles. The shipping image
-peaks at 57.66 ms with 0/2368 spills; global O3 peaks at 59.47 ms and adds
-30,088 B of flash code plus 25,456 B of ITCM code.
+peaks at 58.22 ms with 0/2448 spills; global O3 peaks at 56.72 ms and adds
+28,616 B of flash code plus 24,016 B of ITCM code. Reusing the shaded fragment
+shader removes 5,136 B from the full-roster ITCM image without a measured
+shipping performance regression.
