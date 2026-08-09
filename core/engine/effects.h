@@ -182,15 +182,26 @@ constexpr bool hs_phantasm_effect_list_is_distinct() {
 #undef HS_PHANTASM_NAME_ONCE
 }
 
+/** @brief True when every HS_PHANTASM_EFFECT_LIST name is in HS_EFFECT_LIST. */
+constexpr bool hs_phantasm_effect_list_is_subset() {
+#define HS_PHANTASM_NAME_ON_ROSTER(cls) &&hs_in_effect_list(#cls)
+  return true HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_ON_ROSTER);
+#undef HS_PHANTASM_NAME_ON_ROSTER
+}
+
 // Drift guard: an effect added to (or removed from) HS_EFFECT_LIST must also be
 // deliberately added to or excluded from the Phantasm playlist above. The count
 // pins the cardinality; the name scans pin *which* three are missing, so
 // swapping one exclusion for another cannot ride green. Distinctness closes the
 // last hole: a duplicated entry paired with an omission holds the count and
 // passes both exclusion scans while an effect silently drops off the playlist.
+// Containment rejects a playlist entry that names no roster effect at all.
 static_assert(hs_phantasm_effect_list_is_distinct(),
               "HS_PHANTASM_EFFECT_LIST names an effect twice — the duplicate "
               "is masking an omitted effect");
+static_assert(hs_phantasm_effect_list_is_subset(),
+              "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
+              "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
 static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 3,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
               "(full roster minus Dynamo, Thrusters, and ShadierBall)");
