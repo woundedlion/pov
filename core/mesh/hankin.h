@@ -482,6 +482,7 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
  */
 HS_COLD static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
                                float angle) {
+  HS_CHECK(&target != &temp, "hankin: target and temp must differ");
   PolyMesh out;
 
   {
