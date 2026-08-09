@@ -277,9 +277,11 @@ public:
       // no call site null-checks.
       HS_CHECK(pin == Pin::UNPINNED,
                "Timeline full, dropped a pinned animation");
-      ++global_timeline_dropped;
-      hs::log("Timeline full, failed to add animation! (%lu dropped)",
-              (unsigned long)global_timeline_dropped);
+      // A saturated timeline is a steady state, so only the first drop logs;
+      // dropped_events() carries the rest.
+      if (++global_timeline_dropped == 1) {
+        hs::log("Timeline full, failed to add animation!");
+      }
       return nullptr;
     }
     if (pin == Pin::PINNED) {
@@ -318,7 +320,7 @@ public:
   /**
    * @brief Animations rejected so far because the timeline was full.
    * @details Monotonic and process-wide: never reset, not even by clear() or a
-   * new Timeline. A drop is silent apart from its log line and permanently
+   * new Timeline. Only the first drop logs; a drop permanently
    * ends any chain that re-arms itself from a .then() callback, so a nonzero
    * count is the only lasting evidence.
    * @return Total number of dropped add()/add_get() calls.
