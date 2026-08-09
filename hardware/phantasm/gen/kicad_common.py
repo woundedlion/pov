@@ -66,7 +66,8 @@ def export_netlist(kcli, sch):
     try:
         subprocess.run([kcli, "sch", "export", "netlist", "--format", "kicadsexpr",
                         "-o", net, sch], check=True, capture_output=True, text=True)
-        return sexp.parse(open(net, encoding="utf-8").read())[0]
+        with open(net, encoding="utf-8") as fh:
+            return sexp.parse(fh.read())[0]
     except subprocess.CalledProcessError as e:
         sys.stderr.write(e.stderr or "")
         raise

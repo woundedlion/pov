@@ -183,7 +183,8 @@ def load_mod(libid):
     if libid not in _MOD_CACHE:
         lib, name = libid.split(":", 1)
         path = os.path.join(FP_DIR, lib + ".pretty", name + ".kicad_mod")
-        _MOD_CACHE[libid] = sexp.parse(open(path, encoding="utf-8").read())[0]
+        with open(path, encoding="utf-8") as f:
+            _MOD_CACHE[libid] = sexp.parse(f.read())[0]
     return _MOD_CACHE[libid]
 
 
@@ -829,7 +830,8 @@ def main(unplaced=False, force=False):
     lines.append(")")
     outpath = os.path.join(OUT, OUTFILE)
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    open(outpath, "w", encoding="utf-8", newline="\n").write("\n".join(lines) + "\n")
+    with open(outpath, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
 
     # --- custom footprint library (Teensy) + fp-lib-table ---
     pretty = os.path.join(OUT, "phantasm.pretty")
@@ -841,22 +843,29 @@ def main(unplaced=False, force=False):
     mod.insert(4, [sexp.Sym("generator_version"), "10.0"])
     mod_path = os.path.join(pretty, "Teensy4.0.kicad_mod")
     mod_text = sexp.dumps(mod) + "\n"
-    if not os.path.exists(mod_path) or \
-            open(mod_path, encoding="utf-8").read() != mod_text:
+    if os.path.exists(mod_path):
+        with open(mod_path, encoding="utf-8") as f:
+            existing_mod_text = f.read()
+    else:
+        existing_mod_text = None
+    if existing_mod_text != mod_text:
         require_writable(mod_path, force, TEENSY_LIBRARY_REASON)
-        open(mod_path, "w", encoding="utf-8", newline="\n").write(mod_text)
+        with open(mod_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(mod_text)
     fplt = os.path.join(OUT, "fp-lib-table")
     if not os.path.exists(fplt):
-        open(fplt, "w", encoding="utf-8", newline="\n").write(
-            '(fp_lib_table\n\t(version 7)\n'
-            '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.pretty")'
-            '(options "")(descr "PHANTASM custom footprints"))\n)\n')
+        with open(fplt, "w", encoding="utf-8", newline="\n") as f:
+            f.write(
+                '(fp_lib_table\n\t(version 7)\n'
+                '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.pretty")'
+                '(options "")(descr "PHANTASM custom footprints"))\n)\n')
     if unplaced:
-        open(os.path.join(OUT, "unplaced", "fp-lib-table"), "w", encoding="utf-8",
-             newline="\n").write(
-            '(fp_lib_table\n\t(version 7)\n'
-            '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/../phantasm.pretty")'
-            '(options "")(descr "PHANTASM custom footprints"))\n)\n')
+        with open(os.path.join(OUT, "unplaced", "fp-lib-table"), "w", encoding="utf-8",
+                  newline="\n") as f:
+            f.write(
+                '(fp_lib_table\n\t(version 7)\n'
+                '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/../phantasm.pretty")'
+                '(options "")(descr "PHANTASM custom footprints"))\n)\n')
     print(f"wrote {OUTFILE}  footprints:{len(foot_nodes)} nets:{len(netid)} length:{L:.0f}mm")
 
 

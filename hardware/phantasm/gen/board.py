@@ -368,7 +368,8 @@ def main(force=False):
     flag(GND, 317.5, fy)
 
     # ---------------------------------------------------------------- write files
-    open(SCH, "w", encoding="utf-8", newline="\n").write(b.dumps())
+    with open(SCH, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(b.dumps())
 
     lib_lines = ['(kicad_symbol_lib', f'\t(version {B.VERSION})',
                  '\t(generator "phantasm-gen")', '\t(generator_version "10.0")']
@@ -377,13 +378,16 @@ def main(force=False):
             node = copy.deepcopy(b.lib_defs[lib_id]); node[1] = lib_id.split(":", 1)[1]
             lib_lines.append(sexp.dumps(node, indent=1))
     lib_lines.append(')')
-    open(os.path.join(OUT, "phantasm.kicad_sym"), "w", encoding="utf-8",
-         newline="\n").write("\n".join(lib_lines) + "\n")
+    with open(os.path.join(OUT, "phantasm.kicad_sym"), "w", encoding="utf-8",
+              newline="\n") as fh:
+        fh.write("\n".join(lib_lines) + "\n")
 
-    open(os.path.join(OUT, "sym-lib-table"), "w", encoding="utf-8", newline="\n").write(
-        '(sym_lib_table\n\t(version 7)\n'
-        '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.kicad_sym")'
-        '(options "")(descr "PHANTASM custom symbols"))\n)\n')
+    with open(os.path.join(OUT, "sym-lib-table"), "w", encoding="utf-8",
+              newline="\n") as fh:
+        fh.write(
+            '(sym_lib_table\n\t(version 7)\n'
+            '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.kicad_sym")'
+            '(options "")(descr "PHANTASM custom symbols"))\n)\n')
 
     # bootstrap seed only. An existing project carries the routed board's validated DRC
     # rules (min_clearance 0.1016, min_track_width 0.13, min_copper_edge_clearance 0.3)
@@ -392,27 +396,28 @@ def main(force=False):
     if os.path.exists(PRO):
         print("kept existing phantasm.kicad_pro (DRC rules preserved)")
     else:
-        open(PRO, "w", encoding="utf-8", newline="\n").write(
-            # design_settings.rules.min_clearance > 0 so Quilter accepts the project on upload
-            # (it rejects 0). KiCad re-zeroes it whenever the project is opened in the GUI, so
-            # run gen/heal_clearance.py before any Quilter upload to restore it.
-            f'{{\n  "board": {{ "design_settings": {{ "rules": {{ "min_clearance": '
-            f'{RULE_MINIMUMS["min_clearance"]},\n'
-            f'    "min_through_hole_diameter": '
-            f'{RULE_MINIMUMS["min_through_hole_diameter"]}, '
-            f'"min_via_annular_width": {RULE_MINIMUMS["min_via_annular_width"]},\n'
-            f'    "min_via_diameter": {RULE_MINIMUMS["min_via_diameter"]} }} }} }},\n'
-            '  "boards": [],\n  "cvpcb": { "equivalence_files": [] },\n'
-            '  "libraries": { "pinned_footprint_libs": [], "pinned_symbol_libs": [] },\n'
-            '  "meta": { "filename": "phantasm.kicad_pro", "version": 3 },\n'
-            '  "net_settings": { "classes": [ { "name": "Default", "clearance": 0.2,\n'
-            f'    "track_width": 0.3, "via_diameter": '
-            f'{DEFAULT_CLASS_MINIMUMS["via_diameter"]}, "via_drill": '
-            f'{DEFAULT_CLASS_MINIMUMS["via_drill"]} }} ] }},\n'
-            '  "pcbnew": { "page_layout_descr_file": "" },\n'
-            '  "schematic": { "annotate_start_num": 0,\n'
-            '    "drawing": { "default_line_thickness": 6.0, "label_size_ratio": 0.375 } },\n'
-            '  "sheets": [ [ "' + b.uuid + '", "Root" ] ],\n  "text_variables": {}\n}\n')
+        with open(PRO, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(
+                # design_settings.rules.min_clearance > 0 so Quilter accepts the project on
+                # upload (it rejects 0). KiCad re-zeroes it whenever the project is opened in
+                # the GUI, so run gen/heal_clearance.py before any Quilter upload to restore it.
+                f'{{\n  "board": {{ "design_settings": {{ "rules": {{ "min_clearance": '
+                f'{RULE_MINIMUMS["min_clearance"]},\n'
+                f'    "min_through_hole_diameter": '
+                f'{RULE_MINIMUMS["min_through_hole_diameter"]}, '
+                f'"min_via_annular_width": {RULE_MINIMUMS["min_via_annular_width"]},\n'
+                f'    "min_via_diameter": {RULE_MINIMUMS["min_via_diameter"]} }} }} }},\n'
+                '  "boards": [],\n  "cvpcb": { "equivalence_files": [] },\n'
+                '  "libraries": { "pinned_footprint_libs": [], "pinned_symbol_libs": [] },\n'
+                '  "meta": { "filename": "phantasm.kicad_pro", "version": 3 },\n'
+                '  "net_settings": { "classes": [ { "name": "Default", "clearance": 0.2,\n'
+                f'    "track_width": 0.3, "via_diameter": '
+                f'{DEFAULT_CLASS_MINIMUMS["via_diameter"]}, "via_drill": '
+                f'{DEFAULT_CLASS_MINIMUMS["via_drill"]} }} ] }},\n'
+                '  "pcbnew": { "page_layout_descr_file": "" },\n'
+                '  "schematic": { "annotate_start_num": 0,\n'
+                '    "drawing": { "default_line_thickness": 6.0, "label_size_ratio": 0.375 } },\n'
+                '  "sheets": [ [ "' + b.uuid + '", "Root" ] ],\n  "text_variables": {}\n}\n')
 
     print("wrote files  symbols:", len(b.symbols), "wires:", len(b.wires),
           "labels:", len(b.labels), "texts:", len(b.texts))

@@ -146,7 +146,8 @@ def run_drc(pcb_path):
                            capture_output=True, timeout=120, check=False)
         if r.returncode != 0:
             return no_drc(DRC_FAILED)
-        txt = open(rpt, encoding="utf-8").read()
+        with open(rpt, encoding="utf-8") as fh:
+            txt = fh.read()
     except (subprocess.SubprocessError, OSError):
         return no_drc(DRC_FAILED)
     finally:
@@ -162,7 +163,8 @@ def run_drc(pcb_path):
 
 
 def analyze(path):
-    root = sexp.parse(open(path, encoding="utf-8").read())[0]
+    with open(path, encoding="utf-8") as fh:
+        root = sexp.parse(fh.read())[0]
     segs = blocks(root, "segment")
     arcs = blocks(root, "arc")
     vias = blocks(root, "via")
