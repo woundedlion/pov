@@ -149,7 +149,8 @@ inline void test_shadierball_twin_wave_formula() {
  * @brief Verifies lens-slot dispatch through the stereographic projection.
  * @details Every lens maps unit directions to unit directions; the twist
  *          preserves latitude and fixes the equator; the kaleidoscope folds
- *          all azimuths into one half-sector wedge; Lens::NONE and the
+ *          all azimuths into one half-sector wedge and fixes the azimuth-free
+ *          poles; Lens::NONE and the
  *          lens_mix endpoints reduce to the plain projections; a fractional
  *          mix stays linear through its midpoint; and the full pipeline lands
  *          every value in [0, 1].
@@ -157,6 +158,8 @@ inline void test_shadierball_twin_wave_formula() {
 inline void test_shadierball_lens_projection() {
   using WB = ShadierBallWhiteBox;
   const Vector dirs[] = {Vector(1, 0, 0),
+                         Vector(0, 1, 0),
+                         Vector(0, -1, 0),
                          Vector(0, 0, 1),
                          Vector(-1, 0, 0),
                          Vector(0, 0, -1),
@@ -182,10 +185,16 @@ inline void test_shadierball_lens_projection() {
     const Vector folded = WB::apply_lens(d, WB::Lens::KALEIDOSCOPE);
     HS_EXPECT_NEAR(folded.length(), 1.0f, 4e-3f);
     HS_EXPECT_EQ(folded.y, d.y);
-    const float folded_azimuth = fast_atan2(folded.z, folded.x);
-    // fast_atan2 and the fold's fast trig each carry ~4e-3 rad of error.
-    HS_EXPECT_GE(folded_azimuth, -1e-2f);
-    HS_EXPECT_LE(folded_azimuth, SECTOR_HALF + 1e-2f);
+    if (d.x == 0.0f && d.z == 0.0f) {
+      // Poles have no azimuth to fold; the kaleidoscope fixes them exactly.
+      HS_EXPECT_EQ(folded.x, 0.0f);
+      HS_EXPECT_EQ(folded.z, 0.0f);
+    } else {
+      const float folded_azimuth = fast_atan2(folded.z, folded.x);
+      // fast_atan2 and the fold's fast trig each carry ~4e-3 rad of error.
+      HS_EXPECT_GE(folded_azimuth, -1e-2f);
+      HS_EXPECT_LE(folded_azimuth, SECTOR_HALF + 1e-2f);
+    }
   }
   const Vector equator(1, 0, 0);
   const Vector untwisted = WB::apply_lens(equator, WB::Lens::TWIST);
