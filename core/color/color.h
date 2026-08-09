@@ -1054,7 +1054,9 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
 // Bake-time only (relative-chroma palette generation); the per-pixel clip
 // stays on gamut_max_chroma.
 HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
-  const GamutLut &lut = g_gamut_lut;
+  // Flash master, not g_gamut_lut: this path consumes the stored minima
+  // directly, so a coarse grid's width is never narrowed back.
+  const GamutLut lut;
   L = hs::clamp(L, 0.0f, 1.0f);
   if (L == 0.0f || L == 1.0f)
     return 0.0f;
