@@ -214,8 +214,11 @@ public:
     configure_segment();
 
     ledController.begin();
-    ledController.setCorrection(255, 176, 240); // TypicalLEDStrip
-    ledController.setTemperature(255, 147, 41); // Candle
+    ledController.setCorrection(hd107s::TYPICAL_LED_STRIP.r,
+                                hd107s::TYPICAL_LED_STRIP.g,
+                                hd107s::TYPICAL_LED_STRIP.b);
+    ledController.setTemperature(hd107s::CANDLE.r, hd107s::CANDLE.g,
+                                 hd107s::CANDLE.b);
     ledController.setBrightness(255);
 
     // Enable the DWT cycle counter the flywheel timebase reads: TRCENA gates the

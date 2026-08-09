@@ -34,6 +34,19 @@
 static inline void arm_dcache_flush(void *, uint32_t) {}
 #endif
 
+namespace hd107s {
+
+struct ChannelScale {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+};
+
+inline constexpr ChannelScale TYPICAL_LED_STRIP{255, 176, 240};
+inline constexpr ChannelScale CANDLE{255, 147, 41};
+
+} // namespace hd107s
+
 // ============================================================================
 // HD107SFrame — Pre-formatted DMA buffer for the HD107S protocol
 // ============================================================================
