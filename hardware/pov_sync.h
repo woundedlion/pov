@@ -1737,8 +1737,15 @@ private:
       ++telemetry_counters.beacons_rejected;
     if (!ok)
       return;
+    // An index past the roster is corruption the checksum missed (p = 1/8):
+    // drop the frame whole (§6.4 rejection) rather than fold it onto a real
+    // effect.
+    if (f.effect_index >= protocol_config.effect_count) {
+      ++telemetry_counters.beacons_rejected;
+      return;
+    }
     ++telemetry_counters.beacons_ok;
-    const int32_t idx = f.effect_index % protocol_config.effect_count;
+    const int32_t idx = f.effect_index;
     if (!content_tracker.identity_known) {
       // Join (spec §6.4): adopt (effect, rev). Never assume index 0.
       content_tracker.identity_known = true;

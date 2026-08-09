@@ -180,7 +180,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("pov_segmented", 24,                                                       \
     hs_test::pov_segmented_tests::run_pov_segmented_tests, 263165)             \
   X("pov_single", 3, hs_test::pov_single_tests::run_pov_single_tests, 8640)    \
-  X("pov_sync", 46, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
+  X("pov_sync", 47, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
   X("param_marshal", 2, hs_test::param_marshal_tests::run_param_marshal_tests, \
     1158)                                                                      \
   X("wasm_predicates", 13,                                                     \
