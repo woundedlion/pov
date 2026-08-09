@@ -76,9 +76,12 @@ struct PaletteOps {
 
 private:
   /**
-   * @brief Decodes one enum field, rejecting anything the underlying type
-   *        cannot hold. Each enum's own bound belongs to
+   * @brief Decodes one enum field, rejecting a non-numeric field as
+   *        INVALID_SCHEMA and anything the underlying type cannot hold as
+   *        INVALID_ENUM. Each enum's own bound belongs to
    *        GenerativePalette::try_compile().
+   * @details A missing or misspelled key reads as undefined, which converts to
+   *          enumerator 0 rather than failing, so the numeric test comes first.
    */
   template <typename Enum>
   static bool decode_enum(const val &object, const char *name, Enum &output,
@@ -89,7 +92,13 @@ private:
                   "recipe enums must have an unsigned underlying type");
     constexpr int LAST =
         static_cast<int>(std::numeric_limits<Underlying>::max());
-    const int value = object[name].as<int>();
+    const val field_value = object[name];
+    if (!field_value.isNumber()) {
+      status.code = PaletteCompileCode::INVALID_SCHEMA;
+      status.field = field;
+      return false;
+    }
+    const int value = field_value.as<int>();
     if (value < 0 || value > LAST) {
       status.code = PaletteCompileCode::INVALID_ENUM;
       status.field = field;
