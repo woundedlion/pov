@@ -131,10 +131,29 @@ async function main() {
     return;
   }
 
+  // setResolution/setEffect report their outcome as embind enums; pin the value
+  // rosters so a dropped/renamed enumerator fails here. RESIZED and
+  // ALREADY_ACTIVE are both successes (the requested size is active either
+  // way), so the sweep accepts either.
+  const RS = Module.ResolutionSetResult;
+  const ES = Module.EffectSetResult;
+  for (const outcome of ['RESIZED', 'ALREADY_ACTIVE', 'UNSUPPORTED']) {
+    if (!RS || !RS[outcome]) fail(`Module.ResolutionSetResult.${outcome} is not bound`);
+  }
+  for (const outcome of ['INSTALLED', 'UNKNOWN_EFFECT', 'UNSUPPORTED_RESOLUTION']) {
+    if (!ES || !ES[outcome]) fail(`Module.EffectSetResult.${outcome} is not bound`);
+  }
+  if (!RS || !ES) {
+    console.error('wasm_smoke: result enums missing; every call below would misread');
+    process.exitCode = 1;
+    return;
+  }
+  const resolutionOk = (r) => r === RS.RESIZED || r === RS.ALREADY_ACTIVE;
+
   const engine = new Module.HolosphereEngine();
   try {
     for (const [w, h] of RESOLUTIONS) {
-      if (!engine.setResolution(w, h)) {
+      if (!resolutionOk(engine.setResolution(w, h))) {
         fail(`setResolution(${w}, ${h}) rejected a supported resolution`);
         continue;
       }
@@ -151,8 +170,8 @@ async function main() {
 
       for (const name of names) {
         sweptEffects.add(name);
-        if (!engine.setEffect(name)) {
-          fail(`setEffect("${name}") returned false at ${w}x${h}`);
+        if (engine.setEffect(name) !== ES.INSTALLED) {
+          fail(`setEffect("${name}") was rejected at ${w}x${h}`);
           continue;
         }
         for (let f = 0; f < FRAMES_PER_EFFECT; f++) engine.drawFrame();
@@ -312,13 +331,18 @@ async function main() {
     // setters fails here instead of shipping unseen.
     {
       const [w, h] = RESOLUTIONS[0];
-      if (!engine.setResolution(w, h)) {
+      if (!resolutionOk(engine.setResolution(w, h))) {
         fail(`write-seam: setResolution(${w}, ${h}) rejected a supported size`);
       }
-      // Rejection path: an unsupported size returns false and keeps the prior
-      // valid state (host predicate tests cover the predicate, not this seam).
-      if (engine.setResolution(1, 1)) {
-        fail('write-seam: setResolution(1, 1) accepted an unsupported size');
+      // A repeat of the active size is the distinguished no-op, not a resize.
+      if (engine.setResolution(w, h) !== RS.ALREADY_ACTIVE) {
+        fail('write-seam: repeated setResolution did not report ALREADY_ACTIVE');
+      }
+      // Rejection path: an unsupported size reports UNSUPPORTED and keeps the
+      // prior valid state (host predicate tests cover the predicate, not this
+      // seam).
+      if (engine.setResolution(1, 1) !== RS.UNSUPPORTED) {
+        fail('write-seam: setResolution(1, 1) did not report UNSUPPORTED');
       }
 
       const effectNames = Object.keys(engine.getEffectSizes());
@@ -338,7 +362,7 @@ async function main() {
         for (const outcome of ['APPLIED', 'NO_EFFECT', 'INVALID_BOUNDS', 'FULL_FRAME_KEPT']) {
           if (!C || !C[outcome]) fail(`Module.ClipSetResult.${outcome} is not bound`);
         }
-        if (!engine.setEffect(effectNames[0])) {
+        if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
           fail(`write-seam: setEffect("${effectNames[0]}") failed`);
         } else {
           const full = engine.setClip(0, w, 0, h);
@@ -359,12 +383,12 @@ async function main() {
           // reports NO_EFFECT — a benign ordering state, not a bad-bounds fault.
           const [w2, h2] = RESOLUTIONS[RESOLUTIONS.length - 1];
           if (w2 !== w || h2 !== h) {
-            if (!engine.setResolution(w2, h2)) fail(`write-seam: setResolution(${w2}, ${h2}) rejected a supported size`);
+            if (engine.setResolution(w2, h2) !== RS.RESIZED) fail(`write-seam: setResolution(${w2}, ${h2}) did not report RESIZED`);
             if (engine.setClip(0, w2, 0, h2) !== C.NO_EFFECT) {
               fail('write-seam: setClip with no effect set did not report NO_EFFECT');
             }
-            if (!engine.setResolution(w, h)) fail(`write-seam: setResolution(${w}, ${h}) rejected a supported size`);
-            if (!engine.setEffect(effectNames[0])) {
+            if (engine.setResolution(w, h) !== RS.RESIZED) fail(`write-seam: setResolution(${w}, ${h}) did not report RESIZED`);
+            if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
               fail(`write-seam: setEffect("${effectNames[0]}") failed after the resolution round-trip`);
             }
           }
@@ -393,7 +417,7 @@ async function main() {
         let clampTested = false;
         const near = (a, b) => Number.isFinite(a) && Math.abs(a - b) <= 1e-3 * (1 + Math.abs(b));
         for (const name of effectNames) {
-          if (!engine.setEffect(name)) continue;
+          if (engine.setEffect(name) !== ES.INSTALLED) continue;
           const defs = engine.getParameterDefinitions();
           if (!Array.isArray(defs)) continue;
           const t = defs.find((d) => typeof d.value === 'number' && !d.readonly &&
@@ -432,7 +456,7 @@ async function main() {
         // toward zero readonly params is caught there).
         let readonlyTested = false;
         for (const name of effectNames) {
-          if (!engine.setEffect(name)) continue;
+          if (engine.setEffect(name) !== ES.INSTALLED) continue;
           const t = engine.getParameterDefinitions().find((d) => d.readonly);
           if (!t) continue;
           if (engine.setParameter(t.name, t.value) !== R.READONLY) {
@@ -474,15 +498,15 @@ async function main() {
           fail(`state-seam: getParamGeneration() moved ${g0} -> ` +
             `${engine.getParamGeneration()} without an effect load`);
         }
-        if (engine.setEffect('definitely_not_an_effect')) {
-          fail('state-seam: setEffect(unknown) returned true');
+        if (engine.setEffect('definitely_not_an_effect') !== ES.UNKNOWN_EFFECT) {
+          fail('state-seam: setEffect(unknown) did not report UNKNOWN_EFFECT');
         }
         if (engine.getParamGeneration() !== g0) {
           fail(`state-seam: a rejected setEffect bumped the generation to ` +
             `${engine.getParamGeneration()} (want ${g0})`);
         }
         for (let load = 1; load <= 2; load++) {
-          if (!engine.setEffect(effectNames[0])) {
+          if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
             fail(`state-seam: setEffect("${effectNames[0]}") failed`);
             break;
           }
@@ -495,8 +519,8 @@ async function main() {
         if (RESOLUTIONS.length > 1) {
           const [w, h] = RESOLUTIONS[1];
           const beforeResolution = engine.getParamGeneration();
-          if (!engine.setResolution(w, h)) {
-            fail(`state-seam: setResolution(${w}, ${h}) failed`);
+          if (engine.setResolution(w, h) !== RS.RESIZED) {
+            fail(`state-seam: setResolution(${w}, ${h}) did not report RESIZED`);
           } else {
             if (engine.getParamGeneration() !== beforeResolution + 1) {
               fail(`state-seam: resolution teardown left generation at ` +
@@ -507,11 +531,13 @@ async function main() {
               fail('state-seam: resolution teardown left a non-empty parameter stream');
             }
             const noEffectGeneration = engine.getParamGeneration();
-            engine.setResolution(w, h);
+            if (engine.setResolution(w, h) !== RS.ALREADY_ACTIVE) {
+              fail('state-seam: no-op setResolution did not report ALREADY_ACTIVE');
+            }
             if (engine.getParamGeneration() !== noEffectGeneration) {
               fail('state-seam: no-op setResolution changed the generation');
             }
-            if (!engine.setEffect(effectNames[0])) {
+            if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
               fail(`state-seam: setEffect("${effectNames[0]}") after resolution failed`);
             } else if (engine.getParamGeneration() !== noEffectGeneration + 1) {
               fail(`state-seam: post-resolution load generation ` +
@@ -529,7 +555,7 @@ async function main() {
         const anyMoved = (before, after) => after.some((v, i) => v !== before[i]);
         let pauseTested = false;
         for (const name of effectNames) {
-          if (!engine.setEffect(name)) continue;
+          if (engine.setEffect(name) !== ES.INSTALLED) continue;
           engine.drawFrame();
           const before = animatedValues();
           if (before.length === 0) continue;
@@ -554,7 +580,7 @@ async function main() {
               `animated param(s) moving`);
           }
 
-          if (!engine.setEffect(name)) {
+          if (engine.setEffect(name) !== ES.INSTALLED) {
             fail(`state-seam: setEffect("${name}") while paused failed`);
             break;
           }
@@ -596,7 +622,7 @@ async function main() {
       const effectNames = Object.keys(engine.getEffectSizes());
       if (effectNames.length === 0) {
         fail('pole-lod: no effects to drive');
-      } else if (!engine.setEffect(effectNames[0])) {
+      } else if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
         fail(`pole-lod: setEffect("${effectNames[0]}") failed`);
       } else {
         const original = engine.getPoleLod();
@@ -646,7 +672,7 @@ async function main() {
         fail('growth-seam: no effects to render a frame with');
       } else if (!growSolid) {
         fail('growth-seam: MeshOps reported no solid to allocate the tooling block with');
-      } else if (!engine.setEffect(effectNames[0])) {
+      } else if (engine.setEffect(effectNames[0]) !== ES.INSTALLED) {
         fail(`growth-seam: setEffect("${effectNames[0]}") failed`);
       } else {
         engine.drawFrame();
