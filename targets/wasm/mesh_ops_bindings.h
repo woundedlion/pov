@@ -259,6 +259,18 @@ public:
     tooling_scratch_b.reset();
     const PolyMesh generated =
         entry->generate(tooling_scratch_a, tooling_scratch_b);
+    if (hs_wasm::tooling_mesh_over_ceiling(
+            generated.vertices.size(), generated.get_face_counts_size(),
+            generated.get_faces_size(), MAX_MESH_CONNECTIVITY_ELEMENTS)) {
+      hs::log("WASM: fromSolidName '%s' generated %zu verts / %zu faces / %zu "
+              "indices past the %zu-element 16-bit connectivity range — "
+              "ignored",
+              name.c_str(), generated.vertices.size(),
+              generated.get_face_counts_size(), generated.get_faces_size(),
+              MAX_MESH_CONNECTIVITY_ELEMENTS);
+      last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
+      return nullptr;
+    }
     if (hs_wasm::mesh_op_output_over_arena(
             generated.vertices.size(), generated.get_face_counts_size(),
             generated.get_faces_size(), 1, TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
