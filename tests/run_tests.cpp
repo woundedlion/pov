@@ -111,8 +111,8 @@ struct TestModule {
 // the white-box block, so each pair floors its own half. The effects floors are
 // the previous whole-module values less the assertions the sweeps took with
 // them, so that half's gate is exactly as tight as it was.
-constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 129320;
-constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 164109;
+constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 262627;
+constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 298058;
 constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 541;
 constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
 
@@ -142,7 +142,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("mesh", 22, hs_test::mesh_tests::run_mesh_tests, 42756)                    \
   X("solids", 34, hs_test::solids_tests::run_solids_tests, 298990)             \
   X("reaction_graph", 14,                                                      \
-    hs_test::reaction_graph_tests::run_reaction_graph_tests, 983)              \
+    hs_test::reaction_graph_tests::run_reaction_graph_tests, 322588)           \
   X("color", 66, hs_test::color_tests::run_color_tests, 409691)                \
   X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 102)           \
   X("easing_waves", 9, hs_test::easing_waves_tests::run_easing_waves_tests,    \
@@ -170,7 +170,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
   X("shadierball", 7, hs_test::shadierball_tests::run_shadierball_tests, 2065) \
   X("shapeshifter_oracle", 18,                                                 \
-    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 120)    \
+    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
   X("shapeshifter_tiles", 2,                                                   \
     hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests, 46)       \
   X("dma_core", 4, hs_test::dma_core::run_dma_core_tests, 12)                  \
@@ -184,13 +184,13 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("param_marshal", 2, hs_test::param_marshal_tests::run_param_marshal_tests, \
     1158)                                                                      \
   X("wasm_predicates", 13,                                                     \
-    hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 128)            \
+    hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 470)            \
   X("util", 7, hs_test::util_tests::run_util_tests, 288)                       \
   X("led", 6, hs_test::led_tests::run_led_tests, 24)                           \
   X("presets", 6, hs_test::presets_tests::run_presets_tests, 23)               \
   X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
   X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
-  X("death", 0, hs_test::death::run_death_tests, 85)
+  X("death", 0, hs_test::death::run_death_tests, 233)
 
 // case_sites is consumed by tests/check_case_calls.cmake, not by the runtime.
 #define HS_TEST_MODULE_ENTRY(name, case_sites, fn, min_assertions)             \
