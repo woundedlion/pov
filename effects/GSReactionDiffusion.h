@@ -47,8 +47,8 @@ struct GSWhiteBox;
  *   - Cubemap LUT:                  6 × 64² × 2B = 49,152 B
  *   - State:   2 arrays × 7680 × 2B (Q16)        = 30,720 B
  *   - Node XYZ: 7680 × 12B                       = 92,160 B  (fixed lattice, built once)
- *   - Palette LUT: 256 × 12B                     =  3,072 B  (the extra tenant vs BZ)
- *   - Total:                                       175,104 B (171 KB)
+ *   - Palette LUT: 256 × 8B + 4B                 =  2,052 B  (the extra tenant vs BZ)
+ *   - Total:                                       174,084 B (170 KB)
  *
  * Scratch arena (per frame, disjoint phases):
  *   - Physics: float ping-pong 4 × 7680 × 4B                             = 122,880 B
