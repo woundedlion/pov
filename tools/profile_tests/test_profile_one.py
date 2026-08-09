@@ -2,6 +2,7 @@
 """Host tests for profile_one.sh configuration verification."""
 
 import hashlib
+import os
 import re
 import subprocess
 import tempfile
@@ -115,6 +116,57 @@ class MainTreeResolution(unittest.TestCase):
                 subprocess.run(["git", "-C", str(root)] + args, check=True)
             self.assertEqual(self._main_tree_from(tree).resolve(),
                              root.resolve())
+
+
+ARTIFACT_VARS = ("OUT", "PROVENANCE_OUT", "PROFILE_BUILD_LOG",
+                 "PHANTASM_BUILD_LOG", "PROFILE_ENVDUMP", "PHANTASM_ENVDUMP",
+                 "ATTEST_DIR")
+
+
+def derived_paths(profile_out=None):
+    """Evaluate profile_one.sh's artifact-path block for one HS_PROFILE_OUT."""
+    source = PROFILE_ONE.read_text(encoding="utf-8")
+    block = re.search(r"(?ms)^OUT=.*?^ATTEST_DIR=.*?$", source)
+    if not block:
+        raise AssertionError("missing artifact-path block")
+    script = (
+        "LOWER=islamicstars; TAG=profile; ENV=profile\n"
+        "DEEP_SUFFIX=; MODE_SUFFIX=; MSP_SUFFIX=\n"
+        + block.group(0) + "\n"
+        + "".join(f'echo "{name}=${name}"\n' for name in ARTIFACT_VARS)
+    )
+    env = {"PATH": os.environ["PATH"]}
+    if profile_out is not None:
+        env["HS_PROFILE_OUT"] = profile_out
+    result = subprocess.run(["bash", "-c", script], capture_output=True,
+                            text=True, env=env)
+    if result.returncode != 0:
+        raise AssertionError(result.stderr)
+    return dict(line.split("=", 1) for line in result.stdout.splitlines())
+
+
+class ArtifactPaths(unittest.TestCase):
+    """HS_PROFILE_OUT must move the whole artifact set, not just the log.
+
+    profile_islamic_big.sh renames only the log; artifacts derived from the
+    default naming would land on the standard IslamicStars run's.
+    """
+
+    def test_default_naming_is_unchanged(self):
+        paths = derived_paths()
+        self.assertEqual(paths["OUT"], "build/prof/islamicstars_profile.log")
+        self.assertEqual(paths["ATTEST_DIR"],
+                         "build/prof/attest/islamicstars_profile")
+
+    def test_override_moves_every_artifact(self):
+        override = "build/prof/islamicstars_big_ship.log"
+        paths = derived_paths(override)
+        default = derived_paths()
+        self.assertEqual(paths["OUT"], override)
+        for name in ARTIFACT_VARS:
+            with self.subTest(var=name):
+                self.assertIn("islamicstars_big_ship", paths[name])
+                self.assertNotEqual(paths[name], default[name])
 
 
 class ProfileConfigVerification(unittest.TestCase):
