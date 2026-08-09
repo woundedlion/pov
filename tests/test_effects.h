@@ -5844,6 +5844,10 @@ inline int run_effects_tests() {
   test_shaderball_pattern_mix_wrap_continuous();
   test_shaderball_formula_reduction();
   test_every_effect_renders_while_paused();
+  // Arena budgets both tiers run: a mesh or fragment-count change reds these,
+  // and they cost under a second between them.
+  test_chaoticstrings_scratch_estimate_covers_peak();
+  test_hankinsolids_arena_budget_covers_every_solid();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The QUICK tier
   // (default, local pre-commit) skips the block below entirely, so a green local
@@ -5891,7 +5895,6 @@ inline int run_effects_tests() {
     test_raymarch_unit_bounds_contains_twisted_tube();
     test_gnomonicstars_radius_px_spans_one_column();
     test_gnomonicstars_spiral_cache_invalidation();
-    test_chaoticstrings_scratch_estimate_covers_peak();
     test_petalflow_spawn_gap_bounded();
     test_displacement_field_lazy_hue_table_matches_eager();
     test_displacement_field_hue_table_fidelity();
@@ -5908,7 +5911,6 @@ inline int run_effects_tests() {
     test_shaderball_preset_roster();
     test_mobiusgrid_conformal_and_counter_rotation();
     test_ringspin_pool_clamped();
-    test_hankinsolids_arena_budget_covers_every_solid();
     test_islamicstars_seed_sprite_fade_in();
     test_islamicstars_recipe_build_smoke();
     test_islamicstars_roster_cycle_fits_budget();
