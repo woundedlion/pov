@@ -1196,10 +1196,13 @@ jobs:
             echo "::warning::$WF absent in $PREV — FORMAT_BASELINE growth check skipped"
             exit 0
           fi
-          if ! extract FORMAT_BASELINE < /tmp/ci-prev.yml | sort -u > /tmp/baseline-prev.txt; then
+          # Extract before sorting: piping into sort would test sort's exit
+          # status, not awk's, making the skip branch unreachable.
+          if ! extract FORMAT_BASELINE < /tmp/ci-prev.yml > /tmp/baseline-prev-raw.txt; then
             echo "::warning::no FORMAT_BASELINE in $PREV:$WF — growth check skipped"
             exit 0
           fi
+          sort -u /tmp/baseline-prev-raw.txt > /tmp/baseline-prev.txt
 
           printf '%s\n' "$FORMAT_BASELINE" | sed '/^[[:space:]]*$/d' | sort -u > /tmp/baseline-now.txt
           printf '%s\n' "$FORMAT_BASELINE_ALLOW_ADD" | sed '/^[[:space:]]*$/d' | sort -u > /tmp/baseline-allow.txt
