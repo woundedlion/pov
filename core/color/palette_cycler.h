@@ -114,6 +114,7 @@ public:
     provider_context = nullptr;
     from_slot = nullptr;
     to_slot = nullptr;
+    morph = nullptr;
     next_sequence = 0;
     dwell = dwell_frames;
     fade = fade_frames;
