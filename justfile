@@ -46,6 +46,11 @@ test:
     cmake --build --preset tests
     ctest --preset tests
 
+# Python and JavaScript lint checks used by CI.
+lint:
+    ruff check --no-cache .
+    npm run lint
+
 # Validate tracked Markdown using the same commands as the ci.yml docs-markdown job.
 docs-check:
     python -m unittest discover -s tools/docs_check_tests
