@@ -177,7 +177,10 @@ public:
    * @brief Number of currently active entities.
    * @return Count of live pool slots.
    */
-  int active_count() const { return active_slot_count; }
+  int active_count() const {
+    check_storage_alive();
+    return active_slot_count;
+  }
 
   /**
    * @brief Params of the k-th active entity, in spawn order.
@@ -185,6 +188,7 @@ public:
    * @return The entity's live params.
    */
   const ParamsT &active_params(int k) const {
+    check_storage_alive();
     HS_CHECK(k >= 0 && k < active_slot_count,
              "TransformerPool: active index out of range");
     return entities[active_slots[k]].params;
