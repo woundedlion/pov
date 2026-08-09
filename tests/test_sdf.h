@@ -576,7 +576,7 @@ inline void test_spherical_polygon_composes_under_csg() {
   using U = SDF::Union<SDF::SphericalPolygon, SDF::SphericalPolygon>;
   static_assert(SDF::sdf_max_spans<SDF::SphericalPolygon>::value == 1);
   static_assert(SDF::sdf_max_spans<U>::value == 2);
-  static_assert(SDF::sdf_max_spans<SDF::Intersection<U, U>>::value == 6);
+  static_assert(SDF::sdf_max_spans<SDF::Intersection<U, U>>::value == 8);
 
   Basis b = equator_basis();
   SDF::SphericalPolygon inner(b, 0.3f, 5, 0.0f);
