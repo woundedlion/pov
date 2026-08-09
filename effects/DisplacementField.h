@@ -314,7 +314,7 @@ private:
         bool precompute_hue_table = false;
         float hue_domain = 0.0f;
         bool cyclic_hue_table = false;
-        uint64_t hue_table_valid[2] = {0, 0};
+        uint64_t hue_table_valid[(HUE_TABLE_SIZE + 64) / 64] = {};
         if (use_hue_table) {
           int visible_samples = 0;
           int x_begin = 0;
