@@ -1044,9 +1044,10 @@ private:
    */
   HS_COLD_MEMBER void schedule_dual_medial() {
     ScratchScope handoff_guard(scratch_arena_a);
-    // Snapshot the handoff off leg 1's landing (centroids from ambo(P), palette
-    // from the leg-1 landing) before compacting away that finished leg. The
-    // arrays live in scratch_a, which the persistent reset below leaves intact.
+    // Copy leg 1's landed palette into scratch_a before compacting away that
+    // finished leg; IDENTITY takes no centroids, since the medial leg sweeps
+    // ambo(P)'s faces in place. The persistent reset below leaves scratch_a
+    // intact.
     Animation::OpLeg::PaletteHandoff handoff =
         landing_handoff(dual_bridge_ambo, scratch_arena_a,
                         Animation::OpLeg::FaceCorrespondence::IDENTITY);
