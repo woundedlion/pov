@@ -809,6 +809,7 @@ struct DistortedRingStack {
   static void draw(PipelineT &pipeline, Canvas &canvas, int n_rings,
                    const SDF::DistortedRing *shapes, const int8_t *slot_by_ring,
                    int n_slots, RingShaderT &&shader) {
+    HS_CHECK(canvas.width() == W && canvas.height() == H);
     HS_CHECK(n_slots >= 1);
     check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
     if (!TrigLUT<W, H>::initialized)
@@ -1074,6 +1075,7 @@ struct RingGroup {
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
                    int n, RingShaderT &&shader, bool debug_bb = false) {
+    HS_CHECK(canvas.width() == W && canvas.height() == H);
     if (debug_bb || canvas.debug()) {
       for (int s = 0; s < n; ++s) {
         auto slot_shader = [&](const Vector &p, Fragment &f) {
@@ -1947,6 +1949,7 @@ struct Shader {
     // the 2x2 grid (4) are valid.
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
+    check_canvas_dims<W, H>(canvas);
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
     const auto xc = cr.x_clip();
@@ -2013,6 +2016,7 @@ struct Shader {
              "Scan::Shader::draw requires a non-null vertex_shader");
     HS_CHECK(fragment_shader,
              "Scan::Shader::draw requires a non-null fragment_shader");
+    check_canvas_dims<W, H>(canvas);
     // frag_base is per pixel, not per draw: each pixel starts from a default
     // Fragment, so a vertex shader writing only some registers (v0-v3/size/age/
     // color) can't inherit the previous pixel's values.
@@ -2097,6 +2101,7 @@ struct Shader {
   template <int W, int H, typename VertexFn, typename PixelFn>
   HS_O3_FN static void draw_grid(Canvas &canvas, VertexFn &&vertex_shader,
                                  PixelFn &&pixel_shader) {
+    check_canvas_dims<W, H>(canvas);
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
     const auto xc = cr.x_clip();
@@ -2435,6 +2440,7 @@ struct Volume {
   draw(PipelineRef pipeline, Canvas &canvas, const Vector &bounds_center,
        float bounds_radius, const Vector &view_dir, const Shape &shape,
        FragmentShaderFn frag_fn, int max_steps = 15, float aa_width = 0.01f) {
+    check_canvas_dims<W, H>(canvas);
 
     float vd_len = sqrtf(view_dir.x * view_dir.x + view_dir.y * view_dir.y +
                          view_dir.z * view_dir.z);
