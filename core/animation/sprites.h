@@ -32,8 +32,8 @@ public:
    * @brief Constructs a Sprite animation.
    * @param draw_fn The function to call each frame for drawing (`void
    * draw_fn(Canvas&, float opacity)`).
-   * @param duration The duration the sprite is fully visible (-1 for
-   * indefinite).
+   * @param duration Total frames the sprite is on screen, including fade
+   * windows (-1 for indefinite).
    * @param fade_in_duration Frames for fading in; in [0, MAX_FADE_DURATION].
    * @param fade_in_easing_fn Easing for fade-in.
    * @param fade_out_duration Frames for fading out; in [0, MAX_FADE_DURATION],
