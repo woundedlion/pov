@@ -754,7 +754,7 @@ struct DistortedRingStack {
 
   /**
    * @brief Traps unless every occupied ring sits on its even-spacing slot with
-   *        zero phase.
+   *        zero phase and slot 0's basis.
    * @param n_rings Stack size.
    * @param shapes Ring shapes indexed by slot.
    * @param slot_by_ring n_rings entries mapping ring index -> slot, -1 if
@@ -764,7 +764,9 @@ struct DistortedRingStack {
    * shared candidate window, so geometry survives; beyond it the ring is
    * windowed out and silently disappears. The fused scan derives one
    * phase-free azimuth per pixel for the whole stack, so a non-zero ring phase
-   * would index the wrong knot cell and mislabel v0.
+   * would index the wrong knot cell and mislabel v0. That frame is read from
+   * slot 0 alone, so a divergent basis would silently render its ring at slot
+   * 0's orientation.
    */
   HS_COLD_MEMBER
   static void check_stack_preconditions(int n_rings,
@@ -780,6 +782,9 @@ struct DistortedRingStack {
       HS_CHECK(std::abs(shapes[s].target_angle - delta * (i + 1)) <=
                WINDOW_PAD);
       HS_CHECK(shapes[s].phase == 0.0f);
+      HS_CHECK(dot(shapes[s].normal, shapes[0].normal) >= 1.0f - TOLERANCE);
+      HS_CHECK(dot(shapes[s].u, shapes[0].u) >= 1.0f - TOLERANCE);
+      HS_CHECK(dot(shapes[s].w, shapes[0].w) >= 1.0f - TOLERANCE);
     }
   }
 
