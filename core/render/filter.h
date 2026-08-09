@@ -2174,15 +2174,16 @@ private:
                                    grid.field.longitude_filter_width(y) > 1;
         const bool defer_filter = filter_output && !opaque;
         ::Pixel *output = defer_filter ? filtered_row : current + row;
-        while (y > control_y1) {
+        while (y > control_y1 && field_y1 < grid.field_rows - 1) {
           field_y0 = field_y1;
           control_y0 = control_y1;
-          if (field_y1 < grid.field_rows - 1) {
-            ++field_y1;
-            control_ring1 = grid.field.next_ring(control_ring1);
-            control_y1 = control_ring1.y;
-          }
+          ++field_y1;
+          control_ring1 = grid.field.next_ring(control_ring1);
+          control_y1 = control_ring1.y;
         }
+        // The last ring lands on the band's last row; short of it the weights
+        // below extrapolate off a stale control pair.
+        HS_CHECK(y <= control_y1);
         // Interpolating outside the populated band silently corrupts pixels.
         HS_CHECK(field_y0 >= band.field_y_begin && field_y1 <= band.field_y_end,
                  "feedback warp row %d outside populated band [%d,%d]",
