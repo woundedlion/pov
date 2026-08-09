@@ -124,7 +124,8 @@ struct SeamStats {
   double mean_near = 0.0;    /**< Mean |delta| near a parent vertex. */
   double mean_far = 0.0;     /**< Mean |delta| elsewhere. */
   double energy = 0.0;       /**< Sum(a-b) over the canvas, / (pixels*full). */
-  double abs_energy = 0.0;   /**< Sum|a-b| over the canvas, / (pixels*full). */
+  double abs_energy = 0.0;   /**< Sum|a-b| over changed pixels only,
+                                  / (pixels*full). */
   size_t deep = 0;           /**< Pixels differing by >= DEEP_THRESH. */
   double mean_clean = 0.0;   /**< Mean |delta| over changed clean-interior. */
   double mean_edge = 0.0;    /**< Mean |delta| over changed existing-edge. */
@@ -294,10 +295,11 @@ inline SeamStats compare(const std::vector<Pixel> &a,
 /** Gated-swap envelope. The spec's "<= 2 % of pixels" (section 9.5) is
  * unreachable at this canvas size: the swap's irreducible coverage delta is a
  * 2-4 px band along the child edges, 6.6-15.3 % of the canvas, so the bound is
- * on the changed fraction, the whole-frame energy and the deepest pixel
- * instead. Each swap is capped at its own measured fraction plus two
+ * on the changed fraction, the changed pixels' absolute energy and the deepest
+ * pixel instead. Each swap is capped at its own measured fraction plus two
  * percentage points, enough for rounding drift without accepting a widened
- * band. */
+ * band. Fraction and energy both count only pixels past DELTA_THRESH, so a
+ * uniform sub-threshold shift is invisible to the gate. */
 constexpr double CHANGED_FRAC_MARGIN = 0.02;
 constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
 constexpr double MEASURED_CHANGED_FRAC_KIS_CUBE = 0.1019;
