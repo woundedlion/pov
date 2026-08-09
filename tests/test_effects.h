@@ -4669,7 +4669,11 @@ inline void test_shaderball_lens_mix_continuous() {
   HS_EXPECT_EQ(end.im, lensed.im);
 }
 
-/** @brief Gives every staggered parameter slice zero endpoint velocity. */
+/**
+ * @brief Gives every staggered parameter slice zero endpoint velocity, walks
+ *        the changed fields in consecutive slices, and lands every field
+ *        exactly on the target at t = 1.
+ */
 inline void test_shaderball_staggered_lerp_eased() {
   using WB = ShaderBallWhiteBox;
   WB::Params from = WB::presets()[0].params;
@@ -4680,8 +4684,33 @@ inline void test_shaderball_staggered_lerp_eased() {
   const WB::Params before = WB::staggered_lerp(from, to, 0.5f - EPSILON);
   const WB::Params middle = WB::staggered_lerp(from, to, 0.5f);
   const WB::Params after = WB::staggered_lerp(from, to, 0.5f + EPSILON);
-  HS_EXPECT_LT(middle.warp_scale - before.warp_scale, 1e-3f);
-  HS_EXPECT_LT(after.warp_strength - middle.warp_strength, 1e-3f);
+  HS_EXPECT_LT(fabsf(middle.warp_scale - before.warp_scale), 1e-3f);
+  HS_EXPECT_LT(fabsf(after.warp_strength - middle.warp_strength), 1e-3f);
+  // The two changed fields animate in consecutive slices — warp_scale over
+  // [0, 0.5], warp_strength over [0.5, 1] — strictly between their endpoints
+  // mid-slice and exactly on them at the handoff.
+  const WB::Params quarter = WB::staggered_lerp(from, to, 0.25f);
+  HS_EXPECT_LT(fabsf(to.warp_scale - quarter.warp_scale),
+               fabsf(to.warp_scale - from.warp_scale));
+  HS_EXPECT_LT(fabsf(quarter.warp_scale - from.warp_scale),
+               fabsf(to.warp_scale - from.warp_scale));
+  HS_EXPECT_EQ(quarter.warp_strength, from.warp_strength);
+  HS_EXPECT_EQ(middle.warp_scale, to.warp_scale);
+  HS_EXPECT_EQ(middle.warp_strength, from.warp_strength);
+  const WB::Params three_quarter = WB::staggered_lerp(from, to, 0.75f);
+  HS_EXPECT_EQ(three_quarter.warp_scale, to.warp_scale);
+  HS_EXPECT_LT(fabsf(to.warp_strength - three_quarter.warp_strength),
+               fabsf(to.warp_strength - from.warp_strength));
+  HS_EXPECT_LT(fabsf(three_quarter.warp_strength - from.warp_strength),
+               fabsf(to.warp_strength - from.warp_strength));
+  const WB::Params done = WB::staggered_lerp(from, to, 1.0f);
+  for (auto field : WB::Params::FIELDS) {
+    HS_EXPECT_EQ(done.*field, to.*field);
+    HS_EXPECT_LE(fabsf(to.*field - quarter.*field),
+                 fabsf(to.*field - from.*field));
+    HS_EXPECT_LE(fabsf(to.*field - three_quarter.*field),
+                 fabsf(to.*field - from.*field));
+  }
 }
 
 /** @brief Pins ShaderBall's fine-grained unlensed liquid preset. */
