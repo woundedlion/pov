@@ -87,7 +87,8 @@ public:
     // the FIFO fills after 16 bytes. With RX masked, NOSTALL stays clear so a TX
     // underrun pauses the clock rather than shifting out a stale byte — a pause
     // is invisible to the self-clocked HD107S protocol, a stale byte is not.
-    LPSPI4_TCR = (LPSPI4_TCR & ~LPSPI_TCR_FRAMESZ(31)) | LPSPI_TCR_FRAMESZ(7) |
+    LPSPI4_TCR = (LPSPI4_TCR & ~LPSPI_TCR_FRAMESZ(4095)) |
+                 LPSPI_TCR_FRAMESZ(7) |
                  LPSPI_TCR_RXMSK; // 8-bit frames, TX-only
     LPSPI4_CFGR1 &= ~LPSPI_CFGR1_NOSTALL;
 
