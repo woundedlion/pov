@@ -85,8 +85,8 @@ struct TestModule {
 // enforced by tests/check_case_calls.cmake. The floor below is an inequality, so
 // a loop-amplified module keeps clearing it with a whole case deleted; this
 // count is exact, and deleting or adding a case must change it. 0 means the
-// module writes no `void test_*()`/`void check_*()` cases at all (death drives a
-// case table, effects_smoke is one sweep) — it is a pin, not an exemption.
+// module writes no `void test_*()`/`void check_*()`/`void case_*()` cases at
+// all (effects_smoke is one sweep) — it is a pin, not an exemption.
 // tests/check_case_calls.cmake reports the count it found when the pin drifts.
 //
 // The fourth column is the module's minimum assertion count, enforced by
@@ -190,7 +190,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("presets", 6, hs_test::presets_tests::run_presets_tests, 23)               \
   X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
   X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
-  X("death", 0, hs_test::death::run_death_tests, 233)
+  X("death", 116, hs_test::death::run_death_tests, 233)
 
 // case_sites is consumed by tests/check_case_calls.cmake, not by the runtime.
 #define HS_TEST_MODULE_ENTRY(name, case_sites, fn, min_assertions)             \
