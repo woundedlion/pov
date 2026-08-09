@@ -237,6 +237,9 @@ public:
    */
   HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to,
                            float amount) {
+    HS_CHECK(from.key_count >= 2 && from.key_count <= PALETTE_MAX_KEYS &&
+                 to.key_count >= 2 && to.key_count <= PALETTE_MAX_KEYS,
+             "GenerativePalette::lerp snapshot key count out of range");
     amount = hs::clamp(amount, 0.0f, 1.0f);
     const float closing_travel = closing_hue - keys[0].h;
     if (amount == 0.0f)
@@ -855,6 +858,8 @@ private:
   }
 
   void assign(const Snapshot &snapshot) {
+    HS_CHECK(snapshot.key_count >= 2 && snapshot.key_count <= PALETTE_MAX_KEYS,
+             "GenerativePalette::assign snapshot key count out of range");
     key_count = snapshot.key_count;
     lightness_axis = {snapshot.lightness_low, snapshot.lightness_high,
                       snapshot.lightness_curve};
