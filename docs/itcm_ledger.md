@@ -152,14 +152,23 @@ Standing conclusions that survive the update:
 re-deriving totals; absolute ITCM at tip moves with peer work, so quote a commit
 sha with any figure taken from this document.
 
-## State after ShadierBall (2026-08-08, `bb4c09cf`)
+## State after ShadierBall (2026-08-08, `bb4c09cf`; corrected same day)
 
 - phantasm ITCM 196,528 B / 196,608 B ceiling — **80 B free**. The size-trail
   rows for `bb4c09cf` carry all three envs.
-- ShadierBall's per-effect cost (~5.2 KB) is dominated by its
-  `Scan::Shader::draw` instantiation; it compiles at ambient `-Os` (no HS_O3
-  region) with the ctor, `init()`, and the palette provider FLASHMEM already.
-- The next phantasm code spend of any size trips the gate. Pay with a trim,
-  shrink `variables` far enough to free the 11th DTCM bank for code, or drop
-  ShadierBall from HS_PHANTASM_EFFECT_LIST (COUNT − 3 plus the exclusion
-  asserts) until it earns its bank.
+- **Correction:** this entry originally attributed ~5.2 KB to ShadierBall.
+  Measured by its later playlist removal, ShadierBall's phantasm instantiation
+  cost **1,648 B** (at ambient `-Os`, ctor/`init()`/palette provider FLASHMEM);
+  the baseline before it was already 194,880 B (1,728 B free) — peer commits
+  after the 08-06 "5,320 B free" figure had spent the difference.
+
+## State after the Projection slot (2026-08-08, `053ecefc`)
+
+- ShadierBall is **excluded from HS_PHANTASM_EFFECT_LIST** (COUNT − 3, named in
+  the exclusion asserts) while it grows: with the projection dispatch its
+  instantiation no longer fits the 1,728 B of phantasm headroom it would need.
+- phantasm ITCM back to 194,880 B — **1,728 B free**. The holosphere (96x20)
+  targets never included ShadierBall (their show lists are hand-curated;
+  itcm=72,192 unchanged across all ShadierBall commits).
+- Re-including it later costs ~1.7–2 KB (measure, don't assume) — pay with a
+  trim or by freeing the 11th DTCM bank.
