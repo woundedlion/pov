@@ -9,6 +9,10 @@
  * @brief TransformerPool and its Transformer, FieldTransformer and
  *        OrientTransformer specializations: animation-driven warp and field
  *        composition.
+ * @details Also holds the free warp and field functions those pools compose,
+ *          and the stereographic pattern family — pole attenuation, pattern
+ *          normalization and argument clamping, noise warp and glitch lens —
+ *          shared by the stereo pattern effects (ShaderBall, ShadierBall).
  */
 
 #include "math/3dmath.h"
