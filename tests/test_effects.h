@@ -1753,8 +1753,8 @@ struct BZWhiteBox {
                                   float laplacian) {
     return bz.advance_species(conc, predator, laplacian);
   }
-  static void perturb(uint16_t *nA, uint16_t *nB, uint16_t *nC) {
-    BZ::perturb_state(nA, nB, nC);
+  static void perturb(const BZ &bz, uint16_t *nA, uint16_t *nB, uint16_t *nC) {
+    bz.perturb_state(nA, nB, nC);
   }
   static int num_perturbations() { return BZ::NUM_PERTURBATIONS; }
   static int perturb_amount() { return BZ::PERTURB_AMOUNT; }
@@ -1974,19 +1974,22 @@ inline void test_bz_advance_species_signs_and_clamp() {
 /**
  * @brief Verifies perturb_state nudges nodes by a fixed Q16 amount and saturates
  *        at the 65535 rail without wrapping.
- * @details Two RNG-agnostic invariants. (1) A fully-saturated field stays fully
- *          saturated: every nudge is a +PERTURB_AMOUNT saturating add, so a node
- *          already at 65535 cannot wrap to a low value. (2) On a zero field, each
- *          touched entry is a small positive multiple of the nudge step and stays
- *          within [0, 65535], and at least one entry is touched — whichever nodes
- *          the deterministic RNG happens to select.
+ * @details Two RNG-agnostic invariants, at the dt = 1 top of the Speed slider
+ *          where the nudge is the full PERTURB_AMOUNT. (1) A fully-saturated
+ *          field stays fully saturated: every nudge is a saturating add, so a
+ *          node already at 65535 cannot wrap to a low value. (2) On a zero
+ *          field, each touched entry is a small positive multiple of the nudge
+ *          step and stays within [0, 65535], and at least one entry is touched —
+ *          whichever nodes the deterministic RNG happens to select.
  */
 inline void test_bz_perturb_state_saturates_and_nudges() {
+  BZWhiteBox::BZ bz;
+  BZWhiteBox::set_params(bz, /*alpha*/ 3.0f, /*D*/ 0.05f, /*dt*/ 1.0f);
   // (1) Saturation / no-wrap: all rails stay at the rail.
   {
     std::vector<uint16_t> a(BZWhiteBox::N, 65535), b(BZWhiteBox::N, 65535),
         c(BZWhiteBox::N, 65535);
-    BZWhiteBox::perturb(a.data(), b.data(), c.data());
+    BZWhiteBox::perturb(bz, a.data(), b.data(), c.data());
     int wrapped = 0;
     for (int i = 0; i < BZWhiteBox::N; ++i)
       if (a[i] != 65535 || b[i] != 65535 || c[i] != 65535)
@@ -1998,7 +2001,7 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
     const int step = BZWhiteBox::perturb_amount();
     std::vector<uint16_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
         c(BZWhiteBox::N, 0);
-    BZWhiteBox::perturb(a.data(), b.data(), c.data());
+    BZWhiteBox::perturb(bz, a.data(), b.data(), c.data());
     int touched = 0, malformed = 0;
     for (int i = 0; i < BZWhiteBox::N; ++i)
       for (uint16_t v : {a[i], b[i], c[i]}) {
@@ -2022,25 +2025,85 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
  *          silently shifts all downstream effects. Reproduce the post-call stream
  *          position with a private generator stepped exactly that many times and
  *          require the global generator to be at the same position (next outputs
- *          equal), failing if the count drifts in either direction.
+ *          equal), failing if the count drifts in either direction. Checked at
+ *          both ends of the Speed slider: the nudge magnitude scales with dt but
+ *          the draw count must not, or a paused sphere would desynchronise every
+ *          downstream effect.
  */
 inline void test_bz_perturb_state_draw_count_pinned() {
   const int expected_draws = 2 * BZWhiteBox::num_perturbations();
 
   constexpr uint64_t SEED = 1337u;
-  hs::random().seed(SEED);
-  std::vector<uint16_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
-      c(BZWhiteBox::N, 0);
-  BZWhiteBox::perturb(a.data(), b.data(), c.data());
+  for (float dt : {1.0f, 0.0f}) {
+    BZWhiteBox::BZ bz;
+    BZWhiteBox::set_params(bz, /*alpha*/ 3.0f, /*D*/ 0.05f, dt);
+    hs::random().seed(SEED);
+    std::vector<uint16_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
+        c(BZWhiteBox::N, 0);
+    BZWhiteBox::perturb(bz, a.data(), b.data(), c.data());
 
-  // A private generator from the same seed, advanced by the contracted count,
-  // must now be at the same stream position as the global generator.
-  hs::Pcg32 ref(SEED);
-  for (int i = 0; i < expected_draws; ++i)
-    (void)ref();
-  HS_EXPECT_EQ(hs::random()(), ref());
-  // Off-by-one in either direction would have landed at a different output.
-  HS_EXPECT_EQ(hs::random()(), ref());
+    // A private generator from the same seed, advanced by the contracted count,
+    // must now be at the same stream position as the global generator.
+    hs::Pcg32 ref(SEED);
+    for (int i = 0; i < expected_draws; ++i)
+      (void)ref();
+    HS_EXPECT_EQ(hs::random()(), ref());
+    // Off-by-one in either direction would have landed at a different output.
+    HS_EXPECT_EQ(hs::random()(), ref());
+  }
+}
+
+/**
+ * @brief Verifies the stochastic nudge scales with the Speed slider and reaches
+ *        zero where the integrator freezes.
+ * @details The nudge is the only integrator term that was not multiplied by dt,
+ *          so at dt = 0 — where advance_species round-trips its Q16 sample
+ *          exactly — it was the one term still moving the state, walking every
+ *          drawn node monotonically to the 65535 rail. Runs many perturbation
+ *          passes over a zero field: at dt = 0 nothing may move, and at a
+ *          mid-slider dt the touched entries must be multiples of the scaled
+ *          step, strictly between zero and the full-rate step.
+ */
+inline void test_bz_perturb_scales_with_timestep() {
+  constexpr int PASSES = 64;
+  {
+    BZWhiteBox::BZ bz;
+    BZWhiteBox::set_params(bz, /*alpha*/ 3.0f, /*D*/ 0.05f, /*dt*/ 0.0f);
+    std::vector<uint16_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
+        c(BZWhiteBox::N, 0);
+    for (int p = 0; p < PASSES; ++p)
+      BZWhiteBox::perturb(bz, a.data(), b.data(), c.data());
+    int moved = 0;
+    for (int i = 0; i < BZWhiteBox::N; ++i)
+      if (a[i] != 0 || b[i] != 0 || c[i] != 0)
+        ++moved;
+    HS_EXPECT_EQ(moved, 0);
+  }
+  {
+    constexpr float DT = 0.35f;
+    const int full = BZWhiteBox::perturb_amount();
+    const int step = static_cast<int>(full * DT);
+    HS_EXPECT_GT(step, 0);
+    HS_EXPECT_GT(full, step);
+
+    BZWhiteBox::BZ bz;
+    BZWhiteBox::set_params(bz, /*alpha*/ 3.0f, /*D*/ 0.05f, DT);
+    std::vector<uint16_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
+        c(BZWhiteBox::N, 0);
+    for (int p = 0; p < PASSES; ++p)
+      BZWhiteBox::perturb(bz, a.data(), b.data(), c.data());
+    int touched = 0, malformed = 0;
+    for (int i = 0; i < BZWhiteBox::N; ++i)
+      for (uint16_t v : {a[i], b[i], c[i]}) {
+        if (v == 0)
+          continue;
+        ++touched;
+        if (v % step != 0)
+          ++malformed;
+      }
+    HS_EXPECT_GT(touched, 0);
+    HS_EXPECT_EQ(malformed, 0);
+  }
 }
 
 /**
@@ -5903,6 +5966,7 @@ inline int run_effects_tests() {
     test_bz_advance_species_signs_and_clamp();
     test_bz_perturb_state_saturates_and_nudges();
     test_bz_perturb_state_draw_count_pinned();
+    test_bz_perturb_scales_with_timestep();
     test_bz_substep_diffuses();
     test_bz_raster_matches_reference();
     test_bz_render_center_matches_reference();
