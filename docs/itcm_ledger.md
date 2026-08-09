@@ -151,3 +151,15 @@ Standing conclusions that survive the update:
 **Refresh protocol:** re-run the sweep from `d4816de0` to the new tip rather than
 re-deriving totals; absolute ITCM at tip moves with peer work, so quote a commit
 sha with any figure taken from this document.
+
+## State after ShadierBall (2026-08-08, `bb4c09cf`)
+
+- phantasm ITCM 196,528 B / 196,608 B ceiling — **80 B free**. The size-trail
+  rows for `bb4c09cf` carry all three envs.
+- ShadierBall's per-effect cost (~5.2 KB) is dominated by its
+  `Scan::Shader::draw` instantiation; it compiles at ambient `-Os` (no HS_O3
+  region) with the ctor, `init()`, and the palette provider FLASHMEM already.
+- The next phantasm code spend of any size trips the gate. Pay with a trim,
+  shrink `variables` far enough to free the 11th DTCM bank for code, or drop
+  ShadierBall from HS_PHANTASM_EFFECT_LIST (COUNT − 3 plus the exclusion
+  asserts) until it earns its bank.
