@@ -208,8 +208,10 @@ concept Schedulable =
 
 /** @brief Whether a policy defines the per-face hook set. */
 template <typename S>
-concept PerFace =
-    requires(const S &s, const Vector &c) { s.face_offset(c, 0, 0); };
+concept PerFace = requires(const S &s, const Vector &c) {
+  s.face_offset(c, 0, 0);
+  s.face_phase(0.5f, 0.5f, 0.1f);
+};
 
 /** @brief Whether a policy orders faces by topology class, so the effect must
  * hand it the per-face classes before each transition. */
