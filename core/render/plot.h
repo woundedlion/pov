@@ -110,7 +110,16 @@ static constexpr float BALANCED_REUSE_MIN_TANGENT_DOT = 0.995f;
 /** @brief Maximum relative step change, against the new step, to reuse a step. */
 static constexpr float BALANCED_REUSE_STEP_TOLERANCE = 0.1f;
 
-/** @brief Source-over-aware alpha gain for balanced sample spacing. */
+/**
+ * @brief Alpha gain compensating a stretched sample spacing.
+ * @param alpha Per-sample coverage at the default spacing.
+ * @param step_ratio Stretched step over the default step.
+ * @return Gained coverage, clamped to 1.
+ * @details Linear-in-alpha fit to source-over accumulation. It tracks the exact
+ * gain to a few percent up to alpha ~0.4 and over-boosts above that; at the
+ * balanced ratio the clamp saturates past alpha ~0.85, so a near-opaque stroke
+ * plots fully opaque and loses its soft edge.
+ */
 static inline float balanced_sample_alpha(float alpha, float step_ratio) {
   const float gain = 1.0f + (step_ratio - 1.0f) * (0.88f - 0.20f * alpha);
   return std::min(1.0f, alpha * gain);
