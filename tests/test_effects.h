@@ -4686,6 +4686,21 @@ inline void test_shaderball_warp_time_wrap_continuous() {
   HS_EXPECT_NEAR(before.displacement, after.displacement, 0.02f);
 }
 
+/** @brief Stereo warp metadata preserves its pre-add displacement invariant. */
+inline void test_stereo_noise_warp_delta_invariant() {
+  FastNoiseLite noise;
+  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  noise.SetFrequency(0.01f);
+  const Complex input(12345.0f, -23456.0f);
+  const StereoWarpResult result =
+      stereo_noise_warp(input, input.re * input.re + input.im * input.im, noise,
+                        3.0f, 17.0f, 2.0f, 1.25f);
+  HS_EXPECT_EQ(result.coords.re, input.re + result.delta.re);
+  HS_EXPECT_EQ(result.coords.im, input.im + result.delta.im);
+  HS_EXPECT_EQ(result.displacement, sqrtf(result.delta.re * result.delta.re +
+                                          result.delta.im * result.delta.im));
+}
+
 /** @brief Keeps fractional Pattern Mix continuous through phase wraps. */
 inline void test_shaderball_pattern_mix_wrap_continuous() {
   using WB = ShaderBallWhiteBox;
@@ -6009,6 +6024,7 @@ inline int run_effects_tests() {
   test_hankinsolids_manual_pause_holds_morph();
   test_shaderball_warp_time_lerp_continuous();
   test_shaderball_warp_time_wrap_continuous();
+  test_stereo_noise_warp_delta_invariant();
   test_shaderball_pattern_mix_wrap_continuous();
   test_shaderball_formula_reduction();
   test_every_effect_renders_while_paused();
