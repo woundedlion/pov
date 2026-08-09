@@ -238,11 +238,11 @@ inline bool polygon_is_concave(const float *xy, int count) {
  * @param out Freshly default-constructed bake to populate.
  * @param budget_bytes Maximum persistent bytes available for class LUTs.
  * @details Greedy clustering seeded per topology class: a face joins the
- * first class whose canonical polygon aligns (over cyclic offset x reflection
- * x optimal rotation) within CONGRUENCE_EPS_PX RMS, else founds a new class
- * from its own centered projection. Gnomonic projection about each face's own
- * centroid is position-covariant, so the clustering is valid for any mesh
- * orientation and is baked once per spawn.
+ * best-matching class when its canonical polygon aligns (over cyclic offset x
+ * reflection x optimal rotation) within CONGRUENCE_EPS_PX RMS, else founds a
+ * new class from its own centered projection. Gnomonic projection about each
+ * face's own centroid is position-covariant, so the clustering is valid for
+ * any mesh orientation and is baked once per spawn.
  *
  * LUTs are built for concave classes with >= 2 members, largest first, until
  * CLASS_LUT_BUDGET is spent. Logs the census telemetry (classes, coverage,
