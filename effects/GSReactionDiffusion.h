@@ -125,9 +125,7 @@ public:
       state.B[i] = 0;
     }
 
-    palette.bake(
-        persistent_arena,
-        GenerativePalette{EffectPaletteRecipes::gs_reaction_diffusion()});
+    palette.bake(persistent_arena, make_palette());
 
     cube_lut.build(persistent_arena);
     init_lattice();
@@ -227,6 +225,11 @@ private:
    */
   static constexpr float B_CULL_THRESHOLD = B_COLOR_FLOOR;
 
+  HS_COLD_MEMBER static GenerativePalette make_palette() {
+    return GenerativePalette{EffectPaletteRecipes::gs_reaction_diffusion(
+        EffectPaletteRecipes::random_base_turns())};
+  }
+
   /**
    * @brief Fades nodes approaching the dissolve frontier, then holds them at
    * rest.
@@ -261,6 +264,10 @@ private:
     transition.dissolve_frames = -1;
     transition.grow_frames = 0;
     transition.stable_frames = 0;
+    {
+      HS_PROFILE(grd_palette_rebake);
+      palette.rebake(make_palette());
+    }
     seed_blobs(state.B, NUM_SEED_CLUSTERS);
   }
 
