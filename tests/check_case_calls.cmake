@@ -27,7 +27,7 @@
 
 cmake_minimum_required(VERSION 3.29)
 
-file(GLOB _headers "${TESTS_DIR}/*.h")
+file(GLOB_RECURSE _headers "${TESTS_DIR}/*.h")
 
 # Exact case-site count of every header the run_tests.cpp roster does not reach.
 # Same contract as the roster's second column: the number is exact, not a floor.
@@ -46,16 +46,18 @@ set(HELPER_CASE_COUNTS
   "test_pole_wrap.h=3"
   "vec_test_util.h=0")
 
-# Whole-tree code text, used as the fallback reference scope for cross-header
-# calls. Comments are stripped: the helper headers are named in prose by several
-# modules, which would otherwise read as call sites.
+# Whole-tree code text — every header and driver .cpp under tests/ — used as
+# the fallback reference scope for cross-file calls. Comments are stripped: the
+# helper headers are named in prose by several modules, which would otherwise
+# read as call sites.
+file(GLOB_RECURSE _driver_srcs "${TESTS_DIR}/*.cpp")
 set(_corpus "")
-foreach(_hdr IN LISTS _headers)
-  file(READ "${_hdr}" _hdr_text)
-  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" _hdr_text
-    "${_hdr_text}")
-  string(REGEX REPLACE "//[^\n]*" "" _hdr_text "${_hdr_text}")
-  string(APPEND _corpus "${_hdr_text}")
+foreach(_file IN LISTS _headers _driver_srcs)
+  file(READ "${_file}" _file_text)
+  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" _file_text
+    "${_file_text}")
+  string(REGEX REPLACE "//[^\n]*" "" _file_text "${_file_text}")
+  string(APPEND _corpus "${_file_text}")
 endforeach()
 
 set(_uncalled "")
