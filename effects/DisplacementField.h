@@ -35,7 +35,7 @@ struct DisplacementFieldWhiteBox;
  * the opposite pole, bowing the rings away from each ball's center.
  * Fragments are shaded from a circular analogous palette that spins across the
  * stack, with hue rotated proportionally to the local displacement magnitude; a
- * ColorWipe slowly fades the palette to a freshly generated one every few
+ * ColorWipe slowly fades the palette to a freshly generated one every ~11
  * seconds. Orientation random-walks over time.
  */
 template <int W, int H> class DisplacementField : public Effect {
@@ -561,9 +561,9 @@ private:
                 "DisplacementField: a full ball pool plus the effect's own "
                 "events exceeds the shared timeline budget");
   static constexpr int BALL_PHASE_FRAMES =
-      900; /**< Ball-phase spawning window (~15 s); balls keep coming the whole window. */
+      900; /**< Ball-phase spawning window (~56 s at 16 fps); balls keep coming the whole window. */
   static constexpr float BALL_RATE_FPS =
-      60.0f; /**< Frame cadence assumed by the Ball Rate and Speed sliders' per-second units. */
+      60.0f; /**< Frames per Ball Rate / Speed slider unit; one unit spans ~3.75 s at the 16 fps device cadence. */
   static constexpr float BALL_DRAPE_PER_AMPLITUDE =
       4.0f; /**< Drape gain per Ball Amp unit: the 0.1 default gives gain 0.4. */
   static constexpr int NOISE_FADE_FRAMES =
@@ -597,7 +597,7 @@ private:
       0; /**< Frames until the noise phase begins fading back out. */
 
   static constexpr int PALETTE_CYCLE_FRAMES =
-      180; /**< Palette rollover period (~3 s at the ~60 fps cadence). */
+      180; /**< Palette rollover period (~11 s at the 16 fps cadence). */
   static constexpr int PALETTE_WIPE_FRAMES =
       168; /**< Wipe duration; slightly under the cycle so a wipe is never still in flight when the next rollover fires. */
   // The wipe is armed mid-step and first steps on the next frame, so it spans
@@ -685,11 +685,12 @@ private:
     float flow_speed = 0.03f; /**< Noise-field time advance per frame. */
     float ball_min = 0.15f;   /**< Smallest ball footprint (radians). */
     float ball_max = 0.3f;    /**< Largest ball footprint (radians). */
-    float ball_rate = 20.0f;  /**< Ball spawns per second (jittered ±50%). */
+    float ball_rate =
+        20.0f; /**< Ball spawns per BALL_RATE_FPS frames (jittered ±50%). */
     float ball_speed_min =
-        0.45f; /**< Slowest fall (pole-to-pole traversals per second). */
+        0.45f; /**< Slowest fall (pole-to-pole traversals per BALL_RATE_FPS frames). */
     float ball_speed_max =
-        0.85f; /**< Fastest fall (pole-to-pole traversals per second). */
+        0.85f; /**< Fastest fall (pole-to-pole traversals per BALL_RATE_FPS frames). */
   } params;
 
   static_assert(Params{}.thickness >= 0.4f * THICKNESS_PX &&
