@@ -634,6 +634,9 @@ inline void test_class_bake_borrowed_mode() {
   const float pixel_width = 2.0f * PI_F / W;
 
   const auto islamic = Solids::Collections::get_islamic_solids();
+  HS_EXPECT_TRUE(!islamic.empty());
+  if (islamic.empty())
+    return;
   PolyMesh poly = islamic[0].generate(seed_a, seed_b);
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
@@ -865,6 +868,8 @@ inline BakeAccounting bake_with_budget(size_t idx, float pixel_scale,
   constexpr int W = 288;
   const auto islamic = Solids::Collections::get_islamic_solids();
   HS_EXPECT_TRUE(idx < islamic.size());
+  if (idx >= islamic.size())
+    return {};
   PolyMesh poly = islamic[idx].generate(seed_a, seed_b);
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
