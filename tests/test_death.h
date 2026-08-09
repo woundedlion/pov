@@ -1033,8 +1033,8 @@ inline void case_mesh_compile_face_span_over_16bit() {
 }
 
 /**
- * @brief Death case: update_hankin rejects a reused mesh whose retained
- *        topology was classified from a different compiled pattern.
+ * @brief Death case: update_hankin rejects retained topology from a pattern
+ *        with the same face count but a different flat index count.
  * @details The topology array survives an angle re-solve on purpose, so a mesh
  *          pointed at a new pattern would otherwise carry class ids that no
  *          longer match the faces written into it.
@@ -1051,10 +1051,13 @@ inline void case_update_hankin_stale_topology() {
   MeshOps::compile_hankin(cube, compiled, geom, scratch);
 
   MeshState mesh;
-  const size_t stale = compiled.face_counts.size() - 1;
-  mesh.topology.bind(geom, stale);
-  for (size_t i = 0; i < stale; ++i)
+  mesh.topology.bind(geom, compiled.face_counts.size());
+  for (size_t i = 0; i < compiled.face_counts.size(); ++i)
     mesh.topology.push_back(opaque<uint16_t>(0));
+  const size_t stale_indices = compiled.faces.size() - 1;
+  mesh.faces.bind(geom, stale_indices);
+  for (size_t i = 0; i < stale_indices; ++i)
+    mesh.faces.push_back(opaque<uint16_t>(0));
   MeshOps::update_hankin(compiled, mesh, geom, opaque(0.0f));
   if (mesh.num_faces() == opaque<size_t>(0x7fff))
     std::printf("x");
@@ -2307,8 +2310,9 @@ inline const Case *all_cases(int &n) {
        "16-bit index range"},
       {"update_hankin_stale_topology", case_update_hankin_stale_topology,
        "hankin.h",
-       "(out_mesh.topology.size() == 0 || out_mesh.topology.size() == "
-       "compiled.face_counts.size()) update_hankin: reused out_mesh carries "
+       "(out_mesh.topology.size() == 0 || (out_mesh.topology.size() == "
+       "compiled.face_counts.size() && out_mesh.faces.size() == "
+       "compiled.faces.size())) update_hankin: reused out_mesh carries "
        "a topology from a different compiled pattern (clear it first)"},
       {"mesh_state_set_view_offsets_count_mismatch",
        case_mesh_state_set_view_offsets_count_mismatch, "spatial.h",
