@@ -1540,8 +1540,6 @@ inline void test_mutating_palette_blends_endpoints() {
   HS_EXPECT_LT(mid, 65535);
 }
 
-#include "tests/test_generative_palette.h"
-
 /**
  * @brief Verifies each coordinate modifier's modify() in isolation.
  * @details Modifiers transform the palette coordinate; this exercises Scale,
