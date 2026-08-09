@@ -11,13 +11,15 @@
 # its floor. This check counts sites, not assertions, and is therefore immune to
 # trip-count drift; the count is exact, not a floor.
 #
-# It sees definitions of the form `void test_*(` / `void check_*(` at the start
-# of a line (optionally `inline`/`static`), which is how every case in the tree
-# is written. A module's header is the one defining the run_*_tests() entry point
-# its roster row names. Headers no roster row reaches — helper headers included
-# mid-module, and entry points only a standalone tool binary runs — are pinned by
-# HELPER_CASE_COUNTS below instead, so every header on disk is counted by exactly
-# one pin and a case deleted together with its call is always visible somewhere.
+# It sees definitions of the form `void test_*(` / `void check_*(` /
+# `void case_*(` at the start of a line (optionally `inline`/`static`), which is
+# how every case in the tree is written; `case_*` names the death cases the
+# death module's table drives. A module's header is the one defining the
+# run_*_tests() entry point its roster row names. Headers no roster row
+# reaches — helper headers included mid-module, and entry points only a
+# standalone tool binary runs — are pinned by HELPER_CASE_COUNTS below instead,
+# so every header on disk is counted by exactly one pin and a case deleted
+# together with its call is always visible somewhere.
 #
 # Comment spans are stripped before both the definition scan and the reference
 # count: the tree cross-references case names in prose, and an unstripped
@@ -76,7 +78,8 @@ foreach(_hdr IN LISTS _headers)
   string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
   string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
   string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
-  string(REGEX MATCHALL "\n[ \t]*(inline )?(static )?void (test|check)_[A-Za-z0-9_]+\\("
+  string(REGEX MATCHALL
+    "\n[ \t]*(inline )?(static )?void (test|check|case)_[A-Za-z0-9_]+\\("
     _defs "${_text}")
   set(_seen "")
   set(_count 0)
@@ -203,9 +206,9 @@ if(_drift)
     "case-site count drift: ${_drift_list}. The second column of each "
     "HS_TEST_MODULE_LIST row in tests/run_tests.cpp — and the HELPER_CASE_COUNTS "
     "entry in this script for every header outside the roster — is the exact "
-    "number of `void test_*(`/`void check_*(` definitions in that header. If you "
-    "added or intentionally removed cases, set the pin to the 'found' value "
-    "above; otherwise a case was deleted — restore it.")
+    "number of `void test_*(`/`void check_*(`/`void case_*(` definitions in "
+    "that header. If you added or intentionally removed cases, set the pin to "
+    "the 'found' value above; otherwise a case was deleted — restore it.")
 endif()
 
 list(LENGTH HELPER_CASE_COUNTS _nhelpers)
