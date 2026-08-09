@@ -439,6 +439,9 @@ private:
     // one counter, and a build-only window then prints an empty subtree while a
     // mixed window prints the child above its own parent's total.
     HS_PROFILE(is_build_draw);
+    // Opened after the OpLeg's blended ramps, which the shader below still
+    // reads, so only the scan's own scratch_b allocations unwind here.
+    ScratchScope b_guard(scratch_arena_b);
     // The frame-local mesh and its source fill scratch_a at the 1082-face peak.
     OrientTransformer camera(orientation);
     {
