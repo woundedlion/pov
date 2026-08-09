@@ -83,7 +83,7 @@ _UNTRACKED_ALLOWED = (
     ".github/workflows/js-tests.yml",
     "scripts/require-tests.mjs",
     "scripts/run-tests.mjs",
-    "tests/solid_codegen.test.js",
+    "tests/assertion-floors.json",
     "tools/solid_codegen.js",
     "tools/solids.html",
 )
