@@ -388,6 +388,7 @@ inline uint8_t narrow_face_count(int count) {
 template <char OrbitMode, typename VisitorFn>
 inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
                          VisitorFn &&visitor) {
+  static_assert(OrbitMode == 'P' || OrbitMode == 'N');
   uint16_t curr_idx = start_idx;
   int count = 0;
   // Anti-hang guard: a corrupt/non-manifold half-edge graph would otherwise
