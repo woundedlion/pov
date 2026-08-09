@@ -7,8 +7,8 @@
 
 /**
  * @file ShadierBall.h
- * @brief Slot-based stereographic shader: discrete function and lens slots
- *        with continuous per-slot params, sequenced as presets.
+ * @brief Slot-based sphere shader: discrete function, projection, and lens
+ *        slots with continuous per-slot params, sequenced as presets.
  */
 
 #include "core/engine/engine.h"
@@ -21,13 +21,14 @@ struct ShadierBallWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Stereographic shader assembled from preset-selected slots.
+ * @brief Sphere shader assembled from preset-selected slots.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Each preset names a pattern Function and a sphere Lens — discrete
- * slot tags dispatched per pixel on frame-constant copies — plus the
- * continuous params those slots consume. Color comes from a PaletteCycler
- * walking the 256 prebaked triadic profiles on a golden-ratio hue step.
+ * @details Each preset names a pattern Function, a sphere-to-plane
+ * Projection, and a sphere Lens — discrete slot tags dispatched per pixel on
+ * frame-constant copies — plus the continuous params those slots consume.
+ * Color comes from a PaletteCycler walking the 256 prebaked triadic profiles
+ * on a golden-ratio hue step.
  */
 template <int W, int H> class ShadierBall : public Effect {
 public:
@@ -45,6 +46,9 @@ public:
     register_animated_param("Function", &active.slots.function,
                             FUNCTION_OPTIONS, FUNCTION_EXPORT_OPTIONS,
                             NUM_FUNCTIONS);
+    register_animated_param("Projection", &active.slots.projection,
+                            PROJECTION_OPTIONS, PROJECTION_EXPORT_OPTIONS,
+                            NUM_PROJECTIONS);
     register_animated_param("Lens", &active.slots.lens, LENS_OPTIONS,
                             LENS_EXPORT_OPTIONS, NUM_LENSES);
     Params &params = active.params;
@@ -105,13 +109,16 @@ private:
 
   /** @brief Pattern-field slot tag; one body per enumerator. */
   enum class Function : uint8_t { TWIN_WAVE };
+  /** @brief Sphere-to-plane projection slot tag. */
+  enum class Projection : uint8_t { EQUIRECTANGULAR, STEREOGRAPHIC, GNOMONIC };
   /** @brief Sphere-lens slot tag applied before projection. */
   enum class Lens : uint8_t { NONE, GLITCH };
 
   /** @brief Slot tags one preset selects. */
   struct Slots {
-    Function function; /**< Pattern field evaluated per pixel. */
-    Lens lens;         /**< Sphere lens ahead of the projection. */
+    Function function;     /**< Pattern field evaluated per pixel. */
+    Projection projection; /**< Sphere-to-plane map feeding the pattern. */
+    Lens lens;             /**< Sphere lens ahead of the projection. */
   };
 
   /** @brief Continuous params the slots consume, one snapshot per preset. */
@@ -145,30 +152,68 @@ private:
   static Sample sample_pipeline(const Vector &v, const Slots &slots,
                                 const TwinWaveState &wave, float pattern_freq,
                                 float pole_fade, float lens_mix) {
-    const Complex z = project(v, slots.lens, lens_mix);
+    const Complex z = project(v, slots.projection, slots.lens, lens_mix);
     const float r_sq = z.re * z.re + z.im * z.im;
     const float pattern = sample_function(
         slots.function, stereo_pattern_args(z, pattern_freq), wave);
     return {pole_normalize_pattern(pattern, r_sq, pole_fade)};
   }
 
-  /** @brief Lens dispatch and stereographic projection to the pattern plane. */
-  static Complex project(const Vector &v, Lens lens, float lens_mix) {
+  /** @brief Lens dispatch and projection to the pattern plane. */
+  static Complex project(const Vector &v, Projection projection, Lens lens,
+                         float lens_mix) {
     switch (lens) {
     case Lens::NONE:
-      return stereo(v);
+      return project_point(v, projection);
     case Lens::GLITCH: {
       if (lens_mix == 0.0f)
-        return stereo(v);
-      const Complex lensed = stereo(glitch_lens(v));
+        return project_point(v, projection);
+      const Complex lensed = project_point(glitch_lens(v), projection);
       if (lens_mix == 1.0f)
         return lensed;
-      const Complex direct = stereo(v);
+      const Complex direct = project_point(v, projection);
       return {hs::lerp(direct.re, lensed.re, lens_mix),
               hs::lerp(direct.im, lensed.im, lens_mix)};
     }
     }
     __builtin_unreachable();
+  }
+
+  /** @brief Projection-slot dispatch: unit direction to plane coordinates. */
+  static Complex project_point(const Vector &v, Projection projection) {
+    switch (projection) {
+    case Projection::EQUIRECTANGULAR:
+      return equirectangular(v);
+    case Projection::STEREOGRAPHIC:
+      return stereo(v);
+    case Projection::GNOMONIC:
+      return gnomonic(v);
+    }
+    __builtin_unreachable();
+  }
+
+  /**
+   * @brief Equirectangular map of a unit direction.
+   * @param v Unit direction vector on the sphere.
+   * @return re = azimuth in (-pi, pi], im = latitude in [-pi/2, pi/2].
+   */
+  static Complex equirectangular(const Vector &v) {
+    return {fast_atan2(v.z, v.x), 0.5f * PI_F - fast_acos(v.y)};
+  }
+
+  /**
+   * @brief Gnomonic map through the sphere center onto the y = 1 plane.
+   * @param v Unit direction vector on the sphere.
+   * @return Plane coordinates; antipodal directions map to the same point.
+   */
+  static Complex gnomonic(const Vector &v) {
+    // Floor |y| so the equator ring divides by the epsilon instead of blowing
+    // up to inf/NaN; the resulting ~1e3 coordinates stay inside the
+    // pattern-arg clamp.
+    float y = v.y;
+    if (std::fabs(y) < GNOMONIC_AXIS_EPS)
+      y = y < 0.0f ? -GNOMONIC_AXIS_EPS : GNOMONIC_AXIS_EPS;
+    return {v.x / y, v.z / y};
   }
 
   /** @brief Function-slot dispatch on a frame-constant tag. */
@@ -237,11 +282,21 @@ private:
    *  conjugate. */
   static constexpr uint32_t HUE_STEP = 159;
 
+  /** @brief |v.y| floor for the gnomonic division. */
+  static constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
+
   static constexpr const char *FUNCTION_OPTIONS[] = {"Twin Wave"};
   static constexpr const char *FUNCTION_EXPORT_OPTIONS[] = {
       "Function::TWIN_WAVE"};
   static constexpr int NUM_FUNCTIONS =
       static_cast<int>(std::size(FUNCTION_OPTIONS));
+  static constexpr const char *PROJECTION_OPTIONS[] = {
+      "Equirectangular", "Stereographic", "Gnomonic"};
+  static constexpr const char *PROJECTION_EXPORT_OPTIONS[] = {
+      "Projection::EQUIRECTANGULAR", "Projection::STEREOGRAPHIC",
+      "Projection::GNOMONIC"};
+  static constexpr int NUM_PROJECTIONS =
+      static_cast<int>(std::size(PROJECTION_OPTIONS));
   static constexpr const char *LENS_OPTIONS[] = {"None", "Glitch"};
   static constexpr const char *LENS_EXPORT_OPTIONS[] = {"Lens::NONE",
                                                         "Lens::GLITCH"};
@@ -268,7 +323,8 @@ private:
 
   static constexpr Preset PRESETS[] = {
       // Rotating twin-wave interference through the full glitch lens.
-      {{Function::TWIN_WAVE, Lens::GLITCH}, {0.05f, 6.0f, 0.006f, 2.0f, 1.0f}},
+      {{Function::TWIN_WAVE, Projection::STEREOGRAPHIC, Lens::GLITCH},
+       {0.05f, 6.0f, 0.006f, 2.0f, 1.0f}},
   };
   static_assert(
       [] {
