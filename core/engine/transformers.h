@@ -894,8 +894,8 @@ inline float bump_field_profile(const Animation::BumpParams &params,
  * @param v Sample point (unit vector).
  * @param params Bump field geometry and gain.
  * @param r_eff Receives the envelope-scaled footprint radius.
- * @param d Receives the angular distance from the cap center; written only on a
- * hit.
+ * @param d Receives the angular distance from the cap center; only meaningful
+ * on a true return.
  * @return Whether @p v lies inside the cap and the gain is non-negligible.
  */
 __attribute__((always_inline)) inline bool
