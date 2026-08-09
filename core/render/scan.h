@@ -98,6 +98,17 @@ HS_NOINLINE_NOCLONE inline void check_canvas_dims(const Canvas &canvas) {
 }
 
 /**
+ * @brief Validates that a type-erased fragment shader refers to a callable.
+ * @param fragment_shader Shader the draw invokes per pixel.
+ * @details Checked once per draw, not per pixel: FunctionRef::operator() guards
+ * an empty ref with assert alone, so an optimized build calls a null thunk.
+ */
+HS_NOINLINE_NOCLONE inline void
+check_fragment_shader(FragmentShaderFn fragment_shader) {
+  HS_CHECK(fragment_shader, "Scan: fragment_shader must be non-null");
+}
+
+/**
  * @brief Processes a single pixel for rasterization: evaluates the shape SDF,
  *        computes anti-aliased coverage, runs the fragment shader, and plots.
  * @tparam W Canvas width in pixels.
@@ -519,6 +530,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                 "and distance<ComputeUVs>()");
 
   check_canvas_dims<W, H>(canvas);
+  check_fragment_shader(fragment_shader);
   bool effective_debug = debug_bb || canvas.debug();
 
   int y_lo, y_hi;
@@ -2441,6 +2453,7 @@ struct Volume {
        float bounds_radius, const Vector &view_dir, const Shape &shape,
        FragmentShaderFn frag_fn, int max_steps = 15, float aa_width = 0.01f) {
     check_canvas_dims<W, H>(canvas);
+    check_fragment_shader(frag_fn);
 
     float vd_len = sqrtf(view_dir.x * view_dir.x + view_dir.y * view_dir.y +
                          view_dir.z * view_dir.z);
