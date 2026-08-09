@@ -294,15 +294,23 @@ def teensy_footprint(model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
     return sexp.parse(text)[0]
 
 
+def embedded_footprint(ref, libid,
+                       teensy_model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
+    """A fresh footprint node carrying the land `embed` emits for `ref`,
+    including any per-reference land override."""
+    node = teensy_footprint(teensy_model_path) if libid == TEENSY_LIBID else \
+        sexp.parse(sexp.dumps(load_mod(libid)))[0]  # deep copy via round-trip
+    if ref == "D_BUS":
+        set_d_bus_land_pattern(node)
+    return node
+
+
 def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           dnp=False, hide_reference=False,
           teensy_model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl",
           consumed=None):
-    node = teensy_footprint(teensy_model_path) if libid == TEENSY_LIBID else \
-        sexp.parse(sexp.dumps(load_mod(libid)))[0]  # deep copy via round-trip
+    node = embedded_footprint(ref, libid, teensy_model_path)
     refresh_uuids(node)
-    if ref == "D_BUS":
-        set_d_bus_land_pattern(node)
     if ref in ("D_BUS", "JP_ID2"):
         move_silk_graphics_to_fab(node)
     set_pad_orientations(node, rot)
@@ -633,7 +641,7 @@ def main(unplaced=False, force=False):
     bxs = {}
     pad_bxs = {}
     for ref, (_, fp, _, _) in comps.items():
-        node = teensy_footprint() if fp == TEENSY_LIBID else load_mod(fp)
+        node = embedded_footprint(ref, fp)
         bxs[ref] = fp_bbox(node)
         pad_bxs[ref] = fp_bbox(node, pads_only=True)
     if unplaced:
