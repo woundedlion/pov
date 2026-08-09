@@ -900,6 +900,9 @@ public:
     p.axis = make_basis(orientation->get(), normal).v;
     p.envelope = quintic_kernel(progress / EDGE_FRACTION) *
                  quintic_kernel((1.0f - progress) / EDGE_FRACTION);
+    // Re-prepare the reject bound against the envelope just written, so the
+    // render never tests the new envelope against a bound cached at the old one.
+    p.sync();
   }
 
 private:
