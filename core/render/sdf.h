@@ -783,7 +783,7 @@ struct Ring {
   float cos_max, cos_min, cos_target,
       inv_sin_target; /**< Precomputed band trig. */
 
-  float r_val; /**< Horizontal projection length of the axis (for full-row
+  float r_val;       /**< Horizontal projection length of the axis (for full-row
                          check). */
   float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
   static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
@@ -3884,11 +3884,11 @@ struct Star {
  * @details Register semantics: the DistanceResult table (row: Flower).
  */
 struct Flower {
-  const Basis &basis; /**< Orientation frame (v = flower axis); retained by
+  const Basis &basis;      /**< Orientation frame (v = flower axis); retained by
                               reference, so it must outlive the shape. */
-  int sides;          /**< Number of petals. */
-  float phase;        /**< Azimuth phase offset (radians). */
-  float sector;       /**< Angular width of one flower sector. */
+  int sides;               /**< Number of petals. */
+  float phase;             /**< Azimuth phase offset (radians). */
+  float sector;            /**< Angular width of one flower sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius;      /**< Angular radius from the antipode to petal tip
                          (radians). */
