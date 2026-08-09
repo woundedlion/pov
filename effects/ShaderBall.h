@@ -156,13 +156,14 @@ public:
 
     auto sample_projected = [&](const Complex &z) -> PatternSample {
       float r_sq = z.re * z.re + z.im * z.im;
-      auto [w, displacement] =
+      const StereoWarpResult warp =
           sample_wrapped_warp(z, r_sq, warp_noise, P.warp_scale,
                               P.warp_strength, P.pole_fade, warp_time);
       float pattern =
-          sample_pattern(stereo_pattern_args(w, P.pattern_freq), P.complexity,
-                         P.pattern_mix, sin_phase, phase2);
-      return {pole_normalize_pattern(pattern, r_sq, P.pole_fade), displacement};
+          sample_pattern(stereo_pattern_args(warp.coords, P.pattern_freq),
+                         P.complexity, P.pattern_mix, sin_phase, phase2);
+      return {pole_normalize_pattern(pattern, r_sq, P.pole_fade),
+              warp.displacement};
     };
 
     auto shader = [&](const Vector &v) HS_O3_FN -> Color4 {
@@ -228,6 +229,8 @@ private:
                           time - STEREO_NOISE_TIME_PERIOD);
     return {{hs::lerp(current.coords.re, next.coords.re, mix),
              hs::lerp(current.coords.im, next.coords.im, mix)},
+            {hs::lerp(current.delta.re, next.delta.re, mix),
+             hs::lerp(current.delta.im, next.delta.im, mix)},
             hs::lerp(current.displacement, next.displacement, mix)};
   }
 

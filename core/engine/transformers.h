@@ -769,10 +769,16 @@ inline Vector noise_transform(const Vector &v,
 }
 
 /**
- * @brief Result of a stereographic-space noise warp.
+ * @brief Coordinate and displacement metadata from a stereographic noise warp.
+ * @details `delta` is the directly sampled displacement before coordinate
+ * addition, `coords` is exactly `input + delta` under the helper's float
+ * arithmetic, and `displacement` is the magnitude computed from that same
+ * pre-add delta. Callers composing stages must accumulate `delta` rather than
+ * recovering it by subtracting rounded coordinates.
  */
 struct StereoWarpResult {
   Complex coords;     /**< Displaced coordinate. */
+  Complex delta;      /**< Pre-add displacement vector. */
   float displacement; /**< Magnitude of the displacement vector. */
 };
 
@@ -832,10 +838,11 @@ inline Complex stereo_pattern_args(const Complex &w, float pattern_freq) {
  * @param strength Maximum displacement amplitude.
  * @param pole_fade Attenuation radius (larger = wider fade zone).
  * @param time Noise time coordinate (for animation).
- * @return Warped coordinate plus the scalar displacement magnitude.
+ * @return Warped coordinate, pre-add displacement vector, and its magnitude.
  * @details Displacement is attenuated near the projection pole to prevent
- * singularity blowup. The scalar displacement is returned alongside the warped
- * coordinate for downstream effects (e.g., hue shifting).
+ * singularity blowup. `delta` and `displacement` are computed before adding the
+ * displacement to `z`, preserving small motion even when large coordinates
+ * would round `coords - z` to zero.
  */
 HS_O3_FN inline StereoWarpResult
 stereo_noise_warp(const Complex &z, float r_sq, const FastNoiseLite &noise,
@@ -847,7 +854,8 @@ stereo_noise_warp(const Complex &z, float r_sq, const FastNoiseLite &noise,
   float dy = noise.GetNoise(z.re * scale + CHANNEL_OFFSET,
                             z.im * scale + CHANNEL_OFFSET, time) *
              s;
-  return {Complex(z.re + dx, z.im + dy), sqrtf(dx * dx + dy * dy)};
+  return {Complex(z.re + dx, z.im + dy), Complex(dx, dy),
+          sqrtf(dx * dx + dy * dy)};
 }
 
 /**
