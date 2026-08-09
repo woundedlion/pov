@@ -6,9 +6,11 @@
 
 /**
  * @file 3dmath.h
- * @brief Core math primitives: Vector, Quaternion and Complex, the geometric
- *        epsilons, and the stereographic, gnomonic and Mobius maps built on
- *        them.
+ * @brief Four families: the core primitives (Vector, Quaternion, Complex,
+ *        Spherical) with the geometric epsilons and the stereographic,
+ *        gnomonic and Mobius maps built on them; the fast-math approximations
+ *        (trig, exp, rsqrt, cbrt, atan2); the hash and value-noise lattice;
+ *        and the Snorm3 direction packing.
  */
 
 #include <cmath>
