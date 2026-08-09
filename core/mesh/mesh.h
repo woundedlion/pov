@@ -533,7 +533,9 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
   constexpr uint16_t REFERENCED = 0xFFFE;
   ScratchScope scratch_guard(scratch);
   const size_t src_vertex_count = src.vertices.size();
-  uint16_t *remap = scratch.allocate_n<uint16_t>(src_vertex_count);
+  uint16_t *remap = src_vertex_count > 0
+                        ? scratch.allocate_n<uint16_t>(src_vertex_count)
+                        : nullptr;
   for (size_t i = 0; i < src_vertex_count; ++i)
     remap[i] = UNREFERENCED;
 
