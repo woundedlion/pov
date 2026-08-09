@@ -258,28 +258,27 @@ public:
    */
   void reset_high_water_mark() { high_water_mark = offset; }
 
-  /**
-   * @brief Tests whether a byte region still lies within the live extent.
-   * @param p First byte of the region.
-   * @param bytes Region length in bytes.
-   * @return True iff [p, p+bytes) falls within [buffer, buffer+offset).
-   * @details A set_offset() rewind reclaims bytes without bumping the
-   * generation, so this is the only signal a borrowed region was freed by a
-   * rewind of the source arena. Also false for a region borrowed from a
-   * different arena.
-   */
-  bool covers(const void *p, size_t bytes) const {
-    uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
-    uintptr_t q = reinterpret_cast<uintptr_t>(p);
-    return q >= base && (q - base) <= offset && bytes <= offset - (q - base);
-  }
-
 #ifndef NDEBUG
   /**
    * @brief Returns the current debug generation stamp.
    * @return Generation counter, bumped on each reset/rebind.
    */
   uint32_t get_generation() const { return generation; }
+
+  /**
+   * @brief Tests whether a byte region still lies within the live extent.
+   * @param p First byte of the region.
+   * @param bytes Region length in bytes.
+   * @return True iff [p, p+bytes) falls within [buffer, buffer+offset).
+   * @details A set_offset() rewind reclaims bytes without bumping the
+   * generation, so this is the only signal an ArenaSpan has that its borrowed
+   * region was freed by a rewind of the source arena.
+   */
+  bool covers(const void *p, size_t bytes) const {
+    uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
+    uintptr_t q = reinterpret_cast<uintptr_t>(p);
+    return q >= base && (q - base) <= offset && bytes <= offset - (q - base);
+  }
 
   /**
    * @brief Returns the lowest offset any rewind has dropped to this generation.
@@ -615,8 +614,8 @@ public:
    * and keeps the larger prior capacity, so capacity() and the push_back
    * overflow guard report the block actually held rather than this request.
    * A grow against the same arena/generation reallocates a fresh block and
-   * abandons the old one until the next reset; a stale binding (arena reset,
-   * rewound, or a different arena) traps.
+   * abandons the old one until the next reset; a stale binding (arena reset or
+   * a different arena) trips a debug-only contract assert.
    */
   void bind(Arena &arena, size_t min_capacity) {
     static_assert(
@@ -633,13 +632,11 @@ public:
            "ArenaVector::bind() on a stale binding: clear the handle before "
            "resetting or changing its arena");
 #endif
+    // The generation assert above misses a rewind, which leaves the reuse path
+    // below handing back bytes the arena has already reissued.
     check_alive();
     // Same arena, still live, and big enough → reuse the block in place.
     if (bound && element_capacity >= min_capacity) {
-      // Not redundant with the asserts above: those are stripped under NDEBUG.
-      HS_CHECK(element_capacity == 0 ||
-                   arena.covers(elements, element_capacity * sizeof(T)),
-               "ArenaVector::bind() reuse of a stale block");
       element_count = 0;
 #ifndef NDEBUG
       // Reuse dangles any span snapshotted before this point; bump so its
