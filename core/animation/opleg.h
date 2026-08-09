@@ -1675,6 +1675,7 @@ private:
     // first reaches that vertex is the corner's host — no centroid search.
     int *corner_host = nullptr;
     if (structural_closing && landed < total) {
+      HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
       const PolyMesh &dual = *tr.seed_ref;
       const size_t corners = total - landed;
       HS_CHECK(landed == dual.face_counts.size() &&
