@@ -63,6 +63,7 @@ inline void expect_segment_tiles_reconstruct_full_frame(Render render) {
     }
 
     FrameErrorStats error = compare_buffers(full, tiled);
+    HS_EXPECT_GT(frame_energy(full), static_cast<uint64_t>(0));
     HS_EXPECT_TRUE(error.exact());
     HS_EXPECT_EQ(error.different_pixels, static_cast<size_t>(0));
     HS_EXPECT_EQ(error.total_absolute_error, static_cast<uint64_t>(0));
@@ -86,6 +87,7 @@ inline void test_segment_tiles_reconstruct_full_frame() {
       copy_clip(tiled, capture_frame(state, candidate_renderer()), clip);
     }
     const FrameErrorStats error = compare_buffers(full, tiled);
+    HS_EXPECT_GT(frame_energy(full), uint64_t{0});
     HS_EXPECT_TRUE(error.exact());
     HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
   };
@@ -143,6 +145,7 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
     }
 
     const FrameErrorStats error = compare_buffers(full, tiled);
+    HS_EXPECT_GT(frame_energy(full), uint64_t{0});
     HS_EXPECT_TRUE(error.exact());
     HS_EXPECT_EQ(error.different_pixels, size_t{0});
     HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
