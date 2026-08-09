@@ -230,7 +230,8 @@ inline SeamStats compare(const std::vector<Pixel> &a,
       }
       // Bound by the pixels the forward scan did not already take, so a fully
       // changed row reports PS_W rather than counting the wrap twice.
-      for (int k = 1; k <= PS_W - hrun; ++k) {
+      const int back_limit = PS_W - hrun;
+      for (int k = 1; k <= back_limit; ++k) {
         const int xx = (x - k + PS_W * 2) % PS_W;
         if (!changed[size_t(y) * PS_W + xx])
           break;
