@@ -3190,6 +3190,100 @@ inline void test_screen_trails_banded_matches_full() {
 }
 
 /**
+ * @brief Proves Screen::Trails holds up under a clip that MOVES between frames,
+ *        the segmented driver's per-frame arm-half alternation.
+ * @details The band test above drives one fixed clip for every frame, so it
+ *          cannot see a trail buffer whose contents depend on where the clip
+ *          stood when a point was seeded — an optimization that skipped seeding
+ *          out-of-band samples would pass it and still break the driver. Here
+ *          the clip alternates between the left half [0, W/2) and the right half
+ *          [W/2, W) on successive frames; each frame's written half must equal
+ *          that half of a full-canvas instance fed the same seed sequence, so a
+ *          point seeded while its half was clipped away must still re-emit at
+ *          its own coordinate once the clip swings back.
+ */
+inline void test_screen_trails_alternating_clip_matches_full() {
+  constexpr int W = 32, H = 16, MAXP = 512;
+  using Trails = Filter::Screen::Trails<MAXP>;
+  constexpr int K = 6;        // frames driven
+  constexpr int lifetime = 4; // trail fade length (frames)
+  constexpr int MID = W / 2;
+
+  // Seeds straddle both halves, with one point that sweeps rows across frames so
+  // successive frames differ where the alternation can drop them.
+  struct Seed {
+    int x, y;
+    Pixel c;
+  };
+  auto frame_seeds = [](int f) {
+    return std::array<Seed, 6>{{
+        {3, 1, Pixel(10000, 0, 0)},
+        {12, 4, Pixel(0, 20000, 0)},
+        {20, 7, Pixel(0, 0, 30000)},
+        {7, 10, Pixel(15000, 15000, 0)},
+        {25, 13, Pixel(0, 25000, 25000)},
+        {17, (f * 3) % H, Pixel(40000, 40000, 40000)},
+    }};
+  };
+  auto trail = [](float, float, float t) {
+    uint16_t v = static_cast<uint16_t>((1.0f - t) * 50000.0f);
+    return Color4(Pixel(v, v, v), 1.0f);
+  };
+
+  // One run = a fresh trail buffer + effect driven K frames, capturing every
+  // frame's display buffer. flip alternates the x clip per frame; the reference
+  // run leaves the effect at full canvas. Effect instances alias the same static
+  // double buffer, so each run is scoped closed before the next.
+  auto run = [&](bool flip, Pixel out[K][H][W]) {
+    static uint8_t buf[MAXP * 32];
+    Arena arena(buf, sizeof(buf));
+    Pipeline<W, H, Trails> pipe{Trails(lifetime)};
+    pipe.get<Trails>().init_storage(arena);
+
+    hs_test::StubEffect fx(W, H);
+    for (int f = 0; f < K; ++f) {
+      // Ahead of the Canvas: its stale-pixel clear honours the clip set here.
+      if (flip)
+        fx.set_clip(0, H, (f % 2) ? MID : 0, (f % 2) ? W : MID);
+      {
+        Canvas c(fx);
+        for (const auto &s : frame_seeds(f))
+          pipe.plot(c, s.x, s.y, s.c, 0.0f, 1.0f);
+        pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+      }
+      fx.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          out[f][y][x] = fx.get_pixel(x, y);
+    }
+  };
+
+  static Pixel full[K][H][W], flipped[K][H][W];
+  run(false, full);
+  run(true, flipped);
+
+  // Per frame, the half the alternating instance owned must match the full
+  // instance byte-for-byte.
+  bool identical = true;
+  int lit = 0;
+  for (int f = 0; f < K; ++f) {
+    const int x0 = (f % 2) ? MID : 0;
+    const int x1 = (f % 2) ? W : MID;
+    for (int y = 0; y < H; ++y)
+      for (int x = x0; x < x1; ++x) {
+        const Pixel &want = full[f][y][x];
+        const Pixel &got = flipped[f][y][x];
+        if (!(got.r == want.r && got.g == want.g && got.b == want.b))
+          identical = false;
+        if (want.r | want.g | want.b)
+          ++lit;
+      }
+  }
+  HS_EXPECT_TRUE(identical);
+  HS_EXPECT_GT(lit, 0);
+}
+
+/**
  * @brief Proves a band-clipped feedback effect DIVERGES from the full-frame
  *        render — i.e. why crosses_segments forces full-frame for Pixel::Feedback.
  * @details Feedback reads cv.prev at unbounded warp offsets. A melt warp drips
@@ -3351,6 +3445,7 @@ inline int run_filter_tests() {
 
   test_effect_needs_full_frame_default_false();
   test_screen_trails_banded_matches_full();
+  test_screen_trails_alternating_clip_matches_full();
   test_feedback_banded_diverges_from_full();
 
   return fixture.result();
