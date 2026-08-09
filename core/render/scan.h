@@ -1614,9 +1614,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   Fragment frag;
 
   // 1.0002 margin keeps the sqrt-free cull strictly conservative against the
-  // pixel_width reject below.
-  const float reject_rad = pixel_width * 1.0002f;
-  const float reject_dsq = reject_rad * reject_rad;
+  // widest threshold a probe is tested on below.
+  const float base_reject_rad = pixel_width * 1.0002f;
+  const float base_reject_dsq = base_reject_rad * base_reject_rad;
 
   // distance() reports gnomonic-plane units, which stretch an angular step by
   // up to 1 + r^2; max_dist bounds r over every probe the cull admits.
@@ -1633,8 +1633,14 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     float cp = TrigLUT<W, H>::cos_phi[y];
     const int stride = pole_lod_run(sp);
     float block_slack = 0.0f;
-    if constexpr (POLE_LOD_ENABLED)
+    float reject_dsq = base_reject_dsq;
+    if constexpr (POLE_LOD_ENABLED) {
       block_slack = pole_lod_slack<W>(stride, sp) * plane_stretch;
+      // the block test below reads d, so the cull must not sentinel a probe
+      // inside that threshold
+      const float reject_rad = (pixel_width + block_slack) * 1.0002f;
+      reject_dsq = reject_rad * reject_rad;
+    }
 
     for (size_t r = 0; r < num_runs; ++r) {
       const int rx2 = runs[r].second;
