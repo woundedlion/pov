@@ -91,10 +91,9 @@ constexpr float face_azimuth_pad(int w) {
 // span emitted before the fallback is either dropped or shaded twice.
 
 /** Maximum disjoint scanline spans a single shape (leaf) emits per row.
- *  scan_region's `intervals` buffer holds the widest top-level CSG emission
- *  (Subtract/Intersection: 2x this + 2), and its seam-split `norm` buffer is
- *  2x intervals (one span can split in two at the x=0 seam); see the
- *  static_asserts there. */
+ *  scan_region's `intervals` buffer holds a top-level CSG emission, and its
+ *  seam-split `norm` buffer is 2x intervals (one span can split in two at the
+ *  x=0 seam); see the static_asserts there. */
 inline constexpr size_t INTERVAL_SPAN_CAP = 32;
 
 /** A scanline span [first, second) in fractional column units. An aggregate, so
@@ -211,12 +210,12 @@ template <typename A, typename B> struct sdf_max_spans<SmoothUnion<A, B>> {
       sdf_max_spans<A>::value + sdf_max_spans<B>::value;
 };
 // Intersection seam-splits each child into a [0, W) frame, then merge-sweeps
-// the two start-sorted lists (one span per advance). Each child grows by at
-// most one and the sweep advances |norm_a| + |norm_b| times: bound |A| + |B|
-// + 2.
+// the two start-sorted lists (one span per advance, |norm_a| + |norm_b| - 1
+// advances). A child's spans carry no common wrap frame -- a Union can merge
+// two that both cover θ=0 -- so every span may split: bound 2·|A| + 2·|B|.
 template <typename A, typename B> struct sdf_max_spans<Intersection<A, B>> {
   static constexpr size_t value =
-      sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
+      2 * sdf_max_spans<A>::value + 2 * sdf_max_spans<B>::value;
 };
 // Subtract emits the minuend seam-split into a [0, W) frame. A child's spans
 // carry no common wrap frame -- a Union can merge two that both cover θ=0 --
@@ -784,7 +783,7 @@ struct Ring {
   float cos_max, cos_min, cos_target,
       inv_sin_target; /**< Precomputed band trig. */
 
-  float r_val;       /**< Horizontal projection length of the axis (for full-row
+  float r_val; /**< Horizontal projection length of the axis (for full-row
                          check). */
   float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
   static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
@@ -3881,11 +3880,11 @@ struct Star {
  * @details Register semantics: the DistanceResult table (row: Flower).
  */
 struct Flower {
-  const Basis &basis;      /**< Orientation frame (v = flower axis); retained by
+  const Basis &basis; /**< Orientation frame (v = flower axis); retained by
                               reference, so it must outlive the shape. */
-  int sides;               /**< Number of petals. */
-  float phase;             /**< Azimuth phase offset (radians). */
-  float sector;            /**< Angular width of one flower sector. */
+  int sides;          /**< Number of petals. */
+  float phase;        /**< Azimuth phase offset (radians). */
+  float sector;       /**< Angular width of one flower sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius;      /**< Angular radius from the antipode to petal tip
                          (radians). */

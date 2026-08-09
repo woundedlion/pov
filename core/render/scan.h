@@ -321,16 +321,18 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   // Phantasm's DTCM stack is tight and scan_region is on the deepest render
   // chain. Per-call bump scope; norm is cleared per row below.
   //
-  // intervals holds a top-level shape's full per-row emission. The widest top
-  // node is Intersection with both children at INTERVAL_SPAN_CAP:
-  // |A|+|B|+2 == 2*INTERVAL_SPAN_CAP+2. norm holds one seam-split per span, so 2x.
+  // intervals holds a top-level shape's full per-row emission; norm holds one
+  // seam-split per span, so 2x. 2*INTERVAL_SPAN_CAP+2 covers a top-level
+  // Union/SmoothUnion (|A|+|B|) and Subtract (2·|A|); a top-level Intersection
+  // (2·|A| + 2·|B|) fits only while both children stay under
+  // INTERVAL_SPAN_CAP/2 spans.
   ScratchScope scratch(scratch_arena_b);
   static constexpr size_t TOP_SPAN_CAP = 2 * SDF::INTERVAL_SPAN_CAP + 2;
   using IntervalBuf = StaticCircularBuffer<SDF::Interval, TOP_SPAN_CAP>;
   using NormBuf = StaticCircularBuffer<SDF::Interval, 2 * TOP_SPAN_CAP>;
   static_assert(IntervalBuf::CAPACITY >= SDF::MergedIntervalBuffer::CAPACITY,
-                "scan_region intervals must hold the largest top-level CSG "
-                "emission (Intersection: |A|+|B|+2)");
+                "scan_region intervals must hold a top-level Union's merged "
+                "emission (|A|+|B|)");
   static_assert(NormBuf::CAPACITY == 2 * IntervalBuf::CAPACITY,
                 "norm must hold 2 spans per input interval (seam split)");
   auto &intervals =
