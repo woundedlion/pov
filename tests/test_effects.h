@@ -2687,6 +2687,9 @@ struct HopfWhiteBox {
   }
   static void set_folding(HF &fx, float v) { fx.params.folding = v; }
   static void set_twist(HF &fx, float v) { fx.params.twist = v; }
+  static size_t trim_start(size_t len, float alpha) {
+    return HF::trail_trim_start(len, alpha);
+  }
 };
 
 /**
@@ -2743,6 +2746,39 @@ inline void test_hopf_projection_math() {
     HS_EXPECT_NEAR(p.x, again.x, 1e-6f);
     HS_EXPECT_NEAR(p.y, again.y, 1e-6f);
     HS_EXPECT_NEAR(p.z, again.z, 1e-6f);
+  }
+}
+
+/**
+ * @brief Pins HopfFibration's trail trim across every trail length and the
+ *        whole visible alpha range.
+ * @details render_trails() stages points [first, len) and rasterizes
+ *          len - first fragments, so a trim that reached len would bind an
+ *          empty polyline; the visibility gate ahead of it guarantees
+ *          alpha >= MIN_VISIBLE_ALPHA, which is what bounds first at len - 2.
+ *          The trim must also be exact — it drops a point only when that
+ *          point's outgoing segment cannot paint — and monotone in alpha, since
+ *          a brighter trail can never show less of its tail.
+ */
+inline void test_hopf_trail_trim_keeps_a_segment() {
+  using WB = HopfWhiteBox;
+  using HF = HopfFibration<DEFAULT_W, DEFAULT_H>;
+  // Ascending, and all at or above the gate render_trails() applies first.
+  const float alphas[] = {MIN_VISIBLE_ALPHA, 0.005f, 0.01f, 0.05f, 0.4f, 1.0f};
+  for (size_t len = 2; len <= static_cast<size_t>(HF::TRAIL_LEN); ++len) {
+    size_t brighter = len;
+    for (float alpha : alphas) {
+      const size_t first = WB::trim_start(len, alpha);
+      HS_EXPECT_LT(first + 1, len);
+      HS_EXPECT_LE(first, brighter);
+      // The kept segment paints; the one before it (if any) could not.
+      HS_EXPECT_GE(static_cast<float>(first + 1) / (len - 1) * alpha,
+                   MIN_VISIBLE_ALPHA);
+      if (first > 0)
+        HS_EXPECT_LT(static_cast<float>(first) / (len - 1) * alpha,
+                     MIN_VISIBLE_ALPHA);
+      brighter = first;
+    }
   }
 }
 
@@ -2863,14 +2899,88 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
 }
 
 /**
- * @brief White-box accessor for GnomonicStars' pixel-pitch star radius
- *        (befriended in effects/GnomonicStars.h).
+ * @brief White-box accessor for GnomonicStars' pixel-pitch star radius and its
+ *        spiral cache (befriended in effects/GnomonicStars.h).
  */
 struct GnomonicStarsWhiteBox {
   template <int W, int H> static constexpr float radius_px() {
     return GnomonicStars<W, H>::RADIUS_PX;
   }
+  template <int W, int H> static int max_points(const GnomonicStars<W, H> &) {
+    return GnomonicStars<W, H>::MAX_POINTS;
+  }
+  template <int W, int H>
+  static void set_points(GnomonicStars<W, H> &fx, float n) {
+    fx.params.points = n;
+  }
+  template <int W, int H>
+  static int cached_points(const GnomonicStars<W, H> &fx) {
+    return fx.cached_points;
+  }
+  template <int W, int H>
+  static Vector cache_at(const GnomonicStars<W, H> &fx, int i) {
+    return fx.spiral_cache[i];
+  }
+  template <int W, int H>
+  static void poison_cache(GnomonicStars<W, H> &fx, int i, const Vector &v) {
+    fx.spiral_cache[i] = v;
+  }
 };
+
+/**
+ * @brief Pins GnomonicStars' spiral-cache invalidation: the trig-heavy base
+ *        lattice is rebuilt exactly when the clamped point count changes.
+ * @details draw_frame() clamps "Points" into [1, MAX_POINTS] and rebuilds
+ *          spiral_cache only on a change, so a cached_points left in step with
+ *          the raw slider would draw the previous count's lattice, and one left
+ *          behind would rebuild the trig every frame. The poisoned slot
+ *          separates "not rebuilt" from "rebuilt to the same values", which
+ *          re-reading the lattice alone cannot.
+ */
+inline void test_gnomonicstars_spiral_cache_invalidation() {
+  using WB = GnomonicStarsWhiteBox;
+  reset_effect_globals();
+  GnomonicStars<SMALL_W, SMALL_H> fx;
+  fx.init();
+
+  auto step = [&](float points) {
+    WB::set_points(fx, points);
+    fx.draw_frame();
+    fx.advance_display();
+  };
+  auto expect_lattice = [&](int n) {
+    for (int i = 0; i < n; ++i) {
+      const Vector want = fib_spiral(n, 0.5f, i);
+      const Vector got = WB::cache_at(fx, i);
+      HS_EXPECT_EQ(got.x, want.x);
+      HS_EXPECT_EQ(got.y, want.y);
+      HS_EXPECT_EQ(got.z, want.z);
+    }
+  };
+
+  step(64.0f);
+  HS_EXPECT_EQ(WB::cached_points(fx), 64);
+  expect_lattice(64);
+
+  // An unchanged count leaves the cache alone, so the poison survives.
+  const Vector poison(0.0f, 0.0f, 1.0f);
+  WB::poison_cache(fx, 7, poison);
+  step(64.0f);
+  HS_EXPECT_EQ(WB::cached_points(fx), 64);
+  HS_EXPECT_EQ(WB::cache_at(fx, 7).z, poison.z);
+
+  // A changed count rebuilds every slot, the poisoned one included.
+  step(40.0f);
+  HS_EXPECT_EQ(WB::cached_points(fx), 40);
+  expect_lattice(40);
+
+  // Sub-1 and over-capacity slider values clamp before they reach the cache.
+  step(0.0f);
+  HS_EXPECT_EQ(WB::cached_points(fx), 1);
+  expect_lattice(1);
+  step(static_cast<float>(WB::max_points(fx)) + 500.0f);
+  HS_EXPECT_EQ(WB::cached_points(fx), WB::max_points(fx));
+}
 
 /**
  * @brief Verifies RADIUS_PX is one pixel of azimuth at every build resolution.
@@ -5776,9 +5886,11 @@ inline int run_effects_tests() {
     RingShowerWhiteBox::check_radius_endpoints();
     DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
     test_hopf_projection_math();
+    test_hopf_trail_trim_keeps_a_segment();
     test_raymarch_constexpr_sqrt_converges();
     test_raymarch_unit_bounds_contains_twisted_tube();
     test_gnomonicstars_radius_px_spans_one_column();
+    test_gnomonicstars_spiral_cache_invalidation();
     test_chaoticstrings_scratch_estimate_covers_peak();
     test_petalflow_spawn_gap_bounded();
     test_displacement_field_lazy_hue_table_matches_eager();

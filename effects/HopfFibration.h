@@ -264,6 +264,24 @@ private:
   }
 
   /**
+   * @brief First trail index whose outgoing segment can still paint.
+   * @param len Recorded trail length, at least 2.
+   * @param alpha Master alpha, already known to clear MIN_VISIBLE_ALPHA.
+   * @return Index in [0, len - 2]; the newest segment always survives, so the
+   * staged polyline is never empty.
+   * @details The tail fades to transparent, so leading points whose outgoing
+   * segment peaks (at its newer endpoint) below visibility are dropped.
+   */
+  static size_t trail_trim_start(size_t len, float alpha) {
+    size_t first = 0;
+    while (first + 1 < len &&
+           static_cast<float>(first + 1) / (len - 1) * alpha <
+               MIN_VISIBLE_ALPHA)
+      ++first;
+    return first;
+  }
+
+  /**
    * @brief Renders all fiber trails as anti-aliased polylines.
    * @param canvas Target canvas to rasterize the trail polylines onto.
    * @details Orients each trail's stored world-space points into the current
@@ -290,14 +308,9 @@ private:
       if (len < 2)
         continue;
 
-      // The tail fades to transparent; drop leading points whose outgoing
-      // segment peaks (at its newer endpoint) below visibility. v0 keeps the
-      // full-trail parameterization, so kept segments render unchanged.
-      size_t first = 0;
-      while (first + 1 < len &&
-             static_cast<float>(first + 1) / (len - 1) * params.alpha <
-                 MIN_VISIBLE_ALPHA)
-        ++first;
+      // v0 keeps the full-trail parameterization, so kept segments render
+      // unchanged.
+      const size_t first = trail_trim_start(len, params.alpha);
 
       ScratchScope sc_guard(scratch_arena_a);
       Fragments points;
