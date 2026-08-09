@@ -211,19 +211,23 @@ private:
    * @param n_a Species A buffer to nudge (Q16, modified in place).
    * @param n_b Species B buffer to nudge (Q16, modified in place).
    * @param n_c Species C buffer to nudge (Q16, modified in place).
-   * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q16),
-   *          saturating at 65535, to keep the dynamics from settling on the
-   *          closed manifold.
+   * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q16)
+   *          scaled by the timestep, saturating at 65535, to keep the dynamics
+   *          from settling on the closed manifold. The scaling matches the
+   *          reaction-diffusion terms: at dt = 0 the physics is frozen and the
+   *          nudge is 0, so a stopped sphere cannot drift to saturation.
    * @note Draws from the global deterministic RNG (2*NUM_PERTURBATIONS draws per
-   *       call), so retuning the draw count is a global-determinism change.
+   *       call) whatever the timestep, so retuning the draw count is a
+   *       global-determinism change.
    */
-  static void perturb_state(uint16_t *n_a, uint16_t *n_b, uint16_t *n_c) {
+  void perturb_state(uint16_t *n_a, uint16_t *n_b, uint16_t *n_c) const {
+    const int amount = static_cast<int>(PERTURB_AMOUNT * params.dt);
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
       int idx = hs::rand_int(0, RD_N);
       int s = hs::rand_int(0, 3);
       uint16_t *t = (s == 0) ? n_a : (s == 1) ? n_b : n_c;
       t[idx] = static_cast<uint16_t>(
-          std::min(static_cast<int>(t[idx]) + PERTURB_AMOUNT, 65535));
+          std::min(static_cast<int>(t[idx]) + amount, 65535));
     }
   }
 
