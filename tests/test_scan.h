@@ -1252,6 +1252,9 @@ inline void test_solid_color_path_matches_generic() {
           }
         }
         generic_fx.advance_display();
+        // A pair of all-black frames would satisfy the parity check below.
+        const size_t generic_lit = count_lit_region<W, H>(generic_fx);
+        HS_EXPECT_GT(generic_lit, (size_t)0);
         for (int y = 0; y < H; ++y)
           for (int x = 0; x < W; ++x)
             generic_pixels.push_back(generic_fx.get_pixel(x, y));
@@ -1329,6 +1332,9 @@ inline void test_spherical_sine_distance_framebuffer_error() {
           pipeline, canvas, basis, c.radius, c.sides, color, c.phase);
     }
     fx.advance_display();
+    // A pair of all-black frames would satisfy the error bounds below.
+    const size_t lit = count_lit_region<W, H>(fx);
+    HS_EXPECT_GT(lit, (size_t)0);
     std::vector<Pixel> pixels;
     pixels.reserve(W * H);
     for (int y = 0; y < H; ++y)
