@@ -68,7 +68,9 @@ public:
    *          the first path/palette function table entry.
    */
   HS_COLD_MEMBER Comets()
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})) {}
+      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
+        palette(EffectPaletteRecipes::comets(
+            EffectPaletteRecipes::random_base_turns())) {}
 
   /**
    * @brief Allocates state and wires up the animation timeline.
