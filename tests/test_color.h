@@ -606,14 +606,17 @@ inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
  * @details Sweeps lightness, hue and input chroma and holds the map to two
  *          properties. Every returned color must pass linear_rgb_in_gamut —
  *          that is the hard one, the map's whole job. And the returned chroma
- *          must sit just inside the double-precision first exit: never above it
- *          (which would be out of gamut by the gate's own rule) and never more
- *          than a barely visible amount below. The hue band around the blue
+ *          must sit just inside the double-precision first exit: never past it
+ *          by more than the float rounding of the magnitude itself, and never
+ *          more than a barely visible amount below. The hue band around the blue
  *          cube vertex is sampled finely because that is where a channel dips
  *          through a face and back, and where the boundary moves fastest.
  */
 inline void test_gamut_master_clip_lands_on_first_exit() {
   const float DEFICIT_BOUND = 5e-3f;
+  // got is a float magnitude, the reference a double: ~17 float ULPs at the
+  // largest chroma sampled, and 15x under the 16-bit chroma quantum.
+  const float OVERSAT_BOUND = 1e-6f;
   const double CHROMA_IN[3] = {0.6, 0.35, 0.25};
   float worst_deficit = 0.0f, worst_oversat = -1.0f;
 
@@ -644,7 +647,7 @@ inline void test_gamut_master_clip_lands_on_first_exit() {
     }
   }
   HS_EXPECT_LT(worst_deficit, DEFICIT_BOUND);
-  HS_EXPECT_LE(worst_oversat, 0.0f);
+  HS_EXPECT_LE(worst_oversat, OVERSAT_BOUND);
 }
 
 inline void test_gamut_continuous_chroma_is_smooth_and_in_gamut() {
@@ -686,6 +689,9 @@ inline constexpr int TEST_GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
  */
 inline void test_gamut_lut_clip_lands_on_first_exit() {
   const float DEFICIT_BOUND = 5e-3f;
+  // got is a float magnitude, the reference a double: ~17 float ULPs at the
+  // largest chroma sampled, and 15x under the 16-bit chroma quantum.
+  const float OVERSAT_BOUND = 1e-6f;
   const double CHROMA_IN[3] = {0.6, 0.35, 0.25};
   alignas(uint16_t) static uint8_t
       lut_buf[gamut_lut_bytes(TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
@@ -721,7 +727,7 @@ inline void test_gamut_lut_clip_lands_on_first_exit() {
     }
   }
   HS_EXPECT_LT(worst_deficit, DEFICIT_BOUND);
-  HS_EXPECT_LE(worst_oversat, 0.0f);
+  HS_EXPECT_LE(worst_oversat, OVERSAT_BOUND);
 
   // Outside the reported lightness band the bracket widens, but the in-gamut
   // guarantee is structural and must still hold at every L and hue.
