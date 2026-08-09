@@ -1368,7 +1368,9 @@ public:
     last_rendered_x = -1;
     halves_since_snap = 0;
     have_prev_burst = false;
+    prev_burst_end = 0;
     suspect_pending = false;
+    suspect_last_cycles = 0;
     epoch_emits_left = 0;
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
