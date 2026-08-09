@@ -2314,9 +2314,8 @@ struct DreamBallsWhiteBox {
   }
   // Re-spawn of the current preset (no advance).
   static void respawn(DB &db) { db.spawn_sprite(); }
-  // The literal solid-name pointer the given preset seeds into params on reseed.
-  static const char *preset_name(const DB &db, int idx) {
-    return db.preset_manager.get_entries()[idx].params.solid_name;
+  static DB::BaseMesh preset_mesh(const DB &db, int idx) {
+    return db.preset_manager.get_entries()[idx].params.base_mesh;
   }
   static const DB::Params &preset_params(const DB &db, int idx) {
     return db.preset_manager.get_entries()[idx].params;
@@ -2324,7 +2323,10 @@ struct DreamBallsWhiteBox {
   static const Palette *blood_stream_falloff(const DB &db) {
     return &db.blood_stream_falloff;
   }
-  static const char *live_solid(const DB &db) { return db.params.solid_name; }
+  static bool solid_loaded(const DB &db, size_t idx) {
+    return !db.loaded_solids[idx].mesh_state.vertices.is_empty();
+  }
+  static DB::BaseMesh live_mesh(const DB &db) { return db.params.base_mesh; }
   static float &num_copies(DB &db) { return db.params.num_copies; }
 };
 
@@ -2351,10 +2353,10 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   // flipped the bake slot once (0 -> 1).
   HS_EXPECT_EQ(WB::last_preset_idx(db), 0);
   HS_EXPECT_EQ(WB::active_bake(db), 1);
-  HS_EXPECT_EQ(WB::live_solid(db), WB::preset_name(db, 0));
+  HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(db, 0));
 
   const auto &snub_cube = WB::preset_params(db, WB::PRESETS - 1);
-  HS_EXPECT_EQ(std::strcmp(snub_cube.solid_name, "snubCube"), 0);
+  HS_EXPECT_EQ(snub_cube.base_mesh, WB::DB::BaseMesh::SNUB_CUBE);
   HS_EXPECT_NEAR(snub_cube.num_copies, 4.534f, 1e-6f);
   HS_EXPECT_NEAR(snub_cube.offset_radius, 0.153f, 1e-6f);
   HS_EXPECT_NEAR(snub_cube.offset_speed, 2.025f, 1e-6f);
@@ -2379,7 +2381,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
     const int safe = step % WB::PRESETS;
     HS_EXPECT_EQ(WB::active_bake(db), expect_bake);
     HS_EXPECT_EQ(WB::last_preset_idx(db), safe);
-    HS_EXPECT_EQ(WB::live_solid(db), WB::preset_name(db, safe));
+    HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(db, safe));
   }
 
   // Same-preset path: re-spawn without advancing, so the reseed guard
@@ -2393,6 +2395,54 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_EQ(WB::last_preset_idx(db), held_idx); // preset unchanged
   HS_EXPECT_EQ(WB::num_copies(db), sentinel);      // live edit preserved
   HS_EXPECT_EQ(WB::active_bake(db), expect_bake);  // bake slot still flipped
+}
+
+/** @brief Verifies the Base Mesh dropdown covers every simple solid family. */
+inline void test_dreamballs_base_mesh_selector() {
+  using WB = DreamBallsWhiteBox;
+  reset_effect_globals();
+
+  WB::DB db;
+  db.init();
+
+  const auto *base_mesh = db.getParameters().find("Base Mesh");
+  HS_EXPECT_TRUE(base_mesh != nullptr);
+  if (!base_mesh)
+    return;
+
+  constexpr int EXPECTED_SOLIDS =
+      static_cast<int>(Solids::PLATONIC_COUNT + Solids::ARCHIMEDEAN_COUNT +
+                       Solids::CATALAN_COUNT);
+  HS_EXPECT_EQ(base_mesh->option_count, EXPECTED_SOLIDS);
+  HS_EXPECT_TRUE(base_mesh->animated);
+  for (int i = 0; i < EXPECTED_SOLIDS; ++i)
+    HS_EXPECT_TRUE(WB::solid_loaded(db, static_cast<size_t>(i)));
+  HS_EXPECT_EQ(std::string_view(base_mesh->options[0]), "Tetrahedron");
+  HS_EXPECT_EQ(std::string_view(base_mesh->options[17]), "Snub Dodecahedron");
+  HS_EXPECT_EQ(std::string_view(base_mesh->options[18]), "Triakis Tetrahedron");
+  HS_EXPECT_EQ(std::string_view(base_mesh->options[EXPECTED_SOLIDS - 1]),
+               "Pentagonal Hexecontahedron");
+  HS_EXPECT_EQ(std::string_view(base_mesh->export_options[EXPECTED_SOLIDS - 1]),
+               "BaseMesh::PENTAGONAL_HEXECONTAHEDRON");
+
+  HS_EXPECT_TRUE(db.updateParameter("Base Mesh",
+                                    static_cast<float>(EXPECTED_SOLIDS - 1)) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(WB::live_mesh(db), WB::DB::BaseMesh::PENTAGONAL_HEXECONTAHEDRON);
+  HS_EXPECT_TRUE(db.animations_paused());
+
+  db.setAnimationsPaused(false);
+  for (int frame = 0; frame < 20; ++frame) {
+    db.draw_frame();
+    db.advance_display();
+  }
+  uint64_t energy = 0;
+  for (int y = 0; y < SMALL_H; ++y)
+    for (int x = 0; x < SMALL_W; ++x) {
+      const Pixel &pixel = db.get_pixel(x, y);
+      energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+    }
+  HS_EXPECT_GT(energy, 0u);
 }
 
 /**
@@ -5972,6 +6022,7 @@ inline int run_effects_tests() {
     test_bz_raster_matches_reference();
     test_bz_render_center_matches_reference();
     test_dreamballs_preset_cycle_bookkeeping();
+    test_dreamballs_base_mesh_selector();
     test_dreamballs_respawn_fires_and_honors_pause();
     test_meshfeedback_flush_precedes_mesh_draw();
     test_meshfeedback_preset_rotation_syncs_noise();
