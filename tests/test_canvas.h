@@ -906,7 +906,7 @@ inline void test_clip_setters() {
 /**
  * @brief Verifies EffectConfig::margin reaches ClipRegion::margin, floored at
  *        the ClipRegion default.
- * @details A pipeline whose max_segment_margin folds to 0 must not shrink the
+ * @details A pipeline whose total_segment_margin folds to 0 must not shrink the
  *          coverage a plain effect already has.
  */
 inline void test_effect_config_margin() {
