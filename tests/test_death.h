@@ -1552,8 +1552,12 @@ inline void case_correction_guard_cross_type() {
 inline void case_register_param_overflow() {
   DeathEffect fx;
   static float slot = 0.0f;
-  for (int i = 0; i < opaque(64); ++i) // exceeds capacity 32 -> HS_CHECK
-    fx.reg("p", &slot);
+  // Distinct names, so the capacity guard fires ahead of the duplicate guard.
+  static char names[64][8];
+  for (int i = 0; i < opaque(64); ++i) { // exceeds capacity 32 -> HS_CHECK
+    std::snprintf(names[i], sizeof(names[i]), "p%d", i);
+    fx.reg(names[i], &slot);
+  }
 }
 
 /**
@@ -2360,8 +2364,8 @@ inline const Case *all_cases(int &n) {
        "composition.h",
        "(!aliased) BakedPalette::rebake through an aliasing handle"},
       {"register_param_overflow", case_register_param_overflow, "canvas.h",
-       "(parameters.find(name) == nullptr) register_param: duplicate "
-       "parameter name"},
+       "(parameters.count < parameters.elements.size()) register_param: "
+       "exceeded ParamList capacity"},
       {"set_clip_out_of_bounds", case_set_clip_out_of_bounds, "canvas.h",
        "(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 && x0 <= x1 "
        "&& x1 <= clip_region.w) set_clip band must be non-inverted and "
