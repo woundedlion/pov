@@ -153,7 +153,7 @@ FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
  * @brief Partitions the global block using the compiled-in DEFAULT_* sizes.
  * @details Convenience wrapper over configure_arenas() with the default split.
  */
-void configure_arenas_default() {
+FLASHMEM void configure_arenas_default() {
   configure_arenas(DEFAULT_PERSISTENT_SIZE, DEFAULT_SCRATCH_A_SIZE,
                    DEFAULT_SCRATCH_B_SIZE);
 }
