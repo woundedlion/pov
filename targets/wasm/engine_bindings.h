@@ -376,6 +376,8 @@ public:
 
     pixel_width = w;
     pixel_height = h;
+    const int count = pixel_width * pixel_height * CHANNELS;
+    std::fill_n(pixel_buffer.data(), count, uint16_t{0});
 
     if (current_effect) {
       current_effect = nullptr;
