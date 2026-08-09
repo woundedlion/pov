@@ -121,6 +121,7 @@ def emit_header(bakes: list[dict]) -> str:
             f'.iterations = {bake["iterations"]},',
             f'    .topology_hash = 0x{bake["topology_hash"]:08x}u,',
             f'    .output_hash = 0x{bake["output_hash"]:08x}u}};',
+            f"static_assert(std::size({name}_bits) == 3u * {name}.vertex_count);",
             "",
         ])
     lines.extend([
