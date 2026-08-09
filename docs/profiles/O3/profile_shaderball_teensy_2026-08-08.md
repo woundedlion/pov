@@ -8,25 +8,25 @@ roster and exact implementation commit as the shipping pass.
 
 | | |
 |---|---|
-| Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, COM4 |
+| Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, COM3 |
 | Image | `profile_o3`: global `-O3 -ffast-math`, single-effect compiler ceiling |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
-| Effect | ShaderBall 288x144, single-entry playlist, capture tip `99dabc17` |
+| Effect | ShaderBall 288x144, single-entry playlist, capture tip `17fbf726` |
 | Method | `HS_PROFILE` cycle scopes, 16-frame windows, 400 s capture, `HS_PROFILE_EPOCH_REVS=3600`; all 13 presets and the wrap to preset 1 are present |
 | Reproduce | `bash tools/profile_one.sh ShaderBall profile_o3 400 16 "-D HS_PROFILE_EPOCH_REVS=3600"` |
 
-Image size: `FLASH: code:91728, data:147680, headers:8400` / `RAM1:
+Image size: `FLASH: code:91736, data:147692, headers:8380` / `RAM1:
 variables:315008, code:56776, padding:8760, free:143744` / `RAM2:
 variables:520064, free:4224`.
 
 Exactness cross-check: window frames 6289-6304 root counter cycles divided by
-600 MHz match measured wall time within **0.9 ppm**.
+600 MHz match measured wall time within **0.3 ppm**.
 
 ## Frame cadence
 
 `sb_shader_draw` averages **36.17 ms/frame** and total render averages
-**38.24 ms/frame**. Peak frame render is **50.16 ms** and **0/6368 frames**
-spill. Every preset holds 16 fps, with 12.34 ms of worst-frame margin.
+**38.25 ms/frame**. Peak frame render is **50.20 ms** and **0/6368 frames**
+spill. Every preset holds 16 fps, with 12.30 ms of worst-frame margin.
 
 ShaderBall shades one 72x144 quadrant, or 10,368 pixels. The
 `canvas_buffer_wait` scope is cadence-quantized display-sync idle.
@@ -36,27 +36,27 @@ ShaderBall shades one 72x144 quadrant, or 10,368 pixels. The
 ### Held liquid regime (frames 321-336)
 
 ```
-frame                  62.46 ms  37.48 Mcyc  100%
-  sb_shader_draw       27.12 ms  16.27 Mcyc   43%
-  sb_timeline_step      55 us    32.8 kcyc     0%
-  canvas_clear          86 us    51.5 kcyc     0%
-  canvas_buffer_wait   33.29 ms  19.98 Mcyc   53%
+frame                  62.45 ms  37.47 Mcyc  100%
+  sb_shader_draw       27.13 ms  16.28 Mcyc   43%
+  sb_timeline_step      63 us    37.8 kcyc     0%
+  canvas_clear          86 us    51.6 kcyc     0%
+  canvas_buffer_wait   33.27 ms  19.96 Mcyc   53%
 ```
 
-Render averages 29.17 ms and peaks at 29.39 ms in this window.
+Render averages 29.18 ms and peaks at 29.40 ms in this window.
 
 ### Fractional-pattern preset (frames 6289-6304, worst of capture)
 
 ```
-frame                  62.56 ms  37.54 Mcyc  100%
+frame                  62.56 ms  37.53 Mcyc  100%
   sb_shader_draw       47.05 ms  28.23 Mcyc   75%
-  sb_timeline_step      50 us    29.9 kcyc     0%
-  canvas_clear          88 us    52.5 kcyc     0%
-  canvas_buffer_wait   13.43 ms   8.06 Mcyc   21%
+  sb_timeline_step      52 us    31.1 kcyc     0%
+  canvas_clear          88 us    52.6 kcyc     0%
+  canvas_buffer_wait   13.42 ms   8.05 Mcyc   21%
 ```
 
-Wall min/avg/max is 61.09/62.56/64.15 ms. Render averages 49.14 ms and
-peaks at 50.16 ms.
+Wall min/avg/max is 61.11/62.56/64.18 ms. Render averages 49.14 ms and
+peaks at 50.20 ms.
 
 ### Per-preset table
 
@@ -65,18 +65,18 @@ per-frame ownership from `parse_profile.py ... buckets`.
 
 | # | peak render ms | cadence | spilled/frames |
 |---:|--:|---:|---:|
-| 6 | 50.16 | 16 fps | 0/657 |
-| 7 | 50.13 | 16 fps | 0/480 |
-| 1 | 48.72 | 16 fps | 0/545 |
-| 13 | 45.32 | 16 fps | 0/480 |
+| 6 | 50.20 | 16 fps | 0/657 |
+| 7 | 50.18 | 16 fps | 0/480 |
+| 1 | 48.73 | 16 fps | 0/545 |
+| 13 | 45.30 | 16 fps | 0/480 |
 | 12 | 44.74 | 16 fps | 0/480 |
-| 8 | 43.18 | 16 fps | 0/480 |
+| 8 | 43.15 | 16 fps | 0/480 |
 | 5 | 41.99 | 16 fps | 0/960 |
-| 11 | 41.18 | 16 fps | 0/480 |
-| 10 | 39.89 | 16 fps | 0/480 |
-| 9 | 38.31 | 16 fps | 0/480 |
-| 4 | 32.38 | 16 fps | 0/286 |
-| 3 | 30.85 | 16 fps | 0/240 |
+| 11 | 41.19 | 16 fps | 0/480 |
+| 10 | 39.88 | 16 fps | 0/480 |
+| 9 | 38.38 | 16 fps | 0/480 |
+| 4 | 32.39 | 16 fps | 0/286 |
+| 3 | 30.88 | 16 fps | 0/240 |
 | 2 | 30.72 | 16 fps | 0/232 |
 
 ### Per-pixel figures
@@ -110,8 +110,8 @@ single-effect compiler ceiling, not a shippable roster image.
 
 ## Global O3 vs selective O3
 
-Global O3 lowers peak render from 55.97 to 50.16 ms (**1.12x**) and aggregate
-render average from 43.68 to 38.24 ms. It adds **28,800 B FLASH** and **26,640
+Global O3 lowers peak render from 53.99 to 50.20 ms (**1.08x**) and aggregate
+render average from 41.72 to 38.25 ms. It adds **28,480 B FLASH** and **26,320
 B ITCM** to the single-effect image.
 
 ## Harness
