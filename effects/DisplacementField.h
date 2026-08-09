@@ -173,6 +173,68 @@ private:
     return accumulator.value();
   }
 
+  __attribute__((always_inline)) uint32_t
+  visible_chunk_mask(const Basis &basis, float theta, float cos_t, float sin_t,
+                     float band_r) const {
+    HS_PROFILE(df_chunk_cull);
+    const float chunk_reach = (PI_F / BAKE_CHUNKS) * sin_t + band_r;
+    uint32_t raw = 0u;
+    for (int c = 0; c < BAKE_CHUNKS; ++c) {
+      float a = (2.0f * c + 1.0f) * (PI_F / BAKE_CHUNKS);
+      Vector mid = (basis.v * cos_t) +
+                   ((basis.u * cosf(a)) + (basis.w * sinf(a))) * sin_t;
+      if (Plot::cap_may_touch_clip<H>(clip(), mid, chunk_reach))
+        raw |= 1u << c;
+    }
+    if (!raw)
+      return 0u;
+    const float th_lo = theta - band_r;
+    const float th_hi = theta + band_r;
+    int pad_chunks = BAKE_CHUNKS;
+    if (th_lo > 0.0f && th_hi < PI_F) {
+      float sin_lo = std::min(sinf(th_lo), sinf(th_hi));
+      pad_chunks = 1 + static_cast<int>(ceilf(params.thickness * BAKE_CHUNKS /
+                                              (2.0f * PI_F * sin_lo)));
+    }
+    if (2 * pad_chunks >= BAKE_CHUNKS)
+      return CHUNK_MASK;
+    uint32_t visible = raw;
+    for (int k = 1; k <= pad_chunks; ++k)
+      visible |= (raw << k) | (raw >> (BAKE_CHUNKS - k)) | (raw >> k) |
+                 (raw << (BAKE_CHUNKS - k));
+    return visible & CHUNK_MASK;
+  }
+
+  __attribute__((always_inline)) void
+  select_hue_mode(int lut_n, uint32_t visible, float hue_extent,
+                  bool &use_hue_table, bool &precompute_hue_table,
+                  float &hue_domain, bool &cyclic_hue_table) {
+    use_hue_table = params.hue_scale != 0.0f && lut_n > 2 * HUE_TABLE_SIZE;
+#ifdef HS_TEST_BUILD
+    use_hue_table = use_hue_table && !force_exact_hue;
+#endif
+    precompute_hue_table = false;
+    hue_domain = 0.0f;
+    cyclic_hue_table = false;
+    if (!use_hue_table)
+      return;
+    int visible_samples = 0;
+    int x_begin = 0;
+    for (int c = 0; c < BAKE_CHUNKS; ++c) {
+      const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+      if (visible & (1u << c))
+        visible_samples += x_end - x_begin;
+      x_begin = x_end;
+    }
+    precompute_hue_table = visible_samples > 2 * HUE_TABLE_SIZE;
+    cyclic_hue_table = std::fabs(hue_extent) > 1.0f;
+    hue_domain =
+        cyclic_hue_table ? std::copysign(1.0f, hue_extent) : hue_extent;
+#ifdef HS_TEST_BUILD
+    ++hue_table_uses;
+#endif
+  }
+
   /**
    * @brief Bakes every ring over the active ball pool, then rasterizes the
    * stack in one fused scan.
@@ -273,69 +335,23 @@ private:
 
         uint32_t visible = CHUNK_MASK;
         if (try_cull) {
-          HS_PROFILE(df_chunk_cull);
           const float band_r = band + noise_bound + params.thickness + pad;
-          const float chunk_reach = (PI_F / BAKE_CHUNKS) * sin_t + band_r;
-          uint32_t raw = 0u;
-          for (int c = 0; c < BAKE_CHUNKS; ++c) {
-            float a = (2.0f * c + 1.0f) * (PI_F / BAKE_CHUNKS);
-            Vector mid = (basis.v * cos_t) +
-                         ((basis.u * cosf(a)) + (basis.w * sinf(a))) * sin_t;
-            if (Plot::cap_may_touch_clip<H>(clip(), mid, chunk_reach))
-              raw |= 1u << c;
-          }
-          if (!raw)
+          visible = visible_chunk_mask(basis, theta, cos_t, sin_t, band_r);
+          if (!visible)
             continue;
-          const float th_lo = theta - band_r;
-          const float th_hi = theta + band_r;
-          int pad_chunks = BAKE_CHUNKS;
-          if (th_lo > 0.0f && th_hi < PI_F) {
-            float sin_lo = std::min(sinf(th_lo), sinf(th_hi));
-            pad_chunks =
-                1 + static_cast<int>(ceilf(params.thickness * BAKE_CHUNKS /
-                                           (2.0f * PI_F * sin_lo)));
-          }
-          if (2 * pad_chunks >= BAKE_CHUNKS) {
-            visible = CHUNK_MASK;
-          } else {
-            visible = raw;
-            for (int k = 1; k <= pad_chunks; ++k)
-              visible |= (raw << k) | (raw >> (BAKE_CHUNKS - k)) | (raw >> k) |
-                         (raw << (BAKE_CHUNKS - k));
-            visible &= CHUNK_MASK;
-          }
         }
 
-        bool use_hue_table =
-            params.hue_scale != 0.0f && lut_n > 2 * HUE_TABLE_SIZE;
-#ifdef HS_TEST_BUILD
-        use_hue_table = use_hue_table && !force_exact_hue;
-#endif
-        bool precompute_hue_table = false;
-        float hue_domain = 0.0f;
-        bool cyclic_hue_table = false;
+        bool use_hue_table;
+        bool precompute_hue_table;
+        float hue_domain;
+        bool cyclic_hue_table;
         uint64_t hue_table_valid[(HUE_TABLE_SIZE + 64) / 64] = {};
-        if (use_hue_table) {
-          int visible_samples = 0;
-          int x_begin = 0;
-          for (int c = 0; c < BAKE_CHUNKS; ++c) {
-            const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
-            if (visible & (1u << c))
-              visible_samples += x_end - x_begin;
-            x_begin = x_end;
-          }
-          precompute_hue_table = visible_samples > 2 * HUE_TABLE_SIZE;
-          const float hue_extent = (band + noise_bound) * params.hue_scale;
-          cyclic_hue_table = std::fabs(hue_extent) > 1.0f;
-          hue_domain =
-              cyclic_hue_table ? std::copysign(1.0f, hue_extent) : hue_extent;
-#ifdef HS_TEST_BUILD
-          ++hue_table_uses;
-#endif
-          if (precompute_hue_table) {
-            HS_PROFILE(df_hue_table_prep);
-            prepare_hue_table(hue_base, hue_domain);
-          }
+        select_hue_mode(lut_n, visible, (band + noise_bound) * params.hue_scale,
+                        use_hue_table, precompute_hue_table, hue_domain,
+                        cyclic_hue_table);
+        if (precompute_hue_table) {
+          HS_PROFILE(df_hue_table_prep);
+          prepare_hue_table(hue_base, hue_domain);
         }
         Pixel zero_hue;
         if (params.hue_scale == 0.0f)
