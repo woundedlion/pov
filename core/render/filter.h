@@ -302,10 +302,10 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
       Head::crosses_segments || Next::any_crosses_segments;
   static constexpr bool any_reads_outside_band =
       Head::reads_outside_band || Next::any_reads_outside_band;
+  // Sum, not max: each stage displaces the taps the stages before it already
+  // displaced, so chained spreading stages compose additively.
   static constexpr int max_segment_margin =
-      Head::segment_margin > Next::max_segment_margin
-          ? Head::segment_margin
-          : Next::max_segment_margin;
+      Head::segment_margin + Next::max_segment_margin;
 
   static constexpr bool crosses_segments = any_crosses_segments;
   static constexpr bool reads_outside_band = any_reads_outside_band;

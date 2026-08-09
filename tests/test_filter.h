@@ -225,8 +225,10 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_EQ((Filter::World::Orient::segment_margin), 0);
   HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::segment_margin), 0);
 
-  // max_segment_margin fold: empty pipeline, plain stack, and the max over a
-  // chain carrying ChromaticShift as head and as tail.
+  // max_segment_margin fold: empty pipeline, plain stack, a lone
+  // ChromaticShift, and a chain of spreading stages, whose margins sum —
+  // AntiAlias splats a tap 1 column off-position, then ChromaticShift shifts
+  // that tap up to 3 more.
   HS_EXPECT_EQ((Pipeline<W, H>::max_segment_margin), 0);
   HS_EXPECT_EQ((PlainStack::max_segment_margin), 1);
   HS_EXPECT_EQ((MeshStack::max_segment_margin), 1);
@@ -236,7 +238,7 @@ inline void test_crosses_segments_trait_and_fold() {
   using ShiftStack =
       Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
                Filter::Pixel::ChromaticShift<W>>;
-  HS_EXPECT_EQ((ShiftStack::max_segment_margin), 3);
+  HS_EXPECT_EQ((ShiftStack::max_segment_margin), 4);
   HS_EXPECT_EQ((ShiftStack::segment_margin), ShiftStack::max_segment_margin);
   // ChromaticShift pads the render bounds instead of forcing a full frame.
   static_assert(!Filter::Pixel::ChromaticShift<W>::crosses_segments,
