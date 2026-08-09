@@ -158,6 +158,11 @@ inline FrameErrorStats compare_buffers(const OracleFrame &reference,
 
 /** @brief Test-only access to ShapeShifter's pinned state and shipping renderer. */
 struct ShapeShifterWhiteBox {
+  static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
+  static_assert(PRESET_COUNT == 9,
+                "shipping preset roster changed; update the oracle's "
+                "per-preset expectations");
+
   static void configure(OracleEffect &effect, const OracleState &state) {
     effect.alpha = state.alpha;
     effect.params.shape = state.shape;
@@ -584,7 +589,7 @@ inline void test_star_options_and_shipping_presets_are_planar() {
   }
   HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_spacing(0),
                Spacing::SCREEN_BALANCED);
-  for (size_t index = 1; index < 9; ++index)
+  for (size_t index = 1; index < ShapeShifterWhiteBox::PRESET_COUNT; ++index)
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_spacing(index), Spacing::UNIFORM);
   for (size_t index :
        {size_t{1}, size_t{3}, size_t{5}, size_t{6}, size_t{7}, size_t{8}})
