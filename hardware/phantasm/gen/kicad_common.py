@@ -1,9 +1,10 @@
-"""Shared KiCad-gen helpers: netlist export + pure s-expr/format utilities.
+"""Shared KiCad-gen helpers: netlist export + pure s-expr/format/geometry utilities.
 
 Single source of truth for the kicad-cli netlist-export call and the small
-helpers reused across pcb.py / check.py / shorts.py / builder.py, so a
-KiCad-flag or schema change touches one place.
+helpers reused across pcb.py / check.py / shorts.py / builder.py /
+board_metadata.py, so a KiCad-flag or schema change touches one place.
 """
+import math
 import os
 import subprocess
 import sys
@@ -39,6 +40,50 @@ def fmt(v):
 
 def F(n, k):
     return [c for c in n if isinstance(c, list) and c and c[0] == k]
+
+
+def arc_extrema(start, mid, end, collinear_error=None):
+    """Axis-aligned extreme points of the arc through three (x, y) floats.
+
+    Solves the circumcircle, then keeps whichever axis crossings (0, 90, 180,
+    270 degrees) lie on the start->mid->end sweep. Collinear inputs have no
+    circumcircle: raise `collinear_error` if given, else return no extrema.
+    """
+    x1, y1 = start
+    x2, y2 = mid
+    x3, y3 = end
+    denominator = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+    if abs(denominator) < 1e-12:
+        if collinear_error is not None:
+            raise collinear_error
+        return []
+
+    center_x = (
+        (x1 * x1 + y1 * y1) * (y2 - y3)
+        + (x2 * x2 + y2 * y2) * (y3 - y1)
+        + (x3 * x3 + y3 * y3) * (y1 - y2)
+    ) / denominator
+    center_y = (
+        (x1 * x1 + y1 * y1) * (x3 - x2)
+        + (x2 * x2 + y2 * y2) * (x1 - x3)
+        + (x3 * x3 + y3 * y3) * (x2 - x1)
+    ) / denominator
+    radius = math.hypot(x1 - center_x, y1 - center_y)
+    angles = tuple(math.atan2(y - center_y, x - center_x) for x, y in (start, mid, end))
+
+    def ccw_between(angle, first, last):
+        return (angle - first) % math.tau <= (last - first) % math.tau + 1e-12
+
+    first, middle, last = angles
+    counterclockwise = ccw_between(middle, first, last)
+    points = []
+    for angle in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
+        on_arc = ccw_between(angle, first, last) if counterclockwise else \
+            ccw_between(angle, last, first)
+        if on_arc:
+            points.append((center_x + radius * math.cos(angle),
+                           center_y + radius * math.sin(angle)))
+    return points
 
 
 DEFAULT_OVERWRITE_REASON = (

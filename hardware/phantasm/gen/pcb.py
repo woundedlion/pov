@@ -13,7 +13,8 @@ import os
 import sys
 import sexp
 import fab
-from kicad_common import uid, reset_uid_sequence, fmt, F, export_netlist, require_writable
+from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
+                          export_netlist, require_writable)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
@@ -364,39 +365,7 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
 # (~37x19) sets the floor; small SMD parts pack into the leftover width beside it.
 # Draft placement — refine orientation / push connectors to the edges in Pcbnew.
 def _arc_points(start, mid, end):
-    x1, y1 = start
-    x2, y2 = mid
-    x3, y3 = end
-    denominator = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
-    if abs(denominator) < 1e-12:
-        return (start, mid, end)
-
-    center_x = (
-        (x1 * x1 + y1 * y1) * (y2 - y3)
-        + (x2 * x2 + y2 * y2) * (y3 - y1)
-        + (x3 * x3 + y3 * y3) * (y1 - y2)
-    ) / denominator
-    center_y = (
-        (x1 * x1 + y1 * y1) * (x3 - x2)
-        + (x2 * x2 + y2 * y2) * (x1 - x3)
-        + (x3 * x3 + y3 * y3) * (x2 - x1)
-    ) / denominator
-    radius = math.hypot(x1 - center_x, y1 - center_y)
-    angles = tuple(math.atan2(y - center_y, x - center_x) for x, y in (start, mid, end))
-
-    def ccw_between(angle, first, last):
-        return (angle - first) % math.tau <= (last - first) % math.tau + 1e-12
-
-    first, middle, last = angles
-    counterclockwise = ccw_between(middle, first, last)
-    points = [start, mid, end]
-    for angle in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
-        on_arc = ccw_between(angle, first, last) if counterclockwise else \
-            ccw_between(angle, last, first)
-        if on_arc:
-            points.append((center_x + radius * math.cos(angle),
-                           center_y + radius * math.sin(angle)))
-    return points
+    return [start, mid, end, *arc_extrema(start, mid, end)]
 
 
 def fp_bbox(node, pads_only=False):
