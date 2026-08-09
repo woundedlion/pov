@@ -239,9 +239,9 @@ public:
    * ArenaVectors bound below the offset stay live. Used to shrink/grow the
    * persistent boundary mid-run while its long-lived content survives; the
    * caller must ensure the buffer region beyond the new capacity is not
-   * simultaneously claimed by another arena. The extent guard below cannot
-   * enforce that for an arena whose extent deliberately spans a shared block --
-   * persistent_arena is one, and resplit_arenas() is its only legal caller.
+   * simultaneously claimed by another arena. The extent is a hard bound here:
+   * a repartition that has to claim storage past it goes through
+   * rebind_capacity(), which only resplit_arenas() can reach.
    */
   void set_capacity(size_t new_capacity) {
     HS_CHECK(offset <= new_capacity,
@@ -313,6 +313,29 @@ public:
     return rewind_floor < start || rewind_floor - start < bytes;
   }
 #endif
+
+private:
+  friend void resplit_arenas(size_t persistent, size_t scratch_a,
+                             size_t scratch_b);
+
+  /**
+   * @brief Moves the capacity boundary AND the extent together, preserving
+   * base, offset, content, and generation.
+   * @param new_capacity New capacity and extent in bytes; must be >= the live
+   *        offset.
+   * @details The privileged path set_capacity() refuses: it claims backing
+   * storage past the current extent, so the caller must have vacated whatever
+   * else held those bytes. resplit_arenas() alone reaches it — it re-bases both
+   * scratch arenas onto the new split and bounds the request against the global
+   * block.
+   */
+  void rebind_capacity(size_t new_capacity) {
+    HS_CHECK(offset <= new_capacity,
+             "Arena::rebind_capacity below the live offset would strand "
+             "content");
+    capacity = new_capacity;
+    extent = new_capacity;
+  }
 };
 
 // ============================================================================

@@ -70,15 +70,12 @@ alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
 /**
  * @brief Persistent arena: storage that lives for the whole program run.
- * @details Its extent is the whole block: resplit_arenas() grows the persistent
- * boundary into scratch's region (with both scratch arenas empty and rebased
- * afterwards), so the block end is the only true bound on that grow. That makes
- * set_capacity()'s extent guard vacuous here, so resplit_arenas() is the ONLY
- * legal caller of set_capacity() on this arena -- it alone re-bases the two
- * scratch arenas out of the way. A direct call would silently overlap them.
+ * @details Its extent is its own capacity, so set_capacity() cannot grow it over
+ * the scratch region. Growing the persistent boundary into that region goes
+ * through resplit_arenas(), which re-bases both scratch arenas out of the way
+ * before moving capacity and extent together.
  */
-Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE,
-                       GLOBAL_ARENA_SIZE);
+Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
 /** @brief First scratch arena: transient per-frame/per-effect storage. */
 Arena scratch_arena_a(global_arena_block + DEFAULT_PERSISTENT_SIZE,
                       DEFAULT_SCRATCH_A_SIZE);
@@ -147,7 +144,7 @@ FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
   ArenaResetHook::run_all();
   const ScratchBases bases =
       split_bases("configure_arenas", persistent, scratch_a, scratch_b);
-  persistent_arena.rebind(global_arena_block, persistent, GLOBAL_ARENA_SIZE);
+  persistent_arena.rebind(global_arena_block, persistent);
   scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);
   scratch_arena_b.rebind(global_arena_block + bases.b, scratch_b);
 }
@@ -171,11 +168,11 @@ FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
   const ScratchBases bases =
       split_bases("resplit_arenas", persistent, scratch_a, scratch_b);
   // Persistent keeps its base/offset/content/generation -- only the boundary
-  // moves. set_capacity traps if the new budget is below the live offset, so
+  // moves. rebind_capacity traps if the new budget is below the live offset, so
   // the carousel + palette bank are never stranded. Its high-water is rebased to
   // the live offset (the per-shape baseline) so each shape's persistent peak is
   // measured against its own split, not a predecessor's residue.
-  persistent_arena.set_capacity(persistent);
+  persistent_arena.rebind_capacity(persistent);
   persistent_arena.reset_high_water_mark();
   // The scratch arenas are empty at the call point; rebind them onto their new
   // bases (a fresh generation is harmless -- nothing is bound across the split).
