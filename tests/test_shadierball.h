@@ -43,6 +43,11 @@ struct ShadierBallWhiteBox {
     sdb.phase = v;
     sdb.wave_angle = v;
   }
+  static void set_walk(SDB &sdb, const Quaternion &q) { sdb.walk.set(q); }
+  static void update_camera(SDB &sdb, float wander) {
+    sdb.update_camera(wander);
+  }
+  static Quaternion camera(const SDB &sdb) { return sdb.camera; }
   static Complex project(const Vector &v, Projection projection, Lens lens,
                          float mix) {
     return SDB::project(v, projection, lens, mix);
@@ -353,6 +358,49 @@ inline void test_shadierball_field_functions() {
 }
 
 /**
+ * @brief Bounds the wander camera's motion by the walk step times the gain.
+ * @details Integrating a partial gain must stay continuous through full turns:
+ *          every per-frame camera step is at most the walk step scaled by the
+ *          gain, a zero gain freezes the camera under a moving walk, and a
+ *          stationary walk moves the camera at no gain.
+ */
+inline void test_shadierball_wander_camera() {
+  using WB = ShadierBallWhiteBox;
+  constexpr float WALK_STEP = 0.02f;
+  constexpr float WANDER = 0.25f;
+  constexpr float MAX_CAMERA_STEP = WALK_STEP * WANDER + 1e-4f;
+  WB::SDB sdb;
+  Quaternion prev = WB::camera(sdb);
+
+  for (int frame = 0; frame < 400; ++frame) {
+    const float angle = static_cast<float>(frame) * WALK_STEP;
+    WB::set_walk(sdb, make_rotation(Y_AXIS, angle));
+    WB::update_camera(sdb, WANDER);
+    const Quaternion current = WB::camera(sdb);
+    if (frame > 0) {
+      const float step =
+          2.0f * acosf(hs::clamp(std::fabs(dot(prev, current)), 0.0f, 1.0f));
+      HS_EXPECT_LE(step, MAX_CAMERA_STEP);
+    }
+    prev = current;
+  }
+
+  // A stationary walk moves the camera at no gain.
+  for (float wander : {0.0f, 0.25f, 0.7f, 1.0f}) {
+    WB::update_camera(sdb, wander);
+    HS_EXPECT_NEAR(std::fabs(dot(prev, WB::camera(sdb))), 1.0f, 1e-6f);
+  }
+
+  // A zero gain freezes the camera under a moving walk.
+  const Quaternion frozen = WB::camera(sdb);
+  for (int frame = 0; frame < 32; ++frame) {
+    WB::set_walk(sdb, make_rotation(X_AXIS, 0.1f * frame));
+    WB::update_camera(sdb, 0.0f);
+    HS_EXPECT_NEAR(std::fabs(dot(frozen, WB::camera(sdb))), 1.0f, 1e-6f);
+  }
+}
+
+/**
  * @brief Verifies the triadic palette walk morphs and advances.
  * @details Every provider successor must be morph-compatible with its
  *          predecessor (the cycler fail-fast checks each retarget), the hue
@@ -401,6 +449,7 @@ inline int run_shadierball_tests() {
   test_shadierball_lens_projection();
   test_shadierball_projection_maps();
   test_shadierball_field_functions();
+  test_shadierball_wander_camera();
   test_shadierball_palette_walk();
   return fixture.result();
 }
