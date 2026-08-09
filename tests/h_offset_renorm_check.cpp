@@ -14,12 +14,11 @@ int main() {
   std::printf("=== h_offset_renorm: %d passed, %d failed "
               "(HS_TEST_H_OFFSET=3) ===\n",
               hs_test::stats().passed, hs_test::stats().failed);
-  // Floor against silent drift: bump when adding assertions.
-  constexpr int MIN_ASSERTIONS = 134;
-  if (total < MIN_ASSERTIONS) {
+  if (total < hs_test::h_offset_renorm::H_OFFSET_RENORM_MIN_ASSERTIONS) {
     std::printf("=== h_offset_renorm: only %d assertions ran, expected >= %d "
                 "(a check was dropped) ===\n",
-                total, MIN_ASSERTIONS);
+                total,
+                hs_test::h_offset_renorm::H_OFFSET_RENORM_MIN_ASSERTIONS);
     return 1;
   }
   return failed ? 1 : 0;
