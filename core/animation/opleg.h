@@ -41,6 +41,9 @@ public:
    * default, i.e. ~8 pairs) bounds a leg well below this constant.
    * build_palette_mapping checks a leg's table against it. */
   static constexpr int MAX_BLEND_PAIRS = PALETTES * PALETTES;
+  static_assert(MAX_BLEND_PAIRS <= 256,
+                "interned pair indices are uint8_t; every index below "
+                "MAX_BLEND_PAIRS must fit in it");
 
   /** Leg kind, dispatched once at construction by the chosen constructor. */
   enum class LegKind : uint8_t {
