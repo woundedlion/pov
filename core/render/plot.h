@@ -1998,7 +1998,9 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
 
         if (++step_count >= max_cache) {
           // Stretch factor matches the two-pass replay's; the hard stop below
-          // bounds the extra steps it can cost.
+          // bounds the extra steps, and exits short of total_dist — the
+          // segment's tail goes unplotted, where the two-pass replay always
+          // stretches its cached steps over the whole segment.
           if (backstop_stretch == 1.0f) {
             HS_PLOT_COUNT(backstops);
             HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
