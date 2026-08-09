@@ -838,14 +838,9 @@ private:
         hues[i] = recipe.hue.custom_turns[i];
     }
 
-    const float first_raw = recipe.hue.mode == HueMode::CUSTOM
-                                ? recipe.hue.custom_turns[0]
-                                : hues[0];
-    const float last_raw = recipe.hue.mode == HueMode::CUSTOM
-                               ? recipe.hue.custom_turns[key_count - 1]
-                               : hues[key_count - 1];
-    closing_hue = hues[key_count - 1] +
-                  directed_delta(first_raw - last_raw, recipe.hue.direction);
+    closing_hue =
+        hues[key_count - 1] +
+        directed_delta(hues[0] - hues[key_count - 1], recipe.hue.direction);
   }
 
   HS_COLD_MEMBER void initialize(const PaletteRecipe &recipe) {
