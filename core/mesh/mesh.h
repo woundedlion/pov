@@ -685,6 +685,10 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   // bind()'s stale-binding contract if a different arena is passed while
   // capacity happens to suffice.
   mesh.topology.bind(persistent, F);
+  // A face-less mesh has nothing to classify, and the half-edge and node
+  // allocations below reject zero-size requests.
+  if (F == 0)
+    return;
   for (size_t i = 0; i < F; ++i) {
     mesh.topology.push_back(0);
   }
