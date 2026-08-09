@@ -88,6 +88,10 @@ void dump(const char *path, const std::vector<uint16_t> &buf) {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   std::FILE *f = std::fopen(path, "wb");
 #pragma clang diagnostic pop
+  if (!f) {
+    std::printf("cannot open %s for writing\n", path);
+    std::exit(1);
+  }
   std::fwrite(buf.data(), 2, buf.size(), f);
   std::fclose(f);
 }
