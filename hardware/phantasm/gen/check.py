@@ -11,12 +11,13 @@ import fab
 from kicad_common import F, export_netlist
 
 # Refs whose terminals are electrically interchangeable: plain resistors,
-# non-polarized caps, the fuse, the bead, the bidirectional TVS, solder jumpers.
-# Their pin numbers follow schematic geometry rather than the spec, so these
-# nodes are keyed on ref alone. Each such ref is expected on two nets, so a
-# bridged or open terminal still fails.
+# non-polarized caps, the fuse, the bead, solder jumpers. Their pin numbers
+# follow schematic geometry rather than the spec, so these nodes are keyed on
+# ref alone. Each such ref is expected on two nets, so a bridged or open
+# terminal still fails. D_BUS (CDSOD323-T05L) is a unidirectional TVS and is
+# pin-keyed: pin 1 cathode on SYNC_BUS, pin 2 anode on GND.
 SYMMETRIC = {"R1", "R2", "R_D1", "R_D2", "R_S", "R_PD", "R_MEN", "R_LF",
-             "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "F1", "FB", "D_BUS",
+             "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "F1", "FB",
              "JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD"}
 
 
@@ -42,14 +43,14 @@ EXPECT = {
     "FRAME_SYNC": {"U_MCU.3", "U1.9", "R1", "R2", "C_SYNC"},
     "MASTER_EN":  {"U_MCU.5", "U1.10", "U1.13", "R_MEN", "J4.3"},
     "SYNC_SRC":   {"U1.8", "R_S"},
-    "SYNC_BUS":   {"R_S", "R1", "R_PD", "D_BUS", "J3A.1", "J3B.1"},
+    "SYNC_BUS":   {"R_S", "R1", "R_PD", "D_BUS.1", "J3A.1", "J3B.1"},
     "SYNC_PULLDOWN": {"U1.11", "R_PD"},
     "ID0":        {"U_MCU.21", "JP_ID0"},
     "ID1":        {"U_MCU.22", "JP_ID1"},
     "ID2":        {"U_MCU.23", "JP_ID2"},
     "SHIELD":     {"J3A.3", "J3B.3", "JP_SHLD"},
     "SERIAL1_TX": {"U_MCU.1", "J4.4"},
-    "GND":        {"C_IN.2", "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "D_BUS",
+    "GND":        {"C_IN.2", "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "D_BUS.2",
                    "J1.2", "J2.3", "J3A.2", "J3B.2", "J4.2",
                    "JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "Q_REV.1", "R2",
                    "U1.1", "U1.4", "U1.7", "U1.12", "U_MCU.GND"},
