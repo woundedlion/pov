@@ -686,24 +686,7 @@ def main():
     print(f"  parity: board matches schematic, {num_parity} known "
           f"differences -> {parity_rpt}")
 
-    with tempfile.TemporaryDirectory(prefix="phantasm-jlc-", dir=OUT) as staged:
-        print("[5/9] Gerbers")
-        run([KCLI, "pcb", "export", "gerbers", "--layers", GERBER_LAYERS,
-             "-o", staged + os.sep, PCB])
-        print("[6/9] Drill")
-        # Absolute origin, matching the gerbers and the centroid below.
-        run([KCLI, "pcb", "export", "drill", "--format", "excellon",
-             "--drill-origin", "absolute", "--excellon-units", "mm",
-             "--excellon-separate-th", "-o", staged + os.sep, PCB])
-
-        if os.path.isdir(JLC):
-            for name in os.listdir(JLC):
-                os.remove(os.path.join(JLC, name))
-        os.makedirs(JLC, exist_ok=True)
-        for name in os.listdir(staged):
-            os.replace(os.path.join(staged, name), os.path.join(JLC, name))
-
-    print("[7/9] Netlist + centroid")
+    print("[5/9] Netlist + centroid")
     net = os.path.join(OUT, "_fab.net")
     run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
          "-o", net, SCH])
@@ -718,6 +701,8 @@ def main():
         for r in csv.DictReader(fh):
             posrows[r["Ref"]] = r
     assembled = sorted(r for r, c in comps.items() if is_assembled(c))
+    # Gate before the jlc/ package is touched: a failure here must leave the
+    # previous good package intact.
     try:
         validate_assembled_refs(assembled)
         validate_rotation_refs(assembled)
@@ -728,6 +713,23 @@ def main():
         validate_part_catalog(assembly_metadata)
     except PartCatalogError as exc:
         sys.exit(str(exc))
+
+    with tempfile.TemporaryDirectory(prefix="phantasm-jlc-", dir=OUT) as staged:
+        print("[6/9] Gerbers")
+        run([KCLI, "pcb", "export", "gerbers", "--layers", GERBER_LAYERS,
+             "-o", staged + os.sep, PCB])
+        print("[7/9] Drill")
+        # Absolute origin, matching the gerbers and the centroid above.
+        run([KCLI, "pcb", "export", "drill", "--format", "excellon",
+             "--drill-origin", "absolute", "--excellon-units", "mm",
+             "--excellon-separate-th", "-o", staged + os.sep, PCB])
+
+        if os.path.isdir(JLC):
+            for name in os.listdir(JLC):
+                os.remove(os.path.join(JLC, name))
+        os.makedirs(JLC, exist_ok=True)
+        for name in os.listdir(staged):
+            os.replace(os.path.join(staged, name), os.path.join(JLC, name))
 
     print("[8/9] BOM + CPL")
     # BOM grouped by (value, footprint)
