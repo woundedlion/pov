@@ -311,7 +311,8 @@ inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
   const int32_t scaled =
       divisor == -1 ? static_cast<int32_t>(0u - static_cast<uint32_t>(product))
                     : product / divisor;
-  return scaled + out_min;
+  return static_cast<int32_t>(static_cast<uint32_t>(scaled) +
+                              static_cast<uint32_t>(out_min));
 }
 
 // --- System Mock ---
