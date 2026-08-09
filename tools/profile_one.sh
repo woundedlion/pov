@@ -106,14 +106,20 @@ case "${HS_PROFILE_MINDSPLATTER:-}" in
 esac
 MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}"
 OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}
-PROVENANCE_OUT=${OUT%.log}.provenance
-PROFILE_BUILD_LOG=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}_build.log
-PHANTASM_BUILD_LOG=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MSP_SUFFIX}_phantasm_build.log
-PROFILE_ENVDUMP=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}_envdump.txt
-PHANTASM_ENVDUMP=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MSP_SUFFIX}_phantasm_envdump.txt
+# Every per-run artifact hangs off the log's own stem, so HS_PROFILE_OUT moves
+# the whole set. Spelling out the default naming here instead would let an
+# overridden run (profile_islamic_big.sh) write its ELFs, maps, build logs and
+# envdumps over the standard run's, and leave the standard run's .provenance
+# naming the other configuration's ELF.
+STEM=${OUT%.log}
+PROVENANCE_OUT=$STEM.provenance
+PROFILE_BUILD_LOG=${STEM}_build.log
+PHANTASM_BUILD_LOG=${STEM}_phantasm_build.log
+PROFILE_ENVDUMP=${STEM}_envdump.txt
+PHANTASM_ENVDUMP=${STEM}_phantasm_envdump.txt
 PROFILE_ELF=.pio/build/$ENV/firmware.elf
 PROFILE_MAP=.pio/build/$ENV/firmware.map
-ATTEST_DIR=build/prof/attest/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}
+ATTEST_DIR=$(dirname "$STEM")/attest/$(basename "$STEM")
 PHANTASM_ELF=$ATTEST_DIR/phantasm.elf
 PHANTASM_MAP=$ATTEST_DIR/phantasm.map
 ARM_READELF=${HS_ARM_READELF:-$HOME/.platformio/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-readelf.exe}
