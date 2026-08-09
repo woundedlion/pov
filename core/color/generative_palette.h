@@ -691,32 +691,12 @@ private:
   HS_COLD_MEMBER static void resolve_axis(const AxisControls &controls,
                                           uint8_t count,
                                           float out[PALETTE_MAX_KEYS]) {
-    const float low =
-        hs::clamp(controls.center - controls.range * 0.5f, 0.0f, 1.0f);
-    const float high =
-        hs::clamp(controls.center + controls.range * 0.5f, 0.0f, 1.0f);
+    const AxisState axis = axis_state(controls);
     for (int i = 0; i < count; ++i) {
       const float position = i / float(count - 1);
-      switch (controls.curve) {
-      case AxisCurve::CONSTANT:
-        out[i] = controls.center;
-        break;
-      case AxisCurve::ASCENDING:
-        out[i] = low + (high - low) * position;
-        break;
-      case AxisCurve::DESCENDING:
-        out[i] = high + (low - high) * position;
-        break;
-      case AxisCurve::BELL:
-        out[i] = low + (high - low) * (1.0f - fabsf(position * 2.0f - 1.0f));
-        break;
-      case AxisCurve::CUP:
-        out[i] = high - (high - low) * (1.0f - fabsf(position * 2.0f - 1.0f));
-        break;
-      case AxisCurve::CUSTOM:
-        out[i] = controls.custom[i];
-        break;
-      }
+      out[i] = axis.curve == AxisCurve::CUSTOM
+                   ? controls.custom[i]
+                   : evaluate_axis(axis.low, axis.high, axis.curve, position);
     }
   }
 
