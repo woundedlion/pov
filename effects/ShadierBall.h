@@ -67,10 +67,11 @@ public:
     // per-frame motion into the camera (update_camera).
     timeline.add(0, Animation::RandomWalk<W>(walk, UP, walk_noise));
 
+    // No pause flag: "Pause Animation" stops preset advancement (the future
+    // choreography), never the palette cycle.
     palette_cycler.init_generated(persistent_arena, next_triadic_palette,
                                   &palette_hue, PALETTE_DWELL_FRAMES,
-                                  PALETTE_FADE_FRAMES, ease_in_out_sin,
-                                  &anims_paused);
+                                  PALETTE_FADE_FRAMES, ease_in_out_sin);
   }
 
   /**
@@ -244,12 +245,21 @@ private:
   }
 
   /**
-   * @brief Equirectangular map of a unit direction.
+   * @brief Seam-free equirectangular-style map of a unit direction.
    * @param v Unit direction vector on the sphere.
-   * @return re = azimuth in (-pi, pi], im = latitude in [-pi/2, pi/2].
+   * @return re = |azimuth| * cos(latitude) in [0, pi], im = latitude in
+   * [-pi/2, pi/2].
+   * @details A raw longitude coordinate tears at the +-pi wrap (the z = 0
+   * half-plane) and spins without bound at the poles, which a lens can drag
+   * anywhere (the glitch lens maps the whole equator onto a pole). Folding the
+   * azimuth mirrors the pattern across the wrap instead of tearing, and the
+   * cos(latitude) taper — the cylindrical radius, no trig — collapses the
+   * azimuth singularity so both poles stay continuous.
    */
   static Complex equirectangular(const Vector &v) {
-    return {fast_atan2(v.z, v.x), 0.5f * PI_F - fast_acos(v.y)};
+    const float radius = sqrtf(v.x * v.x + v.z * v.z);
+    return {std::fabs(fast_atan2(v.z, v.x)) * radius,
+            0.5f * PI_F - fast_acos(v.y)};
   }
 
   /**
