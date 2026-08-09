@@ -1021,6 +1021,17 @@ struct ArenaResetHook {
    */
   explicit ArenaResetHook(Handler h) : handler(h), next(head) { head = this; }
 
+  /** @brief Unlinks this hook so run_all() never calls through a dead node. */
+  ~ArenaResetHook() {
+    for (ArenaResetHook **p = &head; *p; p = &(*p)->next) {
+      if (*p == this) {
+        *p = next;
+        return;
+      }
+    }
+    HS_CHECK(false, "ArenaResetHook: destroyed hook not in registry");
+  }
+
   /** @brief Deleted copy constructor: a copy would double-link the registry. */
   ArenaResetHook(const ArenaResetHook &) = delete;
   /**
