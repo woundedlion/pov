@@ -101,8 +101,9 @@ Same field as the deleted `build_distance_lut` (git history at `6241a24b^`),
 landed as `SDF::build_canonical_distance_lut`:
 signed point-to-polygon distance over the canonical polygon's bounding box +
 margin, sign from the crossing test, computed with the exact edge walk at
-bake. Margin = `BOUNDS_MARGIN_WIDE` as before so the lookup domain covers the
-`max_dist_sq` cull ring.
+bake. Margin = `BOUNDS_MARGIN_WIDE` as before. The box is not a superset of the
+`max_dist_sq` cull ring (circumradius + the same margin), so the probe loop
+clamps its grid coordinates to keep the fetch in bounds.
 
 ## 4. Per-frame work (unchanged + one small addition)
 

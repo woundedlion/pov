@@ -41,9 +41,11 @@ namespace SDF {
  * @param out Storage for n*n quantized samples.
  * @param lut Receives the domain/quantization parameters, with data = out.
  * @details Exact per-edge walk with crossing-test sign, over the bounding box
- * + BOUNDS_MARGIN_WIDE. Quantization scale is the box diameter (an upper bound
- * on any in-box distance: the polygon meets its own bounding box), giving a
- * step of ~1e-5 plane units — far below the interpolation bound.
+ * + BOUNDS_MARGIN_WIDE. That box is not a superset of the runtime cull disk
+ * (circumradius + the same margin), so probes landing outside the domain rely
+ * on Face::distance's grid clamp. Quantization scale is the box diameter (an
+ * upper bound on any in-box distance: the polygon meets its own bounding box),
+ * giving a step of ~1e-5 plane units — far below the interpolation bound.
  */
 inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
                                          int16_t *out, ClassLut &lut) {

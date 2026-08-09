@@ -2059,9 +2059,11 @@ static constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
  * @brief Canonical congruence-class signed-distance LUT, baked once per
  *        spawned mesh.
  * @details Distances are in canonical gnomonic plane units, quantized to int16
- * over the LUT box diameter (step ~1e-5 plane units). The domain covers the
- * canonical polygon's bounding box + BOUNDS_MARGIN_WIDE, matching the
- * max_dist_sq cull ring, so any probe surviving the cull lands in-domain.
+ * over the LUT box diameter (step ~1e-5 plane units). The domain is the
+ * canonical polygon's bounding box + BOUNDS_MARGIN_WIDE, a different region
+ * from the max_dist_sq cull disk (circumradius + the same margin): a probe can
+ * survive the cull and still land outside the domain, so Face::distance's grid
+ * clamp is required to keep the fetch in bounds.
  */
 struct ClassLut {
   const int16_t *data =
@@ -3373,6 +3375,8 @@ struct Face {
       // on the TRUE per-frame edges.
       float fx = lut_ax * px + lut_bx * py + lut_cx;
       float fy = lut_ay * px + lut_by * py + lut_cy;
+      // Clamp is memory safety: the cull disk is not contained in the LUT box,
+      // so a surviving probe can map outside the grid.
       fx = hs::clamp(fx, 0.0f, lut_clamp);
       fy = hs::clamp(fy, 0.0f, lut_clamp);
       int ix = (int)fx;
