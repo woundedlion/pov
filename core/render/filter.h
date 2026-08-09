@@ -354,16 +354,6 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
   Pipeline(HArg &&h, TArgs &&...t)
       : Head(std::forward<HArg>(h)), next(std::forward<TArgs>(t)...) {}
 
-  /**
-   * @brief Partial constructor: builds Head only, default-constructing the Tail.
-   * @tparam HArg Argument type forwarded to Head's constructor.
-   * @param h Argument forwarded to Head's constructor.
-   * @details Same Pipeline-excluding guard as the variadic ctor.
-   */
-  template <typename HArg>
-    requires(!std::is_same_v<std::remove_cvref_t<HArg>, Pipeline>)
-  explicit Pipeline(HArg &&h) : Head(std::forward<HArg>(h)) {}
-
   /** @brief Default-constructs every stage in the pipeline. */
   Pipeline() = default;
 
