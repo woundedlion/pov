@@ -33,6 +33,7 @@
 #include "effects/RingShower.h"
 #include "effects/RingSpin.h"
 #include "effects/ShaderBall.h"
+#include "effects/ShadierBall.h"
 #include "effects/ShapeShifter.h"
 #include "effects/SphericalHarmonics.h"
 #include "effects/Thrusters.h"
@@ -73,6 +74,7 @@
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
   X(ShaderBall)                                                                \
+  X(ShadierBall)                                                               \
   X(ShapeShifter)                                                              \
   X(SphericalHarmonics)                                                        \
   X(Thrusters)                                                                 \
@@ -106,6 +108,7 @@
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
   X(ShaderBall)                                                                \
+  X(ShadierBall)                                                               \
   X(ShapeShifter)                                                              \
   X(SphericalHarmonics)                                                        \
   X(Voronoi)
