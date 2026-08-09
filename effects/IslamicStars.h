@@ -197,15 +197,6 @@ private:
   int ripple_stagger_eff = RIPPLE_STAGGER_FRAMES;
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
-  struct SpriteFaceShading {
-    const uint8_t *palette;
-
-    SpriteFaceShading(const MeshState &mesh, const uint8_t *face_palette)
-        : palette(face_palette) {
-      HS_CHECK(mesh.get_topology_size() == mesh.num_faces(),
-               "IslamicStars: sprite shading face count mismatch");
-    }
-  };
 
   MeshCarousel<SegueT> carousel;
 
@@ -251,7 +242,8 @@ private:
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces = 0; /**< Length of build_from_pal. */
   int dual_bridges_built = 0;  /**< DUAL bridges scheduled (test coverage). */
-  int build_macro_sweep_frames = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
+  int build_macro_sweep_frames =
+      SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
   int build_reconcile_frames =
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
@@ -346,8 +338,7 @@ private:
     if (build_active)
       return;
     const MeshState &mesh = carousel.slot(back);
-    const SpriteFaceShading shading(mesh, slot_face_palette[back]);
-    draw_shape(canvas, phase, mesh, shading);
+    draw_shape(canvas, phase, mesh, slot_face_palette[back]);
   }
 
   /**
@@ -358,18 +349,19 @@ private:
    *        the incoming window, holds 1, falls over the outgoing window.
    * @param base_state Undistorted source mesh to transform and draw; carries
    *        the per-face topology classes.
-   * @param shading Per-face palette ids.
+   * @param face_palette Per-face palette ids.
    * @note Draws on the exact SDF path, not the congruence-class LUT
    * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
    */
-  HS_O3_FN HS_NOINLINE_NOCLONE void
-  draw_shape(Canvas &canvas, float phase, const MeshState &base_state,
-             const SpriteFaceShading &shading) {
+  HS_O3_FN HS_NOINLINE_NOCLONE void draw_shape(Canvas &canvas, float phase,
+                                               const MeshState &base_state,
+                                               const uint8_t *face_palette) {
+    HS_CHECK(base_state.get_topology_size() == base_state.num_faces(),
+             "IslamicStars: sprite shading face count mismatch");
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
-    const uint8_t *face_palette = shading.palette;
 
     HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
