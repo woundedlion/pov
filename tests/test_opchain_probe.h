@@ -820,11 +820,16 @@ inline void two_nearest(const Vector &c, const std::vector<Vector> &pts,
 }
 
 /**
- * @brief Reports face-centroid spacing per intermediate build-chain mesh
- *        against PROVENANCE_TOL_SQ's 0.15 chord radius.
+ * @brief Pins face-centroid spacing per intermediate build-chain mesh against
+ *        PROVENANCE_TOL_SQ's 0.15 chord radius.
+ * @details The ratio is TOL over half the tightest centroid spacing, so a
+ * denser chain mesh raises it. The cap is the measured worst plus margin.
  */
 inline void test_build_chain_centroid_spacing() {
   constexpr float TOL = 0.15f;
+  constexpr float MAX_MEASURED_TOL_RATIO = 5.17f;
+  constexpr float TOL_RATIO_MARGIN = 0.25f;
+  constexpr float MAX_TOL_RATIO = MAX_MEASURED_TOL_RATIO + TOL_RATIO_MARGIN;
   float worst_ratio = 0.0f;
   const char *worst_name = "";
   size_t max_faces = 0;
@@ -868,17 +873,24 @@ inline void test_build_chain_centroid_spacing() {
   std::printf("  [spacing] worst tol/half-min = %.2f on %s; largest chain "
               "mesh F=%zu\n",
               static_cast<double>(worst_ratio), worst_name, max_faces);
+  HS_EXPECT_LT(worst_ratio, MAX_TOL_RATIO);
 }
 
 /**
- * @brief Reports, per real build leg, the mapping path build_palette_mapping
+ * @brief Pins, per real build leg, the mapping path build_palette_mapping
  *        takes, its departed face count, and the ambiguity of every
  *        nearest-centroid lookup the leg performs.
  * @details Legs open at the sweep's start parameter, which is what
- * build_palette_mapping's start_centroid array holds.
+ * build_palette_mapping's start_centroid array holds. d1/d2 near 1 is an
+ * ambiguous newborn lookup, so the sweep's minimum is capped at the measured
+ * value plus margin: it rising means every newborn lookup went ambiguous.
  */
 inline void test_build_chain_provenance_ambiguity() {
   constexpr float TOL_SQ = 0.15f * 0.15f;
+  constexpr float MAX_MEASURED_NEWBORN_RATIO = 0.461f;
+  constexpr float NEWBORN_RATIO_MARGIN = 0.04f;
+  constexpr float MAX_NEWBORN_RATIO =
+      MAX_MEASURED_NEWBORN_RATIO + NEWBORN_RATIO_MARGIN;
   size_t max_prev_faces = 0;
   const char *max_prev_name = "";
   float worst_newborn_ratio = 1e9f;
@@ -991,6 +1003,7 @@ inline void test_build_chain_provenance_ambiguity() {
   // full-correspondence path, so PROVENANCE_TOL_SQ never applies to them.
   HS_EXPECT_EQ(full_legs, static_cast<size_t>(0));
   HS_EXPECT_TRUE(max_prev_faces > 128);
+  HS_EXPECT_LT(worst_newborn_ratio, MAX_NEWBORN_RATIO);
 }
 
 // ---------------------------------------------------------------------------
