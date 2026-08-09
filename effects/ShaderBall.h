@@ -618,8 +618,8 @@ private:
                 "slider range; widen the range to accommodate the preset (the "
                 "range exposes the presets, it does not clamp them)");
 
-  /** @brief Per-preset choreography, consumed on entry; the cross-family
-   *  boundaries (rows 3 and 14) blend parallel. */
+  /** @brief Per-preset choreography, consumed on entry; liquid rows 0–2 blend
+   * staggered and grid rows 3–14 blend parallel. */
   static constexpr std::array<Choreo, 15> CHOREO = {{
       {30, 90, 60, true},
       {30, 90, 60, true},
