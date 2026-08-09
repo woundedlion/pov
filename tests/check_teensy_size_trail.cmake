@@ -22,6 +22,12 @@ execute_process(
   WORKING_DIRECTORY "${HS_ROOT}"
   RESULT_VARIABLE _rc
   ERROR_VARIABLE _err)
+# unittest discover exits 0 after collecting zero tests before Python 3.12, so
+# a missing test file would pass silently; require a positive ran-count from
+# the summary line.
+if(NOT _err MATCHES "Ran [1-9][0-9]* test")
+  message(FATAL_ERROR "test_size_trail.py ran no tests:\n${_err}")
+endif()
 if(NOT _rc EQUAL 0)
   message(FATAL_ERROR "test_size_trail.py failed (${_rc}):\n${_err}")
 endif()
