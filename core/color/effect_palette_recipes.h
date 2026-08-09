@@ -35,10 +35,11 @@ HS_FLASH_MEMBER inline PaletteRecipe dynamo(float base_turns) {
                                  AxisCurve::ASCENDING, base_turns);
 }
 
-HS_FLASH_MEMBER inline PaletteRecipe gs_reaction_diffusion() {
-  return PaletteRecipes::profile(
-      PaletteDomain::STRAIGHT, PaletteHarmony::SPLIT_COMPLEMENTARY,
-      AxisCurve::ASCENDING, PaletteRecipes::hue_turns(160), 0.50f);
+HS_FLASH_MEMBER inline PaletteRecipe
+gs_reaction_diffusion(float base_turns = PaletteRecipes::hue_turns(160)) {
+  return PaletteRecipes::profile(PaletteDomain::STRAIGHT,
+                                 PaletteHarmony::SPLIT_COMPLEMENTARY,
+                                 AxisCurve::ASCENDING, base_turns, 0.50f);
 }
 
 HS_FLASH_MEMBER inline PaletteRecipe mobius_grid(float base_turns) {
@@ -110,7 +111,7 @@ inline std::array<Preset, 9> presets() {
            {"DisplacementField / RingShower", true,
             displacement_field(preview_hue)},
            {"Dynamo", true, dynamo(preview_hue)},
-           {"GSReactionDiffusion", false, gs_reaction_diffusion()},
+           {"GSReactionDiffusion", true, gs_reaction_diffusion(preview_hue)},
            {"MobiusGrid", true, mobius_grid(preview_hue)},
            {"Raymarch", false, raymarch()},
            {"ShaderBall Liquid", false, shader_ball_liquid()},

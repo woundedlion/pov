@@ -50,6 +50,7 @@ inline void test_effect_palette_recipe_roster() {
   HS_EXPECT_EQ(std::strcmp(presets[8].name, "ShaderBall Flyby"), 0);
   HS_EXPECT_FALSE(presets[0].random_hue);
   HS_EXPECT_TRUE(presets[1].random_hue);
+  HS_EXPECT_TRUE(presets[4].random_hue);
   HS_EXPECT_NEAR(presets[1].recipe.hue.base_turns,
                  PaletteRecipes::hue_turns(42), 1e-6f);
   HS_EXPECT_EQ(presets[0].recipe.hue.mode, HueMode::CUSTOM);

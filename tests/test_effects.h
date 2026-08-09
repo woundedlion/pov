@@ -1151,6 +1151,7 @@ struct GSWhiteBox {
   static Color4 palette_sample(const GS &gs, float t) {
     return gs.palette.get(t);
   }
+  static void start_reaction(GS &gs) { gs.start_reaction(); }
   static void set_params(GS &gs, float feed, float k, float dA, float dB,
                          float dt) {
     gs.params.feed = feed;
@@ -1331,6 +1332,33 @@ inline void test_gs_opaque_quarter_accumulation_is_exact() {
     HS_EXPECT_EQ(accumulated.r,
                  static_cast<uint16_t>(sum > 65535u ? 65535u : sum));
   }
+}
+
+/** @brief Verifies each reseeded reaction receives a freshly generated palette. */
+inline void test_gs_reseed_generates_palette() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+
+  std::array<Pixel, BakedPalette::LUT_SIZE> before;
+  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i)
+    before[i] = GSWhiteBox::palette_sample(gs, static_cast<float>(i) /
+                                                   (BakedPalette::LUT_SIZE - 1))
+                    .color;
+
+  const size_t arena_offset = persistent_arena.get_offset();
+  GSWhiteBox::start_reaction(gs);
+
+  int changed = 0;
+  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+    const Pixel after =
+        GSWhiteBox::palette_sample(gs, static_cast<float>(i) /
+                                           (BakedPalette::LUT_SIZE - 1))
+            .color;
+    changed += after != before[i];
+  }
+  HS_EXPECT_GT(changed, 0);
+  HS_EXPECT_EQ(persistent_arena.get_offset(), arena_offset);
 }
 
 /**
@@ -5970,6 +5998,7 @@ inline int run_effects_tests() {
   test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
   test_gs_opaque_quarter_accumulation_is_exact();
+  test_gs_reseed_generates_palette();
   test_gs_render_certificates_bound_lattice();
   test_gs_shared_stencil_error_is_bounded();
   test_gs_dissolve_frontier_fades_before_clear();
