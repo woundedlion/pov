@@ -401,6 +401,10 @@ private:
   /** @brief Largest float below 1.0; keeps palette coordinates off the Wrap
    *  fold. */
   static constexpr float ONE_BELOW_UNIT = 0x1.fffffep-1f;
+  /** @brief Wrap period of the noise-time accumulator driving the warp. Large
+   *  enough that warp pops are far apart, small enough that the float ULP never
+   *  swallows the per-frame speed increment. */
+  static constexpr float STEREO_NOISE_TIME_PERIOD = 65536.0f;
   /** @brief Noise-time span used to crossfade through the accumulator wrap. */
   static constexpr float NOISE_WRAP_BLEND = 1024.0f;
 

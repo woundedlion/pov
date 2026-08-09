@@ -808,13 +808,6 @@ inline constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
 inline constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
 
 /**
- * @brief Wrap period for a noise-time accumulator driving a stereographic warp.
- * @details Large enough that warp pops are far apart, small enough that the
- * float ULP never swallows the per-frame speed increment.
- */
-inline constexpr float STEREO_NOISE_TIME_PERIOD = 65536.0f;
-
-/**
  * @brief 1 - v.y below which stereo() is inside the north-pole cap and emits the
  * sentinel magnitude instead of the raw quotient.
  * @details The crossover, not a guard band: on the unit sphere

@@ -4444,6 +4444,7 @@ struct ShaderBallWhiteBox {
   using SB = ShaderBall<DEFAULT_W, DEFAULT_H>;
   using Params = SB::Params;
   using PatternSample = SB::PatternSample;
+  static constexpr float NOISE_TIME_PERIOD = SB::STEREO_NOISE_TIME_PERIOD;
   static float noise_time(const SB &sb) { return sb.noise_time; }
   static float sin_phase(const SB &sb) { return sb.sin_phase; }
   static float phase2(const SB &sb) { return sb.phase2; }
@@ -4543,7 +4544,7 @@ inline void test_shaderball_phase_wrapped() {
   WB::SB sb;
   sb.init();
 
-  const float period = STEREO_NOISE_TIME_PERIOD;
+  const float period = WB::NOISE_TIME_PERIOD;
   const float two_pi = 2.0f * PI_F;
   WB::seed_accumulators(sb, period * 4.0f);
 
@@ -4600,7 +4601,7 @@ inline void test_shaderball_warp_time_wrap_continuous() {
   constexpr float EPSILON = 0.125f;
   const Complex z(0.3f, -0.7f);
   const StereoWarpResult before =
-      WB::wrapped_warp(sb, z, STEREO_NOISE_TIME_PERIOD - EPSILON);
+      WB::wrapped_warp(sb, z, WB::NOISE_TIME_PERIOD - EPSILON);
   const StereoWarpResult after = WB::wrapped_warp(sb, z, EPSILON);
   HS_EXPECT_NEAR(before.coords.re, after.coords.re, 0.02f);
   HS_EXPECT_NEAR(before.coords.im, after.coords.im, 0.02f);
