@@ -26,9 +26,10 @@ struct ShadierBallWhiteBox;
  * @tparam H Canvas height in pixels.
  * @details Each preset names a pattern Function, a sphere-to-plane
  * Projection, and a sphere Lens — discrete slot tags dispatched per pixel on
- * frame-constant copies — plus the continuous params those slots consume.
- * Color comes from a PaletteCycler walking the 256 prebaked triadic profiles
- * on a golden-ratio hue step.
+ * frame-constant copies — plus the continuous params those slots consume. A
+ * random-walk camera drifts the whole view at a preset-set gain. Color comes
+ * from a PaletteCycler walking the 256 prebaked triadic profiles on a
+ * golden-ratio hue step.
  */
 template <int W, int H> class ShadierBall : public Effect {
 public:
@@ -60,6 +61,11 @@ public:
     register_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN,
                    POLE_FADE_MAX);
     register_param("Lens Mix", &params.lens_mix, LENS_MIX_MIN, LENS_MIX_MAX);
+    register_param("Wander", &params.wander, WANDER_MIN, WANDER_MAX);
+
+    // The walk runs permanently on a shadow orientation; `wander` scales its
+    // per-frame motion into the camera (update_camera).
+    timeline.add(0, Animation::RandomWalk<W>(walk, UP, walk_noise));
 
     palette_cycler.init_generated(persistent_arena, next_triadic_palette,
                                   &palette_hue, PALETTE_DWELL_FRAMES,
@@ -68,13 +74,18 @@ public:
   }
 
   /**
-   * @brief Advances the wave phases and shades every pixel for one frame.
-   * @details Wraps the phase accumulators, steps the palette walk, hoists the
-   * frame-constant slot tags and wave state, then shades every pixel: lens,
-   * projection, pattern function, pole normalize, palette.
+   * @brief Advances the walk and wave phases and shades every frame's pixels.
+   * @details Steps the timeline, wraps the phase accumulators, steps the
+   * palette walk, integrates the wander camera, hoists the frame-constant slot
+   * tags and wave state, then shades every pixel: camera, lens, projection,
+   * pattern function, pole normalize, palette.
    */
   void draw_frame() override {
     Canvas canvas(*this);
+    {
+      HS_PROFILE(sdb_timeline_step);
+      timeline.step(canvas);
+    }
     const Params &P = active.params;
     // Wrap the trig phases to 2pi so fast_sinf/fast_cosf keep precise range
     // reduction.
@@ -82,19 +93,21 @@ public:
     wave_angle = fmodf(wave_angle + P.wave_spin, TWO_PI_F);
 
     palette_cycler.step();
+    update_camera(P.wander);
 
     // Frame-constant hoists; the per-pixel slot switches test these copies, so
     // the branch predictor makes the dispatch nearly free.
     const Slots slots = active.slots;
     const WaveState wave{phase, wave_angle, fast_cosf(wave_angle),
                          fast_sinf(wave_angle)};
+    const Quaternion view_conj = cam_conj;
     const float pattern_freq = P.pattern_freq;
     const float pole_fade = P.pole_fade;
     const float lens_mix = P.lens_mix;
 
     auto shader = [&](const Vector &v) -> Color4 {
-      const Sample s =
-          sample_pipeline(v, slots, wave, pattern_freq, pole_fade, lens_mix);
+      const Sample s = sample_pipeline(rotate(v, view_conj), slots, wave,
+                                       pattern_freq, pole_fade, lens_mix);
       return palette_cycler.palette().get(s.value);
     };
     {
@@ -128,6 +141,7 @@ private:
     float wave_spin;    /**< Second-wave rotation rate, rad/frame. */
     float pole_fade;    /**< Pole attenuation radius. */
     float lens_mix;     /**< Lens blend in [0, 1]; 0 and 1 skip a projection. */
+    float wander;       /**< Random-walk camera gain in [0, 1]. */
   };
 
   /** @brief One sequencable look: slot tags plus their params. */
@@ -318,6 +332,24 @@ private:
   }
 
   /**
+   * @brief Integrates a fraction of the walk's per-frame motion into the
+   *        camera.
+   * @param wander Walk motion gain in [0, 1]; 0 freezes the camera, 1 follows
+   * the walk fully.
+   * @details Integrating the incremental rotation keeps a partial gain
+   * continuous through every full turn and while the gain changes.
+   */
+  // Per-frame, not per-pixel: the inlined slerp is too big for ITCM.
+  HS_COLD_MEMBER void update_camera(float wander) {
+    const Quaternion current = walk.get();
+    const Quaternion delta = current * walk_prev.conjugate();
+    camera =
+        (slerp(Quaternion(), delta.normalized(), wander) * camera).normalized();
+    walk_prev = current;
+    cam_conj = camera.conjugate();
+  }
+
+  /**
    * @brief Trig-free glitch lens on a sphere direction.
    * @param v Unit direction vector on the sphere.
    * @return Direction after latitude doubling and azimuth tripling; returns
@@ -395,6 +427,7 @@ private:
   static constexpr float WAVE_SPIN_MIN = 0.0f, WAVE_SPIN_MAX = 0.05f;
   static constexpr float POLE_FADE_MIN = 1.0f, POLE_FADE_MAX = 20.0f;
   static constexpr float LENS_MIX_MIN = 0.0f, LENS_MIX_MAX = 1.0f;
+  static constexpr float WANDER_MIN = 0.0f, WANDER_MAX = 1.0f;
 
   /** @brief True iff every param of @p p lies within its registered range. */
   static constexpr bool preset_in_ranges(const Preset &p) {
@@ -406,13 +439,15 @@ private:
            p.params.pole_fade >= POLE_FADE_MIN &&
            p.params.pole_fade <= POLE_FADE_MAX &&
            p.params.lens_mix >= LENS_MIX_MIN &&
-           p.params.lens_mix <= LENS_MIX_MAX;
+           p.params.lens_mix <= LENS_MIX_MAX && p.params.wander >= WANDER_MIN &&
+           p.params.wander <= WANDER_MAX;
   }
 
   static constexpr Preset PRESETS[] = {
-      // Rotating twin-wave interference through the full glitch lens.
+      // Rotating twin-wave interference through the full glitch lens, drifting
+      // on a languid quarter-gain walk.
       {{Function::TWIN_WAVE, Projection::STEREOGRAPHIC, Lens::GLITCH},
-       {0.05f, 6.0f, 0.006f, 2.0f, 1.0f}},
+       {0.05f, 6.0f, 0.006f, 2.0f, 1.0f, 0.25f}},
   };
   static_assert(
       [] {
@@ -423,6 +458,21 @@ private:
       }(),
       "a ShadierBall preset drives a param outside its registered slider "
       "range; widen the range to accommodate the preset");
+
+  /**
+   * @brief Camera walk orientation.
+   * @details Declared before `timeline` so it outlives the RandomWalk that
+   * points here, which ~Timeline clears on teardown.
+   */
+  Orientation<> walk;
+  Timeline timeline; /**< Drives the camera walk. */
+  /** @brief OpenSimplex2 source for the walk; RandomWalk's ctor reseeds and
+   *  re-frequencies it, so it is never shared. */
+  FastNoiseLite walk_noise;
+
+  Quaternion walk_prev; /**< Previous walk orientation. */
+  Quaternion camera;    /**< Integrated wander camera. */
+  Quaternion cam_conj;  /**< Per-frame inverse of the camera. */
 
   Preset active = PRESETS[0]; /**< Live slots and params; the GUI edits these
                                  directly. */
