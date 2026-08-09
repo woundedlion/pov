@@ -1043,6 +1043,18 @@ private:
 };
 
 /**
+ * @brief Reports whether a palette source wraps its lookup coordinate.
+ * @tparam T Source or composition type.
+ * @return T::WRAPS_COORDINATE, or false for a source that declares no marker.
+ */
+template <typename T> constexpr bool palette_wraps_coordinate() {
+  if constexpr (requires { T::WRAPS_COORDINATE; })
+    return T::WRAPS_COORDINATE;
+  else
+    return false;
+}
+
+/**
  * @brief Runtime Palette facade over a compile-time StaticPalette composition.
  * @tparam SP StaticPalette composition type exposing Color4 get(float) const.
  * @details Bridges a zero-overhead StaticPalette into the polymorphic
@@ -1051,6 +1063,8 @@ private:
  */
 template <typename SP> class PaletteFacade : public Palette {
 public:
+  static constexpr bool WRAPS_COORDINATE = palette_wraps_coordinate<SP>();
+
   /**
    * @brief Default-constructs an unbound facade (bind() before use).
    */
@@ -1154,10 +1168,8 @@ public:
    * zero to entry 255 so the quantized seam is exact.
    */
   template <typename Source> HS_COLD_MEMBER void rebake(const Source &source) {
-    if constexpr (requires { Source::WRAPS_COORDINATE; }) {
-      static_assert(!Source::WRAPS_COORDINATE,
-                    "BakedPalette cannot rebake a wrapping source");
-    }
+    static_assert(!palette_wraps_coordinate<Source>(),
+                  "BakedPalette cannot rebake a wrapping source");
     HS_CHECK(colors != nullptr && alpha_q16 != nullptr,
              "BakedPalette::rebake before bake()");
     HS_CHECK(!aliased, "BakedPalette::rebake through an aliasing handle");
