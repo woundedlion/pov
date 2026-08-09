@@ -161,7 +161,7 @@ public:
   /**
    * @brief True when this palette and @p other can be key-morphed by lerp().
    * @details Requires identical evaluation policy — domain, easing, color
-   * path, chroma basis, complementary evaluation, key count, headroom,
+   * path, chroma basis, complementary evaluation, axis curves, key count,
    * torsion, falloff, input window — plus corresponding segment hue deltas
    * within half a turn of each other, so an interpolated arc never crosses a
    * whole-turn ambiguity or collapses through zero. A loop additionally
@@ -173,6 +173,8 @@ public:
     if (domain != other.domain || easing != other.easing ||
         color_path != other.color_path || chroma_basis != other.chroma_basis ||
         complementary_harmony != other.complementary_harmony ||
+        lightness_axis.curve != other.lightness_axis.curve ||
+        chroma_axis.curve != other.chroma_axis.curve ||
         key_count != other.key_count || headroom != other.headroom ||
         hue_torsion != other.hue_torsion ||
         falloff_start != other.falloff_start ||
