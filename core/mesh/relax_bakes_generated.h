@@ -60,6 +60,7 @@ inline constexpr MeshOps::RelaxBake truncated_icosidodecahedron_converged = {
     .vertex_count = 120, .face_count = 62, .index_count = 360, .iterations = 4096,
     .topology_hash = 0x3b53f3c9u,
     .output_hash = 0x3ec6896fu};
+static_assert(std::size(truncated_icosidodecahedron_converged_bits) == 3u * truncated_icosidodecahedron_converged.vertex_count);
 
 inline const uint32_t snub_dodecahedron_converged_bits[] HS_PROGMEM_UNIQUE(snub_dodecahedron_converged_bits) = {
     0x3e984619u, 0x3f6af6c0u, 0x3e86a0b5u, 0xbe1dfc2cu, 0x3f78f598u, 0x3e32acc5u, 0xbec91807u, 0x3f4377b5u,
@@ -91,6 +92,7 @@ inline constexpr MeshOps::RelaxBake snub_dodecahedron_converged = {
     .vertex_count = 60, .face_count = 92, .index_count = 300, .iterations = 4096,
     .topology_hash = 0x004bc741u,
     .output_hash = 0xc8fba28bu};
+static_assert(std::size(snub_dodecahedron_converged_bits) == 3u * snub_dodecahedron_converged.vertex_count);
 
 inline const uint32_t truncated_icosahedron_ambo_converged_bits[] HS_PROGMEM_UNIQUE(truncated_icosahedron_ambo_converged_bits) = {
     0x00000000u, 0x00000000u, 0x3f800000u, 0x3e98a13cu, 0x3e326a92u, 0x3f70414eu, 0x3e9e3779u, 0x3f000001u,
@@ -133,6 +135,7 @@ inline constexpr MeshOps::RelaxBake truncated_icosahedron_ambo_converged = {
     .vertex_count = 90, .face_count = 92, .index_count = 360, .iterations = 4096,
     .topology_hash = 0x0a20bce1u,
     .output_hash = 0x18af899fu};
+static_assert(std::size(truncated_icosahedron_ambo_converged_bits) == 3u * truncated_icosahedron_ambo_converged.vertex_count);
 
 inline const uint32_t dodecahedron_ambo_bevel33_converged_bits[] HS_PROGMEM_UNIQUE(dodecahedron_ambo_bevel33_converged_bits) = {
     0x3dc4838bu, 0x3f76c3eau, 0x3e7e3a67u, 0xbdc4838bu, 0x3f76c3eau, 0x3e7e3a67u, 0xbe80bf0du, 0x3f678f44u,
@@ -231,6 +234,7 @@ inline constexpr MeshOps::RelaxBake dodecahedron_ambo_bevel33_converged = {
     .vertex_count = 240, .face_count = 122, .index_count = 720, .iterations = 4096,
     .topology_hash = 0x0e6068e9u,
     .output_hash = 0x9bf3bc8bu};
+static_assert(std::size(dodecahedron_ambo_bevel33_converged_bits) == 3u * dodecahedron_ambo_bevel33_converged.vertex_count);
 
 inline const uint32_t dodecahedron_bevel20_converged_bits[] HS_PROGMEM_UNIQUE(dodecahedron_bevel20_converged_bits) = {
     0x3eb09d4eu, 0x3f66bbdcu, 0x3e8628fcu, 0x3e073cfeu, 0x3f7b8cd3u, 0x3e05983du, 0xbe073cfeu, 0x3f7b8cd3u,
@@ -284,6 +288,7 @@ inline constexpr MeshOps::RelaxBake dodecahedron_bevel20_converged = {
     .vertex_count = 120, .face_count = 62, .index_count = 360, .iterations = 4096,
     .topology_hash = 0x3b53f3c9u,
     .output_hash = 0x74207089u};
+static_assert(std::size(dodecahedron_bevel20_converged_bits) == 3u * dodecahedron_bevel20_converged.vertex_count);
 
 inline const uint32_t truncated_icosidodecahedron_bevel50_relax100_bits[] HS_PROGMEM_UNIQUE(truncated_icosidodecahedron_bevel50_relax100_bits) = {
     0x3dce1a56u, 0x3f770184u, 0x3e7886f3u, 0xbdce1a63u, 0x3f770183u, 0x3e7886f7u, 0xbe828d64u, 0x3f67e9c6u,
@@ -427,6 +432,7 @@ inline constexpr MeshOps::RelaxBake truncated_icosidodecahedron_bevel50_relax100
     .vertex_count = 360, .face_count = 362, .index_count = 1440, .iterations = 100,
     .topology_hash = 0x1f875855u,
     .output_hash = 0x07c1b935u};
+static_assert(std::size(truncated_icosidodecahedron_bevel50_relax100_bits) == 3u * truncated_icosidodecahedron_bevel50_relax100.vertex_count);
 
 inline const uint32_t dodecahedron_hankin_ambo_hankin_ambo_converged_bits[] HS_PROGMEM_UNIQUE(dodecahedron_hankin_ambo_hankin_ambo_converged_bits) = {
     0x3e7521e5u, 0x3f2d221du, 0x3f32571du, 0x3ea09cfcu, 0x3f3686f0u, 0x3f208857u, 0x3eb1a9dfu, 0x3f445231u,
@@ -705,6 +711,7 @@ inline constexpr MeshOps::RelaxBake dodecahedron_hankin_ambo_hankin_ambo_converg
     .vertex_count = 720, .face_count = 362, .index_count = 2160, .iterations = 4096,
     .topology_hash = 0x236de54du,
     .output_hash = 0x10477c35u};
+static_assert(std::size(dodecahedron_hankin_ambo_hankin_ambo_converged_bits) == 3u * dodecahedron_hankin_ambo_hankin_ambo_converged.vertex_count);
 
 inline const uint32_t icosahedron_snub_converged_bits[] HS_PROGMEM_UNIQUE(icosahedron_snub_converged_bits) = {
     0x3e32ab71u, 0x3e1df8f3u, 0x3f78f5c7u, 0x3db53048u, 0x3f1469a7u, 0x3f4f5b43u, 0xbe86a1ccu, 0x3e984752u,
@@ -736,6 +743,7 @@ inline constexpr MeshOps::RelaxBake icosahedron_snub_converged = {
     .vertex_count = 60, .face_count = 92, .index_count = 300, .iterations = 4096,
     .topology_hash = 0x75b29ecdu,
     .output_hash = 0x4d995cf9u};
+static_assert(std::size(icosahedron_snub_converged_bits) == 3u * icosahedron_snub_converged.vertex_count);
 
 } // namespace RelaxBakes
 } // namespace Solids

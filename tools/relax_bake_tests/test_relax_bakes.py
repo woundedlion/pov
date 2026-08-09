@@ -118,6 +118,11 @@ class EmitHeader(unittest.TestCase):
         )
         self.assertIn(f".topology_hash = 0x{0xC0FFEE:08x}u,", header)
         self.assertIn(f".output_hash = 0x{out:08x}u}};", header)
+        self.assertIn(
+            "static_assert(std::size(foo_bar_bits) == "
+            "3u * foo_bar.vertex_count);",
+            header,
+        )
 
 
 if __name__ == "__main__":
