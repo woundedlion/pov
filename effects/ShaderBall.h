@@ -171,7 +171,7 @@ public:
       if (P.lens_mix == 0.0f) {
         z = stereo(rotate(rv, cam_inner_conj));
       } else {
-        const Vector g = apply_glitch_lens(rv);
+        const Vector g = glitch_lens(rv);
         if (P.lens_mix == 1.0f) {
           z = stereo(rotate(g, cam_inner_conj));
         } else {
@@ -259,27 +259,6 @@ private:
       return coupled;
     const float direct = fast_sinf(p.re + sin_phase) * fast_cosf(p.im - phase2);
     return hs::lerp(coupled, direct, pattern_mix);
-  }
-
-  /**
-   * @brief Applies a trig-free glitch lens to a sphere direction.
-   * @param v Unit direction vector on the sphere.
-   * @return Direction after latitude doubling and azimuth tripling; returns
-   * the up vector near the lens axis.
-   */
-  static Vector apply_glitch_lens(const Vector &v) {
-    const float x2 = v.x * v.x;
-    const float z2 = v.z * v.z;
-    const float radius2 = x2 + z2;
-    constexpr float MIN_AXIS_RADIUS2 = 1e-6f;
-    if (radius2 < MIN_AXIS_RADIUS2)
-      return Vector(0.0f, 1.0f, 0.0f);
-
-    const float inverse_radius2 = 1.0f / radius2;
-    const float double_y = 2.0f * v.y;
-    return Vector(double_y * v.x * (4.0f * x2 * inverse_radius2 - 3.0f),
-                  2.0f * v.y * v.y - 1.0f,
-                  double_y * v.z * (3.0f - 4.0f * z2 * inverse_radius2));
   }
 
   /**

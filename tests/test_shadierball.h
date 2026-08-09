@@ -55,7 +55,6 @@ struct ShadierBallWhiteBox {
   static Complex project_point(const Vector &v, Projection projection) {
     return SDB::project_point(v, projection);
   }
-  static Vector glitch_lens(const Vector &v) { return SDB::glitch_lens(v); }
   static Vector apply_lens(const Vector &v, Lens lens) {
     return SDB::apply_lens(v, lens);
   }
@@ -168,7 +167,7 @@ inline void test_shadierball_lens_projection() {
                          Vector(0.2f, -0.9f, 0.4f).normalized(),
                          Vector(-0.7f, 0.1f, 0.7f).normalized()};
   for (const Vector &v : dirs) {
-    HS_EXPECT_NEAR(WB::glitch_lens(v).length(), 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(glitch_lens(v).length(), 1.0f, 1e-3f);
   }
 
   // The twist lens preserves latitude and turns the poles most; the
@@ -203,7 +202,7 @@ inline void test_shadierball_lens_projection() {
   const Vector v(0.6f, 0.48f, 0.64f);
   constexpr WB::Projection STEREO = WB::Projection::STEREOGRAPHIC;
   const Complex direct = stereo(v);
-  const Complex lensed = stereo(WB::glitch_lens(v));
+  const Complex lensed = stereo(glitch_lens(v));
   const Complex none = WB::project(v, STEREO, WB::Lens::NONE, 0.7f);
   HS_EXPECT_EQ(none.re, direct.re);
   HS_EXPECT_EQ(none.im, direct.im);

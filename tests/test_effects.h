@@ -4409,9 +4409,6 @@ struct ShaderBallWhiteBox {
     sb.spin_phase = v;
     sb.cycle_phase = v;
   }
-  static Vector glitch_lens(const Vector &v) {
-    return SB::apply_glitch_lens(v);
-  }
   static Complex blend_lens_coords(const Complex &direct, const Complex &lensed,
                                    float mix) {
     return SB::blend_lens_coords(direct, lensed, mix);
@@ -4611,13 +4608,12 @@ inline void test_shaderball_partial_wander_continuous() {
 }
 
 /**
- * @brief Verifies ShaderBall::apply_glitch_lens maps unit directions to unit
- *        directions and stays smooth through its equatorial fold.
+ * @brief Verifies glitch_lens maps unit directions to unit directions and
+ *        stays smooth through its equatorial fold.
  * @details Pins |lens(v)| == 1 across a spread of directions, its doubled-
  *          latitude topology, and matching one-sided derivatives at the fold.
  */
 inline void test_shaderball_glitch_lens_unit_norm() {
-  using WB = ShaderBallWhiteBox;
   const Vector dirs[] = {Vector(1, 0, 0),
                          Vector(0, 0, 1),
                          Vector(-1, 0, 0),
@@ -4628,26 +4624,26 @@ inline void test_shaderball_glitch_lens_unit_norm() {
                          Vector(0.2f, -0.9f, 0.4f).normalized(),
                          Vector(-0.7f, 0.1f, 0.7f).normalized()};
   for (const Vector &v : dirs) {
-    HS_EXPECT_NEAR(WB::glitch_lens(v).length(), 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(glitch_lens(v).length(), 1.0f, 1e-3f);
   }
 
-  const Vector equator_x = WB::glitch_lens(Vector(1, 0, 0));
+  const Vector equator_x = glitch_lens(Vector(1, 0, 0));
   HS_EXPECT_NEAR(equator_x.x, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(equator_x.y, -1.0f, 1e-6f);
   HS_EXPECT_NEAR(equator_x.z, 0.0f, 1e-6f);
 
-  const Vector north = WB::glitch_lens(Vector(0, 1, 0));
+  const Vector north = glitch_lens(Vector(0, 1, 0));
   HS_EXPECT_NEAR(north.y, 1.0f, 1e-6f);
-  const Vector south = WB::glitch_lens(Vector(0, -1, 0));
+  const Vector south = glitch_lens(Vector(0, -1, 0));
   HS_EXPECT_NEAR(south.y, 1.0f, 1e-6f);
 
   constexpr float EPSILON = 1e-4f;
   const float radial = sqrtf(1.0f - EPSILON * EPSILON);
-  const Vector center = WB::glitch_lens(Vector(0.8f, 0.0f, 0.6f));
+  const Vector center = glitch_lens(Vector(0.8f, 0.0f, 0.6f));
   const Vector above =
-      WB::glitch_lens(Vector(0.8f * radial, EPSILON, 0.6f * radial));
+      glitch_lens(Vector(0.8f * radial, EPSILON, 0.6f * radial));
   const Vector below =
-      WB::glitch_lens(Vector(0.8f * radial, -EPSILON, 0.6f * radial));
+      glitch_lens(Vector(0.8f * radial, -EPSILON, 0.6f * radial));
   const Vector forward = above - center;
   const Vector backward = center - below;
   HS_EXPECT_NEAR(forward.x, backward.x, 1e-6f);
