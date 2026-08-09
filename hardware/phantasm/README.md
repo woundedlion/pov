@@ -54,7 +54,8 @@ Both checks run via `kicad-cli` (KiCad 10.0):
 - **PCB geometry DRC: clean** (`kicad-cli pcb drc`): zero error-severity
   violations and zero unconnected pads.
 - **Standard-cost via gate:** `gen/fab.py` rejects a routed board containing a
-  via smaller than 0.45 mm or a drill smaller than 0.20 mm.
+  via smaller than 0.45 mm or a drill smaller than 0.20 mm, and rejects any
+  via pair with less than 0.15 mm of copper spacing (pad edge to pad edge).
 - **Schematic parity gate:** `gen/fab.py` runs `kicad-cli pcb drc
   --schematic-parity` and rejects any board/schematic difference outside
   `KNOWN_PARITY_ITEMS` (mounting holes, jumper BOM attributes, the Teensy
@@ -65,6 +66,26 @@ Both checks run via `kicad-cli` (KiCad 10.0):
   in absolute board coordinates, and `gen/fab.py` rejects a board carrying a
   non-zero drill/place origin (`aux_axis_origin`) — that would move only the
   origin-relative exports and place every assembled part off-board.
+- **Zone-geometry gate:** `gen/fab.py` rejects a copper pour whose
+  `min_thickness`, `thermal_gap`, or `thermal_bridge_width` is below the
+  0.1016 mm (4 mil) minimum feature the fab resolves. KiCad DRC never flags
+  these — thermal reliefs are same-net geometry — so a sub-process gap would
+  export clean gerbers the fab fills as a solid pour, tying every
+  through-hole GND pad to the full plane and starving the hand-soldered
+  joints (R-ASM-6).
+- **Count-floor ratchets:** `gen/fab.py` rejects a board carrying fewer than
+  100 vias or fewer than 2 copper pours — floors pinned to what the committed
+  routed board holds (the via count in the facts block below; the pours are
+  the In1/In2 reference planes). Neither floor updates itself: after
+  promoting a re-route, re-measure with `gen/board_metadata.py` and
+  deliberately re-baseline the constants in `gen/fab.py`.
+- **Assembly-metadata gate:** `gen/fab.py` rejects the assembly outputs
+  unless the assembled references exactly match its LCSC assignment table,
+  every rotation correction names an assembled part, and every centroid row
+  is present, numeric, and on the top (assembly) side.
+- **Part-catalog gate:** every assigned LCSC number must resolve to a catalog
+  entry with a non-blank manufacturer, MPN, and description, so each JLCPCB
+  BOM match is independently auditable.
 
 ## How connectivity is drawn
 
