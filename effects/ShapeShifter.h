@@ -462,8 +462,8 @@ private:
         const float beta = far_side ? far_cap_beta : near_cap_beta;
         const float phi_lo = std::max(beta - t2, 0.0f);
         const float phi_hi = std::min(beta + t2, PI_F);
-        bool visible = phi_to_y<H>(phi_hi) >= clip.render_y_start() &&
-                       phi_to_y<H>(phi_lo) < clip.render_y_end();
+        bool visible =
+            clip.could_intersect_y(phi_to_y<H>(phi_hi), phi_to_y<H>(phi_lo));
         if (visible && !full_width_clip && beta > t2 && PI_F - beta > t2) {
           const float sin_beta =
               far_side ? far_cap_sin_beta : near_cap_sin_beta;
