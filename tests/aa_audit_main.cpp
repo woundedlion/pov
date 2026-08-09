@@ -114,6 +114,8 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--facecolor"))
       g_face_color = true;
   }
+  if (orientations < 1)
+    orientations = 1;
 
   Arena seed_a(g_seed_a, sizeof(g_seed_a));
   Arena seed_b(g_seed_b, sizeof(g_seed_b));
