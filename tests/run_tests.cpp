@@ -153,7 +153,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("plot_scan", 78, hs_test::plot_scan_tests::run_plot_scan_tests, 9109888)   \
   X("canvas", 28, hs_test::canvas_tests::run_canvas_tests, 487)                \
   X("scan", 31, hs_test::scan_tests::run_scan_tests, 189868)                   \
-  X("mesh_raster", 17, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
+  X("mesh_raster", 18, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
     2793)                                                                      \
   X("transformers", 44, hs_test::transformers_tests::run_transformers_tests,   \
     1296)                                                                      \

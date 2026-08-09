@@ -14,9 +14,10 @@
 # It sees definitions of the form `void test_*(` / `void check_*(` /
 # `void case_*(` at the start of a line (optionally `inline`/`static`), which is
 # how every case in the tree is written; `case_*` names the death cases the
-# death module's table drives. A module's header is the one defining the
-# run_*_tests() entry point its roster row names. Headers no roster row
-# reaches — helper headers included mid-module, and entry points only a
+# death module's table drives. The name may sit on the next line, which is where
+# clang-format puts it when the signature wraps. A module's header is the one
+# defining the run_*_tests() entry point its roster row names. Headers no roster
+# row reaches — helper headers included mid-module, and entry points only a
 # standalone tool binary runs — are pinned by HELPER_CASE_COUNTS below instead,
 # so every header on disk is counted by exactly one pin and a case deleted
 # together with its call is always visible somewhere.
@@ -79,12 +80,13 @@ foreach(_hdr IN LISTS _headers)
   string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
   string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
   string(REGEX MATCHALL
-    "\n[ \t]*(inline )?(static )?void (test|check|case)_[A-Za-z0-9_]+\\("
+    "\n[ \t]*(inline )?(static )?void[ \t\r\n]+(test|check|case)_[A-Za-z0-9_]+\\("
     _defs "${_text}")
   set(_seen "")
   set(_count 0)
   foreach(_def IN LISTS _defs)
-    string(REGEX REPLACE ".*void ([A-Za-z0-9_]+)\\(" "\\1" _case "${_def}")
+    string(REGEX REPLACE ".*void[ \t\r\n]+([A-Za-z0-9_]+)\\(" "\\1" _case
+      "${_def}")
     if(_case IN_LIST _seen)
       continue()
     endif()
