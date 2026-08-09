@@ -722,7 +722,10 @@ inline void test_beacon_partial_frame_ages_out() {
  *          §6.4 demarcation routes bursts to the beacon parser.
  */
 inline void test_beacon_shift_needs_confirmation() {
-  const Config cfg = test_config();
+  // Full 64-roster: every 6-bit index is in range, so the shifted frame gets
+  // past the out-of-range rejection and the confirmation rule alone is on
+  // trial.
+  const Config cfg = test_config(64);
   const uint32_t col = cfg.cycles_per_column();
   SyncBoard board(cfg);
   board.seed(1000u, /*is_master=*/false);
@@ -774,9 +777,9 @@ inline void test_beacon_shift_needs_confirmation() {
       shifted[i] = s[i];
   }
   HS_EXPECT_EQ(passing, 1); // p = 1/8, exactly one intruder value
-  const int32_t shifted_index =
-      (shifted[0] * 8 + shifted[1]) % cfg.effect_count;
+  const int32_t shifted_index = shifted[0] * 8 + shifted[1];
   HS_EXPECT_TRUE(shifted_index != board.content().effect_index);
+  HS_EXPECT_TRUE(shifted_index < cfg.effect_count);
 
   // A lone shifted frame decodes but must not change what is displayed.
   feed_digits(shift_start, shifted);
@@ -808,6 +811,53 @@ inline void test_beacon_shift_needs_confirmation() {
   HS_EXPECT_EQ(board.telemetry().symbols_accepted, 0u);
   HS_EXPECT_EQ(board.telemetry().beacon_rev_mismatches, 0u);
   HS_EXPECT_TRUE(board.lock() == LockState::LOCKED);
+}
+
+/**
+ * @brief Verifies a checksum-valid beacon naming an index past the roster is
+ *        dropped whole (§6.4 integrity by rejection).
+ * @details A 6-bit index leaves 42 unreachable values on this 4-effect roster
+ *          — positive evidence of corruption the 3-bit checksum passes with
+ *          p = 1/8. Folding it mod effect_count would join a rebooting board
+ *          to a wrong-but-valid effect, the fail-wrong outcome §6.3.3 rules
+ *          out; the frame must count as rejected, like any corrupt frame.
+ */
+inline void test_beacon_out_of_range_index_rejected() {
+  const Config cfg = test_config(); // 4 effects: indices 4..63 are corrupt
+  const uint32_t col = cfg.cycles_per_column();
+  SyncBoard board(cfg);
+  board.seed(1000u, /*is_master=*/false);
+  flywheel_mut(board).force_lock();
+
+  // Frames start at column 40 of a half-rev: far from both boundaries, so the
+  // demarcation routes every burst to the beacon parser.
+  auto feed_frame = [&](int32_t index, uint32_t start) {
+    uint8_t d[5];
+    encode_beacon_digits(index, 3, d);
+    uint32_t f = start;
+    for (int i = 0; i < 5; ++i) {
+      const uint32_t span = static_cast<uint32_t>(d[i]) * col;
+      const BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, f, f + span};
+      board.tick(f + span + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
+                 &s);
+      f += span + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
+    }
+  };
+
+  // Index 9 encodes and checksums cleanly, but the roster ends at 3.
+  feed_frame(9, 1000u + 40u * col);
+  HS_EXPECT_EQ(board.telemetry().beacons_ok, 0u);
+  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 1u);
+  HS_EXPECT_FALSE(board.content().identity_known);
+  HS_EXPECT_EQ(board.build_word(), 0u); // no rebuild published
+
+  // The next in-range beacon joins normally.
+  feed_frame(2, 1000u + cfg.cycles_per_half_rev + 40u * col);
+  HS_EXPECT_EQ(board.telemetry().beacons_ok, 1u);
+  HS_EXPECT_EQ(board.telemetry().beacons_rejected, 1u);
+  HS_EXPECT_TRUE(board.content().identity_known);
+  HS_EXPECT_EQ(board.content().effect_index, 2);
+  HS_EXPECT_EQ(SyncBoard::build_index_of(board.build_word()), 2);
 }
 
 /**
@@ -3114,6 +3164,7 @@ inline int run_pov_sync_tests() {
   test_beacon_codec();
   test_beacon_partial_frame_ages_out();
   test_beacon_shift_needs_confirmation();
+  test_beacon_out_of_range_index_rejected();
   test_rev_resync_fold();
   test_flywheel_position();
   test_snap_gate();
