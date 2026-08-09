@@ -147,8 +147,8 @@ def analyze(root):
 def main(argv):
     path = argv[1] if len(argv) > 1 else DEFAULT_SCH
     try:
-        conflicts, bridges = analyze(
-            sexp.parse(open(path, encoding="utf-8").read())[0])
+        with open(path, encoding="utf-8") as fh:
+            conflicts, bridges = analyze(sexp.parse(fh.read())[0])
     except ValueError as e:
         print(f"{path}: {e}", file=sys.stderr)
         return 2

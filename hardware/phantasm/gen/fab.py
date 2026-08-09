@@ -326,7 +326,8 @@ def run_parity(report_path):
 
 def parse_components(net_path):
     """ref -> {value, footprint, dnp, lcsc} from a kicadsexpr netlist."""
-    root = sexp.parse(open(net_path, encoding="utf-8").read())[0]
+    with open(net_path, encoding="utf-8") as fh:
+        root = sexp.parse(fh.read())[0]
     comps = {}
     for block in F(root, "components"):
         for comp in F(block, "comp"):
