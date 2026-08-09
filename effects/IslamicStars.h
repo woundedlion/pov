@@ -247,7 +247,8 @@ private:
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces = 0; /**< Length of build_from_pal. */
   int dual_bridges_built = 0;  /**< DUAL bridges scheduled (test coverage). */
-  int build_macro_sweep_frames = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
+  int build_macro_sweep_frames =
+      SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
   int build_reconcile_frames =
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
@@ -271,11 +272,16 @@ private:
    * @param arena Persistent arena the arrays live in.
    * @details Runs at init and inside every compaction rebake, directly after
    * the ripple pool's claim: the allocation order is fixed, so the arrays
-   * re-land at their original addresses and their bytes survive the reset.
+   * re-land at their original addresses (asserted) and their bytes survive the
+   * reset.
    */
   void claim_face_palettes(Arena &arena) {
-    for (uint8_t *&pal : slot_face_palette)
+    for (uint8_t *&pal : slot_face_palette) {
+      uint8_t *prev = pal;
       pal = arena.allocate_n<uint8_t>(MAX_BUILD_FACES);
+      HS_CHECK(prev == nullptr || prev == pal,
+               "IslamicStars: face-palette array moved across the compaction");
+    }
   }
 
   /**
