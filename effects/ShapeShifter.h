@@ -237,7 +237,7 @@ private:
 
   struct AlphaFalloffModifier {
     AlphaFalloff falloff;
-    int count;
+    int count = 1;
 
     Color4 shade(Color4 color, float radius_t) const {
       color.alpha *= alpha_falloff_at(falloff, radius_t, count);
@@ -279,7 +279,7 @@ private:
     }
 
     MirrorModifier mirror;
-    AlphaFalloffModifier constant{AlphaFalloff::CONSTANT_HALF, count};
+    AlphaFalloffModifier constant{AlphaFalloff::CONSTANT_HALF};
     AlphaFalloffModifier toward_equator{AlphaFalloff::TOWARD_EQUATOR, count};
     StaticPalette<ProceduralPalette, Coords<MirrorModifier>,
                   Colors<AlphaFalloffModifier>, false>
