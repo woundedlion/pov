@@ -165,7 +165,7 @@ public:
       return {pole_normalize_pattern(pattern, r_sq, P.pole_fade), displacement};
     };
 
-    auto shader = [&](const Vector &v) -> Color4 {
+    auto shader = [&](const Vector &v) HS_O3_FN -> Color4 {
       Vector rv = rotate(v, cam_outer_conj);
       Complex z;
       if (P.lens_mix == 0.0f) {
@@ -242,9 +242,9 @@ private:
    * @details c != 0, s = 0 is the cross-coupled liquid pattern; c = 0, s = 1
    * is the separable grid pattern.
    */
-  static float sample_pattern(const Complex &p, float complexity,
-                              float pattern_mix, float sin_phase,
-                              float phase2) {
+  HS_O3_FN static float sample_pattern(const Complex &p, float complexity,
+                                       float pattern_mix, float sin_phase,
+                                       float phase2) {
     if (pattern_mix == 1.0f)
       return fast_sinf(p.re + sin_phase) * fast_cosf(p.im - phase2);
 
