@@ -596,10 +596,11 @@ private:
                  });
   }
 
-  HS_FLASH_MEMBER void draw_dense_planar_star(Canvas &canvas,
-                                              const Basis &basis, float radius,
-                                              int sides, const Color4 &color,
-                                              float phase, int contour_index) {
+  template <typename F>
+  HS_FLASH_MEMBER void
+  draw_dense_planar_star(Canvas &canvas, const Basis &basis, float radius,
+                         int sides, const F &fragment_shader,
+                         const Color4 &color, float phase, int contour_index) {
     constexpr int MAX_ANCHOR_INTERVALS = 6;
     constexpr float MAX_ANCHOR_ARC = PI_F / 36.0f;
     constexpr float POLE_GUARD_ROWS = 3.0f;
@@ -615,9 +616,6 @@ private:
       planar_basis = Plot::planar_chart_basis(-basis.v);
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
-    const auto edge_shader = [&color](const Vector &, Fragment &fragment) {
-      fragment.color = color;
-    };
     constexpr float TARGET_STEP = 1.2f;
     constexpr float ALPHA_GAIN = 1.028f;
     for (int edge = 0; edge < sides * 2; ++edge) {
@@ -664,7 +662,7 @@ private:
       const float row_margin = gap_arc * ROWS_PER_RADIAN + 1.0f;
       if (row_lo - row_margin < POLE_GUARD_ROWS ||
           row_hi + row_margin > H - 1.0f - POLE_GUARD_ROWS) {
-        draw_planar_star_edge(canvas, a, b, planar_basis, edge_shader);
+        draw_planar_star_edge(canvas, a, b, planar_basis, fragment_shader);
         continue;
       }
 
@@ -754,8 +752,8 @@ private:
     }
     case ShapeType::PLANAR_STAR: {
       if (params.count >= 32.0f) {
-        draw_dense_planar_star(canvas, basis, radius, sides, shape_color,
-                               shape_phase, contour_index);
+        draw_dense_planar_star(canvas, basis, radius, sides, fragment_shader,
+                               shape_color, shape_phase, contour_index);
         break;
       }
       Basis planar_basis = basis;
