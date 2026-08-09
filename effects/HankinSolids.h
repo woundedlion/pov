@@ -424,13 +424,13 @@ private:
     const int star_faces = static_cast<int>(node_faces);
 
     auto split_shader = [&](const Vector &, Fragment &f) {
-      const bool is_strap = mesh_face_index(f) >= star_faces;
+      const int fi = mesh_face_index(f);
+      const bool is_strap = fi >= star_faces;
       const SlotLutView &view = is_strap ? strap_view : star_view;
       f.color = shade_mesh_topology(f, topology, topology_faces, view,
                                     SLOT_IDENTITY, params.intensity, opacity);
       // Cross-fade this face's ramp onto the ramp of the face taking its
       // place, sampled at the same edge distance.
-      const int fi = mesh_face_index(f);
       const float counterpart_blend =
           is_strap ? (strap_open_fade < strap_close_blend ? strap_open_fade
                                                           : strap_close_blend)
