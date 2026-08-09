@@ -34,11 +34,46 @@ struct DreamBallsWhiteBox;
  */
 template <int W, int H> class DreamBalls : public Effect {
 public:
+  /** @brief Platonic, Archimedean, and Catalan base meshes. */
+  enum class BaseMesh : uint8_t {
+    TETRAHEDRON,
+    CUBE,
+    OCTAHEDRON,
+    DODECAHEDRON,
+    ICOSAHEDRON,
+    TRUNCATED_TETRAHEDRON,
+    CUBOCTAHEDRON,
+    TRUNCATED_CUBE,
+    TRUNCATED_OCTAHEDRON,
+    RHOMBICUBOCTAHEDRON,
+    TRUNCATED_CUBOCTAHEDRON,
+    SNUB_CUBE,
+    ICOSIDODECAHEDRON,
+    TRUNCATED_DODECAHEDRON,
+    TRUNCATED_ICOSAHEDRON,
+    RHOMBICOSIDODECAHEDRON,
+    TRUNCATED_ICOSIDODECAHEDRON,
+    SNUB_DODECAHEDRON,
+    TRIAKIS_TETRAHEDRON,
+    RHOMBIC_DODECAHEDRON,
+    TRIAKIS_OCTAHEDRON,
+    TETRAKIS_HEXAHEDRON,
+    DELTOIDAL_ICOSITETRAHEDRON,
+    DISDYAKIS_DODECAHEDRON,
+    PENTAGONAL_ICOSITETRAHEDRON,
+    RHOMBIC_TRIACONTAHEDRON,
+    TRIAKIS_ICOSAHEDRON,
+    PENTAKIS_DODECAHEDRON,
+    DELTOIDAL_HEXECONTAHEDRON,
+    DISDYAKIS_TRIACONTAHEDRON,
+    PENTAGONAL_HEXECONTAHEDRON
+  };
+
   /**
    * @brief Live, slider-bound render parameters; also the per-preset value set.
    */
   struct Params {
-    const char *solid_name = nullptr;
+    BaseMesh base_mesh = BaseMesh::TETRAHEDRON;
     float num_copies = COPIES_MIN;
     float offset_radius = RADIUS_MIN;
     float offset_speed = SPEED_MIN;
@@ -62,7 +97,10 @@ public:
    */
   void init() override {
     mobius_gen.init_storage(persistent_arena);
-    setup_presets();
+    loaded_solids = persistent_arena.allocate_n<SolidData>(SOLID_COUNT);
+    for (size_t i = 0; i < SOLID_COUNT; ++i)
+      new (&loaded_solids[i]) SolidData();
+    setup_solids();
 
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
     std::span<PresetEntry<Params>> entries = preset_manager.get_entries();
@@ -80,6 +118,8 @@ public:
     baked_palettes[0].bake(persistent_arena, *params.palette);
     baked_palettes[1].bake(persistent_arena, *params.palette);
 
+    register_animated_param("Base Mesh", &params.base_mesh, BASE_MESH_OPTIONS,
+                            BASE_MESH_EXPORT_OPTIONS, SOLID_COUNT);
     register_animated_param("Copies", &params.num_copies, COPIES_MIN,
                             COPIES_MAX);
     register_animated_param("Radius", &params.offset_radius, RADIUS_MIN,
@@ -125,6 +165,77 @@ private:
   static constexpr float WARP_MIN = 0.0f, WARP_MAX = 5.0f;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
   static constexpr size_t PRESET_COUNT = 5;
+  static constexpr size_t SOLID_COUNT =
+      static_cast<size_t>(BaseMesh::PENTAGONAL_HEXECONTAHEDRON) + 1;
+
+  static constexpr const char *BASE_MESH_OPTIONS[] = {
+      "Tetrahedron",
+      "Cube",
+      "Octahedron",
+      "Dodecahedron",
+      "Icosahedron",
+      "Truncated Tetrahedron",
+      "Cuboctahedron",
+      "Truncated Cube",
+      "Truncated Octahedron",
+      "Rhombicuboctahedron",
+      "Truncated Cuboctahedron",
+      "Snub Cube",
+      "Icosidodecahedron",
+      "Truncated Dodecahedron",
+      "Truncated Icosahedron",
+      "Rhombicosidodecahedron",
+      "Truncated Icosidodecahedron",
+      "Snub Dodecahedron",
+      "Triakis Tetrahedron",
+      "Rhombic Dodecahedron",
+      "Triakis Octahedron",
+      "Tetrakis Hexahedron",
+      "Deltoidal Icositetrahedron",
+      "Disdyakis Dodecahedron",
+      "Pentagonal Icositetrahedron",
+      "Rhombic Triacontahedron",
+      "Triakis Icosahedron",
+      "Pentakis Dodecahedron",
+      "Deltoidal Hexecontahedron",
+      "Disdyakis Triacontahedron",
+      "Pentagonal Hexecontahedron"};
+  static constexpr const char *BASE_MESH_EXPORT_OPTIONS[] = {
+      "BaseMesh::TETRAHEDRON",
+      "BaseMesh::CUBE",
+      "BaseMesh::OCTAHEDRON",
+      "BaseMesh::DODECAHEDRON",
+      "BaseMesh::ICOSAHEDRON",
+      "BaseMesh::TRUNCATED_TETRAHEDRON",
+      "BaseMesh::CUBOCTAHEDRON",
+      "BaseMesh::TRUNCATED_CUBE",
+      "BaseMesh::TRUNCATED_OCTAHEDRON",
+      "BaseMesh::RHOMBICUBOCTAHEDRON",
+      "BaseMesh::TRUNCATED_CUBOCTAHEDRON",
+      "BaseMesh::SNUB_CUBE",
+      "BaseMesh::ICOSIDODECAHEDRON",
+      "BaseMesh::TRUNCATED_DODECAHEDRON",
+      "BaseMesh::TRUNCATED_ICOSAHEDRON",
+      "BaseMesh::RHOMBICOSIDODECAHEDRON",
+      "BaseMesh::TRUNCATED_ICOSIDODECAHEDRON",
+      "BaseMesh::SNUB_DODECAHEDRON",
+      "BaseMesh::TRIAKIS_TETRAHEDRON",
+      "BaseMesh::RHOMBIC_DODECAHEDRON",
+      "BaseMesh::TRIAKIS_OCTAHEDRON",
+      "BaseMesh::TETRAKIS_HEXAHEDRON",
+      "BaseMesh::DELTOIDAL_ICOSITETRAHEDRON",
+      "BaseMesh::DISDYAKIS_DODECAHEDRON",
+      "BaseMesh::PENTAGONAL_ICOSITETRAHEDRON",
+      "BaseMesh::RHOMBIC_TRIACONTAHEDRON",
+      "BaseMesh::TRIAKIS_ICOSAHEDRON",
+      "BaseMesh::PENTAKIS_DODECAHEDRON",
+      "BaseMesh::DELTOIDAL_HEXECONTAHEDRON",
+      "BaseMesh::DISDYAKIS_TRIACONTAHEDRON",
+      "BaseMesh::PENTAGONAL_HEXECONTAHEDRON"};
+  static_assert(SOLID_COUNT == std::size(BASE_MESH_OPTIONS));
+  static_assert(SOLID_COUNT == std::size(BASE_MESH_EXPORT_OPTIONS));
+  static_assert(SOLID_COUNT == std::size(Solids::simple_registry) +
+                                   std::size(Solids::catalan_registry));
 
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
@@ -145,47 +256,18 @@ private:
     Vector v; /**< Second tangent basis vector, orthogonal to u. */
   };
 
-  /**
-   * @brief Precomputed, static per-preset geometry baked into the persistent
-   *        arena.
-   */
-  struct PresetData {
+  /** @brief Precomputed solid geometry baked into the persistent arena. */
+  struct SolidData {
     MeshState mesh_state;          /**< Baked vertices and faces. */
     ArenaVector<Tangent> tangents; /**< Per-vertex tangent frames. */
     ArenaVector<Plot::Mesh::Edge>
         edges; /**< Unique edge list (topology is static). */
   };
 
-  std::array<PresetData, PRESET_COUNT> loaded_presets;
-
-  /**
-   * @brief One preset's baked geometry element counts.
-   */
-  struct GeometryCounts {
-    size_t vertices;   /**< Vertex count. */
-    size_t face_slots; /**< Flattened face-index slots, i.e. 2*E. */
-    size_t faces;      /**< Face count. */
-  };
-  /** Counts of the five Archimedean solids named in the preset table, in that
-      table's order; setup_presets() re-checks every bake against them. */
-  static constexpr std::array<GeometryCounts, PRESET_COUNT> PRESET_GEOMETRY = {
-      {{24, 96, 26},
-       {60, 240, 62},
-       {48, 144, 26},
-       {30, 120, 32},
-       {24, 120, 38}}};
-  static constexpr size_t PRESET_VERTICES =
-      PRESET_GEOMETRY[0].vertices + PRESET_GEOMETRY[1].vertices +
-      PRESET_GEOMETRY[2].vertices + PRESET_GEOMETRY[3].vertices +
-      PRESET_GEOMETRY[4].vertices;
-  static constexpr size_t PRESET_FACE_SLOTS =
-      PRESET_GEOMETRY[0].face_slots + PRESET_GEOMETRY[1].face_slots +
-      PRESET_GEOMETRY[2].face_slots + PRESET_GEOMETRY[3].face_slots +
-      PRESET_GEOMETRY[4].face_slots;
-  static constexpr size_t PRESET_FACES =
-      PRESET_GEOMETRY[0].faces + PRESET_GEOMETRY[1].faces +
-      PRESET_GEOMETRY[2].faces + PRESET_GEOMETRY[3].faces +
-      PRESET_GEOMETRY[4].faces;
+  SolidData *loaded_solids = nullptr;
+  static constexpr size_t MAX_SOLID_VERTICES = 120;
+  static constexpr size_t MAX_SOLID_FACE_SLOTS = 360;
+  static constexpr size_t MAX_SOLID_FACES = 120;
 
   FastNoiseLite noise;
   Timeline timeline;
@@ -210,14 +292,13 @@ private:
    *          slot a sprite is drawing from.
    */
   BakedPalette baked_palettes[2];
-  // Persistent allocations: two ping-ponged palette LUTs plus every preset's
-  // baked vertices, faces, face counts, tangent frames, and unique edge list.
-  // All five presets are baked at init and live for the effect's whole life.
   static constexpr size_t FOOTPRINT_BYTES =
       2 * BakedPalette::required_arena_bytes() +
-      PRESET_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
-      PRESET_FACE_SLOTS * sizeof(uint16_t) + PRESET_FACES * sizeof(uint8_t) +
-      (PRESET_FACE_SLOTS / 2) * sizeof(Plot::Mesh::Edge);
+      SOLID_COUNT * sizeof(SolidData) +
+      SOLID_COUNT * (MAX_SOLID_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
+                     MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
+                     MAX_SOLID_FACES * sizeof(uint8_t) +
+                     (MAX_SOLID_FACE_SLOTS / 2) * sizeof(Plot::Mesh::Edge));
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "DreamBalls persistent footprint exceeds the default partition");
@@ -243,11 +324,13 @@ private:
       &blood_stream_composition};
 
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
-      {{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f, nullptr, 0.7f}},
-      {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f, nullptr, 0.7f}},
-      {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f, nullptr, 0.3f}},
-      {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f, nullptr, 0.3f}},
-      {{"snubCube", 4.534f, 0.153f, 2.025f, 0.0f, nullptr, 0.3f}},
+      {{BaseMesh::RHOMBICUBOCTAHEDRON, 18.0f, 0.3f, 0.4f, 0.3f, nullptr, 0.7f}},
+      {{BaseMesh::RHOMBICOSIDODECAHEDRON, 6.0f, 0.05f, 1.0f, 1.8f, nullptr,
+        0.7f}},
+      {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, 6.0f, 0.16f, 1.0f, 2.0f, nullptr,
+        0.3f}},
+      {{BaseMesh::ICOSIDODECAHEDRON, 10.0f, 0.16f, 1.0f, 0.5f, nullptr, 0.3f}},
+      {{BaseMesh::SNUB_CUBE, 4.534f, 0.153f, 2.025f, 0.0f, nullptr, 0.3f}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &p) {
@@ -265,24 +348,22 @@ private:
   Presets<Params, PRESET_COUNT> preset_manager{PRESETS};
 
   /**
-   * @brief Generates each preset's solid and bakes its geometry into the
+   * @brief Generates each selectable solid and bakes its geometry into the
    *        persistent arena once at init.
-   * @details Bakes vertices, faces, tangent frames, and the unique edge list
-   *          for every entry in the preset table.
+   * @details Bakes vertices, faces, tangent frames, and the unique edge list.
    */
-  HS_COLD_MEMBER void setup_presets() {
-    const auto &entries = preset_manager.get_entries();
-
-    int preset_idx = 0;
-    for (const auto &entry : entries) {
-      const auto &p = entry.params;
-      auto &data = loaded_presets[preset_idx];
+  HS_COLD_MEMBER void setup_solids() {
+    for (size_t solid_idx = 0; solid_idx < SOLID_COUNT; ++solid_idx) {
+      const Solids::Entry &entry = Solids::get_entry(solid_idx);
+      auto &data = loaded_solids[solid_idx];
 
       hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-        // Build the raw solid into scratch; only the deep copy below, bound to
-        // the persistent target, outlives this generate() call.
-        PolyMesh m =
-            Solids::get_by_name(a, a, b, std::string_view(p.solid_name));
+        PolyMesh m = Solids::finalize_solid(entry.generate(a, b), a);
+
+        HS_CHECK(m.vertices.size() <= MAX_SOLID_VERTICES &&
+                     m.faces.size() <= MAX_SOLID_FACE_SLOTS &&
+                     m.face_counts.size() <= MAX_SOLID_FACES,
+                 "DreamBalls selectable solid exceeds footprint bounds");
 
         data.mesh_state.vertices.bind(target, m.vertices.size());
         for (const auto &v : m.vertices) {
@@ -318,20 +399,6 @@ private:
         HS_CHECK(data.edges.size() == edge_count,
                  "DreamBalls edge extraction over/under-filled the edge bind");
       });
-
-      // Pins the footprint table to what the generators actually produced.
-      const GeometryCounts &counts = PRESET_GEOMETRY[preset_idx];
-      HS_CHECK(data.mesh_state.vertices.size() == counts.vertices &&
-                   data.mesh_state.faces.size() == counts.face_slots &&
-                   data.mesh_state.face_counts.size() == counts.faces,
-               "DreamBalls preset %d baked %d/%d/%d verts/face-slots/faces, "
-               "footprint table says %d/%d/%d",
-               preset_idx, (int)data.mesh_state.vertices.size(),
-               (int)data.mesh_state.faces.size(),
-               (int)data.mesh_state.face_counts.size(), (int)counts.vertices,
-               (int)counts.face_slots, (int)counts.faces);
-
-      preset_idx++;
     }
   }
 
@@ -359,24 +426,25 @@ private:
     const int bake_slot = active_bake;
     param_slots[bake_slot] = params;
 
-    auto draw_fn = [this, safe_idx, bake_slot](Canvas &canvas, float opacity) {
+    auto draw_fn = [this, bake_slot](Canvas &canvas, float opacity) {
       HS_PROFILE(db_draw);
       if (!crossfade.visible(opacity))
         return;
-      const auto &preset = loaded_presets[safe_idx];
+      const Params &sprite_params = param_slots[bake_slot];
+      const auto &solid =
+          loaded_solids[static_cast<size_t>(sprite_params.base_mesh)];
       ScratchScope scratch_a_guard(scratch_arena_a);
       MeshState target_mesh;
       {
         HS_PROFILE(db_mesh_copy);
-        MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
+        MeshOps::transform(solid.mesh_state, target_mesh, scratch_arena_a);
       }
 
       // Slot captured at spawn, not active_bake: this sprite renders from its
       // own param + palette snapshot.
-      this->draw_scene(canvas, param_slots[bake_slot],
-                       crossfade.opacity(opacity), preset.mesh_state,
-                       target_mesh, preset.tangents, preset.edges,
-                       baked_palettes[bake_slot]);
+      this->draw_scene(canvas, sprite_params, crossfade.opacity(opacity),
+                       solid.mesh_state, target_mesh, solid.tangents,
+                       solid.edges, baked_palettes[bake_slot]);
     };
 
     const int period = crossfade.schedule(timeline, draw_fn, SPRITE_LIFE,
