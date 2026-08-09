@@ -2403,6 +2403,10 @@ private:
   // [-W*WARP_SCALE/2, W*WARP_SCALE/2] and casts it to int16_t unclamped.
   static_assert(W * WARP_SCALE * 0.5f <= 32767.0f,
                 "Feedback<W,H>: canonical warp offset must fit int16_t");
+  // The row offset spans the latitude range and is only runtime-clamped, so an
+  // over-range displacement would saturate instead of trapping.
+  static_assert((H + hs::H_OFFSET - 1) * WARP_SCALE <= 32767.0f,
+                "Feedback<W,H>: warp row offset must fit int16_t");
 
   /**
    * @brief Tests whether the previous frame has any non-black pixel.
