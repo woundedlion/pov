@@ -122,10 +122,13 @@ private:
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
   static constexpr float PHASE_STEP = PI_F / ACTUAL_FIBERS;
 
-  // Persistent allocations: palette LUT + one Spherical and one trail per fiber.
+  // Persistent allocations: palette LUT + one Spherical and one trail per fiber,
+  // each block plus the alignment slack its allocate() call can waste.
   static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::required_arena_bytes() + ACTUAL_FIBERS * sizeof(Spherical) +
-      ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>);
+      alignof(Spherical) +
+      ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>) +
+      alignof(Animation::VectorTrail<TRAIL_LEN>);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a RINGS/PER_RING/TRAIL_LEN retune.
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
