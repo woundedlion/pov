@@ -233,7 +233,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    25 headers: one per effect (23) plus the shared
+├── effects/                    26 headers: one per effect (24) plus the shared
 │                                ReactionDiffusionBase.h and mindsplatter_palettes.h:
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
 │                                Raymarch.h, … — see §9 Effects Reference
@@ -2083,6 +2083,18 @@ Stereographic-projection shader (extends `Effect` directly) spanning 13 liquid d
 **Teensy full-cycle profile**: shipping holds all 13 presets at 16 fps with a 53.99 ms peak and 0/6,368 frames spilling; global O3 peaks at 50.20 ms ([shipping](docs/profiles/shipping/profile_shaderball_teensy_2026-08-08.md), [global O3](docs/profiles/O3/profile_shaderball_teensy_2026-08-08.md)).
 
 **Parameters**: Warp Scale, Warp Strength, Warp Time, Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Pole Fade, Spin Rate, Wander, Lens Mix, Breathe Depth, Cycle Speed, Hue Shift, Value Fade
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=ShadierBall" target="_blank"><img src="docs/screenshots/ShadierBall.png" alt="ShadierBall" width="280"></a></td>
+<td valign="top">
+
+#### ShadierBall
+
+Slot-based stereographic shader (extends `Effect` directly): each preset names a pattern **Function** and a sphere **Lens** — discrete slot tags dispatched per pixel on frame-constant copies — plus the continuous params those slots consume. The first slots pair a twin-wave interference function (two traveling plane waves, the second rotating continuously relative to the first) with the trig-free glitch lens ahead of the stereographic projection. Color walks the 256 prebaked triadic profiles through a `PaletteCycler` on a golden-ratio hue step, fade after fade with no dwell.
+
+**Parameters**: Function, Lens, Speed, Pattern Freq, Wave Spin, Pole Fade, Lens Mix
 
 </td></tr></table>
 
