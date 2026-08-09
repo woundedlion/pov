@@ -39,9 +39,6 @@ public:
    * @brief Registers slot and param controls and starts the palette walk.
    */
   HS_COLD_MEMBER void init() override {
-    // register_param captures *ptr as the GUI default, so the live preset has
-    // to be loaded before any registration below.
-    active = PRESETS[0];
     // Slot tags register animated like every preset-driven dropdown: writes
     // engage the pause, and the future preset choreography owns them.
     register_animated_param("Function", &active.slots.function,
@@ -466,8 +463,8 @@ private:
   Quaternion camera;    /**< Integrated wander camera. */
   Quaternion cam_conj;  /**< Per-frame inverse of the camera. */
 
-  Preset active = PRESETS[0]; /**< Live slots and params; the GUI edits these
-                                 directly. */
+  Preset active = PRESETS[0]; /**< Live GUI state, initialized before parameter
+                                 registration captures its defaults. */
   float phase = 0.0f;         /**< Wrapped to [0, 2pi): shared wave travel. */
   float wave_angle = 0.0f;    /**< Wrapped to [0, 2pi): second-wave rotation. */
   uint32_t palette_hue = 0;   /**< Hue-wheel index of the current triadic. */
