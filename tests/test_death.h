@@ -2095,7 +2095,8 @@ struct Case {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
-      {"arena_oom", case_arena_oom, "memory.h", "(false) "},
+      {"arena_oom", case_arena_oom, "memory.h",
+       "(false) Arena::allocate: out of memory"},
       {"arena_zero_size_alloc", case_arena_zero_size_alloc, "memory.h",
        "(size > 0) Arena::allocate: zero-size request"},
       {"arena_bad_alignment", case_arena_bad_alignment, "memory.h",
