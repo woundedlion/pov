@@ -226,7 +226,8 @@ inline void test_shadierball_lens_projection() {
 /**
  * @brief Pins the projection-slot dispatch and each map's closed form.
  * @details STEREOGRAPHIC must equal stereo() bit for bit; EQUIRECTANGULAR must
- *          equal (azimuth, latitude) and stay inside its rectangle; GNOMONIC
+ *          equal (|azimuth| * cos(latitude), latitude), stay continuous across
+ *          the longitude wrap, and collapse toward zero at the poles; GNOMONIC
  *          must equal the central division, map antipodal directions to the
  *          same point, and stay finite on the clamped equator ring; the full
  *          pipeline lands every value in [0, 1] under every projection.
@@ -251,9 +252,10 @@ inline void test_shadierball_projection_maps() {
     HS_EXPECT_EQ(st.im, st_expected.im);
 
     const Complex eq = WB::project_point(v, WB::Projection::EQUIRECTANGULAR);
-    HS_EXPECT_EQ(eq.re, fast_atan2(v.z, v.x));
+    const float cyl_radius = sqrtf(v.x * v.x + v.z * v.z);
+    HS_EXPECT_EQ(eq.re, std::fabs(fast_atan2(v.z, v.x)) * cyl_radius);
     HS_EXPECT_EQ(eq.im, HALF_PI - fast_acos(v.y));
-    HS_EXPECT_GE(eq.re, -PI_F - 1e-2f);
+    HS_EXPECT_GE(eq.re, 0.0f);
     HS_EXPECT_LE(eq.re, PI_F + 1e-2f);
     HS_EXPECT_GE(eq.im, -HALF_PI - 1e-2f);
     HS_EXPECT_LE(eq.im, HALF_PI + 1e-2f);
@@ -272,6 +274,24 @@ inline void test_shadierball_projection_maps() {
       HS_EXPECT_LE(std::fabs(gn.im), 1.0f / WB::AXIS_EPS);
     }
   }
+
+  // The azimuth fold keeps the map continuous across the longitude wrap (the
+  // z = 0, x < 0 half-plane) ...
+  constexpr float WRAP_EPS = 1e-4f;
+  const Complex wrap_above =
+      WB::project_point(Vector(-0.8f, 0.6f, WRAP_EPS).normalized(),
+                        WB::Projection::EQUIRECTANGULAR);
+  const Complex wrap_below =
+      WB::project_point(Vector(-0.8f, 0.6f, -WRAP_EPS).normalized(),
+                        WB::Projection::EQUIRECTANGULAR);
+  HS_EXPECT_NEAR(wrap_above.re, wrap_below.re, 1e-2f);
+  HS_EXPECT_NEAR(wrap_above.im, wrap_below.im, 1e-6f);
+  // ... and the cos(latitude) taper collapses the azimuth singularity at the
+  // poles.
+  const Complex near_pole =
+      WB::project_point(Vector(0.03f, 0.999f, -0.03f).normalized(),
+                        WB::Projection::EQUIRECTANGULAR);
+  HS_EXPECT_LE(near_pole.re, PI_F * 0.05f);
 
   const WB::WaveState wave{0.8f, 0.5f, fast_cosf(0.5f), fast_sinf(0.5f)};
   const WB::Projection projections[] = {WB::Projection::EQUIRECTANGULAR,
@@ -404,8 +424,9 @@ inline void test_shadierball_wander_camera() {
  * @brief Verifies the triadic palette walk morphs and advances.
  * @details Every provider successor must be morph-compatible with its
  *          predecessor (the cycler fail-fast checks each retarget), the hue
- *          index must advance by HUE_STEP per palette, and a full in-effect
- *          fade must land on a different palette.
+ *          index must advance by HUE_STEP per palette, a full in-effect fade
+ *          must land on a different palette, and "Pause Animation" must never
+ *          freeze the cycle.
  */
 inline void test_shadierball_palette_walk() {
   using WB = ShadierBallWhiteBox;
@@ -435,6 +456,19 @@ inline void test_shadierball_palette_walk() {
   const Pixel after = WB::palette_color(sdb, 0.25f);
   HS_EXPECT_TRUE(before.r != after.r || before.g != after.g ||
                  before.b != after.b);
+
+  // The pause stops preset advancement only; the palette keeps cycling.
+  sdb.setAnimationsPaused(true);
+  for (int f = 0; f < WB::FADE_FRAMES + 8; ++f) {
+    const unsigned long tick =
+        static_cast<unsigned long>(f) + WB::FADE_FRAMES + 8;
+    hs::set_mock_time(tick * FRAME_MS, tick * FRAME_US);
+    sdb.draw_frame();
+    sdb.advance_display();
+  }
+  const Pixel paused = WB::palette_color(sdb, 0.25f);
+  HS_EXPECT_TRUE(after.r != paused.r || after.g != paused.g ||
+                 after.b != paused.b);
   hs::clear_mock_time();
 }
 
