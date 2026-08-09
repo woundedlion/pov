@@ -53,8 +53,11 @@ public:
         1337); // FastLED LCG only; modern effects use hs::random() (platform.h)
 #ifdef USE_DMA_LEDS
     ledController.begin();
-    ledController.setCorrection(255, 176, 240); // TypicalLEDStrip
-    ledController.setTemperature(255, 147, 41); // Candle
+    ledController.setCorrection(hd107s::TYPICAL_LED_STRIP.r,
+                                hd107s::TYPICAL_LED_STRIP.g,
+                                hd107s::TYPICAL_LED_STRIP.b);
+    ledController.setTemperature(hd107s::CANDLE.r, hd107s::CANDLE.g,
+                                 hd107s::CANDLE.b);
     ledController.setBrightness(255);
 #else
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds,
