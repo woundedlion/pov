@@ -43,6 +43,7 @@
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
 #include "tests/test_effects_smoke.h"
+#include "tests/test_shadierball.h"
 #include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_shapeshifter_tiles.h"
 #include "tests/test_dma_core.h"
@@ -167,6 +168,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
+  X("shadierball", 4, hs_test::shadierball_tests::run_shadierball_tests, 1087) \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 120)    \
   X("shapeshifter_tiles", 2,                                                   \

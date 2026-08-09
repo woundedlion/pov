@@ -208,7 +208,7 @@ set(_hs_test_modules
     reaction_graph color palettes easing_waves platform profiling filter
     plot_scan canvas
     scan mesh_raster transformers noise generators animation effects
-    effects_smoke
+    effects_smoke shadierball
     shapeshifter_oracle shapeshifter_tiles dma_core hd107s
     dma_controller
     pov_segmented pov_single pov_sync param_marshal wasm_predicates util led
