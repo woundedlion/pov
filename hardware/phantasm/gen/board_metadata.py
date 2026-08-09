@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 
 import sexp
+from kicad_common import arc_extrema
 
 
 FACTS_START = "<!-- BEGIN ROUTED PCB FACTS -->"
@@ -75,40 +76,11 @@ def _rounded_decimal(value):
 
 def _arc_points(node):
     declared = [_point(node, key) for key in ("start", "mid", "end")]
-    (x1, y1), (x2, y2), (x3, y3) = [
-        (float(x), float(y)) for x, y in declared
-    ]
-    denominator = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
-    if abs(denominator) < 1e-12:
-        raise MetadataError("Edge.Cuts arc points are collinear")
-
-    center_x = (
-        (x1 * x1 + y1 * y1) * (y2 - y3)
-        + (x2 * x2 + y2 * y2) * (y3 - y1)
-        + (x3 * x3 + y3 * y3) * (y1 - y2)
-    ) / denominator
-    center_y = (
-        (x1 * x1 + y1 * y1) * (x3 - x2)
-        + (x2 * x2 + y2 * y2) * (x1 - x3)
-        + (x3 * x3 + y3 * y3) * (x2 - x1)
-    ) / denominator
-    radius = math.hypot(x1 - center_x, y1 - center_y)
-    angles = tuple(math.atan2(y - center_y, x - center_x) for x, y in (
-        (x1, y1), (x2, y2), (x3, y3)))
-
-    def ccw_between(angle, first, last):
-        return (angle - first) % math.tau <= (last - first) % math.tau + 1e-12
-
-    first, middle, last = angles
-    counterclockwise = ccw_between(middle, first, last)
-    points = list(declared)
-    for angle in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
-        on_arc = ccw_between(angle, first, last) if counterclockwise else \
-            ccw_between(angle, last, first)
-        if on_arc:
-            points.append((_rounded_decimal(center_x + radius * math.cos(angle)),
-                           _rounded_decimal(center_y + radius * math.sin(angle))))
-    return points
+    extrema = arc_extrema(
+        *[(float(x), float(y)) for x, y in declared],
+        collinear_error=MetadataError("Edge.Cuts arc points are collinear"))
+    return declared + [(_rounded_decimal(x), _rounded_decimal(y))
+                       for x, y in extrema]
 
 
 def _outline_bounds(root):
