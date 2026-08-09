@@ -513,14 +513,6 @@ inline void transform_in_place(MeshState &mesh,
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Normalizes all vertices in the mesh to the unit sphere.
- * @tparam MeshT Mesh type exposing an iterable `vertices` of Vector.
- * @param mesh Mesh whose vertices are normalized in place.
- * @note Mesh utility, not a Conway operator.
- * @note Traps on a zero-length vertex; guard centroid-derived inputs with
- *   normalized_or (e.g. a centrally-symmetric face centroid; see kis/dual).
- */
-/**
  * @brief Blended corner position, falling back to the source vertex when the
  *   blend collapses to the origin.
  * @param blended Centroid-blended corner.
@@ -535,6 +527,14 @@ __attribute__((always_inline)) inline Vector corner_or(const Vector &blended,
   return dot(blended, blended) < math::EPS_NORMALIZE_SQ ? v : blended;
 }
 
+/**
+ * @brief Normalizes all vertices in the mesh to the unit sphere.
+ * @tparam MeshT Mesh type exposing an iterable `vertices` of Vector.
+ * @param mesh Mesh whose vertices are normalized in place.
+ * @note Mesh utility, not a Conway operator.
+ * @note Traps on a zero-length vertex; guard centroid-derived inputs with
+ *   normalized_or (e.g. a centrally-symmetric face centroid; see kis/dual).
+ */
 template <typename MeshT> static void normalize(MeshT &mesh) {
   for (auto &v : mesh.vertices) {
     v.normalize();
