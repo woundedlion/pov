@@ -6,8 +6,9 @@
 
 /**
  * @file geometry.h
- * @brief Sphere/canvas mapping, the axis constants, and the spherical geometry
- *        helpers.
+ * @brief Sphere/canvas mapping, the axis constants, the spherical geometry
+ *        helpers, and `Orientation<CAP>`, the per-frame quaternion history the
+ *        animation and filter layers interpolate over.
  */
 
 #include <cmath>
