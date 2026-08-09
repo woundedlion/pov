@@ -964,8 +964,22 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Discover finds test files by pattern, so one deleted or renamed out of
+      # it runs fewer suites and stays green; the floor (same treatment as the
+      # scripts/*.test.mjs gate) fails instead.
       - name: Validate tracked Markdown
         run: |
+          shopt -s nullglob
+          tests=(tools/docs_check_tests/test*.py)
+          if [ "${#tests[@]}" -lt 1 ]; then
+            echo "::error::expected at least 1 tools/docs_check_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
+            exit 1
+          fi
+          tests=(tools/docs_images_tests/test*.py)
+          if [ "${#tests[@]}" -lt 1 ]; then
+            echo "::error::expected at least 1 tools/docs_images_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
+            exit 1
+          fi
           python -m unittest discover -s tools/docs_check_tests
           python -m unittest discover -s tools/docs_images_tests
           python tools/docs_check.py
@@ -1279,16 +1293,53 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
+      # Discover finds test files by pattern, so one deleted or renamed out of
+      # it runs fewer suites and stays green; each floor (same treatment as the
+      # scripts/*.test.mjs gate) fails instead.
       - name: Run gate parser/layout/warning self-tests
-        run: python -m unittest discover -s tools/teensy_gate_tests -v
+        run: |
+          shopt -s nullglob
+          tests=(tools/teensy_gate_tests/test*.py)
+          if [ "${#tests[@]}" -lt 3 ]; then
+            echo "::error::expected at least 3 tools/teensy_gate_tests/test*.py files, found ${#tests[@]}: ${tests[*]}"
+            exit 1
+          fi
+          python -m unittest discover -s tools/teensy_gate_tests -v
       - name: Run PlatformIO build-hook self-tests
-        run: python -m unittest discover -s tools/teensy_hook_tests -v
+        run: |
+          shopt -s nullglob
+          tests=(tools/teensy_hook_tests/test*.py)
+          if [ "${#tests[@]}" -lt 1 ]; then
+            echo "::error::expected at least 1 tools/teensy_hook_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
+            exit 1
+          fi
+          python -m unittest discover -s tools/teensy_hook_tests -v
       - name: Run profile log parser self-tests
-        run: python -m unittest discover -s tools/profile_tests -v
+        run: |
+          shopt -s nullglob
+          tests=(tools/profile_tests/test*.py)
+          if [ "${#tests[@]}" -lt 3 ]; then
+            echo "::error::expected at least 3 tools/profile_tests/test*.py files, found ${#tests[@]}: ${tests[*]}"
+            exit 1
+          fi
+          python -m unittest discover -s tools/profile_tests -v
       - name: Run relax-bake generator self-tests
-        run: python -m unittest discover -s tools/relax_bake_tests -v
+        run: |
+          shopt -s nullglob
+          tests=(tools/relax_bake_tests/test*.py)
+          if [ "${#tests[@]}" -lt 1 ]; then
+            echo "::error::expected at least 1 tools/relax_bake_tests/test*.py file, found ${#tests[@]}: ${tests[*]}"
+            exit 1
+          fi
+          python -m unittest discover -s tools/relax_bake_tests -v
       - name: Check routed PCB metadata
         run: |
+          shopt -s nullglob
+          tests=(hardware/phantasm/gen/tests/test*.py)
+          if [ "${#tests[@]}" -lt 15 ]; then
+            echo "::error::expected at least 15 hardware/phantasm/gen/tests/test*.py files, found ${#tests[@]}: ${tests[*]}"
+            exit 1
+          fi
           python -m unittest discover -s hardware/phantasm/gen/tests -v
           python hardware/phantasm/gen/board_metadata.py --check
 
