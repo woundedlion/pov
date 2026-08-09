@@ -2618,9 +2618,11 @@ struct Volume {
                 HS_PROFILE_DEEP(vol_shade);
                 frag_fn(occ.behind, bg);
               }
-              HS_PROFILE_DEEP(vol_plot);
-              pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
-                            bg.color.alpha * occ.soft);
+              if (bg.color.alpha * occ.soft > MIN_ALPHA) {
+                HS_PROFILE_DEEP(vol_plot);
+                pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
+                              bg.color.alpha * occ.soft);
+              }
             }
           }
 
