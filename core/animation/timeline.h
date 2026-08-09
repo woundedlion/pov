@@ -405,6 +405,16 @@ public:
           IAnimation *anim = e.animation();
           HS_CHECK(anim);
           anim->step_paused(canvas);
+          // step_paused() never advances the animation, so done() here means
+          // cancel() (or finish()). Complete the event as the unpaused path
+          // would — fire .then() and free the slot — instead of holding it
+          // for every paused frame.
+          if (anim->done() && !anim->repeats()) {
+            anim->post_callback();
+            HS_CHECK(!e.handled || anim->is_canceled());
+            e.destroy();
+            continue;
+          }
         }
         if (i != write_idx)
           e.move_into(global_timeline_events[write_idx]);
