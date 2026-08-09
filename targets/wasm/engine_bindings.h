@@ -237,6 +237,44 @@ enum class ClipSetResult {
                         full canvas. */
 };
 
+/**
+ * @brief Outcome of a HolosphereEngine::setResolution() call.
+ * @details Each outcome wants a different caller response, so they are separate
+ *          enumerators rather than one bool: RESIZED tears the current effect
+ *          down, so the caller must re-apply setEffect() — and any setClip() —
+ *          before the next drawFrame(); ALREADY_ACTIVE tears nothing down, so
+ *          the current effect, parameters, and clip all stay live; UNSUPPORTED
+ *          keeps the prior valid state alive. Exposed to JS as the
+ *          Module.ResolutionSetResult embind enum; compare against its values,
+ *          never by truthiness (every enum value is a truthy object).
+ */
+enum class ResolutionSetResult {
+  RESIZED,        /**< Resolution switched; the effect was torn down, so
+                       setEffect() and any clip must be re-applied. */
+  ALREADY_ACTIVE, /**< Request matched the active resolution; pure no-op —
+                       the current effect and clip stay live. */
+  UNSUPPORTED,    /**< Size is not an HS_RESOLUTIONS row; ignored, prior
+                       valid state kept. */
+};
+
+/**
+ * @brief Outcome of a HolosphereEngine::setEffect() call.
+ * @details The two rejections leave the prior effect alive but demand different
+ *          caller responses: UNKNOWN_EFFECT is a stale/typo'd name to drop from
+ *          the UI, while UNSUPPORTED_RESOLUTION means no name can succeed until
+ *          a supported setResolution() lands. Exposed to JS as the
+ *          Module.EffectSetResult embind enum; compare against its values,
+ *          never by truthiness (every enum value is a truthy object).
+ */
+enum class EffectSetResult {
+  INSTALLED,              /**< Fresh effect instantiated at default parameters
+                               and the full-canvas clip. */
+  UNKNOWN_EFFECT,         /**< Name not registered at the active resolution;
+                               prior effect kept. */
+  UNSUPPORTED_RESOLUTION, /**< Active resolution has no factory; prior state
+                               kept. */
+};
+
 // True while a HolosphereEngine is constructed-but-not-deleted. The engine is a
 // singleton: its Effect aliases shared static buffers and its arenas are
 // module-global, so a second instance would corrupt the first's frames.
@@ -286,10 +324,12 @@ public:
     // Bootstrap on the first row of each roster; daydream overrides both almost
     // immediately.
     const bool bootstrap_resolution_set =
-        setResolution(WASM_RESOLUTIONS[0].w, WASM_RESOLUTIONS[0].h);
+        setResolution(WASM_RESOLUTIONS[0].w, WASM_RESOLUTIONS[0].h) ==
+        ResolutionSetResult::RESIZED;
     HS_CHECK(bootstrap_resolution_set,
              "the first HS_RESOLUTIONS row must be dispatchable here");
-    const bool bootstrap_effect_set = setEffect(WASM_EFFECT_NAMES[0]);
+    const bool bootstrap_effect_set =
+        setEffect(WASM_EFFECT_NAMES[0]) == EffectSetResult::INSTALLED;
     HS_CHECK(bootstrap_effect_set,
              "the first HS_EFFECT_LIST entry must be registered and buildable "
              "at the first HS_RESOLUTIONS row");
@@ -305,32 +345,33 @@ public:
    * @brief Switches the active canvas resolution.
    * @param w Requested canvas width in pixels.
    * @param h Requested canvas height in pixels.
-   * @return true if the resolution is now active; false if the request was
-   *         rejected (unsupported size) and the previous valid state was kept.
-   *         A request matching the active resolution also returns true but is a
-   *         pure no-op — nothing is torn down — so true alone does not imply the
-   *         teardown described below happened.
-   * @details A successful resolution change tears down the current effect (a new
-   *          one cannot be carried across pixel dimensions), so the caller must
-   *          call setEffect() again before the next drawFrame() or it renders a
-   *          blank frame. Callers that use a sub-canvas clip (segmented rendering)
-   *          must likewise re-apply setClip() after a successful setResolution():
-   *          a prior clip was expressed in the old resolution's pixel bounds and
-   *          is not rescaled here, so it must be recomputed for the new
-   *          dimensions. An outstanding getPixels() view is left aliasing live
-   *          memory at the previous resolution's length rather than detached, so
-   *          it must be re-fetched and its length compared against
-   *          getBufferLength().
+   * @return RESIZED if the resolution switched, ALREADY_ACTIVE if the request
+   *         matched the active resolution (a pure no-op — nothing is torn
+   *         down), or UNSUPPORTED if the request was rejected and the previous
+   *         valid state was kept. Exposed to JS as the
+   *         Module.ResolutionSetResult embind enum; compare against its
+   *         values, never by truthiness.
+   * @details A RESIZED result tears down the current effect (a new one cannot
+   *          be carried across pixel dimensions), so the caller must call
+   *          setEffect() again before the next drawFrame() or it renders a
+   *          blank frame. Callers that use a sub-canvas clip (segmented
+   *          rendering) must likewise re-apply setClip() after a RESIZED
+   *          setResolution(): a prior clip was expressed in the old
+   *          resolution's pixel bounds and is not rescaled here, so it must be
+   *          recomputed for the new dimensions. An outstanding getPixels() view
+   *          is left aliasing live memory at the previous resolution's length
+   *          rather than detached, so it must be re-fetched and its length
+   *          compared against getBufferLength().
    */
-  bool setResolution(int w, int h) {
+  ResolutionSetResult setResolution(int w, int h) {
     if (w == pixel_width && h == pixel_height)
-      return true;
+      return ResolutionSetResult::ALREADY_ACTIVE;
 
     // Reject unsupported sizes and keep the prior valid state alive rather than
     // switching to a null effect that renders blank with no signal to JS.
     if (!wasm_resolution_supported(w, h)) {
       hs::log("WASM: Unsupported resolution %dx%d — ignored", w, h);
-      return false;
+      return ResolutionSetResult::UNSUPPORTED;
     }
 
     pixel_width = w;
@@ -341,26 +382,29 @@ public:
       ++param_generation;
       stack_paint_canary(); // repaint to reset stack HWM after teardown
     }
-    return true;
+    return ResolutionSetResult::RESIZED;
   }
 
   /**
    * @brief Tears down the current effect and instantiates the named one at the
    *        active resolution.
    * @param name Effect name to instantiate.
-   * @return true iff an effect was actually instantiated; false for an
-   *         unknown/stale effect name or an unsupported resolution, so the
-   *         frontend can detect a no-op instead of believing the switch took.
+   * @return INSTALLED iff an effect was actually instantiated, else the
+   *         rejection reason — UNKNOWN_EFFECT for an unknown/stale effect name
+   *         or UNSUPPORTED_RESOLUTION — so the frontend can detect a no-op
+   *         instead of believing the switch took. Exposed to JS as the
+   *         Module.EffectSetResult embind enum; compare against its values,
+   *         never by truthiness.
    * @details Validates the name against the factory for the current resolution
    *          BEFORE tearing anything down, so a typo'd/stale UI string keeps the
-   *          prior valid state alive rather than blanking the engine. A
-   *          successful switch instantiates a fresh effect at the full-canvas
+   *          prior valid state alive rather than blanking the engine. An
+   *          INSTALLED switch instantiates a fresh effect at the full-canvas
    *          clip and with default parameter values, so callers that use a
    *          sub-canvas clip (segmented rendering) or tuned parameters must
-   *          re-apply setClip() and setParameter() after every successful
+   *          re-apply setClip() and setParameter() after every INSTALLED
    *          setEffect(). The engine-owned animation pause state is retained.
    */
-  bool setEffect(const std::string &name) {
+  EffectSetResult setEffect(const std::string &name) {
     // Validate against the current resolution's factory BEFORE tearing anything
     // down, so a typo'd name keeps the prior valid state alive.
     const FactoryEntry *entry = nullptr;
@@ -372,14 +416,14 @@ public:
       hs::log("WASM: setEffect at unsupported resolution %dx%d — keeping "
               "current effect",
               pixel_width, pixel_height);
-      return false;
+      return EffectSetResult::UNSUPPORTED_RESOLUTION;
     }
 
     hs::log("WASM: setEffect called with %s", name.c_str());
     if (!entry) {
       hs::log("WASM: setEffect unknown effect '%s' — keeping current effect",
               name.c_str());
-      return false;
+      return EffectSetResult::UNKNOWN_EFFECT;
     }
 
     // Per-load RNG stream, mirroring the device's per-epoch reseed: load 0
@@ -406,7 +450,7 @@ public:
       init_stack_peak = init_hwm;
     hs::log("WASM: init stack HWM = %u bytes", (unsigned)init_hwm);
     stack_paint_canary();
-    return true;
+    return EffectSetResult::INSTALLED;
   }
 
   /**
@@ -826,6 +870,16 @@ static void bind_engine() {
       .value("NO_EFFECT", ClipSetResult::NO_EFFECT)
       .value("INVALID_BOUNDS", ClipSetResult::INVALID_BOUNDS)
       .value("FULL_FRAME_KEPT", ClipSetResult::FULL_FRAME_KEPT);
+
+  enum_<ResolutionSetResult>("ResolutionSetResult")
+      .value("RESIZED", ResolutionSetResult::RESIZED)
+      .value("ALREADY_ACTIVE", ResolutionSetResult::ALREADY_ACTIVE)
+      .value("UNSUPPORTED", ResolutionSetResult::UNSUPPORTED);
+
+  enum_<EffectSetResult>("EffectSetResult")
+      .value("INSTALLED", EffectSetResult::INSTALLED)
+      .value("UNKNOWN_EFFECT", EffectSetResult::UNKNOWN_EFFECT)
+      .value("UNSUPPORTED_RESOLUTION", EffectSetResult::UNSUPPORTED_RESOLUTION);
 
   class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
