@@ -3,7 +3,7 @@
 <text x="40" y="42" font-size="26" text-anchor="start" fill="#2b3a55" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">PHANTASM — 4× Teensy 4.0 Segmented POV Sphere</text>
 <text x="40" y="66" font-size="14" text-anchor="start" fill="#445" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">288-px HD107S display (2 arms × 2 segments × 72 px) · 480 RPM · 288×144 virtual canvas · 1-wire flywheel sync</text>
 <text x="40" y="86" font-size="12" text-anchor="start" fill="#778" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">Pin map from hardware/pov_segmented.h · dma_led.h (LPSPI4) · Phantasm.ino · pov_segment_map.h    —    LOGIC CARD + off-board LED power injection</text>
-<text x="40" y="106" font-size="10.5" text-anchor="start" fill="#778" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Board Rev A · sources: hardware/phantasm/phantasm.kicad_sch · hardware/phantasm/gen/board.py · docs/phantasm_pcb_spec.md</text>
+<text x="40" y="106" font-size="10.5" text-anchor="start" fill="#778" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Board Rev A · sources: hardware/phantasm/phantasm.kicad_sch · hardware/phantasm/gen/board.py · docs/specs/phantasm_pcb_spec.md</text>
 <rect x="40" y="150" width="300" height="760" fill="#fbfcff" stroke="#889" stroke-width="1.5" rx="10"/>
 <text x="190.0" y="174" font-size="13" text-anchor="middle" fill="#556" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">STATIONARY FRAME (off-rotor)</text>
 <rect x="70" y="200" width="240" height="120" fill="#fff" stroke="#2b3a55" stroke-width="2" rx="6"/>
