@@ -30,7 +30,6 @@ struct ShaderBallWhiteBox {
   using WarpEnvelope = SB::WarpEnvelope;
   using PolarMode = SB::PolarMode;
   using CurlIntegrator = SB::CurlIntegrator;
-  using PolarHarmonic = SB::PolarHarmonic;
   using WarpStageKind = SB::WarpStageKind;
   using WarpStageSpec = SB::WarpStageSpec;
   using WarpStageParams = SB::WarpStageParams;
@@ -1179,7 +1178,7 @@ inline void test_shaderball_work_admission() {
 
   WB::RequestedConfig peirce_polar = presets[18];
   peirce_polar.slots.warp_program.inner.kind = WB::WarpStageKind::POLAR_CHART;
-  peirce_polar.slots.warp_program.inner.polar_harmonic = WB::PolarHarmonic::H2;
+  peirce_polar.slots.warp_program.inner.polar_harmonic = 2;
   peirce_polar.params.source.pattern_freq = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(peirce_polar));
   HS_EXPECT_EQ(WB::device_cost(peirce_polar).worst_case_points(), uint16_t(65));
@@ -1392,16 +1391,20 @@ inline void test_shaderball_gui_catalog() {
     HS_EXPECT(def != nullptr, subordinate);
     if (def == nullptr)
       return;
-    const int count = def->option_count;
-    for (int option = 0; option < count; ++option) {
+    // An enum's admissible values are its option indices; an integer param
+    // carries a range instead, so sweep whichever the target declares.
+    const int first = def->option_count > 0 ? 0 : static_cast<int>(def->min);
+    const int last = def->option_count > 0 ? def->option_count - 1
+                                           : static_cast<int>(def->max);
+    for (int value = first; value <= last; ++value) {
       HS_EXPECT_TRUE(
-          sb.updateParameter(subordinate, static_cast<float>(option)) ==
+          sb.updateParameter(subordinate, static_cast<float>(value)) ==
           ParamSetResult::APPLIED);
       sb.draw_frame();
       sb.advance_display();
       WB::settle_transition(sb);
       HS_EXPECT_EQ(sb.getParameters().find(subordinate)->get(),
-                   static_cast<float>(option));
+                   static_cast<float>(value));
     }
   };
   auto select_and_reject_expensive_options = [&](const char *root,
