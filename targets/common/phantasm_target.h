@@ -61,6 +61,30 @@ FLASHMEM void boot_serial() {
 }
 
 /**
+ * @brief Logs the SoC reset cause latched since the last boot, then clears it.
+ * @details Answers whether a board that stopped streaming reset itself or was
+ * power-cycled by hand. A normal upload reboot reads back `por`, so that is the
+ * uninformative baseline; `wdog` or `lockup-or-swreset` is the signal. SRC_SRSR
+ * is write-1-to-clear and accumulates across resets, so leaving it set would
+ * report every earlier boot's cause alongside this one. Bit 1 does not separate
+ * a CPU lockup from a software SYSRESETREQ.
+ */
+FLASHMEM void log_reset_cause() {
+  const uint32_t srsr = SRC_SRSR;
+  SRC_SRSR = srsr;
+  hs::log("reset cause: 0x%03x%s%s%s%s%s%s%s%s%s", (unsigned)srsr,
+          (srsr & SRC_SRSR_IPP_RESET_B) ? " por" : "",
+          (srsr & SRC_SRSR_LOCKUP_SYSRESETREQ) ? " lockup-or-swreset" : "",
+          (srsr & SRC_SRSR_CSU_RESET_B) ? " csu" : "",
+          (srsr & SRC_SRSR_IPP_USER_RESET_B) ? " user-reset" : "",
+          (srsr & SRC_SRSR_WDOG_RST_B) ? " wdog" : "",
+          (srsr & SRC_SRSR_JTAG_RST_B) ? " jtag" : "",
+          (srsr & SRC_SRSR_JTAG_SW_RST) ? " jtag-sw" : "",
+          (srsr & SRC_SRSR_WDOG3_RST_B) ? " wdog3" : "",
+          (srsr & SRC_SRSR_TEMPSENSE_RST_B) ? " tempsense" : "");
+}
+
+/**
  * @brief Allocates the segmented POV driver into g_pov.
  * @details nothrow new + HS_CHECK: a thrown bad_alloc has no handler on Teensy,
  * so fail-fast at the allocation site rather than null-deref in run_show().
