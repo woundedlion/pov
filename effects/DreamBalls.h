@@ -277,7 +277,8 @@ private:
 
   Presets<Params, PRESET_COUNT> preset_manager{PRESETS};
 
-  static bool source_is_four_regular(const MeshState &mesh, Arena &scratch) {
+  HS_COLD_MEMBER static bool source_is_four_regular(const MeshState &mesh,
+                                                    Arena &scratch) {
     ScratchScope guard(scratch);
     uint8_t *degrees = scratch.allocate_n<uint8_t>(mesh.vertices.size());
     std::fill_n(degrees, mesh.vertices.size(), static_cast<uint8_t>(0));
@@ -292,8 +293,9 @@ private:
     return true;
   }
 
-  static uint16_t find_edge_index(const ArenaVector<Plot::Mesh::Edge> &edges,
-                                  uint16_t u, uint16_t v) {
+  HS_COLD_MEMBER static uint16_t
+  find_edge_index(const ArenaVector<Plot::Mesh::Edge> &edges, uint16_t u,
+                  uint16_t v) {
     for (size_t i = 0; i < edges.size(); ++i) {
       const auto &edge = edges[i];
       if ((edge.u == u && edge.v == v) || (edge.u == v && edge.v == u))
@@ -303,9 +305,10 @@ private:
     return 0;
   }
 
-  static void build_four_regular_edges(const MeshState &mesh,
-                                       ArenaVector<Plot::Mesh::Edge> &edges,
-                                       Arena &scratch) {
+  HS_COLD_MEMBER static void
+  build_four_regular_edges(const MeshState &mesh,
+                           ArenaVector<Plot::Mesh::Edge> &edges,
+                           Arena &scratch) {
     ScratchScope guard(scratch);
     HalfEdgeMesh half_edges(scratch, mesh);
     const size_t face_count = mesh.get_face_counts_size();
@@ -356,7 +359,7 @@ private:
     }
   }
 
-  static void
+  HS_COLD_MEMBER static void
   build_medial_edges(const MeshState &mesh,
                      const ArenaVector<Plot::Mesh::Edge> &original_edges,
                      ArenaVector<Plot::Mesh::Edge> &medial_edges) {
@@ -381,17 +384,59 @@ private:
     return x * x * (3.0f - 2.0f * x);
   }
 
-  static void
-  update_medial_vertices(const MeshState &source,
-                         const ArenaVector<Plot::Mesh::Edge> &original_edges,
-                         MeshState &medial) {
-    HS_CHECK(medial.vertices.size() == original_edges.size());
-    for (size_t i = 0; i < original_edges.size(); ++i) {
-      const auto &edge = original_edges[i];
-      medial.vertices[i] =
-          normalized_or(source.vertices[edge.u] + source.vertices[edge.v],
-                        source.vertices[edge.u]);
+  HS_COLD_MEMBER static Tangent tangent_frame(const Vector &normal) {
+    const Vector axis = std::abs(normal.y) > 0.99f ? X_AXIS : Y_AXIS;
+    const Vector u = cross(normal, axis).normalized();
+    return {u, cross(normal, u).normalized()};
+  }
+
+  static Vector parallel_transport(const Vector &from, const Vector &to,
+                                   const Vector &tangent) {
+    const float denominator = 1.0f + dot(from, to);
+    HS_CHECK(denominator > math::TOLERANCE,
+             "DreamBalls weave edge has antipodal endpoints");
+    return tangent - (from + to) * (dot(tangent, to) / denominator);
+  }
+
+  HS_COLD_MEMBER static Vector automatic_vertex(const SolidData &solid,
+                                                size_t vertex) {
+    if (solid.four_regular)
+      return solid.mesh_state.vertices[vertex];
+    const auto &edge = solid.original_edges[vertex];
+    return normalized_or(solid.mesh_state.vertices[edge.u] +
+                             solid.mesh_state.vertices[edge.v],
+                         solid.mesh_state.vertices[edge.u]);
+  }
+
+  HS_COLD_MEMBER static void prepare_automatic_buffers(
+      const SolidData &solid, ArenaVector<Vector> &base_vertices,
+      ArenaVector<Vector> &frame_u, ArenaVector<Vector> &offsets,
+      MeshState &framed_mesh, ArenaVector<Plot::Mesh::Edge> &framed_edges) {
+    const size_t vertex_count = solid.four_regular
+                                    ? solid.mesh_state.vertices.size()
+                                    : solid.original_edges.size();
+    const size_t edge_count = solid.automatic_edges.size();
+
+    base_vertices.bind(scratch_arena_a, vertex_count);
+    frame_u.bind(scratch_arena_a, vertex_count);
+    for (size_t vertex = 0; vertex < vertex_count; ++vertex) {
+      const Vector base = automatic_vertex(solid, vertex);
+      base_vertices.push_back(base);
+      frame_u.push_back(tangent_frame(base).u);
     }
+
+    offsets.bind(scratch_arena_a, vertex_count);
+    for (size_t vertex = 0; vertex < vertex_count; ++vertex)
+      offsets.push_back(Vector());
+
+    framed_mesh.vertices.bind(scratch_arena_a, vertex_count + edge_count);
+    for (size_t vertex = 0; vertex < vertex_count + edge_count; ++vertex)
+      framed_mesh.vertices.push_back(Vector());
+
+    framed_edges.bind(scratch_arena_b, edge_count);
+    for (size_t edge = 0; edge < edge_count; ++edge)
+      framed_edges.push_back({solid.automatic_edges[edge].u,
+                              static_cast<uint16_t>(vertex_count + edge)});
   }
 
   /**
@@ -404,7 +449,8 @@ private:
       const Solids::Entry &entry = Solids::get_entry(solid_idx);
       auto &data = loaded_solids[solid_idx];
 
-      hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      hs::generate(persistent_arena, [&](Arena &target, Arena &a,
+                                         Arena &b) HS_COLD_MEMBER {
         PolyMesh m = Solids::finalize_solid(entry.generate(a, b), a);
 
         HS_CHECK(m.vertices.size() <= MAX_SOLID_VERTICES &&
@@ -429,15 +475,9 @@ private:
           }
         }
 
-        // Per-vertex tangent frame; seed with X_AXIS near the poles to avoid a
-        // degenerate cross product with the near-parallel Y_AXIS.
         data.tangents.bind(target, data.mesh_state.vertices.size());
-        for (const auto &v : data.mesh_state.vertices) {
-          Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
-          Vector u = cross(v, axis).normalized();
-          Vector frame_v = cross(v, u).normalized();
-          data.tangents.push_back({u, frame_v});
-        }
+        for (const auto &v : data.mesh_state.vertices)
+          data.tangents.push_back(tangent_frame(v));
 
         // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
         size_t edge_count = data.mesh_state.faces.size() / 2;
@@ -494,16 +534,11 @@ private:
       const auto &solid =
           loaded_solids[static_cast<size_t>(sprite_params.base_mesh)];
       ScratchScope scratch_a_guard(scratch_arena_a);
-      MeshState target_mesh;
-      {
-        HS_PROFILE(db_mesh_copy);
-        MeshOps::transform(solid.mesh_state, target_mesh, scratch_arena_a);
-      }
 
       // Slot captured at spawn, not active_bake: this sprite renders from its
       // own param + palette snapshot.
       this->draw_scene(canvas, sprite_params, crossfade.opacity(opacity), solid,
-                       target_mesh, baked_palettes[bake_slot]);
+                       baked_palettes[bake_slot]);
     };
 
     const int period = crossfade.schedule(timeline, draw_fn, SPRITE_LIFE,
@@ -539,9 +574,10 @@ private:
    * @details The per-vertex phase (i * VERTEX_PHASE_STAGGER) staggers the
    *          orbits so the surface ripples.
    */
-  void update_displaced_mesh(const MeshState &base, MeshState &target,
-                             const ArenaVector<Tangent> &tangents,
-                             const Params &p, float angle_offset) {
+  HS_COLD_MEMBER void
+  update_displaced_mesh(const MeshState &base, MeshState &target,
+                        const ArenaVector<Tangent> &tangents, const Params &p,
+                        float angle_offset) {
     size_t count = base.vertices.size();
     float r = p.offset_radius;
 
@@ -566,47 +602,82 @@ private:
     }
   }
 
-  /**
-   * @brief Draws p.num_copies orbiting wireframe shells of the preset's solid.
-   * @param canvas Render target.
-   * @param p Live render params (copy count, radius, alpha, etc.).
-   * @param opacity This sprite's crossfade opacity scaling edge alpha.
-   * @param solid Source geometry and precomputed weave topology.
-   * @param target Scratch mesh reused for each copy's displaced vertices.
-   * @param baked Baked palette LUT supplying edge colors.
-   * @details Each copy displaces vertices in their tangent frames (staggered in
-   *          phase by an even 2*PI/num_copies offset), Mobius-warps and orients
-   *          them, then plots the edges shaded from the baked palette at
-   *          p.alpha * opacity.
-   */
-  void draw_scene(Canvas &canvas, const Params &p, float opacity,
-                  const SolidData &solid, MeshState &target,
-                  const BakedPalette &baked) {
-    HS_PROFILE(db_draw_scene);
+  void draw_automatic_scene(Canvas &canvas, const Params &p,
+                            const SolidData &solid,
+                            FragmentShaderFn fragment_shader) {
+    const size_t vertex_count = solid.four_regular
+                                    ? solid.mesh_state.vertices.size()
+                                    : solid.original_edges.size();
+    const size_t edge_count = solid.automatic_edges.size();
 
-    auto fragment_shader = [&](const Vector &, Fragment &f) {
-      Color4 c = baked.get(f.v0);
-      c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
-      f.color = c;
-    };
+    ArenaVector<Vector> base_vertices;
+    ArenaVector<Vector> frame_u;
+    ArenaVector<Vector> offsets;
+    MeshState framed_mesh;
+    ScratchScope scratch_b_guard(scratch_arena_b);
+    ArenaVector<Plot::Mesh::Edge> framed_edges;
+    prepare_automatic_buffers(solid, base_vertices, frame_u, offsets,
+                              framed_mesh, framed_edges);
 
-    const bool automatic = p.weave_topology == WeaveTopology::AUTOMATIC;
-    const bool medial = automatic && !solid.four_regular;
-    const auto &edges =
-        automatic ? solid.automatic_edges : solid.original_edges;
-
-    MeshState medial_mesh;
-    if (medial) {
-      medial_mesh.vertices.bind(scratch_arena_a, solid.original_edges.size());
-      for (size_t i = 0; i < solid.original_edges.size(); ++i)
-        medial_mesh.vertices.push_back(Vector());
-    }
-
-    // Floor at 1 so the i/num_copies divisor below can't hit zero.
     const int num_copies_raw = static_cast<int>(p.num_copies);
     const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
-    for (int i = 0; i < num_copies; ++i) {
-      float offset = (static_cast<float>(i) / num_copies) * 2 * PI_F;
+    for (int copy = 0; copy < num_copies; ++copy) {
+      const float copy_phase =
+          orbit_phase * 2 * PI_F +
+          (static_cast<float>(copy) / num_copies) * 2 * PI_F;
+      {
+        HS_PROFILE(db_displace);
+        for (size_t vertex = 0; vertex < vertex_count; ++vertex) {
+          const Vector &base = base_vertices[vertex];
+          const Vector &u = frame_u[vertex];
+          const Vector v = cross(base, u);
+          const float phase =
+              copy_phase + static_cast<float>(vertex) * VERTEX_PHASE_STAGGER;
+          offsets[vertex] = u * fast_cosf(phase) + v * fast_sinf(phase);
+          framed_mesh.vertices[vertex] =
+              normalized_or(base + offsets[vertex] * p.offset_radius, base);
+        }
+
+        for (size_t edge_index = 0; edge_index < edge_count; ++edge_index) {
+          const auto &edge = solid.automatic_edges[edge_index];
+          const Vector &from = base_vertices[edge.u];
+          const Vector &to = base_vertices[edge.v];
+          const Vector head_offset =
+              parallel_transport(from, to, offsets[edge.u]);
+          framed_mesh.vertices[vertex_count + edge_index] =
+              normalized_or(to + head_offset * p.offset_radius, to);
+        }
+      }
+
+      {
+        HS_PROFILE(db_warp_orient);
+        for (auto &vertex : framed_mesh.vertices) {
+          vertex = mobius_gen.transform(vertex);
+          vertex = global_orientation.orient(vertex);
+        }
+      }
+
+      {
+        HS_PROFILE(db_mesh_plot);
+        Plot::Mesh::draw<W, H>(filters, canvas, framed_mesh, framed_edges,
+                               fragment_shader);
+      }
+    }
+  }
+
+  HS_COLD_MEMBER void draw_original_scene(Canvas &canvas, const Params &p,
+                                          const SolidData &solid,
+                                          FragmentShaderFn fragment_shader) {
+    MeshState target;
+    {
+      HS_PROFILE(db_mesh_copy);
+      MeshOps::transform(solid.mesh_state, target, scratch_arena_a);
+    }
+
+    const int num_copies_raw = static_cast<int>(p.num_copies);
+    const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
+    for (int copy = 0; copy < num_copies; ++copy) {
+      const float offset = (static_cast<float>(copy) / num_copies) * 2 * PI_F;
       {
         HS_PROFILE(db_displace);
         update_displaced_mesh(solid.mesh_state, target, solid.tangents, p,
@@ -615,24 +686,45 @@ private:
 
       {
         HS_PROFILE(db_warp_orient);
-        for (size_t vi = 0; vi < target.vertices.size(); ++vi) {
-          target.vertices[vi] = mobius_gen.transform(target.vertices[vi]);
-          target.vertices[vi] = global_orientation.orient(target.vertices[vi]);
+        for (auto &vertex : target.vertices) {
+          vertex = mobius_gen.transform(vertex);
+          vertex = global_orientation.orient(vertex);
         }
       }
 
       {
         HS_PROFILE(db_mesh_plot);
-        if (medial) {
-          update_medial_vertices(target, solid.original_edges, medial_mesh);
-          Plot::Mesh::draw<W, H>(filters, canvas, medial_mesh, edges,
-                                 fragment_shader);
-        } else {
-          Plot::Mesh::draw<W, H>(filters, canvas, target, edges,
-                                 fragment_shader);
-        }
+        Plot::Mesh::draw<W, H>(filters, canvas, target, solid.original_edges,
+                               fragment_shader);
       }
     }
+  }
+
+  /**
+   * @brief Draws p.num_copies orbiting wireframe shells of the preset's solid.
+   * @param canvas Render target.
+   * @param p Live render params (copy count, radius, alpha, etc.).
+   * @param opacity This sprite's crossfade opacity scaling edge alpha.
+   * @param solid Source geometry and precomputed weave topology.
+   * @param baked Baked palette LUT supplying edge colors.
+   * @details Automatic mode parallel-transports each crossing's outgoing frame
+   *          to the hidden end of every incoming edge. Defect mode retains the
+   *          source mesh's shared vertex framing.
+   */
+  void draw_scene(Canvas &canvas, const Params &p, float opacity,
+                  const SolidData &solid, const BakedPalette &baked) {
+    HS_PROFILE(db_draw_scene);
+
+    auto fragment_shader = [&](const Vector &, Fragment &f) {
+      Color4 c = baked.get(f.v0);
+      c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
+      f.color = c;
+    };
+
+    if (p.weave_topology == WeaveTopology::AUTOMATIC)
+      draw_automatic_scene(canvas, p, solid, fragment_shader);
+    else
+      draw_original_scene(canvas, p, solid, fragment_shader);
   }
 
   /**

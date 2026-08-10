@@ -2369,6 +2369,16 @@ struct DreamBallsWhiteBox {
   static float under_gap_alpha(float edge_t, float gap) {
     return DB::under_gap_alpha(edge_t, gap);
   }
+  static Vector automatic_vertex(const DB &db, size_t solid, size_t vertex) {
+    return DB::automatic_vertex(db.loaded_solids[solid], vertex);
+  }
+  static auto tangent_frame(const Vector &normal) {
+    return DB::tangent_frame(normal);
+  }
+  static Vector parallel_transport(const Vector &from, const Vector &to,
+                                   const Vector &tangent) {
+    return DB::parallel_transport(from, to, tangent);
+  }
   static DB::BaseMesh live_mesh(const DB &db) { return db.params.base_mesh; }
   static DB::WeaveTopology live_weave_topology(const DB &db) {
     return db.params.weave_topology;
@@ -2547,6 +2557,16 @@ inline void test_dreamballs_weave_topology() {
       if (edge.u < automatic_vertex_count && edge.v < automatic_vertex_count) {
         outgoing[edge.u]++;
         incoming[edge.v]++;
+
+        const Vector from = WB::automatic_vertex(db, i, edge.u);
+        const Vector to = WB::automatic_vertex(db, i, edge.v);
+        const auto frame = WB::tangent_frame(from);
+        const Vector offset = frame.u * 0.6f + frame.v * 0.8f;
+        const Vector transported = WB::parallel_transport(from, to, offset);
+        HS_EXPECT_NEAR(dot(transported, to), 0.0f, 2e-5f);
+        HS_EXPECT_NEAR(dot(transported, transported), 1.0f, 2e-5f);
+        HS_EXPECT_VEC(WB::parallel_transport(to, from, transported), offset,
+                      2e-5f);
       }
     }
     for (size_t vertex = 0; vertex < automatic_vertex_count; ++vertex) {
