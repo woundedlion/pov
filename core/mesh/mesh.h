@@ -278,6 +278,9 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
   require_flat_face_length(counts, num_faces, total_indices);
   HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX,
            "half-edge mesh exceeds 16-bit index range");
+  // The pairing-record allocation below rejects a zero-size request.
+  HS_CHECK(total_indices > 0,
+           "half-edge mesh requires at least one face index");
 
   out.faces.bind(arena, num_faces);
   out.half_edges.bind(arena, total_indices);
@@ -431,6 +434,8 @@ HS_COLD static inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
                                                    Arena &scratch,
                                                    const char *op) {
   const size_t num_half_edges = he_mesh.half_edges.size();
+  // The fan-size allocation below rejects a zero-size request.
+  HS_CHECK(num_half_edges > 0, "MeshOps::%s requires a non-empty mesh", op);
   for (size_t i = 0; i < num_half_edges; ++i) {
     HS_CHECK(he_mesh.half_edges[i].pair != HE_NONE,
              "MeshOps::%s requires a closed manifold (unpaired half-edge)", op);
