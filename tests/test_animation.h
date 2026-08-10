@@ -2312,6 +2312,59 @@ inline void test_per_face_segues_satisfy_draw_contract() {
 }
 
 /**
+ * @brief Verifies every segue policy hands schedule()'s pause gate to the
+ * sprite it schedules.
+ * @details Schedulable pins the signature only: a policy can take the gate and
+ * drop it on the way to the timeline, which is the failure that costs frames.
+ * A gated sprite holds its envelope, so the opacity reaching the draw callback
+ * must not move while the flag is set and must climb again once it clears.
+ */
+inline void test_segue_policies_forward_pause_gate() {
+  struct Probe {
+    float opacity = -1.0f;
+    int draws = 0;
+  };
+  auto holds_under_pause = [](auto policy) {
+    Timeline tl;
+    Probe probe;
+    bool paused = false;
+    policy.schedule(
+        tl,
+        [&probe](Canvas &, float opacity) {
+          probe.opacity = opacity;
+          probe.draws++;
+        },
+        /*duration=*/60, /*window=*/20, &paused);
+    tl.step(fake_canvas());
+    tl.step(fake_canvas());
+    const int drawn = probe.draws;
+    const float held = probe.opacity;
+    HS_EXPECT_GT(drawn, 0);
+    HS_EXPECT_LT(held, 1.0f); // mid fade-in, so a resumed frame is detectable
+
+    paused = true;
+    for (int i = 0; i < 5; ++i)
+      tl.step(fake_canvas());
+    HS_EXPECT_EQ(probe.draws, drawn + 5); // held frames still draw
+    HS_EXPECT_NEAR(probe.opacity, held, 1e-6f);
+
+    paused = false;
+    tl.step(fake_canvas());
+    HS_EXPECT_GT(probe.opacity, held);
+  };
+  holds_under_pause(Segue::Base{});
+  holds_under_pause(Segue::Crossfade{});
+  holds_under_pause(Segue::IrisBloom{});
+  holds_under_pause(Segue::Lace{});
+  holds_under_pause(Segue::TerminatorSweep{});
+  holds_under_pause(Segue::Shockwave{});
+  holds_under_pause(Segue::Breakdown{});
+  holds_under_pause(Segue::SpinFlip{});
+  holds_under_pause(Segue::GoldConvergence{});
+  holds_under_pause(Segue::Dissolve{});
+}
+
+/**
  * @brief Verifies Breakdown fades classes sequentially: reorder() yields a
  * permutation of the class ranks, offsets follow the ranks, and each class's
  * fade window is an abutting 1/n slice of the phase range — fully faded
@@ -3454,6 +3507,7 @@ inline int run_animation_tests() {
   test_terminator_sweep_per_face_fade_random_in_range();
   test_shockwave_orders_by_distance_from_origin();
   test_per_face_segues_satisfy_draw_contract();
+  test_segue_policies_forward_pause_gate();
   test_breakdown_fades_classes_sequentially();
   test_breakdown_guards_degenerate_class_inputs();
   test_spin_flip_warp_is_rigid();
