@@ -142,6 +142,7 @@ public:
 #ifndef NDEBUG
     source_arena = &arena;
     birth_generation = arena.get_generation();
+    birth_rewind_floor = arena.get_rewind_floor();
 #endif
     if (!clear_hook_registered) {
       timeline.add_clear_hook(this, [](void *self) {
@@ -174,6 +175,7 @@ public:
            "TransformerPool::reclaim_storage() on a different arena than "
            "init_storage() allocated from");
     birth_generation = arena.get_generation();
+    birth_rewind_floor = arena.get_rewind_floor();
 #endif
   }
 
@@ -266,12 +268,16 @@ private:
       nullptr; /**< Arena the slots were allocated from, for the debug stamp. */
   uint32_t birth_generation =
       0; /**< Arena generation at the last init_storage()/reclaim_storage(). */
+  size_t birth_rewind_floor =
+      0; /**< Arena rewind floor at the last init_storage()/reclaim_storage(). */
 
   /**
    * @brief Debug-only use-after-free check on the pool's arena blocks.
    * @details Asserts if the arena was reset or rebound after init_storage() —
-   * the slots then alias reissued bytes — or rewound below either block. The
-   * raw slot pointers stay non-null through both, so nothing else detects it.
+   * the slots then alias reissued bytes — or rewound below either block, either
+   * while the bytes are still uncovered or after a later allocation reissued
+   * them. The raw slot pointers stay non-null through all of it, so nothing else
+   * detects it.
    */
   void check_storage_alive() const {
     if (source_arena && source_arena->get_generation() != birth_generation) {
@@ -282,6 +288,14 @@ private:
          !source_arena->covers(active_slots, CAPACITY * sizeof(int)))) {
       assert(false &&
              "TransformerPool use-after-free (arena rewound below block)!");
+    }
+    if (source_arena &&
+        (source_arena->reclaimed_since(entities, CAPACITY * sizeof(Entity),
+                                       birth_rewind_floor) ||
+         source_arena->reclaimed_since(active_slots, CAPACITY * sizeof(int),
+                                       birth_rewind_floor))) {
+      assert(false && "TransformerPool use-after-free (slots reclaimed by a "
+                      "rewind and reissued)!");
     }
   }
 #else
