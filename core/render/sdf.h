@@ -1410,6 +1410,17 @@ inline Bounds union_vertical_bounds(Bounds a, Bounds b, int pad, int max_y) {
 }
 
 /**
+ * @brief Tests whether a row lies inside a band widened by @p pad rows.
+ * @param b Band to test against; a culled band (y_min > y_max) holds no row.
+ * @param y Row index.
+ * @param pad Rows of slack allowed on each side.
+ * @return True when y is within pad rows of the band.
+ */
+inline bool row_within_padded_band(Bounds b, int y, int pad) {
+  return b.y_min <= b.y_max && y >= b.y_min - pad && y <= b.y_max + pad;
+}
+
+/**
  * @brief CSG Union operation (A + B), taking the minimum distance of two
  * shapes.
  * @tparam A First child shape type.
@@ -1554,13 +1565,20 @@ template <typename A, typename B> struct SmoothUnion {
    * @return Inclusive row bounds expanded by k (converted to rows).
    */
   template <int H> Bounds get_vertical_bounds() const {
-    constexpr int H_VIRT = H + hs::H_OFFSET;
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
-    // Expand by the blend radius k (radians) converted to rows: phi spans [0,π]
-    // over (H_VIRT-1) rows.
-    int pad = std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));
-    return union_vertical_bounds(b1, b2, pad, H - 1);
+    return union_vertical_bounds(b1, b2, pad_rows<H>(), H - 1);
+  }
+
+  /**
+   * @brief The blend radius as a row count.
+   * @tparam H Canvas height in rows.
+   * @return k (radians) converted to rows, at least 1.
+   */
+  template <int H> int pad_rows() const {
+    constexpr int H_VIRT = H + hs::H_OFFSET;
+    // phi spans [0,π] over (H_VIRT-1) rows.
+    return std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));
   }
 
   /**
@@ -1571,7 +1589,8 @@ template <typename A, typename B> struct SmoothUnion {
    * @param y The row index.
    * @param out Sink accepting (float start, float end).
    * @return True if the row was handled; false (full scan) if either child
-   *         falls back to full width.
+   *         falls back to full width, or if neither child covers a row still
+   *         within the weld's reach.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -1605,8 +1624,17 @@ template <typename A, typename B> struct SmoothUnion {
     if (!has_b)
       return false;
 
-    if (merged.is_empty())
-      return true;
+    if (merged.is_empty()) {
+      // Neither child covers this row, so there is no span to pad, but the weld
+      // bulges outside both children's bands: a row within the blend reach must
+      // be scanned in full or its fringe never renders. Rows beyond the reach of
+      // either band hold no surface.
+      const int pad = pad_rows<H>();
+      return !row_within_padded_band(a.template get_vertical_bounds<H>(), y,
+                                     pad) &&
+             !row_within_padded_band(b.template get_vertical_bounds<H>(), y,
+                                     pad);
+    }
 
     // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
     // union merge is frame-tolerant, so scan_region's wrap+coalesce is the seam
