@@ -2039,7 +2039,7 @@ private:
 
   __attribute__((always_inline)) void
   populate_warp_field(const CoarseGrid &grid, const RenderBand &band,
-                      const WarpField &warp) const {
+                      const WarpField &warp) {
     HS_PROFILE(feedback_populate);
     if (!warp.needs_population)
       return;
