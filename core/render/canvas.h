@@ -350,12 +350,12 @@ public:
     enum class TargetType : uint8_t {
       FLOAT,
       BOOL,
-      ENUM_I8,
-      ENUM_U8,
-      ENUM_I16,
-      ENUM_U16,
-      ENUM_I32,
-      ENUM_U32,
+      INT_I8,
+      INT_U8,
+      INT_I16,
+      INT_U16,
+      INT_I32,
+      INT_U32,
     };
 
     const char *name = nullptr; /**< Parameter name. */
@@ -369,7 +369,8 @@ public:
     float max = 1; /**< Maximum value (for floats). */
     int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
     TargetType target_type = TargetType::FLOAT; /**< Target storage format. */
-    bool animated = false; /**< True if an animation drives this member; the GUI
+    bool animated =
+        false; /**< True if an animation drives this member; the GUI
                                surfaces these as auto-pausing sliders. */
     bool readonly = false; /**< True if this is engine-written telemetry; the
                                GUI shows it live but disables editing. */
@@ -396,17 +397,17 @@ public:
         return *static_cast<const float *>(target);
       case TargetType::BOOL:
         return *static_cast<const bool *>(target) ? 1.0f : 0.0f;
-      case TargetType::ENUM_I8:
+      case TargetType::INT_I8:
         return get_integer<int8_t>();
-      case TargetType::ENUM_U8:
+      case TargetType::INT_U8:
         return get_integer<uint8_t>();
-      case TargetType::ENUM_I16:
+      case TargetType::INT_I16:
         return get_integer<int16_t>();
-      case TargetType::ENUM_U16:
+      case TargetType::INT_U16:
         return get_integer<uint16_t>();
-      case TargetType::ENUM_I32:
+      case TargetType::INT_I32:
         return get_integer<int32_t>();
-      case TargetType::ENUM_U32:
+      case TargetType::INT_U32:
         return get_integer<uint32_t>();
       }
       __builtin_unreachable();
@@ -428,17 +429,17 @@ public:
       case TargetType::BOOL:
         *static_cast<bool *>(target) = v > 0.5f;
         return;
-      case TargetType::ENUM_I8:
+      case TargetType::INT_I8:
         return set_integer<int8_t>(v);
-      case TargetType::ENUM_U8:
+      case TargetType::INT_U8:
         return set_integer<uint8_t>(v);
-      case TargetType::ENUM_I16:
+      case TargetType::INT_I16:
         return set_integer<int16_t>(v);
-      case TargetType::ENUM_U16:
+      case TargetType::INT_U16:
         return set_integer<uint16_t>(v);
-      case TargetType::ENUM_I32:
+      case TargetType::INT_I32:
         return set_integer<int32_t>(v);
-      case TargetType::ENUM_U32:
+      case TargetType::INT_U32:
         return set_integer<uint32_t>(v);
       }
       __builtin_unreachable();
@@ -449,6 +450,16 @@ public:
      * @return True if the target is a bool pointer, false if a float pointer.
      */
     bool is_bool() const { return target_type == TargetType::BOOL; }
+
+    /**
+     * @brief Whether the target stores whole numbers, so the GUI steps by one.
+     * @details True for both an enumerated target and a plain integer one; the
+     * two are told apart by option_count, which only the former sets.
+     */
+    bool is_integer() const {
+      return target_type != TargetType::FLOAT &&
+             target_type != TargetType::BOOL;
+    }
 
     /**
      * @brief Check if this parameter is enumerated (renders as a dropdown).
@@ -782,19 +793,8 @@ protected:
         static_cast<float>(static_cast<std::underlying_type_t<Enum>>(*ptr));
     HS_CHECK(value >= 0.0f && value < static_cast<float>(option_count),
              "register_param: default enum outside option range");
-    using Underlying = std::underlying_type_t<Enum>;
-    static_assert(sizeof(Underlying) <= sizeof(uint32_t),
-                  "register_param: enum underlying type exceeds 32 bits");
-    constexpr auto TARGET_TYPE = [] {
-      if constexpr (sizeof(Underlying) == sizeof(uint8_t))
-        return std::is_signed_v<Underlying> ? ParamDef::TargetType::ENUM_I8
-                                            : ParamDef::TargetType::ENUM_U8;
-      if constexpr (sizeof(Underlying) == sizeof(uint16_t))
-        return std::is_signed_v<Underlying> ? ParamDef::TargetType::ENUM_I16
-                                            : ParamDef::TargetType::ENUM_U16;
-      return std::is_signed_v<Underlying> ? ParamDef::TargetType::ENUM_I32
-                                          : ParamDef::TargetType::ENUM_U32;
-    }();
+    constexpr auto TARGET_TYPE =
+        integer_target_type<std::underlying_type_t<Enum>>();
     auto &def = parameters.data()[parameters.count++];
     def = {};
     def.name = name;
@@ -806,6 +806,51 @@ protected:
     def.export_options = export_options;
     def.target_type = TARGET_TYPE;
     parameters.bump_schema_generation();
+  }
+
+  /**
+   * @brief Registers an integer parameter, rendered by the GUI as a unit-step
+   *   slider.
+   * @tparam Integer Integral type stored by the target, at most 32 bits.
+   * @param name The name to expose.
+   * @param ptr Pointer to the integer variable.
+   * @param min Minimum value, inclusive.
+   * @param max Maximum value, inclusive.
+   * @details For a quantity whose target is a count rather than a choice: the
+   * range carries the bound, so no label array is needed and preset exports
+   * write a plain integer literal. A target with one distinct meaning per value
+   * belongs on the Enum* overload, which exports enumerators instead.
+   */
+  template <typename Integer>
+    requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
+  HS_COLD_MEMBER void register_int_param(const char *name, Integer *ptr,
+                                         int min, int max) {
+    HS_CHECK(parameters.count < parameters.capacity(),
+             "register_int_param: exceeded ParamList capacity");
+    HS_CHECK(parameters.find(name) == nullptr,
+             "register_int_param: duplicate parameter name");
+    HS_CHECK(min <= max, "register_int_param: min must be <= max");
+    const int value = static_cast<int>(*ptr);
+    HS_CHECK(value >= min && value <= max,
+             "register_int_param: default *ptr outside [min,max]");
+    auto &def = parameters.data()[parameters.count++];
+    def = {};
+    def.name = name;
+    def.target = ptr;
+    def.min = static_cast<float>(min);
+    def.max = static_cast<float>(max);
+    def.target_type = integer_target_type<Integer>();
+    parameters.bump_schema_generation();
+  }
+
+  /** @brief Registers an integer param and flags it animation-driven. */
+  template <typename Integer>
+    requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
+  HS_COLD_MEMBER void register_animated_int_param(const char *name,
+                                                  Integer *ptr, int min,
+                                                  int max) {
+    register_int_param(name, ptr, min, max);
+    parameters.data()[parameters.count - 1].animated = true;
   }
 
   /**
@@ -874,6 +919,22 @@ protected:
   }
 
 private:
+  /** @brief TargetType matching an integral storage type's width and sign. */
+  template <typename Integer>
+  static constexpr ParamDef::TargetType integer_target_type() {
+    static_assert(sizeof(Integer) <= sizeof(uint32_t),
+                  "parameter integer type exceeds 32 bits");
+    if constexpr (sizeof(Integer) == sizeof(uint8_t))
+      return std::is_signed_v<Integer> ? ParamDef::TargetType::INT_I8
+                                       : ParamDef::TargetType::INT_U8;
+    else if constexpr (sizeof(Integer) == sizeof(uint16_t))
+      return std::is_signed_v<Integer> ? ParamDef::TargetType::INT_I16
+                                       : ParamDef::TargetType::INT_U16;
+    else
+      return std::is_signed_v<Integer> ? ParamDef::TargetType::INT_I32
+                                       : ParamDef::TargetType::INT_U32;
+  }
+
   /**
    * @brief Advances the drawing buffer pointer to the next available buffer.
    * @details If `persist_pixels` is true, copies the previous frame's content

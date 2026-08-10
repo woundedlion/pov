@@ -681,14 +681,18 @@ public:
    * @brief Builds the GUI's parameter descriptor list.
    * @return JS array with one {name, value, animated, readonly, preset} object
    *         per param in the effect's declaration order, plus {min, max} on
-   *         every non-boolean param and {options} — with {exportOptions}
-   *         alongside it when the param declares C++ enum literals — on every
-   *         enum param; empty array when no effect is set.
+   *         every non-boolean param, {step} on every whole-number param, and
+   *         {options} — with {exportOptions} alongside it when the param
+   *         declares C++ enum literals — on every enum param; empty array when
+   *         no effect is set.
    * @details A boolean param's value is a JS boolean and carries no range; every
-   *          other value is a number. An enum's value indexes its options array.
-   *          preset marks the params a preset export carries. The order matches
-   *          getParamValues(); pin getParamGeneration() beside a snapshot to
-   *          detect a rebind.
+   *          other value is a number. step is 1 on an enum or integer target and
+   *          absent on a float one, so the GUI knows which controls admit only
+   *          whole values. An enum's value indexes its options array; an integer
+   *          param carries a range instead of labels and exports as a plain
+   *          numeric literal. preset marks the params a preset export carries.
+   *          The order matches getParamValues(); pin getParamGeneration() beside
+   *          a snapshot to detect a rebind.
    */
   val getParameterDefinitions() {
     if (!current_effect)
@@ -712,6 +716,8 @@ public:
         entry.set("value", v.value);
         entry.set("min", v.min);
         entry.set("max", v.max);
+        if (v.is_integer)
+          entry.set("step", 1);
         if (v.option_count > 0) {
           // Enum: label array indexed by value; the frontend renders a dropdown.
           val opts = val::array();
