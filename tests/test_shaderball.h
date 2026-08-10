@@ -530,7 +530,8 @@ inline void test_shaderball_manual_edit_timing() {
     HS_EXPECT_TRUE(WB::requested_config(sb) == WB::active_config(sb));
     HS_EXPECT_TRUE(WB::published_config(sb) == WB::active_config(sb));
   }
-  HS_EXPECT_EQ(WB::active_slots(sb).surface_lens, WB::SurfaceLens::NONE);
+  HS_EXPECT_EQ(WB::active_slots(sb).surface_lens,
+               WB::liquid_stereo_slots().surface_lens);
   HS_EXPECT_EQ(WB::active_slots(sb).warp_program.outer.kind,
                WB::WarpStageKind::NONE);
   HS_EXPECT_EQ(WB::active_slots(sb).warp_program.inner.kind,
@@ -925,9 +926,9 @@ inline void test_shaderball_preset_bank() {
     HS_EXPECT_EQ(presets[index].slots.coverage, WB::CoveragePolicy::EDGE_FADE);
     HS_EXPECT_EQ(presets[index].params.value.edge_width, 0.1f);
   }
-  HS_EXPECT_EQ(WB::device_cost(presets[15]).worst_case_points(), uint16_t(24));
-  HS_EXPECT_EQ(WB::device_cost(presets[17]).worst_case_points(), uint16_t(32));
-  HS_EXPECT_EQ(WB::device_cost(presets[18]).worst_case_points(), uint16_t(36));
+  HS_EXPECT_EQ(WB::device_cost(presets[15]).worst_case_points(), uint16_t(45));
+  HS_EXPECT_EQ(WB::device_cost(presets[17]).worst_case_points(), uint16_t(43));
+  HS_EXPECT_EQ(WB::device_cost(presets[18]).worst_case_points(), uint16_t(57));
   HS_EXPECT_EQ(WB::device_cost(presets[19]).worst_case_points(),
                WB::hold_device_point_budget());
   for (size_t index = 0; index < presets.size(); ++index) {
@@ -1149,7 +1150,7 @@ inline void test_shaderball_work_admission() {
     HS_EXPECT_TRUE(WB::hold_admitted(preset));
 
   HS_EXPECT_EQ(WB::noise_call_points(), uint16_t(4));
-  HS_EXPECT_EQ(WB::cost_tier(presets[15]), WB::CostTier::T1);
+  HS_EXPECT_EQ(WB::cost_tier(presets[15]), WB::CostTier::T2);
   HS_EXPECT_EQ(WB::cost_tier(presets[17]), WB::CostTier::T2);
   HS_EXPECT_EQ(WB::cost_tier(presets[18]), WB::CostTier::T3);
   HS_EXPECT_EQ(WB::cost_tier(presets[19]), WB::CostTier::T3);
@@ -1162,7 +1163,7 @@ inline void test_shaderball_work_admission() {
   HS_EXPECT_EQ(WB::device_cost(integrated_ridged).worst_case_noise_calls(),
                uint16_t(96));
   HS_EXPECT_EQ(WB::device_cost(integrated_ridged).worst_case_points(),
-               uint16_t(384));
+               uint16_t(395));
   HS_EXPECT_FALSE(WB::hold_admitted(integrated_ridged));
 
   WB::RequestedConfig peirce_polar = presets[18];
@@ -1170,7 +1171,7 @@ inline void test_shaderball_work_admission() {
   peirce_polar.slots.warp_program.inner.polar_harmonic = WB::PolarHarmonic::H2;
   peirce_polar.params.source.pattern_freq = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(peirce_polar));
-  HS_EXPECT_EQ(WB::device_cost(peirce_polar).worst_case_points(), uint16_t(44));
+  HS_EXPECT_EQ(WB::device_cost(peirce_polar).worst_case_points(), uint16_t(65));
   HS_EXPECT_FALSE(WB::hold_admitted(peirce_polar));
 
   WB::RequestedConfig airocean_mobius = presets[19];
@@ -1178,7 +1179,7 @@ inline void test_shaderball_work_admission() {
   airocean_mobius.params.surface_lens.mix = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(airocean_mobius));
   HS_EXPECT_EQ(WB::device_cost(airocean_mobius).worst_case_points(),
-               uint16_t(52));
+               uint16_t(73));
   HS_EXPECT_FALSE(WB::hold_admitted(airocean_mobius));
 
   for (WB::Projection projection :

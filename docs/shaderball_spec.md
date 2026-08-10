@@ -591,8 +591,11 @@ costs; a through-clear transition costs whichever endpoint it is drawing, so
 its peak is the more expensive of the two.
 
 A constexpr estimator records worst-case base `GetNoise` calls for every
-schema, including source and lens noise. Tier is derived from that count plus
-non-noise kernel flags. Synthetic device captures force time-wrap crossfade and
+schema, including source and lens noise, and scores every remaining per-pixel
+stage in the same point unit: projection, both warp stages, lens, source
+function, value transfer, coverage, and colorizer — the last including the
+OKLab round trip a nonzero `hue_shift` adds to the liquid colorizer. Tier is
+derived from that total. Synthetic device captures force time-wrap crossfade and
 every admitted transition pair; ordinary preset sweeps are insufficient.
 
 Every non-legacy stage selects one envelope evaluated from the original

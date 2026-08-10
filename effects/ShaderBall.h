@@ -1362,7 +1362,7 @@ private:
   };
 
   static constexpr uint16_t NOISE_CALL_POINTS = 4;
-  static constexpr uint16_t HOLD_DEVICE_POINT_BUDGET = 40;
+  static constexpr uint16_t HOLD_DEVICE_POINT_BUDGET = 61;
 
   struct DeviceCost {
     uint16_t fixed_points = 0;
@@ -1528,13 +1528,82 @@ private:
     return lens == SurfaceLens::MOBIUS ? 12 : lens == SurfaceLens::NONE ? 0 : 4;
   }
 
+  static constexpr uint16_t function_fixed_points(Function function) {
+    switch (function) {
+    case Function::TWIN_WAVE:
+      return 4;
+    case Function::RINGS:
+      return 3;
+    case Function::SPIRAL:
+      return 6;
+    case Function::GRID:
+      return 5;
+    case Function::COUPLED_DIRECT:
+      return 12;
+    case Function::NOISE_CONTOUR:
+      return 2;
+    case Function::PRIMITIVE_LATTICE:
+      return 6;
+    }
+    return 0;
+  }
+
+  static constexpr uint16_t
+  value_transfer_fixed_points(ValueTransfer transfer) {
+    return transfer == ValueTransfer::RIDGE          ? 1
+           : transfer == ValueTransfer::ISO_CONTOUR  ? 2
+           : transfer == ValueTransfer::SMOOTH_BANDS ? 4
+                                                     : 0;
+  }
+
+  static constexpr uint16_t coverage_fixed_points(CoveragePolicy coverage) {
+    switch (coverage) {
+    case CoveragePolicy::OPAQUE:
+      return 0;
+    case CoveragePolicy::PROJECTION_WEIGHT:
+    case CoveragePolicy::PROJECTION_WEIGHT_SQUARED:
+      return 1;
+    case CoveragePolicy::VALUE_CUTOUT:
+      return 2;
+    case CoveragePolicy::EDGE_FADE:
+      return 3;
+    }
+    return 0;
+  }
+
+  /**
+   * @brief Points for the colorize stage, including the OKLab round trip a
+   *        nonzero `hue_shift` adds to the liquid colorizer.
+   */
+  static constexpr uint16_t colorizer_fixed_points(const Config &config) {
+    if (config.slots.colorizer == Colorizer::DEFORMATION_INK)
+      return 6;
+    if (config.slots.colorizer == Colorizer::LIQUID &&
+        config.params.colorizer.hue_shift != 0.0f)
+      return 18;
+    return 2;
+  }
+
+  /**
+   * @brief Worst-case per-pixel work of one config, in calibrated points.
+   * @details One point is roughly a quarter of a scalar `GetNoise` call, the
+   * unit `NOISE_CALL_POINTS` fixes. Every per-pixel stage is scored —
+   * projection, both warp stages, lens, source function, value transfer,
+   * coverage, and colorizer — because the total is the sole admission gate for
+   * GUI edits, preset holds, and transition edges. `shader_lookups` multiplies
+   * the whole pipeline, since a split lens branch reruns all of it.
+   */
   static constexpr DeviceCost device_cost(const Config &config) {
     DeviceCost result;
     result.fixed_points =
         projection_fixed_points(config.slots.projection) +
         warp_fixed_points(config.slots.warp_program.outer.kind) +
         warp_fixed_points(config.slots.warp_program.inner.kind) +
-        lens_fixed_points(config.slots.surface_lens);
+        lens_fixed_points(config.slots.surface_lens) +
+        function_fixed_points(config.slots.function) +
+        value_transfer_fixed_points(config.slots.value_transfer) +
+        coverage_fixed_points(config.slots.coverage) +
+        colorizer_fixed_points(config);
     result.noise_calls = warp_noise_calls(config.slots.warp_program.outer) +
                          warp_noise_calls(config.slots.warp_program.inner);
     if (config.slots.function == Function::NOISE_CONTOUR)
@@ -1553,9 +1622,9 @@ private:
 
   static constexpr CostTier cost_tier(const DeviceCost &cost) {
     const uint16_t points = cost.worst_case_points();
-    return points <= 12   ? CostTier::T0
-           : points <= 24 ? CostTier::T1
-           : points <= 32 ? CostTier::T2
+    return points <= 20   ? CostTier::T0
+           : points <= 36 ? CostTier::T1
+           : points <= 48 ? CostTier::T2
                           : CostTier::T3;
   }
 
@@ -3300,6 +3369,8 @@ private:
         from.slots.surface_lens != SurfaceLens::NONE &&
         from.params.surface_lens.mix != to.params.surface_lens.mix)
       worst.params.surface_lens.mix = 0.5f;
+    worst.params.colorizer.hue_shift = max_abs_value(
+        from.params.colorizer.hue_shift, to.params.colorizer.hue_shift);
     return within_hold_device_budget(device_cost(worst));
   }
 
