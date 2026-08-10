@@ -2826,8 +2826,8 @@ inline void test_colorwipe_reaches_target_keys() {
   HS_EXPECT_TRUE(wipe.done());
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L,
                  GenerativePalette::snapshot_key(target, 0).L, 1e-6f);
-  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).C,
-                 GenerativePalette::snapshot_key(target, 0).C, 1e-6f);
+  HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).chroma,
+                 GenerativePalette::snapshot_key(target, 0).chroma, 1e-6f);
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 1).h,
                  GenerativePalette::snapshot_key(target, 1).h, 1e-6f);
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 2).L,

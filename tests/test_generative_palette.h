@@ -337,7 +337,8 @@ inline void test_generative_palette_snapshot_lerp() {
   const auto last_key = GenerativePalette::snapshot_key(last, 0);
   const auto middle_key = GenerativePalette::snapshot_key(middle, 0);
   HS_EXPECT_NEAR(middle_key.L, 0.5f * (first_key.L + last_key.L), 3e-4f);
-  HS_EXPECT_NEAR(middle_key.q, 0.5f * (first_key.q + last_key.q), 3e-4f);
+  HS_EXPECT_NEAR(middle_key.chroma, 0.5f * (first_key.chroma + last_key.chroma),
+                 3e-4f);
 
   from.lerp(first, last, 1.0f);
   const GenerativePalette::Snapshot target = from.snapshot();

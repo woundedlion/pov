@@ -23,11 +23,9 @@ class GenerativePalette : public Palette {
 public:
   struct ControlKey {
     float L;
-    union {
-      float chroma;
-      float C;
-      float q;
-    };
+    /** Gamut-relative q under a relative chroma basis, absolute C otherwise;
+     *  ChromaBasis picks which. */
+    float chroma;
     float h;
 
     constexpr ControlKey(float lightness = 0.0f, float chroma = 0.0f,
@@ -918,8 +916,8 @@ private:
 
   bool is_chromatic(const ControlKey &key) const {
     return chroma_basis == ChromaBasis::LOCAL_GAMUT
-               ? key.q > 0.0f
-               : key.C >= OKLCH_ACHROMATIC_C;
+               ? key.chroma > 0.0f
+               : key.chroma >= OKLCH_ACHROMATIC_C;
   }
 
   float apply_easing(float progress) const {
@@ -1045,9 +1043,9 @@ private:
   HS_COLD_MEMBER float realized_chroma(const ControlKey &key,
                                        float h_final) const {
     if (chroma_basis == ChromaBasis::LOCAL_GAMUT)
-      return std::min(key.q, headroom) *
+      return std::min(key.chroma, headroom) *
              gamut_continuous_chroma(key.L, h_final);
-    return std::max(0.0f, key.C);
+    return std::max(0.0f, key.chroma);
   }
 
   HS_COLD_MEMBER float diagnostic_q(float C, float boundary,
