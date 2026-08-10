@@ -137,10 +137,14 @@ TREE=${HS_PROFILE_TREE:-$(main_tree)} ||
   { echo "cannot resolve the main checkout from $(dirname "$0")" >&2; exit 1; }
 cd "$TREE" || { echo "no such tree: $TREE" >&2; exit 1; }
 mkdir -p "$(dirname "$OUT")"
-export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $MSP_FLAGS $EXTRA"
+TARGET_FLAGS=""
+if [ "$EFFECT" = ShadierBall ]; then
+  TARGET_FLAGS="-D HS_EXTERNAL_PARAM_STORAGE -D HS_PROFILE_EFFECT_HEAP_BYTES=8192"
+fi
+export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $TARGET_FLAGS $DEEP $MSP_FLAGS $EXTRA"
 
 # Cyclers emit a per-advance marker; a capture of one must contain it.
-CYCLERS="ShaderBall ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
+CYCLERS="ShaderBall ShadierBall ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
 MARKER=""
 case " $CYCLERS " in *" $EFFECT "*)
   case "$EFFECT" in

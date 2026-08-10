@@ -100,7 +100,21 @@ static Pixel replay_reference_pixels[MAX_W * MAX_H / NUM_SEGMENTS];
  * both every WINDOW_FRAMES frames.
  */
 template <int W, int H> class ProfiledEffect : public HS_PROFILE_TARGET<W, H> {
+#ifdef HS_PROFILE_EFFECT_HEAP_BYTES
+  alignas(16) static inline uint8_t
+      effect_storage[HS_PROFILE_EFFECT_HEAP_BYTES]{};
+#endif
+
 public:
+#ifdef HS_PROFILE_EFFECT_HEAP_BYTES
+  static void *operator new(size_t size, const std::nothrow_t &) noexcept {
+    return size <= sizeof(effect_storage) ? effect_storage : nullptr;
+  }
+
+  static void operator delete(void *) noexcept {}
+  static void operator delete(void *, const std::nothrow_t &) noexcept {}
+#endif
+
 #ifdef HS_MINDSPLATTER_REPLAY
   void init() override {
     using Target = HS_PROFILE_TARGET<W, H>;
@@ -579,8 +593,12 @@ static constexpr size_t PROFILE_WRAPPER_BYTES = 192;
 #else
 static constexpr size_t PROFILE_WRAPPER_BYTES = 64;
 #endif
+#ifdef HS_PROFILE_EFFECT_HEAP_BYTES
+static constexpr size_t MAX_EFFECT_HEAP_BYTES = HS_PROFILE_EFFECT_HEAP_BYTES;
+#else
 static constexpr size_t MAX_EFFECT_HEAP_BYTES =
     HS_PHANTASM_EFFECT_HEAP_BYTES + PROFILE_WRAPPER_BYTES;
+#endif
 
 #ifdef HS_PROFILE_PRESET
 template <typename E> void select_profile_preset(E &effect) {

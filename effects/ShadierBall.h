@@ -104,6 +104,28 @@ public:
     publish_live_config();
   }
 
+#if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
+  void profile_select_preset(size_t index) {
+    HS_CHECK(index < PRESETS.size(),
+             "ShadierBall profile preset index out of range");
+    setAnimationsPaused(true);
+    param_morph.active = false;
+    transition.active = false;
+    pending_transition.active = false;
+    preset_index = index;
+    active_slots = PRESETS[index].slots;
+    blend.params = PRESETS[index].params;
+    requested_config = PRESETS[index];
+    published_config = PRESETS[index];
+    runtime = {};
+    HS_CHECK(prepare_resource_union(PRESETS[index], PRESETS[index]),
+             "ShadierBall profile preset resources exceed capacity");
+    rebind_parameters();
+    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
+            static_cast<unsigned>(PRESETS.size()));
+  }
+#endif
+
 private:
   friend struct ::hs_test::shadierball_tests::ShadierBallWhiteBox;
 
@@ -655,29 +677,64 @@ private:
     register_animated_param("Colorizer", &slots.colorizer, COLORIZER_OPTIONS,
                             COLORIZER_EXPORT_OPTIONS, NUM_COLORIZERS);
     register_active_parameter_controls(slots, requested_config.params);
+    requested_schema_bound = true;
   }
 
 #if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+  enum class EditIntent : uint8_t {
+    NONE,
+    FUNCTION,
+    PROJECTION,
+    LENS,
+    OUTER_WARP,
+    INNER_WARP,
+    OUTER_POLAR_HARMONIC,
+    INNER_POLAR_HARMONIC,
+  };
+
   static void dispatch_parameter_updated(Effect *effect, const char *name,
                                          bool is_enum) {
     static_cast<ShadierBall *>(effect)->parameter_updated(name, is_enum);
   }
 
   void parameter_updated(const char *name, bool is_enum) {
-    requested_config_canonicalized = false;
-    if (!is_enum || !schema_selector(name))
+    if (!is_enum) {
+      if (std::strncmp(name, "Mobius ", 7) == 0)
+        canonicalize_mobius(requested_config.params.surface_lens.mobius);
       return;
-    canonicalize_requested_config();
-    if (!valid_config(requested_config))
-      requested_config = published_config;
-    requested_config_canonicalized = true;
-    rebind_parameters();
+    }
+    const EditIntent intent = edit_intent(name);
+    if (intent != EditIntent::NONE)
+      canonicalize_selector_edit(requested_config, intent);
+    if (schema_selector(name))
+      rebind_parameters();
+  }
+
+  static EditIntent edit_intent(const char *name) {
+    if (std::strcmp(name, "Function") == 0)
+      return EditIntent::FUNCTION;
+    if (std::strcmp(name, "Projection") == 0)
+      return EditIntent::PROJECTION;
+    if (std::strcmp(name, "Lens") == 0)
+      return EditIntent::LENS;
+    if (std::strcmp(name, "Outer Warp") == 0)
+      return EditIntent::OUTER_WARP;
+    if (std::strcmp(name, "Inner Warp") == 0)
+      return EditIntent::INNER_WARP;
+    if (std::strcmp(name, "Outer Polar Harmonic") == 0)
+      return EditIntent::OUTER_POLAR_HARMONIC;
+    if (std::strcmp(name, "Inner Polar Harmonic") == 0)
+      return EditIntent::INNER_POLAR_HARMONIC;
+    return EditIntent::NONE;
   }
 
   static bool schema_selector(const char *name) {
     return std::strcmp(name, "Function") == 0 ||
            std::strcmp(name, "Projection") == 0 ||
            std::strcmp(name, "Peirce Layout") == 0 ||
+           std::strcmp(name, "Airocean Layout") == 0 ||
+           std::strcmp(name, "Bonne Hemisphere") == 0 ||
+           std::strcmp(name, "Gnomonic Hemisphere") == 0 ||
            std::strcmp(name, "Projection Frame") == 0 ||
            std::strcmp(name, "Lens") == 0 ||
            std::strcmp(name, "Outer Warp") == 0 ||
@@ -686,11 +743,115 @@ private:
            std::strcmp(name, "Coverage") == 0 ||
            std::strcmp(name, "Colorizer") == 0;
   }
+
+  static void clear_strict_seam_incompatible(Config &config) {
+    if (config.slots.function == Function::NOISE_CONTOUR)
+      config.slots.function = Function::COUPLED_DIRECT;
+    if (config.slots.surface_lens == SurfaceLens::TANGENT_NOISE)
+      config.slots.surface_lens = SurfaceLens::NONE;
+    if (seam_sensitive_warp(config.slots.warp_program.outer.kind))
+      config.slots.warp_program.outer.kind = WarpStageKind::NONE;
+    if (seam_sensitive_warp(config.slots.warp_program.inner.kind))
+      config.slots.warp_program.inner.kind = WarpStageKind::NONE;
+  }
+
+  static void clear_incompatible_polar_stages(Config &config) {
+    if (config.slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART &&
+        !polar_source_compatible(config, config.slots.warp_program.outer))
+      config.slots.warp_program.outer.kind = WarpStageKind::NONE;
+    if (config.slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART &&
+        !polar_source_compatible(config, config.slots.warp_program.inner))
+      config.slots.warp_program.inner.kind = WarpStageKind::NONE;
+  }
+
+  static void canonicalize_selector_edit(Config &config, EditIntent intent) {
+    WarpStageSpec &outer = config.slots.warp_program.outer;
+    WarpStageSpec &inner = config.slots.warp_program.inner;
+    switch (intent) {
+    case EditIntent::FUNCTION:
+      if (strict_projection(config.slots.projection) &&
+          config.slots.function == Function::NOISE_CONTOUR)
+        config.slots.projection = Projection::EQUIRECTANGULAR;
+      clear_incompatible_polar_stages(config);
+      break;
+    case EditIntent::PROJECTION:
+      if (config.slots.projection != Projection::STEREOGRAPHIC) {
+        if (outer.kind == WarpStageKind::LEGACY_STEREO_NOISE)
+          outer.kind = WarpStageKind::NONE;
+        if (inner.kind == WarpStageKind::LEGACY_STEREO_NOISE)
+          inner.kind = WarpStageKind::NONE;
+      }
+      if (strict_projection(config.slots.projection))
+        clear_strict_seam_incompatible(config);
+      break;
+    case EditIntent::LENS:
+      if (strict_projection(config.slots.projection) &&
+          config.slots.surface_lens == SurfaceLens::TANGENT_NOISE)
+        config.slots.projection = Projection::EQUIRECTANGULAR;
+      break;
+    case EditIntent::OUTER_WARP:
+      if (outer.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
+        config.slots.projection = Projection::STEREOGRAPHIC;
+        if (inner.kind == WarpStageKind::LEGACY_STEREO_NOISE)
+          inner.kind = WarpStageKind::NONE;
+      } else if (seam_sensitive_warp(outer.kind) &&
+                 strict_projection(config.slots.projection)) {
+        config.slots.projection = Projection::EQUIRECTANGULAR;
+      }
+      if (outer.kind == WarpStageKind::POLAR_CHART) {
+        inner.kind = WarpStageKind::NONE;
+        if (!polar_source_compatible(config, outer)) {
+          config.slots.function = Function::COUPLED_DIRECT;
+          config.params.source.pattern_freq = 1.0f;
+        }
+      }
+      if (warp_uses_noise(outer.kind))
+        outer.resource_id = 0;
+      canonicalize_warp_params(outer, config.params.warp.outer);
+      break;
+    case EditIntent::INNER_WARP:
+      if (inner.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
+        config.slots.projection = Projection::STEREOGRAPHIC;
+        if (outer.kind == WarpStageKind::LEGACY_STEREO_NOISE)
+          outer.kind = WarpStageKind::NONE;
+      } else if (seam_sensitive_warp(inner.kind) &&
+                 strict_projection(config.slots.projection)) {
+        config.slots.projection = Projection::EQUIRECTANGULAR;
+      }
+      if (inner.kind == WarpStageKind::POLAR_CHART) {
+        if (outer.kind == WarpStageKind::POLAR_CHART)
+          outer.kind = WarpStageKind::NONE;
+        if (!polar_source_compatible(config, inner)) {
+          config.slots.function = Function::COUPLED_DIRECT;
+          config.params.source.pattern_freq = 1.0f;
+        }
+      }
+      if (warp_uses_noise(inner.kind))
+        inner.resource_id = 1;
+      canonicalize_warp_params(inner, config.params.warp.inner);
+      break;
+    case EditIntent::OUTER_POLAR_HARMONIC:
+      if (outer.kind == WarpStageKind::POLAR_CHART &&
+          !polar_source_compatible(config, outer))
+        config.params.source.pattern_freq = 1.0f;
+      break;
+    case EditIntent::INNER_POLAR_HARMONIC:
+      if (inner.kind == WarpStageKind::POLAR_CHART &&
+          !polar_source_compatible(config, inner))
+        config.params.source.pattern_freq = 1.0f;
+      break;
+    case EditIntent::NONE:
+      break;
+    }
+  }
 #endif
 
   HS_COLD_MEMBER void register_active_parameter_controls(Slots &slots,
                                                          Params &params) {
-    register_source_controls(slots.function, params.source);
+    const bool polar_topology =
+        slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART ||
+        slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
+    register_source_controls(slots.function, params.source, !polar_topology);
     register_projection_controls(slots, params);
     register_lens_controls(slots.surface_lens, params.surface_lens);
     register_active_warp_controls("Outer", slots.warp_program.outer,
@@ -752,7 +913,8 @@ private:
   }
 
   HS_COLD_MEMBER void register_source_controls(Function function,
-                                               SourceParams &params) {
+                                               SourceParams &params,
+                                               bool expose_pattern_frequency) {
     if (function == Function::NOISE_CONTOUR) {
       register_animated_param("Source Noise Scale", &params.noise_scale,
                               NOISE_SCALE_MIN, NOISE_SCALE_MAX);
@@ -776,8 +938,9 @@ private:
                               1.0f / 64.0f, 0.49f);
       return;
     }
-    register_animated_param("Pattern Freq", &params.pattern_freq,
-                            PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+    if (expose_pattern_frequency)
+      register_animated_param("Pattern Freq", &params.pattern_freq,
+                              PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
     register_animated_param("Source Angle Rate", &params.angle_rate,
                             WAVE_SPIN_MIN, WAVE_SPIN_MAX);
@@ -1144,9 +1307,20 @@ private:
   enum class TransitionMode : uint8_t { DUAL_OUTPUT, THROUGH_CLEAR };
 
   struct WorkSignature {
+    uint16_t fixed_units = 0;
     uint16_t noise_calls = 0;
     uint8_t shader_lookups = 1;
+
+    constexpr uint16_t worst_case_noise_calls() const {
+      return noise_calls * shader_lookups;
+    }
+
+    constexpr uint16_t worst_case_work_units() const {
+      return (fixed_units + noise_calls) * shader_lookups;
+    }
   };
+
+  enum class WorkTier : uint8_t { LIGHT, STANDARD, HEAVY, REJECTED };
 
   struct TransitionRuntime {
     Config from_config;
@@ -1199,6 +1373,11 @@ private:
   static constexpr bool warp_uses_noise(WarpStageKind kind) {
     return kind == WarpStageKind::LEGACY_STEREO_NOISE ||
            kind == WarpStageKind::VECTOR_NOISE ||
+           kind == WarpStageKind::CURL_FLOW;
+  }
+
+  static constexpr bool seam_sensitive_warp(WarpStageKind kind) {
+    return kind == WarpStageKind::VECTOR_NOISE ||
            kind == WarpStageKind::CURL_FLOW;
   }
 
@@ -1302,8 +1481,33 @@ private:
     return 2 * gradients * 4 * scalar_noise_calls(spec.basis);
   }
 
+  static constexpr uint16_t projection_fixed_units(Projection projection) {
+    return projection == Projection::BONNE                ? 12
+           : projection == Projection::PEIRCE_QUINCUNCIAL ? 36
+           : projection == Projection::AIROCEAN           ? 40
+                                                          : 0;
+  }
+
+  static constexpr uint16_t warp_fixed_units(WarpStageKind kind) {
+    return kind == WarpStageKind::AFFINE_FRAME  ? 2
+           : kind == WarpStageKind::WAVE_SHEAR  ? 4
+           : kind == WarpStageKind::VORTEX      ? 6
+           : kind == WarpStageKind::MIRROR_TILE ? 6
+           : kind == WarpStageKind::POLAR_CHART ? 8
+                                                : 0;
+  }
+
+  static constexpr uint16_t lens_fixed_units(SurfaceLens lens) {
+    return lens == SurfaceLens::MOBIUS ? 12 : lens == SurfaceLens::NONE ? 0 : 4;
+  }
+
   static constexpr WorkSignature work_signature(const Config &config) {
     WorkSignature result;
+    result.fixed_units =
+        projection_fixed_units(config.slots.projection) +
+        warp_fixed_units(config.slots.warp_program.outer.kind) +
+        warp_fixed_units(config.slots.warp_program.inner.kind) +
+        lens_fixed_units(config.slots.surface_lens);
     result.noise_calls = warp_noise_calls(config.slots.warp_program.outer) +
                          warp_noise_calls(config.slots.warp_program.inner);
     if (config.slots.function == Function::NOISE_CONTOUR)
@@ -1318,6 +1522,22 @@ private:
         config.params.surface_lens.mix < 1.0f)
       result.shader_lookups = 2;
     return result;
+  }
+
+  // Conservative admission ceiling pending calibration from on-device holds.
+  static constexpr uint16_t HOLD_WORK_UNIT_CEILING = 96;
+
+  static constexpr WorkTier work_tier(const WorkSignature &signature) {
+    const uint16_t units = signature.worst_case_work_units();
+    return units <= 32                       ? WorkTier::LIGHT
+           : units <= 64                     ? WorkTier::STANDARD
+           : units <= HOLD_WORK_UNIT_CEILING ? WorkTier::HEAVY
+                                             : WorkTier::REJECTED;
+  }
+
+  static constexpr bool hold_admitted(const Config &config) {
+    return valid_config(config) &&
+           work_tier(work_signature(config)) != WorkTier::REJECTED;
   }
 
   static constexpr TransitionMode transition_mode(const Config &from,
@@ -1445,32 +1665,12 @@ private:
                                          const ProjectedLookup &b,
                                          Projection projection,
                                          float coordinate_scale = 1.0f) {
-    if (projection == Projection::BONNE)
+    if (strict_projection(projection)) {
+      (void)a;
+      (void)b;
+      (void)coordinate_scale;
       return false;
-    if (projection == Projection::PEIRCE_QUINCUNCIAL) {
-      const bool periodic_pair =
-          a.edge_class == b.edge_class && a.flags == b.flags &&
-          (a.traits & shadierball::projection_traits(
-                          shadierball::ProjectionTrait::PERIODIC)) != 0 &&
-          (b.traits & shadierball::projection_traits(
-                          shadierball::ProjectionTrait::PERIODIC)) != 0;
-      if (!periodic_pair)
-        return a.region_id == b.region_id && a.flags == b.flags;
-      constexpr float PEIRCE_HALF_PERIOD = 3.7081493546027438f;
-      const float half_period = PEIRCE_HALF_PERIOD * fabsf(coordinate_scale);
-      if (a.edge_class == 4)
-        return fabsf(a.coords.re - b.coords.re) <= half_period;
-      if (a.edge_class == 5)
-        return fabsf(a.coords.im - b.coords.im) <= half_period;
-      return true;
     }
-    if (projection == Projection::AIROCEAN)
-      return a.region_id == b.region_id ||
-             (a.edge_class == b.edge_class &&
-              (a.traits & shadierball::projection_traits(
-                              shadierball::ProjectionTrait::GLUED)) != 0 &&
-              (b.traits & shadierball::projection_traits(
-                              shadierball::ProjectionTrait::GLUED)) != 0);
     return a.component_id == b.component_id && a.flags == b.flags &&
            ((a.boundary_flags | b.boundary_flags) &
             (BOUNDARY_CUT | BOUNDARY_SINGULAR)) == 0;
@@ -1689,7 +1889,8 @@ private:
     case Projection::BONNE:
     case Projection::PEIRCE_QUINCUNCIAL:
     case Projection::AIROCEAN:
-      return blend_projection_branches(direct, lensed, mix);
+      HS_CHECK(false, "strict projection joins require complete-output blend");
+      __builtin_unreachable();
     }
     const float r_sq = coords.re * coords.re + coords.im * coords.im;
     return {coords,
@@ -1701,23 +1902,6 @@ private:
             selected->flags,
             selected->traits,
             selected->edge_class,
-            hs::lerp(direct.domain_coverage, lensed.domain_coverage, mix)};
-  }
-
-  static ProjectedLookup
-  blend_projection_branches(const ProjectedLookup &direct,
-                            const ProjectedLookup &lensed, float mix) {
-    const ProjectedLookup &selected = mix < 0.5f ? direct : lensed;
-    return {{hs::lerp(direct.coords.re, lensed.coords.re, mix),
-             hs::lerp(direct.coords.im, lensed.coords.im, mix)},
-            selected.region_id,
-            selected.component_id,
-            selected.boundary_flags,
-            std::min(direct.fade_edge_distance, lensed.fade_edge_distance),
-            1.0f,
-            selected.flags,
-            selected.traits,
-            selected.edge_class,
             hs::lerp(direct.domain_coverage, lensed.domain_coverage, mix)};
   }
 
@@ -1797,8 +1981,12 @@ private:
       const float phase = params.frequency * (c * input.re + s * input.im) +
                           TWO_PI_F * stage_phase;
       const float offset = amplitude * sinf(phase);
-      output = {input.re - s * offset, input.im + c * offset};
-      break;
+      const Complex delta(-s * offset, c * offset);
+      return {{input.re + delta.re, input.im + delta.im},
+              delta,
+              fabsf(offset),
+              fabsf(offset),
+              0};
     }
     case WarpStageKind::VORTEX: {
       const float center_x = params.center_x + params.center_orbit_radius *
@@ -1836,16 +2024,25 @@ private:
       }
       const float c = cosf(params.vector_angle);
       const float s = sinf(params.vector_angle);
-      output = {input.re + amplitude * (c * zero_dc_x - s * ny),
-                input.im + amplitude * (s * zero_dc_x + c * ny)};
-      break;
+      const Complex delta(amplitude * (c * zero_dc_x - s * ny),
+                          amplitude * (s * zero_dc_x + c * ny));
+      const float deformation =
+          sqrtf(delta.re * delta.re + delta.im * delta.im);
+      return {{input.re + delta.re, input.im + delta.im},
+              delta,
+              deformation,
+              deformation,
+              0};
     }
     case WarpStageKind::CURL_FLOW: {
       if (params.strength == 0.0f)
         return {input, Complex(), 0.0f, 0.0f, 0};
+      Complex delta;
       output = curl_flow(input, *stage_noise, spec, params, amplitude,
-                         stage_phase, path_length);
-      break;
+                         stage_phase, delta, path_length);
+      const float deformation =
+          sqrtf(delta.re * delta.re + delta.im * delta.im);
+      return {output, delta, deformation, path_length, 0};
     }
     case WarpStageKind::MIRROR_TILE: {
       const Complex transformed = mirror_tile(input, params);
@@ -1933,7 +2130,7 @@ private:
   static Complex curl_flow(const Complex &input, const FastNoiseLite &noise,
                            const WarpStageSpec &spec,
                            const WarpStageParams &params, float distance,
-                           float time, float &path_length) {
+                           float time, Complex &net_delta, float &path_length) {
     const int intervals = spec.curl_integrator == CurlIntegrator::EULER_1 ? 1
                           : spec.curl_integrator == CurlIntegrator::MIDPOINT_2
                               ? 2
@@ -1941,6 +2138,7 @@ private:
     Complex q = input;
     const float step = distance / intervals;
     path_length = 0.0f;
+    net_delta = {};
     for (int index = 0; index < intervals; ++index) {
       const Complex first =
           curl_vector(q, noise, spec.basis, params.scale, time);
@@ -1953,6 +2151,7 @@ private:
       }
       const Complex delta(step * direction.re, step * direction.im);
       q = {q.re + delta.re, q.im + delta.im};
+      net_delta = {net_delta.re + delta.re, net_delta.im + delta.im};
       path_length += sqrtf(delta.re * delta.re + delta.im * delta.im);
     }
     return q;
@@ -2424,14 +2623,9 @@ private:
   }
 
   HS_COLD_MEMBER void apply_requested_config() {
-    if (requested_config == published_config) {
-      requested_config_canonicalized = false;
+    if (requested_config == published_config)
       return;
-    }
-    if (!requested_config_canonicalized)
-      canonicalize_requested_config();
-    requested_config_canonicalized = false;
-    if (!valid_config(requested_config)) {
+    if (!hold_admitted(requested_config)) {
       requested_config = published_config;
       rebind_parameters();
       if (transition.active && transition.continue_choreo)
@@ -2441,70 +2635,12 @@ private:
     if (try_apply_config(requested_config, MANUAL_TRANSITION_FRAMES, false,
                          false)) {
       published_config = requested_config;
-      rebind_parameters();
+      if (!requested_schema_bound)
+        rebind_parameters();
     } else if (!transition.active) {
       requested_config = published_config;
       rebind_parameters();
     }
-  }
-
-  HS_COLD_MEMBER void canonicalize_requested_config() {
-    const bool projection_changed =
-        requested_config.slots.projection != published_config.slots.projection;
-    const bool outer_warp_changed =
-        requested_config.slots.warp_program.outer.kind !=
-        published_config.slots.warp_program.outer.kind;
-    const bool inner_warp_changed =
-        requested_config.slots.warp_program.inner.kind !=
-        published_config.slots.warp_program.inner.kind;
-    if (projection_changed &&
-        requested_config.slots.projection != Projection::STEREOGRAPHIC) {
-      if (requested_config.slots.warp_program.outer.kind ==
-          WarpStageKind::LEGACY_STEREO_NOISE)
-        requested_config.slots.warp_program.outer.kind = WarpStageKind::NONE;
-      if (requested_config.slots.warp_program.inner.kind ==
-          WarpStageKind::LEGACY_STEREO_NOISE)
-        requested_config.slots.warp_program.inner.kind = WarpStageKind::NONE;
-    } else if ((outer_warp_changed &&
-                requested_config.slots.warp_program.outer.kind ==
-                    WarpStageKind::LEGACY_STEREO_NOISE) ||
-               (inner_warp_changed &&
-                requested_config.slots.warp_program.inner.kind ==
-                    WarpStageKind::LEGACY_STEREO_NOISE)) {
-      requested_config.slots.projection = Projection::STEREOGRAPHIC;
-    }
-    if (outer_warp_changed && requested_config.slots.warp_program.outer.kind ==
-                                  WarpStageKind::POLAR_CHART)
-      requested_config.slots.warp_program.inner.kind = WarpStageKind::NONE;
-    if (inner_warp_changed && requested_config.slots.warp_program.outer.kind ==
-                                  WarpStageKind::POLAR_CHART)
-      requested_config.slots.warp_program.outer.kind = WarpStageKind::NONE;
-    if (outer_warp_changed &&
-        warp_uses_noise(requested_config.slots.warp_program.outer.kind))
-      requested_config.slots.warp_program.outer.resource_id = 0;
-    if (inner_warp_changed &&
-        warp_uses_noise(requested_config.slots.warp_program.inner.kind))
-      requested_config.slots.warp_program.inner.resource_id = 1;
-    canonicalize_warp_params(requested_config.slots.warp_program.outer,
-                             published_config.slots.warp_program.outer,
-                             requested_config.params.warp.outer);
-    canonicalize_warp_params(requested_config.slots.warp_program.inner,
-                             published_config.slots.warp_program.inner,
-                             requested_config.params.warp.inner);
-    const WarpStageSpec *new_polar = nullptr;
-    if (outer_warp_changed && requested_config.slots.warp_program.outer.kind ==
-                                  WarpStageKind::POLAR_CHART)
-      new_polar = &requested_config.slots.warp_program.outer;
-    if (inner_warp_changed && requested_config.slots.warp_program.inner.kind ==
-                                  WarpStageKind::POLAR_CHART)
-      new_polar = &requested_config.slots.warp_program.inner;
-    if (new_polar != nullptr &&
-        !polar_source_compatible(requested_config, *new_polar)) {
-      requested_config.slots.function = Function::COUPLED_DIRECT;
-      requested_config.params.source.pattern_freq = 1.0f;
-    }
-    if (requested_config.slots.surface_lens == SurfaceLens::MOBIUS)
-      canonicalize_mobius(requested_config.params.surface_lens.mobius);
   }
 
   static void canonicalize_mobius(MobiusParams &params) {
@@ -2531,10 +2667,7 @@ private:
   }
 
   static void canonicalize_warp_params(const WarpStageSpec &requested,
-                                       const WarpStageSpec &published,
                                        WarpStageParams &params) {
-    if (requested.kind == published.kind)
-      return;
     if (requested.kind == WarpStageKind::NONE)
       return;
     if (requested.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
@@ -2562,7 +2695,7 @@ private:
   HS_COLD_MEMBER bool try_apply_config(const Config &candidate,
                                        uint16_t duration, bool staggered,
                                        bool continue_choreo) {
-    if (!valid_config(candidate) || duration == 0)
+    if (!hold_admitted(candidate) || duration == 0)
       return false;
     if (transition.active) {
       if (continue_choreo)
@@ -2600,7 +2733,7 @@ private:
   }
 
   HS_COLD_MEMBER bool retarget_transition_destination(const Config &candidate) {
-    if (!valid_config(candidate))
+    if (!hold_admitted(candidate))
       return false;
     transition.continue_choreo = false;
     if (transition.elapsed == 0) {
@@ -2709,6 +2842,15 @@ private:
     return periods == static_cast<float>(static_cast<int>(periods));
   }
 
+  static constexpr bool strict_seam_compatible(const Config &config) {
+    if (!strict_projection(config.slots.projection))
+      return true;
+    return config.slots.function != Function::NOISE_CONTOUR &&
+           config.slots.surface_lens != SurfaceLens::TANGENT_NOISE &&
+           !seam_sensitive_warp(config.slots.warp_program.outer.kind) &&
+           !seam_sensitive_warp(config.slots.warp_program.inner.kind);
+  }
+
   static constexpr bool valid_config(const RequestedConfig &candidate) {
     const Slots &slots = candidate.slots;
     if (!enum_at_most(slots.function, Function::PRIMITIVE_LATTICE) ||
@@ -2750,7 +2892,8 @@ private:
         (slots.warp_program.inner.kind != WarpStageKind::NONE ||
          !polar_source_compatible(candidate, slots.warp_program.outer)))
       return false;
-    if (!preset_in_ranges(candidate.params))
+    if (!strict_seam_compatible(candidate) ||
+        !preset_in_ranges(candidate.params))
       return false;
     if (!valid_stage_tuple(slots.warp_program.outer,
                            candidate.params.warp.outer) ||
@@ -2957,12 +3100,80 @@ private:
            coefficient.im >= -8.0f && coefficient.im <= 8.0f;
   }
 
-  static bool stable_topology(const Config &from, const Config &to) {
-    return from.slots == to.slots &&
-           curl_pair_stable(from.slots.warp_program.outer,
+  static constexpr float max_value(float a, float b) { return a > b ? a : b; }
+
+  static constexpr float min_value(float a, float b) { return a < b ? a : b; }
+
+  static constexpr float max_abs_value(float a, float b) {
+    return max_value(abs_value(a), abs_value(b));
+  }
+
+  static constexpr void maximize_stage_path(WarpStageParams &out,
+                                            const WarpStageParams &a,
+                                            const WarpStageParams &b) {
+    out.translation_x = max_abs_value(a.translation_x, b.translation_x);
+    out.translation_y = max_abs_value(a.translation_y, b.translation_y);
+    out.scale_x = min_value(a.scale_x, b.scale_x);
+    out.scale_y = min_value(a.scale_y, b.scale_y);
+    out.shear = max_abs_value(a.shear, b.shear);
+    out.strength = max_abs_value(a.strength, b.strength);
+    out.scale = max_value(a.scale, b.scale);
+    out.center_x = max_abs_value(a.center_x, b.center_x);
+    out.center_y = max_abs_value(a.center_y, b.center_y);
+    out.center_orbit_radius =
+        max_value(a.center_orbit_radius, b.center_orbit_radius);
+    out.cell_x = max_value(a.cell_x, b.cell_x);
+    out.cell_y = max_value(a.cell_y, b.cell_y);
+    out.radial_scale = max_value(a.radial_scale, b.radial_scale);
+  }
+
+  static constexpr bool safe_program_path(const Config &from,
+                                          const Config &to) {
+    Config worst = from;
+    worst.params.projection.coordinate_scale =
+        max_value(from.params.projection.coordinate_scale,
+                  to.params.projection.coordinate_scale);
+    worst.params.source.noise_scale =
+        max_value(from.params.source.noise_scale, to.params.source.noise_scale);
+    maximize_stage_path(worst.params.warp.outer, from.params.warp.outer,
+                        to.params.warp.outer);
+    maximize_stage_path(worst.params.warp.inner, from.params.warp.inner,
+                        to.params.warp.inner);
+    return safe_program_bounds(worst);
+  }
+
+  static constexpr bool hold_path_admitted(const Config &from,
+                                           const Config &to) {
+    Config worst = from;
+    if (strict_projection(from.slots.projection) &&
+        from.slots.surface_lens != SurfaceLens::NONE &&
+        from.params.surface_lens.mix != to.params.surface_lens.mix)
+      worst.params.surface_lens.mix = 0.5f;
+    return work_tier(work_signature(worst)) != WorkTier::REJECTED;
+  }
+
+  static constexpr bool polar_pair_stable(const Config &from,
+                                          const Config &to) {
+    const bool has_polar =
+        from.slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART ||
+        from.slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
+    return !has_polar ||
+           from.params.source.pattern_freq == to.params.source.pattern_freq;
+  }
+
+  static constexpr bool stable_parameter_path_admitted(const Config &from,
+                                                       const Config &to) {
+    return curl_pair_stable(from.slots.warp_program.outer,
                             from.params.warp.outer, to.params.warp.outer) &&
            curl_pair_stable(from.slots.warp_program.inner,
                             from.params.warp.inner, to.params.warp.inner) &&
+           polar_pair_stable(from, to) && safe_program_path(from, to) &&
+           hold_path_admitted(from, to);
+  }
+
+  static constexpr bool stable_topology(const Config &from, const Config &to) {
+    return hold_admitted(from) && hold_admitted(to) && from.slots == to.slots &&
+           stable_parameter_path_admitted(from, to) &&
            from.params.source.noise_basis == to.params.source.noise_basis &&
            from.params.source.noise_seed == to.params.source.noise_seed &&
            from.params.source.noise_resource_id ==
@@ -3008,7 +3219,7 @@ private:
 
   static constexpr bool transition_admitted(const Config &from,
                                             const Config &to) {
-    return valid_config(from) && valid_config(to);
+    return hold_admitted(from) && hold_admitted(to);
   }
 
   HS_COLD_MEMBER void enter_preset() {
@@ -3030,6 +3241,10 @@ private:
     const Preset &to = PRESETS[next_index];
     if (try_apply_config(to, choreo.blend_frames, choreo.staggered, true)) {
       preset_index = next_index;
+#if defined(HS_PROFILE_ENABLE)
+      hs::log("Preset: %u/%u", static_cast<unsigned>(preset_index),
+              static_cast<unsigned>(PRESETS.size()));
+#endif
       requested_config = to;
       published_config = to;
       rebind_parameters();
@@ -3420,6 +3635,7 @@ private:
                 Colorizer::DEFORMATION_INK};
     Params params{};
     if (index == 0) {
+      slots.projection = Projection::BONNE;
       slots.warp_program.outer.kind = WarpStageKind::MIRROR_TILE;
       slots.warp_program.inner.kind = WarpStageKind::VORTEX;
       params.warp.outer.cell_x = 1.25f;
@@ -3429,6 +3645,7 @@ private:
       params.warp.inner.time_scale = 1.0f / 256.0f;
     } else if (index == 1) {
       slots.function = Function::PRIMITIVE_LATTICE;
+      slots.projection = Projection::STEREOGRAPHIC;
       slots.warp_program.outer.kind = WarpStageKind::VECTOR_NOISE;
       params.warp.outer.strength = 0.6f;
       params.warp.outer.scale = 1.5f;
@@ -3436,17 +3653,21 @@ private:
       params.source.lattice_cell_scale = 2.0f;
     } else if (index == 2) {
       slots.function = Function::GRID;
+      slots.projection = Projection::STEREOGRAPHIC;
       slots.warp_program.outer.kind = WarpStageKind::CURL_FLOW;
-      slots.warp_program.outer.curl_integrator = CurlIntegrator::MIDPOINT_4;
-      params.warp.outer.strength = 0.02f;
+      slots.warp_program.outer.basis = NoiseBasis::RIDGED3;
+      slots.warp_program.outer.curl_integrator = CurlIntegrator::MIDPOINT_2;
+      params.warp.outer.strength = 0.01f;
       params.warp.outer.scale = 1.0f;
       params.warp.outer.time_scale = 0.0f;
     } else if (index == 3) {
+      slots.projection = Projection::PEIRCE_QUINCUNCIAL;
       slots.warp_program.inner.kind = WarpStageKind::POLAR_CHART;
       slots.warp_program.inner.polar_harmonic = PolarHarmonic::H2;
       params.source.pattern_freq = 1.0f;
       params.warp.inner.radial_scale = 1.5f;
     } else {
+      slots.projection = Projection::AIROCEAN;
       slots.surface_lens = SurfaceLens::MOBIUS;
       slots.value_transfer = ValueTransfer::ISO_CONTOUR;
       slots.colorizer = Colorizer::GENERATED_TRIADIC;
@@ -3580,7 +3801,7 @@ private:
   Slots active_slots = LIQUID_STEREO_SLOTS;
   RequestedConfig requested_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
   Config published_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
-  bool requested_config_canonicalized = false;
+  bool requested_schema_bound = false;
   size_t preset_index = 0;
   Blend blend{PRESETS[0].params};
   LookRuntime runtime;
