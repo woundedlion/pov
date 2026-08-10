@@ -260,7 +260,7 @@ private:
       HS_CHECK(from_slot->morph_compatible(*to_slot),
                "PaletteCycler generated palette breaks morph compatibility");
     } else {
-      bake_entry_into_display(entries[next_of(current)]);
+      rebake_entry(display, entries[next_of(current)]);
       current = next_of(current);
     }
     fade_active = false;
@@ -273,29 +273,30 @@ private:
     // get() would round-trip every entry through the float interpolator.
     if (entry.baked != nullptr)
       lut.clone_from(*entry.baked, arena);
+    else if (entry.generative != nullptr)
+      lut.bake(arena, *entry.generative);
     else
       lut.bake(arena, *entry.source);
   }
 
-  HS_COLD_MEMBER void bake_entry_into_display(const Entry &entry) {
+  // Generative entries bake through their concrete type: the mirror and loop
+  // domain shortcuts are invisible through the Palette base pointer, and a
+  // loop's exact seam entry comes only from the shortcut.
+  HS_COLD_MEMBER static void rebake_entry(BakedPalette &lut,
+                                          const Entry &entry) {
     if (entry.baked != nullptr)
-      display.rebake_copy(*entry.baked);
+      lut.rebake_copy(*entry.baked);
+    else if (entry.generative != nullptr)
+      lut.rebake(*entry.generative);
     else
-      display.rebake(*entry.source);
+      lut.rebake(*entry.source);
   }
 
   HS_COLD_MEMBER void begin_fade() {
     if ((key_morph_mask & (1u << current)) != 0)
       return;
-    if (entries[current].baked != nullptr)
-      fade_from.rebake_copy(*entries[current].baked);
-    else
-      fade_from.rebake(*entries[current].source);
-    const Entry &to = entries[next_of(current)];
-    if (to.baked != nullptr)
-      fade_to.rebake_copy(*to.baked);
-    else
-      fade_to.rebake(*to.source);
+    rebake_entry(fade_from, entries[current]);
+    rebake_entry(fade_to, entries[next_of(current)]);
   }
 
   const Entry *entries = nullptr; /**< Caller-owned entry array. */
