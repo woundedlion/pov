@@ -2560,8 +2560,8 @@ inline const Case *all_cases(int &n) {
        "conway.h", "(t >= 0.0f && t < 1.0f) chamfer: t out of [0,1)"},
       {"snub_collapsed_endpoint", case_snub_collapsed_endpoint, "conway.h",
        "(t >= 0.0f && t < 1.0f) snub: t out of [0,1)"},
-      {"conway_empty_mesh", case_conway_empty_mesh, "memory.h",
-       "(size > 0) Arena::allocate: zero-size request"},
+      {"conway_empty_mesh", case_conway_empty_mesh, "mesh.h",
+       "(total_indices > 0) half-edge mesh requires at least one face index"},
       {"conway_degenerate_mesh", case_conway_degenerate_mesh, "mesh.h",
        "(he_mesh.half_edges[i].pair != HE_NONE) MeshOps::truncate requires a "
        "closed manifold (unpaired half-edge)"},
