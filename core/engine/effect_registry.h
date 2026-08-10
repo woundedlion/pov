@@ -16,6 +16,7 @@
 
 #if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
 
+#include "engine/constants.h"
 #include "engine/platform.h"
 #include <vector>
 #include <string_view>
@@ -43,6 +44,14 @@ struct FactoryEntry {
 #define HS_RESOLUTIONS(X)                                                      \
   X(96, 20)                                                                    \
   X(288, 144)
+
+// Every listed resolution must fit the framebuffers the Effect constructor
+// bounds, or its factory would only fail once invoked.
+#define HS_REG_RESOLUTION_FITS(W, H)                                           \
+  static_assert(W <= MAX_W && H <= MAX_H,                                      \
+                "HS_RESOLUTIONS entry exceeds MAX_W/MAX_H");
+HS_RESOLUTIONS(HS_REG_RESOLUTION_FITS)
+#undef HS_REG_RESOLUTION_FITS
 
 /**
  * @brief Resolution-specific fill functions for one registered effect.
