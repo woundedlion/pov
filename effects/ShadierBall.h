@@ -1760,6 +1760,15 @@ private:
            projection == Projection::AIROCEAN;
   }
 
+  static bool projection_edge_distance_required(const FrameState &frame) {
+    const WarpProgram &program = frame.slots.warp_program;
+    return frame.slots.coverage == CoveragePolicy::EDGE_FADE ||
+           (program.outer.kind != WarpStageKind::NONE &&
+            program.outer.envelope == WarpEnvelope::EDGE_FADE) ||
+           (program.inner.kind != WarpStageKind::NONE &&
+            program.inner.envelope == WarpEnvelope::EDGE_FADE);
+  }
+
   static bool projection_join_compatible(const ProjectedLookup &a,
                                          const ProjectedLookup &b,
                                          Projection projection,
@@ -1874,7 +1883,8 @@ private:
           shadierball::peirce_projection(
               local, frame.params.projection.central_meridian,
               static_cast<uint8_t>(frame.slots.peirce_layout),
-              frame.params.projection.layout_scroll);
+              frame.params.projection.layout_scroll,
+              projection_edge_distance_required(frame));
       return {{result.coords.re * frame.params.projection.coordinate_scale,
                result.coords.im * frame.params.projection.coordinate_scale},
               result.region_id,
@@ -1891,7 +1901,8 @@ private:
       const shadierball::ProjectionKernelResult result =
           shadierball::airocean_projection(
               local, frame.params.projection.central_meridian,
-              frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL);
+              frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
+              projection_edge_distance_required(frame));
       return {{result.coords.re * frame.params.projection.coordinate_scale,
                result.coords.im * frame.params.projection.coordinate_scale},
               result.region_id,
@@ -3835,6 +3846,12 @@ private:
       slots.projection = Projection::PEIRCE_QUINCUNCIAL;
     } else {
       slots.projection = Projection::AIROCEAN;
+    }
+    if (slots.projection == Projection::BONNE ||
+        slots.projection == Projection::PEIRCE_QUINCUNCIAL ||
+        slots.projection == Projection::AIROCEAN) {
+      slots.coverage = CoveragePolicy::EDGE_FADE;
+      params.value.edge_width = 0.1f;
     }
     return {slots, params};
   }
