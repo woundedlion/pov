@@ -304,6 +304,10 @@ struct ShadierBallWhiteBox {
                               const FrameState &frame) {
     return SDB::shape_material(field, projected, warped, frame);
   }
+  static float edge_fade_width(const ProjectedLookup &projected,
+                               const FrameState &frame) {
+    return SDB::edge_fade_width(projected, frame);
+  }
   static Color4 colorize(const MaterialSample &sample,
                          const FrameState &frame) {
     return SDB::colorize(sample, frame);
@@ -644,6 +648,9 @@ inline void test_shadierball_pipeline_contract() {
   HS_EXPECT_LE(material.value, 1.0f);
   HS_EXPECT_EQ(material.coverage,
                projected.value_weight * projected.value_weight);
+  frame.slots.coverage = WB::CoveragePolicy::PROJECTION_WEIGHT;
+  HS_EXPECT_EQ(WB::material(projected, warped, frame).coverage,
+               projected.value_weight);
   const Color4 color = WB::colorize(material, frame);
   HS_EXPECT_TRUE(color.alpha >= 0.0f);
 
@@ -768,6 +775,48 @@ inline void test_shadierball_legacy_spatial_slots() {
   HS_EXPECT_EQ(end.coords.im, lensed.im);
 }
 
+/** @brief Paired projection seams use a broad under-fade and pixel over-fade. */
+inline void test_shadierball_subduction_edge_fade() {
+  using WB = ShadierBallWhiteBox;
+  reset_effect_globals();
+  WB::SDB sdb;
+  sdb.init();
+  WB::FrameState frame = WB::frame(sdb);
+  frame.params.value.edge_width = 0.1f;
+  frame.params.projection.coordinate_scale = 1.0f;
+  WB::ProjectedLookup under{Complex(), 0,    0, WB::boundary_cut(),
+                            0.01f,     1.0f, 0};
+  WB::ProjectedLookup over = under;
+
+  frame.slots.projection = WB::Projection::BONNE;
+  over.region_id = 1;
+  HS_EXPECT_EQ(WB::edge_fade_width(under, frame), 0.1f);
+  HS_EXPECT_EQ(WB::edge_fade_width(over, frame), 1.0f / 20.0f);
+
+  frame.slots.projection = WB::Projection::PEIRCE_QUINCUNCIAL;
+  under.region_id = 2;
+  over.region_id = 3;
+  HS_EXPECT_EQ(WB::edge_fade_width(under, frame), 0.1f);
+  HS_EXPECT_EQ(WB::edge_fade_width(over, frame), 1.0f / 20.0f);
+
+  frame.slots.projection = WB::Projection::AIROCEAN;
+  under.edge_class = 9;
+  over.edge_class = 14;
+  HS_EXPECT_EQ(WB::edge_fade_width(under, frame), 0.1f);
+  HS_EXPECT_EQ(WB::edge_fade_width(over, frame), 1.0f / 20.0f);
+
+  const uint8_t airocean_edge_pairs[][2] = {
+      {9, 14},  {13, 37}, {16, 18}, {17, 41}, {20, 56}, {24, 29}, {38, 40},
+      {42, 59}, {44, 45}, {47, 48}, {55, 58}, {62, 66}, {64, 67}};
+  for (const auto &pair : airocean_edge_pairs) {
+    HS_EXPECT_TRUE(shadierball::airocean_edge_is_under(pair[0]));
+    HS_EXPECT_FALSE(shadierball::airocean_edge_is_under(pair[1]));
+  }
+
+  frame.slots.projection = WB::Projection::STEREOGRAPHIC;
+  HS_EXPECT_EQ(WB::edge_fade_width(over, frame), 0.1f);
+}
+
 /** @brief Legacy source functions retain their closed forms. */
 inline void test_shadierball_legacy_sources() {
   using WB = ShadierBallWhiteBox;
@@ -829,7 +878,7 @@ inline void test_shadierball_preset_bank() {
   using WB = ShadierBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(20));
+  HS_EXPECT_EQ(presets.size(), size_t(21));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_EQ(presets[0].params.source.pattern_freq, 5.0f);
   HS_EXPECT_EQ(presets[0].params.warp.outer.scale, 3.0f);
@@ -856,6 +905,40 @@ inline void test_shadierball_preset_bank() {
   HS_EXPECT_EQ(presets[18].slots.warp_program.inner.kind,
                WB::WarpStageKind::NONE);
   HS_EXPECT_EQ(presets[19].slots.surface_lens, WB::SurfaceLens::NONE);
+  const auto &wave_shear = presets[20];
+  HS_EXPECT_EQ(wave_shear.slots.function, WB::Function::COUPLED_DIRECT);
+  HS_EXPECT_EQ(wave_shear.slots.projection, WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(wave_shear.slots.projection_frame,
+               WB::ProjectionFramePolicy::SPIN_WANDER);
+  HS_EXPECT_EQ(wave_shear.slots.surface_lens, WB::SurfaceLens::GLITCH);
+  HS_EXPECT_EQ(wave_shear.slots.warp_program.outer.kind,
+               WB::WarpStageKind::WAVE_SHEAR);
+  HS_EXPECT_EQ(wave_shear.slots.warp_program.inner.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(wave_shear.slots.signal_weight, WB::SignalWeight::PROJECTION);
+  HS_EXPECT_EQ(wave_shear.slots.value_transfer, WB::ValueTransfer::LINEAR);
+  HS_EXPECT_EQ(wave_shear.slots.coverage,
+               WB::CoveragePolicy::PROJECTION_WEIGHT_SQUARED);
+  HS_EXPECT_EQ(wave_shear.slots.colorizer, WB::Colorizer::LIQUID);
+  HS_EXPECT_EQ(wave_shear.params.source.pattern_freq, 4.439f);
+  HS_EXPECT_EQ(wave_shear.params.source.speed, 0.245f);
+  HS_EXPECT_EQ(wave_shear.params.source.angle_rate, 0.0f);
+  HS_EXPECT_EQ(wave_shear.params.source.complexity, 0.5f);
+  HS_EXPECT_EQ(wave_shear.params.source.pattern_mix, 0.0f);
+  HS_EXPECT_EQ(wave_shear.params.source.secondary_rate, 0.0f);
+  HS_EXPECT_EQ(wave_shear.params.projection.pole_fade, 1.0f);
+  HS_EXPECT_EQ(wave_shear.params.projection.spin_rate, 0.0f);
+  HS_EXPECT_EQ(wave_shear.params.projection.wander, 0.0f);
+  HS_EXPECT_EQ(wave_shear.params.surface_lens.mix, 1.0f);
+  HS_EXPECT_EQ(wave_shear.params.warp.outer.strength, 0.5f);
+  HS_EXPECT_EQ(wave_shear.params.warp.outer.time_scale, 1.0f / 64.0f);
+  HS_EXPECT_EQ(wave_shear.params.warp.outer.frequency, 1.0f);
+  HS_EXPECT_EQ(wave_shear.params.warp.outer.field_angle, 0.0f);
+  HS_EXPECT_EQ(wave_shear.params.colorizer.breathe_depth, 0.133f);
+  HS_EXPECT_EQ(wave_shear.params.colorizer.cycle_speed, 0.05f);
+  HS_EXPECT_EQ(wave_shear.params.colorizer.hue_shift, 0.0f);
+  HS_EXPECT_EQ(wave_shear.params.colorizer.value_fade, 0.0f);
+  HS_EXPECT_EQ(wave_shear.params.outer_camera.wander, 1.0f);
   for (size_t index = 0; index < presets.size(); ++index)
     HS_EXPECT_TRUE(WB::seam_compatible(presets[index]));
   for (size_t index = 0; index < 15; ++index)
@@ -1264,6 +1347,10 @@ inline void test_shadierball_gui_catalog() {
                  0);
   HS_EXPECT_TRUE(std::strcmp(projection->options[5], "Dymaxion / Airocean") ==
                  0);
+  const auto *coverage = sdb.getParameters().find("Coverage");
+  HS_EXPECT_TRUE(coverage != nullptr);
+  HS_EXPECT_EQ(coverage->option_count, 5);
+  HS_EXPECT_TRUE(std::strcmp(coverage->options[4], "Projection Weight") == 0);
   const uint32_t schema_before = sdb.getParameterSchemaGeneration();
   HS_EXPECT_TRUE(sdb.updateParameter(
                      "Projection", static_cast<float>(WB::Projection::BONNE)) ==
@@ -2026,7 +2113,7 @@ inline void test_shadierball_kernel_catalog() {
   config.params.surface_lens.mix = 0.0f;
   for (uint8_t transfer = 0; transfer <= 3; ++transfer) {
     config.slots.value_transfer = static_cast<WB::ValueTransfer>(transfer);
-    for (uint8_t coverage = 0; coverage <= 3; ++coverage) {
+    for (uint8_t coverage = 0; coverage <= 4; ++coverage) {
       config.slots.coverage = static_cast<WB::CoveragePolicy>(coverage);
       for (uint8_t colorizer = 0; colorizer <= 2; ++colorizer) {
         config.slots.colorizer = static_cast<WB::Colorizer>(colorizer);
@@ -2302,6 +2389,7 @@ inline int run_shadierball_tests() {
   test_shadierball_manual_edit_timing();
   test_shadierball_pipeline_contract();
   test_shadierball_legacy_spatial_slots();
+  test_shadierball_subduction_edge_fade();
   test_shadierball_legacy_sources();
   test_shadierball_coupled_source();
   test_shadierball_preset_bank();
