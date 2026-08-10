@@ -193,8 +193,11 @@ private:
     int pad_chunks = BAKE_CHUNKS;
     if (th_lo > 0.0f && th_hi < PI_F) {
       float sin_lo = std::min(sinf(th_lo), sinf(th_hi));
-      pad_chunks = 1 + static_cast<int>(ceilf(params.thickness * BAKE_CHUNKS /
-                                              (2.0f * PI_F * sin_lo)));
+      // A band hugging a pole drives sin_lo to zero; clamp before the cast.
+      const float pad_f =
+          ceilf(params.thickness * BAKE_CHUNKS / (2.0f * PI_F * sin_lo));
+      pad_chunks = 1 + static_cast<int>(hs::clamp(
+                           pad_f, 0.0f, static_cast<float>(BAKE_CHUNKS)));
     }
     if (2 * pad_chunks >= BAKE_CHUNKS)
       return CHUNK_MASK;
