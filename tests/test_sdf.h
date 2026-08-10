@@ -440,6 +440,43 @@ inline void test_distorted_ring_knot_extrema_tighten_band() {
       50.0f);
 }
 
+/**
+ * @brief Verifies a knot ring reports the far sentinel past its stroke reach.
+ * @details The outward search stops at the reach, so a pixel the prefilter lets
+ *   through but no segment comes within thickness of has no distance to report.
+ *   Reporting the reach itself puts dist on exactly 0 — the surface — and a
+ *   Subtract then carves its minuend across the whole bounding annulus.
+ */
+inline void test_distorted_ring_past_reach_reports_far_sentinel() {
+  constexpr int LUT_N = 32;
+  constexpr float RADIUS = 0.8f;
+  constexpr float THICKNESS = 0.05f;
+  constexpr float TARGET = RADIUS * (PI_F / 2.0f);
+  constexpr float SPIKE = 0.5f;
+  // One tall spike at azimuth 0, every other cell on the centerline. A pixel in
+  // the next chunk shares the spike's prefilter window, so the segment search
+  // runs and terminates without a point inside the reach.
+  float knots[LUT_N + 1] = {};
+  knots[0] = SPIKE;
+  knots[LUT_N] = SPIKE;
+  Basis basis = equator_basis();
+  SDF::KnotPrefilter pf;
+  SDF::DistortedRing ring(basis, RADIUS, THICKNESS, knots, LUT_N, 0.0f, pf);
+
+  const float azimuth = 2.0f * PI_F * 1.5f / LUT_N;
+  const float polar = TARGET + SPIKE - 0.05f;
+  Vector p(cosf(azimuth) * sinf(polar), cosf(polar),
+           sinf(azimuth) * sinf(polar));
+  HS_EXPECT_GT(SDF::distance_of(ring, p).dist, 50.0f);
+
+  Basis poly_basis = make_basis(Quaternion(), p);
+  SDF::PlanarPolygon poly(poly_basis, /*radius=*/0.3f, /*sides=*/6, 0.0f);
+  SDF::Subtract<SDF::PlanarPolygon, SDF::DistortedRing> carved(poly, ring);
+  const float solid = SDF::distance_of(poly, p).dist;
+  HS_EXPECT_LT(solid, -0.1f);
+  HS_EXPECT_NEAR(SDF::distance_of(carved, p).dist, solid, 1e-6f);
+}
+
 // ============================================================================
 // PlanarPolygon  (Basis at top of sphere; distance to nearest edge)
 // ============================================================================
@@ -2896,6 +2933,7 @@ inline int run_sdf_tests() {
   test_distorted_ring_flat_matches_zero_knots();
   test_distorted_ring_polyline_distance_matches_bruteforce();
   test_distorted_ring_knot_extrema_tighten_band();
+  test_distorted_ring_past_reach_reports_far_sentinel();
 
   test_polygon_at_center_inside();
   test_polygon_far_point_outside();

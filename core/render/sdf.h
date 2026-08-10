@@ -1231,7 +1231,8 @@ private:
    *        hoisted to the caller so a ring stack pays it once per pixel.
    * @return Geodesic distance to the nearest polyline point (radians), exact
    *         within the local tangent chart for distances up to `thickness`;
-   *         beyond that reach only the > thickness ordering is preserved.
+   *         past that reach either a lower bound above `thickness` (prefilter)
+   *         or the far sentinel (100), never the reach itself.
    * @details Works in the chart (azimuth * sin(polar), polar) centered on the
    * pixel: exact point-to-segment distances, searched outward from the
    * pixel's own cell. A segment o cells away is at least (o - 1) * cell_u
@@ -1332,9 +1333,11 @@ private:
       }
       bound2 = std::min(bound2, best2);
     }
-    // Beyond the stroke reach only the > thickness ordering matters; skip
-    // the sqrt for those pixels.
-    return best2 >= th2 ? thickness : sqrtf(best2);
+    // Past the stroke reach the search leaves best2 an upper bound only, so
+    // report the reject band's far sentinel and skip the sqrt. Returning
+    // thickness instead would land dist on exactly 0, which a CSG parent reads
+    // as on-surface across the whole bounding annulus.
+    return best2 >= th2 ? 100.0f : sqrtf(best2);
   }
 };
 
