@@ -82,6 +82,10 @@ private:
    *        GenerativePalette::try_compile().
    * @details A missing or misspelled key reads as undefined, which converts to
    *          enumerator 0 rather than failing, so the numeric test comes first.
+   *          The range test runs in double, the JS number type: reading through
+   *          int would ToInt32-wrap an out-of-range field into an in-range
+   *          enumerator, and would sign-flip the ceiling of a wide underlying
+   *          type. NaN fails the test and is rejected.
    */
   template <typename Enum>
   static bool decode_enum(const val &object, const char *name, Enum &output,
@@ -90,21 +94,24 @@ private:
     using Underlying = std::underlying_type_t<Enum>;
     static_assert(std::is_unsigned<Underlying>::value,
                   "recipe enums must have an unsigned underlying type");
-    constexpr int LAST =
-        static_cast<int>(std::numeric_limits<Underlying>::max());
+    static_assert(sizeof(Underlying) <= 4,
+                  "recipe enum ceilings must be exactly representable as a JS "
+                  "double");
+    constexpr double LAST =
+        static_cast<double>(std::numeric_limits<Underlying>::max());
     const val field_value = object[name];
     if (!field_value.isNumber()) {
       status.code = PaletteCompileCode::INVALID_SCHEMA;
       status.field = field;
       return false;
     }
-    const int value = field_value.as<int>();
-    if (value < 0 || value > LAST) {
+    const double value = field_value.as<double>();
+    if (!(value >= 0.0 && value <= LAST)) {
       status.code = PaletteCompileCode::INVALID_ENUM;
       status.field = field;
       return false;
     }
-    output = static_cast<Enum>(value);
+    output = static_cast<Enum>(static_cast<Underlying>(value));
     return true;
   }
 
