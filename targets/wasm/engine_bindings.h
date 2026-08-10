@@ -679,9 +679,16 @@ public:
 
   /**
    * @brief Builds the GUI's parameter descriptor list.
-   * @return JS array with one {name, value, animated, readonly, (+min/max for
-   *         floats)} object per param in the effect's declaration order; empty
-   *         array when no effect is set.
+   * @return JS array with one {name, value, animated, readonly, preset} object
+   *         per param in the effect's declaration order, plus {min, max} on
+   *         every non-boolean param and {options} — with {exportOptions}
+   *         alongside it when the param declares C++ enum literals — on every
+   *         enum param; empty array when no effect is set.
+   * @details A boolean param's value is a JS boolean and carries no range; every
+   *          other value is a number. An enum's value indexes its options array.
+   *          preset marks the params a preset export carries. The order matches
+   *          getParamValues(); pin getParamGeneration() beside a snapshot to
+   *          detect a rebind.
    */
   val getParameterDefinitions() {
     if (!current_effect)
