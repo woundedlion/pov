@@ -1178,8 +1178,8 @@ The ShaderBall profile at `17fbf726` records a 53.99 ms render peak in a
 62.5 ms window, but covers only the then-current 13 presets, not today's 15.
 The Phantasm ledger at `053ecefc` records 194,880 of 196,608 ITCM bytes occupied
 after ShadierBall's exclusion, leaving 1,728 bytes. See the
-[ShaderBall Teensy profile](profiles/shipping/profile_shaderball_teensy_2026-08-08.md)
-and [ITCM ledger](itcm_ledger.md). They establish risk, not admission. Before
+[ShaderBall Teensy profile](../profiles/shipping/profile_shaderball_teensy_2026-08-08.md)
+and [ITCM ledger](../ledgers/itcm_ledger.md). They establish risk, not admission. Before
 implementation decisions rely on either number, regenerate a 15-preset profile
 and full-roster ELF ledger and record the commit, build flags, roster, hardware,
 and capture coverage beside the result.
@@ -1594,12 +1594,12 @@ the merge; neither effect is in the roster any more, so they cannot be
 regenerated:
 
 - Liquid2D: `lq_shader_draw` 28.3 ms (1,639 cyc/px), ~34 ms headroom
-  ([report](profiles/shipping/profile_liquid2d_teensy_2026-07-25.md)).
+  ([report](../profiles/shipping/profile_liquid2d_teensy_2026-07-25.md)).
 - Flyby: `fly_shader_draw` 37.3–44.0 ms across presets, worst preset 44.0
   ms (2,546 cyc/px). The report's headline says 17 ms of margin, but its
   own ISR accounting puts the render budget at ≈59.3 ms/window with the
   peak frame leaving **14.2 ms unspent — that is the binding margin**
-  ([report](profiles/shipping/profile_flyby_teensy_2026-07-27.md)).
+  ([report](../profiles/shipping/profile_flyby_teensy_2026-07-27.md)).
 
 Cost deltas for a Flyby-look preset running in ShaderBall (all
 frame-constant-branch skips active): one extra orientation transform
@@ -1694,8 +1694,7 @@ Holosphere:
   its own epoch decision (the preset cycle is longer and partly random).
 - `docs/profiles/` READMEs: retire the Liquid2D/Flyby rows and reports; new
   ShaderBall report after the landing profile. Also
-  `docs/profiles/memory/arena_high_water.md` (rows for both) and
-  `docs/strobe_columns_audit.md`.
+  `docs/profiles/memory/arena_high_water.md` (rows for both).
 - wasm bootstrap needs no edit (it takes `WASM_EFFECT_NAMES[0]`, which stays
   BZReactionDiffusion).
 
