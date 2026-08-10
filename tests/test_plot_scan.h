@@ -39,6 +39,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <limits>
 #include <vector>
 
 namespace hs_test {
@@ -2597,6 +2598,12 @@ inline void test_star_sample_unit_length_closed() {
   }
 }
 
+// sample() and sample_positions() instantiate one shared lambda separately, so
+// -ffast-math may contract and normalize the two apart. The vertices are unit
+// length, so the bound is absolute.
+constexpr float STAR_INSTANTIATION_DRIFT =
+    32.0f * std::numeric_limits<float>::epsilon();
+
 /**
  * @brief Star radius-trig reuse reproduces per-vertex evaluation, and the two
  *        sampling entry points place the same vertices.
@@ -2666,9 +2673,12 @@ inline void test_star_sample_radius_trig_parity() {
           HS_EXPECT_NEAR(actual[i].v0, reference[i].v0, 1e-6f);
           HS_EXPECT_NEAR(actual[i].v1, reference[i].v1, 1e-6f);
           // Two instantiations of one lambda; still separately contracted.
-          HS_EXPECT_NEAR(actual[i].pos.x, positions[i].pos.x, 1e-6f);
-          HS_EXPECT_NEAR(actual[i].pos.y, positions[i].pos.y, 1e-6f);
-          HS_EXPECT_NEAR(actual[i].pos.z, positions[i].pos.z, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].pos.x, positions[i].pos.x,
+                         STAR_INSTANTIATION_DRIFT);
+          HS_EXPECT_NEAR(actual[i].pos.y, positions[i].pos.y,
+                         STAR_INSTANTIATION_DRIFT);
+          HS_EXPECT_NEAR(actual[i].pos.z, positions[i].pos.z,
+                         STAR_INSTANTIATION_DRIFT);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.x),
                        std::bit_cast<uint32_t>(cached_positions[i].pos.x));
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.y),
