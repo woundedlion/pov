@@ -1030,8 +1030,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Pinned in tools/build_pins.py, which `just lint` also holds the local
+      # binary to: ruff's rule set moves between releases, so an unpinned
+      # invocation gates the tree on a different set than this job.
       - name: Install ruff
-        run: pip install 'ruff==0.14.4'   # pinned like clang-format; bump deliberately
+        run: pip install "ruff==${{ steps.pins.outputs.ruff }}"
 
       # Config in ruff.toml. Ruff honours .gitignore, so build trees are skipped
       # -- and an over-broad ignore or exclude would empty the target set while

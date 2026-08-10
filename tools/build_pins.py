@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import subprocess
 from pathlib import Path
 
 
@@ -21,6 +22,7 @@ PINS = {
     "emsdk": "5.0.0",
     "node": "24.13.0",
     "platformio": "6.1.19",
+    "ruff": "0.14.4",
 }
 
 # Versions the build files must spell out literally: a setup-action input, an
@@ -45,7 +47,10 @@ CONSUMERS = {
         "build_pins.py platformio",
     ),
     ROOT / ".github/workflows/docs.yml": ("build_pins.py doxygen-awesome",),
-    ROOT / "justfile": ("build_pins.py doxygen-awesome",),
+    ROOT / "justfile": (
+        "build_pins.py doxygen-awesome",
+        "build_pins.py --check-tool ruff",
+    ),
 }
 
 # Files scanned for INLINE_PINS occurrences.
@@ -144,6 +149,29 @@ def check_consumers() -> int:
     return 0
 
 
+def check_tool(name: str) -> int:
+    """Fail unless the tool on PATH reports the version pinned here.
+
+    A recipe that just invokes a linter runs whatever the developer installed,
+    which gates the tree on a different rule set than CI's.
+    """
+    want = (PINS | INLINE_PINS)[name]
+    try:
+        reported = subprocess.run(
+            [name, "--version"], capture_output=True, text=True, check=True
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        reported = ""
+    found = re.search(r"\d[\w.]*", reported)
+    if found is None or found.group() != want:
+        got = found.group() if found else "no runnable binary on PATH"
+        print(f"{name} is pinned to {want} but PATH has {got} "
+              f"(pip install {name}=={want})")
+        return 1
+    print(f"{name} {want} matches the pin")
+    return 0
+
+
 def write_github_output() -> None:
     output = os.environ.get("GITHUB_OUTPUT")
     if not output:
@@ -157,17 +185,22 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("name", nargs="?", choices=sorted(PINS | INLINE_PINS))
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--check-tool", metavar="NAME",
+                        choices=sorted(PINS | INLINE_PINS))
     parser.add_argument("--github-output", action="store_true")
     args = parser.parse_args()
     if args.check:
         return check_consumers()
+    if args.check_tool:
+        return check_tool(args.check_tool)
     if args.github_output:
         write_github_output()
         return 0
     if args.name:
         print((PINS | INLINE_PINS)[args.name])
         return 0
-    parser.error("specify a pin name, --check, or --github-output")
+    parser.error(
+        "specify a pin name, --check, --check-tool NAME, or --github-output")
 
 
 if __name__ == "__main__":

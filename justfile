@@ -46,8 +46,11 @@ test:
     cmake --build --preset tests
     ctest --preset tests
 
-# Python and JavaScript lint checks used by CI.
+# Python and JavaScript lint checks used by CI. ruff's rule set moves between
+# releases, so the binary on PATH is held to the pin the ci.yml lint job
+# installs; the npm linters are locked by package-lock.json.
 lint:
+    python tools/build_pins.py --check-tool ruff
     ruff check --no-cache .
     npm run lint
 
