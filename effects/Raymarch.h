@@ -158,10 +158,9 @@ private:
 
       Quaternion world_q = camera.get() * raw_quats[i] * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
-      // Headlight model: light coincides with the viewer, so the view vector
-      // `center` serves as both light_dir and view_dir. The half-vector is
-      // fixed for this torus, so it is hoisted out of the per-pixel shader.
-      Vector half_w = blinn_phong_half(center, center, tangent);
+      // The half-vector is fixed for this torus, so it is hoisted out of the
+      // per-pixel shader.
+      Vector half_w = blinn_phong_half(center, tangent);
 
       // Palette scroll plus this torus's fixed share of the gradient, in [0,2).
       float palette_offset =

@@ -201,22 +201,29 @@ private:
   const BakedPalette *palette = nullptr;
 };
 
+/** @brief Tangent tilt applied to the light before the half-vector sum. */
+inline constexpr float BLINN_PHONG_TANGENT_TILT = 0.3f;
+/** @brief Ambient floor of the metallic shade factor. */
+inline constexpr float BLINN_PHONG_AMBIENT = 0.05f;
+/** @brief Specular exponent of the metallic lobe. */
+inline constexpr int BLINN_PHONG_SPECULAR_EXP = 32;
+
 /**
  * @brief Unit half-vector for the metallic Blinn-Phong specular lobe, with the
  *        light tilted off-axis along the surface tangent.
- * @param light_dir Direction toward the light in world space (unit length).
  * @param view_dir Direction toward the viewer in world space (unit length).
  * @param tangent Surface tangent used to tilt the specular highlight off-axis.
  * @return The unit half-vector, or the un-normalized sum when either
  *         intermediate degenerates to near-zero length.
- * @details Depends on no per-pixel input, so a shader over a fixed light/view/
- *          tangent frame computes it once and passes it to every
- *          shade_blinn_phong call.
+ * @details Headlight model: shade_blinn_phong feeds one dot product to both its
+ *          diffuse and Fresnel terms, so the light is the view direction and
+ *          only the tangent tilt separates the two. Depends on no per-pixel
+ *          input, so a shader over a fixed view/tangent frame computes the
+ *          half-vector once and passes it to every shade_blinn_phong call.
  */
 HS_O3_BEGIN
-inline Vector blinn_phong_half(const Vector &light_dir, const Vector &view_dir,
-                               const Vector &tangent) {
-  Vector light = light_dir + tangent * 0.3f;
+inline Vector blinn_phong_half(const Vector &view_dir, const Vector &tangent) {
+  Vector light = view_dir + tangent * BLINN_PHONG_TANGENT_TILT;
   float ll = light.length();
   if (ll > math::TOLERANCE)
     light /= ll;
@@ -250,17 +257,19 @@ inline float shade_blinn_phong(const Vector &normal_w, const Vector &view_dir,
   float diffuse = half_lam * half_lam;
 
   float ndoth = std::max(0.0f, dot(normal_w, half_w));
-  // ndoth^32 via repeated squaring
-  float spec = ndoth * ndoth; // ^2
-  spec *= spec;               // ^4
-  spec *= spec;               // ^8
-  spec *= spec;               // ^16
-  spec *= spec;               // ^32
+  static_assert(BLINN_PHONG_SPECULAR_EXP == 32,
+                "the squaring chain below spells exactly ^32");
+  float spec = ndoth * ndoth;
+  spec *= spec;
+  spec *= spec;
+  spec *= spec;
+  spec *= spec;
 
   float fresnel = 1.0f - hs::clamp(ndotv, 0.0f, 1.0f);
   fresnel = fresnel * fresnel * fresnel;
 
-  return 0.05f + diffuse * diffuse_w + spec * specular_w + fresnel * fresnel_w;
+  return BLINN_PHONG_AMBIENT + diffuse * diffuse_w + spec * specular_w +
+         fresnel * fresnel_w;
 }
 HS_O3_END
 
