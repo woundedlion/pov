@@ -736,11 +736,11 @@ HS_O3_FN inline Vector ripple_transform(const Vector &v,
  * @param v The unit vector to transform.
  * @param params Noise field, scale, amplitude and time.
  * @return The displaced unit vector.
- * @details Samples three decorrelated noise channels (each offset by 100/200 on
- * all three axes) to
- * build a displacement, projects it onto the tangent plane at v so the point
- * stays on the sphere, soft-caps the slide to avoid cross-hemisphere jumps,
- * then renormalizes. No-op when amplitude is negligible.
+ * @details Samples three decorrelated noise channels (the second and third
+ * field-shifted by 100 and 200 on all three axes) to build a displacement,
+ * projects it onto the tangent plane at v so the point stays on the sphere,
+ * soft-caps the slide to avoid cross-hemisphere jumps, then renormalizes. No-op
+ * when amplitude is negligible.
  */
 inline Vector noise_transform(const Vector &v,
                               const Animation::NoiseParams &params) {
