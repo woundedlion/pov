@@ -275,11 +275,14 @@ inline int random(int max) {
  * @return A value in [min, max), or min when max <= min.
  * @details Mirrors the device: random(min, max) with min >= max returns min,
  *          so the host avoids a modulo-by-zero SIGFPE.
+ * @note The span is computed unsigned: `max - min` overflows int for a span
+ *       wider than INT_MAX.
  */
 inline int random(int min, int max) {
   if (max <= min)
     return min;
-  return min + (hs::random()() % (max - min));
+  const uint32_t span = static_cast<uint32_t>(max) - static_cast<uint32_t>(min);
+  return static_cast<int>(static_cast<uint32_t>(min) + (hs::random()() % span));
 }
 /**
  * @brief Re-maps a value from one integer range to another (Arduino map()).
