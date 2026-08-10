@@ -116,6 +116,9 @@ struct ShadierBallWhiteBox {
   static constexpr bool valid_config(const RequestedConfig &config) {
     return SDB::valid_config(config);
   }
+  static constexpr bool seam_compatible(const RequestedConfig &config) {
+    return SDB::strict_seam_compatible(config);
+  }
   static constexpr bool transition_admitted(const RequestedConfig &from,
                                             const RequestedConfig &to) {
     return SDB::transition_admitted(from, to);
@@ -841,6 +844,15 @@ inline void test_shadierball_preset_bank() {
   HS_EXPECT_EQ(presets[18].slots.warp_program.inner.kind,
                WB::WarpStageKind::NONE);
   HS_EXPECT_EQ(presets[19].slots.surface_lens, WB::SurfaceLens::NONE);
+  for (size_t index = 0; index < presets.size(); ++index)
+    HS_EXPECT_TRUE(WB::seam_compatible(presets[index]));
+  for (size_t index = 0; index < 15; ++index)
+    HS_EXPECT_EQ(presets[index].slots.projection,
+                 WB::Projection::STEREOGRAPHIC);
+  for (size_t index : {size_t(15), size_t(18), size_t(19)}) {
+    HS_EXPECT_EQ(presets[index].slots.coverage, WB::CoveragePolicy::EDGE_FADE);
+    HS_EXPECT_EQ(presets[index].params.value.edge_width, 0.1f);
+  }
   HS_EXPECT_EQ(WB::device_cost(presets[15]).worst_case_points(), uint16_t(24));
   HS_EXPECT_EQ(WB::device_cost(presets[17]).worst_case_points(), uint16_t(32));
   HS_EXPECT_EQ(WB::device_cost(presets[18]).worst_case_points(), uint16_t(36));
@@ -1219,6 +1231,11 @@ inline void test_shadierball_profile_presets() {
     HS_EXPECT_TRUE(WB::hold_admitted(WB::active_config(sdb)));
     HS_EXPECT_FALSE(WB::transition_active(sdb));
     HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+    if (index == 15 || index == 18 || index == 19) {
+      const auto projected = WB::surface_project(
+          Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sdb));
+      HS_EXPECT_TRUE(std::isfinite(projected.fade_edge_distance));
+    }
   }
 }
 
@@ -1458,6 +1475,20 @@ inline void test_shadierball_projection_catalog() {
     const float cp = cosf(latitude);
     return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
   };
+  const Vector peirce_oracle_point =
+      lon_lat(23.0f * PI_F / 180.0f, 28.0f * PI_F / 180.0f);
+  const Complex peirce_oracles[] = {
+      {0.4550257621f, -1.1120261272f},
+      {1.1080730174f, -0.4645694134f},
+      {-0.4349300830f, -1.1120261272f},
+      {0.4550257621f, -2.0019819724f},
+  };
+  for (uint8_t layout = 0; layout < 4; ++layout) {
+    const auto mapped = shadierball::peirce_projection(peirce_oracle_point,
+                                                       0.0f, layout, 0.13f);
+    HS_EXPECT_NEAR(mapped.coords.re, peirce_oracles[layout].re, 3e-5f);
+    HS_EXPECT_NEAR(mapped.coords.im, peirce_oracles[layout].im, 3e-5f);
+  }
   constexpr float TIE_EPS = 1e-5f;
   constexpr float SOUTH_LATITUDE = -0.4f;
   struct SectorTie {
@@ -1556,8 +1587,7 @@ inline void test_shadierball_projection_catalog() {
       {1.365892745153149f, 3.417257856533251f},
       {1.365886246776939f, 3.417246601015487f},
   };
-  const float glued_cut_distances[] = {0.525731112119133f, 0.525731112159295f,
-                                       0.525731112159296f};
+  const float glued_cut_distances[] = {65536.0f, 65536.0f, 65536.0f};
   for (size_t index = 0; index < std::size(glued_points); ++index) {
     const auto mapped =
         shadierball::airocean_projection(glued_points[index], 0.0f, false);
@@ -1610,6 +1640,87 @@ inline void test_shadierball_projection_catalog() {
   HS_EXPECT_EQ(shadierball::airocean_edge_identity(14, 0), uint8_t(42));
   HS_EXPECT_EQ(shadierball::airocean_edge_identity(18, 0), uint8_t(54));
 
+  const auto japan_edge_point = [](float from_weight) {
+    const auto &a = shadierball::AIROCEAN_FACES[14][0];
+    const auto &b = shadierball::AIROCEAN_FACES[14][1];
+    const auto &center = shadierball::AIROCEAN_CENTERS[14];
+    const float to_weight = 1.0f - from_weight;
+    return Vector(from_weight * a.x + to_weight * b.x + 1e-4f * center.x,
+                  from_weight * a.z + to_weight * b.z + 1e-4f * center.z,
+                  from_weight * a.y + to_weight * b.y + 1e-4f * center.y)
+        .normalized();
+  };
+  const auto japan_cut =
+      shadierball::airocean_projection(japan_edge_point(0.75f), 0.0f, false);
+  const auto japan_glued =
+      shadierball::airocean_projection(japan_edge_point(0.25f), 0.0f, false);
+  HS_EXPECT_EQ(japan_cut.region_id, uint8_t(14));
+  HS_EXPECT_EQ(japan_cut.edge_class, uint8_t(42));
+  HS_EXPECT_TRUE(
+      (japan_cut.traits &
+       shadierball::projection_traits(shadierball::ProjectionTrait::CUT)) != 0);
+  HS_EXPECT_LT(japan_cut.fade_edge_distance, 1e-3f);
+  HS_EXPECT_EQ(japan_glued.region_id, uint8_t(14));
+  HS_EXPECT_EQ(japan_glued.edge_class, uint8_t(54));
+  HS_EXPECT_TRUE(
+      (japan_glued.traits & shadierball::projection_traits(
+                                shadierball::ProjectionTrait::GLUED)) != 0);
+  HS_EXPECT_GT(japan_glued.fade_edge_distance, 0.1f);
+  auto same_point = [](const shadierball::AiroceanPoint &a,
+                       const shadierball::AiroceanPoint &b) {
+    return fabsf(a.x - b.x) <= 1e-6f && fabsf(a.y - b.y) <= 1e-6f;
+  };
+  for (uint8_t face = 0; face < 23; ++face) {
+    for (uint8_t edge_index = 0; edge_index < 3; ++edge_index) {
+      bool expected_cut = false;
+      for (size_t index = 0; index < std::size(shadierball::AIROCEAN_CUT_FACES);
+           ++index)
+        expected_cut |= shadierball::AIROCEAN_CUT_FACES[index] == face &&
+                        shadierball::AIROCEAN_CUT_EDGES[index] == edge_index;
+      HS_EXPECT_EQ(shadierball::airocean_edge_is_cut(face, edge_index),
+                   expected_cut);
+
+      const auto &a = shadierball::AIROCEAN_PLANAR_FACES[face][edge_index];
+      const auto &b =
+          shadierball::AIROCEAN_PLANAR_FACES[face][(edge_index + 1) % 3];
+      uint8_t expected_identity = face * 3 + edge_index;
+      bool found = false;
+      for (uint8_t candidate_face = 0; candidate_face < 23 && !found;
+           ++candidate_face) {
+        for (uint8_t candidate_edge = 0; candidate_edge < 3; ++candidate_edge) {
+          const auto &c = shadierball::AIROCEAN_PLANAR_FACES[candidate_face]
+                                                            [candidate_edge];
+          const auto &d =
+              shadierball::AIROCEAN_PLANAR_FACES[candidate_face]
+                                                [(candidate_edge + 1) % 3];
+          if ((same_point(a, c) && same_point(b, d)) ||
+              (same_point(a, d) && same_point(b, c))) {
+            expected_identity = candidate_face * 3 + candidate_edge;
+            found = true;
+            break;
+          }
+        }
+      }
+      HS_EXPECT_EQ(shadierball::airocean_edge_identity(face, edge_index),
+                   expected_identity);
+    }
+  }
+
+  const auto peirce_seam_a = shadierball::peirce_projection(
+      lon_lat(0.25f * PI_F - TIE_EPS, SOUTH_LATITUDE), 0.0f, 1, 0.0f);
+  const auto peirce_seam_b = shadierball::peirce_projection(
+      lon_lat(0.25f * PI_F + TIE_EPS, SOUTH_LATITUDE), 0.0f, 1, 0.0f);
+  const Complex peirce_seam_delta = peirce_seam_a.coords - peirce_seam_b.coords;
+  const Complex airocean_seam_delta = cut_coords[1] - cut_coords[2];
+  HS_EXPECT_GT(sqrtf(peirce_seam_delta.re * peirce_seam_delta.re +
+                     peirce_seam_delta.im * peirce_seam_delta.im),
+               2.0f);
+  HS_EXPECT_LT(peirce_seam_a.fade_edge_distance, 2e-5f);
+  HS_EXPECT_LT(peirce_seam_b.fade_edge_distance, 2e-5f);
+  HS_EXPECT_GT(sqrtf(airocean_seam_delta.re * airocean_seam_delta.re +
+                     airocean_seam_delta.im * airocean_seam_delta.im),
+               0.5f);
+
   for (int latitude_index = -8; latitude_index <= 8; ++latitude_index) {
     const float latitude = latitude_index * (PI_F / 18.0f);
     for (int longitude_index = -18; longitude_index < 18; ++longitude_index) {
@@ -1623,16 +1734,31 @@ inline void test_shadierball_projection_catalog() {
       HS_EXPECT_TRUE(std::isfinite(b.fade_edge_distance));
       for (uint8_t layout = 0; layout < 4; ++layout) {
         const auto p = shadierball::peirce_projection(v, -0.21f, layout, 0.13f);
+        const auto without_edge =
+            shadierball::peirce_projection(v, -0.21f, layout, 0.13f, false);
         HS_EXPECT_TRUE(std::isfinite(p.coords.re));
         HS_EXPECT_TRUE(std::isfinite(p.coords.im));
         HS_EXPECT_TRUE(std::isfinite(p.fade_edge_distance));
+        HS_EXPECT_EQ(without_edge.coords.re, p.coords.re);
+        HS_EXPECT_EQ(without_edge.coords.im, p.coords.im);
+        HS_EXPECT_EQ(without_edge.region_id, p.region_id);
+        HS_EXPECT_EQ(without_edge.edge_class, p.edge_class);
+        HS_EXPECT_EQ(without_edge.fade_edge_distance, 65536.0f);
       }
       for (bool horizontal : {false, true}) {
         const auto a = shadierball::airocean_projection(v, 0.19f, horizontal);
+        const auto without_edge =
+            shadierball::airocean_projection(v, 0.19f, horizontal, false);
         HS_EXPECT_TRUE(std::isfinite(a.coords.re));
         HS_EXPECT_TRUE(std::isfinite(a.coords.im));
         HS_EXPECT_TRUE(std::isfinite(a.fade_edge_distance));
         HS_EXPECT_TRUE(a.region_id < 23);
+        HS_EXPECT_EQ(without_edge.coords.re, a.coords.re);
+        HS_EXPECT_EQ(without_edge.coords.im, a.coords.im);
+        HS_EXPECT_EQ(without_edge.region_id, a.region_id);
+        HS_EXPECT_EQ(without_edge.edge_class, a.edge_class);
+        HS_EXPECT_EQ(without_edge.traits, a.traits);
+        HS_EXPECT_EQ(without_edge.fade_edge_distance, 65536.0f);
       }
     }
   }

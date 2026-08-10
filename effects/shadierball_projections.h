@@ -134,30 +134,35 @@ inline float peirce_sector_longitude(const Vector &v, float central_meridian) {
   return longitude;
 }
 
-inline ProjectionKernelResult peirce_projection(const Vector &v,
-                                                float central_meridian,
-                                                uint8_t layout, float scroll) {
+inline ProjectionKernelResult
+peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
+                  float scroll, bool calculate_edge_distance = true) {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   constexpr float K = 1.8540746773013719f;
   constexpr float SHIFT = 2.0f * K;
   const float longitude = peirce_sector_longitude(v, central_meridian);
-  const float latitude = asinf(hs::clamp(v.y, -1.0f, 1.0f));
   const float sl = sinf(longitude);
   const float cl = cosf(longitude);
-  const float cp = cosf(latitude);
-  const float a = acosf(hs::clamp(cp * (sl + cl) * INV_SQRT_TWO, -1.0f, 1.0f));
-  const float b = acosf(hs::clamp(cp * (sl - cl) * INV_SQRT_TWO, -1.0f, 1.0f));
-  float m = asinf(sqrtf(std::max(0.0f, 1.0f + std::min(0.0f, cosf(a + b)))));
-  float n = asinf(sqrtf(fabsf(1.0f - std::max(0.0f, cosf(a - b)))));
+  const float y = hs::clamp(v.y, -1.0f, 1.0f);
+  const float cp = sqrtf(std::max(0.0f, 1.0f - y * y));
+  const float cos_a = hs::clamp(cp * (sl + cl) * INV_SQRT_TWO, -1.0f, 1.0f);
+  const float cos_b = hs::clamp(cp * (sl - cl) * INV_SQRT_TWO, -1.0f, 1.0f);
+  const float sin_product =
+      sqrtf(std::max(0.0f, (1.0f - cos_a * cos_a) * (1.0f - cos_b * cos_b)));
+  const float cos_sum = hs::clamp(cos_a * cos_b - sin_product, -1.0f, 1.0f);
+  const float cos_difference =
+      hs::clamp(cos_a * cos_b + sin_product, -1.0f, 1.0f);
+  float m = asinf(sqrtf(std::max(0.0f, 1.0f + std::min(0.0f, cos_sum))));
+  float n = asinf(sqrtf(fabsf(1.0f - std::max(0.0f, cos_difference))));
   if (sl < 0.0f)
     m = -m;
   if (cl > 0.0f)
     n = -n;
   float x = peirce_elliptic_integral(m);
-  float y = peirce_elliptic_integral(n);
+  float projected_y = peirce_elliptic_integral(n);
   uint8_t region = 0;
   uint8_t flags = 0;
-  if (latitude < 0.0f) {
+  if (v.y < 0.0f) {
     flags = 1;
     if (longitude < -0.75f * PI_F || longitude >= 0.75f * PI_F)
       region = 1;
@@ -169,24 +174,24 @@ inline ProjectionKernelResult peirce_projection(const Vector &v,
       region = 4;
     if (layout <= 1) {
       if (longitude < -0.75f * PI_F) {
-        y = SHIFT - y;
+        projected_y = SHIFT - projected_y;
       } else if (longitude < -0.25f * PI_F) {
         x = -SHIFT - x;
       } else if (longitude < 0.25f * PI_F) {
-        y = -SHIFT - y;
+        projected_y = -SHIFT - projected_y;
       } else if (longitude < 0.75f * PI_F) {
         x = SHIFT - x;
       } else {
-        y = SHIFT - y;
+        projected_y = SHIFT - projected_y;
       }
     }
   }
   if (layout == 1) {
     const float old_x = x;
-    x = INV_SQRT_TWO * (x - y);
-    y = INV_SQRT_TWO * (old_x + y);
+    x = INV_SQRT_TWO * (x - projected_y);
+    projected_y = INV_SQRT_TWO * (old_x + projected_y);
   } else if (layout == 2) {
-    if (latitude < 0.0f)
+    if (v.y < 0.0f)
       x = SHIFT - x;
     x -= K;
     x += scroll * 2.0f * SHIFT;
@@ -195,19 +200,26 @@ inline ProjectionKernelResult peirce_projection(const Vector &v,
       x += 2.0f * SHIFT;
     x -= SHIFT;
   } else if (layout == 3) {
-    if (latitude < 0.0f)
-      y = SHIFT - y;
-    y -= K;
-    y += scroll * 2.0f * SHIFT;
-    y = fmodf(y + SHIFT, 2.0f * SHIFT);
-    if (y < 0.0f)
-      y += 2.0f * SHIFT;
-    y -= SHIFT;
+    if (v.y < 0.0f)
+      projected_y = SHIFT - projected_y;
+    projected_y -= K;
+    projected_y += scroll * 2.0f * SHIFT;
+    projected_y = fmodf(projected_y + SHIFT, 2.0f * SHIFT);
+    if (projected_y < 0.0f)
+      projected_y += 2.0f * SHIFT;
+    projected_y -= SHIFT;
   }
-  const float rotated_x = cp * cosf(longitude);
-  const float rotated_z = cp * sinf(longitude);
-  const float edge = acosf(
-      hs::clamp(std::max(fabsf(rotated_x), fabsf(rotated_z)), 0.0f, 1.0f));
+  const float rotated_x = cp * cl;
+  const float rotated_z = cp * sl;
+  float edge = 65536.0f;
+  if (calculate_edge_distance) {
+    edge = acosf(
+        hs::clamp(std::max(fabsf(rotated_x), fabsf(rotated_z)), 0.0f, 1.0f));
+    if (v.y < 0.0f) {
+      const float fold_sine = cp * fabsf(fabsf(sl) - fabsf(cl)) * INV_SQRT_TWO;
+      edge = std::min(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
+    }
+  }
   uint8_t edge_class = fabsf(rotated_x) >= fabsf(rotated_z)
                            ? static_cast<uint8_t>(rotated_x < 0.0f)
                            : static_cast<uint8_t>(2 + (rotated_z < 0.0f));
@@ -215,7 +227,7 @@ inline ProjectionKernelResult peirce_projection(const Vector &v,
     edge_class = 4;
   else if (layout == 3)
     edge_class = 5;
-  return {Complex(x, y),
+  return {Complex(x, projected_y),
           region,
           0,
           2,
@@ -477,34 +489,22 @@ static constexpr uint8_t AIROCEAN_CUT_EDGES[] = {0, 1, 2, 1, 2, 0, 2, 0, 2,
                                                  1, 2, 1, 2, 0, 2, 0, 2, 0,
                                                  1, 2, 1, 2, 2, 1, 0, 1};
 
-inline bool airocean_edge_is_cut(uint8_t face, uint8_t edge) {
-  for (size_t index = 0; index < std::size(AIROCEAN_CUT_FACES); ++index)
-    if (AIROCEAN_CUT_FACES[index] == face && AIROCEAN_CUT_EDGES[index] == edge)
-      return true;
-  return false;
-}
+static constexpr uint8_t AIROCEAN_CUT_MASKS[23] = {
+    0, 0, 0, 1, 6, 6, 5, 0, 1, 4, 0, 0, 6, 6, 5, 5, 1, 0, 6, 6, 4, 2, 3};
 
-inline bool airocean_same_point(const AiroceanPoint &a,
-                                const AiroceanPoint &b) {
-  constexpr float EPSILON = 1e-6f;
-  return fabsf(a.x - b.x) <= EPSILON && fabsf(a.y - b.y) <= EPSILON;
+static constexpr uint8_t AIROCEAN_EDGE_IDENTITIES[23][3] = {
+    {0, 1, 2},    {3, 4, 0},    {6, 7, 3},    {9, 10, 6},   {2, 13, 14},
+    {1, 16, 17},  {18, 19, 20}, {19, 4, 23},  {24, 25, 7},  {27, 28, 29},
+    {10, 31, 27}, {31, 34, 35}, {34, 37, 38}, {39, 40, 41}, {42, 43, 44},
+    {45, 28, 47}, {48, 35, 50}, {50, 39, 53}, {54, 55, 56}, {53, 58, 59},
+    {43, 61, 62}, {23, 64, 61}, {66, 67, 25}};
+
+inline bool airocean_edge_is_cut(uint8_t face, uint8_t edge) {
+  return (AIROCEAN_CUT_MASKS[face] & (1U << edge)) != 0;
 }
 
 inline uint8_t airocean_edge_identity(uint8_t face, uint8_t edge) {
-  const AiroceanPoint &a = AIROCEAN_PLANAR_FACES[face][edge];
-  const AiroceanPoint &b = AIROCEAN_PLANAR_FACES[face][(edge + 1U) % 3U];
-  for (uint8_t candidate_face = 0; candidate_face < 23; ++candidate_face) {
-    for (uint8_t candidate_edge = 0; candidate_edge < 3; ++candidate_edge) {
-      const AiroceanPoint &c =
-          AIROCEAN_PLANAR_FACES[candidate_face][candidate_edge];
-      const AiroceanPoint &d =
-          AIROCEAN_PLANAR_FACES[candidate_face][(candidate_edge + 1U) % 3U];
-      if ((airocean_same_point(a, c) && airocean_same_point(b, d)) ||
-          (airocean_same_point(a, d) && airocean_same_point(b, c)))
-        return static_cast<uint8_t>(candidate_face * 3U + candidate_edge);
-    }
-  }
-  return static_cast<uint8_t>(face * 3U + edge);
+  return AIROCEAN_EDGE_IDENTITIES[face][edge];
 }
 
 inline float airocean_det(const AiroceanVector &u, const AiroceanVector &v,
@@ -527,9 +527,9 @@ inline float airocean_outside_score(const AiroceanVector &p,
                                           airocean_det(face[0], face[1], p))));
 }
 
-inline float point_segment_distance(const AiroceanPoint &p,
-                                    const AiroceanPoint &a,
-                                    const AiroceanPoint &b) {
+inline float point_segment_distance_squared(const AiroceanPoint &p,
+                                            const AiroceanPoint &a,
+                                            const AiroceanPoint &b) {
   const float dx = b.x - a.x;
   const float dy = b.y - a.y;
   const float denom = dx * dx + dy * dy;
@@ -539,11 +539,18 @@ inline float point_segment_distance(const AiroceanPoint &p,
                                   0.0f, 1.0f);
   const float ex = p.x - (a.x + t * dx);
   const float ey = p.y - (a.y + t * dy);
-  return sqrtf(ex * ex + ey * ey);
+  return ex * ex + ey * ey;
+}
+
+inline float point_segment_distance(const AiroceanPoint &p,
+                                    const AiroceanPoint &a,
+                                    const AiroceanPoint &b) {
+  return sqrtf(point_segment_distance_squared(p, a, b));
 }
 
 inline ProjectionKernelResult
-airocean_projection(const Vector &v, float central_meridian, bool horizontal) {
+airocean_projection(const Vector &v, float central_meridian, bool horizontal,
+                    bool calculate_edge_distance = true) {
   const float c = cosf(central_meridian);
   const float s = sinf(central_meridian);
   const AiroceanVector p{v.x * c + v.z * s, v.z * c - v.x * s, v.y};
@@ -573,28 +580,31 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal) {
                            transform[0][2] * q.z + transform[0][3],
                        transform[1][0] * q.x + transform[1][1] * q.y +
                            transform[1][2] * q.z + transform[1][3]};
-  float edge = 65536.0f;
-  for (size_t index = 0; index < std::size(AIROCEAN_CUT_FACES); ++index) {
-    const uint8_t cut_face = AIROCEAN_CUT_FACES[index];
-    const uint8_t cut_edge = AIROCEAN_CUT_EDGES[index];
-    const AiroceanPoint &a = AIROCEAN_PLANAR_FACES[cut_face][cut_edge];
-    const AiroceanPoint &b =
-        cut_face == 14 && cut_edge == 0
-            ? AIROCEAN_PLANAR_FACES[18][1]
-            : AIROCEAN_PLANAR_FACES[cut_face][(cut_edge + 1) % 3];
-    edge = std::min(edge, point_segment_distance(output, a, b));
-  }
   uint8_t edge_class = 0;
-  float face_edge_distance = 65536.0f;
+  float cut_edge_distance_squared = 65536.0f;
+  float face_edge_distance_squared = 65536.0f;
   for (uint8_t candidate = 0; candidate < 3; ++candidate) {
-    const float distance = point_segment_distance(
-        output, AIROCEAN_PLANAR_FACES[face][candidate],
-        AIROCEAN_PLANAR_FACES[face][(candidate + 1) % 3]);
-    if (distance < face_edge_distance) {
-      face_edge_distance = distance;
+    const AiroceanPoint &a = AIROCEAN_PLANAR_FACES[face][candidate];
+    const AiroceanPoint &b = AIROCEAN_PLANAR_FACES[face][(candidate + 1) % 3];
+    const float distance_squared = point_segment_distance_squared(output, a, b);
+    if (distance_squared < face_edge_distance_squared) {
+      face_edge_distance_squared = distance_squared;
       edge_class = candidate;
     }
+    if (calculate_edge_distance && airocean_edge_is_cut(face, candidate)) {
+      const float cut_distance_squared =
+          face == 14 && candidate == 0
+              ? point_segment_distance_squared(output, a,
+                                               AIROCEAN_PLANAR_FACES[18][1])
+              : distance_squared;
+      cut_edge_distance_squared =
+          std::min(cut_edge_distance_squared, cut_distance_squared);
+    }
   }
+  const float edge =
+      calculate_edge_distance && cut_edge_distance_squared < 65536.0f
+          ? sqrtf(cut_edge_distance_squared)
+          : 65536.0f;
   bool cut_edge = airocean_edge_is_cut(face, edge_class);
   uint8_t edge_identity = airocean_edge_identity(face, edge_class);
   if (face == 14 && edge_class == 0) {
