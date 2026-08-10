@@ -7,7 +7,11 @@
 /**
  * @file animation.h
  * @brief Animation umbrella header: the IAnimation interface, the AnimationBase
- * CRTP base, and the fragment includes that assemble the Animation namespace.
+ * CRTP base, and the fragment includes.
+ * @details The fragments span three scopes: namespace Animation (the animations
+ * themselves), namespace Segue (the transition policies), and global scope
+ * (Timeline/TimelineEvent, MeshCarousel, Path/ProceduralPath, and the tween
+ * traversals).
  */
 
 #include <algorithm>
