@@ -1010,8 +1010,10 @@ static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
       ang += 2.0f * PI_F;
     else if (ang >= 2.0f * PI_F)
       ang -= 2.0f * PI_F;
-    if (ang > 0.0f && ang < es.total)
+    if (ang > 0.0f && ang < es.total) {
+      HS_CHECK(found < GEODESIC_CLIP_MAX_SPLITS);
       angs[found++] = ang;
+    }
   };
 
   if (cb.cols && std::abs(es.axis.y) >= AXIS_Y_EPS) {
