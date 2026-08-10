@@ -22,7 +22,7 @@
  *
  * Each Teensy reads a hardware ID from GPIO pins at boot to determine
  * which segment it owns.  One wire connects all boards
- * (docs/phantasm_frame_sync_spec.md):
+ * (docs/specs/phantasm_frame_sync_spec.md):
  *
  *   Sync wire: segment 0 (the master/conductor) emits count-coded symbol
  *   bursts — two boundary marks per revolution, an epoch mark once per

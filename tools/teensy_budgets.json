@@ -10,7 +10,7 @@
   // it uses 510,784 B of RAM1 (variables 314,176 + code 194,200 rounded up to a
   // whole 32 KiB FlexRAM bank, 196,608) with 13,504 B free for locals — the
   // 32 KiB bank the arena cut freed was spent on ITCM -O3
-  // promotions (see docs/itcm_ledger.md). These figures move with every code
+  // promotions (see docs/ledgers/itcm_ledger.md). These figures move with every code
   // landing AND with the pinned toolchain; re-measure rather than trusting them
   // verbatim. Holosphere RAM2 is 44,160 B (its framebuffers are sized to the
   // 96x20 canvas via -DCANVAS_W/-DCANVAS_H); Phantasm RAM2 is 520,064 B.
@@ -54,7 +54,7 @@
       // that cut freed has since been spent on ITCM -O3 promotions: RAM1 used
       // 510,784 (variables 314,176 + code 194,200 rounded up to a whole 32 KiB
       // FlexRAM bank, 196,608), free-for-locals 13,504, code 2,408 B under the
-      // derived ceiling (docs/itcm_ledger.md). RAM2 519,552.
+      // derived ceiling (docs/ledgers/itcm_ledger.md). RAM2 519,552.
       // FLASH max_bytes is the same device wall as Holosphere's, not a ratchet.
       "flash": { "max_bytes": 1900000 },
       // free_min_bytes is the DTCM stack reservation. The host stack-painting

@@ -14,7 +14,7 @@
  * board (master included) generates its own columns from a local flywheel
  * timebase disciplined by those symbols.  The playlist is epoch-counted —
  * the master broadcasts an EPOCH mark when an effect's revolutions elapse
- * and all boards switch in lockstep (docs/phantasm_frame_sync_spec.md).
+ * and all boards switch in lockstep (docs/specs/phantasm_frame_sync_spec.md).
  *
  * Hardware ID assignment is active-low (ground to set). IDs [0, N/2) map
  * arm A; IDs [N/2, N) map arm B. ID 0 has all straps open and is the master.

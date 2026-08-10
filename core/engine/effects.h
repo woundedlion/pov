@@ -82,7 +82,7 @@
  * @brief Phantasm (288x144) playlist: HS_EFFECT_LIST minus the low-res-only
  *        effects (Dynamo, Thrusters — Holosphere 96x20 only) and ShaderBall
  *        (its 288x144 shader instantiation does not
- *        fit the remaining ITCM budget — see docs/itcm_ledger.md).
+ *        fit the remaining ITCM budget — see docs/ledgers/itcm_ledger.md).
  * @param X Function-like macro applied to each effect type name in the playlist.
  * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
  *   consumes this; the registry, tests, and gallery stay on the full roster.

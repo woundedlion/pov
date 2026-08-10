@@ -4,7 +4,7 @@
  *
  * @file pov_sync.h
  * @brief Pure, host-testable core of the Phantasm synchronization design
- *        (docs/phantasm_frame_sync_spec.md): one local flywheel timebase per
+ *        (docs/specs/phantasm_frame_sync_spec.md): one local flywheel timebase per
  *        board, disciplined over a single sync-symbol wire.
  *
  * Split out of pov_segmented.h (which is Arduino-only) so every load-bearing
