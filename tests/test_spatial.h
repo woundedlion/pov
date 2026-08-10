@@ -19,7 +19,7 @@
 #include "tests/test_harness.h"
 
 namespace hs_test {
-namespace spatial {
+namespace spatial_tests {
 
 using hs_test::approx_vec;
 
@@ -637,5 +637,5 @@ inline int run_spatial_tests() {
   return fixture.result();
 }
 
-} // namespace spatial
+} // namespace spatial_tests
 } // namespace hs_test

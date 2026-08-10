@@ -22,7 +22,7 @@
 #include "tests/test_harness.h"
 
 namespace hs_test {
-namespace scb {
+namespace scb_tests {
 
 // ============================================================================
 // Compile-time conformance
@@ -904,5 +904,5 @@ inline int run_static_circular_buffer_tests() {
   return fixture.result();
 }
 
-} // namespace scb
+} // namespace scb_tests
 } // namespace hs_test

@@ -23,7 +23,7 @@
 #include <cstdint>
 
 namespace hs_test {
-namespace dma_controller {
+namespace dma_controller_tests {
 
 constexpr int N = 8; // BUFFER_SIZE=40, COMPOSITE_SIZE=80
 
@@ -280,5 +280,5 @@ inline int run_dma_controller_tests() {
   return fixture.result();
 }
 
-} // namespace dma_controller
+} // namespace dma_controller_tests
 } // namespace hs_test

@@ -6,7 +6,7 @@
  *
  * Usage:
  *   #include "tests/test_3dmath.h"
- *   int main() { return hs_test::math3d::run_3dmath_tests(); }
+ *   int main() { return hs_test::math3d_tests::run_3dmath_tests(); }
  *
  * Self-contained header — no external test framework. All test functions
  * are inline; the runner returns the failure count for use as a process
@@ -23,7 +23,7 @@
 #include <algorithm>
 
 namespace hs_test {
-namespace math3d {
+namespace math3d_tests {
 
 // ============================================================================
 // Constants
@@ -1376,5 +1376,5 @@ inline int run_3dmath_tests() {
   return fixture.result();
 }
 
-} // namespace math3d
+} // namespace math3d_tests
 } // namespace hs_test

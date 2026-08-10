@@ -16,7 +16,7 @@
 #include "tests/test_conway_morph.h"
 
 namespace hs_test {
-namespace opchain_arena_survey {
+namespace opchain_arena_survey_tests {
 
 using conway_morph_tests::ChainPeaks;
 using conway_morph_tests::ISLAMIC_PERSISTENT_BUDGET;
@@ -96,5 +96,5 @@ inline int run_opchain_arena_survey_tests() {
   return fixture.result();
 }
 
-} // namespace opchain_arena_survey
+} // namespace opchain_arena_survey_tests
 } // namespace hs_test
