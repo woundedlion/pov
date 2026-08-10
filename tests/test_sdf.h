@@ -1155,6 +1155,14 @@ struct MockIntervalShape {
       out(p.first, p.second);
     return true;
   }
+  /**
+   * @brief Claims every row, matching the unconditional interval emission.
+   * @tparam H Canvas height in rows.
+   * @return Row bounds spanning the canvas.
+   */
+  template <int H> SDF::Bounds get_vertical_bounds() const {
+    return {0, H - 1};
+  }
 };
 
 /**
@@ -2178,6 +2186,36 @@ inline void test_smooth_union_cull_covers_interior_over_leaf_pairs() {
 }
 
 /**
+ * @brief Verifies the SmoothUnion cull scans the rows past both children's
+ *        spans.
+ * @details Welding a polygon to itself puts the smin at its peak everywhere, so
+ *   the surface dilates by k/6 in every direction — past the last row either
+ *   child emits a span for. Those rows carry no interval to pad, and skipping
+ *   them clips the weld's polar fringe; they must request a full scan instead.
+ *   A row past the blend reach still holds no surface and stays culled.
+ */
+inline void test_smooth_union_scans_rows_past_both_children() {
+  constexpr int W = 96, H = 48;
+  init_geometry_luts<W, H>();
+  using Poly = SDF::PlanarPolygon;
+  Basis basis = make_basis(Quaternion(), Vector(0.2f, 1.0f, 0.1f));
+  Poly poly(basis, /*radius=*/0.5f, /*sides=*/6, 0.0f);
+
+  // k/6 = 0.2 rad of dilation, several pixel widths past the polygon's own cap.
+  SDF::SmoothUnion<Poly, Poly> welded(poly, poly, /*k=*/1.2f);
+  expect_cull_covers_interior<W, H>(welded, "smooth union self weld");
+
+  SDF::SmoothUnion<Poly, Poly> tight(poly, poly, /*k=*/0.05f);
+  const int far_row = poly.get_vertical_bounds<H>().y_max + 5;
+  HS_EXPECT_LT(far_row, H);
+  int spans = 0;
+  bool handled = tight.get_horizontal_intervals<W, H>(
+      far_row, [&](float, float) { ++spans; });
+  HS_EXPECT_TRUE(handled);
+  HS_EXPECT_EQ(spans, 0);
+}
+
+/**
  * @brief Verifies AngularRepeat around a non-Y axis culls in the full canvas, covering all copies.
  * @details A non-Y axis sweeps the folded copies through latitudes the un-repeated
  *   child never occupies, so the child's vertical band no longer bounds them.
@@ -2937,6 +2975,7 @@ inline int run_sdf_tests() {
   test_intersection_cull_covers_interior_over_polygon_pairs();
   test_subtract_cull_covers_interior_over_leaf_pairs();
   test_smooth_union_cull_covers_interior_over_leaf_pairs();
+  test_smooth_union_scans_rows_past_both_children();
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_line_arc_bulge_cull_covers_interior();
   test_line_antipodal_cull_covers_interior();
