@@ -414,7 +414,7 @@ inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
         break;
       curr_idx = he_mesh.half_edges[curr_he.pair].next;
     }
-  } while (curr_idx != HE_NONE && curr_idx != start_idx);
+  } while (curr_idx != start_idx);
 }
 
 /**
