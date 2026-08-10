@@ -1123,8 +1123,6 @@ private:
 
 /**
  * @brief Manages 3D world-space trails.
- * @details Not the same filter as its Screen:: namesake in another domain;
- * Screen::Trails documents where the two diverge.
  */
 template <int Capacity> class Trails : public Is3DWithHistory {
 public:
@@ -1177,7 +1175,7 @@ public:
    * @param color Source color, forwarded unchanged this frame.
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged and NOT gated: a
-   * transparent sample still consumes a ring slot, unlike Screen::Trails::plot.
+   * transparent sample still consumes a ring slot.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
@@ -1205,8 +1203,8 @@ public:
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
-   * @details Emits before aging (matching Screen::Trails::flush), so a point
-   * still renders on the frame its ttl reaches 1 rather than being culled unseen.
+   * @details Emits before aging, so a point still renders on the frame its ttl
+   * reaches 1 rather than being culled unseen.
    */
   template <typename PassFnT>
   void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
@@ -1612,11 +1610,6 @@ HS_O3_END
 
 /**
  * @brief Manages 2D screen-space trails.
- * @details Its World:: namesake is not the same filter in another domain — it
- * seeds regardless of alpha where this one gates, evicts at capacity by
- * dropping its ring's logical head where this one moves the last live point
- * into slot 0, and keeps the fail-safe has_history crosses_segments default
- * where this one overrides it to false.
  */
 template <int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
@@ -1647,8 +1640,7 @@ public:
    * @param color Source color, forwarded unchanged this frame.
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
    * @param alpha Blend alpha in [0, 1]; samples with alpha <= 0.001 seed no
-   * trail point but are still forwarded downstream. World::Trails::plot has no
-   * such gate and seeds regardless of alpha.
+   * trail point but are still forwarded downstream.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
