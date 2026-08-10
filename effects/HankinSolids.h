@@ -141,9 +141,7 @@ private:
   /** Strap-crossfade window: frames of the hankin sweep over which a reborn
    * strap slot glides from its previous color to the fresh target. The sweep
    * opens quadratically — straps reach visibility around frame 3-7 and about
-   * half their peak area by frame 20 — so the turnover completes while the
-   * straps are still small, and well before the closing bookend needs the
-   * landed assignment displayed verbatim. */
+   * half their peak area by frame 20. */
   static constexpr int STRAP_BLEND_FRAMES = 20;
 
   /** Identity class-slot indexing for the per-slot resolved-LUT draw path. */
