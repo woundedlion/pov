@@ -18,7 +18,8 @@
  * window the effects sweep uses, so the deepest call chains an effect only
  * reaches late in its lifecycle are inside the measured region.
  *
- * CI gate: fails (non-zero exit) if the worst effect exceeds BUDGET_BYTES.
+ * CI gate: fails (non-zero exit) if the worst effect exceeds BUDGET_BYTES, the
+ * device's own DTCM stack reservation (see below).
  */
 #include <cstdint>
 #include <cstdio>
@@ -39,8 +40,16 @@ constexpr size_t WIN = 256; // classifier granularity
 // below the top, far past any plausible frame.
 constexpr size_t CONTROL_BYTES = 65536;
 
-// Below the 16 KB device stack reservation minus the ISR allowance.
-constexpr size_t BUDGET_BYTES = 12288;
+#ifndef HS_DEVICE_STACK_FLOOR_BYTES
+#error "HS_DEVICE_STACK_FLOOR_BYTES must be defined by tests/CMakeLists.txt"
+#endif
+
+// The device's DTCM stack reservation, read from tools/teensy_budgets.json
+// (phantasm.regions.ram1.free_min_bytes) by tests/CMakeLists.txt. That is the
+// bytes the Teensy size gate holds free for locals, and the ITCM code ceiling
+// is derived from the same figure, so this gate and the device budget cannot
+// drift apart.
+constexpr size_t BUDGET_BYTES = HS_DEVICE_STACK_FLOOR_BYTES;
 
 volatile uint8_t *g_lo;
 int g_measured = 0;
