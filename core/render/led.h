@@ -21,48 +21,48 @@
 /**
  * @brief Analog pin used for seeding the random number generator.
  */
-static constexpr int PIN_RANDOM = 15;
+inline constexpr int PIN_RANDOM = 15;
 /**
  * @brief Data pin for the LED strip
  */
-static constexpr int PIN_DATA = 11;
+inline constexpr int PIN_DATA = 11;
 /**
  * @brief Clock pin for the LED strip.
  */
-static constexpr int PIN_CLOCK = 13;
+inline constexpr int PIN_CLOCK = 13;
 
 // CONTRACT — at most ONE guard may be live at a time: NoColorCorrection and
-// NoTempCorrection share the single depth counter below, so a second live guard
+// NoTempCorrection share the single liveness flag below, so a second live guard
 // of EITHER type traps. Enforced in both the FastLED and DMA-stub builds.
 
 /**
- * @brief Shared liveness counter for the correction guards.
- * @return Reference to the single process-wide depth (0 = no guard active).
+ * @brief Shared liveness flag for the correction guards.
+ * @return Reference to the single process-wide flag (false = no guard active).
  * @details A function-local static keeps one instance across translation units
- * without an out-of-line definition. Incremented after the nesting check in each
- * guard's ctor and decremented in its dtor.
+ * without an out-of-line definition. Set after the liveness check in each
+ * guard's ctor and cleared in its dtor.
  * @note Non-atomic and main-loop-only — never construct/destroy a correction
  * guard from an ISR or any preemptive context.
  */
-inline int &correction_guard_depth() {
-  static int depth = 0;
-  return depth;
+inline bool &correction_guard_live() {
+  static bool live = false;
+  return live;
 }
 
 // When using DMA LEDs, correction is done in the DMA pipeline — the guards carry
-// only the liveness counter.
+// only the liveness flag.
 #ifdef USE_DMA_LEDS
 /**
  * @brief No-op stub: the DMA pipeline applies no color/temperature correction.
  */
 struct NoColorCorrection {
   NoColorCorrection() {
-    HS_CHECK(correction_guard_depth() == 0,
+    HS_CHECK(!correction_guard_live(),
              "at most one correction guard may be live at a time (see contract "
              "above)");
-    ++correction_guard_depth();
+    correction_guard_live() = true;
   }
-  ~NoColorCorrection() { --correction_guard_depth(); }
+  ~NoColorCorrection() { correction_guard_live() = false; }
   NoColorCorrection(const NoColorCorrection &) = delete;
   NoColorCorrection &operator=(const NoColorCorrection &) = delete;
 };
@@ -77,14 +77,14 @@ using NoTempCorrection = NoColorCorrection;
 
 /**
  * @brief Reinstates the engine's canonical baseline (TypicalLEDStrip color,
- * Candle temperature) and releases the guard liveness counter.
+ * Candle temperature) and clears the guard liveness flag.
  * @details Shared by both correction guards' destructors (see the
  * restore-to-baseline contract above).
  */
 inline void restore_correction_baseline() {
   FastLED.setCorrection(TypicalLEDStrip);
   FastLED.setTemperature(Candle);
-  --correction_guard_depth();
+  correction_guard_live() = false;
 }
 
 /**
@@ -97,10 +97,10 @@ struct NoColorCorrection {
    * @brief Disables both color and temperature correction for the guard's scope.
    */
   NoColorCorrection() {
-    HS_CHECK(correction_guard_depth() == 0,
+    HS_CHECK(!correction_guard_live(),
              "at most one correction guard may be live at a time (see contract "
              "above)");
-    ++correction_guard_depth();
+    correction_guard_live() = true;
     FastLED.setCorrection(UncorrectedColor);
     FastLED.setTemperature(UncorrectedTemperature);
   }
@@ -124,10 +124,10 @@ struct NoTempCorrection {
    * correction for the guard's scope.
    */
   NoTempCorrection() {
-    HS_CHECK(correction_guard_depth() == 0,
+    HS_CHECK(!correction_guard_live(),
              "at most one correction guard may be live at a time (see contract "
              "above)");
-    ++correction_guard_depth();
+    correction_guard_live() = true;
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(UncorrectedTemperature);
   }

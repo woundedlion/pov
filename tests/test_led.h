@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Unit tests for core/render/led.h — the correction-guard RAII happy path: a
- * normal scope exit must balance correction_guard_depth() back to 0 and leave
+ * normal scope exit must clear correction_guard_live() back to false and leave
  * the FastLED selectors at the canonical baseline. The double-construct trap is
  * covered separately by the death module.
  *
@@ -20,51 +20,51 @@ namespace hs_test {
 namespace led_tests {
 
 /**
- * @brief Verifies a NoColorCorrection guard raises the depth to 1 in scope and
- *        restores it to 0 on scope exit.
+ * @brief Verifies a NoColorCorrection guard marks the liveness flag in scope
+ *        and clears it on scope exit.
  */
 inline void test_color_guard_balances() {
-  HS_EXPECT_EQ(correction_guard_depth(), 0);
+  HS_EXPECT_EQ(correction_guard_live(), false);
   {
     NoColorCorrection guard;
-    HS_EXPECT_EQ(correction_guard_depth(), 1);
+    HS_EXPECT_EQ(correction_guard_live(), true);
   }
-  HS_EXPECT_EQ(correction_guard_depth(), 0);
+  HS_EXPECT_EQ(correction_guard_live(), false);
 }
 
 /**
- * @brief Verifies a NoTempCorrection guard raises the depth to 1 in scope and
- *        restores it to 0 on scope exit.
+ * @brief Verifies a NoTempCorrection guard marks the liveness flag in scope
+ *        and clears it on scope exit.
  */
 inline void test_temp_guard_balances() {
-  HS_EXPECT_EQ(correction_guard_depth(), 0);
+  HS_EXPECT_EQ(correction_guard_live(), false);
   {
     NoTempCorrection guard;
-    HS_EXPECT_EQ(correction_guard_depth(), 1);
+    HS_EXPECT_EQ(correction_guard_live(), true);
   }
-  HS_EXPECT_EQ(correction_guard_depth(), 0);
+  HS_EXPECT_EQ(correction_guard_live(), false);
 }
 
 /**
  * @brief Verifies sequential (non-overlapping) guards of either type each
- *        balance back to 0, so the shared counter never leaks across scopes.
+ *        clear the flag, so the shared liveness never leaks across scopes.
  */
 inline void test_sequential_guards_balance() {
   {
     NoColorCorrection a;
-    HS_EXPECT_EQ(correction_guard_depth(), 1);
+    HS_EXPECT_EQ(correction_guard_live(), true);
   }
-  HS_EXPECT_EQ(correction_guard_depth(), 0);
+  HS_EXPECT_EQ(correction_guard_live(), false);
   {
     NoTempCorrection b;
-    HS_EXPECT_EQ(correction_guard_depth(), 1);
+    HS_EXPECT_EQ(correction_guard_live(), true);
   }
-  HS_EXPECT_EQ(correction_guard_depth(), 0);
+  HS_EXPECT_EQ(correction_guard_live(), false);
   {
     NoColorCorrection c;
-    HS_EXPECT_EQ(correction_guard_depth(), 1);
+    HS_EXPECT_EQ(correction_guard_live(), true);
   }
-  HS_EXPECT_EQ(correction_guard_depth(), 0);
+  HS_EXPECT_EQ(correction_guard_live(), false);
 }
 
 /**
