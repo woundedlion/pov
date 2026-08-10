@@ -2714,7 +2714,7 @@ struct Ring {
    * @brief Samples a closed ring at `num_samples` evenly-spaced angles.
    * @param points Output fragment list; num_samples+1 fragments are appended.
    * @param basis Orientation basis.
-   * @param radius Ring radius (radians).
+   * @param radius Ring radius as a fraction of the hemisphere.
    * @param num_samples Number of evenly-spaced samples around the ring.
    * @param phase Rotation phase (radians).
    * @details Runtime sample count for the polygon samplers, whose vertex counts
@@ -2771,7 +2771,7 @@ struct Ring {
    * @param points Output fragment list; ceil(W/stride)+1 fragments are appended,
    *               at most W+1.
    * @param basis Orientation basis.
-   * @param radius Ring radius (radians).
+   * @param radius Ring radius as a fraction of the hemisphere.
    * @param phase Rotation phase (radians).
    * @details The angle grid (i*2π/W) is exactly TrigLUT<W,H>::cos_theta and
    * sin_theta, so per-sample cosf(θ+φ)/sinf(θ+φ) becomes
@@ -2832,7 +2832,7 @@ struct Ring {
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
-   * @param radius Ring radius (radians).
+   * @param radius Ring radius as a fraction of the hemisphere.
    * @param fragment_shader Shader function.
    * @param vertex_shader Optional vertex shader.
    * @param phase Rotation phase.
@@ -2853,7 +2853,7 @@ struct Ring {
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param basis Orientation basis.
-   * @param radius Ring radius (radians).
+   * @param radius Ring radius as a fraction of the hemisphere.
    * @param fragment_shader Shader function.
    * @param phase Rotation phase.
    */
