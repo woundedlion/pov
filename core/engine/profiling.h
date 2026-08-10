@@ -266,11 +266,17 @@ public:
     }
   }
 
-  /** @brief Closes the final partial batch. */
+  /** @brief Closes the final partial batch; a second call adds nothing. */
   void finish() {
-    if (operations != 0)
+    if (operations != 0) {
       bucket.add(start);
+      operations = 0;
+    }
   }
+
+  ~DwtStallBatch() { finish(); }
+  DwtStallBatch(const DwtStallBatch &) = delete;
+  DwtStallBatch &operator=(const DwtStallBatch &) = delete;
 
 private:
   static constexpr uint8_t OPERATIONS_PER_BATCH = 2;
