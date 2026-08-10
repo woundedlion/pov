@@ -761,6 +761,15 @@ private:
       config.slots.warp_program.inner.kind = WarpStageKind::NONE;
   }
 
+  static void fit_selected_warp_to_device_budget(Config &config,
+                                                 bool outer_selected) {
+    if (within_hold_device_budget(device_cost(config)))
+      return;
+    WarpStageSpec &sibling = outer_selected ? config.slots.warp_program.inner
+                                            : config.slots.warp_program.outer;
+    sibling.kind = WarpStageKind::NONE;
+  }
+
   static void canonicalize_selector_edit(Config &config, EditIntent intent) {
     WarpStageSpec &outer = config.slots.warp_program.outer;
     WarpStageSpec &inner = config.slots.warp_program.inner;
@@ -805,6 +814,7 @@ private:
       if (warp_uses_noise(outer.kind))
         outer.resource_id = 0;
       canonicalize_warp_params(outer, config.params.warp.outer);
+      fit_selected_warp_to_device_budget(config, true);
       break;
     case EditIntent::INNER_WARP:
       if (inner.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
@@ -826,6 +836,7 @@ private:
       if (warp_uses_noise(inner.kind))
         inner.resource_id = 1;
       canonicalize_warp_params(inner, config.params.warp.inner);
+      fit_selected_warp_to_device_budget(config, false);
       break;
     case EditIntent::OUTER_POLAR_HARMONIC:
       if (outer.kind == WarpStageKind::POLAR_CHART &&
@@ -1246,6 +1257,30 @@ private:
     Quaternion outer_conj;
   };
 
+  struct WrappedNoisePhase {
+    float current_time;
+    float previous_time;
+    float mix;
+    bool blends;
+  };
+
+  struct PreparedWarpStage {
+    float rotation_cos;
+    float rotation_sin;
+    float mirror_offset_x;
+    float mirror_offset_y;
+    float vortex_center_x;
+    float vortex_center_y;
+    float vortex_radius_sq;
+    float vortex_angle_numerator;
+    WrappedNoisePhase noise_phase;
+  };
+
+  struct PreparedWarpProgram {
+    PreparedWarpStage outer;
+    PreparedWarpStage inner;
+  };
+
   struct ResourceBindings {
     const FastNoiseLite *outer_warp_noise;
     const FastNoiseLite *inner_warp_noise;
@@ -1276,6 +1311,7 @@ private:
     SourceState prepared_source;
     float breathe_offset;
     PreparedTransforms transforms;
+    PreparedWarpProgram prepared_warp;
     ResourceBindings resources;
   };
 
@@ -1582,6 +1618,35 @@ private:
                : nullptr;
   }
 
+  static WrappedNoisePhase prepare_noise_phase(float turns) {
+    const float wrapped_turns = wrap_t(turns);
+    const float current_time = wrapped_turns * NOISE_NATIVE_PERIOD;
+    if (wrapped_turns <= NOISE_WRAP_START)
+      return {current_time, current_time, 0.0f, false};
+    return {current_time, current_time - NOISE_NATIVE_PERIOD,
+            ease_in_out_sin((wrapped_turns - NOISE_WRAP_START) /
+                            (1.0f - NOISE_WRAP_START)),
+            true};
+  }
+
+  static PreparedWarpStage prepare_warp_stage(const WarpStageParams &params,
+                                              float stage_phase) {
+    const float rotation_cos = cosf(params.rotation);
+    const float rotation_sin = sinf(params.rotation);
+    const float orbit_phase = TWO_PI_F * stage_phase;
+    return {
+        rotation_cos,
+        rotation_sin,
+        wrap_t(params.offset_x / params.cell_x) * params.cell_x,
+        wrap_t(params.offset_y / params.cell_y) * params.cell_y,
+        params.center_x + params.center_orbit_radius * cosf(orbit_phase),
+        params.center_y + params.center_orbit_radius * sinf(orbit_phase),
+        params.radius * params.radius,
+        TWO_PI_F * params.turns,
+        prepare_noise_phase(stage_phase),
+    };
+  }
+
   HS_COLD_MEMBER FrameState prepare_frame() const {
     return prepare_frame({active_slots, blend.params}, runtime);
   }
@@ -1590,6 +1655,11 @@ private:
                                           const LookRuntime &look) const {
     const bool animated_projection =
         config.slots.projection_frame == ProjectionFramePolicy::SPIN_WANDER;
+    const PreparedWarpProgram prepared_warp{
+        prepare_warp_stage(config.params.warp.outer,
+                           look.clocks.warp_outer_phase),
+        prepare_warp_stage(config.params.warp.inner,
+                           look.clocks.warp_inner_phase)};
     return {
         config.slots,
         config.params,
@@ -1601,6 +1671,7 @@ private:
             config.params.colorizer.breathe_depth,
         {animated_projection ? look.transforms.projection_conj : Quaternion(),
          look.transforms.outer_conj},
+        prepared_warp,
         {resolve_warp_resource(config.slots.warp_program.outer),
          resolve_warp_resource(config.slots.warp_program.inner),
          resolve_source_resource(config), resolve_lens_resource(config),
@@ -1935,11 +2006,11 @@ private:
     const PlanarWarpStageResult outer = warp_stage_lookup(
         projected.coords, projected, frame.slots.warp_program.outer,
         frame.params.warp.outer, frame.clocks.warp_outer_phase,
-        frame.resources.outer_warp_noise, frame);
+        frame.resources.outer_warp_noise, frame.prepared_warp.outer, frame);
     const PlanarWarpStageResult inner = warp_stage_lookup(
         outer.coords, projected, frame.slots.warp_program.inner,
         frame.params.warp.inner, frame.clocks.warp_inner_phase,
-        frame.resources.inner_warp_noise, frame);
+        frame.resources.inner_warp_noise, frame.prepared_warp.inner, frame);
     const Complex net_delta(outer.delta.re + inner.delta.re,
                             outer.delta.im + inner.delta.im);
     const bool sole_legacy =
@@ -1962,6 +2033,7 @@ private:
   warp_stage_lookup(const Complex &input, const ProjectedLookup &projected,
                     const WarpStageSpec &spec, const WarpStageParams &params,
                     float stage_phase, const FastNoiseLite *stage_noise,
+                    const PreparedWarpStage &prepared,
                     const FrameState &frame) {
     if (spec.kind == WarpStageKind::NONE)
       return {input, Complex(), 0.0f, 0.0f, 0};
@@ -1986,8 +2058,8 @@ private:
               result.displacement, 0};
     }
     case WarpStageKind::AFFINE_FRAME: {
-      const float c = cosf(params.rotation);
-      const float s = sinf(params.rotation);
+      const float c = prepared.rotation_cos;
+      const float s = prepared.rotation_sin;
       const float x = input.re - params.translation_x;
       const float y = input.im - params.translation_y;
       const float rx = c * x + s * y;
@@ -2014,15 +2086,13 @@ private:
               0};
     }
     case WarpStageKind::VORTEX: {
-      const float center_x = params.center_x + params.center_orbit_radius *
-                                                   cosf(TWO_PI_F * stage_phase);
-      const float center_y = params.center_y + params.center_orbit_radius *
-                                                   sinf(TWO_PI_F * stage_phase);
+      const float center_x = prepared.vortex_center_x;
+      const float center_y = prepared.vortex_center_y;
       const float x = input.re - center_x;
       const float y = input.im - center_y;
       const float r_sq = x * x + y * y;
-      const float radius_sq = params.radius * params.radius;
-      const float angle = TWO_PI_F * params.turns / (1.0f + r_sq / radius_sq);
+      const float angle = prepared.vortex_angle_numerator /
+                          (1.0f + r_sq / prepared.vortex_radius_sq);
       const float c = cosf(angle);
       const float s = sinf(angle);
       output = {center_x + c * x - s * y, center_y + s * x + c * y};
@@ -2031,21 +2101,20 @@ private:
     case WarpStageKind::VECTOR_NOISE: {
       if (params.strength == 0.0f)
         return {input, Complex(), 0.0f, 0.0f, 0};
-      const float time = stage_phase;
       const float nx = sample_wrapped_noise_basis(
           *stage_noise, spec.basis, params.scale * input.re,
-          params.scale * input.im, time);
+          params.scale * input.im, prepared.noise_phase);
       float ny = sample_wrapped_noise_basis(
           *stage_noise, spec.basis, params.scale * input.re + 31.416f,
-          params.scale * input.im - 47.853f, time, 11.0f);
+          params.scale * input.im - 47.853f, prepared.noise_phase, 11.0f);
       float zero_dc_x = nx;
       if (spec.basis == NoiseBasis::RIDGED3) {
         zero_dc_x -= sample_wrapped_noise_basis(
             *stage_noise, spec.basis, params.scale * input.re - 73.271f,
-            params.scale * input.im + 19.119f, time, 5.0f);
+            params.scale * input.im + 19.119f, prepared.noise_phase, 5.0f);
         ny -= sample_wrapped_noise_basis(
             *stage_noise, spec.basis, params.scale * input.re + 61.731f,
-            params.scale * input.im + 89.417f, time, -7.0f);
+            params.scale * input.im + 89.417f, prepared.noise_phase, -7.0f);
       }
       const float c = cosf(params.vector_angle);
       const float s = sinf(params.vector_angle);
@@ -2064,13 +2133,15 @@ private:
         return {input, Complex(), 0.0f, 0.0f, 0};
       Complex delta;
       output = curl_flow(input, *stage_noise, spec, params, amplitude,
-                         stage_phase, delta, path_length);
+                         prepared.noise_phase, delta, path_length);
       const float deformation =
-          sqrtf(delta.re * delta.re + delta.im * delta.im);
+          spec.curl_integrator == CurlIntegrator::EULER_1
+              ? path_length
+              : sqrtf(delta.re * delta.re + delta.im * delta.im);
       return {output, delta, deformation, path_length, 0};
     }
     case WarpStageKind::MIRROR_TILE: {
-      const Complex transformed = mirror_tile(input, params);
+      const Complex transformed = mirror_tile(input, params, prepared);
       output = transformed;
       flags = WARP_FLAG_REFLECTED;
       break;
@@ -2111,20 +2182,22 @@ private:
   warp_stage_lookup(const Complex &input, const ProjectedLookup &projected,
                     const WarpStageSpec &spec, const WarpStageParams &params,
                     const FrameState &frame) {
+    const PreparedWarpStage prepared =
+        prepare_warp_stage(params, frame.clocks.warp_outer_phase);
     return warp_stage_lookup(input, projected, spec, params,
                              frame.clocks.warp_outer_phase,
-                             frame.resources.outer_warp_noise, frame);
+                             frame.resources.outer_warp_noise, prepared, frame);
   }
 
   static float sample_noise_basis(const FastNoiseLite &noise, NoiseBasis basis,
                                   float x, float y, float time) {
     if (basis == NoiseBasis::SIMPLEX)
-      return noise.GetNoise(x, y, time);
+      return noise.GetNoiseSingle(x, y, time);
     float value = 0.0f;
     float normalization = 0.0f;
     float weight = 1.0f;
     for (int octave = 0; octave < 3; ++octave) {
-      const float n = noise.GetNoise(x, y, time);
+      const float n = noise.GetNoiseSingle(x, y, time);
       value += weight * (basis == NoiseBasis::RIDGED3 ? 1.0f - fabsf(n) : n);
       normalization += weight;
       x *= 2.0f;
@@ -2137,43 +2210,51 @@ private:
 
   static float sample_wrapped_noise_basis(const FastNoiseLite &noise,
                                           NoiseBasis basis, float x, float y,
+                                          const WrappedNoisePhase &phase,
+                                          float time_offset = 0.0f) {
+    const float current = sample_noise_basis(noise, basis, x, y,
+                                             phase.current_time + time_offset);
+    if (!phase.blends)
+      return current;
+    const float previous = sample_noise_basis(
+        noise, basis, x, y, phase.previous_time + time_offset);
+    return hs::lerp(current, previous, phase.mix);
+  }
+
+  static float sample_wrapped_noise_basis(const FastNoiseLite &noise,
+                                          NoiseBasis basis, float x, float y,
                                           float turns,
                                           float time_offset = 0.0f) {
-    const float wrapped_turns = wrap_t(turns);
-    const float native_time = wrapped_turns * NOISE_NATIVE_PERIOD;
-    const float current =
-        sample_noise_basis(noise, basis, x, y, native_time + time_offset);
-    if (wrapped_turns <= NOISE_WRAP_START)
-      return current;
-    const float mix = ease_in_out_sin((wrapped_turns - NOISE_WRAP_START) /
-                                      (1.0f - NOISE_WRAP_START));
-    const float next = sample_noise_basis(
-        noise, basis, x, y, native_time - NOISE_NATIVE_PERIOD + time_offset);
-    return hs::lerp(current, next, mix);
+    return sample_wrapped_noise_basis(noise, basis, x, y,
+                                      prepare_noise_phase(turns), time_offset);
   }
 
   static Complex curl_flow(const Complex &input, const FastNoiseLite &noise,
                            const WarpStageSpec &spec,
                            const WarpStageParams &params, float distance,
-                           float time, Complex &net_delta, float &path_length) {
-    const int intervals = spec.curl_integrator == CurlIntegrator::EULER_1 ? 1
-                          : spec.curl_integrator == CurlIntegrator::MIDPOINT_2
-                              ? 2
-                              : 4;
+                           const WrappedNoisePhase &noise_phase,
+                           Complex &net_delta, float &path_length) {
+    if (spec.curl_integrator == CurlIntegrator::EULER_1) {
+      const Complex direction =
+          curl_vector(input, noise, spec.basis, params.scale, noise_phase);
+      net_delta = {distance * direction.re, distance * direction.im};
+      path_length =
+          sqrtf(net_delta.re * net_delta.re + net_delta.im * net_delta.im);
+      return {input.re + net_delta.re, input.im + net_delta.im};
+    }
+    const int intervals =
+        spec.curl_integrator == CurlIntegrator::MIDPOINT_2 ? 2 : 4;
     Complex q = input;
     const float step = distance / intervals;
     path_length = 0.0f;
     net_delta = {};
     for (int index = 0; index < intervals; ++index) {
       const Complex first =
-          curl_vector(q, noise, spec.basis, params.scale, time);
-      Complex direction = first;
-      if (intervals > 1) {
-        const Complex midpoint(q.re + 0.5f * step * first.re,
-                               q.im + 0.5f * step * first.im);
-        direction =
-            curl_vector(midpoint, noise, spec.basis, params.scale, time);
-      }
+          curl_vector(q, noise, spec.basis, params.scale, noise_phase);
+      const Complex midpoint(q.re + 0.5f * step * first.re,
+                             q.im + 0.5f * step * first.im);
+      const Complex direction =
+          curl_vector(midpoint, noise, spec.basis, params.scale, noise_phase);
       const Complex delta(step * direction.re, step * direction.im);
       q = {q.re + delta.re, q.im + delta.im};
       net_delta = {net_delta.re + delta.re, net_delta.im + delta.im};
@@ -2183,29 +2264,67 @@ private:
   }
 
   static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
-                             NoiseBasis basis, float scale, float time) {
+                             NoiseBasis basis, float scale,
+                             const WrappedNoisePhase &noise_phase) {
+    if (basis == NoiseBasis::SIMPLEX && !noise_phase.blends)
+      return simplex_curl_vector(p, noise, scale, noise_phase.current_time);
     constexpr float STENCIL = 1.0f / 64.0f;
     const float x = scale * p.re;
     const float y = scale * p.im;
     const float dx =
-        (sample_wrapped_noise_basis(noise, basis, x + STENCIL, y, time) -
-         sample_wrapped_noise_basis(noise, basis, x - STENCIL, y, time)) /
+        (sample_wrapped_noise_basis(noise, basis, x + STENCIL, y, noise_phase) -
+         sample_wrapped_noise_basis(noise, basis, x - STENCIL, y,
+                                    noise_phase)) /
         (2.0f * STENCIL);
     const float dy =
-        (sample_wrapped_noise_basis(noise, basis, x, y + STENCIL, time) -
-         sample_wrapped_noise_basis(noise, basis, x, y - STENCIL, time)) /
+        (sample_wrapped_noise_basis(noise, basis, x, y + STENCIL, noise_phase) -
+         sample_wrapped_noise_basis(noise, basis, x, y - STENCIL,
+                                    noise_phase)) /
         (2.0f * STENCIL);
     return {-scale * dy, scale * dx};
   }
 
+  static Complex simplex_curl_vector(const Complex &p,
+                                     const FastNoiseLite &noise, float scale,
+                                     float time) {
+    constexpr float STENCIL = 1.0f / 64.0f;
+    constexpr float ONE_THIRD_STENCIL = STENCIL / 3.0f;
+    constexpr float TWO_THIRDS_STENCIL = 2.0f * STENCIL / 3.0f;
+    const float x = scale * p.re;
+    const float y = scale * p.im;
+    const float rotation = (x + y + time) * (2.0f / 3.0f);
+    const float tx = rotation - x;
+    const float ty = rotation - y;
+    const float tz = rotation - time;
+    const float x_plus = noise.GetNoiseSingleTransformed(
+        tx - ONE_THIRD_STENCIL, ty + TWO_THIRDS_STENCIL,
+        tz + TWO_THIRDS_STENCIL);
+    const float x_minus = noise.GetNoiseSingleTransformed(
+        tx + ONE_THIRD_STENCIL, ty - TWO_THIRDS_STENCIL,
+        tz - TWO_THIRDS_STENCIL);
+    const float y_plus = noise.GetNoiseSingleTransformed(
+        tx + TWO_THIRDS_STENCIL, ty - ONE_THIRD_STENCIL,
+        tz + TWO_THIRDS_STENCIL);
+    const float y_minus = noise.GetNoiseSingleTransformed(
+        tx - TWO_THIRDS_STENCIL, ty + ONE_THIRD_STENCIL,
+        tz - TWO_THIRDS_STENCIL);
+    const float dx = (x_plus - x_minus) / (2.0f * STENCIL);
+    const float dy = (y_plus - y_minus) / (2.0f * STENCIL);
+    return {-scale * dy, scale * dx};
+  }
+
+  static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
+                             NoiseBasis basis, float scale, float time) {
+    return curl_vector(p, noise, basis, scale, prepare_noise_phase(time));
+  }
+
   static Complex mirror_tile(const Complex &input,
-                             const WarpStageParams &params) {
-    const float c = cosf(params.rotation);
-    const float s = sinf(params.rotation);
-    const float offset_x =
-        wrap_t(params.offset_x / params.cell_x) * params.cell_x;
-    const float offset_y =
-        wrap_t(params.offset_y / params.cell_y) * params.cell_y;
+                             const WarpStageParams &params,
+                             const PreparedWarpStage &prepared) {
+    const float c = prepared.rotation_cos;
+    const float s = prepared.rotation_sin;
+    const float offset_x = prepared.mirror_offset_x;
+    const float offset_y = prepared.mirror_offset_y;
     const float x = c * input.re + s * input.im + offset_x;
     const float y = -s * input.re + c * input.im + offset_y;
     const float folded_x =
@@ -2213,6 +2332,11 @@ private:
     const float folded_y =
         params.cell_y * (1.0f - 2.0f * fabsf(wrap_t(y / params.cell_y) - 0.5f));
     return {c * folded_x - s * folded_y, s * folded_x + c * folded_y};
+  }
+
+  static Complex mirror_tile(const Complex &input,
+                             const WarpStageParams &params) {
+    return mirror_tile(input, params, prepare_warp_stage(params, 0.0f));
   }
 
   static StereoWarpResult sample_wrapped_warp(const Complex &z, float r_sq,
