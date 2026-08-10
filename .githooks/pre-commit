@@ -123,12 +123,15 @@ if [ -n "$HS_SKIP_TESTS" ]; then
   exit 0
 fi
 
-# Two gates key off the staged paths. NATIVE: the host unit suite (C++/CMake).
+# Two gates key off the staged paths. NATIVE: the host unit suite (C++/CMake),
+# including the .cmake test drivers and the Python generators CTests pin their
+# committed output against (an edit to one of those alone reds the suite and the
+# matching provenance job with nothing else staged).
 # TEENSY: the Teensy 4 size/layout gate, which any C++ change can move, plus the
 # build/budget/ldscript files that drive the firmware image.
 NATIVE=
 TEENSY=
-if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$'; then
+if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl|cmake)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$|(^|/)scripts/generate_luts\.py$|(^|/)tools/gen_gamut_lut\.py$|(^|/)tools/teensy_size_trail\.py$'; then
   NATIVE=1
 fi
 if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl|ino)$|(^|/)platformio\.ini$|(^|/)tools/teensy_[A-Za-z_]*\.py$|(^|/)tools/teensy_budgets\.json$|(^|/)tools/phantasm\.ld$'; then
