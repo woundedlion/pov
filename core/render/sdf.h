@@ -4123,7 +4123,13 @@ struct Line {
       n = Vector(0, 0, 0);
     } else {
       Vector cr = cross(a, b);
-      if (cr.x * cr.x + cr.y * cr.y + cr.z * cr.z < math::EPS_NORMALIZE_SQ) {
+      // EPS_CROSS_SQ, not EPS_NORMALIZE_SQ: the bound is on the direction the
+      // cross carries, not on whether it normalizes at all. |cross| = sin of
+      // the endpoint separation, so 1e-8 names the same band an angular 1e-4
+      // does; above it the components' ~1e-7 of rounding leaves the arc plane
+      // and the bounding-cap axis under ~2e-3 rad of direction error, a tenth
+      // of a pixel at W = 288.
+      if (cr.x * cr.x + cr.y * cr.y + cr.z * cr.z < math::EPS_CROSS_SQ) {
         // Antipodal endpoints (len ~ π) leave the arc plane undefined: any great
         // circle through them serves, and distance() then measures the whole
         // circle rather than an arc (every projected point sits at
