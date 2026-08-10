@@ -38,13 +38,18 @@ inline void build_solid(PolyMesh &mesh, Arena &arena) {
  *        sphere to within tol.
  * @param m Mesh whose vertices are checked.
  * @param tol Absolute tolerance on the deviation of each vertex length from 1.0.
+ * @details Reports the worst deviation rather than asserting per vertex: this
+ *          helper runs over every mesh the conway/mesh/solids/opchain suites
+ *          build, so a per-vertex HS_EXPECT would put hundreds of thousands of
+ *          assertions into those modules' floors and leave the floor gate blind
+ *          to whole cases being deleted.
  */
 inline void check_all_unit_vertices(const PolyMesh &m, float tol) {
   HS_EXPECT_TRUE(m.vertices.size() > 0);
-  for (size_t i = 0; i < m.vertices.size(); ++i) {
-    float len = m.vertices[i].length();
-    HS_EXPECT_NEAR(len, 1.0f, tol);
-  }
+  float worst = 0.0f;
+  for (size_t i = 0; i < m.vertices.size(); ++i)
+    worst = std::max(worst, std::fabs(m.vertices[i].length() - 1.0f));
+  HS_EXPECT_LE(worst, tol);
 }
 
 /**
@@ -65,13 +70,17 @@ inline void check_face_counts_consistent(const PolyMesh &m) {
  * @brief Verifies every face index references a valid vertex.
  * @param m Mesh whose face indices are checked against the vertex count.
  * @details Each entry of m.faces must be strictly less than m.vertices.size().
- *          The index array must be non-empty.
+ *          The index array must be non-empty. Reports the largest index found
+ *          rather than asserting per entry, for the same floor reason as
+ *          check_all_unit_vertices.
  */
 inline void check_indices_in_range(const PolyMesh &m) {
   HS_EXPECT_TRUE(m.faces.size() > 0);
   size_t V = m.vertices.size();
+  size_t max_index = 0;
   for (size_t i = 0; i < m.faces.size(); ++i)
-    HS_EXPECT_TRUE(m.faces[i] < V);
+    max_index = std::max<size_t>(max_index, m.faces[i]);
+  HS_EXPECT_LT(max_index, V);
 }
 
 /**

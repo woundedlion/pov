@@ -67,15 +67,25 @@ inline Arena &plot_arena() {
 
 /**
  * @brief The [0, π] paired trig path is bit-exact with the general functions.
+ * @details The ~525k probed angles report through a first-divergence capture
+ *          and a sample counter rather than per-angle assertions, which would
+ *          put a million assertions into the module's floor and leave the gate
+ *          blind to every other case being deleted.
  */
 inline void test_geodesic_sincos_bit_parity() {
-  auto check = [](float ang) {
+  float first_bad = -1.0f;
+  int divergent = 0;
+  int probed = 0;
+  auto check = [&](float ang) {
     float s, c;
     fast_sincosf_0_pi(ang, s, c);
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(s),
-                 std::bit_cast<uint32_t>(fast_sinf(ang)));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(c),
-                 std::bit_cast<uint32_t>(fast_cosf(ang)));
+    ++probed;
+    if (std::bit_cast<uint32_t>(s) != std::bit_cast<uint32_t>(fast_sinf(ang)) ||
+        std::bit_cast<uint32_t>(c) != std::bit_cast<uint32_t>(fast_cosf(ang))) {
+      if (divergent == 0)
+        first_bad = ang;
+      ++divergent;
+    }
   };
 
   const uint32_t PI_BITS = std::bit_cast<uint32_t>(PI_F);
@@ -92,6 +102,11 @@ inline void test_geodesic_sincos_bit_parity() {
   for (uint64_t bits = 0; bits <= PI_BITS; bits += STRIDE)
     check(std::bit_cast<float>(static_cast<uint32_t>(bits)));
   check(PI_F);
+
+  HS_EXPECT_EQ(divergent, 0);
+  HS_EXPECT_EQ(first_bad, -1.0f);
+  // A sweep that stopped generating angles would report zero divergences.
+  HS_EXPECT_GT(probed, 500000);
 }
 
 // ---------------------------------------------------------------------------
@@ -803,6 +818,10 @@ inline void test_clip_arcs_overlap() {
  *          ambiguous near-half separation fails on the mid-arc samples.
  *          Non-vacuity counters require many genuinely cullable spans and many
  *          near-half sweeps.
+ *          The ~7.2M dense containment samples report through escape counters
+ *          rather than per-sample assertions, which would swamp the module's
+ *          assertion floor; the sample counters keep a sweep that stopped
+ *          generating samples from passing vacuously.
  */
 inline void test_col_span_covers_arc() {
   constexpr int TW = 288;
@@ -829,6 +848,8 @@ inline void test_col_span_covers_arc() {
   int cullable = 0;  // spans narrower than half the canvas
   int near_half = 0; // sweeps close to the half-width bound
   int fallbacks = 0; // near-meridian edges that decline to bound
+  int geodesic_escapes = 0, geodesic_samples = 0;
+  int over_bound = 0;
 
   for (int trial = 0; trial < 4000; ++trial) {
     Vector a, b;
@@ -870,23 +891,28 @@ inline void test_col_span_covers_arc() {
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
       Vector p = a * cosf(ang * t) + vperp * sinf(ang * t);
-      HS_EXPECT_TRUE(contains(s, len, col_of(p)));
+      ++geodesic_samples;
+      geodesic_escapes += !contains(s, len, col_of(p));
     }
 
     // Antipodal symmetry caps a geodesic arc's longitude sweep at half the
     // canvas; the span may only exceed it by its own padding.
-    HS_EXPECT_LE(len, TW / 2 + 6);
+    over_bound += len > TW / 2 + 6;
     if (len < TW / 2)
       cullable++;
     if (len > TW / 2 - 10)
       near_half++;
   }
+  HS_EXPECT_EQ(geodesic_escapes, 0);
+  HS_EXPECT_GT(geodesic_samples, 1000000);
+  HS_EXPECT_EQ(over_bound, 0);
   HS_EXPECT_GT(cullable, 500);
   HS_EXPECT_GT(near_half, 50);
   HS_EXPECT_LT(fallbacks, 400); // the guard must stay a rare escape hatch
 
   // Exact-antipodal edges: the span must cover the semicircle the renderer
   // bulges about stable_perpendicular_axis, not just the endpoint columns.
+  int antipodal_escapes = 0, antipodal_samples = 0;
   for (int trial = 0; trial < 500; ++trial) {
     Vector a = rand_unit();
     Vector b = a * -1.0f;
@@ -900,14 +926,18 @@ inline void test_col_span_covers_arc() {
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
       Vector p = a * cosf(PI_F * t) + vperp * sinf(PI_F * t);
-      HS_EXPECT_TRUE(contains(s, len, col_of(p)));
+      ++antipodal_samples;
+      antipodal_escapes += !contains(s, len, col_of(p));
     }
   }
+  HS_EXPECT_EQ(antipodal_escapes, 0);
+  HS_EXPECT_GT(antipodal_samples, 400000);
 
   // Planar (azimuthal-equidistant) edges: ground truth is the chart line the
   // renderer walks, unprojected densely. Charts centered near a pole force the
   // near-pole fallback; the rest must produce bounded, containing spans.
   int planar_bounded = 0, planar_fallbacks = 0;
+  int planar_escapes = 0, planar_samples = 0;
   for (int trial = 0; trial < 3000; ++trial) {
     Vector center = rand_unit();
     Basis basis = basis_from_normal(center);
@@ -940,9 +970,12 @@ inline void test_col_span_covers_arc() {
       Vector p = Plot::azimuthal_unproject(
           p1.first + (p2.first - p1.first) * t,
           p1.second + (p2.second - p1.second) * t, basis);
-      HS_EXPECT_TRUE(contains(s, len, col_of(p)));
+      ++planar_samples;
+      planar_escapes += !contains(s, len, col_of(p));
     }
   }
+  HS_EXPECT_EQ(planar_escapes, 0);
+  HS_EXPECT_GT(planar_samples, 1500000);
   // Both outcomes must be exercised: bounded spans (the cull works) and the
   // near-pole/short-way fallbacks (the escape hatch fires when it must).
   HS_EXPECT_GT(planar_bounded, 1500);
