@@ -10,9 +10,9 @@
  * (getParamValues). They MUST agree on order — values[i] describes
  * definitions[i] — or every slider mis-binds. This layer takes two independent
  * passes over Effect::getParameters() at different times. Effect implementations
- * own the invariant by completing ParamList registration during init; the WASM
- * bridge's generation token detects replacement of the whole effect between
- * passes. This layer carries no Emscripten dependency (wasm.cpp adds the
+ * expose a schema-generation token; the WASM bridge joins it with effect
+ * replacement so dynamic rebinds invalidate stale positional bindings. This
+ * layer carries no Emscripten dependency (wasm.cpp adds the
  * emscripten::val translation on top), so the contract is host-unit-testable
  * without an Emscripten toolchain — see tests/test_param_marshal.h.
  */
@@ -23,6 +23,28 @@
 #include "core/render/canvas.h" // Effect, Effect::ParamDef
 
 namespace hs_wasm {
+
+/** @brief Joins engine replacement and effect-local schema changes into one token. */
+class ParamGenerationTracker {
+public:
+  void replace(uint32_t schema_generation) {
+    observed_schema_generation = schema_generation;
+    ++generation_value;
+  }
+
+  void observe(uint32_t schema_generation) {
+    if (schema_generation == observed_schema_generation)
+      return;
+    observed_schema_generation = schema_generation;
+    ++generation_value;
+  }
+
+  uint32_t generation() const { return generation_value; }
+
+private:
+  uint32_t observed_schema_generation = 0;
+  uint32_t generation_value = 0;
+};
 
 /**
  * @brief One parameter as the JS boundary sees it, in definition order.
@@ -50,7 +72,8 @@ struct ParamView {
  * @param effect Effect whose getParameters() sequence defines the order.
  * @param out Destination vector, cleared then filled in definition order;
  *            caller-owned so a reused vector amortizes its allocation.
- * @details Captures the order supplied by Effect's stable registered ParamList.
+ * @details Captures the order supplied by Effect's registered ParamList. Pair
+ *          the snapshot with the effect's schema-generation token.
  */
 inline void collect_param_views(const Effect &effect,
                                 std::vector<ParamView> &out) {
@@ -69,9 +92,9 @@ inline void collect_param_views(const Effect &effect,
  * @param effect Effect whose getParameters() values are read, in order.
  * @param out Destination vector, cleared (retaining capacity) then filled so
  *            that out[i] corresponds to collect_param_views()'s view[i].
- * @details Iterates Effect's stable registered ParamList independently of
- *          collect_param_views(), so its order must remain unchanged between
- *          the two calls. The stream carries raw
+ * @details Iterates Effect's registered ParamList independently of
+ *          collect_param_views(). Callers reject the stream when its schema
+ *          generation differs from the definition snapshot. The stream carries raw
  *          floats even for is_bool params (a bool is emitted as 0.0/1.0, not a
  *          JS boolean); consumers key off the definition type from
  *          collect_param_views(), not this value. `out.clear()` retains

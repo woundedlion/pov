@@ -8,6 +8,8 @@
  * Physical LEDs: 40 (20 per arm × 2 sides)
  * Virtual canvas: 96×20
  */
+#define HS_EXTERNAL_PARAM_STORAGE
+
 #include <FastLED.h>
 #include <SPI.h>
 

@@ -151,7 +151,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \
   X("filter", 63, hs_test::filter_tests::run_filter_tests, 10296)              \
   X("plot_scan", 78, hs_test::plot_scan_tests::run_plot_scan_tests, 9109888)   \
-  X("canvas", 28, hs_test::canvas_tests::run_canvas_tests, 487)                \
+  X("canvas", 29, hs_test::canvas_tests::run_canvas_tests, 487)                \
   X("scan", 31, hs_test::scan_tests::run_scan_tests, 189868)                   \
   X("mesh_raster", 18, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \
     2793)                                                                      \
@@ -168,7 +168,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
-  X("shadierball", 10, hs_test::shadierball_tests::run_shadierball_tests,      \
+  X("shadierball", 14, hs_test::shadierball_tests::run_shadierball_tests,      \
     2250)                                                                      \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
@@ -182,7 +182,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
     hs_test::pov_segmented_tests::run_pov_segmented_tests, 263165)             \
   X("pov_single", 3, hs_test::pov_single_tests::run_pov_single_tests, 8640)    \
   X("pov_sync", 47, hs_test::pov_sync_tests::run_pov_sync_tests, 2015)         \
-  X("param_marshal", 2, hs_test::param_marshal_tests::run_param_marshal_tests, \
+  X("param_marshal", 3, hs_test::param_marshal_tests::run_param_marshal_tests, \
     1158)                                                                      \
   X("wasm_predicates", 13,                                                     \
     hs_test::wasm_predicates_tests::run_wasm_predicates_tests, 470)            \

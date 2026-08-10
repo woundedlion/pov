@@ -1547,7 +1547,7 @@ inline void case_correction_guard_cross_type() {
 }
 
 /**
- * @brief Death case: overflowing the fixed 32-slot ParamList must trap.
+ * @brief Death case: overflowing the fixed ParamList must trap.
  * @details Canvas surface — register_param traps rather than silently dropping a
  *          registration, which would desync the GUI and, on WASM, break the
  *          no-realloc memory-view invariant.
@@ -1556,8 +1556,10 @@ inline void case_register_param_overflow() {
   DeathEffect fx;
   static float slot = 0.0f;
   // Distinct names, so the capacity guard fires ahead of the duplicate guard.
-  static char names[64][8];
-  for (int i = 0; i < opaque(64); ++i) { // exceeds capacity 32 -> HS_CHECK
+  constexpr int CAPACITY = static_cast<int>(
+      std::tuple_size<decltype(Effect::ParamList::elements)>::value);
+  static char names[CAPACITY + 1][8];
+  for (int i = 0; i < opaque(CAPACITY + 1); ++i) {
     std::snprintf(names[i], sizeof(names[i]), "p%d", i);
     fx.reg(names[i], &slot);
   }
@@ -2369,7 +2371,7 @@ inline const Case *all_cases(int &n) {
        "composition.h",
        "(!aliased) BakedPalette::rebake through an aliasing handle"},
       {"register_param_overflow", case_register_param_overflow, "canvas.h",
-       "(parameters.count < parameters.elements.size()) register_param: "
+       "(parameters.count < parameters.capacity()) register_param: "
        "exceeded ParamList capacity"},
       {"set_clip_out_of_bounds", case_set_clip_out_of_bounds, "canvas.h",
        "(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 && x0 <= x1 "

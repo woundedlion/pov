@@ -33,6 +33,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <type_traits>
+#include <vector>
 #include <utility>
 #include <vector>
 
@@ -305,48 +306,55 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
  * @brief Verifies every advertised animated param remains fixed while paused.
  * @param effect Effect instance whose automated params are probed.
  * @param name Effect name used in PAUSE LEAK diagnostic output.
- * @details The 500-frame window crosses every roster effect's preset timer or
- *          transition period. Effects without animated params cost no frames.
+ * @details Parameters are audited one at a time so independent valid controls
+ *          are not combined into an invalid cross-field configuration. The
+ *          aggregate audit spans at least 500 rendered frames.
  */
 inline void lint_animated_pause(Effect &effect, const char *name) {
-  constexpr size_t PARAM_CAPACITY =
-      std::tuple_size<decltype(Effect::ParamList::elements)>::value;
-  std::array<float, PARAM_CAPACITY> held{};
-  size_t count = 0;
+  std::vector<const char *> names;
+  std::vector<float> original;
+  std::vector<float> target;
+  names.reserve(effect.getParameters().size());
+  original.reserve(effect.getParameters().size());
+  target.reserve(effect.getParameters().size());
   for (const auto &def : effect.getParameters()) {
     if (!def.animated)
       continue;
     const float current = def.get();
-    const float target = def.is_bool()
-                             ? (current > 0.5f ? 0.0f : 1.0f)
-                             : ((current - def.min) > (def.max - current)
-                                    ? def.min + 0.25f * (def.max - def.min)
-                                    : def.min + 0.75f * (def.max - def.min));
-    HS_EXPECT_TRUE(effect.updateParameter(def.name, target) ==
-                   ParamSetResult::APPLIED);
-    HS_EXPECT_TRUE(effect.animations_paused());
-    held[count++] = def.get();
+    names.push_back(def.name);
+    original.push_back(current);
+    target.push_back(def.is_bool()
+                         ? (current > 0.5f ? 0.0f : 1.0f)
+                         : ((current - def.min) > (def.max - current)
+                                ? def.min + 0.25f * (def.max - def.min)
+                                : def.min + 0.75f * (def.max - def.min)));
   }
+  const size_t count = names.size();
   if (count == 0)
     return;
 
   constexpr int PAUSE_AUDIT_FRAMES = 500;
+  const int frames_per_param =
+      std::max(4, static_cast<int>((PAUSE_AUDIT_FRAMES + count - 1) / count));
   bool leaked = false;
-  for (int frame = 0; frame < PAUSE_AUDIT_FRAMES; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-    size_t index = 0;
-    for (const auto &def : effect.getParameters()) {
-      if (!def.animated)
-        continue;
-      if (def.get() != held[index]) {
+  for (size_t index = 0; index < count; ++index) {
+    for (size_t restore = 0; restore < count; ++restore)
+      effect.updateParameter(names[restore], original[restore]);
+    HS_EXPECT_TRUE(effect.updateParameter(names[index], target[index]) ==
+                   ParamSetResult::APPLIED);
+    HS_EXPECT_TRUE(effect.animations_paused());
+    const float held = effect.getParameters().find(names[index])->get();
+    for (int frame = 0; frame < frames_per_param; ++frame) {
+      effect.draw_frame();
+      effect.advance_display();
+      const auto *def = effect.getParameters().find(names[index]);
+      if (def->get() != held) {
         if (!leaked)
           std::printf("  PAUSE LEAK %s::%s moved %.4f -> %.4f at frame %d\n",
-                      name, def.name, static_cast<double>(held[index]),
-                      static_cast<double>(def.get()), frame + 1);
+                      name, names[index], static_cast<double>(held),
+                      static_cast<double>(def->get()), frame + 1);
         leaked = true;
       }
-      ++index;
     }
   }
   HS_EXPECT(!leaked, "animated params must remain fixed on every paused frame");

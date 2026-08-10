@@ -266,9 +266,26 @@ inline void check_roster_order_pinned() {
                    std::string_view(GOLDEN_ROSTER[i]));
 }
 
+/** @brief The WASM token changes for replacement and local schema rebinds. */
+inline void check_generation_tracker() {
+  hs_wasm::ParamGenerationTracker tracker;
+  HS_EXPECT_EQ(tracker.generation(), uint32_t(0));
+  tracker.replace(7);
+  HS_EXPECT_EQ(tracker.generation(), uint32_t(1));
+  tracker.observe(7);
+  HS_EXPECT_EQ(tracker.generation(), uint32_t(1));
+  tracker.observe(8);
+  HS_EXPECT_EQ(tracker.generation(), uint32_t(2));
+  tracker.replace(8);
+  HS_EXPECT_EQ(tracker.generation(), uint32_t(3));
+  tracker.replace(0);
+  HS_EXPECT_EQ(tracker.generation(), uint32_t(4));
+}
+
 inline int run_param_marshal_tests() {
   hs_test::ModuleFixture fixture("param_marshal");
   check_roster_order_pinned();
+  check_generation_tracker();
   // Tally how many effects exercised the by-name round-trip; it is skipped for
   // effects with no editable float param. Surface the split and fail if zero.
   int rt_covered = 0, rt_total = 0;

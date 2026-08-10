@@ -90,14 +90,14 @@ static size_t stack_high_water_mark() {
 // nothing a gate can fail on.
 static size_t init_stack_peak = 0;
 
-// Upper bound on a single effect's exposed parameters. Mirrors the fixed
-// `std::array<ParamDef, 32>` backing `Effect::ParamList` (core/render/canvas.h). Used
+// Upper bound on a single effect's exposed parameters, including effect-local
+// fixed storage larger than ParamList's default inline array. Used
 // to pre-reserve the getParamValues() backing store so it never reallocates.
-static constexpr size_t MAX_PARAMS = 32;
+static constexpr size_t MAX_PARAMS = 128;
 
-static_assert(MAX_PARAMS ==
+static_assert(MAX_PARAMS >=
                   std::tuple_size<decltype(Effect::ParamList::elements)>::value,
-              "MAX_PARAMS must match Effect::ParamList's fixed array size");
+              "MAX_PARAMS must cover ParamList's default array size");
 
 /**
  * @brief Builds a concrete factory table from the self-registering entries.
@@ -381,7 +381,7 @@ public:
 
     if (current_effect) {
       current_effect = nullptr;
-      ++param_generation;
+      param_generation.replace(0);
       stack_paint_canary(); // repaint to reset stack HWM after teardown
     }
     return ResolutionSetResult::RESIZED;
@@ -446,7 +446,7 @@ public:
     current_effect = entry->creator();
     current_effect->setAnimationsPaused(animations_paused);
     current_effect->init();
-    ++param_generation;
+    param_generation.replace(current_effect->getParameterSchemaGeneration());
     const size_t init_hwm = stack_high_water_mark();
     if (init_hwm > init_stack_peak)
       init_stack_peak = init_hwm;
@@ -672,10 +672,8 @@ public:
       return val::array();
 
     val result = val::array();
-    // Both streams walk the effect's registered ParamList in order
-    // (param_marshal.h); the definitions and getParamValues() agree only
-    // because that list is fixed after init, with getParamGeneration() covering
-    // replacement of the effect itself.
+    // Both streams walk the effect's registered ParamList in order. The
+    // generation token covers effect replacement and dynamic schema rebinds.
     hs_wasm::collect_param_views(*current_effect, param_views);
 
     int i = 0;
@@ -745,16 +743,16 @@ public:
   /**
    * @brief Identity token joining a getParameterDefinitions() snapshot to a
    *        later getParamValues() read.
-   * @return A fresh value after every effect load or teardown.
-   * @details Neither stream carries a per-effect identity, so nothing but this
-   *          counter distinguishes a value read that describes the snapshotted
-   *          effect from one taken after a switch. Parameter counts repeat
-   *          across the roster, so a length comparison is not a substitute. Pin
-   *          this at snapshot time and compare it against a re-read beside each
-   *          value read; a change means the snapshot is stale and the
-   *          definitions must be rebuilt before the values are applied.
+   * @return A fresh value after every effect replacement or descriptor rebind.
+   * @details Parameter counts can repeat even when names and order change. Pin
+   *          this at definition-snapshot time and compare it beside each value
+   *          read; a change means the definitions must be rebuilt.
    */
-  uint32_t getParamGeneration() const { return param_generation; }
+  uint32_t getParamGeneration() {
+    if (current_effect)
+      param_generation.observe(current_effect->getParameterSchemaGeneration());
+    return param_generation.generation();
+  }
 
   /**
    * @brief Reports engine arena and stack metrics for the JS memory HUD.
@@ -853,8 +851,8 @@ private:
   int pixel_height = 0;      /**< Active canvas height in pixels. */
   uint32_t effect_loads = 0; /**< Effect loads so far; epoch for the per-load
                                  RNG seed (0 = the constructor's bootstrap). */
-  uint32_t param_generation =
-      0; /**< Identity token for the current effect or no-effect state. */
+  hs_wasm::ParamGenerationTracker
+      param_generation; /**< Effect and descriptor-schema identity token. */
   bool animations_paused = false; /**< Pause state applied to every effect. */
 };
 
