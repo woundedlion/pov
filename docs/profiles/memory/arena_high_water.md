@@ -17,6 +17,9 @@ random spawn per effect (shape/preset draws vary run to run), and 8 frames
 does not capture long-run growth — this is the same window the CI arena
 budget gate trusts for device sizing.
 
+Each snapshot lists the roster of its own commit. Flyby and Liquid2D below
+predate their merge into ShaderBall (`../../shaderball_spec.md`).
+
 ## Survey snapshot (pre trail-compression, master 2b875b6e)
 
 | Effect | persist | scratch A | scratch B | total |

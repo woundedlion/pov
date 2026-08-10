@@ -87,6 +87,13 @@ directly. Size deltas are O3 minus shipping.
 
 **● refreshed 2026-08-09.**
 
+## Captures of retired effects
+
+`shipping/` also holds the last captures of **Flyby** and **Liquid2D**, the two
+stereographic effects ShaderBall subsumes (`../shaderball_spec.md`). Neither is
+in the roster, so `just profile` cannot regenerate them; they are kept because
+ShaderBall's performance budget is sized against their per-pixel costs.
+
 ## Optimization records
 
 Per-effect engineering records built on these captures: what was measured, what
