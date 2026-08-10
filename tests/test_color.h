@@ -1561,6 +1561,9 @@ inline void test_palette_modifiers() {
 
   // Quantize snaps to the nearest step: round(0.3*4)/4 = 1/4 = 0.25.
   HS_EXPECT_NEAR(QuantizeModifier(4.0f).modify(0.3f), 0.25f, 1e-5f);
+  // The top band reaches the endpoint exactly (bounded_output).
+  HS_EXPECT_NEAR(QuantizeModifier(4.0f).modify(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(QuantizeModifier(4.0f).modify(0.9f), 1.0f, 1e-5f);
 
   // Fold is a triangle wave: 0->1, 0.25->0.5, 0.5->0.
   FoldModifier fold(2.0f);
@@ -1934,9 +1937,9 @@ inline void test_static_palette_composition() {
   static_assert(coord_requires_wrap<RippleModifier>());
   static_assert(coord_requires_wrap<NoiseWarpModifier>());
   static_assert(coord_requires_wrap<DriftModifier>());
-  static_assert(coord_requires_wrap<QuantizeModifier>());
   static_assert(!coord_requires_wrap<InsetModifier>());
   static_assert(!coord_requires_wrap<MirrorModifier>());
+  static_assert(!coord_requires_wrap<QuantizeModifier>());
 
   // Modifiers that confine [0,1] to [0,1] and reach exactly 1.0 carry
   // bounded_output, so wrap_t would fold their top endpoint to 0.
@@ -1945,19 +1948,17 @@ inline void test_static_palette_composition() {
   static_assert(coord_bounded_output<MirrorModifier>());
   static_assert(coord_bounded_output<InsetModifier>());
   static_assert(coord_bounded_output<PinchModifier>());
+  static_assert(coord_bounded_output<QuantizeModifier>());
   static_assert(!coord_bounded_output<ScaleModifier>());
   static_assert(!coord_bounded_output<CycleModifier>());
   static_assert(!coord_bounded_output<BreatheModifier>());
   static_assert(!coord_bounded_output<RippleModifier>());
   static_assert(!coord_bounded_output<NoiseWarpModifier>());
   static_assert(!coord_bounded_output<DriftModifier>());
-  // Quantize scales the whole domain, carrying an out-of-range coordinate
-  // through, so it stays wrap-compatible.
-  static_assert(!coord_bounded_output<QuantizeModifier>());
 
   // Fold's triangle wave and Inset's clamp confine arbitrary input, so they can
-  // absorb an out-of-range predecessor. Reverse and Mirror are bounded only on
-  // [0,1] and pass an out-of-range coordinate through.
+  // absorb an out-of-range predecessor. Reverse, Mirror and Quantize are
+  // bounded only on [0,1] and pass an out-of-range coordinate through.
   static_assert(coord_rebounds_input<FoldModifier>());
   static_assert(coord_rebounds_input<InsetModifier>());
   static_assert(coord_rebounds_input<WrapModifier>());
@@ -1965,6 +1966,7 @@ inline void test_static_palette_composition() {
   static_assert(!coord_bounded_output<WrapModifier>());
   static_assert(!coord_rebounds_input<ReverseModifier>());
   static_assert(!coord_rebounds_input<MirrorModifier>());
+  static_assert(!coord_rebounds_input<QuantizeModifier>());
   static_assert(!coord_rebounds_input<ScaleModifier>());
   static_assert(!coord_rebounds_input<CycleModifier>());
 
@@ -1989,6 +1991,15 @@ inline void test_static_palette_composition() {
       mirrored;
   mirrored.bind(&grad, &mirror);
   HS_EXPECT_EQ(mirrored.get(0.5f).color.r, grad.get(1.0f).color.r);
+
+  // Quantize's top band snaps to 1.0; Wrap=false renders it as the source's
+  // last stop, distinct from the band at 0.
+  QuantizeModifier quant(4.0f);
+  StaticPalette<Gradient, Coords<QuantizeModifier>, Colors<>, /*Wrap=*/false>
+      quantized;
+  quantized.bind(&grad, &quant);
+  HS_EXPECT_EQ(quantized.get(0.95f).color.r, grad.get(1.0f).color.r);
+  HS_EXPECT_EQ(quantized.get(0.05f).color.r, grad.get(0.0f).color.r);
 
   // Two modifiers apply in tuple order (scale THEN cycle): 0.2 -> 0.4 -> 0.5.
   float off = 0.1f;
