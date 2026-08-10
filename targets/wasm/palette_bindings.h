@@ -105,6 +105,8 @@ private:
       status.field = field;
       return false;
     }
+    // as<int>() range-asserts under -sASSERTIONS=1 and throws out through the
+    // binding; checking as a double keeps NaN on INVALID_ENUM.
     const double value = field_value.as<double>();
     if (!(value >= 0.0 && value <= LAST)) {
       status.code = PaletteCompileCode::INVALID_ENUM;
@@ -116,15 +118,39 @@ private:
   }
 
   /**
+   * @brief Reads one leaf scalar off a recipe object.
+   * @param value Value read off the object.
+   * @return @p value as a float, or NaN when it is not a number.
+   * @details GenerativePalette::try_compile() rejects the NaN as NON_FINITE and
+   *          names the field. A bare as<float>() instead throws a JS TypeError
+   *          out through the binding under -sASSERTIONS=1.
+   */
+  static float leaf_float(const val &value) {
+    if (!value.isNumber())
+      return std::numeric_limits<float>::quiet_NaN();
+    return value.as<float>();
+  }
+
+  /**
+   * @brief Reads one named leaf scalar off a recipe block.
+   * @param object Block to index.
+   * @param name Field key.
+   * @return The field as a float, or NaN when it is missing or not a number.
+   */
+  static float leaf_float(const val &object, const char *name) {
+    return leaf_float(object[name]);
+  }
+
+  /**
    * @brief Decodes one PALETTE_MAX_KEYS custom-key array.
-   * @param input JS array; a missing element decodes to NaN, which
-   *        GenerativePalette::try_compile() rejects as NON_FINITE.
+   * @param input JS array; a missing or non-numeric element decodes to NaN,
+   *        which GenerativePalette::try_compile() rejects as NON_FINITE.
    * @param output Key array to fill.
    */
   static void decode_key_values(const val &input,
                                 std::array<float, PALETTE_MAX_KEYS> &output) {
     for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
-      output[i] = input[i].as<float>();
+      output[i] = leaf_float(input[i]);
   }
 
   /**
@@ -152,24 +178,27 @@ private:
    * @param recipe Recipe to fill; partially written when the decode fails.
    * @param status Status written on rejection.
    * @return True when every block and enum decoded.
-   * @details A schemaVersion other than PaletteRecipe::SCHEMA_VERSION is passed
-   *          through as 0 for try_compile() to reject. Leaf scalars are not
-   *          checked here: a missing one decodes to NaN and try_compile()'s
+   * @details A schemaVersion that is missing, non-numeric or other than
+   *          PaletteRecipe::SCHEMA_VERSION is passed through as 0 for
+   *          try_compile() to reject. Leaf scalars are not bounds-checked here:
+   *          a missing or non-numeric one decodes to NaN and try_compile()'s
    *          finite validation names the field.
    */
   static bool decode_recipe(const val &input, PaletteRecipe &recipe,
                             PaletteCompileStatus &status) {
     if (!block_present(input, PaletteRecipeField::NONE, status))
       return false;
-    const int schema_version = input["schemaVersion"].as<int>();
-    recipe.schema_version = schema_version == PaletteRecipe::SCHEMA_VERSION
-                                ? PaletteRecipe::SCHEMA_VERSION
-                                : 0;
+    const val schema_version = input["schemaVersion"];
+    recipe.schema_version =
+        schema_version.isNumber() &&
+                schema_version.as<double>() == PaletteRecipe::SCHEMA_VERSION
+            ? PaletteRecipe::SCHEMA_VERSION
+            : 0;
     const val recipe_input = input["input"];
     if (!block_present(recipe_input, PaletteRecipeField::INPUT_OFFSET, status))
       return false;
-    recipe.input.offset = recipe_input["offset"].as<float>();
-    recipe.input.span = recipe_input["span"].as<float>();
+    recipe.input.offset = leaf_float(recipe_input, "offset");
+    recipe.input.span = leaf_float(recipe_input, "span");
     if (!decode_enum(input, "domain", recipe.domain,
                      PaletteRecipeField::PALETTE_DOMAIN, status) ||
         !decode_enum(input, "easing", recipe.easing, PaletteRecipeField::EASING,
@@ -188,9 +217,9 @@ private:
         !decode_enum(hue, "direction", recipe.hue.direction,
                      PaletteRecipeField::HUE_DIRECTION, status))
       return false;
-    recipe.hue.base_turns = hue["baseTurns"].as<float>();
-    recipe.hue.spread_turns = hue["spreadTurns"].as<float>();
-    recipe.hue.sweep_turns = hue["sweepTurns"].as<float>();
+    recipe.hue.base_turns = leaf_float(hue, "baseTurns");
+    recipe.hue.spread_turns = leaf_float(hue, "spreadTurns");
+    recipe.hue.sweep_turns = leaf_float(hue, "sweepTurns");
     const val custom_turns = hue["customTurns"];
     if (!block_present(custom_turns, PaletteRecipeField::CUSTOM_TURNS_0,
                        status))
@@ -203,8 +232,8 @@ private:
     if (!decode_enum(lightness, "curve", recipe.lightness.curve,
                      PaletteRecipeField::LIGHTNESS_CURVE, status))
       return false;
-    recipe.lightness.center = lightness["center"].as<float>();
-    recipe.lightness.range = lightness["range"].as<float>();
+    recipe.lightness.center = leaf_float(lightness, "center");
+    recipe.lightness.range = leaf_float(lightness, "range");
     const val lightness_custom = lightness["custom"];
     if (!block_present(lightness_custom, PaletteRecipeField::LIGHTNESS_CUSTOM_0,
                        status))
@@ -219,17 +248,17 @@ private:
         !decode_enum(chroma, "basis", recipe.chroma.basis,
                      PaletteRecipeField::CHROMA_BASIS, status))
       return false;
-    recipe.chroma.center = chroma["center"].as<float>();
-    recipe.chroma.range = chroma["range"].as<float>();
-    recipe.chroma.headroom = chroma["headroom"].as<float>();
+    recipe.chroma.center = leaf_float(chroma, "center");
+    recipe.chroma.range = leaf_float(chroma, "range");
+    recipe.chroma.headroom = leaf_float(chroma, "headroom");
     const val chroma_custom = chroma["custom"];
     if (!block_present(chroma_custom, PaletteRecipeField::CHROMA_CUSTOM_0,
                        status))
       return false;
     decode_key_values(chroma_custom, recipe.chroma.custom);
 
-    recipe.hue_torsion = input["hueTorsion"].as<float>();
-    recipe.falloff_start = input["falloffStart"].as<float>();
+    recipe.hue_torsion = leaf_float(input, "hueTorsion");
+    recipe.falloff_start = leaf_float(input, "falloffStart");
     return true;
   }
 
