@@ -26,6 +26,12 @@
  * check_fail() logs "HS_CHECK failed: <file>:<line>: (<cond>) <msg>" and flushes
  * before trapping, so the child's stdout/stderr is captured to a file and the
  * parent requires the breadcrumb of that exact guard.
+ *
+ * The run closes with a coverage line: how many of the engine's HS_CHECK sites
+ * a case actually pins, against every site in the tree. Both numbers are
+ * derived — the denominator from a configure-time census of the sources
+ * (tests/count_guard_sites.cmake), the numerator from the case table — so the
+ * ratio cannot quietly disagree with either. It is a report, not a gate.
  */
 #pragma once
 
@@ -36,6 +42,7 @@
 #include <optional>
 #include <string>
 
+#include "death_guard_sites.h" // generated HS_CHECK census; see tests/CMakeLists.txt
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -3100,6 +3107,91 @@ inline void report_unrunnable(const char *why, int rc) {
 }
 
 /**
+ * @brief Counts the distinct guard sites in @p file the case table pins.
+ * @param cs The case table.
+ * @param n Number of cases in it.
+ * @param file Source-file basename to count pins for.
+ * @return Distinct pins naming that file, never above its real site count.
+ * @details Distinct by (file, condition text), which is what
+ *          breadcrumb_names_guard() compares: guards whose breadcrumbs read
+ *          identically (the same condition and message repeated in several
+ *          constructors) are one covered site, because no case can prove which
+ *          of them fired.
+ */
+inline int pinned_guards_in(const Case *cs, int n, const char *file) {
+  int pinned = 0;
+  for (int i = 0; i < n; ++i) {
+    if (std::strcmp(cs[i].guard_file, file) != 0)
+      continue;
+    bool duplicate = false;
+    for (int j = 0; j < i && !duplicate; ++j)
+      duplicate = std::strcmp(cs[j].guard_file, file) == 0 &&
+                  std::strcmp(cs[j].guard_text, cs[i].guard_text) == 0;
+    if (!duplicate)
+      ++pinned;
+  }
+  return pinned;
+}
+
+/**
+ * @brief Prints what fraction of the engine's fail-fast surface is pinned.
+ * @param cs The case table.
+ * @param n Number of cases in it.
+ * @details Both sides are derived, never written down: the denominator is the
+ *          generated HS_CHECK census (death_guard_sites.h) and the numerator is
+ *          the case table itself, so neither can drift from what it measures.
+ *          Cases pinning a file the census does not know — the harness's own
+ *          trap stand-ins, and any mistyped basename — count in neither and are
+ *          reported separately rather than silently dropped. Advisory: the
+ *          ratio is a standing report of how much of the doctrine is actually
+ *          verified, not a gate.
+ */
+inline void report_guard_coverage(const Case *cs, int n) {
+  int covered = 0;
+  int off_census = 0;
+  constexpr int GAPS = 5;
+  const GuardSiteCount *worst[GAPS] = {};
+  int worst_gap[GAPS] = {};
+  for (const GuardSiteCount &f : GUARD_SITE_COUNTS) {
+    int pinned = pinned_guards_in(cs, n, f.file);
+    if (pinned > f.sites)
+      pinned = f.sites;
+    covered += pinned;
+    int gap = f.sites - pinned;
+    for (int slot = 0; slot < GAPS; ++slot) {
+      if (gap <= worst_gap[slot])
+        continue;
+      for (int k = GAPS - 1; k > slot; --k) {
+        worst[k] = worst[k - 1];
+        worst_gap[k] = worst_gap[k - 1];
+      }
+      worst[slot] = &f;
+      worst_gap[slot] = gap;
+      break;
+    }
+  }
+  for (int i = 0; i < n; ++i) {
+    bool in_census = false;
+    for (const GuardSiteCount &f : GUARD_SITE_COUNTS)
+      if (std::strcmp(cs[i].guard_file, f.file) == 0) {
+        in_census = true;
+        break;
+      }
+    off_census += in_census ? 0 : 1;
+  }
+  std::printf("  guard coverage: %d/%d HS_CHECK sites pinned by a case (%d%%), "
+              "%d case(s) outside the census\n",
+              covered, GUARD_SITE_TOTAL,
+              GUARD_SITE_TOTAL ? covered * 100 / GUARD_SITE_TOTAL : 0,
+              off_census);
+  std::printf("  widest gaps:");
+  for (int slot = 0; slot < GAPS && worst[slot]; ++slot)
+    std::printf(" %s %d/%d", worst[slot]->file,
+                worst[slot]->sites - worst_gap[slot], worst[slot]->sites);
+  std::printf("\n");
+}
+
+/**
  * @brief Parent entry point for the death module.
  * @return The module's failure count.
  * @details Spawn-checks the harness, then runs every case in a child and asserts
@@ -3175,6 +3267,7 @@ inline int run_death_tests() {
 
   std::remove(child_capture_path());
   set_case_env(""); // leave the env clean for anything that runs after us
+  report_guard_coverage(cs, n);
   return fixture.result();
 }
 
