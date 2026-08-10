@@ -1893,65 +1893,56 @@ private:
                           frame.params.projection.pole_fade);
   }
 
+  /**
+   * @brief Rescales a projection kernel's plane coordinates into a lookup.
+   * @param result Kernel output in the projection's native plane units.
+   * @param coordinate_scale Plane-unit scale; applied to the coordinates and,
+   *        as a magnitude, to the edge distance.
+   * @return The kernel result carried over with scaled coordinates and a
+   *         saturated value weight.
+   */
+  __attribute__((always_inline)) static ProjectedLookup
+  scaled_kernel_lookup(const shaderball::ProjectionKernelResult &result,
+                       float coordinate_scale) {
+    return {{result.coords.re * coordinate_scale,
+             result.coords.im * coordinate_scale},
+            result.region_id,
+            result.component_id,
+            result.boundary_flags,
+            result.fade_edge_distance * fabsf(coordinate_scale),
+            1.0f,
+            result.flags,
+            result.traits,
+            result.edge_class};
+  }
+
   HS_O3_FN static ProjectedLookup project_branch(const Vector &v,
                                                  const FrameState &frame) {
     const Vector local = rotate(v, frame.transforms.projection_conj);
-    if (frame.slots.projection == Projection::BONNE) {
-      const shaderball::ProjectionKernelResult result =
+    const float coordinate_scale = frame.params.projection.coordinate_scale;
+    if (frame.slots.projection == Projection::BONNE)
+      return scaled_kernel_lookup(
           shaderball::bonne_projection(
               local, frame.params.projection.central_meridian,
               (frame.slots.bonne_hemisphere == BonneHemisphere::NORTH ? 1.0f
                                                                       : -1.0f) *
-                  frame.params.projection.bonne_standard_parallel);
-      return {{result.coords.re * frame.params.projection.coordinate_scale,
-               result.coords.im * frame.params.projection.coordinate_scale},
-              result.region_id,
-              result.component_id,
-              result.boundary_flags,
-              result.fade_edge_distance *
-                  fabsf(frame.params.projection.coordinate_scale),
-              1.0f,
-              result.flags,
-              result.traits,
-              result.edge_class};
-    }
-    if (frame.slots.projection == Projection::PEIRCE_QUINCUNCIAL) {
-      const shaderball::ProjectionKernelResult result =
+                  frame.params.projection.bonne_standard_parallel),
+          coordinate_scale);
+    if (frame.slots.projection == Projection::PEIRCE_QUINCUNCIAL)
+      return scaled_kernel_lookup(
           shaderball::peirce_projection(
               local, frame.params.projection.central_meridian,
               static_cast<uint8_t>(frame.slots.peirce_layout),
               frame.params.projection.layout_scroll,
-              projection_edge_distance_required(frame));
-      return {{result.coords.re * frame.params.projection.coordinate_scale,
-               result.coords.im * frame.params.projection.coordinate_scale},
-              result.region_id,
-              result.component_id,
-              result.boundary_flags,
-              result.fade_edge_distance *
-                  fabsf(frame.params.projection.coordinate_scale),
-              1.0f,
-              result.flags,
-              result.traits,
-              result.edge_class};
-    }
-    if (frame.slots.projection == Projection::AIROCEAN) {
-      const shaderball::ProjectionKernelResult result =
+              projection_edge_distance_required(frame)),
+          coordinate_scale);
+    if (frame.slots.projection == Projection::AIROCEAN)
+      return scaled_kernel_lookup(
           shaderball::airocean_projection(
               local, frame.params.projection.central_meridian,
               frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
-              projection_edge_distance_required(frame));
-      return {{result.coords.re * frame.params.projection.coordinate_scale,
-               result.coords.im * frame.params.projection.coordinate_scale},
-              result.region_id,
-              result.component_id,
-              result.boundary_flags,
-              result.fade_edge_distance *
-                  fabsf(frame.params.projection.coordinate_scale),
-              1.0f,
-              result.flags,
-              result.traits,
-              result.edge_class};
-    }
+              projection_edge_distance_required(frame)),
+          coordinate_scale);
     const Complex coords =
         frame.slots.projection == Projection::EQUIRECTANGULAR
             ? equirectangular(local, frame.params.projection.central_meridian)
