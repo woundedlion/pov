@@ -148,7 +148,8 @@ inline float sweep_phase(float phase, float offset, float band) {
 
 /**
  * @brief Cull gate for a policy whose shading vanishes as phase falls to 0.
- * @param phase Global segue phase in [0, 1].
+ * @param phase The phase the policy's opacity reads: the global segue phase, or
+ * — for a per-face policy — the face-local phase of the brightest face.
  * @return Whether drawing at this phase can produce visible output.
  */
 inline bool fades_to_black(float phase) { return phase > 0.005f; }
@@ -386,6 +387,11 @@ struct Shockwave : Base {
   }
   float face_phase(float phase, float offset, float = 0.0f) const {
     return sweep_phase(phase, offset, BAND);
+  }
+  /** @brief Offset 0 is the last face the front reaches, so its face-local
+   * phase bounds every face's opacity. */
+  bool visible(float phase) const {
+    return fades_to_black(face_phase(phase, 0.0f));
   }
   float opacity(float phase) const { return phase; }
 };

@@ -2054,13 +2054,14 @@ inline void test_segue_visible_gate_culls_only_dark_phases() {
   HS_EXPECT_FALSE(Segue::Crossfade().visible(0.0f));
   HS_EXPECT_TRUE(Segue::Crossfade().visible(0.5f));
   HS_EXPECT_FALSE(Segue::TerminatorSweep().visible(0.0f));
+  HS_EXPECT_FALSE(Segue::Shockwave().visible(0.0f));
+  HS_EXPECT_TRUE(Segue::Shockwave().visible(0.5f));
   // ...and never culls the policies that keep shading at phase 0.
   HS_EXPECT_TRUE(Segue::GoldConvergence().visible(0.0f));
   HS_EXPECT_TRUE(Segue::SpinFlip().visible(0.0f));
   HS_EXPECT_TRUE(Segue::IrisBloom().visible(0.0f));
   HS_EXPECT_TRUE(Segue::Lace().visible(0.0f));
   HS_EXPECT_TRUE(Segue::Dissolve().visible(0.0f));
-  HS_EXPECT_TRUE(Segue::Shockwave().visible(0.0f));
 }
 
 /**
