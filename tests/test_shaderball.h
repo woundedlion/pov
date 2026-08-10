@@ -762,8 +762,11 @@ inline void test_shaderball_legacy_spatial_slots() {
   const WB::ProjectedLookup end = WB::surface_project(v, frame);
   HS_EXPECT_EQ(start.coords.re, direct.re);
   HS_EXPECT_EQ(start.coords.im, direct.im);
-  HS_EXPECT_EQ(end.coords.re, lensed.re);
-  HS_EXPECT_EQ(end.coords.im, lensed.im);
+  // glitch_lens' polar terms are FMA-contractable, so the reference above and
+  // the pipeline's own call can round 2 ULP apart under -O2; a wrong lens
+  // branch would miss by ~1.
+  HS_EXPECT_NEAR(end.coords.re, lensed.re, 1e-6f);
+  HS_EXPECT_NEAR(end.coords.im, lensed.im, 1e-6f);
 }
 
 /** @brief Paired projection seams use a broad under-fade and pixel over-fade. */
