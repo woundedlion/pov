@@ -229,21 +229,22 @@ private:
    * @brief Shared body for both grid passes: samples, warps, and rasterizes
    *        ceil(num) curves.
    * @tparam CurveFn Callable (int i) -> Curve yielding the {basis, radius}.
-   * @tparam ShadeFn Callable (int i, float opacity, Fragment&) coloring a
-   *         fragment.
+   * @tparam ShaderFn Callable (int i, float opacity) -> fragment shader
+   *         (const Vector&, Fragment&).
    * @param canvas Render target for this frame.
    * @param num Fractional curve count; ceil(num) curves are drawn.
    * @param q Counter-rotation applied after the Möbius warp.
    * @param curve_fn Supplies the {basis, radius} for curve i.
-   * @param shade Colors each fragment for curve i.
+   * @param make_shader Builds curve i's fragment shader, once per curve.
    * @details For each curve it asks curve_fn(i) for the {basis, radius}, samples
    *          a spherical polygon, warps every point through the Möbius transform
-   *          plus counter-rotation q, then rasterizes via shade. The two
-   *          callbacks are all that differs between the ring and longitude passes.
+   *          plus counter-rotation q, then rasterizes through the shader
+   *          make_shader(i, opacity) returns. The two callbacks are all that
+   *          differs between the ring and longitude passes.
    */
-  template <typename CurveFn, typename ShadeFn>
+  template <typename CurveFn, typename ShaderFn>
   void draw_curves(Canvas &canvas, float num, const Quaternion &q,
-                   CurveFn curve_fn, ShadeFn shade) {
+                   CurveFn curve_fn, ShaderFn make_shader) {
     int count = static_cast<int>(std::ceil(num));
     for (int i = 0; i < count; ++i) {
       ScratchScope frag_guard(scratch_arena_a);
@@ -268,9 +269,7 @@ private:
 
       float opacity = hs::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
 
-      auto fragment_shader = [&](const Vector &, Fragment &f_val) {
-        shade(i, opacity, f_val);
-      };
+      auto fragment_shader = make_shader(i, opacity);
 
       Plot::rasterize<W, H>(filters, canvas, m_fragments, fragment_shader,
                             {.close_loop = true});
@@ -295,8 +294,6 @@ private:
     // normal is loop-invariant, so the basis is identical for every ring.
     const Basis ring_basis = make_basis(Quaternion(), normal);
 
-    int cached_i = -1;
-    Color4 cached_c;
     draw_curves(
         canvas, num, q,
         [&](int i) -> Curve {
@@ -305,13 +302,10 @@ private:
           float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
           return {ring_basis, radius};
         },
-        [&](int i, float opacity, Fragment &f_val) {
-          if (i != cached_i) {
-            cached_i = i;
-            cached_c = baked_palette.get(static_cast<float>(i) / num);
-            cached_c.alpha *= opacity * params.alpha;
-          }
-          f_val.color = cached_c;
+        [&](int i, float opacity) {
+          Color4 c = baked_palette.get(static_cast<float>(i) / num);
+          c.alpha *= opacity * params.alpha;
+          return [c](const Vector &, Fragment &f_val) { f_val.color = c; };
         });
   }
 
@@ -339,11 +333,14 @@ private:
           Vector u = cross(v, w);
           return {Basis{u, v, w}, 1.0f};
         },
-        [&](int, float opacity, Fragment &f_val) {
-          float y = fast_sinf(f_val.v0 * 2.0f * PI_F);
-          Color4 c = baked_palette.get(conformal_coord(y, phase));
-          c.alpha *= opacity * params.alpha;
-          f_val.color = c;
+        [&](int, float opacity) {
+          const float alpha = opacity * params.alpha;
+          return [this, phase, alpha](const Vector &, Fragment &f_val) {
+            float y = fast_sinf(f_val.v0 * 2.0f * PI_F);
+            Color4 c = baked_palette.get(conformal_coord(y, phase));
+            c.alpha *= alpha;
+            f_val.color = c;
+          };
         });
   }
 
