@@ -87,12 +87,10 @@ public:
 #endif
 
     if (transition.active) {
-      const TransitionFrame frame = prepare_transition_frame();
-      auto shader = [&](const Vector &view) HS_O3_FN -> Color4 {
-        return shade_transition(view, frame);
-      };
-      HS_PROFILE(sdb_shader_draw);
-      Scan::Shader::draw<W, H, 1>(canvas, shader);
+      if (transition.mode == TransitionMode::THROUGH_CLEAR)
+        draw_through_clear_transition(canvas);
+      else
+        draw_dual_output_transition(canvas);
     } else {
       const FrameState frame = prepare_frame();
       auto shader = [&](const Vector &view)
@@ -1349,24 +1347,16 @@ private:
     bool active = false;
   };
 
-  struct TransitionFrame {
+  struct DualOutputFrame {
     FrameState from;
     FrameState to;
     float mix;
-    TransitionMode mode;
-    uint16_t elapsed;
-    uint16_t duration;
+  };
 
-    TransitionFrame(const FrameState &from, const FrameState &to, float mix,
-                    TransitionMode mode = TransitionMode::DUAL_OUTPUT)
-        : from(from), to(to), mix(mix), mode(mode), elapsed(mix <= 0.0f   ? 0
-                                                            : mix >= 1.0f ? 2
-                                                                          : 1),
-          duration(2) {}
-    TransitionFrame(const FrameState &from, const FrameState &to, float mix,
-                    TransitionMode mode, uint16_t elapsed, uint16_t duration)
-        : from(from), to(to), mix(mix), mode(mode), elapsed(elapsed),
-          duration(duration) {}
+  struct ThroughClearPhase {
+    float alpha;
+    bool from_endpoint;
+    bool clear;
   };
 
   static constexpr bool warp_uses_noise(WarpStageKind kind) {
@@ -1615,13 +1605,49 @@ private:
          &liquid_palette_cycler.palette()}};
   }
 
-  HS_COLD_MEMBER TransitionFrame prepare_transition_frame() const {
+  HS_COLD_MEMBER DualOutputFrame prepare_dual_output_frame() const {
     return {prepare_frame(transition.from_config, transition.from_runtime),
             prepare_frame(transition.to_config, transition.to_runtime),
-            transition_mix(transition.elapsed, transition.duration),
-            transition.mode,
-            transition.elapsed,
-            transition.duration};
+            transition_mix(transition.elapsed, transition.duration)};
+  }
+
+  static ThroughClearPhase through_clear_phase(uint16_t elapsed,
+                                               uint16_t duration) {
+    const uint16_t center = duration / 2;
+    if (elapsed == center)
+      return {0.0f, false, true};
+    const bool from_endpoint = elapsed < center;
+    const float phase = from_endpoint ? static_cast<float>(elapsed) / center
+                                      : static_cast<float>(elapsed - center) /
+                                            (duration - center);
+    return {from_endpoint ? 1.0f - ease_in_out_sin(phase)
+                          : ease_in_out_sin(phase),
+            from_endpoint, false};
+  }
+
+  HS_NOINLINE_NOCLONE void draw_through_clear_transition(Canvas &canvas) const {
+    const ThroughClearPhase phase =
+        through_clear_phase(transition.elapsed, transition.duration);
+    if (phase.clear)
+      return;
+    const FrameState visible =
+        phase.from_endpoint
+            ? prepare_frame(transition.from_config, transition.from_runtime)
+            : prepare_frame(transition.to_config, transition.to_runtime);
+    auto shader = [&](const Vector &view) HS_O3_FN -> Color4 {
+      return shade_through_clear(view, &visible, phase);
+    };
+    HS_PROFILE(sdb_shader_draw);
+    Scan::Shader::draw<W, H, 1>(canvas, shader);
+  }
+
+  HS_NOINLINE_NOCLONE void draw_dual_output_transition(Canvas &canvas) const {
+    const DualOutputFrame frame = prepare_dual_output_frame();
+    auto shader = [&](const Vector &view) HS_O3_FN -> Color4 {
+      return shade_dual_output(view, frame);
+    };
+    HS_PROFILE(sdb_shader_draw);
+    Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
   static Color4 shade(const Vector &view, const FrameState &frame) {
@@ -1675,29 +1701,26 @@ private:
             (BOUNDARY_CUT | BOUNDARY_SINGULAR)) == 0;
   }
 
-  static Color4 shade_transition(const Vector &view,
-                                 const TransitionFrame &frame) {
+  static Color4 shade_dual_output(const Vector &view,
+                                  const DualOutputFrame &frame) {
     if (frame.mix == 0.0f)
       return shade(view, frame.from);
     if (frame.mix == 1.0f)
       return shade(view, frame.to);
-    if (frame.mode == TransitionMode::THROUGH_CLEAR) {
-      const uint16_t center = frame.duration / 2;
-      if (frame.elapsed == center)
-        return Color4();
-      const bool from_phase = frame.elapsed < center;
-      Color4 color =
-          from_phase ? shade(view, frame.from) : shade(view, frame.to);
-      const float phase = from_phase
-                              ? static_cast<float>(frame.elapsed) / center
-                              : static_cast<float>(frame.elapsed - center) /
-                                    (frame.duration - center);
-      color.alpha *=
-          from_phase ? 1.0f - ease_in_out_sin(phase) : ease_in_out_sin(phase);
-      return color;
-    }
     return blend_outputs(shade(view, frame.from), shade(view, frame.to),
                          frame.mix);
+  }
+
+  static Color4 shade_through_clear(const Vector &view,
+                                    const FrameState *visible,
+                                    const ThroughClearPhase &phase) {
+    if (phase.clear)
+      return Color4();
+    HS_CHECK(visible != nullptr,
+             "through-clear visible phase requires an endpoint frame");
+    Color4 color = shade(view, *visible);
+    color.alpha *= phase.alpha;
+    return color;
   }
 
   static Color4 blend_outputs(const Color4 &from, const Color4 &to, float mix) {
