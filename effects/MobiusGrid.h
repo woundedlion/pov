@@ -102,7 +102,7 @@ public:
                                           sin_wave(1.0f, 12.0f, 1.0f, 0.5f),
                                           320, ease_linear, true),
                       &anims_paused)
-        .add_pausable(160,
+        .add_pausable(0,
                       Animation::Mutation(params.num_lines,
                                           sin_wave(1.0f, 12.0f, 1.0f, 0.0f),
                                           320, ease_linear, true),
