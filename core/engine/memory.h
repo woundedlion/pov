@@ -483,9 +483,15 @@ struct is_arena_inplace_fn<hs::inplace_function<R(Args...), Cap, Align>>
 #endif
 
 /**
- * @brief Fixed-capacity, arena-backed vector. Move-only; no dynamic growth.
+ * @brief Arena-backed vector with a capacity fixed between bind() calls.
+ *        Move-only.
  * @tparam T Element type; must satisfy the element destructor contract below.
- * @details ELEMENT DESTRUCTOR CONTRACT: ArenaVector does NOT run element
+ * @details CAPACITY CONTRACT: appending never grows the block — push_back()
+ * traps once element_count reaches capacity(). Only bind() changes capacity,
+ * and a grow there allocates a fresh block and abandons the old one until the
+ * arena is reset (log_arena_vector_grow() reports the leaked bytes in release).
+ *
+ * ELEMENT DESTRUCTOR CONTRACT: ArenaVector does NOT run element
  * destructors — clear(), move, move-assign and going out of scope all leave
  * stored elements un-destructed. Storage is owned and reclaimed by the arena
  * (reset/compaction), not by this handle, and an arena can be reset out from
@@ -637,7 +643,7 @@ public:
   /**
    * @brief Constructs and binds the vector with an exact capacity.
    * @param arena Arena to allocate the backing block from.
-   * @param exact_capacity Element count to allocate; no dynamic growth.
+   * @param exact_capacity Element count to allocate; appending never grows it.
    */
   ArenaVector(Arena &arena, size_t exact_capacity)
       : elements(nullptr), element_count(0), element_capacity(0) {
