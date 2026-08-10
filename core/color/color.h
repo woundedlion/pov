@@ -848,8 +848,12 @@ struct GamutLut {
  * only buys read latency: the scattered per-pixel reads land in RAM rather than
  * QSPI flash. Worth it only at per-pixel call rates. configure_arenas() restores
  * the flash default before the storage under a copy is handed out again.
+ *
+ * constinit is load-bearing: an inline variable's dynamic init is unordered
+ * against other translation units' static initializers, so a runtime fill would
+ * let a namespace-scope Gradient clip through a null table.
  */
-inline GamutLut g_gamut_lut;
+inline constinit GamutLut g_gamut_lut;
 
 /**
  * @brief Downsamples GAMUT_LUT into @p arena and points the clip path at it.
