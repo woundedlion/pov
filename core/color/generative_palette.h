@@ -108,15 +108,12 @@ public:
     if (last < 0)
       return {};
     index = hs::clamp(index, 0, last);
-    ControlKey key = decode_snapshot_key(snapshot.keys[index]);
-    const float position = last > 0 ? index / float(last) : 0.0f;
-    if (snapshot.lightness_curve != AxisCurve::CUSTOM)
-      key.L = evaluate_axis(snapshot.lightness_low, snapshot.lightness_high,
-                            snapshot.lightness_curve, position);
-    if (snapshot.chroma_curve != AxisCurve::CUSTOM)
-      key.chroma = evaluate_axis(snapshot.chroma_low, snapshot.chroma_high,
-                                 snapshot.chroma_curve, position);
-    return key;
+    return resolve_axes(
+        decode_snapshot_key(snapshot.keys[index]),
+        {snapshot.lightness_low, snapshot.lightness_high,
+         snapshot.lightness_curve},
+        {snapshot.chroma_low, snapshot.chroma_high, snapshot.chroma_curve},
+        index, last);
   }
 
   PaletteDomain palette_domain() const { return domain; }
@@ -144,14 +141,8 @@ public:
     if (last < 0)
       return {};
     index = hs::clamp(index, 0, last);
-    ControlKey key = keys[index];
-    const float position = last > 0 ? index / float(last) : 0.0f;
-    if (lightness_axis.curve != AxisCurve::CUSTOM)
-      key.L = evaluate_axis(lightness_axis.low, lightness_axis.high,
-                            lightness_axis.curve, position);
-    if (chroma_axis.curve != AxisCurve::CUSTOM)
-      key.chroma = evaluate_axis(chroma_axis.low, chroma_axis.high,
-                                 chroma_axis.curve, position);
+    const ControlKey key =
+        resolve_axes(keys[index], lightness_axis, chroma_axis, index, last);
     const float h_final = key.h + hue_torsion * (key.L - 0.5f);
     return {key.L, realized_chroma(key, h_final), h_final};
   }
@@ -392,6 +383,20 @@ private:
     return {hs::clamp(controls.center - controls.range * 0.5f, 0.0f, 1.0f),
             hs::clamp(controls.center + controls.range * 0.5f, 0.0f, 1.0f),
             controls.curve};
+  }
+
+  /** @brief @p key with each non-CUSTOM axis re-evaluated at key @p index of
+   *  @p last, the authored value standing for a CUSTOM axis. */
+  static ControlKey resolve_axes(ControlKey key, const AxisState &lightness,
+                                 const AxisState &chroma, int index, int last) {
+    const float position = last > 0 ? index / float(last) : 0.0f;
+    if (lightness.curve != AxisCurve::CUSTOM)
+      key.L = evaluate_axis(lightness.low, lightness.high, lightness.curve,
+                            position);
+    if (chroma.curve != AxisCurve::CUSTOM)
+      key.chroma =
+          evaluate_axis(chroma.low, chroma.high, chroma.curve, position);
+    return key;
   }
 
   static AxisState axis_state(const ChromaControls &controls) {
