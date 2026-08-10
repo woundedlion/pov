@@ -1452,9 +1452,13 @@ HS_O3_BEGIN
  * @tparam H Canvas height in pixels.
  * @tparam PipelineT Plotting pipeline type.
  * @tparam MinimalFragment When true, only v1 (raw distance) is refreshed per
- *         pixel; the rest of the fragment — including color — is whatever the
- *         per-face setup and the previous pixel left in it, so the shader must
- *         write frag.color on every pixel it is called for.
+ *         pixel. Nothing else ever writes the fragment: pos, v0, v2, v3, size,
+ *         age and color hold their struct defaults until the shader itself
+ *         writes them, and from then on whatever the previous pixel left. The
+ *         shader must therefore write frag.color on every pixel it is called
+ *         for, and must not read a register it did not set — with v2 at 0 and
+ *         size at 1, mesh_face_index() reports face 0 and fragment_edge_dist()
+ *         returns an unnormalized distance for every face.
  * @param pipeline Plotting pipeline receiving the final colors.
  * @param canvas Destination canvas.
  * @param shape Face to rasterize.
@@ -1741,8 +1745,10 @@ struct Mesh {
    *        class distance LUT is bound for the probe loop.
    * @param face_shader_setup Optional callback receiving the face index and
    *        size. When supplied, it runs once before rasterizing the face and
-   *        the shader is invoked directly with only v1 initialized. The
-   *        fragment is per-face, so a shader on this path must write
+   *        the shader is invoked directly with only v1 refreshed per pixel —
+   *        the callback never sees the fragment, so the index and size reach
+   *        the shader only through what it hoists here, not through v2 and
+   *        size. The fragment is per-face, so a shader on this path must write
    *        frag.color unconditionally: returning early leaves the previous
    *        pixel's color to be plotted again.
    */
