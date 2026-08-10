@@ -52,11 +52,11 @@ peak.
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-05.md)§ | feedback flush (composite) | 🟢 57.70 (12) | 🟢 0/6688 (0%) | 2026-08-05 13:12 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-07-28.md)§ | per-face SDF + opchain build legs | 🟢 56.91 (24) | 🟢 0/3328 (0%) | 2026-07-28 17:34 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-07-25.md) | fused ring-group raster (row-local walk) | 🟢 56.47 | 🟢 0/1088 (0%) | 2026-07-26 11:44 |
+| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 0/2048 (0%) | 2026-08-09 16:34 |
 | [ShaderBall](shipping/profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🟢 53.99 (13) | 🟢 0/6368 (0%) | 2026-08-08 17:12 |
-| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-03.md) ● | integer opaque SSAA raster + sim | 🟢 55.71 | 🟢 0/2048 (0%) | 2026-08-03 00:27 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-07-25.md) | volume ray-march (`-O3` march path) | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
-| [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-05.md)§ | wireframe raster | 🟢 44.88 (5) | 🟢 0/3408 (0%) | 2026-08-05 13:10 |
+| [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ ● | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
 | [HankinSolids](shipping/profile_hankinsolids_teensy_2026-07-25.md)§ | per-face SDF (`-O3` driver + `ConwayMorph`) | 🟢 43.0 (19) | 🟢 0/3328 (0%) | 2026-07-26 11:55 |
 | [Comets](shipping/profile_comets_teensy_2026-07-25.md)§ | point raster | 🟢 41.56 (12) | 🟢 0/4128 (0%) | 2026-07-26 11:43 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-07.md)§ ● | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 0/1728 (0%) | 2026-08-07 23:03 |
@@ -76,13 +76,14 @@ directly. Size deltas are O3 minus shipping.
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ ● | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
+| [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) ● | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [ShaderBall](O3/profile_shaderball_teensy_2026-08-08.md)§ ● | stereographic closure shader | 🟢 53.99 (13) | 🟢 50.20 (13) | 🟢 0/6368 (0%) | 🟢 0/6368 (0%) | +28,480 B | +26,320 B | ship 2026-08-08 17:12<br>O3 2026-08-08 17:20 |
-| [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-03.md) ● | integer opaque SSAA raster + sim | 🟢 55.71 | 🟢 56.68 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,528 B | +16,432 B | ship 2026-08-03 00:27<br>O3 2026-08-03 00:31 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) ● | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
+| [DreamBalls](O3/profile_dreamballs_teensy_2026-08-09.md)§ ● | wireframe raster | 🟢 44.65 (5) | 🟢 42.94 (5) | 🟢 0/3648 (0%) | 🟢 0/3648 (0%) | +25,976 B | +16,272 B | ship 2026-08-09 18:37<br>O3 2026-08-09 18:41 |
 | [MindSplatter](O3/profile_mindsplatter_teensy_2026-08-07.md)§ ● | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 38.78 (8) | 🟢 0/1728 (0%) | 🟢 0/1728 (0%) | +21,464 B | +18,832 B | ship 2026-08-07 23:03<br>O3 2026-08-07 23:02 |
 | [ChaoticStrings](O3/profile_chaoticstrings_teensy_2026-08-02.md) ● | adaptive vertex build | 🟢 24.85 | 🟢 22.16 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +28,456 B | +20,688 B | ship 2026-08-02 22:21<br>O3 2026-08-02 22:23 |
 
-**● refreshed 2026-08-08.**
+**● refreshed 2026-08-09.**
 
 ## What the roster looks like
 
@@ -103,11 +104,10 @@ regression `7846bc81` introduced; this metric sits on a 32-byte ITCM alignment
 cliff, so treat sub-0.3 ms movements as code placement until a disassembly or a
 same-image A/B says otherwise.
 
-**GSReactionDiffusion now peaks at 55.708 ms** with 0/2048 spills, down from
-94.830 ms and 1011/1024 spills. Typed rendering, one shared stencil per pixel,
-safe seed acceptance, selective-O3 physics, six scaled integrations, and exact
-integer opaque accumulation cut the peak by 41.3%. It is 0.708 ms above the
-55 ms stretch target while retaining 6.792 ms of display-window margin.
+**GSReactionDiffusion now generates and rebakes a palette at every reaction
+boundary.** Four captured rebakes cost 2.348–2.417 ms each. The shipping pass
+peaks at 56.277 ms with 0/2048 spills, retaining 6.223 ms of display-window
+margin, so cycling prebaked flash palettes is unnecessary.
 
 **DisplacementField remains close behind** — 58.71 ms peak against a 59.4 ms
 ISR-adjusted budget. It improved from 60.59 ms since 2026-07-25
@@ -120,9 +120,9 @@ the peak frame falling in a dual-bridge build leg. Its row was re-captured at
 tip `542a5b49` (2026-07-28), 664 commits after the rest of the table's
 `0bbc56e3`; the numbers moved under 0.1 ms.
 
-Global O3 is 0.969 ms slower than GS shipping at 56.677 ms while adding
-16,432 B of ITCM. The selective-O3 image is both smaller and faster for the
-final opaque-accumulation path.
+Global O3 is 0.695 ms slower than GS shipping at 56.972 ms while adding
+10,624 B of ITCM. The selective-O3 image is both smaller and faster, and its
+generative-palette transition stays within the 16 fps budget.
 
 **BZReactionDiffusion now peaks at 50.705 ms** with 0/2048 spills, down
 8.378 ms (14.2%) from its matched pre-optimization capture. Its final
