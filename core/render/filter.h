@@ -604,6 +604,12 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
         "This Pipeline carries a trail-bearing 2D history stage that this "
         "overload would leave unflushed (and therefore undecayed). Pass a "
         "ScreenTrailFn instead — it flushes the terminal stage too.");
+    static_assert(
+        !any_3d_history,
+        "Incomplete flush(): this Pipeline also carries a 3D history stage "
+        "(World::Trails) that this overload leaves unflushed, so its ring "
+        "buffer fills to capacity and never decays. Pass both callbacks: "
+        "flush(cv, worldTrailFn, screenTrailFn, alpha).");
     flush_stages(cv, alpha);
   }
 
