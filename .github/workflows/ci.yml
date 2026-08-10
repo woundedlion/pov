@@ -718,6 +718,12 @@ jobs:
             exit 1
           fi
           echo "Gallery mirrored: $installed_shots screenshots."
+          # The runtime smokes above drive the BUILD tree's glue. The install
+          # rewrites it through file(CONFIGURE ... @ONLY) and then hashes its own
+          # output, so a botched rewrite ships glue whose recorded hash agrees
+          # with it. Instantiate the installed pair — the bytes the deploy gate
+          # verifies and the browser loads.
+          node scripts/wasm_smoke.mjs "$dd/holosphere_wasm.js"
           # A clean CI checkout must record a bare 40-hex SHA (no -dirty marker).
           if grep -q -- '-dirty' "$dd/holosphere_wasm.sha"; then
             echo "::error::engine .sha recorded as -dirty on a clean CI checkout"
