@@ -371,8 +371,11 @@ private:
     /** Animated latitude-ring count; the default is the ring Mutation's opening
      * sample, so a pause held from before init() still draws a grid. */
     float num_rings = 12.0f;
-    float num_lines = 0.0f; /**< Animated longitude-line count. */
-    float alpha = 0.2f;     /**< Overall opacity multiplier in [0, 1]. */
+    /** Animated longitude-line count; the default is the line Mutation's
+     * opening sample, so the lines are drawn before that Mutation starts and
+     * under a pause held from before init(). */
+    float num_lines = 1.0f;
+    float alpha = 0.2f; /**< Overall opacity multiplier in [0, 1]. */
   } params;
 
   /**
