@@ -1583,11 +1583,10 @@ inline void test_volume_raymarch_silhouette_and_registers() {
  * background sits a short march deeper, so probe_occluder reports a solid surface
  * and Volume::draw takes the occluded-edge branch: it lays the shaded background
  * down, then blends the foreground over it by the edge coverage — emitting TWO
- * plots at the same pixel (background first, foreground second). This
- * pins that branch (the most intricate, previously untested logic in scan.h): the
- * duplicate-position signature must appear, the background must be laid down
- * opaque, and the foreground must be a partial (0<α<1) blend over it, not a fade
- * to black.
+ * plots at the same pixel (background first, foreground second). This pins that
+ * branch: the duplicate-position signature must appear, the background must be
+ * laid down opaque, and the foreground must be a partial (0<α<1) blend over it,
+ * not a fade to black.
  */
 inline void test_volume_draw_occluded_edge_blends_over_background() {
   constexpr int W = 96, H = 64;
