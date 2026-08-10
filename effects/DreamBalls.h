@@ -530,7 +530,7 @@ private:
     HS_PROFILE(db_draw_scene);
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
-      Color4 c = baked.get(edge_palette_t(f));
+      Color4 c = baked.get(f.v0);
       c.alpha *= p.alpha * opacity;
       f.color = c;
     };
@@ -558,11 +558,6 @@ private:
         Plot::Mesh::draw<W, H>(filters, canvas, target, edges, fragment_shader);
       }
     }
-  }
-
-  /** @brief Alternates the palette direction on consecutive mesh edges. */
-  static float edge_palette_t(const Fragment &f) {
-    return (static_cast<int>(f.v2) & 1) ? 1.0f - f.v0 : f.v0;
   }
 
   /**

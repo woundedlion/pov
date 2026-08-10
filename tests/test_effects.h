@@ -2354,12 +2354,6 @@ struct DreamBallsWhiteBox {
   static bool solid_loaded(const DB &db, size_t idx) {
     return !db.loaded_solids[idx].mesh_state.vertices.is_empty();
   }
-  static float edge_palette_t(float edge_t, int edge_index) {
-    Fragment f;
-    f.v0 = edge_t;
-    f.v2 = static_cast<float>(edge_index);
-    return DB::edge_palette_t(f);
-  }
   static DB::BaseMesh live_mesh(const DB &db) { return db.params.base_mesh; }
   static float &num_copies(DB &db) { return db.params.num_copies; }
 };
@@ -2477,22 +2471,6 @@ inline void test_dreamballs_base_mesh_selector() {
       energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
     }
   HS_EXPECT_GT(energy, 0u);
-}
-
-/** @brief Verifies consecutive edge gradients alternate and tile end to end. */
-inline void test_dreamballs_edge_gradient_tiles() {
-  using WB = DreamBallsWhiteBox;
-
-  HS_EXPECT_NEAR(WB::edge_palette_t(0.0f, 0), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(WB::edge_palette_t(1.0f, 0), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(WB::edge_palette_t(0.0f, 1), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(WB::edge_palette_t(1.0f, 1), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(WB::edge_palette_t(0.0f, 2), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(WB::edge_palette_t(0.5f, 3), 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(WB::edge_palette_t(1.0f, 0), WB::edge_palette_t(0.0f, 1),
-                 1e-6f);
-  HS_EXPECT_NEAR(WB::edge_palette_t(1.0f, 1), WB::edge_palette_t(0.0f, 2),
-                 1e-6f);
 }
 
 /**
@@ -6074,7 +6052,6 @@ inline int run_effects_tests() {
     test_bz_render_center_matches_reference();
     test_dreamballs_preset_cycle_bookkeeping();
     test_dreamballs_base_mesh_selector();
-    test_dreamballs_edge_gradient_tiles();
     test_dreamballs_respawn_fires_and_honors_pause();
     test_meshfeedback_flush_precedes_mesh_draw();
     test_meshfeedback_preset_rotation_syncs_noise();
