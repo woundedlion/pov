@@ -2444,10 +2444,14 @@ struct Volume {
    * @tparam Shape Volume shape satisfying the concept below.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
-   * @param bounds_center Bounding sphere center in physical LED space; must lie
-   *        on or inside the unit canvas sphere.
+   * @param bounds_center Bounding sphere center in physical LED space; must be
+   *        a unit vector (on the canvas sphere).
    * @param bounds_radius Bounding sphere radius in world units.
-   * @param view_dir Normalized ray direction (camera → scene) in LED space.
+   * @param view_dir Ray direction (camera → scene) in LED space; must point
+   *        straight at bounds_center (a radial view). The scanned band is a cap
+   *        around bounds_center, which is the orthographic footprint only under
+   *        that view; a tilted one slides the footprint off the band and drops
+   *        covered columns.
    * @param shape Volume shape providing ray_to_local() and distance().
    * @param frag_fn Fragment shader invoked once per hit.
    * @param max_steps Maximum sphere-tracing steps per ray.
@@ -2496,12 +2500,15 @@ struct Volume {
     HS_CHECK(local_bc.x * local_bc.x + local_bc.y * local_bc.y +
                  local_bc.z * local_bc.z <
              TOLERANCE);
-    // The ray start offset above assumes bounds_center is on or inside the unit
-    // canvas sphere; farther out, a ray can start in front of the shape.
-    HS_CHECK(bounds_center.x * bounds_center.x +
-                 bounds_center.y * bounds_center.y +
-                 bounds_center.z * bounds_center.z <=
-             1.0f + TOLERANCE);
+    // The scan band below is a cap around bounds_center of angular radius
+    // asin(bounds_radius), which equals the orthographic footprint only for a
+    // radial view of a unit-length center: BoundingSphere reads center.y as
+    // cos(phi), and a tilted view slides the footprint off the cap. Unit length
+    // also backs the ray start offset above — farther out along the view axis a
+    // ray can start in front of the shape.
+    HS_CHECK(fabsf(dot(bounds_center, bounds_center) - 1.0f) < TOLERANCE);
+    const Vector radial_err = cross(bounds_center, vd);
+    HS_CHECK(bc_dot_vd < 0.0f && dot(radial_err, radial_err) < TOLERANCE);
     // aa_width > 0 is the contract: the slow-path AA divides by (aa_width -
     // hit_threshold) == 0.9*aa_width, so a zero band-width gives 0/0 -> NaN.
     HS_CHECK(aa_width > 0.0f);
