@@ -2290,7 +2290,12 @@ __attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
 /**
  * @brief Represents a planar face for SDF rendering.
  * @details Computes the 2D projection and vertical/horizontal bounds used to
- * accelerate rasterization.
+ * accelerate rasterization. Every span member below views the
+ * FaceScratchBuffer handed to the constructor and owns none of it, so the
+ * buffer must outlive the Face AND back no other live Face: building a second
+ * Face over the same buffer silently retargets the first one's geometry. Two
+ * Faces in one CSG composition (SDF::Union<Face, Face>) therefore need two
+ * buffers.
  */
 struct Face {
   Vector center; /**< Normalized face centroid (projection axis). */
@@ -2378,7 +2383,8 @@ struct Face {
    * @brief Builds a face's projection, bounds, and edge data.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices from the pool.
-   * @param scratch Reusable scratch storage backing the spans.
+   * @param scratch Scratch storage the spans alias; exclusive to this Face for
+   *        its whole lifetime, and reusable only once the Face is dead.
    * @param h_virt Virtual row count (height plus pole offset).
    * @param height Canvas height in rows.
    * @param clip Optional render clip used to tighten the face bounds.
