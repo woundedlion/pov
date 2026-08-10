@@ -308,9 +308,13 @@ public:
    * @brief Checks whether the queued frame has been picked up for display.
    * @return True when `prev == next` (no frame still waiting to be shown), so
    *         the writer is free to claim the other buffer.
+   * @details The acquire load pairs with the release half of
+   * `advance_display()`'s fence: everything the display ISR stored before the
+   * flip — the segmented driver's display-window half — is visible to the
+   * writer this gate releases.
    */
   [[nodiscard]] inline bool buffer_free() const {
-    return prev.load(std::memory_order_relaxed) ==
+    return prev.load(std::memory_order_acquire) ==
            next.load(std::memory_order_relaxed);
   }
   /**
@@ -325,13 +329,17 @@ public:
   void set_buffer_ready_hook(BufferReadyHook hook) { buffer_ready_hook = hook; }
   /**
    * @brief Advances the display buffer pointer to the next queued frame.
-   * @details The acquire fence pairs with `queue_frame()`'s release fence, so
-   * the queued frame's pixel writes are visible before any read through
-   * `prev`; the per-pixel loads themselves stay relaxed.
+   * @details The fence's acquire half pairs with `queue_frame()`'s release
+   * fence, so the queued frame's pixel writes are visible before any read
+   * through `prev`; its release half orders whatever the caller stored before
+   * the flip — the segmented driver's display-window publish — ahead of the
+   * `prev` store, pairing with `buffer_free()`'s acquire load. An acq_rel fence
+   * carries both halves in the one barrier an acquire fence already cost. The
+   * per-pixel loads themselves stay relaxed.
    */
   inline void advance_display() {
     int n = next.load(std::memory_order_relaxed);
-    std::atomic_thread_fence(std::memory_order_acquire);
+    std::atomic_thread_fence(std::memory_order_acq_rel);
     prev.store(n, std::memory_order_relaxed);
   }
   /**
