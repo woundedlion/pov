@@ -51,7 +51,8 @@ struct ShadierBallWhiteBox {
   using ClockState = SDB::ClockState;
   using LookRuntime = SDB::LookRuntime;
   using WalkDeltas = SDB::WalkDeltas;
-  using TransitionFrame = SDB::TransitionFrame;
+  using DualOutputFrame = SDB::DualOutputFrame;
+  using ThroughClearPhase = SDB::ThroughClearPhase;
   using TransitionMode = SDB::TransitionMode;
   using WorkSignature = SDB::WorkSignature;
   using WorkTier = SDB::WorkTier;
@@ -145,8 +146,8 @@ struct ShadierBallWhiteBox {
   }
   static const Params &live_params(const SDB &sdb) { return sdb.blend.params; }
   static size_t preset_index(const SDB &sdb) { return sdb.preset_index; }
-  static TransitionFrame transition_frame(const SDB &sdb) {
-    return sdb.prepare_transition_frame();
+  static float transition_mix(const SDB &sdb) {
+    return SDB::transition_mix(sdb.transition.elapsed, sdb.transition.duration);
   }
   static const LookRuntime &transition_from_runtime(const SDB &sdb) {
     return sdb.transition.from_runtime;
@@ -198,9 +199,18 @@ struct ShadierBallWhiteBox {
                               const WalkDeltas &deltas) {
     sdb.advance_runtime(runtime, config, deltas);
   }
-  static Color4 shade_transition(const Vector &view,
-                                 const TransitionFrame &frame) {
-    return SDB::shade_transition(view, frame);
+  static Color4 shade_dual_output(const Vector &view,
+                                  const DualOutputFrame &frame) {
+    return SDB::shade_dual_output(view, frame);
+  }
+  static ThroughClearPhase through_clear_phase(uint16_t elapsed,
+                                               uint16_t duration) {
+    return SDB::through_clear_phase(elapsed, duration);
+  }
+  static Color4 shade_through_clear(const Vector &view,
+                                    const FrameState *visible,
+                                    const ThroughClearPhase &phase) {
+    return SDB::shade_through_clear(view, visible, phase);
   }
   static void begin_blend(SDB &sdb) { sdb.begin_blend(); }
   static void step_param_morph(SDB &sdb) {
@@ -1794,27 +1804,34 @@ inline void test_shadierball_discrete_transition() {
     WB::FrameState inactive = valid;
     inactive.resources.liquid_palette = nullptr;
     const Color4 expected = WB::shade(view, valid);
-    const Color4 at_start = WB::shade_transition(view, {valid, inactive, 0.0f});
+    const Color4 at_start =
+        WB::shade_dual_output(view, {valid, inactive, 0.0f});
     HS_EXPECT_TRUE(at_start.color == expected.color);
     HS_EXPECT_EQ(at_start.alpha, expected.alpha);
-    const Color4 at_end = WB::shade_transition(view, {inactive, valid, 1.0f});
+    const Color4 at_end = WB::shade_dual_output(view, {inactive, valid, 1.0f});
     HS_EXPECT_TRUE(at_end.color == expected.color);
     HS_EXPECT_EQ(at_end.alpha, expected.alpha);
-    const Color4 clear =
-        WB::shade_transition(view, {inactive, inactive, 0.37f,
-                                    WB::TransitionMode::THROUGH_CLEAR, 30, 60});
+    const auto clear_phase = WB::through_clear_phase(30, 60);
+    const Color4 clear = WB::shade_through_clear(view, nullptr, clear_phase);
     HS_EXPECT_EQ(clear.alpha, 0.0f);
     HS_EXPECT_TRUE(clear.color == Pixel());
-    const Color4 from_only =
-        WB::shade_transition(view, {valid, inactive, 0.25f,
-                                    WB::TransitionMode::THROUGH_CLEAR, 15, 60});
+    const auto from_phase = WB::through_clear_phase(15, 60);
+    const Color4 from_only = WB::shade_through_clear(view, &valid, from_phase);
     HS_EXPECT_TRUE(std::isfinite(from_only.alpha));
     HS_EXPECT_GT(from_only.alpha, 0.0f);
-    const Color4 to_only =
-        WB::shade_transition(view, {inactive, valid, 0.75f,
-                                    WB::TransitionMode::THROUGH_CLEAR, 45, 60});
+    const auto to_phase = WB::through_clear_phase(45, 60);
+    const Color4 to_only = WB::shade_through_clear(view, &valid, to_phase);
     HS_EXPECT_TRUE(std::isfinite(to_only.alpha));
     HS_EXPECT_GT(to_only.alpha, 0.0f);
+    const auto through_start = WB::through_clear_phase(0, 60);
+    const Color4 exact_start =
+        WB::shade_through_clear(view, &valid, through_start);
+    HS_EXPECT_TRUE(exact_start.color == expected.color);
+    HS_EXPECT_EQ(exact_start.alpha, expected.alpha);
+    const auto through_end = WB::through_clear_phase(60, 60);
+    const Color4 exact_end = WB::shade_through_clear(view, &valid, through_end);
+    HS_EXPECT_TRUE(exact_end.color == expected.color);
+    HS_EXPECT_EQ(exact_end.alpha, expected.alpha);
   }
 
   {
@@ -1870,7 +1887,7 @@ inline void test_shadierball_discrete_transition() {
     WB::force_transition(sdb, WB::legacy_config(), 60, true);
     const WB::RequestedConfig captured_source = WB::transition_from_config(sdb);
     HS_EXPECT_TRUE(WB::transition_active(sdb));
-    HS_EXPECT_EQ(WB::transition_frame(sdb).mix, 0.0f);
+    HS_EXPECT_EQ(WB::transition_mix(sdb), 0.0f);
     WB::begin_blend(sdb);
     HS_EXPECT_EQ(WB::preset_index(sdb), original_index);
     const uint32_t walk_steps = WB::walk_steps(sdb);
@@ -1929,14 +1946,14 @@ inline void test_shadierball_discrete_transition() {
     HS_EXPECT_TRUE(WB::transition_active(sdb));
     HS_EXPECT_TRUE(WB::transition_from_config(sdb) == original_destination);
     HS_EXPECT_TRUE(WB::transition_to_config(sdb) == manual);
-    HS_EXPECT_EQ(WB::transition_frame(sdb).mix, 0.0f);
+    HS_EXPECT_EQ(WB::transition_mix(sdb), 0.0f);
 
-    while (WB::transition_active(sdb) && WB::transition_frame(sdb).mix < 1.0f) {
+    while (WB::transition_active(sdb) && WB::transition_mix(sdb) < 1.0f) {
       sdb.draw_frame();
       sdb.advance_display();
     }
     HS_EXPECT_TRUE(WB::transition_active(sdb));
-    HS_EXPECT_EQ(WB::transition_frame(sdb).mix, 1.0f);
+    HS_EXPECT_EQ(WB::transition_mix(sdb), 1.0f);
     const float destination_before_endpoint =
         WB::transition_to_runtime(sdb).clocks.source_primary;
     sdb.draw_frame();
