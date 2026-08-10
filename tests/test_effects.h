@@ -3701,27 +3701,54 @@ struct PetalFlowWhiteBox {
   static float gap(const PF &pf) { return pf.gap_accumulator; }
   static float spacing() { return PF::SPACING; }
   static float next_hue(const PF &pf) { return pf.next_hue; }
+  static float live_spacing(const PF &pf) { return pf.spacing(); }
+  static float move_dist(const PF &pf) { return pf.move_dist(); }
+  static int spawns(const PF &pf) { return pf.spawns; }
+  static int dropped_spawns(const PF &pf) { return pf.dropped_spawns; }
+  static int max_rings() { return PF::MAX_RINGS; }
+  static int rings_on_path() { return PF::RINGS_ON_PATH; }
+  static int active_rings(const PF &pf) {
+    int active = 0;
+    for (int i = 0; i < PF::MAX_RINGS; ++i)
+      if (pf.rings[i].active)
+        ++active;
+    return active;
+  }
 };
 
 /**
- * @brief Verifies the spawn-gap accumulator drains every frame and the hue
- *        cursor stays wrapped.
+ * @brief Verifies the spawn-gap accumulator drains every frame, the hue cursor
+ *        stays wrapped, and the ring pool absorbs the worst slider corner.
  * @details check_spawn() integrates Speed*RHO_PER_SPEED into gap_accumulator and
- *          drains it by SPACING per spawn, so after any frame the residue must
- *          satisfy 0 <= gap < SPACING — a runaway (missing drain) or a negative
- *          residue both fail here. Run at the Speed slider top so the per-frame
- *          travel exceeds SPACING and the while-loop must emit several rings per
- *          frame. next_hue is advanced wrap(.,1) per spawn and must stay [0, 1).
+ *          drains it by the live spacing per spawn, so after any frame the
+ *          residue must satisfy 0 <= gap < spacing() — a runaway (missing drain)
+ *          or a negative residue both fail here. Run at Speed_max x Density_max:
+ *          the only corner where a frame's travel exceeds the live spacing, so
+ *          the while-loop's multi-spawn branch runs, and the corner RINGS_ON_PATH
+ *          is derived for, where the pool bound has no margin left — a dropped
+ *          spawn there is a real defect, not a rounding allowance. next_hue is
+ *          advanced wrap(.,1) per spawn and must stay [0, 1).
  */
 inline void test_petalflow_spawn_gap_bounded() {
   using WB = PetalFlowWhiteBox;
   reset_effect_globals();
   WB::PF pf;
   pf.init();
-  pf.updateParameter("Speed", 20.0f); // slider top: per-frame travel >> SPACING
+  pf.updateParameter("Speed", 20.0f);
+  pf.updateParameter("Density", 2.5f);
 
-  const float spacing = WB::spacing();
-  const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
+  const float spacing = WB::live_spacing(pf);
+  // Below this the while-loop emits at most one ring per frame, whatever the
+  // frame count.
+  HS_EXPECT_GT(WB::move_dist(pf), spacing);
+
+  // Long enough for the path prefilled at the default density to be fully
+  // replaced at the tightest one, so the pool bound is read at steady state
+  // rather than mid-fill.
+  const int frames = smoke_frames() < 128 ? 128 : smoke_frames();
+  int worst_active = 0;
+  int worst_burst = 0;
+  int previous_spawns = WB::spawns(pf);
   for (int f = 0; f < frames; ++f) {
     pf.draw_frame();
     pf.advance_display();
@@ -3731,7 +3758,15 @@ inline void test_petalflow_spawn_gap_bounded() {
     const float hue = WB::next_hue(pf);
     HS_EXPECT_GE(hue, 0.0f);
     HS_EXPECT_LT(hue, 1.0f); // hue cursor stays wrapped
+    const int spawns = WB::spawns(pf);
+    worst_burst = std::max(worst_burst, spawns - previous_spawns);
+    previous_spawns = spawns;
+    worst_active = std::max(worst_active, WB::active_rings(pf));
+    HS_EXPECT_EQ(WB::dropped_spawns(pf), 0); // every spawn found a free slot
   }
+  HS_EXPECT_GE(worst_burst, 2); // the multi-spawn branch actually ran
+  HS_EXPECT_LE(worst_active, WB::rings_on_path());
+  HS_EXPECT_LE(WB::rings_on_path(), WB::max_rings());
 }
 
 /**
