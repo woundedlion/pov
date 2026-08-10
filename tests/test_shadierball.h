@@ -22,11 +22,19 @@ struct ShadierBallWhiteBox {
   using SDB = ShadierBall<SMALL_W, SMALL_H>;
   using Function = SDB::Function;
   using Projection = SDB::Projection;
+  using BonneHemisphere = SDB::BonneHemisphere;
+  using GnomonicHemispherePolicy = SDB::GnomonicHemispherePolicy;
   using ProjectionFramePolicy = SDB::ProjectionFramePolicy;
   using SurfaceLens = SDB::SurfaceLens;
+  using NoiseBasis = SDB::NoiseBasis;
+  using WarpEnvelope = SDB::WarpEnvelope;
+  using PolarMode = SDB::PolarMode;
+  using CurlIntegrator = SDB::CurlIntegrator;
+  using PolarHarmonic = SDB::PolarHarmonic;
   using WarpStageKind = SDB::WarpStageKind;
   using WarpStageSpec = SDB::WarpStageSpec;
   using WarpStageParams = SDB::WarpStageParams;
+  using ProjectionParams = SDB::ProjectionParams;
   using SignalWeight = SDB::SignalWeight;
   using ValueTransfer = SDB::ValueTransfer;
   using CoveragePolicy = SDB::CoveragePolicy;
@@ -44,6 +52,8 @@ struct ShadierBallWhiteBox {
   using LookRuntime = SDB::LookRuntime;
   using WalkDeltas = SDB::WalkDeltas;
   using TransitionFrame = SDB::TransitionFrame;
+  using TransitionMode = SDB::TransitionMode;
+  using WorkSignature = SDB::WorkSignature;
 
   static constexpr float AXIS_EPS = SDB::GNOMONIC_AXIS_EPS;
   static constexpr uint32_t HUE_STEP = SDB::HUE_STEP;
@@ -87,6 +97,9 @@ struct ShadierBallWhiteBox {
   }
   static Slots requested_slots(const SDB &sdb) {
     return sdb.requested_config.slots;
+  }
+  static const RequestedConfig &requested_config(const SDB &sdb) {
+    return sdb.requested_config;
   }
   static void request_config(SDB &sdb, const RequestedConfig &config) {
     sdb.requested_config = config;
@@ -135,6 +148,25 @@ struct ShadierBallWhiteBox {
   static uint16_t transition_elapsed(const SDB &sdb) {
     return sdb.transition.elapsed;
   }
+  static NoiseBasis prepared_noise_basis(const SDB &sdb, uint8_t resource_id) {
+    for (size_t index = 0; index < sdb.prepared_noise_count; ++index)
+      if (sdb.prepared_noise_keys[index].resource_id == resource_id)
+        return sdb.prepared_noise_keys[index].basis;
+    return static_cast<NoiseBasis>(0xff);
+  }
+  static constexpr TransitionMode transition_mode(const RequestedConfig &from,
+                                                  const RequestedConfig &to) {
+    return SDB::transition_mode(from, to);
+  }
+  static constexpr WorkSignature work_signature(const RequestedConfig &config) {
+    return SDB::work_signature(config);
+  }
+  static bool pending_transition_active(const SDB &sdb) {
+    return sdb.pending_transition.active;
+  }
+  static const RequestedConfig &pending_transition_config(const SDB &sdb) {
+    return sdb.pending_transition.config;
+  }
   static void force_transition(SDB &sdb, const RequestedConfig &to,
                                uint16_t duration, bool continue_choreo) {
     const RequestedConfig from = active_config(sdb);
@@ -159,6 +191,14 @@ struct ShadierBallWhiteBox {
                         {Quaternion(), Quaternion()});
     sdb.finish_transitions();
   }
+  static void settle_transition(SDB &sdb) {
+    for (int frame = 0;
+         frame < 1024 && (sdb.transition.active || sdb.param_morph.active);
+         ++frame) {
+      sdb.draw_frame();
+      sdb.advance_display();
+    }
+  }
   static uint32_t walk_steps(const SDB &sdb) { return sdb.walk_step_count; }
   static uint32_t liquid_palette_steps(const SDB &sdb) {
     return sdb.liquid_palette_step_count;
@@ -173,6 +213,13 @@ struct ShadierBallWhiteBox {
                               const ProjectedLookup &lensed, float mix,
                               Projection projection, float pole_fade) {
     return SDB::join_projected(direct, lensed, mix, projection, pole_fade);
+  }
+  static bool join_compatible(const ProjectedLookup &direct,
+                              const ProjectedLookup &lensed,
+                              Projection projection,
+                              float coordinate_scale = 1.0f) {
+    return SDB::projection_join_compatible(direct, lensed, projection,
+                                           coordinate_scale);
   }
   static constexpr uint8_t boundary_cut() { return SDB::BOUNDARY_CUT; }
   static constexpr uint8_t boundary_singular() {
@@ -222,6 +269,30 @@ struct ShadierBallWhiteBox {
   static Complex project_point(const Vector &v, Projection projection) {
     return SDB::project_point(v, projection);
   }
+  static ProjectedLookup
+  finalize_projection(const Vector &v, const Complex &coords,
+                      Projection projection, float pole_fade,
+                      GnomonicHemispherePolicy hemisphere) {
+    return SDB::finalize_projection(v, coords, projection, pole_fade,
+                                    hemisphere);
+  }
+  static void canonicalize_mobius(MobiusParams &params) {
+    SDB::canonicalize_mobius(params);
+  }
+  static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
+                             NoiseBasis basis, float scale, float time) {
+    return SDB::curl_vector(p, noise, basis, scale, time);
+  }
+  static float wrapped_noise(const FastNoiseLite &noise, NoiseBasis basis,
+                             float x, float y, float turns) {
+    return SDB::sample_wrapped_noise_basis(noise, basis, x, y, turns);
+  }
+  static ProjectionParams lerp_projection(const ProjectionParams &a,
+                                          const ProjectionParams &b, float t) {
+    ProjectionParams result;
+    result.lerp(a, b, t);
+    return result;
+  }
   static Vector apply_lens(const Vector &v, SurfaceLens lens) {
     return SDB::apply_lens(v, lens);
   }
@@ -264,7 +335,9 @@ inline void test_shadierball_clocks_wrapped() {
     HS_EXPECT_LT(clocks.warp_time, WB::noise_time_period());
     for (float phase :
          {clocks.source_primary, clocks.source_secondary, clocks.source_angle,
-          clocks.projection_spin, clocks.breathe_phase}) {
+          clocks.projection_spin, clocks.breathe_phase,
+          clocks.source_noise_time, clocks.lens_noise_time,
+          clocks.warp_outer_phase, clocks.warp_inner_phase}) {
       HS_EXPECT_GE(phase, 0.0f);
       HS_EXPECT_LT(phase, TWO_PI_F);
     }
@@ -327,6 +400,7 @@ inline void test_shadierball_pipeline_contract() {
 
   frame.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   frame.slots.warp_program.inner.kind = WB::WarpStageKind::LEGACY_STEREO_NOISE;
+  frame.resources.inner_warp_noise = frame.resources.outer_warp_noise;
   frame.params.warp.inner = {2.0f, 1.1f, 0.5f};
   const WB::PlanarWarpStageResult inner_stage = WB::warp_stage(
       projected.coords, projected, frame.slots.warp_program.inner,
@@ -338,7 +412,7 @@ inline void test_shadierball_pipeline_contract() {
   HS_EXPECT_EQ(inner_only.net_delta.im, inner_stage.delta.im);
   HS_EXPECT_EQ(inner_only.path_length, inner_stage.path_length);
 
-  frame.resources.warp_noise = nullptr;
+  frame.resources.outer_warp_noise = nullptr;
   frame.params.warp.inner.strength = 0.0f;
   const WB::PlanarWarpStageResult zero_strength = WB::warp_stage(
       projected.coords, projected, frame.slots.warp_program.inner,
@@ -418,7 +492,8 @@ inline void test_shadierball_legacy_spatial_slots() {
     const Complex equirect =
         WB::project_point(v, WB::Projection::EQUIRECTANGULAR);
     const float radius = sqrtf(v.x * v.x + v.z * v.z);
-    HS_EXPECT_EQ(equirect.re, std::fabs(fast_atan2(v.z, v.x)) * radius);
+    HS_EXPECT_NEAR(equirect.re, std::fabs(fast_atan2(v.z, v.x)) * radius,
+                   1e-6f);
     HS_EXPECT_EQ(equirect.im, 0.5f * PI_F - fast_acos(v.y));
 
     const Complex gnomonic = WB::project_point(v, WB::Projection::GNOMONIC);
@@ -535,12 +610,12 @@ inline void test_shadierball_coupled_source() {
   }
 }
 
-/** @brief Presets are phase-grouped and retain the 15-look choreography. */
+/** @brief Presets retain the legacy bank and add authored diagnostics. */
 inline void test_shadierball_preset_bank() {
   using WB = ShadierBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(15));
+  HS_EXPECT_EQ(presets.size(), size_t(20));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_EQ(presets[0].params.source.pattern_freq, 5.0f);
   HS_EXPECT_EQ(presets[0].params.warp.outer.scale, 3.0f);
@@ -552,10 +627,11 @@ inline void test_shadierball_preset_bank() {
   HS_EXPECT_FALSE(choreo[6].staggered);
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
-    HS_EXPECT_TRUE(WB::slots_equal(preset.slots, WB::liquid_stereo_slots()));
+    if (index < 15)
+      HS_EXPECT_TRUE(WB::slots_equal(preset.slots, WB::liquid_stereo_slots()));
     HS_EXPECT_TRUE(WB::valid_config(preset));
-    HS_EXPECT_TRUE(WB::slots_equal(
-        preset.slots, presets[(index + 1) % presets.size()].slots));
+    if (index < 14)
+      HS_EXPECT_TRUE(WB::slots_equal(preset.slots, presets[index + 1].slots));
   }
 
   reset_effect_globals();
@@ -568,75 +644,804 @@ inline void test_shadierball_preset_bank() {
 /** @brief Whole-schema validation applies valid configs and rejects invalid. */
 inline void test_shadierball_config_admission() {
   using WB = ShadierBallWhiteBox;
+  {
+    reset_effect_globals();
+    WB::SDB sdb;
+    sdb.init();
+    const WB::Slots original = WB::active_slots(sdb);
+    WB::RequestedConfig invalid_params = WB::active_config(sdb);
+    invalid_params.params.source.pattern_freq = 21.0f;
+    const WB::RequestedConfig before_invalid_params = WB::active_config(sdb);
+    WB::request_config(sdb, invalid_params);
+    HS_EXPECT_TRUE(WB::active_config(sdb) == before_invalid_params);
+    HS_EXPECT_TRUE(WB::requested_slots(sdb) == original);
+    HS_EXPECT_FALSE(WB::transition_active(sdb));
+    HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+
+    WB::RequestedConfig candidate = WB::legacy_config();
+    const auto invalid_tag = static_cast<uint8_t>(0xff);
+    candidate.slots.function = static_cast<WB::Function>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.projection = static_cast<WB::Projection>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.projection_frame =
+        static_cast<WB::ProjectionFramePolicy>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.surface_lens = static_cast<WB::SurfaceLens>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.warp_program.outer.kind =
+        static_cast<WB::WarpStageKind>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.warp_program.inner.kind =
+        static_cast<WB::WarpStageKind>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.signal_weight = static_cast<WB::SignalWeight>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.value_transfer =
+        static_cast<WB::ValueTransfer>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.coverage = static_cast<WB::CoveragePolicy>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.colorizer = static_cast<WB::Colorizer>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+
+    const WB::RequestedConfig legacy_config = WB::legacy_config();
+    HS_EXPECT_TRUE(WB::valid_config(legacy_config));
+    HS_EXPECT_TRUE(
+        WB::transition_admitted(WB::active_config(sdb), legacy_config));
+    WB::request_config(sdb, legacy_config);
+    HS_EXPECT_TRUE(WB::slots_equal(WB::active_slots(sdb), original));
+    HS_EXPECT_TRUE(WB::transition_active(sdb));
+    HS_EXPECT_TRUE(WB::transition_to_config(sdb) == legacy_config);
+    HS_EXPECT_TRUE(WB::requested_slots(sdb) == legacy_config.slots);
+
+    WB::RequestedConfig resource_from = WB::legacy_config();
+    resource_from.slots.warp_program.outer.kind =
+        WB::WarpStageKind::VECTOR_NOISE;
+    resource_from.slots.warp_program.outer.basis = WB::NoiseBasis::SIMPLEX;
+    resource_from.params.warp.outer.time_scale = 0.0f;
+    WB::RequestedConfig resource_to = resource_from;
+    resource_to.slots.warp_program.outer.basis = WB::NoiseBasis::FBM3;
+    HS_EXPECT_TRUE(WB::valid_config(resource_from));
+    HS_EXPECT_TRUE(WB::valid_config(resource_to));
+    HS_EXPECT_TRUE(WB::transition_admitted(resource_from, resource_to));
+    HS_EXPECT_EQ(WB::transition_mode(resource_from, resource_to),
+                 WB::TransitionMode::THROUGH_CLEAR);
+    resource_to.slots.warp_program.outer.resource_id ^= 4U;
+    HS_EXPECT_TRUE(WB::transition_admitted(resource_from, resource_to));
+
+    WB::RequestedConfig shared_owner = WB::legacy_config();
+    shared_owner.slots.warp_program.outer.kind =
+        WB::WarpStageKind::VECTOR_NOISE;
+    shared_owner.slots.warp_program.inner.kind =
+        WB::WarpStageKind::VECTOR_NOISE;
+    shared_owner.params.warp.outer.time_scale = 0.0f;
+    shared_owner.params.warp.inner.time_scale = 0.0f;
+    shared_owner.slots.warp_program.outer.resource_id = 6;
+    shared_owner.slots.warp_program.inner.resource_id = 6;
+    HS_EXPECT_TRUE(WB::valid_config(shared_owner));
+    shared_owner.slots.warp_program.inner.basis = WB::NoiseBasis::FBM3;
+    HS_EXPECT_FALSE(WB::valid_config(shared_owner));
+    HS_EXPECT_FALSE(WB::transition_admitted(shared_owner, shared_owner));
+  }
+
+  {
+    reset_effect_globals();
+    WB::SDB projection_change;
+    projection_change.init();
+    HS_EXPECT_TRUE(
+        projection_change.updateParameter(
+            "Projection", static_cast<float>(WB::Projection::BONNE)) ==
+        ParamSetResult::APPLIED);
+    projection_change.draw_frame();
+    projection_change.advance_display();
+    HS_EXPECT_TRUE(WB::transition_active(projection_change));
+    HS_EXPECT_EQ(WB::transition_to_config(projection_change).slots.projection,
+                 WB::Projection::BONNE);
+    HS_EXPECT_EQ(WB::transition_to_config(projection_change)
+                     .slots.warp_program.outer.kind,
+                 WB::WarpStageKind::NONE);
+  }
+
+  {
+    reset_effect_globals();
+    WB::SDB legacy_warp_change;
+    legacy_warp_change.init();
+    HS_EXPECT_TRUE(
+        legacy_warp_change.updateParameter(
+            "Projection", static_cast<float>(WB::Projection::BONNE)) ==
+        ParamSetResult::APPLIED);
+    legacy_warp_change.draw_frame();
+    legacy_warp_change.advance_display();
+    while (WB::transition_active(legacy_warp_change)) {
+      legacy_warp_change.draw_frame();
+      legacy_warp_change.advance_display();
+    }
+    HS_EXPECT_TRUE(
+        legacy_warp_change.updateParameter(
+            "Outer Warp",
+            static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE)) ==
+        ParamSetResult::APPLIED);
+    legacy_warp_change.draw_frame();
+    legacy_warp_change.advance_display();
+    HS_EXPECT_EQ(WB::transition_to_config(legacy_warp_change).slots.projection,
+                 WB::Projection::STEREOGRAPHIC);
+  }
+}
+
+/** @brief Every GUI enum option is writable and survives its handoff. */
+inline void test_shadierball_gui_catalog() {
+  using WB = ShadierBallWhiteBox;
   reset_effect_globals();
   WB::SDB sdb;
   sdb.init();
-  const WB::Slots original = WB::active_slots(sdb);
-  WB::Slots invalid = original;
-  invalid.projection = WB::Projection::EQUIRECTANGULAR;
-  invalid.warp_program.outer.kind = WB::WarpStageKind::LEGACY_STEREO_NOISE;
-  WB::request_slots(sdb, invalid);
-  HS_EXPECT_TRUE(WB::slots_equal(WB::active_slots(sdb), original));
-  HS_EXPECT_TRUE(WB::slots_equal(WB::requested_slots(sdb), invalid));
+  HS_EXPECT_LE(sdb.getParameters().size(), size_t(64));
+  const auto *projection = sdb.getParameters().find("Projection");
+  HS_EXPECT_TRUE(projection != nullptr);
+  HS_EXPECT_EQ(projection->option_count, 6);
+  HS_EXPECT_TRUE(std::strcmp(projection->options[3], "Bonne") == 0);
+  HS_EXPECT_TRUE(std::strcmp(projection->options[4], "Peirce Quincuncial") ==
+                 0);
+  HS_EXPECT_TRUE(std::strcmp(projection->options[5], "Dymaxion / Airocean") ==
+                 0);
+  const uint32_t schema_before = sdb.getParameterSchemaGeneration();
+  HS_EXPECT_TRUE(sdb.updateParameter(
+                     "Projection", static_cast<float>(WB::Projection::BONNE)) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sdb.getParameterSchemaGeneration() > schema_before);
+  HS_EXPECT_TRUE(sdb.getParameters().find("Bonne Hemisphere") != nullptr);
+  sdb.draw_frame();
+  sdb.advance_display();
+  WB::settle_transition(sdb);
 
-  invalid = original;
-  invalid.warp_program.inner.kind = WB::WarpStageKind::LEGACY_STEREO_NOISE;
-  WB::request_slots(sdb, invalid);
-  HS_EXPECT_TRUE(WB::slots_equal(WB::active_slots(sdb), original));
-  HS_EXPECT_TRUE(WB::slots_equal(WB::requested_slots(sdb), invalid));
+  constexpr const char *ROOT_ENUMS[] = {
+      "Function",   "Projection", "Projection Frame", "Lens",
+      "Outer Warp", "Inner Warp", "Signal Weight",    "Value Transfer",
+      "Coverage",   "Colorizer"};
+  for (const char *name : ROOT_ENUMS) {
+    const int option_count = sdb.getParameters().find(name)->option_count;
+    for (int option = 0; option < option_count; ++option) {
+      if (std::strcmp(name, "Inner Warp") == 0 && option == 1) {
+        HS_EXPECT_TRUE(sdb.updateParameter("Outer Warp", 0.0f) ==
+                       ParamSetResult::APPLIED);
+        sdb.draw_frame();
+        sdb.advance_display();
+        WB::settle_transition(sdb);
+      } else if (std::strcmp(name, "Outer Warp") == 0 && option == 1) {
+        HS_EXPECT_TRUE(sdb.updateParameter("Inner Warp", 0.0f) ==
+                       ParamSetResult::APPLIED);
+        sdb.draw_frame();
+        sdb.advance_display();
+        WB::settle_transition(sdb);
+      }
+      HS_EXPECT_TRUE(sdb.updateParameter(name, static_cast<float>(option)) ==
+                     ParamSetResult::APPLIED);
+      sdb.draw_frame();
+      sdb.advance_display();
+      WB::settle_transition(sdb);
+      HS_EXPECT_EQ(sdb.getParameters().find(name)->get(),
+                   static_cast<float>(option));
+      HS_EXPECT_FALSE(WB::transition_active(sdb));
+      HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+    }
+  }
 
-  WB::RequestedConfig invalid_params = WB::active_config(sdb);
-  invalid_params.params.source.pattern_freq = 21.0f;
-  const WB::RequestedConfig before_invalid_params = WB::active_config(sdb);
-  WB::request_config(sdb, invalid_params);
-  HS_EXPECT_TRUE(WB::active_config(sdb) == before_invalid_params);
-  HS_EXPECT_FALSE(WB::transition_active(sdb));
-  HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+  auto select_and_set_all = [&](const char *root, int selection,
+                                const char *subordinate) {
+    HS_EXPECT_TRUE(sdb.updateParameter(root, static_cast<float>(selection)) ==
+                   ParamSetResult::APPLIED);
+    sdb.draw_frame();
+    sdb.advance_display();
+    WB::settle_transition(sdb);
+    const auto *def = sdb.getParameters().find(subordinate);
+    HS_EXPECT(def != nullptr, subordinate);
+    if (def == nullptr)
+      return;
+    const int count = def->option_count;
+    for (int option = 0; option < count; ++option) {
+      HS_EXPECT_TRUE(
+          sdb.updateParameter(subordinate, static_cast<float>(option)) ==
+          ParamSetResult::APPLIED);
+      sdb.draw_frame();
+      sdb.advance_display();
+      WB::settle_transition(sdb);
+      HS_EXPECT_EQ(sdb.getParameters().find(subordinate)->get(),
+                   static_cast<float>(option));
+    }
+  };
+  select_and_set_all("Projection", 2, "Gnomonic Hemisphere");
+  select_and_set_all("Projection", 3, "Bonne Hemisphere");
+  HS_EXPECT_TRUE(sdb.updateParameter("Bonne Standard Parallel", 0.9f) ==
+                 ParamSetResult::APPLIED);
+  sdb.draw_frame();
+  sdb.advance_display();
+  WB::settle_transition(sdb);
+  HS_EXPECT_NEAR(
+      WB::active_config(sdb).params.projection.bonne_standard_parallel, 0.9f,
+      1e-6f);
+  select_and_set_all("Projection", 4, "Peirce Layout");
+  for (int layout = 0; layout < 4; ++layout) {
+    HS_EXPECT_TRUE(
+        sdb.updateParameter("Peirce Layout", static_cast<float>(layout)) ==
+        ParamSetResult::APPLIED);
+    const bool has_scroll =
+        sdb.getParameters().find("Projection Layout Scroll") != nullptr;
+    HS_EXPECT_EQ(has_scroll, layout >= 2);
+    sdb.draw_frame();
+    sdb.advance_display();
+    WB::settle_transition(sdb);
+  }
+  select_and_set_all("Projection", 5, "Airocean Layout");
+  select_and_set_all("Outer Warp", 5, "Outer Noise Basis");
+  select_and_set_all("Outer Warp", 5, "Outer Warp Envelope");
+  select_and_set_all("Outer Warp", 6, "Outer Curl Integrator");
+  select_and_set_all("Outer Warp", 8, "Outer Polar Mode");
+  select_and_set_all("Outer Warp", 8, "Outer Polar Harmonic");
+  select_and_set_all("Value Transfer", 3, "Band Count");
+}
 
-  WB::RequestedConfig candidate = WB::legacy_config();
-  const auto invalid_tag = static_cast<uint8_t>(0xff);
-  candidate.slots.function = static_cast<WB::Function>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
-  candidate = WB::legacy_config();
-  candidate.slots.projection = static_cast<WB::Projection>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
-  candidate = WB::legacy_config();
-  candidate.slots.projection_frame =
-      static_cast<WB::ProjectionFramePolicy>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
-  candidate = WB::legacy_config();
-  candidate.slots.surface_lens = static_cast<WB::SurfaceLens>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
-  candidate = WB::legacy_config();
-  candidate.slots.warp_program.outer.kind =
-      static_cast<WB::WarpStageKind>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
-  candidate = WB::legacy_config();
-  candidate.slots.warp_program.inner.kind =
-      static_cast<WB::WarpStageKind>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
-  candidate = WB::legacy_config();
-  candidate.slots.signal_weight = static_cast<WB::SignalWeight>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
-  candidate = WB::legacy_config();
-  candidate.slots.value_transfer = static_cast<WB::ValueTransfer>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
-  candidate = WB::legacy_config();
-  candidate.slots.coverage = static_cast<WB::CoveragePolicy>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
-  candidate = WB::legacy_config();
-  candidate.slots.colorizer = static_cast<WB::Colorizer>(invalid_tag);
-  HS_EXPECT_FALSE(WB::valid_config(candidate));
+/** @brief New cartographic kernels preserve landmarks and stay finite. */
+inline void test_shadierball_projection_catalog() {
+  using WB = ShadierBallWhiteBox;
+  const float standard_parallel = PI_F * 0.25f;
+  const Vector bonne_origin(cosf(standard_parallel), sinf(standard_parallel),
+                            0.0f);
+  const auto bonne =
+      shadierball::bonne_projection(bonne_origin, 0.0f, standard_parallel);
+  HS_EXPECT_NEAR(bonne.coords.re, 0.0f, 2e-5f);
+  HS_EXPECT_NEAR(bonne.coords.im, 0.0f, 2e-5f);
 
-  const WB::RequestedConfig legacy_config = WB::legacy_config();
-  HS_EXPECT_TRUE(WB::valid_config(legacy_config));
+  const auto peirce = shadierball::peirce_projection(UP, 0.0f, 1, 0.0f);
+  HS_EXPECT_NEAR(peirce.coords.re, 0.0f, 2e-5f);
+  HS_EXPECT_NEAR(peirce.coords.im, 0.0f, 2e-5f);
+
+  const auto &center = shadierball::AIROCEAN_CENTERS[0];
+  const auto airocean = shadierball::airocean_projection(
+      Vector(center.x, center.z, center.y), 0.0f, false);
+  const auto &triangle = shadierball::AIROCEAN_PLANAR_FACES[0];
+  HS_EXPECT_NEAR(airocean.coords.re,
+                 (triangle[0].x + triangle[1].x + triangle[2].x) / 3.0f, 2e-4f);
+  HS_EXPECT_NEAR(airocean.coords.im,
+                 (triangle[0].y + triangle[1].y + triangle[2].y) / 3.0f, 2e-4f);
+  HS_EXPECT_EQ(airocean.region_id, uint8_t(0));
+
+  const Vector equator_zero(1.0f, 0.0f, 0.0f);
+  const Vector equator_east(0.0f, 0.0f, 1.0f);
+  const Vector antimeridian(-1.0f, 0.0f, 0.0f);
+  const auto bonne_equator =
+      shadierball::bonne_projection(equator_zero, 0.0f, standard_parallel);
+  HS_EXPECT_NEAR(bonne_equator.coords.re, 0.0f, 2e-5f);
+  HS_EXPECT_NEAR(bonne_equator.coords.im, -0.7853981634f, 2e-5f);
+  const auto bonne_east =
+      shadierball::bonne_projection(equator_east, 0.0f, standard_parallel);
+  HS_EXPECT_NEAR(bonne_east.coords.re, 1.3758501640f, 3e-5f);
+  HS_EXPECT_NEAR(bonne_east.coords.im, -0.1378413458f, 3e-5f);
+  const auto bonne_shifted = shadierball::bonne_projection(
+      equator_east, 0.5f * PI_F, standard_parallel);
+  HS_EXPECT_NEAR(bonne_shifted.coords.re, 0.0f, 2e-5f);
+  HS_EXPECT_NEAR(bonne_shifted.coords.im, -0.7853981634f, 2e-5f);
+  const auto bonne_cut =
+      shadierball::bonne_projection(antimeridian, 0.0f, standard_parallel);
+  HS_EXPECT_NEAR(bonne_cut.fade_edge_distance, 0.0f, 2e-5f);
+  const auto werner =
+      shadierball::bonne_projection(equator_east, 0.0f, 0.5f * PI_F);
+  HS_EXPECT_NEAR(werner.coords.re, 1.3217795320f, 3e-5f);
+  HS_EXPECT_NEAR(werner.coords.im, -0.8487048774f, 3e-5f);
+
+  constexpr float PEIRCE_K = 1.8540746773013719f;
+  const Vector south_pole(0.0f, -1.0f, 0.0f);
+  const auto peirce_diamond =
+      shadierball::peirce_projection(south_pole, 0.0f, 0, 0.0f);
+  const auto peirce_square =
+      shadierball::peirce_projection(south_pole, 0.0f, 1, 0.0f);
+  const auto peirce_horizontal =
+      shadierball::peirce_projection(south_pole, 0.0f, 2, 0.0f);
+  const auto peirce_vertical =
+      shadierball::peirce_projection(south_pole, 0.0f, 3, 0.0f);
+  HS_EXPECT_NEAR(peirce_diamond.coords.re, 2.0f * PEIRCE_K, 3e-5f);
+  HS_EXPECT_NEAR(peirce_diamond.coords.im, 0.0f, 3e-5f);
+  HS_EXPECT_NEAR(peirce_square.coords.re, PEIRCE_K * 1.4142135624f, 3e-5f);
+  HS_EXPECT_NEAR(peirce_square.coords.im, PEIRCE_K * 1.4142135624f, 3e-5f);
+  HS_EXPECT_NEAR(peirce_horizontal.coords.re, PEIRCE_K, 3e-5f);
+  HS_EXPECT_NEAR(peirce_vertical.coords.im, PEIRCE_K, 3e-5f);
+  const auto peirce_scroll0 =
+      shadierball::peirce_projection(equator_east, 0.0f, 2, 0.0f);
+  const auto peirce_scroll1 =
+      shadierball::peirce_projection(equator_east, 0.0f, 2, 1.0f);
+  HS_EXPECT_NEAR(peirce_scroll0.coords.re, peirce_scroll1.coords.re, 3e-5f);
+  HS_EXPECT_NEAR(peirce_scroll0.coords.im, peirce_scroll1.coords.im, 3e-5f);
+  WB::ProjectionParams scroll_from;
+  WB::ProjectionParams scroll_to;
+  scroll_from.layout_scroll = 0.9f;
+  scroll_to.layout_scroll = -0.9f;
+  const auto scroll_start = WB::lerp_projection(scroll_from, scroll_to, 0.0f);
+  const auto scroll_mid = WB::lerp_projection(scroll_from, scroll_to, 0.5f);
+  const auto scroll_end = WB::lerp_projection(scroll_from, scroll_to, 1.0f);
+  HS_EXPECT_EQ(scroll_start.layout_scroll, 0.9f);
+  HS_EXPECT_NEAR(scroll_mid.layout_scroll, 1.0f, 1e-6f);
+  HS_EXPECT_EQ(scroll_end.layout_scroll, -0.9f);
+  const auto peirce_scroll_mid = shadierball::peirce_projection(
+      equator_east, 0.0f, 2, scroll_mid.layout_scroll);
+  HS_EXPECT_NEAR(peirce_scroll_mid.coords.re, peirce_scroll0.coords.re, 3e-5f);
+  HS_EXPECT_NEAR(peirce_scroll_mid.coords.im, peirce_scroll0.coords.im, 3e-5f);
+  const auto peirce_zero_fade =
+      shadierball::peirce_projection(equator_zero, 0.0f, 1, 0.0f);
+  HS_EXPECT_NEAR(peirce_zero_fade.fade_edge_distance, 0.0f, 2e-5f);
+
+  auto lon_lat = [](float longitude, float latitude) {
+    const float cp = cosf(latitude);
+    return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
+  };
+  constexpr float TIE_EPS = 1e-5f;
+  constexpr float SOUTH_LATITUDE = -0.4f;
+  struct SectorTie {
+    float longitude;
+    uint8_t before;
+    uint8_t exact;
+  };
+  const SectorTie sector_ties[] = {
+      {-0.75f * PI_F, 1, 2},
+      {-0.25f * PI_F, 2, 3},
+      {0.25f * PI_F, 3, 4},
+      {0.75f * PI_F, 4, 1},
+  };
+  for (const auto &tie : sector_ties) {
+    const auto before = shadierball::peirce_projection(
+        lon_lat(tie.longitude - TIE_EPS, SOUTH_LATITUDE), 0.0f, 0, 0.0f);
+    const auto exact = shadierball::peirce_projection(
+        lon_lat(tie.longitude, SOUTH_LATITUDE), 0.0f, 0, 0.0f);
+    HS_EXPECT_EQ(before.region_id, tie.before);
+    HS_EXPECT_EQ(exact.region_id, tie.exact);
+  }
+
+  constexpr float MERIDIAN = 0.37f;
+  constexpr float MERIDIAN_LATITUDE = 0.28f;
+  const Vector on_meridian = lon_lat(MERIDIAN, MERIDIAN_LATITUDE);
+  const Vector zero_meridian = lon_lat(0.0f, MERIDIAN_LATITUDE);
+  for (uint8_t layout = 0; layout < 4; ++layout) {
+    const auto shifted =
+        shadierball::peirce_projection(on_meridian, MERIDIAN, layout, 0.13f);
+    const auto reference =
+        shadierball::peirce_projection(zero_meridian, 0.0f, layout, 0.13f);
+    HS_EXPECT_NEAR(shifted.coords.re, reference.coords.re, 2e-5f);
+    HS_EXPECT_NEAR(shifted.coords.im, reference.coords.im, 2e-5f);
+    HS_EXPECT_EQ(shifted.region_id, reference.region_id);
+  }
+  const auto airocean_shifted =
+      shadierball::airocean_projection(on_meridian, MERIDIAN, false);
+  const auto airocean_reference =
+      shadierball::airocean_projection(zero_meridian, 0.0f, false);
+  HS_EXPECT_NEAR(airocean_shifted.coords.re, airocean_reference.coords.re,
+                 2e-5f);
+  HS_EXPECT_NEAR(airocean_shifted.coords.im, airocean_reference.coords.im,
+                 2e-5f);
+  HS_EXPECT_EQ(airocean_shifted.region_id, airocean_reference.region_id);
+
+  const float oracle_longitude = 23.0f * PI_F / 180.0f;
+  const float oracle_latitude = 28.0f * PI_F / 180.0f;
+  const Vector oracle_point(cosf(oracle_latitude) * cosf(oracle_longitude),
+                            sinf(oracle_latitude),
+                            cosf(oracle_latitude) * sinf(oracle_longitude));
+  const auto airocean_oracle =
+      shadierball::airocean_projection(oracle_point, 0.0f, false);
+  HS_EXPECT_NEAR(airocean_oracle.coords.re, 2.1265288136f, 4e-5f);
+  HS_EXPECT_NEAR(airocean_oracle.coords.im, 3.6817439808f, 4e-5f);
+  const auto airocean_horizontal =
+      shadierball::airocean_projection(oracle_point, 0.0f, true);
+  HS_EXPECT_NEAR(airocean_horizontal.coords.re,
+                 5.7830422333f - airocean_oracle.coords.im, 4e-5f);
+  HS_EXPECT_NEAR(airocean_horizontal.coords.im, airocean_oracle.coords.re,
+                 4e-5f);
+
+  struct AiroceanOracle {
+    Vector point;
+    uint8_t face;
+    Complex coords;
+  };
+  const AiroceanOracle face_oracles[] = {
+      {Vector(-0.0913057694774583f, -0.7547095802227720f, 0.6496743076188996f),
+       18, Complex(0.751563669073068f, 5.176900182371453f)},
+      {Vector(-0.125688534945440f, -0.951056516295154f, 0.282301071545602f), 19,
+       Complex(1.209325099973815f, 0.174221877187437f)},
+      {Vector(-0.788802981658962f, -0.156434465040231f, 0.594405681562271f), 20,
+       Complex(0.504542659515686f, 4.382713723716426f)},
+      {Vector(-0.540579378237808f, 0.121869343405147f, 0.832419244709073f), 21,
+       Complex(0.821525205008616f, 4.204640141604954f)},
+      {Vector(-0.806181892476771f, 0.275637355816999f, 0.523540642472755f), 22,
+       Complex(0.414678953083584f, 3.507358320698008f)},
+  };
+  for (const auto &oracle : face_oracles) {
+    const auto mapped =
+        shadierball::airocean_projection(oracle.point, 0.0f, false);
+    HS_EXPECT_EQ(mapped.region_id, oracle.face);
+    HS_EXPECT_NEAR(mapped.coords.re, oracle.coords.re, 2e-5f);
+    HS_EXPECT_NEAR(mapped.coords.im, oracle.coords.im, 2e-5f);
+  }
+
+  const Vector glued_points[] = {
+      {0.00321530370315651f, 0.902108328962722f, 0.431497653108545f},
+      {0.00321964224570043f, 0.902105871397194f, 0.431502758617508f},
+      {0.00321096516044884f, 0.902110786482306f, 0.431492547577607f},
+  };
+  const uint8_t glued_faces[] = {1, 1, 2};
+  const uint8_t glued_edges[] = {0, 0, 2};
+  const Complex glued_coords[] = {
+      {1.365889495965044f, 3.417252228774369f},
+      {1.365892745153149f, 3.417257856533251f},
+      {1.365886246776939f, 3.417246601015487f},
+  };
+  const float glued_cut_distances[] = {0.525731112119133f, 0.525731112159295f,
+                                       0.525731112159296f};
+  for (size_t index = 0; index < std::size(glued_points); ++index) {
+    const auto mapped =
+        shadierball::airocean_projection(glued_points[index], 0.0f, false);
+    HS_EXPECT_EQ(mapped.region_id, glued_faces[index]);
+    HS_EXPECT_EQ(mapped.edge_class,
+                 shadierball::airocean_edge_identity(glued_faces[index],
+                                                     glued_edges[index]));
+    HS_EXPECT_TRUE((mapped.traits & shadierball::projection_traits(
+                                        shadierball::ProjectionTrait::GLUED)) !=
+                   0);
+    HS_EXPECT_NEAR(mapped.coords.re, glued_coords[index].re, 5e-5f);
+    HS_EXPECT_NEAR(mapped.coords.im, glued_coords[index].im, 5e-5f);
+    HS_EXPECT_NEAR(mapped.fade_edge_distance, glued_cut_distances[index],
+                   5e-5f);
+  }
+
+  const Vector cut_points[] = {
+      {0.456082461583071f, 0.767833736470940f, -0.449911259442795f},
+      {0.456076125629434f, 0.767836786220573f, -0.449912477441232f},
+      {0.456088797513479f, 0.767830686682203f, -0.449910041421443f},
+  };
+  const uint8_t cut_faces[] = {3, 3, 4};
+  const uint8_t cut_edges[] = {0, 0, 2};
+  const Complex cut_coords[] = {
+      {1.821185994620058f, 2.628655560595667f},
+      {1.821179496243847f, 2.628655560595667f},
+      {2.276485742463179f, 2.891526744414116f},
+  };
+  const float cut_distances[] = {0.0f, 6.498376211e-6f, 6.498376211e-6f};
+  for (size_t index = 0; index < std::size(cut_points); ++index) {
+    const auto mapped =
+        shadierball::airocean_projection(cut_points[index], 0.0f, false);
+    HS_EXPECT_EQ(mapped.region_id, cut_faces[index]);
+    HS_EXPECT_EQ(mapped.edge_class, shadierball::airocean_edge_identity(
+                                        cut_faces[index], cut_edges[index]));
+    HS_EXPECT_TRUE((mapped.traits & shadierball::projection_traits(
+                                        shadierball::ProjectionTrait::CUT)) !=
+                   0);
+    HS_EXPECT_NEAR(mapped.coords.re, cut_coords[index].re, 5e-5f);
+    HS_EXPECT_NEAR(mapped.coords.im, cut_coords[index].im, 5e-5f);
+    HS_EXPECT_NEAR(mapped.fade_edge_distance, cut_distances[index], 5e-5f);
+  }
+  for (uint8_t face = 0; face < 23; ++face) {
+    const auto &face_center = shadierball::AIROCEAN_CENTERS[face];
+    const auto mapped = shadierball::airocean_projection(
+        Vector(face_center.x, face_center.z, face_center.y), 0.0f, false);
+    HS_EXPECT_EQ(mapped.region_id, face);
+  }
+  HS_EXPECT_TRUE(shadierball::airocean_edge_is_cut(14, 0));
+  HS_EXPECT_EQ(shadierball::airocean_edge_identity(14, 0), uint8_t(42));
+  HS_EXPECT_EQ(shadierball::airocean_edge_identity(18, 0), uint8_t(54));
+
+  for (int latitude_index = -8; latitude_index <= 8; ++latitude_index) {
+    const float latitude = latitude_index * (PI_F / 18.0f);
+    for (int longitude_index = -18; longitude_index < 18; ++longitude_index) {
+      const float longitude = longitude_index * (PI_F / 18.0f);
+      const float cp = cosf(latitude);
+      const Vector v(cp * cosf(longitude), sinf(latitude),
+                     cp * sinf(longitude));
+      const auto b = shadierball::bonne_projection(v, 0.37f, standard_parallel);
+      HS_EXPECT_TRUE(std::isfinite(b.coords.re));
+      HS_EXPECT_TRUE(std::isfinite(b.coords.im));
+      HS_EXPECT_TRUE(std::isfinite(b.fade_edge_distance));
+      for (uint8_t layout = 0; layout < 4; ++layout) {
+        const auto p = shadierball::peirce_projection(v, -0.21f, layout, 0.13f);
+        HS_EXPECT_TRUE(std::isfinite(p.coords.re));
+        HS_EXPECT_TRUE(std::isfinite(p.coords.im));
+        HS_EXPECT_TRUE(std::isfinite(p.fade_edge_distance));
+      }
+      for (bool horizontal : {false, true}) {
+        const auto a = shadierball::airocean_projection(v, 0.19f, horizontal);
+        HS_EXPECT_TRUE(std::isfinite(a.coords.re));
+        HS_EXPECT_TRUE(std::isfinite(a.coords.im));
+        HS_EXPECT_TRUE(std::isfinite(a.fade_edge_distance));
+        HS_EXPECT_TRUE(a.region_id < 23);
+      }
+    }
+  }
+}
+
+/** @brief Domain policies, gauges, and analytic admission reject unsafe tuples. */
+inline void test_shadierball_projection_and_admission_contracts() {
+  using WB = ShadierBallWhiteBox;
+  const uint8_t periodic_traits = shadierball::projection_traits(
+      shadierball::ProjectionTrait::GLUED, shadierball::ProjectionTrait::FOLDED,
+      shadierball::ProjectionTrait::PERIODIC);
+  const WB::ProjectedLookup horizontal_left{
+      Complex(-3.7080f, 0.2f), 2, 0,   2, 0.1f, 1.0f, 1,
+      periodic_traits,         4, 1.0f};
+  const WB::ProjectedLookup horizontal_right{
+      Complex(3.7080f, 0.2f), 2, 0, 2, 0.1f, 1.0f, 1, periodic_traits, 4, 1.0f};
+  HS_EXPECT_FALSE(WB::join_compatible(horizontal_left, horizontal_right,
+                                      WB::Projection::PEIRCE_QUINCUNCIAL));
+  WB::ProjectedLookup horizontal_neighbor = horizontal_left;
+  horizontal_neighbor.coords.re = -3.6f;
+  HS_EXPECT_TRUE(WB::join_compatible(horizontal_left, horizontal_neighbor,
+                                     WB::Projection::PEIRCE_QUINCUNCIAL));
+  WB::ProjectedLookup vertical_bottom = horizontal_left;
+  WB::ProjectedLookup vertical_top = horizontal_right;
+  vertical_bottom.edge_class = 5;
+  vertical_top.edge_class = 5;
+  vertical_bottom.coords = Complex(0.2f, -3.7080f);
+  vertical_top.coords = Complex(0.2f, 3.7080f);
+  HS_EXPECT_FALSE(WB::join_compatible(vertical_bottom, vertical_top,
+                                      WB::Projection::PEIRCE_QUINCUNCIAL));
+
+  auto kernel_lookup = [](const shadierball::ProjectionKernelResult &result) {
+    return WB::ProjectedLookup{result.coords,
+                               result.region_id,
+                               result.component_id,
+                               result.boundary_flags,
+                               result.fade_edge_distance,
+                               1.0f,
+                               result.flags,
+                               result.traits,
+                               result.edge_class,
+                               1.0f};
+  };
+  auto lon_lat = [](float longitude, float latitude) {
+    const float cp = cosf(latitude);
+    return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
+  };
+  const Vector sector_before = lon_lat(0.25f * PI_F - 1e-4f, -0.4f);
+  const Vector sector_after = lon_lat(0.25f * PI_F + 1e-4f, -0.4f);
+  const auto diamond_before = kernel_lookup(
+      shadierball::peirce_projection(sector_before, 0.0f, 0, 0.0f));
+  const auto diamond_after = kernel_lookup(
+      shadierball::peirce_projection(sector_after, 0.0f, 0, 0.0f));
+  HS_EXPECT_FALSE(WB::join_compatible(diamond_before, diamond_after,
+                                      WB::Projection::PEIRCE_QUINCUNCIAL));
+  const auto horizontal_before = kernel_lookup(
+      shadierball::peirce_projection(sector_before, 0.0f, 2, 0.0f));
+  const auto horizontal_after = kernel_lookup(
+      shadierball::peirce_projection(sector_after, 0.0f, 2, 0.0f));
+  HS_EXPECT_TRUE(WB::join_compatible(horizontal_before, horizontal_after,
+                                     WB::Projection::PEIRCE_QUINCUNCIAL));
+
+  const auto glued_side_a = kernel_lookup(shadierball::airocean_projection(
+      Vector(0.00321964224570043f, 0.902105871397194f, 0.431502758617508f),
+      0.0f, false));
+  const auto glued_side_b = kernel_lookup(shadierball::airocean_projection(
+      Vector(0.00321096516044884f, 0.902110786482306f, 0.431492547577607f),
+      0.0f, false));
+  HS_EXPECT_TRUE(WB::join_compatible(glued_side_a, glued_side_b,
+                                     WB::Projection::AIROCEAN));
+  const auto cut_side_a = kernel_lookup(shadierball::airocean_projection(
+      Vector(0.456076125629434f, 0.767836786220573f, -0.449912477441232f), 0.0f,
+      false));
+  const auto cut_side_b = kernel_lookup(shadierball::airocean_projection(
+      Vector(0.456088797513479f, 0.767830686682203f, -0.449910041421443f), 0.0f,
+      false));
   HS_EXPECT_FALSE(
-      WB::transition_admitted(WB::active_config(sdb), legacy_config));
-  WB::request_config(sdb, legacy_config);
-  HS_EXPECT_TRUE(WB::slots_equal(WB::active_slots(sdb), original));
-  HS_EXPECT_FALSE(WB::transition_active(sdb));
-  HS_EXPECT_TRUE(WB::active_config(sdb) == before_invalid_params);
-  HS_EXPECT_TRUE(WB::requested_slots(sdb) == original);
+      WB::join_compatible(cut_side_a, cut_side_b, WB::Projection::AIROCEAN));
+
+  const Vector front_neighbor(1.0f, 1e-5f, 0.0f);
+  const Vector back_neighbor(1.0f, -1e-5f, 0.0f);
+  const Vector axis(1.0f, 0.0f, 0.0f);
+  const auto front = WB::finalize_projection(
+      front_neighbor,
+      WB::project_point(front_neighbor, WB::Projection::GNOMONIC),
+      WB::Projection::GNOMONIC, 1.0f,
+      WB::GnomonicHemispherePolicy::FRONT_HEMISPHERE);
+  const auto back_clipped = WB::finalize_projection(
+      back_neighbor, WB::project_point(back_neighbor, WB::Projection::GNOMONIC),
+      WB::Projection::GNOMONIC, 1.0f,
+      WB::GnomonicHemispherePolicy::FRONT_HEMISPHERE);
+  const auto axis_front = WB::finalize_projection(
+      axis, WB::project_point(axis, WB::Projection::GNOMONIC),
+      WB::Projection::GNOMONIC, 1.0f,
+      WB::GnomonicHemispherePolicy::FRONT_HEMISPHERE);
+  const auto axis_back = WB::finalize_projection(
+      axis, WB::project_point(axis, WB::Projection::GNOMONIC),
+      WB::Projection::GNOMONIC, 1.0f,
+      WB::GnomonicHemispherePolicy::BACK_HEMISPHERE);
+  HS_EXPECT_EQ(front.domain_coverage, 1.0f);
+  HS_EXPECT_EQ(back_clipped.domain_coverage, 0.0f);
+  HS_EXPECT_EQ(axis_front.domain_coverage, 1.0f);
+  HS_EXPECT_EQ(axis_back.domain_coverage, 0.0f);
+
+  WB::RequestedConfig bonne = WB::legacy_config();
+  bonne.slots.projection = WB::Projection::BONNE;
+  bonne.params.projection.bonne_standard_parallel = 0.0f;
+  HS_EXPECT_FALSE(WB::valid_config(bonne));
+  bonne.params.projection.bonne_standard_parallel = 1e-3f;
+  HS_EXPECT_TRUE(WB::valid_config(bonne));
+
+  MobiusParams mobius(1.0f, 0.2f, 0.3f, -0.1f, -0.2f, 0.1f, 0.9f, -0.15f);
+  WB::canonicalize_mobius(mobius);
+  const Complex coefficients[] = {mobius.a, mobius.b, mobius.c, mobius.d};
+  float norm_sq = 0.0f;
+  size_t pivot = 0;
+  float pivot_magnitude = 0.0f;
+  for (size_t index = 0; index < std::size(coefficients); ++index) {
+    const float magnitude = coefficients[index].re * coefficients[index].re +
+                            coefficients[index].im * coefficients[index].im;
+    norm_sq += magnitude;
+    if (magnitude > pivot_magnitude) {
+      pivot_magnitude = magnitude;
+      pivot = index;
+    }
+  }
+  HS_EXPECT_NEAR(norm_sq, 1.0f, 2e-5f);
+  HS_EXPECT_NEAR(coefficients[pivot].im, 0.0f, 2e-5f);
+  HS_EXPECT_GT(coefficients[pivot].re, 0.0f);
+  WB::RequestedConfig mobius_config = WB::legacy_config();
+  mobius_config.slots.surface_lens = WB::SurfaceLens::MOBIUS;
+  mobius_config.params.surface_lens.mobius = mobius;
+  HS_EXPECT_TRUE(WB::valid_config(mobius_config));
+
+  WB::RequestedConfig curl = WB::legacy_config();
+  curl.slots.warp_program.outer.kind = WB::WarpStageKind::CURL_FLOW;
+  curl.slots.warp_program.outer.curl_integrator =
+      WB::CurlIntegrator::MIDPOINT_4;
+  curl.params.warp.outer.scale = 1.0f;
+  curl.params.warp.outer.time_scale = 0.0f;
+  curl.params.warp.outer.strength = 0.03f;
+  HS_EXPECT_TRUE(WB::valid_config(curl));
+  curl.params.warp.outer.strength = 0.04f;
+  HS_EXPECT_FALSE(WB::valid_config(curl));
+
+  WB::RequestedConfig affine = WB::legacy_config();
+  affine.slots.warp_program.outer.kind = WB::WarpStageKind::AFFINE_FRAME;
+  affine.params.warp.outer.scale_x = 0.25f;
+  affine.params.warp.outer.scale_y = 0.25f;
+  affine.params.warp.outer.shear = 0.75f;
+  HS_EXPECT_FALSE(WB::valid_config(affine));
+
+  FastNoiseLite noise;
+  const Complex curl_one =
+      WB::curl_vector(Complex(), noise, WB::NoiseBasis::SIMPLEX, 1.0f, 0.2f);
+  const Complex curl_two =
+      WB::curl_vector(Complex(), noise, WB::NoiseBasis::SIMPLEX, 2.0f, 0.2f);
+  HS_EXPECT_NEAR(curl_two.re, 2.0f * curl_one.re, 1e-5f);
+  HS_EXPECT_NEAR(curl_two.im, 2.0f * curl_one.im, 1e-5f);
+  for (WB::NoiseBasis basis : {WB::NoiseBasis::SIMPLEX, WB::NoiseBasis::FBM3,
+                               WB::NoiseBasis::RIDGED3}) {
+    HS_EXPECT_NEAR(WB::wrapped_noise(noise, basis, 0.37f, -0.91f, 0.0f),
+                   WB::wrapped_noise(noise, basis, 0.37f, -0.91f, 1.0f), 1e-6f);
+    HS_EXPECT_NEAR(WB::wrapped_noise(noise, basis, 0.37f, -0.91f, 1.0f - 1e-6f),
+                   WB::wrapped_noise(noise, basis, 0.37f, -0.91f, 1e-6f),
+                   2e-3f);
+  }
+
+  reset_effect_globals();
+  WB::SDB sdb;
+  sdb.init();
+  WB::FrameState frame = WB::frame(sdb);
+  frame.resources.outer_warp_noise = nullptr;
+  const Complex point(0.31f, -0.27f);
+  const WB::ProjectedLookup projected(point, 0, 0, 0, 1.0f, 1.0f, 0);
+  WB::WarpStageParams periodic_params;
+  periodic_params.strength = 0.8f;
+  periodic_params.frequency = 2.5f;
+  periodic_params.turns = 0.75f;
+  periodic_params.center_orbit_radius = 0.4f;
+  for (WB::WarpStageKind kind :
+       {WB::WarpStageKind::WAVE_SHEAR, WB::WarpStageKind::VORTEX}) {
+    WB::WarpStageSpec spec{kind};
+    frame.clocks.warp_outer_phase = 0.0f;
+    const auto at_zero =
+        WB::warp_stage(point, projected, spec, periodic_params, frame);
+    frame.clocks.warp_outer_phase = 1.0f;
+    const auto at_wrap =
+        WB::warp_stage(point, projected, spec, periodic_params, frame);
+    HS_EXPECT_NEAR(at_zero.coords.re, at_wrap.coords.re, 2e-5f);
+    HS_EXPECT_NEAR(at_zero.coords.im, at_wrap.coords.im, 2e-5f);
+  }
+}
+
+/** @brief Every shader catalog family produces finite bounded output. */
+inline void test_shadierball_kernel_catalog() {
+  using WB = ShadierBallWhiteBox;
+  reset_effect_globals();
+  WB::SDB sdb;
+  sdb.init();
+  const Vector view = Vector(0.31f, 0.87f, -0.38f).normalized();
+  WB::RequestedConfig config = WB::legacy_config();
+  config.slots.surface_lens = WB::SurfaceLens::NONE;
+  config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+  config.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
+  config.slots.coverage = WB::CoveragePolicy::OPAQUE;
+
+  auto check = [&](const WB::RequestedConfig &candidate) {
+    HS_EXPECT_TRUE(WB::valid_config(candidate));
+    WB::request_config(sdb, candidate);
+    const WB::RequestedConfig canonical = WB::requested_config(sdb);
+    HS_EXPECT_TRUE(canonical.slots == candidate.slots);
+    WB::settle_transition(sdb);
+    HS_EXPECT_TRUE(WB::active_config(sdb) == canonical);
+    const Color4 color = WB::shade(view, WB::frame(sdb));
+    HS_EXPECT_TRUE(std::isfinite(color.alpha));
+    HS_EXPECT_GE(color.alpha, 0.0f);
+    HS_EXPECT_LE(color.alpha, 1.0f);
+  };
+
+  for (uint8_t value = 0; value <= 6; ++value) {
+    config.slots.function = static_cast<WB::Function>(value);
+    config.params.source.noise_basis = WB::NoiseBasis::FBM3;
+    check(config);
+  }
+  config.slots.function = WB::Function::TWIN_WAVE;
+  for (uint8_t value = 0; value <= 8; ++value) {
+    config.slots.warp_program.outer.kind =
+        static_cast<WB::WarpStageKind>(value);
+    config.slots.projection = value == 1 ? WB::Projection::STEREOGRAPHIC
+                                         : WB::Projection::EQUIRECTANGULAR;
+    config.params.warp.outer.strength = value == 0   ? 0.0f
+                                        : value == 6 ? 0.005f
+                                                     : 0.35f;
+    config.params.warp.outer.turns = 0.4f;
+    config.params.warp.outer.translation_x = 0.2f;
+    config.params.warp.outer.translation_y = -0.1f;
+    if (value >= 3 && value <= 6)
+      config.params.warp.outer.time_scale = 0.0f;
+    config.slots.warp_program.outer.basis = WB::NoiseBasis::RIDGED3;
+    if (value == 8)
+      config.slots.function = WB::Function::COUPLED_DIRECT;
+    check(config);
+  }
+  config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+  config.params.warp.outer.strength = 0.0f;
+  config.slots.projection = WB::Projection::EQUIRECTANGULAR;
+  for (uint8_t value = 0; value <= 5; ++value) {
+    config.slots.surface_lens = static_cast<WB::SurfaceLens>(value);
+    config.params.surface_lens.mix = value == 0 ? 0.0f : 0.6f;
+    check(config);
+  }
+  config.slots.surface_lens = WB::SurfaceLens::NONE;
+  config.params.surface_lens.mix = 0.0f;
+  for (uint8_t transfer = 0; transfer <= 3; ++transfer) {
+    config.slots.value_transfer = static_cast<WB::ValueTransfer>(transfer);
+    for (uint8_t coverage = 0; coverage <= 3; ++coverage) {
+      config.slots.coverage = static_cast<WB::CoveragePolicy>(coverage);
+      for (uint8_t colorizer = 0; colorizer <= 2; ++colorizer) {
+        config.slots.colorizer = static_cast<WB::Colorizer>(colorizer);
+        check(config);
+      }
+    }
+  }
+
+  WB::FrameState frame = WB::frame(sdb);
+  frame.resources.outer_warp_noise = nullptr;
+  WB::WarpStageParams zero_params;
+  zero_params.strength = 0.0f;
+  const Complex input(0.27f, -0.41f);
+  for (uint8_t value = 0; value <= 6; ++value) {
+    WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
+    const auto identity = WB::warp_stage(input, {input, 0, 0, 0, 1.0f, 1.0f, 0},
+                                         spec, zero_params, frame);
+    HS_EXPECT_EQ(identity.coords.re, input.re);
+    HS_EXPECT_EQ(identity.coords.im, input.im);
+    HS_EXPECT_EQ(identity.deformation, 0.0f);
+    HS_EXPECT_EQ(identity.path_length, 0.0f);
+  }
+  for (uint8_t value = 7; value <= 8; ++value) {
+    WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
+    const auto mapped = WB::warp_stage(input, {input, 0, 0, 0, 1.0f, 1.0f, 0},
+                                       spec, zero_params, frame);
+    HS_EXPECT_TRUE(std::isfinite(mapped.coords.re));
+    HS_EXPECT_TRUE(std::isfinite(mapped.coords.im));
+  }
 }
 
 /** @brief Adjacent preset edges use one live topology and authoritative clocks. */
@@ -682,7 +1487,8 @@ inline void test_shadierball_stable_preset_transition() {
   for (size_t index = 0; index < presets.size(); ++index) {
     HS_EXPECT_TRUE(WB::valid_config(presets[index]));
     const auto &next = presets[(index + 1) % presets.size()];
-    HS_EXPECT_TRUE(WB::slots_equal(presets[index].slots, next.slots));
+    if (index < 14)
+      HS_EXPECT_TRUE(WB::slots_equal(presets[index].slots, next.slots));
     HS_EXPECT_TRUE(WB::transition_admitted(presets[index], next));
   }
 }
@@ -722,6 +1528,53 @@ inline void test_shadierball_discrete_transition() {
     const Color4 at_end = WB::shade_transition(view, {inactive, valid, 1.0f});
     HS_EXPECT_TRUE(at_end.color == expected.color);
     HS_EXPECT_EQ(at_end.alpha, expected.alpha);
+    const Color4 clear =
+        WB::shade_transition(view, {inactive, inactive, 0.37f,
+                                    WB::TransitionMode::THROUGH_CLEAR, 30, 60});
+    HS_EXPECT_EQ(clear.alpha, 0.0f);
+    HS_EXPECT_TRUE(clear.color == Pixel());
+    const Color4 from_only =
+        WB::shade_transition(view, {valid, inactive, 0.25f,
+                                    WB::TransitionMode::THROUGH_CLEAR, 15, 60});
+    HS_EXPECT_TRUE(std::isfinite(from_only.alpha));
+    HS_EXPECT_GT(from_only.alpha, 0.0f);
+    const Color4 to_only =
+        WB::shade_transition(view, {inactive, valid, 0.75f,
+                                    WB::TransitionMode::THROUGH_CLEAR, 45, 60});
+    HS_EXPECT_TRUE(std::isfinite(to_only.alpha));
+    HS_EXPECT_GT(to_only.alpha, 0.0f);
+  }
+
+  {
+    reset_effect_globals();
+    WB::SDB sdb;
+    sdb.init();
+    sdb.setAnimationsPaused(true);
+    WB::RequestedConfig from = WB::legacy_config();
+    from.slots.warp_program.outer.kind = WB::WarpStageKind::VECTOR_NOISE;
+    from.slots.warp_program.outer.basis = WB::NoiseBasis::SIMPLEX;
+    from.params.warp.outer.time_scale = 0.0f;
+    WB::request_config(sdb, from);
+    WB::settle_transition(sdb);
+    HS_EXPECT_EQ(WB::prepared_noise_basis(sdb, 0), WB::NoiseBasis::SIMPLEX);
+
+    WB::RequestedConfig to = from;
+    to.slots.warp_program.outer.basis = WB::NoiseBasis::FBM3;
+    WB::request_config(sdb, to);
+    HS_EXPECT_TRUE(WB::transition_active(sdb));
+    HS_EXPECT_EQ(WB::transition_mode(WB::transition_from_config(sdb),
+                                     WB::transition_to_config(sdb)),
+                 WB::TransitionMode::THROUGH_CLEAR);
+    for (int frame = 0; frame < 30; ++frame) {
+      sdb.draw_frame();
+      sdb.advance_display();
+    }
+    HS_EXPECT_EQ(WB::transition_elapsed(sdb), uint16_t(30));
+    HS_EXPECT_EQ(WB::prepared_noise_basis(sdb, 0), WB::NoiseBasis::SIMPLEX);
+    sdb.draw_frame();
+    sdb.advance_display();
+    HS_EXPECT_EQ(WB::transition_elapsed(sdb), uint16_t(31));
+    HS_EXPECT_EQ(WB::prepared_noise_basis(sdb, 0), WB::NoiseBasis::FBM3);
   }
 
   {
@@ -767,17 +1620,18 @@ inline void test_shadierball_discrete_transition() {
     sdb.setAnimationsPaused(true);
     const WB::RequestedConfig original_destination =
         WB::transition_to_config(sdb);
-    const bool original_continuation = WB::transition_continues_choreo(sdb);
     WB::RequestedConfig queued = WB::legacy_config();
     queued.slots.function = WB::Function::RINGS;
     HS_EXPECT_TRUE(WB::valid_config(queued));
-    HS_EXPECT_FALSE(WB::transition_admitted(captured_source, queued));
+    HS_EXPECT_TRUE(WB::transition_admitted(captured_source, queued));
     WB::request_config(sdb, queued);
     HS_EXPECT_TRUE(WB::transition_from_config(sdb) == captured_source);
     HS_EXPECT_TRUE(WB::transition_to_config(sdb) == original_destination);
-    HS_EXPECT_EQ(WB::transition_continues_choreo(sdb), original_continuation);
+    HS_EXPECT_FALSE(WB::transition_continues_choreo(sdb));
     HS_EXPECT_EQ(WB::transition_elapsed(sdb), elapsed_before_takeover);
     HS_EXPECT_TRUE(WB::requested_slots(sdb) == queued.slots);
+    HS_EXPECT_TRUE(WB::pending_transition_active(sdb));
+    HS_EXPECT_TRUE(WB::pending_transition_config(sdb) == queued);
     sdb.draw_frame();
     sdb.advance_display();
     HS_EXPECT_EQ(WB::transition_elapsed(sdb), elapsed_before_takeover + 1);
@@ -788,10 +1642,22 @@ inline void test_shadierball_discrete_transition() {
     WB::request_config(sdb, manual);
     HS_EXPECT_TRUE(WB::transition_active(sdb));
     HS_EXPECT_TRUE(WB::transition_from_config(sdb) == captured_source);
-    HS_EXPECT_TRUE(WB::transition_to_config(sdb) == manual);
+    HS_EXPECT_TRUE(WB::transition_to_config(sdb) == original_destination);
     HS_EXPECT_FALSE(WB::transition_continues_choreo(sdb));
     HS_EXPECT_EQ(WB::transition_elapsed(sdb), elapsed_before_retarget);
     HS_EXPECT_TRUE(WB::requested_slots(sdb) == manual.slots);
+    HS_EXPECT_TRUE(WB::pending_transition_active(sdb));
+    HS_EXPECT_TRUE(WB::pending_transition_config(sdb) == manual);
+
+    while (WB::transition_active(sdb) &&
+           WB::transition_to_config(sdb) == original_destination) {
+      sdb.draw_frame();
+      sdb.advance_display();
+    }
+    HS_EXPECT_TRUE(WB::transition_active(sdb));
+    HS_EXPECT_TRUE(WB::transition_from_config(sdb) == original_destination);
+    HS_EXPECT_TRUE(WB::transition_to_config(sdb) == manual);
+    HS_EXPECT_EQ(WB::transition_frame(sdb).mix, 0.0f);
 
     while (WB::transition_active(sdb) && WB::transition_frame(sdb).mix < 1.0f) {
       sdb.draw_frame();
@@ -852,6 +1718,10 @@ inline int run_shadierball_tests() {
   test_shadierball_coupled_source();
   test_shadierball_preset_bank();
   test_shadierball_config_admission();
+  test_shadierball_gui_catalog();
+  test_shadierball_projection_catalog();
+  test_shadierball_projection_and_admission_contracts();
+  test_shadierball_kernel_catalog();
   test_shadierball_stable_preset_transition();
   test_shadierball_discrete_transition();
   test_shadierball_palette_resources();

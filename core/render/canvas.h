@@ -346,7 +346,8 @@ public:
     float max = 1; /**< Maximum value (for floats). */
     int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
     TargetType target_type = TargetType::FLOAT; /**< Target storage format. */
-    bool animated = false; /**< True if an animation drives this member; the GUI
+    bool animated =
+        false; /**< True if an animation drives this member; the GUI
                                surfaces these as auto-pausing sliders. */
     bool readonly = false; /**< True if this is engine-written telemetry; the
                                GUI shows it live but disables editing. */
@@ -439,7 +440,7 @@ public:
   /**
    * @brief Fixed-capacity registry of an effect's runtime parameters.
    * @details Stack-allocated array (no heap) to uphold the WASM no-realloc
-   * memory-view invariant; capacity 32 enforced at registration time.
+   * memory-view invariant; capacity is enforced at registration time.
    */
   struct ParamList {
     // Effect is the sole trusted mutator; the writable accessors below are
@@ -447,19 +448,41 @@ public:
     // writes through updateParameter.
     friend class Effect;
 
-    std::array<ParamDef, 32> elements; /**< Fixed-capacity backing storage. */
-    size_t count = 0;                  /**< Number of registered parameters. */
+    std::array<ParamDef, 32> elements; /**< Default fixed-capacity storage. */
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
+    defined(HS_EXTERNAL_PARAM_STORAGE)
+    ParamDef *external_elements = nullptr;
+    size_t external_capacity = 0;
+#endif
+    size_t count = 0; /**< Number of registered parameters. */
+
+    const ParamDef *data() const {
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
+    defined(HS_EXTERNAL_PARAM_STORAGE)
+      return external_elements != nullptr ? external_elements : elements.data();
+#else
+      return elements.data();
+#endif
+    }
+    size_t capacity() const {
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
+    defined(HS_EXTERNAL_PARAM_STORAGE)
+      return external_elements != nullptr ? external_capacity : elements.size();
+#else
+      return elements.size();
+#endif
+    }
 
     /**
      * @brief Const iterator to the first registered parameter.
      * @return Pointer to the first element.
      */
-    const ParamDef *begin() const { return elements.data(); }
+    const ParamDef *begin() const { return data(); }
     /**
      * @brief Const one-past-the-end iterator over registered parameters.
      * @return Pointer just past the last registered element.
      */
-    const ParamDef *end() const { return elements.data() + count; }
+    const ParamDef *end() const { return data() + count; }
     /**
      * @brief Looks up a registered parameter by name (the public, read-only
      * lookup).
@@ -468,8 +491,8 @@ public:
      */
     const ParamDef *find(const char *name) const {
       for (size_t i = 0; i < count; ++i) {
-        if (std::strcmp(elements[i].name, name) == 0)
-          return &elements[i];
+        if (std::strcmp(data()[i].name, name) == 0)
+          return &data()[i];
       }
       return nullptr;
     }
@@ -478,16 +501,40 @@ public:
      * @return The count of registered parameters.
      */
     size_t size() const { return count; }
+    /** @brief Monotonic token changed whenever the descriptor schema mutates. */
+    uint32_t schema_generation() const {
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+      return schema_generation_;
+#else
+      return 0;
+#endif
+    }
 
   private:
     // Writable accessors, reachable only by the friended Effect (see the note at
     // the top of the struct). Kept private so value writes route through
     // updateParameter.
-    ParamDef *begin() { return elements.data(); }
-    ParamDef *end() { return elements.data() + count; }
+    ParamDef *data() {
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
+    defined(HS_EXTERNAL_PARAM_STORAGE)
+      return external_elements != nullptr ? external_elements : elements.data();
+#else
+      return elements.data();
+#endif
+    }
+    ParamDef *begin() { return data(); }
+    ParamDef *end() { return data() + count; }
     ParamDef *find(const char *name) {
       return const_cast<ParamDef *>(std::as_const(*this).find(name));
     }
+    void bump_schema_generation() {
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+      ++schema_generation_;
+#endif
+    }
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+    uint32_t schema_generation_ = 0;
+#endif
   };
 
   // Parameter System
@@ -519,7 +566,15 @@ public:
       value = hs::clamp(value, def->min, def->max);
     if (def->animated)
       setAnimationsPaused(true);
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+    const char *updated_name = def->name;
+    const bool updated_enum = def->is_enum();
     def->set(value);
+    if (parameter_updated_hook != nullptr)
+      parameter_updated_hook(this, updated_name, updated_enum);
+#else
+    def->set(value);
+#endif
     return ParamSetResult::APPLIED;
   }
 
@@ -528,6 +583,11 @@ public:
    * @return Const reference to the parameter list.
    */
   const ParamList &getParameters() const { return parameters; }
+
+  /** @brief Token identifying the current ordered parameter descriptor schema. */
+  uint32_t getParameterSchemaGeneration() const {
+    return parameters.schema_generation();
+  }
 
   /**
    * @brief Pause/resume the effect's parameter-driving animations.
@@ -544,6 +604,41 @@ public:
   bool animations_paused() const { return anims_paused; }
 
 protected:
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+  using ParameterUpdatedHook = void (*)(Effect *, const char *, bool);
+
+  /** @brief Installs an opt-in reaction to accepted GUI parameter writes. */
+  void set_parameter_updated_hook(ParameterUpdatedHook hook) {
+    parameter_updated_hook = hook;
+  }
+#endif
+
+  void use_parameter_storage(ParamDef *storage, size_t capacity) {
+    HS_CHECK(parameters.count == 0,
+             "use_parameter_storage: parameters already registered");
+    HS_CHECK(storage != nullptr && capacity > 0,
+             "use_parameter_storage: invalid external storage");
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
+    defined(HS_EXTERNAL_PARAM_STORAGE)
+    parameters.external_elements = storage;
+    parameters.external_capacity = capacity;
+#else
+    (void)storage;
+    (void)capacity;
+    HS_CHECK(false, "use_parameter_storage: external storage is disabled");
+#endif
+  }
+
+  template <size_t CAPACITY>
+  void use_parameter_storage(std::array<ParamDef, CAPACITY> &storage) {
+    use_parameter_storage(storage.data(), storage.size());
+  }
+
+  void reset_parameters() {
+    parameters.count = 0;
+    parameters.bump_schema_generation();
+  }
+
   /**
    * @brief Flag indicating if the previous frame's pixels should be copied to
    * the new buffer (for trails/decay).
@@ -561,6 +656,9 @@ protected:
    */
   bool strobe;
   ParamList parameters; /**< List of parameters. */
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+  ParameterUpdatedHook parameter_updated_hook = nullptr;
+#endif
   /**
    * @brief Pause gate for parameter-driving animations.
    * @details Pass `&anims_paused` to Timeline::add_pausable, which freezes the
@@ -579,6 +677,7 @@ protected:
     auto *def = parameters.find(name);
     HS_CHECK(def, "mark_readonly: unknown parameter name");
     def->readonly = true;
+    parameters.bump_schema_generation();
   }
 
   /** @brief Excludes a global parameter from preset exports. */
@@ -586,6 +685,7 @@ protected:
     auto *def = parameters.find(name);
     HS_CHECK(def, "mark_global: unknown parameter name");
     def->preset = false;
+    parameters.bump_schema_generation();
   }
 
   /**
@@ -599,7 +699,7 @@ protected:
                                      float min = 0.0f, float max = 1.0f) {
     // Overflowing the fixed ParamList is an authoring bug (also upholds the WASM
     // no-realloc memory-view invariant).
-    HS_CHECK(parameters.count < parameters.elements.size(),
+    HS_CHECK(parameters.count < parameters.capacity(),
              "register_param: exceeded ParamList capacity");
     // A duplicate name shadows: find() returns the FIRST match, so a second
     // registration's slot is unreachable by name.
@@ -611,12 +711,13 @@ protected:
     // updateParameter clamps).
     HS_CHECK(*ptr >= min && *ptr <= max,
              "register_param: default *ptr outside [min,max]");
-    auto &def = parameters.elements[parameters.count++];
+    auto &def = parameters.data()[parameters.count++];
     def = {};
     def.name = name;
     def.target = ptr;
     def.min = min;
     def.max = max;
+    parameters.bump_schema_generation();
   }
 
   /**
@@ -635,8 +736,8 @@ protected:
     HS_CHECK(options != nullptr && option_count > 0,
              "register_param: enum needs at least one option");
     register_param(name, ptr, 0.0f, static_cast<float>(option_count - 1));
-    parameters.elements[parameters.count - 1].options = options;
-    parameters.elements[parameters.count - 1].option_count = option_count;
+    parameters.data()[parameters.count - 1].options = options;
+    parameters.data()[parameters.count - 1].option_count = option_count;
   }
 
   /**
@@ -654,7 +755,7 @@ protected:
                       const char *const *export_options, int option_count) {
     HS_CHECK(options != nullptr && option_count > 0,
              "register_param: enum needs at least one option");
-    HS_CHECK(parameters.count < parameters.elements.size(),
+    HS_CHECK(parameters.count < parameters.capacity(),
              "register_param: exceeded ParamList capacity");
     HS_CHECK(parameters.find(name) == nullptr,
              "register_param: duplicate parameter name");
@@ -675,7 +776,7 @@ protected:
       return std::is_signed_v<Underlying> ? ParamDef::TargetType::ENUM_I32
                                           : ParamDef::TargetType::ENUM_U32;
     }();
-    auto &def = parameters.elements[parameters.count++];
+    auto &def = parameters.data()[parameters.count++];
     def = {};
     def.name = name;
     def.target = ptr;
@@ -685,6 +786,7 @@ protected:
     def.option_count = option_count;
     def.export_options = export_options;
     def.target_type = TARGET_TYPE;
+    parameters.bump_schema_generation();
   }
 
   /**
@@ -694,17 +796,18 @@ protected:
    *   target, symmetric with the float overload.
    */
   HS_COLD_MEMBER void register_param(const char *name, bool *ptr) {
-    HS_CHECK(parameters.count < parameters.elements.size(),
+    HS_CHECK(parameters.count < parameters.capacity(),
              "register_param: exceeded ParamList capacity");
     // Duplicate name guard, see the float overload.
     HS_CHECK(parameters.find(name) == nullptr,
              "register_param: duplicate parameter name");
-    auto &def = parameters.elements[parameters.count++];
+    auto &def = parameters.data()[parameters.count++];
     def = {};
     def.name = name;
     def.target = ptr;
     def.max = 1.0f;
     def.target_type = ParamDef::TargetType::BOOL;
+    parameters.bump_schema_generation();
   }
 
   /**
@@ -716,7 +819,7 @@ protected:
                                               float min = 0.0f,
                                               float max = 1.0f) {
     register_param(name, ptr, min, max);
-    parameters.elements[parameters.count - 1].animated = true;
+    parameters.data()[parameters.count - 1].animated = true;
   }
 
   /**
@@ -726,7 +829,7 @@ protected:
    */
   HS_COLD_MEMBER void register_animated_param(const char *name, bool *ptr) {
     register_param(name, ptr);
-    parameters.elements[parameters.count - 1].animated = true;
+    parameters.data()[parameters.count - 1].animated = true;
   }
 
   /** @brief Registers a typed enum param and flags it animation-driven. */
@@ -737,7 +840,7 @@ protected:
                                               const char *const *export_options,
                                               int option_count) {
     register_param(name, ptr, options, export_options, option_count);
-    parameters.elements[parameters.count - 1].animated = true;
+    parameters.data()[parameters.count - 1].animated = true;
   }
 
   /**
@@ -747,7 +850,7 @@ protected:
   void register_readonly_param(const char *name, float *ptr, float min = 0.0f,
                                float max = 1.0f) {
     register_param(name, ptr, min, max);
-    parameters.elements[parameters.count - 1].readonly = true;
+    parameters.data()[parameters.count - 1].readonly = true;
   }
 
 private:

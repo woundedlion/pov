@@ -95,6 +95,7 @@ struct TestEffect : public Effect {
                       const char *const *export_options, int count) {
     register_param(n, p, options, export_options, count);
   }
+  void clear_params() { reset_parameters(); }
 };
 
 // ============================================================================
@@ -876,6 +877,19 @@ inline void test_paramlist_fills_to_capacity() {
   HS_EXPECT_EQ(fx.getParameters().size(), (size_t)32);
 }
 
+/** @brief Parameter descriptor mutations advance the public schema token. */
+inline void test_paramlist_schema_generation() {
+  TestEffect fx(4, 4);
+  float value = 0.5f;
+  const uint32_t empty_generation = fx.getParameterSchemaGeneration();
+  fx.add_float("Value", &value, 0.0f, 1.0f);
+  const uint32_t registered_generation = fx.getParameterSchemaGeneration();
+  HS_EXPECT_EQ(registered_generation, empty_generation + 1);
+  fx.clear_params();
+  HS_EXPECT_EQ(fx.getParameters().size(), size_t(0));
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), registered_generation + 1);
+}
+
 // ============================================================================
 // Clip setters
 // ============================================================================
@@ -1020,6 +1034,7 @@ inline int run_canvas_tests() {
   test_typed_enum_and_global_param_metadata();
   test_typed_enum_storage_widths();
   test_paramlist_fills_to_capacity();
+  test_paramlist_schema_generation();
   test_clip_setters();
   test_effect_config_margin();
   test_pipeline_ref_routes_screen_coordinate_overloads();
