@@ -2348,6 +2348,78 @@ inline void test_shaderball_discrete_transition() {
   }
 }
 
+/**
+ * @brief A pause taken inside a through-clear transition holds a drawn frame.
+ * @details The through-clear midpoint writes no pixels and a paused
+ * choreography transition stops advancing, so the hold has to land on the
+ * nearer endpoint or the sphere stays black for as long as the pause lasts.
+ */
+inline void test_shaderball_paused_through_clear_holds_endpoint() {
+  using WB = ShaderBallWhiteBox;
+  auto lit_pixels = [](const WB::SB &sb) {
+    size_t count = 0;
+    for (int y = 0; y < SMALL_H; ++y)
+      for (int x = 0; x < SMALL_W; ++x) {
+        const Pixel &pixel = sb.get_pixel(x, y);
+        if ((pixel.r | pixel.g | pixel.b) != 0)
+          ++count;
+      }
+    return count;
+  };
+  auto run_frames = [](WB::SB &sb, int frames) {
+    for (int frame = 0; frame < frames; ++frame) {
+      sb.draw_frame();
+      sb.advance_display();
+    }
+  };
+
+  {
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    WB::force_transition(sb, WB::legacy_config(), 60, true);
+    HS_EXPECT_EQ(WB::transition_mode(WB::transition_from_config(sb),
+                                     WB::transition_to_config(sb)),
+                 WB::TransitionMode::THROUGH_CLEAR);
+    run_frames(sb, 30);
+    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(30));
+
+    sb.setAnimationsPaused(true);
+    run_frames(sb, 1);
+    HS_EXPECT_EQ(lit_pixels(sb), size_t(0)); // the cleared midpoint itself
+    run_frames(sb, 4);
+    HS_EXPECT_TRUE(WB::transition_active(sb));
+    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(0));
+    HS_EXPECT_GT(lit_pixels(sb), size_t(0));
+
+    sb.setAnimationsPaused(false);
+    run_frames(sb, 1);
+    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(1));
+  }
+
+  {
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    const size_t entry_preset = WB::preset_index(sb);
+    WB::force_transition(sb, WB::legacy_config(), 60, true);
+    run_frames(sb, 40);
+    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(40));
+
+    sb.setAnimationsPaused(true);
+    run_frames(sb, 3);
+    HS_EXPECT_TRUE(WB::transition_active(sb));
+    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(60));
+    HS_EXPECT_GT(lit_pixels(sb), size_t(0));
+
+    sb.setAnimationsPaused(false);
+    run_frames(sb, 1);
+    HS_EXPECT_FALSE(WB::transition_active(sb));
+    HS_EXPECT_TRUE(WB::active_config(sb) == WB::legacy_config());
+    HS_EXPECT_EQ(WB::preset_index(sb), entry_preset);
+  }
+}
+
 /** @brief Generated and liquid color resources remain independent owners. */
 inline void test_shaderball_palette_resources() {
   using WB = ShaderBallWhiteBox;
@@ -2396,6 +2468,7 @@ inline int run_shaderball_tests() {
   test_shaderball_kernel_catalog();
   test_shaderball_stable_preset_transition();
   test_shaderball_discrete_transition();
+  test_shaderball_paused_through_clear_holds_endpoint();
   test_shaderball_palette_resources();
   return fixture.result();
 }
