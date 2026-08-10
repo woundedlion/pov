@@ -1004,7 +1004,7 @@ The `Timeline` class manages a list of running `IAnimation` objects. Each frame,
 | `segue.h` | How one mesh hands the sphere to the next | the `Segue` policies |
 | `carousel.h` | Two persistent mesh slots + arena compaction | `MeshCarousel` |
 
-The fragments compile only inside `animation.h` (a direct include fails with an `#error`); consumers include `animation.h` alone.
+The fragments compile only inside `animation.h` (a direct include fails with an `#error`); consumers include `animation.h` alone. Their types span three scopes rather than one: the animations themselves are in `namespace Animation`; the transition policies are in `namespace Segue`; and `TimelineEvent`/`Timeline`, `MeshCarousel`, `Path`/`ProceduralPath`, and the `tween`/`deep_tween` traversals sit at global scope.
 
 #### Animation Types
 
