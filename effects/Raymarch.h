@@ -168,7 +168,7 @@ private:
       torus.precision = 2.0f * aa_width;
 
       Vector center = camera.orient(points[i]);
-      Vector ray_dir(-center.x, -center.y, -center.z);
+      Vector ray_dir = -center;
 
       Quaternion world_q = camera.get() * raw_quats[i] * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
