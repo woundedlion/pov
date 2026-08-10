@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <type_traits>
 #include "math/3dmath.h"
 #include "render/shading.h"
@@ -272,8 +273,10 @@ struct Twist {
    * @brief Analytical Lipschitz constant of the warp at a point.
    * @param s Precomputed context (radial distance in the XZ plane).
    * @return Operator norm of the warp Jacobian (>= 1), with the radial factor
-   * clamped at 1/max(s, R/2) — inside the ring hole this under-reports the
-   * true norm.
+   * clamped at 1/max(s, R/2).
+   * @note Precondition: the composed torus keeps r <= R/2, so its surface never
+   * reaches s < R/2, where the clamp under-reports the true norm and a sphere
+   * trace would step through.
    */
   float lipschitz(const Vector & /*p*/, Ctx s) const {
     return lipschitz(1.0f / std::max(s, R * 0.5f));
@@ -373,6 +376,32 @@ HS_O3_END
 } // namespace Warp
 
 /**
+ * @brief The domain-warp interface WarpedVolume's generic path calls.
+ * @tparam T Candidate warp type.
+ * @details correct_normal() is optional and detected separately; the generic
+ * path returns the base normal unchanged when it is absent.
+ */
+template <typename T>
+concept VolumeWarp =
+    requires(const T &w, const Vector &p, typename T::Ctx ctx) {
+      { w.make_ctx(p) } -> std::same_as<typename T::Ctx>;
+      { w.apply(p, ctx) } -> std::same_as<Vector>;
+      { w.lipschitz(p, ctx) } -> std::same_as<float>;
+      { w.bounding_inflation() } -> std::same_as<float>;
+    };
+
+/**
+ * @brief The volume-SDF interface WarpedVolume's generic path calls.
+ * @tparam T Candidate base shape type.
+ */
+template <typename T>
+concept VolumeShape = requires(const T &s, const Vector &p, Fragment &f) {
+  { s.distance(p) } -> std::same_as<float>;
+  { s.normal(p) } -> std::same_as<Vector>;
+  s.populate(p, f);
+};
+
+/**
  * @brief Composable domain-warped volume SDF.
  *
  * Applies a Warp to the input domain of any 3D volume SDF, with:
@@ -380,16 +409,15 @@ HS_O3_END
  * - Analytical Lipschitz correction for safe sphere tracing
  * - Normal correction via the warp's chain rule
  *
- * The Warp must provide:
- *   Ctx make_ctx(const Vector &p) const;
- *   Vector apply(const Vector &p, Ctx ctx) const;
- *   float lipschitz(const Vector &p, const Ctx &ctx) const;
- *   float bounding_inflation() const;
- * Optionally:
- *   Vector correct_normal(const Vector &p, const Vector &n, const Ctx&) const;
+ * The base and warp satisfy VolumeShape and VolumeWarp. The TORUS_TWIST
+ * specialization additionally calls the reciprocal-sharing members of the
+ * concrete Torus/Twist pair it is keyed on, which neither concept describes.
  */
 HS_O3_BEGIN
 template <typename SDF, typename Warp> struct WarpedVolume {
+  static_assert(VolumeShape<SDF>);
+  static_assert(VolumeWarp<Warp>);
+
   SDF base;  /**< The underlying volume SDF being warped. */
   Warp warp; /**< The domain warp applied before the base SDF. */
 
