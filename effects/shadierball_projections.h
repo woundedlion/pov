@@ -507,6 +507,27 @@ inline uint8_t airocean_edge_identity(uint8_t face, uint8_t edge) {
   return AIROCEAN_EDGE_IDENTITIES[face][edge];
 }
 
+inline bool airocean_edge_is_under(uint8_t edge_identity) {
+  switch (edge_identity) {
+  case 9:
+  case 13:
+  case 16:
+  case 17:
+  case 20:
+  case 24:
+  case 38:
+  case 42:
+  case 44:
+  case 47:
+  case 55:
+  case 62:
+  case 64:
+    return true;
+  default:
+    return false;
+  }
+}
+
 inline float airocean_det(const AiroceanVector &u, const AiroceanVector &v,
                           const AiroceanVector &w) {
   return u.x * (v.y * w.z - v.z * w.y) - v.x * (u.y * w.z - u.z * w.y) +

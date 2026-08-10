@@ -255,7 +255,8 @@ private:
     OPAQUE,
     PROJECTION_WEIGHT_SQUARED,
     VALUE_CUTOUT,
-    EDGE_FADE
+    EDGE_FADE,
+    PROJECTION_WEIGHT
   };
   enum class Colorizer : uint8_t { GENERATED_TRIADIC, LIQUID, DEFORMATION_INK };
 
@@ -2438,13 +2439,39 @@ private:
                              value);
       break;
     case CoveragePolicy::EDGE_FADE:
-      coverage = smooth_ramp(0.0f, frame.params.value.edge_width,
+      coverage = smooth_ramp(0.0f, edge_fade_width(projected, frame),
                              projected.fade_edge_distance);
+      break;
+    case CoveragePolicy::PROJECTION_WEIGHT:
+      coverage = projected.value_weight;
       break;
     }
     coverage *= projected.domain_coverage;
     return {value, coverage, warped.net_delta, warped.deformation,
             warped.path_length};
+  }
+
+  static float edge_fade_width(const ProjectedLookup &projected,
+                               const FrameState &frame) {
+    bool under = true;
+    switch (frame.slots.projection) {
+    case Projection::BONNE:
+      under = projected.region_id == 0;
+      break;
+    case Projection::PEIRCE_QUINCUNCIAL:
+      under = (projected.region_id & 1U) == 0;
+      break;
+    case Projection::AIROCEAN:
+      under = shadierball::airocean_edge_is_under(projected.edge_class);
+      break;
+    default:
+      break;
+    }
+    if (under)
+      return frame.params.value.edge_width;
+    const float pixel_width =
+        fabsf(frame.params.projection.coordinate_scale) / static_cast<float>(H);
+    return std::min(frame.params.value.edge_width, pixel_width);
   }
 
   static float sample_source(const Complex &p, const FrameState &frame) {
@@ -3019,7 +3046,7 @@ private:
         !valid_warp_spec(slots.warp_program.inner) ||
         !enum_at_most(slots.signal_weight, SignalWeight::PROJECTION) ||
         !enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) ||
-        !enum_at_most(slots.coverage, CoveragePolicy::EDGE_FADE) ||
+        !enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) ||
         !enum_at_most(slots.colorizer, Colorizer::DEFORMATION_INK))
       return false;
     const int legacy_stages =
@@ -3580,10 +3607,12 @@ private:
       "ValueTransfer::ISO_CONTOUR", "ValueTransfer::SMOOTH_BANDS"};
   static constexpr int NUM_VALUE_TRANSFERS = std::size(VALUE_TRANSFER_OPTIONS);
   static constexpr const char *COVERAGE_OPTIONS[] = {
-      "Opaque", "Projection Weight Squared", "Value Cutout", "Edge Fade"};
+      "Opaque", "Projection Weight Squared", "Value Cutout", "Edge Fade",
+      "Projection Weight"};
   static constexpr const char *COVERAGE_EXPORT_OPTIONS[] = {
       "CoveragePolicy::OPAQUE", "CoveragePolicy::PROJECTION_WEIGHT_SQUARED",
-      "CoveragePolicy::VALUE_CUTOUT", "CoveragePolicy::EDGE_FADE"};
+      "CoveragePolicy::VALUE_CUTOUT", "CoveragePolicy::EDGE_FADE",
+      "CoveragePolicy::PROJECTION_WEIGHT"};
   static constexpr int NUM_COVERAGE_POLICIES = std::size(COVERAGE_OPTIONS);
   static constexpr const char *COLORIZER_OPTIONS[] = {
       "Generated Triadic", "ShaderBall Liquid", "Deformation Ink"};
@@ -3827,7 +3856,18 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 20> PRESETS = {{
+  static constexpr Preset wave_shear_liquid_preset() {
+    Slots slots = LIQUID_STEREO_SLOTS;
+    slots.warp_program.outer.kind = WarpStageKind::WAVE_SHEAR;
+    slots.coverage = CoveragePolicy::PROJECTION_WEIGHT_SQUARED;
+    Params params = authored_params(
+        {4.439f, 0.245f, 0.5f, 0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 1.0f / 64.0f},
+        {1.0f, 0.0f, 0.0f}, {1.0f}, {0.133f, 0.05f, 0.0f, 0.0f}, {1.0f});
+    params.projection.wander = 0.0f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 21> PRESETS = {{
       {LIQUID_STEREO_SLOTS,
        authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f}, {3.0f, 0.5f, 0.5f},
                        {1.4f, 0.0f}, {1.0f}, {0.15f, 0.05f, 0.0f, 0.0f},
@@ -3896,6 +3936,7 @@ private:
       diagnostic_preset(2),
       diagnostic_preset(3),
       diagnostic_preset(4),
+      wave_shear_liquid_preset(),
   }};
   static_assert(
       [] {
@@ -3923,14 +3964,14 @@ private:
       }(),
       "a ShadierBall preset edge lacks continuous transition admission");
 
-  static constexpr std::array<Choreo, 20> CHOREO = {{
+  static constexpr std::array<Choreo, 21> CHOREO = {{
       {30, 90, 60, true},   {30, 90, 60, true}, {30, 90, 60, true},
       {30, 90, 480, false}, {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},   {0, 0, 480, false},
+      {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
   }};
   static_assert(CHOREO.size() == PRESETS.size());
 
