@@ -40,6 +40,11 @@ if(NOT _header MATCHES "HS_O3_FN float SingleOpenSimplex2\\(")
   list(APPEND _missing "SingleOpenSimplex2 has lost its HS_O3_FN")
 endif()
 
+if(NOT _header MATCHES "float GetNoiseSingle\\(" OR
+   NOT _header MATCHES "float GetNoiseSingleTransformed\\(")
+  list(APPEND _missing "FastNoiseLite has lost its raw-octave sampling paths")
+endif()
+
 if(NOT _config MATCHES "#define FASTNOISELITE_ONLY_OPENSIMPLEX2")
   list(APPEND _missing
     "FastNoiseLite_config.h no longer defines FASTNOISELITE_ONLY_OPENSIMPLEX2")
@@ -59,4 +64,4 @@ if(_missing)
 endif()
 
 message(STATUS
-  "FastNoiseLite ${VENDORED_VERSION}: all 4 in-tree patches present")
+  "FastNoiseLite ${VENDORED_VERSION}: all 5 in-tree patches present")

@@ -333,6 +333,26 @@ public:
   }
 
   /// <summary>
+  /// Generates one configured noise octave without applying fractal policy.
+  /// </summary>
+  template <typename FNfloat>
+  float GetNoiseSingle(FNfloat x, FNfloat y, FNfloat z) const {
+    Arguments_must_be_floating_point_values<FNfloat>();
+    TransformNoiseCoordinate(x, y, z);
+    return GenNoiseSingle(mSeed, x, y, z);
+  }
+
+  /// <summary>
+  /// Generates one noise octave from coordinates already transformed by the
+  /// configured frequency and rotation policy.
+  /// </summary>
+  template <typename FNfloat>
+  float GetNoiseSingleTransformed(FNfloat x, FNfloat y, FNfloat z) const {
+    Arguments_must_be_floating_point_values<FNfloat>();
+    return GenNoiseSingle(mSeed, x, y, z);
+  }
+
+  /// <summary>
   /// 2D warps the input position using current domain warp settings
   /// </summary>
   /// <example>

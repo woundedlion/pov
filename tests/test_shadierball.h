@@ -392,6 +392,17 @@ inline void test_shadierball_pause_semantics() {
   reset_effect_globals();
   WB::SDB sdb;
   sdb.init();
+  WB::RequestedConfig ambient = WB::presets()[0];
+  ambient.params.source.speed = 0.019f;
+  ambient.params.source.secondary_rate = 0.37f;
+  ambient.params.source.angle_rate = 0.007f;
+  ambient.params.source.noise_time_rate = 0.004f;
+  ambient.params.surface_lens.noise_rate = 0.003f;
+  ambient.params.warp.outer.time_scale = 0.071f;
+  ambient.params.warp.inner.time_scale = 0.003f;
+  ambient.params.projection.spin_rate = 0.009f;
+  ambient.params.colorizer.cycle_speed = 0.013f;
+  WB::request_config(sdb, ambient);
   sdb.setAnimationsPaused(true);
 
   const WB::ClockState paused_clocks = WB::clocks(sdb);
@@ -408,6 +419,19 @@ inline void test_shadierball_pause_semantics() {
     sdb.advance_display();
   }
   HS_EXPECT_NE(WB::clocks(sdb).source_primary, paused_clocks.source_primary);
+  HS_EXPECT_NE(WB::clocks(sdb).source_secondary,
+               paused_clocks.source_secondary);
+  HS_EXPECT_NE(WB::clocks(sdb).source_angle, paused_clocks.source_angle);
+  HS_EXPECT_NE(WB::clocks(sdb).warp_time, paused_clocks.warp_time);
+  HS_EXPECT_NE(WB::clocks(sdb).projection_spin, paused_clocks.projection_spin);
+  HS_EXPECT_NE(WB::clocks(sdb).breathe_phase, paused_clocks.breathe_phase);
+  HS_EXPECT_NE(WB::clocks(sdb).source_noise_time,
+               paused_clocks.source_noise_time);
+  HS_EXPECT_NE(WB::clocks(sdb).lens_noise_time, paused_clocks.lens_noise_time);
+  HS_EXPECT_NE(WB::clocks(sdb).warp_outer_phase,
+               paused_clocks.warp_outer_phase);
+  HS_EXPECT_NE(WB::clocks(sdb).warp_inner_phase,
+               paused_clocks.warp_inner_phase);
   HS_EXPECT_TRUE(WB::projection_walk(sdb) != paused_projection_walk);
   HS_EXPECT_TRUE(WB::outer_walk(sdb) != paused_outer_walk);
   HS_EXPECT_EQ(WB::walk_steps(sdb), paused_walk_steps + 120);
@@ -453,6 +477,36 @@ inline void test_shadierball_pause_semantics() {
   sdb.draw_frame();
   sdb.advance_display();
   HS_EXPECT_EQ(WB::param_morph_elapsed(sdb), paused_morph_elapsed + 1);
+}
+
+/** @brief A paused topology edit keeps its GUI target for the full handoff. */
+inline void test_shadierball_paused_selector_retention() {
+  using WB = ShadierBallWhiteBox;
+  reset_effect_globals();
+  WB::SDB sdb;
+  sdb.init();
+  sdb.setAnimationsPaused(true);
+
+  HS_EXPECT_TRUE(
+      sdb.updateParameter("Inner Warp",
+                          static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(WB::requested_slots(sdb).warp_program.inner.kind,
+               WB::WarpStageKind::CURL_FLOW);
+  HS_EXPECT_EQ(WB::requested_slots(sdb).warp_program.outer.kind,
+               WB::WarpStageKind::NONE);
+
+  for (int frame = 0; frame < 62; ++frame) {
+    HS_EXPECT_EQ(sdb.getParameters().find("Inner Warp")->get(),
+                 static_cast<float>(WB::WarpStageKind::CURL_FLOW));
+    sdb.draw_frame();
+    sdb.advance_display();
+    HS_EXPECT_EQ(sdb.getParameters().find("Inner Warp")->get(),
+                 static_cast<float>(WB::WarpStageKind::CURL_FLOW));
+  }
+  HS_EXPECT_FALSE(WB::transition_active(sdb));
+  HS_EXPECT_EQ(WB::active_slots(sdb).warp_program.inner.kind,
+               WB::WarpStageKind::CURL_FLOW);
 }
 
 /** @brief Manual sliders commit next-frame while topology changes still fade. */
@@ -2143,6 +2197,7 @@ inline int run_shadierball_tests() {
   ModuleFixture fixture("shadierball");
   test_shadierball_clocks_wrapped();
   test_shadierball_pause_semantics();
+  test_shadierball_paused_selector_retention();
   test_shadierball_manual_edit_timing();
   test_shadierball_pipeline_contract();
   test_shadierball_legacy_spatial_slots();
