@@ -25,6 +25,21 @@
  * @brief EffectConfig, the Effect base class, and the Canvas pixel buffer.
  */
 
+// Parameter-system build predicates. The GUI-bridge surface (schema-generation
+// token, parameter-updated hook) exists in the WASM and test builds; external
+// ParamDef storage covers those plus firmware builds that opt in.
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#define HS_PARAM_GUI_BRIDGE 1
+#else
+#define HS_PARAM_GUI_BRIDGE 0
+#endif
+
+#if HS_PARAM_GUI_BRIDGE || defined(HS_EXTERNAL_PARAM_STORAGE)
+#define HS_PARAM_EXTERNAL_STORAGE 1
+#else
+#define HS_PARAM_EXTERNAL_STORAGE 0
+#endif
+
 class Canvas;
 
 /**
@@ -448,24 +463,21 @@ public:
     friend class Effect;
 
     std::array<ParamDef, 32> elements; /**< Default fixed-capacity storage. */
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
-    defined(HS_EXTERNAL_PARAM_STORAGE)
+#if HS_PARAM_EXTERNAL_STORAGE
     ParamDef *external_elements = nullptr;
     size_t external_capacity = 0;
 #endif
     size_t count = 0; /**< Number of registered parameters. */
 
     const ParamDef *data() const {
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
-    defined(HS_EXTERNAL_PARAM_STORAGE)
+#if HS_PARAM_EXTERNAL_STORAGE
       return external_elements != nullptr ? external_elements : elements.data();
 #else
       return elements.data();
 #endif
     }
     size_t capacity() const {
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
-    defined(HS_EXTERNAL_PARAM_STORAGE)
+#if HS_PARAM_EXTERNAL_STORAGE
       return external_elements != nullptr ? external_capacity : elements.size();
 #else
       return elements.size();
@@ -502,7 +514,7 @@ public:
     size_t size() const { return count; }
     /** @brief Monotonic token changed whenever the descriptor schema mutates. */
     uint32_t schema_generation() const {
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#if HS_PARAM_GUI_BRIDGE
       return schema_generation_;
 #else
       return 0;
@@ -514,8 +526,7 @@ public:
     // the top of the struct). Kept private so value writes route through
     // updateParameter.
     ParamDef *data() {
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
-    defined(HS_EXTERNAL_PARAM_STORAGE)
+#if HS_PARAM_EXTERNAL_STORAGE
       return external_elements != nullptr ? external_elements : elements.data();
 #else
       return elements.data();
@@ -527,11 +538,11 @@ public:
       return const_cast<ParamDef *>(std::as_const(*this).find(name));
     }
     void bump_schema_generation() {
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#if HS_PARAM_GUI_BRIDGE
       ++schema_generation_;
 #endif
     }
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#if HS_PARAM_GUI_BRIDGE
     uint32_t schema_generation_ = 0;
 #endif
   };
@@ -565,7 +576,7 @@ public:
       value = hs::clamp(value, def->min, def->max);
     if (def->animated)
       setAnimationsPaused(true);
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#if HS_PARAM_GUI_BRIDGE
     const char *updated_name = def->name;
     const bool updated_enum = def->is_enum();
     def->set(value);
@@ -603,7 +614,7 @@ public:
   bool animations_paused() const { return anims_paused; }
 
 protected:
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#if HS_PARAM_GUI_BRIDGE
   using ParameterUpdatedHook = void (*)(Effect *, const char *, bool);
 
   /** @brief Installs an opt-in reaction to accepted GUI parameter writes. */
@@ -617,8 +628,7 @@ protected:
              "use_parameter_storage: parameters already registered");
     HS_CHECK(storage != nullptr && capacity > 0,
              "use_parameter_storage: invalid external storage");
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD) ||                       \
-    defined(HS_EXTERNAL_PARAM_STORAGE)
+#if HS_PARAM_EXTERNAL_STORAGE
     parameters.external_elements = storage;
     parameters.external_capacity = capacity;
 #else
@@ -655,7 +665,7 @@ protected:
    */
   bool strobe;
   ParamList parameters; /**< List of parameters. */
-#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
+#if HS_PARAM_GUI_BRIDGE
   ParameterUpdatedHook parameter_updated_hook = nullptr;
 #endif
   /**
