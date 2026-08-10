@@ -1094,7 +1094,9 @@ struct RingGroup {
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
                    int n, RingShaderT &&shader, bool debug_bb = false) {
+    static constexpr int MAX_RINGS = 8;
     HS_CHECK(canvas.width() == W && canvas.height() == H);
+    HS_CHECK(n >= 1 && n <= MAX_RINGS);
     if (debug_bb || canvas.debug()) {
       for (int s = 0; s < n; ++s) {
         auto slot_shader = [&](const Vector &p, Fragment &f) {
@@ -1109,8 +1111,6 @@ struct RingGroup {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
 
-    static constexpr int MAX_RINGS = 8;
-    HS_CHECK(n >= 1 && n <= MAX_RINGS);
     int sy_min[MAX_RINGS], sy_max[MAX_RINGS];
     int y_lo = H, y_hi = -1;
     for (int s = 0; s < n; ++s) {
