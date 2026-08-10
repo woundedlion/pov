@@ -523,7 +523,7 @@ public:
     /** @brief Monotonic token changed whenever the descriptor schema mutates. */
     uint32_t schema_generation() const {
 #if HS_PARAM_GUI_BRIDGE
-      return schema_generation_;
+      return schema_gen;
 #else
       return 0;
 #endif
@@ -547,11 +547,11 @@ public:
     }
     void bump_schema_generation() {
 #if HS_PARAM_GUI_BRIDGE
-      ++schema_generation_;
+      ++schema_gen;
 #endif
     }
 #if HS_PARAM_GUI_BRIDGE
-    uint32_t schema_generation_ = 0;
+    uint32_t schema_gen = 0;
 #endif
   };
 
