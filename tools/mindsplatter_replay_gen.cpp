@@ -238,10 +238,12 @@ int main(int argc, char **argv) {
   const std::string corpus_id = "heavy_search_v1_p" +
                                 std::to_string(selected->preset) + "_f" +
                                 std::to_string(selected->frame);
+  // No compiler identity here: it would pin the corpus to the machine that
+  // baked it, so a regenerate-and-diff check could never reproduce the file.
   const std::string source =
       "seed=1337 presets=0..3 frames=136..384/8 clips=quadrants "
       "renderer=generic-reference "
-      "score=64*adaptive+512*long+8*shader+taps compiler=" __VERSION__;
+      "score=64*adaptive+512*long+8*shader+taps";
   uint32_t traits = TRAIT_LONG_EDGE | TRAIT_MEASURED_WORST;
   if (selected->snapshot.particles.size() ==
       WhiteBox::particle_capacity(effect))
