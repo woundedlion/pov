@@ -4220,7 +4220,10 @@ struct ParticleSystem {
         if constexpr (sample_stride == 1) {
           return false;
         } else {
-          const uint16_t age = system.max_life - p.life;
+          // A max_life lowered below a live particle's remaining life would
+          // underflow this uint16_t subtraction.
+          const uint16_t age =
+              p.life < system.max_life ? system.max_life - p.life : 0;
           return (age - 1) % sample_stride != 0;
         }
       }();
@@ -4243,7 +4246,8 @@ struct ParticleSystem {
         else
           return particle_v2(p, i);
       }();
-      const float particle_life = static_cast<float>(p.life) * inv_max_life;
+      const float particle_life =
+          std::min(static_cast<float>(p.life) * inv_max_life, 1.0f);
       ScratchScope trail_guard(scratch_arena_a);
       Fragments trail;
       trail.bind(scratch_arena_a, point_count);
