@@ -745,18 +745,21 @@ public:
    *          no heap growth that could detach other outstanding views.
    */
   val getParamValues() {
-    // The no-reallocation contract both paths ride on: the ctor reserved
-    // MAX_PARAMS and clear() retains that capacity, which also keeps the
-    // zero-length view's backing pointer valid.
-    HS_CHECK(param_values.capacity() >= MAX_PARAMS,
-             "param_values capacity %zu below the reserved %zu",
-             param_values.capacity(), MAX_PARAMS);
     if (!current_effect) {
       // Empty Float32Array (not a JS Array) so callers get a consistent typed
-      // view whether or not an effect is set.
+      // view whether or not an effect is set. clear() retains the ctor's
+      // reserve, which keeps the zero-length view's backing pointer valid.
       param_values.clear();
       return val(typed_memory_view(param_values.size(), param_values.data()));
     }
+
+    // The no-reallocation contract the view rides on: the ctor reserved
+    // MAX_PARAMS and clear() retains that capacity, so a fill within that bound
+    // never moves the backing store. use_parameter_storage() lets an effect
+    // exceed ParamList's default inline array, so the count is the live bound.
+    HS_CHECK(current_effect->getParameters().size() <= MAX_PARAMS,
+             "effect exposes %zu params, past the %zu reserved",
+             current_effect->getParameters().size(), MAX_PARAMS);
 
     // Same order as getParameterDefinitions().
     hs_wasm::fill_param_values(*current_effect, param_values);
