@@ -83,7 +83,15 @@ inline constexpr size_t lowered_step_count(const Recipe &recipe) {
     case Op::BEVEL:
       n += 2;
       break;
-    default:
+    case Op::TRUNCATE:
+    case Op::EXPAND:
+    case Op::SNUB:
+    case Op::CHAMFER:
+    case Op::HANKIN:
+    case Op::RELAX:
+    case Op::KIS:
+    case Op::DUAL:
+    case Op::AMBO:
       n += 1;
       break;
     }
@@ -157,7 +165,15 @@ HS_COLD_MEMBER inline size_t expand_to_primitives(const Recipe &recipe,
       else
         emit({Op::TRUNCATE, step.param});
       break;
-    default:
+    case Op::TRUNCATE:
+    case Op::EXPAND:
+    case Op::SNUB:
+    case Op::CHAMFER:
+    case Op::HANKIN:
+    case Op::RELAX:
+    case Op::KIS:
+    case Op::DUAL:
+    case Op::AMBO:
       emit(step);
       break;
     }
