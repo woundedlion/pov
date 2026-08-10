@@ -646,8 +646,9 @@ public:
       return;
     }
     // Otherwise (unbound, or a grow that abandons the old block) → allocate
-    // fresh. A grow leaks the old block until the next arena reset/compaction.
-    if (bound)
+    // fresh. A grow leaks the old block until the next arena reset/compaction; a
+    // zero-capacity binding owns no block, so growing out of one leaks nothing.
+    if (bound && element_capacity > 0)
       log_arena_vector_grow(element_capacity * sizeof(T), element_capacity,
                             min_capacity);
     if (min_capacity > 0) {
