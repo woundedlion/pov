@@ -54,6 +54,7 @@ struct ShadierBallWhiteBox {
   using TransitionFrame = SDB::TransitionFrame;
   using TransitionMode = SDB::TransitionMode;
   using WorkSignature = SDB::WorkSignature;
+  using WorkTier = SDB::WorkTier;
 
   static constexpr float AXIS_EPS = SDB::GNOMONIC_AXIS_EPS;
   static constexpr uint32_t HUE_STEP = SDB::HUE_STEP;
@@ -93,6 +94,7 @@ struct ShadierBallWhiteBox {
   }
   static void request_slots(SDB &sdb, const Slots &slots) {
     sdb.requested_config.slots = slots;
+    sdb.requested_schema_bound = false;
     sdb.apply_requested_config();
   }
   static Slots requested_slots(const SDB &sdb) {
@@ -103,6 +105,7 @@ struct ShadierBallWhiteBox {
   }
   static void request_config(SDB &sdb, const RequestedConfig &config) {
     sdb.requested_config = config;
+    sdb.requested_schema_bound = false;
     sdb.apply_requested_config();
   }
   static bool slots_equal(const Slots &a, const Slots &b) { return a == b; }
@@ -112,6 +115,21 @@ struct ShadierBallWhiteBox {
   static constexpr bool transition_admitted(const RequestedConfig &from,
                                             const RequestedConfig &to) {
     return SDB::transition_admitted(from, to);
+  }
+  static constexpr bool hold_admitted(const RequestedConfig &config) {
+    return SDB::hold_admitted(config);
+  }
+  static constexpr bool stable_topology(const RequestedConfig &from,
+                                        const RequestedConfig &to) {
+    return SDB::stable_topology(from, to);
+  }
+  static constexpr bool
+  stable_parameter_path_admitted(const RequestedConfig &from,
+                                 const RequestedConfig &to) {
+    return SDB::stable_parameter_path_admitted(from, to);
+  }
+  static constexpr uint16_t hold_work_unit_ceiling() {
+    return SDB::HOLD_WORK_UNIT_CEILING;
   }
   static constexpr float noise_time_period() {
     return SDB::STEREO_NOISE_TIME_PERIOD;
@@ -625,6 +643,14 @@ inline void test_shadierball_preset_bank() {
   HS_EXPECT_EQ(presets[0].params.outer_camera.wander, 1.0f);
   HS_EXPECT_TRUE(choreo[0].staggered);
   HS_EXPECT_FALSE(choreo[6].staggered);
+  HS_EXPECT_EQ(presets[15].slots.projection, WB::Projection::BONNE);
+  HS_EXPECT_EQ(presets[16].slots.projection, WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(presets[17].slots.projection, WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(presets[18].slots.projection,
+               WB::Projection::PEIRCE_QUINCUNCIAL);
+  HS_EXPECT_EQ(presets[19].slots.projection, WB::Projection::AIROCEAN);
+  HS_EXPECT_EQ(WB::work_signature(presets[17]).worst_case_work_units(),
+               WB::hold_work_unit_ceiling());
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &preset = presets[index];
     if (index < 15)
@@ -778,6 +804,232 @@ inline void test_shadierball_config_admission() {
   }
 }
 
+/** @brief Selector intent is independent of the live worker destination. */
+inline void test_shadierball_deterministic_gui_edits() {
+  using WB = ShadierBallWhiteBox;
+  struct Result {
+    std::array<WB::RequestedConfig, 3> configs;
+    std::array<uint64_t, 3> schema_hashes{};
+    std::array<uint32_t, 3> generation_deltas{};
+  };
+  auto schema_hash = [](const WB::SDB &sdb) {
+    uint64_t hash = 1469598103934665603ULL;
+    auto append = [&](const char *text) {
+      for (; *text != '\0'; ++text) {
+        hash ^= static_cast<uint8_t>(*text);
+        hash *= 1099511628211ULL;
+      }
+    };
+    for (const Effect::ParamDef &def : sdb.getParameters()) {
+      append(def.name);
+      hash ^= static_cast<uint32_t>(def.option_count);
+      hash *= 1099511628211ULL;
+      for (int option = 0; option < def.option_count; ++option)
+        append(def.options[option]);
+    }
+    return hash;
+  };
+  auto run = [&](bool advance_worker) {
+    reset_effect_globals();
+    WB::SDB sdb;
+    sdb.init();
+    Result result;
+    const char *names[] = {"Projection", "Projection", "Outer Warp"};
+    const float values[] = {
+        static_cast<float>(WB::Projection::BONNE),
+        static_cast<float>(WB::Projection::AIROCEAN),
+        static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE)};
+    for (size_t index = 0; index < result.configs.size(); ++index) {
+      const uint32_t before = sdb.getParameterSchemaGeneration();
+      HS_EXPECT_TRUE(sdb.updateParameter(names[index], values[index]) ==
+                     ParamSetResult::APPLIED);
+      result.generation_deltas[index] =
+          sdb.getParameterSchemaGeneration() - before;
+      result.configs[index] = WB::requested_config(sdb);
+      result.schema_hashes[index] = schema_hash(sdb);
+      if (advance_worker && index + 1 < result.configs.size()) {
+        sdb.draw_frame();
+        sdb.advance_display();
+      }
+    }
+    return result;
+  };
+
+  const Result idle = run(false);
+  const Result worker = run(true);
+  for (size_t index = 0; index < idle.configs.size(); ++index) {
+    HS_EXPECT_TRUE(idle.configs[index] == worker.configs[index]);
+    HS_EXPECT_EQ(idle.schema_hashes[index], worker.schema_hashes[index]);
+    HS_EXPECT_EQ(idle.generation_deltas[index],
+                 worker.generation_deltas[index]);
+  }
+  HS_EXPECT_EQ(idle.configs[2].slots.projection, WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(idle.configs[2].slots.warp_program.outer.kind,
+               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+}
+
+/** @brief Hold cost and stable morph admission are explicit conservative proofs. */
+inline void test_shadierball_work_admission() {
+  using WB = ShadierBallWhiteBox;
+  for (const auto &preset : WB::presets())
+    HS_EXPECT_TRUE(WB::hold_admitted(preset));
+
+  WB::RequestedConfig one = WB::legacy_config();
+  one.slots.surface_lens = WB::SurfaceLens::NONE;
+  one.params.surface_lens.mix = 0.0f;
+  one.slots.warp_program.outer.kind = WB::WarpStageKind::CURL_FLOW;
+  one.slots.warp_program.outer.basis = WB::NoiseBasis::FBM3;
+  one.slots.warp_program.outer.curl_integrator = WB::CurlIntegrator::MIDPOINT_2;
+  one.params.warp.outer.strength = 1e-4f;
+  one.params.warp.outer.scale = 1.0f;
+  one.params.warp.outer.time_scale = 0.0f;
+  HS_EXPECT_TRUE(WB::valid_config(one));
+  HS_EXPECT_EQ(WB::work_signature(one).worst_case_noise_calls(),
+               WB::hold_work_unit_ceiling());
+  HS_EXPECT_EQ(WB::work_signature(one).worst_case_work_units(),
+               WB::hold_work_unit_ceiling());
+  HS_EXPECT_TRUE(WB::hold_admitted(one));
+
+  WB::RequestedConfig dual = one;
+  dual.slots.warp_program.outer.basis = WB::NoiseBasis::RIDGED3;
+  dual.slots.warp_program.outer.curl_integrator =
+      WB::CurlIntegrator::MIDPOINT_4;
+  dual.slots.warp_program.inner = dual.slots.warp_program.outer;
+  dual.slots.warp_program.inner.resource_id = 1;
+  dual.params.warp.inner = dual.params.warp.outer;
+  HS_EXPECT_TRUE(WB::valid_config(dual));
+  HS_EXPECT_EQ(WB::work_signature(dual).worst_case_noise_calls(),
+               uint16_t(384));
+  HS_EXPECT_FALSE(WB::hold_admitted(dual));
+  dual.slots.projection = WB::Projection::BONNE;
+  dual.slots.surface_lens = WB::SurfaceLens::GLITCH;
+  dual.params.surface_lens.mix = 0.5f;
+  HS_EXPECT_EQ(WB::work_signature(dual).worst_case_noise_calls(),
+               uint16_t(768));
+  HS_EXPECT_GT(WB::work_signature(dual).worst_case_work_units(), uint16_t(768));
+  HS_EXPECT_FALSE(WB::hold_admitted(dual));
+
+  for (WB::Projection projection :
+       {WB::Projection::BONNE, WB::Projection::PEIRCE_QUINCUNCIAL,
+        WB::Projection::AIROCEAN}) {
+    WB::RequestedConfig strict = WB::legacy_config();
+    strict.slots.projection = projection;
+    strict.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+    HS_EXPECT_TRUE(WB::hold_admitted(strict));
+  }
+  WB::RequestedConfig airo_mobius = WB::legacy_config();
+  airo_mobius.slots.projection = WB::Projection::AIROCEAN;
+  airo_mobius.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+  airo_mobius.slots.surface_lens = WB::SurfaceLens::MOBIUS;
+  airo_mobius.params.surface_lens.mix = 0.5f;
+  HS_EXPECT_TRUE(WB::valid_config(airo_mobius));
+  HS_EXPECT_EQ(WB::work_signature(airo_mobius).noise_calls, uint16_t(0));
+  HS_EXPECT_GT(WB::work_signature(airo_mobius).worst_case_work_units(),
+               WB::hold_work_unit_ceiling());
+  HS_EXPECT_FALSE(WB::hold_admitted(airo_mobius));
+
+  WB::RequestedConfig from = WB::legacy_config();
+  from.slots.surface_lens = WB::SurfaceLens::NONE;
+  from.params.surface_lens.mix = 0.0f;
+  from.slots.warp_program.outer.kind = WB::WarpStageKind::CURL_FLOW;
+  from.slots.warp_program.outer.basis = WB::NoiseBasis::SIMPLEX;
+  from.slots.warp_program.outer.curl_integrator =
+      WB::CurlIntegrator::MIDPOINT_4;
+  from.params.warp.outer.strength = 0.0078125f;
+  from.params.warp.outer.scale = 1.0f;
+  from.params.warp.outer.time_scale = 0.0f;
+  WB::RequestedConfig to = from;
+  to.params.warp.outer.strength = 0.5f;
+  to.params.warp.outer.scale = 1.0f / 64.0f;
+  HS_EXPECT_TRUE(WB::hold_admitted(from));
+  HS_EXPECT_TRUE(WB::hold_admitted(to));
+  HS_EXPECT_TRUE(WB::transition_admitted(from, to));
+  HS_EXPECT_FALSE(WB::stable_topology(from, to));
+  HS_EXPECT_FALSE(WB::stable_parameter_path_admitted(from, to));
+  const auto &presets = WB::presets();
+  for (size_t index = 0; index < presets.size(); ++index) {
+    const auto &next = presets[(index + 1) % presets.size()];
+    if (WB::stable_topology(presets[index], next))
+      HS_EXPECT_TRUE(WB::stable_parameter_path_admitted(presets[index], next));
+  }
+}
+
+/** @brief Folded and interrupted projections reject unproved noise seams. */
+inline void test_shadierball_strict_seam_admission() {
+  using WB = ShadierBallWhiteBox;
+  for (WB::Projection projection :
+       {WB::Projection::BONNE, WB::Projection::PEIRCE_QUINCUNCIAL,
+        WB::Projection::AIROCEAN}) {
+    WB::RequestedConfig config = WB::legacy_config();
+    config.slots.projection = projection;
+    config.slots.surface_lens = WB::SurfaceLens::NONE;
+    config.params.surface_lens.mix = 0.0f;
+    config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+    HS_EXPECT_TRUE(WB::valid_config(config));
+
+    config.slots.function = WB::Function::NOISE_CONTOUR;
+    HS_EXPECT_FALSE(WB::valid_config(config));
+    config.slots.function = WB::Function::COUPLED_DIRECT;
+
+    config.slots.warp_program.outer.kind = WB::WarpStageKind::VECTOR_NOISE;
+    config.params.warp.outer.scale = 1.0f;
+    config.params.warp.outer.strength = 0.1f;
+    config.params.warp.outer.time_scale = 0.0f;
+    HS_EXPECT_FALSE(WB::valid_config(config));
+    config.slots.warp_program.outer.kind = WB::WarpStageKind::CURL_FLOW;
+    config.params.warp.outer.scale = 1.0f;
+    config.params.warp.outer.strength = 1e-4f;
+    HS_EXPECT_FALSE(WB::valid_config(config));
+    config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
+
+    config.slots.surface_lens = WB::SurfaceLens::TANGENT_NOISE;
+    config.params.surface_lens.mix = 0.5f;
+    HS_EXPECT_FALSE(WB::valid_config(config));
+
+    config.slots.projection = WB::Projection::EQUIRECTANGULAR;
+    HS_EXPECT_TRUE(WB::valid_config(config));
+  }
+}
+
+/** @brief Additive warp metadata retains sub-ULP displacement at large coordinates. */
+inline void test_shadierball_additive_delta_precision() {
+  using WB = ShadierBallWhiteBox;
+  reset_effect_globals();
+  WB::SDB sdb;
+  sdb.init();
+  WB::FrameState frame = WB::frame(sdb);
+  frame.clocks.warp_outer_phase = 0.25f;
+  WB::WarpStageSpec spec{WB::WarpStageKind::WAVE_SHEAR};
+  WB::WarpStageParams params;
+  params.strength = 0.001f;
+  params.frequency = 0.0f;
+  params.field_angle = 0.0f;
+  const Complex input(32768.0f, 32768.0f);
+  const WB::ProjectedLookup projected{input, 0, 0, 0, 1.0f, 1.0f, 0};
+  const auto result = WB::warp_stage(input, projected, spec, params, frame);
+  HS_EXPECT_NEAR(result.delta.re, 0.0f, 1e-8f);
+  HS_EXPECT_NEAR(result.delta.im, 0.001f, 1e-7f);
+  HS_EXPECT_NEAR(result.deformation, 0.001f, 1e-7f);
+  HS_EXPECT_EQ(result.coords.im, input.im);
+}
+
+/** @brief Profiling can land every curated hold without choreography. */
+inline void test_shadierball_profile_presets() {
+  using WB = ShadierBallWhiteBox;
+  reset_effect_globals();
+  WB::SDB sdb;
+  sdb.init();
+  const auto &presets = WB::presets();
+  for (size_t index = 0; index < presets.size(); ++index) {
+    sdb.profile_select_preset(index);
+    HS_EXPECT_TRUE(WB::active_config(sdb) == presets[index]);
+    HS_EXPECT_TRUE(WB::requested_config(sdb) == presets[index]);
+    HS_EXPECT_TRUE(WB::hold_admitted(WB::active_config(sdb)));
+    HS_EXPECT_FALSE(WB::transition_active(sdb));
+    HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+  }
+}
+
 /** @brief Every GUI enum option is writable and survives its handoff. */
 inline void test_shadierball_gui_catalog() {
   using WB = ShadierBallWhiteBox;
@@ -883,9 +1135,29 @@ inline void test_shadierball_gui_catalog() {
   select_and_set_all("Projection", 5, "Airocean Layout");
   select_and_set_all("Outer Warp", 5, "Outer Noise Basis");
   select_and_set_all("Outer Warp", 5, "Outer Warp Envelope");
+  HS_EXPECT_TRUE(sdb.updateParameter("Inner Warp", 0.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(
+      sdb.updateParameter("Outer Warp",
+                          static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(
+      sdb.updateParameter("Outer Noise Basis",
+                          static_cast<float>(WB::NoiseBasis::SIMPLEX)) ==
+      ParamSetResult::APPLIED);
+  sdb.draw_frame();
+  sdb.advance_display();
+  WB::settle_transition(sdb);
   select_and_set_all("Outer Warp", 6, "Outer Curl Integrator");
   select_and_set_all("Outer Warp", 8, "Outer Polar Mode");
   select_and_set_all("Outer Warp", 8, "Outer Polar Harmonic");
+  HS_EXPECT_TRUE(sdb.getParameters().find("Pattern Freq") == nullptr);
+  HS_EXPECT_TRUE(sdb.updateParameter("Function",
+                                     static_cast<float>(WB::Function::RINGS)) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(WB::requested_config(sdb).slots.warp_program.outer.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_TRUE(sdb.getParameters().find("Pattern Freq") != nullptr);
   select_and_set_all("Value Transfer", 3, "Band Count");
 }
 
@@ -1176,8 +1448,8 @@ inline void test_shadierball_projection_and_admission_contracts() {
                                       WB::Projection::PEIRCE_QUINCUNCIAL));
   WB::ProjectedLookup horizontal_neighbor = horizontal_left;
   horizontal_neighbor.coords.re = -3.6f;
-  HS_EXPECT_TRUE(WB::join_compatible(horizontal_left, horizontal_neighbor,
-                                     WB::Projection::PEIRCE_QUINCUNCIAL));
+  HS_EXPECT_FALSE(WB::join_compatible(horizontal_left, horizontal_neighbor,
+                                      WB::Projection::PEIRCE_QUINCUNCIAL));
   WB::ProjectedLookup vertical_bottom = horizontal_left;
   WB::ProjectedLookup vertical_top = horizontal_right;
   vertical_bottom.edge_class = 5;
@@ -1215,8 +1487,8 @@ inline void test_shadierball_projection_and_admission_contracts() {
       shadierball::peirce_projection(sector_before, 0.0f, 2, 0.0f));
   const auto horizontal_after = kernel_lookup(
       shadierball::peirce_projection(sector_after, 0.0f, 2, 0.0f));
-  HS_EXPECT_TRUE(WB::join_compatible(horizontal_before, horizontal_after,
-                                     WB::Projection::PEIRCE_QUINCUNCIAL));
+  HS_EXPECT_FALSE(WB::join_compatible(horizontal_before, horizontal_after,
+                                      WB::Projection::PEIRCE_QUINCUNCIAL));
 
   const auto glued_side_a = kernel_lookup(shadierball::airocean_projection(
       Vector(0.00321964224570043f, 0.902105871397194f, 0.431502758617508f),
@@ -1224,8 +1496,8 @@ inline void test_shadierball_projection_and_admission_contracts() {
   const auto glued_side_b = kernel_lookup(shadierball::airocean_projection(
       Vector(0.00321096516044884f, 0.902110786482306f, 0.431492547577607f),
       0.0f, false));
-  HS_EXPECT_TRUE(WB::join_compatible(glued_side_a, glued_side_b,
-                                     WB::Projection::AIROCEAN));
+  HS_EXPECT_FALSE(WB::join_compatible(glued_side_a, glued_side_b,
+                                      WB::Projection::AIROCEAN));
   const auto cut_side_a = kernel_lookup(shadierball::airocean_projection(
       Vector(0.456076125629434f, 0.767836786220573f, -0.449912477441232f), 0.0f,
       false));
@@ -1718,6 +1990,11 @@ inline int run_shadierball_tests() {
   test_shadierball_coupled_source();
   test_shadierball_preset_bank();
   test_shadierball_config_admission();
+  test_shadierball_deterministic_gui_edits();
+  test_shadierball_work_admission();
+  test_shadierball_strict_seam_admission();
+  test_shadierball_additive_delta_precision();
+  test_shadierball_profile_presets();
   test_shadierball_gui_catalog();
   test_shadierball_projection_catalog();
   test_shadierball_projection_and_admission_contracts();
