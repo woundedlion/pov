@@ -86,10 +86,7 @@ public:
 #endif
 
     if (transition.active) {
-      if (transition.mode == TransitionMode::THROUGH_CLEAR)
-        draw_through_clear_transition(canvas);
-      else
-        draw_dual_output_transition(canvas);
+      draw_through_clear_transition(canvas);
     } else {
       const FrameState frame = prepare_frame();
       auto shader = [&](const Vector &view)
@@ -1364,8 +1361,6 @@ private:
     bool active = false;
   };
 
-  enum class TransitionMode : uint8_t { DUAL_OUTPUT, THROUGH_CLEAR };
-
   static constexpr uint16_t NOISE_CALL_POINTS = 4;
   static constexpr uint16_t HOLD_DEVICE_POINT_BUDGET = 40;
 
@@ -1392,26 +1387,8 @@ private:
     LookRuntime to_runtime;
     uint16_t elapsed = 0;
     uint16_t duration = 0;
-    TransitionMode mode = TransitionMode::DUAL_OUTPUT;
     bool continue_choreo = false;
     bool active = false;
-
-    TransitionRuntime() = default;
-    TransitionRuntime(const Config &from_config, const Config &to_config,
-                      const LookRuntime &from_runtime,
-                      const LookRuntime &to_runtime, uint16_t elapsed,
-                      uint16_t duration, bool continue_choreo, bool active,
-                      TransitionMode mode = TransitionMode::DUAL_OUTPUT)
-        : from_config(from_config), to_config(to_config),
-          from_runtime(from_runtime), to_runtime(to_runtime), elapsed(elapsed),
-          duration(duration), mode(mode), continue_choreo(continue_choreo),
-          active(active) {}
-  };
-
-  struct DualOutputFrame {
-    FrameState from;
-    FrameState to;
-    float mix;
   };
 
   struct ThroughClearPhase {
@@ -1591,13 +1568,6 @@ private:
            within_hold_device_budget(device_cost(config));
   }
 
-  static constexpr TransitionMode transition_mode(const Config &from,
-                                                  const Config &to) {
-    (void)from;
-    (void)to;
-    return TransitionMode::THROUGH_CLEAR;
-  }
-
   HS_COLD_MEMBER bool prepare_resource_union(const Config &from,
                                              const Config &to) {
     std::array<NoiseResourceKey, MAX_NOISE_RESOURCES> keys{};
@@ -1702,12 +1672,6 @@ private:
          &liquid_palette_cycler.palette()}};
   }
 
-  HS_COLD_MEMBER DualOutputFrame prepare_dual_output_frame() const {
-    return {prepare_frame(transition.from_config, transition.from_runtime),
-            prepare_frame(transition.to_config, transition.to_runtime),
-            transition_mix(transition.elapsed, transition.duration)};
-  }
-
   static ThroughClearPhase through_clear_phase(uint16_t elapsed,
                                                uint16_t duration) {
     const uint16_t center = duration / 2;
@@ -1733,15 +1697,6 @@ private:
             : prepare_frame(transition.to_config, transition.to_runtime);
     auto shader = [&](const Vector &view) HS_O3_FN -> Color4 {
       return shade_through_clear(view, &visible, phase);
-    };
-    HS_PROFILE(sb_shader_draw);
-    Scan::Shader::draw<W, H, 1>(canvas, shader);
-  }
-
-  HS_NOINLINE_NOCLONE void draw_dual_output_transition(Canvas &canvas) const {
-    const DualOutputFrame frame = prepare_dual_output_frame();
-    auto shader = [&](const Vector &view) HS_O3_FN -> Color4 {
-      return shade_dual_output(view, frame);
     };
     HS_PROFILE(sb_shader_draw);
     Scan::Shader::draw<W, H, 1>(canvas, shader);
@@ -1805,16 +1760,6 @@ private:
     return a.component_id == b.component_id && a.flags == b.flags &&
            ((a.boundary_flags | b.boundary_flags) &
             (BOUNDARY_CUT | BOUNDARY_SINGULAR)) == 0;
-  }
-
-  static Color4 shade_dual_output(const Vector &view,
-                                  const DualOutputFrame &frame) {
-    if (frame.mix == 0.0f)
-      return shade(view, frame.from);
-    if (frame.mix == 1.0f)
-      return shade(view, frame.to);
-    return blend_outputs(shade(view, frame.from), shade(view, frame.to),
-                         frame.mix);
   }
 
   static Color4 shade_through_clear(const Vector &view,
@@ -2928,19 +2873,13 @@ private:
                      staggered,      continue_choreo,  true};
       return true;
     }
-    const TransitionMode mode = transition_mode(current, candidate);
-    if (mode == TransitionMode::DUAL_OUTPUT) {
-      if (!prepare_resource_union(current, candidate))
-        return false;
-    } else if (!prepare_resource_union(current, current))
+    if (!prepare_resource_union(current, current))
       return false;
     const uint16_t planned_duration =
-        mode == TransitionMode::THROUGH_CLEAR && (duration & 1U) != 0
-            ? duration + 1
-            : duration;
+        (duration & 1U) != 0 ? duration + 1 : duration;
     param_morph.active = false;
-    transition = {current,          candidate,       runtime, runtime, 0,
-                  planned_duration, continue_choreo, true,    mode};
+    transition = {current, candidate,        runtime,         runtime,
+                  0,       planned_duration, continue_choreo, true};
     return true;
   }
 
@@ -2953,8 +2892,6 @@ private:
    * to the source, whose resource union is the one still prepared.
    */
   HS_COLD_MEMBER void hold_transition_endpoint() {
-    if (transition.mode != TransitionMode::THROUGH_CLEAR)
-      return;
     transition.elapsed =
         transition.elapsed <= transition.duration / 2 ? 0 : transition.duration;
   }
@@ -2970,8 +2907,7 @@ private:
           return;
         }
       }
-      if (transition.mode == TransitionMode::THROUGH_CLEAR &&
-          transition.elapsed == transition.duration / 2)
+      if (transition.elapsed == transition.duration / 2)
         HS_CHECK(
             prepare_resource_union(transition.to_config, transition.to_config),
             "through-clear destination resources exceed capacity");

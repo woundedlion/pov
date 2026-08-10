@@ -51,9 +51,7 @@ struct ShaderBallWhiteBox {
   using ClockState = SB::ClockState;
   using LookRuntime = SB::LookRuntime;
   using WalkDeltas = SB::WalkDeltas;
-  using DualOutputFrame = SB::DualOutputFrame;
   using ThroughClearPhase = SB::ThroughClearPhase;
-  using TransitionMode = SB::TransitionMode;
   using CostTier = SB::CostTier;
   using DeviceCost = SB::DeviceCost;
 
@@ -178,10 +176,6 @@ struct ShaderBallWhiteBox {
         return sb.prepared_noise_keys[index].basis;
     return static_cast<NoiseBasis>(0xff);
   }
-  static constexpr TransitionMode transition_mode(const RequestedConfig &from,
-                                                  const RequestedConfig &to) {
-    return SB::transition_mode(from, to);
-  }
   static constexpr DeviceCost device_cost(const RequestedConfig &config) {
     return SB::device_cost(config);
   }
@@ -192,15 +186,8 @@ struct ShaderBallWhiteBox {
                                uint16_t duration, bool continue_choreo) {
     const RequestedConfig from = active_config(sb);
     sb.param_morph.active = false;
-    sb.transition = {from,
-                     to,
-                     sb.runtime,
-                     sb.runtime,
-                     0,
-                     duration,
-                     continue_choreo,
-                     true,
-                     SB::transition_mode(from, to)};
+    sb.transition = {from, to,       sb.runtime,      sb.runtime,
+                     0,    duration, continue_choreo, true};
   }
   static const LookRuntime &runtime(const SB &sb) { return sb.runtime; }
   static Quaternion projection_walk(const SB &sb) {
@@ -211,10 +198,6 @@ struct ShaderBallWhiteBox {
                               const RequestedConfig &config,
                               const WalkDeltas &deltas) {
     sb.advance_runtime(runtime, config, deltas);
-  }
-  static Color4 shade_dual_output(const Vector &view,
-                                  const DualOutputFrame &frame) {
-    return SB::shade_dual_output(view, frame);
   }
   static ThroughClearPhase through_clear_phase(uint16_t elapsed,
                                                uint16_t duration) {
@@ -1033,8 +1016,6 @@ inline void test_shaderball_config_admission() {
     HS_EXPECT_TRUE(WB::valid_config(resource_from));
     HS_EXPECT_TRUE(WB::valid_config(resource_to));
     HS_EXPECT_TRUE(WB::transition_admitted(resource_from, resource_to));
-    HS_EXPECT_EQ(WB::transition_mode(resource_from, resource_to),
-                 WB::TransitionMode::THROUGH_CLEAR);
     resource_to.params.source.noise_resource_id ^= 4U;
     HS_EXPECT_TRUE(WB::transition_admitted(resource_from, resource_to));
 
@@ -2236,16 +2217,7 @@ inline void test_shaderball_discrete_transition() {
     sb.init();
     const Vector view(0.2f, 0.9f, -0.3f);
     const WB::FrameState valid = WB::frame(sb);
-    WB::FrameState inactive = valid;
-    inactive.resources.liquid_palette = nullptr;
     const Color4 expected = WB::shade(view, valid);
-    const Color4 at_start =
-        WB::shade_dual_output(view, {valid, inactive, 0.0f});
-    HS_EXPECT_TRUE(at_start.color == expected.color);
-    HS_EXPECT_EQ(at_start.alpha, expected.alpha);
-    const Color4 at_end = WB::shade_dual_output(view, {inactive, valid, 1.0f});
-    HS_EXPECT_TRUE(at_end.color == expected.color);
-    HS_EXPECT_EQ(at_end.alpha, expected.alpha);
     const auto clear_phase = WB::through_clear_phase(30, 60);
     const Color4 clear = WB::shade_through_clear(view, nullptr, clear_phase);
     HS_EXPECT_EQ(clear.alpha, 0.0f);
@@ -2285,9 +2257,6 @@ inline void test_shaderball_discrete_transition() {
     to.params.source.noise_basis = WB::NoiseBasis::FBM3;
     WB::force_transition(sb, to, 60, false);
     HS_EXPECT_TRUE(WB::transition_active(sb));
-    HS_EXPECT_EQ(WB::transition_mode(WB::transition_from_config(sb),
-                                     WB::transition_to_config(sb)),
-                 WB::TransitionMode::THROUGH_CLEAR);
     for (int frame = 0; frame < 30; ++frame) {
       sb.draw_frame();
       sb.advance_display();
@@ -2403,9 +2372,6 @@ inline void test_shaderball_paused_through_clear_holds_endpoint() {
     WB::SB sb;
     sb.init();
     WB::force_transition(sb, WB::legacy_config(), 60, true);
-    HS_EXPECT_EQ(WB::transition_mode(WB::transition_from_config(sb),
-                                     WB::transition_to_config(sb)),
-                 WB::TransitionMode::THROUGH_CLEAR);
     run_frames(sb, 30);
     HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(30));
 
