@@ -731,8 +731,9 @@ protected:
    * float target names no enum type. Use the Enum* overload to export C++
    * enumerators instead.
    */
-  void register_param(const char *name, float *ptr, const char *const *options,
-                      int option_count) {
+  HS_COLD_MEMBER void register_param(const char *name, float *ptr,
+                                     const char *const *options,
+                                     int option_count) {
     HS_CHECK(options != nullptr && option_count > 0,
              "register_param: enum needs at least one option");
     register_param(name, ptr, 0.0f, static_cast<float>(option_count - 1));
@@ -751,8 +752,9 @@ protected:
    */
   template <typename Enum>
     requires std::is_enum_v<Enum>
-  void register_param(const char *name, Enum *ptr, const char *const *options,
-                      const char *const *export_options, int option_count) {
+  HS_COLD_MEMBER void
+  register_param(const char *name, Enum *ptr, const char *const *options,
+                 const char *const *export_options, int option_count) {
     HS_CHECK(options != nullptr && option_count > 0,
              "register_param: enum needs at least one option");
     HS_CHECK(parameters.count < parameters.capacity(),
@@ -847,8 +849,9 @@ protected:
    * @brief Registers a float param and flags it engine-written telemetry in one
    * call.
    */
-  void register_readonly_param(const char *name, float *ptr, float min = 0.0f,
-                               float max = 1.0f) {
+  HS_COLD_MEMBER void register_readonly_param(const char *name, float *ptr,
+                                              float min = 0.0f,
+                                              float max = 1.0f) {
     register_param(name, ptr, min, max);
     parameters.data()[parameters.count - 1].readonly = true;
   }
