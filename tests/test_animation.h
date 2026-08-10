@@ -2056,6 +2056,9 @@ inline void test_segue_visible_gate_culls_only_dark_phases() {
   HS_EXPECT_FALSE(Segue::TerminatorSweep().visible(0.0f));
   HS_EXPECT_FALSE(Segue::Shockwave().visible(0.0f));
   HS_EXPECT_TRUE(Segue::Shockwave().visible(0.5f));
+  // Breakdown holds its whole BLACK_DWELL slice at face phase 0.
+  HS_EXPECT_FALSE(Segue::Breakdown().visible(Segue::Breakdown::BLACK_DWELL));
+  HS_EXPECT_TRUE(Segue::Breakdown().visible(0.5f));
   // ...and never culls the policies that keep shading at phase 0.
   HS_EXPECT_TRUE(Segue::GoldConvergence().visible(0.0f));
   HS_EXPECT_TRUE(Segue::SpinFlip().visible(0.0f));

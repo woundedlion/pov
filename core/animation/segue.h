@@ -451,7 +451,11 @@ struct Breakdown : Base {
         (phase - BLACK_DWELL - offset * (1.0f - BLACK_DWELL - band)) / band,
         0.0f, 1.0f);
   }
-  bool visible(float phase) const { return fades_to_black(phase); }
+  /** @brief Offset 0 is the last class to fade, so its face-local phase bounds
+   * every face's opacity; the BLACK_DWELL slice is culled with it. */
+  bool visible(float phase) const {
+    return fades_to_black(face_phase(phase, 0.0f));
+  }
   float opacity(float phase) const { return phase; }
 };
 
