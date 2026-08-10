@@ -880,9 +880,7 @@ private:
   float phase = 0.0f;
 
   // init() allocates the six MAX_SHAPES-sized contour tables and prepare_count()
-  // bakes both alpha-falloff palette LUTs from the persistent arena. Effect
-  // keeps the default arena split, so the total must fit the device persistent
-  // partition.
+  // bakes both alpha-falloff palette LUTs, from the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       MAX_SHAPES * (4 * sizeof(float) + sizeof(uint16_t) +
                     sizeof(Plot::Star<Plot::PlanarProjection>::RadiusTrig)) +

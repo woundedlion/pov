@@ -135,9 +135,7 @@ private:
   static constexpr int NUM_SAMPLES =
       W / 2; /**< Angular samples drawn per ring. */
   // draw_ring stages one ring's NUM_SAMPLES fragments in scratch_a at a time,
-  // alongside rasterize's own sub-step cache. The effect keeps the default arena
-  // split, so a resolution bump or an added Fragment register should fail to
-  // compile, not overflow.
+  // alongside rasterize's own sub-step cache.
   static_assert(NUM_SAMPLES * sizeof(Fragment) +
                         Plot::rasterize_scratch_a_bytes<W>() <=
                     DEFAULT_SCRATCH_A_SIZE,
@@ -233,10 +231,8 @@ private:
     const float gap = spacing();
     gap_accumulator += move;
 
-    // update_and_draw_rings() advances every ring by one move this same frame,
-    // so spawn one move short to land each ring's first drawn position at
-    // START_RHO + gap_accumulator (the residual in [0, gap)) rather than one
-    // move beyond it.
+    // update_and_draw_rings() advances every ring this same frame, so spawn one
+    // move short to land the first drawn position at START_RHO + the residual.
     while (gap_accumulator >= gap) {
       gap_accumulator -= gap;
       spawn_ring_at_pos(START_RHO + gap_accumulator - move);
@@ -325,14 +321,9 @@ private:
 
         float final_theta = theta + twist_angle;
 
-        // Inverse stereographic projection of the planar point at
-        // (radius R=exp(rho + wobble), angle final_theta) onto the unit sphere,
-        // poles on +/-Z; core's inv_stereo() is +/-Y-poled and is deliberately
-        // not reused. exp(rho + wobble) factors into the per-ring exp(rho) and
-        // the cached, geometry-static exp(wobble) in exp_shift. No pole guard:
-        // the opacity cull above caps |rho| below FADE_START_RHO + FADE_WIDTH,
-        // so R < exp(3.5 + PETAL_DEPTH) ~= 60 and denom = 1 + R^2 ~= 3.6e3,
-        // far from overflow.
+        // Inverse stereographic projection of (radius exp(rho + wobble), angle
+        // final_theta) onto the unit sphere, poles on +/-Z; core's inv_stereo()
+        // is +/-Y-poled. exp_shift caches the geometry-static exp(wobble).
         float R = exp_rho * exp_shift[i];
 
         float r2 = R * R;

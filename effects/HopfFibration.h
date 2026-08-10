@@ -136,9 +136,7 @@ private:
                 "partition; retune RINGS/PER_RING/TRAIL_LEN or carve arenas");
 
   // render_trails stages one fiber's points (up to TRAIL_LEN) in scratch_a at a
-  // time, alongside rasterize's own sub-step cache, so the trail length is
-  // bounded by the default scratch budget, not by FOOTPRINT_BYTES; a retune past
-  // it should fail to compile, not overflow.
+  // time, alongside rasterize's own sub-step cache.
   static_assert(TRAIL_LEN * sizeof(Fragment) +
                         Plot::rasterize_scratch_a_bytes<W>() <=
                     DEFAULT_SCRATCH_A_SIZE,
@@ -151,9 +149,8 @@ private:
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
 
   // Phases accumulate as wrapped fractions of their period ("turns") and scale
-  // back to radians at use, keeping the trig arguments bounded. tumble_angle_x
-  // also feeds the half-angle fold_base term, so it wraps over 4pi to keep both
-  // the full-angle and half-angle terms continuous.
+  // back to radians at use. tumble_angle_x also feeds the half-angle fold_base
+  // term, so it wraps over 4pi to keep both terms continuous.
   static constexpr float FLOW_PERIOD = 2 * PI_F;
   static constexpr float TUMBLE_X_PERIOD = 4 * PI_F;
   static constexpr float TUMBLE_Y_PERIOD = 2 * PI_F;

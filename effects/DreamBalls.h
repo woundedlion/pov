@@ -559,9 +559,7 @@ private:
 
     // Single-slot pool: free here only because the previous warp runs exactly
     // `period` frames and so completes earlier in the same step() that fires the
-    // re-spawn timer below (events step in insertion order). The magnitude binds
-    // to the live params rather than this spawn's frozen slot, so a dropped
-    // spawn leaves the running warp tracking "Warp" instead of going inert.
+    // re-spawn timer below (events step in insertion order).
     if (auto *warp = mobius_gen.spawn(0, params.warp_scale, period, false))
       warp->bind_scale(params.warp_scale);
 

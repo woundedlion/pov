@@ -352,8 +352,6 @@ private:
 
   // Highest harmonic degree the morph visits. Modes are flat-indexed
   // idx = l*l + l + m, so degrees [0, MAX_DEGREE] occupy idx [0, MAX_MODE_IDX].
-  // The seed and the roll bound below derive from MAX_DEGREE so they cannot
-  // drift from it (widen MAX_DEGREE alone to extend the visual range).
   static constexpr int MAX_DEGREE = 4;
   // normalization() divides factorials of up to 2*MAX_DEGREE; float holds exact
   // integers only up to 2^24, first exceeded at 11!.

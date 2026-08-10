@@ -59,8 +59,7 @@ public:
     // Asymmetric scratch split (190 KB total): the leg-by-leg build chain
     // peaks at ~114 KB in a and ~69 KB in b, and compact_keep_front evacuates
     // the front slot (up to 63.7 KB) through b. The remainder is persistent:
-    // carousel slots + BakedPaletteBank (~18 KB). Budgets enforced by the
-    // test_conway_morph.h build replay and test_solids.h's high-water sweeps.
+    // carousel slots + BakedPaletteBank (~18 KB).
     configure_arenas(GLOBAL_ARENA_SIZE - SPLIT_SCRATCH_A_DEFAULT -
                          SPLIT_SCRATCH_B_DEFAULT,
                      SPLIT_SCRATCH_A_DEFAULT, SPLIT_SCRATCH_B_DEFAULT);
@@ -369,14 +368,10 @@ private:
     const uint16_t *face_classes = transformed_state.get_topology_data();
 
     // Per-face segues order faces by their center, recomputed per frame: from
-    // world space by default (the front stays fixed in the room while the
-    // mesh rotates through it), or from the untransformed mesh for segues
-    // declaring LOCAL_SWEEP (the front rides the mesh). The third argument is
-    // the face's palette-slot class, mapped exactly as the fragment shader
-    // maps it; class-agnostic sweeps ignore it.
-    // phase is fixed for the whole draw call, so the segue's per-face phase
-    // resolves here rather than per fragment; so does the face's palette, whose
-    // slot is the same class that face_offset already needs.
+    // world space by default, or from the untransformed mesh for segues
+    // declaring LOCAL_SWEEP. The third argument is the face's palette-slot
+    // class, mapped exactly as the fragment shader maps it; class-agnostic
+    // sweeps ignore it.
     ArenaVector<float> face_phases;
     ArenaVector<const BakedPalette *> face_palettes;
     {
@@ -456,9 +451,8 @@ private:
       HS_PROFILE(is_build_scan);
       // Rasterize from scratch_b: the swept+compiled mesh fills scratch_a to
       // ~120.9 KB during a build leg, leaving no room for the scan's per-face
-      // SDF::FaceScratchBuffer, while scratch_b is near-empty here (the Conway
-      // op and compile temps have unwound). The sprite path scans from
-      // scratch_a, where its transformed copy already lives.
+      // SDF::FaceScratchBuffer. The sprite path scans from scratch_a, where its
+      // transformed copy already lives.
       Scan::Mesh::draw_specialized<W, H>(filters, canvas, mesh, fragment_shader,
                                          scratch_arena_b, nullptr, select_face);
     }
@@ -597,26 +591,19 @@ private:
     };
 
     // Compact the back slot, rebaking palettes into the fresh arena rather than
-    // tracking them through the evacuation.
-    //
-    // A build regenerates both slots before either is drawn again — the seed
-    // below, the finished solid at finish_build — so the outgoing shape is
-    // dropped rather than evacuated. Keeping it costs the whole build the
-    // previous shape's mesh, which at the roster's 1082-face entry is most of
-    // the persistent arena.
+    // tracking them through the evacuation. A build regenerates both slots
+    // before either is drawn again, so the outgoing shape is dropped.
     auto rebake = [this](Arena &arena) { reclaim_persistent(arena); };
     if (recipe)
       carousel.compact_drop_all(rebake);
     else
       carousel.compact_keep_front(rebake);
 
-    // Per-shape arena re-split. Safe here: the compact above left persistent at
-    // its ~baseline (carousel slots + palette bank, low addresses) and both
-    // scratch arenas idle, so resplit_arenas moves only the boundaries -- the
-    // long-lived content survives (it never resets the persistent offset). A
-    // smooth kis/needle bridge shape gets the scratch_a-heavy split; other
-    // recipes trade unused scratch_b for persistent; whole-generated shapes
-    // keep the full generation scratch_b. Persistent takes the remainder.
+    // Per-shape arena re-split, valid only with persistent at its ~baseline and
+    // both scratch arenas idle, as the compact above leaves them. A smooth
+    // kis/needle bridge shape gets the scratch_a-heavy split; other recipes
+    // trade unused scratch_b for persistent; whole-generated shapes keep the
+    // full generation scratch_b. Persistent takes the remainder.
     const bool bridge_split = recipe && build_uses_smooth_bridge();
     const size_t split_a =
         bridge_split ? SPLIT_SCRATCH_A_BRIDGE : SPLIT_SCRATCH_A_DEFAULT;
@@ -676,11 +663,8 @@ private:
 
     // Per-shape choreography: segue in, hold still one second, ripple, settle
     // one second, segue out. Duration is derived from the stage lengths so the
-    // stages never overlap; the segue warps are identity on the phase-1
-    // plateau, so the mesh only moves during its own stage.
-    // Trans Speed divides every stage length so the carousel can be sped up
-    // (e.g. for profiling) without touching the shape geometry. Each stage keeps
-    // a >=1-frame floor. The effective ripple duration/stagger are cached for the
+    // stages never overlap. Trans Speed divides every stage length, each with a
+    // >=1-frame floor. The effective ripple duration/stagger are cached for the
     // deferred ripple() callback, which fires before the next shape spawns.
     const float sp = std::max(1.0f, params.trans_speed);
     int fade = std::max(1, static_cast<int>(SPRITE_FADE_FRAMES / sp));
@@ -785,8 +769,6 @@ private:
     // a trailing dual,kis is the dt macro (spanning both steps), a standalone
     // kis is the dtd macro; each ends on a reconcile leg onto the exact authored
     // mesh. The recipe/expand_to_primitives still lower needle to {DUAL,KIS}.
-    // Every dt/dtd chain takes the smooth path -- spawn_shape sizes the arena
-    // split so even the needle's tripled bridge fits (see build_uses_smooth_bridge).
     if (dt_pair_at(k)) {
       schedule_dt_macro();
       return;
@@ -807,13 +789,10 @@ private:
 
     // Eager clean endpoint seed_{k+1}: the mesh the leg lands on and the next
     // leg sweeps from. Runs first — generate() resets the scratch arenas the
-    // handoff arrays below live in. A hankin leg builds none: its arrival is
-    // the mesh its baked topology already carries, and its bookend grouping is
-    // that arrival's own classification, which the leg computes itself.
-    //
-    // Colours re-key per leg: the arrival's own classification maps to a
-    // freshly shuffled palette set, and every face crossfades from the palette
-    // the previous leg landed on to its new class target over the leg.
+    // handoff arrays below live in. A hankin leg builds none; its arrival is
+    // the mesh its baked topology already carries. Colours re-key per leg: the
+    // arrival's classification maps to a freshly shuffled palette set, and
+    // every face crossfades from the previous leg's landing over the leg.
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
@@ -942,10 +921,8 @@ private:
     if (!build_from_pal) {
       // The build's first leg departs the carousel seed slot: its per-face
       // spawn colours are the chain's FROM state. Keyed on build_from_pal
-      // (reset to null per build) rather than build_step == 0, so a smooth
-      // kis/needle macro whose later sub-legs still sit on step 0
-      // (icosahedron_kis_gyro's leading kis) departs from the carried palette,
-      // not the seed slot's.
+      // (reset to null per build) rather than build_step == 0, which a smooth
+      // kis/needle macro's later sub-legs can still sit on.
       HS_CHECK(prev_faces <= carousel.current().topology.size());
       prev_pal = slot_face_palette[carousel.front_index()];
     } else {
@@ -1056,9 +1033,7 @@ private:
     build_landing = nullptr;
 
     // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
-    // is dead once the handoff centroids above are snapshotted, so drop it here
-    // rather than carrying a full ambo copy through the medial leg's whole
-    // render life.
+    // is dead once the handoff centroids above are snapshotted.
     dual_bridge_ambo_faces = dual_bridge_ambo.face_counts.size();
     dual_bridge_ambo = PolyMesh();
 
@@ -1369,12 +1344,10 @@ private:
    */
   HS_COLD_MEMBER void finish_build_leg() {
     // Reclaim the finished leg. Only the endpoint the next leg sweeps from
-    // crosses the reset, so a build holds one leg's storage rather than the
-    // whole chain's. A hankin leg's endpoint is rebuilt here from the topology
-    // it swept, into the scratch the evacuation below reads; the other kinds
-    // carry the endpoint start_build_leg built eagerly. The palette the leg
-    // landed on is snapshotted too: the next leg departs from it and the
-    // landing does not survive.
+    // crosses the reset. A hankin leg's endpoint is rebuilt here from the
+    // topology it swept, into the scratch the evacuation below reads; the other
+    // kinds carry the endpoint start_build_leg built eagerly. The palette the
+    // leg landed on is snapshotted too, since the landing does not survive.
     ScratchScope a_guard(scratch_arena_a);
     if (build_step_chain[build_step].op == Solids::Op::HANKIN) {
       build_next_seed = PolyMesh();
@@ -1436,10 +1409,9 @@ private:
       ScratchScope a_guard(scratch_arena_a);
       slot.clear();
       // The seed the closing compile reads is evacuated to scratch and never
-      // restored: the compiled slot is the only form the effect renders, so
-      // letting the PolyMesh cross the compaction would carry a second copy of
-      // the built solid for the rest of the shape's life. It is dropped again
-      // before the classification, which needs scratch_arena_b in full.
+      // restored; the compiled slot is the only form the effect renders. It is
+      // dropped again before the classification, which needs scratch_arena_b in
+      // full.
       {
         ScratchScope seed_guard(scratch_arena_b);
         PolyMesh built;

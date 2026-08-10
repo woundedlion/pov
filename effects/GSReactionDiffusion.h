@@ -108,10 +108,9 @@ public:
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
-    // The six-step temporal block scales the Euler timestep by 5/3. At the
-    // joint Speed/diffusion maximum this exceeds the linear diffusion bound;
-    // step_physics' per-substep [0,1] clamp bounds that parameter corner, which
-    // the long worst-case stability test exercises directly.
+    // The six-step temporal block scales the Euler timestep by 5/3, which at
+    // the joint Speed/diffusion maximum exceeds the linear diffusion bound;
+    // step_physics' per-substep [0,1] clamp bounds that corner.
     register_param("dA", &params.d_a, 0.0f, 0.05f);
     register_param("dB", &params.d_b, 0.0f, 0.05f);
     register_param("Speed", &params.dt, 0.1f, 3.0f);
@@ -166,14 +165,8 @@ private:
    * it by params.dt / DEFAULT_DT and by EVOLUTION_STEPS_PER_FRAME /
    * BASELINE_STEPS_PER_FRAME, so neither the 30x Speed range nor the frame's
    * physics budget moves the stabilization point.
-   * @details Deliberately loose. A converged field floors at 1.1e-6..4.0e-6 of
-   * Q16 chatter, so a floor-hugging threshold is what the reaction has truly
-   * stopped at — but measured, that costs 328 frames (20 s at 16 fps) before the
-   * default reaction turns over, and tightening the frame gates does not help:
-   * the detector binds, not MIN_GROW_FRAMES. This fires at ~222 baseline
-   * frames instead, while the form is still refining slightly, trading the last
-   * of the settling for a watchable cadence. A reaction that dies out floors
-   * far below this and reseeds.
+   * @details Loose relative to the 1.1e-6..4.0e-6 Q16 chatter a converged field
+   * floors at; fires at ~222 baseline frames.
    */
   static constexpr float MEAN_DB_STABLE = 2.0e-4f;
   /** @brief Speed the stabilization floor is calibrated at. */
