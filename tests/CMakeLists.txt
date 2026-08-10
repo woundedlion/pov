@@ -72,8 +72,17 @@ add_executable(run_tests
 # core/engine/platform.h (HS_SCAN_METRIC) and core/render/sdf.h Face::distance.
 target_compile_definitions(run_tests PRIVATE HS_TEST_BUILD HS_SCAN_METRICS)
 
-# Headers are included as "tests/..." and "core/..." from the repo root.
-target_include_directories(run_tests PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+# Census of the engine's HS_CHECK sites, so the death harness can print how
+# much of the fail-fast surface its cases actually pin. Generated, never
+# committed: a written-down guard list drifts away from the guards.
+include(${CMAKE_CURRENT_SOURCE_DIR}/count_guard_sites.cmake)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/death_guard_sites.h.in
+               ${CMAKE_CURRENT_BINARY_DIR}/death_guard_sites.h @ONLY)
+
+# Headers are included as "tests/..." and "core/..." from the repo root; the
+# binary dir carries the generated guard census.
+target_include_directories(run_tests PRIVATE ${HS_ROOT} ${HS_ROOT}/core
+                           ${CMAKE_CURRENT_BINARY_DIR})
 
 _hs_warnings(run_tests)
 
