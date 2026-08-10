@@ -729,7 +729,7 @@ inline void test_scan_region_clip_arc_matches_predicate() {
   constexpr int W = 96, H = 20;
   const int y = 10;
 
-  auto run = [&](ClipRegion::XClip xc, bool handled, int(&counts)[W]) {
+  auto run = [&](ClipRegion::XClip xc, bool handled, int (&counts)[W]) {
     for (int i = 0; i < W; ++i)
       counts[i] = 0;
     Scan::scan_region<W, H>(

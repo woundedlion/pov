@@ -807,7 +807,7 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
   const float ray = p.x * normal.x + p.y * normal.y + p.z * normal.z;
   const float scale = plane / ray;
   const AiroceanVector q{p.x * scale, p.y * scale, p.z * scale};
-  const float(&transform)[2][4] = AIROCEAN_TRANSFORMS[face];
+  const float (&transform)[2][4] = AIROCEAN_TRANSFORMS[face];
   AiroceanPoint output{transform[0][0] * q.x + transform[0][1] * q.y +
                            transform[0][2] * q.z + transform[0][3],
                        transform[1][0] * q.x + transform[1][1] * q.y +

@@ -74,10 +74,10 @@ CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 # directions — its verdict cannot be trusted either way. A missing or
 # wrong-major binary therefore fails too, rather than waving the commit through
 # on no evidence. Install the pinned version (pip install
-# clang-format==18.1.8) or point CLANG_FORMAT at a clang-format-$HS_CLANG_FORMAT_MAJOR
+# clang-format==22.1.8) or point CLANG_FORMAT at a clang-format-$HS_CLANG_FORMAT_MAJOR
 # binary (the ci.yml jobs pass it the same way). An unparseable --version is
 # assumed to be a wrapper for the pinned binary and is trusted.
-HS_CLANG_FORMAT_MAJOR=18
+HS_CLANG_FORMAT_MAJOR=22
 if [ -z "$HS_SKIP_FORMAT" ]; then
   FORMAT="$(printf '%s\n' "$CHANGED" \
     | grep -E '\.(h|hpp|cpp|cc|inl)$' \
@@ -90,7 +90,7 @@ if [ -z "$HS_SKIP_FORMAT" ]; then
       if [ -n "$cf_version" ] && [ "$cf_version" != "$HS_CLANG_FORMAT_MAJOR" ]; then
         echo "[pre-commit] clang-format $cf_version differs from CI's clang-format-$HS_CLANG_FORMAT_MAJOR."
         echo "[pre-commit] Majors reflow differently, so this binary cannot judge the gate."
-        echo "[pre-commit] (pip install clang-format==18.1.8, or point CLANG_FORMAT at a"
+        echo "[pre-commit] (pip install clang-format==22.1.8, or point CLANG_FORMAT at a"
         echo "[pre-commit]  clang-format-$HS_CLANG_FORMAT_MAJOR binary; bypass once with HS_SKIP_FORMAT=1)"
         exit 1
       fi
@@ -112,7 +112,7 @@ EOF
       echo "[pre-commit] clang-format clean."
     else
       echo "[pre-commit] $CF not found, so the format gate cannot run."
-      echo "[pre-commit] (pip install clang-format==18.1.8, or set CLANG_FORMAT;"
+      echo "[pre-commit] (pip install clang-format==22.1.8, or set CLANG_FORMAT;"
       echo "[pre-commit]  bypass once with HS_SKIP_FORMAT=1)"
       exit 1
     fi

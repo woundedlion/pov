@@ -329,13 +329,13 @@ private:
       // always_inline on the accumulator: without it GCC spends +32 B of ITCM
       // on this stencil walk.
       for (int j = 0; j < RD_K + 1; ++j)
-        with_wendland_weight(
-            dist2(v, spos[j]), [&](float w) __attribute__((always_inline)) {
-              wa += sa[j] * w;
-              wb += sb[j] * w;
-              wc += sc[j] * w;
-              tw += w;
-            });
+        with_wendland_weight(dist2(v, spos[j]),
+                             [&](float w) __attribute__((always_inline)) {
+                               wa += sa[j] * w;
+                               wb += sb[j] * w;
+                               wc += sc[j] * w;
+                               tw += w;
+                             });
       float species_sum = wa + wb + wc;
       if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT ||
           species_sum < SPECIES_EMPTY_EPS * Q16_SCALE * tw)

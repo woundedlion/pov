@@ -431,11 +431,11 @@ private:
       Vector v = grid.at(x, i);
       float tw = 0.0f, wb = 0.0f;
       for (int j = 0; j < RD_K + 1; ++j)
-        with_wendland_weight(
-            dist2(v, spos[j]), [&](float w) __attribute__((always_inline)) {
-              wb += sb[j] * w;
-              tw += w;
-            });
+        with_wendland_weight(dist2(v, spos[j]),
+                             [&](float w) __attribute__((always_inline)) {
+                               wb += sb[j] * w;
+                               tw += w;
+                             });
       if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
         continue;
       float b = wb * (Q16_INV / tw);

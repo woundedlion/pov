@@ -75,7 +75,7 @@
 #include <csignal>    // SIGILL — the expected trap signal
 #include <fcntl.h>    // open / O_WRONLY for the /dev/null redirect
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
-#include <unistd.h> // fork / execv / dup2 / close / _exit — shell-free spawn
+#include <unistd.h>   // fork / execv / dup2 / close / _exit — shell-free spawn
 #else
 #include <fcntl.h>   // _O_WRONLY / _O_CREAT / _O_TRUNC for the capture redirect
 #include <io.h>      // _dup / _dup2 / _sopen_s / _close
@@ -94,8 +94,8 @@
  *          children we intentionally crash. kernel32 is linked by default for a
  *          Windows-Clang console build.
  */
-extern "C" __declspec(dllimport) unsigned int __stdcall SetErrorMode(
-    unsigned int uMode);
+extern "C" __declspec(dllimport) unsigned int __stdcall
+SetErrorMode(unsigned int uMode);
 #endif
 
 namespace hs_test {
