@@ -277,7 +277,10 @@ public:
 
   float friction = 0.85f;  /**< Per-frame velocity damping factor. */
   float gravity = 0.001f;  /**< Base gravitational constant for attractors. */
-  uint16_t max_life = 600; /**< Default particle lifetime in frames. */
+  uint16_t max_life = 600; /**< Default particle lifetime in frames. Writable
+                                after init(); particles already alive keep the
+                                life they spawned with, so a lowered value only
+                                shortens subsequent spawns. */
 
   using Attractor = Animation::Attractor; /**< Point attractor. */
 
@@ -638,7 +641,9 @@ private:
     }
 
     if (active) {
-      const uint16_t age = max_life - p.life;
+      // Lowering max_life below a live particle's remaining life would underflow
+      // this uint16_t subtraction.
+      const uint16_t age = p.life < max_life ? max_life - p.life : 0;
       if constexpr (TRAIL_SAMPLE_STRIDE_ == 1) {
         p.history.record(p.position);
       } else if ((age - 1) % TRAIL_SAMPLE_STRIDE_ == 0) {
