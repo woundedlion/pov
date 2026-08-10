@@ -1001,7 +1001,15 @@ jobs:
           fi
           python -m unittest discover -s tools/docs_check_tests
           python -m unittest discover -s tools/docs_images_tests
-          python tools/docs_check.py --checkout daydream=daydream-checkout
+          # The `tree daydream` fence is drawn from the sibling's default branch
+          # HEAD, deliberately: a pinned ref would let the fence go stale instead
+          # of red. The cost is that a commit over there fails this job with no
+          # commit here implicated, so name the revision that was checked out.
+          daydream_head="$(git -C daydream-checkout rev-parse HEAD)"
+          if ! python tools/docs_check.py --checkout daydream=daydream-checkout; then
+            echo "::error::docs_check failed. Rows under the \`tree daydream\` fence are drawn from woundedlion/daydream@$daydream_head (default branch HEAD), which moves independently of this repository — if the failing rows are that fence's, refresh it against that revision."
+            exit 1
+          fi
           python tools/build_pins.py --check
 
       # An ignore rule is inert against an already-tracked path, so .gitignore
