@@ -15,13 +15,6 @@
 #include <new> // std::launder
 #include "core/engine/engine.h"
 
-// Unit-test accessor for the live ring-count pool-bound invariant.
-namespace hs_test {
-namespace effects_tests {
-struct RingSpinWhiteBox;
-} // namespace effects_tests
-} // namespace hs_test
-
 /**
  * @brief Spinning great-circle rings that wander the sphere.
  * @tparam W Canvas width in pixels.
@@ -68,8 +61,8 @@ public:
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
    * @details Allocates the ring storage from the persistent arena, registers the
-   * tunable parameters, bakes the vignette palettes into fast LUTs, and spawns
-   * the initial set of rings.
+   * tunable parameters, bakes the vignette palettes into fast LUTs, and starts
+   * each ring's energetic random-walk.
    */
   void init() override {
     rings = persistent_arena.allocate_n<Ring>(NUM_RINGS);
@@ -95,8 +88,10 @@ public:
     }
 
     for (int i = 0; i < NUM_RINGS; ++i) {
-      int p_idx = i % NUM_PALETTES;
-      spawn_ring(&baked_palettes[p_idx]);
+      Ring &r = *new (&rings[i]) Ring(&baked_palettes[i % NUM_PALETTES]);
+      timeline.add(0, Animation::RandomWalk<W>(
+                          r.orientation, r.normal, r.noise,
+                          Animation::RandomWalk<W>::Options::Energetic()));
     }
   }
 
@@ -113,7 +108,7 @@ public:
     }
 
     HS_PROFILE(rs_draw_rings);
-    for (int i = 0; i < num_rings; ++i) {
+    for (int i = 0; i < NUM_RINGS; ++i) {
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
       // One fused scan per trail frame (see RingGroup for the blend-order and
@@ -160,31 +155,9 @@ public:
   }
 
 private:
-  // Test seam: reaches the live ring-count pool-bound invariant.
-  friend struct ::hs_test::effects_tests::RingSpinWhiteBox;
-
-  /**
-   * @brief Constructs one more ring and starts its energetic random-walk.
-   * @param palette Baked palette used to color the new ring's trail.
-   * @details Adds the ring to the timeline with an energetic random-walk
-   * orientation; no-op once NUM_RINGS rings are live. `num_rings` tracks the live
-   * count and the `>= NUM_RINGS` guard bounds it against the `rings` pool.
-   */
-  HS_COLD_MEMBER void spawn_ring(BakedPalette *palette) {
-    if (num_rings >= NUM_RINGS)
-      return;
-    Ring &r = rings[num_rings];
-    new (&r) Ring(palette);
-    num_rings++;
-    timeline.add(0, Animation::RandomWalk<W>(
-                        r.orientation, r.normal, r.noise,
-                        Animation::RandomWalk<W>::Options::Energetic()));
-  }
-
   Timeline timeline;
   Pipeline<W, H> filters;
   Ring *rings = nullptr;
-  int num_rings = 0;
 
   std::array<BakedPalette, NUM_PALETTES> baked_palettes;
 
