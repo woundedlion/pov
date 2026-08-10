@@ -157,14 +157,14 @@ inline void test_blinn_phong_half() {
   const Vector up(0, 0, 1);
   const Vector zero(0, 0, 0);
 
-  // No tilt and light == view leaves the half vector on the shared axis.
-  Vector h = blinn_phong_half(up, up, zero);
+  // No tilt leaves the half vector on the view axis.
+  Vector h = blinn_phong_half(up, zero);
   HS_EXPECT_NEAR(h.x, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(h.y, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(h.z, 1.0f, 1e-6f);
 
   // Tilted: light = normalize((0.3, 0, 1)), half = normalize(light + view).
-  h = blinn_phong_half(up, up, Vector(1, 0, 0));
+  h = blinn_phong_half(up, Vector(1, 0, 0));
   HS_EXPECT_NEAR(h.x, 0.14521314f, 1e-6f);
   HS_EXPECT_NEAR(h.y, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(h.z, 0.98940040f, 1e-6f);
