@@ -875,7 +875,9 @@ public:
  * WITHOUT bumping the arena generation). A MOVE of the source vector is not
  * tracked: the span keeps its snapshotted elements (runtime-safe) but its debug
  * stamps reference the moved-from husk, so re-take the span after growing or
- * moving its source.
+ * moving its source. Outliving the source VECTOR OBJECT (not its arena block —
+ * a stack-local vector going out of scope) is worse than untracked: in debug the
+ * staleness check reads source_vec, so the span must not outlive it.
  */
 template <typename T> class ArenaSpan {
   const T *elements;    /**< Snapshotted pointer to the borrowed data. */
