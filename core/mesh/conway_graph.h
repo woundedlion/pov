@@ -107,12 +107,14 @@ enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB, CHAMFER };
 
 /**
  * @brief Reseed primitive tabled on an edge (spec section 2.1).
- * @details ADOPT on a bridge row replaces the family seed with the arrived
- * solid at forward completion; ADOPT on an ambo-chain row (seed_solid is
- * cuboctahedron/icosidodecahedron) means the leg seed is derived as
- * ambo(held platonic seed) at construction (see SeedFix::DERIVE_AMBO). The
- * ambo-crossover dual swap is not tabled: seed_fix_at_start decides it at leg
- * start against the held seed identity.
+ * @details ADOPT replaces the held family seed with the arrived solid at leg
+ * completion. The consumer gates it on a Platonic arrival, so it fires only at
+ * the bridge rows' octahedron and icosahedron ends; the two ambo-chain rows
+ * (seed_solid cuboctahedron/icosidodecahedron) reach no Platonic endpoint in
+ * either direction, and the ambo derivation their leg seed needs comes from
+ * seed_fix_at_start keying SeedFix::DERIVE_AMBO off seed_solid, not off this
+ * field. The ambo-crossover dual swap is likewise untabled: seed_fix_at_start
+ * decides it at leg start against the held seed identity.
  */
 enum class Reseed : uint8_t { NONE, ADOPT };
 
