@@ -90,28 +90,9 @@ directly. Size deltas are O3 minus shipping.
 ## Captures of retired effects
 
 `shipping/` also holds the last captures of **Flyby** and **Liquid2D**, the two
-stereographic effects ShaderBall subsumes (`../shaderball_spec.md`). Neither is
+stereographic effects ShaderBall subsumes (`../specs/shaderball_spec.md`). Neither is
 in the roster, so `just profile` cannot regenerate them; they are kept because
 ShaderBall's performance budget is sized against their per-pixel costs.
-
-## Optimization records
-
-Per-effect engineering records built on these captures: what was measured, what
-landed, and — the part worth reading first — which levers are measured dead.
-
-| Record | Status | Holds |
-|---|---|---|
-| [DreamBalls perf analysis](../dreamballs_perf_analysis.md) | complete | Device phase split and M7 codegen audit; two levers landed, five killed or blocked. |
-| [GSReactionDiffusion optimization](../gsreactiondiffusion_optimization.md) | complete | The plan that took the shipping pass to a sustained 16 fps, baseline through final code. |
-| [IslamicStars sub-60 ms brief](../islamicstars_sub60_optimization_brief.md) | resolved | The pre-landing investigation the opchain morph line came out of. |
-| [IslamicStars remaining levers](../islamicstars_next_levers.md) | open | Levers sized against the one solid that misses the display window; §8 is the dead list. |
-| [IslamicStars probe path](../probe_path_open_items.md) | open | Two open items on the per-face SDF probe path. |
-| [MeshFeedback "Smoke"](../meshfeedback_smoke_optimization.md) | resolved | Cost breakdown behind the −29 % pass-peak result on the worst style. |
-| [MindSplatter optimization](../mindsplatter_optimization.md) | partially landed | Sub-59 ms plan; the unlanded phases need revalidation against the current profile. |
-| [MindSplatter deep plan](../mindsplatter_deep_optimization_plan.md) | closed | Two phases landed; the workload the rest was sized against no longer ships. |
-| [MindSplatter particle scaling](../mindsplatter_particle_scaling_analysis.md) | analysis | Why 2,048 full particles fail on both the arena and the CPU. |
-| [ShapeShifter analysis](shapeshifter_optimization_analysis_2026-07-29.md) | analysis | Lever-by-lever sizing of the reduction the pre-lever baseline needed. |
-| [Hot-path LUT compression](../lut_compression_next.md) | open | The screen for the next LUT worth compressing; a measured negative is the expected outcome. |
 
 ## What the roster looks like
 

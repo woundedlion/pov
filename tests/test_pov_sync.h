@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Host unit tests for the Phantasm synchronization core (hardware/pov_sync.h)
- * — the spec §12 test plan (docs/phantasm_frame_sync_spec.md).
+ * — the spec §12 test plan (docs/specs/phantasm_frame_sync_spec.md).
  *
  * Pure pieces are tested directly: symbol classification, the try_flip state
  * machine, the edge mailbox + glitch filter, the beacon codec, the flywheel's

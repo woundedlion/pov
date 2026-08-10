@@ -1,7 +1,7 @@
 # PHANTASM Segment Board — KiCad project
 
 KiCad 10 schematic for the per-segment carrier board specified in
-[../../docs/phantasm_pcb_spec.md](../../docs/phantasm_pcb_spec.md). One identical
+[../../docs/specs/phantasm_pcb_spec.md](../../docs/specs/phantasm_pcb_spec.md). One identical
 PCB is built ×4 for the qualified configuration; a solder strap selects each
 board's role (segment 0 = master/conductor, 1–3 = flywheel slaves). The default
 firmware is **N = 4** (ID0/ID1 via `JP_ID0` / `JP_ID1`). The compile-tested

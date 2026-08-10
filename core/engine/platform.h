@@ -734,7 +734,7 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
 //
 // Invoking an unbound Fn diverges: hs::inplace_function traps via check_fail,
 // while the vendored teensy:: one returns a zero-initialized R. Row 9 of
-// docs/device_host_divergence_ledger.md.
+// docs/ledgers/device_host_divergence_ledger.md.
 // ---------------------------------------------------------------------------
 #ifdef ARDUINO
 #include <inplace_function.h>

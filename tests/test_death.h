@@ -1922,7 +1922,7 @@ inline void case_dma_controller_wedged_overrun() {
  *          value semantics (copy/move/empty operator bool) are covered in-process
  *          by tests/test_concepts.h. Host/WASM only: the device Fn backend
  *          returns a zero-initialized R instead of trapping (row 9 of
- *          docs/device_host_divergence_ledger.md).
+ *          docs/ledgers/device_host_divergence_ledger.md).
  */
 inline void case_empty_fn_call() {
   Fn<int(int), 16> f;
