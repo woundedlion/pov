@@ -1527,21 +1527,21 @@ inline void case_particle_render_zero_lifetime() {
 
 /**
  * @brief Death case: a second simultaneously-live correction guard must trap.
- * @details LED surface — NoColorCorrection and NoTempCorrection share one depth
- *          counter and set the global FastLED correction/temperature, so a second
+ * @details LED surface — NoColorCorrection and NoTempCorrection share one
+ *          liveness flag and set the global FastLED correction/temperature, so a second
  *          live guard of either type would leave the wrong baseline on the earlier
  *          guard's exit; the construction guard traps instead.
  */
 inline void case_correction_guard_double_construct() {
   NoColorCorrection a;
-  NoColorCorrection b; // second live guard -> HS_CHECK(depth == 0) -> trap
-  if (correction_guard_depth() == opaque(42))
+  NoColorCorrection b; // second live guard -> liveness HS_CHECK -> trap
+  if (correction_guard_live() == opaque(true))
     std::printf("x");
 }
 
 /**
  * @brief Death case: a live NoColorCorrection plus a NoTempCorrection must trap.
- * @details LED surface — the two guard types share the one depth counter, so a
+ * @details LED surface — the two guard types share the one liveness flag, so a
  *          second live guard of the OTHER type is as unsafe as a same-type
  *          double-construct; this is the case the shared "either type" contract
  *          exists to guarantee. The construction guard traps on either.
@@ -1549,7 +1549,7 @@ inline void case_correction_guard_double_construct() {
 inline void case_correction_guard_cross_type() {
   NoColorCorrection a;
   NoTempCorrection b; // second live guard of a different type -> trap
-  if (correction_guard_depth() == opaque(42))
+  if (correction_guard_live() == opaque(true))
     std::printf("x");
 }
 
@@ -2546,10 +2546,10 @@ inline const Case *all_cases(int &n) {
        "65535]"},
       {"correction_guard_double_construct",
        case_correction_guard_double_construct, "led.h",
-       "(correction_guard_depth() == 0) at most one correction guard may be "
+       "(!correction_guard_live()) at most one correction guard may be "
        "live at a time (see contract above)"},
       {"correction_guard_cross_type", case_correction_guard_cross_type, "led.h",
-       "(correction_guard_depth() == 0) at most one correction guard may be "
+       "(!correction_guard_live()) at most one correction guard may be "
        "live at a time (see contract above)"},
       {"mesh_narrow_index", case_mesh_narrow_index, "mesh.h",
        "(i <= static_cast<size_t>(INT16_MAX)) mesh index exceeds int16_t "
