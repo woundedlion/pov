@@ -78,6 +78,18 @@ _SELF_REPO_HOSTS = frozenset({"github.com", "www.github.com"})
 _SELF_REPO_PATH_RE = re.compile(
     r"^/woundedlion/pov/(?:blob|tree|raw)/[^/]+/(.+)$")
 
+# The `effects/` row summarizes its subtree instead of drawing it, so no tree
+# gate sees the counts it states. Both are derivable: headers from the tracked
+# tree, effects from the roster macro's cardinality.
+_EFFECTS_TREE_ROW = "README.md"
+_EFFECTS_ROW_RE = re.compile(
+    r"\beffects/\s+(?P<headers>\d+) headers: one per effect "
+    r"\((?P<effects>\d+)\)")
+_EFFECTS_DIR = PurePosixPath("effects")
+_EFFECT_ROSTER_SOURCE = PurePosixPath("core/engine/effects.h")
+_EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
+_EFFECT_ROSTER_ENTRY_RE = re.compile(r"^\s*X\((\w+)\)")
+
 _UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",
     ".github/workflows/js-tests.yml",
@@ -594,6 +606,63 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
     return issues
 
 
+def effect_roster(source: str) -> set[str]:
+    """Names HS_EFFECT_LIST expands over, given the roster header's text."""
+    names: set[str] = set()
+    inside = False
+    for line in source.splitlines():
+        if not inside:
+            inside = line.startswith(_EFFECT_ROSTER_DEFINE)
+            continue
+        match = _EFFECT_ROSTER_ENTRY_RE.match(line)
+        if match:
+            names.add(match.group(1))
+        if not line.rstrip().endswith("\\"):
+            break
+    return names
+
+
+def effects_row_issues(text: str, entries: set[PurePosixPath],
+                       roster: set[str] | None) -> list[Issue]:
+    """Checks the summary row's header and effect counts against the tree.
+
+    A count nobody derives drifts silently: the row elides its own subtree, so
+    the exhaustive-tree gate never reaches it.
+    """
+    headers = sum(1 for entry in entries
+                  if entry.parent == _EFFECTS_DIR and entry.suffix == ".h")
+    issues = []
+    matched = False
+    for number, line in enumerate(text.splitlines(), 1):
+        match = _EFFECTS_ROW_RE.search(line)
+        if not match:
+            continue
+        matched = True
+        drawn_headers = int(match.group("headers"))
+        if drawn_headers != headers:
+            issues.append(Issue(
+                _EFFECTS_TREE_ROW, number,
+                f"effects/ row claims {drawn_headers} headers, "
+                f"the tracked tree has {headers}"))
+        drawn_effects = int(match.group("effects"))
+        if roster is None:
+            issues.append(Issue(
+                _EFFECTS_TREE_ROW, number,
+                f"effects/ row claims {drawn_effects} effects, but "
+                f"{_EFFECT_ROSTER_SOURCE} defines no HS_EFFECT_LIST to "
+                f"check it against"))
+        elif drawn_effects != len(roster):
+            issues.append(Issue(
+                _EFFECTS_TREE_ROW, number,
+                f"effects/ row claims {drawn_effects} effects, "
+                f"HS_EFFECT_LIST names {len(roster)}"))
+    if not matched:
+        issues.append(Issue(
+            _EFFECTS_TREE_ROW, 1,
+            "no effects/ summary row, so its counts go unchecked"))
+    return issues
+
+
 def check_text(source: PurePosixPath, text: str,
                entries: set[PurePosixPath],
                anchors: dict[PurePosixPath, set[str]] | None = None,
@@ -681,6 +750,17 @@ def check_repository(
     for relative, text in sources.items():
         issues.extend(check_text(relative, text, entries, anchors, used,
                                  checkouts, skipped))
+    # Only this repository draws the row; a checkout without the roster header
+    # is not the tree the claim is about.
+    if _EFFECT_ROSTER_SOURCE in entries:
+        try:
+            roster = effect_roster(root.joinpath(
+                *_EFFECT_ROSTER_SOURCE.parts).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError):
+            roster = set()
+        issues.extend(effects_row_issues(
+            sources.get(PurePosixPath(_EFFECTS_TREE_ROW), ""), entries,
+            roster or None))
     return markdown, sorted(issues), _stale_allowances(entries, used)
 
 
