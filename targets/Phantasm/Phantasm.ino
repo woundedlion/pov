@@ -42,6 +42,7 @@ static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W,
 
 FLASHMEM void setup() {
   boot_serial();
+  log_reset_cause();
   create_pov();
 }
 
