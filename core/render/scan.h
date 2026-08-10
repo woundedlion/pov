@@ -274,6 +274,19 @@ HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
     norm.pop_back();
 }
 
+/** Capacity of scan_region's per-row emission buffer, and so the compile-time
+ *  ceiling on sdf_max_spans of any shape handed to a rasterizer. Covers a
+ *  top-level Union/SmoothUnion (|A|+|B|) and Subtract (2·|A|); a top-level
+ *  Intersection (2·|A| + 2·|B|) fits only while both children stay under
+ *  INTERVAL_SPAN_CAP/2 spans. */
+inline constexpr size_t TOP_SPAN_CAP = 2 * SDF::INTERVAL_SPAN_CAP + 2;
+
+/** Traps at compile time when a top-level shape can emit more spans per row
+ *  than scan_region's buffer holds. */
+template <typename ShapeT>
+inline constexpr bool fits_top_span_cap =
+    SDF::sdf_max_spans<std::remove_cvref_t<ShapeT>>::value <= TOP_SPAN_CAP;
+
 /**
  * @brief Shared pixel iteration utility for bounded spherical regions.
  * @tparam W Canvas width in pixels.
@@ -322,12 +335,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   // chain. Per-call bump scope; norm is cleared per row below.
   //
   // intervals holds a top-level shape's full per-row emission; norm holds one
-  // seam-split per span, so 2x. 2*INTERVAL_SPAN_CAP+2 covers a top-level
-  // Union/SmoothUnion (|A|+|B|) and Subtract (2·|A|); a top-level Intersection
-  // (2·|A| + 2·|B|) fits only while both children stay under
-  // INTERVAL_SPAN_CAP/2 spans.
+  // seam-split per span, so 2x.
   ScratchScope scratch(scratch_arena_b);
-  static constexpr size_t TOP_SPAN_CAP = 2 * SDF::INTERVAL_SPAN_CAP + 2;
   using IntervalBuf = StaticCircularBuffer<SDF::Interval, TOP_SPAN_CAP>;
   using NormBuf = StaticCircularBuffer<SDF::Interval, 2 * TOP_SPAN_CAP>;
   static_assert(IntervalBuf::CAPACITY >= SDF::MergedIntervalBuffer::CAPACITY,
@@ -530,6 +539,11 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                 "Scan::rasterize shape must expose is_solid, "
                 "get_vertical_bounds<H>(), get_horizontal_intervals<W, H>() "
                 "and distance<ComputeUVs>()");
+  static_assert(
+      fits_top_span_cap<decltype(shape)>,
+      "top-level shape can emit more spans per row than scan_region's "
+      "buffer holds; flatten the composition or raise "
+      "INTERVAL_SPAN_CAP");
 
   check_canvas_dims<W, H>(canvas);
   check_fragment_shader(fragment_shader);
@@ -575,6 +589,11 @@ HS_NOINLINE_NOCLONE inline void
 rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                 const Color4 &color, bool debug_bb = false) {
   static_assert(std::remove_cvref_t<decltype(shape)>::is_solid);
+  static_assert(
+      fits_top_span_cap<decltype(shape)>,
+      "top-level shape can emit more spans per row than scan_region's "
+      "buffer holds; flatten the composition or raise "
+      "INTERVAL_SPAN_CAP");
 
   check_canvas_dims<W, H>(canvas);
   bool effective_debug = debug_bb || canvas.debug();
