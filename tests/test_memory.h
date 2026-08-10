@@ -124,6 +124,40 @@ inline void test_arena_high_water_mark() {
 }
 
 /**
+ * @brief Verifies the lifetime peak outlives the calls that discard the
+ *        windowed one, and that only reset_peak_tracking() clears it.
+ */
+inline void test_arena_lifetime_high_water_mark() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  a.allocate(300);
+  const size_t peak = a.get_high_water_mark();
+  HS_EXPECT_TRUE(peak >= 300);
+
+  // A window closed below the peak keeps reporting it as the lifetime figure.
+  a.set_offset(0);
+  a.reset_high_water_mark();
+  HS_EXPECT_EQ(a.get_high_water_mark(), (size_t)0);
+  HS_EXPECT_EQ(a.get_lifetime_high_water_mark(), peak);
+
+  // A shallower window does not lower it; a deeper one raises it.
+  a.allocate(100);
+  HS_EXPECT_EQ(a.get_lifetime_high_water_mark(), peak);
+  a.set_offset(0);
+  a.allocate(500);
+  const size_t deeper = a.get_high_water_mark();
+  HS_EXPECT_TRUE(deeper >= 500);
+  HS_EXPECT_EQ(a.get_lifetime_high_water_mark(), deeper);
+
+  // rebind() zeroes the window but folds it in first.
+  a.rebind(test_buf_a, sizeof(test_buf_a));
+  HS_EXPECT_EQ(a.get_high_water_mark(), (size_t)0);
+  HS_EXPECT_EQ(a.get_lifetime_high_water_mark(), deeper);
+
+  a.reset_peak_tracking();
+  HS_EXPECT_EQ(a.get_lifetime_high_water_mark(), (size_t)0);
+}
+
+/**
  * @brief Verifies reset() zeroes the offset but preserves the high-water mark.
  * @details Peak usage stays observable across resets.
  */
@@ -377,7 +411,8 @@ inline void test_arena_set_capacity_moves_only_boundary() {
  *        persistent arena keeps its base, offset, and live content.
  * @details The mid-run repartition an effect uses to claim a bigger scratch
  *          split: persistent survives untouched apart from its capacity
- *          boundary and a high-water rebased to the live offset, and both
+ *          boundary and a windowed high-water rebased to the live offset (the
+ *          discarded window folded into the lifetime peak), and both
  *          scratch arenas land on the new (empty) boundaries. Sizes are
  *          max_align_t multiples so the inter-arena align_up()s are no-ops and
  *          the new bases can be checked by exact arithmetic. Restores the
@@ -406,6 +441,7 @@ inline void test_resplit_arenas_preserves_persistent() {
   HS_EXPECT_EQ(persistent_arena.get_capacity(), P1);
   HS_EXPECT_EQ(persistent_arena.get_offset(), (size_t)1024);
   HS_EXPECT_EQ(persistent_arena.get_high_water_mark(), (size_t)1024);
+  HS_EXPECT_EQ(persistent_arena.get_lifetime_high_water_mark(), (size_t)2048);
   HS_EXPECT_EQ((int)live[0], 0x3C);
   HS_EXPECT_EQ((int)live[1023], 0x3C);
   HS_EXPECT_EQ(scratch_arena_a.get_capacity(), A1);
@@ -1016,6 +1052,7 @@ inline int run_memory_tests() {
   test_arena_basic_allocation();
   test_arena_alignment();
   test_arena_high_water_mark();
+  test_arena_lifetime_high_water_mark();
   test_arena_reset();
   test_arena_set_offset();
   test_arena_fills_to_capacity();

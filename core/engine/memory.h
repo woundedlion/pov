@@ -70,6 +70,7 @@ class Arena {
   size_t extent;
   size_t offset;
   size_t high_water_mark;
+  size_t lifetime_high_water_mark;
 #ifndef NDEBUG
   uint32_t generation = 0;
   size_t rewind_floor = SIZE_MAX;
@@ -92,7 +93,7 @@ public:
    */
   Arena(uint8_t *buf, size_t size, size_t buffer_extent)
       : buffer(buf), capacity(size), extent(buffer_extent), offset(0),
-        high_water_mark(0) {
+        high_water_mark(0), lifetime_high_water_mark(0) {
     HS_CHECK(size <= buffer_extent,
              "Arena capacity exceeds its backing buffer");
   }
@@ -159,10 +160,26 @@ public:
    */
   size_t get_capacity() const { return capacity; }
   /**
-   * @brief Returns the peak allocation offset observed.
+   * @brief Returns the peak allocation offset observed since the last
+   *        reset_high_water_mark(), reset_peak_tracking() or rebind().
    * @return High-water mark in bytes.
    */
   size_t get_high_water_mark() const { return high_water_mark; }
+
+  /**
+   * @brief Returns the peak allocation offset over the arena's whole lifetime.
+   * @return Largest offset any allocation has reached, in bytes.
+   * @details Survives every reset_high_water_mark() and rebind(), each of which
+   * folds the window it discards into this figure; reset_peak_tracking() is the
+   * only way to clear it. This is the figure to size a budget against: an effect
+   * that re-splits the arena mid-run leaves get_high_water_mark() reporting only
+   * the peak since its last re-split.
+   */
+  size_t get_lifetime_high_water_mark() const {
+    return high_water_mark > lifetime_high_water_mark
+               ? high_water_mark
+               : lifetime_high_water_mark;
+  }
 
   /**
    * @brief Rewinds the offset to a previously saved mark.
@@ -222,6 +239,7 @@ public:
     capacity = new_capacity;
     extent = buffer_extent;
     offset = 0;
+    fold_lifetime_peak();
     high_water_mark = 0;
 #ifndef NDEBUG
     generation++;
@@ -253,10 +271,24 @@ public:
   }
 
   /**
-   * @brief Reset peak-usage tracking to the current offset.
-   * @details E.g. to measure a single frame's allocation peak in isolation.
+   * @brief Reset windowed peak-usage tracking to the current offset.
+   * @details E.g. to measure a single frame's allocation peak in isolation. The
+   * window being closed is folded into the lifetime peak, which is unaffected.
    */
-  void reset_high_water_mark() { high_water_mark = offset; }
+  void reset_high_water_mark() {
+    fold_lifetime_peak();
+    high_water_mark = offset;
+  }
+
+  /**
+   * @brief Reset both the windowed and the lifetime peak to the current offset.
+   * @details Starts a measurement whose lifetime peak owes nothing to earlier
+   * tenants of the arena.
+   */
+  void reset_peak_tracking() {
+    high_water_mark = offset;
+    lifetime_high_water_mark = offset;
+  }
 
 #ifndef NDEBUG
   /**
@@ -317,6 +349,12 @@ public:
 private:
   friend void resplit_arenas(size_t persistent, size_t scratch_a,
                              size_t scratch_b);
+
+  /** @brief Carries the window about to be discarded into the lifetime peak. */
+  void fold_lifetime_peak() {
+    if (high_water_mark > lifetime_high_water_mark)
+      lifetime_high_water_mark = high_water_mark;
+  }
 
   /**
    * @brief Moves the capacity boundary AND the extent together, preserving

@@ -4,9 +4,13 @@
  *
  * Host arena high-water-mark probe across every effect.
  *
- * Reads Arena::get_high_water_mark() for the three global arenas after running
- * each effect's init + hs_test::smoke_frames() frames, to size the device
- * GLOBAL_ARENA_SIZE against what effects actually touch. The host build uses an
+ * Reads Arena::get_lifetime_high_water_mark() for the three global arenas after
+ * running each effect's init + hs_test::smoke_frames() frames, to size the
+ * device GLOBAL_ARENA_SIZE against what effects actually touch. The lifetime
+ * peak, not the windowed one: an effect that re-splits the arenas mid-window
+ * (IslamicStars, per shape spawn) discards the windowed mark on every re-split,
+ * leaving the single post-window sample reporting only the peak since the last
+ * one. The host build uses an
  * 8 MB global arena (memory.h, HS_TEST_BUILD) so nothing OOMs mid-measure. The
  * window is HS_SMOKE_FRAMES (default 8); CI drives the 120-frame window the
  * effects sweep uses, which is where late-lifecycle allocation (slot reuse,
@@ -36,9 +40,9 @@ int g_measured = 0;
 template <typename Effect> void measure(const char *name) {
   ++g_measured;
   hs_test::reset_globals();
-  persistent_arena.reset_high_water_mark();
-  scratch_arena_a.reset_high_water_mark();
-  scratch_arena_b.reset_high_water_mark();
+  persistent_arena.reset_peak_tracking();
+  scratch_arena_a.reset_peak_tracking();
+  scratch_arena_b.reset_peak_tracking();
 
   Effect effect;
   effect.init();
@@ -49,9 +53,9 @@ template <typename Effect> void measure(const char *name) {
   volatile auto px = effect.get_pixel(0, 0); // keep the render live
   (void)px;
 
-  size_t p = persistent_arena.get_high_water_mark();
-  size_t a = scratch_arena_a.get_high_water_mark();
-  size_t b = scratch_arena_b.get_high_water_mark();
+  size_t p = persistent_arena.get_lifetime_high_water_mark();
+  size_t a = scratch_arena_a.get_lifetime_high_water_mark();
+  size_t b = scratch_arena_b.get_lifetime_high_water_mark();
   size_t tot = p + a + b;
   std::printf(
       "  %-22s persist=%7zu  scratchA=%6zu  scratchB=%6zu  total=%7zu\n", name,
