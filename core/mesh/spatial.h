@@ -450,10 +450,13 @@ struct MeshState {
    * @param src Source mesh to copy from.
    * @param dst Destination mesh to populate.
    * @param arena Arena providing storage for the destination buffers.
-   * @details Required by Cloneable.
+   * @details Required by Cloneable. Traps if src aliases dst: the set_owned()
+   * below would drop a borrowed src's views before they are read, yielding an
+   * empty mesh.
    */
   HS_COLD_MEMBER static void clone(const MeshState &src, MeshState &dst,
                                    Arena &arena) {
+    HS_CHECK(&src != &dst, "MeshState::clone src must not alias dst");
     // Reused dst may carry stale views; clone produces an owned-mode mesh.
     dst.set_owned();
     copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
