@@ -195,6 +195,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       HEFace &face = he_mesh.faces[i];
       uint16_t he_idx = face.half_edge;
+      HS_CHECK(he_idx != HE_NONE, "compile_hankin: empty face");
       uint16_t start_he = he_idx;
       int count = 0;
       int walked = 0;
