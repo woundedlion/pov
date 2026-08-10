@@ -2363,14 +2363,19 @@ struct DreamBallsWhiteBox {
   static const auto &automatic_edges(const DB &db, size_t idx) {
     return db.loaded_solids[idx].automatic_edges;
   }
+  static const auto &medial_edges(const DB &db, size_t idx) {
+    const auto &solid = db.loaded_solids[idx];
+    return solid.four_regular ? solid.medial_edges : solid.automatic_edges;
+  }
   static size_t source_vertex_count(const DB &db, size_t idx) {
     return db.loaded_solids[idx].mesh_state.vertices.size();
   }
   static float under_gap_alpha(float edge_t, float gap) {
     return DB::under_gap_alpha(edge_t, gap);
   }
-  static Vector automatic_vertex(const DB &db, size_t solid, size_t vertex) {
-    return DB::automatic_vertex(db.loaded_solids[solid], vertex);
+  static Vector woven_vertex(const DB &db, size_t solid, bool medial,
+                             size_t vertex) {
+    return DB::woven_vertex(db.loaded_solids[solid], medial, vertex);
   }
   static auto tangent_frame(const Vector &normal) {
     return DB::tangent_frame(normal);
@@ -2504,7 +2509,7 @@ inline void test_dreamballs_base_mesh_selector() {
   HS_EXPECT_GT(energy, 0u);
 }
 
-/** @brief Verifies automatic direct/medial topology and the defect override. */
+/** @brief Verifies automatic, forced-medial, and defect weave topology. */
 inline void test_dreamballs_weave_topology() {
   using WB = DreamBallsWhiteBox;
   reset_effect_globals();
@@ -2519,11 +2524,14 @@ inline void test_dreamballs_weave_topology() {
   if (!topology || !gap)
     return;
 
-  HS_EXPECT_EQ(topology->option_count, 2);
+  HS_EXPECT_EQ(topology->option_count, 3);
   HS_EXPECT_EQ(std::string_view(topology->options[0]), "Automatic");
   HS_EXPECT_EQ(std::string_view(topology->options[1]), "Original with defects");
+  HS_EXPECT_EQ(std::string_view(topology->options[2]), "Medial");
   HS_EXPECT_EQ(std::string_view(topology->export_options[1]),
                "WeaveTopology::ORIGINAL_WITH_DEFECTS");
+  HS_EXPECT_EQ(std::string_view(topology->export_options[2]),
+               "WeaveTopology::MEDIAL");
   HS_EXPECT_TRUE(topology->animated);
   HS_EXPECT_TRUE(gap->animated);
 
@@ -2534,6 +2542,7 @@ inline void test_dreamballs_weave_topology() {
   for (int i = 0; i < EXPECTED_SOLIDS; ++i) {
     const auto &original = WB::original_edges(db, i);
     const auto &automatic = WB::automatic_edges(db, i);
+    const auto &medial = WB::medial_edges(db, i);
     const bool four_regular = WB::four_regular(db, i);
     const bool expected_four_regular =
         i == static_cast<int>(WB::DB::BaseMesh::OCTAHEDRON) ||
@@ -2548,6 +2557,7 @@ inline void test_dreamballs_weave_topology() {
         four_regular ? WB::source_vertex_count(db, i) : original.size();
     HS_EXPECT_EQ(automatic.size(),
                  four_regular ? original.size() : 2 * original.size());
+    HS_EXPECT_EQ(medial.size(), 2 * original.size());
 
     std::vector<int> incoming(automatic_vertex_count, 0);
     std::vector<int> outgoing(automatic_vertex_count, 0);
@@ -2558,8 +2568,8 @@ inline void test_dreamballs_weave_topology() {
         outgoing[edge.u]++;
         incoming[edge.v]++;
 
-        const Vector from = WB::automatic_vertex(db, i, edge.u);
-        const Vector to = WB::automatic_vertex(db, i, edge.v);
+        const Vector from = WB::woven_vertex(db, i, !four_regular, edge.u);
+        const Vector to = WB::woven_vertex(db, i, !four_regular, edge.v);
         const auto frame = WB::tangent_frame(from);
         const Vector offset = frame.u * 0.6f + frame.v * 0.8f;
         const Vector transported = WB::parallel_transport(from, to, offset);
@@ -2570,6 +2580,23 @@ inline void test_dreamballs_weave_topology() {
       }
     }
     for (size_t vertex = 0; vertex < automatic_vertex_count; ++vertex) {
+      HS_EXPECT_EQ(incoming[vertex], 2);
+      HS_EXPECT_EQ(outgoing[vertex], 2);
+    }
+
+    std::fill(incoming.begin(), incoming.end(), 0);
+    std::fill(outgoing.begin(), outgoing.end(), 0);
+    incoming.resize(original.size(), 0);
+    outgoing.resize(original.size(), 0);
+    for (const auto &edge : medial) {
+      HS_EXPECT_LT(edge.u, original.size());
+      HS_EXPECT_LT(edge.v, original.size());
+      if (edge.u < original.size() && edge.v < original.size()) {
+        outgoing[edge.u]++;
+        incoming[edge.v]++;
+      }
+    }
+    for (size_t vertex = 0; vertex < original.size(); ++vertex) {
       HS_EXPECT_EQ(incoming[vertex], 2);
       HS_EXPECT_EQ(outgoing[vertex], 2);
     }
@@ -2590,6 +2617,14 @@ inline void test_dreamballs_weave_topology() {
   HS_EXPECT_EQ(WB::live_weave_topology(db),
                WB::DB::WeaveTopology::ORIGINAL_WITH_DEFECTS);
   HS_EXPECT_NEAR(WB::live_weave_gap(db), 0.25f, 1e-6f);
+
+  HS_EXPECT_TRUE(
+      db.updateParameter("Base Mesh",
+                         static_cast<float>(WB::DB::BaseMesh::OCTAHEDRON)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(db.updateParameter("Weave Topology", 2.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(WB::live_weave_topology(db), WB::DB::WeaveTopology::MEDIAL);
 
   db.setAnimationsPaused(false);
   for (int frame = 0; frame < 20; ++frame) {
