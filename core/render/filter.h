@@ -2456,8 +2456,9 @@ private:
    */
   HS_O3_FN
   void sample_bilinear_prev(const SphereField &field, const ::Pixel *prev,
-                            const ::Pixel *poles, float bx, float by, float &r,
-                            float &g, float &b) const {
+                            const ::Pixel (&poles)[SphereField::POLE_COUNT],
+                            float bx, float by, float &r, float &g,
+                            float &b) const {
     field.sample_bilinear_rgb(prev, poles, bx, by, r, g, b);
   }
 

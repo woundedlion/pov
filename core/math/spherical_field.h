@@ -260,8 +260,8 @@ public:
    * poles.
    * @param x Fractional longitude in [-W, 2W).
    * @param y Fractional latitude row.
-   * @param poles POLE_COUNT shared values for the longitude-aliased pole rows:
-   *   [0] for row 0, [1] for row H-1 where that row is the south pole.
+   * @param poles Shared values for the longitude-aliased pole rows: [0] for
+   *   row 0, [1] for row H-1 where that row is the south pole.
    * @param outside Value returned where the rendered domain has no sample.
    * @param load Loads an in-domain, non-pole lattice sample.
    * @param combine Combines four topology-correct taps and fractional
@@ -269,8 +269,8 @@ public:
    */
   template <typename Value, typename Load, typename Combine>
   __attribute__((always_inline)) decltype(auto)
-  sample_bilinear(float x, float y, const Value *poles, const Value &outside,
-                  Load &&load, Combine &&combine) const {
+  sample_bilinear(float x, float y, const Value (&poles)[POLE_COUNT],
+                  const Value &outside, Load &&load, Combine &&combine) const {
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
     int x0 = static_cast<int>(floor_x);
@@ -296,8 +296,8 @@ public:
   /**
    * @brief Bilinearly samples a row-major three-channel field.
    * @param source Dense W-by-H source field.
-   * @param poles POLE_COUNT shared values for the longitude-aliased pole rows:
-   *   [0] for row 0, [1] for row H-1 where that row is the south pole.
+   * @param poles Shared values for the longitude-aliased pole rows: [0] for
+   *   row 0, [1] for row H-1 where that row is the south pole.
    * @param x Fractional longitude in [-W, 2W).
    * @param y Fractional latitude row.
    * @param r Out: interpolated red channel.
@@ -308,8 +308,8 @@ public:
    */
   template <typename Pixel>
   __attribute__((always_inline)) void
-  sample_bilinear_rgb(const Pixel *source, const Pixel *poles, float x, float y,
-                      float &r, float &g, float &b) const {
+  sample_bilinear_rgb(const Pixel *source, const Pixel (&poles)[POLE_COUNT],
+                      float x, float y, float &r, float &g, float &b) const {
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
     int x0 = static_cast<int>(floor_x);
@@ -426,16 +426,15 @@ private:
    * @brief One topology-correct tap for a footprint outside the direct band.
    * @param sample_x Lattice column, before seam reflection.
    * @param sample_y Lattice row, before pole reflection.
-   * @param poles POLE_COUNT shared pole-row values.
+   * @param poles Shared pole-row values.
    * @param outside Value for a coordinate the rendered domain has no sample
    *   for.
    * @param load Loads an in-domain, non-pole lattice sample.
    */
   template <typename Value, typename Load>
-  __attribute__((always_inline)) Value pole_tap(int sample_x, int sample_y,
-                                                const Value *poles,
-                                                const Value &outside,
-                                                Load &&load) const {
+  __attribute__((always_inline)) Value
+  pole_tap(int sample_x, int sample_y, const Value (&poles)[POLE_COUNT],
+           const Value &outside, Load &&load) const {
     if (!wrap_sample(sample_x, sample_y))
       return outside;
     if (sample_y == 0)
@@ -468,10 +467,9 @@ private:
    * pole rows takes, inlines into the caller's per-pixel loop.
    */
   template <typename Pixel>
-  HS_NOINLINE_NOCLONE void
-  sample_bilinear_rgb_poles(const Pixel *source, const Pixel *poles, int x0,
-                            int x1, int y0, float fx, float fy, float &r,
-                            float &g, float &b) const {
+  HS_NOINLINE_NOCLONE void sample_bilinear_rgb_poles(
+      const Pixel *source, const Pixel (&poles)[POLE_COUNT], int x0, int x1,
+      int y0, float fx, float fy, float &r, float &g, float &b) const {
     static constexpr Pixel OUTSIDE{};
     auto load = [source](int sample_x, int sample_y) {
       return source[sample_y * W + sample_x];

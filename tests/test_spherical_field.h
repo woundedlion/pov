@@ -294,10 +294,10 @@ inline void test_sampler_wraps_south_pole_with_virtual_rows() {
 // Drives the generic sampler with the RGB sampler's own load and blend, so the
 // two agree only if they share one pole-tap policy.
 template <int W, int H, int HOffset>
-inline void
-generic_sample_rgb(const hs::SphericalFieldLayout<W, H, HOffset> &layout,
-                   const Rgb *source, const Rgb *poles, float x, float y,
-                   float &r, float &g, float &b) {
+inline void generic_sample_rgb(
+    const hs::SphericalFieldLayout<W, H, HOffset> &layout, const Rgb *source,
+    const Rgb (&poles)[hs::SphericalFieldLayout<W, H, HOffset>::POLE_COUNT],
+    float x, float y, float &r, float &g, float &b) {
   const Rgb outside;
   layout.sample_bilinear(
       x, y, poles, outside,
@@ -326,7 +326,10 @@ inline void expect_rgb_sampler_matches_generic() {
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
       rgb[y * W + x] = Rgb(y * 100 + x, y * 100 + x + 1, y * 100 + x + 2);
-  const Rgb poles[]{Rgb(-1, -2, -3), Rgb(7000, 7001, 7002)};
+  Rgb poles[PoleCount];
+  poles[0] = Rgb(-1, -2, -3);
+  if constexpr (PoleCount == 2)
+    poles[1] = Rgb(7000, 7001, 7002);
 
   for (int step = -4; step <= 2 * (H + HOffset); ++step) {
     const float y = step * 0.5f;
