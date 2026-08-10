@@ -420,7 +420,17 @@ inline void test_buffer_comparator_statistics() {
   HS_EXPECT_EQ(changed.first_different_pixel, static_cast<int>(PIXEL_INDEX));
 }
 
-inline void test_reference_matrix_is_exact_and_nonblack() {
+/**
+ * @brief Verifies the reference render is reproducible and non-black over the
+ *        whole matrix.
+ * @details Both sides of the comparison are reference_renderer(), so this
+ *          establishes determinism, not correctness: the capture harness
+ *          reproduces a state bit-identically, and the reference frame carries
+ *          energy. Those are the preconditions the candidate-vs-reference
+ *          budget cases rest on — a nondeterministic harness or an all-black
+ *          reference would make every error bound below vacuous.
+ */
+inline void test_reference_matrix_is_deterministic_and_nonblack() {
   for (const OracleState &state : exhaustive_matrix()) {
     RenderComparison comparison =
         compare_renders(state, reference_renderer(), reference_renderer());
@@ -945,7 +955,7 @@ inline void test_preset_transition_fades_through_black_in_16_frames() {
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
   test_buffer_comparator_statistics();
-  test_reference_matrix_is_exact_and_nonblack();
+  test_reference_matrix_is_deterministic_and_nonblack();
   test_candidate_matrix_stays_within_visual_budget();
   test_star_projection_policies_render_different_edges();
   test_screen_balanced_spacing_is_opt_in_for_every_shape();
