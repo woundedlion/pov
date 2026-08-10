@@ -2218,17 +2218,6 @@ private:
     return 1.0f;
   }
 
-  static PlanarWarpStageResult
-  warp_stage_lookup(const Complex &input, const ProjectedLookup &projected,
-                    const WarpStageSpec &spec, const WarpStageParams &params,
-                    const FrameState &frame) {
-    const PreparedWarpStage prepared =
-        prepare_warp_stage(params, frame.clocks.warp_outer_phase);
-    return warp_stage_lookup(input, projected, spec, params,
-                             frame.clocks.warp_outer_phase,
-                             frame.resources.outer_warp_noise, prepared, frame);
-  }
-
   static float sample_noise_basis(const FastNoiseLite &noise, NoiseBasis basis,
                                   float x, float y, float time) {
     if (basis == NoiseBasis::SIMPLEX)
@@ -2353,11 +2342,6 @@ private:
     return {-scale * dy, scale * dx};
   }
 
-  static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
-                             NoiseBasis basis, float scale, float time) {
-    return curl_vector(p, noise, basis, scale, prepare_noise_phase(time));
-  }
-
   static Complex mirror_tile(const Complex &input,
                              const WarpStageParams &params,
                              const PreparedWarpStage &prepared) {
@@ -2372,11 +2356,6 @@ private:
     const float folded_y =
         params.cell_y * (1.0f - 2.0f * fabsf(wrap_t(y / params.cell_y) - 0.5f));
     return {c * folded_x - s * folded_y, s * folded_x + c * folded_y};
-  }
-
-  static Complex mirror_tile(const Complex &input,
-                             const WarpStageParams &params) {
-    return mirror_tile(input, params, prepare_warp_stage(params, 0.0f));
   }
 
   static StereoWarpResult sample_wrapped_warp(const Complex &z, float r_sq,
@@ -2566,26 +2545,29 @@ private:
   }
 
   static Vector apply_lens(const Vector &v, const FrameState &frame) {
-    const SurfaceLens lens = frame.slots.surface_lens;
-    switch (lens) {
+    switch (frame.slots.surface_lens) {
     case SurfaceLens::NONE:
-      return v;
     case SurfaceLens::GLITCH:
-      return glitch_lens(v);
     case SurfaceLens::TWIST:
-      return twist_lens(v);
     case SurfaceLens::KALEIDOSCOPE:
-      return kaleidoscope_lens(v);
-    case SurfaceLens::MOBIUS: {
+      return apply_frame_free_lens(v, frame.slots.surface_lens);
+    case SurfaceLens::MOBIUS:
       return mobius_transform(v, frame.params.surface_lens.mobius);
-    }
     case SurfaceLens::TANGENT_NOISE:
       return tangent_noise_lens(v, frame);
     }
     __builtin_unreachable();
   }
 
-  static Vector apply_lens(const Vector &v, SurfaceLens lens) {
+  /**
+   * @brief Applies a lens whose image depends on the direction alone.
+   * @param v Unit direction on the sphere.
+   * @param lens Lens to apply; MOBIUS and TANGENT_NOISE read FrameState
+   *        parameters and are rejected here.
+   * @return The lensed direction.
+   */
+  __attribute__((always_inline)) static Vector
+  apply_frame_free_lens(const Vector &v, SurfaceLens lens) {
     switch (lens) {
     case SurfaceLens::NONE:
       return v;
@@ -2597,7 +2579,8 @@ private:
       return kaleidoscope_lens(v);
     case SurfaceLens::MOBIUS:
     case SurfaceLens::TANGENT_NOISE:
-      return v;
+      HS_CHECK(false, "frame-parameterized lens needs the FrameState overload");
+      __builtin_unreachable();
     }
     __builtin_unreachable();
   }
