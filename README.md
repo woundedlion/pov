@@ -601,11 +601,11 @@ A typical effect frame follows a four-stage pipeline. Not every effect uses ever
 
 ### Pipeline Domain Transitions
 
-The filter pipeline operates across three coordinate domains. Each filter declares which domain it works in, and the pipeline automatically converts between them at compile time:
+The filter pipeline operates across three stage domains. Each filter declares its domain; the pipeline converts world to screen coordinates at compile time and orders the stages by domain:
 
 ```
           World Space                Screen Space             Pixel Space
-     (3D unit-sphere vectors)     (fractional x, y)       (integer x, y)
+     (3D unit-sphere vectors)     (fractional x, y)      (fractional x, y)
     ┌──────────────────────┐    ┌─────────────────┐    ┌─────────────────┐
     │ World::Orient        │    │ Screen::AntiAlias│    │ Pixel::Feedback │
     │ World::Trails        │──▸ │ Screen::Blur     │──▸ │ Pixel::Chromatic│
@@ -613,17 +613,17 @@ The filter pipeline operates across three coordinate domains. Each filter declar
     │ World::Mobius        │    │                  │    │                 │
     │ World::Hole          │    │                  │    │                 │
     └──────────────────────┘    └─────────────────┘    └─────────────────┘
-    Coordinate: Vector(x,y,z)   Coordinate: float x,y   Coordinate: int x,y
+    Coordinate: Vector(x,y,z)   Coordinate: float x,y   Coordinate: float x,y
 
-         vector_to_pixel() ──▸         floor/clamp ──▸
-    ◂── pixel_to_vector()         ◂── expand to float
+         vector_to_pixel() ──▸       (no conversion) ──▸
+    ◂── pixel_to_vector()
 ```
 
 **World → Screen**: `vector_to_pixel()` projects a 3D unit-sphere vector to fractional pixel coordinates near `(theta / 2π * W, phi / π * H)`, deriving `theta`/`phi` with the approximate `fast_atan2`/`fast_acos`. The approximation makes the projection sub-pixel inexact, so `vector → pixel → vector` does not exactly invert the exact-trig `pixel_to_vector()`.
 
-**Screen → Pixel**: `AntiAlias` distributes the fractional coordinate to its 4 nearest integer pixels as a `quintic_kernel`-eased 2×2 splat.
+**Screen → Pixel**: no coordinate conversion — a `Pixel::` stage takes the same `float x, y` a `Screen::` stage does, and the stage's `domain_rank` only fixes its position in the chain. What lands the coordinate on pixel centers is `AntiAlias`, which distributes it to its 4 nearest integer pixels as a `quintic_kernel`-eased 2×2 splat.
 
-**Pixel → Canvas**: The base `Pipeline<W,H>` (the identity terminal) composites the final color into `canvas(x, y)` with straight-alpha (`src * α + dst * (1-α)`) in linear light.
+**Pixel → Canvas**: The base `Pipeline<W,H>` (the identity terminal) rounds the coordinate to the nearest pixel, wraps the column into `[0, W)`, and composites the final color into `canvas(x, y)` with straight-alpha (`src * α + dst * (1-α)`) in linear light.
 
 **World filters** operate on the 3D vector before projection — they can rotate, replicate, or warp geometry in spherical coordinates without loss. **Screen filters** operate after projection but before integer snapping — they distribute sub-pixel energy for anti-aliasing and blur. **Pixel filters** operate per-frame on the full canvas — feedback and chromatic aberration read from the previous frame buffer.
 
