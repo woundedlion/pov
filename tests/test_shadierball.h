@@ -104,6 +104,9 @@ struct ShadierBallWhiteBox {
   static const RequestedConfig &requested_config(const SDB &sdb) {
     return sdb.requested_config;
   }
+  static const RequestedConfig &published_config(const SDB &sdb) {
+    return sdb.published_config;
+  }
   static void request_config(SDB &sdb, const RequestedConfig &config) {
     sdb.requested_config = config;
     sdb.requested_schema_bound = false;
@@ -200,6 +203,10 @@ struct ShadierBallWhiteBox {
                       0,    duration, continue_choreo, true};
   }
   static const LookRuntime &runtime(const SDB &sdb) { return sdb.runtime; }
+  static Quaternion projection_walk(const SDB &sdb) {
+    return sdb.projection_walk.get();
+  }
+  static Quaternion outer_walk(const SDB &sdb) { return sdb.outer_walk.get(); }
   static void advance_runtime(SDB &sdb, LookRuntime &runtime,
                               const RequestedConfig &config,
                               const WalkDeltas &deltas) {
@@ -377,6 +384,110 @@ inline void test_shadierball_clocks_wrapped() {
     }
   }
   hs::clear_mock_time();
+}
+
+/** @brief Pause freezes choreography while ambient motion keeps advancing. */
+inline void test_shadierball_pause_semantics() {
+  using WB = ShadierBallWhiteBox;
+  reset_effect_globals();
+  WB::SDB sdb;
+  sdb.init();
+  sdb.setAnimationsPaused(true);
+
+  const WB::ClockState paused_clocks = WB::clocks(sdb);
+  const Quaternion paused_projection_walk = WB::projection_walk(sdb);
+  const Quaternion paused_outer_walk = WB::outer_walk(sdb);
+  const uint32_t paused_walk_steps = WB::walk_steps(sdb);
+  const uint32_t paused_liquid_steps = WB::liquid_palette_steps(sdb);
+  const uint32_t paused_generated_steps = WB::generated_palette_steps(sdb);
+  const Pixel paused_liquid_color = WB::liquid_color(sdb, 0.25f);
+  const Pixel paused_generated_color = WB::generated_color(sdb, 0.25f);
+  const size_t paused_preset = WB::preset_index(sdb);
+  for (int frame = 0; frame < 120; ++frame) {
+    sdb.draw_frame();
+    sdb.advance_display();
+  }
+  HS_EXPECT_NE(WB::clocks(sdb).source_primary, paused_clocks.source_primary);
+  HS_EXPECT_TRUE(WB::projection_walk(sdb) != paused_projection_walk);
+  HS_EXPECT_TRUE(WB::outer_walk(sdb) != paused_outer_walk);
+  HS_EXPECT_EQ(WB::walk_steps(sdb), paused_walk_steps + 120);
+  HS_EXPECT_EQ(WB::liquid_palette_steps(sdb), paused_liquid_steps + 120);
+  HS_EXPECT_EQ(WB::generated_palette_steps(sdb), paused_generated_steps + 120);
+  const Pixel active_liquid_color = WB::liquid_color(sdb, 0.25f);
+  const Pixel active_generated_color = WB::generated_color(sdb, 0.25f);
+  HS_EXPECT_TRUE(active_liquid_color.r != paused_liquid_color.r ||
+                 active_liquid_color.g != paused_liquid_color.g ||
+                 active_liquid_color.b != paused_liquid_color.b);
+  HS_EXPECT_TRUE(active_generated_color.r != paused_generated_color.r ||
+                 active_generated_color.g != paused_generated_color.g ||
+                 active_generated_color.b != paused_generated_color.b);
+  HS_EXPECT_EQ(WB::preset_index(sdb), paused_preset);
+  HS_EXPECT_FALSE(WB::transition_active(sdb));
+  HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+
+  sdb.setAnimationsPaused(false);
+  sdb.draw_frame();
+  sdb.advance_display();
+  HS_EXPECT_NE(WB::clocks(sdb).source_primary, paused_clocks.source_primary);
+  HS_EXPECT_TRUE(WB::projection_walk(sdb) != paused_projection_walk);
+  HS_EXPECT_TRUE(WB::outer_walk(sdb) != paused_outer_walk);
+  HS_EXPECT_EQ(WB::walk_steps(sdb), paused_walk_steps + 121);
+  HS_EXPECT_EQ(WB::liquid_palette_steps(sdb), paused_liquid_steps + 121);
+  HS_EXPECT_EQ(WB::generated_palette_steps(sdb), paused_generated_steps + 121);
+
+  for (int frame = 0; frame < 120 && WB::preset_index(sdb) == paused_preset;
+       ++frame) {
+    sdb.draw_frame();
+    sdb.advance_display();
+  }
+  HS_EXPECT_NE(WB::preset_index(sdb), paused_preset);
+  HS_EXPECT_TRUE(WB::param_morph_active(sdb));
+  sdb.setAnimationsPaused(true);
+  const uint16_t paused_morph_elapsed = WB::param_morph_elapsed(sdb);
+  for (int frame = 0; frame < 8; ++frame) {
+    sdb.draw_frame();
+    sdb.advance_display();
+  }
+  HS_EXPECT_EQ(WB::param_morph_elapsed(sdb), paused_morph_elapsed);
+  sdb.setAnimationsPaused(false);
+  sdb.draw_frame();
+  sdb.advance_display();
+  HS_EXPECT_EQ(WB::param_morph_elapsed(sdb), paused_morph_elapsed + 1);
+}
+
+/** @brief Manual sliders commit next-frame while topology changes still fade. */
+inline void test_shadierball_manual_edit_timing() {
+  using WB = ShadierBallWhiteBox;
+  reset_effect_globals();
+  WB::SDB sdb;
+  sdb.init();
+  sdb.setAnimationsPaused(true);
+  sdb.draw_frame();
+  sdb.advance_display();
+  const float before_speed = WB::active_config(sdb).params.source.speed;
+
+  sdb.setAnimationsPaused(false);
+  HS_EXPECT_TRUE(sdb.updateParameter("Speed", before_speed + 0.5f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(sdb.animations_paused());
+  HS_EXPECT_EQ(WB::active_config(sdb).params.source.speed, before_speed);
+  sdb.draw_frame();
+  sdb.advance_display();
+  HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+  HS_EXPECT_EQ(WB::active_config(sdb).params.source.speed, before_speed + 0.5f);
+  HS_EXPECT_EQ(WB::frame(sdb).params.source.speed, before_speed + 0.5f);
+  HS_EXPECT_TRUE(WB::requested_config(sdb) == WB::active_config(sdb));
+  HS_EXPECT_TRUE(WB::published_config(sdb) == WB::active_config(sdb));
+
+  HS_EXPECT_TRUE(sdb.updateParameter(
+                     "Projection", static_cast<float>(WB::Projection::BONNE)) ==
+                 ParamSetResult::APPLIED);
+  sdb.draw_frame();
+  sdb.advance_display();
+  HS_EXPECT_TRUE(WB::transition_active(sdb));
+  HS_EXPECT_EQ(WB::transition_mode(WB::transition_from_config(sdb),
+                                   WB::transition_to_config(sdb)),
+               WB::TransitionMode::THROUGH_CLEAR);
 }
 
 /** @brief Pullback stages preserve their typed order and metadata. */
@@ -2031,6 +2142,8 @@ inline void test_shadierball_palette_resources() {
 inline int run_shadierball_tests() {
   ModuleFixture fixture("shadierball");
   test_shadierball_clocks_wrapped();
+  test_shadierball_pause_semantics();
+  test_shadierball_manual_edit_timing();
   test_shadierball_pipeline_contract();
   test_shadierball_legacy_spatial_slots();
   test_shadierball_legacy_sources();

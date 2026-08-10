@@ -51,8 +51,7 @@ public:
 
     liquid_palette_cycler.init_generated(persistent_arena, next_liquid_palette,
                                          &liquid_rotation, PALETTE_DWELL_FRAMES,
-                                         PALETTE_FADE_FRAMES, ease_in_out_sin,
-                                         &anims_paused);
+                                         PALETTE_FADE_FRAMES, ease_in_out_sin);
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
     generated_palette_cycler.init_generated(
         persistent_arena, next_triadic_palette, &palette_hue,
@@ -2652,10 +2651,19 @@ private:
     if (requested_config == published_config)
       return;
     if (!hold_admitted(requested_config)) {
-      requested_config = published_config;
-      rebind_parameters();
-      if (transition.active && transition.continue_choreo)
-        anims_paused = false;
+      reject_requested_config();
+      return;
+    }
+    const Config current{active_slots, blend.params};
+    if (!transition.active &&
+        same_parameter_topology(current, requested_config)) {
+      if (!stable_parameter_path_admitted(current, requested_config)) {
+        reject_requested_config();
+        return;
+      }
+      param_morph.active = false;
+      blend.params = requested_config.params;
+      published_config = requested_config;
       return;
     }
     if (try_apply_config(requested_config, MANUAL_TRANSITION_FRAMES, false,
@@ -2667,6 +2675,13 @@ private:
       requested_config = published_config;
       rebind_parameters();
     }
+  }
+
+  HS_COLD_MEMBER void reject_requested_config() {
+    requested_config = published_config;
+    rebind_parameters();
+    if (transition.active && transition.continue_choreo)
+      anims_paused = false;
   }
 
   static void canonicalize_mobius(MobiusParams &params) {
@@ -3197,9 +3212,9 @@ private:
            hold_path_admitted(from, to);
   }
 
-  static constexpr bool stable_topology(const Config &from, const Config &to) {
-    return hold_admitted(from) && hold_admitted(to) && from.slots == to.slots &&
-           stable_parameter_path_admitted(from, to) &&
+  static constexpr bool same_parameter_topology(const Config &from,
+                                                const Config &to) {
+    return from.slots == to.slots &&
            from.params.source.noise_basis == to.params.source.noise_basis &&
            from.params.source.noise_seed == to.params.source.noise_seed &&
            from.params.source.noise_resource_id ==
@@ -3227,6 +3242,12 @@ private:
                to.params.surface_lens.mobius.d.re &&
            from.params.surface_lens.mobius.d.im ==
                to.params.surface_lens.mobius.d.im;
+  }
+
+  static constexpr bool stable_topology(const Config &from, const Config &to) {
+    return hold_admitted(from) && hold_admitted(to) &&
+           same_parameter_topology(from, to) &&
+           stable_parameter_path_admitted(from, to);
   }
 
   static constexpr bool curl_pair_stable(const WarpStageSpec &spec,
