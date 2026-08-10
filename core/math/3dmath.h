@@ -104,6 +104,20 @@ __attribute__((always_inline)) inline float cubic_kernel(float t) {
 }
 
 /**
+ * @brief Compile-time square root by Newton-Raphson from a unit seed.
+ * @param x Radicand.
+ * @return sqrt(x).
+ * @details Eight fixed iterations, which converge over O(1) radicands rather
+ *          than the whole float range. For run-time use call sqrtf.
+ */
+constexpr float constexpr_sqrt(float x) {
+  float root = 1.0f;
+  for (int i = 0; i < 8; ++i)
+    root = 0.5f * (root + x / root);
+  return root;
+}
+
+/**
  * @brief Stable hash of an index and seed to a float in [0, 1).
  * @param i Index to hash.
  * @param seed Stream selector; different seeds give independent hashes.
@@ -1182,6 +1196,41 @@ __attribute__((always_inline)) constexpr Vector cross(const Vector &v1,
   return Vector(v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z,
                 v1.x * v2.y - v1.y * v2.x);
 }
+
+/**
+ * @brief A unit quaternion expanded to its 3x3 rotation matrix.
+ * @details Amortizes the quaternion sandwich over many vectors sharing one
+ *          orientation: build once, then apply is three dot products.
+ */
+struct RotationMatrix {
+  Vector r0, r1, r2;
+
+  /**
+   * @brief Expands a unit quaternion into its rows.
+   * @param q The unit rotation quaternion.
+   */
+  explicit RotationMatrix(const Quaternion &q) {
+    const float qr = q.r;
+    const float qx = q.v.x;
+    const float qy = q.v.y;
+    const float qz = q.v.z;
+    r0 = Vector(1.0f - 2.0f * (qy * qy + qz * qz), 2.0f * (qx * qy - qr * qz),
+                2.0f * (qx * qz + qr * qy));
+    r1 = Vector(2.0f * (qx * qy + qr * qz), 1.0f - 2.0f * (qx * qx + qz * qz),
+                2.0f * (qy * qz - qr * qx));
+    r2 = Vector(2.0f * (qx * qz - qr * qy), 2.0f * (qy * qz + qr * qx),
+                1.0f - 2.0f * (qx * qx + qy * qy));
+  }
+
+  /**
+   * @brief Rotates a vector by the stored orientation.
+   * @param v The vector to rotate.
+   * @return The rotated vector.
+   */
+  __attribute__((always_inline)) Vector apply(const Vector &v) const {
+    return Vector(dot(r0, v), dot(r1, v), dot(r2, v));
+  }
+};
 
 /**
  * @brief Calculates the Euclidean distance between two vectors.

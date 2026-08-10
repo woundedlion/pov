@@ -318,7 +318,7 @@ struct MindSplatterWhiteBox {
   }
   static Vector matrix_vertex(const Vector &v, const MobiusParams &mobius,
                               const Quaternion &orientation) {
-    typename MS::RotationMatrix rotation(orientation);
+    RotationMatrix rotation(orientation);
     return rotation.apply(mobius_transform(v, mobius));
   }
   static Vector reference_vertex(const Vector &v, const MobiusParams &mobius,
