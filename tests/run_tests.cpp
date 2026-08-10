@@ -168,7 +168,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
     hs_test::effects_tests::effects_full_suite()                               \
         ? EFFECTS_SMOKE_FULL_MIN_ASSERTIONS                                    \
         : EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS)                                  \
-  X("shaderball", 23, hs_test::shaderball_tests::run_shaderball_tests, 39696)  \
+  X("shaderball", 24, hs_test::shaderball_tests::run_shaderball_tests, 39710)  \
   X("shapeshifter_oracle", 18,                                                 \
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
   X("shapeshifter_tiles", 2,                                                   \

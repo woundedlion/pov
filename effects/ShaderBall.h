@@ -2937,14 +2937,31 @@ private:
     return true;
   }
 
+  /**
+   * @brief Parks a paused through-clear transition on the endpoint it is
+   *        nearer, so the hold lands on a drawn frame.
+   * @details The window's midpoint writes no pixels and the surrounding frames
+   * quantize to black, and a paused choreography transition never leaves the
+   * frame it stopped on. Both endpoints render at full alpha; the midpoint ties
+   * to the source, whose resource union is the one still prepared.
+   */
+  HS_COLD_MEMBER void hold_transition_endpoint() {
+    if (transition.mode != TransitionMode::THROUGH_CLEAR)
+      return;
+    transition.elapsed =
+        transition.elapsed <= transition.duration / 2 ? 0 : transition.duration;
+  }
+
   HS_COLD_MEMBER void finish_transitions() {
     if (transition.active) {
       if (anims_paused && transition.continue_choreo) {
         const bool valid_manual_pending =
             requested_config != published_config &&
             valid_config(requested_config);
-        if (!valid_manual_pending)
+        if (!valid_manual_pending) {
+          hold_transition_endpoint();
           return;
+        }
       }
       if (transition.mode == TransitionMode::THROUGH_CLEAR &&
           transition.elapsed == transition.duration / 2)
