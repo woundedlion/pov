@@ -1626,7 +1626,8 @@ struct RasterOptions {
    */
   bool omit_end = false;
   /**
-   * Optional precomputed Tier-3 edge flags, one byte per segment-loop edge.
+   * Optional precomputed Tier-3 edge flags, one byte per rasterized edge:
+   * points.size() - 1, or points.size() under close_loop.
    * Bit 0 is visibility. Bits 1 and 2 optionally retain one-dot and
    * classification-known; a plain 0/1 visibility array remains valid.
    * Geodesic polylines only: a planar polyline's per-edge basis depends on
@@ -3791,7 +3792,7 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
  * @param xc Precomputed x-clip predicate for @p cr.
  * @param trail Geodesic fragment polyline (>= 2 unit-position points).
  * @param bits Output, one byte per edge (trail.size() - 1): 0 = culled, else
- *        1; valid as rasterize()'s edge_visible input.
+ *        1; valid as rasterize()'s edge_visible input for an open polyline.
  * @return False when no edge is visible; bits are then all zero.
  * @details The hoisted per-point coordinates and the whole-trail culls come
  * from trail_gate_prologue, shared with ParticleSystem::draw's gate.
