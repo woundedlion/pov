@@ -2919,7 +2919,80 @@ struct CometsWhiteBox {
       ++idx;
     }
   }
+
+  using C = Comets<SMALL_W, SMALL_H>;
+  static constexpr int wipe_frames() { return C::WIPE_FRAMES; }
+  static void roll_palette_over(C &c) { c.update_palette(); }
+  static int wipe_frames_remaining(const C &c) {
+    return c.wipe_frames_remaining;
+  }
+  static const GenerativePalette::Snapshot &palette_start(const C &c) {
+    return c.palette_start;
+  }
+  static const GenerativePalette::Snapshot &palette_target(const C &c) {
+    return c.palette_target;
+  }
 };
+
+/**
+ * @brief Field-wise equality for two generative-palette snapshots.
+ * @param a First snapshot.
+ * @param b Second snapshot.
+ * @return true when every authored key and axis range matches.
+ * @details Compared field-wise rather than by memcmp: Snapshot has padding
+ *          between its trailing bytes that carries no meaning.
+ */
+inline bool palette_snapshots_equal(const GenerativePalette::Snapshot &a,
+                                    const GenerativePalette::Snapshot &b) {
+  if (a.key_count != b.key_count || a.lightness_low != b.lightness_low ||
+      a.lightness_high != b.lightness_high || a.chroma_low != b.chroma_low ||
+      a.chroma_high != b.chroma_high ||
+      a.lightness_curve != b.lightness_curve ||
+      a.chroma_curve != b.chroma_curve)
+    return false;
+  for (size_t i = 0; i < a.keys.size(); ++i)
+    if (a.keys[i].bytes != b.keys[i].bytes)
+      return false;
+  return true;
+}
+
+/**
+ * @brief Pins Comets' mid-wipe rollover skip.
+ * @details At the Cycle Dur floor the rollover timer's period is shorter than
+ *          WIPE_FRAMES, so it can fire while a ColorWipe is still animating.
+ *          The guard drops that rollover; without it the second wipe would
+ *          overwrite palette_start/palette_target, which the live ColorWipe
+ *          still holds references to. Both wipes still render, so the smoke
+ *          pass cannot see the difference — assert the snapshots survive the
+ *          mid-wipe call and that a rollover arms again once the wipe drains.
+ */
+inline void test_comets_rollover_skipped_mid_wipe() {
+  using WB = CometsWhiteBox;
+  reset_effect_globals();
+
+  WB::C effect;
+  effect.init();
+
+  WB::roll_palette_over(effect);
+  HS_EXPECT_EQ(WB::wipe_frames_remaining(effect), WB::wipe_frames());
+  const GenerativePalette::Snapshot start = WB::palette_start(effect);
+  const GenerativePalette::Snapshot target = WB::palette_target(effect);
+
+  WB::roll_palette_over(effect);
+  HS_EXPECT_EQ(WB::wipe_frames_remaining(effect), WB::wipe_frames());
+  HS_EXPECT_TRUE(palette_snapshots_equal(start, WB::palette_start(effect)));
+  HS_EXPECT_TRUE(palette_snapshots_equal(target, WB::palette_target(effect)));
+
+  // step_wipe_rebake burns one armed frame plus WIPE_FRAMES stepped ones.
+  for (int f = 0; f <= WB::wipe_frames(); ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_EQ(WB::wipe_frames_remaining(effect), 0);
+
+  WB::roll_palette_over(effect);
+  HS_EXPECT_EQ(WB::wipe_frames_remaining(effect), WB::wipe_frames());
+}
 
 /**
  * @brief White-box accessor for the Thrusters warp-decay endpoints.
@@ -3016,7 +3089,57 @@ struct DynamoWhiteBox {
       HS_EXPECT_LE(c.alpha, 1.0f);
     }
   }
+
+  using D = Dynamo<DEFAULT_W, DEFAULT_H>;
+  using Ring = Filter::World::Trails<D::TRAIL_CAPACITY>;
+  static constexpr int trail_capacity() { return D::TRAIL_CAPACITY; }
+  static void set_speed(D &d, float v) { d.params.speed = v; }
+  static void set_trail_length(D &d, float v) { d.params.trail_length = v; }
+  static float trail_ceiling(const D &d) { return d.params.trail_ceiling; }
+  static uint32_t emission_points(const D &d) { return d.emission_points; }
+  static size_t trail_points(D &d) { return d.filters.get<Ring>().size(); }
 };
+
+/**
+ * @brief Pins Dynamo's trail-ring ceiling as the thing that keeps the ring from
+ *        evicting.
+ * @details trail_length_ceiling() caps the live trail at what the ring can hold
+ *          for the current emission rate; past it the ring overruns and evicts
+ *          points of arbitrary age (flush()'s compaction leaves it unordered),
+ *          punching holes in the tail rather than shortening it — corruption
+ *          that still renders, so the smoke pass never sees it. Drive the
+ *          worst case both sliders allow and assert the requested trail really
+ *          would have overrun while the ceiling keeps steady-state occupancy
+ *          inside the ring.
+ */
+inline void test_dynamo_trail_ceiling_bounds_the_ring() {
+  using WB = DynamoWhiteBox;
+  reset_effect_globals();
+
+  WB::D effect;
+  effect.init();
+
+  constexpr float MAX_SPEED = 10.0f;  // "Speed" slider bound
+  constexpr float MAX_TRAIL = 100.0f; // "Trail Len" slider bound
+  WB::set_speed(effect, MAX_SPEED);
+  WB::set_trail_length(effect, MAX_TRAIL);
+
+  const auto capacity = static_cast<uint32_t>(WB::trail_capacity());
+  for (int f = 0; f < 64; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+    HS_EXPECT_LT(WB::trail_points(effect), static_cast<size_t>(capacity));
+  }
+
+  // Points buffered per frame at this speed: emission_points per whole step,
+  // and speed_accumulator carries at most one extra step into a frame.
+  const uint32_t per_frame =
+      WB::emission_points(effect) * (static_cast<uint32_t>(MAX_SPEED) + 1);
+  HS_EXPECT_GT(per_frame, 0u);
+  HS_EXPECT_GT(per_frame * static_cast<uint32_t>(MAX_TRAIL), capacity);
+  HS_EXPECT_LE(per_frame * static_cast<uint32_t>(WB::trail_ceiling(effect)),
+               capacity);
+}
 
 /**
  * @brief White-box accessor for HopfFibration's S3-lift + stereographic
@@ -5917,9 +6040,11 @@ inline int run_effects_tests() {
     test_meshfeedback_flush_precedes_mesh_draw();
     test_meshfeedback_preset_rotation_syncs_noise();
     CometsWhiteBox::check_paths_close();
+    test_comets_rollover_skipped_mid_wipe();
     ThrustersWhiteBox::check_warp_endpoints();
     RingShowerWhiteBox::check_radius_endpoints();
     DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
+    test_dynamo_trail_ceiling_bounds_the_ring();
     test_hopf_projection_math();
     test_hopf_trail_trim_keeps_a_segment();
     test_raymarch_constexpr_sqrt_converges();
