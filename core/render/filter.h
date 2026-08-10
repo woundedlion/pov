@@ -131,6 +131,15 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
   static constexpr bool is_pipeline = true;
   static constexpr bool is_terminal = false;
+  // Stage vocabulary, so a Pipeline nested inside a Pipeline<> reaches the
+  // is_pipeline diagnostic instead of failing in the trait folds first.
+  static constexpr bool has_history = false;
+  static constexpr bool terminal_replaces = false;
+  static constexpr bool emits_nonunit_world = false;
+  static constexpr bool requires_unit_world_input = false;
+  static constexpr bool crosses_segments = false;
+  static constexpr bool reads_outside_band = false;
+  static constexpr int segment_margin = 0;
   static constexpr bool any_crosses_segments = false;
   static constexpr bool any_reads_outside_band = false;
   static constexpr int total_segment_margin = 0;
@@ -322,6 +331,16 @@ struct Pipeline<W, H, Head, Tail...> : private Head {
       Next::any_2d_trail_history;
   static constexpr bool any_terminal_history =
       (Head::has_history && Head::is_terminal) || Next::any_terminal_history;
+
+  // Stage vocabulary, so a Pipeline nested inside a Pipeline<> reaches the
+  // is_pipeline diagnostic instead of failing in the trait folds first.
+  static constexpr bool has_history = any_2d_history || any_3d_history;
+  static constexpr bool terminal_replaces =
+      Head::terminal_replaces || Next::terminal_replaces;
+  static constexpr bool emits_nonunit_world =
+      Head::emits_nonunit_world || Next::emits_nonunit_world;
+  static constexpr bool requires_unit_world_input =
+      Head::requires_unit_world_input || Next::requires_unit_world_input;
 
   /**
    * @brief True when any stage overrides cull_edge (re-emits clip-cull edges
