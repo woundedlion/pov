@@ -37,10 +37,11 @@ template <int W, int H> class DreamBalls : public Effect {
 public:
   using BaseMesh = Solids::BaseMesh;
 
-  /** @brief Selects automatic topology or the source mesh's edge graph. */
+  /** @brief Selects automatic, source, or forced-medial weave topology. */
   enum class WeaveTopology : uint8_t {
     AUTOMATIC,
     ORIGINAL_WITH_DEFECTS,
+    MEDIAL,
   };
 
   /**
@@ -151,9 +152,10 @@ private:
   static constexpr size_t PRESET_COUNT = 5;
   static constexpr size_t SOLID_COUNT = Solids::BASE_MESH_COUNT;
   static constexpr const char *WEAVE_TOPOLOGY_OPTIONS[] = {
-      "Automatic", "Original with defects"};
+      "Automatic", "Original with defects", "Medial"};
   static constexpr const char *WEAVE_TOPOLOGY_EXPORT_OPTIONS[] = {
-      "WeaveTopology::AUTOMATIC", "WeaveTopology::ORIGINAL_WITH_DEFECTS"};
+      "WeaveTopology::AUTOMATIC", "WeaveTopology::ORIGINAL_WITH_DEFECTS",
+      "WeaveTopology::MEDIAL"};
   static_assert(SOLID_COUNT == std::size(Solids::simple_registry) +
                                    std::size(Solids::catalan_registry));
   static_assert(std::size(WEAVE_TOPOLOGY_OPTIONS) ==
@@ -185,7 +187,9 @@ private:
     ArenaVector<Plot::Mesh::Edge>
         original_edges; /**< Unique edges of the source mesh. */
     ArenaVector<Plot::Mesh::Edge>
-        automatic_edges;       /**< Oriented source or medial edges. */
+        automatic_edges; /**< Oriented source or medial edges. */
+    ArenaVector<Plot::Mesh::Edge>
+        medial_edges; /**< Forced-medial edges for four-regular solids. */
     bool four_regular = false; /**< Every source vertex has degree four. */
   };
 
@@ -194,6 +198,7 @@ private:
   static constexpr size_t MAX_SOLID_FACE_SLOTS = 360;
   static constexpr size_t MAX_SOLID_FACES = 120;
   static constexpr size_t MAX_SOLID_EDGES = MAX_SOLID_FACE_SLOTS / 2;
+  static constexpr size_t FOUR_REGULAR_SOLID_COUNT = 5;
 
   FastNoiseLite noise;
   Timeline timeline;
@@ -224,7 +229,8 @@ private:
       SOLID_COUNT * (MAX_SOLID_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
                      MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
                      MAX_SOLID_FACES * sizeof(uint8_t) +
-                     3 * MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge));
+                     3 * MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge)) +
+      FOUR_REGULAR_SOLID_COUNT * 2 * MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge);
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "DreamBalls persistent footprint exceeds the default partition");
@@ -398,9 +404,9 @@ private:
     return tangent - (from + to) * (dot(tangent, to) / denominator);
   }
 
-  HS_COLD_MEMBER static Vector automatic_vertex(const SolidData &solid,
-                                                size_t vertex) {
-    if (solid.four_regular)
+  HS_COLD_MEMBER static Vector woven_vertex(const SolidData &solid, bool medial,
+                                            size_t vertex) {
+    if (!medial)
       return solid.mesh_state.vertices[vertex];
     const auto &edge = solid.original_edges[vertex];
     return normalized_or(solid.mesh_state.vertices[edge.u] +
@@ -408,19 +414,21 @@ private:
                          solid.mesh_state.vertices[edge.u]);
   }
 
-  HS_COLD_MEMBER static void prepare_automatic_buffers(
-      const SolidData &solid, ArenaVector<Vector> &base_vertices,
-      ArenaVector<Vector> &frame_u, ArenaVector<Vector> &offsets,
-      MeshState &framed_mesh, ArenaVector<Plot::Mesh::Edge> &framed_edges) {
-    const size_t vertex_count = solid.four_regular
-                                    ? solid.mesh_state.vertices.size()
-                                    : solid.original_edges.size();
-    const size_t edge_count = solid.automatic_edges.size();
+  HS_COLD_MEMBER static void
+  prepare_woven_buffers(const SolidData &solid, bool medial,
+                        const ArenaVector<Plot::Mesh::Edge> &edges,
+                        ArenaVector<Vector> &base_vertices,
+                        ArenaVector<Vector> &frame_u,
+                        ArenaVector<Vector> &offsets, MeshState &framed_mesh,
+                        ArenaVector<Plot::Mesh::Edge> &framed_edges) {
+    const size_t vertex_count =
+        medial ? solid.original_edges.size() : solid.mesh_state.vertices.size();
+    const size_t edge_count = edges.size();
 
     base_vertices.bind(scratch_arena_a, vertex_count);
     frame_u.bind(scratch_arena_a, vertex_count);
     for (size_t vertex = 0; vertex < vertex_count; ++vertex) {
-      const Vector base = automatic_vertex(solid, vertex);
+      const Vector base = woven_vertex(solid, medial, vertex);
       base_vertices.push_back(base);
       frame_u.push_back(tangent_frame(base).u);
     }
@@ -435,8 +443,8 @@ private:
 
     framed_edges.bind(scratch_arena_b, edge_count);
     for (size_t edge = 0; edge < edge_count; ++edge)
-      framed_edges.push_back({solid.automatic_edges[edge].u,
-                              static_cast<uint16_t>(vertex_count + edge)});
+      framed_edges.push_back(
+          {edges[edge].u, static_cast<uint16_t>(vertex_count + edge)});
   }
 
   /**
@@ -492,6 +500,11 @@ private:
         data.automatic_edges.bind(target, automatic_edge_count);
         if (data.four_regular) {
           build_four_regular_edges(data.mesh_state, data.automatic_edges, b);
+          data.medial_edges.bind(target, 2 * edge_count);
+          build_medial_edges(data.mesh_state, data.original_edges,
+                             data.medial_edges);
+          HS_CHECK(data.medial_edges.size() == 2 * edge_count,
+                   "DreamBalls medial topology edge count mismatch");
         } else {
           build_medial_edges(data.mesh_state, data.original_edges,
                              data.automatic_edges);
@@ -602,13 +615,13 @@ private:
     }
   }
 
-  void draw_automatic_scene(Canvas &canvas, const Params &p,
-                            const SolidData &solid,
-                            FragmentShaderFn fragment_shader) {
-    const size_t vertex_count = solid.four_regular
-                                    ? solid.mesh_state.vertices.size()
-                                    : solid.original_edges.size();
-    const size_t edge_count = solid.automatic_edges.size();
+  void draw_woven_scene(Canvas &canvas, const Params &p, const SolidData &solid,
+                        bool medial, FragmentShaderFn fragment_shader) {
+    const auto &edges = medial && solid.four_regular ? solid.medial_edges
+                                                     : solid.automatic_edges;
+    const size_t vertex_count =
+        medial ? solid.original_edges.size() : solid.mesh_state.vertices.size();
+    const size_t edge_count = edges.size();
 
     ArenaVector<Vector> base_vertices;
     ArenaVector<Vector> frame_u;
@@ -616,8 +629,8 @@ private:
     MeshState framed_mesh;
     ScratchScope scratch_b_guard(scratch_arena_b);
     ArenaVector<Plot::Mesh::Edge> framed_edges;
-    prepare_automatic_buffers(solid, base_vertices, frame_u, offsets,
-                              framed_mesh, framed_edges);
+    prepare_woven_buffers(solid, medial, edges, base_vertices, frame_u, offsets,
+                          framed_mesh, framed_edges);
 
     const int num_copies_raw = static_cast<int>(p.num_copies);
     const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
@@ -639,7 +652,7 @@ private:
         }
 
         for (size_t edge_index = 0; edge_index < edge_count; ++edge_index) {
-          const auto &edge = solid.automatic_edges[edge_index];
+          const auto &edge = edges[edge_index];
           const Vector &from = base_vertices[edge.u];
           const Vector &to = base_vertices[edge.v];
           const Vector head_offset =
@@ -721,10 +734,13 @@ private:
       f.color = c;
     };
 
-    if (p.weave_topology == WeaveTopology::AUTOMATIC)
-      draw_automatic_scene(canvas, p, solid, fragment_shader);
-    else
+    if (p.weave_topology == WeaveTopology::ORIGINAL_WITH_DEFECTS) {
       draw_original_scene(canvas, p, solid, fragment_shader);
+    } else {
+      const bool medial =
+          p.weave_topology == WeaveTopology::MEDIAL || !solid.four_regular;
+      draw_woven_scene(canvas, p, solid, medial, fragment_shader);
+    }
   }
 
   /**
