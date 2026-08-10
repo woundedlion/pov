@@ -303,6 +303,9 @@ public:
              "before constructing another (its Effect and arenas are shared "
              "module-global storage)");
     engine_alive = true;
+    // The scan reads pole_lod_aggressiveness as a module global; claim it for
+    // this instance so a fresh engine never inherits a predecessor's setting.
+    pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
     stack_paint_canary();
 
     // SSOT guard: the self-registering effect count must match the static roster
@@ -657,14 +660,21 @@ public:
    *        0 disables. Non-finite and negative inputs clamp to 0.
    * @details The physically-neutral setting is 1.0: at that value one shade
    *          covers the columns sharing a physical LED footprint. Exposed so
-   *          the value can be tuned against real hardware.
+   *          the value can be tuned against real hardware. The setting is
+   *          engine-scoped: the constructor restores HS_POLE_LOD_DEFAULT, and
+   *          each WASM instance carries its own, so a segmented pool must
+   *          re-send it to every worker (README §10.7).
    */
   void setPoleLod(float aggressiveness) {
     pole_lod_aggressiveness =
         hs_wasm::clamp_pole_lod_aggressiveness(aggressiveness);
   }
 
-  /** @brief Current near-pole azimuthal decimation aggressiveness. */
+  /**
+   * @brief Current near-pole azimuthal decimation aggressiveness.
+   * @return The clamped value of the last setPoleLod() on this engine, else
+   *         HS_POLE_LOD_DEFAULT.
+   */
   float getPoleLod() const { return pole_lod_aggressiveness; }
 
   /**
