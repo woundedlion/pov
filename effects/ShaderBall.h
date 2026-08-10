@@ -1361,12 +1361,27 @@ private:
     bool active = false;
   };
 
+  /** @brief Cost points charged for one scalar noise evaluation. */
   static constexpr uint16_t NOISE_CALL_POINTS = 4;
+
+  /**
+   * @brief Largest worst-case point count a configuration may hold at.
+   * @details 61 is the worst-case cost of the most expensive entry in
+   * `PRESETS`, so the shipped roster fits the gate exactly and nothing further
+   * can be stacked on that entry: adding a Mobius lens to it costs 73 and
+   * giving the next-heaviest projection preset a polar-chart stage costs 65,
+   * both rejected. Raising the value admits configurations no preset has been
+   * measured at. This is a compile-time admission gate, never a runtime branch.
+   */
   static constexpr uint16_t HOLD_DEVICE_POINT_BUDGET = 61;
 
+  /** @brief One configuration's static per-pixel cost, in calibrated points. */
   struct DeviceCost {
+    /** Non-noise cost, summed over every scored stage. */
     uint16_t fixed_points = 0;
+    /** Scalar basis evaluations per shaded pixel. */
     uint16_t noise_calls = 0;
+    /** 1, or 2 when a lens join has to shade both branches. */
     uint8_t shader_lookups = 1;
 
     constexpr uint16_t worst_case_noise_calls() const {
@@ -1378,6 +1393,11 @@ private:
     }
   };
 
+  /**
+   * @brief Admission band a configuration's cost falls in.
+   * @details An authoring and transition-admission hint, not a measurement and
+   * not the hold gate; that is HOLD_DEVICE_POINT_BUDGET alone.
+   */
   enum class CostTier : uint8_t { T0, T1, T2, T3 };
 
   struct TransitionRuntime {
@@ -1489,10 +1509,17 @@ private:
            append_config_resource_keys(to, keys, count);
   }
 
+  /** @brief Base noise evaluations one sample of a basis costs. */
   static constexpr uint16_t scalar_noise_calls(NoiseBasis basis) {
     return basis == NoiseBasis::SIMPLEX ? 1 : 3;
   }
 
+  /**
+   * @brief Worst-case scalar noise evaluations one warp stage costs per pixel.
+   * @param spec The stage to price.
+   * @return Evaluations per shaded pixel, including the doubling a time-wrap
+   *         crossfade causes at its peak.
+   */
   static constexpr uint16_t warp_noise_calls(const WarpStageSpec &spec) {
     if (spec.kind == WarpStageKind::LEGACY_STEREO_NOISE)
       return 6;
@@ -1508,6 +1535,7 @@ private:
     return 2 * gradients * 4 * scalar_noise_calls(spec.basis);
   }
 
+  /** @brief Non-noise cost points a projection kernel charges per pixel. */
   static constexpr uint16_t projection_fixed_points(Projection projection) {
     return projection == Projection::BONNE                ? 12
            : projection == Projection::PEIRCE_QUINCUNCIAL ? 36
@@ -1515,6 +1543,7 @@ private:
                                                           : 0;
   }
 
+  /** @brief Non-noise cost points a warp stage charges per pixel. */
   static constexpr uint16_t warp_fixed_points(WarpStageKind kind) {
     return kind == WarpStageKind::AFFINE_FRAME  ? 2
            : kind == WarpStageKind::WAVE_SHEAR  ? 4
@@ -1524,10 +1553,12 @@ private:
                                                 : 0;
   }
 
+  /** @brief Non-noise cost points a surface lens charges per pixel. */
   static constexpr uint16_t lens_fixed_points(SurfaceLens lens) {
     return lens == SurfaceLens::MOBIUS ? 12 : lens == SurfaceLens::NONE ? 0 : 4;
   }
 
+  /** @brief Cost points the source function charges per pixel. */
   static constexpr uint16_t function_fixed_points(Function function) {
     switch (function) {
     case Function::TWIN_WAVE:
@@ -1548,6 +1579,7 @@ private:
     return 0;
   }
 
+  /** @brief Cost points the value transfer charges per pixel. */
   static constexpr uint16_t
   value_transfer_fixed_points(ValueTransfer transfer) {
     return transfer == ValueTransfer::RIDGE          ? 1
@@ -1556,6 +1588,7 @@ private:
                                                      : 0;
   }
 
+  /** @brief Cost points the coverage policy charges per pixel. */
   static constexpr uint16_t coverage_fixed_points(CoveragePolicy coverage) {
     switch (coverage) {
     case CoveragePolicy::OPAQUE:
@@ -1620,6 +1653,15 @@ private:
     return result;
   }
 
+  /**
+   * @brief Bands a cost estimate into its admission tier.
+   * @param cost Estimate from device_cost().
+   * @return The tier its worst-case point count falls in.
+   * @details The 20/36/48 cut-offs are authored bands over the same point
+   * currency `worst_case_points()` returns, not values derived from the stage
+   * tables. Nothing in the effect branches on the result; hold admission is
+   * within_hold_device_budget() alone.
+   */
   static constexpr CostTier cost_tier(const DeviceCost &cost) {
     const uint16_t points = cost.worst_case_points();
     return points <= 20   ? CostTier::T0
@@ -1628,10 +1670,12 @@ private:
                           : CostTier::T3;
   }
 
+  /** @brief Reports whether a cost estimate clears HOLD_DEVICE_POINT_BUDGET. */
   static constexpr bool within_hold_device_budget(const DeviceCost &cost) {
     return cost.worst_case_points() <= HOLD_DEVICE_POINT_BUDGET;
   }
 
+  /** @brief Reports whether a config is valid and cheap enough to hold. */
   static constexpr bool hold_admitted(const Config &config) {
     return valid_config(config) &&
            within_hold_device_budget(device_cost(config));
@@ -3104,6 +3148,16 @@ private:
                                                       : 4;
   }
 
+  /**
+   * @brief Conservative bound on the sampled gradient magnitude of a basis.
+   * @return 64, per unit of scaled noise coordinate.
+   * @details The bound is a property of the stencil, not of the basis, so the
+   * parameter is unnamed. Every basis returns values in [-1, 1] and the curl
+   * gradient is a central difference over the fixed stencil h = 1/64, so no
+   * component can exceed 2 / (2h) = 1/h = 64. Widening the stencil or letting
+   * a basis leave [-1, 1] invalidates this and every curl stability check
+   * built on it.
+   */
   static constexpr float noise_gradient_bound(NoiseBasis) { return 64.0f; }
 
   /**
