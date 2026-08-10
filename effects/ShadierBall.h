@@ -1304,8 +1304,11 @@ private:
 
   enum class TransitionMode : uint8_t { DUAL_OUTPUT, THROUGH_CLEAR };
 
-  struct WorkSignature {
-    uint16_t fixed_units = 0;
+  static constexpr uint16_t NOISE_CALL_POINTS = 4;
+  static constexpr uint16_t HOLD_DEVICE_POINT_BUDGET = 40;
+
+  struct DeviceCost {
+    uint16_t fixed_points = 0;
     uint16_t noise_calls = 0;
     uint8_t shader_lookups = 1;
 
@@ -1313,12 +1316,12 @@ private:
       return noise_calls * shader_lookups;
     }
 
-    constexpr uint16_t worst_case_work_units() const {
-      return (fixed_units + noise_calls) * shader_lookups;
+    constexpr uint16_t worst_case_points() const {
+      return (fixed_points + NOISE_CALL_POINTS * noise_calls) * shader_lookups;
     }
   };
 
-  enum class WorkTier : uint8_t { LIGHT, STANDARD, HEAVY, REJECTED };
+  enum class CostTier : uint8_t { T0, T1, T2, T3 };
 
   struct TransitionRuntime {
     Config from_config;
@@ -1470,14 +1473,14 @@ private:
     return 2 * gradients * 4 * scalar_noise_calls(spec.basis);
   }
 
-  static constexpr uint16_t projection_fixed_units(Projection projection) {
+  static constexpr uint16_t projection_fixed_points(Projection projection) {
     return projection == Projection::BONNE                ? 12
            : projection == Projection::PEIRCE_QUINCUNCIAL ? 36
            : projection == Projection::AIROCEAN           ? 40
                                                           : 0;
   }
 
-  static constexpr uint16_t warp_fixed_units(WarpStageKind kind) {
+  static constexpr uint16_t warp_fixed_points(WarpStageKind kind) {
     return kind == WarpStageKind::AFFINE_FRAME  ? 2
            : kind == WarpStageKind::WAVE_SHEAR  ? 4
            : kind == WarpStageKind::VORTEX      ? 6
@@ -1486,17 +1489,17 @@ private:
                                                 : 0;
   }
 
-  static constexpr uint16_t lens_fixed_units(SurfaceLens lens) {
+  static constexpr uint16_t lens_fixed_points(SurfaceLens lens) {
     return lens == SurfaceLens::MOBIUS ? 12 : lens == SurfaceLens::NONE ? 0 : 4;
   }
 
-  static constexpr WorkSignature work_signature(const Config &config) {
-    WorkSignature result;
-    result.fixed_units =
-        projection_fixed_units(config.slots.projection) +
-        warp_fixed_units(config.slots.warp_program.outer.kind) +
-        warp_fixed_units(config.slots.warp_program.inner.kind) +
-        lens_fixed_units(config.slots.surface_lens);
+  static constexpr DeviceCost device_cost(const Config &config) {
+    DeviceCost result;
+    result.fixed_points =
+        projection_fixed_points(config.slots.projection) +
+        warp_fixed_points(config.slots.warp_program.outer.kind) +
+        warp_fixed_points(config.slots.warp_program.inner.kind) +
+        lens_fixed_points(config.slots.surface_lens);
     result.noise_calls = warp_noise_calls(config.slots.warp_program.outer) +
                          warp_noise_calls(config.slots.warp_program.inner);
     if (config.slots.function == Function::NOISE_CONTOUR)
@@ -1513,20 +1516,21 @@ private:
     return result;
   }
 
-  // Conservative admission ceiling pending calibration from on-device holds.
-  static constexpr uint16_t HOLD_WORK_UNIT_CEILING = 96;
+  static constexpr CostTier cost_tier(const DeviceCost &cost) {
+    const uint16_t points = cost.worst_case_points();
+    return points <= 12   ? CostTier::T0
+           : points <= 24 ? CostTier::T1
+           : points <= 32 ? CostTier::T2
+                          : CostTier::T3;
+  }
 
-  static constexpr WorkTier work_tier(const WorkSignature &signature) {
-    const uint16_t units = signature.worst_case_work_units();
-    return units <= 32                       ? WorkTier::LIGHT
-           : units <= 64                     ? WorkTier::STANDARD
-           : units <= HOLD_WORK_UNIT_CEILING ? WorkTier::HEAVY
-                                             : WorkTier::REJECTED;
+  static constexpr bool within_hold_device_budget(const DeviceCost &cost) {
+    return cost.worst_case_points() <= HOLD_DEVICE_POINT_BUDGET;
   }
 
   static constexpr bool hold_admitted(const Config &config) {
     return valid_config(config) &&
-           work_tier(work_signature(config)) != WorkTier::REJECTED;
+           within_hold_device_budget(device_cost(config));
   }
 
   static constexpr TransitionMode transition_mode(const Config &from,
@@ -3171,7 +3175,7 @@ private:
         from.slots.surface_lens != SurfaceLens::NONE &&
         from.params.surface_lens.mix != to.params.surface_lens.mix)
       worst.params.surface_lens.mix = 0.5f;
-    return work_tier(work_signature(worst)) != WorkTier::REJECTED;
+    return within_hold_device_budget(device_cost(worst));
   }
 
   static constexpr bool polar_pair_stable(const Config &from,
@@ -3677,27 +3681,15 @@ private:
       slots.function = Function::GRID;
       slots.projection = Projection::STEREOGRAPHIC;
       slots.warp_program.outer.kind = WarpStageKind::CURL_FLOW;
-      slots.warp_program.outer.basis = NoiseBasis::RIDGED3;
-      slots.warp_program.outer.curl_integrator = CurlIntegrator::MIDPOINT_2;
-      params.warp.outer.strength = 0.01f;
+      slots.warp_program.outer.basis = NoiseBasis::SIMPLEX;
+      slots.warp_program.outer.curl_integrator = CurlIntegrator::EULER_1;
+      params.warp.outer.strength = 0.0078125f;
       params.warp.outer.scale = 1.0f;
       params.warp.outer.time_scale = 0.0f;
     } else if (index == 3) {
       slots.projection = Projection::PEIRCE_QUINCUNCIAL;
-      slots.warp_program.inner.kind = WarpStageKind::POLAR_CHART;
-      slots.warp_program.inner.polar_harmonic = PolarHarmonic::H2;
-      params.source.pattern_freq = 1.0f;
-      params.warp.inner.radial_scale = 1.5f;
     } else {
       slots.projection = Projection::AIROCEAN;
-      slots.surface_lens = SurfaceLens::MOBIUS;
-      slots.value_transfer = ValueTransfer::ISO_CONTOUR;
-      slots.colorizer = Colorizer::GENERATED_TRIADIC;
-      params.surface_lens.mix = 1.0f;
-      params.surface_lens.mobius = {0.6863982231f, 0.0f, 0.2402393781f, 0.0f,
-                                    0.0f,          0.0f, 0.6863982231f, 0.0f};
-      params.value.iso_level = 0.5f;
-      params.value.iso_width = 0.04f;
     }
     return {slots, params};
   }
@@ -3780,6 +3772,14 @@ private:
         return true;
       }(),
       "a ShadierBall preset lies outside its registered range");
+  static_assert(
+      [] {
+        for (const Preset &preset : PRESETS)
+          if (!hold_admitted(preset))
+            return false;
+        return true;
+      }(),
+      "a ShadierBall preset exceeds the calibrated device hold budget");
   static_assert(
       [] {
         for (size_t index = 0; index < PRESETS.size(); ++index)
