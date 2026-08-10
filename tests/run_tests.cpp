@@ -123,27 +123,27 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 179)             \
   X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
   X("sdf", 94, hs_test::sdf_tests::run_sdf_tests, 272481)                      \
-  X("conway", 33, hs_test::conway_tests::run_conway_tests, 5982)               \
+  X("conway", 33, hs_test::conway_tests::run_conway_tests, 4121)               \
   X("conway_morph", 37, hs_test::conway_morph_tests::run_conway_morph_tests,   \
-    1656015)                                                                   \
+    302862)                                                                    \
   X("conway_continuity", 20,                                                   \
     hs_test::conway_continuity_tests::run_conway_continuity_tests, 49151)      \
   X("partition_seam", 1,                                                       \
     hs_test::partition_seam_tests::run_partition_seam_tests, 39)               \
   X("conway_soak", 1, hs_test::conway_soak_tests::run_conway_soak_tests, 151)  \
   X("opchain_probe", 8, hs_test::opchain_probe_tests::run_opchain_probe_tests, \
-    496306)                                                                    \
+    5186)                                                                      \
   X("opchain_arena_survey", 1,                                                 \
     hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests,       \
-    20363)                                                                     \
-  X("hankin", 19, hs_test::hankin_tests::run_hankin_tests, 2048)               \
+    5764)                                                                      \
+  X("hankin", 19, hs_test::hankin_tests::run_hankin_tests, 1594)               \
   X("geometry", 35, hs_test::geometry_tests::run_geometry_tests, 4847)         \
   X("spherical_field", 13,                                                     \
     hs_test::spherical_field_tests::run_spherical_field_tests, 7027)           \
   X("mesh", 22, hs_test::mesh_tests::run_mesh_tests, 42756)                    \
-  X("solids", 34, hs_test::solids_tests::run_solids_tests, 298990)             \
+  X("solids", 34, hs_test::solids_tests::run_solids_tests, 226091)             \
   X("reaction_graph", 14,                                                      \
-    hs_test::reaction_graph_tests::run_reaction_graph_tests, 314909)           \
+    hs_test::reaction_graph_tests::run_reaction_graph_tests, 40)               \
   X("color", 66, hs_test::color_tests::run_color_tests, 408950)                \
   X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 102)           \
   X("easing_waves", 9, hs_test::easing_waves_tests::run_easing_waves_tests,    \
@@ -151,7 +151,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("platform", 18, hs_test::platform_tests::run_platform_tests, 201119)       \
   X("profiling", 11, hs_test::profiling_tests::run_profiling_tests, 163)       \
   X("filter", 63, hs_test::filter_tests::run_filter_tests, 10296)              \
-  X("plot_scan", 78, hs_test::plot_scan_tests::run_plot_scan_tests, 9109888)   \
+  X("plot_scan", 78, hs_test::plot_scan_tests::run_plot_scan_tests, 1069897)   \
   X("canvas", 29, hs_test::canvas_tests::run_canvas_tests, 487)                \
   X("scan", 31, hs_test::scan_tests::run_scan_tests, 189868)                   \
   X("mesh_raster", 18, hs_test::mesh_raster_tests::run_mesh_raster_tests,      \

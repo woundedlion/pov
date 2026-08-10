@@ -58,10 +58,15 @@ static inline float chord2(const Vector &a, const Vector &b) {
  *          generator's contract.
  */
 inline void test_nodes_on_unit_sphere() {
+  float worst_deviation = 0.0f;
+  int probed = 0;
   for (int i = 0; i < RD_N; ++i) {
-    Vector v = node(i);
-    HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
+    worst_deviation =
+        std::max(worst_deviation, std::fabs(node(i).length() - 1.0f));
+    ++probed;
   }
+  HS_EXPECT_LT(worst_deviation, 1e-3f);
+  HS_EXPECT_EQ(probed, RD_N);
   // Endpoints sit near the poles (y ~ +1 at i=0, y ~ -1 at i=RD_N-1).
   HS_EXPECT_GT(node(0).y, 0.999f);
   HS_EXPECT_LT(node(RD_N - 1).y, -0.999f);
@@ -85,11 +90,20 @@ inline void test_node_deterministic_and_distinct() {
                 Vector(-0.00214281073f, -0.999739528f, -0.0227209534f), 1e-6f);
   // The walk stops at RD_N-1 so node(i+1) never reads past [0, RD_N).
   Vector prev = node(0);
+  int nondeterministic = 0;
+  int coincident = 0;
+  int walked = 0;
   for (int i = 0; i < RD_N - 1; ++i) {
+    Vector cur = node(i);
+    nondeterministic += cur.x != prev.x || cur.y != prev.y || cur.z != prev.z;
     Vector next = node(i + 1);
-    HS_EXPECT_GT(chord2(prev, next), 0.0f);
+    coincident += chord2(cur, next) <= 0.0f;
     prev = next;
+    ++walked;
   }
+  HS_EXPECT_EQ(nondeterministic, 0);
+  HS_EXPECT_EQ(coincident, 0);
+  HS_EXPECT_EQ(walked, RD_N - 1);
 }
 
 /**
@@ -141,6 +155,12 @@ inline void test_table_shape_matches_constants() {
 
 // ---------------------------------------------------------------------------
 // Table structural invariants
+//
+// Each case walks all RD_N*RD_K slots and reports through a first-offending-slot
+// capture rather than a per-slot assertion: a per-slot HS_EXPECT would put
+// ~300k assertions into the module's floor and leave the floor gate blind to
+// every other case being deleted. The captured slot index is the same
+// diagnostic the per-slot form printed.
 // ---------------------------------------------------------------------------
 
 /**
@@ -151,13 +171,14 @@ inline void test_table_shape_matches_constants() {
  *          there rather than here.
  */
 inline void test_indices_in_range() {
+  int first_bad_slot = -1;
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k) {
       const int16_t ni = neighbors[i][k];
-      const int bad_slot =
-          ni == -1 || (ni >= 0 && ni < RD_N) ? -1 : i * RD_K + k;
-      HS_EXPECT_EQ(bad_slot, -1);
+      if (!(ni == -1 || (ni >= 0 && ni < RD_N)) && first_bad_slot < 0)
+        first_bad_slot = i * RD_K + k;
     }
+  HS_EXPECT_EQ(first_bad_slot, -1);
 }
 
 /**
@@ -166,9 +187,12 @@ inline void test_indices_in_range() {
  *          distinct adjacency.
  */
 inline void test_no_self_loops() {
+  int first_self_slot = -1;
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k)
-      HS_EXPECT_EQ(neighbors[i][k] == i ? i * RD_K + k : -1, -1);
+      if (neighbors[i][k] == i && first_self_slot < 0)
+        first_self_slot = i * RD_K + k;
+  HS_EXPECT_EQ(first_self_slot, -1);
 }
 
 /**
@@ -177,14 +201,17 @@ inline void test_no_self_loops() {
  *          table.
  */
 inline void test_no_duplicate_neighbors_in_row() {
+  int first_duplicate_slot = -1;
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k) {
       int16_t a = neighbors[i][k];
       if (a < 0)
         continue;
       for (int j = k + 1; j < RD_K; ++j)
-        HS_EXPECT_EQ(neighbors[i][j] == a ? i * RD_K + j : -1, -1);
+        if (neighbors[i][j] == a && first_duplicate_slot < 0)
+          first_duplicate_slot = i * RD_K + j;
     }
+  HS_EXPECT_EQ(first_duplicate_slot, -1);
 }
 
 /**
@@ -236,16 +263,18 @@ inline void test_degree_is_exactly_rd_k() {
 inline void test_neighbors_are_local() {
   // ~11 deg upper bound for a listed neighbor → chord^2 < 0.037.
   const float MAX_CHORD2 = 0.037f;
+  int first_far_slot = -1;
   for (int i = 0; i < RD_N; ++i) {
     Vector p = node(i);
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
       if (ni < 0)
         continue;
-      const int far_slot = chord2(p, node(ni)) > MAX_CHORD2 ? i * RD_K + k : -1;
-      HS_EXPECT_EQ(far_slot, -1);
+      if (chord2(p, node(ni)) > MAX_CHORD2 && first_far_slot < 0)
+        first_far_slot = i * RD_K + k;
     }
   }
+  HS_EXPECT_EQ(first_far_slot, -1);
 }
 
 /**
@@ -259,6 +288,7 @@ inline void test_neighbors_are_local() {
  *          apart, which they do not near the equator.
  */
 inline void test_neighbors_closer_than_far_point() {
+  int first_violation_slot = -1;
   for (int i = 0; i < RD_N; ++i) {
     Vector p = node(i);
     int far_point = (i + RD_N / 2) % RD_N;
@@ -267,11 +297,11 @@ inline void test_neighbors_closer_than_far_point() {
       int16_t ni = neighbors[i][k];
       if (ni < 0)
         continue;
-      const int violation_slot =
-          chord2(p, node(ni)) >= far2 ? i * RD_K + k : -1;
-      HS_EXPECT_EQ(violation_slot, -1);
+      if (chord2(p, node(ni)) >= far2 && first_violation_slot < 0)
+        first_violation_slot = i * RD_K + k;
     }
   }
+  HS_EXPECT_EQ(first_violation_slot, -1);
 }
 
 // ---------------------------------------------------------------------------

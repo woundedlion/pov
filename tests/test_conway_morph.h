@@ -3737,8 +3737,15 @@ inline ChainPeaks replay_build_chain(const char *name,
         // neither the palette correspondence nor the closing handoff below is
         // meaningful for it.
       } else if (k > 0 && !gated[k]) {
+        // First-offending face rather than a per-face assertion: the replay
+        // sweeps tens of thousands of faces, which would swamp the module's
+        // assertion floor.
+        int first_broken_carry = -1;
         for (size_t f = 0; f < prev_faces; ++f)
-          HS_EXPECT_EQ((int)landing.from_palette[f], (int)carried_to[f]);
+          if ((int)landing.from_palette[f] != (int)carried_to[f] &&
+              first_broken_carry < 0)
+            first_broken_carry = (int)f;
+        HS_EXPECT_EQ(first_broken_carry, -1);
       }
       if (supported) {
         // The leg's fresh target set is a permutation of the bank.
@@ -3852,8 +3859,11 @@ inline ChainPeaks replay_build_chain(const char *name,
     }
     if (supported) {
       HS_EXPECT_EQ(landed_faces, final_slot.topology.size());
+      int first_broken_carry = -1;
       for (size_t f = 0; f < landed_faces; ++f)
-        HS_EXPECT_EQ((int)sprite_pal[f], (int)carried_to[f]);
+        if ((int)sprite_pal[f] != (int)carried_to[f] && first_broken_carry < 0)
+          first_broken_carry = (int)f;
+      HS_EXPECT_EQ(first_broken_carry, -1);
     }
     if (pin_final && full_topo.empty())
       full_topo.assign(final_slot.topology.begin(), final_slot.topology.end());

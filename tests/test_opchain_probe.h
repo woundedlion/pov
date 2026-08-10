@@ -587,8 +587,10 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
       check_face_counts_consistent(swept);
       check_indices_in_range(swept);
       check_all_unit_vertices(swept, 1e-3f);
+      int nonfinite = 0;
       for (size_t i = 0; i < swept.vertices.size(); ++i)
-        HS_EXPECT_TRUE(std::isfinite(swept.vertices[i].length()));
+        nonfinite += !std::isfinite(swept.vertices[i].length());
+      HS_EXPECT_EQ(nonfinite, 0);
 
       // Positive area is a near-side-only invariant: past the pinch the cut
       // faces self-intersect by design and signed area legitimately flips.

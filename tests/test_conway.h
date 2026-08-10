@@ -158,6 +158,11 @@ inline void check_basic_invariants(const PolyMesh &m) {
  *          faces. A boundary edge (shared once) or a non-manifold edge
  *          (shared >2) breaks the topology the renderer assumes; this catches
  *          both, then verifies Euler's formula.
+ *          The edge scan reports the extreme fan-out it saw rather than
+ *          asserting per edge: this helper runs over every mesh the
+ *          conway/opchain suites build, so a per-edge HS_EXPECT would put ~100k
+ *          assertions into those modules' floors and leave the floor gate blind
+ *          to whole cases being deleted.
  */
 inline void check_euler_genus0(const PolyMesh &m) {
   std::vector<std::pair<uint16_t, uint16_t>> edges;
@@ -177,14 +182,20 @@ inline void check_euler_genus0(const PolyMesh &m) {
   std::sort(edges.begin(), edges.end());
 
   int E = 0;
+  int min_fanout = edges.empty() ? 2 : (int)edges.size();
+  int max_fanout = edges.empty() ? 2 : 0;
   for (size_t i = 0; i < edges.size();) {
     size_t j = i;
     while (j < edges.size() && edges[j] == edges[i])
       ++j;
-    HS_EXPECT_EQ((int)(j - i), 2); // each edge bounds exactly two faces
+    min_fanout = std::min(min_fanout, (int)(j - i));
+    max_fanout = std::max(max_fanout, (int)(j - i));
     ++E;
     i = j;
   }
+  // Each undirected edge must bound exactly two faces.
+  HS_EXPECT_EQ(min_fanout, 2);
+  HS_EXPECT_EQ(max_fanout, 2);
 
   int V = (int)m.vertices.size();
   int F = (int)m.face_counts.size();
