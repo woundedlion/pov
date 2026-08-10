@@ -692,6 +692,27 @@ namespace Filter {
 namespace World {
 
 /**
+ * @brief Forwards a clip-cull edge rotated by @p q, carrying the planar basis.
+ * @tparam FwdFn Downstream cull continuation
+ *         `bool(const Vector&, const Vector&, const Basis*)`.
+ * @param a,b Edge endpoints in world space (pre-rotation).
+ * @param pb Optional planar basis, rotated alongside the endpoints.
+ * @param q Rotation the stage applies to this copy of the edge.
+ * @param forward Tail-of-pipeline cull continuation.
+ * @return forward()'s verdict for the rotated edge.
+ */
+template <typename FwdFn>
+__attribute__((always_inline)) inline bool
+forward_rotated_edge(const Vector &a, const Vector &b, const Basis *pb,
+                     const Quaternion &q, FwdFn &&forward) {
+  if (pb) {
+    Basis rb = rotate(*pb, q);
+    return forward(rotate(a, q), rotate(b, q), &rb);
+  }
+  return forward(rotate(a, q), rotate(b, q), nullptr);
+}
+
+/**
  * @brief Rotates 3D points based on a dynamic Orientation.
  * @details Sweeps the orientation's intra-frame SLERP history and offsets `age`
  * by the fractional `(1 - t)`, producing temporal motion blur.
@@ -742,12 +763,7 @@ public:
     tween(orientation, [&](const Quaternion &q, float) {
       if (hit)
         return;
-      if (pb) {
-        Basis rb = rotate(*pb, q);
-        hit = forward(rotate(a, q), rotate(b, q), &rb);
-      } else {
-        hit = forward(rotate(a, q), rotate(b, q), nullptr);
-      }
+      hit = forward_rotated_edge(a, b, pb, q, forward);
     });
     return hit;
   }
@@ -832,12 +848,7 @@ public:
       tween(o, [&](const Quaternion &q, float) {
         if (hit)
           return;
-        if (pb) {
-          Basis rb = rotate(*pb, q);
-          hit = forward(rotate(a, q), rotate(b, q), &rb);
-        } else {
-          hit = forward(rotate(a, q), rotate(b, q), nullptr);
-        }
+        hit = forward_rotated_edge(a, b, pb, q, forward);
       });
       if (hit)
         return true;
@@ -1063,14 +1074,8 @@ public:
   bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
                  FwdFn &&forward) const {
     for (int i = 0; i < N; ++i) {
-      if (pb) {
-        Basis rb = rotate(*pb, rotations[i]);
-        if (forward(rotate(a, rotations[i]), rotate(b, rotations[i]), &rb))
-          return true;
-      } else if (forward(rotate(a, rotations[i]), rotate(b, rotations[i]),
-                         nullptr)) {
+      if (forward_rotated_edge(a, b, pb, rotations[i], forward))
         return true;
-      }
     }
     return false;
   }
