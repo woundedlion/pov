@@ -1217,7 +1217,7 @@ Conway operators take `(Arena& target, Arena& temp)`, generator functions take `
 
 | Type | Description |
 |---|---|
-| `ArenaVector<T>` | Fixed-capacity, arena-backed vector (no dynamic growth). Copy-disabled, move-enabled. Debug builds detect use-after-free via arena generation tracking. |
+| `ArenaVector<T>` | Arena-backed vector whose capacity is fixed between `bind()` calls — appending never grows it (`push_back` traps at capacity). A `bind()` that asks for more re-reserves and abandons the old block until the arena is reset. Copy-disabled, move-enabled. Debug builds detect use-after-free via arena generation tracking. |
 | `ArenaSpan<T>` | Non-owning read-only view into an `ArenaVector` (explicit borrow) |
 
 ### 7.6 The Color System (`color.h`)
