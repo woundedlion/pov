@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <limits>
 #include "tests/test_effects.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -805,6 +806,15 @@ inline void test_shaderball_subduction_edge_fade() {
   HS_EXPECT_EQ(WB::edge_fade_width(over, frame), 0.1f);
 }
 
+// A reference expression written out here and the implementation's own
+// evaluation of it are two independent orderings, which -ffast-math is free to
+// reassociate apart. sin/cos have unit derivative, so the result moves by at
+// most the rounding of their argument; the widest argument these sweeps reach
+// is SPIRAL's radius + 3*(azimuth + angle) + phase, under 24 radians.
+constexpr float SOURCE_ARGUMENT_BOUND = 24.0f;
+constexpr float SOURCE_DRIFT_BOUND =
+    SOURCE_ARGUMENT_BOUND * std::numeric_limits<float>::epsilon();
+
 /** @brief Legacy source functions retain their closed forms. */
 inline void test_shaderball_legacy_sources() {
   using WB = ShaderBallWhiteBox;
@@ -822,13 +832,15 @@ inline void test_shaderball_legacy_sources() {
                    fast_sinf(sqrtf(re * re + im * im) - source.primary));
       const float radius = sqrtf(re * re + im * im);
       const float azimuth = fast_atan2(im, re);
-      HS_EXPECT_EQ(
+      HS_EXPECT_NEAR(
           WB::sample_function(WB::Function::SPIRAL, p, source),
-          fast_sinf(radius - 3.0f * (azimuth + source.angle) - source.primary));
+          fast_sinf(radius - 3.0f * (azimuth + source.angle) - source.primary),
+          SOURCE_DRIFT_BOUND);
       const float b = -re * source.angle_sin + im * source.angle_cos;
-      HS_EXPECT_EQ(WB::sample_function(WB::Function::GRID, p, source),
-                   fast_sinf(rotated + source.primary) *
-                       fast_cosf(b - source.primary));
+      HS_EXPECT_NEAR(WB::sample_function(WB::Function::GRID, p, source),
+                     fast_sinf(rotated + source.primary) *
+                         fast_cosf(b - source.primary),
+                     SOURCE_DRIFT_BOUND);
     }
   }
 }
@@ -847,9 +859,9 @@ inline void test_shaderball_coupled_source() {
             const float coupled =
                 fast_sinf(re + complexity * fast_sinf(im + primary)) *
                 fast_cosf(im + complexity * fast_cosf(re - secondary));
-            HS_EXPECT_EQ(
+            HS_EXPECT_NEAR(
                 WB::sample_pattern(p, complexity, 0.0f, primary, secondary),
-                coupled);
+                coupled, SOURCE_DRIFT_BOUND);
           }
           const float direct =
               fast_sinf(re + primary) * fast_cosf(im - secondary);
