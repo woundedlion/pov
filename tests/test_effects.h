@@ -3096,6 +3096,7 @@ struct DynamoWhiteBox {
   static void set_speed(D &d, float v) { d.params.speed = v; }
   static void set_trail_length(D &d, float v) { d.params.trail_length = v; }
   static float trail_ceiling(const D &d) { return d.params.trail_ceiling; }
+  static uint32_t emitted_points(const D &d) { return d.emitted_points; }
   static uint32_t emission_points(const D &d) { return d.emission_points; }
   static size_t trail_points(D &d) { return d.filters.get<Ring>().size(); }
 };
@@ -3139,6 +3140,35 @@ inline void test_dynamo_trail_ceiling_bounds_the_ring() {
   HS_EXPECT_GT(per_frame * static_cast<uint32_t>(MAX_TRAIL), capacity);
   HS_EXPECT_LE(per_frame * static_cast<uint32_t>(WB::trail_ceiling(effect)),
                capacity);
+}
+
+/**
+ * @brief Pins what Dynamo's emitted_points counter actually measures.
+ * @details draw_nodes() bumps it from inside the strand's fragment shader, so
+ *          the trail-ring ceiling derived from it is only a valid bound while
+ *          the rasterizer runs that shader exactly once per point it hands to
+ *          the pipeline. Assert that directly: with a trail long enough that
+ *          nothing ages out over the window, the ring's growth across a frame
+ *          must equal the frame's emitted_points. A rasterizer that shaded a
+ *          fragment it then dropped, or plotted one it never shaded, would
+ *          silently rescale the bound.
+ */
+inline void test_dynamo_emitted_points_counts_ring_seeds() {
+  using WB = DynamoWhiteBox;
+  reset_effect_globals();
+
+  WB::D effect;
+  effect.init();
+  WB::set_trail_length(effect, 100.0f);
+
+  for (int f = 0; f < 3; ++f) {
+    const size_t before = WB::trail_points(effect);
+    effect.draw_frame();
+    effect.advance_display();
+    const size_t seeded = WB::trail_points(effect) - before;
+    HS_EXPECT_GT(WB::emitted_points(effect), 0u);
+    HS_EXPECT_EQ(seeded, static_cast<size_t>(WB::emitted_points(effect)));
+  }
 }
 
 /**
@@ -6045,6 +6075,7 @@ inline int run_effects_tests() {
     RingShowerWhiteBox::check_radius_endpoints();
     DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
     test_dynamo_trail_ceiling_bounds_the_ring();
+    test_dynamo_emitted_points_counts_ring_seeds();
     test_hopf_projection_math();
     test_hopf_trail_trim_keeps_a_segment();
     test_raymarch_constexpr_sqrt_converges();
