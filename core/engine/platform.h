@@ -156,17 +156,10 @@ inline bool debug = false;
 // Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
 // -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
 // The fast-math flags are restated because GCC 11's optimize pragma rebuilds
-// optimization flags from defaults, dropping command-line -ffast-math /
-// -fno-finite-math-only for the region (fixed in GCC 12; harmless to restate).
+// optimization flags from defaults, dropping the command-line ones for the
+// region. no-unswitch-loops keeps GCC 15 from emitting a second copy of the
+// region's per-pixel loop bodies, which only overflows ITCM: one copy ever runs.
 // HS_O3_FN is the shared single-function attribute and backs HS_COLD_MEMBER.
-//
-// no-unroll-loops is NOT the lever here; -funswitch-loops is. GCC 15 unswitches
-// the region's per-pixel loops on their invariant branches (e.g. the feedback
-// compositor's pair_on flag), emitting TWO copies of the body where GCC 11 kept
-// one. Only one copy ever runs, so it buys no speed and costs pure size: the
-// feedback composite lambda doubles 6,356 -> 11,588 B and Phantasm's ITCM goes
-// 188,088 -> 200,520 B, overflowing FlexRAM. Disabling it restores GCC 11's
-// shape at full -O3 across the roster; measured on the real image, not guessed.
 // ---------------------------------------------------------------------------
 #if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) &&            \
     defined(__OPTIMIZE_SIZE__)
