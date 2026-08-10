@@ -659,8 +659,11 @@ struct IsrCycleScope {
  * @param label Counter name (used both as the identifier suffix and log label).
  * @details Compiled in only under HS_PROFILE_ENABLE; off by default so regular
  *          builds pay nothing for the per-scope bookkeeping and CYCCNT read on
- *          every hot-path face/pixel scope. Expands to a single statement, so
- *          it stays well-formed as the unbraced body of an `if` or a loop.
+ *          every hot-path face/pixel scope. The enabled expansion is a guard
+ *          declaration, so it must open a braced scope: as the unbraced body of
+ *          an `if` or a loop it compiles, is destroyed on the same line, and
+ *          records ~0 cycles. HS_OS_CYCLES() is 0 on every non-Teensy target,
+ *          so host and WASM captures read all-zero.
  */
 #ifdef HS_PROFILE_ENABLE
 #define HS_PROFILE(label)                                                      \
