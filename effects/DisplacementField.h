@@ -70,6 +70,13 @@ public:
     shapes_raw = persistent_arena.allocate(
         RING_SLOTS * sizeof(SDF::DistortedRing), alignof(SDF::DistortedRing));
     prefilters = persistent_arena.allocate_n<SDF::KnotPrefilter>(RING_SLOTS);
+    chunk_cos = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
+    chunk_sin = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
+    for (int c = 0; c < BAKE_CHUNKS; ++c) {
+      const float a = (2.0f * c + 1.0f) * (PI_F / BAKE_CHUNKS);
+      chunk_cos[c] = cosf(a);
+      chunk_sin[c] = sinf(a);
+    }
     balls.init_storage(persistent_arena);
     noise_field.init_storage(persistent_arena);
 
@@ -196,9 +203,9 @@ private:
     const float chunk_reach = (PI_F / BAKE_CHUNKS) * sin_t + band_r;
     uint32_t raw = 0u;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      float a = (2.0f * c + 1.0f) * (PI_F / BAKE_CHUNKS);
-      Vector mid = (basis.v * cos_t) +
-                   ((basis.u * cosf(a)) + (basis.w * sinf(a))) * sin_t;
+      Vector mid =
+          (basis.v * cos_t) +
+          ((basis.u * chunk_cos[c]) + (basis.w * chunk_sin[c])) * sin_t;
       if (Plot::cap_may_touch_clip<H>(clip(), mid, chunk_reach))
         raw |= 1u << c;
     }
@@ -690,6 +697,10 @@ private:
       nullptr; /**< Raw storage for RING_SLOTS placement-built SDF::DistortedRing shapes. */
   SDF::KnotPrefilter *prefilters =
       nullptr; /**< RING_SLOTS knot prefilters, one per shape slot. */
+  float *chunk_cos =
+      nullptr; /**< cos of each bake chunk's mid-azimuth; baked once at init. */
+  float *chunk_sin =
+      nullptr; /**< sin of each bake chunk's mid-azimuth; baked once at init. */
   Pixel *hue_table =
       nullptr; /**< HUE_TABLE_SIZE + 1 dynamic or cyclic hue samples for the current ring. */
   float *ball_colat =
@@ -748,15 +759,15 @@ private:
                 "W-scaled slider range at this build resolution");
 
   // init() allocates the per-slot bake pools, the ball prefilter scratch, the
-  // hue table, the ring shapes, and both transformer pools from the persistent
-  // arena.
+  // hue table, the chunk-azimuth table, the ring shapes, and both transformer
+  // pools from the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
       RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +
                     sizeof(SDF::DistortedRing) + sizeof(SDF::KnotPrefilter)) +
       MAX_BALLS * (3 * sizeof(float) + sizeof(int) +
                    sizeof(const Animation::BumpParams *)) +
-      (HUE_TABLE_SIZE + 1) * sizeof(Pixel) +
+      (HUE_TABLE_SIZE + 1) * sizeof(Pixel) + 2 * BAKE_CHUNKS * sizeof(float) +
       MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
       (sizeof(typename decltype(noise_field)::Entity) + sizeof(int));
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
