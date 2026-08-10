@@ -1,3 +1,5 @@
+import contextlib
+import io
 import subprocess
 import sys
 import tempfile
@@ -298,6 +300,24 @@ class TestDocumentationChecker(unittest.TestCase):
                                     {PurePosixPath("scripts")}, used)
         self.assertIsNone(issue)
         self.assertEqual(used, {"scripts/run-tests.mjs"})
+
+    def test_skipped_checkout_tree_warns_and_still_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / "README.md").write_text(
+                "<!-- docs-check: tree daydream -->\n"
+                "```\n"
+                "└── ghost.js                    Stale row\n"
+                "```\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "README.md"],
+                           check=True)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                status = dc.main(["--root", str(root)])
+        self.assertEqual(status, 0)
+        self.assertIn("::warning::", output.getvalue())
+        self.assertIn("daydream", output.getvalue())
 
     def test_repository_without_markdown_fails(self):
         with tempfile.TemporaryDirectory() as directory:
