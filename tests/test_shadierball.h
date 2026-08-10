@@ -183,7 +183,7 @@ struct ShadierBallWhiteBox {
     return sdb.pending_transition.active;
   }
   static const RequestedConfig &pending_transition_config(const SDB &sdb) {
-    return sdb.pending_transition.config;
+    return sdb.requested_config;
   }
   static void force_transition(SDB &sdb, const RequestedConfig &to,
                                uint16_t duration, bool continue_choreo) {

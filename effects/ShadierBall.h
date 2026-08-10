@@ -1346,7 +1346,6 @@ private:
   };
 
   struct PendingTransition {
-    Config config;
     bool active = false;
   };
 
@@ -2751,7 +2750,7 @@ private:
     }
     if (!transition_admitted(transition.to_config, candidate))
       return false;
-    pending_transition = {candidate, true};
+    pending_transition.active = true;
     return true;
   }
 
@@ -2779,9 +2778,9 @@ private:
       blend.params = transition.to_config.params;
       transition.active = false;
       if (pending_transition.active) {
-        const Config next = pending_transition.config;
         pending_transition.active = false;
-        try_apply_config(next, MANUAL_TRANSITION_FRAMES, false, false);
+        try_apply_config(requested_config, MANUAL_TRANSITION_FRAMES, false,
+                         false);
         return;
       }
       if (continue_choreo)
