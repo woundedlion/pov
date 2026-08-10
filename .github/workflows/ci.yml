@@ -67,14 +67,26 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      - &llvm_apt
+        name: Add the apt.llvm.org repository
+        # clang-22 is newer than the default LLVM on Ubuntu 24.04, so the
+        # toolchain comes from apt.llvm.org rather than the distro archive.
+        # Every job that installs clang aliases this step, so the repository and
+        # the release channel are named once.
+        run: |
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
+            | sudo gpg --dearmor -o /usr/share/keyrings/llvm.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" \
+            | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+
       - name: Install Clang + Ninja + ccache
         run: |
-          sudo apt-get update
-          # Pin the compiler version (clang-18 is the default LLVM on Ubuntu
-          # 24.04) so the native suite — including the __attribute__ /
-          # __builtin_trap death-harness semantics — runs on a known compiler
-          # rather than whatever the rolling 'clang' metapackage resolves to.
-          sudo apt-get install -y clang-18 ninja-build ccache
+          # Pin the compiler version so the native suite — including the
+          # __attribute__ / __builtin_trap death-harness semantics — runs on a
+          # known compiler rather than whatever the rolling 'clang' metapackage
+          # resolves to.
+          sudo apt-get install -y clang-22 ninja-build ccache
           # cmake is preinstalled on GitHub runners (>= 3.29 required).
 
       # The generated-artifact gates (unit_color_luts, unit_color_luts_check,
@@ -105,7 +117,7 @@ jobs:
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
-          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests
@@ -201,11 +213,12 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      - *llvm_apt
+
       - name: Install Clang + Ninja + ccache
         run: |
-          sudo apt-get update
-          # Same pinned clang-18 as the plain tests job (see its note).
-          sudo apt-get install -y clang-18 ninja-build ccache
+          # Same pinned clang-22 as the plain tests job (see its note).
+          sudo apt-get install -y clang-22 ninja-build ccache
 
       # Separate cache prefix from the non-sanitized job (ASan/UBSan flags
       # change the compile command, so object caches must not collide).
@@ -220,7 +233,7 @@ jobs:
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_SANITIZE=ON
-          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests
@@ -271,11 +284,12 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      - *llvm_apt
+
       - name: Install Clang + Ninja + ccache
         run: |
-          sudo apt-get update
-          # Same pinned clang-18 as the plain tests job (see its note).
-          sudo apt-get install -y clang-18 ninja-build ccache
+          # Same pinned clang-22 as the plain tests job (see its note).
+          sudo apt-get install -y clang-22 ninja-build ccache
 
       # Own cache prefix: -fsanitize=thread changes the compile command, so this
       # object cache must not collide with the other jobs'.
@@ -289,7 +303,7 @@ jobs:
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_TSAN=ON
-          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests --target run_tests
@@ -368,11 +382,12 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      - *llvm_apt
+
       - name: Install Clang + Ninja + ccache
         run: |
-          sudo apt-get update
-          # Same pinned clang-18 as the plain tests job (see its note).
-          sudo apt-get install -y clang-18 ninja-build ccache
+          # Same pinned clang-22 as the plain tests job (see its note).
+          sudo apt-get install -y clang-22 ninja-build ccache
 
       # Separate cache prefix from the Debug jobs: the opt flags change the
       # compile command, so the object caches must not collide. Per-shard slot
@@ -395,7 +410,7 @@ jobs:
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g ${{ matrix.float_flags }}"
-          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests
@@ -431,12 +446,13 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      - *llvm_apt
+
       - name: Install Clang + LLVM + Ninja + ccache
         run: |
-          sudo apt-get update
-          # llvm-18 supplies llvm-profdata-18 / llvm-cov-18; the profile format is
+          # llvm-22 supplies llvm-profdata-22 / llvm-cov-22; the profile format is
           # version-locked to the compiler, so both must be the same major.
-          sudo apt-get install -y clang-18 llvm-18 ninja-build ccache
+          sudo apt-get install -y clang-22 llvm-22 ninja-build ccache
 
       # Separate cache prefix: the coverage flags change the compile command, so
       # this object cache must not collide with the other jobs'.
@@ -450,7 +466,7 @@ jobs:
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_COVERAGE=ON
-          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
         run: cmake --build --preset tests --target run_tests
@@ -468,12 +484,12 @@ jobs:
 
       - name: Publish coverage summary
         run: |
-          llvm-profdata-18 merge -sparse -o cov/run_tests.profdata cov/*.profraw
+          llvm-profdata-22 merge -sparse -o cov/run_tests.profdata cov/*.profraw
           {
             echo '## Native suite coverage (advisory — no gate)'
             echo
             echo '```'
-            llvm-cov-18 report build/tests/tests/run_tests \
+            llvm-cov-22 report build/tests/tests/run_tests \
               -instr-profile=cov/run_tests.profdata \
               -ignore-filename-regex='(^/usr/|/tests/)'
             echo '```'
@@ -864,17 +880,18 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      - *llvm_apt
+
       - name: Install Clang + Ninja
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-18 ninja-build   # pinned like the unit-test job
+          sudo apt-get install -y clang-22 ninja-build   # pinned like the unit-test job
 
       # srgb_decode_gen is EXCLUDE_FROM_ALL and the sharded job only compiles it;
       # here it is actually run, to argv[1] rather than over the committed header.
       - name: Build the generator
         run: |
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF \
-            -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
           cmake --build --preset tests --target srgb_decode_gen
 
       - name: Regenerate the decode tables and diff the full header
@@ -1106,16 +1123,17 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+      - *llvm_apt
+
       - name: Install Clang + Ninja
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-18 ninja-build
+          sudo apt-get install -y clang-22 ninja-build
 
       # Configure only — ctest -N reads the generated test list; no build needed.
       - name: Configure (register tests)
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
-          -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Assert every registered test is in exactly one shard
         run: |
