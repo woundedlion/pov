@@ -58,6 +58,8 @@ struct ParamView {
   float min;        /**< Inclusive lower bound; ignored when is_bool. */
   float max;        /**< Inclusive upper bound; ignored when is_bool. */
   bool is_bool;     /**< True if the parameter is a boolean toggle. */
+  bool is_integer;  /**< True if the target stores whole numbers, so the GUI
+                       steps by one; set for enums and plain integers alike. */
   bool animated;    /**< True if the parameter is currently animated. */
   bool readonly;    /**< True if the parameter is read-only (not editable). */
   bool preset;      /**< True if preset exports include the parameter. */
@@ -80,9 +82,9 @@ inline void collect_param_views(const Effect &effect,
   out.clear();
   for (const auto &def : effect.getParameters()) {
     out.push_back(ParamView{def.name, def.get(), def.min, def.max,
-                            def.is_bool(), def.animated, def.readonly,
-                            def.preset, def.options, def.option_count,
-                            def.export_options});
+                            def.is_bool(), def.is_integer(), def.animated,
+                            def.readonly, def.preset, def.options,
+                            def.option_count, def.export_options});
   }
 }
 
