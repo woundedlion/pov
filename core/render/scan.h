@@ -1546,10 +1546,10 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const bool per_row = shape.pole_touch;
   if (!per_row) {
     build_runs(y_lo);
+#ifndef HS_AA_AUDIT
+    // The audit walk below visits every pixel regardless of the runs, so it
+    // must not take this early out.
     if (num_runs == 0)
-#ifdef HS_AA_AUDIT
-      ;
-#else
       return;
 #endif
   }
