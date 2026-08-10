@@ -365,20 +365,16 @@ private:
   /**
    * @brief Per-emitter accumulated emission angle (radians, wrapped to
    *        [0, 2pi)).
-   * @details Driven by integrating Ang Spd each emission, so a live speed
-   *          change alters the emission rate going forward only. Advanced on
-   *          every emitter tick, including ticks whose spawn is dropped at pool
-   *          capacity: the spray angle is a function of elapsed time, so the
-   *          saturated pool thins the fan instead of freezing its direction.
+   * @details Integrates Ang Spd on every emitter tick, including ticks whose
+   *          spawn is dropped at pool capacity.
    */
   std::array<float, MAX_EMITTERS> emit_phases;
   uint8_t palette_sequence = 0;
   /**
    * @brief Per-emitter tangent-plane basis, built once in init().
-   * @details Each basis depends only on its emitter axis, so it is cached
-   *          here rather than rebuilt inside the per-frame emitter callback. The
-   *          callback is stored in a 32-byte EmitterFn, too small to also
-   *          capture a 36-byte Basis, so the array is indexed by the captured i.
+   * @details The emitter callback is stored in a 32-byte EmitterFn, too small
+   *          to also capture a 36-byte Basis, so it indexes this array by the
+   *          captured i.
    */
   std::array<Basis, MAX_EMITTERS> emitter_basis;
   std::array<Vector, MAX_EMITTERS> emitter_positions;

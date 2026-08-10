@@ -140,10 +140,8 @@ public:
         c.color = sec_site.color.color.lerp16(best_site.color.color, frac);
       }
 
-      // Borders — driven entirely by the "Border Thick" slider: a thickness of
-      // 0 disables them (and skips the two acosf calls below), any positive
-      // value paints the seam between the nearest two sites. d0 is the nearest,
-      // so d0 >= d1 → dist1 <= dist2 and the cell gap is non-negative.
+      // Borders. A "Border Thick" of 0 skips the two acosf calls below. d0 is
+      // the nearest, so d0 >= d1 and the cell gap is non-negative.
       if (params.border_thickness > 0.0f && has_second) {
         float dist1 = acosf(hs::clamp(d0, -1.0f, 1.0f));
         float dist2 = acosf(hs::clamp(d1, -1.0f, 1.0f));
@@ -169,10 +167,8 @@ public:
 
     // Coarse-grid coherence: classify the nearest pair once per coarse-grid
     // corner, then shade every pixel of a block from the deduped union of its
-    // four corners' pairs (<= 8 candidate sites) by an exact top-2 dot scan —
-    // no per-pixel KD query. A site owning any pixel of a block reaches at
-    // least one corner's pair in all but degenerate layouts; a cell missed by
-    // all four corners is dropped.
+    // four corners' pairs (<= 8 candidate sites) by an exact top-2 dot scan.
+    // A cell missed by all four corners is dropped.
     auto &cr = canvas.clip();
     Scan::Shader::check_lut_domain<W, H>(cr);
     const int x0 = cr.x_start;
@@ -182,13 +178,10 @@ public:
     if (x1 <= x0 || y1 <= y0)
       return;
 
-    // Voronoi cell pixel size falls as ~1/sqrt(num_sites) (smallest near the
-    // poles, where rows crowd), so a fixed block eventually straddles more than
-    // one cell and misses small cells. Shrink the block with the site count,
-    // floored at the edge MAX_SITES would give at this H. Rows map uniformly
-    // over [0,π], so an equal-area cell spans sqrt(4π/n)·H/π rows and this edge
-    // is deliberately 1/sqrt(π) ≈ 0.56 of that: a block sized to the full cell
-    // extent straddles neighbours and starts dropping small cells.
+    // Voronoi cell pixel size falls as ~1/sqrt(num_sites), so shrink the block
+    // with the site count, floored at the edge MAX_SITES would give at this H.
+    // Rows map uniformly over [0,π], so an equal-area cell spans sqrt(4π/n)·H/π
+    // rows and this edge is 1/sqrt(π) ≈ 0.56 of that.
     const float cell_px =
         (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites_buffer.size()));
     const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
@@ -241,8 +234,7 @@ public:
     // SAMPLES=1: one sample at pixel center, open-coded because the coarse grid
     // needs the integer pixel coordinates the generic shader callback does not
     // expose. Rows cover the margin-expanded render band like
-    // Scan::Shader::draw<W, H, 1>, but columns cover the bare display band; the
-    // CONFIG.margin static_assert holds that gap closed.
+    // Scan::Shader::draw<W, H, 1>, but columns cover the bare display band.
     int last_ky = -1;
     for (int y = y0; y < y1; ++y) {
       const int ky = (y - gy0) / B;

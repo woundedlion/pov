@@ -116,10 +116,8 @@ public:
     for (int i = 0; i < num_rings; ++i) {
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
-      // One fused scan per trail frame: the frame's <= CAP sub-rings differ by
-      // at most one walk step, so their bands nearly coincide and the group
-      // pass pays the row/interval overhead once (see RingGroup for the
-      // blend-order/AA-tail contract).
+      // One fused scan per trail frame (see RingGroup for the blend-order and
+      // AA-tail contract).
       deep_tween_frames(ring.trail, [&](const Quaternion *qs, const float *ts,
                                         int count) {
         constexpr int SUB_CAP = decltype(ring.orientation)::CAPACITY;
@@ -130,10 +128,7 @@ public:
         constexpr float pixel_w = 2.0f * PI_F / W;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];
-          // The trail's length-fade comes entirely from the palette's alpha
-          // vignette, which tapers to ~0 at both ends, so the head fades out
-          // along with the tail — unlike the sibling trail effects, which fade
-          // the tail alone. There is deliberately no explicit t-fade here.
+          // Length-fade comes from the palette's alpha vignette, not a t term.
           Color4 c = ring.palette->get(1.0f - t);
           c.alpha = c.alpha * params.alpha;
           if (c.alpha <= 0.001f)
@@ -203,9 +198,7 @@ private:
   } params;
 
   // init() allocates the ring pool (each ring carries its TRAIL_LENGTH trail)
-  // and bakes one vignette palette LUT per palette from the persistent arena.
-  // Effect keeps the default arena split, so the total must fit the device
-  // persistent partition.
+  // and one vignette palette LUT per palette, from the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       NUM_RINGS * sizeof(Ring) +
       NUM_PALETTES * BakedPalette::required_arena_bytes();

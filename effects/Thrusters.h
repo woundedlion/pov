@@ -297,11 +297,9 @@ private:
     Basis basis = make_basis(orientation.get(), ring_vec);
 
     auto fragment_shader = [this, opacity](const Vector &v, Fragment &f) {
-      // v is the world-space fragment direction (the basis bakes orientation),
-      // so banding is anchored to the fixed world X axis: the ring sweeps through
-      // static world-space color bands. v is unit (the rasterizer renormalizes
-      // every shaded position), so dot(X, v) is just v.x; the LUT is baked in
-      // that cos domain (dot_keyed) and the source alpha is a constant 1.
+      // v is the world-space fragment direction and is unit (the rasterizer
+      // renormalizes every shaded position), so dot(world X, v) is just v.x;
+      // the LUT is baked in that cos domain (dot_keyed).
       f.color = Color4(palette.get_color(dot_key(v.x)), params.alpha * opacity);
     };
 

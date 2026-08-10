@@ -716,8 +716,7 @@ private:
 
   // init() allocates the per-slot bake pools, the ball prefilter scratch, the
   // hue table, the ring shapes, and both transformer pools from the persistent
-  // arena. Effect keeps the default arena split, so the total must fit the
-  // device persistent partition.
+  // arena.
   static constexpr size_t FOOTPRINT_BYTES =
       RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
       RING_SLOTS * (sizeof(float) + sizeof(int) + sizeof(int8_t) +

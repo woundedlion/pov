@@ -49,14 +49,12 @@ public:
    * the interlace sweep/morph cycle.
    */
   HS_COLD_MEMBER void init() override {
-    // scratch_a (24 KB) covers its largest non-overlapping peak: the render
-    // path (draw_mesh transforms the mesh into scratch_a, then Scan::Mesh::draw
-    // stacks an SDF::FaceScratchBuffer on top), which for the heaviest hankin
-    // mesh exceeds the generation/classify peak; morph frames stack the swept
-    // mesh + compile output under the same render path. scratch_b (32 KB)
-    // covers the largest of generation intermediates, the morph-cycle Persist
-    // set, and a morph frame's blended palette LUTs. The per-solid H=144
-    // scratch high-water is gated in CI by the arena-budget test.
+    // scratch_a (24 KB) covers the render path, its largest peak: draw_mesh
+    // transforms the mesh into scratch_a, then Scan::Mesh::draw stacks an
+    // SDF::FaceScratchBuffer on top; morph frames stack the swept mesh +
+    // compile output under it. scratch_b (32 KB) covers the largest of
+    // generation intermediates, the morph-cycle Persist set, and a morph
+    // frame's blended palette LUTs.
     configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
                      32 * 1024);
     register_param("Intensity", &params.intensity, 0.0f, 5.0f);
@@ -533,9 +531,7 @@ private:
     // Rebuild at the sweep peak, where every rosette is fully open and
     // unambiguously inside its face, and match by unit centroid there. Shared
     // vertices do not discriminate: hankin builds on edge midpoints, which
-    // belong to both faces meeting at that edge, so a rosette ties against its
-    // neighbors and the tie-break funnels most of them onto one face — leaving
-    // most star faces with no rosette resolved at all.
+    // belong to both faces meeting at that edge.
     ScratchScope host_guard(scratch_arena_a);
     MeshState open_mesh;
     MeshOps::update_hankin(compiled_hankin, open_mesh, scratch_arena_a,
@@ -557,9 +553,8 @@ private:
       }
       host_face_palette[f] = node_face_palette[best];
       // Inverse leg: at the sweep's midpoint the star face closes to nothing
-      // and the rosettes hosted in it fill its place, so the star dissolves
-      // into their rim. Rosettes sharing a host sit at symmetric positions and
-      // so share a class; the first one found represents them.
+      // and the rosettes hosted in it fill its place. Rosettes sharing a host
+      // share a class; the first one found represents them.
       if (star_rim_palette[best] == NO_RIM)
         star_rim_palette[best] = static_cast<uint8_t>(
             palette_idx[MeshPaletteBank::slot_of(hankin_mesh.topology[f])]);
@@ -631,12 +626,10 @@ private:
               const BakedPalette *strap_by_slot[NUM_PALETTES];
               resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                        strap_by_slot, scratch_arena_b);
-              // Three collapse points, each shaped only within SHAPE_FRAMES
-              // of itself: the strap births at the opening bookend, closes
-              // at the closing one, and the star closes at the midpoint.
-              // Every weight is exactly 0 at its collapse and 1 beyond the
-              // window, so the body of the sweep draws every face in its
-              // own color.
+              // Three collapse points, each shaped only within SHAPE_FRAMES of
+              // itself: the strap births at the opening bookend, closes at the
+              // closing one, and the star closes at the midpoint. Every weight
+              // is exactly 0 at its collapse and 1 beyond the window.
               const int to_close = HANKIN_SWEEP_FRAMES - cycle_frame;
               const int from_mid = cycle_frame - HANKIN_SWEEP_FRAMES / 2;
               draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot, opacity,
@@ -699,8 +692,7 @@ private:
 
     // Bookend grouping of the arrival node: the closing bookend displays one
     // palette per hankin star-face class, so the leg's color targets key on
-    // that classification — every face it merges converges to a single color
-    // before the swap. Built from the same arrival mesh finish_morph_cycle
+    // that classification. Built from the same arrival mesh finish_morph_cycle
     // rebuilds, so the class ids match at completion.
     uint16_t arrival_topo[MAX_NODE_FACES];
     size_t arrival_faces = 0;
