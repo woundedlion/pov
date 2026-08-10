@@ -435,12 +435,32 @@ add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 # bound for the 4-byte-pointer device render/init path (see stack_measure.cpp).
 # Run as a CTest: it exits non-zero if the worst effect exceeds its stack budget,
 # catching a regression before it can overflow the device's MPU-guarded stack.
+#
+# The budget is the device's own DTCM stack reservation, read out of
+# tools/teensy_budgets.json (phantasm.regions.ram1.free_min_bytes) — the same
+# figure tools/teensy_gate.py holds free for locals and derives the ITCM code
+# ceiling from. Reading it here means changing the device reservation moves this
+# gate with it, instead of leaving a stale copy behind. The file is JSONC, so
+# line comments are stripped before string(JSON).
+file(READ ${HS_ROOT}/tools/teensy_budgets.json _hs_teensy_budgets_jsonc)
+string(REGEX REPLACE "//[^\n]*" "" _hs_teensy_budgets_json
+  "${_hs_teensy_budgets_jsonc}")
+string(JSON HS_DEVICE_STACK_FLOOR_BYTES ERROR_VARIABLE _hs_stack_floor_error
+  GET "${_hs_teensy_budgets_json}" phantasm regions ram1 free_min_bytes)
+if(_hs_stack_floor_error OR NOT HS_DEVICE_STACK_FLOOR_BYTES MATCHES "^[0-9]+$")
+  message(FATAL_ERROR
+    "tools/teensy_budgets.json phantasm.regions.ram1.free_min_bytes is missing "
+    "or not a number (${_hs_stack_floor_error}); stack_measure has no device "
+    "stack reservation to gate against.")
+endif()
+
 add_executable(stack_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/stack_measure.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/engine/reaction_graph.cpp)
-target_compile_definitions(stack_measure PRIVATE HS_TEST_BUILD)
+target_compile_definitions(stack_measure PRIVATE HS_TEST_BUILD
+  HS_DEVICE_STACK_FLOOR_BYTES=${HS_DEVICE_STACK_FLOOR_BYTES})
 target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 _hs_warnings(stack_measure)
