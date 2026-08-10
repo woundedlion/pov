@@ -2085,7 +2085,7 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### ShaderBall
 
-Typed pullback sphere shader (extends `Effect` directly) whose presets compose a source function, sphere projection, surface lens, two planar warp stages, material shaping, coverage, and colorization. It includes the original liquid/flyby vocabulary plus Bonne, Peirce quincuncial, and Airocean (Dymaxion) projections; topology-aware seam metadata; generated triadic and deformation palettes; and continuous preset choreography. GUI edits publish directly to the live authored state, while preset changes use continuous parameter morphs or output-space crossfades when topology changes.
+Typed pullback sphere shader (extends `Effect` directly) whose presets compose a source function, sphere projection, surface lens, two planar warp stages, material shaping, coverage, and colorization. It includes the original liquid/flyby vocabulary plus Bonne, Peirce quincuncial, and Airocean (Dymaxion) projections; topology-aware seam metadata; generated triadic and deformation palettes; and continuous preset choreography. GUI edits publish directly to the live authored state, while preset changes use continuous parameter morphs, or — when the topology changes — a through-clear transition that fades the outgoing look to a cleared frame and the incoming one back up.
 
 **Parameters**: the active controls are schema-driven by the selected slots. See the vocabulary and dependency map below.
 

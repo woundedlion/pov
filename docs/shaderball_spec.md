@@ -218,7 +218,7 @@ there is no implicit reuse of a `2π` source clock as a noise time axis.
 `TANGENT_NOISE` owns `lens_noise_time`; it uses the selected basis's native
 period and the same end-of-period crossfade rule as other non-periodic noise.
 Its rate is stored in turns/frame, its position is captured in `FrameState`,
-and a dual transition forks and hands it off under the rules below. It may
+and a discrete transition forks and hands it off under the rules below. It may
 alias another noise clock only when both the clock identity and complete
 `NoiseResourceKey` are explicitly identical.
 `source_angle` and `projection_spin` are deliberately distinct: the first
@@ -315,14 +315,15 @@ There are two clock models, selected by transition topology:
 - A stable-topology parameter morph has one live state. Continuous rates lerp,
   and one authoritative clock integrates the resulting live rate, matching
   ShaderBall today. Clock positions never lerp.
-- A dual-lookup discrete transition forks both endpoint clock positions from
-  the authoritative state at transition start. Each branch advances at its own
-  endpoint rate while both complete lookups render. At exact mix 1 the
-  destination branch's positions become authoritative.
+- A discrete transition forks both endpoint clock positions from the
+  authoritative state at transition start. Each branch advances at its own
+  endpoint rate for the whole window, whichever endpoint the through-clear
+  phase is currently drawing. At exact mix 1 the destination branch's
+  positions become authoritative.
 
 Spatial state follows the same distinction. A stable-topology morph integrates
-one projection and outer orientation using the live lerped gains. A dual lookup
-forks `inner_wander` and `outer_wander` orientations at transition start. The
+one projection and outer orientation using the live lerped gains. A discrete
+transition forks `inner_wander` and `outer_wander` orientations. The
 underlying shadow `RandomWalk` animations still step exactly once and publish
 one inner and one outer delta per frame; each endpoint integrates those shared
 deltas with its own fixed endpoint gain. At exact mix 1 the destination
@@ -332,9 +333,9 @@ discrete change snaps.
 
 For the second model, mutable effect-local `TransitionRuntime` owns the forked
 endpoint clock positions and integrated orientations that advance between
-frames. Frame preparation derives an immutable `TransitionFrame` containing
-complete `from` and `to` `FrameState` snapshots: slot tags, continuous params,
-prepared clock values/transforms, and const resource bindings. Mutable resource
+frames. Frame preparation derives an immutable `FrameState` for the endpoint
+the current phase draws: slot tags, continuous params, prepared clock
+values/transforms, and const resource bindings. Mutable resource
 owners live outside both runtime branches and snapshots. Preset constants do
 not drift underneath the transition. Each distinct mutable resource owner steps
 exactly once per frame;
@@ -429,7 +430,7 @@ branch's prepared resource.
 The visual pipeline has compile-time `MAX_NOISE_RESOURCES = 8`, stored in a
 fixed effect-owned array with no heap fallback. This covers the admitted maximum
 of four distinct keyed owners per endpoint—outer warp, inner warp, noise source,
-and tangent-noise lens—across a dual transition. Random-walk generators remain
+and tangent-noise lens—across a discrete transition. Random-walk generators remain
 separate dedicated owners and do not consume these slots. Before transition
 capture, candidate validation deduplicates the union of endpoint keys and
 rejects or snaps when it exceeds eight. All eight owner objects, bindings, and
@@ -494,7 +495,7 @@ Coefficient lerp is forbidden. A one-lookup Möbius morph follows the prepared
 matrix-group curve `M(t) = M0 * exp(t * log(inverse(M0) * M1))` under one fixed
 logarithm branch and is admitted only when the complete curve preserves the
 determinant and coordinate bounds. A branch change or failed proof uses the
-dual-output transition or snap. Tangent-noise lens amplitude is `[0,4]`,
+through-clear transition or snap. Tangent-noise lens amplitude is `[0,4]`,
 coordinate scale is `[1/64,64]`, and time rate uses the same range as planar
 noise.
 
@@ -520,7 +521,8 @@ conservative analytic bound
 `max(scale0, scale1) * max(abs(D0), abs(D1)) * G / n <= 1/2` for a two-endpoint
 morph, plus the path's coordinate bound. Operator-specific interval bounds
 cover the remaining controls. If a continuous proof is unavailable, the
-change is topology-incompatible and must use admitted dual output or snap.
+change is topology-incompatible and must use an admitted through-clear
+transition or snap.
 
 `AFFINE_FRAME` controls are authored as forward field placement, while frame
 preparation stores the inverse pullback. Scale interpolates in log space with a
@@ -585,12 +587,13 @@ four-interval midpoint modes use four and eight gradients respectively.
 cost three. `VECTOR_NOISE` costs two scalar bases for signed Simplex/FBM and
 four scalar bases for paired-difference ridged channels. A time-wrap crossfade
 multiplies the affected basis calls by two at its peak. Two stages add their
-costs; a full-output transition adds both complete endpoint costs.
+costs; a through-clear transition costs whichever endpoint it is drawing, so
+its peak is the more expensive of the two.
 
 A constexpr estimator records worst-case base `GetNoise` calls for every
 schema, including source and lens noise. Tier is derived from that count plus
 non-noise kernel flags. Synthetic device captures force time-wrap crossfade and
-every admitted dual-endpoint pair; ordinary preset sweeps are insufficient.
+every admitted transition pair; ordinary preset sweeps are insufficient.
 
 Every non-legacy stage selects one envelope evaluated from the original
 `ProjectedLookup`:
@@ -698,8 +701,8 @@ Composition rules are:
   `net_delta` is the sum of the joined stage's interpolated pre-rounding delta
   and the unchanged stage delta. `deformation` follows the normal
   `length(net_delta)` rule; the legacy scalar exception is never an early-join
-  case. A flag mismatch uses full-output fallback or snap;
-- otherwise the admitted full-output fallback or exact snap applies; and
+  case. A flag mismatch uses the through-clear fallback or snap;
+- otherwise the admitted through-clear fallback or exact snap applies; and
 - if an outer-stage blend would cross an incompatible boundary consumed by the
   unchanged inner stage, the early join is not compatible.
 
@@ -783,10 +786,12 @@ boundary proven compatible:
   incompatible orientation/parity frame, or disconnected component;
 - functions over the same projected and warped coordinate contract may blend
   signed material values;
-- compatible colorizers may use the premultiplied rendered-output blend defined
-  below; and
-- incompatible topologies fall back to a rendered-output crossfade of two full
-  lookups.
+- compatible colorizers may use the premultiplied output blend defined below;
+  and
+- incompatible topologies fall back to a through-clear transition: the source
+  fades to a fully cleared midpoint frame and the destination fades back up,
+  so exactly one lookup renders per frame and the two endpoints are never on
+  screen together.
 
 Every transition and early join has direct exact endpoint branches before any
 second lookup or blend math: `mix == 0` evaluates and returns only the source;
@@ -795,17 +800,19 @@ endpoint color, avoids premultiply/unpremultiply round trips, and prevents an
 unused expensive branch from running. Tests pin both output and kernel/noise
 call counts at zero and one.
 
-The fallback can cost two shader evaluations during a transition. It is a
-correctness rule, not permission to ignore the frame budget. A full-output
-transition is admitted only when the measured worst-case cost of both endpoints
-plus blend overhead fits the device frame window and their persistent resources
-fit simultaneously. Automated choreography may contain only admitted edges.
-An incompatible GUI slot change whose pair is not admitted performs an exact
-single-frame snap to the destination; it never overruns the budget or
-substitutes coordinate interpolation. Lower cadence/resolution or a cached-
-endpoint approximation requires its own future specification and is not an
-implicit fallback. Frequent or long transitions should prefer continuous
-amounts inside a stable topology.
+The fallback costs one shader evaluation per frame, not two, and its window
+length is rounded up to an even frame count so the cleared midpoint lands on a
+frame. It is a correctness rule, not permission to ignore the frame budget: it
+is admitted only when each endpoint's measured worst-case cost fits the device
+frame window on its own. Only one endpoint's persistent resources are prepared
+at a time — the source's until the midpoint, the destination's after it.
+Automated choreography may contain only admitted edges. An incompatible GUI
+slot change whose pair is not admitted performs an exact single-frame snap to
+the destination; it never overruns the budget or substitutes coordinate
+interpolation. Lower cadence/resolution or a cached-endpoint approximation
+requires its own future specification and is not an implicit fallback.
+Frequent or long transitions should prefer continuous amounts inside a stable
+topology.
 
 Legacy ShadierBall behavior is explicitly grandfathered: equirectangular,
 stereographic, and `SHADIERBALL_GNOMONIC_LEGACY` use
@@ -814,13 +821,14 @@ lensed planar coordinates exactly as shipped, ignoring fold and hemisphere
 metadata. Strict `join_compatible` applies to new projections. Tightening a
 legacy join later is a visual migration with new golden tests, not parity work.
 
-Rendered-output crossfade is defined in premultiplied linear color, even though
-the shader API returns straight-alpha `Color4`. Given endpoints `(rgb0, a0)` and
-`(rgb1, a1)`, blend `rgb0*a0` with `rgb1*a1` and blend alpha with the same mix;
-if the result must return through `Color4`, unpremultiply when alpha is nonzero
-so `Scan::Shader::draw`'s final premultiplication reconstructs the blended
-output. A zero-alpha result uses zero RGB. Straight independent `Color4::lerp`
-is not the fallback. Tests include unequal-alpha and exact endpoint cases.
+The compatible-colorizer output blend is defined in premultiplied linear color,
+even though the shader API returns straight-alpha `Color4`. Given endpoints
+`(rgb0, a0)` and `(rgb1, a1)`, blend `rgb0*a0` with `rgb1*a1` and blend alpha
+with the same mix; if the result must return through `Color4`, unpremultiply
+when alpha is nonzero so `Scan::Shader::draw`'s final premultiplication
+reconstructs the blended output. A zero-alpha result uses zero RGB. Straight
+independent `Color4::lerp` is not the rule. Tests include unequal-alpha and
+exact endpoint cases.
 
 ### 0.8 Projection family contract
 
@@ -899,7 +907,8 @@ The Bonne slot is the spherical equal-area Bonne projection. Its
 an implicit change to another projection. The reference preset value is
 `+45 degrees`. `+/-90 degrees` are the corresponding Werner limits. Changing
 the magnitude while staying on one side of zero is continuous. A sign change
-or any transition through zero uses the incompatible-topology color crossfade.
+or any transition through zero uses the incompatible-topology through-clear
+transition.
 
 The central meridian is a continuous angular control. The antimeridian cut is
 intentional source topology, not numerical fallout; samples on it use a fixed
@@ -920,8 +929,8 @@ The complete square or diamond tile is one connected planar component.
 Reflected sectors receive distinct `region_id` and orientation/parity flags,
 not fictitious disconnected chart IDs. Its projection-specific join predicate
 may cross a `GLUED` or periodic sector edge when the coordinate frames agree;
-crossing a cut, singularity, or incompatible reflection uses the full-output
-premultiplied fallback.
+crossing a cut, singularity, or incompatible reflection uses the
+through-clear fallback.
 
 Only the sphere-to-plane form is required in the device shader. This makes the
 forward-only spherical reference implementation sufficient for rendering;
@@ -951,7 +960,7 @@ across a glued edge is not automatically incompatible; interpolation that
 crosses a cut, singular boundary, or disconnected component is invalid because
 it traverses unrelated source space. The projection-specific compatibility
 predicate decides this from both branch results. All transitions between
-Airocean and another projection use the general full-output fallback.
+Airocean and another projection use the general through-clear fallback.
 
 Edge-fade ownership is asymmetric across every paired cut. A stable edge
 identity chooses the under-side, which receives the authored fade width; the
@@ -964,14 +973,14 @@ subducting beneath the other instead of two equally transparent margins.
 #### Projection transitions, validation, and budget
 
 Projection enum values and discrete layouts never interpolate coordinates.
-Cross-projection transitions render both complete lookups and blend final
-rendered output with the premultiplied-linear rule from §0.7 when that endpoint
-pair passes transition admission; otherwise the change snaps exactly. Continuous
+Cross-projection transitions use the through-clear fallback from §0.7 when that
+endpoint pair passes transition admission; otherwise the change snaps exactly.
+Continuous
 parameters may interpolate in one lookup while the topology and boundary schema
 remain stable. Dynamic per-pixel region ownership may change as a central
 meridian or other continuous parameter moves; the interpolated map resolves the
 crossing with its deterministic boundary rule. A discrete layout, cut graph, or
-projection change uses the full-output fallback.
+projection change uses the through-clear fallback.
 
 Each projection must ship with:
 
@@ -1025,7 +1034,7 @@ manager object. Integration follows this ownership table:
 
 | Responsibility | Existing owner | Integration decision |
 |---|---|---|
-| preset selection and continuous morphs | `Presets<>`, `Timeline`, `Animation::Lerp` | reuse unchanged; discrete slots use an admitted dual lookup or exact snap |
+| preset selection and continuous morphs | `Presets<>`, `Timeline`, `Animation::Lerp` | reuse unchanged; discrete slots use an admitted through-clear transition or exact snap |
 | source, warp, spin, and color clocks | `Timeline` and existing `Animation` parameter drivers | reuse when the rate contract fits; keep explicit native-period integration for compound rates |
 | projection and outer frames | `Orientation` and quaternion helpers | use `unorient()`/prepared conjugates directly in the pullback; do not add camera classes |
 | animated sphere-space warps | `Transformer<>` and existing aliases such as `NoiseTransformer` and `MobiusWarpTransformer` | reuse when the effect needs spawned, composable animated entities |
