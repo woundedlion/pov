@@ -2004,9 +2004,9 @@ A head traces a fixed 12:5 spherical Lissajous figure whose long trail is contin
 
 #### MeshFeedback
 
-A fixed icosahedron's wireframe rendered with `Plot::Mesh`, given a noise-distorted, feedback-loop appearance via `Filter::Pixel::Feedback`. An orientation random-walk tumbles the solid while a `Presets` cycle hard-cuts the feedback/distortion style parameters.
+A selectable Platonic, Archimedean, or Catalan wireframe rendered with `Plot::Mesh`, given a noise-distorted, feedback-loop appearance via `Filter::Pixel::Feedback`. An orientation random-walk tumbles the solid while a `Presets` cycle hard-cuts both the base mesh and feedback/distortion style parameters.
 
-**Parameters**: Fade, Distort Amp, Distort Freq, Distort Speed, Noise Scale, Hue Shift, Feedback
+**Parameters**: Base Mesh, Fade, Distort Amp, Distort Freq, Distort Speed, Noise Scale, Hue Shift, Feedback
 
 </td></tr></table>
 
@@ -2016,11 +2016,11 @@ A fixed icosahedron's wireframe rendered with `Plot::Mesh`, given a noise-distor
 
 #### MindSplatter
 
-Particles spray from emitters at the eight cube vertices — each sweeping its own tangent-plane emission angle — and fall toward attractor wells at the six octahedron vertices, where an event-horizon kernel around each signed axis punches them out as holes. A random walk tumbles the view, periodic Möbius warp bursts distort the whole field, and a preset timer lerps friction, well strength and speeds between eight presets.
+Particles spray from emitters at the vertices of a selectable Platonic solid — each sweeping its own tangent-plane emission angle — and fall toward attractor wells at the vertices of its dual. The tetrahedron is self-dual; cube/octahedron and dodecahedron/icosahedron form the other pairs. Event-horizon kernels punch the particles out around each attractor. A random walk tumbles the view, periodic Möbius warp bursts distort the whole field, and a preset timer transitions the base mesh, friction, well strength, and speeds between eight presets.
 
-**Teensy full-cycle profile**: all eight presets hold 16 fps; shipping peaks at 38.95 ms with 0/1728 spills, and global O3 peaks at 38.78 ms with 0/1728 spills ([shipping](docs/profiles/shipping/profile_mindsplatter_teensy_2026-08-07.md), [global O3](docs/profiles/O3/profile_mindsplatter_teensy_2026-08-07.md)).
+**Teensy full-cycle profile (legacy cube/octahedron geometry)**: all eight presets hold 16 fps; shipping peaks at 38.95 ms with 0/1728 spills, and global O3 peaks at 38.78 ms with 0/1728 spills ([shipping](docs/profiles/shipping/profile_mindsplatter_teensy_2026-08-07.md), [global O3](docs/profiles/O3/profile_mindsplatter_teensy_2026-08-07.md)).
 
-**Parameters**: Friction, Well Str, Init Spd, Ang Spd, Warp, Particles
+**Parameters**: Base Mesh, Friction, Well Str, Init Spd, Ang Spd, Warp, Particles
 
 </td></tr></table>
 

@@ -7,7 +7,7 @@
 
 /**
  * @file MindSplatter.h
- * @brief Particles sprayed from cube-vertex emitters toward octahedron-vertex
+ * @brief Particles sprayed from Platonic-solid emitters toward dual-solid
  *        attractors through a Mobius warp.
  */
 
@@ -22,8 +22,8 @@ struct MindSplatterWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Particle effect spraying from cube-vertex emitters toward
- *        octahedron-vertex attractors through a Mobius warp.
+ * @brief Particle effect spraying from Platonic-solid emitters toward
+ *        dual-solid attractors through a Mobius warp.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Presets cyclically lerp friction/well-strength/speed params, and
@@ -31,6 +31,8 @@ struct MindSplatterWhiteBox;
  */
 template <int W, int H> class MindSplatter : public Effect {
 public:
+  using BaseMesh = Solids::BaseMesh;
+
   /**
    * @brief Constructs the effect, seeding the preset table and filters.
    */
@@ -57,6 +59,9 @@ public:
         "MindSplatter particle pool + palette/aux overflow the device "
         "persistent arena");
 
+    register_animated_param(
+        "Base Mesh", &params.base_mesh, Solids::BASE_MESH_OPTIONS,
+        Solids::BASE_MESH_EXPORT_OPTIONS, Solids::PLATONIC_BASE_MESH_COUNT);
     register_animated_param("Friction", &params.friction, 0.5f, 1.0f);
     register_animated_param("Well Str", &params.well_strength, 0.0f, 20.0f);
     register_animated_param("Init Spd", &params.initial_speed,
@@ -97,6 +102,9 @@ public:
       timeline.step(canvas);
     }
 
+    if (!particle_geometry_ready || params.base_mesh != active_base_mesh)
+      configure_particle_geometry(params.base_mesh);
+
     particle_system.friction = params.friction;
     // All attractors share the one live (preset-animated) Well Str slider; the
     // strength passed at add_attractor time is just a seed overwritten here.
@@ -112,7 +120,7 @@ public:
   }
 
 private:
-  // Test seam for emitter and fixed-attractor invariants.
+  // Test seam for emitter and attractor invariants.
   friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
 
   /** @brief Per-particle trail length (feeds the pool footprint below). */
@@ -134,9 +142,11 @@ private:
   typedef Solids::Cube EmitSolid;
   typedef Solids::Octahedron AttractSolid;
 
-  typedef Animation::ParticleSystem<
-      W, NUM_PARTICLES, TRAIL_LEN, EmitSolid::NUM_VERTS,
-      AttractSolid::NUM_VERTS, true, TRAIL_SAMPLE_STRIDE>
+  static constexpr int MAX_EMITTERS = Solids::Dodecahedron::NUM_VERTS;
+  static constexpr int MAX_ATTRACTORS = Solids::Dodecahedron::NUM_VERTS;
+
+  typedef Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN, MAX_EMITTERS,
+                                    MAX_ATTRACTORS, true, TRAIL_SAMPLE_STRIDE>
       ParticleSystem;
 
   /**
@@ -145,6 +155,7 @@ private:
    *          are driven by the preset Lerp or by user input when paused.
    */
   struct Params {
+    BaseMesh base_mesh = BaseMesh::CUBE;
     float friction = 0.85f;     /**< Velocity retention per step in [0.5, 1]. */
     float well_strength = 1.0f; /**< Attractor pull strength in [0, 20]. */
     float initial_speed = 0.025f; /**< Spawn speed in [0, 0.5] (units/step). */
@@ -162,8 +173,9 @@ private:
     void lerp(const Params &start, const Params &target, float t) {
       // Trips if the field set changes, so a new preset float can't silently go
       // un-interpolated (engine-written active_count is excluded on purpose).
-      static_assert(sizeof(Params) == 6 * sizeof(float),
+      static_assert(sizeof(Params) == 7 * sizeof(float),
                     "MindSplatter::Params field set changed — update lerp");
+      base_mesh = t < 0.5f ? start.base_mesh : target.base_mesh;
       friction = start.friction + (target.friction - start.friction) * t;
       well_strength = start.well_strength +
                       (target.well_strength - start.well_strength) * t;
@@ -233,6 +245,18 @@ private:
     return hole_quintic_kernel(d / EVENT_HORIZON);
   }
 
+  float attractor_hole_alpha(const Vector &p, float cos_event_horizon) const {
+    float alpha = 1.0f;
+    for (const auto &attractor : particle_system.attractors) {
+      const float cos_distance = dot(p, attractor.position);
+      if (cos_distance < cos_event_horizon)
+        continue;
+      const float distance = fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f));
+      alpha *= hole_quintic_kernel(distance / EVENT_HORIZON);
+    }
+    return alpha;
+  }
+
   /** @brief Precomputed current-orientation rotation matrix. */
   struct RotationMatrix {
     Vector r0, r1, r2;
@@ -263,7 +287,9 @@ private:
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
   static constexpr bool preset_in_ranges(const Params &p) {
-    return p.friction >= FRICTION_MIN && p.friction <= FRICTION_MAX &&
+    return static_cast<size_t>(p.base_mesh) <
+               Solids::PLATONIC_BASE_MESH_COUNT &&
+           p.friction >= FRICTION_MIN && p.friction <= FRICTION_MAX &&
            p.well_strength >= WELL_STRENGTH_MIN &&
            p.well_strength <= WELL_STRENGTH_MAX &&
            p.initial_speed >= INITIAL_SPEED_MIN &&
@@ -277,36 +303,44 @@ private:
   // integrator applies v <- friction*v + impulse, dragging velocity before the
   // attractor impulse.
   static constexpr std::array<PresetEntry<Params>, 8> PRESETS{{
-      {{.friction = 0.85f,
+      {{.base_mesh = BaseMesh::CUBE,
+        .friction = 0.85f,
         .well_strength = 0.85f,
         .initial_speed = 0.025f,
         .angular_speed = 0.2f}},
-      {{.friction = 1.0f,
+      {{.base_mesh = BaseMesh::DODECAHEDRON,
+        .friction = 1.0f,
         .well_strength = 9.06f,
         .initial_speed = 0.5f,
         .angular_speed = 0.069f}},
-      {{.friction = 0.9645f,
+      {{.base_mesh = BaseMesh::ICOSAHEDRON,
+        .friction = 0.9645f,
         .well_strength = 16.280001f,
         .initial_speed = 0.1f,
         .angular_speed = 1.0f}},
-      {{.friction = 0.93f,
+      {{.base_mesh = BaseMesh::OCTAHEDRON,
+        .friction = 0.93f,
         .well_strength = 1.74f,
         .initial_speed = 0.1f,
         .angular_speed = 1.0f}},
-      {{.friction = 1.0f,
+      {{.base_mesh = BaseMesh::TETRAHEDRON,
+        .friction = 1.0f,
         .well_strength = 4.6f,
         .initial_speed = 0.5f,
         .angular_speed = 0.055f,
         .warp_scale = 0.0f}},
-      {{.friction = 1.0f,
+      {{.base_mesh = BaseMesh::DODECAHEDRON,
+        .friction = 1.0f,
         .well_strength = 15.32f,
         .initial_speed = 0.5f,
         .angular_speed = 0.361f}},
-      {{.friction = 0.7465f,
+      {{.base_mesh = BaseMesh::ICOSAHEDRON,
+        .friction = 0.7465f,
         .well_strength = 1.54f,
         .initial_speed = 0.5f,
         .angular_speed = 0.164f}},
-      {{.friction = 1.0f,
+      {{.base_mesh = BaseMesh::CUBE,
+        .friction = 1.0f,
         .well_strength = 4.6f,
         .initial_speed = 0.5f,
         .angular_speed = 0.164f,
@@ -337,16 +371,19 @@ private:
    *          capacity: the spray angle is a function of elapsed time, so the
    *          saturated pool thins the fan instead of freezing its direction.
    */
-  std::array<float, EmitSolid::NUM_VERTS> emit_phases;
+  std::array<float, MAX_EMITTERS> emit_phases;
   uint8_t palette_sequence = 0;
   /**
    * @brief Per-emitter tangent-plane basis, built once in init().
-   * @details Each basis depends only on its fixed emitter axis, so it is cached
+   * @details Each basis depends only on its emitter axis, so it is cached
    *          here rather than rebuilt inside the per-frame emitter callback. The
    *          callback is stored in a 32-byte EmitterFn, too small to also
    *          capture a 36-byte Basis, so the array is indexed by the captured i.
    */
-  std::array<Basis, EmitSolid::NUM_VERTS> emitter_basis;
+  std::array<Basis, MAX_EMITTERS> emitter_basis;
+  std::array<Vector, MAX_EMITTERS> emitter_positions;
+  BaseMesh active_base_mesh = BaseMesh::CUBE;
+  bool particle_geometry_ready = false;
 
 #ifdef HS_TEST_BUILD
   bool reference_orientation = false;
@@ -363,28 +400,60 @@ private:
     return lut_sample_pixel(colors, MINDSPLATTER_PALETTE_LUT_SIZE, index);
   }
 
-  /**
-   * @brief Builds the particle system.
-   * @details Inits the pool, places attractors on the octahedron vertices,
-   *          resets emission state, and installs an emitter at each cube
-   *          vertex. Single-shot: the arena has no per-allocation free, so
-   *          ParticleSystem::init traps on a second call.
-   */
-  HS_COLD_MEMBER void build_particle_system() {
-    particle_system.init(persistent_arena, params.friction, GRAVITY,
-                         PARTICLE_LIFETIME_FRAMES);
+  static std::span<const Vector> emitter_vertices(BaseMesh base_mesh) {
+    switch (base_mesh) {
+    case BaseMesh::TETRAHEDRON:
+      return Solids::Tetrahedron::vertices;
+    case BaseMesh::CUBE:
+      return Solids::Cube::vertices;
+    case BaseMesh::OCTAHEDRON:
+      return Solids::Octahedron::vertices;
+    case BaseMesh::DODECAHEDRON:
+      return Solids::Dodecahedron::vertices;
+    case BaseMesh::ICOSAHEDRON:
+      return Solids::Icosahedron::vertices;
+    default:
+      HS_CHECK(false, "MindSplatter base mesh must be Platonic");
+      return {};
+    }
+  }
 
-    for (const auto &v : AttractSolid::vertices) {
-      particle_system.add_attractor(v, params.well_strength,
+  static std::span<const Vector> attractor_vertices(BaseMesh base_mesh) {
+    switch (base_mesh) {
+    case BaseMesh::TETRAHEDRON:
+      return Solids::Tetrahedron::vertices;
+    case BaseMesh::CUBE:
+      return Solids::Octahedron::vertices;
+    case BaseMesh::OCTAHEDRON:
+      return Solids::Cube::vertices;
+    case BaseMesh::DODECAHEDRON:
+      return Solids::Icosahedron::vertices;
+    case BaseMesh::ICOSAHEDRON:
+      return Solids::Dodecahedron::vertices;
+    default:
+      HS_CHECK(false, "MindSplatter base mesh must be Platonic");
+      return {};
+    }
+  }
+
+  void configure_particle_geometry(BaseMesh base_mesh) {
+    const std::span<const Vector> emitters = emitter_vertices(base_mesh);
+    const std::span<const Vector> attractors = attractor_vertices(base_mesh);
+
+    particle_system.emitters.clear();
+    particle_system.attractors.clear();
+    particle_system.set_signed_axis_attractors(base_mesh == BaseMesh::CUBE);
+    emit_phases.fill(0.0f);
+
+    for (const Vector &v : attractors) {
+      const Vector position = base_mesh == BaseMesh::TETRAHEDRON ? -v : v;
+      particle_system.add_attractor(position, params.well_strength,
                                     ATTRACTOR_KILL_RADIUS, EVENT_HORIZON);
     }
 
-    emit_phases.fill(0.0f);
-    palette_sequence = 0;
-
-    for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
-      emitter_basis[i] = make_basis(Quaternion(), EmitSolid::vertices[i]);
-
+    for (size_t i = 0; i < emitters.size(); ++i) {
+      emitter_positions[i] = emitters[i];
+      emitter_basis[i] = make_basis(Quaternion(), emitter_positions[i]);
       particle_system.add_emitter([this, i](ParticleSystem &) {
         float angle = emit_phases[i];
         emit_phases[i] =
@@ -397,10 +466,27 @@ private:
         const uint16_t color_seed = static_cast<uint16_t>(palette_sequence++)
                                     << 8;
         if (particle_system.active() < particle_system.pool.capacity()) {
-          particle_system.spawn(EmitSolid::vertices[i], vel, color_seed);
+          particle_system.spawn(emitter_positions[i], vel, color_seed);
         }
       });
     }
+
+    active_base_mesh = base_mesh;
+    particle_geometry_ready = true;
+  }
+
+  /**
+   * @brief Builds the particle system.
+   * @details Inits the pool and installs the selected Platonic emitter solid
+   *          with its dual as the attractor solid. Single-shot: the arena has
+   *          no per-allocation free, so ParticleSystem::init traps on a second
+   *          call.
+   */
+  HS_COLD_MEMBER void build_particle_system() {
+    particle_system.init(persistent_arena, params.friction, GRAVITY,
+                         PARTICLE_LIFETIME_FRAMES);
+    palette_sequence = 0;
+    configure_particle_geometry(params.base_mesh);
   }
 
   /**
@@ -440,17 +526,14 @@ private:
     auto hole_shader = [&](Fragment &f, const Vector &original_pos) {
 #ifdef HS_TEST_BUILD
       if (reference_hole_kernel) {
-        const float m = std::max(
-            std::abs(original_pos.x),
-            std::max(std::abs(original_pos.y), std::abs(original_pos.z)));
-        if (m >= cos_event_horizon) {
-          const float d = fast_acos(hs::clamp(m, -1.0f, 1.0f));
-          f.v3 *= quintic_kernel(d / EVENT_HORIZON);
-        }
+        f.v3 *= attractor_hole_alpha(original_pos, cos_event_horizon);
         return;
       }
 #endif
-      f.v3 *= octahedral_hole_alpha(original_pos, cos_event_horizon);
+      if (active_base_mesh == BaseMesh::CUBE)
+        f.v3 *= octahedral_hole_alpha(original_pos, cos_event_horizon);
+      else
+        f.v3 *= attractor_hole_alpha(original_pos, cos_event_horizon);
     };
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {

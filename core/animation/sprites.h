@@ -260,8 +260,8 @@ class ParticleSystem
 public:
   static_assert(CAPACITY <= 65535,
                 "active_count is uint16_t; CAPACITY must fit in it");
-  static_assert(!SIGNED_AXIS_ATTRACTORS || ATTRACTOR_CAP == 6,
-                "paired signed-axis physics requires six attractors");
+  static_assert(!SIGNED_AXIS_ATTRACTORS || ATTRACTOR_CAP >= 6,
+                "paired signed-axis physics requires room for six attractors");
   static_assert(TRAIL_SAMPLE_STRIDE_ >= 1,
                 "trail sample stride must be positive");
 
@@ -298,6 +298,16 @@ public:
             ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
                            SIGNED_AXIS_ATTRACTORS, TRAIL_SAMPLE_STRIDE_>>(
             -1, false) {}
+
+  /**
+   * @brief Selects the paired signed-axis attractor path.
+   * @param enabled True when the active attractors are +X,-X,+Y,-Y,+Z,-Z.
+   */
+  void set_signed_axis_attractors(bool enabled) {
+    HS_CHECK(!enabled || SIGNED_AXIS_ATTRACTORS,
+             "signed-axis attractors were not enabled for this system");
+    signed_axis_attractors = enabled;
+  }
 
   /**
    * @brief Binds the pool, attractor, and emitter vectors and pre-constructs
@@ -356,8 +366,9 @@ public:
       static constexpr std::array<Vector, 6> AXES = {X_AXIS,  -X_AXIS, Y_AXIS,
                                                      -Y_AXIS, Z_AXIS,  -Z_AXIS};
       const size_t index = attractors.size();
-      HS_CHECK(index < AXES.size() && pos.x == AXES[index].x &&
-                   pos.y == AXES[index].y && pos.z == AXES[index].z,
+      HS_CHECK(!signed_axis_attractors ||
+                   (index < AXES.size() && pos.x == AXES[index].x &&
+                    pos.y == AXES[index].y && pos.z == AXES[index].z),
                "ParticleSystem signed-axis attractors must be registered "
                "+X,-X,+Y,-Y,+Z,-Z");
     }
@@ -403,7 +414,7 @@ public:
 
     {
       if constexpr (SIGNED_AXIS_ATTRACTORS) {
-        HS_CHECK(attractors.size() == 6,
+        HS_CHECK(!signed_axis_attractors || attractors.size() == 6,
                  "signed-axis physics requires six registered attractors");
       }
 
@@ -436,6 +447,8 @@ private:
       0; /**< Number of live particles in the pool prefix. */
 
   uint32_t dropped_count = 0; /**< Spawns dropped against a full pool. */
+
+  bool signed_axis_attractors = SIGNED_AXIS_ATTRACTORS;
 
   /**
    * @brief Applies every registered attractor to one particle.
@@ -511,9 +524,11 @@ private:
       p.velocity *= friction;
 
       if constexpr (SIGNED_AXIS_ATTRACTORS) {
+        bool use_signed_axis = signed_axis_attractors;
 #ifdef HS_TEST_BUILD
-        if (!reference_signed_axis_physics) {
+        use_signed_axis = use_signed_axis && !reference_signed_axis_physics;
 #endif
+        if (use_signed_axis) {
           const float pos_sq = dot(pos, pos);
           const float coordinates[] = {pos.x, pos.y, pos.z};
           for (size_t pair = 0; pair < 3; ++pair) {
@@ -584,11 +599,9 @@ private:
             }
             HS_MSP_STALL_STOP(signed_axis_physics, axis_pair_start);
           }
-#ifdef HS_TEST_BUILD
         } else {
           active = apply_attractors(p, pos, max_delta);
         }
-#endif
       } else {
         active = apply_attractors(p, pos, max_delta);
       }
