@@ -108,7 +108,6 @@ public:
     setAnimationsPaused(true);
     param_morph.active = false;
     transition.active = false;
-    pending_transition.active = false;
     preset_index = index;
     active_slots = PRESETS[index].slots;
     blend.params = PRESETS[index].params;
@@ -770,6 +769,21 @@ private:
     sibling.kind = WarpStageKind::NONE;
   }
 
+  static void fit_selected_projection_to_device_budget(Config &config) {
+    if (within_hold_device_budget(device_cost(config)))
+      return;
+    config.slots.warp_program.inner.kind = WarpStageKind::NONE;
+    if (within_hold_device_budget(device_cost(config)))
+      return;
+    config.slots.warp_program.outer.kind = WarpStageKind::NONE;
+    if (within_hold_device_budget(device_cost(config)))
+      return;
+    config.slots.surface_lens = SurfaceLens::NONE;
+    if (within_hold_device_budget(device_cost(config)))
+      return;
+    config.slots.function = Function::COUPLED_DIRECT;
+  }
+
   static void canonicalize_selector_edit(Config &config, EditIntent intent) {
     WarpStageSpec &outer = config.slots.warp_program.outer;
     WarpStageSpec &inner = config.slots.warp_program.inner;
@@ -787,8 +801,13 @@ private:
         if (inner.kind == WarpStageKind::LEGACY_STEREO_NOISE)
           inner.kind = WarpStageKind::NONE;
       }
-      if (strict_projection(config.slots.projection))
+      if (strict_projection(config.slots.projection)) {
         clear_strict_seam_incompatible(config);
+        config.slots.coverage = CoveragePolicy::EDGE_FADE;
+        config.params.value.edge_width =
+            std::max(config.params.value.edge_width, 0.1f);
+      }
+      fit_selected_projection_to_device_budget(config);
       break;
     case EditIntent::LENS:
       if (strict_projection(config.slots.projection) &&
@@ -1379,10 +1398,6 @@ private:
           from_runtime(from_runtime), to_runtime(to_runtime), elapsed(elapsed),
           duration(duration), mode(mode), continue_choreo(continue_choreo),
           active(active) {}
-  };
-
-  struct PendingTransition {
-    bool active = false;
   };
 
   struct DualOutputFrame {
@@ -2785,31 +2800,22 @@ private:
   HS_COLD_MEMBER void apply_requested_config() {
     if (requested_config == published_config)
       return;
-    if (!hold_admitted(requested_config)) {
+    if (!hold_admitted(requested_config) ||
+        !prepare_resource_union(requested_config, requested_config)) {
       reject_requested_config();
       return;
     }
-    const Config current{active_slots, blend.params};
-    if (!transition.active &&
-        same_parameter_topology(current, requested_config)) {
-      if (!stable_parameter_path_admitted(current, requested_config)) {
-        reject_requested_config();
-        return;
-      }
-      param_morph.active = false;
-      blend.params = requested_config.params;
-      published_config = requested_config;
-      return;
-    }
-    if (try_apply_config(requested_config, MANUAL_TRANSITION_FRAMES, false,
-                         false)) {
-      published_config = requested_config;
-      if (!requested_schema_bound)
-        rebind_parameters();
-    } else if (!transition.active) {
-      requested_config = published_config;
+    if (transition.active)
+      runtime = transition.elapsed * 2 < transition.duration
+                    ? transition.from_runtime
+                    : transition.to_runtime;
+    transition.active = false;
+    param_morph.active = false;
+    active_slots = requested_config.slots;
+    blend.params = requested_config.params;
+    published_config = requested_config;
+    if (!requested_schema_bound)
       rebind_parameters();
-    }
   }
 
   HS_COLD_MEMBER void reject_requested_config() {
@@ -2873,13 +2879,8 @@ private:
                                        bool continue_choreo) {
     if (!hold_admitted(candidate) || duration == 0)
       return false;
-    if (transition.active) {
-      if (continue_choreo)
-        return false;
-      if (retarget_transition_destination(candidate))
-        return true;
+    if (transition.active)
       return false;
-    }
     const Config current{active_slots, blend.params};
     if (!transition_admitted(current, candidate))
       return false;
@@ -2908,29 +2909,6 @@ private:
     return true;
   }
 
-  HS_COLD_MEMBER bool retarget_transition_destination(const Config &candidate) {
-    if (!hold_admitted(candidate))
-      return false;
-    transition.continue_choreo = false;
-    if (transition.elapsed == 0) {
-      if (!transition_admitted(transition.from_config, candidate))
-        return false;
-      transition.mode = transition_mode(transition.from_config, candidate);
-      if (transition.mode == TransitionMode::DUAL_OUTPUT) {
-        if (!prepare_resource_union(transition.from_config, candidate))
-          return false;
-      } else if (!prepare_resource_union(transition.from_config,
-                                         transition.from_config))
-        return false;
-      transition.to_config = candidate;
-      return true;
-    }
-    if (!transition_admitted(transition.to_config, candidate))
-      return false;
-    pending_transition.active = true;
-    return true;
-  }
-
   HS_COLD_MEMBER void finish_transitions() {
     if (transition.active) {
       if (anims_paused && transition.continue_choreo) {
@@ -2954,12 +2932,6 @@ private:
       active_slots = transition.to_config.slots;
       blend.params = transition.to_config.params;
       transition.active = false;
-      if (pending_transition.active) {
-        pending_transition.active = false;
-        try_apply_config(requested_config, MANUAL_TRANSITION_FRAMES, false,
-                         false);
-        return;
-      }
       if (continue_choreo)
         enter_preset();
       return;
@@ -3483,7 +3455,6 @@ private:
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr int PALETTE_DWELL_FRAMES = 0;
   static constexpr int PALETTE_FADE_FRAMES = 600;
-  static constexpr uint16_t MANUAL_TRANSITION_FRAMES = 60;
   static constexpr size_t PARAM_CAPACITY = 64;
 
   static constexpr const char *FUNCTION_OPTIONS[] = {
@@ -3991,7 +3962,6 @@ private:
   LookRuntime runtime;
   ParamMorphRuntime param_morph;
   TransitionRuntime transition;
-  PendingTransition pending_transition;
 #if defined(HS_TEST_BUILD)
   uint32_t walk_step_count = 0;
   uint32_t liquid_palette_step_count = 0;

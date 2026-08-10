@@ -192,18 +192,19 @@ struct ShadierBallWhiteBox {
   static constexpr CostTier cost_tier(const RequestedConfig &config) {
     return SDB::cost_tier(SDB::device_cost(config));
   }
-  static bool pending_transition_active(const SDB &sdb) {
-    return sdb.pending_transition.active;
-  }
-  static const RequestedConfig &pending_transition_config(const SDB &sdb) {
-    return sdb.requested_config;
-  }
   static void force_transition(SDB &sdb, const RequestedConfig &to,
                                uint16_t duration, bool continue_choreo) {
     const RequestedConfig from = active_config(sdb);
     sdb.param_morph.active = false;
-    sdb.transition = {from, to,       sdb.runtime,     sdb.runtime,
-                      0,    duration, continue_choreo, true};
+    sdb.transition = {from,
+                      to,
+                      sdb.runtime,
+                      sdb.runtime,
+                      0,
+                      duration,
+                      continue_choreo,
+                      true,
+                      SDB::transition_mode(from, to)};
   }
   static const LookRuntime &runtime(const SDB &sdb) { return sdb.runtime; }
   static Quaternion projection_walk(const SDB &sdb) {
@@ -482,8 +483,8 @@ inline void test_shadierball_pause_semantics() {
   HS_EXPECT_EQ(WB::param_morph_elapsed(sdb), paused_morph_elapsed + 1);
 }
 
-/** @brief A paused topology edit keeps its GUI target for the full handoff. */
-inline void test_shadierball_paused_selector_retention() {
+/** @brief A paused topology edit commits on the next frame. */
+inline void test_shadierball_paused_selector_commit() {
   using WB = ShadierBallWhiteBox;
   reset_effect_globals();
   WB::SDB sdb;
@@ -498,21 +499,19 @@ inline void test_shadierball_paused_selector_retention() {
                WB::WarpStageKind::CURL_FLOW);
   HS_EXPECT_EQ(WB::requested_slots(sdb).warp_program.outer.kind,
                WB::WarpStageKind::NONE);
-
-  for (int frame = 0; frame < 62; ++frame) {
-    HS_EXPECT_EQ(sdb.getParameters().find("Inner Warp")->get(),
-                 static_cast<float>(WB::WarpStageKind::CURL_FLOW));
-    sdb.draw_frame();
-    sdb.advance_display();
-    HS_EXPECT_EQ(sdb.getParameters().find("Inner Warp")->get(),
-                 static_cast<float>(WB::WarpStageKind::CURL_FLOW));
-  }
+  HS_EXPECT_NE(WB::active_slots(sdb).warp_program.inner.kind,
+               WB::WarpStageKind::CURL_FLOW);
+  sdb.draw_frame();
+  sdb.advance_display();
   HS_EXPECT_FALSE(WB::transition_active(sdb));
+  HS_EXPECT_FALSE(WB::param_morph_active(sdb));
   HS_EXPECT_EQ(WB::active_slots(sdb).warp_program.inner.kind,
                WB::WarpStageKind::CURL_FLOW);
+  HS_EXPECT_EQ(sdb.getParameters().find("Inner Warp")->get(),
+               static_cast<float>(WB::WarpStageKind::CURL_FLOW));
 }
 
-/** @brief Manual sliders commit next-frame while topology changes still fade. */
+/** @brief Manual parameter edits commit on the next frame. */
 inline void test_shadierball_manual_edit_timing() {
   using WB = ShadierBallWhiteBox;
   reset_effect_globals();
@@ -536,15 +535,28 @@ inline void test_shadierball_manual_edit_timing() {
   HS_EXPECT_TRUE(WB::requested_config(sdb) == WB::active_config(sdb));
   HS_EXPECT_TRUE(WB::published_config(sdb) == WB::active_config(sdb));
 
-  HS_EXPECT_TRUE(sdb.updateParameter(
-                     "Projection", static_cast<float>(WB::Projection::BONNE)) ==
-                 ParamSetResult::APPLIED);
-  sdb.draw_frame();
-  sdb.advance_display();
-  HS_EXPECT_TRUE(WB::transition_active(sdb));
-  HS_EXPECT_EQ(WB::transition_mode(WB::transition_from_config(sdb),
-                                   WB::transition_to_config(sdb)),
-               WB::TransitionMode::THROUGH_CLEAR);
+  for (WB::Projection projection :
+       {WB::Projection::BONNE, WB::Projection::PEIRCE_QUINCUNCIAL,
+        WB::Projection::AIROCEAN}) {
+    HS_EXPECT_TRUE(
+        sdb.updateParameter("Projection", static_cast<float>(projection)) ==
+        ParamSetResult::APPLIED);
+    HS_EXPECT_NE(WB::active_slots(sdb).projection, projection);
+    sdb.draw_frame();
+    sdb.advance_display();
+    HS_EXPECT_FALSE(WB::transition_active(sdb));
+    HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+    HS_EXPECT_EQ(WB::active_slots(sdb).projection, projection);
+    HS_EXPECT_EQ(WB::active_slots(sdb).coverage, WB::CoveragePolicy::EDGE_FADE);
+    HS_EXPECT_TRUE(WB::hold_admitted(WB::active_config(sdb)));
+    HS_EXPECT_TRUE(WB::requested_config(sdb) == WB::active_config(sdb));
+    HS_EXPECT_TRUE(WB::published_config(sdb) == WB::active_config(sdb));
+  }
+  HS_EXPECT_EQ(WB::active_slots(sdb).surface_lens, WB::SurfaceLens::NONE);
+  HS_EXPECT_EQ(WB::active_slots(sdb).warp_program.outer.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(WB::active_slots(sdb).warp_program.inner.kind,
+               WB::WarpStageKind::NONE);
 }
 
 /** @brief Pullback stages preserve their typed order and metadata. */
@@ -932,9 +944,8 @@ inline void test_shadierball_config_admission() {
     HS_EXPECT_TRUE(
         WB::transition_admitted(WB::active_config(sdb), legacy_config));
     WB::request_config(sdb, legacy_config);
-    HS_EXPECT_TRUE(WB::slots_equal(WB::active_slots(sdb), original));
-    HS_EXPECT_TRUE(WB::transition_active(sdb));
-    HS_EXPECT_TRUE(WB::transition_to_config(sdb) == legacy_config);
+    HS_EXPECT_TRUE(WB::active_config(sdb) == legacy_config);
+    HS_EXPECT_FALSE(WB::transition_active(sdb));
     HS_EXPECT_TRUE(WB::requested_slots(sdb) == legacy_config.slots);
 
     WB::RequestedConfig resource_from = WB::legacy_config();
@@ -975,11 +986,12 @@ inline void test_shadierball_config_admission() {
         ParamSetResult::APPLIED);
     projection_change.draw_frame();
     projection_change.advance_display();
-    HS_EXPECT_TRUE(WB::transition_active(projection_change));
-    HS_EXPECT_EQ(WB::transition_to_config(projection_change).slots.projection,
+    HS_EXPECT_FALSE(WB::transition_active(projection_change));
+    HS_EXPECT_EQ(WB::active_slots(projection_change).projection,
                  WB::Projection::BONNE);
-    HS_EXPECT_EQ(WB::transition_to_config(projection_change)
-                     .slots.warp_program.outer.kind,
+    HS_EXPECT_EQ(WB::active_slots(projection_change).coverage,
+                 WB::CoveragePolicy::EDGE_FADE);
+    HS_EXPECT_EQ(WB::active_slots(projection_change).warp_program.outer.kind,
                  WB::WarpStageKind::NONE);
   }
 
@@ -993,10 +1005,7 @@ inline void test_shadierball_config_admission() {
         ParamSetResult::APPLIED);
     legacy_warp_change.draw_frame();
     legacy_warp_change.advance_display();
-    while (WB::transition_active(legacy_warp_change)) {
-      legacy_warp_change.draw_frame();
-      legacy_warp_change.advance_display();
-    }
+    HS_EXPECT_FALSE(WB::transition_active(legacy_warp_change));
     HS_EXPECT_TRUE(
         legacy_warp_change.updateParameter(
             "Outer Warp",
@@ -1004,7 +1013,8 @@ inline void test_shadierball_config_admission() {
         ParamSetResult::APPLIED);
     legacy_warp_change.draw_frame();
     legacy_warp_change.advance_display();
-    HS_EXPECT_EQ(WB::transition_to_config(legacy_warp_change).slots.projection,
+    HS_EXPECT_FALSE(WB::transition_active(legacy_warp_change));
+    HS_EXPECT_EQ(WB::active_slots(legacy_warp_change).projection,
                  WB::Projection::STEREOGRAPHIC);
   }
 }
@@ -2170,7 +2180,7 @@ inline void test_shadierball_discrete_transition() {
 
     WB::RequestedConfig to = from;
     to.params.source.noise_basis = WB::NoiseBasis::FBM3;
-    WB::request_config(sdb, to);
+    WB::force_transition(sdb, to, 60, false);
     HS_EXPECT_TRUE(WB::transition_active(sdb));
     HS_EXPECT_EQ(WB::transition_mode(WB::transition_from_config(sdb),
                                      WB::transition_to_config(sdb)),
@@ -2228,65 +2238,30 @@ inline void test_shadierball_discrete_transition() {
     }
     const uint16_t elapsed_before_takeover = WB::transition_elapsed(sdb);
     sdb.setAnimationsPaused(true);
-    const WB::RequestedConfig original_destination =
-        WB::transition_to_config(sdb);
+    const float visible_phase =
+        WB::transition_from_runtime(sdb).clocks.source_primary;
     WB::RequestedConfig queued = WB::legacy_config();
     queued.slots.function = WB::Function::RINGS;
     HS_EXPECT_TRUE(WB::valid_config(queued));
     HS_EXPECT_TRUE(WB::transition_admitted(captured_source, queued));
     WB::request_config(sdb, queued);
-    HS_EXPECT_TRUE(WB::transition_from_config(sdb) == captured_source);
-    HS_EXPECT_TRUE(WB::transition_to_config(sdb) == original_destination);
-    HS_EXPECT_FALSE(WB::transition_continues_choreo(sdb));
-    HS_EXPECT_EQ(WB::transition_elapsed(sdb), elapsed_before_takeover);
+    HS_EXPECT_GT(elapsed_before_takeover, uint16_t(0));
+    HS_EXPECT_FALSE(WB::transition_active(sdb));
+    HS_EXPECT_TRUE(WB::active_config(sdb) == queued);
     HS_EXPECT_TRUE(WB::requested_slots(sdb) == queued.slots);
-    HS_EXPECT_TRUE(WB::pending_transition_active(sdb));
-    HS_EXPECT_TRUE(WB::pending_transition_config(sdb) == queued);
+    HS_EXPECT_EQ(WB::clocks(sdb).source_primary, visible_phase);
     sdb.draw_frame();
     sdb.advance_display();
-    HS_EXPECT_EQ(WB::transition_elapsed(sdb), elapsed_before_takeover + 1);
+    HS_EXPECT_NEAR(WB::clocks(sdb).source_primary,
+                   fmodf(visible_phase + queued.params.source.speed, TWO_PI_F),
+                   1e-6f);
 
-    const uint16_t elapsed_before_retarget = WB::transition_elapsed(sdb);
     const WB::RequestedConfig manual = WB::presets()[6];
     HS_EXPECT_TRUE(WB::transition_admitted(captured_source, manual));
     WB::request_config(sdb, manual);
-    HS_EXPECT_TRUE(WB::transition_active(sdb));
-    HS_EXPECT_TRUE(WB::transition_from_config(sdb) == captured_source);
-    HS_EXPECT_TRUE(WB::transition_to_config(sdb) == original_destination);
-    HS_EXPECT_FALSE(WB::transition_continues_choreo(sdb));
-    HS_EXPECT_EQ(WB::transition_elapsed(sdb), elapsed_before_retarget);
-    HS_EXPECT_TRUE(WB::requested_slots(sdb) == manual.slots);
-    HS_EXPECT_TRUE(WB::pending_transition_active(sdb));
-    HS_EXPECT_TRUE(WB::pending_transition_config(sdb) == manual);
-
-    while (WB::transition_active(sdb) &&
-           WB::transition_to_config(sdb) == original_destination) {
-      sdb.draw_frame();
-      sdb.advance_display();
-    }
-    HS_EXPECT_TRUE(WB::transition_active(sdb));
-    HS_EXPECT_TRUE(WB::transition_from_config(sdb) == original_destination);
-    HS_EXPECT_TRUE(WB::transition_to_config(sdb) == manual);
-    HS_EXPECT_EQ(WB::transition_mix(sdb), 0.0f);
-
-    while (WB::transition_active(sdb) && WB::transition_mix(sdb) < 1.0f) {
-      sdb.draw_frame();
-      sdb.advance_display();
-    }
-    HS_EXPECT_TRUE(WB::transition_active(sdb));
-    HS_EXPECT_EQ(WB::transition_mix(sdb), 1.0f);
-    const float destination_before_endpoint =
-        WB::transition_to_runtime(sdb).clocks.source_primary;
-    sdb.draw_frame();
-    sdb.advance_display();
     HS_EXPECT_FALSE(WB::transition_active(sdb));
     HS_EXPECT_TRUE(WB::active_config(sdb) == manual);
     const float committed_phase = WB::clocks(sdb).source_primary;
-    HS_EXPECT_NEAR(
-        committed_phase,
-        fmodf(destination_before_endpoint + manual.params.source.speed,
-              TWO_PI_F),
-        1e-6f);
     sdb.draw_frame();
     sdb.advance_display();
     HS_EXPECT_NEAR(
@@ -2323,7 +2298,7 @@ inline int run_shadierball_tests() {
   ModuleFixture fixture("shadierball");
   test_shadierball_clocks_wrapped();
   test_shadierball_pause_semantics();
-  test_shadierball_paused_selector_retention();
+  test_shadierball_paused_selector_commit();
   test_shadierball_manual_edit_timing();
   test_shadierball_pipeline_contract();
   test_shadierball_legacy_spatial_slots();
