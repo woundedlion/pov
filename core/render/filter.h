@@ -675,8 +675,7 @@ namespace World {
 /**
  * @brief Rotates 3D points based on a dynamic Orientation.
  * @details Sweeps the orientation's intra-frame SLERP history and offsets `age`
- * by the fractional `(1 - t)`, producing temporal motion blur. The only filter
- * that adjusts age.
+ * by the fractional `(1 - t)`, producing temporal motion blur.
  */
 class Orient : public Is3D {
 public:
