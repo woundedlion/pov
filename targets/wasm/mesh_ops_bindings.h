@@ -98,22 +98,31 @@ struct ToolingOpGuard {
 
 /**
  * @brief Allocates and binds the tooling arenas on first MeshOps use.
+ * @return True once the three arenas are bound, false when the block
+ *         allocation failed and none of them is usable.
  * @details A no-op once bound, so it is cheap to call at the head of every
  *          MeshOps entry point. Reading an unbound arena's metrics
  *          (collect_arena_metrics) is safe and reports 0/0/0, so engine
  *          instances that never call MeshOps never trigger this allocation.
+ *          A failure is reported to JS as ARENA_UNAVAILABLE rather than
+ *          trapped: a trap at the untyped boundary takes the whole module down.
  */
-static void ensure_tooling_arenas() {
+static bool ensure_tooling_arenas() {
   if (tooling_arena.get_capacity() != 0)
-    return;
+    return true;
   const size_t total = TOOLING_ARENA_BYTES + 2 * TOOLING_SCRATCH_BYTES;
   uint8_t *block = static_cast<uint8_t *>(std::malloc(total));
-  HS_CHECK(block != nullptr,
-           "tooling arena block allocation of %zu bytes failed", total);
+  if (block == nullptr) {
+    hs::log("WASM: tooling arena block allocation of %zu bytes failed — "
+            "ignored",
+            total);
+    return false;
+  }
   tooling_arena.rebind(block, TOOLING_ARENA_BYTES);
   tooling_scratch_a.rebind(block + TOOLING_ARENA_BYTES, TOOLING_SCRATCH_BYTES);
   tooling_scratch_b.rebind(block + TOOLING_ARENA_BYTES + TOOLING_SCRATCH_BYTES,
                            TOOLING_SCRATCH_BYTES);
+  return true;
 }
 
 /**
@@ -155,6 +164,8 @@ enum class MeshOpResult {
                               domain. */
   STALE_WRAPPER,         /**< The wrapper's storage was reclaimed by a
                               clearToolingMemory(). */
+  ARENA_UNAVAILABLE,     /**< The tooling arena block could not be allocated,
+                              so no MeshOps call can run. */
 };
 
 // Outcome of the most recent MeshOps call that could answer null
@@ -234,9 +245,9 @@ public:
   /**
    * @brief Builds a wrapper for the named base solid.
    * @param name Solid name to look up in the Solids registry.
-   * @return Owning pointer to the new wrapper, or null for an unknown name or a
-   *         solid that would not fit what is left of tooling_arena;
-   *         getLastResult() names which.
+   * @return Owning pointer to the new wrapper, or null for an unknown name, an
+   *         unallocatable tooling arena, or a solid that would not fit what is
+   *         left of tooling_arena; getLastResult() names which.
    * @details Rejects an unknown name at the untrusted JS boundary rather than
    *          tripping get_by_name()'s fail-fast HS_CHECK and aborting the module.
    *          Generates into the scratch arenas and prices the finalized copy
@@ -254,7 +265,10 @@ public:
       return nullptr;
     }
     ToolingOpGuard guard;
-    ensure_tooling_arenas();
+    if (!ensure_tooling_arenas()) {
+      last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
+      return nullptr;
+    }
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     const PolyMesh generated =
@@ -342,8 +356,9 @@ public:
    * @return JS Int32Array of one topology code per face, copied out of the
    *         mesh's now-populated topology buffer, or null when this wrapper's
    *         storage was reclaimed, the mesh is past
-   *         MAX_MESH_CONNECTIVITY_ELEMENTS, or its topology block would not fit
-   *         what is left of tooling_arena; getLastResult() names which. Null
+   *         MAX_MESH_CONNECTIVITY_ELEMENTS, the tooling arena could not be
+   *         allocated, or its topology block would not fit what is left of
+   *         tooling_arena; getLastResult() names which. Null
    *         rather than an empty array so a caller can tell "no classification"
    *         from "no faces" with a plain truthiness test.
    * @details Same tooling-arena lifetime contract as getVertices(): the
@@ -369,7 +384,10 @@ public:
       last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
       return val::null();
     }
-    ensure_tooling_arenas();
+    if (!ensure_tooling_arenas()) {
+      last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
+      return val::null();
+    }
     if (hs_wasm::mesh_op_output_over_arena(
             mesh.vertices.size(), mesh.get_face_counts_size(),
             mesh.get_faces_size(), 1, TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
@@ -424,8 +442,9 @@ private:
    * @return Owning pointer to a new wrapper holding the finalized result mesh, or
    *         null if this wrapper's storage was reclaimed, some stage of this
    *         operator would pass MAX_MESH_CONNECTIVITY_ELEMENTS or
-   *         MAX_MESH_FACE_DEGREE, or its output would not fit what is left of
-   *         tooling_arena; getLastResult() names which.
+   *         MAX_MESH_FACE_DEGREE, the tooling arena could not be allocated, or
+   *         its output would not fit what is left of tooling_arena;
+   *         getLastResult() names which.
    * @details Captures the shared operator boilerplate: reset both tooling scratch
    *          arenas, run the op into a fresh PolyMesh, finalize it into
    *          tooling_arena, and hand back a new wrapper. An input the operator
@@ -455,7 +474,10 @@ private:
       last_mesh_op_result = MeshOpResult::CONNECTIVITY_OVERFLOW;
       return nullptr;
     }
-    ensure_tooling_arenas();
+    if (!ensure_tooling_arenas()) {
+      last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
+      return nullptr;
+    }
     // Before max_vertex_valence(), the first tooling-scratch use on this path.
     ToolingOpGuard guard;
     if (hs_wasm::mesh_op_output_over_arena(
@@ -771,7 +793,8 @@ public:
   /**
    * @brief Measures the maximum vertex/face/index counts across all solids.
    * @return JS object with {max_v, v_name, max_f, f_name, max_i, i_name} giving
-   *         the largest counts and the solids that produce them.
+   *         the largest counts and the solids that produce them, or null if the
+   *         tooling arenas could not be allocated.
    * @details Dev-only roster measurement for sizing MAX_VERTS-style constants;
    *          no UI consumer. Off by default; enable the HS_WASM_DEV_BINDINGS
    *          CMake option to compile + re-export it
@@ -788,7 +811,10 @@ public:
     const char *mi_name = "";
 
     ToolingOpGuard guard;
-    ensure_tooling_arenas();
+    if (!ensure_tooling_arenas()) {
+      last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
+      return val::null();
+    }
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
       // Measure in the scratch arenas only — never tooling_arena, which backs
       // live wrappers the JS side holds.
@@ -856,7 +882,8 @@ static void bind_mesh_ops() {
       .value("ARENA_EXHAUSTED", MeshOpResult::ARENA_EXHAUSTED)
       .value("NON_FINITE_ARG", MeshOpResult::NON_FINITE_ARG)
       .value("ANGLE_OUT_OF_DOMAIN", MeshOpResult::ANGLE_OUT_OF_DOMAIN)
-      .value("STALE_WRAPPER", MeshOpResult::STALE_WRAPPER);
+      .value("STALE_WRAPPER", MeshOpResult::STALE_WRAPPER)
+      .value("ARENA_UNAVAILABLE", MeshOpResult::ARENA_UNAVAILABLE);
 
   // No public .constructor<>(): all construction goes through fromSolidName so
   // JS cannot wrap an empty mesh past the operator boundary's wrapper_live().
