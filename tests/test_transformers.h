@@ -654,15 +654,15 @@ inline void test_ripple_threshold_collapses_past_pi() {
 /**
  * @brief Feeds non-finite (NaN/Inf) directions through the transforms' identity
  *        short-circuits and confirms they pass the input through verbatim.
- * @details No in-process test previously pushed NaN/Inf in. The zero-amplitude
- *          and no-active-entity short-circuits return the input before any
- *          arithmetic, so a non-finite input comes back non-finite — they never
- *          choke on it nor manufacture a spurious finite result. The ACTIVE paths
- *          are deliberately fail-fast on a non-finite direction (the trailing
- *          normalized()/make_rotation traps rather than propagate garbage into
- *          the geometry); that trap is asserted out-of-process by the death
- *          harness (case_noise_transform_nan), since an HS_CHECK aborts the
- *          process and cannot be caught in-line here.
+ * @details The zero-amplitude and no-active-entity short-circuits return the
+ *          input before any arithmetic, so a non-finite input comes back
+ *          non-finite — they never choke on it nor manufacture a spurious
+ *          finite result. The ACTIVE paths are deliberately fail-fast on a
+ *          non-finite direction (the trailing normalized()/make_rotation traps
+ *          rather than propagate garbage into the geometry); that trap is
+ *          asserted out-of-process by the death harness
+ *          (case_noise_transform_nan), since an HS_CHECK aborts the process and
+ *          cannot be caught in-line here.
  */
 inline void test_transforms_nonfinite_passes_through_identity() {
   const float inf = HUGE_VALF;

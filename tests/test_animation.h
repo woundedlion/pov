@@ -3200,7 +3200,7 @@ inline void test_random_walk_stable_rotation_tracks_default() {
 }
 
 // ============================================================================
-// Previously-uncovered public animation APIs
+// Public animation APIs
 // ============================================================================
 
 /**
