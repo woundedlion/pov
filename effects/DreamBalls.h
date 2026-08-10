@@ -390,7 +390,7 @@ private:
     return x * x * (3.0f - 2.0f * x);
   }
 
-  HS_COLD_MEMBER static Tangent tangent_frame(const Vector &normal) {
+  HS_FLASH_MEMBER static Tangent tangent_frame(const Vector &normal) {
     const Vector axis = std::abs(normal.y) > 0.99f ? X_AXIS : Y_AXIS;
     const Vector u = cross(normal, axis).normalized();
     return {u, cross(normal, u).normalized()};
@@ -404,8 +404,8 @@ private:
     return tangent - (from + to) * (dot(tangent, to) / denominator);
   }
 
-  HS_COLD_MEMBER static Vector woven_vertex(const SolidData &solid, bool medial,
-                                            size_t vertex) {
+  HS_FLASH_MEMBER static Vector woven_vertex(const SolidData &solid,
+                                             bool medial, size_t vertex) {
     if (!medial)
       return solid.mesh_state.vertices[vertex];
     const auto &edge = solid.original_edges[vertex];
@@ -414,7 +414,7 @@ private:
                          solid.mesh_state.vertices[edge.u]);
   }
 
-  HS_COLD_MEMBER static void
+  HS_FLASH_MEMBER static void
   prepare_woven_buffers(const SolidData &solid, bool medial,
                         const ArenaVector<Plot::Mesh::Edge> &edges,
                         ArenaVector<Vector> &base_vertices,
