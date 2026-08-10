@@ -263,12 +263,20 @@ inline void test_fib_spiral_unit_length() {
 }
 
 /**
- * @brief Verifies fib_spiral is a pure function: same args give the same vector.
+ * @brief Pins fib_spiral samples to frozen coordinates across the index range.
+ * @details Endpoints, midpoint and an off-lattice index; between them they
+ *          constrain the polar ladder, the golden-angle azimuth and the
+ *          handedness, so any change to the generator moves at least one.
  */
 inline void test_fib_spiral_deterministic() {
-  Vector v1 = fib_spiral(64, 0.5f, 7);
-  Vector v2 = fib_spiral(64, 0.5f, 7);
-  HS_EXPECT_VEC(v1, v2, 1e-6f);
+  HS_EXPECT_VEC(fib_spiral(64, 0.5f, 0), Vector(0.176084816f, 0.984375f, 0.0f),
+                1e-6f);
+  HS_EXPECT_VEC(fib_spiral(64, 0.5f, 7),
+                Vector(-0.296496123f, 0.765625f, 0.57088393f), 1e-6f);
+  HS_EXPECT_VEC(fib_spiral(64, 0.5f, 31),
+                Vector(0.540769398f, 0.0156250354f, 0.84102571f), 1e-6f);
+  HS_EXPECT_VEC(fib_spiral(64, 0.5f, 63),
+                Vector(0.162100419f, -0.984375f, -0.0687697679f), 1e-6f);
 }
 
 /**

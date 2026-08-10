@@ -68,9 +68,8 @@ inline void test_nodes_on_unit_sphere() {
 }
 
 /**
- * @brief Verifies node() is deterministic and yields distinct adjacent points.
- * @details node() is a pure function (same index -> identical point) and never
- *          collapses adjacent indices onto the same point.
+ * @brief Pins node() to frozen coordinates and verifies adjacent indices stay
+ *        distinct.
  */
 inline void test_node_deterministic_and_distinct() {
   // Frozen goldens: double-folded Fibonacci-lattice points cast to float32
@@ -84,15 +83,11 @@ inline void test_node_deterministic_and_distinct() {
                 Vector(-0.0421082303f, -0.499934882f, -0.865038753f), 1e-6f);
   HS_EXPECT_VEC(node(RD_N - 2),
                 Vector(-0.00214281073f, -0.999739528f, -0.0227209534f), 1e-6f);
-  // prev holds node(i) as computed one iteration earlier, so every index is
-  // evaluated twice from separate call sites. The walk stops at RD_N-1 so
-  // node(i+1) never reads past [0, RD_N).
+  // The walk stops at RD_N-1 so node(i+1) never reads past [0, RD_N).
   Vector prev = node(0);
   for (int i = 0; i < RD_N - 1; ++i) {
-    Vector cur = node(i);
-    HS_EXPECT_VEC(cur, prev, 0.0f);
     Vector next = node(i + 1);
-    HS_EXPECT_GT(chord2(cur, next), 0.0f);
+    HS_EXPECT_GT(chord2(prev, next), 0.0f);
     prev = next;
   }
 }

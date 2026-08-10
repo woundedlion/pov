@@ -26,18 +26,26 @@
 namespace hs_test {
 namespace color_tests {
 
+/**
+ * @brief Pins a compiled TRIADIC/BELL ramp to frozen colors at nine stops.
+ * @details The tolerance absorbs a last-bit difference in the transcendentals
+ *          the OKLab path runs through, and is far tighter than any change to
+ *          the recipe compiler, the axis curves or the gamut mapper.
+ */
 inline void test_generative_palette_deterministic() {
   const PaletteRecipe recipe = PaletteRecipes::profile(
       PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC, AxisCurve::BELL,
       PaletteRecipes::hue_turns(77), 0.86f);
-  const GenerativePalette first(recipe);
-  const GenerativePalette second(recipe);
-  for (int i = 0; i < 256; ++i) {
-    const Pixel a = first.get(i / 255.0f).color;
-    const Pixel b = second.get(i / 255.0f).color;
-    HS_EXPECT_EQ(a.r, b.r);
-    HS_EXPECT_EQ(a.g, b.g);
-    HS_EXPECT_EQ(a.b, b.b);
+  const GenerativePalette palette(recipe);
+  const uint16_t expected[9][3] = {
+      {298, 291, 32},       {1843, 3180, 346},     {1447, 12521, 7570},
+      {3228, 28254, 35424}, {28456, 48750, 60539}, {4818, 24745, 55520},
+      {9819, 2840, 51712},  {6742, 467, 6101},     {807, 48, 375}};
+  for (int i = 0; i < 9; ++i) {
+    const Pixel got = palette.get(i / 8.0f).color;
+    HS_EXPECT_NEAR(got.r, expected[i][0], 256);
+    HS_EXPECT_NEAR(got.g, expected[i][1], 256);
+    HS_EXPECT_NEAR(got.b, expected[i][2], 256);
   }
 }
 
