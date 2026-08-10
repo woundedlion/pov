@@ -116,7 +116,9 @@ HS_O3_BEGIN
  * false (owned copy), which every persisted or re-updated CompiledHankin needs.
  * @details Builds a half-edge mesh, emits one shared midpoint per edge into
  * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
- * records the star and rosette faces.
+ * records the star and rosette faces. The closed-manifold precondition is
+ * enforced up front, so every prev and pair read below is valid and never
+ * HE_NONE.
  */
 HS_COLD static void compile_hankin(const PolyMesh &mesh,
                                    CompiledHankin &compiled,
@@ -171,8 +173,6 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
       if (he_to_midpoint_idx[he.pair] != HE_NONE)
         return he_to_midpoint_idx[he.pair];
 
-      // Closed manifold: prev (the interior face loop) is always valid, so the
-      // edge endpoints are simply prev->vertex and he->vertex.
       Vector p_a = mesh.vertices[he_mesh.half_edges[he.prev].vertex];
       Vector p_b = mesh.vertices[he.vertex];
       Vector mid = (p_a + p_b) * 0.5f;
@@ -211,7 +211,6 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
 
         HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
 
-        // Closed manifold: prev_he->prev is always valid (interior face loop).
         uint16_t i_corner = prev_he.vertex;
         uint16_t i_prev = he_mesh.half_edges[prev_he.prev].vertex;
         uint16_t i_next = curr_he.vertex;
@@ -248,8 +247,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       uint16_t he_start_idx = static_cast<uint16_t>(i);
       const HalfEdge &he_start = he_mesh.half_edges[he_start_idx];
-      // Closed manifold: the rosette origin is he_start's tail vertex, read via
-      // its always-valid prev (interior face loop).
+      // Rosette origin: he_start's tail vertex.
       uint16_t origin_idx = he_mesh.half_edges[he_start.prev].vertex;
       if (visited_verts[origin_idx])
         continue;
@@ -260,8 +258,6 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
       vertex_orbit<'N'>(he_mesh, he_start_idx, [&](uint16_t curr_idx) {
         HS_CHECK(count + 2 <= (int)(2 * I), "Hankin rosette winding overflow");
         face_indices[count++] = he_to_midpoint_idx[curr_idx];
-        // Closed manifold: pair is always valid, so this is the orbit's next
-        // half-edge and never HE_NONE.
         const uint16_t next_edge_idx =
             he_mesh.half_edges[he_mesh.half_edges[curr_idx].pair].next;
         face_indices[count++] = narrow_index(compiled.static_offset +
@@ -292,12 +288,11 @@ inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ = 9.0f;
 /** plane_cross_sq (= |cross(n_hankin1, n_hankin2)|^2) window gating the
  * far-star fallback. A far chord ratio alone is not instability: a large face
  * (hexagon, octagon) legitimately pushes its star point out to raw_ratio_sq ~3
- * while the two contact planes stay well-separated (plane_cross_sq ~0.8), and
- * clamping those healthy points to the midpoint fallback is what jerked the
- * swept pattern across the sphere. Genuine near-parallel yeets — where the
- * intersection direction is noise-dominated — sit at plane_cross_sq below 0.01;
- * healthy far points stay above 0.5. plane_cross_sq varies smoothly with the
- * sweep angle, so gating on it keeps the transition continuous. */
+ * while the two contact planes stay well-separated (plane_cross_sq ~0.8).
+ * Genuine near-parallel yeets — where the intersection direction is
+ * noise-dominated — sit at plane_cross_sq below 0.01; healthy far points stay
+ * above 0.5. plane_cross_sq varies smoothly with the sweep angle, so gating on
+ * it keeps the transition continuous. */
 inline constexpr float HANKIN_PARALLEL_GATE_LO_SQ = 0.05f;
 inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
 
