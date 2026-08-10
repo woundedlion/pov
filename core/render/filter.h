@@ -2075,19 +2075,19 @@ private:
                            grid.downsample == CACHE_DOWNSAMPLE &&
                            stock_transform;
 
-    const Animation::NoiseParams *noise = feedback_style->noise;
-    const WarpKey key{feedback_style->space_fn,  noise,
-                      noise_config_hash(noise),  feedback_style->amplitude,
-                      feedback_style->frequency, feedback_style->speed,
-                      feedback_style->scale,     noise ? noise->time : 0.0f,
-                      band.field_y_begin,        band.field_y_end};
-
     if (!cacheable) {
       const int cells = grid.field_rows * grid.columns;
       return {scratch.allocate_n<int16_t>(cells),
               scratch.allocate_n<int16_t>(cells),
               scratch.allocate_n<WarpControl>(grid.field.sample_count()), true};
     }
+
+    const Animation::NoiseParams *noise = feedback_style->noise;
+    const WarpKey key{feedback_style->space_fn,  noise,
+                      noise_config_hash(noise),  feedback_style->amplitude,
+                      feedback_style->frequency, feedback_style->speed,
+                      feedback_style->scale,     noise ? noise->time : 0.0f,
+                      band.field_y_begin,        band.field_y_end};
 
     const bool needs_population = !(warp_cache_valid && key == cached_warp_key);
     cached_warp_key = key;
