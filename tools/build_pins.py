@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Single source for external build-tool versions shared by CI and just.
+"""Single source for build values shared by CI, the pre-commit hook and just.
 
 PINS are injected (--github-output / a named lookup) and must appear in no
 build file literally. INLINE_PINS cannot be injected -- they name an action
 input, an apt package or a pip requirement resolved before this script could
 run -- so --check pins them by consistency instead: every spelling of them in
 INLINE_SCAN must derive from the value here.
+
+SHARED_LITERALS are pinned the same way: strings two build files must spell
+identically because neither can read the other.
 """
 
 from __future__ import annotations
@@ -82,6 +85,27 @@ INLINE_USES = (
     (r"([0-9a-f]{64})  doxygen\.tar\.gz", "doxygen-sha256", lambda v: v),
 )
 
+# Strings that must read identically in two build files. The pre-commit hook is
+# POSIX shell run per commit and ci.yml is workflow YAML, so neither can source
+# a value from the other; --check asserts every occurrence matches this one.
+SHARED_LITERALS = {
+    # Paths the clang-format gate skips: vendored sources and generated ones.
+    "format-exclude": (
+        r"(^|/)core/vendor/"
+        r"|(^|/)core/color/color_luts\.h$"
+        r"|(^|/)core/color/gamut_lut\.h$"
+        r"|(^|/)core/engine/reaction_graph\.cpp$"
+        r"|(^|/)tests/mindsplatter_replay_corpus\.h$"
+    ),
+}
+
+# (pattern, literal name, occurrences required across INLINE_SCAN). The
+# pattern's single capture group is the literal as that file spells it; the
+# count fails a copy that was dropped or a third one added unnoticed.
+SHARED_LITERAL_USES = (
+    (r"grep -vE '([^']*)'", "format-exclude", 2),
+)
+
 
 def duplicates_pin(text: str, name: str, value: str) -> bool:
     """Return whether a dependency context contains its literal pinned value."""
@@ -123,8 +147,33 @@ def check_inline_pins() -> list[str]:
     return errors
 
 
+def check_shared_literals() -> list[str]:
+    """Return one error per occurrence of a SHARED_LITERALS value that disagrees
+    with the literal, plus one per literal found the wrong number of times."""
+    errors: list[str] = []
+    for pattern, name, expected in SHARED_LITERAL_USES:
+        want = SHARED_LITERALS[name]
+        occurrences = 0
+        for path in INLINE_SCAN:
+            text = path.read_text(encoding="utf-8")
+            for index, line in enumerate(text.splitlines(), 1):
+                for found in re.findall(pattern, line):
+                    occurrences += 1
+                    if found != want:
+                        errors.append(
+                            f"{path.relative_to(ROOT)}:{index}: {name} differs "
+                            f"from build_pins.py: {found!r}"
+                        )
+        if occurrences != expected:
+            errors.append(
+                f"{name} occurs {occurrences} time(s) in the scanned files, "
+                f"expected {expected}"
+            )
+    return errors
+
+
 def check_consumers() -> int:
-    errors: list[str] = check_inline_pins()
+    errors: list[str] = check_inline_pins() + check_shared_literals()
     for path, references in CONSUMERS.items():
         text = path.read_text(encoding="utf-8")
         for reference in references:
@@ -145,7 +194,7 @@ def check_consumers() -> int:
             print(error)
         return 1
     print(f"build pins are single-sourced ({len(PINS)} injected, "
-          f"{len(INLINE_PINS)} inline)")
+          f"{len(INLINE_PINS)} inline, {len(SHARED_LITERALS)} shared literal)")
     return 0
 
 

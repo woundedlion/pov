@@ -61,10 +61,12 @@ CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 # ─── clang-format check (first-party C++ only) ──────────────────────────────
 # Verify staged C++ matches the committed .clang-format. Scoped to first-party
 # sources: core/vendor/ and the generated color_luts.h / gamut_lut.h /
-# reaction_graph.cpp / mindsplatter_replay_corpus.h are excluded. Checks the
-# working-tree file (same partial-staging caveat as the suite above). Ordered
-# ahead of the HS_SKIP_TESTS opt-out: that flag stands down the test and Teensy
-# gates only, never this check. HS_SKIP_FORMAT=1 is the one escape hatch.
+# reaction_graph.cpp / mindsplatter_replay_corpus.h are excluded. The exclusion
+# regex below is pinned against ci.yml's copy by tools/build_pins.py --check
+# (SHARED_LITERALS). Checks the working-tree file (same partial-staging caveat
+# as the suite above). Ordered ahead of the HS_SKIP_TESTS opt-out: that flag
+# stands down the test and Teensy gates only, never this check.
+# HS_SKIP_FORMAT=1 is the one escape hatch.
 #
 # BLOCKING, and unconditionally so: an unformatted staged file fails the commit,
 # and so does being unable to judge one. clang-format reflows code between LLVM
