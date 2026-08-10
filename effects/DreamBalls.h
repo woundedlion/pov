@@ -13,6 +13,7 @@
 
 #include "core/engine/engine.h"
 
+#include <algorithm>
 #include <array>
 
 // Unit-test accessor reaching the private preset-cycle bookkeeping; the smoke
@@ -36,11 +37,19 @@ template <int W, int H> class DreamBalls : public Effect {
 public:
   using BaseMesh = Solids::BaseMesh;
 
+  /** @brief Selects automatic topology or the source mesh's edge graph. */
+  enum class WeaveTopology : uint8_t {
+    AUTOMATIC,
+    ORIGINAL_WITH_DEFECTS,
+  };
+
   /**
    * @brief Live, slider-bound render parameters; also the per-preset value set.
    */
   struct Params {
     BaseMesh base_mesh = BaseMesh::TETRAHEDRON;
+    WeaveTopology weave_topology = WeaveTopology::AUTOMATIC;
+    float weave_gap = WEAVE_GAP_DEFAULT;
     float num_copies = COPIES_MIN;
     float offset_radius = RADIUS_MIN;
     float offset_speed = SPEED_MIN;
@@ -88,6 +97,11 @@ public:
     register_animated_param("Base Mesh", &params.base_mesh,
                             Solids::BASE_MESH_OPTIONS,
                             Solids::BASE_MESH_EXPORT_OPTIONS, SOLID_COUNT);
+    register_animated_param(
+        "Weave Topology", &params.weave_topology, WEAVE_TOPOLOGY_OPTIONS,
+        WEAVE_TOPOLOGY_EXPORT_OPTIONS, std::size(WEAVE_TOPOLOGY_OPTIONS));
+    register_animated_param("Weave Gap", &params.weave_gap, WEAVE_GAP_MIN,
+                            WEAVE_GAP_MAX);
     register_animated_param("Copies", &params.num_copies, COPIES_MIN,
                             COPIES_MAX);
     register_animated_param("Radius", &params.offset_radius, RADIUS_MIN,
@@ -132,10 +146,18 @@ private:
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float WARP_MIN = 0.0f, WARP_MAX = 5.0f;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
+  static constexpr float WEAVE_GAP_MIN = 0.02f, WEAVE_GAP_MAX = 0.45f;
+  static constexpr float WEAVE_GAP_DEFAULT = 0.18f;
   static constexpr size_t PRESET_COUNT = 5;
   static constexpr size_t SOLID_COUNT = Solids::BASE_MESH_COUNT;
+  static constexpr const char *WEAVE_TOPOLOGY_OPTIONS[] = {
+      "Automatic", "Original with defects"};
+  static constexpr const char *WEAVE_TOPOLOGY_EXPORT_OPTIONS[] = {
+      "WeaveTopology::AUTOMATIC", "WeaveTopology::ORIGINAL_WITH_DEFECTS"};
   static_assert(SOLID_COUNT == std::size(Solids::simple_registry) +
                                    std::size(Solids::catalan_registry));
+  static_assert(std::size(WEAVE_TOPOLOGY_OPTIONS) ==
+                std::size(WEAVE_TOPOLOGY_EXPORT_OPTIONS));
 
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
@@ -161,13 +183,17 @@ private:
     MeshState mesh_state;          /**< Baked vertices and faces. */
     ArenaVector<Tangent> tangents; /**< Per-vertex tangent frames. */
     ArenaVector<Plot::Mesh::Edge>
-        edges; /**< Unique edge list (topology is static). */
+        original_edges; /**< Unique edges of the source mesh. */
+    ArenaVector<Plot::Mesh::Edge>
+        automatic_edges;       /**< Oriented source or medial edges. */
+    bool four_regular = false; /**< Every source vertex has degree four. */
   };
 
   SolidData *loaded_solids = nullptr;
   static constexpr size_t MAX_SOLID_VERTICES = 120;
   static constexpr size_t MAX_SOLID_FACE_SLOTS = 360;
   static constexpr size_t MAX_SOLID_FACES = 120;
+  static constexpr size_t MAX_SOLID_EDGES = MAX_SOLID_FACE_SLOTS / 2;
 
   FastNoiseLite noise;
   Timeline timeline;
@@ -198,7 +224,7 @@ private:
       SOLID_COUNT * (MAX_SOLID_VERTICES * (sizeof(Vector) + sizeof(Tangent)) +
                      MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
                      MAX_SOLID_FACES * sizeof(uint8_t) +
-                     (MAX_SOLID_FACE_SLOTS / 2) * sizeof(Plot::Mesh::Edge));
+                     3 * MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge));
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "DreamBalls persistent footprint exceeds the default partition");
@@ -224,17 +250,21 @@ private:
       &blood_stream_composition};
 
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
-      {{BaseMesh::RHOMBICUBOCTAHEDRON, 18.0f, 0.3f, 0.4f, 0.3f, nullptr, 0.7f}},
-      {{BaseMesh::RHOMBICOSIDODECAHEDRON, 6.0f, 0.05f, 1.0f, 1.8f, nullptr,
-        0.7f}},
-      {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, 6.0f, 0.16f, 1.0f, 2.0f, nullptr,
-        0.3f}},
-      {{BaseMesh::ICOSIDODECAHEDRON, 10.0f, 0.16f, 1.0f, 0.5f, nullptr, 0.3f}},
-      {{BaseMesh::SNUB_CUBE, 4.534f, 0.153f, 2.025f, 0.0f, nullptr, 0.3f}},
+      {{BaseMesh::RHOMBICUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
+        WEAVE_GAP_DEFAULT, 18.0f, 0.3f, 0.4f, 0.3f, nullptr, 0.7f}},
+      {{BaseMesh::RHOMBICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
+        WEAVE_GAP_DEFAULT, 6.0f, 0.05f, 1.0f, 1.8f, nullptr, 0.7f}},
+      {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
+        WEAVE_GAP_DEFAULT, 6.0f, 0.16f, 1.0f, 2.0f, nullptr, 0.3f}},
+      {{BaseMesh::ICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
+        WEAVE_GAP_DEFAULT, 10.0f, 0.16f, 1.0f, 0.5f, nullptr, 0.3f}},
+      {{BaseMesh::SNUB_CUBE, WeaveTopology::AUTOMATIC, WEAVE_GAP_DEFAULT,
+        4.534f, 0.153f, 2.025f, 0.0f, nullptr, 0.3f}},
   }};
 
   static constexpr bool preset_in_ranges(const Params &p) {
-    return p.num_copies >= COPIES_MIN && p.num_copies <= COPIES_MAX &&
+    return p.weave_gap >= WEAVE_GAP_MIN && p.weave_gap <= WEAVE_GAP_MAX &&
+           p.num_copies >= COPIES_MIN && p.num_copies <= COPIES_MAX &&
            p.offset_radius >= RADIUS_MIN && p.offset_radius <= RADIUS_MAX &&
            p.offset_speed >= SPEED_MIN && p.offset_speed <= SPEED_MAX &&
            p.warp_scale >= WARP_MIN && p.warp_scale <= WARP_MAX &&
@@ -246,6 +276,123 @@ private:
                 "slider range; widen the range to accommodate the preset");
 
   Presets<Params, PRESET_COUNT> preset_manager{PRESETS};
+
+  static bool source_is_four_regular(const MeshState &mesh, Arena &scratch) {
+    ScratchScope guard(scratch);
+    uint8_t *degrees = scratch.allocate_n<uint8_t>(mesh.vertices.size());
+    std::fill_n(degrees, mesh.vertices.size(), static_cast<uint8_t>(0));
+
+    for (uint16_t vertex : mesh.faces) {
+      HS_CHECK(vertex < mesh.vertices.size());
+      degrees[vertex]++;
+    }
+    for (size_t i = 0; i < mesh.vertices.size(); ++i)
+      if (degrees[i] != 4)
+        return false;
+    return true;
+  }
+
+  static uint16_t find_edge_index(const ArenaVector<Plot::Mesh::Edge> &edges,
+                                  uint16_t u, uint16_t v) {
+    for (size_t i = 0; i < edges.size(); ++i) {
+      const auto &edge = edges[i];
+      if ((edge.u == u && edge.v == v) || (edge.u == v && edge.v == u))
+        return static_cast<uint16_t>(i);
+    }
+    HS_CHECK(false, "DreamBalls face edge missing from extracted topology");
+    return 0;
+  }
+
+  static void build_four_regular_edges(const MeshState &mesh,
+                                       ArenaVector<Plot::Mesh::Edge> &edges,
+                                       Arena &scratch) {
+    ScratchScope guard(scratch);
+    HalfEdgeMesh half_edges(scratch, mesh);
+    const size_t face_count = mesh.get_face_counts_size();
+    uint8_t *colors = scratch.allocate_n<uint8_t>(face_count);
+    uint16_t *queue = scratch.allocate_n<uint16_t>(face_count);
+    std::fill_n(colors, face_count, static_cast<uint8_t>(UINT8_MAX));
+
+    for (size_t seed = 0; seed < face_count; ++seed) {
+      if (colors[seed] != UINT8_MAX)
+        continue;
+      size_t head = 0;
+      size_t tail = 0;
+      colors[seed] = 0;
+      queue[tail++] = static_cast<uint16_t>(seed);
+
+      while (head < tail) {
+        const uint16_t face = queue[head++];
+        const uint16_t start = half_edges.faces[face].half_edge;
+        uint16_t current = start;
+        do {
+          const HalfEdge &he = half_edges.half_edges[current];
+          HS_CHECK(he.pair != HE_NONE,
+                   "DreamBalls weave requires a closed mesh");
+          const uint16_t adjacent = half_edges.half_edges[he.pair].face;
+          const uint8_t adjacent_color = colors[face] ^ 1;
+          if (colors[adjacent] == UINT8_MAX) {
+            colors[adjacent] = adjacent_color;
+            queue[tail++] = adjacent;
+          } else {
+            HS_CHECK(colors[adjacent] == adjacent_color,
+                     "four-regular mesh dual is not bipartite");
+          }
+          current = he.next;
+        } while (current != start);
+      }
+    }
+
+    const uint8_t *counts = mesh.get_face_counts_data();
+    const uint16_t *faces = mesh.get_faces_data();
+    size_t offset = 0;
+    for (size_t face = 0; face < face_count; ++face) {
+      const int count = counts[face];
+      if (colors[face] == 0) {
+        for (int i = 0; i < count; ++i)
+          edges.push_back({faces[offset + i], faces[offset + (i + 1) % count]});
+      }
+      offset += count;
+    }
+  }
+
+  static void
+  build_medial_edges(const MeshState &mesh,
+                     const ArenaVector<Plot::Mesh::Edge> &original_edges,
+                     ArenaVector<Plot::Mesh::Edge> &medial_edges) {
+    const uint8_t *counts = mesh.get_face_counts_data();
+    const uint16_t *faces = mesh.get_faces_data();
+    size_t offset = 0;
+    for (size_t face = 0; face < mesh.get_face_counts_size(); ++face) {
+      const int count = counts[face];
+      for (int i = 0; i < count; ++i) {
+        const uint16_t a = faces[offset + i];
+        const uint16_t b = faces[offset + (i + 1) % count];
+        const uint16_t c = faces[offset + (i + 2) % count];
+        medial_edges.push_back({find_edge_index(original_edges, a, b),
+                                find_edge_index(original_edges, b, c)});
+      }
+      offset += count;
+    }
+  }
+
+  static float under_gap_alpha(float edge_t, float gap) {
+    const float x = hs::clamp((1.0f - edge_t) / gap, 0.0f, 1.0f);
+    return x * x * (3.0f - 2.0f * x);
+  }
+
+  static void
+  update_medial_vertices(const MeshState &source,
+                         const ArenaVector<Plot::Mesh::Edge> &original_edges,
+                         MeshState &medial) {
+    HS_CHECK(medial.vertices.size() == original_edges.size());
+    for (size_t i = 0; i < original_edges.size(); ++i) {
+      const auto &edge = original_edges[i];
+      medial.vertices[i] =
+          normalized_or(source.vertices[edge.u] + source.vertices[edge.v],
+                        source.vertices[edge.u]);
+    }
+  }
 
   /**
    * @brief Generates each selectable solid and bakes its geometry into the
@@ -294,10 +441,23 @@ private:
 
         // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
         size_t edge_count = data.mesh_state.faces.size() / 2;
-        data.edges.bind(target, edge_count);
-        Plot::Mesh::extract_edges(data.mesh_state, data.edges);
-        HS_CHECK(data.edges.size() == edge_count,
+        data.original_edges.bind(target, edge_count);
+        Plot::Mesh::extract_edges(data.mesh_state, data.original_edges);
+        HS_CHECK(data.original_edges.size() == edge_count,
                  "DreamBalls edge extraction over/under-filled the edge bind");
+
+        data.four_regular = source_is_four_regular(data.mesh_state, b);
+        const size_t automatic_edge_count =
+            data.four_regular ? edge_count : 2 * edge_count;
+        data.automatic_edges.bind(target, automatic_edge_count);
+        if (data.four_regular) {
+          build_four_regular_edges(data.mesh_state, data.automatic_edges, b);
+        } else {
+          build_medial_edges(data.mesh_state, data.original_edges,
+                             data.automatic_edges);
+        }
+        HS_CHECK(data.automatic_edges.size() == automatic_edge_count,
+                 "DreamBalls automatic topology edge count mismatch");
       });
     }
   }
@@ -342,9 +502,8 @@ private:
 
       // Slot captured at spawn, not active_bake: this sprite renders from its
       // own param + palette snapshot.
-      this->draw_scene(canvas, sprite_params, crossfade.opacity(opacity),
-                       solid.mesh_state, target_mesh, solid.tangents,
-                       solid.edges, baked_palettes[bake_slot]);
+      this->draw_scene(canvas, sprite_params, crossfade.opacity(opacity), solid,
+                       target_mesh, baked_palettes[bake_slot]);
     };
 
     const int period = crossfade.schedule(timeline, draw_fn, SPRITE_LIFE,
@@ -412,10 +571,8 @@ private:
    * @param canvas Render target.
    * @param p Live render params (copy count, radius, alpha, etc.).
    * @param opacity This sprite's crossfade opacity scaling edge alpha.
-   * @param base Source mesh supplying the undisplaced vertices.
+   * @param solid Source geometry and precomputed weave topology.
    * @param target Scratch mesh reused for each copy's displaced vertices.
-   * @param tangents Per-vertex tangent frames for the displacement.
-   * @param edges Unique edge list defining the wireframe topology.
    * @param baked Baked palette LUT supplying edge colors.
    * @details Each copy displaces vertices in their tangent frames (staggered in
    *          phase by an even 2*PI/num_copies offset), Mobius-warps and orients
@@ -423,17 +580,27 @@ private:
    *          p.alpha * opacity.
    */
   void draw_scene(Canvas &canvas, const Params &p, float opacity,
-                  const MeshState &base, MeshState &target,
-                  const ArenaVector<Tangent> &tangents,
-                  const ArenaVector<Plot::Mesh::Edge> &edges,
+                  const SolidData &solid, MeshState &target,
                   const BakedPalette &baked) {
     HS_PROFILE(db_draw_scene);
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       Color4 c = baked.get(f.v0);
-      c.alpha *= p.alpha * opacity;
+      c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
       f.color = c;
     };
+
+    const bool automatic = p.weave_topology == WeaveTopology::AUTOMATIC;
+    const bool medial = automatic && !solid.four_regular;
+    const auto &edges =
+        automatic ? solid.automatic_edges : solid.original_edges;
+
+    MeshState medial_mesh;
+    if (medial) {
+      medial_mesh.vertices.bind(scratch_arena_a, solid.original_edges.size());
+      for (size_t i = 0; i < solid.original_edges.size(); ++i)
+        medial_mesh.vertices.push_back(Vector());
+    }
 
     // Floor at 1 so the i/num_copies divisor below can't hit zero.
     const int num_copies_raw = static_cast<int>(p.num_copies);
@@ -442,7 +609,8 @@ private:
       float offset = (static_cast<float>(i) / num_copies) * 2 * PI_F;
       {
         HS_PROFILE(db_displace);
-        update_displaced_mesh(base, target, tangents, p, offset);
+        update_displaced_mesh(solid.mesh_state, target, solid.tangents, p,
+                              offset);
       }
 
       {
@@ -455,7 +623,14 @@ private:
 
       {
         HS_PROFILE(db_mesh_plot);
-        Plot::Mesh::draw<W, H>(filters, canvas, target, edges, fragment_shader);
+        if (medial) {
+          update_medial_vertices(target, solid.original_edges, medial_mesh);
+          Plot::Mesh::draw<W, H>(filters, canvas, medial_mesh, edges,
+                                 fragment_shader);
+        } else {
+          Plot::Mesh::draw<W, H>(filters, canvas, target, edges,
+                                 fragment_shader);
+        }
       }
     }
   }
