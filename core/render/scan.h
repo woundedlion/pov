@@ -1753,6 +1753,10 @@ struct Mesh {
             FragmentShaderT &fragment_shader, Arena &scratch_arena,
             const MeshOps::MeshClassBake *bake,
             FaceShaderSetupT &face_shader_setup) {
+    // Once per mesh, not per face: rasterize_face indexes the phi LUT by the
+    // canvas' own rows and hands SDF::Face the template H.
+    check_canvas_dims<W, H>(canvas);
+
     ScratchScope scope(scratch_arena);
     auto *scratch =
         static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
