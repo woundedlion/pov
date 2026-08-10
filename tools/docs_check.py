@@ -708,8 +708,10 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         print(f"[docs-check] tooling error: {error}", file=sys.stderr)
         return 2
+    # Warning, not a failure: a developer without the sibling checkout must still
+    # be able to run the checker, and every CI invocation passes --checkout.
     if skipped:
-        print(f"[docs-check] tree fences not validated - no --checkout root for: "
+        print(f"::warning::tree fences NOT validated - no --checkout root for: "
               f"{', '.join(sorted(skipped))}")
     # Warning only: dropping the last citation of an exempt path improves the
     # tree and must not red the build for whoever lands that commit.
