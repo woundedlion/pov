@@ -792,7 +792,8 @@ private:
     // handoff arrays below live in. A hankin leg builds none; its arrival is
     // the mesh its baked topology already carries. Colours re-key per leg: the
     // arrival's classification maps to a freshly shuffled palette set, and
-    // every face crossfades from the previous leg's landing over the leg.
+    // every face crossfades from the previous leg's landing over the leg
+    // (docs/islamicstars_palette_crossfade_plan.md).
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {

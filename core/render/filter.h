@@ -1820,6 +1820,10 @@ namespace Pixel {
  * so it must be the last Pipeline stage. The effect must call flush() BEFORE
  * the frame's plot() calls (see `terminal_replaces`); flushing last, as a
  * non-replacing terminal permits, blanks the frame at alpha >= 1.
+ *
+ * The warp is stored as equirect pixel offsets, so it is anisotropic near the
+ * poles: trails pinch and a low-frequency noise cap lenses over a few rows
+ * (docs/feedback_pole_isotropy_plan.md).
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;

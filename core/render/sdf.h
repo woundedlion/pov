@@ -89,6 +89,10 @@ constexpr float face_azimuth_pad(int w) {
 // spans it emitted describe the row, and false to request a full-row scan. A
 // false return MUST emit nothing: the caller walks every column instead, so a
 // span emitted before the fallback is either dropped or shaded twice.
+//
+// The protocol has no per-scan entry point, so composite scratch setup and the
+// LUT initialization guards repeat per row; docs/sdf_scan_setup_hook.md sizes
+// a begin_scan hook and records why it is not built.
 
 /** Maximum disjoint scanline spans a single shape (leaf) emits per row.
  *  scan_region's `intervals` buffer holds a top-level CSG emission, and its

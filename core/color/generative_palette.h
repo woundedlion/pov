@@ -14,6 +14,9 @@
  *        canonicalization, GenerativePalette and the stock recipes.
  *
  * Included by color.h before the composition layer.
+ *
+ * Recipe model, gamut-relative chroma and hue torsion are specified in
+ * docs/generative_palette_redesign_spec.md.
  */
 
 /**
