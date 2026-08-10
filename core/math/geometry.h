@@ -326,7 +326,9 @@ __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
  *   the south pole can land a hair *above* `H_VIRT-1` (float round-trip), while
  *   `x` is in `[0, W)` (strictly excludes W); a caller indexing a row/column
  *   buffer must floor (not round) first. Only `y` carries the clamp's NaN->hi
- *   guard: a non-finite `v` saturates `y` to the south pole and leaves `x` NaN.
+ *   guard: a NaN `v.y` clamps to +1, so `y` saturates to row 0 (the north
+ *   pole); a -inf `v.y` clamps to -1 and lands on the south pole. `x` stays
+ *   NaN either way.
  */
 template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
   // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
