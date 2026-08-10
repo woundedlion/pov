@@ -1455,6 +1455,15 @@ template <typename A, typename B> struct Union {
   Union(const A &shape_a, const B &shape_b) : a(shape_a), b(shape_b) {}
 
   /**
+   * @brief Deleted constructors from a temporary child.
+   * @details Both children are retained by reference and read on every pixel,
+   * so binding a temporary would dangle from the first distance() call.
+   */
+  Union(const A &&, const B &) = delete;
+  Union(const A &, const B &&) = delete;
+  Union(const A &&, const B &&) = delete;
+
+  /**
    * @brief Row bounds spanning the union of the children's bands.
    * @tparam H Canvas height in rows.
    * @return Inclusive row bounds covering either child.
@@ -1560,6 +1569,15 @@ template <typename A, typename B> struct SmoothUnion {
       : a(shape_a), b(shape_b), k(smoothness) {
     HS_CHECK(k > 0.0f);
   }
+
+  /**
+   * @brief Deleted constructors from a temporary child.
+   * @details Both children are retained by reference and read on every pixel,
+   * so binding a temporary would dangle from the first distance() call.
+   */
+  SmoothUnion(const A &&, const B &, float) = delete;
+  SmoothUnion(const A &, const B &&, float) = delete;
+  SmoothUnion(const A &&, const B &&, float) = delete;
 
   /**
    * @brief Row bounds spanning both children's bands, padded by the blend
@@ -1708,6 +1726,15 @@ template <typename A, typename B> struct Subtract {
   Subtract(const A &shape_a, const B &shape_b) : a(shape_a), b(shape_b) {}
 
   /**
+   * @brief Deleted constructors from a temporary child.
+   * @details Both children are retained by reference and read on every pixel,
+   * so binding a temporary would dangle from the first distance() call.
+   */
+  Subtract(const A &&, const B &) = delete;
+  Subtract(const A &, const B &&) = delete;
+  Subtract(const A &&, const B &&) = delete;
+
+  /**
    * @brief Row bounds of the minuend (subtraction never grows the band).
    * @tparam H Canvas height in rows.
    * @return The minuend's inclusive row bounds.
@@ -1821,6 +1848,15 @@ template <typename A, typename B> struct Intersection {
    * @param shape_b Second child shape.
    */
   Intersection(const A &shape_a, const B &shape_b) : a(shape_a), b(shape_b) {}
+
+  /**
+   * @brief Deleted constructors from a temporary child.
+   * @details Both children are retained by reference and read on every pixel,
+   * so binding a temporary would dangle from the first distance() call.
+   */
+  Intersection(const A &&, const B &) = delete;
+  Intersection(const A &, const B &&) = delete;
+  Intersection(const A &&, const B &&) = delete;
 
   /**
    * @brief Row bounds of the overlap of the children's bands.
@@ -1997,6 +2033,15 @@ template <typename Shape> struct AngularRepeat {
    */
   AngularRepeat(const Shape &s, int reps)
       : AngularRepeat(s, reps, Vector(0, 1, 0)) {}
+
+  /**
+   * @brief Deleted constructors from a temporary child.
+   * @details The child is retained by reference and read on every pixel, so
+   * binding a temporary would dangle from the first distance() call. The axis
+   * is copied, so a temporary Vector stays legal.
+   */
+  AngularRepeat(const Shape &&, int, const Vector &) = delete;
+  AngularRepeat(const Shape &&, int) = delete;
 
   /**
    * @brief Row bounds for the repeated shape.

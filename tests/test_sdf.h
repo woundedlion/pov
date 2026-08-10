@@ -31,6 +31,7 @@
 #include <cmath>
 #include <cstring>
 #include <iterator>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -1683,6 +1684,48 @@ inline void test_sentinel_clampers_are_not_blendable() {
 }
 
 /**
+ * @brief Verifies the CSG combinators reject a temporary child.
+ * @details Every combinator holds its children by reference and reads them on
+ *   each pixel, so a temporary bound at construction dangles for the whole
+ *   render. The leaves delete the rvalue-Basis overloads for the same reason;
+ *   an accepted rvalue here is the same defect one level up.
+ */
+inline void test_csg_combinators_reject_temporary_children() {
+  using L = SDF::Line;
+  using Poly = SDF::PlanarPolygon;
+  static_assert(std::is_constructible_v<SDF::Union<L, L>, L &, L &>);
+  static_assert(!std::is_constructible_v<SDF::Union<L, L>, L &&, L &>);
+  static_assert(!std::is_constructible_v<SDF::Union<L, L>, L &, L &&>);
+  static_assert(!std::is_constructible_v<SDF::Union<L, L>, L &&, L &&>);
+
+  static_assert(
+      std::is_constructible_v<SDF::SmoothUnion<L, L>, L &, L &, float>);
+  static_assert(
+      !std::is_constructible_v<SDF::SmoothUnion<L, L>, L &&, L &, float>);
+  static_assert(
+      !std::is_constructible_v<SDF::SmoothUnion<L, L>, L &, L &&, float>);
+
+  static_assert(std::is_constructible_v<SDF::Subtract<Poly, L>, Poly &, L &>);
+  static_assert(!std::is_constructible_v<SDF::Subtract<Poly, L>, Poly &&, L &>);
+  static_assert(!std::is_constructible_v<SDF::Subtract<Poly, L>, Poly &, L &&>);
+
+  static_assert(std::is_constructible_v<SDF::Intersection<L, L>, L &, L &>);
+  static_assert(!std::is_constructible_v<SDF::Intersection<L, L>, L &&, L &>);
+  static_assert(!std::is_constructible_v<SDF::Intersection<L, L>, L &, L &&>);
+
+  // AngularRepeat copies its axis, so only the child rejects a temporary.
+  static_assert(std::is_constructible_v<SDF::AngularRepeat<L>, L &, int>);
+  static_assert(!std::is_constructible_v<SDF::AngularRepeat<L>, L &&, int>);
+  static_assert(
+      std::is_constructible_v<SDF::AngularRepeat<L>, L &, int, Vector &&>);
+  static_assert(
+      !std::is_constructible_v<SDF::AngularRepeat<L>, L &&, int, Vector &&>);
+
+  HS_EXPECT_FALSE((std::is_constructible_v<SDF::Union<L, L>, L &&, L &>));
+  HS_EXPECT_FALSE((std::is_constructible_v<SDF::AngularRepeat<L>, L &&, int>));
+}
+
+/**
  * @brief Verifies Union coalesces two overlapping child intervals into one span.
  * @details merge_intervals sorts by start and welds spans that touch or overlap;
  *   the children emit overlapping bands (A [0,40], B [30,70]) that must collapse
@@ -2995,6 +3038,7 @@ inline int run_sdf_tests() {
   test_smooth_union_blends_inside_band();
   test_smooth_union_solidity_follows_children();
   test_sentinel_clampers_are_not_blendable();
+  test_csg_combinators_reject_temporary_children();
 
   test_union_merges_overlapping_intervals();
   test_union_seam_straddle_merges_overlapping_intervals();

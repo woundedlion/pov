@@ -122,7 +122,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("memory", 42, hs_test::mem::run_memory_tests, 271)                         \
   X("spatial", 18, hs_test::spatial::run_spatial_tests, 179)                   \
   X("scb", 40, hs_test::scb::run_static_circular_buffer_tests, 197)            \
-  X("sdf", 93, hs_test::sdf::run_sdf_tests, 272481)                            \
+  X("sdf", 94, hs_test::sdf::run_sdf_tests, 272481)                            \
   X("conway", 33, hs_test::conway_tests::run_conway_tests, 5982)               \
   X("conway_morph", 37, hs_test::conway_morph_tests::run_conway_morph_tests,   \
     1656015)                                                                   \
