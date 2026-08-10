@@ -1943,6 +1943,26 @@ inline void case_flywheel_period_zero() {
 }
 
 /**
+ * @brief Death case: scheduling a boundary burst onto a busy wire must trap.
+ * @details Sync surface — the emitter drives one shared wire, so a second
+ *          burst scheduled while pulses are still due would splice two symbols
+ *          into one count and decode as a third.
+ */
+inline void case_symbol_emitter_overlapping_burst() {
+  const pov::sync::Config cfg = pov::sync::phantasm_config(
+      opaque<uint32_t>(600000000u), opaque<uint32_t>(480u), opaque(288),
+      opaque(4));
+  pov::sync::SymbolEmitter em;
+  const bool first = em.schedule_boundary(
+      pov::sync::Symbol::ZERO, opaque<uint32_t>(0), opaque<uint32_t>(0), cfg);
+  const bool second = // pulses still due -> HS_CHECK
+      em.schedule_boundary(pov::sync::Symbol::HALF, opaque<uint32_t>(0),
+                           opaque<uint32_t>(0), cfg);
+  if (first && second)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a virtual height of one row must trap in the phi mapping.
  * @details Geometry surface — the row-to-angle scale divides by (h_virt - 1),
  *          so a single-row canvas would map every row to a non-finite phi.
@@ -2022,6 +2042,37 @@ inline void death_opleg_draw(Canvas &, MeshState &,
                              const Animation::OpLeg::Shading &) {}
 
 /**
+ * @brief A palette handoff complete enough to clear the OpLeg handoff guard.
+ * @return A handoff naming a default bank and a one-face departed palette.
+ * @details Lets a case reach a guard that sits behind the handoff check; the
+ *          LUTs are never sampled, since every such case traps in the
+ *          constructor before the first frame.
+ */
+inline Animation::OpLeg::PaletteHandoff death_opleg_handoff() {
+  static const BakedPaletteBank bank;
+  static const uint8_t face_palette[1] = {0};
+  return {.bank = &bank,
+          .prev_face_palette = face_palette,
+          .prev_faces = 1,
+          .prev_face_centroid = nullptr,
+          .correspondence = Animation::OpLeg::FaceCorrespondence::GEOMETRIC};
+}
+
+/** @brief A well-formed non-settling graph edge for the OpLeg death cases. */
+inline constexpr ConwayGraph::EdgeSpec death_opleg_edge{
+    .from_node = 0,
+    .to_node = 0,
+    .seed_solid = 0,
+    .op = ConwayGraph::MorphOp::TRUNCATE,
+    .t_from = 0.0f,
+    .t_to = 0.4f,
+    .twist_from = 0.0f,
+    .twist_to = 0.0f,
+    .settle = false,
+    .reseed = ConwayGraph::Reseed::NONE,
+    .bridge = false};
+
+/**
  * @brief Death case: an edge-sweep leg without a graph edge must trap.
  * @details OpLeg surface — the constructor reads the edge's operator and settle
  *          flag on its first line, so a null edge is a null dereference.
@@ -2071,6 +2122,222 @@ inline void case_opleg_incomplete_palette_handoff() {
       seed,
       Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
                                        .sweep_frames = opaque(1)},
+      arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: settle frames that contradict the edge must trap.
+ * @details OpLeg surface — the edge's settle flag decides whether the leg
+ *          computes a relaxed endpoint at all, so a settle window on a
+ *          non-settling edge would slerp toward vertices nothing produced.
+ */
+inline void case_opleg_edge_settle_mismatch() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(seed,
+                       Animation::OpLeg::EdgeSweepSpec{
+                           .edge = &death_opleg_edge,
+                           .reverse = false,
+                           .sweep_frames = opaque(1),
+                           .settle_frames = opaque(1)}, // edge does not settle
+                       arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: an edge-sweep leg without a palette handoff must trap.
+ * @details OpLeg surface — the edge-sweep constructor carries its own handoff
+ *          guard, distinct from the param-sweep one.
+ */
+inline void case_opleg_edge_sweep_incomplete_handoff() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::EdgeSweepSpec{.edge = &death_opleg_edge,
+                                      .reverse = false,
+                                      .sweep_frames = opaque(1),
+                                      .settle_frames = opaque(0)},
+      arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a hankin leg without a palette handoff must trap.
+ * @details OpLeg surface — the hankin constructor carries its own handoff
+ *          guard.
+ */
+inline void case_opleg_hankin_incomplete_handoff() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::HankinSweepSpec{.theta_start = opaque(0.1f),
+                                        .theta_end = opaque(0.5f),
+                                        .sweep_frames = opaque(1)},
+      arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a hankin leg sweeping to a smaller angle must trap.
+ * @details OpLeg surface — the leg sweeps the slerp fraction outward from the
+ *          collapsed corner, which is monotone only while the arrival angle is
+ *          the larger of the two.
+ */
+inline void case_opleg_hankin_backward_theta() {
+  static uint8_t buf[8192];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  const Animation::OpLeg::PaletteHandoff handoff = death_opleg_handoff();
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::HankinSweepSpec{.theta_start = opaque(0.9f),
+                                        .theta_end = opaque(0.3f),
+                                        .sweep_frames = opaque(1)},
+      arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a relax leg with neither a bake nor iterations must trap.
+ * @details OpLeg surface — the leg needs a relaxed endpoint to slerp to, which
+ *          is either the shipped bake or the result of live iterations; with
+ *          neither it would slerp the seed onto itself for its whole duration.
+ */
+inline void case_opleg_relax_no_iterations() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(seed,
+                       Animation::OpLeg::RelaxSpec{.iterations = opaque(0),
+                                                   .bake = nullptr,
+                                                   .sweep_frames = opaque(1)},
+                       arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a relax leg without a palette handoff must trap.
+ * @details OpLeg surface — the relax constructor carries its own handoff guard.
+ */
+inline void case_opleg_relax_incomplete_handoff() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(seed,
+                       Animation::OpLeg::RelaxSpec{.iterations = opaque(1),
+                                                   .bake = nullptr,
+                                                   .sweep_frames = opaque(1)},
+                       arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a medial leg without a palette handoff must trap.
+ * @details OpLeg surface — the medial constructor carries its own handoff
+ *          guard.
+ */
+inline void case_opleg_medial_incomplete_handoff() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(seed,
+                       Animation::OpLeg::MedialSpec{.sweep_frames = opaque(1)},
+                       arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a reconcile leg without endpoints must trap.
+ * @details OpLeg surface — the leg slerps every seed vertex to an authored
+ *          position, so an absent endpoint array is the whole leg's target.
+ */
+inline void case_opleg_reconcile_no_endpoints() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(seed,
+                       Animation::OpLeg::ReconcileSpec{
+                           .to_positions = nullptr, .sweep_frames = opaque(1)},
+                       arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a reconcile leg without a palette handoff must trap.
+ * @details OpLeg surface — the reconcile constructor carries its own handoff
+ *          guard.
+ */
+inline void case_opleg_reconcile_incomplete_handoff() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  static const Vector endpoints[1] = {Vector(0, 0, 1)};
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::ReconcileSpec{.to_positions = endpoints,
+                                      .sweep_frames = opaque(1)},
+      arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a gated-swap leg with no gate window must trap.
+ * @details OpLeg surface — the leg runs 2*gate_frames + 1 frames around the
+ *          swap, so a zero gate leaves the swap frame with no approach or
+ *          departure to blend across.
+ */
+inline void case_opleg_gated_swap_zero_gate_frames() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::GatedSwapSpec{.op = Animation::OpLeg::SwapOp::KIS,
+                                      .gate_frames = opaque(0)},
+      arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a gated-swap leg without a palette handoff must trap.
+ * @details OpLeg surface — the gated-swap constructor carries its own handoff
+ *          guard.
+ */
+inline void case_opleg_gated_swap_incomplete_handoff() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::GatedSwapSpec{.op = Animation::OpLeg::SwapOp::KIS,
+                                      .gate_frames = opaque(1)},
       arena, death_opleg_draw, handoff);
   if (leg.landing().faces == opaque<size_t>(42))
     std::printf("x");
@@ -2424,6 +2691,10 @@ inline const Case *all_cases(int &n) {
        "(p > 0 && p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS) "
        "Flywheel: cycles_per_half_rev outside the range position()'s int32 "
        "elapsed window holds for MIN_SAFE_HALF_REVS of coast"},
+      {"symbol_emitter_overlapping_burst",
+       case_symbol_emitter_overlapping_burst, "pov_sync.h",
+       "(pulses_left == 0 && queue_pos >= queue_len) "
+       "SymbolEmitter::schedule_boundary: wire busy"},
       {"y_to_phi_degenerate_height", case_y_to_phi_degenerate_height,
        "geometry.h", "(h_virt > 1) y_to_phi_virtual: h_virt must be > 1"},
       {"orientation_frame_index_oob", case_orientation_frame_index_oob,
@@ -2446,6 +2717,47 @@ inline const Case *all_cases(int &n) {
        case_opleg_incomplete_palette_handoff, "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
        "OpLeg: param sweep leg has an incomplete palette handoff"},
+      {"opleg_edge_settle_mismatch", case_opleg_edge_settle_mismatch, "opleg.h",
+       "(spec.settle_frames >= 0 && edge.settle == (spec.settle_frames > 0)) "
+       "OpLeg: settle frames disagree with the edge"},
+      {"opleg_edge_sweep_incomplete_handoff",
+       case_opleg_edge_sweep_incomplete_handoff, "opleg.h",
+       "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
+       "OpLeg: edge sweep leg has an incomplete palette handoff"},
+      {"opleg_hankin_incomplete_handoff", case_opleg_hankin_incomplete_handoff,
+       "opleg.h",
+       "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
+       "OpLeg: hankin sweep leg has an incomplete palette handoff"},
+      {"opleg_hankin_backward_theta", case_opleg_hankin_backward_theta,
+       "opleg.h",
+       "(spec.theta_start <= spec.theta_end) OpLeg: hankin leg sweeps back to "
+       "a smaller contact angle"},
+      {"opleg_relax_no_iterations", case_opleg_relax_no_iterations, "opleg.h",
+       "(spec.bake || spec.iterations >= 1) OpLeg: relax leg needs a positive "
+       "iteration count"},
+      {"opleg_relax_incomplete_handoff", case_opleg_relax_incomplete_handoff,
+       "opleg.h",
+       "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
+       "OpLeg: relax leg has an incomplete palette handoff"},
+      {"opleg_medial_incomplete_handoff", case_opleg_medial_incomplete_handoff,
+       "opleg.h",
+       "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
+       "OpLeg: medial leg has an incomplete palette handoff"},
+      {"opleg_reconcile_no_endpoints", case_opleg_reconcile_no_endpoints,
+       "opleg.h",
+       "(spec.to_positions) OpLeg: reconcile leg carries no "
+       "endpoints"},
+      {"opleg_reconcile_incomplete_handoff",
+       case_opleg_reconcile_incomplete_handoff, "opleg.h",
+       "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
+       "OpLeg: reconcile leg has an incomplete palette handoff"},
+      {"opleg_gated_swap_zero_gate_frames",
+       case_opleg_gated_swap_zero_gate_frames, "opleg.h",
+       "(spec.gate_frames >= 1) OpLeg needs a positive gate length"},
+      {"opleg_gated_swap_incomplete_handoff",
+       case_opleg_gated_swap_incomplete_handoff, "opleg.h",
+       "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
+       "OpLeg: gated swap leg has an incomplete palette handoff"},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;
@@ -2816,7 +3128,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 116;
+  constexpr int DEATH_CASE_COUNT = 128;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
