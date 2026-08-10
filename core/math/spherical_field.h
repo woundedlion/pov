@@ -271,26 +271,21 @@ public:
   __attribute__((always_inline)) decltype(auto)
   sample_bilinear(float x, float y, const Value (&poles)[POLE_COUNT],
                   const Value &outside, Load &&load, Combine &&combine) const {
-    const float floor_x = std::floor(x);
-    const float floor_y = std::floor(y);
-    int x0 = static_cast<int>(floor_x);
-    const int y0 = static_cast<int>(floor_y);
-    const float fx = x - floor_x;
-    const float fy = y - floor_y;
-
-    x0 = ::fast_wrap(x0, W);
-    const int x1 = x0 + 1 < W ? x0 + 1 : 0;
+    const Footprint tap = bilinear_footprint(x, y);
+    const int x0 = tap.x0;
+    const int x1 = tap.x1;
+    const int y0 = tap.y0;
 
     if (in_direct_band(y0)) {
       return std::forward<Combine>(combine)(load(x0, y0), load(x1, y0),
                                             load(x0, y0 + 1), load(x1, y0 + 1),
-                                            fx, fy);
+                                            tap.fx, tap.fy);
     }
     return std::forward<Combine>(combine)(
         pole_tap(x0, y0, poles, outside, load),
         pole_tap(x1, y0, poles, outside, load),
         pole_tap(x0, y0 + 1, poles, outside, load),
-        pole_tap(x1, y0 + 1, poles, outside, load), fx, fy);
+        pole_tap(x1, y0 + 1, poles, outside, load), tap.fx, tap.fy);
   }
 
   /**
@@ -310,24 +305,18 @@ public:
   __attribute__((always_inline)) void
   sample_bilinear_rgb(const Pixel *source, const Pixel (&poles)[POLE_COUNT],
                       float x, float y, float &r, float &g, float &b) const {
-    const float floor_x = std::floor(x);
-    const float floor_y = std::floor(y);
-    int x0 = static_cast<int>(floor_x);
-    const int y0 = static_cast<int>(floor_y);
-    const float fx = x - floor_x;
-    const float fy = y - floor_y;
+    const Footprint tap = bilinear_footprint(x, y);
 
-    x0 = ::fast_wrap(x0, W);
-    const int x1 = x0 + 1 < W ? x0 + 1 : 0;
-
-    if (!in_direct_band(y0)) {
-      sample_bilinear_rgb_poles(source, poles, x0, x1, y0, fx, fy, r, g, b);
+    if (!in_direct_band(tap.y0)) {
+      sample_bilinear_rgb_poles(source, poles, tap.x0, tap.x1, tap.y0, tap.fx,
+                                tap.fy, r, g, b);
       return;
     }
-    const int row = y0 * W;
+    const int row = tap.y0 * W;
     const int next_row = row + W;
-    combine_rgb(source[row + x0], source[row + x1], source[next_row + x0],
-                source[next_row + x1], fx, fy, r, g, b);
+    combine_rgb(source[row + tap.x0], source[row + tap.x1],
+                source[next_row + tap.x0], source[next_row + tap.x1], tap.fx,
+                tap.fy, r, g, b);
   }
 
   /**
@@ -420,6 +409,34 @@ private:
    *  substitution. */
   static constexpr bool in_direct_band(int y0) {
     return y0 > 0 && y0 <= LAST_DIRECT_ROW;
+  }
+
+  /**
+   * @brief The two lattice columns, upper row, and fractional weights of a
+   * bilinear footprint.
+   */
+  struct Footprint {
+    int x0;
+    int x1;
+    int y0;
+    float fx;
+    float fy;
+  };
+
+  /**
+   * @brief Resolves a fractional coordinate to its bilinear footprint.
+   * @param x Fractional longitude in [-W, 2W).
+   * @param y Fractional latitude row.
+   * @details Wraps the columns across the seam; the row is left for the
+   * caller's pole policy.
+   */
+  __attribute__((always_inline)) static Footprint bilinear_footprint(float x,
+                                                                     float y) {
+    const float floor_x = std::floor(x);
+    const float floor_y = std::floor(y);
+    const int x0 = ::fast_wrap(static_cast<int>(floor_x), W);
+    return {x0, x0 + 1 < W ? x0 + 1 : 0, static_cast<int>(floor_y), x - floor_x,
+            y - floor_y};
   }
 
   /**
