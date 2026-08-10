@@ -247,28 +247,6 @@ private:
     return alpha;
   }
 
-  /** @brief Precomputed current-orientation rotation matrix. */
-  struct RotationMatrix {
-    Vector r0, r1, r2;
-
-    explicit RotationMatrix(const Quaternion &q) {
-      const float qr = q.r;
-      const float qx = q.v.x;
-      const float qy = q.v.y;
-      const float qz = q.v.z;
-      r0 = Vector(1.0f - 2.0f * (qy * qy + qz * qz), 2.0f * (qx * qy - qr * qz),
-                  2.0f * (qx * qz + qr * qy));
-      r1 = Vector(2.0f * (qx * qy + qr * qz), 1.0f - 2.0f * (qx * qx + qz * qz),
-                  2.0f * (qy * qz - qr * qx));
-      r2 = Vector(2.0f * (qx * qz - qr * qy), 2.0f * (qy * qz + qr * qx),
-                  1.0f - 2.0f * (qx * qx + qy * qy));
-    }
-
-    __attribute__((always_inline)) Vector apply(const Vector &v) const {
-      return Vector(dot(r0, v), dot(r1, v), dot(r2, v));
-    }
-  };
-
   __attribute__((always_inline)) static float
   normalize_color_seed(uint16_t seed) {
     return static_cast<float>(seed) / 65535.0f;

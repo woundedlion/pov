@@ -15,9 +15,8 @@
 #include "core/engine/engine.h"
 #include "core/render/sdf_volume.h"
 
-// Unit-test accessor reaching the private torus proportions and the constexpr
-// square root behind UNIT_BOUNDS, so a test can pin the cull sphere against the
-// warped SDF it has to contain.
+// Unit-test accessor reaching the private torus proportions, so a test can pin
+// the cull sphere against the warped SDF it has to contain.
 namespace hs_test {
 namespace effects_tests {
 struct RaymarchWhiteBox;
@@ -102,22 +101,9 @@ private:
   static constexpr float MAJOR_K = 0.45f, MINOR_K = 0.14f, TWIST_K = 0.35f;
   static constexpr float VIS_K = MAJOR_K + MINOR_K;
 
-  /**
-   * @brief Constexpr square root by Newton-Raphson from a unit seed.
-   * @param x Radicand; the fixed iteration count converges over the O(1)
-   *        arguments UNIT_BOUNDS needs, not over the whole float range.
-   * @return sqrt(x).
-   */
-  static constexpr float square_root(float x) {
-    float root = 1.0f;
-    for (int i = 0; i < 8; ++i)
-      root = 0.5f * (root + x / root);
-    return root;
-  }
-
   // Farthest point of the MINOR_K tube about the twisted centerline.
   static constexpr float UNIT_BOUNDS =
-      square_root(MAJOR_K * MAJOR_K + TWIST_K * TWIST_K) + MINOR_K;
+      constexpr_sqrt(MAJOR_K * MAJOR_K + TWIST_K * TWIST_K) + MINOR_K;
 
   /**
    * @brief Builds the disdyakis-dodecahedron vertex directions and per-vertex

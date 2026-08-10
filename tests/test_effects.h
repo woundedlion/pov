@@ -3153,8 +3153,8 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief White-box accessor for Raymarch's torus proportions and the constexpr
- *        square root behind UNIT_BOUNDS (befriended in effects/Raymarch.h).
+ * @brief White-box accessor for Raymarch's torus proportions (befriended in
+ *        effects/Raymarch.h).
  */
 struct RaymarchWhiteBox {
   using RM = Raymarch<DEFAULT_W, DEFAULT_H>;
@@ -3163,11 +3163,10 @@ struct RaymarchWhiteBox {
   static constexpr float TWIST = RM::TWIST_K;
   static constexpr float VIS = RM::VIS_K;
   static constexpr float BOUNDS = RM::UNIT_BOUNDS;
-  static constexpr float square_root(float x) { return RM::square_root(x); }
 };
 
 /**
- * @brief Pins Raymarch's constexpr Newton square root against libm.
+ * @brief Pins the constexpr Newton square root behind UNIT_BOUNDS against libm.
  * @details Eight fixed iterations from a unit seed. It runs only at compile
  *          time, so nothing else would notice it under-converging, and its one
  *          consumer is the cull-sphere radius — where a low answer culls real
@@ -3178,13 +3177,13 @@ inline void test_raymarch_constexpr_sqrt_converges() {
   double worst = 0.0;
   for (int i = 1; i <= 80; ++i) {
     const float x = 0.05f * static_cast<float>(i); // 0.05 .. 4.0
-    worst = std::max(worst, std::fabs(static_cast<double>(WB::square_root(x)) -
+    worst = std::max(worst, std::fabs(static_cast<double>(constexpr_sqrt(x)) -
                                       std::sqrt(static_cast<double>(x))));
   }
   HS_EXPECT_LT(worst, 1e-6);
 
   const float radicand = WB::MAJOR * WB::MAJOR + WB::TWIST * WB::TWIST;
-  HS_EXPECT_NEAR(WB::square_root(radicand), std::sqrt(radicand), 1e-7);
+  HS_EXPECT_NEAR(constexpr_sqrt(radicand), std::sqrt(radicand), 1e-7);
 }
 
 /**
