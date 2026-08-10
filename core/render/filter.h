@@ -1818,6 +1818,20 @@ namespace Pixel {
  * non-replacing terminal permits, blanks the frame at alpha >= 1.
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
+  using SphereField = hs::SphericalFieldLayout<W, H>;
+
+  /** @brief Coarse grid downsample the warp cache is sized for (the default
+   *  Style's; every preset keeps it). Other values render uncached. */
+  static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
+  static constexpr int CACHE_SOUTH_INFILL =
+      CACHE_DOWNSAMPLE > hs::H_OFFSET ? CACHE_DOWNSAMPLE - hs::H_OFFSET : 0;
+  static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
+  /** @brief Cell count of the cached spherical warp field. */
+  static constexpr int CACHE_CELLS =
+      CACHE_COLUMNS * SphereField(CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE,
+                                  CACHE_SOUTH_INFILL, CACHE_COLUMNS)
+                          .ring_count();
+
 public:
   static constexpr int domain_rank = 2;
   /** @brief Marks this as terminal: flush() writes the Canvas directly. */
@@ -1855,6 +1869,40 @@ public:
             PassFnT &&pass) {
     pass(x, y, color, age, alpha);
   }
+
+  /**
+   * @brief Enables or disables feedback.
+   * @param value When false, flush() is skipped entirely.
+   */
+  void set_enabled(bool value) { enabled = value; }
+
+  /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */
+  static constexpr size_t STORAGE_BYTES = 2 * CACHE_CELLS * sizeof(int16_t);
+
+  /**
+   * @brief Allocates the warp-field cache from the persistent arena.
+   * @param arena Persistent arena supplying 2 * CACHE_CELLS int16 slots.
+   * @details Must be called from effect init(), not the constructor (arenas
+   * aren't ready yet), and again after any compaction that resets the arena —
+   * the cache is derived data, so it just re-populates on the next flush.
+   * Without storage every flush renders uncached.
+   */
+  HS_COLD_MEMBER void init_storage(Arena &arena) {
+    cached_warp_x = arena.allocate_n<int16_t>(CACHE_CELLS);
+    cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
+    warp_cache_valid = false;
+  }
+
+  /**
+   * @brief Accesses the bound Style.
+   * @return Mutable reference to the bound feedback Style.
+   */
+  ::Feedback::Style &style() { return *feedback_style; }
+  /**
+   * @brief Accesses the bound Style.
+   * @return Const reference to the bound feedback Style.
+   */
+  const ::Feedback::Style &style() const { return *feedback_style; }
 
   /**
    * @brief Blends the distorted previous frame into the current frame.
@@ -1895,8 +1943,6 @@ public:
   }
 
 private:
-  using SphereField = hs::SphericalFieldLayout<W, H>;
-
   struct CoarseGrid {
     int downsample;
     SphereField field;
@@ -2377,39 +2423,6 @@ private:
   }
   HS_O3_END
 
-public:
-  /**
-   * @brief Enables or disables feedback.
-   * @param value When false, flush() is skipped entirely.
-   */
-  void set_enabled(bool value) { enabled = value; }
-
-  /**
-   * @brief Allocates the warp-field cache from the persistent arena.
-   * @param arena Persistent arena supplying 2 * CACHE_CELLS int16 slots.
-   * @details Must be called from effect init(), not the constructor (arenas
-   * aren't ready yet), and again after any compaction that resets the arena —
-   * the cache is derived data, so it just re-populates on the next flush.
-   * Without storage every flush renders uncached.
-   */
-  HS_COLD_MEMBER void init_storage(Arena &arena) {
-    cached_warp_x = arena.allocate_n<int16_t>(CACHE_CELLS);
-    cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
-    warp_cache_valid = false;
-  }
-
-  /**
-   * @brief Accesses the bound Style.
-   * @return Mutable reference to the bound feedback Style.
-   */
-  ::Feedback::Style &style() { return *feedback_style; }
-  /**
-   * @brief Accesses the bound Style.
-   * @return Const reference to the bound feedback Style.
-   */
-  const ::Feedback::Style &style() const { return *feedback_style; }
-
-private:
   static constexpr float WARP_SCALE = 128.0f;
   // populate_warp_field() canonicalizes the stored column offset onto
   // [-W*WARP_SCALE/2, W*WARP_SCALE/2] and casts it to int16_t unclamped.
@@ -2490,23 +2503,6 @@ private:
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 65535.0f) + 0.5f);
   }
 
-  /** @brief Coarse grid downsample the warp cache is sized for (the default
-   *  Style's; every preset keeps it). Other values render uncached. */
-  static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
-  static constexpr int CACHE_SOUTH_INFILL =
-      CACHE_DOWNSAMPLE > hs::H_OFFSET ? CACHE_DOWNSAMPLE - hs::H_OFFSET : 0;
-  static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
-  /** @brief Cell count of the cached spherical warp field. */
-  static constexpr int CACHE_CELLS =
-      CACHE_COLUMNS * SphereField(CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE,
-                                  CACHE_SOUTH_INFILL, CACHE_COLUMNS)
-                          .ring_count();
-
-public:
-  /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */
-  static constexpr size_t STORAGE_BYTES = 2 * CACHE_CELLS * sizeof(int16_t);
-
-private:
   /**
    * @brief FNV-1a over the bound noise generator's configuration.
    * @details Seed, noise type and fractal settings feed the warp field but are
