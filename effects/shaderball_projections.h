@@ -250,7 +250,7 @@ struct AiroceanPoint {
   float y;
 };
 
-static constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
+inline constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
     {{0.4201524267f, 0.0781452494f, 0.9040825506f},
      {0.5188367303f, 0.8354203804f, 0.1813318376f},
      {0.9950094394f, -0.09134779528f, 0.04014717588f}},
@@ -320,7 +320,7 @@ static constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
     {{-0.9950094394f, 0.09134779528f, -0.04014717588f},
      {-0.5884910224f, 0.5302967344f, 0.0627648018f},
      {-0.4146822253f, 0.6559624054f, 0.6306758079f}}};
-static constexpr AiroceanVector AIROCEAN_CENTERS[23] = {
+inline constexpr AiroceanVector AIROCEAN_CENTERS[23] = {
     {0.6446661988f, 0.2740726115f, 0.375187188f},
     {0.1747689772f, 0.5231760117f, 0.5720300654f},
     {-0.1699952529f, 0.1174635855f, 0.7673197837f},
@@ -344,7 +344,7 @@ static constexpr AiroceanVector AIROCEAN_CENTERS[23] = {
     {-0.6464272881f, 0.4884081774f, -0.1265388669f},
     {-0.4529848834f, 0.6766130474f, 0.09706879436f},
     {-0.6660608957f, 0.4258689784f, 0.2177644779f}};
-static constexpr AiroceanVector AIROCEAN_NORMALS[23] = {
+inline constexpr AiroceanVector AIROCEAN_NORMALS[23] = {
     {0.8112534709f, 0.3448953238f, 0.4721387736f},
     {0.2199307791f, 0.658369178f, 0.7198475379f},
     {-0.2139234835f, 0.147817183f, 0.9656017935f},
@@ -368,7 +368,7 @@ static constexpr AiroceanVector AIROCEAN_NORMALS[23] = {
     {-0.7405621474f, 0.6673299565f, 0.07898376463f},
     {-0.7405621474f, 0.6673299565f, 0.07898376463f},
     {-0.7405621474f, 0.6673299565f, 0.07898376463f}};
-static constexpr AiroceanPoint AIROCEAN_PLANAR_FACES[23][3] = {
+inline constexpr AiroceanPoint AIROCEAN_PLANAR_FACES[23][3] = {
     {{1.821185995f, 3.154386673f},
      {1.821185995f, 4.205848897f},
      {2.731778992f, 3.680117785f}},
@@ -434,7 +434,7 @@ static constexpr AiroceanPoint AIROCEAN_PLANAR_FACES[23][3] = {
     {{0.0f, 3.154386673f},
      {0.3035309991f, 3.680117785f},
      {0.9105929973f, 3.680117785f}}};
-static constexpr float AIROCEAN_TRANSFORMS[23][2][4] = {
+inline constexpr float AIROCEAN_TRANSFORMS[23][2][4] = {
     {{0.5771127853f, -0.6019490725f, -0.5519041105f, 2.124716994f},
      {0.09385435001f, 0.7202114479f, -0.6873767753f, 3.680117785f}},
     {{0.9709901201f, -0.2187361325f, -0.09660585362f, 1.517654996f},
@@ -482,17 +482,17 @@ static constexpr float AIROCEAN_TRANSFORMS[23][2][4] = {
     {{0.2863114437f, 0.2070063213f, 0.9355074239f, 0.3035309991f},
      {0.6079419899f, 0.7154153424f, -0.3443652491f, 3.680117785f}}};
 
-static constexpr uint8_t AIROCEAN_CUT_FACES[] = {
+inline constexpr uint8_t AIROCEAN_CUT_FACES[] = {
     3,  4,  4,  5,  5,  6,  6,  8,  9,  12, 12, 13, 13,
     14, 14, 15, 15, 16, 18, 18, 19, 19, 20, 21, 22, 22};
-static constexpr uint8_t AIROCEAN_CUT_EDGES[] = {0, 1, 2, 1, 2, 0, 2, 0, 2,
+inline constexpr uint8_t AIROCEAN_CUT_EDGES[] = {0, 1, 2, 1, 2, 0, 2, 0, 2,
                                                  1, 2, 1, 2, 0, 2, 0, 2, 0,
                                                  1, 2, 1, 2, 2, 1, 0, 1};
 
-static constexpr uint8_t AIROCEAN_CUT_MASKS[23] = {
+inline constexpr uint8_t AIROCEAN_CUT_MASKS[23] = {
     0, 0, 0, 1, 6, 6, 5, 0, 1, 4, 0, 0, 6, 6, 5, 5, 1, 0, 6, 6, 4, 2, 3};
 
-static constexpr uint8_t AIROCEAN_EDGE_IDENTITIES[23][3] = {
+inline constexpr uint8_t AIROCEAN_EDGE_IDENTITIES[23][3] = {
     {0, 1, 2},    {3, 4, 0},    {6, 7, 3},    {9, 10, 6},   {2, 13, 14},
     {1, 16, 17},  {18, 19, 20}, {19, 4, 23},  {24, 25, 7},  {27, 28, 29},
     {10, 31, 27}, {31, 34, 35}, {34, 37, 38}, {39, 40, 41}, {42, 43, 44},
