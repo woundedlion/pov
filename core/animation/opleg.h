@@ -263,6 +263,8 @@ public:
      * palette.
      */
     uint8_t landed_palette(size_t f) const {
+      HS_CHECK(topology && f < faces,
+               "OpLeg::Landing: landed_palette face out of range");
       return to_palette[wrap(static_cast<int>(topology[f]), PALETTES)];
     }
     const PolyMesh *arrival_topology =
