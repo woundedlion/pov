@@ -11,7 +11,9 @@
  *   - zero persistent-arena growth across leg compactions: the post-compaction
  *     offset is a pure function of (node, held seed), so every revisit must
  *     land on the byte-identical offset — steady state, not monotonic creep,
- *   - the render stays live (lit pixels sampled across the run).
+ *   - no arena high-water growth once every node has been visited,
+ *   - a per-leg floor on lit pixels and frame energy, so no single leg may
+ *     render dark.
  */
 #pragma once
 
@@ -205,6 +207,14 @@ constexpr int SOAK_EXTRA_LEGS = 8;
 /** Frame ceiling backstopping the leg bound (a leg is ~115-127 frames). */
 constexpr int SOAK_FRAME_CAP = (SOAK_LEG_BOUND + SOAK_EXTRA_LEGS) * 140;
 
+/** Every sampled frame lights the whole frame; the floor leaves slack for a
+ * future node whose silhouette does not. */
+constexpr int SOAK_MIN_LIT_PIXELS = SOAK_W * SOAK_H * 3 / 4;
+
+/** Summed-channel floor per sampled frame, ~1% of an all-white frame and about
+ * a third of the dimmest frame the walk actually renders. */
+constexpr uint64_t SOAK_MIN_FRAME_ENERGY = 4000000ull;
+
 /**
  * @brief Runs the full-graph soak: real frame loop, every node visited, no
  *        traps, steady-state persistent arena.
@@ -236,16 +246,33 @@ inline void test_full_graph_walk_soak() {
   int frames = 0;
   int legs_at_coverage = -1;
   uint64_t render_energy = 0;
+  // Dimmest sampled frame of the leg in flight; the sentinel distinguishes a
+  // leg that got no sample from one that rendered a black frame.
+  int leg_min_lit = SOAK_W * SOAK_H;
+  uint64_t leg_min_energy = UINT64_MAX;
+  // Arena high-water marks at the moment coverage completed.
+  size_t hw_at_coverage = 0, scratch_a_at_coverage = 0,
+         scratch_b_at_coverage = 0;
   while (frames < SOAK_FRAME_CAP && legs < SOAK_LEG_BOUND) {
     fx.draw_frame();
     fx.advance_display();
     ++frames;
     if (frames % 16 == 0) {
+      int lit = 0;
+      uint64_t frame_energy = 0;
       for (int y = 0; y < SOAK_H; ++y)
         for (int x = 0; x < SOAK_W; ++x) {
           const Pixel &p = fx.get_pixel(x, y);
-          render_energy += static_cast<uint64_t>(p.r) + p.g + p.b;
+          const uint64_t channels = static_cast<uint64_t>(p.r) + p.g + p.b;
+          frame_energy += channels;
+          if (channels != 0)
+            ++lit;
         }
+      render_energy += frame_energy;
+      if (lit < leg_min_lit)
+        leg_min_lit = lit;
+      if (frame_energy < leg_min_energy)
+        leg_min_energy = frame_energy;
     }
 
     const int node = HankinWalkProbe::node(fx);
@@ -256,6 +283,14 @@ inline void test_full_graph_walk_soak() {
     // frame, so the offset now is the steady-state footprint of the arrived
     // (node, seed) pair and must reproduce exactly on every revisit.
     ++legs;
+    // Per-leg render floor: a leg that went dark cannot hide behind the rest of
+    // the run still being lit.
+    if (leg_min_energy != UINT64_MAX) {
+      HS_EXPECT_GE(leg_min_lit, SOAK_MIN_LIT_PIXELS);
+      HS_EXPECT_GE(leg_min_energy, SOAK_MIN_FRAME_ENERGY);
+    }
+    leg_min_lit = SOAK_W * SOAK_H;
+    leg_min_energy = UINT64_MAX;
     prev_node = node;
     mark(node);
 
@@ -280,8 +315,20 @@ inline void test_full_graph_walk_soak() {
     }
 
     if (visited_count == ConwayGraph::NUM_NODES) {
-      if (legs_at_coverage < 0)
+      if (legs_at_coverage < 0) {
         legs_at_coverage = legs;
+        hw_at_coverage = persistent_arena.get_high_water_mark();
+        scratch_a_at_coverage = scratch_arena_a.get_high_water_mark();
+        scratch_b_at_coverage = scratch_arena_b.get_high_water_mark();
+      } else {
+        // Past coverage every leg is a revisit, so no arena may reach further
+        // than the footprint the first pass already established.
+        HS_EXPECT_EQ(persistent_arena.get_high_water_mark(), hw_at_coverage);
+        HS_EXPECT_EQ(scratch_arena_a.get_high_water_mark(),
+                     scratch_a_at_coverage);
+        HS_EXPECT_EQ(scratch_arena_b.get_high_water_mark(),
+                     scratch_b_at_coverage);
+      }
       if (legs >= legs_at_coverage + SOAK_EXTRA_LEGS)
         break;
     }
@@ -290,7 +337,6 @@ inline void test_full_graph_walk_soak() {
   HS_EXPECT_EQ(visited_count, ConwayGraph::NUM_NODES);
   HS_EXPECT_GT(legs_at_coverage, 0);
   HS_EXPECT_LE(legs_at_coverage, SOAK_LEG_BOUND);
-  HS_EXPECT_GT(render_energy, (uint64_t)0);
 
   std::printf(
       "  [soak] %d legs (%d frames) to full %d-node coverage; "
