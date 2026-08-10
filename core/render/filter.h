@@ -1343,6 +1343,8 @@ public:
   void plot(float x, float y, const Pixel &c, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
+    // Non-finite coords make the int casts below UB and bypass the wrap.
+    assert(std::isfinite(x) && std::isfinite(y));
     // fast_wrap below corrects only a single ±W offset on floorf(x).
     assert(x >= -W && x < 2 * W);
     float y_i = floorf(y);
@@ -1757,6 +1759,8 @@ public:
   template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
+    // Non-finite coords make the int casts below UB and bypass the wrap.
+    assert(std::isfinite(x) && std::isfinite(y));
     int xi = static_cast<int>(std::round(x));
     // fast_wrap corrects only a single ±W offset, so xi must land in [-W, 2W).
     assert(xi >= -W && xi < 2 * W);
@@ -2579,6 +2583,8 @@ public:
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
+    // Non-finite x makes the int cast below UB and bypasses the wrap.
+    assert(std::isfinite(x));
     pass(x, y, c, age, alpha);
 
     ::Pixel r_col = c;
