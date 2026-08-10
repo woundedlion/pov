@@ -159,58 +159,6 @@ private:
   enum class WarpEnvelope : uint8_t { FLAT, PROJECTION_WEIGHT, EDGE_FADE };
   enum class PolarMode : uint8_t { LINEAR, LOGARITHMIC };
   enum class CurlIntegrator : uint8_t { EULER_1, MIDPOINT_2, MIDPOINT_4 };
-  enum class PolarHarmonic : uint8_t {
-    H1,
-    H2,
-    H3,
-    H4,
-    H5,
-    H6,
-    H7,
-    H8,
-    H9,
-    H10,
-    H11,
-    H12,
-    H13,
-    H14,
-    H15,
-    H16
-  };
-  enum class BandCount : uint8_t {
-    C1,
-    C2,
-    C3,
-    C4,
-    C5,
-    C6,
-    C7,
-    C8,
-    C9,
-    C10,
-    C11,
-    C12,
-    C13,
-    C14,
-    C15,
-    C16,
-    C17,
-    C18,
-    C19,
-    C20,
-    C21,
-    C22,
-    C23,
-    C24,
-    C25,
-    C26,
-    C27,
-    C28,
-    C29,
-    C30,
-    C31,
-    C32
-  };
   enum class WarpStageKind : uint8_t {
     NONE,
     LEGACY_STEREO_NOISE,
@@ -228,7 +176,7 @@ private:
     WarpEnvelope envelope = WarpEnvelope::FLAT;
     PolarMode polar_mode = PolarMode::LINEAR;
     CurlIntegrator curl_integrator = CurlIntegrator::EULER_1;
-    PolarHarmonic polar_harmonic = PolarHarmonic::H1;
+    uint8_t polar_harmonic = 1;
     int32_t seed = 1337;
     uint8_t resource_id = 0;
 
@@ -501,7 +449,7 @@ private:
   struct ValueParams {
     float iso_level = 0.5f;
     float iso_width = 0.05f;
-    BandCount band_count = BandCount::C4;
+    uint8_t band_count = 4;
     float band_phase = 0.0f;
     float cutout_threshold = 0.5f;
     float cutout_softness = 0.05f;
@@ -888,9 +836,8 @@ private:
       register_animated_param("Iso Width", &params.value.iso_width,
                               SOFTNESS_MIN, 0.5f);
     } else if (slots.value_transfer == ValueTransfer::SMOOTH_BANDS) {
-      register_animated_param("Band Count", &params.value.band_count,
-                              BAND_COUNT_OPTIONS, BAND_COUNT_EXPORT_OPTIONS,
-                              NUM_BAND_COUNTS);
+      register_animated_int_param("Band Count", &params.value.band_count, 1,
+                                  BAND_COUNT_MAX);
       register_animated_param("Band Phase", &params.value.band_phase, 0.0f,
                               TWO_PI_F);
     }
@@ -930,10 +877,9 @@ private:
       register_animated_param(outer ? "Outer Polar Mode" : "Inner Polar Mode",
                               &spec.polar_mode, POLAR_MODE_OPTIONS,
                               POLAR_MODE_EXPORT_OPTIONS, NUM_POLAR_MODES);
-      register_animated_param(
-          outer ? "Outer Polar Harmonic" : "Inner Polar Harmonic",
-          &spec.polar_harmonic, POLAR_HARMONIC_OPTIONS,
-          POLAR_HARMONIC_EXPORT_OPTIONS, NUM_POLAR_HARMONICS);
+      register_animated_int_param(outer ? "Outer Polar Harmonic"
+                                        : "Inner Polar Harmonic",
+                                  &spec.polar_harmonic, 1, POLAR_HARMONIC_MAX);
     }
   }
 
@@ -2235,11 +2181,11 @@ private:
       const float radial = spec.polar_mode == PolarMode::LOGARITHMIC
                                ? logf(std::max(radius, 1.0f / 4096.0f))
                                : radius;
-      const Complex transformed(
-          params.radial_scale * radial + params.radial_phase,
-          (static_cast<float>(spec.polar_harmonic) + 1.0f) *
-                  fast_atan2(input.im, input.re) +
-              params.angular_phase);
+      const Complex transformed(params.radial_scale * radial +
+                                    params.radial_phase,
+                                static_cast<float>(spec.polar_harmonic) *
+                                        fast_atan2(input.im, input.re) +
+                                    params.angular_phase);
       output = transformed;
       if (radius < 1.0f / 4096.0f)
         flags = WARP_FLAG_SINGULAR;
@@ -2454,8 +2400,7 @@ private:
       value =
           0.5f -
           0.5f * cosf(TWO_PI_F *
-                          (static_cast<float>(frame.params.value.band_count) +
-                           1.0f) *
+                          static_cast<float>(frame.params.value.band_count) *
                           value +
                       frame.params.value.band_phase);
       break;
@@ -3061,7 +3006,7 @@ private:
     if (!traits.y_periodic || !traits.polar_angle_compatible)
       return false;
     const float periods = config.params.source.pattern_freq *
-                          (static_cast<float>(polar.polar_harmonic) + 1.0f);
+                          static_cast<float>(polar.polar_harmonic);
     return periods == static_cast<float>(static_cast<int>(periods));
   }
 
@@ -3135,7 +3080,8 @@ private:
            enum_at_most(spec.envelope, WarpEnvelope::EDGE_FADE) &&
            enum_at_most(spec.polar_mode, PolarMode::LOGARITHMIC) &&
            enum_at_most(spec.curl_integrator, CurlIntegrator::MIDPOINT_4) &&
-           enum_at_most(spec.polar_harmonic, PolarHarmonic::H16);
+           spec.polar_harmonic >= 1 &&
+           spec.polar_harmonic <= POLAR_HARMONIC_MAX;
   }
 
   static constexpr float abs_value(float value) {
@@ -3640,31 +3586,8 @@ private:
       "CurlIntegrator::MIDPOINT_4"};
   static constexpr int NUM_CURL_INTEGRATORS =
       std::size(CURL_INTEGRATOR_OPTIONS);
-  static constexpr const char *POLAR_HARMONIC_OPTIONS[] = {
-      "1", "2",  "3",  "4",  "5",  "6",  "7",  "8",
-      "9", "10", "11", "12", "13", "14", "15", "16"};
-  static constexpr const char *POLAR_HARMONIC_EXPORT_OPTIONS[] = {
-      "PolarHarmonic::H1",  "PolarHarmonic::H2",  "PolarHarmonic::H3",
-      "PolarHarmonic::H4",  "PolarHarmonic::H5",  "PolarHarmonic::H6",
-      "PolarHarmonic::H7",  "PolarHarmonic::H8",  "PolarHarmonic::H9",
-      "PolarHarmonic::H10", "PolarHarmonic::H11", "PolarHarmonic::H12",
-      "PolarHarmonic::H13", "PolarHarmonic::H14", "PolarHarmonic::H15",
-      "PolarHarmonic::H16"};
-  static constexpr int NUM_POLAR_HARMONICS = std::size(POLAR_HARMONIC_OPTIONS);
-  static constexpr const char *BAND_COUNT_OPTIONS[] = {
-      "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "10", "11",
-      "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22",
-      "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"};
-  static constexpr const char *BAND_COUNT_EXPORT_OPTIONS[] = {
-      "BandCount::C1",  "BandCount::C2",  "BandCount::C3",  "BandCount::C4",
-      "BandCount::C5",  "BandCount::C6",  "BandCount::C7",  "BandCount::C8",
-      "BandCount::C9",  "BandCount::C10", "BandCount::C11", "BandCount::C12",
-      "BandCount::C13", "BandCount::C14", "BandCount::C15", "BandCount::C16",
-      "BandCount::C17", "BandCount::C18", "BandCount::C19", "BandCount::C20",
-      "BandCount::C21", "BandCount::C22", "BandCount::C23", "BandCount::C24",
-      "BandCount::C25", "BandCount::C26", "BandCount::C27", "BandCount::C28",
-      "BandCount::C29", "BandCount::C30", "BandCount::C31", "BandCount::C32"};
-  static constexpr int NUM_BAND_COUNTS = std::size(BAND_COUNT_OPTIONS);
+  static constexpr int POLAR_HARMONIC_MAX = 16;
+  static constexpr int BAND_COUNT_MAX = 32;
   static constexpr const char *WARP_ENVELOPE_OPTIONS[] = {
       "Flat", "Projection Weight", "Edge Fade"};
   static constexpr const char *WARP_ENVELOPE_EXPORT_OPTIONS[] = {
@@ -3778,7 +3701,7 @@ private:
            p.surface_lens.noise_rate <= NOISE_RATE_MAX &&
            p.value.iso_level >= 0.0f && p.value.iso_level <= 1.0f &&
            p.value.iso_width >= SOFTNESS_MIN && p.value.iso_width <= 0.5f &&
-           enum_at_most(p.value.band_count, BandCount::C32) &&
+           p.value.band_count >= 1 && p.value.band_count <= BAND_COUNT_MAX &&
            p.value.band_phase >= 0.0f && p.value.band_phase <= TWO_PI_F &&
            p.value.cutout_threshold >= 0.0f &&
            p.value.cutout_threshold <= 1.0f &&

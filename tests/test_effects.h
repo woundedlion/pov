@@ -278,9 +278,15 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
       continue;
     const float cur = def.get();
     // An in-range target well clear of the current value, so a revert is visible.
-    const float target = (cur - def.min) > (def.max - cur)
-                             ? def.min + 0.25f * range
-                             : def.min + 0.75f * range;
+    float target = (cur - def.min) > (def.max - cur) ? def.min + 0.25f * range
+                                                     : def.min + 0.75f * range;
+    // A whole-number target stores the truncation of what it is written, so
+    // probe with a value it can actually hold or every such param reads dead.
+    if (def.is_integer()) {
+      target = floorf(target);
+      if (target == cur)
+        continue;
+    }
     effect.updateParameter(def.name, target);
     for (int f = 0; f < 3; ++f) {
       effect.draw_frame();

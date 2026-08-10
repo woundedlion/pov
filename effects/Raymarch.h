@@ -49,7 +49,7 @@ public:
     // Fraction of the half nearest-neighbour gap the ring's outer edge reaches:
     // < 1 leaves a gap, 1 makes neighbours touch, > 1 overlaps them deliberately.
     register_param("Fill", &params.fill, 0.3f, 1.3f);
-    register_param("Max Steps", &params.max_steps, 4.0f, 30.0f);
+    register_int_param("Max Steps", &params.max_steps, 4, 30);
     register_param("Diffuse", &params.diffuse, 0.0f, 1.0f);
     register_param("Specular", &params.specular, 0.0f, 1.5f);
     register_param("Fresnel", &params.fresnel, 0.0f, 1.0f);
@@ -129,7 +129,7 @@ private:
     HS_PROFILE(rm_shader_draw);
 
     int twist_n = static_cast<int>(params.twist + 0.5f);
-    int max_steps = static_cast<int>(params.max_steps + 0.5f);
+    int max_steps = params.max_steps;
 
     // spin_phase rides in [0,1); scale to radians for make_rotation.
     float spin_angle = spin_phase * TWO_PI_F;
@@ -214,7 +214,7 @@ private:
   struct Params {
     float pulse_speed = 5.0f;
     float fill = 0.75f;
-    float max_steps = 18.0f;
+    uint8_t max_steps = 18;
     float diffuse = 0.4f;
     float specular = 1.2f;
     float fresnel = 0.2f;

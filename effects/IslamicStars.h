@@ -83,7 +83,7 @@ public:
                    32.0f);
     register_param("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f,
                    32.0f);
-    register_param("Burst", &params.burst_size, 1.0f, (float)BURST_MAX);
+    register_int_param("Burst", &params.burst_size, 1, BURST_MAX);
     // Amplitude slider capped at the fold-free ceiling; thickness is fixed (not a
     // slider) so amplitude/thickness can never cross the self-fold onset.
     register_param("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
@@ -241,7 +241,8 @@ private:
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces = 0; /**< Length of build_from_pal. */
   int dual_bridges_built = 0;  /**< DUAL bridges scheduled (test coverage). */
-  int build_macro_sweep_frames = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
+  int build_macro_sweep_frames =
+      SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
   int build_reconcile_frames =
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
@@ -297,7 +298,7 @@ private:
    */
   void ripple(Canvas &) {
     Vector origin = random_vector();
-    for (int i = 0; i < (int)params.burst_size; i++) {
+    for (int i = 0; i < params.burst_size; i++) {
       if (!ripple_gen.spawn(i * ripple_stagger_eff, origin,
                             PI_F / ripple_dur_eff, ripple_dur_eff))
         hs::log("IslamicStars: ripple pool full, dropping spawn");
@@ -673,8 +674,7 @@ private:
     ripple_stagger_eff =
         std::max(1, static_cast<int>(RIPPLE_STAGGER_FRAMES / sp));
     int burst_span =
-        (static_cast<int>(params.burst_size) - 1) * ripple_stagger_eff +
-        ripple_dur_eff;
+        (params.burst_size - 1) * ripple_stagger_eff + ripple_dur_eff;
 
     // Recipe entries insert a build phase on the segue's phase-1 plateau:
     // duration is lengthened by the build span rather than the carousel
@@ -1444,8 +1444,7 @@ private:
    * @brief Slider-backed runtime parameters for the effect.
    */
   struct Params {
-    float burst_size =
-        4.0f; /**< Ripples per burst; float-backed for register_param. */
+    uint8_t burst_size = 4; /**< Ripples per burst. */
     float ripple_duration =
         80.0f; /**< Frames each ripple takes to expand across the sphere. */
     float trans_speed =
