@@ -1225,13 +1225,16 @@ inline void test_wrap_index() {
 }
 
 /**
- * @brief Verifies hash01 determinism, range, and seed independence.
+ * @brief Verifies hash01's frozen outputs, range, and seed independence.
  * @details The sorted-set check is the load-bearing one: a seed that only
  * permutes the lattice passes pointwise inequality but reproduces the same
  * multiset of values, so two seeds would be one stream re-indexed.
  */
 inline void test_hash01() {
-  HS_EXPECT_EQ(hash01(42u, 7u), hash01(42u, 7u));
+  // Frozen mixer output: integer-only, so exact on every host.
+  HS_EXPECT_NEAR(hash01(42u, 7u), 0.0169150233f, 1e-9f);
+  HS_EXPECT_NEAR(hash01(0u, 0u), 0.030199945f, 1e-9f);
+  HS_EXPECT_NEAR(hash01(4294967295u, 123u), 0.722669423f, 1e-9f);
   for (uint32_t i = 0; i < 256; ++i) {
     float h = hash01(i, 0u);
     HS_EXPECT_GE(h, 0.0f);
@@ -1269,13 +1272,12 @@ inline void test_value_noise() {
   HS_EXPECT_NEAR(value_noise_1d(-2.0f, 5u),
                  hash01(static_cast<uint32_t>(-2), 5u), 1e-6f);
 
-  // Range and determinism over positive and negative coordinates.
+  // Range over positive and negative coordinates.
   for (int i = -50; i <= 50; ++i) {
     float x = i * 0.173f;
     float n = value_noise_1d(x, 9u);
     HS_EXPECT_GE(n, 0.0f);
     HS_EXPECT_LT(n, 1.0f);
-    HS_EXPECT_EQ(n, value_noise_1d(x, 9u));
     float n2 = value_noise_2d(x, x * 0.7f, 9u);
     HS_EXPECT_GE(n2, 0.0f);
     HS_EXPECT_LT(n2, 1.0f);

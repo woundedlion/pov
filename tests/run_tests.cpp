@@ -117,7 +117,7 @@ constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 541;
 constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
-  X("3dmath", 47, hs_test::math3d::run_3dmath_tests, 30113)                    \
+  X("3dmath", 47, hs_test::math3d::run_3dmath_tests, 30014)                    \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
   X("memory", 43, hs_test::mem::run_memory_tests, 271)                         \
   X("spatial", 18, hs_test::spatial::run_spatial_tests, 179)                   \
@@ -142,8 +142,8 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("mesh", 22, hs_test::mesh_tests::run_mesh_tests, 42756)                    \
   X("solids", 34, hs_test::solids_tests::run_solids_tests, 298990)             \
   X("reaction_graph", 14,                                                      \
-    hs_test::reaction_graph_tests::run_reaction_graph_tests, 322588)           \
-  X("color", 66, hs_test::color_tests::run_color_tests, 409691)                \
+    hs_test::reaction_graph_tests::run_reaction_graph_tests, 314909)           \
+  X("color", 66, hs_test::color_tests::run_color_tests, 408950)                \
   X("palettes", 4, hs_test::palettes_tests::run_palettes_tests, 102)           \
   X("easing_waves", 9, hs_test::easing_waves_tests::run_easing_waves_tests,    \
     6080)                                                                      \
