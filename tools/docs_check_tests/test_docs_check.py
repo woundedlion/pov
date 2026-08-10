@@ -319,6 +319,50 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("::warning::", output.getvalue())
         self.assertIn("daydream", output.getvalue())
 
+    def test_effect_roster_reads_the_macro_continuation(self):
+        source = ("#define HS_EFFECT_COUNT_ADD(name) +1\n"
+                  "#define HS_EFFECT_LIST(X)         \\\n"
+                  "  X(Comets)                       \\\n"
+                  "  X(Voronoi)\n"
+                  "#define HS_PHANTASM_EFFECT_LIST(X) \\\n"
+                  "  X(Comets)\n")
+        self.assertEqual(dc.effect_roster(source), {"Comets", "Voronoi"})
+
+    def test_matching_effects_row_is_clean(self):
+        entries = {PurePosixPath("effects"),
+                   PurePosixPath("effects/Comets.h"),
+                   PurePosixPath("effects/Voronoi.h"),
+                   PurePosixPath("effects/shared_palettes.h")}
+        row = "├── effects/  3 headers: one per effect (2) plus the shared\n"
+        self.assertEqual(
+            dc.effects_row_issues(row, entries, {"Comets", "Voronoi"}), [])
+
+    def test_effects_row_counts_are_checked_against_tree_and_roster(self):
+        entries = {PurePosixPath("effects"),
+                   PurePosixPath("effects/Comets.h"),
+                   PurePosixPath("effects/Voronoi.h"),
+                   PurePosixPath("effects/shared_palettes.h")}
+        row = "├── effects/  9 headers: one per effect (7) plus the shared\n"
+        issues = dc.effects_row_issues(row, entries, {"Comets", "Voronoi"})
+        self.assertEqual([issue.line for issue in issues], [1, 1])
+        self.assertIn("claims 9 headers, the tracked tree has 3",
+                      issues[0].message)
+        self.assertIn("claims 7 effects, HS_EFFECT_LIST names 2",
+                      issues[1].message)
+
+    def test_unreadable_roster_fails_the_effects_row(self):
+        issues = dc.effects_row_issues(
+            "├── effects/  1 headers: one per effect (1) plus the shared\n",
+            {PurePosixPath("effects"), PurePosixPath("effects/Comets.h")},
+            None)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("defines no HS_EFFECT_LIST", issues[0].message)
+
+    def test_deleted_effects_row_is_reported(self):
+        issues = dc.effects_row_issues("nothing to see\n", set(), {"Comets"})
+        self.assertEqual(len(issues), 1)
+        self.assertIn("no effects/ summary row", issues[0].message)
+
     def test_repository_without_markdown_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
