@@ -85,7 +85,12 @@ inline constexpr float TWO_PI_F = 2.0f * PI_F;
  */
 __attribute__((always_inline)) inline float quintic_kernel(float t) {
   t = hs::clamp(t, 0.0f, 1.0f);
-  return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+  float t2 = t * t;
+#if defined(CORE_TEENSY) && defined(__GNUC__)
+  // Keep GCC -Os from replacing the cube with __powisf2.
+  __asm__("" : "+t"(t2));
+#endif
+  return (t * t2) * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
 
 /**
