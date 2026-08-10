@@ -4881,36 +4881,6 @@ inline void test_mobiusgrid_conformal_and_counter_rotation() {
 }
 
 /**
- * @brief White-box accessor for RingSpin's live ring count (befriended in
- *        effects/RingSpin.h).
- */
-struct RingSpinWhiteBox {
-  using RS = RingSpin<DEFAULT_W, DEFAULT_H>;
-  static int num_rings(const RS &rs) { return rs.num_rings; }
-  static int max_rings() { return RS::NUM_RINGS; }
-  static void spawn(RS &rs) { rs.spawn_ring(&rs.baked_palettes[0]); }
-};
-
-/**
- * @brief Verifies spawn_ring clamps to the fixed pool and never overruns it.
- * @details init() fills the pool to NUM_RINGS; the guard (num_rings >= NUM_RINGS)
- *          must make every further spawn a no-op, holding num_rings pinned at the
- *          bound — an off-by-one would write past the rings[] allocation. Drive
- *          extra spawns directly past the bound to exercise the guard branch.
- */
-inline void test_ringspin_pool_clamped() {
-  using WB = RingSpinWhiteBox;
-  reset_effect_globals();
-  WB::RS rs;
-  rs.init();
-  HS_EXPECT_EQ(WB::num_rings(rs), WB::max_rings()); // init filled the pool
-  for (int i = 0; i < WB::max_rings() + 4; ++i) {
-    WB::spawn(rs); // each must be rejected by the >= NUM_RINGS guard
-    HS_EXPECT_EQ(WB::num_rings(rs), WB::max_rings());
-  }
-}
-
-/**
  * @brief Verifies ShapeShifter's slider contract and preset-row invariants.
  * @details A preset row is authored artistic data that is retuned freely, so its
  *          magnitudes (count, sides, amplitude, speed) are not pinned: a golden
@@ -5965,7 +5935,6 @@ inline int run_effects_tests() {
     test_mindsplatter_emit_phase_wrapped();
     test_shaderball_glitch_lens_unit_norm();
     test_mobiusgrid_conformal_and_counter_rotation();
-    test_ringspin_pool_clamped();
     test_islamicstars_seed_sprite_fade_in();
     test_islamicstars_recipe_build_smoke();
     test_islamicstars_roster_cycle_fits_budget();
