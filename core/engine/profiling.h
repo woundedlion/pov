@@ -40,11 +40,7 @@ struct ScanMetrics {
   uint32_t shade_candidates =
       0; /**< Count of pixels passing the scan's d < pixel_width test (shading + alpha-rejected). */
   /** @brief Zeroes every counter. */
-  void reset() {
-    plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop =
-        pixels_tested = pixels_culled = exact_hits = convex_hits = sector_hits =
-            lut_hits = plot_backstop_hits = shade_candidates = 0;
-  }
+  void reset() { *this = {}; }
 };
 /** @brief Global scanline profiling counters. Compiled in only when
  *  HS_SCAN_METRICS is defined; otherwise HS_SCAN_METRIC(...) expands to nothing
@@ -84,12 +80,7 @@ struct ProbeBreakdown {
   uint32_t n_exact = 0;    /**< Probes taking the full edge walk. */
   uint32_t n_alpha = 0;    /**< Probes reaching the AA coverage kernel. */
   /** @brief Zeroes every bucket and count. */
-  void reset() {
-    point = project = edge_lut = edge_convex = edge_sector = edge_exact = pack =
-        alpha = tick = 0;
-    n_probe = n_cull_cos = n_cull_r = n_lut = n_convex = n_sector = n_exact =
-        n_alpha = 0;
-  }
+  void reset() { *this = {}; }
 };
 /** @brief Global per-probe cycle buckets. Compiled in only when
  *  HS_PROBE_BREAKDOWN is defined; otherwise HS_PROBE_* expand to nothing and
