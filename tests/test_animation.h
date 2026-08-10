@@ -2023,19 +2023,23 @@ inline float segue_peak_weight(const S &seg, float phase) {
 }
 
 /**
- * @brief Verifies no segue policy's visible() gate culls a phase at which that
- * policy still shades something.
+ * @brief Verifies every segue policy's visible() gate agrees with what that
+ * policy actually shades, in both directions.
  * @details visible() is a whole-draw cull (IslamicStars gates draw_shape on
- * it), so a policy whose opacity or fill stays non-negligible where the gate
- * says false blinks black for those frames at both ends of every transition.
- * GoldConvergence floors opacity at 0.4 and SpinFlip/IrisBloom/Lace/Dissolve
- * never fade at all, so the inherited fade-to-black gate is wrong for them.
+ * it). Culling a phase the policy still shades blinks black for those frames at
+ * both ends of every transition: GoldConvergence floors opacity at 0.4 and
+ * SpinFlip/IrisBloom/Lace/Dissolve never fade at all, so the fade-to-black gate
+ * is wrong for them. Passing a phase the policy shades nothing at is the
+ * converse failure — a full mesh rasterization for a frame with no light in it,
+ * which is what a per-face policy inheriting a global-phase gate buys.
  */
 inline void test_segue_visible_gate_culls_only_dark_phases() {
   auto check = [](const auto &seg) {
     for (int i = 0; i <= 1000; ++i) {
       const float phase = static_cast<float>(i) / 1000.0f;
-      if (!seg.visible(phase))
+      if (seg.visible(phase))
+        HS_EXPECT_GT(segue_peak_weight(seg, phase), 0.0f);
+      else
         HS_EXPECT_LT(segue_peak_weight(seg, phase), 0.02f);
     }
   };
