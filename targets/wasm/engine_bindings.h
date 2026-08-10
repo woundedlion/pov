@@ -358,10 +358,12 @@ public:
    *          rendering) must likewise re-apply setClip() after a RESIZED
    *          setResolution(): a prior clip was expressed in the old
    *          resolution's pixel bounds and is not rescaled here, so it must be
-   *          recomputed for the new dimensions. An outstanding getPixels() view
-   *          is left aliasing live memory at the previous resolution's length
-   *          rather than detached, so it must be re-fetched and its length
-   *          compared against getBufferLength().
+   *          recomputed for the new dimensions. The teardown re-partitions the
+   *          engine arenas, so getArenaMetrics() reports the released state
+   *          rather than the destroyed effect's usage. An outstanding
+   *          getPixels() view is left aliasing live memory at the previous
+   *          resolution's length rather than detached, so it must be re-fetched
+   *          and its length compared against getBufferLength().
    */
   ResolutionSetResult setResolution(int w, int h) {
     if (w == pixel_width && h == pixel_height)
@@ -381,6 +383,10 @@ public:
 
     if (current_effect) {
       current_effect = nullptr;
+      // Same teardown setEffect() performs: without the re-partition the
+      // destroyed effect's arena usage keeps reading as live from
+      // getArenaMetrics().
+      configure_arenas_default();
       param_generation.replace(0);
       stack_paint_canary(); // repaint to reset stack HWM after teardown
     }
