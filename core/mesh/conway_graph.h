@@ -544,9 +544,7 @@ HS_FLASH_MEMBER constexpr int pick_next_edge(int node, int prev_edge,
 /** Deterministic profile tour: a fixed edge cycle from the tetrahedron that
  * visits all 18 nodes, traverses every settle edge and every family bridge,
  * and returns to the tetrahedron with the registry seed state, so the cycle
- * wraps seamlessly. Replaces per-node mod arithmetic whose phases never lined
- * up with dodecahedron's rhombicosidodecahedron edge (node 15 stayed
- * uncovered indefinitely). */
+ * wraps seamlessly. */
 inline constexpr uint8_t ORDERED_TOUR[] = {
     18, 20, 6,  7,  5,  5,  1,  3,  3,  4,  4, 0,  2,  8,  19,
     21, 12, 13, 17, 17, 10, 15, 15, 16, 16, 9, 11, 14, 22, 19};

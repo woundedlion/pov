@@ -1584,8 +1584,7 @@ inline constexpr Recipe DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE = {
         std::size(DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS))};
 
 /** Step table for the ambo/relax100/hk54/needle recipe: not in
- * islamic_registry (dropped for fringe defect), kept as the reconcile tests'
- * canonical needle-ending recipe. */
+ * islamic_registry; the reconcile tests' canonical needle-ending recipe. */
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_STEPS[] = {
         {Op::AMBO},
