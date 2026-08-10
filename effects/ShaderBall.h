@@ -1078,10 +1078,17 @@ private:
           outer ? "Outer Warp Strength" : "Inner Warp Strength";
       const bool signed_strength = spec.kind == WarpStageKind::WAVE_SHEAR ||
                                    spec.kind == WarpStageKind::CURL_FLOW;
-      const float strength_max =
-          spec.kind == WarpStageKind::LEGACY_STEREO_NOISE ? 30.0f : 4.0f;
+      float strength_max = 4.0f;
+      if (spec.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
+        strength_max = 30.0f;
+      } else if (spec.kind == WarpStageKind::CURL_FLOW) {
+        strength_max = curl_strength_limit(spec, params);
+        params.strength =
+            hs::clamp(params.strength, -strength_max, strength_max);
+      }
       register_animated_param(strength_name, &params.strength,
-                              signed_strength ? -4.0f : 0.0f, strength_max);
+                              signed_strength ? -strength_max : 0.0f,
+                              strength_max);
     }
     if (spec.kind == WarpStageKind::LEGACY_STEREO_NOISE) {
       register_animated_param(outer ? "Outer Warp Scale" : "Inner Warp Scale",
@@ -3119,6 +3126,21 @@ private:
   }
 
   static constexpr float noise_gradient_bound(NoiseBasis) { return 64.0f; }
+
+  /**
+   * @brief Largest curl-flow strength the stage stability inequality admits at
+   *        a stage's live scale, basis, and integrator.
+   * @details Solves `scale * |strength| * G / n <= 1/2` — the same inequality
+   * `valid_stage_tuple` enforces — for `|strength|`, so the registered slider
+   * spans exactly the admissible set instead of a range whose bulk is rejected.
+   */
+  static constexpr float curl_strength_limit(const WarpStageSpec &spec,
+                                             const WarpStageParams &params) {
+    const float scale =
+        params.scale > NOISE_SCALE_MIN ? params.scale : NOISE_SCALE_MIN;
+    return 0.5f * static_cast<float>(curl_intervals(spec.curl_integrator)) /
+           (scale * noise_gradient_bound(spec.basis));
+  }
 
   static constexpr bool valid_stage_tuple(const WarpStageSpec &spec,
                                           const WarpStageParams &params) {
