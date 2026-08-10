@@ -1588,14 +1588,18 @@ guard is a branch, not a check).
 
 ## 9. Performance budget
 
-Shipping device profiles (Teensy, 96×20 segmented, 62.5 ms window,
-10,368 px quadrant):
+Shipping device profiles of the two predecessors (Teensy, 96×20 segmented,
+62.5 ms window, 10,368 px quadrant). Both are the last captures taken before
+the merge; neither effect is in the roster any more, so they cannot be
+regenerated:
 
-- Liquid2D: `lq_shader_draw` 28.3 ms (1,639 cyc/px), ~34 ms headroom.
+- Liquid2D: `lq_shader_draw` 28.3 ms (1,639 cyc/px), ~34 ms headroom
+  ([report](profiles/shipping/profile_liquid2d_teensy_2026-07-25.md)).
 - Flyby: `fly_shader_draw` 37.3–44.0 ms across presets, worst preset 44.0
   ms (2,546 cyc/px). The report's headline says 17 ms of margin, but its
   own ISR accounting puts the render budget at ≈59.3 ms/window with the
-  peak frame leaving **14.2 ms unspent — that is the binding margin**.
+  peak frame leaving **14.2 ms unspent — that is the binding margin**
+  ([report](profiles/shipping/profile_flyby_teensy_2026-07-27.md)).
 
 Cost deltas for a Flyby-look preset running in ShaderBall (all
 frame-constant-branch skips active): one extra orientation transform
