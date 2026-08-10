@@ -1740,7 +1740,7 @@ private:
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
-  static Color4 shade(const Vector &view, const FrameState &frame) {
+  HS_O3_FN static Color4 shade(const Vector &view, const FrameState &frame) {
     const Vector outer_local = outer_camera_lookup(view, frame);
     if (strict_projection(frame.slots.projection) &&
         frame.slots.surface_lens != SurfaceLens::NONE &&
@@ -1760,8 +1760,8 @@ private:
     return shade_projected(projected, frame);
   }
 
-  static Color4 shade_projected(const ProjectedLookup &projected,
-                                const FrameState &frame) {
+  HS_O3_FN static Color4 shade_projected(const ProjectedLookup &projected,
+                                         const FrameState &frame) {
     const PlanarWarpResult warped = planar_warp_lookup(projected, frame);
     const Complex source_coords = condition_source_coords(warped.coords, frame);
     const float field = sample_source(source_coords, frame);
@@ -1872,8 +1872,8 @@ private:
                           frame.params.projection.pole_fade);
   }
 
-  static ProjectedLookup project_branch(const Vector &v,
-                                        const FrameState &frame) {
+  HS_O3_FN static ProjectedLookup project_branch(const Vector &v,
+                                                 const FrameState &frame) {
     const Vector local = rotate(v, frame.transforms.projection_conj);
     if (frame.slots.projection == Projection::BONNE) {
       const shaderball::ProjectionKernelResult result =
@@ -2028,8 +2028,9 @@ private:
             hs::lerp(direct.domain_coverage, lensed.domain_coverage, mix)};
   }
 
-  static PlanarWarpResult planar_warp_lookup(const ProjectedLookup &projected,
-                                             const FrameState &frame) {
+  HS_O3_FN static PlanarWarpResult
+  planar_warp_lookup(const ProjectedLookup &projected,
+                     const FrameState &frame) {
     const PlanarWarpStageResult outer = warp_stage_lookup(
         projected.coords, projected, frame.slots.warp_program.outer,
         frame.params.warp.outer, frame.clocks.warp_outer_phase,
@@ -2056,7 +2057,7 @@ private:
             static_cast<uint8_t>(outer.flags | inner.flags)};
   }
 
-  static PlanarWarpStageResult
+  HS_O3_FN static PlanarWarpStageResult
   warp_stage_lookup(const Complex &input, const ProjectedLookup &projected,
                     const WarpStageSpec &spec, const WarpStageParams &params,
                     float stage_phase, const FastNoiseLite *stage_noise,
@@ -2513,8 +2514,8 @@ private:
     return cubic_kernel((value - edge0) / (edge1 - edge0));
   }
 
-  static Color4 colorize(const MaterialSample &sample,
-                         const FrameState &frame) {
+  HS_O3_FN static Color4 colorize(const MaterialSample &sample,
+                                  const FrameState &frame) {
     if (frame.slots.colorizer == Colorizer::GENERATED_TRIADIC) {
       Color4 color = frame.resources.generated_palette->get(sample.value);
       color.alpha *= sample.coverage;
