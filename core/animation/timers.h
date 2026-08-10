@@ -17,9 +17,55 @@
 namespace Animation {
 
 /**
+ * @brief Trigger loop shared by the callback schedulers.
+ * @tparam Derived Timer supplying reset(), which schedules the next trigger
+ * from the current frame counter.
+ */
+template <typename Derived> class TimerBase : public AnimationBase<Derived> {
+public:
+  /**
+   * @brief Steps the timer, calling the function if the delay has elapsed.
+   * @param canvas The canvas buffer (forwarded to the timer callback).
+   */
+  void step(Canvas &canvas) override {
+    AnimationBase<Derived>::step(canvas);
+    if (this->t < next)
+      return;
+    f(canvas);
+    if (this->repeat) {
+      static_cast<Derived *>(this)->reset();
+      // A repeating timer never reaches done(), so fire the per-cycle .then()
+      // directly to honor the contract.
+      this->post_callback();
+    } else {
+      // finish(), not cancel(): Timeline's pin guard exempts cancellation, so
+      // a canceled one-shot would be destroyed under a retained pointer with no
+      // diagnostic.
+      this->finish();
+    }
+  }
+
+  /** @brief A one-shot timer is removed on its single trigger, so it is finite.
+   */
+  bool is_finite() const override { return !this->repeat; }
+
+protected:
+  /**
+   * @brief Constructs the perpetual timer body.
+   * @param f The function to call when the timer elapses.
+   * @param repeat If true, the timer resets after calling the function.
+   */
+  TimerBase(TimerFn f, bool repeat)
+      : AnimationBase<Derived>(-1, repeat), f(std::move(f)) {}
+
+  TimerFn f;         /**< The callback function. */
+  uint32_t next = 0; /**< The target frame count for the next trigger. */
+};
+
+/**
  * @brief An animation that triggers a callback after a random delay.
  */
-class RandomTimer : public AnimationBase<RandomTimer> {
+class RandomTimer : public TimerBase<RandomTimer> {
 public:
   /**
    * @brief Constructs a RandomTimer.
@@ -29,8 +75,7 @@ public:
    * @param repeat If true, the timer resets after calling the function.
    */
   RandomTimer(int min, int max, TimerFn f, bool repeat = false)
-      : AnimationBase(-1, repeat), min(min), max(max), f(std::move(f)),
-        next(0) {
+      : TimerBase(std::move(f), repeat), min(min), max(max) {
     HS_CHECK(min >= 0 && min <= max);
     HS_CHECK(max < std::numeric_limits<int>::max(),
              "RandomTimer max must be < INT_MAX (reset adds 1)");
@@ -46,52 +91,25 @@ public:
     next = t + hs::rand_int(min, max + 1);
   }
 
-  /**
-   * @brief Steps the timer, calling the function if the delay has elapsed.
-   * @param canvas The canvas buffer (forwarded to the timer callback).
-   */
-  void step(Canvas &canvas) override {
-    AnimationBase::step(canvas);
-    if (t >= next) {
-      f(canvas);
-      if (repeat) {
-        reset();
-        // A repeating timer never reaches done(), so fire the per-cycle .then()
-        // directly to honor the contract.
-        this->post_callback();
-      } else {
-        // finish(), not cancel(): Timeline's pin guard exempts cancellation, so
-        // a canceled one-shot would be destroyed under a retained pointer with
-        // no diagnostic.
-        this->finish();
-      }
-    }
-  }
-
-  /** @brief A one-shot timer is removed on its single trigger, so it is finite. */
-  bool is_finite() const override { return !repeat; }
-
 private:
-  int min;       /**< Minimum frame delay. */
-  int max;       /**< Maximum frame delay. */
-  TimerFn f;     /**< The callback function. */
-  uint32_t next; /**< The target frame count for the next trigger. */
+  int min; /**< Minimum frame delay. */
+  int max; /**< Maximum frame delay. */
 };
 
 /**
  * @brief An animation that triggers a callback at regular intervals.
  */
-class PeriodicTimer : public AnimationBase<PeriodicTimer> {
+class PeriodicTimer : public TimerBase<PeriodicTimer> {
 public:
   /**
    * @brief Constructs a PeriodicTimer.
-   * @param period The interval between calls, in frames.
+   * @param period The interval between calls, in frames; clamped to >= 1, so
+   * period 0 fires on the next step.
    * @param f The function to call when the timer elapses.
    * @param repeat If true, the timer resets after calling the function.
    */
   PeriodicTimer(int period, TimerFn f, bool repeat = false)
-      : AnimationBase(-1, repeat), period(clamp_period(period)),
-        f(std::move(f)) {
+      : TimerBase(std::move(f), repeat), period(clamp_period(period)) {
     reset();
   }
 
@@ -112,32 +130,10 @@ public:
     reset();
   }
 
-  /**
-   * @brief Steps the timer, calling the function if the period has elapsed.
-   * @param canvas The canvas buffer (forwarded to the timer callback).
-   */
-  void step(Canvas &canvas) override {
-    AnimationBase::step(canvas);
-    if (t >= next) {
-      f(canvas);
-      if (repeat) {
-        reset();
-        this->post_callback(); // see RandomTimer::step
-      } else {
-        this->finish(); // see RandomTimer::step
-      }
-    }
-  }
-
-  /** @brief A one-shot timer is removed on its single trigger, so it is finite. */
-  bool is_finite() const override { return !repeat; }
-
 private:
   static int clamp_period(int p) { return p < 1 ? 1 : p; }
 
-  int period;    /**< The interval in frames. */
-  TimerFn f;     /**< The callback function. */
-  uint32_t next; /**< The target frame count for the next trigger. */
+  int period; /**< The interval in frames. */
 };
 
 } // namespace Animation
