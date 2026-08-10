@@ -119,7 +119,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", 47, hs_test::math3d::run_3dmath_tests, 30113)                    \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
-  X("memory", 42, hs_test::mem::run_memory_tests, 271)                         \
+  X("memory", 43, hs_test::mem::run_memory_tests, 271)                         \
   X("spatial", 18, hs_test::spatial::run_spatial_tests, 179)                   \
   X("scb", 40, hs_test::scb::run_static_circular_buffer_tests, 197)            \
   X("sdf", 94, hs_test::sdf::run_sdf_tests, 272481)                            \
