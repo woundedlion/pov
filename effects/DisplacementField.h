@@ -173,6 +173,22 @@ private:
     return accumulator.value();
   }
 
+  /**
+   * @brief Marks the azimuth chunks of one ring's bake that can reach the clip.
+   * @param basis Ring frame; basis.v is the stack axis.
+   * @param theta Ring colatitude.
+   * @param cos_t Cosine of theta.
+   * @param sin_t Sine of theta.
+   * @param band_r World-angle radius of the ring's displaced band.
+   * @return Bit c set for chunk c of BAKE_CHUNKS, 0 when the whole ring misses
+   * the clip and CHUNK_MASK when the pad spans the ring.
+   * @details Chunk c owns bake columns [c * lut_n / BAKE_CHUNKS, (c + 1) *
+   * lut_n / BAKE_CHUNKS); a clear bit skips that span's field and hue bake and
+   * leaves its columns stale. The raw per-chunk clip test is therefore widened
+   * by pad_chunks neighbors on both sides, since the rasterizer's soft stroke
+   * reaches params.thickness of azimuth away from a knot — that many chunks at
+   * the band's smallest circumference.
+   */
   __attribute__((always_inline)) uint32_t
   visible_chunk_mask(const Basis &basis, float theta, float cos_t, float sin_t,
                      float band_r) const {
@@ -208,6 +224,20 @@ private:
     return visible & CHUNK_MASK;
   }
 
+  /**
+   * @brief Chooses how one ring's bake evaluates its hue rotation.
+   * @param lut_n Bake columns for the ring.
+   * @param visible Chunk mask from visible_chunk_mask.
+   * @param hue_extent Signed hue turns the ring's displacement range covers.
+   * @param use_hue_table Out: sample a HUE_TABLE_SIZE-cell table instead of
+   * rotating per column.
+   * @param precompute_hue_table Out: fill the table up front rather than
+   * populating cells on demand.
+   * @param hue_domain Out: hue-turn span the table's cells cover.
+   * @param cyclic_hue_table Out: the domain wraps, so lookups wrap with it.
+   * @details Culled chunks bake no columns, so the precompute decision
+   * amortizes the table over the visible chunks' columns rather than lut_n.
+   */
   __attribute__((always_inline)) void
   select_hue_mode(int lut_n, uint32_t visible, float hue_extent,
                   bool &use_hue_table, bool &precompute_hue_table,
