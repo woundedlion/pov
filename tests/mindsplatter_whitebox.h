@@ -40,7 +40,7 @@ struct MindSplatterWhiteBox {
     ObjectBytes<PresetState> presets{};
     ObjectBytes<Orientation<>> orientation{};
     ObjectBytes<MobiusParams> mobius{};
-    std::array<float, EffectType::EmitSolid::NUM_VERTS> emit_phases{};
+    std::array<float, EffectType::MAX_EMITTERS> emit_phases{};
     uint8_t palette_sequence = 0;
     ClipRegion clip{};
     float friction = 0.0f;
@@ -283,6 +283,22 @@ struct MindSplatterWhiteBox {
   }
 
   static size_t num_emitters() { return MS::EmitSolid::NUM_VERTS; }
+  template <int W, int H>
+  static size_t active_emitters(const MindSplatter<W, H> &ms) {
+    return ms.particle_system.emitters.size();
+  }
+  template <int W, int H>
+  static size_t active_attractors(const MindSplatter<W, H> &ms) {
+    return ms.particle_system.attractors.size();
+  }
+  template <int W, int H>
+  static auto active_base_mesh(const MindSplatter<W, H> &ms) {
+    return ms.active_base_mesh;
+  }
+  template <int W, int H>
+  static auto preset_base_mesh(const MindSplatter<W, H> &ms, size_t index) {
+    return ms.presets.get_entries()[index].params.base_mesh;
+  }
   static float emit_phase(const MS &ms, size_t i) { return ms.emit_phases[i]; }
   static float event_horizon() { return MS::EVENT_HORIZON; }
   static float hole_alpha(const Vector &p) {

@@ -2516,7 +2516,16 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
 struct MeshFeedbackWhiteBox {
   using MF = MeshFeedback<SMALL_W, SMALL_H>;
 
-  static const Feedback::Style &style(const MF &fx) { return fx.style; }
+  static const Feedback::Style &style(const MF &fx) { return fx.params.style; }
+  static MF::BaseMesh base_mesh(const MF &fx) { return fx.params.base_mesh; }
+  static MF::BaseMesh active_base_mesh(const MF &fx) {
+    return fx.active_base_mesh;
+  }
+  static MF::BaseMesh preset_base_mesh(const MF &fx, size_t index) {
+    return fx.presets.get_entries()[index].params.base_mesh;
+  }
+  static size_t mesh_vertices(const MF &fx) { return fx.mesh.vertices.size(); }
+  static size_t mesh_edges(const MF &fx) { return fx.edges.size(); }
   static const Animation::NoiseParams &noise(const MF &fx) {
     return fx.noise_params;
   }
@@ -2623,7 +2632,7 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
   };
   const auto matches_preset = [&fx](size_t idx) {
     const Feedback::Style &s = WB::style(fx);
-    const Feedback::Style &p = MF::PRESETS[idx].params;
+    const Feedback::Style &p = MF::PRESETS[idx].params.style;
     return s.fade == p.fade && s.hue_shift == p.hue_shift &&
            s.scale == p.scale && s.amplitude == p.amplitude &&
            s.frequency == p.frequency && s.speed == p.speed &&
@@ -2660,6 +2669,40 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
   HS_EXPECT_EQ(switches, 2);
   HS_EXPECT_EQ(wrong_preset, 0);
   HS_EXPECT_EQ(desynced, 0);
+}
+
+/** @brief Verifies MeshFeedback presets and GUI carry the selected solid. */
+inline void test_meshfeedback_base_mesh_selector() {
+  using WB = MeshFeedbackWhiteBox;
+  using MF = WB::MF;
+  reset_effect_globals();
+
+  MF effect;
+  effect.init();
+
+  const auto *base_mesh = effect.getParameters().find("Base Mesh");
+  HS_EXPECT_TRUE(base_mesh != nullptr);
+  if (!base_mesh)
+    return;
+
+  HS_EXPECT_EQ(base_mesh->option_count,
+               static_cast<int>(Solids::BASE_MESH_COUNT));
+  HS_EXPECT_TRUE(base_mesh->animated);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 0), MF::BaseMesh::ICOSAHEDRON);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 1), MF::BaseMesh::DODECAHEDRON);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 11),
+               MF::BaseMesh::PENTAGONAL_HEXECONTAHEDRON);
+
+  const auto selected = MF::BaseMesh::PENTAGONAL_HEXECONTAHEDRON;
+  HS_EXPECT_TRUE(
+      effect.updateParameter("Base Mesh", static_cast<float>(selected)) ==
+      ParamSetResult::APPLIED);
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_EQ(WB::base_mesh(effect), selected);
+  HS_EXPECT_EQ(WB::active_base_mesh(effect), selected);
+  HS_EXPECT_GT(WB::mesh_vertices(effect), 0u);
+  HS_EXPECT_GT(WB::mesh_edges(effect), 0u);
 }
 
 // ---------------------------------------------------------------------------
@@ -3747,6 +3790,47 @@ inline void test_displacement_field_clip_tiles_full() {
                 "sampled pixels\n",
                 sampled_pixels);
   HS_EXPECT(lit > 0, "clip tiling must compare a lit render");
+}
+
+/** @brief Verifies MindSplatter's Platonic emitter/dual-attractor selector. */
+inline void test_mindsplatter_base_mesh_selector() {
+  using MS = MindSplatter<SMALL_W, SMALL_H>;
+  using WB = MindSplatterWhiteBox;
+  reset_effect_globals();
+
+  MS effect;
+  effect.init();
+
+  const auto *base_mesh = effect.getParameters().find("Base Mesh");
+  HS_EXPECT_TRUE(base_mesh != nullptr);
+  if (!base_mesh)
+    return;
+
+  HS_EXPECT_EQ(base_mesh->option_count, 5);
+  HS_EXPECT_TRUE(base_mesh->animated);
+  HS_EXPECT_EQ(std::string_view(base_mesh->options[0]), "Tetrahedron");
+  HS_EXPECT_EQ(std::string_view(base_mesh->options[4]), "Icosahedron");
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 0), MS::BaseMesh::CUBE);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 1), MS::BaseMesh::DODECAHEDRON);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 4), MS::BaseMesh::TETRAHEDRON);
+
+  const auto select = [&](MS::BaseMesh mesh, size_t emitters,
+                          size_t attractors) {
+    HS_EXPECT_TRUE(
+        effect.updateParameter("Base Mesh", static_cast<float>(mesh)) ==
+        ParamSetResult::APPLIED);
+    effect.draw_frame();
+    effect.advance_display();
+    HS_EXPECT_EQ(WB::active_base_mesh(effect), mesh);
+    HS_EXPECT_EQ(WB::active_emitters(effect), emitters);
+    HS_EXPECT_EQ(WB::active_attractors(effect), attractors);
+  };
+
+  select(MS::BaseMesh::TETRAHEDRON, 4, 4);
+  select(MS::BaseMesh::CUBE, 8, 6);
+  select(MS::BaseMesh::OCTAHEDRON, 6, 8);
+  select(MS::BaseMesh::DODECAHEDRON, 20, 12);
+  select(MS::BaseMesh::ICOSAHEDRON, 12, 20);
 }
 
 /**
@@ -6001,6 +6085,8 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
 
+  test_mindsplatter_base_mesh_selector();
+  test_meshfeedback_base_mesh_selector();
   test_mindsplatter_replay_snapshot_exact();
   test_mindsplatter_saturated_quadrant_sink_parity();
   test_mindsplatter_octahedral_hole_alpha_equivalence();

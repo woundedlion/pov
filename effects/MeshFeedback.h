@@ -7,7 +7,7 @@
 
 /**
  * @file MeshFeedback.h
- * @brief Feedback filter over a fixed icosahedron wireframe.
+ * @brief Feedback filter over a selectable polyhedral wireframe.
  */
 
 #include "core/engine/engine.h"
@@ -20,17 +20,23 @@ struct MeshFeedbackWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Feedback effect over a fixed icosahedron.
+ * @brief Feedback effect over a selectable polyhedron.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Draws the solid's wireframe under an orientation random-walk while
  * the feedback filter warps and fades the accumulated frame. Style presets
  * switch immediately at fixed intervals while mesh emission continues. The
- * shape never changes and never morphs.
+ * base mesh changes with the preset or live selector.
  */
 template <int W, int H> class MeshFeedback : public Effect {
 public:
   using Style = Feedback::Style;
+  using BaseMesh = Solids::BaseMesh;
+
+  struct Params {
+    BaseMesh base_mesh = BaseMesh::ICOSAHEDRON;
+    Style style = Style::ArcingLightning();
+  };
 
   static constexpr int PRESET_FRAMES = 241;
 
@@ -51,27 +57,29 @@ public:
 
   /** @brief True iff every preset-driven field of @p s lies within its
    *  registered slider range (see the range constants above). */
-  static constexpr bool preset_in_ranges(const Style &s) {
-    return s.fade >= FADE_MIN && s.fade <= FADE_MAX && s.amplitude >= AMP_MIN &&
+  static constexpr bool preset_in_ranges(const Params &p) {
+    const Style &s = p.style;
+    return static_cast<size_t>(p.base_mesh) < Solids::BASE_MESH_COUNT &&
+           s.fade >= FADE_MIN && s.fade <= FADE_MAX && s.amplitude >= AMP_MIN &&
            s.amplitude <= AMP_MAX && s.frequency >= FREQ_MIN &&
            s.frequency <= FREQ_MAX && s.speed >= SPEED_MIN &&
            s.speed <= SPEED_MAX && s.scale >= SCALE_MIN &&
            s.scale <= SCALE_MAX && s.hue_shift >= HUE_SHIFT_MIN &&
            s.hue_shift <= HUE_SHIFT_MAX;
   }
-  static constexpr std::array<PresetEntry<Style>, 12> PRESETS = {{
-      {Style::ArcingLightning()},
-      {Style::SlowFire()},
-      {Style::EnergeticFire()},
-      {Style::Smoke()},
-      {Style::SlowDust()},
-      {Style::WavyTrails()},
-      {Style::MeltingHi()},
-      {Style::MeltingLo()},
-      {Style::Miasma()},
-      {Style::LooseWormhole()},
-      {Style::TightWormhole()},
-      {Style::WigglingWormhole()},
+  static constexpr std::array<PresetEntry<Params>, 12> PRESETS = {{
+      {{BaseMesh::ICOSAHEDRON, Style::ArcingLightning()}},
+      {{BaseMesh::DODECAHEDRON, Style::SlowFire()}},
+      {{BaseMesh::TRUNCATED_ICOSAHEDRON, Style::EnergeticFire()}},
+      {{BaseMesh::CUBE, Style::Smoke()}},
+      {{BaseMesh::RHOMBICUBOCTAHEDRON, Style::SlowDust()}},
+      {{BaseMesh::ICOSIDODECAHEDRON, Style::WavyTrails()}},
+      {{BaseMesh::OCTAHEDRON, Style::MeltingHi()}},
+      {{BaseMesh::TRIAKIS_OCTAHEDRON, Style::MeltingLo()}},
+      {{BaseMesh::RHOMBIC_TRIACONTAHEDRON, Style::Miasma()}},
+      {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, Style::LooseWormhole()}},
+      {{BaseMesh::SNUB_CUBE, Style::TightWormhole()}},
+      {{BaseMesh::PENTAGONAL_HEXECONTAHEDRON, Style::WigglingWormhole()}},
   }};
 
   static_assert(
@@ -82,26 +90,25 @@ public:
 
   /**
    * @brief Wires up noise, orientation, and the filter pipeline.
-   * @details The Feedback filter binds `style` by reference; keep `style`
-   * declared before `filters` so it is constructed first (member-declaration
-   * init order).
+   * @details The Feedback filter binds `params.style` by reference; keep
+   * `params` declared before `filters` so it is constructed first.
    */
   HS_COLD_MEMBER MeshFeedback()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         noise_params(), orientation(), timeline(),
         filters(Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>(),
-                Filter::Pixel::Feedback<W, H>(style)) {}
+                Filter::Pixel::Feedback<W, H>(params.style)) {}
 
   /**
    * @brief One-time effect setup.
-   * @details Binds shared noise into presets, builds the icosahedron, samples
+   * @details Binds shared noise into presets, builds the selected mesh, samples
    * the mesh shade, registers tunable params, and schedules the
    * noise/walk/preset timers.
    */
   void init() override {
     for (auto &e : presets.get_entries()) {
-      e.params.noise = &noise_params;
+      e.params.style.noise = &noise_params;
     }
 
     // Configure the noise type before apply_params(): it calls sync_noise(),
@@ -110,31 +117,30 @@ public:
     noise_params.noise.SetSeed(hs::rand_int(0, 65536));
     noise_params.sync();
 
-    style = presets.get();
-    apply_params();
+    params = presets.get();
 
-    {
-      PolyMesh poly = hs::generate(
-          persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-            return Solids::finalize_solid(Solids::Platonic::icosahedron(a, b),
-                                          target);
-          });
-      MeshOps::compile(poly, mesh, persistent_arena, scratch_arena_a);
-    }
-    // On a closed 2-manifold faces.size() (the sum of face degrees) is 2*E.
-    edges.bind(persistent_arena, mesh.faces.size() / 2);
-    Plot::Mesh::extract_edges(mesh, edges);
+    mesh.vertices.bind(persistent_arena, MAX_SOLID_VERTICES);
+    mesh.face_counts.bind(persistent_arena, MAX_SOLID_FACES);
+    mesh.faces.bind(persistent_arena, MAX_SOLID_FACE_SLOTS);
+    mesh.face_offsets.bind(persistent_arena, MAX_SOLID_FACES);
+    edges.bind(persistent_arena, MAX_SOLID_FACE_SLOTS / 2);
+    apply_params();
 
     mesh_shade = Palettes::PEACH_POP.get(0.0f);
 
-    register_animated_param("Fade", &style.fade, FADE_MIN, FADE_MAX);
-    register_animated_param("Distort Amp", &style.amplitude, AMP_MIN, AMP_MAX);
-    register_animated_param("Distort Freq", &style.frequency, FREQ_MIN,
+    register_animated_param(
+        "Base Mesh", &params.base_mesh, Solids::BASE_MESH_OPTIONS,
+        Solids::BASE_MESH_EXPORT_OPTIONS, Solids::BASE_MESH_COUNT);
+    register_animated_param("Fade", &params.style.fade, FADE_MIN, FADE_MAX);
+    register_animated_param("Distort Amp", &params.style.amplitude, AMP_MIN,
+                            AMP_MAX);
+    register_animated_param("Distort Freq", &params.style.frequency, FREQ_MIN,
                             FREQ_MAX);
-    register_animated_param("Distort Speed", &style.speed, SPEED_MIN,
+    register_animated_param("Distort Speed", &params.style.speed, SPEED_MIN,
                             SPEED_MAX);
-    register_animated_param("Noise Scale", &style.scale, SCALE_MIN, SCALE_MAX);
-    register_animated_param("Hue Shift", &style.hue_shift, HUE_SHIFT_MIN,
+    register_animated_param("Noise Scale", &params.style.scale, SCALE_MIN,
+                            SCALE_MAX);
+    register_animated_param("Hue Shift", &params.style.hue_shift, HUE_SHIFT_MIN,
                             HUE_SHIFT_MAX);
     register_param("Feedback", &feedback_enabled);
 
@@ -186,13 +192,37 @@ public:
 private:
   friend struct ::hs_test::effects_tests::MeshFeedbackWhiteBox;
 
+  static constexpr size_t MAX_SOLID_VERTICES = 120;
+  static constexpr size_t MAX_SOLID_FACE_SLOTS = 360;
+  static constexpr size_t MAX_SOLID_FACES = 120;
+
+  void rebuild_mesh(BaseMesh base_mesh) {
+    const Solids::Entry &entry =
+        Solids::get_entry(static_cast<size_t>(base_mesh));
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      PolyMesh poly = entry.generate(a, b);
+      HS_CHECK(poly.vertices.size() <= MAX_SOLID_VERTICES &&
+                   poly.faces.size() <= MAX_SOLID_FACE_SLOTS &&
+                   poly.face_counts.size() <= MAX_SOLID_FACES,
+               "MeshFeedback selectable solid exceeds bounds");
+      MeshOps::compile(poly, mesh, target, a);
+    });
+
+    edges.bind(persistent_arena, MAX_SOLID_FACE_SLOTS / 2);
+    Plot::Mesh::extract_edges(mesh, edges);
+    active_base_mesh = base_mesh;
+    mesh_ready = true;
+  }
+
   /**
    * @brief Pushes UI-tunable state into the live style/filters each frame.
    * @details Refreshes the noise binding and toggles the feedback filter from
    * `feedback_enabled`.
    */
   void apply_params() {
-    style.sync_noise();
+    if (!mesh_ready || params.base_mesh != active_base_mesh)
+      rebuild_mesh(params.base_mesh);
+    params.style.sync_noise();
     filters.template get<Filter::Pixel::Feedback<W, H>>().set_enabled(
         feedback_enabled);
   }
@@ -208,12 +238,11 @@ private:
       return;
     preset_frames = 0;
     presets.next();
-    presets.apply(style);
+    presets.apply(params);
   }
 
-  Style style;
-
-  Presets<Style, 12> presets{PRESETS};
+  Params params;
+  Presets<Params, 12> presets{PRESETS};
   bool feedback_enabled = true;
   int preset_frames = 0;
   Animation::NoiseParams noise_params;
@@ -227,23 +256,26 @@ private:
 
   Color4 mesh_shade; /**< Wireframe shade; sampled once in init(). */
 
-  // The single, fixed solid; built once in init() and never recompiled.
   MeshState mesh;
   ArenaVector<Plot::Mesh::Edge>
       edges; /**< Unique edge list (topology is static). */
+  BaseMesh active_base_mesh = BaseMesh::ICOSAHEDRON;
+  bool mesh_ready = false;
 
   Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
            Filter::Pixel::Feedback<W, H>>
       filters;
 
-  // Covers the two compile-time-sized persistent tenants: the Feedback
-  // warp-field cache and the gamut boundary bracket table. init() also buys the
-  // icosahedron PolyMesh and its compiled MeshState from the persistent arena,
-  // but those are sized at runtime and ride in the headroom left here.
+  static constexpr size_t MESH_STORAGE_BYTES =
+      MAX_SOLID_VERTICES * sizeof(Vector) +
+      MAX_SOLID_FACES * (sizeof(uint8_t) + sizeof(uint16_t)) +
+      MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
+      (MAX_SOLID_FACE_SLOTS / 2) * sizeof(Plot::Mesh::Edge);
   static_assert(Filter::Pixel::Feedback<W, H>::STORAGE_BYTES +
-                        gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) <=
+                        gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
+                        MESH_STORAGE_BYTES <=
                     DEVICE_PERSISTENT_BUDGET,
-                "MeshFeedback warp cache plus gamut bracket table exceed the "
+                "MeshFeedback persistent storage exceeds the "
                 "default persistent partition; retune the feedback downsample, "
                 "coarsen the gamut grid, or carve arenas");
 };

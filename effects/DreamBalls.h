@@ -34,40 +34,7 @@ struct DreamBallsWhiteBox;
  */
 template <int W, int H> class DreamBalls : public Effect {
 public:
-  /** @brief Platonic, Archimedean, and Catalan base meshes. */
-  enum class BaseMesh : uint8_t {
-    TETRAHEDRON,
-    CUBE,
-    OCTAHEDRON,
-    DODECAHEDRON,
-    ICOSAHEDRON,
-    TRUNCATED_TETRAHEDRON,
-    CUBOCTAHEDRON,
-    TRUNCATED_CUBE,
-    TRUNCATED_OCTAHEDRON,
-    RHOMBICUBOCTAHEDRON,
-    TRUNCATED_CUBOCTAHEDRON,
-    SNUB_CUBE,
-    ICOSIDODECAHEDRON,
-    TRUNCATED_DODECAHEDRON,
-    TRUNCATED_ICOSAHEDRON,
-    RHOMBICOSIDODECAHEDRON,
-    TRUNCATED_ICOSIDODECAHEDRON,
-    SNUB_DODECAHEDRON,
-    TRIAKIS_TETRAHEDRON,
-    RHOMBIC_DODECAHEDRON,
-    TRIAKIS_OCTAHEDRON,
-    TETRAKIS_HEXAHEDRON,
-    DELTOIDAL_ICOSITETRAHEDRON,
-    DISDYAKIS_DODECAHEDRON,
-    PENTAGONAL_ICOSITETRAHEDRON,
-    RHOMBIC_TRIACONTAHEDRON,
-    TRIAKIS_ICOSAHEDRON,
-    PENTAKIS_DODECAHEDRON,
-    DELTOIDAL_HEXECONTAHEDRON,
-    DISDYAKIS_TRIACONTAHEDRON,
-    PENTAGONAL_HEXECONTAHEDRON
-  };
+  using BaseMesh = Solids::BaseMesh;
 
   /**
    * @brief Live, slider-bound render parameters; also the per-preset value set.
@@ -118,8 +85,9 @@ public:
     baked_palettes[0].bake(persistent_arena, *params.palette);
     baked_palettes[1].bake(persistent_arena, *params.palette);
 
-    register_animated_param("Base Mesh", &params.base_mesh, BASE_MESH_OPTIONS,
-                            BASE_MESH_EXPORT_OPTIONS, SOLID_COUNT);
+    register_animated_param("Base Mesh", &params.base_mesh,
+                            Solids::BASE_MESH_OPTIONS,
+                            Solids::BASE_MESH_EXPORT_OPTIONS, SOLID_COUNT);
     register_animated_param("Copies", &params.num_copies, COPIES_MIN,
                             COPIES_MAX);
     register_animated_param("Radius", &params.offset_radius, RADIUS_MIN,
@@ -165,75 +133,7 @@ private:
   static constexpr float WARP_MIN = 0.0f, WARP_MAX = 5.0f;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
   static constexpr size_t PRESET_COUNT = 5;
-  static constexpr size_t SOLID_COUNT =
-      static_cast<size_t>(BaseMesh::PENTAGONAL_HEXECONTAHEDRON) + 1;
-
-  static constexpr const char *BASE_MESH_OPTIONS[] = {
-      "Tetrahedron",
-      "Cube",
-      "Octahedron",
-      "Dodecahedron",
-      "Icosahedron",
-      "Truncated Tetrahedron",
-      "Cuboctahedron",
-      "Truncated Cube",
-      "Truncated Octahedron",
-      "Rhombicuboctahedron",
-      "Truncated Cuboctahedron",
-      "Snub Cube",
-      "Icosidodecahedron",
-      "Truncated Dodecahedron",
-      "Truncated Icosahedron",
-      "Rhombicosidodecahedron",
-      "Truncated Icosidodecahedron",
-      "Snub Dodecahedron",
-      "Triakis Tetrahedron",
-      "Rhombic Dodecahedron",
-      "Triakis Octahedron",
-      "Tetrakis Hexahedron",
-      "Deltoidal Icositetrahedron",
-      "Disdyakis Dodecahedron",
-      "Pentagonal Icositetrahedron",
-      "Rhombic Triacontahedron",
-      "Triakis Icosahedron",
-      "Pentakis Dodecahedron",
-      "Deltoidal Hexecontahedron",
-      "Disdyakis Triacontahedron",
-      "Pentagonal Hexecontahedron"};
-  static constexpr const char *BASE_MESH_EXPORT_OPTIONS[] = {
-      "BaseMesh::TETRAHEDRON",
-      "BaseMesh::CUBE",
-      "BaseMesh::OCTAHEDRON",
-      "BaseMesh::DODECAHEDRON",
-      "BaseMesh::ICOSAHEDRON",
-      "BaseMesh::TRUNCATED_TETRAHEDRON",
-      "BaseMesh::CUBOCTAHEDRON",
-      "BaseMesh::TRUNCATED_CUBE",
-      "BaseMesh::TRUNCATED_OCTAHEDRON",
-      "BaseMesh::RHOMBICUBOCTAHEDRON",
-      "BaseMesh::TRUNCATED_CUBOCTAHEDRON",
-      "BaseMesh::SNUB_CUBE",
-      "BaseMesh::ICOSIDODECAHEDRON",
-      "BaseMesh::TRUNCATED_DODECAHEDRON",
-      "BaseMesh::TRUNCATED_ICOSAHEDRON",
-      "BaseMesh::RHOMBICOSIDODECAHEDRON",
-      "BaseMesh::TRUNCATED_ICOSIDODECAHEDRON",
-      "BaseMesh::SNUB_DODECAHEDRON",
-      "BaseMesh::TRIAKIS_TETRAHEDRON",
-      "BaseMesh::RHOMBIC_DODECAHEDRON",
-      "BaseMesh::TRIAKIS_OCTAHEDRON",
-      "BaseMesh::TETRAKIS_HEXAHEDRON",
-      "BaseMesh::DELTOIDAL_ICOSITETRAHEDRON",
-      "BaseMesh::DISDYAKIS_DODECAHEDRON",
-      "BaseMesh::PENTAGONAL_ICOSITETRAHEDRON",
-      "BaseMesh::RHOMBIC_TRIACONTAHEDRON",
-      "BaseMesh::TRIAKIS_ICOSAHEDRON",
-      "BaseMesh::PENTAKIS_DODECAHEDRON",
-      "BaseMesh::DELTOIDAL_HEXECONTAHEDRON",
-      "BaseMesh::DISDYAKIS_TRIACONTAHEDRON",
-      "BaseMesh::PENTAGONAL_HEXECONTAHEDRON"};
-  static_assert(SOLID_COUNT == std::size(BASE_MESH_OPTIONS));
-  static_assert(SOLID_COUNT == std::size(BASE_MESH_EXPORT_OPTIONS));
+  static constexpr size_t SOLID_COUNT = Solids::BASE_MESH_COUNT;
   static_assert(SOLID_COUNT == std::size(Solids::simple_registry) +
                                    std::size(Solids::catalan_registry));
 
