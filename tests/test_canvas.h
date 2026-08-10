@@ -434,7 +434,9 @@ inline void test_persist_pixels_copies_previous_frame() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
 
   // With persist, the undrawn next frame carries the previous content over.
-  { Canvas c(fx); /* draw nothing */ }
+  {
+    Canvas c(fx); /* draw nothing */
+  }
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
 }
@@ -644,7 +646,9 @@ inline void test_ctor_spin_waits_for_buffer_free() {
   });
 
   // Blocks in the ctor spin-wait until the helper advances the display.
-  { Canvas c(fx); }
+  {
+    Canvas c(fx);
+  }
   ctor_returned.store(true, std::memory_order_release);
 
   display_isr.join();

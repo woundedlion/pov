@@ -1330,7 +1330,7 @@ inline void test_subtract_empty_b_passes_a_through_verbatim() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{50.0f, 60.0f}, {0.0f, 10.0f}}; // unsorted
-  std::vector<P> b_ivs = {}; // empty → passthrough
+  std::vector<P> b_ivs = {};                              // empty → passthrough
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
 

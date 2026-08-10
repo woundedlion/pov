@@ -106,13 +106,17 @@ inline void test_temp_guard_sets_selectors() {
 inline void test_guards_restore_baseline_not_prior_state() {
   FastLED.setCorrection(UncorrectedColor);
   FastLED.setTemperature(UncorrectedTemperature);
-  { NoColorCorrection guard; }
+  {
+    NoColorCorrection guard;
+  }
   HS_EXPECT_EQ(FastLED.last_correction, TypicalLEDStrip);
   HS_EXPECT_EQ(FastLED.last_temperature, Candle);
 
   FastLED.setCorrection(UncorrectedColor);
   FastLED.setTemperature(UncorrectedTemperature);
-  { NoTempCorrection guard; }
+  {
+    NoTempCorrection guard;
+  }
   HS_EXPECT_EQ(FastLED.last_correction, TypicalLEDStrip);
   HS_EXPECT_EQ(FastLED.last_temperature, Candle);
 }

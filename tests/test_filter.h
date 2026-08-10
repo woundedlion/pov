@@ -2918,7 +2918,7 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   trails.set_lifetime(100);
   trails.plot(p2, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
   trails.plot(p3, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
-  HS_EXPECT_EQ(trails.size(), (size_t)Cap); // [p0, p1, p2, p3] — full
+  HS_EXPECT_EQ(trails.size(), (size_t)Cap);          // [p0, p1, p2, p3] — full
 
   int live_drawn = 0;
   bool saw_p0 = false;

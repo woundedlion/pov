@@ -68,10 +68,10 @@ LINEAR_MAX = LINEAR_LEVELS - 1
 
 
 # The clang-format major the provenance gate formats both sides with (the
-# lut-provenance job in .github/workflows/ci.yml sets CLANG_FORMAT=clang-format-18).
+# lut-provenance job in .github/workflows/ci.yml sets CLANG_FORMAT=clang-format-22).
 # Another major reflows the arrays differently, so a one-entry data change would
 # arrive in CI as a full-header diff with its real cause buried.
-EXPECTED_CLANG_FORMAT_MAJOR = 18
+EXPECTED_CLANG_FORMAT_MAJOR = 22
 
 
 def quantize(v, max_val):
