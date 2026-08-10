@@ -368,6 +368,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 ├── daydream.js                 App entry: WASM loader, state wiring, GUI/sidebar
 ├── app_lifecycle.js            Composition-root frame adapter, display-alias heal, Test All
 │                                  ticker, segmented spawn epoch, and teardown
+├── app_lifecycle.d.ts          Hand-written declarations for app_lifecycle.js — what the typecheck sees
 ├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
 ├── effect_gui.js               Effect panel lifecycle: build, mount, value sync, Export, teardown
 ├── effect_sequencing.js        DOM-free effect/resolution apply-order and preset rules
@@ -400,6 +401,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   ├── shared.js               Three.js scene boilerplate for the 3D tool pages
 │   ├── banner.js               Dependency-free page + fatal-error banners (no Three.js)
 │   ├── clipboard.js            Dependency-free copy-to-clipboard helpers
+│   ├── copy_text.js            Clipboard API write with a textarea fallback, wrapped by clipboard.js
 │   ├── slider.js               Labelled range-slider factory with a live readout
 │   ├── color.js                sRGB ↔ linear math mirroring the engine's transfer function
 │   ├── cpp_format.js           C++ float-literal formatter shared by the code generators
@@ -428,6 +430,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │
 ├── tests/                      Node unit tests (`npm test`)
 ├── tsconfig.json               checkJs settings for the worker-protocol module set
+├── eslint.config.mjs           JavaScript lint rules (recommended set) — the js-unit-suite.yml lint step
 ├── .githooks/                  pre-push mirror of the JS unit suite, and a reference-transaction guard keeping master fast-forward-only
 ├── .github/workflows/          deploy.yml (engine gate → Pages), js-tests.yml / js-unit-suite.yml (npm test)
 │
