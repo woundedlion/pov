@@ -1462,6 +1462,28 @@ inline void test_shaderball_gui_catalog() {
   select_and_reject_expensive_options("Outer Warp", 5, "Outer Noise Basis");
   select_and_set_all("Outer Warp", 5, "Outer Warp Envelope");
   select_and_reject_expensive_options("Outer Warp", 6, "Outer Curl Integrator");
+  {
+    reset_gui();
+    HS_EXPECT_TRUE(
+        sb.updateParameter("Outer Warp",
+                           static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
+        ParamSetResult::APPLIED);
+    sb.draw_frame();
+    sb.advance_display();
+    WB::settle_transition(sb);
+    const auto *strength = sb.getParameters().find("Outer Warp Strength");
+    HS_EXPECT_TRUE(strength != nullptr);
+    // 0.5 / (scale 0.1 * gradient bound 64), one Euler interval.
+    const float limit = strength->max;
+    HS_EXPECT_NEAR(limit, 0.078125f, 1e-6f);
+    HS_EXPECT_EQ(strength->min, -limit);
+    HS_EXPECT_TRUE(sb.updateParameter("Outer Warp Strength", 4.0f) ==
+                   ParamSetResult::APPLIED);
+    sb.draw_frame();
+    sb.advance_display();
+    WB::settle_transition(sb);
+    HS_EXPECT_EQ(WB::active_config(sb).params.warp.outer.strength, limit);
+  }
   select_and_set_all("Outer Warp", 8, "Outer Polar Mode");
   select_and_set_all("Outer Warp", 8, "Outer Polar Harmonic");
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") == nullptr);
