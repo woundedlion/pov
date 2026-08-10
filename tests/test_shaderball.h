@@ -261,12 +261,22 @@ struct ShaderBallWhiteBox {
                                const FrameState &frame) {
     return SB::planar_warp_lookup(projected, frame);
   }
-  static PlanarWarpStageResult warp_stage(const Complex &input,
-                                          const ProjectedLookup &projected,
-                                          const WarpStageSpec &spec,
-                                          const WarpStageParams &params,
-                                          const FrameState &frame) {
-    return SB::warp_stage_lookup(input, projected, spec, params, frame);
+  /**
+   * @brief Runs one warp stage against a frame.
+   * @param inner Selects the inner stage's clock and noise resource; the outer
+   *        stage's otherwise. A stage reads whichever pair it was programmed
+   *        into, so the caller states which one `spec` describes.
+   */
+  static PlanarWarpStageResult
+  warp_stage(const Complex &input, const ProjectedLookup &projected,
+             const WarpStageSpec &spec, const WarpStageParams &params,
+             const FrameState &frame, bool inner = false) {
+    const float phase =
+        inner ? frame.clocks.warp_inner_phase : frame.clocks.warp_outer_phase;
+    const FastNoiseLite *noise = inner ? frame.resources.inner_warp_noise
+                                       : frame.resources.outer_warp_noise;
+    return SB::warp_stage_lookup(input, projected, spec, params, phase, noise,
+                                 SB::prepare_warp_stage(params, phase), frame);
   }
   static MaterialSample material(const ProjectedLookup &projected,
                                  const PlanarWarpResult &warped,
@@ -307,7 +317,8 @@ struct ShaderBallWhiteBox {
   }
   static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
                              NoiseBasis basis, float scale, float time) {
-    return SB::curl_vector(p, noise, basis, scale, time);
+    return SB::curl_vector(p, noise, basis, scale,
+                           SB::prepare_noise_phase(time));
   }
   static float wrapped_noise(const FastNoiseLite &noise, NoiseBasis basis,
                              float x, float y, float turns) {
@@ -320,7 +331,7 @@ struct ShaderBallWhiteBox {
     return result;
   }
   static Vector apply_lens(const Vector &v, SurfaceLens lens) {
-    return SB::apply_lens(v, lens);
+    return SB::apply_frame_free_lens(v, lens);
   }
   static float sample_function(Function function, const Complex &p,
                                const SourceState &source) {
@@ -597,7 +608,7 @@ inline void test_shaderball_pipeline_contract() {
   frame.params.warp.inner = {2.0f, 1.1f, 0.5f};
   const WB::PlanarWarpStageResult inner_stage = WB::warp_stage(
       projected.coords, projected, frame.slots.warp_program.inner,
-      frame.params.warp.inner, frame);
+      frame.params.warp.inner, frame, /*inner=*/true);
   const WB::PlanarWarpResult inner_only = WB::warp(projected, frame);
   HS_EXPECT_EQ(inner_only.coords.re, inner_stage.coords.re);
   HS_EXPECT_EQ(inner_only.coords.im, inner_stage.coords.im);
@@ -609,7 +620,7 @@ inline void test_shaderball_pipeline_contract() {
   frame.params.warp.inner.strength = 0.0f;
   const WB::PlanarWarpStageResult zero_strength = WB::warp_stage(
       projected.coords, projected, frame.slots.warp_program.inner,
-      frame.params.warp.inner, frame);
+      frame.params.warp.inner, frame, /*inner=*/true);
   HS_EXPECT_EQ(zero_strength.coords.re, projected.coords.re);
   HS_EXPECT_EQ(zero_strength.coords.im, projected.coords.im);
   HS_EXPECT_EQ(zero_strength.delta.re, 0.0f);
