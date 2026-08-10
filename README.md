@@ -50,6 +50,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [Frame Sync Protocol: 1-Wire Signal Datasheet](#frame-sync-protocol-1-wire-signal-datasheet)
 8. [The Effect System](#8-the-effect-system)
 9. [Effects Reference](#9-effects-reference)
+   - [ShaderBall Shader Vocabulary](#shaderball-shader-vocabulary)
 10. [The Web Simulator (Daydream)](#10-the-web-simulator-daydream)
     - [10.1 Process and Threading Model](#101-process-and-threading-model)
     - [10.2 The WASM Bridge](#102-the-wasm-bridge)
@@ -1824,7 +1825,7 @@ An effect passes construction-time flags to its base as `Effect(W, H, {.strobe =
 
 All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for RingShower, Dynamo and Thrusters.
 
-The effect registry and tests carry the full 24-effect roster. The simulator sidebar exposes the curated subset for its active resolution (§10.5), omitting three effects at 288×144 and five at 96×20. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) is a 21-effect subset of the full roster, excluding the two Holosphere-96×20-only effects, Dynamo and Thrusters, and the sim-only ShadierBall. Full-cycle Teensy measurements for the firmware playlist are indexed in the [on-device effect profiles](docs/profiles/README.md).
+The effect registry and tests carry the full 23-effect roster. The simulator sidebar exposes the curated subset for its active resolution (§10.5), omitting three effects at 288×144 and five at 96×20. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `core/engine/effects.h`) is a 20-effect subset of the full roster, excluding the two Holosphere-96×20-only effects, Dynamo and Thrusters, plus ShaderBall while its 288×144 instantiation exceeds the remaining ITCM budget. Full-cycle Teensy measurements for the firmware playlist are indexed in the [on-device effect profiles](docs/profiles/README.md).
 
 ### Core Effects (Modern Engine)
 
@@ -2078,25 +2079,81 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 
 #### ShaderBall
 
-Stereographic-projection shader (extends `Effect` directly) spanning 15 liquid domain-warp, mixed-pattern, and grid fly-through presets from one continuous parameter space. Every look axis — Y-spin vs. dual random-walk wander, glitch-lens strength, pattern cross-coupling vs. direct phase feed, breathe depth, hue shift, and value fade — is a preset-lerped float, so the choreography morphs between any two looks without a discrete pop. Lens transitions interpolate direct and fully lensed stereographic coordinates before one warp/pattern sample. `Scan::Shader::draw` shades through one continuously cycling liquid palette.
+Typed pullback sphere shader (extends `Effect` directly) whose presets compose a source function, sphere projection, surface lens, two planar warp stages, material shaping, coverage, and colorization. It includes the original liquid/flyby vocabulary plus Bonne, Peirce quincuncial, and Airocean (Dymaxion) projections; topology-aware seam metadata; generated triadic and deformation palettes; and continuous preset choreography. GUI edits publish directly to the live authored state, while preset changes use continuous parameter morphs or output-space crossfades when topology changes.
 
-**Teensy full-cycle profile**: shipping holds all 13 presets of the 2026-08-08 capture at 16 fps with a 53.99 ms peak and 0/6,368 frames spilling; global O3 peaks at 50.20 ms ([shipping](docs/profiles/shipping/profile_shaderball_teensy_2026-08-08.md), [global O3](docs/profiles/O3/profile_shaderball_teensy_2026-08-08.md)).
-
-**Parameters**: Warp Scale, Warp Strength, Warp Time, Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Pole Fade, Spin Rate, Wander, Lens Mix, Breathe Depth, Cycle Speed, Hue Shift, Value Fade
+**Parameters**: the active controls are schema-driven by the selected slots. See the vocabulary and dependency map below.
 
 </td></tr></table>
 
-<table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=ShadierBall" target="_blank"><img src="docs/screenshots/ShadierBall.png" alt="ShadierBall" width="280"></a></td>
-<td valign="top">
+### ShaderBall Shader Vocabulary
 
-#### ShadierBall
+ShaderBall is a fixed typed pipeline, not a free-form node graph. Each dropdown chooses one implementation for a named stage; the sliders below it edit only that stage's parameters. A frame snapshots the selected slots, live parameters, clocks, transforms, and palette resources before the per-pixel shader starts, so the hot loop reads immutable state.
 
-Slot-based sphere shader (extends `Effect` directly): each preset names a pattern **Function** (twin-wave interference, rings, spiral, or grid), a sphere-to-plane **Projection** (seam-free equirectangular — azimuth folded and pole-tapered — stereographic, or gnomonic), and a sphere **Lens** (glitch fold, latitude twist, or six-fold kaleidoscope) — discrete slot tags dispatched per pixel on frame-constant copies — plus the continuous params those slots consume. A random-walk camera drifts the whole view at a languid preset-set gain. The shipped preset pairs the twin-wave function (two traveling plane waves, the second rotating continuously relative to the first) with the glitch lens ahead of a stereographic projection; every other combination is one dropdown away. Color walks the 256 prebaked triadic profiles through a `PaletteCycler` on a golden-ratio hue step, fade after fade with no dwell — pausing animation never stills it.
+The shader is a *pullback*: it starts at a visible point on the sphere and walks backward through camera, lens, projection, and warps to discover the source coordinate to sample. Material stages then turn that signed source value and the projection/warp metadata into RGBA.
 
-**Parameters**: Function, Projection, Lens, Speed, Pattern Freq, Wave Spin, Pole Fade, Lens Mix, Wander
+```mermaid
+flowchart LR
+  V[Sphere sample] --> OC[Outer camera]
+  OC --> L[Surface lens]
+  L --> PF[Projection frame]
+  PF --> P[Projection]
+  P --> PL[Projected lookup<br/>coords + weight + seam topology]
+  PL --> OW[Outer planar warp]
+  OW --> IW[Inner planar warp]
+  IW --> F[Source function]
+  F --> SW[Signal weight]
+  SW --> VT[Value transfer]
+  VT --> C[Colorizer]
+  C --> RGBA[RGBA]
 
-</td></tr></table>
+  PL -. projection weight .-> SW
+  PL -. projection weight / edge distance .-> OW
+  PL -. projection weight / edge distance .-> IW
+  PL -. projection weight / edge distance .-> CV[Coverage]
+  VT -. shaped value .-> CV
+  CV -. alpha .-> C
+  OW -. displacement + path metadata .-> C
+  IW -. displacement + path metadata .-> C
+```
+
+The authored stage order is `source → inner warp → outer warp → projection`; pullback evaluation reverses it. **Outer Warp** is therefore nearest the projection and **Inner Warp** nearest the source. This positional vocabulary is stable even when either stage is `None`.
+
+| Stage | Options | Produces or controls |
+|---|---|---|
+| **Function** | Twin Wave, Rings, Spiral, Grid, Coupled / Direct, Noise Contour, Primitive Lattice | A signed scalar field sampled in the final planar coordinates. Function-specific controls replace irrelevant generic sliders. |
+| **Projection** | Equirectangular, Stereographic, Gnomonic, Bonne, Peirce Quincuncial, Airocean / Dymaxion | Planar coordinates plus region/component identity, projection weight, boundary traits, stable edge identity, and fade distance. |
+| **Projection Frame** | Identity, Spin + Wander | Rotates the sphere before projection. Spin Rate and Projection Wander exist only for Spin + Wander. |
+| **Lens** | None, Glitch, Twist, Kaleidoscope, Möbius, Tangent Noise | Distorts a unit-sphere direction before projection. Lens Mix and lens-specific controls exist only for an active lens. |
+| **Outer / Inner Warp** | None, Legacy Stereo Noise, Affine Frame, Wave Shear, Vortex, Vector Noise, Curl Flow, Mirror Tile, Polar Chart | Pulls planar coordinates backward and accumulates displacement, deformation, and path length for downstream colorizers. |
+| **Signal Weight** | None, Projection | Optionally multiplies the signed source signal by the projection's weight before remapping it to `[0, 1]`. It changes value, not alpha. |
+| **Value Transfer** | Linear, Ridge, Iso Contour, Smooth Bands | Shapes the normalized value. Iso controls appear only for Iso Contour; Band Count and Band Phase only for Smooth Bands. |
+| **Coverage** | Opaque, Projection Weight, Projection Weight Squared, Value Cutout, Edge Fade | Computes alpha independently from color value. Linear projection weight is softer and broader than the squared form. |
+| **Colorizer** | Generated Triadic, ShaderBall Liquid, Deformation Ink | Converts shaped value, coverage, and optional warp metadata into straight-alpha color. |
+
+Selector dependencies are explicit and deterministic:
+
+```mermaid
+flowchart TD
+  Projection -->|Bonne| Bonne[Hemisphere + standard parallel]
+  Projection -->|Peirce| Peirce[Layout; scroll for strip layouts]
+  Projection -->|Airocean / Dymaxion| Air[Net layout]
+  Projection -->|Gnomonic| Gnomonic[Hemisphere policy]
+  Projection --> CommonP[Meridian / scale / pole controls<br/>when meaningful]
+
+  Function --> Source[Function-specific source controls]
+  Lens --> LensParams[Lens Mix + selected lens controls]
+  OuterWarp[Outer Warp] --> OuterParams[Selected stage controls]
+  InnerWarp[Inner Warp] --> InnerParams[Selected stage controls]
+  ValueTransfer --> TransferParams[Iso or band controls]
+  Coverage --> CoverageParams[Cutout threshold or edge width]
+  Colorizer --> ColorParams[Palette / breathe / hue / fade controls]
+```
+
+Some combinations are intentionally inadmissible. Legacy stereographic noise selects Stereographic projection; seam-sensitive noise stages do not cross the cut topology of Bonne, Peirce, or Airocean; Polar Chart constrains the compatible source; and the device cost model may clear a sibling stage to stay within the 62.5 ms frame budget. These are canonicalization rules between typed stages, not preset-specific patches.
+
+Projection seams use topology supplied by the projection kernel rather than guessing from planar coordinates. **Edge Fade** treats paired cuts as subduction boundaries: one stable side receives the authored fade width, while its partner gets only a one-pixel feather. Glued and periodic edges remain continuous and do not fade. **Pole Fade** is projection weight; selecting either projection-weight coverage policy carries that attenuation into alpha as well as any separately selected signal weighting.
+
+GUI sliders and dropdowns apply immediately. Automatic preset choreography remains continuous: compatible configurations morph one live state, while incompatible discrete topologies blend complete endpoint colors. Source, warp, projection, breathe, global-walk, and palette clocks keep advancing according to their named rates; **Pause Presets** stops automatic preset selection, not those clocks.
 
 <table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DisplacementField" target="_blank"><img src="docs/screenshots/DisplacementField.png" alt="DisplacementField" width="280"></a></td>

@@ -30,7 +30,7 @@
 
 #include "core/math/3dmath.h"
 
-namespace shadierball {
+namespace shaderball {
 
 enum class ProjectionTrait : uint8_t {
   NONE = 0,
@@ -652,4 +652,4 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
           edge_identity};
 }
 
-} // namespace shadierball
+} // namespace shaderball
