@@ -412,30 +412,28 @@ public:
                                  ATTRACTOR_CAP, SIGNED_AXIS_ATTRACTORS,
                                  TRAIL_SAMPLE_STRIDE_>>::step(canvas);
 
-    {
-      if constexpr (SIGNED_AXIS_ATTRACTORS) {
-        HS_CHECK(!signed_axis_attractors || attractors.size() == 6,
-                 "signed-axis physics requires six registered attractors");
-      }
+    if constexpr (SIGNED_AXIS_ATTRACTORS) {
+      HS_CHECK(!signed_axis_attractors || attractors.size() == 6,
+               "signed-axis physics requires six registered attractors");
+    }
 
-      for (size_t i = 0; i < emitters.size(); ++i) {
-        emitters[i](*this);
-      }
+    for (size_t i = 0; i < emitters.size(); ++i) {
+      emitters[i](*this);
+    }
 
-      float max_delta = (2 * PI_F) / W;
+    float max_delta = (2 * PI_F) / W;
 
-      // Swap-remove dead particles, re-testing the same index. The i-- relies on
-      // unsigned wraparound (i==0 -> SIZE_MAX -> ++i back to 0): keep i unsigned
-      // and do not read i between the decrement and the loop's ++i.
-      for (size_t i = 0; i < active_count; ++i) {
-        bool dead = step_particle(pool[i], max_delta);
-        if (dead) {
-          if (i != static_cast<size_t>(active_count - 1)) {
-            pool[i] = pool[active_count - 1];
-          }
-          active_count--;
-          i--;
+    // Swap-remove dead particles, re-testing the same index. The i-- relies on
+    // unsigned wraparound (i==0 -> SIZE_MAX -> ++i back to 0): keep i unsigned
+    // and do not read i between the decrement and the loop's ++i.
+    for (size_t i = 0; i < active_count; ++i) {
+      bool dead = step_particle(pool[i], max_delta);
+      if (dead) {
+        if (i != static_cast<size_t>(active_count - 1)) {
+          pool[i] = pool[active_count - 1];
         }
+        active_count--;
+        i--;
       }
     }
   }
