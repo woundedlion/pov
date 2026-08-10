@@ -1,11 +1,12 @@
 # ShaderBall — unifying Liquid2D and Flyby
 
-**Status: LANDED; NORTH-STAR REVISION IN DESIGN.** `effects/ShaderBall.h`
-ships, `Liquid2D` and `Flyby` are gone from every roster, and the effect carries
-15 presets. Section 0 records the shipped pipeline and the north-star
-ShadierBall contract. Sections 1–13 preserve the original ShaderBall merge
-design and migration record; they are historical where they disagree with
-Section 0 or the code. Section 11 remains the executed roster checklist.
+**Status: LANDED.** `effects/ShaderBall.h` is the sole ShaderBall implementation;
+the earlier fixed stereographic implementation has been removed. The typed
+pipeline carries 21 presets and the complete vocabulary in Section 0. Sections
+1–13 preserve the original merge and migration record; they are historical
+where they disagree with Section 0 or the code. References to ShadierBall below
+name the former prototype from which the final typed implementation was
+promoted. Section 11 remains the executed roster checklist.
 
 ## 0. North star: authored field pipeline, pullback renderer
 
@@ -26,12 +27,13 @@ turning ShaderBall into one opaque function slot. It must also retain
 ShadierBall's additional functions, projections, and lenses. Continuous
 parameters morph inside a topology; discrete slot tags choose the topology.
 
-### 0.1 Status quo: both effects are pullback samplers
+### 0.1 Migration baselines: both predecessors were pullback samplers
 
 `Scan::Shader::draw` does not receive generated geometry or a forward-projected
 sample. For each output pixel it supplies a world/view-space unit direction and
-expects the final `Color4`. ShaderBall and ShadierBall therefore ask, "which
-source coordinate and material land at this view direction?"
+expects the final `Color4`. Both predecessor implementations therefore asked,
+"which source coordinate and material land at this view direction?" The final
+typed ShaderBall retains that pullback model.
 
 For shipped ShaderBall, let `O` be the outer camera, `P` the current member
 named `cam_inner`, `L` the glitch lens, and `project` the stereographic map. Its
@@ -354,8 +356,8 @@ The north-star discrete slots are:
 - `SurfaceLens`: none, glitch, twist, kaleidoscope, Möbius, and tangent noise;
 - `SignalWeight`: none or projection weight;
 - `ValueTransfer`: linear, ridge, iso-contour, or smooth bands;
-- `CoveragePolicy`: opaque, projection-weight squared, value cutout, or edge
-  fade; and
+- `CoveragePolicy`: opaque, projection weight, projection-weight squared, value
+  cutout, or edge fade; and
 - `Colorizer`: generated triadic, ShaderBall liquid, and deformation ink.
 
 Value policy owns distinctions projection cannot express. Given raw field
@@ -375,6 +377,7 @@ outputs clamp to `[0, 1]`. Coverage is then:
 
 ```text
 OPAQUE:                     coverage = 1
+PROJECTION_WEIGHT:          coverage = w
 PROJECTION_WEIGHT_SQUARED:  coverage = w²
 VALUE_CUTOUT:               coverage = smoothstep(threshold-softness,
                                                   threshold+softness, value)
@@ -950,6 +953,14 @@ it traverses unrelated source space. The projection-specific compatibility
 predicate decides this from both branch results. All transitions between
 Airocean and another projection use the general full-output fallback.
 
+Edge-fade ownership is asymmetric across every paired cut. A stable edge
+identity chooses the under-side, which receives the authored fade width; the
+opposite side receives only a one-pixel feather at the active render height.
+Bonne uses its two cut regions, Peirce uses alternating folded sectors, and
+Airocean uses the fixed paired net-edge identities. Unpaired singular
+boundaries retain the authored width. This makes the cut read as one sheet
+subducting beneath the other instead of two equally transparent margins.
+
 #### Projection transitions, validation, and budget
 
 Projection enum values and discrete layouts never interpolate coordinates.
@@ -982,75 +993,29 @@ Authoritative references:
 - [PROJ: Airocean](https://proj.org/en/stable/operations/projections/airocean.html)
 - [PROJ Airocean reference implementation](https://github.com/OSGeo/PROJ/blob/master/src/projections/airocean.cpp)
 
-### 0.9 Parity boundary and delivery
+### 0.9 Retirement status
 
-ShadierBall replaces ShaderBall only when every preset hold and adjacent
-transition preserves:
+The typed implementation is now the sole ShaderBall. Retirement was accepted
+on architectural and behavioral coverage rather than exact pixel parity with
+the earlier fixed stereographic implementation. The final gate established:
 
-- the authored phase order, with outer camera last;
-- source clocks, projection-frame alignment/spin, and both running walks;
-- coordinate-space glitch-lens joining before one downstream warp/sample;
-- post-join radial policy, legacy coordinate conditioning, and the sole-stage
-  `LEGACY_STEREO_NOISE` path's exact wrapped time, warped coordinate,
-  displacement magnitude, and colorizer input;
-- the coupled/direct source function and its continuous parameters;
-- liquid colorizer behavior: palette walk, breathe, value fade, hue rotation,
-  wrap, and gamut handling;
-- ShadierBall's projection-derived alpha coverage;
-- colorizer-specific palette pause, choreography, premultiplied transition,
-  and exact endpoint semantics; and
-- device memory, ITCM, and full-cycle timing gates.
+- one authored/pullback phase model with outer camera last;
+- named, continuously advancing source, warp, projection, breathe, walk, and
+  palette clocks;
+- the two-stage warp program, coupled/direct source, liquid colorizer, and all
+  migrated looks in the 21-preset bank;
+- deterministic GUI edits and exact transition endpoints;
+- premultiplied output blending for topology-changing preset transitions;
+- projection topology metadata, host oracles, finite-output fuzzing, and seam
+  ownership tests for Bonne, Peirce quincuncial, and Airocean;
+- linear and squared projection-weight coverage, value cutout, and asymmetric
+  subduction edge fade; and
+- native effect, smoke, arena, stack, frame-budget, and WASM integration gates.
 
-Parity is decided by a reproducible capture protocol, not visual inspection:
-
-1. Build the shipped ShaderBall reference and candidate with recorded commits,
-   identical optimization/target flags, fixed FastNoise and random-walk seeds,
-   identical initial clocks/orientations, palette provider sequence, pause
-   state, and preset index.
-2. Drive the exact 15-preset choreography by frame number. Capture every hold,
-   every adjacent transition including preset 15 back to 1, exact endpoints,
-   and frames spanning phase, noise-time, and palette-cycle wrap boundaries.
-3. At named landmark directions and a deterministic full-frame sample set,
-   compare white-box projected coordinates, post-join radius/weight, warped
-   coordinates, net delta/path length, function value, coverage, and final
-   color. Also
-   compare the complete rendered premultiplied `Pixel` frame.
-4. Slot tags, preset/choreography indices, clock-wrap events, pause behavior,
-   and transition endpoint landing are exact. Final 16-bit linear rendered
-   channels may differ by at most one LSB and pre-write alpha by at most
-   `1/65535`; non-finite values, persistent phase displacement, or errors that
-   accumulate across cycles fail regardless of per-frame tolerance.
-5. Any approved visual migration—such as replacing the private gnomonic
-   kernel or tightening a legacy lens join—is removed from the parity set and
-   receives its own before/after oracle, approval, and golden baseline.
-
-The capture corpus and comparison report are retained beside the device profile
-used for retirement so the gate can be rerun from the recorded configuration.
-
-Delivery is phased:
-
-1. **Contract:** introduce source, warp, project, surface, color, and outer-view
-   boundaries, including projection topology metadata, without changing either
-   effect's output. Pin both authored order and pullback order in tests.
-2. **Fixed-topology parity:** add ShaderBall's missing source clocks, projection
-   frame, warp, coupled/direct function, colorizer, and choreography to
-   ShadierBall. Port the presets unchanged.
-3. **Admitted slot transitions:** add compatible-boundary blends, measured
-   full-output fallbacks for endpoint pairs that fit, and exact snap for pairs
-   that do not.
-4. **Retirement gate:** compare every hold and transition, run device profile
-   and size gates, and remove ShaderBall only when ShadierBall is the sole
-   implementation of the same behavior.
-
-Projection expansion is a parallel track after phase 1. Bonne, Peirce
-quincuncial, and Airocean land independently, one projection at a time, only
-after their own oracle, seam, and device-budget gates pass. They consume the
-same projection contract and transition fallback, but they do not block
-fixed-topology ShaderBall parity or retirement.
-
-This separates the load-bearing authored phase model from combinatorial slot
-transitions. ShaderBall parity does not depend on solving every cross-projection
-or cross-lens morph first.
+The earlier ShaderBall class and its dedicated white-box tests are removed.
+The former ShadierBall class, registry name, test module, and simulator entry
+are renamed to ShaderBall. Historical sections below retain the migration
+record but do not define the shipping architecture.
 
 ### 0.10 Integration with existing engine architecture
 

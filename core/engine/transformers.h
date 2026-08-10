@@ -12,7 +12,7 @@
  * @details Also holds the free warp and field functions those pools compose,
  *          and the stereographic pattern family — pole attenuation, pattern
  *          normalization and argument clamping, noise warp and glitch lens —
- *          shared by the stereo pattern effects (ShaderBall, ShadierBall).
+ *          shared by ShaderBall's stereographic pipeline.
  */
 
 #include "math/3dmath.h"
@@ -863,7 +863,7 @@ stereo_noise_warp(const Complex &z, float r_sq, const FastNoiseLite &noise,
  * @param v Unit direction vector on the sphere.
  * @return Direction after latitude doubling and azimuth tripling; returns
  * the up vector near the lens axis.
- * @details Shared by the stereo pattern effects (ShaderBall, ShadierBall) so
+ * @details Shared by ShaderBall's stereographic pipeline so
  * the lens look stays identical across both.
  */
 inline Vector glitch_lens(const Vector &v) {

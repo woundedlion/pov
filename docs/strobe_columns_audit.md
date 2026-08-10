@@ -53,7 +53,6 @@ column blanks to black after it is shown rather than persisting into the next.
 | RingShower | `true` |
 | RingSpin | `true` |
 | ShaderBall | `true` |
-| ShadierBall | `true` |
 | ShapeShifter | `true` |
 | SphericalHarmonics | `true` |
 | Thrusters | `true` |

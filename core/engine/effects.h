@@ -33,7 +33,6 @@
 #include "effects/RingShower.h"
 #include "effects/RingSpin.h"
 #include "effects/ShaderBall.h"
-#include "effects/ShadierBall.h"
 #include "effects/ShapeShifter.h"
 #include "effects/SphericalHarmonics.h"
 #include "effects/Thrusters.h"
@@ -74,7 +73,6 @@
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
   X(ShaderBall)                                                                \
-  X(ShadierBall)                                                               \
   X(ShapeShifter)                                                              \
   X(SphericalHarmonics)                                                        \
   X(Thrusters)                                                                 \
@@ -82,8 +80,8 @@
 
 /**
  * @brief Phantasm (288x144) playlist: HS_EFFECT_LIST minus the low-res-only
- *        effects (Dynamo, Thrusters — Holosphere 96x20 only) and ShadierBall
- *        (excluded while it grows; its 288x144 shader instantiation does not
+ *        effects (Dynamo, Thrusters — Holosphere 96x20 only) and ShaderBall
+ *        (its 288x144 shader instantiation does not
  *        fit the remaining ITCM budget — see docs/itcm_ledger.md).
  * @param X Function-like macro applied to each effect type name in the playlist.
  * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
@@ -109,7 +107,6 @@
   X(Raymarch)                                                                  \
   X(RingShower)                                                                \
   X(RingSpin)                                                                  \
-  X(ShaderBall)                                                                \
   X(ShapeShifter)                                                              \
   X(SphericalHarmonics)                                                        \
   X(Voronoi)
@@ -204,13 +201,13 @@ static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
 static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 3,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus Dynamo, Thrusters, and ShadierBall)");
+              "(full roster minus Dynamo, Thrusters, and ShaderBall)");
 static_assert(hs_in_effect_list("Dynamo") && hs_in_effect_list("Thrusters") &&
-                  hs_in_effect_list("ShadierBall"),
+                  hs_in_effect_list("ShaderBall"),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
 static_assert(!hs_in_phantasm_effect_list("Dynamo") &&
                   !hs_in_phantasm_effect_list("Thrusters") &&
-                  !hs_in_phantasm_effect_list("ShadierBall"),
+                  !hs_in_phantasm_effect_list("ShaderBall"),
               "HS_PHANTASM_EFFECT_LIST must exclude Dynamo and Thrusters "
-              "(Holosphere 96x20 only) and ShadierBall (ITCM budget)");
+              "(Holosphere 96x20 only) and ShaderBall (ITCM budget)");

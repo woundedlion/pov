@@ -245,7 +245,6 @@ inline void check_roster_order_pinned() {
                                               "RingShower",
                                               "RingSpin",
                                               "ShaderBall",
-                                              "ShadierBall",
                                               "ShapeShifter",
                                               "SphericalHarmonics",
                                               "Thrusters",

@@ -9,7 +9,7 @@
 #include "tests/test_harness.h"
 
 namespace hs_test {
-namespace shadierball_tests {
+namespace shaderball_tests {
 
 using effects_tests::FRAME_MS;
 using effects_tests::FRAME_US;
@@ -17,60 +17,60 @@ using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
-/** @brief White-box access to ShadierBall's typed pipeline. */
-struct ShadierBallWhiteBox {
-  using SDB = ShadierBall<SMALL_W, SMALL_H>;
-  using Function = SDB::Function;
-  using Projection = SDB::Projection;
-  using BonneHemisphere = SDB::BonneHemisphere;
-  using GnomonicHemispherePolicy = SDB::GnomonicHemispherePolicy;
-  using ProjectionFramePolicy = SDB::ProjectionFramePolicy;
-  using SurfaceLens = SDB::SurfaceLens;
-  using NoiseBasis = SDB::NoiseBasis;
-  using WarpEnvelope = SDB::WarpEnvelope;
-  using PolarMode = SDB::PolarMode;
-  using CurlIntegrator = SDB::CurlIntegrator;
-  using PolarHarmonic = SDB::PolarHarmonic;
-  using WarpStageKind = SDB::WarpStageKind;
-  using WarpStageSpec = SDB::WarpStageSpec;
-  using WarpStageParams = SDB::WarpStageParams;
-  using ProjectionParams = SDB::ProjectionParams;
-  using SignalWeight = SDB::SignalWeight;
-  using ValueTransfer = SDB::ValueTransfer;
-  using CoveragePolicy = SDB::CoveragePolicy;
-  using Colorizer = SDB::Colorizer;
-  using Slots = SDB::Slots;
-  using Params = SDB::Params;
-  using RequestedConfig = SDB::RequestedConfig;
-  using SourceState = SDB::SourceState;
-  using FrameState = SDB::FrameState;
-  using ProjectedLookup = SDB::ProjectedLookup;
-  using PlanarWarpStageResult = SDB::PlanarWarpStageResult;
-  using PlanarWarpResult = SDB::PlanarWarpResult;
-  using MaterialSample = SDB::MaterialSample;
-  using ClockState = SDB::ClockState;
-  using LookRuntime = SDB::LookRuntime;
-  using WalkDeltas = SDB::WalkDeltas;
-  using DualOutputFrame = SDB::DualOutputFrame;
-  using ThroughClearPhase = SDB::ThroughClearPhase;
-  using TransitionMode = SDB::TransitionMode;
-  using CostTier = SDB::CostTier;
-  using DeviceCost = SDB::DeviceCost;
+/** @brief White-box access to ShaderBall's typed pipeline. */
+struct ShaderBallWhiteBox {
+  using SB = ShaderBall<SMALL_W, SMALL_H>;
+  using Function = SB::Function;
+  using Projection = SB::Projection;
+  using BonneHemisphere = SB::BonneHemisphere;
+  using GnomonicHemispherePolicy = SB::GnomonicHemispherePolicy;
+  using ProjectionFramePolicy = SB::ProjectionFramePolicy;
+  using SurfaceLens = SB::SurfaceLens;
+  using NoiseBasis = SB::NoiseBasis;
+  using WarpEnvelope = SB::WarpEnvelope;
+  using PolarMode = SB::PolarMode;
+  using CurlIntegrator = SB::CurlIntegrator;
+  using PolarHarmonic = SB::PolarHarmonic;
+  using WarpStageKind = SB::WarpStageKind;
+  using WarpStageSpec = SB::WarpStageSpec;
+  using WarpStageParams = SB::WarpStageParams;
+  using ProjectionParams = SB::ProjectionParams;
+  using SignalWeight = SB::SignalWeight;
+  using ValueTransfer = SB::ValueTransfer;
+  using CoveragePolicy = SB::CoveragePolicy;
+  using Colorizer = SB::Colorizer;
+  using Slots = SB::Slots;
+  using Params = SB::Params;
+  using RequestedConfig = SB::RequestedConfig;
+  using SourceState = SB::SourceState;
+  using FrameState = SB::FrameState;
+  using ProjectedLookup = SB::ProjectedLookup;
+  using PlanarWarpStageResult = SB::PlanarWarpStageResult;
+  using PlanarWarpResult = SB::PlanarWarpResult;
+  using MaterialSample = SB::MaterialSample;
+  using ClockState = SB::ClockState;
+  using LookRuntime = SB::LookRuntime;
+  using WalkDeltas = SB::WalkDeltas;
+  using DualOutputFrame = SB::DualOutputFrame;
+  using ThroughClearPhase = SB::ThroughClearPhase;
+  using TransitionMode = SB::TransitionMode;
+  using CostTier = SB::CostTier;
+  using DeviceCost = SB::DeviceCost;
 
-  static constexpr float AXIS_EPS = SDB::GNOMONIC_AXIS_EPS;
-  static constexpr uint32_t HUE_STEP = SDB::HUE_STEP;
+  static constexpr float AXIS_EPS = SB::GNOMONIC_AXIS_EPS;
+  static constexpr uint32_t HUE_STEP = SB::HUE_STEP;
 
-  static ClockState clocks(const SDB &sdb) { return sdb.runtime.clocks; }
-  static void seed_clocks(SDB &sdb, float value) {
-    sdb.runtime.clocks = {value, value, value, value, value, value};
+  static ClockState clocks(const SB &sb) { return sb.runtime.clocks; }
+  static void seed_clocks(SB &sb, float value) {
+    sb.runtime.clocks = {value, value, value, value, value, value};
   }
-  static FrameState frame(const SDB &sdb) { return sdb.prepare_frame(); }
-  static Slots active_slots(const SDB &sdb) { return sdb.active_slots; }
-  static RequestedConfig active_config(const SDB &sdb) {
-    return {sdb.active_slots, sdb.blend.params};
+  static FrameState frame(const SB &sb) { return sb.prepare_frame(); }
+  static Slots active_slots(const SB &sb) { return sb.active_slots; }
+  static RequestedConfig active_config(const SB &sb) {
+    return {sb.active_slots, sb.blend.params};
   }
   static constexpr Slots liquid_stereo_slots() {
-    return SDB::LIQUID_STEREO_SLOTS;
+    return SB::LIQUID_STEREO_SLOTS;
   }
   static constexpr Slots legacy_slots() {
     return {Function::TWIN_WAVE,
@@ -93,248 +93,242 @@ struct ShadierBallWhiteBox {
              {0.0f, 0.0f, 0.0f, 0.0f},
              {0.25f}}};
   }
-  static void request_slots(SDB &sdb, const Slots &slots) {
-    sdb.requested_config.slots = slots;
-    sdb.requested_schema_bound = false;
-    sdb.apply_requested_config();
+  static void request_slots(SB &sb, const Slots &slots) {
+    sb.requested_config.slots = slots;
+    sb.requested_schema_bound = false;
+    sb.apply_requested_config();
   }
-  static Slots requested_slots(const SDB &sdb) {
-    return sdb.requested_config.slots;
+  static Slots requested_slots(const SB &sb) {
+    return sb.requested_config.slots;
   }
-  static const RequestedConfig &requested_config(const SDB &sdb) {
-    return sdb.requested_config;
+  static const RequestedConfig &requested_config(const SB &sb) {
+    return sb.requested_config;
   }
-  static const RequestedConfig &published_config(const SDB &sdb) {
-    return sdb.published_config;
+  static const RequestedConfig &published_config(const SB &sb) {
+    return sb.published_config;
   }
-  static void request_config(SDB &sdb, const RequestedConfig &config) {
-    sdb.requested_config = config;
-    sdb.requested_schema_bound = false;
-    sdb.apply_requested_config();
+  static void request_config(SB &sb, const RequestedConfig &config) {
+    sb.requested_config = config;
+    sb.requested_schema_bound = false;
+    sb.apply_requested_config();
   }
   static bool slots_equal(const Slots &a, const Slots &b) { return a == b; }
   static constexpr bool valid_config(const RequestedConfig &config) {
-    return SDB::valid_config(config);
+    return SB::valid_config(config);
   }
   static constexpr bool seam_compatible(const RequestedConfig &config) {
-    return SDB::strict_seam_compatible(config);
+    return SB::strict_seam_compatible(config);
   }
   static constexpr bool transition_admitted(const RequestedConfig &from,
                                             const RequestedConfig &to) {
-    return SDB::transition_admitted(from, to);
+    return SB::transition_admitted(from, to);
   }
   static constexpr bool hold_admitted(const RequestedConfig &config) {
-    return SDB::hold_admitted(config);
+    return SB::hold_admitted(config);
   }
   static constexpr bool stable_topology(const RequestedConfig &from,
                                         const RequestedConfig &to) {
-    return SDB::stable_topology(from, to);
+    return SB::stable_topology(from, to);
   }
   static constexpr bool
   stable_parameter_path_admitted(const RequestedConfig &from,
                                  const RequestedConfig &to) {
-    return SDB::stable_parameter_path_admitted(from, to);
+    return SB::stable_parameter_path_admitted(from, to);
   }
   static constexpr uint16_t hold_device_point_budget() {
-    return SDB::HOLD_DEVICE_POINT_BUDGET;
+    return SB::HOLD_DEVICE_POINT_BUDGET;
   }
   static constexpr uint16_t noise_call_points() {
-    return SDB::NOISE_CALL_POINTS;
+    return SB::NOISE_CALL_POINTS;
   }
   static constexpr float noise_time_period() {
-    return SDB::STEREO_NOISE_TIME_PERIOD;
+    return SB::STEREO_NOISE_TIME_PERIOD;
   }
-  static bool transition_active(const SDB &sdb) {
-    return sdb.transition.active;
+  static bool transition_active(const SB &sb) { return sb.transition.active; }
+  static bool param_morph_active(const SB &sb) { return sb.param_morph.active; }
+  static uint16_t param_morph_elapsed(const SB &sb) {
+    return sb.param_morph.elapsed;
   }
-  static bool param_morph_active(const SDB &sdb) {
-    return sdb.param_morph.active;
+  static const Params &live_params(const SB &sb) { return sb.blend.params; }
+  static size_t preset_index(const SB &sb) { return sb.preset_index; }
+  static float transition_mix(const SB &sb) {
+    return SB::transition_mix(sb.transition.elapsed, sb.transition.duration);
   }
-  static uint16_t param_morph_elapsed(const SDB &sdb) {
-    return sdb.param_morph.elapsed;
+  static const LookRuntime &transition_from_runtime(const SB &sb) {
+    return sb.transition.from_runtime;
   }
-  static const Params &live_params(const SDB &sdb) { return sdb.blend.params; }
-  static size_t preset_index(const SDB &sdb) { return sdb.preset_index; }
-  static float transition_mix(const SDB &sdb) {
-    return SDB::transition_mix(sdb.transition.elapsed, sdb.transition.duration);
+  static const LookRuntime &transition_to_runtime(const SB &sb) {
+    return sb.transition.to_runtime;
   }
-  static const LookRuntime &transition_from_runtime(const SDB &sdb) {
-    return sdb.transition.from_runtime;
+  static const RequestedConfig &transition_from_config(const SB &sb) {
+    return sb.transition.from_config;
   }
-  static const LookRuntime &transition_to_runtime(const SDB &sdb) {
-    return sdb.transition.to_runtime;
+  static const RequestedConfig &transition_to_config(const SB &sb) {
+    return sb.transition.to_config;
   }
-  static const RequestedConfig &transition_from_config(const SDB &sdb) {
-    return sdb.transition.from_config;
+  static bool transition_continues_choreo(const SB &sb) {
+    return sb.transition.continue_choreo;
   }
-  static const RequestedConfig &transition_to_config(const SDB &sdb) {
-    return sdb.transition.to_config;
+  static uint16_t transition_elapsed(const SB &sb) {
+    return sb.transition.elapsed;
   }
-  static bool transition_continues_choreo(const SDB &sdb) {
-    return sdb.transition.continue_choreo;
-  }
-  static uint16_t transition_elapsed(const SDB &sdb) {
-    return sdb.transition.elapsed;
-  }
-  static NoiseBasis prepared_noise_basis(const SDB &sdb, uint8_t resource_id) {
-    for (size_t index = 0; index < sdb.prepared_noise_count; ++index)
-      if (sdb.prepared_noise_keys[index].resource_id == resource_id)
-        return sdb.prepared_noise_keys[index].basis;
+  static NoiseBasis prepared_noise_basis(const SB &sb, uint8_t resource_id) {
+    for (size_t index = 0; index < sb.prepared_noise_count; ++index)
+      if (sb.prepared_noise_keys[index].resource_id == resource_id)
+        return sb.prepared_noise_keys[index].basis;
     return static_cast<NoiseBasis>(0xff);
   }
   static constexpr TransitionMode transition_mode(const RequestedConfig &from,
                                                   const RequestedConfig &to) {
-    return SDB::transition_mode(from, to);
+    return SB::transition_mode(from, to);
   }
   static constexpr DeviceCost device_cost(const RequestedConfig &config) {
-    return SDB::device_cost(config);
+    return SB::device_cost(config);
   }
   static constexpr CostTier cost_tier(const RequestedConfig &config) {
-    return SDB::cost_tier(SDB::device_cost(config));
+    return SB::cost_tier(SB::device_cost(config));
   }
-  static void force_transition(SDB &sdb, const RequestedConfig &to,
+  static void force_transition(SB &sb, const RequestedConfig &to,
                                uint16_t duration, bool continue_choreo) {
-    const RequestedConfig from = active_config(sdb);
-    sdb.param_morph.active = false;
-    sdb.transition = {from,
-                      to,
-                      sdb.runtime,
-                      sdb.runtime,
-                      0,
-                      duration,
-                      continue_choreo,
-                      true,
-                      SDB::transition_mode(from, to)};
+    const RequestedConfig from = active_config(sb);
+    sb.param_morph.active = false;
+    sb.transition = {from,
+                     to,
+                     sb.runtime,
+                     sb.runtime,
+                     0,
+                     duration,
+                     continue_choreo,
+                     true,
+                     SB::transition_mode(from, to)};
   }
-  static const LookRuntime &runtime(const SDB &sdb) { return sdb.runtime; }
-  static Quaternion projection_walk(const SDB &sdb) {
-    return sdb.projection_walk.get();
+  static const LookRuntime &runtime(const SB &sb) { return sb.runtime; }
+  static Quaternion projection_walk(const SB &sb) {
+    return sb.projection_walk.get();
   }
-  static Quaternion outer_walk(const SDB &sdb) { return sdb.outer_walk.get(); }
-  static void advance_runtime(SDB &sdb, LookRuntime &runtime,
+  static Quaternion outer_walk(const SB &sb) { return sb.outer_walk.get(); }
+  static void advance_runtime(SB &sb, LookRuntime &runtime,
                               const RequestedConfig &config,
                               const WalkDeltas &deltas) {
-    sdb.advance_runtime(runtime, config, deltas);
+    sb.advance_runtime(runtime, config, deltas);
   }
   static Color4 shade_dual_output(const Vector &view,
                                   const DualOutputFrame &frame) {
-    return SDB::shade_dual_output(view, frame);
+    return SB::shade_dual_output(view, frame);
   }
   static ThroughClearPhase through_clear_phase(uint16_t elapsed,
                                                uint16_t duration) {
-    return SDB::through_clear_phase(elapsed, duration);
+    return SB::through_clear_phase(elapsed, duration);
   }
   static Color4 shade_through_clear(const Vector &view,
                                     const FrameState *visible,
                                     const ThroughClearPhase &phase) {
-    return SDB::shade_through_clear(view, visible, phase);
+    return SB::shade_through_clear(view, visible, phase);
   }
-  static void begin_blend(SDB &sdb) { sdb.begin_blend(); }
-  static void step_param_morph(SDB &sdb) {
-    sdb.prepare_param_morph();
-    sdb.advance_runtime(sdb.runtime, {sdb.active_slots, sdb.blend.params},
-                        {Quaternion(), Quaternion()});
-    sdb.finish_transitions();
+  static void begin_blend(SB &sb) { sb.begin_blend(); }
+  static void step_param_morph(SB &sb) {
+    sb.prepare_param_morph();
+    sb.advance_runtime(sb.runtime, {sb.active_slots, sb.blend.params},
+                       {Quaternion(), Quaternion()});
+    sb.finish_transitions();
   }
-  static void settle_transition(SDB &sdb) {
+  static void settle_transition(SB &sb) {
     for (int frame = 0;
-         frame < 1024 && (sdb.transition.active || sdb.param_morph.active);
+         frame < 1024 && (sb.transition.active || sb.param_morph.active);
          ++frame) {
-      sdb.draw_frame();
-      sdb.advance_display();
+      sb.draw_frame();
+      sb.advance_display();
     }
   }
-  static uint32_t walk_steps(const SDB &sdb) { return sdb.walk_step_count; }
-  static uint32_t liquid_palette_steps(const SDB &sdb) {
-    return sdb.liquid_palette_step_count;
+  static uint32_t walk_steps(const SB &sb) { return sb.walk_step_count; }
+  static uint32_t liquid_palette_steps(const SB &sb) {
+    return sb.liquid_palette_step_count;
   }
-  static uint32_t generated_palette_steps(const SDB &sdb) {
-    return sdb.generated_palette_step_count;
+  static uint32_t generated_palette_steps(const SB &sb) {
+    return sb.generated_palette_step_count;
   }
   static Color4 blend_outputs(const Color4 &from, const Color4 &to, float mix) {
-    return SDB::blend_outputs(from, to, mix);
+    return SB::blend_outputs(from, to, mix);
   }
   static ProjectedLookup join(const ProjectedLookup &direct,
                               const ProjectedLookup &lensed, float mix,
                               Projection projection, float pole_fade) {
-    return SDB::join_projected(direct, lensed, mix, projection, pole_fade);
+    return SB::join_projected(direct, lensed, mix, projection, pole_fade);
   }
   static bool join_compatible(const ProjectedLookup &direct,
                               const ProjectedLookup &lensed,
                               Projection projection,
                               float coordinate_scale = 1.0f) {
-    return SDB::projection_join_compatible(direct, lensed, projection,
-                                           coordinate_scale);
+    return SB::projection_join_compatible(direct, lensed, projection,
+                                          coordinate_scale);
   }
-  static constexpr uint8_t boundary_cut() { return SDB::BOUNDARY_CUT; }
-  static constexpr uint8_t boundary_singular() {
-    return SDB::BOUNDARY_SINGULAR;
-  }
+  static constexpr uint8_t boundary_cut() { return SB::BOUNDARY_CUT; }
+  static constexpr uint8_t boundary_singular() { return SB::BOUNDARY_SINGULAR; }
   static constexpr uint8_t projection_folded() {
-    return SDB::PROJECTION_FLAG_FOLDED;
+    return SB::PROJECTION_FLAG_FOLDED;
   }
   static Vector outer_lookup(const Vector &v, const FrameState &frame) {
-    return SDB::outer_camera_lookup(v, frame);
+    return SB::outer_camera_lookup(v, frame);
   }
   static ProjectedLookup surface_project(const Vector &v,
                                          const FrameState &frame) {
-    return SDB::surface_lens_project_lookup(v, frame);
+    return SB::surface_lens_project_lookup(v, frame);
   }
   static PlanarWarpResult warp(const ProjectedLookup &projected,
                                const FrameState &frame) {
-    return SDB::planar_warp_lookup(projected, frame);
+    return SB::planar_warp_lookup(projected, frame);
   }
   static PlanarWarpStageResult warp_stage(const Complex &input,
                                           const ProjectedLookup &projected,
                                           const WarpStageSpec &spec,
                                           const WarpStageParams &params,
                                           const FrameState &frame) {
-    return SDB::warp_stage_lookup(input, projected, spec, params, frame);
+    return SB::warp_stage_lookup(input, projected, spec, params, frame);
   }
   static MaterialSample material(const ProjectedLookup &projected,
                                  const PlanarWarpResult &warped,
                                  const FrameState &frame) {
     const Complex source_coords =
-        SDB::condition_source_coords(warped.coords, frame);
-    const float field = SDB::sample_source(source_coords, frame);
-    return SDB::shape_material(field, projected, warped, frame);
+        SB::condition_source_coords(warped.coords, frame);
+    const float field = SB::sample_source(source_coords, frame);
+    return SB::shape_material(field, projected, warped, frame);
   }
   static MaterialSample shape(float field, const ProjectedLookup &projected,
                               const PlanarWarpResult &warped,
                               const FrameState &frame) {
-    return SDB::shape_material(field, projected, warped, frame);
+    return SB::shape_material(field, projected, warped, frame);
   }
   static float edge_fade_width(const ProjectedLookup &projected,
                                const FrameState &frame) {
-    return SDB::edge_fade_width(projected, frame);
+    return SB::edge_fade_width(projected, frame);
   }
   static Color4 colorize(const MaterialSample &sample,
                          const FrameState &frame) {
-    return SDB::colorize(sample, frame);
+    return SB::colorize(sample, frame);
   }
   static Color4 shade(const Vector &v, const FrameState &frame) {
-    return SDB::shade(v, frame);
+    return SB::shade(v, frame);
   }
   static Complex project_point(const Vector &v, Projection projection) {
-    return SDB::project_point(v, projection);
+    return SB::project_point(v, projection);
   }
   static ProjectedLookup
   finalize_projection(const Vector &v, const Complex &coords,
                       Projection projection, float pole_fade,
                       GnomonicHemispherePolicy hemisphere) {
-    return SDB::finalize_projection(v, coords, projection, pole_fade,
-                                    hemisphere);
+    return SB::finalize_projection(v, coords, projection, pole_fade,
+                                   hemisphere);
   }
   static void canonicalize_mobius(MobiusParams &params) {
-    SDB::canonicalize_mobius(params);
+    SB::canonicalize_mobius(params);
   }
   static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
                              NoiseBasis basis, float scale, float time) {
-    return SDB::curl_vector(p, noise, basis, scale, time);
+    return SB::curl_vector(p, noise, basis, scale, time);
   }
   static float wrapped_noise(const FastNoiseLite &noise, NoiseBasis basis,
                              float x, float y, float turns) {
-    return SDB::sample_wrapped_noise_basis(noise, basis, x, y, turns);
+    return SB::sample_wrapped_noise_basis(noise, basis, x, y, turns);
   }
   static ProjectionParams lerp_projection(const ProjectionParams &a,
                                           const ProjectionParams &b, float t) {
@@ -343,43 +337,43 @@ struct ShadierBallWhiteBox {
     return result;
   }
   static Vector apply_lens(const Vector &v, SurfaceLens lens) {
-    return SDB::apply_lens(v, lens);
+    return SB::apply_lens(v, lens);
   }
   static float sample_function(Function function, const Complex &p,
                                const SourceState &source) {
-    return SDB::sample_function(function, p, source);
+    return SB::sample_function(function, p, source);
   }
   static float sample_pattern(const Complex &p, float complexity, float mix,
                               float primary, float secondary) {
-    return SDB::sample_pattern(p, complexity, mix, primary, secondary);
+    return SB::sample_pattern(p, complexity, mix, primary, secondary);
   }
-  static const auto &presets() { return SDB::PRESETS; }
-  static const auto &choreo() { return SDB::CHOREO; }
+  static const auto &presets() { return SB::PRESETS; }
+  static const auto &choreo() { return SB::CHOREO; }
   static void make_triadic(uint32_t &hue, uint32_t sequence,
                            GenerativePalette &out) {
-    SDB::next_triadic_palette(&hue, sequence, out);
+    SB::next_triadic_palette(&hue, sequence, out);
   }
-  static Pixel generated_color(const SDB &sdb, float value) {
-    return sdb.generated_palette_cycler.palette().get(value).color;
+  static Pixel generated_color(const SB &sb, float value) {
+    return sb.generated_palette_cycler.palette().get(value).color;
   }
-  static Pixel liquid_color(const SDB &sdb, float value) {
-    return sdb.liquid_palette_cycler.palette().get(value).color;
+  static Pixel liquid_color(const SB &sb, float value) {
+    return sb.liquid_palette_cycler.palette().get(value).color;
   }
 };
 
 /** @brief Every named clock wraps in its native domain. */
-inline void test_shadierball_clocks_wrapped() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_clocks_wrapped() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
   hs::set_mock_time(0, 0);
-  WB::SDB sdb;
-  sdb.init();
-  WB::seed_clocks(sdb, WB::noise_time_period() * 4.0f);
+  WB::SB sb;
+  sb.init();
+  WB::seed_clocks(sb, WB::noise_time_period() * 4.0f);
   for (int frame = 0; frame < 32; ++frame) {
     hs::set_mock_time(frame * FRAME_MS, frame * FRAME_US);
-    sdb.draw_frame();
-    sdb.advance_display();
-    const WB::ClockState clocks = WB::clocks(sdb);
+    sb.draw_frame();
+    sb.advance_display();
+    const WB::ClockState clocks = WB::clocks(sb);
     HS_EXPECT_GE(clocks.warp_time, 0.0f);
     HS_EXPECT_LT(clocks.warp_time, WB::noise_time_period());
     for (float phase :
@@ -395,11 +389,11 @@ inline void test_shadierball_clocks_wrapped() {
 }
 
 /** @brief Pause freezes choreography while ambient motion keeps advancing. */
-inline void test_shadierball_pause_semantics() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_pause_semantics() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
+  WB::SB sb;
+  sb.init();
   WB::RequestedConfig ambient = WB::presets()[0];
   ambient.params.source.speed = 0.019f;
   ambient.params.source.secondary_rate = 0.37f;
@@ -410,166 +404,163 @@ inline void test_shadierball_pause_semantics() {
   ambient.params.warp.inner.time_scale = 0.003f;
   ambient.params.projection.spin_rate = 0.009f;
   ambient.params.colorizer.cycle_speed = 0.013f;
-  WB::request_config(sdb, ambient);
-  sdb.setAnimationsPaused(true);
+  WB::request_config(sb, ambient);
+  sb.setAnimationsPaused(true);
 
-  const WB::ClockState paused_clocks = WB::clocks(sdb);
-  const Quaternion paused_projection_walk = WB::projection_walk(sdb);
-  const Quaternion paused_outer_walk = WB::outer_walk(sdb);
-  const uint32_t paused_walk_steps = WB::walk_steps(sdb);
-  const uint32_t paused_liquid_steps = WB::liquid_palette_steps(sdb);
-  const uint32_t paused_generated_steps = WB::generated_palette_steps(sdb);
-  const Pixel paused_liquid_color = WB::liquid_color(sdb, 0.25f);
-  const Pixel paused_generated_color = WB::generated_color(sdb, 0.25f);
-  const size_t paused_preset = WB::preset_index(sdb);
+  const WB::ClockState paused_clocks = WB::clocks(sb);
+  const Quaternion paused_projection_walk = WB::projection_walk(sb);
+  const Quaternion paused_outer_walk = WB::outer_walk(sb);
+  const uint32_t paused_walk_steps = WB::walk_steps(sb);
+  const uint32_t paused_liquid_steps = WB::liquid_palette_steps(sb);
+  const uint32_t paused_generated_steps = WB::generated_palette_steps(sb);
+  const Pixel paused_liquid_color = WB::liquid_color(sb, 0.25f);
+  const Pixel paused_generated_color = WB::generated_color(sb, 0.25f);
+  const size_t paused_preset = WB::preset_index(sb);
   for (int frame = 0; frame < 120; ++frame) {
-    sdb.draw_frame();
-    sdb.advance_display();
+    sb.draw_frame();
+    sb.advance_display();
   }
-  HS_EXPECT_NE(WB::clocks(sdb).source_primary, paused_clocks.source_primary);
-  HS_EXPECT_NE(WB::clocks(sdb).source_secondary,
-               paused_clocks.source_secondary);
-  HS_EXPECT_NE(WB::clocks(sdb).source_angle, paused_clocks.source_angle);
-  HS_EXPECT_NE(WB::clocks(sdb).warp_time, paused_clocks.warp_time);
-  HS_EXPECT_NE(WB::clocks(sdb).projection_spin, paused_clocks.projection_spin);
-  HS_EXPECT_NE(WB::clocks(sdb).breathe_phase, paused_clocks.breathe_phase);
-  HS_EXPECT_NE(WB::clocks(sdb).source_noise_time,
+  HS_EXPECT_NE(WB::clocks(sb).source_primary, paused_clocks.source_primary);
+  HS_EXPECT_NE(WB::clocks(sb).source_secondary, paused_clocks.source_secondary);
+  HS_EXPECT_NE(WB::clocks(sb).source_angle, paused_clocks.source_angle);
+  HS_EXPECT_NE(WB::clocks(sb).warp_time, paused_clocks.warp_time);
+  HS_EXPECT_NE(WB::clocks(sb).projection_spin, paused_clocks.projection_spin);
+  HS_EXPECT_NE(WB::clocks(sb).breathe_phase, paused_clocks.breathe_phase);
+  HS_EXPECT_NE(WB::clocks(sb).source_noise_time,
                paused_clocks.source_noise_time);
-  HS_EXPECT_NE(WB::clocks(sdb).lens_noise_time, paused_clocks.lens_noise_time);
-  HS_EXPECT_NE(WB::clocks(sdb).warp_outer_phase,
-               paused_clocks.warp_outer_phase);
-  HS_EXPECT_NE(WB::clocks(sdb).warp_inner_phase,
-               paused_clocks.warp_inner_phase);
-  HS_EXPECT_TRUE(WB::projection_walk(sdb) != paused_projection_walk);
-  HS_EXPECT_TRUE(WB::outer_walk(sdb) != paused_outer_walk);
-  HS_EXPECT_EQ(WB::walk_steps(sdb), paused_walk_steps + 120);
-  HS_EXPECT_EQ(WB::liquid_palette_steps(sdb), paused_liquid_steps + 120);
-  HS_EXPECT_EQ(WB::generated_palette_steps(sdb), paused_generated_steps + 120);
-  const Pixel active_liquid_color = WB::liquid_color(sdb, 0.25f);
-  const Pixel active_generated_color = WB::generated_color(sdb, 0.25f);
+  HS_EXPECT_NE(WB::clocks(sb).lens_noise_time, paused_clocks.lens_noise_time);
+  HS_EXPECT_NE(WB::clocks(sb).warp_outer_phase, paused_clocks.warp_outer_phase);
+  HS_EXPECT_NE(WB::clocks(sb).warp_inner_phase, paused_clocks.warp_inner_phase);
+  HS_EXPECT_TRUE(WB::projection_walk(sb) != paused_projection_walk);
+  HS_EXPECT_TRUE(WB::outer_walk(sb) != paused_outer_walk);
+  HS_EXPECT_EQ(WB::walk_steps(sb), paused_walk_steps + 120);
+  HS_EXPECT_EQ(WB::liquid_palette_steps(sb), paused_liquid_steps + 120);
+  HS_EXPECT_EQ(WB::generated_palette_steps(sb), paused_generated_steps + 120);
+  const Pixel active_liquid_color = WB::liquid_color(sb, 0.25f);
+  const Pixel active_generated_color = WB::generated_color(sb, 0.25f);
   HS_EXPECT_TRUE(active_liquid_color.r != paused_liquid_color.r ||
                  active_liquid_color.g != paused_liquid_color.g ||
                  active_liquid_color.b != paused_liquid_color.b);
   HS_EXPECT_TRUE(active_generated_color.r != paused_generated_color.r ||
                  active_generated_color.g != paused_generated_color.g ||
                  active_generated_color.b != paused_generated_color.b);
-  HS_EXPECT_EQ(WB::preset_index(sdb), paused_preset);
-  HS_EXPECT_FALSE(WB::transition_active(sdb));
-  HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+  HS_EXPECT_EQ(WB::preset_index(sb), paused_preset);
+  HS_EXPECT_FALSE(WB::transition_active(sb));
+  HS_EXPECT_FALSE(WB::param_morph_active(sb));
 
-  sdb.setAnimationsPaused(false);
-  sdb.draw_frame();
-  sdb.advance_display();
-  HS_EXPECT_NE(WB::clocks(sdb).source_primary, paused_clocks.source_primary);
-  HS_EXPECT_TRUE(WB::projection_walk(sdb) != paused_projection_walk);
-  HS_EXPECT_TRUE(WB::outer_walk(sdb) != paused_outer_walk);
-  HS_EXPECT_EQ(WB::walk_steps(sdb), paused_walk_steps + 121);
-  HS_EXPECT_EQ(WB::liquid_palette_steps(sdb), paused_liquid_steps + 121);
-  HS_EXPECT_EQ(WB::generated_palette_steps(sdb), paused_generated_steps + 121);
+  sb.setAnimationsPaused(false);
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_NE(WB::clocks(sb).source_primary, paused_clocks.source_primary);
+  HS_EXPECT_TRUE(WB::projection_walk(sb) != paused_projection_walk);
+  HS_EXPECT_TRUE(WB::outer_walk(sb) != paused_outer_walk);
+  HS_EXPECT_EQ(WB::walk_steps(sb), paused_walk_steps + 121);
+  HS_EXPECT_EQ(WB::liquid_palette_steps(sb), paused_liquid_steps + 121);
+  HS_EXPECT_EQ(WB::generated_palette_steps(sb), paused_generated_steps + 121);
 
-  for (int frame = 0; frame < 120 && WB::preset_index(sdb) == paused_preset;
+  for (int frame = 0; frame < 120 && WB::preset_index(sb) == paused_preset;
        ++frame) {
-    sdb.draw_frame();
-    sdb.advance_display();
+    sb.draw_frame();
+    sb.advance_display();
   }
-  HS_EXPECT_NE(WB::preset_index(sdb), paused_preset);
-  HS_EXPECT_TRUE(WB::param_morph_active(sdb));
-  sdb.setAnimationsPaused(true);
-  const uint16_t paused_morph_elapsed = WB::param_morph_elapsed(sdb);
+  HS_EXPECT_NE(WB::preset_index(sb), paused_preset);
+  HS_EXPECT_TRUE(WB::param_morph_active(sb));
+  sb.setAnimationsPaused(true);
+  const uint16_t paused_morph_elapsed = WB::param_morph_elapsed(sb);
   for (int frame = 0; frame < 8; ++frame) {
-    sdb.draw_frame();
-    sdb.advance_display();
+    sb.draw_frame();
+    sb.advance_display();
   }
-  HS_EXPECT_EQ(WB::param_morph_elapsed(sdb), paused_morph_elapsed);
-  sdb.setAnimationsPaused(false);
-  sdb.draw_frame();
-  sdb.advance_display();
-  HS_EXPECT_EQ(WB::param_morph_elapsed(sdb), paused_morph_elapsed + 1);
+  HS_EXPECT_EQ(WB::param_morph_elapsed(sb), paused_morph_elapsed);
+  sb.setAnimationsPaused(false);
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_EQ(WB::param_morph_elapsed(sb), paused_morph_elapsed + 1);
 }
 
 /** @brief A paused topology edit commits on the next frame. */
-inline void test_shadierball_paused_selector_commit() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_paused_selector_commit() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
-  sdb.setAnimationsPaused(true);
+  WB::SB sb;
+  sb.init();
+  sb.setAnimationsPaused(true);
 
   HS_EXPECT_TRUE(
-      sdb.updateParameter("Inner Warp",
-                          static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
+      sb.updateParameter("Inner Warp",
+                         static_cast<float>(WB::WarpStageKind::CURL_FLOW)) ==
       ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(WB::requested_slots(sdb).warp_program.inner.kind,
+  HS_EXPECT_EQ(WB::requested_slots(sb).warp_program.inner.kind,
                WB::WarpStageKind::CURL_FLOW);
-  HS_EXPECT_EQ(WB::requested_slots(sdb).warp_program.outer.kind,
+  HS_EXPECT_EQ(WB::requested_slots(sb).warp_program.outer.kind,
                WB::WarpStageKind::NONE);
-  HS_EXPECT_NE(WB::active_slots(sdb).warp_program.inner.kind,
+  HS_EXPECT_NE(WB::active_slots(sb).warp_program.inner.kind,
                WB::WarpStageKind::CURL_FLOW);
-  sdb.draw_frame();
-  sdb.advance_display();
-  HS_EXPECT_FALSE(WB::transition_active(sdb));
-  HS_EXPECT_FALSE(WB::param_morph_active(sdb));
-  HS_EXPECT_EQ(WB::active_slots(sdb).warp_program.inner.kind,
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_FALSE(WB::transition_active(sb));
+  HS_EXPECT_FALSE(WB::param_morph_active(sb));
+  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.inner.kind,
                WB::WarpStageKind::CURL_FLOW);
-  HS_EXPECT_EQ(sdb.getParameters().find("Inner Warp")->get(),
+  HS_EXPECT_EQ(sb.getParameters().find("Inner Warp")->get(),
                static_cast<float>(WB::WarpStageKind::CURL_FLOW));
 }
 
 /** @brief Manual parameter edits commit on the next frame. */
-inline void test_shadierball_manual_edit_timing() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_manual_edit_timing() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
-  sdb.setAnimationsPaused(true);
-  sdb.draw_frame();
-  sdb.advance_display();
-  const float before_speed = WB::active_config(sdb).params.source.speed;
+  WB::SB sb;
+  sb.init();
+  sb.setAnimationsPaused(true);
+  sb.draw_frame();
+  sb.advance_display();
+  const float before_speed = WB::active_config(sb).params.source.speed;
 
-  sdb.setAnimationsPaused(false);
-  HS_EXPECT_TRUE(sdb.updateParameter("Speed", before_speed + 0.5f) ==
+  sb.setAnimationsPaused(false);
+  HS_EXPECT_TRUE(sb.updateParameter("Speed", before_speed + 0.5f) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sdb.animations_paused());
-  HS_EXPECT_EQ(WB::active_config(sdb).params.source.speed, before_speed);
-  sdb.draw_frame();
-  sdb.advance_display();
-  HS_EXPECT_FALSE(WB::param_morph_active(sdb));
-  HS_EXPECT_EQ(WB::active_config(sdb).params.source.speed, before_speed + 0.5f);
-  HS_EXPECT_EQ(WB::frame(sdb).params.source.speed, before_speed + 0.5f);
-  HS_EXPECT_TRUE(WB::requested_config(sdb) == WB::active_config(sdb));
-  HS_EXPECT_TRUE(WB::published_config(sdb) == WB::active_config(sdb));
+  HS_EXPECT_TRUE(sb.animations_paused());
+  HS_EXPECT_EQ(WB::active_config(sb).params.source.speed, before_speed);
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_FALSE(WB::param_morph_active(sb));
+  HS_EXPECT_EQ(WB::active_config(sb).params.source.speed, before_speed + 0.5f);
+  HS_EXPECT_EQ(WB::frame(sb).params.source.speed, before_speed + 0.5f);
+  HS_EXPECT_TRUE(WB::requested_config(sb) == WB::active_config(sb));
+  HS_EXPECT_TRUE(WB::published_config(sb) == WB::active_config(sb));
 
   for (WB::Projection projection :
        {WB::Projection::BONNE, WB::Projection::PEIRCE_QUINCUNCIAL,
         WB::Projection::AIROCEAN}) {
     HS_EXPECT_TRUE(
-        sdb.updateParameter("Projection", static_cast<float>(projection)) ==
+        sb.updateParameter("Projection", static_cast<float>(projection)) ==
         ParamSetResult::APPLIED);
-    HS_EXPECT_NE(WB::active_slots(sdb).projection, projection);
-    sdb.draw_frame();
-    sdb.advance_display();
-    HS_EXPECT_FALSE(WB::transition_active(sdb));
-    HS_EXPECT_FALSE(WB::param_morph_active(sdb));
-    HS_EXPECT_EQ(WB::active_slots(sdb).projection, projection);
-    HS_EXPECT_EQ(WB::active_slots(sdb).coverage, WB::CoveragePolicy::EDGE_FADE);
-    HS_EXPECT_TRUE(WB::hold_admitted(WB::active_config(sdb)));
-    HS_EXPECT_TRUE(WB::requested_config(sdb) == WB::active_config(sdb));
-    HS_EXPECT_TRUE(WB::published_config(sdb) == WB::active_config(sdb));
+    HS_EXPECT_NE(WB::active_slots(sb).projection, projection);
+    sb.draw_frame();
+    sb.advance_display();
+    HS_EXPECT_FALSE(WB::transition_active(sb));
+    HS_EXPECT_FALSE(WB::param_morph_active(sb));
+    HS_EXPECT_EQ(WB::active_slots(sb).projection, projection);
+    HS_EXPECT_EQ(WB::active_slots(sb).coverage, WB::CoveragePolicy::EDGE_FADE);
+    HS_EXPECT_TRUE(WB::hold_admitted(WB::active_config(sb)));
+    HS_EXPECT_TRUE(WB::requested_config(sb) == WB::active_config(sb));
+    HS_EXPECT_TRUE(WB::published_config(sb) == WB::active_config(sb));
   }
-  HS_EXPECT_EQ(WB::active_slots(sdb).surface_lens, WB::SurfaceLens::NONE);
-  HS_EXPECT_EQ(WB::active_slots(sdb).warp_program.outer.kind,
+  HS_EXPECT_EQ(WB::active_slots(sb).surface_lens, WB::SurfaceLens::NONE);
+  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.outer.kind,
                WB::WarpStageKind::NONE);
-  HS_EXPECT_EQ(WB::active_slots(sdb).warp_program.inner.kind,
+  HS_EXPECT_EQ(WB::active_slots(sb).warp_program.inner.kind,
                WB::WarpStageKind::NONE);
 }
 
 /** @brief Pullback stages preserve their typed order and metadata. */
-inline void test_shadierball_pipeline_contract() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_pipeline_contract() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
-  WB::FrameState frame = WB::frame(sdb);
+  WB::SB sb;
+  sb.init();
+  WB::FrameState frame = WB::frame(sb);
   frame.slots = WB::legacy_slots();
   frame.slots.surface_lens = WB::SurfaceLens::NONE;
   frame.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
@@ -698,8 +689,8 @@ inline void test_shadierball_pipeline_contract() {
 }
 
 /** @brief Legacy projection and lens slots retain their shipped kernels. */
-inline void test_shadierball_legacy_spatial_slots() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_legacy_spatial_slots() {
+  using WB = ShaderBallWhiteBox;
   const Vector directions[] = {Vector(1, 0, 0), Vector(0, 1, 0),
                                Vector(0, -1, 0), Vector(1, 1, 1).normalized(),
                                Vector(-1, 2, -3).normalized()};
@@ -727,9 +718,9 @@ inline void test_shadierball_legacy_spatial_slots() {
   }
 
   reset_effect_globals();
-  WB::SDB landmark_sdb;
-  landmark_sdb.init();
-  WB::FrameState landmark_frame = WB::frame(landmark_sdb);
+  WB::SB landmark_sb;
+  landmark_sb.init();
+  WB::FrameState landmark_frame = WB::frame(landmark_sb);
   landmark_frame.slots.projection = WB::Projection::STEREOGRAPHIC;
   landmark_frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
   landmark_frame.slots.surface_lens = WB::SurfaceLens::NONE;
@@ -760,7 +751,7 @@ inline void test_shadierball_legacy_spatial_slots() {
   const Vector v(0.6f, 0.48f, 0.64f);
   const Complex direct = stereo(v);
   const Complex lensed = stereo(glitch_lens(v));
-  WB::FrameState frame = WB::frame(landmark_sdb);
+  WB::FrameState frame = WB::frame(landmark_sb);
   frame.slots.projection = WB::Projection::STEREOGRAPHIC;
   frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
   frame.slots.surface_lens = WB::SurfaceLens::GLITCH;
@@ -776,12 +767,12 @@ inline void test_shadierball_legacy_spatial_slots() {
 }
 
 /** @brief Paired projection seams use a broad under-fade and pixel over-fade. */
-inline void test_shadierball_subduction_edge_fade() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_subduction_edge_fade() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
-  WB::FrameState frame = WB::frame(sdb);
+  WB::SB sb;
+  sb.init();
+  WB::FrameState frame = WB::frame(sb);
   frame.params.value.edge_width = 0.1f;
   frame.params.projection.coordinate_scale = 1.0f;
   WB::ProjectedLookup under{Complex(), 0,    0, WB::boundary_cut(),
@@ -809,8 +800,8 @@ inline void test_shadierball_subduction_edge_fade() {
       {9, 14},  {13, 37}, {16, 18}, {17, 41}, {20, 56}, {24, 29}, {38, 40},
       {42, 59}, {44, 45}, {47, 48}, {55, 58}, {62, 66}, {64, 67}};
   for (const auto &pair : airocean_edge_pairs) {
-    HS_EXPECT_TRUE(shadierball::airocean_edge_is_under(pair[0]));
-    HS_EXPECT_FALSE(shadierball::airocean_edge_is_under(pair[1]));
+    HS_EXPECT_TRUE(shaderball::airocean_edge_is_under(pair[0]));
+    HS_EXPECT_FALSE(shaderball::airocean_edge_is_under(pair[1]));
   }
 
   frame.slots.projection = WB::Projection::STEREOGRAPHIC;
@@ -818,8 +809,8 @@ inline void test_shadierball_subduction_edge_fade() {
 }
 
 /** @brief Legacy source functions retain their closed forms. */
-inline void test_shadierball_legacy_sources() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_legacy_sources() {
+  using WB = ShaderBallWhiteBox;
   const float values[] = {-6.0f, -2.5f, -0.7f, 0.0f, 0.9f, 3.1f, 5.8f};
   const WB::SourceState source{0.9f, 1.1f, 0.7f, fast_cosf(0.7f),
                                fast_sinf(0.7f)};
@@ -846,8 +837,8 @@ inline void test_shadierball_legacy_sources() {
 }
 
 /** @brief Coupled/direct sampling reduces to both authored formulas. */
-inline void test_shadierball_coupled_source() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_coupled_source() {
+  using WB = ShaderBallWhiteBox;
   const float values[] = {-6.0f, -2.5f, -0.7f, 0.0f, 0.9f, 3.1f, 5.8f};
   const float phases[] = {0.0f, 0.8f, 2.4f, 4.9f};
   for (float re : values) {
@@ -874,8 +865,8 @@ inline void test_shadierball_coupled_source() {
 }
 
 /** @brief Presets retain the legacy bank and add authored diagnostics. */
-inline void test_shadierball_preset_bank() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_preset_bank() {
+  using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
   HS_EXPECT_EQ(presets.size(), size_t(21));
@@ -963,28 +954,28 @@ inline void test_shadierball_preset_bank() {
   }
 
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
+  WB::SB sb;
+  sb.init();
   HS_EXPECT_TRUE(
-      WB::slots_equal(WB::active_slots(sdb), WB::liquid_stereo_slots()));
+      WB::slots_equal(WB::active_slots(sb), WB::liquid_stereo_slots()));
 }
 
 /** @brief Whole-schema validation applies valid configs and rejects invalid. */
-inline void test_shadierball_config_admission() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_config_admission() {
+  using WB = ShaderBallWhiteBox;
   {
     reset_effect_globals();
-    WB::SDB sdb;
-    sdb.init();
-    const WB::Slots original = WB::active_slots(sdb);
-    WB::RequestedConfig invalid_params = WB::active_config(sdb);
+    WB::SB sb;
+    sb.init();
+    const WB::Slots original = WB::active_slots(sb);
+    WB::RequestedConfig invalid_params = WB::active_config(sb);
     invalid_params.params.source.pattern_freq = 21.0f;
-    const WB::RequestedConfig before_invalid_params = WB::active_config(sdb);
-    WB::request_config(sdb, invalid_params);
-    HS_EXPECT_TRUE(WB::active_config(sdb) == before_invalid_params);
-    HS_EXPECT_TRUE(WB::requested_slots(sdb) == original);
-    HS_EXPECT_FALSE(WB::transition_active(sdb));
-    HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+    const WB::RequestedConfig before_invalid_params = WB::active_config(sb);
+    WB::request_config(sb, invalid_params);
+    HS_EXPECT_TRUE(WB::active_config(sb) == before_invalid_params);
+    HS_EXPECT_TRUE(WB::requested_slots(sb) == original);
+    HS_EXPECT_FALSE(WB::transition_active(sb));
+    HS_EXPECT_FALSE(WB::param_morph_active(sb));
 
     WB::RequestedConfig candidate = WB::legacy_config();
     const auto invalid_tag = static_cast<uint8_t>(0xff);
@@ -1025,11 +1016,11 @@ inline void test_shadierball_config_admission() {
     const WB::RequestedConfig legacy_config = WB::legacy_config();
     HS_EXPECT_TRUE(WB::valid_config(legacy_config));
     HS_EXPECT_TRUE(
-        WB::transition_admitted(WB::active_config(sdb), legacy_config));
-    WB::request_config(sdb, legacy_config);
-    HS_EXPECT_TRUE(WB::active_config(sdb) == legacy_config);
-    HS_EXPECT_FALSE(WB::transition_active(sdb));
-    HS_EXPECT_TRUE(WB::requested_slots(sdb) == legacy_config.slots);
+        WB::transition_admitted(WB::active_config(sb), legacy_config));
+    WB::request_config(sb, legacy_config);
+    HS_EXPECT_TRUE(WB::active_config(sb) == legacy_config);
+    HS_EXPECT_FALSE(WB::transition_active(sb));
+    HS_EXPECT_TRUE(WB::requested_slots(sb) == legacy_config.slots);
 
     WB::RequestedConfig resource_from = WB::legacy_config();
     resource_from.slots.function = WB::Function::NOISE_CONTOUR;
@@ -1061,7 +1052,7 @@ inline void test_shadierball_config_admission() {
 
   {
     reset_effect_globals();
-    WB::SDB projection_change;
+    WB::SB projection_change;
     projection_change.init();
     HS_EXPECT_TRUE(
         projection_change.updateParameter(
@@ -1080,7 +1071,7 @@ inline void test_shadierball_config_admission() {
 
   {
     reset_effect_globals();
-    WB::SDB legacy_warp_change;
+    WB::SB legacy_warp_change;
     legacy_warp_change.init();
     HS_EXPECT_TRUE(
         legacy_warp_change.updateParameter(
@@ -1103,14 +1094,14 @@ inline void test_shadierball_config_admission() {
 }
 
 /** @brief Selector intent is independent of the live worker destination. */
-inline void test_shadierball_deterministic_gui_edits() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_deterministic_gui_edits() {
+  using WB = ShaderBallWhiteBox;
   struct Result {
     std::array<WB::RequestedConfig, 3> configs;
     std::array<uint64_t, 3> schema_hashes{};
     std::array<uint32_t, 3> generation_deltas{};
   };
-  auto schema_hash = [](const WB::SDB &sdb) {
+  auto schema_hash = [](const WB::SB &sb) {
     uint64_t hash = 1469598103934665603ULL;
     auto append = [&](const char *text) {
       for (; *text != '\0'; ++text) {
@@ -1118,7 +1109,7 @@ inline void test_shadierball_deterministic_gui_edits() {
         hash *= 1099511628211ULL;
       }
     };
-    for (const Effect::ParamDef &def : sdb.getParameters()) {
+    for (const Effect::ParamDef &def : sb.getParameters()) {
       append(def.name);
       hash ^= static_cast<uint32_t>(def.option_count);
       hash *= 1099511628211ULL;
@@ -1129,8 +1120,8 @@ inline void test_shadierball_deterministic_gui_edits() {
   };
   auto run = [&](bool advance_worker) {
     reset_effect_globals();
-    WB::SDB sdb;
-    sdb.init();
+    WB::SB sb;
+    sb.init();
     Result result;
     const char *names[] = {"Projection", "Projection", "Outer Warp"};
     const float values[] = {
@@ -1138,16 +1129,16 @@ inline void test_shadierball_deterministic_gui_edits() {
         static_cast<float>(WB::Projection::AIROCEAN),
         static_cast<float>(WB::WarpStageKind::LEGACY_STEREO_NOISE)};
     for (size_t index = 0; index < result.configs.size(); ++index) {
-      const uint32_t before = sdb.getParameterSchemaGeneration();
-      HS_EXPECT_TRUE(sdb.updateParameter(names[index], values[index]) ==
+      const uint32_t before = sb.getParameterSchemaGeneration();
+      HS_EXPECT_TRUE(sb.updateParameter(names[index], values[index]) ==
                      ParamSetResult::APPLIED);
       result.generation_deltas[index] =
-          sdb.getParameterSchemaGeneration() - before;
-      result.configs[index] = WB::requested_config(sdb);
-      result.schema_hashes[index] = schema_hash(sdb);
+          sb.getParameterSchemaGeneration() - before;
+      result.configs[index] = WB::requested_config(sb);
+      result.schema_hashes[index] = schema_hash(sb);
       if (advance_worker && index + 1 < result.configs.size()) {
-        sdb.draw_frame();
-        sdb.advance_display();
+        sb.draw_frame();
+        sb.advance_display();
       }
     }
     return result;
@@ -1167,8 +1158,8 @@ inline void test_shadierball_deterministic_gui_edits() {
 }
 
 /** @brief Calibrated device cost admits measured-safe operator frontiers. */
-inline void test_shadierball_work_admission() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_work_admission() {
+  using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   for (const auto &preset : presets)
     HS_EXPECT_TRUE(WB::hold_admitted(preset));
@@ -1252,8 +1243,8 @@ inline void test_shadierball_work_admission() {
 }
 
 /** @brief Folded and interrupted projections reject unproved noise seams. */
-inline void test_shadierball_strict_seam_admission() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_strict_seam_admission() {
+  using WB = ShaderBallWhiteBox;
   for (WB::Projection projection :
        {WB::Projection::BONNE, WB::Projection::PEIRCE_QUINCUNCIAL,
         WB::Projection::AIROCEAN}) {
@@ -1289,12 +1280,12 @@ inline void test_shadierball_strict_seam_admission() {
 }
 
 /** @brief Additive warp metadata retains sub-ULP displacement at large coordinates. */
-inline void test_shadierball_additive_delta_precision() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_additive_delta_precision() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
-  WB::FrameState frame = WB::frame(sdb);
+  WB::SB sb;
+  sb.init();
+  WB::FrameState frame = WB::frame(sb);
   frame.clocks.warp_outer_phase = 0.25f;
   WB::WarpStageSpec spec{WB::WarpStageKind::WAVE_SHEAR};
   WB::WarpStageParams params;
@@ -1311,35 +1302,35 @@ inline void test_shadierball_additive_delta_precision() {
 }
 
 /** @brief Profiling can land every curated hold without choreography. */
-inline void test_shadierball_profile_presets() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_profile_presets() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
+  WB::SB sb;
+  sb.init();
   const auto &presets = WB::presets();
   for (size_t index = 0; index < presets.size(); ++index) {
-    sdb.profile_select_preset(index);
-    HS_EXPECT_TRUE(WB::active_config(sdb) == presets[index]);
-    HS_EXPECT_TRUE(WB::requested_config(sdb) == presets[index]);
-    HS_EXPECT_TRUE(WB::hold_admitted(WB::active_config(sdb)));
-    HS_EXPECT_FALSE(WB::transition_active(sdb));
-    HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+    sb.profile_select_preset(index);
+    HS_EXPECT_TRUE(WB::active_config(sb) == presets[index]);
+    HS_EXPECT_TRUE(WB::requested_config(sb) == presets[index]);
+    HS_EXPECT_TRUE(WB::hold_admitted(WB::active_config(sb)));
+    HS_EXPECT_FALSE(WB::transition_active(sb));
+    HS_EXPECT_FALSE(WB::param_morph_active(sb));
     if (index == 15 || index == 18 || index == 19) {
       const auto projected = WB::surface_project(
-          Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sdb));
+          Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sb));
       HS_EXPECT_TRUE(std::isfinite(projected.fade_edge_distance));
     }
   }
 }
 
 /** @brief Every GUI enum option is writable and survives its handoff. */
-inline void test_shadierball_gui_catalog() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_gui_catalog() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
-  HS_EXPECT_LE(sdb.getParameters().size(), size_t(64));
-  const auto *projection = sdb.getParameters().find("Projection");
+  WB::SB sb;
+  sb.init();
+  HS_EXPECT_LE(sb.getParameters().size(), size_t(64));
+  const auto *projection = sb.getParameters().find("Projection");
   HS_EXPECT_TRUE(projection != nullptr);
   HS_EXPECT_EQ(projection->option_count, 6);
   HS_EXPECT_TRUE(std::strcmp(projection->options[3], "Bonne") == 0);
@@ -1347,19 +1338,19 @@ inline void test_shadierball_gui_catalog() {
                  0);
   HS_EXPECT_TRUE(std::strcmp(projection->options[5], "Dymaxion / Airocean") ==
                  0);
-  const auto *coverage = sdb.getParameters().find("Coverage");
+  const auto *coverage = sb.getParameters().find("Coverage");
   HS_EXPECT_TRUE(coverage != nullptr);
   HS_EXPECT_EQ(coverage->option_count, 5);
   HS_EXPECT_TRUE(std::strcmp(coverage->options[4], "Projection Weight") == 0);
-  const uint32_t schema_before = sdb.getParameterSchemaGeneration();
-  HS_EXPECT_TRUE(sdb.updateParameter(
+  const uint32_t schema_before = sb.getParameterSchemaGeneration();
+  HS_EXPECT_TRUE(sb.updateParameter(
                      "Projection", static_cast<float>(WB::Projection::BONNE)) ==
                  ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(sdb.getParameterSchemaGeneration() > schema_before);
-  HS_EXPECT_TRUE(sdb.getParameters().find("Bonne Hemisphere") != nullptr);
-  sdb.draw_frame();
-  sdb.advance_display();
-  WB::settle_transition(sdb);
+  HS_EXPECT_TRUE(sb.getParameterSchemaGeneration() > schema_before);
+  HS_EXPECT_TRUE(sb.getParameters().find("Bonne Hemisphere") != nullptr);
+  sb.draw_frame();
+  sb.advance_display();
+  WB::settle_transition(sb);
 
   WB::RequestedConfig gui_base = WB::legacy_config();
   gui_base.slots.function = WB::Function::COUPLED_DIRECT;
@@ -1369,8 +1360,8 @@ inline void test_shadierball_gui_catalog() {
   gui_base.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
   gui_base.params.source.pattern_freq = 1.0f;
   auto reset_gui = [&] {
-    WB::request_config(sdb, gui_base);
-    WB::settle_transition(sdb);
+    WB::request_config(sb, gui_base);
+    WB::settle_transition(sb);
   };
 
   constexpr const char *ROOT_ENUMS[] = {
@@ -1378,42 +1369,42 @@ inline void test_shadierball_gui_catalog() {
       "Outer Warp", "Inner Warp", "Signal Weight",    "Value Transfer",
       "Coverage",   "Colorizer"};
   for (const char *name : ROOT_ENUMS) {
-    const int option_count = sdb.getParameters().find(name)->option_count;
+    const int option_count = sb.getParameters().find(name)->option_count;
     for (int option = 0; option < option_count; ++option) {
       reset_gui();
-      HS_EXPECT_TRUE(sdb.updateParameter(name, static_cast<float>(option)) ==
+      HS_EXPECT_TRUE(sb.updateParameter(name, static_cast<float>(option)) ==
                      ParamSetResult::APPLIED);
-      sdb.draw_frame();
-      sdb.advance_display();
-      WB::settle_transition(sdb);
-      HS_EXPECT_EQ(sdb.getParameters().find(name)->get(),
+      sb.draw_frame();
+      sb.advance_display();
+      WB::settle_transition(sb);
+      HS_EXPECT_EQ(sb.getParameters().find(name)->get(),
                    static_cast<float>(option));
-      HS_EXPECT_FALSE(WB::transition_active(sdb));
-      HS_EXPECT_FALSE(WB::param_morph_active(sdb));
+      HS_EXPECT_FALSE(WB::transition_active(sb));
+      HS_EXPECT_FALSE(WB::param_morph_active(sb));
     }
   }
 
   auto select_and_set_all = [&](const char *root, int selection,
                                 const char *subordinate) {
     reset_gui();
-    HS_EXPECT_TRUE(sdb.updateParameter(root, static_cast<float>(selection)) ==
+    HS_EXPECT_TRUE(sb.updateParameter(root, static_cast<float>(selection)) ==
                    ParamSetResult::APPLIED);
-    sdb.draw_frame();
-    sdb.advance_display();
-    WB::settle_transition(sdb);
-    const auto *def = sdb.getParameters().find(subordinate);
+    sb.draw_frame();
+    sb.advance_display();
+    WB::settle_transition(sb);
+    const auto *def = sb.getParameters().find(subordinate);
     HS_EXPECT(def != nullptr, subordinate);
     if (def == nullptr)
       return;
     const int count = def->option_count;
     for (int option = 0; option < count; ++option) {
       HS_EXPECT_TRUE(
-          sdb.updateParameter(subordinate, static_cast<float>(option)) ==
+          sb.updateParameter(subordinate, static_cast<float>(option)) ==
           ParamSetResult::APPLIED);
-      sdb.draw_frame();
-      sdb.advance_display();
-      WB::settle_transition(sdb);
-      HS_EXPECT_EQ(sdb.getParameters().find(subordinate)->get(),
+      sb.draw_frame();
+      sb.advance_display();
+      WB::settle_transition(sb);
+      HS_EXPECT_EQ(sb.getParameters().find(subordinate)->get(),
                    static_cast<float>(option));
     }
   };
@@ -1421,48 +1412,48 @@ inline void test_shadierball_gui_catalog() {
                                                  int selection,
                                                  const char *subordinate) {
     reset_gui();
-    HS_EXPECT_TRUE(sdb.updateParameter(root, static_cast<float>(selection)) ==
+    HS_EXPECT_TRUE(sb.updateParameter(root, static_cast<float>(selection)) ==
                    ParamSetResult::APPLIED);
-    sdb.draw_frame();
-    sdb.advance_display();
-    WB::settle_transition(sdb);
-    const auto *def = sdb.getParameters().find(subordinate);
+    sb.draw_frame();
+    sb.advance_display();
+    WB::settle_transition(sb);
+    const auto *def = sb.getParameters().find(subordinate);
     HS_EXPECT(def != nullptr, subordinate);
     if (def == nullptr)
       return;
     HS_EXPECT_EQ(def->option_count, 3);
     for (int option = 0; option < def->option_count; ++option) {
       HS_EXPECT_TRUE(
-          sdb.updateParameter(subordinate, static_cast<float>(option)) ==
+          sb.updateParameter(subordinate, static_cast<float>(option)) ==
           ParamSetResult::APPLIED);
-      sdb.draw_frame();
-      sdb.advance_display();
-      WB::settle_transition(sdb);
-      HS_EXPECT_EQ(sdb.getParameters().find(subordinate)->get(), 0.0f);
+      sb.draw_frame();
+      sb.advance_display();
+      WB::settle_transition(sb);
+      HS_EXPECT_EQ(sb.getParameters().find(subordinate)->get(), 0.0f);
     }
   };
   select_and_set_all("Function", 5, "Source Noise Basis");
   select_and_set_all("Projection", 2, "Gnomonic Hemisphere");
   select_and_set_all("Projection", 3, "Bonne Hemisphere");
-  HS_EXPECT_TRUE(sdb.updateParameter("Bonne Standard Parallel", 0.9f) ==
+  HS_EXPECT_TRUE(sb.updateParameter("Bonne Standard Parallel", 0.9f) ==
                  ParamSetResult::APPLIED);
-  sdb.draw_frame();
-  sdb.advance_display();
-  WB::settle_transition(sdb);
+  sb.draw_frame();
+  sb.advance_display();
+  WB::settle_transition(sb);
   HS_EXPECT_NEAR(
-      WB::active_config(sdb).params.projection.bonne_standard_parallel, 0.9f,
+      WB::active_config(sb).params.projection.bonne_standard_parallel, 0.9f,
       1e-6f);
   select_and_set_all("Projection", 4, "Peirce Layout");
   for (int layout = 0; layout < 4; ++layout) {
     HS_EXPECT_TRUE(
-        sdb.updateParameter("Peirce Layout", static_cast<float>(layout)) ==
+        sb.updateParameter("Peirce Layout", static_cast<float>(layout)) ==
         ParamSetResult::APPLIED);
     const bool has_scroll =
-        sdb.getParameters().find("Projection Layout Scroll") != nullptr;
+        sb.getParameters().find("Projection Layout Scroll") != nullptr;
     HS_EXPECT_EQ(has_scroll, layout >= 2);
-    sdb.draw_frame();
-    sdb.advance_display();
-    WB::settle_transition(sdb);
+    sb.draw_frame();
+    sb.advance_display();
+    WB::settle_transition(sb);
   }
   select_and_set_all("Projection", 5, "Airocean Layout");
   select_and_reject_expensive_options("Outer Warp", 5, "Outer Noise Basis");
@@ -1470,35 +1461,35 @@ inline void test_shadierball_gui_catalog() {
   select_and_reject_expensive_options("Outer Warp", 6, "Outer Curl Integrator");
   select_and_set_all("Outer Warp", 8, "Outer Polar Mode");
   select_and_set_all("Outer Warp", 8, "Outer Polar Harmonic");
-  HS_EXPECT_TRUE(sdb.getParameters().find("Pattern Freq") == nullptr);
-  HS_EXPECT_TRUE(sdb.updateParameter("Function",
-                                     static_cast<float>(WB::Function::RINGS)) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(WB::requested_config(sdb).slots.warp_program.outer.kind,
+  HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") == nullptr);
+  HS_EXPECT_TRUE(
+      sb.updateParameter("Function", static_cast<float>(WB::Function::RINGS)) ==
+      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(WB::requested_config(sb).slots.warp_program.outer.kind,
                WB::WarpStageKind::NONE);
-  HS_EXPECT_TRUE(sdb.getParameters().find("Pattern Freq") != nullptr);
+  HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") != nullptr);
   select_and_set_all("Value Transfer", 3, "Band Count");
 }
 
 /** @brief New cartographic kernels preserve landmarks and stay finite. */
-inline void test_shadierball_projection_catalog() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_projection_catalog() {
+  using WB = ShaderBallWhiteBox;
   const float standard_parallel = PI_F * 0.25f;
   const Vector bonne_origin(cosf(standard_parallel), sinf(standard_parallel),
                             0.0f);
   const auto bonne =
-      shadierball::bonne_projection(bonne_origin, 0.0f, standard_parallel);
+      shaderball::bonne_projection(bonne_origin, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(bonne.coords.im, 0.0f, 2e-5f);
 
-  const auto peirce = shadierball::peirce_projection(UP, 0.0f, 1, 0.0f);
+  const auto peirce = shaderball::peirce_projection(UP, 0.0f, 1, 0.0f);
   HS_EXPECT_NEAR(peirce.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(peirce.coords.im, 0.0f, 2e-5f);
 
-  const auto &center = shadierball::AIROCEAN_CENTERS[0];
-  const auto airocean = shadierball::airocean_projection(
+  const auto &center = shaderball::AIROCEAN_CENTERS[0];
+  const auto airocean = shaderball::airocean_projection(
       Vector(center.x, center.z, center.y), 0.0f, false);
-  const auto &triangle = shadierball::AIROCEAN_PLANAR_FACES[0];
+  const auto &triangle = shaderball::AIROCEAN_PLANAR_FACES[0];
   HS_EXPECT_NEAR(airocean.coords.re,
                  (triangle[0].x + triangle[1].x + triangle[2].x) / 3.0f, 2e-4f);
   HS_EXPECT_NEAR(airocean.coords.im,
@@ -1509,35 +1500,35 @@ inline void test_shadierball_projection_catalog() {
   const Vector equator_east(0.0f, 0.0f, 1.0f);
   const Vector antimeridian(-1.0f, 0.0f, 0.0f);
   const auto bonne_equator =
-      shadierball::bonne_projection(equator_zero, 0.0f, standard_parallel);
+      shaderball::bonne_projection(equator_zero, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne_equator.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(bonne_equator.coords.im, -0.7853981634f, 2e-5f);
   const auto bonne_east =
-      shadierball::bonne_projection(equator_east, 0.0f, standard_parallel);
+      shaderball::bonne_projection(equator_east, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne_east.coords.re, 1.3758501640f, 3e-5f);
   HS_EXPECT_NEAR(bonne_east.coords.im, -0.1378413458f, 3e-5f);
-  const auto bonne_shifted = shadierball::bonne_projection(
+  const auto bonne_shifted = shaderball::bonne_projection(
       equator_east, 0.5f * PI_F, standard_parallel);
   HS_EXPECT_NEAR(bonne_shifted.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(bonne_shifted.coords.im, -0.7853981634f, 2e-5f);
   const auto bonne_cut =
-      shadierball::bonne_projection(antimeridian, 0.0f, standard_parallel);
+      shaderball::bonne_projection(antimeridian, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne_cut.fade_edge_distance, 0.0f, 2e-5f);
   const auto werner =
-      shadierball::bonne_projection(equator_east, 0.0f, 0.5f * PI_F);
+      shaderball::bonne_projection(equator_east, 0.0f, 0.5f * PI_F);
   HS_EXPECT_NEAR(werner.coords.re, 1.3217795320f, 3e-5f);
   HS_EXPECT_NEAR(werner.coords.im, -0.8487048774f, 3e-5f);
 
   constexpr float PEIRCE_K = 1.8540746773013719f;
   const Vector south_pole(0.0f, -1.0f, 0.0f);
   const auto peirce_diamond =
-      shadierball::peirce_projection(south_pole, 0.0f, 0, 0.0f);
+      shaderball::peirce_projection(south_pole, 0.0f, 0, 0.0f);
   const auto peirce_square =
-      shadierball::peirce_projection(south_pole, 0.0f, 1, 0.0f);
+      shaderball::peirce_projection(south_pole, 0.0f, 1, 0.0f);
   const auto peirce_horizontal =
-      shadierball::peirce_projection(south_pole, 0.0f, 2, 0.0f);
+      shaderball::peirce_projection(south_pole, 0.0f, 2, 0.0f);
   const auto peirce_vertical =
-      shadierball::peirce_projection(south_pole, 0.0f, 3, 0.0f);
+      shaderball::peirce_projection(south_pole, 0.0f, 3, 0.0f);
   HS_EXPECT_NEAR(peirce_diamond.coords.re, 2.0f * PEIRCE_K, 3e-5f);
   HS_EXPECT_NEAR(peirce_diamond.coords.im, 0.0f, 3e-5f);
   HS_EXPECT_NEAR(peirce_square.coords.re, PEIRCE_K * 1.4142135624f, 3e-5f);
@@ -1545,9 +1536,9 @@ inline void test_shadierball_projection_catalog() {
   HS_EXPECT_NEAR(peirce_horizontal.coords.re, PEIRCE_K, 3e-5f);
   HS_EXPECT_NEAR(peirce_vertical.coords.im, PEIRCE_K, 3e-5f);
   const auto peirce_scroll0 =
-      shadierball::peirce_projection(equator_east, 0.0f, 2, 0.0f);
+      shaderball::peirce_projection(equator_east, 0.0f, 2, 0.0f);
   const auto peirce_scroll1 =
-      shadierball::peirce_projection(equator_east, 0.0f, 2, 1.0f);
+      shaderball::peirce_projection(equator_east, 0.0f, 2, 1.0f);
   HS_EXPECT_NEAR(peirce_scroll0.coords.re, peirce_scroll1.coords.re, 3e-5f);
   HS_EXPECT_NEAR(peirce_scroll0.coords.im, peirce_scroll1.coords.im, 3e-5f);
   WB::ProjectionParams scroll_from;
@@ -1560,12 +1551,12 @@ inline void test_shadierball_projection_catalog() {
   HS_EXPECT_EQ(scroll_start.layout_scroll, 0.9f);
   HS_EXPECT_NEAR(scroll_mid.layout_scroll, 1.0f, 1e-6f);
   HS_EXPECT_EQ(scroll_end.layout_scroll, -0.9f);
-  const auto peirce_scroll_mid = shadierball::peirce_projection(
+  const auto peirce_scroll_mid = shaderball::peirce_projection(
       equator_east, 0.0f, 2, scroll_mid.layout_scroll);
   HS_EXPECT_NEAR(peirce_scroll_mid.coords.re, peirce_scroll0.coords.re, 3e-5f);
   HS_EXPECT_NEAR(peirce_scroll_mid.coords.im, peirce_scroll0.coords.im, 3e-5f);
   const auto peirce_zero_fade =
-      shadierball::peirce_projection(equator_zero, 0.0f, 1, 0.0f);
+      shaderball::peirce_projection(equator_zero, 0.0f, 1, 0.0f);
   HS_EXPECT_NEAR(peirce_zero_fade.fade_edge_distance, 0.0f, 2e-5f);
 
   auto lon_lat = [](float longitude, float latitude) {
@@ -1581,8 +1572,8 @@ inline void test_shadierball_projection_catalog() {
       {0.4550257621f, -2.0019819724f},
   };
   for (uint8_t layout = 0; layout < 4; ++layout) {
-    const auto mapped = shadierball::peirce_projection(peirce_oracle_point,
-                                                       0.0f, layout, 0.13f);
+    const auto mapped =
+        shaderball::peirce_projection(peirce_oracle_point, 0.0f, layout, 0.13f);
     HS_EXPECT_NEAR(mapped.coords.re, peirce_oracles[layout].re, 3e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, peirce_oracles[layout].im, 3e-5f);
   }
@@ -1600,9 +1591,9 @@ inline void test_shadierball_projection_catalog() {
       {0.75f * PI_F, 4, 1},
   };
   for (const auto &tie : sector_ties) {
-    const auto before = shadierball::peirce_projection(
+    const auto before = shaderball::peirce_projection(
         lon_lat(tie.longitude - TIE_EPS, SOUTH_LATITUDE), 0.0f, 0, 0.0f);
-    const auto exact = shadierball::peirce_projection(
+    const auto exact = shaderball::peirce_projection(
         lon_lat(tie.longitude, SOUTH_LATITUDE), 0.0f, 0, 0.0f);
     HS_EXPECT_EQ(before.region_id, tie.before);
     HS_EXPECT_EQ(exact.region_id, tie.exact);
@@ -1614,17 +1605,17 @@ inline void test_shadierball_projection_catalog() {
   const Vector zero_meridian = lon_lat(0.0f, MERIDIAN_LATITUDE);
   for (uint8_t layout = 0; layout < 4; ++layout) {
     const auto shifted =
-        shadierball::peirce_projection(on_meridian, MERIDIAN, layout, 0.13f);
+        shaderball::peirce_projection(on_meridian, MERIDIAN, layout, 0.13f);
     const auto reference =
-        shadierball::peirce_projection(zero_meridian, 0.0f, layout, 0.13f);
+        shaderball::peirce_projection(zero_meridian, 0.0f, layout, 0.13f);
     HS_EXPECT_NEAR(shifted.coords.re, reference.coords.re, 2e-5f);
     HS_EXPECT_NEAR(shifted.coords.im, reference.coords.im, 2e-5f);
     HS_EXPECT_EQ(shifted.region_id, reference.region_id);
   }
   const auto airocean_shifted =
-      shadierball::airocean_projection(on_meridian, MERIDIAN, false);
+      shaderball::airocean_projection(on_meridian, MERIDIAN, false);
   const auto airocean_reference =
-      shadierball::airocean_projection(zero_meridian, 0.0f, false);
+      shaderball::airocean_projection(zero_meridian, 0.0f, false);
   HS_EXPECT_NEAR(airocean_shifted.coords.re, airocean_reference.coords.re,
                  2e-5f);
   HS_EXPECT_NEAR(airocean_shifted.coords.im, airocean_reference.coords.im,
@@ -1637,11 +1628,11 @@ inline void test_shadierball_projection_catalog() {
                             sinf(oracle_latitude),
                             cosf(oracle_latitude) * sinf(oracle_longitude));
   const auto airocean_oracle =
-      shadierball::airocean_projection(oracle_point, 0.0f, false);
+      shaderball::airocean_projection(oracle_point, 0.0f, false);
   HS_EXPECT_NEAR(airocean_oracle.coords.re, 2.1265288136f, 4e-5f);
   HS_EXPECT_NEAR(airocean_oracle.coords.im, 3.6817439808f, 4e-5f);
   const auto airocean_horizontal =
-      shadierball::airocean_projection(oracle_point, 0.0f, true);
+      shaderball::airocean_projection(oracle_point, 0.0f, true);
   HS_EXPECT_NEAR(airocean_horizontal.coords.re,
                  5.7830422333f - airocean_oracle.coords.im, 4e-5f);
   HS_EXPECT_NEAR(airocean_horizontal.coords.im, airocean_oracle.coords.re,
@@ -1666,7 +1657,7 @@ inline void test_shadierball_projection_catalog() {
   };
   for (const auto &oracle : face_oracles) {
     const auto mapped =
-        shadierball::airocean_projection(oracle.point, 0.0f, false);
+        shaderball::airocean_projection(oracle.point, 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, oracle.face);
     HS_EXPECT_NEAR(mapped.coords.re, oracle.coords.re, 2e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, oracle.coords.im, 2e-5f);
@@ -1687,13 +1678,13 @@ inline void test_shadierball_projection_catalog() {
   const float glued_cut_distances[] = {65536.0f, 65536.0f, 65536.0f};
   for (size_t index = 0; index < std::size(glued_points); ++index) {
     const auto mapped =
-        shadierball::airocean_projection(glued_points[index], 0.0f, false);
+        shaderball::airocean_projection(glued_points[index], 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, glued_faces[index]);
     HS_EXPECT_EQ(mapped.edge_class,
-                 shadierball::airocean_edge_identity(glued_faces[index],
-                                                     glued_edges[index]));
-    HS_EXPECT_TRUE((mapped.traits & shadierball::projection_traits(
-                                        shadierball::ProjectionTrait::GLUED)) !=
+                 shaderball::airocean_edge_identity(glued_faces[index],
+                                                    glued_edges[index]));
+    HS_EXPECT_TRUE((mapped.traits & shaderball::projection_traits(
+                                        shaderball::ProjectionTrait::GLUED)) !=
                    0);
     HS_EXPECT_NEAR(mapped.coords.re, glued_coords[index].re, 5e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, glued_coords[index].im, 5e-5f);
@@ -1716,31 +1707,31 @@ inline void test_shadierball_projection_catalog() {
   const float cut_distances[] = {0.0f, 6.498376211e-6f, 6.498376211e-6f};
   for (size_t index = 0; index < std::size(cut_points); ++index) {
     const auto mapped =
-        shadierball::airocean_projection(cut_points[index], 0.0f, false);
+        shaderball::airocean_projection(cut_points[index], 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, cut_faces[index]);
-    HS_EXPECT_EQ(mapped.edge_class, shadierball::airocean_edge_identity(
+    HS_EXPECT_EQ(mapped.edge_class, shaderball::airocean_edge_identity(
                                         cut_faces[index], cut_edges[index]));
-    HS_EXPECT_TRUE((mapped.traits & shadierball::projection_traits(
-                                        shadierball::ProjectionTrait::CUT)) !=
-                   0);
+    HS_EXPECT_TRUE(
+        (mapped.traits &
+         shaderball::projection_traits(shaderball::ProjectionTrait::CUT)) != 0);
     HS_EXPECT_NEAR(mapped.coords.re, cut_coords[index].re, 5e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, cut_coords[index].im, 5e-5f);
     HS_EXPECT_NEAR(mapped.fade_edge_distance, cut_distances[index], 5e-5f);
   }
   for (uint8_t face = 0; face < 23; ++face) {
-    const auto &face_center = shadierball::AIROCEAN_CENTERS[face];
-    const auto mapped = shadierball::airocean_projection(
+    const auto &face_center = shaderball::AIROCEAN_CENTERS[face];
+    const auto mapped = shaderball::airocean_projection(
         Vector(face_center.x, face_center.z, face_center.y), 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, face);
   }
-  HS_EXPECT_TRUE(shadierball::airocean_edge_is_cut(14, 0));
-  HS_EXPECT_EQ(shadierball::airocean_edge_identity(14, 0), uint8_t(42));
-  HS_EXPECT_EQ(shadierball::airocean_edge_identity(18, 0), uint8_t(54));
+  HS_EXPECT_TRUE(shaderball::airocean_edge_is_cut(14, 0));
+  HS_EXPECT_EQ(shaderball::airocean_edge_identity(14, 0), uint8_t(42));
+  HS_EXPECT_EQ(shaderball::airocean_edge_identity(18, 0), uint8_t(54));
 
   const auto japan_edge_point = [](float from_weight) {
-    const auto &a = shadierball::AIROCEAN_FACES[14][0];
-    const auto &b = shadierball::AIROCEAN_FACES[14][1];
-    const auto &center = shadierball::AIROCEAN_CENTERS[14];
+    const auto &a = shaderball::AIROCEAN_FACES[14][0];
+    const auto &b = shaderball::AIROCEAN_FACES[14][1];
+    const auto &center = shaderball::AIROCEAN_CENTERS[14];
     const float to_weight = 1.0f - from_weight;
     return Vector(from_weight * a.x + to_weight * b.x + 1e-4f * center.x,
                   from_weight * a.z + to_weight * b.z + 1e-4f * center.z,
@@ -1748,48 +1739,48 @@ inline void test_shadierball_projection_catalog() {
         .normalized();
   };
   const auto japan_cut =
-      shadierball::airocean_projection(japan_edge_point(0.75f), 0.0f, false);
+      shaderball::airocean_projection(japan_edge_point(0.75f), 0.0f, false);
   const auto japan_glued =
-      shadierball::airocean_projection(japan_edge_point(0.25f), 0.0f, false);
+      shaderball::airocean_projection(japan_edge_point(0.25f), 0.0f, false);
   HS_EXPECT_EQ(japan_cut.region_id, uint8_t(14));
   HS_EXPECT_EQ(japan_cut.edge_class, uint8_t(42));
   HS_EXPECT_TRUE(
       (japan_cut.traits &
-       shadierball::projection_traits(shadierball::ProjectionTrait::CUT)) != 0);
+       shaderball::projection_traits(shaderball::ProjectionTrait::CUT)) != 0);
   HS_EXPECT_LT(japan_cut.fade_edge_distance, 1e-3f);
   HS_EXPECT_EQ(japan_glued.region_id, uint8_t(14));
   HS_EXPECT_EQ(japan_glued.edge_class, uint8_t(54));
   HS_EXPECT_TRUE(
-      (japan_glued.traits & shadierball::projection_traits(
-                                shadierball::ProjectionTrait::GLUED)) != 0);
+      (japan_glued.traits &
+       shaderball::projection_traits(shaderball::ProjectionTrait::GLUED)) != 0);
   HS_EXPECT_GT(japan_glued.fade_edge_distance, 0.1f);
-  auto same_point = [](const shadierball::AiroceanPoint &a,
-                       const shadierball::AiroceanPoint &b) {
+  auto same_point = [](const shaderball::AiroceanPoint &a,
+                       const shaderball::AiroceanPoint &b) {
     return fabsf(a.x - b.x) <= 1e-6f && fabsf(a.y - b.y) <= 1e-6f;
   };
   for (uint8_t face = 0; face < 23; ++face) {
     for (uint8_t edge_index = 0; edge_index < 3; ++edge_index) {
       bool expected_cut = false;
-      for (size_t index = 0; index < std::size(shadierball::AIROCEAN_CUT_FACES);
+      for (size_t index = 0; index < std::size(shaderball::AIROCEAN_CUT_FACES);
            ++index)
-        expected_cut |= shadierball::AIROCEAN_CUT_FACES[index] == face &&
-                        shadierball::AIROCEAN_CUT_EDGES[index] == edge_index;
-      HS_EXPECT_EQ(shadierball::airocean_edge_is_cut(face, edge_index),
+        expected_cut |= shaderball::AIROCEAN_CUT_FACES[index] == face &&
+                        shaderball::AIROCEAN_CUT_EDGES[index] == edge_index;
+      HS_EXPECT_EQ(shaderball::airocean_edge_is_cut(face, edge_index),
                    expected_cut);
 
-      const auto &a = shadierball::AIROCEAN_PLANAR_FACES[face][edge_index];
+      const auto &a = shaderball::AIROCEAN_PLANAR_FACES[face][edge_index];
       const auto &b =
-          shadierball::AIROCEAN_PLANAR_FACES[face][(edge_index + 1) % 3];
+          shaderball::AIROCEAN_PLANAR_FACES[face][(edge_index + 1) % 3];
       uint8_t expected_identity = face * 3 + edge_index;
       bool found = false;
       for (uint8_t candidate_face = 0; candidate_face < 23 && !found;
            ++candidate_face) {
         for (uint8_t candidate_edge = 0; candidate_edge < 3; ++candidate_edge) {
-          const auto &c = shadierball::AIROCEAN_PLANAR_FACES[candidate_face]
-                                                            [candidate_edge];
+          const auto &c =
+              shaderball::AIROCEAN_PLANAR_FACES[candidate_face][candidate_edge];
           const auto &d =
-              shadierball::AIROCEAN_PLANAR_FACES[candidate_face]
-                                                [(candidate_edge + 1) % 3];
+              shaderball::AIROCEAN_PLANAR_FACES[candidate_face]
+                                               [(candidate_edge + 1) % 3];
           if ((same_point(a, c) && same_point(b, d)) ||
               (same_point(a, d) && same_point(b, c))) {
             expected_identity = candidate_face * 3 + candidate_edge;
@@ -1798,14 +1789,14 @@ inline void test_shadierball_projection_catalog() {
           }
         }
       }
-      HS_EXPECT_EQ(shadierball::airocean_edge_identity(face, edge_index),
+      HS_EXPECT_EQ(shaderball::airocean_edge_identity(face, edge_index),
                    expected_identity);
     }
   }
 
-  const auto peirce_seam_a = shadierball::peirce_projection(
+  const auto peirce_seam_a = shaderball::peirce_projection(
       lon_lat(0.25f * PI_F - TIE_EPS, SOUTH_LATITUDE), 0.0f, 1, 0.0f);
-  const auto peirce_seam_b = shadierball::peirce_projection(
+  const auto peirce_seam_b = shaderball::peirce_projection(
       lon_lat(0.25f * PI_F + TIE_EPS, SOUTH_LATITUDE), 0.0f, 1, 0.0f);
   const Complex peirce_seam_delta = peirce_seam_a.coords - peirce_seam_b.coords;
   const Complex airocean_seam_delta = cut_coords[1] - cut_coords[2];
@@ -1825,14 +1816,14 @@ inline void test_shadierball_projection_catalog() {
       const float cp = cosf(latitude);
       const Vector v(cp * cosf(longitude), sinf(latitude),
                      cp * sinf(longitude));
-      const auto b = shadierball::bonne_projection(v, 0.37f, standard_parallel);
+      const auto b = shaderball::bonne_projection(v, 0.37f, standard_parallel);
       HS_EXPECT_TRUE(std::isfinite(b.coords.re));
       HS_EXPECT_TRUE(std::isfinite(b.coords.im));
       HS_EXPECT_TRUE(std::isfinite(b.fade_edge_distance));
       for (uint8_t layout = 0; layout < 4; ++layout) {
-        const auto p = shadierball::peirce_projection(v, -0.21f, layout, 0.13f);
+        const auto p = shaderball::peirce_projection(v, -0.21f, layout, 0.13f);
         const auto without_edge =
-            shadierball::peirce_projection(v, -0.21f, layout, 0.13f, false);
+            shaderball::peirce_projection(v, -0.21f, layout, 0.13f, false);
         HS_EXPECT_TRUE(std::isfinite(p.coords.re));
         HS_EXPECT_TRUE(std::isfinite(p.coords.im));
         HS_EXPECT_TRUE(std::isfinite(p.fade_edge_distance));
@@ -1843,9 +1834,9 @@ inline void test_shadierball_projection_catalog() {
         HS_EXPECT_EQ(without_edge.fade_edge_distance, 65536.0f);
       }
       for (bool horizontal : {false, true}) {
-        const auto a = shadierball::airocean_projection(v, 0.19f, horizontal);
+        const auto a = shaderball::airocean_projection(v, 0.19f, horizontal);
         const auto without_edge =
-            shadierball::airocean_projection(v, 0.19f, horizontal, false);
+            shaderball::airocean_projection(v, 0.19f, horizontal, false);
         HS_EXPECT_TRUE(std::isfinite(a.coords.re));
         HS_EXPECT_TRUE(std::isfinite(a.coords.im));
         HS_EXPECT_TRUE(std::isfinite(a.fade_edge_distance));
@@ -1862,11 +1853,11 @@ inline void test_shadierball_projection_catalog() {
 }
 
 /** @brief Domain policies, gauges, and analytic admission reject unsafe tuples. */
-inline void test_shadierball_projection_and_admission_contracts() {
-  using WB = ShadierBallWhiteBox;
-  const uint8_t periodic_traits = shadierball::projection_traits(
-      shadierball::ProjectionTrait::GLUED, shadierball::ProjectionTrait::FOLDED,
-      shadierball::ProjectionTrait::PERIODIC);
+inline void test_shaderball_projection_and_admission_contracts() {
+  using WB = ShaderBallWhiteBox;
+  const uint8_t periodic_traits = shaderball::projection_traits(
+      shaderball::ProjectionTrait::GLUED, shaderball::ProjectionTrait::FOLDED,
+      shaderball::ProjectionTrait::PERIODIC);
   const WB::ProjectedLookup horizontal_left{
       Complex(-3.7080f, 0.2f), 2, 0,   2, 0.1f, 1.0f, 1,
       periodic_traits,         4, 1.0f};
@@ -1887,7 +1878,7 @@ inline void test_shadierball_projection_and_admission_contracts() {
   HS_EXPECT_FALSE(WB::join_compatible(vertical_bottom, vertical_top,
                                       WB::Projection::PEIRCE_QUINCUNCIAL));
 
-  auto kernel_lookup = [](const shadierball::ProjectionKernelResult &result) {
+  auto kernel_lookup = [](const shaderball::ProjectionKernelResult &result) {
     return WB::ProjectedLookup{result.coords,
                                result.region_id,
                                result.component_id,
@@ -1906,30 +1897,30 @@ inline void test_shadierball_projection_and_admission_contracts() {
   const Vector sector_before = lon_lat(0.25f * PI_F - 1e-4f, -0.4f);
   const Vector sector_after = lon_lat(0.25f * PI_F + 1e-4f, -0.4f);
   const auto diamond_before = kernel_lookup(
-      shadierball::peirce_projection(sector_before, 0.0f, 0, 0.0f));
-  const auto diamond_after = kernel_lookup(
-      shadierball::peirce_projection(sector_after, 0.0f, 0, 0.0f));
+      shaderball::peirce_projection(sector_before, 0.0f, 0, 0.0f));
+  const auto diamond_after =
+      kernel_lookup(shaderball::peirce_projection(sector_after, 0.0f, 0, 0.0f));
   HS_EXPECT_FALSE(WB::join_compatible(diamond_before, diamond_after,
                                       WB::Projection::PEIRCE_QUINCUNCIAL));
   const auto horizontal_before = kernel_lookup(
-      shadierball::peirce_projection(sector_before, 0.0f, 2, 0.0f));
-  const auto horizontal_after = kernel_lookup(
-      shadierball::peirce_projection(sector_after, 0.0f, 2, 0.0f));
+      shaderball::peirce_projection(sector_before, 0.0f, 2, 0.0f));
+  const auto horizontal_after =
+      kernel_lookup(shaderball::peirce_projection(sector_after, 0.0f, 2, 0.0f));
   HS_EXPECT_FALSE(WB::join_compatible(horizontal_before, horizontal_after,
                                       WB::Projection::PEIRCE_QUINCUNCIAL));
 
-  const auto glued_side_a = kernel_lookup(shadierball::airocean_projection(
+  const auto glued_side_a = kernel_lookup(shaderball::airocean_projection(
       Vector(0.00321964224570043f, 0.902105871397194f, 0.431502758617508f),
       0.0f, false));
-  const auto glued_side_b = kernel_lookup(shadierball::airocean_projection(
+  const auto glued_side_b = kernel_lookup(shaderball::airocean_projection(
       Vector(0.00321096516044884f, 0.902110786482306f, 0.431492547577607f),
       0.0f, false));
   HS_EXPECT_FALSE(WB::join_compatible(glued_side_a, glued_side_b,
                                       WB::Projection::AIROCEAN));
-  const auto cut_side_a = kernel_lookup(shadierball::airocean_projection(
+  const auto cut_side_a = kernel_lookup(shaderball::airocean_projection(
       Vector(0.456076125629434f, 0.767836786220573f, -0.449912477441232f), 0.0f,
       false));
-  const auto cut_side_b = kernel_lookup(shadierball::airocean_projection(
+  const auto cut_side_b = kernel_lookup(shaderball::airocean_projection(
       Vector(0.456088797513479f, 0.767830686682203f, -0.449910041421443f), 0.0f,
       false));
   HS_EXPECT_FALSE(
@@ -2025,9 +2016,9 @@ inline void test_shadierball_projection_and_admission_contracts() {
   }
 
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
-  WB::FrameState frame = WB::frame(sdb);
+  WB::SB sb;
+  sb.init();
+  WB::FrameState frame = WB::frame(sb);
   frame.resources.outer_warp_noise = nullptr;
   const Complex point(0.31f, -0.27f);
   const WB::ProjectedLookup projected(point, 0, 0, 0, 1.0f, 1.0f, 0);
@@ -2051,11 +2042,11 @@ inline void test_shadierball_projection_and_admission_contracts() {
 }
 
 /** @brief Every shader catalog family produces finite bounded output. */
-inline void test_shadierball_kernel_catalog() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_kernel_catalog() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
+  WB::SB sb;
+  sb.init();
   const Vector view = Vector(0.31f, 0.87f, -0.38f).normalized();
   WB::RequestedConfig config = WB::legacy_config();
   config.slots.surface_lens = WB::SurfaceLens::NONE;
@@ -2066,12 +2057,12 @@ inline void test_shadierball_kernel_catalog() {
 
   auto check = [&](const WB::RequestedConfig &candidate) {
     HS_EXPECT_TRUE(WB::valid_config(candidate));
-    WB::request_config(sdb, candidate);
-    const WB::RequestedConfig canonical = WB::requested_config(sdb);
+    WB::request_config(sb, candidate);
+    const WB::RequestedConfig canonical = WB::requested_config(sb);
     HS_EXPECT_TRUE(canonical.slots == candidate.slots);
-    WB::settle_transition(sdb);
-    HS_EXPECT_TRUE(WB::active_config(sdb) == canonical);
-    const Color4 color = WB::shade(view, WB::frame(sdb));
+    WB::settle_transition(sb);
+    HS_EXPECT_TRUE(WB::active_config(sb) == canonical);
+    const Color4 color = WB::shade(view, WB::frame(sb));
     HS_EXPECT_TRUE(std::isfinite(color.alpha));
     HS_EXPECT_GE(color.alpha, 0.0f);
     HS_EXPECT_LE(color.alpha, 1.0f);
@@ -2122,7 +2113,7 @@ inline void test_shadierball_kernel_catalog() {
     }
   }
 
-  WB::FrameState frame = WB::frame(sdb);
+  WB::FrameState frame = WB::frame(sb);
   frame.resources.outer_warp_noise = nullptr;
   WB::WarpStageParams zero_params;
   zero_params.strength = 0.0f;
@@ -2146,43 +2137,43 @@ inline void test_shadierball_kernel_catalog() {
 }
 
 /** @brief Adjacent preset edges use one live topology and authoritative clocks. */
-inline void test_shadierball_stable_preset_transition() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_stable_preset_transition() {
+  using WB = ShaderBallWhiteBox;
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
+  WB::SB sb;
+  sb.init();
   const WB::Params from = WB::presets()[0].params;
   const WB::Params to = WB::presets()[1].params;
-  const size_t initial_index = WB::preset_index(sdb);
-  WB::begin_blend(sdb);
-  HS_EXPECT_EQ(WB::preset_index(sdb), initial_index + 1);
-  HS_EXPECT_TRUE(WB::param_morph_active(sdb));
-  HS_EXPECT_FALSE(WB::transition_active(sdb));
-  HS_EXPECT_TRUE(WB::live_params(sdb) == from);
+  const size_t initial_index = WB::preset_index(sb);
+  WB::begin_blend(sb);
+  HS_EXPECT_EQ(WB::preset_index(sb), initial_index + 1);
+  HS_EXPECT_TRUE(WB::param_morph_active(sb));
+  HS_EXPECT_FALSE(WB::transition_active(sb));
+  HS_EXPECT_TRUE(WB::live_params(sb) == from);
 
-  float previous_phase = WB::clocks(sdb).source_primary;
+  float previous_phase = WB::clocks(sb).source_primary;
   for (int step = 0; step <= 60; ++step) {
-    WB::step_param_morph(sdb);
-    const float live_speed = WB::live_params(sdb).source.speed;
-    const float phase = WB::clocks(sdb).source_primary;
+    WB::step_param_morph(sb);
+    const float live_speed = WB::live_params(sb).source.speed;
+    const float phase = WB::clocks(sb).source_primary;
     HS_EXPECT_NEAR(phase, fmodf(previous_phase + live_speed, TWO_PI_F), 1e-6f);
     previous_phase = phase;
-    if (WB::param_morph_elapsed(sdb) == 6) {
-      HS_EXPECT_LT(WB::live_params(sdb).source.pattern_freq,
+    if (WB::param_morph_elapsed(sb) == 6) {
+      HS_EXPECT_LT(WB::live_params(sb).source.pattern_freq,
                    from.source.pattern_freq);
-      HS_EXPECT_GT(WB::live_params(sdb).source.pattern_freq,
+      HS_EXPECT_GT(WB::live_params(sb).source.pattern_freq,
                    to.source.pattern_freq);
-      HS_EXPECT_EQ(WB::live_params(sdb).warp, from.warp);
+      HS_EXPECT_EQ(WB::live_params(sb).warp, from.warp);
     }
-    if (WB::param_morph_elapsed(sdb) == 31) {
-      HS_EXPECT_LT(WB::live_params(sdb).source.pattern_freq,
+    if (WB::param_morph_elapsed(sb) == 31) {
+      HS_EXPECT_LT(WB::live_params(sb).source.pattern_freq,
                    from.source.pattern_freq);
-      HS_EXPECT_GT(WB::live_params(sdb).source.pattern_freq,
+      HS_EXPECT_GT(WB::live_params(sb).source.pattern_freq,
                    to.source.pattern_freq);
     }
   }
-  HS_EXPECT_FALSE(WB::param_morph_active(sdb));
-  HS_EXPECT_TRUE(WB::live_params(sdb) == to);
+  HS_EXPECT_FALSE(WB::param_morph_active(sb));
+  HS_EXPECT_TRUE(WB::live_params(sb) == to);
 
   const auto &presets = WB::presets();
   for (size_t index = 0; index < presets.size(); ++index) {
@@ -2195,8 +2186,8 @@ inline void test_shadierball_stable_preset_transition() {
 }
 
 /** @brief Discrete look changes preserve continuous dual-runtime handoff. */
-inline void test_shadierball_discrete_transition() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_discrete_transition() {
+  using WB = ShaderBallWhiteBox;
 
   const Color4 from_color(Pixel(10000, 20000, 30000), 0.25f);
   const Color4 to_color(Pixel(40000, 50000, 60000), 0.75f);
@@ -2216,10 +2207,10 @@ inline void test_shadierball_discrete_transition() {
 
   {
     reset_effect_globals();
-    WB::SDB sdb;
-    sdb.init();
+    WB::SB sb;
+    sb.init();
     const Vector view(0.2f, 0.9f, -0.3f);
-    const WB::FrameState valid = WB::frame(sdb);
+    const WB::FrameState valid = WB::frame(sb);
     WB::FrameState inactive = valid;
     inactive.resources.liquid_palette = nullptr;
     const Color4 expected = WB::shade(view, valid);
@@ -2255,45 +2246,45 @@ inline void test_shadierball_discrete_transition() {
 
   {
     reset_effect_globals();
-    WB::SDB sdb;
-    sdb.init();
-    sdb.setAnimationsPaused(true);
+    WB::SB sb;
+    sb.init();
+    sb.setAnimationsPaused(true);
     WB::RequestedConfig from = WB::legacy_config();
     from.slots.function = WB::Function::NOISE_CONTOUR;
     from.params.source.noise_basis = WB::NoiseBasis::SIMPLEX;
-    WB::request_config(sdb, from);
-    WB::settle_transition(sdb);
-    HS_EXPECT_EQ(WB::prepared_noise_basis(sdb, 2), WB::NoiseBasis::SIMPLEX);
+    WB::request_config(sb, from);
+    WB::settle_transition(sb);
+    HS_EXPECT_EQ(WB::prepared_noise_basis(sb, 2), WB::NoiseBasis::SIMPLEX);
 
     WB::RequestedConfig to = from;
     to.params.source.noise_basis = WB::NoiseBasis::FBM3;
-    WB::force_transition(sdb, to, 60, false);
-    HS_EXPECT_TRUE(WB::transition_active(sdb));
-    HS_EXPECT_EQ(WB::transition_mode(WB::transition_from_config(sdb),
-                                     WB::transition_to_config(sdb)),
+    WB::force_transition(sb, to, 60, false);
+    HS_EXPECT_TRUE(WB::transition_active(sb));
+    HS_EXPECT_EQ(WB::transition_mode(WB::transition_from_config(sb),
+                                     WB::transition_to_config(sb)),
                  WB::TransitionMode::THROUGH_CLEAR);
     for (int frame = 0; frame < 30; ++frame) {
-      sdb.draw_frame();
-      sdb.advance_display();
+      sb.draw_frame();
+      sb.advance_display();
     }
-    HS_EXPECT_EQ(WB::transition_elapsed(sdb), uint16_t(30));
-    HS_EXPECT_EQ(WB::prepared_noise_basis(sdb, 2), WB::NoiseBasis::SIMPLEX);
-    sdb.draw_frame();
-    sdb.advance_display();
-    HS_EXPECT_EQ(WB::transition_elapsed(sdb), uint16_t(31));
-    HS_EXPECT_EQ(WB::prepared_noise_basis(sdb, 2), WB::NoiseBasis::FBM3);
+    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(30));
+    HS_EXPECT_EQ(WB::prepared_noise_basis(sb, 2), WB::NoiseBasis::SIMPLEX);
+    sb.draw_frame();
+    sb.advance_display();
+    HS_EXPECT_EQ(WB::transition_elapsed(sb), uint16_t(31));
+    HS_EXPECT_EQ(WB::prepared_noise_basis(sb, 2), WB::NoiseBasis::FBM3);
   }
 
   {
     reset_effect_globals();
-    WB::SDB sdb;
-    sdb.init();
+    WB::SB sb;
+    sb.init();
     WB::LookRuntime liquid_runtime;
     WB::LookRuntime generated_runtime;
     const WB::WalkDeltas deltas{make_rotation(Y_AXIS, 0.2f),
                                 make_rotation(X_AXIS, 0.3f)};
-    WB::advance_runtime(sdb, liquid_runtime, WB::presets()[0], deltas);
-    WB::advance_runtime(sdb, generated_runtime, WB::legacy_config(), deltas);
+    WB::advance_runtime(sb, liquid_runtime, WB::presets()[0], deltas);
+    WB::advance_runtime(sb, generated_runtime, WB::legacy_config(), deltas);
     HS_EXPECT_EQ(liquid_runtime.clocks.source_primary, 0.1f);
     HS_EXPECT_EQ(generated_runtime.clocks.source_primary, 0.05f);
     HS_EXPECT_TRUE(liquid_runtime.projection_wander !=
@@ -2301,65 +2292,65 @@ inline void test_shadierball_discrete_transition() {
     HS_EXPECT_TRUE(liquid_runtime.outer_wander !=
                    generated_runtime.outer_wander);
 
-    const size_t original_index = WB::preset_index(sdb);
-    WB::force_transition(sdb, WB::legacy_config(), 60, true);
-    const WB::RequestedConfig captured_source = WB::transition_from_config(sdb);
-    HS_EXPECT_TRUE(WB::transition_active(sdb));
-    HS_EXPECT_EQ(WB::transition_mix(sdb), 0.0f);
-    WB::begin_blend(sdb);
-    HS_EXPECT_EQ(WB::preset_index(sdb), original_index);
-    const uint32_t walk_steps = WB::walk_steps(sdb);
-    const uint32_t liquid_steps = WB::liquid_palette_steps(sdb);
-    const uint32_t generated_steps = WB::generated_palette_steps(sdb);
-    sdb.draw_frame();
-    sdb.advance_display();
-    HS_EXPECT_EQ(WB::walk_steps(sdb), walk_steps + 1);
-    HS_EXPECT_EQ(WB::liquid_palette_steps(sdb), liquid_steps + 1);
-    HS_EXPECT_EQ(WB::generated_palette_steps(sdb), generated_steps + 1);
-    HS_EXPECT_EQ(WB::transition_from_runtime(sdb).clocks.source_primary, 0.1f);
-    HS_EXPECT_EQ(WB::transition_to_runtime(sdb).clocks.source_primary, 0.05f);
+    const size_t original_index = WB::preset_index(sb);
+    WB::force_transition(sb, WB::legacy_config(), 60, true);
+    const WB::RequestedConfig captured_source = WB::transition_from_config(sb);
+    HS_EXPECT_TRUE(WB::transition_active(sb));
+    HS_EXPECT_EQ(WB::transition_mix(sb), 0.0f);
+    WB::begin_blend(sb);
+    HS_EXPECT_EQ(WB::preset_index(sb), original_index);
+    const uint32_t walk_steps = WB::walk_steps(sb);
+    const uint32_t liquid_steps = WB::liquid_palette_steps(sb);
+    const uint32_t generated_steps = WB::generated_palette_steps(sb);
+    sb.draw_frame();
+    sb.advance_display();
+    HS_EXPECT_EQ(WB::walk_steps(sb), walk_steps + 1);
+    HS_EXPECT_EQ(WB::liquid_palette_steps(sb), liquid_steps + 1);
+    HS_EXPECT_EQ(WB::generated_palette_steps(sb), generated_steps + 1);
+    HS_EXPECT_EQ(WB::transition_from_runtime(sb).clocks.source_primary, 0.1f);
+    HS_EXPECT_EQ(WB::transition_to_runtime(sb).clocks.source_primary, 0.05f);
 
     for (int frame_index = 1; frame_index < 20; ++frame_index) {
-      sdb.draw_frame();
-      sdb.advance_display();
+      sb.draw_frame();
+      sb.advance_display();
     }
-    const uint16_t elapsed_before_takeover = WB::transition_elapsed(sdb);
-    sdb.setAnimationsPaused(true);
+    const uint16_t elapsed_before_takeover = WB::transition_elapsed(sb);
+    sb.setAnimationsPaused(true);
     const float visible_phase =
-        WB::transition_from_runtime(sdb).clocks.source_primary;
+        WB::transition_from_runtime(sb).clocks.source_primary;
     WB::RequestedConfig queued = WB::legacy_config();
     queued.slots.function = WB::Function::RINGS;
     HS_EXPECT_TRUE(WB::valid_config(queued));
     HS_EXPECT_TRUE(WB::transition_admitted(captured_source, queued));
-    WB::request_config(sdb, queued);
+    WB::request_config(sb, queued);
     HS_EXPECT_GT(elapsed_before_takeover, uint16_t(0));
-    HS_EXPECT_FALSE(WB::transition_active(sdb));
-    HS_EXPECT_TRUE(WB::active_config(sdb) == queued);
-    HS_EXPECT_TRUE(WB::requested_slots(sdb) == queued.slots);
-    HS_EXPECT_EQ(WB::clocks(sdb).source_primary, visible_phase);
-    sdb.draw_frame();
-    sdb.advance_display();
-    HS_EXPECT_NEAR(WB::clocks(sdb).source_primary,
+    HS_EXPECT_FALSE(WB::transition_active(sb));
+    HS_EXPECT_TRUE(WB::active_config(sb) == queued);
+    HS_EXPECT_TRUE(WB::requested_slots(sb) == queued.slots);
+    HS_EXPECT_EQ(WB::clocks(sb).source_primary, visible_phase);
+    sb.draw_frame();
+    sb.advance_display();
+    HS_EXPECT_NEAR(WB::clocks(sb).source_primary,
                    fmodf(visible_phase + queued.params.source.speed, TWO_PI_F),
                    1e-6f);
 
     const WB::RequestedConfig manual = WB::presets()[6];
     HS_EXPECT_TRUE(WB::transition_admitted(captured_source, manual));
-    WB::request_config(sdb, manual);
-    HS_EXPECT_FALSE(WB::transition_active(sdb));
-    HS_EXPECT_TRUE(WB::active_config(sdb) == manual);
-    const float committed_phase = WB::clocks(sdb).source_primary;
-    sdb.draw_frame();
-    sdb.advance_display();
+    WB::request_config(sb, manual);
+    HS_EXPECT_FALSE(WB::transition_active(sb));
+    HS_EXPECT_TRUE(WB::active_config(sb) == manual);
+    const float committed_phase = WB::clocks(sb).source_primary;
+    sb.draw_frame();
+    sb.advance_display();
     HS_EXPECT_NEAR(
-        WB::clocks(sdb).source_primary,
+        WB::clocks(sb).source_primary,
         fmodf(committed_phase + manual.params.source.speed, TWO_PI_F), 1e-6f);
   }
 }
 
 /** @brief Generated and liquid color resources remain independent owners. */
-inline void test_shadierball_palette_resources() {
-  using WB = ShadierBallWhiteBox;
+inline void test_shaderball_palette_resources() {
+  using WB = ShaderBallWhiteBox;
   uint32_t hue = 0;
   GenerativePalette previous;
   WB::make_triadic(hue, 0, previous);
@@ -2372,42 +2363,42 @@ inline void test_shadierball_palette_resources() {
   HS_EXPECT_EQ(hue, uint32_t(8) * WB::HUE_STEP);
 
   reset_effect_globals();
-  WB::SDB sdb;
-  sdb.init();
-  const Pixel generated = WB::generated_color(sdb, 0.25f);
-  const Pixel liquid = WB::liquid_color(sdb, 0.25f);
+  WB::SB sb;
+  sb.init();
+  const Pixel generated = WB::generated_color(sb, 0.25f);
+  const Pixel liquid = WB::liquid_color(sb, 0.25f);
   HS_EXPECT_TRUE(generated.r != liquid.r || generated.g != liquid.g ||
                  generated.b != liquid.b);
 }
 
-/** @brief Module entry point for ShadierBall contract tests. */
-inline int run_shadierball_tests() {
-  ModuleFixture fixture("shadierball");
-  test_shadierball_clocks_wrapped();
-  test_shadierball_pause_semantics();
-  test_shadierball_paused_selector_commit();
-  test_shadierball_manual_edit_timing();
-  test_shadierball_pipeline_contract();
-  test_shadierball_legacy_spatial_slots();
-  test_shadierball_subduction_edge_fade();
-  test_shadierball_legacy_sources();
-  test_shadierball_coupled_source();
-  test_shadierball_preset_bank();
-  test_shadierball_config_admission();
-  test_shadierball_deterministic_gui_edits();
-  test_shadierball_work_admission();
-  test_shadierball_strict_seam_admission();
-  test_shadierball_additive_delta_precision();
-  test_shadierball_profile_presets();
-  test_shadierball_gui_catalog();
-  test_shadierball_projection_catalog();
-  test_shadierball_projection_and_admission_contracts();
-  test_shadierball_kernel_catalog();
-  test_shadierball_stable_preset_transition();
-  test_shadierball_discrete_transition();
-  test_shadierball_palette_resources();
+/** @brief Module entry point for ShaderBall contract tests. */
+inline int run_shaderball_tests() {
+  ModuleFixture fixture("shaderball");
+  test_shaderball_clocks_wrapped();
+  test_shaderball_pause_semantics();
+  test_shaderball_paused_selector_commit();
+  test_shaderball_manual_edit_timing();
+  test_shaderball_pipeline_contract();
+  test_shaderball_legacy_spatial_slots();
+  test_shaderball_subduction_edge_fade();
+  test_shaderball_legacy_sources();
+  test_shaderball_coupled_source();
+  test_shaderball_preset_bank();
+  test_shaderball_config_admission();
+  test_shaderball_deterministic_gui_edits();
+  test_shaderball_work_admission();
+  test_shaderball_strict_seam_admission();
+  test_shaderball_additive_delta_precision();
+  test_shaderball_profile_presets();
+  test_shaderball_gui_catalog();
+  test_shaderball_projection_catalog();
+  test_shaderball_projection_and_admission_contracts();
+  test_shaderball_kernel_catalog();
+  test_shaderball_stable_preset_transition();
+  test_shaderball_discrete_transition();
+  test_shaderball_palette_resources();
   return fixture.result();
 }
 
-} // namespace shadierball_tests
+} // namespace shaderball_tests
 } // namespace hs_test
