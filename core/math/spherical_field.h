@@ -73,7 +73,8 @@ public:
    * @brief Builds the ring chain over the rendered domain.
    * @param spacing Latitude rows between consecutive rings; must be > 0.
    * @param north_infill Leading rows given one ring each at full longitude
-   *   resolution.
+   *   resolution; the two infill bands must be non-negative and must not
+   *   overlap.
    * @param south_infill Trailing rows given one ring each at full longitude
    *   resolution.
    * @param equator_samples Longitude samples on the widest ring; 0 derives the
@@ -85,6 +86,11 @@ public:
       : spacing(spacing), north_infill(north_infill),
         south_infill(south_infill), equator_samples(equator_samples) {
     HS_CHECK(spacing > 0, "SphericalFieldLayout: spacing must be > 0");
+    HS_CHECK(north_infill >= 0 && south_infill >= 0 &&
+                 north_infill + south_infill <= H,
+             "SphericalFieldLayout: infills %d + %d must be non-negative and "
+             "fit within H = %d",
+             north_infill, south_infill, H);
   }
 
   /** @brief Rows that alias a whole longitude range onto one physical point:

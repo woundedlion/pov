@@ -1736,6 +1736,18 @@ inline void case_spherical_field_ring_index_oob() {
 }
 
 /**
+ * @brief Death case: an infill band past the rendered domain must trap.
+ * @details A south_infill wider than H puts every row at full longitude
+ *          resolution, multiplying sample_count() by the spacing; the arena
+ *          would then overflow at an unrelated call site.
+ */
+inline void case_spherical_field_infill_over_domain() {
+  hs::SphericalFieldLayout<32, 16, 0> layout(4, 0, opaque(17));
+  if (layout.sample_count() == 42)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a negative feedback fade must trap in sync_hue.
  * @details Style is a public aggregate, so nothing but a slider bound keeps fade
  *          non-negative. logf of a negative yields NaN, the hue matrix carries it
@@ -2671,6 +2683,11 @@ inline const Case *all_cases(int &n) {
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
        "spherical_field.h",
        "(y < H - 1) SphericalFieldLayout: ring index 5 out of range"},
+      {"spherical_field_infill_over_domain",
+       case_spherical_field_infill_over_domain, "spherical_field.h",
+       "(north_infill >= 0 && south_infill >= 0 && north_infill + south_infill "
+       "<= H) SphericalFieldLayout: infills 0 + 17 must be non-negative and "
+       "fit within H = 16"},
       {"feedback_negative_fade", case_feedback_negative_fade, "styles.h",
        "(std::isfinite(fade) && fade >= 0.0f) Feedback::Style::fade must be "
        "finite and >= 0"},
@@ -3220,7 +3237,7 @@ inline int run_death_tests() {
 
   // Exact roster size, so a silently dropped case fails here rather than
   // hiding under slack. Update when adding or removing cases.
-  constexpr int DEATH_CASE_COUNT = 128;
+  constexpr int DEATH_CASE_COUNT = 129;
   HS_EXPECT_EQ(n, DEATH_CASE_COUNT);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
