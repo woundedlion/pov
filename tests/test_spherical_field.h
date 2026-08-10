@@ -12,7 +12,7 @@
 #include "tests/test_harness.h"
 
 namespace hs_test {
-namespace spherical_field {
+namespace spherical_field_tests {
 
 struct Pair {
   float a;
@@ -368,5 +368,5 @@ inline int run_spherical_field_tests() {
   return fixture.result();
 }
 
-} // namespace spherical_field
+} // namespace spherical_field_tests
 } // namespace hs_test

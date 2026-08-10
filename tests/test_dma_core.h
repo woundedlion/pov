@@ -18,7 +18,7 @@
 #include <limits>
 
 namespace hs_test {
-namespace dma_core {
+namespace dma_core_tests {
 
 // Compile-time proof the decision math folds (the device relies on these as
 // constexpr/inline, off the column ISR hot path).
@@ -92,5 +92,5 @@ inline int run_dma_core_tests() {
   return fixture.result();
 }
 
-} // namespace dma_core
+} // namespace dma_core_tests
 } // namespace hs_test

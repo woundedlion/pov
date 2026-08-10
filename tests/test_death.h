@@ -99,7 +99,7 @@ extern "C" __declspec(dllimport) unsigned int __stdcall SetErrorMode(
 #endif
 
 namespace hs_test {
-namespace death {
+namespace death_tests {
 
 /**
  * @brief Accessor for argv[0] of the running test binary, used to re-exec self.
@@ -3288,5 +3288,5 @@ inline int run_death_tests() {
   return fixture.result();
 }
 
-} // namespace death
+} // namespace death_tests
 } // namespace hs_test

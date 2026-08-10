@@ -11,7 +11,7 @@
 #pragma once
 
 namespace hs_test {
-namespace death {
+namespace death_tests {
 
 /** @brief One source file's fail-fast guard count. */
 struct GuardSiteCount {
@@ -26,5 +26,5 @@ inline constexpr GuardSiteCount GUARD_SITE_COUNTS[] = {
 /** Total HS_CHECK sites across all of them. */
 inline constexpr int GUARD_SITE_TOTAL = @HS_GUARD_SITE_TOTAL@;
 
-} // namespace death
+} // namespace death_tests
 } // namespace hs_test

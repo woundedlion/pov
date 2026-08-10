@@ -117,12 +117,12 @@ constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 541;
 constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
-  X("3dmath", 47, hs_test::math3d::run_3dmath_tests, 30014)                    \
+  X("3dmath", 47, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
-  X("memory", 43, hs_test::mem::run_memory_tests, 271)                         \
-  X("spatial", 18, hs_test::spatial::run_spatial_tests, 179)                   \
-  X("scb", 40, hs_test::scb::run_static_circular_buffer_tests, 197)            \
-  X("sdf", 94, hs_test::sdf::run_sdf_tests, 272481)                            \
+  X("memory", 43, hs_test::memory_tests::run_memory_tests, 271)                \
+  X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 179)             \
+  X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
+  X("sdf", 94, hs_test::sdf_tests::run_sdf_tests, 272481)                      \
   X("conway", 33, hs_test::conway_tests::run_conway_tests, 5982)               \
   X("conway_morph", 37, hs_test::conway_morph_tests::run_conway_morph_tests,   \
     1656015)                                                                   \
@@ -134,11 +134,12 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("opchain_probe", 8, hs_test::opchain_probe_tests::run_opchain_probe_tests, \
     496306)                                                                    \
   X("opchain_arena_survey", 1,                                                 \
-    hs_test::opchain_arena_survey::run_opchain_arena_survey_tests, 20363)      \
+    hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests,       \
+    20363)                                                                     \
   X("hankin", 19, hs_test::hankin_tests::run_hankin_tests, 2048)               \
-  X("geometry", 35, hs_test::geometry::run_geometry_tests, 4847)               \
+  X("geometry", 35, hs_test::geometry_tests::run_geometry_tests, 4847)         \
   X("spherical_field", 13,                                                     \
-    hs_test::spherical_field::run_spherical_field_tests, 7027)                 \
+    hs_test::spherical_field_tests::run_spherical_field_tests, 7027)           \
   X("mesh", 22, hs_test::mesh_tests::run_mesh_tests, 42756)                    \
   X("solids", 34, hs_test::solids_tests::run_solids_tests, 298990)             \
   X("reaction_graph", 14,                                                      \
@@ -173,10 +174,10 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
     hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, 83883)  \
   X("shapeshifter_tiles", 2,                                                   \
     hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests, 46)       \
-  X("dma_core", 4, hs_test::dma_core::run_dma_core_tests, 12)                  \
+  X("dma_core", 4, hs_test::dma_core_tests::run_dma_core_tests, 12)            \
   X("hd107s", 7, hs_test::hd107s_tests::run_hd107s_tests, 288)                 \
-  X("dma_controller", 6, hs_test::dma_controller::run_dma_controller_tests,    \
-    67)                                                                        \
+  X("dma_controller", 6,                                                       \
+    hs_test::dma_controller_tests::run_dma_controller_tests, 67)               \
   X("pov_segmented", 24,                                                       \
     hs_test::pov_segmented_tests::run_pov_segmented_tests, 263165)             \
   X("pov_single", 3, hs_test::pov_single_tests::run_pov_single_tests, 8640)    \
@@ -190,7 +191,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
   X("presets", 6, hs_test::presets_tests::run_presets_tests, 23)               \
   X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
   X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
-  X("death", 129, hs_test::death::run_death_tests, 257)
+  X("death", 129, hs_test::death_tests::run_death_tests, 257)
 
 // case_sites is consumed by tests/check_case_calls.cmake, not by the runtime.
 #define HS_TEST_MODULE_ENTRY(name, case_sites, fn, min_assertions)             \
@@ -287,7 +288,7 @@ int main(int argc, char **argv) {
   // Unbuffered stdout so progress survives a trap/abort in a death-case child.
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  hs_test::death::self_exe() = (argc > 0) ? argv[0] : nullptr;
+  hs_test::death_tests::self_exe() = (argc > 0) ? argv[0] : nullptr;
 
   // Child death-case dispatch: when HS_DEATH_CASE is set, run ONLY that single
   // trap-triggering case and exit — never the full suite (which would re-spawn
@@ -299,7 +300,7 @@ int main(int argc, char **argv) {
   if (const char *dc = std::getenv("HS_DEATH_CASE")) {
 #pragma clang diagnostic pop
     if (dc[0] != '\0') {
-      hs_test::death::run_child_case(dc);
+      hs_test::death_tests::run_child_case(dc);
       return 0;
     }
   }

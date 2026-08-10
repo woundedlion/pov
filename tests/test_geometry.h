@@ -23,7 +23,7 @@
 #include "tests/test_pole_wrap.h"
 
 namespace hs_test {
-namespace geometry {
+namespace geometry_tests {
 
 using hs_test::approx_vec;
 using hs_test::approx_quat;
@@ -743,5 +743,5 @@ inline int run_geometry_tests() {
   return fixture.result();
 }
 
-} // namespace geometry
+} // namespace geometry_tests
 } // namespace hs_test

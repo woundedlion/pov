@@ -36,7 +36,7 @@
 #include "tests/test_harness.h"
 
 namespace hs_test {
-namespace mem {
+namespace memory_tests {
 
 /**
  * @brief Backing storage for arenas used in these tests.
@@ -1104,5 +1104,5 @@ inline int run_memory_tests() {
   return fixture.result();
 }
 
-} // namespace mem
+} // namespace memory_tests
 } // namespace hs_test

@@ -36,7 +36,7 @@
 #include <vector>
 
 namespace hs_test {
-namespace sdf {
+namespace sdf_tests {
 
 using hs_test::approx_vec;
 
@@ -3073,5 +3073,5 @@ inline int run_sdf_tests() {
   return fixture.result();
 }
 
-} // namespace sdf
+} // namespace sdf_tests
 } // namespace hs_test
