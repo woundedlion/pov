@@ -28,36 +28,75 @@
  */
 #pragma once
 
+/**
+ * @file shaderball_projections.h
+ * @brief Interrupted sphere-to-plane projection kernels for ShaderBall: Bonne,
+ *        Peirce quincuncial, and Fuller Airocean.
+ * @details Each kernel maps a unit direction to plane coordinates plus the
+ * seam metadata the shader needs to fade a cut and to keep a glued edge
+ * continuous. Kernels are pure and frame-independent; ShaderBall applies the
+ * coordinate scale and the pole attenuation. Constants derive from PROJ at the
+ * commit named in the header above.
+ */
+
 #include "core/math/3dmath.h"
 
 namespace shaderball {
 
+/** @brief Topological properties a projection's image carries at its edges. */
 enum class ProjectionTrait : uint8_t {
   NONE = 0,
+  /** Image is torn along a seam; the two sides do not join. */
   CUT = 1U << 0,
+  /** Seam sides are geometrically continuous. */
   GLUED = 1U << 1,
+  /** Image tiles along an axis. */
   PERIODIC = 1U << 2,
+  /** A hemisphere is reflected into the other's image. */
   FOLDED = 1U << 3,
+  /** Image has at least one point of infinite scale. */
   SINGULAR = 1U << 4
 };
 
+/**
+ * @brief Widens one trait to the packed trait mask.
+ * @param a Trait to encode.
+ * @return The mask holding just that trait.
+ */
 constexpr uint8_t projection_traits(ProjectionTrait a) {
   return static_cast<uint8_t>(a);
 }
 
+/**
+ * @brief Packs two or three traits into one mask.
+ * @param a First trait.
+ * @param b Second trait.
+ * @param c Optional third trait.
+ * @return The union of the given traits.
+ */
 constexpr uint8_t projection_traits(ProjectionTrait a, ProjectionTrait b,
                                     ProjectionTrait c = ProjectionTrait::NONE) {
   return projection_traits(a) | projection_traits(b) | projection_traits(c);
 }
 
+/** @brief One projection kernel's plane coordinates plus its seam metadata. */
 struct ProjectionKernelResult {
+  /** Plane position in the kernel's native units. */
   Complex coords;
+  /** Which sheet of an interrupted image the point fell in. */
   uint8_t region_id;
+  /** Disconnected component within the region. */
   uint8_t component_id;
+  /** Kernel-specific boundary kind at this point. */
   uint8_t boundary_flags;
+  /** Distance to the nearest cut in the kernel's own units; 65536 when the
+   *  kernel was asked to skip it or found no cut. */
   float fade_edge_distance;
+  /** Kernel-specific per-point flags. */
   uint8_t flags;
+  /** ProjectionTrait mask for the image as a whole. */
   uint8_t traits;
+  /** Identity of the nearest edge, shared by both sides of a glued seam. */
   uint8_t edge_class;
 
   constexpr ProjectionKernelResult(Complex coords, uint8_t region_id,
@@ -69,6 +108,11 @@ struct ProjectionKernelResult {
         flags(flags), traits(traits), edge_class(edge_class) {}
 };
 
+/**
+ * @brief Wraps a longitude into (-pi, pi].
+ * @param longitude Angle in radians, unbounded.
+ * @return The same direction expressed in (-pi, pi].
+ */
 inline float wrap_longitude(float longitude) {
   float wrapped = fmodf(longitude + PI_F, TWO_PI_F);
   if (wrapped < 0.0f)
@@ -76,6 +120,16 @@ inline float wrap_longitude(float longitude) {
   return wrapped - PI_F;
 }
 
+/**
+ * @brief Bonne pseudoconical equal-area projection.
+ * @param v Unit direction on the sphere.
+ * @param central_meridian Longitude placed at the image's axis, in radians.
+ * @param standard_parallel Latitude of the parallel held true to scale, in
+ *        radians; the sign selects the hemisphere the cone opens toward, and
+ *        +/-pi/2 degenerates to the polar (Werner) limit.
+ * @return Plane coordinates in radians, with `fade_edge_distance` set to the
+ *         angular distance to the antimeridian cut.
+ */
 inline ProjectionKernelResult bonne_projection(const Vector &v,
                                                float central_meridian,
                                                float standard_parallel) {
@@ -102,6 +156,18 @@ inline ProjectionKernelResult bonne_projection(const Vector &v,
           0};
 }
 
+/**
+ * @brief Incomplete elliptic integral of the first kind at modulus 1/sqrt(2).
+ * @param phi Amplitude in radians, |phi| <= pi/2.
+ * @return F(phi, 1/sqrt(2)); F(pi/2) is the quarter period
+ *         K = 1.8540746773013719 that peirce_projection tiles with.
+ * @details Clenshaw recurrence over an eight-term Chebyshev expansion in
+ * y = 2*(2*phi/pi)^2 - 1. `C` holds the coefficients in descending order
+ * (C[0] is the highest) and the order-zero coefficient C0 is applied halved,
+ * per the Clenshaw convention. The coefficients come from PROJ at the commit
+ * named in the file header; they are a fit, not a closed form, and cannot be
+ * rederived from anything else here.
+ */
 inline float peirce_elliptic_integral(float phi) {
   constexpr float C0 = 2.19174570831038f;
   constexpr float C[] = {-8.58691003636495e-7f, 2.02692115653689e-7f,
@@ -121,6 +187,13 @@ inline float peirce_elliptic_integral(float phi) {
   return phi * (y * d1 - d2 + 0.5f * C0);
 }
 
+/**
+ * @brief Longitude of a direction, snapped onto the quincuncial sector seams.
+ * @param v Unit direction on the sphere.
+ * @param central_meridian Longitude placed at the image's axis, in radians.
+ * @return The wrapped longitude, or the exact sector boundary when within
+ *         2e-6 rad of one so both sides of a seam agree; pi/2 on the poles.
+ */
 inline float peirce_sector_longitude(const Vector &v, float central_meridian) {
   if (v.x == 0.0f && v.z == 0.0f)
     return 0.5f * PI_F;
@@ -134,6 +207,22 @@ inline float peirce_sector_longitude(const Vector &v, float central_meridian) {
   return longitude;
 }
 
+/**
+ * @brief Peirce quincuncial projection, conformal except at four singularities.
+ * @param v Unit direction on the sphere.
+ * @param central_meridian Longitude placed at the image's axis, in radians.
+ * @param layout 0 diamond, 1 square (the diamond turned 45 degrees), 2
+ *        horizontal strip, 3 vertical strip. Layouts 0 and 1 fold the southern
+ *        hemisphere into four triangles around the northern square; 2 and 3
+ *        instead lay the hemispheres side by side and tile.
+ * @param scroll Fraction of a full period to translate a strip layout by;
+ *        ignored for layouts 0 and 1.
+ * @param calculate_edge_distance When false, `fade_edge_distance` is left at
+ *        65536 and the inverse-trig calls that compute it are skipped.
+ * @return Plane coordinates in units of the quarter period
+ *         K = 1.8540746773013719; the southern fold reflects about 2K and the
+ *         strip layouts repeat every 4K.
+ */
 inline ProjectionKernelResult
 peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
                   float scroll, bool calculate_edge_distance = true) {
@@ -239,17 +328,31 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
           edge_class};
 }
 
+/**
+ * @brief A direction in the Airocean kernel's own axis convention.
+ * @details PROJ's icosahedron tables are authored with z up, so the kernel
+ * permutes the engine's y-up Vector into this type on entry.
+ */
 struct AiroceanVector {
   float x;
   float y;
   float z;
 };
 
+/** @brief A point in the Airocean unfolded plane. */
 struct AiroceanPoint {
   float x;
   float y;
 };
 
+/**
+ * @brief Vertices of the 23 spherical triangles the Airocean net unfolds.
+ * @details The icosahedron has 20 faces; two of them are subdivided so the net
+ * can cut through ocean rather than land, giving 23 entries. Faces 18-19 share
+ * one plane and faces 20-22 share another, which is why AIROCEAN_NORMALS
+ * repeats those rows. Vertex order carries the sign convention
+ * airocean_contains tests against; reordering a face inverts it.
+ */
 inline constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
     {{0.4201524267f, 0.0781452494f, 0.9040825506f},
      {0.5188367303f, 0.8354203804f, 0.1813318376f},
@@ -320,6 +423,10 @@ inline constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
     {{-0.9950094394f, 0.09134779528f, -0.04014717588f},
      {-0.5884910224f, 0.5302967344f, 0.0627648018f},
      {-0.4146822253f, 0.6559624054f, 0.6306758079f}}};
+/**
+ * @brief Each face's vertex centroid, unnormalized.
+ * @details Supplies the plane offset the gnomonic ray is scaled onto.
+ */
 inline constexpr AiroceanVector AIROCEAN_CENTERS[23] = {
     {0.6446661988f, 0.2740726115f, 0.375187188f},
     {0.1747689772f, 0.5231760117f, 0.5720300654f},
@@ -344,6 +451,9 @@ inline constexpr AiroceanVector AIROCEAN_CENTERS[23] = {
     {-0.6464272881f, 0.4884081774f, -0.1265388669f},
     {-0.4529848834f, 0.6766130474f, 0.09706879436f},
     {-0.6660608957f, 0.4258689784f, 0.2177644779f}};
+/**
+ * @brief Each face's unit plane normal; coplanar sub-triangles repeat a row.
+ */
 inline constexpr AiroceanVector AIROCEAN_NORMALS[23] = {
     {0.8112534709f, 0.3448953238f, 0.4721387736f},
     {0.2199307791f, 0.658369178f, 0.7198475379f},
@@ -368,6 +478,12 @@ inline constexpr AiroceanVector AIROCEAN_NORMALS[23] = {
     {-0.7405621474f, 0.6673299565f, 0.07898376463f},
     {-0.7405621474f, 0.6673299565f, 0.07898376463f},
     {-0.7405621474f, 0.6673299565f, 0.07898376463f}};
+/**
+ * @brief Each face's vertices once unfolded into the plane, in AIROCEAN_FACES
+ *        vertex order.
+ * @details Two faces that share an edge carry bit-identical endpoints for it,
+ * so edges match by coordinate equality rather than by tolerance.
+ */
 inline constexpr AiroceanPoint AIROCEAN_PLANAR_FACES[23][3] = {
     {{1.821185995f, 3.154386673f},
      {1.821185995f, 4.205848897f},
@@ -434,6 +550,12 @@ inline constexpr AiroceanPoint AIROCEAN_PLANAR_FACES[23][3] = {
     {{0.0f, 3.154386673f},
      {0.3035309991f, 3.680117785f},
      {0.9105929973f, 3.680117785f}}};
+/**
+ * @brief Per-face affine map from the gnomonic point on the face plane to the
+ *        unfolded plane.
+ * @details Row `r` holds `{ax, ay, az, b}`, evaluated as
+ * `out[r] = ax*q.x + ay*q.y + az*q.z + b`.
+ */
 inline constexpr float AIROCEAN_TRANSFORMS[23][2][4] = {
     {{0.5771127853f, -0.6019490725f, -0.5519041105f, 2.124716994f},
      {0.09385435001f, 0.7202114479f, -0.6873767753f, 3.680117785f}},
@@ -482,16 +604,33 @@ inline constexpr float AIROCEAN_TRANSFORMS[23][2][4] = {
     {{0.2863114437f, 0.2070063213f, 0.9355074239f, 0.3035309991f},
      {0.6079419899f, 0.7154153424f, -0.3443652491f, 3.680117785f}}};
 
+/**
+ * @brief The net's torn edges as parallel (face, edge) arrays.
+ * @details Authoring form of AIROCEAN_CUT_MASKS: 26 half-edges, one entry per
+ * index in both arrays. AIROCEAN_CUT_MASKS is the per-face bitset the kernel
+ * actually reads.
+ */
 inline constexpr uint8_t AIROCEAN_CUT_FACES[] = {
     3,  4,  4,  5,  5,  6,  6,  8,  9,  12, 12, 13, 13,
     14, 14, 15, 15, 16, 18, 18, 19, 19, 20, 21, 22, 22};
+/** @brief Edge index within the face at the same position in
+ *         AIROCEAN_CUT_FACES. */
 inline constexpr uint8_t AIROCEAN_CUT_EDGES[] = {0, 1, 2, 1, 2, 0, 2, 0, 2,
                                                  1, 2, 1, 2, 0, 2, 0, 2, 0,
                                                  1, 2, 1, 2, 2, 1, 0, 1};
 
+/** @brief Per face, a bit per edge index set when that edge is torn. */
 inline constexpr uint8_t AIROCEAN_CUT_MASKS[23] = {
     0, 0, 0, 1, 6, 6, 5, 0, 1, 4, 0, 0, 6, 6, 5, 5, 1, 0, 6, 6, 4, 2, 3};
 
+/**
+ * @brief Per (face, edge), the shared identity of that geometric edge.
+ * @details The identity is `canonical_face * 3 + canonical_edge`, where the
+ * canonical half-edge is the lowest-numbered face carrying the same planar
+ * segment. Both halves of a seam therefore report the same value, which lets
+ * the shader treat the two sides asymmetrically without knowing which face it
+ * landed on.
+ */
 inline constexpr uint8_t AIROCEAN_EDGE_IDENTITIES[23][3] = {
     {0, 1, 2},    {3, 4, 0},    {6, 7, 3},    {9, 10, 6},   {2, 13, 14},
     {1, 16, 17},  {18, 19, 20}, {19, 4, 23},  {24, 25, 7},  {27, 28, 29},
@@ -499,14 +638,35 @@ inline constexpr uint8_t AIROCEAN_EDGE_IDENTITIES[23][3] = {
     {45, 28, 47}, {48, 35, 50}, {50, 39, 53}, {54, 55, 56}, {53, 58, 59},
     {43, 61, 62}, {23, 64, 61}, {66, 67, 25}};
 
+/**
+ * @brief Reports whether a face's edge is torn rather than glued.
+ * @param face Face index in [0, 23).
+ * @param edge Edge index in [0, 3).
+ * @return True when the net tears along that edge.
+ */
 inline bool airocean_edge_is_cut(uint8_t face, uint8_t edge) {
   return (AIROCEAN_CUT_MASKS[face] & (1U << edge)) != 0;
 }
 
+/**
+ * @brief Shared identity of a face's edge.
+ * @param face Face index in [0, 23).
+ * @param edge Edge index in [0, 3).
+ * @return The identity both halves of that seam report.
+ */
 inline uint8_t airocean_edge_identity(uint8_t face, uint8_t edge) {
   return AIROCEAN_EDGE_IDENTITIES[face][edge];
 }
 
+/**
+ * @brief Picks one half of a seam to carry the broad edge fade.
+ * @param edge_identity Value from airocean_edge_identity().
+ * @return True for the half that fades over the full edge width; the other
+ *         half is clamped to a pixel so the seam is not fattened twice.
+ * @details Each of the 13 listed identities is one half of a paired seam whose
+ * partner identity returns false, so exactly one side of every pair fades
+ * broadly. The partition is authored, not derivable from the tables above.
+ */
 inline bool airocean_edge_is_under(uint8_t edge_identity) {
   switch (edge_identity) {
   case 9:
@@ -528,12 +688,25 @@ inline bool airocean_edge_is_under(uint8_t edge_identity) {
   }
 }
 
+/**
+ * @brief Scalar triple product u . (v x w).
+ * @param u First row.
+ * @param v Second row.
+ * @param w Third row.
+ * @return The signed volume of the parallelepiped they span.
+ */
 inline float airocean_det(const AiroceanVector &u, const AiroceanVector &v,
                           const AiroceanVector &w) {
   return u.x * (v.y * w.z - v.z * w.y) - v.x * (u.y * w.z - u.z * w.y) +
          w.x * (u.y * v.z - u.z * v.y);
 }
 
+/**
+ * @brief Tests a direction against a spherical triangle.
+ * @param p Direction to test; need not be normalized.
+ * @param face One row of AIROCEAN_FACES.
+ * @return True when `p` lies in the triangle's cone, boundary included.
+ */
 inline bool airocean_contains(const AiroceanVector &p,
                               const AiroceanVector (&face)[3]) {
   return airocean_det(p, face[1], face[2]) <= 0.0f &&
@@ -541,6 +714,14 @@ inline bool airocean_contains(const AiroceanVector &p,
          airocean_det(face[0], face[1], p) <= 0.0f;
 }
 
+/**
+ * @brief How far outside a spherical triangle a direction falls.
+ * @param p Direction to test; need not be normalized.
+ * @param face One row of AIROCEAN_FACES.
+ * @return 0 when contained, otherwise the largest violated half-space
+ *         determinant. Used to pick the least-wrong face when rounding leaves
+ *         a direction in no triangle at all.
+ */
 inline float airocean_outside_score(const AiroceanVector &p,
                                     const AiroceanVector (&face)[3]) {
   return std::max(0.0f, std::max(airocean_det(p, face[1], face[2]),
@@ -548,6 +729,13 @@ inline float airocean_outside_score(const AiroceanVector &p,
                                           airocean_det(face[0], face[1], p))));
 }
 
+/**
+ * @brief Squared distance from a point to a segment.
+ * @param p Query point.
+ * @param a Segment start.
+ * @param b Segment end; equal to `a` degenerates to the point distance.
+ * @return The squared distance, in the unfolded plane's units.
+ */
 inline float point_segment_distance_squared(const AiroceanPoint &p,
                                             const AiroceanPoint &a,
                                             const AiroceanPoint &b) {
@@ -563,12 +751,35 @@ inline float point_segment_distance_squared(const AiroceanPoint &p,
   return ex * ex + ey * ey;
 }
 
+/**
+ * @brief Distance from a point to a segment.
+ * @param p Query point.
+ * @param a Segment start.
+ * @param b Segment end.
+ * @return The distance, in the unfolded plane's units.
+ */
 inline float point_segment_distance(const AiroceanPoint &p,
                                     const AiroceanPoint &a,
                                     const AiroceanPoint &b) {
   return sqrtf(point_segment_distance_squared(p, a, b));
 }
 
+/**
+ * @brief Fuller Airocean (Dymaxion) projection onto the unfolded icosahedral
+ *        net.
+ * @param v Unit direction on the sphere.
+ * @param central_meridian Longitude rotated onto the net's axis, in radians.
+ * @param horizontal Rotates the finished net a quarter turn.
+ * @param calculate_edge_distance When false, `fade_edge_distance` is left at
+ *        65536 and the per-edge cut distances are skipped.
+ * @return Plane coordinates on the net, with `region_id` set to the face and
+ *         `edge_class` to the nearest edge's shared identity.
+ * @details Each direction is assigned to the spherical triangle that contains
+ * it, gnomonically projected onto that face's plane, then mapped by the face's
+ * affine transform. Face 14's first edge is half torn and half glued, so its
+ * cut distance runs to face 18's vertex and its identity switches partway
+ * along.
+ */
 inline ProjectionKernelResult
 airocean_projection(const Vector &v, float central_meridian, bool horizontal,
                     bool calculate_edge_distance = true) {
