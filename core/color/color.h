@@ -434,12 +434,9 @@ inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2) {
  * @brief Returns a blend functor that lerps c1->c2 by alpha.
  * @param a Blend weight in [0, 1]; NaN maps to the hi bound.
  * @return A functor taking (c1, c2) Pixels and returning the lerped Pixel.
- * @details Rounds to nearest (+0.5f) and clamps in float before the cast:
- * casting an unclamped a*65535 to int is UB when a is NaN or overflows int. The
- * +0.5f sits inside the clamp so a == 1 still maps exactly to 65535.
  */
 inline auto blend_alpha(float a) {
-  uint16_t ai = (uint16_t)hs::clamp(a * 65535.0f + 0.5f, 0.0f, 65535.0f);
+  uint16_t ai = frac_to_q16(a);
   return [ai](const Pixel &c1, const Pixel &c2) { return c1.lerp16(c2, ai); };
 }
 
