@@ -650,6 +650,11 @@ public:
    */
   const ParamList &getParameters() const { return parameters; }
 
+#if HS_PARAM_GUI_BRIDGE
+  /** @brief Refreshes values exposed through parameter display mirrors. */
+  virtual void refresh_parameter_display() {}
+#endif
+
   /** @brief Token identifying the current ordered parameter descriptor schema. */
   uint32_t getParameterSchemaGeneration() const {
     return parameters.schema_generation();

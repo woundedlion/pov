@@ -99,9 +99,6 @@ public:
     }
     finish_transitions();
     publish_live_config();
-#if HS_PARAM_GUI_BRIDGE
-    publish_display_config();
-#endif
   }
 
 #if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
@@ -2768,7 +2765,7 @@ private:
   }
 
 #if HS_PARAM_GUI_BRIDGE
-  HS_COLD_MEMBER void publish_display_config() {
+  HS_COLD_MEMBER void refresh_parameter_display() override {
     if (transition.active) {
       display_config = transition.elapsed * 2 < transition.duration
                            ? transition.from_config
