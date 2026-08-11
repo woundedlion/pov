@@ -839,12 +839,16 @@ inline void test_parameter_display_mirror() {
   fx.mirror_display(requested, displayed);
 
   HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Speed")->get_requested(), 1.0f);
   HS_EXPECT_EQ(fx.getParameters().find("Mode")->get(), 2.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Mode")->get_requested(), 0.0f);
   HS_EXPECT_EQ(fx.getParameters().find("Global")->get(), 1.5f);
+  HS_EXPECT_EQ(fx.getParameters().find("Global")->get_requested(), 1.5f);
   HS_EXPECT_TRUE(fx.updateParameter("Speed", 7.0f) == ParamSetResult::APPLIED);
   HS_EXPECT_EQ(requested.speed, 7.0f);
   HS_EXPECT_EQ(displayed.speed, 4.0f);
   HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
+  HS_EXPECT_EQ(fx.getParameters().find("Speed")->get_requested(), 7.0f);
 }
 
 /**

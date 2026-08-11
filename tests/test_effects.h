@@ -341,6 +341,8 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
     HS_EXPECT_TRUE(effect.updateParameter(names[index], target[index]) ==
                    ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(effect.animations_paused());
+    effect.draw_frame();
+    effect.advance_display();
     const float held = effect.getParameters().find(names[index])->get();
     for (int frame = 0; frame < frames_per_param; ++frame) {
       effect.draw_frame();
