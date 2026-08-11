@@ -71,11 +71,14 @@ inline int pole_lod_run(float sin_phi) {
  * @return Slack in the same units the walk's distance() reports.
  * @details Great-circle arc from a block's first column to its last: a block of
  *          longitude, foreshortened by sin(phi). A probe farther than this from
- *          the surface cannot change side anywhere in the block. 1.25 covers
- *          distance() reporting in plane units, which runs slightly wider than
- *          angular; a walk whose plane stretches further (a gnomonic
- *          projection stretches by 1 + r^2) scales the result by its own
- *          factor.
+ *          the surface cannot change side anywhere in the block, provided
+ *          distance() changes by at most 1.25 per unit of arc. That covers
+ *          reporting in plane units, which runs slightly wider than angular; a
+ *          walk whose plane stretches further (a gnomonic projection stretches
+ *          by 1 + r^2) scales the result by its own factor. It does not bound
+ *          the folded-sector solids (PlanarPolygon, Star, Flower), whose
+ *          azimuth term carries a polar/sin(polar) factor and reaches ~1.45 at
+ *          a vertex; a block there can mis-shade one AA-fringe column.
  */
 template <int W>
 __attribute__((always_inline)) inline float pole_lod_slack(int run,
