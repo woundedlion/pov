@@ -1008,7 +1008,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(28));
+  HS_EXPECT_EQ(presets.size(), size_t(29));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_EQ(presets[0].slots.function, WB::Function::COUPLED_DIRECT);
   HS_EXPECT_EQ(presets[0].slots.projection, WB::Projection::STEREOGRAPHIC);
@@ -1275,6 +1275,45 @@ inline void test_shaderball_preset_bank() {
   HS_EXPECT_EQ(edge_fade_liquid.params.colorizer.hue_shift, 0.657f);
   HS_EXPECT_EQ(edge_fade_liquid.params.colorizer.value_fade, 0.0f);
   HS_EXPECT_EQ(edge_fade_liquid.params.outer_camera.wander, 1.0f);
+  const auto &dodecahedral_grid = presets[28];
+  HS_EXPECT_EQ(dodecahedral_grid.slots.function, WB::Function::GRID);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.projection,
+               WB::Projection::STEREOGRAPHIC);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.projection_frame,
+               WB::ProjectionFramePolicy::SPIN_WANDER);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.surface_lens,
+               WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.warp_program.outer.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.warp_program.inner.kind,
+               WB::WarpStageKind::LEGACY_STEREO_NOISE);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.signal_weight,
+               WB::SignalWeight::PROJECTION);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.value_transfer,
+               WB::ValueTransfer::LINEAR);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
+  HS_EXPECT_EQ(dodecahedral_grid.slots.colorizer, WB::Colorizer::LIQUID);
+  HS_EXPECT_EQ(dodecahedral_grid.params.source.pattern_freq, 1.532f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.source.speed, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.source.angle_rate, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.projection.pole_fade, 3.907f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.projection.spin_rate, 0.0387f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.projection.wander, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.outer_camera.wander, 1.0f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.surface_lens.mix, 1.0f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.rotation, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.cell_x, 1.8041f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.cell_y, 1.7083f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.offset_x, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.warp.outer.offset_y, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.warp.inner.strength, 10.5f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.warp.inner.scale, 24.8752f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.warp.inner.time_scale, 0.05f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.value.edge_width, 0.0f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.breathe_depth, 0.25410002f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.cycle_speed, 0.00015458837f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.hue_shift, 0.339f);
+  HS_EXPECT_EQ(dodecahedral_grid.params.colorizer.value_fade, 0.847f);
   for (size_t index = 0; index < presets.size(); ++index)
     HS_EXPECT_TRUE(WB::seam_compatible(presets[index]));
   for (size_t index = 0; index < 16; ++index)
@@ -1690,11 +1729,11 @@ inline void test_shaderball_manual_preset_navigation() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  HS_EXPECT_EQ(sb.getPresetCount(), size_t(28));
+  HS_EXPECT_EQ(sb.getPresetCount(), size_t(29));
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(sb.previousPreset());
-  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(27));
-  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[27]);
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(28));
+  HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[28]);
   HS_EXPECT_TRUE(sb.nextPreset());
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
