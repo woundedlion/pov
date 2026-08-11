@@ -12,7 +12,7 @@
 
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
-#include "effects/shaderball_projections.h"
+#include "core/math/projections.h"
 
 namespace hs_test {
 namespace shaderball_tests {
@@ -1717,7 +1717,7 @@ private:
    *         saturated value weight.
    */
   __attribute__((always_inline)) static ProjectedLookup
-  scaled_kernel_lookup(const shaderball::ProjectionKernelResult &result,
+  scaled_kernel_lookup(const projections::ProjectionKernelResult &result,
                        float coordinate_scale) {
     return {{result.coords.re * coordinate_scale,
              result.coords.im * coordinate_scale},
@@ -1737,7 +1737,7 @@ private:
     const float coordinate_scale = frame.params.projection.coordinate_scale;
     if (frame.slots.projection == Projection::BONNE)
       return scaled_kernel_lookup(
-          shaderball::bonne_projection(
+          projections::bonne_projection(
               local, frame.params.projection.central_meridian,
               (frame.slots.bonne_hemisphere == BonneHemisphere::NORTH ? 1.0f
                                                                       : -1.0f) *
@@ -1745,7 +1745,7 @@ private:
           coordinate_scale);
     if (frame.slots.projection == Projection::PEIRCE_QUINCUNCIAL)
       return scaled_kernel_lookup(
-          shaderball::peirce_projection(
+          projections::peirce_projection(
               local, frame.params.projection.central_meridian,
               static_cast<uint8_t>(frame.slots.peirce_layout),
               frame.params.projection.layout_scroll,
@@ -1753,7 +1753,7 @@ private:
           coordinate_scale);
     if (frame.slots.projection == Projection::AIROCEAN)
       return scaled_kernel_lookup(
-          shaderball::airocean_projection(
+          projections::airocean_projection(
               local, frame.params.projection.central_meridian,
               frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
               projection_edge_distance_required(frame)),
@@ -2431,11 +2431,11 @@ private:
     case Projection::GNOMONIC:
       return gnomonic(v);
     case Projection::BONNE:
-      return shaderball::bonne_projection(v, 0.0f, 0.25f * PI_F).coords;
+      return projections::bonne_projection(v, 0.0f, 0.25f * PI_F).coords;
     case Projection::PEIRCE_QUINCUNCIAL:
-      return shaderball::peirce_projection(v, 0.0f, 1, 0.0f).coords;
+      return projections::peirce_projection(v, 0.0f, 1, 0.0f).coords;
     case Projection::AIROCEAN:
-      return shaderball::airocean_projection(v, 0.0f, false).coords;
+      return projections::airocean_projection(v, 0.0f, false).coords;
     }
     __builtin_unreachable();
   }
@@ -2443,8 +2443,8 @@ private:
   static Complex equirectangular(const Vector &v,
                                  float central_meridian = 0.0f) {
     const float radius = sqrtf(v.x * v.x + v.z * v.z);
-    return {std::fabs(shaderball::wrap_longitude(fast_atan2(v.z, v.x) -
-                                                 central_meridian)) *
+    return {std::fabs(projections::wrap_longitude(fast_atan2(v.z, v.x) -
+                                                  central_meridian)) *
                 radius,
             0.5f * PI_F - fast_acos(v.y)};
   }
