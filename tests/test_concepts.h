@@ -188,10 +188,13 @@ inline void test_callable_return_constraints() {
  *          live; a move leaves the source empty; assignment from a callable then
  *          back to nullptr toggles the empty state. Copy- and move-assigning one
  *          populated Fn onto another (each holding a different closure) exercises
- *          the destroy-then-construct path in operator=. The empty-state CALL
- *          trap is covered separately by the death harness (case_empty_fn_call).
+ *          the overwrite path in operator=. The empty-state CALL trap is covered
+ *          separately by the death harness (case_empty_fn_call).
  */
 inline void test_fn_copy_move_empty() {
+  // ArenaVector accepts Fn only while it stays trivially destructible.
+  static_assert(std::is_trivially_destructible_v<Fn<int(int), 16>>);
+
   Fn<int(int), 16> def;
   HS_EXPECT_FALSE((bool)def);
   Fn<int(int), 16> null = nullptr;

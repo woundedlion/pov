@@ -467,18 +467,14 @@ void log_arena_vector_grow(size_t bytes, size_t old_capacity,
 /**
  * @brief Whether T is a sanctioned inline callable safe to store in an
  * ArenaVector despite not being trivially destructible.
- * @details Fn resolves to hs::inplace_function on host/WASM and
- * teensy::inplace_function on device, so both concrete aliases are recognized.
+ * @details Only the device's teensy::inplace_function needs the exemption; the
+ * host/WASM hs::inplace_function is trivially destructible and passes on its own.
  * Stored captures remain subject to ArenaVector's element destructor contract.
  */
 template <typename T> struct is_arena_inplace_fn : std::false_type {};
 #ifdef ARDUINO
 template <typename R, typename... Args, size_t Cap, size_t Align>
 struct is_arena_inplace_fn<teensy::inplace_function<R(Args...), Cap, Align>>
-    : std::true_type {};
-#else
-template <typename R, typename... Args, size_t Cap, size_t Align>
-struct is_arena_inplace_fn<hs::inplace_function<R(Args...), Cap, Align>>
     : std::true_type {};
 #endif
 
