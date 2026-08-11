@@ -56,9 +56,9 @@ references. `core/render/sdf.h`, `core/color/color.h`, and generated tables
 carry whole-file clang-format drift against local clang-format v22: hand-format
 your own lines and wrap generated tables in `// clang-format off/on`; **never**
 run `clang-format -i` on an existing file. The pre-commit format gate is live
-and blocks unconditionally — it already self-disables when the local
-clang-format is not v18, so never bypass it with `HS_SKIP_FORMAT=1` or
-`--no-verify`. No `Co-Authored-By` line.
+and blocks unconditionally — a missing binary, or one whose major is not 22,
+fails the commit rather than waving it through, so never bypass it with
+`HS_SKIP_FORMAT=1` or `--no-verify`. No `Co-Authored-By` line.
 
 ---
 
