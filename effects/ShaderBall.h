@@ -2420,6 +2420,15 @@ private:
                   radius * fast_sinf(azimuth));
   }
 
+  /**
+   * @brief Projects a sphere direction with the projections that take no
+   *        `ProjectionParams`.
+   * @param v Direction in the projection frame.
+   * @param projection Must be equirectangular, stereographic, or gnomonic; the
+   *        cartographic kernels read live parameters and are reached through
+   *        `project_branch` instead.
+   * @return Plane coordinates in the projection's native units.
+   */
   static Complex project_point(const Vector &v, Projection projection) {
     switch (projection) {
     case Projection::SINUSOIDAL:
@@ -2431,11 +2440,9 @@ private:
     case Projection::GNOMONIC:
       return gnomonic(v);
     case Projection::BONNE:
-      return projections::bonne_projection(v, 0.0f, 0.25f * PI_F).coords;
     case Projection::PEIRCE_QUINCUNCIAL:
-      return projections::peirce_projection(v, 0.0f, 1, 0.0f).coords;
     case Projection::AIROCEAN:
-      return projections::airocean_projection(v, 0.0f, false).coords;
+      break;
     }
     __builtin_unreachable();
   }
