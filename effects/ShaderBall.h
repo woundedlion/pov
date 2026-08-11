@@ -1596,6 +1596,17 @@ private:
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
+  /**
+   * @brief Shades one sphere sample by pulling it back to a source coordinate.
+   * @param view Unit direction of the visible sphere point.
+   * @param frame Immutable snapshot of slots, parameters, clocks, transforms,
+   *        and palette resources for this frame.
+   * @return Premultiplied-alpha colour for the sample.
+   * @details Walks outer camera, surface lens, and projection backward. A
+   * strict projection whose two lens branches land in different regions cannot
+   * be joined in the plane, so the branches are shaded separately and their
+   * outputs blended instead.
+   */
   HS_O3_FN static Color4 shade(const Vector &view, const FrameState &frame) {
     const Vector outer_local = outer_camera_lookup(view, frame);
     if (strict_projection(frame.slots.projection) &&
@@ -1616,6 +1627,13 @@ private:
     return shade_projected(projected, frame);
   }
 
+  /**
+   * @brief Runs the planar half of the pullback: warps, samples, shapes, and
+   *        colorizes.
+   * @param projected Plane coordinates and seam metadata for the sample.
+   * @param frame Frame snapshot.
+   * @return Premultiplied-alpha colour for the sample.
+   */
   HS_O3_FN static Color4 shade_projected(const ProjectedLookup &projected,
                                          const FrameState &frame) {
     const PlanarWarpResult warped = planar_warp_lookup(projected, frame);
@@ -1878,6 +1896,18 @@ private:
             hs::lerp(direct.domain_coverage, lensed.domain_coverage, mix)};
   }
 
+  /**
+   * @brief Pulls plane coordinates back through both warp stages.
+   * @param projected Projection output; supplies the stage input coordinates
+   *        and the weight and edge distance the stage envelopes read.
+   * @param frame Frame snapshot.
+   * @return Source-side coordinates plus the summed delta, deformation, and
+   *         path length the colorizers consume.
+   * @details Pullback order is outer then inner, the reverse of the authored
+   * order `source -> inner -> outer -> projection`. Deformation is the
+   * magnitude of the summed delta, except when a lone legacy stereo stage is
+   * programmed and its own displacement is reported.
+   */
   HS_O3_FN static PlanarWarpResult
   planar_warp_lookup(const ProjectedLookup &projected,
                      const FrameState &frame) {
@@ -1906,6 +1936,23 @@ private:
             outer.path_length + inner.path_length};
   }
 
+  /**
+   * @brief Pulls plane coordinates back through one warp stage.
+   * @param input Coordinates entering the stage.
+   * @param projected Projection output, read only for the envelope weight and
+   *        edge distance.
+   * @param spec Stage kind and its discrete options.
+   * @param params Stage parameters, already canonicalized.
+   * @param stage_phase Wrapped noise phase for this stage's clock.
+   * @param stage_noise Noise resource bound to this stage; may be null for
+   *        kinds that sample no noise.
+   * @param prepared Per-frame precomputation for this stage.
+   * @param frame Frame snapshot.
+   * @return Stage output coordinates, the delta it applied, its deformation,
+   *         and the path length travelled.
+   * @details Path length equals the deformation for the closed-form kinds and
+   * the integrated arc length for curl flow.
+   */
   HS_O3_FN static PlanarWarpStageResult
   warp_stage_lookup(const Complex &input, const ProjectedLookup &projected,
                     const WarpStageSpec &spec, const WarpStageParams &params,
@@ -2205,6 +2252,18 @@ private:
     return stereo_pattern_args(coords, frame.params.source.pattern_freq);
   }
 
+  /**
+   * @brief Turns the signed source field into a shaped value and a coverage.
+   * @param field Signed source sample, nominally in [-1, 1].
+   * @param projected Projection output; supplies the signal weight, edge
+   *        distance, and out-of-domain coverage.
+   * @param warped Warp output, carried through for the deformation colorizer.
+   * @param frame Frame snapshot.
+   * @return Value in [0, 1], coverage in [0, 1], and the warp metadata.
+   * @details The signal weight scales the signed field before the remap to
+   * [0, 1], so it changes value rather than alpha; coverage is the separate
+   * alpha channel.
+   */
   static MaterialSample shape_material(float field,
                                        const ProjectedLookup &projected,
                                        const PlanarWarpResult &warped,
@@ -2263,6 +2322,12 @@ private:
             warped.path_length};
   }
 
+  /**
+   * @brief Samples the selected source function at a planar coordinate.
+   * @param p Conditioned source coordinates.
+   * @param frame Frame snapshot.
+   * @return Signed field value in [-1, 1].
+   */
   static float sample_source(const Complex &p, const FrameState &frame) {
     if (frame.slots.function == Function::COUPLED_DIRECT)
       return sample_pattern(
@@ -2301,6 +2366,15 @@ private:
     return cubic_kernel((value - edge0) / (edge1 - edge0));
   }
 
+  /**
+   * @brief Maps a shaped material sample to a palette colour.
+   * @param sample Shaped value, coverage, and warp metadata.
+   * @param frame Frame snapshot.
+   * @return Colour whose alpha is the palette alpha scaled by the coverage.
+   * @details The deformation colorizer offsets the palette coordinate by the
+   * normalized displacement, path length, and delta direction; the liquid
+   * colorizer offsets it by the breathe phase.
+   */
   HS_O3_FN static Color4 colorize(const MaterialSample &sample,
                                   const FrameState &frame) {
     if (frame.slots.colorizer == Colorizer::GENERATED_TRIADIC) {
