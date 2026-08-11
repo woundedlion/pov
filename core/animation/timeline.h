@@ -233,6 +233,10 @@ public:
    * @param animation The animation object.
    * @param paused Pause flag that must outlive the event.
    * @return Reference to the Timeline object.
+   * @note The gate a paused effect wants: a pending start delay is preserved,
+   * step() advancing e.start in lockstep. An animation's own `paused` pointer
+   * instead only early-returns from step(), so its event's delay keeps
+   * elapsing while the flag is set.
    */
   template <typename A>
   Timeline &add_pausable(int in_frames, A animation, const bool *paused) {
