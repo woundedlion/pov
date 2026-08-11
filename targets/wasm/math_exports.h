@@ -20,8 +20,6 @@
 #include "core/math/3dmath.h"
 #include "core/math/geometry.h"
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
-#include <cmath> // std::isfinite — all_finite() gate for the free exports
-#include <initializer_list> // all_finite() variadic-arg gate for free exports
 #include <array>
 #include <string>
 
@@ -40,68 +38,29 @@ static val vector_to_xyz(const Vector &r) {
   return v;
 }
 
-/**
- * @brief True iff every argument is finite (no NaN/Inf).
- * @param args Floats to test, as a brace-init list at the call site.
- * @return true if every argument is finite; false if any is NaN or Inf.
- * @details The exported free functions below take raw JS floats straight into
- *          engine math, unlike the class methods (which gate via finite_arg). A
- *          non-finite value can trip an HS_CHECK deep inside the engine and
- *          abort the *entire* WASM module — the exact JS-boundary trap the rest
- *          of the bridge avoids. Gate the free functions the same way: reject
- *          non-finite input and return a benign zero result instead of trapping.
- */
-static bool all_finite(std::initializer_list<float> args) {
-  for (float a : args)
-    if (!std::isfinite(a))
-      return false;
-  return true;
-}
-
 /** @brief Registers the free color/palette/geometry exports with Embind. */
 static void bind_math_exports() {
   // ── Color / palette / geometry exports ─────────────────────────────────────
   // The real engine math, exported so the JS tool ports can cross-check it.
+  // Arguments pass unfiltered, non-finite ones included: a parity oracle must
+  // answer what the engine answers.
 
   // sRGB transfer function (color.js srgbToLinearFloat / linearToSrgbFloat).
   function("srgb_to_linear_float", optional_override([](float s) -> float {
-             if (all_finite({s}))
-               return srgb_to_linear_float(s);
-             hs::log("WASM: srgb_to_linear_float got a non-finite argument — "
-                     "returning zero");
-             return 0.0f;
+             return srgb_to_linear_float(s);
            }));
   function("linear_to_srgb_float", optional_override([](float l) -> float {
-             if (all_finite({l}))
-               return linear_to_srgb_float(l);
-             hs::log("WASM: linear_to_srgb_float got a non-finite argument — "
-                     "returning zero");
-             return 0.0f;
+             return linear_to_srgb_float(l);
            }));
 
   // The interpolated sRGB->16-bit-linear LUT the cosine palette path uses.
   function("srgb_to_linear_interp", optional_override([](float s) -> int {
-             if (!all_finite({s})) {
-               hs::log(
-                   "WASM: srgb_to_linear_interp got a non-finite argument — "
-                   "returning zero");
-               return 0;
-             }
              return static_cast<int>(srgb_to_linear_interp(s));
            }));
 
   // OKLab matrices (color.js linearRgbToOklab / oklabToLinearRgb).
   function("linear_rgb_to_oklab",
            optional_override([](float r, float g, float b) -> val {
-             if (!all_finite({r, g, b})) {
-               hs::log("WASM: linear_rgb_to_oklab got a non-finite argument — "
-                       "returning zero");
-               val v = val::object();
-               v.set("L", 0.0f);
-               v.set("a", 0.0f);
-               v.set("b", 0.0f);
-               return v;
-             }
              OKLab lab = linear_rgb_to_oklab(r, g, b);
              val v = val::object();
              v.set("L", lab.L);
@@ -111,15 +70,6 @@ static void bind_math_exports() {
            }));
   function("oklab_to_linear_rgb",
            optional_override([](float L, float a, float b) -> val {
-             if (!all_finite({L, a, b})) {
-               hs::log("WASM: oklab_to_linear_rgb got a non-finite argument — "
-                       "returning zero");
-               val v = val::object();
-               v.set("r", 0.0f);
-               v.set("g", 0.0f);
-               v.set("b", 0.0f);
-               return v;
-             }
              float r, g, bb;
              oklab_to_linear_rgb({L, a, b}, r, g, bb);
              val v = val::object();
@@ -154,15 +104,6 @@ static void bind_math_exports() {
       optional_override([](float a0, float a1, float a2, float b0, float b1,
                            float b2, float c0, float c1, float c2, float d0,
                            float d1, float d2, float t) -> val {
-        if (!all_finite({a0, a1, a2, b0, b1, b2, c0, c1, c2, d0, d1, d2, t})) {
-          hs::log("WASM: procedural_palette_linear got a non-finite "
-                  "argument — returning zero");
-          val o = val::object();
-          o.set("r", 0);
-          o.set("g", 0);
-          o.set("b", 0);
-          return o;
-        }
         ProceduralPalette pal({a0, a1, a2}, {b0, b1, b2}, {c0, c1, c2},
                               {d0, d1, d2});
         Color4 col = pal.get(t);
@@ -206,11 +147,6 @@ static void bind_math_exports() {
   // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
   function("lissajous",
            optional_override([](float m1, float m2, float a, float t) -> val {
-             if (!all_finite({m1, m2, a, t})) {
-               hs::log("WASM: lissajous got a non-finite argument — returning "
-                       "zero");
-               return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
-             }
              return vector_to_xyz(lissajous(m1, m2, a, t));
            }));
 
@@ -222,11 +158,6 @@ static void bind_math_exports() {
       optional_override([](float x, float y, float z, float ar, float ai,
                            float br, float bi, float cr, float ci, float dr,
                            float di) -> val {
-        if (!all_finite({x, y, z, ar, ai, br, bi, cr, ci, dr, di})) {
-          hs::log("WASM: mobius_transform got a non-finite argument — "
-                  "returning zero");
-          return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
-        }
         return vector_to_xyz(mobius_transform(
             Vector(x, y, z), MobiusParams(ar, ai, br, bi, cr, ci, dr, di)));
       }));
