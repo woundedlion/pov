@@ -1337,6 +1337,30 @@ inline void test_shaderball_gui_catalog() {
   WB::SB sb;
   sb.init();
   HS_EXPECT_LE(sb.getParameters().size(), size_t(64));
+  auto parameter_index = [&](const char *name) {
+    size_t index = 0;
+    for (const auto &parameter : sb.getParameters()) {
+      if (std::strcmp(parameter.name, name) == 0)
+        return index;
+      ++index;
+    }
+    return sb.getParameters().size();
+  };
+  HS_EXPECT_LT(parameter_index("Function"), parameter_index("Pattern Freq"));
+  HS_EXPECT_LT(parameter_index("Pattern Freq"), parameter_index("Projection"));
+  HS_EXPECT_LT(parameter_index("Projection"), parameter_index("Pole Fade"));
+  HS_EXPECT_LT(parameter_index("Pole Fade"),
+               parameter_index("Projection Frame"));
+  HS_EXPECT_LT(parameter_index("Projection Frame"),
+               parameter_index("Spin Rate"));
+  HS_EXPECT_LT(parameter_index("Outer Wander"), parameter_index("Lens"));
+  HS_EXPECT_LT(parameter_index("Lens"), parameter_index("Lens Mix"));
+  HS_EXPECT_LT(parameter_index("Lens Mix"), parameter_index("Outer Warp"));
+  HS_EXPECT_LT(parameter_index("Outer Warp"),
+               parameter_index("Outer Warp Strength"));
+  HS_EXPECT_LT(parameter_index("Outer Warp Strength"),
+               parameter_index("Inner Warp"));
+  HS_EXPECT_LT(parameter_index("Colorizer"), parameter_index("Breathe Depth"));
   const auto *projection = sb.getParameters().find("Projection");
   HS_EXPECT_TRUE(projection != nullptr);
   HS_EXPECT_EQ(projection->option_count, 6);
@@ -1368,6 +1392,10 @@ inline void test_shaderball_gui_catalog() {
                  ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(sb.getParameterSchemaGeneration() > schema_before);
   HS_EXPECT_TRUE(sb.getParameters().find("Bonne Hemisphere") != nullptr);
+  HS_EXPECT_LT(parameter_index("Projection"),
+               parameter_index("Bonne Hemisphere"));
+  HS_EXPECT_LT(parameter_index("Bonne Standard Parallel"),
+               parameter_index("Projection Frame"));
   sb.draw_frame();
   sb.advance_display();
   WB::settle_transition(sb);
@@ -1515,6 +1543,9 @@ inline void test_shaderball_gui_catalog() {
                WB::WarpStageKind::NONE);
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Freq") != nullptr);
   select_and_set_all("Value Transfer", 3, "Band Count");
+  HS_EXPECT_LT(parameter_index("Value Transfer"),
+               parameter_index("Band Count"));
+  HS_EXPECT_LT(parameter_index("Band Phase"), parameter_index("Coverage"));
 }
 
 /** @brief New cartographic kernels preserve landmarks and stay finite. */
