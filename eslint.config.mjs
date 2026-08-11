@@ -11,8 +11,9 @@ import globals from 'globals';
 export default [
   // eslint reads no .gitignore, and a wasm build tree holds the emitted
   // emscripten .js glue. Without this, `npm run lint` lints generated code
-  // locally while CI (a fresh checkout, no build tree) does not.
-  { ignores: ['build*/**'] },
+  // locally while CI (a fresh checkout, no build tree) does not. .worktrees/ is
+  // a second full checkout, whose .mjs would otherwise be linted twice.
+  { ignores: ['build*/**', '.worktrees/**'] },
   js.configs.recommended,
   {
     files: ['**/*.mjs'],

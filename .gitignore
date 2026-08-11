@@ -20,6 +20,10 @@ node_modules/
 # (analogous to CMakeUserPresets.json / .doxygen-awesome above).
 /Doxyfile.local
 
+# Linked git worktrees created under the repo root: a second full checkout that
+# `git add -A` would otherwise commit and every tree walker descends into.
+/.worktrees/
+
 # IDE / tooling
 .vs/
 *.code-workspace
