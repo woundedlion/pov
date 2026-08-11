@@ -541,7 +541,9 @@ def check_provenance(committed_path):
     if not os.path.exists(committed_path):
         sys.stderr.write("missing %s\n" % committed_path)
         return False
-    with open(committed_path, "r", encoding="utf-8") as f:
+    # newline="": universal newlines would read a CRLF-committed header as LF
+    # and compare equal to the LF-pinned render().
+    with open(committed_path, "r", encoding="utf-8", newline="") as f:
         committed = f.read()
 
     generated = render(build_table()[0])
