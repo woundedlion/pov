@@ -2703,8 +2703,6 @@ private:
       params.time_scale = hs::clamp(params.time_scale, 0.05f, 1.0f);
       return;
     }
-    if (requested.kind == WarpStageKind::CURL_FLOW)
-      params.strength = 0.0f;
     params.time_scale =
         hs::clamp(params.time_scale, NOISE_RATE_MIN, NOISE_RATE_MAX);
     if (requested.kind == WarpStageKind::WAVE_SHEAR ||
@@ -2717,6 +2715,11 @@ private:
     params.scale =
         hs::clamp(params.scale, 1.0f / 64.0f,
                   requested.kind == WarpStageKind::CURL_FLOW ? 16.0f : 64.0f);
+    if (requested.kind == WarpStageKind::CURL_FLOW) {
+      // reads the canonicalized scale; must stay after the scale clamp
+      const float limit = curl_strength_limit(requested, params);
+      params.strength = hs::clamp(params.strength, -limit, limit);
+    }
   }
 
   HS_COLD_MEMBER bool try_apply_config(const Config &candidate,
