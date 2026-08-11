@@ -654,6 +654,39 @@ public:
    */
   bool getAnimationsPaused() const { return animations_paused; }
 
+  uint32_t getPresetCount() const {
+    return current_effect
+               ? static_cast<uint32_t>(current_effect->getPresetCount())
+               : 0;
+  }
+
+  uint32_t getPresetIndex() const {
+    return current_effect
+               ? static_cast<uint32_t>(current_effect->getPresetIndex())
+               : 0;
+  }
+
+  bool selectPreset(uint32_t index) {
+    if (!current_effect || !current_effect->selectPreset(index))
+      return false;
+    animations_paused = current_effect->animations_paused();
+    return true;
+  }
+
+  bool nextPreset() {
+    if (!current_effect || !current_effect->nextPreset())
+      return false;
+    animations_paused = current_effect->animations_paused();
+    return true;
+  }
+
+  bool previousPreset() {
+    if (!current_effect || !current_effect->previousPreset())
+      return false;
+    animations_paused = current_effect->animations_paused();
+    return true;
+  }
+
   /**
    * @brief Sets near-pole azimuthal shading decimation.
    * @param aggressiveness Columns per shade are this over sin(colatitude);
@@ -923,6 +956,11 @@ static void bind_engine() {
       .function("setParameter", &HolosphereEngine::setParameter)
       .function("setAnimationsPaused", &HolosphereEngine::setAnimationsPaused)
       .function("getAnimationsPaused", &HolosphereEngine::getAnimationsPaused)
+      .function("getPresetCount", &HolosphereEngine::getPresetCount)
+      .function("getPresetIndex", &HolosphereEngine::getPresetIndex)
+      .function("selectPreset", &HolosphereEngine::selectPreset)
+      .function("nextPreset", &HolosphereEngine::nextPreset)
+      .function("previousPreset", &HolosphereEngine::previousPreset)
       .function("setPoleLod", &HolosphereEngine::setPoleLod)
       .function("getPoleLod", &HolosphereEngine::getPoleLod)
       .function("getParameterDefinitions",

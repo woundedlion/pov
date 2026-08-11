@@ -587,13 +587,10 @@ multiplies the affected basis calls by two at its peak. Two stages add their
 costs; a through-clear transition costs whichever endpoint it is drawing, so
 its peak is the more expensive of the two.
 
-A constexpr estimator records worst-case base `GetNoise` calls for every
-schema, including source and lens noise, and scores every remaining per-pixel
-stage in the same point unit: projection, both warp stages, lens, source
-function, value transfer, coverage, and colorizer — the last including the
-OKLab round trip a nonzero `hue_shift` adds to the liquid colorizer. Tier is
-derived from that total. Synthetic device captures force time-wrap crossfade and
-every admitted transition pair; ordinary preset sweeps are insufficient.
+Performance admission comes from cycle captures on the target device. Static
+point estimates do not reject GUI combinations or rewrite selected stages.
+Synthetic captures may still force time-wrap crossfades and transition pairs
+when those paths need separate characterization.
 
 Every non-legacy stage selects one envelope evaluated from the original
 `ProjectedLookup`:
@@ -687,7 +684,7 @@ Composition rules are:
   endpoints alone are insufficient;
 - a discrete stage change may blend stage outputs and run unchanged downstream
   work once only when stage topology, fold/singularity schema, projection glue,
-  source periods, metadata semantics, and measured cost are compatible;
+  source periods and metadata semantics are compatible;
 - "unchanged downstream" means the complete downstream `FrameState` slice is
   branch-identical: slot tags, continuous params, clock values and rates,
   transforms, resource bindings, source, value/coverage policy, and colorizer.
@@ -715,15 +712,6 @@ parity flips. `POLAR_CHART` reports its origin singularity. Curl across a
 reflected face requires explicit handedness correction because `J*grad` changes
 parity. Conditioning runs after the complete warp program, and no NaN/Inf may
 reach a source.
-
-Cost tiers are admission hints, not substitutes for measurement:
-
-| Tier | Typical work | Admission policy |
-|---|---|---|
-| T0 | affine, mirror, wave shear, simple vortex | normally eligible for holds and compatible stage blends |
-| T1 | legacy/vector simplex noise, polar chart, Möbius lens | measure every endpoint |
-| T2 | three-octave noise, simple curl derivative, tangent noise | curated holds; transition pairs explicitly admitted |
-| T3 | four-step integrated curl or two expensive stages | opt-in only after full device, memory, and ELF admission |
 
 Each kernel ships with a double-precision oracle, exact identity test, finite
 fuzzing over declared bounds, deterministic seed/phase/time-wrap tests,
@@ -802,15 +790,13 @@ call counts at zero and one.
 
 The fallback costs one shader evaluation per frame, not two, and its window
 length is rounded up to an even frame count so the cleared midpoint lands on a
-frame. It is a correctness rule, not permission to ignore the frame budget: it
-is admitted only when each endpoint's measured worst-case cost fits the device
-frame window on its own. Only one endpoint's persistent resources are prepared
+frame. Only one endpoint's persistent resources are prepared
 at a time — the source's until the midpoint, the destination's after it.
 Automated choreography may contain only admitted edges. An incompatible GUI
 slot change whose pair is not admitted performs an exact single-frame snap to
-the destination; it never overruns the budget or substitutes coordinate
-interpolation. Lower cadence/resolution or a cached-endpoint approximation
-requires its own future specification and is not an implicit fallback.
+the destination; it never substitutes coordinate interpolation. Lower
+cadence/resolution or a cached-endpoint approximation requires its own future
+specification and is not an implicit fallback.
 Frequent or long transitions should prefer continuous amounts inside a stable
 topology.
 
@@ -1244,7 +1230,7 @@ reuses core math/helpers. It adds no virtual phase hierarchy, generic render
 graph, stored `FunctionRef` chain, or generalized transformer domain. A shared
 engine abstraction is justified only after at least two independent effects
 need the same contract and the extracted form preserves hot-path inlining,
-metadata, lifecycle ownership, and measured device cost.
+metadata, lifecycle ownership, and measured device timing.
 
 The immediate architectural delta is therefore deliberately small:
 

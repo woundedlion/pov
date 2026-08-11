@@ -162,6 +162,16 @@ public:
     });
   }
 
+  size_t getPresetCount() const override { return FUNCTIONS.size(); }
+  size_t getPresetIndex() const override { return functions.current_index(); }
+  bool selectPreset(size_t index) override {
+    if (!functions.select(index))
+      return false;
+    setAnimationsPaused(true);
+    update_path();
+    return true;
+  }
+
 private:
   // Test seam: asserts the closing-loop invariant the smoke harness cannot
   // observe.

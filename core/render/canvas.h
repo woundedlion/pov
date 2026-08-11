@@ -171,6 +171,24 @@ public:
    * frame of graphics data.
    */
   virtual void draw_frame() = 0;
+
+  /** @brief Number of presets exposed for manual navigation. */
+  virtual size_t getPresetCount() const { return 0; }
+  /** @brief Index of the currently selected preset. */
+  virtual size_t getPresetIndex() const { return 0; }
+  /** @brief Selects one preset by index, or reports that it is unavailable. */
+  virtual bool selectPreset(size_t) { return false; }
+  /** @brief Selects the next preset, or reports that none are exposed. */
+  virtual bool nextPreset() {
+    const size_t count = getPresetCount();
+    return count > 0 && selectPreset((getPresetIndex() + 1) % count);
+  }
+  /** @brief Selects the previous preset, or reports that none are exposed. */
+  virtual bool previousPreset() {
+    const size_t count = getPresetCount();
+    return count > 0 && selectPreset((getPresetIndex() + count - 1) % count);
+  }
+
   /**
    * @brief POV-display strobe control: whether each LED column is blanked to
    *        black immediately after it is shown. Governs inter-column strip
@@ -369,7 +387,8 @@ public:
     float max = 1; /**< Maximum value (for floats). */
     int option_count = 0; /**< Number of labels; > 0 marks an enum target. */
     TargetType target_type = TargetType::FLOAT; /**< Target storage format. */
-    bool animated = false; /**< True if an animation drives this member; the GUI
+    bool animated =
+        false; /**< True if an animation drives this member; the GUI
                                surfaces these as auto-pausing sliders. */
     bool readonly = false; /**< True if this is engine-written telemetry; the
                                GUI shows it live but disables editing. */

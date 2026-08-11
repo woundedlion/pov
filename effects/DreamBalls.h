@@ -139,6 +139,18 @@ public:
     }
   }
 
+  size_t getPresetCount() const override { return PRESETS.size(); }
+  size_t getPresetIndex() const override {
+    return preset_manager.current_index();
+  }
+  bool selectPreset(size_t index) override {
+    if (!preset_manager.select(index))
+      return false;
+    setAnimationsPaused(true);
+    apply_selected_preset();
+    return true;
+  }
+
 private:
   friend struct ::hs_test::effects_tests::DreamBallsWhiteBox;
 
@@ -165,6 +177,13 @@ private:
   float orbit_phase = 0.0f;
   int last_preset_idx =
       -1; /**< Last preset whose values were copied into params. */
+
+  void apply_selected_preset() {
+    params = preset_manager.get();
+    last_preset_idx = static_cast<int>(preset_manager.current_index());
+    baked_palettes[active_bake].rebake(*params.palette);
+    param_slots[active_bake] = params;
+  }
 
   /** Per-vertex phase increment (radians) for the orbit stagger, so the surface
        ripples instead of pulsing in unison. */

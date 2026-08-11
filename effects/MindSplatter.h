@@ -121,6 +121,16 @@ public:
     draw_particles(canvas);
   }
 
+  size_t getPresetCount() const override { return PRESETS.size(); }
+  size_t getPresetIndex() const override { return presets.current_index(); }
+  bool selectPreset(size_t index) override {
+    if (!presets.select(index))
+      return false;
+    setAnimationsPaused(true);
+    presets.apply(params);
+    return true;
+  }
+
 private:
   // Test seam for emitter and attractor invariants.
   friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
