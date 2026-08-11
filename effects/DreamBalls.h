@@ -255,6 +255,22 @@ private:
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "DreamBalls persistent footprint exceeds the default partition");
+  // Medial topology turns every source edge into a woven vertex, so the vertex
+  // bound is MAX_SOLID_EDGES rather than MAX_SOLID_VERTICES.
+  static constexpr size_t WOVEN_VERTEX_BOUND =
+      MAX_SOLID_EDGES > MAX_SOLID_VERTICES ? MAX_SOLID_EDGES
+                                           : MAX_SOLID_VERTICES;
+  // draw_woven_scene stages three per-vertex buffers plus the framed
+  // vertex + edge-head mesh in scratch_a, all live across Plot::Mesh::draw's
+  // per-edge fragment scope and rasterize's sub-step cache.
+  static constexpr size_t SCRATCH_A_PEAK_BYTES =
+      (4 * WOVEN_VERTEX_BOUND + 2 * MAX_SOLID_EDGES) * sizeof(Vector) +
+      Plot::Mesh::EDGE_MAX_POINTS * sizeof(Fragment) +
+      Plot::rasterize_scratch_a_bytes<W>();
+  static_assert(
+      SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
+      "DreamBalls woven staging exceeds the default scratch_a budget; "
+      "retune the solid bounds or carve a larger scratch arena");
   int active_bake = 0; /**< Slot of the current (most-recently baked) sprite;
                              the next spawn flips this before baking. */
   /**

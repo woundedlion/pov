@@ -2346,6 +2346,9 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
 struct DreamBallsWhiteBox {
   using DB = DreamBalls<SMALL_W, SMALL_H>;
   static constexpr int PRESETS = 10;
+  static constexpr size_t SOLID_COUNT = DB::SOLID_COUNT;
+  static constexpr size_t MAX_SOLID_EDGES = DB::MAX_SOLID_EDGES;
+  static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
 
   static int active_bake(const DB &db) { return db.active_bake; }
   static int last_preset_idx(const DB &db) { return db.last_preset_idx; }
@@ -2579,6 +2582,62 @@ inline void test_dreamballs_base_mesh_selector() {
     db.draw_frame();
     db.advance_display();
   }
+  uint64_t energy = 0;
+  for (int y = 0; y < SMALL_H; ++y)
+    for (int x = 0; x < SMALL_W; ++x) {
+      const Pixel &pixel = db.get_pixel(x, y);
+      energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
+    }
+  HS_EXPECT_GT(energy, 0u);
+}
+
+/**
+ * @brief Renders the widest solid the dropdown reaches under medial topology and
+ *        checks SCRATCH_A_PEAK_BYTES against the real frame peak.
+ * @details No preset selects a MAX_SOLID_EDGES solid, and the smoke sweep stops
+ *          well short of SPRITE_LIFE, so the widest woven staging the effect can
+ *          bind is otherwise never drawn. Medial topology is forced so the
+ *          staging takes one vertex per source edge and one framed edge per
+ *          medial edge — the worst case the static_assert bounds.
+ */
+inline void test_dreamballs_max_edge_solid_render() {
+  using WB = DreamBallsWhiteBox;
+  reset_effect_globals();
+
+  WB::DB db;
+  db.init();
+
+  size_t widest = 0;
+  size_t widest_edges = 0;
+  for (size_t i = 0; i < WB::SOLID_COUNT; ++i) {
+    const size_t edges = WB::original_edges(db, i).size();
+    if (edges > widest_edges) {
+      widest_edges = edges;
+      widest = i;
+    }
+  }
+  HS_EXPECT_EQ(widest_edges, WB::MAX_SOLID_EDGES);
+
+  HS_EXPECT_TRUE(db.updateParameter("Base Mesh", static_cast<float>(widest)) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(db.updateParameter("Weave Topology", 2.0f) ==
+                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(WB::live_weave_topology(db), WB::DB::WeaveTopology::MEDIAL);
+  HS_EXPECT_EQ(WB::medial_edges(db, widest).size(), 2 * widest_edges);
+
+  db.setAnimationsPaused(false);
+  scratch_arena_a.reset_high_water_mark();
+  for (int frame = 0; frame < 20; ++frame) {
+    db.draw_frame();
+    db.advance_display();
+  }
+
+  // Three per-vertex buffers plus the framed vertex + edge-head mesh, at the
+  // medial bound; a peak below this would mean the wide path never ran.
+  const size_t staged_bytes = 6 * widest_edges * sizeof(Vector);
+  HS_EXPECT_GE(scratch_arena_a.get_high_water_mark(), staged_bytes);
+  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), WB::SCRATCH_A_PEAK_BYTES);
+
   uint64_t energy = 0;
   for (int y = 0; y < SMALL_H; ++y)
     for (int x = 0; x < SMALL_W; ++x) {
@@ -6200,6 +6259,7 @@ inline int run_effects_tests() {
   // and they cost under a second between them.
   test_chaoticstrings_scratch_estimate_covers_peak();
   test_hankinsolids_arena_budget_covers_every_solid();
+  test_dreamballs_max_edge_solid_render();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The QUICK tier
   // (default, local pre-commit) skips the block below entirely, so a green local
