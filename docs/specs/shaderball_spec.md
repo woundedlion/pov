@@ -1008,7 +1008,7 @@ the earlier fixed stereographic implementation. The final gate established:
 - named, continuously advancing source, warp, projection, breathe, walk, and
   palette clocks;
 - the two-stage warp program, coupled/direct source, liquid colorizer, and all
-  migrated looks in the 21-preset bank;
+  migrated looks in the 24-preset bank;
 - deterministic GUI edits and exact transition endpoints;
 - premultiplied output blending for topology-changing preset transitions;
 - projection topology metadata, host oracles, finite-output fuzzing, and seam
