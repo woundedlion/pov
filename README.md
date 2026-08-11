@@ -216,7 +216,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
 │   │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
 │   │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
-│   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pix
+│   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel
 │   │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
 │   │   ├── sdf_volume.h            3D volumetric SDF shapes + domain warps for Scan::Volume
 │   │   ├── shading.h               Fragment + mesh-topology shading helpers, null shaders
