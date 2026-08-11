@@ -17,6 +17,10 @@ Storage (deliberately NOT a tracked file):
   * `--git-common-dir`, never `--git-dir`: inside a `git worktree` the latter
     points at `.git/worktrees/<name>`, which would fragment the trail into one
     file per worktree. Every worktree appends to the one trail.
+  * The pending record lives at `$(git rev-parse --absolute-git-dir)/
+    teensy-size-trail.pending.json` — per-worktree, the opposite of the trail.
+    It holds ONE commit in flight, so sharing it across worktrees lets two
+    overlapping commits stamp each other's section sizes onto the wrong sha.
 
 Capture is two-phase because pre-commit does not know the commit sha yet:
   * `record`  — pre-commit, after the gate passes: parse the built ELFs into a
@@ -325,12 +329,17 @@ def git_common_dir(cwd: str | Path | None = None) -> Path:
     return (Path(cwd or os.getcwd()) / raw).resolve()
 
 
+def git_dir(cwd: str | Path | None = None) -> Path:
+    """Absolute path of THIS worktree's git dir (`.git/worktrees/<name>`)."""
+    return Path(_git(["rev-parse", "--absolute-git-dir"], cwd))
+
+
 def default_trail(cwd: str | Path | None = None) -> Path:
     return git_common_dir(cwd) / TRAIL_NAME
 
 
 def default_pending(cwd: str | Path | None = None) -> Path:
-    return git_common_dir(cwd) / PENDING_NAME
+    return git_dir(cwd) / PENDING_NAME
 
 
 def head_stamp(cwd: str | Path | None = None, rev: str = "HEAD"
@@ -559,14 +568,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     rec = sub.add_parser("record", help="parse built ELFs into a pending record")
     rec.add_argument("--build-dir", default=".pio/build")
-    rec.add_argument("--out", help=f"default: <git-common-dir>/{PENDING_NAME}")
+    rec.add_argument("--out", help=f"default: <git-dir>/{PENDING_NAME}")
     rec.add_argument("--env", action="append",
                      help="environment to record (repeatable); default "
                           + ", ".join(DEFAULT_ENVIRONMENTS))
     rec.set_defaults(func=cmd_record)
 
     com = sub.add_parser("commit", help="stamp the pending record and append it")
-    com.add_argument("--pending", help=f"default: <git-common-dir>/{PENDING_NAME}")
+    com.add_argument("--pending", help=f"default: <git-dir>/{PENDING_NAME}")
     com.add_argument("--trail", help=f"default: <git-common-dir>/{TRAIL_NAME}")
     com.add_argument("--repo", help="repo/worktree to read the commit from")
     com.add_argument("--rev", default="HEAD")

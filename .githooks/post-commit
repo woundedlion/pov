@@ -14,7 +14,13 @@
 
 COMMON="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
 [ -n "$COMMON" ] || exit 0
-PENDING="$COMMON/teensy-size-trail.pending.json"
+
+# The pending record is per-worktree (--absolute-git-dir), not shared like the
+# trail: it holds one commit in flight, and two worktrees committing at once
+# would otherwise stamp each other's section sizes onto the wrong sha.
+GITDIR="$(git rev-parse --absolute-git-dir 2>/dev/null)" || exit 0
+[ -n "$GITDIR" ] || exit 0
+PENDING="$GITDIR/teensy-size-trail.pending.json"
 [ -f "$PENDING" ] || exit 0
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
