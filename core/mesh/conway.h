@@ -148,7 +148,7 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
 /**
  * @brief Emit one output face per source-vertex orbit (the shared dual/ambo/
  *   expand/snub scaffold).
- * @tparam DIR Orbit direction passed through to vertex_orbit ('P' or 'N').
+ * @tparam DIR Orbit direction passed through to vertex_orbit.
  * @tparam ValueFn Callable mapping a half-edge index to an output vertex index.
  * @param he_mesh Half-edge connectivity to walk.
  * @param out_mesh Destination mesh; one face is appended per source vertex.
@@ -156,15 +156,15 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
  * @param orbit_buf Caller-allocated uint16_t[I] scratch for the current orbit.
  * @param V Vertex count (size of visited_verts).
  * @param I Half-edge/index count (size of orbit_buf).
- * @param reverse Flip the winding for pair->next ('N') orbits whose natural
- *   order is opposite the desired front.
+ * @param reverse Flip the winding for PAIR_NEXT orbits whose natural order is
+ *   opposite the desired front.
  * @param value_of Maps each visited half-edge index to its output vertex index.
  * @details Walks every half-edge once, and for each not-yet-visited origin
  *   vertex builds its orbit via vertex_orbit<DIR>, mapping each visited
  *   half-edge through value_of, then emits the collected indices as one face
  *   (skipping degenerate <3-gons).
  */
-template <char DIR, typename ValueFn>
+template <OrbitDir DIR, typename ValueFn>
 inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
                                     PolyMesh &out_mesh, bool *visited_verts,
                                     uint16_t *orbit_buf, size_t V, size_t I,
@@ -405,7 +405,7 @@ emit_expanded_shell(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh,
 
   // Orbit and edge faces are emitted regardless of primary-face
   // well-formedness (unlike the shrunk primary face above).
-  emit_vertex_orbit_faces<'N'>(
+  emit_vertex_orbit_faces<OrbitDir::PAIR_NEXT>(
       he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/true,
       [&](uint16_t idx) {
         return he_to_vert_idx[he_mesh.half_edges[idx].prev];
@@ -584,7 +584,7 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
 
     // One face per source vertex: its orbit's incident faces become the dual
     // face's vertices.
-    emit_vertex_orbit_faces<'P'>(
+    emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) { return he_mesh.half_edges[idx].face; });
   }
@@ -692,7 +692,7 @@ HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
     });
 
     // Build Vertex Orbits (New Faces)
-    emit_vertex_orbit_faces<'P'>(
+    emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) { return edge_to_vert[idx]; });
   }
@@ -814,7 +814,7 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
     });
 
     // Build Vertex Orbits (New Faces).
-    emit_vertex_orbit_faces<'P'>(
+    emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
         he_mesh, out_a, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) { return edge_to_vert[idx]; });
   }
@@ -916,7 +916,7 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
       out_mesh.faces.push_back(head_cut);
     });
 
-    emit_vertex_orbit_faces<'P'>(
+    emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) {
           // Orbit walks the half-edges leaving this vertex; each contributes
@@ -1288,18 +1288,20 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         uint16_t start_out =
             orbit_start[i]; // outgoing edge; HE_NONE if boundary
         if (start_out != HE_NONE) {
-          vertex_orbit<'N'>(he_mesh, start_out, [&](uint16_t idx) {
-            int ni = he_mesh.half_edges[idx].vertex; // head == 1-ring neighbor
-            Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
-            // Skip near-zero edges before 1/dist can spike the force.
-            float len_sq = dot(vec, vec);
-            if (len_sq > math::EPS_LEN_SQ) {
-              float dist = sqrtf(len_sq);
-              float diff = dist - target_len;
-              force =
-                  force + (vec * (1.0f / dist)) * (diff * RELAX_SPRING_GAIN);
-            }
-          });
+          vertex_orbit<OrbitDir::PAIR_NEXT>(
+              he_mesh, start_out, [&](uint16_t idx) {
+                int ni =
+                    he_mesh.half_edges[idx].vertex; // head == 1-ring neighbor
+                Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
+                // Skip near-zero edges before 1/dist can spike the force.
+                float len_sq = dot(vec, vec);
+                if (len_sq > math::EPS_LEN_SQ) {
+                  float dist = sqrtf(len_sq);
+                  float diff = dist - target_len;
+                  force = force +
+                          (vec * (1.0f / dist)) * (diff * RELAX_SPRING_GAIN);
+                }
+              });
         }
         movements[i] = force;
       }

@@ -256,14 +256,16 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
 
       int count = 0;
 
-      vertex_orbit<'N'>(he_mesh, he_start_idx, [&](uint16_t curr_idx) {
-        HS_CHECK(count + 2 <= (int)(2 * I), "Hankin rosette winding overflow");
-        face_indices[count++] = he_to_midpoint_idx[curr_idx];
-        const uint16_t next_edge_idx =
-            he_mesh.half_edges[he_mesh.half_edges[curr_idx].pair].next;
-        face_indices[count++] = narrow_index(compiled.static_offset +
-                                             he_to_dynamic_idx[next_edge_idx]);
-      });
+      vertex_orbit<OrbitDir::PAIR_NEXT>(
+          he_mesh, he_start_idx, [&](uint16_t curr_idx) {
+            HS_CHECK(count + 2 <= (int)(2 * I),
+                     "Hankin rosette winding overflow");
+            face_indices[count++] = he_to_midpoint_idx[curr_idx];
+            const uint16_t next_edge_idx =
+                he_mesh.half_edges[he_mesh.half_edges[curr_idx].pair].next;
+            face_indices[count++] = narrow_index(
+                compiled.static_offset + he_to_dynamic_idx[next_edge_idx]);
+          });
 
       // count = 2 * vertex degree. Degree-2 is legal (hankin-of-hankin walks
       // its own degree-2 midpoints -> quad rosette); only degree < 2
