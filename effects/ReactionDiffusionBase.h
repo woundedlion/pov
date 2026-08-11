@@ -46,10 +46,7 @@ public:
   /**
    * @brief Advances one animation frame and dispatches to the derived renderer.
    * @details Advances the orientation timeline, then statically dispatches to
-   * Derived::render() for the system-specific physics and drawing. The profile
-   * scopes bracket the display-flip idle apart from render work, which is what
-   * lets the harness report an exact per-frame render; they compile to nothing
-   * without HS_PROFILE_ENABLE.
+   * Derived::render() for the system-specific physics and drawing.
    */
   void draw_frame() override {
     Canvas canvas(*this);
