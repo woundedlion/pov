@@ -5652,14 +5652,8 @@ inline void test_voronoi_union_candidates_cover_nearest() {
   // COHERENCE_BLOCK_MIN.
   constexpr int N = VoronoiWhiteBox::MAX_SITES;
   static Vector fib[N];
-  const float golden_angle = PI_F * (3.0f - sqrtf(5.0f));
-  for (int i = 0; i < N; ++i) {
-    const int span = N > 1 ? N - 1 : 1;
-    const float y = 1.0f - (i / static_cast<float>(span)) * 2.0f;
-    const float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
-    const float theta = golden_angle * i;
-    fib[i] = Vector(cosf(theta) * radius, y, sinf(theta) * radius);
-  }
+  for (int i = 0; i < N; ++i)
+    fib[i] = fib_spiral(N, /*eps=*/0.5f, i);
   const std::span<const Vector> dense(fib, N);
   const double fib_match =
       voronoi_union_nearest_match<DEFAULT_W, DEFAULT_H>(dense, deficit);
