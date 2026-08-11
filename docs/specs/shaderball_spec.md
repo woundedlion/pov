@@ -76,7 +76,7 @@ color.alpha *= coverage
 Its existing wander is consequently the outer camera. It is not an arbitrary
 pre-lens animation that may be moved elsewhere when the framework grows.
 ShadierBall currently applies this radial weighting and alpha coverage to all
-three projection slots, including its bounded folded equirectangular map. That
+three projection slots, including its bounded folded sinusoidal map. That
 is shipped behavior even though the helper is named `pole_attenuation` and the
 policy is geometrically motivated only by stereographic projection.
 
@@ -348,8 +348,8 @@ The north-star discrete slots are:
 - `Function`: twin wave, rings, spiral, grid, and ShaderBall's coupled/direct
   field, plus noise contour and primitive lattice;
 - `WarpProgram`: two fixed planar stages selected from the catalog in §0.7.1;
-- `Projection`: equirectangular, stereographic, gnomonic, Bonne, Peirce
-  quincuncial, and Airocean (Dymaxion);
+- `Projection`: folded sinusoidal, stereographic, gnomonic, Bonne, Peirce
+  quincuncial, Airocean (Dymaxion), and equirectangular;
 - `SurfaceLens`: none, glitch, twist, kaleidoscope, Möbius, and tangent noise;
 - `SignalWeight`: none or projection weight;
 - `ValueTransfer`: linear, ridge, iso-contour, or smooth bands;
@@ -761,7 +761,7 @@ value/coverage requirements, lens join, resource tier, and transition edge.
 At minimum, `NONE` is valid for every projection and
 `LEGACY_STEREO_NOISE` is valid only for stereographic projection. The shipped
 warp consumes stereographic radial attenuation and must not be silently applied
-to Bonne, Peirce, Airocean, folded equirectangular, or gnomonic coordinates.
+to Bonne, Peirce, Airocean, folded sinusoidal, or gnomonic coordinates.
 Preset tables are validated at compile time where possible; invalid GUI
 combinations are rejected without changing the live state.
 
@@ -800,7 +800,7 @@ specification and is not an implicit fallback.
 Frequent or long transitions should prefer continuous amounts inside a stable
 topology.
 
-Legacy ShadierBall behavior is explicitly grandfathered: equirectangular,
+Legacy ShadierBall behavior is explicitly grandfathered: folded sinusoidal,
 stereographic, and `SHADIERBALL_GNOMONIC_LEGACY` use
 `LEGACY_PROJECTED_LERP`, which unconditionally interpolates the direct and
 lensed planar coordinates exactly as shipped, ignoring fold and hemisphere
@@ -863,7 +863,8 @@ The projection roster is:
 
 | Slot | Topology traits | Required controls | Boundary policy |
 |---|---|---|---|
-| `EQUIRECTANGULAR` | bounded, folded, many-to-one | central meridian, legacy radial fade | preserve the shipped absolute-azimuth fold, pole collapse, and radial value/alpha policy; a conventional periodic longitude chart is a distinct future layout |
+| `SINUSOIDAL` | bounded, folded, many-to-one | central meridian, legacy radial fade | preserve the shipped absolute-azimuth fold, pole collapse, and radial value/alpha policy |
+| `EQUIRECTANGULAR` | bounded, one component with antimeridian cut | central meridian, legacy radial fade | expose the cut through metadata; longitude is unfolded and unscaled |
 | `STEREOGRAPHIC` | unbounded, one component, singular pole | pole fade | preserve exact shipped mapping and radial attenuation |
 | `GNOMONIC` | unbounded, antipodally folded, equator singularity | hemisphere policy, legacy radial fade | preserve the private ShadierBall kernel's exact divisor floor, component behavior, and radial value/alpha policy |
 | `BONNE` | bounded, one component with antimeridian cut | signed standard parallel, central meridian | expose the cut through metadata; projection weight defaults to 1 |
