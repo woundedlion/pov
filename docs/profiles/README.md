@@ -102,11 +102,12 @@ ShaderBall's performance budget is sized against their per-pixel costs.
 0/1728 spills at a 38.95 ms peak; global O3 has the same zero-spill result at a
 38.78 ms peak while adding 21,464 B of flash and 18,832 B of ITCM.
 
-**ShaderBall exposes 26 authored projection workloads without a static cost
-gate.** Shipping is green for 23 presets; presets 0, 13, and 25 account for
-31/2176 spilled frames at a 67.71 ms peak. Global O3 makes all 26 green at a
-60.99 ms peak and adds 46,584 B of flash and 43,776 B of ITCM to the
-single-effect image.
+**The captured ShaderBall roster contains 26 authored projection workloads
+without a static cost gate.** Shipping is green for 23 presets; presets 0, 13,
+and 25 account for 31/2176 spilled frames at a 67.71 ms peak. Global O3 makes
+all 26 green at a 60.99 ms peak and adds 46,584 B of flash and 43,776 B of ITCM
+to the single-effect image. The current 28-preset bank has two newer entries
+that are not part of this capture.
 
 **MeshFeedback is green on all 12 styles** — 0/6688 at a 57.70 ms peak
 (SlowDust), worst hold Smoke at 48.86 ms of flush. `feedback_composite` is 67%
