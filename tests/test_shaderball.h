@@ -756,6 +756,66 @@ inline void test_shaderball_legacy_spatial_slots() {
   HS_EXPECT_NEAR(end.coords.im, lensed.im, 1e-6f);
 }
 
+/** @brief Polyhedral lenses fold every simple-mirror orbit into one chamber. */
+inline void test_shaderball_polyhedral_kaleidoscopes() {
+  using WB = ShaderBallWhiteBox;
+  struct Symmetry {
+    WB::SurfaceLens lens;
+    std::array<Vector, 3> mirrors;
+  };
+  static constexpr Symmetry SYMMETRIES[] = {
+      {WB::SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL,
+       {Vector(1.0f, 0.0f, 0.0f), Vector(-0.5f, 0.8660254038f, 0.0f),
+        Vector(0.0f, -0.5773502692f, 0.8164965809f)}},
+      {WB::SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL,
+       {Vector(1.0f, 0.0f, 0.0f), Vector(-0.7071067812f, 0.7071067812f, 0.0f),
+        Vector(0.0f, -0.7071067812f, 0.7071067812f)}},
+      {WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
+       {Vector(1.0f, 0.0f, 0.0f), Vector(-0.8090169944f, 0.3090169944f, -0.5f),
+        Vector(0.0f, 0.0f, 1.0f)}}};
+  const Vector direction = Vector(-0.371f, 0.557f, -0.743f).normalized();
+  Vector folded[std::size(SYMMETRIES)];
+
+  for (size_t index = 0; index < std::size(SYMMETRIES); ++index) {
+    const Symmetry &symmetry = SYMMETRIES[index];
+    folded[index] = WB::apply_lens(direction, symmetry.lens);
+    HS_EXPECT_NEAR(folded[index].length(), 1.0f, 1e-5f);
+    const Vector idempotent = WB::apply_lens(folded[index], symmetry.lens);
+    HS_EXPECT_NEAR(idempotent.x, folded[index].x, 1e-6f);
+    HS_EXPECT_NEAR(idempotent.y, folded[index].y, 1e-6f);
+    HS_EXPECT_NEAR(idempotent.z, folded[index].z, 1e-6f);
+
+    for (const Vector &normal : symmetry.mirrors) {
+      const float distance = dot(direction, normal);
+      const Vector reflected(direction.x - 2.0f * distance * normal.x,
+                             direction.y - 2.0f * distance * normal.y,
+                             direction.z - 2.0f * distance * normal.z);
+      const Vector equivalent = WB::apply_lens(reflected, symmetry.lens);
+      HS_EXPECT_NEAR(equivalent.x, folded[index].x, 2e-5f);
+      HS_EXPECT_NEAR(equivalent.y, folded[index].y, 2e-5f);
+      HS_EXPECT_NEAR(equivalent.z, folded[index].z, 2e-5f);
+    }
+  }
+
+  HS_EXPECT_TRUE(folded[0] != folded[1]);
+  HS_EXPECT_TRUE(folded[1] != folded[2]);
+
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  const auto *lens = sb.getParameters().find("Lens");
+  HS_EXPECT_TRUE(lens != nullptr);
+  HS_EXPECT_EQ(lens->option_count, 9);
+  HS_EXPECT_EQ(std::string_view(lens->options[3]),
+               std::string_view("Kaleidoscope"));
+  HS_EXPECT_EQ(std::string_view(lens->options[6]),
+               std::string_view("Kaleidoscope (Tetrahedral)"));
+  HS_EXPECT_EQ(std::string_view(lens->options[7]),
+               std::string_view("Kaleidoscope (Octahedral)"));
+  HS_EXPECT_EQ(std::string_view(lens->options[8]),
+               std::string_view("Kaleidoscope (Dodecahedral)"));
+}
+
 /** @brief Equirectangular is unfolded, periodic, and cut at the antimeridian. */
 inline void test_shaderball_equirectangular_projection() {
   using WB = ShaderBallWhiteBox;
@@ -2866,6 +2926,7 @@ inline int run_shaderball_tests() {
   test_shaderball_manual_edit_timing();
   test_shaderball_pipeline_contract();
   test_shaderball_legacy_spatial_slots();
+  test_shaderball_polyhedral_kaleidoscopes();
   test_shaderball_equirectangular_projection();
   test_shaderball_flush_edge_fade();
   test_shaderball_legacy_sources();
