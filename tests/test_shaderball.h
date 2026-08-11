@@ -874,7 +874,7 @@ inline void test_shaderball_preset_bank() {
   using WB = ShaderBallWhiteBox;
   const auto &presets = WB::presets();
   const auto &choreo = WB::choreo();
-  HS_EXPECT_EQ(presets.size(), size_t(24));
+  HS_EXPECT_EQ(presets.size(), size_t(25));
   HS_EXPECT_EQ(choreo.size(), presets.size());
   HS_EXPECT_EQ(presets[0].params.source.pattern_freq, 5.0f);
   HS_EXPECT_EQ(presets[0].params.warp.outer.scale, 3.0f);
@@ -1010,6 +1010,39 @@ inline void test_shaderball_preset_bank() {
     HS_EXPECT_EQ(gnomonic_grid.params.value.edge_width, 0.5f);
     HS_EXPECT_EQ(gnomonic_grid.params.outer_camera.wander, 1.0f);
   }
+  const auto &bonne_lattice = presets[24];
+  HS_EXPECT_EQ(bonne_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
+  HS_EXPECT_EQ(bonne_lattice.slots.projection, WB::Projection::BONNE);
+  HS_EXPECT_EQ(bonne_lattice.slots.bonne_hemisphere,
+               WB::BonneHemisphere::NORTH);
+  HS_EXPECT_EQ(bonne_lattice.slots.projection_frame,
+               WB::ProjectionFramePolicy::SPIN_WANDER);
+  HS_EXPECT_EQ(bonne_lattice.slots.surface_lens, WB::SurfaceLens::KALEIDOSCOPE);
+  HS_EXPECT_EQ(bonne_lattice.slots.warp_program.outer.kind,
+               WB::WarpStageKind::MIRROR_TILE);
+  HS_EXPECT_EQ(bonne_lattice.slots.warp_program.inner.kind,
+               WB::WarpStageKind::NONE);
+  HS_EXPECT_EQ(bonne_lattice.slots.signal_weight, WB::SignalWeight::PROJECTION);
+  HS_EXPECT_EQ(bonne_lattice.slots.value_transfer, WB::ValueTransfer::LINEAR);
+  HS_EXPECT_EQ(bonne_lattice.slots.coverage, WB::CoveragePolicy::EDGE_FADE);
+  HS_EXPECT_EQ(bonne_lattice.slots.colorizer, WB::Colorizer::GENERATED_TRIADIC);
+  HS_EXPECT_EQ(bonne_lattice.params.source.lattice_cell_scale, 1.1494062f);
+  HS_EXPECT_EQ(bonne_lattice.params.source.lattice_shape_blend, 1.0f);
+  HS_EXPECT_EQ(bonne_lattice.params.source.lattice_softness, 0.26372f);
+  HS_EXPECT_EQ(bonne_lattice.params.source.lattice_radius, 0.31164f);
+  HS_EXPECT_EQ(bonne_lattice.params.projection.central_meridian, 0.0f);
+  HS_EXPECT_EQ(bonne_lattice.params.projection.coordinate_scale, 1.0f);
+  HS_EXPECT_EQ(bonne_lattice.params.projection.bonne_standard_parallel, 0.001f);
+  HS_EXPECT_EQ(bonne_lattice.params.projection.spin_rate, 0.0f);
+  HS_EXPECT_EQ(bonne_lattice.params.projection.wander, 1.0f);
+  HS_EXPECT_EQ(bonne_lattice.params.surface_lens.mix, 1.0f);
+  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.rotation, 1.7215928f);
+  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.cell_x, 5.381125f);
+  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.cell_y, 1.0f);
+  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.offset_x, 1.344f);
+  HS_EXPECT_EQ(bonne_lattice.params.warp.outer.offset_y, -1.456f);
+  HS_EXPECT_EQ(bonne_lattice.params.value.edge_width, 0.5f);
+  HS_EXPECT_EQ(bonne_lattice.params.outer_camera.wander, 1.0f);
   for (size_t index = 0; index < presets.size(); ++index)
     HS_EXPECT_TRUE(WB::seam_compatible(presets[index]));
   for (size_t index = 0; index < 15; ++index)
