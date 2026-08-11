@@ -756,8 +756,9 @@ inline double sh_reference_legendre(int l, int m, double x) {
 
 /**
  * @brief Pins SHMath::reduced_legendre against the closed-form P_l^m table.
- * @details The hand-derived upward recurrence seeds P_m^m, steps to P_{m+1}^m,
- * then recurs in l; a wrong coefficient in any of the three shifts the result by
+ * @details The hand-derived upward recurrence starts at a unit seed, steps to
+ * P_{m+1}^m, then recurs in l, with the x-independent P_m^m factored out into
+ * legendre_seed(); a wrong coefficient in any of the three shifts the result by
  * an O(1) relative amount. Sweeps every table row (so all three branches run for
  * degrees the effect can reach and one above) across x = cos(phi) in [-1, 1].
  */
@@ -775,6 +776,7 @@ inline void test_sh_reduced_legendre_matches_closed_form() {
       const double x = -1.0 + 2.0 * i / SAMPLES;
       const double want = sh_closed_form_reduced(row, x);
       const double got =
+          SHMath::legendre_seed(row.m) *
           SHMath::reduced_legendre(row.l, row.m, static_cast<float>(x));
       // Relative above unit magnitude; rows reach 945, so a plain absolute
       // bound would be either meaningless there or unreachable near zero.
@@ -809,6 +811,7 @@ inline void test_sh_cartesian_matches_spherical() {
   for (int l = 0; l <= SH_PIN_MAX_DEGREE; ++l) {
     for (int m = -l; m <= l; ++m) {
       const float N = SHMath::normalization(l, m);
+      const float scale = SHMath::harmonic_scale(l, m);
       const int abs_m = std::abs(m);
       for (int i = 0; i <= 40; ++i) {
         const double phi = PI_F * i / 40.0;
@@ -825,7 +828,7 @@ inline void test_sh_cartesian_matches_spherical() {
           const double want =
               N * sh_reference_legendre(l, abs_m, cos_phi) * azimuthal;
           const double err =
-              std::fabs(SHMath::spherical_harmonic(l, m, p, N) - want);
+              std::fabs(SHMath::spherical_harmonic(l, m, p, scale) - want);
           if (err > worst) {
             worst = err;
             worst_l = l;
