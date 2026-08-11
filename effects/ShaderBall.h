@@ -41,6 +41,7 @@ public:
                           PARAM_CAPACITY);
     requested_config = PRESETS[0];
     published_config = PRESETS[0];
+    accepted_config = PRESETS[0];
     prepare_resource_union(PRESETS[0], PRESETS[0]);
 
     rebind_parameters();
@@ -110,6 +111,7 @@ public:
     blend.params = PRESETS[index].params;
     requested_config = PRESETS[index];
     published_config = PRESETS[index];
+    accepted_config = PRESETS[index];
     runtime = {};
     HS_CHECK(prepare_resource_union(PRESETS[index], PRESETS[index]),
              "ShaderBall profile preset resources exceed capacity");
@@ -656,12 +658,19 @@ private:
     if (!is_enum) {
       if (std::strncmp(name, "Mobius ", 7) == 0)
         canonicalize_mobius(requested_config.params.surface_lens.mobius);
+    } else {
+      const EditIntent intent = edit_intent(name);
+      if (intent != EditIntent::NONE)
+        canonicalize_selector_edit(requested_config, intent);
+    }
+    if (!hold_admitted(requested_config) ||
+        !resource_union_fits(requested_config, requested_config)) {
+      requested_config = accepted_config;
+      rebind_parameters();
       return;
     }
-    const EditIntent intent = edit_intent(name);
-    if (intent != EditIntent::NONE)
-      canonicalize_selector_edit(requested_config, intent);
-    if (schema_selector(name))
+    accepted_config = requested_config;
+    if (is_enum && schema_selector(name))
       rebind_parameters();
   }
 
@@ -738,9 +747,6 @@ private:
     if (within_hold_device_budget(device_cost(config)))
       return;
     config.slots.surface_lens = SurfaceLens::NONE;
-    if (within_hold_device_budget(device_cost(config)))
-      return;
-    config.slots.function = Function::COUPLED_DIRECT;
   }
 
   static void canonicalize_selector_edit(Config &config, EditIntent intent) {
@@ -763,8 +769,6 @@ private:
       if (strict_projection(config.slots.projection)) {
         clear_strict_seam_incompatible(config);
         config.slots.coverage = CoveragePolicy::EDGE_FADE;
-        config.params.value.edge_width =
-            std::max(config.params.value.edge_width, 0.1f);
       }
       fit_selected_projection_to_device_budget(config);
       break;
@@ -853,8 +857,8 @@ private:
       register_animated_param("Cutout Softness", &params.cutout_softness,
                               SOFTNESS_MIN, 0.5f);
     } else if (coverage == CoveragePolicy::EDGE_FADE) {
-      register_animated_param("Edge Fade Width", &params.edge_width,
-                              SOFTNESS_MIN, 0.5f);
+      register_animated_param("Edge Fade Width", &params.edge_width, 0.0f,
+                              0.5f);
     }
   }
 
@@ -2436,8 +2440,10 @@ private:
                              value);
       break;
     case CoveragePolicy::EDGE_FADE:
-      coverage = smooth_ramp(0.0f, frame.params.value.edge_width,
-                             projected.fade_edge_distance);
+      coverage = frame.params.value.edge_width == 0.0f
+                     ? static_cast<float>(projected.fade_edge_distance > 0.0f)
+                     : smooth_ramp(0.0f, frame.params.value.edge_width,
+                                   projected.fade_edge_distance);
       break;
     case CoveragePolicy::PROJECTION_WEIGHT:
       coverage = projected.value_weight;
@@ -2819,12 +2825,14 @@ private:
     active_slots = requested_config.slots;
     blend.params = requested_config.params;
     published_config = requested_config;
+    accepted_config = requested_config;
     if (!requested_schema_bound)
       rebind_parameters();
   }
 
   HS_COLD_MEMBER void reject_requested_config() {
     requested_config = published_config;
+    accepted_config = published_config;
     rebind_parameters();
     if (transition.active && transition.continue_choreo)
       anims_paused = false;
@@ -2946,6 +2954,7 @@ private:
       return;
     published_config = {active_slots, blend.params};
     requested_config = published_config;
+    accepted_config = published_config;
   }
 
   template <typename Enum>
@@ -3414,6 +3423,7 @@ private:
 #endif
       requested_config = to;
       published_config = to;
+      accepted_config = to;
       rebind_parameters();
       if (!param_morph.active && !transition.active)
         enter_preset();
@@ -3671,8 +3681,8 @@ private:
            p.value.cutout_threshold >= 0.0f &&
            p.value.cutout_threshold <= 1.0f &&
            p.value.cutout_softness >= SOFTNESS_MIN &&
-           p.value.cutout_softness <= 0.5f &&
-           p.value.edge_width >= SOFTNESS_MIN && p.value.edge_width <= 0.5f &&
+           p.value.cutout_softness <= 0.5f && p.value.edge_width >= 0.0f &&
+           p.value.edge_width <= 0.5f &&
            p.colorizer.breathe_depth >= BREATHE_MIN &&
            p.colorizer.breathe_depth <= BREATHE_MAX &&
            p.colorizer.cycle_speed >= CYCLE_SPEED_MIN &&
@@ -3900,7 +3910,30 @@ private:
     return {slots, params};
   }
 
-  static constexpr std::array<Preset, 25> PRESETS = {{
+  static constexpr Preset peirce_lattice_preset() {
+    Slots slots{Function::PRIMITIVE_LATTICE,
+                Projection::PEIRCE_QUINCUNCIAL,
+                ProjectionFramePolicy::SPIN_WANDER,
+                SurfaceLens::KALEIDOSCOPE,
+                {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
+                SignalWeight::PROJECTION,
+                ValueTransfer::LINEAR,
+                CoveragePolicy::EDGE_FADE,
+                Colorizer::LIQUID};
+    slots.peirce_layout = PeirceLayout::SQUARE;
+    Params params = authored_params({}, {}, {1.0f, 0.0f}, {1.0f},
+                                    {0.15f, 0.05f, 0.0f, 0.0f}, {1.0f});
+    params.source.lattice_cell_scale = 2.2911718f;
+    params.source.lattice_shape_blend = 1.0f;
+    params.source.lattice_softness = 0.5804102f;
+    params.source.lattice_radius = 0.25f;
+    params.projection.central_meridian = 0.0f;
+    params.projection.coordinate_scale = 1.0f;
+    params.value.edge_width = 0.1f;
+    return {slots, params};
+  }
+
+  static constexpr std::array<Preset, 26> PRESETS = {{
       {LIQUID_STEREO_SLOTS,
        authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f}, {3.0f, 0.5f, 0.5f},
                        {1.4f, 0.0f}, {1.0f}, {0.15f, 0.05f, 0.0f, 0.0f},
@@ -3974,6 +4007,7 @@ private:
       gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE),
       gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
       bonne_lattice_mirror_preset(),
+      peirce_lattice_preset(),
   }};
   static_assert(
       [] {
@@ -4001,7 +4035,7 @@ private:
       }(),
       "a ShaderBall preset edge lacks continuous transition admission");
 
-  static constexpr std::array<Choreo, 25> CHOREO = {{
+  static constexpr std::array<Choreo, 26> CHOREO = {{
       {30, 90, 60, true},   {30, 90, 60, true}, {30, 90, 60, true},
       {30, 90, 480, false}, {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
@@ -4010,7 +4044,7 @@ private:
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
       {0, 0, 480, false},   {0, 0, 480, false}, {0, 0, 480, false},
-      {0, 0, 480, false},
+      {0, 0, 480, false},   {0, 0, 480, false},
   }};
   static_assert(CHOREO.size() == PRESETS.size());
 
@@ -4036,6 +4070,7 @@ private:
   Slots active_slots = LIQUID_STEREO_SLOTS;
   RequestedConfig requested_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
   Config published_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
+  Config accepted_config{LIQUID_STEREO_SLOTS, PRESETS[0].params};
   bool requested_schema_bound = false;
   size_t preset_index = 0;
   Blend blend{PRESETS[0].params};
