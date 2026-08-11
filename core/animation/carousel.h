@@ -39,6 +39,9 @@
  *   // IslamicStars::spawn_shape for the pattern).
  */
 template <typename SegueT = Segue::Crossfade> class MeshCarousel {
+  static_assert(!Segue::HasFaceOffset<SegueT> || Segue::PerFace<SegueT>,
+                "a segue defining face_offset must define face_phase(phase, "
+                "offset, fade_frac)");
   static_assert(!Segue::PerFace<SegueT> ||
                     !Segue::SHADOWS_FRAGMENT_HOOKS<SegueT>,
                 "a per-face segue's draw path never calls fill/grade");

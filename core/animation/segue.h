@@ -207,12 +207,18 @@ concept Schedulable =
       } -> std::same_as<int>;
     };
 
+/** @brief Whether a policy defines the per-face ordering hook, with or without
+ * the face_phase that makes the set usable. MeshCarousel asserts the two
+ * together, so a face_phase of the wrong arity is rejected rather than dropping
+ * the policy off the per-face path. */
+template <typename S>
+concept HasFaceOffset =
+    requires(const S &s, const Vector &c) { s.face_offset(c, 0, 0); };
+
 /** @brief Whether a policy defines the per-face hook set. */
 template <typename S>
-concept PerFace = requires(const S &s, const Vector &c) {
-  s.face_offset(c, 0, 0);
-  s.face_phase(0.5f, 0.5f, 0.1f);
-};
+concept PerFace = HasFaceOffset<S> &&
+                  requires(const S &s) { s.face_phase(0.5f, 0.5f, 0.1f); };
 
 /** @brief Whether a policy orders faces by topology class, so the effect must
  * hand it the per-face classes before each transition. */
