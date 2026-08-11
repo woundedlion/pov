@@ -2762,9 +2762,11 @@ private:
 #if HS_PARAM_GUI_BRIDGE
   HS_COLD_MEMBER void refresh_parameter_display() override {
     if (transition.active) {
-      display_config = transition.elapsed * 2 < transition.duration
-                           ? transition.from_config
-                           : transition.to_config;
+      const float mix = transition_mix(transition.elapsed, transition.duration);
+      display_config.slots = mix < 0.5f ? transition.from_config.slots
+                                        : transition.to_config.slots;
+      display_config.params.lerp(transition.from_config.params,
+                                 transition.to_config.params, mix);
       return;
     }
     display_config = {active_slots, blend.params};

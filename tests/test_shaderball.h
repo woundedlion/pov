@@ -1635,11 +1635,22 @@ inline void test_shaderball_preset_gui_transition() {
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(17));
   HS_EXPECT_TRUE(WB::transition_active(sb));
   const auto *function = sb.getParameters().find("Function");
+  const auto *outer_strength = sb.getParameters().find("Outer Warp Strength");
   HS_EXPECT_TRUE(function != nullptr);
+  HS_EXPECT_TRUE(outer_strength != nullptr);
   HS_EXPECT_EQ(function->get(),
                static_cast<float>(WB::Function::COUPLED_DIRECT));
-  WB::settle_transition(sb);
-  WB::refresh_display(sb);
+  HS_EXPECT_NEAR(outer_strength->get(), 0.0f, 1e-6f);
+  saw_intermediate = false;
+  for (int frame = 0; frame < 1024 && WB::transition_active(sb); ++frame) {
+    sb.draw_frame();
+    sb.advance_display();
+    WB::refresh_display(sb);
+    const float displayed = outer_strength->get();
+    saw_intermediate |= displayed > 0.0f && displayed < 0.6f;
+  }
+  HS_EXPECT_TRUE(saw_intermediate);
+  HS_EXPECT_NEAR(outer_strength->get(), 0.6f, 1e-5f);
   HS_EXPECT_EQ(function->get(),
                static_cast<float>(WB::Function::PRIMITIVE_LATTICE));
 }
