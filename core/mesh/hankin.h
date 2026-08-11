@@ -318,7 +318,7 @@ inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
  *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
  */
 template <typename MeshT>
-HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
+HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
                                          MeshT &out_mesh, Arena &target_arena,
                                          float angle) {
 
