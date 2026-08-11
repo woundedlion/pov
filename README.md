@@ -1731,7 +1731,7 @@ Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial f
            beacon digit train can't capture a just-rebooted board mid-frame.
            The train's FIRST digit is preceded by silence exactly as a
            boundary symbol is, so it can still be mistaken once; the
-           R-rejection fallback bounds the recovery (§9.1 mis-snap row).
+           R-rejection fallback bounds the recovery (spec §9.1 mis-snap row).
            Renders black until it has BOTH phase (a snap) AND identity
            (epoch/beacon).
  LOCKED  : accept a valid symbol only if implied correction ≤ G (4 col) AND
