@@ -100,11 +100,13 @@ private:
 
 /**
  * @brief Width decision for the master's sync pulse on the shared sync wire.
- * @details ISR-owned, like SubmitGate. A wake that renders a frame has a body
- *          long enough to width the pulse to spec §5.2's "tens of µs", so the
- *          pin drops before the wake returns. A wake that renders nothing holds
- *          the pin HIGH across the ISR boundary and drops it at the head of the
- *          next wake instead.
+ * @details ISR-owned, like SubmitGate. A wake that renders a frame widens the
+ *          pulse to its own ~8-13 µs body (spec §5.2), so the pin drops before
+ *          the wake returns — the path a scheduled pulse almost always takes,
+ *          since pulses fall on column boundaries. A wake that renders nothing
+ *          has a ~1 µs body, so it holds the pin HIGH across the ISR boundary
+ *          and drops it at the head of the next wake, one wake period (~54 µs)
+ *          later.
  */
 class SyncPulseGate {
 public:

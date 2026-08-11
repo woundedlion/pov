@@ -487,7 +487,7 @@ bit-bang configuration is rejected at compile time by `pov_segmented.h`.
 
 | Parameter | Value | Rule |
 |-----------|-------|------|
-| Pulse high time | one ISR body (pin HIGH at entry, LOW at exit; tens of µs) | width carries no information — only the rising edge registers; the glitch filter constrains edge *spacing*, not width |
+| Pulse high time | one ISR body (pin HIGH at entry, LOW at exit): **~8–13 µs** on the rendering wake every scheduled pulse lands on; a wake that renders nothing defers the drop to the next wake, ~54 µs | width carries no information — only the rising edge registers; the glitch filter constrains edge *spacing*, not width |
 | Pulse pitch | 2 columns (~868 µs) | **pitch > M** ⇒ no edge ever lost to the single latch |
 | Burst gap timeout | 4 columns (~1.7 ms) | **timeout > pitch + M** ⇒ a mask-stretched gap cannot split one burst into two |
 | Glitch filter | reject rising edges <100 µs apart | an EMI spike adds an isolated count → invalid → discard |
