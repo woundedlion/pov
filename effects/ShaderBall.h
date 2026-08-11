@@ -1083,44 +1083,58 @@ private:
                             &params.scale_y,       &params.shear};
         const float minimum[] = {-4.0f, -4.0f, 0.0f, 0.25f, 0.25f, -0.75f};
         const float maximum[] = {4.0f, 4.0f, TWO_PI_F, 4.0f, 4.0f, 0.75f};
-        register_animated_param(names[index], targets[index], minimum[index],
-                                maximum[index]);
+        register_animated_param(names[WARP_NAME_TRANSLATION_X + index],
+                                targets[index], minimum[index], maximum[index]);
       }
       break;
     }
     case WarpStageKind::WAVE_SHEAR:
-      register_animated_param(names[6], &params.frequency, 0.0f, 64.0f);
-      register_animated_param(names[7], &params.field_angle, 0.0f, TWO_PI_F);
+      register_animated_param(names[WARP_NAME_FREQUENCY], &params.frequency,
+                              0.0f, 64.0f);
+      register_animated_param(names[WARP_NAME_FIELD_ANGLE], &params.field_angle,
+                              0.0f, TWO_PI_F);
       break;
     case WarpStageKind::VORTEX:
-      register_animated_param(names[8], &params.center_x, -4.0f, 4.0f);
-      register_animated_param(names[9], &params.center_y, -4.0f, 4.0f);
-      register_animated_param(names[10], &params.radius, 1.0f / 64.0f, 8.0f);
-      register_animated_param(names[11], &params.turns, -4.0f, 4.0f);
-      register_animated_param(names[21], &params.center_orbit_radius, 0.0f,
+      register_animated_param(names[WARP_NAME_CENTER_X], &params.center_x,
+                              -4.0f, 4.0f);
+      register_animated_param(names[WARP_NAME_CENTER_Y], &params.center_y,
+                              -4.0f, 4.0f);
+      register_animated_param(names[WARP_NAME_RADIUS], &params.radius,
+                              1.0f / 64.0f, 8.0f);
+      register_animated_param(names[WARP_NAME_TURNS], &params.turns, -4.0f,
                               4.0f);
+      register_animated_param(names[WARP_NAME_CENTER_ORBIT],
+                              &params.center_orbit_radius, 0.0f, 4.0f);
       break;
     case WarpStageKind::VECTOR_NOISE:
     case WarpStageKind::CURL_FLOW:
       register_animated_param(
           outer ? "Outer Warp Scale" : "Inner Warp Scale", &params.scale,
           1.0f / 64.0f, spec.kind == WarpStageKind::CURL_FLOW ? 16.0f : 64.0f);
-      register_animated_param(names[12], &params.vector_angle, 0.0f, TWO_PI_F);
-      register_animated_param(names[20], &params.edge_width, SOFTNESS_MIN,
-                              0.5f);
+      register_animated_param(names[WARP_NAME_VECTOR_ANGLE],
+                              &params.vector_angle, 0.0f, TWO_PI_F);
+      register_animated_param(names[WARP_NAME_EDGE_WIDTH], &params.edge_width,
+                              SOFTNESS_MIN, 0.5f);
       break;
     case WarpStageKind::MIRROR_TILE:
-      register_animated_param(names[2], &params.rotation, 0.0f, TWO_PI_F);
-      register_animated_param(names[13], &params.cell_x, CELL_MIN, CELL_MAX);
-      register_animated_param(names[14], &params.cell_y, CELL_MIN, CELL_MAX);
-      register_animated_param(names[15], &params.offset_x, -8.0f, 8.0f);
-      register_animated_param(names[16], &params.offset_y, -8.0f, 8.0f);
+      register_animated_param(names[WARP_NAME_ROTATION], &params.rotation, 0.0f,
+                              TWO_PI_F);
+      register_animated_param(names[WARP_NAME_CELL_X], &params.cell_x, CELL_MIN,
+                              CELL_MAX);
+      register_animated_param(names[WARP_NAME_CELL_Y], &params.cell_y, CELL_MIN,
+                              CELL_MAX);
+      register_animated_param(names[WARP_NAME_OFFSET_X], &params.offset_x,
+                              -8.0f, 8.0f);
+      register_animated_param(names[WARP_NAME_OFFSET_Y], &params.offset_y,
+                              -8.0f, 8.0f);
       break;
     case WarpStageKind::POLAR_CHART:
-      register_animated_param(names[17], &params.radial_scale, 1.0f / 64.0f,
-                              16.0f);
-      register_animated_param(names[18], &params.radial_phase, 0.0f, TWO_PI_F);
-      register_animated_param(names[19], &params.angular_phase, 0.0f, TWO_PI_F);
+      register_animated_param(names[WARP_NAME_RADIAL_SCALE],
+                              &params.radial_scale, 1.0f / 64.0f, 16.0f);
+      register_animated_param(names[WARP_NAME_RADIAL_PHASE],
+                              &params.radial_phase, 0.0f, TWO_PI_F);
+      register_animated_param(names[WARP_NAME_ANGULAR_PHASE],
+                              &params.angular_phase, 0.0f, TWO_PI_F);
       break;
     case WarpStageKind::NONE:
     case WarpStageKind::LEGACY_STEREO_NOISE:
@@ -3594,6 +3608,33 @@ private:
     return slots;
   }();
 
+  /** @brief Index of a warp parameter name in the per-position name tables. */
+  enum WarpParamName : uint8_t {
+    WARP_NAME_TRANSLATION_X,
+    WARP_NAME_TRANSLATION_Y,
+    WARP_NAME_ROTATION,
+    WARP_NAME_SCALE_X,
+    WARP_NAME_SCALE_Y,
+    WARP_NAME_SHEAR,
+    WARP_NAME_FREQUENCY,
+    WARP_NAME_FIELD_ANGLE,
+    WARP_NAME_CENTER_X,
+    WARP_NAME_CENTER_Y,
+    WARP_NAME_RADIUS,
+    WARP_NAME_TURNS,
+    WARP_NAME_VECTOR_ANGLE,
+    WARP_NAME_CELL_X,
+    WARP_NAME_CELL_Y,
+    WARP_NAME_OFFSET_X,
+    WARP_NAME_OFFSET_Y,
+    WARP_NAME_RADIAL_SCALE,
+    WARP_NAME_RADIAL_PHASE,
+    WARP_NAME_ANGULAR_PHASE,
+    WARP_NAME_EDGE_WIDTH,
+    WARP_NAME_CENTER_ORBIT,
+    WARP_NAME_COUNT,
+  };
+
   static constexpr const char *OUTER_WARP_PARAM_NAMES[] = {
       "Outer Translation X", "Outer Translation Y", "Outer Rotation",
       "Outer Scale X",       "Outer Scale Y",       "Outer Shear",
@@ -3612,6 +3653,12 @@ private:
       "Inner Offset X",      "Inner Offset Y",      "Inner Radial Scale",
       "Inner Radial Phase",  "Inner Angular Phase", "Inner Edge Width",
       "Inner Center Orbit"};
+  static_assert(sizeof(OUTER_WARP_PARAM_NAMES) / sizeof(const char *) ==
+                    WARP_NAME_COUNT,
+                "outer warp name table must match WarpParamName");
+  static_assert(sizeof(INNER_WARP_PARAM_NAMES) / sizeof(const char *) ==
+                    WARP_NAME_COUNT,
+                "inner warp name table must match WarpParamName");
   static constexpr Params
   authored_params(SourceParams source, WarpStageParams outer_warp,
                   ProjectionParams projection, SurfaceLensParams surface_lens,
