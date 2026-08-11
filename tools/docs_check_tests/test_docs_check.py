@@ -69,6 +69,7 @@ class TestDocumentationChecker(unittest.TestCase):
             PurePosixPath("core"),
             PurePosixPath("core/engine"),
             PurePosixPath("core/engine/platform.h"),
+            PurePosixPath("scripts"),
             PurePosixPath("tools"),
             PurePosixPath("tools/docs_check.py"),
         }
@@ -286,11 +287,12 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("tools/readme_missing.py", issues[0].message)
 
     def test_stale_untracked_allowances_are_named(self):
-        entries = {PurePosixPath("tools"), PurePosixPath("tools/solids.html")}
+        entries = {PurePosixPath("tests"),
+                   PurePosixPath("tests/assertion-floors.json")}
         stale = dict(item.split(" ", 1) for item in
                      dc._stale_allowances(entries, {"scripts/run-tests.mjs"}))
-        self.assertEqual(stale["tools/solids.html"], "(now tracked)")
-        self.assertEqual(stale["tools/solid_codegen.js"], "(uncited)")
+        self.assertEqual(stale["tests/assertion-floors.json"], "(now tracked)")
+        self.assertEqual(stale["scripts/require-tests.mjs"], "(uncited)")
         self.assertNotIn("scripts/run-tests.mjs", stale)
 
     def test_cited_untracked_allowance_is_recorded(self):
