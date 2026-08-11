@@ -70,8 +70,8 @@ namespace Segue {
  * @param timeline Timeline receiving the sprite.
  * @param draw_fn Draws the mesh at the envelope phase.
  * @param duration Total frames the mesh is on screen.
- * @param window Requested transition window in frames; clamped to duration/2
- * so the in/out windows never collide.
+ * @param window Requested transition window in frames; clamped to [0,
+ * duration/2] so the in/out windows never collide.
  * @param paused Optional event-level pause gate.
  * @return The clamped fade length, from which each policy derives its own
  * return offset.
@@ -79,7 +79,7 @@ namespace Segue {
 inline int schedule_faded_sprite(Timeline &timeline, SpriteFn draw_fn,
                                  int duration, int window,
                                  const bool *paused = nullptr) {
-  int fade = std::min(window, duration / 2);
+  int fade = hs::clamp(window, 0, std::max(duration / 2, 0));
   Animation::Sprite sprite(std::move(draw_fn), duration, fade, ease_linear,
                            fade, ease_linear);
   if (paused)
@@ -95,8 +95,8 @@ inline int schedule_faded_sprite(Timeline &timeline, SpriteFn draw_fn,
  * @param timeline Timeline receiving the sprite.
  * @param draw_fn Draws the mesh at the envelope phase.
  * @param duration Total frames the mesh is on screen.
- * @param window Requested transition window in frames; clamped to duration/2
- * so the in/out windows never collide.
+ * @param window Requested transition window in frames; clamped to [0,
+ * duration/2] so the in/out windows never collide.
  * @param paused Optional event-level pause gate.
  * @return duration — the next transition starts as this sprite ends.
  */
@@ -114,8 +114,8 @@ inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
  * @param timeline Timeline receiving the sprite.
  * @param draw_fn Draws the mesh at the envelope phase.
  * @param duration Total frames the mesh is on screen.
- * @param window Requested transition window in frames; clamped to duration/2
- * so the in/out windows never collide.
+ * @param window Requested transition window in frames; clamped to [0,
+ * duration/2] so the in/out windows never collide.
  * @param overlap Frames consecutive sprites coexist, clamped to the fade
  * window; negative selects the full window. At 0 the schedule is sequential.
  * @param paused Optional event-level pause gate.
