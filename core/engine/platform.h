@@ -152,7 +152,7 @@ inline bool debug = false;
 
 // ---------------------------------------------------------------------------
 // HS_O3_BEGIN / HS_O3_END: compile the enclosed function definitions at -O3 on
-// the -Os device image (selective optimization; docs/selective_o3_spec.md).
+// the -Os device image (selective optimization).
 // Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
 // -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
 // The fast-math flags are restated because GCC 11's optimize pragma rebuilds

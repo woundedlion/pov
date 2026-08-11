@@ -9,7 +9,7 @@ Raw capture: `build/prof/flyby_ship.log`. Replaces
 | | |
 |---|---|
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, board COM4 |
-| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; the stereographic shader runs inside an `HS_O3` region (docs/selective_o3_spec.md) |
+| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; the stereographic shader runs inside an `HS_O3` region |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | Flyby 288×144, single-entry playlist, tip `ece0955b` |
 | Method | `HS_PROFILE` cycle scopes, window = 16 frames, 310 s capture, `HS_PROFILE_EPOCH_REVS=2560` |

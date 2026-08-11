@@ -1466,7 +1466,7 @@ struct SphericalPolygon {
 HS_O3_BEGIN
 /**
  * @brief Face-specialized scan loop for the mesh path, compiled at -O3 on the
- *        -Os device image (docs/selective_o3_spec.md).
+ *        -Os device image.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam PipelineT Plotting pipeline type.

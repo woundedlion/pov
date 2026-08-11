@@ -109,9 +109,8 @@ The commit body of `38b76187` and the doc commit `9b299107` both claim the
 Raymarch march region "returns 208 B" / `RAM1 code 185,784 → 185,576 (−208)`.
 **Measured: +752 B** (184,464 → 185,216) — a 960 B discrepancy, wrong direction.
 The messages are landed history and cannot be rewritten; the accurate figure is
-recorded here. The unrelated `+208` rejected-inline measurement is at
-`probe_path_open_items.md:218`; the R7 row in `selective_o3_spec.md` carries the
-same correction.
+recorded here. The `+208` figure belongs to an unrelated rejected-inline
+measurement.
 
 ## Everything else
 

@@ -11,7 +11,7 @@
 //   - the `#include "FastNoiseLite_config.h"` that pulls in this file
 //   - three FASTNOISELITE_ONLY_OPENSIMPLEX2 guards (SetRotationType3D, both
 //     GenNoiseSingle overloads)
-//   - HS_O3_FN on SingleOpenSimplex2 (selective -O3, docs/selective_o3_spec.md)
+//   - HS_O3_FN on SingleOpenSimplex2 (selective -O3)
 //   - raw-octave paths used by first-party basis and derivative policies
 //
 // HS_O3_FN comes from engine/platform.h below, so the vendored header is no
