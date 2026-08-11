@@ -66,6 +66,22 @@ inline float centered_sector_angle(float angle, float sector,
   return shifted - floorf(shifted * reciprocal_sector) * sector - sector * 0.5f;
 }
 
+/**
+ * @brief Azimuth of a point in a basis' u-w plane, plus a phase offset.
+ * @param p Point on sphere (normalized).
+ * @param u Basis u axis.
+ * @param w Basis w axis.
+ * @param phase Azimuth phase offset (radians), added after the fold.
+ * @return The azimuth folded into [0, 2*PI), offset by phase.
+ */
+__attribute__((always_inline)) inline float
+basis_azimuth(const Vector &p, const Vector &u, const Vector &w, float phase) {
+  float azimuth = fast_atan2(dot(p, w), dot(p, u));
+  if (azimuth < 0)
+    azimuth += TWO_PI_F;
+  return azimuth + phase;
+}
+
 /** Signed-area-to-circumradius-squared ratio below which a Face is culled as
  *  fully collapsed (no enclosed region). Sits orders of magnitude above the
  *  float noise of an exactly collapsed polygon (~1e-7) and below the thinnest
@@ -943,13 +959,7 @@ struct Ring {
 
     float t = 0.0f;
     if constexpr (ComputeUVs) {
-      float dot_u = dot(p, u);
-      float dot_w = dot(p, w);
-      float azimuth = fast_atan2(dot_w, dot_u);
-      if (azimuth < 0)
-        azimuth += TWO_PI_F;
-      azimuth += phase;
-      t = wrap_t(azimuth / TWO_PI_F);
+      t = wrap_t(basis_azimuth(p, u, w, phase) / TWO_PI_F);
     }
 
     res = DistanceResult(dist - thickness, t, dist, 0.0f, thickness);
@@ -1173,13 +1183,7 @@ struct DistortedRing {
     }
     float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
 
-    float dot_u = dot(p, u);
-    float dot_w = dot(p, w);
-    float azimuth = fast_atan2(dot_w, dot_u);
-    if (azimuth < 0)
-      azimuth += TWO_PI_F;
-
-    float t_norm = wrap_t((azimuth + phase) / TWO_PI_F);
+    float t_norm = wrap_t(basis_azimuth(p, u, w, phase) / TWO_PI_F);
 
     float dist;
     if (knots)
@@ -1395,10 +1399,7 @@ struct FlatDistortedRing : private DistortedRing {
     float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
     float t_norm = 0.0f;
     if constexpr (ComputeUVs) {
-      float azimuth = fast_atan2(dot(p, w), dot(p, u));
-      if (azimuth < 0)
-        azimuth += TWO_PI_F;
-      t_norm = wrap_t((azimuth + phase) / TWO_PI_F);
+      t_norm = wrap_t(basis_azimuth(p, u, w, phase) / TWO_PI_F);
     }
 
     float dist = std::abs(polar - target_angle);
@@ -3633,12 +3634,7 @@ struct PlanarPolygon {
   void distance(const Vector &p, DistanceResult &res) const {
     float polar = fast_acos(hs::clamp(dot(p, basis.v), -1.0f, 1.0f));
 
-    float dot_u = dot(p, basis.u);
-    float dot_w = dot(p, basis.w);
-    float azimuth = fast_atan2(dot_w, dot_u);
-    if (azimuth < 0)
-      azimuth += TWO_PI_F;
-    azimuth += phase;
+    float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
@@ -3788,12 +3784,7 @@ struct SphericalPolygon {
     float cos_p = hs::clamp(dot(p, basis.v), -1.0f, 1.0f);
     float polar = fast_acos(cos_p);
 
-    float dot_u = dot(p, basis.u);
-    float dot_w = dot(p, basis.w);
-    float azimuth = fast_atan2(dot_w, dot_u);
-    if (azimuth < 0)
-      azimuth += TWO_PI_F;
-    azimuth += phase;
+    float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
@@ -3822,12 +3813,7 @@ struct SphericalPolygon {
     float cos_p = hs::clamp(dot(p, basis.v), -1.0f, 1.0f);
     float sin_p = sqrtf(std::max(0.0f, 1.0f - cos_p * cos_p));
 
-    float dot_u = dot(p, basis.u);
-    float dot_w = dot(p, basis.w);
-    float azimuth = fast_atan2(dot_w, dot_u);
-    if (azimuth < 0)
-      azimuth += TWO_PI_F;
-    azimuth += phase;
+    float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
     float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
@@ -3954,13 +3940,7 @@ struct Star {
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
     float scan_dist = fast_acos(hs::clamp(dot(p, basis.v), -1.0f, 1.0f));
-    float dot_u = dot(p, basis.u);
-    float dot_w = dot(p, basis.w);
-    float azimuth = fast_atan2(dot_w, dot_u);
-    if (azimuth < 0)
-      azimuth += TWO_PI_F;
-
-    azimuth += phase;
+    float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local_azimuth =
         centered_sector_angle(azimuth, sector, reciprocal_sector);
@@ -4081,12 +4061,7 @@ struct Flower {
     float scan_dist = fast_acos(hs::clamp(dot(p, antipode), -1.0f, 1.0f));
     float polar = PI_F - scan_dist;
 
-    float dot_u = dot(p, basis.u);
-    float dot_w = dot(p, basis.w);
-    float azimuth = fast_atan2(dot_w, dot_u);
-    if (azimuth < 0)
-      azimuth += TWO_PI_F;
-    azimuth += phase;
+    float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
