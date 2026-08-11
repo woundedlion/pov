@@ -1212,7 +1212,6 @@ private:
     Complex net_delta;
     float deformation;
     float path_length;
-    uint8_t flags;
   };
 
   struct PlanarWarpStageResult {
@@ -1220,7 +1219,6 @@ private:
     Complex delta;
     float deformation;
     float path_length;
-    uint8_t flags;
   };
 
   struct MaterialSample {
@@ -1891,8 +1889,7 @@ private:
             ? outer.deformation + inner.deformation
             : sqrtf(net_delta.re * net_delta.re + net_delta.im * net_delta.im);
     return {inner.coords, net_delta, deformation,
-            outer.path_length + inner.path_length,
-            static_cast<uint8_t>(outer.flags | inner.flags)};
+            outer.path_length + inner.path_length};
   }
 
   HS_O3_FN static PlanarWarpStageResult
@@ -1902,26 +1899,25 @@ private:
                     const PreparedWarpStage &prepared,
                     const FrameState &frame) {
     if (spec.kind == WarpStageKind::NONE)
-      return {input, Complex(), 0.0f, 0.0f, 0};
+      return {input, Complex(), 0.0f, 0.0f};
     const float envelope =
         warp_envelope(projected, spec.envelope, params.edge_width);
     const float amplitude = params.strength * envelope;
     Complex output = input;
     float path_length = 0.0f;
-    uint8_t flags = 0;
     switch (spec.kind) {
     case WarpStageKind::NONE:
       break;
     case WarpStageKind::LEGACY_STEREO_NOISE: {
       if (params.strength == 0.0f)
-        return {input, Complex(), 0.0f, 0.0f, 0};
+        return {input, Complex(), 0.0f, 0.0f};
       const float r_sq = projected.coords.re * projected.coords.re +
                          projected.coords.im * projected.coords.im;
       const StereoWarpResult result = sample_wrapped_warp(
           input, r_sq, *stage_noise, params.scale, params.strength,
           frame.params.projection.pole_fade, frame.clocks.warp_time);
       return {result.coords, result.delta, result.displacement,
-              result.displacement, 0};
+              result.displacement};
     }
     case WarpStageKind::AFFINE_FRAME: {
       const float c = prepared.rotation_cos;
@@ -1938,7 +1934,7 @@ private:
     }
     case WarpStageKind::WAVE_SHEAR: {
       if (params.strength == 0.0f)
-        return {input, Complex(), 0.0f, 0.0f, 0};
+        return {input, Complex(), 0.0f, 0.0f};
       const float c = cosf(params.field_angle);
       const float s = sinf(params.field_angle);
       const float phase = params.frequency * (c * input.re + s * input.im) +
@@ -1948,8 +1944,7 @@ private:
       return {{input.re + delta.re, input.im + delta.im},
               delta,
               fabsf(offset),
-              fabsf(offset),
-              0};
+              fabsf(offset)};
     }
     case WarpStageKind::VORTEX: {
       const float center_x = prepared.vortex_center_x;
@@ -1966,7 +1961,7 @@ private:
     }
     case WarpStageKind::VECTOR_NOISE: {
       if (params.strength == 0.0f)
-        return {input, Complex(), 0.0f, 0.0f, 0};
+        return {input, Complex(), 0.0f, 0.0f};
       const float nx = sample_wrapped_noise_basis(
           *stage_noise, spec.basis, params.scale * input.re,
           params.scale * input.im, prepared.noise_phase);
@@ -1991,12 +1986,11 @@ private:
       return {{input.re + delta.re, input.im + delta.im},
               delta,
               deformation,
-              deformation,
-              0};
+              deformation};
     }
     case WarpStageKind::CURL_FLOW: {
       if (params.strength == 0.0f)
-        return {input, Complex(), 0.0f, 0.0f, 0};
+        return {input, Complex(), 0.0f, 0.0f};
       Complex delta;
       output = curl_flow(input, *stage_noise, spec, params, amplitude,
                          prepared.noise_phase, delta, path_length);
@@ -2004,27 +1998,20 @@ private:
           spec.curl_integrator == CurlIntegrator::EULER_1
               ? path_length
               : sqrtf(delta.re * delta.re + delta.im * delta.im);
-      return {output, delta, deformation, path_length, 0};
+      return {output, delta, deformation, path_length};
     }
-    case WarpStageKind::MIRROR_TILE: {
-      const Complex transformed = mirror_tile(input, params, prepared);
-      output = transformed;
-      flags = WARP_FLAG_REFLECTED;
+    case WarpStageKind::MIRROR_TILE:
+      output = mirror_tile(input, params, prepared);
       break;
-    }
     case WarpStageKind::POLAR_CHART: {
       const float radius = sqrtf(input.re * input.re + input.im * input.im);
       const float radial = spec.polar_mode == PolarMode::LOGARITHMIC
                                ? logf(std::max(radius, 1.0f / 4096.0f))
                                : radius;
-      const Complex transformed(params.radial_scale * radial +
-                                    params.radial_phase,
-                                static_cast<float>(spec.polar_harmonic) *
-                                        fast_atan2(input.im, input.re) +
-                                    params.angular_phase);
-      output = transformed;
-      if (radius < 1.0f / 4096.0f)
-        flags = WARP_FLAG_SINGULAR;
+      output = {params.radial_scale * radial + params.radial_phase,
+                static_cast<float>(spec.polar_harmonic) *
+                        fast_atan2(input.im, input.re) +
+                    params.angular_phase};
       break;
     }
     }
@@ -2032,7 +2019,7 @@ private:
     const float deformation = sqrtf(delta.re * delta.re + delta.im * delta.im);
     if (path_length == 0.0f)
       path_length = deformation;
-    return {output, delta, deformation, path_length, flags};
+    return {output, delta, deformation, path_length};
   }
 
   static float warp_envelope(const ProjectedLookup &projected,
@@ -3305,8 +3292,6 @@ private:
   static constexpr uint8_t BOUNDARY_CUT = 1U << 0;
   static constexpr uint8_t BOUNDARY_SINGULAR = 1U << 1;
   static constexpr uint8_t PROJECTION_FLAG_FOLDED = 1U << 0;
-  static constexpr uint8_t WARP_FLAG_REFLECTED = 1U << 0;
-  static constexpr uint8_t WARP_FLAG_SINGULAR = 1U << 1;
   static constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
   static constexpr float WARP_COORD_LIMIT = 65536.0f;
   static constexpr float NOISE_LATTICE_LIMIT = 1048576.0f;
