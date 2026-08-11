@@ -289,7 +289,7 @@ public:
 
   ArenaVector<Attractor> attractors; /**< Active attractors. */
   ArenaVector<EmitterFn> emitters;   /**< Active emitters. */
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
   bool reference_signed_axis_physics = false;
 #endif
 
@@ -526,7 +526,7 @@ private:
 
       if constexpr (SIGNED_AXIS_ATTRACTORS) {
         bool use_signed_axis = signed_axis_attractors;
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
         use_signed_axis = use_signed_axis && !reference_signed_axis_physics;
 #endif
         if (use_signed_axis) {

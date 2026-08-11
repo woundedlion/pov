@@ -125,7 +125,7 @@ static inline float balanced_sample_alpha(float alpha, float step_ratio) {
   return std::min(1.0f, alpha * gain);
 }
 
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
 inline uint32_t g_planar_full_samples = 0;
 inline uint32_t g_planar_position_samples = 0;
 #endif
@@ -1399,7 +1399,7 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
   return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
 }
 
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
 inline bool g_reference_screen_step = false;
 
 /** @brief Caps rasterize()'s per-segment sub-step budget; 0 leaves it alone. */
@@ -1671,7 +1671,7 @@ struct RasterOptions {
   const Fragment *loop_seam = nullptr;
   /** Enables balanced sampling for a SELECTABLE rasterizer. */
   bool balanced_sampling = false;
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
   /** Rebuild a planar sampler after culling instead of reusing cull samples. */
   bool rebuild_planar_sampler = false;
 #endif
@@ -1785,7 +1785,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // backstop. SinglePass emits as it goes and takes max_cache only as that
   // backstop, so it never binds the storage.
   size_t max_cache = rasterize_scratch_a_bytes<W>() / sizeof(float);
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
   if (g_step_budget_override != 0 && g_step_budget_override < max_cache)
     max_cache = g_step_budget_override;
 #endif
@@ -1895,7 +1895,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                                                        SCREEN_STEP_PX));
     };
     auto adaptive_step = [&](const SamplePT &value) {
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
       if (g_reference_screen_step)
         return screen_step_reference<W, H>(value.pos, value.tan, base_step);
 #endif
@@ -1910,7 +1910,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                       sample.one_pass_monotonic(t, planar_arc_interval);
                     }) {
         result = sample.one_pass_monotonic(t, planar_arc_interval);
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
         ++g_planar_full_samples;
 #endif
       } else if constexpr (SinglePass && requires { sample.one_pass(t); })
@@ -1977,7 +1977,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         Vector p;
         if constexpr (OpenGeodesic) {
           HS_PLOT_COUNT(normalizations);
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
           if (g_reference_screen_step) {
             p = smp.pos.normalized();
           } else
@@ -2053,7 +2053,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                   sample.position_monotonic(current_t, planar_arc_interval);
               HS_MSP_COUNT(adaptive_samples);
               HS_MSP_STALL_STOP(adaptive_sim, position_start);
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_HOOKS
               ++g_planar_position_samples;
 #endif
               reuse_step = false;
@@ -2266,7 +2266,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       bool visible;
       if constexpr (REUSE_PLANAR_CULL_SAMPLES) {
         bool rebuild_planar_sampler = false;
-#ifdef HS_TEST_BUILD
+#if HS_ENABLE_TEST_ORACLES
         rebuild_planar_sampler = opts.rebuild_planar_sampler;
 #endif
         if (edge_flags != nullptr) {
