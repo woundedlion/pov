@@ -2,4 +2,4 @@ Tracked source lives at `core/engine/platform.h:1381-1403`.
 A moved header still cited as `core/platform.h` is stale.
 A command span such as `python tools/docs_check.py --root .` is not a path.
 A build artifact under `build/tests/generated.h` is out of scope.
-The sibling-repo path `tools/solids.html` is allowed.
+The sibling-repo path `scripts/run-tests.mjs` is allowed.

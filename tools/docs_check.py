@@ -96,8 +96,6 @@ _UNTRACKED_ALLOWED = (
     "scripts/require-tests.mjs",
     "scripts/run-tests.mjs",
     "tests/assertion-floors.json",
-    "tools/solid_codegen.js",
-    "tools/solids.html",
 )
 
 _MARKDOWN_EXCLUDED = frozenset({PurePosixPath("docs/CODE_REVIEW.md")})
