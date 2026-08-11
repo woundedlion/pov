@@ -371,7 +371,7 @@ private:
                 "Voronoi persistent footprint exceeds its device partition; "
                 "lower MAX_SITES or shrink SCRATCH_A_BYTES");
 
-  int current_num_sites = 0;      /**< Count currently seeded; re-seeds (clear +
+  int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
                                    refill, no realloc) when the slider changes. */
   ArenaVector<Site> sites_buffer; /**< Active Voronoi sites for the frame. */
 
@@ -393,20 +393,8 @@ private:
     const int n = active_site_count();
     sites_buffer.clear();
 
-    const float golden_angle = PI_F * (3.0f - sqrtf(5.0f));
-
     for (int i = 0; i < n; i++) {
-      // Guard n == 1: a 0 denominator would give NaN y. A single site sits at
-      // the pole (y = 1).
-      int span = n > 1 ? n - 1 : 1;
-      float y = 1.0f - (i / (float)span) * 2.0f;
-      float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
-      float theta = golden_angle * i;
-
-      float x = cosf(theta) * radius;
-      float z = sinf(theta) * radius;
-
-      Vector pos = Vector(x, y, z);
+      Vector pos = fib_spiral(n, /*eps=*/0.5f, i);
 
       Vector axis = random_vector();
 
