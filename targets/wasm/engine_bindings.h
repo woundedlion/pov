@@ -779,12 +779,15 @@ public:
    *         {options} — with {exportOptions} alongside it when the param
    *         declares C++ enum literals — on every enum param; empty array when
    *         no effect is set.
-   * @details A boolean param's value is a JS boolean and carries no range; every
-   *          other value is a number. step is 1 on an enum or integer target and
-   *          absent on a float one, so the GUI knows which controls admit only
-   *          whole values. An enum's value indexes its options array; an integer
-   *          param carries a range instead of labels and exports as a plain
-   *          numeric literal. preset marks the params a preset export carries.
+   * @details `value` is the current rendered state for GUI display, while
+   *          `requestedValue` is the writable target used to seed another
+   *          renderer. A boolean param's values are JS booleans and it carries
+   *          no range; every other value is a number. step is 1 on an enum or
+   *          integer target and absent on a float one, so the GUI knows which
+   *          controls admit only whole values. An enum's value indexes its
+   *          options array; an integer param carries a range instead of labels
+   *          and exports as a plain numeric literal. preset marks the params a
+   *          preset export carries.
    *          The order matches getParamValues(); pin getParamGeneration() beside
    *          a snapshot to detect a rebind.
    */
@@ -808,8 +811,10 @@ public:
         // Emit a JS boolean so the frontend renders a checkbox; toggles omit
         // min/max (no range).
         entry.set("value", val(v.value > 0.5f));
+        entry.set("requestedValue", val(v.requested_value > 0.5f));
       } else {
         entry.set("value", v.value);
+        entry.set("requestedValue", v.requested_value);
         entry.set("min", v.min);
         entry.set("max", v.max);
         if (v.is_integer)

@@ -418,16 +418,8 @@ public:
       std::memcpy(target, &stored, sizeof(stored));
     }
 
-    /**
-     * @brief Reads the displayed value as float (bool maps to 0/1).
-     * @return The display source's value; a bool yields 1.0 or 0.0.
-     */
-    float get() const {
-#if HS_PARAM_GUI_BRIDGE
-      const void *source = display_target != nullptr ? display_target : target;
-#else
-      const void *source = target;
-#endif
+    /** @brief Reads one value source as a float (bool maps to 0/1). */
+    float get_from(const void *source) const {
       switch (target_type) {
       case TargetType::FLOAT:
         return *static_cast<const float *>(source);
@@ -448,6 +440,24 @@ public:
       }
       __builtin_unreachable();
     }
+
+    /**
+     * @brief Reads the displayed value as float (bool maps to 0/1).
+     * @return The display source's value; a bool yields 1.0 or 0.0.
+     */
+    float get() const {
+#if HS_PARAM_GUI_BRIDGE
+      return get_from(display_target != nullptr ? display_target : target);
+#else
+      return get_from(target);
+#endif
+    }
+
+    /**
+     * @brief Reads the writable target value as float (bool maps to 0/1).
+     * @return The value a new renderer must adopt, independent of display lerp.
+     */
+    float get_requested() const { return get_from(target); }
 
     /**
      * @brief Write a float value (bool threshold at 0.5).

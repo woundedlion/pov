@@ -53,16 +53,17 @@ private:
  *          ignores min/max for them).
  */
 struct ParamView {
-  const char *name; /**< Parameter name, as exposed to the JS boundary. */
-  float value;      /**< Current value in the parameter's native units. */
-  float min;        /**< Inclusive lower bound; ignored when is_bool. */
-  float max;        /**< Inclusive upper bound; ignored when is_bool. */
-  bool is_bool;     /**< True if the parameter is a boolean toggle. */
-  bool is_integer;  /**< True if the target stores whole numbers, so the GUI
+  const char *name;      /**< Parameter name, as exposed to the JS boundary. */
+  float value;           /**< Rendered value in the parameter's native units. */
+  float requested_value; /**< Writable target used to seed another renderer. */
+  float min;             /**< Inclusive lower bound; ignored when is_bool. */
+  float max;             /**< Inclusive upper bound; ignored when is_bool. */
+  bool is_bool;          /**< True if the parameter is a boolean toggle. */
+  bool is_integer; /**< True if the target stores whole numbers, so the GUI
                        steps by one; set for enums and plain integers alike. */
-  bool animated;    /**< True if the parameter is currently animated. */
-  bool readonly;    /**< True if the parameter is read-only (not editable). */
-  bool preset;      /**< True if preset exports include the parameter. */
+  bool animated;   /**< True if the parameter is currently animated. */
+  bool readonly;   /**< True if the parameter is read-only (not editable). */
+  bool preset;     /**< True if preset exports include the parameter. */
   const char *const *options; /**< Enum option labels, or null for a plain
                                  param; the value is the selected index. */
   int option_count; /**< Number of option labels; > 0 marks an enum. */
@@ -81,9 +82,9 @@ inline void collect_param_views(const Effect &effect,
                                 std::vector<ParamView> &out) {
   out.clear();
   for (const auto &def : effect.getParameters()) {
-    out.push_back(ParamView{def.name, def.get(), def.min, def.max,
-                            def.is_bool(), def.is_integer(), def.animated,
-                            def.readonly, def.preset, def.options,
+    out.push_back(ParamView{def.name, def.get(), def.get_requested(), def.min,
+                            def.max, def.is_bool(), def.is_integer(),
+                            def.animated, def.readonly, def.preset, def.options,
                             def.option_count, def.export_options});
   }
 }
