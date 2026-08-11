@@ -80,9 +80,7 @@
 
 /**
  * @brief Phantasm (288x144) playlist: HS_EFFECT_LIST minus the low-res-only
- *        effects (Dynamo, Thrusters — Holosphere 96x20 only) and ShaderBall
- *        (its 288x144 shader instantiation does not
- *        fit the remaining ITCM budget — see docs/ledgers/itcm_ledger.md).
+ *        effects (Dynamo, Thrusters — Holosphere 96x20 only).
  * @param X Function-like macro applied to each effect type name and its show
  *          duration in seconds.
  * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
@@ -108,6 +106,7 @@
   X(Raymarch, 120)                                                             \
   X(RingShower, 120)                                                           \
   X(RingSpin, 120)                                                             \
+  X(ShaderBall, 120)                                                           \
   X(ShapeShifter, 135)                                                         \
   X(SphericalHarmonics, 120)                                                   \
   X(Voronoi, 120)
@@ -206,15 +205,13 @@ static_assert(hs_phantasm_effect_list_is_distinct(),
 static_assert(hs_phantasm_effect_list_is_subset(),
               "HS_PHANTASM_EFFECT_LIST names an effect that is not in "
               "HS_EFFECT_LIST — a rename or typo left the playlist off-roster");
-static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 3,
+static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 2,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
-              "(full roster minus Dynamo, Thrusters, and ShaderBall)");
-static_assert(hs_in_effect_list("Dynamo") && hs_in_effect_list("Thrusters") &&
-                  hs_in_effect_list("ShaderBall"),
+              "(full roster minus Dynamo and Thrusters)");
+static_assert(hs_in_effect_list("Dynamo") && hs_in_effect_list("Thrusters"),
               "Phantasm exclusion names a non-roster effect — a rename left "
               "the exclusion guard below vacuous");
 static_assert(!hs_in_phantasm_effect_list("Dynamo") &&
-                  !hs_in_phantasm_effect_list("Thrusters") &&
-                  !hs_in_phantasm_effect_list("ShaderBall"),
+                  !hs_in_phantasm_effect_list("Thrusters"),
               "HS_PHANTASM_EFFECT_LIST must exclude Dynamo and Thrusters "
-              "(Holosphere 96x20 only) and ShaderBall (ITCM budget)");
+              "(Holosphere 96x20 only)");

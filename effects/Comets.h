@@ -80,9 +80,7 @@ public:
    */
   void init() override {
     configure_presets(FUNCTIONS.size());
-    node = static_cast<Node *>(
-        persistent_arena.allocate(sizeof(Node), alignof(Node)));
-    new (node) Node();
+    node = persistent_arena.make<Node>();
 
     baked_palette.bake(persistent_arena, palette);
 

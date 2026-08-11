@@ -76,9 +76,7 @@ public:
     filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().init_storage(
         persistent_arena);
 
-    nodes = persistent_arena.allocate_n<Node>(NUM_NODES);
-    for (size_t i = 0; i < NUM_NODES; ++i)
-      std::construct_at(&nodes[i]);
+    nodes = persistent_arena.make_n<Node>(NUM_NODES);
 
     register_param("Speed", &params.speed, -10.0f, 10.0f);
     register_param("Gap", &params.gap, 1.0f, GAP_MAX);

@@ -145,6 +145,61 @@ public:
   }
 
   /**
+   * @brief Allocates and constructs one object in arena storage.
+   * @tparam T Object type.
+   * @tparam Args Constructor argument types.
+   * @param args Arguments forwarded to `T`'s constructor.
+   * @return Pointer to the constructed object.
+   * @details Arena reset and rewind do not run destructors. Callers that place
+   * non-trivially destructible objects in an arena must end those lifetimes
+   * explicitly before reclaiming their storage.
+   */
+  template <typename T, typename... Args> T *make(Args &&...args) {
+    return ::new (static_cast<void *>(allocate_n<T>(1)))
+        T(std::forward<Args>(args)...);
+  }
+
+  /**
+   * @brief Allocates and default-initializes one object in arena storage.
+   * @tparam T Object type.
+   * @return Pointer to the constructed object.
+   * @details Unlike `make<T>()`, this does not zero-initialize scalar members
+   * of an aggregate before its default initialization.
+   */
+  template <typename T> T *make_default() {
+    return ::new (static_cast<void *>(allocate_n<T>(1))) T;
+  }
+
+  /**
+   * @brief Allocates and default-constructs a contiguous array.
+   * @tparam T Element type.
+   * @param n Element count.
+   * @return Pointer to the first constructed element.
+   */
+  template <typename T> T *make_n(size_t n) {
+    T *elements = allocate_n<T>(n);
+    for (size_t i = 0; i < n; ++i)
+      ::new (static_cast<void *>(&elements[i])) T();
+    return elements;
+  }
+
+  /**
+   * @brief Allocates an array and constructs each element from an index.
+   * @tparam T Element type.
+   * @tparam Factory Callable returning the value for an element.
+   * @param n Element count.
+   * @param factory Callable receiving the zero-based element index.
+   * @return Pointer to the first constructed element.
+   */
+  template <typename T, typename Factory>
+  T *make_n_indexed(size_t n, Factory &&factory) {
+    T *elements = allocate_n<T>(n);
+    for (size_t i = 0; i < n; ++i)
+      ::new (static_cast<void *>(&elements[i])) T(factory(i));
+    return elements;
+  }
+
+  /**
    * @brief Returns the current allocation offset.
    * @return Bytes consumed from the buffer so far.
    */

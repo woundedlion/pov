@@ -119,7 +119,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", 47, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
   X("concepts", 8, hs_test::concepts_tests::run_concepts_tests, 43273)         \
-  X("memory", 43, hs_test::memory_tests::run_memory_tests, 271)                \
+  X("memory", 46, hs_test::memory_tests::run_memory_tests, 297)                \
   X("spatial", 18, hs_test::spatial_tests::run_spatial_tests, 267)             \
   X("scb", 40, hs_test::scb_tests::run_static_circular_buffer_tests, 197)      \
   X("sdf", 94, hs_test::sdf_tests::run_sdf_tests, 476415)                      \
@@ -190,7 +190,7 @@ constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
   X("presets", 8, hs_test::presets_tests::run_presets_tests, 36)               \
   X("styles", 15, hs_test::styles_tests::run_styles_tests, 610)                \
   X("shading", 11, hs_test::shading_tests::run_shading_tests, 43)              \
-  X("death", 129, hs_test::death_tests::run_death_tests, 257)
+  X("death", 130, hs_test::death_tests::run_death_tests, 257)
 
 // case_sites is consumed by tests/check_case_calls.cmake, not by the runtime.
 #define HS_TEST_MODULE_ENTRY(name, case_sites, fn, min_assertions)             \

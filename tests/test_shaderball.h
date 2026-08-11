@@ -133,46 +133,51 @@ struct ShaderBallWhiteBox {
   static constexpr float noise_time_period() {
     return SB::STEREO_NOISE_TIME_PERIOD;
   }
-  static bool transition_active(const SB &sb) { return sb.transition.active; }
-  static bool param_morph_active(const SB &sb) { return sb.param_morph.active; }
+  static bool transition_active(const SB &sb) {
+    return sb.state->transition.active;
+  }
+  static bool param_morph_active(const SB &sb) {
+    return sb.state->param_morph.active;
+  }
   static uint16_t param_morph_elapsed(const SB &sb) {
-    return sb.param_morph.elapsed;
+    return sb.state->param_morph.elapsed;
   }
   static const Params &live_params(const SB &sb) { return sb.blend.params; }
   static size_t preset_index(const SB &sb) { return sb.getPresetIndex(); }
   static float transition_mix(const SB &sb) {
-    return SB::transition_mix(sb.transition.elapsed, sb.transition.duration);
+    return SB::transition_mix(sb.state->transition.elapsed,
+                              sb.state->transition.duration);
   }
   static const LookRuntime &transition_from_runtime(const SB &sb) {
-    return sb.transition.from_runtime;
+    return sb.state->transition.from_runtime;
   }
   static const LookRuntime &transition_to_runtime(const SB &sb) {
-    return sb.transition.to_runtime;
+    return sb.state->transition.to_runtime;
   }
   static const RequestedConfig &transition_from_config(const SB &sb) {
-    return sb.transition.from_config;
+    return sb.state->transition.from_config;
   }
   static const RequestedConfig &transition_to_config(const SB &sb) {
-    return sb.transition.to_config;
+    return sb.state->transition.to_config;
   }
   static bool transition_continues_choreo(const SB &sb) {
-    return sb.transition.continue_choreo;
+    return sb.state->transition.continue_choreo;
   }
   static uint16_t transition_elapsed(const SB &sb) {
-    return sb.transition.elapsed;
+    return sb.state->transition.elapsed;
   }
   static NoiseBasis prepared_noise_basis(const SB &sb, uint8_t resource_id) {
     for (size_t index = 0; index < sb.prepared_noise_count; ++index)
-      if (sb.prepared_noise_keys[index].resource_id == resource_id)
-        return sb.prepared_noise_keys[index].basis;
+      if (sb.state->prepared_noise_keys[index].resource_id == resource_id)
+        return sb.state->prepared_noise_keys[index].basis;
     return static_cast<NoiseBasis>(0xff);
   }
   static void force_transition(SB &sb, const RequestedConfig &to,
                                uint16_t duration, bool continue_choreo) {
     const RequestedConfig from = active_config(sb);
-    sb.param_morph.active = false;
-    sb.transition = {from, to,       sb.runtime,      sb.runtime,
-                     0,    duration, continue_choreo, true};
+    sb.state->param_morph.active = false;
+    sb.state->transition = {from, to,       sb.runtime,      sb.runtime,
+                            0,    duration, continue_choreo, true};
   }
   static const LookRuntime &runtime(const SB &sb) { return sb.runtime; }
   static Quaternion projection_walk(const SB &sb) {
@@ -191,7 +196,12 @@ struct ShaderBallWhiteBox {
   static Color4 shade_through_clear(const Vector &view,
                                     const FrameState *visible,
                                     const ThroughClearPhase &phase) {
-    return SB::shade_through_clear(view, visible, phase);
+    if (phase.clear)
+      return Color4();
+    HS_CHECK(visible != nullptr,
+             "through-clear visible phase requires an endpoint frame");
+    typename SB::FrameShader shader{visible, phase.alpha};
+    return shader(view);
   }
   static void begin_blend(SB &sb) {
     sb.preset_dwell_armed = false;
@@ -204,8 +214,8 @@ struct ShaderBallWhiteBox {
     sb.finish_transitions();
   }
   static void settle_transition(SB &sb) {
-    for (int frame = 0;
-         frame < 1024 && (sb.transition.active || sb.param_morph.active);
+    for (int frame = 0; frame < 1024 && (sb.state->transition.active ||
+                                         sb.state->param_morph.active);
          ++frame) {
       sb.draw_frame();
       sb.advance_display();

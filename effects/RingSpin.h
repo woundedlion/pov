@@ -72,8 +72,6 @@ public:
    * each ring's energetic random-walk.
    */
   void init() override {
-    rings = persistent_arena.allocate_n<Ring>(NUM_RINGS);
-
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Thickness", &params.thickness, 0.01f, 10.0f);
     register_param("Debug BB", &params.debug_bb);
@@ -94,8 +92,11 @@ public:
       baked_palettes[i].bake(persistent_arena, v);
     }
 
+    rings = persistent_arena.make_n_indexed<Ring>(NUM_RINGS, [&](size_t i) {
+      return Ring(&baked_palettes[i % NUM_PALETTES]);
+    });
     for (int i = 0; i < NUM_RINGS; ++i) {
-      Ring &r = *new (&rings[i]) Ring(&baked_palettes[i % NUM_PALETTES]);
+      Ring &r = rings[i];
       timeline.add(0, Animation::RandomWalk<W>(
                           r.orientation, r.normal, r.noise,
                           Animation::RandomWalk<W>::Options::Energetic()));
