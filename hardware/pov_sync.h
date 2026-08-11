@@ -121,8 +121,10 @@ struct Config {
 
   // Content layer (spec §6).
   uint32_t revs_per_effect =
-      960;                       /**< Effect duration in revolutions (120 s). */
-  int32_t epoch_repeats = 3;     /**< EPOCH redundancy repeats (spec §6.3). */
+      960; /**< Effect duration in revolutions (120 s). */
+  const uint32_t *effect_revolutions =
+      nullptr;               /**< Optional per-roster-entry effect durations. */
+  int32_t epoch_repeats = 3; /**< EPOCH redundancy repeats (spec §6.3). */
   uint32_t refractory_revs = 16; /**< EPOCH dedup window (spec §6.1). */
   /**
    * @brief K: the construction window, the last K revolutions before the
@@ -155,6 +157,12 @@ struct Config {
    * independent; 25 revolutions is ~3.1 s at the nominal 480 RPM.
    */
   uint32_t rejoin_budget_revs = 25;
+
+  /** @brief Returns the configured duration for one roster entry. */
+  constexpr uint32_t revolutions_for_effect(int32_t effect_index) const {
+    return effect_revolutions ? effect_revolutions[effect_index]
+                              : revs_per_effect;
+  }
 
   /**
    * @brief Cycles per column of rotation.
@@ -344,8 +352,9 @@ struct Config {
       return "epoch_repeats >= 0";
     if (!(refractory_revs > commit_revs + static_cast<uint32_t>(epoch_repeats)))
       return "refractory_revs > commit_revs + epoch_repeats";
-    if (!(revs_per_effect > refractory_revs))
-      return "revs_per_effect > refractory_revs";
+    for (int32_t i = 0; i < effect_count; ++i)
+      if (!(revolutions_for_effect(i) > refractory_revs))
+        return "revolutions_for_effect(i) > refractory_revs";
     if (!(beacon_period_revs > commit_revs))
       return "beacon_period_revs > commit_revs";
     // Beacon rev resync recovers a slip only in (-32, +32), so keep the period
@@ -1025,8 +1034,9 @@ struct ContentTracker {
    * copy's boundary (R = epoch_repeats, K = commit_revs). Which copy of the
    * train this is (j, 0 = primary) is inferred from the shared revolution
    * count — the master starts the train exactly when rev_in_effect reaches
-   * revs_per_effect, and by the time a symbol is consumed the local crossing
-   * for its boundary has already incremented rev_in_effect (classification
+   * the active effect's configured duration, and by the time a symbol is
+   * consumed the local crossing for its boundary has already incremented
+   * rev_in_effect (classification
    * completes ~13 columns after the boundary instant). So every board that
    * hears ANY copy counts down to the same boundary, and hearing a repeat
    * instead of the primary cannot skew the commit (§6.3.1). A board whose
@@ -1040,11 +1050,13 @@ struct ContentTracker {
   bool on_epoch_symbol(const Config &cfg) {
     if (refractory_revs_left > 0)
       return false;
+    const uint32_t effect_revolutions =
+        cfg.revolutions_for_effect(effect_index);
     uint32_t j = 0;
-    if (rev_in_effect >= cfg.revs_per_effect &&
-        rev_in_effect - cfg.revs_per_effect <=
+    if (rev_in_effect >= effect_revolutions &&
+        rev_in_effect - effect_revolutions <=
             static_cast<uint32_t>(cfg.epoch_repeats))
-      j = rev_in_effect - cfg.revs_per_effect;
+      j = rev_in_effect - effect_revolutions;
     commit_pending = true;
     commit_in_revs =
         cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats) - j;
@@ -1802,7 +1814,9 @@ private:
       // Conductor (spec §6.1): when the effect's revolutions elapse, start an
       // EPOCH train — primary copy plus R repeats on following ZERO boundaries.
       if (epoch_emits_left == 0 && !content_tracker.commit_pending &&
-          content_tracker.rev_in_effect >= protocol_config.revs_per_effect) {
+          content_tracker.rev_in_effect >=
+              protocol_config.revolutions_for_effect(
+                  content_tracker.effect_index)) {
         epoch_emits_left = 1 + protocol_config.epoch_repeats;
         if (content_tracker.on_epoch_symbol(protocol_config) &&
             content_tracker.construction_opens(protocol_config))

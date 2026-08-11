@@ -23,20 +23,35 @@
 #include "../common/phantasm_target.h"
 
 namespace {
-// Generated from the Phantasm playlist roster (HS_PHANTASM_EFFECT_LIST — the
-// full HS_EFFECT_LIST minus the low-res-only effects); the table order IS the
-// playlist order, identical on every board (spec §6.1).
-#define HS_FACTORY_ONE(name) &construct_effect<name<CANVAS_W, CANVAS_H>>,
+// Generated from the Phantasm playlist roster; table order is identical on
+// every board (spec §6.1).
+#define HS_FACTORY_ONE(name, duration_seconds)                                 \
+  &construct_effect<name<CANVAS_W, CANVAS_H>>,
 const POV::EffectFactory EFFECT_FACTORIES[] = {
     HS_PHANTASM_EFFECT_LIST(HS_FACTORY_ONE)};
 #undef HS_FACTORY_ONE
 
+#define HS_DURATION_ONE(name, duration_seconds)                                \
+  static_cast<uint32_t>(duration_seconds) * RPM / 60,
+constexpr uint32_t EFFECT_REVOLUTIONS[] = {
+    HS_PHANTASM_EFFECT_LIST(HS_DURATION_ONE)};
+#undef HS_DURATION_ONE
+
+static_assert(RPM % 60 == 0,
+              "Phantasm show durations require whole revolutions per second");
+static_assert(std::size(EFFECT_FACTORIES) == std::size(EFFECT_REVOLUTIONS));
+
+constexpr pov::sync::Config show_config() {
+  auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W,
+                                        HS_PHANTASM_EFFECT_COUNT);
+  cfg.effect_revolutions = EFFECT_REVOLUTIONS;
+  return cfg;
+}
+
 // Every input to the sync protocol config is a compile-time constant on this
 // board, so reject an inconsistent protocol at the build instead of the boot.
 // run_show()'s runtime HS_CHECK still guards any non-constexpr instantiation.
-static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W,
-                                         HS_PHANTASM_EFFECT_COUNT)
-                      .valid() == nullptr,
+static_assert(show_config().valid() == nullptr,
               "Phantasm pov::sync::Config invariants violated");
 } // namespace
 
@@ -48,6 +63,7 @@ FLASHMEM void setup() {
 
 void loop() {
   // Never returns: the driver runs the epoch-synchronized show forever
-  // (every effect plays for the same 960 revolutions = 120 s).
-  g_pov->run_show(EFFECT_FACTORIES, HS_PHANTASM_EFFECT_COUNT);
+  // using the per-entry durations from HS_PHANTASM_EFFECT_LIST.
+  g_pov->run_show(EFFECT_FACTORIES, HS_PHANTASM_EFFECT_COUNT,
+                  EFFECT_REVOLUTIONS);
 }

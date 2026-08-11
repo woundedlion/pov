@@ -253,16 +253,21 @@ public:
    * @param factories     One constructor per roster entry (HS_EFFECT_LIST
    *                      order — identical on every board).
    * @param effect_count  Roster length.
+   * @param effect_revolutions Optional duration for each roster entry, in
+   *                           revolutions.
    */
-  [[noreturn]] void run_show(const EffectFactory *factories, int effect_count) {
+  [[noreturn]] void run_show(const EffectFactory *factories, int effect_count,
+                             const uint32_t *effect_revolutions = nullptr) {
     effect_factories = factories;
 
     pov::sync::Config cfg =
         pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, effect_count);
+    cfg.effect_revolutions = effect_revolutions;
 #ifdef HS_PROFILE_EPOCH_REVS
     // Profiling knob: stretch the epoch so one effect instance covers a full
     // preset cycle in a single capture.
     cfg.revs_per_effect = HS_PROFILE_EPOCH_REVS;
+    cfg.effect_revolutions = nullptr;
 #endif
     const char *const bad_invariant = cfg.valid();
     HS_CHECK(bad_invariant == nullptr, "pov::sync::Config invariant: %s",

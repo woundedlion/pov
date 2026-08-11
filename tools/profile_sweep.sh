@@ -30,7 +30,7 @@ GROUP=${1:-}
 playlist_roster() {
   tr -d '\r' < "$EFFECTS_H" \
     | sed -n '/^#define HS_PHANTASM_EFFECT_LIST(X)/,/[^\\]$/p' \
-    | sed -nE 's/^[[:space:]]*X\(([A-Za-z0-9_]+)\).*/\1/p'
+    | sed -nE 's/^[[:space:]]*X\(([A-Za-z0-9_]+)[[:space:]]*,.*/\1/p'
 }
 
 # Every effect this script profiles, read off its own `run` lines.

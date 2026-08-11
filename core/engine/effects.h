@@ -83,33 +83,34 @@
  *        effects (Dynamo, Thrusters — Holosphere 96x20 only) and ShaderBall
  *        (its 288x144 shader instantiation does not
  *        fit the remaining ITCM budget — see docs/ledgers/itcm_ledger.md).
- * @param X Function-like macro applied to each effect type name in the playlist.
+ * @param X Function-like macro applied to each effect type name and its show
+ *          duration in seconds.
  * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
  *   consumes this; the registry, tests, and gallery stay on the full roster.
  *   The static_assert below HS_PHANTASM_EFFECT_COUNT forces this list to be
  *   revisited whenever HS_EFFECT_LIST gains or loses an entry.
  */
 #define HS_PHANTASM_EFFECT_LIST(X)                                             \
-  X(BZReactionDiffusion)                                                       \
-  X(ChaoticStrings)                                                            \
-  X(Comets)                                                                    \
-  X(DisplacementField)                                                         \
-  X(DreamBalls)                                                                \
-  X(GnomonicStars)                                                             \
-  X(GSReactionDiffusion)                                                       \
-  X(HankinSolids)                                                              \
-  X(HopfFibration)                                                             \
-  X(IslamicStars)                                                              \
-  X(MeshFeedback)                                                              \
-  X(MindSplatter)                                                              \
-  X(MobiusGrid)                                                                \
-  X(PetalFlow)                                                                 \
-  X(Raymarch)                                                                  \
-  X(RingShower)                                                                \
-  X(RingSpin)                                                                  \
-  X(ShapeShifter)                                                              \
-  X(SphericalHarmonics)                                                        \
-  X(Voronoi)
+  X(BZReactionDiffusion, 120)                                                  \
+  X(ChaoticStrings, 120)                                                       \
+  X(Comets, 120)                                                               \
+  X(DisplacementField, 120)                                                    \
+  X(DreamBalls, 120)                                                           \
+  X(GnomonicStars, 120)                                                        \
+  X(GSReactionDiffusion, 120)                                                  \
+  X(HankinSolids, 120)                                                         \
+  X(HopfFibration, 120)                                                        \
+  X(IslamicStars, 120)                                                         \
+  X(MeshFeedback, 181)                                                         \
+  X(MindSplatter, 120)                                                         \
+  X(MobiusGrid, 120)                                                           \
+  X(PetalFlow, 120)                                                            \
+  X(Raymarch, 120)                                                             \
+  X(RingShower, 120)                                                           \
+  X(RingSpin, 120)                                                             \
+  X(ShapeShifter, 135)                                                         \
+  X(SphericalHarmonics, 120)                                                   \
+  X(Voronoi, 120)
 
 /**
  * @brief Expands to +1 so HS_EFFECT_LIST can be summed into an entry count.
@@ -120,12 +121,14 @@
  * @brief Number of entries in HS_EFFECT_LIST, derived rather than hand-counted.
  */
 constexpr int HS_EFFECT_COUNT = 0 HS_EFFECT_LIST(HS_EFFECT_COUNT_ADD);
+#define HS_PHANTASM_EFFECT_COUNT_ADD(name, duration_seconds) +1
 /**
  * @brief Number of entries in HS_PHANTASM_EFFECT_LIST, derived rather than
  *        hand-counted.
  */
 constexpr int HS_PHANTASM_EFFECT_COUNT =
-    0 HS_PHANTASM_EFFECT_LIST(HS_EFFECT_COUNT_ADD);
+    0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_EFFECT_COUNT_ADD);
+#undef HS_PHANTASM_EFFECT_COUNT_ADD
 #undef HS_EFFECT_COUNT_ADD
 
 /**
@@ -157,7 +160,8 @@ constexpr bool hs_in_effect_list(const char *name) {
  * @param name Effect class name to look up.
  */
 constexpr bool hs_in_phantasm_effect_list(const char *name) {
-#define HS_PHANTASM_NAME_MATCH(cls) || hs_effect_name_eq(name, #cls)
+#define HS_PHANTASM_NAME_MATCH(cls, duration_seconds)                          \
+  || hs_effect_name_eq(name, #cls)
   return false HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_MATCH);
 #undef HS_PHANTASM_NAME_MATCH
 }
@@ -167,21 +171,24 @@ constexpr bool hs_in_phantasm_effect_list(const char *name) {
  * @param name Effect class name to count.
  */
 constexpr int hs_phantasm_effect_list_count(const char *name) {
-#define HS_PHANTASM_NAME_COUNT(cls) +(hs_effect_name_eq(name, #cls) ? 1 : 0)
+#define HS_PHANTASM_NAME_COUNT(cls, duration_seconds)                          \
+  +(hs_effect_name_eq(name, #cls) ? 1 : 0)
   return 0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_COUNT);
 #undef HS_PHANTASM_NAME_COUNT
 }
 
 /** @brief True when no HS_PHANTASM_EFFECT_LIST name appears twice. */
 constexpr bool hs_phantasm_effect_list_is_distinct() {
-#define HS_PHANTASM_NAME_ONCE(cls) &&(hs_phantasm_effect_list_count(#cls) == 1)
+#define HS_PHANTASM_NAME_ONCE(cls, duration_seconds)                           \
+  &&(hs_phantasm_effect_list_count(#cls) == 1)
   return true HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_ONCE);
 #undef HS_PHANTASM_NAME_ONCE
 }
 
 /** @brief True when every HS_PHANTASM_EFFECT_LIST name is in HS_EFFECT_LIST. */
 constexpr bool hs_phantasm_effect_list_is_subset() {
-#define HS_PHANTASM_NAME_ON_ROSTER(cls) &&hs_in_effect_list(#cls)
+#define HS_PHANTASM_NAME_ON_ROSTER(cls, duration_seconds)                      \
+  &&hs_in_effect_list(#cls)
   return true HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_NAME_ON_ROSTER);
 #undef HS_PHANTASM_NAME_ON_ROSTER
 }
