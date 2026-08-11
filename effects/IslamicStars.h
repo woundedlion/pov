@@ -646,7 +646,8 @@ private:
     {
       const MeshState &spawned_mesh = carousel.slot(back);
       const size_t spawned_faces = spawned_mesh.topology.size();
-      HS_CHECK(spawned_faces <= MAX_BUILD_FACES);
+      HS_CHECK(spawned_faces <= MAX_BUILD_FACES,
+               "IslamicStars: spawned mesh exceeds MAX_BUILD_FACES");
       MeshPaletteBank::assign_by_class(spawned_mesh.topology.data(),
                                        spawned_faces, palette_slots,
                                        slot_face_palette[back]);
@@ -896,7 +897,8 @@ private:
                                           scratch_arena_b, persistent_arena);
     }
     const size_t faces = build_next_seed.face_counts.size();
-    HS_CHECK(faces <= MAX_BUILD_FACES);
+    HS_CHECK(faces <= MAX_BUILD_FACES,
+             "IslamicStars: leg endpoint exceeds MAX_BUILD_FACES");
     return {.topology = build_next_seed.topology.data(), .faces = faces};
   }
 
@@ -911,7 +913,8 @@ private:
                Animation::OpLeg::FaceCorrespondence correspondence =
                    Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
     const size_t prev_faces = build_seed.face_counts.size();
-    HS_CHECK(prev_faces <= MAX_BUILD_FACES);
+    HS_CHECK(prev_faces <= MAX_BUILD_FACES,
+             "IslamicStars: leg seed exceeds MAX_BUILD_FACES");
     Vector *prev_centroid = nullptr;
     if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
       prev_centroid = scratch.allocate_n<Vector>(prev_faces);
@@ -923,7 +926,8 @@ private:
       // spawn colours are the chain's FROM state. Keyed on build_from_pal
       // (reset to null per build) rather than build_step == 0, which a smooth
       // kis/needle macro's later sub-legs can still sit on.
-      HS_CHECK(prev_faces <= carousel.current().topology.size());
+      HS_CHECK(prev_faces <= carousel.current().topology.size(),
+               "IslamicStars: spawn palette does not cover the leg seed");
       prev_pal = slot_face_palette[carousel.front_index()];
     } else {
       // Depart from the palette the previous leg landed on.
@@ -951,7 +955,8 @@ private:
                       Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
     const size_t nf = departed.face_counts.size();
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing &&
-             build_landing->faces >= nf);
+                 build_landing->faces >= nf,
+             "IslamicStars: landing does not cover the departed mesh");
     Vector *cen = nullptr;
     uint8_t *pal = scratch.allocate_n<uint8_t>(nf);
     if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
@@ -992,7 +997,8 @@ private:
       dual_bridge_ambo =
           Solids::finalize_solid(MeshOps::ambo(build_seed, a, b), target);
     });
-    HS_CHECK(dual_bridge_ambo.face_counts.size() <= MAX_BUILD_FACES);
+    HS_CHECK(dual_bridge_ambo.face_counts.size() <= MAX_BUILD_FACES,
+             "IslamicStars: dual bridge ambo exceeds MAX_BUILD_FACES");
 
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
@@ -1026,7 +1032,8 @@ private:
         landing_handoff(dual_bridge_ambo, scratch_arena_a,
                         Animation::OpLeg::FaceCorrespondence::IDENTITY);
     const size_t medial_faces = dual_bridge_ambo.face_counts.size();
-    HS_CHECK(build_landing && build_landing->faces == medial_faces);
+    HS_CHECK(build_landing && build_landing->faces == medial_faces,
+             "IslamicStars: medial bookend does not match the landing");
     uint16_t *medial_topology =
         scratch_arena_a.allocate_n<uint16_t>(medial_faces);
     std::copy_n(build_landing->topology, medial_faces, medial_topology);
@@ -1067,7 +1074,8 @@ private:
     ScratchScope a_guard(scratch_arena_a);
     const size_t nf = dual_bridge_ambo_faces;
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing &&
-             build_landing->faces >= nf);
+                 build_landing->faces >= nf,
+             "IslamicStars: dual bridge landing does not cover ambo(P)");
     uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(nf);
     for (size_t f = 0; f < nf; ++f)
       pal[f] = build_landing->landed_palette(f);
