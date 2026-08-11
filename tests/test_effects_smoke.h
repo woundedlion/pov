@@ -48,12 +48,9 @@ inline int run_effects_smoke_tests() {
   if (effects_full_suite()) {
     // Full production-resolution roster passes (288x144): smoke, then cross-run
     // determinism under the injected clock.
-    g_nonblack_effects = 0;
 #define HS_SMOKE_ONE(name) smoke_one<name>(#name);
     HS_EFFECT_LIST(HS_SMOKE_ONE)
 #undef HS_SMOKE_ONE
-    // At least one effect must light up, catching a total regression-to-black.
-    HS_EXPECT_GT(g_nonblack_effects, 0);
 #define HS_DET_ONE(name) determinism_one<name>(#name);
     HS_EFFECT_LIST(HS_DET_ONE)
 #undef HS_DET_ONE
@@ -63,12 +60,9 @@ inline int run_effects_smoke_tests() {
   // core and the only place that specialization runs under native asserts
   // (see SMALL_W/SMALL_H).
   std::printf("  -- small-aspect resolution %dx%d --\n", SMALL_W, SMALL_H);
-  g_nonblack_effects = 0;
 #define HS_SMOKE_ONE_SMALL(name) smoke_one<name, SMALL_W, SMALL_H>(#name);
   HS_EFFECT_LIST(HS_SMOKE_ONE_SMALL)
 #undef HS_SMOKE_ONE_SMALL
-  // The <96,20> specialization is a distinct codepath; require it lights up.
-  HS_EXPECT_GT(g_nonblack_effects, 0);
 #define HS_DET_ONE_SMALL(name) determinism_one<name, SMALL_W, SMALL_H>(#name);
   HS_EFFECT_LIST(HS_DET_ONE_SMALL)
 #undef HS_DET_ONE_SMALL

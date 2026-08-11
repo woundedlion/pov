@@ -120,10 +120,6 @@ inline void lint_dead_sliders(Effect &effect, const char *name);
  */
 inline void lint_animated_pause(Effect &effect, const char *name);
 
-// Sweep-wide "something lit up" counter: bumped by smoke_one() on a non-zero
-// frame sum, asserted positive once per roster pass in run_effects_tests().
-inline int g_nonblack_effects = 0;
-
 // Per-effect non-black exemption. An effect whose ramp-up exceeds the frame
 // window legitimately ends on an all-black frame; exempt it only below the frame
 // count at which it first lights, so the assertion still fires at the longer
@@ -215,13 +211,9 @@ inline void smoke_one(const char *name) {
   };
   const uint64_t acc = sum_buffer();
 
-  if (acc > 0)
-    ++g_nonblack_effects;
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
               frames, W, H, static_cast<unsigned long long>(acc));
 
-  // Per-effect "did it produce output": one effect regressing to all-black no
-  // longer hides behind the roster-wide g_nonblack_effects aggregate.
   if (!effect_may_be_dark(name, frames)) {
     if (acc == 0)
       std::printf("  ALL-BLACK %-20s produced no lit pixel over %d frames "

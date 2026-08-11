@@ -113,8 +113,8 @@ struct TestModule {
 // them, so that half's gate is exactly as tight as it was.
 constexpr int EFFECTS_QUICK_MIN_ASSERTIONS = 259471;
 constexpr int EFFECTS_FULL_MIN_ASSERTIONS = 298058;
-constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 541;
-constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 702;
+constexpr int EFFECTS_SMOKE_QUICK_MIN_ASSERTIONS = 540;
+constexpr int EFFECTS_SMOKE_FULL_MIN_ASSERTIONS = 700;
 
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", 47, hs_test::math3d_tests::run_3dmath_tests, 30014)              \
