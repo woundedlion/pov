@@ -98,6 +98,34 @@ struct TestEffect : public Effect {
   void clear_params() { reset_parameters(); }
 };
 
+struct PresetTestEffect : public Effect {
+  PresetTestEffect() : Effect(8, 8) { configure_presets(3); }
+
+  void draw_frame() override {}
+
+  bool advance() { return advancePreset(); }
+
+  bool accept = true;
+  size_t applied_from = 0;
+  size_t applied_to = 0;
+  bool applied_manually = false;
+  size_t committed_index = 0;
+  int commit_count = 0;
+
+private:
+  bool apply_preset(const PresetChange &change) override {
+    applied_from = change.from;
+    applied_to = change.to;
+    applied_manually = change.origin == PresetChangeOrigin::MANUAL;
+    return accept;
+  }
+
+  void preset_changed(const PresetChange &) override {
+    committed_index = getPresetIndex();
+    ++commit_count;
+  }
+};
+
 // ============================================================================
 // Construction
 // ============================================================================
@@ -134,6 +162,35 @@ inline void test_construction_dimension_boundaries() {
     HS_EXPECT_EQ(fx.height(), MAX_H);
     HS_EXPECT_TRUE(pix_eq(fx.get_pixel(MAX_W - 1, MAX_H - 1), 0, 0, 0));
   }
+}
+
+inline void test_preset_state_machine() {
+  PresetTestEffect fx;
+  HS_EXPECT_EQ(fx.getPresetCount(), size_t(3));
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(0));
+
+  HS_EXPECT_TRUE(fx.advance());
+  HS_EXPECT_EQ(fx.applied_from, size_t(0));
+  HS_EXPECT_EQ(fx.applied_to, size_t(1));
+  HS_EXPECT_FALSE(fx.applied_manually);
+  HS_EXPECT_EQ(fx.committed_index, size_t(1));
+  HS_EXPECT_FALSE(fx.animations_paused());
+
+  HS_EXPECT_TRUE(fx.previousPreset());
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(0));
+  HS_EXPECT_TRUE(fx.applied_manually);
+  HS_EXPECT_TRUE(fx.animations_paused());
+
+  fx.setAnimationsPaused(false);
+  fx.accept = false;
+  HS_EXPECT_FALSE(fx.selectPreset(2));
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(0));
+  HS_EXPECT_FALSE(fx.animations_paused());
+  HS_EXPECT_EQ(fx.commit_count, 2);
+
+  HS_EXPECT_FALSE(fx.selectPreset(3));
+  HS_EXPECT_EQ(fx.getPresetIndex(), size_t(0));
+  HS_EXPECT_EQ(fx.commit_count, 2);
 }
 
 // ============================================================================
@@ -1016,6 +1073,7 @@ inline int run_canvas_tests() {
 
   test_construction_dims_and_clear();
   test_construction_dimension_boundaries();
+  test_preset_state_machine();
   test_frame_visible_only_after_advance_display();
   test_consecutive_frames_alternate_buffers();
   test_clip_clear_exact_rectangle();

@@ -65,6 +65,7 @@ public:
 
   /** @brief Loads the initial preset and registers its fields as GUI sliders. */
   void init() override {
+    configure_presets(PRESETS.size());
     params = presets.get();
 
     register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
@@ -117,23 +118,22 @@ public:
     draw_all(canvas);
   }
 
-  size_t getPresetCount() const override { return PRESETS.size(); }
-  size_t getPresetIndex() const override { return presets.current_index(); }
-  bool selectPreset(size_t index) override {
-    if (!presets.select(index))
+private:
+  bool apply_preset(const PresetChange &change) override {
+    if (!presets.select(change.to))
       return false;
-    setAnimationsPaused(true);
     presets.apply(params);
     phase = 0.0f;
     return true;
   }
 
+public:
 #if defined(HS_PROFILE_ENABLE) || defined(HS_TEST_BUILD)
   void profile_select_preset(size_t index) {
     HS_CHECK(index < PRESETS.size(),
              "ShapeShifter profile preset index out of range");
-    setAnimationsPaused(true);
-    params = PRESETS[index].params;
+    HS_CHECK(selectPreset(index),
+             "ShapeShifter profile preset selection failed");
 #ifdef HS_PROFILE_SHAPESHIFTER_COUNT
     static_assert(HS_PROFILE_SHAPESHIFTER_COUNT >= 1 &&
                   HS_PROFILE_SHAPESHIFTER_COUNT <= MAX_SHAPES);
@@ -368,10 +368,7 @@ private:
   }
 
   /** @brief Advances to the next preset and applies it atomically. */
-  HS_COLD_MEMBER void next_preset() {
-    presets.next();
-    presets.apply(params);
-  }
+  HS_COLD_MEMBER void next_preset() { HS_CHECK(advancePreset()); }
 
   /**
    * @brief Schedules the current preset's fade sprite and the timer that

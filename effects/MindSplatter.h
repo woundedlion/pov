@@ -47,6 +47,7 @@ public:
    *        bakes the palette, and kicks off the warp scheduler.
    */
   void init() override {
+    configure_presets(PRESETS.size());
     static constexpr size_t SCRATCH_BYTES = 6 * 1024;
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
 
@@ -78,15 +79,7 @@ public:
                  Animation::RandomWalk<W, 4, true>(orientation, Y_AXIS, noise));
 
     auto preset_timer = Animation::PeriodicTimer(
-        160,
-        [this](Canvas &) {
-          presets.next();
-          timeline.add_pausable(0,
-                                Animation::Lerp(params, presets.prev_get(),
-                                                presets.get(), 48, ease_linear),
-                                &anims_paused);
-        },
-        true);
+        160, [this](Canvas &) { HS_CHECK(advancePreset()); }, true);
     timeline.add_pausable(0, preset_timer, &anims_paused);
 
     build_particle_system();
@@ -121,17 +114,21 @@ public:
     draw_particles(canvas);
   }
 
-  size_t getPresetCount() const override { return PRESETS.size(); }
-  size_t getPresetIndex() const override { return presets.current_index(); }
-  bool selectPreset(size_t index) override {
-    if (!presets.select(index))
+private:
+  bool apply_preset(const PresetChange &change) override {
+    if (!presets.select(change.to))
       return false;
-    setAnimationsPaused(true);
-    presets.apply(params);
+    if (change.origin == PresetChangeOrigin::MANUAL) {
+      presets.apply(params);
+    } else {
+      timeline.add_pausable(0,
+                            Animation::Lerp(params, presets.prev_get(),
+                                            presets.get(), 48, ease_linear),
+                            &anims_paused);
+    }
     return true;
   }
 
-private:
   // Test seam for emitter and attractor invariants.
   friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
 

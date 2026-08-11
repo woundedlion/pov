@@ -173,20 +173,24 @@ public:
   virtual void draw_frame() = 0;
 
   /** @brief Number of presets exposed for manual navigation. */
-  virtual size_t getPresetCount() const { return 0; }
+  size_t getPresetCount() const { return preset_count; }
   /** @brief Index of the currently selected preset. */
-  virtual size_t getPresetIndex() const { return 0; }
-  /** @brief Selects one preset by index, or reports that it is unavailable. */
-  virtual bool selectPreset(size_t) { return false; }
-  /** @brief Selects the next preset, or reports that none are exposed. */
-  virtual bool nextPreset() {
-    const size_t count = getPresetCount();
-    return count > 0 && selectPreset((getPresetIndex() + 1) % count);
+  size_t getPresetIndex() const { return preset_index; }
+  /** @brief Selects and pauses one preset, or reports that it is unavailable. */
+  bool selectPreset(size_t index) {
+    if (!change_preset(index, PresetChangeOrigin::MANUAL))
+      return false;
+    setAnimationsPaused(true);
+    return true;
   }
-  /** @brief Selects the previous preset, or reports that none are exposed. */
-  virtual bool previousPreset() {
-    const size_t count = getPresetCount();
-    return count > 0 && selectPreset((getPresetIndex() + count - 1) % count);
+  /** @brief Selects and pauses the next preset. */
+  bool nextPreset() {
+    return preset_count > 0 && selectPreset((preset_index + 1) % preset_count);
+  }
+  /** @brief Selects and pauses the previous preset. */
+  bool previousPreset() {
+    return preset_count > 0 &&
+           selectPreset((preset_index + preset_count - 1) % preset_count);
   }
 
   /**
@@ -651,6 +655,45 @@ public:
   bool animations_paused() const { return anims_paused; }
 
 protected:
+  /** @brief Whether a preset move came from choreography or a user control. */
+  enum class PresetChangeOrigin : uint8_t { AUTOMATIC, MANUAL };
+
+  /** @brief One validated preset transition handed to the effect hook. */
+  struct PresetChange {
+    size_t from;               /**< Previously committed preset index. */
+    size_t to;                 /**< Candidate preset index. */
+    PresetChangeOrigin origin; /**< Automatic or user-initiated move. */
+  };
+
+  /** @brief Enables the shared preset controller for this effect. */
+  void configure_presets(size_t count) {
+    HS_CHECK(count > 0, "preset count must be positive");
+    HS_CHECK(preset_count == 0, "presets already configured");
+    preset_count = count;
+  }
+
+  /** @brief Advances choreography through the shared preset controller. */
+  bool advancePreset() {
+    return preset_count > 0 && change_preset((preset_index + 1) % preset_count,
+                                             PresetChangeOrigin::AUTOMATIC);
+  }
+
+  /** @brief Applies a candidate preset before its index is committed. */
+  virtual bool apply_preset(const PresetChange &) { return false; }
+  /** @brief Runs after a successful preset change has been committed. */
+  virtual void preset_changed(const PresetChange &) {}
+
+  bool change_preset(size_t index, PresetChangeOrigin origin) {
+    if (index >= preset_count)
+      return false;
+    const PresetChange change{preset_index, index, origin};
+    if (!apply_preset(change))
+      return false;
+    preset_index = index;
+    preset_changed(change);
+    return true;
+  }
+
 #if HS_PARAM_GUI_BRIDGE
   using ParameterUpdatedHook = void (*)(Effect *, const char *, bool);
 
@@ -713,6 +756,8 @@ protected:
    * which freezes stepping alone — a pending start delay keeps elapsing.
    */
   bool anims_paused = false;
+  size_t preset_count = 0;
+  size_t preset_index = 0;
 
   /**
    * @brief Flag a registered param as engine-written telemetry (read-only).

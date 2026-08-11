@@ -141,7 +141,7 @@ struct ShaderBallWhiteBox {
     return sb.param_morph.elapsed;
   }
   static const Params &live_params(const SB &sb) { return sb.blend.params; }
-  static size_t preset_index(const SB &sb) { return sb.preset_index; }
+  static size_t preset_index(const SB &sb) { return sb.getPresetIndex(); }
   static float transition_mix(const SB &sb) {
     return SB::transition_mix(sb.transition.elapsed, sb.transition.duration);
   }
@@ -1477,7 +1477,7 @@ inline void test_shaderball_profile_presets() {
   }
 }
 
-/** @brief Manual navigation wraps and selects presets immediately. */
+/** @brief Manual navigation wraps and resumes automatic preset selection. */
 inline void test_shaderball_manual_preset_navigation() {
   using WB = ShaderBallWhiteBox;
   reset_effect_globals();
@@ -1492,6 +1492,31 @@ inline void test_shaderball_manual_preset_navigation() {
   HS_EXPECT_EQ(sb.getPresetIndex(), size_t(0));
   HS_EXPECT_TRUE(WB::active_config(sb) == WB::presets()[0]);
   HS_EXPECT_TRUE(sb.animations_paused());
+
+  sb.setAnimationsPaused(false);
+  for (int frame = 0;
+       frame < 200 && !WB::transition_active(sb) && !WB::param_morph_active(sb);
+       ++frame) {
+    sb.draw_frame();
+    sb.advance_display();
+  }
+  HS_EXPECT_TRUE(WB::transition_active(sb) || WB::param_morph_active(sb));
+
+  HS_EXPECT_TRUE(sb.selectPreset(4));
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(4));
+  HS_EXPECT_FALSE(WB::transition_active(sb));
+  HS_EXPECT_FALSE(WB::param_morph_active(sb));
+  for (int frame = 0; frame < 8; ++frame) {
+    sb.draw_frame();
+    sb.advance_display();
+  }
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(4));
+
+  sb.setAnimationsPaused(false);
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_EQ(sb.getPresetIndex(), size_t(5));
+  HS_EXPECT_TRUE(WB::transition_active(sb) || WB::param_morph_active(sb));
 }
 
 /** @brief Every GUI enum option is writable and survives its handoff. */
