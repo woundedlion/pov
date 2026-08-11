@@ -819,6 +819,35 @@ finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
 }
 
 /**
+ * @brief Pads a column span whose start is already within one period.
+ */
+template <int W>
+static inline void finish_col_span_one_period(float start, float length,
+                                              int &col_s, int &col_len) {
+  const int lo = static_cast<int>(floorf(start)) - COL_PAD;
+  const int hi = static_cast<int>(ceilf(start + length)) + COL_PAD;
+  col_len = std::min(hi - lo + 1, W);
+  col_s = lo < 0 ? lo + W : lo;
+}
+
+/**
+ * @brief Wraps a column delta into [0, W) with a single conditional add.
+ * @tparam W Rasterization width (pixel grid).
+ * @param d Delta to wrap; must lie in (-W, W).
+ * @return The wrapped delta in [0, W), bit-identical to wrap(d, W) over that
+ *   domain.
+ * @details `d + W` can round up to exactly W for a tiny negative d; the upper
+ * guard folds that back to 0, as wrap's own half-open guard does.
+ */
+template <int W>
+static __attribute__((always_inline)) inline float wrap_one_period(float d) {
+  assert(d > -W && d < W);
+  if (d < 0.0f)
+    d += W;
+  return (d >= W) ? 0.0f : d;
+}
+
+/**
  * @brief Geodesic screen-column arc from precomputed endpoint columns.
  * @tparam W Rasterization width (pixel grid).
  * @param ca Precomputed vector_to_theta<W>(a).
@@ -851,7 +880,7 @@ static inline bool geodesic_col_span_cols(float ca, float cb, const Vector &a,
   if (es.total < EPS_GEODESIC_SEGMENT) {
     // The renderer collapses the edge to a dot at a; span both endpoints the
     // short way around.
-    const float d = wrap(cb - ca, static_cast<float>(W));
+    const float d = wrap_one_period<W>(cb - ca);
     if (d <= W * 0.5f) {
       s_f = ca;
       len_f = d;
@@ -878,14 +907,14 @@ static inline bool geodesic_col_span_cols(float ca, float cb, const Vector &a,
 
     if (es.axis.y < 0.0f) { // longitude increases from a
       s_f = ca;
-      len_f = wrap(ce - ca, static_cast<float>(W));
+      len_f = wrap_one_period<W>(ce - ca);
     } else {
       s_f = ce;
-      len_f = wrap(ca - ce, static_cast<float>(W));
+      len_f = wrap_one_period<W>(ca - ce);
     }
   }
 
-  finish_col_span<W>(s_f, len_f, col_s, col_len);
+  finish_col_span_one_period<W>(s_f, len_f, col_s, col_len);
   return true;
 }
 
@@ -1156,18 +1185,6 @@ enum class RawGeodesicGateResult : uint8_t {
   VISIBLE,
   EXACT_FALLBACK,
 };
-
-/**
- * @brief Pads a column span whose start is already within one period.
- */
-template <int W>
-static inline void finish_col_span_one_period(float start, float length,
-                                              int &col_s, int &col_len) {
-  const int lo = static_cast<int>(floorf(start)) - COL_PAD;
-  const int hi = static_cast<int>(ceilf(start + length)) + COL_PAD;
-  col_len = std::min(hi - lo + 1, W);
-  col_s = lo < 0 ? lo + W : lo;
-}
 
 /**
  * @brief Gates a regular geodesic edge without angle or cross normalization.
