@@ -1859,18 +1859,18 @@ inline void test_shaderball_projection_catalog() {
   const Vector bonne_origin(cosf(standard_parallel), sinf(standard_parallel),
                             0.0f);
   const auto bonne =
-      shaderball::bonne_projection(bonne_origin, 0.0f, standard_parallel);
+      projections::bonne_projection(bonne_origin, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(bonne.coords.im, 0.0f, 2e-5f);
 
-  const auto peirce = shaderball::peirce_projection(UP, 0.0f, 1, 0.0f);
+  const auto peirce = projections::peirce_projection(UP, 0.0f, 1, 0.0f);
   HS_EXPECT_NEAR(peirce.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(peirce.coords.im, 0.0f, 2e-5f);
 
-  const auto &center = shaderball::AIROCEAN_CENTERS[0];
-  const auto airocean = shaderball::airocean_projection(
+  const auto &center = projections::AIROCEAN_CENTERS[0];
+  const auto airocean = projections::airocean_projection(
       Vector(center.x, center.z, center.y), 0.0f, false);
-  const auto &triangle = shaderball::AIROCEAN_PLANAR_FACES[0];
+  const auto &triangle = projections::AIROCEAN_PLANAR_FACES[0];
   HS_EXPECT_NEAR(airocean.coords.re,
                  (triangle[0].x + triangle[1].x + triangle[2].x) / 3.0f, 2e-4f);
   HS_EXPECT_NEAR(airocean.coords.im,
@@ -1881,35 +1881,35 @@ inline void test_shaderball_projection_catalog() {
   const Vector equator_east(0.0f, 0.0f, 1.0f);
   const Vector antimeridian(-1.0f, 0.0f, 0.0f);
   const auto bonne_equator =
-      shaderball::bonne_projection(equator_zero, 0.0f, standard_parallel);
+      projections::bonne_projection(equator_zero, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne_equator.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(bonne_equator.coords.im, -0.7853981634f, 2e-5f);
   const auto bonne_east =
-      shaderball::bonne_projection(equator_east, 0.0f, standard_parallel);
+      projections::bonne_projection(equator_east, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne_east.coords.re, 1.3758501640f, 3e-5f);
   HS_EXPECT_NEAR(bonne_east.coords.im, -0.1378413458f, 3e-5f);
-  const auto bonne_shifted = shaderball::bonne_projection(
+  const auto bonne_shifted = projections::bonne_projection(
       equator_east, 0.5f * PI_F, standard_parallel);
   HS_EXPECT_NEAR(bonne_shifted.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(bonne_shifted.coords.im, -0.7853981634f, 2e-5f);
   const auto bonne_cut =
-      shaderball::bonne_projection(antimeridian, 0.0f, standard_parallel);
+      projections::bonne_projection(antimeridian, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne_cut.fade_edge_distance, 0.0f, 2e-5f);
   const auto werner =
-      shaderball::bonne_projection(equator_east, 0.0f, 0.5f * PI_F);
+      projections::bonne_projection(equator_east, 0.0f, 0.5f * PI_F);
   HS_EXPECT_NEAR(werner.coords.re, 1.3217795320f, 3e-5f);
   HS_EXPECT_NEAR(werner.coords.im, -0.8487048774f, 3e-5f);
 
   constexpr float PEIRCE_K = 1.8540746773013719f;
   const Vector south_pole(0.0f, -1.0f, 0.0f);
   const auto peirce_diamond =
-      shaderball::peirce_projection(south_pole, 0.0f, 0, 0.0f);
+      projections::peirce_projection(south_pole, 0.0f, 0, 0.0f);
   const auto peirce_square =
-      shaderball::peirce_projection(south_pole, 0.0f, 1, 0.0f);
+      projections::peirce_projection(south_pole, 0.0f, 1, 0.0f);
   const auto peirce_horizontal =
-      shaderball::peirce_projection(south_pole, 0.0f, 2, 0.0f);
+      projections::peirce_projection(south_pole, 0.0f, 2, 0.0f);
   const auto peirce_vertical =
-      shaderball::peirce_projection(south_pole, 0.0f, 3, 0.0f);
+      projections::peirce_projection(south_pole, 0.0f, 3, 0.0f);
   HS_EXPECT_NEAR(peirce_diamond.coords.re, 2.0f * PEIRCE_K, 3e-5f);
   HS_EXPECT_NEAR(peirce_diamond.coords.im, 0.0f, 3e-5f);
   HS_EXPECT_NEAR(peirce_square.coords.re, PEIRCE_K * 1.4142135624f, 3e-5f);
@@ -1917,9 +1917,9 @@ inline void test_shaderball_projection_catalog() {
   HS_EXPECT_NEAR(peirce_horizontal.coords.re, PEIRCE_K, 3e-5f);
   HS_EXPECT_NEAR(peirce_vertical.coords.im, PEIRCE_K, 3e-5f);
   const auto peirce_scroll0 =
-      shaderball::peirce_projection(equator_east, 0.0f, 2, 0.0f);
+      projections::peirce_projection(equator_east, 0.0f, 2, 0.0f);
   const auto peirce_scroll1 =
-      shaderball::peirce_projection(equator_east, 0.0f, 2, 1.0f);
+      projections::peirce_projection(equator_east, 0.0f, 2, 1.0f);
   HS_EXPECT_NEAR(peirce_scroll0.coords.re, peirce_scroll1.coords.re, 3e-5f);
   HS_EXPECT_NEAR(peirce_scroll0.coords.im, peirce_scroll1.coords.im, 3e-5f);
   WB::ProjectionParams scroll_from;
@@ -1932,12 +1932,12 @@ inline void test_shaderball_projection_catalog() {
   HS_EXPECT_EQ(scroll_start.layout_scroll, 0.9f);
   HS_EXPECT_NEAR(scroll_mid.layout_scroll, 1.0f, 1e-6f);
   HS_EXPECT_EQ(scroll_end.layout_scroll, -0.9f);
-  const auto peirce_scroll_mid = shaderball::peirce_projection(
+  const auto peirce_scroll_mid = projections::peirce_projection(
       equator_east, 0.0f, 2, scroll_mid.layout_scroll);
   HS_EXPECT_NEAR(peirce_scroll_mid.coords.re, peirce_scroll0.coords.re, 3e-5f);
   HS_EXPECT_NEAR(peirce_scroll_mid.coords.im, peirce_scroll0.coords.im, 3e-5f);
   const auto peirce_zero_fade =
-      shaderball::peirce_projection(equator_zero, 0.0f, 1, 0.0f);
+      projections::peirce_projection(equator_zero, 0.0f, 1, 0.0f);
   HS_EXPECT_NEAR(peirce_zero_fade.fade_edge_distance, 0.0f, 2e-5f);
 
   auto lon_lat = [](float longitude, float latitude) {
@@ -1953,8 +1953,8 @@ inline void test_shaderball_projection_catalog() {
       {0.4550257621f, -2.0019819724f},
   };
   for (uint8_t layout = 0; layout < 4; ++layout) {
-    const auto mapped =
-        shaderball::peirce_projection(peirce_oracle_point, 0.0f, layout, 0.13f);
+    const auto mapped = projections::peirce_projection(peirce_oracle_point,
+                                                       0.0f, layout, 0.13f);
     HS_EXPECT_NEAR(mapped.coords.re, peirce_oracles[layout].re, 3e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, peirce_oracles[layout].im, 3e-5f);
   }
@@ -1972,9 +1972,9 @@ inline void test_shaderball_projection_catalog() {
       {0.75f * PI_F, 4, 1},
   };
   for (const auto &tie : sector_ties) {
-    const auto before = shaderball::peirce_projection(
+    const auto before = projections::peirce_projection(
         lon_lat(tie.longitude - TIE_EPS, SOUTH_LATITUDE), 0.0f, 0, 0.0f);
-    const auto exact = shaderball::peirce_projection(
+    const auto exact = projections::peirce_projection(
         lon_lat(tie.longitude, SOUTH_LATITUDE), 0.0f, 0, 0.0f);
     HS_EXPECT_EQ(before.region_id, tie.before);
     HS_EXPECT_EQ(exact.region_id, tie.exact);
@@ -1986,17 +1986,17 @@ inline void test_shaderball_projection_catalog() {
   const Vector zero_meridian = lon_lat(0.0f, MERIDIAN_LATITUDE);
   for (uint8_t layout = 0; layout < 4; ++layout) {
     const auto shifted =
-        shaderball::peirce_projection(on_meridian, MERIDIAN, layout, 0.13f);
+        projections::peirce_projection(on_meridian, MERIDIAN, layout, 0.13f);
     const auto reference =
-        shaderball::peirce_projection(zero_meridian, 0.0f, layout, 0.13f);
+        projections::peirce_projection(zero_meridian, 0.0f, layout, 0.13f);
     HS_EXPECT_NEAR(shifted.coords.re, reference.coords.re, 2e-5f);
     HS_EXPECT_NEAR(shifted.coords.im, reference.coords.im, 2e-5f);
     HS_EXPECT_EQ(shifted.region_id, reference.region_id);
   }
   const auto airocean_shifted =
-      shaderball::airocean_projection(on_meridian, MERIDIAN, false);
+      projections::airocean_projection(on_meridian, MERIDIAN, false);
   const auto airocean_reference =
-      shaderball::airocean_projection(zero_meridian, 0.0f, false);
+      projections::airocean_projection(zero_meridian, 0.0f, false);
   HS_EXPECT_NEAR(airocean_shifted.coords.re, airocean_reference.coords.re,
                  2e-5f);
   HS_EXPECT_NEAR(airocean_shifted.coords.im, airocean_reference.coords.im,
@@ -2009,11 +2009,11 @@ inline void test_shaderball_projection_catalog() {
                             sinf(oracle_latitude),
                             cosf(oracle_latitude) * sinf(oracle_longitude));
   const auto airocean_oracle =
-      shaderball::airocean_projection(oracle_point, 0.0f, false);
+      projections::airocean_projection(oracle_point, 0.0f, false);
   HS_EXPECT_NEAR(airocean_oracle.coords.re, 2.1265288136f, 4e-5f);
   HS_EXPECT_NEAR(airocean_oracle.coords.im, 3.6817439808f, 4e-5f);
   const auto airocean_horizontal =
-      shaderball::airocean_projection(oracle_point, 0.0f, true);
+      projections::airocean_projection(oracle_point, 0.0f, true);
   HS_EXPECT_NEAR(airocean_horizontal.coords.re,
                  5.7830422333f - airocean_oracle.coords.im, 4e-5f);
   HS_EXPECT_NEAR(airocean_horizontal.coords.im, airocean_oracle.coords.re,
@@ -2038,7 +2038,7 @@ inline void test_shaderball_projection_catalog() {
   };
   for (const auto &oracle : face_oracles) {
     const auto mapped =
-        shaderball::airocean_projection(oracle.point, 0.0f, false);
+        projections::airocean_projection(oracle.point, 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, oracle.face);
     HS_EXPECT_NEAR(mapped.coords.re, oracle.coords.re, 2e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, oracle.coords.im, 2e-5f);
@@ -2059,13 +2059,13 @@ inline void test_shaderball_projection_catalog() {
   const float glued_cut_distances[] = {65536.0f, 65536.0f, 65536.0f};
   for (size_t index = 0; index < std::size(glued_points); ++index) {
     const auto mapped =
-        shaderball::airocean_projection(glued_points[index], 0.0f, false);
+        projections::airocean_projection(glued_points[index], 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, glued_faces[index]);
     HS_EXPECT_EQ(mapped.edge_class,
-                 shaderball::airocean_edge_identity(glued_faces[index],
-                                                    glued_edges[index]));
-    HS_EXPECT_TRUE((mapped.traits & shaderball::projection_traits(
-                                        shaderball::ProjectionTrait::GLUED)) !=
+                 projections::airocean_edge_identity(glued_faces[index],
+                                                     glued_edges[index]));
+    HS_EXPECT_TRUE((mapped.traits & projections::projection_traits(
+                                        projections::ProjectionTrait::GLUED)) !=
                    0);
     HS_EXPECT_NEAR(mapped.coords.re, glued_coords[index].re, 5e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, glued_coords[index].im, 5e-5f);
@@ -2088,31 +2088,31 @@ inline void test_shaderball_projection_catalog() {
   const float cut_distances[] = {0.0f, 6.498376211e-6f, 6.498376211e-6f};
   for (size_t index = 0; index < std::size(cut_points); ++index) {
     const auto mapped =
-        shaderball::airocean_projection(cut_points[index], 0.0f, false);
+        projections::airocean_projection(cut_points[index], 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, cut_faces[index]);
-    HS_EXPECT_EQ(mapped.edge_class, shaderball::airocean_edge_identity(
+    HS_EXPECT_EQ(mapped.edge_class, projections::airocean_edge_identity(
                                         cut_faces[index], cut_edges[index]));
-    HS_EXPECT_TRUE(
-        (mapped.traits &
-         shaderball::projection_traits(shaderball::ProjectionTrait::CUT)) != 0);
+    HS_EXPECT_TRUE((mapped.traits & projections::projection_traits(
+                                        projections::ProjectionTrait::CUT)) !=
+                   0);
     HS_EXPECT_NEAR(mapped.coords.re, cut_coords[index].re, 5e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, cut_coords[index].im, 5e-5f);
     HS_EXPECT_NEAR(mapped.fade_edge_distance, cut_distances[index], 5e-5f);
   }
   for (uint8_t face = 0; face < 23; ++face) {
-    const auto &face_center = shaderball::AIROCEAN_CENTERS[face];
-    const auto mapped = shaderball::airocean_projection(
+    const auto &face_center = projections::AIROCEAN_CENTERS[face];
+    const auto mapped = projections::airocean_projection(
         Vector(face_center.x, face_center.z, face_center.y), 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, face);
   }
-  HS_EXPECT_TRUE(shaderball::airocean_edge_is_cut(14, 0));
-  HS_EXPECT_EQ(shaderball::airocean_edge_identity(14, 0), uint8_t(42));
-  HS_EXPECT_EQ(shaderball::airocean_edge_identity(18, 0), uint8_t(54));
+  HS_EXPECT_TRUE(projections::airocean_edge_is_cut(14, 0));
+  HS_EXPECT_EQ(projections::airocean_edge_identity(14, 0), uint8_t(42));
+  HS_EXPECT_EQ(projections::airocean_edge_identity(18, 0), uint8_t(54));
 
   const auto japan_edge_point = [](float from_weight) {
-    const auto &a = shaderball::AIROCEAN_FACES[14][0];
-    const auto &b = shaderball::AIROCEAN_FACES[14][1];
-    const auto &center = shaderball::AIROCEAN_CENTERS[14];
+    const auto &a = projections::AIROCEAN_FACES[14][0];
+    const auto &b = projections::AIROCEAN_FACES[14][1];
+    const auto &center = projections::AIROCEAN_CENTERS[14];
     const float to_weight = 1.0f - from_weight;
     return Vector(from_weight * a.x + to_weight * b.x + 1e-4f * center.x,
                   from_weight * a.z + to_weight * b.z + 1e-4f * center.z,
@@ -2120,48 +2120,48 @@ inline void test_shaderball_projection_catalog() {
         .normalized();
   };
   const auto japan_cut =
-      shaderball::airocean_projection(japan_edge_point(0.75f), 0.0f, false);
+      projections::airocean_projection(japan_edge_point(0.75f), 0.0f, false);
   const auto japan_glued =
-      shaderball::airocean_projection(japan_edge_point(0.25f), 0.0f, false);
+      projections::airocean_projection(japan_edge_point(0.25f), 0.0f, false);
   HS_EXPECT_EQ(japan_cut.region_id, uint8_t(14));
   HS_EXPECT_EQ(japan_cut.edge_class, uint8_t(42));
   HS_EXPECT_TRUE(
       (japan_cut.traits &
-       shaderball::projection_traits(shaderball::ProjectionTrait::CUT)) != 0);
+       projections::projection_traits(projections::ProjectionTrait::CUT)) != 0);
   HS_EXPECT_LT(japan_cut.fade_edge_distance, 1e-3f);
   HS_EXPECT_EQ(japan_glued.region_id, uint8_t(14));
   HS_EXPECT_EQ(japan_glued.edge_class, uint8_t(54));
   HS_EXPECT_TRUE(
-      (japan_glued.traits &
-       shaderball::projection_traits(shaderball::ProjectionTrait::GLUED)) != 0);
+      (japan_glued.traits & projections::projection_traits(
+                                projections::ProjectionTrait::GLUED)) != 0);
   HS_EXPECT_GT(japan_glued.fade_edge_distance, 0.1f);
-  auto same_point = [](const shaderball::AiroceanPoint &a,
-                       const shaderball::AiroceanPoint &b) {
+  auto same_point = [](const projections::AiroceanPoint &a,
+                       const projections::AiroceanPoint &b) {
     return fabsf(a.x - b.x) <= 1e-6f && fabsf(a.y - b.y) <= 1e-6f;
   };
   for (uint8_t face = 0; face < 23; ++face) {
     for (uint8_t edge_index = 0; edge_index < 3; ++edge_index) {
       bool expected_cut = false;
-      for (size_t index = 0; index < std::size(shaderball::AIROCEAN_CUT_FACES);
+      for (size_t index = 0; index < std::size(projections::AIROCEAN_CUT_FACES);
            ++index)
-        expected_cut |= shaderball::AIROCEAN_CUT_FACES[index] == face &&
-                        shaderball::AIROCEAN_CUT_EDGES[index] == edge_index;
-      HS_EXPECT_EQ(shaderball::airocean_edge_is_cut(face, edge_index),
+        expected_cut |= projections::AIROCEAN_CUT_FACES[index] == face &&
+                        projections::AIROCEAN_CUT_EDGES[index] == edge_index;
+      HS_EXPECT_EQ(projections::airocean_edge_is_cut(face, edge_index),
                    expected_cut);
 
-      const auto &a = shaderball::AIROCEAN_PLANAR_FACES[face][edge_index];
+      const auto &a = projections::AIROCEAN_PLANAR_FACES[face][edge_index];
       const auto &b =
-          shaderball::AIROCEAN_PLANAR_FACES[face][(edge_index + 1) % 3];
+          projections::AIROCEAN_PLANAR_FACES[face][(edge_index + 1) % 3];
       uint8_t expected_identity = face * 3 + edge_index;
       bool found = false;
       for (uint8_t candidate_face = 0; candidate_face < 23 && !found;
            ++candidate_face) {
         for (uint8_t candidate_edge = 0; candidate_edge < 3; ++candidate_edge) {
-          const auto &c =
-              shaderball::AIROCEAN_PLANAR_FACES[candidate_face][candidate_edge];
+          const auto &c = projections::AIROCEAN_PLANAR_FACES[candidate_face]
+                                                            [candidate_edge];
           const auto &d =
-              shaderball::AIROCEAN_PLANAR_FACES[candidate_face]
-                                               [(candidate_edge + 1) % 3];
+              projections::AIROCEAN_PLANAR_FACES[candidate_face]
+                                                [(candidate_edge + 1) % 3];
           if ((same_point(a, c) && same_point(b, d)) ||
               (same_point(a, d) && same_point(b, c))) {
             expected_identity = candidate_face * 3 + candidate_edge;
@@ -2170,14 +2170,14 @@ inline void test_shaderball_projection_catalog() {
           }
         }
       }
-      HS_EXPECT_EQ(shaderball::airocean_edge_identity(face, edge_index),
+      HS_EXPECT_EQ(projections::airocean_edge_identity(face, edge_index),
                    expected_identity);
     }
   }
 
-  const auto peirce_seam_a = shaderball::peirce_projection(
+  const auto peirce_seam_a = projections::peirce_projection(
       lon_lat(0.25f * PI_F - TIE_EPS, SOUTH_LATITUDE), 0.0f, 1, 0.0f);
-  const auto peirce_seam_b = shaderball::peirce_projection(
+  const auto peirce_seam_b = projections::peirce_projection(
       lon_lat(0.25f * PI_F + TIE_EPS, SOUTH_LATITUDE), 0.0f, 1, 0.0f);
   const Complex peirce_seam_delta = peirce_seam_a.coords - peirce_seam_b.coords;
   const Complex airocean_seam_delta = cut_coords[1] - cut_coords[2];
@@ -2197,14 +2197,14 @@ inline void test_shaderball_projection_catalog() {
       const float cp = cosf(latitude);
       const Vector v(cp * cosf(longitude), sinf(latitude),
                      cp * sinf(longitude));
-      const auto b = shaderball::bonne_projection(v, 0.37f, standard_parallel);
+      const auto b = projections::bonne_projection(v, 0.37f, standard_parallel);
       HS_EXPECT_TRUE(std::isfinite(b.coords.re));
       HS_EXPECT_TRUE(std::isfinite(b.coords.im));
       HS_EXPECT_TRUE(std::isfinite(b.fade_edge_distance));
       for (uint8_t layout = 0; layout < 4; ++layout) {
-        const auto p = shaderball::peirce_projection(v, -0.21f, layout, 0.13f);
+        const auto p = projections::peirce_projection(v, -0.21f, layout, 0.13f);
         const auto without_edge =
-            shaderball::peirce_projection(v, -0.21f, layout, 0.13f, false);
+            projections::peirce_projection(v, -0.21f, layout, 0.13f, false);
         HS_EXPECT_TRUE(std::isfinite(p.coords.re));
         HS_EXPECT_TRUE(std::isfinite(p.coords.im));
         HS_EXPECT_TRUE(std::isfinite(p.fade_edge_distance));
@@ -2215,9 +2215,9 @@ inline void test_shaderball_projection_catalog() {
         HS_EXPECT_EQ(without_edge.fade_edge_distance, 65536.0f);
       }
       for (bool horizontal : {false, true}) {
-        const auto a = shaderball::airocean_projection(v, 0.19f, horizontal);
+        const auto a = projections::airocean_projection(v, 0.19f, horizontal);
         const auto without_edge =
-            shaderball::airocean_projection(v, 0.19f, horizontal, false);
+            projections::airocean_projection(v, 0.19f, horizontal, false);
         HS_EXPECT_TRUE(std::isfinite(a.coords.re));
         HS_EXPECT_TRUE(std::isfinite(a.coords.im));
         HS_EXPECT_TRUE(std::isfinite(a.fade_edge_distance));
@@ -2236,9 +2236,9 @@ inline void test_shaderball_projection_catalog() {
 /** @brief Domain policies, gauges, and analytic admission reject unsafe tuples. */
 inline void test_shaderball_projection_and_admission_contracts() {
   using WB = ShaderBallWhiteBox;
-  const uint8_t periodic_traits = shaderball::projection_traits(
-      shaderball::ProjectionTrait::GLUED, shaderball::ProjectionTrait::FOLDED,
-      shaderball::ProjectionTrait::PERIODIC);
+  const uint8_t periodic_traits = projections::projection_traits(
+      projections::ProjectionTrait::GLUED, projections::ProjectionTrait::FOLDED,
+      projections::ProjectionTrait::PERIODIC);
   const WB::ProjectedLookup horizontal_left{
       Complex(-3.7080f, 0.2f), 2, 0,   2, 0.1f, 1.0f, 1,
       periodic_traits,         4, 1.0f};
@@ -2259,7 +2259,7 @@ inline void test_shaderball_projection_and_admission_contracts() {
   HS_EXPECT_FALSE(WB::join_compatible(vertical_bottom, vertical_top,
                                       WB::Projection::PEIRCE_QUINCUNCIAL));
 
-  auto kernel_lookup = [](const shaderball::ProjectionKernelResult &result) {
+  auto kernel_lookup = [](const projections::ProjectionKernelResult &result) {
     return WB::ProjectedLookup{result.coords,
                                result.region_id,
                                result.component_id,
@@ -2278,30 +2278,30 @@ inline void test_shaderball_projection_and_admission_contracts() {
   const Vector sector_before = lon_lat(0.25f * PI_F - 1e-4f, -0.4f);
   const Vector sector_after = lon_lat(0.25f * PI_F + 1e-4f, -0.4f);
   const auto diamond_before = kernel_lookup(
-      shaderball::peirce_projection(sector_before, 0.0f, 0, 0.0f));
-  const auto diamond_after =
-      kernel_lookup(shaderball::peirce_projection(sector_after, 0.0f, 0, 0.0f));
+      projections::peirce_projection(sector_before, 0.0f, 0, 0.0f));
+  const auto diamond_after = kernel_lookup(
+      projections::peirce_projection(sector_after, 0.0f, 0, 0.0f));
   HS_EXPECT_FALSE(WB::join_compatible(diamond_before, diamond_after,
                                       WB::Projection::PEIRCE_QUINCUNCIAL));
   const auto horizontal_before = kernel_lookup(
-      shaderball::peirce_projection(sector_before, 0.0f, 2, 0.0f));
-  const auto horizontal_after =
-      kernel_lookup(shaderball::peirce_projection(sector_after, 0.0f, 2, 0.0f));
+      projections::peirce_projection(sector_before, 0.0f, 2, 0.0f));
+  const auto horizontal_after = kernel_lookup(
+      projections::peirce_projection(sector_after, 0.0f, 2, 0.0f));
   HS_EXPECT_FALSE(WB::join_compatible(horizontal_before, horizontal_after,
                                       WB::Projection::PEIRCE_QUINCUNCIAL));
 
-  const auto glued_side_a = kernel_lookup(shaderball::airocean_projection(
+  const auto glued_side_a = kernel_lookup(projections::airocean_projection(
       Vector(0.00321964224570043f, 0.902105871397194f, 0.431502758617508f),
       0.0f, false));
-  const auto glued_side_b = kernel_lookup(shaderball::airocean_projection(
+  const auto glued_side_b = kernel_lookup(projections::airocean_projection(
       Vector(0.00321096516044884f, 0.902110786482306f, 0.431492547577607f),
       0.0f, false));
   HS_EXPECT_FALSE(WB::join_compatible(glued_side_a, glued_side_b,
                                       WB::Projection::AIROCEAN));
-  const auto cut_side_a = kernel_lookup(shaderball::airocean_projection(
+  const auto cut_side_a = kernel_lookup(projections::airocean_projection(
       Vector(0.456076125629434f, 0.767836786220573f, -0.449912477441232f), 0.0f,
       false));
-  const auto cut_side_b = kernel_lookup(shaderball::airocean_projection(
+  const auto cut_side_b = kernel_lookup(projections::airocean_projection(
       Vector(0.456088797513479f, 0.767830686682203f, -0.449910041421443f), 0.0f,
       false));
   HS_EXPECT_FALSE(

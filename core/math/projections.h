@@ -29,19 +29,19 @@
 #pragma once
 
 /**
- * @file shaderball_projections.h
- * @brief Interrupted sphere-to-plane projection kernels for ShaderBall: Bonne,
- *        Peirce quincuncial, and Fuller Airocean.
+ * @file projections.h
+ * @brief Interrupted sphere-to-plane projection kernels: Bonne, Peirce
+ *        quincuncial, and Fuller Airocean.
  * @details Each kernel maps a unit direction to plane coordinates plus the
- * seam metadata the shader needs to fade a cut and to keep a glued edge
- * continuous. Kernels are pure and frame-independent; ShaderBall applies the
+ * seam metadata a shader needs to fade a cut and to keep a glued edge
+ * continuous. Kernels are pure and frame-independent; the caller applies the
  * coordinate scale and the pole attenuation. Constants derive from PROJ at the
  * commit named in the header above.
  */
 
 #include "core/math/3dmath.h"
 
-namespace shaderball {
+namespace projections {
 
 /** @brief Topological properties a projection's image carries at its edges. */
 enum class ProjectionTrait : uint8_t {
@@ -833,4 +833,4 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
           edge_identity};
 }
 
-} // namespace shaderball
+} // namespace projections

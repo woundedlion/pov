@@ -187,6 +187,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   │   ├── rotate.h                Quaternion projection helpers
 │   │   ├── geometry.h              PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap, Orientation, Basis
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
+│   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean sphere → plane kernels
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
 │   ├── mesh/                   Polyhedral meshes and their operators
@@ -209,6 +210,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │   │   ├── generative_palette.h    GenerativePalette + PaletteRecipe compilation (via color.h)
 │   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
 │   │   ├── effect_palette_recipes.h Per-effect authored PaletteRecipe constructors
+│   │   ├── mindsplatter_palettes.h Generated MindSplatter palette-LUT bank (from tools/mindsplatter_palette_gen.cpp)
 │   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
 │   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
@@ -234,9 +236,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    26 headers: one per effect (23) plus the shared
-│                                ReactionDiffusionBase.h, mindsplatter_palettes.h and
-│                                shaderball_projections.h:
+├── effects/                    24 headers: one per effect (23) plus the shared
+│                                ReactionDiffusionBase.h:
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
 │                                Raymarch.h, … — see §9 Effects Reference
 │
