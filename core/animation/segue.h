@@ -265,7 +265,9 @@ struct Crossfade : Base {
     return schedule_overlapped(timeline, std::move(draw_fn), duration, window,
                                overlap, paused);
   }
+  /** @brief Culls once the fade has taken the mesh to black. */
   bool visible(float phase) const { return fades_to_black(phase); }
+  /** @brief Global alpha: the fade envelope itself. */
   float opacity(float phase) const { return phase; }
 };
 
@@ -280,6 +282,14 @@ struct Crossfade : Base {
 struct IrisBloom : Base {
   static constexpr float SOFT =
       0.08f; /**< Soft rim width, in edge-distance units. */
+  /**
+   * @brief Keeps only the core deeper than the phase-driven inset, renormalized
+   * to the full palette gradient.
+   * @param t Fragment edge distance in [0, 1]; remapped in place across the
+   * surviving core.
+   * @param phase Transition phase; the core shrinks as it falls.
+   * @return Coverage alpha in [0, 1]; 0 culls the fragment.
+   */
   float fill(float &t, float phase) const {
     float inset = 1.0f - phase;
     if (t < inset - SOFT)
@@ -300,6 +310,14 @@ struct IrisBloom : Base {
 struct Lace : Base {
   static constexpr float SOFT =
       0.08f; /**< Soft band-edge width, in edge-distance units. */
+  /**
+   * @brief Keeps only the band within the phase-driven distance of an edge,
+   * renormalized to the full palette gradient.
+   * @param t Fragment edge distance in [0, 1]; remapped in place across the
+   * surviving band.
+   * @param phase Transition phase; the band narrows as it falls.
+   * @return Coverage alpha in [0, 1]; 0 culls the fragment.
+   */
   float fill(float &t, float phase) const {
     if (t > phase + SOFT)
       return 0.0f;
@@ -328,6 +346,16 @@ struct TerminatorSweep : Base {
       12.0f; /**< Longest per-face fade length, in frames. */
   uint32_t fade_seed = 0x9e3779b9u; /**< Per-transition seed for the per-face
                                        fade hash; rolled by retarget(). */
+  /**
+   * @brief Schedules the sprite and caches the fade window the per-face phases
+   * are measured against.
+   * @param timeline Timeline receiving the sprite.
+   * @param draw_fn Draws the mesh at the envelope phase.
+   * @param duration Total frames the mesh is on screen.
+   * @param window Requested fade length in frames; clamped to duration/2.
+   * @param paused Optional event-level pause gate.
+   * @return duration — consecutive sprites do not overlap.
+   */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
                const bool *paused = nullptr) {
     int fade = schedule_faded_sprite(timeline, std::move(draw_fn), duration,
@@ -335,10 +363,20 @@ struct TerminatorSweep : Base {
     inv_window = 1.0f / static_cast<float>(std::max(fade, 1));
     return duration;
   }
+  /**
+   * @brief Aims the sweep and re-rolls the per-face fade hash for the next
+   * transition.
+   * @param v Sweep direction; normalized into the mesh-local axis.
+   */
   void retarget(const Vector &v) {
     axis = v.normalized();
     fade_seed = static_cast<uint32_t>(hs::random()());
   }
+  /**
+   * @brief Orders faces along the sweep axis.
+   * @return Position in [0, 1]: 0 at the axis's negative pole, where the front
+   * starts.
+   */
   float face_offset(const Vector &center, int, int) const {
     return 0.5f * (1.0f + dot(center, axis));
   }
@@ -353,10 +391,19 @@ struct TerminatorSweep : Base {
     float hi = std::min(1.0f, fade_frames_max * inv_window);
     return lo + (hi - lo) * t;
   }
+  /**
+   * @brief Face-local phase behind the linear front.
+   * @param phase Global segue phase in [0, 1].
+   * @param offset The face's position along the sweep axis.
+   * @param fade_frac The face's fade length as a window fraction.
+   * @return The face's own phase in [0, 1]: 0 before the front arrives, 1 once
+   * its fade has completed.
+   */
   float face_phase(float phase, float offset, float fade_frac) const {
     float ff = std::max(fade_frac, 1e-4f);
     return hs::clamp((phase - offset * (1.0f - ff)) / ff, 0.0f, 1.0f);
   }
+  /** @brief Culls at low phase, where every face's fade has reached black. */
   bool visible(float phase) const { return fades_to_black(phase); }
   /** @brief Squared: alpha scales linear-light color, where a linear ramp
    * reads mostly-bright almost immediately; the square spreads the perceived
@@ -380,11 +427,24 @@ struct Shockwave : Base {
   static constexpr float BAND =
       0.3f;               /**< Wave-front softness, in phase units. */
   Vector origin = Y_AXIS; /**< World-space wave origin. */
+  /**
+   * @brief Moves the wave origin for the next transition.
+   * @param v World-space origin the wave expands from.
+   */
   void retarget(const Vector &v) { origin = v; }
+  /**
+   * @brief Orders faces by angular distance from the origin.
+   * @return Position in [0, 1]: 1 at the origin, which extinguishes first.
+   */
   float face_offset(const Vector &center, int, int) const {
     float angle = fast_acos(hs::clamp(dot(center, origin), -1.0f, 1.0f));
     return 1.0f - angle * (1.0f / PI_F);
   }
+  /**
+   * @brief Face-local phase behind the eased wave front (see sweep_phase); the
+   * fade fraction is unused, every face crossing over the same BAND.
+   * @return The face's own phase in [0, 1].
+   */
   float face_phase(float phase, float offset, float = 0.0f) const {
     return sweep_phase(phase, offset, BAND);
   }
@@ -393,6 +453,7 @@ struct Shockwave : Base {
   bool visible(float phase) const {
     return fades_to_black(face_phase(phase, 0.0f));
   }
+  /** @brief Global alpha, applied to the face-local phase: a linear fade. */
   float opacity(float phase) const { return phase; }
 };
 
@@ -437,6 +498,11 @@ struct Breakdown : Base {
       rank[i] = static_cast<uint8_t>(i);
     hs::shuffle(rank, rank + num_classes);
   }
+  /**
+   * @brief Orders faces by their class's draw of the shuffled fade order; an
+   * out-of-range class takes the first rank.
+   * @return Position in [0, 1]: 1 for the class that vanishes first.
+   */
   float face_offset(const Vector &, int, int cls) const {
     if (num_classes <= 1)
       return 0.0f;
@@ -444,6 +510,11 @@ struct Breakdown : Base {
     return static_cast<float>(num_classes - 1 - r) /
            static_cast<float>(num_classes - 1);
   }
+  /**
+   * @brief Face-local phase within the class's own slice of the phase range;
+   * the fade fraction is unused, a class fading over its whole slice.
+   * @return The face's own phase in [0, 1].
+   */
   float face_phase(float phase, float offset, float = 0.0f) const {
     // Class windows tile [BLACK_DWELL, 1]; phase 1 stays the identity plateau.
     float band = (1.0f - BLACK_DWELL) / static_cast<float>(num_classes);
@@ -456,6 +527,7 @@ struct Breakdown : Base {
   bool visible(float phase) const {
     return fades_to_black(face_phase(phase, 0.0f));
   }
+  /** @brief Global alpha, applied to the face-local phase: a linear fade. */
   float opacity(float phase) const { return phase; }
 };
 
@@ -468,7 +540,18 @@ struct Breakdown : Base {
 struct SpinFlip : Base {
   static constexpr float REVS = 3.0f; /**< Extra revolutions at peak spin. */
   Vector axis = Y_AXIS;               /**< Spin axis. */
+  /**
+   * @brief Aims the spin for the next transition.
+   * @param v Spin direction; normalized into the axis.
+   */
   void retarget(const Vector &v) { axis = v.normalized(); }
+  /**
+   * @brief Winds a vertex around the axis, fastest at phase 0 and stationary
+   * at phase 1.
+   * @param v Unit-sphere vertex, before the effect's ripple.
+   * @param phase Transition phase in [0, 1].
+   * @return The rotated vertex.
+   */
   Vector warp(const Vector &v, float phase) const {
     float wind = 1.0f - phase;
     return rotate(v, make_rotation(axis, wind * wind * REVS * 2.0f * PI_F));
@@ -484,9 +567,16 @@ struct SpinFlip : Base {
 struct GoldConvergence : Base {
   Pixel gold = Color4(uint8_t{255}, uint8_t{196}, uint8_t{64})
                    .color; /**< Linear-space convergence color. */
+  /**
+   * @brief Pulls the palette color toward gold as phase falls.
+   * @param c Color from the palette lookup.
+   * @param phase Transition phase in [0, 1]; 0 is fully gold.
+   * @return The regraded color, alpha untouched.
+   */
   Color4 grade(Color4 c, float phase) const {
     return c.lerp(Color4(gold, c.alpha), 1.0f - phase);
   }
+  /** @brief Global alpha: a dip to 0.4 at the swap, never to black. */
   float opacity(float phase) const { return 0.4f + 0.6f * phase; }
 };
 
@@ -508,6 +598,8 @@ struct GoldConvergence : Base {
 struct Dissolve : Base {
   uint32_t seed =
       0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */
+  /** @brief Re-rolls the ownership pattern for the next transition; the
+   * direction every other policy retargets on is unused. */
   void retarget(const Vector &) {
     seed = static_cast<uint32_t>(hs::random()());
   }
