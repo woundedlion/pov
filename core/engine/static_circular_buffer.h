@@ -129,8 +129,8 @@ public:
    * @param args Arguments forwarded to T's constructor.
    * @return Reference to the newly constructed front element.
    * @details Evicts the back element when full. head/count are committed only
-   * after the (potentially throwing) constructor succeeds, so a throwing T
-   * leaves the buffer's size invariant intact.
+   * after the constructor succeeds, but the slot's old object is destroyed
+   * first, so a throwing T is unsupported (see construct_in_place).
    */
   template <typename... Args> T &emplace_front(Args &&...args) {
     if (is_full()) {
@@ -177,8 +177,8 @@ public:
    * @param args Arguments forwarded to T's constructor.
    * @return Reference to the newly constructed back element.
    * @details Evicts the front element when full. tail/count are committed only
-   * after the (potentially throwing) constructor succeeds, so a throwing T
-   * leaves the buffer's size invariant intact.
+   * after the constructor succeeds, but the slot's old object is destroyed
+   * first, so a throwing T is unsupported (see construct_in_place).
    */
   template <typename... Args> T &emplace_back(Args &&...args) {
     if (is_full()) {
